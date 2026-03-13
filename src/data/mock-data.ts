@@ -78,6 +78,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         { key: 'production-delivery-warehouse', title: '交付仓配置', icon: 'Warehouse', href: '/fcs/production/delivery-warehouse' },
         { key: 'production-changes', title: '变更管理', icon: 'GitPullRequest', href: '/fcs/production/changes' },
         { key: 'production-status', title: '状态管理', icon: 'Workflow', href: '/fcs/production/status' },
+        { key: 'production-craft-dict', title: '工序工艺字典', icon: 'BookOpen', href: '/fcs/production/craft-dict' },
       ],
     },
     // FCS 菜单基线：任务编排与执行准备模块，当前冻结，非必要不调整。

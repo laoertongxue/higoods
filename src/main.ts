@@ -30,6 +30,11 @@ import {
   handleProductionSubmit,
   isProductionDialogOpen,
 } from './pages/production'
+import {
+  closeProductionCraftDictDialog,
+  handleProductionCraftDictEvent,
+  isProductionCraftDictDialogOpen,
+} from './pages/production-craft-dict'
 import { handleTechPackEvent, isTechPackDialogOpen } from './pages/tech-pack'
 import {
   handleTaskBreakdownEvent,
@@ -143,6 +148,7 @@ function dispatchPageEvent(target: Element): boolean {
     handleSettlementEvent(eventTarget) ||
     handleCapacityEvent(eventTarget) ||
     handleProductionEvent(eventTarget) ||
+    handleProductionCraftDictEvent(eventTarget) ||
     handleTechPackEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||
     handleMaterialIssueEvent(eventTarget) ||
@@ -356,6 +362,12 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.prodAction = 'close-dialog'
     handleProductionEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isProductionCraftDictDialogOpen()) {
+    closeProductionCraftDictDialog()
     render()
     return
   }

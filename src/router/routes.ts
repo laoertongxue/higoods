@@ -22,6 +22,7 @@ import {
   renderProductionStatusPage,
   renderProductionOrderDetailPage,
 } from '../pages/production'
+import { renderProductionCraftDictPage } from '../pages/production-craft-dict'
 import { renderTechPackPage } from '../pages/tech-pack'
 import { renderTaskBreakdownPage } from '../pages/task-breakdown'
 import { renderDyePrintOrdersPage } from '../pages/dye-print-orders'
@@ -94,6 +95,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/production/delivery-warehouse': () => renderProductionDeliveryWarehousePage(),
   '/fcs/production/changes': () => renderProductionChangesPage(),
   '/fcs/production/status': () => renderProductionStatusPage(),
+  '/fcs/production/craft-dict': () => renderProductionCraftDictPage(),
   '/fcs/process/task-breakdown': () => renderTaskBreakdownPage(),
   '/fcs/process/dye-print-orders': () => renderDyePrintOrdersPage(),
   '/fcs/process/dependencies': () => renderDependenciesPage(),
