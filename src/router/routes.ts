@@ -59,6 +59,8 @@ import {
   renderTraceUniqueCodesPage,
 } from '../pages/trace'
 import { renderPdaNotifyPage } from '../pages/pda-notify'
+import { renderPdaNotifyDueSoonPage } from '../pages/pda-notify-due-soon'
+import { renderPdaNotifyDetailPage } from '../pages/pda-notify-detail'
 import { renderPdaTaskReceivePage } from '../pages/pda-task-receive'
 import { renderPdaTaskReceiveDetailPage } from '../pages/pda-task-receive-detail'
 import { renderPdaExecPage } from '../pages/pda-exec'
@@ -138,6 +140,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
     renderTraceUnitPricePage(),
   '/fcs/pda': () => renderPdaNotifyPage(),
   '/fcs/pda/notify': () => renderPdaNotifyPage(),
+  '/fcs/pda/notify/due-soon': () => renderPdaNotifyDueSoonPage(),
   '/fcs/pda/task-receive': () => renderPdaTaskReceivePage(),
   '/fcs/pda/exec': () => renderPdaExecPage(),
   '/fcs/pda/handover': () => renderPdaHandoverPage(),
@@ -164,6 +167,10 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/fcs\/tech-pack\/([^/]+)$/,
     render: (match) => renderTechPackPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/notify\/([^/]+)$/,
+    render: (match) => renderPdaNotifyDetailPage(match[1]),
   },
   {
     pattern: /^\/fcs\/pda\/exec\/([^/]+)$/,

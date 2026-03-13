@@ -1,19 +1,30 @@
 import { appStore } from '../state/store'
-import { escapeHtml, toClassName } from '../utils'
+import { escapeHtml } from '../utils'
 import { processTasks } from '../data/fcs/process-tasks'
-import {
-  initialHandoverEvents,
-  initialNotifications,
-  type Notification,
-} from '../data/fcs/store-domain-progress'
+import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress'
 import { renderPdaFrame } from './pda-shell'
 
-type NotifyView = 'todo' | 'inbox'
-type InboxFilter = 'unread' | 'all'
+type NotifyTab = 'todo' | 'inbox'
+type NotifFilter = 'all' | 'unread' | 'read'
+
+type TodoType = '待接单' | '待报价' | '已中标' | '待领料' | '待接收' | '待交出' | '阻塞' | '即将逾期'
 
 interface PdaNotifyState {
-  activeView: NotifyView
-  inboxFilter: InboxFilter
+  activeTab: NotifyTab
+  notifFilter: NotifFilter
+}
+
+interface TodoItem {
+  id: string
+  type: TodoType
+  title: string
+  subtitle: string
+  orderNo?: string
+  process?: string
+  deadline?: string
+  href: string
+  query?: Record<string, string>
+  urgent?: boolean
 }
 
 interface SummaryCard {
@@ -23,49 +34,106 @@ interface SummaryCard {
   icon: string
   colorClass: string
   bgClass: string
-  href?: string
-  toView?: NotifyView
+  href: string
+  query?: Record<string, string>
+  isInbox?: boolean
 }
 
 const state: PdaNotifyState = {
-  activeView: 'todo',
-  inboxFilter: 'unread',
+  activeTab: 'todo',
+  notifFilter: 'all',
+}
+
+const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
+  NEW_TASK: '新派单通知',
+  TENDER_BID: '报价提醒',
+  TENDER_AWARDED: '中标通知',
+  HANDOVER: '交接提醒',
+  EXEC_RISK: '执行风险提醒',
+  QUALITY: '质量/争议提醒',
+  SETTLEMENT: '结算提醒',
 }
 
 const MOCK_TENDERS_BIDDING = [
   {
     tenderId: 'TENDER-0002-001',
-    taskId: 'TASK-0002-002',
     processName: '裁剪',
     qty: 800,
     biddingDeadline: '2026-03-20 18:00',
+    productionOrderId: 'PO-2024-0002',
+  },
+  {
+    tenderId: 'TENDER-PDA-003',
+    processName: '车缝',
+    qty: 1600,
+    biddingDeadline: '2026-03-13 08:00',
+    productionOrderId: 'PO-2024-0018',
   },
 ]
 
 const MOCK_AWARDED = [
   {
-    tenderId: 'TENDER-0004-001',
-    taskId: 'TASK-0004-002',
+    tenderId: 'TENDER-PDA-001',
+    taskId: 'PDA-EXEC-003',
     processName: '车缝',
-    qty: 1200,
-    notifiedAt: '2026-03-09 10:00',
-    awardedPrice: 13200,
+    qty: 1800,
+    notifiedAt: '2026-03-10 16:30',
+    productionOrderId: 'PO-2024-0012',
+  },
+  {
+    tenderId: 'TENDER-PDA-005',
+    taskId: 'PDA-EXEC-016',
+    processName: '裁片',
+    qty: 1100,
+    notifiedAt: '2026-03-08 10:00',
+    productionOrderId: 'PO-2024-0026',
   },
 ]
 
-function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+const NOW_DUE = new Date('2026-03-12T10:00:00Z')
+const SOON_MS = 24 * 3600 * 1000
+
+function isSoon(value: string): boolean {
+  const ms = parseDateMs(value) - NOW_DUE.getTime()
+  return ms > 0 && ms < SOON_MS
 }
+
+const MOCK_TENDERS_SOON = [
+  { biddingDeadline: '2026-03-13 08:00' },
+  { biddingDeadline: '2026-03-12 18:00' },
+  { biddingDeadline: '2026-03-13 02:00' },
+].filter((item) => isSoon(item.biddingDeadline))
+
+const MOCK_HO_SOON_DEADLINES = [
+  '2026-03-13 16:00',
+  '2026-03-12 20:00',
+  '2026-03-13 02:00',
+  '2026-03-12 21:00',
+  '2026-03-13 17:00',
+  '2026-03-12 23:00',
+].filter((item) => isSoon(item))
 
 function parseDateMs(value: string | undefined): number {
   if (!value) return Number.NaN
   return new Date(value.replace(' ', 'T')).getTime()
 }
 
+function nowTimestamp(date: Date = new Date()): string {
+  return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
 function buildPath(path: string, query?: Record<string, string>): string {
   if (!query) return path
-  const qs = new URLSearchParams(query).toString()
-  return qs ? `${path}?${qs}` : path
+  const search = new URLSearchParams(query).toString()
+  return search ? `${path}?${search}` : path
+}
+
+function parseQueryString(queryString: string | undefined): Record<string, string> | undefined {
+  if (!queryString) return undefined
+  const params = new URLSearchParams(queryString)
+  const entries = Array.from(params.entries())
+  if (entries.length === 0) return undefined
+  return Object.fromEntries(entries)
 }
 
 function escapeAttr(value: string): string {
@@ -76,8 +144,8 @@ function getCurrentFactoryId(): string {
   if (typeof window === 'undefined') return 'ID-F001'
 
   try {
-    const fromFactoryKey = window.localStorage.getItem('fcs_pda_factory_id')
-    if (fromFactoryKey) return fromFactoryKey
+    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
+    if (localFactoryId) return localFactoryId
 
     const rawSession = window.localStorage.getItem('fcs_pda_session')
     if (rawSession) {
@@ -85,7 +153,7 @@ function getCurrentFactoryId(): string {
       if (parsed.factoryId) return parsed.factoryId
     }
   } catch {
-    // ignore localStorage parse errors and use fallback factory
+    // ignore parse errors
   }
 
   return 'ID-F001'
@@ -160,14 +228,36 @@ function showPdaNotifyToast(message: string): void {
   }, 2200)
 }
 
+function blockReasonLabel(reason: string): string {
+  const map: Record<string, string> = {
+    MATERIAL: '物料缺失',
+    EQUIPMENT: '设备故障',
+    QUALITY: '质量问题',
+    OTHER: '其他',
+  }
+  return map[reason] ?? reason
+}
+
+function isUrgentDeadline(deadline: string): boolean {
+  const now = new Date('2026-03-12T10:00:00Z')
+  const due = new Date(deadline.replace(' ', 'T'))
+  const diff = due.getTime() - now.getTime()
+  return diff >= 0 && diff < 24 * 3600 * 1000
+}
+
 function getNotifyPageData(): {
   selectedFactoryId: string
   summaryCards: SummaryCard[]
   totalTodo: number
   unreadCount: number
-  factoryNotifications: Notification[]
+  todoItems: TodoItem[]
+  notifications: Notification[]
 } {
   const selectedFactoryId = getCurrentFactoryId()
+
+  const myTasks = processTasks.filter(
+    (task) => task.assignedFactoryId === selectedFactoryId && task.acceptanceStatus === 'ACCEPTED',
+  )
 
   const pendingAcceptTasks = processTasks.filter(
     (task) =>
@@ -176,172 +266,407 @@ function getNotifyPageData(): {
       (!task.acceptanceStatus || task.acceptanceStatus === 'PENDING'),
   )
 
-  const pendingMaterialTasks = processTasks.filter(
+  const notStartedTasks = myTasks.filter((task) => task.status === 'NOT_STARTED')
+  const inProgressTasks = myTasks.filter((task) => task.status === 'IN_PROGRESS')
+  const blockedTasks = myTasks.filter((task) => task.status === 'BLOCKED')
+  const doneTasks = myTasks.filter((task) => task.status === 'DONE')
+
+  const pendingPickup = notStartedTasks.filter((task) => {
+    const handoverStatus = (task as typeof task & { handoverStatus?: string }).handoverStatus
+    return task.seq === 1 && (handoverStatus === 'PENDING' || handoverStatus === 'PICKED_UP')
+  })
+
+  const pendingReceive = notStartedTasks.filter((task) => {
+    const handoverStatus = (task as typeof task & { handoverStatus?: string }).handoverStatus
+    return task.seq > 1 && (handoverStatus === 'PENDING' || handoverStatus === 'RECEIVED')
+  })
+
+  const pendingHandout = doneTasks.filter(
+    (task) => (task as typeof task & { handoutStatus?: string }).handoutStatus === 'PENDING',
+  )
+
+  const acceptSoonCount = processTasks.filter(
     (task) =>
       task.assignedFactoryId === selectedFactoryId &&
-      task.acceptanceStatus === 'ACCEPTED' &&
-      (!task.status || task.status === 'NOT_STARTED'),
-  )
+      task.assignmentMode === 'DIRECT' &&
+      (!task.acceptanceStatus || task.acceptanceStatus === 'PENDING') &&
+      !!task.acceptDeadline &&
+      isSoon(task.acceptDeadline),
+  ).length
 
-  const pendingHandoverEvents = initialHandoverEvents.filter(
-    (event) =>
-      event.toParty.kind === 'FACTORY' &&
-      event.toParty.id === selectedFactoryId &&
-      event.status === 'PENDING_CONFIRM',
-  )
+  const execSoonCount = inProgressTasks.filter(
+    (task) => !!task.taskDeadline && isSoon(task.taskDeadline),
+  ).length
 
-  const inProgressTasks = processTasks.filter(
-    (task) =>
-      task.assignedFactoryId === selectedFactoryId &&
-      task.acceptanceStatus === 'ACCEPTED' &&
-      task.status === 'IN_PROGRESS',
-  )
+  const dueSoonTotalCount =
+    acceptSoonCount + MOCK_TENDERS_SOON.length + MOCK_HO_SOON_DEADLINES.length + execSoonCount
 
-  const unreadNotifications = initialNotifications.filter(
-    (notification) =>
-      notification.recipientType === 'FACTORY' &&
-      notification.recipientId === selectedFactoryId &&
-      !notification.readAt,
-  )
-
-  const factoryNotifications = initialNotifications
-    .filter((notification) => {
-      if (notification.recipientType !== 'FACTORY') return false
-      if (notification.recipientId !== selectedFactoryId) return false
-      if (state.inboxFilter === 'unread' && notification.readAt) return false
-      return true
-    })
+  const allNotifications = initialNotifications
+    .filter(
+      (item) => item.recipientType === 'FACTORY' && item.recipientId === selectedFactoryId,
+    )
     .slice()
     .sort((a, b) => parseDateMs(b.createdAt) - parseDateMs(a.createdAt))
 
+  const unreadCount = allNotifications.filter((item) => !item.readAt).length
+
+  const filteredNotifications = allNotifications.filter((item) => {
+    if (state.notifFilter === 'unread') return !item.readAt
+    if (state.notifFilter === 'read') return !!item.readAt
+    return true
+  })
+
   const summaryCards: SummaryCard[] = [
     {
-      key: 'pendingAccept',
-      label: '待接单任务',
+      key: 'accept',
+      label: '待接单',
       count: pendingAcceptTasks.length,
       icon: 'clipboard-list',
       colorClass: 'text-orange-600',
       bgClass: 'bg-orange-50',
-      href: '/fcs/pda/task-receive?tab=pending-accept',
+      href: '/fcs/pda/task-receive',
+      query: { tab: 'pending-accept' },
     },
     {
-      key: 'pendingQuote',
-      label: '待报价招标单',
+      key: 'quote',
+      label: '待报价',
       count: MOCK_TENDERS_BIDDING.length,
       icon: 'package',
       colorClass: 'text-blue-600',
       bgClass: 'bg-blue-50',
-      href: '/fcs/pda/task-receive?tab=pending-quote',
+      href: '/fcs/pda/task-receive',
+      query: { tab: 'pending-quote' },
     },
     {
       key: 'awarded',
-      label: '已中标任务',
+      label: '已中标',
       count: MOCK_AWARDED.length,
       icon: 'trophy',
       colorClass: 'text-green-600',
       bgClass: 'bg-green-50',
-      href: '/fcs/pda/task-receive?tab=awarded',
+      href: '/fcs/pda/task-receive',
+      query: { tab: 'awarded' },
     },
     {
-      key: 'pendingMaterial',
+      key: 'pickup',
       label: '待领料',
-      count: pendingMaterialTasks.length,
+      count: pendingPickup.length,
       icon: 'package',
       colorClass: 'text-amber-600',
       bgClass: 'bg-amber-50',
-      href: '/fcs/pda/exec',
+      href: '/fcs/pda/handover',
+      query: { tab: 'pickup' },
     },
     {
-      key: 'pendingReceive',
+      key: 'receive',
       label: '待接收',
-      count: pendingHandoverEvents.length,
+      count: pendingReceive.length,
       icon: 'arrow-left-right',
       colorClass: 'text-purple-600',
       bgClass: 'bg-purple-50',
       href: '/fcs/pda/handover',
+      query: { tab: 'receive' },
     },
     {
-      key: 'pendingHandout',
+      key: 'handout',
       label: '待交出',
-      count: inProgressTasks.length,
+      count: pendingHandout.length,
       icon: 'arrow-left-right',
       colorClass: 'text-teal-600',
       bgClass: 'bg-teal-50',
-      href: '/fcs/pda/exec',
+      href: '/fcs/pda/handover',
+      query: { tab: 'handout' },
     },
     {
-      key: 'unreadNotify',
-      label: '未读通知',
-      count: unreadNotifications.length,
-      icon: 'bell',
+      key: 'blocked',
+      label: '阻塞',
+      count: blockedTasks.length,
+      icon: 'shield-alert',
       colorClass: 'text-red-600',
       bgClass: 'bg-red-50',
-      toView: 'inbox',
+      href: '/fcs/pda/exec',
+      query: { tab: 'blocked' },
+    },
+    {
+      key: 'soondue',
+      label: '即将逾期',
+      count: dueSoonTotalCount,
+      icon: 'clock',
+      colorClass: 'text-rose-600',
+      bgClass: 'bg-rose-50',
+      href: '/fcs/pda/notify/due-soon',
+    },
+    {
+      key: 'unread',
+      label: '未读通知',
+      count: unreadCount,
+      icon: 'bell',
+      colorClass: 'text-indigo-600',
+      bgClass: 'bg-indigo-50',
+      href: '#inbox',
+      isInbox: true,
     },
   ]
 
-  const totalTodo = summaryCards.slice(0, 6).reduce((sum, card) => sum + card.count, 0)
+  const todoItems: TodoItem[] = []
+
+  pendingAcceptTasks.forEach((task) => {
+    todoItems.push({
+      id: task.taskId,
+      type: '待接单',
+      title: '直接派单待接单',
+      subtitle: task.taskId,
+      orderNo: task.productionOrderId,
+      process: task.processNameZh,
+      deadline: task.taskDeadline,
+      href: '/fcs/pda/task-receive',
+      query: { tab: 'pending-accept' },
+      urgent: false,
+    })
+  })
+
+  MOCK_TENDERS_BIDDING.forEach((item) => {
+    todoItems.push({
+      id: item.tenderId,
+      type: '待报价',
+      title: '招标单待报价',
+      subtitle: item.tenderId,
+      orderNo: item.productionOrderId,
+      process: item.processName,
+      deadline: item.biddingDeadline,
+      href: '/fcs/pda/task-receive',
+      query: { tab: 'pending-quote' },
+      urgent: false,
+    })
+  })
+
+  MOCK_AWARDED.forEach((item) => {
+    todoItems.push({
+      id: item.tenderId,
+      type: '已中标',
+      title: '竞价中标 — 待执行',
+      subtitle: item.tenderId,
+      orderNo: item.productionOrderId,
+      process: item.processName,
+      href: '/fcs/pda/task-receive',
+      query: { tab: 'awarded' },
+      urgent: false,
+    })
+  })
+
+  pendingPickup.forEach((task) => {
+    todoItems.push({
+      id: `pk-${task.taskId}`,
+      type: '待领料',
+      title: '待领料 — 首道工序',
+      subtitle: task.taskId,
+      orderNo: task.productionOrderId,
+      process: task.processNameZh,
+      deadline: task.taskDeadline,
+      href: '/fcs/pda/handover',
+      query: { tab: 'pickup' },
+      urgent: false,
+    })
+  })
+
+  pendingReceive.forEach((task) => {
+    todoItems.push({
+      id: `rc-${task.taskId}`,
+      type: '待接收',
+      title: '待接收上游半成品',
+      subtitle: task.taskId,
+      orderNo: task.productionOrderId,
+      process: task.processNameZh,
+      deadline: task.taskDeadline,
+      href: '/fcs/pda/handover',
+      query: { tab: 'receive' },
+      urgent: false,
+    })
+  })
+
+  pendingHandout.forEach((task) => {
+    todoItems.push({
+      id: `ho-${task.taskId}`,
+      type: '待交出',
+      title: '已完工待交出',
+      subtitle: task.taskId,
+      orderNo: task.productionOrderId,
+      process: task.processNameZh,
+      href: '/fcs/pda/handover',
+      query: { tab: 'handout' },
+      urgent: false,
+    })
+  })
+
+  blockedTasks.forEach((task) => {
+    const blockReason = (task as typeof task & { blockReason?: string }).blockReason
+    todoItems.push({
+      id: `blk-${task.taskId}`,
+      type: '阻塞',
+      title: '任务阻塞 — 需处理',
+      subtitle: `${task.taskId}${blockReason ? ` · ${blockReasonLabel(blockReason)}` : ''}`,
+      orderNo: task.productionOrderId,
+      process: task.processNameZh,
+      href: '/fcs/pda/exec',
+      query: { tab: 'blocked' },
+      urgent: true,
+    })
+  })
+
+  if (dueSoonTotalCount > 0) {
+    todoItems.push({
+      id: 'due-soon-entry',
+      type: '即将逾期',
+      title: '即将逾期事项',
+      subtitle: `共 ${dueSoonTotalCount} 条 — 点击查看各类别逾期详情`,
+      href: '/fcs/pda/notify/due-soon',
+      urgent: true,
+    })
+  }
+
+  const todoOrder: Record<TodoType, number> = {
+    阻塞: 1,
+    即将逾期: 2,
+    待接单: 3,
+    待报价: 4,
+    已中标: 5,
+    待领料: 6,
+    待接收: 7,
+    待交出: 8,
+  }
+
+  todoItems.sort((a, b) => (todoOrder[a.type] ?? 9) - (todoOrder[b.type] ?? 9))
+
+  const totalTodo = summaryCards.slice(0, 8).reduce((sum, card) => sum + card.count, 0)
 
   return {
     selectedFactoryId,
     summaryCards,
     totalTodo,
-    unreadCount: unreadNotifications.length,
-    factoryNotifications,
+    unreadCount,
+    todoItems,
+    notifications: filteredNotifications,
   }
 }
 
 function renderSummaryCard(card: SummaryCard): string {
+  const queryString = card.query ? new URLSearchParams(card.query).toString() : ''
+
   return `
     <button
       class="text-left"
       data-pda-notify-action="open-summary"
-      data-href="${escapeAttr(card.href ?? '')}"
-      data-view="${escapeAttr(card.toView ?? '')}"
+      data-inbox="${card.isInbox ? 'true' : 'false'}"
+      data-href="${escapeAttr(card.href)}"
+      data-query="${escapeAttr(queryString)}"
     >
-      <article class="rounded-lg border transition-colors hover:border-primary ${card.count > 0 ? 'border-current/20' : ''}">
-        <div class="flex items-center gap-3 p-3">
-          <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${card.bgClass}">
-            <i data-lucide="${card.icon}" class="h-4 w-4 ${card.colorClass}"></i>
-          </span>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-xs leading-tight text-muted-foreground">${escapeHtml(card.label)}</p>
-            <p class="text-xl font-bold leading-tight tabular-nums ${card.count > 0 ? card.colorClass : 'text-foreground'}">${card.count}</p>
+      <article class="rounded-lg border p-2.5 transition-colors hover:border-primary ${
+        card.count > 0 ? 'border-current' : ''
+      }">
+        <div class="mb-1 flex h-7 w-7 items-center justify-center rounded-lg ${card.bgClass}">
+          <i data-lucide="${card.icon}" class="h-3.5 w-3.5 ${card.colorClass}"></i>
+        </div>
+        <p class="text-xl font-bold leading-none tabular-nums ${
+          card.count > 0 ? card.colorClass : 'text-foreground'
+        }">${card.count}</p>
+        <p class="mt-1 text-[10px] leading-tight text-muted-foreground">${escapeHtml(card.label)}</p>
+      </article>
+    </button>
+  `
+}
+
+function renderTodoTypeBadge(type: TodoType): string {
+  const map: Record<TodoType, { label: string; className: string }> = {
+    待接单: { label: '待接单', className: 'bg-orange-100 text-orange-700 border-orange-200' },
+    待报价: { label: '待报价', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+    已中标: { label: '已中标', className: 'bg-green-100 text-green-700 border-green-200' },
+    待领料: { label: '待领料', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+    待接收: { label: '待接收', className: 'bg-purple-100 text-purple-700 border-purple-200' },
+    待交出: { label: '待交出', className: 'bg-teal-100 text-teal-700 border-teal-200' },
+    阻塞: { label: '阻塞', className: 'bg-red-100 text-red-700 border-red-200' },
+    即将逾期: { label: '即将逾期', className: 'bg-rose-100 text-rose-700 border-rose-200' },
+  }
+
+  const config = map[type]
+  return `<span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium ${config.className}">${escapeHtml(config.label)}</span>`
+}
+
+function renderTodoItem(item: TodoItem): string {
+  const queryString = item.query ? new URLSearchParams(item.query).toString() : ''
+  return `
+    <button
+      class="w-full text-left"
+      data-pda-notify-action="open-todo"
+      data-href="${escapeAttr(item.href)}"
+      data-query="${escapeAttr(queryString)}"
+    >
+      <article class="rounded-lg border px-3 py-2.5 transition-colors hover:border-primary ${
+        item.urgent ? 'border-l-4 border-l-destructive' : ''
+      }">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0 flex-1 space-y-0.5">
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${renderTodoTypeBadge(item.type)}
+              ${item.urgent ? '<i data-lucide="alert-circle" class="h-3.5 w-3.5 shrink-0 text-destructive"></i>' : ''}
+            </div>
+            <p class="text-sm font-medium leading-snug">${escapeHtml(item.title)}</p>
+            <p class="truncate text-xs text-muted-foreground">${escapeHtml(item.subtitle)}</p>
+            <div class="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+              ${item.orderNo ? `<span>生产单：${escapeHtml(item.orderNo)}</span>` : ''}
+              ${item.process ? `<span>工序：${escapeHtml(item.process)}</span>` : ''}
+              ${
+                item.deadline
+                  ? `<span class="${isUrgentDeadline(item.deadline) ? 'font-medium text-destructive' : ''}">截止：${escapeHtml(item.deadline)}</span>`
+                  : ''
+              }
+            </div>
           </div>
-          <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
+          <i data-lucide="chevron-right" class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"></i>
         </div>
       </article>
     </button>
   `
 }
 
-function getNotificationLevelBadge(level: Notification['level']): { label: string; className: string } {
+function renderNotifLevelBadge(level: Notification['level']): string {
   if (level === 'CRITICAL') {
-    return { label: '紧急', className: 'bg-red-100 text-red-700 border-red-200' }
+    return '<span class="inline-flex h-4 items-center rounded bg-destructive px-1.5 py-0 text-[10px] text-destructive-foreground">紧急</span>'
   }
+
   if (level === 'WARN') {
-    return { label: '警告', className: 'bg-amber-100 text-amber-700 border-amber-200' }
+    return '<span class="inline-flex h-4 items-center rounded bg-amber-500 px-1.5 py-0 text-[10px] text-white">警告</span>'
   }
-  return { label: '通知', className: 'bg-slate-100 text-slate-700 border-slate-200' }
+
+  return '<span class="inline-flex h-4 items-center rounded bg-secondary px-1.5 py-0 text-[10px] text-secondary-foreground">通知</span>'
 }
 
 function renderNotificationItem(notification: Notification): string {
-  const level = getNotificationLevelBadge(notification.level)
+  const n = notification as Notification & { notificationType?: string; body?: string }
+  const typeLabel =
+    NOTIFICATION_TYPE_LABELS[n.notificationType || ''] ||
+    (n.notificationType ? n.notificationType : '通知')
 
   return `
-    <button class="w-full text-left" data-pda-notify-action="open-notification" data-id="${escapeAttr(notification.notificationId)}">
-      <article class="rounded-lg border transition-colors hover:border-primary ${notification.readAt ? '' : 'border-l-4 border-l-primary'}">
-        <div class="space-y-1 px-3 py-2.5">
+    <button
+      class="w-full text-left"
+      data-pda-notify-action="open-notification"
+      data-id="${escapeAttr(notification.notificationId)}"
+    >
+      <article class="rounded-lg border px-3 py-2.5 transition-colors hover:border-primary ${
+        notification.readAt ? '' : 'border-l-4 border-l-primary'
+      }">
+        <div class="space-y-1">
           <div class="flex items-start justify-between gap-2">
             <div class="flex min-w-0 flex-wrap items-center gap-1.5">
-              <span class="inline-flex items-center rounded border px-1.5 py-0 text-[10px] font-medium ${level.className}">${escapeHtml(level.label)}</span>
+              ${renderNotifLevelBadge(notification.level)}
+              <span class="text-[10px] text-muted-foreground">${escapeHtml(typeLabel)}</span>
               ${notification.readAt ? '' : '<span class="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary"></span>'}
             </div>
-            <span class="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">${escapeHtml(notification.createdAt.slice(0, 16))}</span>
+            <span class="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">${escapeHtml(notification.createdAt.slice(5, 16))}</span>
           </div>
           <p class="text-sm font-medium leading-snug">${escapeHtml(notification.title)}</p>
-          <p class="line-clamp-2 text-xs text-muted-foreground">${escapeHtml(notification.content)}</p>
-          ${notification.deepLink?.path ? '<p class="text-xs text-primary">点击查看详情</p>' : ''}
+          <p class="line-clamp-2 text-xs text-muted-foreground">${escapeHtml(n.body || notification.content)}</p>
+          <p class="text-xs text-primary">查看详情</p>
         </div>
       </article>
     </button>
@@ -349,166 +674,151 @@ function renderNotificationItem(notification: Notification): string {
 }
 
 export function renderPdaNotifyPage(): string {
-  const {
-    selectedFactoryId,
-    summaryCards,
-    totalTodo,
-    unreadCount,
-    factoryNotifications,
-  } = getNotifyPageData()
+  const { selectedFactoryId, summaryCards, totalTodo, unreadCount, todoItems, notifications } =
+    getNotifyPageData()
 
   if (!selectedFactoryId) {
-    const noLoginContent = `
-      <div class="min-h-[760px] p-4">
-        <h1 class="mb-4 text-lg font-semibold">待办</h1>
-        <article class="rounded-lg border">
+    const content = `
+      <div class="min-h-[760px] bg-muted/30 p-4">
+        <h1 class="mb-4 text-base font-semibold">待办</h1>
+        <article class="rounded-lg border bg-background">
           <div class="px-4 py-8 text-center text-sm text-muted-foreground">请先登录工厂账号</div>
         </article>
       </div>
     `
-
-    return renderPdaFrame(noLoginContent, 'notify')
+    return renderPdaFrame(content, 'notify')
   }
 
   const content = `
-    <div class="flex min-h-[760px] flex-col bg-background">
-      <header class="sticky top-0 z-20 border-b bg-background px-4 pb-0 pt-3">
-        <h1 class="mb-3 text-lg font-semibold">待办工作台</h1>
-        <div class="flex">
-          <button
-            class="flex-1 border-b-2 py-2 text-sm font-medium transition-colors ${state.activeView === 'todo' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}"
-            data-pda-notify-action="switch-view"
-            data-view="todo"
-          >
-            待办
-            ${
-              totalTodo > 0
-                ? `<span class="ml-1.5 inline-flex min-w-[16px] items-center justify-center rounded bg-destructive px-1.5 py-0 text-[10px] text-destructive-foreground">${totalTodo}</span>`
-                : ''
-            }
-          </button>
-          <button
-            class="flex-1 border-b-2 py-2 text-sm font-medium transition-colors ${state.activeView === 'inbox' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}"
-            data-pda-notify-action="switch-view"
-            data-view="inbox"
-          >
-            通知
-            ${
-              unreadCount > 0
-                ? `<span class="ml-1.5 inline-flex min-w-[16px] items-center justify-center rounded bg-destructive px-1.5 py-0 text-[10px] text-destructive-foreground">${unreadCount}</span>`
-                : ''
-            }
-          </button>
+    <div class="flex min-h-[760px] flex-col bg-muted/30">
+      <header class="sticky top-0 z-20 border-b bg-background">
+        <div class="px-4 pb-0 pt-3">
+          <h1 class="mb-2.5 text-base font-semibold">待办</h1>
+          <div class="flex">
+            <button
+              class="flex-1 border-b-2 py-2 text-sm font-medium transition-colors ${
+                state.activeTab === 'todo'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground'
+              }"
+              data-pda-notify-action="switch-tab"
+              data-tab="todo"
+            >
+              待处理事项
+              ${
+                totalTodo > 0
+                  ? `<span class="ml-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded bg-destructive px-1 py-0 text-[10px] text-destructive-foreground">${totalTodo}</span>`
+                  : ''
+              }
+            </button>
+            <button
+              class="flex-1 border-b-2 py-2 text-sm font-medium transition-colors ${
+                state.activeTab === 'inbox'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground'
+              }"
+              data-pda-notify-action="switch-tab"
+              data-tab="inbox"
+            >
+              通知提醒
+              ${
+                unreadCount > 0
+                  ? `<span class="ml-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded bg-destructive px-1 py-0 text-[10px] text-destructive-foreground">${unreadCount}</span>`
+                  : ''
+              }
+            </button>
+          </div>
         </div>
       </header>
 
-      <div class="flex-1 space-y-4 p-4">
-        ${
-          state.activeView === 'todo'
-            ? `
-              ${
-                totalTodo === 0 && unreadCount === 0
-                  ? `
-                    <div class="py-16 text-center text-muted-foreground">
-                      <i data-lucide="check" class="mx-auto mb-3 h-12 w-12 opacity-30"></i>
-                      <p class="text-sm">暂无待办事项</p>
-                    </div>
-                  `
-                  : `
-                    <div class="grid grid-cols-2 gap-3">
-                      ${summaryCards.map((card) => renderSummaryCard(card)).join('')}
-                    </div>
-                  `
-              }
-
+      ${
+        state.activeTab === 'todo'
+          ? `
+            <div class="flex-1 space-y-4 p-4">
               <section>
-                <p class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">快捷入口</p>
+                <p class="mb-2 text-xs font-medium text-muted-foreground">摘要总览</p>
                 <div class="grid grid-cols-3 gap-2">
-                  <button
-                    class="text-left"
-                    data-pda-notify-action="open-quick-entry"
-                    data-href="/fcs/pda/task-receive"
-                  >
-                    <article class="rounded-lg border transition-colors hover:border-primary">
-                      <div class="flex flex-col items-center gap-1.5 p-3 text-center">
-                        <i data-lucide="clipboard-list" class="h-5 w-5 text-muted-foreground"></i>
-                        <span class="text-xs text-muted-foreground">接单与报价</span>
-                      </div>
-                    </article>
-                  </button>
-
-                  <button
-                    class="text-left"
-                    data-pda-notify-action="open-quick-entry"
-                    data-href="/fcs/pda/exec"
-                  >
-                    <article class="rounded-lg border transition-colors hover:border-primary">
-                      <div class="flex flex-col items-center gap-1.5 p-3 text-center">
-                        <i data-lucide="package" class="h-5 w-5 text-muted-foreground"></i>
-                        <span class="text-xs text-muted-foreground">生产执行</span>
-                      </div>
-                    </article>
-                  </button>
-
-                  <button
-                    class="text-left"
-                    data-pda-notify-action="open-quick-entry"
-                    data-href="/fcs/pda/handover"
-                  >
-                    <article class="rounded-lg border transition-colors hover:border-primary">
-                      <div class="flex flex-col items-center gap-1.5 p-3 text-center">
-                        <i data-lucide="arrow-left-right" class="h-5 w-5 text-muted-foreground"></i>
-                        <span class="text-xs text-muted-foreground">交接确认</span>
-                      </div>
-                    </article>
-                  </button>
+                  ${summaryCards.map((card) => renderSummaryCard(card)).join('')}
                 </div>
               </section>
-            `
-            : `
-              <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                  <div class="flex gap-2">
-                    <button
-                      class="rounded-full border px-3 py-1 text-sm transition-colors ${toClassName(
-                        state.inboxFilter === 'unread'
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border text-muted-foreground',
-                      )}"
-                      data-pda-notify-action="set-filter"
-                      data-filter="unread"
-                    >未读</button>
-                    <button
-                      class="rounded-full border px-3 py-1 text-sm transition-colors ${toClassName(
-                        state.inboxFilter === 'all'
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border text-muted-foreground',
-                      )}"
-                      data-pda-notify-action="set-filter"
-                      data-filter="all"
-                    >全部</button>
-                  </div>
-                  ${
-                    unreadCount > 0
-                      ? '<button class="inline-flex items-center rounded px-2 py-1 text-sm hover:bg-muted" data-pda-notify-action="mark-all-read"><i data-lucide="check-check" class="mr-1 h-4 w-4"></i>全部已读</button>'
-                      : ''
-                  }
-                </div>
 
+              <section>
+                <p class="mb-2 text-xs font-medium text-muted-foreground">待处理事项</p>
                 ${
-                  factoryNotifications.length === 0
+                  todoItems.length === 0
                     ? `
-                      <div class="py-12 text-center text-muted-foreground">
-                        <i data-lucide="inbox" class="mx-auto mb-2 h-10 w-10 opacity-30"></i>
-                        <p class="text-sm">暂无通知</p>
+                      <div class="py-10 text-center text-muted-foreground">
+                        <i data-lucide="check" class="mx-auto mb-2 h-10 w-10 opacity-30"></i>
+                        <p class="text-sm">暂无待处理事项</p>
                       </div>
                     `
-                    : factoryNotifications.map((notification) => renderNotificationItem(notification)).join('')
+                    : `<div class="space-y-2">${todoItems
+                        .map((item) => renderTodoItem(item))
+                        .join('')}</div>`
+                }
+              </section>
+            </div>
+          `
+          : `
+            <div class="flex-1 space-y-3 p-4">
+              <div class="flex items-center justify-between">
+                <div class="flex gap-1.5">
+                  <button
+                    class="rounded-full border px-3 py-1 text-xs transition-colors ${
+                      state.notifFilter === 'all'
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border text-muted-foreground hover:border-foreground'
+                    }"
+                    data-pda-notify-action="set-filter"
+                    data-filter="all"
+                  >全部</button>
+                  <button
+                    class="rounded-full border px-3 py-1 text-xs transition-colors ${
+                      state.notifFilter === 'unread'
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border text-muted-foreground hover:border-foreground'
+                    }"
+                    data-pda-notify-action="set-filter"
+                    data-filter="unread"
+                  >未读${
+                    unreadCount > 0
+                      ? `<span class="ml-1 font-semibold ${
+                          state.notifFilter === 'unread' ? 'text-primary-foreground' : ''
+                        }">${unreadCount}</span>`
+                      : ''
+                  }</button>
+                  <button
+                    class="rounded-full border px-3 py-1 text-xs transition-colors ${
+                      state.notifFilter === 'read'
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border text-muted-foreground hover:border-foreground'
+                    }"
+                    data-pda-notify-action="set-filter"
+                    data-filter="read"
+                  >已读</button>
+                </div>
+                ${
+                  unreadCount > 0
+                    ? '<button class="inline-flex h-7 items-center rounded px-2 text-xs hover:bg-muted" data-pda-notify-action="mark-all-read"><i data-lucide="check-check" class="mr-1 h-3.5 w-3.5"></i>全部已读</button>'
+                    : ''
                 }
               </div>
-            `
-        }
-      </div>
+
+              ${
+                notifications.length === 0
+                  ? `
+                    <div class="py-12 text-center text-muted-foreground">
+                      <i data-lucide="inbox" class="mx-auto mb-2 h-10 w-10 opacity-30"></i>
+                      <p class="text-sm">暂无通知</p>
+                    </div>
+                  `
+                  : `<div class="space-y-2">${notifications
+                      .map((notification) => renderNotificationItem(notification))
+                      .join('')}</div>`
+              }
+            </div>
+          `
+      }
     </div>
   `
 
@@ -522,40 +832,42 @@ export function handlePdaNotifyEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaNotifyAction
   if (!action) return false
 
-  if (action === 'switch-view') {
-    const view = actionNode.dataset.view
-    if (view === 'todo' || view === 'inbox') {
-      state.activeView = view
+  if (action === 'switch-tab') {
+    const tab = actionNode.dataset.tab
+    if (tab === 'todo' || tab === 'inbox') {
+      state.activeTab = tab
     }
     return true
   }
 
   if (action === 'set-filter') {
     const filter = actionNode.dataset.filter
-    if (filter === 'unread' || filter === 'all') {
-      state.inboxFilter = filter
+    if (filter === 'all' || filter === 'unread' || filter === 'read') {
+      state.notifFilter = filter
     }
     return true
   }
 
   if (action === 'open-summary') {
-    const view = actionNode.dataset.view
-    if (view === 'inbox' || view === 'todo') {
-      state.activeView = view
+    const isInbox = actionNode.dataset.inbox === 'true'
+    if (isInbox) {
+      state.activeTab = 'inbox'
       return true
     }
 
     const href = actionNode.dataset.href
     if (href) {
-      appStore.navigate(href)
+      const query = parseQueryString(actionNode.dataset.query)
+      appStore.navigate(buildPath(href, query))
     }
     return true
   }
 
-  if (action === 'open-quick-entry') {
+  if (action === 'open-todo') {
     const href = actionNode.dataset.href
     if (href) {
-      appStore.navigate(href)
+      const query = parseQueryString(actionNode.dataset.query)
+      appStore.navigate(buildPath(href, query))
     }
     return true
   }
@@ -571,22 +883,13 @@ export function handlePdaNotifyEvent(target: HTMLElement): boolean {
       markNotificationRead(notificationId)
     }
 
-    if (current.deepLink?.path) {
-      appStore.navigate(buildPath(current.deepLink.path, current.deepLink.query))
-      return true
-    }
-
-    if (current.related?.taskId) {
-      appStore.navigate(`/fcs/pda/exec/${current.related.taskId}`)
-      return true
-    }
-
+    appStore.navigate(`/fcs/pda/notify/${notificationId}`)
     return true
   }
 
   if (action === 'mark-all-read') {
     markAllNotificationsRead(getCurrentFactoryId())
-    showPdaNotifyToast('已将所有通知标记为已读')
+    showPdaNotifyToast('已全部标记为已读')
     return true
   }
 

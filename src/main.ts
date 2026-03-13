@@ -120,6 +120,8 @@ import {
   isProgressMaterialDrawerOpen,
 } from './pages/progress-material'
 import { handlePdaNotifyEvent } from './pages/pda-notify'
+import { handlePdaNotifyDueSoonEvent } from './pages/pda-notify-due-soon'
+import { handlePdaNotifyDetailEvent } from './pages/pda-notify-detail'
 import { handlePdaTaskReceiveEvent } from './pages/pda-task-receive'
 import { handlePdaTaskReceiveDetailEvent } from './pages/pda-task-receive-detail'
 import { handlePdaExecEvent } from './pages/pda-exec'
@@ -174,6 +176,8 @@ function dispatchPageEvent(target: Element): boolean {
     handleProgressStatusWritebackEvent(eventTarget) ||
     handleProgressMaterialEvent(eventTarget) ||
     handlePdaNotifyEvent(eventTarget) ||
+    handlePdaNotifyDueSoonEvent(eventTarget) ||
+    handlePdaNotifyDetailEvent(eventTarget) ||
     handlePdaTaskReceiveEvent(eventTarget) ||
     handlePdaTaskReceiveDetailEvent(eventTarget) ||
     handlePdaExecEvent(eventTarget) ||

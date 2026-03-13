@@ -42,6 +42,10 @@ function parseDateMs(value: string): number {
   return new Date(value.replace(' ', 'T')).getTime()
 }
 
+function escapeAttr(value: string): string {
+  return escapeHtml(value)
+}
+
 function msUntil(deadline: string): number {
   return parseDateMs(deadline) - NOW.getTime()
 }
