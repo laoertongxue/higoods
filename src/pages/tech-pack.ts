@@ -22,13 +22,26 @@ type TechniqueItem = {
   stage: string
   process: string
   technique: string
-  patternPieces: string[]
   standardTime: number
   timeUnit: string
   difficulty: '简单' | '中等' | '困难'
   enableQualityCheck: boolean
   qualityChecks: QualityCheckItem[]
   remark: string
+  source: '老系统同步' | '字典新增'
+}
+
+type DictionaryTechnique = {
+  name: string
+  stdTime: number
+  timeUnit: string
+  difficulty: TechniqueItem['difficulty']
+  checks: string[]
+}
+
+type DictionaryProcess = {
+  process: string
+  techniques: DictionaryTechnique[]
 }
 
 type BomItemRow = {
@@ -110,13 +123,207 @@ const processUnitOptions = ['人民币/件', '人民币/批', '美元/件', '美
 const patternPieceOptions = ['前片', '后片', '袖片', '领片', '口袋']
 const timeUnitOptions = ['分钟/件', '分钟/批', '分钟/米', '分钟/打']
 const difficultyOptions: Array<TechniqueItem['difficulty']> = ['简单', '中等', '困难']
-const stageOptions = ['准备阶段', '生产阶段', '后道阶段']
+const stageOptions = ['准备阶段', '生产阶段', '后整阶段']
 
-const processOptions: Record<string, string[]> = {
-  准备阶段: ['裁剪', '验布', '排版'],
-  生产阶段: ['印花', '缝纫', '绣花', '车缝', '拼接'],
-  后道阶段: ['整烫', '包装', '检验'],
+const dictProcessOptions: Record<string, DictionaryProcess[]> = {
+  准备阶段: [
+    {
+      process: '裁片',
+      techniques: [
+        {
+          name: '排料裁剪（自动）',
+          stdTime: 5,
+          timeUnit: '分钟/件',
+          difficulty: '简单',
+          checks: ['裁片尺寸（公差 ±1cm）'],
+        },
+        {
+          name: '手工裁领片',
+          stdTime: 8,
+          timeUnit: '分钟/件',
+          difficulty: '中等',
+          checks: ['裁片形状'],
+        },
+      ],
+    },
+    {
+      process: '特殊工艺',
+      techniques: [
+        {
+          name: '特殊吊牌加固',
+          stdTime: 5,
+          timeUnit: '分钟/件',
+          difficulty: '简单',
+          checks: ['加固位置'],
+        },
+      ],
+    },
+  ],
+  生产阶段: [
+    {
+      process: '车缝',
+      techniques: [
+        {
+          name: '合肩',
+          stdTime: 8,
+          timeUnit: '分钟/件',
+          difficulty: '中等',
+          checks: ['缝合宽度（1cm ±0.2cm）'],
+        },
+        {
+          name: '上领',
+          stdTime: 10,
+          timeUnit: '分钟/件',
+          difficulty: '中等',
+          checks: ['领口圆顺度'],
+        },
+        {
+          name: '锁边',
+          stdTime: 6,
+          timeUnit: '分钟/件',
+          difficulty: '简单',
+          checks: [],
+        },
+        {
+          name: '拼袖',
+          stdTime: 9,
+          timeUnit: '分钟/件',
+          difficulty: '中等',
+          checks: ['袖窿对齐'],
+        },
+        {
+          name: '装拉链',
+          stdTime: 12,
+          timeUnit: '分钟/件',
+          difficulty: '中等',
+          checks: ['拉链顺滑度'],
+        },
+      ],
+    },
+    {
+      process: '印花',
+      techniques: [
+        {
+          name: '数码印花',
+          stdTime: 10,
+          timeUnit: '分钟/件',
+          difficulty: '中等',
+          checks: ['印花位置（误差 ≤2mm）', '色牢度（≥4级）'],
+        },
+        {
+          name: '丝网印花',
+          stdTime: 12,
+          timeUnit: '分钟/件',
+          difficulty: '中等',
+          checks: ['对位精度'],
+        },
+      ],
+    },
+    {
+      process: '染色',
+      techniques: [
+        {
+          name: '染缸染色',
+          stdTime: 60,
+          timeUnit: '分钟/批',
+          difficulty: '中等',
+          checks: ['色差（≤1级）'],
+        },
+      ],
+    },
+    {
+      process: '特殊工艺',
+      techniques: [
+        {
+          name: '手工钉珠定位',
+          stdTime: 25,
+          timeUnit: '分钟/件',
+          difficulty: '困难',
+          checks: ['珠位偏差（≤1mm）'],
+        },
+        {
+          name: '局部压皱处理',
+          stdTime: 18,
+          timeUnit: '分钟/件',
+          difficulty: '困难',
+          checks: ['压皱均匀度'],
+        },
+      ],
+    },
+  ],
+  后整阶段: [
+    {
+      process: '整烫',
+      techniques: [
+        {
+          name: '成衣整烫',
+          stdTime: 3,
+          timeUnit: '分钟/件',
+          difficulty: '简单',
+          checks: [],
+        },
+        {
+          name: '定型整烫',
+          stdTime: 5,
+          timeUnit: '分钟/件',
+          difficulty: '简单',
+          checks: [],
+        },
+      ],
+    },
+    {
+      process: '水洗',
+      techniques: [
+        {
+          name: '成衣水洗',
+          stdTime: 30,
+          timeUnit: '分钟/批',
+          difficulty: '简单',
+          checks: ['缩水率（≤3%）'],
+        },
+      ],
+    },
+    {
+      process: '包装',
+      techniques: [
+        {
+          name: '成衣包装',
+          stdTime: 2,
+          timeUnit: '分钟/件',
+          difficulty: '简单',
+          checks: [],
+        },
+        {
+          name: '礼盒包装',
+          stdTime: 5,
+          timeUnit: '分钟/件',
+          difficulty: '中等',
+          checks: [],
+        },
+      ],
+    },
+    {
+      process: '特殊工艺',
+      techniques: [
+        {
+          name: '特殊吊牌加固',
+          stdTime: 5,
+          timeUnit: '分钟/件',
+          difficulty: '简单',
+          checks: [],
+        },
+      ],
+    },
+  ],
 }
+
+const legacySyncedTechniques = new Set([
+  '排料裁剪（自动）',
+  '合肩',
+  '数码印花',
+  '锁边',
+  '成衣整烫',
+])
 
 const patternMockInfo: Record<string, { name: string; image: string; desc: string }> = {
   前片: {
@@ -193,55 +400,97 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
 const DEFAULT_TECHNIQUES: TechniqueItem[] = [
   {
     id: 'tech-1',
-    stage: '生产阶段',
-    process: '印花',
-    technique: '数码印',
-    patternPieces: ['前片'],
-    standardTime: 10,
+    stage: '准备阶段',
+    process: '裁片',
+    technique: '排料裁剪（自动）',
+    standardTime: 5,
     timeUnit: '分钟/件',
-    difficulty: '中等',
+    difficulty: '简单',
+    source: '老系统同步',
     enableQualityCheck: true,
-    qualityChecks: [{ id: 'qc-1', name: '印花位置', required: true, standard: '误差≤2mm' }],
-    remark: '图案必须居中',
+    qualityChecks: [{ id: 'qc-1', name: '裁片尺寸', required: true, standard: '公差 ±1cm' }],
+    remark: '自动排料，减少面料损耗',
   },
   {
     id: 'tech-2',
     stage: '生产阶段',
-    process: '缝纫',
-    technique: '平缝',
-    patternPieces: ['前片', '后片'],
-    standardTime: 15,
+    process: '车缝',
+    technique: '合肩',
+    standardTime: 8,
     timeUnit: '分钟/件',
-    difficulty: '简单',
-    enableQualityCheck: false,
-    qualityChecks: [],
+    difficulty: '中等',
+    source: '老系统同步',
+    enableQualityCheck: true,
+    qualityChecks: [{ id: 'qc-2', name: '缝合宽度', required: true, standard: '1cm ±0.2cm' }],
     remark: '',
   },
   {
     id: 'tech-3',
-    stage: '准备阶段',
-    process: '裁剪',
-    technique: '自动裁剪',
-    patternPieces: ['前片', '后片', '袖片', '领片'],
-    standardTime: 5,
+    stage: '生产阶段',
+    process: '印花',
+    technique: '数码印花',
+    standardTime: 10,
     timeUnit: '分钟/件',
-    difficulty: '简单',
+    difficulty: '中等',
+    source: '老系统同步',
     enableQualityCheck: true,
-    qualityChecks: [{ id: 'qc-2', name: '裁片尺寸', required: true, standard: '公差±1cm' }],
-    remark: '',
+    qualityChecks: [
+      { id: 'qc-3', name: '印花位置', required: true, standard: '误差 ≤2mm' },
+      { id: 'qc-4', name: '色牢度', required: true, standard: '≥4级' },
+    ],
+    remark: '图案必须居中，严格按色稿执行',
   },
   {
     id: 'tech-4',
-    stage: '后道阶段',
-    process: '整烫',
-    technique: '蒸汽整烫',
-    patternPieces: [],
-    standardTime: 3,
+    stage: '生产阶段',
+    process: '车缝',
+    technique: '锁边',
+    standardTime: 6,
     timeUnit: '分钟/件',
     difficulty: '简单',
+    source: '老系统同步',
     enableQualityCheck: false,
     qualityChecks: [],
     remark: '',
+  },
+  {
+    id: 'tech-5',
+    stage: '生产阶段',
+    process: '特殊工艺',
+    technique: '手工钉珠定位',
+    standardTime: 25,
+    timeUnit: '分钟/件',
+    difficulty: '困难',
+    source: '字典新增',
+    enableQualityCheck: true,
+    qualityChecks: [{ id: 'qc-5', name: '珠位偏差', required: true, standard: '≤1mm' }],
+    remark: '按设计图纸定位，不可机器替代',
+  },
+  {
+    id: 'tech-6',
+    stage: '后整阶段',
+    process: '整烫',
+    technique: '成衣整烫',
+    standardTime: 3,
+    timeUnit: '分钟/件',
+    difficulty: '简单',
+    source: '老系统同步',
+    enableQualityCheck: false,
+    qualityChecks: [],
+    remark: '',
+  },
+  {
+    id: 'tech-7',
+    stage: '后整阶段',
+    process: '特殊工艺',
+    technique: '局部压皱处理',
+    standardTime: 18,
+    timeUnit: '分钟/件',
+    difficulty: '困难',
+    source: '字典新增',
+    enableQualityCheck: true,
+    qualityChecks: [{ id: 'qc-6', name: '压皱均匀度', required: true, standard: '目视无明显不均' }],
+    remark: '压皱区域参照设计稿',
   },
 ]
 
@@ -267,8 +516,6 @@ interface TechPackPageState {
   patternDialogOpen: boolean
 
   selectedPattern: string | null
-  currentStage: string
-  currentProcess: string
 
   editPatternItemId: string | null
   newPattern: Omit<PatternItem, 'id'>
@@ -284,8 +531,9 @@ interface TechPackPageState {
     dyeRequirement: string
   }
   newTechnique: {
+    stage: string
+    process: string
     technique: string
-    patternPieces: string[]
     standardTime: string
     timeUnit: string
     difficulty: TechniqueItem['difficulty']
@@ -331,8 +579,6 @@ const state: TechPackPageState = {
   patternDialogOpen: false,
 
   selectedPattern: null,
-  currentStage: '',
-  currentProcess: '',
 
   editPatternItemId: null,
   newPattern: {
@@ -354,8 +600,9 @@ const state: TechPackPageState = {
     dyeRequirement: '无',
   },
   newTechnique: {
+    stage: stageOptions[0],
+    process: '',
     technique: '',
-    patternPieces: [],
     standardTime: '',
     timeUnit: '分钟/件',
     difficulty: '中等',
@@ -416,23 +663,57 @@ function mapDifficultyToEnum(value: TechniqueItem['difficulty']): DifficultyLeve
   return 'MEDIUM'
 }
 
-function mapProcessToStage(name: string): { stage: string; process: string } {
-  if (name.includes('裁') || name.includes('验布') || name.includes('排版')) {
-    return { stage: '准备阶段', process: '裁剪' }
+function getTechniqueDictionaryEntry(
+  stage: string,
+  process: string,
+  technique: string,
+): DictionaryTechnique | null {
+  const processEntry = (dictProcessOptions[stage] ?? []).find((item) => item.process === process)
+  if (!processEntry) return null
+  return processEntry.techniques.find((item) => item.name === technique) ?? null
+}
+
+function mapProcessToStage(name: string): {
+  stage: string
+  process: string
+  source: TechniqueItem['source']
+} {
+  for (const stage of stageOptions) {
+    const processEntries = dictProcessOptions[stage] ?? []
+    for (const processEntry of processEntries) {
+      const found = processEntry.techniques.find((item) => item.name === name)
+      if (found) {
+        return {
+          stage,
+          process: processEntry.process,
+          source: legacySyncedTechniques.has(name) ? '老系统同步' : '字典新增',
+        }
+      }
+    }
   }
-  if (name.includes('整烫') || name.includes('包装') || name.includes('检验')) {
-    return { stage: '后道阶段', process: '整烫' }
+
+  if (name.includes('裁') || name.includes('验布') || name.includes('排版')) {
+    return { stage: '准备阶段', process: '裁片', source: '老系统同步' }
+  }
+  if (name.includes('整烫')) {
+    return { stage: '后整阶段', process: '整烫', source: '老系统同步' }
+  }
+  if (name.includes('水洗')) {
+    return { stage: '后整阶段', process: '水洗', source: '老系统同步' }
+  }
+  if (name.includes('包装')) {
+    return { stage: '后整阶段', process: '包装', source: '老系统同步' }
+  }
+  if (name.includes('染')) {
+    return { stage: '生产阶段', process: '染色', source: '老系统同步' }
   }
   if (name.includes('印')) {
-    return { stage: '生产阶段', process: '印花' }
+    return { stage: '生产阶段', process: '印花', source: '老系统同步' }
   }
-  if (name.includes('绣')) {
-    return { stage: '生产阶段', process: '绣花' }
+  if (name.includes('车') || name.includes('缝')) {
+    return { stage: '生产阶段', process: '车缝', source: '老系统同步' }
   }
-  if (name.includes('车')) {
-    return { stage: '生产阶段', process: '车缝' }
-  }
-  return { stage: '生产阶段', process: '缝纫' }
+  return { stage: '生产阶段', process: '特殊工艺', source: '老系统同步' }
 }
 
 function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
@@ -473,27 +754,27 @@ function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
   if (techPack.processes.length === 0) {
     return DEFAULT_TECHNIQUES.map((item) => ({
       ...item,
-      patternPieces: [...item.patternPieces],
       qualityChecks: item.qualityChecks.map((qc) => ({ ...qc })),
     }))
   }
 
   return techPack.processes.map((item, index) => {
     const mapped = mapProcessToStage(item.name)
+    const dictionaryEntry = getTechniqueDictionaryEntry(mapped.stage, mapped.process, item.name)
     return {
       id: item.id || `tech-${index + 1}`,
       stage: mapped.stage,
       process: mapped.process,
       technique: item.name,
-      patternPieces: [],
       standardTime: item.timeMinutes,
-      timeUnit: '分钟/件',
+      timeUnit: dictionaryEntry?.timeUnit ?? '分钟/件',
       difficulty: mapDifficultyToZh(item.difficulty),
       enableQualityCheck: Boolean(item.qcPoint),
       qualityChecks: item.qcPoint
         ? [{ id: `qc-${item.id}`, name: item.qcPoint, required: true, standard: item.qcPoint }]
         : [],
       remark: '',
+      source: mapped.source,
     }
   })
 }
@@ -680,10 +961,11 @@ function resetBomForm(): void {
   }
 }
 
-function resetTechniqueForm(): void {
+function resetTechniqueForm(defaultStage: string = stageOptions[0]): void {
   state.newTechnique = {
+    stage: defaultStage,
+    process: '',
     technique: '',
-    patternPieces: [],
     standardTime: '',
     timeUnit: '分钟/件',
     difficulty: '中等',
@@ -740,8 +1022,6 @@ function ensureTechPackPageState(rawSpuCode: string): void {
   resetAttachmentForm()
   state.newDesignName = ''
 
-  state.currentStage = ''
-  state.currentProcess = ''
   state.selectedPattern = null
 
   state.loading = false
@@ -874,20 +1154,24 @@ function renderPatternTab(): string {
 
 function renderProcessTechniqueCard(item: TechniqueItem): string {
   return `
-    <article class="space-y-3 rounded-lg border p-4">
-      <div class="flex items-start justify-between">
-        <div class="space-y-1">
-          <p class="font-medium">${escapeHtml(item.technique)}</p>
-          <div class="flex flex-wrap gap-1">
-            ${item.patternPieces.map((piece) => `<span class="inline-flex rounded border bg-secondary px-2 py-0.5 text-xs">${escapeHtml(piece)}</span>`).join('')}
-          </div>
+    <article class="space-y-3">
+      <div class="mb-3 flex items-start justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-sm font-medium">${escapeHtml(item.process)}</span>
+          <span class="text-sm text-muted-foreground">·</span>
+          <span class="text-sm">${escapeHtml(item.technique)}</span>
+          <span class="inline-flex rounded border px-1.5 py-0 text-[10px] font-medium ${
+            item.source === '老系统同步'
+              ? 'border-blue-200 bg-blue-50 text-blue-700'
+              : 'border-green-200 bg-green-50 text-green-700'
+          }">${escapeHtml(item.source)}</span>
         </div>
-        <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${item.id}">
-          <i data-lucide="trash-2" class="h-4 w-4"></i>
+        <button class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${item.id}">
+          <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
         </button>
       </div>
 
-      <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+      <div class="mb-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
         <label>
           <span class="text-xs text-muted-foreground">标准工时</span>
           <div class="mt-1 flex items-center gap-1">
@@ -917,7 +1201,7 @@ function renderProcessTechniqueCard(item: TechniqueItem): string {
           </select>
         </label>
 
-        <label class="inline-flex items-center gap-2 pt-5">
+        <label class="inline-flex items-end gap-2 pb-0.5">
           <input type="checkbox" data-tech-field="tech-enable-qc" data-tech-id="${item.id}" ${item.enableQualityCheck ? 'checked' : ''} />
           <span class="text-xs">安排质检</span>
         </label>
@@ -926,9 +1210,9 @@ function renderProcessTechniqueCard(item: TechniqueItem): string {
       ${
         item.enableQualityCheck
           ? `
-            <div class="space-y-2">
+            <div class="mb-3 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-xs text-muted-foreground">质检项</span>
+                <span class="text-xs text-muted-foreground">检查项</span>
                 <button class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-quality-check" data-tech-id="${item.id}">
                   <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
                   新增
@@ -937,9 +1221,9 @@ function renderProcessTechniqueCard(item: TechniqueItem): string {
               ${
                 item.qualityChecks.length > 0
                   ? `
-                    <table class="w-full text-xs">
+                    <table class="w-full rounded-md border text-xs">
                       <thead>
-                        <tr class="border-b">
+                        <tr class="border-b bg-muted/20">
                           <th class="px-2 py-1 text-left">检查项名称</th>
                           <th class="px-2 py-1 text-left">必检</th>
                           <th class="px-2 py-1 text-left">标准要求</th>
@@ -1015,47 +1299,58 @@ function renderProcessTechniqueCard(item: TechniqueItem): string {
 
 function renderProcessTab(): string {
   return `
-    <section class="rounded-lg border bg-card">
-      <header class="border-b px-4 py-3">
+    <section class="space-y-4">
+      <header class="rounded-lg border bg-card px-4 py-3">
         <h3 class="text-base font-semibold">工序</h3>
         <p class="mt-1 text-sm text-muted-foreground">阶段 → 工序 → 工艺</p>
       </header>
-      <div class="space-y-4 p-4">
+      <div class="space-y-6">
         ${stageOptions
           .map((stage) => {
+            const stageItems = state.techniques.filter((item) => item.stage === stage)
             return `
-              <section class="rounded-lg border px-4 py-3">
-                <h4 class="text-base font-semibold">${escapeHtml(stage)}</h4>
-                <div class="mt-3 space-y-4">
-                  ${(processOptions[stage] || [])
-                    .map((process) => {
-                      const items = state.techniques.filter(
-                        (item) => item.stage === stage && item.process === process,
-                      )
-
-                      return `
-                        <div class="space-y-2">
-                          <div class="flex items-center justify-between">
-                            <h5 class="text-sm font-medium">${escapeHtml(process)}</h5>
-                            <button
-                              class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
-                              data-tech-action="open-add-technique"
-                              data-stage="${escapeHtml(stage)}"
-                              data-process="${escapeHtml(process)}"
-                            >
-                              <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
-                              添加工艺
-                            </button>
-                          </div>
-                          ${
-                            items.length === 0
-                              ? '<p class="pl-2 text-xs text-muted-foreground">暂无工艺</p>'
-                              : `<div class="space-y-3">${items.map((item) => renderProcessTechniqueCard(item)).join('')}</div>`
-                          }
+              <section class="rounded-lg border bg-card">
+                <header class="flex items-center justify-between px-4 py-3">
+                  <h4 class="text-base font-semibold">${escapeHtml(stage)}</h4>
+                  <button
+                    class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
+                    data-tech-action="open-add-technique"
+                    data-stage="${escapeHtml(stage)}"
+                  >
+                    <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
+                    新增工序工艺
+                  </button>
+                </header>
+                <div class="px-4 pb-4">
+                  ${
+                    stageItems.length === 0
+                      ? `
+                        <div class="space-y-2 py-6 text-center text-muted-foreground">
+                          <p class="text-sm">暂无工序工艺</p>
+                          <button
+                            class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted"
+                            data-tech-action="open-add-technique"
+                            data-stage="${escapeHtml(stage)}"
+                          >
+                            <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
+                            新增工序工艺
+                          </button>
                         </div>
                       `
-                    })
-                    .join('')}
+                      : `
+                        <div class="divide-y">
+                          ${stageItems
+                            .map(
+                              (item) => `
+                                <div class="py-4 first:pt-0 last:pb-0">
+                                  ${renderProcessTechniqueCard(item)}
+                                </div>
+                              `,
+                            )
+                            .join('')}
+                        </div>
+                      `
+                  }
                 </div>
               </section>
             `
@@ -1664,41 +1959,51 @@ function renderBomFormDialog(): string {
 function renderAddTechniqueDialog(): string {
   if (!state.addTechniqueDialogOpen) return ''
 
+  const currentStageProcesses = dictProcessOptions[state.newTechnique.stage] ?? []
+  const currentProcessEntry = currentStageProcesses.find((item) => item.process === state.newTechnique.process)
+  const techniquesForProcess = currentProcessEntry?.techniques ?? []
+
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="w-full max-w-lg rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">添加工艺 - ${escapeHtml(state.currentStage)} / ${escapeHtml(state.currentProcess)}</h3>
+          <h3 class="text-lg font-semibold">新增工序工艺</h3>
         </header>
         <div class="space-y-4 px-6 py-4">
           <label class="space-y-1">
-            <span class="text-sm">工艺名称 <span class="text-red-500">*</span></span>
-            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-name" value="${escapeHtml(state.newTechnique.technique)}" placeholder="例如 数码印、平缝" />
+            <span class="text-sm">阶段 <span class="text-red-500">*</span></span>
+            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-stage">
+              ${stageOptions
+                .map((option) => `<option value="${option}" ${state.newTechnique.stage === option ? 'selected' : ''}>${option}</option>`)
+                .join('')}
+            </select>
           </label>
 
-          <div class="space-y-1">
-            <span class="text-sm">关联纸样</span>
-            <div class="mt-1 flex flex-wrap gap-2">
-              ${patternPieceOptions
-                .map(
-                  (piece) => `
-                    <button
-                      type="button"
-                      class="inline-flex rounded border px-2 py-0.5 text-xs ${
-                        state.newTechnique.patternPieces.includes(piece)
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'hover:bg-muted'
-                      }"
-                      data-tech-action="toggle-new-technique-piece"
-                      data-piece="${piece}"
-                    >
-                      ${piece}
-                    </button>
-                  `,
-                )
+          <label class="space-y-1">
+            <span class="text-sm">工序 <span class="text-red-500">*</span></span>
+            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-process">
+              <option value="">从字典中选择工序</option>
+              ${currentStageProcesses
+                .map((item) => `<option value="${item.process}" ${state.newTechnique.process === item.process ? 'selected' : ''}>${item.process}</option>`)
                 .join('')}
-            </div>
-          </div>
+            </select>
+          </label>
+
+          <label class="space-y-1">
+            <span class="text-sm">工艺 <span class="text-red-500">*</span></span>
+            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-technique" ${state.newTechnique.process ? '' : 'disabled'}>
+              <option value="">${state.newTechnique.process ? '从字典中选择工艺' : '请先选择工序'}</option>
+              ${techniquesForProcess
+                .map((item) => `<option value="${item.name}" ${state.newTechnique.technique === item.name ? 'selected' : ''}>${item.name}</option>`)
+                .join('')}
+            </select>
+          </label>
+
+          ${
+            state.newTechnique.technique
+              ? '<p class="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">来源：工序工艺字典（字典新增）。标准工时、难度均可在下方调整为该商品实际值。</p>'
+              : ''
+          }
 
           <div class="grid grid-cols-2 gap-4">
             <label class="space-y-1">
@@ -1724,6 +2029,40 @@ function renderAddTechniqueDialog(): string {
             </select>
           </label>
 
+          <div class="space-y-2">
+            <label class="inline-flex items-center gap-2">
+              <input type="checkbox" data-tech-field="new-technique-enable-qc" ${state.newTechnique.enableQualityCheck ? 'checked' : ''} />
+              <span class="text-sm">安排质检</span>
+            </label>
+            ${
+              state.newTechnique.enableQualityCheck
+                ? `
+                  <div class="rounded-md border">
+                    ${state.newTechnique.qualityChecks
+                      .map(
+                        (qc, index) => `
+                          <div class="flex items-center gap-2 border-b px-3 py-1.5 last:border-b-0">
+                            <span class="w-4 shrink-0 text-xs text-muted-foreground">${index + 1}</span>
+                            <input class="h-7 flex-1 rounded border px-2 text-xs" data-tech-field="new-qc-name" data-qc-id="${qc.id}" value="${escapeHtml(qc.name)}" placeholder="检查项名称" />
+                            <button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-new-quality-check" data-qc-id="${qc.id}">
+                              <i data-lucide="trash-2" class="h-3 w-3"></i>
+                            </button>
+                          </div>
+                        `,
+                      )
+                      .join('')}
+                    <div class="px-3 py-1.5">
+                      <button class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-new-quality-check">
+                        <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
+                        新增检查项
+                      </button>
+                    </div>
+                  </div>
+                `
+                : ''
+            }
+          </div>
+
           <label class="space-y-1">
             <span class="text-sm">备注</span>
             <textarea rows="2" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-remark" placeholder="备注信息">${escapeHtml(state.newTechnique.remark)}</textarea>
@@ -1733,8 +2072,8 @@ function renderAddTechniqueDialog(): string {
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-technique">取消</button>
           <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            state.newTechnique.technique.trim() ? '' : 'pointer-events-none opacity-50'
-          }" data-tech-action="save-technique">确认</button>
+            state.newTechnique.process && state.newTechnique.technique ? '' : 'pointer-events-none opacity-50'
+          }" data-tech-action="save-technique">确认新增</button>
         </footer>
       </section>
     </div>
@@ -1977,8 +2316,55 @@ function handleTechPackField(
     return true
   }
 
-  if (field === 'new-technique-name') {
-    state.newTechnique.technique = value
+  if (field === 'new-technique-stage') {
+    state.newTechnique = {
+      ...state.newTechnique,
+      stage: value,
+      process: '',
+      technique: '',
+      standardTime: '',
+      timeUnit: '分钟/件',
+      difficulty: '中等',
+      enableQualityCheck: false,
+      qualityChecks: [],
+    }
+    return true
+  }
+  if (field === 'new-technique-process') {
+    state.newTechnique = {
+      ...state.newTechnique,
+      process: value,
+      technique: '',
+      standardTime: '',
+      timeUnit: '分钟/件',
+      difficulty: '中等',
+      enableQualityCheck: false,
+      qualityChecks: [],
+    }
+    return true
+  }
+  if (field === 'new-technique-technique') {
+    const dictionaryEntry = getTechniqueDictionaryEntry(
+      state.newTechnique.stage,
+      state.newTechnique.process,
+      value,
+    )
+    state.newTechnique = {
+      ...state.newTechnique,
+      technique: value,
+      standardTime: dictionaryEntry ? String(dictionaryEntry.stdTime) : state.newTechnique.standardTime,
+      timeUnit: dictionaryEntry ? dictionaryEntry.timeUnit : state.newTechnique.timeUnit,
+      difficulty: dictionaryEntry ? dictionaryEntry.difficulty : state.newTechnique.difficulty,
+      qualityChecks: dictionaryEntry
+        ? dictionaryEntry.checks.map((item, index) => ({
+            id: `qc-new-${index}`,
+            name: item,
+            required: true,
+            standard: '',
+          }))
+        : state.newTechnique.qualityChecks,
+      enableQualityCheck: dictionaryEntry ? dictionaryEntry.checks.length > 0 : state.newTechnique.enableQualityCheck,
+    }
     return true
   }
   if (field === 'new-technique-standard-time') {
@@ -1999,6 +2385,17 @@ function handleTechPackField(
   }
   if (field === 'new-technique-enable-qc') {
     state.newTechnique.enableQualityCheck = checked
+    if (!checked) {
+      state.newTechnique.qualityChecks = []
+    }
+    return true
+  }
+  if (field === 'new-qc-name') {
+    const qcId = node.dataset.qcId
+    if (!qcId) return true
+    state.newTechnique.qualityChecks = state.newTechnique.qualityChecks.map((item) =>
+      item.id === qcId ? { ...item, name: value } : item,
+    )
     return true
   }
 
@@ -2376,13 +2773,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-add-technique') {
-    const stage = actionNode.dataset.stage
-    const process = actionNode.dataset.process
-    if (!stage || !process) return true
-
-    resetTechniqueForm()
-    state.currentStage = stage
-    state.currentProcess = process
+    const stage = actionNode.dataset.stage || stageOptions[0]
+    resetTechniqueForm(stage)
     state.addTechniqueDialogOpen = true
     return true
   }
@@ -2390,34 +2782,37 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.addTechniqueDialogOpen = false
     return true
   }
-  if (action === 'toggle-new-technique-piece') {
-    const piece = actionNode.dataset.piece
-    if (!piece) return true
-
-    if (state.newTechnique.patternPieces.includes(piece)) {
-      state.newTechnique.patternPieces = state.newTechnique.patternPieces.filter((item) => item !== piece)
-    } else {
-      state.newTechnique.patternPieces = [...state.newTechnique.patternPieces, piece]
-    }
+  if (action === 'add-new-quality-check') {
+    state.newTechnique.qualityChecks = [
+      ...state.newTechnique.qualityChecks,
+      { id: `qc-${Date.now()}`, name: '', required: true, standard: '' },
+    ]
+    state.newTechnique.enableQualityCheck = true
+    return true
+  }
+  if (action === 'delete-new-quality-check') {
+    const qcId = actionNode.dataset.qcId
+    if (!qcId) return true
+    state.newTechnique.qualityChecks = state.newTechnique.qualityChecks.filter((item) => item.id !== qcId)
     return true
   }
   if (action === 'save-technique') {
-    if (!state.newTechnique.technique.trim()) return true
+    if (!state.newTechnique.process || !state.newTechnique.technique) return true
 
     state.techniques = [
       ...state.techniques,
       {
         id: `tech-${Date.now()}`,
-        stage: state.currentStage,
-        process: state.currentProcess,
+        stage: state.newTechnique.stage,
+        process: state.newTechnique.process,
         technique: state.newTechnique.technique,
-        patternPieces: [...state.newTechnique.patternPieces],
         standardTime: Number.parseFloat(state.newTechnique.standardTime) || 0,
         timeUnit: state.newTechnique.timeUnit,
         difficulty: state.newTechnique.difficulty,
         enableQualityCheck: state.newTechnique.enableQualityCheck,
         qualityChecks: state.newTechnique.qualityChecks.map((item) => ({ ...item })),
         remark: state.newTechnique.remark,
+        source: '字典新增',
       },
     ]
 
