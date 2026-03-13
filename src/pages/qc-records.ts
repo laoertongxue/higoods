@@ -349,8 +349,6 @@ function createQc(
 ): QualityInspection {
   const now = nowTimestamp()
   const qc: QualityInspection = {
-    rootCauseType: 'UNKNOWN',
-    liabilityStatus: 'DRAFT',
     ...payload,
     qcId: generateQcId(),
     status: 'DRAFT',

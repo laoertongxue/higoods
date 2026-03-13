@@ -1,4 +1,9 @@
-import type { System, MenuGroup } from './types'
+/**
+ * AppShell 配置层：仅承载系统导航、菜单、标签页等壳层配置数据。
+ * FCS 业务数据与业务类型统一来自 src/data/fcs/*。
+ */
+
+import type { System, MenuGroup } from './app-shell-types'
 
 // 系统列表
 export const systems: System[] = [
@@ -214,67 +219,3 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
   ],
 }
-
-// 制版任务列表 Mock 数据
-export const plateMakingTasks = [
-  {
-    id: 'PM202401001',
-    title: '春季新款连衣裙制版',
-    status: 'confirmed',
-    statusText: '已确认',
-    project: 'PRJ-2024-001 春季女装项目',
-    source: 'SPU需求',
-    targetSize: 'S-XL',
-    owner: '张三',
-    deadline: '2024-02-15',
-    updatedAt: '2024-01-20 14:30',
-  },
-  {
-    id: 'PM202401002',
-    title: '基础T恤改版',
-    status: 'in-progress',
-    statusText: '进行中',
-    project: 'PRJ-2024-002 基础款项目',
-    source: '改版需求',
-    targetSize: 'XS-XXL',
-    owner: '李四',
-    deadline: '2024-02-20',
-    updatedAt: '2024-01-21 09:15',
-  },
-  {
-    id: 'PM202401003',
-    title: '夏季短裤版型开发',
-    status: 'pending-review',
-    statusText: '待评审',
-    project: 'PRJ-2024-003 夏季男装项目',
-    source: 'SPU需求',
-    targetSize: 'M-3XL',
-    owner: '王五',
-    deadline: '2024-02-25',
-    updatedAt: '2024-01-22 16:45',
-  },
-  {
-    id: 'PM202401004',
-    title: '秋季外套版型',
-    status: 'blocked',
-    statusText: '阻塞',
-    project: 'PRJ-2024-004 秋季系列',
-    source: '原创设计',
-    targetSize: 'S-XXL',
-    owner: '赵六',
-    deadline: '2024-03-01',
-    updatedAt: '2024-01-23 11:00',
-  },
-  {
-    id: 'PM202401005',
-    title: '儿童卫衣制版',
-    status: 'completed',
-    statusText: '已完成',
-    project: 'PRJ-2024-005 童装项目',
-    source: 'SPU需求',
-    targetSize: '110-160',
-    owner: '张三',
-    deadline: '2024-01-30',
-    updatedAt: '2024-01-25 10:20',
-  },
-]

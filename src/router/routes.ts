@@ -1,4 +1,4 @@
-import { menusBySystem } from '../data/mock-data'
+import { menusBySystem } from '../data/app-shell-config'
 import { renderFactoryProfilePage } from '../pages/factory-profile'
 import { renderOverviewPage, renderRisksPage, renderTodosPage } from '../pages/workbench'
 import { renderPlaceholderPage, renderRouteNotFound } from '../pages/placeholder'
@@ -44,6 +44,7 @@ import { renderMaterialStatementsPage } from '../pages/material-statements'
 import { renderPaymentSyncPage } from '../pages/payment-sync'
 import { renderHistoryPage } from '../pages/history'
 import { renderDispatchBoardPage } from '../pages/dispatch-board'
+import { renderDispatchAwardPage } from '../pages/dispatch-award'
 import { renderDispatchTendersPage } from '../pages/dispatch-tenders'
 import { renderDispatchExceptionsPage } from '../pages/dispatch-exceptions'
 import { renderProgressBoardPage } from '../pages/progress-board'
@@ -68,7 +69,7 @@ import { renderPdaExecDetailPage } from '../pages/pda-exec-detail'
 import { renderPdaHandoverPage } from '../pages/pda-handover'
 import { renderPdaHandoverDetailPage } from '../pages/pda-handover-detail'
 import { renderPdaSettlementPage } from '../pages/pda-settlement'
-import type { MenuGroup, MenuItem } from '../data/types'
+import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 
 type RouteRenderer = (pathname: string) => string
 
@@ -116,7 +117,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/settlement/history': () => renderHistoryPage(),
   '/fcs/dispatch/board': () => renderDispatchBoardPage(),
   '/fcs/dispatch/tenders': () => renderDispatchTendersPage(),
-  '/fcs/dispatch/award': () => renderDispatchTendersPage(),
+  '/fcs/dispatch/award': () => renderDispatchAwardPage(),
   '/fcs/dispatch/exceptions': () => renderDispatchExceptionsPage(),
   '/fcs/progress/board': () => renderProgressBoardPage(),
   '/fcs/progress/exceptions': () => renderProgressExceptionsPage(),

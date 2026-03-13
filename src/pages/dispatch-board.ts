@@ -538,7 +538,7 @@ function getPriceStatus(task: ProcessTask): PriceStatus {
 
 function getDeadlineStatus(task: ProcessTask): DeadlineStatus {
   if (task.assignmentMode !== 'DIRECT' || task.assignmentStatus !== 'ASSIGNED') return 'NONE'
-  if (task.status === 'DONE' || task.status === 'COMPLETED' || task.status === 'CANCELLED') return 'NONE'
+  if (task.status === 'DONE' || task.status === 'CANCELLED') return 'NONE'
 
   const now = Date.now()
 
@@ -619,7 +619,7 @@ function currentCheckpoint(
   qcPendingOrderIds: Set<string>,
   hasException: boolean,
 ): string {
-  if (task.status === 'DONE' || task.status === 'COMPLETED' || task.status === 'CANCELLED') {
+  if (task.status === 'DONE' || task.status === 'CANCELLED') {
     return '任务已结束'
   }
 
@@ -694,8 +694,7 @@ function getDyePendingTaskIds(): Set<string> {
   for (const order of initialDyePrintOrders) {
     if (order.status === 'COMPLETED' || order.status === 'CLOSED') continue
 
-    const relatedId = (order.relatedTaskId ?? order.taskId) as string | undefined
-    if (relatedId) set.add(relatedId)
+    set.add(order.relatedTaskId)
   }
 
   return set
@@ -1378,9 +1377,9 @@ function renderViewTenderSheet(task: ProcessTask | null): string {
 
   const std = getStandardPrice(task)
 
-  const tenderId = 'tenderStatus' in tender ? tender.tenderId : tender.tenderId
-  const biddingDeadline = 'biddingDeadline' in tender ? tender.biddingDeadline : tender.biddingDeadline
-  const tenderTaskDeadline = 'taskDeadline' in tender ? tender.taskDeadline : tender.taskDeadline
+  const tenderId = tender.tenderId
+  const biddingDeadline = tender.biddingDeadline
+  const tenderTaskDeadline = tender.taskDeadline
   const factoryPoolCount = 'factoryPoolCount' in tender ? tender.factoryPoolCount : tender.factoryPool.length
   const minPrice = tender.minPrice
   const maxPrice = tender.maxPrice

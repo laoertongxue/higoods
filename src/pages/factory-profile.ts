@@ -392,7 +392,7 @@ function createPdaUser(factoryId: string): void {
 
 function togglePdaUserLock(factoryId: string, userId: string): void {
   const users = getFactoryPdaUsers(factoryId)
-  const nextUsers = users.map((user) =>
+  const nextUsers: PdaUserRecord[] = users.map((user) =>
     user.userId === userId
       ? {
           ...user,
@@ -483,7 +483,7 @@ function savePdaRole(factoryId: string): void {
 
 function togglePdaRoleStatus(factoryId: string, roleId: string): void {
   const roles = getFactoryPdaRoles(factoryId)
-  const nextRoles = roles.map((role) =>
+  const nextRoles: FactoryPdaRole[] = roles.map((role) =>
     role.roleId === roleId
       ? {
           ...role,

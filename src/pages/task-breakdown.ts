@@ -237,10 +237,7 @@ function getTaskDyeSet(allTasks: ProcessTask[]): Set<string> {
   const set = new Set<string>()
 
   for (const dye of initialDyePrintOrders) {
-    const relatedId = dye.relatedTaskId ?? dye.taskId
-    if (relatedId) {
-      set.add(relatedId)
-    }
+    set.add(dye.relatedTaskId)
   }
 
   for (const task of allTasks) {

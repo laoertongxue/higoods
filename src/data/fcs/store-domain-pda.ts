@@ -1,6 +1,6 @@
 // =============================================
-// PDA / 权限域 — 从 fcs-store.tsx 拆出
-// 不引入 React；fcs-store.tsx 从此处 import 并 re-export
+// PDA / 权限域 — 当前原型仓直接使用的数据域定义
+// 无 React 依赖，供页面与数据模块直接引用
 // =============================================
 
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories'

@@ -6,8 +6,8 @@ import {
   getCurrentTabs,
   type AppState,
 } from '../state/store'
-import type { MenuGroup, MenuItem } from '../data/types'
-import { systems } from '../data/mock-data'
+import type { MenuGroup, MenuItem } from '../data/app-shell-types'
+import { systems } from '../data/app-shell-config'
 import { escapeHtml, toClassName } from '../utils'
 
 function toKebabCaseIcon(name: string): string {

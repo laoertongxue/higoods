@@ -1,20 +1,5 @@
-import { menusBySystem, systems } from '../data/mock-data'
-import type { MenuGroup, MenuItem } from '../data/types'
-
-export interface Tab {
-  key: string
-  title: string
-  href: string
-  closable: boolean
-}
-
-interface SystemTabs {
-  systemId: string
-  tabs: Tab[]
-  activeKey: string
-}
-
-type AllSystemTabs = Record<string, SystemTabs>
+import { menusBySystem, systems } from '../data/app-shell-config'
+import type { AllSystemTabs, MenuGroup, MenuItem, Tab } from '../data/app-shell-types'
 
 export interface AppState {
   pathname: string
@@ -99,7 +84,7 @@ function readSidebarCollapsed(): boolean {
   return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
 }
 
-const defaultPath = '/fcs/factories/profile'
+const defaultPath = '/fcs/workbench/overview'
 
 class AppStore {
   private state: AppState = {
@@ -116,6 +101,18 @@ class AppStore {
   init(): void {
     this.state.allTabs = getStoredTabs()
     this.state.sidebarCollapsed = readSidebarCollapsed()
+
+    const systemId = getCurrentSystemId(this.state.pathname)
+    const systemTabs = this.state.allTabs[systemId]
+    const hasValidActiveTab =
+      !!systemTabs?.activeKey &&
+      systemTabs.tabs.some((tab) => tab.key === systemTabs.activeKey)
+
+    if (!hasValidActiveTab) {
+      const fallback = systems.find((item) => item.id === systemId)?.defaultPage ?? defaultPath
+      this.state.pathname = fallback
+    }
+
     this.syncTabWithPath(this.state.pathname)
   }
 

@@ -100,7 +100,6 @@ const SETTLEMENT_PARTY_LABEL: Record<SettlementPartyType, string> = {
 }
 
 const PROCESS_TYPE_LABEL: Record<DyePrintProcessType, string> = {
-  SCREEN_PRINT: '丝印',
   PRINT: '印花',
   DYE: '染色',
   DYE_PRINT: '染印',

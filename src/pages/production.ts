@@ -1938,8 +1938,8 @@ export function renderProductionOrdersPage(): string {
                                   ${escapeHtml(order.mainFactorySnapshot.name)}
                                 </div>
                                 <div class="mt-0.5 flex items-center gap-1">
-                                  ${renderBadge(tierLabels[order.mainFactorySnapshot.tier] ?? order.mainFactorySnapshot.tier, 'bg-slate-100 text-slate-700')}
-                                  ${renderBadge(typeLabels[order.mainFactorySnapshot.type] ?? order.mainFactorySnapshot.type, 'bg-slate-100 text-slate-700')}
+                                  ${renderBadge(tierLabels[order.mainFactorySnapshot.tier as FactoryTier] ?? order.mainFactorySnapshot.tier, 'bg-slate-100 text-slate-700')}
+                                  ${renderBadge(typeLabels[order.mainFactorySnapshot.type as FactoryType] ?? order.mainFactorySnapshot.type, 'bg-slate-100 text-slate-700')}
                                 </div>
                               </div>
                             </td>
@@ -3768,10 +3768,10 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
                 order.mainFactorySnapshot.code,
               )}</p></div>
               <div><p class="text-xs text-muted-foreground">层级</p><p>${escapeHtml(
-                tierLabels[order.mainFactorySnapshot.tier],
+                tierLabels[order.mainFactorySnapshot.tier as FactoryTier] ?? order.mainFactorySnapshot.tier,
               )}</p></div>
               <div><p class="text-xs text-muted-foreground">类型</p><p>${escapeHtml(
-                typeLabels[order.mainFactorySnapshot.type],
+                typeLabels[order.mainFactorySnapshot.type as FactoryType] ?? order.mainFactorySnapshot.type,
               )}</p></div>
               <div><p class="text-xs text-muted-foreground">位置</p><p>${escapeHtml(
                 `${order.mainFactorySnapshot.city}, ${order.mainFactorySnapshot.province}`,
@@ -4122,8 +4122,8 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           <p class="font-medium">${escapeHtml(order.mainFactorySnapshot.name)}</p>
           <p class="text-xs text-muted-foreground">${escapeHtml(order.mainFactorySnapshot.code)}</p>
           <div class="mt-2 flex flex-wrap gap-1">
-            ${renderBadge(tierLabels[order.mainFactorySnapshot.tier], 'bg-slate-100 text-slate-700')}
-            ${renderBadge(typeLabels[order.mainFactorySnapshot.type], 'bg-slate-100 text-slate-700')}
+            ${renderBadge(tierLabels[order.mainFactorySnapshot.tier as FactoryTier] ?? order.mainFactorySnapshot.tier, 'bg-slate-100 text-slate-700')}
+            ${renderBadge(typeLabels[order.mainFactorySnapshot.type as FactoryType] ?? order.mainFactorySnapshot.type, 'bg-slate-100 text-slate-700')}
           </div>
         </article>
 
@@ -5213,10 +5213,12 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       changeId = `CHG-${month}-${String(Date.now()).slice(-4)}`
     }
 
+    const changeType = state.changesCreateForm.changeType as ProductionChangeType
+
     const newChange: ProductionOrderChange = {
       changeId,
       productionOrderId: state.changesCreateForm.productionOrderId,
-      changeType: state.changesCreateForm.changeType,
+      changeType,
       beforeValue: state.changesCreateForm.beforeValue || undefined,
       afterValue: state.changesCreateForm.afterValue || undefined,
       impactScopeZh: state.changesCreateForm.impactScopeZh || undefined,
@@ -5330,13 +5332,14 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     }
 
     const now = toTimestamp()
+    const nextStatus = state.statusNext as LifecycleStatus
 
     state.orders = state.orders.map((item) => {
       if (item.productionOrderId !== state.statusSelectedOrderId) return item
 
       return {
         ...item,
-        lifecycleStatus: state.statusNext,
+        lifecycleStatus: nextStatus,
         lifecycleStatusRemark: state.statusRemark.trim() || undefined,
         lifecycleUpdatedAt: now,
         lifecycleUpdatedBy: currentUser.name,

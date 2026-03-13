@@ -278,7 +278,7 @@ function renderCategoryDisableConfirmDialog(): string {
 
 function renderCategoryDialog(): string {
   if (state.dialog.type !== 'category-manage') return ''
-  const editingCategory = findCategoryById(state.categoryEditingId)
+  const editingCategory = findCategoryById(state.categoryEditingId ?? undefined)
 
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">

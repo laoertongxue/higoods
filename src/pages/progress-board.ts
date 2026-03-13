@@ -1311,7 +1311,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
 
 function renderTaskKanbanView(filteredTasks: ProcessTask[]): string {
   const groups = getTaskKanbanGroups(filteredTasks)
-  const columns: Array<{ status: TaskStatus; icon: string; color: string }> = [
+  const columns: Array<{ status: 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'; icon: string; color: string }> = [
     { status: 'NOT_STARTED', icon: 'clock', color: 'text-slate-500' },
     { status: 'IN_PROGRESS', icon: 'play-circle', color: 'text-blue-500' },
     { status: 'BLOCKED', icon: 'pause', color: 'text-red-500' },

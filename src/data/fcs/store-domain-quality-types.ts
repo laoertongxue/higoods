@@ -1,13 +1,12 @@
 /**
  * store-domain-quality-types.ts
  * 质量域类型定义与纯 helper — 无 React 依赖
- * seed 数据仍保留在 fcs-store.tsx
+ * 当前原型仓直接使用的质量域类型定义文件
  */
 
-import type { QcStatus, QcDisposition, RootCauseType } from './process-tasks'
-
-// Re-export so consumers that import from here also get these
-export type { QcStatus, QcDisposition, RootCauseType }
+export type QcStatus = 'DRAFT' | 'SUBMITTED' | 'CLOSED'
+export type QcDisposition = 'REWORK' | 'REMAKE' | 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
+export type RootCauseType = 'PROCESS' | 'MATERIAL' | 'DYE_PRINT' | 'CUTTING' | 'PATTERN_TECH' | 'UNKNOWN'
 
 // =============================================
 // 基础质量类型
