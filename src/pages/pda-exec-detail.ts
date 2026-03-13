@@ -11,6 +11,8 @@ interface PdaExecDetailState {
   blockRemark: string
   unblockRemark: string
   initializedPathKey: string
+  proofTaskId: string
+  proofFiles: ProofFile[]
 }
 
 const detailState: PdaExecDetailState = {
@@ -20,6 +22,15 @@ const detailState: PdaExecDetailState = {
   blockRemark: '',
   unblockRemark: '',
   initializedPathKey: '',
+  proofTaskId: '',
+  proofFiles: [],
+}
+
+interface ProofFile {
+  id: string
+  type: 'IMAGE' | 'VIDEO'
+  name: string
+  uploadedAt: string
 }
 
 const BLOCK_REASON_OPTIONS: Array<{ value: BlockReason; label: string }> = [
@@ -30,6 +41,21 @@ const BLOCK_REASON_OPTIONS: Array<{ value: BlockReason; label: string }> = [
   { value: 'EQUIPMENT', label: '设备' },
   { value: 'OTHER', label: '其他' },
 ]
+
+const MOCK_START_PROOF: Record<string, ProofFile[]> = {
+  'PDA-EXEC-007': [
+    { id: 'sp-001', type: 'IMAGE', name: '开工现场_01.jpg', uploadedAt: '2026-03-10 08:05:22' },
+    { id: 'sp-002', type: 'IMAGE', name: '物料到位_01.jpg', uploadedAt: '2026-03-10 08:06:10' },
+  ],
+  'PDA-EXEC-008': [
+    { id: 'sp-003', type: 'IMAGE', name: '车缝开工现场.jpg', uploadedAt: '2026-03-09 14:11:00' },
+    { id: 'sp-004', type: 'VIDEO', name: '设备状态检查.mp4', uploadedAt: '2026-03-09 14:12:30' },
+  ],
+  'PDA-EXEC-009': [
+    { id: 'sp-005', type: 'IMAGE', name: '整烫区就位.jpg', uploadedAt: '2026-03-08 09:06:00' },
+  ],
+  'PDA-EXEC-010': [],
+}
 
 function getCurrentQueryString(): string {
   const pathname = appStore.getState().pathname
@@ -54,6 +80,11 @@ function syncDialogStateWithQuery(taskId: string): void {
   detailState.blockReason = 'OTHER'
   detailState.blockRemark = ''
   detailState.unblockRemark = ''
+
+  if (detailState.proofTaskId !== taskId) {
+    detailState.proofTaskId = taskId
+    detailState.proofFiles = []
+  }
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -197,6 +228,125 @@ function showPdaExecDetailToast(message: string): void {
       }
     }, 180)
   }, 2200)
+}
+
+function nowDisplayTimestamp(date: Date = new Date()): string {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`
+}
+
+function addProofFile(type: 'IMAGE' | 'VIDEO'): void {
+  const ext = type === 'IMAGE' ? 'jpg' : 'mp4'
+  const label = type === 'IMAGE' ? '图片' : '视频'
+  const index = detailState.proofFiles.length + 1
+  detailState.proofFiles = [
+    ...detailState.proofFiles,
+    {
+      id: `sp-new-${Date.now()}`,
+      type,
+      name: `开工${label}_${String(index).padStart(2, '0')}.${ext}`,
+      uploadedAt: nowDisplayTimestamp(),
+    },
+  ]
+}
+
+function removeProofFile(id: string): void {
+  detailState.proofFiles = detailState.proofFiles.filter((item) => item.id !== id)
+}
+
+function renderProofUploadSection(files: ProofFile[]): string {
+  return `
+    <div class="space-y-3">
+      <p class="text-xs leading-relaxed text-muted-foreground">可上传开工现场、物料到位、设备状态等证明材料，当前为选填</p>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs hover:bg-muted"
+          data-pda-execd-action="add-proof-image"
+        >
+          <i data-lucide="image" class="h-3.5 w-3.5 text-blue-500"></i>
+          上传图片
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs hover:bg-muted"
+          data-pda-execd-action="add-proof-video"
+        >
+          <i data-lucide="video" class="h-3.5 w-3.5 text-purple-500"></i>
+          上传视频
+        </button>
+      </div>
+      ${
+        files.length > 0
+          ? `
+              <div class="space-y-1.5">
+                <p class="text-xs font-medium text-muted-foreground">已上传材料（${files.length} 个文件）</p>
+                ${files
+                  .map(
+                    (file) => `
+                      <div class="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+                        <i data-lucide="${file.type === 'IMAGE' ? 'image' : 'video'}" class="h-4 w-4 shrink-0 ${file.type === 'IMAGE' ? 'text-blue-500' : 'text-purple-500'}"></i>
+                        <div class="min-w-0 flex-1">
+                          <p class="truncate text-xs font-medium">${escapeHtml(file.name)}</p>
+                          <p class="text-[10px] text-muted-foreground">${file.type === 'IMAGE' ? '图片' : '视频'} · ${escapeHtml(file.uploadedAt)}</p>
+                        </div>
+                        <button
+                          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-muted"
+                          data-pda-execd-action="remove-proof"
+                          data-proof-id="${escapeHtml(file.id)}"
+                        >
+                          <i data-lucide="trash-2" class="h-3 w-3"></i>
+                        </button>
+                      </div>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            `
+          : `
+              <div class="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground">
+                <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
+                暂无凭证，可直接提交
+              </div>
+            `
+      }
+    </div>
+  `
+}
+
+function renderProofViewSection(files: ProofFile[]): string {
+  if (files.length === 0) {
+    return `
+      <div class="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
+        <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
+        暂无凭证
+      </div>
+    `
+  }
+
+  return `
+    <div class="space-y-1.5">
+      <p class="text-xs font-medium text-muted-foreground">共 ${files.length} 个文件</p>
+      ${files
+        .map(
+          (file) => `
+            <div class="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+              <i data-lucide="${file.type === 'IMAGE' ? 'image' : 'video'}" class="h-4 w-4 shrink-0 ${file.type === 'IMAGE' ? 'text-blue-500' : 'text-purple-500'}"></i>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-xs font-medium">${escapeHtml(file.name)}</p>
+                <p class="text-[10px] text-muted-foreground">${file.type === 'IMAGE' ? '图片' : '视频'} · ${escapeHtml(file.uploadedAt)}</p>
+              </div>
+            </div>
+          `,
+        )
+        .join('')}
+    </div>
+  `
 }
 
 function mutateStartTask(taskId: string, by: string): void {
@@ -630,6 +780,45 @@ export function renderPdaExecDetailPage(taskId: string): string {
         </div>
       </article>
 
+      ${
+        status === 'NOT_STARTED' && prereq.met
+          ? `
+              <article class="rounded-lg border bg-card">
+                <header class="border-b px-4 py-3">
+                  <h2 class="flex items-center justify-between text-sm font-semibold">
+                    <span class="flex items-center gap-1.5">
+                      <i data-lucide="paperclip" class="h-4 w-4 text-muted-foreground"></i>
+                      开工凭证（选填）
+                    </span>
+                    <span class="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">选填</span>
+                  </h2>
+                </header>
+                <div class="p-4 pt-3">
+                  ${renderProofUploadSection(detailState.proofFiles)}
+                </div>
+              </article>
+            `
+          : ''
+      }
+
+      ${
+        status === 'IN_PROGRESS' || status === 'DONE' || status === 'BLOCKED'
+          ? `
+              <article class="rounded-lg border bg-card">
+                <header class="border-b px-4 py-3">
+                  <h2 class="flex items-center gap-1.5 text-sm font-semibold">
+                    <i data-lucide="paperclip" class="h-4 w-4 text-muted-foreground"></i>
+                    开工凭证
+                  </h2>
+                </header>
+                <div class="p-4 pt-3">
+                  ${renderProofViewSection(MOCK_START_PROOF[taskId] || [])}
+                </div>
+              </article>
+            `
+          : ''
+      }
+
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <h2 class="text-sm font-semibold">操作</h2>
@@ -806,6 +995,26 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'add-proof-image') {
+    addProofFile('IMAGE')
+    showPdaExecDetailToast('图片已添加')
+    return true
+  }
+
+  if (action === 'add-proof-video') {
+    addProofFile('VIDEO')
+    showPdaExecDetailToast('视频已添加')
+    return true
+  }
+
+  if (action === 'remove-proof') {
+    const proofId = actionNode.dataset.proofId
+    if (proofId) {
+      removeProofFile(proofId)
+    }
+    return true
+  }
+
   if (action === 'start-task') {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
@@ -824,7 +1033,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     }
 
     mutateStartTask(taskId, 'PDA')
-    showPdaExecDetailToast('开工成功')
+    showPdaExecDetailToast(
+      detailState.proofFiles.length > 0
+        ? `开工成功，已上传 ${detailState.proofFiles.length} 个开工凭证`
+        : '开工成功',
+    )
     return true
   }
 

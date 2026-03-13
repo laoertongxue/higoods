@@ -28,6 +28,7 @@ export interface HandoverEvent {
   qcDefectQty?: number
   qcProblemType?: string
   qcProblemDesc?: string
+  proofCount?: number
   factoryId: string
   materialSummary?: string
 }
@@ -287,6 +288,7 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     deadlineTime: '2026-03-09 10:00',
     status: 'CONFIRMED',
     confirmedAt: '2026-03-09 09:15',
+    proofCount: 2,
     factoryId: 'ID-F001',
   },
   {
@@ -306,6 +308,7 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     deadlineTime: '2026-03-08 14:00',
     status: 'CONFIRMED',
     confirmedAt: '2026-03-08 11:30',
+    proofCount: 0,
     factoryId: 'ID-F001',
   },
   {
@@ -328,6 +331,7 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     confirmedAt: '2026-03-08 13:20',
     qcResult: 'PASS',
     qcDefectQty: 0,
+    proofCount: 3,
     factoryId: 'ID-F001',
   },
   {
@@ -352,6 +356,7 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     confirmedAt: '2026-03-07 15:10',
     qcResult: 'PASS',
     qcDefectQty: 0,
+    proofCount: 2,
     factoryId: 'ID-F001',
   },
   {
@@ -371,6 +376,7 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     deadlineTime: '2026-03-09 18:00',
     status: 'CONFIRMED',
     confirmedAt: '2026-03-09 16:40',
+    proofCount: 2,
     factoryId: 'ID-F001',
   },
   {
@@ -396,6 +402,7 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     qcDefectQty: 35,
     qcProblemType: '数量短缺',
     qcProblemDesc: '实收 965 件，应收 1000 件，差 35 件。上游坚称全数发出，需核对物流签收单',
+    proofCount: 3,
     factoryId: 'ID-F001',
   },
   {
@@ -419,6 +426,7 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     qcDefectQty: 48,
     qcProblemType: '缝制质量不合格',
     qcProblemDesc: '48 件车缝线迹不均匀、跳针严重，需退回返工。上游工厂不认可质检结论，要求第三方复检',
+    proofCount: 0,
     factoryId: 'ID-F001',
   },
 ]

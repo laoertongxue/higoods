@@ -244,7 +244,7 @@ function getTaskPricing(task: ProcessTask): {
     (task as ProcessTask & { currency?: string }).currency ||
     task.dispatchPriceCurrency ||
     task.standardPriceCurrency ||
-    'CNY'
+    'IDR'
   const unit = task.dispatchPriceUnit || task.standardPriceUnit || task.qtyUnit || '件'
 
   let priceStatus: string | null = null
@@ -418,6 +418,7 @@ function renderEmptyState(label: string): string {
 function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string {
   const deadlineStatus = getDeadlineStatus(task.acceptDeadline || '')
   const pricing = getTaskPricing(task)
+  const dispatchedAt = (task as ProcessTask & { dispatchedAt?: string }).dispatchedAt
 
   return `
     <article class="overflow-hidden rounded-lg border bg-card">
@@ -434,6 +435,7 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
           ${renderFieldRow('生产单号', task.productionOrderId)}
           ${renderFieldRow('工序', task.processNameZh)}
           ${renderFieldRow('数量', `${task.qty} ${pricing.unit}`)}
+          ${dispatchedAt ? renderFieldRow('直接派单时间', dispatchedAt) : ''}
           ${task.acceptDeadline ? renderFieldRow('接单截止', task.acceptDeadline) : ''}
           ${(task as ProcessTask & { taskDeadline?: string }).taskDeadline ? renderFieldRow('任务截止', (task as ProcessTask & { taskDeadline?: string }).taskDeadline || '') : ''}
           ${pricing.standardPrice != null ? renderFieldRow('工序标准价', `${pricing.standardPrice.toLocaleString()} ${pricing.currency}/${pricing.unit}`) : ''}
@@ -756,7 +758,7 @@ export function renderPdaTaskReceivePage(): string {
         }
       </header>
 
-      <div class="sticky top-[106px] z-20 flex border-b bg-background">
+      <div class="sticky top-[auto] z-20 flex border-b bg-background">
         ${TABS.map((tab) => {
           const active = tab.key === state.activeTab
           return `

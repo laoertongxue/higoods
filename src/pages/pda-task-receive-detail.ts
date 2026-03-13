@@ -15,6 +15,20 @@ const state: TaskReceiveDetailState = {
   rejectReason: '',
 }
 
+const STAGE_ZH: Record<string, string> = {
+  CUTTING: '裁片',
+  SEWING: '车缝',
+  IRONING: '整烫',
+  PACKING: '包装',
+  PRINTING: '印花',
+  DYEING: '染色',
+  WASHING: '水洗',
+  REWORK: '返工',
+  EMBROIDERY: '刺绣',
+  BUTTON: '钉扣',
+  QC: '质检',
+}
+
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
@@ -140,7 +154,7 @@ function getTaskPricing(task: ProcessTask): {
     (task as ProcessTask & { currency?: string }).currency ||
     task.dispatchPriceCurrency ||
     task.standardPriceCurrency ||
-    'CNY'
+    'IDR'
   const unit = task.dispatchPriceUnit || task.standardPriceUnit || task.qtyUnit || '件'
 
   let priceStatus: string | null = null
@@ -245,6 +259,9 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
   const spuCode = order?.demandSnapshot?.spuCode || '-'
   const spuName = order?.demandSnapshot?.spuName || '-'
   const deliveryDate = order?.demandSnapshot?.requiredDeliveryDate || '-'
+  const stageLabel = STAGE_ZH[task.stage] || task.stage
+  const spuImageUrl = (task as ProcessTask & { spuImageUrl?: string }).spuImageUrl
+  const dispatchedAt = (task as ProcessTask & { dispatchedAt?: string }).dispatchedAt
 
   const pricing = getTaskPricing(task)
   const acceptDeadline = task.acceptDeadline || ''
@@ -286,19 +303,34 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
               ${renderField('工序序号', String(task.seq))}
               ${renderField('工序名称', task.processNameZh)}
               ${renderField('工序编码', task.processCode)}
-              ${renderField('阶段', task.stage)}
+              ${renderField('阶段', stageLabel)}
               ${renderField('数量', `${task.qty} ${task.qtyUnit}`)}
             </div>
 
             <div class="h-px bg-border"></div>
 
-            <div class="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span class="text-muted-foreground">SPU:</span>
-                <div class="font-medium">${escapeHtml(spuCode)}</div>
-                <div class="text-xs text-muted-foreground">${escapeHtml(spuName)}</div>
+            <div class="flex items-start gap-3 text-sm">
+              <div class="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
+                ${
+                  spuImageUrl
+                    ? `<img src="${escapeHtml(spuImageUrl)}" alt="SPU ${escapeHtml(spuCode)}" class="h-full w-full object-cover" crossorigin="anonymous" />`
+                    : `
+                        <div class="flex h-full w-full items-center justify-center">
+                          <i data-lucide="package" class="h-6 w-6 text-muted-foreground"></i>
+                        </div>
+                      `
+                }
               </div>
-              ${renderField('交付日期', deliveryDate)}
+              <div class="min-w-0 flex-1">
+                <div class="mb-0.5 text-xs text-muted-foreground">款式信息 / SPU 缩略图</div>
+                <div class="font-mono text-xs font-medium">${escapeHtml(spuCode)}</div>
+                ${
+                  spuName !== '-'
+                    ? `<div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(spuName)}</div>`
+                    : ''
+                }
+                <div class="mt-0.5 text-xs text-muted-foreground">交付日期：${escapeHtml(deliveryDate)}</div>
+              </div>
             </div>
 
             <div class="h-px bg-border"></div>
@@ -336,6 +368,7 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
 
           <div class="space-y-3 p-4 text-sm">
             <div class="grid grid-cols-2 gap-3">
+              ${dispatchedAt ? renderField('直接派单时间', dispatchedAt) : ''}
               ${
                 acceptDeadline
                   ? `

@@ -1,5 +1,5 @@
 import { appStore } from '../state/store'
-import { escapeHtml, toClassName } from '../utils'
+import { escapeHtml } from '../utils'
 import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
 import {
   findPdaHandoverEvent,
@@ -9,6 +9,13 @@ import {
   type HandoverQcResult,
 } from '../data/fcs/pda-handover-events'
 import { renderPdaFrame } from './pda-shell'
+
+interface ProofFile {
+  id: string
+  type: 'IMAGE' | 'VIDEO'
+  name: string
+  uploadedAt: string
+}
 
 interface PdaHandoverDetailState {
   initializedKey: string
@@ -20,6 +27,8 @@ interface PdaHandoverDetailState {
   qcIssueType: string
   qcNote: string
   showDisputeDialog: boolean
+  proofEventId: string
+  proofFiles: ProofFile[]
 }
 
 const detailState: PdaHandoverDetailState = {
@@ -32,10 +41,41 @@ const detailState: PdaHandoverDetailState = {
   qcIssueType: '',
   qcNote: '',
   showDisputeDialog: false,
+  proofEventId: '',
+  proofFiles: [],
 }
 
 const DIFF_REASONS = ['短少', '超发', '破损', '混批', '其他']
 const QC_ISSUE_TYPES = ['外观瑕疵', '工艺问题', '污损', '破损', '尺寸偏差', '混批', '其他']
+
+const MOCK_PROOF_RECORDS: Record<string, ProofFile[]> = {
+  'EV-PK-DONE-001': [
+    { id: 'pkd1-1', type: 'IMAGE', name: '领料现场_01.jpg', uploadedAt: '2026-03-09 09:01:22' },
+    { id: 'pkd1-2', type: 'IMAGE', name: '物料清点_01.jpg', uploadedAt: '2026-03-09 09:03:10' },
+  ],
+  'EV-PK-DONE-002': [],
+  'EV-RC-DONE-001': [
+    { id: 'rcd1-1', type: 'IMAGE', name: '到货照片_01.jpg', uploadedAt: '2026-03-08 13:01:09' },
+    { id: 'rcd1-2', type: 'IMAGE', name: '开箱清点_01.jpg', uploadedAt: '2026-03-08 13:03:14' },
+    { id: 'rcd1-3', type: 'VIDEO', name: '质检现场.mp4', uploadedAt: '2026-03-08 13:06:36' },
+  ],
+  'EV-RC-DONE-002': [
+    { id: 'rcd2-1', type: 'IMAGE', name: '到货照片_01.jpg', uploadedAt: '2026-03-07 15:02:11' },
+    { id: 'rcd2-2', type: 'IMAGE', name: '差异部位_01.jpg', uploadedAt: '2026-03-07 15:03:44' },
+  ],
+  'EV-HO-DONE-001': [
+    { id: 'hod1-1', type: 'IMAGE', name: '交出打包_01.jpg', uploadedAt: '2026-03-09 16:28:13' },
+    { id: 'hod1-2', type: 'IMAGE', name: '装车照片_01.jpg', uploadedAt: '2026-03-09 16:31:04' },
+  ],
+  'EV-RC-DISP-001': [
+    { id: 'rcs1-1', type: 'IMAGE', name: '异常照片_01.jpg', uploadedAt: '2026-03-10 09:11:04' },
+    { id: 'rcs1-2', type: 'IMAGE', name: '异常照片_02.jpg', uploadedAt: '2026-03-10 09:11:42' },
+    { id: 'rcs1-3', type: 'VIDEO', name: '争议记录.mp4', uploadedAt: '2026-03-10 09:13:18' },
+  ],
+  'EV-RC-DISP-002': [],
+}
+
+const runtimeProofRecords: Record<string, ProofFile[]> = {}
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
@@ -45,6 +85,43 @@ function parseNumberOr(value: string, fallback: number): number {
   const parsed = Number(value)
   if (Number.isNaN(parsed)) return fallback
   return parsed
+}
+
+function nowDisplayTimestamp(date: Date = new Date()): string {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`
+}
+
+function cloneProofFiles(files: ProofFile[]): ProofFile[] {
+  return files.map((file) => ({ ...file }))
+}
+
+function getProofRecords(eventId: string): ProofFile[] {
+  const files = runtimeProofRecords[eventId] ?? MOCK_PROOF_RECORDS[eventId] ?? []
+  return cloneProofFiles(files)
+}
+
+function addProofFile(type: 'IMAGE' | 'VIDEO', prefix: string): void {
+  const ext = type === 'IMAGE' ? 'jpg' : 'mp4'
+  const index = detailState.proofFiles.length + 1
+  detailState.proofFiles = [
+    ...detailState.proofFiles,
+    {
+      id: `pf-${Date.now()}`,
+      type,
+      name: `${prefix}_${String(index).padStart(2, '0')}.${ext}`,
+      uploadedAt: nowDisplayTimestamp(),
+    },
+  ]
+}
+
+function removeProofFile(id: string): void {
+  detailState.proofFiles = detailState.proofFiles.filter((file) => file.id !== id)
 }
 
 function syncState(eventId: string, event: HandoverEvent): void {
@@ -61,6 +138,11 @@ function syncState(eventId: string, event: HandoverEvent): void {
   detailState.qcIssueType = event.qcProblemType ?? ''
   detailState.qcNote = event.qcProblemDesc ?? ''
   detailState.showDisputeDialog = false
+
+  if (detailState.proofEventId !== eventId) {
+    detailState.proofEventId = eventId
+    detailState.proofFiles = []
+  }
 }
 
 function showPdaHandoverDetailToast(message: string): void {
@@ -157,8 +239,105 @@ function renderPartyRow(label: string, kind: HandoverEvent['fromPartyKind'], nam
 function renderEvidencePlaceholder(): string {
   return `
     <div class="flex items-center gap-2 rounded-md border p-2 text-xs text-muted-foreground">
-      <i data-lucide="camera" class="h-4 w-4 shrink-0"></i>
+      <i data-lucide="image" class="h-4 w-4 shrink-0"></i>
       <span>现场图片/证据（占位，可拍照上传）</span>
+    </div>
+  `
+}
+
+function renderProofUploadSection(prefix: string, hint: string): string {
+  return `
+    <div class="space-y-3">
+      <p class="text-xs leading-relaxed text-muted-foreground">${escapeHtml(hint)}</p>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs hover:bg-muted"
+          data-pda-handoverd-action="add-proof-image"
+          data-name-prefix="${escapeHtml(prefix)}"
+        >
+          <i data-lucide="image" class="h-3.5 w-3.5 text-blue-500"></i>
+          上传图片
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs hover:bg-muted"
+          data-pda-handoverd-action="add-proof-video"
+          data-name-prefix="${escapeHtml(prefix)}"
+        >
+          <i data-lucide="video" class="h-3.5 w-3.5 text-purple-500"></i>
+          上传视频
+        </button>
+      </div>
+      ${
+        detailState.proofFiles.length > 0
+          ? `
+              <div class="space-y-1.5">
+                <p class="text-xs font-medium text-muted-foreground">已上传材料（${detailState.proofFiles.length} 个文件）</p>
+                ${detailState.proofFiles
+                  .map(
+                    (file) => `
+                      <div class="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+                        <i data-lucide="${file.type === 'IMAGE' ? 'image' : 'video'}" class="h-4 w-4 shrink-0 ${
+                          file.type === 'IMAGE' ? 'text-blue-500' : 'text-purple-500'
+                        }"></i>
+                        <div class="min-w-0 flex-1">
+                          <p class="truncate text-xs font-medium">${escapeHtml(file.name)}</p>
+                          <p class="text-[10px] text-muted-foreground">${file.type === 'IMAGE' ? '图片' : '视频'} · ${escapeHtml(file.uploadedAt)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
+                          data-pda-handoverd-action="remove-proof"
+                          data-proof-id="${escapeHtml(file.id)}"
+                        >
+                          <i data-lucide="trash-2" class="h-3 w-3"></i>
+                        </button>
+                      </div>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            `
+          : `
+              <div class="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground">
+                <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
+                暂无凭证，可直接提交
+              </div>
+            `
+      }
+    </div>
+  `
+}
+
+function renderProofViewSection(files: ProofFile[]): string {
+  if (files.length === 0) {
+    return `
+      <div class="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
+        <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
+        暂无凭证
+      </div>
+    `
+  }
+
+  return `
+    <div class="space-y-1.5">
+      <p class="text-xs font-medium text-muted-foreground">共 ${files.length} 个文件</p>
+      ${files
+        .map(
+          (file) => `
+            <div class="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+              <i data-lucide="${file.type === 'IMAGE' ? 'image' : 'video'}" class="h-4 w-4 shrink-0 ${
+                file.type === 'IMAGE' ? 'text-blue-500' : 'text-purple-500'
+              }"></i>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-xs font-medium">${escapeHtml(file.name)}</p>
+                <p class="text-[10px] text-muted-foreground">${file.type === 'IMAGE' ? '图片' : '视频'} · ${escapeHtml(file.uploadedAt)}</p>
+              </div>
+            </div>
+          `,
+        )
+        .join('')}
     </div>
   `
 }
@@ -206,6 +385,8 @@ function mutateTaskByHandover(event: HandoverEvent, mode: 'confirm' | 'dispute')
 function handleConfirm(event: HandoverEvent): { ok: boolean; message?: string } {
   const qtyActual = parseNumberOr(detailState.qtyActual, event.qtyExpected)
   const qtyDiff = Math.abs(qtyActual - event.qtyExpected)
+  const proofFiles =
+    event.action === 'RECEIVE' || event.action === 'HANDOUT' ? cloneProofFiles(detailState.proofFiles) : []
 
   if (event.action === 'RECEIVE' && !detailState.qcResult) {
     return { ok: false, message: '请先填写质检结论' }
@@ -224,7 +405,16 @@ function handleConfirm(event: HandoverEvent): { ok: boolean; message?: string } 
       target.qcProblemType = detailState.qcIssueType || undefined
       target.qcProblemDesc = detailState.qcNote || undefined
     }
+    if (event.action === 'RECEIVE' || event.action === 'HANDOUT') {
+      target.proofCount = proofFiles.length
+    } else if (target.proofCount == null) {
+      target.proofCount = 0
+    }
   })
+
+  if (event.action === 'RECEIVE' || event.action === 'HANDOUT') {
+    runtimeProofRecords[event.eventId] = proofFiles
+  }
 
   mutateTaskByHandover(event, 'confirm')
   appendTaskAudit(
@@ -240,6 +430,8 @@ function handleConfirm(event: HandoverEvent): { ok: boolean; message?: string } 
 function handleDispute(event: HandoverEvent): { ok: boolean; message?: string } {
   const qtyActual = parseNumberOr(detailState.qtyActual, event.qtyExpected)
   const qtyDiff = Math.abs(qtyActual - event.qtyExpected)
+  const proofFiles =
+    event.action === 'RECEIVE' || event.action === 'HANDOUT' ? cloneProofFiles(detailState.proofFiles) : []
 
   if (!detailState.diffReason) {
     return { ok: false, message: '请选择差异原因' }
@@ -261,7 +453,16 @@ function handleDispute(event: HandoverEvent): { ok: boolean; message?: string } 
       target.qcProblemType = detailState.qcIssueType || undefined
       target.qcProblemDesc = detailState.qcNote || detailState.diffNote.trim()
     }
+    if (event.action === 'RECEIVE' || event.action === 'HANDOUT') {
+      target.proofCount = proofFiles.length
+    } else if (target.proofCount == null) {
+      target.proofCount = 0
+    }
   })
+
+  if (event.action === 'RECEIVE' || event.action === 'HANDOUT') {
+    runtimeProofRecords[event.eventId] = proofFiles
+  }
 
   mutateTaskByHandover(event, 'dispute')
   appendTaskAudit(
@@ -370,6 +571,7 @@ function renderReceiveDetail(event: HandoverEvent): string {
   const isPending = event.status === 'PENDING'
   const qtyDiff = parseNumberOr(detailState.qtyActual, event.qtyExpected) - event.qtyExpected
   const qcFail = detailState.qcResult === 'FAIL'
+  const hasDiffOrQcFail = qtyDiff !== 0 || detailState.qcResult === 'FAIL'
 
   return `
     ${renderSectionCard(
@@ -511,7 +713,6 @@ function renderReceiveDetail(event: HandoverEvent): string {
                           data-pda-handoverd-field="qcNote"
                         >${escapeHtml(detailState.qcNote)}</textarea>
                       </div>
-                      ${renderEvidencePlaceholder()}
                     `
                     : ''
                 }
@@ -536,6 +737,33 @@ function renderReceiveDetail(event: HandoverEvent): string {
               </div>
             `,
       )
+    }
+
+    ${
+      !isPending
+        ? renderSectionCard('接收凭证', renderProofViewSection(getProofRecords(event.eventId)))
+        : ''
+    }
+
+    ${
+      isPending
+        ? renderSectionCard(
+            '接收凭证（选填）',
+            `
+              ${
+                hasDiffOrQcFail
+                  ? `
+                    <div class="mb-1 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
+                      <i data-lucide="alert-triangle" class="mt-0.5 h-3.5 w-3.5 shrink-0"></i>
+                      <span>存在数量差异或质量问题，建议上传现场证据</span>
+                    </div>
+                  `
+                  : ''
+              }
+              ${renderProofUploadSection('接收凭证', '可上传到货照片、问题部位照片、质检现场视频等证明材料，当前为选填')}
+            `,
+          )
+        : ''
     }
 
     ${
@@ -625,6 +853,21 @@ function renderHandoutDetail(event: HandoverEvent): string {
     }
 
     ${
+      !isPending
+        ? renderSectionCard('交出凭证', renderProofViewSection(getProofRecords(event.eventId)))
+        : ''
+    }
+
+    ${
+      isPending
+        ? renderSectionCard(
+            '交出凭证（选填）',
+            renderProofUploadSection('交出凭证', '可上传打包照片、交接现场照片、装车照片或视频等证明材料，当前为选填'),
+          )
+        : ''
+    }
+
+    ${
       isPending
         ? `
           <div class="flex gap-3">
@@ -698,7 +941,7 @@ function renderDisputeDialog(event: HandoverEvent): string {
               data-pda-handoverd-field="diffNote"
             >${escapeHtml(detailState.diffNote)}</textarea>
           </div>
-          ${renderEvidencePlaceholder()}
+          ${event.action === 'PICKUP' ? renderEvidencePlaceholder() : ''}
         </div>
 
         <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
@@ -846,6 +1089,22 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'add-proof-image' || action === 'add-proof-video') {
+    const prefix = actionNode.dataset.namePrefix || '交接凭证'
+    const type = action === 'add-proof-image' ? 'IMAGE' : 'VIDEO'
+    addProofFile(type, prefix)
+    showPdaHandoverDetailToast(type === 'IMAGE' ? '图片已添加' : '视频已添加')
+    return true
+  }
+
+  if (action === 'remove-proof') {
+    const proofId = actionNode.dataset.proofId
+    if (proofId) {
+      removeProofFile(proofId)
+    }
+    return true
+  }
+
   if (action === 'confirm') {
     const eventId = actionNode.dataset.eventId
     if (!eventId) return true
@@ -858,9 +1117,21 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
-    showPdaHandoverDetailToast(
-      event.action === 'PICKUP' ? '领料已确认' : event.action === 'RECEIVE' ? '接收已确认，质检记录已提交' : '交出已确认',
-    )
+    if (event.action === 'RECEIVE') {
+      showPdaHandoverDetailToast(
+        detailState.proofFiles.length > 0
+          ? `接收已确认，已上传 ${detailState.proofFiles.length} 个接收凭证`
+          : '接收已确认，质检记录已提交',
+      )
+    } else if (event.action === 'HANDOUT') {
+      showPdaHandoverDetailToast(
+        detailState.proofFiles.length > 0
+          ? `交出已确认，已上传 ${detailState.proofFiles.length} 个交出凭证`
+          : '交出已确认',
+      )
+    } else {
+      showPdaHandoverDetailToast('领料已确认')
+    }
 
     detailState.showDisputeDialog = false
     window.setTimeout(() => {

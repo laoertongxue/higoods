@@ -19,13 +19,19 @@ const TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
   { key: 'pickup', label: '待领料' },
   { key: 'receive', label: '待接收' },
   { key: 'handout', label: '待交出' },
-  { key: 'done', label: '已处理/争议' },
+  { key: 'done', label: '已处理' },
 ]
 
 const ACTION_LABELS: Record<HandoverAction, string> = {
   PICKUP: '领料',
   RECEIVE: '接收',
   HANDOUT: '交出',
+}
+
+const STATUS_LABELS: Record<'PENDING' | 'CONFIRMED' | 'DISPUTED', string> = {
+  PENDING: '待处理',
+  CONFIRMED: '已确认',
+  DISPUTED: '争议中',
 }
 
 function getCurrentQueryString(): string {
@@ -233,7 +239,7 @@ function renderDoneCard(event: HandoverEvent): string {
               event.status === 'DISPUTED'
                 ? 'border-destructive/20 bg-destructive text-destructive-foreground'
                 : 'border-primary/20 bg-primary text-primary-foreground'
-            }">${event.status === 'DISPUTED' ? '争议中' : '已确认'}</span>
+            }">${escapeHtml(STATUS_LABELS[event.status])}</span>
           </div>
           <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
         </div>
@@ -264,6 +270,18 @@ function renderDoneCard(event: HandoverEvent): string {
                       ? `<span class="ml-1 text-destructive">(${event.qcDefectQty} ${escapeHtml(event.qtyUnit)})</span>`
                       : ''
                   }
+                </span>
+              `
+              : ''
+          }
+          ${
+            event.proofCount != null
+              ? `
+                <span class="inline-flex items-center gap-0.5 ${
+                  event.proofCount > 0 ? 'text-blue-600' : 'text-muted-foreground'
+                }">
+                  <i data-lucide="paperclip" class="h-3 w-3"></i>
+                  ${event.proofCount > 0 ? `凭证 ${event.proofCount} 个` : '暂无凭证'}
                 </span>
               `
               : ''
@@ -333,29 +351,11 @@ export function renderPdaHandoverPage(): string {
                 data-tab="${tab.key}"
               >
                 <p class="text-base font-bold tabular-nums">${tabCounts[tab.key]}</p>
-                <p class="mt-0.5 text-[9px] leading-tight opacity-80">${escapeHtml(tab.label.replace('/争议', ''))}</p>
+                <p class="mt-0.5 text-[9px] leading-tight opacity-80">${escapeHtml(tab.label)}</p>
               </button>
             `
           }).join('')}
         </div>
-      </div>
-
-      <div class="sticky top-0 z-20 mx-4 grid shrink-0 grid-cols-4 rounded-md border bg-background">
-        ${TAB_CONFIG.map((tab) => {
-          const active = state.activeTab === tab.key
-          return `
-            <button
-              class="${toClassName(
-                'border-b-2 px-1 py-2 text-xs font-medium',
-                active ? 'border-primary text-primary' : 'border-transparent text-muted-foreground',
-              )}"
-              data-pda-handover-action="switch-tab"
-              data-tab="${tab.key}"
-            >
-              ${escapeHtml(tab.label)}
-            </button>
-          `
-        }).join('')}
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto px-4 pb-4 pt-3">

@@ -707,7 +707,7 @@ export function renderPdaNotifyPage(): string {
               待处理事项
               ${
                 totalTodo > 0
-                  ? `<span class="ml-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded bg-destructive px-1 py-0 text-[10px] text-destructive-foreground">${totalTodo}</span>`
+                  ? `<span class="ml-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-md bg-[#f5222d] px-1 text-[10px] font-semibold leading-none text-white">${totalTodo}</span>`
                   : ''
               }
             </button>
@@ -723,7 +723,7 @@ export function renderPdaNotifyPage(): string {
               通知提醒
               ${
                 unreadCount > 0
-                  ? `<span class="ml-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded bg-destructive px-1 py-0 text-[10px] text-destructive-foreground">${unreadCount}</span>`
+                  ? `<span class="ml-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-md bg-[#f5222d] px-1 text-[10px] font-semibold leading-none text-white">${unreadCount}</span>`
                   : ''
               }
             </button>

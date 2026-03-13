@@ -10,6 +10,10 @@ interface PdaExecState {
   selectedFactoryId: string
   activeTab: TaskStatusTab
   searchKeyword: string
+  riskParam: string
+  rawTabParam: string
+  bannerVisible: boolean
+  querySignature: string
 }
 
 const TAB_CONFIG: Array<{ key: TaskStatusTab; label: string }> = [
@@ -23,6 +27,21 @@ const state: PdaExecState = {
   selectedFactoryId: '',
   activeTab: 'NOT_STARTED',
   searchKeyword: '',
+  riskParam: '',
+  rawTabParam: '',
+  bannerVisible: true,
+  querySignature: '',
+}
+
+const TAB_PARAM_MAP: Record<string, TaskStatusTab> = {
+  blocked: 'BLOCKED',
+  BLOCKED: 'BLOCKED',
+  'in-progress': 'IN_PROGRESS',
+  IN_PROGRESS: 'IN_PROGRESS',
+  'not-started': 'NOT_STARTED',
+  NOT_STARTED: 'NOT_STARTED',
+  done: 'DONE',
+  DONE: 'DONE',
 }
 
 function getCurrentQueryString(): string {
@@ -36,15 +55,18 @@ function getCurrentSearchParams(): URLSearchParams {
 }
 
 function syncTabWithQuery(): void {
-  const tab = getCurrentSearchParams().get('tab')
-  if (!tab) {
-    state.activeTab = 'NOT_STARTED'
-    return
+  const pathname = appStore.getState().pathname
+  if (state.querySignature !== pathname) {
+    state.querySignature = pathname
+    state.bannerVisible = true
   }
 
-  if (TAB_CONFIG.some((item) => item.key === tab)) {
-    state.activeTab = tab as TaskStatusTab
-  }
+  const searchParams = getCurrentSearchParams()
+  const rawTab = searchParams.get('tab') || ''
+  const mapped = TAB_PARAM_MAP[rawTab] || 'NOT_STARTED'
+  state.activeTab = mapped
+  state.rawTabParam = rawTab
+  state.riskParam = searchParams.get('risk') || ''
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -251,7 +273,18 @@ function getFilteredTasks(
   tasksByStatus: Record<TaskStatusTab, ProcessTask[]>,
   activeTab: TaskStatusTab,
 ): ProcessTask[] {
-  const tasks = tasksByStatus[activeTab]
+  let tasks = tasksByStatus[activeTab]
+
+  if (activeTab === 'IN_PROGRESS' && state.riskParam === 'due-soon') {
+    const nowMs = Date.now()
+    tasks = tasks.filter((task) => {
+      const taskDeadline = (task as ProcessTask & { taskDeadline?: string }).taskDeadline
+      if (!taskDeadline) return false
+      const diff = parseDateMs(taskDeadline) - nowMs
+      return diff >= 0 && diff < 24 * 3600 * 1000
+    })
+  }
+
   const keyword = state.searchKeyword.trim().toLowerCase()
   if (!keyword) return tasks
 
@@ -614,11 +647,30 @@ export function renderPdaExecPage(): string {
   }
 
   const filteredTasks = getFilteredTasks(tasksByStatus, state.activeTab)
+  const fromNotify = !!state.rawTabParam
+  const bannerText =
+    state.rawTabParam === 'blocked' || state.rawTabParam === 'BLOCKED'
+      ? '已为您定位到阻塞任务'
+      : (state.rawTabParam === 'in-progress' || state.rawTabParam === 'IN_PROGRESS') &&
+            state.riskParam === 'due-soon'
+          ? '已为您定位到即将逾期任务'
+          : ''
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
       <header class="sticky top-0 z-30 space-y-4 border-b bg-background p-4">
         <h1 class="text-lg font-semibold">执行</h1>
+
+        ${
+          fromNotify && bannerText && state.bannerVisible
+            ? `
+                <div class="flex items-center justify-between gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  <span>${escapeHtml(bannerText)}</span>
+                  <button class="text-base leading-none text-blue-400 hover:text-blue-700" data-pda-exec-action="close-banner">×</button>
+                </div>
+              `
+            : ''
+        }
 
         <div class="flex items-center gap-2">
           <span class="shrink-0 text-sm text-muted-foreground">当前工厂:</span>
@@ -664,9 +716,11 @@ export function renderPdaExecPage(): string {
       <div class="flex-1 space-y-3 p-4">
         ${
           filteredTasks.length === 0
-            ? `<div class="py-10 text-center text-sm text-muted-foreground">暂无${
-                TAB_CONFIG.find((tab) => tab.key === state.activeTab)?.label || ''
-              }任务</div>`
+            ? `<div class="py-10 text-center text-sm text-muted-foreground">${
+                state.activeTab === 'IN_PROGRESS' && state.riskParam === 'due-soon'
+                  ? '当前暂无即将逾期任务'
+                  : `暂无${TAB_CONFIG.find((tab) => tab.key === state.activeTab)?.label || ''}任务`
+              }</div>`
             : filteredTasks
                 .map((task) => {
                   if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
@@ -713,11 +767,18 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaExecAction
   if (!action) return false
 
+  if (action === 'close-banner') {
+    state.bannerVisible = false
+    return true
+  }
+
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
     if (tab && TAB_CONFIG.some((item) => item.key === tab)) {
       state.activeTab = tab
-      appStore.navigate(`/fcs/pda/exec?tab=${tab}`)
+      const maybeRisk =
+        state.riskParam && state.riskParam === 'due-soon' ? `&risk=${state.riskParam}` : ''
+      appStore.navigate(`/fcs/pda/exec?tab=${tab}${maybeRisk}`)
     }
     return true
   }
