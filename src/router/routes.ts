@@ -44,7 +44,6 @@ import { renderMaterialStatementsPage } from '../pages/material-statements'
 import { renderPaymentSyncPage } from '../pages/payment-sync'
 import { renderHistoryPage } from '../pages/history'
 import { renderDispatchBoardPage } from '../pages/dispatch-board'
-import { renderDispatchAwardPage } from '../pages/dispatch-award'
 import { renderDispatchTendersPage } from '../pages/dispatch-tenders'
 import { renderDispatchExceptionsPage } from '../pages/dispatch-exceptions'
 import { renderProgressBoardPage } from '../pages/progress-board'
@@ -78,7 +77,7 @@ function normalizePathname(pathname: string): string {
 }
 
 const exactRoutes: Record<string, RouteRenderer> = {
-  '/': () => renderFactoryProfilePage(),
+  '/': () => renderOverviewPage(),
   '/fcs/factories/profile': () => renderFactoryProfilePage(),
   '/fcs/factories/capability': () => renderCapabilityPage(),
   '/fcs/factories/status': () => renderFactoryStatusPage(),
@@ -117,7 +116,6 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/settlement/history': () => renderHistoryPage(),
   '/fcs/dispatch/board': () => renderDispatchBoardPage(),
   '/fcs/dispatch/tenders': () => renderDispatchTendersPage(),
-  '/fcs/dispatch/award': () => renderDispatchAwardPage(),
   '/fcs/dispatch/exceptions': () => renderDispatchExceptionsPage(),
   '/fcs/progress/board': () => renderProgressBoardPage(),
   '/fcs/progress/exceptions': () => renderProgressExceptionsPage(),

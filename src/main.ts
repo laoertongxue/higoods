@@ -91,10 +91,6 @@ import {
   isDispatchTendersDialogOpen,
 } from './pages/dispatch-tenders'
 import {
-  handleDispatchAwardEvent,
-  isDispatchAwardDialogOpen,
-} from './pages/dispatch-award'
-import {
   handleDispatchExceptionsEvent,
   isDispatchExceptionsDialogOpen,
 } from './pages/dispatch-exceptions'
@@ -167,7 +163,6 @@ function dispatchPageEvent(target: Element): boolean {
     handleHistoryEvent(eventTarget) ||
     handleDispatchBoardEvent(eventTarget) ||
     handleDispatchTendersEvent(eventTarget) ||
-    handleDispatchAwardEvent(eventTarget) ||
     handleDispatchExceptionsEvent(eventTarget) ||
     handleProgressBoardEvent(eventTarget) ||
     handleProgressExceptionsEvent(eventTarget) ||
@@ -513,14 +508,6 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.tenderAction = 'close-dialog'
     handleDispatchTendersEvent(fakeButton)
-    render()
-    return
-  }
-
-  if (isDispatchAwardDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.awardAction = 'close-dialog'
-    handleDispatchAwardEvent(fakeButton)
     render()
     return
   }
