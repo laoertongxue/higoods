@@ -212,9 +212,46 @@ function closeMobileSidebar(): void {
   }
 }
 
+function hasDatasetAction(node: HTMLElement): boolean {
+  return Object.keys(node.dataset).some((key) => key === 'action' || key.endsWith('Action'))
+}
+
+function hasDatasetFieldLike(node: HTMLElement): boolean {
+  return Object.keys(node.dataset).some(
+    (key) => key === 'field' || key === 'filter' || key.endsWith('Field') || key.endsWith('Filter'),
+  )
+}
+
+function shouldBypassClickDispatch(target: Element): boolean {
+  const controlNode = target.closest<HTMLElement>('input, textarea, select, option')
+  if (!controlNode) return false
+
+  const actionBound = hasDatasetAction(controlNode)
+
+  // Let native select keep its default open/select behavior.
+  if (controlNode instanceof HTMLSelectElement || controlNode instanceof HTMLOptionElement) return true
+  if (controlNode.closest('select') instanceof HTMLSelectElement) return true
+
+  if (controlNode instanceof HTMLTextAreaElement && !actionBound) return true
+
+  if (controlNode instanceof HTMLInputElement) {
+    const inputType = (controlNode.type || 'text').toLowerCase()
+    const clickDrivenTypes = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'file', 'color'])
+    if (!clickDrivenTypes.has(inputType) && !actionBound) return true
+  }
+
+  // Field/filter controls are synced by global input/change listeners.
+  // Avoid click-triggered full rerender that causes flicker and focus loss.
+  if (hasDatasetFieldLike(controlNode) && !actionBound) return true
+
+  return false
+}
+
 root.addEventListener('click', (event) => {
   const target = event.target
   if (!(target instanceof Element)) return
+
+  if (shouldBypassClickDispatch(target)) return
 
   if (dispatchPageEvent(target)) {
     event.preventDefault()
