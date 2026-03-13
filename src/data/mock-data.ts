@@ -1,0 +1,279 @@
+import type { System, MenuGroup } from './types'
+
+// 系统列表
+export const systems: System[] = [
+  { id: 'pcs', name: '商品中心系统', shortName: 'PCS', defaultPage: '/pcs/plate-making' },
+  { id: 'pms', name: '采购管理系统', shortName: 'PMS', defaultPage: '/pms/purchase-order' },
+  { id: 'fcs', name: '工厂生产协同系统', shortName: 'FCS', defaultPage: '/fcs/workbench/overview' },
+  { id: 'wls', name: '仓储物流系统', shortName: 'WLS', defaultPage: '/wls/inventory' },
+  { id: 'los', name: '直播运营系统', shortName: 'LOS', defaultPage: '/los/live-schedule' },
+  { id: 'oms', name: '订单管理系统', shortName: 'OMS', defaultPage: '/oms/order-list' },
+  { id: 'bfis', name: '业财一体化系统', shortName: 'BFIS', defaultPage: '/bfis/financial-report' },
+  { id: 'dds', name: '数据决策系统', shortName: 'DDS', defaultPage: '/dds/dashboard' },
+]
+
+// 各系统菜单
+export const menusBySystem: Record<string, MenuGroup[]> = {
+  pcs: [
+    {
+      title: '商品管理',
+      items: [
+        { key: 'plate-making', title: '制版任务', icon: 'Layers', href: '/pcs/plate-making' },
+        { key: 'spu-manage', title: 'SPU管理', icon: 'Package', href: '/pcs/spu-manage' },
+        { key: 'sku-manage', title: 'SKU管理', icon: 'Boxes', href: '/pcs/sku-manage' },
+        {
+          key: 'sample',
+          title: '样衣管理',
+          icon: 'Shirt',
+          children: [
+            { key: 'sample-list', title: '样衣列表', href: '/pcs/sample-list' },
+            { key: 'sample-review', title: '样衣评审', href: '/pcs/sample-review' },
+          ],
+        },
+      ],
+    },
+    {
+      title: '基础数据',
+      items: [
+        { key: 'category', title: '类目管理', icon: 'FolderTree', href: '/pcs/category' },
+        { key: 'attribute', title: '属性管理', icon: 'Settings', href: '/pcs/attribute' },
+      ],
+    },
+  ],
+  pms: [
+    {
+      title: '采购管理',
+      items: [
+        { key: 'purchase-order', title: '采购订单', icon: 'FileText', href: '/pms/purchase-order' },
+        { key: 'supplier', title: '供应商管理', icon: 'Building2', href: '/pms/supplier' },
+        { key: 'contract', title: '合同管理', icon: 'FileSignature', href: '/pms/contract' },
+      ],
+    },
+  ],
+  fcs: [
+    {
+      title: '工作台',
+      items: [
+        { key: 'workbench-overview', title: '概览看板', icon: 'LayoutDashboard', href: '/fcs/workbench/overview' },
+        { key: 'workbench-todos', title: '我的待办', icon: 'ListTodo', href: '/fcs/workbench/todos' },
+        { key: 'workbench-risks', title: '风险提醒', icon: 'AlertTriangle', href: '/fcs/workbench/risks' },
+      ],
+    },
+    {
+      title: '工厂池管理',
+      items: [
+        { key: 'factories-profile', title: '工厂档案', icon: 'Factory', href: '/fcs/factories/profile' },
+        { key: 'factories-capability', title: '能力标签', icon: 'Tags', href: '/fcs/factories/capability' },
+        { key: 'factories-settlement', title: '结算信息', icon: 'Receipt', href: '/fcs/factories/settlement' },
+        { key: 'factories-status', title: '工厂状态', icon: 'ToggleLeft', href: '/fcs/factories/status' },
+        { key: 'factories-performance', title: '工厂绩效', icon: 'BarChart3', href: '/fcs/factories/performance' },
+      ],
+    },
+    {
+      title: '生产单管理',
+      items: [
+        { key: 'production-demand-inbox', title: '生产需求接收', icon: 'Inbox', href: '/fcs/production/demand-inbox' },
+        { key: 'production-orders', title: '生产单（台账）', icon: 'FilePlus2', href: '/fcs/production/orders' },
+        { key: 'production-plan', title: '生产单计划', icon: 'CalendarClock', href: '/fcs/production/plan' },
+        { key: 'production-delivery-warehouse', title: '交付仓配置', icon: 'Warehouse', href: '/fcs/production/delivery-warehouse' },
+        { key: 'production-changes', title: '变更管理', icon: 'GitPullRequest', href: '/fcs/production/changes' },
+        { key: 'production-status', title: '状态管理', icon: 'Workflow', href: '/fcs/production/status' },
+      ],
+    },
+    // FCS 菜单基线：任务编排与执行准备模块，当前冻结，非必要不调整。
+    {
+      title: '任务编排与执行准备',
+      items: [
+        { key: 'process-task-breakdown', title: '任务清单', icon: 'Split', href: '/fcs/process/task-breakdown' },
+        { key: 'process-dye-print-orders', title: '染印加工单', icon: 'ClipboardSignature', href: '/fcs/process/dye-print-orders' },
+        { key: 'process-dependencies', title: '任务依赖配置', icon: 'Network', href: '/fcs/process/dependencies' },
+        { key: 'process-material-issue', title: '领料需求下发', icon: 'ClipboardList', href: '/fcs/process/material-issue' },
+        { key: 'process-qc-standards', title: '质检标准下发', icon: 'CheckSquare', href: '/fcs/process/qc-standards' },
+      ],
+    },
+    // FCS 菜单基线更新：因"任务分配方式"与"任务分配看板"业务边界高度重叠，已收口为统一入口"任务分配"；当前菜单继续冻结，非必要不再调整。
+    {
+      title: '任务分配',
+      items: [
+        { key: 'dispatch-board', title: '任务分配', icon: 'LayoutGrid', href: '/fcs/dispatch/board' },
+        { key: 'dispatch-tenders', title: '招标单管理', icon: 'Gavel', href: '/fcs/dispatch/tenders' },
+        { key: 'dispatch-exceptions', title: '异常处理', icon: 'Siren', href: '/fcs/dispatch/exceptions' },
+      ],
+    },
+    {
+      title: '任务进度与异常',
+      items: [
+        { key: 'progress-board', title: '任务进度看板', icon: 'KanbanSquare', href: '/fcs/progress/board' },
+        { key: 'progress-exceptions', title: '异常定位', icon: 'Search', href: '/fcs/progress/exceptions' },
+        { key: 'progress-urge', title: '催办与通知', icon: 'BellRing', href: '/fcs/progress/urge' },
+        { key: 'progress-handover', title: '交接链路追踪', icon: 'ScanLine', href: '/fcs/progress/handover' },
+        { key: 'progress-material', title: '领料进度跟踪', icon: 'PackageSearch', href: '/fcs/progress/material' },
+        { key: 'progress-status-writeback', title: '状态回写', icon: 'RefreshCw', href: '/fcs/progress/status-writeback' },
+      ],
+    },
+    {
+      title: '质量与扣款',
+      items: [
+        { key: 'quality-inspection', title: '质检记录', icon: 'ClipboardCheck', href: '/fcs/quality/qc-records' },
+        { key: 'quality-rework', title: '返工/重做', icon: 'Repeat2', href: '/fcs/quality/rework' },
+        { key: 'quality-penalty', title: '扣款计算', icon: 'Calculator', href: '/fcs/quality/deduction-calc' },
+        { key: 'quality-arbitration', title: '争议仲裁', icon: 'Scale', href: '/fcs/quality/arbitration' },
+        { key: 'quality-penalty-output', title: '扣款结果输出', icon: 'FileDown', href: '/fcs/quality/penalty-output' },
+      ],
+    },
+    {
+      title: '对账与结算',
+      items: [
+        { key: 'settlement-statements', title: '对账单生成', icon: 'FileText', href: '/fcs/settlement/statements' },
+        { key: 'settlement-adjustments', title: '扣款/补差管理', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
+        { key: 'settlement-batches', title: '结算批次进度', icon: 'Layers', href: '/fcs/settlement/batches' },
+        { key: 'settlement-material-statements', title: '领料对账单生成', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
+        { key: 'settlement-payment-sync', title: '打款结果回写', icon: 'ArrowLeftRight', href: '/fcs/settlement/payment-sync' },
+        { key: 'settlement-history', title: '历史对账与核算', icon: 'History', href: '/fcs/settlement/history' },
+      ],
+    },
+    {
+      title: '成衣溯源管理',
+      items: [
+        { key: 'trace-parent-codes', title: '扎包/周转包父码管理', icon: 'Boxes', href: '/fcs/trace/parent-codes' },
+        { key: 'trace-unique-codes', title: '唯一码管理', icon: 'Fingerprint', href: '/fcs/trace/unique-codes' },
+        { key: 'trace-mapping', title: '父子码映射', icon: 'Merge', href: '/fcs/trace/mapping' },
+        { key: 'trace-unit-price', title: '单价追溯查询', icon: 'SearchCheck', href: '/fcs/trace/unit-price' },
+      ],
+    },
+    {
+      title: '产能日历',
+      items: [
+        { key: 'capacity-overview', title: '产能汇总看板', icon: 'LineChart', href: '/fcs/capacity/overview' },
+        { key: 'capacity-risk', title: '任务占用与交付风险', icon: 'TrendingUp', href: '/fcs/capacity/risk' },
+        { key: 'capacity-bottleneck', title: '瓶颈预警', icon: 'AlertOctagon', href: '/fcs/capacity/bottleneck' },
+        { key: 'capacity-constraints', title: '派单/竞价约束', icon: 'Filter', href: '/fcs/capacity/constraints' },
+        { key: 'capacity-policies', title: '调度策略（限额/优先级）', icon: 'Settings2', href: '/fcs/capacity/policies' },
+      ],
+    },
+    {
+      title: '工厂端（PDA）',
+      items: [
+        { key: 'pda-todo', title: '待办', icon: 'Bell', href: '/fcs/pda/notify' },
+        { key: 'pda-task-receive', title: '接单', icon: 'ClipboardList', href: '/fcs/pda/task-receive' },
+        { key: 'pda-exec', title: '执行', icon: 'Play', href: '/fcs/pda/exec' },
+        { key: 'pda-handover', title: '交接', icon: 'ArrowLeftRight', href: '/fcs/pda/handover' },
+        { key: 'pda-settlement', title: '结算', icon: 'Wallet', href: '/fcs/pda/settlement' },
+      ],
+    },
+  ],
+  wls: [
+    {
+      title: '仓储管理',
+      items: [
+        { key: 'inventory', title: '库存管理', icon: 'Archive', href: '/wls/inventory' },
+        { key: 'inbound', title: '入库管理', icon: 'ArrowDownToLine', href: '/wls/inbound' },
+        { key: 'outbound', title: '出库管理', icon: 'ArrowUpFromLine', href: '/wls/outbound' },
+      ],
+    },
+  ],
+  los: [
+    {
+      title: '直播运营',
+      items: [
+        { key: 'live-schedule', title: '直播排期', icon: 'Video', href: '/los/live-schedule' },
+        { key: 'live-room', title: '直播间管理', icon: 'Tv', href: '/los/live-room' },
+        { key: 'anchor', title: '主播管理', icon: 'Users', href: '/los/anchor' },
+      ],
+    },
+  ],
+  oms: [
+    {
+      title: '订单管理',
+      items: [
+        { key: 'order-list', title: '订单列表', icon: 'ShoppingCart', href: '/oms/order-list' },
+        { key: 'return-order', title: '退换货管理', icon: 'RotateCcw', href: '/oms/return-order' },
+        { key: 'after-sale', title: '售后服务', icon: 'Headphones', href: '/oms/after-sale' },
+      ],
+    },
+  ],
+  bfis: [
+    {
+      title: '财务管理',
+      items: [
+        { key: 'financial-report', title: '财务报表', icon: 'BarChart3', href: '/bfis/financial-report' },
+        { key: 'cost-analysis', title: '成本分析', icon: 'PieChart', href: '/bfis/cost-analysis' },
+        { key: 'settlement', title: '结算管理', icon: 'Wallet', href: '/bfis/settlement' },
+      ],
+    },
+  ],
+  dds: [
+    {
+      title: '数据分析',
+      items: [
+        { key: 'dashboard', title: '数据看板', icon: 'LayoutDashboard', href: '/dds/dashboard' },
+        { key: 'report', title: '报表中心', icon: 'FileBarChart', href: '/dds/report' },
+        { key: 'bi', title: 'BI分析', icon: 'TrendingUp', href: '/dds/bi' },
+      ],
+    },
+  ],
+}
+
+// 制版任务列表 Mock 数据
+export const plateMakingTasks = [
+  {
+    id: 'PM202401001',
+    title: '春季新款连衣裙制版',
+    status: 'confirmed',
+    statusText: '已确认',
+    project: 'PRJ-2024-001 春季女装项目',
+    source: 'SPU需求',
+    targetSize: 'S-XL',
+    owner: '张三',
+    deadline: '2024-02-15',
+    updatedAt: '2024-01-20 14:30',
+  },
+  {
+    id: 'PM202401002',
+    title: '基础T恤改版',
+    status: 'in-progress',
+    statusText: '进行中',
+    project: 'PRJ-2024-002 基础款项目',
+    source: '改版需求',
+    targetSize: 'XS-XXL',
+    owner: '李四',
+    deadline: '2024-02-20',
+    updatedAt: '2024-01-21 09:15',
+  },
+  {
+    id: 'PM202401003',
+    title: '夏季短裤版型开发',
+    status: 'pending-review',
+    statusText: '待评审',
+    project: 'PRJ-2024-003 夏季男装项目',
+    source: 'SPU需求',
+    targetSize: 'M-3XL',
+    owner: '王五',
+    deadline: '2024-02-25',
+    updatedAt: '2024-01-22 16:45',
+  },
+  {
+    id: 'PM202401004',
+    title: '秋季外套版型',
+    status: 'blocked',
+    statusText: '阻塞',
+    project: 'PRJ-2024-004 秋季系列',
+    source: '原创设计',
+    targetSize: 'S-XXL',
+    owner: '赵六',
+    deadline: '2024-03-01',
+    updatedAt: '2024-01-23 11:00',
+  },
+  {
+    id: 'PM202401005',
+    title: '儿童卫衣制版',
+    status: 'completed',
+    statusText: '已完成',
+    project: 'PRJ-2024-005 童装项目',
+    source: 'SPU需求',
+    targetSize: '110-160',
+    owner: '张三',
+    deadline: '2024-01-30',
+    updatedAt: '2024-01-25 10:20',
+  },
+]
