@@ -52,6 +52,7 @@ import {
   handleProcessPrintOrdersEvent,
   isProcessPrintOrdersDialogOpen,
 } from './pages/process-print-orders'
+import { handlePcsOverviewEvent } from './pages/pcs-workspace-overview'
 import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
@@ -166,6 +167,7 @@ function dispatchPageEvent(target: Element): boolean {
     handleTechPackEvent(eventTarget) ||
     handleProcessDyeRequirementsEvent(eventTarget) ||
     handleProcessPrintRequirementsEvent(eventTarget) ||
+    handlePcsOverviewEvent(eventTarget) ||
     handleProcessDyeOrdersEvent(eventTarget) ||
     handleProcessPrintOrdersEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||

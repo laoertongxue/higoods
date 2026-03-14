@@ -1,6 +1,7 @@
 import { menusBySystem } from '../data/app-shell-config'
 import { renderFactoryProfilePage } from '../pages/factory-profile'
 import { renderOverviewPage, renderRisksPage, renderTodosPage } from '../pages/workbench'
+import { renderPcsOverviewPage } from '../pages/pcs-workspace-overview'
 import { renderPlaceholderPage, renderRouteNotFound } from '../pages/placeholder'
 import { renderCapabilityPage } from '../pages/capability'
 import { renderFactoryStatusPage } from '../pages/factory-status'
@@ -87,6 +88,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/factories/performance': () => renderFactoryPerformancePage(),
   '/fcs/factories/settlement': () => renderSettlementListPage(),
   '/fcs/workbench/overview': () => renderOverviewPage(),
+  '/pcs/workspace/overview': () => renderPcsOverviewPage(),
   '/fcs/workbench/todos': () => renderTodosPage(),
   '/fcs/workbench/risks': () => renderRisksPage(),
   '/fcs/capacity/overview': () => renderCapacityOverviewPage(),
