@@ -4,6 +4,9 @@ import { renderOverviewPage, renderRisksPage, renderTodosPage } from '../pages/w
 import { renderPcsOverviewPage } from '../pages/pcs-workspace-overview'
 import { renderPcsTodosPage } from '../pages/pcs-workspace-todos'
 import { renderPcsAlertsPage } from '../pages/pcs-workspace-alerts'
+import { renderPcsProjectsPage } from '../pages/pcs-projects'
+import { renderPcsProjectDetailPage } from '../pages/pcs-project-detail'
+import { renderPcsProjectWorkItemDetailPage } from '../pages/pcs-project-work-item-detail'
 import { renderPlaceholderPage, renderRouteNotFound } from '../pages/placeholder'
 import { renderCapabilityPage } from '../pages/capability'
 import { renderFactoryStatusPage } from '../pages/factory-status'
@@ -93,6 +96,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/workspace/overview': () => renderPcsOverviewPage(),
   '/pcs/workspace/todos': () => renderPcsTodosPage(),
   '/pcs/workspace/alerts': () => renderPcsAlertsPage(),
+  '/pcs/projects': () => renderPcsProjectsPage(),
   '/fcs/workbench/todos': () => renderTodosPage(),
   '/fcs/workbench/risks': () => renderRisksPage(),
   '/fcs/capacity/overview': () => renderCapacityOverviewPage(),
@@ -135,6 +139,24 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/progress/urge': () => renderProgressUrgePage(),
   '/fcs/progress/status-writeback': () => renderProgressStatusWritebackPage(),
   '/fcs/progress/material': () => renderProgressMaterialPage(),
+  '/fcs/craft/cutting': () =>
+    renderPlaceholderPage(
+      '裁片管理',
+      '工艺工厂运营系统入口，后续承接专业后台型工厂细运营。',
+      '工艺工厂运营系统',
+    ),
+  '/fcs/craft/printing': () =>
+    renderPlaceholderPage(
+      '印花管理',
+      '工艺工厂运营系统入口，后续承接专业后台型工厂细运营。',
+      '工艺工厂运营系统',
+    ),
+  '/fcs/craft/dyeing': () =>
+    renderPlaceholderPage(
+      '染色管理',
+      '工艺工厂运营系统入口，后续承接专业后台型工厂细运营。',
+      '工艺工厂运营系统',
+    ),
   '/fcs/production/create': () =>
     renderPlaceholderPage(
       '生成生产单',
@@ -159,6 +181,14 @@ const exactRoutes: Record<string, RouteRenderer> = {
 }
 
 const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) => string }> = [
+  {
+    pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,
+    render: (match) => renderPcsProjectWorkItemDetailPage(match[1], match[2]),
+  },
+  {
+    pattern: /^\/pcs\/projects\/([^/]+)$/,
+    render: (match) => renderPcsProjectDetailPage(match[1]),
+  },
   {
     pattern: /^\/fcs\/production\/orders\/([^/]+)$/,
     render: (match) => renderProductionOrderDetailPage(match[1]),

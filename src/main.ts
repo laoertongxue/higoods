@@ -62,6 +62,18 @@ import {
   isPcsAlertsDialogOpen,
 } from './pages/pcs-workspace-alerts'
 import {
+  handlePcsProjectsEvent,
+  isPcsProjectsDialogOpen,
+} from './pages/pcs-projects'
+import {
+  handlePcsProjectDetailEvent,
+  isPcsProjectDetailDialogOpen,
+} from './pages/pcs-project-detail'
+import {
+  handlePcsProjectWorkItemDetailEvent,
+  isPcsProjectWorkItemDetailDialogOpen,
+} from './pages/pcs-project-work-item-detail'
+import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
 } from './pages/task-breakdown'
@@ -178,6 +190,9 @@ function dispatchPageEvent(target: Element): boolean {
     handlePcsOverviewEvent(eventTarget) ||
     handlePcsTodosEvent(eventTarget) ||
     handlePcsAlertsEvent(eventTarget) ||
+    handlePcsProjectsEvent(eventTarget) ||
+    handlePcsProjectDetailEvent(eventTarget) ||
+    handlePcsProjectWorkItemDetailEvent(eventTarget) ||
     handleProcessDyeOrdersEvent(eventTarget) ||
     handleProcessPrintOrdersEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||
@@ -500,6 +515,30 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.pcsAlertAction = 'close-all'
     handlePcsAlertsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsProjectsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsProjectAction = 'close-dialog'
+    handlePcsProjectsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsProjectDetailDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsProjectDetailAction = 'close-dialog'
+    handlePcsProjectDetailEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsProjectWorkItemDetailDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsWorkItemAction = 'close-dialog'
+    handlePcsProjectWorkItemDetailEvent(fakeButton)
     render()
     return
   }
