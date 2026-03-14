@@ -45,6 +45,14 @@ import {
   isProcessPrintRequirementsDialogOpen,
 } from './pages/process-print-requirements'
 import {
+  handleProcessDyeOrdersEvent,
+  isProcessDyeOrdersDialogOpen,
+} from './pages/process-dye-orders'
+import {
+  handleProcessPrintOrdersEvent,
+  isProcessPrintOrdersDialogOpen,
+} from './pages/process-print-orders'
+import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
 } from './pages/task-breakdown'
@@ -158,6 +166,8 @@ function dispatchPageEvent(target: Element): boolean {
     handleTechPackEvent(eventTarget) ||
     handleProcessDyeRequirementsEvent(eventTarget) ||
     handleProcessPrintRequirementsEvent(eventTarget) ||
+    handleProcessDyeOrdersEvent(eventTarget) ||
+    handleProcessPrintOrdersEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||
     handleMaterialIssueEvent(eventTarget) ||
     handleQcStandardsEvent(eventTarget) ||
@@ -446,6 +456,22 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.printReqAction = 'close-all'
     handleProcessPrintRequirementsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isProcessDyeOrdersDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.dyeOrderAction = 'close-all'
+    handleProcessDyeOrdersEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isProcessPrintOrdersDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.printOrderAction = 'close-all'
+    handleProcessPrintOrdersEvent(fakeButton)
     render()
     return
   }

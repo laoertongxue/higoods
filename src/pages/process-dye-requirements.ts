@@ -1,4 +1,5 @@
 import { appStore } from '../state/store'
+import { setProcessCreateDemandIntent } from './process-order-create-bridge'
 import { escapeHtml } from '../utils'
 
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
@@ -49,6 +50,7 @@ interface DyeRequirementDemand {
 }
 
 type StatusFilter = '全部' | DemandStatusZh
+type PageSize = 10 | 20 | 50
 
 interface DyeRequirementsState {
   keyword: string
@@ -57,7 +59,11 @@ interface DyeRequirementsState {
   selectedDemandId: string | null
   sourceFocusedDemandId: string | null
   batchViewerDemandId: string | null
+  page: number
+  pageSize: PageSize
 }
+
+const PAGE_SIZE_OPTIONS: PageSize[] = [10, 20, 50]
 
 const RULES = [
   '自动生成：生产单依据技术包自动生成染色需求单',
@@ -66,7 +72,7 @@ const RULES = [
   '全量满足门禁：仅全量满足后才能进入下一工序',
 ]
 
-const DEMANDS: DyeRequirementDemand[] = [
+const DEMAND_SEEDS: DyeRequirementDemand[] = [
   {
     demandId: 'RSXQ20260314001',
     sourceProductionOrderId: 'PO-202603-1018',
@@ -263,6 +269,48 @@ const DEMANDS: DyeRequirementDemand[] = [
   },
 ]
 
+function buildDyeDemands(total: number): DyeRequirementDemand[] {
+  const rows = [...DEMAND_SEEDS]
+  let cursor = 0
+  while (rows.length < total) {
+    const seed = DEMAND_SEEDS[cursor % DEMAND_SEEDS.length]
+    const serial = 20000 + rows.length + 1
+    const demandId = `RSXQ202603${String(serial).padStart(5, '0')}`
+    const sourceProductionOrderId = `PO-202603-${1100 + rows.length}`
+    const day = 14 + Math.floor(rows.length / 4)
+    const minute = (rows.length * 7) % 60
+    const sources = seed.sources.map((source, idx) => {
+      const sourceSerial = 30000 + rows.length * 10 + idx + 1
+      const batchSerial = 40000 + rows.length * 10 + idx + 1
+      return {
+        ...source,
+        processOrderNo: `RSJG202603${String(sourceSerial).padStart(5, '0')}`,
+        batchNo: `RSPH202603${String(batchSerial).padStart(5, '0')}`,
+        linkedAt: `2026-03-${String(day).padStart(2, '0')} 10:${String(minute).padStart(2, '0')}:00`,
+      }
+    })
+    const linkedOrders = seed.linkedOrders.map((order, idx) => {
+      const orderSerial = 30000 + rows.length * 10 + idx + 1
+      return {
+        ...order,
+        processOrderNo: `RSJG202603${String(orderSerial).padStart(5, '0')}`,
+      }
+    })
+    rows.push({
+      ...seed,
+      demandId,
+      sourceProductionOrderId,
+      updatedAt: `2026-03-${String(day).padStart(2, '0')} 13:${String(minute).padStart(2, '0')}:00`,
+      sources,
+      linkedOrders,
+    })
+    cursor += 1
+  }
+  return rows
+}
+
+const DEMANDS: DyeRequirementDemand[] = buildDyeDemands(16)
+
 const STATUS_CLASS: Record<DemandStatusZh, string> = {
   待满足: 'border-slate-200 bg-slate-50 text-slate-700',
   部分满足: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -277,6 +325,8 @@ const state: DyeRequirementsState = {
   selectedDemandId: null,
   sourceFocusedDemandId: null,
   batchViewerDemandId: null,
+  page: 1,
+  pageSize: 10,
 }
 
 function formatQty(qty: number, unit: Unit): string {
@@ -312,13 +362,17 @@ function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
 }
 
+function closePanels(): void {
+  state.selectedDemandId = null
+  state.sourceFocusedDemandId = null
+  state.batchViewerDemandId = null
+}
+
 function getFilteredDemands(): DyeRequirementDemand[] {
   const keyword = state.keyword.trim().toLowerCase()
-
   return DEMANDS.filter((demand) => {
     const status = deriveStatus(demand)
     if (state.statusFilter !== '全部' && status !== state.statusFilter) return false
-
     if (!keyword) return true
 
     const haystack = [
@@ -337,18 +391,34 @@ function getFilteredDemands(): DyeRequirementDemand[] {
   })
 }
 
+function getPagedDemands() {
+  const rows = getFilteredDemands()
+  const total = rows.length
+  const pageSize = state.pageSize
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  if (state.page > totalPages) state.page = totalPages
+  const page = Math.max(1, state.page)
+  const start = (page - 1) * pageSize
+  const end = start + pageSize
+  return {
+    rows: rows.slice(start, end),
+    total,
+    totalPages,
+    page,
+    pageSize,
+  }
+}
+
 function getDemandById(demandId: string | null): DyeRequirementDemand | null {
   if (!demandId) return null
   return DEMANDS.find((item) => item.demandId === demandId) ?? null
 }
 
 function getStats() {
-  const all = DEMANDS
-  const statusList = all.map((item) => deriveStatus(item))
+  const statusList = DEMANDS.map((item) => deriveStatus(item))
   const fullSatisfied = statusList.filter((item) => item === '已满足' || item === '已完成交接').length
-
   return {
-    total: all.length,
+    total: DEMANDS.length,
     pending: statusList.filter((item) => item === '待满足').length,
     partial: statusList.filter((item) => item === '部分满足').length,
     fullSatisfied,
@@ -357,7 +427,6 @@ function getStats() {
 
 function scheduleScrollToSourcesSection(): void {
   if (typeof window === 'undefined') return
-
   window.setTimeout(() => {
     const section = document.querySelector<HTMLElement>('[data-dye-req-section="sources"]')
     section?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -366,7 +435,6 @@ function scheduleScrollToSourcesSection(): void {
 
 function renderStatsSection(): string {
   const stats = getStats()
-
   return `
     <section class="grid gap-3 md:grid-cols-4">
       <article class="rounded-lg border bg-card px-4 py-3">
@@ -393,7 +461,9 @@ function renderSourceLines(
   demand: DyeRequirementDemand,
   options?: { truncate?: boolean; lineLimit?: number },
 ): string {
-  if (demand.sources.length === 0) return '<span class="text-xs text-muted-foreground">-</span>'
+  if (demand.sources.length === 0) {
+    return '<span class="text-xs text-muted-foreground">暂无满足来源</span>'
+  }
 
   const lineLimit = options?.lineLimit ?? 2
   const expanded = state.expandedSourceIds[demand.demandId] ?? false
@@ -408,7 +478,6 @@ function renderSourceLines(
             <button
               class="block w-full rounded px-1 py-0.5 text-left font-mono text-xs hover:bg-muted"
               data-dye-req-action="open-source"
-              data-dye-req-stop="true"
               data-demand-id="${escapeHtml(demand.demandId)}"
             >
               ${escapeHtml(formatSourceLine(source))}
@@ -422,7 +491,6 @@ function renderSourceLines(
             <button
               class="text-xs text-blue-600 hover:text-blue-700"
               data-dye-req-action="toggle-source-expand"
-              data-dye-req-stop="true"
               data-demand-id="${escapeHtml(demand.demandId)}"
             >
               ${expanded ? '收起来源' : `查看更多来源（共${demand.sources.length}条）`}
@@ -460,28 +528,10 @@ function renderDemandRow(demand: DyeRequirementDemand): string {
             <div><span>需求数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(demand.requiredQty, demand.unit))}</span></div>
             <div class="md:col-span-2 xl:col-span-2"><span>染色要求：</span><span class="text-foreground">${escapeHtml(demand.dyeRequirement)}</span></div>
           </div>
-          <div class="mt-3 flex flex-wrap gap-2 border-t pt-3" data-dye-req-stop="true">
-            <button
-              class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
-              data-dye-req-action="open-detail"
-              data-demand-id="${escapeHtml(demand.demandId)}"
-            >
-              查看详情
-            </button>
-            <button
-              class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50"
-              data-dye-req-action="create-order"
-              data-demand-id="${escapeHtml(demand.demandId)}"
-            >
-              按需求创建加工单
-            </button>
-            <button
-              class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
-              data-dye-req-action="open-batches"
-              data-demand-id="${escapeHtml(demand.demandId)}"
-            >
-              查看关联批次
-            </button>
+          <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-req-action="open-detail" data-demand-id="${escapeHtml(demand.demandId)}">查看详情</button>
+            <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-dye-req-action="create-order" data-demand-id="${escapeHtml(demand.demandId)}">按需求创建加工单</button>
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-req-action="open-batches" data-demand-id="${escapeHtml(demand.demandId)}">查看关联批次</button>
           </div>
         </div>
 
@@ -517,16 +567,39 @@ function renderDemandRow(demand: DyeRequirementDemand): string {
   `
 }
 
-function renderListSection(): string {
-  const rows = getFilteredDemands()
+function renderPagination(): string {
+  const paging = getPagedDemands()
+  const hasData = paging.total > 0
+  const from = hasData ? (paging.page - 1) * paging.pageSize + 1 : 0
+  const to = hasData ? Math.min(paging.page * paging.pageSize, paging.total) : 0
+  const pageButtons = Array.from({ length: paging.totalPages }, (_, idx) => idx + 1)
 
+  return `
+    <section class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-sm">
+      <div class="text-muted-foreground">共 ${paging.total} 条，当前 ${from}-${to}</div>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="text-xs text-muted-foreground">每页</label>
+        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-dye-req-field="pageSize">
+          ${PAGE_SIZE_OPTIONS.map((size) => `<option value="${size}" ${paging.pageSize === size ? 'selected' : ''}>${size}</option>`).join('')}
+        </select>
+        <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-dye-req-action="page-prev" ${paging.page <= 1 ? 'disabled' : ''}>上一页</button>
+        ${pageButtons.map((page) => `<button class="inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs ${page === paging.page ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'}" data-dye-req-action="page-to" data-page="${page}">${page}</button>`).join('')}
+        <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-dye-req-action="page-next" ${paging.page >= paging.totalPages ? 'disabled' : ''}>下一页</button>
+      </div>
+    </section>
+  `
+}
+
+function renderListSection(): string {
+  const paging = getPagedDemands()
   return `
     <section class="space-y-3">
       ${
-        rows.length === 0
-          ? '<div class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">暂无匹配的染色需求单</div>'
-          : rows.map((row) => renderDemandRow(row)).join('')
+        paging.rows.length === 0
+          ? '<div class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">暂无匹配数据</div>'
+          : paging.rows.map((row) => renderDemandRow(row)).join('')
       }
+      ${renderPagination()}
     </section>
   `
 }
@@ -558,11 +631,19 @@ function renderDetailDrawer(): string {
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-dye-req-action="close-drawer" aria-label="关闭"></button>
       <aside class="absolute inset-y-0 right-0 w-full overflow-y-auto border-l bg-background shadow-2xl sm:max-w-[760px]">
-        <header class="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-6 py-4">
-          <h2 class="text-lg font-semibold">染色需求单详情</h2>
-          <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-dye-req-action="close-drawer" aria-label="关闭">
-            <i data-lucide="x" class="h-4 w-4"></i>
-          </button>
+        <header class="sticky top-0 z-10 border-b bg-background px-6 py-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">染色需求单详情</h2>
+              <p class="mt-1 text-xs text-muted-foreground">需求对象、满足进度与来源追溯</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-dye-req-action="create-order" data-demand-id="${escapeHtml(demand.demandId)}">按需求创建加工单</button>
+              <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-dye-req-action="close-drawer" aria-label="关闭">
+                <i data-lucide="x" class="h-4 w-4"></i>
+              </button>
+            </div>
+          </div>
         </header>
 
         <div class="space-y-4 px-6 py-5">
@@ -594,24 +675,10 @@ function renderDetailDrawer(): string {
           <section class="rounded-lg border bg-card p-4">
             <h3 class="mb-3 text-sm font-semibold">满足进度</h3>
             <div class="space-y-2 text-sm">
-              <div class="flex items-center justify-between">
-                <span class="text-muted-foreground">已满足需求</span>
-                <span class="font-medium">${escapeHtml(formatQty(satisfiedQty, demand.unit))}</span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-muted-foreground">待满足数量</span>
-                <span class="${remainingQty > 0 ? 'font-medium text-amber-700' : 'font-medium text-green-700'}">${escapeHtml(formatQty(remainingQty, demand.unit))}</span>
-              </div>
-              <div>
-                <div class="mb-1 flex items-center justify-between">
-                  <span class="text-muted-foreground">满足率</span>
-                  <span class="text-xs">${rate}%</span>
-                </div>
-                ${renderProgressBar(rate)}
-              </div>
-              <p class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                规则提示：仅全量满足后才能进入下一工序。
-              </p>
+              <div class="flex items-center justify-between"><span class="text-muted-foreground">已满足需求</span><span class="font-medium">${escapeHtml(formatQty(satisfiedQty, demand.unit))}</span></div>
+              <div class="flex items-center justify-between"><span class="text-muted-foreground">待满足数量</span><span class="${remainingQty > 0 ? 'font-medium text-amber-700' : 'font-medium text-green-700'}">${escapeHtml(formatQty(remainingQty, demand.unit))}</span></div>
+              <div><div class="mb-1 flex items-center justify-between"><span class="text-muted-foreground">满足率</span><span class="text-xs">${rate}%</span></div>${renderProgressBar(rate)}</div>
+              <p class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">规则提示：仅全量满足后才能进入下一工序。</p>
             </div>
           </section>
 
@@ -619,34 +686,14 @@ function renderDetailDrawer(): string {
             <h3 class="mb-3 text-sm font-semibold">已满足数量构成</h3>
             ${
               demand.sources.length === 0
-                ? '<p class="text-sm text-muted-foreground">当前暂无关联回货批次。</p>'
+                ? '<p class="text-sm text-muted-foreground">暂无回货批次</p>'
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[900px] text-sm">
-                      <thead>
-                        <tr class="border-b bg-muted/40 text-left">
-                          <th class="px-3 py-2 font-medium">染色加工单号</th>
-                          <th class="px-3 py-2 font-medium">回货批次号</th>
-                          <th class="px-3 py-2 font-medium">本需求关联数量</th>
-                          <th class="px-3 py-2 font-medium">关联时间</th>
-                          <th class="px-3 py-2 font-medium">关联后累计满足数量</th>
-                          <th class="px-3 py-2 font-medium">批次状态</th>
-                        </tr>
-                      </thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">染色加工单号</th><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">本需求关联数量</th><th class="px-3 py-2 font-medium">关联时间</th><th class="px-3 py-2 font-medium">关联后累计满足数量</th><th class="px-3 py-2 font-medium">批次状态</th></tr></thead>
                       <tbody>
                         ${demand.sources
-                          .map(
-                            (source) => `
-                              <tr class="border-b last:border-b-0">
-                                <td class="px-3 py-2 font-mono text-xs">${escapeHtml(source.processOrderNo)}</td>
-                                <td class="px-3 py-2 font-mono text-xs">${escapeHtml(source.batchNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(formatQty(source.qty, source.unit))}</td>
-                                <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(source.linkedAt)}</td>
-                                <td class="px-3 py-2">${escapeHtml(formatQty(source.cumulativeSatisfiedQty, source.unit))}</td>
-                                <td class="px-3 py-2">${renderBadge(source.batchStatus, 'border-slate-200 bg-slate-50 text-slate-700')}</td>
-                              </tr>
-                            `,
-                          )
+                          .map((source) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(source.processOrderNo)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(source.batchNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(source.qty, source.unit))}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(source.linkedAt)}</td><td class="px-3 py-2">${escapeHtml(formatQty(source.cumulativeSatisfiedQty, source.unit))}</td><td class="px-3 py-2">${renderBadge(source.batchStatus, 'border-slate-200 bg-slate-50 text-slate-700')}</td></tr>`)
                           .join('')}
                       </tbody>
                     </table>
@@ -658,14 +705,7 @@ function renderDetailDrawer(): string {
           <section class="rounded-lg border bg-card p-4">
             <h3 class="mb-3 text-sm font-semibold">下一工序放行</h3>
             <div class="space-y-2 text-sm">
-              <div class="flex items-center gap-2">
-                <span class="text-muted-foreground">放行结果：</span>
-                ${
-                  releaseAllowed
-                    ? renderBadge('允许', 'border-green-200 bg-green-50 text-green-700')
-                    : renderBadge('不允许', 'border-red-200 bg-red-50 text-red-700')
-                }
-              </div>
+              <div class="flex items-center gap-2"><span class="text-muted-foreground">放行结果：</span>${releaseAllowed ? renderBadge('允许', 'border-green-200 bg-green-50 text-green-700') : renderBadge('不允许', 'border-red-200 bg-red-50 text-red-700')}</div>
               <div><span class="text-muted-foreground">判定依据：</span>${releaseAllowed ? '已全量满足需求数量' : '未达到全量满足要求'}</div>
               <div><span class="text-muted-foreground">当前差额：</span>${escapeHtml(formatQty(remainingQty, demand.unit))}</div>
               <div><span class="text-muted-foreground">${releaseAllowed ? '可进入下一工序：' : '阻塞原因：'}</span>${escapeHtml(releaseAllowed ? demand.nextProcessName : `仍有${remainingQty}${demand.unit}待满足，无法放行`)}</div>
@@ -680,28 +720,10 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[720px] text-sm">
-                      <thead>
-                        <tr class="border-b bg-muted/40 text-left">
-                          <th class="px-3 py-2 font-medium">染色加工单号</th>
-                          <th class="px-3 py-2 font-medium">创建方式</th>
-                          <th class="px-3 py-2 font-medium">染色工厂</th>
-                          <th class="px-3 py-2 font-medium">当前状态</th>
-                          <th class="px-3 py-2 font-medium">已回货数量</th>
-                        </tr>
-                      </thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">染色加工单号</th><th class="px-3 py-2 font-medium">创建方式</th><th class="px-3 py-2 font-medium">染色工厂</th><th class="px-3 py-2 font-medium">当前状态</th><th class="px-3 py-2 font-medium">已回货数量</th></tr></thead>
                       <tbody>
                         ${demand.linkedOrders
-                          .map(
-                            (order) => `
-                              <tr class="border-b last:border-b-0">
-                                <td class="px-3 py-2 font-mono text-xs">${escapeHtml(order.processOrderNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(order.createMode)}</td>
-                                <td class="px-3 py-2">${escapeHtml(order.dyeFactoryName)}</td>
-                                <td class="px-3 py-2">${renderBadge(order.status, 'border-slate-200 bg-slate-50 text-slate-700')}</td>
-                                <td class="px-3 py-2">${escapeHtml(formatQty(order.returnedQty, order.unit))}</td>
-                              </tr>
-                            `,
-                          )
+                          .map((order) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(order.processOrderNo)}</td><td class="px-3 py-2">${escapeHtml(order.createMode)}</td><td class="px-3 py-2">${escapeHtml(order.dyeFactoryName)}</td><td class="px-3 py-2">${renderBadge(order.status, 'border-slate-200 bg-slate-50 text-slate-700')}</td><td class="px-3 py-2">${escapeHtml(formatQty(order.returnedQty, order.unit))}</td></tr>`)
                           .join('')}
                       </tbody>
                     </table>
@@ -718,7 +740,6 @@ function renderDetailDrawer(): string {
 function renderBatchViewer(): string {
   const demand = getDemandById(state.batchViewerDemandId)
   if (!demand) return ''
-
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="w-full max-w-3xl rounded-lg border bg-background shadow-2xl">
@@ -732,28 +753,14 @@ function renderBatchViewer(): string {
           <p class="text-sm text-muted-foreground">需求单号：<span class="font-mono">${escapeHtml(demand.demandId)}</span></p>
           ${
             demand.sources.length === 0
-              ? '<p class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">当前暂无关联回货批次</p>'
+              ? '<p class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无回货批次</p>'
               : `
                 <div class="overflow-x-auto rounded-md border">
                   <table class="w-full min-w-[760px] text-sm">
-                    <thead>
-                      <tr class="border-b bg-muted/40 text-left">
-                        <th class="px-3 py-2 font-medium">加工单号｜批次号｜数量</th>
-                        <th class="px-3 py-2 font-medium">关联时间</th>
-                        <th class="px-3 py-2 font-medium">批次状态</th>
-                      </tr>
-                    </thead>
+                    <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">加工单号｜批次号｜数量</th><th class="px-3 py-2 font-medium">关联时间</th><th class="px-3 py-2 font-medium">批次状态</th></tr></thead>
                     <tbody>
                       ${demand.sources
-                        .map(
-                          (source) => `
-                            <tr class="border-b last:border-b-0">
-                              <td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatSourceLine(source))}</td>
-                              <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(source.linkedAt)}</td>
-                              <td class="px-3 py-2">${renderBadge(source.batchStatus, 'border-slate-200 bg-slate-50 text-slate-700')}</td>
-                            </tr>
-                          `,
-                        )
+                        .map((source) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatSourceLine(source))}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(source.linkedAt)}</td><td class="px-3 py-2">${renderBadge(source.batchStatus, 'border-slate-200 bg-slate-50 text-slate-700')}</td></tr>`)
                         .join('')}
                     </tbody>
                   </table>
@@ -768,12 +775,13 @@ function renderBatchViewer(): string {
 
 export function renderProcessDyeRequirementsPage(): string {
   const statusOptions: StatusFilter[] = ['全部', '待满足', '部分满足', '已满足', '已完成交接']
-
   return `
     <div class="space-y-4">
-      <header class="space-y-1">
-        <h1 class="text-xl font-semibold">染色需求单</h1>
-        <p class="text-sm text-muted-foreground">依据生产单技术包自动生成的染色需求，按回货批次关联满足后完成</p>
+      <header class="flex flex-wrap items-start justify-between gap-3">
+        <div class="space-y-1">
+          <h1 class="text-xl font-semibold">染色需求单</h1>
+          <p class="text-sm text-muted-foreground">依据生产单技术包自动生成的染色需求，按回货批次关联满足后完成</p>
+        </div>
       </header>
 
       <section class="rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -788,25 +796,15 @@ export function renderProcessDyeRequirementsPage(): string {
         <div class="flex flex-wrap items-end gap-3">
           <div class="min-w-[240px] flex-1">
             <label class="mb-1 block text-xs text-muted-foreground">关键词</label>
-            <input
-              class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              placeholder="需求单号 / 生产单号 / 商品 / 物料"
-              value="${escapeHtml(state.keyword)}"
-              data-dye-req-field="keyword"
-            />
+            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="需求单号 / 生产单号 / 商品 / 物料" value="${escapeHtml(state.keyword)}" data-dye-req-field="keyword" />
           </div>
           <div class="w-[180px]">
             <label class="mb-1 block text-xs text-muted-foreground">状态</label>
             <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-dye-req-field="statusFilter">
-              ${statusOptions
-                .map((status) => `<option value="${status}" ${state.statusFilter === status ? 'selected' : ''}>${status}</option>`)
-                .join('')}
+              ${statusOptions.map((status) => `<option value="${status}" ${state.statusFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
             </select>
           </div>
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-dye-req-action="reset-filters">
-            <i data-lucide="rotate-ccw" class="mr-1.5 h-4 w-4"></i>
-            重置
-          </button>
+          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-dye-req-action="reset-filters"><i data-lucide="rotate-ccw" class="mr-1.5 h-4 w-4"></i>重置</button>
         </div>
       </section>
 
@@ -820,30 +818,51 @@ export function renderProcessDyeRequirementsPage(): string {
 function openDetail(demandId: string, focusSources: boolean): void {
   state.selectedDemandId = demandId
   state.sourceFocusedDemandId = focusSources ? demandId : null
-  if (focusSources) {
-    scheduleScrollToSourcesSection()
-  }
+  if (focusSources) scheduleScrollToSourcesSection()
+}
+
+function createOrderFromDemand(demandId: string): void {
+  const demand = getDemandById(demandId)
+  if (!demand) return
+  setProcessCreateDemandIntent({
+    kind: 'dye',
+    demandId: demand.demandId,
+    sourceProductionOrderId: demand.sourceProductionOrderId,
+    materialCode: demand.materialCode,
+    materialName: demand.materialName,
+    requiredQty: demand.requiredQty,
+    unit: demand.unit,
+    sourceSummary: `由需求单 ${demand.demandId} 发起`,
+  })
+  appStore.navigate('/fcs/process/dye-orders')
 }
 
 export function handleProcessDyeRequirementsEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-dye-req-field]')
-  if (fieldNode instanceof HTMLInputElement) {
-    if (fieldNode.dataset.dyeReqField === 'keyword') {
-      state.keyword = fieldNode.value
-      return true
-    }
+  if (fieldNode instanceof HTMLInputElement && fieldNode.dataset.dyeReqField === 'keyword') {
+    state.keyword = fieldNode.value
+    state.page = 1
+    closePanels()
+    return true
   }
 
   if (fieldNode instanceof HTMLSelectElement) {
     if (fieldNode.dataset.dyeReqField === 'statusFilter') {
       state.statusFilter = fieldNode.value as StatusFilter
+      state.page = 1
+      closePanels()
+      return true
+    }
+    if (fieldNode.dataset.dyeReqField === 'pageSize') {
+      state.pageSize = Number(fieldNode.value) as PageSize
+      state.page = 1
+      closePanels()
       return true
     }
   }
 
   const actionNode = target.closest<HTMLElement>('[data-dye-req-action]')
   if (!actionNode) return false
-
   const action = actionNode.dataset.dyeReqAction
   if (!action) return false
 
@@ -886,21 +905,47 @@ export function handleProcessDyeRequirementsEvent(target: HTMLElement): boolean 
     return true
   }
 
-  if (action === 'close-all') {
-    state.selectedDemandId = null
-    state.sourceFocusedDemandId = null
-    state.batchViewerDemandId = null
+  if (action === 'create-order') {
+    const demandId = actionNode.dataset.demandId
+    if (!demandId) return true
+    createOrderFromDemand(demandId)
     return true
   }
 
-  if (action === 'create-order') {
-    appStore.navigate('/fcs/process/dye-orders')
+  if (action === 'page-prev') {
+    state.page = Math.max(1, state.page - 1)
+    closePanels()
+    return true
+  }
+
+  if (action === 'page-next') {
+    const totalPages = getPagedDemands().totalPages
+    state.page = Math.min(totalPages, state.page + 1)
+    closePanels()
+    return true
+  }
+
+  if (action === 'page-to') {
+    const page = Number(actionNode.dataset.page)
+    if (!Number.isNaN(page)) {
+      const totalPages = getPagedDemands().totalPages
+      state.page = Math.max(1, Math.min(page, totalPages))
+      closePanels()
+    }
     return true
   }
 
   if (action === 'reset-filters') {
     state.keyword = ''
     state.statusFilter = '全部'
+    state.page = 1
+    state.pageSize = 10
+    closePanels()
+    return true
+  }
+
+  if (action === 'close-all') {
+    closePanels()
     return true
   }
 
