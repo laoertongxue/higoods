@@ -7,7 +7,7 @@ import type { System, MenuGroup } from './app-shell-types'
 
 // 系统列表
 export const systems: System[] = [
-  { id: 'pcs', name: '商品中心系统', shortName: 'PCS', defaultPage: '/pcs/plate-making' },
+  { id: 'pcs', name: '商品中心系统', shortName: 'PCS', defaultPage: '/pcs/workspace/overview' },
   { id: 'pms', name: '采购管理系统', shortName: 'PMS', defaultPage: '/pms/purchase-order' },
   { id: 'fcs', name: '工厂生产协同系统', shortName: 'FCS', defaultPage: '/fcs/workbench/overview' },
   { id: 'wls', name: '仓储物流系统', shortName: 'WLS', defaultPage: '/wls/inventory' },
@@ -21,27 +21,65 @@ export const systems: System[] = [
 export const menusBySystem: Record<string, MenuGroup[]> = {
   pcs: [
     {
-      title: '商品管理',
+      title: '工作台',
       items: [
-        { key: 'plate-making', title: '制版任务', icon: 'Layers', href: '/pcs/plate-making' },
-        { key: 'spu-manage', title: 'SPU管理', icon: 'Package', href: '/pcs/spu-manage' },
-        { key: 'sku-manage', title: 'SKU管理', icon: 'Boxes', href: '/pcs/sku-manage' },
-        {
-          key: 'sample',
-          title: '样衣管理',
-          icon: 'Shirt',
-          children: [
-            { key: 'sample-list', title: '样衣列表', href: '/pcs/sample-list' },
-            { key: 'sample-review', title: '样衣评审', href: '/pcs/sample-review' },
-          ],
-        },
+        { key: 'pcs-workspace-overview', title: '概览看板', icon: 'LayoutDashboard', href: '/pcs/workspace/overview' },
+        { key: 'pcs-workspace-todos', title: '我的待办', icon: 'CheckSquare', href: '/pcs/workspace/todos' },
+        { key: 'pcs-workspace-alerts', title: '风险提醒', icon: 'AlertTriangle', href: '/pcs/workspace/alerts' },
       ],
     },
     {
-      title: '基础数据',
+      title: '商品项目管理',
       items: [
-        { key: 'category', title: '类目管理', icon: 'FolderTree', href: '/pcs/category' },
-        { key: 'attribute', title: '属性管理', icon: 'Settings', href: '/pcs/attribute' },
+        { key: 'pcs-project-list', title: '商品项目列表', icon: 'FolderKanban', href: '/pcs/projects' },
+        { key: 'pcs-template', title: '项目模板管理', icon: 'FileText', href: '/pcs/templates' },
+        { key: 'pcs-work-items', title: '工作项库', icon: 'CheckSquare', href: '/pcs/work-items' },
+      ],
+    },
+    {
+      title: '测款与渠道管理',
+      items: [
+        { key: 'pcs-live-testing', title: '直播场次', icon: 'TestTube', href: '/pcs/testing/live' },
+        { key: 'pcs-video-testing', title: '短视频记录', icon: 'TestTube', href: '/pcs/testing/video' },
+        { key: 'pcs-channel-products', title: '渠道商品管理', icon: 'ShoppingCart', href: '/pcs/channels/products' },
+        { key: 'pcs-channel-stores', title: '渠道店铺管理', icon: 'Store', href: '/pcs/channels/stores' },
+      ],
+    },
+    {
+      title: '样衣资产管理',
+      items: [
+        { key: 'pcs-sample-ledger', title: '样衣台账', icon: 'Shirt', href: '/pcs/samples/ledger' },
+        { key: 'pcs-sample-inventory', title: '样衣库存', icon: 'Package', href: '/pcs/samples/inventory' },
+        { key: 'pcs-sample-transfer', title: '样衣流转记录', icon: 'Layers', href: '/pcs/samples/transfer' },
+        { key: 'pcs-sample-return', title: '样衣退货与处理', icon: 'AlertTriangle', href: '/pcs/samples/return' },
+        { key: 'pcs-sample-application', title: '样衣使用申请', icon: 'CheckSquare', href: '/pcs/samples/application' },
+        { key: 'pcs-sample-view', title: '样衣视图', icon: 'Palette', href: '/pcs/samples/view' },
+      ],
+    },
+    {
+      title: '制版与生产准备',
+      items: [
+        { key: 'pcs-revision-tasks', title: '改版任务', icon: 'FileText', href: '/pcs/patterns/revision' },
+        { key: 'pcs-pattern-tasks', title: '制版任务', icon: 'Scissors', href: '/pcs/patterns' },
+        { key: 'pcs-color-tasks', title: '花型任务', icon: 'Palette', href: '/pcs/patterns/colors' },
+        { key: 'pcs-first-sample', title: '首单样衣打样', icon: 'Droplet', href: '/pcs/samples/first-order' },
+        { key: 'pcs-pre-production', title: '产前版样衣', icon: 'CheckSquare', href: '/pcs/production/pre-check' },
+      ],
+    },
+    {
+      title: '商品档案',
+      items: [
+        { key: 'pcs-spu-list', title: '商品档案 - SPU', icon: 'Archive', href: '/pcs/products/spu' },
+        { key: 'pcs-sku-list', title: '商品档案 - SKU', icon: 'Package', href: '/pcs/products/sku' },
+        { key: 'pcs-yarn-list', title: '原料档案 - 纱线', icon: 'Layers', href: '/pcs/products/yarn' },
+      ],
+    },
+    {
+      title: '系统设置',
+      items: [
+        { key: 'pcs-config-workspace', title: '配置工作台', icon: 'Settings', href: '/pcs/settings/config-workspace' },
+        { key: 'pcs-template-center', title: '模板中心', icon: 'FileText', href: '/pcs/settings/template-center' },
+        { key: 'pcs-platform-config', title: '平台对接配置', icon: 'Settings', href: '/pcs/settings/platforms' },
       ],
     },
   ],
