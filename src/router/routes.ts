@@ -2,6 +2,8 @@ import { menusBySystem } from '../data/app-shell-config'
 import { renderFactoryProfilePage } from '../pages/factory-profile'
 import { renderOverviewPage, renderRisksPage, renderTodosPage } from '../pages/workbench'
 import { renderPcsOverviewPage } from '../pages/pcs-workspace-overview'
+import { renderPcsTodosPage } from '../pages/pcs-workspace-todos'
+import { renderPcsAlertsPage } from '../pages/pcs-workspace-alerts'
 import { renderPlaceholderPage, renderRouteNotFound } from '../pages/placeholder'
 import { renderCapabilityPage } from '../pages/capability'
 import { renderFactoryStatusPage } from '../pages/factory-status'
@@ -89,6 +91,8 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/factories/settlement': () => renderSettlementListPage(),
   '/fcs/workbench/overview': () => renderOverviewPage(),
   '/pcs/workspace/overview': () => renderPcsOverviewPage(),
+  '/pcs/workspace/todos': () => renderPcsTodosPage(),
+  '/pcs/workspace/alerts': () => renderPcsAlertsPage(),
   '/fcs/workbench/todos': () => renderTodosPage(),
   '/fcs/workbench/risks': () => renderRisksPage(),
   '/fcs/capacity/overview': () => renderCapacityOverviewPage(),

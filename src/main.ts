@@ -54,6 +54,14 @@ import {
 } from './pages/process-print-orders'
 import { handlePcsOverviewEvent } from './pages/pcs-workspace-overview'
 import {
+  handlePcsTodosEvent,
+  isPcsTodosDialogOpen,
+} from './pages/pcs-workspace-todos'
+import {
+  handlePcsAlertsEvent,
+  isPcsAlertsDialogOpen,
+} from './pages/pcs-workspace-alerts'
+import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
 } from './pages/task-breakdown'
@@ -168,6 +176,8 @@ function dispatchPageEvent(target: Element): boolean {
     handleProcessDyeRequirementsEvent(eventTarget) ||
     handleProcessPrintRequirementsEvent(eventTarget) ||
     handlePcsOverviewEvent(eventTarget) ||
+    handlePcsTodosEvent(eventTarget) ||
+    handlePcsAlertsEvent(eventTarget) ||
     handleProcessDyeOrdersEvent(eventTarget) ||
     handleProcessPrintOrdersEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||
@@ -474,6 +484,22 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.printOrderAction = 'close-all'
     handleProcessPrintOrdersEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsTodosDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsTodoAction = 'close-dialog'
+    handlePcsTodosEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsAlertsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsAlertAction = 'close-all'
+    handlePcsAlertsEvent(fakeButton)
     render()
     return
   }
