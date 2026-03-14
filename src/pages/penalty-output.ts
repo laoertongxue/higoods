@@ -377,7 +377,7 @@ export function renderPenaltyOutputPage(): string {
                                     }
                                     ${
                                       isDyePrint
-                                        ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/dye-print-orders">查看加工单</button>'
+                                        ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/dye-orders">查看加工单</button>'
                                         : '<span class="px-2 text-xs text-muted-foreground">—</span>'
                                     }
                                   </div>

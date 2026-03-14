@@ -25,7 +25,10 @@ import {
 import { renderProductionCraftDictPage } from '../pages/production-craft-dict'
 import { renderTechPackPage } from '../pages/tech-pack'
 import { renderTaskBreakdownPage } from '../pages/task-breakdown'
-import { renderDyePrintOrdersPage } from '../pages/dye-print-orders'
+import { renderProcessDyeRequirementsPage } from '../pages/process-dye-requirements'
+import { renderProcessPrintRequirementsPage } from '../pages/process-print-requirements'
+import { renderProcessDyeOrdersPage } from '../pages/process-dye-orders'
+import { renderProcessPrintOrdersPage } from '../pages/process-print-orders'
 import { renderDependenciesPage } from '../pages/dependencies'
 import { renderMaterialIssuePage } from '../pages/material-issue'
 import { renderQcStandardsPage } from '../pages/qc-standards'
@@ -99,7 +102,10 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/production/status': () => renderProductionStatusPage(),
   '/fcs/production/craft-dict': () => renderProductionCraftDictPage(),
   '/fcs/process/task-breakdown': () => renderTaskBreakdownPage(),
-  '/fcs/process/dye-print-orders': () => renderDyePrintOrdersPage(),
+  '/fcs/process/dye-requirements': () => renderProcessDyeRequirementsPage(),
+  '/fcs/process/print-requirements': () => renderProcessPrintRequirementsPage(),
+  '/fcs/process/dye-orders': () => renderProcessDyeOrdersPage(),
+  '/fcs/process/print-orders': () => renderProcessPrintOrdersPage(),
   '/fcs/process/dependencies': () => renderDependenciesPage(),
   '/fcs/process/material-issue': () => renderMaterialIssuePage(),
   '/fcs/process/qc-standards': () => renderQcStandardsPage(),

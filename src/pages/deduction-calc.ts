@@ -359,7 +359,7 @@ export function renderDeductionCalcPage(): string {
                                     ${
                                       item.sourceProcessType === 'DYE_PRINT'
                                         ? `
-                                          <button class="inline-flex h-7 items-center rounded-md px-2 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700" data-nav="/fcs/process/dye-print-orders">
+                                          <button class="inline-flex h-7 items-center rounded-md px-2 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700" data-nav="/fcs/process/dye-orders">
                                             查看加工单
                                           </button>
                                         `
@@ -635,7 +635,7 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
           ${
             isDyePrint
               ? `
-                <button class="inline-flex h-8 items-center rounded-md border border-indigo-300 px-3 text-sm text-indigo-700 hover:bg-indigo-50" data-nav="/fcs/process/dye-print-orders">
+                <button class="inline-flex h-8 items-center rounded-md border border-indigo-300 px-3 text-sm text-indigo-700 hover:bg-indigo-50" data-nav="/fcs/process/dye-orders">
                   <i data-lucide="external-link" class="mr-1.5 h-4 w-4"></i>
                   查看染印加工单
                 </button>

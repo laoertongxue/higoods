@@ -364,7 +364,7 @@ function renderOverviewOrderTable(keyword: string): string {
             <div class="flex flex-wrap gap-1">
               <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
               <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/process/dye-print-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
+              <button data-nav="/fcs/process/dye-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
             </div>
           </td>
         </tr>
@@ -588,7 +588,7 @@ function renderRiskTaskTable(keyword: string): string {
             <div class="flex flex-wrap gap-1">
               <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
               <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-              <button data-nav="/fcs/process/dye-print-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
+              <button data-nav="/fcs/process/dye-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
             </div>
           </td>
         </tr>
@@ -1000,7 +1000,7 @@ function renderBottleneckOrderTable(keyword: string): string {
             <div class="flex flex-wrap gap-1">
               <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
               <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/process/dye-print-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
+              <button data-nav="/fcs/process/dye-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
             </div>
           </td>
         </tr>
@@ -1811,7 +1811,7 @@ function renderPoliciesOrderTable(keyword: string): string {
             <div class="flex flex-wrap gap-1">
               <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
               <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/process/dye-print-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
+              <button data-nav="/fcs/process/dye-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
             </div>
           </td>
         </tr>

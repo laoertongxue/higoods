@@ -597,7 +597,7 @@ function renderAllTasksTable(
                             <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(task.productionOrderId)}">生产单</button>
                             ${
                               hasDye
-                                ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/dye-print-orders">染印</button>'
+                                ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/dye-orders">染印</button>'
                                 : ''
                             }
                             ${

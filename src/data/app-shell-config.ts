@@ -91,9 +91,11 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       title: '任务编排与执行准备',
       items: [
         { key: 'process-task-breakdown', title: '任务清单', icon: 'Split', href: '/fcs/process/task-breakdown' },
-        { key: 'process-dye-print-orders', title: '染印加工单', icon: 'ClipboardSignature', href: '/fcs/process/dye-print-orders' },
+        { key: 'process-dye-requirements', title: '染色需求单', icon: 'ClipboardList', href: '/fcs/process/dye-requirements' },
+        { key: 'process-print-requirements', title: '印花需求单', icon: 'FileText', href: '/fcs/process/print-requirements' },
+        { key: 'process-dye-orders', title: '染色加工单', icon: 'Package', href: '/fcs/process/dye-orders' },
+        { key: 'process-print-orders', title: '印花加工单', icon: 'ClipboardSignature', href: '/fcs/process/print-orders' },
         { key: 'process-dependencies', title: '任务依赖配置', icon: 'Network', href: '/fcs/process/dependencies' },
-        { key: 'process-material-issue', title: '领料需求下发', icon: 'ClipboardList', href: '/fcs/process/material-issue' },
         { key: 'process-qc-standards', title: '质检标准下发', icon: 'CheckSquare', href: '/fcs/process/qc-standards' },
       ],
     },
