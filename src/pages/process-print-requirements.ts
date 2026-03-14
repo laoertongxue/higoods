@@ -3,21 +3,29 @@ import { setProcessCreateDemandIntent } from './process-order-create-bridge'
 import { escapeHtml } from '../utils'
 
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
-type SourceLineStatusZh = '已关联' | '已入库' | '质检中'
+type PreparationStatusZh = '待配料' | '部分配料' | '已完成配料'
+type TraceBatchStatusZh = '已入裁片仓' | '质检中' | '待入库'
 type CreateModeZh = '按需求创建' | '按备货创建'
 type Unit = '片'
 
-interface PrintRequirementSourceLine {
+interface PreparationTraceLine {
   processOrderNo: string
   batchNo: string
+  batchSupplyQty: number
+  usedQty: number
+  unit: Unit
+  batchStatus: TraceBatchStatusZh
+}
+
+interface PrintRequirementSourceLine {
+  preparationOrderNo: string
   qty: number
   unit: Unit
-  linkedAt: string
+  preparedAt: string
+  warehouseName: string
+  preparationStatus: PreparationStatusZh
   cumulativeSatisfiedQty: number
-  batchStatus: SourceLineStatusZh
-  createMode: CreateModeZh
-  printFactoryName: string
-  processStatus: '进行中' | '部分回货' | '已回货'
+  traceLines: PreparationTraceLine[]
 }
 
 interface LinkedPrintOrderSummary {
@@ -58,6 +66,7 @@ interface PrintRequirementsState {
   expandedSourceIds: Record<string, boolean>
   selectedDemandId: string | null
   sourceFocusedDemandId: string | null
+  focusedPreparationOrderNo: string | null
   batchViewerDemandId: string | null
   page: number
   pageSize: PageSize
@@ -68,8 +77,9 @@ const PAGE_SIZE_OPTIONS: PageSize[] = [10, 20, 50]
 const RULES = [
   '自动生成：生产单依据技术包自动生成印花需求单',
   '一单一料：一张需求单只对应一条物料需求',
-  '批次关联满足：需求通过回货批次关联满足后完成',
-  '全量满足门禁：仅全量满足后才能进入下一工序',
+  '印花回货先进入 WMS 裁片仓',
+  '仓配满足：仓库对对应生产单完成配料后需求才满足',
+  '门禁放行：完成配料后才能进入下一工序',
 ]
 
 const DEMAND_SEEDS: PrintRequirementDemand[] = [
@@ -110,28 +120,42 @@ const DEMAND_SEEDS: PrintRequirementDemand[] = [
     handoverCompleted: false,
     sources: [
       {
-        processOrderNo: 'YHJG20260314002',
-        batchNo: 'YHPH2026031401',
+        preparationOrderNo: 'PL20260314008',
         qty: 700,
         unit: '片',
-        linkedAt: '2026-03-14 10:15:00',
+        preparedAt: '2026/03/14 11:10',
+        warehouseName: '雅加达裁片仓',
+        preparationStatus: '部分配料',
         cumulativeSatisfiedQty: 700,
-        batchStatus: '已关联',
-        createMode: '按需求创建',
-        printFactoryName: '鸿辉印花厂',
-        processStatus: '部分回货',
+        traceLines: [
+          {
+            processOrderNo: 'YHJG20260314002',
+            batchNo: 'YHPH2026031401',
+            batchSupplyQty: 760,
+            usedQty: 700,
+            unit: '片',
+            batchStatus: '已入裁片仓',
+          },
+        ],
       },
       {
-        processOrderNo: 'YHJG20260314005',
-        batchNo: 'YHPH2026031502',
+        preparationOrderNo: 'PL20260315006',
         qty: 500,
         unit: '片',
-        linkedAt: '2026-03-14 10:43:00',
+        preparedAt: '2026/03/15 15:30',
+        warehouseName: '雅加达裁片仓',
+        preparationStatus: '部分配料',
         cumulativeSatisfiedQty: 1200,
-        batchStatus: '已关联',
-        createMode: '按备货创建',
-        printFactoryName: '嘉泽印花中心',
-        processStatus: '部分回货',
+        traceLines: [
+          {
+            processOrderNo: 'YHJG20260314005',
+            batchNo: 'YHPH2026031502',
+            batchSupplyQty: 530,
+            usedQty: 500,
+            unit: '片',
+            batchStatus: '已入裁片仓',
+          },
+        ],
       },
     ],
     linkedOrders: [
@@ -171,16 +195,23 @@ const DEMAND_SEEDS: PrintRequirementDemand[] = [
     handoverCompleted: false,
     sources: [
       {
-        processOrderNo: 'YHJG20260314008',
-        batchNo: 'YHPH2026031603',
+        preparationOrderNo: 'PL20260315018',
         qty: 1800,
         unit: '片',
-        linkedAt: '2026-03-14 11:20:00',
+        preparedAt: '2026/03/15 11:50',
+        warehouseName: '万隆裁片仓',
+        preparationStatus: '已完成配料',
         cumulativeSatisfiedQty: 1800,
-        batchStatus: '已入库',
-        createMode: '按需求创建',
-        printFactoryName: '盛彩印花厂',
-        processStatus: '已回货',
+        traceLines: [
+          {
+            processOrderNo: 'YHJG20260314008',
+            batchNo: 'YHPH2026031603',
+            batchSupplyQty: 1840,
+            usedQty: 1800,
+            unit: '片',
+            batchStatus: '已入裁片仓',
+          },
+        ],
       },
     ],
     linkedOrders: [
@@ -212,40 +243,61 @@ const DEMAND_SEEDS: PrintRequirementDemand[] = [
     handoverCompleted: true,
     sources: [
       {
-        processOrderNo: 'YHJG20260314010',
-        batchNo: 'YHPH2026031701',
+        preparationOrderNo: 'PL20260314020',
         qty: 900,
         unit: '片',
-        linkedAt: '2026-03-14 10:55:00',
+        preparedAt: '2026/03/14 10:55',
+        warehouseName: '泗水裁片仓',
+        preparationStatus: '已完成配料',
         cumulativeSatisfiedQty: 900,
-        batchStatus: '已关联',
-        createMode: '按需求创建',
-        printFactoryName: '鸿辉印花厂',
-        processStatus: '部分回货',
+        traceLines: [
+          {
+            processOrderNo: 'YHJG20260314010',
+            batchNo: 'YHPH2026031701',
+            batchSupplyQty: 930,
+            usedQty: 900,
+            unit: '片',
+            batchStatus: '已入裁片仓',
+          },
+        ],
       },
       {
-        processOrderNo: 'YHJG20260314012',
-        batchNo: 'YHPH2026031706',
+        preparationOrderNo: 'PL20260314027',
         qty: 700,
         unit: '片',
-        linkedAt: '2026-03-14 11:33:00',
+        preparedAt: '2026/03/14 11:33',
+        warehouseName: '泗水裁片仓',
+        preparationStatus: '已完成配料',
         cumulativeSatisfiedQty: 1600,
-        batchStatus: '质检中',
-        createMode: '按备货创建',
-        printFactoryName: '嘉泽印花中心',
-        processStatus: '进行中',
+        traceLines: [
+          {
+            processOrderNo: 'YHJG20260314012',
+            batchNo: 'YHPH2026031706',
+            batchSupplyQty: 720,
+            usedQty: 700,
+            unit: '片',
+            batchStatus: '质检中',
+          },
+        ],
       },
       {
-        processOrderNo: 'YHJG20260314012',
-        batchNo: 'YHPH2026031712',
+        preparationOrderNo: 'PL20260314031',
         qty: 400,
         unit: '片',
-        linkedAt: '2026-03-14 12:08:00',
+        preparedAt: '2026/03/14 12:08',
+        warehouseName: '泗水裁片仓',
+        preparationStatus: '已完成配料',
         cumulativeSatisfiedQty: 2000,
-        batchStatus: '已入库',
-        createMode: '按备货创建',
-        printFactoryName: '嘉泽印花中心',
-        processStatus: '已回货',
+        traceLines: [
+          {
+            processOrderNo: 'YHJG20260314012',
+            batchNo: 'YHPH2026031712',
+            batchSupplyQty: 430,
+            usedQty: 400,
+            unit: '片',
+            batchStatus: '已入裁片仓',
+          },
+        ],
       },
     ],
     linkedOrders: [
@@ -279,21 +331,31 @@ function buildPrintDemands(total: number): PrintRequirementDemand[] {
     const sourceProductionOrderId = `PO-202603-${1300 + rows.length}`
     const day = 14 + Math.floor(rows.length / 4)
     const minute = (rows.length * 9) % 60
-    const sources = seed.sources.map((source, idx) => {
-      const sourceSerial = 50000 + rows.length * 10 + idx + 1
-      const batchSerial = 60000 + rows.length * 10 + idx + 1
-      return {
-        ...source,
-        processOrderNo: `YHJG202603${String(sourceSerial).padStart(5, '0')}`,
-        batchNo: `YHPH202603${String(batchSerial).padStart(5, '0')}`,
-        linkedAt: `2026-03-${String(day).padStart(2, '0')} 10:${String(minute).padStart(2, '0')}:00`,
-      }
-    })
+    const orderNoMap = new Map<string, string>()
     const linkedOrders = seed.linkedOrders.map((order, idx) => {
       const orderSerial = 50000 + rows.length * 10 + idx + 1
+      const processOrderNo = `YHJG202603${String(orderSerial).padStart(5, '0')}`
+      orderNoMap.set(order.processOrderNo, processOrderNo)
       return {
         ...order,
-        processOrderNo: `YHJG202603${String(orderSerial).padStart(5, '0')}`,
+        processOrderNo,
+      }
+    })
+    const sources = seed.sources.map((source, idx) => {
+      const preparationSerial = 70000 + rows.length * 10 + idx + 1
+      return {
+        ...source,
+        preparationOrderNo: `PL202603${String(preparationSerial).padStart(5, '0')}`,
+        preparedAt: `2026/03/${String(day).padStart(2, '0')} 10:${String(minute).padStart(2, '0')}`,
+        traceLines: source.traceLines.map((trace, traceIndex) => {
+          const fallbackOrderSerial = 50000 + rows.length * 10 + idx * 3 + traceIndex + 1
+          const batchSerial = 60000 + rows.length * 10 + idx * 3 + traceIndex + 1
+          return {
+            ...trace,
+            processOrderNo: orderNoMap.get(trace.processOrderNo) ?? `YHJG202603${String(fallbackOrderSerial).padStart(5, '0')}`,
+            batchNo: `YHPH202603${String(batchSerial).padStart(5, '0')}`,
+          }
+        }),
       }
     })
     rows.push({
@@ -324,6 +386,7 @@ const state: PrintRequirementsState = {
   expandedSourceIds: {},
   selectedDemandId: null,
   sourceFocusedDemandId: null,
+  focusedPreparationOrderNo: null,
   batchViewerDemandId: null,
   page: 1,
   pageSize: 10,
@@ -354,8 +417,12 @@ function deriveStatus(demand: PrintRequirementDemand): DemandStatusZh {
   return '已满足'
 }
 
+function isWarehousePrepared(demand: PrintRequirementDemand): boolean {
+  return sumSatisfiedQty(demand) >= demand.requiredQty
+}
+
 function formatSourceLine(source: PrintRequirementSourceLine): string {
-  return `${source.processOrderNo}｜${source.batchNo}｜${source.qty}${source.unit}`
+  return `${source.preparationOrderNo}｜${source.qty}${source.unit}｜${source.preparedAt}`
 }
 
 function renderBadge(label: string, className: string): string {
@@ -365,6 +432,7 @@ function renderBadge(label: string, className: string): string {
 function closePanels(): void {
   state.selectedDemandId = null
   state.sourceFocusedDemandId = null
+  state.focusedPreparationOrderNo = null
   state.batchViewerDemandId = null
 }
 
@@ -452,7 +520,7 @@ function renderSourceLines(
   return `
     <div class="space-y-1">
       ${list
-        .map((source) => `<button class="block w-full rounded px-1 py-0.5 text-left font-mono text-xs hover:bg-muted" data-print-req-action="open-source" data-demand-id="${escapeHtml(demand.demandId)}">${escapeHtml(formatSourceLine(source))}</button>`)
+        .map((source) => `<button class="block w-full rounded px-1 py-0.5 text-left font-mono text-xs hover:bg-muted" data-print-req-action="open-source" data-demand-id="${escapeHtml(demand.demandId)}" data-preparation-order-no="${escapeHtml(source.preparationOrderNo)}">${escapeHtml(formatSourceLine(source))}</button>`)
         .join('')}
       ${
         shouldTruncate && demand.sources.length > lineLimit
@@ -488,7 +556,7 @@ function renderDemandRow(demand: PrintRequirementDemand): string {
           <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-req-action="open-detail" data-demand-id="${escapeHtml(demand.demandId)}">查看详情</button>
             <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-print-req-action="create-order" data-demand-id="${escapeHtml(demand.demandId)}">按需求创建加工单</button>
-            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-req-action="open-batches" data-demand-id="${escapeHtml(demand.demandId)}">查看关联批次</button>
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-req-action="open-batches" data-demand-id="${escapeHtml(demand.demandId)}">查看仓配明细</button>
           </div>
         </div>
 
@@ -564,8 +632,12 @@ function renderDetailDrawer(): string {
   const satisfiedQty = sumSatisfiedQty(demand)
   const remainingQty = getRemainingQty(demand)
   const rate = getSatisfiedRate(demand)
-  const releaseAllowed = remainingQty <= 0
+  const releaseAllowed = isWarehousePrepared(demand)
   const focusSources = state.sourceFocusedDemandId === demand.demandId
+  const focusedPreparationOrderNo =
+    state.focusedPreparationOrderNo ?? demand.sources[0]?.preparationOrderNo ?? null
+  const focusedPreparation =
+    demand.sources.find((source) => source.preparationOrderNo === focusedPreparationOrderNo) ?? demand.sources[0] ?? null
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -575,7 +647,7 @@ function renderDetailDrawer(): string {
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold">印花需求单详情</h2>
-              <p class="mt-1 text-xs text-muted-foreground">需求对象、满足进度与来源追溯</p>
+              <p class="mt-1 text-xs text-muted-foreground">查看来源、仓配满足进度、配料满足来源及下一工序放行情况</p>
             </div>
             <div class="flex items-center gap-2">
               <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-print-req-action="create-order" data-demand-id="${escapeHtml(demand.demandId)}">按需求创建加工单</button>
@@ -611,30 +683,49 @@ function renderDetailDrawer(): string {
           </section>
 
           <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-3 text-sm font-semibold">满足进度</h3>
+            <h3 class="mb-3 text-sm font-semibold">仓配满足进度</h3>
             <div class="space-y-2 text-sm">
               <div class="flex items-center justify-between"><span class="text-muted-foreground">已满足需求</span><span class="font-medium">${escapeHtml(formatQty(satisfiedQty, demand.unit))}</span></div>
               <div class="flex items-center justify-between"><span class="text-muted-foreground">待满足数量</span><span class="${remainingQty > 0 ? 'font-medium text-amber-700' : 'font-medium text-green-700'}">${escapeHtml(formatQty(remainingQty, demand.unit))}</span></div>
               <div><div class="mb-1 flex items-center justify-between"><span class="text-muted-foreground">满足率</span><span class="text-xs">${rate}%</span></div>${renderProgressBar(rate)}</div>
-              <p class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">规则提示：仅全量满足后才能进入下一工序。</p>
+              <p class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">规则提示：仅当仓库已针对对应生产单完成配料后，才视为需求满足。</p>
             </div>
           </section>
 
           <section class="rounded-lg border bg-card p-4 ${focusSources ? 'ring-2 ring-blue-200' : ''}" data-print-req-section="sources">
-            <h3 class="mb-3 text-sm font-semibold">已满足数量构成</h3>
+            <h3 class="mb-3 text-sm font-semibold">已满足数量构成（仓配口径）</h3>
             ${
               demand.sources.length === 0
-                ? '<p class="text-sm text-muted-foreground">暂无回货批次</p>'
+                ? '<p class="text-sm text-muted-foreground">暂无满足来源</p>'
                 : `
                   <div class="overflow-x-auto rounded-md border">
-                    <table class="w-full min-w-[900px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">印花加工单号</th><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">本需求关联数量</th><th class="px-3 py-2 font-medium">关联时间</th><th class="px-3 py-2 font-medium">关联后累计满足数量</th><th class="px-3 py-2 font-medium">批次状态</th></tr></thead>
+                    <table class="w-full min-w-[920px] text-sm">
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">配料单号</th><th class="px-3 py-2 font-medium">本需求配料数量</th><th class="px-3 py-2 font-medium">配料时间</th><th class="px-3 py-2 font-medium">配料仓库</th><th class="px-3 py-2 font-medium">配料状态</th><th class="px-3 py-2 font-medium">二级追溯</th></tr></thead>
                       <tbody>
                         ${demand.sources
-                          .map((source) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(source.processOrderNo)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(source.batchNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(source.qty, source.unit))}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(source.linkedAt)}</td><td class="px-3 py-2">${escapeHtml(formatQty(source.cumulativeSatisfiedQty, source.unit))}</td><td class="px-3 py-2">${renderBadge(source.batchStatus, 'border-slate-200 bg-slate-50 text-slate-700')}</td></tr>`)
+                          .map((source) => `<tr class="border-b last:border-b-0 ${focusedPreparation?.preparationOrderNo === source.preparationOrderNo ? 'bg-blue-50/60' : ''}"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(source.preparationOrderNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(source.qty, source.unit))}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(source.preparedAt)}</td><td class="px-3 py-2">${escapeHtml(source.warehouseName)}</td><td class="px-3 py-2">${renderBadge(source.preparationStatus, source.preparationStatus === '已完成配料' ? 'border-green-200 bg-green-50 text-green-700' : source.preparationStatus === '部分配料' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-700')}</td><td class="px-3 py-2"><button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-print-req-action="focus-prep" data-demand-id="${escapeHtml(demand.demandId)}" data-preparation-order-no="${escapeHtml(source.preparationOrderNo)}">查看批次来源</button></td></tr>`)
                           .join('')}
                       </tbody>
                     </table>
+                  </div>
+                  <div class="mt-3 rounded-md border border-dashed p-3">
+                    <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">二级追溯：配料单批次来源${focusedPreparation ? `（${escapeHtml(focusedPreparation.preparationOrderNo)}）` : ''}</h4>
+                    ${
+                      !focusedPreparation || focusedPreparation.traceLines.length === 0
+                        ? '<p class="text-xs text-muted-foreground">暂无批次追溯来源</p>'
+                        : `
+                          <div class="overflow-x-auto rounded-md border">
+                            <table class="w-full min-w-[760px] text-sm">
+                              <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">加工单号</th><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">批次供料数量</th><th class="px-3 py-2 font-medium">本配料单使用数量</th><th class="px-3 py-2 font-medium">批次状态</th></tr></thead>
+                              <tbody>
+                                ${focusedPreparation.traceLines
+                                  .map((trace) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(trace.processOrderNo)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(trace.batchNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(trace.batchSupplyQty, trace.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(trace.usedQty, trace.unit))}</td><td class="px-3 py-2">${renderBadge(trace.batchStatus, trace.batchStatus === '已入裁片仓' ? 'border-green-200 bg-green-50 text-green-700' : trace.batchStatus === '质检中' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-700')}</td></tr>`)
+                                  .join('')}
+                              </tbody>
+                            </table>
+                          </div>
+                        `
+                    }
                   </div>
                 `
             }
@@ -644,9 +735,9 @@ function renderDetailDrawer(): string {
             <h3 class="mb-3 text-sm font-semibold">下一工序放行</h3>
             <div class="space-y-2 text-sm">
               <div class="flex items-center gap-2"><span class="text-muted-foreground">放行结果：</span>${releaseAllowed ? renderBadge('允许', 'border-green-200 bg-green-50 text-green-700') : renderBadge('不允许', 'border-red-200 bg-red-50 text-red-700')}</div>
-              <div><span class="text-muted-foreground">判定依据：</span>${releaseAllowed ? '已全量满足需求数量' : '未达到全量满足要求'}</div>
+              <div><span class="text-muted-foreground">判定依据：</span>${releaseAllowed ? `仓库已针对生产单 ${demand.sourceProductionOrderId} 完成配料` : `仓库尚未针对生产单 ${demand.sourceProductionOrderId} 完成配料`}</div>
               <div><span class="text-muted-foreground">当前差额：</span>${escapeHtml(formatQty(remainingQty, demand.unit))}</div>
-              <div><span class="text-muted-foreground">${releaseAllowed ? '可进入下一工序：' : '阻塞原因：'}</span>${escapeHtml(releaseAllowed ? demand.nextProcessName : `仍有${remainingQty}${demand.unit}待满足，无法放行`)}</div>
+              <div><span class="text-muted-foreground">${releaseAllowed ? '可进入下一工序：' : '阻塞原因：'}</span>${escapeHtml(releaseAllowed ? demand.nextProcessName : `仍有${remainingQty}${demand.unit}待配料，生产单未完成配料，无法放行`)}</div>
             </div>
           </section>
 
@@ -682,21 +773,21 @@ function renderBatchViewer(): string {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="w-full max-w-3xl rounded-lg border bg-background shadow-2xl">
         <header class="flex items-center justify-between border-b px-4 py-3">
-          <h3 class="text-base font-semibold">关联批次预览</h3>
+          <h3 class="text-base font-semibold">仓配明细预览</h3>
           <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-print-req-action="close-batches" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
         </header>
         <div class="space-y-3 p-4">
           <p class="text-sm text-muted-foreground">需求单号：<span class="font-mono">${escapeHtml(demand.demandId)}</span></p>
           ${
             demand.sources.length === 0
-              ? '<p class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无回货批次</p>'
+              ? '<p class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无满足来源</p>'
               : `
                 <div class="overflow-x-auto rounded-md border">
-                  <table class="w-full min-w-[760px] text-sm">
-                    <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">加工单号｜批次号｜数量</th><th class="px-3 py-2 font-medium">关联时间</th><th class="px-3 py-2 font-medium">批次状态</th></tr></thead>
+                  <table class="w-full min-w-[900px] text-sm">
+                    <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">配料单号｜数量｜时间</th><th class="px-3 py-2 font-medium">配料仓库</th><th class="px-3 py-2 font-medium">配料状态</th><th class="px-3 py-2 font-medium">批次追溯</th></tr></thead>
                     <tbody>
                       ${demand.sources
-                        .map((source) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatSourceLine(source))}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(source.linkedAt)}</td><td class="px-3 py-2">${renderBadge(source.batchStatus, 'border-slate-200 bg-slate-50 text-slate-700')}</td></tr>`)
+                        .map((source) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatSourceLine(source))}</td><td class="px-3 py-2">${escapeHtml(source.warehouseName)}</td><td class="px-3 py-2">${renderBadge(source.preparationStatus, source.preparationStatus === '已完成配料' ? 'border-green-200 bg-green-50 text-green-700' : source.preparationStatus === '部分配料' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-700')}</td><td class="px-3 py-2 text-xs">${source.traceLines.map((trace) => escapeHtml(`${trace.processOrderNo}｜${trace.batchNo}｜${trace.usedQty}${trace.unit}`)).join('<br/>')}</td></tr>`)
                         .join('')}
                     </tbody>
                   </table>
@@ -716,7 +807,7 @@ export function renderProcessPrintRequirementsPage(): string {
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div class="space-y-1">
           <h1 class="text-xl font-semibold">印花需求单</h1>
-          <p class="text-sm text-muted-foreground">依据生产单技术包自动生成的印花需求，按回货批次关联满足后完成</p>
+          <p class="text-sm text-muted-foreground">依据生产单技术包自动生成的印花需求，以仓库针对对应生产单完成配料作为满足标志</p>
         </div>
       </header>
 
@@ -751,9 +842,10 @@ export function renderProcessPrintRequirementsPage(): string {
   `
 }
 
-function openDetail(demandId: string, focusSources: boolean): void {
+function openDetail(demandId: string, focusSources: boolean, preparationOrderNo?: string | null): void {
   state.selectedDemandId = demandId
   state.sourceFocusedDemandId = focusSources ? demandId : null
+  state.focusedPreparationOrderNo = preparationOrderNo ?? null
   if (focusSources) scheduleScrollToSourcesSection()
 }
 
@@ -811,8 +903,17 @@ export function handleProcessPrintRequirementsEvent(target: HTMLElement): boolea
 
   if (action === 'open-source') {
     const demandId = actionNode.dataset.demandId
+    const preparationOrderNo = actionNode.dataset.preparationOrderNo ?? null
     if (!demandId) return true
-    openDetail(demandId, true)
+    openDetail(demandId, true, preparationOrderNo)
+    return true
+  }
+
+  if (action === 'focus-prep') {
+    const demandId = actionNode.dataset.demandId
+    const preparationOrderNo = actionNode.dataset.preparationOrderNo ?? null
+    if (!demandId) return true
+    openDetail(demandId, true, preparationOrderNo)
     return true
   }
 
@@ -838,6 +939,7 @@ export function handleProcessPrintRequirementsEvent(target: HTMLElement): boolea
   if (action === 'close-drawer') {
     state.selectedDemandId = null
     state.sourceFocusedDemandId = null
+    state.focusedPreparationOrderNo = null
     return true
   }
 
