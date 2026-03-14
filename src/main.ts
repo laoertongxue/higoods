@@ -37,6 +37,14 @@ import {
 } from './pages/production-craft-dict'
 import { handleTechPackEvent, isTechPackDialogOpen } from './pages/tech-pack'
 import {
+  handleProcessDyeRequirementsEvent,
+  isProcessDyeRequirementsDialogOpen,
+} from './pages/process-dye-requirements'
+import {
+  handleProcessPrintRequirementsEvent,
+  isProcessPrintRequirementsDialogOpen,
+} from './pages/process-print-requirements'
+import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
 } from './pages/task-breakdown'
@@ -148,6 +156,8 @@ function dispatchPageEvent(target: Element): boolean {
     handleProductionEvent(eventTarget) ||
     handleProductionCraftDictEvent(eventTarget) ||
     handleTechPackEvent(eventTarget) ||
+    handleProcessDyeRequirementsEvent(eventTarget) ||
+    handleProcessPrintRequirementsEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||
     handleMaterialIssueEvent(eventTarget) ||
     handleQcStandardsEvent(eventTarget) ||
@@ -420,6 +430,22 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.breakdownAction = 'close-dialog'
     handleTaskBreakdownEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isProcessDyeRequirementsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.dyeReqAction = 'close-all'
+    handleProcessDyeRequirementsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isProcessPrintRequirementsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.printReqAction = 'close-all'
+    handleProcessPrintRequirementsEvent(fakeButton)
     render()
     return
   }
