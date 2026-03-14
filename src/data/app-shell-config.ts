@@ -242,9 +242,52 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     {
       title: '工艺工厂运营系统',
       items: [
-        { key: 'craft-cutting', title: '裁片管理', icon: 'Scissors', href: '/fcs/craft/cutting' },
-        { key: 'craft-printing', title: '印花管理', icon: 'Palette', href: '/fcs/craft/printing' },
-        { key: 'craft-dyeing', title: '染色管理', icon: 'Droplet', href: '/fcs/craft/dyeing' },
+        {
+          key: 'craft-workbench',
+          title: '工作台',
+          icon: 'LayoutDashboard',
+          children: [
+            { key: 'craft-workbench-overview', title: '概览看板', icon: 'LayoutDashboard', href: '/fcs/craft/workbench/overview' },
+            { key: 'craft-workbench-todos', title: '我的待办', icon: 'ListTodo', href: '/fcs/craft/workbench/todos' },
+            { key: 'craft-workbench-risks', title: '风险提醒', icon: 'AlertTriangle', href: '/fcs/craft/workbench/risks' },
+          ],
+        },
+        {
+          key: 'craft-cutting',
+          title: '裁片管理',
+          icon: 'Scissors',
+          children: [
+            { key: 'craft-cutting-tasks', title: '裁片任务', icon: 'ListTodo', href: '/fcs/craft/cutting/tasks' },
+            { key: 'craft-cutting-orders', title: '裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/orders' },
+            { key: 'craft-cutting-fei-ticket', title: '打菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-ticket' },
+            { key: 'craft-cutting-fei-list', title: '打菲列表', icon: 'List', href: '/fcs/craft/cutting/fei-list' },
+            { key: 'craft-cutting-warehouse', title: '裁片仓管理', icon: 'Warehouse', href: '/fcs/craft/cutting/warehouse' },
+            { key: 'craft-cutting-stats', title: '裁片数据统计', icon: 'BarChart3', href: '/fcs/craft/cutting/stats' },
+            { key: 'craft-cutting-bed-stats', title: '裁床数据统计', icon: 'LineChart', href: '/fcs/craft/cutting/bed-stats' },
+          ],
+        },
+        {
+          key: 'craft-printing',
+          title: '印花管理',
+          icon: 'Palette',
+          children: [
+            { key: 'craft-printing-tasks', title: '印花任务', icon: 'ListTodo', href: '/fcs/craft/printing/tasks' },
+            { key: 'craft-printing-orders', title: '印花单', icon: 'ClipboardList', href: '/fcs/craft/printing/orders' },
+            { key: 'craft-printing-batches', title: '印花回货批次', icon: 'Layers', href: '/fcs/craft/printing/batches' },
+            { key: 'craft-printing-stats', title: '印花数据统计', icon: 'BarChart3', href: '/fcs/craft/printing/stats' },
+          ],
+        },
+        {
+          key: 'craft-dyeing',
+          title: '染色管理',
+          icon: 'Droplet',
+          children: [
+            { key: 'craft-dyeing-tasks', title: '染色任务', icon: 'ListTodo', href: '/fcs/craft/dyeing/tasks' },
+            { key: 'craft-dyeing-orders', title: '染色单', icon: 'ClipboardList', href: '/fcs/craft/dyeing/orders' },
+            { key: 'craft-dyeing-batches', title: '染色回货批次', icon: 'Layers', href: '/fcs/craft/dyeing/batches' },
+            { key: 'craft-dyeing-stats', title: '染色数据统计', icon: 'BarChart3', href: '/fcs/craft/dyeing/stats' },
+          ],
+        },
       ],
     },
     {
