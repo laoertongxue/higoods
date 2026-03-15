@@ -66,6 +66,18 @@ import {
   isPcsProjectsDialogOpen,
 } from './pages/pcs-projects'
 import {
+  handlePcsTemplatesEvent,
+  isPcsTemplatesDialogOpen,
+} from './pages/pcs-templates'
+import {
+  handlePcsTemplateDetailEvent,
+  isPcsTemplateDetailDialogOpen,
+} from './pages/pcs-template-detail'
+import {
+  handlePcsTemplateEditorEvent,
+  isPcsTemplateEditorDialogOpen,
+} from './pages/pcs-template-editor'
+import {
   handlePcsProjectDetailEvent,
   isPcsProjectDetailDialogOpen,
 } from './pages/pcs-project-detail'
@@ -191,6 +203,9 @@ function dispatchPageEvent(target: Element): boolean {
     handlePcsTodosEvent(eventTarget) ||
     handlePcsAlertsEvent(eventTarget) ||
     handlePcsProjectsEvent(eventTarget) ||
+    handlePcsTemplatesEvent(eventTarget) ||
+    handlePcsTemplateDetailEvent(eventTarget) ||
+    handlePcsTemplateEditorEvent(eventTarget) ||
     handlePcsProjectDetailEvent(eventTarget) ||
     handlePcsProjectWorkItemDetailEvent(eventTarget) ||
     handleProcessDyeOrdersEvent(eventTarget) ||
@@ -523,6 +538,32 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.pcsProjectAction = 'close-dialog'
     handlePcsProjectsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsTemplatesDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsTemplateAction = 'close-dialog'
+    handlePcsTemplatesEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsTemplateDetailDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsTemplateDetailAction = 'close-dialog'
+    handlePcsTemplateDetailEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsTemplateEditorDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsTemplateEditorAction = 'close-library'
+    handlePcsTemplateEditorEvent(fakeButton)
+    fakeButton.dataset.pcsTemplateEditorAction = 'close-cancel-dialog'
+    handlePcsTemplateEditorEvent(fakeButton)
     render()
     return
   }
