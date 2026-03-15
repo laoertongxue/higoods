@@ -70,6 +70,10 @@ import {
   isPcsTemplatesDialogOpen,
 } from './pages/pcs-templates'
 import {
+  handlePcsWorkItemsEvent,
+  isPcsWorkItemsDialogOpen,
+} from './pages/pcs-work-items'
+import {
   handlePcsTemplateDetailEvent,
   isPcsTemplateDetailDialogOpen,
 } from './pages/pcs-template-detail'
@@ -77,6 +81,11 @@ import {
   handlePcsTemplateEditorEvent,
   isPcsTemplateEditorDialogOpen,
 } from './pages/pcs-template-editor'
+import { handlePcsWorkItemDetailEvent } from './pages/pcs-work-item-detail'
+import {
+  handlePcsWorkItemEditorEvent,
+  isPcsWorkItemEditorDialogOpen,
+} from './pages/pcs-work-item-editor'
 import {
   handlePcsProjectDetailEvent,
   isPcsProjectDetailDialogOpen,
@@ -204,8 +213,11 @@ function dispatchPageEvent(target: Element): boolean {
     handlePcsAlertsEvent(eventTarget) ||
     handlePcsProjectsEvent(eventTarget) ||
     handlePcsTemplatesEvent(eventTarget) ||
+    handlePcsWorkItemsEvent(eventTarget) ||
     handlePcsTemplateDetailEvent(eventTarget) ||
     handlePcsTemplateEditorEvent(eventTarget) ||
+    handlePcsWorkItemDetailEvent(eventTarget) ||
+    handlePcsWorkItemEditorEvent(eventTarget) ||
     handlePcsProjectDetailEvent(eventTarget) ||
     handlePcsProjectWorkItemDetailEvent(eventTarget) ||
     handleProcessDyeOrdersEvent(eventTarget) ||
@@ -550,6 +562,14 @@ document.addEventListener('keydown', (event) => {
     return
   }
 
+  if (isPcsWorkItemsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsWorkLibraryAction = 'close-dialog'
+    handlePcsWorkItemsEvent(fakeButton)
+    render()
+    return
+  }
+
   if (isPcsTemplateDetailDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.pcsTemplateDetailAction = 'close-dialog'
@@ -564,6 +584,14 @@ document.addEventListener('keydown', (event) => {
     handlePcsTemplateEditorEvent(fakeButton)
     fakeButton.dataset.pcsTemplateEditorAction = 'close-cancel-dialog'
     handlePcsTemplateEditorEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsWorkItemEditorDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsWorkItemEditorAction = 'close-cancel-dialog'
+    handlePcsWorkItemEditorEvent(fakeButton)
     render()
     return
   }

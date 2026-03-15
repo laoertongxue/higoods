@@ -6,11 +6,17 @@ import { renderPcsTodosPage } from '../pages/pcs-workspace-todos'
 import { renderPcsAlertsPage } from '../pages/pcs-workspace-alerts'
 import { renderPcsProjectsPage } from '../pages/pcs-projects'
 import { renderPcsTemplatesPage } from '../pages/pcs-templates'
+import { renderPcsWorkItemsPage } from '../pages/pcs-work-items'
 import {
   renderPcsTemplateCreatePage,
   renderPcsTemplateEditPage,
 } from '../pages/pcs-template-editor'
 import { renderPcsTemplateDetailPage } from '../pages/pcs-template-detail'
+import {
+  renderPcsWorkItemCreatePage,
+  renderPcsWorkItemEditPage,
+} from '../pages/pcs-work-item-editor'
+import { renderPcsWorkItemDetailPage } from '../pages/pcs-work-item-detail'
 import { renderPcsProjectDetailPage } from '../pages/pcs-project-detail'
 import { renderPcsProjectWorkItemDetailPage } from '../pages/pcs-project-work-item-detail'
 import { renderPlaceholderPage, renderRouteNotFound } from '../pages/placeholder'
@@ -105,6 +111,8 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/projects': () => renderPcsProjectsPage(),
   '/pcs/templates': () => renderPcsTemplatesPage(),
   '/pcs/templates/new': () => renderPcsTemplateCreatePage(),
+  '/pcs/work-items': () => renderPcsWorkItemsPage(),
+  '/pcs/work-items/new': () => renderPcsWorkItemCreatePage(),
   '/fcs/workbench/todos': () => renderTodosPage(),
   '/fcs/workbench/risks': () => renderRisksPage(),
   '/fcs/capacity/overview': () => renderCapacityOverviewPage(),
@@ -304,6 +312,14 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/pcs\/templates\/([^/]+)$/,
     render: (match) => renderPcsTemplateDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/pcs\/work-items\/([^/]+)\/edit$/,
+    render: (match) => renderPcsWorkItemEditPage(match[1]),
+  },
+  {
+    pattern: /^\/pcs\/work-items\/([^/]+)$/,
+    render: (match) => renderPcsWorkItemDetailPage(match[1]),
   },
   {
     pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,
