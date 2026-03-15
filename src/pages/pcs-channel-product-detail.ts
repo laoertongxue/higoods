@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderFormDialog } from '../components/ui'
 import {
   CHANNEL_PRODUCT_STATUS_META,
   LISTING_INSTANCES,
@@ -331,51 +332,45 @@ function renderListingDrawer(detail: ProductDetail): string {
 function renderSwitchSpuDialog(): string {
   if (!state.switchSpuDialogOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">切换绑定到SPU</h3>
-          <p class="mt-1 text-xs text-muted-foreground">用于候选商品转档后更新内部绑定。</p>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">目标SPU编码</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：SPU-20260115-001" value="${escapeHtml(state.targetSpu)}" data-pcs-channel-product-detail-field="target-spu" />
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-product-detail-action="close-switch-spu">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-product-detail-action="confirm-switch-spu">确认切换</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div>
+      <label class="mb-1 block text-xs text-muted-foreground">目标SPU编码</label>
+      <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：SPU-20260115-001" value="${escapeHtml(state.targetSpu)}" data-pcs-channel-product-detail-field="target-spu" />
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '切换绑定到SPU',
+      description: '用于候选商品转档后更新内部绑定。',
+      closeAction: { prefix: 'pcs-channel-product-detail', action: 'close-switch-spu' },
+      submitAction: { prefix: 'pcs-channel-product-detail', action: 'confirm-switch-spu', label: '确认切换' },
+      width: 'sm',
+    },
+    formContent
+  )
 }
 
 function renderBindSkuDialog(): string {
   if (!state.bindSkuDialog.open) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">绑定内部SKU</h3>
-          <p class="mt-1 text-xs text-muted-foreground">变体：${escapeHtml(state.bindSkuDialog.variantId ?? '-')}</p>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">目标SKU编码</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：SKU-001" value="${escapeHtml(state.targetSku)}" data-pcs-channel-product-detail-field="target-sku" />
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-product-detail-action="close-bind-sku">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-product-detail-action="confirm-bind-sku">确认绑定</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div>
+      <label class="mb-1 block text-xs text-muted-foreground">目标SKU编码</label>
+      <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：SKU-001" value="${escapeHtml(state.targetSku)}" data-pcs-channel-product-detail-field="target-sku" />
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '绑定内部SKU',
+      description: `变体：${escapeHtml(state.bindSkuDialog.variantId ?? '-')}`,
+      closeAction: { prefix: 'pcs-channel-product-detail', action: 'close-bind-sku' },
+      submitAction: { prefix: 'pcs-channel-product-detail', action: 'confirm-bind-sku', label: '确认绑定' },
+      width: 'sm',
+    },
+    formContent
+  )
 }
 
 function closeAllDialogs(): void {

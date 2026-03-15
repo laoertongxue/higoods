@@ -37,6 +37,7 @@ export interface FieldConfig {
     | "system" // Added for system fields
     | "boolean" // Added for boolean type
     | "json" // Added for json type
+    | "enum" // Added for enum type (alias for select)
   required: boolean
   description?: string
   placeholder?: string
@@ -123,15 +124,16 @@ export interface WorkItemTemplateConfig {
   statusNotes?: string
   inputFields?: FieldConfig[]
   inputFieldsNotes?: string
-  fieldGroups: FieldGroup[]
-  attachments: AttachmentConfig[]
-  businessRules: string[]
+  fieldGroups?: FieldGroup[]
+  attachments?: AttachmentConfig[]
+  businessRules?: string[]
   systemConstraints?: string[]
   interactions?: string[]
   pageLimitations?: string[] // Added field
   pageConstraints?: string[] // Added field
   interactionNotes?: string[] // Added field
-  statusFlow?: string // Added for status flow description
+  statusFlow?: string | { from: string; to: string; action: string }[] // Added for status flow description (supports both string and array)
+  statusNote?: string // Added for status note (alias of statusNotes)
   rollbackRules?: string[] // Added for rollback rules
   permissions?: { role: string; actions: string[] }[] // Added for role-based permissions
   validationRules?: string[] // Added for specific validation rules
@@ -146,8 +148,8 @@ export interface WorkItemTemplateConfig {
   uiSuggestions?: string[] // Added field
   operationTarget?: string // Added field for operational target
   capabilitiesList?: Capability[] // Added for detailed capabilities
-  validations?: { rule: string; description: string }[] // Added for structured validations
-  statusDefinitions?: { status: string; description: string; nextStates?: string[] }[] // Added for status definitions
+  validations?: { id?: string; rule: string; description?: string; trigger?: string }[] // Added for structured validations
+  statusDefinitions?: { status?: string; description?: string; nextStates?: string[]; value?: string; label?: string; color?: string }[] // Added for status definitions
   workItemType?: string // Added for work item type
   requiresProject?: boolean // Added for project requirement
   referenceType?: string // Added for reference type

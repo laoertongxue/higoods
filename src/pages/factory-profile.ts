@@ -23,6 +23,7 @@ import {
   permissionCatalog,
 } from '../data/fcs/store-domain-pda'
 import { escapeHtml } from '../utils'
+import { renderConfirmDialog } from '../components/ui/dialog'
 
 const PAGE_SIZE = 10
 
@@ -1278,20 +1279,16 @@ function renderDeleteDialog(): string {
   const factory = state.factories.find((item) => item.id === dialog.factoryId)
   if (!factory) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
-        <div class="px-6 py-5">
-          <h3 class="text-lg font-semibold">确认删除工厂档案</h3>
-          <p class="mt-2 text-sm text-muted-foreground">确定删除工厂 <span class="font-medium text-foreground">${escapeHtml(factory.name)}</span> 的档案吗？此操作不可撤销。</p>
-        </div>
-        <div class="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <button data-factory-action="close-dialog" class="rounded-md border px-4 py-2 text-sm hover:bg-muted">取消</button>
-          <button data-factory-action="confirm-delete" data-factory-id="${factory.id}" class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">删除</button>
-        </div>
-      </div>
-    </div>
-  `
+  return renderConfirmDialog(
+    {
+      title: '确认删除工厂档案',
+      closeAction: { prefix: 'factory', action: 'close-dialog' },
+      confirmAction: { prefix: 'factory', action: 'confirm-delete', label: '删除' },
+      danger: true,
+      width: 'sm',
+    },
+    `<p class="text-sm text-muted-foreground">确定删除工厂 <span class="font-medium text-foreground">${escapeHtml(factory.name)}</span> 的档案吗？此操作不可撤销。</p>`
+  )
 }
 
 export function renderFactoryProfilePage(): string {

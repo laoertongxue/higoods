@@ -1,5 +1,7 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderFormDialog } from '../components/ui/dialog'
+import { renderDrawer as uiDrawer } from '../components/ui'
 import {
   ACCOUNTING_STATUS_META,
   SESSION_STATUS_META,
@@ -368,77 +370,71 @@ function renderPurposeSelector(): string {
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-50">
-      <button class="absolute inset-0 bg-black/45" data-pcs-video-action="close-create" aria-label="关闭"></button>
-      <section class="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l bg-background shadow-2xl">
-        <header class="sticky top-0 border-b bg-background px-4 py-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-base font-semibold">新建短视频记录</h3>
-              <p class="mt-1 text-xs text-muted-foreground">支持草稿保存和直接进入核对。</p>
-            </div>
-            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-pcs-video-action="close-create" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
-          </div>
-        </header>
-        <div class="space-y-3 p-4">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">记录标题</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.title)}" data-pcs-video-field="create-title" />
-          </div>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">负责人</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.owner)}" data-pcs-video-field="create-owner" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">记录人</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.recorder)}" data-pcs-video-field="create-recorder" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">平台</label>
-              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-video-field="create-platform">
-                <option value="">请选择平台</option>
-                ${Object.entries(VIDEO_PLATFORM_META)
-                  .map(([key, meta]) => `<option value="${key}" ${state.createForm.platform === key ? 'selected' : ''}>${meta.label}</option>`)
-                  .join('')}
-              </select>
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">账号</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.account)}" data-pcs-video-field="create-account" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">创作者</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.creator)}" data-pcs-video-field="create-creator" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">发布时间</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="2026-01-25 10:00" value="${escapeHtml(state.createForm.publishedAt)}" data-pcs-video-field="create-published-at" />
-            </div>
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">视频链接</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.videoUrl)}" data-pcs-video-field="create-video-url" />
-          </div>
-          ${renderPurposeSelector()}
-          <label class="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" class="h-4 w-4 rounded border" ${state.createForm.isTestAccountingEnabled ? 'checked' : ''} data-pcs-video-field="create-accounting-enabled" />
-            <span>启用测款入账</span>
-          </label>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">备注</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-video-field="create-note">${escapeHtml(state.createForm.note)}</textarea>
-          </div>
+  const formContent = `
+    <div class="space-y-3">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">记录标题</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.title)}" data-pcs-video-field="create-title" />
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">负责人</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.owner)}" data-pcs-video-field="create-owner" />
         </div>
-        <footer class="sticky bottom-0 flex items-center justify-end gap-2 border-t bg-background px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-video-action="close-create">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-video-action="save-draft">保存草稿</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-video-action="save-reconciling">创建并进入核对</button>
-        </footer>
-      </section>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">记录人</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.recorder)}" data-pcs-video-field="create-recorder" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">平台</label>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-video-field="create-platform">
+            <option value="">请选择平台</option>
+            ${Object.entries(VIDEO_PLATFORM_META).map(([key, meta]) => `<option value="${key}" ${state.createForm.platform === key ? 'selected' : ''}>${meta.label}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">账号</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.account)}" data-pcs-video-field="create-account" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">创作者</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.creator)}" data-pcs-video-field="create-creator" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">发布时间</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="2026-01-25 10:00" value="${escapeHtml(state.createForm.publishedAt)}" data-pcs-video-field="create-published-at" />
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">视频链接</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.videoUrl)}" data-pcs-video-field="create-video-url" />
+      </div>
+      ${renderPurposeSelector()}
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" class="h-4 w-4 rounded border" ${state.createForm.isTestAccountingEnabled ? 'checked' : ''} data-pcs-video-field="create-accounting-enabled" />
+        <span>启用测款入账</span>
+      </label>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">备注</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-video-field="create-note">${escapeHtml(state.createForm.note)}</textarea>
+      </div>
     </div>
   `
+
+  return uiDrawer(
+    {
+      title: '新建短视频记录',
+      subtitle: '支持草稿保存和直接进入核对。',
+      closeAction: { prefix: 'pcs-video', action: 'close-create' },
+      width: 'lg',
+    },
+    formContent,
+    {
+      extra: '<button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-video-action="save-draft">保存草稿</button>',
+      cancel: { prefix: 'pcs-video', action: 'close-create', label: '取消' },
+      confirm: { prefix: 'pcs-video', action: 'save-reconciling', label: '创建并进入核对', variant: 'primary' },
+    }
+  )
 }
 
 function renderCloseDialog(): string {
@@ -446,30 +442,29 @@ function renderCloseDialog(): string {
   const selected = getRecordById(state.closeDialog.recordId)
   if (!selected) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">完成记录（关账）</h3>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(selected.id)} ｜ ${escapeHtml(selected.title)}</p>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">未发布原因（可选）</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.closeReason)}" data-pcs-video-field="close-reason" />
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">关账备注</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-video-field="close-note">${escapeHtml(state.closeNote)}</textarea>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-video-action="close-close">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-emerald-300 px-3 text-sm text-emerald-700 hover:bg-emerald-50" data-pcs-video-action="confirm-close">确认关账</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div class="space-y-3">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">未发布原因（可选）</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.closeReason)}" data-pcs-video-field="close-reason" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">关账备注</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-video-field="close-note">${escapeHtml(state.closeNote)}</textarea>
+      </div>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '完成记录（关账）',
+      description: `${selected.id} ｜ ${selected.title}`,
+      closeAction: { prefix: 'pcs-video', action: 'close-close' },
+      submitAction: { prefix: 'pcs-video', action: 'confirm-close', label: '确认关账' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function renderAccountingDialog(): string {
@@ -477,30 +472,29 @@ function renderAccountingDialog(): string {
   const selected = getRecordById(state.accountingDialog.recordId)
   if (!selected) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">完成测款核对（入账）</h3>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(selected.id)} ｜ 测款条目 ${selected.testItemCount} 条</p>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">入账说明</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-video-field="accounting-note">${escapeHtml(state.accountingNote)}</textarea>
-          </div>
-          <label class="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" class="h-4 w-4 rounded border" ${state.accountingConfirmed ? 'checked' : ''} data-pcs-video-field="accounting-confirmed" />
-            <span>确认测款条目已核对</span>
-          </label>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-video-action="close-accounting">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-video-action="confirm-accounting">确认入账</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div class="space-y-3">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">入账说明</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-video-field="accounting-note">${escapeHtml(state.accountingNote)}</textarea>
+      </div>
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" class="h-4 w-4 rounded border" ${state.accountingConfirmed ? 'checked' : ''} data-pcs-video-field="accounting-confirmed" />
+        <span>确认测款条目已核对</span>
+      </label>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '完成测款核对（入账）',
+      description: `${selected.id} ｜ 测款条目 ${selected.testItemCount} 条`,
+      closeAction: { prefix: 'pcs-video', action: 'close-accounting' },
+      submitAction: { prefix: 'pcs-video', action: 'confirm-accounting', label: '确认入账' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function resetCreateForm(): void {

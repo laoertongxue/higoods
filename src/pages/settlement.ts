@@ -4,6 +4,7 @@ import {
   settlementProfiles,
   settlementSummaries,
 } from '../data/fcs/settlement-mock-data'
+import { renderConfirmDialog } from '../components/ui/dialog'
 import {
   cycleTypeConfig,
   pricingModeConfig,
@@ -594,7 +595,7 @@ function renderRuleDrawer(): string {
   `
 }
 
-function renderConfirmDialog(): string {
+function renderSettleConfirmDialog(): string {
   if (state.dialog.type !== 'confirm') return ''
 
   const title = state.dialog.actionType === 'setDefault' ? '设为默认账户' : '确认禁用'
@@ -602,21 +603,18 @@ function renderConfirmDialog(): string {
     state.dialog.actionType === 'setDefault'
       ? '确定要将此账户设为默认收款账户吗？其他账户将取消默认状态。'
       : '确定要禁用此项吗？禁用后将不再生效。'
+  const isDanger = state.dialog.actionType !== 'setDefault'
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
-        <div class="px-6 py-5">
-          <h3 class="text-lg font-semibold">${title}</h3>
-          <p class="mt-2 text-sm text-muted-foreground">${description}</p>
-        </div>
-        <div class="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-settle-action="close-dialog">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-settle-action="confirm-action">确认</button>
-        </div>
-      </div>
-    </div>
-  `
+  return renderConfirmDialog(
+    {
+      title,
+      closeAction: { prefix: 'settle', action: 'close-dialog' },
+      confirmAction: { prefix: 'settle', action: 'confirm-action', label: '确认' },
+      danger: isDanger,
+      width: 'sm',
+    },
+    `<p class="text-sm text-muted-foreground">${description}</p>`
+  )
 }
 
 function renderDetailProfileTab(currentProfile: FactorySettlementProfile | undefined): string {
@@ -1081,7 +1079,7 @@ export function renderSettlementDetailPage(factoryId: string): string {
       ${renderProfileDrawer()}
       ${renderAccountDrawer()}
       ${renderRuleDrawer()}
-      ${renderConfirmDialog()}
+      ${renderSettleConfirmDialog()}
     </div>
   `
 }

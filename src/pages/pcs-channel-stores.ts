@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderFormDrawer as uiFormDrawer } from '../components/ui'
 import {
   CHANNEL_STORES,
   LEGAL_ENTITIES,
@@ -311,62 +312,53 @@ function renderTable(): string {
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-50">
-      <button class="absolute inset-0 bg-black/45" data-pcs-channel-store-action="close-create" aria-label="关闭"></button>
-      <section class="absolute right-0 top-0 h-full w-full max-w-lg overflow-y-auto border-l bg-background shadow-2xl">
-        <header class="sticky top-0 border-b bg-background px-4 py-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-base font-semibold">新建店铺</h3>
-              <p class="mt-1 text-xs text-muted-foreground">用于接入渠道店铺基础资料。</p>
-            </div>
-            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-pcs-channel-store-action="close-create" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
-          </div>
-        </header>
-        <div class="space-y-3 p-4">
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">渠道</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.channel)}" data-pcs-channel-store-field="new-channel" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">店铺名称</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.storeName)}" data-pcs-channel-store-field="new-store-name" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">店铺编码</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.storeCode)}" data-pcs-channel-store-field="new-store-code" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">平台店铺ID</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.platformStoreId)}" data-pcs-channel-store-field="new-platform-store-id" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">国家/区域</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.country)}" data-pcs-channel-store-field="new-country" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">报价币种</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.pricingCurrency)}" data-pcs-channel-store-field="new-pricing-currency" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">结算币种</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.settlementCurrency)}" data-pcs-channel-store-field="new-settlement-currency" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">时区</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.timezone)}" data-pcs-channel-store-field="new-timezone" />
-            </div>
-          </div>
-        </div>
-        <footer class="sticky bottom-0 flex items-center justify-end gap-2 border-t bg-background px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-store-action="close-create">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-store-action="confirm-create">确认创建</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">渠道</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.channel)}" data-pcs-channel-store-field="new-channel" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">店铺名称</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.storeName)}" data-pcs-channel-store-field="new-store-name" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">店铺编码</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.storeCode)}" data-pcs-channel-store-field="new-store-code" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">平台店铺ID</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.platformStoreId)}" data-pcs-channel-store-field="new-platform-store-id" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">国家/区域</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.country)}" data-pcs-channel-store-field="new-country" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">报价币种</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.pricingCurrency)}" data-pcs-channel-store-field="new-pricing-currency" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">结算币种</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.settlementCurrency)}" data-pcs-channel-store-field="new-settlement-currency" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">时区</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newStore.timezone)}" data-pcs-channel-store-field="new-timezone" />
+      </div>
     </div>
   `
+
+  return uiFormDrawer(
+    {
+      title: '新建店铺',
+      subtitle: '用于接入渠道店铺基础资料。',
+      closeAction: { prefix: 'pcs-channel-store', action: 'close-create' },
+      submitAction: { prefix: 'pcs-channel-store', action: 'confirm-create', label: '确认创建' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function resetCreateForm(): void {

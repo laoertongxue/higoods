@@ -8,6 +8,7 @@ import {
   type WorkItemNature,
   type WorkItemStatus,
 } from '../data/pcs-work-items'
+import { renderConfirmDialog } from '../components/ui'
 
 type NatureFilter = 'all' | WorkItemNature
 type StatusFilter = 'all' | WorkItemStatus
@@ -282,28 +283,28 @@ function renderTable(): string {
   `
 }
 
-function renderDialog(): string {
+function renderToggleDialog(): string {
   if (!state.dialog.open || !state.dialog.workItemId) return ''
   const current = listPcsWorkItems().find((item) => item.id === state.dialog.workItemId)
   if (!current) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">${state.dialog.nextStatus === '启用' ? '启用工作项' : '停用工作项'}</h3>
-          <p class="mt-1 text-xs text-muted-foreground">${state.dialog.nextStatus === '启用' ? '启用后，该工作项可被模板继续引用。' : '停用后，该工作项不能被新模板引用。'}</p>
-        </header>
-        <div class="space-y-2 p-4 text-sm">
-          <p>工作项：<span class="font-medium">${escapeHtml(current.name)}</span></p>
-          <p>当前状态：${escapeHtml(current.status)}</p>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-work-library-action="close-dialog">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-work-library-action="confirm-toggle">${state.dialog.nextStatus === '启用' ? '确认启用' : '确认停用'}</button>
-        </footer>
-      </section>
+  
+  const isEnable = state.dialog.nextStatus === '启用'
+  const contentHtml = `
+    <div class="space-y-2 text-sm">
+      <p>工作项：<span class="font-medium">${escapeHtml(current.name)}</span></p>
+      <p>当前状态：${escapeHtml(current.status)}</p>
     </div>
   `
+  
+  return renderConfirmDialog(
+    {
+      title: isEnable ? '启用工作项' : '停用工作项',
+      description: isEnable ? '启用后，该工作项可被模板继续引用。' : '停用后，该工作项不能被新模板引用。',
+      closeAction: { prefix: 'pcs-work-library', action: 'close-dialog' },
+      confirmAction: { prefix: 'pcs-work-library', action: 'confirm-toggle', label: isEnable ? '确认启用' : '确认停用' },
+    },
+    contentHtml
+  )
 }
 
 export function renderPcsWorkItemsPage(): string {
@@ -313,7 +314,7 @@ export function renderPcsWorkItemsPage(): string {
       ${renderNotice()}
       ${renderFilters()}
       ${renderTable()}
-      ${renderDialog()}
+      ${renderToggleDialog()}
     </div>
   `
 }

@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderFormDialog } from '../components/ui/dialog'
 
 type RiskType =
   | 'WORKITEM_OVERDUE'
@@ -800,125 +801,126 @@ function renderDetailDrawer(): string {
 
 function renderAckDialog(): string {
   if (!state.ackDialogOpen) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">确认风险</h3>
-        </header>
-        <div class="space-y-4 p-4">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">预计处理时间（可选）</label>
-            <input type="datetime-local" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.ackEta)}" data-pcs-alert-field="ackEta" />
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">备注（可选）</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="填写处理计划或备注..." data-pcs-alert-field="ackNote">${escapeHtml(state.ackNote)}</textarea>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-alert-action="close-ack">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-alert-action="submit-ack">确认</button>
-        </footer>
-      </section>
+
+  const formContent = `
+    <div class="space-y-4">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">预计处理时间（可选）</label>
+        <input type="datetime-local" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.ackEta)}" data-pcs-alert-field="ackEta" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">备注（可选）</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="填写处理计划或备注..." data-pcs-alert-field="ackNote">${escapeHtml(state.ackNote)}</textarea>
+      </div>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '确认风险',
+      closeAction: { prefix: 'pcs-alert', action: 'close-ack' },
+      submitAction: { prefix: 'pcs-alert', action: 'submit-ack', label: '确认' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function renderAssignDialog(): string {
   if (!state.assignDialogOpen) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">分派风险</h3>
-        </header>
-        <div class="space-y-4 p-4">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">分派给 *</label>
-            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-alert-field="assignTo">
-              <option value="" ${state.assignTo === '' ? 'selected' : ''}>选择责任人</option>
-              <option value="王版师" ${state.assignTo === '王版师' ? 'selected' : ''}>王版师</option>
-              <option value="李打样" ${state.assignTo === '李打样' ? 'selected' : ''}>李打样</option>
-              <option value="陈测款" ${state.assignTo === '陈测款' ? 'selected' : ''}>陈测款</option>
-              <option value="张经理" ${state.assignTo === '张经理' ? 'selected' : ''}>张经理</option>
-              <option value="王渠道" ${state.assignTo === '王渠道' ? 'selected' : ''}>王渠道</option>
-            </select>
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">分派原因 *</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="填写分派原因..." data-pcs-alert-field="assignNote">${escapeHtml(state.assignNote)}</textarea>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-alert-action="close-assign">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50 ${!state.assignTo || !state.assignNote.trim() ? 'cursor-not-allowed opacity-60' : ''}" data-pcs-alert-action="submit-assign" ${!state.assignTo || !state.assignNote.trim() ? 'disabled' : ''}>分派</button>
-        </footer>
-      </section>
+
+  const formContent = `
+    <div class="space-y-4">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">分派给 *</label>
+        <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-alert-field="assignTo">
+          <option value="" ${state.assignTo === '' ? 'selected' : ''}>选择责任人</option>
+          <option value="王版师" ${state.assignTo === '王版师' ? 'selected' : ''}>王版师</option>
+          <option value="李打样" ${state.assignTo === '李打样' ? 'selected' : ''}>李打样</option>
+          <option value="陈测款" ${state.assignTo === '陈测款' ? 'selected' : ''}>陈测款</option>
+          <option value="张经理" ${state.assignTo === '张经理' ? 'selected' : ''}>张经理</option>
+          <option value="王渠道" ${state.assignTo === '王渠道' ? 'selected' : ''}>王渠道</option>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">分派原因 *</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="填写分派原因..." data-pcs-alert-field="assignNote">${escapeHtml(state.assignNote)}</textarea>
+      </div>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '分派风险',
+      closeAction: { prefix: 'pcs-alert', action: 'close-assign' },
+      submitAction: { prefix: 'pcs-alert', action: 'submit-assign', label: '分派' },
+      width: 'md',
+      submitDisabled: !state.assignTo || !state.assignNote.trim(),
+    },
+    formContent
+  )
 }
 
 function renderSuppressDialog(): string {
   if (!state.suppressDialogOpen) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">抑制风险</h3>
-        </header>
-        <div class="space-y-4 p-4">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">抑制原因 *</label>
-            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-alert-field="suppressReason">
-              <option value="" ${state.suppressReason === '' ? 'selected' : ''}>选择抑制原因</option>
-              <option value="known_issue" ${state.suppressReason === 'known_issue' ? 'selected' : ''}>已知问题</option>
-              <option value="no_action_needed" ${state.suppressReason === 'no_action_needed' ? 'selected' : ''}>无需处理</option>
-              <option value="false_positive" ${state.suppressReason === 'false_positive' ? 'selected' : ''}>误报</option>
-              <option value="external_reason" ${state.suppressReason === 'external_reason' ? 'selected' : ''}>外部原因</option>
-            </select>
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">抑制期限 *</label>
-            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-alert-field="suppressDuration">
-              <option value="1" ${state.suppressDuration === '1' ? 'selected' : ''}>1天</option>
-              <option value="3" ${state.suppressDuration === '3' ? 'selected' : ''}>3天</option>
-              <option value="7" ${state.suppressDuration === '7' ? 'selected' : ''}>7天</option>
-              <option value="30" ${state.suppressDuration === '30' ? 'selected' : ''}>30天</option>
-            </select>
-            <p class="mt-1 text-xs text-muted-foreground">到期后自动恢复检测</p>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-alert-action="close-suppress">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50 ${!state.suppressReason ? 'cursor-not-allowed opacity-60' : ''}" data-pcs-alert-action="submit-suppress" ${!state.suppressReason ? 'disabled' : ''}>抑制</button>
-        </footer>
-      </section>
+
+  const formContent = `
+    <div class="space-y-4">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">抑制原因 *</label>
+        <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-alert-field="suppressReason">
+          <option value="" ${state.suppressReason === '' ? 'selected' : ''}>选择抑制原因</option>
+          <option value="known_issue" ${state.suppressReason === 'known_issue' ? 'selected' : ''}>已知问题</option>
+          <option value="no_action_needed" ${state.suppressReason === 'no_action_needed' ? 'selected' : ''}>无需处理</option>
+          <option value="false_positive" ${state.suppressReason === 'false_positive' ? 'selected' : ''}>误报</option>
+          <option value="external_reason" ${state.suppressReason === 'external_reason' ? 'selected' : ''}>外部原因</option>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">抑制期限 *</label>
+        <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-alert-field="suppressDuration">
+          <option value="1" ${state.suppressDuration === '1' ? 'selected' : ''}>1天</option>
+          <option value="3" ${state.suppressDuration === '3' ? 'selected' : ''}>3天</option>
+          <option value="7" ${state.suppressDuration === '7' ? 'selected' : ''}>7天</option>
+          <option value="30" ${state.suppressDuration === '30' ? 'selected' : ''}>30天</option>
+        </select>
+        <p class="mt-1 text-xs text-muted-foreground">到期后自动恢复检测</p>
+      </div>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '抑制风险',
+      closeAction: { prefix: 'pcs-alert', action: 'close-suppress' },
+      submitAction: { prefix: 'pcs-alert', action: 'submit-suppress', label: '抑制' },
+      width: 'md',
+      submitDisabled: !state.suppressReason,
+    },
+    formContent
+  )
 }
 
 function renderResolveDialog(): string {
   if (!state.resolveDialogOpen) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">标记已解决</h3>
-        </header>
-        <div class="space-y-4 p-4">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">处理结论 *</label>
-            <textarea class="min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="填写处理结论..." data-pcs-alert-field="resolveNote">${escapeHtml(state.resolveNote)}</textarea>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-alert-action="close-resolve">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50 ${!state.resolveNote.trim() ? 'cursor-not-allowed opacity-60' : ''}" data-pcs-alert-action="submit-resolve" ${!state.resolveNote.trim() ? 'disabled' : ''}>确认解决</button>
-        </footer>
-      </section>
+
+  const formContent = `
+    <div>
+      <label class="mb-1 block text-xs text-muted-foreground">处理结论 *</label>
+      <textarea class="min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="填写处理结论..." data-pcs-alert-field="resolveNote">${escapeHtml(state.resolveNote)}</textarea>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '标记已解决',
+      closeAction: { prefix: 'pcs-alert', action: 'close-resolve' },
+      submitAction: { prefix: 'pcs-alert', action: 'submit-resolve', label: '确认解决' },
+      width: 'md',
+      submitDisabled: !state.resolveNote.trim(),
+    },
+    formContent
+  )
 }
 
 export function renderPcsAlertsPage(): string {

@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderConfirmDialog, renderFormDrawer as uiFormDrawer } from '../components/ui'
 import {
   OWNER_TYPE_META,
   listChannelStores,
@@ -313,65 +314,58 @@ function renderTable(): string {
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-50">
-      <button class="absolute inset-0 bg-black/45" data-pcs-payout-action="close-create" aria-label="关闭"></button>
-      <section class="absolute right-0 top-0 h-full w-full max-w-lg overflow-y-auto border-l bg-background shadow-2xl">
-        <header class="sticky top-0 border-b bg-background px-4 py-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-base font-semibold">新建提现账号</h3>
-              <p class="mt-1 text-xs text-muted-foreground">用于渠道店铺绑定结算主体。</p>
-            </div>
-            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-pcs-payout-action="close-create" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
-          </div>
-        </header>
-        <div class="space-y-3 p-4">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">账号名称</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.name)}" data-pcs-payout-field="create-name" />
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">提现通道</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.payoutChannel)}" data-pcs-payout-field="create-payout-channel" />
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">脱敏标识</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：****1234" value="${escapeHtml(state.createForm.identifierMasked)}" data-pcs-payout-field="create-identifier" />
-          </div>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">归属类型</label>
-              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-payout-field="create-owner-type">
-                <option value="LEGAL" ${state.createForm.ownerType === 'LEGAL' ? 'selected' : ''}>法人</option>
-                <option value="PERSONAL" ${state.createForm.ownerType === 'PERSONAL' ? 'selected' : ''}>个人</option>
-              </select>
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">归属主体ID</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.ownerRefId)}" data-pcs-payout-field="create-owner-ref-id" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">归属主体名称</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.ownerName)}" data-pcs-payout-field="create-owner-name" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">国家/区域</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.country)}" data-pcs-payout-field="create-country" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">币种</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.currency)}" data-pcs-payout-field="create-currency" />
-            </div>
-          </div>
+  const formContent = `
+    <div class="space-y-3">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">账号名称</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.name)}" data-pcs-payout-field="create-name" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">提现通道</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.payoutChannel)}" data-pcs-payout-field="create-payout-channel" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">脱敏标识</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：****1234" value="${escapeHtml(state.createForm.identifierMasked)}" data-pcs-payout-field="create-identifier" />
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">归属类型</label>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-payout-field="create-owner-type">
+            <option value="LEGAL" ${state.createForm.ownerType === 'LEGAL' ? 'selected' : ''}>法人</option>
+            <option value="PERSONAL" ${state.createForm.ownerType === 'PERSONAL' ? 'selected' : ''}>个人</option>
+          </select>
         </div>
-        <footer class="sticky bottom-0 flex items-center justify-end gap-2 border-t bg-background px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-payout-action="close-create">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-payout-action="confirm-create">确认创建</button>
-        </footer>
-      </section>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">归属主体ID</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.ownerRefId)}" data-pcs-payout-field="create-owner-ref-id" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">归属主体名称</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.ownerName)}" data-pcs-payout-field="create-owner-name" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">国家/区域</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.country)}" data-pcs-payout-field="create-country" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">币种</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.currency)}" data-pcs-payout-field="create-currency" />
+        </div>
+      </div>
     </div>
   `
+
+  return uiFormDrawer(
+    {
+      title: '新建提现账号',
+      subtitle: '用于渠道店铺绑定结算主体。',
+      closeAction: { prefix: 'pcs-payout', action: 'close-create' },
+      submitAction: { prefix: 'pcs-payout', action: 'confirm-create', label: '确认创建' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function renderDeactivateDialog(): string {
@@ -380,23 +374,23 @@ function renderDeactivateDialog(): string {
   const selected = accounts.find((item) => item.id === state.deactivateAccountId)
   if (!selected) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-md rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">停用提现账号</h3>
-        </header>
-        <div class="space-y-2 px-4 py-4 text-sm">
-          <p>账号：${escapeHtml(selected.name)}</p>
-          <p class="text-muted-foreground">停用后该账号不可再用于新绑定（演示态）。</p>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-payout-action="close-deactivate">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-rose-300 px-3 text-sm text-rose-700 hover:bg-rose-50" data-pcs-payout-action="confirm-deactivate">确认停用</button>
-        </footer>
-      </section>
+  const contentHtml = `
+    <div class="space-y-2 text-sm">
+      <p>账号：${escapeHtml(selected.name)}</p>
+      <p class="text-muted-foreground">停用后该账号不可再用于新绑定（演示态）。</p>
     </div>
   `
+
+  return renderConfirmDialog(
+    {
+      title: '停用提现账号',
+      closeAction: { prefix: 'pcs-payout', action: 'close-deactivate' },
+      confirmAction: { prefix: 'pcs-payout', action: 'confirm-deactivate', label: '确认停用' },
+      danger: true,
+      width: 'sm',
+    },
+    contentHtml
+  )
 }
 
 function renderRelatedDialog(): string {

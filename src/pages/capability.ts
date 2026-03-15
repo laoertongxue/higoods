@@ -8,6 +8,7 @@ import {
   type TagCategory,
   type TagStatus,
 } from '../data/fcs/capability-types'
+import { renderConfirmDialog } from '../components/ui/dialog'
 import { escapeHtml } from '../utils'
 
 const PAGE_SIZE = 10
@@ -258,22 +259,16 @@ function renderCategoryDisableConfirmDialog(): string {
 
   const tagCount = getCategoryTagCount(category.id)
 
-  return `
-    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
-        <div class="px-6 py-5">
-          <h3 class="text-lg font-semibold">确认禁用分类</h3>
-          <p class="mt-2 text-sm text-muted-foreground">
-            该分类下有 ${tagCount} 个标签，禁用后这些标签将无法被新工厂选择。确定要禁用吗？
-          </p>
-        </div>
-        <div class="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cap-action="cancel-disable-category">取消</button>
-          <button class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700" data-cap-action="confirm-disable-category">确认禁用</button>
-        </div>
-      </div>
-    </div>
-  `
+  return renderConfirmDialog(
+    {
+      title: '确认禁用分类',
+      closeAction: { prefix: 'cap', action: 'cancel-disable-category' },
+      confirmAction: { prefix: 'cap', action: 'confirm-disable-category', label: '确认禁用' },
+      danger: true,
+      width: 'sm',
+    },
+    `<p class="text-sm text-muted-foreground">该分类下有 ${tagCount} 个标签，禁用后这些标签将无法被新工厂选择。确定要禁用吗？</p>`
+  )
 }
 
 function renderCategoryDialog(): string {
@@ -399,20 +394,16 @@ function renderDisableConfirmDialog(): string {
   const tag = findTagById(state.dialog.tagId)
   if (!tag) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
-        <div class="px-6 py-5">
-          <h3 class="text-lg font-semibold">确认禁用标签</h3>
-          <p class="mt-2 text-sm text-muted-foreground">确定要禁用标签「${escapeHtml(tag.name)}」吗？禁用后该标签将不再显示在工厂能力选项中。</p>
-        </div>
-        <div class="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cap-action="close-dialog">取消</button>
-          <button class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700" data-cap-action="confirm-disable-tag" data-tag-id="${tag.id}">确认禁用</button>
-        </div>
-      </div>
-    </div>
-  `
+  return renderConfirmDialog(
+    {
+      title: '确认禁用标签',
+      closeAction: { prefix: 'cap', action: 'close-dialog' },
+      confirmAction: { prefix: 'cap', action: 'confirm-disable-tag', label: '确认禁用' },
+      danger: true,
+      width: 'sm',
+    },
+    `<p class="text-sm text-muted-foreground">确定要禁用标签「${escapeHtml(tag.name)}」吗？禁用后该标签将不再显示在工厂能力选项中。</p>`
+  )
 }
 
 function renderViewDialog(): string {

@@ -1,5 +1,7 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderFormDialog } from '../components/ui/dialog'
+import { renderDrawer as uiDrawer } from '../components/ui'
 import {
   ACCOUNTING_STATUS_META,
   LIVE_PURPOSE_META,
@@ -383,82 +385,76 @@ function renderPurposeSelector(): string {
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-50">
-      <button class="absolute inset-0 bg-black/45" data-pcs-live-action="close-create" aria-label="关闭"></button>
-      <section class="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l bg-background shadow-2xl">
-        <header class="sticky top-0 z-10 border-b bg-background px-4 py-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-base font-semibold">新建场次</h3>
-              <p class="mt-1 text-xs text-muted-foreground">保留旧 PCS 的创建参数，支持保存草稿和直接进入核对。</p>
-            </div>
-            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-pcs-live-action="close-create" aria-label="关闭">
-              <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-          </div>
-        </header>
-        <div class="space-y-3 p-4">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">场次标题</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="请输入场次标题" value="${escapeHtml(state.createForm.title)}" data-pcs-live-field="create-title" />
-          </div>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">负责人</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.owner)}" data-pcs-live-field="create-owner" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">站点</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.site)}" data-pcs-live-field="create-site" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">直播账号</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.liveAccount)}" data-pcs-live-field="create-live-account" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">主播</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.anchor)}" data-pcs-live-field="create-anchor" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">开播时间</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="2026-01-25 19:00" value="${escapeHtml(state.createForm.startAt)}" data-pcs-live-field="create-start" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">预计下播时间</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="2026-01-25 22:30" value="${escapeHtml(state.createForm.endAt)}" data-pcs-live-field="create-end" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">操作人</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.operator)}" data-pcs-live-field="create-operator" />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">记录人</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.recorder)}" data-pcs-live-field="create-recorder" />
-            </div>
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">复核人</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.reviewer)}" data-pcs-live-field="create-reviewer" />
-          </div>
-          ${renderPurposeSelector()}
-          <label class="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" class="h-4 w-4 rounded border" ${state.createForm.isTestAccountingEnabled ? 'checked' : ''} data-pcs-live-field="create-test-accounting" />
-            <span>启用测款入账</span>
-          </label>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">备注</label>
-            <textarea class="min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-live-field="create-note">${escapeHtml(state.createForm.note)}</textarea>
-          </div>
+  const formContent = `
+    <div class="space-y-3">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">场次标题</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="请输入场次标题" value="${escapeHtml(state.createForm.title)}" data-pcs-live-field="create-title" />
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">负责人</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.owner)}" data-pcs-live-field="create-owner" />
         </div>
-        <footer class="sticky bottom-0 flex items-center justify-end gap-2 border-t bg-background px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-live-action="close-create">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-live-action="save-draft">保存草稿</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-live-action="save-reconciling">创建并进入核对</button>
-        </footer>
-      </section>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">站点</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.site)}" data-pcs-live-field="create-site" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">直播账号</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.liveAccount)}" data-pcs-live-field="create-live-account" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">主播</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.anchor)}" data-pcs-live-field="create-anchor" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">开播时间</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="2026-01-25 19:00" value="${escapeHtml(state.createForm.startAt)}" data-pcs-live-field="create-start" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">预计下播时间</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="2026-01-25 22:30" value="${escapeHtml(state.createForm.endAt)}" data-pcs-live-field="create-end" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">操作人</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.operator)}" data-pcs-live-field="create-operator" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">记录人</label>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.recorder)}" data-pcs-live-field="create-recorder" />
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">复核人</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.reviewer)}" data-pcs-live-field="create-reviewer" />
+      </div>
+      ${renderPurposeSelector()}
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" class="h-4 w-4 rounded border" ${state.createForm.isTestAccountingEnabled ? 'checked' : ''} data-pcs-live-field="create-test-accounting" />
+        <span>启用测款入账</span>
+      </label>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">备注</label>
+        <textarea class="min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-live-field="create-note">${escapeHtml(state.createForm.note)}</textarea>
+      </div>
     </div>
   `
+
+  return uiDrawer(
+    {
+      title: '新建场次',
+      subtitle: '保留旧 PCS 的创建参数，支持保存草稿和直接进入核对。',
+      closeAction: { prefix: 'pcs-live', action: 'close-create' },
+      width: 'lg',
+    },
+    formContent,
+    {
+      extra: '<button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-live-action="save-draft">保存草稿</button>',
+      cancel: { prefix: 'pcs-live', action: 'close-create', label: '取消' },
+      confirm: { prefix: 'pcs-live', action: 'save-reconciling', label: '创建并进入核对', variant: 'primary' },
+    }
+  )
 }
 
 function renderCloseAccountDialog(): string {
@@ -467,27 +463,26 @@ function renderCloseAccountDialog(): string {
   const selected = getSessionById(state.closeAccountDialog.sessionId)
   if (!selected) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">完成场次（关账）</h3>
-          <p class="mt-1 text-xs text-muted-foreground">场次：${escapeHtml(selected.id)} ｜ ${escapeHtml(selected.title)}</p>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">关账后状态将进入“已关账”，如包含测款条目可继续执行“测款入账”。</div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">关账备注</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-live-field="close-account-note">${escapeHtml(state.closeAccountNote)}</textarea>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-live-action="close-close-account">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-emerald-300 px-3 text-sm text-emerald-700 hover:bg-emerald-50" data-pcs-live-action="confirm-close-account">确认关账</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div class="space-y-3">
+      <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">关账后状态将进入"已关账"，如包含测款条目可继续执行"测款入账"。</div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">关账备注</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-live-field="close-account-note">${escapeHtml(state.closeAccountNote)}</textarea>
+      </div>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '完成场次（关账）',
+      description: `场次：${selected.id} ｜ ${selected.title}`,
+      closeAction: { prefix: 'pcs-live', action: 'close-close-account' },
+      submitAction: { prefix: 'pcs-live', action: 'confirm-close-account', label: '确认关账' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function renderTestAccountingDialog(): string {
@@ -496,30 +491,29 @@ function renderTestAccountingDialog(): string {
   const selected = getSessionById(state.testAccountingDialog.sessionId)
   if (!selected) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">完成测款核对（入账）</h3>
-          <p class="mt-1 text-xs text-muted-foreground">场次：${escapeHtml(selected.id)} ｜ 测款条目 ${selected.testItemCount} 条</p>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">入账说明</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-live-field="test-accounting-note">${escapeHtml(state.testAccountingNote)}</textarea>
-          </div>
-          <label class="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" class="h-4 w-4 rounded border" ${state.testAccountingConfirmed ? 'checked' : ''} data-pcs-live-field="test-accounting-confirmed" />
-            <span>我已确认测款结果与场次明细一致</span>
-          </label>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-live-action="close-test-accounting">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-live-action="confirm-test-accounting">确认入账</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div class="space-y-3">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">入账说明</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-live-field="test-accounting-note">${escapeHtml(state.testAccountingNote)}</textarea>
+      </div>
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" class="h-4 w-4 rounded border" ${state.testAccountingConfirmed ? 'checked' : ''} data-pcs-live-field="test-accounting-confirmed" />
+        <span>我已确认测款结果与场次明细一致</span>
+      </label>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '完成测款核对（入账）',
+      description: `场次：${selected.id} ｜ 测款条目 ${selected.testItemCount} 条`,
+      closeAction: { prefix: 'pcs-live', action: 'close-test-accounting' },
+      submitAction: { prefix: 'pcs-live', action: 'confirm-test-accounting', label: '确认入账' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function resetCreateForm(): void {

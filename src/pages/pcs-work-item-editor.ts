@@ -9,6 +9,7 @@ import {
   type WorkItemNature,
   type WorkItemStatus,
 } from '../data/pcs-work-items'
+import { renderConfirmDialog } from '../components/ui/dialog'
 
 type EditorMode = 'create' | 'edit'
 
@@ -182,21 +183,17 @@ function renderActionBar(): string {
 function renderCancelDialog(): string {
   if (!state.cancelDialogOpen) return ''
 
-  const target = state.mode === 'create' ? '/pcs/work-items' : `/pcs/work-items/${state.workItemId || ''}`
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-md rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">确认取消</h3>
-          <p class="mt-1 text-xs text-muted-foreground">当前编辑内容不会保存，确定离开吗？</p>
-        </header>
-        <footer class="flex items-center justify-end gap-2 px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-work-item-editor-action="close-cancel-dialog">继续编辑</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-red-300 px-3 text-sm text-red-700 hover:bg-red-50" data-pcs-work-item-editor-action="confirm-cancel" data-nav-target="${escapeHtml(target)}">确认离开</button>
-        </footer>
-      </section>
-    </div>
-  `
+  return renderConfirmDialog(
+    {
+      title: '确认取消',
+      description: '当前编辑内容不会保存，确定离开吗？',
+      closeAction: { prefix: 'pcs-work-item-editor', action: 'close-cancel-dialog' },
+      confirmAction: { prefix: 'pcs-work-item-editor', action: 'confirm-cancel', label: '确认离开' },
+      cancelLabel: '继续编辑',
+      danger: true,
+      width: 'sm',
+    }
+  )
 }
 
 function validateBeforeSave(): string | null {
@@ -376,9 +373,9 @@ export function handlePcsWorkItemEditorEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'confirm-cancel') {
-    const navTarget = actionNode.dataset.navTarget
+    const navTarget = state.mode === 'create' ? '/pcs/work-items' : `/pcs/work-items/${state.workItemId || ''}`
     state.cancelDialogOpen = false
-    appStore.navigate(navTarget || '/pcs/work-items')
+    appStore.navigate(navTarget)
     return true
   }
 

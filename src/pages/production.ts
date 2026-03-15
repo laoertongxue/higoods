@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml, formatDateTime } from '../utils'
+import { renderFormDialog, renderConfirmDialog } from '../components/ui/dialog'
 import { productionDemands, type ProductionDemand } from '../data/fcs/production-demands'
 import {
   productionOrders,
@@ -3302,57 +3303,40 @@ function renderStatusChangeDialog(): string {
   const currentStatus = deriveLifecycleStatus(order)
   const nextStatuses = lifecycleAllowedNext[currentStatus]
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
-        <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">变更生产单状态</h3>
-        </header>
-
-        <div class="space-y-4 px-6 py-5">
-          <label class="space-y-1">
-            <span class="text-sm font-medium">当前状态</span>
-            <div class="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">${escapeHtml(
-              lifecycleStatusLabel[currentStatus],
-            )}</div>
-          </label>
-
-          <label class="space-y-1">
-            <span class="text-sm font-medium">目标状态 <span class="text-destructive">*</span></span>
-            ${
-              nextStatuses.length === 0
-                ? `<p class="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">已关闭，不可变更</p>`
-                : `<select data-prod-field="statusNext" class="w-full rounded-md border px-3 py-2 text-sm">
-                     <option value="" ${state.statusNext ? '' : 'selected'}>请选择目标状态</option>
-                     ${nextStatuses
-                       .map(
-                         (status) =>
-                           `<option value="${status}" ${
-                             state.statusNext === status ? 'selected' : ''
-                           }>${escapeHtml(lifecycleStatusLabel[status])}</option>`,
-                       )
-                       .join('')}
-                   </select>`
-            }
-          </label>
-
-          <label class="space-y-1">
-            <span class="text-sm font-medium">说明（可选）</span>
-            <textarea data-prod-field="statusRemark" class="min-h-[72px] w-full rounded-md border px-3 py-2 text-sm" placeholder="请输入状态变更说明">${escapeHtml(
-              state.statusRemark,
-            )}</textarea>
-          </label>
-        </div>
-
-        <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-status-change">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            !state.statusNext ? 'pointer-events-none opacity-50' : ''
-          }" data-prod-action="save-status-change">保存</button>
-        </footer>
+  const formContent = `
+    <div class="space-y-4">
+      <div class="space-y-1">
+        <span class="text-sm font-medium">当前状态</span>
+        <div class="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">${escapeHtml(lifecycleStatusLabel[currentStatus])}</div>
+      </div>
+      <div class="space-y-1">
+        <span class="text-sm font-medium">目标状态 <span class="text-destructive">*</span></span>
+        ${
+          nextStatuses.length === 0
+            ? `<p class="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">已关闭，不可变更</p>`
+            : `<select data-prod-field="statusNext" class="w-full rounded-md border px-3 py-2 text-sm">
+                 <option value="" ${state.statusNext ? '' : 'selected'}>请选择目标状态</option>
+                 ${nextStatuses.map((status) => `<option value="${status}" ${state.statusNext === status ? 'selected' : ''}>${escapeHtml(lifecycleStatusLabel[status])}</option>`).join('')}
+               </select>`
+        }
+      </div>
+      <div class="space-y-1">
+        <span class="text-sm font-medium">说明（可选）</span>
+        <textarea data-prod-field="statusRemark" class="min-h-[72px] w-full rounded-md border px-3 py-2 text-sm" placeholder="请输入状态变更说明">${escapeHtml(state.statusRemark)}</textarea>
       </div>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '变更生产单状态',
+      closeAction: { prefix: 'prod', action: 'close-status-change' },
+      submitAction: { prefix: 'prod', action: 'save-status-change', label: '保存' },
+      width: 'sm',
+      submitDisabled: !state.statusNext,
+    },
+    formContent
+  )
 }
 
 export function renderProductionStatusPage(): string {
@@ -3615,63 +3599,44 @@ function renderDetailLogsDialog(order: ProductionOrder): string {
 function renderDetailSimulateDialog(order: ProductionOrder): string {
   if (!state.detailSimulateOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <div class="w-full max-w-lg rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
-        <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">模拟状态流转</h3>
-          <p class="mt-1 text-sm text-muted-foreground">仅限管理员使用，用于测试不同状态下的页面表现</p>
-        </header>
-
-        <div class="space-y-3 px-6 py-5">
-          <label class="space-y-1">
-            <span class="text-xs text-muted-foreground">选择目标状态</span>
-            <select data-prod-field="detailSimulateStatus" class="w-full rounded-md border px-3 py-2 text-sm">
-              ${(Object.keys(productionOrderStatusConfig) as ProductionOrderStatus[])
-                .map(
-                  (status) =>
-                    `<option value="${status}" ${
-                      state.detailSimulateStatus === status ? 'selected' : ''
-                    }>${escapeHtml(productionOrderStatusConfig[status].label)}</option>`,
-                )
-                .join('')}
-            </select>
-          </label>
-          <p class="text-xs text-muted-foreground">当状态为 生产执行中/已完成/已取消 时，订单将被锁定</p>
-        </div>
-
-        <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="detail-close-simulate">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-prod-action="detail-open-simulate-confirm">确认变更</button>
-        </footer>
+  const formContent = `
+    <div class="space-y-3">
+      <div class="space-y-1">
+        <span class="text-xs text-muted-foreground">选择目标状态</span>
+        <select data-prod-field="detailSimulateStatus" class="w-full rounded-md border px-3 py-2 text-sm">
+          ${(Object.keys(productionOrderStatusConfig) as ProductionOrderStatus[]).map((status) => `<option value="${status}" ${state.detailSimulateStatus === status ? 'selected' : ''}>${escapeHtml(productionOrderStatusConfig[status].label)}</option>`).join('')}
+        </select>
       </div>
+      <p class="text-xs text-muted-foreground">当状态为 生产执行中/已完成/已取消 时，订单将被锁定</p>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '模拟状态流转',
+      description: '仅限管理员使用，用于测试不同状态下的页面表现',
+      closeAction: { prefix: 'prod', action: 'detail-close-simulate' },
+      submitAction: { prefix: 'prod', action: 'detail-open-simulate-confirm', label: '确认变更' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function renderDetailSimulateConfirmDialog(order: ProductionOrder): string {
   if (!state.detailConfirmSimulateOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
-        <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">确认状态变更</h3>
-          <p class="mt-1 text-sm text-muted-foreground">确定将状态从「${escapeHtml(
-            productionOrderStatusConfig[order.status].label,
-          )}」变更为「${escapeHtml(
-            productionOrderStatusConfig[state.detailSimulateStatus].label,
-          )}」吗？此操作将记录到审计日志。</p>
-        </header>
-        <footer class="flex items-center justify-end gap-2 px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="detail-close-simulate-confirm">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-prod-action="detail-apply-simulate" data-order-id="${
-            order.productionOrderId
-          }">确认</button>
-        </footer>
-      </div>
-    </div>
-  `
+  const description = `确定将状态从「${escapeHtml(productionOrderStatusConfig[order.status].label)}」变更为「${escapeHtml(productionOrderStatusConfig[state.detailSimulateStatus].label)}」吗？此操作将记录到审计日志。`
+
+  return renderConfirmDialog(
+    {
+      title: '确认状态变更',
+      closeAction: { prefix: 'prod', action: 'detail-close-simulate-confirm' },
+      confirmAction: { prefix: 'prod', action: 'detail-apply-simulate', label: '确认' },
+      width: 'sm',
+    },
+    `<p class="text-sm text-muted-foreground">${description}</p>`
+  )
 }
 
 function renderOrderDetailTabButtons(activeTab: OrderDetailTab): string {

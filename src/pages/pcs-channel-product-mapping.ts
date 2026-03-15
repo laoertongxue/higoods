@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils'
+import { renderConfirmDialog, renderFormDialog } from '../components/ui'
 import {
   CHANNEL_OPTIONS,
   MAPPING_RECORDS,
@@ -292,85 +293,71 @@ function renderTable(): string {
 function renderCreateDialog(): string {
   if (!state.createDialogOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">新增编码映射</h3>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">映射类型</label>
-            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-mapping-field="create-type">
-              ${Object.entries(MAPPING_TYPE_META).map(([key, meta]) => `<option value="${key}" ${state.createForm.type === key ? 'selected' : ''}>${meta.label}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">源键</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.sourceKey)}" data-pcs-channel-mapping-field="create-source" />
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">目标键</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.targetKey)}" data-pcs-channel-mapping-field="create-target" />
-          </div>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">渠道</label>
-              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-mapping-field="create-channel">
-                <option value="">可留空（全局）</option>
-                ${CHANNEL_OPTIONS.map((channel) => `<option value="${channel.id}" ${state.createForm.channel === channel.id ? 'selected' : ''}>${channel.name}</option>`).join('')}
-              </select>
-            </div>
-            <div>
-              <label class="mb-1 block text-xs text-muted-foreground">店铺</label>
-              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-mapping-field="create-store">
-                <option value="">可留空</option>
-                ${STORE_OPTIONS.filter((store) => !state.createForm.channel || store.channel === state.createForm.channel)
-                  .map((store) => `<option value="${store.id}" ${state.createForm.store === store.id ? 'selected' : ''}>${store.name}</option>`)
-                  .join('')}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">备注</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-channel-mapping-field="create-remark">${escapeHtml(state.createForm.remark)}</textarea>
-          </div>
+  const formContent = `
+    <div class="space-y-3 text-sm">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">映射类型</label>
+        <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-mapping-field="create-type">
+          ${Object.entries(MAPPING_TYPE_META).map(([key, meta]) => `<option value="${key}" ${state.createForm.type === key ? 'selected' : ''}>${meta.label}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">源键</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.sourceKey)}" data-pcs-channel-mapping-field="create-source" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">目标键</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.targetKey)}" data-pcs-channel-mapping-field="create-target" />
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">渠道</label>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-mapping-field="create-channel">
+            <option value="">可留空（全局）</option>
+            ${CHANNEL_OPTIONS.map((channel) => `<option value="${channel.id}" ${state.createForm.channel === channel.id ? 'selected' : ''}>${channel.name}</option>`).join('')}
+          </select>
         </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-mapping-action="close-create">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-mapping-action="confirm-create">确认创建</button>
-        </footer>
-      </section>
+        <div>
+          <label class="mb-1 block text-xs text-muted-foreground">店铺</label>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-mapping-field="create-store">
+            <option value="">可留空</option>
+            ${STORE_OPTIONS.filter((store) => !state.createForm.channel || store.channel === state.createForm.channel)
+              .map((store) => `<option value="${store.id}" ${state.createForm.store === store.id ? 'selected' : ''}>${store.name}</option>`)
+              .join('')}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">备注</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-channel-mapping-field="create-remark">${escapeHtml(state.createForm.remark)}</textarea>
+      </div>
     </div>
   `
-}
 
-function renderSimpleDialog(title: string, message: string, closeAction: string, confirmAction: string): string {
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">${title}</h3>
-        </header>
-        <div class="p-4 text-sm text-muted-foreground">${message}</div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-mapping-action="${closeAction}">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-mapping-action="${confirmAction}">确认</button>
-        </footer>
-      </section>
-    </div>
-  `
+  return renderFormDialog(
+    {
+      title: '新增编码映射',
+      closeAction: { prefix: 'pcs-channel-mapping', action: 'close-create' },
+      submitAction: { prefix: 'pcs-channel-mapping', action: 'confirm-create', label: '确认创建' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 function renderEndDialog(): string {
   if (!state.endDialog.open) return ''
   const mapping = getMapping(state.endDialog.mappingId)
   if (!mapping) return ''
-  return renderSimpleDialog(
-    '结束映射',
-    `确认结束映射 ${escapeHtml(mapping.id)} 吗？系统将写入结束时间。`,
-    'close-end',
-    'confirm-end',
+
+  return renderConfirmDialog(
+    {
+      title: '结束映射',
+      closeAction: { prefix: 'pcs-channel-mapping', action: 'close-end' },
+      confirmAction: { prefix: 'pcs-channel-mapping', action: 'confirm-end', label: '确认' },
+      width: 'sm',
+    },
+    `<p class="text-sm text-muted-foreground">确认结束映射 ${escapeHtml(mapping.id)} 吗？系统将写入结束时间。</p>`
   )
 }
 
@@ -379,38 +366,41 @@ function renderReplaceDialog(): string {
   const mapping = getMapping(state.replaceDialog.mappingId)
   if (!mapping) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">替换映射目标</h3>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(mapping.id)} ｜ 当前目标 ${escapeHtml(mapping.targetKey)}</p>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">新目标键</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.replaceTargetKey)}" data-pcs-channel-mapping-field="replace-target" />
-          </div>
-          <p class="text-xs text-muted-foreground">确认后将结束旧映射并创建新映射。</p>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-mapping-action="close-replace">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-mapping-action="confirm-replace">确认替换</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div class="space-y-3 text-sm">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">新目标键</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.replaceTargetKey)}" data-pcs-channel-mapping-field="replace-target" />
+      </div>
+      <p class="text-xs text-muted-foreground">确认后将结束旧映射并创建新映射。</p>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '替换映射目标',
+      description: `${escapeHtml(mapping.id)} ｜ 当前目标 ${escapeHtml(mapping.targetKey)}`,
+      closeAction: { prefix: 'pcs-channel-mapping', action: 'close-replace' },
+      submitAction: { prefix: 'pcs-channel-mapping', action: 'confirm-replace', label: '确认替换' },
+      width: 'sm',
+    },
+    formContent
+  )
 }
 
 function renderConflictDialog(): string {
   if (!state.conflictDialog.open) return ''
   const mapping = getMapping(state.conflictDialog.mappingId)
   if (!mapping) return ''
-  return renderSimpleDialog(
-    '解决映射冲突',
-    `将映射 ${escapeHtml(mapping.id)} 标记为最终生效，并结束冲突集合中的其他映射。`,
-    'close-conflict',
-    'confirm-conflict',
+
+  return renderConfirmDialog(
+    {
+      title: '解决映射冲突',
+      closeAction: { prefix: 'pcs-channel-mapping', action: 'close-conflict' },
+      confirmAction: { prefix: 'pcs-channel-mapping', action: 'confirm-conflict', label: '确认' },
+      width: 'sm',
+    },
+    `<p class="text-sm text-muted-foreground">将映射 ${escapeHtml(mapping.id)} 标记为最终生效，并结束冲突集合中的其他映射。</p>`
   )
 }
 

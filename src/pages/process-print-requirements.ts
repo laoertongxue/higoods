@@ -1,6 +1,7 @@
 import { appStore } from '../state/store'
 import { setProcessCreateDemandIntent } from './process-order-create-bridge'
 import { escapeHtml } from '../utils'
+import { renderDialog } from '../components/ui'
 
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type PreparationStatusZh = '待配料' | '部分配料' | '已完成配料'
@@ -766,38 +767,40 @@ function renderDetailDrawer(): string {
   `
 }
 
-function renderBatchViewer(): string {
+function renderBatchViewerDialog(): string {
   const demand = getDemandById(state.batchViewerDemandId)
   if (!demand) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-3xl rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between border-b px-4 py-3">
-          <h3 class="text-base font-semibold">仓配明细预览</h3>
-          <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-print-req-action="close-batches" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
-        </header>
-        <div class="space-y-3 p-4">
-          <p class="text-sm text-muted-foreground">需求单号：<span class="font-mono">${escapeHtml(demand.demandId)}</span></p>
-          ${
-            demand.sources.length === 0
-              ? '<p class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无满足来源</p>'
-              : `
-                <div class="overflow-x-auto rounded-md border">
-                  <table class="w-full min-w-[900px] text-sm">
-                    <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">配料单号｜数量｜时间</th><th class="px-3 py-2 font-medium">配料仓库</th><th class="px-3 py-2 font-medium">配料状态</th><th class="px-3 py-2 font-medium">批次追溯</th></tr></thead>
-                    <tbody>
-                      ${demand.sources
-                        .map((source) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatSourceLine(source))}</td><td class="px-3 py-2">${escapeHtml(source.warehouseName)}</td><td class="px-3 py-2">${renderBadge(source.preparationStatus, source.preparationStatus === '已完成配料' ? 'border-green-200 bg-green-50 text-green-700' : source.preparationStatus === '部分配料' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-700')}</td><td class="px-3 py-2 text-xs">${source.traceLines.map((trace) => escapeHtml(`${trace.processOrderNo}｜${trace.batchNo}｜${trace.usedQty}${trace.unit}`)).join('<br/>')}</td></tr>`)
-                        .join('')}
-                    </tbody>
-                  </table>
-                </div>
-              `
-          }
-        </div>
-      </section>
+  
+  const contentHtml = `
+    <div class="space-y-3">
+      <p class="text-sm text-muted-foreground">需求单号：<span class="font-mono">${escapeHtml(demand.demandId)}</span></p>
+      ${
+        demand.sources.length === 0
+          ? '<p class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无满足来源</p>'
+          : `
+            <div class="overflow-x-auto rounded-md border">
+              <table class="w-full min-w-[900px] text-sm">
+                <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">配料单号｜数量｜时间</th><th class="px-3 py-2 font-medium">配料仓库</th><th class="px-3 py-2 font-medium">配料状态</th><th class="px-3 py-2 font-medium">批次追溯</th></tr></thead>
+                <tbody>
+                  ${demand.sources
+                    .map((source) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(formatSourceLine(source))}</td><td class="px-3 py-2">${escapeHtml(source.warehouseName)}</td><td class="px-3 py-2">${renderBadge(source.preparationStatus, source.preparationStatus === '已完成配料' ? 'border-green-200 bg-green-50 text-green-700' : source.preparationStatus === '部分配料' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-700')}</td><td class="px-3 py-2 text-xs">${source.traceLines.map((trace) => escapeHtml(`${trace.processOrderNo}｜${trace.batchNo}｜${trace.usedQty}${trace.unit}`)).join('<br/>')}</td></tr>`)
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+      }
     </div>
   `
+  
+  return renderDialog(
+    {
+      title: '仓配明细预览',
+      closeAction: { prefix: 'print-req', action: 'close-batches' },
+      width: 'lg',
+    },
+    contentHtml
+  )
 }
 
 export function renderProcessPrintRequirementsPage(): string {
@@ -837,7 +840,7 @@ export function renderProcessPrintRequirementsPage(): string {
 
       ${renderListSection()}
       ${renderDetailDrawer()}
-      ${renderBatchViewer()}
+      ${renderBatchViewerDialog()}
     </div>
   `
 }

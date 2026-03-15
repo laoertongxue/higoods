@@ -2,6 +2,7 @@ import { appStore } from '../state/store'
 import type { ProjectDetailData, WorkItem, WorkItemStatus } from './pcs-project-detail'
 import { getPcsProjectDetailSnapshot } from './pcs-project-detail'
 import { escapeHtml, toClassName } from '../utils'
+import { renderFormDialog } from '../components/ui/dialog'
 
 type DetailTab = 'full-info' | 'records' | 'attachments' | 'audit'
 type DecisionValue = '' | 'pass' | 'revision' | 'reject'
@@ -608,26 +609,24 @@ function renderDecisionDialog(): string {
 
 function renderRecordDialog(): string {
   if (!state.showRecordDialog) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">新增记录</h3>
-          <p class="mt-1 text-xs text-muted-foreground">当前为原型演示态，新增记录将仅写入本地页面状态。</p>
-        </header>
-        <div class="space-y-3 p-4">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">记录说明</label>
-            <textarea class="min-h-[110px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请输入记录内容..." data-pcs-work-item-field="recordNote">${escapeHtml(state.recordNote)}</textarea>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-work-item-action="close-record-dialog">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-work-item-action="submit-record">保存记录</button>
-        </footer>
-      </section>
+
+  const formContent = `
+    <div>
+      <label class="mb-1 block text-xs text-muted-foreground">记录说明</label>
+      <textarea class="min-h-[110px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请输入记录内容..." data-pcs-work-item-field="recordNote">${escapeHtml(state.recordNote)}</textarea>
     </div>
+    <p class="text-xs text-muted-foreground">当前为原型演示态，新增记录将仅写入本地页面状态。</p>
   `
+
+  return renderFormDialog(
+    {
+      title: '新增记录',
+      closeAction: { prefix: 'pcs-work-item', action: 'close-record-dialog' },
+      submitAction: { prefix: 'pcs-work-item', action: 'submit-record', label: '保存记录' },
+      width: 'md',
+    },
+    formContent
+  )
 }
 
 export function renderPcsProjectWorkItemDetailPage(projectId: string, workItemId: string): string {

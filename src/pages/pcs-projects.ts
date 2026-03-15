@@ -1,5 +1,8 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderFormDialog } from '../components/ui/dialog'
+import { renderDetailDrawer as uiDetailDrawer } from '../components/ui/drawer'
+import { renderSecondaryButton, renderDangerButton } from '../components/ui/button'
 
 type ProjectStatus = '进行中' | '已终止' | '已归档'
 type NextWorkItemStatus = '未开始' | '进行中' | '待决策' | '已完成'
@@ -897,96 +900,91 @@ function renderDetailDrawer(): string {
 
   const progress = Math.round((project.progressDone / Math.max(project.progressTotal, 1)) * 100)
 
-  return `
-    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-pcs-project-action="close-detail" aria-label="关闭"></button>
-      <aside class="absolute inset-y-0 right-0 w-full overflow-y-auto border-l bg-background shadow-2xl sm:max-w-[620px]">
-        <header class="sticky top-0 z-10 border-b bg-background px-5 py-4">
-          <div class="flex items-start justify-between gap-3">
-            <div class="space-y-1">
-              <h2 class="text-lg font-semibold">${escapeHtml(project.name)}</h2>
-              <p class="font-mono text-xs text-muted-foreground">${escapeHtml(project.code)}</p>
-            </div>
-            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-pcs-project-action="close-detail" aria-label="关闭">
-              <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-          </div>
-        </header>
-
-        <div class="space-y-4 px-5 py-4">
-          <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-3 text-sm font-semibold">摘要</h3>
-            <div class="grid gap-3 text-sm sm:grid-cols-2">
-              <div><span class="text-muted-foreground">项目状态：</span>${renderBadge(project.status, STATUS_COLORS[project.status])}</div>
-              <div><span class="text-muted-foreground">款式类型：</span>${renderBadge(project.styleType, STYLE_TYPE_COLORS[project.styleType])}</div>
-              <div><span class="text-muted-foreground">当前阶段：</span>${escapeHtml(project.phaseName)}</div>
-              <div><span class="text-muted-foreground">负责人：</span>${escapeHtml(project.owner)}</div>
-              <div><span class="text-muted-foreground">分类：</span>${escapeHtml(project.category)}</div>
-              <div><span class="text-muted-foreground">最近更新：</span>${escapeHtml(project.updatedAt)}</div>
-            </div>
-          </section>
-
-          <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-3 text-sm font-semibold">进度与下一步</h3>
-            <div class="space-y-2 text-sm">
-              <div class="flex items-center justify-between"><span class="text-muted-foreground">项目进度</span><span>${project.progressDone}/${project.progressTotal}（${progress}%）</span></div>
-              <div class="h-2 overflow-hidden rounded-full bg-muted"><span class="block h-full rounded-full bg-blue-600" style="width:${progress}%"></span></div>
-              <div><span class="text-muted-foreground">下一工作项：</span>${escapeHtml(project.nextWorkItemName)}（${escapeHtml(project.nextWorkItemStatus)}）</div>
-              ${project.hasPendingDecision ? '<p class="text-xs text-orange-700">当前存在待决策节点，请优先处理。</p>' : ''}
-              ${project.isBlocked && project.gateReason ? `<p class="text-xs text-red-700">当前暂不能继续：${escapeHtml(project.gateReason)}</p>` : ''}
-            </div>
-          </section>
-
-          <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-3 text-sm font-semibold">风险</h3>
-            ${
-              project.riskStatus === '延期'
-                ? `
-                  <div class="space-y-2 text-sm">
-                    <div><span class="text-muted-foreground">风险状态：</span><span class="text-orange-700">延期</span></div>
-                    <div><span class="text-muted-foreground">延期原因：</span>${escapeHtml(project.riskReason ?? '-')}</div>
-                    <div><span class="text-muted-foreground">关联工作项：</span>${escapeHtml(project.riskWorkItem ?? '-')}</div>
-                    <div><span class="text-muted-foreground">已持续：</span>${project.riskDurationDays ?? 0} 天</div>
-                  </div>
-                `
-                : '<p class="text-sm text-green-700">当前风险状态正常。</p>'
-            }
-          </section>
-
-          <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-3 text-sm font-semibold">标签</h3>
-            <div class="flex flex-wrap gap-2">
-              ${project.tags.map((tag) => `<span class="inline-flex rounded-md border bg-muted px-2 py-0.5 text-xs">${escapeHtml(tag)}</span>`).join('')}
-            </div>
-          </section>
-        </div>
-      </aside>
+  const content = `
+    <div class="-mt-4 mb-4 border-b pb-4">
+      <h2 class="text-lg font-semibold">${escapeHtml(project.name)}</h2>
+      <p class="font-mono text-xs text-muted-foreground">${escapeHtml(project.code)}</p>
     </div>
+
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="mb-3 text-sm font-semibold">摘要</h3>
+      <div class="grid gap-3 text-sm sm:grid-cols-2">
+        <div><span class="text-muted-foreground">项目状态：</span>${renderBadge(project.status, STATUS_COLORS[project.status])}</div>
+        <div><span class="text-muted-foreground">款式类型：</span>${renderBadge(project.styleType, STYLE_TYPE_COLORS[project.styleType])}</div>
+        <div><span class="text-muted-foreground">当前阶段：</span>${escapeHtml(project.phaseName)}</div>
+        <div><span class="text-muted-foreground">负责人：</span>${escapeHtml(project.owner)}</div>
+        <div><span class="text-muted-foreground">分类：</span>${escapeHtml(project.category)}</div>
+        <div><span class="text-muted-foreground">最近更新：</span>${escapeHtml(project.updatedAt)}</div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border bg-card p-4 mt-4">
+      <h3 class="mb-3 text-sm font-semibold">进度与下一步</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between"><span class="text-muted-foreground">项目进度</span><span>${project.progressDone}/${project.progressTotal}（${progress}%）</span></div>
+        <div class="h-2 overflow-hidden rounded-full bg-muted"><span class="block h-full rounded-full bg-blue-600" style="width:${progress}%"></span></div>
+        <div><span class="text-muted-foreground">下一工作项：</span>${escapeHtml(project.nextWorkItemName)}（${escapeHtml(project.nextWorkItemStatus)}）</div>
+        ${project.hasPendingDecision ? '<p class="text-xs text-orange-700">当前存在待决策节点，请优先处理。</p>' : ''}
+        ${project.isBlocked && project.gateReason ? `<p class="text-xs text-red-700">当前暂不能继续：${escapeHtml(project.gateReason)}</p>` : ''}
+      </div>
+    </section>
+
+    <section class="rounded-lg border bg-card p-4 mt-4">
+      <h3 class="mb-3 text-sm font-semibold">风险</h3>
+      ${project.riskStatus === '延期'
+        ? `<div class="space-y-2 text-sm">
+            <div><span class="text-muted-foreground">风险状态：</span><span class="text-orange-700">延期</span></div>
+            <div><span class="text-muted-foreground">延期原因：</span>${escapeHtml(project.riskReason ?? '-')}</div>
+            <div><span class="text-muted-foreground">关联工作项：</span>${escapeHtml(project.riskWorkItem ?? '-')}</div>
+            <div><span class="text-muted-foreground">已持续：</span>${project.riskDurationDays ?? 0} 天</div>
+          </div>`
+        : '<p class="text-sm text-green-700">当前风险状态正常。</p>'
+      }
+    </section>
+
+    <section class="rounded-lg border bg-card p-4 mt-4">
+      <h3 class="mb-3 text-sm font-semibold">标签</h3>
+      <div class="flex flex-wrap gap-2">
+        ${project.tags.map((tag) => `<span class="inline-flex rounded-md border bg-muted px-2 py-0.5 text-xs">${escapeHtml(tag)}</span>`).join('')}
+      </div>
+    </section>
   `
+
+  return uiDetailDrawer(
+    {
+      title: '项目详情',
+      closeAction: { prefix: 'pcs-project', action: 'close-detail' },
+      width: 'lg',
+    },
+    content
+  )
 }
 
 function renderTerminateDialog(): string {
   if (!state.terminateDialog.open) return ''
   const project = getProjectById(state.terminateDialog.projectId)
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">终止项目</h3>
-          <p class="mt-1 text-xs text-muted-foreground">请说明终止项目的原因，此操作将记录在项目日志中。</p>
-        </header>
-        <div class="space-y-3 p-4">
-          <p class="text-sm">项目：<span class="font-medium">${escapeHtml(project?.name ?? '-')}</span></p>
-          <textarea class="min-h-[110px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请输入终止原因..." data-pcs-project-field="terminateReason">${escapeHtml(state.terminateReason)}</textarea>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-project-action="close-terminate">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-red-300 px-3 text-sm text-red-700 hover:bg-red-50 ${state.terminateReason.trim() ? '' : 'cursor-not-allowed opacity-60'}" data-pcs-project-action="confirm-terminate" ${state.terminateReason.trim() ? '' : 'disabled'}>确认终止</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div class="space-y-3">
+      <p class="text-sm">项目：<span class="font-medium">${escapeHtml(project?.name ?? '-')}</span></p>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">终止原因</label>
+        <textarea class="min-h-[110px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请输入终止原因..." data-pcs-project-field="terminateReason">${escapeHtml(state.terminateReason)}</textarea>
+      </div>
+      <p class="text-xs text-muted-foreground">此操作将记录在项目日志中。</p>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '终止项目',
+      closeAction: { prefix: 'pcs-project', action: 'close-terminate' },
+      submitAction: { prefix: 'pcs-project', action: 'confirm-terminate', label: '确认终止' },
+      width: 'md',
+      submitDisabled: !state.terminateReason.trim(),
+    },
+    formContent
+  )
 }
 
 export function renderPcsProjectsPage(): string {

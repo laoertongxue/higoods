@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderConfirmDialog } from '../components/ui'
 import {
   listOrderSyncErrors,
   listProductSyncErrors,
@@ -361,23 +362,22 @@ function renderBatchRetryDialog(): string {
 
   const pendingCount = getFilteredRows().filter((row) => row.status === '待处理').length
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-md rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">批量重试待处理错误</h3>
-        </header>
-        <div class="space-y-2 px-4 py-4 text-sm">
-          <p>当前筛选范围内共有 <span class="font-semibold text-rose-700">${pendingCount}</span> 条待处理错误。</p>
-          <p class="text-muted-foreground">确认后将统一标记为“已重试”（演示态）。</p>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-store-sync-action="close-batch-retry">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-store-sync-action="confirm-batch-retry">确认重试</button>
-        </footer>
-      </section>
+  const contentHtml = `
+    <div class="space-y-2 text-sm">
+      <p>当前筛选范围内共有 <span class="font-semibold text-rose-700">${pendingCount}</span> 条待处理错误。</p>
+      <p class="text-muted-foreground">确认后将统一标记为“已重试”（演示态）。</p>
     </div>
   `
+
+  return renderConfirmDialog(
+    {
+      title: '批量重试待处理错误',
+      closeAction: { prefix: 'pcs-store-sync', action: 'close-batch-retry' },
+      confirmAction: { prefix: 'pcs-store-sync', action: 'confirm-batch-retry', label: '确认重试' },
+      width: 'sm',
+    },
+    contentHtml
+  )
 }
 
 function closeAllDialogs(): void {

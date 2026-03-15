@@ -145,6 +145,78 @@ import {
   isSampleLedgerDialogOpen,
 } from './pages/pcs-sample-ledger'
 import {
+  handleSampleInventoryEvent,
+  isSampleInventoryDialogOpen,
+} from './pages/pcs-sample-inventory'
+import {
+  handleSampleTransferEvent,
+  isSampleTransferDialogOpen,
+} from './pages/pcs-sample-transfer'
+import {
+  handleSampleReturnEvent,
+  isSampleReturnDialogOpen,
+} from './pages/pcs-sample-return'
+import {
+  handleSampleApplicationEvent,
+  handleSampleApplicationInput,
+  isSampleApplicationDialogOpen,
+} from './pages/pcs-sample-application'
+import {
+  handleSampleViewEvent,
+  handleSampleViewInput,
+  isSampleViewDialogOpen,
+} from './pages/pcs-sample-view'
+import {
+  handleRevisionTaskEvent,
+  handleRevisionTaskInput,
+  isRevisionTaskDialogOpen,
+} from './pages/pcs-revision-task'
+import {
+  handlePlateMakingEvent,
+  handlePlateMakingInput,
+  isPlateMakingDialogOpen,
+} from './pages/pcs-plate-making'
+import {
+  handlePatternTaskEvent,
+  handlePatternTaskInput,
+  isPatternTaskDialogOpen,
+} from './pages/pcs-pattern-task'
+import {
+  handleFirstOrderSampleEvent,
+  handleFirstOrderSampleInput,
+  isFirstOrderSampleDialogOpen,
+} from './pages/pcs-first-order-sample'
+import {
+  handlePreProductionSampleEvent,
+  handlePreProductionSampleInput,
+  isPreProductionSampleDialogOpen,
+} from './pages/pcs-pre-production-sample'
+import {
+  handleProductSpuEvent,
+  handleProductSpuInput,
+  isProductSpuDialogOpen,
+} from './pages/pcs-product-spu'
+import {
+  handleProductSkuEvent,
+  handleProductSkuInput,
+  isProductSkuDialogOpen,
+} from './pages/pcs-product-sku'
+import {
+  handleProductYarnEvent,
+  handleProductYarnInput,
+  isProductYarnDialogOpen,
+} from './pages/pcs-product-yarn'
+import {
+  handleConfigWorkspaceEvent,
+  handleConfigWorkspaceInput,
+  isConfigWorkspaceDialogOpen,
+} from './pages/pcs-config-workspace'
+import {
+  handlePlatformConfigEvent,
+  handlePlatformConfigInput,
+  isPlatformConfigDialogOpen,
+} from './pages/pcs-platform-config'
+import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
 } from './pages/task-breakdown'
@@ -283,6 +355,21 @@ function dispatchPageEvent(target: Element): boolean {
     handlePcsChannelStoreSyncEvent(eventTarget) ||
     handlePcsChannelStorePayoutAccountsEvent(eventTarget) ||
     handleSampleLedgerEvent(eventTarget) ||
+    handleSampleInventoryEvent(eventTarget) ||
+    handleSampleTransferEvent(eventTarget) ||
+    handleSampleReturnEvent(eventTarget) ||
+    handleSampleApplicationEvent(eventTarget) ||
+    handleSampleViewEvent(eventTarget) ||
+    handleRevisionTaskEvent(eventTarget) ||
+    handlePlateMakingEvent(eventTarget) ||
+    handlePatternTaskEvent(eventTarget) ||
+    handleFirstOrderSampleEvent(eventTarget) ||
+    handlePreProductionSampleEvent(eventTarget) ||
+    handleProductSpuEvent(eventTarget) ||
+    handleProductSkuEvent(eventTarget) ||
+    handleProductYarnEvent(eventTarget) ||
+    handleConfigWorkspaceEvent(eventTarget) ||
+    handlePlatformConfigEvent(eventTarget) ||
     handleProcessDyeOrdersEvent(eventTarget) ||
     handleProcessPrintOrdersEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||
@@ -473,6 +560,66 @@ root.addEventListener('input', (event) => {
   if (!(target instanceof Element)) return
 
   if (handleSampleLedgerInput(target)) {
+    render()
+    return
+  }
+
+  if (handleSampleApplicationInput(target)) {
+    render()
+    return
+  }
+
+  if (handleSampleViewInput(target)) {
+    render()
+    return
+  }
+
+  if (handleRevisionTaskInput(target)) {
+    render()
+    return
+  }
+
+  if (handlePlateMakingInput(target)) {
+    render()
+    return
+  }
+
+  if (handlePatternTaskInput(target)) {
+    render()
+    return
+  }
+
+  if (handleFirstOrderSampleInput(target)) {
+    render()
+    return
+  }
+
+  if (handlePreProductionSampleInput(target)) {
+    render()
+    return
+  }
+
+  if (handleProductSpuInput(target)) {
+    render()
+    return
+  }
+
+  if (handleProductSkuInput(target)) {
+    render()
+    return
+  }
+
+  if (handleProductYarnInput(target)) {
+    render()
+    return
+  }
+
+  if (handleConfigWorkspaceInput(target)) {
+    render()
+    return
+  }
+
+  if (handlePlatformConfigInput(target)) {
     render()
     return
   }
@@ -772,6 +919,146 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.ledgerAction = 'close-detail-drawer'
     handleSampleLedgerEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isSampleInventoryDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.inventoryAction = 'close-drawer'
+    handleSampleInventoryEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isSampleTransferDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.transferAction = 'close-drawer'
+    handleSampleTransferEvent(fakeButton)
+    fakeButton.dataset.transferAction = 'close-advanced-filter'
+    handleSampleTransferEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isSampleReturnDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.returnAction = 'close-drawer'
+    handleSampleReturnEvent(fakeButton)
+    fakeButton.dataset.returnAction = 'close-new-case-dialog'
+    handleSampleReturnEvent(fakeButton)
+    fakeButton.dataset.returnAction = 'close-approve-dialog'
+    handleSampleReturnEvent(fakeButton)
+    fakeButton.dataset.returnAction = 'close-close-dialog'
+    handleSampleReturnEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isSampleApplicationDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.appAction = 'close-drawer'
+    handleSampleApplicationEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isSampleViewDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.viewAction = 'close-drawer'
+    handleSampleViewEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isRevisionTaskDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.revisionAction = 'close-drawer'
+    handleRevisionTaskEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPlateMakingDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.plateAction = 'close-drawer'
+    handlePlateMakingEvent(fakeButton)
+    fakeButton.dataset.plateAction = 'close-downstream-dialog'
+    handlePlateMakingEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPatternTaskDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.patternAction = 'close-drawer'
+    handlePatternTaskEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isFirstOrderSampleDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.firstOrderAction = 'close-drawer'
+    handleFirstOrderSampleEvent(fakeButton)
+    fakeButton.dataset.firstOrderAction = 'close-sign-dialog'
+    handleFirstOrderSampleEvent(fakeButton)
+    fakeButton.dataset.firstOrderAction = 'close-stock-dialog'
+    handleFirstOrderSampleEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPreProductionSampleDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.preprodAction = 'close-drawer'
+    handlePreProductionSampleEvent(fakeButton)
+    fakeButton.dataset.preprodAction = 'close-sign-dialog'
+    handlePreProductionSampleEvent(fakeButton)
+    fakeButton.dataset.preprodAction = 'close-stock-dialog'
+    handlePreProductionSampleEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isProductSpuDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.spuAction = 'close-drawer'
+    handleProductSpuEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isProductSkuDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.skuAction = 'close-drawer'
+    handleProductSkuEvent(fakeButton)
+    fakeButton.dataset.skuAction = 'close-batch-dialog'
+    handleProductSkuEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isProductYarnDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.yarnAction = 'close-drawer'
+    handleProductYarnEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isConfigWorkspaceDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.configAction = 'close-dialog'
+    handleConfigWorkspaceEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPlatformConfigDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.platformAction = 'close-drawer'
+    handlePlatformConfigEvent(fakeButton)
     render()
     return
   }

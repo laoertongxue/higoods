@@ -33,9 +33,24 @@ import { renderPcsChannelStoreSyncPage } from '../pages/pcs-channel-store-sync'
 import { renderPcsChannelStorePayoutAccountsPage } from '../pages/pcs-channel-store-payout-accounts'
 import { renderPlaceholderPage, renderRouteNotFound } from '../pages/placeholder'
 import { renderSampleLedgerPage } from '../pages/pcs-sample-ledger'
+import { renderSampleInventoryPage } from '../pages/pcs-sample-inventory'
+import { renderSampleTransferPage } from '../pages/pcs-sample-transfer'
+import { renderSampleReturnPage } from '../pages/pcs-sample-return'
+import { renderSampleApplicationPage } from '../pages/pcs-sample-application'
+import { renderSampleViewPage } from '../pages/pcs-sample-view'
+import { renderRevisionTaskPage } from '../pages/pcs-revision-task'
+import { renderPlateMakingPage } from '../pages/pcs-plate-making'
+import { renderPatternTaskPage } from '../pages/pcs-pattern-task'
+import { renderFirstOrderSamplePage } from '../pages/pcs-first-order-sample'
+import { renderPreProductionSamplePage } from '../pages/pcs-pre-production-sample'
 import { renderCapabilityPage } from '../pages/capability'
 import { renderFactoryStatusPage } from '../pages/factory-status'
 import { renderFactoryPerformancePage } from '../pages/factory-performance'
+import { renderProductSpuPage } from '../pages/pcs-product-spu'
+import { renderProductSkuPage } from '../pages/pcs-product-sku'
+import { renderProductYarnPage } from '../pages/pcs-product-yarn'
+import { renderConfigWorkspacePage } from '../pages/pcs-config-workspace'
+import { renderPlatformConfigPage } from '../pages/pcs-platform-config'
 import { renderSettlementDetailPage, renderSettlementListPage } from '../pages/settlement'
 import {
   renderCapacityOverviewPage,
@@ -135,6 +150,21 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/channels/stores/sync': () => renderPcsChannelStoreSyncPage(),
   '/pcs/channels/stores/payout-accounts': () => renderPcsChannelStorePayoutAccountsPage(),
   '/pcs/samples/ledger': () => renderSampleLedgerPage(),
+  '/pcs/samples/inventory': () => renderSampleInventoryPage(),
+  '/pcs/samples/transfer': () => renderSampleTransferPage(),
+  '/pcs/samples/return': () => renderSampleReturnPage(),
+  '/pcs/samples/application': () => renderSampleApplicationPage(),
+  '/pcs/samples/view': () => renderSampleViewPage(),
+  '/pcs/samples/first-order': () => renderFirstOrderSamplePage(),
+  '/pcs/samples/pre-production': () => renderPreProductionSamplePage(),
+  '/pcs/patterns/revision': () => renderRevisionTaskPage(),
+  '/pcs/patterns/plate-making': () => renderPlateMakingPage(),
+  '/pcs/patterns/artwork': () => renderPatternTaskPage(),
+  '/pcs/products/spu': () => renderProductSpuPage(),
+  '/pcs/products/sku': () => renderProductSkuPage(),
+  '/pcs/products/yarn': () => renderProductYarnPage(),
+  '/pcs/settings/config-workspace': () => renderConfigWorkspacePage(),
+  '/pcs/settings/platforms': () => renderPlatformConfigPage(),
   '/fcs/workbench/todos': () => renderTodosPage(),
   '/fcs/workbench/risks': () => renderRisksPage(),
   '/fcs/capacity/overview': () => renderCapacityOverviewPage(),

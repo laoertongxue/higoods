@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderFormDialog } from '../components/ui'
 import {
   OWNER_TYPE_META,
   PAYOUT_ACCOUNTS,
@@ -374,37 +375,36 @@ function renderAuthDialog(): string {
 function renderChangePayoutDialog(): string {
   if (!state.changePayoutDialogOpen) return ''
 
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">变更提现账号</h3>
-          <p class="mt-1 text-xs text-muted-foreground">请选择新的提现账号并填写变更原因。</p>
-        </header>
-        <div class="space-y-3 p-4 text-sm">
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">目标提现账号</label>
-            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-store-detail-field="new-payout-account">
-              <option value="">请选择</option>
-              ${PAYOUT_ACCOUNTS.map((item) => `<option value="${item.id}" ${state.newPayoutAccountId === item.id ? 'selected' : ''}>${item.name}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">生效日期</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newEffectiveFrom)}" data-pcs-channel-store-detail-field="new-effective-from" />
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">变更原因</label>
-            <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-channel-store-detail-field="change-reason">${escapeHtml(state.changeReason)}</textarea>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-store-detail-action="close-change-payout">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-store-detail-action="confirm-change-payout">确认变更</button>
-        </footer>
-      </section>
+  const formContent = `
+    <div class="space-y-3 text-sm">
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">目标提现账号</label>
+        <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-store-detail-field="new-payout-account">
+          <option value="">请选择</option>
+          ${PAYOUT_ACCOUNTS.map((item) => `<option value="${item.id}" ${state.newPayoutAccountId === item.id ? 'selected' : ''}>${item.name}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">生效日期</label>
+        <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.newEffectiveFrom)}" data-pcs-channel-store-detail-field="new-effective-from" />
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">变更原因</label>
+        <textarea class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pcs-channel-store-detail-field="change-reason">${escapeHtml(state.changeReason)}</textarea>
+      </div>
     </div>
   `
+
+  return renderFormDialog(
+    {
+      title: '变更提现账号',
+      description: '请选择新的提现账号并填写变更原因。',
+      closeAction: { prefix: 'pcs-channel-store-detail', action: 'close-change-payout' },
+      submitAction: { prefix: 'pcs-channel-store-detail', action: 'confirm-change-payout', label: '确认变更' },
+      width: 'sm',
+    },
+    formContent
+  )
 }
 
 function renderBindingHistoryDialog(): string {

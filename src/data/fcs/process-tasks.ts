@@ -229,7 +229,7 @@ export const processTasks: ProcessTask[] = [
     assignmentStatus: 'BIDDING',
     ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'ANY', recommendedTypes: ['SEWING', 'SPECIAL_PROCESS'] },
     tenderId: 'TENDER-0002-001',
-    qcPoints: ['条宽一致', '缝���牢固', '无露底'],
+    qcPoints: ['条宽一致', '缝合牢固', '无露底'],
     stdTimeMinutes: 25,
     difficulty: 'MEDIUM',
     attachments: [{ name: '打条样板.jpg', url: '/files/strip-sample.jpg' }],
@@ -1020,7 +1020,7 @@ export const processTasks: ProcessTask[] = [
     createdAt: '2026-03-04 14:00:00',
     updatedAt: '2026-03-04 14:00:00',
     auditLogs: [
-      { id: 'AL-202603-0004-004-01', action: 'CREATE', detail: '自���拆解生成', at: '2026-03-04 14:00:00', by: '系统' },
+      { id: 'AL-202603-0004-004-01', action: 'CREATE', detail: '自动拆解生成', at: '2026-03-04 14:00:00', by: '系统' },
     ],
   },
 
