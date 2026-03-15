@@ -253,3 +253,59 @@ export function renderPaginationBar(config: {
     </div>
   `
 }
+
+export interface TablePaginationConfig {
+  total: number
+  from: number
+  to: number
+  currentPage: number
+  totalPages: number
+  pageSize: number
+  actionPrefix: string
+  fieldPrefix?: string
+  pageSizeOptions?: readonly number[]
+}
+
+export function renderTablePagination(config: TablePaginationConfig): string {
+  const {
+    total,
+    from,
+    to,
+    currentPage,
+    totalPages,
+    pageSize,
+    actionPrefix,
+    fieldPrefix = actionPrefix,
+    pageSizeOptions = [10, 20, 50],
+  } = config
+
+  const prevDisabled = currentPage <= 1
+  const nextDisabled = currentPage >= totalPages
+  const rangeText = total > 0 ? `，当前 ${from}-${to}` : ''
+
+  return `
+    <footer class="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-3">
+      <p class="text-xs text-muted-foreground">共 ${total} 条${rangeText}</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-${fieldPrefix}-field="pageSize">
+          ${pageSizeOptions
+            .map((size) => `<option value="${size}" ${size === pageSize ? 'selected' : ''}>${size} 条/页</option>`)
+            .join('')}
+        </select>
+        <button
+          class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${prevDisabled ? 'cursor-not-allowed opacity-60' : ''}"
+          data-${actionPrefix}-action="prev-page"
+          ${prevDisabled ? 'disabled' : ''}>
+          上一页
+        </button>
+        <span class="text-xs text-muted-foreground">${currentPage} / ${totalPages}</span>
+        <button
+          class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${nextDisabled ? 'cursor-not-allowed opacity-60' : ''}"
+          data-${actionPrefix}-action="next-page"
+          ${nextDisabled ? 'disabled' : ''}>
+          下一页
+        </button>
+      </div>
+    </footer>
+  `
+}

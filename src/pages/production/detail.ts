@@ -1,0 +1,3 @@
+export {
+  renderProductionOrderDetailPage,
+} from './core'

@@ -2,6 +2,14 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { renderFormDialog } from '../components/ui/dialog'
 import { renderDrawer as uiDrawer } from '../components/ui'
+import { renderTablePagination } from '../components/ui/pagination'
+import {
+  DEFAULT_PAGE_SIZE_OPTIONS,
+  getNextPage,
+  getPrevPage,
+  paginateRows,
+  parsePageSize,
+} from '../utils/paging'
 import {
   ACCOUNTING_STATUS_META,
   LIVE_PURPOSE_META,
@@ -53,8 +61,6 @@ interface ListPageState {
   testAccountingConfirmed: boolean
   notice: string | null
 }
-
-const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 let sessions: LiveSession[] = listLiveSessions()
 
@@ -137,20 +143,7 @@ function getFilteredSessions(): LiveSession[] {
 }
 
 function getPaging(rows: LiveSession[]) {
-  const total = rows.length
-  const totalPages = Math.max(1, Math.ceil(total / state.pageSize))
-  const currentPage = Math.min(Math.max(1, state.currentPage), totalPages)
-  const start = (currentPage - 1) * state.pageSize
-  const end = start + state.pageSize
-
-  return {
-    rows: rows.slice(start, end),
-    total,
-    totalPages,
-    currentPage,
-    from: total === 0 ? 0 : start + 1,
-    to: total === 0 ? 0 : Math.min(end, total),
-  }
+  return paginateRows(rows, state.currentPage, state.pageSize)
 }
 
 function getSessionById(sessionId: string | null): LiveSession | null {
@@ -347,17 +340,16 @@ function renderTable(): string {
           <tbody>${renderRows(paging.rows)}</tbody>
         </table>
       </div>
-      <footer class="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-3">
-        <p class="text-xs text-muted-foreground">共 ${paging.total} 条${paging.total ? `，当前 ${paging.from}-${paging.to}` : ''}</p>
-        <div class="flex flex-wrap items-center gap-2">
-          <select class="h-8 rounded-md border bg-background px-2 text-xs" data-pcs-live-field="pageSize">
-            ${PAGE_SIZE_OPTIONS.map((size) => `<option value="${size}" ${size === state.pageSize ? 'selected' : ''}>${size} 条/页</option>`).join('')}
-          </select>
-          <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${paging.currentPage <= 1 ? 'cursor-not-allowed opacity-60' : ''}" data-pcs-live-action="prev-page" ${paging.currentPage <= 1 ? 'disabled' : ''}>上一页</button>
-          <span class="text-xs text-muted-foreground">${paging.currentPage} / ${paging.totalPages}</span>
-          <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${paging.currentPage >= paging.totalPages ? 'cursor-not-allowed opacity-60' : ''}" data-pcs-live-action="next-page" ${paging.currentPage >= paging.totalPages ? 'disabled' : ''}>下一页</button>
-        </div>
-      </footer>
+      ${renderTablePagination({
+        total: paging.total,
+        from: paging.from,
+        to: paging.to,
+        currentPage: paging.currentPage,
+        totalPages: paging.totalPages,
+        pageSize: state.pageSize,
+        actionPrefix: 'pcs-live',
+        pageSizeOptions: DEFAULT_PAGE_SIZE_OPTIONS,
+      })}
     </section>
   `
 }
@@ -667,7 +659,7 @@ export function handlePcsLiveSessionsEvent(target: HTMLElement): boolean {
     if (field === 'statusFilter') state.statusFilter = fieldNode.value as ListPageState['statusFilter']
     if (field === 'purposeFilter') state.purposeFilter = fieldNode.value as ListPageState['purposeFilter']
     if (field === 'accountingFilter') state.accountingFilter = fieldNode.value as ListPageState['accountingFilter']
-    if (field === 'pageSize') state.pageSize = Number(fieldNode.value) || 10
+    if (field === 'pageSize') state.pageSize = parsePageSize(fieldNode.value)
     state.currentPage = 1
     return true
   }
@@ -786,13 +778,12 @@ export function handlePcsLiveSessionsEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'prev-page') {
-    state.currentPage = Math.max(1, state.currentPage - 1)
+    state.currentPage = getPrevPage(state.currentPage)
     return true
   }
 
   if (action === 'next-page') {
-    const totalPages = Math.max(1, Math.ceil(getFilteredSessions().length / state.pageSize))
-    state.currentPage = Math.min(totalPages, state.currentPage + 1)
+    state.currentPage = getNextPage(state.currentPage, getFilteredSessions().length, state.pageSize)
     return true
   }
 

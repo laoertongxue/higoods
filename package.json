@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:menu-routes": "node scripts/check-menu-routes.mjs"
   },
   "dependencies": {
     "lucide": "^0.468.0"
