@@ -32,6 +32,7 @@ import { renderPcsChannelStoreDetailPage } from '../pages/pcs-channel-store-deta
 import { renderPcsChannelStoreSyncPage } from '../pages/pcs-channel-store-sync'
 import { renderPcsChannelStorePayoutAccountsPage } from '../pages/pcs-channel-store-payout-accounts'
 import { renderPlaceholderPage, renderRouteNotFound } from '../pages/placeholder'
+import { renderSampleLedgerPage } from '../pages/pcs-sample-ledger'
 import { renderCapabilityPage } from '../pages/capability'
 import { renderFactoryStatusPage } from '../pages/factory-status'
 import { renderFactoryPerformancePage } from '../pages/factory-performance'
@@ -133,6 +134,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/channels/stores': () => renderPcsChannelStoresPage(),
   '/pcs/channels/stores/sync': () => renderPcsChannelStoreSyncPage(),
   '/pcs/channels/stores/payout-accounts': () => renderPcsChannelStorePayoutAccountsPage(),
+  '/pcs/samples/ledger': () => renderSampleLedgerPage(),
   '/fcs/workbench/todos': () => renderTodosPage(),
   '/fcs/workbench/risks': () => renderRisksPage(),
   '/fcs/capacity/overview': () => renderCapacityOverviewPage(),

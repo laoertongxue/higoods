@@ -140,6 +140,11 @@ import {
   isPcsChannelStorePayoutAccountsDialogOpen,
 } from './pages/pcs-channel-store-payout-accounts'
 import {
+  handleSampleLedgerEvent,
+  handleSampleLedgerInput,
+  isSampleLedgerDialogOpen,
+} from './pages/pcs-sample-ledger'
+import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
 } from './pages/task-breakdown'
@@ -277,6 +282,7 @@ function dispatchPageEvent(target: Element): boolean {
     handlePcsChannelStoreDetailEvent(eventTarget) ||
     handlePcsChannelStoreSyncEvent(eventTarget) ||
     handlePcsChannelStorePayoutAccountsEvent(eventTarget) ||
+    handleSampleLedgerEvent(eventTarget) ||
     handleProcessDyeOrdersEvent(eventTarget) ||
     handleProcessPrintOrdersEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||
@@ -465,6 +471,11 @@ root.addEventListener('click', (event) => {
 root.addEventListener('input', (event) => {
   const target = event.target
   if (!(target instanceof Element)) return
+
+  if (handleSampleLedgerInput(target)) {
+    render()
+    return
+  }
 
   if (dispatchPageEvent(target)) {
     render()
@@ -753,6 +764,14 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.pcsPayoutAction = 'close-dialog'
     handlePcsChannelStorePayoutAccountsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isSampleLedgerDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.ledgerAction = 'close-detail-drawer'
+    handleSampleLedgerEvent(fakeButton)
     render()
     return
   }
