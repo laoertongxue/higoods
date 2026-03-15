@@ -19,6 +19,18 @@ import {
 import { renderPcsWorkItemDetailPage } from '../pages/pcs-work-item-detail'
 import { renderPcsProjectDetailPage } from '../pages/pcs-project-detail'
 import { renderPcsProjectWorkItemDetailPage } from '../pages/pcs-project-work-item-detail'
+import { renderPcsLiveSessionsPage } from '../pages/pcs-testing-live'
+import { renderPcsLiveSessionDetailPage } from '../pages/pcs-testing-live-detail'
+import { renderPcsVideoRecordsPage } from '../pages/pcs-testing-video'
+import { renderPcsVideoRecordDetailPage } from '../pages/pcs-testing-video-detail'
+import { renderPcsChannelProductsPage } from '../pages/pcs-channel-products'
+import { renderPcsChannelProductDetailPage } from '../pages/pcs-channel-product-detail'
+import { renderPcsChannelProductMappingPage } from '../pages/pcs-channel-product-mapping'
+import { renderPcsChannelProductStoreViewPage } from '../pages/pcs-channel-product-store'
+import { renderPcsChannelStoresPage } from '../pages/pcs-channel-stores'
+import { renderPcsChannelStoreDetailPage } from '../pages/pcs-channel-store-detail'
+import { renderPcsChannelStoreSyncPage } from '../pages/pcs-channel-store-sync'
+import { renderPcsChannelStorePayoutAccountsPage } from '../pages/pcs-channel-store-payout-accounts'
 import { renderPlaceholderPage, renderRouteNotFound } from '../pages/placeholder'
 import { renderCapabilityPage } from '../pages/capability'
 import { renderFactoryStatusPage } from '../pages/factory-status'
@@ -113,6 +125,14 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/templates/new': () => renderPcsTemplateCreatePage(),
   '/pcs/work-items': () => renderPcsWorkItemsPage(),
   '/pcs/work-items/new': () => renderPcsWorkItemCreatePage(),
+  '/pcs/testing/live': () => renderPcsLiveSessionsPage(),
+  '/pcs/testing/video': () => renderPcsVideoRecordsPage(),
+  '/pcs/channels/products': () => renderPcsChannelProductsPage(),
+  '/pcs/channels/products/mapping': () => renderPcsChannelProductMappingPage(),
+  '/pcs/channels/products/store': () => renderPcsChannelProductStoreViewPage(),
+  '/pcs/channels/stores': () => renderPcsChannelStoresPage(),
+  '/pcs/channels/stores/sync': () => renderPcsChannelStoreSyncPage(),
+  '/pcs/channels/stores/payout-accounts': () => renderPcsChannelStorePayoutAccountsPage(),
   '/fcs/workbench/todos': () => renderTodosPage(),
   '/fcs/workbench/risks': () => renderRisksPage(),
   '/fcs/capacity/overview': () => renderCapacityOverviewPage(),
@@ -328,6 +348,22 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/pcs\/projects\/([^/]+)$/,
     render: (match) => renderPcsProjectDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/pcs\/testing\/live\/([^/]+)$/,
+    render: (match) => renderPcsLiveSessionDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/pcs\/testing\/video\/([^/]+)$/,
+    render: (match) => renderPcsVideoRecordDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/pcs\/channels\/products\/([^/]+)$/,
+    render: (match) => renderPcsChannelProductDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/pcs\/channels\/stores\/([^/]+)$/,
+    render: (match) => renderPcsChannelStoreDetailPage(match[1]),
   },
   {
     pattern: /^\/fcs\/production\/orders\/([^/]+)$/,

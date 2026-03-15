@@ -95,6 +95,51 @@ import {
   isPcsProjectWorkItemDetailDialogOpen,
 } from './pages/pcs-project-work-item-detail'
 import {
+  handlePcsLiveSessionsEvent,
+  isPcsLiveSessionsDialogOpen,
+} from './pages/pcs-testing-live'
+import {
+  handlePcsLiveSessionDetailEvent,
+  isPcsLiveSessionDetailDialogOpen,
+} from './pages/pcs-testing-live-detail'
+import {
+  handlePcsVideoRecordsEvent,
+  isPcsVideoRecordsDialogOpen,
+} from './pages/pcs-testing-video'
+import {
+  handlePcsVideoRecordDetailEvent,
+  isPcsVideoRecordDetailDialogOpen,
+} from './pages/pcs-testing-video-detail'
+import {
+  handlePcsChannelProductsEvent,
+  isPcsChannelProductsDialogOpen,
+} from './pages/pcs-channel-products'
+import {
+  handlePcsChannelProductDetailEvent,
+  isPcsChannelProductDetailDialogOpen,
+} from './pages/pcs-channel-product-detail'
+import {
+  handlePcsChannelProductMappingEvent,
+  isPcsChannelProductMappingDialogOpen,
+} from './pages/pcs-channel-product-mapping'
+import { handlePcsChannelProductStoreViewEvent } from './pages/pcs-channel-product-store'
+import {
+  handlePcsChannelStoresEvent,
+  isPcsChannelStoresDialogOpen,
+} from './pages/pcs-channel-stores'
+import {
+  handlePcsChannelStoreDetailEvent,
+  isPcsChannelStoreDetailDialogOpen,
+} from './pages/pcs-channel-store-detail'
+import {
+  handlePcsChannelStoreSyncEvent,
+  isPcsChannelStoreSyncDialogOpen,
+} from './pages/pcs-channel-store-sync'
+import {
+  handlePcsChannelStorePayoutAccountsEvent,
+  isPcsChannelStorePayoutAccountsDialogOpen,
+} from './pages/pcs-channel-store-payout-accounts'
+import {
   handleTaskBreakdownEvent,
   isTaskBreakdownDialogOpen,
 } from './pages/task-breakdown'
@@ -220,6 +265,18 @@ function dispatchPageEvent(target: Element): boolean {
     handlePcsWorkItemEditorEvent(eventTarget) ||
     handlePcsProjectDetailEvent(eventTarget) ||
     handlePcsProjectWorkItemDetailEvent(eventTarget) ||
+    handlePcsLiveSessionsEvent(eventTarget) ||
+    handlePcsLiveSessionDetailEvent(eventTarget) ||
+    handlePcsVideoRecordsEvent(eventTarget) ||
+    handlePcsVideoRecordDetailEvent(eventTarget) ||
+    handlePcsChannelProductsEvent(eventTarget) ||
+    handlePcsChannelProductDetailEvent(eventTarget) ||
+    handlePcsChannelProductMappingEvent(eventTarget) ||
+    handlePcsChannelProductStoreViewEvent(eventTarget) ||
+    handlePcsChannelStoresEvent(eventTarget) ||
+    handlePcsChannelStoreDetailEvent(eventTarget) ||
+    handlePcsChannelStoreSyncEvent(eventTarget) ||
+    handlePcsChannelStorePayoutAccountsEvent(eventTarget) ||
     handleProcessDyeOrdersEvent(eventTarget) ||
     handleProcessPrintOrdersEvent(eventTarget) ||
     handleDependenciesEvent(eventTarget) ||
@@ -608,6 +665,94 @@ document.addEventListener('keydown', (event) => {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.pcsWorkItemAction = 'close-dialog'
     handlePcsProjectWorkItemDetailEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsLiveSessionsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsLiveAction = 'close-dialog'
+    handlePcsLiveSessionsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsLiveSessionDetailDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsLiveDetailAction = 'close-dialog'
+    handlePcsLiveSessionDetailEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsVideoRecordsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsVideoAction = 'close-dialog'
+    handlePcsVideoRecordsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsVideoRecordDetailDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsVideoDetailAction = 'close-dialog'
+    handlePcsVideoRecordDetailEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsChannelProductsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsChannelGroupAction = 'close-dialog'
+    handlePcsChannelProductsEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsChannelProductDetailDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsChannelProductDetailAction = 'close-dialog'
+    handlePcsChannelProductDetailEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsChannelProductMappingDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsChannelMappingAction = 'close-dialog'
+    handlePcsChannelProductMappingEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsChannelStoresDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsChannelStoreAction = 'close-dialog'
+    handlePcsChannelStoresEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsChannelStoreDetailDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsChannelStoreDetailAction = 'close-dialog'
+    handlePcsChannelStoreDetailEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsChannelStoreSyncDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsStoreSyncAction = 'close-dialog'
+    handlePcsChannelStoreSyncEvent(fakeButton)
+    render()
+    return
+  }
+
+  if (isPcsChannelStorePayoutAccountsDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsPayoutAction = 'close-dialog'
+    handlePcsChannelStorePayoutAccountsEvent(fakeButton)
     render()
     return
   }
