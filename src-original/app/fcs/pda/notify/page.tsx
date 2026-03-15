@@ -131,7 +131,7 @@ export default function PdaNotifyPage() {
           return
         }
         
-        // 阻塞
+        // 暂不能继续
         if (task.status === 'BLOCKED') {
           items.push({
             type: 'task',
@@ -186,7 +186,7 @@ export default function PdaNotifyPage() {
       }
     })
     
-    // 排序：优先阻塞/待交接确认，其次待确认接单，再待开工/进行中
+    // 排序：优先暂不能继续/待交接确认，其次待确认接单，再待开工/进行中
     const sectionPriority: Record<string, number> = {
       blocked: 0,
       handoverPending: 1,
@@ -249,7 +249,7 @@ export default function PdaNotifyPage() {
       .sort((a, b) => new Date(b.updatedAt || b.inspectedAt).getTime() - new Date(a.updatedAt || a.inspectedAt).getTime())
   }, [selectedFactoryId, state.qualityInspections, state.processTasks])
 
-  // 3. 质量阻塞：BLOCKED + blockReason=QUALITY
+  // 3. 质量暂不能继续：BLOCKED + blockReason=QUALITY
   const qualityBlockedTasks = useMemo(() => {
     if (!selectedFactoryId) return []
     return state.processTasks
@@ -361,7 +361,7 @@ export default function PdaNotifyPage() {
   
   function getStatusBadge(item: TodoItem) {
     if (item.status === 'BLOCKED') {
-      return <Badge variant="destructive">阻塞</Badge>
+      return <Badge variant="destructive">暂不能继续</Badge>
     }
     if (item.status === 'PENDING_CONFIRM') {
       return <Badge variant="outline" className="border-amber-500 text-amber-600">待确认</Badge>
@@ -477,7 +477,7 @@ export default function PdaNotifyPage() {
                                 <p className="font-medium truncate">{item.label}</p>
                                 <p className="text-sm text-muted-foreground">{item.productionOrderId}</p>
                                 
-                                {/* 物料状态 - 仅对待开工/阻塞任务显示 */}
+                                {/* 物料状态 - 仅对待开工/暂不能继续任务显示 */}
                                 {item.type === 'task' && (item.section === 'toStart' || item.section === 'blocked') && (
                                   <div className="mt-2 flex items-center gap-2">
                                     <Package className="h-3.5 w-3.5 text-muted-foreground" />
@@ -632,7 +632,7 @@ export default function PdaNotifyPage() {
                     </div>
                   )}
 
-                  {/* 质量阻塞 */}
+                  {/* 质量暂不能继续 */}
                   {qualityBlockedTasks.length > 0 && (
                     <div>
                       <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-2">

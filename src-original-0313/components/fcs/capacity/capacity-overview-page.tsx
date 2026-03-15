@@ -19,7 +19,7 @@ import {
 
 // ─── 占用状态 badge variant ───────────────────────────────────────────────────
 const LOAD_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  '存在阻塞': 'destructive',
+  '存在暂不能继续': 'destructive',
   '高占用':   'default',
   '正常':     'secondary',
   '空闲':     'outline',
@@ -28,8 +28,8 @@ const LOAD_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'ou
 // ─── 染印状态 badge variant ───────────────────────────────────────────────────
 const DYE_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   '无染印':   'outline',
-  '未放行':   'destructive',
-  '已放行':   'default',
+  '未可继续':   'destructive',
+  '已可继续':   'default',
   '不合格处理中': 'destructive',
 }
 
@@ -37,14 +37,14 @@ const DYE_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'out
 const PRESSURE_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   '高风险': 'destructive',
   '待质检': 'default',
-  '待放行': 'default',
+  '待可继续': 'default',
   '可推进': 'secondary',
   '未启动': 'outline',
 }
 
 // ─── 工厂占用状态计算 ──────────────────────────────────────────────────────────
 function deriveLoadStatus(blocked: number, total: number): string {
-  if (blocked > 0) return '存在阻塞'
+  if (blocked > 0) return '存在暂不能继续'
   if (total >= 10)  return '高占用'
   if (total >= 1)   return '正常'
   return '空闲'
@@ -57,9 +57,9 @@ function deriveDyeStatus(
   if (orderDpos.length === 0) return '无染印'
   const allBlocked = orderDpos.every(d => d.availableQty <= 0)
   const anyReleased = orderDpos.some(d => d.availableQty > 0)
-  if (anyReleased) return '已放行'
-  if (allBlocked) return '未放行'
-  return '未放行'
+  if (anyReleased) return '已可继续'
+  if (allBlocked) return '未可继续'
+  return '未可继续'
 }
 
 // ─── 交付压力计算 ──────────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ function derivePressure(
 ): string {
   if (blocked > 0)        return '高风险'
   if (qcPending > 0)      return '待质检'
-  if (dyeStatus === '未放行') return '待放行'
+  if (dyeStatus === '未可继续') return '待可继续'
   if (taskTotal > 0)      return '可推进'
   return '未启动'
 }
@@ -207,7 +207,7 @@ export function CapacityOverviewPage() {
 
       {/* 提示区 */}
       <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        产能汇总看板用于从任务占用、阻塞、染印、质检等维度观察当前生产负载；原型阶段采用轻量聚合口径，不做真实工时测算
+        产能汇总看板用于从任务占用、暂不能继续、染印、质检等维度观察当前生产负载；原型阶段采用轻量聚合口径，不做真实工时测算
       </div>
 
       {/* 统计卡 */}
@@ -215,8 +215,8 @@ export function CapacityOverviewPage() {
         {([
           { label: '生产单总数',         value: stats.orders },
           { label: '任务总数',           value: stats.tasks },
-          { label: '阻塞任务数',         value: stats.blocked },
-          { label: '染印未放行工单数',   value: stats.dyePending },
+          { label: '暂不能继续任务数',         value: stats.blocked },
+          { label: '染印未可继续工单数',   value: stats.dyePending },
           { label: '待质检数',           value: stats.qcPending },
           { label: '可进入结算扣款依据数', value: stats.settlementReady },
         ] as const).map(s => (
@@ -256,7 +256,7 @@ export function CapacityOverviewPage() {
                 <TableRow>
                   <TableHead>工厂</TableHead>
                   <TableHead className="text-center">关联任务数</TableHead>
-                  <TableHead className="text-center">阻塞任务数</TableHead>
+                  <TableHead className="text-center">暂不能继续任务数</TableHead>
                   <TableHead className="text-center">关联生产单数</TableHead>
                   <TableHead className="text-center">染印工单数</TableHead>
                   <TableHead className="text-center">待质检数</TableHead>
@@ -318,7 +318,7 @@ export function CapacityOverviewPage() {
                   <TableHead>生产单号</TableHead>
                   <TableHead>主工厂</TableHead>
                   <TableHead className="text-center">关联任务数</TableHead>
-                  <TableHead className="text-center">阻塞任务数</TableHead>
+                  <TableHead className="text-center">暂不能继续任务数</TableHead>
                   <TableHead>染印状态</TableHead>
                   <TableHead className="text-center">待质检数</TableHead>
                   <TableHead>交付压力摘要</TableHead>

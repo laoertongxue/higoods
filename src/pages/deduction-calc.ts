@@ -222,7 +222,7 @@ export function renderDeductionCalcPage(): string {
         listState.activeTab === 'basis'
           ? `
             <section class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              当前页面为扣款依据只读台账。依据条目来自质检/交接流程自动生成，状态、数量和结算冻结信息由上游流程驱动。
+              当前页面为扣款依据只读台账。依据条目来自质检/交接流程自动生成，状态、数量和结算冻结信息由上一步流程驱动。
             </section>
 
             <section class="flex flex-wrap items-center gap-3">
@@ -568,7 +568,7 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
               ? renderFieldRow('更新人', escapeHtml(basis.updatedBy))
               : ''
           }
-          ${renderFieldRow('状态', '<span class="text-xs italic text-muted-foreground">状态由上游流程自动维护</span>')}
+          ${renderFieldRow('状态', '<span class="text-xs italic text-muted-foreground">状态由上一步流程自动维护</span>')}
         </div>
       </section>
 

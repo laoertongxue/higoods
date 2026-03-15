@@ -138,7 +138,7 @@ const lifecycleColorMap: Record<PoLifecycle, string> = {
   CLOSED: 'bg-green-100 text-green-700',
 }
 
-// 阻塞原因选项
+// 暂不能继续原因选项
 const blockReasonOptions: { value: BlockReason; label: string }[] = [
   { value: 'MATERIAL', label: t('block.reason.MATERIAL') },
   { value: 'CAPACITY', label: t('block.reason.CAPACITY') },
@@ -150,9 +150,9 @@ const blockReasonOptions: { value: BlockReason; label: string }[] = [
 
 // 生产单卡点推导（展示层规则）
 function deriveBlockpoint(tasks: ProcessTask[]): string {
-  if (tasks.some(t => t.status === 'BLOCKED' && t.blockReason === 'QUALITY')) return '质检未闭环'
+  if (tasks.some(t => t.status === 'BLOCKED' && t.blockReason === 'QUALITY')) return '质检未已完成'
   if (tasks.some(t => t.status === 'BLOCKED' && t.blockReason === 'MATERIAL')) return '染印回货未完成'
-  if (tasks.some(t => t.status === 'BLOCKED')) return `${tasks.filter(t => t.status === 'BLOCKED').length} 个任务阻塞中`
+  if (tasks.some(t => t.status === 'BLOCKED')) return `${tasks.filter(t => t.status === 'BLOCKED').length} 个任务暂不能继续中`
   if (tasks.some(t => t.assignmentStatus === 'UNASSIGNED')) return '后道任务未分配'
   if (tasks.some(t => t.assignmentStatus === 'BIDDING')) return '存在竞价未定标任务'
   return '—'
@@ -164,9 +164,9 @@ function deriveNextAction(lifecycle: PoLifecycle, tasks: ProcessTask[]): string 
     case 'PREPARING': return '完成技术包并发布'
     case 'PENDING_ASSIGN': return `分配 ${tasks.filter(t => t.assignmentStatus === 'UNASSIGNED').length} 个待分配任务`
     case 'IN_EXECUTION':
-      if (tasks.some(t => t.status === 'BLOCKED')) return '处理阻塞任务后继续推进'
+      if (tasks.some(t => t.status === 'BLOCKED')) return '处理暂不能继续任务后继续推进'
       return '跟进执行进度并催办'
-    case 'PENDING_QC': return '完成质检并闭环返工'
+    case 'PENDING_QC': return '完成质检并已完成返工'
     case 'PENDING_SETTLEMENT': return '完成扣款对账并结算'
     case 'CLOSED': return '已结案，无需操作'
   }
@@ -184,13 +184,13 @@ function deriveLifecycle(tasks: ProcessTask[], order: any): PoLifecycle {
   const inProgress = tasks.filter(t => t.status === 'IN_PROGRESS').length
   const bidding = tasks.filter(t => t.assignmentStatus === 'BIDDING').length
 
-  // 已结案：所有关键任务完成且无阻塞
+  // 已结案：所有关键任务完成且无暂不能继续
   if (done === total && blocked === 0) return 'CLOSED'
 
-  // 待结算：执行和质检基本完成（≥85%完成），仍有扣款/对账未闭环
+  // 待结算：执行和质检基本完成（≥85%完成），仍有扣款/对账未已完成
   if (done / total >= 0.85) return 'PENDING_SETTLEMENT'
 
-  // 待质检：任务基本完工（≥70%完成）但仍有阻塞或待处理
+  // 待质检：任务基本完工（≥70%完成）但仍有暂不能继续或待处理
   if (done / total >= 0.7 || (done + blocked === total && blocked > 0 && tasks.some(t => t.blockReason === 'QUALITY'))) return 'PENDING_QC'
 
   // 待分配：存在未分配或竞价中任务且执行未稳定
@@ -306,7 +306,7 @@ export function ProgressBoardPage() {
       const mainFactory = mainFactoryId ? (getFactoryById(mainFactoryId)?.name || mainFactoryId) : '未指定'
       const lifecycle = deriveLifecycle(tasks, order)
       const risks: string[] = []
-      if (tasks.some(t => t.status === 'BLOCKED')) risks.push('有阻塞')
+      if (tasks.some(t => t.status === 'BLOCKED')) risks.push('有暂不能继续')
       if (tasks.some(t => getTaskRisks(t).includes('TASK_OVERDUE'))) risks.push('逾期风险')
       if (tasks.some(t => getTaskRisks(t).includes('TENDER_OVERDUE'))) risks.push('竞价逾期')
       if (order?.techPackSnapshot?.status !== 'RELEASED') risks.push('技术包未发布')
@@ -502,7 +502,7 @@ export function ProgressBoardPage() {
     toast({ title: t('common.success'), description: `任务 ${task.taskId} 状态已更新` })
   }
   
-  // 确认阻塞
+  // 确认暂不能继续
   const handleConfirmBlock = () => {
     if (!blockDialog) return
     updateTaskStatus(blockDialog.task.taskId, 'BLOCKED', blockReason, blockRemark, 'Admin')
@@ -518,9 +518,9 @@ export function ProgressBoardPage() {
       sourceType: 'TASK',
       sourceId: blockDialog.task.taskId,
       reasonCode: reasonCodeMap[blockReason],
-      detail: blockRemark || `任务 ${blockDialog.task.taskId} 被标记为阻塞，原因：${t(`block.reason.${blockReason}`)}`,
+      detail: blockRemark || `任务 ${blockDialog.task.taskId} 被标记为暂不能继续，原因：${t(`block.reason.${blockReason}`)}`,
     })
-    toast({ title: t('common.success'), description: `任务 ${blockDialog.task.taskId} 已标记为阻塞` })
+    toast({ title: t('common.success'), description: `任务 ${blockDialog.task.taskId} 已标记为暂不能继续` })
     setBlockDialog(null)
     setBlockReason('OTHER')
     setBlockRemark('')
@@ -1161,7 +1161,7 @@ export function ProgressBoardPage() {
                                 <Badge className="text-xs bg-blue-100 text-blue-700">进行中 {row.inProgressTasks}</Badge>
                               )}
                               {row.blockedTasks > 0 && (
-                                <Badge className="text-xs bg-red-100 text-red-700">阻塞 {row.blockedTasks}</Badge>
+                                <Badge className="text-xs bg-red-100 text-red-700">暂不能继续 {row.blockedTasks}</Badge>
                               )}
                               {row.unassignedTasks > 0 && (
                                 <Badge className="text-xs bg-orange-100 text-orange-700">待分配 {row.unassignedTasks}</Badge>
@@ -1636,7 +1636,7 @@ export function ProgressBoardPage() {
                     </div>
                     <div className="flex gap-3 text-xs text-muted-foreground">
                       {detailOrderRow.inProgressTasks > 0 && <span className="text-blue-600">进行中 {detailOrderRow.inProgressTasks}</span>}
-                      {detailOrderRow.blockedTasks > 0 && <span className="text-red-600">阻塞 {detailOrderRow.blockedTasks}</span>}
+                      {detailOrderRow.blockedTasks > 0 && <span className="text-red-600">暂不能继续 {detailOrderRow.blockedTasks}</span>}
                       {detailOrderRow.unassignedTasks > 0 && <span className="text-orange-600">待分配 {detailOrderRow.unassignedTasks}</span>}
                     </div>
                   </div>
@@ -1726,7 +1726,7 @@ export function ProgressBoardPage() {
         </SheetContent>
       </Sheet>
       
-      {/* 阻塞原因 Dialog */}
+      {/* 暂不能继续原因 Dialog */}
       <Dialog open={!!blockDialog} onOpenChange={() => setBlockDialog(null)}>
         <DialogContent>
           <DialogHeader>

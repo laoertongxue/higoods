@@ -119,7 +119,7 @@ export function TaskListPage() {
                 <SelectItem value="confirmed">已确认</SelectItem>
                 <SelectItem value="in-progress">进行中</SelectItem>
                 <SelectItem value="pending-review">待评审</SelectItem>
-                <SelectItem value="blocked">阻塞</SelectItem>
+                <SelectItem value="blocked">暂不能继续</SelectItem>
               </SelectContent>
             </Select>
             

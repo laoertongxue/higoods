@@ -22,7 +22,7 @@ const TASK_STATUS_ZH: Record<string, string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
   DONE:        '已完成',
-  BLOCKED:     '阻塞',
+  BLOCKED:     '暂不能继续',
   CANCELLED:   '已取消',
 }
 
@@ -36,7 +36,7 @@ function levelVariant(level: string): BadgeVariant {
 }
 
 function taskStatusVariant(zh: string): BadgeVariant {
-  if (zh === '阻塞') return 'destructive'
+  if (zh === '暂不能继续') return 'destructive'
   if (zh === '进行中') return 'default'
   if (zh === '已完成') return 'secondary'
   return 'outline'
@@ -105,11 +105,11 @@ export function CapacityBottleneckPage() {
       // bottleneck reason
       let bottleneckReasonZh: string
       if (blockedTaskCount > 0) {
-        bottleneckReasonZh = '阻塞任务偏多'
+        bottleneckReasonZh = '暂不能继续任务偏多'
       } else if (qcPendingCount > 0) {
         bottleneckReasonZh = '待质检积压'
       } else if (dyePendingCount > 0) {
-        bottleneckReasonZh = '染印未放行'
+        bottleneckReasonZh = '染印未可继续'
       } else if (taskCount >= 8) {
         bottleneckReasonZh = '任务占用偏高'
       } else {
@@ -146,9 +146,9 @@ export function CapacityBottleneckPage() {
       if (dyeOrders.length === 0) {
         dyeStatusZh = '无染印'
       } else if (dyeOrders.every(d => d.availableQty <= 0)) {
-        dyeStatusZh = '未放行'
+        dyeStatusZh = '未可继续'
       } else {
-        dyeStatusZh = '已放行'
+        dyeStatusZh = '已可继续'
       }
 
       const factorySummaryZh = order.mainFactorySnapshot?.name ?? order.mainFactoryId ?? '—'
@@ -159,7 +159,7 @@ export function CapacityBottleneckPage() {
         bottleneckLevelZh = '高'
       } else if (qcPendingCount > 0) {
         bottleneckLevelZh = '中'
-      } else if (dyeStatusZh === '未放行') {
+      } else if (dyeStatusZh === '未可继续') {
         bottleneckLevelZh = '中'
       } else if (taskCount >= 6) {
         bottleneckLevelZh = '中'
@@ -170,11 +170,11 @@ export function CapacityBottleneckPage() {
       // reason
       let bottleneckReasonZh: string
       if (blockedTaskCount > 0) {
-        bottleneckReasonZh = '阻塞任务未解除'
+        bottleneckReasonZh = '暂不能继续任务未解除'
       } else if (qcPendingCount > 0) {
         bottleneckReasonZh = '待质检未清'
-      } else if (dyeStatusZh === '未放行') {
-        bottleneckReasonZh = '染印待放行'
+      } else if (dyeStatusZh === '未可继续') {
+        bottleneckReasonZh = '染印待可继续'
       } else if (taskCount >= 6) {
         bottleneckReasonZh = '任务链较长'
       } else {
@@ -224,13 +224,13 @@ export function CapacityBottleneckPage() {
 
       if (task.status === 'BLOCKED') {
         bottleneckLevelZh = '高'
-        bottleneckReasonZh = '任务阻塞'
+        bottleneckReasonZh = '任务暂不能继续'
       } else if (hasQcPending) {
         bottleneckLevelZh = '中'
         bottleneckReasonZh = '所属生产单待质检'
       } else if (hasDyePending) {
         bottleneckLevelZh = '中'
-        bottleneckReasonZh = '所属生产单染印未放行'
+        bottleneckReasonZh = '所属生产单染印未可继续'
       } else if (task.status === 'IN_PROGRESS') {
         bottleneckLevelZh = '低'
         bottleneckReasonZh = '正常推进中'
@@ -261,7 +261,7 @@ export function CapacityBottleneckPage() {
         .filter(q => q.status !== 'CLOSED')
         .map(q => q.productionOrderId)
     ).size,
-    dyePending:   orderBottlenecks.filter(o => o.dyeStatusZh === '未放行').length,
+    dyePending:   orderBottlenecks.filter(o => o.dyeStatusZh === '未可继续').length,
   }), [factoryBottlenecks, orderBottlenecks, taskBottlenecks, processTasks, qualityInspections])
 
   // ─── 关键词过滤 ────────────────────────────────────────────────────────────
@@ -301,7 +301,7 @@ export function CapacityBottleneckPage() {
 
       {/* 提示区 */}
       <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        瓶颈预警用于识别阻塞、待质检、染印未放行等造成的当前生产瓶颈；原型阶段采用规则型识别，不做预测模型
+        瓶颈预警用于识别暂不能继续、待质检、染印未可继续等造成的当前生产瓶颈；原型阶段采用规则型识别，不做预测模型
       </div>
 
       {/* 统计卡 */}
@@ -310,9 +310,9 @@ export function CapacityBottleneckPage() {
           { label: '高瓶颈工厂数',      value: stats.factoryHigh },
           { label: '高瓶颈生产单数',    value: stats.orderHigh },
           { label: '高瓶颈任务数',      value: stats.taskHigh },
-          { label: '阻塞任务总数',      value: stats.blocked },
+          { label: '暂不能继续任务总数',      value: stats.blocked },
           { label: '待质检生产单数',    value: stats.qcPending },
-          { label: '染印未放行生产单数', value: stats.dyePending },
+          { label: '染印未可继续生产单数', value: stats.dyePending },
         ] as const).map(s => (
           <Card key={s.label}>
             <CardHeader className="pb-1 pt-4 px-4">
@@ -351,9 +351,9 @@ export function CapacityBottleneckPage() {
                 <TableRow>
                   <TableHead>工厂</TableHead>
                   <TableHead>关联任务数</TableHead>
-                  <TableHead>阻塞任务数</TableHead>
+                  <TableHead>暂不能继续任务数</TableHead>
                   <TableHead>待质检数</TableHead>
-                  <TableHead>染印未放行数</TableHead>
+                  <TableHead>染印未可继续数</TableHead>
                   <TableHead>瓶颈等级</TableHead>
                   <TableHead>瓶颈原因</TableHead>
                   <TableHead>操作</TableHead>
@@ -415,7 +415,7 @@ export function CapacityBottleneckPage() {
                   <TableHead>生产单号</TableHead>
                   <TableHead>主工厂</TableHead>
                   <TableHead>关联任务数</TableHead>
-                  <TableHead>阻塞任务数</TableHead>
+                  <TableHead>暂不能继续任务数</TableHead>
                   <TableHead>待质检数</TableHead>
                   <TableHead>染印状态</TableHead>
                   <TableHead>瓶颈等级</TableHead>
@@ -447,8 +447,8 @@ export function CapacityBottleneckPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={
-                        o.dyeStatusZh === '未放行' ? 'destructive'
-                        : o.dyeStatusZh === '已放行' ? 'secondary'
+                        o.dyeStatusZh === '未可继续' ? 'destructive'
+                        : o.dyeStatusZh === '已可继续' ? 'secondary'
                         : 'outline'
                       }>{o.dyeStatusZh}</Badge>
                     </TableCell>

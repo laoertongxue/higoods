@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import type { ExceptionCase } from '@/lib/fcs/fcs-store'
 
-// ─── 上下游状态映射 ────────────────────────────────────────────────────────────
+// ─── 上一步与下一步状态映射 ────────────────────────────────────────────────────────────
 const PLAN_STATUS_ZH: Record<string, string> = {
   UNPLANNED: '未计划',
   PLANNED:   '已计划',
@@ -118,7 +118,7 @@ export function DispatchExceptionsPage() {
   // Filter to dispatch domain
   const allExceptions = useMemo(() => (_all ?? []).filter(isDispatchException), [_all])
 
-  // ─── 上下游摘要 map ───────────────────────────────────────────────────────
+  // ─── 上一步与下一步摘要 map ───────────────────────────────────────────────────────
   const summaryMap = useMemo(() => {
     const map = new Map<string, {
       planStatusZh: string
@@ -138,7 +138,7 @@ export function DispatchExceptionsPage() {
       const planStatusZh      = order?.planStatus      ? (PLAN_STATUS_ZH[order.planStatus]           ?? '—') : '—'
       const lifecycleStatusZh = order?.lifecycleStatus ? (LIFECYCLE_STATUS_ZH[order.lifecycleStatus] ?? '—') : '—'
 
-      // 3 & 4) 任务数 / 阻塞数
+      // 3 & 4) 任务数 / 暂不能继续数
       let taskCount = 0
       let blockedCount = 0
       if (srcType === 'TASK') {
@@ -195,7 +195,7 @@ export function DispatchExceptionsPage() {
         srcType === 'TENDER' ? '影响招标与定标' :
                                '影响定标与后续分配'
       const impactSummary = blockedCount > 0
-        ? `${base}（阻塞任务 ${blockedCount} 条）`
+        ? `${base}（暂不能继续任务 ${blockedCount} 条）`
         : base
 
       map.set(e.caseId, { planStatusZh, lifecycleStatusZh, taskCount, blockedCount, tenderSummary, impactSummary })
@@ -329,7 +329,7 @@ export function DispatchExceptionsPage() {
 
       {/* Tip */}
       <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        异常处理用于记录派单、竞价、定标过程中的异常事项；本页同步展示生产单计划、任务阻塞以及招标/定标影响范围摘要
+        异常处理用于记录派单、竞价、定标过程中的异常事项；本页同步展示生产单计划、任务暂不能继续以及招标/定标影响范围摘要
       </div>
 
       {/* Stats row 1 */}
@@ -351,7 +351,7 @@ export function DispatchExceptionsPage() {
         ))}
       </div>
 
-      {/* Stats row 2 — 上下游概览 */}
+      {/* Stats row 2 — 上一步与下一步概览 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-1 pt-4 px-4">
@@ -371,7 +371,7 @@ export function DispatchExceptionsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">关联阻塞任务异常数</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">关联暂不能继续任务异常数</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="text-2xl font-bold">{stats.hasBlocked}</p>
@@ -437,7 +437,7 @@ export function DispatchExceptionsPage() {
               <TableHead>生产单计划状态</TableHead>
               <TableHead>生产单状态</TableHead>
               <TableHead>关联任务数</TableHead>
-              <TableHead>阻塞任务数</TableHead>
+              <TableHead>暂不能继续任务数</TableHead>
               <TableHead>招标/定标状态摘要</TableHead>
               <TableHead>影响范围摘要</TableHead>
               <TableHead>标题</TableHead>

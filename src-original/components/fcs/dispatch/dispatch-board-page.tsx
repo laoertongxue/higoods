@@ -93,14 +93,14 @@ function upstreamSummary(
   dyePendingIds: Set<string>,
   qcPendingOrderIds: Set<string>,
 ): string {
-  if (task.status === 'BLOCKED') return '前置未满足（阻塞）'
+  if (task.status === 'BLOCKED') return '前置未满足（暂不能继续）'
   const depIds = task.dependsOnTaskIds ?? []
   if (depIds.length > 0) {
     const unfinishedDep = allTasks.find(t => depIds.includes(t.taskId) && t.status !== 'COMPLETED' && t.status !== 'DONE' && t.status !== 'CANCELLED')
     if (unfinishedDep) return `前序任务未完成（${unfinishedDep.processNameZh}）`
   }
   if (dyePendingIds.has(task.taskId)) return '受染印回货影响'
-  return '无明显上游约束'
+  return '无明显上一步约束'
 }
 
 function currentConstraint(
@@ -325,7 +325,7 @@ export function DispatchBoardPage() {
               {statusZh[task.assignmentStatus] ?? task.assignmentStatus}
             </Badge>
           </div>
-          {upstream !== '无明显上游约束' && (
+          {upstream !== '无明显上一步约束' && (
             <p className="text-[10px] text-blue-600">{upstream}</p>
           )}
           {constraint !== '当前可分配' && (
@@ -503,7 +503,7 @@ export function DispatchBoardPage() {
                     <TableHead>生产单号</TableHead>
                     <TableHead>工厂</TableHead>
                     <TableHead>任务状态</TableHead>
-                    <TableHead>上游约束摘要</TableHead>
+                    <TableHead>上一步约束摘要</TableHead>
                     <TableHead>当前约束摘要</TableHead>
                     <TableHead>当前分配方式</TableHead>
                     <TableHead>建议分配方式</TableHead>
@@ -530,7 +530,7 @@ export function DispatchBoardPage() {
                     const factoryName = order?.mainFactorySnapshot?.name ?? '—'
                     const taskStatusZh: Record<string, string> = {
                       NOT_STARTED: '待开始', PENDING: '待开始', IN_PROGRESS: '进行中',
-                      COMPLETED: '已完成', DONE: '已完成', BLOCKED: '阻塞', CANCELLED: '已取消',
+                      COMPLETED: '已完成', DONE: '已完成', BLOCKED: '暂不能继续', CANCELLED: '已取消',
                     }
                     return (
                       <TableRow key={task.taskId} className={hasExc ? 'bg-red-50' : undefined}>
@@ -547,7 +547,7 @@ export function DispatchBoardPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs max-w-[140px]">
-                          <span className={upstream !== '无明显上游约束' ? 'text-blue-600' : 'text-muted-foreground'}>
+                          <span className={upstream !== '无明显上一步约束' ? 'text-blue-600' : 'text-muted-foreground'}>
                             {upstream}
                           </span>
                         </TableCell>

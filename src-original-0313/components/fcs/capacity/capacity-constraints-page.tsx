@@ -15,7 +15,7 @@ const TASK_STATUS_ZH: Record<string, string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
   DONE:        '已完成',
-  BLOCKED:     '阻塞',
+  BLOCKED:     '暂不能继续',
   CANCELLED:   '已取消',
 }
 
@@ -102,9 +102,9 @@ export function CapacityConstraintsPage() {
       if (relatedDyes.length === 0) {
         dyeConstraintZh = '无染印约束'
       } else if (relatedDyes.every(d => d.availableQty <= 0)) {
-        dyeConstraintZh = '染印未放行'
+        dyeConstraintZh = '染印未可继续'
       } else {
-        dyeConstraintZh = '染印已放行'
+        dyeConstraintZh = '染印已可继续'
       }
 
       // 5) qcConstraintZh
@@ -130,7 +130,7 @@ export function CapacityConstraintsPage() {
       // 7) allocationConstraintZh
       let allocationConstraintZh: string
       if (isBlocked) {
-        allocationConstraintZh = '门禁未解除'
+        allocationConstraintZh = '开始条件未解除'
       } else {
         allocationConstraintZh = '无可用量约束'
       }
@@ -143,7 +143,7 @@ export function CapacityConstraintsPage() {
         dispatchConstraintLevelZh = '强约束'
       } else if (exceptionConstraintZh !== '无异常约束') {
         dispatchConstraintLevelZh = '强约束'
-      } else if (dyeConstraintZh === '染印未放行') {
+      } else if (dyeConstraintZh === '染印未可继续') {
         dispatchConstraintLevelZh = '中约束'
       } else if (qcConstraintZh === '存在待质检') {
         dispatchConstraintLevelZh = '中约束'
@@ -168,11 +168,11 @@ export function CapacityConstraintsPage() {
       if (task.status === 'DONE' || task.status === 'CANCELLED') {
         constraintReasonZh = '任务已结束，不再参与分配'
       } else if (isBlocked) {
-        constraintReasonZh = '任务阻塞，当前不宜分配'
+        constraintReasonZh = '任务暂不能继续，当前不宜分配'
       } else if (exceptionConstraintZh === '存在派单异常' || exceptionConstraintZh === '存在关联异常') {
         constraintReasonZh = '存在派单异常，需先处理'
-      } else if (dyeConstraintZh === '染印未放行') {
-        constraintReasonZh = '染印未放行，建议先等待回货'
+      } else if (dyeConstraintZh === '染印未可继续') {
+        constraintReasonZh = '染印未可继续，建议先等待回货'
       } else if (qcConstraintZh === '存在待质检') {
         constraintReasonZh = '存在待质检事项，建议谨慎分配'
       } else {
@@ -350,7 +350,7 @@ export function CapacityConstraintsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={t.dyeConstraintZh === '染印未放行' ? 'destructive' : 'secondary'}>
+                      <Badge variant={t.dyeConstraintZh === '染印未可继续' ? 'destructive' : 'secondary'}>
                         {t.dyeConstraintZh}
                       </Badge>
                     </TableCell>

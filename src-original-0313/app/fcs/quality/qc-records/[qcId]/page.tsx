@@ -844,7 +844,7 @@ function QcRecordInner({ qcId }: { qcId: string }) {
                                   t.status === 'BLOCKED'     && 'bg-red-50 text-red-700 border-red-200',
                                 )}
                               >
-                                {t.status === 'DONE' ? '已完成' : t.status === 'IN_PROGRESS' ? '进行中' : t.status === 'BLOCKED' ? '已阻塞' : t.status}
+                                {t.status === 'DONE' ? '已完成' : t.status === 'IN_PROGRESS' ? '进行中' : t.status === 'BLOCKED' ? '已暂不能继续' : t.status}
                               </Badge>
                             </span>
                           )}

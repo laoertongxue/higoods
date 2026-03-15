@@ -27,7 +27,7 @@ interface StatusWritebackState {
 
 const BATCH_QC_STATUS_LABEL: Record<ReturnBatchQcStatus, string> = {
   QC_PENDING: '待质检',
-  PASS_CLOSED: '合格已放行',
+  PASS_CLOSED: '合格可继续',
   FAIL_IN_QC: '不合格处理中',
 }
 
@@ -149,7 +149,7 @@ function syncAllocationGates(by: string): void {
       if (task.status === 'BLOCKED' && task.blockReason === 'ALLOCATION_GATE') continue
 
       const depNames = depIds.map((id) => processTasks.find((item) => item.taskId === id)?.processNameZh ?? id)
-      const noteZh = `等待上游放行：${depNames.join('、')}（可用量=0）`
+      const noteZh = `等待上一步完成：${depNames.join('、')}（可用量=0）`
 
       task.status = 'BLOCKED'
       task.blockReason = 'ALLOCATION_GATE'
@@ -182,7 +182,7 @@ function syncAllocationGates(by: string): void {
         {
           id: `AL-GATE-UNBLOCK-${Date.now()}-${task.taskId}`,
           action: 'UNBLOCK_BY_ALLOCATION_GATE',
-          detail: '上游已放行，门禁解除',
+          detail: '上一步已完成，开始条件已满足',
           at: now,
           by,
         },
@@ -260,7 +260,7 @@ function markReturnBatchPass(batchId: string, by: string): { ok: boolean; messag
     deltaAvailableQty: batch.returnedQty,
     deltaAcceptedAsDefectQty: 0,
     deltaScrappedQty: 0,
-    noteZh: `回货批次 ${batchId} 合格放行：可用量+${batch.returnedQty}`,
+    noteZh: `回货批次 ${batchId} 合格可继续：可用量+${batch.returnedQty}`,
     createdAt: ts,
     createdBy: by,
   }
@@ -352,7 +352,7 @@ function startReturnBatchFailQc(batchId: string, by: string): { ok: boolean; qcI
   task.blockRemark = `回货批次 ${batchId} 质检不合格，已进入处理`
   task.blockedAt = ts
   task.updatedAt = ts
-  pushTaskAudit(task, 'BLOCK_TASK', `回货批次 ${batchId} 不合格，任务阻塞`, by)
+  pushTaskAudit(task, 'BLOCK_TASK', `回货批次 ${batchId} 不合格，任务暂不能继续`, by)
 
   return { ok: true, qcId }
 }
@@ -365,14 +365,14 @@ function renderGateBlockedCard(tasks: ProcessTask[]): string {
   return `
     <section class="rounded-lg border bg-card">
       <header class="px-4 pb-3 pt-4">
-        <h2 class="text-base font-semibold">门禁阻塞任务</h2>
-        <p class="mt-1 text-sm text-muted-foreground">上游染印/印花工序未放行时，下游任务将自动阻塞</p>
+        <h2 class="text-base font-semibold">当前暂不能继续任务</h2>
+        <p class="mt-1 text-sm text-muted-foreground">上一步染印/印花工序暂不能继续时，下一步任务将自动暂不能继续</p>
       </header>
 
       <div class="px-4 pb-4">
         ${
           gatedTasks.length === 0
-            ? '<p class="py-4 text-center text-sm text-muted-foreground">暂无门禁阻塞任务</p>'
+            ? '<p class="py-4 text-center text-sm text-muted-foreground">暂无当前暂不能继续任务</p>'
             : `<div class="divide-y divide-border rounded-md border">${gatedTasks
                 .map((task) => {
                   const dependencies = getTaskDependencies(task).join('、')
@@ -380,14 +380,14 @@ function renderGateBlockedCard(tasks: ProcessTask[]): string {
                     <article class="space-y-1 px-4 py-3 text-sm">
                       <div class="flex items-center justify-between gap-4">
                         <span class="font-medium text-foreground">${escapeHtml(task.processNameZh)}</span>
-                        <span class="inline-flex rounded-md border border-orange-200 bg-orange-100 px-2 py-0.5 text-xs text-orange-800">门禁阻塞</span>
+                        <span class="inline-flex rounded-md border border-orange-200 bg-orange-100 px-2 py-0.5 text-xs text-orange-800">当前暂不能继续</span>
                       </div>
                       ${
                         dependencies
                           ? `<p class="text-xs text-muted-foreground">任务依赖：${escapeHtml(dependencies)}</p>`
                           : ''
                       }
-                      <p class="text-xs text-orange-700">${escapeHtml(task.blockNoteZh ?? '等待上游放行')}</p>
+                      <p class="text-xs text-orange-700">${escapeHtml(task.blockNoteZh ?? '等待上一步完成')}</p>
                     </article>
                   `
                 })
@@ -409,8 +409,8 @@ function renderReturnBatchCard(): string {
   return `
     <section class="rounded-lg border bg-card">
       <header class="px-4 pb-3 pt-4">
-        <h2 class="text-base font-semibold">分批回货（按批质检放行）</h2>
-        <p class="mt-1 text-sm text-muted-foreground">逐批登记回货，选择合格放行或不合格处理</p>
+        <h2 class="text-base font-semibold">分批回货（按批质检判定）</h2>
+        <p class="mt-1 text-sm text-muted-foreground">逐批登记回货，选择合格可继续或不合格处理</p>
       </header>
 
       <div class="space-y-5 px-4 pb-4">
@@ -487,7 +487,7 @@ function renderReturnBatchCard(): string {
                                 batch.qcStatus === 'QC_PENDING'
                                   ? `
                                     <div class="flex items-center gap-2">
-                                      <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-swb-action="pass-batch" data-batch-id="${escapeHtml(batch.batchId)}">合格放行</button>
+                                      <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-swb-action="pass-batch" data-batch-id="${escapeHtml(batch.batchId)}">合格可继续</button>
                                       <button class="inline-flex h-7 items-center rounded-md border border-red-200 px-2 text-xs text-red-700 hover:bg-red-50" data-swb-action="fail-batch" data-batch-id="${escapeHtml(batch.batchId)}">不合格处理</button>
                                     </div>
                                   `
@@ -495,7 +495,7 @@ function renderReturnBatchCard(): string {
                                     ? batch.linkedQcId
                                       ? `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="/fcs/quality/qc-records/${escapeHtml(batch.linkedQcId)}">去处理</button>`
                                       : '<span class="text-xs text-muted-foreground">未生成质检单</span>'
-                                    : '<span class="text-xs text-muted-foreground">已放行</span>'
+                                    : '<span class="text-xs text-muted-foreground">可继续</span>'
                               }
                             </td>
                           </tr>
@@ -523,18 +523,18 @@ function renderAllocationEventsCard(): string {
   return `
     <section class="rounded-lg border bg-card">
       <header class="px-4 pb-3 pt-4">
-        <h2 class="text-base font-semibold">Allocation 回写事件</h2>
-        <p class="mt-1 text-sm text-muted-foreground">质检结案或批次放行后自动写入，记录可用量变更</p>
+        <h2 class="text-base font-semibold">Allocation 同步记录</h2>
+        <p class="mt-1 text-sm text-muted-foreground">质检结案或批次判定完成后自动写入，记录可用量变更</p>
       </header>
 
       <div class="px-4 pb-4">
         ${
           events.length === 0
-            ? '<p class="py-4 text-center text-sm text-muted-foreground">暂无 Allocation 回写事件</p>'
+            ? '<p class="py-4 text-center text-sm text-muted-foreground">暂无 Allocation 同步记录</p>'
             : `
               ${
                 dyePrintCount > 0
-                  ? `<div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">染印加工单回写次数：${dyePrintCount}</div>`
+                  ? `<div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">染印加工单同步次数：${dyePrintCount}</div>`
                   : ''
               }
               <div class="divide-y divide-border rounded-md border">
@@ -593,7 +593,7 @@ export function renderProgressStatusWritebackPage(): string {
 
         <h1 class="flex items-center gap-2 text-xl font-semibold">
           <i data-lucide="refresh-cw" class="h-5 w-5"></i>
-          状态回写
+          状态同步更新
         </h1>
       </div>
 
@@ -603,8 +603,8 @@ export function renderProgressStatusWritebackPage(): string {
 
       <section class="rounded-lg border bg-card">
         <header class="px-4 pb-2 pt-4">
-          <h2 class="text-base font-semibold">状态回写</h2>
-          <p class="mt-1 text-sm text-muted-foreground">任务状态变更后会自动同步回写到生产单，计算生产单进度百分比和状态流转。</p>
+          <h2 class="text-base font-semibold">状态同步更新</h2>
+          <p class="mt-1 text-sm text-muted-foreground">任务状态变更后会自动同步更新到生产单，计算生产单进度百分比和状态流转。</p>
         </header>
 
         <div class="px-4 pb-4">
@@ -698,7 +698,7 @@ export function handleProgressStatusWritebackEvent(target: HTMLElement): boolean
 
     const result = markReturnBatchPass(batchId, '管理员')
     if (result.ok) {
-      showStatusWritebackToast('已合格放行，Allocation 已更新')
+      showStatusWritebackToast('已合格可继续，Allocation 已更新')
     } else {
       showStatusWritebackToast(result.message ?? '操作失败', 'error')
     }
@@ -712,7 +712,7 @@ export function handleProgressStatusWritebackEvent(target: HTMLElement): boolean
 
     const result = startReturnBatchFailQc(batchId, '管理员')
     if (result.ok && result.qcId) {
-      showStatusWritebackToast(`已创建质检单 ${result.qcId}，任务已阻塞`)
+      showStatusWritebackToast(`已创建质检单 ${result.qcId}，任务已暂不能继续`)
     } else {
       showStatusWritebackToast(result.message ?? '操作失败', 'error')
     }

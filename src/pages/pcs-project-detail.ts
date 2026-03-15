@@ -254,7 +254,7 @@ const PHASES: PhaseItem[] = [
     id: 'phase_04',
     no: '04',
     name: '结论与推进',
-    description: '以测款结论判定为推进闸口，通过后解锁转档与制版准备。',
+    description: '以测款结论判定为推进条件，通过后解锁转档与制版准备。',
     items: ['wi_13', 'wi_14', 'wi_15', 'wi_16', 'wi_17', 'wi_18', 'wi_19'],
   },
   {
@@ -511,7 +511,7 @@ const WORK_ITEM_SEED: Record<string, WorkItem> = {
       keyOutputs: [
         { label: '待决策结论', value: '通过 / 改版 / 淘汰' },
         { label: '当前建议', value: '通过后进入工程准备' },
-        { label: '闸口影响', value: '决定后续工作项解锁状态' },
+        { label: '对下一步的影响', value: '决定后续工作项解锁状态' },
       ],
       evidence: { attachments: 0, links: 0, records: 1 },
       latestRecords: [{ title: '待决策提醒', meta: '需在今日内完成结论判定', time: '2025-12-15 12:32' }],
@@ -549,7 +549,7 @@ const WORK_ITEM_SEED: Record<string, WorkItem> = {
     phaseId: 'phase_04',
     owner: '版房-王版师',
     updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待闸口放行' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
+    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
   },
   wi_16: {
     id: 'wi_16',
@@ -559,7 +559,7 @@ const WORK_ITEM_SEED: Record<string, WorkItem> = {
     phaseId: 'phase_04',
     owner: '设计-花型组',
     updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待闸口放行' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
+    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
   },
   wi_17: {
     id: 'wi_17',
@@ -569,7 +569,7 @@ const WORK_ITEM_SEED: Record<string, WorkItem> = {
     phaseId: 'phase_04',
     owner: '样衣组-小李',
     updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待闸口放行' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
+    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
   },
   wi_18: {
     id: 'wi_18',
@@ -579,7 +579,7 @@ const WORK_ITEM_SEED: Record<string, WorkItem> = {
     phaseId: 'phase_04',
     owner: '样衣组-小刘',
     updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待闸口放行' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
+    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
   },
   wi_19: {
     id: 'wi_19',
@@ -589,7 +589,7 @@ const WORK_ITEM_SEED: Record<string, WorkItem> = {
     phaseId: 'phase_04',
     owner: '渠道运营-小郑',
     updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待闸口放行' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
+    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
   },
   wi_20: {
     id: 'wi_20',
@@ -1337,7 +1337,7 @@ function applyDecisionResult(decision: DecisionValue): void {
     pendingItem.status = '已完成'
     pendingItem.summary.keyOutputs = [
       { label: '决策结果', value: '通过' },
-      { label: '放行范围', value: '工程准备工作项已解锁' },
+      { label: '继续范围', value: '工程准备工作项已解锁' },
       { label: '备注', value: state.decisionNote.trim() || '推进至工程准备' },
     ]
 
@@ -1366,7 +1366,7 @@ function applyDecisionResult(decision: DecisionValue): void {
     pendingItem.summary.keyOutputs = [
       { label: '决策结果', value: '改版' },
       { label: '后续动作', value: '生成改版任务并重新测款' },
-      { label: '备注', value: state.decisionNote.trim() || '进入改版闭环' },
+      { label: '备注', value: state.decisionNote.trim() || '进入改版已完成' },
     ]
     pendingItem.updatedAt = nowText()
     data.project.lastUpdated = nowText()

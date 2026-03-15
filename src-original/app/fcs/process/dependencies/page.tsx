@@ -98,7 +98,7 @@ function EditDepsDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>编辑上游依赖</DialogTitle>
+          <DialogTitle>编辑上一步依赖</DialogTitle>
         </DialogHeader>
 
         {task && (
@@ -138,7 +138,7 @@ function EditDepsDialog({
         </div>
 
         {selected.length > 0 && (
-          <p className="text-xs text-muted-foreground">已选 {selected.length} 项上游依赖</p>
+          <p className="text-xs text-muted-foreground">已选 {selected.length} 项上一步依赖</p>
         )}
 
         <DialogFooter>
@@ -199,7 +199,7 @@ export default function DependenciesPage() {
           依赖关系配置
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          配置任务的上游依赖，用于 Allocation 门禁自动阻塞/放行
+          配置任务的上一步依赖，用于 Allocation 开始条件自动暂不能继续/可继续
         </p>
       </div>
 
@@ -215,8 +215,8 @@ export default function DependenciesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>任务</TableHead>
-                  <TableHead>上游依赖（多选）</TableHead>
-                  <TableHead>当前门禁状态</TableHead>
+                  <TableHead>上一步依赖（多选）</TableHead>
+                  <TableHead>当前开始条件状态</TableHead>
                   <TableHead className="w-[180px]">操作</TableHead>
                 </TableRow>
               </TableHeader>
@@ -241,7 +241,7 @@ export default function DependenciesPage() {
                         </div>
                       </TableCell>
 
-                      {/* 上游依赖 */}
+                      {/* 上一步依赖 */}
                       <TableCell>
                         {deps.length === 0 ? (
                           <span className="text-muted-foreground text-sm">—</span>
@@ -260,12 +260,12 @@ export default function DependenciesPage() {
                         )}
                       </TableCell>
 
-                      {/* 门禁状态 */}
+                      {/* 开始条件状态 */}
                       <TableCell>
                         {isGated ? (
                           <div className="space-y-1">
                             <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
-                              门禁阻塞
+                              开始条件暂不能继续
                             </Badge>
                             {(task as any).blockNoteZh && (
                               <p className="text-xs text-muted-foreground leading-snug">
@@ -274,7 +274,7 @@ export default function DependenciesPage() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">未阻塞</span>
+                          <span className="text-sm text-muted-foreground">未暂不能继续</span>
                         )}
                       </TableCell>
 

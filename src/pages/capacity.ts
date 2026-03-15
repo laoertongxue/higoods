@@ -49,7 +49,7 @@ const TASK_STATUS_ZH: Record<string, string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
   DONE: '已完成',
-  BLOCKED: '阻塞',
+  BLOCKED: '暂不能继续',
   CANCELLED: '已取消',
 }
 
@@ -109,8 +109,8 @@ function orderFactoryName(orderId: string): string {
 function getOrderDyeStatus(orderId: string): string {
   const orderDyes = initialDyePrintOrders.filter((item) => item.productionOrderId === orderId)
   if (orderDyes.length === 0) return '无染印'
-  if (orderDyes.some((item) => item.availableQty > 0)) return '已放行'
-  return '未放行'
+  if (orderDyes.some((item) => item.availableQty > 0)) return '可继续'
+  return '暂不能继续'
 }
 
 function getOrderQcPendingCount(orderId: string): number {
@@ -226,7 +226,7 @@ function getOverviewFactoryRows() {
 
   return [...map.values()].map((item) => {
     const loadStatus =
-      item.blockedCount > 0 ? '存在阻塞' : item.taskCount >= 10 ? '高占用' : item.taskCount >= 1 ? '正常' : '空闲'
+      item.blockedCount > 0 ? '存在暂不能继续' : item.taskCount >= 10 ? '高占用' : item.taskCount >= 1 ? '正常' : '空闲'
 
     return {
       factoryId: item.factoryId,
@@ -253,8 +253,8 @@ function getOverviewOrderRows() {
         ? '高风险'
         : qcPending > 0
           ? '待质检'
-          : dyeStatus === '未放行'
-            ? '待放行'
+          : dyeStatus === '暂不能继续'
+            ? '待进入下一步'
             : taskCount > 0
               ? '可推进'
               : '未启动'
@@ -284,7 +284,7 @@ function renderOverviewFactoryTable(keyword: string): string {
   return rows
     .map((row) => {
       const loadTone: Tone =
-        row.loadStatus === '存在阻塞'
+        row.loadStatus === '存在暂不能继续'
           ? 'destructive'
           : row.loadStatus === '高占用'
             ? 'default'
@@ -332,16 +332,16 @@ function renderOverviewOrderTable(keyword: string): string {
   return rows
     .map((row) => {
       const dyeTone: Tone =
-        row.dyeStatus === '未放行'
+        row.dyeStatus === '暂不能继续'
           ? 'destructive'
-          : row.dyeStatus === '已放行'
+          : row.dyeStatus === '可继续'
             ? 'default'
             : 'outline'
 
       const pressureTone: Tone =
         row.pressure === '高风险'
           ? 'destructive'
-          : row.pressure === '待质检' || row.pressure === '待放行'
+          : row.pressure === '待质检' || row.pressure === '待进入下一步'
             ? 'default'
             : row.pressure === '可推进'
               ? 'secondary'
@@ -386,13 +386,13 @@ export function renderCapacityOverviewPage(): string {
         </div>
       </header>
 
-      ${renderPageHint('产能汇总看板用于从任务占用、阻塞、染印、质检等维度观察当前生产负载；原型阶段采用轻量聚合口径，不做真实工时测算')}
+      ${renderPageHint('产能汇总看板用于从任务占用、暂不能继续、染印、质检等维度观察当前生产负载；原型阶段采用轻量聚合口径，不做真实工时测算')}
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         ${renderStatCard('生产单总数', stats.orders)}
         ${renderStatCard('任务总数', stats.tasks)}
-        ${renderStatCard('阻塞任务数', stats.blocked)}
-        ${renderStatCard('染印未放行工单数', stats.dyePending)}
+        ${renderStatCard('暂不能继续任务数', stats.blocked)}
+        ${renderStatCard('染印暂不能继续工单数', stats.dyePending)}
         ${renderStatCard('待质检数', stats.qcPending)}
         ${renderStatCard('可进入结算扣款依据数', stats.settlementReady)}
       </section>
@@ -443,7 +443,7 @@ export function renderCapacityOverviewPage(): string {
                     <tr>
                       <th class="px-3 py-2 text-left font-medium">工厂</th>
                       <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">阻塞任务数</th>
+                      <th class="px-3 py-2 text-center font-medium">暂不能继续任务数</th>
                       <th class="px-3 py-2 text-center font-medium">关联生产单数</th>
                       <th class="px-3 py-2 text-center font-medium">染印工单数</th>
                       <th class="px-3 py-2 text-center font-medium">待质检数</th>
@@ -463,7 +463,7 @@ export function renderCapacityOverviewPage(): string {
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
                       <th class="px-3 py-2 text-left font-medium">主工厂</th>
                       <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">阻塞任务数</th>
+                      <th class="px-3 py-2 text-center font-medium">暂不能继续任务数</th>
                       <th class="px-3 py-2 text-left font-medium">染印状态</th>
                       <th class="px-3 py-2 text-center font-medium">待质检数</th>
                       <th class="px-3 py-2 text-left font-medium">交付压力摘要</th>
@@ -489,15 +489,15 @@ function getRiskTaskRows() {
       orderDyes.length === 0
         ? '无染印风险'
         : orderDyes.every((dpo) => dpo.availableQty <= 0)
-          ? '染印未放行'
-          : '染印已放行'
+          ? '染印暂不能继续'
+          : '染印可继续'
 
     const qcRiskZh = orderQcs.some((qc) => qc.status !== 'CLOSED') ? '待质检' : '无质检风险'
 
     const deliveryRiskZh =
       task.status === 'BLOCKED'
         ? '高风险'
-        : qcRiskZh === '待质检' || dyeRiskZh === '染印未放行'
+        : qcRiskZh === '待质检' || dyeRiskZh === '染印暂不能继续'
           ? '中风险'
           : task.status === 'IN_PROGRESS'
             ? '可推进'
@@ -528,8 +528,8 @@ function getRiskOrderRows() {
         ? '高风险'
         : qcPendingCount > 0
           ? '待质检风险'
-          : dyeStatusZh === '未放行'
-            ? '待放行风险'
+          : dyeStatusZh === '暂不能继续'
+            ? '待进入下一步风险'
             : tasks.length > 0
               ? '可推进'
               : '未启动'
@@ -563,7 +563,7 @@ function renderRiskTaskTable(keyword: string): string {
   return rows
     .map((row) => {
       const blockedTone: Tone = row.blockedFlag === '是' ? 'destructive' : 'outline'
-      const dyeTone: Tone = row.dyeRiskZh === '染印未放行' ? 'default' : row.dyeRiskZh === '染印已放行' ? 'secondary' : 'outline'
+      const dyeTone: Tone = row.dyeRiskZh === '染印暂不能继续' ? 'default' : row.dyeRiskZh === '染印可继续' ? 'secondary' : 'outline'
       const qcTone: Tone = row.qcRiskZh === '待质检' ? 'default' : 'outline'
       const deliveryTone: Tone =
         row.deliveryRiskZh === '高风险'
@@ -612,11 +612,11 @@ function renderRiskOrderTable(keyword: string): string {
 
   return rows
     .map((row) => {
-      const dyeTone: Tone = row.dyeStatusZh === '未放行' ? 'default' : row.dyeStatusZh === '已放行' ? 'secondary' : 'outline'
+      const dyeTone: Tone = row.dyeStatusZh === '暂不能继续' ? 'default' : row.dyeStatusZh === '可继续' ? 'secondary' : 'outline'
       const riskTone: Tone =
         row.riskSummaryZh === '高风险'
           ? 'destructive'
-          : row.riskSummaryZh === '待质检风险' || row.riskSummaryZh === '待放行风险'
+          : row.riskSummaryZh === '待质检风险' || row.riskSummaryZh === '待进入下一步风险'
             ? 'default'
             : row.riskSummaryZh === '可推进'
               ? 'secondary'
@@ -658,7 +658,7 @@ export function renderCapacityRiskPage(): string {
     taskTotal: processTasks.length,
     blocked: processTasks.filter((task) => task.status === 'BLOCKED').length,
     qcPending: orderRows.filter((row) => row.qcPendingCount > 0).length,
-    dyePending: orderRows.filter((row) => row.dyeStatusZh === '未放行').length,
+    dyePending: orderRows.filter((row) => row.dyeStatusZh === '暂不能继续').length,
     highRisk: orderRows.filter((row) => row.riskSummaryZh === '高风险').length,
     ok: orderRows.filter((row) => row.riskSummaryZh === '可推进').length,
   }
@@ -672,13 +672,13 @@ export function renderCapacityRiskPage(): string {
         <p class="text-sm text-muted-foreground">共 ${processTasks.length} 条任务 / ${productionOrders.length} 张生产单</p>
       </header>
 
-      ${renderPageHint('任务占用与交付风险用于从任务阻塞、染印放行、待质检等维度识别当前交付压力；原型阶段采用轻量聚合口径')}
+      ${renderPageHint('任务占用与交付风险用于识别当前暂不能继续任务、染印是否可继续、待质检等交付压力；原型阶段采用轻量聚合口径')}
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         ${renderStatCard('任务总数', stats.taskTotal)}
-        ${renderStatCard('阻塞任务数', stats.blocked)}
+        ${renderStatCard('暂不能继续任务数', stats.blocked)}
         ${renderStatCard('待质检生产单数', stats.qcPending)}
-        ${renderStatCard('染印未放行生产单数', stats.dyePending)}
+        ${renderStatCard('染印暂不能继续生产单数', stats.dyePending)}
         ${renderStatCard('高风险生产单数', stats.highRisk)}
         ${renderStatCard('可推进生产单数', stats.ok)}
       </section>
@@ -731,7 +731,7 @@ export function renderCapacityRiskPage(): string {
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
                       <th class="px-3 py-2 text-left font-medium">工厂</th>
                       <th class="px-3 py-2 text-left font-medium">任务状态</th>
-                      <th class="px-3 py-2 text-left font-medium">是否阻塞</th>
+                      <th class="px-3 py-2 text-left font-medium">是否暂不能继续</th>
                       <th class="px-3 py-2 text-left font-medium">染印风险</th>
                       <th class="px-3 py-2 text-left font-medium">质检风险</th>
                       <th class="px-3 py-2 text-left font-medium">交付风险</th>
@@ -750,7 +750,7 @@ export function renderCapacityRiskPage(): string {
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
                       <th class="px-3 py-2 text-left font-medium">主工厂</th>
                       <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">阻塞任务数</th>
+                      <th class="px-3 py-2 text-center font-medium">暂不能继续任务数</th>
                       <th class="px-3 py-2 text-center font-medium">待质检数</th>
                       <th class="px-3 py-2 text-left font-medium">染印状态</th>
                       <th class="px-3 py-2 text-left font-medium">风险摘要</th>
@@ -815,11 +815,11 @@ function getBottleneckFactoryRows() {
 
     const bottleneckReasonZh =
       blockedTaskCount > 0
-        ? '阻塞任务偏多'
+        ? '暂不能继续任务偏多'
         : qcPendingCount > 0
           ? '待质检积压'
           : dyePendingCount > 0
-            ? '染印未放行'
+            ? '染印暂不能继续'
             : taskCount >= 8
               ? '任务占用偏高'
               : '无明显瓶颈'
@@ -847,17 +847,17 @@ function getBottleneckOrderRows() {
     const bottleneckLevelZh =
       blockedTaskCount > 0
         ? '高'
-        : qcPendingCount > 0 || dyeStatusZh === '未放行' || taskCount >= 6
+        : qcPendingCount > 0 || dyeStatusZh === '暂不能继续' || taskCount >= 6
           ? '中'
           : '低'
 
     const bottleneckReasonZh =
       blockedTaskCount > 0
-        ? '阻塞任务未解除'
+        ? '暂不能继续任务未解除'
         : qcPendingCount > 0
           ? '待质检未清'
-          : dyeStatusZh === '未放行'
-            ? '染印待放行'
+          : dyeStatusZh === '暂不能继续'
+            ? '染印待进入下一步'
             : taskCount >= 6
               ? '任务链较长'
               : '无明显瓶颈'
@@ -881,7 +881,7 @@ function getBottleneckTaskRows() {
 
   for (const order of productionOrders) {
     orderQcPending.set(order.productionOrderId, getOrderQcPendingCount(order.productionOrderId) > 0)
-    orderDyePending.set(order.productionOrderId, getOrderDyeStatus(order.productionOrderId) === '未放行')
+    orderDyePending.set(order.productionOrderId, getOrderDyeStatus(order.productionOrderId) === '暂不能继续')
   }
 
   return processTasks.map((task) => {
@@ -893,11 +893,11 @@ function getBottleneckTaskRows() {
 
     const bottleneckReasonZh =
       task.status === 'BLOCKED'
-        ? '任务阻塞'
+        ? '任务暂不能继续'
         : hasQcPending
           ? '所属生产单待质检'
           : hasDyePending
-            ? '所属生产单染印未放行'
+            ? '所属生产单染印暂不能继续'
             : task.status === 'IN_PROGRESS'
               ? '正常推进中'
               : '无明显瓶颈'
@@ -976,7 +976,7 @@ function renderBottleneckOrderTable(keyword: string): string {
   return rows
     .map((row) => {
       const levelTone: Tone = row.bottleneckLevelZh === '高' ? 'destructive' : row.bottleneckLevelZh === '中' ? 'default' : 'outline'
-      const dyeTone: Tone = row.dyeStatusZh === '未放行' ? 'destructive' : row.dyeStatusZh === '已放行' ? 'secondary' : 'outline'
+      const dyeTone: Tone = row.dyeStatusZh === '暂不能继续' ? 'destructive' : row.dyeStatusZh === '可继续' ? 'secondary' : 'outline'
 
       return `
         <tr class="border-b last:border-0">
@@ -1026,7 +1026,7 @@ function renderBottleneckTaskTable(keyword: string): string {
   return rows
     .map((row) => {
       const statusTone: Tone =
-        row.taskStatusZh === '阻塞'
+        row.taskStatusZh === '暂不能继续'
           ? 'destructive'
           : row.taskStatusZh === '进行中'
             ? 'default'
@@ -1072,7 +1072,7 @@ export function renderCapacityBottleneckPage(): string {
         .filter((item) => item.status !== 'CLOSED')
         .map((item) => item.productionOrderId),
     ).size,
-    dyePending: orderRows.filter((row) => row.dyeStatusZh === '未放行').length,
+    dyePending: orderRows.filter((row) => row.dyeStatusZh === '暂不能继续').length,
   }
 
   const keyword = state.bottleneckKeyword.trim().toLowerCase()
@@ -1084,15 +1084,15 @@ export function renderCapacityBottleneckPage(): string {
         <span class="text-sm text-muted-foreground">高瓶颈工厂 ${stats.factoryHigh} 个 / 高瓶颈生产单 ${stats.orderHigh} 张</span>
       </header>
 
-      ${renderPageHint('瓶颈预警用于识别阻塞、待质检、染印未放行等造成的当前生产瓶颈；原型阶段采用规则型识别，不做预测模型')}
+      ${renderPageHint('瓶颈预警用于识别暂不能继续、待质检、染印暂不能继续等造成的当前生产瓶颈；原型阶段采用规则型识别，不做预测模型')}
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         ${renderStatCard('高瓶颈工厂数', stats.factoryHigh)}
         ${renderStatCard('高瓶颈生产单数', stats.orderHigh)}
         ${renderStatCard('高瓶颈任务数', stats.taskHigh)}
-        ${renderStatCard('阻塞任务总数', stats.blocked)}
+        ${renderStatCard('暂不能继续任务总数', stats.blocked)}
         ${renderStatCard('待质检生产单数', stats.qcPending)}
-        ${renderStatCard('染印未放行生产单数', stats.dyePending)}
+        ${renderStatCard('染印暂不能继续生产单数', stats.dyePending)}
       </section>
 
       <section class="flex items-center gap-3">
@@ -1153,9 +1153,9 @@ export function renderCapacityBottleneckPage(): string {
                     <tr>
                       <th class="px-3 py-2 text-left font-medium">工厂</th>
                       <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">阻塞任务数</th>
+                      <th class="px-3 py-2 text-center font-medium">暂不能继续任务数</th>
                       <th class="px-3 py-2 text-center font-medium">待质检数</th>
-                      <th class="px-3 py-2 text-center font-medium">染印未放行数</th>
+                      <th class="px-3 py-2 text-center font-medium">染印暂不能继续数</th>
                       <th class="px-3 py-2 text-left font-medium">瓶颈等级</th>
                       <th class="px-3 py-2 text-left font-medium">瓶颈原因</th>
                       <th class="px-3 py-2 text-left font-medium">操作</th>
@@ -1174,7 +1174,7 @@ export function renderCapacityBottleneckPage(): string {
                         <th class="px-3 py-2 text-left font-medium">生产单号</th>
                         <th class="px-3 py-2 text-left font-medium">主工厂</th>
                         <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                        <th class="px-3 py-2 text-center font-medium">阻塞任务数</th>
+                        <th class="px-3 py-2 text-center font-medium">暂不能继续任务数</th>
                         <th class="px-3 py-2 text-center font-medium">待质检数</th>
                         <th class="px-3 py-2 text-left font-medium">染印状态</th>
                         <th class="px-3 py-2 text-left font-medium">瓶颈等级</th>
@@ -1240,7 +1240,7 @@ function getTaskConstraints(): TaskConstraint[] {
 
     const dyeStatus = getOrderDyeStatus(orderId)
     const dyeConstraintZh =
-      dyeStatus === '无染印' ? '无染印约束' : dyeStatus === '未放行' ? '染印未放行' : '染印已放行'
+      dyeStatus === '无染印' ? '无染印约束' : dyeStatus === '暂不能继续' ? '染印暂不能继续' : '染印可继续'
 
     const qcConstraintZh = getOrderQcPendingCount(orderId) > 0 ? '存在待质检' : '无质检约束'
 
@@ -1257,14 +1257,14 @@ function getTaskConstraints(): TaskConstraint[] {
         ? '存在关联异常'
         : '无异常约束'
 
-    const allocationConstraintZh = isBlocked ? '门禁未解除' : '无可用量约束'
+    const allocationConstraintZh = isBlocked ? '开始条件未满足' : '无可用量约束'
 
     const dispatchConstraintLevelZh =
       task.status === 'DONE' || task.status === 'CANCELLED'
         ? '不可分配'
         : isBlocked || exceptionConstraintZh !== '无异常约束'
           ? '强约束'
-          : dyeConstraintZh === '染印未放行' || qcConstraintZh === '存在待质检'
+          : dyeConstraintZh === '染印暂不能继续' || qcConstraintZh === '存在待质检'
             ? '中约束'
             : '低约束'
 
@@ -1281,11 +1281,11 @@ function getTaskConstraints(): TaskConstraint[] {
       task.status === 'DONE' || task.status === 'CANCELLED'
         ? '任务已结束，不再参与分配'
         : isBlocked
-          ? '任务阻塞，当前不宜分配'
+          ? '任务暂不能继续，当前不宜分配'
           : exceptionConstraintZh !== '无异常约束'
             ? '存在派单异常，需先处理'
-            : dyeConstraintZh === '染印未放行'
-              ? '染印未放行，建议先等待回货'
+            : dyeConstraintZh === '染印暂不能继续'
+              ? '染印暂不能继续，建议先等待回货'
               : qcConstraintZh === '存在待质检'
                 ? '存在待质检事项，建议谨慎分配'
                 : '当前可进入分配'
@@ -1392,7 +1392,7 @@ function renderConstraintsTaskTable(keyword: string): string {
           <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(row.factorySummaryZh)}</td>
           <td class="px-3 py-3">${renderBadge(row.taskStatusZh, row.isBlocked ? 'destructive' : 'secondary')}</td>
-          <td class="px-3 py-3">${renderBadge(row.dyeConstraintZh, row.dyeConstraintZh === '染印未放行' ? 'destructive' : 'secondary')}</td>
+          <td class="px-3 py-3">${renderBadge(row.dyeConstraintZh, row.dyeConstraintZh === '染印暂不能继续' ? 'destructive' : 'secondary')}</td>
           <td class="px-3 py-3">${renderBadge(row.qcConstraintZh, row.qcConstraintZh === '存在待质检' ? 'default' : 'secondary')}</td>
           <td class="px-3 py-3">${renderBadge(row.exceptionConstraintZh, row.exceptionConstraintZh !== '无异常约束' ? 'destructive' : 'secondary')}</td>
           <td class="px-3 py-3">${renderBadge(row.allocationConstraintZh, row.allocationConstraintZh !== '无可用量约束' ? 'default' : 'secondary')}</td>
@@ -1599,34 +1599,34 @@ function getOrderPolicies() {
         ? '优先处理'
         : qcPendingCount > 0
           ? '尽快处理'
-          : dyeStatusZh === '未放行'
-            ? '等待放行'
+          : dyeStatusZh === '暂不能继续'
+            ? '等待进入下一步'
             : tasks.length > 0
               ? '可推进'
               : '待启动'
 
     const recommendedPolicyZh =
       blockedTaskCount > 0
-        ? '优先清阻塞'
+        ? '优先处理暂不能继续'
         : exceptionCount > 0
           ? '优先处理异常'
           : qcPendingCount > 0
             ? '优先待质检'
-            : dyeStatusZh === '未放行'
-              ? '优先等染印放行'
+            : dyeStatusZh === '暂不能继续'
+              ? '优先等待染印完成'
               : tasks.length > 0
                 ? '可直接推进'
                 : '等待任务启动'
 
     const policyReasonZh =
       blockedTaskCount > 0
-        ? '当前存在阻塞任务，先解除门禁或异常'
+        ? '当前存在暂不能继续任务，先完成开始条件或处理异常'
         : exceptionCount > 0
           ? '当前存在派单/竞价异常，需先处理'
           : qcPendingCount > 0
             ? '当前存在未结案质检事项'
-            : dyeStatusZh === '未放行'
-              ? '当前染印尚未放行，建议等待回货'
+            : dyeStatusZh === '暂不能继续'
+              ? '当前染印尚暂不能继续，建议等待回货'
               : tasks.length > 0
                 ? '当前链路具备继续推进条件'
                 : '当前生产单尚未形成有效任务链'
@@ -1672,7 +1672,7 @@ function getTaskPolicies() {
 
     const dyeStatus = orderDyeMap.get(orderId) ?? '无染印'
     const dyeConstraintZh =
-      dyeStatus === '无染印' ? '无染印约束' : dyeStatus === '未放行' ? '染印未放行' : '染印已放行'
+      dyeStatus === '无染印' ? '无染印约束' : dyeStatus === '暂不能继续' ? '染印暂不能继续' : '染印可继续'
 
     const qcConstraintZh = orderQcMap.get(orderId) ? '存在待质检' : '无质检约束'
 
@@ -1692,7 +1692,7 @@ function getTaskPolicies() {
         ? '暂不分配'
         : task.status === 'BLOCKED' || exceptionConstraintZh !== '无异常约束'
           ? '暂不分配'
-          : dyeConstraintZh === '染印未放行' || qcConstraintZh === '存在待质检'
+          : dyeConstraintZh === '染印暂不能继续' || qcConstraintZh === '存在待质检'
             ? '竞价'
             : '直接派单'
 
@@ -1700,11 +1700,11 @@ function getTaskPolicies() {
       task.status === 'DONE' || task.status === 'CANCELLED'
         ? '结束归档'
         : task.status === 'BLOCKED'
-          ? '优先清阻塞'
+          ? '优先处理暂不能继续'
           : exceptionConstraintZh !== '无异常约束'
             ? '优先处理异常'
-            : dyeConstraintZh === '染印未放行'
-              ? '等待放行'
+            : dyeConstraintZh === '染印暂不能继续'
+              ? '等待进入下一步'
               : qcConstraintZh === '存在待质检'
                 ? '关注质检'
                 : task.status === 'IN_PROGRESS'
@@ -1715,11 +1715,11 @@ function getTaskPolicies() {
       task.status === 'DONE' || task.status === 'CANCELLED'
         ? '任务已结束，无需继续调度'
         : task.status === 'BLOCKED'
-          ? '任务阻塞，当前不宜推进'
+          ? '任务暂不能继续，当前不宜推进'
           : exceptionConstraintZh !== '无异常约束'
             ? '存在派单/竞价异常，建议先处理'
-            : dyeConstraintZh === '染印未放行'
-              ? '染印未放行，建议等待后再分配'
+            : dyeConstraintZh === '染印暂不能继续'
+              ? '染印暂不能继续，建议等待后再分配'
               : qcConstraintZh === '存在待质检'
                 ? '存在待质检事项，建议谨慎推进'
                 : task.status === 'IN_PROGRESS'
@@ -1762,15 +1762,15 @@ function renderPoliciesOrderTable(keyword: string): string {
           ? 'destructive'
           : row.policyLevelZh === '尽快处理'
             ? 'default'
-            : row.policyLevelZh === '等待放行'
+            : row.policyLevelZh === '等待进入下一步'
               ? 'secondary'
               : 'outline'
 
       const policyTone: Tone =
-        row.recommendedPolicyZh === '优先清阻塞' || row.recommendedPolicyZh === '优先处理异常'
+        row.recommendedPolicyZh === '优先处理暂不能继续' || row.recommendedPolicyZh === '优先处理异常'
           ? 'destructive'
           : row.recommendedPolicyZh === '优先待质检' ||
-              row.recommendedPolicyZh === '等待放行' ||
+              row.recommendedPolicyZh === '等待进入下一步' ||
               row.recommendedPolicyZh === '关注质检'
             ? 'default'
             : row.recommendedPolicyZh === '可直接推进' ||
@@ -1781,7 +1781,7 @@ function renderPoliciesOrderTable(keyword: string): string {
                 ? 'outline'
                 : 'secondary'
 
-      const dyeTone: Tone = row.dyeStatusZh === '未放行' ? 'destructive' : row.dyeStatusZh === '已放行' ? 'secondary' : 'outline'
+      const dyeTone: Tone = row.dyeStatusZh === '暂不能继续' ? 'destructive' : row.dyeStatusZh === '可继续' ? 'secondary' : 'outline'
 
       return `
         <tr class="border-b last:border-0">
@@ -1837,7 +1837,7 @@ function renderPoliciesTaskTable(keyword: string): string {
   return rows
     .map((row) => {
       const statusTone: Tone =
-        row.taskStatusZh === '阻塞'
+        row.taskStatusZh === '暂不能继续'
           ? 'destructive'
           : row.taskStatusZh === '进行中'
             ? 'default'
@@ -1846,7 +1846,7 @@ function renderPoliciesTaskTable(keyword: string): string {
               : 'outline'
 
       const blockedTone: Tone = row.blockedFlagZh === '是' ? 'destructive' : 'outline'
-      const dyeTone: Tone = row.dyeConstraintZh === '染印未放行' ? 'destructive' : row.dyeConstraintZh === '染印已放行' ? 'secondary' : 'outline'
+      const dyeTone: Tone = row.dyeConstraintZh === '染印暂不能继续' ? 'destructive' : row.dyeConstraintZh === '染印可继续' ? 'secondary' : 'outline'
       const qcTone: Tone = row.qcConstraintZh === '存在待质检' ? 'default' : 'outline'
       const exTone: Tone =
         row.exceptionConstraintZh === '存在派单异常'
@@ -1863,9 +1863,9 @@ function renderPoliciesTaskTable(keyword: string): string {
             : 'secondary'
 
       const policyTone: Tone =
-        row.recommendedPolicyZh === '优先清阻塞' || row.recommendedPolicyZh === '优先处理异常'
+        row.recommendedPolicyZh === '优先处理暂不能继续' || row.recommendedPolicyZh === '优先处理异常'
           ? 'destructive'
-          : row.recommendedPolicyZh === '等待放行' || row.recommendedPolicyZh === '关注质检'
+          : row.recommendedPolicyZh === '等待进入下一步' || row.recommendedPolicyZh === '关注质检'
             ? 'default'
             : row.recommendedPolicyZh === '持续推进' || row.recommendedPolicyZh === '进入分配'
               ? 'secondary'
@@ -1907,8 +1907,8 @@ export function renderCapacityPoliciesPage(): string {
   const stats = {
     orderPriority: orderPolicies.filter((item) => item.policyLevelZh === '优先处理').length,
     orderSoon: orderPolicies.filter((item) => item.policyLevelZh === '尽快处理').length,
-    orderWait: orderPolicies.filter((item) => item.policyLevelZh === '等待放行').length,
-    taskBlocked: taskPolicies.filter((item) => item.recommendedPolicyZh === '优先清阻塞').length,
+    orderWait: orderPolicies.filter((item) => item.policyLevelZh === '等待进入下一步').length,
+    taskBlocked: taskPolicies.filter((item) => item.recommendedPolicyZh === '优先处理暂不能继续').length,
     taskException: taskPolicies.filter((item) => item.recommendedPolicyZh === '优先处理异常').length,
     taskDirect: taskPolicies.filter(
       (item) => item.recommendedPolicyZh === '持续推进' || item.recommendedPolicyZh === '进入分配',
@@ -1922,20 +1922,20 @@ export function renderCapacityPoliciesPage(): string {
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 class="text-2xl font-semibold text-foreground">调度策略</h1>
-          <p class="mt-1 text-sm text-muted-foreground">调度策略用于基于当前阻塞、质检、染印、异常等状态给出轻量处理建议；原型阶段采用规则型建议，不自动执行调度</p>
+          <p class="mt-1 text-sm text-muted-foreground">调度策略用于基于当前暂不能继续、质检、染印、异常等状态给出轻量处理建议；原型阶段采用规则型建议，不自动执行调度</p>
         </div>
         <div class="flex gap-3 text-sm text-muted-foreground">
           <span>优先处理生产单 <strong class="text-foreground">${stats.orderPriority}</strong> 张</span>
           <span>/</span>
-          <span>优先清阻塞任务 <strong class="text-foreground">${stats.taskBlocked}</strong> 条</span>
+          <span>优先处理暂不能继续任务 <strong class="text-foreground">${stats.taskBlocked}</strong> 条</span>
         </div>
       </header>
 
       <section class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         ${renderStatCard('优先处理生产单数', stats.orderPriority)}
         ${renderStatCard('尽快处理生产单数', stats.orderSoon)}
-        ${renderStatCard('等待放行生产单数', stats.orderWait)}
-        ${renderStatCard('优先清阻塞任务数', stats.taskBlocked)}
+        ${renderStatCard('等待进入下一步生产单数', stats.orderWait)}
+        ${renderStatCard('优先处理暂不能继续任务数', stats.taskBlocked)}
         ${renderStatCard('优先处理异常任务数', stats.taskException)}
         ${renderStatCard('可直接推进任务数', stats.taskDirect)}
       </section>
@@ -1986,7 +1986,7 @@ export function renderCapacityPoliciesPage(): string {
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
                       <th class="px-3 py-2 text-left font-medium">主工厂</th>
                       <th class="px-3 py-2 text-left font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-left font-medium">阻塞任务数</th>
+                      <th class="px-3 py-2 text-left font-medium">暂不能继续任务数</th>
                       <th class="px-3 py-2 text-left font-medium">待质检数</th>
                       <th class="px-3 py-2 text-left font-medium">染印状态</th>
                       <th class="px-3 py-2 text-left font-medium">异常数</th>
@@ -2009,7 +2009,7 @@ export function renderCapacityPoliciesPage(): string {
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
                       <th class="px-3 py-2 text-left font-medium">工厂</th>
                       <th class="px-3 py-2 text-left font-medium">任务状态</th>
-                      <th class="px-3 py-2 text-left font-medium">是否阻塞</th>
+                      <th class="px-3 py-2 text-left font-medium">是否暂不能继续</th>
                       <th class="px-3 py-2 text-left font-medium">染印约束</th>
                       <th class="px-3 py-2 text-left font-medium">质检约束</th>
                       <th class="px-3 py-2 text-left font-medium">异常约束</th>

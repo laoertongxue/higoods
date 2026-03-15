@@ -112,7 +112,7 @@ export default function PdaExecDetailPage() {
     toast({ title: t('pda.exec.finishSuccess') })
   }
   
-  // 阻塞
+  // 暂不能继续
   const handleBlock = () => {
     blockTask(taskId, blockReason, blockRemark, 'PDA')
     toast({ title: t('pda.exec.blockSuccess') })
@@ -120,7 +120,7 @@ export default function PdaExecDetailPage() {
     setBlockRemark('')
   }
   
-  // 解除阻塞
+  // 解除暂不能继续
   const handleUnblock = () => {
     unblockTask(taskId, unblockRemark, 'PDA')
     toast({ title: t('pda.exec.unblockSuccess') })
@@ -207,7 +207,7 @@ export default function PdaExecDetailPage() {
             </div>
           </div>
           
-          {/* 阻塞信息 */}
+          {/* 暂不能继续信息 */}
           {task.blockReason && (
             <>
               <Separator />
@@ -347,7 +347,7 @@ export default function PdaExecDetailPage() {
         </CardContent>
       </Card>
       
-      {/* 阻塞弹窗 */}
+      {/* 暂不能继续弹窗 */}
       <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
         <DialogContent>
           <DialogHeader>
@@ -387,7 +387,7 @@ export default function PdaExecDetailPage() {
         </DialogContent>
       </Dialog>
       
-      {/* 解除阻塞弹窗 */}
+      {/* 解除暂不能继续弹窗 */}
       <Dialog open={showUnblockDialog} onOpenChange={setShowUnblockDialog}>
         <DialogContent>
           <DialogHeader>

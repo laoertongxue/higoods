@@ -2191,7 +2191,7 @@ export function renderProductionPlanPage(): string {
         </div>
       </header>
 
-      <div class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">生产单计划用于明确计划时间、数量与计划工厂；本页同步展示任务拆解、染印需求与下游准备状态摘要</div>
+      <div class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">生产单计划用于明确计划时间、数量与计划工厂；本页同步展示任务拆解、染印需求与下一步准备状态摘要</div>
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-4">
         <article class="rounded-lg border bg-card">
@@ -2293,7 +2293,7 @@ export function renderProductionPlanPage(): string {
                       <th class="px-3 py-3 text-left font-medium">关联任务数</th>
                       <th class="px-3 py-3 text-left font-medium">关键工序数</th>
                       <th class="px-3 py-3 text-left font-medium">染印需求</th>
-                      <th class="px-3 py-3 text-left font-medium">下游准备状态</th>
+                      <th class="px-3 py-3 text-left font-medium">下一步准备状态</th>
                       <th class="px-3 py-3 text-left font-medium">更新时间</th>
                       <th class="px-3 py-3 text-left font-medium">操作</th>
                     </tr>
@@ -3250,9 +3250,9 @@ function getOrdersWithLifecycleSummary(): Array<
       if (hasFailInProcess) {
         dyeStatus = '不合格处理中'
       } else if (relatedDyes.some((dye) => dye.availableQty > 0)) {
-        dyeStatus = '已放行'
+        dyeStatus = '可继续'
       } else {
-        dyeStatus = '未放行'
+        dyeStatus = '暂不能继续'
       }
     }
 
@@ -3404,9 +3404,9 @@ export function renderProductionStatusPage(): string {
     value === '已配置' ? 'bg-blue-100 text-blue-700' : 'bg-white text-slate-700'
 
   const dyeStatusClass = (value: string): string => {
-    if (value === '已放行') return 'bg-blue-100 text-blue-700'
+    if (value === '可继续') return 'bg-blue-100 text-blue-700'
     if (value === '不合格处理中') return 'bg-red-100 text-red-700'
-    if (value === '未放行') return 'bg-slate-100 text-slate-700'
+    if (value === '暂不能继续') return 'bg-slate-100 text-slate-700'
     return 'bg-white text-slate-700'
   }
 
@@ -3421,7 +3421,7 @@ export function renderProductionStatusPage(): string {
     <div class="flex flex-col gap-6">
       <header class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-semibold">生产单主链路状态总览</h1>
+          <h1 class="text-2xl font-semibold">生产单当前生产流程状态总览</h1>
           <p class="mt-1 text-sm text-muted-foreground">汇总每张生产单的执行状态、计划、交付仓配置、任务、染印及结算摘要；原型阶段支持人工状态推进与有限回退</p>
         </div>
         <span class="text-sm text-muted-foreground">共 ${filteredOrders.length} 条</span>
@@ -3440,7 +3440,7 @@ export function renderProductionStatusPage(): string {
         ${[
           { label: '已计划数', value: stats.hasPlanned, desc: '计划状态 != 未计划' },
           { label: '已配置交付仓数', value: stats.hasDelivery, desc: '交付仓状态 = 已配置' },
-          { label: '有阻塞任务的生产单数', value: stats.hasBlocked, desc: '存在阻塞任务' },
+          { label: '有暂不能继续任务的生产单数', value: stats.hasBlocked, desc: '存在暂不能继续任务' },
           { label: '可结算/已进入批次数', value: stats.settlementReady, desc: '可进入结算或已进入批次' },
         ]
           .map(
@@ -3491,7 +3491,7 @@ export function renderProductionStatusPage(): string {
                     <th class="px-3 py-3 text-left font-medium">计划状态</th>
                     <th class="px-3 py-3 text-left font-medium">交付仓</th>
                     <th class="px-3 py-3 text-left font-medium">关联任务</th>
-                    <th class="px-3 py-3 text-left font-medium">阻塞任务</th>
+                    <th class="px-3 py-3 text-left font-medium">暂不能继续任务</th>
                     <th class="px-3 py-3 text-left font-medium">染印状态</th>
                     <th class="px-3 py-3 text-left font-medium">结算摘要</th>
                     <th class="px-3 py-3 text-left font-medium">状态说明</th>

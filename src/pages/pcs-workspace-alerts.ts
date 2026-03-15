@@ -84,7 +84,7 @@ interface PcsAlertsState {
 
 const RISK_TYPE_META: Record<RiskType, { label: string; icon: string; textClass: string; bgClass: string }> = {
   WORKITEM_OVERDUE: { label: '工作项超期', icon: 'clock-3', textClass: 'text-red-600', bgClass: 'bg-red-50' },
-  WORKITEM_BLOCKED: { label: '工作项阻塞', icon: 'alert-circle', textClass: 'text-orange-600', bgClass: 'bg-orange-50' },
+  WORKITEM_BLOCKED: { label: '工作项暂不能继续', icon: 'alert-circle', textClass: 'text-orange-600', bgClass: 'bg-orange-50' },
   SAMPLE_OVERDUE_RETURN: { label: '样衣超期未归还', icon: 'package', textClass: 'text-red-600', bgClass: 'bg-red-50' },
   SAMPLE_IN_TRANSIT_UNRECEIVED: { label: '在途未签收', icon: 'package', textClass: 'text-amber-600', bgClass: 'bg-amber-50' },
   SAMPLE_STOCK_MISMATCH: { label: '账实不一致', icon: 'triangle-alert', textClass: 'text-red-600', bgClass: 'bg-red-50' },
@@ -119,7 +119,7 @@ const RISK_SEEDS: RiskItem[] = [
     severity: 'P0',
     status: 'OPEN',
     title: '制版任务超期3天未完成',
-    description: '印尼风格碎花连衣裙制版任务已超期3天，阻塞后续打样流程',
+    description: '印尼风格碎花连衣裙制版任务已超期3天，暂不能继续后续打样流程',
     sourceType: 'WorkItemInstance',
     sourceId: 'WI-PRJ001-005',
     sourceName: '制版准备',
@@ -268,8 +268,8 @@ const RISK_SEEDS: RiskItem[] = [
     riskType: 'WORKITEM_BLOCKED',
     severity: 'P1',
     status: 'OPEN',
-    title: '花型任务阻塞-等待面料确认',
-    description: '花型调色任务因面料供应商未确认色卡而阻塞2天',
+    title: '花型任务暂不能继续-等待面料确认',
+    description: '花型调色任务因面料供应商未确认色卡而暂不能继续2天',
     sourceType: 'WorkItemInstance',
     sourceId: 'WI-PRJ001-008',
     sourceName: '花型调色',
@@ -285,7 +285,7 @@ const RISK_SEEDS: RiskItem[] = [
     escalationEta: '4小时',
     site: '深圳',
     blocker: '等待面料供应商确认色卡',
-    evidenceRefs: [{ type: '阻塞原因', content: 'blocker=等待面料供应商确认色卡' }],
+    evidenceRefs: [{ type: '当前无法继续的原因', content: 'blocker=等待面料供应商确认色卡' }],
   },
   {
     id: 'RSK-20260113-008',

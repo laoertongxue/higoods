@@ -745,9 +745,9 @@ function fcsReducer(state: FcsState, action: FcsAction): FcsState {
       }
       const detailMap: Record<string, string> = {
         'NOT_STARTED': '重置为未开始',
-        'IN_PROGRESS': task.status === 'BLOCKED' ? `解除阻塞，恢复为进行中` : '标记开始',
+        'IN_PROGRESS': task.status === 'BLOCKED' ? `解除暂不能继续，恢复为进行中` : '标记开始',
         'DONE': '标记完工',
-        'BLOCKED': `标记阻塞，原因：${blockReason || 'OTHER'}${blockRemark ? `，备注：${blockRemark}` : ''}`,
+        'BLOCKED': `标记暂不能继续，原因：${blockReason || 'OTHER'}${blockRemark ? `，备注：${blockRemark}` : ''}`,
         'CANCELLED': '取消任务',
       }
 
@@ -768,14 +768,14 @@ function fcsReducer(state: FcsState, action: FcsAction): FcsState {
         // 添加开始/完成时间字段（如果类型支持）
         ...(newStatus === 'IN_PROGRESS' && !task.auditLogs.some(l => l.action === 'START') ? { startedAt: now } : {}),
         ...(newStatus === 'DONE' ? { finishedAt: now } : {}),
-        // 阻塞信息
+        // 暂不能继续信息
         ...(newStatus === 'BLOCKED' ? { blockReason, blockRemark, blockedAt: now } : {}),
         ...(newStatus !== 'BLOCKED' ? { blockReason: undefined, blockRemark: undefined, blockedAt: undefined } : {}),
       } as ProcessTask
 
       const updatedTasks = state.processTasks.map(t => t.taskId === taskId ? updatedTask : t)
 
-      // 自动回写生产单状态
+      // 自动同步更新生产单状态
       const orderId = task.productionOrderId
       const order = state.productionOrders.find(o => o.productionOrderId === orderId)
       if (!order) return { ...state, processTasks: updatedTasks }
@@ -943,7 +943,7 @@ function fcsReducer(state: FcsState, action: FcsAction): FcsState {
         }),
       }
     }
-    // 设置任务分配方式（最小闭环）
+    // 设置任务分配方式（最小已完成）
     case 'SET_TASK_ASSIGN_MODE': {
       const { taskIds, mode, by } = action.payload as { taskIds: string[]; mode: 'DIRECT' | 'BIDDING' | 'HOLD'; by: string }
       const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
@@ -1038,7 +1038,7 @@ function fcsReducer(state: FcsState, action: FcsAction): FcsState {
             auditLogs: [...task.auditLogs, {
               id: `AL-BLOCK-${Date.now()}`,
               action: 'BLOCK_TASK',
-              detail: `标记阻塞，原因：${reason}，备注：${remark || '-'}`,
+              detail: `标记暂不能继续，原因：${reason}，备注：${remark || '-'}`,
               at: now,
               by,
             }],
@@ -1064,7 +1064,7 @@ function fcsReducer(state: FcsState, action: FcsAction): FcsState {
             auditLogs: [...task.auditLogs, {
               id: `AL-UNBLOCK-${Date.now()}`,
               action: 'UNBLOCK_TASK',
-              detail: `解除阻塞，备注：${remark || '-'}`,
+              detail: `解除暂不能继续，备注：${remark || '-'}`,
               at: now,
               by,
             }],
@@ -1112,7 +1112,7 @@ function fcsReducer(state: FcsState, action: FcsAction): FcsState {
               auditLogs: [...task.auditLogs, {
                 id: `AL-GATE-UNBLOCK-${Date.now()}-${task.taskId}`,
                 action: 'UNBLOCK_BY_ALLOCATION_GATE',
-                detail: `上游已放行，门禁解除`,
+                detail: `上一步已可继续，开始条件解除`,
                 at: now,
                 by: upd.by,
               }],
@@ -1227,7 +1227,7 @@ function fcsReducer(state: FcsState, action: FcsAction): FcsState {
               auditLogs: [...task.auditLogs, {
                 id: `AL-QCBLOCK-${Date.now()}`,
                 action: 'BLOCK_BY_QC',
-                detail: `质检不合格(${qcId})，任务阻塞`,
+                detail: `质检不合格(${qcId})，任务暂不能继续`,
                 at: now,
                 by,
               }],
@@ -1289,7 +1289,7 @@ function fcsReducer(state: FcsState, action: FcsAction): FcsState {
             {
               id: `AL-UNBLKRW-${Date.now()}`,
               action: 'UNBLOCK_BY_REWORK',
-              detail: `返工完成，自动解除 QUALITY 阻塞，恢复状态为 ${newStatus}`,
+              detail: `返工完成，自动解除 QUALITY 暂不能继续，恢复状态为 ${newStatus}`,
               at: now,
               by,
             },
@@ -2633,12 +2633,12 @@ export function FcsProvider({ children }: { children: ReactNode }) {
 
     // 生成摘要
     const reasonSummaries: Record<ReasonCode, string> = {
-      BLOCKED_MATERIAL: '物料阻塞',
-      BLOCKED_CAPACITY: '产能阻塞',
+      BLOCKED_MATERIAL: '物料暂不能继续',
+      BLOCKED_CAPACITY: '产能暂不能继续',
       BLOCKED_QUALITY: '质量返工',
-      BLOCKED_TECH: '工艺资料阻塞',
-      BLOCKED_EQUIPMENT: '设备阻塞',
-      BLOCKED_OTHER: '其他阻塞',
+      BLOCKED_TECH: '工艺资料暂不能继续',
+      BLOCKED_EQUIPMENT: '设备暂不能继续',
+      BLOCKED_OTHER: '其他暂不能继续',
       TENDER_OVERDUE: '竞价已逾期',
       TENDER_NEAR_DEADLINE: '竞价即将截止',
       NO_BID: '竞价无人报价',
@@ -3017,15 +3017,15 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    // D) 任务阻塞
+    // D) 任务暂不能继续
     state.processTasks.forEach(task => {
       if (task.status !== 'BLOCKED') return
 
       // 给跟单
       const n: Omit<Notification, 'notificationId' | 'createdAt'> = {
         level: 'WARN',
-        title: '任务阻塞提醒',
-        content: `任务${task.taskId}因${task.blockReason || '未知原因'}阻塞`,
+        title: '任务暂不能继续提醒',
+        content: `任务${task.taskId}因${task.blockReason || '未知原因'}暂不能继续`,
         recipientType: 'INTERNAL_USER',
         recipientId: 'U002',
         recipientName: '跟单A',
@@ -3042,8 +3042,8 @@ export function FcsProvider({ children }: { children: ReactNode }) {
         const factory = state.factories.find(f => f.id === task.assignedFactoryId)
         const factoryN: Omit<Notification, 'notificationId' | 'createdAt'> = {
           level: 'WARN',
-          title: '任务阻塞建议',
-          content: `任务${task.taskId}阻塞，请尽快解除`,
+          title: '任务暂不能继续建议',
+          content: `任务${task.taskId}暂不能继续，请尽快解除`,
           recipientType: 'FACTORY',
           recipientId: task.assignedFactoryId,
           recipientName: factory?.name || task.assignedFactoryId,
@@ -3114,7 +3114,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       URGE_ASSIGN_ACK: '催确认接单',
       URGE_START: '催开工',
       URGE_FINISH: '催完工',
-      URGE_UNBLOCK: '催解除阻塞',
+      URGE_UNBLOCK: '催解除暂不能继续',
       URGE_TENDER_BID: '催报价',
       URGE_TENDER_AWARD: '催定标',
       URGE_HANDOVER_CONFIRM: '催交接确认',
@@ -3231,7 +3231,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       const parentTask = state.processTasks.find(t => t.taskId === parentTaskId)
 
       if (parentTask && parentTask.status === 'BLOCKED' && parentTask.blockReason === 'QUALITY') {
-        // 解除父任务阻塞
+        // 解除父任务暂不能继续
         const newStatus = parentTask.startedAt ? 'IN_PROGRESS' : 'NOT_STARTED'
 
         dispatch({
@@ -3497,7 +3497,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
     // resolvedBy is used in place of `by` for all audit log entries below
 
-    // 规则1: 若 result != FAIL，不做阻塞/返工生成
+    // 规则1: 若 result != FAIL，不做暂不能继续/返工生成
     if (qc.result !== 'FAIL') {
       dispatch({ type: 'SUBMIT_QC', payload: { qcId, generatedTaskIds, blockedTaskId, by: resolvedBy } })
       return { generatedTaskIds }
@@ -3512,7 +3512,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
         auditLogs: [...qc.auditLogs, {
           id: `QAL-NOTFOUND-${Date.now()}`,
           action: 'PARENT_TASK_NOT_FOUND',
-          detail: `父任务 ${qc.refId} 不存在，无法阻塞/生成返工`,
+          detail: `父任务 ${qc.refId} 不存在，无法暂不能继续/生成返工`,
           at: now,
           by: resolvedBy,
         }],
@@ -3788,7 +3788,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'UPDATE_QC', payload: qcWithBasisLog })
     }
 
-    // 提交质检（SUBMIT_QC 会处理父任���阻塞）
+    // 提交质检（SUBMIT_QC 会处理父任���暂不能继续）
     dispatch({ type: 'SUBMIT_QC', payload: { qcId, generatedTaskIds, blockedTaskId, by: resolvedBy } })
 
     return { generatedTaskIds }
@@ -4004,7 +4004,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
   }
 
   // =============================================
-  // Allocation 门禁同步（内部调用，不导出）
+  // Allocation 开始条件同步（内部调用，不导出）
   // 必须在 closeQcCase / applyQcAllocationWriteback / addDyePrintReturn 之前定义
   // =============================================
 
@@ -4030,11 +4030,11 @@ export function FcsProvider({ children }: { children: ReactNode }) {
           const dep = state.processTasks.find(t => t.taskId === id)
           return dep ? dep.processNameZh : id
         })
-        const noteZh = `等待上游放行：${depNames.join('、')}（可用量=0）`
+        const noteZh = `等待上一步可继续：${depNames.join('、')}（可用量=0）`
         updates.push({ taskId: task.taskId, action: 'BLOCK', noteZh, by })
       } else {
         if (task.status === 'BLOCKED' && task.blockReason === 'ALLOCATION_GATE') {
-          updates.push({ taskId: task.taskId, action: 'UNBLOCK', noteZh: '上游已放行，门禁解除', by })
+          updates.push({ taskId: task.taskId, action: 'UNBLOCK', noteZh: '上一步已可继续，开始条件解除', by })
         }
       }
     }
@@ -4096,18 +4096,18 @@ export function FcsProvider({ children }: { children: ReactNode }) {
     }
     dispatch({ type: 'UPDATE_QC', payload: updatedQc })
 
-    // 解除父任务 QUALITY 阻塞（仅 refType=TASK）
+    // 解除父任务 QUALITY 暂不能继续（仅 refType=TASK）
     if (qc.refType === 'TASK') {
       const parentTask = state.processTasks.find(t => t.taskId === qc.refId)
       if (parentTask && parentTask.status === 'BLOCKED' && parentTask.blockReason === 'QUALITY') {
         dispatch({
           type: 'UNBLOCK_TASK',
-          payload: { taskId: qc.refId, remark: `QC ${qcId} 结案解阻塞`, by: resolvedBy },
+          payload: { taskId: qc.refId, remark: `QC ${qcId} 结案解暂不能继续`, by: resolvedBy },
         })
       }
     }
 
-    // 解除关联任务 QUALITY 阻塞（refType=RETURN_BATCH）
+    // 解除关联任务 QUALITY 暂不能继续（refType=RETURN_BATCH）
     if (qc.refType === 'RETURN_BATCH') {
       const relatedTaskId = qc.refTaskId ?? state.returnBatches.find(b => b.batchId === qc.refId)?.taskId
       if (relatedTaskId) {
@@ -4115,7 +4115,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
         if (relatedTask && relatedTask.status === 'BLOCKED' && relatedTask.blockReason === 'QUALITY') {
           dispatch({
             type: 'UNBLOCK_TASK',
-            payload: { taskId: relatedTaskId, remark: `回货批次 QC ${qcId} 结案解阻塞`, by: resolvedBy },
+            payload: { taskId: relatedTaskId, remark: `回货批次 QC ${qcId} 结案解暂不能继续`, by: resolvedBy },
           })
         }
       }
@@ -4133,7 +4133,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
             auditLogs: [...updatedQc.auditLogs, {
               id: `QAL-WRITEBACK-FAIL-${Date.now()}`,
               action: 'ALLOCATION_WRITEBACK_FAILED',
-              detail: writebackResult.message ?? 'Allocation 回写失败',
+              detail: writebackResult.message ?? 'Allocation 同步更新失败',
               at: now,
               by: resolvedBy,
             }],
@@ -4142,7 +4142,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // C) 染印加工单 FAIL 批次结案回写
+    // C) 染印加工单 FAIL 批次结案同步更新
     if (qc.result === 'FAIL' && qc.sourceProcessType === 'DYE_PRINT' && qc.sourceOrderId) {
       const dpId = qc.sourceOrderId
       const dpo = state.dyePrintOrders.find(o => o.dpId === dpId)
@@ -4173,7 +4173,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
           },
         })
 
-        // 2) 更新主链路 Allocation snapshot
+        // 2) 更新当前生产流程 Allocation snapshot
         const old: AllocationSnapshot = state.allocationByTaskId[taskId] ?? {
           taskId,
           availableQty: 0,
@@ -4205,13 +4205,13 @@ export function FcsProvider({ children }: { children: ReactNode }) {
             deltaAvailableQty,
             deltaAcceptedAsDefectQty,
             deltaScrappedQty,
-            noteZh: `染印加工单 ${dpId} 不合格批次结案放行：可用量+${deltaAvailableQty}（瑕疵+${deltaAcceptedAsDefectQty}，报废+${deltaScrappedQty}）`,
+            noteZh: `染印加工单 ${dpId} 不合格批次结案可继续：可用量+${deltaAvailableQty}（瑕疵+${deltaAcceptedAsDefectQty}，报废+${deltaScrappedQty}）`,
             createdAt: now,
             createdBy: resolvedBy,
           },
         })
 
-        // 4) 触发下游门禁重算
+        // 4) 触发下一步开始条件重算
         syncAllocationGates('系统')
       }
     }
@@ -4380,7 +4380,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
   }
 
   // =============================================
-  // Allocation 回写
+  // Allocation 同步更新
   // =============================================
 
   const applyQcAllocationWriteback = (
@@ -4394,10 +4394,10 @@ export function FcsProvider({ children }: { children: ReactNode }) {
     if (!qc) return { ok: false, message: `质检单 ${qcId} 不存在` }
 
     if (qc.result !== 'FAIL' || qc.status !== 'CLOSED')
-      return { ok: false, message: '仅 FAIL 且已结案的质检单可触发 Allocation 回写' }
+      return { ok: false, message: '仅 FAIL 且已结案的质检单可触发 Allocation 同步更新' }
 
     if (qc.refType !== 'TASK' && qc.refType !== 'RETURN_BATCH')
-      return { ok: false, message: 'V0 仅支持 TASK 或 RETURN_BATCH 维度回写' }
+      return { ok: false, message: 'V0 仅支持 TASK 或 RETURN_BATCH 维度同步更新' }
 
     // 确定 taskId
     let taskId: string
@@ -4410,7 +4410,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       taskId = qc.refId
     }
     const bd = qc.dispositionQtyBreakdown
-    if (!bd) return { ok: false, message: '处置数量拆分缺失，无法回写' }
+    if (!bd) return { ok: false, message: '处置数量拆分缺失，无法同步更新' }
 
     const affected = qc.affectedQty ?? 0
     const scrap = bd.scrapQty ?? 0
@@ -4422,7 +4422,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
     // 防御：拆分合计应等于 affected
     const sum = scrap + acceptDefect + acceptNoDeduct + rework + remake
     if (affected > 0 && sum !== affected)
-      return { ok: false, message: `处置拆分合计（${sum}）不等于不合格数量（${affected}），回写中止` }
+      return { ok: false, message: `处置拆分合计（${sum}）不等于不合格数量（${affected}），同步更新中止` }
 
     // V0 口径：deltaAvailableQty = affected - scrap
     const deltaAvailableQty = affected - scrap
@@ -4459,15 +4459,15 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       deltaAcceptedAsDefectQty,
       deltaScrappedQty,
       noteZh: batchId
-        ? `回货批次 ${batchId}（QC ${qcId}）结案回写：可用量+${deltaAvailableQty}（瑕疵+${deltaAcceptedAsDefectQty}，报废+${deltaScrappedQty}）`
-        : `QC ${qcId} 结案回写可用量+${deltaAvailableQty}（瑕���+${deltaAcceptedAsDefectQty}，报废+${deltaScrappedQty}）`,
+        ? `回货批次 ${batchId}（QC ${qcId}）结案同步更新：可用量+${deltaAvailableQty}（瑕疵+${deltaAcceptedAsDefectQty}，报废+${deltaScrappedQty}）`
+        : `QC ${qcId} 结案同步更新可用量+${deltaAvailableQty}（瑕���+${deltaAcceptedAsDefectQty}，报废+${deltaScrappedQty}）`,
       createdAt: now,
       createdBy: resolvedBy,
     }
 
     dispatch({ type: 'ADD_ALLOCATION_EVENT', payload: event })
 
-    // 染印加工单联动：回写后检查是否可关闭
+    // 染印加工单联动：同步更新后检查是否可关闭
     if (batchId) {
       const sourceBatch = state.returnBatches.find(b => b.batchId === batchId)
       if (sourceBatch?.sourceType === 'DYE_PRINT_ORDER' && sourceBatch.sourceId) {
@@ -4484,7 +4484,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // ���禁同步：QC 结案回写后重新评估所有下游依赖
+    // ���禁同步：QC 结案同步更新后重新评估所有下一步依赖
     syncAllocationGates(resolvedBy)
 
     return { ok: true }
@@ -4535,7 +4535,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       } as any,
     })
 
-    // 门禁重新计算
+    // 开始条件重新计算
     syncAllocationGates('系统')
 
     return { ok: true }
@@ -4622,7 +4622,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
         deltaAvailableQty: batch.returnedQty,
         deltaAcceptedAsDefectQty: 0,
         deltaScrappedQty: 0,
-        noteZh: `回货批次 ${batchId} 合��放行：可用量+${batch.returnedQty}`,
+        noteZh: `回货批次 ${batchId} 合��可继续：可用量+${batch.returnedQty}`,
         createdAt: ts,
         createdBy: resolvedBy,
       },
@@ -4639,7 +4639,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // 门禁重算：放行事件后重新评估所有下游���赖
+    // 开始条件重算：可继续事件后重新评估所有下一步���赖
     syncAllocationGates(resolvedBy)
 
     return { ok: true }
@@ -4727,7 +4727,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
       payload: { ...batch, qcStatus: 'FAIL_IN_QC', linkedQcId: qcId, updatedAt: ts, updatedBy: resolvedBy },
     })
 
-    // 阻塞任务
+    // 暂不能继续任务
     dispatch({
       type: 'BLOCK_TASK',
       payload: {
@@ -4837,7 +4837,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
     if (!Number.isInteger(payload.qty) || payload.qty <= 0) return { ok: false, message: '回货数量必须为正整数' }
 
     // A) relatedTaskId 必填
-    if (!order.relatedTaskId) return { ok: false, message: '未关联���链路任务��无法回写可用量' }
+    if (!order.relatedTaskId) return { ok: false, message: '未关联���链路任务��无法同步更新可用量' }
 
     if (payload.result === 'FAIL') {
       if (!payload.disposition) return { ok: false, message: '不合格回货必须选择处置方式' }
@@ -4945,7 +4945,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
 
     dispatch({ type: 'ADD_DYE_PRINT_RETURN', payload: { dpId, batch } })
 
-    // A) PASS：同步写入主链路 Allocation
+    // A) PASS：同步写入当前生产流程 Allocation
     if (payload.result === 'PASS') {
       const taskId = order.relatedTaskId
       const old: AllocationSnapshot = state.allocationByTaskId[taskId] ?? {
@@ -4977,12 +4977,12 @@ export function FcsProvider({ children }: { children: ReactNode }) {
           deltaAvailableQty: payload.qty,
           deltaAcceptedAsDefectQty: 0,
           deltaScrappedQty: 0,
-          noteZh: `染印加工单 ${dpId} 合格回货放行：可用量+${payload.qty}`,
+          noteZh: `染印加工单 ${dpId} 合格回货可继续：可用量+${payload.qty}`,
           createdAt: ts,
           createdBy: resolvedBy,
         },
       })
-      // 触发下游门禁重算
+      // 触发下一步开始条件重算
       syncAllocationGates('系统')
     }
 
@@ -5444,7 +5444,7 @@ export function FcsProvider({ children }: { children: ReactNode }) {
   }
 
   // =============================================
-  // 打款结果回写 action
+  // 打款结果同步更新 action
   // =============================================
 
   const syncSettlementPaymentResult = (
@@ -5461,9 +5461,9 @@ export function FcsProvider({ children }: { children: ReactNode }) {
     const { batchId, paymentSyncStatus, paymentAmount, paymentAt, paymentReferenceNo, paymentRemark } = input
     const b = state.settlementBatches.find(x => x.batchId === batchId)
     if (!b) return { ok: false, message: `结算批次 ${batchId} 不存在` }
-    if (b.status !== 'COMPLETED') return { ok: false, message: '仅已完成结算批次允许回写打款结果' }
+    if (b.status !== 'COMPLETED') return { ok: false, message: '仅已完成结算批次允许同步更新打款结果' }
     if (!['SUCCESS', 'FAILED', 'PARTIAL'].includes(paymentSyncStatus)) {
-      return { ok: false, message: '回写状态无效' }
+      return { ok: false, message: '同步更新状态无效' }
     }
     if (paymentAmount !== undefined && paymentAmount < 0) {
       return { ok: false, message: '打款金额不能为负数' }

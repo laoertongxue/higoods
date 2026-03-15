@@ -39,7 +39,7 @@ export const initialQualityInspections: QualityInspection[] = [
   {
     qcId: 'QC-202603-2003', refType: 'TASK', refId: 'TASK-202603-0003-004', productionOrderId: 'PO-202603-0003',
     inspector: '质检员C', inspectedAt: '2026-03-07 15:00:00', result: 'PASS', defectItems: [],
-    remark: '终检标准已建，待正式抽检闭环', status: 'DRAFT', rootCauseType: 'UNKNOWN', liabilityStatus: 'DRAFT',
+    remark: '终检标准已建，待正式抽检已完成', status: 'DRAFT', rootCauseType: 'UNKNOWN', liabilityStatus: 'DRAFT',
     auditLogs: [],
     createdAt: '2026-03-07 14:30:00', updatedAt: '2026-03-07 14:30:00',
   },
@@ -106,7 +106,7 @@ export const seedParentTask: ProcessTask = {
   updatedAt: SEED_AT,
   auditLogs: [
     { id: 'AL-TASK-SEED-001', action: 'CREATED', detail: '任务创建', at: SEED_AT, by: 'SYSTEM' },
-    { id: 'AL-TASK-SEED-002', action: 'BLOCK_BY_QC', detail: '质检 QC-SEED-0001 FAIL，系统自动阻塞任务', at: SEED_AT, by: 'SYSTEM' },
+    { id: 'AL-TASK-SEED-002', action: 'BLOCK_BY_QC', detail: '质检 QC-SEED-0001 FAIL，系统自动暂不能继续任务', at: SEED_AT, by: 'SYSTEM' },
   ],
 }
 
@@ -166,7 +166,7 @@ export const seedProductionOrder: ProductionOrder = {
   demandSnapshot: {
     demandId: 'DEM-SEED-0001',
     spuCode: 'SPU-SEED-001',
-    spuName: '测试款式（质量闭环演示）',
+    spuName: '测试款式（质量已完成演示）',
     priority: 'NORMAL',
     requiredDeliveryDate: '2026-04-30',
     constraintsNote: '',
@@ -179,7 +179,7 @@ export const seedProductionOrder: ProductionOrder = {
   taskBreakdownSummary: { isBrokenDown: true, taskTypesTop3: ['裁片', '返工'], lastBreakdownAt: SEED_AT, lastBreakdownBy: 'SYSTEM' },
   riskFlags: [],
   auditLogs: [
-    { id: 'AL-PO-SEED-001', action: 'CREATED', detail: '生产单创建（质量闭环演示）', at: SEED_AT, by: 'SYSTEM' },
+    { id: 'AL-PO-SEED-001', action: 'CREATED', detail: '生产单创建（质量已完成演示）', at: SEED_AT, by: 'SYSTEM' },
     { id: 'AL-PO-SEED-002', action: 'EXECUTING', detail: '进入执行中状态', at: SEED_AT, by: 'SYSTEM' },
   ],
   createdAt: SEED_AT,

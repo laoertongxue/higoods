@@ -128,7 +128,7 @@ function blockReasonLabel(reason: BlockReason | string | undefined): string {
     TECH: '工艺/技术资料',
     EQUIPMENT: '设备',
     OTHER: '其他',
-    ALLOCATION_GATE: '分配门禁',
+    ALLOCATION_GATE: '分配开始条件',
   }
   return map[reason] ?? reason
 }
@@ -404,7 +404,7 @@ function mutateBlockTask(taskId: string, reason: BlockReason, remark: string, by
     {
       id: `AL-BLOCK-${Date.now()}`,
       action: 'BLOCK_TASK',
-      detail: `标记阻塞，原因：${reason}，备注：${remark || '-'}`,
+      detail: `标记暂不能继续，原因：${reason}，备注：${remark || '-'}`,
       at: now,
       by,
     },
@@ -426,7 +426,7 @@ function mutateUnblockTask(taskId: string, remark: string, by: string): void {
     {
       id: `AL-UNBLOCK-${Date.now()}`,
       action: 'UNBLOCK_TASK',
-      detail: `解除阻塞，备注：${remark || '-'}`,
+      detail: `恢复执行，备注：${remark || '-'}`,
       at: now,
       by,
     },
@@ -464,12 +464,12 @@ function renderBlockDialog(taskId: string): string {
     <div class="fixed inset-0 z-[121] flex items-center justify-center p-4">
       <article class="w-full max-w-sm rounded-lg border bg-background shadow-lg">
         <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">报阻塞</h3>
+          <h3 class="text-base font-semibold">标记暂不能继续</h3>
         </header>
 
         <div class="space-y-4 px-4 py-3">
           <div class="space-y-2">
-            <label class="text-sm font-medium">阻塞原因 *</label>
+            <label class="text-sm font-medium">当前无法继续的原因 *</label>
             <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pda-execd-field="blockReason">
               ${BLOCK_REASON_OPTIONS.map(
                 (opt) =>
@@ -509,7 +509,7 @@ function renderUnblockDialog(taskId: string): string {
     <div class="fixed inset-0 z-[121] flex items-center justify-center p-4">
       <article class="w-full max-w-sm rounded-lg border bg-background shadow-lg">
         <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">解除阻塞</h3>
+          <h3 class="text-base font-semibold">恢复执行</h3>
         </header>
 
         <div class="space-y-2 px-4 py-3">
@@ -573,7 +573,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const statusLabelMap: Record<string, string> = {
     NOT_STARTED: '待开工',
     IN_PROGRESS: '进行中',
-    BLOCKED: '阻塞',
+    BLOCKED: '暂不能继续',
     DONE: '已完工',
     CANCELLED: '已取消',
   }
@@ -740,7 +740,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                   <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
                     <div class="flex items-center gap-1.5 font-medium text-red-700">
                       <i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>
-                      阻塞原因：${escapeHtml(blockReasonLabel(task.blockReason))}
+                      当前无法继续的原因：${escapeHtml(blockReasonLabel(task.blockReason))}
                     </div>
                     ${task.blockRemark ? `<p class="mt-1 pl-5 text-red-600">${escapeHtml(task.blockRemark)}</p>` : ''}
                   </div>
@@ -858,7 +858,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                       ${canBlock ? '' : 'disabled'}
                     >
                       <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>
-                      报阻塞
+                      标记暂不能继续
                     </button>
                     <button
                       class="inline-flex h-9 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
@@ -883,7 +883,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                     ${canUnblock ? '' : 'disabled'}
                   >
                     <i data-lucide="check-circle" class="mr-2 h-4 w-4"></i>
-                    解除阻塞
+                    恢复执行
                   </button>
                 `
               : ''
@@ -1068,7 +1068,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     detailState.showBlockDialog = false
     detailState.blockRemark = ''
     detailState.blockReason = 'OTHER'
-    showPdaExecDetailToast('已标记阻塞')
+    showPdaExecDetailToast('已标记暂不能继续')
     return true
   }
 
@@ -1089,7 +1089,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     mutateUnblockTask(taskId, detailState.unblockRemark, 'PDA')
     detailState.showUnblockDialog = false
     detailState.unblockRemark = ''
-    showPdaExecDetailToast('已解除阻塞')
+    showPdaExecDetailToast('已恢复执行')
     return true
   }
 

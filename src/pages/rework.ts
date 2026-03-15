@@ -17,7 +17,7 @@ const TASK_STATUS_ZH: Record<TaskStatus, string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
   DONE: '已完成',
-  BLOCKED: '阻塞',
+  BLOCKED: '暂不能继续',
   CANCELLED: '已取消',
 }
 
@@ -259,7 +259,7 @@ export function renderReworkPage(): string {
           <option value="NOT_STARTED" ${state.statusFilter === 'NOT_STARTED' ? 'selected' : ''}>未开始</option>
           <option value="IN_PROGRESS" ${state.statusFilter === 'IN_PROGRESS' ? 'selected' : ''}>进行中</option>
           <option value="DONE" ${state.statusFilter === 'DONE' ? 'selected' : ''}>已完成</option>
-          <option value="BLOCKED" ${state.statusFilter === 'BLOCKED' ? 'selected' : ''}>阻塞</option>
+          <option value="BLOCKED" ${state.statusFilter === 'BLOCKED' ? 'selected' : ''}>暂不能继续</option>
         </select>
 
         <button class="inline-flex h-9 w-9 items-center justify-center rounded-md border hover:bg-muted" data-rework-action="reset">

@@ -19,7 +19,7 @@ import type { ProcessTask } from '@/lib/fcs/process-tasks'
 
 const BATCH_QC_STATUS_LABEL: Record<ReturnBatch['qcStatus'], string> = {
   QC_PENDING:  '待质检',
-  PASS_CLOSED: '合格已放行',
+  PASS_CLOSED: '合格已可继续',
   FAIL_IN_QC:  '不合格处理中',
 }
 
@@ -32,7 +32,7 @@ function GateBlockedCard({ tasks }: { tasks: ProcessTask[] }) {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-semibold">{t('gate.blockedList.title')}</CardTitle>
-        <CardDescription>上游染印/印花工序未放行时，下游任务将自动阻塞</CardDescription>
+        <CardDescription>上一步染印/印花工序未可继续时，下一步任务将自动暂不能继续</CardDescription>
       </CardHeader>
       <CardContent>
         {gatedTasks.length === 0 ? (
@@ -45,14 +45,14 @@ function GateBlockedCard({ tasks }: { tasks: ProcessTask[] }) {
                 <div key={task.taskId} className="px-4 py-3 text-sm space-y-1">
                   <div className="flex items-center justify-between gap-4">
                     <span className="font-medium text-foreground">{task.processNameZh}</span>
-                    <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">门禁阻塞</Badge>
+                    <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">开始条件暂不能继续</Badge>
                   </div>
                   {depIds.length > 0 && (
                     <p className="text-xs text-muted-foreground">
                       {t('task.dependencies')}：{depIds.join('、')}
                     </p>
                   )}
-                  <p className="text-xs text-orange-700">{(task as any).blockNoteZh ?? '等待上游放行'}</p>
+                  <p className="text-xs text-orange-700">{(task as any).blockNoteZh ?? '等待上一步可继续'}</p>
                 </div>
               )
             })}
@@ -91,7 +91,7 @@ function ReturnBatchCard() {
   function handlePass(batchId: string) {
     const result = markReturnBatchPass(batchId, '管理员')
     if (result.ok) {
-      toast.success('已合格放行，Allocation 已更新')
+      toast.success('已合格可继续，Allocation 已更新')
     } else {
       toast.error(result.message ?? '操作失败')
     }
@@ -101,7 +101,7 @@ function ReturnBatchCard() {
     const result = startReturnBatchFailQc(batchId, '管理员')
     if (result.ok && result.qcId) {
       setPendingQcLinks(prev => ({ ...prev, [batchId]: result.qcId! }))
-      toast.success(`已创建质检单 ${result.qcId}，任务已阻塞`)
+      toast.success(`已创建质检单 ${result.qcId}，任务已暂不能继续`)
     } else {
       toast.error(result.message ?? '操作失败')
     }
@@ -110,8 +110,8 @@ function ReturnBatchCard() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">分批回货（按批质检放行）</CardTitle>
-        <CardDescription>逐批登记回货，选择合格放行或不合格处理</CardDescription>
+        <CardTitle className="text-base font-semibold">分批回货（按批质检可继续）</CardTitle>
+        <CardDescription>逐批登记回货，选择合格可继续或不合格处理</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {/* 登记表单 */}
@@ -186,7 +186,7 @@ function ReturnBatchCard() {
                         {batch.qcStatus === 'QC_PENDING' && (
                           <div className="flex items-center gap-2">
                             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handlePass(batch.batchId)}>
-                              合格放行
+                              合格可继续
                             </Button>
                             <Button size="sm" variant="outline" className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50" onClick={() => handleFailQc(batch.batchId)}>
                               不合格处理
@@ -203,7 +203,7 @@ function ReturnBatchCard() {
                           )
                         )}
                         {batch.qcStatus === 'PASS_CLOSED' && (
-                          <span className="text-xs text-muted-foreground">已放行</span>
+                          <span className="text-xs text-muted-foreground">已可继续</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -246,26 +246,26 @@ function StatusWritebackContent() {
       {/* 分批回货 */}
       <ReturnBatchCard />
 
-      {/* 门禁阻塞（Allocation） */}
+      {/* 开始条件暂不能继续（Allocation） */}
       <GateBlockedCard tasks={state.processTasks} />
 
-      {/* Allocation 回写事件 */}
+      {/* Allocation 同步更新事件 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Allocation 回写事件</CardTitle>
-          <CardDescription>质检结案或批次放行后自动写入，记录可用量变更</CardDescription>
+          <CardTitle className="text-base font-semibold">Allocation 同步更新事件</CardTitle>
+          <CardDescription>质检结案或批次可继续后自动写入，记录可用量变更</CardDescription>
         </CardHeader>
         <CardContent>
           {allocationEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">暂无 Allocation 回写事件</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">暂无 Allocation 同步更新事件</p>
           ) : (
             <>
-              {/* 统计：染印加工单回写次数 */}
+              {/* 统计：染印加工单同步更新次数 */}
               {(() => {
                 const dyePrintCount = (state.allocationEvents ?? []).filter(e => e.refType === 'DYE_PRINT_ORDER').length
                 return dyePrintCount > 0 ? (
                   <div className="mb-3 px-3 py-2 rounded-md bg-blue-50 border border-blue-100 text-sm text-blue-700">
-                    染印加工单回写次数：{dyePrintCount}
+                    染印加工单同步更新次数：{dyePrintCount}
                   </div>
                 ) : null
               })()}
@@ -300,8 +300,8 @@ function StatusWritebackContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle>状态回写</CardTitle>
-          <CardDescription>任务状态变更后会自动同步回写到生产单，计算生产单进度百分比和状态流转。</CardDescription>
+          <CardTitle>状态同步更新</CardTitle>
+          <CardDescription>任务状态变更后会自动同步同步更新到生产单，计算生产单进度百分比和状态流转。</CardDescription>
         </CardHeader>
         <CardContent>
           {(taskId || poId) && (

@@ -49,13 +49,13 @@ export interface ProcessTask {
   // 时间戳
   startedAt?: string
   finishedAt?: string
-  // 阻塞信息
+  // 暂不能继续信息
   blockReason?: BlockReason
   blockRemark?: string
   blockedAt?: string
-  // 上游依赖（门禁阻塞）
+  // 上一步依赖（开始条件暂不能继续）
   dependsOnTaskIds?: string[]
-  blockNoteZh?: string            // 门禁中文原因（ALLOCATION_GATE 时写入）
+  blockNoteZh?: string            // 开始条件中文原因（ALLOCATION_GATE 时写入）
   // 返工/重做任务关联
   parentTaskId?: string
   sourceQcId?: string
@@ -1224,9 +1224,9 @@ export const processTasks: ProcessTask[] = [
   },
 
   // =============================================
-  // 阻塞任务示例 - 各种阻塞原因
+  // 暂不能继续任务示例 - 各种暂不能继续原因
   // =============================================
-  // 物料阻塞
+  // 物料暂不能继续
   {
     taskId: 'TASK-BLOCKED-001',
     productionOrderId: 'PO-2024-0001',
@@ -1252,10 +1252,10 @@ export const processTasks: ProcessTask[] = [
     updatedAt: '2026-03-01 10:00:00',
     auditLogs: [
       { id: 'AL-BLK-001', action: 'CREATE', detail: '自动拆解生成', at: '2026-02-28 09:00:00', by: '系统' },
-      { id: 'AL-BLK-002', action: 'BLOCK', detail: '标记阻塞，原因：MATERIAL，备注：等待绣花线到货，预计3天', at: '2026-03-01 10:00:00', by: 'Admin' },
+      { id: 'AL-BLK-002', action: 'BLOCK', detail: '标记暂不能继续，原因：MATERIAL，备注：等待绣花线到货，预计3天', at: '2026-03-01 10:00:00', by: 'Admin' },
     ],
   },
-  // 产能阻塞
+  // 产能暂不能继续
   {
     taskId: 'TASK-BLOCKED-002',
     productionOrderId: 'PO-2024-0002',
@@ -1281,10 +1281,10 @@ export const processTasks: ProcessTask[] = [
     updatedAt: '2026-03-02 14:00:00',
     auditLogs: [
       { id: 'AL-BLK-003', action: 'CREATE', detail: '自动拆解生成', at: '2026-02-25 09:00:00', by: '系统' },
-      { id: 'AL-BLK-004', action: 'BLOCK', detail: '标记阻塞，原因：CAPACITY，备注：工厂产能排满，需要协调排期', at: '2026-03-02 14:00:00', by: 'Admin' },
+      { id: 'AL-BLK-004', action: 'BLOCK', detail: '标记暂不能继续，原因：CAPACITY，备注：工厂产能排满，需要协调排期', at: '2026-03-02 14:00:00', by: 'Admin' },
     ],
   },
-  // 质量返工阻塞
+  // 质量返工暂不能继续
   {
     taskId: 'TASK-BLOCKED-003',
     productionOrderId: 'PO-2024-0005',
@@ -1310,10 +1310,10 @@ export const processTasks: ProcessTask[] = [
     updatedAt: '2026-03-01 16:00:00',
     auditLogs: [
       { id: 'AL-BLK-005', action: 'CREATE', detail: '自动拆解生成', at: '2026-02-20 09:00:00', by: '系统' },
-      { id: 'AL-BLK-006', action: 'BLOCK', detail: '标记阻塞，原因：QUALITY，备注：QC发现线迹不良率过高，需返工', at: '2026-03-01 16:00:00', by: 'Admin' },
+      { id: 'AL-BLK-006', action: 'BLOCK', detail: '标记暂不能继续，原因：QUALITY，备注：QC发现线迹不良率过高，需返工', at: '2026-03-01 16:00:00', by: 'Admin' },
     ],
   },
-  // 工艺资料阻塞
+  // 工艺资料暂不能继续
   {
     taskId: 'TASK-BLOCKED-004',
     productionOrderId: 'PO-2024-0007',
@@ -1340,10 +1340,10 @@ export const processTasks: ProcessTask[] = [
     updatedAt: '2026-03-02 09:00:00',
     auditLogs: [
       { id: 'AL-BLK-007', action: 'CREATE', detail: '自动拆解生成', at: '2026-02-18 09:00:00', by: '系统' },
-      { id: 'AL-BLK-008', action: 'BLOCK', detail: '标记阻塞，原因：TECH，备注：洗水效果样尚未确认，等待客户批复', at: '2026-03-02 09:00:00', by: 'Admin' },
+      { id: 'AL-BLK-008', action: 'BLOCK', detail: '标记暂不能继续，原因：TECH，备注：洗水效果样尚未确认，等待客户批复', at: '2026-03-02 09:00:00', by: 'Admin' },
     ],
   },
-  // 设备阻塞
+  // 设备暂不能继续
   {
     taskId: 'TASK-BLOCKED-005',
     productionOrderId: 'PO-2024-0009',
@@ -1369,10 +1369,10 @@ export const processTasks: ProcessTask[] = [
     updatedAt: '2026-03-01 11:00:00',
     auditLogs: [
       { id: 'AL-BLK-009', action: 'CREATE', detail: '自动拆解生成', at: '2026-02-22 09:00:00', by: '系统' },
-      { id: 'AL-BLK-010', action: 'BLOCK', detail: '标记阻塞，原因：EQUIPMENT，备注：扣眼机故障维修中', at: '2026-03-01 11:00:00', by: 'Admin' },
+      { id: 'AL-BLK-010', action: 'BLOCK', detail: '标记暂不能继续，原因：EQUIPMENT，备注：扣眼机故障维修中', at: '2026-03-01 11:00:00', by: 'Admin' },
     ],
   },
-  // 其他原因阻塞
+  // 其他原因暂不能继续
   {
     taskId: 'TASK-BLOCKED-006',
     productionOrderId: 'PO-2024-0011',
@@ -1399,7 +1399,7 @@ export const processTasks: ProcessTask[] = [
     updatedAt: '2026-02-28 09:00:00',
     auditLogs: [
       { id: 'AL-BLK-011', action: 'CREATE', detail: '自动拆解生成', at: '2026-02-10 09:00:00', by: '系统' },
-      { id: 'AL-BLK-012', action: 'BLOCK', detail: '标记阻塞，原因：OTHER，备注：春节假期工人返乡，节后恢复', at: '2026-02-28 09:00:00', by: 'Admin' },
+      { id: 'AL-BLK-012', action: 'BLOCK', detail: '标记暂不能继续，原因：OTHER，备注：春节假期工人返乡，节后恢复', at: '2026-02-28 09:00:00', by: 'Admin' },
     ],
   },
 ]

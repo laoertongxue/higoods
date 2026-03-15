@@ -282,7 +282,7 @@ const ORDER_SEEDS: PrintProcessOrder[] = [
       receivedQty: 1800,
       receivedAt: '2026-03-13 16:18:00',
       receiptVoucher: 'WMS 入库单 RK202603130121 + 印花收料签认 SR20260313018',
-      qualityConclusion: '全批来料合格，已完成印花执行闭环。',
+      qualityConclusion: '全批来料合格，已完成印花执行已完成。',
     },
     batches: [
       {

@@ -7,7 +7,7 @@ import { renderPdaFrame } from './pda-shell'
 type NotifyTab = 'todo' | 'inbox'
 type NotifFilter = 'all' | 'unread' | 'read'
 
-type TodoType = '待接单' | '待报价' | '已中标' | '待领料' | '待接收' | '待交出' | '阻塞' | '即将逾期'
+type TodoType = '待接单' | '待报价' | '已中标' | '待领料' | '待接收' | '待交出' | '暂不能继续' | '即将逾期'
 
 interface PdaNotifyState {
   activeTab: NotifyTab
@@ -379,7 +379,7 @@ function getNotifyPageData(): {
     },
     {
       key: 'blocked',
-      label: '阻塞',
+      label: '暂不能继续',
       count: blockedTasks.length,
       icon: 'shield-alert',
       colorClass: 'text-red-600',
@@ -473,7 +473,7 @@ function getNotifyPageData(): {
     todoItems.push({
       id: `rc-${task.taskId}`,
       type: '待接收',
-      title: '待接收上游半成品',
+      title: '待接收上一步半成品',
       subtitle: task.taskId,
       orderNo: task.productionOrderId,
       process: task.processNameZh,
@@ -502,8 +502,8 @@ function getNotifyPageData(): {
     const blockReason = (task as typeof task & { blockReason?: string }).blockReason
     todoItems.push({
       id: `blk-${task.taskId}`,
-      type: '阻塞',
-      title: '任务阻塞 — 需处理',
+      type: '暂不能继续',
+      title: '任务暂不能继续 — 需处理',
       subtitle: `${task.taskId}${blockReason ? ` · ${blockReasonLabel(blockReason)}` : ''}`,
       orderNo: task.productionOrderId,
       process: task.processNameZh,
@@ -525,7 +525,7 @@ function getNotifyPageData(): {
   }
 
   const todoOrder: Record<TodoType, number> = {
-    阻塞: 1,
+    暂不能继续: 1,
     即将逾期: 2,
     待接单: 3,
     待报价: 4,
@@ -583,7 +583,7 @@ function renderTodoTypeBadge(type: TodoType): string {
     待领料: { label: '待领料', className: 'bg-amber-100 text-amber-700 border-amber-200' },
     待接收: { label: '待接收', className: 'bg-purple-100 text-purple-700 border-purple-200' },
     待交出: { label: '待交出', className: 'bg-teal-100 text-teal-700 border-teal-200' },
-    阻塞: { label: '阻塞', className: 'bg-red-100 text-red-700 border-red-200' },
+    暂不能继续: { label: '暂不能继续', className: 'bg-red-100 text-red-700 border-red-200' },
     即将逾期: { label: '即将逾期', className: 'bg-rose-100 text-rose-700 border-rose-200' },
   }
 

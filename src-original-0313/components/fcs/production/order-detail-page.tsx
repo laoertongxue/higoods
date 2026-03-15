@@ -109,12 +109,12 @@ export function OrderDetailPage({ orderId }: OrderDetailPageProps) {
 
   const techPackInfo = getTechPackInfo()
 
-  // 门禁判断
+  // 开始条件判断
   const canBreakdown = order.techPackSnapshot.status === 'RELEASED' && order.status === 'READY_FOR_BREAKDOWN'
   const canAssign = order.taskBreakdownSummary.isBrokenDown && ['WAIT_ASSIGNMENT', 'ASSIGNING'].includes(order.status)
   const canImproveTechPack = !!order.demandSnapshot.spuCode
 
-  // 门禁原因
+  // 开始条件原因
   const getBreakdownDisabledReason = () => {
     if (order.techPackSnapshot.status !== 'RELEASED') return '技术包未发布，无法拆解'
     if (order.status !== 'READY_FOR_BREAKDOWN') return '当前状态不支持拆解'
@@ -346,7 +346,7 @@ export function OrderDetailPage({ orderId }: OrderDetailPageProps) {
         </div>
       )}
 
-      {/* 技术包门禁 Banner */}
+      {/* 技术包开始条件 Banner */}
       {order.techPackSnapshot.status !== 'RELEASED' && (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
           <div className="flex items-center gap-2">

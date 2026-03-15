@@ -269,7 +269,7 @@ function validateCreateForm(): boolean {
   }
 
   if (!state.createForm.relatedTaskId.trim()) {
-    errors.relatedTaskId = '请选择关联主链路任务'
+    errors.relatedTaskId = '请选择关联当前流程任务'
   }
 
   if (!state.createForm.processorFactoryId.trim()) {
@@ -373,7 +373,7 @@ function addDyePrintReturn(
     return { ok: false, message: '回货数量必须为正整数' }
   }
   if (!order.relatedTaskId) {
-    return { ok: false, message: '未关联主链路任务，无法回写可用量' }
+    return { ok: false, message: '未关联当前流程任务，无法同步可用量' }
   }
   if (payload.result === 'FAIL' && !payload.disposition) {
     return { ok: false, message: '不合格回货必须选择处置方式' }
@@ -543,7 +543,7 @@ function addDyePrintReturn(
       deltaAvailableQty: payload.qty,
       deltaAcceptedAsDefectQty: 0,
       deltaScrappedQty: 0,
-      noteZh: `染印加工单 ${dpId} 合格回货放行：可用量+${payload.qty}`,
+      noteZh: `染印加工单 ${dpId} 合格回货可继续：可用量+${payload.qty}`,
       createdAt: now,
       createdBy: '管理员',
     }
@@ -605,7 +605,7 @@ function renderCreateDialog(processorOptions: Array<{ id: string; name: string }
             ${
               state.createErrors.relatedTaskId
                 ? `<p class="text-xs text-red-600">${escapeHtml(state.createErrors.relatedTaskId)}</p>`
-                : '<p class="text-xs text-muted-foreground">用于 PASS 回货直接写入主链路可用量，FAIL 时生成质检单</p>'
+                : '<p class="text-xs text-muted-foreground">用于 PASS 回货直接写入当前流程可用量，FAIL 时生成质检单</p>'
             }
           </div>
 
@@ -739,8 +739,8 @@ function renderReturnDialog(order: DyePrintOrder | null): string {
 
             ${
               state.returnForm.result === 'PASS'
-                ? '<p class="rounded bg-green-50 px-2 py-1 text-xs text-green-700">合格回货会直接写入主链路可用量，并触发下游门禁重算</p>'
-                : '<p class="rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">不合格回货会生成质检单；需完成判责、处置拆分并结案后，才会写入主链路可用量</p>'
+                ? '<p class="rounded bg-green-50 px-2 py-1 text-xs text-green-700">合格回货会直接写入当前流程可用量，并触发下一步条件重算</p>'
+                : '<p class="rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">不合格回货会生成质检单；需完成判责、处置拆分并结案后，才会写入当前流程可用量</p>'
             }
           </div>
 
@@ -824,7 +824,7 @@ export function renderDyePrintOrdersPage(): string {
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-xl font-semibold">染印加工单</h1>
-          <p class="mt-0.5 text-sm text-muted-foreground">管理印花、染色、染印等次链路工单</p>
+          <p class="mt-0.5 text-sm text-muted-foreground">管理印花、染色、染印等相关流程工单</p>
         </div>
         <div class="flex items-center gap-2">
           <span class="text-sm text-muted-foreground">${filtered.length} 条</span>
@@ -912,9 +912,9 @@ export function renderDyePrintOrdersPage(): string {
                       <th class="px-3 py-2 text-right font-medium">合格回货</th>
                       <th class="px-3 py-2 text-right font-medium">不合格</th>
                       <th class="px-3 py-2 text-right font-medium">可用量</th>
-                      <th class="px-3 py-2 font-medium">放行状态</th>
-                      <th class="px-3 py-2 text-right font-medium">主链路可用量</th>
-                      <th class="px-3 py-2 font-medium">主链路放行状态</th>
+                      <th class="px-3 py-2 font-medium">是否可继续</th>
+                      <th class="px-3 py-2 text-right font-medium">当前流程可用量</th>
+                      <th class="px-3 py-2 font-medium">当前生产流程是否可继续</th>
                       <th class="px-3 py-2 font-medium">最近处理结果</th>
                       <th class="px-3 py-2 font-medium">状态</th>
                       <th class="px-3 py-2 font-medium">更新时间</th>
@@ -938,7 +938,7 @@ export function renderDyePrintOrdersPage(): string {
                         let recentResult = '—'
                         if (latestBatch) {
                           if (latestBatch.result === 'PASS') {
-                            recentResult = '合格放行'
+                            recentResult = '合格可继续'
                           } else if (!latestBatch.qcId) {
                             recentResult = '不合格待建单'
                           } else {
@@ -977,21 +977,21 @@ export function renderDyePrintOrdersPage(): string {
                             <td class="px-3 py-2">
                               ${
                                 order.availableQty > 0
-                                  ? '<span class="inline-flex rounded-md border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">可放行</span>'
-                                  : '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">未放行</span>'
+                                  ? '<span class="inline-flex rounded-md border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">可继续</span>'
+                                  : '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">暂不能继续</span>'
                               }
                             </td>
                             <td class="px-3 py-2 text-right font-mono text-sm font-semibold">${mainAvailable}</td>
                             <td class="px-3 py-2">
                               ${
                                 mainAvailable > 0
-                                  ? '<span class="inline-flex rounded-md border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">可放行</span>'
-                                  : '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">未放行</span>'
+                                  ? '<span class="inline-flex rounded-md border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">可继续</span>'
+                                  : '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">暂不能继续</span>'
                               }
                             </td>
                             <td class="whitespace-nowrap px-3 py-2 text-xs">
                               <span class="${
-                                recentResult === '合格放行'
+                                recentResult === '合格可继续'
                                   ? 'font-medium text-green-700'
                                   : recentResult === '不合格已结案'
                                     ? 'text-blue-700'
@@ -1300,9 +1300,9 @@ export function handleDyePrintOrdersEvent(target: HTMLElement): boolean {
 
     if (result.ok) {
       if (state.returnForm.result === 'PASS') {
-        showDyePrintToast('合格回货已登记，主链路可用量已更新')
+        showDyePrintToast('合格回货已登记，当前流程可用量已更新')
       } else {
-        showDyePrintToast('已生成质检单，结案后将回写主链路可用量')
+        showDyePrintToast('已生成质检单，结案后将同步更新当前流程可用量')
         if (result.qcId) {
           state.lastQcByDpId[targetOrder.dpId] = result.qcId
         }

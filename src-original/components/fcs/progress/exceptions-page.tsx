@@ -135,7 +135,7 @@ export function ExceptionsPage() {
   // 计算筛选结果
   const filteredCases = useMemo(() => {
     return state.exceptions.filter(exc => {
-      // 上游筛选
+      // 上一步筛选
       if (queryTaskId && !exc.relatedTaskIds.includes(queryTaskId)) return false
       if (queryPo && !exc.relatedOrderIds.includes(queryPo)) return false
       if (queryTenderId && !exc.relatedTenderIds.includes(queryTenderId)) return false
@@ -285,7 +285,7 @@ export function ExceptionsPage() {
     
     const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19)
     
-    // 解除相关任务的阻塞状态
+    // 解除相关任务的暂不能继续状态
     unblockDialog.relatedTaskIds.forEach(taskId => {
       const task = state.processTasks.find(t => t.taskId === taskId)
       if (task?.status === 'BLOCKED') {
@@ -300,16 +300,16 @@ export function ExceptionsPage() {
       updatedAt: nowStr,
       actions: [
         ...unblockDialog.actions,
-        { id: `EA-${Date.now()}`, actionType: 'UNBLOCK', actionDetail: `解除阻塞：${unblockRemark}`, at: nowStr, by: 'Admin' },
+        { id: `EA-${Date.now()}`, actionType: 'UNBLOCK', actionDetail: `解除暂不能继续：${unblockRemark}`, at: nowStr, by: 'Admin' },
       ],
       auditLogs: [
         ...unblockDialog.auditLogs,
-        { id: `EAL-${Date.now()}`, action: 'UNBLOCK', detail: `执行解除阻塞，备注：${unblockRemark}`, at: nowStr, by: 'Admin' },
+        { id: `EAL-${Date.now()}`, action: 'UNBLOCK', detail: `执行解除暂不能继续，备注：${unblockRemark}`, at: nowStr, by: 'Admin' },
       ],
     }
     updateException(updated)
     
-    toast({ title: t('common.success'), description: '已解除阻塞' })
+    toast({ title: t('common.success'), description: '已解除暂不能继续' })
     setUnblockDialog(null)
     setUnblockRemark('')
     if (detailCase?.caseId === updated.caseId) setDetailCase(updated)
@@ -427,7 +427,7 @@ export function ExceptionsPage() {
         </div>
       </div>
       
-      {/* 上游筛选提示 */}
+      {/* 上一步筛选提示 */}
       {showUpstreamHint && (
         <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
           <div className="flex items-center gap-2 text-sm text-blue-700">
@@ -1194,7 +1194,7 @@ export function ExceptionsPage() {
         </SheetContent>
       </Sheet>
       
-      {/* 解除阻塞对话框 */}
+      {/* 解除暂不能继续对话框 */}
       <Dialog open={!!unblockDialog} onOpenChange={() => { setUnblockDialog(null); setUnblockRemark('') }}>
         <DialogContent>
           <DialogHeader>

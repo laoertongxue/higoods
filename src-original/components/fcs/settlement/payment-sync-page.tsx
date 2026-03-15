@@ -24,7 +24,7 @@ import { useToast } from '@/hooks/use-toast'
 type PaymentSyncStatus = 'UNSYNCED' | 'SUCCESS' | 'FAILED' | 'PARTIAL'
 
 const SYNC_STATUS_LABEL: Record<PaymentSyncStatus, string> = {
-  UNSYNCED: '未回写',
+  UNSYNCED: '未同步更新',
   SUCCESS:  '打款成功',
   FAILED:   '打款失败',
   PARTIAL:  '部分打款',
@@ -122,7 +122,7 @@ export function PaymentSyncPage() {
 
   const handleSave = () => {
     if (!form.paymentSyncStatus) {
-      setFormError('请选择回写状态')
+      setFormError('请选择同步更新状态')
       return
     }
     if (form.paymentSyncStatus === 'PARTIAL' && (!form.paymentAmount || Number(form.paymentAmount) <= 0)) {
@@ -148,30 +148,30 @@ export function PaymentSyncPage() {
     )
     setSaving(false)
     if (!result.ok) {
-      setFormError(result.message ?? '回写失败')
+      setFormError(result.message ?? '同步更新失败')
       return
     }
     setDialogOpen(false)
-    toast({ title: '打款结果已回写' })
+    toast({ title: '打款结果已同步更新' })
   }
 
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* 标题区 */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">打款结果回写</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">打款结果同步更新</h1>
         <span className="text-sm text-muted-foreground">共 {completedBatches.length} 条</span>
       </div>
 
       {/* 提示区 */}
       <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        打款结果回写用于记录已完成结算批次的支付结果；原型阶段仅做结果登记与回看，不接真实支付系统
+        打款结果同步更新用于记录已完成结算批次的支付结果；原型阶段仅做结果登记与回看，不接真实支付系统
       </div>
 
       {/* 统计卡 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {([
-          { label: '未回写数',   value: stats.unsynced },
+          { label: '未同步更新数',   value: stats.unsynced },
           { label: '打款成功数', value: stats.success },
           { label: '打款失败数', value: stats.failed },
           { label: '部分打款数', value: stats.partial },
@@ -197,11 +197,11 @@ export function PaymentSyncPage() {
         />
         <Select value={statusFilter} onValueChange={v => setStatusFilter(v as PaymentSyncStatus | 'ALL')}>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="回写状态" />
+            <SelectValue placeholder="同步更新状态" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">全部</SelectItem>
-            <SelectItem value="UNSYNCED">未回写</SelectItem>
+            <SelectItem value="UNSYNCED">未同步更新</SelectItem>
             <SelectItem value="SUCCESS">打款成功</SelectItem>
             <SelectItem value="FAILED">打款失败</SelectItem>
             <SelectItem value="PARTIAL">部分打款</SelectItem>
@@ -218,7 +218,7 @@ export function PaymentSyncPage() {
               <TableHead>批次名称</TableHead>
               <TableHead>对账单数</TableHead>
               <TableHead>总金额</TableHead>
-              <TableHead>回写状态</TableHead>
+              <TableHead>同步更新状态</TableHead>
               <TableHead>打款金额</TableHead>
               <TableHead>打款时间</TableHead>
               <TableHead>打款参考号</TableHead>
@@ -230,7 +230,7 @@ export function PaymentSyncPage() {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
-                  暂无可回写打款结果的结算批次
+                  暂无可同步更新打款结果的结算批次
                 </TableCell>
               </TableRow>
             ) : filtered.map(batch => {
@@ -260,7 +260,7 @@ export function PaymentSyncPage() {
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       <Button size="sm" variant="outline" onClick={() => openDialog(batch.batchId)}>
-                        回写结果
+                        同步更新结果
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => router.push('/fcs/settlement/batches')}>
                         查看批次
@@ -277,21 +277,21 @@ export function PaymentSyncPage() {
         </Table>
       </div>
 
-      {/* 回写 Dialog */}
+      {/* 同步更新 Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>回写打款结果</DialogTitle>
+            <DialogTitle>同步更新打款结果</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
             <div className="flex flex-col gap-1.5">
-              <Label>回写状态 <span className="text-destructive">*</span></Label>
+              <Label>同步更新状态 <span className="text-destructive">*</span></Label>
               <Select
                 value={form.paymentSyncStatus}
                 onValueChange={v => setForm(f => ({ ...f, paymentSyncStatus: v as SyncForm['paymentSyncStatus'] }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="请选择回写状态" />
+                  <SelectValue placeholder="请选择同步更新状态" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="SUCCESS">打款成功</SelectItem>

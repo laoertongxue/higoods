@@ -1133,7 +1133,7 @@ function renderFactoryDrawer(): string {
                       )
                       .join('')}
                   </select>
-                  <p class="text-xs text-muted-foreground">类型用于分配门禁与产能/绩效归类</p>
+                  <p class="text-xs text-muted-foreground">类型用于分配开始条件与产能/绩效归类</p>
                 </label>
               </div>
 
@@ -1162,7 +1162,7 @@ function renderFactoryDrawer(): string {
             </section>
 
             <section class="space-y-4">
-              <h4 class="${sectionTitleClass}">主链路资格门禁</h4>
+              <h4 class="${sectionTitleClass}">生产流程开始条件</h4>
               <div class="grid grid-cols-2 gap-3">
                 ${[
                   { key: 'allowDispatch', label: '允许派单' },
@@ -1181,7 +1181,7 @@ function renderFactoryDrawer(): string {
                   })
                   .join('')}
               </div>
-              <p class="text-xs text-muted-foreground">关闭门禁会阻断对应业务流转，请谨慎操作。</p>
+              <p class="text-xs text-muted-foreground">关闭开始条件会影响对应业务流转，请谨慎操作。</p>
             </section>
 
             <section class="space-y-4">
@@ -1310,7 +1310,7 @@ export function renderFactoryProfilePage(): string {
       <div class="flex items-center justify-between gap-4">
         <div>
           <h1 class="text-2xl font-semibold text-foreground">工厂档案</h1>
-          <p class="mt-1 text-sm text-muted-foreground">管理合作工厂的核心主数据，包括组织层级、PDA配置、主链路资格门禁等。</p>
+          <p class="mt-1 text-sm text-muted-foreground">管理合作工厂的核心主数据，包括组织层级、PDA配置、生产流程开始条件等。</p>
         </div>
         <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-factory-action="open-create">
           新增工厂
@@ -1388,7 +1388,7 @@ export function renderFactoryProfilePage(): string {
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">工厂类型</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">上级工厂</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">PDA</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">资格门禁</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">资格开始条件</th>
               <th class="px-3 py-3 text-left">
                 <button data-factory-action="sort" data-sort-field="status" class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">状态 ${renderSortIcon('status')}</button>
               </th>

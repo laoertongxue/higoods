@@ -57,7 +57,7 @@ const taskStatusZh: Record<string, string> = {
   IN_PROGRESS: '进行中',
   COMPLETED: '已完成',
   DONE: '已完成',
-  BLOCKED: '阻塞',
+  BLOCKED: '暂不能继续',
   CANCELLED: '已取消',
 }
 
@@ -2066,7 +2066,7 @@ function renderDispatchBoardInner(): string {
               根据当前任务约束与规则，系统会推荐每个待分配任务走以下路径之一：
               <span class="font-medium">直接派单</span>（最终需确认工厂、时间、价格）、
               <span class="font-medium">竞价</span>（按"一任务一招标单"进入招标流程）、
-              <span class="font-medium">暂不分配</span>（存在上游阻塞或异常）。
+              <span class="font-medium">暂不分配</span>（存在上一步暂不能继续或异常）。
               仅对尚未明确设置分配路径的任务生效。
             </p>
           </div>

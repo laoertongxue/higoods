@@ -486,7 +486,7 @@ function getTabsByRole(role: RoleKey): Array<{ id: TabId; label: string }> {
     { id: 'mine', label: '我负责' },
     { id: 'approval', label: '待我审核' },
     { id: 'overdue', label: '即将逾期/已逾期' },
-    { id: 'blocked', label: '阻塞我' },
+    { id: 'blocked', label: '卡住我的' },
   ]
   if (role === 'WAREHOUSE') base.push({ id: 'warehouse', label: '仓管队列' })
   if (role === 'CHANNEL') base.push({ id: 'channel', label: '渠道队列' })
@@ -505,7 +505,7 @@ function isTodoInTab(todo: TodoItem, tab: TabId): boolean {
   if (tab === 'mine') return todo.todoType === 'WORK_ITEM'
   if (tab === 'approval') return todo.todoType === 'APPROVAL'
   if (tab === 'overdue') return todo.overdueDays > 0
-  if (tab === 'blocked') return todo.sourceStatus === '阻塞' || todo.sourceStatus === '上架失败'
+  if (tab === 'blocked') return todo.sourceStatus === '暂不能继续' || todo.sourceStatus === '上架失败'
   if (tab === 'warehouse') return todo.todoType === 'SAMPLE'
   if (tab === 'channel') return todo.todoType === 'STORE_AUTH' || todo.todoType === 'MAPPING' || todo.todoType === 'LISTING'
   if (tab === 'accounting') return todo.todoType === 'TEST_ACCOUNTING'

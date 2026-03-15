@@ -73,7 +73,7 @@ const DELIVERY_STATUS_LABEL: Record<string, string> = {
 }
 
 // =============================================
-// 上下游摘要类型
+// 上一步与下一步摘要类型
 // =============================================
 interface OrderSummary extends ProductionOrder {
   _lifecycleStatus: LifecycleStatus
@@ -121,7 +121,7 @@ export function ProductionStatusPage() {
   const [saving, setSaving]         = useState(false)
 
   // =============================================
-  // 上下游摘要派生（页面层 useMemo）
+  // 上一步与下一步摘要派生（页面层 useMemo）
   // =============================================
   const ordersWithSummary = useMemo((): OrderSummary[] => {
     // 预建 basis-id -> statementId 映射（通过 itemBasisIds）
@@ -151,7 +151,7 @@ export function ProductionStatusPage() {
       // 3) 交付仓状态
       const _deliveryStatusZh = DELIVERY_STATUS_LABEL[order.deliveryWarehouseStatus ?? ''] ?? '未配置'
 
-      // 4) 关联任务数 & 阻塞任务数
+      // 4) 关联任务数 & 暂不能继续任务数
       const relatedTasks = processTasks.filter(
         t => (t.productionOrderId ?? (t as any).orderId ?? (t as any).sourceProductionOrderId) === oid,
       )
@@ -173,9 +173,9 @@ export function ProductionStatusPage() {
         if (hasFailInProcess) {
           _dyePrintStatusZh = '不合格处理中'
         } else if (relatedDpo.some(d => d.availableQty > 0)) {
-          _dyePrintStatusZh = '已放行'
+          _dyePrintStatusZh = '已可继续'
         } else {
-          _dyePrintStatusZh = '未放行'
+          _dyePrintStatusZh = '未可继续'
         }
       }
 
@@ -284,9 +284,9 @@ export function ProductionStatusPage() {
 
   // 辅助：染印状态 Badge variant
   const dyeBadgeVariant = (v: string): 'default' | 'secondary' | 'outline' | 'destructive' => {
-    if (v === '已放行') return 'default'
+    if (v === '已可继续') return 'default'
     if (v === '不合格处理中') return 'destructive'
-    if (v === '未放行') return 'secondary'
+    if (v === '未可继续') return 'secondary'
     return 'outline'
   }
 
@@ -304,7 +304,7 @@ export function ProductionStatusPage() {
       {/* 标题区 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">生产单主链路状态总览</h1>
+          <h1 className="text-2xl font-semibold text-foreground">生产单当前生产流程状态总览</h1>
           <p className="text-sm text-muted-foreground mt-1">
             汇总每张生产单的执行状态、计划、交付仓配置、任务、染印及结算摘要；原型阶段支持人工状态推进与有限回退
           </p>
@@ -333,12 +333,12 @@ export function ProductionStatusPage() {
         ))}
       </div>
 
-      {/* 第二行统计卡：上下游聚合 */}
+      {/* 第二行统计卡：上一步与下一步聚合 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: '已计划数',             value: stats.hasPlanned,      desc: '计划状态 != 未计划' },
           { label: '已配置交付仓数',       value: stats.hasDelivery,     desc: '交付仓状态 = 已配置' },
-          { label: '有阻塞任务的生产单数', value: stats.hasBlocked,      desc: '存在阻塞任务' },
+          { label: '有暂不能继续任务的生产单数', value: stats.hasBlocked,      desc: '存在暂不能继续任务' },
           { label: '可结算/已进入批次数',  value: stats.settlementReady, desc: '可进入结算或已进入批次' },
         ].map(card => (
           <Card key={card.label} className="p-0">
@@ -391,7 +391,7 @@ export function ProductionStatusPage() {
                 <TableHead>计划状态</TableHead>
                 <TableHead>交付仓</TableHead>
                 <TableHead>关联任务</TableHead>
-                <TableHead>阻塞任务</TableHead>
+                <TableHead>暂不能继续任务</TableHead>
                 <TableHead>染印状态</TableHead>
                 <TableHead>结算摘要</TableHead>
                 <TableHead>状态说明</TableHead>
@@ -428,7 +428,7 @@ export function ProductionStatusPage() {
                     <TableCell className="text-sm text-center">
                       {order._taskCount > 0 ? order._taskCount : <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    {/* 阻塞任务数 */}
+                    {/* 暂不能继续任务数 */}
                     <TableCell className="text-sm text-center">
                       {order._blockedTaskCount > 0 ? (
                         <Badge variant="destructive">{order._blockedTaskCount}</Badge>

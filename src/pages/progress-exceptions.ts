@@ -144,7 +144,7 @@ const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
 }
 
 const CATEGORY_LABEL: Record<ExceptionCategory, string> = {
-  PRODUCTION_BLOCK: '生产阻塞',
+  PRODUCTION_BLOCK: '生产暂不能继续',
   ASSIGNMENT: '分配异常',
   TECH_PACK: '技术包',
   HANDOVER: '交接异常',
@@ -152,12 +152,12 @@ const CATEGORY_LABEL: Record<ExceptionCategory, string> = {
 }
 
 const REASON_LABEL: Record<ReasonCode, string> = {
-  BLOCKED_MATERIAL: '物料阻塞',
-  BLOCKED_CAPACITY: '产能阻塞',
-  BLOCKED_QUALITY: '质量阻塞',
-  BLOCKED_TECH: '技术阻塞',
-  BLOCKED_EQUIPMENT: '设备阻塞',
-  BLOCKED_OTHER: '其他阻塞',
+  BLOCKED_MATERIAL: '物料待处理',
+  BLOCKED_CAPACITY: '产能待处理',
+  BLOCKED_QUALITY: '质量待处理',
+  BLOCKED_TECH: '技术待处理',
+  BLOCKED_EQUIPMENT: '设备待处理',
+  BLOCKED_OTHER: '其他待处理',
   TENDER_OVERDUE: '竞价逾期',
   TENDER_NEAR_DEADLINE: '竞价临近截止',
   NO_BID: '无人报价',
@@ -235,9 +235,9 @@ function updateTaskStatus(taskId: string, newStatus: ProcessTask['status'], by: 
 
   const detailMap: Record<ProcessTask['status'], string> = {
     NOT_STARTED: '重置为未开始',
-    IN_PROGRESS: task.status === 'BLOCKED' ? '解除阻塞并恢复执行' : '任务开始执行',
+    IN_PROGRESS: task.status === 'BLOCKED' ? '恢复执行并继续推进' : '任务开始执行',
     DONE: '任务已完工',
-    BLOCKED: '任务阻塞',
+    BLOCKED: '任务暂不能继续',
     CANCELLED: '任务已取消',
   }
 
@@ -688,7 +688,7 @@ function confirmUnblock(): void {
       {
         id: `EA-${Date.now()}`,
         actionType: 'UNBLOCK',
-        actionDetail: `解除阻塞：${state.unblockRemark.trim()}`,
+        actionDetail: `恢复执行：${state.unblockRemark.trim()}`,
         at: now,
         by: 'Admin',
       },
@@ -698,7 +698,7 @@ function confirmUnblock(): void {
       {
         id: `EAL-${Date.now()}`,
         action: 'UNBLOCK',
-        detail: `执行解除阻塞，备注：${state.unblockRemark.trim()}`,
+        detail: `执行恢复执行，备注：${state.unblockRemark.trim()}`,
         at: now,
         by: 'Admin',
       },
@@ -706,7 +706,7 @@ function confirmUnblock(): void {
   }
 
   updateException(updated)
-  showProgressExceptionsToast('已解除阻塞')
+  showProgressExceptionsToast('已恢复执行')
   state.unblockDialogCaseId = null
   state.unblockRemark = ''
 }
@@ -794,7 +794,7 @@ function renderActionMenu(exc: ExceptionCase): string {
 
               ${
                 exc.reasonCode.startsWith('BLOCKED_')
-                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-unblock" data-case-id="${escapeAttr(exc.caseId)}" data-pe-stop="true"><i data-lucide="play" class="mr-2 h-4 w-4"></i>解除阻塞</button>`
+                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-unblock" data-case-id="${escapeAttr(exc.caseId)}" data-pe-stop="true"><i data-lucide="play" class="mr-2 h-4 w-4"></i>恢复执行</button>`
                   : ''
               }
 
@@ -854,7 +854,7 @@ function renderUpstreamHint(): string {
     <section class="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2">
       <div class="flex flex-wrap items-center gap-2 text-sm text-blue-700">
         <i data-lucide="alert-circle" class="h-4 w-4"></i>
-        <span>来自上游筛选：</span>
+        <span>来自上一步筛选：</span>
         ${state.upstreamTaskId ? renderBadge(`任务: ${state.upstreamTaskId}`, 'border-blue-200 bg-white text-blue-700') : ''}
         ${state.upstreamPo ? renderBadge(`生产单: ${state.upstreamPo}`, 'border-blue-200 bg-white text-blue-700') : ''}
         ${state.upstreamTenderId ? renderBadge(`招标单: ${state.upstreamTenderId}`, 'border-blue-200 bg-white text-blue-700') : ''}
@@ -1017,7 +1017,7 @@ function renderFilters(): string {
 
         <select class="h-9 w-[130px] rounded-md border bg-background px-3 text-sm" data-pe-field="categoryFilter">
           <option value="ALL" ${state.categoryFilter === 'ALL' ? 'selected' : ''}>全部分类</option>
-          <option value="PRODUCTION_BLOCK" ${state.categoryFilter === 'PRODUCTION_BLOCK' ? 'selected' : ''}>生产阻塞</option>
+          <option value="PRODUCTION_BLOCK" ${state.categoryFilter === 'PRODUCTION_BLOCK' ? 'selected' : ''}>生产暂不能继续</option>
           <option value="ASSIGNMENT" ${state.categoryFilter === 'ASSIGNMENT' ? 'selected' : ''}>分配异常</option>
           <option value="TECH_PACK" ${state.categoryFilter === 'TECH_PACK' ? 'selected' : ''}>技术包</option>
           <option value="HANDOVER" ${state.categoryFilter === 'HANDOVER' ? 'selected' : ''}>交接异常</option>
@@ -1286,8 +1286,8 @@ function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="play" class="h-5 w-5 text-green-600"></i>
           <div>
-            <p class="font-medium">解除阻塞</p>
-            <p class="text-xs text-muted-foreground">解除阻塞并恢复任务执行</p>
+            <p class="font-medium">恢复执行</p>
+            <p class="text-xs text-muted-foreground">恢复执行并恢复任务执行</p>
           </div>
         </div>
       </button>
@@ -1343,7 +1343,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
           <i data-lucide="scan-line" class="h-5 w-5 text-cyan-600"></i>
           <div>
             <p class="font-medium">查看交接链路</p>
-            <p class="text-xs text-muted-foreground">定位差异交接节点并闭环</p>
+            <p class="text-xs text-muted-foreground">定位差异交接节点并已完成</p>
           </div>
         </div>
       </button>
@@ -1530,8 +1530,8 @@ function renderUnblockDialog(): string {
       <button class="absolute inset-0 bg-black/45" data-pe-action="close-unblock-dialog" aria-label="关闭"></button>
       <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
         <header class="space-y-1">
-          <h3 class="text-lg font-semibold">确认解除阻塞</h3>
-          <p class="text-sm text-muted-foreground">异常 ${escapeHtml(exc.caseId)}：将解除关联阻塞任务并转为处理中。</p>
+          <h3 class="text-lg font-semibold">确认恢复执行</h3>
+          <p class="text-sm text-muted-foreground">异常 ${escapeHtml(exc.caseId)}：将解除关联暂不能继续任务并转为处理中。</p>
         </header>
 
         <div class="mt-4">

@@ -14,7 +14,7 @@ import { useFcs } from '@/lib/fcs/fcs-store'
 import type { ProcessTask } from '@/lib/fcs/process-tasks'
 
 // ─────────────────────────────────────────────
-// 辅助：次链路关键词判断
+// 辅助：相关流程关键词判断
 // ─────────────────────────────────────────────
 const DYE_KEYWORDS = ['染', '印花', '染色', '染印', '印染']
 const isDyeTask = (name: string) => DYE_KEYWORDS.some(k => name.includes(k))
@@ -107,7 +107,7 @@ function topoSort(tasks: ProcessTask[]): ProcessTask[] {
   return result
 }
 
-const chainTypeZh = (task: ProcessTask) => isDyeTask(task.processNameZh) ? '次链路' : '主链路'
+const chainTypeZh = (task: ProcessTask) => isDyeTask(task.processNameZh) ? '相关流程' : '当前生产流程'
 const chainTypeBadge = (task: ProcessTask) =>
   isDyeTask(task.processNameZh)
     ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
@@ -129,7 +129,7 @@ function chainSummaryText(sorted: ProcessTask[], materialTaskIds: Set<string>, q
   return sorted.map(t => {
     let label = t.processNameZh
     const fb = t as FallbackTask
-    if (isDyeTask(label)) label += '（次链路）'
+    if (isDyeTask(label)) label += '（相关流程）'
     if (materialTaskIds.has(t.taskId) || fb._hasMaterial) label += '（需领料）'
     if (qcTaskIds.has(t.taskId) || fb._hasQc) label += '（需质检）'
     return label
@@ -248,7 +248,7 @@ export function TaskBreakdownPage() {
       <div>
         <h1 className="text-2xl font-semibold text-foreground">任务清单</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          任务清单用于展示生产单基于技术包已生成的任务组成与顺序关系；本页重点呈现任务链结构、前后置关系、主次链路以及执行准备要求，不承接运行进度与分配结果。
+          任务清单用于展示生产单基于技术包已生成的任务组成与顺序关系；本页重点呈现任务链结构、前后置关系、主相关流程以及执行准备要求，不承接运行进度与分配结果。
         </p>
       </div>
 
@@ -256,8 +256,8 @@ export function TaskBreakdownPage() {
         {[
           { label: '生产单数', value: stats.orderCount, icon: <FileText className="h-4 w-4 text-muted-foreground" /> },
           { label: '任务总数', value: stats.total, icon: <Layers className="h-4 w-4 text-muted-foreground" /> },
-          { label: '主链路任务数', value: stats.mainCount, icon: <ChevronRight className="h-4 w-4 text-slate-500" /> },
-          { label: '次链路任务数', value: stats.subCount, icon: <ChevronRight className="h-4 w-4 text-indigo-500" /> },
+          { label: '当前生产流程任务数', value: stats.mainCount, icon: <ChevronRight className="h-4 w-4 text-slate-500" /> },
+          { label: '相关流程任务数', value: stats.subCount, icon: <ChevronRight className="h-4 w-4 text-indigo-500" /> },
           { label: '需领料任务数', value: stats.materialCount, icon: <ClipboardList className="h-4 w-4 text-amber-500" /> },
           { label: '需质检标准任务数', value: stats.qcCount, icon: <CheckSquare className="h-4 w-4 text-cyan-500" /> },
         ].map(s => (
@@ -299,8 +299,8 @@ export function TaskBreakdownPage() {
                   <TableHead>生产单号</TableHead>
                   <TableHead>主工厂</TableHead>
                   <TableHead className="text-center">任务总数</TableHead>
-                  <TableHead className="text-center">主链路</TableHead>
-                  <TableHead className="text-center">次链路</TableHead>
+                  <TableHead className="text-center">当前生产流程</TableHead>
+                  <TableHead className="text-center">相关流程</TableHead>
                   <TableHead className="min-w-[320px]">任务链摘要</TableHead>
                   <TableHead>执行准备摘要</TableHead>
                   <TableHead>操作</TableHead>

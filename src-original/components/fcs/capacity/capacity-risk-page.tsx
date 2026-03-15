@@ -22,7 +22,7 @@ const TASK_STATUS_ZH: Record<string, string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
   DONE:        '已完成',
-  BLOCKED:     '阻塞',
+  BLOCKED:     '暂不能继续',
   CANCELLED:   '已取消',
 }
 
@@ -39,7 +39,7 @@ function deliveryVariant(v: string): BadgeVariant {
 function riskVariant(v: string): BadgeVariant {
   if (v === '高风险')       return 'destructive'
   if (v === '待质检风险')   return 'default'
-  if (v === '待放行风险')   return 'default'
+  if (v === '待可继续风险')   return 'default'
   if (v === '可推进')       return 'secondary'
   return 'outline'
 }
@@ -49,8 +49,8 @@ function blockedVariant(v: string): BadgeVariant {
 }
 
 function dyeVariant(v: string): BadgeVariant {
-  if (v === '染印未放行' || v === '未放行') return 'default'
-  if (v === '染印已放行' || v === '已放行') return 'secondary'
+  if (v === '染印未可继续' || v === '未可继续') return 'default'
+  if (v === '染印已可继续' || v === '已可继续') return 'secondary'
   return 'outline'
 }
 
@@ -88,9 +88,9 @@ export function CapacityRiskPage() {
       if (orderDyes.length === 0) {
         dyeRiskZh = '无染印风险'
       } else if (orderDyes.every(d => d.availableQty <= 0)) {
-        dyeRiskZh = '染印未放行'
+        dyeRiskZh = '染印未可继续'
       } else {
-        dyeRiskZh = '染印已放行'
+        dyeRiskZh = '染印已可继续'
       }
 
       // 5) qc risk — by productionOrderId
@@ -103,7 +103,7 @@ export function CapacityRiskPage() {
         deliveryRiskZh = '高风险'
       } else if (qcRiskZh === '待质检') {
         deliveryRiskZh = '中风险'
-      } else if (dyeRiskZh === '染印未放行') {
+      } else if (dyeRiskZh === '染印未可继续') {
         deliveryRiskZh = '中风险'
       } else if (task.status === 'IN_PROGRESS') {
         deliveryRiskZh = '可推进'
@@ -142,9 +142,9 @@ export function CapacityRiskPage() {
       if (orderDyes.length === 0) {
         dyeStatusZh = '无染印'
       } else if (orderDyes.every(d => d.availableQty <= 0)) {
-        dyeStatusZh = '未放行'
+        dyeStatusZh = '未可继续'
       } else {
-        dyeStatusZh = '已放行'
+        dyeStatusZh = '已可继续'
       }
 
       let riskSummaryZh: string
@@ -152,8 +152,8 @@ export function CapacityRiskPage() {
         riskSummaryZh = '高风险'
       } else if (qcPendingCount > 0) {
         riskSummaryZh = '待质检风险'
-      } else if (dyeStatusZh === '未放行') {
-        riskSummaryZh = '待放行风险'
+      } else if (dyeStatusZh === '未可继续') {
+        riskSummaryZh = '待可继续风险'
       } else if (taskCount > 0) {
         riskSummaryZh = '可推进'
       } else {
@@ -177,7 +177,7 @@ export function CapacityRiskPage() {
     taskTotal:      processTasks.length,
     blocked:        processTasks.filter(t => t.status === 'BLOCKED').length,
     qcPending:      orderRows.filter(r => r.qcPendingCount > 0).length,
-    dyePending:     orderRows.filter(r => r.dyeStatusZh === '未放行').length,
+    dyePending:     orderRows.filter(r => r.dyeStatusZh === '未可继续').length,
     highRisk:       orderRows.filter(r => r.riskSummaryZh === '高风险').length,
     ok:             orderRows.filter(r => r.riskSummaryZh === '可推进').length,
   }), [processTasks, orderRows])
@@ -214,16 +214,16 @@ export function CapacityRiskPage() {
 
       {/* 提示区 */}
       <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        任务占用与交付风险用于从任务阻塞、染印放行、待质检等维度识别当前交付压力；原型阶段采用轻量聚合口径
+        任务占用与交付风险用于从任务暂不能继续、染印可继续、待质检等维度识别当前交付压力；原型阶段采用轻量聚合口径
       </div>
 
       {/* 统计卡 */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {([
           { label: '任务总数',         value: stats.taskTotal },
-          { label: '阻塞任务数',       value: stats.blocked },
+          { label: '暂不能继续任务数',       value: stats.blocked },
           { label: '待质检生产单数',   value: stats.qcPending },
-          { label: '染印未放行生产单数', value: stats.dyePending },
+          { label: '染印未可继续生产单数', value: stats.dyePending },
           { label: '高风险生产单数',   value: stats.highRisk },
           { label: '可推进生产单数',   value: stats.ok },
         ] as const).map(s => (
@@ -265,7 +265,7 @@ export function CapacityRiskPage() {
                   <TableHead>生产单号</TableHead>
                   <TableHead>工厂</TableHead>
                   <TableHead>任务状态</TableHead>
-                  <TableHead>是否阻塞</TableHead>
+                  <TableHead>是否暂不能继续</TableHead>
                   <TableHead>染印风险</TableHead>
                   <TableHead>质检风险</TableHead>
                   <TableHead>交付风险</TableHead>
@@ -340,7 +340,7 @@ export function CapacityRiskPage() {
                   <TableHead>生产单号</TableHead>
                   <TableHead>主工厂</TableHead>
                   <TableHead>关联任务数</TableHead>
-                  <TableHead>阻塞任务数</TableHead>
+                  <TableHead>暂不能继续任务数</TableHead>
                   <TableHead>待质检数</TableHead>
                   <TableHead>染印状态</TableHead>
                   <TableHead>风险摘要</TableHead>

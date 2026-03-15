@@ -201,10 +201,10 @@ function buildTodos(): TodoItem[] {
       todos.push({
         id: `gate-${task.taskId}`,
         kind: 'PENDING_GATE',
-        kindZh: '待处理门禁阻塞',
-        title: `任务 ${task.taskId} 门禁阻塞`,
+        kindZh: '待处理当前暂不能继续',
+        title: `任务 ${task.taskId} 当前暂不能继续`,
         relatedObj: task.productionOrderId ?? task.taskId,
-        note: task.blockNoteZh ?? '配货门禁未放行，任务阻塞',
+        note: task.blockNoteZh ?? '配货开始条件未满足，任务暂不能继续',
         updatedAt: task.updatedAt ?? task.createdAt,
         href: '/fcs/process/task-breakdown',
         actionLabel: '查看拆解任务',
@@ -223,10 +223,10 @@ function buildRisks(): RiskItem[] {
       risks.push({
         id: `gate-${task.taskId}`,
         kind: 'GATE_BLOCKED',
-        kindZh: '门禁阻塞',
-        title: `任务 ${task.taskId} 门禁阻塞`,
+        kindZh: '当前暂不能继续',
+        title: `任务 ${task.taskId} 当前暂不能继续`,
         relatedObj: task.productionOrderId ?? task.taskId,
-        note: task.blockNoteZh ?? '配货门禁未放行，任务无法继续',
+        note: task.blockNoteZh ?? '配货开始条件未满足，任务无法继续',
         updatedAt: task.updatedAt ?? task.createdAt,
         href: '/fcs/process/task-breakdown',
         actionLabel: '查看拆解任务',
@@ -278,7 +278,7 @@ function buildRisks(): RiskItem[] {
           : task.status === 'IN_PROGRESS'
             ? '进行中'
             : task.status === 'BLOCKED'
-              ? '阻塞'
+              ? '暂不能继续'
               : task.status
 
       risks.push({
@@ -420,7 +420,7 @@ export function renderOverviewPage(): string {
         <h2 class="text-sm font-medium text-muted-foreground">核心运营</h2>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
           ${statCard('生产任务总数', processTasks.length)}
-          ${statCard('门禁阻塞任务数', blockedTasks.length, blockedTasks.length > 0 ? 'text-red-600' : 'text-foreground')}
+          ${statCard('当前暂不能继续任务数', blockedTasks.length, blockedTasks.length > 0 ? 'text-red-600' : 'text-foreground')}
           ${statCard('质检未结案数', openQc.length, openQc.length > 0 ? 'text-amber-600' : 'text-foreground')}
           ${statCard('争议中数', disputedCount, disputedCount > 0 ? 'text-orange-600' : 'text-foreground')}
           ${statCard('可进入结算依据数', readyBasis.length, 'text-green-600')}
@@ -434,7 +434,7 @@ export function renderOverviewPage(): string {
         <h2 class="text-sm font-medium text-muted-foreground">染印加工</h2>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
           ${statCard('染印加工单总数', dpTotal)}
-          ${statCard('染印可放行工单数', dpAvailable, 'text-green-600')}
+          ${statCard('染印可继续工单数', dpAvailable, 'text-green-600')}
           ${statCard('染印不合格处理中数', dpFail, dpFail > 0 ? 'text-red-600' : 'text-foreground')}
           ${statCard('回货批次数', initialDyePrintOrders.reduce((sum, item) => sum + item.returnBatches.length, 0))}
         </div>
@@ -480,7 +480,7 @@ export function renderTodosPage(): string {
         ${statCard('待结案数', closeCount, closeCount > 0 ? 'text-blue-600' : 'text-foreground')}
         ${statCard('待仲裁数', arbitrationCount, arbitrationCount > 0 ? 'text-orange-600' : 'text-foreground')}
         ${statCard('待生成对账单数', statementCount, statementCount > 0 ? 'text-green-600' : 'text-foreground')}
-        ${statCard('待处理门禁阻塞数', gateCount, gateCount > 0 ? 'text-red-600' : 'text-foreground')}
+        ${statCard('待处理当前暂不能继续数', gateCount, gateCount > 0 ? 'text-red-600' : 'text-foreground')}
       </div>
 
       <div class="rounded-lg border bg-card">
@@ -536,7 +536,7 @@ export function renderRisksPage(): string {
     <div class="space-y-6 p-6">
       <h1 class="text-xl font-semibold">风险提醒</h1>
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        ${statCard('门禁阻塞风险数', gateCount, gateCount > 0 ? 'text-red-600' : 'text-foreground')}
+        ${statCard('当前暂不能继续风险数', gateCount, gateCount > 0 ? 'text-red-600' : 'text-foreground')}
         ${statCard('争议冻结风险数', disputeCount, disputeCount > 0 ? 'text-orange-600' : 'text-foreground')}
         ${statCard('质检超期风险数', qcOverdueCount, qcOverdueCount > 0 ? 'text-amber-600' : 'text-foreground')}
         ${statCard('返工未完成风险数', reworkCount, reworkCount > 0 ? 'text-blue-600' : 'text-foreground')}

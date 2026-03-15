@@ -426,7 +426,7 @@ export function FactoryFormDialog({
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">类型用于分配门禁与产能/绩效归类</p>
+                    <p className="text-xs text-muted-foreground">类型用于分配开始条件与产能/绩效归类</p>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -454,7 +454,7 @@ export function FactoryFormDialog({
                 </div>
               </div>
 
-              {/* 主链路资格门禁 */}
+              {/* 当前生产流程资格开始条件 */}
               <div className="space-y-4">
                 <h4 className="text-sm font-semibold text-foreground border-b pb-1">{t('factory.eligibility.label')}</h4>
                 <div className="grid grid-cols-2 gap-3">

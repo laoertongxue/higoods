@@ -213,7 +213,7 @@ export default function DyePrintOrdersPage() {
   function validateCreate(): boolean {
     const errors: Partial<Record<keyof CreateForm, string>> = {}
     if (!createForm.productionOrderId.trim()) errors.productionOrderId = '请填写生产工单号'
-    if (!createForm.relatedTaskId.trim()) errors.relatedTaskId = '请选择关联主链路任务'
+    if (!createForm.relatedTaskId.trim()) errors.relatedTaskId = '请选择关联当前生产流程任务'
     if (!createForm.processorFactoryId) errors.processorFactoryId = '请选择承接主体'
     const qty = Number(createForm.plannedQty)
     if (!createForm.plannedQty || !Number.isInteger(qty) || qty <= 0) errors.plannedQty = '请输入正整数'
@@ -276,9 +276,9 @@ export default function DyePrintOrdersPage() {
     })
     if (r.ok) {
       if (returnForm.result === 'PASS') {
-        toast.success('合格回货已登记，主链路可用量已更新')
+        toast.success('合格回货已登记，当前生产流程可用量已更新')
       } else {
-        toast.success('已生成质检单，结案后将回写主链路可用量')
+        toast.success('已生成质检单，结案后将同步更新当前生产流程可用量')
         if (r.qcId) {
           setLastQcByDpId(prev => ({ ...prev, [returnTarget.dpId]: r.qcId! }))
         }
@@ -297,7 +297,7 @@ export default function DyePrintOrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">染印加工单</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">管理印花、染色、染印等次链路工单</p>
+          <p className="text-sm text-muted-foreground mt-0.5">管理印花、染色、染印等相关流程工单</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">{filtered.length} 条</span>
@@ -386,9 +386,9 @@ export default function DyePrintOrdersPage() {
                   <TableHead className="text-right">合格回货</TableHead>
                   <TableHead className="text-right">不合格</TableHead>
                   <TableHead className="text-right">可用量</TableHead>
-                  <TableHead>放行状态</TableHead>
-                  <TableHead className="text-right">主链路可用量</TableHead>
-                  <TableHead>主链路放行状态</TableHead>
+                  <TableHead>可继续状态</TableHead>
+                  <TableHead className="text-right">当前生产流程可用量</TableHead>
+                  <TableHead>当前生产流程可继续状态</TableHead>
                   <TableHead>最近处理结果</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead>更新时间</TableHead>
@@ -410,7 +410,7 @@ export default function DyePrintOrdersPage() {
                   let recentResult = '—'
                   if (latestBatch) {
                     if (latestBatch.result === 'PASS') {
-                      recentResult = '合格放行'
+                      recentResult = '合格可继续'
                     } else if (!latestBatch.qcId) {
                       recentResult = '不合格待建单'
                     } else {
@@ -440,20 +440,20 @@ export default function DyePrintOrdersPage() {
                       <TableCell className="text-right font-mono text-sm font-semibold">{order.availableQty}</TableCell>
                       <TableCell>
                         {order.availableQty > 0
-                          ? <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">可放行</Badge>
-                          : <Badge variant="outline" className="text-muted-foreground text-xs">未放行</Badge>
+                          ? <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">可可继续</Badge>
+                          : <Badge variant="outline" className="text-muted-foreground text-xs">未可继续</Badge>
                         }
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm font-semibold">{mainAvailQty}</TableCell>
                       <TableCell>
                         {mainAvailQty > 0
-                          ? <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">可放行</Badge>
-                          : <Badge variant="outline" className="text-muted-foreground text-xs">未放行</Badge>
+                          ? <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">可可继续</Badge>
+                          : <Badge variant="outline" className="text-muted-foreground text-xs">未可继续</Badge>
                         }
                       </TableCell>
                       <TableCell className="text-xs whitespace-nowrap">
                         <span className={
-                          recentResult === '合格放行' ? 'text-green-700 font-medium' :
+                          recentResult === '合格可继续' ? 'text-green-700 font-medium' :
                           recentResult === '不合格已结案' ? 'text-blue-700' :
                           recentResult === '不合格处理中' ? 'text-orange-600' :
                           recentResult === '不合格待建单' ? 'text-red-600' :
@@ -588,7 +588,7 @@ export default function DyePrintOrdersPage() {
               {createErrors.relatedTaskId ? (
                 <p className="text-xs text-destructive">{createErrors.relatedTaskId}</p>
               ) : (
-                <p className="text-xs text-muted-foreground">用于 PASS 回货直接写入主链路可用量，FAIL 时生成质检单</p>
+                <p className="text-xs text-muted-foreground">用于 PASS 回货直接写入当前生产流程可用量，FAIL 时生成质检单</p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -692,12 +692,12 @@ export default function DyePrintOrdersPage() {
                 </div>
                 {returnForm.result === 'PASS' && (
                   <p className="text-xs text-green-700 bg-green-50 rounded px-2 py-1">
-                    合格回货会直接写入主链路可用量，并触发下游门禁重算
+                    合格回货会直接写入当前生产流程可用量，并触发下一步开始条件重算
                   </p>
                 )}
                 {returnForm.result === 'FAIL' && (
                   <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
-                    不合格回货会生成质检单；需完成判责、处置拆分并结案后，才会写入主链路可用量
+                    不合格回货会生成质检单；需完成判责、处置拆分并结案后，才会写入当前生产流程可用量
                   </p>
                 )}
               </div>

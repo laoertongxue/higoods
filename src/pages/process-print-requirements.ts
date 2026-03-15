@@ -79,7 +79,7 @@ const RULES = [
   '一单一料：一张需求单只对应一条物料需求',
   '印花回货先进入 WMS 裁片仓',
   '仓配满足：仓库对对应生产单完成配料后需求才满足',
-  '门禁放行：完成配料后才能进入下一工序',
+  '进入下一工序前需完成：仓库完成配料',
 ]
 
 const DEMAND_SEEDS: PrintRequirementDemand[] = [
@@ -647,7 +647,7 @@ function renderDetailDrawer(): string {
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold">印花需求单详情</h2>
-              <p class="mt-1 text-xs text-muted-foreground">查看来源、仓配满足进度、配料满足来源及下一工序放行情况</p>
+              <p class="mt-1 text-xs text-muted-foreground">查看来源、仓配满足进度、配料满足来源及下一工序是否可进入</p>
             </div>
             <div class="flex items-center gap-2">
               <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-print-req-action="create-order" data-demand-id="${escapeHtml(demand.demandId)}">按需求创建加工单</button>
@@ -732,12 +732,12 @@ function renderDetailDrawer(): string {
           </section>
 
           <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-3 text-sm font-semibold">下一工序放行</h3>
+            <h3 class="mb-3 text-sm font-semibold">进入下一工序判断</h3>
             <div class="space-y-2 text-sm">
-              <div class="flex items-center gap-2"><span class="text-muted-foreground">放行结果：</span>${releaseAllowed ? renderBadge('允许', 'border-green-200 bg-green-50 text-green-700') : renderBadge('不允许', 'border-red-200 bg-red-50 text-red-700')}</div>
+              <div class="flex items-center gap-2"><span class="text-muted-foreground">是否可进入下一步：</span>${releaseAllowed ? renderBadge('允许', 'border-green-200 bg-green-50 text-green-700') : renderBadge('不允许', 'border-red-200 bg-red-50 text-red-700')}</div>
               <div><span class="text-muted-foreground">判定依据：</span>${releaseAllowed ? `仓库已针对生产单 ${demand.sourceProductionOrderId} 完成配料` : `仓库尚未针对生产单 ${demand.sourceProductionOrderId} 完成配料`}</div>
               <div><span class="text-muted-foreground">当前差额：</span>${escapeHtml(formatQty(remainingQty, demand.unit))}</div>
-              <div><span class="text-muted-foreground">${releaseAllowed ? '可进入下一工序：' : '阻塞原因：'}</span>${escapeHtml(releaseAllowed ? demand.nextProcessName : `仍有${remainingQty}${demand.unit}待配料，生产单未完成配料，无法放行`)}</div>
+              <div><span class="text-muted-foreground">${releaseAllowed ? '可进入下一工序：' : '当前无法继续的原因：'}</span>${escapeHtml(releaseAllowed ? demand.nextProcessName : `仍有${remainingQty}${demand.unit}待配料，生产单未完成配料，当前暂不能进入下一工序`)}</div>
             </div>
           </section>
 

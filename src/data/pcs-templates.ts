@@ -192,7 +192,7 @@ const TEMPLATE_SEEDS: ProjectTemplate[] = [
       {
         id: 'TPL-001-S4',
         name: '04 结论与推进',
-        description: '测款结论判定为唯一推进闸口。',
+        description: '测款结论判定为唯一推进条件。',
         required: true,
         workItems: [
           {
@@ -266,7 +266,7 @@ const TEMPLATE_SEEDS: ProjectTemplate[] = [
       {
         id: 'TPL-002-S1',
         name: '01 立项获取',
-        description: '快速立项与到样闭环，优先保障上新速度。',
+        description: '快速立项与到样已完成，优先保障上新速度。',
         required: true,
         workItems: [
           {

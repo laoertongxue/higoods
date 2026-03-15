@@ -282,7 +282,7 @@ const ORDER_SEEDS: DyeProcessOrder[] = [
       receivedQty: 1500,
       receivedAt: '2026-03-13 16:02:00',
       receiptVoucher: 'WMS 入库单 RK202603130066 + 收料签认 SR20260313009',
-      qualityConclusion: '全批次来料合格，已完成执行闭环。',
+      qualityConclusion: '全批次来料合格，已完成执行已完成。',
     },
     batches: [
       {

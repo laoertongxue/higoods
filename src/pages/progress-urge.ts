@@ -121,7 +121,7 @@ const URGE_TYPE_LABEL: Record<UrgeType, string> = {
   URGE_ASSIGN_ACK: '催确认接单',
   URGE_START: '催开工',
   URGE_FINISH: '催完工',
-  URGE_UNBLOCK: '催解除阻塞',
+  URGE_UNBLOCK: '催尽快处理',
   URGE_TENDER_BID: '催报价',
   URGE_TENDER_AWARD: '催定标',
   URGE_HANDOVER_CONFIRM: '催交接确认',
@@ -533,14 +533,14 @@ function recomputeAutoNotifications(): number {
     }
   })
 
-  // D. 任务阻塞
+  // D. 任务暂不能继续
   processTasks.forEach((task) => {
     if (task.status !== 'BLOCKED') return
 
     const merchNotification: Omit<Notification, 'notificationId' | 'createdAt'> = {
       level: 'WARN',
-      title: '任务阻塞提醒',
-      content: `任务${task.taskId}因${task.blockReason || '未知原因'}阻塞`,
+      title: '任务暂不能继续提醒',
+      content: `任务${task.taskId}因${task.blockReason || '未知原因'}暂不能继续`,
       recipientType: 'INTERNAL_USER',
       recipientId: 'U002',
       recipientName: '跟单A',
@@ -569,8 +569,8 @@ function recomputeAutoNotifications(): number {
       const factory = indonesiaFactories.find((item) => item.id === task.assignedFactoryId)
       const factoryNotification: Omit<Notification, 'notificationId' | 'createdAt'> = {
         level: 'WARN',
-        title: '任务阻塞建议',
-        content: `任务${task.taskId}阻塞，请尽快解除`,
+        title: '任务暂不能继续建议',
+        content: `任务${task.taskId}暂不能继续，请尽快解除`,
         recipientType: 'FACTORY',
         recipientId: task.assignedFactoryId,
         recipientName: factory?.name || task.assignedFactoryId,

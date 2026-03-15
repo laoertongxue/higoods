@@ -176,7 +176,7 @@ export function FactoryProfilePage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{t('factory.master.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            管理合作工厂的基本信息档案，包括组织层级、PDA配置、主链路资格门禁等核心主数据
+            管理合作工厂的基本信息档案，包括组织层级、PDA配置、当前生产流程资格开始条件等核心主数据
           </p>
         </div>
         <Button onClick={handleCreate}>

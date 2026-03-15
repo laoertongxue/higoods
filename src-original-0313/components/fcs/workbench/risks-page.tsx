@@ -72,16 +72,16 @@ export function RisksPage() {
   const risks = useMemo<RiskItem[]>(() => {
     const items: RiskItem[] = []
 
-    // 门禁阻塞风险
+    // 开始条件暂不能继续风险
     processTasks
       .filter(t => t.status === 'BLOCKED' && t.blockReason === 'ALLOCATION_GATE')
       .forEach(t => items.push({
         id: `gate-${t.taskId}`,
         kind: 'GATE_BLOCKED',
-        kindZh: '门禁阻塞',
-        title: `任务 ${t.taskId} 门禁阻塞`,
+        kindZh: '开始条件暂不能继续',
+        title: `任务 ${t.taskId} 开始条件暂不能继续`,
         relatedObj: t.productionOrderId ?? t.taskId,
-        note: (t as any).blockNoteZh ?? '配货门禁未放行，任务无法继续',
+        note: (t as any).blockNoteZh ?? '配货开始条件未可继续，任务无法继续',
         updatedAt: t.updatedAt ?? t.createdAt ?? '',
         href: '/fcs/process/task-breakdown',
         actionLabel: '查看拆解任务',
@@ -126,7 +126,7 @@ export function RisksPage() {
         kindZh: '返工未完成',
         title: `${t.taskKind === 'REWORK' ? '返工' : '重做'}任务 ${t.taskId} 未完成`,
         relatedObj: t.productionOrderId ?? t.taskId,
-        note: `任务状态：${t.status === 'NOT_STARTED' ? '未开始' : t.status === 'IN_PROGRESS' ? '进行中' : t.status === 'BLOCKED' ? '阻塞' : t.status}`,
+        note: `任务状态：${t.status === 'NOT_STARTED' ? '未开始' : t.status === 'IN_PROGRESS' ? '进行中' : t.status === 'BLOCKED' ? '暂不能继续' : t.status}`,
         updatedAt: t.updatedAt ?? t.createdAt ?? '',
         href: '/fcs/quality/rework',
         actionLabel: '查看返工任务',
@@ -163,7 +163,7 @@ export function RisksPage() {
       <h1 className="text-xl font-semibold">风险提醒</h1>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <StatCard label="门禁阻塞风险数" value={counts.gate} color={counts.gate > 0 ? 'text-red-600' : undefined} />
+        <StatCard label="开始条件暂不能继续风险数" value={counts.gate} color={counts.gate > 0 ? 'text-red-600' : undefined} />
         <StatCard label="争议冻结风险数" value={counts.dispute} color={counts.dispute > 0 ? 'text-orange-600' : undefined} />
         <StatCard label="质检超期风险数" value={counts.qcOverdue} color={counts.qcOverdue > 0 ? 'text-amber-600' : undefined} />
         <StatCard label="返工未完成风险数" value={counts.rework} color={counts.rework > 0 ? 'text-blue-600' : undefined} />

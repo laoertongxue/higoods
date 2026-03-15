@@ -293,7 +293,7 @@ function createUrge(payload: Omit<UrgeLog, 'urgeId' | 'createdAt' | 'status' | '
     URGE_ASSIGN_ACK: '催确认接单',
     URGE_START: '催开工',
     URGE_FINISH: '催完工',
-    URGE_UNBLOCK: '催解除阻塞',
+    URGE_UNBLOCK: '催尽快处理',
     URGE_TENDER_BID: '催报价',
     URGE_TENDER_AWARD: '催定标',
     URGE_HANDOVER_CONFIRM: '催交接确认',

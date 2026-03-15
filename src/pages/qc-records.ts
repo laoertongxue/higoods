@@ -380,7 +380,7 @@ function blockTaskForQuality(task: ProcessTask, qcId: string, by: string, now: s
     {
       id: `AL-BLOCK-QC-${Date.now()}-${randomSuffix(4)}`,
       action: 'BLOCK_BY_QC',
-      detail: `质检 ${qcId} 不合格，任务阻塞`,
+      detail: `质检 ${qcId} 不合格，任务暂不能继续`,
       at: now,
       by,
     },
@@ -572,7 +572,7 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
       auditLogs.push({
         id: `QAL-NOTFOUND-${Date.now()}-${randomSuffix(4)}`,
         action: 'PARENT_TASK_NOT_FOUND',
-        detail: `父任务 ${qc.refId} 不存在，无法阻塞及生成返工`,
+        detail: `父任务 ${qc.refId} 不存在，无法暂不能继续及生成返工`,
         at: now,
         by,
       })
@@ -930,7 +930,7 @@ function renderBlockBadge(qc: QualityInspection): string {
   }
 
   if (task.status === 'BLOCKED' && task.blockReason === 'QUALITY') {
-    return '<span class="inline-flex rounded-md border border-red-200 bg-red-100 px-2 py-0.5 text-xs text-red-700">已阻塞</span>'
+    return '<span class="inline-flex rounded-md border border-red-200 bg-red-100 px-2 py-0.5 text-xs text-red-700">已暂不能继续</span>'
   }
 
   return '<span class="inline-flex rounded-md border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">正常</span>'
@@ -1037,7 +1037,7 @@ export function renderQcRecordsPage(): string {
                     <th class="px-4 py-2 font-medium">处置方式</th>
                     <th class="px-4 py-2 text-right font-medium">受影响数量</th>
                     <th class="px-4 py-2 text-right font-medium">返工任务数</th>
-                    <th class="px-4 py-2 font-medium">阻塞状态</th>
+                    <th class="px-4 py-2 font-medium">暂不能继续状态</th>
                     <th class="px-4 py-2 font-medium">质检时间</th>
                     <th class="px-4 py-2 font-medium">操作</th>
                   </tr>

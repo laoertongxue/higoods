@@ -184,7 +184,7 @@ const workItemTemplateConfigs: Record<string, WorkItemTemplateConfig> = {
     ],
     statusNotes: "一旦完成即生成商品项目主记录，不支持回退或重新执行。",
     inputFields: [],
-    inputFieldsNotes: "该工作项无上游输入字段，为商品项目的创建起点。",
+    inputFieldsNotes: "该工作项无上一步输入字段，为商品项目的创建起点。",
     fieldGroups: [
       {
         id: "basic-identity",

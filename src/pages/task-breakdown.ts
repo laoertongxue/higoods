@@ -250,7 +250,7 @@ function getTaskDyeSet(allTasks: ProcessTask[]): Set<string> {
 }
 
 function chainTypeZh(task: ProcessTask): string {
-  return isDyeTask(task.processNameZh) ? '次链路' : '主链路'
+  return isDyeTask(task.processNameZh) ? '相关流程' : '当前生产流程'
 }
 
 function chainTypeClass(task: ProcessTask): string {
@@ -286,7 +286,7 @@ function chainSummaryText(
       const fallbackTask = task as FallbackTask
 
       if (isDyeTask(label)) {
-        label += '（次链路）'
+        label += '（相关流程）'
       }
 
       if (materialTaskIds.has(task.taskId) || fallbackTask._hasMaterial) {
@@ -437,8 +437,8 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
             <th class="px-3 py-2 text-left font-medium">生产单号</th>
             <th class="px-3 py-2 text-left font-medium">主工厂</th>
             <th class="px-3 py-2 text-center font-medium">任务总数</th>
-            <th class="px-3 py-2 text-center font-medium">主链路</th>
-            <th class="px-3 py-2 text-center font-medium">次链路</th>
+            <th class="px-3 py-2 text-center font-medium">当前生产流程</th>
+            <th class="px-3 py-2 text-center font-medium">相关流程</th>
             <th class="min-w-[320px] px-3 py-2 text-left font-medium">任务链摘要</th>
             <th class="px-3 py-2 text-left font-medium">执行准备摘要</th>
             <th class="px-3 py-2 text-left font-medium">操作</th>
@@ -673,7 +673,7 @@ export function renderTaskBreakdownPage(): string {
       <header>
         <h1 class="text-2xl font-semibold text-foreground">任务清单</h1>
         <p class="mt-1 text-sm text-muted-foreground">
-          任务清单用于展示生产单基于技术包已生成的任务组成与顺序关系；本页重点呈现任务链结构、前后置关系、主次链路以及执行准备要求，不承接运行进度与分配结果。
+          任务清单用于展示生产单基于技术包已生成的任务组成与顺序关系；本页重点呈现任务链结构、前后置关系、主相关流程以及执行准备要求，不承接运行进度与分配结果。
         </p>
       </header>
 
@@ -696,7 +696,7 @@ export function renderTaskBreakdownPage(): string {
 
         <article class="rounded-lg border bg-card py-3">
           <header class="flex items-center justify-between px-4 pb-1 pt-0">
-            <h2 class="text-xs font-medium text-muted-foreground">主链路任务数</h2>
+            <h2 class="text-xs font-medium text-muted-foreground">当前流程任务数</h2>
             <i data-lucide="chevron-right" class="h-4 w-4 text-slate-500"></i>
           </header>
           <div class="px-4 pb-0"><p class="text-2xl font-bold">${stats.mainCount}</p></div>
@@ -704,7 +704,7 @@ export function renderTaskBreakdownPage(): string {
 
         <article class="rounded-lg border bg-card py-3">
           <header class="flex items-center justify-between px-4 pb-1 pt-0">
-            <h2 class="text-xs font-medium text-muted-foreground">次链路任务数</h2>
+            <h2 class="text-xs font-medium text-muted-foreground">相关流程任务数</h2>
             <i data-lucide="chevron-right" class="h-4 w-4 text-indigo-500"></i>
           </header>
           <div class="px-4 pb-0"><p class="text-2xl font-bold">${stats.subCount}</p></div>

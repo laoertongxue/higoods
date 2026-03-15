@@ -106,7 +106,7 @@ const assignmentStatusColorMap: Record<TaskAssignmentStatus, string> = {
   AWARDED: 'bg-green-100 text-green-700',
 }
 
-// 阻塞原因选项
+// 暂不能继续原因选项
 const blockReasonOptions: { value: BlockReason; label: string }[] = [
   { value: 'MATERIAL', label: t('block.reason.MATERIAL') },
   { value: 'CAPACITY', label: t('block.reason.CAPACITY') },
@@ -349,7 +349,7 @@ export function ProgressBoardPage() {
     toast({ title: t('common.success'), description: `任务 ${task.taskId} 状态已更新` })
   }
   
-  // 确认阻塞
+  // 确认暂不能继续
   const handleConfirmBlock = () => {
     if (!blockDialog) return
     updateTaskStatus(blockDialog.task.taskId, 'BLOCKED', blockReason, blockRemark, 'Admin')
@@ -367,10 +367,10 @@ export function ProgressBoardPage() {
       sourceType: 'TASK',
       sourceId: blockDialog.task.taskId,
       reasonCode: reasonCodeMap[blockReason],
-      detail: blockRemark || `任务 ${blockDialog.task.taskId} 被标记为阻塞，原因：${t(`block.reason.${blockReason}`)}`,
+      detail: blockRemark || `任务 ${blockDialog.task.taskId} 被标记为暂不能继续，原因：${t(`block.reason.${blockReason}`)}`,
     })
     
-    toast({ title: t('common.success'), description: `任务 ${blockDialog.task.taskId} 已标记为阻塞` })
+    toast({ title: t('common.success'), description: `任务 ${blockDialog.task.taskId} 已标记为暂不能继续` })
     setBlockDialog(null)
     setBlockReason('OTHER')
     setBlockRemark('')
@@ -1158,7 +1158,7 @@ export function ProgressBoardPage() {
                   )}
                 </TabsContent>
                 
-                {/* 阻塞信息 */}
+                {/* 暂不能继续信息 */}
                 {detailTask.status === 'BLOCKED' && (
                   <TabsContent value="block" className="space-y-4 mt-4">
                     <div>
@@ -1232,7 +1232,7 @@ export function ProgressBoardPage() {
         </SheetContent>
       </Sheet>
       
-      {/* 阻塞原因 Dialog */}
+      {/* 暂不能继续原因 Dialog */}
       <Dialog open={!!blockDialog} onOpenChange={() => setBlockDialog(null)}>
         <DialogContent>
           <DialogHeader>

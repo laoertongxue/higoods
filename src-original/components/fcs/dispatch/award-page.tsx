@@ -34,7 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { Empty } from '@/components/ui/empty'
 
-// ─── 上下游状态映射 ────────────────────────────────
+// ─── 上一步与下一步状态映射 ────────────────────────────────
 const PLAN_STATUS_ZH: Record<string, string> = {
   UNPLANNED: '未计划',
   PLANNED:   '已计划',
@@ -113,7 +113,7 @@ export function AwardPage() {
   const [voidTenderId, setVoidTenderId]     = useState('')
   const [voidRemarkInput, setVoidRemarkInput] = useState('')
 
-  // ─── 上下游摘要 map ────────────────────────────
+  // ─── 上一步与下一步摘要 map ────────────────────────────
   const summaryMap = useMemo(() => {
     const map = new Map<string, {
       planStatusZh: string
@@ -248,7 +248,7 @@ export function AwardPage() {
 
       {/* 提示区 */}
       <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        定标用于确认招标单的中标工厂；本页同步展示生产单计划、任务阻塞、异常情况与中标结果摘要
+        定标用于确认招标单的中标工厂；本页同步展示生产单计划、任务暂不能继续、异常情况与中标结果摘要
       </div>
 
       {/* 统计卡 */}
@@ -287,7 +287,7 @@ export function AwardPage() {
         </Card>
       </div>
 
-      {/* 上下游概览卡 */}
+      {/* 上一步与下一步概览卡 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-1 pt-4 px-4">
@@ -299,7 +299,7 @@ export function AwardPage() {
         </Card>
         <Card>
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">有阻塞任务的定标单数</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">有暂不能继续任务的定标单数</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="text-2xl font-bold">{stats.hasBlocked}</p>
@@ -378,7 +378,7 @@ export function AwardPage() {
                 <TableHead>生产单计划状态</TableHead>
                 <TableHead>生产单状态</TableHead>
                 <TableHead>关联任务数</TableHead>
-                <TableHead>阻塞任务数</TableHead>
+                <TableHead>暂不能继续任务数</TableHead>
                 <TableHead>异常数</TableHead>
                 <TableHead>候选工厂数</TableHead>
                 <TableHead>中标工厂</TableHead>

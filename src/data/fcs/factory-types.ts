@@ -30,7 +30,7 @@ export type FactoryType =
   // 三方工厂类型
   | 'THIRD_SEWING'        // 小微缝纫工厂
 
-// 主链路资格门禁
+// 生产流程开始条件
 export interface FactoryEligibility {
   allowDispatch: boolean
   allowBid: boolean
@@ -68,7 +68,7 @@ export interface Factory {
   // 新增：PDA 配置
   pdaEnabled: boolean
   pdaTenantId?: string
-  // 新增：主链路资格门禁
+  // 新增：生产流程开始条件
   eligibility: FactoryEligibility
 }
 

@@ -18,7 +18,7 @@ export default function PdaLayout({ children }: PdaLayoutProps) {
   const { toast } = useToast()
   const { state } = useFcs()
 
-  // 门禁：非 login 页面检查会话
+  // 开始条件：非 login 页面检查会话
   useEffect(() => {
     if (pathname === '/fcs/pda/login') return
     const session = getPdaSession()

@@ -126,16 +126,16 @@ export function TodosPage() {
         actionLabel: '查看对账单生成',
       }))
 
-    // 待处理门禁阻塞
+    // 待处理开始条件暂不能继续
     processTasks
       .filter(t => t.status === 'BLOCKED' && t.blockReason === 'ALLOCATION_GATE')
       .forEach(t => items.push({
         id: `gate-${t.taskId}`,
         kind: 'PENDING_GATE',
-        kindZh: '待处理门禁阻塞',
-        title: `任务 ${t.taskId} 门禁阻塞`,
+        kindZh: '待处理开始条件暂不能继续',
+        title: `任务 ${t.taskId} 开始条件暂不能继续`,
         relatedObj: t.productionOrderId ?? t.taskId,
-        note: (t as any).blockNoteZh ?? '配货门禁未放行，任务阻塞',
+        note: (t as any).blockNoteZh ?? '配货开始条件未可继续，任务暂不能继续',
         updatedAt: t.updatedAt ?? t.createdAt ?? '',
         href: '/fcs/process/task-breakdown',
         actionLabel: '查看拆解任务',
@@ -162,7 +162,7 @@ export function TodosPage() {
         <StatCard label="待结案数" value={counts.close} color={counts.close > 0 ? 'text-blue-600' : undefined} />
         <StatCard label="待仲裁数" value={counts.arbitration} color={counts.arbitration > 0 ? 'text-orange-600' : undefined} />
         <StatCard label="待生成对账单数" value={counts.statement} color={counts.statement > 0 ? 'text-green-600' : undefined} />
-        <StatCard label="待处理门禁阻塞数" value={counts.gate} color={counts.gate > 0 ? 'text-red-600' : undefined} />
+        <StatCard label="待处理开始条件暂不能继续数" value={counts.gate} color={counts.gate > 0 ? 'text-red-600' : undefined} />
       </div>
 
       <Card>

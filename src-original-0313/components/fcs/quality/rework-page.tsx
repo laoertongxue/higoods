@@ -31,7 +31,7 @@ const TASK_STATUS_ZH: Record<TaskStatus, string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS:  '进行中',
   DONE:         '已完成',
-  BLOCKED:      '阻塞',
+  BLOCKED:      '暂不能继续',
   CANCELLED:    '已取消',
 }
 
@@ -187,7 +187,7 @@ export function ReworkPage() {
             <SelectItem value="NOT_STARTED">未开始</SelectItem>
             <SelectItem value="IN_PROGRESS">进行中</SelectItem>
             <SelectItem value="DONE">已完成</SelectItem>
-            <SelectItem value="BLOCKED">阻塞</SelectItem>
+            <SelectItem value="BLOCKED">暂不能继续</SelectItem>
           </SelectContent>
         </Select>
 

@@ -96,7 +96,7 @@ const ROLE_LABELS: Array<{ value: RoleView; label: string }> = [
 const KPI_BY_ROLE: Record<RoleView, KpiCard[]> = {
   my: [
     { id: 'projects', label: '进行中项目', value: 24, trend: '+3', trendUp: true },
-    { id: 'blocked', label: '阻塞项目', value: 2, trend: '-1', trendUp: true },
+    { id: 'blocked', label: '暂不能继续项目', value: 2, trend: '-1', trendUp: true },
     { id: 'overdue', label: '逾期待办', value: 5, trend: '+1', trendUp: false },
     { id: 'mapping', label: '映射异常数', value: 8, trend: '-2', trendUp: true },
   ],
@@ -161,7 +161,7 @@ const WORK_ITEM_BOARD = {
 
 const TOP_RISK_PROJECTS: RiskProject[] = [
   { id: 'PRJ-004', name: '腰围放量短裙', phase: '产前版样衣', owner: '李娜', riskScore: 15, riskTags: ['超期', '缺样衣'] },
-  { id: 'PRJ-002', name: 'Y2K银色亮片短裙', phase: '首单样衣打样', owner: '张丽', riskScore: 12, riskTags: ['阻塞', '映射异常'] },
+  { id: 'PRJ-002', name: 'Y2K银色亮片短裙', phase: '首单样衣打样', owner: '张丽', riskScore: 12, riskTags: ['暂不能继续', '映射异常'] },
   { id: 'PRJ-005', name: '立体花朵上衣', phase: '商品上架', owner: '陈杰', riskScore: 8, riskTags: ['上架失败'] },
 ]
 
@@ -408,7 +408,7 @@ function renderProjectSection(): string {
               <div class="rounded-md border bg-muted/20 p-2">
                 <div class="mb-1 flex items-center justify-between text-xs">
                   <span>${escapeHtml(item.phase)}</span>
-                  <span class="font-medium">${item.count}（阻塞 ${item.blocked}）</span>
+                  <span class="font-medium">${item.count}（暂不能继续 ${item.blocked}）</span>
                 </div>
                 <div class="h-2 overflow-hidden rounded-full bg-muted">
                   <span class="block h-full rounded-full bg-blue-600" style="width:${width}%"></span>
@@ -428,7 +428,7 @@ function renderProjectSection(): string {
               ${[
                 { key: 'NOT_STARTED', label: '未开始', rowClass: 'text-slate-700' },
                 { key: 'IN_PROGRESS', label: '进行中', rowClass: 'text-blue-700' },
-                { key: 'BLOCKED', label: '阻塞', rowClass: 'text-red-700' },
+                { key: 'BLOCKED', label: '暂不能继续', rowClass: 'text-red-700' },
                 { key: 'COMPLETED', label: '已完成', rowClass: 'text-green-700' },
               ]
                 .map((status) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-medium ${status.rowClass}">${status.label}</td>${phases.map((phase) => `<td class="px-3 py-2">${(WORK_ITEM_BOARD as Record<string, Record<string, number>>)[status.key][phase]}</td>`).join('')}</tr>`)

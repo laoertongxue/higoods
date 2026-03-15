@@ -129,7 +129,7 @@ export function TendersPage() {
     [processTasks]
   )
 
-  // 上下游摘要 map
+  // 上一步与下一步摘要 map
   const summaryMap = useMemo(() => {
     const map = new Map<string, {
       planStatusZh: string
@@ -277,7 +277,7 @@ export function TendersPage() {
 
       {/* 提示区 */}
       <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        招标单用于承接需要竞价分配的任务；本页同步展示生产单计划、任务阻塞、定标结果与异常情况摘要
+        招标单用于承接需要竞价分配的任务；本页同步展示生产单计划、任务暂不能继续、定标结果与异常情况摘要
       </div>
 
       {/* 统计卡 */}
@@ -316,7 +316,7 @@ export function TendersPage() {
         </Card>
       </div>
 
-      {/* 上下游概览卡 */}
+      {/* 上一步与下一步概览卡 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-1 pt-4 px-4">
@@ -328,7 +328,7 @@ export function TendersPage() {
         </Card>
         <Card>
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">有阻塞任务的招标单数</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">有暂不能继续任务的招标单数</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="text-2xl font-bold">{stats.hasBlocked}</p>
@@ -385,7 +385,7 @@ export function TendersPage() {
               <TableHead>生产单计划状态</TableHead>
               <TableHead>生产单状态</TableHead>
               <TableHead>关联任务数</TableHead>
-              <TableHead>阻塞任务数</TableHead>
+              <TableHead>暂不能继续任务数</TableHead>
               <TableHead>定标状态</TableHead>
               <TableHead>异常数</TableHead>
               <TableHead>目标工厂数</TableHead>

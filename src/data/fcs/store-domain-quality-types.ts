@@ -41,7 +41,7 @@ export interface AllocationEvent {
 }
 
 // =============================================
-// 回货批次（分批质检放行）
+// 回货批次（分批质检可继续）
 // =============================================
 export type ReturnBatchQcStatus = 'QC_PENDING' | 'PASS_CLOSED' | 'FAIL_IN_QC'
 
@@ -60,7 +60,7 @@ export interface ReturnBatch {
 }
 
 // =============================================
-// 染印加工单（次链路工单）
+// 染印加工单（相关流程工单）
 // =============================================
 export type DyePrintProcessType = 'PRINT' | 'DYE' | 'DYE_PRINT'
 export type DyePrintOrderStatus = 'DRAFT' | 'PROCESSING' | 'PARTIAL_RETURNED' | 'COMPLETED' | 'CLOSED'

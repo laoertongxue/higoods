@@ -77,7 +77,7 @@ export function ProductionPlanPage() {
     [productionOrders],
   )
 
-  // 下游准备摘要 map：keyed by productionOrderId
+  // 下一步准备摘要 map：keyed by productionOrderId
   const downstreamMap = useMemo(() => {
     const map = new Map<string, {
       taskCount: number
@@ -224,7 +224,7 @@ export function ProductionPlanPage() {
 
       {/* 提示区 */}
       <div className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        生产单计划用于明确计划时间、数量与计划工厂；本页同步展示任务拆解、染印需求与下游准备状态摘要
+        生产单计划用于明确计划时间、数量与计划工厂；本页同步展示任务拆解、染印需求与下一步准备状态摘要
       </div>
 
       {/* 统计卡 */}
@@ -263,7 +263,7 @@ export function ProductionPlanPage() {
         </Card>
       </div>
 
-      {/* 下游准备概览卡 */}
+      {/* 下一步准备概览卡 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-1 pt-4 px-4">
@@ -354,7 +354,7 @@ export function ProductionPlanPage() {
                   <TableHead>关联任务数</TableHead>
                   <TableHead>关键工序数</TableHead>
                   <TableHead>染印需求</TableHead>
-                  <TableHead>下游准备状态</TableHead>
+                  <TableHead>下一步准备状态</TableHead>
                   <TableHead>更新时间</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>

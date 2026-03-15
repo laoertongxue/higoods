@@ -11,7 +11,7 @@ export type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_EXTERNAL' | 'RESOLVED
 export type Severity = 'S1' | 'S2' | 'S3'
 export type ExceptionCategory = 'PRODUCTION_BLOCK' | 'ASSIGNMENT' | 'TECH_PACK' | 'HANDOVER' | 'MATERIAL'
 export type ReasonCode =
-  // 生产阻塞
+  // 生产暂不能继续
   | 'BLOCKED_MATERIAL' | 'BLOCKED_CAPACITY' | 'BLOCKED_QUALITY' | 'BLOCKED_TECH' | 'BLOCKED_EQUIPMENT' | 'BLOCKED_OTHER'
   // 分配异常
   | 'TENDER_OVERDUE' | 'TENDER_NEAR_DEADLINE' | 'NO_BID' | 'PRICE_ABNORMAL' | 'DISPATCH_REJECTED' | 'ACK_TIMEOUT'
@@ -113,7 +113,7 @@ export const initialExceptions: ExceptionCase[] = [
       { id: 'EAL-001', action: 'CREATE', detail: '系统自动生成异常单', at: oneDayAgo, by: '系统' },
     ],
   },
-  // S1 - 物料阻塞（交期临近）
+  // S1 - 物料待处理（交期临近）
   {
     caseId: 'EX-202603-0002',
     caseStatus: 'IN_PROGRESS',
@@ -127,12 +127,12 @@ export const initialExceptions: ExceptionCase[] = [
     relatedTenderIds: [],
     ownerUserId: 'U002',
     ownerUserName: '跟单A',
-    summary: '物料阻塞 - 等待绣花线到货',
-    detail: '绣花工序因等待绣花线到货而阻塞，预计3天到货',
+    summary: '物料待处理 - 等待绣花线到货',
+    detail: '绣花工序因等待绣花线到货而暂不能继续，预计3天到货',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
     slaDueAt: eightHoursAgo,
-    tags: ['物料', '阻塞'],
+    tags: ['物料', '暂不能继续'],
     actions: [
       { id: 'EA-001', actionType: 'CONTACT_SUPPLIER', actionDetail: '已联系供应商催货', at: oneDayAgo, by: '跟单A' },
     ],
@@ -165,7 +165,7 @@ export const initialExceptions: ExceptionCase[] = [
       { id: 'EAL-005', action: 'CREATE', detail: '系统自动生成异常单', at: oneDayAgo, by: '系统' },
     ],
   },
-  // S2 - 产能阻塞
+  // S2 - 产能待处理
   {
     caseId: 'EX-202603-0004',
     caseStatus: 'WAITING_EXTERNAL',
@@ -179,12 +179,12 @@ export const initialExceptions: ExceptionCase[] = [
     relatedTenderIds: [],
     ownerUserId: 'U003',
     ownerUserName: '跟单B',
-    summary: '产能阻塞 - 工厂排期已满',
-    detail: '压褶工序因工厂产能排满而阻塞，需要协调排期',
+    summary: '产能待处理 - 工厂排期已满',
+    detail: '压褶工序因工厂产能排满而暂不能继续，需要协调排期',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
     slaDueAt: oneDayAgo,
-    tags: ['产能', '阻塞'],
+    tags: ['产能', '暂不能继续'],
     actions: [],
     auditLogs: [
       { id: 'EAL-006', action: 'CREATE', detail: '系统自动生成异常单', at: twoDaysAgo, by: '系统' },
@@ -262,7 +262,7 @@ export const initialExceptions: ExceptionCase[] = [
       { id: 'EAL-010', action: 'CREATE', detail: '系统自动生成异常单', at: mockNow, by: '系统' },
     ],
   },
-  // S2 - 工艺资料阻塞
+  // S2 - 工艺资料暂不能继续
   {
     caseId: 'EX-202603-0008',
     caseStatus: 'WAITING_EXTERNAL',
@@ -276,7 +276,7 @@ export const initialExceptions: ExceptionCase[] = [
     relatedTenderIds: ['TENDER-0007-001'],
     ownerUserId: 'U004',
     ownerUserName: '运营',
-    summary: '工艺资料阻塞 - 洗水效果待确认',
+    summary: '工艺资料暂不能继续 - 洗水效果待确认',
     detail: '洗水效果样尚未确认，等待客户批复',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
@@ -288,7 +288,7 @@ export const initialExceptions: ExceptionCase[] = [
       { id: 'EAL-012', action: 'STATUS_CHANGE', detail: 'OPEN -> WAITING_EXTERNAL', at: oneDayAgo, by: '运营' },
     ],
   },
-  // S2 - 设备阻塞
+  // S2 - 设备待处理
   {
     caseId: 'EX-202603-0009',
     caseStatus: 'IN_PROGRESS',
@@ -313,7 +313,7 @@ export const initialExceptions: ExceptionCase[] = [
       { id: 'EAL-013', action: 'CREATE', detail: '系统自动生成异常单', at: oneDayAgo, by: '系统' },
     ],
   },
-  // S3 - 其他阻塞
+  // S3 - 其他待处理
   {
     caseId: 'EX-202603-0010',
     caseStatus: 'RESOLVED',
@@ -325,7 +325,7 @@ export const initialExceptions: ExceptionCase[] = [
     relatedOrderIds: ['PO-202603-0011'],
     relatedTaskIds: ['TASK-BLOCKED-006'],
     relatedTenderIds: ['TENDER-0011-001'],
-    summary: '假期阻塞 - 工人返乡',
+    summary: '假期暂不能继续 - 工人返乡',
     detail: '春节假期工人返乡，节后恢复',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
@@ -1042,8 +1042,8 @@ export const initialNotifications: Notification[] = [
   { notificationId: 'NT-202603-0004', level: 'WARN', title: 'SLA即将到期', content: '异常单EX-202603-0001将于6小时内到期，请尽快处理', recipientType: 'INTERNAL_USER', recipientId: 'U002', recipientName: '跟单A', targetType: 'CASE', targetId: 'EX-202603-0001', related: { caseId: 'EX-202603-0001', productionOrderId: 'PO-202603-0004' }, deepLink: { path: '/fcs/progress/exceptions', query: { caseId: 'EX-202603-0001' } }, createdAt: '2026-03-03 06:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0005', level: 'WARN', title: '竞价临近截止', content: '竞价单TD-202603-0001将于24小时内截止', recipientType: 'INTERNAL_USER', recipientId: 'U001', recipientName: '管理员', targetType: 'TENDER', targetId: 'TD-202603-0001', related: { tenderId: 'TD-202603-0001' }, deepLink: { path: '/fcs/dispatch/board', query: { tenderId: 'TD-202603-0001' } }, createdAt: '2026-03-02 18:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0006', level: 'WARN', title: '交接待确认超时', content: '交接事件HV-202603-0002已超过4小时未确认', recipientType: 'FACTORY', recipientId: 'ID-F003', recipientName: 'Tangerang Satellite Cluster', targetType: 'HANDOVER', targetId: 'HV-202603-0002', related: { handoverEventId: 'HV-202603-0002', productionOrderId: 'PO-202603-0007' }, deepLink: { path: '/fcs/progress/handover', query: { eventId: 'HV-202603-0002' } }, createdAt: '2026-03-02 19:00:00', createdBy: 'SYSTEM' },
-  { notificationId: 'NT-202603-0007', level: 'WARN', title: '任务阻塞提醒', content: '任务TASK-0005-002因设备故障阻塞', recipientType: 'INTERNAL_USER', recipientId: 'U003', recipientName: '跟单B', targetType: 'TASK', targetId: 'TASK-0005-002', related: { taskId: 'TASK-0005-002', productionOrderId: 'PO-202603-0005' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0005-002' } }, createdAt: '2026-03-02 14:00:00', createdBy: 'SYSTEM' },
-  { notificationId: 'NT-202603-0008', level: 'WARN', title: '任务阻塞建议', content: '任务TASK-0007-003阻塞，请工厂尽快解除', recipientType: 'FACTORY', recipientId: 'ID-F006', recipientName: 'Surabaya Embroidery', targetType: 'TASK', targetId: 'TASK-0007-003', related: { taskId: 'TASK-0007-003', productionOrderId: 'PO-202603-0007' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0007-003' } }, createdAt: '2026-03-02 15:00:00', createdBy: 'SYSTEM' },
+  { notificationId: 'NT-202603-0007', level: 'WARN', title: '任务暂不能继续提醒', content: '任务TASK-0005-002因设备故障暂不能继续', recipientType: 'INTERNAL_USER', recipientId: 'U003', recipientName: '跟单B', targetType: 'TASK', targetId: 'TASK-0005-002', related: { taskId: 'TASK-0005-002', productionOrderId: 'PO-202603-0005' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0005-002' } }, createdAt: '2026-03-02 14:00:00', createdBy: 'SYSTEM' },
+  { notificationId: 'NT-202603-0008', level: 'WARN', title: '任务暂不能继续建议', content: '任务TASK-0007-003暂不能继续，请工厂尽快解除', recipientType: 'FACTORY', recipientId: 'ID-F006', recipientName: 'Surabaya Embroidery', targetType: 'TASK', targetId: 'TASK-0007-003', related: { taskId: 'TASK-0007-003', productionOrderId: 'PO-202603-0007' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0007-003' } }, createdAt: '2026-03-02 15:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0009', level: 'WARN', title: '派单待确认', content: '派单TASK-0002-001已超过4小时未确认接单', recipientType: 'FACTORY', recipientId: 'ID-F003', recipientName: 'Tangerang Satellite Cluster', targetType: 'TASK', targetId: 'TASK-0002-001', related: { taskId: 'TASK-0002-001', productionOrderId: 'PO-202603-0007' }, deepLink: { path: '/fcs/dispatch/board', query: { taskId: 'TASK-0002-001' } }, createdAt: '2026-03-02 16:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0010', level: 'CRITICAL', title: 'SLA逾期提醒', content: '异常单EX-202603-0003已超过SLA时限，需立即处理', recipientType: 'INTERNAL_USER', recipientId: 'U002', recipientName: '跟单A', targetType: 'CASE', targetId: 'EX-202603-0003', related: { caseId: 'EX-202603-0003', productionOrderId: 'PO-202603-0003' }, deepLink: { path: '/fcs/progress/exceptions', query: { caseId: 'EX-202603-0003' } }, createdAt: '2026-03-03 00:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0011', level: 'CRITICAL', title: '竞价已逾期', content: '竞价单TD-202603-0002已超过截止时间，需延期或处理', recipientType: 'INTERNAL_USER', recipientId: 'U001', recipientName: '管理员', targetType: 'TENDER', targetId: 'TD-202603-0002', related: { tenderId: 'TD-202603-0002' }, deepLink: { path: '/fcs/dispatch/board', query: { tenderId: 'TD-202603-0002' } }, createdAt: '2026-03-02 20:00:00', createdBy: 'SYSTEM' },
@@ -1122,8 +1122,8 @@ export const initialUrges: UrgeLog[] = [
   { urgeId: 'UG-202603-0003', urgeType: 'URGE_START', fromType: 'INTERNAL_USER', fromId: 'U002', fromName: '跟单A', toType: 'FACTORY', toId: 'ID-F004', toName: 'Bekasi Sewing Hub', targetType: 'TASK', targetId: 'TASK-0004-001', message: '任务已确认2天，请尽快开工', createdAt: '2026-03-01 09:00:00', status: 'RESOLVED', deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0004-001' } }, auditLogs: [{ id: 'UAL-004', action: 'SEND', detail: '发送催办', at: '2026-03-01 09:00:00', by: '跟单A' }, { id: 'UAL-005', action: 'RESOLVE', detail: '任务已开工', at: '2026-03-01 14:00:00', by: 'Bekasi Sewing Hub' }] },
   { urgeId: 'UG-202603-0004', urgeType: 'URGE_START', fromType: 'INTERNAL_USER', fromId: 'U003', fromName: '跟单B', toType: 'FACTORY', toId: 'ID-F008', toName: 'Solo Button Factory', targetType: 'TASK', targetId: 'TASK-0008-001', message: '请尽快开工，已超过预计开工时间', createdAt: '2026-03-02 08:30:00', status: 'SENT', deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0008-001' } }, auditLogs: [{ id: 'UAL-006', action: 'SEND', detail: '发送催办', at: '2026-03-02 08:30:00', by: '跟单B' }] },
   { urgeId: 'UG-202603-0005', urgeType: 'URGE_FINISH', fromType: 'INTERNAL_USER', fromId: 'U002', fromName: '跟单A', toType: 'FACTORY', toId: 'ID-F006', toName: 'Surabaya Embroidery', targetType: 'TASK', targetId: 'TASK-0007-003', message: '交期临近，请加快进度尽快完工', createdAt: '2026-03-02 16:00:00', status: 'SENT', deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0007-003' } }, auditLogs: [{ id: 'UAL-007', action: 'SEND', detail: '发送催办', at: '2026-03-02 16:00:00', by: '跟单A' }] },
-  { urgeId: 'UG-202603-0006', urgeType: 'URGE_UNBLOCK', fromType: 'INTERNAL_USER', fromId: 'U003', fromName: '跟单B', toType: 'FACTORY', toId: 'ID-F005', toName: 'Bandung Print House', targetType: 'TASK', targetId: 'TASK-0005-002', message: '请尽快解决设备问题，解除任务阻塞', createdAt: '2026-03-02 14:30:00', status: 'SENT', deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0005-002' } }, auditLogs: [{ id: 'UAL-008', action: 'SEND', detail: '发送催办', at: '2026-03-02 14:30:00', by: '跟单B' }] },
-  { urgeId: 'UG-202603-0007', urgeType: 'URGE_UNBLOCK', fromType: 'INTERNAL_USER', fromId: 'U002', fromName: '跟单A', toType: 'INTERNAL_USER', toId: 'U004', toName: '运营A', targetType: 'TASK', targetId: 'TASK-0005-003', message: '任务因物料问题阻塞，请协调物料供应', createdAt: '2026-03-01 11:00:00', status: 'RESOLVED', deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0005-003' } }, auditLogs: [{ id: 'UAL-009', action: 'SEND', detail: '发送催办', at: '2026-03-01 11:00:00', by: '跟单A' }, { id: 'UAL-010', action: 'RESOLVE', detail: '物料已到位，阻塞解除', at: '2026-03-01 16:00:00', by: '运营A' }] },
+  { urgeId: 'UG-202603-0006', urgeType: 'URGE_UNBLOCK', fromType: 'INTERNAL_USER', fromId: 'U003', fromName: '跟单B', toType: 'FACTORY', toId: 'ID-F005', toName: 'Bandung Print House', targetType: 'TASK', targetId: 'TASK-0005-002', message: '请尽快解决设备问题，解除任务暂不能继续', createdAt: '2026-03-02 14:30:00', status: 'SENT', deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0005-002' } }, auditLogs: [{ id: 'UAL-008', action: 'SEND', detail: '发送催办', at: '2026-03-02 14:30:00', by: '跟单B' }] },
+  { urgeId: 'UG-202603-0007', urgeType: 'URGE_UNBLOCK', fromType: 'INTERNAL_USER', fromId: 'U002', fromName: '跟单A', toType: 'INTERNAL_USER', toId: 'U004', toName: '运营A', targetType: 'TASK', targetId: 'TASK-0005-003', message: '任务因物料问题暂不能继续，请协调物料供应', createdAt: '2026-03-01 11:00:00', status: 'RESOLVED', deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0005-003' } }, auditLogs: [{ id: 'UAL-009', action: 'SEND', detail: '发送催办', at: '2026-03-01 11:00:00', by: '跟单A' }, { id: 'UAL-010', action: 'RESOLVE', detail: '物料已到位，暂不能继续解除', at: '2026-03-01 16:00:00', by: '运营A' }] },
   { urgeId: 'UG-202603-0008', urgeType: 'URGE_TENDER_BID', fromType: 'INTERNAL_USER', fromId: 'U001', fromName: '管理员', toType: 'FACTORY', toId: 'ID-F005', toName: 'Bandung Print House', targetType: 'TENDER', targetId: 'TD-202603-0003', message: '竞价即将截止，请尽快报价', createdAt: '2026-03-02 02:30:00', status: 'SENT', deepLink: { path: '/fcs/dispatch/board', query: { tenderId: 'TD-202603-0003' } }, auditLogs: [{ id: 'UAL-011', action: 'SEND', detail: '发送催办', at: '2026-03-02 02:30:00', by: '管理员' }] },
   { urgeId: 'UG-202603-0009', urgeType: 'URGE_TENDER_BID', fromType: 'INTERNAL_USER', fromId: 'U001', fromName: '管理员', toType: 'FACTORY', toId: 'ID-F007', toName: 'Yogyakarta Washing', targetType: 'TENDER', targetId: 'TD-202603-0001', message: '您尚未参与报价，请尽快提交', createdAt: '2026-03-02 18:30:00', status: 'SENT', deepLink: { path: '/fcs/dispatch/board', query: { tenderId: 'TD-202603-0001' } }, auditLogs: [{ id: 'UAL-012', action: 'SEND', detail: '发送催办', at: '2026-03-02 18:30:00', by: '管理员' }] },
   { urgeId: 'UG-202603-0010', urgeType: 'URGE_TENDER_AWARD', fromType: 'INTERNAL_USER', fromId: 'U004', fromName: '运营A', toType: 'INTERNAL_USER', toId: 'U001', toName: '管理员', targetType: 'TENDER', targetId: 'TD-202603-0001', message: '竞价已有多家报价，请尽快完成定标', createdAt: '2026-03-02 15:00:00', status: 'SENT', deepLink: { path: '/fcs/dispatch/board', query: { tenderId: 'TD-202603-0001' } }, auditLogs: [{ id: 'UAL-013', action: 'SEND', detail: '发送催办', at: '2026-03-02 15:00:00', by: '运营A' }] },

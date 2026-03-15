@@ -126,10 +126,10 @@ export default function PdaExecPage() {
     toast({ title: t('pda.exec.finishSuccess') })
   }
   
-  // 阻塞操作 - 快捷（默认OTHER）
+  // 暂不能继续操作 - 快捷（默认OTHER）
   const handleQuickBlock = (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    // 快捷阻塞跳到详情页操作
+    // 快捷暂不能继续跳到详情页操作
     window.location.href = `/fcs/pda/exec/${taskId}?action=block`
   }
   

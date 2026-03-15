@@ -120,7 +120,7 @@ export function OverviewPage() {
         <h2 className="text-sm font-medium text-muted-foreground">核心运营</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="生产任务总数" value={stats.taskTotal} />
-          <StatCard label="门禁阻塞任务数" value={stats.blockedCount} color={stats.blockedCount > 0 ? 'text-red-600' : undefined} />
+          <StatCard label="开始条件暂不能继续任务数" value={stats.blockedCount} color={stats.blockedCount > 0 ? 'text-red-600' : undefined} />
           <StatCard label="质检未结案数" value={stats.openQcCount} color={stats.openQcCount > 0 ? 'text-amber-600' : undefined} />
           <StatCard label="争议中数" value={stats.disputedCount} color={stats.disputedCount > 0 ? 'text-orange-600' : undefined} />
           <StatCard label="可进入结算依据数" value={stats.readyBasisCount} color="text-green-600" />
@@ -130,12 +130,12 @@ export function OverviewPage() {
         </div>
       </section>
 
-      {/* 区块 2：次链路进度卡片 */}
+      {/* 区块 2：相关流程进度卡片 */}
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">染印加工</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="染印加工单总数" value={stats.dpTotal} />
-          <StatCard label="染印可放行工单数" value={stats.dpAvailable} color="text-green-600" />
+          <StatCard label="染印可可继续工单数" value={stats.dpAvailable} color="text-green-600" />
           <StatCard label="染印不合格处理中数" value={stats.dpFail} color={stats.dpFail > 0 ? 'text-red-600' : undefined} />
           <StatCard label="回货批次数" value={stats.returnBatchCount} />
         </div>

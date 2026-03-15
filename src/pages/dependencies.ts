@@ -58,7 +58,7 @@ function syncAllocationGates(by: string): void {
       if (task.status === 'BLOCKED' && task.blockReason === 'ALLOCATION_GATE') continue
 
       const depNames = depIds.map((id) => getTaskById(id)?.processNameZh ?? id)
-      const noteZh = `等待上游放行：${depNames.join('、')}（可用量=0）`
+      const noteZh = `等待上一步完成：${depNames.join('、')}（可用量=0）`
 
       task.status = 'BLOCKED'
       task.blockReason = 'ALLOCATION_GATE'
@@ -91,7 +91,7 @@ function syncAllocationGates(by: string): void {
         {
           id: `AL-GATE-UNBLOCK-${Date.now()}-${task.taskId}`,
           action: 'UNBLOCK_BY_ALLOCATION_GATE',
-          detail: '上游已放行，门禁解除',
+          detail: '上一步已完成，开始条件已满足',
           at: now,
           by,
         },
@@ -175,7 +175,7 @@ function renderEditDialog(editingTask: ProcessTask | null): string {
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
 
-        <h3 class="text-lg font-semibold">编辑上游依赖</h3>
+        <h3 class="text-lg font-semibold">编辑上一步依赖</h3>
 
         <p class="-mt-0.5 mt-2 text-sm text-muted-foreground">
           当前任务：
@@ -218,7 +218,7 @@ function renderEditDialog(editingTask: ProcessTask | null): string {
 
         ${
           state.selectedDeps.length > 0
-            ? `<p class="mt-2 text-xs text-muted-foreground">已选 ${state.selectedDeps.length} 项上游依赖</p>`
+            ? `<p class="mt-2 text-xs text-muted-foreground">已选 ${state.selectedDeps.length} 项上一步依赖</p>`
             : ''
         }
 
@@ -241,7 +241,7 @@ export function renderDependenciesPage(): string {
           <i data-lucide="settings-2" class="h-5 w-5"></i>
           依赖关系配置
         </h1>
-        <p class="mt-1 text-sm text-muted-foreground">配置任务的上游依赖，用于 Allocation 门禁自动阻塞/放行</p>
+        <p class="mt-1 text-sm text-muted-foreground">配置任务的上一步依赖，用于 Allocation 开始条件自动判断是否可继续</p>
       </header>
 
       <section class="rounded-lg border bg-card">
@@ -255,8 +255,8 @@ export function renderDependenciesPage(): string {
             <thead>
               <tr class="border-b bg-muted/40 text-left">
                 <th class="px-4 py-2 font-medium">任务</th>
-                <th class="px-4 py-2 font-medium">上游依赖（多选）</th>
-                <th class="px-4 py-2 font-medium">当前门禁状态</th>
+                <th class="px-4 py-2 font-medium">上一步依赖（多选）</th>
+                <th class="px-4 py-2 font-medium">当前开始条件状态</th>
                 <th class="w-[180px] px-4 py-2 font-medium">操作</th>
               </tr>
             </thead>
@@ -292,7 +292,7 @@ export function renderDependenciesPage(): string {
                           isGated
                             ? `
                               <div class="space-y-1">
-                                <span class="inline-flex rounded-md border border-orange-200 bg-orange-100 px-2 py-0.5 text-xs text-orange-800">门禁阻塞</span>
+                                <span class="inline-flex rounded-md border border-orange-200 bg-orange-100 px-2 py-0.5 text-xs text-orange-800">当前暂不能继续</span>
                                 ${
                                   task.blockNoteZh
                                     ? `<p class="text-xs leading-snug text-muted-foreground">${escapeHtml(task.blockNoteZh)}</p>`
@@ -300,7 +300,7 @@ export function renderDependenciesPage(): string {
                                 }
                               </div>
                             `
-                            : '<span class="text-sm text-muted-foreground">未阻塞</span>'
+                            : '<span class="text-sm text-muted-foreground">未暂不能继续</span>'
                         }
                       </td>
 

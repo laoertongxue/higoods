@@ -15,7 +15,7 @@ const TASK_STATUS_ZH: Record<string, string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
   DONE:        '已完成',
-  BLOCKED:     '阻塞',
+  BLOCKED:     '暂不能继续',
   CANCELLED:   '已取消',
 }
 
@@ -25,13 +25,13 @@ type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
 function policyLevelVariant(level: string): BadgeVariant {
   if (level === '优先处理') return 'destructive'
   if (level === '尽快处理') return 'default'
-  if (level === '等待放行') return 'secondary'
+  if (level === '等待可继续') return 'secondary'
   return 'outline'
 }
 
 function policyVariant(policy: string): BadgeVariant {
-  if (policy === '优先清阻塞' || policy === '优先处理异常') return 'destructive'
-  if (policy === '优先待质检' || policy === '等待放行' || policy === '关注质检') return 'default'
+  if (policy === '优先清暂不能继续' || policy === '优先处理异常') return 'destructive'
+  if (policy === '优先待质检' || policy === '等待可继续' || policy === '关注质检') return 'default'
   if (policy === '可直接推进' || policy === '持续推进' || policy === '进入分配') return 'secondary'
   if (policy === '结束归档') return 'outline'
   return 'secondary'
@@ -106,7 +106,7 @@ export function CapacityPoliciesPage() {
       const relatedTasks = processTasks.filter(t => t.productionOrderId === poId)
       const taskCount = relatedTasks.length
 
-      // 阻塞任务数
+      // 暂不能继续任务数
       const blockedTaskCount = relatedTasks.filter(t => t.status === 'BLOCKED').length
 
       // 待质检数（非 CLOSED）
@@ -119,7 +119,7 @@ export function CapacityPoliciesPage() {
       let dyeStatusZh = '无染印'
       if (relatedDye.length > 0) {
         const hasReleased = relatedDye.some(d => ((d as any).availableQty ?? 0) > 0)
-        dyeStatusZh = hasReleased ? '已放行' : '未放行'
+        dyeStatusZh = hasReleased ? '已可继续' : '未可继续'
       }
 
       // 异常数（非 CLOSED）
@@ -133,8 +133,8 @@ export function CapacityPoliciesPage() {
         policyLevelZh = '优先处理'
       } else if (qcPendingCount > 0) {
         policyLevelZh = '尽快处理'
-      } else if (dyeStatusZh === '未放行') {
-        policyLevelZh = '等待放行'
+      } else if (dyeStatusZh === '未可继续') {
+        policyLevelZh = '等待可继续'
       } else if (taskCount > 0) {
         policyLevelZh = '可推进'
       } else {
@@ -144,13 +144,13 @@ export function CapacityPoliciesPage() {
       // 建议策略
       let recommendedPolicyZh: string
       if (blockedTaskCount > 0) {
-        recommendedPolicyZh = '优先清阻塞'
+        recommendedPolicyZh = '优先清暂不能继续'
       } else if (exceptionCount > 0) {
         recommendedPolicyZh = '优先处理异常'
       } else if (qcPendingCount > 0) {
         recommendedPolicyZh = '优先待质检'
-      } else if (dyeStatusZh === '未放行') {
-        recommendedPolicyZh = '优先等染印放行'
+      } else if (dyeStatusZh === '未可继续') {
+        recommendedPolicyZh = '优先等染印可继续'
       } else if (taskCount > 0) {
         recommendedPolicyZh = '可直接推进'
       } else {
@@ -160,13 +160,13 @@ export function CapacityPoliciesPage() {
       // 原因说明
       let policyReasonZh: string
       if (blockedTaskCount > 0) {
-        policyReasonZh = '当前存在阻塞任务，先解除门禁或异常'
+        policyReasonZh = '当前存在暂不能继续任务，先解除开始条件或异常'
       } else if (exceptionCount > 0) {
         policyReasonZh = '当前存在派单/竞价异常，需先处理'
       } else if (qcPendingCount > 0) {
         policyReasonZh = '当前存在未结案质检事项'
-      } else if (dyeStatusZh === '未放行') {
-        policyReasonZh = '当前染印尚未放行，建议等待回货'
+      } else if (dyeStatusZh === '未可继续') {
+        policyReasonZh = '当前染印尚未可继续，建议等待回货'
       } else if (taskCount > 0) {
         policyReasonZh = '当前链路具备继续推进条件'
       } else {
@@ -199,7 +199,7 @@ export function CapacityPoliciesPage() {
         dyeMap.set(poId, '无染印')
       } else {
         const hasReleased = relatedDye.some(d => ((d as any).availableQty ?? 0) > 0)
-        dyeMap.set(poId, hasReleased ? '已放行' : '未放行')
+        dyeMap.set(poId, hasReleased ? '已可继续' : '未可继续')
       }
     }
 
@@ -235,15 +235,15 @@ export function CapacityPoliciesPage() {
       // 任务状态
       const taskStatusZh = TASK_STATUS_ZH[task.status] ?? '未知状态'
 
-      // 是否阻塞
+      // 是否暂不能继续
       const blockedFlagZh = task.status === 'BLOCKED' ? '是' : '否'
 
       // 染印约束
       const dyeStatus = dyeMap.get(poId) ?? '无染印'
       let dyeConstraintZh: string
       if (dyeStatus === '无染印')  dyeConstraintZh = '无染印约束'
-      else if (dyeStatus === '未放行') dyeConstraintZh = '染印未放行'
-      else dyeConstraintZh = '染印已放行'
+      else if (dyeStatus === '未可继续') dyeConstraintZh = '染印未可继续'
+      else dyeConstraintZh = '染印已可继续'
 
       // 质检约束
       const qcConstraintZh = qcMap.get(poId) ? '存在待质检' : '无质检约束'
@@ -269,7 +269,7 @@ export function CapacityPoliciesPage() {
         recommendedAssignModeZh = '暂不分配'
       } else if (exceptionConstraintZh !== '无异常约束') {
         recommendedAssignModeZh = '暂不分配'
-      } else if (dyeConstraintZh === '染印未放行') {
+      } else if (dyeConstraintZh === '染印未可继续') {
         recommendedAssignModeZh = '竞价'
       } else if (qcConstraintZh === '存在待质检') {
         recommendedAssignModeZh = '竞价'
@@ -282,11 +282,11 @@ export function CapacityPoliciesPage() {
       if (task.status === 'DONE' || task.status === 'CANCELLED') {
         recommendedPolicyZh = '结束归档'
       } else if (task.status === 'BLOCKED') {
-        recommendedPolicyZh = '优先清阻塞'
+        recommendedPolicyZh = '优先清暂不能继续'
       } else if (exceptionConstraintZh !== '无异常约束') {
         recommendedPolicyZh = '优先处理异常'
-      } else if (dyeConstraintZh === '染印未放行') {
-        recommendedPolicyZh = '等待放行'
+      } else if (dyeConstraintZh === '染印未可继续') {
+        recommendedPolicyZh = '等待可继续'
       } else if (qcConstraintZh === '存在待质检') {
         recommendedPolicyZh = '关注质检'
       } else if (task.status === 'IN_PROGRESS') {
@@ -300,11 +300,11 @@ export function CapacityPoliciesPage() {
       if (task.status === 'DONE' || task.status === 'CANCELLED') {
         policyReasonZh = '任务已结束，无需继续调度'
       } else if (task.status === 'BLOCKED') {
-        policyReasonZh = '任务阻塞，当前不宜推进'
+        policyReasonZh = '任务暂不能继续，当前不宜推进'
       } else if (exceptionConstraintZh !== '无异常约束') {
         policyReasonZh = '存在派单/竞价异常，建议先处理'
-      } else if (dyeConstraintZh === '染印未放行') {
-        policyReasonZh = '染印未放行，建议等待后再分配'
+      } else if (dyeConstraintZh === '染印未可继续') {
+        policyReasonZh = '染印未可继续，建议等待后再分配'
       } else if (qcConstraintZh === '存在待质检') {
         policyReasonZh = '存在待质检事项，建议谨慎推进'
       } else if (task.status === 'IN_PROGRESS') {
@@ -333,8 +333,8 @@ export function CapacityPoliciesPage() {
   const stats = useMemo(() => {
     const orderPriority = orderPolicies.filter(o => o.policyLevelZh === '优先处理').length
     const orderSoon     = orderPolicies.filter(o => o.policyLevelZh === '尽快处理').length
-    const orderWait     = orderPolicies.filter(o => o.policyLevelZh === '等待放行').length
-    const taskBlocked   = taskPolicies.filter(t => t.recommendedPolicyZh === '优先清阻塞').length
+    const orderWait     = orderPolicies.filter(o => o.policyLevelZh === '等待可继续').length
+    const taskBlocked   = taskPolicies.filter(t => t.recommendedPolicyZh === '优先清暂不能继续').length
     const taskException = taskPolicies.filter(t => t.recommendedPolicyZh === '优先处理异常').length
     const taskDirect    = taskPolicies.filter(
       t => t.recommendedPolicyZh === '持续推进' || t.recommendedPolicyZh === '进入分配'
@@ -374,13 +374,13 @@ export function CapacityPoliciesPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">调度策略</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            调度策略用于基于当前阻塞、质检、染印、异常等状态给出轻量处理建议；原型阶段采用规则型建议，不自动执行调度
+            调度策略用于基于当前暂不能继续、质检、染印、异常等状态给出轻量处理建议；原型阶段采用规则型建议，不自动执行调度
           </p>
         </div>
         <div className="flex gap-3 text-sm text-muted-foreground">
           <span>优先处理生产单 <strong className="text-foreground">{stats.orderPriority}</strong> 张</span>
           <span>/</span>
-          <span>优先清阻塞任务 <strong className="text-foreground">{stats.taskBlocked}</strong> 条</span>
+          <span>优先清暂不能继续任务 <strong className="text-foreground">{stats.taskBlocked}</strong> 条</span>
         </div>
       </div>
 
@@ -389,8 +389,8 @@ export function CapacityPoliciesPage() {
         {[
           { label: '优先处理生产单数', value: stats.orderPriority, variant: 'destructive' as const },
           { label: '尽快处理生产单数', value: stats.orderSoon,     variant: 'default'     as const },
-          { label: '等待放行生产单数', value: stats.orderWait,     variant: 'secondary'   as const },
-          { label: '优先清阻塞任务数', value: stats.taskBlocked,   variant: 'destructive' as const },
+          { label: '等待可继续生产单数', value: stats.orderWait,     variant: 'secondary'   as const },
+          { label: '优先清暂不能继续任务数', value: stats.taskBlocked,   variant: 'destructive' as const },
           { label: '优先处理异常任务数', value: stats.taskException, variant: 'default'   as const },
           { label: '可直接推进任务数', value: stats.taskDirect,    variant: 'secondary'   as const },
         ].map(card => (
@@ -430,7 +430,7 @@ export function CapacityPoliciesPage() {
                     <TableHead>生产单号</TableHead>
                     <TableHead>主工厂</TableHead>
                     <TableHead>关联任务数</TableHead>
-                    <TableHead>阻塞任务数</TableHead>
+                    <TableHead>暂不能继续任务数</TableHead>
                     <TableHead>待质检数</TableHead>
                     <TableHead>染印状态</TableHead>
                     <TableHead>异常数</TableHead>
@@ -464,8 +464,8 @@ export function CapacityPoliciesPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={
-                          o.dyeStatusZh === '未放行' ? 'destructive' :
-                          o.dyeStatusZh === '已放行' ? 'secondary' : 'outline'
+                          o.dyeStatusZh === '未可继续' ? 'destructive' :
+                          o.dyeStatusZh === '已可继续' ? 'secondary' : 'outline'
                         }>
                           {o.dyeStatusZh}
                         </Badge>
@@ -532,7 +532,7 @@ export function CapacityPoliciesPage() {
                     <TableHead>生产单号</TableHead>
                     <TableHead>工厂</TableHead>
                     <TableHead>任务状态</TableHead>
-                    <TableHead>是否阻塞</TableHead>
+                    <TableHead>是否暂不能继续</TableHead>
                     <TableHead>染印约束</TableHead>
                     <TableHead>质检约束</TableHead>
                     <TableHead>异常约束</TableHead>
@@ -556,7 +556,7 @@ export function CapacityPoliciesPage() {
                       <TableCell>{t.factorySummaryZh}</TableCell>
                       <TableCell>
                         <Badge variant={
-                          t.taskStatusZh === '阻塞'   ? 'destructive' :
+                          t.taskStatusZh === '暂不能继续'   ? 'destructive' :
                           t.taskStatusZh === '进行中' ? 'default'     :
                           t.taskStatusZh === '已完成' ? 'secondary'   :
                           t.taskStatusZh === '已取消' ? 'outline'     : 'secondary'
@@ -571,8 +571,8 @@ export function CapacityPoliciesPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={
-                          t.dyeConstraintZh === '染印未放行' ? 'destructive' :
-                          t.dyeConstraintZh === '染印已放行' ? 'secondary'   : 'outline'
+                          t.dyeConstraintZh === '染印未可继续' ? 'destructive' :
+                          t.dyeConstraintZh === '染印已可继续' ? 'secondary'   : 'outline'
                         }>
                           {t.dyeConstraintZh}
                         </Badge>

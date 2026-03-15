@@ -38,7 +38,7 @@ function getDeadlineStatus(taskDeadline?: string, finishedAt?: string) {
   return { label: '正常', badgeClass: 'bg-green-100 text-green-700' }
 }
 
-// ─── 前置门禁 ─────────────────────────────────────────────────────────────────
+// ─── 前置开始条件 ─────────────────────────────────────────────────────────────────
 function getPrerequisite(seq: number, handoverStatus?: string) {
   const isFirst = seq === 1
   if (isFirst) {
@@ -105,7 +105,7 @@ function ExecDetailInner() {
   const canUnblock = status === 'BLOCKED' && can('TASK_UNBLOCK')
 
   const statusLabelMap: Record<string, string> = {
-    NOT_STARTED: '待开工', IN_PROGRESS: '进行中', BLOCKED: '阻塞', DONE: '已完工', CANCELLED: '已取消',
+    NOT_STARTED: '待开工', IN_PROGRESS: '进行中', BLOCKED: '暂不能继续', DONE: '已完工', CANCELLED: '已取消',
   }
   const statusColorMap: Record<string, string> = {
     NOT_STARTED: 'bg-gray-100 text-gray-700',
@@ -139,14 +139,14 @@ function ExecDetailInner() {
 
   const handleBlock = () => {
     blockTask(taskId, blockReason, blockRemark, 'PDA')
-    toast({ title: '已标记阻塞' })
+    toast({ title: '已标记暂不能继续' })
     setShowBlockDialog(false)
     setBlockRemark('')
   }
 
   const handleUnblock = () => {
     unblockTask(taskId, unblockRemark, 'PDA')
-    toast({ title: '已解除阻塞' })
+    toast({ title: '已解除暂不能继续' })
     setShowUnblockDialog(false)
     setUnblockRemark('')
   }
@@ -298,7 +298,7 @@ function ExecDetailInner() {
             <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs">
               <div className="text-red-700 font-medium flex items-center gap-1.5">
                 <AlertTriangle className="h-3.5 w-3.5" />
-                阻塞原因：{t(`pda.exec.block.reason.${task.blockReason}`)}
+                暂不能继续原因：{t(`pda.exec.block.reason.${task.blockReason}`)}
               </div>
               {task.blockRemark && <p className="text-red-600 mt-1 pl-5">{task.blockRemark}</p>}
             </div>
@@ -357,7 +357,7 @@ function ExecDetailInner() {
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" disabled={!canBlock}
                 onClick={() => setShowBlockDialog(true)}>
-                <AlertTriangle className="mr-2 h-4 w-4" />报阻塞
+                <AlertTriangle className="mr-2 h-4 w-4" />报暂不能继续
               </Button>
               <Button disabled={!canFinish} onClick={handleFinish}>
                 <CheckCircle className="mr-2 h-4 w-4" />完工
@@ -365,11 +365,11 @@ function ExecDetailInner() {
             </div>
           )}
 
-          {/* 阻塞 */}
+          {/* 暂不能继续 */}
           {status === 'BLOCKED' && (
             <Button className="w-full" variant="outline" disabled={!canUnblock}
               onClick={() => setShowUnblockDialog(true)}>
-              <CheckCircle className="mr-2 h-4 w-4" />解除阻塞
+              <CheckCircle className="mr-2 h-4 w-4" />解除暂不能继续
             </Button>
           )}
 
@@ -413,15 +413,15 @@ function ExecDetailInner() {
         </Card>
       )}
 
-      {/* 阻塞弹窗 */}
+      {/* 暂不能继续弹窗 */}
       <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>报阻塞</DialogTitle>
+            <DialogTitle>报暂不能继续</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>阻塞原因 *</Label>
+              <Label>暂不能继续原因 *</Label>
               <Select value={blockReason} onValueChange={v => setBlockReason(v as BlockReason)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -444,11 +444,11 @@ function ExecDetailInner() {
         </DialogContent>
       </Dialog>
 
-      {/* 解除阻塞弹窗 */}
+      {/* 解除暂不能继续弹窗 */}
       <Dialog open={showUnblockDialog} onOpenChange={setShowUnblockDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>解除阻塞</DialogTitle>
+            <DialogTitle>解除暂不能继续</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">

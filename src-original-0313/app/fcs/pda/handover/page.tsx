@@ -115,7 +115,7 @@ const MOCK_EVENTS: HandoverEvent[] = [
     factoryId: 'ID-F001',
   },
 
-  // ═══════════ 待接收 (RECEIVE / PENDING) — 非首道工序从上游工厂接收 ═══════════
+  // ═══════════ 待接收 (RECEIVE / PENDING) — 非首道工序从上一步工厂接收 ═══════════
   {
     eventId: 'EV-RC-001',
     action: 'RECEIVE',
@@ -401,13 +401,13 @@ const MOCK_EVENTS: HandoverEvent[] = [
     qtyActual: 965,
     qtyUnit: '件',
     qtyDiff: 35,
-    diffReason: '实收少 35 件，上游称已全数发出，正在核查物流记录',
+    diffReason: '实收少 35 件，上一步称已全数发出，正在核查物流记录',
     deadlineTime: '2026-03-10 14:00',
     status: 'DISPUTED',
     qcResult: 'FAIL',
     qcDefectQty: 35,
     qcProblemType: '数量短缺',
-    qcProblemDesc: '实收 965 件，应收 1000 件，差 35 件。上游坚称全数发出，需核对物流签收单',
+    qcProblemDesc: '实收 965 件，应收 1000 件，差 35 件。上一步坚称全数发出，需核对物流签收单',
     factoryId: 'ID-F001',
   },
   // 争议中 — 质量不合格
@@ -431,7 +431,7 @@ const MOCK_EVENTS: HandoverEvent[] = [
     qcResult: 'FAIL',
     qcDefectQty: 48,
     qcProblemType: '缝制质量不合格',
-    qcProblemDesc: '48 件车缝线迹不均匀、跳针严重，需退回返工。上游工厂不认可质检结论，要求第三方复检',
+    qcProblemDesc: '48 件车缝线迹不均匀、跳针严重，需退回返工。上一步工厂不认可质检结论，要求第三方复检',
     factoryId: 'ID-F001',
   },
 ]

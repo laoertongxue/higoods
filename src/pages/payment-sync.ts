@@ -23,7 +23,7 @@ interface PaymentSyncState {
 }
 
 const SYNC_STATUS_LABEL: Record<PaymentSyncStatus, string> = {
-  UNSYNCED: '未回写',
+  UNSYNCED: '未同步',
   SUCCESS: '打款成功',
   FAILED: '打款失败',
   PARTIAL: '部分打款',
@@ -162,10 +162,10 @@ function syncSettlementPaymentResult(
   const batch = initialSettlementBatches.find((item) => item.batchId === batchId)
   if (!batch) return { ok: false, message: `结算批次 ${batchId} 不存在` }
   if (batch.status !== 'COMPLETED') {
-    return { ok: false, message: '仅已完成结算批次允许回写打款结果' }
+    return { ok: false, message: '仅已完成结算批次允许同步打款结果' }
   }
   if (!['SUCCESS', 'FAILED', 'PARTIAL'].includes(paymentSyncStatus)) {
-    return { ok: false, message: '回写状态无效' }
+    return { ok: false, message: '同步状态无效' }
   }
   if (paymentAmount !== undefined && paymentAmount < 0) {
     return { ok: false, message: '打款金额不能为负数' }
@@ -212,7 +212,7 @@ function closeDialog(): void {
 
 function handleSave(): void {
   if (!state.form.paymentSyncStatus) {
-    state.formError = '请选择回写状态'
+    state.formError = '请选择同步状态'
     return
   }
   if (
@@ -243,12 +243,12 @@ function handleSave(): void {
   state.saving = false
 
   if (!result.ok) {
-    state.formError = result.message ?? '回写失败'
+    state.formError = result.message ?? '同步失败'
     return
   }
 
   closeDialog()
-  showPaymentSyncToast('打款结果已回写')
+  showPaymentSyncToast('打款结果已同步更新')
 }
 
 function renderDialog(): string {
@@ -261,14 +261,14 @@ function renderDialog(): string {
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
         <header class="mb-3">
-          <h3 class="text-lg font-semibold">回写打款结果</h3>
+          <h3 class="text-lg font-semibold">同步打款结果</h3>
         </header>
 
         <div class="flex flex-col gap-4 py-2">
           <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">回写状态 <span class="text-red-600">*</span></label>
+            <label class="text-sm font-medium">同步状态 <span class="text-red-600">*</span></label>
             <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pay-field="paymentSyncStatus">
-              <option value="" ${state.form.paymentSyncStatus === '' ? 'selected' : ''}>请选择回写状态</option>
+              <option value="" ${state.form.paymentSyncStatus === '' ? 'selected' : ''}>请选择同步状态</option>
               <option value="SUCCESS" ${state.form.paymentSyncStatus === 'SUCCESS' ? 'selected' : ''}>打款成功</option>
               <option value="FAILED" ${state.form.paymentSyncStatus === 'FAILED' ? 'selected' : ''}>打款失败</option>
               <option value="PARTIAL" ${state.form.paymentSyncStatus === 'PARTIAL' ? 'selected' : ''}>部分打款</option>
@@ -345,18 +345,18 @@ export function renderPaymentSyncPage(): string {
   return `
     <div class="flex flex-col gap-6 p-6">
       <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold tracking-tight">打款结果回写</h1>
+        <h1 class="text-2xl font-semibold tracking-tight">打款结果同步更新</h1>
         <span class="text-sm text-muted-foreground">共 ${completedBatches.length} 条</span>
       </div>
 
       <section class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        打款结果回写用于记录已完成结算批次的支付结果；原型阶段仅做结果登记与回看，不接真实支付系统
+        打款结果同步更新用于记录已完成结算批次的支付结果；原型阶段仅做结果登记与回看，不接真实支付系统
       </section>
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-4">
         <article class="rounded-lg border bg-card">
           <div class="px-4 pb-4 pt-4">
-            <p class="text-sm font-medium text-muted-foreground">未回写数</p>
+            <p class="text-sm font-medium text-muted-foreground">未同步数</p>
             <p class="text-2xl font-bold tabular-nums">${stats.unsynced}</p>
           </div>
         </article>
@@ -389,7 +389,7 @@ export function renderPaymentSyncPage(): string {
         />
         <select class="h-9 w-36 rounded-md border bg-background px-3 text-sm" data-pay-filter="status">
           <option value="ALL" ${state.statusFilter === 'ALL' ? 'selected' : ''}>全部</option>
-          <option value="UNSYNCED" ${state.statusFilter === 'UNSYNCED' ? 'selected' : ''}>未回写</option>
+          <option value="UNSYNCED" ${state.statusFilter === 'UNSYNCED' ? 'selected' : ''}>未同步</option>
           <option value="SUCCESS" ${state.statusFilter === 'SUCCESS' ? 'selected' : ''}>打款成功</option>
           <option value="FAILED" ${state.statusFilter === 'FAILED' ? 'selected' : ''}>打款失败</option>
           <option value="PARTIAL" ${state.statusFilter === 'PARTIAL' ? 'selected' : ''}>部分打款</option>
@@ -404,7 +404,7 @@ export function renderPaymentSyncPage(): string {
               <th class="px-4 py-2 font-medium">批次名称</th>
               <th class="px-4 py-2 text-center font-medium">对账单数</th>
               <th class="px-4 py-2 font-medium">总金额</th>
-              <th class="px-4 py-2 font-medium">回写状态</th>
+              <th class="px-4 py-2 font-medium">同步状态</th>
               <th class="px-4 py-2 font-medium">打款金额</th>
               <th class="px-4 py-2 font-medium">打款时间</th>
               <th class="px-4 py-2 font-medium">打款参考号</th>
@@ -418,7 +418,7 @@ export function renderPaymentSyncPage(): string {
                 ? `
                   <tr>
                     <td colspan="10" class="py-10 text-center text-sm text-muted-foreground">
-                      暂无可回写打款结果的结算批次
+                      暂无可同步打款结果的结算批次
                     </td>
                   </tr>
                 `
@@ -443,7 +443,7 @@ export function renderPaymentSyncPage(): string {
                           <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(batch.paymentUpdatedAt ?? batch.updatedAt ?? batch.createdAt)}</td>
                           <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-1">
-                              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pay-action="open-dialog" data-batch-id="${escapeHtml(batch.batchId)}">回写结果</button>
+                              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pay-action="open-dialog" data-batch-id="${escapeHtml(batch.batchId)}">同步结果</button>
                               <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/settlement/batches">查看批次</button>
                               <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/settlement/history">查看历史</button>
                             </div>

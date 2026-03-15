@@ -304,7 +304,7 @@ export function ProductionChangesPage() {
         ))}
       </div>
 
-      {/* 统计卡第二行：上下游影响概览 */}
+      {/* 统计卡第二行：上一步与下一步影响概览 */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {([
           { label: '涉及任务变更数', value: stats.withTask },

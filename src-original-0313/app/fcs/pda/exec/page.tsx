@@ -35,7 +35,7 @@ function getDeadlineStatus(taskDeadline?: string, finishedAt?: string): {
   return { label: '正常', color: 'text-muted-foreground' }
 }
 
-// ─── 开工前置门禁判断 ─────────────────────────────────────────────────────────
+// ─── 开工前置开始条件判断 ─────────────────────────────────────────────────────────
 function getPrerequisite(seq: number, handoverStatus?: string): {
   type: 'PICKUP' | 'RECEIVE'
   met: boolean
@@ -135,7 +135,7 @@ function ExecPageInner() {
   const tabConfig = [
     { key: 'NOT_STARTED' as TaskStatusTab, label: '待开工' },
     { key: 'IN_PROGRESS' as TaskStatusTab, label: '进行中' },
-    { key: 'BLOCKED' as TaskStatusTab, label: '阻塞' },
+    { key: 'BLOCKED' as TaskStatusTab, label: '暂不能继续' },
     { key: 'DONE' as TaskStatusTab, label: '已完工' },
   ]
 
@@ -238,7 +238,7 @@ function ExecPageInner() {
                     </>}
                   </div>
 
-                  {/* 前置门禁 */}
+                  {/* 前置开始条件 */}
                   <div className={cn(
                     'rounded-md px-3 py-2 text-xs space-y-0.5',
                     prereq.met ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'
@@ -330,7 +330,7 @@ function ExecPageInner() {
                   <div className="flex gap-2 pt-1">
                     <Button size="sm" variant="outline" className="h-7 text-xs px-3"
                       onClick={e => { e.stopPropagation(); window.location.href = `/fcs/pda/exec/${task.taskId}?action=block` }}>
-                      <AlertTriangle className="mr-1 h-3 w-3" />报阻塞
+                      <AlertTriangle className="mr-1 h-3 w-3" />报暂不能继续
                     </Button>
                     <Button size="sm" className="h-7 text-xs px-3"
                       onClick={e => handleFinish(task.taskId, e)}>
@@ -347,10 +347,10 @@ function ExecPageInner() {
           })}
         </TabsContent>
 
-        {/* 阻塞 */}
+        {/* 暂不能继续 */}
         <TabsContent value="BLOCKED" className="mt-4 space-y-3">
           {filteredTasks.length === 0 ? (
-            <div className="text-center text-muted-foreground py-10 text-sm">暂无阻塞任务</div>
+            <div className="text-center text-muted-foreground py-10 text-sm">暂无暂不能继续任务</div>
           ) : filteredTasks.map(task => {
             const deadline = getDeadlineStatus((task as any).taskDeadline, task.finishedAt)
             return (
@@ -376,12 +376,12 @@ function ExecPageInner() {
                   {task.blockReason && (
                     <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs">
                       <div className="text-red-700 font-medium">
-                        阻塞原因：{t(`pda.exec.block.reason.${task.blockReason}`)}
+                        暂不能继续原因：{t(`pda.exec.block.reason.${task.blockReason}`)}
                       </div>
                       {task.blockRemark && <p className="text-red-600 mt-0.5">{task.blockRemark}</p>}
                       {(task as any).blockedAt && (
                         <p className="text-muted-foreground mt-0.5 flex items-center gap-1">
-                          <Clock className="h-3 w-3" />阻塞时间：{(task as any).blockedAt}
+                          <Clock className="h-3 w-3" />暂不能继续时间：{(task as any).blockedAt}
                         </p>
                       )}
                     </div>
@@ -390,7 +390,7 @@ function ExecPageInner() {
                   <div className="flex gap-2 pt-1">
                     <Button size="sm" variant="outline" className="h-7 text-xs px-3"
                       onClick={e => { e.stopPropagation(); window.location.href = `/fcs/pda/exec/${task.taskId}?action=unblock` }}>
-                      <CheckCircle className="mr-1 h-3 w-3" />解除阻塞
+                      <CheckCircle className="mr-1 h-3 w-3" />解除暂不能继续
                     </Button>
                     <Button size="sm" variant="ghost" className="h-7 text-xs px-2 ml-auto"
                       onClick={e => { e.stopPropagation(); window.location.href = `/fcs/pda/exec/${task.taskId}` }}>

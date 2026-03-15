@@ -19,7 +19,7 @@ interface PdaExecState {
 const TAB_CONFIG: Array<{ key: TaskStatusTab; label: string }> = [
   { key: 'NOT_STARTED', label: '待开工' },
   { key: 'IN_PROGRESS', label: '进行中' },
-  { key: 'BLOCKED', label: '阻塞' },
+  { key: 'BLOCKED', label: '暂不能继续' },
   { key: 'DONE', label: '已完工' },
 ]
 
@@ -118,7 +118,7 @@ function blockReasonLabel(reason: BlockReason | string | undefined): string {
     TECH: '工艺/技术资料',
     EQUIPMENT: '设备',
     OTHER: '其他',
-    ALLOCATION_GATE: '分配门禁',
+    ALLOCATION_GATE: '分配开始条件',
   }
   return map[reason] ?? reason
 }
@@ -469,7 +469,7 @@ function renderInProgressCard(task: ProcessTask): string {
             data-action="block"
           >
             <i data-lucide="alert-triangle" class="mr-1 h-3 w-3"></i>
-            报阻塞
+            标记暂不能继续
           </button>
 
           <button
@@ -527,9 +527,9 @@ function renderBlockedCard(task: ProcessTask): string {
           task.blockReason
             ? `
                 <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
-                  <div class="font-medium text-red-700">阻塞原因：${escapeHtml(blockReasonLabel(task.blockReason))}</div>
+                  <div class="font-medium text-red-700">当前无法继续的原因：${escapeHtml(blockReasonLabel(task.blockReason))}</div>
                   ${task.blockRemark ? `<p class="mt-0.5 text-red-600">${escapeHtml(task.blockRemark)}</p>` : ''}
-                  ${(task as ProcessTask & { blockedAt?: string }).blockedAt ? `<p class="mt-0.5 flex items-center gap-1 text-muted-foreground"><i data-lucide="clock" class="h-3 w-3"></i>阻塞时间：${escapeHtml((task as ProcessTask & { blockedAt?: string }).blockedAt || '')}</p>` : ''}
+                  ${(task as ProcessTask & { blockedAt?: string }).blockedAt ? `<p class="mt-0.5 flex items-center gap-1 text-muted-foreground"><i data-lucide="clock" class="h-3 w-3"></i>暂不能继续时间：${escapeHtml((task as ProcessTask & { blockedAt?: string }).blockedAt || '')}</p>` : ''}
                 </div>
               `
             : ''
@@ -543,7 +543,7 @@ function renderBlockedCard(task: ProcessTask): string {
             data-action="unblock"
           >
             <i data-lucide="check-circle" class="mr-1 h-3 w-3"></i>
-            解除阻塞
+            恢复执行
           </button>
 
           <button
@@ -650,7 +650,7 @@ export function renderPdaExecPage(): string {
   const fromNotify = !!state.rawTabParam
   const bannerText =
     state.rawTabParam === 'blocked' || state.rawTabParam === 'BLOCKED'
-      ? '已为您定位到阻塞任务'
+      ? '已为您定位到暂不能继续任务'
       : (state.rawTabParam === 'in-progress' || state.rawTabParam === 'IN_PROGRESS') &&
             state.riskParam === 'due-soon'
           ? '已为您定位到即将逾期任务'
