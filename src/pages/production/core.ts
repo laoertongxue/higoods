@@ -1643,7 +1643,7 @@ export function renderProductionOrdersPage(): string {
   return `
     <div class="space-y-4">
       <header class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-xl font-semibold">生产单（台账）</h1>
+        <h1 class="text-xl font-semibold">生产单管理</h1>
         <div class="flex flex-wrap items-center gap-2">
           <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="orders-from-demand">
             <i data-lucide="file-text" class="mr-1 h-4 w-4"></i>
@@ -4322,7 +4322,7 @@ function performDemandGenerate(): void {
     openAppRoute(
       `/fcs/production/orders/${created.productionOrderId}`,
       `po-${created.productionOrderId}`,
-      `生产单（台账） ${created.productionOrderId}`,
+      `生产单管理 ${created.productionOrderId}`,
     )
   }
 }
@@ -4674,7 +4674,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     if (!orderId) return true
 
     state.ordersActionMenuId = null
-    openAppRoute(`/fcs/production/orders/${orderId}`, `po-${orderId}`, `生产单（台账） ${orderId}`)
+    openAppRoute(`/fcs/production/orders/${orderId}`, `po-${orderId}`, `生产单管理 ${orderId}`)
     return true
   }
 

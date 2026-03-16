@@ -144,7 +144,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'FilePlus2',
           children: [
             { key: 'production-demand-inbox', title: '生产需求接收', icon: 'Inbox', href: '/fcs/production/demand-inbox' },
-            { key: 'production-orders', title: '生产单（台账）', icon: 'FilePlus2', href: '/fcs/production/orders' },
+            { key: 'production-orders', title: '生产单管理', icon: 'FilePlus2', href: '/fcs/production/orders' },
             { key: 'production-plan', title: '生产单计划', icon: 'CalendarClock', href: '/fcs/production/plan' },
             { key: 'production-delivery-warehouse', title: '交付仓配置', icon: 'Warehouse', href: '/fcs/production/delivery-warehouse' },
             { key: 'production-changes', title: '变更管理', icon: 'GitPullRequest', href: '/fcs/production/changes' },

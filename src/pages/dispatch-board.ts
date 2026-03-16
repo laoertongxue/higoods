@@ -2497,7 +2497,7 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
     if (!orderId) return true
 
     state.actionMenuTaskId = null
-    openAppRoute(`/fcs/production/orders/${orderId}`, `po-${orderId}`, `生产单（台账） ${orderId}`)
+    openAppRoute(`/fcs/production/orders/${orderId}`, `po-${orderId}`, `生产单管理 ${orderId}`)
     return true
   }
 
