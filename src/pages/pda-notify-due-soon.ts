@@ -1,5 +1,8 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
+import { processTasks } from '../data/fcs/process-tasks'
+import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import { formatRemainingHours, getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
 import { renderPdaFrame } from './pda-shell'
 
 type DueSoonCategory = '全部' | '接单类' | '报价类' | '交接类' | '执行类'
@@ -7,7 +10,7 @@ type DueSoonCategory = '全部' | '接单类' | '报价类' | '交接类' | '执
 interface DueSoonItem {
   id: string
   category: Exclude<DueSoonCategory, '全部'>
-  subtype: '待接单' | '待报价' | '待领料' | '待接收' | '待交出' | '执行进行中'
+  subtype: '待接单' | '待报价' | '待领料' | '待接收' | '待交出' | '执行进行中' | '开工预期'
   taskId?: string
   eventId?: string
   tenderId?: string
@@ -35,7 +38,7 @@ const state: DueSoonState = {
   search: '',
 }
 
-const NOW = new Date('2026-03-12T10:00:00Z')
+const NOW = new Date()
 const SOON_THRESHOLD_MS = 24 * 3600 * 1000
 
 function parseDateMs(value: string): number {
@@ -61,6 +64,30 @@ function formatRemaining(ms: number): string {
 function isSoonDue(deadline: string): boolean {
   const ms = msUntil(deadline)
   return ms > 0 && ms < SOON_THRESHOLD_MS
+}
+
+function getCurrentFactoryId(): string {
+  if (typeof window === 'undefined') return 'ID-F001'
+
+  try {
+    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
+    if (localFactoryId) return localFactoryId
+
+    const rawSession = window.localStorage.getItem('fcs_pda_session')
+    if (rawSession) {
+      const parsed = JSON.parse(rawSession) as { factoryId?: string }
+      if (parsed.factoryId) return parsed.factoryId
+    }
+  } catch {
+    // ignore parse errors
+  }
+
+  return 'ID-F001'
+}
+
+function getFactoryName(factoryId: string): string {
+  const factory = indonesiaFactories.find((item) => item.id === factoryId)
+  return factory?.name ?? factoryId
 }
 
 const DUE_SOON_MOCK: DueSoonItem[] = [
@@ -240,48 +267,6 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     riskNote: '裁片已完成，需在截止前移交泗水车缝厂',
     href: '/fcs/pda/handover/EV-HO-002',
   },
-  {
-    id: 'exec-PDA-DUE-F001-001',
-    category: '执行类',
-    subtype: '执行进行中',
-    taskId: 'PDA-DUE-F001-001',
-    productionOrderId: 'PO-2024-0043',
-    processName: '车缝',
-    currentFactory: 'PT Sinar Garment Indonesia',
-    deadlineLabel: '任务截止时间',
-    deadline: '2026-03-12 22:00',
-    statusLabel: '进行中',
-    riskNote: '距截止不足 12 小时，950 件车缝任务进行中',
-    href: '/fcs/pda/exec/PDA-DUE-F001-001',
-  },
-  {
-    id: 'exec-PDA-DUE-F001-002',
-    category: '执行类',
-    subtype: '执行进行中',
-    taskId: 'PDA-DUE-F001-002',
-    productionOrderId: 'PO-2024-0044',
-    processName: '整烫',
-    currentFactory: 'PT Sinar Garment Indonesia',
-    deadlineLabel: '任务截止时间',
-    deadline: '2026-03-13 06:00',
-    statusLabel: '进行中',
-    riskNote: '距截止不足 20 小时，700 件整烫任务进行中',
-    href: '/fcs/pda/exec/PDA-DUE-F001-002',
-  },
-  {
-    id: 'exec-PDA-DUE-F001-003',
-    category: '执行类',
-    subtype: '执行进行中',
-    taskId: 'PDA-DUE-F001-003',
-    productionOrderId: 'PO-2024-0045',
-    processName: '裁片',
-    currentFactory: 'PT Sinar Garment Indonesia',
-    deadlineLabel: '任务截止时间',
-    deadline: '2026-03-13 02:00',
-    statusLabel: '进行中',
-    riskNote: '距截止不足 16 小时，1500 件裁片任务进行中',
-    href: '/fcs/pda/exec/PDA-DUE-F001-003',
-  },
 ]
 
 const CATEGORIES: Array<{ key: DueSoonCategory; label: string; icon: string }> = [
@@ -299,6 +284,7 @@ const SUBTYPE_STYLE: Record<string, { label: string; className: string }> = {
   待接收: { label: '待接收', className: 'bg-purple-100 text-purple-700 border-purple-200' },
   待交出: { label: '待交出', className: 'bg-teal-100 text-teal-700 border-teal-200' },
   执行进行中: { label: '进行中', className: 'bg-sky-100 text-sky-700 border-sky-200' },
+  开工预期: { label: '开工预期', className: 'bg-amber-100 text-amber-700 border-amber-200' },
 }
 
 const CATEGORY_EMPTY: Record<DueSoonCategory, string> = {
@@ -310,7 +296,72 @@ const CATEGORY_EMPTY: Record<DueSoonCategory, string> = {
 }
 
 function getAllItems(): DueSoonItem[] {
-  return DUE_SOON_MOCK.filter((item) => isSoonDue(item.deadline))
+  syncPdaStartRiskAndExceptions()
+
+  const staticItems = DUE_SOON_MOCK.filter((item) => isSoonDue(item.deadline))
+  const selectedFactoryId = getCurrentFactoryId()
+  const startDueItems: DueSoonItem[] = processTasks
+    .filter(
+      (task) =>
+        task.taskId.startsWith('PDA-EXEC-') &&
+        task.assignedFactoryId === selectedFactoryId &&
+        task.acceptanceStatus === 'ACCEPTED' &&
+        task.status === 'NOT_STARTED',
+    )
+    .map((task) => {
+      const dueInfo = getTaskStartDueInfo(task)
+      return { task, dueInfo }
+    })
+    .filter((item) => item.dueInfo.prerequisiteMet && item.dueInfo.startRiskStatus === 'DUE_SOON' && item.dueInfo.startDueAt)
+    .map((item) => ({
+      id: `start-due-${item.task.taskId}`,
+      category: '执行类' as const,
+      subtype: '开工预期' as const,
+      taskId: item.task.taskId,
+      productionOrderId: item.task.productionOrderId,
+      processName: item.task.processNameZh,
+      currentFactory: getFactoryName(item.task.assignedFactoryId || selectedFactoryId),
+      deadlineLabel: '开工时限',
+      deadline: item.dueInfo.startDueAt as string,
+      statusLabel: '待开工',
+      riskNote:
+        typeof item.dueInfo.remainingMs === 'number'
+          ? `距开工时限不足 ${formatRemainingHours(item.dueInfo.remainingMs)} 小时`
+          : '距开工时限不足 24 小时',
+      href: `/fcs/pda/exec/${item.task.taskId}?action=start`,
+    }))
+
+  const execInProgressItems: DueSoonItem[] = processTasks
+    .filter(
+      (task) =>
+        task.taskId.startsWith('PDA-EXEC-') &&
+        task.assignedFactoryId === selectedFactoryId &&
+        task.acceptanceStatus === 'ACCEPTED' &&
+        task.status === 'IN_PROGRESS' &&
+        Boolean(task.taskDeadline),
+    )
+    .map((task) => {
+      const deadline = task.taskDeadline as string
+      const remainingMs = msUntil(deadline)
+      return { task, deadline, remainingMs }
+    })
+    .filter((item) => item.remainingMs > 0 && item.remainingMs < SOON_THRESHOLD_MS)
+    .map((item) => ({
+      id: `exec-due-${item.task.taskId}`,
+      category: '执行类' as const,
+      subtype: '执行进行中' as const,
+      taskId: item.task.taskId,
+      productionOrderId: item.task.productionOrderId,
+      processName: item.task.processNameZh,
+      currentFactory: getFactoryName(item.task.assignedFactoryId || selectedFactoryId),
+      deadlineLabel: '任务截止时间',
+      deadline: item.deadline,
+      statusLabel: '进行中',
+      riskNote: `距任务截止不足 ${formatRemainingHours(item.remainingMs)} 小时`,
+      href: `/fcs/pda/exec/${item.task.taskId}`,
+    }))
+
+  return [...staticItems, ...execInProgressItems, ...startDueItems]
 }
 
 function getCountByCategory(items: DueSoonItem[]): Record<string, number> {

@@ -2,6 +2,12 @@ import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { processTasks, type BlockReason, type ProcessTask } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import {
+  formatRemainingHours,
+  formatStartDueSourceText,
+  getTaskStartDueInfo,
+  syncPdaStartRiskAndExceptions,
+} from '../data/fcs/pda-start-link'
 import { renderPdaFrame } from './pda-shell'
 
 type TaskStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
@@ -69,12 +75,12 @@ function syncTabWithQuery(): void {
   state.riskParam = searchParams.get('risk') || ''
 }
 
-function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
-}
-
 function parseDateMs(value: string): number {
   return new Date(value.replace(' ', 'T')).getTime()
+}
+
+function nowTimestamp(date: Date = new Date()): string {
+  return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
 function getCurrentFactoryId(): string {
@@ -223,26 +229,6 @@ function showPdaExecToast(message: string): void {
   }, 2200)
 }
 
-function mutateStartTask(taskId: string, by: string): void {
-  const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
-  if (!task) return
-
-  task.status = 'IN_PROGRESS'
-  task.startedAt = now
-  task.updatedAt = now
-  task.auditLogs = [
-    ...task.auditLogs,
-    {
-      id: `AL-START-${Date.now()}`,
-      action: 'START_TASK',
-      detail: '任务开工',
-      at: now,
-      by,
-    },
-  ]
-}
-
 function mutateFinishTask(taskId: string, by: string): void {
   const now = nowTimestamp()
   const task = processTasks.find((item) => item.taskId === taskId)
@@ -285,6 +271,10 @@ function getFilteredTasks(
     })
   }
 
+  if (activeTab === 'NOT_STARTED' && state.riskParam === 'start-due-soon') {
+    tasks = tasks.filter((task) => getTaskStartDueInfo(task).startRiskStatus === 'DUE_SOON')
+  }
+
   const keyword = state.searchKeyword.trim().toLowerCase()
   if (!keyword) return tasks
 
@@ -323,6 +313,15 @@ function renderNotStartedCard(task: ProcessTask): string {
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
   )
+  const startInfo = getTaskStartDueInfo(task)
+  const startDueAt = startInfo.startDueAt || '—'
+  const dueSourceText = formatStartDueSourceText(startInfo.startDueSource)
+  const startRiskNote =
+    startInfo.startRiskStatus === 'DUE_SOON' && typeof startInfo.remainingMs === 'number'
+      ? `距开工时限不足 ${formatRemainingHours(startInfo.remainingMs)} 小时，请尽快补齐开工信息`
+      : startInfo.startRiskStatus === 'OVERDUE'
+        ? '开工已逾期，请立即补录开工信息'
+        : ''
 
   return `
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
@@ -347,6 +346,19 @@ function renderNotStartedCard(task: ProcessTask): string {
                 `
               : ''
           }
+          <div class="text-muted-foreground">开工时限</div>
+          <div class="font-medium ${startInfo.startRiskStatus === 'OVERDUE' ? 'text-red-700' : startInfo.startRiskStatus === 'DUE_SOON' ? 'text-amber-700' : ''}">${escapeHtml(startDueAt)}</div>
+        </div>
+
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          <p class="font-medium">起算依据：${escapeHtml(dueSourceText)}</p>
+          ${
+            startInfo.startRiskStatus === 'OVERDUE'
+              ? '<p class="mt-1 text-red-700">状态：开工已逾期</p>'
+              : startInfo.startRiskStatus === 'DUE_SOON' && typeof startInfo.remainingMs === 'number'
+                ? `<p class="mt-1 text-amber-700">状态：距开工时限不足 ${escapeHtml(formatRemainingHours(startInfo.remainingMs))} 小时</p>`
+                : '<p class="mt-1 text-muted-foreground">状态：开工时限正常</p>'
+          }
         </div>
 
         <div class="space-y-0.5 rounded-md border px-3 py-2 text-xs ${toClassName(
@@ -362,17 +374,23 @@ function renderNotStartedCard(task: ProcessTask): string {
           ${!prereq.met ? `<p class="pl-5 text-amber-600">${escapeHtml(prereq.blocker)}</p>` : ''}
         </div>
 
+        ${
+          startRiskNote
+            ? `<div class="rounded-md border px-3 py-1.5 text-xs ${startInfo.startRiskStatus === 'OVERDUE' ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">${escapeHtml(startRiskNote)}</div>`
+            : ''
+        }
+
         <div class="flex gap-2 pt-1">
           ${
             prereq.met
               ? `
                   <button
                     class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
-                    data-pda-exec-action="start-task"
+                    data-pda-exec-action="go-start"
                     data-task-id="${escapeHtml(task.taskId)}"
                   >
                     <i data-lucide="play" class="mr-1 h-3 w-3"></i>
-                    开工
+                    去开工
                   </button>
                 `
               : `
@@ -626,6 +644,7 @@ function renderDoneCard(task: ProcessTask): string {
 }
 
 export function renderPdaExecPage(): string {
+  syncPdaStartRiskAndExceptions()
   syncTabWithQuery()
 
   const selectedFactoryId = getCurrentFactoryId()
@@ -654,6 +673,9 @@ export function renderPdaExecPage(): string {
       : (state.rawTabParam === 'in-progress' || state.rawTabParam === 'IN_PROGRESS') &&
             state.riskParam === 'due-soon'
           ? '已为您定位到即将逾期任务'
+          : (state.rawTabParam === 'not-started' || state.rawTabParam === 'NOT_STARTED') &&
+                state.riskParam === 'start-due-soon'
+            ? '已为您定位到开工预期任务'
           : ''
 
   const content = `
@@ -719,6 +741,8 @@ export function renderPdaExecPage(): string {
             ? `<div class="py-10 text-center text-sm text-muted-foreground">${
                 state.activeTab === 'IN_PROGRESS' && state.riskParam === 'due-soon'
                   ? '当前暂无即将逾期任务'
+                  : state.activeTab === 'NOT_STARTED' && state.riskParam === 'start-due-soon'
+                    ? '当前暂无开工预期任务'
                   : `暂无${TAB_CONFIG.find((tab) => tab.key === state.activeTab)?.label || ''}任务`
               }</div>`
             : filteredTasks
@@ -776,8 +800,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
     if (tab && TAB_CONFIG.some((item) => item.key === tab)) {
       state.activeTab = tab
-      const maybeRisk =
-        state.riskParam && state.riskParam === 'due-soon' ? `&risk=${state.riskParam}` : ''
+      const maybeRisk = state.riskParam ? `&risk=${state.riskParam}` : ''
       appStore.navigate(`/fcs/pda/exec?tab=${tab}${maybeRisk}`)
     }
     return true
@@ -800,31 +823,17 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'go-handover') {
-    const tab = actionNode.dataset.tab || 'pickup'
-    appStore.navigate(`/fcs/pda/handover?tab=${tab}`)
+  if (action === 'go-start') {
+    const taskId = actionNode.dataset.taskId
+    if (taskId) {
+      appStore.navigate(`/fcs/pda/exec/${taskId}?action=start`)
+    }
     return true
   }
 
-  if (action === 'start-task') {
-    const taskId = actionNode.dataset.taskId
-    if (!taskId) return true
-
-    const task = processTasks.find((item) => item.taskId === taskId)
-    if (!task) return true
-
-    const prereq = getPrerequisite(
-      task.seq,
-      (task as ProcessTask & { handoverStatus?: string }).handoverStatus,
-    )
-
-    if (!prereq.met) {
-      showPdaExecToast(`无法开工：${prereq.blocker}`)
-      return true
-    }
-
-    mutateStartTask(taskId, 'PDA')
-    showPdaExecToast('开工成功')
+  if (action === 'go-handover') {
+    const tab = actionNode.dataset.tab || 'pickup'
+    appStore.navigate(`/fcs/pda/handover?tab=${tab}`)
     return true
   }
 

@@ -1,7 +1,13 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
-import { processTasks, type BlockReason, type ProcessTask } from '../data/fcs/process-tasks'
+import { processTasks, type BlockReason, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import {
+  formatRemainingHours,
+  formatStartDueSourceText,
+  getTaskStartDueInfo,
+  syncPdaStartRiskAndExceptions,
+} from '../data/fcs/pda-start-link'
 import { renderPdaFrame } from './pda-shell'
 
 interface PdaExecDetailState {
@@ -12,7 +18,9 @@ interface PdaExecDetailState {
   unblockRemark: string
   initializedPathKey: string
   proofTaskId: string
-  proofFiles: ProofFile[]
+  proofFiles: StartProofFile[]
+  startTime: string
+  startHeadcount: string
 }
 
 const detailState: PdaExecDetailState = {
@@ -24,13 +32,8 @@ const detailState: PdaExecDetailState = {
   initializedPathKey: '',
   proofTaskId: '',
   proofFiles: [],
-}
-
-interface ProofFile {
-  id: string
-  type: 'IMAGE' | 'VIDEO'
-  name: string
-  uploadedAt: string
+  startTime: '',
+  startHeadcount: '',
 }
 
 const BLOCK_REASON_OPTIONS: Array<{ value: BlockReason; label: string }> = [
@@ -42,7 +45,7 @@ const BLOCK_REASON_OPTIONS: Array<{ value: BlockReason; label: string }> = [
   { value: 'OTHER', label: '其他' },
 ]
 
-const MOCK_START_PROOF: Record<string, ProofFile[]> = {
+const MOCK_START_PROOF: Record<string, StartProofFile[]> = {
   'PDA-EXEC-007': [
     { id: 'sp-001', type: 'IMAGE', name: '开工现场_01.jpg', uploadedAt: '2026-03-10 08:05:22' },
     { id: 'sp-002', type: 'IMAGE', name: '物料到位_01.jpg', uploadedAt: '2026-03-10 08:06:10' },
@@ -67,7 +70,19 @@ function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(getCurrentQueryString())
 }
 
-function syncDialogStateWithQuery(taskId: string): void {
+function toInputDateTime(value: string | undefined): string {
+  if (!value) return ''
+  return value.replace(' ', 'T').slice(0, 16)
+}
+
+function toStoreDateTime(value: string): string {
+  if (!value) return ''
+  const normalized = value.replace('T', ' ')
+  return normalized.length === 16 ? `${normalized}:00` : normalized
+}
+
+function syncDialogStateWithQuery(task: ProcessTask): void {
+  const taskId = task.taskId
   const pathname = appStore.getState().pathname
   const key = `${taskId}|${pathname}`
 
@@ -82,8 +97,17 @@ function syncDialogStateWithQuery(taskId: string): void {
   detailState.unblockRemark = ''
 
   if (detailState.proofTaskId !== taskId) {
+    const taskWithStart = task as ProcessTask & {
+      startProofFiles?: StartProofFile[]
+      startHeadcount?: number
+    }
+
     detailState.proofTaskId = taskId
-    detailState.proofFiles = []
+    detailState.proofFiles = taskWithStart.startProofFiles
+      ? [...taskWithStart.startProofFiles]
+      : [...(MOCK_START_PROOF[taskId] || [])]
+    detailState.startTime = toInputDateTime(task.startedAt) || toInputDateTime(nowTimestamp())
+    detailState.startHeadcount = taskWithStart.startHeadcount ? String(taskWithStart.startHeadcount) : ''
   }
 }
 
@@ -259,7 +283,7 @@ function removeProofFile(id: string): void {
   detailState.proofFiles = detailState.proofFiles.filter((item) => item.id !== id)
 }
 
-function renderProofUploadSection(files: ProofFile[]): string {
+function renderProofUploadSection(files: StartProofFile[]): string {
   return `
     <div class="space-y-3">
       <p class="text-xs leading-relaxed text-muted-foreground">可上传开工现场、物料到位、设备状态等证明材料，当前为选填</p>
@@ -319,7 +343,7 @@ function renderProofUploadSection(files: ProofFile[]): string {
   `
 }
 
-function renderProofViewSection(files: ProofFile[]): string {
+function renderProofViewSection(files: StartProofFile[]): string {
   if (files.length === 0) {
     return `
       <div class="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
@@ -349,20 +373,31 @@ function renderProofViewSection(files: ProofFile[]): string {
   `
 }
 
-function mutateStartTask(taskId: string, by: string): void {
+function mutateStartTask(
+  taskId: string,
+  by: string,
+  payload: { startTime: string; headcount: number; proofFiles: StartProofFile[] },
+): void {
   const now = nowTimestamp()
   const task = processTasks.find((item) => item.taskId === taskId)
   if (!task) return
 
+  const writableTask = task as ProcessTask & {
+    startHeadcount?: number
+    startProofFiles?: StartProofFile[]
+  }
+
   task.status = 'IN_PROGRESS'
-  task.startedAt = now
+  task.startedAt = payload.startTime
+  writableTask.startHeadcount = payload.headcount
+  writableTask.startProofFiles = [...payload.proofFiles]
   task.updatedAt = now
   task.auditLogs = [
     ...task.auditLogs,
     {
       id: `AL-START-${Date.now()}`,
       action: 'START_TASK',
-      detail: '任务开工',
+      detail: `任务开工，开工时间：${payload.startTime}，本次开工人数：${payload.headcount}，开工凭证：${payload.proofFiles.length}个`,
       at: now,
       by,
     },
@@ -535,7 +570,7 @@ function renderUnblockDialog(taskId: string): string {
 }
 
 export function renderPdaExecDetailPage(taskId: string): string {
-  syncDialogStateWithQuery(taskId)
+  syncPdaStartRiskAndExceptions()
 
   const task = processTasks.find((item) => item.taskId === taskId)
 
@@ -555,6 +590,8 @@ export function renderPdaExecDetailPage(taskId: string): string {
     return renderPdaFrame(content, 'exec')
   }
 
+  syncDialogStateWithQuery(task)
+
   const status = task.status || 'NOT_STARTED'
   const prereq = getPrerequisite(
     task.seq,
@@ -569,6 +606,15 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const canFinish = status === 'IN_PROGRESS'
   const canBlock = status !== 'DONE' && status !== 'CANCELLED'
   const canUnblock = status === 'BLOCKED'
+  const startDueInfo = getTaskStartDueInfo(task)
+  const startDueAt = startDueInfo.startDueAt || '—'
+  const startSourceText = formatStartDueSourceText(startDueInfo.startDueSource)
+  const startRiskText =
+    startDueInfo.startRiskStatus === 'OVERDUE'
+      ? '开工已逾期'
+      : startDueInfo.startRiskStatus === 'DUE_SOON' && typeof startDueInfo.remainingMs === 'number'
+        ? `距开工时限不足 ${formatRemainingHours(startDueInfo.remainingMs)} 小时`
+        : '开工时限正常'
 
   const statusLabelMap: Record<string, string> = {
     NOT_STARTED: '待开工',
@@ -712,7 +758,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
         <header class="border-b px-4 py-3">
           <h2 class="flex items-center gap-2 text-sm font-semibold">
             <i data-lucide="clock" class="h-4 w-4"></i>
-            执行信息
+            开工信息
           </h2>
         </header>
 
@@ -720,8 +766,16 @@ export function renderPdaExecDetailPage(taskId: string): string {
           <div class="grid grid-cols-2 gap-x-4 gap-y-1">
             <span class="text-xs text-muted-foreground">当前状态</span>
             <span class="inline-flex w-fit items-center rounded px-2 py-0.5 text-xs ${statusColorMap[status] ?? 'bg-muted text-muted-foreground'}">${escapeHtml(statusLabelMap[status] ?? status)}</span>
+            <span class="text-xs text-muted-foreground">开工时限</span>
+            <span class="text-xs font-medium ${startDueInfo.startRiskStatus === 'OVERDUE' ? 'text-red-700' : startDueInfo.startRiskStatus === 'DUE_SOON' ? 'text-amber-700' : ''}">${escapeHtml(startDueAt)}</span>
+            <span class="text-xs text-muted-foreground">起算依据</span>
+            <span class="text-xs">${escapeHtml(startSourceText)}</span>
+            <span class="text-xs text-muted-foreground">时限状态</span>
+            <span class="text-xs font-medium ${startDueInfo.startRiskStatus === 'OVERDUE' ? 'text-red-700' : startDueInfo.startRiskStatus === 'DUE_SOON' ? 'text-amber-700' : 'text-foreground'}">${escapeHtml(startRiskText)}</span>
             <span class="text-xs text-muted-foreground">开工时间</span>
-            <span class="text-xs">${escapeHtml(task.startedAt || '—')}</span>
+            <span class="text-xs">${escapeHtml(task.startedAt || toStoreDateTime(detailState.startTime) || '—')}</span>
+            <span class="text-xs text-muted-foreground">本次开工人数</span>
+            <span class="text-xs">${escapeHtml(String((task as ProcessTask & { startHeadcount?: number }).startHeadcount || detailState.startHeadcount || '—'))}</span>
             <span class="text-xs text-muted-foreground">完工时间</span>
             <span class="text-xs">${escapeHtml(task.finishedAt || '—')}</span>
             ${
@@ -735,6 +789,12 @@ export function renderPdaExecDetailPage(taskId: string): string {
           </div>
 
           ${
+            startDueInfo.startRiskStatus === 'OVERDUE'
+              ? '<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">开工已逾期，请立即补录开工信息</div>'
+              : ''
+          }
+
+          ${
             task.blockReason
               ? `
                   <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
@@ -746,6 +806,52 @@ export function renderPdaExecDetailPage(taskId: string): string {
                   </div>
                 `
               : ''
+          }
+
+          ${
+            status === 'NOT_STARTED'
+              ? `
+                  <div class="rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label class="space-y-1">
+                        <span class="text-xs text-muted-foreground">开工时间 *</span>
+                        <input
+                          type="datetime-local"
+                          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                          data-pda-execd-field="startTime"
+                          value="${escapeHtml(detailState.startTime)}"
+                        />
+                      </label>
+                      <label class="space-y-1">
+                        <span class="text-xs text-muted-foreground">本次开工人数 *</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                          data-pda-execd-field="startHeadcount"
+                          value="${escapeHtml(detailState.startHeadcount)}"
+                          placeholder="请输入人数"
+                        />
+                      </label>
+                    </div>
+                    <p class="mt-2 text-xs text-muted-foreground">车缝可按上车位人数填写；其他工序填写本次实际投入人数</p>
+                  </div>
+                  <div class="rounded-lg border">
+                    <div class="border-b px-3 py-2 text-sm font-medium">开工凭证（选填）</div>
+                    <div class="p-3">
+                      ${renderProofUploadSection(detailState.proofFiles)}
+                    </div>
+                  </div>
+                `
+              : `
+                  <div class="rounded-lg border">
+                    <div class="border-b px-3 py-2 text-sm font-medium">开工凭证</div>
+                    <div class="p-3">
+                      ${renderProofViewSection(detailState.proofFiles)}
+                    </div>
+                  </div>
+                `
           }
         </div>
       </article>
@@ -780,45 +886,6 @@ export function renderPdaExecDetailPage(taskId: string): string {
         </div>
       </article>
 
-      ${
-        status === 'NOT_STARTED' && prereq.met
-          ? `
-              <article class="rounded-lg border bg-card">
-                <header class="border-b px-4 py-3">
-                  <h2 class="flex items-center justify-between text-sm font-semibold">
-                    <span class="flex items-center gap-1.5">
-                      <i data-lucide="paperclip" class="h-4 w-4 text-muted-foreground"></i>
-                      开工凭证（选填）
-                    </span>
-                    <span class="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">选填</span>
-                  </h2>
-                </header>
-                <div class="p-4 pt-3">
-                  ${renderProofUploadSection(detailState.proofFiles)}
-                </div>
-              </article>
-            `
-          : ''
-      }
-
-      ${
-        status === 'IN_PROGRESS' || status === 'DONE' || status === 'BLOCKED'
-          ? `
-              <article class="rounded-lg border bg-card">
-                <header class="border-b px-4 py-3">
-                  <h2 class="flex items-center gap-1.5 text-sm font-semibold">
-                    <i data-lucide="paperclip" class="h-4 w-4 text-muted-foreground"></i>
-                    开工凭证
-                  </h2>
-                </header>
-                <div class="p-4 pt-3">
-                  ${renderProofViewSection(MOCK_START_PROOF[taskId] || [])}
-                </div>
-              </article>
-            `
-          : ''
-      }
-
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <h2 class="text-sm font-semibold">操作</h2>
@@ -831,12 +898,12 @@ export function renderPdaExecDetailPage(taskId: string): string {
                 ? `
                     <button
                       class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-                      data-pda-execd-action="start-task"
+                      data-pda-execd-action="confirm-start"
                       data-task-id="${escapeHtml(task.taskId)}"
                       ${canStart ? '' : 'disabled'}
                     >
                       <i data-lucide="play" class="mr-2 h-4 w-4"></i>
-                      开工
+                      确认开工
                     </button>
                   `
                 : `
@@ -974,6 +1041,16 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       detailState.unblockRemark = fieldNode.value
       return true
     }
+
+    if (field === 'startTime' && fieldNode instanceof HTMLInputElement) {
+      detailState.startTime = fieldNode.value
+      return true
+    }
+
+    if (field === 'startHeadcount' && fieldNode instanceof HTMLInputElement) {
+      detailState.startHeadcount = fieldNode.value
+      return true
+    }
   }
 
   const actionNode = target.closest<HTMLElement>('[data-pda-execd-action]')
@@ -1015,7 +1092,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'start-task') {
+  if (action === 'confirm-start') {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
 
@@ -1032,7 +1109,30 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
-    mutateStartTask(taskId, 'PDA')
+    if (!detailState.startTime) {
+      showPdaExecDetailToast('请填写开工时间')
+      return true
+    }
+
+    const startTime = toStoreDateTime(detailState.startTime)
+    const startMs = parseDateMs(startTime)
+    if (Number.isNaN(startMs) || startMs > Date.now()) {
+      showPdaExecDetailToast('开工时间不能晚于当前时间')
+      return true
+    }
+
+    const headcount = Number.parseInt(detailState.startHeadcount, 10)
+    if (!Number.isInteger(headcount) || headcount <= 0) {
+      showPdaExecDetailToast('请填写有效的本次开工人数')
+      return true
+    }
+
+    mutateStartTask(taskId, 'PDA', {
+      startTime,
+      headcount,
+      proofFiles: detailState.proofFiles,
+    })
+    syncPdaStartRiskAndExceptions()
     showPdaExecDetailToast(
       detailState.proofFiles.length > 0
         ? `开工成功，已上传 ${detailState.proofFiles.length} 个开工凭证`

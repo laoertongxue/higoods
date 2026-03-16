@@ -9,7 +9,7 @@
 // =============================================
 export type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_EXTERNAL' | 'RESOLVED' | 'CLOSED'
 export type Severity = 'S1' | 'S2' | 'S3'
-export type ExceptionCategory = 'PRODUCTION_BLOCK' | 'ASSIGNMENT' | 'TECH_PACK' | 'HANDOVER' | 'MATERIAL'
+export type ExceptionCategory = 'PRODUCTION_BLOCK' | 'ASSIGNMENT' | 'TECH_PACK' | 'HANDOVER' | 'MATERIAL' | 'EXECUTION'
 export type ReasonCode =
   // 生产暂不能继续
   | 'BLOCKED_MATERIAL' | 'BLOCKED_CAPACITY' | 'BLOCKED_QUALITY' | 'BLOCKED_TECH' | 'BLOCKED_EQUIPMENT' | 'BLOCKED_OTHER'
@@ -21,6 +21,8 @@ export type ReasonCode =
   | 'FACTORY_BLACKLISTED'
   // 交接/领料
   | 'HANDOVER_DIFF' | 'MATERIAL_NOT_READY'
+  // 执行
+  | 'START_OVERDUE'
 
 export interface ExceptionAction {
   id: string
@@ -58,6 +60,8 @@ export interface ExceptionCase {
   slaDueAt: string
   resolvedAt?: string
   resolvedBy?: string
+  closedAt?: string
+  closeRemark?: string
   tags: string[]
   actions: ExceptionAction[]
   auditLogs: ExceptionAuditLog[]

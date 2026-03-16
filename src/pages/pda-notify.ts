@@ -2,6 +2,7 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { processTasks } from '../data/fcs/process-tasks'
 import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress'
+import { getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
 import { renderPdaFrame } from './pda-shell'
 
 type NotifyTab = 'todo' | 'inbox'
@@ -90,7 +91,7 @@ const MOCK_AWARDED = [
   },
 ]
 
-const NOW_DUE = new Date('2026-03-12T10:00:00Z')
+const NOW_DUE = new Date()
 const SOON_MS = 24 * 3600 * 1000
 
 function isSoon(value: string): boolean {
@@ -239,7 +240,7 @@ function blockReasonLabel(reason: string): string {
 }
 
 function isUrgentDeadline(deadline: string): boolean {
-  const now = new Date('2026-03-12T10:00:00Z')
+  const now = new Date()
   const due = new Date(deadline.replace(' ', 'T'))
   const diff = due.getTime() - now.getTime()
   return diff >= 0 && diff < 24 * 3600 * 1000
@@ -253,6 +254,7 @@ function getNotifyPageData(): {
   todoItems: TodoItem[]
   notifications: Notification[]
 } {
+  syncPdaStartRiskAndExceptions()
   const selectedFactoryId = getCurrentFactoryId()
 
   const myTasks = processTasks.filter(
@@ -298,8 +300,13 @@ function getNotifyPageData(): {
     (task) => !!task.taskDeadline && isSoon(task.taskDeadline),
   ).length
 
+  const startSoonCount = notStartedTasks.filter((task) => {
+    const dueInfo = getTaskStartDueInfo(task)
+    return dueInfo.prerequisiteMet && dueInfo.startRiskStatus === 'DUE_SOON'
+  }).length
+
   const dueSoonTotalCount =
-    acceptSoonCount + MOCK_TENDERS_SOON.length + MOCK_HO_SOON_DEADLINES.length + execSoonCount
+    acceptSoonCount + MOCK_TENDERS_SOON.length + MOCK_HO_SOON_DEADLINES.length + execSoonCount + startSoonCount
 
   const allNotifications = initialNotifications
     .filter(

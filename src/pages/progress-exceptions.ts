@@ -35,6 +35,7 @@ import {
   type UrgeType,
 } from '../data/fcs/store-domain-progress'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+import { syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
 
 applyQualitySeedBootstrap()
 
@@ -149,6 +150,7 @@ const CATEGORY_LABEL: Record<ExceptionCategory, string> = {
   TECH_PACK: '技术包',
   HANDOVER: '交接异常',
   MATERIAL: '物料异常',
+  EXECUTION: '执行异常',
 }
 
 const REASON_LABEL: Record<ReasonCode, string> = {
@@ -168,6 +170,7 @@ const REASON_LABEL: Record<ReasonCode, string> = {
   FACTORY_BLACKLISTED: '工厂黑名单',
   HANDOVER_DIFF: '交接差异',
   MATERIAL_NOT_READY: '物料未齐套',
+  START_OVERDUE: '开工逾期',
 }
 
 const OWNER_OPTIONS: Array<{ id: string; name: string }> = [
@@ -1019,6 +1022,7 @@ function renderFilters(): string {
           <option value="ALL" ${state.categoryFilter === 'ALL' ? 'selected' : ''}>全部分类</option>
           <option value="PRODUCTION_BLOCK" ${state.categoryFilter === 'PRODUCTION_BLOCK' ? 'selected' : ''}>生产暂不能继续</option>
           <option value="ASSIGNMENT" ${state.categoryFilter === 'ASSIGNMENT' ? 'selected' : ''}>分配异常</option>
+          <option value="EXECUTION" ${state.categoryFilter === 'EXECUTION' ? 'selected' : ''}>执行异常</option>
           <option value="TECH_PACK" ${state.categoryFilter === 'TECH_PACK' ? 'selected' : ''}>技术包</option>
           <option value="HANDOVER" ${state.categoryFilter === 'HANDOVER' ? 'selected' : ''}>交接异常</option>
           <option value="MATERIAL" ${state.categoryFilter === 'MATERIAL' ? 'selected' : ''}>物料异常</option>
@@ -1573,6 +1577,7 @@ function renderExtendDialog(): string {
 }
 
 export function renderProgressExceptionsPage(): string {
+  syncPdaStartRiskAndExceptions()
   syncFromQuery()
 
   const now = new Date()

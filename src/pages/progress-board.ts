@@ -631,7 +631,7 @@ function createOrUpdateExceptionFromSignal(signal: {
   }
 
   const s1Reasons: ReasonCode[] = ['TENDER_OVERDUE', 'NO_BID', 'FACTORY_BLACKLISTED', 'HANDOVER_DIFF']
-  const s2Reasons: ReasonCode[] = ['DISPATCH_REJECTED', 'ACK_TIMEOUT', 'TENDER_NEAR_DEADLINE', 'TECH_PACK_NOT_RELEASED', 'MATERIAL_NOT_READY']
+  const s2Reasons: ReasonCode[] = ['DISPATCH_REJECTED', 'ACK_TIMEOUT', 'TENDER_NEAR_DEADLINE', 'TECH_PACK_NOT_RELEASED', 'MATERIAL_NOT_READY', 'START_OVERDUE']
 
   let severity: Severity = 'S3'
   if (s1Reasons.includes(signal.reasonCode)) {
@@ -645,6 +645,8 @@ function createOrUpdateExceptionFromSignal(signal: {
     category = 'PRODUCTION_BLOCK'
   } else if (['TENDER_OVERDUE', 'TENDER_NEAR_DEADLINE', 'NO_BID', 'PRICE_ABNORMAL', 'DISPATCH_REJECTED', 'ACK_TIMEOUT', 'FACTORY_BLACKLISTED'].includes(signal.reasonCode)) {
     category = 'ASSIGNMENT'
+  } else if (signal.reasonCode === 'START_OVERDUE') {
+    category = 'EXECUTION'
   } else if (signal.reasonCode === 'TECH_PACK_NOT_RELEASED') {
     category = 'TECH_PACK'
   } else if (signal.reasonCode === 'HANDOVER_DIFF') {
@@ -693,6 +695,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     FACTORY_BLACKLISTED: '工厂黑名单',
     HANDOVER_DIFF: '交接差异',
     MATERIAL_NOT_READY: '物料未齐套',
+    START_OVERDUE: '开工逾期',
   }
 
   const exception: ExceptionCase = {

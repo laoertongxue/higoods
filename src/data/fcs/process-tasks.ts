@@ -23,6 +23,13 @@ export interface TaskAttachment {
   url: string
 }
 
+export interface StartProofFile {
+  id: string
+  type: 'IMAGE' | 'VIDEO'
+  name: string
+  uploadedAt: string
+}
+
 export interface ProcessTask {
   taskId: string
   productionOrderId: string
@@ -60,7 +67,14 @@ export interface ProcessTask {
   // 接单状态（工厂确认）
   acceptanceStatus?: AcceptanceStatus
   acceptedAt?: string
+  awardedAt?: string
   acceptedBy?: string
+  startDueAt?: string
+  startDueSource?: 'ACCEPTED' | 'AWARDED'
+  startRiskStatus?: 'NORMAL' | 'DUE_SOON' | 'OVERDUE'
+  startHeadcount?: number
+  startProofFiles?: StartProofFile[]
+  startOverdueExceptionId?: string | null
   // 时间戳
   startedAt?: string
   finishedAt?: string
@@ -1446,7 +1460,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  acceptedAt: '2026-03-10 09:00:00',
+  acceptedAt: '2026-03-16 06:00:00',
   handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-18 18:00',
   dispatchPrice: 3500,
@@ -1480,7 +1494,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  acceptedAt: '2026-03-10 14:00:00',
+  acceptedAt: '2026-03-15 11:30:00',
   handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-20 18:00',
   dispatchPrice: 3200,
@@ -1515,7 +1529,8 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  acceptedAt: '2026-03-11 08:30:00',
+  acceptedAt: '2026-03-14 08:30:00',
+  awardedAt: '2026-03-14 08:00:00',
   handoverStatus: 'RECEIVED',
   taskDeadline: '2026-03-22 18:00',
   dispatchPrice: 8500,
@@ -1550,7 +1565,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  acceptedAt: '2026-03-11 10:00:00',
+  acceptedAt: '2026-03-15 20:00:00',
   handoverStatus: 'RECEIVED',
   taskDeadline: '2026-03-16 18:00',
   dispatchPrice: 2000,
@@ -1584,7 +1599,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  acceptedAt: '2026-03-12 08:00:00',
+  acceptedAt: '2026-03-14 08:00:00',
   handoverStatus: 'PENDING',
   taskDeadline: '2026-03-19 18:00',
   dispatchPrice: 3500,
@@ -1618,7 +1633,8 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  acceptedAt: '2026-03-12 09:00:00',
+  acceptedAt: '2026-03-14 09:00:00',
+  awardedAt: '2026-03-14 07:00:00',
   handoverStatus: 'PENDING',
   taskDeadline: '2026-03-25 18:00',
   dispatchPrice: 8500,
@@ -1657,6 +1673,11 @@ export const processTasks: ProcessTask[] = [
   handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-20 18:00',
   startedAt: '2026-03-10 08:00:00',
+  startHeadcount: 18,
+  startProofFiles: [
+    { id: 'sp-task-007-1', type: 'IMAGE', name: '开工现场_01.jpg', uploadedAt: '2026-03-10 08:05:22' },
+    { id: 'sp-task-007-2', type: 'VIDEO', name: '设备状态检查.mp4', uploadedAt: '2026-03-10 08:06:18' },
+  ],
   dispatchPrice: 3500,
   dispatchPriceCurrency: 'IDR',
   dispatchPriceUnit: '件',
@@ -1686,6 +1707,8 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
+  acceptedAt: '2026-03-14 10:00:00',
+  awardedAt: '2026-03-14 09:30:00',
   handoverStatus: 'RECEIVED',
   taskDeadline: '2026-03-13 08:00',
   startedAt: '2026-03-09 14:00:00',
@@ -1717,6 +1740,8 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
+  acceptedAt: '2026-03-13 10:00:00',
+  awardedAt: '2026-03-13 09:00:00',
   handoverStatus: 'RECEIVED',
   taskDeadline: '2026-03-10 18:00',
   startedAt: '2026-03-08 09:00:00',
@@ -1781,6 +1806,8 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
+  acceptedAt: '2026-03-04 12:00:00',
+  awardedAt: '2026-03-04 11:00:00',
   handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-18 18:00',
   startedAt: '2026-03-09 08:00:00',
