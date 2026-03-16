@@ -24,7 +24,7 @@ import {
 } from '../../data/fcs/indonesia-factories'
 import { getTechPackBySpuCode } from '../../data/fcs/tech-packs'
 import { legalEntities } from '../../data/fcs/legal-entities'
-import { processTasks } from '../../data/fcs/process-tasks'
+import { processTasks, type ProcessTask } from '../../data/fcs/process-tasks'
 import {
   applyQualitySeedBootstrap,
 } from '../../data/fcs/store-domain-quality-bootstrap'
@@ -45,6 +45,24 @@ import type {
   ProductionChangeType,
   ProductionChangeStatus,
 } from '../../data/fcs/store-domain-settlement-types'
+import {
+  addMaterialToDraft,
+  confirmMaterialRequestDraft,
+  getDraftStatusLabel,
+  getMaterialRequestDraftById,
+  getMaterialRequestDraftSummaryByOrder,
+  getSupplementOptionDisplayRows,
+  getTaskTypeLabel,
+  listMaterialRequestDraftsByOrder,
+  restoreMaterialDraftSuggestion,
+  setMaterialDraftLineConfirmedQty,
+  setMaterialDraftMode,
+  setMaterialDraftNeedMaterial,
+  setMaterialDraftRemark,
+  toggleMaterialDraftLine,
+  type MaterialRequestDraft,
+  type MaterialMode,
+} from '../../data/fcs/material-request-drafts'
 
 applyQualitySeedBootstrap()
 
@@ -135,6 +153,9 @@ interface ProductionState {
   ordersDemandSnapshotId: string | null
   ordersLogsId: string | null
   ordersActionMenuId: string | null
+  materialDraftOrderId: string | null
+  materialDraftAddDraftId: string | null
+  materialDraftAddSelections: Set<string>
   ordersViewMode: OrderViewMode
 
   planKeyword: string
@@ -247,6 +268,22 @@ const lifecycleStatusClass: Record<LifecycleStatus, string> = {
   QC_PENDING: 'bg-yellow-100 text-yellow-700',
   COMPLETED: 'bg-green-100 text-green-700',
   CLOSED: 'bg-gray-100 text-gray-600',
+}
+
+const taskStatusLabel: Record<ProcessTask['status'], string> = {
+  NOT_STARTED: '未开始',
+  IN_PROGRESS: '进行中',
+  DONE: '已完成',
+  BLOCKED: '当前暂不能继续',
+  CANCELLED: '已取消',
+}
+
+const taskStatusClass: Record<ProcessTask['status'], string> = {
+  NOT_STARTED: 'bg-slate-100 text-slate-700',
+  IN_PROGRESS: 'bg-blue-100 text-blue-700',
+  DONE: 'bg-green-100 text-green-700',
+  BLOCKED: 'bg-red-100 text-red-700',
+  CANCELLED: 'bg-gray-100 text-gray-600',
 }
 
 const changeTypeLabels: Record<ProductionChangeType, string> = {
@@ -519,6 +556,10 @@ function getOrderById(orderId: string | null): ProductionOrder | null {
   return state.orders.find((order) => order.productionOrderId === orderId) ?? null
 }
 
+function getProcessTaskById(taskId: string): ProcessTask | null {
+  return processTasks.find((task) => task.taskId === taskId) ?? null
+}
+
 function getChangeById(changeId: string | null): ProductionOrderChange | null {
   if (!changeId) return null
   return state.changes.find((change) => change.changeId === changeId) ?? null
@@ -746,6 +787,9 @@ function closeAllProductionDialogs(): void {
   state.demandGenerateConfirmOpen = false
   state.ordersDemandSnapshotId = null
   state.ordersLogsId = null
+  state.materialDraftOrderId = null
+  state.materialDraftAddDraftId = null
+  state.materialDraftAddSelections = new Set<string>()
   state.planEditOrderId = null
   state.deliveryEditOrderId = null
   state.changesCreateOpen = false
@@ -796,6 +840,9 @@ const state: ProductionState = {
   ordersDemandSnapshotId: null,
   ordersLogsId: null,
   ordersActionMenuId: null,
+  materialDraftOrderId: null,
+  materialDraftAddDraftId: null,
+  materialDraftAddSelections: new Set<string>(),
   ordersViewMode: 'table',
 
   planKeyword: '',
@@ -1628,6 +1675,383 @@ function renderOrderLogsDialog(): string {
   `
 }
 
+function renderOrderMaterialSummary(order: ProductionOrder): string {
+  const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
+
+  if (summary.totalDraftCount === 0) {
+    return `
+      <button
+        class="w-full rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
+        data-prod-action="open-material-draft-drawer"
+        data-order-id="${order.productionOrderId}"
+      >
+        ${renderBadge('不涉及', 'bg-slate-100 text-slate-700')}
+        <div class="mt-1 text-xs text-muted-foreground">${order.taskBreakdownSummary.isBrokenDown ? '暂无可识别领料任务' : '待拆任务后生成'}</div>
+      </button>
+    `
+  }
+
+  if (summary.status === 'pending') {
+    return `
+      <button
+        class="w-full rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
+        data-prod-action="open-material-draft-drawer"
+        data-order-id="${order.productionOrderId}"
+      >
+        ${renderBadge('待确认', 'bg-amber-100 text-amber-700')}
+        <div class="mt-1 text-xs text-muted-foreground">草稿 ${summary.totalDraftCount} / 任务 ${summary.totalTaskCount} / 物料 ${summary.totalMaterialCount}</div>
+        ${
+          summary.notApplicableCount > 0
+            ? `<div class="text-xs text-muted-foreground">不涉及 ${summary.notApplicableCount}</div>`
+            : ''
+        }
+      </button>
+    `
+  }
+
+  if (summary.status === 'partial_created') {
+    return `
+      <button
+        class="w-full rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
+        data-prod-action="open-material-draft-drawer"
+        data-order-id="${order.productionOrderId}"
+      >
+        ${renderBadge('部分创建', 'bg-blue-100 text-blue-700')}
+        <div class="mt-1 text-xs text-muted-foreground">已创建 ${summary.createdCount} / 待确认 ${summary.pendingCount}</div>
+        ${
+          summary.notApplicableCount > 0
+            ? `<div class="text-xs text-muted-foreground">不涉及 ${summary.notApplicableCount}</div>`
+            : ''
+        }
+      </button>
+    `
+  }
+
+  return `
+    <button
+      class="w-full rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
+      data-prod-action="open-material-draft-drawer"
+      data-order-id="${order.productionOrderId}"
+    >
+      ${renderBadge('已创建', 'bg-green-100 text-green-700')}
+      <div class="mt-1 text-xs text-muted-foreground">需求 ${summary.requestCount}</div>
+      ${
+        summary.notApplicableCount > 0
+          ? `<div class="text-xs text-muted-foreground">不涉及 ${summary.notApplicableCount}</div>`
+          : ''
+      }
+    </button>
+  `
+}
+
+function renderMaterialDraftTaskCard(draft: MaterialRequestDraft): string {
+  const task = getProcessTaskById(draft.taskId)
+  const isCreated = draft.draftStatus === 'created'
+  const isNotApplicable = draft.draftStatus === 'not_applicable'
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="space-y-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <h4 class="text-sm font-semibold">${escapeHtml(draft.taskName)}</h4>
+            ${renderBadge(getTaskTypeLabel(draft.taskType), 'bg-slate-100 text-slate-700')}
+            ${renderBadge(getDraftStatusLabel(draft.draftStatus), isCreated ? 'bg-green-100 text-green-700' : isNotApplicable ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-700')}
+            ${
+              task
+                ? renderBadge(taskStatusLabel[task.status], taskStatusClass[task.status])
+                : ''
+            }
+          </div>
+          <div class="text-xs text-muted-foreground">
+            任务编号：${escapeHtml(draft.taskNo)} · 任务类型：${escapeHtml(getTaskTypeLabel(draft.taskType))}
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3 grid gap-3 md:grid-cols-3">
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">是否需要领料</span>
+          <label class="inline-flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              data-prod-action="toggle-material-draft-needed"
+              data-draft-id="${escapeHtml(draft.draftId)}"
+              ${draft.needMaterial ? 'checked' : ''}
+              ${isCreated ? 'disabled' : ''}
+            />
+            需要领料
+          </label>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">领料方式</span>
+          <select
+            data-prod-field="materialDraftMode:${escapeHtml(draft.draftId)}"
+            class="h-9 w-full rounded-md border px-3 text-sm"
+            ${isCreated || !draft.needMaterial ? 'disabled' : ''}
+          >
+            <option value="warehouse_delivery" ${draft.materialMode === 'warehouse_delivery' ? 'selected' : ''}>仓库配送到厂</option>
+            <option value="factory_pickup" ${draft.materialMode === 'factory_pickup' ? 'selected' : ''}>工厂到仓自提</option>
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">备注</span>
+          <input
+            data-prod-field="materialDraftRemark:${escapeHtml(draft.draftId)}"
+            value="${escapeHtml(draft.remark)}"
+            class="h-9 w-full rounded-md border px-3 text-sm"
+            ${isCreated ? 'disabled' : ''}
+            placeholder="可填写领料说明"
+          />
+        </label>
+      </div>
+
+      <div class="mt-3 overflow-x-auto rounded-md border">
+        <table class="w-full min-w-[920px] text-sm">
+          <thead class="bg-muted/40 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">是否领用</th>
+              <th class="px-3 py-2 text-left font-medium">物料来源</th>
+              <th class="px-3 py-2 text-left font-medium">物料编码</th>
+              <th class="px-3 py-2 text-left font-medium">物料名称</th>
+              <th class="px-3 py-2 text-left font-medium">规格/属性</th>
+              <th class="px-3 py-2 text-right font-medium">建议数量</th>
+              <th class="px-3 py-2 text-right font-medium">确认数量</th>
+              <th class="px-3 py-2 text-left font-medium">单位</th>
+              <th class="px-3 py-2 text-left font-medium">说明/来源说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              draft.lines.length === 0
+                ? renderEmptyRow(9, '当前任务暂无自动建议物料，可点击“补充物料”添加')
+                : draft.lines
+                    .map(
+                      (line) => `
+                        <tr class="border-b last:border-0">
+                          <td class="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              data-prod-action="toggle-material-draft-line"
+                              data-draft-id="${escapeHtml(draft.draftId)}"
+                              data-line-id="${escapeHtml(line.lineId)}"
+                              ${line.selected ? 'checked' : ''}
+                              ${isCreated || !draft.needMaterial ? 'disabled' : ''}
+                            />
+                          </td>
+                          <td class="px-3 py-2">${renderBadge(line.sourceTypeLabel, line.sourceType === 'bom' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700')}</td>
+                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(line.materialCode)}</td>
+                          <td class="px-3 py-2">${escapeHtml(line.materialName)}</td>
+                          <td class="px-3 py-2">${escapeHtml(line.materialSpec)}</td>
+                          <td class="px-3 py-2 text-right">${line.suggestedQty}</td>
+                          <td class="px-3 py-2 text-right">
+                            <input
+                              data-prod-field="materialDraftLineQty:${escapeHtml(draft.draftId)}:${escapeHtml(line.lineId)}"
+                              value="${line.confirmedQty}"
+                              class="h-8 w-20 rounded-md border px-2 text-right text-sm"
+                              ${isCreated || !draft.needMaterial || !line.selected ? 'disabled' : ''}
+                            />
+                          </td>
+                          <td class="px-3 py-2">${escapeHtml(line.unit)}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(line.note)}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+
+      ${
+        isCreated
+          ? `
+            <div class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+              <div>正式领料需求编号：<span class="font-mono">${escapeHtml(draft.createdMaterialRequestNo)}</span></div>
+              <div class="mt-0.5 text-xs">创建人：${escapeHtml(draft.createdBy || '-')} · 创建时间：${escapeHtml(draft.createdAt || '-')}</div>
+            </div>
+          `
+          : `
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <button
+                class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted"
+                data-prod-action="open-add-draft-materials"
+                data-draft-id="${escapeHtml(draft.draftId)}"
+                ${!draft.needMaterial ? 'disabled' : ''}
+              >
+                <i data-lucide="plus" class="mr-1 h-4 w-4"></i>
+                补充物料
+              </button>
+              <div class="flex flex-wrap items-center gap-2">
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-prod-action="restore-material-draft-suggestion" data-draft-id="${escapeHtml(draft.draftId)}">
+                  恢复系统建议
+                </button>
+                <button
+                  class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm text-primary-foreground hover:bg-primary/90"
+                  data-prod-action="confirm-material-request-draft"
+                  data-draft-id="${escapeHtml(draft.draftId)}"
+                >
+                  确认创建
+                </button>
+              </div>
+            </div>
+          `
+      }
+    </section>
+  `
+}
+
+function renderAddDraftMaterialsDialog(): string {
+  const draftId = state.materialDraftAddDraftId
+  if (!draftId) return ''
+
+  const draft = getMaterialRequestDraftById(draftId)
+  if (!draft) return ''
+
+  const candidates = getSupplementOptionDisplayRows(draftId)
+
+  return `
+    <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 p-4" data-dialog-backdrop="true">
+      <section class="w-full max-w-3xl rounded-lg border bg-background shadow-2xl" data-dialog-panel="true">
+        <header class="flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <h3 class="text-base font-semibold">补充物料</h3>
+            <p class="text-xs text-muted-foreground">${escapeHtml(draft.taskName)} · ${escapeHtml(draft.taskNo)}</p>
+          </div>
+          <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="close-add-draft-materials" aria-label="关闭">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </header>
+        <div class="max-h-[60vh] overflow-y-auto p-4">
+          <div class="overflow-x-auto rounded-md border">
+            <table class="w-full min-w-[820px] text-sm">
+              <thead class="bg-muted/40 text-xs text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">勾选</th>
+                  <th class="px-3 py-2 text-left font-medium">来源类型</th>
+                  <th class="px-3 py-2 text-left font-medium">物料编码</th>
+                  <th class="px-3 py-2 text-left font-medium">物料名称</th>
+                  <th class="px-3 py-2 text-left font-medium">规格</th>
+                  <th class="px-3 py-2 text-right font-medium">建议数量</th>
+                  <th class="px-3 py-2 text-left font-medium">说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  candidates.length === 0
+                    ? renderEmptyRow(7, '当前无可补充物料')
+                    : candidates
+                        .map(
+                          (option) => `
+                            <tr class="border-b last:border-0">
+                              <td class="px-3 py-2">
+                                <input
+                                  type="checkbox"
+                                  data-prod-action="toggle-add-draft-material"
+                                  data-option-key="${escapeHtml(option.optionKey)}"
+                                  ${state.materialDraftAddSelections.has(option.optionKey) ? 'checked' : ''}
+                                />
+                              </td>
+                              <td class="px-3 py-2">${renderBadge(option.sourceTypeLabel, option.sourceTypeLabel === 'BOM物料' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700')}</td>
+                              <td class="px-3 py-2 font-mono text-xs">${escapeHtml(option.materialCode)}</td>
+                              <td class="px-3 py-2">${escapeHtml(option.materialName)}</td>
+                              <td class="px-3 py-2">${escapeHtml(option.materialSpec)}</td>
+                              <td class="px-3 py-2 text-right">${option.suggestedQty}${escapeHtml(option.unit)}</td>
+                              <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(option.note)}</td>
+                            </tr>
+                          `,
+                        )
+                        .join('')
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-prod-action="close-add-draft-materials">取消</button>
+          <button class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="add-draft-materials">加入当前任务</button>
+        </footer>
+      </section>
+    </div>
+  `
+}
+
+function renderMaterialDraftDrawer(): string {
+  const order = getOrderById(state.materialDraftOrderId)
+  if (!order) return ''
+
+  const drafts = listMaterialRequestDraftsByOrder(order.productionOrderId)
+  const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
+  const techPack = getOrderTechPackInfo(order)
+
+  return `
+    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-prod-action="close-material-draft-drawer" aria-label="关闭"></button>
+      <section class="absolute inset-y-0 right-0 w-full border-l bg-background shadow-2xl xl:max-w-[980px]" data-dialog-panel="true">
+        <header class="sticky top-0 z-10 border-b bg-background px-5 py-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-semibold">领料需求草稿</h3>
+              <p class="mt-1 text-xs text-muted-foreground">按任务生成系统建议草稿，确认后创建正式领料需求并挂接到任务</p>
+            </div>
+            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="close-material-draft-drawer" aria-label="关闭">
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+        </header>
+        <div class="h-[calc(100vh-73px)] space-y-4 overflow-y-auto p-5">
+          <section class="rounded-lg border bg-card p-4">
+            <div class="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+              <div>
+                <div class="text-xs text-muted-foreground">生产单号</div>
+                <div class="font-mono text-sm">${escapeHtml(order.productionOrderId)}</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted-foreground">SPU</div>
+                <div class="font-mono text-sm">${escapeHtml(order.demandSnapshot.spuCode)}</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted-foreground">款名</div>
+                <div class="truncate text-sm" title="${escapeHtml(order.demandSnapshot.spuName)}">${escapeHtml(order.demandSnapshot.spuName)}</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted-foreground">技术包</div>
+                <div class="text-sm">${escapeHtml(techPack.currentVersion)}</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted-foreground">拆解状态</div>
+                <div class="text-sm">${order.taskBreakdownSummary.isBrokenDown ? '已拆解' : '未拆解'}</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted-foreground">主工厂</div>
+                <div class="truncate text-sm" title="${escapeHtml(order.mainFactorySnapshot.name)}">${escapeHtml(order.mainFactorySnapshot.name)}</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="grid gap-3 md:grid-cols-4">
+            ${renderStatCard('草稿总数', summary.totalDraftCount)}
+            ${renderStatCard('待确认', summary.pendingCount)}
+            ${renderStatCard('已创建', summary.createdCount)}
+            ${renderStatCard('不涉及', summary.notApplicableCount)}
+          </section>
+
+          ${
+            drafts.length === 0
+              ? `
+                <section class="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+                  当前生产单暂无可识别领料任务，任务拆解后会自动生成建议草稿。
+                </section>
+              `
+              : drafts.map((draft) => renderMaterialDraftTaskCard(draft)).join('')
+          }
+        </div>
+      </section>
+      ${renderAddDraftMaterialsDialog()}
+    </div>
+  `
+}
+
 export function renderProductionOrdersPage(): string {
   const filteredOrders = getFilteredOrders()
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
@@ -1812,6 +2236,7 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[90px] px-3 py-3 text-left font-medium">分配进度</th>
                 <th class="min-w-[130px] px-3 py-3 text-left font-medium">竞价摘要</th>
                 <th class="min-w-[130px] px-3 py-3 text-left font-medium">派单摘要</th>
+                <th class="min-w-[170px] px-3 py-3 text-left font-medium">领料摘要</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">主工厂</th>
                 <th class="min-w-[150px] px-3 py-3 text-left font-medium">风险</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">最近更新</th>
@@ -1821,7 +2246,7 @@ export function renderProductionOrdersPage(): string {
             <tbody>
               ${
                 pagedOrders.length === 0
-                  ? renderEmptyRow(15, '暂无数据')
+                  ? renderEmptyRow(16, '暂无数据')
                   : pagedOrders
                       .map((order) => {
                         const techPack = getOrderTechPackInfo(order)
@@ -1934,6 +2359,9 @@ export function renderProductionOrdersPage(): string {
                               }
                             </td>
                             <td class="px-3 py-3">
+                              ${renderOrderMaterialSummary(order)}
+                            </td>
+                            <td class="px-3 py-3">
                               <div class="text-sm">
                                 <div class="max-w-[150px] truncate font-medium" title="${escapeHtml(order.mainFactorySnapshot.name)}">
                                   ${escapeHtml(order.mainFactorySnapshot.name)}
@@ -1979,6 +2407,10 @@ export function renderProductionOrdersPage(): string {
                                             <i data-lucide="layout-grid" class="mr-2 h-4 w-4"></i>
                                             去分配看板
                                           </button>
+                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-material-draft-drawer" data-order-id="${order.productionOrderId}">
+                                            <i data-lucide="boxes" class="mr-2 h-4 w-4"></i>
+                                            领料需求草稿
+                                          </button>
                                         </div>
                                       `
                                       : ''
@@ -2015,6 +2447,7 @@ export function renderProductionOrdersPage(): string {
         </div>
       </footer>
 
+      ${renderMaterialDraftDrawer()}
       ${renderOrderDemandSnapshotDrawer()}
       ${renderOrderLogsDialog()}
     </div>
@@ -4334,6 +4767,31 @@ function updateProductionField(
   const value = node.value
   const checked = node instanceof HTMLInputElement ? node.checked : false
 
+  if (field.startsWith('materialDraftMode:')) {
+    const [, draftId] = field.split(':')
+    if (draftId && (value === 'warehouse_delivery' || value === 'factory_pickup')) {
+      setMaterialDraftMode(draftId, value as MaterialMode)
+    }
+    return
+  }
+
+  if (field.startsWith('materialDraftRemark:')) {
+    const [, draftId] = field.split(':')
+    if (draftId) {
+      setMaterialDraftRemark(draftId, value)
+    }
+    return
+  }
+
+  if (field.startsWith('materialDraftLineQty:')) {
+    const [, draftId, lineId] = field.split(':')
+    if (draftId && lineId) {
+      const qty = Number(value)
+      setMaterialDraftLineConfirmedQty(draftId, lineId, Number.isFinite(qty) ? qty : 0)
+    }
+    return
+  }
+
   if (field === 'demandKeyword') {
     state.demandKeyword = value
     return
@@ -4675,6 +5133,101 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
     state.ordersActionMenuId = null
     openAppRoute(`/fcs/production/orders/${orderId}`, `po-${orderId}`, `生产单管理 ${orderId}`)
+    return true
+  }
+
+  if (action === 'open-material-draft-drawer') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.ordersActionMenuId = null
+    state.materialDraftOrderId = orderId
+    state.materialDraftAddDraftId = null
+    state.materialDraftAddSelections = new Set<string>()
+    return true
+  }
+
+  if (action === 'close-material-draft-drawer') {
+    state.materialDraftOrderId = null
+    state.materialDraftAddDraftId = null
+    state.materialDraftAddSelections = new Set<string>()
+    return true
+  }
+
+  if (action === 'toggle-material-draft-needed') {
+    const draftId = actionNode.dataset.draftId
+    if (!draftId || !(actionNode instanceof HTMLInputElement)) return true
+    setMaterialDraftNeedMaterial(draftId, actionNode.checked)
+    return true
+  }
+
+  if (action === 'toggle-material-draft-line') {
+    const draftId = actionNode.dataset.draftId
+    const lineId = actionNode.dataset.lineId
+    if (!draftId || !lineId || !(actionNode instanceof HTMLInputElement)) return true
+    toggleMaterialDraftLine(draftId, lineId, actionNode.checked)
+    return true
+  }
+
+  if (action === 'open-add-draft-materials') {
+    const draftId = actionNode.dataset.draftId
+    if (!draftId) return true
+    state.materialDraftAddDraftId = draftId
+    state.materialDraftAddSelections = new Set<string>()
+    return true
+  }
+
+  if (action === 'close-add-draft-materials') {
+    state.materialDraftAddDraftId = null
+    state.materialDraftAddSelections = new Set<string>()
+    return true
+  }
+
+  if (action === 'toggle-add-draft-material') {
+    const optionKey = actionNode.dataset.optionKey
+    if (!optionKey) return true
+    const next = new Set(state.materialDraftAddSelections)
+    if (next.has(optionKey)) {
+      next.delete(optionKey)
+    } else {
+      next.add(optionKey)
+    }
+    state.materialDraftAddSelections = next
+    return true
+  }
+
+  if (action === 'add-draft-materials') {
+    const draftId = state.materialDraftAddDraftId
+    if (!draftId) return true
+    const added = addMaterialToDraft(draftId, [...state.materialDraftAddSelections])
+    if (added <= 0) {
+      showPlanMessage('未选择可补充物料', 'error')
+      return true
+    }
+    showPlanMessage(`已补充 ${added} 条物料`)
+    state.materialDraftAddDraftId = null
+    state.materialDraftAddSelections = new Set<string>()
+    return true
+  }
+
+  if (action === 'restore-material-draft-suggestion') {
+    const draftId = actionNode.dataset.draftId
+    if (!draftId) return true
+    restoreMaterialDraftSuggestion(draftId)
+    showPlanMessage('已恢复系统建议')
+    return true
+  }
+
+  if (action === 'confirm-material-request-draft') {
+    const draftId = actionNode.dataset.draftId
+    if (!draftId) return true
+
+    const result = confirmMaterialRequestDraft(draftId, { id: currentUser.id, name: currentUser.name })
+    if (!result.ok) {
+      showPlanMessage(`创建失败：${result.reason}`, 'error')
+      return true
+    }
+
+    showPlanMessage(`领料需求已创建：${result.request.materialRequestNo}`)
     return true
   }
 
@@ -5408,6 +5961,8 @@ export function isProductionDialogOpen(): boolean {
     state.demandGenerateConfirmOpen ||
     state.ordersDemandSnapshotId !== null ||
     state.ordersLogsId !== null ||
+    state.materialDraftOrderId !== null ||
+    state.materialDraftAddDraftId !== null ||
     state.planEditOrderId !== null ||
     state.deliveryEditOrderId !== null ||
     state.changesCreateOpen ||

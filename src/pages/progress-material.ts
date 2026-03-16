@@ -15,6 +15,12 @@ import {
   type PoSummary,
   type ShortageReasonCode,
 } from '../data/fcs/legacy-wms-picking'
+import {
+  getTaskTypeLabel,
+  listMaterialRequests,
+  listMaterialRequestsByOrder,
+  type MaterialRequestRecord,
+} from '../data/fcs/material-request-drafts'
 
 type ReadinessStatusFilter = 'ALL' | 'NOT_CREATED' | 'CREATED' | 'PICKING' | 'PARTIAL' | 'COMPLETED'
 type HasShortageFilter = 'ALL' | 'YES' | 'NO'
@@ -185,8 +191,75 @@ function renderProgressBar(percent: number, widthClass: string): string {
   `
 }
 
+function filterMaterialRequestsByKeyword(rows: MaterialRequestRecord[]): MaterialRequestRecord[] {
+  const keyword = state.keyword.trim().toLowerCase()
+  if (!keyword) return rows
+
+  return rows.filter((row) => {
+    const haystack = `${row.productionOrderNo} ${row.taskName} ${getTaskTypeLabel(row.taskType)} ${row.materialRequestNo} ${row.materialSummary}`.toLowerCase()
+    return haystack.includes(keyword)
+  })
+}
+
+function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
+  return `
+    <section class="rounded-lg border bg-card">
+      <header class="flex items-center justify-between px-4 pb-3 pt-4">
+        <div>
+          <h2 class="text-base font-semibold">正式领料需求跟踪</h2>
+          <p class="text-xs text-muted-foreground">仅展示已确认创建的领料需求（不含待确认草稿）</p>
+        </div>
+        <span class="text-xs text-muted-foreground">共 ${rows.length} 条</span>
+      </header>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1080px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/40 text-left">
+              <th class="px-3 py-2 font-medium">生产单号</th>
+              <th class="px-3 py-2 font-medium">任务名称</th>
+              <th class="px-3 py-2 font-medium">任务类型</th>
+              <th class="px-3 py-2 font-medium">领料需求编号</th>
+              <th class="px-3 py-2 font-medium">领料方式</th>
+              <th class="px-3 py-2 font-medium">物料摘要</th>
+              <th class="px-3 py-2 font-medium">当前领料进度状态</th>
+              <th class="px-3 py-2 font-medium">最近更新时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              rows.length === 0
+                ? `
+                    <tr>
+                      <td colspan="8" class="px-3 py-8 text-center text-muted-foreground">暂无已创建领料需求</td>
+                    </tr>
+                  `
+                : rows
+                    .map(
+                      (row) => `
+                        <tr class="border-b last:border-b-0">
+                          <td class="px-3 py-2 font-medium text-primary">${escapeHtml(row.productionOrderNo)}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.taskName)}</td>
+                          <td class="px-3 py-2">${renderBadge(getTaskTypeLabel(row.taskType), 'border-slate-300 bg-white text-slate-700')}</td>
+                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.materialRequestNo)}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.materialModeLabel)}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.materialSummary)}</td>
+                          <td class="px-3 py-2">${renderBadge(row.requestStatus, row.requestStatus === '已完成' ? 'border-green-200 bg-green-50 text-green-700' : 'border-blue-200 bg-blue-50 text-blue-700')}</td>
+                          <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(row.updatedAt)}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
 function renderMaterialListView(): string {
   const rows = getFilteredPoRows(getPoListRows())
+  const materialRequests = filterMaterialRequestsByKeyword(listMaterialRequests())
 
   return `
     <div class="space-y-4">
@@ -271,6 +344,8 @@ function renderMaterialListView(): string {
           </div>
         </div>
       </section>
+
+      ${renderMaterialRequestSection(materialRequests)}
 
       <section class="rounded-lg border bg-card">
         <div class="overflow-x-auto">
@@ -480,6 +555,7 @@ function renderMaterialDetailView(poId: string, pickIdFromQuery: string | null):
   const poSummary = getPoSummaryById(poId)
   const pickingOrders = getPickingOrdersByPo(poId)
   const shortageLines = getShortageSummaryByPo(poId)
+  const materialRequests = listMaterialRequestsByOrder(poId)
 
   const filteredShortageLines =
     state.shortageReasonFilter === 'all'
@@ -566,6 +642,52 @@ function renderMaterialDetailView(poId: string, pickIdFromQuery: string | null):
               )}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-card">
+        <header class="px-4 pb-3 pt-4">
+          <h2 class="text-base font-semibold">该生产单已创建领料需求</h2>
+        </header>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[980px] text-sm">
+            <thead>
+              <tr class="border-b bg-muted/40 text-left">
+                <th class="px-3 py-2 font-medium">任务名称</th>
+                <th class="px-3 py-2 font-medium">任务类型</th>
+                <th class="px-3 py-2 font-medium">领料需求编号</th>
+                <th class="px-3 py-2 font-medium">领料方式</th>
+                <th class="px-3 py-2 font-medium">物料摘要</th>
+                <th class="px-3 py-2 font-medium">当前领料进度状态</th>
+                <th class="px-3 py-2 font-medium">最近更新时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                materialRequests.length === 0
+                  ? `
+                      <tr>
+                        <td colspan="7" class="px-3 py-8 text-center text-muted-foreground">暂无已创建领料需求</td>
+                      </tr>
+                    `
+                  : materialRequests
+                      .map(
+                        (row) => `
+                          <tr class="border-b last:border-b-0">
+                            <td class="px-3 py-2">${escapeHtml(row.taskName)}</td>
+                            <td class="px-3 py-2">${renderBadge(getTaskTypeLabel(row.taskType), 'border-slate-300 bg-white text-slate-700')}</td>
+                            <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.materialRequestNo)}</td>
+                            <td class="px-3 py-2">${escapeHtml(row.materialModeLabel)}</td>
+                            <td class="px-3 py-2">${escapeHtml(row.materialSummary)}</td>
+                            <td class="px-3 py-2">${renderBadge(row.requestStatus, row.requestStatus === '已完成' ? 'border-green-200 bg-green-50 text-green-700' : 'border-blue-200 bg-blue-50 text-blue-700')}</td>
+                            <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(row.updatedAt)}</td>
+                          </tr>
+                        `,
+                      )
+                      .join('')
+              }
+            </tbody>
+          </table>
         </div>
       </section>
 

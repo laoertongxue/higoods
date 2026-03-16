@@ -71,6 +71,12 @@ export interface ProcessTask {
   // 上一步依赖（当前暂不能继续）
   dependsOnTaskIds?: string[]
   blockNoteZh?: string            // 开始条件中文原因（ALLOCATION_GATE 时写入）
+  // 领料需求挂接（生产单管理确认后写入）
+  hasMaterialRequest?: boolean
+  materialRequestNo?: string
+  materialMode?: 'warehouse_delivery' | 'factory_pickup'
+  materialModeLabel?: '仓库配送到厂' | '工厂到仓自提'
+  materialRequestStatus?: '待配料' | '待配送' | '待自提' | '已完成'
   // 返工/重做任务关联
   parentTaskId?: string
   sourceQcId?: string
