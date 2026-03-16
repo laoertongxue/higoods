@@ -177,8 +177,8 @@ function getChangedSettlementFields(request: SettlementChangeRequest): string {
 
 function getRequestNextStepText(request: SettlementChangeRequest): string {
   if (request.status === 'PENDING_VERIFY') return '平台正在核实申请信息'
-  if (request.status === 'WAIT_SIGNED_FORM') return '请配合线下签字，平台上传签字申请后进入审核'
-  if (request.status === 'WAIT_APPROVAL') return '平台已收到签字申请，待审核生效'
+  if (request.status === 'WAIT_SIGNED_FORM') return '请配合线下签字，平台上传签字证明后进入审核'
+  if (request.status === 'WAIT_APPROVAL') return '平台已上传签字证明，待审核生效'
   if (request.status === 'EFFECTIVE') return '申请已生效，当前结算信息已更新'
   return request.rejectReason || '申请已驳回，可重新发起申请'
 }
@@ -656,6 +656,10 @@ function renderSettlementInfoSection(): string {
           <p class="mt-0.5 text-xs font-medium">${escapeHtml(effective.bankBranch || '—')}</p>
         </div>
         <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-[10px] text-muted-foreground">当前版本号</p>
+          <p class="mt-0.5 text-xs font-medium">${escapeHtml(effective.versionNo)}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
           <p class="text-[10px] text-muted-foreground">最近生效时间</p>
           <p class="mt-0.5 text-xs font-medium">${escapeHtml(effective.effectiveAt)}</p>
         </div>
@@ -673,6 +677,8 @@ function renderSettlementInfoSection(): string {
               </div>
               <div class="space-y-1 text-[11px] text-muted-foreground">
                 <p>申请号：${escapeHtml(currentRequest.requestId)} · 申请时间：${escapeHtml(currentRequest.submittedAt)}</p>
+                <p>当前处理阶段：${escapeHtml(getSettlementStatusLabel(currentRequest.status))}</p>
+                <p>签字证明：${currentRequest.signedProofFiles.length > 0 ? `已上传 ${currentRequest.signedProofFiles.length} 份` : '未上传'}</p>
                 <p>变更摘要：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
                 <p>下一步：${escapeHtml(getRequestNextStepText(currentRequest))}</p>
               </div>
@@ -775,6 +781,8 @@ function renderSettlementRequestDrawer(): string {
           </span>
         </div>
         <p class="mt-1 text-[10px] text-muted-foreground">申请时间：${escapeHtml(currentRequest.submittedAt)} · 提交人：${escapeHtml(currentRequest.submittedBy)}</p>
+        <p class="mt-1 text-[10px] text-muted-foreground">当前版本：${escapeHtml(currentRequest.currentVersionNo)} · 目标版本：${escapeHtml(currentRequest.targetVersionNo)}</p>
+        <p class="mt-1 text-[10px] text-muted-foreground">签字证明：${currentRequest.signedProofFiles.length > 0 ? `已上传 ${currentRequest.signedProofFiles.length} 份` : '未上传'}</p>
         <p class="mt-1 text-[10px] text-muted-foreground">变更摘要：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
         <p class="mt-1 text-[10px] text-muted-foreground">下一步：${escapeHtml(getRequestNextStepText(currentRequest))}</p>
       </div>

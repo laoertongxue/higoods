@@ -32,11 +32,12 @@ import {
   getSettlementRequestById,
   getSettlementStatusClass,
   getSettlementStatusLabel,
+  getSettlementVersionHistory,
   markSettlementRequestPrinted,
   rejectSettlementRequest,
   setSettlementRequestPaperArchived,
-  submitSettlementSignedForms,
-  uploadSettlementSignedForm,
+  submitSettlementSignedProof,
+  uploadSettlementSignedProof,
   verifySettlementRequest,
   type SettlementChangeRequest,
   type SettlementChangeRequestStatus,
@@ -425,6 +426,9 @@ function renderSettlementRequestDetailDialog(): string {
   const canWaitSigned = request.status === 'WAIT_SIGNED_FORM'
   const canApproval = request.status === 'WAIT_APPROVAL'
   const canReject = request.status === 'PENDING_VERIFY' || request.status === 'WAIT_APPROVAL'
+  const canPrint = request.status !== 'EFFECTIVE' && request.status !== 'REJECTED'
+  const targetVersionHint = request.status === 'EFFECTIVE' ? request.targetVersionNo : `${request.currentVersionNo} -> ${request.targetVersionNo}`
+  const versionHistoryCount = getSettlementVersionHistory(request.factoryId).length
 
   const statusText = getSettlementStatusLabel(request.status)
   const statusClass = getSettlementStatusClass(request.status)
@@ -456,6 +460,18 @@ function renderSettlementRequestDetailDialog(): string {
                 <p class="text-muted-foreground">工厂：<span class="font-medium text-foreground">${escapeHtml(request.factoryName)}</span></p>
                 <p class="text-muted-foreground">申请时间：<span class="font-medium text-foreground">${escapeHtml(request.submittedAt)}</span></p>
                 <p class="text-muted-foreground">提交人：<span class="font-medium text-foreground">${escapeHtml(request.submittedBy)}</span></p>
+                <p class="text-muted-foreground">当前生效版本：<span class="font-medium text-foreground">${escapeHtml(request.currentVersionNo)}</span></p>
+                <p class="text-muted-foreground">目标生效版本：<span class="font-medium text-foreground">${escapeHtml(request.targetVersionNo)}</span></p>
+              </div>
+            </section>
+
+            <section class="rounded-lg border p-4">
+              <p class="text-sm font-semibold">当前版本信息</p>
+              <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
+                <p class="text-muted-foreground">当前生效版本号：<span class="font-medium text-foreground">${escapeHtml(request.currentVersionNo)}</span></p>
+                <p class="text-muted-foreground">最近生效时间：<span class="font-medium text-foreground">${escapeHtml(request.effectiveAt || request.submittedAt)}</span></p>
+                <p class="text-muted-foreground">生效后版本：<span class="font-medium text-foreground">${escapeHtml(targetVersionHint)}</span></p>
+                <p class="text-muted-foreground">历史版本数：<span class="font-medium text-foreground">${versionHistoryCount} 个</span></p>
               </div>
             </section>
 
@@ -479,10 +495,16 @@ function renderSettlementRequestDetailDialog(): string {
                   <p>开户支行：${escapeHtml(request.after.bankBranch || '—')}</p>
                 </div>
               </div>
+              <p class="mt-2 text-xs text-blue-700">本次若审核通过，将从 ${escapeHtml(request.currentVersionNo)} 变更为 ${escapeHtml(request.targetVersionNo)}</p>
             </section>
 
             <section class="rounded-lg border p-4">
               <p class="text-sm font-semibold">处理动作</p>
+              ${
+                canPrint
+                  ? `<div class="mt-2"><button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="print-settlement-change-form" data-request-id="${escapeHtml(request.requestId)}">打印申请单</button></div>`
+                  : ''
+              }
               ${
                 canVerify
                   ? `
@@ -505,23 +527,23 @@ function renderSettlementRequestDetailDialog(): string {
                   ? `
                     <div class="mt-2 space-y-2">
                       <div class="flex flex-wrap gap-2">
-                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="print-settlement-change-form" data-request-id="${escapeHtml(request.requestId)}">打印变更申请单</button>
-                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="upload-settlement-signed-form" data-request-id="${escapeHtml(request.requestId)}" data-file-type="IMAGE">上传签字申请附件（图片）</button>
-                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="upload-settlement-signed-form" data-request-id="${escapeHtml(request.requestId)}" data-file-type="VIDEO">上传签字申请附件（视频）</button>
+                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="upload-settlement-signed-proof" data-request-id="${escapeHtml(request.requestId)}" data-file-type="IMAGE">上传签字证明附件（图片）</button>
+                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="upload-settlement-signed-proof" data-request-id="${escapeHtml(request.requestId)}" data-file-type="VIDEO">上传签字证明附件（视频）</button>
                       </div>
+                      <p class="text-[11px] text-muted-foreground">请上传工厂线下签字后的变更申请证明，作为审核依据</p>
                       <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
                         ${
-                          request.signedFormFiles.length > 0
-                            ? request.signedFormFiles
+                          request.signedProofFiles.length > 0
+                            ? request.signedProofFiles
                                 .map(
                                   (file) =>
                                     `<p>${escapeHtml(file.name)} · ${escapeHtml(file.uploadedAt)} · ${escapeHtml(file.uploadedBy)}</p>`,
                                 )
                                 .join('')
-                            : '<p class="text-muted-foreground">暂未上传签字附件</p>'
+                            : '<p class="text-muted-foreground">暂未上传签字证明附件</p>'
                         }
                       </div>
-                      <button class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700" data-settle-action="submit-settlement-signed-form" data-request-id="${escapeHtml(request.requestId)}">提交签字附件</button>
+                      <button class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700" data-settle-action="submit-settlement-signed-proof" data-request-id="${escapeHtml(request.requestId)}">提交签字附件</button>
                     </div>
                   `
                   : ''
@@ -532,16 +554,16 @@ function renderSettlementRequestDetailDialog(): string {
                   ? `
                     <div class="mt-2 space-y-2">
                       <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-                        <p class="mb-1 font-medium">已上传签字附件</p>
+                        <p class="mb-1 font-medium">已上传签字证明附件</p>
                         ${
-                          request.signedFormFiles.length > 0
-                            ? request.signedFormFiles
+                          request.signedProofFiles.length > 0
+                            ? request.signedProofFiles
                                 .map(
                                   (file) =>
                                     `<p>${escapeHtml(file.name)} · ${escapeHtml(file.uploadedAt)} · ${escapeHtml(file.uploadedBy)}</p>`,
                                 )
                                 .join('')
-                            : '<p class="text-red-600">暂无附件，无法审核生效</p>'
+                            : '<p class="text-red-600">暂无签字证明附件，无法审核生效</p>'
                         }
                       </div>
                       <label class="inline-flex items-center gap-2 text-xs">
@@ -555,7 +577,7 @@ function renderSettlementRequestDetailDialog(): string {
                       <div class="flex gap-2">
                         <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="followup-settlement-request" data-request-id="${escapeHtml(request.requestId)}">记录跟进</button>
                         <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="reject-settlement-request" data-request-id="${escapeHtml(request.requestId)}">驳回</button>
-                        <button class="rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700" data-settle-action="approve-settlement-request" data-request-id="${escapeHtml(request.requestId)}">审核生效</button>
+                        <button class="rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 ${request.signedProofFiles.length === 0 ? 'pointer-events-none opacity-50' : ''}" data-settle-action="approve-settlement-request" data-request-id="${escapeHtml(request.requestId)}">审核生效</button>
                       </div>
                     </div>
                   `
@@ -568,7 +590,7 @@ function renderSettlementRequestDetailDialog(): string {
                     <div class="mt-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       ${
                         request.status === 'EFFECTIVE'
-                          ? `已于 ${escapeHtml(request.effectiveAt || '—')} 生效，生效人：${escapeHtml(request.effectiveBy || '—')}`
+                          ? `已于 ${escapeHtml(request.effectiveAt || '—')} 生效，生效版本：${escapeHtml(request.targetVersionNo)}，生效人：${escapeHtml(request.effectiveBy || '—')}`
                           : `驳回原因：${escapeHtml(request.rejectReason || '—')}`
                       }
                     </div>
@@ -640,37 +662,32 @@ function renderSettlementRequestPrintDialog(): string {
           </header>
           <div class="flex-1 overflow-y-auto p-6">
             <article class="mx-auto max-w-[680px] rounded-lg border bg-card p-6 text-sm" id="settlement-print-area">
-              <h4 class="text-center text-lg font-semibold">结算信息变更申请单</h4>
+              <h4 class="text-center text-lg font-semibold">结算信息变更</h4>
               <p class="mt-2 text-center text-xs text-muted-foreground">申请号：${escapeHtml(request.requestId)} · 申请时间：${escapeHtml(request.submittedAt)}</p>
 
               <section class="mt-4 space-y-1 text-xs">
                 <p><span class="text-muted-foreground">工厂名称：</span>${escapeHtml(request.factoryName)}</p>
                 <p><span class="text-muted-foreground">提交人：</span>${escapeHtml(request.submittedBy)}</p>
+                <p><span class="text-muted-foreground">当前版本号：</span>${escapeHtml(request.currentVersionNo)} · <span class="text-muted-foreground">目标版本号：</span>${escapeHtml(request.targetVersionNo)}</p>
                 <p><span class="text-muted-foreground">申请说明：</span>${escapeHtml(request.submitRemark || '—')}</p>
               </section>
 
-              <section class="mt-4 grid gap-3 md:grid-cols-2">
-                <div class="rounded-md border p-3">
-                  <p class="mb-2 text-xs font-semibold">变更前</p>
-                  <p class="text-xs">开户名：${escapeHtml(request.before.accountHolderName)}</p>
-                  <p class="text-xs">证件号：${escapeHtml(request.before.idNumber)}</p>
-                  <p class="text-xs">银行名称：${escapeHtml(request.before.bankName)}</p>
-                  <p class="text-xs">银行账号：${escapeHtml(maskBankAccountNo(request.before.bankAccountNo))}</p>
-                  <p class="text-xs">开户支行：${escapeHtml(request.before.bankBranch || '—')}</p>
-                </div>
-                <div class="rounded-md border p-3">
-                  <p class="mb-2 text-xs font-semibold">变更后</p>
-                  <p class="text-xs">开户名：${escapeHtml(request.after.accountHolderName)}</p>
-                  <p class="text-xs">证件号：${escapeHtml(request.after.idNumber)}</p>
-                  <p class="text-xs">银行名称：${escapeHtml(request.after.bankName)}</p>
-                  <p class="text-xs">银行账号：${escapeHtml(maskBankAccountNo(request.after.bankAccountNo))}</p>
-                  <p class="text-xs">开户支行：${escapeHtml(request.after.bankBranch || '—')}</p>
-                </div>
+              <section class="mt-4 rounded-md border p-3 text-xs leading-6">
+                <p>
+                  ${escapeHtml(request.factoryName)}，申请将结算信息从原来的
+                  开户名“${escapeHtml(request.before.accountHolderName)}”、证件号“${escapeHtml(request.before.idNumber)}”、银行“${escapeHtml(
+      request.before.bankName,
+    )}”、账号“${escapeHtml(maskBankAccountNo(request.before.bankAccountNo))}”、支行“${escapeHtml(request.before.bankBranch || '—')}”
+                  变更为
+                  开户名“${escapeHtml(request.after.accountHolderName)}”、证件号“${escapeHtml(request.after.idNumber)}”、银行“${escapeHtml(
+      request.after.bankName,
+    )}”、账号“${escapeHtml(maskBankAccountNo(request.after.bankAccountNo))}”、支行“${escapeHtml(request.after.bankBranch || '—')}”。
+                </p>
               </section>
 
               <section class="mt-4 grid gap-3 md:grid-cols-3">
                 <div class="rounded-md border p-3 text-xs">
-                  <p class="font-semibold">工厂签字区</p>
+                  <p class="font-semibold">签字</p>
                   <p class="mt-8 text-muted-foreground">签字：________________</p>
                   <p class="mt-2 text-muted-foreground">日期：________________</p>
                 </div>
@@ -1404,6 +1421,7 @@ export function renderSettlementListPage(): string {
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">计价方式</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">默认币种</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">默认收款账户</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前版本号</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前生效银行账号</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">最近更新</th>
@@ -1413,7 +1431,7 @@ export function renderSettlementListPage(): string {
                 <tbody>
                   ${
                     pagedSummaries.length === 0
-                      ? '<tr><td colspan="9" class="h-24 px-3 text-center text-muted-foreground">暂无数据</td></tr>'
+                      ? '<tr><td colspan="10" class="h-24 px-3 text-center text-muted-foreground">暂无数据</td></tr>'
                       : pagedSummaries
                           .map((summary) => {
                             const status = settlementStatusConfig[summary.status]
@@ -1435,6 +1453,7 @@ export function renderSettlementListPage(): string {
                                       : `<span class="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50 text-amber-700 border-amber-200"><i data-lucide="x" class="mr-1 h-3 w-3"></i>未配置</span>`
                                   }
                                 </td>
+                                <td class="px-3 py-3">${escapeHtml(effectiveInfo?.versionNo || 'V1')}</td>
                                 <td class="px-3 py-3">${escapeHtml(effectiveInfo ? maskBankAccountNo(effectiveInfo.bankAccountNo) : '—')}</td>
                                 <td class="px-3 py-3">
                                   <span class="inline-flex rounded border px-2 py-0.5 text-xs ${status.color}">${escapeHtml(
@@ -1500,9 +1519,12 @@ export function renderSettlementListPage(): string {
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">工厂</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">申请时间</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前状态</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前版本号</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">目标版本号</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">变更摘要</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">生效账号</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">申请新账号</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">签字证明</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">负责人</th>
                     <th class="px-3 py-3 text-right text-xs font-medium text-muted-foreground">操作</th>
                   </tr>
@@ -1510,9 +1532,15 @@ export function renderSettlementListPage(): string {
                 <tbody>
                   ${
                     pagedRequests.length === 0
-                      ? '<tr><td colspan="9" class="h-24 px-3 text-center text-muted-foreground">暂无申请数据</td></tr>'
+                      ? '<tr><td colspan="12" class="h-24 px-3 text-center text-muted-foreground">暂无申请数据</td></tr>'
                       : pagedRequests
-                          .map((request) => `
+                          .map((request) => {
+                            const isOpenRequest =
+                              request.status === 'PENDING_VERIFY' ||
+                              request.status === 'WAIT_SIGNED_FORM' ||
+                              request.status === 'WAIT_APPROVAL'
+
+                            return `
                             <tr class="border-b last:border-0">
                               <td class="px-3 py-3 font-medium">${escapeHtml(request.requestId)}</td>
                               <td class="px-3 py-3">
@@ -1523,15 +1551,30 @@ export function renderSettlementListPage(): string {
                               <td class="px-3 py-3">
                                 <span class="inline-flex rounded border px-2 py-0.5 text-xs ${getSettlementStatusClass(request.status)}">${escapeHtml(getSettlementStatusLabel(request.status))}</span>
                               </td>
+                              <td class="px-3 py-3">${escapeHtml(request.currentVersionNo)}</td>
+                              <td class="px-3 py-3">${escapeHtml(request.status === 'EFFECTIVE' ? request.targetVersionNo : request.targetVersionNo || '待生成')}</td>
                               <td class="px-3 py-3">${escapeHtml(getChangedFieldsSummary(request))}</td>
                               <td class="px-3 py-3">${escapeHtml(maskBankAccountNo(request.before.bankAccountNo))}</td>
                               <td class="px-3 py-3">${escapeHtml(maskBankAccountNo(request.after.bankAccountNo))}</td>
+                              <td class="px-3 py-3">
+                                ${
+                                  request.signedProofFiles.length > 0
+                                    ? '<span class="inline-flex rounded border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-700">已上传</span>'
+                                    : '<span class="inline-flex rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">未上传</span>'
+                                }
+                              </td>
                               <td class="px-3 py-3 text-muted-foreground">${escapeHtml(request.effectiveBy || '平台运营')}</td>
                               <td class="px-3 py-3 text-right">
+                                ${
+                                  isOpenRequest
+                                    ? `<button class="inline-flex items-center rounded-md px-2 py-1.5 text-sm hover:bg-muted" data-settle-action="print-settlement-change-form" data-request-id="${escapeHtml(request.requestId)}">打印申请单</button>`
+                                    : ''
+                                }
                                 <button class="inline-flex items-center rounded-md px-3 py-1.5 text-sm hover:bg-muted" data-settle-action="open-settlement-request-detail" data-request-id="${escapeHtml(request.requestId)}">处理</button>
                               </td>
                             </tr>
-                          `)
+                          `
+                          })
                           .join('')
                   }
                 </tbody>
@@ -1968,11 +2011,11 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'upload-settlement-signed-form') {
+  if (action === 'upload-settlement-signed-proof') {
     const requestId = actionNode.dataset.requestId
     if (!requestId) return true
     const fileType = actionNode.dataset.fileType === 'VIDEO' ? 'VIDEO' : 'IMAGE'
-    const result = uploadSettlementSignedForm(requestId, '平台运营-林静', fileType)
+    const result = uploadSettlementSignedProof(requestId, '平台运营-林静', fileType)
     if (!result.ok) {
       state.requestOperateError = result.message
       return true
@@ -1981,10 +2024,10 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'submit-settlement-signed-form') {
+  if (action === 'submit-settlement-signed-proof') {
     const requestId = actionNode.dataset.requestId
     if (!requestId) return true
-    const result = submitSettlementSignedForms(requestId, '平台运营-林静')
+    const result = submitSettlementSignedProof(requestId, '平台运营-林静')
     if (!result.ok) {
       state.requestOperateError = result.message
       return true
