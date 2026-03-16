@@ -19,7 +19,7 @@ applyQualitySeedBootstrap()
 
 type QcResult = 'PASS' | 'FAIL'
 type QcStatus = 'DRAFT' | 'SUBMITTED' | 'CLOSED'
-type QcDisposition = 'REWORK' | 'REMAKE' | 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
+type QcDisposition = 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
 type RootCauseType = 'PROCESS' | 'MATERIAL' | 'DYE_PRINT' | 'CUTTING' | 'PATTERN_TECH' | 'UNKNOWN'
 type RefType = 'TASK' | 'HANDOVER'
 
@@ -58,14 +58,12 @@ interface QcRecordDetailState {
   currentQcId: string | null
   syncedUpdatedAt: string | null
   form: QcRecordFormState
-  bdRework: number | ''
-  bdRemake: number | ''
   bdAcceptDefect: number | ''
   bdScrap: number | ''
   bdNoDeduct: number | ''
 }
 
-const NEEDS_AFFECTED_QTY: QcDisposition[] = ['REWORK', 'REMAKE', 'ACCEPT_AS_DEFECT']
+const NEEDS_AFFECTED_QTY: QcDisposition[] = ['ACCEPT_AS_DEFECT']
 
 const RESULT_LABEL: Record<QcResult, string> = {
   PASS: '合格',
@@ -90,16 +88,12 @@ const STATUS_CLASS: Record<QcStatus, string> = {
 }
 
 const DISPOSITION_LABEL: Record<QcDisposition, string> = {
-  REWORK: '返工',
-  REMAKE: '重做',
   ACCEPT_AS_DEFECT: '接受（瑕疵品）',
   SCRAP: '报废',
   ACCEPT: '接受（无扣款）',
 }
 
 const DISPOSITION_CLASS: Record<QcDisposition, string> = {
-  REWORK: 'bg-amber-100 text-amber-700 border-amber-300',
-  REMAKE: 'bg-orange-100 text-orange-700 border-orange-300',
   ACCEPT_AS_DEFECT: 'bg-blue-100 text-blue-700 border-blue-300',
   SCRAP: 'bg-red-100 text-red-700 border-red-300',
   ACCEPT: 'bg-green-100 text-green-700 border-green-300',
@@ -260,8 +254,6 @@ function replaceQc(updated: QualityInspection): void {
 function syncDetailFromQc(state: QcRecordDetailState, qc: QualityInspection): void {
   state.form = qcToForm(qc)
   state.syncedUpdatedAt = qc.updatedAt
-  state.bdRework = qc.dispositionQtyBreakdown?.reworkQty ?? ''
-  state.bdRemake = qc.dispositionQtyBreakdown?.remakeQty ?? ''
   state.bdAcceptDefect = qc.dispositionQtyBreakdown?.acceptAsDefectQty ?? ''
   state.bdScrap = qc.dispositionQtyBreakdown?.scrapQty ?? ''
   state.bdNoDeduct = qc.dispositionQtyBreakdown?.acceptNoDeductQty ?? ''
@@ -298,8 +290,6 @@ function ensureDetailState(routeQcId: string): QcRecordDetailState {
       currentQcId,
       syncedUpdatedAt: existingQc?.updatedAt ?? null,
       form: existingQc ? qcToForm(existingQc) : emptyForm(initOverrides),
-      bdRework: existingQc?.dispositionQtyBreakdown?.reworkQty ?? '',
-      bdRemake: existingQc?.dispositionQtyBreakdown?.remakeQty ?? '',
       bdAcceptDefect: existingQc?.dispositionQtyBreakdown?.acceptAsDefectQty ?? '',
       bdScrap: existingQc?.dispositionQtyBreakdown?.scrapQty ?? '',
       bdNoDeduct: existingQc?.dispositionQtyBreakdown?.acceptNoDeductQty ?? '',
@@ -385,74 +375,6 @@ function blockTaskForQuality(task: ProcessTask, qcId: string, by: string, now: s
       by,
     },
   ]
-}
-
-function createReworkOrRemakeTaskFromQc(
-  parentTask: ProcessTask,
-  qc: QualityInspection,
-  by: string,
-  now: string,
-): { taskId?: string; message?: string } {
-  if (!(qc.disposition === 'REWORK' || qc.disposition === 'REMAKE')) {
-    return {}
-  }
-
-  const existingTask = processTasks.find(
-    (task) =>
-      task.sourceQcId === qc.qcId &&
-      (task.processCode === 'PROC_REWORK' || task.processCode === 'PROC_REMAKE'),
-  )
-  if (existingTask) {
-    return { taskId: existingTask.taskId }
-  }
-
-  if (!parentTask.assignedFactoryId) {
-    return { message: '父任务未分配工厂，无法生成返工/重做任务' }
-  }
-
-  if (!qc.affectedQty || qc.affectedQty <= 0) {
-    return { message: '受影响数量为空或为 0，无法生成返工/重做任务' }
-  }
-
-  const taskId = `TASK-${qc.qcId}-${Date.now()}`
-  const task: ProcessTask = {
-    taskId,
-    productionOrderId: parentTask.productionOrderId,
-    seq: 999,
-    processCode: qc.disposition === 'REWORK' ? 'PROC_REWORK' : 'PROC_REMAKE',
-    processNameZh: qc.disposition === 'REWORK' ? '返工' : '重做',
-    stage: 'POST',
-    qty: qc.affectedQty,
-    qtyUnit: parentTask.qtyUnit || 'PIECE',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
-    ownerSuggestion: { kind: 'MAIN_FACTORY' },
-    assignedFactoryId: parentTask.assignedFactoryId,
-    qcPoints: [],
-    attachments: [],
-    status: 'NOT_STARTED',
-    acceptanceStatus: 'PENDING',
-    parentTaskId: parentTask.taskId,
-    sourceQcId: qc.qcId,
-    sourceTaskId: parentTask.taskId,
-    sourceProductionOrderId: qc.productionOrderId,
-    taskKind: qc.disposition === 'REWORK' ? 'REWORK' : 'REMAKE',
-    taskCategoryZh: qc.disposition === 'REWORK' ? '返工' : '重做',
-    createdAt: now,
-    updatedAt: now,
-    auditLogs: [
-      {
-        id: `AL-RW-${Date.now()}-${randomSuffix(4)}`,
-        action: 'CREATE_REWORK_TASK',
-        detail: `由质检 ${qc.qcId} 生成，处置方式 ${qc.disposition}，数量 ${qc.affectedQty}`,
-        at: now,
-        by,
-      },
-    ],
-  }
-
-  processTasks.push(task)
-  return { taskId }
 }
 
 function upsertDeductionBasisFromQc(
@@ -558,12 +480,11 @@ function upsertDeductionBasisFromQc(
   initialDeductionBasisItems.push(basis)
 }
 
-function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: string; generatedTaskIds: string[] } {
+function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: string } {
   const qc = getQcById(qcId)
-  if (!qc) return { ok: false, message: '质检单不存在', generatedTaskIds: [] }
+  if (!qc) return { ok: false, message: '质检单不存在' }
 
   const now = nowTimestamp()
-  const generatedTaskIds = [...(qc.generatedTaskIds ?? [])]
   let auditLogs = [...qc.auditLogs]
 
   if (qc.result === 'FAIL') {
@@ -572,34 +493,12 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
       auditLogs.push({
         id: `QAL-NOTFOUND-${Date.now()}-${randomSuffix(4)}`,
         action: 'PARENT_TASK_NOT_FOUND',
-        detail: `父任务 ${qc.refId} 不存在，无法暂不能继续及生成返工`,
+        detail: `父任务 ${qc.refId} 不存在，无法标记暂不能继续`,
         at: now,
         by,
       })
     } else {
       blockTaskForQuality(parentTask, qc.qcId, by, now)
-
-      if (qc.disposition === 'REWORK' || qc.disposition === 'REMAKE') {
-        const taskResult = createReworkOrRemakeTaskFromQc(parentTask, qc, by, now)
-        if (taskResult.taskId && !generatedTaskIds.includes(taskResult.taskId)) {
-          generatedTaskIds.push(taskResult.taskId)
-          auditLogs.push({
-            id: `QAL-GENTASK-${Date.now()}-${randomSuffix(4)}`,
-            action: 'GENERATE_REWORK_TASK',
-            detail: `生成返工/重做任务 ${taskResult.taskId}`,
-            at: now,
-            by,
-          })
-        } else if (taskResult.message) {
-          auditLogs.push({
-            id: `QAL-GENTASK-FAIL-${Date.now()}-${randomSuffix(4)}`,
-            action: 'REWORK_GENERATION_FAILED',
-            detail: taskResult.message,
-            at: now,
-            by,
-          })
-        }
-      }
 
       if (parentTask.assignedFactoryId) {
         upsertDeductionBasisFromQc(qc, parentTask, by, now)
@@ -625,20 +524,17 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
   const updated: QualityInspection = {
     ...qc,
     status: 'SUBMITTED',
-    generatedTaskIds,
     updatedAt: now,
     auditLogs,
   }
   replaceQc(updated)
 
-  return { ok: true, generatedTaskIds }
+  return { ok: true }
 }
 
 function updateQcDispositionBreakdown(
   qcId: string,
   breakdown: {
-    reworkQty?: number
-    remakeQty?: number
     acceptAsDefectQty?: number
     scrapQty?: number
     acceptNoDeductQty?: number
@@ -649,15 +545,11 @@ function updateQcDispositionBreakdown(
   if (!qc) return { ok: false, message: '质检单不存在' }
   if (qc.result !== 'FAIL') return { ok: false, message: '仅 FAIL 质检单可保存处置拆分' }
 
-  const reworkQty = breakdown.reworkQty ?? 0
-  const remakeQty = breakdown.remakeQty ?? 0
   const acceptAsDefectQty = breakdown.acceptAsDefectQty ?? 0
   const scrapQty = breakdown.scrapQty ?? 0
   const acceptNoDeductQty = breakdown.acceptNoDeductQty ?? 0
 
   if (
-    reworkQty < 0 ||
-    remakeQty < 0 ||
     acceptAsDefectQty < 0 ||
     scrapQty < 0 ||
     acceptNoDeductQty < 0
@@ -665,7 +557,7 @@ function updateQcDispositionBreakdown(
     return { ok: false, message: '拆分数量不能为负数' }
   }
 
-  const sum = reworkQty + remakeQty + acceptAsDefectQty + scrapQty + acceptNoDeductQty
+  const sum = acceptAsDefectQty + scrapQty + acceptNoDeductQty
   const target = qc.affectedQty
   if (target !== undefined && target !== null && sum !== target) {
     return { ok: false, message: `合计（${sum}）必须等于不合格数量（${target}）` }
@@ -675,8 +567,6 @@ function updateQcDispositionBreakdown(
   const updatedQc: QualityInspection = {
     ...qc,
     dispositionQtyBreakdown: {
-      reworkQty,
-      remakeQty,
       acceptAsDefectQty,
       scrapQty,
       acceptNoDeductQty,
@@ -687,7 +577,7 @@ function updateQcDispositionBreakdown(
       {
         id: `QAL-BD-${Date.now()}-${randomSuffix(4)}`,
         action: 'UPDATE_DISPOSITION_BREAKDOWN',
-        detail: `处置拆分更新：返工${reworkQty}，重做${remakeQty}，瑕疵接收${acceptAsDefectQty}，报废${scrapQty}，无扣款接收${acceptNoDeductQty}`,
+        detail: `处置拆分更新：瑕疵接收${acceptAsDefectQty}，报废${scrapQty}，无扣款接收${acceptNoDeductQty}`,
         at: now,
         by,
       },
@@ -752,7 +642,6 @@ function buildPayload(
     responsiblePartyType: form.responsiblePartyType || undefined,
     responsiblePartyId: form.responsiblePartyId.trim() || undefined,
     liabilityStatus: form.liabilityStatus,
-    generatedTaskIds: existing?.generatedTaskIds,
   }
 }
 
@@ -850,11 +739,6 @@ function submitDetail(detail: QcRecordDetailState): void {
   const latest = getQcById(targetId)
   if (latest) {
     syncDetailFromQc(detail, latest)
-  }
-
-  if (submitResult.generatedTaskIds.length > 0) {
-    showQcRecordsToast(`质检已提交，已生成任务：${submitResult.generatedTaskIds.join('、')}`)
-    return
   }
 
   showQcRecordsToast('质检已提交')
@@ -984,8 +868,6 @@ export function renderQcRecordsPage(): string {
             <label class="mb-1 block text-xs text-muted-foreground">处置方式</label>
             <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-qcr-filter="disposition">
               <option value="ALL" ${listState.filterDisposition === 'ALL' ? 'selected' : ''}>全部</option>
-              <option value="REWORK" ${listState.filterDisposition === 'REWORK' ? 'selected' : ''}>返工</option>
-              <option value="REMAKE" ${listState.filterDisposition === 'REMAKE' ? 'selected' : ''}>重做</option>
               <option value="ACCEPT_AS_DEFECT" ${listState.filterDisposition === 'ACCEPT_AS_DEFECT' ? 'selected' : ''}>接受瑕疵品</option>
               <option value="SCRAP" ${listState.filterDisposition === 'SCRAP' ? 'selected' : ''}>报废</option>
               <option value="ACCEPT" ${listState.filterDisposition === 'ACCEPT' ? 'selected' : ''}>接受无扣款</option>
@@ -1036,7 +918,7 @@ export function renderQcRecordsPage(): string {
                     <th class="px-4 py-2 font-medium">结果</th>
                     <th class="px-4 py-2 font-medium">处置方式</th>
                     <th class="px-4 py-2 text-right font-medium">受影响数量</th>
-                    <th class="px-4 py-2 text-right font-medium">返工任务数</th>
+                    <th class="px-4 py-2 text-right font-medium">关联任务数</th>
                     <th class="px-4 py-2 font-medium">暂不能继续状态</th>
                     <th class="px-4 py-2 font-medium">质检时间</th>
                     <th class="px-4 py-2 font-medium">操作</th>
@@ -1055,7 +937,7 @@ export function renderQcRecordsPage(): string {
                           <td class="px-4 py-3">${renderResultBadge(qc.result as QcResult)}</td>
                           <td class="px-4 py-3">${renderDispositionBadge(qc.disposition as QcDisposition | undefined)}</td>
                           <td class="px-4 py-3 text-right">${qc.affectedQty ?? '-'}</td>
-                          <td class="px-4 py-3 text-right">${qc.generatedTaskIds?.length ?? 0}</td>
+                          <td class="px-4 py-3 text-right">0</td>
                           <td class="px-4 py-3">${renderBlockBadge(qc)}</td>
                           <td class="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatDateTime(qc.inspectedAt || qc.updatedAt))}</td>
                           <td class="px-4 py-3">
@@ -1122,8 +1004,6 @@ function renderPartyTypeOptions(selected: SettlementPartyType | ''): string {
 function renderBreakdownCard(detail: QcRecordDetailState, existingQc: QualityInspection): string {
   const target = existingQc.affectedQty
   const sum =
-    (Number(detail.bdRework) || 0) +
-    (Number(detail.bdRemake) || 0) +
     (Number(detail.bdAcceptDefect) || 0) +
     (Number(detail.bdScrap) || 0) +
     (Number(detail.bdNoDeduct) || 0)
@@ -1147,8 +1027,6 @@ function renderBreakdownCard(detail: QcRecordDetailState, existingQc: QualityIns
             ? `
               <div class="flex flex-wrap gap-2">
                 <span class="self-center text-xs text-muted-foreground">快速填充：</span>
-                <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-qcd-action="quick-fill" data-qcd-fill="rework">全部返工</button>
-                <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-qcd-action="quick-fill" data-qcd-fill="remake">全部重做</button>
                 <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-qcd-action="quick-fill" data-qcd-fill="defect">全部瑕疵接收</button>
                 <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-qcd-action="quick-fill" data-qcd-fill="scrap">全部报废</button>
                 <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-qcd-action="quick-fill" data-qcd-fill="nodeduct">全部无扣款接受</button>
@@ -1158,14 +1036,6 @@ function renderBreakdownCard(detail: QcRecordDetailState, existingQc: QualityIns
         }
 
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">返工数量</label>
-            <input class="h-8 w-full rounded-md border bg-background px-2 text-sm" type="number" min="0" step="1" data-qcd-breakdown="rework" value="${toInputValue(detail.bdRework)}" />
-          </div>
-          <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">重做数量</label>
-            <input class="h-8 w-full rounded-md border bg-background px-2 text-sm" type="number" min="0" step="1" data-qcd-breakdown="remake" value="${toInputValue(detail.bdRemake)}" />
-          </div>
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">接受（瑕疵品）</label>
             <input class="h-8 w-full rounded-md border bg-background px-2 text-sm" type="number" min="0" step="1" data-qcd-breakdown="defect" value="${toInputValue(detail.bdAcceptDefect)}" />
@@ -1244,7 +1114,6 @@ export function renderQcRecordDetailPage(qcId: string): string {
         (item) => item.sourceRefId === detail.currentQcId || item.sourceId === detail.currentQcId,
       )
     : []
-  const generatedTaskIds = existingQc?.generatedTaskIds ?? []
   const maxQty = refTask?.qty
 
   return `
@@ -1552,41 +1421,6 @@ export function renderQcRecordDetailPage(qcId: string): string {
               </article>
 
               ${
-                generatedTaskIds.length > 0
-                  ? `
-                    <article class="rounded-md border bg-card">
-                      <header class="border-b px-4 py-3">
-                        <h3 class="text-sm font-medium">返工 / 重做任务 <span class="ml-1 text-xs font-normal text-muted-foreground">${generatedTaskIds.length} 条</span></h3>
-                      </header>
-                      <div class="space-y-2 px-4 py-4">
-                        ${generatedTaskIds
-                          .map((taskId) => {
-                            const task = processTasks.find((item) => item.taskId === taskId)
-                            return `
-                              <div class="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                                <div class="flex min-w-0 items-center gap-3">
-                                  <span class="shrink-0 font-mono text-xs">${escapeHtml(taskId)}</span>
-                                  ${
-                                    task
-                                      ? `<span class="truncate text-xs text-muted-foreground">${escapeHtml(task.processNameZh)} · ${escapeHtml(task.status)}</span>`
-                                      : ''
-                                  }
-                                </div>
-                                <button class="inline-flex items-center gap-1 text-xs text-primary underline" data-nav="/fcs/pda/task-receive/${escapeHtml(taskId)}">
-                                  跳转 PDA 任务
-                                  <i data-lucide="external-link" class="h-3 w-3"></i>
-                                </button>
-                              </div>
-                            `
-                          })
-                          .join('')}
-                      </div>
-                    </article>
-                  `
-                  : ''
-              }
-
-              ${
                 existingQc.auditLogs.length > 0
                   ? `
                     <article class="rounded-md border bg-card">
@@ -1773,14 +1607,6 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
     const value = parseNumberField(breakdownNode.value)
     const normalized = value === '' ? '' : Math.max(0, value)
 
-    if (key === 'rework') {
-      detail.bdRework = normalized
-      return true
-    }
-    if (key === 'remake') {
-      detail.bdRemake = normalized
-      return true
-    }
     if (key === 'defect') {
       detail.bdAcceptDefect = normalized
       return true
@@ -1871,8 +1697,6 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
     const targetQty = existing?.affectedQty ?? 0
     const fill = detailActionNode.dataset.qcdFill
 
-    detail.bdRework = fill === 'rework' ? targetQty : 0
-    detail.bdRemake = fill === 'remake' ? targetQty : 0
     detail.bdAcceptDefect = fill === 'defect' ? targetQty : 0
     detail.bdScrap = fill === 'scrap' ? targetQty : 0
     detail.bdNoDeduct = fill === 'nodeduct' ? targetQty : 0
@@ -1888,8 +1712,6 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
     const result = updateQcDispositionBreakdown(
       detail.currentQcId,
       {
-        reworkQty: Number(detail.bdRework) || 0,
-        remakeQty: Number(detail.bdRemake) || 0,
         acceptAsDefectQty: Number(detail.bdAcceptDefect) || 0,
         scrapQty: Number(detail.bdScrap) || 0,
         acceptNoDeductQty: Number(detail.bdNoDeduct) || 0,

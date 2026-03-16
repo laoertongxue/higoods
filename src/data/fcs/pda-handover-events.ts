@@ -1,7 +1,11 @@
 export type HandoverAction = 'PICKUP' | 'RECEIVE' | 'HANDOUT'
-export type HandoverStatus = 'PENDING' | 'CONFIRMED' | 'DISPUTED'
+export type HandoverStatus = 'PENDING' | 'CONFIRMED'
 export type HandoverPartyKind = 'WAREHOUSE' | 'FACTORY'
-export type HandoverQcResult = 'PASS' | 'FAIL'
+export type ReceiveScene =
+  | 'factory_to_factory'
+  | 'print_dye_return_to_warehouse'
+  | 'cut_return_to_warehouse'
+  | 'finished_goods_return_to_warehouse'
 
 export interface HandoverEvent {
   eventId: string
@@ -24,13 +28,18 @@ export interface HandoverEvent {
   deadlineTime: string
   status: HandoverStatus
   confirmedAt?: string
-  qcResult?: HandoverQcResult
-  qcDefectQty?: number
-  qcProblemType?: string
-  qcProblemDesc?: string
   proofCount?: number
   factoryId: string
   materialSummary?: string
+  receiveScene?: ReceiveScene
+  receiveSceneLabel?: string
+  requiresReceiptProof?: boolean
+  receiveStatus?: '待接收' | '已接收'
+  hasQuantityDiff?: boolean
+  receiptProofImages?: string[]
+  receiptProofVideos?: string[]
+  receivedAt?: string
+  receivedBy?: string
 }
 
 export const pdaHandoverEvents: HandoverEvent[] = [
@@ -127,11 +136,14 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     qtyUnit: '件',
     deadlineTime: '2026-03-15 14:00',
     status: 'PENDING',
-    qcResult: 'PASS',
-    qcDefectQty: 0,
-    qcProblemType: '',
-    qcProblemDesc: '',
     factoryId: 'ID-F001',
+    receiveScene: 'factory_to_factory',
+    receiveSceneLabel: '普通工厂交接',
+    requiresReceiptProof: true,
+    receiveStatus: '待接收',
+    hasQuantityDiff: false,
+    receiptProofImages: [],
+    receiptProofVideos: [],
   },
   {
     eventId: 'EV-RC-002',
@@ -149,55 +161,89 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     qtyUnit: '件',
     deadlineTime: '2026-03-14 10:00',
     status: 'PENDING',
-    qcResult: 'PASS',
-    qcDefectQty: 0,
-    qcProblemType: '',
-    qcProblemDesc: '',
     factoryId: 'ID-F001',
+    receiveScene: 'factory_to_factory',
+    receiveSceneLabel: '普通工厂交接',
+    requiresReceiptProof: true,
+    receiveStatus: '待接收',
+    hasQuantityDiff: false,
+    receiptProofImages: ['到货照片_01.jpg'],
+    receiptProofVideos: [],
   },
   {
     eventId: 'EV-RC-003',
     action: 'RECEIVE',
     taskId: 'PDA-EXEC-006',
     productionOrderId: 'PO-2024-0016',
-    currentProcess: '车缝',
-    prevProcess: '裁片',
+    currentProcess: '回仓接收',
+    prevProcess: '印染加工',
     isFirstProcess: false,
     fromPartyKind: 'FACTORY',
-    fromPartyName: '棉兰卫星工厂',
-    toPartyKind: 'FACTORY',
-    toPartyName: 'PT Sinar Garment Indonesia',
+    fromPartyName: '万隆印染加工厂',
+    toPartyKind: 'WAREHOUSE',
+    toPartyName: '雅加达裁片仓',
     qtyExpected: 1500,
     qtyUnit: '件',
     deadlineTime: '2026-03-17 11:00',
     status: 'PENDING',
-    qcResult: 'FAIL',
-    qcDefectQty: 45,
-    qcProblemType: '裁片尺寸偏差',
-    qcProblemDesc: '前片肩宽偏大 1.5cm，45 件超差需退回重裁',
     factoryId: 'ID-F001',
+    receiveScene: 'print_dye_return_to_warehouse',
+    receiveSceneLabel: '印染加工回仓',
+    requiresReceiptProof: true,
+    receiveStatus: '待接收',
+    hasQuantityDiff: false,
+    receiptProofImages: [],
+    receiptProofVideos: ['回仓到货视频_01.mp4'],
   },
   {
     eventId: 'EV-RC-004',
     action: 'RECEIVE',
     taskId: 'PDA-EXEC-010',
     productionOrderId: 'PO-2024-0020',
-    currentProcess: '车缝',
+    currentProcess: '回仓接收',
     prevProcess: '裁片',
     isFirstProcess: false,
     fromPartyKind: 'FACTORY',
     fromPartyName: '日惹裁片分厂',
-    toPartyKind: 'FACTORY',
-    toPartyName: 'PT Sinar Garment Indonesia',
+    toPartyKind: 'WAREHOUSE',
+    toPartyName: '雅加达裁片仓',
     qtyExpected: 3000,
     qtyUnit: '件',
     deadlineTime: '2026-03-16 09:00',
     status: 'PENDING',
-    qcResult: 'FAIL',
-    qcDefectQty: 82,
-    qcProblemType: '布料色差',
-    qcProblemDesc: '第 3 批次面料色差明显（浅色偏黄），82 件需隔离复检',
     factoryId: 'ID-F001',
+    receiveScene: 'cut_return_to_warehouse',
+    receiveSceneLabel: '裁片回仓',
+    requiresReceiptProof: true,
+    receiveStatus: '待接收',
+    hasQuantityDiff: false,
+    receiptProofImages: [],
+    receiptProofVideos: [],
+  },
+  {
+    eventId: 'EV-RC-005',
+    action: 'RECEIVE',
+    taskId: 'PDA-EXEC-018',
+    productionOrderId: 'PO-2024-0028',
+    currentProcess: '回仓接收',
+    prevProcess: '成衣包装',
+    isFirstProcess: false,
+    fromPartyKind: 'FACTORY',
+    fromPartyName: '泗水成衣后整厂',
+    toPartyKind: 'WAREHOUSE',
+    toPartyName: '雅加达成品仓库',
+    qtyExpected: 980,
+    qtyUnit: '件',
+    deadlineTime: '2026-03-18 16:00',
+    status: 'PENDING',
+    factoryId: 'ID-F001',
+    receiveScene: 'finished_goods_return_to_warehouse',
+    receiveSceneLabel: '成衣回仓',
+    requiresReceiptProof: true,
+    receiveStatus: '待接收',
+    hasQuantityDiff: false,
+    receiptProofImages: [],
+    receiptProofVideos: [],
   },
 
   // 待交出
@@ -270,7 +316,7 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     factoryId: 'ID-F001',
   },
 
-  // 已处理 / 争议
+  // 已完成
   {
     eventId: 'EV-PK-DONE-001',
     action: 'PICKUP',
@@ -329,10 +375,17 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     deadlineTime: '2026-03-08 14:00',
     status: 'CONFIRMED',
     confirmedAt: '2026-03-08 13:20',
-    qcResult: 'PASS',
-    qcDefectQty: 0,
     proofCount: 3,
     factoryId: 'ID-F001',
+    receiveScene: 'factory_to_factory',
+    receiveSceneLabel: '普通工厂交接',
+    requiresReceiptProof: true,
+    receiveStatus: '已接收',
+    hasQuantityDiff: false,
+    receiptProofImages: ['到货照片_01.jpg', '开箱清点_01.jpg'],
+    receiptProofVideos: ['交接确认.mp4'],
+    receivedAt: '2026-03-08 13:20',
+    receivedBy: 'PDA-交接员A',
   },
   {
     eventId: 'EV-RC-DONE-002',
@@ -354,10 +407,17 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     deadlineTime: '2026-03-07 16:00',
     status: 'CONFIRMED',
     confirmedAt: '2026-03-07 15:10',
-    qcResult: 'PASS',
-    qcDefectQty: 0,
     proofCount: 2,
     factoryId: 'ID-F001',
+    receiveScene: 'factory_to_factory',
+    receiveSceneLabel: '普通工厂交接',
+    requiresReceiptProof: true,
+    receiveStatus: '已接收',
+    hasQuantityDiff: true,
+    receiptProofImages: ['到货照片_01.jpg', '差异部位_01.jpg'],
+    receiptProofVideos: [],
+    receivedAt: '2026-03-07 15:10',
+    receivedBy: 'PDA-交接员B',
   },
   {
     eventId: 'EV-HO-DONE-001',
@@ -384,50 +444,63 @@ export const pdaHandoverEvents: HandoverEvent[] = [
     action: 'RECEIVE',
     taskId: 'PDA-EXEC-012',
     productionOrderId: 'PO-2024-0022',
-    currentProcess: '车缝',
-    prevProcess: '裁片',
+    currentProcess: '回仓接收',
+    prevProcess: '印染加工',
     isFirstProcess: false,
     fromPartyKind: 'FACTORY',
-    fromPartyName: '棉兰卫星工厂',
-    toPartyKind: 'FACTORY',
-    toPartyName: 'PT Sinar Garment Indonesia',
+    fromPartyName: '泗水印染加工厂',
+    toPartyKind: 'WAREHOUSE',
+    toPartyName: '雅加达裁片仓',
     qtyExpected: 1000,
     qtyActual: 965,
     qtyUnit: '件',
     qtyDiff: 35,
-    diffReason: '实收少 35 件，上一步称已全数发出，正在核查物流记录',
+    diffReason: '实收少 35 件，系统已记录数量差异待后续核对',
+    diffNote: '历史异常案例已按接收完成收口，后续由线下核对差异',
     deadlineTime: '2026-03-10 14:00',
-    status: 'DISPUTED',
-    qcResult: 'FAIL',
-    qcDefectQty: 35,
-    qcProblemType: '数量短缺',
-    qcProblemDesc: '实收 965 件，应收 1000 件，差 35 件。上一步坚称全数发出，需核对物流签收单',
+    status: 'CONFIRMED',
+    confirmedAt: '2026-03-10 09:25',
     proofCount: 3,
     factoryId: 'ID-F001',
+    receiveScene: 'print_dye_return_to_warehouse',
+    receiveSceneLabel: '印染加工回仓',
+    requiresReceiptProof: true,
+    receiveStatus: '已接收',
+    hasQuantityDiff: true,
+    receiptProofImages: ['异常照片_01.jpg', '异常照片_02.jpg'],
+    receiptProofVideos: ['接收复核视频.mp4'],
+    receivedAt: '2026-03-10 09:25',
+    receivedBy: 'PDA-接收员C',
   },
   {
     eventId: 'EV-RC-DISP-002',
     action: 'RECEIVE',
     taskId: 'PDA-EXEC-013',
     productionOrderId: 'PO-2024-0023',
-    currentProcess: '整烫',
-    prevProcess: '车缝',
+    currentProcess: '回仓接收',
+    prevProcess: '成衣包装',
     isFirstProcess: false,
     fromPartyKind: 'FACTORY',
-    fromPartyName: '日惹车缝分厂',
-    toPartyKind: 'FACTORY',
-    toPartyName: 'PT Sinar Garment Indonesia',
+    fromPartyName: '日惹成衣后整厂',
+    toPartyKind: 'WAREHOUSE',
+    toPartyName: '雅加达成品仓库',
     qtyExpected: 700,
     qtyActual: 700,
     qtyUnit: '件',
     deadlineTime: '2026-03-11 10:00',
-    status: 'DISPUTED',
-    qcResult: 'FAIL',
-    qcDefectQty: 48,
-    qcProblemType: '缝制质量不合格',
-    qcProblemDesc: '48 件车缝线迹不均匀、跳针严重，需退回返工。上一步工厂不认可质检结论，要求第三方复检',
-    proofCount: 0,
+    status: 'CONFIRMED',
+    confirmedAt: '2026-03-11 09:50',
+    proofCount: 2,
     factoryId: 'ID-F001',
+    receiveScene: 'finished_goods_return_to_warehouse',
+    receiveSceneLabel: '成衣回仓',
+    requiresReceiptProof: true,
+    receiveStatus: '已接收',
+    hasQuantityDiff: false,
+    receiptProofImages: ['回仓签收_01.jpg'],
+    receiptProofVideos: ['接收现场.mp4'],
+    receivedAt: '2026-03-11 09:50',
+    receivedBy: 'PDA-仓库接收员A',
   },
 ]
 
@@ -443,4 +516,16 @@ export function updatePdaHandoverEvent(
   if (!target) return undefined
   updater(target)
   return target
+}
+
+export function getReceiveSceneLabel(event: HandoverEvent): string {
+  if (event.receiveSceneLabel) return event.receiveSceneLabel
+  if (event.action !== 'RECEIVE') return ''
+  return '普通工厂交接'
+}
+
+export function shouldRequireReceiptProof(event: HandoverEvent): boolean {
+  if (event.action !== 'RECEIVE') return false
+  if (typeof event.requiresReceiptProof === 'boolean') return event.requiresReceiptProof
+  return true
 }

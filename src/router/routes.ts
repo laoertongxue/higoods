@@ -79,7 +79,6 @@ import { renderDependenciesPage } from '../pages/dependencies'
 import { renderMaterialIssuePage } from '../pages/material-issue'
 import { renderQcStandardsPage } from '../pages/qc-standards'
 import { renderQcRecordDetailPage, renderQcRecordsPage } from '../pages/qc-records'
-import { renderReworkPage } from '../pages/rework'
 import {
   renderDeductionCalcPage,
   renderDeductionCalcDetailPage,
@@ -192,7 +191,6 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/process/material-issue': () => renderMaterialIssuePage(),
   '/fcs/process/qc-standards': () => renderQcStandardsPage(),
   '/fcs/quality/qc-records': () => renderQcRecordsPage(),
-  '/fcs/quality/rework': () => renderReworkPage(),
   '/fcs/quality/deduction-calc': () => renderDeductionCalcPage(),
   '/fcs/quality/arbitration': () => renderArbitrationPage(),
   '/fcs/quality/penalty-output': () => renderPenaltyOutputPage(),

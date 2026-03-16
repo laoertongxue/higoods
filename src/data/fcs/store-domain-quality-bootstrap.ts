@@ -6,17 +6,12 @@ import {
   QC_SEEDS,
   BASIS_SEEDS,
   seedParentTask,
-  seedReworkTask,
   seedProductionOrder,
 } from './store-domain-quality-seeds'
 
 export function applyQualitySeedBootstrap() {
   if (!processTasks.find(task => task.taskId === seedParentTask.taskId)) {
     processTasks.push(seedParentTask)
-  }
-
-  if (!processTasks.find(task => task.taskId === seedReworkTask.taskId)) {
-    processTasks.push(seedReworkTask)
   }
 
   if (!productionOrders.find(order => order.productionOrderId === seedProductionOrder.productionOrderId)) {

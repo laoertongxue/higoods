@@ -23,7 +23,6 @@ const STAGE_ZH: Record<string, string> = {
   PRINTING: '印花',
   DYEING: '染色',
   WASHING: '水洗',
-  REWORK: '返工',
   EMBROIDERY: '刺绣',
   BUTTON: '钉扣',
   QC: '质检',

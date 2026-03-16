@@ -1,7 +1,12 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { renderPdaFrame } from './pda-shell'
-import { pdaHandoverEvents, type HandoverAction, type HandoverEvent } from '../data/fcs/pda-handover-events'
+import {
+  getReceiveSceneLabel,
+  pdaHandoverEvents,
+  type HandoverAction,
+  type HandoverEvent,
+} from '../data/fcs/pda-handover-events'
 
 type HandoverTab = 'pickup' | 'receive' | 'handout' | 'done'
 
@@ -19,7 +24,7 @@ const TAB_CONFIG: Array<{ key: HandoverTab; label: string }> = [
   { key: 'pickup', label: '待领料' },
   { key: 'receive', label: '待接收' },
   { key: 'handout', label: '待交出' },
-  { key: 'done', label: '已处理' },
+  { key: 'done', label: '已完成' },
 ]
 
 const ACTION_LABELS: Record<HandoverAction, string> = {
@@ -28,10 +33,9 @@ const ACTION_LABELS: Record<HandoverAction, string> = {
   HANDOUT: '交出',
 }
 
-const STATUS_LABELS: Record<'PENDING' | 'CONFIRMED' | 'DISPUTED', string> = {
+const STATUS_LABELS: Record<'PENDING' | 'CONFIRMED', string> = {
   PENDING: '待处理',
   CONFIRMED: '已确认',
-  DISPUTED: '争议中',
 }
 
 function getCurrentQueryString(): string {
@@ -112,6 +116,11 @@ function renderPartyChip(kind: HandoverEvent['fromPartyKind'], name: string): st
 function renderEventCard(event: HandoverEvent, actionLabel: string): string {
   const deadlineBadge = getDeadlineBadge(event)
   const qtyLabel = event.action === 'PICKUP' ? '应领' : event.action === 'RECEIVE' ? '应收' : '应交'
+  const isReceive = event.action === 'RECEIVE'
+  const receiveSceneLabel = isReceive ? getReceiveSceneLabel(event) : ''
+  const proofCount =
+    event.proofCount ??
+    (event.receiptProofImages?.length ?? 0) + (event.receiptProofVideos?.length ?? 0)
 
   return `
     <article
@@ -126,6 +135,13 @@ function renderEventCard(event: HandoverEvent, actionLabel: string): string {
             <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${escapeHtml(
               ACTION_LABELS[event.action],
             )}</span>
+            ${
+              isReceive
+                ? `<span class="inline-flex shrink-0 items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">${escapeHtml(
+                    receiveSceneLabel,
+                  )}</span>`
+                : ''
+            }
             ${
               deadlineBadge
                 ? `<span class="inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-[10px] ${deadlineBadge.className}">${escapeHtml(deadlineBadge.label)}</span>`
@@ -180,32 +196,10 @@ function renderEventCard(event: HandoverEvent, actionLabel: string): string {
         }
 
         ${
-          event.action === 'RECEIVE' && event.qcResult
+          isReceive
             ? `
-              <div class="space-y-1">
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="text-muted-foreground">质检结论：</span>
-                  <span class="inline-flex items-center rounded border px-1.5 py-0 text-[10px] ${
-                    event.qcResult === 'PASS'
-                      ? 'border-primary/20 bg-primary text-primary-foreground'
-                      : 'border-destructive/20 bg-destructive text-destructive-foreground'
-                  }">${event.qcResult === 'PASS' ? '合格' : '不合格'}</span>
-                  ${
-                    event.qcDefectQty != null && event.qcDefectQty > 0
-                      ? `<span class="text-destructive">不合格 ${event.qcDefectQty} ${escapeHtml(event.qtyUnit)}</span>`
-                      : ''
-                  }
-                </div>
-                ${
-                  event.qcProblemType
-                    ? `<div class="text-xs text-muted-foreground">问题类型：${escapeHtml(event.qcProblemType)}</div>`
-                    : ''
-                }
-                ${
-                  event.qcProblemDesc
-                    ? `<div class="rounded bg-red-50 px-2 py-1 text-xs text-red-600">${escapeHtml(event.qcProblemDesc)}</div>`
-                    : ''
-                }
+              <div class="text-xs text-muted-foreground">
+                接收仅需确认实收数量并上传接收凭证
               </div>
             `
             : ''
@@ -222,6 +216,12 @@ function renderEventCard(event: HandoverEvent, actionLabel: string): string {
 }
 
 function renderDoneCard(event: HandoverEvent): string {
+  const isReceive = event.action === 'RECEIVE'
+  const receiveSceneLabel = isReceive ? getReceiveSceneLabel(event) : ''
+  const proofCount =
+    event.proofCount ??
+    (event.receiptProofImages?.length ?? 0) + (event.receiptProofVideos?.length ?? 0)
+
   return `
     <article
       class="cursor-pointer rounded-lg border transition-colors hover:border-primary"
@@ -235,11 +235,16 @@ function renderDoneCard(event: HandoverEvent): string {
             <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${escapeHtml(
               ACTION_LABELS[event.action],
             )}</span>
-            <span class="inline-flex items-center rounded border px-1.5 py-0 text-[10px] ${
-              event.status === 'DISPUTED'
-                ? 'border-destructive/20 bg-destructive text-destructive-foreground'
-                : 'border-primary/20 bg-primary text-primary-foreground'
-            }">${escapeHtml(STATUS_LABELS[event.status])}</span>
+            ${
+              isReceive
+                ? `<span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">${escapeHtml(
+                    receiveSceneLabel,
+                  )}</span>`
+                : ''
+            }
+            <span class="inline-flex items-center rounded border border-primary/20 bg-primary px-1.5 py-0 text-[10px] text-primary-foreground">${escapeHtml(
+              STATUS_LABELS[event.status],
+            )}</span>
           </div>
           <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
         </div>
@@ -258,47 +263,19 @@ function renderDoneCard(event: HandoverEvent): string {
               : ''
           }
           ${
-            event.action === 'RECEIVE' && event.qcResult
-              ? `
-                <span>
-                  质检：
-                  <span class="${event.qcResult === 'PASS' ? 'text-green-600' : 'text-destructive'}">
-                    ${event.qcResult === 'PASS' ? '合格' : '不合格'}
-                  </span>
-                  ${
-                    event.qcDefectQty != null && event.qcDefectQty > 0
-                      ? `<span class="ml-1 text-destructive">(${event.qcDefectQty} ${escapeHtml(event.qtyUnit)})</span>`
-                      : ''
-                  }
-                </span>
-              `
-              : ''
-          }
-          ${
-            event.proofCount != null
+            isReceive
               ? `
                 <span class="inline-flex items-center gap-0.5 ${
-                  event.proofCount > 0 ? 'text-blue-600' : 'text-muted-foreground'
+                  proofCount > 0 ? 'text-blue-600' : 'text-muted-foreground'
                 }">
                   <i data-lucide="paperclip" class="h-3 w-3"></i>
-                  ${event.proofCount > 0 ? `凭证 ${event.proofCount} 个` : '暂无凭证'}
+                  ${proofCount > 0 ? `凭证 ${proofCount} 个` : '暂无凭证'}
                 </span>
               `
               : ''
           }
           ${event.confirmedAt ? `<span>确认于 ${escapeHtml(event.confirmedAt)}</span>` : ''}
         </div>
-
-        ${
-          event.status === 'DISPUTED' && event.qcProblemDesc
-            ? `<div class="mt-1 rounded bg-red-50 px-2 py-1 text-xs text-red-600">${escapeHtml(event.qcProblemDesc)}</div>`
-            : ''
-        }
-        ${
-          event.status === 'DISPUTED' && event.diffReason
-            ? `<div class="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">${escapeHtml(event.diffReason)}</div>`
-            : ''
-        }
       </div>
     </article>
   `
@@ -323,7 +300,7 @@ export function renderPdaHandoverPage(): string {
     (event) => event.action === 'HANDOUT' && event.status === 'PENDING' && matchFactory(event),
   )
   const doneEvents = pdaHandoverEvents.filter(
-    (event) => (event.status === 'CONFIRMED' || event.status === 'DISPUTED') && matchFactory(event),
+    (event) => event.status === 'CONFIRMED' && matchFactory(event),
   )
 
   const tabCounts: Record<HandoverTab, number> = {
@@ -375,7 +352,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'receive'
             ? `
-              <p class="text-xs text-muted-foreground">非首道工序工厂接收上一道工序的半成品。接收须完成数量确认与到货质检，接收完成后具备开工条件。</p>
+              <p class="text-xs text-muted-foreground">接收仅需确认实收数量并上传接收凭证。确认后直接完成接收；如数量不一致，系统会记录数量差异。</p>
               ${
                 receiveEvents.length === 0
                   ? renderEmptyState('暂无待接收事项')
@@ -401,7 +378,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'done'
             ? doneEvents.length === 0
-              ? renderEmptyState('暂无已处理记录')
+              ? renderEmptyState('暂无已完成记录')
               : doneEvents.map((event) => renderDoneCard(event)).join('')
             : ''
         }

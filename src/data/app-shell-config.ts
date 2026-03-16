@@ -195,7 +195,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'ClipboardCheck',
           children: [
             { key: 'quality-inspection', title: '质检记录', icon: 'ClipboardCheck', href: '/fcs/quality/qc-records' },
-            { key: 'quality-rework', title: '返工/重做', icon: 'Repeat2', href: '/fcs/quality/rework' },
             { key: 'quality-penalty', title: '扣款计算', icon: 'Calculator', href: '/fcs/quality/deduction-calc' },
             { key: 'quality-arbitration', title: '争议仲裁', icon: 'Scale', href: '/fcs/quality/arbitration' },
             { key: 'quality-penalty-output', title: '扣款结果输出', icon: 'FileDown', href: '/fcs/quality/penalty-output' },

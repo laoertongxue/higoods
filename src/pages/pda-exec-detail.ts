@@ -36,7 +36,7 @@ interface ProofFile {
 const BLOCK_REASON_OPTIONS: Array<{ value: BlockReason; label: string }> = [
   { value: 'MATERIAL', label: '物料' },
   { value: 'CAPACITY', label: '产能/排期' },
-  { value: 'QUALITY', label: '质量返工' },
+  { value: 'QUALITY', label: '质量处理' },
   { value: 'TECH', label: '工艺/技术资料' },
   { value: 'EQUIPMENT', label: '设备' },
   { value: 'OTHER', label: '其他' },
@@ -124,7 +124,7 @@ function blockReasonLabel(reason: BlockReason | string | undefined): string {
   const map: Record<string, string> = {
     MATERIAL: '物料',
     CAPACITY: '产能/排期',
-    QUALITY: '质量返工',
+    QUALITY: '质量处理',
     TECH: '工艺/技术资料',
     EQUIPMENT: '设备',
     OTHER: '其他',

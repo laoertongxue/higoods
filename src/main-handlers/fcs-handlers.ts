@@ -70,7 +70,6 @@ import {
   isQcStandardsDialogOpen,
 } from '../pages/qc-standards'
 import { handleQcRecordsEvent } from '../pages/qc-records'
-import { handleReworkEvent } from '../pages/rework'
 import { handleDeductionCalcEvent } from '../pages/deduction-calc'
 import {
   handleArbitrationEvent,
@@ -148,7 +147,6 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleMaterialIssueEvent(target) ||
     handleQcStandardsEvent(target) ||
     handleQcRecordsEvent(target) ||
-    handleReworkEvent(target) ||
     handleDeductionCalcEvent(target) ||
     handleArbitrationEvent(target) ||
     handleStatementsEvent(target) ||

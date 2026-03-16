@@ -62,8 +62,6 @@ const SETTLEMENT_PARTY_LABEL: Record<string, string> = {
 }
 
 const DISPOSITION_LABEL: Record<string, string> = {
-  REWORK: '返工',
-  REMAKE: '重做',
   ACCEPT_AS_DEFECT: '接受（瑕疵品）',
   SCRAP: '报废',
   ACCEPT: '接受（无扣款）',

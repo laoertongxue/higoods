@@ -317,8 +317,8 @@ const MOCK_CRAFTS: CraftEntry[] = [
   {
     id: 'C016',
     stage: '后整阶段',
-    process: '返工',
-    craftName: '返工补线',
+    process: '车缝',
+    craftName: '质量补线',
     craftCode: 'RWK-STT',
     stdTime: 10,
     timeUnit: '分钟/件',
@@ -327,7 +327,7 @@ const MOCK_CRAFTS: CraftEntry[] = [
       { name: '补线后强度', required: true, standard: '与原线迹强度一致' },
       { name: '外观', required: true, standard: '补线处不可见，与周边一致' },
     ],
-    craftStandard: '返工补线需使用相同色号、相同粗细缝线，补线区域不可有明显色差。',
+    craftStandard: '质量补线需使用相同色号、相同粗细缝线，补线区域不可有明显色差。',
     status: '启用',
     mappingStatus: '已映射',
   },
@@ -380,14 +380,14 @@ const MOCK_MAPPINGS: OldSystemMapping[] = [
   { id: 'M010', sourceSystem: 'MES-OLD', oldStage: '后处理', oldProcess: '水洗', oldCraft: '成衣洗水', suggestedCraft: '成衣水洗', currentCraft: '成衣水洗', mappingStatus: '已映射', remark: '来源 MES 老系统' },
   { id: 'M011', sourceSystem: 'MES-OLD', oldStage: '后处理', oldProcess: '烫型', oldCraft: '蒸汽整烫', suggestedCraft: '成衣整烫', currentCraft: '成衣整烫', mappingStatus: '已映射', remark: '' },
   { id: 'M012', sourceSystem: 'MES-OLD', oldStage: '后处理', oldProcess: '包装', oldCraft: '吊牌+装袋', suggestedCraft: '成衣包装', currentCraft: '成衣包装', mappingStatus: '已映射', remark: '' },
-  { id: 'M013', sourceSystem: 'MES-OLD', oldStage: '修补', oldProcess: '返工', oldCraft: '补线修复', suggestedCraft: '返工补线', currentCraft: '返工补线', mappingStatus: '已映射', remark: '' },
+  { id: 'M013', sourceSystem: 'MES-OLD', oldStage: '修补', oldProcess: '修补处理', oldCraft: '补线修复', suggestedCraft: '质量补线', currentCraft: '质量补线', mappingStatus: '已映射', remark: '' },
   { id: 'M014', sourceSystem: 'ERP-V2', oldStage: '印制', oldProcess: '网版印', oldCraft: '丝印工艺', suggestedCraft: '丝网印花', currentCraft: '', mappingStatus: '未映射', remark: 'ERP-V2 遗留，待处理' },
   { id: 'M015', sourceSystem: 'ERP-V2', oldStage: '备料', oldProcess: '自动裁', oldCraft: '全自动铺布裁剪', suggestedCraft: '排料裁剪（自动）', currentCraft: '', mappingStatus: '未映射', remark: '新工艺尚未确认' },
   { id: 'M016', sourceSystem: 'ERP-V2', oldStage: '缝制', oldProcess: '拉链', oldCraft: '隐形拉链安装', suggestedCraft: '装拉链', currentCraft: '装拉链', mappingStatus: '已映射', remark: '' },
 ]
 
 const STAGES: Stage[] = ['准备阶段', '生产阶段', '后整阶段']
-const PROCESSES = ['裁片', '车缝', '印花', '染色', '水洗', '整烫', '包装', '返工']
+const PROCESSES = ['裁片', '车缝', '印花', '染色', '水洗', '整烫', '包装', '修补处理']
 const MAPPING_STATUSES: MappingStatus[] = ['已映射', '未映射', '待确认']
 
 const state: CraftDictState = {

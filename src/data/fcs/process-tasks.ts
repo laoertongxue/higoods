@@ -77,13 +77,13 @@ export interface ProcessTask {
   materialMode?: 'warehouse_delivery' | 'factory_pickup'
   materialModeLabel?: '仓库配送到厂' | '工厂到仓自提'
   materialRequestStatus?: '待配料' | '待配送' | '待自提' | '已完成'
-  // 返工/重做任务关联
+  // 质量处理关联
   parentTaskId?: string
   sourceQcId?: string
-  sourceTaskId?: string              // 被返工/重做的原任务ID
+  sourceTaskId?: string              // 来源原任务ID
   sourceProductionOrderId?: string   // 来源生产单ID
-  taskKind?: 'NORMAL' | 'REWORK' | 'REMAKE'
-  taskCategoryZh?: string            // '返工' | '重做'
+  taskKind?: 'NORMAL'
+  taskCategoryZh?: string            // 任务分类展示
   createdAt: string
   updatedAt: string
   auditLogs: TaskAuditLog[]
@@ -1305,7 +1305,7 @@ export const processTasks: ProcessTask[] = [
       { id: 'AL-BLK-004', action: 'BLOCK', detail: '标记暂不能继续，原因：CAPACITY，备注：工厂产能排满，需要协调排期', at: '2026-03-02 14:00:00', by: 'Admin' },
     ],
   },
-  // 质量返工暂不能继续
+  // 质量问题暂不能继续
   {
     taskId: 'TASK-BLOCKED-003',
     productionOrderId: 'PO-2024-0005',
@@ -1325,13 +1325,13 @@ export const processTasks: ProcessTask[] = [
     attachments: [],
     status: 'BLOCKED',
     blockReason: 'QUALITY',
-    blockRemark: 'QC发现线迹不良率过高，需返工',
+    blockRemark: 'QC发现线迹不良率过高，需质量处理',
     blockedAt: '2026-03-01 16:00:00',
     createdAt: '2026-02-20 09:00:00',
     updatedAt: '2026-03-01 16:00:00',
     auditLogs: [
       { id: 'AL-BLK-005', action: 'CREATE', detail: '自动拆解生成', at: '2026-02-20 09:00:00', by: '系统' },
-      { id: 'AL-BLK-006', action: 'BLOCK', detail: '标记暂不能继续，原因：QUALITY，备注：QC发现线迹不良率过高，需返工', at: '2026-03-01 16:00:00', by: 'Admin' },
+      { id: 'AL-BLK-006', action: 'BLOCK', detail: '标记暂不能继续，原因：QUALITY，备注：QC发现线迹不良率过高，需质量处理', at: '2026-03-01 16:00:00', by: 'Admin' },
     ],
   },
   // 工艺资料暂不能继续

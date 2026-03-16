@@ -191,7 +191,7 @@ export const initialExceptions: ExceptionCase[] = [
       { id: 'EAL-007', action: 'STATUS_CHANGE', detail: 'OPEN -> WAITING_EXTERNAL', at: oneDayAgo, by: '跟单B' },
     ],
   },
-  // S2 - 质量返工
+  // S2 - 质量处理
   {
     caseId: 'EX-202603-0005',
     caseStatus: 'IN_PROGRESS',
@@ -206,11 +206,11 @@ export const initialExceptions: ExceptionCase[] = [
     ownerUserId: 'U002',
     ownerUserName: '跟单A',
     summary: '质量问题 - 线迹不良率过高',
-    detail: 'QC发现车缝线迹不良率过高，需返工处理',
+    detail: 'QC发现车缝线迹不良率过高，需质量处理',
     createdAt: oneDayAgo,
     updatedAt: mockNow,
     slaDueAt: mockNow,
-    tags: ['质量', '返工'],
+    tags: ['质量', '处理'],
     actions: [],
     auditLogs: [
       { id: 'EAL-008', action: 'CREATE', detail: '系统自动生成异常单', at: oneDayAgo, by: '系统' },

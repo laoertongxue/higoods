@@ -25,7 +25,7 @@ import { escapeHtml, toClassName } from '../utils'
 applyQualitySeedBootstrap()
 
 type FilterStatus = DyePrintOrderStatus | 'ALL'
-type ReturnDisposition = 'REWORK' | 'REMAKE' | 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
+type ReturnDisposition = 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
 
 type CreateErrors = Partial<Record<keyof CreateForm, string>>
 
@@ -106,8 +106,6 @@ const PROCESS_TYPE_LABEL: Record<DyePrintProcessType, string> = {
 }
 
 const DISPOSITION_LABEL: Record<ReturnDisposition, string> = {
-  REWORK: '返工',
-  REMAKE: '重做',
   ACCEPT_AS_DEFECT: '接受B级品',
   SCRAP: '报废',
   ACCEPT: '接受无扣款',

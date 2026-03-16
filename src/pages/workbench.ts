@@ -58,7 +58,6 @@ type RiskKind =
   | 'GATE_BLOCKED'
   | 'DISPUTE_FROZEN'
   | 'QC_OVERDUE'
-  | 'REWORK_PENDING'
   | 'STATEMENT_STALE'
 
 interface RiskItem {
@@ -85,7 +84,6 @@ const RISK_BADGE: Record<RiskKind, string> = {
   GATE_BLOCKED: 'bg-red-50 text-red-700 border-red-200',
   DISPUTE_FROZEN: 'bg-orange-50 text-orange-700 border-orange-200',
   QC_OVERDUE: 'bg-amber-50 text-amber-700 border-amber-200',
-  REWORK_PENDING: 'bg-blue-50 text-blue-700 border-blue-200',
   STATEMENT_STALE: 'bg-slate-100 text-slate-700 border-slate-200',
 }
 
@@ -266,31 +264,6 @@ function buildRisks(): RiskItem[] {
         updatedAt: qc.updatedAt ?? qc.createdAt,
         href: `/fcs/quality/qc-records/${qc.qcId}`,
         actionLabel: '查看质检',
-      })
-    })
-
-  processTasks
-    .filter((task) => (task.taskKind === 'REWORK' || task.taskKind === 'REMAKE') && task.status !== 'DONE')
-    .forEach((task) => {
-      const statusZh =
-        task.status === 'NOT_STARTED'
-          ? '未开始'
-          : task.status === 'IN_PROGRESS'
-            ? '进行中'
-            : task.status === 'BLOCKED'
-              ? '暂不能继续'
-              : task.status
-
-      risks.push({
-        id: `rework-${task.taskId}`,
-        kind: 'REWORK_PENDING',
-        kindZh: '返工未完成',
-        title: `${task.taskKind === 'REWORK' ? '返工' : '重做'}任务 ${task.taskId} 未完成`,
-        relatedObj: task.productionOrderId ?? task.taskId,
-        note: `任务状态：${statusZh}`,
-        updatedAt: task.updatedAt ?? task.createdAt,
-        href: '/fcs/quality/rework',
-        actionLabel: '查看返工任务',
       })
     })
 
@@ -512,7 +485,6 @@ export function renderRisksPage(): string {
   const gateCount = risks.filter((item) => item.kind === 'GATE_BLOCKED').length
   const disputeCount = risks.filter((item) => item.kind === 'DISPUTE_FROZEN').length
   const qcOverdueCount = risks.filter((item) => item.kind === 'QC_OVERDUE').length
-  const reworkCount = risks.filter((item) => item.kind === 'REWORK_PENDING').length
   const staleCount = risks.filter((item) => item.kind === 'STATEMENT_STALE').length
 
   const rows = risks
@@ -539,7 +511,6 @@ export function renderRisksPage(): string {
         ${statCard('当前暂不能继续风险数', gateCount, gateCount > 0 ? 'text-red-600' : 'text-foreground')}
         ${statCard('争议冻结风险数', disputeCount, disputeCount > 0 ? 'text-orange-600' : 'text-foreground')}
         ${statCard('质检超期风险数', qcOverdueCount, qcOverdueCount > 0 ? 'text-amber-600' : 'text-foreground')}
-        ${statCard('返工未完成风险数', reworkCount, reworkCount > 0 ? 'text-blue-600' : 'text-foreground')}
         ${statCard('对账单滞留风险数', staleCount, staleCount > 0 ? 'text-slate-600' : 'text-foreground')}
       </div>
 

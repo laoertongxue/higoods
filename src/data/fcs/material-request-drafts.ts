@@ -42,6 +42,8 @@ export interface MaterialRequestDraft {
   createdMaterialRequestNo: string
   createdBy: string
   createdAt: string
+  updatedBy: string
+  updatedAt: string
   lines: MaterialRequestDraftLine[]
 }
 
@@ -81,6 +83,28 @@ export interface MaterialDraftOrderSummary {
   notApplicableCount: number
   requestCount: number
   status: 'not_involved' | 'pending' | 'partial_created' | 'created'
+}
+
+export interface MaterialDraftOrderIndicators {
+  productionOrderId: string
+  hasMaterialDraft: boolean
+  hasConfirmedMaterialRequest: boolean
+  materialDraftSummaryStatus: 'none' | 'pending' | 'partial_confirmed' | 'confirmed'
+  materialDraftCount: number
+  materialDraftPendingCount: number
+  materialDraftConfirmedCount: number
+  materialDraftNotApplicableCount: number
+  materialDraftHintText: string
+}
+
+export interface MaterialDraftOperationLog {
+  id: string
+  productionOrderId: string
+  taskId?: string
+  action: string
+  detail: string
+  at: string
+  by: string
 }
 
 interface DraftMaterialCandidate {
@@ -124,6 +148,10 @@ const CATEGORY_UNIT: Record<'面料' | '辅料' | '裁片', string> = {
 
 function toTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function createMaterialDraftLogId(): string {
+  return `MRL-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
 }
 
 function normalizeQty(value: number): number {
@@ -385,6 +413,8 @@ function buildInitialDrafts(): MaterialRequestDraft[] {
         createdMaterialRequestNo: '',
         createdBy: '',
         createdAt: '',
+        updatedBy: '系统',
+        updatedAt: order.createdAt,
         lines: toDraftLines(draftId, candidates),
       })
     }
@@ -393,7 +423,7 @@ function buildInitialDrafts(): MaterialRequestDraft[] {
   return list
 }
 
-function markDraftNotApplicable(taskId: string): void {
+function markDraftNotApplicable(taskId: string, operatorName = '跟单员', operateAt: string = toTimestamp()): void {
   const draft = materialRequestDrafts.find((item) => item.taskId === taskId)
   if (!draft) return
 
@@ -401,6 +431,15 @@ function markDraftNotApplicable(taskId: string): void {
   draft.draftStatus = 'not_applicable'
   draft.remark = '跟单员确认当前任务不需要领料'
   draft.lines = draft.lines.map((line) => ({ ...line, selected: false, confirmedQty: 0 }))
+  touchDraft(draft, operatorName, operateAt)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '领料草稿更新',
+    detail: `跟单员将任务「${draft.taskName}」标记为无需领料`,
+    at: operateAt,
+    by: operatorName,
+  })
 }
 
 function seedCreatedDraft(taskId: string, mode: MaterialMode, createdAt: string, createdBy: string, requestStatus?: MaterialRequestProgressStatus): void {
@@ -413,6 +452,7 @@ function seedCreatedDraft(taskId: string, mode: MaterialMode, createdAt: string,
   draft.draftStatus = 'created'
   draft.createdBy = createdBy
   draft.createdAt = createdAt
+  touchDraft(draft, createdBy, createdAt)
 
   const selectedLines = draft.lines.filter((line) => line.selected && line.confirmedQty > 0)
   if (selectedLines.length === 0 && draft.lines.length > 0) {
@@ -446,20 +486,71 @@ function seedCreatedDraft(taskId: string, mode: MaterialMode, createdAt: string,
 
   materialRequests.push(request)
   applyTaskBinding(request)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '确认领料',
+    detail: `跟单员确认领料，正式创建领料需求 ${materialRequestNo}（${draft.taskName}）`,
+    at: createdAt,
+    by: createdBy,
+  })
 }
 
 let materialRequestSequence = 1
 const taskBindings = new Map<string, MaterialRequestTaskBinding>()
+const materialDraftOperationLogs: MaterialDraftOperationLog[] = []
 
 const materialRequestDrafts: MaterialRequestDraft[] = buildInitialDrafts()
 const materialRequests: MaterialRequestRecord[] = []
 
+function appendMaterialDraftOperationLog(log: Omit<MaterialDraftOperationLog, 'id'>): void {
+  materialDraftOperationLogs.push({
+    id: createMaterialDraftLogId(),
+    ...log,
+  })
+}
+
+function touchDraft(draft: MaterialRequestDraft, by: string, at: string = toTimestamp()): void {
+  draft.updatedBy = by
+  draft.updatedAt = at
+}
+
+function seedSystemAutoDraftLogs(): void {
+  const grouped = new Map<string, number>()
+  for (const draft of materialRequestDrafts) {
+    grouped.set(draft.productionOrderId, (grouped.get(draft.productionOrderId) ?? 0) + 1)
+  }
+
+  for (const [orderId, count] of grouped.entries()) {
+    const order = productionOrders.find((item) => item.productionOrderId === orderId)
+    appendMaterialDraftOperationLog({
+      productionOrderId: orderId,
+      action: '系统创建领料草稿',
+      detail: `系统根据任务与BOM自动生成领料草稿（${count}条）`,
+      at: order?.updatedAt ?? '2026-03-10 09:00:00',
+      by: '系统',
+    })
+  }
+}
+
 // 预置演示数据：覆盖待确认 / 部分创建 / 已创建 / 不涉及等状态。
-markDraftNotApplicable('TASK-202603-0003-002')
+seedSystemAutoDraftLogs()
+markDraftNotApplicable('TASK-202603-0003-002', 'Mira Handayani', '2026-03-10 10:10:00')
 seedCreatedDraft('TASK-202603-0004-002', 'warehouse_delivery', '2026-03-10 10:25:00', 'Mira Handayani', '待配送')
 seedCreatedDraft('TASK-202603-0005-001', 'factory_pickup', '2026-03-11 14:20:00', 'Budi Santoso', '待自提')
 seedCreatedDraft('TASK-202603-0006-001', 'warehouse_delivery', '2026-03-08 09:30:00', 'Mira Handayani', '待配料')
 seedCreatedDraft('TASK-202603-0006-002', 'warehouse_delivery', '2026-03-09 16:00:00', 'Mira Handayani', '已完成')
+
+const seedEditableDraft = materialRequestDrafts.find((draft) => draft.taskId === 'TASK-202603-0004-001')
+if (seedEditableDraft && seedEditableDraft.lines[0]) {
+  setMaterialDraftMode(seedEditableDraft.draftId, 'factory_pickup', 'Mira Handayani')
+  setMaterialDraftLineConfirmedQty(
+    seedEditableDraft.draftId,
+    seedEditableDraft.lines[0].lineId,
+    Math.max(1, seedEditableDraft.lines[0].confirmedQty - 80),
+    'Mira Handayani',
+  )
+}
 
 function getOrderById(orderId: string): ProductionOrder | undefined {
   return productionOrders.find((order) => order.productionOrderId === orderId)
@@ -528,7 +619,46 @@ export function getMaterialRequestDraftSummaryByOrder(orderId: string): Material
   }
 }
 
-export function setMaterialDraftNeedMaterial(draftId: string, needMaterial: boolean): void {
+export function getMaterialDraftIndicatorsByOrder(orderId: string): MaterialDraftOrderIndicators {
+  const summary = getMaterialRequestDraftSummaryByOrder(orderId)
+  const order = productionOrders.find((item) => item.productionOrderId === orderId)
+  const hasMaterialDraft = summary.totalDraftCount > 0
+  const hasConfirmedMaterialRequest = summary.createdCount > 0
+
+  let materialDraftSummaryStatus: MaterialDraftOrderIndicators['materialDraftSummaryStatus'] = 'none'
+  if (summary.status === 'pending') materialDraftSummaryStatus = 'pending'
+  if (summary.status === 'partial_created') materialDraftSummaryStatus = 'partial_confirmed'
+  if (summary.status === 'created') materialDraftSummaryStatus = 'confirmed'
+
+  let materialDraftHintText = '暂无领料草稿'
+  if (materialDraftSummaryStatus === 'none') {
+    if (summary.totalDraftCount > 0 && summary.notApplicableCount === summary.totalDraftCount) {
+      materialDraftHintText = `不涉及 ${summary.notApplicableCount}`
+    } else {
+      materialDraftHintText = order?.taskBreakdownSummary.isBrokenDown ? '需生成领料草稿' : '待拆任务后生成'
+    }
+  } else if (materialDraftSummaryStatus === 'pending') {
+    materialDraftHintText = `草稿 ${summary.totalDraftCount} / 待确认 ${summary.pendingCount}`
+  } else if (materialDraftSummaryStatus === 'partial_confirmed') {
+    materialDraftHintText = `已确认 ${summary.createdCount} / 待确认 ${summary.pendingCount}`
+  } else {
+    materialDraftHintText = `需求 ${summary.requestCount}`
+  }
+
+  return {
+    productionOrderId: orderId,
+    hasMaterialDraft,
+    hasConfirmedMaterialRequest,
+    materialDraftSummaryStatus,
+    materialDraftCount: summary.totalDraftCount,
+    materialDraftPendingCount: summary.pendingCount,
+    materialDraftConfirmedCount: summary.createdCount,
+    materialDraftNotApplicableCount: summary.notApplicableCount,
+    materialDraftHintText,
+  }
+}
+
+export function setMaterialDraftNeedMaterial(draftId: string, needMaterial: boolean, operatorName = '跟单员'): void {
   const draft = getDraftById(draftId)
   if (!draft || draft.draftStatus === 'created') return
 
@@ -538,33 +668,74 @@ export function setMaterialDraftNeedMaterial(draftId: string, needMaterial: bool
     draft.draftStatus = 'not_applicable'
     draft.remark = '跟单员确认当前任务不需要领料'
     draft.lines = draft.lines.map((line) => ({ ...line, selected: false, confirmedQty: 0 }))
+    const now = toTimestamp()
+    touchDraft(draft, operatorName, now)
+    appendMaterialDraftOperationLog({
+      productionOrderId: draft.productionOrderId,
+      taskId: draft.taskId,
+      action: '领料草稿更新',
+      detail: `跟单员将任务「${draft.taskName}」标记为无需领料`,
+      at: now,
+      by: operatorName,
+    })
     return
   }
 
+  const now = toTimestamp()
   draft.draftStatus = 'pending'
   draft.remark = draft.remark || '已改为需要领料，待确认创建'
   if (draft.lines.length > 0 && draft.lines.every((line) => !line.selected)) {
     draft.lines = draft.lines.map((line) => ({ ...line, selected: true, confirmedQty: normalizeQty(line.suggestedQty) }))
   }
+  touchDraft(draft, operatorName, now)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '领料草稿更新',
+    detail: `跟单员将任务「${draft.taskName}」改为需要领料`,
+    at: now,
+    by: operatorName,
+  })
 }
 
-export function setMaterialDraftMode(draftId: string, materialMode: MaterialMode): void {
+export function setMaterialDraftMode(draftId: string, materialMode: MaterialMode, operatorName = '跟单员'): void {
   const draft = getDraftById(draftId)
   if (!draft || draft.draftStatus === 'created') return
+  if (draft.materialMode === materialMode) return
 
+  const now = toTimestamp()
   draft.materialMode = materialMode
   draft.materialModeLabel = MATERIAL_MODE_LABEL[materialMode]
+  touchDraft(draft, operatorName, now)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '领料草稿更新',
+    detail: `跟单员修改领料方式为「${draft.materialModeLabel}」`,
+    at: now,
+    by: operatorName,
+  })
 }
 
-export function setMaterialDraftRemark(draftId: string, remark: string): void {
+export function setMaterialDraftRemark(draftId: string, remark: string, operatorName = '跟单员'): void {
   const draft = getDraftById(draftId)
   if (!draft || draft.draftStatus === 'created') return
+  if (draft.remark === remark) return
   draft.remark = remark
+  touchDraft(draft, operatorName, toTimestamp())
 }
 
-export function toggleMaterialDraftLine(draftId: string, lineId: string, selected: boolean): void {
+export function toggleMaterialDraftLine(
+  draftId: string,
+  lineId: string,
+  selected: boolean,
+  operatorName = '跟单员',
+): void {
   const draft = getDraftById(draftId)
   if (!draft || draft.draftStatus === 'created') return
+
+  const targetLine = draft.lines.find((line) => line.lineId === lineId)
+  if (!targetLine || targetLine.selected === selected) return
 
   draft.lines = draft.lines.map((line) => {
     if (line.lineId !== lineId) return line
@@ -574,11 +745,29 @@ export function toggleMaterialDraftLine(draftId: string, lineId: string, selecte
       confirmedQty: selected ? Math.max(1, line.confirmedQty || line.suggestedQty) : 0,
     }
   })
+  const now = toTimestamp()
+  touchDraft(draft, operatorName, now)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '领料草稿更新',
+    detail: `${selected ? '勾选' : '取消'}物料「${targetLine.materialName}」`,
+    at: now,
+    by: operatorName,
+  })
 }
 
-export function setMaterialDraftLineConfirmedQty(draftId: string, lineId: string, qty: number): void {
+export function setMaterialDraftLineConfirmedQty(
+  draftId: string,
+  lineId: string,
+  qty: number,
+  operatorName = '跟单员',
+): void {
   const draft = getDraftById(draftId)
   if (!draft || draft.draftStatus === 'created') return
+
+  const targetLine = draft.lines.find((line) => line.lineId === lineId)
+  if (!targetLine) return
 
   draft.lines = draft.lines.map((line) => {
     if (line.lineId !== lineId) return line
@@ -589,9 +778,22 @@ export function setMaterialDraftLineConfirmedQty(draftId: string, lineId: string
       selected: normalized > 0,
     }
   })
+  const nextLine = draft.lines.find((line) => line.lineId === lineId)
+  if (!nextLine || nextLine.confirmedQty === targetLine.confirmedQty) return
+
+  const now = toTimestamp()
+  touchDraft(draft, operatorName, now)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '领料草稿更新',
+    detail: `修改物料「${targetLine.materialName}」确认数量：${targetLine.confirmedQty}${targetLine.unit} → ${nextLine.confirmedQty}${nextLine.unit}`,
+    at: now,
+    by: operatorName,
+  })
 }
 
-export function restoreMaterialDraftSuggestion(draftId: string): void {
+export function restoreMaterialDraftSuggestion(draftId: string, operatorName = '跟单员'): void {
   const draft = getDraftById(draftId)
   if (!draft || draft.draftStatus === 'created') return
 
@@ -601,6 +803,16 @@ export function restoreMaterialDraftSuggestion(draftId: string): void {
   draft.materialMode = 'warehouse_delivery'
   draft.materialModeLabel = MATERIAL_MODE_LABEL.warehouse_delivery
   draft.remark = '已恢复系统自动建议'
+  const now = toTimestamp()
+  touchDraft(draft, operatorName, now)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '领料草稿更新',
+    detail: `恢复任务「${draft.taskName}」的系统建议`,
+    at: now,
+    by: operatorName,
+  })
 }
 
 export function listMaterialDraftSupplementOptions(draftId: string): DraftMaterialCandidate[] {
@@ -618,7 +830,7 @@ export function listMaterialDraftSupplementOptions(draftId: string): DraftMateri
   return candidates.filter((candidate) => !selectedRefs.has(`${candidate.sourceType}:${candidate.sourceRef}`))
 }
 
-export function addMaterialToDraft(draftId: string, optionKeys: string[]): number {
+export function addMaterialToDraft(draftId: string, optionKeys: string[], operatorName = '跟单员'): number {
   const draft = getDraftById(draftId)
   if (!draft || draft.draftStatus === 'created') return 0
 
@@ -649,6 +861,16 @@ export function addMaterialToDraft(draftId: string, optionKeys: string[]): numbe
   draft.lines = [...draft.lines, ...appended]
   draft.needMaterial = true
   draft.draftStatus = 'pending'
+  const now = toTimestamp()
+  touchDraft(draft, operatorName, now)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '领料草稿更新',
+    detail: `补充物料 ${appended.length} 条（任务：${draft.taskName}）`,
+    at: now,
+    by: operatorName,
+  })
 
   return appended.length
 }
@@ -693,6 +915,7 @@ export function confirmMaterialRequestDraft(
   draft.createdMaterialRequestNo = materialRequestNo
   draft.createdBy = operator.name
   draft.createdAt = now
+  touchDraft(draft, operator.name, now)
 
   const requestStatus = getDefaultRequestStatus(draft.materialMode)
   const request: MaterialRequestRecord = {
@@ -713,6 +936,14 @@ export function confirmMaterialRequestDraft(
 
   materialRequests.unshift(request)
   applyTaskBinding(request)
+  appendMaterialDraftOperationLog({
+    productionOrderId: draft.productionOrderId,
+    taskId: draft.taskId,
+    action: '确认领料',
+    detail: `跟单员确认领料，正式创建领料需求 ${materialRequestNo}（${draft.taskName}）`,
+    at: now,
+    by: operator.name,
+  })
 
   return {
     ok: true,
@@ -729,6 +960,14 @@ export function listMaterialRequests(): MaterialRequestRecord[] {
 
 export function listMaterialRequestsByOrder(orderNo: string): MaterialRequestRecord[] {
   return listMaterialRequests().filter((item) => item.productionOrderNo === orderNo)
+}
+
+export function listMaterialDraftOperationLogsByOrder(orderId: string): MaterialDraftOperationLog[] {
+  return materialDraftOperationLogs
+    .filter((log) => log.productionOrderId === orderId)
+    .slice()
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map((log) => ({ ...log }))
 }
 
 export function getTaskMaterialRequestBinding(taskId: string): MaterialRequestTaskBinding | null {

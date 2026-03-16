@@ -3,10 +3,11 @@ import { escapeHtml } from '../utils'
 import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
 import {
   findPdaHandoverEvent,
+  getReceiveSceneLabel,
+  shouldRequireReceiptProof,
   updatePdaHandoverEvent,
   type HandoverAction,
   type HandoverEvent,
-  type HandoverQcResult,
 } from '../data/fcs/pda-handover-events'
 import { renderPdaFrame } from './pda-shell'
 
@@ -20,13 +21,7 @@ interface ProofFile {
 interface PdaHandoverDetailState {
   initializedKey: string
   qtyActual: string
-  diffReason: string
   diffNote: string
-  qcResult: '' | HandoverQcResult
-  qcDefectQty: string
-  qcIssueType: string
-  qcNote: string
-  showDisputeDialog: boolean
   proofEventId: string
   proofFiles: ProofFile[]
 }
@@ -34,19 +29,10 @@ interface PdaHandoverDetailState {
 const detailState: PdaHandoverDetailState = {
   initializedKey: '',
   qtyActual: '',
-  diffReason: '',
   diffNote: '',
-  qcResult: '',
-  qcDefectQty: '',
-  qcIssueType: '',
-  qcNote: '',
-  showDisputeDialog: false,
   proofEventId: '',
   proofFiles: [],
 }
-
-const DIFF_REASONS = ['短少', '超发', '破损', '混批', '其他']
-const QC_ISSUE_TYPES = ['外观瑕疵', '工艺问题', '污损', '破损', '尺寸偏差', '混批', '其他']
 
 const MOCK_PROOF_RECORDS: Record<string, ProofFile[]> = {
   'EV-PK-DONE-001': [
@@ -57,7 +43,7 @@ const MOCK_PROOF_RECORDS: Record<string, ProofFile[]> = {
   'EV-RC-DONE-001': [
     { id: 'rcd1-1', type: 'IMAGE', name: '到货照片_01.jpg', uploadedAt: '2026-03-08 13:01:09' },
     { id: 'rcd1-2', type: 'IMAGE', name: '开箱清点_01.jpg', uploadedAt: '2026-03-08 13:03:14' },
-    { id: 'rcd1-3', type: 'VIDEO', name: '质检现场.mp4', uploadedAt: '2026-03-08 13:06:36' },
+    { id: 'rcd1-3', type: 'VIDEO', name: '交接确认.mp4', uploadedAt: '2026-03-08 13:06:36' },
   ],
   'EV-RC-DONE-002': [
     { id: 'rcd2-1', type: 'IMAGE', name: '到货照片_01.jpg', uploadedAt: '2026-03-07 15:02:11' },
@@ -70,9 +56,12 @@ const MOCK_PROOF_RECORDS: Record<string, ProofFile[]> = {
   'EV-RC-DISP-001': [
     { id: 'rcs1-1', type: 'IMAGE', name: '异常照片_01.jpg', uploadedAt: '2026-03-10 09:11:04' },
     { id: 'rcs1-2', type: 'IMAGE', name: '异常照片_02.jpg', uploadedAt: '2026-03-10 09:11:42' },
-    { id: 'rcs1-3', type: 'VIDEO', name: '争议记录.mp4', uploadedAt: '2026-03-10 09:13:18' },
+    { id: 'rcs1-3', type: 'VIDEO', name: '接收复核视频.mp4', uploadedAt: '2026-03-10 09:13:18' },
   ],
-  'EV-RC-DISP-002': [],
+  'EV-RC-DISP-002': [
+    { id: 'rcs2-1', type: 'IMAGE', name: '回仓签收_01.jpg', uploadedAt: '2026-03-11 09:49:31' },
+    { id: 'rcs2-2', type: 'VIDEO', name: '接收现场.mp4', uploadedAt: '2026-03-11 09:50:03' },
+  ],
 }
 
 const runtimeProofRecords: Record<string, ProofFile[]> = {}
@@ -101,8 +90,30 @@ function cloneProofFiles(files: ProofFile[]): ProofFile[] {
   return files.map((file) => ({ ...file }))
 }
 
-function getProofRecords(eventId: string): ProofFile[] {
-  const files = runtimeProofRecords[eventId] ?? MOCK_PROOF_RECORDS[eventId] ?? []
+function getProofRecords(event: HandoverEvent): ProofFile[] {
+  const runtimeFiles = runtimeProofRecords[event.eventId]
+  if (runtimeFiles) return cloneProofFiles(runtimeFiles)
+
+  const eventImageFiles =
+    event.receiptProofImages?.map((name, index) => ({
+      id: `${event.eventId}-img-${index + 1}`,
+      type: 'IMAGE' as const,
+      name,
+      uploadedAt: event.receivedAt ?? event.confirmedAt ?? nowTimestamp(),
+    })) ?? []
+  const eventVideoFiles =
+    event.receiptProofVideos?.map((name, index) => ({
+      id: `${event.eventId}-video-${index + 1}`,
+      type: 'VIDEO' as const,
+      name,
+      uploadedAt: event.receivedAt ?? event.confirmedAt ?? nowTimestamp(),
+    })) ?? []
+
+  const files =
+    eventImageFiles.length + eventVideoFiles.length > 0
+      ? [...eventImageFiles, ...eventVideoFiles]
+      : MOCK_PROOF_RECORDS[event.eventId] ?? []
+
   return cloneProofFiles(files)
 }
 
@@ -131,17 +142,11 @@ function syncState(eventId: string, event: HandoverEvent): void {
 
   detailState.initializedKey = key
   detailState.qtyActual = String(event.qtyActual ?? event.qtyExpected)
-  detailState.diffReason = event.diffReason ?? ''
   detailState.diffNote = event.diffNote ?? ''
-  detailState.qcResult = event.qcResult ?? ''
-  detailState.qcDefectQty = event.qcDefectQty != null ? String(event.qcDefectQty) : ''
-  detailState.qcIssueType = event.qcProblemType ?? ''
-  detailState.qcNote = event.qcProblemDesc ?? ''
-  detailState.showDisputeDialog = false
 
   if (detailState.proofEventId !== eventId) {
     detailState.proofEventId = eventId
-    detailState.proofFiles = []
+    detailState.proofFiles = getProofRecords(event)
   }
 }
 
@@ -191,14 +196,14 @@ function getActionTitle(action: HandoverAction): string {
 }
 
 function getStatusLabel(event: HandoverEvent): string {
-  if (event.status === 'CONFIRMED') return event.action === 'PICKUP' ? '已确认领料' : event.action === 'RECEIVE' ? '已确认接收' : '已确认交出'
-  if (event.status === 'DISPUTED') return '争议中'
+  if (event.status === 'CONFIRMED') {
+    return event.action === 'PICKUP' ? '已确认领料' : event.action === 'RECEIVE' ? '已确认接收' : '已确认交出'
+  }
   return '待处理'
 }
 
 function getStatusClass(event: HandoverEvent): string {
   if (event.status === 'CONFIRMED') return 'border-primary/20 bg-primary text-primary-foreground'
-  if (event.status === 'DISPUTED') return 'border-destructive/20 bg-destructive text-destructive-foreground'
   return 'border-border bg-background text-muted-foreground'
 }
 
@@ -236,16 +241,7 @@ function renderPartyRow(label: string, kind: HandoverEvent['fromPartyKind'], nam
   `
 }
 
-function renderEvidencePlaceholder(): string {
-  return `
-    <div class="flex items-center gap-2 rounded-md border p-2 text-xs text-muted-foreground">
-      <i data-lucide="image" class="h-4 w-4 shrink-0"></i>
-      <span>现场图片/证据（占位，可拍照上传）</span>
-    </div>
-  `
-}
-
-function renderProofUploadSection(prefix: string, hint: string): string {
+function renderProofUploadSection(prefix: string, hint: string, required = false): string {
   return `
     <div class="space-y-3">
       <p class="text-xs leading-relaxed text-muted-foreground">${escapeHtml(hint)}</p>
@@ -302,7 +298,7 @@ function renderProofUploadSection(prefix: string, hint: string): string {
           : `
               <div class="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground">
                 <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
-                暂无凭证，可直接提交
+                ${required ? '暂无凭证，确认前需至少上传 1 项（图片或视频）' : '暂无凭证，可直接提交'}
               </div>
             `
       }
@@ -363,7 +359,7 @@ function appendTaskAudit(taskId: string, action: string, detail: string, by: str
   ]
 }
 
-function mutateTaskByHandover(event: HandoverEvent, mode: 'confirm' | 'dispute'): void {
+function mutateTaskByHandover(event: HandoverEvent): void {
   const task = processTasks.find((item) => item.taskId === event.taskId) as (ProcessTask & {
     handoverStatus?: string
     handoutStatus?: string
@@ -374,37 +370,46 @@ function mutateTaskByHandover(event: HandoverEvent, mode: 'confirm' | 'dispute')
   task.updatedAt = now
 
   if (event.action === 'PICKUP') {
-    task.handoverStatus = mode === 'confirm' ? 'PICKED_UP' : 'PENDING'
+    task.handoverStatus = 'PICKED_UP'
   } else if (event.action === 'RECEIVE') {
-    task.handoverStatus = mode === 'confirm' ? 'RECEIVED' : 'PENDING'
+    task.handoverStatus = 'RECEIVED'
   } else {
-    task.handoutStatus = mode === 'confirm' ? 'HANDED_OUT' : 'PENDING'
+    task.handoutStatus = 'HANDED_OUT'
   }
 }
 
 function handleConfirm(event: HandoverEvent): { ok: boolean; message?: string } {
-  const qtyActual = parseNumberOr(detailState.qtyActual, event.qtyExpected)
+  const qtyActual = parseNumberOr(detailState.qtyActual, event.action === 'RECEIVE' ? 0 : event.qtyExpected)
   const qtyDiff = Math.abs(qtyActual - event.qtyExpected)
   const proofFiles =
     event.action === 'RECEIVE' || event.action === 'HANDOUT' ? cloneProofFiles(detailState.proofFiles) : []
+  const requiresReceiptProof = shouldRequireReceiptProof(event)
 
-  if (event.action === 'RECEIVE' && !detailState.qcResult) {
-    return { ok: false, message: '请先填写质检结论' }
+  if (event.action === 'RECEIVE' && qtyActual <= 0) {
+    return { ok: false, message: '请先填写实收数量，且数量需大于 0' }
+  }
+
+  if (event.action === 'RECEIVE' && requiresReceiptProof && proofFiles.length === 0) {
+    return { ok: false, message: '请先上传接收凭证（图片或视频至少一项）' }
   }
 
   updatePdaHandoverEvent(event.eventId, (target) => {
     target.status = 'CONFIRMED'
     target.qtyActual = qtyActual
     target.qtyDiff = qtyDiff > 0 ? qtyDiff : undefined
-    target.diffReason = qtyDiff > 0 ? target.diffReason || '数量差异待核实' : undefined
-    target.diffNote = qtyDiff > 0 ? target.diffNote : undefined
+    target.hasQuantityDiff = qtyDiff > 0
     target.confirmedAt = nowTimestamp()
+
     if (event.action === 'RECEIVE') {
-      target.qcResult = detailState.qcResult || undefined
-      target.qcDefectQty = detailState.qcDefectQty ? parseNumberOr(detailState.qcDefectQty, 0) : undefined
-      target.qcProblemType = detailState.qcIssueType || undefined
-      target.qcProblemDesc = detailState.qcNote || undefined
+      target.receiveStatus = '已接收'
+      target.receivedAt = target.confirmedAt
+      target.receivedBy = 'PDA-接收员'
+      target.receiptProofImages = proofFiles.filter((file) => file.type === 'IMAGE').map((file) => file.name)
+      target.receiptProofVideos = proofFiles.filter((file) => file.type === 'VIDEO').map((file) => file.name)
+      target.diffReason = qtyDiff > 0 ? target.diffReason || '数量有差异待复核' : undefined
+      target.diffNote = qtyDiff > 0 ? detailState.diffNote.trim() || target.diffNote : undefined
     }
+
     if (event.action === 'RECEIVE' || event.action === 'HANDOUT') {
       target.proofCount = proofFiles.length
     } else if (target.proofCount == null) {
@@ -416,59 +421,11 @@ function handleConfirm(event: HandoverEvent): { ok: boolean; message?: string } 
     runtimeProofRecords[event.eventId] = proofFiles
   }
 
-  mutateTaskByHandover(event, 'confirm')
+  mutateTaskByHandover(event)
   appendTaskAudit(
     event.taskId,
     `HANDOVER_${event.action}_CONFIRM`,
     `交接确认：${event.eventId}，数量 ${qtyActual}/${event.qtyExpected}`,
-    'PDA',
-  )
-
-  return { ok: true }
-}
-
-function handleDispute(event: HandoverEvent): { ok: boolean; message?: string } {
-  const qtyActual = parseNumberOr(detailState.qtyActual, event.qtyExpected)
-  const qtyDiff = Math.abs(qtyActual - event.qtyExpected)
-  const proofFiles =
-    event.action === 'RECEIVE' || event.action === 'HANDOUT' ? cloneProofFiles(detailState.proofFiles) : []
-
-  if (!detailState.diffReason) {
-    return { ok: false, message: '请选择差异原因' }
-  }
-  if (!detailState.diffNote.trim()) {
-    return { ok: false, message: '请填写差异说明' }
-  }
-
-  updatePdaHandoverEvent(event.eventId, (target) => {
-    target.status = 'DISPUTED'
-    target.qtyActual = qtyActual
-    target.qtyDiff = qtyDiff > 0 ? qtyDiff : undefined
-    target.diffReason = detailState.diffReason
-    target.diffNote = detailState.diffNote.trim()
-    target.confirmedAt = undefined
-    if (event.action === 'RECEIVE') {
-      target.qcResult = (detailState.qcResult || 'FAIL') as HandoverQcResult
-      target.qcDefectQty = detailState.qcDefectQty ? parseNumberOr(detailState.qcDefectQty, 0) : undefined
-      target.qcProblemType = detailState.qcIssueType || undefined
-      target.qcProblemDesc = detailState.qcNote || detailState.diffNote.trim()
-    }
-    if (event.action === 'RECEIVE' || event.action === 'HANDOUT') {
-      target.proofCount = proofFiles.length
-    } else if (target.proofCount == null) {
-      target.proofCount = 0
-    }
-  })
-
-  if (event.action === 'RECEIVE' || event.action === 'HANDOUT') {
-    runtimeProofRecords[event.eventId] = proofFiles
-  }
-
-  mutateTaskByHandover(event, 'dispute')
-  appendTaskAudit(
-    event.taskId,
-    `HANDOVER_${event.action}_DISPUTE`,
-    `交接争议：${event.eventId}，原因 ${detailState.diffReason}，备注 ${detailState.diffNote.trim()}`,
     'PDA',
   )
 
@@ -509,7 +466,7 @@ function renderPickupDetail(event: HandoverEvent): string {
       }
       ${
         event.diffReason
-          ? `<div class="text-xs"><span class="text-muted-foreground">差异原因：</span>${escapeHtml(event.diffReason)}${
+          ? `<div class="text-xs"><span class="text-muted-foreground">差异说明：</span>${escapeHtml(event.diffReason)}${
               event.diffNote ? `<span class="ml-2 text-muted-foreground">· ${escapeHtml(event.diffNote)}</span>` : ''
             }</div>`
           : ''
@@ -554,12 +511,6 @@ function renderPickupDetail(event: HandoverEvent): string {
             >
               <i data-lucide="check" class="mr-2 h-4 w-4"></i>确认领料
             </button>
-            <button
-              class="inline-flex h-9 flex-1 items-center justify-center rounded-md border px-3 text-sm hover:bg-muted"
-              data-pda-handoverd-action="open-dispute"
-            >
-              <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>提出差异
-            </button>
           </div>
         `
         : ''
@@ -570,8 +521,8 @@ function renderPickupDetail(event: HandoverEvent): string {
 function renderReceiveDetail(event: HandoverEvent): string {
   const isPending = event.status === 'PENDING'
   const qtyDiff = parseNumberOr(detailState.qtyActual, event.qtyExpected) - event.qtyExpected
-  const qcFail = detailState.qcResult === 'FAIL'
-  const hasDiffOrQcFail = qtyDiff !== 0 || detailState.qcResult === 'FAIL'
+  const requiresReceiptProof = shouldRequireReceiptProof(event)
+  const receiveSceneLabel = getReceiveSceneLabel(event)
 
   return `
     ${renderSectionCard(
@@ -585,22 +536,35 @@ function renderReceiveDetail(event: HandoverEvent): string {
       </div>
       <div class="h-px bg-border"></div>
       ${renderPartyRow('来源工厂', event.fromPartyKind, event.fromPartyName)}
-      ${renderPartyRow('接收工厂', event.toPartyKind, event.toPartyName)}
+      ${renderPartyRow(event.toPartyKind === 'WAREHOUSE' ? '接收仓库' : '接收工厂', event.toPartyKind, event.toPartyName)}
+      <div class="flex flex-wrap items-center gap-1.5 text-xs">
+        <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0">${escapeHtml(
+          receiveSceneLabel,
+        )}</span>
+        <span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-blue-700">仅确认数量</span>
+        ${
+          requiresReceiptProof
+            ? '<span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0">需上传接收凭证</span>'
+            : ''
+        }
+      </div>
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('应收数量', `${event.qtyExpected} ${event.qtyUnit}`)}
         ${
-          !isPending && event.qtyActual != null
+          event.qtyActual != null
             ? renderFieldRow('实收数量', `${event.qtyActual} ${event.qtyUnit}`)
-            : ''
+            : isPending
+              ? ''
+              : renderFieldRow('实收数量', `${event.qtyExpected} ${event.qtyUnit}`)
         }
         ${
           !isPending && event.qtyActual != null
             ? renderFieldRow(
                 '差异数量',
-                `${event.qtyActual - event.qtyExpected > 0 ? '+' : ''}${
-                  event.qtyActual - event.qtyExpected
-                } ${event.qtyUnit}`,
+                `${event.qtyActual - event.qtyExpected > 0 ? '+' : ''}${event.qtyActual - event.qtyExpected} ${
+                  event.qtyUnit
+                }`,
               )
             : ''
         }
@@ -615,161 +579,90 @@ function renderReceiveDetail(event: HandoverEvent): string {
     )}
 
     ${
-      renderSectionCard(
-        '到货质检',
-        !isPending
-          ? `
-              ${
-                event.qcResult
-                  ? `
-                    <div class="space-y-1.5 text-sm">
-                      <div class="flex items-center gap-2">
-                        <span class="text-muted-foreground">质检结论：</span>
-                        <span class="inline-flex items-center rounded border px-2 py-0.5 text-xs ${
-                          event.qcResult === 'PASS'
-                            ? 'border-primary/20 bg-primary text-primary-foreground'
-                            : 'border-destructive/20 bg-destructive text-destructive-foreground'
-                        }">${event.qcResult === 'PASS' ? '合格' : '不合格'}</span>
-                      </div>
-                      ${
-                        event.qcDefectQty != null
-                          ? renderFieldRow('不合格数量', `${event.qcDefectQty} ${event.qtyUnit}`)
-                          : ''
-                      }
-                      ${event.qcProblemType ? renderFieldRow('问题类型', event.qcProblemType) : ''}
-                      ${event.qcProblemDesc ? renderFieldRow('问题说明', event.qcProblemDesc) : ''}
-                    </div>
-                  `
-                  : '<p class="text-xs text-muted-foreground">暂无质检记录</p>'
-              }
+      isPending
+        ? renderSectionCard(
+            '接收确认',
             `
-          : `
-              <div class="space-y-3">
-                <div class="space-y-1.5">
-                  <label class="text-xs font-medium">质检结论 *</label>
-                  <div class="flex gap-4">
-                    <button
-                      class="inline-flex items-center gap-1.5 text-sm ${
-                        detailState.qcResult === 'PASS' ? 'font-medium text-green-700' : 'text-muted-foreground'
-                      }"
-                      data-pda-handoverd-action="set-qc-result"
-                      data-value="PASS"
-                    >
-                      <span class="inline-flex h-4 w-4 items-center justify-center rounded-full border ${
-                        detailState.qcResult === 'PASS' ? 'border-green-600 bg-green-600 text-white' : 'border-border'
-                      }">${detailState.qcResult === 'PASS' ? '•' : ''}</span>
-                      合格
-                    </button>
-                    <button
-                      class="inline-flex items-center gap-1.5 text-sm ${
-                        detailState.qcResult === 'FAIL' ? 'font-medium text-destructive' : 'text-muted-foreground'
-                      }"
-                      data-pda-handoverd-action="set-qc-result"
-                      data-value="FAIL"
-                    >
-                      <span class="inline-flex h-4 w-4 items-center justify-center rounded-full border ${
-                        detailState.qcResult === 'FAIL'
-                          ? 'border-destructive bg-destructive text-white'
-                          : 'border-border'
-                      }">${detailState.qcResult === 'FAIL' ? '•' : ''}</span>
-                      不合格
-                    </button>
-                  </div>
-                </div>
-
+              <div class="space-y-2">
+                <label class="text-xs font-medium">实收数量（${escapeHtml(event.qtyUnit)}）*</label>
+                <input
+                  class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  type="number"
+                  value="${escapeHtml(detailState.qtyActual)}"
+                  data-pda-handoverd-field="qtyActual"
+                />
                 ${
-                  qcFail
-                    ? `
-                      <div class="space-y-1.5">
-                        <label class="text-xs">不合格数量（${escapeHtml(event.qtyUnit)}）</label>
-                        <input
-                          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                          type="number"
-                          placeholder="0"
-                          value="${escapeHtml(detailState.qcDefectQty)}"
-                          data-pda-handoverd-field="qcDefectQty"
-                        />
-                      </div>
-                      <div class="space-y-1.5">
-                        <label class="text-xs">问题类型</label>
-                        <select
-                          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                          data-pda-handoverd-field="qcIssueType"
-                        >
-                          <option value="">请选择</option>
-                          ${QC_ISSUE_TYPES.map(
-                            (item) =>
-                              `<option value="${escapeHtml(item)}" ${
-                                detailState.qcIssueType === item ? 'selected' : ''
-                              }>${escapeHtml(item)}</option>`,
-                          ).join('')}
-                        </select>
-                      </div>
-                      <div class="space-y-1.5">
-                        <label class="text-xs">问题说明</label>
-                        <textarea
-                          class="min-h-[64px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-                          placeholder="请描述具体问题（可选）"
-                          data-pda-handoverd-field="qcNote"
-                        >${escapeHtml(detailState.qcNote)}</textarea>
-                      </div>
-                    `
+                  qtyDiff !== 0
+                    ? `<p class="text-xs text-amber-600">与应收数量差异：${qtyDiff > 0 ? '+' : ''}${qtyDiff} ${escapeHtml(
+                        event.qtyUnit,
+                      )}</p>`
                     : ''
                 }
-
-                <div class="h-px bg-border"></div>
-                <div class="space-y-1.5">
-                  <label class="text-xs font-medium">实收数量（${escapeHtml(event.qtyUnit)}）</label>
-                  <input
-                    class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                    type="number"
-                    value="${escapeHtml(detailState.qtyActual)}"
-                    data-pda-handoverd-field="qtyActual"
-                  />
-                  ${
-                    qtyDiff !== 0
-                      ? `<p class="text-xs text-amber-600">差异：${qtyDiff > 0 ? '+' : ''}${qtyDiff} ${escapeHtml(
-                          event.qtyUnit,
-                        )}（与应收数量不符）</p>`
-                      : ''
-                  }
-                </div>
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs">备注（选填）</label>
+                <textarea
+                  class="min-h-[64px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  placeholder="可填写接收说明或数量差异备注"
+                  data-pda-handoverd-field="diffNote"
+                >${escapeHtml(detailState.diffNote)}</textarea>
               </div>
             `,
-      )
+          )
+        : renderSectionCard(
+            '接收确认',
+            `
+              <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                ${renderFieldRow('实收数量', `${event.qtyActual ?? event.qtyExpected} ${event.qtyUnit}`)}
+                ${
+                  event.qtyActual != null
+                    ? renderFieldRow(
+                        '差异数量',
+                        `${event.qtyActual - event.qtyExpected > 0 ? '+' : ''}${event.qtyActual - event.qtyExpected} ${event.qtyUnit}`,
+                      )
+                    : ''
+                }
+              </div>
+              ${
+                event.diffNote
+                  ? `<div class="text-xs text-muted-foreground">备注：${escapeHtml(event.diffNote)}</div>`
+                  : ''
+              }
+            `,
+          )
     }
 
     ${
       !isPending
-        ? renderSectionCard('接收凭证', renderProofViewSection(getProofRecords(event.eventId)))
-        : ''
-    }
-
-    ${
-      isPending
-        ? renderSectionCard(
-            '接收凭证（选填）',
+        ? renderSectionCard('接收凭证', renderProofViewSection(getProofRecords(event)))
+        : renderSectionCard(
+            `接收凭证（${requiresReceiptProof ? '必填' : '选填'}）`,
             `
               ${
-                hasDiffOrQcFail
+                requiresReceiptProof && detailState.proofFiles.length === 0
                   ? `
-                    <div class="mb-1 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
-                      <i data-lucide="alert-triangle" class="mt-0.5 h-3.5 w-3.5 shrink-0"></i>
-                      <span>存在数量差异或质量问题，建议上传现场证据</span>
+                    <div class="mb-1 flex items-start gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs text-blue-700">
+                      <i data-lucide="paperclip" class="mt-0.5 h-3.5 w-3.5 shrink-0"></i>
+                      <span>确认接收前需上传至少 1 项接收凭证（图片或视频任选其一）</span>
                     </div>
                   `
                   : ''
               }
-              ${renderProofUploadSection('接收凭证', '可上传到货照片、问题部位照片、质检现场视频等证明材料，当前为选填')}
+              ${renderProofUploadSection(
+                '接收凭证',
+                '请上传到货照片或现场视频，图片/视频至少保留一项后再确认接收',
+                requiresReceiptProof,
+              )}
             `,
           )
-        : ''
     }
 
     ${
       isPending
         ? `
-          <div class="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">接收完成后，具备开工条件。如存在数量差异或质量问题，请提出争议留证。</div>
+          <div class="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            请确认实收数量并上传接收凭证后提交。如与应收不一致，系统会记录数量差异。
+          </div>
           <div class="flex gap-3">
             <button
               class="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -777,12 +670,6 @@ function renderReceiveDetail(event: HandoverEvent): string {
               data-event-id="${escapeHtml(event.eventId)}"
             >
               <i data-lucide="check" class="mr-2 h-4 w-4"></i>确认接收
-            </button>
-            <button
-              class="inline-flex h-9 flex-1 items-center justify-center rounded-md border px-3 text-sm hover:bg-muted"
-              data-pda-handoverd-action="open-dispute"
-            >
-              <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>提出争议
             </button>
           </div>
         `
@@ -820,7 +707,7 @@ function renderHandoutDetail(event: HandoverEvent): string {
       }
       ${
         event.diffReason
-          ? `<div class="text-xs"><span class="text-muted-foreground">差异原因：</span>${escapeHtml(event.diffReason)}</div>`
+          ? `<div class="text-xs"><span class="text-muted-foreground">差异说明：</span>${escapeHtml(event.diffReason)}</div>`
           : ''
       }
     `,
@@ -854,7 +741,7 @@ function renderHandoutDetail(event: HandoverEvent): string {
 
     ${
       !isPending
-        ? renderSectionCard('交出凭证', renderProofViewSection(getProofRecords(event.eventId)))
+        ? renderSectionCard('交出凭证', renderProofViewSection(getProofRecords(event)))
         : ''
     }
 
@@ -878,82 +765,10 @@ function renderHandoutDetail(event: HandoverEvent): string {
             >
               <i data-lucide="check" class="mr-2 h-4 w-4"></i>确认交出
             </button>
-            <button
-              class="inline-flex h-9 flex-1 items-center justify-center rounded-md border px-3 text-sm hover:bg-muted"
-              data-pda-handoverd-action="open-dispute"
-            >
-              <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>提出差异
-            </button>
           </div>
         `
         : ''
     }
-  `
-}
-
-function renderDisputeDialog(event: HandoverEvent): string {
-  if (!detailState.showDisputeDialog) return ''
-
-  const title = event.action === 'RECEIVE' ? '提出交接争议' : event.action === 'PICKUP' ? '提出差异' : '提出差异/异常'
-  const qtyLabel = event.action === 'PICKUP' ? '实领数量 *' : event.action === 'RECEIVE' ? '实收数量 *' : '实交数量 *'
-  const noteLabel = event.action === 'RECEIVE' ? '争议说明 *' : '差异说明 *'
-  const notePlaceholder =
-    event.action === 'RECEIVE' ? '请详细描述数量差异或质量问题' : '请详细描述差异情况'
-
-  return `
-    <div class="fixed inset-0 z-[120] bg-black/35" data-pda-handoverd-action="close-dispute"></div>
-    <div class="fixed inset-0 z-[121] flex items-center justify-center p-4">
-      <article class="w-full max-w-sm rounded-lg border bg-background shadow-lg">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">${escapeHtml(title)}</h3>
-        </header>
-
-        <div class="space-y-3 px-4 py-3">
-          <div class="space-y-1.5">
-            <label class="text-xs">${escapeHtml(qtyLabel)}</label>
-            <input
-              class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              type="number"
-              value="${escapeHtml(detailState.qtyActual)}"
-              data-pda-handoverd-field="qtyActual"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs">差异原因 *</label>
-            <select
-              class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              data-pda-handoverd-field="diffReason"
-            >
-              <option value="">请选择</option>
-              ${DIFF_REASONS.map(
-                (item) =>
-                  `<option value="${escapeHtml(item)}" ${
-                    detailState.diffReason === item ? 'selected' : ''
-                  }>${escapeHtml(item)}</option>`,
-              ).join('')}
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs">${escapeHtml(noteLabel)}</label>
-            <textarea
-              class="min-h-[72px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-              placeholder="${escapeHtml(notePlaceholder)}"
-              data-pda-handoverd-field="diffNote"
-            >${escapeHtml(detailState.diffNote)}</textarea>
-          </div>
-          ${event.action === 'PICKUP' ? renderEvidencePlaceholder() : ''}
-        </div>
-
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pda-handoverd-action="close-dispute">取消</button>
-          <button
-            class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            data-pda-handoverd-action="submit-dispute"
-            data-event-id="${escapeHtml(event.eventId)}"
-          >提交争议</button>
-        </footer>
-      </article>
-    </div>
   `
 }
 
@@ -1012,8 +827,6 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
             ? renderReceiveDetail(event)
             : renderHandoutDetail(event)
       }
-
-      ${renderDisputeDialog(event)}
     </div>
   `
 
@@ -1034,24 +847,9 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       detailState.qtyActual = fieldNode.value
       return true
     }
-    if (field === 'diffReason') {
-      detailState.diffReason = fieldNode.value
-      return true
-    }
+
     if (field === 'diffNote') {
       detailState.diffNote = fieldNode.value
-      return true
-    }
-    if (field === 'qcDefectQty') {
-      detailState.qcDefectQty = fieldNode.value
-      return true
-    }
-    if (field === 'qcIssueType') {
-      detailState.qcIssueType = fieldNode.value
-      return true
-    }
-    if (field === 'qcNote') {
-      detailState.qcNote = fieldNode.value
       return true
     }
   }
@@ -1063,29 +861,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   if (!action) return false
 
   if (action === 'back') {
-    detailState.showDisputeDialog = false
     appStore.navigate('/fcs/pda/handover')
-    return true
-  }
-
-  if (action === 'open-dispute') {
-    detailState.showDisputeDialog = true
-    return true
-  }
-
-  if (action === 'close-dispute') {
-    detailState.showDisputeDialog = false
-    return true
-  }
-
-  if (action === 'set-qc-result') {
-    const value = actionNode.dataset.value
-    detailState.qcResult = value === 'PASS' || value === 'FAIL' ? value : ''
-    if (detailState.qcResult !== 'FAIL') {
-      detailState.qcDefectQty = ''
-      detailState.qcIssueType = ''
-      detailState.qcNote = ''
-    }
     return true
   }
 
@@ -1118,10 +894,12 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
 
     if (event.action === 'RECEIVE') {
+      const qtyActual = parseNumberOr(detailState.qtyActual, event.qtyExpected)
+      const hasDiff = qtyActual !== event.qtyExpected
       showPdaHandoverDetailToast(
-        detailState.proofFiles.length > 0
-          ? `接收已确认，已上传 ${detailState.proofFiles.length} 个接收凭证`
-          : '接收已确认，质检记录已提交',
+        hasDiff
+          ? `接收已确认，数量差异 ${Math.abs(qtyActual - event.qtyExpected)} ${event.qtyUnit} 已记录`
+          : `接收已确认，已上传 ${detailState.proofFiles.length} 个接收凭证`,
       )
     } else if (event.action === 'HANDOUT') {
       showPdaHandoverDetailToast(
@@ -1133,29 +911,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       showPdaHandoverDetailToast('领料已确认')
     }
 
-    detailState.showDisputeDialog = false
-    window.setTimeout(() => {
-      appStore.navigate('/fcs/pda/handover')
-    }, 800)
-    return true
-  }
-
-  if (action === 'submit-dispute') {
-    const eventId = actionNode.dataset.eventId
-    if (!eventId) return true
-    const event = findPdaHandoverEvent(eventId)
-    if (!event) return true
-
-    const result = handleDispute(event)
-    if (!result.ok) {
-      showPdaHandoverDetailToast(result.message || '提交失败')
-      return true
-    }
-
-    detailState.showDisputeDialog = false
-    showPdaHandoverDetailToast(
-      event.action === 'RECEIVE' ? '争议已提出，等待双方核实' : '差异已提出，等待核实',
-    )
     window.setTimeout(() => {
       appStore.navigate('/fcs/pda/handover')
     }, 800)

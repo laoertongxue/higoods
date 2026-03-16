@@ -315,7 +315,7 @@ function deriveNextAction(lifecycle: PoLifecycle, tasks: ProcessTask[]): string 
       }
       return '跟进执行进度并催办'
     case 'PENDING_QC':
-      return '完成质检并已完成返工'
+      return '完成质检并已完成质量处理'
     case 'PENDING_SETTLEMENT':
       return '完成扣款对账并结算'
     case 'CLOSED':
@@ -679,7 +679,7 @@ function createOrUpdateExceptionFromSignal(signal: {
   const reasonSummary: Record<ReasonCode, string> = {
     BLOCKED_MATERIAL: '物料待处理',
     BLOCKED_CAPACITY: '产能待处理',
-    BLOCKED_QUALITY: '质量返工',
+    BLOCKED_QUALITY: '质量处理',
     BLOCKED_TECH: '工艺资料暂不能继续',
     BLOCKED_EQUIPMENT: '设备待处理',
     BLOCKED_OTHER: '其他待处理',

@@ -5,7 +5,7 @@
  */
 
 export type QcStatus = 'DRAFT' | 'SUBMITTED' | 'CLOSED'
-export type QcDisposition = 'REWORK' | 'REMAKE' | 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
+export type QcDisposition = 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
 export type RootCauseType = 'PROCESS' | 'MATERIAL' | 'DYE_PRINT' | 'CUTTING' | 'PATTERN_TECH' | 'UNKNOWN'
 
 // =============================================
@@ -187,8 +187,6 @@ export interface QualityInspection {
   closedAt?: string
   closedBy?: string
   dispositionQtyBreakdown?: {
-    reworkQty?: number
-    remakeQty?: number
     acceptAsDefectQty?: number
     scrapQty?: number
     acceptNoDeductQty?: number
