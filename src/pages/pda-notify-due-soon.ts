@@ -45,6 +45,19 @@ function parseDateMs(value: string): number {
   return new Date(value.replace(' ', 'T')).getTime()
 }
 
+function formatDateTime(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${hh}:${mm}`
+}
+
+function addHours(base: Date, hours: number): string {
+  return formatDateTime(new Date(base.getTime() + hours * 3600 * 1000))
+}
+
 function escapeAttr(value: string): string {
   return escapeHtml(value)
 }
@@ -100,7 +113,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     processName: '裁片',
     currentFactory: 'PT Sinar Garment Indonesia',
     deadlineLabel: '接单截止时间',
-    deadline: '2026-03-12 22:00',
+    deadline: addHours(NOW, 3),
     statusLabel: '待接单',
     riskNote: '距接单截止不足 12 小时，请尽快确认',
     href: '/fcs/pda/task-receive/PDA-RECV-001',
@@ -114,7 +127,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     processName: '车缝',
     currentFactory: 'PT Sinar Garment Indonesia',
     deadlineLabel: '接单截止时间',
-    deadline: '2026-03-13 06:00',
+    deadline: addHours(NOW, 9),
     statusLabel: '待接单',
     riskNote: '距接单截止不足 20 小时',
     href: '/fcs/pda/task-receive/PDA-RECV-002',
@@ -128,7 +141,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     processName: '整烫',
     currentFactory: 'PT Sinar Garment Indonesia',
     deadlineLabel: '接单截止时间',
-    deadline: '2026-03-12 14:00',
+    deadline: addHours(NOW, 1.5),
     statusLabel: '待接单',
     riskNote: '距接单截止不足 4 小时，紧急',
     href: '/fcs/pda/task-receive/PDA-RECV-003',
@@ -142,7 +155,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     productionOrderId: 'PO-2024-0018',
     processName: '车缝',
     deadlineLabel: '竞价截止时间',
-    deadline: '2026-03-13 08:00',
+    deadline: addHours(NOW, 6),
     statusLabel: '待报价',
     riskNote: '竞价窗口即将关闭，共 1600 件',
     href: '/fcs/pda/task-receive?tab=pending-quote',
@@ -156,7 +169,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     productionOrderId: 'PO-2024-0050',
     processName: '整烫',
     deadlineLabel: '竞价截止时间',
-    deadline: '2026-03-12 18:00',
+    deadline: addHours(NOW, 4),
     statusLabel: '待报价',
     riskNote: '距竞价截止仅剩 8 小时，2200 件整烫单',
     href: '/fcs/pda/task-receive?tab=pending-quote',
@@ -170,7 +183,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     productionOrderId: 'PO-2024-0051',
     processName: '包装',
     deadlineLabel: '竞价截止时间',
-    deadline: '2026-03-13 02:00',
+    deadline: addHours(NOW, 11),
     statusLabel: '待报价',
     riskNote: '包装工序竞价，共 3000 件',
     href: '/fcs/pda/task-receive?tab=pending-quote',
@@ -185,7 +198,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     currentProcess: '裁片',
     fromParty: '万隆织带辅料仓',
     deadlineLabel: '领料要求时间',
-    deadline: '2026-03-13 16:00',
+    deadline: addHours(NOW, 8),
     statusLabel: '待领料',
     riskNote: '织带辅料仓库库存差 50 件待补货，需提前确认',
     href: '/fcs/pda/handover/EV-PK-004',
@@ -200,7 +213,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     currentProcess: '裁片',
     fromParty: '雅加达中央面料仓',
     deadlineLabel: '领料要求时间',
-    deadline: '2026-03-12 20:00',
+    deadline: addHours(NOW, 2.5),
     statusLabel: '待领料',
     riskNote: '梭织面料已就位，请在截止前完成领料确认',
     href: '/fcs/pda/handover/EV-PK-003',
@@ -216,7 +229,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     prevProcess: '裁片',
     fromParty: '棉兰卫星工厂',
     deadlineLabel: '接收要求时间',
-    deadline: '2026-03-13 02:00',
+    deadline: addHours(NOW, 7),
     statusLabel: '待接收',
     riskNote: 'QC 发现 45 件尺寸偏差，接收前需核实处理方案',
     href: '/fcs/pda/handover/EV-RC-003',
@@ -232,7 +245,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     prevProcess: '裁片',
     fromParty: '日惹裁片分厂',
     deadlineLabel: '接收要求时间',
-    deadline: '2026-03-12 21:00',
+    deadline: addHours(NOW, 5.5),
     statusLabel: '待接收',
     riskNote: '82 件布料色差需隔离复检，影响接收确认',
     href: '/fcs/pda/handover/EV-RC-004',
@@ -247,7 +260,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     currentProcess: '包装',
     toParty: '泗水成品仓库',
     deadlineLabel: '交出要求时间',
-    deadline: '2026-03-13 17:00',
+    deadline: addHours(NOW, 13),
     statusLabel: '待交出',
     riskNote: '包装已完工，待安排入库交接',
     href: '/fcs/pda/handover/EV-HO-004',
@@ -262,7 +275,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     currentProcess: '裁片',
     toParty: '泗水车缝厂',
     deadlineLabel: '交出要求时间',
-    deadline: '2026-03-12 23:00',
+    deadline: addHours(NOW, 10),
     statusLabel: '待交出',
     riskNote: '裁片已完成，需在截止前移交泗水车缝厂',
     href: '/fcs/pda/handover/EV-HO-002',

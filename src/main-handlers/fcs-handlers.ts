@@ -393,6 +393,10 @@ export function closeFcsDialogsOnEscape(): boolean {
     handleProgressHandoverEvent(fakeButton)
     fakeButton.dataset.handoverAction = 'close-dispute-dialog'
     handleProgressHandoverEvent(fakeButton)
+    fakeButton.dataset.handoverAction = 'close-writeback-dialog'
+    handleProgressHandoverEvent(fakeButton)
+    fakeButton.dataset.handoverAction = 'close-objection-dialog'
+    handleProgressHandoverEvent(fakeButton)
     return true
   }
 

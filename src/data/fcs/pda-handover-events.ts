@@ -529,3 +529,444 @@ export function shouldRequireReceiptProof(event: HandoverEvent): boolean {
   if (typeof event.requiresReceiptProof === 'boolean') return event.requiresReceiptProof
   return true
 }
+
+export type HandoverHeadSummaryStatus =
+  | 'NONE'
+  | 'SUBMITTED'
+  | 'PARTIAL_WRITTEN_BACK'
+  | 'WRITTEN_BACK'
+  | 'HAS_OBJECTION'
+
+export type HandoverRecordStatus =
+  | 'PENDING_WRITEBACK'
+  | 'WRITTEN_BACK'
+  | 'OBJECTION_REPORTED'
+  | 'OBJECTION_PROCESSING'
+  | 'OBJECTION_RESOLVED'
+
+export interface HandoverProofFile {
+  id: string
+  type: 'IMAGE' | 'VIDEO'
+  name: string
+  uploadedAt: string
+}
+
+export interface PdaHandoverHead {
+  handoverId: string
+  taskId: string
+  taskNo: string
+  productionOrderNo: string
+  processName: string
+  sourceFactoryName: string
+  targetName: string
+  targetKind: HandoverPartyKind
+  qtyUnit: string
+  factoryId: string
+  taskStatus: 'IN_PROGRESS' | 'DONE'
+  summaryStatus: HandoverHeadSummaryStatus
+  recordCount: number
+  pendingWritebackCount: number
+  writtenBackQtyTotal: number
+  objectionCount: number
+  lastRecordAt?: string
+}
+
+export interface PdaHandoverRecord {
+  recordId: string
+  handoverId: string
+  taskId: string
+  sequenceNo: number
+  factorySubmittedAt: string
+  factoryRemark?: string
+  factoryProofFiles: HandoverProofFile[]
+  status: HandoverRecordStatus
+  warehouseReturnNo?: string
+  warehouseWrittenQty?: number
+  warehouseWrittenAt?: string
+  objectionReason?: string
+  objectionRemark?: string
+  objectionProofFiles?: HandoverProofFile[]
+  objectionStatus?: 'REPORTED' | 'PROCESSING' | 'RESOLVED'
+  followUpRemark?: string
+  resolvedRemark?: string
+}
+
+function parseDateMs(value: string | undefined): number {
+  if (!value) return Number.NaN
+  return new Date(value.replace(' ', 'T')).getTime()
+}
+
+function cloneProofFiles(files: HandoverProofFile[]): HandoverProofFile[] {
+  return files.map((file) => ({ ...file }))
+}
+
+function nowTimestamp(date: Date = new Date()): string {
+  return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function generateRecordId(): string {
+  return `HOR-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`
+}
+
+export const pdaHandoverHeads: PdaHandoverHead[] = [
+  {
+    handoverId: 'HOH-PDA-014',
+    taskId: 'PDA-EXEC-014',
+    taskNo: 'PDA-EXEC-014',
+    productionOrderNo: 'PO-2024-0024',
+    processName: '裁片',
+    sourceFactoryName: 'PT Sinar Garment Indonesia',
+    targetName: '万隆车缝厂',
+    targetKind: 'FACTORY',
+    qtyUnit: '件',
+    factoryId: 'ID-F001',
+    taskStatus: 'IN_PROGRESS',
+    summaryStatus: 'NONE',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+  },
+  {
+    handoverId: 'HOH-PDA-016',
+    taskId: 'PDA-EXEC-016',
+    taskNo: 'PDA-EXEC-016',
+    productionOrderNo: 'PO-2024-0026',
+    processName: '裁片',
+    sourceFactoryName: 'PT Sinar Garment Indonesia',
+    targetName: '泗水车缝厂',
+    targetKind: 'FACTORY',
+    qtyUnit: '件',
+    factoryId: 'ID-F001',
+    taskStatus: 'IN_PROGRESS',
+    summaryStatus: 'NONE',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+  },
+  {
+    handoverId: 'HOH-PDA-015',
+    taskId: 'PDA-EXEC-015',
+    taskNo: 'PDA-EXEC-015',
+    productionOrderNo: 'PO-2024-0025',
+    processName: '包装',
+    sourceFactoryName: 'PT Sinar Garment Indonesia',
+    targetName: '雅加达成品仓库',
+    targetKind: 'WAREHOUSE',
+    qtyUnit: '件',
+    factoryId: 'ID-F001',
+    taskStatus: 'DONE',
+    summaryStatus: 'NONE',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+  },
+  {
+    handoverId: 'HOH-PDA-017',
+    taskId: 'PDA-EXEC-017',
+    taskNo: 'PDA-EXEC-017',
+    productionOrderNo: 'PO-2024-0027',
+    processName: '包装',
+    sourceFactoryName: 'PT Sinar Garment Indonesia',
+    targetName: '泗水成品仓库',
+    targetKind: 'WAREHOUSE',
+    qtyUnit: '件',
+    factoryId: 'ID-F001',
+    taskStatus: 'DONE',
+    summaryStatus: 'NONE',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+  },
+]
+
+export const pdaHandoverRecords: PdaHandoverRecord[] = [
+  {
+    recordId: 'HOR-PDA-016-001',
+    handoverId: 'HOH-PDA-016',
+    taskId: 'PDA-EXEC-016',
+    sequenceNo: 1,
+    factorySubmittedAt: '2026-03-14 09:30:00',
+    factoryRemark: '第 1 次交出，先送主批次',
+    factoryProofFiles: [
+      { id: 'pf-016-001-1', type: 'IMAGE', name: '第1次交出装车.jpg', uploadedAt: '2026-03-14 09:20:00' },
+    ],
+    status: 'WRITTEN_BACK',
+    warehouseReturnNo: 'RSPH2026031401',
+    warehouseWrittenQty: 520,
+    warehouseWrittenAt: '2026-03-14 12:10:00',
+  },
+  {
+    recordId: 'HOR-PDA-016-002',
+    handoverId: 'HOH-PDA-016',
+    taskId: 'PDA-EXEC-016',
+    sequenceNo: 2,
+    factorySubmittedAt: '2026-03-15 10:40:00',
+    factoryRemark: '第 2 次交出，补送剩余批次',
+    factoryProofFiles: [
+      { id: 'pf-016-002-1', type: 'IMAGE', name: '第2次交出打包.jpg', uploadedAt: '2026-03-15 10:31:00' },
+    ],
+    status: 'PENDING_WRITEBACK',
+  },
+  {
+    recordId: 'HOR-PDA-015-001',
+    handoverId: 'HOH-PDA-015',
+    taskId: 'PDA-EXEC-015',
+    sequenceNo: 1,
+    factorySubmittedAt: '2026-03-14 08:20:00',
+    factoryRemark: '第 1 次交出，成衣 A 批次',
+    factoryProofFiles: [
+      { id: 'pf-015-001-1', type: 'IMAGE', name: '成衣A批装车.jpg', uploadedAt: '2026-03-14 08:10:00' },
+    ],
+    status: 'WRITTEN_BACK',
+    warehouseReturnNo: 'FGPH2026031403',
+    warehouseWrittenQty: 820,
+    warehouseWrittenAt: '2026-03-14 11:02:00',
+  },
+  {
+    recordId: 'HOR-PDA-015-002',
+    handoverId: 'HOH-PDA-015',
+    taskId: 'PDA-EXEC-015',
+    sequenceNo: 2,
+    factorySubmittedAt: '2026-03-15 14:00:00',
+    factoryRemark: '第 2 次交出，成衣 B 批次',
+    factoryProofFiles: [
+      { id: 'pf-015-002-1', type: 'VIDEO', name: '成衣B批交出视频.mp4', uploadedAt: '2026-03-15 13:52:00' },
+    ],
+    status: 'OBJECTION_REPORTED',
+    warehouseReturnNo: 'FGPH2026031507',
+    warehouseWrittenQty: 610,
+    warehouseWrittenAt: '2026-03-15 17:15:00',
+    objectionReason: '回写数量与工厂交出记录不一致',
+    objectionRemark: '工厂交接单记录 650 件，回写仅 610 件，请复核',
+    objectionStatus: 'REPORTED',
+  },
+  {
+    recordId: 'HOR-PDA-017-001',
+    handoverId: 'HOH-PDA-017',
+    taskId: 'PDA-EXEC-017',
+    sequenceNo: 1,
+    factorySubmittedAt: '2026-03-13 16:30:00',
+    factoryRemark: '成品第 1 次交出',
+    factoryProofFiles: [
+      { id: 'pf-017-001-1', type: 'IMAGE', name: '成品交出凭证.jpg', uploadedAt: '2026-03-13 16:22:00' },
+    ],
+    status: 'OBJECTION_RESOLVED',
+    warehouseReturnNo: 'FGPH2026031309',
+    warehouseWrittenQty: 930,
+    warehouseWrittenAt: '2026-03-13 19:00:00',
+    objectionReason: '仓库回写数量偏少',
+    objectionRemark: '现场装车记录 950 件，需复核',
+    objectionStatus: 'RESOLVED',
+    followUpRemark: '平台已同步仓库复核，确认存在 20 件包装损耗',
+    resolvedRemark: '异议处理完成：按损耗规则结转并归档',
+  },
+]
+
+function refreshHeadSummary(head: PdaHandoverHead): void {
+  const records = pdaHandoverRecords.filter((record) => record.handoverId === head.handoverId)
+  head.recordCount = records.length
+  head.pendingWritebackCount = records.filter((record) => record.status === 'PENDING_WRITEBACK').length
+  head.writtenBackQtyTotal = records.reduce(
+    (total, record) => total + (typeof record.warehouseWrittenQty === 'number' ? record.warehouseWrittenQty : 0),
+    0,
+  )
+  head.objectionCount = records.filter((record) =>
+    record.status === 'OBJECTION_REPORTED' ||
+    record.status === 'OBJECTION_PROCESSING' ||
+    record.status === 'OBJECTION_RESOLVED').length
+  head.lastRecordAt = records
+    .map((record) => record.factorySubmittedAt)
+    .sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
+
+  if (head.recordCount === 0) {
+    head.summaryStatus = 'NONE'
+    return
+  }
+
+  if (head.objectionCount > 0) {
+    head.summaryStatus = 'HAS_OBJECTION'
+    return
+  }
+
+  if (head.pendingWritebackCount === head.recordCount) {
+    head.summaryStatus = 'SUBMITTED'
+    return
+  }
+
+  if (head.pendingWritebackCount > 0) {
+    head.summaryStatus = 'PARTIAL_WRITTEN_BACK'
+    return
+  }
+
+  head.summaryStatus = 'WRITTEN_BACK'
+}
+
+function refreshAllHeadSummaries(): void {
+  pdaHandoverHeads.forEach((head) => refreshHeadSummary(head))
+}
+
+function cloneHead(head: PdaHandoverHead): PdaHandoverHead {
+  return { ...head }
+}
+
+function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
+  return {
+    ...record,
+    factoryProofFiles: cloneProofFiles(record.factoryProofFiles),
+    objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
+  }
+}
+
+function findHead(handoverId: string): PdaHandoverHead | undefined {
+  return pdaHandoverHeads.find((item) => item.handoverId === handoverId)
+}
+
+function findRecord(recordId: string): PdaHandoverRecord | undefined {
+  return pdaHandoverRecords.find((item) => item.recordId === recordId)
+}
+
+refreshAllHeadSummaries()
+
+export function getPdaHandoutHeads(factoryId?: string): PdaHandoverHead[] {
+  return pdaHandoverHeads
+    .filter((head) => (!factoryId ? true : head.factoryId === factoryId))
+    .sort((a, b) => {
+      const bTime = parseDateMs(b.lastRecordAt)
+      const aTime = parseDateMs(a.lastRecordAt)
+      const safeB = Number.isFinite(bTime) ? bTime : 0
+      const safeA = Number.isFinite(aTime) ? aTime : 0
+      return safeB - safeA
+    })
+    .map(cloneHead)
+}
+
+export function findPdaHandoutHead(handoverId: string): PdaHandoverHead | undefined {
+  const found = findHead(handoverId)
+  return found ? cloneHead(found) : undefined
+}
+
+export function getPdaHandoverRecordsByHead(handoverId: string): PdaHandoverRecord[] {
+  return pdaHandoverRecords
+    .filter((record) => record.handoverId === handoverId)
+    .sort((a, b) => b.sequenceNo - a.sequenceNo)
+    .map(cloneRecord)
+}
+
+export function findPdaHandoverRecord(recordId: string): PdaHandoverRecord | undefined {
+  const found = findRecord(recordId)
+  return found ? cloneRecord(found) : undefined
+}
+
+export function createPdaHandoverRecord(
+  handoverId: string,
+  payload: {
+    factorySubmittedAt: string
+    factoryRemark?: string
+    factoryProofFiles: HandoverProofFile[]
+  },
+): PdaHandoverRecord | undefined {
+  const head = findHead(handoverId)
+  if (!head) return undefined
+
+  const sequenceNo =
+    pdaHandoverRecords
+      .filter((record) => record.handoverId === handoverId)
+      .reduce((max, record) => Math.max(max, record.sequenceNo), 0) + 1
+
+  const created: PdaHandoverRecord = {
+    recordId: generateRecordId(),
+    handoverId,
+    taskId: head.taskId,
+    sequenceNo,
+    factorySubmittedAt: payload.factorySubmittedAt,
+    factoryRemark: payload.factoryRemark?.trim() || undefined,
+    factoryProofFiles: cloneProofFiles(payload.factoryProofFiles),
+    status: 'PENDING_WRITEBACK',
+  }
+
+  pdaHandoverRecords.push(created)
+  refreshHeadSummary(head)
+  return cloneRecord(created)
+}
+
+export function mockWritebackPdaHandoverRecord(
+  recordId: string,
+  payload: {
+    warehouseReturnNo: string
+    warehouseWrittenQty: number
+    warehouseWrittenAt: string
+  },
+): PdaHandoverRecord | undefined {
+  const target = findRecord(recordId)
+  if (!target || target.status !== 'PENDING_WRITEBACK') return undefined
+
+  target.warehouseReturnNo = payload.warehouseReturnNo
+  target.warehouseWrittenQty = payload.warehouseWrittenQty
+  target.warehouseWrittenAt = payload.warehouseWrittenAt
+  target.status = 'WRITTEN_BACK'
+  target.objectionStatus = undefined
+
+  const head = findHead(target.handoverId)
+  if (head) refreshHeadSummary(head)
+  return cloneRecord(target)
+}
+
+export function reportPdaHandoverQtyObjection(
+  recordId: string,
+  payload: {
+    objectionReason: string
+    objectionRemark?: string
+    objectionProofFiles?: HandoverProofFile[]
+  },
+): PdaHandoverRecord | undefined {
+  const target = findRecord(recordId)
+  if (!target || target.status !== 'WRITTEN_BACK') return undefined
+
+  target.status = 'OBJECTION_REPORTED'
+  target.objectionStatus = 'REPORTED'
+  target.objectionReason = payload.objectionReason.trim()
+  target.objectionRemark = payload.objectionRemark?.trim() || undefined
+  target.objectionProofFiles = cloneProofFiles(payload.objectionProofFiles ?? [])
+  target.followUpRemark = undefined
+  target.resolvedRemark = undefined
+
+  const head = findHead(target.handoverId)
+  if (head) refreshHeadSummary(head)
+  return cloneRecord(target)
+}
+
+export function followupPdaHandoverObjection(
+  recordId: string,
+  followUpRemark: string,
+): PdaHandoverRecord | undefined {
+  const target = findRecord(recordId)
+  if (!target || (target.status !== 'OBJECTION_REPORTED' && target.status !== 'OBJECTION_PROCESSING')) return undefined
+
+  target.status = 'OBJECTION_PROCESSING'
+  target.objectionStatus = 'PROCESSING'
+  target.followUpRemark = followUpRemark.trim() || undefined
+
+  const head = findHead(target.handoverId)
+  if (head) refreshHeadSummary(head)
+  return cloneRecord(target)
+}
+
+export function resolvePdaHandoverObjection(
+  recordId: string,
+  resolvedRemark: string,
+): PdaHandoverRecord | undefined {
+  const target = findRecord(recordId)
+  if (!target || (target.status !== 'OBJECTION_REPORTED' && target.status !== 'OBJECTION_PROCESSING')) return undefined
+
+  target.status = 'OBJECTION_RESOLVED'
+  target.objectionStatus = 'RESOLVED'
+  target.resolvedRemark = resolvedRemark.trim() || undefined
+
+  const head = findHead(target.handoverId)
+  if (head) refreshHeadSummary(head)
+  return cloneRecord(target)
+}

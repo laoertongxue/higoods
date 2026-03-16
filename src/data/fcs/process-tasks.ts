@@ -9,6 +9,9 @@ export type QtyUnit = 'PIECE' | 'BUNDLE' | 'METER'
 export type TaskDifficulty = 'EASY' | 'MEDIUM' | 'HARD'
 export type BlockReason = 'MATERIAL' | 'CAPACITY' | 'QUALITY' | 'TECH' | 'EQUIPMENT' | 'OTHER' | 'ALLOCATION_GATE'
 export type AcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
+export type MilestoneStatus = 'PENDING' | 'REPORTED'
+export type PauseStatus = 'NONE' | 'REPORTED' | 'FOLLOWING_UP'
+export type PauseReasonCode = 'CUTTING_ISSUE' | 'MATERIAL_ISSUE' | 'TECH_DOC_ISSUE' | 'EQUIPMENT_ISSUE' | 'STAFF_ISSUE' | 'OTHER'
 
 export interface TaskAuditLog {
   id: string
@@ -29,6 +32,8 @@ export interface StartProofFile {
   name: string
   uploadedAt: string
 }
+
+export type ExecProofFile = StartProofFile
 
 export interface ProcessTask {
   taskId: string
@@ -75,6 +80,23 @@ export interface ProcessTask {
   startHeadcount?: number
   startProofFiles?: StartProofFile[]
   startOverdueExceptionId?: string | null
+  // 关键节点上报（证明真开工）
+  milestoneRuleType?: string
+  milestoneRuleLabel?: string
+  milestoneTargetQty?: number
+  milestoneRequired?: boolean
+  milestoneStatus?: MilestoneStatus
+  milestoneReportedAt?: string | null
+  milestoneReportedQty?: number | null
+  milestoneProofFiles?: ExecProofFile[]
+  // 上报暂停（工厂上报，平台决定是否允许继续）
+  pauseStatus?: PauseStatus
+  pauseReasonCode?: PauseReasonCode | null
+  pauseReasonLabel?: string | null
+  pauseRemark?: string | null
+  pauseReportedAt?: string | null
+  pauseProofFiles?: ExecProofFile[]
+  pauseExceptionId?: string | null
   // 时间戳
   startedAt?: string
   finishedAt?: string
@@ -1678,6 +1700,8 @@ export const processTasks: ProcessTask[] = [
     { id: 'sp-task-007-1', type: 'IMAGE', name: '开工现场_01.jpg', uploadedAt: '2026-03-10 08:05:22' },
     { id: 'sp-task-007-2', type: 'VIDEO', name: '设备状态检查.mp4', uploadedAt: '2026-03-10 08:06:18' },
   ],
+  milestoneRequired: false,
+  milestoneStatus: 'PENDING',
   dispatchPrice: 3500,
   dispatchPriceCurrency: 'IDR',
   dispatchPriceUnit: '件',
@@ -1712,6 +1736,11 @@ export const processTasks: ProcessTask[] = [
   handoverStatus: 'RECEIVED',
   taskDeadline: '2026-03-13 08:00',
   startedAt: '2026-03-09 14:00:00',
+  milestoneRuleType: 'SEW_FIRST_5_PIECES',
+  milestoneRuleLabel: '完成第 5 件',
+  milestoneTargetQty: 5,
+  milestoneRequired: true,
+  milestoneStatus: 'PENDING',
   dispatchPrice: 9000,
   dispatchPriceCurrency: 'IDR',
   dispatchPriceUnit: '件',
@@ -1776,6 +1805,17 @@ export const processTasks: ProcessTask[] = [
   handoverStatus: 'RECEIVED',
   taskDeadline: '2026-03-25 18:00',
   startedAt: '2026-03-11 07:30:00',
+  milestoneRuleType: 'SEW_FIRST_5_PIECES',
+  milestoneRuleLabel: '完成第 5 件',
+  milestoneTargetQty: 5,
+  milestoneRequired: true,
+  milestoneStatus: 'REPORTED',
+  milestoneReportedAt: '2026-03-11 08:10:00',
+  milestoneReportedQty: 5,
+  milestoneProofFiles: [
+    { id: 'ms-task-010-1', type: 'IMAGE', name: '第5件成品.jpg', uploadedAt: '2026-03-11 08:10:22' },
+    { id: 'ms-task-010-2', type: 'VIDEO', name: '第5件质感.mp4', uploadedAt: '2026-03-11 08:11:12' },
+  ],
   dispatchPrice: 7800,
   dispatchPriceCurrency: 'IDR',
   dispatchPriceUnit: '件',
@@ -1822,6 +1862,15 @@ export const processTasks: ProcessTask[] = [
   blockReason: 'MATERIAL',
   blockRemark: '主面料色号 #A205 缺货 200 米，已催补',
   blockedAt: '2026-03-10 14:00:00',
+  pauseStatus: 'REPORTED',
+  pauseReasonCode: 'CUTTING_ISSUE',
+  pauseReasonLabel: '裁片问题',
+  pauseRemark: '裁片批次 B202 存在 120 件断刀口，需等待补裁片到位',
+  pauseReportedAt: '2026-03-10 14:00:00',
+  pauseProofFiles: [
+    { id: 'pp-task-011-1', type: 'IMAGE', name: '裁片断刀口.jpg', uploadedAt: '2026-03-10 13:58:20' },
+  ],
+  pauseExceptionId: 'EX-202603-3001',
   createdAt: '2026-03-08 10:00:00',
   updatedAt: '2026-03-10 14:00:00',
   auditLogs: [],
@@ -1857,6 +1906,16 @@ export const processTasks: ProcessTask[] = [
   blockReason: 'QUALITY',
   blockRemark: '上一步裁片批次 B206 存在色差，已退回 150 件待重裁',
   blockedAt: '2026-03-11 10:30:00',
+  pauseStatus: 'FOLLOWING_UP',
+  pauseReasonCode: 'MATERIAL_ISSUE',
+  pauseReasonLabel: '物料问题',
+  pauseRemark: '上一步回货批次色差偏高，工厂暂停等待替换面料',
+  pauseReportedAt: '2026-03-11 10:30:00',
+  pauseProofFiles: [
+    { id: 'pp-task-012-1', type: 'IMAGE', name: '色差对比.jpg', uploadedAt: '2026-03-11 10:20:00' },
+    { id: 'pp-task-012-2', type: 'VIDEO', name: '批次检查.mp4', uploadedAt: '2026-03-11 10:21:45' },
+  ],
+  pauseExceptionId: 'EX-202603-3002',
   createdAt: '2026-03-08 10:00:00',
   updatedAt: '2026-03-11 10:30:00',
   auditLogs: [],
@@ -1891,6 +1950,15 @@ export const processTasks: ProcessTask[] = [
   blockReason: 'EQUIPMENT',
   blockRemark: '蒸汽整烫机 #3 故障，等待维修配件，预计 3/14 恢复',
   blockedAt: '2026-03-11 15:00:00',
+  pauseStatus: 'REPORTED',
+  pauseReasonCode: 'EQUIPMENT_ISSUE',
+  pauseReasonLabel: '设备异常',
+  pauseRemark: '蒸汽整烫机 #3 温控板损坏，等待备件更换',
+  pauseReportedAt: '2026-03-11 15:00:00',
+  pauseProofFiles: [
+    { id: 'pp-task-013-1', type: 'IMAGE', name: '设备故障码.jpg', uploadedAt: '2026-03-11 14:55:32' },
+  ],
+  pauseExceptionId: 'EX-202603-3003',
   createdAt: '2026-03-09 10:00:00',
   updatedAt: '2026-03-11 15:00:00',
   auditLogs: [],

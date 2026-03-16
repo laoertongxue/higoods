@@ -1,6 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
-import { processTasks, type BlockReason, type ProcessTask } from '../data/fcs/process-tasks'
+import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
   formatRemainingHours,
@@ -8,6 +8,11 @@ import {
   getTaskStartDueInfo,
   syncPdaStartRiskAndExceptions,
 } from '../data/fcs/pda-start-link'
+import {
+  getPauseHandleStatus,
+  getTaskMilestoneState,
+  isTaskMilestoneReported,
+} from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
 
 type TaskStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
@@ -115,7 +120,7 @@ function getFactoryName(factoryId: string): string {
   return factory?.name ?? factoryId
 }
 
-function blockReasonLabel(reason: BlockReason | string | undefined): string {
+function blockReasonLabel(reason: string | undefined): string {
   if (!reason) return '未知原因'
   const map: Record<string, string> = {
     MATERIAL: '物料',
@@ -423,13 +428,22 @@ function renderInProgressCard(task: ProcessTask): string {
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
   )
+  const milestone = getTaskMilestoneState(task)
+  const milestoneTag = milestone.required
+    ? milestone.status === 'REPORTED'
+      ? '<span class="inline-flex items-center rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">已上报关键节点</span>'
+      : `<span class="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">待上报关键节点</span>`
+    : ''
 
   return `
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(task.taskId)}</span>
-          ${renderSourceBadge(task.assignmentMode)}
+          <div class="flex items-center gap-1.5">
+            ${renderSourceBadge(task.assignmentMode)}
+            ${milestoneTag}
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -469,6 +483,12 @@ function renderInProgressCard(task: ProcessTask): string {
         }
 
         ${
+          milestone.required && milestone.status !== 'REPORTED'
+            ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">需完成第 5 件后上报关键节点</div>`
+            : ''
+        }
+
+        ${
           task.blockReason
             ? `
                 <div class="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700">
@@ -484,10 +504,10 @@ function renderInProgressCard(task: ProcessTask): string {
             class="inline-flex h-7 items-center rounded-md border px-3 text-xs hover:bg-muted"
             data-pda-exec-action="open-detail-action"
             data-task-id="${escapeHtml(task.taskId)}"
-            data-action="block"
+            data-action="pause"
           >
             <i data-lucide="alert-triangle" class="mr-1 h-3 w-3"></i>
-            标记暂不能继续
+            上报暂停
           </button>
 
           <button
@@ -518,6 +538,9 @@ function renderBlockedCard(task: ProcessTask): string {
     task.finishedAt,
   )
 
+  const pauseStatus = getPauseHandleStatus(task)
+  const pauseReason = (task as ProcessTask & { pauseReasonLabel?: string | null }).pauseReasonLabel
+  const pauseAt = (task as ProcessTask & { pauseReportedAt?: string | null }).pauseReportedAt
   return `
     <article class="cursor-pointer rounded-lg border border-red-200 transition-colors hover:border-red-400" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
@@ -541,29 +564,17 @@ function renderBlockedCard(task: ProcessTask): string {
           }
         </div>
 
-        ${
-          task.blockReason
-            ? `
-                <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
-                  <div class="font-medium text-red-700">当前无法继续的原因：${escapeHtml(blockReasonLabel(task.blockReason))}</div>
-                  ${task.blockRemark ? `<p class="mt-0.5 text-red-600">${escapeHtml(task.blockRemark)}</p>` : ''}
-                  ${(task as ProcessTask & { blockedAt?: string }).blockedAt ? `<p class="mt-0.5 flex items-center gap-1 text-muted-foreground"><i data-lucide="clock" class="h-3 w-3"></i>暂不能继续时间：${escapeHtml((task as ProcessTask & { blockedAt?: string }).blockedAt || '')}</p>` : ''}
-                </div>
-              `
-            : ''
-        }
+        <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-medium text-red-700">${escapeHtml(pauseReason || blockReasonLabel(task.blockReason) || '已上报暂停')}</span>
+            <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] ${pauseStatus.className}">${pauseStatus.label}</span>
+          </div>
+          ${task.blockRemark ? `<p class="mt-1 text-red-600">${escapeHtml(task.blockRemark)}</p>` : ''}
+          ${pauseAt ? `<p class="mt-1 flex items-center gap-1 text-muted-foreground"><i data-lucide="clock" class="h-3 w-3"></i>上报时间：${escapeHtml(pauseAt)}</p>` : ''}
+          <p class="mt-1 text-muted-foreground">平台允许继续前，当前任务不可继续操作</p>
+        </div>
 
         <div class="flex gap-2 pt-1">
-          <button
-            class="inline-flex h-7 items-center rounded-md border px-3 text-xs hover:bg-muted"
-            data-pda-exec-action="open-detail-action"
-            data-task-id="${escapeHtml(task.taskId)}"
-            data-action="unblock"
-          >
-            <i data-lucide="check-circle" class="mr-1 h-3 w-3"></i>
-            恢复执行
-          </button>
-
           <button
             class="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted"
             data-pda-exec-action="open-detail"
@@ -840,6 +851,14 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
   if (action === 'finish-task') {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
+
+    const task = processTasks.find((item) => item.taskId === taskId)
+    if (!task) return true
+
+    if (!isTaskMilestoneReported(task)) {
+      showPdaExecToast('请先完成关键节点上报')
+      return true
+    }
 
     mutateFinishTask(taskId, 'PDA')
     showPdaExecToast('完工成功')

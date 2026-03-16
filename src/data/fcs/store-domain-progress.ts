@@ -46,11 +46,15 @@ export interface ExceptionCase {
   severity: Severity
   category: ExceptionCategory
   reasonCode: ReasonCode
-  sourceType: 'TASK' | 'ORDER' | 'TENDER'
+  sourceType: 'TASK' | 'ORDER' | 'TENDER' | 'FACTORY_PAUSE_REPORT'
   sourceId: string
+  sourceSystem?: string
+  sourceModule?: string
   relatedOrderIds: string[]
   relatedTaskIds: string[]
   relatedTenderIds: string[]
+  linkedProductionOrderNo?: string
+  linkedTaskNo?: string
   ownerUserId?: string
   ownerUserName?: string
   summary: string
@@ -62,6 +66,19 @@ export interface ExceptionCase {
   resolvedBy?: string
   closedAt?: string
   closeRemark?: string
+  reasonLabel?: string
+  linkedFactoryName?: string
+  followUpRemark?: string
+  pauseReportedAt?: string
+  pauseReasonLabel?: string
+  pauseRemark?: string
+  pauseProofFiles?: Array<{ id: string; type: 'IMAGE' | 'VIDEO'; name: string; uploadedAt: string }>
+  milestoneSnapshot?: {
+    required: boolean
+    ruleLabel?: string
+    status?: 'PENDING' | 'REPORTED'
+    reportedAt?: string | null
+  }
   tags: string[]
   actions: ExceptionAction[]
   auditLogs: ExceptionAuditLog[]
@@ -597,6 +614,133 @@ export const initialExceptions: ExceptionCase[] = [
     tags: ['领料', '待齐套'],
     actions: [{ id: 'EXA-202603-2003-01', actionType: 'CREATE', actionDetail: '创建物料未齐套异常', at: '2026-03-06 08:30:00', by: '系统' }],
     auditLogs: [{ id: 'EXL-202603-2003-01', action: 'CREATE', detail: '创建异常：物料未齐套', at: '2026-03-06 08:30:00', by: '系统' }],
+  },
+  // 工厂端 PDA 上报暂停：待处理
+  {
+    caseId: 'EX-202603-3001',
+    caseStatus: 'OPEN',
+    severity: 'S2',
+    category: 'PRODUCTION_BLOCK',
+    reasonCode: 'BLOCKED_QUALITY',
+    reasonLabel: '裁片问题',
+    sourceType: 'FACTORY_PAUSE_REPORT',
+    sourceId: 'PDA-EXEC-011',
+    sourceSystem: 'FCS',
+    sourceModule: 'PDA_EXEC',
+    relatedOrderIds: ['PO-2024-0021'],
+    relatedTaskIds: ['PDA-EXEC-011'],
+    relatedTenderIds: [],
+    linkedProductionOrderNo: 'PO-2024-0021',
+    linkedTaskNo: 'PDA-EXEC-011',
+    linkedFactoryName: 'PT Sinar Garment Indonesia',
+    summary: '工厂上报暂停：裁片问题',
+    detail: '工厂端 PDA 上报暂停，裁片批次 B202 存在断刀口，等待补裁片到位',
+    createdAt: '2026-03-10 14:00:00',
+    updatedAt: '2026-03-10 14:00:00',
+    slaDueAt: '2026-03-11 14:00:00',
+    pauseReportedAt: '2026-03-10 14:00:00',
+    pauseReasonLabel: '裁片问题',
+    pauseRemark: '裁片批次 B202 存在 120 件断刀口，需等待补裁片到位',
+    pauseProofFiles: [
+      { id: 'pp-task-011-1', type: 'IMAGE', name: '裁片断刀口.jpg', uploadedAt: '2026-03-10 13:58:20' },
+    ],
+    milestoneSnapshot: {
+      required: false,
+    },
+    tags: ['工厂上报', '暂停'],
+    actions: [
+      { id: 'EXA-202603-3001-01', actionType: 'REPORT_PAUSE', actionDetail: '工厂上报暂停：裁片问题', at: '2026-03-10 14:00:00', by: 'PDA' },
+    ],
+    auditLogs: [
+      { id: 'EXL-202603-3001-01', action: 'CREATE', detail: '工厂端 PDA 上报暂停，系统自动创建异常', at: '2026-03-10 14:00:00', by: '系统' },
+    ],
+  },
+  // 工厂端 PDA 上报暂停：平台跟进中
+  {
+    caseId: 'EX-202603-3002',
+    caseStatus: 'IN_PROGRESS',
+    severity: 'S2',
+    category: 'PRODUCTION_BLOCK',
+    reasonCode: 'BLOCKED_MATERIAL',
+    reasonLabel: '物料问题',
+    sourceType: 'FACTORY_PAUSE_REPORT',
+    sourceId: 'PDA-EXEC-012',
+    sourceSystem: 'FCS',
+    sourceModule: 'PDA_EXEC',
+    relatedOrderIds: ['PO-2024-0022'],
+    relatedTaskIds: ['PDA-EXEC-012'],
+    relatedTenderIds: ['TENDER-PDA-004'],
+    linkedProductionOrderNo: 'PO-2024-0022',
+    linkedTaskNo: 'PDA-EXEC-012',
+    linkedFactoryName: 'PT Sinar Garment Indonesia',
+    summary: '工厂上报暂停：物料问题',
+    detail: '工厂端 PDA 上报暂停，上一步回货批次色差偏高，等待替换面料',
+    createdAt: '2026-03-11 10:30:00',
+    updatedAt: '2026-03-11 11:20:00',
+    slaDueAt: '2026-03-12 10:30:00',
+    pauseReportedAt: '2026-03-11 10:30:00',
+    pauseReasonLabel: '物料问题',
+    pauseRemark: '上一步回货批次色差偏高，工厂暂停等待替换面料',
+    pauseProofFiles: [
+      { id: 'pp-task-012-1', type: 'IMAGE', name: '色差对比.jpg', uploadedAt: '2026-03-11 10:20:00' },
+      { id: 'pp-task-012-2', type: 'VIDEO', name: '批次检查.mp4', uploadedAt: '2026-03-11 10:21:45' },
+    ],
+    milestoneSnapshot: {
+      required: true,
+      ruleLabel: '完成第 5 件',
+      status: 'PENDING',
+      reportedAt: null,
+    },
+    followUpRemark: '平台已联系工厂与相关协同方，等待替换面料到位',
+    tags: ['工厂上报', '暂停'],
+    actions: [
+      { id: 'EXA-202603-3002-01', actionType: 'REPORT_PAUSE', actionDetail: '工厂上报暂停：物料问题', at: '2026-03-11 10:30:00', by: 'PDA' },
+      { id: 'EXA-202603-3002-02', actionType: 'FOLLOW_UP_EXCEPTION', actionDetail: '平台已记录跟进：已联系工厂与相关协同方', at: '2026-03-11 11:20:00', by: 'Admin' },
+    ],
+    auditLogs: [
+      { id: 'EXL-202603-3002-01', action: 'CREATE', detail: '工厂端 PDA 上报暂停，系统自动创建异常', at: '2026-03-11 10:30:00', by: '系统' },
+      { id: 'EXL-202603-3002-02', action: 'FOLLOW_UP_EXCEPTION', detail: '平台已记录跟进：已联系工厂与相关协同方', at: '2026-03-11 11:20:00', by: 'Admin' },
+    ],
+  },
+  // 工厂端 PDA 上报暂停：设备异常，待处理
+  {
+    caseId: 'EX-202603-3003',
+    caseStatus: 'OPEN',
+    severity: 'S1',
+    category: 'PRODUCTION_BLOCK',
+    reasonCode: 'BLOCKED_EQUIPMENT',
+    reasonLabel: '设备异常',
+    sourceType: 'FACTORY_PAUSE_REPORT',
+    sourceId: 'PDA-EXEC-013',
+    sourceSystem: 'FCS',
+    sourceModule: 'PDA_EXEC',
+    relatedOrderIds: ['PO-2024-0023'],
+    relatedTaskIds: ['PDA-EXEC-013'],
+    relatedTenderIds: [],
+    linkedProductionOrderNo: 'PO-2024-0023',
+    linkedTaskNo: 'PDA-EXEC-013',
+    linkedFactoryName: 'PT Sinar Garment Indonesia',
+    summary: '工厂上报暂停：设备异常',
+    detail: '工厂端 PDA 上报暂停，蒸汽整烫机 #3 温控板损坏，等待备件更换',
+    createdAt: '2026-03-11 15:00:00',
+    updatedAt: '2026-03-11 15:00:00',
+    slaDueAt: '2026-03-11 23:00:00',
+    pauseReportedAt: '2026-03-11 15:00:00',
+    pauseReasonLabel: '设备异常',
+    pauseRemark: '蒸汽整烫机 #3 温控板损坏，等待备件更换',
+    pauseProofFiles: [
+      { id: 'pp-task-013-1', type: 'IMAGE', name: '设备故障码.jpg', uploadedAt: '2026-03-11 14:55:32' },
+    ],
+    milestoneSnapshot: {
+      required: false,
+    },
+    tags: ['工厂上报', '暂停', '设备'],
+    actions: [
+      { id: 'EXA-202603-3003-01', actionType: 'REPORT_PAUSE', actionDetail: '工厂上报暂停：设备异常', at: '2026-03-11 15:00:00', by: 'PDA' },
+    ],
+    auditLogs: [
+      { id: 'EXL-202603-3003-01', action: 'CREATE', detail: '工厂端 PDA 上报暂停，系统自动创建异常', at: '2026-03-11 15:00:00', by: '系统' },
+    ],
   },
 ]
 

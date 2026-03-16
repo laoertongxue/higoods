@@ -94,24 +94,34 @@ const MOCK_AWARDED = [
 const NOW_DUE = new Date()
 const SOON_MS = 24 * 3600 * 1000
 
+function formatDueDate(offsetHours: number): string {
+  const date = new Date(NOW_DUE.getTime() + offsetHours * 3600 * 1000)
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${hh}:${mm}`
+}
+
 function isSoon(value: string): boolean {
   const ms = parseDateMs(value) - NOW_DUE.getTime()
   return ms > 0 && ms < SOON_MS
 }
 
 const MOCK_TENDERS_SOON = [
-  { biddingDeadline: '2026-03-13 08:00' },
-  { biddingDeadline: '2026-03-12 18:00' },
-  { biddingDeadline: '2026-03-13 02:00' },
+  { biddingDeadline: formatDueDate(5) },
+  { biddingDeadline: formatDueDate(9) },
+  { biddingDeadline: formatDueDate(15) },
 ].filter((item) => isSoon(item.biddingDeadline))
 
 const MOCK_HO_SOON_DEADLINES = [
-  '2026-03-13 16:00',
-  '2026-03-12 20:00',
-  '2026-03-13 02:00',
-  '2026-03-12 21:00',
-  '2026-03-13 17:00',
-  '2026-03-12 23:00',
+  formatDueDate(3),
+  formatDueDate(6),
+  formatDueDate(8),
+  formatDueDate(12),
+  formatDueDate(16),
+  formatDueDate(20),
 ].filter((item) => isSoon(item))
 
 function parseDateMs(value: string | undefined): number {

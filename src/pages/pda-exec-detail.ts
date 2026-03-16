@@ -1,6 +1,6 @@
 import { appStore } from '../state/store'
-import { escapeHtml, toClassName } from '../utils'
-import { processTasks, type BlockReason, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks'
+import { escapeHtml } from '../utils'
+import { processTasks, type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
   formatRemainingHours,
@@ -8,42 +8,45 @@ import {
   getTaskStartDueInfo,
   syncPdaStartRiskAndExceptions,
 } from '../data/fcs/pda-start-link'
+import {
+  PAUSE_REASON_OPTIONS,
+  getPauseHandleStatus,
+  getTaskMilestoneState,
+  isTaskMilestoneReported,
+  reportTaskMilestone,
+  reportTaskPause,
+} from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
 
 interface PdaExecDetailState {
-  showBlockDialog: boolean
-  showUnblockDialog: boolean
-  blockReason: BlockReason
-  blockRemark: string
-  unblockRemark: string
   initializedPathKey: string
   proofTaskId: string
-  proofFiles: StartProofFile[]
+  startProofFiles: StartProofFile[]
+  milestoneProofFiles: ExecProofFile[]
+  pauseProofFiles: ExecProofFile[]
   startTime: string
   startHeadcount: string
+  milestoneTime: string
+  pauseReasonCode: PauseReasonCode
+  pauseRemark: string
+  pauseTime: string
+  fromPauseAction: boolean
 }
 
 const detailState: PdaExecDetailState = {
-  showBlockDialog: false,
-  showUnblockDialog: false,
-  blockReason: 'OTHER',
-  blockRemark: '',
-  unblockRemark: '',
   initializedPathKey: '',
   proofTaskId: '',
-  proofFiles: [],
+  startProofFiles: [],
+  milestoneProofFiles: [],
+  pauseProofFiles: [],
   startTime: '',
   startHeadcount: '',
+  milestoneTime: '',
+  pauseReasonCode: 'CUTTING_ISSUE',
+  pauseRemark: '',
+  pauseTime: '',
+  fromPauseAction: false,
 }
-
-const BLOCK_REASON_OPTIONS: Array<{ value: BlockReason; label: string }> = [
-  { value: 'MATERIAL', label: '物料' },
-  { value: 'CAPACITY', label: '产能/排期' },
-  { value: 'QUALITY', label: '质量处理' },
-  { value: 'TECH', label: '工艺/技术资料' },
-  { value: 'EQUIPMENT', label: '设备' },
-  { value: 'OTHER', label: '其他' },
-]
 
 const MOCK_START_PROOF: Record<string, StartProofFile[]> = {
   'PDA-EXEC-007': [
@@ -90,11 +93,7 @@ function syncDialogStateWithQuery(task: ProcessTask): void {
   detailState.initializedPathKey = key
 
   const action = getCurrentSearchParams().get('action')
-  detailState.showBlockDialog = action === 'block'
-  detailState.showUnblockDialog = action === 'unblock'
-  detailState.blockReason = 'OTHER'
-  detailState.blockRemark = ''
-  detailState.unblockRemark = ''
+  detailState.fromPauseAction = action === 'pause'
 
   if (detailState.proofTaskId !== taskId) {
     const taskWithStart = task as ProcessTask & {
@@ -103,11 +102,17 @@ function syncDialogStateWithQuery(task: ProcessTask): void {
     }
 
     detailState.proofTaskId = taskId
-    detailState.proofFiles = taskWithStart.startProofFiles
+    detailState.startProofFiles = taskWithStart.startProofFiles
       ? [...taskWithStart.startProofFiles]
       : [...(MOCK_START_PROOF[taskId] || [])]
+    detailState.milestoneProofFiles = task.milestoneProofFiles ? [...task.milestoneProofFiles] : []
+    detailState.pauseProofFiles = task.pauseProofFiles ? [...task.pauseProofFiles] : []
     detailState.startTime = toInputDateTime(task.startedAt) || toInputDateTime(nowTimestamp())
     detailState.startHeadcount = taskWithStart.startHeadcount ? String(taskWithStart.startHeadcount) : ''
+    detailState.milestoneTime = toInputDateTime(task.milestoneReportedAt || nowTimestamp())
+    detailState.pauseReasonCode = task.pauseReasonCode || 'CUTTING_ISSUE'
+    detailState.pauseRemark = task.pauseRemark || ''
+    detailState.pauseTime = toInputDateTime(task.pauseReportedAt || nowTimestamp())
   }
 }
 
@@ -119,31 +124,7 @@ function parseDateMs(value: string): number {
   return new Date(value.replace(' ', 'T')).getTime()
 }
 
-function getCurrentFactoryId(): string {
-  if (typeof window === 'undefined') return 'ID-F001'
-
-  try {
-    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
-    if (localFactoryId) return localFactoryId
-
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) return parsed.factoryId
-    }
-  } catch {
-    // ignore parse errors
-  }
-
-  return 'ID-F001'
-}
-
-function getFactoryName(factoryId: string): string {
-  const factory = indonesiaFactories.find((item) => item.id === factoryId)
-  return factory?.name ?? factoryId
-}
-
-function blockReasonLabel(reason: BlockReason | string | undefined): string {
+function blockReasonLabel(reason: string | undefined): string {
   if (!reason) return '未知原因'
   const map: Record<string, string> = {
     MATERIAL: '物料',
@@ -264,34 +245,58 @@ function nowDisplayTimestamp(date: Date = new Date()): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`
 }
 
-function addProofFile(type: 'IMAGE' | 'VIDEO'): void {
+function addProofFile(scope: 'start' | 'milestone' | 'pause', type: 'IMAGE' | 'VIDEO'): void {
   const ext = type === 'IMAGE' ? 'jpg' : 'mp4'
   const label = type === 'IMAGE' ? '图片' : '视频'
-  const index = detailState.proofFiles.length + 1
-  detailState.proofFiles = [
-    ...detailState.proofFiles,
+  const scopeTitle = scope === 'start' ? '开工' : scope === 'milestone' ? '关键节点' : '暂停上报'
+  const currentFiles =
+    scope === 'start'
+      ? detailState.startProofFiles
+      : scope === 'milestone'
+        ? detailState.milestoneProofFiles
+        : detailState.pauseProofFiles
+  const index = currentFiles.length + 1
+  const next = [
+    ...currentFiles,
     {
-      id: `sp-new-${Date.now()}`,
+      id: `${scope}-proof-${Date.now()}`,
       type,
-      name: `开工${label}_${String(index).padStart(2, '0')}.${ext}`,
+      name: `${scopeTitle}${label}_${String(index).padStart(2, '0')}.${ext}`,
       uploadedAt: nowDisplayTimestamp(),
     },
   ]
+
+  if (scope === 'start') detailState.startProofFiles = next
+  else if (scope === 'milestone') detailState.milestoneProofFiles = next
+  else detailState.pauseProofFiles = next
 }
 
-function removeProofFile(id: string): void {
-  detailState.proofFiles = detailState.proofFiles.filter((item) => item.id !== id)
+function removeProofFile(scope: 'start' | 'milestone' | 'pause', id: string): void {
+  const next =
+    scope === 'start'
+      ? detailState.startProofFiles.filter((item) => item.id !== id)
+      : scope === 'milestone'
+        ? detailState.milestoneProofFiles.filter((item) => item.id !== id)
+        : detailState.pauseProofFiles.filter((item) => item.id !== id)
+  if (scope === 'start') detailState.startProofFiles = next
+  else if (scope === 'milestone') detailState.milestoneProofFiles = next
+  else detailState.pauseProofFiles = next
 }
 
-function renderProofUploadSection(files: StartProofFile[]): string {
+function renderProofUploadSection(
+  files: StartProofFile[],
+  scope: 'start' | 'milestone' | 'pause',
+  helperText: string,
+): string {
   return `
     <div class="space-y-3">
-      <p class="text-xs leading-relaxed text-muted-foreground">可上传开工现场、物料到位、设备状态等证明材料，当前为选填</p>
+      <p class="text-xs leading-relaxed text-muted-foreground">${escapeHtml(helperText)}</p>
       <div class="flex gap-2">
         <button
           type="button"
           class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs hover:bg-muted"
           data-pda-execd-action="add-proof-image"
+          data-proof-scope="${scope}"
         >
           <i data-lucide="image" class="h-3.5 w-3.5 text-blue-500"></i>
           上传图片
@@ -300,6 +305,7 @@ function renderProofUploadSection(files: StartProofFile[]): string {
           type="button"
           class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs hover:bg-muted"
           data-pda-execd-action="add-proof-video"
+          data-proof-scope="${scope}"
         >
           <i data-lucide="video" class="h-3.5 w-3.5 text-purple-500"></i>
           上传视频
@@ -323,6 +329,7 @@ function renderProofUploadSection(files: StartProofFile[]): string {
                           class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-muted"
                           data-pda-execd-action="remove-proof"
                           data-proof-id="${escapeHtml(file.id)}"
+                          data-proof-scope="${scope}"
                         >
                           <i data-lucide="trash-2" class="h-3 w-3"></i>
                         </button>
@@ -335,7 +342,7 @@ function renderProofUploadSection(files: StartProofFile[]): string {
           : `
               <div class="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground">
                 <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
-                暂无凭证，可直接提交
+                暂无凭证
               </div>
             `
       }
@@ -424,50 +431,6 @@ function mutateFinishTask(taskId: string, by: string): void {
   ]
 }
 
-function mutateBlockTask(taskId: string, reason: BlockReason, remark: string, by: string): void {
-  const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
-  if (!task) return
-
-  task.status = 'BLOCKED'
-  task.blockReason = reason
-  task.blockRemark = remark
-  task.blockedAt = now
-  task.updatedAt = now
-  task.auditLogs = [
-    ...task.auditLogs,
-    {
-      id: `AL-BLOCK-${Date.now()}`,
-      action: 'BLOCK_TASK',
-      detail: `标记暂不能继续，原因：${reason}，备注：${remark || '-'}`,
-      at: now,
-      by,
-    },
-  ]
-}
-
-function mutateUnblockTask(taskId: string, remark: string, by: string): void {
-  const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
-  if (!task) return
-
-  task.status = 'IN_PROGRESS'
-  task.blockReason = undefined
-  task.blockRemark = undefined
-  task.blockedAt = undefined
-  task.updatedAt = now
-  task.auditLogs = [
-    ...task.auditLogs,
-    {
-      id: `AL-UNBLOCK-${Date.now()}`,
-      action: 'UNBLOCK_TASK',
-      detail: `恢复执行，备注：${remark || '-'}`,
-      at: now,
-      by,
-    },
-  ]
-}
-
 function getTaskPricing(task: ProcessTask): {
   unitPrice?: number
   currency: string
@@ -489,84 +452,6 @@ function getTaskPricing(task: ProcessTask): {
   const estimatedIncome = unitPrice != null ? unitPrice * task.qty : undefined
 
   return { unitPrice, currency, unit, estimatedIncome }
-}
-
-function renderBlockDialog(taskId: string): string {
-  if (!detailState.showBlockDialog) return ''
-
-  return `
-    <div class="fixed inset-0 z-[120] bg-black/35" data-pda-execd-action="close-block"></div>
-    <div class="fixed inset-0 z-[121] flex items-center justify-center p-4">
-      <article class="w-full max-w-sm rounded-lg border bg-background shadow-lg">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">标记暂不能继续</h3>
-        </header>
-
-        <div class="space-y-4 px-4 py-3">
-          <div class="space-y-2">
-            <label class="text-sm font-medium">当前无法继续的原因 *</label>
-            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pda-execd-field="blockReason">
-              ${BLOCK_REASON_OPTIONS.map(
-                (opt) =>
-                  `<option value="${opt.value}" ${detailState.blockReason === opt.value ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`,
-              ).join('')}
-            </select>
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-sm font-medium">备注</label>
-            <textarea
-              class="min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-              placeholder="请输入备注（可选）"
-              data-pda-execd-field="blockRemark"
-            >${escapeHtml(detailState.blockRemark)}</textarea>
-          </div>
-        </div>
-
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pda-execd-action="close-block">取消</button>
-          <button
-            class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            data-pda-execd-action="confirm-block"
-            data-task-id="${escapeHtml(taskId)}"
-          >确认</button>
-        </footer>
-      </article>
-    </div>
-  `
-}
-
-function renderUnblockDialog(taskId: string): string {
-  if (!detailState.showUnblockDialog) return ''
-
-  return `
-    <div class="fixed inset-0 z-[120] bg-black/35" data-pda-execd-action="close-unblock"></div>
-    <div class="fixed inset-0 z-[121] flex items-center justify-center p-4">
-      <article class="w-full max-w-sm rounded-lg border bg-background shadow-lg">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">恢复执行</h3>
-        </header>
-
-        <div class="space-y-2 px-4 py-3">
-          <label class="text-sm font-medium">解除备注</label>
-          <textarea
-            class="min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-            placeholder="请输入解除备注（可选）"
-            data-pda-execd-field="unblockRemark"
-          >${escapeHtml(detailState.unblockRemark)}</textarea>
-        </div>
-
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pda-execd-action="close-unblock">取消</button>
-          <button
-            class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            data-pda-execd-action="confirm-unblock"
-            data-task-id="${escapeHtml(taskId)}"
-          >确认</button>
-        </footer>
-      </article>
-    </div>
-  `
 }
 
 export function renderPdaExecDetailPage(taskId: string): string {
@@ -604,9 +489,9 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
   const canStart = status === 'NOT_STARTED' && prereq.met
   const canFinish = status === 'IN_PROGRESS'
-  const canBlock = status !== 'DONE' && status !== 'CANCELLED'
-  const canUnblock = status === 'BLOCKED'
   const startDueInfo = getTaskStartDueInfo(task)
+  const milestone = getTaskMilestoneState(task)
+  const pauseHandleStatus = getPauseHandleStatus(task)
   const startDueAt = startDueInfo.startDueAt || '—'
   const startSourceText = formatStartDueSourceText(startDueInfo.startDueSource)
   const startRiskText =
@@ -639,6 +524,8 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const handoutStatus =
     (task as ProcessTask & { handoutStatus?: 'PENDING' | 'HANDED_OUT' }).handoutStatus || 'PENDING'
   const handoutLabel = handoutStatus === 'HANDED_OUT' ? '已交出' : '待交出'
+  const pauseReasonLabel = (task as ProcessTask & { pauseReasonLabel?: string | null }).pauseReasonLabel || ''
+  const pauseReportedAt = (task as ProcessTask & { pauseReportedAt?: string | null }).pauseReportedAt || ''
 
   const pricing = getTaskPricing(task)
 
@@ -705,6 +592,154 @@ export function renderPdaExecDetailPage(taskId: string): string {
                   </div>
                 `
               : ''
+          }
+        </div>
+      </article>
+
+      ${
+        milestone.required
+          ? `
+              <article class="rounded-lg border bg-card">
+                <header class="border-b px-4 py-3">
+                  <h2 class="flex items-center gap-2 text-sm font-semibold">
+                    <i data-lucide="flag" class="h-4 w-4"></i>
+                    关键节点上报
+                  </h2>
+                </header>
+                <div class="space-y-3 p-4 text-sm">
+                  <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <span class="text-xs text-muted-foreground">规则名称</span>
+                    <span class="text-xs font-medium">${escapeHtml(milestone.ruleLabel)}</span>
+                    <span class="text-xs text-muted-foreground">当前状态</span>
+                    <span class="text-xs font-medium ${milestone.status === 'REPORTED' ? 'text-green-700' : 'text-amber-700'}">${milestone.status === 'REPORTED' ? '已上报' : '待上报'}</span>
+                    <span class="text-xs text-muted-foreground">上报数量</span>
+                    <span class="text-xs">${escapeHtml(String(milestone.status === 'REPORTED' ? (milestone.reportedQty ?? milestone.targetQty) : milestone.targetQty))} 件</span>
+                    <span class="text-xs text-muted-foreground">上报时间</span>
+                    <span class="text-xs">${escapeHtml(milestone.reportedAt || toStoreDateTime(detailState.milestoneTime) || '—')}</span>
+                  </div>
+
+                  ${
+                    milestone.status === 'REPORTED'
+                      ? `
+                          <div class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">关键节点已上报，可继续执行后续动作</div>
+                          <div class="rounded-lg border">
+                            <div class="border-b px-3 py-2 text-sm font-medium">关键节点凭证</div>
+                            <div class="p-3">
+                              ${renderProofViewSection(task.milestoneProofFiles || detailState.milestoneProofFiles)}
+                            </div>
+                          </div>
+                        `
+                      : status === 'IN_PROGRESS'
+                        ? `
+                            <div class="rounded-md border border-slate-200 bg-slate-50 p-3">
+                              <label class="space-y-1">
+                                <span class="text-xs text-muted-foreground">上报时间 *</span>
+                                <input
+                                  type="datetime-local"
+                                  class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                  data-pda-execd-field="milestoneTime"
+                                  value="${escapeHtml(detailState.milestoneTime)}"
+                                />
+                              </label>
+                              <p class="mt-2 text-xs text-muted-foreground">上报数量按规则固定为 ${milestone.targetQty} 件</p>
+                            </div>
+                            <div class="rounded-lg border">
+                              <div class="border-b px-3 py-2 text-sm font-medium">关键节点凭证（至少 1 项）</div>
+                              <div class="p-3">
+                                ${renderProofUploadSection(detailState.milestoneProofFiles, 'milestone', '请上传第 5 件完成证明，图片或视频至少 1 项')}
+                              </div>
+                            </div>
+                            <button
+                              class="inline-flex h-9 w-full items-center justify-center rounded-md border bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                              data-pda-execd-action="report-milestone"
+                              data-task-id="${escapeHtml(task.taskId)}"
+                            >
+                              确认上报
+                            </button>
+                          `
+                        : '<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">任务不在进行中，暂不可上报关键节点</div>'
+                  }
+                </div>
+              </article>
+            `
+          : ''
+      }
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <h2 class="flex items-center gap-2 text-sm font-semibold">
+            <i data-lucide="pause-circle" class="h-4 w-4"></i>
+            上报暂停
+          </h2>
+        </header>
+
+        <div class="space-y-3 p-4 text-sm">
+          ${
+            status === 'BLOCKED'
+              ? `
+                  <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-medium text-red-700">${escapeHtml(pauseReasonLabel || '已上报暂停')}</span>
+                      <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] ${pauseHandleStatus.className}">${pauseHandleStatus.label}</span>
+                    </div>
+                    ${task.pauseRemark ? `<p class="mt-1 text-red-600">${escapeHtml(task.pauseRemark)}</p>` : ''}
+                    ${pauseReportedAt ? `<p class="mt-1 text-muted-foreground">上报时间：${escapeHtml(pauseReportedAt)}</p>` : ''}
+                    <p class="mt-1 text-muted-foreground">平台允许继续前，当前任务不可继续操作</p>
+                  </div>
+                  <div class="rounded-lg border">
+                    <div class="border-b px-3 py-2 text-sm font-medium">暂停凭证</div>
+                    <div class="p-3">
+                      ${renderProofViewSection(task.pauseProofFiles || detailState.pauseProofFiles)}
+                    </div>
+                  </div>
+                `
+              : status === 'IN_PROGRESS'
+                ? `
+                    ${
+                      detailState.fromPauseAction
+                        ? '<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">已定位到上报暂停，请补充信息后提交</div>'
+                        : ''
+                    }
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label class="space-y-1">
+                        <span class="text-xs text-muted-foreground">暂停原因 *</span>
+                        <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pda-execd-field="pauseReasonCode">
+                          ${PAUSE_REASON_OPTIONS.map((item) => `<option value="${item.code}" ${detailState.pauseReasonCode === item.code ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
+                        </select>
+                      </label>
+                      <label class="space-y-1">
+                        <span class="text-xs text-muted-foreground">上报时间 *</span>
+                        <input
+                          type="datetime-local"
+                          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                          data-pda-execd-field="pauseTime"
+                          value="${escapeHtml(detailState.pauseTime)}"
+                        />
+                      </label>
+                    </div>
+                    <label class="space-y-1">
+                      <span class="text-xs text-muted-foreground">暂停说明</span>
+                      <textarea
+                        class="min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+                        placeholder="建议填写现场情况，便于平台快速跟进"
+                        data-pda-execd-field="pauseRemark"
+                      >${escapeHtml(detailState.pauseRemark)}</textarea>
+                    </label>
+                    <div class="rounded-lg border">
+                      <div class="border-b px-3 py-2 text-sm font-medium">相关凭证（至少 1 项）</div>
+                      <div class="p-3">
+                        ${renderProofUploadSection(detailState.pauseProofFiles, 'pause', '请上传现场凭证，图片或视频至少 1 项')}
+                      </div>
+                    </div>
+                    <button
+                      class="inline-flex h-9 w-full items-center justify-center rounded-md border bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                      data-pda-execd-action="report-pause"
+                      data-task-id="${escapeHtml(task.taskId)}"
+                    >
+                      确认上报暂停
+                    </button>
+                  `
+                : '<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground">当前状态不支持上报暂停</div>'
           }
         </div>
       </article>
@@ -800,9 +835,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
                   <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
                     <div class="flex items-center gap-1.5 font-medium text-red-700">
                       <i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>
-                      当前无法继续的原因：${escapeHtml(blockReasonLabel(task.blockReason))}
+                      已上报暂停：${escapeHtml((task as ProcessTask & { pauseReasonLabel?: string | null }).pauseReasonLabel || blockReasonLabel(task.blockReason))}
                     </div>
                     ${task.blockRemark ? `<p class="mt-1 pl-5 text-red-600">${escapeHtml(task.blockRemark)}</p>` : ''}
+                    <p class="mt-1 pl-5 text-muted-foreground">平台允许继续前，当前任务不可继续操作</p>
                   </div>
                 `
               : ''
@@ -840,7 +876,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                   <div class="rounded-lg border">
                     <div class="border-b px-3 py-2 text-sm font-medium">开工凭证（选填）</div>
                     <div class="p-3">
-                      ${renderProofUploadSection(detailState.proofFiles)}
+                      ${renderProofUploadSection(detailState.startProofFiles, 'start', '可上传开工现场、物料到位、设备状态等证明材料，当前为选填')}
                     </div>
                   </div>
                 `
@@ -848,7 +884,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                   <div class="rounded-lg border">
                     <div class="border-b px-3 py-2 text-sm font-medium">开工凭证</div>
                     <div class="p-3">
-                      ${renderProofViewSection(detailState.proofFiles)}
+                      ${renderProofViewSection(detailState.startProofFiles)}
                     </div>
                   </div>
                 `
@@ -921,11 +957,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
                   <div class="grid grid-cols-2 gap-2">
                     <button
                       class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-                      data-pda-execd-action="open-block"
-                      ${canBlock ? '' : 'disabled'}
+                      data-pda-execd-action="report-pause-entry"
                     >
                       <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>
-                      标记暂不能继续
+                      上报暂停
                     </button>
                     <button
                       class="inline-flex h-9 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
@@ -944,14 +979,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
           ${
             status === 'BLOCKED'
               ? `
-                  <button
-                    class="inline-flex h-9 w-full items-center justify-center rounded-md border text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-                    data-pda-execd-action="open-unblock"
-                    ${canUnblock ? '' : 'disabled'}
-                  >
-                    <i data-lucide="check-circle" class="mr-2 h-4 w-4"></i>
-                    恢复执行
-                  </button>
+                  <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">已上报暂停，待平台处理。平台允许继续后任务将自动恢复进行中。</div>
                 `
               : ''
           }
@@ -1008,9 +1036,6 @@ export function renderPdaExecDetailPage(taskId: string): string {
             `
           : ''
       }
-
-      ${renderBlockDialog(task.taskId)}
-      ${renderUnblockDialog(task.taskId)}
     </div>
   `
 
@@ -1027,21 +1052,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const field = fieldNode.dataset.pdaExecdField
     if (!field) return true
 
-    if (field === 'blockReason' && fieldNode instanceof HTMLSelectElement) {
-      detailState.blockReason = fieldNode.value as BlockReason
-      return true
-    }
-
-    if (field === 'blockRemark') {
-      detailState.blockRemark = fieldNode.value
-      return true
-    }
-
-    if (field === 'unblockRemark') {
-      detailState.unblockRemark = fieldNode.value
-      return true
-    }
-
     if (field === 'startTime' && fieldNode instanceof HTMLInputElement) {
       detailState.startTime = fieldNode.value
       return true
@@ -1049,6 +1059,26 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
     if (field === 'startHeadcount' && fieldNode instanceof HTMLInputElement) {
       detailState.startHeadcount = fieldNode.value
+      return true
+    }
+
+    if (field === 'milestoneTime' && fieldNode instanceof HTMLInputElement) {
+      detailState.milestoneTime = fieldNode.value
+      return true
+    }
+
+    if (field === 'pauseReasonCode' && fieldNode instanceof HTMLSelectElement) {
+      detailState.pauseReasonCode = fieldNode.value as PauseReasonCode
+      return true
+    }
+
+    if (field === 'pauseRemark') {
+      detailState.pauseRemark = fieldNode.value
+      return true
+    }
+
+    if (field === 'pauseTime' && fieldNode instanceof HTMLInputElement) {
+      detailState.pauseTime = fieldNode.value
       return true
     }
   }
@@ -1060,8 +1090,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   if (!action) return false
 
   if (action === 'back') {
-    detailState.showBlockDialog = false
-    detailState.showUnblockDialog = false
     appStore.navigate('/fcs/pda/exec')
     return true
   }
@@ -1073,21 +1101,24 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'add-proof-image') {
-    addProofFile('IMAGE')
+    const scope = (actionNode.dataset.proofScope as 'start' | 'milestone' | 'pause' | undefined) || 'start'
+    addProofFile(scope, 'IMAGE')
     showPdaExecDetailToast('图片已添加')
     return true
   }
 
   if (action === 'add-proof-video') {
-    addProofFile('VIDEO')
+    const scope = (actionNode.dataset.proofScope as 'start' | 'milestone' | 'pause' | undefined) || 'start'
+    addProofFile(scope, 'VIDEO')
     showPdaExecDetailToast('视频已添加')
     return true
   }
 
   if (action === 'remove-proof') {
     const proofId = actionNode.dataset.proofId
+    const scope = (actionNode.dataset.proofScope as 'start' | 'milestone' | 'pause' | undefined) || 'start'
     if (proofId) {
-      removeProofFile(proofId)
+      removeProofFile(scope, proofId)
     }
     return true
   }
@@ -1130,14 +1161,88 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     mutateStartTask(taskId, 'PDA', {
       startTime,
       headcount,
-      proofFiles: detailState.proofFiles,
+      proofFiles: detailState.startProofFiles,
     })
     syncPdaStartRiskAndExceptions()
     showPdaExecDetailToast(
-      detailState.proofFiles.length > 0
-        ? `开工成功，已上传 ${detailState.proofFiles.length} 个开工凭证`
+      detailState.startProofFiles.length > 0
+        ? `开工成功，已上传 ${detailState.startProofFiles.length} 个开工凭证`
         : '开工成功',
     )
+    return true
+  }
+
+  if (action === 'report-milestone') {
+    const taskId = actionNode.dataset.taskId
+    if (!taskId) return true
+
+    const task = processTasks.find((item) => item.taskId === taskId)
+    if (!task) return true
+
+    if (!detailState.milestoneTime) {
+      showPdaExecDetailToast('请填写关键节点上报时间')
+      return true
+    }
+
+    const reportAt = toStoreDateTime(detailState.milestoneTime)
+    const reportMs = parseDateMs(reportAt)
+    if (Number.isNaN(reportMs) || reportMs > Date.now()) {
+      showPdaExecDetailToast('上报时间不能晚于当前时间')
+      return true
+    }
+
+    if (detailState.milestoneProofFiles.length < 1) {
+      showPdaExecDetailToast('请至少上传 1 项关键节点凭证')
+      return true
+    }
+
+    const result = reportTaskMilestone(taskId, {
+      reportedAt: reportAt,
+      proofFiles: detailState.milestoneProofFiles,
+      by: 'PDA',
+    })
+    showPdaExecDetailToast(result.message)
+    return true
+  }
+
+  if (action === 'report-pause-entry') {
+    detailState.fromPauseAction = true
+    showPdaExecDetailToast('请在“上报暂停”区块补充信息后提交')
+    return true
+  }
+
+  if (action === 'report-pause') {
+    const taskId = actionNode.dataset.taskId
+    if (!taskId) return true
+
+    if (!detailState.pauseTime) {
+      showPdaExecDetailToast('请填写暂停上报时间')
+      return true
+    }
+
+    const reportAt = toStoreDateTime(detailState.pauseTime)
+    const reportMs = parseDateMs(reportAt)
+    if (Number.isNaN(reportMs) || reportMs > Date.now()) {
+      showPdaExecDetailToast('上报时间不能晚于当前时间')
+      return true
+    }
+
+    if (detailState.pauseProofFiles.length < 1) {
+      showPdaExecDetailToast('请至少上传 1 项暂停凭证')
+      return true
+    }
+
+    const result = reportTaskPause(taskId, {
+      reasonCode: detailState.pauseReasonCode,
+      remark: detailState.pauseRemark.trim(),
+      reportedAt: reportAt,
+      proofFiles: detailState.pauseProofFiles,
+      by: 'PDA',
+    })
+    if (result.ok) {
+      detailState.fromPauseAction = false
+    }
+    showPdaExecDetailToast(result.message)
     return true
   }
 
@@ -1145,51 +1250,16 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
 
+    const task = processTasks.find((item) => item.taskId === taskId)
+    if (!task) return true
+
+    if (!isTaskMilestoneReported(task)) {
+      showPdaExecDetailToast('请先完成关键节点上报')
+      return true
+    }
+
     mutateFinishTask(taskId, 'PDA')
     showPdaExecDetailToast('完工成功，请前往交接模块完成交出')
-    return true
-  }
-
-  if (action === 'open-block') {
-    detailState.showBlockDialog = true
-    return true
-  }
-
-  if (action === 'close-block') {
-    detailState.showBlockDialog = false
-    return true
-  }
-
-  if (action === 'confirm-block') {
-    const taskId = actionNode.dataset.taskId
-    if (!taskId) return true
-
-    mutateBlockTask(taskId, detailState.blockReason, detailState.blockRemark, 'PDA')
-    detailState.showBlockDialog = false
-    detailState.blockRemark = ''
-    detailState.blockReason = 'OTHER'
-    showPdaExecDetailToast('已标记暂不能继续')
-    return true
-  }
-
-  if (action === 'open-unblock') {
-    detailState.showUnblockDialog = true
-    return true
-  }
-
-  if (action === 'close-unblock') {
-    detailState.showUnblockDialog = false
-    return true
-  }
-
-  if (action === 'confirm-unblock') {
-    const taskId = actionNode.dataset.taskId
-    if (!taskId) return true
-
-    mutateUnblockTask(taskId, detailState.unblockRemark, 'PDA')
-    detailState.showUnblockDialog = false
-    detailState.unblockRemark = ''
-    showPdaExecDetailToast('已恢复执行')
     return true
   }
 

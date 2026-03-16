@@ -1,5 +1,15 @@
 import { renderPdaFrame } from './pda-shell'
 import { escapeHtml, toClassName } from '../utils'
+import {
+  createSettlementChangeRequest,
+  getSettlementActiveRequestByFactory,
+  getSettlementEffectiveInfoByFactory,
+  getSettlementLatestRequestByFactory,
+  getSettlementStatusClass,
+  getSettlementStatusLabel,
+  type SettlementChangeRequest,
+  type SettlementEffectiveInfoSnapshot,
+} from '../data/fcs/settlement-change-requests'
 
 type MainTab = 'overview' | 'tasks' | 'deductions' | 'cycles'
 type TaskView = 'week' | 'all'
@@ -104,7 +114,14 @@ interface PdaSettlementState {
   taskDrawerTaskId: string | null
   dedDrawerId: string | null
   cycleDrawerId: string | null
+  settlementRequestDrawerMode: 'create' | 'detail' | null
+  settlementRequestErrors: Partial<Record<'accountHolderName' | 'idNumber' | 'bankName' | 'bankAccountNo', string>>
+  settlementRequestErrorText: string
+  settlementRequestForm: SettlementEffectiveInfoSnapshot & { submitRemark: string }
 }
+
+const CURRENT_FACTORY_ID = 'ID-FAC-0001'
+const CURRENT_FACTORY_OPERATOR = '工厂财务-Adi'
 
 const state: PdaSettlementState = {
   activeTab: 'overview',
@@ -117,6 +134,17 @@ const state: PdaSettlementState = {
   taskDrawerTaskId: null,
   dedDrawerId: null,
   cycleDrawerId: null,
+  settlementRequestDrawerMode: null,
+  settlementRequestErrors: {},
+  settlementRequestErrorText: '',
+  settlementRequestForm: {
+    accountHolderName: '',
+    idNumber: '',
+    bankName: '',
+    bankAccountNo: '',
+    bankBranch: '',
+    submitRemark: '',
+  },
 }
 
 function fmtIDR(n: number): string {
@@ -129,6 +157,45 @@ function fmtRate(n: number, unit = '件'): string {
 
 function fmtQty(n: number, unit = '件'): string {
   return `${n.toLocaleString('id-ID')} ${unit}`
+}
+
+function maskBankAccountNo(accountNo: string): string {
+  const raw = accountNo.replace(/\s+/g, '')
+  if (raw.length <= 8) return raw
+  return `${raw.slice(0, 4)} **** **** ${raw.slice(-4)}`
+}
+
+function getChangedSettlementFields(request: SettlementChangeRequest): string {
+  const changed: string[] = []
+  if (request.before.accountHolderName !== request.after.accountHolderName) changed.push('开户名')
+  if (request.before.idNumber !== request.after.idNumber) changed.push('证件号')
+  if (request.before.bankName !== request.after.bankName) changed.push('银行名称')
+  if (request.before.bankAccountNo !== request.after.bankAccountNo) changed.push('银行账号')
+  if (request.before.bankBranch !== request.after.bankBranch) changed.push('开户支行')
+  return changed.length > 0 ? changed.join('、') : '信息确认'
+}
+
+function getRequestNextStepText(request: SettlementChangeRequest): string {
+  if (request.status === 'PENDING_VERIFY') return '平台正在核实申请信息'
+  if (request.status === 'WAIT_SIGNED_FORM') return '请配合线下签字，平台上传签字申请后进入审核'
+  if (request.status === 'WAIT_APPROVAL') return '平台已收到签字申请，待审核生效'
+  if (request.status === 'EFFECTIVE') return '申请已生效，当前结算信息已更新'
+  return request.rejectReason || '申请已驳回，可重新发起申请'
+}
+
+function resetSettlementRequestForm(): void {
+  const effective = getSettlementEffectiveInfoByFactory(CURRENT_FACTORY_ID)
+  if (!effective) return
+  state.settlementRequestForm = {
+    accountHolderName: effective.accountHolderName,
+    idNumber: effective.idNumber,
+    bankName: effective.bankName,
+    bankAccountNo: effective.bankAccountNo,
+    bankBranch: effective.bankBranch,
+    submitRemark: '',
+  }
+  state.settlementRequestErrors = {}
+  state.settlementRequestErrorText = ''
 }
 
 const PAYMENT_RECORDS: PaymentRecord[] = [
@@ -536,6 +603,228 @@ function renderCycleDrawer(cycle: SettlementCycle): string {
   )
 }
 
+function renderSettlementInfoSection(): string {
+  const effective = getSettlementEffectiveInfoByFactory(CURRENT_FACTORY_ID)
+  if (!effective) {
+    return `
+      <article class="rounded-lg border bg-card p-4 shadow-none">
+        <div class="text-sm font-semibold">结算信息</div>
+        <div class="mt-2 text-xs text-muted-foreground">暂无当前生效结算信息</div>
+      </article>
+    `
+  }
+
+  const activeRequest = getSettlementActiveRequestByFactory(CURRENT_FACTORY_ID)
+  const latestRequest = getSettlementLatestRequestByFactory(CURRENT_FACTORY_ID)
+  const currentRequest = activeRequest ?? latestRequest
+  const hasActiveRequest = Boolean(activeRequest)
+
+  return `
+    <article class="rounded-lg border bg-card shadow-none">
+      <header class="flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h3 class="text-sm font-semibold">结算信息</h3>
+          <p class="mt-0.5 text-[10px] text-muted-foreground">以下为当前生效结算信息，提交申请后不会立即生效</p>
+        </div>
+        <button
+          class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+          data-pda-sett-action="${hasActiveRequest ? 'open-settlement-request-detail' : 'open-settlement-change-request'}"
+        >
+          ${hasActiveRequest ? '查看修改申请' : '申请修改结算信息'}
+        </button>
+      </header>
+
+      <div class="grid gap-2 px-4 py-3 md:grid-cols-2">
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-[10px] text-muted-foreground">开户名</p>
+          <p class="mt-0.5 text-xs font-medium">${escapeHtml(effective.accountHolderName)}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-[10px] text-muted-foreground">证件号</p>
+          <p class="mt-0.5 text-xs font-medium">${escapeHtml(effective.idNumber)}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-[10px] text-muted-foreground">银行名称</p>
+          <p class="mt-0.5 text-xs font-medium">${escapeHtml(effective.bankName)}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-[10px] text-muted-foreground">银行账号</p>
+          <p class="mt-0.5 text-xs font-medium">${escapeHtml(maskBankAccountNo(effective.bankAccountNo))}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-[10px] text-muted-foreground">开户支行</p>
+          <p class="mt-0.5 text-xs font-medium">${escapeHtml(effective.bankBranch || '—')}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-[10px] text-muted-foreground">最近生效时间</p>
+          <p class="mt-0.5 text-xs font-medium">${escapeHtml(effective.effectiveAt)}</p>
+        </div>
+      </div>
+
+      ${
+        currentRequest
+          ? `
+            <div class="border-t px-4 py-3">
+              <div class="mb-1.5 flex items-center gap-2">
+                <span class="text-xs font-medium">当前申请</span>
+                <span class="inline-flex rounded border px-2 py-0.5 text-[10px] ${getSettlementStatusClass(currentRequest.status)}">
+                  ${escapeHtml(getSettlementStatusLabel(currentRequest.status))}
+                </span>
+              </div>
+              <div class="space-y-1 text-[11px] text-muted-foreground">
+                <p>申请号：${escapeHtml(currentRequest.requestId)} · 申请时间：${escapeHtml(currentRequest.submittedAt)}</p>
+                <p>变更摘要：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
+                <p>下一步：${escapeHtml(getRequestNextStepText(currentRequest))}</p>
+              </div>
+            </div>
+          `
+          : ''
+      }
+    </article>
+  `
+}
+
+function renderSettlementRequestDrawer(): string {
+  const mode = state.settlementRequestDrawerMode
+  if (!mode) return ''
+
+  const activeRequest = getSettlementActiveRequestByFactory(CURRENT_FACTORY_ID)
+  const latestRequest = getSettlementLatestRequestByFactory(CURRENT_FACTORY_ID)
+  const currentRequest = activeRequest ?? latestRequest
+
+  if (mode === 'create') {
+    return renderDrawer(
+      '申请修改结算信息',
+      `
+        <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">提交后进入待核实，当前生效信息不会立即变更。</div>
+        ${
+          state.settlementRequestErrorText
+            ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(state.settlementRequestErrorText)}</div>`
+            : ''
+        }
+        <div class="space-y-3">
+          <label class="block space-y-1">
+            <span class="text-xs font-medium">开户名 *</span>
+            <input class="h-9 w-full rounded-md border px-3 text-xs ${state.settlementRequestErrors.accountHolderName ? 'border-red-500' : ''}" value="${escapeHtml(state.settlementRequestForm.accountHolderName)}" data-pda-sett-field="request.accountHolderName" />
+            ${
+              state.settlementRequestErrors.accountHolderName
+                ? `<p class="text-[10px] text-red-600">${escapeHtml(state.settlementRequestErrors.accountHolderName)}</p>`
+                : ''
+            }
+          </label>
+          <label class="block space-y-1">
+            <span class="text-xs font-medium">证件号 *</span>
+            <input class="h-9 w-full rounded-md border px-3 text-xs ${state.settlementRequestErrors.idNumber ? 'border-red-500' : ''}" value="${escapeHtml(state.settlementRequestForm.idNumber)}" data-pda-sett-field="request.idNumber" />
+            ${
+              state.settlementRequestErrors.idNumber
+                ? `<p class="text-[10px] text-red-600">${escapeHtml(state.settlementRequestErrors.idNumber)}</p>`
+                : ''
+            }
+          </label>
+          <label class="block space-y-1">
+            <span class="text-xs font-medium">银行名称 *</span>
+            <input class="h-9 w-full rounded-md border px-3 text-xs ${state.settlementRequestErrors.bankName ? 'border-red-500' : ''}" value="${escapeHtml(state.settlementRequestForm.bankName)}" data-pda-sett-field="request.bankName" />
+            ${
+              state.settlementRequestErrors.bankName
+                ? `<p class="text-[10px] text-red-600">${escapeHtml(state.settlementRequestErrors.bankName)}</p>`
+                : ''
+            }
+          </label>
+          <label class="block space-y-1">
+            <span class="text-xs font-medium">银行账号 *</span>
+            <input class="h-9 w-full rounded-md border px-3 text-xs ${state.settlementRequestErrors.bankAccountNo ? 'border-red-500' : ''}" value="${escapeHtml(state.settlementRequestForm.bankAccountNo)}" data-pda-sett-field="request.bankAccountNo" />
+            ${
+              state.settlementRequestErrors.bankAccountNo
+                ? `<p class="text-[10px] text-red-600">${escapeHtml(state.settlementRequestErrors.bankAccountNo)}</p>`
+                : ''
+            }
+          </label>
+          <label class="block space-y-1">
+            <span class="text-xs font-medium">开户支行</span>
+            <input class="h-9 w-full rounded-md border px-3 text-xs" value="${escapeHtml(state.settlementRequestForm.bankBranch)}" data-pda-sett-field="request.bankBranch" />
+          </label>
+          <label class="block space-y-1">
+            <span class="text-xs font-medium">申请说明</span>
+            <textarea class="min-h-[72px] w-full rounded-md border px-3 py-2 text-xs" placeholder="可填写变更原因" data-pda-sett-field="request.submitRemark">${escapeHtml(
+              state.settlementRequestForm.submitRemark,
+            )}</textarea>
+          </label>
+        </div>
+        <button class="mt-2 inline-flex w-full items-center justify-center rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground" data-pda-sett-action="submit-settlement-change-request">提交申请</button>
+      `,
+      'close-settlement-request-drawer',
+    )
+  }
+
+  if (!currentRequest) {
+    return renderDrawer(
+      '查看修改申请',
+      `<div class="rounded-md border bg-muted/30 px-3 py-3 text-xs text-muted-foreground">当前暂无申请记录</div>`,
+      'close-settlement-request-drawer',
+    )
+  }
+
+  return renderDrawer(
+    '查看修改申请',
+    `
+      <div class="rounded-md border bg-muted/20 px-3 py-2">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-medium">${escapeHtml(currentRequest.requestId)}</p>
+          <span class="inline-flex rounded border px-2 py-0.5 text-[10px] ${getSettlementStatusClass(currentRequest.status)}">
+            ${escapeHtml(getSettlementStatusLabel(currentRequest.status))}
+          </span>
+        </div>
+        <p class="mt-1 text-[10px] text-muted-foreground">申请时间：${escapeHtml(currentRequest.submittedAt)} · 提交人：${escapeHtml(currentRequest.submittedBy)}</p>
+        <p class="mt-1 text-[10px] text-muted-foreground">变更摘要：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
+        <p class="mt-1 text-[10px] text-muted-foreground">下一步：${escapeHtml(getRequestNextStepText(currentRequest))}</p>
+      </div>
+
+      <div class="rounded-md border p-3">
+        <p class="mb-2 text-xs font-medium">变更前后</p>
+        <div class="grid gap-2 md:grid-cols-2">
+          <div class="space-y-1 rounded-md border bg-muted/20 p-2">
+            <p class="text-[10px] text-muted-foreground">变更前（生效）</p>
+            <p class="text-xs">开户名：${escapeHtml(currentRequest.before.accountHolderName)}</p>
+            <p class="text-xs">证件号：${escapeHtml(currentRequest.before.idNumber)}</p>
+            <p class="text-xs">银行：${escapeHtml(currentRequest.before.bankName)}</p>
+            <p class="text-xs">账号：${escapeHtml(maskBankAccountNo(currentRequest.before.bankAccountNo))}</p>
+            <p class="text-xs">支行：${escapeHtml(currentRequest.before.bankBranch || '—')}</p>
+          </div>
+          <div class="space-y-1 rounded-md border bg-muted/20 p-2">
+            <p class="text-[10px] text-muted-foreground">申请修改后</p>
+            <p class="text-xs">开户名：${escapeHtml(currentRequest.after.accountHolderName)}</p>
+            <p class="text-xs">证件号：${escapeHtml(currentRequest.after.idNumber)}</p>
+            <p class="text-xs">银行：${escapeHtml(currentRequest.after.bankName)}</p>
+            <p class="text-xs">账号：${escapeHtml(maskBankAccountNo(currentRequest.after.bankAccountNo))}</p>
+            <p class="text-xs">支行：${escapeHtml(currentRequest.after.bankBranch || '—')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-md border p-3">
+        <p class="mb-2 text-xs font-medium">申请进度</p>
+        <div class="space-y-2">
+          ${currentRequest.logs
+            .map(
+              (item) => `
+                <div class="rounded-md border bg-muted/20 px-2.5 py-2">
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="font-medium">${escapeHtml(item.action)}</span>
+                    <span class="text-muted-foreground">${escapeHtml(item.createdAt)}</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-muted-foreground">操作人：${escapeHtml(item.actor)}</p>
+                  <p class="text-[10px] text-muted-foreground">${escapeHtml(item.remark)}</p>
+                </div>
+              `,
+            )
+            .join('')}
+        </div>
+      </div>
+    `,
+    'close-settlement-request-drawer',
+  )
+}
+
 function renderOverviewContent(cwPaidRate: number): string {
   return `
     <div class="space-y-4 p-4">
@@ -607,6 +896,8 @@ function renderOverviewContent(cwPaidRate: number): string {
             : ''
         }
       </div>
+
+      ${renderSettlementInfoSection()}
 
       <div>
         <h3 class="mb-2 text-xs font-semibold text-muted-foreground">本周钱从哪里来</h3>
@@ -1063,8 +1354,25 @@ function renderPageContent(): string {
         if (!cycle) return ''
         return renderCycleDrawer(cycle)
       })()}
+
+      ${renderSettlementRequestDrawer()}
     </div>
   `
+}
+
+function validateSettlementRequestForm(): Partial<
+  Record<'accountHolderName' | 'idNumber' | 'bankName' | 'bankAccountNo', string>
+> {
+  const errors: Partial<Record<'accountHolderName' | 'idNumber' | 'bankName' | 'bankAccountNo', string>> = {}
+  if (!state.settlementRequestForm.accountHolderName.trim()) errors.accountHolderName = '请填写开户名'
+  if (!state.settlementRequestForm.idNumber.trim()) errors.idNumber = '请填写证件号'
+  if (!state.settlementRequestForm.bankName.trim()) errors.bankName = '请填写银行名称'
+  if (!state.settlementRequestForm.bankAccountNo.trim()) {
+    errors.bankAccountNo = '请填写银行账号'
+  } else if (!/^[0-9]{8,30}$/.test(state.settlementRequestForm.bankAccountNo.trim())) {
+    errors.bankAccountNo = '银行账号格式不正确'
+  }
+  return errors
 }
 
 export function renderPdaSettlementPage(): string {
@@ -1073,7 +1381,11 @@ export function renderPdaSettlementPage(): string {
 
 export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-pda-sett-field]')
-  if (fieldNode instanceof HTMLInputElement) {
+  if (
+    fieldNode instanceof HTMLInputElement ||
+    fieldNode instanceof HTMLSelectElement ||
+    fieldNode instanceof HTMLTextAreaElement
+  ) {
     const field = fieldNode.dataset.pdaSettField
     if (field === 'task-search') {
       state.taskSearch = fieldNode.value
@@ -1081,6 +1393,34 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
     }
     if (field === 'ded-search') {
       state.dedSearch = fieldNode.value
+      return true
+    }
+    if (field === 'request.accountHolderName') {
+      state.settlementRequestForm.accountHolderName = fieldNode.value
+      state.settlementRequestErrors.accountHolderName = undefined
+      return true
+    }
+    if (field === 'request.idNumber') {
+      state.settlementRequestForm.idNumber = fieldNode.value
+      state.settlementRequestErrors.idNumber = undefined
+      return true
+    }
+    if (field === 'request.bankName') {
+      state.settlementRequestForm.bankName = fieldNode.value
+      state.settlementRequestErrors.bankName = undefined
+      return true
+    }
+    if (field === 'request.bankAccountNo') {
+      state.settlementRequestForm.bankAccountNo = fieldNode.value
+      state.settlementRequestErrors.bankAccountNo = undefined
+      return true
+    }
+    if (field === 'request.bankBranch') {
+      state.settlementRequestForm.bankBranch = fieldNode.value
+      return true
+    }
+    if (field === 'request.submitRemark') {
+      state.settlementRequestForm.submitRemark = fieldNode.value
       return true
     }
   }
@@ -1206,6 +1546,64 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
       state.dedDrawerId = null
       state.taskDrawerTaskId = taskId
     }
+    return true
+  }
+
+  if (action === 'open-settlement-change-request') {
+    const activeRequest = getSettlementActiveRequestByFactory(CURRENT_FACTORY_ID)
+    if (activeRequest) {
+      state.settlementRequestDrawerMode = 'detail'
+      state.settlementRequestErrorText = '当前已有结算信息修改申请处理中'
+      return true
+    }
+
+    resetSettlementRequestForm()
+    state.settlementRequestDrawerMode = 'create'
+    return true
+  }
+
+  if (action === 'open-settlement-request-detail') {
+    state.settlementRequestDrawerMode = 'detail'
+    state.settlementRequestErrorText = ''
+    return true
+  }
+
+  if (action === 'close-settlement-request-drawer') {
+    state.settlementRequestDrawerMode = null
+    state.settlementRequestErrorText = ''
+    state.settlementRequestErrors = {}
+    return true
+  }
+
+  if (action === 'submit-settlement-change-request') {
+    const errors = validateSettlementRequestForm()
+    if (Object.keys(errors).length > 0) {
+      state.settlementRequestErrors = errors
+      state.settlementRequestErrorText = '请先补全必填项'
+      return true
+    }
+
+    const result = createSettlementChangeRequest({
+      factoryId: CURRENT_FACTORY_ID,
+      submittedBy: CURRENT_FACTORY_OPERATOR,
+      submitRemark: state.settlementRequestForm.submitRemark,
+      after: {
+        accountHolderName: state.settlementRequestForm.accountHolderName.trim(),
+        idNumber: state.settlementRequestForm.idNumber.trim(),
+        bankName: state.settlementRequestForm.bankName.trim(),
+        bankAccountNo: state.settlementRequestForm.bankAccountNo.trim(),
+        bankBranch: state.settlementRequestForm.bankBranch.trim(),
+      },
+    })
+
+    if (!result.ok) {
+      state.settlementRequestErrorText = result.message
+      return true
+    }
+
+    state.settlementRequestErrors = {}
+    state.settlementRequestErrorText = result.message
+    state.settlementRequestDrawerMode = 'detail'
     return true
   }
 

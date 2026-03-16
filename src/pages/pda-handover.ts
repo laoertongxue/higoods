@@ -2,10 +2,13 @@ import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { renderPdaFrame } from './pda-shell'
 import {
+  getPdaHandoutHeads,
   getReceiveSceneLabel,
   pdaHandoverEvents,
   type HandoverAction,
   type HandoverEvent,
+  type HandoverHeadSummaryStatus,
+  type PdaHandoverHead,
 } from '../data/fcs/pda-handover-events'
 
 type HandoverTab = 'pickup' | 'receive' | 'handout' | 'done'
@@ -215,6 +218,98 @@ function renderEventCard(event: HandoverEvent, actionLabel: string): string {
   `
 }
 
+function getHandoutSummaryMeta(
+  status: HandoverHeadSummaryStatus,
+): { label: string; className: string; hint: string } {
+  if (status === 'NONE') {
+    return {
+      label: '暂无交出记录',
+      className: 'border-border bg-background text-muted-foreground',
+      hint: '可新增第一条交出记录',
+    }
+  }
+  if (status === 'SUBMITTED') {
+    return {
+      label: '已发起交出',
+      className: 'border-blue-200 bg-blue-50 text-blue-700',
+      hint: '等待仓库回写数量',
+    }
+  }
+  if (status === 'PARTIAL_WRITTEN_BACK') {
+    return {
+      label: '部分已回写',
+      className: 'border-amber-200 bg-amber-50 text-amber-700',
+      hint: '仍有记录待仓库回写',
+    }
+  }
+  if (status === 'HAS_OBJECTION') {
+    return {
+      label: '存在数量异议',
+      className: 'border-red-200 bg-red-50 text-red-700',
+      hint: '请关注异议处理进度',
+    }
+  }
+  return {
+    label: '已回写完成',
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    hint: '可继续按需新增交出记录',
+  }
+}
+
+function renderHandoutHeadCard(head: PdaHandoverHead): string {
+  const meta = getHandoutSummaryMeta(head.summaryStatus)
+  const actionLabel = head.recordCount > 0 ? '查看交出' : '去交出'
+
+  return `
+    <article
+      class="cursor-pointer rounded-lg border transition-colors hover:border-primary"
+      data-pda-handover-action="open-detail"
+      data-event-id="${escapeHtml(head.handoverId)}"
+    >
+      <div class="space-y-2 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center gap-1.5">
+            <span class="truncate font-mono text-xs text-muted-foreground">${escapeHtml(head.handoverId)}</span>
+            <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">交出头</span>
+            <span class="inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
+          </div>
+          <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
+        </div>
+
+        <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+          <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
+          <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
+          <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
+          <div><span class="text-muted-foreground">任务状态：</span>${head.taskStatus === 'DONE' ? '已完工' : '进行中'}</div>
+        </div>
+
+        <div class="flex items-center gap-2 py-0.5 text-xs">
+          <span class="shrink-0 text-muted-foreground">交出方：</span>
+          ${renderPartyChip('FACTORY', head.sourceFactoryName)}
+          <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
+          <span class="shrink-0 text-muted-foreground">去向：</span>
+          ${renderPartyChip(head.targetKind, head.targetName)}
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
+          <div>已发起交出：<span class="font-medium">${head.recordCount} 次</span></div>
+          <div>待仓库回写：<span class="font-medium">${head.pendingWritebackCount} 次</span></div>
+          <div>已回写数量：<span class="font-medium">${head.writtenBackQtyTotal} ${escapeHtml(head.qtyUnit)}</span></div>
+          <div>数量异议：<span class="font-medium">${head.objectionCount} 条</span></div>
+        </div>
+
+        <div class="text-[10px] text-muted-foreground">${escapeHtml(meta.hint)}</div>
+
+        <button
+          class="mt-1 inline-flex h-8 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          data-pda-handover-action="open-detail"
+          data-event-id="${escapeHtml(head.handoverId)}"
+        >${actionLabel}</button>
+      </div>
+    </article>
+  `
+}
+
 function renderDoneCard(event: HandoverEvent): string {
   const isReceive = event.action === 'RECEIVE'
   const receiveSceneLabel = isReceive ? getReceiveSceneLabel(event) : ''
@@ -296,9 +391,7 @@ export function renderPdaHandoverPage(): string {
   const receiveEvents = pdaHandoverEvents.filter(
     (event) => event.action === 'RECEIVE' && event.status === 'PENDING' && matchFactory(event),
   )
-  const handoutEvents = pdaHandoverEvents.filter(
-    (event) => event.action === 'HANDOUT' && event.status === 'PENDING' && matchFactory(event),
-  )
+  const handoutHeads = getPdaHandoutHeads(selectedFactoryId)
   const doneEvents = pdaHandoverEvents.filter(
     (event) => event.status === 'CONFIRMED' && matchFactory(event),
   )
@@ -306,7 +399,7 @@ export function renderPdaHandoverPage(): string {
   const tabCounts: Record<HandoverTab, number> = {
     pickup: pickupEvents.length,
     receive: receiveEvents.length,
-    handout: handoutEvents.length,
+    handout: handoutHeads.length,
     done: doneEvents.length,
   }
 
@@ -365,11 +458,11 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'handout'
             ? `
-              <p class="text-xs text-muted-foreground">当前工厂完成本道工序后，将半成品交给下一节点（工厂或仓库）。</p>
+              <p class="text-xs text-muted-foreground">一个任务对应一个交出头，可分多次发起交出记录。最终数量以后续仓库回写为准。</p>
               ${
-                handoutEvents.length === 0
+                handoutHeads.length === 0
                   ? renderEmptyState('暂无待交出事项')
-                  : handoutEvents.map((event) => renderEventCard(event, '确认交出')).join('')
+                  : handoutHeads.map((head) => renderHandoutHeadCard(head)).join('')
               }
             `
             : ''

@@ -36,6 +36,7 @@ import {
 } from '../data/fcs/store-domain-progress'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
+import { allowContinueFromPauseException, recordPauseExceptionFollowUp } from '../data/fcs/pda-exec-link'
 
 applyQualitySeedBootstrap()
 
@@ -76,6 +77,9 @@ interface ProgressExceptionsState {
   unblockDialogCaseId: string | null
   unblockRemark: string
 
+  pauseFollowUpCaseId: string | null
+  pauseFollowUpRemark: string
+
   extendDialogCaseId: string | null
 
   rowActionMenuCaseId: string | null
@@ -108,6 +112,9 @@ const state: ProgressExceptionsState = {
 
   unblockDialogCaseId: null,
   unblockRemark: '',
+
+  pauseFollowUpCaseId: null,
+  pauseFollowUpRemark: '',
 
   extendDialogCaseId: null,
 
@@ -171,6 +178,10 @@ const REASON_LABEL: Record<ReasonCode, string> = {
   HANDOVER_DIFF: '交接差异',
   MATERIAL_NOT_READY: '物料未齐套',
   START_OVERDUE: '开工逾期',
+}
+
+function getReasonLabel(exc: ExceptionCase): string {
+  return exc.reasonLabel || REASON_LABEL[exc.reasonCode] || exc.reasonCode
 }
 
 const OWNER_OPTIONS: Array<{ id: string; name: string }> = [
@@ -609,6 +620,8 @@ function clearFilters(): void {
   state.aggregateFilter = null
   state.showUpstreamHint = false
   state.rowActionMenuCaseId = null
+  state.pauseFollowUpCaseId = null
+  state.pauseFollowUpRemark = ''
   appStore.navigate('/fcs/progress/exceptions')
 }
 
@@ -760,6 +773,30 @@ function confirmExtendTender(): void {
   state.extendDialogCaseId = null
 }
 
+function confirmPauseFollowUp(): void {
+  if (!state.pauseFollowUpCaseId) return
+  if (!state.pauseFollowUpRemark.trim()) {
+    showProgressExceptionsToast('请填写跟进备注', 'error')
+    return
+  }
+
+  const result = recordPauseExceptionFollowUp(
+    state.pauseFollowUpCaseId,
+    state.pauseFollowUpRemark.trim(),
+    'Admin',
+  )
+  showProgressExceptionsToast(result.message, result.ok ? 'success' : 'error')
+  if (result.ok) {
+    state.pauseFollowUpCaseId = null
+    state.pauseFollowUpRemark = ''
+  }
+}
+
+function confirmPauseAllowContinue(caseId: string): void {
+  const result = allowContinueFromPauseException(caseId, 'Admin')
+  showProgressExceptionsToast(result.message, result.ok ? 'success' : 'error')
+}
+
 function escapeAttr(value: string): string {
   return escapeHtml(value)
 }
@@ -781,6 +818,7 @@ function renderActionMenu(exc: ExceptionCase): string {
   const isOpen = state.rowActionMenuCaseId === exc.caseId
   const firstTaskId = exc.relatedTaskIds[0] || ''
   const firstOrderId = exc.relatedOrderIds[0] || ''
+  const isPauseReport = exc.sourceType === 'FACTORY_PAUSE_REPORT'
 
   return `
     <div class="relative inline-flex" data-pe-menu="true">
@@ -792,11 +830,23 @@ function renderActionMenu(exc: ExceptionCase): string {
           ? `
             <div class="absolute right-0 top-9 z-30 w-52 rounded-md border bg-popover p-1 shadow-lg">
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-view" data-case-id="${escapeAttr(exc.caseId)}" data-pe-stop="true">
-                <i data-lucide="eye" class="mr-2 h-4 w-4"></i>查看详情
+                <i data-lucide="eye" class="mr-2 h-4 w-4"></i>${isPauseReport ? '处理' : '查看详情'}
               </button>
 
               ${
-                exc.reasonCode.startsWith('BLOCKED_')
+                isPauseReport && exc.caseStatus !== 'CLOSED'
+                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-pause-followup" data-case-id="${escapeAttr(exc.caseId)}" data-pe-stop="true"><i data-lucide="message-square" class="mr-2 h-4 w-4"></i>记录跟进</button>`
+                  : ''
+              }
+
+              ${
+                isPauseReport && exc.caseStatus !== 'CLOSED'
+                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-pause-continue" data-case-id="${escapeAttr(exc.caseId)}" data-pe-stop="true"><i data-lucide="play" class="mr-2 h-4 w-4"></i>允许继续</button>`
+                  : ''
+              }
+
+              ${
+                !isPauseReport && exc.reasonCode.startsWith('BLOCKED_')
                   ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-unblock" data-case-id="${escapeAttr(exc.caseId)}" data-pe-stop="true"><i data-lucide="play" class="mr-2 h-4 w-4"></i>恢复执行</button>`
                   : ''
               }
@@ -1094,6 +1144,7 @@ function renderTable(cases: ExceptionCase[], nowMs: number): string {
                       const overdue = isCaseOverdue(exc, nowMs)
                       const firstOrderId = exc.relatedOrderIds[0] || ''
                       const firstTaskId = exc.relatedTaskIds[0] || ''
+                      const linkedFactory = exc.linkedFactoryName || '-'
 
                       return `
                         <tr class="cursor-pointer border-b hover:bg-muted/50" data-pe-action="open-detail" data-case-id="${escapeAttr(exc.caseId)}">
@@ -1101,7 +1152,7 @@ function renderTable(cases: ExceptionCase[], nowMs: number): string {
                           <td class="px-3 py-2">${renderBadge(exc.severity, SEVERITY_COLOR_CLASS[exc.severity])}</td>
                           <td class="px-3 py-2">${renderStatusBadge(exc.caseStatus)}</td>
                           <td class="px-3 py-2 text-xs">${escapeHtml(CATEGORY_LABEL[exc.category])}</td>
-                          <td class="px-3 py-2 text-xs">${escapeHtml(REASON_LABEL[exc.reasonCode] || exc.reasonCode)}</td>
+                          <td class="px-3 py-2 text-xs">${escapeHtml(getReasonLabel(exc))}</td>
                           <td class="px-3 py-2">
                             <div class="flex flex-wrap gap-1">
                               ${
@@ -1112,6 +1163,11 @@ function renderTable(cases: ExceptionCase[], nowMs: number): string {
                               ${
                                 firstTaskId
                                   ? `<button class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs hover:bg-muted" data-pe-action="goto-task" data-task-id="${escapeAttr(firstTaskId)}" data-pe-stop="true">${escapeHtml(firstTaskId)}</button>`
+                                  : ''
+                              }
+                              ${
+                                exc.sourceType === 'FACTORY_PAUSE_REPORT'
+                                  ? `<span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs text-muted-foreground">工厂：${escapeHtml(linkedFactory)}</span>`
                                   : ''
                               }
                             </div>
@@ -1149,7 +1205,7 @@ function renderBasicTab(detailCase: ExceptionCase, nowMs: number): string {
         </div>
         <div>
           <p class="text-xs text-muted-foreground">原因码</p>
-          <p class="font-medium">${escapeHtml(REASON_LABEL[detailCase.reasonCode] || detailCase.reasonCode)}</p>
+          <p class="font-medium">${escapeHtml(getReasonLabel(detailCase))}</p>
         </div>
         <div>
           <p class="text-xs text-muted-foreground">SLA 截止</p>
@@ -1174,6 +1230,53 @@ function renderBasicTab(detailCase: ExceptionCase, nowMs: number): string {
         <p class="text-xs text-muted-foreground">详情</p>
         <p class="whitespace-pre-wrap text-sm text-muted-foreground">${escapeHtml(detailCase.detail)}</p>
       </div>
+
+      ${
+        detailCase.sourceType === 'FACTORY_PAUSE_REPORT'
+          ? `
+            <div class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p class="text-xs text-amber-700">工厂上报暂停信息</p>
+              <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <span class="text-xs text-muted-foreground">工厂</span>
+                <span class="text-xs font-medium">${escapeHtml(detailCase.linkedFactoryName || '-')}</span>
+                <span class="text-xs text-muted-foreground">暂停原因</span>
+                <span class="text-xs font-medium">${escapeHtml(detailCase.pauseReasonLabel || getReasonLabel(detailCase))}</span>
+                <span class="text-xs text-muted-foreground">上报时间</span>
+                <span class="text-xs font-medium">${escapeHtml(detailCase.pauseReportedAt || '-')}</span>
+                <span class="text-xs text-muted-foreground">现场说明</span>
+                <span class="text-xs">${escapeHtml(detailCase.pauseRemark || '—')}</span>
+              </div>
+              ${
+                detailCase.pauseProofFiles && detailCase.pauseProofFiles.length > 0
+                  ? `
+                    <div class="mt-3">
+                      <p class="text-xs text-muted-foreground">现场凭证（${detailCase.pauseProofFiles.length}）</p>
+                      <div class="mt-1 space-y-1">
+                        ${detailCase.pauseProofFiles
+                          .map(
+                            (file) => `
+                              <div class="flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs">
+                                <i data-lucide="${file.type === 'IMAGE' ? 'image' : 'video'}" class="h-3.5 w-3.5 ${file.type === 'IMAGE' ? 'text-blue-500' : 'text-purple-500'}"></i>
+                                <span class="truncate">${escapeHtml(file.name)}</span>
+                                <span class="ml-auto text-muted-foreground">${escapeHtml(file.uploadedAt)}</span>
+                              </div>
+                            `,
+                          )
+                          .join('')}
+                      </div>
+                    </div>
+                  `
+                  : '<p class="mt-2 text-xs text-muted-foreground">暂无现场凭证</p>'
+              }
+              ${
+                detailCase.milestoneSnapshot?.required
+                  ? `<p class="mt-3 text-xs text-muted-foreground">关键节点：${escapeHtml(detailCase.milestoneSnapshot.ruleLabel || '已配置')}｜状态：${detailCase.milestoneSnapshot.status === 'REPORTED' ? '已上报' : '待上报'}${detailCase.milestoneSnapshot.reportedAt ? `｜时间：${escapeHtml(detailCase.milestoneSnapshot.reportedAt)}` : ''}</p>`
+                  : '<p class="mt-3 text-xs text-muted-foreground">关键节点：当前任务无强制关键节点上报</p>'
+              }
+            </div>
+          `
+          : ''
+      }
 
       ${
         detailCase.tags.length > 0
@@ -1284,7 +1387,32 @@ function renderActionsTab(detailCase: ExceptionCase): string {
 
   const cards: string[] = []
 
-  if (detailCase.reasonCode.startsWith('BLOCKED_')) {
+  if (detailCase.sourceType === 'FACTORY_PAUSE_REPORT' && detailCase.caseStatus !== 'CLOSED') {
+    cards.push(`
+      <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="open-pause-followup-dialog" data-case-id="${escapeAttr(detailCase.caseId)}">
+        <div class="flex items-center gap-2">
+          <i data-lucide="message-square" class="h-5 w-5 text-blue-600"></i>
+          <div>
+            <p class="font-medium">记录跟进</p>
+            <p class="text-xs text-muted-foreground">记录平台处理进展，任务仍保持暂不能继续</p>
+          </div>
+        </div>
+      </button>
+    `)
+    cards.push(`
+      <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="pause-allow-continue" data-case-id="${escapeAttr(detailCase.caseId)}">
+        <div class="flex items-center gap-2">
+          <i data-lucide="play" class="h-5 w-5 text-green-600"></i>
+          <div>
+            <p class="font-medium">允许继续</p>
+            <p class="text-xs text-muted-foreground">关闭当前异常并恢复工厂任务到进行中</p>
+          </div>
+        </div>
+      </button>
+    `)
+  }
+
+  if (detailCase.reasonCode.startsWith('BLOCKED_') && detailCase.sourceType !== 'FACTORY_PAUSE_REPORT') {
     cards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="open-unblock-dialog" data-case-id="${escapeAttr(detailCase.caseId)}">
         <div class="flex items-center gap-2">
@@ -1377,6 +1505,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
 
 function renderAssignTab(detailCase: ExceptionCase): string {
   const canUrge = Boolean(detailCase.ownerUserId && !['RESOLVED', 'CLOSED'].includes(detailCase.caseStatus))
+  const isPauseReport = detailCase.sourceType === 'FACTORY_PAUSE_REPORT'
 
   return `
     <div class="space-y-4">
@@ -1390,31 +1519,37 @@ function renderAssignTab(detailCase: ExceptionCase): string {
 
       <div class="border-t pt-3">
         <p class="text-sm">状态流转</p>
-        <div class="mt-2 flex flex-wrap gap-2">
-          ${
-            detailCase.caseStatus === 'OPEN'
-              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="IN_PROGRESS">转处理中</button>`
-              : ''
-          }
-          ${
-            detailCase.caseStatus === 'IN_PROGRESS'
-              ? `
-                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="WAITING_EXTERNAL">转等待外部</button>
-                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="RESOLVED">转已解决</button>
+        ${
+          isPauseReport
+            ? '<p class="mt-2 text-xs text-muted-foreground">工厂上报暂停异常请在“处置动作”中使用“记录跟进 / 允许继续”处理。</p>'
+            : `
+                <div class="mt-2 flex flex-wrap gap-2">
+                  ${
+                    detailCase.caseStatus === 'OPEN'
+                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="IN_PROGRESS">转处理中</button>`
+                      : ''
+                  }
+                  ${
+                    detailCase.caseStatus === 'IN_PROGRESS'
+                      ? `
+                        <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="WAITING_EXTERNAL">转等待外部</button>
+                        <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="RESOLVED">转已解决</button>
+                      `
+                      : ''
+                  }
+                  ${
+                    detailCase.caseStatus === 'WAITING_EXTERNAL'
+                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="IN_PROGRESS">转处理中</button>`
+                      : ''
+                  }
+                  ${
+                    detailCase.caseStatus === 'RESOLVED'
+                      ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="CLOSED">转已关闭</button>`
+                      : ''
+                  }
+                </div>
               `
-              : ''
-          }
-          ${
-            detailCase.caseStatus === 'WAITING_EXTERNAL'
-              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="IN_PROGRESS">转处理中</button>`
-              : ''
-          }
-          ${
-            detailCase.caseStatus === 'RESOLVED'
-              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="status-change" data-case-id="${escapeAttr(detailCase.caseId)}" data-status="CLOSED">转已关闭</button>`
-              : ''
-          }
-        </div>
+        }
       </div>
 
       ${
@@ -1576,6 +1711,35 @@ function renderExtendDialog(): string {
   `
 }
 
+function renderPauseFollowUpDialog(): string {
+  if (!state.pauseFollowUpCaseId) return ''
+
+  const exc = getCaseById(state.pauseFollowUpCaseId)
+  if (!exc) return ''
+
+  return `
+    <div class="fixed inset-0 z-[60]" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-pe-action="close-pause-followup-dialog" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
+        <header class="space-y-1">
+          <h3 class="text-lg font-semibold">记录跟进</h3>
+          <p class="text-sm text-muted-foreground">异常 ${escapeHtml(exc.caseId)}：记录平台跟进信息，任务继续保持暂不能继续。</p>
+        </header>
+
+        <div class="mt-4">
+          <label class="text-sm">跟进备注 *</label>
+          <textarea class="mt-1 min-h-[92px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请填写跟进内容..." data-pe-field="pauseFollowUpRemark">${escapeHtml(state.pauseFollowUpRemark)}</textarea>
+        </div>
+
+        <footer class="mt-6 flex justify-end gap-2">
+          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="close-pause-followup-dialog">取消</button>
+          <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-pe-action="confirm-pause-followup">确认</button>
+        </footer>
+      </section>
+    </div>
+  `
+}
+
 export function renderProgressExceptionsPage(): string {
   syncPdaStartRiskAndExceptions()
   syncFromQuery()
@@ -1597,6 +1761,7 @@ export function renderProgressExceptionsPage(): string {
       ${renderDetailDrawer(nowMs)}
       ${renderUnblockDialog()}
       ${renderExtendDialog()}
+      ${renderPauseFollowUpDialog()}
     </div>
   `
 }
@@ -1629,6 +1794,11 @@ function updateField(field: string, node: HTMLElement): void {
 
   if (field === 'unblockRemark' && node instanceof HTMLTextAreaElement) {
     state.unblockRemark = node.value
+    return
+  }
+
+  if (field === 'pauseFollowUpRemark' && node instanceof HTMLTextAreaElement) {
+    state.pauseFollowUpRemark = node.value
   }
 }
 
@@ -1647,6 +1817,23 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
     if (!caseId) return true
     state.unblockDialogCaseId = caseId
     state.unblockRemark = ''
+    state.rowActionMenuCaseId = null
+    return true
+  }
+
+  if (action === 'row-pause-followup') {
+    const caseId = actionNode.dataset.caseId
+    if (!caseId) return true
+    state.pauseFollowUpCaseId = caseId
+    state.pauseFollowUpRemark = ''
+    state.rowActionMenuCaseId = null
+    return true
+  }
+
+  if (action === 'row-pause-continue') {
+    const caseId = actionNode.dataset.caseId
+    if (!caseId) return true
+    confirmPauseAllowContinue(caseId)
     state.rowActionMenuCaseId = null
     return true
   }
@@ -1866,6 +2053,10 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
 
     const exc = getCaseById(caseId)
     if (!exc) return true
+    if (exc.sourceType === 'FACTORY_PAUSE_REPORT') {
+      showProgressExceptionsToast('请使用“记录跟进 / 允许继续”处理工厂暂停异常', 'error')
+      return true
+    }
 
     setCaseStatus(exc, nextStatus)
     showProgressExceptionsToast(`状态已更新为 ${CASE_STATUS_LABEL[nextStatus]}`)
@@ -1941,6 +2132,34 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'open-pause-followup-dialog') {
+    const caseId = actionNode.dataset.caseId
+    if (caseId) {
+      state.pauseFollowUpCaseId = caseId
+      state.pauseFollowUpRemark = ''
+    }
+    return true
+  }
+
+  if (action === 'close-pause-followup-dialog') {
+    state.pauseFollowUpCaseId = null
+    state.pauseFollowUpRemark = ''
+    return true
+  }
+
+  if (action === 'confirm-pause-followup') {
+    confirmPauseFollowUp()
+    return true
+  }
+
+  if (action === 'pause-allow-continue') {
+    const caseId = actionNode.dataset.caseId
+    if (caseId) {
+      confirmPauseAllowContinue(caseId)
+    }
+    return true
+  }
+
   return false
 }
 
@@ -1969,5 +2188,5 @@ export function handleProgressExceptionsEvent(target: HTMLElement): boolean {
 }
 
 export function isProgressExceptionsDialogOpen(): boolean {
-  return Boolean(state.detailCaseId || state.unblockDialogCaseId || state.extendDialogCaseId)
+  return Boolean(state.detailCaseId || state.unblockDialogCaseId || state.extendDialogCaseId || state.pauseFollowUpCaseId)
 }
