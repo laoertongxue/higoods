@@ -273,14 +273,27 @@ function getFactoryName(factoryId: string): string {
   return '未知工厂'
 }
 
-function resetProfileForm(): void {
-  state.profileForm = {
-    cycleType: 'MONTHLY',
-    settlementDayRule: '',
-    pricingMode: 'BY_PIECE',
-    currency: 'CNY',
-    effectiveFrom: today(),
-  }
+function resetProfileForm(factoryId?: string): void {
+  const activeProfile = factoryId
+    ? getFactoryProfiles(factoryId).find((profile) => profile.isActive) ??
+      getFactoryProfiles(factoryId)[0]
+    : null
+
+  state.profileForm = activeProfile
+    ? {
+        cycleType: activeProfile.cycleType,
+        settlementDayRule: activeProfile.settlementDayRule || '',
+        pricingMode: activeProfile.pricingMode,
+        currency: activeProfile.currency,
+        effectiveFrom: today(),
+      }
+    : {
+        cycleType: 'MONTHLY',
+        settlementDayRule: '',
+        pricingMode: 'BY_PIECE',
+        currency: 'CNY',
+        effectiveFrom: today(),
+      }
   state.profileErrors = {}
 }
 
@@ -331,18 +344,22 @@ function resetRuleForm(rule: DefaultPenaltyRule | null): void {
 }
 
 function openProfileDrawer(factoryId: string): void {
-  resetProfileForm()
+  resetProfileForm(factoryId)
   state.dialog = { type: 'profile-drawer', factoryId }
 }
 
 function openAccountDrawer(factoryId: string, accountId?: string): void {
-  const account = accountId ? state.accounts.find((item) => item.id === accountId) ?? null : null
+  const account = accountId
+    ? state.accounts.find((item) => item.id === accountId) ?? null
+    : getFactoryAccounts(factoryId).find((item) => item.isDefault) ?? null
   resetAccountForm(account)
   state.dialog = { type: 'account-drawer', factoryId, accountId }
 }
 
 function openRuleDrawer(factoryId: string, ruleId?: string): void {
-  const rule = ruleId ? state.rules.find((item) => item.id === ruleId) ?? null : null
+  const rule = ruleId
+    ? state.rules.find((item) => item.id === ruleId) ?? null
+    : getFactoryRules(factoryId).find((item) => item.status === 'ACTIVE') ?? null
   resetRuleForm(rule)
   state.dialog = { type: 'rule-drawer', factoryId, ruleId }
 }
@@ -384,16 +401,16 @@ function renderRequestPagination(total: number): string {
 }
 
 function renderRequestStats(requests: SettlementChangeRequest[]): string {
-  const pendingVerify = requests.filter((item) => item.status === 'PENDING_VERIFY').length
-  const waitSigned = requests.filter((item) => item.status === 'WAIT_SIGNED_FORM').length
-  const waitApproval = requests.filter((item) => item.status === 'WAIT_APPROVAL').length
+  const pendingReview = requests.filter((item) => item.status === 'PENDING_REVIEW').length
+  const approvedCount = requests.filter((item) => item.status === 'APPROVED').length
+  const rejectedCount = requests.filter((item) => item.status === 'REJECTED').length
   const today = new Date().toISOString().slice(0, 10)
   const todayCount = requests.filter((item) => item.submittedAt.startsWith(today)).length
 
   const stats = [
-    { label: '待核实', value: pendingVerify, status: 'PENDING_VERIFY' as const },
-    { label: '待签字回传', value: waitSigned, status: 'WAIT_SIGNED_FORM' as const },
-    { label: '待审核生效', value: waitApproval, status: 'WAIT_APPROVAL' as const },
+    { label: '待审核', value: pendingReview, status: 'PENDING_REVIEW' as const },
+    { label: '已通过', value: approvedCount, status: 'APPROVED' as const },
+    { label: '未通过', value: rejectedCount, status: 'REJECTED' as const },
     { label: '今日新增', value: todayCount, status: null },
   ]
 
@@ -422,13 +439,17 @@ function renderSettlementRequestDetailDialog(): string {
   const request = getSettlementRequestById(state.dialog.requestId)
   if (!request) return ''
 
-  const canVerify = request.status === 'PENDING_VERIFY'
-  const canWaitSigned = request.status === 'WAIT_SIGNED_FORM'
-  const canApproval = request.status === 'WAIT_APPROVAL'
-  const canReject = request.status === 'PENDING_VERIFY' || request.status === 'WAIT_APPROVAL'
-  const canPrint = request.status !== 'EFFECTIVE' && request.status !== 'REJECTED'
-  const targetVersionHint = request.status === 'EFFECTIVE' ? request.targetVersionNo : `${request.currentVersionNo} -> ${request.targetVersionNo}`
-  const versionHistoryCount = getSettlementVersionHistory(request.factoryId).length
+  const currentEffectiveInfo =
+    state.effectiveInfos.find((item) => item.factoryId === request.factoryId) ?? null
+  const canReview = request.status === 'PENDING_REVIEW'
+  const canReject = request.status === 'PENDING_REVIEW'
+  const canPrint = request.status === 'PENDING_REVIEW'
+  const targetVersionHint =
+    request.status === 'APPROVED' ? request.targetVersionNo : `${request.currentVersionNo} -> ${request.targetVersionNo}`
+  const versionHistory = getSettlementVersionHistory(request.factoryId)
+    .sort((a, b) => b.effectiveAt.localeCompare(a.effectiveAt))
+    .slice(0, 5)
+  const versionHistoryCount = versionHistory.length
 
   const statusText = getSettlementStatusLabel(request.status)
   const statusClass = getSettlementStatusClass(request.status)
@@ -469,9 +490,40 @@ function renderSettlementRequestDetailDialog(): string {
               <p class="text-sm font-semibold">当前版本信息</p>
               <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
                 <p class="text-muted-foreground">当前生效版本号：<span class="font-medium text-foreground">${escapeHtml(request.currentVersionNo)}</span></p>
-                <p class="text-muted-foreground">最近生效时间：<span class="font-medium text-foreground">${escapeHtml(request.effectiveAt || request.submittedAt)}</span></p>
+                <p class="text-muted-foreground">最近生效时间：<span class="font-medium text-foreground">${escapeHtml(currentEffectiveInfo?.effectiveAt || request.effectiveAt || request.submittedAt)}</span></p>
                 <p class="text-muted-foreground">生效后版本：<span class="font-medium text-foreground">${escapeHtml(targetVersionHint)}</span></p>
                 <p class="text-muted-foreground">历史版本数：<span class="font-medium text-foreground">${versionHistoryCount} 个</span></p>
+              </div>
+              <div class="mt-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                <p>结算配置：${escapeHtml(currentEffectiveInfo ? `${cycleTypeConfig[currentEffectiveInfo.settlementConfigSnapshot.cycleType].label} · ${pricingModeConfig[currentEffectiveInfo.settlementConfigSnapshot.pricingMode].label} · ${currentEffectiveInfo.settlementConfigSnapshot.currency}` : '—')}</p>
+                <p>收款账号：${escapeHtml(currentEffectiveInfo ? maskBankAccountNo(currentEffectiveInfo.receivingAccountSnapshot.bankAccountNo) : '—')}</p>
+                <p>默认扣款规则：${currentEffectiveInfo ? `${currentEffectiveInfo.defaultDeductionRulesSnapshot.length} 条` : '—'}</p>
+              </div>
+            </section>
+
+            <section class="rounded-lg border p-4">
+              <p class="text-sm font-semibold">版本历史（最近${versionHistoryCount}条）</p>
+              <div class="mt-2 space-y-2">
+                ${
+                  versionHistory.length > 0
+                    ? versionHistory
+                        .map(
+                          (version) => `
+                            <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+                              <div class="flex items-center justify-between">
+                                <span class="font-medium">${escapeHtml(version.versionNo)}</span>
+                                <span class="text-muted-foreground">${escapeHtml(version.effectiveAt)}</span>
+                              </div>
+                              <p class="mt-1 text-muted-foreground">生效人：${escapeHtml(version.effectiveBy)}</p>
+                              <p class="mt-1 text-muted-foreground">结算配置：${escapeHtml(cycleTypeConfig[version.settlementConfigSnapshot.cycleType].label)} · ${escapeHtml(pricingModeConfig[version.settlementConfigSnapshot.pricingMode].label)} · ${escapeHtml(version.settlementConfigSnapshot.currency)}</p>
+                              <p class="text-muted-foreground">收款账号：${escapeHtml(maskBankAccountNo(version.receivingAccountSnapshot.bankAccountNo))}</p>
+                              <p class="text-muted-foreground">默认扣款规则：${version.defaultDeductionRulesSnapshot.length} 条</p>
+                            </div>
+                          `,
+                        )
+                        .join('')
+                    : '<p class="text-xs text-muted-foreground">暂无版本历史</p>'
+                }
               </div>
             </section>
 
@@ -495,7 +547,7 @@ function renderSettlementRequestDetailDialog(): string {
                   <p>开户支行：${escapeHtml(request.after.bankBranch || '—')}</p>
                 </div>
               </div>
-              <p class="mt-2 text-xs text-blue-700">本次若审核通过，将从 ${escapeHtml(request.currentVersionNo)} 变更为 ${escapeHtml(request.targetVersionNo)}</p>
+              <p class="mt-2 text-xs text-blue-700">本次申请仅变更收款账号；审核通过后将复制当前版本生成新版本，结算配置与默认扣款规则沿用上一版本。</p>
             </section>
 
             <section class="rounded-lg border p-4">
@@ -506,29 +558,12 @@ function renderSettlementRequestDetailDialog(): string {
                   : ''
               }
               ${
-                canVerify
-                  ? `
-                    <div class="mt-2 space-y-2">
-                      <label class="block text-xs">
-                        <span class="mb-1 block text-muted-foreground">核实备注</span>
-                        <textarea class="min-h-[72px] w-full rounded-md border px-3 py-2 text-xs" data-settle-request-field="verifyRemark">${escapeHtml(state.requestOperateForm.verifyRemark)}</textarea>
-                      </label>
-                      <div class="flex gap-2">
-                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="reject-settlement-request" data-request-id="${escapeHtml(request.requestId)}">驳回</button>
-                        <button class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700" data-settle-action="verify-settlement-request" data-request-id="${escapeHtml(request.requestId)}">核实通过</button>
-                      </div>
-                    </div>
-                  `
-                  : ''
-              }
-
-              ${
-                canWaitSigned
+                canReview
                   ? `
                     <div class="mt-2 space-y-2">
                       <div class="flex flex-wrap gap-2">
-                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="upload-settlement-signed-proof" data-request-id="${escapeHtml(request.requestId)}" data-file-type="IMAGE">上传签字证明附件（图片）</button>
-                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="upload-settlement-signed-proof" data-request-id="${escapeHtml(request.requestId)}" data-file-type="VIDEO">上传签字证明附件（视频）</button>
+                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="upload-settlement-signed-proof" data-request-id="${escapeHtml(request.requestId)}" data-file-type="IMAGE">上传签字证明图片</button>
+                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="upload-settlement-signed-proof" data-request-id="${escapeHtml(request.requestId)}" data-file-type="FILE">上传签字证明附件</button>
                       </div>
                       <p class="text-[11px] text-muted-foreground">请上传工厂线下签字后的变更申请证明，作为审核依据</p>
                       <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
@@ -543,41 +578,28 @@ function renderSettlementRequestDetailDialog(): string {
                             : '<p class="text-muted-foreground">暂未上传签字证明附件</p>'
                         }
                       </div>
-                      <button class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700" data-settle-action="submit-settlement-signed-proof" data-request-id="${escapeHtml(request.requestId)}">提交签字附件</button>
-                    </div>
-                  `
-                  : ''
-              }
-
-              ${
-                canApproval
-                  ? `
-                    <div class="mt-2 space-y-2">
-                      <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-                        <p class="mb-1 font-medium">已上传签字证明附件</p>
-                        ${
-                          request.signedProofFiles.length > 0
-                            ? request.signedProofFiles
-                                .map(
-                                  (file) =>
-                                    `<p>${escapeHtml(file.name)} · ${escapeHtml(file.uploadedAt)} · ${escapeHtml(file.uploadedBy)}</p>`,
-                                )
-                                .join('')
-                            : '<p class="text-red-600">暂无签字证明附件，无法审核生效</p>'
-                        }
-                      </div>
                       <label class="inline-flex items-center gap-2 text-xs">
                         <input type="checkbox" data-settle-request-field="paperArchived" ${request.paperArchived ? 'checked' : ''} />
                         纸质文件已留档
                       </label>
                       <label class="block text-xs">
-                        <span class="mb-1 block text-muted-foreground">处理备注</span>
+                        <span class="mb-1 block text-muted-foreground">审核备注</span>
                         <textarea class="min-h-[72px] w-full rounded-md border px-3 py-2 text-xs" data-settle-request-field="followupRemark">${escapeHtml(state.requestOperateForm.followupRemark)}</textarea>
                       </label>
+                      <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="followup-settlement-request" data-request-id="${escapeHtml(request.requestId)}">记录处理备注</button>
+                      ${
+                        canReject
+                          ? `
+                            <label class="block text-xs">
+                              <span class="mb-1 block text-muted-foreground">不通过原因（不通过时必填）</span>
+                              <textarea class="min-h-[72px] w-full rounded-md border px-3 py-2 text-xs" data-settle-request-field="rejectReason">${escapeHtml(state.requestOperateForm.rejectReason)}</textarea>
+                            </label>
+                          `
+                          : ''
+                      }
                       <div class="flex gap-2">
-                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="followup-settlement-request" data-request-id="${escapeHtml(request.requestId)}">记录跟进</button>
-                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="reject-settlement-request" data-request-id="${escapeHtml(request.requestId)}">驳回</button>
-                        <button class="rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 ${request.signedProofFiles.length === 0 ? 'pointer-events-none opacity-50' : ''}" data-settle-action="approve-settlement-request" data-request-id="${escapeHtml(request.requestId)}">审核生效</button>
+                        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-settle-action="reject-settlement-request" data-request-id="${escapeHtml(request.requestId)}">不通过</button>
+                        <button class="rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 ${request.signedProofFiles.length === 0 ? 'pointer-events-none opacity-50' : ''}" data-settle-action="approve-settlement-request" data-request-id="${escapeHtml(request.requestId)}">通过</button>
                       </div>
                     </div>
                   `
@@ -585,26 +607,15 @@ function renderSettlementRequestDetailDialog(): string {
               }
 
               ${
-                !canVerify && !canWaitSigned && !canApproval
+                !canReview
                   ? `
                     <div class="mt-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       ${
-                        request.status === 'EFFECTIVE'
-                          ? `已于 ${escapeHtml(request.effectiveAt || '—')} 生效，生效版本：${escapeHtml(request.targetVersionNo)}，生效人：${escapeHtml(request.effectiveBy || '—')}`
-                          : `驳回原因：${escapeHtml(request.rejectReason || '—')}`
+                        request.status === 'APPROVED'
+                          ? `已于 ${escapeHtml(request.effectiveAt || '—')} 审核通过，生效版本：${escapeHtml(request.targetVersionNo)}，生效人：${escapeHtml(request.effectiveBy || '—')}`
+                          : `不通过原因：${escapeHtml(request.rejectReason || '—')}`
                       }
                     </div>
-                  `
-                  : ''
-              }
-
-              ${
-                canReject
-                  ? `
-                    <label class="mt-2 block text-xs">
-                      <span class="mb-1 block text-muted-foreground">驳回原因（驳回时必填）</span>
-                      <textarea class="min-h-[72px] w-full rounded-md border px-3 py-2 text-xs" data-settle-request-field="rejectReason">${escapeHtml(state.requestOperateForm.rejectReason)}</textarea>
-                    </label>
                   `
                   : ''
               }
@@ -1497,11 +1508,9 @@ export function renderSettlementListPage(): string {
                   <span class="text-xs text-muted-foreground">申请状态</span>
                   <select data-settle-request-filter="status" class="w-full rounded-md border px-3 py-2 text-sm">
                     <option value="all" ${state.requestFilterStatus === 'all' ? 'selected' : ''}>全部状态</option>
-                    <option value="PENDING_VERIFY" ${state.requestFilterStatus === 'PENDING_VERIFY' ? 'selected' : ''}>待核实</option>
-                    <option value="WAIT_SIGNED_FORM" ${state.requestFilterStatus === 'WAIT_SIGNED_FORM' ? 'selected' : ''}>待签字回传</option>
-                    <option value="WAIT_APPROVAL" ${state.requestFilterStatus === 'WAIT_APPROVAL' ? 'selected' : ''}>待审核生效</option>
-                    <option value="EFFECTIVE" ${state.requestFilterStatus === 'EFFECTIVE' ? 'selected' : ''}>已生效</option>
-                    <option value="REJECTED" ${state.requestFilterStatus === 'REJECTED' ? 'selected' : ''}>已驳回</option>
+                    <option value="PENDING_REVIEW" ${state.requestFilterStatus === 'PENDING_REVIEW' ? 'selected' : ''}>待审核</option>
+                    <option value="APPROVED" ${state.requestFilterStatus === 'APPROVED' ? 'selected' : ''}>已通过</option>
+                    <option value="REJECTED" ${state.requestFilterStatus === 'REJECTED' ? 'selected' : ''}>未通过</option>
                   </select>
                 </label>
                 <div class="space-y-2">
@@ -1535,10 +1544,7 @@ export function renderSettlementListPage(): string {
                       ? '<tr><td colspan="12" class="h-24 px-3 text-center text-muted-foreground">暂无申请数据</td></tr>'
                       : pagedRequests
                           .map((request) => {
-                            const isOpenRequest =
-                              request.status === 'PENDING_VERIFY' ||
-                              request.status === 'WAIT_SIGNED_FORM' ||
-                              request.status === 'WAIT_APPROVAL'
+                            const isOpenRequest = request.status === 'PENDING_REVIEW'
 
                             return `
                             <tr class="border-b last:border-0">
@@ -1552,7 +1558,7 @@ export function renderSettlementListPage(): string {
                                 <span class="inline-flex rounded border px-2 py-0.5 text-xs ${getSettlementStatusClass(request.status)}">${escapeHtml(getSettlementStatusLabel(request.status))}</span>
                               </td>
                               <td class="px-3 py-3">${escapeHtml(request.currentVersionNo)}</td>
-                              <td class="px-3 py-3">${escapeHtml(request.status === 'EFFECTIVE' ? request.targetVersionNo : request.targetVersionNo || '待生成')}</td>
+                              <td class="px-3 py-3">${escapeHtml(request.targetVersionNo || '待生成')}</td>
                               <td class="px-3 py-3">${escapeHtml(getChangedFieldsSummary(request))}</td>
                               <td class="px-3 py-3">${escapeHtml(maskBankAccountNo(request.before.bankAccountNo))}</td>
                               <td class="px-3 py-3">${escapeHtml(maskBankAccountNo(request.after.bankAccountNo))}</td>
@@ -1868,7 +1874,7 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
 
   if (action === 'filter-request-status-quick') {
     const status = actionNode.dataset.status
-    if (status === 'PENDING_VERIFY' || status === 'WAIT_SIGNED_FORM' || status === 'WAIT_APPROVAL') {
+    if (status === 'PENDING_REVIEW' || status === 'APPROVED' || status === 'REJECTED') {
       state.listView = 'requests'
       state.requestFilterStatus = status
       state.requestPage = 1
@@ -2014,7 +2020,7 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
   if (action === 'upload-settlement-signed-proof') {
     const requestId = actionNode.dataset.requestId
     if (!requestId) return true
-    const fileType = actionNode.dataset.fileType === 'VIDEO' ? 'VIDEO' : 'IMAGE'
+    const fileType = actionNode.dataset.fileType === 'FILE' ? 'FILE' : 'IMAGE'
     const result = uploadSettlementSignedProof(requestId, '平台运营-林静', fileType)
     if (!result.ok) {
       state.requestOperateError = result.message

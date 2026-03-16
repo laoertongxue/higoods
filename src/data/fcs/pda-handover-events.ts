@@ -536,6 +536,8 @@ export type HandoverHeadSummaryStatus =
   | 'PARTIAL_WRITTEN_BACK'
   | 'WRITTEN_BACK'
   | 'HAS_OBJECTION'
+export type PdaHandoverHeadType = 'PICKUP' | 'HANDOUT'
+export type PdaHeadCompletionStatus = 'OPEN' | 'COMPLETED'
 
 export type HandoverRecordStatus =
   | 'PENDING_WRITEBACK'
@@ -553,6 +555,7 @@ export interface HandoverProofFile {
 
 export interface PdaHandoverHead {
   handoverId: string
+  headType: PdaHandoverHeadType
   taskId: string
   taskNo: string
   productionOrderNo: string
@@ -569,6 +572,11 @@ export interface PdaHandoverHead {
   writtenBackQtyTotal: number
   objectionCount: number
   lastRecordAt?: string
+  completionStatus: PdaHeadCompletionStatus
+  completedByWarehouseAt?: string
+  qtyExpectedTotal: number
+  qtyActualTotal: number
+  qtyDiffTotal: number
 }
 
 export interface PdaHandoverRecord {
@@ -591,6 +599,28 @@ export interface PdaHandoverRecord {
   resolvedRemark?: string
 }
 
+export type PdaPickupRecordStatus =
+  | 'PENDING_WAREHOUSE_DISPATCH'
+  | 'PENDING_FACTORY_PICKUP'
+  | 'RECEIVED'
+
+export interface PdaPickupRecord {
+  recordId: string
+  handoverId: string
+  taskId: string
+  sequenceNo: number
+  pickupMode: 'WAREHOUSE_DELIVERY' | 'FACTORY_PICKUP'
+  pickupModeLabel: '仓库配送到厂' | '工厂到仓自提'
+  materialSummary: string
+  qtyExpected: number
+  qtyActual?: number
+  qtyUnit: string
+  submittedAt: string
+  status: PdaPickupRecordStatus
+  receivedAt?: string
+  remark?: string
+}
+
 function parseDateMs(value: string | undefined): number {
   if (!value) return Number.NaN
   return new Date(value.replace(' ', 'T')).getTime()
@@ -610,7 +640,78 @@ function generateRecordId(): string {
 
 export const pdaHandoverHeads: PdaHandoverHead[] = [
   {
+    handoverId: 'HOP-PDA-001',
+    headType: 'PICKUP',
+    taskId: 'PDA-EXEC-001',
+    taskNo: 'PDA-EXEC-001',
+    productionOrderNo: 'PO-2024-0012',
+    processName: '裁片',
+    sourceFactoryName: '雅加达中央面料仓',
+    targetName: 'PT Sinar Garment Indonesia',
+    targetKind: 'FACTORY',
+    qtyUnit: '件',
+    factoryId: 'ID-F001',
+    taskStatus: 'IN_PROGRESS',
+    summaryStatus: 'NONE',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 1800,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 1800,
+  },
+  {
+    handoverId: 'HOP-PDA-002',
+    headType: 'PICKUP',
+    taskId: 'PDA-EXEC-002',
+    taskNo: 'PDA-EXEC-002',
+    productionOrderNo: 'PO-2024-0013',
+    processName: '裁片',
+    sourceFactoryName: '泗水辅料仓',
+    targetName: 'PT Sinar Garment Indonesia',
+    targetKind: 'FACTORY',
+    qtyUnit: '件',
+    factoryId: 'ID-F001',
+    taskStatus: 'IN_PROGRESS',
+    summaryStatus: 'NONE',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 2200,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 2200,
+  },
+  {
+    handoverId: 'HOP-PDA-003',
+    headType: 'PICKUP',
+    taskId: 'PDA-EXEC-005',
+    taskNo: 'PDA-EXEC-005',
+    productionOrderNo: 'PO-2024-0015',
+    processName: '裁片',
+    sourceFactoryName: '雅加达中央面料仓',
+    targetName: 'PT Sinar Garment Indonesia',
+    targetKind: 'FACTORY',
+    qtyUnit: '件',
+    factoryId: 'ID-F001',
+    taskStatus: 'DONE',
+    summaryStatus: 'NONE',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: 'COMPLETED',
+    completedByWarehouseAt: '2026-03-11 18:20:00',
+    qtyExpectedTotal: 900,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 900,
+  },
+  {
     handoverId: 'HOH-PDA-014',
+    headType: 'HANDOUT',
     taskId: 'PDA-EXEC-014',
     taskNo: 'PDA-EXEC-014',
     productionOrderNo: 'PO-2024-0024',
@@ -626,9 +727,14 @@ export const pdaHandoverHeads: PdaHandoverHead[] = [
     pendingWritebackCount: 0,
     writtenBackQtyTotal: 0,
     objectionCount: 0,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 2000,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 2000,
   },
   {
     handoverId: 'HOH-PDA-016',
+    headType: 'HANDOUT',
     taskId: 'PDA-EXEC-016',
     taskNo: 'PDA-EXEC-016',
     productionOrderNo: 'PO-2024-0026',
@@ -644,9 +750,14 @@ export const pdaHandoverHeads: PdaHandoverHead[] = [
     pendingWritebackCount: 0,
     writtenBackQtyTotal: 0,
     objectionCount: 0,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 1100,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 1100,
   },
   {
     handoverId: 'HOH-PDA-015',
+    headType: 'HANDOUT',
     taskId: 'PDA-EXEC-015',
     taskNo: 'PDA-EXEC-015',
     productionOrderNo: 'PO-2024-0025',
@@ -662,9 +773,14 @@ export const pdaHandoverHeads: PdaHandoverHead[] = [
     pendingWritebackCount: 0,
     writtenBackQtyTotal: 0,
     objectionCount: 0,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 1500,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 1500,
   },
   {
     handoverId: 'HOH-PDA-017',
+    headType: 'HANDOUT',
     taskId: 'PDA-EXEC-017',
     taskNo: 'PDA-EXEC-017',
     productionOrderNo: 'PO-2024-0027',
@@ -680,6 +796,92 @@ export const pdaHandoverHeads: PdaHandoverHead[] = [
     pendingWritebackCount: 0,
     writtenBackQtyTotal: 0,
     objectionCount: 0,
+    completionStatus: 'COMPLETED',
+    completedByWarehouseAt: '2026-03-13 20:10:00',
+    qtyExpectedTotal: 950,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 950,
+  },
+]
+
+export const pdaPickupRecords: PdaPickupRecord[] = [
+  {
+    recordId: 'HPR-PDA-001-001',
+    handoverId: 'HOP-PDA-001',
+    taskId: 'PDA-EXEC-001',
+    sequenceNo: 1,
+    pickupMode: 'WAREHOUSE_DELIVERY',
+    pickupModeLabel: '仓库配送到厂',
+    materialSummary: '主布（藏青）+ 里布包',
+    qtyExpected: 900,
+    qtyActual: 900,
+    qtyUnit: '件',
+    submittedAt: '2026-03-14 09:10:00',
+    status: 'RECEIVED',
+    receivedAt: '2026-03-14 12:20:00',
+    remark: '首批到厂',
+  },
+  {
+    recordId: 'HPR-PDA-001-002',
+    handoverId: 'HOP-PDA-001',
+    taskId: 'PDA-EXEC-001',
+    sequenceNo: 2,
+    pickupMode: 'WAREHOUSE_DELIVERY',
+    pickupModeLabel: '仓库配送到厂',
+    materialSummary: '辅料包 + 纽扣',
+    qtyExpected: 900,
+    qtyUnit: '件',
+    submittedAt: '2026-03-15 10:40:00',
+    status: 'PENDING_WAREHOUSE_DISPATCH',
+    remark: '等待仓库发出',
+  },
+  {
+    recordId: 'HPR-PDA-002-001',
+    handoverId: 'HOP-PDA-002',
+    taskId: 'PDA-EXEC-002',
+    sequenceNo: 1,
+    pickupMode: 'FACTORY_PICKUP',
+    pickupModeLabel: '工厂到仓自提',
+    materialSummary: '衬布 + 缝纫线',
+    qtyExpected: 1200,
+    qtyActual: 1200,
+    qtyUnit: '件',
+    submittedAt: '2026-03-15 08:40:00',
+    status: 'RECEIVED',
+    receivedAt: '2026-03-15 10:15:00',
+    remark: '工厂已自提第1批',
+  },
+  {
+    recordId: 'HPR-PDA-002-002',
+    handoverId: 'HOP-PDA-002',
+    taskId: 'PDA-EXEC-002',
+    sequenceNo: 2,
+    pickupMode: 'WAREHOUSE_DELIVERY',
+    pickupModeLabel: '仓库配送到厂',
+    materialSummary: '辅料尾批',
+    qtyExpected: 1000,
+    qtyActual: 1000,
+    qtyUnit: '件',
+    submittedAt: '2026-03-16 11:10:00',
+    status: 'RECEIVED',
+    receivedAt: '2026-03-16 15:30:00',
+    remark: '仓库补齐尾批',
+  },
+  {
+    recordId: 'HPR-PDA-003-001',
+    handoverId: 'HOP-PDA-003',
+    taskId: 'PDA-EXEC-005',
+    sequenceNo: 1,
+    pickupMode: 'WAREHOUSE_DELIVERY',
+    pickupModeLabel: '仓库配送到厂',
+    materialSummary: '轻薄面料与贴衬',
+    qtyExpected: 900,
+    qtyActual: 850,
+    qtyUnit: '件',
+    submittedAt: '2026-03-11 09:25:00',
+    status: 'RECEIVED',
+    receivedAt: '2026-03-11 17:55:00',
+    remark: '存在 50 件差异，仓库侧已发起完成',
   },
 ]
 
@@ -767,6 +969,39 @@ export const pdaHandoverRecords: PdaHandoverRecord[] = [
 ]
 
 function refreshHeadSummary(head: PdaHandoverHead): void {
+  if (head.headType === 'PICKUP') {
+    const records = pdaPickupRecords.filter((record) => record.handoverId === head.handoverId)
+    head.recordCount = records.length
+    head.pendingWritebackCount = records.filter((record) => record.status !== 'RECEIVED').length
+    head.writtenBackQtyTotal = records
+      .filter((record) => record.status === 'RECEIVED')
+      .reduce((total, record) => total + (record.qtyActual ?? 0), 0)
+    head.qtyActualTotal = head.writtenBackQtyTotal
+    head.qtyDiffTotal = head.qtyExpectedTotal - head.qtyActualTotal
+    head.objectionCount = 0
+    head.lastRecordAt = records
+      .map((record) => record.submittedAt)
+      .sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
+
+    if (head.recordCount === 0) {
+      head.summaryStatus = 'NONE'
+      return
+    }
+
+    if (head.pendingWritebackCount === head.recordCount) {
+      head.summaryStatus = 'SUBMITTED'
+      return
+    }
+
+    if (head.pendingWritebackCount > 0) {
+      head.summaryStatus = 'PARTIAL_WRITTEN_BACK'
+      return
+    }
+
+    head.summaryStatus = head.qtyDiffTotal === 0 ? 'WRITTEN_BACK' : 'PARTIAL_WRITTEN_BACK'
+    return
+  }
+
   const records = pdaHandoverRecords.filter((record) => record.handoverId === head.handoverId)
   head.recordCount = records.length
   head.pendingWritebackCount = records.filter((record) => record.status === 'PENDING_WRITEBACK').length
@@ -774,13 +1009,15 @@ function refreshHeadSummary(head: PdaHandoverHead): void {
     (total, record) => total + (typeof record.warehouseWrittenQty === 'number' ? record.warehouseWrittenQty : 0),
     0,
   )
-  head.objectionCount = records.filter((record) =>
-    record.status === 'OBJECTION_REPORTED' ||
-    record.status === 'OBJECTION_PROCESSING' ||
-    record.status === 'OBJECTION_RESOLVED').length
-  head.lastRecordAt = records
-    .map((record) => record.factorySubmittedAt)
-    .sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
+  head.qtyActualTotal = head.writtenBackQtyTotal
+  head.qtyDiffTotal = head.qtyExpectedTotal - head.qtyActualTotal
+  head.objectionCount = records.filter(
+    (record) =>
+      record.status === 'OBJECTION_REPORTED' ||
+      record.status === 'OBJECTION_PROCESSING' ||
+      record.status === 'OBJECTION_RESOLVED',
+  ).length
+  head.lastRecordAt = records.map((record) => record.factorySubmittedAt).sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
 
   if (head.recordCount === 0) {
     head.summaryStatus = 'NONE'
@@ -821,6 +1058,10 @@ function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
   }
 }
 
+function clonePickupRecord(record: PdaPickupRecord): PdaPickupRecord {
+  return { ...record }
+}
+
 function findHead(handoverId: string): PdaHandoverHead | undefined {
   return pdaHandoverHeads.find((item) => item.handoverId === handoverId)
 }
@@ -829,11 +1070,38 @@ function findRecord(recordId: string): PdaHandoverRecord | undefined {
   return pdaHandoverRecords.find((item) => item.recordId === recordId)
 }
 
+function findPickupRecord(recordId: string): PdaPickupRecord | undefined {
+  return pdaPickupRecords.find((item) => item.recordId === recordId)
+}
+
 refreshAllHeadSummaries()
 
 export function getPdaHandoutHeads(factoryId?: string): PdaHandoverHead[] {
   return pdaHandoverHeads
-    .filter((head) => (!factoryId ? true : head.factoryId === factoryId))
+    .filter(
+      (head) =>
+        head.headType === 'HANDOUT' &&
+        head.completionStatus === 'OPEN' &&
+        (!factoryId || head.factoryId === factoryId),
+    )
+    .sort((a, b) => {
+      const bTime = parseDateMs(b.lastRecordAt)
+      const aTime = parseDateMs(a.lastRecordAt)
+      const safeB = Number.isFinite(bTime) ? bTime : 0
+      const safeA = Number.isFinite(aTime) ? aTime : 0
+      return safeB - safeA
+    })
+    .map(cloneHead)
+}
+
+export function getPdaPickupHeads(factoryId?: string): PdaHandoverHead[] {
+  return pdaHandoverHeads
+    .filter(
+      (head) =>
+        head.headType === 'PICKUP' &&
+        head.completionStatus === 'OPEN' &&
+        (!factoryId || head.factoryId === factoryId),
+    )
     .sort((a, b) => {
       const bTime = parseDateMs(b.lastRecordAt)
       const aTime = parseDateMs(a.lastRecordAt)
@@ -846,7 +1114,24 @@ export function getPdaHandoutHeads(factoryId?: string): PdaHandoverHead[] {
 
 export function findPdaHandoutHead(handoverId: string): PdaHandoverHead | undefined {
   const found = findHead(handoverId)
+  return found && found.headType === 'HANDOUT' ? cloneHead(found) : undefined
+}
+
+export function findPdaPickupHead(handoverId: string): PdaHandoverHead | undefined {
+  const found = findHead(handoverId)
+  return found && found.headType === 'PICKUP' ? cloneHead(found) : undefined
+}
+
+export function findPdaHandoverHead(handoverId: string): PdaHandoverHead | undefined {
+  const found = findHead(handoverId)
   return found ? cloneHead(found) : undefined
+}
+
+export function getPdaCompletedHeads(factoryId?: string): PdaHandoverHead[] {
+  return pdaHandoverHeads
+    .filter((head) => head.completionStatus === 'COMPLETED' && (!factoryId || head.factoryId === factoryId))
+    .sort((a, b) => parseDateMs(b.completedByWarehouseAt || '') - parseDateMs(a.completedByWarehouseAt || ''))
+    .map(cloneHead)
 }
 
 export function getPdaHandoverRecordsByHead(handoverId: string): PdaHandoverRecord[] {
@@ -861,6 +1146,71 @@ export function findPdaHandoverRecord(recordId: string): PdaHandoverRecord | und
   return found ? cloneRecord(found) : undefined
 }
 
+export function getPdaPickupRecordsByHead(handoverId: string): PdaPickupRecord[] {
+  return pdaPickupRecords
+    .filter((record) => record.handoverId === handoverId)
+    .sort((a, b) => b.sequenceNo - a.sequenceNo)
+    .map(clonePickupRecord)
+}
+
+export function findPdaPickupRecord(recordId: string): PdaPickupRecord | undefined {
+  const found = findPickupRecord(recordId)
+  return found ? clonePickupRecord(found) : undefined
+}
+
+export function createPdaPickupRecord(
+  handoverId: string,
+  payload: {
+    submittedAt: string
+    pickupMode: 'WAREHOUSE_DELIVERY' | 'FACTORY_PICKUP'
+    materialSummary: string
+    qtyExpected: number
+    remark?: string
+  },
+): PdaPickupRecord | undefined {
+  const head = findHead(handoverId)
+  if (!head || head.headType !== 'PICKUP' || head.completionStatus === 'COMPLETED') return undefined
+
+  const sequenceNo =
+    pdaPickupRecords
+      .filter((record) => record.handoverId === handoverId)
+      .reduce((max, record) => Math.max(max, record.sequenceNo), 0) + 1
+
+  const created: PdaPickupRecord = {
+    recordId: `HPR-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+    handoverId,
+    taskId: head.taskId,
+    sequenceNo,
+    pickupMode: payload.pickupMode,
+    pickupModeLabel: payload.pickupMode === 'WAREHOUSE_DELIVERY' ? '仓库配送到厂' : '工厂到仓自提',
+    materialSummary: payload.materialSummary.trim() || '补充领料记录',
+    qtyExpected: payload.qtyExpected,
+    qtyUnit: head.qtyUnit,
+    submittedAt: payload.submittedAt,
+    status: payload.pickupMode === 'WAREHOUSE_DELIVERY' ? 'PENDING_WAREHOUSE_DISPATCH' : 'PENDING_FACTORY_PICKUP',
+    remark: payload.remark?.trim() || undefined,
+  }
+
+  pdaPickupRecords.push(created)
+  refreshHeadSummary(head)
+  return clonePickupRecord(created)
+}
+
+export function confirmPdaPickupRecordReceived(
+  recordId: string,
+  qtyActual: number,
+  receivedAt: string,
+): PdaPickupRecord | undefined {
+  const record = findPickupRecord(recordId)
+  if (!record || record.status === 'RECEIVED') return undefined
+  record.qtyActual = qtyActual
+  record.receivedAt = receivedAt
+  record.status = 'RECEIVED'
+  const head = findHead(record.handoverId)
+  if (head) refreshHeadSummary(head)
+  return clonePickupRecord(record)
+}
+
 export function createPdaHandoverRecord(
   handoverId: string,
   payload: {
@@ -870,7 +1220,7 @@ export function createPdaHandoverRecord(
   },
 ): PdaHandoverRecord | undefined {
   const head = findHead(handoverId)
-  if (!head) return undefined
+  if (!head || head.headType !== 'HANDOUT' || head.completionStatus === 'COMPLETED') return undefined
 
   const sequenceNo =
     pdaHandoverRecords
@@ -913,6 +1263,47 @@ export function mockWritebackPdaHandoverRecord(
   const head = findHead(target.handoverId)
   if (head) refreshHeadSummary(head)
   return cloneRecord(target)
+}
+
+export function markPdaPickupHeadCompleted(
+  handoverId: string,
+  completedAt: string,
+): { ok: boolean; message: string; data?: PdaHandoverHead } {
+  const head = findHead(handoverId)
+  if (!head || head.headType !== 'PICKUP') return { ok: false, message: '未找到领料头' }
+  if (head.completionStatus === 'COMPLETED') return { ok: false, message: '该领料头已完成' }
+  const records = pdaPickupRecords.filter((record) => record.handoverId === handoverId)
+  if (records.length === 0) return { ok: false, message: '暂无领料记录，无法发起完成' }
+  if (records.some((record) => record.status !== 'RECEIVED')) {
+    return { ok: false, message: '仍有未完成的领料记录，暂不可标记完成' }
+  }
+
+  head.completionStatus = 'COMPLETED'
+  head.completedByWarehouseAt = completedAt
+  refreshHeadSummary(head)
+  return { ok: true, message: '已标记领料完成', data: cloneHead(head) }
+}
+
+export function markPdaHandoutHeadCompleted(
+  handoverId: string,
+  completedAt: string,
+): { ok: boolean; message: string; data?: PdaHandoverHead } {
+  const head = findHead(handoverId)
+  if (!head || head.headType !== 'HANDOUT') return { ok: false, message: '未找到交出头' }
+  if (head.completionStatus === 'COMPLETED') return { ok: false, message: '该交出头已完成' }
+  const records = pdaHandoverRecords.filter((record) => record.handoverId === handoverId)
+  if (records.length === 0) return { ok: false, message: '暂无交出记录，无法发起完成' }
+  if (records.some((record) => record.status === 'PENDING_WRITEBACK')) {
+    return { ok: false, message: '仍有待仓库回写记录，暂不可标记完成' }
+  }
+  if (records.some((record) => record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING')) {
+    return { ok: false, message: '仍有未处理完成的数量异议，暂不可标记完成' }
+  }
+
+  head.completionStatus = 'COMPLETED'
+  head.completedByWarehouseAt = completedAt
+  refreshHeadSummary(head)
+  return { ok: true, message: '已标记交出完成', data: cloneHead(head) }
 }
 
 export function reportPdaHandoverQtyObjection(

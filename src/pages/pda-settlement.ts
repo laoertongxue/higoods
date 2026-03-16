@@ -176,11 +176,9 @@ function getChangedSettlementFields(request: SettlementChangeRequest): string {
 }
 
 function getRequestNextStepText(request: SettlementChangeRequest): string {
-  if (request.status === 'PENDING_VERIFY') return '平台正在核实申请信息'
-  if (request.status === 'WAIT_SIGNED_FORM') return '请配合线下签字，平台上传签字证明后进入审核'
-  if (request.status === 'WAIT_APPROVAL') return '平台已上传签字证明，待审核生效'
-  if (request.status === 'EFFECTIVE') return '申请已生效，当前结算信息已更新'
-  return request.rejectReason || '申请已驳回，可重新发起申请'
+  if (request.status === 'PENDING_REVIEW') return '平台正在审核申请，待上传签字证明后完成通过处理'
+  if (request.status === 'APPROVED') return '申请已通过，当前结算信息已更新为新版本'
+  return request.rejectReason || '申请未通过，可重新发起申请'
 }
 
 function resetSettlementRequestForm(): void {
@@ -702,7 +700,7 @@ function renderSettlementRequestDrawer(): string {
     return renderDrawer(
       '申请修改结算信息',
       `
-        <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">提交后进入待核实，当前生效信息不会立即变更。</div>
+        <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">提交后进入待审核，当前生效信息不会立即变更。</div>
         ${
           state.settlementRequestErrorText
             ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(state.settlementRequestErrorText)}</div>`

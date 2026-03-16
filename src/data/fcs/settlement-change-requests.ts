@@ -1,9 +1,13 @@
-export type SettlementChangeRequestStatus =
-  | 'PENDING_VERIFY'
-  | 'WAIT_SIGNED_FORM'
-  | 'WAIT_APPROVAL'
-  | 'EFFECTIVE'
-  | 'REJECTED'
+import { penaltyRules, settlementProfiles } from './settlement-mock-data'
+import type {
+  CycleType,
+  PricingMode,
+  RuleMode,
+  RuleType,
+  SettlementStatus as RuleStatus,
+} from './settlement-types'
+
+export type SettlementChangeRequestStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
 
 export interface SettlementEffectiveInfoSnapshot {
   accountHolderName: string
@@ -13,6 +17,22 @@ export interface SettlementEffectiveInfoSnapshot {
   bankBranch: string
 }
 
+export interface SettlementConfigSnapshot {
+  cycleType: CycleType
+  settlementDayRule: string
+  pricingMode: PricingMode
+  currency: string
+}
+
+export interface SettlementDefaultDeductionRuleSnapshot {
+  ruleType: RuleType
+  ruleMode: RuleMode
+  ruleValue: number
+  effectiveFrom: string
+  effectiveTo?: string
+  status: RuleStatus
+}
+
 export interface SettlementEffectiveInfo extends SettlementEffectiveInfoSnapshot {
   factoryId: string
   factoryName: string
@@ -20,12 +40,15 @@ export interface SettlementEffectiveInfo extends SettlementEffectiveInfoSnapshot
   effectiveAt: string
   effectiveBy: string
   updatedBy: string
+  settlementConfigSnapshot: SettlementConfigSnapshot
+  receivingAccountSnapshot: SettlementEffectiveInfoSnapshot
+  defaultDeductionRulesSnapshot: SettlementDefaultDeductionRuleSnapshot[]
 }
 
 export interface SettlementSignedProofFile {
   id: string
   name: string
-  fileType: 'IMAGE' | 'VIDEO'
+  fileType: 'IMAGE' | 'FILE'
   uploadedAt: string
   uploadedBy: string
 }
@@ -38,6 +61,9 @@ export interface SettlementVersionRecord extends SettlementEffectiveInfoSnapshot
   effectiveAt: string
   effectiveBy: string
   sourceRequestId: string
+  settlementConfigSnapshot: SettlementConfigSnapshot
+  receivingAccountSnapshot: SettlementEffectiveInfoSnapshot
+  defaultDeductionRulesSnapshot: SettlementDefaultDeductionRuleSnapshot[]
 }
 
 export interface SettlementRequestLog {
@@ -74,26 +100,127 @@ export interface SettlementChangeRequest {
 
 type ActionResult<T> = { ok: true; message: string; data: T } | { ok: false; message: string }
 
-const OPEN_REQUEST_STATUSES: SettlementChangeRequestStatus[] = [
-  'PENDING_VERIFY',
-  'WAIT_SIGNED_FORM',
-  'WAIT_APPROVAL',
-]
+const OPEN_REQUEST_STATUSES: SettlementChangeRequestStatus[] = ['PENDING_REVIEW']
 
 const statusLabelMap: Record<SettlementChangeRequestStatus, string> = {
-  PENDING_VERIFY: '待核实',
-  WAIT_SIGNED_FORM: '待签字回传',
-  WAIT_APPROVAL: '待审核生效',
-  EFFECTIVE: '已生效',
-  REJECTED: '已驳回',
+  PENDING_REVIEW: '待审核',
+  APPROVED: '已通过',
+  REJECTED: '未通过',
 }
 
 const statusClassMap: Record<SettlementChangeRequestStatus, string> = {
-  PENDING_VERIFY: 'border-amber-200 bg-amber-50 text-amber-700',
-  WAIT_SIGNED_FORM: 'border-blue-200 bg-blue-50 text-blue-700',
-  WAIT_APPROVAL: 'border-orange-200 bg-orange-50 text-orange-700',
-  EFFECTIVE: 'border-green-200 bg-green-50 text-green-700',
+  PENDING_REVIEW: 'border-amber-200 bg-amber-50 text-amber-700',
+  APPROVED: 'border-green-200 bg-green-50 text-green-700',
   REJECTED: 'border-red-200 bg-red-50 text-red-700',
+}
+
+interface SettlementEffectiveSeed extends SettlementEffectiveInfoSnapshot {
+  factoryId: string
+  factoryName: string
+  versionNo: string
+  effectiveAt: string
+  effectiveBy: string
+  updatedBy: string
+}
+
+interface SettlementVersionSeed extends SettlementEffectiveInfoSnapshot {
+  versionId: string
+  factoryId: string
+  factoryName: string
+  versionNo: string
+  effectiveAt: string
+  effectiveBy: string
+  sourceRequestId: string
+}
+
+function cloneAccountSnapshot(snapshot: SettlementEffectiveInfoSnapshot): SettlementEffectiveInfoSnapshot {
+  return {
+    accountHolderName: snapshot.accountHolderName,
+    idNumber: snapshot.idNumber,
+    bankName: snapshot.bankName,
+    bankAccountNo: snapshot.bankAccountNo,
+    bankBranch: snapshot.bankBranch,
+  }
+}
+
+function cloneConfigSnapshot(snapshot: SettlementConfigSnapshot): SettlementConfigSnapshot {
+  return {
+    cycleType: snapshot.cycleType,
+    settlementDayRule: snapshot.settlementDayRule,
+    pricingMode: snapshot.pricingMode,
+    currency: snapshot.currency,
+  }
+}
+
+function cloneDeductionRuleSnapshots(
+  snapshots: SettlementDefaultDeductionRuleSnapshot[],
+): SettlementDefaultDeductionRuleSnapshot[] {
+  return snapshots.map((item) => ({ ...item }))
+}
+
+function resolveSettlementConfigSnapshot(factoryId: string): SettlementConfigSnapshot {
+  const activeProfile =
+    settlementProfiles.find((item) => item.factoryId === factoryId && item.isActive) ??
+    settlementProfiles.find((item) => item.factoryId === factoryId)
+
+  if (!activeProfile) {
+    return {
+      cycleType: 'MONTHLY',
+      settlementDayRule: '每月25日',
+      pricingMode: 'BY_PIECE',
+      currency: 'IDR',
+    }
+  }
+
+  return {
+    cycleType: activeProfile.cycleType,
+    settlementDayRule: activeProfile.settlementDayRule || '未配置',
+    pricingMode: activeProfile.pricingMode,
+    currency: activeProfile.currency,
+  }
+}
+
+function resolveDeductionRuleSnapshots(factoryId: string): SettlementDefaultDeductionRuleSnapshot[] {
+  const factoryRules = penaltyRules.filter((item) => item.factoryId === factoryId)
+  if (factoryRules.length === 0) {
+    return [
+      {
+        ruleType: 'QUALITY_DEFECT',
+        ruleMode: 'PERCENTAGE',
+        ruleValue: 5,
+        effectiveFrom: '2026-01-01',
+        status: 'ACTIVE',
+      },
+    ]
+  }
+  return factoryRules.map((rule) => ({
+    ruleType: rule.ruleType,
+    ruleMode: rule.ruleMode,
+    ruleValue: rule.ruleValue,
+    effectiveFrom: rule.effectiveFrom,
+    effectiveTo: rule.effectiveTo,
+    status: rule.status,
+  }))
+}
+
+function buildEffectiveInfo(seed: SettlementEffectiveSeed): SettlementEffectiveInfo {
+  const accountSnapshot = cloneAccountSnapshot(seed)
+  return {
+    ...seed,
+    settlementConfigSnapshot: resolveSettlementConfigSnapshot(seed.factoryId),
+    receivingAccountSnapshot: accountSnapshot,
+    defaultDeductionRulesSnapshot: resolveDeductionRuleSnapshots(seed.factoryId),
+  }
+}
+
+function buildVersionRecord(seed: SettlementVersionSeed): SettlementVersionRecord {
+  const accountSnapshot = cloneAccountSnapshot(seed)
+  return {
+    ...seed,
+    settlementConfigSnapshot: resolveSettlementConfigSnapshot(seed.factoryId),
+    receivingAccountSnapshot: accountSnapshot,
+    defaultDeductionRulesSnapshot: resolveDeductionRuleSnapshots(seed.factoryId),
+  }
 }
 
 const settlementEffectiveInfos: SettlementEffectiveInfo[] = [
@@ -175,7 +302,7 @@ const settlementEffectiveInfos: SettlementEffectiveInfo[] = [
     effectiveBy: '平台运营-陈彦',
     updatedBy: '平台运营-陈彦',
   },
-]
+].map(buildEffectiveInfo)
 
 const settlementVersionHistory: SettlementVersionRecord[] = [
   {
@@ -346,7 +473,7 @@ const settlementVersionHistory: SettlementVersionRecord[] = [
     effectiveBy: '平台运营-陈彦',
     sourceRequestId: 'SR202602020009',
   },
-]
+].map(buildVersionRecord)
 
 function createLog(actor: string, action: string, remark: string, createdAt: string): SettlementRequestLog {
   return {
@@ -363,7 +490,7 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
     requestId: 'SR202603160001',
     factoryId: 'ID-FAC-0002',
     factoryName: 'CV Maju Jaya Textile',
-    status: 'PENDING_VERIFY',
+    status: 'PENDING_REVIEW',
     submittedAt: '2026-03-16 09:35',
     submittedBy: '工厂财务-Agus',
     submitRemark: '更换本月收款账号',
@@ -398,7 +525,7 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
     requestId: 'SR202603150002',
     factoryId: 'ID-FAC-0003',
     factoryName: 'PT Bandung Apparel Works',
-    status: 'WAIT_SIGNED_FORM',
+    status: 'PENDING_REVIEW',
     submittedAt: '2026-03-15 11:18',
     submittedBy: '工厂财务-Rina',
     submitRemark: '开户支行信息变更',
@@ -429,7 +556,7 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
     },
     logs: [
       createLog('工厂财务-Rina', '提交申请', '工厂提交结算信息修改申请', '2026-03-15 11:18'),
-      createLog('平台运营-林静', '核实通过', '证件与账户信息核验完成', '2026-03-15 13:56'),
+      createLog('平台运营-林静', '核实记录', '证件与账户信息核验完成', '2026-03-15 13:56'),
       createLog('平台运营-林静', '平台打印结算信息变更申请单', '打印申请单用于线下签字', '2026-03-15 14:05'),
     ],
   },
@@ -437,7 +564,7 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
     requestId: 'SR202603140003',
     factoryId: 'ID-FAC-0004',
     factoryName: 'PT Mulia Fashion Industry',
-    status: 'WAIT_APPROVAL',
+    status: 'PENDING_REVIEW',
     submittedAt: '2026-03-14 16:10',
     submittedBy: '工厂财务-Maya',
     submitRemark: '账户主体更新',
@@ -476,21 +603,21 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
     },
     logs: [
       createLog('工厂财务-Maya', '提交申请', '工厂提交结算信息修改申请', '2026-03-14 16:10'),
-      createLog('平台运营-陈彦', '核实通过', '证件与账户信息核验完成', '2026-03-15 08:55'),
+      createLog('平台运营-陈彦', '核实记录', '证件与账户信息核验完成', '2026-03-15 08:55'),
       createLog('平台运营-陈彦', '平台打印结算信息变更申请单', '打印申请单用于线下签字', '2026-03-15 09:20'),
-      createLog('平台运营-陈彦', '平台上传签字证明附件', '签字证明已上传，进入待审核生效', '2026-03-15 17:31'),
+      createLog('平台运营-陈彦', '平台上传签字证明附件', '签字证明已上传', '2026-03-15 17:31'),
     ],
   },
   {
     requestId: 'SR202603120004',
     factoryId: 'ID-FAC-0005',
     factoryName: 'PT Java Garment Solutions',
-    status: 'EFFECTIVE',
+    status: 'APPROVED',
     submittedAt: '2026-03-12 10:26',
     submittedBy: '工厂财务-Novi',
     submitRemark: '更换开户支行与账号',
     verifyRemark: '核验通过',
-    reviewRemark: '纸质文件已核档，审核生效',
+    reviewRemark: '纸质文件已核档，审核通过',
     rejectReason: '',
     printedAt: '2026-03-12 15:18',
     printedBy: '平台运营-周航',
@@ -524,11 +651,10 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
     },
     logs: [
       createLog('工厂财务-Novi', '提交申请', '工厂提交结算信息修改申请', '2026-03-12 10:26'),
-      createLog('平台运营-周航', '核实通过', '证件与账户信息核验完成', '2026-03-12 14:50'),
+      createLog('平台运营-周航', '核实记录', '证件与账户信息核验完成', '2026-03-12 14:50'),
       createLog('平台运营-周航', '平台打印结算信息变更申请单', '打印申请单用于线下签字', '2026-03-12 15:18'),
-      createLog('平台运营-周航', '平台上传签字证明附件', '签字证明已上传，进入待审核生效', '2026-03-13 09:41'),
-      createLog('平台运营-周航', '审核生效', '审核生效，生成新版本 V3', '2026-03-13 13:26'),
-      createLog('平台运营-周航', '新版本生成', '结算信息版本由 V2 变更为 V3', '2026-03-13 13:26'),
+      createLog('平台运营-周航', '平台上传签字证明附件', '签字证明已上传', '2026-03-13 09:41'),
+      createLog('平台运营-周航', '审核通过', '审核通过，生成新版本 V3', '2026-03-13 13:26'),
     ],
   },
   {
@@ -614,6 +740,22 @@ function calcNextVersionNo(versionNo: string): string {
   return `V${parseVersionNo(versionNo) + 1}`
 }
 
+function getLatestVersionRecordByFactory(factoryId: string): SettlementVersionRecord | null {
+  const records = settlementVersionHistory.filter((item) => item.factoryId === factoryId)
+  if (records.length === 0) return null
+  return records.reduce((latest, item) =>
+    parseVersionNo(item.versionNo) > parseVersionNo(latest.versionNo) ? item : latest,
+  )
+}
+
+function getLatestVersionNoByFactory(factoryId: string): string {
+  const effective = getEffectiveInfoByFactoryOrNull(factoryId)
+  const historyRecord = getLatestVersionRecordByFactory(factoryId)
+  const effectiveVersion = effective ? parseVersionNo(effective.versionNo) : 1
+  const historyVersion = historyRecord ? parseVersionNo(historyRecord.versionNo) : 1
+  return `V${Math.max(effectiveVersion, historyVersion)}`
+}
+
 function isOpenRequest(status: SettlementChangeRequestStatus): boolean {
   return OPEN_REQUEST_STATUSES.includes(status)
 }
@@ -638,6 +780,15 @@ function summarizeChangedFields(before: SettlementEffectiveInfoSnapshot, after: 
   if (before.bankAccountNo !== after.bankAccountNo) changed.push('银行账号')
   if (before.bankBranch !== after.bankBranch) changed.push('开户支行')
   return changed.length > 0 ? changed.join('、') : '信息确认'
+}
+
+function applyAccountSnapshot(target: SettlementEffectiveInfo, snapshot: SettlementEffectiveInfoSnapshot): void {
+  target.accountHolderName = snapshot.accountHolderName
+  target.idNumber = snapshot.idNumber
+  target.bankName = snapshot.bankName
+  target.bankAccountNo = snapshot.bankAccountNo
+  target.bankBranch = snapshot.bankBranch
+  target.receivingAccountSnapshot = cloneAccountSnapshot(snapshot)
 }
 
 export function getSettlementEffectiveInfos(): SettlementEffectiveInfo[] {
@@ -697,7 +848,7 @@ export function createSettlementChangeRequest(payload: {
     requestId: nextRequestId(),
     factoryId: payload.factoryId,
     factoryName: current.factoryName,
-    status: 'PENDING_VERIFY',
+    status: 'PENDING_REVIEW',
     submittedAt: createdAt,
     submittedBy: payload.submittedBy,
     submitRemark: payload.submitRemark.trim(),
@@ -712,14 +863,8 @@ export function createSettlementChangeRequest(payload: {
     targetVersionNo: calcNextVersionNo(current.versionNo),
     effectiveAt: '',
     effectiveBy: '',
-    before: {
-      accountHolderName: current.accountHolderName,
-      idNumber: current.idNumber,
-      bankName: current.bankName,
-      bankAccountNo: current.bankAccountNo,
-      bankBranch: current.bankBranch,
-    },
-    after: payload.after,
+    before: cloneAccountSnapshot(current.receivingAccountSnapshot),
+    after: cloneAccountSnapshot(payload.after),
     logs: [],
   }
 
@@ -730,7 +875,7 @@ export function createSettlementChangeRequest(payload: {
     `工厂提交结算信息修改申请（变更项：${summarizeChangedFields(request.before, request.after)}）`,
   )
   settlementChangeRequests.unshift(request)
-  return { ok: true, message: '修改申请已提交，等待平台核实', data: request }
+  return { ok: true, message: '修改申请已提交，等待平台审核', data: request }
 }
 
 export function verifySettlementRequest(
@@ -740,11 +885,10 @@ export function verifySettlementRequest(
 ): ActionResult<SettlementChangeRequest> {
   const request = getRequestByIdOrNull(requestId)
   if (!request) return { ok: false, message: '申请不存在' }
-  if (request.status !== 'PENDING_VERIFY') return { ok: false, message: '当前状态不可执行核实通过' }
-  request.status = 'WAIT_SIGNED_FORM'
+  if (request.status !== 'PENDING_REVIEW') return { ok: false, message: '当前状态不可记录核实' }
   request.verifyRemark = remark.trim()
-  pushRequestLog(request, operator, '核实通过', remark.trim() || '证件与账户信息核验通过')
-  return { ok: true, message: '已核实通过，等待签字回传', data: request }
+  pushRequestLog(request, operator, '核实记录', remark.trim() || '平台已完成信息核实')
+  return { ok: true, message: '核实备注已记录', data: request }
 }
 
 export function markSettlementRequestPrinted(
@@ -753,8 +897,8 @@ export function markSettlementRequestPrinted(
 ): ActionResult<SettlementChangeRequest> {
   const request = getRequestByIdOrNull(requestId)
   if (!request) return { ok: false, message: '申请不存在' }
-  if (request.status === 'EFFECTIVE' || request.status === 'REJECTED') {
-    return { ok: false, message: '已完结申请无需再次打印' }
+  if (request.status !== 'PENDING_REVIEW') {
+    return { ok: false, message: '当前状态不可打印申请单' }
   }
   request.printedAt = nowText()
   request.printedBy = operator
@@ -765,15 +909,15 @@ export function markSettlementRequestPrinted(
 export function uploadSettlementSignedProof(
   requestId: string,
   operator: string,
-  fileType: 'IMAGE' | 'VIDEO',
+  fileType: 'IMAGE' | 'FILE',
 ): ActionResult<SettlementChangeRequest> {
   const request = getRequestByIdOrNull(requestId)
   if (!request) return { ok: false, message: '申请不存在' }
-  if (request.status !== 'WAIT_SIGNED_FORM' && request.status !== 'WAIT_APPROVAL') {
+  if (request.status !== 'PENDING_REVIEW') {
     return { ok: false, message: '当前状态不可上传签字证明附件' }
   }
   const nextIndex = request.signedProofFiles.length + 1
-  const ext = fileType === 'IMAGE' ? 'jpg' : 'mp4'
+  const ext = fileType === 'IMAGE' ? 'jpg' : 'pdf'
   request.signedProofFiles.push({
     id: `FILE-${request.requestId}-${nextIndex}`,
     name: `签字证明附件-${nextIndex}.${ext}`,
@@ -781,7 +925,7 @@ export function uploadSettlementSignedProof(
     uploadedAt: nowText(),
     uploadedBy: operator,
   })
-  pushRequestLog(request, operator, '平台上传签字证明附件', `新增${fileType === 'IMAGE' ? '图片' : '视频'}附件 1 份`)
+  pushRequestLog(request, operator, '平台上传签字证明附件', `新增${fileType === 'IMAGE' ? '图片' : '附件'} 1 份`)
   return { ok: true, message: '签字证明附件已上传', data: request }
 }
 
@@ -791,18 +935,17 @@ export function submitSettlementSignedProof(
 ): ActionResult<SettlementChangeRequest> {
   const request = getRequestByIdOrNull(requestId)
   if (!request) return { ok: false, message: '申请不存在' }
-  if (request.status !== 'WAIT_SIGNED_FORM') return { ok: false, message: '当前状态不可提交签字附件' }
-  if (request.signedProofFiles.length === 0) return { ok: false, message: '请先上传签字证明附件' }
-  request.status = 'WAIT_APPROVAL'
-  pushRequestLog(request, operator, '提交签字附件', '签字证明附件齐全，进入待审核生效')
-  return { ok: true, message: '签字附件已提交，等待审核生效', data: request }
+  if (request.status !== 'PENDING_REVIEW') return { ok: false, message: '当前状态不可提交签字附件' }
+  if (request.signedProofFiles.length === 0) return { ok: false, message: '请先上传签字证明图片/附件' }
+  pushRequestLog(request, operator, '提交签字附件', '签字证明附件已齐全')
+  return { ok: true, message: '签字附件已提交，可执行审核', data: request }
 }
 
 // backward compatible exports
 export function uploadSettlementSignedForm(
   requestId: string,
   operator: string,
-  fileType: 'IMAGE' | 'VIDEO',
+  fileType: 'IMAGE' | 'FILE',
 ): ActionResult<SettlementChangeRequest> {
   return uploadSettlementSignedProof(requestId, operator, fileType)
 }
@@ -831,22 +974,31 @@ export function approveSettlementRequest(
 ): ActionResult<SettlementChangeRequest> {
   const request = getRequestByIdOrNull(requestId)
   if (!request) return { ok: false, message: '申请不存在' }
-  if (request.status !== 'WAIT_APPROVAL') return { ok: false, message: '当前状态不可审核生效' }
-  if (request.signedProofFiles.length === 0) return { ok: false, message: '请先上传签字证明附件' }
-  if (!request.paperArchived) return { ok: false, message: '请确认纸质文件已留档' }
+  if (request.status !== 'PENDING_REVIEW') return { ok: false, message: '当前状态不可审核通过' }
+  if (request.signedProofFiles.length === 0) return { ok: false, message: '请先上传签字证明图片/附件' }
 
   const current = getEffectiveInfoByFactoryOrNull(request.factoryId)
   if (!current) return { ok: false, message: '未找到当前生效信息' }
+  const latestVersionNo = getLatestVersionNoByFactory(request.factoryId)
+  const nextVersionNo = calcNextVersionNo(latestVersionNo)
+  request.targetVersionNo = nextVersionNo
 
-  current.accountHolderName = request.after.accountHolderName
-  current.idNumber = request.after.idNumber
-  current.bankName = request.after.bankName
-  current.bankAccountNo = request.after.bankAccountNo
-  current.bankBranch = request.after.bankBranch
-  current.versionNo = request.targetVersionNo
+  const latestRecord = getLatestVersionRecordByFactory(request.factoryId)
+  const nextConfigSnapshot = cloneConfigSnapshot(
+    latestRecord ? latestRecord.settlementConfigSnapshot : current.settlementConfigSnapshot,
+  )
+  const nextRulesSnapshot = cloneDeductionRuleSnapshots(
+    latestRecord ? latestRecord.defaultDeductionRulesSnapshot : current.defaultDeductionRulesSnapshot,
+  )
+  const nextAccountSnapshot = cloneAccountSnapshot(request.after)
+
+  applyAccountSnapshot(current, nextAccountSnapshot)
+  current.versionNo = nextVersionNo
   current.effectiveAt = nowText()
   current.effectiveBy = operator
   current.updatedBy = operator
+  current.settlementConfigSnapshot = nextConfigSnapshot
+  current.defaultDeductionRulesSnapshot = nextRulesSnapshot
 
   settlementVersionHistory.push({
     versionId: nextVersionId(),
@@ -861,15 +1013,18 @@ export function approveSettlementRequest(
     effectiveAt: current.effectiveAt,
     effectiveBy: current.effectiveBy,
     sourceRequestId: request.requestId,
+    settlementConfigSnapshot: cloneConfigSnapshot(nextConfigSnapshot),
+    receivingAccountSnapshot: cloneAccountSnapshot(nextAccountSnapshot),
+    defaultDeductionRulesSnapshot: cloneDeductionRuleSnapshots(nextRulesSnapshot),
   })
 
-  request.status = 'EFFECTIVE'
+  request.status = 'APPROVED'
   request.effectiveAt = current.effectiveAt
   request.effectiveBy = operator
   request.reviewRemark = reviewRemark.trim()
-  pushRequestLog(request, operator, '审核生效', reviewRemark.trim() || `审核生效，生成新版本 ${request.targetVersionNo}`)
-  pushRequestLog(request, operator, '新版本生成', `结算信息版本由 ${request.currentVersionNo} 变更为 ${request.targetVersionNo}`)
-  return { ok: true, message: '审核生效完成，当前生效信息已更新', data: request }
+  pushRequestLog(request, operator, '审核通过', reviewRemark.trim() || `审核通过，生成新版本 ${nextVersionNo}`)
+  pushRequestLog(request, operator, '新版本生成', `结算信息版本由 ${latestVersionNo} 变更为 ${nextVersionNo}`)
+  return { ok: true, message: '审核通过完成，当前生效信息已更新', data: request }
 }
 
 export function rejectSettlementRequest(
@@ -879,14 +1034,14 @@ export function rejectSettlementRequest(
 ): ActionResult<SettlementChangeRequest> {
   const request = getRequestByIdOrNull(requestId)
   if (!request) return { ok: false, message: '申请不存在' }
-  if (request.status !== 'PENDING_VERIFY' && request.status !== 'WAIT_APPROVAL') {
+  if (request.status !== 'PENDING_REVIEW') {
     return { ok: false, message: '当前状态不可驳回' }
   }
-  if (!rejectReason.trim()) return { ok: false, message: '请填写驳回原因' }
+  if (!rejectReason.trim()) return { ok: false, message: '请填写不通过原因' }
   request.status = 'REJECTED'
   request.rejectReason = rejectReason.trim()
   pushRequestLog(request, operator, '驳回申请', rejectReason.trim())
-  return { ok: true, message: '申请已驳回', data: request }
+  return { ok: true, message: '申请未通过', data: request }
 }
 
 export function followupSettlementRequest(
@@ -896,8 +1051,8 @@ export function followupSettlementRequest(
 ): ActionResult<SettlementChangeRequest> {
   const request = getRequestByIdOrNull(requestId)
   if (!request) return { ok: false, message: '申请不存在' }
-  if (request.status !== 'WAIT_APPROVAL') return { ok: false, message: '当前状态不可记录跟进' }
-  pushRequestLog(request, operator, '记录跟进', followupRemark.trim() || '平台已记录跟进')
+  if (request.status !== 'PENDING_REVIEW') return { ok: false, message: '当前状态不可记录处理备注' }
+  pushRequestLog(request, operator, '记录处理备注', followupRemark.trim() || '平台已记录处理备注')
   request.reviewRemark = followupRemark.trim()
-  return { ok: true, message: '已记录跟进', data: request }
+  return { ok: true, message: '已记录处理备注', data: request }
 }

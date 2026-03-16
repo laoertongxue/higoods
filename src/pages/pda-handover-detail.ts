@@ -2,14 +2,19 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
 import {
+  confirmPdaPickupRecordReceived,
+  createPdaPickupRecord,
+  findPdaHandoverHead,
+  findPdaPickupRecord,
   createPdaHandoverRecord,
-  findPdaHandoutHead,
   findPdaHandoverEvent,
+  getPdaPickupRecordsByHead,
   getPdaHandoverRecordsByHead,
   getReceiveSceneLabel,
   reportPdaHandoverQtyObjection,
   shouldRequireReceiptProof,
   updatePdaHandoverEvent,
+  type PdaPickupRecord,
   type PdaHandoverHead,
   type PdaHandoverRecord,
   type HandoverAction,
@@ -30,6 +35,11 @@ interface PdaHandoverDetailState {
   diffNote: string
   proofEventId: string
   proofFiles: ProofFile[]
+  pickupRecordTime: string
+  pickupRecordMode: 'WAREHOUSE_DELIVERY' | 'FACTORY_PICKUP'
+  pickupRecordMaterialSummary: string
+  pickupRecordQty: string
+  pickupRecordRemark: string
   handoverRecordTime: string
   handoverRecordRemark: string
   objectionRecordId: string
@@ -44,6 +54,11 @@ const detailState: PdaHandoverDetailState = {
   diffNote: '',
   proofEventId: '',
   proofFiles: [],
+  pickupRecordTime: '',
+  pickupRecordMode: 'WAREHOUSE_DELIVERY',
+  pickupRecordMaterialSummary: '',
+  pickupRecordQty: '',
+  pickupRecordRemark: '',
   handoverRecordTime: '',
   handoverRecordRemark: '',
   objectionRecordId: '',
@@ -212,6 +227,32 @@ function syncHandoutState(handoverId: string): void {
   detailState.handoverRecordRemark = ''
   detailState.proofEventId = handoverId
   detailState.proofFiles = []
+  detailState.pickupRecordTime = ''
+  detailState.pickupRecordMode = 'WAREHOUSE_DELIVERY'
+  detailState.pickupRecordMaterialSummary = ''
+  detailState.pickupRecordQty = ''
+  detailState.pickupRecordRemark = ''
+  detailState.objectionRecordId = ''
+  detailState.objectionReason = ''
+  detailState.objectionRemark = ''
+  detailState.objectionProofFiles = []
+}
+
+function syncPickupState(head: PdaHandoverHead): void {
+  const pathname = appStore.getState().pathname
+  const key = `pickup:${head.handoverId}|${pathname}`
+  if (detailState.initializedKey === key) return
+
+  detailState.initializedKey = key
+  detailState.pickupRecordTime = nowDateTimeLocalInput()
+  detailState.pickupRecordMode = 'WAREHOUSE_DELIVERY'
+  detailState.pickupRecordMaterialSummary = `${head.processName}领料补充批次`
+  detailState.pickupRecordQty = String(Math.max(1, head.qtyExpectedTotal - head.qtyActualTotal))
+  detailState.pickupRecordRemark = ''
+  detailState.proofEventId = head.handoverId
+  detailState.proofFiles = []
+  detailState.handoverRecordTime = ''
+  detailState.handoverRecordRemark = ''
   detailState.objectionRecordId = ''
   detailState.objectionReason = ''
   detailState.objectionRemark = ''
@@ -762,6 +803,175 @@ function getRecordStatusMeta(status: PdaHandoverRecord['status']): { label: stri
   return { label: '异议已处理', className: 'border-zinc-200 bg-zinc-100 text-zinc-700' }
 }
 
+function getPickupRecordStatusMeta(status: PdaPickupRecord['status']): { label: string; className: string } {
+  if (status === 'PENDING_WAREHOUSE_DISPATCH') {
+    return { label: '待仓库发出', className: 'border-amber-200 bg-amber-50 text-amber-700' }
+  }
+  if (status === 'PENDING_FACTORY_PICKUP') {
+    return { label: '待自提', className: 'border-blue-200 bg-blue-50 text-blue-700' }
+  }
+  return { label: '已领料确认', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+}
+
+function renderPickupRecordItem(record: PdaPickupRecord, head: PdaHandoverHead): string {
+  const meta = getPickupRecordStatusMeta(record.status)
+  const diffQty = (record.qtyActual ?? 0) - record.qtyExpected
+
+  return `
+    <article class="space-y-2 rounded-lg border bg-card p-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xs text-muted-foreground">${escapeHtml(record.recordId)}</span>
+          <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">第 ${record.sequenceNo} 次领料</span>
+          <span class="inline-flex items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
+        </div>
+        <span class="text-[11px] text-muted-foreground">发起时间：${escapeHtml(record.submittedAt)}</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        <div><span class="text-muted-foreground">领料方式：</span>${escapeHtml(record.pickupModeLabel)}</div>
+        <div><span class="text-muted-foreground">物料摘要：</span>${escapeHtml(record.materialSummary)}</div>
+        <div><span class="text-muted-foreground">本次应领：</span>${record.qtyExpected} ${escapeHtml(record.qtyUnit)}</div>
+        <div><span class="text-muted-foreground">本次实领：</span>${typeof record.qtyActual === 'number' ? `${record.qtyActual} ${escapeHtml(record.qtyUnit)}` : '待确认'}</div>
+        <div><span class="text-muted-foreground">备注：</span>${escapeHtml(record.remark || '—')}</div>
+        <div><span class="text-muted-foreground">确认时间：</span>${escapeHtml(record.receivedAt || '待确认')}</div>
+      </div>
+
+      ${
+        typeof record.qtyActual === 'number' && diffQty !== 0
+          ? `<div class="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-700">数量有差异（${diffQty > 0 ? '+' : ''}${diffQty} ${escapeHtml(record.qtyUnit)}）</div>`
+          : ''
+      }
+
+      ${
+        head.completionStatus === 'OPEN' && record.status !== 'RECEIVED'
+          ? `
+            <div class="flex items-center justify-end gap-2">
+              <button
+                class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+                data-pda-handoverd-action="confirm-pickup-record"
+                data-record-id="${escapeHtml(record.recordId)}"
+              >确认本次领料</button>
+            </div>
+          `
+          : ''
+      }
+    </article>
+  `
+}
+
+function renderPickupHeadDetail(head: PdaHandoverHead): string {
+  const records = getPdaPickupRecordsByHead(head.handoverId)
+  const isCompleted = head.completionStatus === 'COMPLETED'
+
+  return `
+    ${renderSectionCard(
+      '领料信息（领料头）',
+      `
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        ${renderFieldRow('任务编号', head.taskNo)}
+        ${renderFieldRow('生产单号', head.productionOrderNo)}
+        ${renderFieldRow('当前工序', head.processName)}
+        ${renderFieldRow('任务状态', head.taskStatus === 'DONE' ? '已完工' : '进行中')}
+      </div>
+      <div class="h-px bg-border"></div>
+      ${renderPartyRow('来源仓库', 'WAREHOUSE', head.sourceFactoryName)}
+      ${renderPartyRow('领料工厂', 'FACTORY', head.targetName)}
+      <div class="h-px bg-border"></div>
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        ${renderFieldRow('累计领料记录', `${head.recordCount} 次`)}
+        ${renderFieldRow('待完成记录', `${head.pendingWritebackCount} 次`)}
+        ${renderFieldRow('应领总量', `${head.qtyExpectedTotal} ${head.qtyUnit}`)}
+        ${renderFieldRow('累计实领总量', `${head.qtyActualTotal} ${head.qtyUnit}`)}
+      </div>
+      <div class="rounded-md border ${head.qtyDiffTotal !== 0 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'} px-2.5 py-1.5 text-xs">
+        ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${head.qtyDiffTotal > 0 ? '-' : '+'}${Math.abs(head.qtyDiffTotal)} ${head.qtyUnit}）` : '数量一致'}
+      </div>
+      <div class="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
+        ${isCompleted ? `仓库已发起领料完成：${escapeHtml(head.completedByWarehouseAt || '—')}` : '当前头单待仓库发起完成，工厂不可主动关闭'}
+      </div>
+    `,
+    )}
+
+    ${
+      !isCompleted
+        ? renderSectionCard(
+            '新增领料记录',
+            `
+      <div class="grid gap-2 md:grid-cols-2">
+        <div class="space-y-1">
+          <label class="text-xs font-medium">本次领料时间 *</label>
+          <input
+            class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            type="datetime-local"
+            value="${escapeHtml(detailState.pickupRecordTime)}"
+            data-pda-handoverd-field="pickupRecordTime"
+          />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium">领料方式 *</label>
+          <select
+            class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            data-pda-handoverd-field="pickupRecordMode"
+          >
+            <option value="WAREHOUSE_DELIVERY" ${detailState.pickupRecordMode === 'WAREHOUSE_DELIVERY' ? 'selected' : ''}>仓库配送到厂</option>
+            <option value="FACTORY_PICKUP" ${detailState.pickupRecordMode === 'FACTORY_PICKUP' ? 'selected' : ''}>工厂到仓自提</option>
+          </select>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-medium">物料摘要 *</label>
+        <input
+          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+          value="${escapeHtml(detailState.pickupRecordMaterialSummary)}"
+          data-pda-handoverd-field="pickupRecordMaterialSummary"
+          placeholder="例如：主布+辅料包"
+        />
+      </div>
+      <div class="grid gap-2 md:grid-cols-2">
+        <div class="space-y-1">
+          <label class="text-xs font-medium">本次数量 *</label>
+          <input
+            class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            type="number"
+            value="${escapeHtml(detailState.pickupRecordQty)}"
+            data-pda-handoverd-field="pickupRecordQty"
+          />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs">备注</label>
+          <input
+            class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            value="${escapeHtml(detailState.pickupRecordRemark)}"
+            data-pda-handoverd-field="pickupRecordRemark"
+            placeholder="可填写分批说明"
+          />
+        </div>
+      </div>
+      <div class="flex justify-end">
+        <button
+          class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          data-pda-handoverd-action="submit-pickup-record"
+          data-handover-id="${escapeHtml(head.handoverId)}"
+        >
+          <i data-lucide="plus" class="mr-1.5 h-4 w-4"></i>确认新增领料记录
+        </button>
+      </div>
+      <p class="text-xs text-muted-foreground">领料头完成仅由仓库侧发起，工厂仅维护领料记录与确认。</p>
+    `,
+          )
+        : ''
+    }
+
+    ${renderSectionCard(
+      '领料记录列表',
+      records.length === 0
+        ? '<div class="py-4 text-center text-xs text-muted-foreground">暂无领料记录</div>'
+        : `<div class="space-y-2">${records.map((record) => renderPickupRecordItem(record, head)).join('')}</div>`,
+    )}
+  `
+}
+
 function renderLegacyHandoutDetail(event: HandoverEvent): string {
   return `
     ${renderSectionCard(
@@ -949,6 +1159,7 @@ function renderHandoutRecordItem(record: PdaHandoverRecord): string {
 
 function renderHandoutHeadDetail(head: PdaHandoverHead): string {
   const records = getPdaHandoverRecordsByHead(head.handoverId)
+  const isCompleted = head.completionStatus === 'COMPLETED'
 
   return `
     ${renderSectionCard(
@@ -970,12 +1181,20 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
         ${renderFieldRow('累计已回写数量', `${head.writtenBackQtyTotal} ${head.qtyUnit}`)}
         ${renderFieldRow('数量异议', `${head.objectionCount} 条`)}
       </div>
+      <div class="rounded-md border ${head.qtyDiffTotal !== 0 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'} px-2.5 py-1.5 text-xs">
+        ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${head.qtyDiffTotal > 0 ? '-' : '+'}${Math.abs(head.qtyDiffTotal)} ${head.qtyUnit}）` : '数量一致'}
+      </div>
+      <div class="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
+        ${isCompleted ? `仓库已发起交出完成：${escapeHtml(head.completedByWarehouseAt || '—')}` : '当前交出头待仓库发起完成，工厂不可主动关闭'}
+      </div>
     `,
     )}
 
-    ${renderSectionCard(
-      '新增交出记录',
-      `
+    ${
+      !isCompleted
+        ? renderSectionCard(
+            '新增交出记录',
+            `
       <div class="space-y-2">
         <label class="text-xs font-medium">本次交出时间 *</label>
         <input
@@ -1005,7 +1224,9 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       </div>
       <p class="text-xs text-muted-foreground">工厂仅发起交出记录，最终交出数量以后续仓库回写为准。</p>
     `,
-    )}
+          )
+        : ''
+    }
 
     ${renderSectionCard(
       '交出记录列表',
@@ -1017,10 +1238,10 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
 }
 
 export function renderPdaHandoverDetailPage(eventId: string): string {
-  const event = findPdaHandoverEvent(eventId)
-  const handoutHead = event ? undefined : findPdaHandoutHead(eventId)
+  const head = findPdaHandoverHead(eventId)
+  const event = head ? undefined : findPdaHandoverEvent(eventId)
 
-  if (!event && !handoutHead) {
+  if (!event && !head) {
     const content = `
       <div class="space-y-4 p-4">
         <button class="inline-flex h-8 items-center rounded-md px-2 text-sm text-muted-foreground hover:bg-muted" data-pda-handoverd-action="back">
@@ -1032,10 +1253,26 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
     return renderPdaFrame(content, 'handover')
   }
 
+  if (event && event.action === 'RECEIVE') {
+    const content = `
+      <div class="space-y-4 p-4">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm text-muted-foreground hover:bg-muted" data-pda-handoverd-action="back">
+          <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回
+        </button>
+        <article class="rounded-lg border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+          待接收链路已停用，请通过待领料/待交出头单查看交接详情。
+        </article>
+      </div>
+    `
+    return renderPdaFrame(content, 'handover')
+  }
+
   if (event) {
     syncState(eventId, event)
-  } else if (handoutHead) {
-    syncHandoutState(handoutHead.handoverId)
+  } else if (head?.headType === 'PICKUP') {
+    syncPickupState(head)
+  } else if (head?.headType === 'HANDOUT') {
+    syncHandoutState(head.handoverId)
   }
 
   const content = `
@@ -1048,7 +1285,7 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
           <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回
         </button>
         <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold">${escapeHtml(event ? getActionTitle(event.action) : '交出详情')}</span>
+          <span class="text-sm font-semibold">${escapeHtml(event ? getActionTitle(event.action) : head?.headType === 'PICKUP' ? '领料详情' : '交出详情')}</span>
         </div>
         <div class="w-16"></div>
       </div>
@@ -1073,15 +1310,15 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
             `
             : `
               <span class="inline-flex items-center gap-1">
-                <i data-lucide="factory" class="h-3.5 w-3.5 text-muted-foreground"></i>
-                <span class="text-muted-foreground">${escapeHtml(handoutHead?.sourceFactoryName ?? '')}</span>
+                <i data-lucide="${head?.headType === 'PICKUP' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-muted-foreground"></i>
+                <span class="text-muted-foreground">${escapeHtml(head?.sourceFactoryName ?? '')}</span>
               </span>
               <i data-lucide="arrow-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
               <span class="inline-flex items-center gap-1">
-                <i data-lucide="${handoutHead?.targetKind === 'WAREHOUSE' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-primary"></i>
-                <span class="font-medium text-primary">${escapeHtml(handoutHead?.targetName ?? '')}</span>
+                <i data-lucide="${head?.targetKind === 'WAREHOUSE' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-primary"></i>
+                <span class="font-medium text-primary">${escapeHtml(head?.targetName ?? '')}</span>
               </span>
-              <div class="ml-auto text-xs text-muted-foreground">一个任务一个交出头</div>
+              <div class="ml-auto text-xs text-muted-foreground">一个任务一个${head?.headType === 'PICKUP' ? '领料头' : '交出头'}</div>
             `
         }
       </div>
@@ -1093,8 +1330,10 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
             : event.action === 'RECEIVE'
               ? renderReceiveDetail(event)
               : renderLegacyHandoutDetail(event)
-          : handoutHead
-            ? renderHandoutHeadDetail(handoutHead)
+          : head
+            ? head.headType === 'PICKUP'
+              ? renderPickupHeadDetail(head)
+              : renderHandoutHeadDetail(head)
             : ''
       }
     </div>
@@ -1125,6 +1364,32 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
 
     if (field === 'handoverRecordTime') {
       detailState.handoverRecordTime = fieldNode.value
+      return true
+    }
+
+    if (field === 'pickupRecordTime') {
+      detailState.pickupRecordTime = fieldNode.value
+      return true
+    }
+
+    if (field === 'pickupRecordMode') {
+      detailState.pickupRecordMode =
+        fieldNode.value === 'FACTORY_PICKUP' ? 'FACTORY_PICKUP' : 'WAREHOUSE_DELIVERY'
+      return true
+    }
+
+    if (field === 'pickupRecordMaterialSummary') {
+      detailState.pickupRecordMaterialSummary = fieldNode.value
+      return true
+    }
+
+    if (field === 'pickupRecordQty') {
+      detailState.pickupRecordQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'pickupRecordRemark') {
+      detailState.pickupRecordRemark = fieldNode.value
       return true
     }
 
@@ -1247,6 +1512,78 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     detailState.handoverRecordRemark = ''
     detailState.proofFiles = []
     showPdaHandoverDetailToast(`交出记录已新增：${created.recordId}`)
+    return true
+  }
+
+  if (action === 'submit-pickup-record') {
+    const handoverId = actionNode.dataset.handoverId
+    if (!handoverId) return true
+
+    if (!detailState.pickupRecordTime) {
+      showPdaHandoverDetailToast('请先填写本次领料时间')
+      return true
+    }
+    if (isFutureLocalDateTime(detailState.pickupRecordTime)) {
+      showPdaHandoverDetailToast('本次领料时间不能晚于当前时间')
+      return true
+    }
+    if (!detailState.pickupRecordMaterialSummary.trim()) {
+      showPdaHandoverDetailToast('请先填写物料摘要')
+      return true
+    }
+    const qtyExpected = Number(detailState.pickupRecordQty)
+    if (!Number.isFinite(qtyExpected) || qtyExpected <= 0) {
+      showPdaHandoverDetailToast('请先填写正确的本次数量')
+      return true
+    }
+
+    const created = createPdaPickupRecord(handoverId, {
+      submittedAt: dateTimeLocalInputToTimestamp(detailState.pickupRecordTime),
+      pickupMode: detailState.pickupRecordMode,
+      materialSummary: detailState.pickupRecordMaterialSummary,
+      qtyExpected,
+      remark: detailState.pickupRecordRemark,
+    })
+    if (!created) {
+      showPdaHandoverDetailToast('新增领料记录失败，请稍后重试')
+      return true
+    }
+
+    appendTaskAudit(
+      created.taskId,
+      'PICKUP_RECORD_CREATE',
+      `新增领料记录 ${created.recordId}，第 ${created.sequenceNo} 次领料`,
+      'PDA',
+    )
+    detailState.pickupRecordTime = nowDateTimeLocalInput()
+    detailState.pickupRecordMode = 'WAREHOUSE_DELIVERY'
+    detailState.pickupRecordMaterialSummary = ''
+    detailState.pickupRecordQty = ''
+    detailState.pickupRecordRemark = ''
+    showPdaHandoverDetailToast(`领料记录已新增：${created.recordId}`)
+    return true
+  }
+
+  if (action === 'confirm-pickup-record') {
+    const recordId = actionNode.dataset.recordId
+    if (!recordId) return true
+    const currentRecord = findPdaPickupRecord(recordId)
+    if (!currentRecord) {
+      showPdaHandoverDetailToast('未找到领料记录')
+      return true
+    }
+    const updated = confirmPdaPickupRecordReceived(recordId, currentRecord.qtyExpected, nowTimestamp())
+    if (!updated) {
+      showPdaHandoverDetailToast('当前记录暂不可确认领料')
+      return true
+    }
+    appendTaskAudit(
+      updated.taskId,
+      'PICKUP_RECORD_CONFIRM',
+      `确认领料记录 ${updated.recordId}，实领数量 ${updated.qtyActual ?? updated.qtyExpected}`,
+      'PDA',
+    )
+    showPdaHandoverDetailToast('本次领料已确认')
     return true
   }
 
