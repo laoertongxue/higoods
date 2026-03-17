@@ -12,6 +12,8 @@ export type AcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
 export type MilestoneStatus = 'PENDING' | 'REPORTED'
 export type PauseStatus = 'NONE' | 'REPORTED' | 'FOLLOWING_UP'
 export type PauseReasonCode = 'CUTTING_ISSUE' | 'MATERIAL_ISSUE' | 'TECH_DOC_ISSUE' | 'EQUIPMENT_ISSUE' | 'STAFF_ISSUE' | 'OTHER'
+export type MilestoneProofRequirement = 'NONE' | 'IMAGE' | 'VIDEO' | 'IMAGE_OR_VIDEO'
+export type MilestoneExceptionSeverity = 'S1' | 'S2' | 'S3'
 
 export interface TaskAuditLog {
   id: string
@@ -84,11 +86,17 @@ export interface ProcessTask {
   milestoneRuleType?: string
   milestoneRuleLabel?: string
   milestoneTargetQty?: number
+  milestoneTargetUnit?: 'PIECE' | 'YARD'
   milestoneRequired?: boolean
   milestoneStatus?: MilestoneStatus
   milestoneReportedAt?: string | null
   milestoneReportedQty?: number | null
   milestoneProofFiles?: ExecProofFile[]
+  milestoneProofRequirement?: MilestoneProofRequirement
+  milestoneOverdueExceptionEnabled?: boolean
+  milestoneOverdueHours?: number
+  milestoneExceptionSeverity?: MilestoneExceptionSeverity
+  milestoneOverdueExceptionId?: string | null
   // 上报暂停（工厂上报，平台决定是否允许继续）
   pauseStatus?: PauseStatus
   pauseReasonCode?: PauseReasonCode | null
@@ -1466,7 +1474,7 @@ export const processTasks: ProcessTask[] = [
   // =============================================
 
   // —— 待开工 (NOT_STARTED) ——————————————————————
-  // A1: 首道工序，已领料，可开工
+  // A1: 首道工序，已有领料记录，可开工
 {
   taskId: 'PDA-EXEC-001',
   productionOrderId: 'PO-2024-0012',
@@ -1500,7 +1508,7 @@ export const processTasks: ProcessTask[] = [
     { id: 'PDA-AL-002', action: 'ACCEPT_TASK', detail: '工厂确认接单', at: '2026-03-10 09:00:00', by: 'PT_Sinar_调度员' },
   ],
 } as any,
-// A2: 首道工序，已领料，可开工（另一单）
+// A2: 首道工序，已有领料记录，可开工（另一单）
 {
   taskId: 'PDA-EXEC-002',
   productionOrderId: 'PO-2024-0013',
@@ -1534,7 +1542,7 @@ export const processTasks: ProcessTask[] = [
     { id: 'PDA-AL-004', action: 'ACCEPT_TASK', detail: '工厂确认接单', at: '2026-03-10 14:00:00', by: 'PT_Sinar_调度员' },
   ],
 } as any,
-// B1: 非首道工序，已接收，可开工（来自中标）
+// B1: 非首道工序，已有领料记录，可开工（来自中标）
 {
   taskId: 'PDA-EXEC-003',
   productionOrderId: 'PO-2024-0012',
@@ -1553,7 +1561,7 @@ export const processTasks: ProcessTask[] = [
   acceptanceStatus: 'ACCEPTED',
   acceptedAt: '2026-03-14 08:30:00',
   awardedAt: '2026-03-14 08:00:00',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-22 18:00',
   dispatchPrice: 8500,
   dispatchPriceCurrency: 'IDR',
@@ -1571,7 +1579,7 @@ export const processTasks: ProcessTask[] = [
     { id: 'PDA-AL-007', action: 'ACCEPT_TASK', detail: '工厂确认接单', at: '2026-03-11 08:30:00', by: 'PT_Sinar_调度员' },
   ],
 } as any,
-// B2: 非首道工序，已接收，可开工
+// B2: 非首道工序，已有领料记录，可开工
 {
   taskId: 'PDA-EXEC-004',
   productionOrderId: 'PO-2024-0014',
@@ -1588,7 +1596,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
   acceptedAt: '2026-03-15 20:00:00',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-16 18:00',
   dispatchPrice: 2000,
   dispatchPriceCurrency: 'IDR',
@@ -1605,7 +1613,7 @@ export const processTasks: ProcessTask[] = [
     { id: 'PDA-AL-009', action: 'ACCEPT_TASK', detail: '工厂确认接单', at: '2026-03-11 10:00:00', by: 'PT_Sinar_调度员' },
   ],
 } as any,
-// C: 首道工序，未领料，不可开工
+// C: 首道工序，尚无领料记录，暂不可开工
 {
   taskId: 'PDA-EXEC-005',
   productionOrderId: 'PO-2024-0015',
@@ -1638,7 +1646,7 @@ export const processTasks: ProcessTask[] = [
     { id: 'PDA-AL-010', action: 'CREATE', detail: '自动拆解生成', at: '2026-03-11 10:00:00', by: '系统' },
   ],
 } as any,
-// D: 非首道工序，未接收，不可开工
+// D: 非首道工序，尚无领料记录，暂不可开工
 {
   taskId: 'PDA-EXEC-006',
   productionOrderId: 'PO-2024-0016',
@@ -1733,12 +1741,13 @@ export const processTasks: ProcessTask[] = [
   acceptanceStatus: 'ACCEPTED',
   acceptedAt: '2026-03-14 10:00:00',
   awardedAt: '2026-03-14 09:30:00',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-13 08:00',
   startedAt: '2026-03-09 14:00:00',
-  milestoneRuleType: 'SEW_FIRST_5_PIECES',
-  milestoneRuleLabel: '完成第 5 件',
+  milestoneRuleType: 'AFTER_N_PIECES',
+  milestoneRuleLabel: '完成第 5 件后上报',
   milestoneTargetQty: 5,
+  milestoneTargetUnit: 'PIECE',
   milestoneRequired: true,
   milestoneStatus: 'PENDING',
   dispatchPrice: 9000,
@@ -1771,7 +1780,7 @@ export const processTasks: ProcessTask[] = [
   acceptanceStatus: 'ACCEPTED',
   acceptedAt: '2026-03-13 10:00:00',
   awardedAt: '2026-03-13 09:00:00',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-10 18:00',
   startedAt: '2026-03-08 09:00:00',
   dispatchPrice: 2000,
@@ -1802,12 +1811,13 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-25 18:00',
   startedAt: '2026-03-11 07:30:00',
-  milestoneRuleType: 'SEW_FIRST_5_PIECES',
-  milestoneRuleLabel: '完成第 5 件',
+  milestoneRuleType: 'AFTER_N_PIECES',
+  milestoneRuleLabel: '完成第 5 件后上报',
   milestoneTargetQty: 5,
+  milestoneTargetUnit: 'PIECE',
   milestoneRequired: true,
   milestoneStatus: 'REPORTED',
   milestoneReportedAt: '2026-03-11 08:10:00',
@@ -1875,7 +1885,7 @@ export const processTasks: ProcessTask[] = [
   updatedAt: '2026-03-10 14:00:00',
   auditLogs: [],
 } as any,
-// 非首道工序 - 上一步半成品异常
+// 非首道工序 - 领料批次异常
 {
   taskId: 'PDA-EXEC-012',
   productionOrderId: 'PO-2024-0022',
@@ -1892,7 +1902,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-20 18:00',
   startedAt: '2026-03-10 09:00:00',
   dispatchPrice: 8500,
@@ -1936,7 +1946,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-17 18:00',
   startedAt: '2026-03-10 07:30:00',
   dispatchPrice: 2000,
@@ -2014,7 +2024,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-14 18:00',
   startedAt: '2026-03-09 08:00:00',
   finishedAt: '2026-03-11 17:00:00',
@@ -2081,7 +2091,7 @@ export const processTasks: ProcessTask[] = [
   assignedFactoryId: 'ID-F001',
   assignedFactoryName: 'PT Sinar Garment Indonesia',
   acceptanceStatus: 'ACCEPTED',
-  handoverStatus: 'RECEIVED',
+  handoverStatus: 'PICKED_UP',
   taskDeadline: '2026-03-11 18:00',
   startedAt: '2026-03-05 08:00:00',
   finishedAt: '2026-03-07 14:00:00',

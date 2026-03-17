@@ -118,11 +118,14 @@ import {
   handleProgressHandoverEvent,
   isProgressHandoverDialogOpen,
 } from '../pages/progress-handover'
-import { handleProgressStatusWritebackEvent } from '../pages/progress-status-writeback'
 import {
   handleProgressMaterialEvent,
   isProgressMaterialDrawerOpen,
 } from '../pages/progress-material'
+import {
+  handleProgressMilestoneConfigEvent,
+  isProgressMilestoneConfigDialogOpen,
+} from '../pages/progress-milestone-config'
 
 export function dispatchFcsPageEvent(target: HTMLElement): boolean {
   return (
@@ -157,7 +160,7 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleProgressExceptionsEvent(target) ||
     handleProgressUrgeEvent(target) ||
     handleProgressHandoverEvent(target) ||
-    handleProgressStatusWritebackEvent(target) ||
+    handleProgressMilestoneConfigEvent(target) ||
     handleProgressMaterialEvent(target) ||
     handlePenaltyOutputEvent(target) ||
     handleDyePrintOrdersEvent(target) ||
@@ -392,6 +395,13 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.materialAction = 'close-drawer'
     handleProgressMaterialEvent(fakeButton)
+    return true
+  }
+
+  if (isProgressMilestoneConfigDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.milestoneAction = 'close-drawer'
+    handleProgressMilestoneConfigEvent(fakeButton)
     return true
   }
 

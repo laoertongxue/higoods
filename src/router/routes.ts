@@ -95,10 +95,10 @@ import { renderDispatchBoardPage } from '../pages/dispatch-board'
 import { renderDispatchTendersPage } from '../pages/dispatch-tenders'
 import { renderProgressBoardPage } from '../pages/progress-board'
 import { renderProgressExceptionsPage } from '../pages/progress-exceptions'
-import { renderProgressStatusWritebackPage } from '../pages/progress-status-writeback'
 import { renderProgressMaterialPage } from '../pages/progress-material'
 import { renderProgressUrgePage } from '../pages/progress-urge'
 import { renderProgressHandoverPage } from '../pages/progress-handover'
+import { renderProgressMilestoneConfigPage } from '../pages/progress-milestone-config'
 import {
   renderTraceMappingPage,
   renderTraceParentCodesPage,
@@ -207,7 +207,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/progress/exceptions': () => renderProgressExceptionsPage(),
   '/fcs/progress/handover': () => renderProgressHandoverPage(),
   '/fcs/progress/urge': () => renderProgressUrgePage(),
-  '/fcs/progress/status-writeback': () => renderProgressStatusWritebackPage(),
+  '/fcs/progress/milestone-config': () => renderProgressMilestoneConfigPage(),
   '/fcs/progress/material': () => renderProgressMaterialPage(),
   '/fcs/craft/workbench/overview': () =>
     renderPlaceholderPage(

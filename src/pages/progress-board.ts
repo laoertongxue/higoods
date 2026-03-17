@@ -13,7 +13,6 @@ import { productionOrders, type ProductionOrder } from '../data/fcs/production-o
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { initialTenders, type Tender } from '../data/fcs/store-domain-dispatch-process'
 import {
-  calculateSlaDue,
   generateCaseId,
   generateNotificationId,
   generateUrgeId,
@@ -29,6 +28,8 @@ import {
   type UrgeType,
 } from '../data/fcs/store-domain-progress'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+import { syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
+import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
 
 applyQualitySeedBootstrap()
 
@@ -631,7 +632,15 @@ function createOrUpdateExceptionFromSignal(signal: {
   }
 
   const s1Reasons: ReasonCode[] = ['TENDER_OVERDUE', 'NO_BID', 'FACTORY_BLACKLISTED', 'HANDOVER_DIFF']
-  const s2Reasons: ReasonCode[] = ['DISPATCH_REJECTED', 'ACK_TIMEOUT', 'TENDER_NEAR_DEADLINE', 'TECH_PACK_NOT_RELEASED', 'MATERIAL_NOT_READY', 'START_OVERDUE']
+  const s2Reasons: ReasonCode[] = [
+    'DISPATCH_REJECTED',
+    'ACK_TIMEOUT',
+    'TENDER_NEAR_DEADLINE',
+    'TECH_PACK_NOT_RELEASED',
+    'MATERIAL_NOT_READY',
+    'START_OVERDUE',
+    'MILESTONE_NOT_REPORTED',
+  ]
 
   let severity: Severity = 'S3'
   if (s1Reasons.includes(signal.reasonCode)) {
@@ -640,12 +649,12 @@ function createOrUpdateExceptionFromSignal(signal: {
     severity = 'S2'
   }
 
-  let category: ExceptionCategory = 'PRODUCTION_BLOCK'
+  let category: ExceptionCategory = 'EXECUTION'
   if (signal.reasonCode.startsWith('BLOCKED_')) {
-    category = 'PRODUCTION_BLOCK'
+    category = 'EXECUTION'
   } else if (['TENDER_OVERDUE', 'TENDER_NEAR_DEADLINE', 'NO_BID', 'PRICE_ABNORMAL', 'DISPATCH_REJECTED', 'ACK_TIMEOUT', 'FACTORY_BLACKLISTED'].includes(signal.reasonCode)) {
     category = 'ASSIGNMENT'
-  } else if (signal.reasonCode === 'START_OVERDUE') {
+  } else if (signal.reasonCode === 'START_OVERDUE' || signal.reasonCode === 'MILESTONE_NOT_REPORTED') {
     category = 'EXECUTION'
   } else if (signal.reasonCode === 'TECH_PACK_NOT_RELEASED') {
     category = 'TECH_PACK'
@@ -696,6 +705,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     HANDOVER_DIFF: '交接差异',
     MATERIAL_NOT_READY: '物料未齐套',
     START_OVERDUE: '开工逾期',
+    MILESTONE_NOT_REPORTED: '关键节点未上报',
   }
 
   const exception: ExceptionCase = {
@@ -713,7 +723,6 @@ function createOrUpdateExceptionFromSignal(signal: {
     detail: signal.detail ?? `${signal.sourceType} ${signal.sourceId} 触发异常：${reasonSummary[signal.reasonCode] ?? signal.reasonCode}`,
     createdAt: now,
     updatedAt: now,
-    slaDueAt: calculateSlaDue(severity, now),
     tags: [],
     actions: [],
     auditLogs: [
@@ -2286,6 +2295,8 @@ function renderHeader(filteredTasks: ProcessTask[]): string {
 }
 
 export function renderProgressBoardPage(): string {
+  syncPdaStartRiskAndExceptions()
+  syncMilestoneOverdueExceptions()
   syncPresetFromQuery()
 
   const filteredTasks = getFilteredTasks()
@@ -2365,16 +2376,6 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'task-action-view-exception' && taskId) {
-    const opened = getExceptionsByTaskId(taskId).filter((item) => item.caseStatus !== 'CLOSED')
-    if (opened.length === 0) {
-      createOrUpdateExceptionFromSignal({
-        sourceType: 'TASK',
-        sourceId: taskId,
-        reasonCode: 'BLOCKED_OTHER',
-        detail: '从任务看板手动创建异常单',
-      })
-    }
-
     openLinkedPage('异常定位与处理', `/fcs/progress/exceptions?taskId=${encodeURIComponent(taskId)}`)
     state.taskActionMenuId = null
     return true

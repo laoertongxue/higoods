@@ -7,7 +7,6 @@ import {
 import { productionOrders } from '../data/fcs/production-orders'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
-  calculateSlaDue,
   generateCaseId,
   generateHandoverEventId,
   generateNotificationId,
@@ -400,7 +399,6 @@ function createOrUpdateHandoverException(event: HandoverEvent, detail: string): 
     detail,
     createdAt: now,
     updatedAt: now,
-    slaDueAt: calculateSlaDue('S1', now),
     tags: ['交接', '差异'],
     actions: [],
     auditLogs: [

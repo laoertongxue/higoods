@@ -5,16 +5,20 @@ import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
+  getStartPrerequisite,
   getTaskStartDueInfo,
   syncPdaStartRiskAndExceptions,
 } from '../data/fcs/pda-start-link'
 import {
   PAUSE_REASON_OPTIONS,
   getPauseHandleStatus,
+  getTaskMilestoneProofHint,
   getTaskMilestoneState,
+  isTaskMilestoneProofSatisfied,
   isTaskMilestoneReported,
   reportTaskMilestone,
   reportTaskPause,
+  syncMilestoneOverdueExceptions,
 } from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
 
@@ -151,48 +155,6 @@ function getDeadlineStatus(taskDeadline?: string, finishedAt?: string): { label:
   }
 
   return { label: '正常', badgeClass: 'bg-green-100 text-green-700' }
-}
-
-function getPrerequisite(
-  seq: number,
-  handoverStatus?: string,
-): {
-  type: 'PICKUP' | 'RECEIVE'
-  isFirst: boolean
-  met: boolean
-  conditionLabel: string
-  statusLabel: string
-  blocker: string
-  fromLabel: string
-  hint: string
-} {
-  const isFirst = seq === 1
-
-  if (isFirst) {
-    const met = handoverStatus === 'PICKED_UP'
-    return {
-      type: 'PICKUP',
-      isFirst,
-      met,
-      conditionLabel: '领料完成',
-      statusLabel: met ? '已领料' : '待领料',
-      blocker: '未完成领料，暂不可开工',
-      fromLabel: '来源方：仓库',
-      hint: '领料完成后才可开工',
-    }
-  }
-
-  const met = handoverStatus === 'RECEIVED'
-  return {
-    type: 'RECEIVE',
-    isFirst,
-    met,
-    conditionLabel: '接收完成',
-    statusLabel: met ? '已接收' : '待接收',
-    blocker: '未完成接收，暂不可开工',
-    fromLabel: '来源方：上一道工序工厂',
-    hint: '接收完成后才可开工',
-  }
 }
 
 function showPdaExecDetailToast(message: string): void {
@@ -456,6 +418,7 @@ function getTaskPricing(task: ProcessTask): {
 
 export function renderPdaExecDetailPage(taskId: string): string {
   syncPdaStartRiskAndExceptions()
+  syncMilestoneOverdueExceptions()
 
   const task = processTasks.find((item) => item.taskId === taskId)
 
@@ -478,10 +441,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
   syncDialogStateWithQuery(task)
 
   const status = task.status || 'NOT_STARTED'
-  const prereq = getPrerequisite(
-    task.seq,
-    (task as ProcessTask & { handoverStatus?: string }).handoverStatus,
-  )
+  const prereq = getStartPrerequisite(task)
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
@@ -494,6 +454,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const pauseHandleStatus = getPauseHandleStatus(task)
   const startDueAt = startDueInfo.startDueAt || '—'
   const startSourceText = formatStartDueSourceText(startDueInfo.startDueSource)
+  const milestoneProofTitle =
+    milestone.proofRequirement === 'NONE'
+      ? '关键节点凭证（当前配置：不要求凭证）'
+      : `关键节点凭证（当前配置：${milestone.proofRequirementLabel}）`
   const startRiskText =
     startDueInfo.startRiskStatus === 'OVERDUE'
       ? '开工已逾期'
@@ -613,7 +577,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                     <span class="text-xs text-muted-foreground">当前状态</span>
                     <span class="text-xs font-medium ${milestone.status === 'REPORTED' ? 'text-green-700' : 'text-amber-700'}">${milestone.status === 'REPORTED' ? '已上报' : '待上报'}</span>
                     <span class="text-xs text-muted-foreground">上报数量</span>
-                    <span class="text-xs">${escapeHtml(String(milestone.status === 'REPORTED' ? (milestone.reportedQty ?? milestone.targetQty) : milestone.targetQty))} 件</span>
+                    <span class="text-xs">${escapeHtml(String(milestone.status === 'REPORTED' ? (milestone.reportedQty ?? milestone.targetQty) : milestone.targetQty))} ${escapeHtml(milestone.targetUnitLabel)}</span>
                     <span class="text-xs text-muted-foreground">上报时间</span>
                     <span class="text-xs">${escapeHtml(milestone.reportedAt || toStoreDateTime(detailState.milestoneTime) || '—')}</span>
                   </div>
@@ -641,12 +605,12 @@ export function renderPdaExecDetailPage(taskId: string): string {
                                   value="${escapeHtml(detailState.milestoneTime)}"
                                 />
                               </label>
-                              <p class="mt-2 text-xs text-muted-foreground">上报数量按规则固定为 ${milestone.targetQty} 件</p>
+                              <p class="mt-2 text-xs text-muted-foreground">上报数量按规则固定为 ${milestone.targetQty} ${escapeHtml(milestone.targetUnitLabel)}</p>
                             </div>
                             <div class="rounded-lg border">
-                              <div class="border-b px-3 py-2 text-sm font-medium">关键节点凭证（至少 1 项）</div>
+                              <div class="border-b px-3 py-2 text-sm font-medium">${escapeHtml(milestoneProofTitle)}</div>
                               <div class="p-3">
-                                ${renderProofUploadSection(detailState.milestoneProofFiles, 'milestone', '请上传第 5 件完成证明，图片或视频至少 1 项')}
+                                ${renderProofUploadSection(detailState.milestoneProofFiles, 'milestone', getTaskMilestoneProofHint(task))}
                               </div>
                             </div>
                             <button
@@ -754,14 +718,12 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
         <div class="space-y-3 p-4 text-sm">
           <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-            <span class="text-xs text-muted-foreground">工序位置</span>
-            <span class="text-xs font-medium">${prereq.isFirst ? '首道工序' : '非首道工序'}</span>
             <span class="text-xs text-muted-foreground">前置条件</span>
             <span class="text-xs font-medium">${escapeHtml(prereq.conditionLabel)}</span>
             <span class="text-xs text-muted-foreground">当前状态</span>
             <span class="text-xs font-medium ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.statusLabel)}</span>
             <span class="text-xs text-muted-foreground">来源方</span>
-            <span class="text-xs">${escapeHtml(prereq.fromLabel.replace('来源方：', ''))}</span>
+            <span class="text-xs">领料记录</span>
           </div>
 
           <div class="rounded-md border px-3 py-2.5 text-xs ${
@@ -779,9 +741,9 @@ export function renderPdaExecDetailPage(taskId: string): string {
           ${
             !prereq.met
               ? `
-                  <button class="inline-flex h-8 w-full items-center justify-center rounded-md border border-amber-300 text-sm text-amber-700 hover:bg-amber-50" data-pda-execd-action="go-handover" data-tab="${prereq.isFirst ? 'pickup' : 'receive'}">
+                  <button class="inline-flex h-8 w-full items-center justify-center rounded-md border border-amber-300 text-sm text-amber-700 hover:bg-amber-50" data-pda-execd-action="go-handover" data-tab="pickup">
                     <i data-lucide="arrow-left-right" class="mr-2 h-3.5 w-3.5"></i>
-                    去交接
+                    去领料
                   </button>
                 `
               : ''
@@ -943,9 +905,9 @@ export function renderPdaExecDetailPage(taskId: string): string {
                     </button>
                   `
                 : `
-                    <button class="inline-flex h-9 w-full items-center justify-center rounded-md border border-amber-300 text-sm text-amber-700 hover:bg-amber-50" data-pda-execd-action="go-handover" data-tab="${prereq.isFirst ? 'pickup' : 'receive'}">
+                    <button class="inline-flex h-9 w-full items-center justify-center rounded-md border border-amber-300 text-sm text-amber-700 hover:bg-amber-50" data-pda-execd-action="go-handover" data-tab="pickup">
                       <i data-lucide="arrow-left-right" class="mr-2 h-4 w-4"></i>
-                      去交接（完成前置后方可开工）
+                      去领料（有领料记录后即可开工）
                     </button>
                   `
               : ''
@@ -1130,10 +1092,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const task = processTasks.find((item) => item.taskId === taskId)
     if (!task) return true
 
-    const prereq = getPrerequisite(
-      task.seq,
-      (task as ProcessTask & { handoverStatus?: string }).handoverStatus,
-    )
+    const prereq = getStartPrerequisite(task)
 
     if (!prereq.met) {
       showPdaExecDetailToast(`无法开工：${prereq.blocker}`)
@@ -1164,6 +1123,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       proofFiles: detailState.startProofFiles,
     })
     syncPdaStartRiskAndExceptions()
+    syncMilestoneOverdueExceptions()
     showPdaExecDetailToast(
       detailState.startProofFiles.length > 0
         ? `开工成功，已上传 ${detailState.startProofFiles.length} 个开工凭证`
@@ -1191,8 +1151,15 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
-    if (detailState.milestoneProofFiles.length < 1) {
-      showPdaExecDetailToast('请至少上传 1 项关键节点凭证')
+    if (!isTaskMilestoneProofSatisfied(task, detailState.milestoneProofFiles)) {
+      const milestone = getTaskMilestoneState(task)
+      const proofHint =
+        milestone.proofRequirement === 'IMAGE'
+          ? '请至少上传 1 项关键节点图片凭证'
+          : milestone.proofRequirement === 'VIDEO'
+            ? '请至少上传 1 项关键节点视频凭证'
+            : '请至少上传 1 项关键节点凭证（图片或视频任选其一）'
+      showPdaExecDetailToast(proofHint)
       return true
     }
 

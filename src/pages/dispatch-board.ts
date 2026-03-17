@@ -713,7 +713,7 @@ function getQcPendingOrderIds(): Set<string> {
 }
 
 function getExceptionTaskIds(): Set<string> {
-  const active = new Set<ExceptionCase['caseStatus']>(['OPEN', 'IN_PROGRESS', 'WAITING_EXTERNAL'])
+  const active = new Set<ExceptionCase['caseStatus']>(['OPEN', 'IN_PROGRESS', 'RESOLVED'])
   const set = new Set<string>()
 
   for (const item of initialExceptions) {

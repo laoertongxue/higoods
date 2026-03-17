@@ -1,5 +1,5 @@
 import { processTasks, type ProcessTask } from './process-tasks'
-import { calculateSlaDue, generateCaseId, initialExceptions, type ExceptionCase } from './store-domain-progress'
+import { generateCaseId, initialExceptions, type ExceptionCase } from './store-domain-progress'
 
 export type StartDueSource = 'ACCEPTED' | 'AWARDED'
 export type StartRiskStatus = 'NORMAL' | 'DUE_SOON' | 'OVERDUE'
@@ -9,7 +9,12 @@ const SOON_THRESHOLD_MS = 24 * 60 * 60 * 1000
 
 interface StartPrerequisiteInfo {
   met: boolean
-  type: 'PICKUP' | 'RECEIVE'
+  type: 'PICKUP'
+  conditionLabel: string
+  summaryLabel: string
+  statusLabel: string
+  blocker: string
+  hint: string
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -28,12 +33,16 @@ function addHours(baseAt: string, hours: number): string {
 
 export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
   const handoverStatus = (task as ProcessTask & { handoverStatus?: string }).handoverStatus
-
-  if (task.seq === 1) {
-    return { met: handoverStatus === 'PICKED_UP', type: 'PICKUP' }
+  const met = handoverStatus === 'PICKED_UP'
+  return {
+    met,
+    type: 'PICKUP',
+    conditionLabel: '已有领料记录',
+    summaryLabel: met ? '已有领料记录' : '尚无领料记录',
+    statusLabel: met ? '已有领料记录，可开工' : '尚无领料记录，暂不可开工',
+    blocker: '尚无领料记录，暂不可开工',
+    hint: '拿到首批物料后即可开始本工序',
   }
-
-  return { met: handoverStatus === 'RECEIVED', type: 'RECEIVE' }
 }
 
 export function getStartDueBase(task: ProcessTask): { baseAt?: string; source?: StartDueSource } {
@@ -93,7 +102,10 @@ export function getTaskStartDueInfo(task: ProcessTask, nowMs: number = Date.now(
 }
 
 function isOpenStartOverdueException(exceptionCase: ExceptionCase): boolean {
-  return exceptionCase.reasonCode === 'START_OVERDUE' && exceptionCase.caseStatus !== 'CLOSED'
+  return (
+    exceptionCase.reasonCode === 'START_OVERDUE' &&
+    (exceptionCase.caseStatus === 'OPEN' || exceptionCase.caseStatus === 'IN_PROGRESS')
+  )
 }
 
 function findTaskOpenStartOverdueException(taskId: string): ExceptionCase | undefined {
@@ -120,7 +132,6 @@ function createStartOverdueException(task: ProcessTask, startDueAt: string, now:
     detail: `任务 ${task.taskId} 在 ${startDueAt} 前未确认开工，系统自动生成执行异常。`,
     createdAt: now,
     updatedAt: now,
-    slaDueAt: calculateSlaDue('S2', now),
     tags: ['执行异常', '开工逾期', 'PDA执行'],
     actions: [],
     auditLogs: [
@@ -138,19 +149,17 @@ function createStartOverdueException(task: ProcessTask, startDueAt: string, now:
   return exceptionCase
 }
 
-function closeStartOverdueException(exceptionCase: ExceptionCase, now: string): void {
-  exceptionCase.caseStatus = 'CLOSED'
+function resolveStartOverdueException(exceptionCase: ExceptionCase, now: string): void {
+  exceptionCase.caseStatus = 'RESOLVED'
   exceptionCase.updatedAt = now
-  exceptionCase.closedAt = now
-  exceptionCase.closeRemark = '工厂已确认开工，系统自动关闭'
   exceptionCase.resolvedAt = now
   exceptionCase.resolvedBy = '系统'
   exceptionCase.auditLogs = [
     ...exceptionCase.auditLogs,
     {
       id: `EAL-${Date.now()}`,
-      action: 'AUTO_CLOSE',
-      detail: '工厂已确认开工，系统自动关闭',
+      action: 'AUTO_RESOLVE',
+      detail: '工厂已确认开工，系统自动判定为已解决',
       at: now,
       by: '系统',
     },
@@ -191,7 +200,7 @@ export function syncPdaStartRiskAndExceptions(now: Date = new Date()): void {
     }
 
     if (started && existedOpen) {
-      closeStartOverdueException(existedOpen, nowAt)
+      resolveStartOverdueException(existedOpen, nowAt)
     }
 
     if (started || dueInfo.startRiskStatus !== 'OVERDUE') {

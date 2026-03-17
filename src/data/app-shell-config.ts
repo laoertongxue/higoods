@@ -185,7 +185,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'progress-urge', title: '催办与通知', icon: 'BellRing', href: '/fcs/progress/urge' },
             { key: 'progress-handover', title: '交接链路追踪', icon: 'ScanLine', href: '/fcs/progress/handover' },
             { key: 'progress-material', title: '领料进度跟踪', icon: 'PackageSearch', href: '/fcs/progress/material' },
-            { key: 'progress-status-writeback', title: '状态同步更新', icon: 'RefreshCw', href: '/fcs/progress/status-writeback' },
+            { key: 'progress-milestone-config', title: '节点上报配置', icon: 'Flag', href: '/fcs/progress/milestone-config' },
           ],
         },
         {

@@ -38,7 +38,11 @@ import {
 } from '../data/fcs/store-domain-progress'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
-import { allowContinueFromPauseException, recordPauseExceptionFollowUp } from '../data/fcs/pda-exec-link'
+import {
+  allowContinueFromPauseException,
+  recordPauseExceptionFollowUp,
+  syncMilestoneOverdueExceptions,
+} from '../data/fcs/pda-exec-link'
 
 applyQualitySeedBootstrap()
 
@@ -58,6 +62,7 @@ type SubCategoryKey =
   | 'ASSIGN_ACK_TIMEOUT'
   | 'ASSIGN_FACTORY_BLOCKED'
   | 'EXEC_START_OVERDUE'
+  | 'EXEC_MILESTONE_NOT_REPORTED'
   | 'EXEC_BLOCK_MATERIAL'
   | 'EXEC_BLOCK_TECH'
   | 'EXEC_BLOCK_EQUIPMENT'
@@ -221,6 +226,7 @@ const SUB_CATEGORY_LABEL: Record<SubCategoryKey, string> = {
   ASSIGN_ACK_TIMEOUT: '接单逾期',
   ASSIGN_FACTORY_BLOCKED: '工厂不可分配',
   EXEC_START_OVERDUE: '开工逾期',
+  EXEC_MILESTONE_NOT_REPORTED: '关键节点未上报',
   EXEC_BLOCK_MATERIAL: '生产暂停｜物料原因',
   EXEC_BLOCK_TECH: '生产暂停｜工艺资料原因',
   EXEC_BLOCK_EQUIPMENT: '生产暂停｜设备原因',
@@ -234,7 +240,7 @@ const SUB_CATEGORY_LABEL: Record<SubCategoryKey, string> = {
   MATERIAL_PREP_PENDING: '配料未完成',
   MATERIAL_QTY_SHORT: '配料数量不足',
   MATERIAL_MULTI_OPEN: '多次领料未闭合',
-  HANDOUT_DIFF: '回写数量差异',
+  HANDOUT_DIFF: '仓库登记数量差异',
   HANDOUT_OBJECTION: '数量异议',
   HANDOUT_MIXED: '混批',
   HANDOUT_DAMAGE: '损耗/破损',
@@ -253,6 +259,7 @@ const SUB_CATEGORY_OPTIONS: Record<UnifiedCategory, Array<{ key: SubCategoryKey;
   ],
   EXECUTION: [
     { key: 'EXEC_START_OVERDUE', label: '开工逾期' },
+    { key: 'EXEC_MILESTONE_NOT_REPORTED', label: '关键节点未上报' },
     { key: 'EXEC_BLOCK_MATERIAL', label: '生产暂停｜物料原因' },
     { key: 'EXEC_BLOCK_TECH', label: '生产暂停｜工艺资料原因' },
     { key: 'EXEC_BLOCK_EQUIPMENT', label: '生产暂停｜设备原因' },
@@ -272,7 +279,7 @@ const SUB_CATEGORY_OPTIONS: Record<UnifiedCategory, Array<{ key: SubCategoryKey;
     { key: 'MATERIAL_MULTI_OPEN', label: '多次领料未闭合' },
   ],
   HANDOUT: [
-    { key: 'HANDOUT_DIFF', label: '回写数量差异' },
+    { key: 'HANDOUT_DIFF', label: '仓库登记数量差异' },
     { key: 'HANDOUT_OBJECTION', label: '数量异议' },
     { key: 'HANDOUT_MIXED', label: '混批' },
     { key: 'HANDOUT_DAMAGE', label: '损耗/破损' },
@@ -289,6 +296,7 @@ const REASON_TO_SUB_CATEGORY_KEY: Partial<Record<ReasonCode, SubCategoryKey>> = 
   ACK_TIMEOUT: 'ASSIGN_ACK_TIMEOUT',
   FACTORY_BLACKLISTED: 'ASSIGN_FACTORY_BLOCKED',
   START_OVERDUE: 'EXEC_START_OVERDUE',
+  MILESTONE_NOT_REPORTED: 'EXEC_MILESTONE_NOT_REPORTED',
   BLOCKED_MATERIAL: 'EXEC_BLOCK_MATERIAL',
   BLOCKED_TECH: 'EXEC_BLOCK_TECH',
   BLOCKED_EQUIPMENT: 'EXEC_BLOCK_EQUIPMENT',
@@ -318,6 +326,7 @@ const REASON_LABEL: Record<ReasonCode, string> = {
   HANDOVER_DIFF: '交接差异',
   MATERIAL_NOT_READY: '物料未齐套',
   START_OVERDUE: '开工逾期',
+  MILESTONE_NOT_REPORTED: '关键节点未上报',
 }
 
 function getReasonLabel(exc: ExceptionCase): string {
@@ -325,7 +334,7 @@ function getReasonLabel(exc: ExceptionCase): string {
 }
 
 function normalizeCaseStatus(status: CaseStatus): UiCaseStatus {
-  return status === 'WAITING_EXTERNAL' ? 'IN_PROGRESS' : status
+  return status
 }
 
 function getUnifiedCategory(exc: ExceptionCase): UnifiedCategory {
@@ -348,6 +357,7 @@ function getUnifiedCategory(exc: ExceptionCase): UnifiedCategory {
   if (
     [
       'START_OVERDUE',
+      'MILESTONE_NOT_REPORTED',
       'BLOCKED_MATERIAL',
       'BLOCKED_CAPACITY',
       'BLOCKED_QUALITY',
@@ -523,64 +533,114 @@ function getRelatedTenders(exc: ExceptionCase): Tender[] {
   return exc.relatedTenderIds.map((tenderId) => getTenderById(tenderId)).filter((tender): tender is Tender => Boolean(tender))
 }
 
-function getAutoResolvedDetail(exc: ExceptionCase): string | null {
+interface ResolveJudgeResult {
+  resolved: boolean
+  ruleText: string
+  currentResultText: string
+  resolvedDetail: string
+}
+
+function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
   const unifiedCategory = getUnifiedCategory(exc)
   const relatedTasks = getRelatedTasks(exc)
   const relatedOrders = exc.relatedOrderIds.map((orderId) => getOrderById(orderId)).filter((order): order is ProductionOrder => Boolean(order))
   const relatedTenders = getRelatedTenders(exc)
 
   if (unifiedCategory === 'ASSIGNMENT') {
-    if (
-      relatedTasks.length > 0 &&
-      relatedTasks.every((task) => ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) || task.acceptanceStatus === 'ACCEPTED')
-    ) {
-      return '任务已完成分配并进入有效接单，异常自动判定为已解决'
+    const hasAcceptedTask = relatedTasks.some((task) => task.acceptanceStatus === 'ACCEPTED')
+    const hasAwardedTask = relatedTasks.some((task) => task.assignmentStatus === 'AWARDED')
+    const allTenderAwarded = relatedTenders.length > 0 && relatedTenders.every((tender) => tender.status === 'AWARDED')
+
+    const resolved = hasAcceptedTask || hasAwardedTask || allTenderAwarded
+
+    return {
+      resolved,
+      ruleText: '任务已真正落实承接方（接单成功/竞价定标）后，系统自动判定为已解决。',
+      currentResultText: resolved
+        ? '当前已满足：任务已落实承接方，可进入关闭流程。'
+        : '当前未满足：任务尚未真正落实承接方，请继续推进分配或接单。',
+      resolvedDetail: '任务已真正落实承接方，系统自动判定为已解决',
     }
-    if (relatedTenders.length > 0 && relatedTenders.every((tender) => tender.status === 'AWARDED')) {
-      return '竞价已完成定标，异常自动判定为已解决'
-    }
-    return null
   }
 
   if (unifiedCategory === 'EXECUTION') {
     if (exc.reasonCode === 'START_OVERDUE') {
-      if (relatedTasks.some((task) => Boolean(task.startedAt))) {
-        return '工厂已确认开工，异常自动判定为已解决'
+      const resolved = relatedTasks.some((task) => Boolean(task.startedAt))
+      return {
+        resolved,
+        ruleText: '工厂确认开工后，系统自动判定为已解决。',
+        currentResultText: resolved
+          ? '当前已满足：任务已确认开工，可进入关闭流程。'
+          : '当前未满足：任务仍未开工，请先推动工厂确认开工。',
+        resolvedDetail: '工厂已确认开工，系统自动判定为已解决',
       }
-      return null
     }
 
-    if (
+    if (exc.reasonCode === 'MILESTONE_NOT_REPORTED') {
+      const resolved = relatedTasks.some(
+        (task) => task.milestoneStatus === 'REPORTED' || Boolean(task.milestoneReportedAt),
+      )
+      return {
+        resolved,
+        ruleText: '关键节点按规则完成上报后，系统自动判定为已解决。',
+        currentResultText: resolved
+          ? '当前已满足：任务已补报关键节点，可进入关闭流程。'
+          : '当前未满足：关键节点仍未上报，请先在 PDA 侧完成节点上报。',
+        resolvedDetail: '任务已补报关键节点，系统自动判定为已解决',
+      }
+    }
+
+    const resolved =
       relatedTasks.length > 0 &&
       relatedTasks.every((task) => task.status !== 'BLOCKED' && task.pauseStatus !== 'REPORTED' && task.pauseStatus !== 'FOLLOWING_UP')
-    ) {
-      return '任务已恢复可执行状态，异常自动判定为已解决'
+
+    return {
+      resolved,
+      ruleText: '平台允许继续且任务恢复执行后，系统自动判定为已解决。',
+      currentResultText: resolved
+        ? '当前已满足：任务已恢复进行中，可进入关闭流程。'
+        : '当前未满足：任务仍处于生产暂停，请先处理暂停原因并允许继续。',
+      resolvedDetail: '任务已恢复可执行状态，系统自动判定为已解决',
     }
-    return null
   }
 
   if (unifiedCategory === 'TECH_PACK') {
-    if (relatedOrders.length > 0 && relatedOrders.every((order) => order.techPackSnapshot.status === 'RELEASED')) {
-      return '技术包已发布并可用于生产，异常自动判定为已解决'
+    const resolved = relatedOrders.length > 0 && relatedOrders.every((order) => order.techPackSnapshot.status === 'RELEASED')
+    return {
+      resolved,
+      ruleText: '技术包发布并可正常使用后，系统自动判定为已解决。',
+      currentResultText: resolved
+        ? '当前已满足：技术包已发布，可进入关闭流程。'
+        : '当前未满足：技术包仍未发布或资料未补齐，请先处理技术包。',
+      resolvedDetail: '技术包已发布并可用于生产，系统自动判定为已解决',
     }
-    return null
   }
 
   if (unifiedCategory === 'MATERIAL') {
     const rows = getMaterialIssueRows(exc)
-    if (rows.length === 0) return null
     const isSatisfied = rows.every((row) => row.status === 'ISSUED' || row.issuedQty >= row.requestedQty)
-    return isSatisfied ? '领料记录已满足并闭合，异常自动判定为已解决' : null
+    const resolved = rows.length > 0 && isSatisfied
+    return {
+      resolved,
+      ruleText: '领料记录满足或领料链路闭合后，系统自动判定为已解决。',
+      currentResultText: resolved
+        ? '当前已满足：领料记录已满足，可进入关闭流程。'
+        : '当前未满足：仍有领料缺口或未闭合记录，请继续推进领料。',
+      resolvedDetail: '领料记录已满足并闭合，系统自动判定为已解决',
+    }
   }
 
-  if (unifiedCategory === 'HANDOUT') {
-    const rows = getHandoverRows(exc)
-    if (rows.length === 0) return null
-    const allSettled = rows.every((row) => row.status === 'CONFIRMED' || row.status === 'VOID')
-    return allSettled ? '交出差异/异议已处理完成，异常自动判定为已解决' : null
+  const rows = getHandoverRows(exc)
+  const allSettled = rows.every((row) => row.status === 'CONFIRMED' || row.status === 'VOID')
+  const resolved = rows.length > 0 && allSettled
+  return {
+    resolved,
+    ruleText: '交出差异/数量异议处理完成并闭合后，系统自动判定为已解决。',
+    currentResultText: resolved
+      ? '当前已满足：交出记录已闭合，可进入关闭流程。'
+      : '当前未满足：仍有数量差异或异议未处理，请继续跟进交出处理。',
+    resolvedDetail: '交出差异/异议已处理完成，系统自动判定为已解决',
   }
-
-  return null
 }
 
 function syncExceptionResolvedByBusiness(): void {
@@ -590,8 +650,8 @@ function syncExceptionResolvedByBusiness(): void {
     const uiStatus = normalizeCaseStatus(exc.caseStatus)
     if (uiStatus === 'RESOLVED' || uiStatus === 'CLOSED') continue
 
-    const autoResolvedDetail = getAutoResolvedDetail(exc)
-    if (!autoResolvedDetail) continue
+    const judge = getResolveJudgeResult(exc)
+    if (!judge.resolved) continue
 
     updateException({
       ...exc,
@@ -604,7 +664,7 @@ function syncExceptionResolvedByBusiness(): void {
         {
           id: `EA-${Date.now()}-${exc.caseId}`,
           actionType: 'AUTO_RESOLVE',
-          actionDetail: autoResolvedDetail,
+          actionDetail: judge.resolvedDetail,
           at: now,
           by: '系统',
         },
@@ -614,7 +674,7 @@ function syncExceptionResolvedByBusiness(): void {
         {
           id: `EAL-${Date.now()}-${exc.caseId}`,
           action: 'AUTO_RESOLVE',
-          detail: autoResolvedDetail,
+          detail: judge.resolvedDetail,
           at: now,
           by: '系统',
         },
@@ -952,7 +1012,7 @@ function getKpis(now: Date): {
     inProgress: all.filter((exc) => normalizeCaseStatus(exc.caseStatus) === 'IN_PROGRESS').length,
     s1: all.filter((exc) => exc.severity === 'S1' && normalizeCaseStatus(exc.caseStatus) !== 'CLOSED').length,
     todayNew: all.filter((exc) => exc.createdAt.slice(0, 10) === today).length,
-    todayClosed: all.filter((exc) => normalizeCaseStatus(exc.caseStatus) === 'CLOSED' && exc.updatedAt.slice(0, 10) === today).length,
+    todayClosed: all.filter((exc) => normalizeCaseStatus(exc.caseStatus) === 'CLOSED' && (exc.closedAt || '').slice(0, 10) === today).length,
   }
 }
 
@@ -1286,7 +1346,7 @@ function confirmCloseException(): void {
     return
   }
 
-  if (DIRECT_CLOSE_REASON_SET.has(reason) && ['OPEN', 'IN_PROGRESS'].includes(uiStatus) && !remark) {
+  if (DIRECT_CLOSE_REASON_SET.has(reason) && !remark) {
     showProgressExceptionsToast('请补充关闭备注，说明关闭依据', 'error')
     return
   }
@@ -1441,7 +1501,7 @@ function renderHeader(): string {
       <div>
         <h1 class="text-xl font-semibold">异常定位与处理</h1>
         <p class="text-sm text-muted-foreground">按异常分类定位问题，并联动处理</p>
-        <p class="mt-1 text-xs text-muted-foreground">严重度口径：S1 已影响主链路，S2 异常已成立需尽快协同，S3 预警或轻度问题需跟踪。</p>
+        <p class="mt-1 text-xs text-muted-foreground">严重度口径：S1 已影响当前生产或交付，需要优先处理；S2 问题已成立，需要尽快处理；S3 为预警或轻度问题，需要持续跟进。</p>
       </div>
       <div class="flex items-center gap-2">
         <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="refresh">
@@ -1742,6 +1802,10 @@ function renderFilters(): string {
 }
 
 function renderTable(cases: ExceptionCase[]): string {
+  const emptyText = state.upstreamTaskId
+    ? '当前任务暂无异常，可继续在任务页跟进'
+    : '暂无数据'
+
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="mb-2 text-sm text-muted-foreground">共 ${cases.length} 条</div>
@@ -1766,7 +1830,7 @@ function renderTable(cases: ExceptionCase[]): string {
           <tbody>
             ${
               cases.length === 0
-                ? '<tr><td colspan="12" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td></tr>'
+                ? `<tr><td colspan="12" class="px-3 py-10 text-center text-muted-foreground">${emptyText}</td></tr>`
                 : cases
                     .slice(0, 20)
                     .map((exc) => {
@@ -1941,6 +2005,17 @@ function renderSourceTab(detailCase: ExceptionCase): string {
     </div>
   `
 
+  const formatMilestoneSnapshot = (snapshot?: ExceptionCase['milestoneSnapshot']): string => {
+    if (!snapshot?.required) return '无强制关键节点'
+    const statusLabel = snapshot.status === 'REPORTED' ? '已上报' : '待上报'
+    const fallbackRule =
+      snapshot.targetQty && snapshot.targetQty > 0
+        ? `完成第 ${snapshot.targetQty} ${snapshot.targetUnit === 'YARD' ? 'Yard' : '件'}后上报`
+        : '已配置关键节点'
+    const ruleText = snapshot.ruleLabel || fallbackRule
+    return `${ruleText} / ${statusLabel}`
+  }
+
   if (unifiedCategory === 'ASSIGNMENT') {
     return `
       <div class="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -2008,9 +2083,7 @@ function renderSourceTab(detailCase: ExceptionCase): string {
               <p class="text-sm text-muted-foreground">暂停说明：${escapeHtml(detailCase.pauseRemark || '—')}</p>
               <p class="text-xs text-muted-foreground">
                 暂停凭证：${detailCase.pauseProofFiles?.length || 0} 个 ｜ 关键节点：${
-                  detailCase.milestoneSnapshot?.required
-                    ? `${detailCase.milestoneSnapshot.ruleLabel || '已配置'} / ${detailCase.milestoneSnapshot.status === 'REPORTED' ? '已上报' : '待上报'}`
-                    : '无强制关键节点'
+                  formatMilestoneSnapshot(detailCase.milestoneSnapshot)
                 }
               </p>
             `
@@ -2087,7 +2160,7 @@ function renderSourceTab(detailCase: ExceptionCase): string {
         ${renderKv('异常类型', getSubCategoryLabel(detailCase))}
         ${renderKv('交出记录数', String(handoverRows.length))}
         ${renderKv('累计应交数量', `${expectedSum || 0}`)}
-        ${renderKv('累计回写数量', `${actualSum || 0}`)}
+        ${renderKv('累计登记数量', `${actualSum || 0}`)}
       </div>
       <p class="text-xs ${diffSum === 0 ? 'text-muted-foreground' : 'text-amber-700'}">
         数量差异：${diffSum === 0 ? '无差异' : `${diffSum > 0 ? '+' : ''}${diffSum}`}
@@ -2116,37 +2189,13 @@ function renderActionsTab(detailCase: ExceptionCase): string {
   const unifiedCategory = getUnifiedCategory(detailCase)
   const uiStatus = normalizeCaseStatus(detailCase.caseStatus)
   const canUrge = Boolean(detailCase.ownerUserId && (uiStatus === 'OPEN' || uiStatus === 'IN_PROGRESS'))
-  const categoryCards: string[] = []
+  const judge = getResolveJudgeResult(detailCase)
+  const processingCards: string[] = []
+  const linkCards: string[] = []
 
   if (unifiedCategory === 'ASSIGNMENT') {
-    if (firstTenderId) {
-      categoryCards.push(`
-        <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="goto-tender" data-tender-id="${escapeAttr(firstTenderId)}">
-          <div class="flex items-center gap-2">
-            <i data-lucide="file-search" class="h-5 w-5 text-blue-600"></i>
-            <div>
-              <p class="font-medium">查看招标单</p>
-              <p class="text-xs text-muted-foreground">定位竞价与派单上下文</p>
-            </div>
-          </div>
-        </button>
-      `)
-    }
-    if (firstTaskId) {
-      categoryCards.push(`
-        <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="goto-task" data-task-id="${escapeAttr(firstTaskId)}">
-          <div class="flex items-center gap-2">
-            <i data-lucide="list-checks" class="h-5 w-5 text-indigo-600"></i>
-            <div>
-              <p class="font-medium">查看任务</p>
-              <p class="text-xs text-muted-foreground">查看任务当前分配状态</p>
-            </div>
-          </div>
-        </button>
-      `)
-    }
     if (['TENDER_OVERDUE', 'TENDER_NEAR_DEADLINE'].includes(detailCase.reasonCode) && detailCase.relatedTenderIds.length > 0) {
-      categoryCards.push(`
+      processingCards.push(`
         <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="open-extend-dialog" data-case-id="${escapeAttr(detailCase.caseId)}">
           <div class="flex items-center gap-2">
             <i data-lucide="clock" class="h-5 w-5 text-blue-600"></i>
@@ -2159,7 +2208,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
       `)
     }
     if (['TENDER_OVERDUE', 'NO_BID', 'DISPATCH_REJECTED', 'ACK_TIMEOUT'].includes(detailCase.reasonCode)) {
-      categoryCards.push(`
+      processingCards.push(`
         <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="row-reassign" data-task-id="${escapeAttr(firstTaskId)}" data-order-id="${escapeAttr(firstOrderId)}">
           <div class="flex items-center gap-2">
             <i data-lucide="send" class="h-5 w-5 text-orange-600"></i>
@@ -2172,13 +2221,39 @@ function renderActionsTab(detailCase: ExceptionCase): string {
       `)
     }
     if (canUrge) {
-      categoryCards.push(`
+      processingCards.push(`
         <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="urge-owner" data-case-id="${escapeAttr(detailCase.caseId)}">
           <div class="flex items-center gap-2">
             <i data-lucide="bell" class="h-5 w-5 text-amber-600"></i>
-          <div>
+            <div>
               <p class="font-medium">催接单</p>
-              <p class="text-xs text-muted-foreground">提醒责任人推进分配与接单处理</p>
+              <p class="text-xs text-muted-foreground">提醒责任人尽快推进分配处理</p>
+            </div>
+          </div>
+        </button>
+      `)
+    }
+    if (firstTenderId) {
+      linkCards.push(`
+        <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="goto-tender" data-tender-id="${escapeAttr(firstTenderId)}">
+          <div class="flex items-center gap-2">
+            <i data-lucide="file-search" class="h-5 w-5 text-blue-600"></i>
+            <div>
+              <p class="font-medium">查看招标单</p>
+              <p class="text-xs text-muted-foreground">查看竞价与派单上下文</p>
+            </div>
+          </div>
+        </button>
+      `)
+    }
+    if (firstTaskId) {
+      linkCards.push(`
+        <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="goto-task" data-task-id="${escapeAttr(firstTaskId)}">
+          <div class="flex items-center gap-2">
+            <i data-lucide="list-checks" class="h-5 w-5 text-indigo-600"></i>
+            <div>
+              <p class="font-medium">查看任务</p>
+              <p class="text-xs text-muted-foreground">查看任务当前分配状态</p>
             </div>
           </div>
         </button>
@@ -2187,30 +2262,8 @@ function renderActionsTab(detailCase: ExceptionCase): string {
   }
 
   if (unifiedCategory === 'EXECUTION' && detailCase.reasonCode === 'START_OVERDUE') {
-    categoryCards.push(`
-      <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="go-start" data-task-id="${escapeAttr(firstTaskId)}">
-        <div class="flex items-center gap-2">
-          <i data-lucide="play" class="h-5 w-5 text-green-600"></i>
-          <div>
-            <p class="font-medium">去开工</p>
-            <p class="text-xs text-muted-foreground">进入 PDA 执行详情补齐开工信息</p>
-          </div>
-        </div>
-      </button>
-    `)
-    categoryCards.push(`
-      <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="goto-pda-task" data-task-id="${escapeAttr(firstTaskId)}">
-        <div class="flex items-center gap-2">
-          <i data-lucide="smartphone" class="h-5 w-5 text-blue-600"></i>
-          <div>
-            <p class="font-medium">查看 PDA 任务</p>
-            <p class="text-xs text-muted-foreground">查看工厂端当前任务状态</p>
-          </div>
-        </div>
-      </button>
-    `)
     if (canUrge) {
-      categoryCards.push(`
+      processingCards.push(`
         <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="urge-owner" data-case-id="${escapeAttr(detailCase.caseId)}">
           <div class="flex items-center gap-2">
             <i data-lucide="bell" class="h-5 w-5 text-amber-600"></i>
@@ -2222,10 +2275,45 @@ function renderActionsTab(detailCase: ExceptionCase): string {
         </button>
       `)
     }
+    linkCards.push(`
+      <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="go-start" data-task-id="${escapeAttr(firstTaskId)}">
+        <div class="flex items-center gap-2">
+          <i data-lucide="play" class="h-5 w-5 text-green-600"></i>
+          <div>
+            <p class="font-medium">去开工</p>
+            <p class="text-xs text-muted-foreground">进入 PDA 执行详情补齐开工信息</p>
+          </div>
+        </div>
+      </button>
+    `)
+    linkCards.push(`
+      <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="goto-pda-task" data-task-id="${escapeAttr(firstTaskId)}">
+        <div class="flex items-center gap-2">
+          <i data-lucide="smartphone" class="h-5 w-5 text-blue-600"></i>
+          <div>
+            <p class="font-medium">查看 PDA 任务</p>
+            <p class="text-xs text-muted-foreground">查看工厂端当前任务状态</p>
+          </div>
+        </div>
+      </button>
+    `)
   }
 
   if (unifiedCategory === 'EXECUTION' && detailCase.sourceType === 'FACTORY_PAUSE_REPORT') {
-    categoryCards.push(`
+    if (uiStatus !== 'CLOSED') {
+      processingCards.push(`
+        <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="pause-allow-continue" data-case-id="${escapeAttr(detailCase.caseId)}">
+          <div class="flex items-center gap-2">
+            <i data-lucide="play" class="h-5 w-5 text-green-600"></i>
+            <div>
+              <p class="font-medium">允许继续</p>
+              <p class="text-xs text-muted-foreground">恢复执行并判定为已解决</p>
+            </div>
+          </div>
+        </button>
+      `)
+    }
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="open-detail" data-case-id="${escapeAttr(detailCase.caseId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="clipboard-list" class="h-5 w-5 text-blue-600"></i>
@@ -2236,7 +2324,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
         </div>
       </button>
     `)
-    categoryCards.push(`
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="goto-pda-task" data-task-id="${escapeAttr(firstTaskId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="smartphone" class="h-5 w-5 text-indigo-600"></i>
@@ -2247,23 +2335,29 @@ function renderActionsTab(detailCase: ExceptionCase): string {
         </div>
       </button>
     `)
-    if (uiStatus !== 'CLOSED') {
-      categoryCards.push(`
-        <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="pause-allow-continue" data-case-id="${escapeAttr(detailCase.caseId)}">
-          <div class="flex items-center gap-2">
-            <i data-lucide="play" class="h-5 w-5 text-green-600"></i>
-            <div>
-              <p class="font-medium">允许继续</p>
-              <p class="text-xs text-muted-foreground">恢复执行并自动关闭当前暂停异常</p>
-            </div>
+  }
+
+  if (
+    unifiedCategory === 'EXECUTION' &&
+    detailCase.sourceType !== 'FACTORY_PAUSE_REPORT' &&
+    detailCase.reasonCode.startsWith('BLOCKED_') &&
+    uiStatus !== 'CLOSED'
+  ) {
+    processingCards.push(`
+      <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="open-unblock-dialog" data-case-id="${escapeAttr(detailCase.caseId)}">
+        <div class="flex items-center gap-2">
+          <i data-lucide="play" class="h-5 w-5 text-green-600"></i>
+          <div>
+            <p class="font-medium">恢复执行</p>
+            <p class="text-xs text-muted-foreground">确认处理结果后恢复任务继续执行</p>
           </div>
-        </button>
-      `)
-    }
+        </div>
+      </button>
+    `)
   }
 
   if (unifiedCategory === 'EXECUTION' && firstTaskId && detailCase.sourceType !== 'FACTORY_PAUSE_REPORT' && detailCase.reasonCode !== 'START_OVERDUE') {
-    categoryCards.push(`
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="goto-pda-task" data-task-id="${escapeAttr(firstTaskId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="smartphone" class="h-5 w-5 text-indigo-600"></i>
@@ -2277,7 +2371,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
   }
 
   if (unifiedCategory === 'TECH_PACK') {
-    categoryCards.push(`
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="drawer-tech-pack" data-case-id="${escapeAttr(detailCase.caseId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="file-text" class="h-5 w-5 text-purple-600"></i>
@@ -2288,7 +2382,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
         </div>
       </button>
     `)
-    categoryCards.push(`
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="drawer-tech-pack" data-case-id="${escapeAttr(detailCase.caseId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="edit-3" class="h-5 w-5 text-purple-600"></i>
@@ -2302,18 +2396,18 @@ function renderActionsTab(detailCase: ExceptionCase): string {
   }
 
   if (unifiedCategory === 'HANDOUT') {
-    categoryCards.push(`
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="drawer-view-handover" data-order-id="${escapeAttr(firstOrderId)}" data-task-id="${escapeAttr(firstTaskId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="scan-line" class="h-5 w-5 text-cyan-600"></i>
           <div>
             <p class="font-medium">查看交出记录</p>
-            <p class="text-xs text-muted-foreground">查看交出头、交出记录与仓库回写</p>
+            <p class="text-xs text-muted-foreground">查看交出头、交出记录与仓库登记数量</p>
           </div>
         </div>
       </button>
     `)
-    categoryCards.push(`
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="drawer-view-handover-objection" data-order-id="${escapeAttr(firstOrderId)}" data-task-id="${escapeAttr(firstTaskId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="alert-circle" class="h-5 w-5 text-amber-600"></i>
@@ -2327,7 +2421,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
   }
 
   if (unifiedCategory === 'MATERIAL') {
-    categoryCards.push(`
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="drawer-view-material" data-order-id="${escapeAttr(firstOrderId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="package" class="h-5 w-5 text-teal-600"></i>
@@ -2338,7 +2432,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
         </div>
       </button>
     `)
-    categoryCards.push(`
+    linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="drawer-view-material" data-order-id="${escapeAttr(firstOrderId)}">
         <div class="flex items-center gap-2">
           <i data-lucide="list" class="h-5 w-5 text-teal-600"></i>
@@ -2351,26 +2445,26 @@ function renderActionsTab(detailCase: ExceptionCase): string {
     `)
   }
 
-  const resolveRuleByCategory: Record<UnifiedCategory, string> = {
-    ASSIGNMENT: '当任务完成分配/接单或竞价已定标后，系统自动判定为已解决。',
-    EXECUTION:
-      detailCase.reasonCode === 'START_OVERDUE'
-        ? '当工厂确认开工后，系统自动判定为已解决。'
-        : '当平台已允许继续且任务恢复可执行状态后，系统自动判定为已解决。',
-    TECH_PACK: '当技术包已发布、资料补齐并可供生产使用后，系统自动判定为已解决。',
-    MATERIAL: '当领料记录达到满足或领料头完成后，系统自动判定为已解决。',
-    HANDOUT: '当数量异议/差异处理完成、交出记录闭合后，系统自动判定为已解决。',
-  }
-
   return `
     <div class="space-y-4">
       <div class="rounded-md border p-3">
-        <p class="text-sm font-medium">专项处理动作</p>
+        <p class="text-sm font-medium">处理动作</p>
         <div class="mt-3 grid grid-cols-2 gap-3">
           ${
-            categoryCards.length > 0
-              ? categoryCards.join('')
-              : '<div class="col-span-2 rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前异常无专项处理动作</div>'
+            processingCards.length > 0
+              ? processingCards.join('')
+              : '<div class="col-span-2 rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前异常暂无专项处理动作</div>'
+          }
+        </div>
+      </div>
+
+      <div class="rounded-md border p-3">
+        <p class="text-sm font-medium">去业务页处理</p>
+        <div class="mt-3 grid grid-cols-2 gap-3">
+          ${
+            linkCards.length > 0
+              ? linkCards.join('')
+              : '<div class="col-span-2 rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前异常暂无业务页入口</div>'
           }
         </div>
       </div>
@@ -2415,7 +2509,8 @@ function renderActionsTab(detailCase: ExceptionCase): string {
 
       <div class="rounded-md border border-blue-200 bg-blue-50 p-3">
         <p class="text-sm font-medium text-blue-700">解决判定</p>
-        <p class="mt-1 text-xs text-blue-700">${escapeHtml(resolveRuleByCategory[unifiedCategory])}</p>
+        <p class="mt-1 text-xs text-blue-700">规则：${escapeHtml(judge.ruleText)}</p>
+        <p class="mt-1 text-xs text-blue-700">当前结果：${escapeHtml(judge.currentResultText)}</p>
       </div>
     </div>
   `
@@ -2424,7 +2519,6 @@ function renderActionsTab(detailCase: ExceptionCase): string {
 function renderTimelineTab(detailCase: ExceptionCase): string {
   const renderAuditDetail = (detail: string): string =>
     escapeHtml(detail)
-      .replaceAll('WAITING_EXTERNAL', 'IN_PROGRESS')
       .replaceAll('PRODUCTION_BLOCK', 'EXECUTION')
 
   const timelineItems = [
@@ -2670,6 +2764,7 @@ function renderPauseFollowUpDialog(): string {
 
 export function renderProgressExceptionsPage(): string {
   syncPdaStartRiskAndExceptions()
+  syncMilestoneOverdueExceptions()
   syncFromQuery()
   syncExceptionResolvedByBusiness()
 

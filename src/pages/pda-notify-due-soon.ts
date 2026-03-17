@@ -3,6 +3,7 @@ import { escapeHtml, toClassName } from '../utils'
 import { processTasks } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { formatRemainingHours, getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
+import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
 
 type DueSoonCategory = '全部' | '接单类' | '报价类' | '交接类' | '执行类'
@@ -10,7 +11,7 @@ type DueSoonCategory = '全部' | '接单类' | '报价类' | '交接类' | '执
 interface DueSoonItem {
   id: string
   category: Exclude<DueSoonCategory, '全部'>
-  subtype: '待接单' | '待报价' | '待领料' | '待接收' | '待交出' | '执行进行中' | '开工预期'
+  subtype: '待接单' | '待报价' | '待领料' | '待交出' | '执行进行中' | '开工预期'
   taskId?: string
   eventId?: string
   tenderId?: string
@@ -189,87 +190,85 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     href: '/fcs/pda/task-receive?tab=pending-quote',
   },
   {
-    id: 'pickup-EV-PK-004',
+    id: 'pickup-HOP-PDA-001',
     category: '交接类',
     subtype: '待领料',
-    eventId: 'EV-PK-004',
-    taskId: 'PDA-EXEC-007',
-    productionOrderId: 'PO-2024-0017',
-    currentProcess: '裁片',
-    fromParty: '万隆织带辅料仓',
-    deadlineLabel: '领料要求时间',
-    deadline: addHours(NOW, 8),
-    statusLabel: '待领料',
-    riskNote: '织带辅料仓库库存差 50 件待补货，需提前确认',
-    href: '/fcs/pda/handover/EV-PK-004',
-  },
-  {
-    id: 'pickup-EV-PK-003',
-    category: '交接类',
-    subtype: '待领料',
-    eventId: 'EV-PK-003',
-    taskId: 'PDA-EXEC-005',
-    productionOrderId: 'PO-2024-0015',
+    eventId: 'HOP-PDA-001',
+    taskId: 'PDA-EXEC-001',
+    productionOrderId: 'PO-2024-0012',
     currentProcess: '裁片',
     fromParty: '雅加达中央面料仓',
     deadlineLabel: '领料要求时间',
-    deadline: addHours(NOW, 2.5),
+    deadline: addHours(NOW, 8),
     statusLabel: '待领料',
-    riskNote: '梭织面料已就位，请在截止前完成领料确认',
-    href: '/fcs/pda/handover/EV-PK-003',
+    riskNote: '首批物料可先领用，后续可继续补料',
+    href: '/fcs/pda/handover/HOP-PDA-001',
   },
   {
-    id: 'receive-EV-RC-003',
+    id: 'pickup-HOP-PDA-002',
     category: '交接类',
-    subtype: '待接收',
-    eventId: 'EV-RC-003',
+    subtype: '待领料',
+    eventId: 'HOP-PDA-002',
+    taskId: 'PDA-EXEC-002',
+    productionOrderId: 'PO-2024-0013',
+    currentProcess: '裁片',
+    fromParty: '泗水辅料仓',
+    deadlineLabel: '领料要求时间',
+    deadline: addHours(NOW, 2.5),
+    statusLabel: '待领料',
+    riskNote: '拿到首批物料后即可开工，剩余批次可后续补齐',
+    href: '/fcs/pda/handover/HOP-PDA-002',
+  },
+  {
+    id: 'pickup-PDA-EXEC-006',
+    category: '交接类',
+    subtype: '待领料',
+    eventId: 'HOP-PDA-006',
     taskId: 'PDA-EXEC-006',
     productionOrderId: 'PO-2024-0016',
     currentProcess: '车缝',
-    prevProcess: '裁片',
-    fromParty: '棉兰卫星工厂',
-    deadlineLabel: '接收要求时间',
+    fromParty: '雅加达中央面料仓',
+    deadlineLabel: '领料要求时间',
     deadline: addHours(NOW, 7),
-    statusLabel: '待接收',
-    riskNote: 'QC 发现 45 件尺寸偏差，接收前需核实处理方案',
-    href: '/fcs/pda/handover/EV-RC-003',
+    statusLabel: '尚无领料记录',
+    riskNote: '拿到首批物料后即可开工，剩余物料可后续补领',
+    href: '/fcs/pda/handover?tab=pickup',
   },
   {
-    id: 'receive-EV-RC-004',
+    id: 'pickup-PDA-EXEC-010',
     category: '交接类',
-    subtype: '待接收',
-    eventId: 'EV-RC-004',
+    subtype: '待领料',
+    eventId: 'HOP-PDA-010',
     taskId: 'PDA-EXEC-010',
     productionOrderId: 'PO-2024-0020',
     currentProcess: '车缝',
-    prevProcess: '裁片',
-    fromParty: '日惹裁片分厂',
-    deadlineLabel: '接收要求时间',
+    fromParty: '雅加达中央面料仓',
+    deadlineLabel: '领料要求时间',
     deadline: addHours(NOW, 5.5),
-    statusLabel: '待接收',
-    riskNote: '82 件布料色差需隔离复检，影响接收确认',
-    href: '/fcs/pda/handover/EV-RC-004',
+    statusLabel: '尚无领料记录',
+    riskNote: '当前任务待领料，领取首批物料后即可开工',
+    href: '/fcs/pda/handover?tab=pickup',
   },
   {
-    id: 'handout-EV-HO-004',
+    id: 'handout-HOH-PDA-015',
     category: '交接类',
     subtype: '待交出',
-    eventId: 'EV-HO-004',
-    taskId: 'PDA-EXEC-017',
-    productionOrderId: 'PO-2024-0027',
+    eventId: 'HOH-PDA-015',
+    taskId: 'PDA-EXEC-015',
+    productionOrderId: 'PO-2024-0025',
     currentProcess: '包装',
-    toParty: '泗水成品仓库',
+    toParty: '雅加达成品仓库',
     deadlineLabel: '交出要求时间',
     deadline: addHours(NOW, 13),
     statusLabel: '待交出',
-    riskNote: '包装已完工，待安排入库交接',
-    href: '/fcs/pda/handover/EV-HO-004',
+    riskNote: '可分批交出，仓库回写后同步更新本次记录',
+    href: '/fcs/pda/handover/HOH-PDA-015',
   },
   {
-    id: 'handout-EV-HO-002',
+    id: 'handout-HOH-PDA-016',
     category: '交接类',
     subtype: '待交出',
-    eventId: 'EV-HO-002',
+    eventId: 'HOH-PDA-016',
     taskId: 'PDA-EXEC-016',
     productionOrderId: 'PO-2024-0026',
     currentProcess: '裁片',
@@ -278,7 +277,7 @@ const DUE_SOON_MOCK: DueSoonItem[] = [
     deadline: addHours(NOW, 10),
     statusLabel: '待交出',
     riskNote: '裁片已完成，需在截止前移交泗水车缝厂',
-    href: '/fcs/pda/handover/EV-HO-002',
+    href: '/fcs/pda/handover/HOH-PDA-016',
   },
 ]
 
@@ -294,7 +293,6 @@ const SUBTYPE_STYLE: Record<string, { label: string; className: string }> = {
   待接单: { label: '待接单', className: 'bg-orange-100 text-orange-700 border-orange-200' },
   待报价: { label: '待报价', className: 'bg-blue-100 text-blue-700 border-blue-200' },
   待领料: { label: '待领料', className: 'bg-amber-100 text-amber-700 border-amber-200' },
-  待接收: { label: '待接收', className: 'bg-purple-100 text-purple-700 border-purple-200' },
   待交出: { label: '待交出', className: 'bg-teal-100 text-teal-700 border-teal-200' },
   执行进行中: { label: '进行中', className: 'bg-sky-100 text-sky-700 border-sky-200' },
   开工预期: { label: '开工预期', className: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -310,6 +308,7 @@ const CATEGORY_EMPTY: Record<DueSoonCategory, string> = {
 
 function getAllItems(): DueSoonItem[] {
   syncPdaStartRiskAndExceptions()
+  syncMilestoneOverdueExceptions()
 
   const staticItems = DUE_SOON_MOCK.filter((item) => isSoonDue(item.deadline))
   const selectedFactoryId = getCurrentFactoryId()

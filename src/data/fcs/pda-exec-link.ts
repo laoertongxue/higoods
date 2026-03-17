@@ -8,7 +8,17 @@ import {
   type ProcessTask,
 } from './process-tasks'
 import {
-  calculateSlaDue,
+  buildMilestoneRuleLabel,
+  getMilestoneConfigByProcess,
+  getMilestoneProofRequirementLabel,
+  getMilestoneTargetUnitByRuleType,
+  getMilestoneTargetUnitLabel,
+  type MilestoneExceptionSeverity,
+  type MilestoneProofRequirement,
+  type MilestoneRuleType,
+  type MilestoneTargetUnit,
+} from './milestone-configs'
+import {
   generateCaseId,
   initialExceptions,
   type ExceptionCase,
@@ -18,9 +28,16 @@ import {
 
 export interface TaskMilestoneState {
   required: boolean
-  ruleType: string
+  ruleType: MilestoneRuleType
   ruleLabel: string
   targetQty: number
+  targetUnit: MilestoneTargetUnit
+  targetUnitLabel: string
+  proofRequirement: MilestoneProofRequirement
+  proofRequirementLabel: string
+  overdueExceptionEnabled: boolean
+  overdueHours: number
+  exceptionSeverity: MilestoneExceptionSeverity
   status: MilestoneStatus
   reportedAt: string | null
   reportedQty: number | null
@@ -67,14 +84,45 @@ function getPauseReasonLabel(reasonCode: PauseReasonCode): string {
   return PAUSE_REASON_OPTIONS.find((item) => item.code === reasonCode)?.label || '其他'
 }
 
+function normalizeMilestoneRuleType(raw?: string): MilestoneRuleType {
+  return raw === 'AFTER_N_YARD' ? 'AFTER_N_YARD' : 'AFTER_N_PIECES'
+}
+
+function normalizeMilestoneTargetUnit(raw: string | undefined, ruleType: MilestoneRuleType): MilestoneTargetUnit {
+  if (raw === 'YARD' || raw === 'PIECE') return raw
+  return getMilestoneTargetUnitByRuleType(ruleType)
+}
+
 function ensureMilestoneDefaults(task: ProcessTask): TaskMilestoneState {
-  const impliedRequired = task.milestoneRequired ?? task.processCode === 'PROC_SEW'
+  const config = getMilestoneConfigByProcess(task.processCode, task.processNameZh)
+  const ruleType = normalizeMilestoneRuleType(task.milestoneRuleType || config?.ruleType)
+  const targetUnit = normalizeMilestoneTargetUnit(task.milestoneTargetUnit, ruleType)
+  const targetUnitLabel = getMilestoneTargetUnitLabel(targetUnit)
+  const impliedRequired = task.milestoneRequired ?? Boolean(config?.enabled)
+  const proofRequirement = task.milestoneProofRequirement || config?.proofRequirement || 'NONE'
+  const overdueExceptionEnabled =
+    task.milestoneOverdueExceptionEnabled ??
+    Boolean(config?.enabled && config?.overdueExceptionEnabled)
+  const overdueHours = task.milestoneOverdueHours || config?.overdueHours || 48
+  const exceptionSeverity = task.milestoneExceptionSeverity || config?.exceptionSeverity || 'S2'
+
   if (!impliedRequired) {
     return {
       required: false,
-      ruleType: task.milestoneRuleType || 'NONE',
-      ruleLabel: task.milestoneRuleLabel || '',
-      targetQty: task.milestoneTargetQty || 0,
+      ruleType,
+      ruleLabel:
+        task.milestoneRuleLabel ||
+        (task.milestoneTargetQty || config?.targetQty
+          ? buildMilestoneRuleLabel(ruleType, task.milestoneTargetQty || config?.targetQty || 1, targetUnit)
+          : ''),
+      targetQty: task.milestoneTargetQty || config?.targetQty || 0,
+      targetUnit,
+      targetUnitLabel,
+      proofRequirement,
+      proofRequirementLabel: getMilestoneProofRequirementLabel(proofRequirement),
+      overdueExceptionEnabled,
+      overdueHours,
+      exceptionSeverity,
       status: 'PENDING',
       reportedAt: null,
       reportedQty: null,
@@ -82,9 +130,9 @@ function ensureMilestoneDefaults(task: ProcessTask): TaskMilestoneState {
     }
   }
 
-  const ruleType = task.milestoneRuleType || 'SEW_FIRST_5_PIECES'
-  const ruleLabel = task.milestoneRuleLabel || '完成第 5 件'
-  const targetQty = task.milestoneTargetQty || 5
+  const targetQty = task.milestoneTargetQty || config?.targetQty || 5
+  const ruleLabel =
+    task.milestoneRuleLabel || config?.ruleLabel || buildMilestoneRuleLabel(ruleType, targetQty, targetUnit)
   const status: MilestoneStatus =
     task.milestoneStatus || (task.milestoneReportedAt ? 'REPORTED' : 'PENDING')
 
@@ -93,6 +141,13 @@ function ensureMilestoneDefaults(task: ProcessTask): TaskMilestoneState {
     ruleType,
     ruleLabel,
     targetQty,
+    targetUnit,
+    targetUnitLabel,
+    proofRequirement,
+    proofRequirementLabel: getMilestoneProofRequirementLabel(proofRequirement),
+    overdueExceptionEnabled,
+    overdueHours,
+    exceptionSeverity,
     status,
     reportedAt: task.milestoneReportedAt || null,
     reportedQty: task.milestoneReportedQty ?? null,
@@ -113,6 +168,30 @@ export function isTaskMilestoneReported(task: ProcessTask): boolean {
   return milestone.required ? milestone.status === 'REPORTED' : true
 }
 
+export function getTaskMilestoneWarningText(task: ProcessTask): string {
+  const milestone = ensureMilestoneDefaults(task)
+  if (!milestone.required || milestone.status === 'REPORTED') return ''
+  return milestone.ruleLabel
+}
+
+export function getTaskMilestoneProofHint(task: ProcessTask): string {
+  const milestone = ensureMilestoneDefaults(task)
+  return `当前要求：${milestone.ruleLabel}；凭证要求：${milestone.proofRequirementLabel}`
+}
+
+export function isTaskMilestoneProofSatisfied(task: ProcessTask, proofFiles: ExecProofFile[]): boolean {
+  const milestone = ensureMilestoneDefaults(task)
+  if (!milestone.required) return true
+  if (milestone.proofRequirement === 'NONE') return true
+  if (milestone.proofRequirement === 'IMAGE') {
+    return proofFiles.some((file) => file.type === 'IMAGE')
+  }
+  if (milestone.proofRequirement === 'VIDEO') {
+    return proofFiles.some((file) => file.type === 'VIDEO')
+  }
+  return proofFiles.some((file) => file.type === 'IMAGE' || file.type === 'VIDEO')
+}
+
 export function reportTaskMilestone(
   taskId: string,
   payload: { reportedAt: string; proofFiles: ExecProofFile[]; by: string },
@@ -130,6 +209,11 @@ export function reportTaskMilestone(
   task.milestoneRuleType = milestone.ruleType
   task.milestoneRuleLabel = milestone.ruleLabel
   task.milestoneTargetQty = milestone.targetQty
+  task.milestoneTargetUnit = milestone.targetUnit
+  task.milestoneProofRequirement = milestone.proofRequirement
+  task.milestoneOverdueExceptionEnabled = milestone.overdueExceptionEnabled
+  task.milestoneOverdueHours = milestone.overdueHours
+  task.milestoneExceptionSeverity = milestone.exceptionSeverity
   task.milestoneStatus = 'REPORTED'
   task.milestoneReportedAt = payload.reportedAt
   task.milestoneReportedQty = milestone.targetQty
@@ -140,11 +224,12 @@ export function reportTaskMilestone(
     {
       id: `AL-MILESTONE-${Date.now()}`,
       action: 'REPORT_MILESTONE',
-      detail: `上报关键节点：${milestone.ruleLabel}，上报时间：${payload.reportedAt}，数量：${milestone.targetQty}，凭证：${payload.proofFiles.length}个`,
+      detail: `上报关键节点：${milestone.ruleLabel}，上报时间：${payload.reportedAt}，数量：${milestone.targetQty} ${milestone.targetUnitLabel}，凭证：${payload.proofFiles.length}个`,
       at: now,
       by: payload.by,
     },
   ]
+  syncMilestoneOverdueExceptions()
 
   return { ok: true, message: '关键节点已上报' }
 }
@@ -180,7 +265,7 @@ function createPauseException(task: ProcessTask, payload: {
     caseId,
     caseStatus: 'OPEN',
     severity,
-    category: 'PRODUCTION_BLOCK',
+    category: 'EXECUTION',
     reasonCode: mapPauseReasonToExceptionReason(payload.reasonCode),
     reasonLabel: payload.reasonLabel,
     sourceType: 'FACTORY_PAUSE_REPORT',
@@ -196,7 +281,6 @@ function createPauseException(task: ProcessTask, payload: {
     detail: `工厂上报暂停。原因：${payload.reasonLabel}。说明：${payload.remark || '—'}`,
     createdAt,
     updatedAt: createdAt,
-    slaDueAt: calculateSlaDue(severity, createdAt),
     tags: ['工厂上报', '暂停'],
     linkedFactoryName: task.assignedFactoryName || task.assignedFactoryId || '-',
     pauseReportedAt: payload.reportedAt,
@@ -207,6 +291,8 @@ function createPauseException(task: ProcessTask, payload: {
       ? {
           required: true,
           ruleLabel: milestone.ruleLabel,
+          targetQty: milestone.targetQty,
+          targetUnit: milestone.targetUnit,
           status: milestone.status,
           reportedAt: milestone.reportedAt,
         }
@@ -237,8 +323,124 @@ function getActivePauseException(taskId: string): ExceptionCase | undefined {
     (item) =>
       item.sourceType === 'FACTORY_PAUSE_REPORT' &&
       item.relatedTaskIds.includes(taskId) &&
-      item.caseStatus !== 'CLOSED',
+      (item.caseStatus === 'OPEN' || item.caseStatus === 'IN_PROGRESS'),
   )
+}
+
+function addHours(baseAt: string, hours: number): string {
+  const date = new Date(baseAt.replace(' ', 'T'))
+  date.setHours(date.getHours() + hours)
+  return nowTimestamp(date)
+}
+
+function isOpenMilestoneOverdueException(exceptionCase: ExceptionCase): boolean {
+  return (
+    exceptionCase.reasonCode === 'MILESTONE_NOT_REPORTED' &&
+    (exceptionCase.caseStatus === 'OPEN' || exceptionCase.caseStatus === 'IN_PROGRESS')
+  )
+}
+
+function findTaskOpenMilestoneOverdueException(taskId: string): ExceptionCase | undefined {
+  return initialExceptions.find(
+    (item) => isOpenMilestoneOverdueException(item) && item.relatedTaskIds.includes(taskId),
+  )
+}
+
+function createMilestoneOverdueException(
+  task: ProcessTask,
+  milestone: TaskMilestoneState,
+  overdueAt: string,
+  now: string,
+): ExceptionCase {
+  const caseId = generateCaseId()
+  return {
+    caseId,
+    caseStatus: 'OPEN',
+    severity: milestone.exceptionSeverity,
+    category: 'EXECUTION',
+    reasonCode: 'MILESTONE_NOT_REPORTED',
+    sourceType: 'TASK',
+    sourceId: task.taskId,
+    sourceSystem: 'FCS',
+    sourceModule: 'PDA_EXEC',
+    relatedOrderIds: [task.productionOrderId],
+    relatedTaskIds: [task.taskId],
+    relatedTenderIds: task.tenderId ? [task.tenderId] : [],
+    linkedProductionOrderNo: task.productionOrderId,
+    linkedTaskNo: task.taskId,
+    summary: '关键节点未上报',
+    detail: `${task.processNameZh}任务已开工，按“${milestone.ruleLabel}”要求应在 ${overdueAt} 前完成节点上报，当前仍未上报。`,
+    createdAt: now,
+    updatedAt: now,
+    tags: ['执行异常', '关键节点未上报', 'PDA执行'],
+    actions: [],
+    auditLogs: [
+      {
+        id: `EAL-${Date.now()}`,
+        action: 'CREATE',
+        detail: '系统自动生成：关键节点未上报',
+        at: now,
+        by: '系统',
+      },
+    ],
+  }
+}
+
+function resolveMilestoneOverdueException(exceptionCase: ExceptionCase, now: string): void {
+  exceptionCase.caseStatus = 'RESOLVED'
+  exceptionCase.updatedAt = now
+  exceptionCase.resolvedAt = now
+  exceptionCase.resolvedBy = '系统'
+  exceptionCase.auditLogs = [
+    ...exceptionCase.auditLogs,
+    {
+      id: `EAL-${Date.now()}`,
+      action: 'AUTO_RESOLVE',
+      detail: '任务已补报关键节点，系统自动判定为已解决',
+      at: now,
+      by: '系统',
+    },
+  ]
+}
+
+export function syncMilestoneOverdueExceptions(now: Date = new Date()): void {
+  const nowMs = now.getTime()
+  const nowAt = nowTimestamp(now)
+
+  processTasks.forEach((task) => {
+    if (!task.taskId.startsWith('PDA-EXEC-')) return
+
+    const milestone = ensureMilestoneDefaults(task)
+    const writableTask = task as ProcessTask & { milestoneOverdueExceptionId?: string | null }
+    const activeException = findTaskOpenMilestoneOverdueException(task.taskId)
+
+    if (
+      task.startedAt &&
+      milestone.required &&
+      milestone.overdueExceptionEnabled &&
+      milestone.status !== 'REPORTED'
+    ) {
+      const overdueAt = addHours(task.startedAt, milestone.overdueHours)
+      const overdueMs = new Date(overdueAt.replace(' ', 'T')).getTime()
+      if (Number.isFinite(overdueMs) && nowMs >= overdueMs) {
+        if (activeException) {
+          writableTask.milestoneOverdueExceptionId = activeException.caseId
+        } else {
+          const created = createMilestoneOverdueException(task, milestone, overdueAt, nowAt)
+          initialExceptions.push(created)
+          writableTask.milestoneOverdueExceptionId = created.caseId
+        }
+        return
+      }
+    }
+
+    if (milestone.status === 'REPORTED' && activeException) {
+      resolveMilestoneOverdueException(activeException, nowAt)
+    }
+    if (!activeException || milestone.status === 'REPORTED') {
+      writableTask.milestoneOverdueExceptionId = null
+    }
+  })
 }
 
 export function reportTaskPause(
@@ -300,7 +502,7 @@ export function recordPauseExceptionFollowUp(
 ): { ok: boolean; message: string } {
   const exc = getCaseById(caseId)
   if (!exc || exc.sourceType !== 'FACTORY_PAUSE_REPORT') return { ok: false, message: '异常不存在' }
-  if (exc.caseStatus === 'CLOSED') return { ok: false, message: '异常已关闭' }
+  if (exc.caseStatus === 'CLOSED' || exc.caseStatus === 'RESOLVED') return { ok: false, message: '异常已结束' }
 
   const now = nowTimestamp()
   const updated: ExceptionCase = {
@@ -348,14 +550,15 @@ export function allowContinueFromPauseException(
   const exc = getCaseById(caseId)
   if (!exc || exc.sourceType !== 'FACTORY_PAUSE_REPORT') return { ok: false, message: '异常不存在' }
   if (exc.caseStatus === 'CLOSED') return { ok: false, message: '异常已关闭' }
+  if (exc.caseStatus === 'RESOLVED') return { ok: false, message: '异常已解决' }
 
   const now = nowTimestamp()
   const updated: ExceptionCase = {
     ...exc,
-    caseStatus: 'CLOSED',
+    caseStatus: 'RESOLVED',
     updatedAt: now,
-    closedAt: now,
-    closeRemark: '平台已允许继续',
+    resolvedAt: now,
+    resolvedBy: by,
     actions: [
       ...exc.actions,
       {
@@ -371,7 +574,7 @@ export function allowContinueFromPauseException(
       {
         id: `EAL-${Date.now()}`,
         action: 'ALLOW_CONTINUE',
-        detail: '平台已允许继续',
+        detail: '平台已允许继续，异常判定为已解决',
         at: now,
         by,
       },

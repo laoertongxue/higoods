@@ -5,13 +5,16 @@ import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
+  getStartPrerequisite,
   getTaskStartDueInfo,
   syncPdaStartRiskAndExceptions,
 } from '../data/fcs/pda-start-link'
 import {
   getPauseHandleStatus,
   getTaskMilestoneState,
+  getTaskMilestoneWarningText,
   isTaskMilestoneReported,
+  syncMilestoneOverdueExceptions,
 } from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
 
@@ -164,36 +167,6 @@ function getDeadlineStatus(
   }
 }
 
-function getPrerequisite(
-  seq: number,
-  handoverStatus?: string,
-): {
-  type: 'PICKUP' | 'RECEIVE'
-  met: boolean
-  label: string
-  blocker: string
-} {
-  const isFirst = seq === 1
-
-  if (isFirst) {
-    const met = handoverStatus === 'PICKED_UP'
-    return {
-      type: 'PICKUP',
-      met,
-      label: met ? '已领料' : '待领料',
-      blocker: '未完成领料，暂不可开工',
-    }
-  }
-
-  const met = handoverStatus === 'RECEIVED'
-  return {
-    type: 'RECEIVE',
-    met,
-    label: met ? '已接收' : '待接收',
-    blocker: '未完成接收，暂不可开工',
-  }
-}
-
 function showPdaExecToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
 
@@ -310,10 +283,7 @@ function renderSourceBadge(mode: string): string {
 }
 
 function renderNotStartedCard(task: ProcessTask): string {
-  const prereq = getPrerequisite(
-    task.seq,
-    (task as ProcessTask & { handoverStatus?: string }).handoverStatus,
-  )
+  const prereq = getStartPrerequisite(task)
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
@@ -369,14 +339,15 @@ function renderNotStartedCard(task: ProcessTask): string {
         <div class="space-y-0.5 rounded-md border px-3 py-2 text-xs ${toClassName(
           prereq.met ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50',
         )}">
-          <div class="flex items-center gap-1.5 font-medium">
-            ${
-              prereq.met
-                ? '<i data-lucide="check-circle" class="h-3.5 w-3.5 text-green-600"></i><span class="text-green-700">已满足开工条件</span>'
-                : '<i data-lucide="alert-triangle" class="h-3.5 w-3.5 text-amber-600"></i><span class="text-amber-700">' + escapeHtml(prereq.label) + '</span>'
-            }
+          <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
+            <span class="text-muted-foreground">前置条件</span>
+            <span class="font-medium">${escapeHtml(prereq.conditionLabel)}</span>
+            <span class="text-muted-foreground">当前状态</span>
+            <span class="font-medium ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.statusLabel)}</span>
+            <span class="text-muted-foreground">来源方</span>
+            <span class="font-medium">领料记录</span>
           </div>
-          ${!prereq.met ? `<p class="pl-5 text-amber-600">${escapeHtml(prereq.blocker)}</p>` : ''}
+          <p class="mt-1 ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.hint)}</p>
         </div>
 
         ${
@@ -402,10 +373,10 @@ function renderNotStartedCard(task: ProcessTask): string {
                   <button
                     class="inline-flex h-7 items-center rounded-md border border-amber-300 px-3 text-xs text-amber-700 hover:bg-amber-50"
                     data-pda-exec-action="go-handover"
-                    data-tab="${prereq.type === 'PICKUP' ? 'pickup' : 'receive'}"
+                    data-tab="pickup"
                   >
                     <i data-lucide="arrow-left-right" class="mr-1 h-3 w-3"></i>
-                    去交接
+                    去领料
                   </button>
                 `
           }
@@ -429,6 +400,7 @@ function renderInProgressCard(task: ProcessTask): string {
     task.finishedAt,
   )
   const milestone = getTaskMilestoneState(task)
+  const milestoneWarningText = getTaskMilestoneWarningText(task)
   const milestoneTag = milestone.required
     ? milestone.status === 'REPORTED'
       ? '<span class="inline-flex items-center rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">已上报关键节点</span>'
@@ -483,8 +455,8 @@ function renderInProgressCard(task: ProcessTask): string {
         }
 
         ${
-          milestone.required && milestone.status !== 'REPORTED'
-            ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">需完成第 5 件后上报关键节点</div>`
+          milestone.required && milestone.status !== 'REPORTED' && milestoneWarningText
+            ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">需${escapeHtml(milestoneWarningText)}</div>`
             : ''
         }
 
@@ -656,6 +628,7 @@ function renderDoneCard(task: ProcessTask): string {
 
 export function renderPdaExecPage(): string {
   syncPdaStartRiskAndExceptions()
+  syncMilestoneOverdueExceptions()
   syncTabWithQuery()
 
   const selectedFactoryId = getCurrentFactoryId()

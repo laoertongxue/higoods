@@ -2,13 +2,14 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { processTasks } from '../data/fcs/process-tasks'
 import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress'
-import { getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
+import { getStartPrerequisite, getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
+import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
 
 type NotifyTab = 'todo' | 'inbox'
 type NotifFilter = 'all' | 'unread' | 'read'
 
-type TodoType = '待接单' | '待报价' | '已中标' | '待领料' | '待接收' | '待交出' | '生产暂停' | '即将逾期'
+type TodoType = '待接单' | '待报价' | '已中标' | '待领料' | '待交出' | '生产暂停' | '即将逾期'
 
 interface PdaNotifyState {
   activeTab: NotifyTab
@@ -265,6 +266,7 @@ function getNotifyPageData(): {
   notifications: Notification[]
 } {
   syncPdaStartRiskAndExceptions()
+  syncMilestoneOverdueExceptions()
   const selectedFactoryId = getCurrentFactoryId()
 
   const myTasks = processTasks.filter(
@@ -283,15 +285,7 @@ function getNotifyPageData(): {
   const blockedTasks = myTasks.filter((task) => task.status === 'BLOCKED')
   const doneTasks = myTasks.filter((task) => task.status === 'DONE')
 
-  const pendingPickup = notStartedTasks.filter((task) => {
-    const handoverStatus = (task as typeof task & { handoverStatus?: string }).handoverStatus
-    return task.seq === 1 && (handoverStatus === 'PENDING' || handoverStatus === 'PICKED_UP')
-  })
-
-  const pendingReceive = notStartedTasks.filter((task) => {
-    const handoverStatus = (task as typeof task & { handoverStatus?: string }).handoverStatus
-    return task.seq > 1 && (handoverStatus === 'PENDING' || handoverStatus === 'RECEIVED')
-  })
+  const pendingPickup = notStartedTasks.filter((task) => !getStartPrerequisite(task).met)
 
   const pendingHandout = doneTasks.filter(
     (task) => (task as typeof task & { handoutStatus?: string }).handoutStatus === 'PENDING',
@@ -373,16 +367,6 @@ function getNotifyPageData(): {
       bgClass: 'bg-amber-50',
       href: '/fcs/pda/handover',
       query: { tab: 'pickup' },
-    },
-    {
-      key: 'receive',
-      label: '待接收',
-      count: pendingReceive.length,
-      icon: 'arrow-left-right',
-      colorClass: 'text-purple-600',
-      bgClass: 'bg-purple-50',
-      href: '/fcs/pda/handover',
-      query: { tab: 'receive' },
     },
     {
       key: 'handout',
@@ -475,28 +459,13 @@ function getNotifyPageData(): {
     todoItems.push({
       id: `pk-${task.taskId}`,
       type: '待领料',
-      title: '待领料 — 首道工序',
+      title: '尚无领料记录，暂不可开工',
       subtitle: task.taskId,
       orderNo: task.productionOrderId,
       process: task.processNameZh,
       deadline: task.taskDeadline,
       href: '/fcs/pda/handover',
       query: { tab: 'pickup' },
-      urgent: false,
-    })
-  })
-
-  pendingReceive.forEach((task) => {
-    todoItems.push({
-      id: `rc-${task.taskId}`,
-      type: '待接收',
-      title: '待接收上一步半成品',
-      subtitle: task.taskId,
-      orderNo: task.productionOrderId,
-      process: task.processNameZh,
-      deadline: task.taskDeadline,
-      href: '/fcs/pda/handover',
-      query: { tab: 'receive' },
       urgent: false,
     })
   })
@@ -548,13 +517,12 @@ function getNotifyPageData(): {
     待报价: 4,
     已中标: 5,
     待领料: 6,
-    待接收: 7,
-    待交出: 8,
+    待交出: 7,
   }
 
   todoItems.sort((a, b) => (todoOrder[a.type] ?? 9) - (todoOrder[b.type] ?? 9))
 
-  const totalTodo = summaryCards.slice(0, 8).reduce((sum, card) => sum + card.count, 0)
+  const totalTodo = summaryCards.filter((card) => !card.isInbox).reduce((sum, card) => sum + card.count, 0)
 
   return {
     selectedFactoryId,
@@ -598,7 +566,6 @@ function renderTodoTypeBadge(type: TodoType): string {
     待报价: { label: '待报价', className: 'bg-blue-100 text-blue-700 border-blue-200' },
     已中标: { label: '已中标', className: 'bg-green-100 text-green-700 border-green-200' },
     待领料: { label: '待领料', className: 'bg-amber-100 text-amber-700 border-amber-200' },
-    待接收: { label: '待接收', className: 'bg-purple-100 text-purple-700 border-purple-200' },
     待交出: { label: '待交出', className: 'bg-teal-100 text-teal-700 border-teal-200' },
     生产暂停: { label: '生产暂停', className: 'bg-red-100 text-red-700 border-red-200' },
     即将逾期: { label: '即将逾期', className: 'bg-rose-100 text-rose-700 border-rose-200' },

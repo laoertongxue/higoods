@@ -7,7 +7,7 @@
 // =============================================
 // ExceptionCase 相关
 // =============================================
-export type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_EXTERNAL' | 'RESOLVED' | 'CLOSED'
+export type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'
 export type Severity = 'S1' | 'S2' | 'S3'
 export type ExceptionCategory = 'PRODUCTION_BLOCK' | 'ASSIGNMENT' | 'TECH_PACK' | 'HANDOVER' | 'MATERIAL' | 'EXECUTION'
 export type ReasonCode =
@@ -23,6 +23,7 @@ export type ReasonCode =
   | 'HANDOVER_DIFF' | 'MATERIAL_NOT_READY'
   // 执行
   | 'START_OVERDUE'
+  | 'MILESTONE_NOT_REPORTED'
 
 export interface ExceptionAction {
   id: string
@@ -61,7 +62,6 @@ export interface ExceptionCase {
   detail: string
   createdAt: string
   updatedAt: string
-  slaDueAt: string
   resolvedAt?: string
   resolvedBy?: string
   closedAt?: string
@@ -76,22 +76,14 @@ export interface ExceptionCase {
   milestoneSnapshot?: {
     required: boolean
     ruleLabel?: string
+    targetQty?: number
+    targetUnit?: 'PIECE' | 'YARD'
     status?: 'PENDING' | 'REPORTED'
     reportedAt?: string | null
   }
   tags: string[]
   actions: ExceptionAction[]
   auditLogs: ExceptionAuditLog[]
-}
-
-// SLA 配置（小时）
-const SLA_HOURS: Record<Severity, number> = { S1: 8, S2: 24, S3: 72 }
-
-// 计算 SLA 截止时间
-export function calculateSlaDue(severity: Severity, createdAt: string): string {
-  const d = new Date(createdAt.replace(' ', 'T'))
-  d.setHours(d.getHours() + SLA_HOURS[severity])
-  return d.toISOString().replace('T', ' ').slice(0, 19)
 }
 
 // 生成异常号
@@ -127,7 +119,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '招标单 TENDER-0005-002 已逾期，当前无任何报价，需紧急处理',
     createdAt: oneDayAgo,
     updatedAt: mockNow,
-    slaDueAt: eightHoursAgo,
     tags: ['紧急', '竞价'],
     actions: [],
     auditLogs: [
@@ -152,7 +143,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '绣花工序因等待绣花线到货而生产暂停，预计3天到货',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
-    slaDueAt: eightHoursAgo,
     tags: ['物料', '生产暂停'],
     actions: [
       { id: 'EA-001', actionType: 'CONTACT_SUPPLIER', actionDetail: '已联系供应商催货', at: oneDayAgo, by: '跟单A' },
@@ -179,7 +169,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '任务 TASK-0001-003 派单被 ID-F003 拒绝，原因：产能已满',
     createdAt: oneDayAgo,
     updatedAt: oneDayAgo,
-    slaDueAt: sixHoursLater,
     tags: ['派单', '拒单'],
     actions: [],
     auditLogs: [
@@ -189,7 +178,7 @@ export const initialExceptions: ExceptionCase[] = [
   // S2 - 产能待处理
   {
     caseId: 'EX-202603-0004',
-    caseStatus: 'WAITING_EXTERNAL',
+    caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'PRODUCTION_BLOCK',
     reasonCode: 'BLOCKED_CAPACITY',
@@ -204,12 +193,11 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '压褶工序因工厂产能排满而生产暂停，需要协调排期',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
-    slaDueAt: oneDayAgo,
     tags: ['产能', '生产暂停'],
     actions: [],
     auditLogs: [
       { id: 'EAL-006', action: 'CREATE', detail: '系统自动生成异常单', at: twoDaysAgo, by: '系统' },
-      { id: 'EAL-007', action: 'STATUS_CHANGE', detail: 'OPEN -> WAITING_EXTERNAL', at: oneDayAgo, by: '跟单B' },
+      { id: 'EAL-007', action: 'STATUS_CHANGE', detail: 'OPEN -> IN_PROGRESS', at: oneDayAgo, by: '跟单B' },
     ],
   },
   // S2 - 质量处理
@@ -230,7 +218,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: 'QC发现车缝线迹不良率过高，需质量处理',
     createdAt: oneDayAgo,
     updatedAt: mockNow,
-    slaDueAt: mockNow,
     tags: ['质量', '处理'],
     actions: [],
     auditLogs: [
@@ -253,7 +240,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '订单 PO-202603-0003 关联的技术包尚未发布，无法开始生产',
     createdAt: twoDaysAgo,
     updatedAt: twoDaysAgo,
-    slaDueAt: oneDayAgo,
     tags: ['技术包'],
     actions: [],
     auditLogs: [
@@ -276,7 +262,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '招标单 TENDER-0002-001 将在24小时内截止，当前有2个报价',
     createdAt: mockNow,
     updatedAt: mockNow,
-    slaDueAt: new Date(nowDate.getTime() + 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19),
     tags: ['竞价', '临近截止'],
     actions: [],
     auditLogs: [
@@ -286,7 +271,7 @@ export const initialExceptions: ExceptionCase[] = [
   // S2 - 工艺资料生产暂停
   {
     caseId: 'EX-202603-0008',
-    caseStatus: 'WAITING_EXTERNAL',
+    caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'PRODUCTION_BLOCK',
     reasonCode: 'BLOCKED_TECH',
@@ -301,12 +286,11 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '洗水效果样尚未确认，等待客户批复',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
-    slaDueAt: mockNow,
     tags: ['工艺', '待确认'],
     actions: [],
     auditLogs: [
       { id: 'EAL-011', action: 'CREATE', detail: '系统自动生成异常单', at: twoDaysAgo, by: '系统' },
-      { id: 'EAL-012', action: 'STATUS_CHANGE', detail: 'OPEN -> WAITING_EXTERNAL', at: oneDayAgo, by: '运营' },
+      { id: 'EAL-012', action: 'STATUS_CHANGE', detail: 'OPEN -> IN_PROGRESS', at: oneDayAgo, by: '运营' },
     ],
   },
   // S2 - 设备待处理
@@ -327,7 +311,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '扣眼机故障维修中，预计明日恢复',
     createdAt: oneDayAgo,
     updatedAt: mockNow,
-    slaDueAt: new Date(nowDate.getTime() + 12 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19),
     tags: ['设备', '维修'],
     actions: [],
     auditLogs: [
@@ -350,7 +333,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '春节假期工人返乡，节后恢复',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
-    slaDueAt: new Date(nowDate.getTime() + 48 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19),
     tags: ['假期'],
     actions: [
       { id: 'EA-002', actionType: 'SCHEDULE', actionDetail: '已安排节后优先处理', at: oneDayAgo, by: '运营' },
@@ -376,7 +358,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '任务分配的工厂 ID-F007 已被列入黑名单，需重新分配',
     createdAt: mockNow,
     updatedAt: mockNow,
-    slaDueAt: sixHoursLater,
     tags: ['黑名单', '工厂'],
     actions: [],
     auditLogs: [
@@ -399,7 +380,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '任务 TASK-0004-002 派单后工厂超过24小时未确认',
     createdAt: oneDayAgo,
     updatedAt: oneDayAgo,
-    slaDueAt: mockNow,
     tags: ['派单', '超时'],
     actions: [],
     auditLogs: [
@@ -422,7 +402,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '招标单无人报价，已转为派单处理',
     createdAt: twoDaysAgo,
     updatedAt: oneDayAgo,
-    slaDueAt: twoDaysAgo,
     tags: ['竞价', '已关闭'],
     actions: [
       { id: 'EA-003', actionType: 'CONVERT_TO_DISPATCH', actionDetail: '转为派单处理', at: oneDayAgo, by: 'Admin' },
@@ -435,7 +414,7 @@ export const initialExceptions: ExceptionCase[] = [
   // S2 - 交接差异
   {
     caseId: 'EX-202603-0014',
-    caseStatus: 'WAITING_EXTERNAL',
+    caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'HANDOVER',
     reasonCode: 'HANDOVER_DIFF',
@@ -450,7 +429,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '工序交接时发现数量差异，少收50件',
     createdAt: oneDayAgo,
     updatedAt: mockNow,
-    slaDueAt: sixHoursLater,
     tags: ['交接', '差异'],
     actions: [],
     auditLogs: [
@@ -473,7 +451,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '裁片交接至印花厂时发现短缺50件，双方存在争议',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
-    slaDueAt: sixHoursLater,
     tags: ['交接', '争议', '差异'],
     actions: [],
     auditLogs: [
@@ -498,7 +475,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '裁片交接短缺20件，原因为运输途中丢失',
     createdAt: oneDayAgo,
     updatedAt: mockNow,
-    slaDueAt: twoHoursLater,
     tags: ['交接', '差异', '运输'],
     actions: [],
     auditLogs: [
@@ -522,7 +498,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '发现交接裁片混入其他批次，需核实分拣',
     createdAt: mockNow,
     updatedAt: mockNow,
-    slaDueAt: new Date(nowDate.getTime() + 12 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19),
     tags: ['交接', '混批'],
     actions: [],
     auditLogs: [
@@ -545,7 +520,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '交接时发现短缺30件，差异原因待核实',
     createdAt: mockNow,
     updatedAt: mockNow,
-    slaDueAt: twoHoursLater,
     tags: ['交接', '差异', '待查'],
     actions: [],
     auditLogs: [
@@ -568,7 +542,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '辅料（拉链）尚未到货，无法开始生产',
     createdAt: mockNow,
     updatedAt: mockNow,
-    slaDueAt: new Date(nowDate.getTime() + 20 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19),
     tags: ['物料', '齐套'],
     actions: [],
     auditLogs: [
@@ -583,7 +556,7 @@ export const initialExceptions: ExceptionCase[] = [
     ownerUserId: 'U002', ownerUserName: '跟单A',
     summary: '钉扣任务被候选工厂拒单',
     detail: '候选工厂反馈当前钉扣机台排期已满，无法在要求交期内接单',
-    createdAt: '2026-03-06 09:00:00', updatedAt: '2026-03-06 09:00:00', slaDueAt: '2026-03-07 09:00:00',
+    createdAt: '2026-03-06 09:00:00', updatedAt: '2026-03-06 09:00:00',
     tags: ['拒单', '重新分配'],
     actions: [{ id: 'EXA-202603-2001-01', actionType: 'CREATE', actionDetail: '系统自动创建异常单', at: '2026-03-06 09:00:00', by: '系统' }],
     auditLogs: [{ id: 'EXL-202603-2001-01', action: 'CREATE', detail: '创建异常：拒单', at: '2026-03-06 09:00:00', by: '系统' }],
@@ -595,7 +568,7 @@ export const initialExceptions: ExceptionCase[] = [
     ownerUserId: 'U003', ownerUserName: '跟单B',
     summary: '车缝任务派单超时未确认',
     detail: '已向主工厂发起直接派单，但超过确认时限仍未回执',
-    createdAt: '2026-03-06 14:00:00', updatedAt: '2026-03-06 16:00:00', slaDueAt: '2026-03-07 14:00:00',
+    createdAt: '2026-03-06 14:00:00', updatedAt: '2026-03-06 16:00:00',
     tags: ['派单超时', '待确认'],
     actions: [
       { id: 'EXA-202603-2002-01', actionType: 'CREATE', actionDetail: '创建派单超时异常', at: '2026-03-06 14:00:00', by: '系统' },
@@ -604,13 +577,13 @@ export const initialExceptions: ExceptionCase[] = [
     auditLogs: [{ id: 'EXL-202603-2002-01', action: 'CREATE', detail: '创建异常：派单超时', at: '2026-03-06 14:00:00', by: '系统' }],
   },
   {
-    caseId: 'EX-202603-2003', caseStatus: 'WAITING_EXTERNAL', severity: 'S3', category: 'MATERIAL', reasonCode: 'MATERIAL_NOT_READY',
+    caseId: 'EX-202603-2003', caseStatus: 'IN_PROGRESS', severity: 'S3', category: 'MATERIAL', reasonCode: 'MATERIAL_NOT_READY',
     sourceType: 'TASK', sourceId: 'TASK-202603-0003-002',
     relatedOrderIds: ['PO-202603-0003'], relatedTaskIds: ['TASK-202603-0003-002'], relatedTenderIds: [],
     ownerUserId: 'U004', ownerUserName: '计划员A',
     summary: '车缝辅料未完全齐套',
     detail: '领料单已部分下发，但缝制辅料包尚未完全齐套，待仓储补齐',
-    createdAt: '2026-03-06 08:30:00', updatedAt: '2026-03-06 08:30:00', slaDueAt: '2026-03-09 08:30:00',
+    createdAt: '2026-03-06 08:30:00', updatedAt: '2026-03-06 08:30:00',
     tags: ['领料', '待齐套'],
     actions: [{ id: 'EXA-202603-2003-01', actionType: 'CREATE', actionDetail: '创建物料未齐套异常', at: '2026-03-06 08:30:00', by: '系统' }],
     auditLogs: [{ id: 'EXL-202603-2003-01', action: 'CREATE', detail: '创建异常：物料未齐套', at: '2026-03-06 08:30:00', by: '系统' }],
@@ -637,7 +610,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '工厂端 PDA 上报暂停，裁片批次 B202 存在断刀口，等待补裁片到位',
     createdAt: '2026-03-10 14:00:00',
     updatedAt: '2026-03-10 14:00:00',
-    slaDueAt: '2026-03-11 14:00:00',
     pauseReportedAt: '2026-03-10 14:00:00',
     pauseReasonLabel: '裁片问题',
     pauseRemark: '裁片批次 B202 存在 120 件断刀口，需等待补裁片到位',
@@ -677,7 +649,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '工厂端 PDA 上报暂停，上一步回货批次色差偏高，等待替换面料',
     createdAt: '2026-03-11 10:30:00',
     updatedAt: '2026-03-11 11:20:00',
-    slaDueAt: '2026-03-12 10:30:00',
     pauseReportedAt: '2026-03-11 10:30:00',
     pauseReasonLabel: '物料问题',
     pauseRemark: '上一步回货批次色差偏高，工厂暂停等待替换面料',
@@ -687,7 +658,9 @@ export const initialExceptions: ExceptionCase[] = [
     ],
     milestoneSnapshot: {
       required: true,
-      ruleLabel: '完成第 5 件',
+      ruleLabel: '完成第 5 件后上报',
+      targetQty: 5,
+      targetUnit: 'PIECE',
       status: 'PENDING',
       reportedAt: null,
     },
@@ -724,7 +697,6 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '工厂端 PDA 上报暂停，蒸汽整烫机 #3 温控板损坏，等待备件更换',
     createdAt: '2026-03-11 15:00:00',
     updatedAt: '2026-03-11 15:00:00',
-    slaDueAt: '2026-03-11 23:00:00',
     pauseReportedAt: '2026-03-11 15:00:00',
     pauseReasonLabel: '设备异常',
     pauseRemark: '蒸汽整烫机 #3 温控板损坏，等待备件更换',
@@ -1187,13 +1159,13 @@ export const initialNotifications: Notification[] = [
   { notificationId: 'NT-202603-0001', level: 'INFO', title: '任务已分配', content: '任务TASK-0001-001已分配至Jakarta Central Factory', recipientType: 'FACTORY', recipientId: 'ID-F001', recipientName: 'Jakarta Central Factory', targetType: 'TASK', targetId: 'TASK-0001-001', related: { taskId: 'TASK-0001-001', productionOrderId: 'PO-202603-0004' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0001-001' } }, createdAt: '2026-03-02 09:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0002', level: 'INFO', title: '任务已完成', content: '任务TASK-0003-001裁剪工序已完成', recipientType: 'INTERNAL_USER', recipientId: 'U002', recipientName: '跟单A', targetType: 'TASK', targetId: 'TASK-0003-001', related: { taskId: 'TASK-0003-001', productionOrderId: 'PO-202603-0003' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0003-001' } }, createdAt: '2026-03-02 10:00:00', readAt: '2026-03-02 10:30:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0003', level: 'INFO', title: '交接待确认', content: '交接事件HV-202603-0001等待工厂确认', recipientType: 'FACTORY', recipientId: 'ID-F001', recipientName: 'Jakarta Central Factory', targetType: 'HANDOVER', targetId: 'HV-202603-0001', related: { handoverEventId: 'HV-202603-0001', productionOrderId: 'PO-202603-0004' }, deepLink: { path: '/fcs/progress/handover', query: { eventId: 'HV-202603-0001' } }, createdAt: '2026-03-02 11:00:00', createdBy: 'SYSTEM' },
-  { notificationId: 'NT-202603-0004', level: 'WARN', title: '处理时限即将到期', content: '异常单EX-202603-0001将于6小时内到期，请尽快处理', recipientType: 'INTERNAL_USER', recipientId: 'U002', recipientName: '跟单A', targetType: 'CASE', targetId: 'EX-202603-0001', related: { caseId: 'EX-202603-0001', productionOrderId: 'PO-202603-0004' }, deepLink: { path: '/fcs/progress/exceptions', query: { caseId: 'EX-202603-0001' } }, createdAt: '2026-03-03 06:00:00', createdBy: 'SYSTEM' },
+  { notificationId: 'NT-202603-0004', level: 'WARN', title: '异常待跟进提醒', content: '异常单EX-202603-0001仍在处理中，请尽快跟进', recipientType: 'INTERNAL_USER', recipientId: 'U002', recipientName: '跟单A', targetType: 'CASE', targetId: 'EX-202603-0001', related: { caseId: 'EX-202603-0001', productionOrderId: 'PO-202603-0004' }, deepLink: { path: '/fcs/progress/exceptions', query: { caseId: 'EX-202603-0001' } }, createdAt: '2026-03-03 06:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0005', level: 'WARN', title: '竞价临近截止', content: '竞价单TD-202603-0001将于24小时内截止', recipientType: 'INTERNAL_USER', recipientId: 'U001', recipientName: '管理员', targetType: 'TENDER', targetId: 'TD-202603-0001', related: { tenderId: 'TD-202603-0001' }, deepLink: { path: '/fcs/dispatch/board', query: { tenderId: 'TD-202603-0001' } }, createdAt: '2026-03-02 18:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0006', level: 'WARN', title: '交接待确认超时', content: '交接事件HV-202603-0002已超过4小时未确认', recipientType: 'FACTORY', recipientId: 'ID-F003', recipientName: 'Tangerang Satellite Cluster', targetType: 'HANDOVER', targetId: 'HV-202603-0002', related: { handoverEventId: 'HV-202603-0002', productionOrderId: 'PO-202603-0007' }, deepLink: { path: '/fcs/progress/handover', query: { eventId: 'HV-202603-0002' } }, createdAt: '2026-03-02 19:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0007', level: 'WARN', title: '任务生产暂停提醒', content: '任务TASK-0005-002因设备故障生产暂停', recipientType: 'INTERNAL_USER', recipientId: 'U003', recipientName: '跟单B', targetType: 'TASK', targetId: 'TASK-0005-002', related: { taskId: 'TASK-0005-002', productionOrderId: 'PO-202603-0005' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0005-002' } }, createdAt: '2026-03-02 14:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0008', level: 'WARN', title: '任务生产暂停建议', content: '任务TASK-0007-003生产暂停，请工厂尽快解除', recipientType: 'FACTORY', recipientId: 'ID-F006', recipientName: 'Surabaya Embroidery', targetType: 'TASK', targetId: 'TASK-0007-003', related: { taskId: 'TASK-0007-003', productionOrderId: 'PO-202603-0007' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0007-003' } }, createdAt: '2026-03-02 15:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0009', level: 'WARN', title: '派单待确认', content: '派单TASK-0002-001已超过4小时未确认接单', recipientType: 'FACTORY', recipientId: 'ID-F003', recipientName: 'Tangerang Satellite Cluster', targetType: 'TASK', targetId: 'TASK-0002-001', related: { taskId: 'TASK-0002-001', productionOrderId: 'PO-202603-0007' }, deepLink: { path: '/fcs/dispatch/board', query: { taskId: 'TASK-0002-001' } }, createdAt: '2026-03-02 16:00:00', createdBy: 'SYSTEM' },
-  { notificationId: 'NT-202603-0010', level: 'CRITICAL', title: '处理时限逾期提醒', content: '异常单EX-202603-0003已超过处理时限，需立即处理', recipientType: 'INTERNAL_USER', recipientId: 'U002', recipientName: '跟单A', targetType: 'CASE', targetId: 'EX-202603-0003', related: { caseId: 'EX-202603-0003', productionOrderId: 'PO-202603-0003' }, deepLink: { path: '/fcs/progress/exceptions', query: { caseId: 'EX-202603-0003' } }, createdAt: '2026-03-03 00:00:00', createdBy: 'SYSTEM' },
+  { notificationId: 'NT-202603-0010', level: 'CRITICAL', title: '异常紧急提醒', content: '异常单EX-202603-0003仍未处理，请立即跟进', recipientType: 'INTERNAL_USER', recipientId: 'U002', recipientName: '跟单A', targetType: 'CASE', targetId: 'EX-202603-0003', related: { caseId: 'EX-202603-0003', productionOrderId: 'PO-202603-0003' }, deepLink: { path: '/fcs/progress/exceptions', query: { caseId: 'EX-202603-0003' } }, createdAt: '2026-03-03 00:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0011', level: 'CRITICAL', title: '竞价已逾期', content: '竞价单TD-202603-0002已超过截止时间，需延期或处理', recipientType: 'INTERNAL_USER', recipientId: 'U001', recipientName: '管理员', targetType: 'TENDER', targetId: 'TD-202603-0002', related: { tenderId: 'TD-202603-0002' }, deepLink: { path: '/fcs/dispatch/board', query: { tenderId: 'TD-202603-0002' } }, createdAt: '2026-03-02 20:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0012', level: 'INFO', title: '新任务分配', content: '您有新任务TASK-0004-001待接单', recipientType: 'FACTORY', recipientId: 'ID-F004', recipientName: 'Bekasi Sewing Hub', targetType: 'TASK', targetId: 'TASK-0004-001', related: { taskId: 'TASK-0004-001', productionOrderId: 'PO-202603-0004' }, deepLink: { path: '/fcs/dispatch/board', query: { taskId: 'TASK-0004-001' } }, createdAt: '2026-03-02 08:00:00', createdBy: 'SYSTEM' },
   { notificationId: 'NT-202603-0013', level: 'INFO', title: '竞价邀请', content: '您被邀请参与竞价TD-202603-0003', recipientType: 'FACTORY', recipientId: 'ID-F005', recipientName: 'Bandung Print House', targetType: 'TENDER', targetId: 'TD-202603-0003', related: { tenderId: 'TD-202603-0003' }, deepLink: { path: '/fcs/dispatch/board', query: { tenderId: 'TD-202603-0003' } }, createdAt: '2026-03-01 14:00:00', createdBy: 'SYSTEM' },
