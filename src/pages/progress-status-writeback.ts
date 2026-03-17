@@ -352,7 +352,7 @@ function startReturnBatchFailQc(batchId: string, by: string): { ok: boolean; qcI
   task.blockRemark = `回货批次 ${batchId} 质检不合格，已进入处理`
   task.blockedAt = ts
   task.updatedAt = ts
-  pushTaskAudit(task, 'BLOCK_TASK', `回货批次 ${batchId} 不合格，任务暂不能继续`, by)
+  pushTaskAudit(task, 'BLOCK_TASK', `回货批次 ${batchId} 不合格，任务生产暂停`, by)
 
   return { ok: true, qcId }
 }
@@ -365,14 +365,14 @@ function renderGateBlockedCard(tasks: ProcessTask[]): string {
   return `
     <section class="rounded-lg border bg-card">
       <header class="px-4 pb-3 pt-4">
-        <h2 class="text-base font-semibold">当前暂不能继续任务</h2>
-        <p class="mt-1 text-sm text-muted-foreground">上一步染印/印花工序暂不能继续时，下一步任务将自动暂不能继续</p>
+        <h2 class="text-base font-semibold">当前生产暂停任务</h2>
+        <p class="mt-1 text-sm text-muted-foreground">上一步染印/印花工序生产暂停时，下一步任务将自动生产暂停</p>
       </header>
 
       <div class="px-4 pb-4">
         ${
           gatedTasks.length === 0
-            ? '<p class="py-4 text-center text-sm text-muted-foreground">暂无当前暂不能继续任务</p>'
+            ? '<p class="py-4 text-center text-sm text-muted-foreground">暂无当前生产暂停任务</p>'
             : `<div class="divide-y divide-border rounded-md border">${gatedTasks
                 .map((task) => {
                   const dependencies = getTaskDependencies(task).join('、')
@@ -380,7 +380,7 @@ function renderGateBlockedCard(tasks: ProcessTask[]): string {
                     <article class="space-y-1 px-4 py-3 text-sm">
                       <div class="flex items-center justify-between gap-4">
                         <span class="font-medium text-foreground">${escapeHtml(task.processNameZh)}</span>
-                        <span class="inline-flex rounded-md border border-orange-200 bg-orange-100 px-2 py-0.5 text-xs text-orange-800">当前暂不能继续</span>
+                        <span class="inline-flex rounded-md border border-orange-200 bg-orange-100 px-2 py-0.5 text-xs text-orange-800">当前生产暂停</span>
                       </div>
                       ${
                         dependencies
@@ -712,7 +712,7 @@ export function handleProgressStatusWritebackEvent(target: HTMLElement): boolean
 
     const result = startReturnBatchFailQc(batchId, '管理员')
     if (result.ok && result.qcId) {
-      showStatusWritebackToast(`已创建质检单 ${result.qcId}，任务已暂不能继续`)
+      showStatusWritebackToast(`已创建质检单 ${result.qcId}，任务已生产暂停`)
     } else {
       showStatusWritebackToast(result.message ?? '操作失败', 'error')
     }

@@ -292,7 +292,7 @@ export function renderDependenciesPage(): string {
                           isGated
                             ? `
                               <div class="space-y-1">
-                                <span class="inline-flex rounded-md border border-orange-200 bg-orange-100 px-2 py-0.5 text-xs text-orange-800">当前暂不能继续</span>
+                                <span class="inline-flex rounded-md border border-orange-200 bg-orange-100 px-2 py-0.5 text-xs text-orange-800">当前生产暂停</span>
                                 ${
                                   task.blockNoteZh
                                     ? `<p class="text-xs leading-snug text-muted-foreground">${escapeHtml(task.blockNoteZh)}</p>`
@@ -300,7 +300,7 @@ export function renderDependenciesPage(): string {
                                 }
                               </div>
                             `
-                            : '<span class="text-sm text-muted-foreground">未暂不能继续</span>'
+                            : '<span class="text-sm text-muted-foreground">未生产暂停</span>'
                         }
                       </td>
 

@@ -533,14 +533,14 @@ function recomputeAutoNotifications(): number {
     }
   })
 
-  // D. 任务暂不能继续
+  // D. 任务生产暂停
   processTasks.forEach((task) => {
     if (task.status !== 'BLOCKED') return
 
     const merchNotification: Omit<Notification, 'notificationId' | 'createdAt'> = {
       level: 'WARN',
-      title: '任务暂不能继续提醒',
-      content: `任务${task.taskId}因${task.blockReason || '未知原因'}暂不能继续`,
+      title: '任务生产暂停提醒',
+      content: `任务${task.taskId}因${task.blockReason || '未知原因'}生产暂停`,
       recipientType: 'INTERNAL_USER',
       recipientId: 'U002',
       recipientName: '跟单A',
@@ -569,8 +569,8 @@ function recomputeAutoNotifications(): number {
       const factory = indonesiaFactories.find((item) => item.id === task.assignedFactoryId)
       const factoryNotification: Omit<Notification, 'notificationId' | 'createdAt'> = {
         level: 'WARN',
-        title: '任务暂不能继续建议',
-        content: `任务${task.taskId}暂不能继续，请尽快解除`,
+        title: '任务生产暂停建议',
+        content: `任务${task.taskId}生产暂停，请尽快解除`,
         recipientType: 'FACTORY',
         recipientId: task.assignedFactoryId,
         recipientName: factory?.name || task.assignedFactoryId,

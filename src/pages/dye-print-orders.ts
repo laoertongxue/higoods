@@ -976,7 +976,7 @@ export function renderDyePrintOrdersPage(): string {
                               ${
                                 order.availableQty > 0
                                   ? '<span class="inline-flex rounded-md border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">可继续</span>'
-                                  : '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">暂不能继续</span>'
+                                  : '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">生产暂停</span>'
                               }
                             </td>
                             <td class="px-3 py-2 text-right font-mono text-sm font-semibold">${mainAvailable}</td>
@@ -984,7 +984,7 @@ export function renderDyePrintOrdersPage(): string {
                               ${
                                 mainAvailable > 0
                                   ? '<span class="inline-flex rounded-md border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">可继续</span>'
-                                  : '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">暂不能继续</span>'
+                                  : '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">生产暂停</span>'
                               }
                             </td>
                             <td class="whitespace-nowrap px-3 py-2 text-xs">

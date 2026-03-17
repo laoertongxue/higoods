@@ -30,7 +30,7 @@ interface PdaExecState {
 const TAB_CONFIG: Array<{ key: TaskStatusTab; label: string }> = [
   { key: 'NOT_STARTED', label: '待开工' },
   { key: 'IN_PROGRESS', label: '进行中' },
-  { key: 'BLOCKED', label: '暂不能继续' },
+  { key: 'BLOCKED', label: '生产暂停' },
   { key: 'DONE', label: '已完工' },
 ]
 
@@ -680,7 +680,7 @@ export function renderPdaExecPage(): string {
   const fromNotify = !!state.rawTabParam
   const bannerText =
     state.rawTabParam === 'blocked' || state.rawTabParam === 'BLOCKED'
-      ? '已为您定位到暂不能继续任务'
+      ? '已为您定位到生产暂停任务'
       : (state.rawTabParam === 'in-progress' || state.rawTabParam === 'IN_PROGRESS') &&
             state.riskParam === 'due-soon'
           ? '已为您定位到即将逾期任务'

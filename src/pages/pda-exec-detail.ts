@@ -504,7 +504,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const statusLabelMap: Record<string, string> = {
     NOT_STARTED: '待开工',
     IN_PROGRESS: '进行中',
-    BLOCKED: '暂不能继续',
+    BLOCKED: '生产暂停',
     DONE: '已完工',
     CANCELLED: '已取消',
   }

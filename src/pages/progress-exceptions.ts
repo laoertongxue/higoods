@@ -152,7 +152,7 @@ const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
 }
 
 const CATEGORY_LABEL: Record<ExceptionCategory, string> = {
-  PRODUCTION_BLOCK: '生产暂不能继续',
+  PRODUCTION_BLOCK: '生产暂停',
   ASSIGNMENT: '分配异常',
   TECH_PACK: '技术包',
   HANDOVER: '交接异常',
@@ -251,7 +251,7 @@ function updateTaskStatus(taskId: string, newStatus: ProcessTask['status'], by: 
     NOT_STARTED: '重置为未开始',
     IN_PROGRESS: task.status === 'BLOCKED' ? '恢复执行并继续推进' : '任务开始执行',
     DONE: '任务已完工',
-    BLOCKED: '任务暂不能继续',
+    BLOCKED: '任务生产暂停',
     CANCELLED: '任务已取消',
   }
 
@@ -1070,7 +1070,7 @@ function renderFilters(): string {
 
         <select class="h-9 w-[130px] rounded-md border bg-background px-3 text-sm" data-pe-field="categoryFilter">
           <option value="ALL" ${state.categoryFilter === 'ALL' ? 'selected' : ''}>全部分类</option>
-          <option value="PRODUCTION_BLOCK" ${state.categoryFilter === 'PRODUCTION_BLOCK' ? 'selected' : ''}>生产暂不能继续</option>
+          <option value="PRODUCTION_BLOCK" ${state.categoryFilter === 'PRODUCTION_BLOCK' ? 'selected' : ''}>生产暂停</option>
           <option value="ASSIGNMENT" ${state.categoryFilter === 'ASSIGNMENT' ? 'selected' : ''}>分配异常</option>
           <option value="EXECUTION" ${state.categoryFilter === 'EXECUTION' ? 'selected' : ''}>执行异常</option>
           <option value="TECH_PACK" ${state.categoryFilter === 'TECH_PACK' ? 'selected' : ''}>技术包</option>
@@ -1394,7 +1394,7 @@ function renderActionsTab(detailCase: ExceptionCase): string {
           <i data-lucide="message-square" class="h-5 w-5 text-blue-600"></i>
           <div>
             <p class="font-medium">记录跟进</p>
-            <p class="text-xs text-muted-foreground">记录平台处理进展，任务仍保持暂不能继续</p>
+            <p class="text-xs text-muted-foreground">记录平台处理进展，任务仍保持生产暂停</p>
           </div>
         </div>
       </button>
@@ -1670,7 +1670,7 @@ function renderUnblockDialog(): string {
       <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
         <header class="space-y-1">
           <h3 class="text-lg font-semibold">确认恢复执行</h3>
-          <p class="text-sm text-muted-foreground">异常 ${escapeHtml(exc.caseId)}：将解除关联暂不能继续任务并转为处理中。</p>
+          <p class="text-sm text-muted-foreground">异常 ${escapeHtml(exc.caseId)}：将解除关联生产暂停任务并转为处理中。</p>
         </header>
 
         <div class="mt-4">
@@ -1723,7 +1723,7 @@ function renderPauseFollowUpDialog(): string {
       <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
         <header class="space-y-1">
           <h3 class="text-lg font-semibold">记录跟进</h3>
-          <p class="text-sm text-muted-foreground">异常 ${escapeHtml(exc.caseId)}：记录平台跟进信息，任务继续保持暂不能继续。</p>
+          <p class="text-sm text-muted-foreground">异常 ${escapeHtml(exc.caseId)}：记录平台跟进信息，任务继续保持生产暂停。</p>
         </header>
 
         <div class="mt-4">

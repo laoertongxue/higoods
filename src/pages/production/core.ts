@@ -278,7 +278,7 @@ const taskStatusLabel: Record<ProcessTask['status'], string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
   DONE: '已完成',
-  BLOCKED: '当前暂不能继续',
+  BLOCKED: '当前生产暂停',
   CANCELLED: '已取消',
 }
 
@@ -3783,7 +3783,7 @@ function getOrdersWithLifecycleSummary(): Array<
       } else if (relatedDyes.some((dye) => dye.availableQty > 0)) {
         dyeStatus = '可继续'
       } else {
-        dyeStatus = '暂不能继续'
+        dyeStatus = '生产暂停'
       }
     }
 
@@ -3920,7 +3920,7 @@ export function renderProductionStatusPage(): string {
   const dyeStatusClass = (value: string): string => {
     if (value === '可继续') return 'bg-blue-100 text-blue-700'
     if (value === '不合格处理中') return 'bg-red-100 text-red-700'
-    if (value === '暂不能继续') return 'bg-slate-100 text-slate-700'
+    if (value === '生产暂停') return 'bg-slate-100 text-slate-700'
     return 'bg-white text-slate-700'
   }
 
@@ -3954,7 +3954,7 @@ export function renderProductionStatusPage(): string {
         ${[
           { label: '已计划数', value: stats.hasPlanned, desc: '计划状态 != 未计划' },
           { label: '已配置交付仓数', value: stats.hasDelivery, desc: '交付仓状态 = 已配置' },
-          { label: '有暂不能继续任务的生产单数', value: stats.hasBlocked, desc: '存在暂不能继续任务' },
+          { label: '有生产暂停任务的生产单数', value: stats.hasBlocked, desc: '存在生产暂停任务' },
           { label: '可结算/已进入批次数', value: stats.settlementReady, desc: '可进入结算或已进入批次' },
         ]
           .map(
@@ -4005,7 +4005,7 @@ export function renderProductionStatusPage(): string {
                     <th class="px-3 py-3 text-left font-medium">计划状态</th>
                     <th class="px-3 py-3 text-left font-medium">交付仓</th>
                     <th class="px-3 py-3 text-left font-medium">关联任务</th>
-                    <th class="px-3 py-3 text-left font-medium">暂不能继续任务</th>
+                    <th class="px-3 py-3 text-left font-medium">生产暂停任务</th>
                     <th class="px-3 py-3 text-left font-medium">染印状态</th>
                     <th class="px-3 py-3 text-left font-medium">结算摘要</th>
                     <th class="px-3 py-3 text-left font-medium">状态说明</th>

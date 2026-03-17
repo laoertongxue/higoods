@@ -145,7 +145,7 @@ const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   NOT_STARTED: '待开始',
   IN_PROGRESS: '进行中',
   DONE: '已完成',
-  BLOCKED: '暂不能继续',
+  BLOCKED: '生产暂停',
   CANCELLED: '已取消',
 }
 
@@ -216,7 +216,7 @@ const BLOCK_REASON_LABEL: Record<BlockReason, string> = {
   TECH: '技术问题',
   EQUIPMENT: '设备问题',
   OTHER: '其他',
-  ALLOCATION_GATE: '当前暂不能继续',
+  ALLOCATION_GATE: '当前生产暂停',
 }
 
 const BLOCK_REASON_OPTIONS: Array<{ value: BlockReason; label: string }> = [
@@ -296,7 +296,7 @@ function deriveBlockpoint(tasks: ProcessTask[]): string {
   if (tasks.some((task) => task.status === 'BLOCKED' && task.blockReason === 'QUALITY')) return '质检未已完成'
   if (tasks.some((task) => task.status === 'BLOCKED' && task.blockReason === 'MATERIAL')) return '染印回货未完成'
   if (tasks.some((task) => task.status === 'BLOCKED')) {
-    return `${tasks.filter((task) => task.status === 'BLOCKED').length} 个任务暂不能继续中`
+    return `${tasks.filter((task) => task.status === 'BLOCKED').length} 个任务生产暂停中`
   }
   if (tasks.some((task) => task.assignmentStatus === 'UNASSIGNED')) return '后道任务未分配'
   if (tasks.some((task) => task.assignmentStatus === 'BIDDING')) return '存在竞价未定标任务'
@@ -311,7 +311,7 @@ function deriveNextAction(lifecycle: PoLifecycle, tasks: ProcessTask[]): string 
       return `分配 ${tasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length} 个待分配任务`
     case 'IN_EXECUTION':
       if (tasks.some((task) => task.status === 'BLOCKED')) {
-        return '处理暂不能继续任务后继续推进'
+        return '处理生产暂停任务后继续推进'
       }
       return '跟进执行进度并催办'
     case 'PENDING_QC':
@@ -413,7 +413,7 @@ function getPoViewRows(): PoViewRow[] {
     const lifecycle = deriveLifecycle(tasks, order)
 
     const risks: string[] = []
-    if (tasks.some((task) => task.status === 'BLOCKED')) risks.push('有暂不能继续')
+    if (tasks.some((task) => task.status === 'BLOCKED')) risks.push('有生产暂停')
     if (tasks.some((task) => getTaskRisks(task).includes('TASK_OVERDUE'))) risks.push('逾期风险')
     if (tasks.some((task) => getTaskRisks(task).includes('TENDER_OVERDUE'))) risks.push('竞价逾期')
     if (order?.techPackSnapshot?.status !== 'RELEASED') risks.push('技术包未发布')
@@ -682,7 +682,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     BLOCKED_MATERIAL: '物料待处理',
     BLOCKED_CAPACITY: '产能待处理',
     BLOCKED_QUALITY: '质量处理',
-    BLOCKED_TECH: '工艺资料暂不能继续',
+    BLOCKED_TECH: '工艺资料生产暂停',
     BLOCKED_EQUIPMENT: '设备待处理',
     BLOCKED_OTHER: '其他待处理',
     TENDER_OVERDUE: '竞价已逾期',
@@ -756,7 +756,7 @@ function updateTaskStatus(
     NOT_STARTED: '重置为未开始',
     IN_PROGRESS: task.status === 'BLOCKED' ? '恢复执行，状态改为进行中' : '标记开始',
     DONE: '标记完工',
-    BLOCKED: `标记暂不能继续，原因：${blockReason ?? 'OTHER'}${blockRemark ? `，备注：${blockRemark}` : ''}`,
+    BLOCKED: `标记生产暂停，原因：${blockReason ?? 'OTHER'}${blockRemark ? `，备注：${blockRemark}` : ''}`,
     CANCELLED: '取消任务',
   }
 
@@ -1108,10 +1108,10 @@ function confirmTaskBlock(): void {
     sourceType: 'TASK',
     sourceId: task.taskId,
     reasonCode: reasonCodeMap[state.blockReason],
-    detail: state.blockRemark || `任务 ${task.taskId} 被标记为暂不能继续，原因：${BLOCK_REASON_LABEL[state.blockReason]}`,
+    detail: state.blockRemark || `任务 ${task.taskId} 被标记为生产暂停，原因：${BLOCK_REASON_LABEL[state.blockReason]}`,
   })
 
-  showProgressBoardToast(`任务 ${task.taskId} 已标记为暂不能继续`)
+  showProgressBoardToast(`任务 ${task.taskId} 已标记为生产暂停`)
 
   state.blockDialogTaskId = null
   state.blockReason = 'OTHER'
@@ -1407,7 +1407,7 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
         </button>
         <button class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40" data-progress-action="kpi-filter" data-kpi="blocked">
           <div class="flex items-center justify-between">
-            <span class="text-sm text-muted-foreground">暂不能继续</span>
+            <span class="text-sm text-muted-foreground">生产暂停</span>
             <i data-lucide="pause" class="h-4 w-4 text-red-500"></i>
           </div>
           <div class="mt-1 text-2xl font-bold text-red-600">${kpi.blocked}</div>
@@ -1449,7 +1449,7 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
             <option value="ALL" ${state.statusFilter === 'ALL' ? 'selected' : ''}>全部状态</option>
             <option value="NOT_STARTED" ${state.statusFilter === 'NOT_STARTED' ? 'selected' : ''}>待开始</option>
             <option value="IN_PROGRESS" ${state.statusFilter === 'IN_PROGRESS' ? 'selected' : ''}>进行中</option>
-            <option value="BLOCKED" ${state.statusFilter === 'BLOCKED' ? 'selected' : ''}>暂不能继续</option>
+            <option value="BLOCKED" ${state.statusFilter === 'BLOCKED' ? 'selected' : ''}>生产暂停</option>
             <option value="DONE" ${state.statusFilter === 'DONE' ? 'selected' : ''}>已完成</option>
             <option value="CANCELLED" ${state.statusFilter === 'CANCELLED' ? 'selected' : ''}>已取消</option>
           </select>
@@ -1474,7 +1474,7 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
           </select>
           <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="riskFilter">
             <option value="ALL" ${state.riskFilter === 'ALL' ? 'selected' : ''}>全部风险</option>
-            <option value="blockedOnly" ${state.riskFilter === 'blockedOnly' ? 'selected' : ''}>仅暂不能继续</option>
+            <option value="blockedOnly" ${state.riskFilter === 'blockedOnly' ? 'selected' : ''}>仅生产暂停</option>
             <option value="tenderOverdueOnly" ${state.riskFilter === 'tenderOverdueOnly' ? 'selected' : ''}>仅竞价逾期</option>
             <option value="rejectedOnly" ${state.riskFilter === 'rejectedOnly' ? 'selected' : ''}>仅派单拒绝</option>
             <option value="taskOverdueOnly" ${state.riskFilter === 'taskOverdueOnly' ? 'selected' : ''}>仅任务逾期</option>
@@ -1541,7 +1541,7 @@ function renderOrderListView(rows: PoViewRow[]): string {
                           <td class="px-3 py-2">
                             <div class="flex flex-wrap gap-1">
                               ${row.inProgressTasks > 0 ? renderBadge(`进行中 ${row.inProgressTasks}`, 'border-blue-200 bg-blue-100 text-blue-700') : ''}
-                              ${row.blockedTasks > 0 ? renderBadge(`暂不能继续 ${row.blockedTasks}`, 'border-red-200 bg-red-100 text-red-700') : ''}
+                              ${row.blockedTasks > 0 ? renderBadge(`生产暂停 ${row.blockedTasks}`, 'border-red-200 bg-red-100 text-red-700') : ''}
                               ${row.unassignedTasks > 0 ? renderBadge(`待分配 ${row.unassignedTasks}`, 'border-orange-200 bg-orange-100 text-orange-700') : ''}
                             </div>
                           </td>
@@ -1737,7 +1737,7 @@ function renderTaskDrawer(): string {
             <button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress">进度操作</button>
             ${
               task.status === 'BLOCKED'
-                ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block">暂不能继续信息</button>`
+                ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block">生产暂停信息</button>`
                 : '<span class="rounded px-2 py-1 text-center text-muted-foreground">—</span>'
             }
             <button class="rounded px-2 py-1 ${activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="logs">审计日志</button>
@@ -1918,7 +1918,7 @@ function renderTaskDrawer(): string {
                   }
                   ${
                     task.status === 'NOT_STARTED' || task.status === 'IN_PROGRESS'
-                      ? `<button class="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-sm text-red-700 hover:bg-red-100" data-progress-action="task-status-block" data-task-id="${escapeAttr(task.taskId)}"><i data-lucide="pause" class="mr-1.5 h-4 w-4"></i>标记暂不能继续</button>`
+                      ? `<button class="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-sm text-red-700 hover:bg-red-100" data-progress-action="task-status-block" data-task-id="${escapeAttr(task.taskId)}"><i data-lucide="pause" class="mr-1.5 h-4 w-4"></i>标记生产暂停</button>`
                       : ''
                   }
                   ${
@@ -1957,7 +1957,7 @@ function renderTaskDrawer(): string {
                     task.blockRemark
                       ? `
                         <div>
-                          <p class="text-xs text-muted-foreground">暂不能继续备注</p>
+                          <p class="text-xs text-muted-foreground">生产暂停备注</p>
                           <div class="mt-1 rounded-md bg-muted p-2">${escapeHtml(task.blockRemark)}</div>
                         </div>
                       `
@@ -1967,7 +1967,7 @@ function renderTaskDrawer(): string {
                     task.blockedAt
                       ? `
                         <div>
-                          <p class="text-xs text-muted-foreground">暂不能继续开始时间</p>
+                          <p class="text-xs text-muted-foreground">生产暂停开始时间</p>
                           <div class="mt-1">${escapeHtml(task.blockedAt)}</div>
                         </div>
                       `
@@ -2084,7 +2084,7 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
               </div>
               <div class="flex gap-3 text-xs text-muted-foreground">
                 ${row.inProgressTasks > 0 ? `<span class="text-blue-600">进行中 ${row.inProgressTasks}</span>` : ''}
-                ${row.blockedTasks > 0 ? `<span class="text-red-600">暂不能继续 ${row.blockedTasks}</span>` : ''}
+                ${row.blockedTasks > 0 ? `<span class="text-red-600">生产暂停 ${row.blockedTasks}</span>` : ''}
                 ${row.unassignedTasks > 0 ? `<span class="text-orange-600">待分配 ${row.unassignedTasks}</span>` : ''}
               </div>
             </div>
@@ -2175,7 +2175,7 @@ function renderBlockDialog(): string {
       <button class="absolute inset-0 bg-black/45" data-progress-action="close-block-dialog" aria-label="关闭"></button>
       <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
         <header class="space-y-1">
-          <h3 class="text-lg font-semibold">标记暂不能继续</h3>
+          <h3 class="text-lg font-semibold">标记生产暂停</h3>
           <p class="text-sm text-muted-foreground">任务 ${escapeHtml(task.taskId)} - ${escapeHtml(task.processNameZh)}</p>
         </header>
 
@@ -2238,7 +2238,7 @@ function renderHeader(filteredTasks: ProcessTask[]): string {
           <i data-lucide="kanban-square" class="h-5 w-5"></i>
           任务进度看板
         </h1>
-        <p class="text-sm text-muted-foreground">按任务/生产单双维度追踪执行进度、暂不能继续与风险</p>
+        <p class="text-sm text-muted-foreground">按任务/生产单双维度追踪执行进度、生产暂停与风险</p>
       </div>
 
       <div class="flex items-center gap-2">

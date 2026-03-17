@@ -293,7 +293,7 @@ function getSummaryMap(rows: ExceptionCase[]): Map<string, SummaryRow> {
     const base =
       srcType === 'TASK' ? '影响任务执行' : srcType === 'TENDER' ? '影响招标与定标' : '影响定标与后续分配'
 
-    const impactSummary = blockedCount > 0 ? `${base}（暂不能继续任务 ${blockedCount} 条）` : base
+    const impactSummary = blockedCount > 0 ? `${base}（生产暂停任务 ${blockedCount} 条）` : base
 
     map.set(row.caseId, {
       planStatusZh,
@@ -809,7 +809,7 @@ export function renderDispatchExceptionsPage(): string {
       </div>
 
       <div class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        异常处理用于记录派单、竞价、定标过程中的异常事项；本页同步展示生产单计划、任务暂不能继续以及招标/定标影响范围摘要
+        异常处理用于记录派单、竞价、定标过程中的异常事项；本页同步展示生产单计划、任务生产暂停以及招标/定标影响范围摘要
       </div>
 
       <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -838,7 +838,7 @@ export function renderDispatchExceptionsPage(): string {
         ${[
           { label: '影响任务执行异常数', value: stats.impactTask },
           { label: '影响招标/定标异常数', value: stats.impactTender },
-          { label: '关联暂不能继续任务异常数', value: stats.hasBlocked },
+          { label: '关联生产暂停任务异常数', value: stats.hasBlocked },
           { label: '已下发生产单关联异常数', value: stats.released },
         ]
           .map(
@@ -907,7 +907,7 @@ export function renderDispatchExceptionsPage(): string {
               <th class="px-3 py-2 font-medium">生产单计划状态</th>
               <th class="px-3 py-2 font-medium">生产单状态</th>
               <th class="px-3 py-2 font-medium">关联任务数</th>
-              <th class="px-3 py-2 font-medium">暂不能继续任务数</th>
+              <th class="px-3 py-2 font-medium">生产暂停任务数</th>
               <th class="px-3 py-2 font-medium">招标/定标状态摘要</th>
               <th class="px-3 py-2 font-medium">影响范围摘要</th>
               <th class="px-3 py-2 font-medium">标题</th>

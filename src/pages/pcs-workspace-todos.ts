@@ -505,7 +505,7 @@ function isTodoInTab(todo: TodoItem, tab: TabId): boolean {
   if (tab === 'mine') return todo.todoType === 'WORK_ITEM'
   if (tab === 'approval') return todo.todoType === 'APPROVAL'
   if (tab === 'overdue') return todo.overdueDays > 0
-  if (tab === 'blocked') return todo.sourceStatus === '暂不能继续' || todo.sourceStatus === '上架失败'
+  if (tab === 'blocked') return todo.sourceStatus === '生产暂停' || todo.sourceStatus === '上架失败'
   if (tab === 'warehouse') return todo.todoType === 'SAMPLE'
   if (tab === 'channel') return todo.todoType === 'STORE_AUTH' || todo.todoType === 'MAPPING' || todo.todoType === 'LISTING'
   if (tab === 'accounting') return todo.todoType === 'TEST_ACCOUNTING'

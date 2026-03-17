@@ -106,7 +106,7 @@ export const seedParentTask: ProcessTask = {
   updatedAt: SEED_AT,
   auditLogs: [
     { id: 'AL-TASK-SEED-001', action: 'CREATED', detail: '任务创建', at: SEED_AT, by: 'SYSTEM' },
-    { id: 'AL-TASK-SEED-002', action: 'BLOCK_BY_QC', detail: '质检 QC-SEED-0001 FAIL，系统自动暂不能继续任务', at: SEED_AT, by: 'SYSTEM' },
+    { id: 'AL-TASK-SEED-002', action: 'BLOCK_BY_QC', detail: '质检 QC-SEED-0001 FAIL，系统自动生产暂停任务', at: SEED_AT, by: 'SYSTEM' },
   ],
 }
 

@@ -748,7 +748,7 @@ function renderProjectListRow(project: Project): string {
         <div class="flex flex-wrap items-center gap-1">
           <span>${escapeHtml(project.phaseName)}</span>
           ${project.hasPendingDecision ? renderBadge('待决策', 'border-orange-200 bg-orange-50 text-orange-700') : ''}
-          ${project.isBlocked ? renderBadge('暂不能继续', 'border-red-200 bg-red-50 text-red-700') : ''}
+          ${project.isBlocked ? renderBadge('生产暂停', 'border-red-200 bg-red-50 text-red-700') : ''}
         </div>
         ${project.isBlocked && project.gateReason ? `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(project.gateReason)}</p>` : ''}
       </td>
@@ -925,7 +925,7 @@ function renderDetailDrawer(): string {
         <div class="h-2 overflow-hidden rounded-full bg-muted"><span class="block h-full rounded-full bg-blue-600" style="width:${progress}%"></span></div>
         <div><span class="text-muted-foreground">下一工作项：</span>${escapeHtml(project.nextWorkItemName)}（${escapeHtml(project.nextWorkItemStatus)}）</div>
         ${project.hasPendingDecision ? '<p class="text-xs text-orange-700">当前存在待决策节点，请优先处理。</p>' : ''}
-        ${project.isBlocked && project.gateReason ? `<p class="text-xs text-red-700">当前暂不能继续：${escapeHtml(project.gateReason)}</p>` : ''}
+        ${project.isBlocked && project.gateReason ? `<p class="text-xs text-red-700">当前生产暂停：${escapeHtml(project.gateReason)}</p>` : ''}
       </div>
     </section>
 
