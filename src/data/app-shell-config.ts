@@ -173,7 +173,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'dispatch-board', title: '任务分配', icon: 'LayoutGrid', href: '/fcs/dispatch/board' },
             { key: 'dispatch-tenders', title: '招标单管理', icon: 'Gavel', href: '/fcs/dispatch/tenders' },
-            { key: 'dispatch-exceptions', title: '异常处理', icon: 'Siren', href: '/fcs/dispatch/exceptions' },
           ],
         },
         {
@@ -182,7 +181,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'KanbanSquare',
           children: [
             { key: 'progress-board', title: '任务进度看板', icon: 'KanbanSquare', href: '/fcs/progress/board' },
-            { key: 'progress-exceptions', title: '异常定位', icon: 'Search', href: '/fcs/progress/exceptions' },
+            { key: 'progress-exceptions', title: '异常定位与处理', icon: 'Search', href: '/fcs/progress/exceptions' },
             { key: 'progress-urge', title: '催办与通知', icon: 'BellRing', href: '/fcs/progress/urge' },
             { key: 'progress-handover', title: '交接链路追踪', icon: 'ScanLine', href: '/fcs/progress/handover' },
             { key: 'progress-material', title: '领料进度跟踪', icon: 'PackageSearch', href: '/fcs/progress/material' },

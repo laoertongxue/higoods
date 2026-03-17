@@ -1154,7 +1154,7 @@ function renderTaskActionMenu(task: ProcessTask): string {
                 <i data-lucide="search" class="mr-2 h-4 w-4"></i>更新进度
               </button>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-view-exception" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
-                <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>异常定位
+                <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>异常定位与处理
               </button>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-handover" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(po)}" data-progress-stop="true">
                 <i data-lucide="scan-line" class="mr-2 h-4 w-4"></i>交接链路
@@ -1193,7 +1193,7 @@ function renderOrderActionMenu(row: PoViewRow): string {
                 <i data-lucide="layers" class="mr-2 h-4 w-4"></i>查看生命周期
               </button>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="order-action-exception" data-order-id="${escapeAttr(row.orderId)}" data-progress-stop="true">
-                <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>异常定位
+                <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>异常定位与处理
               </button>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="order-action-dispatch" data-order-id="${escapeAttr(row.orderId)}" data-progress-stop="true">
                 <i data-lucide="send" class="mr-2 h-4 w-4"></i>去任务分配
@@ -1975,7 +1975,7 @@ function renderTaskDrawer(): string {
                   }
                   <div class="border-t pt-3">
                     <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-view-exception" data-task-id="${escapeAttr(task.taskId)}">
-                      <i data-lucide="file-warning" class="mr-1.5 h-4 w-4"></i>查看异常定位
+                      <i data-lucide="file-warning" class="mr-1.5 h-4 w-4"></i>查看异常定位与处理
                     </button>
                   </div>
                 </div>
@@ -2148,7 +2148,7 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
                 <i data-lucide="clipboard-list" class="mr-1.5 h-4 w-4"></i>查看任务清单
               </button>
               <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="order-action-exception" data-order-id="${escapeAttr(row.orderId)}">
-                <i data-lucide="alert-triangle" class="mr-1.5 h-4 w-4"></i>异常定位
+                <i data-lucide="alert-triangle" class="mr-1.5 h-4 w-4"></i>异常定位与处理
               </button>
               <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="order-action-dispatch" data-order-id="${escapeAttr(row.orderId)}">
                 <i data-lucide="send" class="mr-1.5 h-4 w-4"></i>去任务分配
@@ -2375,7 +2375,7 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
       })
     }
 
-    openLinkedPage('异常定位', `/fcs/progress/exceptions?taskId=${encodeURIComponent(taskId)}`)
+    openLinkedPage('异常定位与处理', `/fcs/progress/exceptions?taskId=${encodeURIComponent(taskId)}`)
     state.taskActionMenuId = null
     return true
   }
@@ -2418,7 +2418,7 @@ function handleOrderAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'order-action-exception') {
-    openLinkedPage('异常定位', `/fcs/progress/exceptions?po=${encodeURIComponent(orderId)}`)
+    openLinkedPage('异常定位与处理', `/fcs/progress/exceptions?po=${encodeURIComponent(orderId)}`)
     state.orderActionMenuId = null
     return true
   }

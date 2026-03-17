@@ -93,7 +93,6 @@ import { renderPaymentSyncPage } from '../pages/payment-sync'
 import { renderHistoryPage } from '../pages/history'
 import { renderDispatchBoardPage } from '../pages/dispatch-board'
 import { renderDispatchTendersPage } from '../pages/dispatch-tenders'
-import { renderDispatchExceptionsPage } from '../pages/dispatch-exceptions'
 import { renderProgressBoardPage } from '../pages/progress-board'
 import { renderProgressExceptionsPage } from '../pages/progress-exceptions'
 import { renderProgressStatusWritebackPage } from '../pages/progress-status-writeback'
@@ -203,7 +202,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/settlement/history': () => renderHistoryPage(),
   '/fcs/dispatch/board': () => renderDispatchBoardPage(),
   '/fcs/dispatch/tenders': () => renderDispatchTendersPage(),
-  '/fcs/dispatch/exceptions': () => renderDispatchExceptionsPage(),
+  '/fcs/dispatch/exceptions': () => renderProgressExceptionsPage(),
   '/fcs/progress/board': () => renderProgressBoardPage(),
   '/fcs/progress/exceptions': () => renderProgressExceptionsPage(),
   '/fcs/progress/handover': () => renderProgressHandoverPage(),

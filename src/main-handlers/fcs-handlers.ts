@@ -103,10 +103,6 @@ import {
   isDispatchTendersDialogOpen,
 } from '../pages/dispatch-tenders'
 import {
-  handleDispatchExceptionsEvent,
-  isDispatchExceptionsDialogOpen,
-} from '../pages/dispatch-exceptions'
-import {
   handleProgressBoardEvent,
   isProgressBoardDialogOpen,
 } from '../pages/progress-board'
@@ -157,7 +153,6 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleHistoryEvent(target) ||
     handleDispatchBoardEvent(target) ||
     handleDispatchTendersEvent(target) ||
-    handleDispatchExceptionsEvent(target) ||
     handleProgressBoardEvent(target) ||
     handleProgressExceptionsEvent(target) ||
     handleProgressUrgeEvent(target) ||
@@ -336,13 +331,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.tenderAction = 'close-dialog'
     handleDispatchTendersEvent(fakeButton)
-    return true
-  }
-
-  if (isDispatchExceptionsDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.dexAction = 'close-dialog'
-    handleDispatchExceptionsEvent(fakeButton)
     return true
   }
 

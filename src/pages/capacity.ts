@@ -1404,7 +1404,7 @@ function renderConstraintsTaskTable(keyword: string): string {
               <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
               <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
               <button data-nav="/fcs/dispatch/board" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看派单</button>
-              <button data-nav="/fcs/dispatch/exceptions" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看异常</button>
+              <button data-nav="/fcs/progress/exceptions" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看异常</button>
             </div>
           </td>
         </tr>
@@ -1891,7 +1891,7 @@ function renderPoliciesTaskTable(keyword: string): string {
               <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
               <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
               <button data-nav="/fcs/dispatch/board" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看派单</button>
-              <button data-nav="/fcs/dispatch/exceptions" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看异常</button>
+              <button data-nav="/fcs/progress/exceptions" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看异常</button>
             </div>
           </td>
         </tr>

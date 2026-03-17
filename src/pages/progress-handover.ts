@@ -2287,7 +2287,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     const eventId = actionNode.dataset.eventId
     const event = eventId ? getHandoverEventById(eventId) : undefined
     if (event) {
-      openLinkedPage('异常定位', buildExceptionHrefByEvent(event))
+      openLinkedPage('异常定位与处理', buildExceptionHrefByEvent(event))
     }
     closeRowMenu()
     return true

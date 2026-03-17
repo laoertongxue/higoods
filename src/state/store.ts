@@ -14,6 +14,11 @@ type Listener = () => void
 
 const TABS_STORAGE_KEY = 'higood-tabs'
 const SIDEBAR_STORAGE_KEY = 'sidebar-collapsed'
+const LEGACY_DISPATCH_EXCEPTIONS_KEY = 'dispatch-exceptions'
+const LEGACY_DISPATCH_EXCEPTIONS_PATH = '/fcs/dispatch/exceptions'
+const UNIFIED_PROGRESS_EXCEPTIONS_KEY = 'progress-exceptions'
+const UNIFIED_PROGRESS_EXCEPTIONS_PATH = '/fcs/progress/exceptions'
+const UNIFIED_PROGRESS_EXCEPTIONS_TITLE = '异常定位与处理'
 
 function createEmptyTabs(): AllSystemTabs {
   const tabs: AllSystemTabs = {}
@@ -41,9 +46,64 @@ function getStoredTabs(): AllSystemTabs {
       }
     }
 
-    return parsed
+    const migrated = migrateLegacyDispatchExceptionsTabs(parsed)
+    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(migrated))
+    return migrated
   } catch {
     return emptyTabs
+  }
+}
+
+function migrateLegacyDispatchExceptionsTabs(allTabs: AllSystemTabs): AllSystemTabs {
+  const fcsTabs = allTabs.fcs
+  if (!fcsTabs) return allTabs
+
+  let changed = false
+  const deduped = new Map<string, Tab>()
+
+  for (const tab of fcsTabs.tabs) {
+    const isLegacy =
+      tab.key === LEGACY_DISPATCH_EXCEPTIONS_KEY ||
+      tab.href === LEGACY_DISPATCH_EXCEPTIONS_PATH
+
+    const normalizedTab = isLegacy
+      ? {
+          ...tab,
+          key: UNIFIED_PROGRESS_EXCEPTIONS_KEY,
+          title: UNIFIED_PROGRESS_EXCEPTIONS_TITLE,
+          href: UNIFIED_PROGRESS_EXCEPTIONS_PATH,
+        }
+      : tab.key === UNIFIED_PROGRESS_EXCEPTIONS_KEY
+        ? {
+            ...tab,
+            title: UNIFIED_PROGRESS_EXCEPTIONS_TITLE,
+            href: UNIFIED_PROGRESS_EXCEPTIONS_PATH,
+          }
+        : tab
+
+    if (isLegacy || normalizedTab !== tab) changed = true
+    if (!deduped.has(normalizedTab.key)) {
+      deduped.set(normalizedTab.key, normalizedTab)
+    } else {
+      changed = true
+    }
+  }
+
+  const nextActiveKey =
+    fcsTabs.activeKey === LEGACY_DISPATCH_EXCEPTIONS_KEY
+      ? UNIFIED_PROGRESS_EXCEPTIONS_KEY
+      : fcsTabs.activeKey
+
+  if (nextActiveKey !== fcsTabs.activeKey) changed = true
+  if (!changed) return allTabs
+
+  return {
+    ...allTabs,
+    fcs: {
+      ...fcsTabs,
+      tabs: Array.from(deduped.values()),
+      activeKey: nextActiveKey,
+    },
   }
 }
 
