@@ -607,7 +607,8 @@ function renderSettlementInfoSection(): string {
     return `
       <article class="rounded-lg border bg-card p-4 shadow-none">
         <div class="text-sm font-semibold">结算信息</div>
-        <div class="mt-2 text-xs text-muted-foreground">暂无当前生效结算信息</div>
+        <div class="mt-2 text-xs text-muted-foreground">当前工厂尚未初始化结算信息</div>
+        <div class="mt-1 text-xs text-muted-foreground">初始化完成后，才可查看结算信息并发起修改申请</div>
       </article>
     `
   }
@@ -1556,6 +1557,13 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-settlement-change-request') {
+    const effective = getSettlementEffectiveInfoByFactory(CURRENT_FACTORY_ID)
+    if (!effective) {
+      state.settlementRequestDrawerMode = null
+      state.settlementRequestErrorText = '当前工厂尚未初始化结算信息'
+      return true
+    }
+
     const activeRequest = getSettlementActiveRequestByFactory(CURRENT_FACTORY_ID)
     if (activeRequest) {
       state.settlementRequestDrawerMode = 'detail'
@@ -1569,6 +1577,12 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-settlement-request-detail') {
+    const effective = getSettlementEffectiveInfoByFactory(CURRENT_FACTORY_ID)
+    if (!effective) {
+      state.settlementRequestDrawerMode = null
+      state.settlementRequestErrorText = '当前工厂尚未初始化结算信息'
+      return true
+    }
     state.settlementRequestDrawerMode = 'detail'
     state.settlementRequestErrorText = ''
     return true

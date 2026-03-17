@@ -51,7 +51,7 @@ import { renderProductSkuPage } from '../pages/pcs-product-sku'
 import { renderProductYarnPage } from '../pages/pcs-product-yarn'
 import { renderConfigWorkspacePage } from '../pages/pcs-config-workspace'
 import { renderPlatformConfigPage } from '../pages/pcs-platform-config'
-import { renderSettlementDetailPage, renderSettlementListPage } from '../pages/settlement'
+import { renderSettlementDetailPage, renderSettlementInitPage, renderSettlementListPage } from '../pages/settlement'
 import {
   renderCapacityOverviewPage,
   renderCapacityRiskPage,
@@ -131,6 +131,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/factories/status': () => renderFactoryStatusPage(),
   '/fcs/factories/performance': () => renderFactoryPerformancePage(),
   '/fcs/factories/settlement': () => renderSettlementListPage(),
+  '/fcs/factories/settlement/new': () => renderSettlementListPage(),
   '/fcs/workbench/overview': () => renderOverviewPage(),
   '/pcs/workspace/overview': () => renderPcsOverviewPage(),
   '/pcs/workspace/todos': () => renderPcsTodosPage(),
@@ -402,6 +403,10 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/fcs\/production\/orders\/([^/]+)$/,
     render: (match) => renderProductionOrderDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/factories\/settlement\/new\/([^/]+)$/,
+    render: (match) => renderSettlementInitPage(match[1]),
   },
   {
     pattern: /^\/fcs\/factories\/settlement\/([^/]+)$/,

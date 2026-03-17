@@ -98,6 +98,18 @@ export interface SettlementChangeRequest {
   logs: SettlementRequestLog[]
 }
 
+export interface SettlementInitDraft {
+  draftId: string
+  factoryId: string
+  factoryName: string
+  status: 'DRAFT'
+  configDraft: SettlementConfigSnapshot
+  receivingAccountDraft: SettlementEffectiveInfoSnapshot
+  deductionRulesDraft: SettlementDefaultDeductionRuleSnapshot[]
+  updatedAt: string
+  updatedBy: string
+}
+
 type ActionResult<T> = { ok: true; message: string; data: T } | { ok: false; message: string }
 
 const OPEN_REQUEST_STATUSES: SettlementChangeRequestStatus[] = ['PENDING_REVIEW']
@@ -702,8 +714,42 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
   },
 ]
 
+const settlementInitDrafts: SettlementInitDraft[] = [
+  {
+    draftId: 'SID-0001',
+    factoryId: 'ID-FAC-0007',
+    factoryName: 'PT Indah Design Studio',
+    status: 'DRAFT',
+    configDraft: {
+      cycleType: 'MONTHLY',
+      settlementDayRule: '每月25日',
+      pricingMode: 'BY_PIECE',
+      currency: 'IDR',
+    },
+    receivingAccountDraft: {
+      accountHolderName: 'PT Indah Design Studio',
+      idNumber: 'NPWP-07.781.230.5-100.000',
+      bankName: 'Bank Mandiri',
+      bankAccountNo: '7220011988003211',
+      bankBranch: 'Solo Main Branch',
+    },
+    deductionRulesDraft: [
+      {
+        ruleType: 'QUALITY_DEFECT',
+        ruleMode: 'PERCENTAGE',
+        ruleValue: 3,
+        effectiveFrom: '2026-03-01',
+        status: 'ACTIVE',
+      },
+    ],
+    updatedAt: '2026-03-16 17:20',
+    updatedBy: '平台运营-林静',
+  },
+]
+
 let requestSeq = settlementChangeRequests.length + 1
 let versionSeq = settlementVersionHistory.length + 1
+let initDraftSeq = settlementInitDrafts.length + 1
 
 function nowText(): string {
   const now = new Date()
@@ -728,6 +774,12 @@ function nextRequestId(): string {
 function nextVersionId(): string {
   const id = `VER-${String(versionSeq).padStart(4, '0')}`
   versionSeq += 1
+  return id
+}
+
+function nextInitDraftId(): string {
+  const id = `SID-${String(initDraftSeq).padStart(4, '0')}`
+  initDraftSeq += 1
   return id
 }
 
@@ -804,6 +856,10 @@ export function getSettlementChangeRequests(): SettlementChangeRequest[] {
   return settlementChangeRequests
 }
 
+export function getSettlementInitDrafts(): SettlementInitDraft[] {
+  return settlementInitDrafts
+}
+
 export function getSettlementStatusLabel(status: SettlementChangeRequestStatus): string {
   return statusLabelMap[status]
 }
@@ -820,6 +876,10 @@ export function getSettlementRequestById(requestId: string): SettlementChangeReq
   return getRequestByIdOrNull(requestId)
 }
 
+export function getSettlementInitDraftByFactory(factoryId: string): SettlementInitDraft | null {
+  return settlementInitDrafts.find((item) => item.factoryId === factoryId) ?? null
+}
+
 export function getSettlementLatestRequestByFactory(factoryId: string): SettlementChangeRequest | null {
   return (
     settlementChangeRequests
@@ -830,6 +890,153 @@ export function getSettlementLatestRequestByFactory(factoryId: string): Settleme
 
 export function getSettlementActiveRequestByFactory(factoryId: string): SettlementChangeRequest | null {
   return settlementChangeRequests.find((item) => item.factoryId === factoryId && isOpenRequest(item.status)) ?? null
+}
+
+export function saveSettlementInitDraft(payload: {
+  factoryId: string
+  factoryName: string
+  updatedBy: string
+  configDraft: SettlementConfigSnapshot
+  receivingAccountDraft: SettlementEffectiveInfoSnapshot
+  deductionRulesDraft: SettlementDefaultDeductionRuleSnapshot[]
+}): ActionResult<SettlementInitDraft> {
+  if (getEffectiveInfoByFactoryOrNull(payload.factoryId)) {
+    return { ok: false, message: '工厂已初始化结算信息，不可保存初始化草稿' }
+  }
+
+  const now = nowText()
+  const existed = getSettlementInitDraftByFactory(payload.factoryId)
+  if (existed) {
+    existed.factoryName = payload.factoryName
+    existed.configDraft = cloneConfigSnapshot(payload.configDraft)
+    existed.receivingAccountDraft = cloneAccountSnapshot(payload.receivingAccountDraft)
+    existed.deductionRulesDraft = cloneDeductionRuleSnapshots(payload.deductionRulesDraft)
+    existed.updatedAt = now
+    existed.updatedBy = payload.updatedBy
+    return { ok: true, message: '初始化草稿已保存', data: existed }
+  }
+
+  const draft: SettlementInitDraft = {
+    draftId: nextInitDraftId(),
+    factoryId: payload.factoryId,
+    factoryName: payload.factoryName,
+    status: 'DRAFT',
+    configDraft: cloneConfigSnapshot(payload.configDraft),
+    receivingAccountDraft: cloneAccountSnapshot(payload.receivingAccountDraft),
+    deductionRulesDraft: cloneDeductionRuleSnapshots(payload.deductionRulesDraft),
+    updatedAt: now,
+    updatedBy: payload.updatedBy,
+  }
+  settlementInitDrafts.unshift(draft)
+  return { ok: true, message: '初始化草稿已保存', data: draft }
+}
+
+export function clearSettlementInitDraft(factoryId: string): void {
+  const index = settlementInitDrafts.findIndex((item) => item.factoryId === factoryId)
+  if (index >= 0) settlementInitDrafts.splice(index, 1)
+}
+
+export function initializeSettlementInfo(payload: {
+  factoryId: string
+  factoryName: string
+  operator: string
+  configSnapshot: SettlementConfigSnapshot
+  receivingAccountSnapshot: SettlementEffectiveInfoSnapshot
+  deductionRulesSnapshot: SettlementDefaultDeductionRuleSnapshot[]
+}): ActionResult<SettlementEffectiveInfo> {
+  const existed = getEffectiveInfoByFactoryOrNull(payload.factoryId)
+  if (existed) return { ok: false, message: '该工厂已初始化结算信息，请使用新增版本维护' }
+
+  const now = nowText()
+  const versionNo = 'V1'
+  const accountSnapshot = cloneAccountSnapshot(payload.receivingAccountSnapshot)
+  const configSnapshot = cloneConfigSnapshot(payload.configSnapshot)
+  const rulesSnapshot = cloneDeductionRuleSnapshots(payload.deductionRulesSnapshot)
+
+  const effectiveInfo: SettlementEffectiveInfo = {
+    factoryId: payload.factoryId,
+    factoryName: payload.factoryName,
+    accountHolderName: accountSnapshot.accountHolderName,
+    idNumber: accountSnapshot.idNumber,
+    bankName: accountSnapshot.bankName,
+    bankAccountNo: accountSnapshot.bankAccountNo,
+    bankBranch: accountSnapshot.bankBranch,
+    versionNo,
+    effectiveAt: now,
+    effectiveBy: payload.operator,
+    updatedBy: payload.operator,
+    settlementConfigSnapshot: configSnapshot,
+    receivingAccountSnapshot: accountSnapshot,
+    defaultDeductionRulesSnapshot: rulesSnapshot,
+  }
+
+  settlementEffectiveInfos.push(effectiveInfo)
+  settlementVersionHistory.push({
+    versionId: nextVersionId(),
+    factoryId: payload.factoryId,
+    factoryName: payload.factoryName,
+    versionNo,
+    accountHolderName: accountSnapshot.accountHolderName,
+    idNumber: accountSnapshot.idNumber,
+    bankName: accountSnapshot.bankName,
+    bankAccountNo: accountSnapshot.bankAccountNo,
+    bankBranch: accountSnapshot.bankBranch,
+    effectiveAt: now,
+    effectiveBy: payload.operator,
+    sourceRequestId: 'INIT',
+    settlementConfigSnapshot: cloneConfigSnapshot(configSnapshot),
+    receivingAccountSnapshot: cloneAccountSnapshot(accountSnapshot),
+    defaultDeductionRulesSnapshot: cloneDeductionRuleSnapshots(rulesSnapshot),
+  })
+
+  clearSettlementInitDraft(payload.factoryId)
+  return { ok: true, message: '已完成结算信息初始化', data: effectiveInfo }
+}
+
+export function createSettlementVersionFromCurrent(payload: {
+  factoryId: string
+  operator: string
+  settlementConfigSnapshot: SettlementConfigSnapshot
+  deductionRulesSnapshot: SettlementDefaultDeductionRuleSnapshot[]
+  effectiveAt?: string
+}): ActionResult<SettlementEffectiveInfo> {
+  const current = getEffectiveInfoByFactoryOrNull(payload.factoryId)
+  if (!current) return { ok: false, message: '工厂尚未初始化结算信息，无法新增版本' }
+  const latestVersionNo = getLatestVersionNoByFactory(payload.factoryId)
+  const nextVersionNo = calcNextVersionNo(latestVersionNo)
+  const nextEffectiveAt = payload.effectiveAt?.trim() || nowText()
+
+  const nextConfigSnapshot = cloneConfigSnapshot(payload.settlementConfigSnapshot)
+  const nextRulesSnapshot = cloneDeductionRuleSnapshots(payload.deductionRulesSnapshot)
+  const accountSnapshot = cloneAccountSnapshot(current.receivingAccountSnapshot)
+
+  current.versionNo = nextVersionNo
+  current.effectiveAt = nextEffectiveAt
+  current.effectiveBy = payload.operator
+  current.updatedBy = payload.operator
+  current.settlementConfigSnapshot = nextConfigSnapshot
+  current.defaultDeductionRulesSnapshot = nextRulesSnapshot
+  applyAccountSnapshot(current, accountSnapshot)
+
+  settlementVersionHistory.push({
+    versionId: nextVersionId(),
+    factoryId: current.factoryId,
+    factoryName: current.factoryName,
+    versionNo: nextVersionNo,
+    accountHolderName: accountSnapshot.accountHolderName,
+    idNumber: accountSnapshot.idNumber,
+    bankName: accountSnapshot.bankName,
+    bankAccountNo: accountSnapshot.bankAccountNo,
+    bankBranch: accountSnapshot.bankBranch,
+    effectiveAt: nextEffectiveAt,
+    effectiveBy: payload.operator,
+    sourceRequestId: 'VERSION_MANUAL',
+    settlementConfigSnapshot: cloneConfigSnapshot(nextConfigSnapshot),
+    receivingAccountSnapshot: cloneAccountSnapshot(accountSnapshot),
+    defaultDeductionRulesSnapshot: cloneDeductionRuleSnapshots(nextRulesSnapshot),
+  })
+
+  return { ok: true, message: `已生成新版本 ${nextVersionNo}`, data: current }
 }
 
 export function createSettlementChangeRequest(payload: {

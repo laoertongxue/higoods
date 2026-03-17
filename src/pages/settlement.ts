@@ -26,29 +26,40 @@ import {
 } from '../data/fcs/settlement-types'
 import {
   approveSettlementRequest,
+  createSettlementVersionFromCurrent,
   followupSettlementRequest,
   getSettlementChangeRequests,
   getSettlementEffectiveInfos,
+  getSettlementInitDraftByFactory,
+  getSettlementInitDrafts,
   getSettlementRequestById,
   getSettlementStatusClass,
   getSettlementStatusLabel,
   getSettlementVersionHistory,
+  initializeSettlementInfo,
   markSettlementRequestPrinted,
   rejectSettlementRequest,
+  saveSettlementInitDraft,
   setSettlementRequestPaperArchived,
   submitSettlementSignedProof,
   uploadSettlementSignedProof,
   verifySettlementRequest,
   type SettlementChangeRequest,
+  type SettlementConfigSnapshot,
   type SettlementChangeRequestStatus,
+  type SettlementDefaultDeductionRuleSnapshot,
   type SettlementEffectiveInfo,
+  type SettlementEffectiveInfoSnapshot,
+  type SettlementInitDraft,
 } from '../data/fcs/settlement-change-requests'
 import { escapeHtml } from '../utils'
+import { appStore } from '../state/store'
 
 const PAGE_SIZE = 10
 const CURRENCIES = ['CNY', 'USD', 'EUR', 'HKD'] as const
 
 type DetailTab = 'profile' | 'accounts' | 'rules' | 'history'
+type InitTab = 'config' | 'account' | 'rules'
 type ConfirmActionType = 'disableAccount' | 'setDefault' | 'disableRule'
 type SettlementListView = 'effective' | 'requests'
 
@@ -60,6 +71,8 @@ type DialogState =
   | { type: 'confirm'; factoryId: string; actionType: ConfirmActionType; itemId: string }
   | { type: 'request-detail'; requestId: string }
   | { type: 'request-print'; requestId: string }
+  | { type: 'init-factory-picker' }
+  | { type: 'version-view'; factoryId: string; versionId: string }
 
 interface SettlementState {
   summaries: FactorySettlementSummary[]
@@ -101,6 +114,16 @@ interface SettlementState {
     paperArchived: boolean
   }
   requestOperateError: string
+  initDrafts: SettlementInitDraft[]
+  initFactorySearch: string
+  initSelectedFactoryId: string | null
+  initEditorFactoryId: string | null
+  initEditorFactoryName: string
+  initActiveTab: InitTab
+  initConfigDraft: SettlementConfigSnapshot
+  initAccountDraft: SettlementEffectiveInfoSnapshot
+  initRulesDraft: SettlementDefaultDeductionRuleSnapshot[]
+  initErrorText: string
 }
 
 function today(): string {
@@ -166,6 +189,35 @@ const state: SettlementState = {
     paperArchived: false,
   },
   requestOperateError: '',
+  initDrafts: getSettlementInitDrafts(),
+  initFactorySearch: '',
+  initSelectedFactoryId: null,
+  initEditorFactoryId: null,
+  initEditorFactoryName: '',
+  initActiveTab: 'config',
+  initConfigDraft: {
+    cycleType: 'MONTHLY',
+    settlementDayRule: '每月25日',
+    pricingMode: 'BY_PIECE',
+    currency: 'IDR',
+  },
+  initAccountDraft: {
+    accountHolderName: '',
+    idNumber: '',
+    bankName: '',
+    bankAccountNo: '',
+    bankBranch: '',
+  },
+  initRulesDraft: [
+    {
+      ruleType: 'QUALITY_DEFECT',
+      ruleMode: 'PERCENTAGE',
+      ruleValue: 5,
+      effectiveFrom: today(),
+      status: 'ACTIVE',
+    },
+  ],
+  initErrorText: '',
 }
 
 function closeDialog(): void {
@@ -179,6 +231,7 @@ function closeDialog(): void {
 function syncSettlementRequestState(): void {
   state.effectiveInfos = getSettlementEffectiveInfos()
   state.changeRequests = getSettlementChangeRequests()
+  state.initDrafts = getSettlementInitDrafts()
 }
 
 function maskBankAccountNo(accountNo: string): string {
@@ -270,7 +323,98 @@ function getPagedRequests(filteredRequests: SettlementChangeRequest[]): Settleme
 function getFactoryName(factoryId: string): string {
   const profile = state.profiles.find((item) => item.factoryId === factoryId && item.isActive)
   if (profile) return profile.factoryName
+  const summary = state.summaries.find((item) => item.factoryId === factoryId)
+  if (summary) return summary.factoryName
   return '未知工厂'
+}
+
+function hasInitializedSettlement(factoryId: string): boolean {
+  return state.effectiveInfos.some((item) => item.factoryId === factoryId)
+}
+
+function getUninitializedFactories(): FactorySettlementSummary[] {
+  return state.summaries.filter((item) => !hasInitializedSettlement(item.factoryId))
+}
+
+function getInitDraftByFactory(factoryId: string): SettlementInitDraft | null {
+  return state.initDrafts.find((item) => item.factoryId === factoryId) ?? getSettlementInitDraftByFactory(factoryId)
+}
+
+function normalizeAccountMask(rawAccountNo: string): string {
+  const cleaned = rawAccountNo.replace(/\s+/g, '')
+  if (!cleaned) return ''
+  if (cleaned.length <= 8) return cleaned
+  return `${cleaned.slice(0, 4)}****${cleaned.slice(-4)}`
+}
+
+function resetInitEditor(factoryId: string): void {
+  const factoryName = getFactoryName(factoryId)
+  const existedDraft = getInitDraftByFactory(factoryId)
+
+  state.initEditorFactoryId = factoryId
+  state.initEditorFactoryName = factoryName
+  state.initActiveTab = 'config'
+  state.initErrorText = ''
+
+  if (existedDraft) {
+    state.initConfigDraft = {
+      cycleType: existedDraft.configDraft.cycleType,
+      settlementDayRule: existedDraft.configDraft.settlementDayRule,
+      pricingMode: existedDraft.configDraft.pricingMode,
+      currency: existedDraft.configDraft.currency,
+    }
+    state.initAccountDraft = {
+      accountHolderName: existedDraft.receivingAccountDraft.accountHolderName,
+      idNumber: existedDraft.receivingAccountDraft.idNumber,
+      bankName: existedDraft.receivingAccountDraft.bankName,
+      bankAccountNo: existedDraft.receivingAccountDraft.bankAccountNo,
+      bankBranch: existedDraft.receivingAccountDraft.bankBranch,
+    }
+    state.initRulesDraft = existedDraft.deductionRulesDraft.map((item) => ({ ...item }))
+    return
+  }
+
+  state.initConfigDraft = {
+    cycleType: 'MONTHLY',
+    settlementDayRule: '每月25日',
+    pricingMode: 'BY_PIECE',
+    currency: 'IDR',
+  }
+  state.initAccountDraft = {
+    accountHolderName: factoryName,
+    idNumber: '',
+    bankName: '',
+    bankAccountNo: '',
+    bankBranch: '',
+  }
+  state.initRulesDraft = [
+    {
+      ruleType: 'QUALITY_DEFECT',
+      ruleMode: 'PERCENTAGE',
+      ruleValue: 5,
+      effectiveFrom: today(),
+      status: 'ACTIVE',
+    },
+  ]
+}
+
+function saveCurrentInitDraft(operator: string): { ok: boolean; message: string } {
+  if (!state.initEditorFactoryId) return { ok: false, message: '当前未选择工厂' }
+  const result = saveSettlementInitDraft({
+    factoryId: state.initEditorFactoryId,
+    factoryName: state.initEditorFactoryName,
+    updatedBy: operator,
+    configDraft: state.initConfigDraft,
+    receivingAccountDraft: state.initAccountDraft,
+    deductionRulesDraft: state.initRulesDraft,
+  })
+  if (!result.ok) return result
+  syncSettlementRequestState()
+  return { ok: true, message: result.message }
+}
+
+function getVersionRecordById(factoryId: string, versionId: string) {
+  return getSettlementVersionHistory(factoryId).find((item) => item.versionId === versionId) ?? null
 }
 
 function resetProfileForm(factoryId?: string): void {
@@ -434,6 +578,113 @@ function renderRequestStats(requests: SettlementChangeRequest[]): string {
   `
 }
 
+function renderInitFactoryPickerDialog(): string {
+  if (state.dialog.type !== 'init-factory-picker') return ''
+  const allCandidates = getUninitializedFactories()
+  const keyword = state.initFactorySearch.trim().toLowerCase()
+  const candidates = keyword
+    ? allCandidates.filter(
+        (item) =>
+          item.factoryName.toLowerCase().includes(keyword) || item.factoryId.toLowerCase().includes(keyword),
+      )
+    : allCandidates
+
+  const selectedFactory =
+    (state.initSelectedFactoryId
+      ? allCandidates.find((item) => item.factoryId === state.initSelectedFactoryId)
+      : null) ?? null
+  const selectedDraft = selectedFactory ? getInitDraftByFactory(selectedFactory.factoryId) : null
+
+  return `
+    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-settle-action="close-dialog" aria-label="关闭"></button>
+      <section class="absolute inset-y-0 right-0 w-full border-l bg-background shadow-2xl sm:max-w-[620px]" data-dialog-panel="true">
+        <div class="flex h-full flex-col">
+          <header class="border-b px-6 py-4">
+            <h3 class="text-lg font-semibold">新增结算信息</h3>
+            <p class="mt-1 text-sm text-muted-foreground">请选择尚未初始化结算信息的工厂</p>
+          </header>
+          <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            <label class="space-y-1">
+              <span class="text-xs text-muted-foreground">工厂搜索</span>
+              <input
+                value="${escapeHtml(state.initFactorySearch)}"
+                data-settle-init-field="factorySearch"
+                placeholder="输入工厂名称或编码"
+                class="h-9 w-full rounded-md border px-3 text-sm"
+              />
+            </label>
+            <div class="overflow-hidden rounded-md border">
+              <table class="w-full text-sm">
+                <thead class="border-b bg-muted/30">
+                  <tr>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">工厂</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">状态</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${
+                    candidates.length === 0
+                      ? '<tr><td colspan="3" class="h-24 px-3 text-center text-muted-foreground">暂无可初始化工厂</td></tr>'
+                      : candidates
+                          .map((item) => {
+                            const hasDraft = Boolean(getInitDraftByFactory(item.factoryId))
+                            const selected = item.factoryId === state.initSelectedFactoryId
+                            return `
+                              <tr class="border-b last:border-0 ${selected ? 'bg-blue-50/50' : ''}">
+                                <td class="px-3 py-2">
+                                  <p class="font-medium">${escapeHtml(item.factoryName)}</p>
+                                  <p class="text-xs text-muted-foreground">${escapeHtml(item.factoryId)}</p>
+                                </td>
+                                <td class="px-3 py-2">
+                                  ${
+                                    hasDraft
+                                      ? '<span class="inline-flex rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">有草稿</span>'
+                                      : '<span class="inline-flex rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">未初始化</span>'
+                                  }
+                                </td>
+                                <td class="px-3 py-2 text-right">
+                                  <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-settle-action="select-init-factory" data-factory-id="${escapeHtml(item.factoryId)}">选择</button>
+                                </td>
+                              </tr>
+                            `
+                          })
+                          .join('')
+                  }
+                </tbody>
+              </table>
+            </div>
+            ${
+              selectedFactory
+                ? `
+                  <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                    已选择：${escapeHtml(selectedFactory.factoryName)}（${escapeHtml(selectedFactory.factoryId)}）
+                  </div>
+                `
+                : ''
+            }
+            ${
+              selectedDraft
+                ? `
+                  <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                    <p>当前有该工厂的结算信息草稿</p>
+                    <button class="mt-2 rounded-md border border-amber-300 bg-white px-2 py-1 text-xs hover:bg-amber-100" data-settle-action="go-init-draft" data-factory-id="${escapeHtml(selectedDraft.factoryId)}">点击前往</button>
+                  </div>
+                `
+                : ''
+            }
+          </div>
+          <footer class="flex items-center justify-end gap-2 border-t px-6 py-3">
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-settle-action="close-dialog">取消</button>
+            <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 ${!selectedFactory || Boolean(selectedDraft) ? 'pointer-events-none opacity-50' : ''}" data-settle-action="open-init-editor">开始初始化</button>
+          </footer>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderSettlementRequestDetailDialog(): string {
   if (state.dialog.type !== 'request-detail') return ''
   const request = getSettlementRequestById(state.dialog.requestId)
@@ -497,7 +748,7 @@ function renderSettlementRequestDetailDialog(): string {
               <div class="mt-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                 <p>结算配置：${escapeHtml(currentEffectiveInfo ? `${cycleTypeConfig[currentEffectiveInfo.settlementConfigSnapshot.cycleType].label} · ${pricingModeConfig[currentEffectiveInfo.settlementConfigSnapshot.pricingMode].label} · ${currentEffectiveInfo.settlementConfigSnapshot.currency}` : '—')}</p>
                 <p>收款账号：${escapeHtml(currentEffectiveInfo ? maskBankAccountNo(currentEffectiveInfo.receivingAccountSnapshot.bankAccountNo) : '—')}</p>
-                <p>默认扣款规则：${currentEffectiveInfo ? `${currentEffectiveInfo.defaultDeductionRulesSnapshot.length} 条` : '—'}</p>
+                <p>扣款规则：${currentEffectiveInfo ? `${currentEffectiveInfo.defaultDeductionRulesSnapshot.length} 条` : '—'}</p>
               </div>
             </section>
 
@@ -517,7 +768,7 @@ function renderSettlementRequestDetailDialog(): string {
                               <p class="mt-1 text-muted-foreground">生效人：${escapeHtml(version.effectiveBy)}</p>
                               <p class="mt-1 text-muted-foreground">结算配置：${escapeHtml(cycleTypeConfig[version.settlementConfigSnapshot.cycleType].label)} · ${escapeHtml(pricingModeConfig[version.settlementConfigSnapshot.pricingMode].label)} · ${escapeHtml(version.settlementConfigSnapshot.currency)}</p>
                               <p class="text-muted-foreground">收款账号：${escapeHtml(maskBankAccountNo(version.receivingAccountSnapshot.bankAccountNo))}</p>
-                              <p class="text-muted-foreground">默认扣款规则：${version.defaultDeductionRulesSnapshot.length} 条</p>
+                              <p class="text-muted-foreground">扣款规则：${version.defaultDeductionRulesSnapshot.length} 条</p>
                             </div>
                           `,
                         )
@@ -547,7 +798,7 @@ function renderSettlementRequestDetailDialog(): string {
                   <p>开户支行：${escapeHtml(request.after.bankBranch || '—')}</p>
                 </div>
               </div>
-              <p class="mt-2 text-xs text-blue-700">本次申请仅变更收款账号；审核通过后将复制当前版本生成新版本，结算配置与默认扣款规则沿用上一版本。</p>
+              <p class="mt-2 text-xs text-blue-700">本次申请仅变更收款账号；审核通过后将复制当前版本生成新版本，结算配置与扣款规则沿用上一版本。</p>
             </section>
 
             <section class="rounded-lg border p-4">
@@ -715,6 +966,112 @@ function renderSettlementRequestPrintDialog(): string {
               </section>
             </article>
           </div>
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderSettlementVersionViewDialog(): string {
+  if (state.dialog.type !== 'version-view') return ''
+  const record = getVersionRecordById(state.dialog.factoryId, state.dialog.versionId)
+  if (!record) return ''
+
+  return `
+    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-settle-action="close-dialog" aria-label="关闭"></button>
+      <section class="absolute inset-y-0 right-0 w-full border-l bg-background shadow-2xl sm:max-w-[680px]" data-dialog-panel="true">
+        <div class="flex h-full flex-col">
+          <header class="border-b px-6 py-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold">历史版本详情</h3>
+              <span class="inline-flex rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs">${escapeHtml(
+                record.versionNo,
+              )}</span>
+            </div>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.factoryName)} · ${escapeHtml(
+    record.effectiveAt,
+  )}</p>
+          </header>
+          <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5 text-sm">
+            <section class="rounded-md border p-4">
+              <p class="text-sm font-semibold">结算配置</p>
+              <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
+                <p class="text-muted-foreground">结算周期：<span class="font-medium text-foreground">${escapeHtml(
+                  cycleTypeConfig[record.settlementConfigSnapshot.cycleType].label,
+                )}</span></p>
+                <p class="text-muted-foreground">计价方式：<span class="font-medium text-foreground">${escapeHtml(
+                  pricingModeConfig[record.settlementConfigSnapshot.pricingMode].label,
+                )}</span></p>
+                <p class="text-muted-foreground">结算日规则：<span class="font-medium text-foreground">${escapeHtml(
+                  record.settlementConfigSnapshot.settlementDayRule || '—',
+                )}</span></p>
+                <p class="text-muted-foreground">币种：<span class="font-medium text-foreground">${escapeHtml(
+                  record.settlementConfigSnapshot.currency,
+                )}</span></p>
+              </div>
+            </section>
+            <section class="rounded-md border p-4">
+              <p class="text-sm font-semibold">收款账号</p>
+              <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
+                <p class="text-muted-foreground">开户名：<span class="font-medium text-foreground">${escapeHtml(
+                  record.receivingAccountSnapshot.accountHolderName,
+                )}</span></p>
+                <p class="text-muted-foreground">证件号：<span class="font-medium text-foreground">${escapeHtml(
+                  record.receivingAccountSnapshot.idNumber,
+                )}</span></p>
+                <p class="text-muted-foreground">银行名称：<span class="font-medium text-foreground">${escapeHtml(
+                  record.receivingAccountSnapshot.bankName,
+                )}</span></p>
+                <p class="text-muted-foreground">银行账号：<span class="font-medium text-foreground">${escapeHtml(
+                  maskBankAccountNo(record.receivingAccountSnapshot.bankAccountNo),
+                )}</span></p>
+                <p class="text-muted-foreground">开户支行：<span class="font-medium text-foreground">${escapeHtml(
+                  record.receivingAccountSnapshot.bankBranch || '—',
+                )}</span></p>
+              </div>
+            </section>
+            <section class="rounded-md border p-4">
+              <p class="text-sm font-semibold">扣款规则（${record.defaultDeductionRulesSnapshot.length} 条）</p>
+              <div class="mt-2 overflow-hidden rounded-md border">
+                <table class="w-full text-xs">
+                  <thead class="border-b bg-muted/30">
+                    <tr>
+                      <th class="px-2 py-2 text-left font-medium text-muted-foreground">规则类型</th>
+                      <th class="px-2 py-2 text-left font-medium text-muted-foreground">计算方式</th>
+                      <th class="px-2 py-2 text-left font-medium text-muted-foreground">数值</th>
+                      <th class="px-2 py-2 text-left font-medium text-muted-foreground">生效日期</th>
+                      <th class="px-2 py-2 text-left font-medium text-muted-foreground">状态</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${
+                      record.defaultDeductionRulesSnapshot.length === 0
+                        ? '<tr><td colspan="5" class="px-2 py-3 text-center text-muted-foreground">暂无扣款规则</td></tr>'
+                        : record.defaultDeductionRulesSnapshot
+                            .map((item) => {
+                              const valueText =
+                                item.ruleMode === 'PERCENTAGE' ? `${item.ruleValue}%` : `${item.ruleValue} 元`
+                              return `
+                                <tr class="border-b last:border-0">
+                                  <td class="px-2 py-2">${escapeHtml(ruleTypeConfig[item.ruleType].label)}</td>
+                                  <td class="px-2 py-2">${escapeHtml(ruleModeConfig[item.ruleMode].label)}</td>
+                                  <td class="px-2 py-2">${escapeHtml(valueText)}</td>
+                                  <td class="px-2 py-2">${escapeHtml(item.effectiveFrom)}</td>
+                                  <td class="px-2 py-2">${escapeHtml(settlementStatusConfig[item.status].label)}</td>
+                                </tr>
+                              `
+                            })
+                            .join('')
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+          <footer class="flex items-center justify-end border-t px-6 py-3">
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-settle-action="close-dialog">关闭</button>
+          </footer>
         </div>
       </section>
     </div>
@@ -955,7 +1312,7 @@ function renderRuleDrawer(): string {
         <div class="flex h-full flex-col">
           <header class="border-b px-6 py-4">
             <h3 class="text-lg font-semibold">${isEditing ? '编辑扣款规则' : '新增扣款规则'}</h3>
-            <p class="mt-1 text-sm text-muted-foreground">${isEditing ? '修改默认扣款规则' : '添加新的默认扣款规则'}</p>
+            <p class="mt-1 text-sm text-muted-foreground">${isEditing ? '修改扣款规则' : '添加新的扣款规则'}</p>
           </header>
 
           <form data-settle-form="rule" class="flex flex-1 flex-col">
@@ -1295,37 +1652,44 @@ function renderDetailRulesTab(factoryId: string, rules: DefaultPenaltyRule[]): s
   `
 }
 
-function renderDetailHistoryTab(profiles: FactorySettlementProfile[]): string {
+function renderDetailHistoryTab(factoryId: string): string {
+  const records = getSettlementVersionHistory(factoryId).sort((a, b) =>
+    b.effectiveAt.localeCompare(a.effectiveAt),
+  )
   return `
     <div class="overflow-x-auto rounded-md border">
       <table class="w-full text-sm">
         <thead class="border-b bg-muted/30">
           <tr>
-            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">结算周期</th>
-            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">计价方式</th>
-            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">币种</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">版本号</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">结算配置</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">收款账号</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">扣款规则</th>
             <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">生效日期</th>
-            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">失效日期</th>
-            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
-            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">更新时间</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">生效人</th>
+            <th class="px-3 py-3 text-right text-xs font-medium text-muted-foreground">操作</th>
           </tr>
         </thead>
         <tbody>
           ${
-            profiles.length === 0
+            records.length === 0
               ? '<tr><td colspan="7" class="h-24 px-3 text-center text-muted-foreground">暂无历史版本</td></tr>'
-              : profiles
-                  .map((profile) => {
-                    const status = settlementStatusConfig[profile.isActive ? 'ACTIVE' : 'INACTIVE']
+              : records
+                  .map((record) => {
+                    const configText = `${cycleTypeConfig[record.settlementConfigSnapshot.cycleType].label} · ${
+                      pricingModeConfig[record.settlementConfigSnapshot.pricingMode].label
+                    } · ${record.settlementConfigSnapshot.currency}`
                     return `
                       <tr class="border-b last:border-0">
-                        <td class="px-3 py-3 font-medium">${escapeHtml(cycleTypeConfig[profile.cycleType].label)}</td>
-                        <td class="px-3 py-3">${escapeHtml(pricingModeConfig[profile.pricingMode].label)}</td>
-                        <td class="px-3 py-3">${escapeHtml(profile.currency)}</td>
-                        <td class="px-3 py-3">${escapeHtml(profile.effectiveFrom)}</td>
-                        <td class="px-3 py-3">${escapeHtml(profile.effectiveTo || '-')}</td>
-                        <td class="px-3 py-3"><span class="inline-flex rounded border px-2 py-0.5 text-xs ${status.color}">${profile.isActive ? '生效' : '失效'}</span></td>
-                        <td class="px-3 py-3 text-muted-foreground">${escapeHtml(profile.updatedAt)}</td>
+                        <td class="px-3 py-3 font-medium">${escapeHtml(record.versionNo)}</td>
+                        <td class="px-3 py-3">${escapeHtml(configText)}</td>
+                        <td class="px-3 py-3">${escapeHtml(maskBankAccountNo(record.receivingAccountSnapshot.bankAccountNo))}</td>
+                        <td class="px-3 py-3">${record.defaultDeductionRulesSnapshot.length} 条</td>
+                        <td class="px-3 py-3">${escapeHtml(record.effectiveAt)}</td>
+                        <td class="px-3 py-3">${escapeHtml(record.effectiveBy)}</td>
+                        <td class="px-3 py-3 text-right">
+                          <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-settle-action="open-version-view" data-factory-id="${escapeHtml(factoryId)}" data-version-id="${escapeHtml(record.versionId)}">查看版本</button>
+                        </td>
                       </tr>
                     `
                   })
@@ -1354,9 +1718,9 @@ export function renderSettlementListPage(): string {
         ${
           state.listView === 'effective'
             ? `
-              <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="/fcs/factories/settlement/new">
+              <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-settle-action="open-init-factory-picker">
                 <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-                新增结算配置
+                新增结算信息
               </button>
             `
             : ''
@@ -1596,11 +1960,261 @@ export function renderSettlementListPage(): string {
 
       ${renderSettlementRequestDetailDialog()}
       ${renderSettlementRequestPrintDialog()}
+      ${renderInitFactoryPickerDialog()}
+    </div>
+  `
+}
+
+export function renderSettlementInitPage(factoryId: string): string {
+  syncSettlementRequestState()
+  if (state.initEditorFactoryId !== factoryId) {
+    resetInitEditor(factoryId)
+  }
+  const initialized = hasInitializedSettlement(factoryId)
+  const hasDraft = Boolean(getInitDraftByFactory(factoryId))
+
+  if (initialized) {
+    return `
+      <div class="space-y-4">
+        <div class="rounded-lg border bg-card p-6">
+          <p class="text-sm font-semibold">该工厂已初始化结算信息</p>
+          <p class="mt-2 text-sm text-muted-foreground">请通过工厂详情页的“新增版本”维护结算配置和扣款规则。</p>
+          <div class="mt-4">
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/factories/settlement/${escapeHtml(
+              factoryId,
+            )}">前往详情</button>
+          </div>
+        </div>
+      </div>
+    `
+  }
+
+  const configTab = `
+    <section class="space-y-3 rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold">结算配置</p>
+        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-settle-action="reset-init-config">新增结算配置</button>
+      </div>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">结算周期</span>
+          <select data-settle-init-field="config.cycleType" class="h-9 w-full rounded-md border px-3 text-sm">
+            ${(Object.keys(cycleTypeConfig) as CycleType[])
+              .map(
+                (cycleType) =>
+                  `<option value="${cycleType}" ${state.initConfigDraft.cycleType === cycleType ? 'selected' : ''}>${escapeHtml(
+                    cycleTypeConfig[cycleType].label,
+                  )}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">计价方式</span>
+          <select data-settle-init-field="config.pricingMode" class="h-9 w-full rounded-md border px-3 text-sm">
+            ${(Object.keys(pricingModeConfig) as PricingMode[])
+              .map(
+                (pricingMode) =>
+                  `<option value="${pricingMode}" ${
+                    state.initConfigDraft.pricingMode === pricingMode ? 'selected' : ''
+                  }>${escapeHtml(pricingModeConfig[pricingMode].label)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">币种</span>
+          <select data-settle-init-field="config.currency" class="h-9 w-full rounded-md border px-3 text-sm">
+            ${CURRENCIES.map(
+              (currency) =>
+                `<option value="${currency}" ${state.initConfigDraft.currency === currency ? 'selected' : ''}>${currency}</option>`,
+            ).join('')}
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">结算日规则</span>
+          <input data-settle-init-field="config.settlementDayRule" class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(
+            state.initConfigDraft.settlementDayRule || '',
+          )}" placeholder="例如：每月25日" />
+        </label>
+      </div>
+    </section>
+  `
+
+  const accountTab = `
+    <section class="space-y-3 rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold">收款账号</p>
+        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-settle-action="reset-init-account">新增收款账号</button>
+      </div>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">开户名</span>
+          <input data-settle-init-field="account.accountHolderName" class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(
+            state.initAccountDraft.accountHolderName,
+          )}" />
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">证件号</span>
+          <input data-settle-init-field="account.idNumber" class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(
+            state.initAccountDraft.idNumber,
+          )}" />
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">银行名称</span>
+          <input data-settle-init-field="account.bankName" class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(
+            state.initAccountDraft.bankName,
+          )}" />
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">银行账号</span>
+          <input data-settle-init-field="account.bankAccountNo" class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(
+            state.initAccountDraft.bankAccountNo,
+          )}" />
+        </label>
+        <label class="space-y-1 md:col-span-2">
+          <span class="text-xs text-muted-foreground">开户支行</span>
+          <input data-settle-init-field="account.bankBranch" class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(
+            state.initAccountDraft.bankBranch,
+          )}" />
+        </label>
+      </div>
+    </section>
+  `
+
+  const rulesTab = `
+    <section class="space-y-3 rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold">扣款规则</p>
+        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-settle-action="add-init-rule">新增扣款规则</button>
+      </div>
+      <div class="overflow-hidden rounded-md border">
+        <table class="w-full text-sm">
+          <thead class="border-b bg-muted/30">
+            <tr>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">规则类型</th>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">计算方式</th>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">数值</th>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">生效日期</th>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              state.initRulesDraft.length === 0
+                ? '<tr><td colspan="5" class="px-2 py-4 text-center text-muted-foreground">暂无扣款规则</td></tr>'
+                : state.initRulesDraft
+                    .map(
+                      (rule, index) => `
+                        <tr class="border-b last:border-0">
+                          <td class="px-2 py-2">
+                            <select data-settle-init-field="rule.${index}.ruleType" class="h-8 w-full rounded border px-2 text-xs">
+                              ${(Object.keys(ruleTypeConfig) as RuleType[])
+                                .map(
+                                  (ruleType) =>
+                                    `<option value="${ruleType}" ${rule.ruleType === ruleType ? 'selected' : ''}>${escapeHtml(
+                                      ruleTypeConfig[ruleType].label,
+                                    )}</option>`,
+                                )
+                                .join('')}
+                            </select>
+                          </td>
+                          <td class="px-2 py-2">
+                            <select data-settle-init-field="rule.${index}.ruleMode" class="h-8 w-full rounded border px-2 text-xs">
+                              ${(Object.keys(ruleModeConfig) as RuleMode[])
+                                .map(
+                                  (ruleMode) =>
+                                    `<option value="${ruleMode}" ${rule.ruleMode === ruleMode ? 'selected' : ''}>${escapeHtml(
+                                      ruleModeConfig[ruleMode].label,
+                                    )}</option>`,
+                                )
+                                .join('')}
+                            </select>
+                          </td>
+                          <td class="px-2 py-2">
+                            <input type="number" min="0" step="0.1" data-settle-init-field="rule.${index}.ruleValue" class="h-8 w-full rounded border px-2 text-xs" value="${rule.ruleValue}" />
+                          </td>
+                          <td class="px-2 py-2">
+                            <input type="date" data-settle-init-field="rule.${index}.effectiveFrom" class="h-8 w-full rounded border px-2 text-xs" value="${escapeHtml(
+                              rule.effectiveFrom,
+                            )}" />
+                          </td>
+                          <td class="px-2 py-2">
+                            <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted ${state.initRulesDraft.length <= 1 ? 'pointer-events-none opacity-50' : ''}" data-settle-action="remove-init-rule" data-rule-index="${index}">删除</button>
+                          </td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+
+  return `
+    <div class="space-y-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <button class="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted" data-settle-action="back-init-to-list">
+            <i data-lucide="arrow-left" class="h-4 w-4"></i>
+          </button>
+          <div>
+            <h1 class="text-2xl font-semibold">新增结算信息</h1>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(state.initEditorFactoryName)} · ${escapeHtml(
+    factoryId,
+  )}</p>
+          </div>
+        </div>
+        <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-settle-action="submit-init-settlement">完成初始化</button>
+      </div>
+
+      <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        该页面用于初始化工厂结算信息，不包含版本历史和新增版本。
+        ${hasDraft ? `当前已加载该工厂草稿（最近更新：${escapeHtml(getInitDraftByFactory(factoryId)?.updatedAt || '—')}）。` : ''}
+      </div>
+      ${
+        state.initErrorText
+          ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(
+              state.initErrorText,
+            )}</div>`
+          : ''
+      }
+
+      <div class="inline-flex rounded-md border bg-muted/30 p-1">
+        <button class="rounded px-3 py-1.5 text-sm ${state.initActiveTab === 'config' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-init-tab" data-tab="config">结算配置</button>
+        <button class="rounded px-3 py-1.5 text-sm ${state.initActiveTab === 'account' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-init-tab" data-tab="account">收款账号</button>
+        <button class="rounded px-3 py-1.5 text-sm ${state.initActiveTab === 'rules' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-init-tab" data-tab="rules">扣款规则</button>
+      </div>
+
+      ${state.initActiveTab === 'config' ? configTab : state.initActiveTab === 'account' ? accountTab : rulesTab}
+
+      <div class="flex justify-end gap-2">
+        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-settle-action="back-init-to-list">返回</button>
+        <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-settle-action="submit-init-settlement">完成初始化</button>
+      </div>
     </div>
   `
 }
 
 export function renderSettlementDetailPage(factoryId: string): string {
+  if (!hasInitializedSettlement(factoryId)) {
+    return `
+      <div class="space-y-4">
+        <div class="rounded-lg border bg-card p-6">
+          <h1 class="text-xl font-semibold">结算信息尚未初始化</h1>
+          <p class="mt-2 text-sm text-muted-foreground">该工厂尚未建立结算信息，请走“新增结算信息”初始化链路。</p>
+          <div class="mt-4">
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/factories/settlement/new/${escapeHtml(
+              factoryId,
+            )}">前往初始化</button>
+          </div>
+        </div>
+      </div>
+    `
+  }
+
   if (state.detailFactoryId !== factoryId) {
     state.detailFactoryId = factoryId
     state.detailActiveTab = 'profile'
@@ -1645,8 +2259,8 @@ export function renderSettlementDetailPage(factoryId: string): string {
 
       <div class="inline-flex rounded-md border bg-muted/30 p-1">
         <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'profile' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="profile">结算配置</button>
-        <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'accounts' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="accounts">收款账户</button>
-        <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'rules' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="rules">默认扣款规则</button>
+        <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'accounts' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="accounts">收款账号</button>
+        <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'rules' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="rules">扣款规则</button>
         <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'history' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="history">版本历史</button>
       </div>
 
@@ -1657,13 +2271,14 @@ export function renderSettlementDetailPage(factoryId: string): string {
             ? renderDetailAccountsTab(factoryId, accounts)
             : state.detailActiveTab === 'rules'
               ? renderDetailRulesTab(factoryId, rules)
-              : renderDetailHistoryTab(profiles)
+              : renderDetailHistoryTab(factoryId)
       }
 
       ${renderProfileDrawer()}
       ${renderAccountDrawer()}
       ${renderRuleDrawer()}
       ${renderSettleConfirmDialog()}
+      ${renderSettlementVersionViewDialog()}
     </div>
   `
 }
@@ -1827,6 +2442,75 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
     return true
   }
 
+  const initFieldNode = target.closest<HTMLElement>('[data-settle-init-field]')
+  if (
+    initFieldNode instanceof HTMLInputElement ||
+    initFieldNode instanceof HTMLTextAreaElement ||
+    initFieldNode instanceof HTMLSelectElement
+  ) {
+    const field = initFieldNode.dataset.settleInitField
+    if (!field) return true
+    const value = initFieldNode.value
+
+    if (field === 'factorySearch') {
+      state.initFactorySearch = value
+      return true
+    }
+
+    if (field === 'config.cycleType') {
+      state.initConfigDraft.cycleType = value as CycleType
+      return true
+    }
+    if (field === 'config.pricingMode') {
+      state.initConfigDraft.pricingMode = value as PricingMode
+      return true
+    }
+    if (field === 'config.currency') {
+      state.initConfigDraft.currency = value
+      return true
+    }
+    if (field === 'config.settlementDayRule') {
+      state.initConfigDraft.settlementDayRule = value
+      return true
+    }
+
+    if (field === 'account.accountHolderName') {
+      state.initAccountDraft.accountHolderName = value
+      return true
+    }
+    if (field === 'account.idNumber') {
+      state.initAccountDraft.idNumber = value
+      return true
+    }
+    if (field === 'account.bankName') {
+      state.initAccountDraft.bankName = value
+      return true
+    }
+    if (field === 'account.bankAccountNo') {
+      state.initAccountDraft.bankAccountNo = value
+      return true
+    }
+    if (field === 'account.bankBranch') {
+      state.initAccountDraft.bankBranch = value
+      return true
+    }
+
+    const ruleMatch = field.match(/^rule\.(\d+)\.(ruleType|ruleMode|ruleValue|effectiveFrom)$/)
+    if (ruleMatch) {
+      const index = Number(ruleMatch[1])
+      const key = ruleMatch[2]
+      const rule = state.initRulesDraft[index]
+      if (!rule) return true
+      if (key === 'ruleType') rule.ruleType = value as RuleType
+      if (key === 'ruleMode') rule.ruleMode = value as RuleMode
+      if (key === 'ruleValue') rule.ruleValue = Number(value) || 0
+      if (key === 'effectiveFrom') rule.effectiveFrom = value
+      return true
+    }
+
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-settle-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -1847,6 +2531,205 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
 
   if (action === 'go-back') {
     window.history.back()
+    return true
+  }
+
+  if (action === 'open-init-factory-picker') {
+    state.initFactorySearch = ''
+    state.initSelectedFactoryId = null
+    state.dialog = { type: 'init-factory-picker' }
+    return true
+  }
+
+  if (action === 'select-init-factory') {
+    const factoryId = actionNode.dataset.factoryId
+    if (!factoryId) return true
+    state.initSelectedFactoryId = factoryId
+    return true
+  }
+
+  if (action === 'go-init-draft') {
+    const factoryId = actionNode.dataset.factoryId
+    if (!factoryId) return true
+    resetInitEditor(factoryId)
+    closeDialog()
+    appStore.navigate(`/fcs/factories/settlement/new/${factoryId}`)
+    return true
+  }
+
+  if (action === 'open-init-editor') {
+    if (!state.initSelectedFactoryId) return true
+    resetInitEditor(state.initSelectedFactoryId)
+    closeDialog()
+    appStore.navigate(`/fcs/factories/settlement/new/${state.initSelectedFactoryId}`)
+    return true
+  }
+
+  if (action === 'switch-init-tab') {
+    const tab = actionNode.dataset.tab
+    if (tab === 'config' || tab === 'account' || tab === 'rules') {
+      state.initActiveTab = tab
+    }
+    return true
+  }
+
+  if (action === 'reset-init-config') {
+    state.initConfigDraft = {
+      cycleType: 'MONTHLY',
+      settlementDayRule: '每月25日',
+      pricingMode: 'BY_PIECE',
+      currency: 'IDR',
+    }
+    return true
+  }
+
+  if (action === 'reset-init-account') {
+    state.initAccountDraft = {
+      accountHolderName: state.initEditorFactoryName || '',
+      idNumber: '',
+      bankName: '',
+      bankAccountNo: '',
+      bankBranch: '',
+    }
+    return true
+  }
+
+  if (action === 'add-init-rule') {
+    state.initRulesDraft.push({
+      ruleType: 'QUALITY_DEFECT',
+      ruleMode: 'PERCENTAGE',
+      ruleValue: 5,
+      effectiveFrom: today(),
+      status: 'ACTIVE',
+    })
+    return true
+  }
+
+  if (action === 'remove-init-rule') {
+    const index = Number(actionNode.dataset.ruleIndex ?? '-1')
+    if (index < 0 || index >= state.initRulesDraft.length) return true
+    if (state.initRulesDraft.length <= 1) return true
+    state.initRulesDraft.splice(index, 1)
+    return true
+  }
+
+  if (action === 'back-init-to-list') {
+    const saveResult = saveCurrentInitDraft('平台运营-林静')
+    if (!saveResult.ok) {
+      state.initErrorText = saveResult.message
+      return true
+    }
+    state.initErrorText = ''
+    appStore.navigate('/fcs/factories/settlement')
+    return true
+  }
+
+  if (action === 'submit-init-settlement') {
+    if (!state.initEditorFactoryId) {
+      state.initErrorText = '请先选择工厂'
+      return true
+    }
+    if (!state.initConfigDraft.cycleType || !state.initConfigDraft.pricingMode || !state.initConfigDraft.currency) {
+      state.initErrorText = '请先补全结算配置'
+      return true
+    }
+    if (
+      !state.initAccountDraft.accountHolderName.trim() ||
+      !state.initAccountDraft.idNumber.trim() ||
+      !state.initAccountDraft.bankName.trim() ||
+      !state.initAccountDraft.bankAccountNo.trim()
+    ) {
+      state.initErrorText = '请先补全收款账号必填项'
+      return true
+    }
+    if (
+      state.initRulesDraft.length === 0 ||
+      state.initRulesDraft.some((rule) => !rule.effectiveFrom || Number(rule.ruleValue) <= 0)
+    ) {
+      state.initErrorText = '请先补全扣款规则'
+      return true
+    }
+
+    const submitResult = initializeSettlementInfo({
+      factoryId: state.initEditorFactoryId,
+      factoryName: state.initEditorFactoryName,
+      operator: '平台运营-林静',
+      configSnapshot: state.initConfigDraft,
+      receivingAccountSnapshot: {
+        accountHolderName: state.initAccountDraft.accountHolderName.trim(),
+        idNumber: state.initAccountDraft.idNumber.trim(),
+        bankName: state.initAccountDraft.bankName.trim(),
+        bankAccountNo: state.initAccountDraft.bankAccountNo.trim(),
+        bankBranch: state.initAccountDraft.bankBranch.trim(),
+      },
+      deductionRulesSnapshot: state.initRulesDraft.map((item) => ({ ...item })),
+    })
+
+    if (!submitResult.ok) {
+      state.initErrorText = submitResult.message
+      return true
+    }
+
+    const factoryId = state.initEditorFactoryId
+    const factoryName = state.initEditorFactoryName
+    const now = today()
+
+    state.profiles = state.profiles.filter((item) => item.factoryId !== factoryId)
+    state.profiles.push({
+      id: `sp-${Date.now()}`,
+      factoryId,
+      factoryName,
+      cycleType: state.initConfigDraft.cycleType,
+      settlementDayRule: state.initConfigDraft.settlementDayRule,
+      pricingMode: state.initConfigDraft.pricingMode,
+      currency: state.initConfigDraft.currency,
+      isActive: true,
+      effectiveFrom: now,
+      updatedAt: now,
+    })
+
+    state.accounts = state.accounts.filter((item) => item.factoryId !== factoryId)
+    state.accounts.push({
+      id: `ba-${Date.now()}`,
+      factoryId,
+      accountName: state.initAccountDraft.accountHolderName.trim(),
+      bankName: state.initAccountDraft.bankName.trim(),
+      accountMasked: normalizeAccountMask(state.initAccountDraft.bankAccountNo.trim()),
+      currency: state.initConfigDraft.currency,
+      isDefault: true,
+      status: 'ACTIVE',
+    })
+
+    state.rules = state.rules.filter((item) => item.factoryId !== factoryId)
+    state.rules.push(
+      ...state.initRulesDraft.map((item, index) => ({
+        id: `pr-${Date.now()}-${index}`,
+        factoryId,
+        ruleType: item.ruleType,
+        ruleMode: item.ruleMode,
+        ruleValue: item.ruleValue,
+        effectiveFrom: item.effectiveFrom,
+        status: item.status,
+      })),
+    )
+
+    state.summaries = state.summaries.map((item) =>
+      item.factoryId === factoryId
+        ? {
+            ...item,
+            cycleType: state.initConfigDraft.cycleType,
+            pricingMode: state.initConfigDraft.pricingMode,
+            currency: state.initConfigDraft.currency,
+            hasDefaultAccount: true,
+            status: 'ACTIVE',
+            updatedAt: now,
+          }
+        : item,
+    )
+
+    syncSettlementRequestState()
+    state.initErrorText = ''
+    appStore.navigate(`/fcs/factories/settlement/${factoryId}`)
     return true
   }
 
@@ -1923,6 +2806,14 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
     state.detailActiveTab = tab
     state.accountActionMenuId = null
     state.ruleActionMenuId = null
+    return true
+  }
+
+  if (action === 'open-version-view') {
+    const factoryId = actionNode.dataset.factoryId
+    const versionId = actionNode.dataset.versionId
+    if (!factoryId || !versionId) return true
+    state.dialog = { type: 'version-view', factoryId, versionId }
     return true
   }
 
@@ -2177,6 +3068,44 @@ export function handleSettlementSubmit(form: HTMLFormElement): boolean {
     }
 
     state.profiles = [...state.profiles, newProfile]
+
+    const currentRules = getFactoryRules(factoryId)
+    const rulesSnapshot: SettlementDefaultDeductionRuleSnapshot[] = (
+      currentRules.length > 0
+        ? currentRules
+        : [
+            {
+              id: `pr-${Date.now()}-default`,
+              factoryId,
+              ruleType: 'QUALITY_DEFECT',
+              ruleMode: 'PERCENTAGE',
+              ruleValue: 5,
+              effectiveFrom: state.profileForm.effectiveFrom || today(),
+              status: 'ACTIVE',
+            },
+          ]
+    ).map((rule) => ({
+      ruleType: rule.ruleType,
+      ruleMode: rule.ruleMode,
+      ruleValue: rule.ruleValue,
+      effectiveFrom: rule.effectiveFrom,
+      effectiveTo: rule.effectiveTo,
+      status: rule.status,
+    }))
+
+    createSettlementVersionFromCurrent({
+      factoryId,
+      operator: '平台运营-林静',
+      settlementConfigSnapshot: {
+        cycleType: state.profileForm.cycleType,
+        settlementDayRule: state.profileForm.settlementDayRule || '',
+        pricingMode: state.profileForm.pricingMode,
+        currency: state.profileForm.currency,
+      },
+      deductionRulesSnapshot: rulesSnapshot,
+      effectiveAt: state.profileForm.effectiveFrom,
+    })
+    syncSettlementRequestState()
     closeDialog()
     return true
   }
