@@ -20,6 +20,18 @@ interface LinkedDemand {
   status: DemandStatusZh
 }
 
+interface StockMaterialSnapshot {
+  materialCode: string
+  materialName: string
+  unit: Unit
+}
+
+interface StockMaterialOption extends StockMaterialSnapshot {
+  materialKey: string
+  demandCount: number
+  totalRequiredQty: number
+}
+
 interface MaterialReceipt {
   receiveStatus: ReceiptStatusZh
   receivedQty: number
@@ -58,6 +70,7 @@ interface PrintProcessOrder {
   createdAt: string
   updatedAt: string
   linkedDemands: LinkedDemand[]
+  stockMaterial?: StockMaterialSnapshot
   materialReceipt: MaterialReceipt
   batches: ReturnBatch[]
   destinations: BatchDestination[]
@@ -80,6 +93,10 @@ interface CreateForm {
   sourceSummary: string
   note: string
   selectedDemandIds: string[]
+  selectedMaterialKey: string
+  selectedMaterialCode: string
+  selectedMaterialName: string
+  selectedMaterialUnit: Unit | ''
 }
 
 type StatusFilter = '全部' | OrderStatusZh
@@ -191,6 +208,11 @@ const ORDER_SEEDS: PrintProcessOrder[] = [
     note: '备货池优先覆盖快返款的胸前标识印花需求。',
     createdAt: '2026-03-14 09:36:00',
     updatedAt: '2026-03-14 13:18:00',
+    stockMaterial: {
+      materialCode: 'M-PRINT-088',
+      materialName: '涤棉双面布 180g',
+      unit: '片',
+    },
     linkedDemands: [
       {
         demandId: 'YHXQ20260314009',
@@ -369,6 +391,10 @@ function createDefaultForm(): CreateForm {
     sourceSummary: '',
     note: '',
     selectedDemandIds: [],
+    selectedMaterialKey: '',
+    selectedMaterialCode: '',
+    selectedMaterialName: '',
+    selectedMaterialUnit: '',
   }
 }
 
@@ -409,9 +435,28 @@ function getDemandNosText(order: PrintProcessOrder): string {
   return `${names.slice(0, 2).join('、')} 等${names.length}张`
 }
 
+function getOrderStockMaterial(order: PrintProcessOrder): StockMaterialSnapshot | null {
+  if (order.stockMaterial) return order.stockMaterial
+  if (order.linkedDemands.length === 0) return null
+  const uniq = new Map<string, StockMaterialSnapshot>()
+  for (const item of order.linkedDemands) {
+    const key = `${item.materialCode}|${item.materialName}|${item.unit}`
+    if (!uniq.has(key)) {
+      uniq.set(key, {
+        materialCode: item.materialCode,
+        materialName: item.materialName,
+        unit: item.unit,
+      })
+    }
+  }
+  if (uniq.size !== 1) return null
+  return Array.from(uniq.values())[0]
+}
+
 function getFilteredOrders(): PrintProcessOrder[] {
   const keyword = state.keyword.trim().toLowerCase()
   return ORDERS.filter((order) => {
+    const stockMaterial = getOrderStockMaterial(order)
     if (state.statusFilter !== '全部' && order.status !== state.statusFilter) return false
     if (state.modeFilter !== '全部' && order.createMode !== state.modeFilter) return false
     if (!keyword) return true
@@ -420,6 +465,8 @@ function getFilteredOrders(): PrintProcessOrder[] {
       order.printFactoryName,
       order.createMode,
       order.sourceSummary,
+      stockMaterial?.materialCode ?? '',
+      stockMaterial?.materialName ?? '',
       ...order.linkedDemands.map((item) => item.demandId),
       ...order.batches.map((item) => item.batchNo),
     ]
@@ -488,6 +535,29 @@ function getDemandOptions(): DemandOption[] {
   return Array.from(byId.values())
 }
 
+function getStockMaterialOptions(): StockMaterialOption[] {
+  const options = getDemandOptions()
+  const byMaterial = new Map<string, StockMaterialOption>()
+  for (const item of options) {
+    const materialKey = `${item.materialCode}|${item.materialName}|${item.unit}`
+    const existed = byMaterial.get(materialKey)
+    if (existed) {
+      existed.demandCount += 1
+      existed.totalRequiredQty += item.requiredQty
+      continue
+    }
+    byMaterial.set(materialKey, {
+      materialKey,
+      materialCode: item.materialCode,
+      materialName: item.materialName,
+      unit: item.unit,
+      demandCount: 1,
+      totalRequiredQty: item.requiredQty,
+    })
+  }
+  return Array.from(byMaterial.values()).sort((a, b) => a.materialCode.localeCompare(b.materialCode))
+}
+
 function upsertDynamicDemandOption(option: DemandOption): void {
   if (state.dynamicDemandOptions.some((item) => item.demandId === option.demandId)) return
   state.dynamicDemandOptions.push(option)
@@ -499,6 +569,10 @@ function openCreateDrawer(prefill?: Partial<CreateForm>): void {
     ...createDefaultForm(),
     ...prefill,
     selectedDemandIds: prefill?.selectedDemandIds ?? [],
+    selectedMaterialKey: prefill?.selectedMaterialKey ?? '',
+    selectedMaterialCode: prefill?.selectedMaterialCode ?? '',
+    selectedMaterialName: prefill?.selectedMaterialName ?? '',
+    selectedMaterialUnit: prefill?.selectedMaterialUnit ?? '',
   }
   closeDetail()
 }
@@ -567,6 +641,10 @@ function renderStatsSection(): string {
 function renderOrderRow(order: PrintProcessOrder): string {
   const returnedQty = getReturnedQty(order)
   const batchCount = getBatchCount(order)
+  const stockMaterial = getOrderStockMaterial(order)
+  const stockMaterialText = stockMaterial
+    ? `${stockMaterial.materialCode} · ${stockMaterial.materialName}`
+    : '—'
   return `
     <article class="rounded-lg border bg-card p-4 transition-colors hover:border-blue-300" data-print-order-action="open-detail" data-order-no="${escapeHtml(order.orderNo)}">
       <div class="flex flex-col gap-4 xl:flex-row">
@@ -581,6 +659,7 @@ function renderOrderRow(order: PrintProcessOrder): string {
             <div><span>关联需求单数：</span><span class="font-medium text-foreground">${order.linkedDemands.length}张</span></div>
             <div><span>计划投料数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
             <div><span>计划完成时间：</span><span class="text-foreground">${escapeHtml(order.plannedFinishAt)}</span></div>
+            <div class="md:col-span-2 xl:col-span-3"><span>备货物料：</span><span class="text-foreground">${escapeHtml(stockMaterialText)}</span></div>
             <div class="md:col-span-2 xl:col-span-3"><span>来源说明摘要：</span><span class="text-foreground">${escapeHtml(order.sourceSummary)}</span></div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
@@ -648,6 +727,7 @@ function renderDetailDrawer(): string {
   if (!order) return ''
   const focusDemands = state.drawerFocus === 'demands'
   const focusBatches = state.drawerFocus === 'batches'
+  const stockMaterial = getOrderStockMaterial(order)
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -681,6 +761,7 @@ function renderDetailDrawer(): string {
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">创建方式：</span>${escapeHtml(order.createMode)}</div>
               <div><span class="text-muted-foreground">计划投料数量：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
+              <div class="md:col-span-2"><span class="text-muted-foreground">备货物料：</span>${stockMaterial ? `${escapeHtml(stockMaterial.materialCode)} · ${escapeHtml(stockMaterial.materialName)}（${escapeHtml(stockMaterial.unit)}）` : '-'}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">来源说明：</span>${escapeHtml(order.sourceSummary)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(order.note)}</div>
               <div><span class="text-muted-foreground">创建时间：</span>${escapeHtml(order.createdAt)}</div>
@@ -794,6 +875,32 @@ function renderCreateDemandPick(): string {
   `
 }
 
+function renderCreateMaterialPick(): string {
+  const options = getStockMaterialOptions()
+  if (options.length === 0) {
+    return '<p class="rounded-md border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">暂无可选备货物料，请先完善需求物料池。</p>'
+  }
+  return `
+    <div class="space-y-2">
+      ${options
+        .map((item) => {
+          const selected = state.createForm.selectedMaterialKey === item.materialKey
+          return `
+            <button class="flex w-full items-start justify-between rounded-md border px-3 py-2 text-left text-xs ${selected ? 'border-blue-300 bg-blue-50' : 'hover:bg-muted'}" data-print-order-action="select-create-material" data-material-key="${escapeHtml(item.materialKey)}">
+              <span>
+                <span class="font-mono">${escapeHtml(item.materialCode)}</span>
+                <span class="ml-2 text-muted-foreground">${escapeHtml(item.materialName)}</span>
+                <span class="mt-1 block text-muted-foreground">${escapeHtml(formatQty(item.totalRequiredQty, item.unit))} · ${item.demandCount}张需求单</span>
+              </span>
+              <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-1 ${selected ? 'border-blue-500 text-blue-600' : 'border-slate-300 text-slate-500'}">${selected ? '✓' : ''}</span>
+            </button>
+          `
+        })
+        .join('')}
+    </div>
+  `
+}
+
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
   return `
@@ -849,7 +956,13 @@ function renderCreateDrawer(): string {
           ${
             state.createForm.createMode === '按需求创建'
               ? `<section class="rounded-lg border bg-card p-4"><h3 class="mb-3 text-sm font-semibold">关联需求单</h3>${renderCreateDemandPick()}</section>`
-              : `<section class="rounded-lg border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">按备货创建：当前不强制选择需求单，可先形成备货池，后续再按回货批次分配到多张需求单。</section>`
+              : `
+                <section class="rounded-lg border bg-card p-4">
+                  <h3 class="mb-2 text-sm font-semibold">选择备货物料</h3>
+                  <p class="mb-3 text-xs text-muted-foreground">按备货创建时，不强制关联需求单，但必须先选择备货物料，后续可服务多张需求单。</p>
+                  ${renderCreateMaterialPick()}
+                </section>
+              `
           }
 
           <footer class="sticky bottom-0 flex items-center justify-end gap-2 border-t bg-background px-1 py-3">
@@ -938,6 +1051,13 @@ function submitCreate(): void {
     return
   }
 
+  const materialPool = getStockMaterialOptions()
+  const selectedMaterial = materialPool.find((item) => item.materialKey === form.selectedMaterialKey)
+  if (form.createMode === '按备货创建' && !selectedMaterial) {
+    state.notice = '按备货创建时，请先选择物料。'
+    return
+  }
+
   const demandPool = getDemandOptions()
   const linkedDemands = demandPool
     .filter((item) => form.selectedDemandIds.includes(item.demandId))
@@ -967,6 +1087,14 @@ function submitCreate(): void {
     createdAt: now,
     updatedAt: now,
     linkedDemands,
+    stockMaterial:
+      form.createMode === '按备货创建' && selectedMaterial
+        ? {
+            materialCode: selectedMaterial.materialCode,
+            materialName: selectedMaterial.materialName,
+            unit: selectedMaterial.unit,
+          }
+        : undefined,
     materialReceipt: {
       receiveStatus: '待接收',
       receivedQty: 0,
@@ -991,7 +1119,14 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     const key = createFieldNode.dataset.printOrderCreateField
     if (key === 'createMode') {
       state.createForm.createMode = createFieldNode.value as CreateModeZh
-      if (state.createForm.createMode === '按备货创建') state.createForm.selectedDemandIds = []
+      if (state.createForm.createMode === '按备货创建') {
+        state.createForm.selectedDemandIds = []
+      } else {
+        state.createForm.selectedMaterialKey = ''
+        state.createForm.selectedMaterialCode = ''
+        state.createForm.selectedMaterialName = ''
+        state.createForm.selectedMaterialUnit = ''
+      }
       return true
     }
     if (key === 'factoryName') {
@@ -1097,6 +1232,18 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     state.createForm.selectedDemandIds = existed
       ? state.createForm.selectedDemandIds.filter((item) => item !== demandId)
       : [...state.createForm.selectedDemandIds, demandId]
+    return true
+  }
+
+  if (action === 'select-create-material') {
+    const materialKey = actionNode.dataset.materialKey
+    if (!materialKey) return true
+    const selected = getStockMaterialOptions().find((item) => item.materialKey === materialKey)
+    if (!selected) return true
+    state.createForm.selectedMaterialKey = selected.materialKey
+    state.createForm.selectedMaterialCode = selected.materialCode
+    state.createForm.selectedMaterialName = selected.materialName
+    state.createForm.selectedMaterialUnit = selected.unit
     return true
   }
 
