@@ -500,6 +500,56 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
           ${renderFieldRow('任务ID', basis.taskId ? `<span class="font-mono">${escapeHtml(basis.taskId)}</span>` : '—')}
           ${renderFieldRow('工厂', escapeHtml(getFactoryName(basis.factoryId)))}
           ${renderFieldRow('原因代码', escapeHtml(getReasonLabel(basis.reasonCode)))}
+          ${
+            basis.decisionStage
+              ? renderFieldRow(
+                  '判定阶段',
+                  escapeHtml(
+                    basis.decisionStage === 'SEW_RETURN_INBOUND_FINAL'
+                      ? '车缝回货入仓最终判定'
+                      : '一般判定',
+                  ),
+                )
+              : ''
+          }
+          ${
+            basis.responsiblePartyTypeSnapshot || basis.responsiblePartyIdSnapshot
+              ? renderFieldRow(
+                  '责任方快照',
+                  escapeHtml(
+                    `${basis.responsiblePartyTypeSnapshot ? SETTLEMENT_PARTY_LABEL[basis.responsiblePartyTypeSnapshot] ?? basis.responsiblePartyTypeSnapshot : '-'} / ${basis.responsiblePartyIdSnapshot ?? '-'}${basis.responsiblePartyNameSnapshot ? `（${basis.responsiblePartyNameSnapshot}）` : ''}`,
+                  ),
+                )
+              : ''
+          }
+          ${
+            basis.dispositionSnapshot
+              ? renderFieldRow(
+                  '处理方式快照',
+                  escapeHtml(DISPOSITION_LABEL[basis.dispositionSnapshot] ?? basis.dispositionSnapshot),
+                )
+              : ''
+          }
+          ${
+            basis.deductionDecisionSnapshot
+              ? renderFieldRow(
+                  '扣款决定快照',
+                  escapeHtml(
+                    basis.deductionDecisionSnapshot === 'DEDUCT'
+                      ? '扣款'
+                      : '不扣款',
+                  ),
+                )
+              : ''
+          }
+          ${
+            basis.deductionAmountSnapshot !== undefined
+              ? renderFieldRow(
+                  '扣款金额快照',
+                  `${basis.deductionAmountSnapshot} CNY`,
+                )
+              : ''
+          }
           ${renderFieldRow(
             '数量',
             `

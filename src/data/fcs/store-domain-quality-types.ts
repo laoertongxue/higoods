@@ -60,6 +60,77 @@ export interface ReturnBatch {
 }
 
 // =============================================
+// 回货入仓（新主模型，V1 并行兼容）
+// =============================================
+export type ReturnInboundProcessType = 'PRINT' | 'DYE' | 'CUT_PANEL' | 'SEW' | 'OTHER' | 'DYE_PRINT'
+export type ReturnInboundScene = 'RETURN_INBOUND'
+export type ReturnInboundQcPolicy = 'REQUIRED' | 'OPTIONAL' | 'SKIPPED'
+export type LiabilityDecisionStage = 'SEW_RETURN_INBOUND_FINAL' | 'GENERAL'
+export type DeductionDecision = 'DEDUCT' | 'NO_DEDUCT'
+export type ReturnInboundBatchStatus =
+  | 'NOT_REQUIRED'
+  | 'QC_PENDING'
+  | 'PASS_CLOSED'
+  | 'FAIL_IN_QC'
+  | 'QC_CLOSED'
+export type SewPostProcessMode = 'SEW_WITH_POST' | 'SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED'
+export type ReturnInboundSourceBusinessType = 'TASK' | 'DYE_PRINT_ORDER' | 'RETURN_BATCH' | 'OTHER'
+
+export interface ReturnInboundBatch {
+  batchId: string
+  productionOrderId: string
+  sourceTaskId?: string
+  processType: ReturnInboundProcessType
+  processLabel?: string
+  returnedQty: number
+  returnFactoryId?: string
+  returnFactoryName?: string
+  warehouseId?: string
+  warehouseName?: string
+  inboundAt: string
+  inboundBy: string
+  qcPolicy: ReturnInboundQcPolicy
+  qcStatus: ReturnInboundBatchStatus
+  linkedQcId?: string
+  sourceType?: ReturnInboundSourceBusinessType
+  sourceId?: string
+  sewPostProcessMode?: SewPostProcessMode
+  createdAt: string
+  createdBy: string
+  updatedAt?: string
+  updatedBy?: string
+}
+
+export function resolveDefaultReturnInboundQcPolicy(processType: ReturnInboundProcessType): ReturnInboundQcPolicy {
+  return processType === 'SEW' ? 'REQUIRED' : 'OPTIONAL'
+}
+
+export function inferReturnInboundProcessTypeFromTask(task: {
+  processCode?: string
+  processNameZh?: string
+}): ReturnInboundProcessType {
+  const processCode = (task.processCode || '').toUpperCase()
+  const processName = task.processNameZh || ''
+
+  if (processCode === 'PROC_CUT' || processName.includes('裁片') || processName.includes('裁剪')) {
+    return 'CUT_PANEL'
+  }
+  if (processCode === 'PROC_SEW' || processName.includes('车缝') || processName.includes('缝制')) {
+    return 'SEW'
+  }
+  if (processName.includes('印花')) {
+    return 'PRINT'
+  }
+  if (processName.includes('染印')) {
+    return 'DYE_PRINT'
+  }
+  if (processName.includes('染色') || processName.includes('染整')) {
+    return 'DYE'
+  }
+  return 'OTHER'
+}
+
+// =============================================
 // 染印加工单（相关流程工单）
 // =============================================
 export type DyePrintProcessType = 'PRINT' | 'DYE' | 'DYE_PRINT'
@@ -88,6 +159,7 @@ export interface DyePrintReturnBatch {
   disposition?: QcDisposition
   remark?: string
   qcId?: string
+  linkedReturnInboundBatchId?: string
   effectiveAvailableQty?: number
   qcClosedAt?: string
 }
@@ -171,7 +243,16 @@ export interface QualityInspection {
   rootCauseType: RootCauseType
   responsiblePartyType?: SettlementPartyType
   responsiblePartyId?: string
+  responsiblePartyName?: string
   liabilityStatus: LiabilityStatus
+  liabilityDecisionStage?: LiabilityDecisionStage
+  liabilityDecisionRequired?: boolean
+  deductionDecision?: DeductionDecision
+  deductionAmount?: number
+  deductionCurrency?: 'CNY'
+  deductionDecisionRemark?: string
+  liabilityDecidedAt?: string
+  liabilityDecidedBy?: string
   liablePartyType?: SettlementPartyType
   liablePartyId?: string
   settlementPartyType?: SettlementPartyType
@@ -184,6 +265,7 @@ export interface QualityInspection {
   arbitrationRemark?: string
   arbitratedAt?: string
   arbitratedBy?: string
+  dispositionRemark?: string
   closedAt?: string
   closedBy?: string
   dispositionQtyBreakdown?: {
@@ -192,9 +274,27 @@ export interface QualityInspection {
     acceptNoDeductQty?: number
   }
   generatedTaskIds?: string[]
-  sourceProcessType?: 'DYE_PRINT'
+  sourceProcessType?: ReturnInboundProcessType | 'DYE_PRINT'
   sourceOrderId?: string
   sourceReturnId?: string
+  inspectionScene?: ReturnInboundScene
+  returnBatchId?: string
+  returnProcessType?: ReturnInboundProcessType
+  qcPolicy?: ReturnInboundQcPolicy
+  returnFactoryId?: string
+  returnFactoryName?: string
+  warehouseId?: string
+  warehouseName?: string
+  sourceBusinessType?: ReturnInboundSourceBusinessType
+  sourceBusinessId?: string
+  sewPostProcessMode?: SewPostProcessMode
+  writebackAvailableQty?: number
+  writebackAcceptedAsDefectQty?: number
+  writebackScrapQty?: number
+  writebackCompletedAt?: string
+  writebackCompletedBy?: string
+  downstreamUnblocked?: boolean
+  settlementFreezeReason?: string
   auditLogs: QcAuditLog[]
   createdAt: string
   updatedAt: string
@@ -280,9 +380,20 @@ export interface DeductionBasisItem {
   liabilityReason?: string
   liabilityConfirmedAt?: string
   liabilityConfirmedBy?: string
-  sourceProcessType?: 'DYE_PRINT'
+  sourceProcessType?: ReturnInboundProcessType | 'DYE_PRINT'
   sourceOrderId?: string
   sourceReturnId?: string
+  sourceBatchId?: string
+  sourceBusinessType?: ReturnInboundSourceBusinessType
+  sourceBusinessId?: string
+  qcPolicySnapshot?: ReturnInboundQcPolicy
+  decisionStage?: LiabilityDecisionStage
+  responsiblePartyTypeSnapshot?: SettlementPartyType
+  responsiblePartyIdSnapshot?: string
+  responsiblePartyNameSnapshot?: string
+  dispositionSnapshot?: QcDisposition
+  deductionDecisionSnapshot?: DeductionDecision
+  deductionAmountSnapshot?: number
   processorFactoryId?: string
   settlementReady?: boolean
   settlementFreezeReason?: string

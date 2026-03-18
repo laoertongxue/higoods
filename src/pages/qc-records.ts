@@ -4,15 +4,34 @@ import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-boot
 import {
   initialDeductionBasisItems,
   initialQualityInspections,
+  initialReturnInboundBatches,
 } from '../data/fcs/store-domain-quality-seeds'
 import {
   defaultResponsibility,
+  type DeductionDecision,
   type DefectItem,
   type DeductionBasisItem,
   type LiabilityStatus,
+  type ReturnInboundProcessType,
+  type ReturnInboundQcPolicy,
   type QualityInspection,
   type SettlementPartyType,
 } from '../data/fcs/store-domain-quality-types'
+import {
+  blockTaskForReturnInboundQc,
+  findReturnInboundBatchForQc,
+  isReturnInboundInspection,
+  isSewReturnInboundQc,
+  requiresFinalLiabilityDecision,
+  resolveReturnInboundTaskId,
+  upsertDeductionBasisFromReturnInboundQc,
+} from '../data/fcs/return-inbound-workflow'
+import {
+  normalizeQcForView,
+  RETURN_INBOUND_PROCESS_LABEL,
+  RETURN_INBOUND_QC_POLICY_LABEL,
+  SEW_POST_PROCESS_MODE_LABEL,
+} from '../data/fcs/return-inbound-qc-view'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 
 applyQualitySeedBootstrap()
@@ -21,7 +40,7 @@ type QcResult = 'PASS' | 'FAIL'
 type QcStatus = 'DRAFT' | 'SUBMITTED' | 'CLOSED'
 type QcDisposition = 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
 type RootCauseType = 'PROCESS' | 'MATERIAL' | 'DYE_PRINT' | 'CUTTING' | 'PATTERN_TECH' | 'UNKNOWN'
-type RefType = 'TASK' | 'HANDOVER'
+type RefType = 'TASK' | 'HANDOVER' | 'RETURN_BATCH'
 
 type ResultFilter = 'ALL' | QcResult
 type StatusFilter = 'ALL' | QcStatus
@@ -29,10 +48,14 @@ type DispositionFilter = 'ALL' | QcDisposition
 
 interface QcRecordsListState {
   keyword: string
+  filterProcessType: 'ALL' | ReturnInboundProcessType
+  filterPolicy: 'ALL' | ReturnInboundQcPolicy
   filterResult: ResultFilter
   filterStatus: StatusFilter
   filterDisposition: DispositionFilter
   filterFactory: string
+  filterWarehouse: string
+  showLegacy: boolean
 }
 
 interface QcRecordFormState {
@@ -48,7 +71,12 @@ interface QcRecordFormState {
   rootCauseType: RootCauseType
   responsiblePartyType: SettlementPartyType | ''
   responsiblePartyId: string
+  responsiblePartyName: string
   liabilityStatus: LiabilityStatus
+  deductionDecision: DeductionDecision | ''
+  deductionAmount: number | ''
+  deductionDecisionRemark: string
+  dispositionRemark: string
   remark: string
 }
 
@@ -93,6 +121,11 @@ const DISPOSITION_LABEL: Record<QcDisposition, string> = {
   ACCEPT: '接受（无扣款）',
 }
 
+const DEDUCTION_DECISION_LABEL: Record<DeductionDecision, string> = {
+  DEDUCT: '扣款',
+  NO_DEDUCT: '不扣款',
+}
+
 const DISPOSITION_CLASS: Record<QcDisposition, string> = {
   ACCEPT_AS_DEFECT: 'bg-blue-100 text-blue-700 border-blue-300',
   SCRAP: 'bg-red-100 text-red-700 border-red-300',
@@ -125,10 +158,14 @@ const PARTY_TYPE_LABEL: Record<SettlementPartyType, string> = {
 
 const listState: QcRecordsListState = {
   keyword: '',
+  filterProcessType: 'ALL',
+  filterPolicy: 'ALL',
   filterResult: 'ALL',
   filterStatus: 'ALL',
   filterDisposition: 'ALL',
   filterFactory: 'ALL',
+  filterWarehouse: 'ALL',
+  showLegacy: false,
 }
 
 let detailState: QcRecordDetailState | null = null
@@ -203,7 +240,7 @@ function getCurrentDetailRouteId(): string | null {
 
 function emptyForm(overrides: Partial<QcRecordFormState> = {}): QcRecordFormState {
   return {
-    refType: 'TASK',
+    refType: 'RETURN_BATCH',
     refId: '',
     productionOrderId: '',
     inspector: '质检员A',
@@ -215,16 +252,25 @@ function emptyForm(overrides: Partial<QcRecordFormState> = {}): QcRecordFormStat
     rootCauseType: 'UNKNOWN',
     responsiblePartyType: '',
     responsiblePartyId: '',
+    responsiblePartyName: '',
     liabilityStatus: 'DRAFT',
+    deductionDecision: '',
+    deductionAmount: '',
+    deductionDecisionRemark: '',
+    dispositionRemark: '',
     remark: '',
     ...overrides,
   }
 }
 
 function qcToForm(qc: QualityInspection): QcRecordFormState {
+  const isReturnInbound = qc.inspectionScene === 'RETURN_INBOUND' || qc.refType === 'RETURN_BATCH' || Boolean(qc.returnBatchId)
+  const refType: RefType = isReturnInbound ? 'RETURN_BATCH' : qc.refType === 'HANDOVER' ? 'HANDOVER' : 'TASK'
+  const refId = isReturnInbound ? qc.returnBatchId ?? qc.refId : qc.refId
+
   return {
-    refType: qc.refType === 'HANDOVER' ? 'HANDOVER' : 'TASK',
-    refId: qc.refId,
+    refType,
+    refId,
     productionOrderId: qc.productionOrderId,
     inspector: qc.inspector,
     inspectedAt: qc.inspectedAt,
@@ -235,13 +281,46 @@ function qcToForm(qc: QualityInspection): QcRecordFormState {
     rootCauseType: (qc.rootCauseType as RootCauseType) ?? 'UNKNOWN',
     responsiblePartyType: qc.responsiblePartyType ?? '',
     responsiblePartyId: qc.responsiblePartyId ?? '',
+    responsiblePartyName: qc.responsiblePartyName ?? '',
     liabilityStatus: qc.liabilityStatus,
+    deductionDecision: qc.deductionDecision ?? '',
+    deductionAmount: qc.deductionAmount ?? '',
+    deductionDecisionRemark: qc.deductionDecisionRemark ?? '',
+    dispositionRemark: qc.dispositionRemark ?? '',
     remark: qc.remark ?? '',
   }
 }
 
 function getQcById(qcId: string): QualityInspection | null {
   return initialQualityInspections.find((item) => item.qcId === qcId) ?? null
+}
+
+function getReturnInboundBatchById(batchId: string): (typeof initialReturnInboundBatches)[number] | null {
+  return initialReturnInboundBatches.find((item) => item.batchId === batchId) ?? null
+}
+
+function applyReturnInboundBatchToForm(form: QcRecordFormState, batchId: string): void {
+  const batch = getReturnInboundBatchById(batchId)
+  if (!batch) return
+  form.refId = batch.batchId
+  form.productionOrderId = batch.productionOrderId
+}
+
+function isSewReturnInboundFromForm(
+  form: QcRecordFormState,
+  existing?: QualityInspection | null,
+): boolean {
+  const batch = form.refType === 'RETURN_BATCH' ? getReturnInboundBatchById(form.refId.trim()) : null
+  if (batch) return batch.processType === 'SEW'
+  if (existing) return isSewReturnInboundQc(existing, initialReturnInboundBatches)
+  return false
+}
+
+function requiresFinalDecisionForForm(
+  form: QcRecordFormState,
+  existing?: QualityInspection | null,
+): boolean {
+  return form.result === 'FAIL' && isSewReturnInboundFromForm(form, existing)
 }
 
 function replaceQc(updated: QualityInspection): void {
@@ -270,10 +349,18 @@ function ensureDetailState(routeQcId: string): QcRecordDetailState {
     const params = getCurrentSearchParams()
     const taskId = params.get('taskId') ?? ''
     const handoverId = params.get('handoverId') ?? ''
+    const returnBatchId = params.get('returnBatchId') ?? params.get('batchId') ?? ''
     const prefTask = taskId ? processTasks.find((item) => item.taskId === taskId) : undefined
 
     const initOverrides: Partial<QcRecordFormState> = {}
-    if (taskId) {
+    if (returnBatchId) {
+      initOverrides.refType = 'RETURN_BATCH'
+      initOverrides.refId = returnBatchId
+      const inboundBatch = getReturnInboundBatchById(returnBatchId)
+      if (inboundBatch?.productionOrderId) {
+        initOverrides.productionOrderId = inboundBatch.productionOrderId
+      }
+    } else if (taskId) {
       initOverrides.refType = 'TASK'
       initOverrides.refId = taskId
       if (prefTask?.productionOrderId) {
@@ -282,6 +369,13 @@ function ensureDetailState(routeQcId: string): QcRecordDetailState {
     } else if (handoverId) {
       initOverrides.refType = 'HANDOVER'
       initOverrides.refId = handoverId
+    } else {
+      const firstBatch = initialReturnInboundBatches[0]
+      if (firstBatch) {
+        initOverrides.refType = 'RETURN_BATCH'
+        initOverrides.refId = firstBatch.batchId
+        initOverrides.productionOrderId = firstBatch.productionOrderId
+      }
     }
 
     detailState = {
@@ -316,6 +410,15 @@ function parseNumberField(value: string): number | '' {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return ''
   return Math.floor(parsed)
+}
+
+function parseAmountField(value: string): number | '' {
+  if (!value.trim()) return ''
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return ''
+  const normalized = Math.round(parsed * 100) / 100
+  if (normalized < 0) return ''
+  return normalized
 }
 
 function generateQcId(): string {
@@ -486,29 +589,114 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
 
   const now = nowTimestamp()
   let auditLogs = [...qc.auditLogs]
+  const finalLiabilityRequired = qc.result === 'FAIL' && requiresFinalLiabilityDecision(qc, initialReturnInboundBatches)
+
+  if (finalLiabilityRequired) {
+    if (!qc.responsiblePartyType || !qc.responsiblePartyId?.trim()) {
+      return { ok: false, message: '车缝回货入仓质检提交前必须填写责任方' }
+    }
+    if (!qc.disposition) return { ok: false, message: '车缝回货入仓质检提交前必须填写处理方式' }
+    if (!qc.deductionDecision) return { ok: false, message: '车缝回货入仓质检提交前必须明确是否扣款' }
+    if (qc.deductionDecision === 'DEDUCT') {
+      const amount = Number(qc.deductionAmount)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return { ok: false, message: '车缝回货入仓质检选择扣款时，金额必须大于 0' }
+      }
+    } else if (!qc.deductionDecisionRemark?.trim()) {
+      return { ok: false, message: '车缝回货入仓质检选择不扣款时，请填写说明' }
+    }
+  }
 
   if (qc.result === 'FAIL') {
-    const parentTask = processTasks.find((task) => task.taskId === qc.refId)
-    if (!parentTask) {
-      auditLogs.push({
-        id: `QAL-NOTFOUND-${Date.now()}-${randomSuffix(4)}`,
-        action: 'PARENT_TASK_NOT_FOUND',
-        detail: `父任务 ${qc.refId} 不存在，无法标记生产暂停`,
-        at: now,
-        by,
-      })
-    } else {
-      blockTaskForQuality(parentTask, qc.qcId, by, now)
+    if (isReturnInboundInspection(qc)) {
+      const inboundBatch = findReturnInboundBatchForQc(qc, initialReturnInboundBatches)
+      const resolvedTaskId = resolveReturnInboundTaskId(qc, inboundBatch)
+      const parentTask = resolvedTaskId
+        ? processTasks.find((task) => task.taskId === resolvedTaskId)
+        : null
 
-      if (parentTask.assignedFactoryId) {
-        upsertDeductionBasisFromQc(qc, parentTask, by, now)
+      if (!inboundBatch) {
         auditLogs.push({
-          id: `QAL-BASIS-${Date.now()}-${randomSuffix(4)}`,
-          action: 'GENERATE_DEDUCTION_BASIS',
-          detail: '已同步生成/更新扣款依据',
+          id: `QAL-RIB-BATCH-MISS-${Date.now()}-${randomSuffix(4)}`,
+          action: 'RETURN_INBOUND_BATCH_NOT_FOUND',
+          detail: `未找到回货入仓批次（QC=${qc.qcId}）`,
           at: now,
           by,
         })
+      }
+
+      if (resolvedTaskId && !parentTask) {
+        auditLogs.push({
+          id: `QAL-RIB-TASK-MISS-${Date.now()}-${randomSuffix(4)}`,
+          action: 'PARENT_TASK_NOT_FOUND',
+          detail: `回货入仓质检关联任务 ${resolvedTaskId} 不存在`,
+          at: now,
+          by,
+        })
+      }
+
+      if (parentTask) {
+        blockTaskForReturnInboundQc({
+          task: parentTask,
+          qcId: qc.qcId,
+          by,
+          now,
+        })
+      }
+
+      if (inboundBatch) {
+        upsertDeductionBasisFromReturnInboundQc({
+          basisItems: initialDeductionBasisItems,
+          qc,
+          batch: inboundBatch,
+          by,
+          now,
+          taskId: parentTask?.taskId ?? resolvedTaskId,
+          factoryId: parentTask?.assignedFactoryId ?? inboundBatch.returnFactoryId,
+          settlementPartyType: inboundBatch.sourceType === 'DYE_PRINT_ORDER' ? 'PROCESSOR' : 'FACTORY',
+          settlementPartyId: inboundBatch.returnFactoryId,
+        })
+
+        auditLogs.push({
+          id: `QAL-RIB-BASIS-${Date.now()}-${randomSuffix(4)}`,
+          action: 'GENERATE_DEDUCTION_BASIS',
+          detail: '已按回货入仓链路同步生成/更新扣款依据',
+          at: now,
+          by,
+        })
+      } else if (parentTask?.assignedFactoryId) {
+        upsertDeductionBasisFromQc(qc, parentTask, by, now)
+        auditLogs.push({
+          id: `QAL-RIB-BASIS-LEGACY-${Date.now()}-${randomSuffix(4)}`,
+          action: 'GENERATE_DEDUCTION_BASIS',
+          detail: '回货入仓批次缺失，已按任务兼容链路生成/更新扣款依据',
+          at: now,
+          by,
+        })
+      }
+    } else {
+      const parentTask = processTasks.find((task) => task.taskId === qc.refId)
+      if (!parentTask) {
+        auditLogs.push({
+          id: `QAL-NOTFOUND-${Date.now()}-${randomSuffix(4)}`,
+          action: 'PARENT_TASK_NOT_FOUND',
+          detail: `父任务 ${qc.refId} 不存在，无法标记生产暂停`,
+          at: now,
+          by,
+        })
+      } else {
+        blockTaskForQuality(parentTask, qc.qcId, by, now)
+
+        if (parentTask.assignedFactoryId) {
+          upsertDeductionBasisFromQc(qc, parentTask, by, now)
+          auditLogs.push({
+            id: `QAL-BASIS-${Date.now()}-${randomSuffix(4)}`,
+            action: 'GENERATE_DEDUCTION_BASIS',
+            detail: '已同步生成/更新扣款依据',
+            at: now,
+            by,
+          })
+        }
       }
     }
   }
@@ -524,6 +712,14 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
   const updated: QualityInspection = {
     ...qc,
     status: 'SUBMITTED',
+    liabilityDecisionStage: finalLiabilityRequired ? 'SEW_RETURN_INBOUND_FINAL' : qc.liabilityDecisionStage ?? 'GENERAL',
+    liabilityDecisionRequired: finalLiabilityRequired ? true : qc.liabilityDecisionRequired ?? false,
+    liabilityDecidedAt: finalLiabilityRequired ? now : qc.liabilityDecidedAt,
+    liabilityDecidedBy: finalLiabilityRequired ? by : qc.liabilityDecidedBy,
+    deductionCurrency:
+      finalLiabilityRequired && qc.deductionDecision === 'DEDUCT'
+        ? (qc.deductionCurrency ?? 'CNY')
+        : qc.deductionCurrency,
     updatedAt: now,
     auditLogs,
   }
@@ -614,6 +810,7 @@ function buildPayload(
 ): Omit<QualityInspection, 'qcId' | 'status' | 'auditLogs' | 'createdAt' | 'updatedAt'> {
   const isFail = form.result === 'FAIL'
   const needsQty = form.disposition ? NEEDS_AFFECTED_QTY.includes(form.disposition) : false
+  const finalLiabilityRequired = requiresFinalDecisionForForm(form, existing)
 
   const defectItems = isFail
     ? form.defectItems.map((item, index) => ({
@@ -624,7 +821,7 @@ function buildPayload(
       }))
     : []
 
-  return {
+  const basePayload: Omit<QualityInspection, 'qcId' | 'status' | 'auditLogs' | 'createdAt' | 'updatedAt'> = {
     refType: form.refType,
     refId: form.refId.trim(),
     productionOrderId: form.productionOrderId.trim(),
@@ -641,12 +838,71 @@ function buildPayload(
     rootCauseType: form.rootCauseType,
     responsiblePartyType: form.responsiblePartyType || undefined,
     responsiblePartyId: form.responsiblePartyId.trim() || undefined,
+    responsiblePartyName: form.responsiblePartyName.trim() || undefined,
     liabilityStatus: form.liabilityStatus,
+    liabilityDecisionStage: finalLiabilityRequired ? 'SEW_RETURN_INBOUND_FINAL' : 'GENERAL',
+    liabilityDecisionRequired: finalLiabilityRequired,
+    deductionDecision: isFail && finalLiabilityRequired ? form.deductionDecision || undefined : undefined,
+    deductionAmount:
+      isFail && finalLiabilityRequired && form.deductionDecision === 'DEDUCT' && form.deductionAmount !== ''
+        ? Number(form.deductionAmount)
+        : undefined,
+    deductionCurrency:
+      isFail && finalLiabilityRequired && form.deductionDecision === 'DEDUCT'
+        ? 'CNY'
+        : undefined,
+    deductionDecisionRemark:
+      isFail && finalLiabilityRequired ? form.deductionDecisionRemark.trim() || undefined : undefined,
+    dispositionRemark: isFail ? form.dispositionRemark.trim() || undefined : undefined,
   }
+
+  if (form.refType === 'RETURN_BATCH') {
+    const inboundBatch = getReturnInboundBatchById(form.refId.trim())
+    if (inboundBatch) {
+      basePayload.productionOrderId = inboundBatch.productionOrderId
+      basePayload.refTaskId = inboundBatch.sourceTaskId
+      basePayload.sourceProcessType = inboundBatch.processType
+      basePayload.sourceOrderId = inboundBatch.sourceType === 'DYE_PRINT_ORDER' ? inboundBatch.sourceId : undefined
+      basePayload.sourceReturnId = inboundBatch.batchId
+      basePayload.inspectionScene = 'RETURN_INBOUND'
+      basePayload.returnBatchId = inboundBatch.batchId
+      basePayload.returnProcessType = inboundBatch.processType
+      basePayload.qcPolicy = inboundBatch.qcPolicy
+      basePayload.returnFactoryId = inboundBatch.returnFactoryId
+      basePayload.returnFactoryName = inboundBatch.returnFactoryName
+      basePayload.warehouseId = inboundBatch.warehouseId
+      basePayload.warehouseName = inboundBatch.warehouseName
+      basePayload.sourceBusinessType = inboundBatch.sourceType
+      basePayload.sourceBusinessId = inboundBatch.sourceId
+      basePayload.sewPostProcessMode = inboundBatch.sewPostProcessMode
+    }
+  }
+
+  if (existing?.inspectionScene === 'RETURN_INBOUND' && form.refType !== 'RETURN_BATCH') {
+    basePayload.inspectionScene = existing.inspectionScene
+    basePayload.returnBatchId = existing.returnBatchId
+    basePayload.returnProcessType = existing.returnProcessType
+    basePayload.qcPolicy = existing.qcPolicy
+    basePayload.returnFactoryId = existing.returnFactoryId
+    basePayload.returnFactoryName = existing.returnFactoryName
+    basePayload.warehouseId = existing.warehouseId
+    basePayload.warehouseName = existing.warehouseName
+    basePayload.sourceBusinessType = existing.sourceBusinessType
+    basePayload.sourceBusinessId = existing.sourceBusinessId
+    basePayload.sewPostProcessMode = existing.sewPostProcessMode
+    basePayload.sourceProcessType = existing.sourceProcessType
+    basePayload.sourceOrderId = existing.sourceOrderId
+    basePayload.sourceReturnId = existing.sourceReturnId
+  }
+
+  return basePayload
 }
 
-function validateForm(form: QcRecordFormState, forSubmit: boolean): string | null {
-  if (!form.refId.trim()) return '请填写引用 ID（任务 ID 或交接事件 ID）'
+function validateForm(form: QcRecordFormState, forSubmit: boolean, existing?: QualityInspection | null): string | null {
+  if (!form.refId.trim()) return '请填写引用 ID（回货批次号 / 任务 ID / 交接事件 ID）'
+  if (form.refType === 'RETURN_BATCH' && !getReturnInboundBatchById(form.refId.trim())) {
+    return '回货批次号不存在，请先选择有效批次。'
+  }
   if (!form.inspector.trim()) return '请填写质检员姓名'
   if (!forSubmit) return null
 
@@ -664,9 +920,29 @@ function validateForm(form: QcRecordFormState, forSubmit: boolean): string | nul
       const qty = Number(form.affectedQty)
       if (!qty || qty < 1) return '请填写受影响数量（>= 1）'
 
+      const inboundBatch = form.refType === 'RETURN_BATCH' ? getReturnInboundBatchById(form.refId.trim()) : null
+      if (inboundBatch && qty > inboundBatch.returnedQty) {
+        return `受影响数量（${qty}）不能超过回货数量（${inboundBatch.returnedQty}）`
+      }
+
       const refTask = processTasks.find((task) => task.taskId === form.refId)
-      if (refTask && qty > refTask.qty) {
+      if (!inboundBatch && refTask && qty > refTask.qty) {
         return `受影响数量（${qty}）不能超过任务总量（${refTask.qty}）`
+      }
+    }
+
+    if (requiresFinalDecisionForForm(form, existing)) {
+      if (!form.responsiblePartyType) return '车缝回货入仓质检提交前必须选择责任方类型'
+      if (!form.responsiblePartyId.trim()) return '车缝回货入仓质检提交前必须填写责任方'
+      if (!form.disposition) return '车缝回货入仓质检提交前必须填写处理方式'
+      if (!form.deductionDecision) return '车缝回货入仓质检提交前必须明确是否扣款'
+      if (form.deductionDecision === 'DEDUCT') {
+        const amount = Number(form.deductionAmount)
+        if (!Number.isFinite(amount) || amount <= 0) {
+          return '选择扣款时，扣款金额必须大于 0'
+        }
+      } else if (!form.deductionDecisionRemark.trim()) {
+        return '选择不扣款时，请填写不扣款说明'
       }
     }
   }
@@ -675,13 +951,12 @@ function validateForm(form: QcRecordFormState, forSubmit: boolean): string | nul
 }
 
 function saveDraft(detail: QcRecordDetailState): void {
-  const error = validateForm(detail.form, false)
+  const existing = detail.currentQcId ? getQcById(detail.currentQcId) : null
+  const error = validateForm(detail.form, false, existing)
   if (error) {
     showQcRecordsToast(error, 'error')
     return
   }
-
-  const existing = detail.currentQcId ? getQcById(detail.currentQcId) : null
   const payload = buildPayload(detail.form, existing)
 
   if (!detail.currentQcId || !existing) {
@@ -704,14 +979,13 @@ function saveDraft(detail: QcRecordDetailState): void {
 }
 
 function submitDetail(detail: QcRecordDetailState): void {
-  const error = validateForm(detail.form, true)
+  let targetId = detail.currentQcId
+  let existing = targetId ? getQcById(targetId) : null
+  const error = validateForm(detail.form, true, existing)
   if (error) {
     showQcRecordsToast(error, 'error')
     return
   }
-
-  let targetId = detail.currentQcId
-  let existing = targetId ? getQcById(targetId) : null
   const payload = buildPayload(detail.form, existing)
 
   if (!targetId || !existing) {
@@ -744,55 +1018,83 @@ function submitDetail(detail: QcRecordDetailState): void {
   showQcRecordsToast('质检已提交')
 }
 
+function getQcViewRows() {
+  return initialQualityInspections.map((qc) => normalizeQcForView(qc, initialReturnInboundBatches, processTasks))
+}
+
 function getFactoryOptions(): string[] {
   const options = new Set<string>()
-  for (const task of processTasks) {
-    if (task.assignedFactoryId) {
-      options.add(task.assignedFactoryId)
+  for (const row of getQcViewRows()) {
+    if (row.returnFactoryName && row.returnFactoryName !== '-') {
+      options.add(row.returnFactoryName)
     }
   }
   return Array.from(options).sort((a, b) => a.localeCompare(b))
 }
 
-function getFilteredQcRecords(): QualityInspection[] {
+function getWarehouseOptions(): string[] {
+  const options = new Set<string>()
+  for (const row of getQcViewRows()) {
+    if (row.warehouseName && row.warehouseName !== '-') {
+      options.add(row.warehouseName)
+    }
+  }
+  return Array.from(options).sort((a, b) => a.localeCompare(b))
+}
+
+function getFilteredQcRows() {
   const keyword = listState.keyword.trim().toLowerCase()
 
-  return initialQualityInspections
-    .filter((qc) => {
-      if (listState.filterResult !== 'ALL' && qc.result !== listState.filterResult) {
+  return getQcViewRows()
+    .filter((row) => {
+      if (!listState.showLegacy && row.isLegacy) {
         return false
       }
 
-      if (listState.filterStatus !== 'ALL' && qc.status !== listState.filterStatus) {
+      if (listState.filterProcessType !== 'ALL' && row.processType !== listState.filterProcessType) {
+        return false
+      }
+
+      if (listState.filterPolicy !== 'ALL' && row.qcPolicy !== listState.filterPolicy) {
+        return false
+      }
+
+      if (listState.filterResult !== 'ALL' && row.result !== listState.filterResult) {
+        return false
+      }
+
+      if (listState.filterStatus !== 'ALL' && row.status !== listState.filterStatus) {
         return false
       }
 
       if (
         listState.filterDisposition !== 'ALL' &&
-        (qc.disposition as QcDisposition | undefined) !== listState.filterDisposition
+        (row.disposition as QcDisposition | undefined) !== listState.filterDisposition
       ) {
         return false
       }
 
-      if (listState.filterFactory !== 'ALL') {
-        const task = processTasks.find((item) => item.taskId === qc.refId)
-        if (!task || task.assignedFactoryId !== listState.filterFactory) {
-          return false
-        }
+      if (listState.filterFactory !== 'ALL' && row.returnFactoryName !== listState.filterFactory) {
+        return false
+      }
+
+      if (listState.filterWarehouse !== 'ALL' && row.warehouseName !== listState.filterWarehouse) {
+        return false
       }
 
       if (keyword) {
         const match =
-          qc.qcId.toLowerCase().includes(keyword) ||
-          qc.refId.toLowerCase().includes(keyword) ||
-          qc.productionOrderId.toLowerCase().includes(keyword)
+          row.qcId.toLowerCase().includes(keyword) ||
+          row.batchId.toLowerCase().includes(keyword) ||
+          row.productionOrderId.toLowerCase().includes(keyword) ||
+          row.sourceTaskId.toLowerCase().includes(keyword)
         if (!match) return false
       }
 
       return true
     })
     .sort((left, right) => {
-      return new Date(right.inspectedAt || right.updatedAt).getTime() - new Date(left.inspectedAt || left.updatedAt).getTime()
+      return new Date(right.inspectedAt || right.qc.updatedAt).getTime() - new Date(left.inspectedAt || left.qc.updatedAt).getTime()
     })
 }
 
@@ -807,29 +1109,21 @@ function renderDispositionBadge(disposition?: QcDisposition): string {
   return `<span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${DISPOSITION_CLASS[disposition]}">${DISPOSITION_LABEL[disposition]}</span>`
 }
 
-function renderBlockBadge(qc: QualityInspection): string {
-  const task = processTasks.find((item) => item.taskId === qc.refId)
-  if (!task) {
-    return '<span class="inline-flex rounded-md border px-2 py-0.5 text-xs text-muted-foreground">未知</span>'
-  }
-
-  if (task.status === 'BLOCKED' && task.blockReason === 'QUALITY') {
-    return '<span class="inline-flex rounded-md border border-red-200 bg-red-100 px-2 py-0.5 text-xs text-red-700">已生产暂停</span>'
-  }
-
-  return '<span class="inline-flex rounded-md border border-green-200 bg-green-100 px-2 py-0.5 text-xs text-green-700">正常</span>'
+function renderPolicyBadge(policy: ReturnInboundQcPolicy): string {
+  return `<span class="inline-flex rounded-md border px-2 py-0.5 text-xs">${RETURN_INBOUND_QC_POLICY_LABEL[policy]}</span>`
 }
 
 export function renderQcRecordsPage(): string {
-  const filtered = getFilteredQcRecords()
+  const filtered = getFilteredQcRows()
   const factoryOptions = getFactoryOptions()
+  const warehouseOptions = getWarehouseOptions()
 
   return `
     <div class="flex flex-col gap-6 p-6">
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold tracking-tight">质检记录</h1>
-          <p class="mt-1 text-sm text-muted-foreground">共 ${filtered.length} 条</p>
+          <p class="mt-1 text-sm text-muted-foreground">默认展示回货入仓质检，共 ${filtered.length} 条</p>
         </div>
       </div>
 
@@ -841,8 +1135,34 @@ export function renderQcRecordsPage(): string {
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
               data-qcr-filter="keyword"
               value="${toInputValue(listState.keyword)}"
-              placeholder="质检单号 / 任务ID / 生产单号"
+              placeholder="质检单号 / 回货批次号 / 生产单号 / 来源任务ID"
             />
+          </div>
+
+          <div class="w-36">
+            <label class="mb-1 block text-xs text-muted-foreground">回货环节</label>
+            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-qcr-filter="processType">
+              <option value="ALL" ${listState.filterProcessType === 'ALL' ? 'selected' : ''}>全部</option>
+              ${Object.entries(RETURN_INBOUND_PROCESS_LABEL)
+                .map(
+                  ([key, label]) =>
+                    `<option value="${key}" ${listState.filterProcessType === key ? 'selected' : ''}>${label}</option>`,
+                )
+                .join('')}
+            </select>
+          </div>
+
+          <div class="w-32">
+            <label class="mb-1 block text-xs text-muted-foreground">质检策略</label>
+            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-qcr-filter="policy">
+              <option value="ALL" ${listState.filterPolicy === 'ALL' ? 'selected' : ''}>全部</option>
+              ${Object.entries(RETURN_INBOUND_QC_POLICY_LABEL)
+                .map(
+                  ([key, label]) =>
+                    `<option value="${key}" ${listState.filterPolicy === key ? 'selected' : ''}>${label}</option>`,
+                )
+                .join('')}
+            </select>
           </div>
 
           <div class="w-32">
@@ -878,7 +1198,7 @@ export function renderQcRecordsPage(): string {
             factoryOptions.length > 0
               ? `
                 <div class="w-40">
-                  <label class="mb-1 block text-xs text-muted-foreground">工厂</label>
+                  <label class="mb-1 block text-xs text-muted-foreground">回货工厂</label>
                   <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-qcr-filter="factory">
                     <option value="ALL" ${listState.filterFactory === 'ALL' ? 'selected' : ''}>全部</option>
                     ${factoryOptions
@@ -892,6 +1212,29 @@ export function renderQcRecordsPage(): string {
               : ''
           }
 
+          ${
+            warehouseOptions.length > 0
+              ? `
+                <div class="w-40">
+                  <label class="mb-1 block text-xs text-muted-foreground">入仓仓库</label>
+                  <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-qcr-filter="warehouse">
+                    <option value="ALL" ${listState.filterWarehouse === 'ALL' ? 'selected' : ''}>全部</option>
+                    ${warehouseOptions
+                      .map(
+                        (item) => `<option value="${escapeHtml(item)}" ${listState.filterWarehouse === item ? 'selected' : ''}>${escapeHtml(item)}</option>`,
+                      )
+                      .join('')}
+                  </select>
+                </div>
+              `
+              : ''
+          }
+
+          <label class="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
+            <input type="checkbox" data-qcr-filter="showLegacy" ${listState.showLegacy ? 'checked' : ''} />
+            显示旧质检记录
+          </label>
+
           <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-qcr-action="reset-filters">
             <i data-lucide="rotate-ccw" class="mr-1 h-4 w-4"></i>
             重置
@@ -903,45 +1246,53 @@ export function renderQcRecordsPage(): string {
         filtered.length === 0
           ? `
             <section class="rounded-md border bg-card">
-              <div class="py-16 text-center text-sm text-muted-foreground">暂无质检记录</div>
+              <div class="py-16 text-center text-sm text-muted-foreground">当前筛选下暂无回货入仓质检记录</div>
             </section>
           `
           : `
             <section class="overflow-x-auto rounded-md border bg-card">
-              <table class="w-full min-w-[1200px] text-sm">
+              <table class="w-full min-w-[1560px] text-sm">
                 <thead>
                   <tr class="border-b bg-muted/40 text-left">
                     <th class="px-4 py-2 font-medium">质检单号</th>
-                    <th class="px-4 py-2 font-medium">任务ID</th>
+                    <th class="px-4 py-2 font-medium">回货批次号</th>
                     <th class="px-4 py-2 font-medium">生产单号</th>
-                    <th class="px-4 py-2 font-medium">工序</th>
+                    <th class="px-4 py-2 font-medium">回货环节</th>
+                    <th class="px-4 py-2 font-medium">回货工厂</th>
+                    <th class="px-4 py-2 font-medium">入仓仓库</th>
+                    <th class="px-4 py-2 font-medium">质检策略</th>
                     <th class="px-4 py-2 font-medium">结果</th>
+                    <th class="px-4 py-2 font-medium">质检状态</th>
                     <th class="px-4 py-2 font-medium">处置方式</th>
                     <th class="px-4 py-2 text-right font-medium">受影响数量</th>
-                    <th class="px-4 py-2 text-right font-medium">关联任务数</th>
-                    <th class="px-4 py-2 font-medium">生产暂停状态</th>
+                    <th class="px-4 py-2 font-medium">来源任务</th>
                     <th class="px-4 py-2 font-medium">质检时间</th>
                     <th class="px-4 py-2 font-medium">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${filtered
-                    .map((qc) => {
-                      const task = processTasks.find((item) => item.taskId === qc.refId)
+                    .map((row) => {
                       return `
-                        <tr class="cursor-pointer border-b last:border-b-0 hover:bg-muted/50" data-nav="/fcs/quality/qc-records/${escapeHtml(qc.qcId)}">
-                          <td class="px-4 py-3 font-mono text-xs font-semibold text-primary">${escapeHtml(qc.qcId)}</td>
-                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(qc.refId)}</td>
-                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(qc.productionOrderId)}</td>
-                          <td class="px-4 py-3">${escapeHtml(task?.processNameZh ?? '-')}</td>
-                          <td class="px-4 py-3">${renderResultBadge(qc.result as QcResult)}</td>
-                          <td class="px-4 py-3">${renderDispositionBadge(qc.disposition as QcDisposition | undefined)}</td>
-                          <td class="px-4 py-3 text-right">${qc.affectedQty ?? '-'}</td>
-                          <td class="px-4 py-3 text-right">0</td>
-                          <td class="px-4 py-3">${renderBlockBadge(qc)}</td>
-                          <td class="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatDateTime(qc.inspectedAt || qc.updatedAt))}</td>
+                        <tr class="cursor-pointer border-b last:border-b-0 hover:bg-muted/50" data-nav="/fcs/quality/qc-records/${escapeHtml(row.qcId)}">
                           <td class="px-4 py-3">
-                            <button class="inline-flex h-8 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/quality/qc-records/${escapeHtml(qc.qcId)}">
+                            <div class="font-mono text-xs font-semibold text-primary">${escapeHtml(row.qcId)}</div>
+                            ${row.isLegacy ? '<div class="mt-1 inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">旧质检记录</div>' : ''}
+                          </td>
+                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.batchId || '-')}</td>
+                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.productionOrderId || '-')}</td>
+                          <td class="px-4 py-3">${escapeHtml(row.processLabel)}</td>
+                          <td class="px-4 py-3">${escapeHtml(row.returnFactoryName || '-')}</td>
+                          <td class="px-4 py-3">${escapeHtml(row.warehouseName || '-')}</td>
+                          <td class="px-4 py-3">${renderPolicyBadge(row.qcPolicy)}</td>
+                          <td class="px-4 py-3">${renderResultBadge(row.result)}</td>
+                          <td class="px-4 py-3"><span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${STATUS_CLASS[row.status]}">${STATUS_LABEL[row.status]}</span></td>
+                          <td class="px-4 py-3">${renderDispositionBadge(row.disposition as QcDisposition | undefined)}</td>
+                          <td class="px-4 py-3 text-right">${row.affectedQty ?? '-'}</td>
+                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(row.sourceTaskId || '-')}</td>
+                          <td class="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatDateTime(row.inspectedAt || row.qc.updatedAt))}</td>
+                          <td class="px-4 py-3">
+                            <button class="inline-flex h-8 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/quality/qc-records/${escapeHtml(row.qcId)}">
                               查看
                               <i data-lucide="chevron-right" class="ml-1 h-3.5 w-3.5"></i>
                             </button>
@@ -1109,12 +1460,24 @@ export function renderQcRecordDetailPage(qcId: string): string {
   const needsQty =
     detail.form.disposition !== '' && NEEDS_AFFECTED_QTY.includes(detail.form.disposition)
   const refTask = processTasks.find((item) => item.taskId === detail.form.refId)
+  const selectedBatch = detail.form.refType === 'RETURN_BATCH' ? getReturnInboundBatchById(detail.form.refId) : null
+  const inboundView = existingQc ? normalizeQcForView(existingQc, initialReturnInboundBatches, processTasks) : null
+  const finalLiabilityRequired = requiresFinalDecisionForForm(detail.form, existingQc)
+  const sourceTaskForView =
+    (inboundView?.sourceTaskId ? processTasks.find((item) => item.taskId === inboundView.sourceTaskId) : null) ??
+    refTask
+  const maxQty = selectedBatch?.returnedQty ?? refTask?.qty
   const basisItems = detail.currentQcId
     ? initialDeductionBasisItems.filter(
         (item) => item.sourceRefId === detail.currentQcId || item.sourceId === detail.currentQcId,
       )
     : []
-  const maxQty = refTask?.qty
+  const sourceTypeLabel =
+    inboundView?.isReturnInbound || detail.form.refType === 'RETURN_BATCH'
+      ? '来源类型：回货入仓批次'
+      : detail.form.refType === 'TASK'
+        ? '来源类型：生产任务'
+        : '来源类型：交接事件'
 
   return `
     <div class="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-6">
@@ -1127,7 +1490,7 @@ export function renderQcRecordDetailPage(qcId: string): string {
             ${detail.currentQcId ? `质检记录 ${escapeHtml(detail.currentQcId)}` : '新建质检记录'}
           </h1>
           <p class="mt-0.5 text-sm text-muted-foreground">
-            ${detail.form.refType === 'TASK' ? '来源类型：生产任务' : '来源类型：交接事件'}
+            ${sourceTypeLabel}
             ${detail.form.refId ? ` · ${escapeHtml(detail.form.refId)}` : ''}
           </p>
         </div>
@@ -1147,13 +1510,36 @@ export function renderQcRecordDetailPage(qcId: string): string {
             <div class="space-y-1.5">
               <label class="text-sm">引用类型</label>
               <select class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="refType" ${readOnly ? 'disabled' : ''}>
+                <option value="RETURN_BATCH" ${detail.form.refType === 'RETURN_BATCH' ? 'selected' : ''}>回货入仓批次</option>
                 <option value="TASK" ${detail.form.refType === 'TASK' ? 'selected' : ''}>生产任务</option>
                 <option value="HANDOVER" ${detail.form.refType === 'HANDOVER' ? 'selected' : ''}>交接事件</option>
               </select>
             </div>
             <div class="space-y-1.5">
-              <label class="text-sm">${detail.form.refType === 'TASK' ? '任务 ID' : '交接事件 ID'}</label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="refId" value="${toInputValue(detail.form.refId)}" placeholder="${detail.form.refType === 'TASK' ? 'TASK-xxxx-xxx' : 'HO-xxxx'}" ${readOnly ? 'disabled' : ''} />
+              <label class="text-sm">${
+                detail.form.refType === 'RETURN_BATCH'
+                  ? '回货批次号'
+                  : detail.form.refType === 'TASK'
+                    ? '任务 ID'
+                    : '交接事件 ID'
+              }</label>
+              ${
+                detail.form.refType === 'RETURN_BATCH'
+                  ? `
+                    <select class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="refId" ${readOnly ? 'disabled' : ''}>
+                      <option value="">请选择回货批次</option>
+                      ${initialReturnInboundBatches
+                        .map(
+                          (batch) =>
+                            `<option value="${escapeHtml(batch.batchId)}" ${detail.form.refId === batch.batchId ? 'selected' : ''}>${escapeHtml(batch.batchId)} · ${escapeHtml(batch.processLabel ?? RETURN_INBOUND_PROCESS_LABEL[batch.processType])} · ${escapeHtml(batch.productionOrderId)}</option>`,
+                        )
+                        .join('')}
+                    </select>
+                  `
+                  : `
+                    <input class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="refId" value="${toInputValue(detail.form.refId)}" placeholder="${detail.form.refType === 'TASK' ? 'TASK-xxxx-xxx' : 'HO-xxxx'}" ${readOnly ? 'disabled' : ''} />
+                  `
+              }
             </div>
           </div>
 
@@ -1161,6 +1547,19 @@ export function renderQcRecordDetailPage(qcId: string): string {
             <label class="text-sm">生产工单号</label>
             <input class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="productionOrderId" value="${toInputValue(detail.form.productionOrderId)}" placeholder="PO-xxxx（关联任务时自动带入）" ${readOnly ? 'disabled' : ''} />
           </div>
+
+          ${
+            detail.form.refType === 'RETURN_BATCH' && selectedBatch
+              ? `
+                <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  已带出：回货环节 ${escapeHtml(selectedBatch.processLabel ?? RETURN_INBOUND_PROCESS_LABEL[selectedBatch.processType])}
+                  · 质检策略 ${escapeHtml(RETURN_INBOUND_QC_POLICY_LABEL[selectedBatch.qcPolicy])}
+                  · 回货工厂 ${escapeHtml(selectedBatch.returnFactoryName ?? '-')}
+                  · 入仓仓库 ${escapeHtml(selectedBatch.warehouseName ?? '-')}
+                </div>
+              `
+              : ''
+          }
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-1.5">
@@ -1171,6 +1570,66 @@ export function renderQcRecordDetailPage(qcId: string): string {
               <label class="text-sm">质检时间</label>
               <input class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="inspectedAt" value="${toInputValue(detail.form.inspectedAt)}" placeholder="YYYY-MM-DD HH:mm:ss" ${readOnly ? 'disabled' : ''} />
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-md border bg-card">
+        <header class="border-b px-4 py-3">
+          <h2 class="text-sm font-semibold">来源信息</h2>
+        </header>
+        <div class="grid grid-cols-1 gap-4 px-4 py-4 text-sm md:grid-cols-2">
+          <div>
+            <p class="text-xs text-muted-foreground">回货批次号</p>
+            <p class="font-mono">${escapeHtml(inboundView?.batchId || selectedBatch?.batchId || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">生产单号</p>
+            <p class="font-mono">${escapeHtml(inboundView?.productionOrderId || detail.form.productionOrderId || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">回货环节</p>
+            <p>${escapeHtml(inboundView?.processLabel || (selectedBatch ? selectedBatch.processLabel ?? RETURN_INBOUND_PROCESS_LABEL[selectedBatch.processType] : '-'))}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">来源任务ID</p>
+            <p class="font-mono">${escapeHtml(inboundView?.sourceTaskId || selectedBatch?.sourceTaskId || detail.form.refId || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">回货工厂</p>
+            <p>${escapeHtml(inboundView?.returnFactoryName || selectedBatch?.returnFactoryName || sourceTaskForView?.assignedFactoryName || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">入仓仓库</p>
+            <p>${escapeHtml(inboundView?.warehouseName || selectedBatch?.warehouseName || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">入仓时间</p>
+            <p>${escapeHtml(formatDateTime(inboundView?.inboundAt || selectedBatch?.inboundAt || '-'))}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">质检策略</p>
+            <p>${
+              inboundView
+                ? RETURN_INBOUND_QC_POLICY_LABEL[inboundView.qcPolicy]
+                : selectedBatch
+                  ? RETURN_INBOUND_QC_POLICY_LABEL[selectedBatch.qcPolicy]
+                  : '-'
+            }</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">车缝后道模式</p>
+            <p>${
+              inboundView?.sewPostProcessMode
+                ? SEW_POST_PROCESS_MODE_LABEL[inboundView.sewPostProcessMode]
+                : selectedBatch?.sewPostProcessMode
+                  ? SEW_POST_PROCESS_MODE_LABEL[selectedBatch.sewPostProcessMode]
+                  : '-'
+            }</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">来源业务</p>
+            <p>${escapeHtml(inboundView?.sourceBusinessType || selectedBatch?.sourceType || '-')} / ${escapeHtml(inboundView?.sourceBusinessId || selectedBatch?.sourceId || '-')}</p>
           </div>
         </div>
       </section>
@@ -1321,6 +1780,78 @@ export function renderQcRecordDetailPage(qcId: string): string {
                       <input class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="responsiblePartyId" value="${toInputValue(detail.form.responsiblePartyId)}" placeholder="留空由系统推导" ${readOnly ? 'disabled' : ''} />
                     </div>
                   </div>
+
+                  <div class="space-y-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-3">
+                    <div class="flex items-center justify-between">
+                      <p class="text-sm font-medium text-blue-900">责任判定与扣款决定</p>
+                      ${
+                        finalLiabilityRequired
+                          ? '<span class="inline-flex rounded-md border border-blue-300 bg-white px-2 py-0.5 text-xs text-blue-700">车缝回货入仓最终判定（提交必填）</span>'
+                          : '<span class="inline-flex rounded-md border border-blue-200 bg-white px-2 py-0.5 text-xs text-blue-600">当前环节可选填写</span>'
+                      }
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div class="space-y-1.5">
+                        <label class="text-sm">责任方名称（可选）</label>
+                        <input
+                          class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                          data-qcd-field="responsiblePartyName"
+                          value="${toInputValue(detail.form.responsiblePartyName)}"
+                          placeholder="如：PT Prima Sewing Hub"
+                          ${readOnly ? 'disabled' : ''}
+                        />
+                      </div>
+                      <div class="space-y-1.5">
+                        <label class="text-sm">是否扣款${finalLiabilityRequired ? ' <span class="text-red-600">*</span>' : ''}</label>
+                        <select
+                          class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                          data-qcd-field="deductionDecision"
+                          ${readOnly ? 'disabled' : ''}
+                        >
+                          <option value="" ${detail.form.deductionDecision === '' ? 'selected' : ''}>请选择</option>
+                          <option value="DEDUCT" ${detail.form.deductionDecision === 'DEDUCT' ? 'selected' : ''}>${DEDUCTION_DECISION_LABEL.DEDUCT}</option>
+                          <option value="NO_DEDUCT" ${detail.form.deductionDecision === 'NO_DEDUCT' ? 'selected' : ''}>${DEDUCTION_DECISION_LABEL.NO_DEDUCT}</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div class="space-y-1.5">
+                        <label class="text-sm">扣款金额（元）${detail.form.deductionDecision === 'DEDUCT' && finalLiabilityRequired ? ' <span class="text-red-600">*</span>' : ''}</label>
+                        <input
+                          class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          data-qcd-field="deductionAmount"
+                          value="${toInputValue(detail.form.deductionAmount)}"
+                          placeholder="${detail.form.deductionDecision === 'DEDUCT' ? '请输入扣款金额' : '选择扣款后填写'}"
+                          ${readOnly ? 'disabled' : ''}
+                        />
+                      </div>
+                      <div class="space-y-1.5">
+                        <label class="text-sm">处置补充说明</label>
+                        <input
+                          class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                          data-qcd-field="dispositionRemark"
+                          value="${toInputValue(detail.form.dispositionRemark)}"
+                          placeholder="可补充说明处理方式"
+                          ${readOnly ? 'disabled' : ''}
+                        />
+                      </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                      <label class="text-sm">扣款决定说明${detail.form.deductionDecision === 'NO_DEDUCT' && finalLiabilityRequired ? ' <span class="text-red-600">*</span>' : ''}</label>
+                      <textarea
+                        class="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                        data-qcd-field="deductionDecisionRemark"
+                        placeholder="${detail.form.deductionDecision === 'NO_DEDUCT' ? '请选择不扣款时必须填写说明' : '可填写扣款决定说明'}"
+                        ${readOnly ? 'disabled' : ''}
+                      >${escapeHtml(detail.form.deductionDecisionRemark)}</textarea>
+                    </div>
+                  </div>
                 </div>
               `
               : ''
@@ -1357,17 +1888,119 @@ export function renderQcRecordDetailPage(qcId: string): string {
             </div>
           `
           : `
-            <div class="rounded-md bg-muted px-4 py-2.5 text-sm text-muted-foreground">已提交，表单只读。</div>
+            <div class="rounded-md bg-muted px-4 py-2.5 text-sm text-muted-foreground">${existingQc?.status === 'CLOSED' ? '已结案，表单只读。' : '已提交，表单只读。'}</div>
           `
       }
 
       ${
-        existingQc && existingQc.status === 'SUBMITTED'
+        existingQc && (existingQc.status === 'SUBMITTED' || existingQc.status === 'CLOSED')
           ? `
             <section class="space-y-4 pt-2">
               <div class="border-t pt-4">
                 <h2 class="text-sm font-semibold">提交串联产物</h2>
               </div>
+
+              ${
+                existingQc.result === 'FAIL'
+                  ? `
+                    <article class="rounded-md border bg-card">
+                      <header class="border-b px-4 py-3">
+                        <h3 class="text-sm font-medium">责任判定与扣款决定（结构化）</h3>
+                      </header>
+                      <div class="grid grid-cols-1 gap-3 px-4 py-4 text-sm md:grid-cols-2">
+                        <div>
+                          <p class="text-xs text-muted-foreground">判定阶段</p>
+                          <p>${existingQc.liabilityDecisionStage === 'SEW_RETURN_INBOUND_FINAL' ? '车缝回货入仓最终判定' : '一般判定'}</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">是否强制判定</p>
+                          <p>${existingQc.liabilityDecisionRequired ? '是' : '否'}</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">责任方</p>
+                          <p>${
+                            existingQc.responsiblePartyType
+                              ? `${PARTY_TYPE_LABEL[existingQc.responsiblePartyType]} / ${escapeHtml(existingQc.responsiblePartyId ?? '-')}`
+                              : '-'
+                          }</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">责任方名称</p>
+                          <p>${escapeHtml(existingQc.responsiblePartyName ?? '-')}</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">处理方式</p>
+                          <p>${existingQc.disposition ? escapeHtml(DISPOSITION_LABEL[existingQc.disposition] ?? existingQc.disposition) : '-'}</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">扣款决定</p>
+                          <p>${
+                            existingQc.deductionDecision
+                              ? escapeHtml(DEDUCTION_DECISION_LABEL[existingQc.deductionDecision] ?? existingQc.deductionDecision)
+                              : '-'
+                          }</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">扣款金额</p>
+                          <p>${
+                            existingQc.deductionDecision === 'DEDUCT'
+                              ? `${existingQc.deductionAmount ?? '-'} ${existingQc.deductionCurrency ?? 'CNY'}`
+                              : '-'
+                          }</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">判定时间</p>
+                          <p>${existingQc.liabilityDecidedAt ? escapeHtml(formatDateTime(existingQc.liabilityDecidedAt)) : '-'}</p>
+                        </div>
+                        <div class="md:col-span-2">
+                          <p class="text-xs text-muted-foreground">判定说明</p>
+                          <p>${escapeHtml(existingQc.deductionDecisionRemark ?? existingQc.dispositionRemark ?? '-')}</p>
+                        </div>
+                      </div>
+                    </article>
+                  `
+                  : ''
+              }
+
+              <article class="rounded-md border bg-card">
+                <header class="border-b px-4 py-3">
+                  <h3 class="text-sm font-medium">写回与下游结果</h3>
+                </header>
+                <div class="grid grid-cols-1 gap-3 px-4 py-4 text-sm md:grid-cols-2">
+                  <div>
+                    <p class="text-xs text-muted-foreground">可用量写回</p>
+                    <p>${existingQc.writebackAvailableQty ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">瑕疵接收量写回</p>
+                    <p>${existingQc.writebackAcceptedAsDefectQty ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">报废量写回</p>
+                    <p>${existingQc.writebackScrapQty ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">写回完成时间</p>
+                    <p>${existingQc.writebackCompletedAt ? escapeHtml(formatDateTime(existingQc.writebackCompletedAt)) : '-'}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">写回执行人</p>
+                    <p>${escapeHtml(existingQc.writebackCompletedBy ?? '-')}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">下游是否解锁</p>
+                    <p>${existingQc.downstreamUnblocked === undefined ? '-' : existingQc.downstreamUnblocked ? '已解锁' : '未解锁'}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">关联扣款依据</p>
+                    <p>${basisItems.length > 0 ? `${basisItems.length} 条` : '-'}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">结算冻结原因</p>
+                    <p>${escapeHtml(existingQc.settlementFreezeReason ?? '-')}</p>
+                  </div>
+                </div>
+              </article>
 
               <article class="rounded-md border bg-card">
                 <header class="border-b px-4 py-3">
@@ -1454,11 +2087,28 @@ export function renderQcRecordDetailPage(qcId: string): string {
 
 function updateFormField(detail: QcRecordDetailState, field: string, value: string): void {
   if (field === 'refType') {
-    detail.form.refType = value === 'HANDOVER' ? 'HANDOVER' : 'TASK'
+    if (value === 'HANDOVER') {
+      detail.form.refType = 'HANDOVER'
+    } else if (value === 'RETURN_BATCH') {
+      detail.form.refType = 'RETURN_BATCH'
+    } else {
+      detail.form.refType = 'TASK'
+    }
+    detail.form.refId = ''
+    if (detail.form.refType !== 'RETURN_BATCH') {
+      return
+    }
+    const firstBatch = initialReturnInboundBatches[0]
+    if (firstBatch) {
+      applyReturnInboundBatchToForm(detail.form, firstBatch.batchId)
+    }
     return
   }
   if (field === 'refId') {
     detail.form.refId = value
+    if (detail.form.refType === 'RETURN_BATCH') {
+      applyReturnInboundBatchToForm(detail.form, value)
+    }
     return
   }
   if (field === 'productionOrderId') {
@@ -1500,6 +2150,29 @@ function updateFormField(detail: QcRecordDetailState, field: string, value: stri
     detail.form.responsiblePartyId = value
     return
   }
+  if (field === 'responsiblePartyName') {
+    detail.form.responsiblePartyName = value
+    return
+  }
+  if (field === 'deductionDecision') {
+    detail.form.deductionDecision = (value || '') as DeductionDecision | ''
+    if (detail.form.deductionDecision !== 'DEDUCT') {
+      detail.form.deductionAmount = ''
+    }
+    return
+  }
+  if (field === 'deductionAmount') {
+    detail.form.deductionAmount = parseAmountField(value)
+    return
+  }
+  if (field === 'deductionDecisionRemark') {
+    detail.form.deductionDecisionRemark = value
+    return
+  }
+  if (field === 'dispositionRemark') {
+    detail.form.dispositionRemark = value
+    return
+  }
   if (field === 'remark') {
     detail.form.remark = value
   }
@@ -1514,6 +2187,11 @@ function setResult(detail: QcRecordDetailState, result: QcResult): void {
     detail.form.rootCauseType = 'UNKNOWN'
     detail.form.responsiblePartyType = ''
     detail.form.responsiblePartyId = ''
+    detail.form.responsiblePartyName = ''
+    detail.form.deductionDecision = ''
+    detail.form.deductionAmount = ''
+    detail.form.deductionDecisionRemark = ''
+    detail.form.dispositionRemark = ''
   }
 }
 
@@ -1531,6 +2209,18 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
       listState.keyword = listFilterNode.value
       return true
     }
+    if (field === 'showLegacy' && listFilterNode instanceof HTMLInputElement) {
+      listState.showLegacy = listFilterNode.checked
+      return true
+    }
+    if (field === 'processType') {
+      listState.filterProcessType = listFilterNode.value as QcRecordsListState['filterProcessType']
+      return true
+    }
+    if (field === 'policy') {
+      listState.filterPolicy = listFilterNode.value as QcRecordsListState['filterPolicy']
+      return true
+    }
     if (field === 'result') {
       listState.filterResult = listFilterNode.value as ResultFilter
       return true
@@ -1545,6 +2235,10 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
     }
     if (field === 'factory') {
       listState.filterFactory = listFilterNode.value
+      return true
+    }
+    if (field === 'warehouse') {
+      listState.filterWarehouse = listFilterNode.value
       return true
     }
     return true
@@ -1630,10 +2324,14 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
 
     if (action === 'reset-filters') {
       listState.keyword = ''
+      listState.filterProcessType = 'ALL'
+      listState.filterPolicy = 'ALL'
       listState.filterResult = 'ALL'
       listState.filterStatus = 'ALL'
       listState.filterDisposition = 'ALL'
       listState.filterFactory = 'ALL'
+      listState.filterWarehouse = 'ALL'
+      listState.showLegacy = false
       return true
     }
 

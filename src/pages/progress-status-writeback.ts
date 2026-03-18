@@ -6,15 +6,23 @@ import {
   initialDeductionBasisItems,
   initialQualityInspections,
   initialReturnBatches,
+  initialReturnInboundBatches,
 } from '../data/fcs/store-domain-quality-seeds'
 import {
-  type AllocationEvent,
-  type AllocationSnapshot,
-  type DeductionBasisItem,
-  type QualityInspection,
   type ReturnBatch,
+  type ReturnInboundBatch,
   type ReturnBatchQcStatus,
+  inferReturnInboundProcessTypeFromTask,
+  resolveDefaultReturnInboundQcPolicy,
 } from '../data/fcs/store-domain-quality-types'
+import {
+  applyReturnInboundPassWriteback,
+  blockTaskForReturnInboundQc,
+  createQcFromReturnInboundBatch,
+  createReturnInboundBatchRecord,
+  updateReturnInboundBatchStatus,
+  upsertDeductionBasisFromReturnInboundQc,
+} from '../data/fcs/return-inbound-workflow'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { escapeHtml } from '../utils'
 
@@ -99,6 +107,10 @@ function getTasksSorted(): ProcessTask[] {
 
 function getReturnBatches(): ReturnBatch[] {
   return initialReturnBatches
+}
+
+function getReturnInboundBatches(): ReturnInboundBatch[] {
+  return initialReturnInboundBatches
 }
 
 function getTaskDependencies(task: ProcessTask): string[] {
@@ -213,8 +225,33 @@ function createReturnBatch(
     taskId,
     returnedQty,
     qcStatus: 'QC_PENDING',
+    sourceType: 'TASK',
+    sourceId: taskId,
     createdAt: ts,
     createdBy: by,
+  })
+
+  const processType = inferReturnInboundProcessTypeFromTask(task)
+  const qcPolicy = resolveDefaultReturnInboundQcPolicy(processType)
+  createReturnInboundBatchRecord({
+    batches: initialReturnInboundBatches,
+    batchId,
+    productionOrderId: task.productionOrderId,
+    sourceTaskId: task.taskId,
+    processType,
+    processLabel: task.processNameZh,
+    returnedQty,
+    returnFactoryId: task.assignedFactoryId,
+    returnFactoryName: task.assignedFactoryName,
+    warehouseId: 'WH-JKT-01',
+    warehouseName: '雅加达中心仓',
+    inboundAt: ts,
+    inboundBy: by,
+    qcPolicy,
+    qcStatus: 'QC_PENDING',
+    sourceType: 'TASK',
+    sourceId: taskId,
+    now: ts,
   })
 
   return { ok: true, batchId }
@@ -234,38 +271,53 @@ function markReturnBatchPass(batchId: string, by: string): { ok: boolean; messag
     updatedBy: by,
   })
 
-  const oldSnapshot = initialAllocationByTaskId[batch.taskId] ?? {
-    taskId: batch.taskId,
-    availableQty: 0,
-    acceptedAsDefectQty: 0,
-    scrappedQty: 0,
-    updatedAt: ts,
-    updatedBy: by,
+  let inboundBatch = getReturnInboundBatches().find((item) => item.batchId === batchId)
+  if (!inboundBatch) {
+    const task = processTasks.find((item) => item.taskId === batch.taskId)
+    if (!task) {
+      return { ok: false, message: `任务 ${batch.taskId} 不存在，无法写回可用量` }
+    }
+    const processType = inferReturnInboundProcessTypeFromTask(task)
+    const qcPolicy = resolveDefaultReturnInboundQcPolicy(processType)
+    inboundBatch = createReturnInboundBatchRecord({
+      batches: initialReturnInboundBatches,
+      batchId,
+      productionOrderId: task.productionOrderId,
+      sourceTaskId: task.taskId,
+      processType,
+      processLabel: task.processNameZh,
+      returnedQty: batch.returnedQty,
+      returnFactoryId: task.assignedFactoryId,
+      returnFactoryName: task.assignedFactoryName,
+      warehouseId: 'WH-JKT-01',
+      warehouseName: '雅加达中心仓',
+      inboundAt: batch.createdAt,
+      inboundBy: batch.createdBy,
+      qcPolicy,
+      qcStatus: 'QC_PENDING',
+      sourceType: 'TASK',
+      sourceId: batch.taskId,
+      now: ts,
+    })
   }
 
-  const nextSnapshot: AllocationSnapshot = {
-    ...oldSnapshot,
-    availableQty: oldSnapshot.availableQty + batch.returnedQty,
-    updatedAt: ts,
-    updatedBy: by,
-  }
+  const writebackResult = applyReturnInboundPassWriteback({
+    batch: inboundBatch,
+    allocationByTaskId: initialAllocationByTaskId,
+    allocationEvents: initialAllocationEvents,
+    by,
+    now: ts,
+  })
+  if (!writebackResult.ok) return { ok: false, message: writebackResult.message }
 
-  initialAllocationByTaskId[batch.taskId] = nextSnapshot
+  updateReturnInboundBatchStatus({
+    batches: initialReturnInboundBatches,
+    batchId,
+    qcStatus: 'PASS_CLOSED',
+    by,
+    now: ts,
+  })
 
-  const event: AllocationEvent = {
-    eventId: `ALLOC-RB-PASS-${Date.now()}`,
-    taskId: batch.taskId,
-    refType: 'RETURN_BATCH',
-    refId: batchId,
-    deltaAvailableQty: batch.returnedQty,
-    deltaAcceptedAsDefectQty: 0,
-    deltaScrappedQty: 0,
-    noteZh: `回货批次 ${batchId} 合格可继续：可用量+${batch.returnedQty}`,
-    createdAt: ts,
-    createdBy: by,
-  }
-
-  initialAllocationEvents.push(event)
   syncAllocationGates(by)
   return { ok: true }
 }
@@ -278,83 +330,88 @@ function startReturnBatchFailQc(batchId: string, by: string): { ok: boolean; qcI
   const task = processTasks.find((item) => item.taskId === batch.taskId)
   if (!task) return { ok: false, message: `任务 ${batch.taskId} 不存在` }
 
-  const ts = nowTimestamp()
-  const qcId = `QC-RB-${Date.now()}`
+  let inboundBatch = getReturnInboundBatches().find((item) => item.batchId === batchId)
 
-  const qcRecord: QualityInspection = {
-    qcId,
-    refType: 'RETURN_BATCH',
-    refId: batchId,
-    refTaskId: batch.taskId,
+  const ts = nowTimestamp()
+  if (!inboundBatch) {
+    const processType = inferReturnInboundProcessTypeFromTask(task)
+    const qcPolicy = resolveDefaultReturnInboundQcPolicy(processType)
+    inboundBatch = createReturnInboundBatchRecord({
+      batches: initialReturnInboundBatches,
+      batchId,
+      productionOrderId: task.productionOrderId,
+      sourceTaskId: task.taskId,
+      processType,
+      processLabel: task.processNameZh,
+      returnedQty: batch.returnedQty,
+      returnFactoryId: task.assignedFactoryId,
+      returnFactoryName: task.assignedFactoryName,
+      warehouseId: 'WH-JKT-01',
+      warehouseName: '雅加达中心仓',
+      inboundAt: batch.createdAt,
+      inboundBy: batch.createdBy,
+      qcPolicy,
+      qcStatus: 'QC_PENDING',
+      sourceType: 'TASK',
+      sourceId: task.taskId,
+      now: ts,
+    })
+  }
+
+  const qcRecord = createQcFromReturnInboundBatch({
+    inspections: initialQualityInspections,
+    batch: inboundBatch,
     productionOrderId: task.productionOrderId,
-    inspector: by,
+    by,
     inspectedAt: ts,
     result: 'FAIL',
-    defectItems: [],
-    status: 'SUBMITTED',
-    rootCauseType: 'UNKNOWN',
-    liabilityStatus: 'DRAFT',
     affectedQty: batch.returnedQty,
-    auditLogs: [
-      {
-        id: `QAL-RB-CREATE-${Date.now()}`,
-        action: 'CREATE_FROM_RETURN_BATCH',
-        detail: `回货批次 ${batchId} 不合格，系统创建质检单`,
-        at: ts,
-        by,
-      },
-    ],
-    createdAt: ts,
-    updatedAt: ts,
-  }
-
-  initialQualityInspections.push(qcRecord)
-
-  const basisItem: DeductionBasisItem = {
-    basisId: `DBI-RB-${Date.now()}`,
-    sourceType: 'QC_FAIL',
-    sourceRefId: qcId,
-    sourceId: qcId,
-    productionOrderId: task.productionOrderId,
-    taskId: task.taskId,
-    factoryId: task.assignedFactoryId ?? 'ID-F001',
-    reasonCode: 'QUALITY_FAIL',
-    qty: batch.returnedQty,
-    uom: 'PIECE',
-    evidenceRefs: [],
-    status: 'DRAFT',
-    deepLinks: { qcHref: `/fcs/quality/qc-records/${qcId}` },
-    createdAt: ts,
-    createdBy: by,
-    auditLogs: [
-      {
-        id: `DBIL-RB-${Date.now()}`,
-        action: 'CREATE_BASIS_FROM_QC',
-        detail: `由回货批次 ${batchId} 的质检单 ${qcId} 生成扣款依据`,
-        at: ts,
-        by,
-      },
-    ],
-  }
-
-  initialDeductionBasisItems.push(basisItem)
+    refTypeMode: 'RETURN_BATCH',
+    refTaskId: task.taskId,
+    sourceBusinessType: 'RETURN_BATCH',
+    sourceBusinessId: batchId,
+  })
 
   replaceReturnBatch({
     ...batch,
     qcStatus: 'FAIL_IN_QC',
-    linkedQcId: qcId,
+    linkedQcId: qcRecord.qcId,
     updatedAt: ts,
     updatedBy: by,
   })
 
-  task.status = 'BLOCKED'
-  task.blockReason = 'QUALITY'
-  task.blockRemark = `回货批次 ${batchId} 质检不合格，已进入处理`
-  task.blockedAt = ts
-  task.updatedAt = ts
+  updateReturnInboundBatchStatus({
+    batches: initialReturnInboundBatches,
+    batchId,
+    qcStatus: 'FAIL_IN_QC',
+    linkedQcId: qcRecord.qcId,
+    by,
+    now: ts,
+  })
+
+  upsertDeductionBasisFromReturnInboundQc({
+    basisItems: initialDeductionBasisItems,
+    qc: qcRecord,
+    batch: inboundBatch,
+    by,
+    now: ts,
+    taskId: task.taskId,
+    factoryId: task.assignedFactoryId,
+    settlementPartyType: 'FACTORY',
+    settlementPartyId: task.assignedFactoryId,
+  })
+
+  blockTaskForReturnInboundQc({
+    task,
+    qcId: qcRecord.qcId,
+    by,
+    now: ts,
+    remark: `回货批次 ${batchId} 质检不合格，已进入处理`,
+  })
+
   pushTaskAudit(task, 'BLOCK_TASK', `回货批次 ${batchId} 不合格，任务生产暂停`, by)
 
-  return { ok: true, qcId }
+  return { ok: true, qcId: qcRecord.qcId }
 }
 
 function renderGateBlockedCard(tasks: ProcessTask[]): string {

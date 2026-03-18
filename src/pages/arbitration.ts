@@ -587,13 +587,14 @@ export function renderArbitrationPage(): string {
           : `
             <section class="rounded-md border bg-card">
               <div class="overflow-x-auto">
-                <table class="w-full min-w-[1240px] text-sm">
+                <table class="w-full min-w-[1380px] text-sm">
                   <thead>
                     <tr class="border-b bg-muted/40 text-left">
                       <th class="px-4 py-2 font-medium">QC单号</th>
                       <th class="px-4 py-2 font-medium">生产单</th>
                       <th class="px-4 py-2 font-medium">来源流程</th>
                       <th class="px-4 py-2 font-medium">当前责任状态</th>
+                      <th class="px-4 py-2 font-medium">当前判定</th>
                       <th class="px-4 py-2 font-medium">扣款依据状态</th>
                       <th class="px-4 py-2 font-medium">结算状态</th>
                       <th class="px-4 py-2 font-medium">冻结原因</th>
@@ -633,6 +634,22 @@ export function renderArbitrationPage(): string {
                               <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${LIABILITY_BADGE[qc.liabilityStatus] ?? ''}">
                                 ${escapeHtml(LIABILITY_ZH[qc.liabilityStatus] ?? qc.liabilityStatus)}
                               </span>
+                            </td>
+                            <td class="px-4 py-3 text-xs text-muted-foreground">
+                              ${
+                                qc.liabilityDecisionStage === 'SEW_RETURN_INBOUND_FINAL'
+                                  ? `
+                                    <div>责任：${escapeHtml(qc.responsiblePartyType ? PARTY_TYPE_ZH[qc.responsiblePartyType] ?? qc.responsiblePartyType : '-')} / ${escapeHtml(qc.responsiblePartyId ?? '-')}</div>
+                                    <div>扣款：${
+                                      qc.deductionDecision === 'DEDUCT'
+                                        ? `扣款 ${qc.deductionAmount ?? '-'} ${qc.deductionCurrency ?? 'CNY'}`
+                                        : qc.deductionDecision === 'NO_DEDUCT'
+                                          ? '不扣款'
+                                          : '-'
+                                    }</div>
+                                  `
+                                  : '<span class="text-muted-foreground">-</span>'
+                              }
                             </td>
                             <td class="px-4 py-3">
                               ${

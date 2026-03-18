@@ -4,11 +4,11 @@ import {
   initialDeductionBasisItems,
   initialDyePrintOrders,
   initialQualityInspections,
+  initialReturnInboundBatches,
 } from '../data/fcs/store-domain-quality-seeds'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+import { processTasks } from '../data/fcs/process-tasks'
 import {
-  type AllocationEvent,
-  type AllocationSnapshot,
   type DeductionBasisItem,
   type DeductionBasisStatus,
   type DyePrintOrder,
@@ -17,9 +17,20 @@ import {
   type DyePrintReturnBatch,
   type DyePrintReturnResult,
   type QualityInspection,
+  type ReturnInboundBatch,
+  type ReturnInboundProcessType,
   type SettlementPartyType,
   deriveDyePrintSettlementRelation,
+  resolveDefaultReturnInboundQcPolicy,
 } from '../data/fcs/store-domain-quality-types'
+import {
+  applyReturnInboundPassWriteback,
+  blockTaskForReturnInboundQc,
+  createQcFromReturnInboundBatch,
+  createReturnInboundBatchRecord,
+  updateReturnInboundBatchStatus,
+  upsertDeductionBasisFromReturnInboundQc,
+} from '../data/fcs/return-inbound-workflow'
 import { escapeHtml, toClassName } from '../utils'
 
 applyQualitySeedBootstrap()
@@ -103,6 +114,12 @@ const PROCESS_TYPE_LABEL: Record<DyePrintProcessType, string> = {
   PRINT: '印花',
   DYE: '染色',
   DYE_PRINT: '染印',
+}
+
+function mapDyePrintToReturnInboundProcessType(processType: DyePrintProcessType): ReturnInboundProcessType {
+  if (processType === 'PRINT') return 'PRINT'
+  if (processType === 'DYE') return 'DYE'
+  return 'DYE_PRINT'
 }
 
 const DISPOSITION_LABEL: Record<ReturnDisposition, string> = {
@@ -379,103 +396,84 @@ function addDyePrintReturn(
 
   const now = nowTimestamp()
   const returnId = `RB-${dpId}-${Date.now()}`
+  const linkedReturnInboundBatchId = `RIB-${returnId}`
+  const returnProcessType = mapDyePrintToReturnInboundProcessType(order.processType)
+  const returnQcPolicy = resolveDefaultReturnInboundQcPolicy(returnProcessType)
+  const returnWarehouseId = 'WH-JKT-01'
+  const returnWarehouseName = '雅加达中心仓'
+
+  const inboundBatch = createReturnInboundBatchRecord({
+    batches: initialReturnInboundBatches,
+    batchId: linkedReturnInboundBatchId,
+    productionOrderId: order.productionOrderId,
+    sourceTaskId: order.relatedTaskId,
+    processType: returnProcessType,
+    processLabel: PROCESS_TYPE_LABEL[order.processType],
+    returnedQty: payload.qty,
+    returnFactoryId: order.processorFactoryId,
+    returnFactoryName: order.processorFactoryName,
+    warehouseId: returnWarehouseId,
+    warehouseName: returnWarehouseName,
+    inboundAt: now,
+    inboundBy: '管理员',
+    qcPolicy: returnQcPolicy,
+    qcStatus: payload.result === 'PASS' ? 'PASS_CLOSED' : 'QC_PENDING',
+    sourceType: 'DYE_PRINT_ORDER',
+    sourceId: order.dpId,
+    now,
+  })
+
   let qcId: string | undefined
 
   if (payload.result === 'FAIL') {
-    const qcRecord: QualityInspection = {
-      qcId: `QC-DP-${Date.now()}`,
-      refType: 'TASK',
-      refId: order.relatedTaskId,
-      refTaskId: order.relatedTaskId,
+    const qcRecord = createQcFromReturnInboundBatch({
+      inspections: initialQualityInspections,
+      batch: inboundBatch,
       productionOrderId: order.productionOrderId,
-      inspector: '管理员',
+      by: '管理员',
       inspectedAt: now,
       result: 'FAIL',
-      defectItems: [
-        {
-          defectCode: 'DYE_PRINT_DEFECT',
-          defectName: '染印不良',
-          qty: payload.qty,
-        },
-      ],
-      remark: payload.remark,
-      status: 'SUBMITTED',
       disposition: payload.disposition,
       affectedQty: payload.qty,
+      remark: payload.remark,
       rootCauseType: 'DYE_PRINT',
-      responsiblePartyType: 'PROCESSOR',
-      responsiblePartyId: order.processorFactoryId,
-      liabilityStatus: 'DRAFT',
-      sourceProcessType: 'DYE_PRINT',
-      sourceOrderId: order.dpId,
-      sourceReturnId: returnId,
-      auditLogs: [
-        {
-          id: `QAL-DP-CREATE-${Date.now()}`,
-          action: 'CREATE_FROM_DYE_PRINT',
-          detail: `染印加工单 ${order.dpId} 不合格回货，系统创建质检单`,
-          at: now,
-          by: '管理员',
-        },
-      ],
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    initialQualityInspections.push(qcRecord)
+      refTypeMode: 'LEGACY_TASK_COMPAT',
+      refTaskId: order.relatedTaskId,
+      sourceBusinessType: 'DYE_PRINT_ORDER',
+      sourceBusinessId: order.dpId,
+    })
     qcId = qcRecord.qcId
 
-    const existingBasis = initialDeductionBasisItems.find(
-      (item) =>
-        item.sourceReturnId === returnId ||
-        (item.sourceOrderId === order.dpId && item.sourceRefId === qcRecord.qcId),
-    )
+    upsertDeductionBasisFromReturnInboundQc({
+      basisItems: initialDeductionBasisItems,
+      qc: qcRecord,
+      batch: inboundBatch,
+      by: '管理员',
+      now,
+      taskId: order.relatedTaskId,
+      factoryId: order.processorFactoryId,
+      settlementPartyType: order.settlementPartyType,
+      settlementPartyId: order.settlementPartyId,
+      summary: `染印加工单 ${order.dpId} 不合格回货，数量 ${payload.qty}`,
+    })
 
-    if (!existingBasis) {
-      initialDeductionBasisItems.push({
-        basisId: `DBI-DP-${Date.now()}`,
-        sourceType: 'QC_FAIL',
-        sourceRefId: qcRecord.qcId,
-        sourceId: qcRecord.qcId,
-        productionOrderId: order.productionOrderId,
-        taskId: order.relatedTaskId || undefined,
-        factoryId: order.processorFactoryId,
-        settlementPartyType: order.settlementPartyType,
-        settlementPartyId: order.settlementPartyId,
-        liablePartyType: 'PROCESSOR',
-        liablePartyId: order.processorFactoryId,
-        rootCauseType: 'DYE_PRINT',
-        reasonCode: 'QUALITY_FAIL',
-        qty: payload.qty,
-        deductionQty: payload.qty,
-        uom: 'PIECE',
-        disposition: payload.disposition,
-        summary: '染印不良扣款依据',
-        evidenceRefs: [],
-        status: 'DRAFT',
-        deepLinks: { qcHref: `/fcs/quality/qc-records/${qcRecord.qcId}` },
-        sourceProcessType: 'DYE_PRINT',
-        sourceOrderId: order.dpId,
-        sourceReturnId: returnId,
-        processorFactoryId: order.processorFactoryId,
-        settlementReady: false,
-        settlementFreezeReason: '质检未结案',
-        qcStatusSnapshot: 'SUBMITTED',
-        liabilityStatusSnapshot: 'PENDING',
-        deductionAmountEditable: false,
-        createdAt: now,
-        createdBy: '管理员',
-        updatedAt: now,
-        updatedBy: '管理员',
-        auditLogs: [
-          {
-            id: `DBIL-DP-CREATE-${Date.now()}`,
-            action: 'CREATE_FROM_DYE_PRINT_FAIL',
-            detail: `染印加工单 ${order.dpId} 不合格回货，系统自动生成扣款依据；QC=${qcRecord.qcId}`,
-            at: now,
-            by: '管理员',
-          },
-        ],
+    updateReturnInboundBatchStatus({
+      batches: initialReturnInboundBatches,
+      batchId: linkedReturnInboundBatchId,
+      qcStatus: 'FAIL_IN_QC',
+      linkedQcId: qcId,
+      by: '管理员',
+      now,
+    })
+
+    const parentTask = processTasks.find((task) => task.taskId === order.relatedTaskId)
+    if (parentTask) {
+      blockTaskForReturnInboundQc({
+        task: parentTask,
+        qcId,
+        by: '管理员',
+        now,
+        remark: `染印加工单 ${order.dpId} 回货不合格，待处理`,
       })
     }
   }
@@ -488,6 +486,7 @@ function addDyePrintReturn(
     disposition: payload.disposition,
     remark: payload.remark,
     qcId,
+    linkedReturnInboundBatchId,
   }
 
   const nextBatches = [...order.returnBatches, batch]
@@ -514,39 +513,22 @@ function addDyePrintReturn(
   })
 
   if (payload.result === 'PASS') {
-    const taskId = order.relatedTaskId
-    const existingSnapshot = initialAllocationByTaskId[taskId] ?? {
-      taskId,
-      availableQty: 0,
-      acceptedAsDefectQty: 0,
-      scrappedQty: 0,
-      updatedAt: now,
-      updatedBy: '管理员',
-    }
+    const passResult = applyReturnInboundPassWriteback({
+      batch: inboundBatch,
+      allocationByTaskId: initialAllocationByTaskId,
+      allocationEvents: initialAllocationEvents,
+      by: '管理员',
+      now,
+    })
+    if (!passResult.ok) return { ok: false, message: passResult.message }
 
-    const nextSnapshot: AllocationSnapshot = {
-      ...existingSnapshot,
-      availableQty: existingSnapshot.availableQty + payload.qty,
-      updatedAt: now,
-      updatedBy: '管理员',
-    }
-
-    initialAllocationByTaskId[taskId] = nextSnapshot
-
-    const eventItem: AllocationEvent = {
-      eventId: `ALLOC-DP-PASS-${Date.now()}`,
-      taskId,
-      refType: 'DYE_PRINT_ORDER',
-      refId: dpId,
-      deltaAvailableQty: payload.qty,
-      deltaAcceptedAsDefectQty: 0,
-      deltaScrappedQty: 0,
-      noteZh: `染印加工单 ${dpId} 合格回货可继续：可用量+${payload.qty}`,
-      createdAt: now,
-      createdBy: '管理员',
-    }
-
-    initialAllocationEvents.push(eventItem)
+    updateReturnInboundBatchStatus({
+      batches: initialReturnInboundBatches,
+      batchId: linkedReturnInboundBatchId,
+      qcStatus: 'PASS_CLOSED',
+      by: '管理员',
+      now,
+    })
   }
 
   return { ok: true, returnId, qcId }
