@@ -25,6 +25,14 @@ import {
   type ReasonCode,
   type Severity,
 } from './store-domain-progress'
+import {
+  getDefaultSubCategoryKeyFromReason,
+  getUnifiedCategoryFromReason,
+} from './progress-exception-taxonomy'
+import {
+  markCaseResolved,
+  maybeAutoCloseResolvedCase,
+} from './progress-exception-lifecycle'
 
 export interface TaskMilestoneState {
   required: boolean
@@ -258,6 +266,7 @@ function createPauseException(task: ProcessTask, payload: {
   const createdAt = nowTimestamp()
   const caseId = generateCaseId()
   const severity: Severity = payload.reasonCode === 'EQUIPMENT_ISSUE' ? 'S1' : 'S2'
+  const reasonCode = mapPauseReasonToExceptionReason(payload.reasonCode)
 
   const milestone = ensureMilestoneDefaults(task)
 
@@ -266,7 +275,9 @@ function createPauseException(task: ProcessTask, payload: {
     caseStatus: 'OPEN',
     severity,
     category: 'EXECUTION',
-    reasonCode: mapPauseReasonToExceptionReason(payload.reasonCode),
+    unifiedCategory: getUnifiedCategoryFromReason(reasonCode, 'EXECUTION'),
+    subCategoryKey: getDefaultSubCategoryKeyFromReason(reasonCode) || 'EXEC_BLOCK_OTHER',
+    reasonCode,
     reasonLabel: payload.reasonLabel,
     sourceType: 'FACTORY_PAUSE_REPORT',
     sourceId: task.taskId,
@@ -353,12 +364,15 @@ function createMilestoneOverdueException(
   now: string,
 ): ExceptionCase {
   const caseId = generateCaseId()
+  const reasonCode = 'MILESTONE_NOT_REPORTED'
   return {
     caseId,
     caseStatus: 'OPEN',
     severity: milestone.exceptionSeverity,
     category: 'EXECUTION',
-    reasonCode: 'MILESTONE_NOT_REPORTED',
+    unifiedCategory: getUnifiedCategoryFromReason(reasonCode, 'EXECUTION'),
+    subCategoryKey: getDefaultSubCategoryKeyFromReason(reasonCode) || 'EXEC_MILESTONE_NOT_REPORTED',
+    reasonCode,
     sourceType: 'TASK',
     sourceId: task.taskId,
     sourceSystem: 'FCS',
@@ -387,20 +401,16 @@ function createMilestoneOverdueException(
 }
 
 function resolveMilestoneOverdueException(exceptionCase: ExceptionCase, now: string): void {
-  exceptionCase.caseStatus = 'RESOLVED'
-  exceptionCase.updatedAt = now
-  exceptionCase.resolvedAt = now
-  exceptionCase.resolvedBy = '系统'
-  exceptionCase.auditLogs = [
-    ...exceptionCase.auditLogs,
-    {
-      id: `EAL-${Date.now()}`,
-      action: 'AUTO_RESOLVE',
-      detail: '任务已补报关键节点，系统自动判定为已解决',
-      at: now,
-      by: '系统',
-    },
-  ]
+  const resolved = markCaseResolved(exceptionCase, {
+    by: '系统',
+    source: 'SYSTEM',
+    ruleCode: 'EXEC_MILESTONE_REPORTED',
+    detail: '任务已补报关键节点，系统自动判定为已解决',
+    at: now,
+    actionType: 'AUTO_RESOLVE',
+    auditAction: 'AUTO_RESOLVE',
+  })
+  updateCase(maybeAutoCloseResolvedCase(resolved, '系统'))
 }
 
 export function syncMilestoneOverdueExceptions(now: Date = new Date()): void {
@@ -553,33 +563,15 @@ export function allowContinueFromPauseException(
   if (exc.caseStatus === 'RESOLVED') return { ok: false, message: '异常已解决' }
 
   const now = nowTimestamp()
-  const updated: ExceptionCase = {
-    ...exc,
-    caseStatus: 'RESOLVED',
-    updatedAt: now,
-    resolvedAt: now,
-    resolvedBy: by,
-    actions: [
-      ...exc.actions,
-      {
-        id: `EA-${Date.now()}`,
-        actionType: 'ALLOW_CONTINUE',
-        actionDetail: '平台已允许继续',
-        at: now,
-        by,
-      },
-    ],
-    auditLogs: [
-      ...exc.auditLogs,
-      {
-        id: `EAL-${Date.now()}`,
-        action: 'ALLOW_CONTINUE',
-        detail: '平台已允许继续，异常判定为已解决',
-        at: now,
-        by,
-      },
-    ],
-  }
+  const updated = markCaseResolved(exc, {
+    by,
+    source: 'USER',
+    ruleCode: 'EXEC_ALLOW_CONTINUE',
+    detail: '平台已允许继续，异常判定为已解决',
+    at: now,
+    actionType: 'ALLOW_CONTINUE',
+    auditAction: 'ALLOW_CONTINUE',
+  })
   updateCase(updated)
 
   for (const taskId of exc.relatedTaskIds) {

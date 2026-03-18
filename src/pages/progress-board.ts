@@ -36,6 +36,10 @@ import {
   getProductionOrderHandoverSummary,
   getTaskHandoverSummary,
 } from '../data/fcs/handover-ledger-view'
+import {
+  getDefaultSubCategoryKeyFromReason,
+  getUnifiedCategoryFromReason,
+} from '../data/fcs/progress-exception-taxonomy'
 
 applyQualitySeedBootstrap()
 
@@ -626,6 +630,8 @@ function createOrUpdateExceptionFromSignal(signal: {
   detail?: string
 }): ExceptionCase {
   const now = nowTimestamp()
+  const unifiedCategory = getUnifiedCategoryFromReason(signal.reasonCode)
+  const subCategoryKey = getDefaultSubCategoryKeyFromReason(signal.reasonCode) || 'EXEC_BLOCK_OTHER'
 
   const existed = initialExceptions.find(
     (item) =>
@@ -638,6 +644,8 @@ function createOrUpdateExceptionFromSignal(signal: {
   if (existed) {
     existed.updatedAt = now
     existed.detail = signal.detail || existed.detail
+    if (!existed.unifiedCategory) existed.unifiedCategory = unifiedCategory
+    if (!existed.subCategoryKey) existed.subCategoryKey = subCategoryKey
     existed.auditLogs = [
       ...existed.auditLogs,
       {
@@ -670,19 +678,11 @@ function createOrUpdateExceptionFromSignal(signal: {
   }
 
   let category: ExceptionCategory = 'EXECUTION'
-  if (signal.reasonCode.startsWith('BLOCKED_')) {
-    category = 'EXECUTION'
-  } else if (['TENDER_OVERDUE', 'TENDER_NEAR_DEADLINE', 'NO_BID', 'PRICE_ABNORMAL', 'DISPATCH_REJECTED', 'ACK_TIMEOUT', 'FACTORY_BLACKLISTED'].includes(signal.reasonCode)) {
-    category = 'ASSIGNMENT'
-  } else if (signal.reasonCode === 'START_OVERDUE' || signal.reasonCode === 'MILESTONE_NOT_REPORTED') {
-    category = 'EXECUTION'
-  } else if (signal.reasonCode === 'TECH_PACK_NOT_RELEASED') {
-    category = 'TECH_PACK'
-  } else if (signal.reasonCode === 'HANDOVER_DIFF') {
-    category = 'HANDOVER'
-  } else if (signal.reasonCode === 'MATERIAL_NOT_READY') {
-    category = 'MATERIAL'
-  }
+  if (unifiedCategory === 'ASSIGNMENT') category = 'ASSIGNMENT'
+  if (unifiedCategory === 'EXECUTION') category = 'EXECUTION'
+  if (unifiedCategory === 'TECH_PACK') category = 'TECH_PACK'
+  if (unifiedCategory === 'MATERIAL') category = 'MATERIAL'
+  if (unifiedCategory === 'HANDOUT') category = 'HANDOVER'
 
   let relatedOrderIds: string[] = []
   let relatedTaskIds: string[] = []
@@ -733,6 +733,8 @@ function createOrUpdateExceptionFromSignal(signal: {
     caseStatus: 'OPEN',
     severity,
     category,
+    unifiedCategory,
+    subCategoryKey,
     reasonCode: signal.reasonCode,
     sourceType: signal.sourceType,
     sourceId: signal.sourceId,

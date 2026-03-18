@@ -47,51 +47,39 @@ import {
   getProductionOrderHandoverSummary,
   getTaskHandoverSummary,
 } from '../data/fcs/handover-ledger-view'
+import {
+  CATEGORY_LABEL,
+  SUB_CATEGORY_LABEL,
+  getDefaultSubCategoryKeyFromReason,
+  getSubCategoryOptionsByCategory,
+  getUnifiedCategoryFromReason,
+  inferLegacySubCategoryKey,
+  isSubCategoryKey,
+  type SubCategoryKey,
+  type UnifiedCategory,
+} from '../data/fcs/progress-exception-taxonomy'
+import {
+  appendCaseAction,
+  appendCaseAuditLog,
+  appendCaseStatusChangeAudit,
+  CLOSE_REASON_LABEL,
+  markCaseClosed,
+  markCaseResolved,
+  maybeAutoCloseResolvedCase,
+  RESOLVE_RULE_LABEL,
+  RESOLVE_SOURCE_LABEL,
+  type CloseReasonCode,
+  type ResolveRuleCode,
+} from '../data/fcs/progress-exception-lifecycle'
 
 applyQualitySeedBootstrap()
 
 type AggregateFilter =
-  | { type: 'reason'; value: string }
+  | { type: 'reason'; value: SubCategoryKey }
   | { type: 'factory'; value: string }
   | { type: 'process'; value: string }
 
 type UiCaseStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'
-type UnifiedCategory = 'ASSIGNMENT' | 'EXECUTION' | 'TECH_PACK' | 'MATERIAL' | 'HANDOUT'
-type SubCategoryKey =
-  | 'ASSIGN_TENDER_OVERDUE'
-  | 'ASSIGN_TENDER_NEAR_DEADLINE'
-  | 'ASSIGN_NO_BID'
-  | 'ASSIGN_PRICE_ABNORMAL'
-  | 'ASSIGN_DISPATCH_REJECTED'
-  | 'ASSIGN_ACK_TIMEOUT'
-  | 'ASSIGN_FACTORY_BLOCKED'
-  | 'EXEC_START_OVERDUE'
-  | 'EXEC_MILESTONE_NOT_REPORTED'
-  | 'EXEC_BLOCK_MATERIAL'
-  | 'EXEC_BLOCK_TECH'
-  | 'EXEC_BLOCK_EQUIPMENT'
-  | 'EXEC_BLOCK_CAPACITY'
-  | 'EXEC_BLOCK_QUALITY'
-  | 'EXEC_BLOCK_OTHER'
-  | 'TECH_PACK_NOT_RELEASED'
-  | 'TECH_PACK_MISSING'
-  | 'TECH_PACK_PENDING_CONFIRM'
-  | 'MATERIAL_NOT_READY'
-  | 'MATERIAL_PREP_PENDING'
-  | 'MATERIAL_QTY_SHORT'
-  | 'MATERIAL_MULTI_OPEN'
-  | 'HANDOUT_DIFF'
-  | 'HANDOUT_OBJECTION'
-  | 'HANDOUT_MIXED'
-  | 'HANDOUT_DAMAGE'
-  | 'HANDOUT_PENDING_CHECK'
-
-type CloseReasonCode =
-  | 'RESOLVED_DONE'
-  | 'DUPLICATE'
-  | 'FALSE_ALARM'
-  | 'OBJECT_INVALID'
-  | 'MERGED'
 
 interface ProgressExceptionsState {
   lastQueryKey: string
@@ -198,119 +186,12 @@ const CASE_STATUS_LABEL: Record<UiCaseStatus, string> = {
   CLOSED: '已关闭',
 }
 
-const CLOSE_REASON_LABEL: Record<CloseReasonCode, string> = {
-  RESOLVED_DONE: '已解决后关闭',
-  DUPLICATE: '重复异常',
-  FALSE_ALARM: '误报',
-  OBJECT_INVALID: '业务对象失效',
-  MERGED: '并入其他异常',
-}
-
 const DIRECT_CLOSE_REASON_SET = new Set<CloseReasonCode>([
   'DUPLICATE',
   'FALSE_ALARM',
   'OBJECT_INVALID',
   'MERGED',
 ])
-
-const CATEGORY_LABEL: Record<UnifiedCategory, string> = {
-  ASSIGNMENT: '分配异常',
-  EXECUTION: '执行异常',
-  TECH_PACK: '技术包异常',
-  MATERIAL: '领料异常',
-  HANDOUT: '交出异常',
-}
-
-const SUB_CATEGORY_LABEL: Record<SubCategoryKey, string> = {
-  ASSIGN_TENDER_OVERDUE: '竞价逾期',
-  ASSIGN_TENDER_NEAR_DEADLINE: '竞价临近截止',
-  ASSIGN_NO_BID: '无人报价',
-  ASSIGN_PRICE_ABNORMAL: '报价异常',
-  ASSIGN_DISPATCH_REJECTED: '派单拒单',
-  ASSIGN_ACK_TIMEOUT: '接单逾期',
-  ASSIGN_FACTORY_BLOCKED: '工厂不可分配',
-  EXEC_START_OVERDUE: '开工逾期',
-  EXEC_MILESTONE_NOT_REPORTED: '关键节点未上报',
-  EXEC_BLOCK_MATERIAL: '生产暂停｜物料原因',
-  EXEC_BLOCK_TECH: '生产暂停｜工艺资料原因',
-  EXEC_BLOCK_EQUIPMENT: '生产暂停｜设备原因',
-  EXEC_BLOCK_CAPACITY: '生产暂停｜人员原因',
-  EXEC_BLOCK_QUALITY: '生产暂停｜质量原因',
-  EXEC_BLOCK_OTHER: '生产暂停｜其他原因',
-  TECH_PACK_NOT_RELEASED: '技术包未发布',
-  TECH_PACK_MISSING: '技术包缺失',
-  TECH_PACK_PENDING_CONFIRM: '技术资料待确认',
-  MATERIAL_NOT_READY: '领料未齐套',
-  MATERIAL_PREP_PENDING: '配料未完成',
-  MATERIAL_QTY_SHORT: '配料数量不足',
-  MATERIAL_MULTI_OPEN: '多次领料未闭合',
-  HANDOUT_DIFF: '仓库登记数量差异',
-  HANDOUT_OBJECTION: '数量异议',
-  HANDOUT_MIXED: '混批',
-  HANDOUT_DAMAGE: '损耗/破损',
-  HANDOUT_PENDING_CHECK: '差异原因待查',
-}
-
-const SUB_CATEGORY_OPTIONS: Record<UnifiedCategory, Array<{ key: SubCategoryKey; label: string }>> = {
-  ASSIGNMENT: [
-    { key: 'ASSIGN_TENDER_OVERDUE', label: '竞价逾期' },
-    { key: 'ASSIGN_TENDER_NEAR_DEADLINE', label: '竞价临近截止' },
-    { key: 'ASSIGN_NO_BID', label: '无人报价' },
-    { key: 'ASSIGN_PRICE_ABNORMAL', label: '报价异常' },
-    { key: 'ASSIGN_DISPATCH_REJECTED', label: '派单拒单' },
-    { key: 'ASSIGN_ACK_TIMEOUT', label: '接单逾期' },
-    { key: 'ASSIGN_FACTORY_BLOCKED', label: '工厂不可分配' },
-  ],
-  EXECUTION: [
-    { key: 'EXEC_START_OVERDUE', label: '开工逾期' },
-    { key: 'EXEC_MILESTONE_NOT_REPORTED', label: '关键节点未上报' },
-    { key: 'EXEC_BLOCK_MATERIAL', label: '生产暂停｜物料原因' },
-    { key: 'EXEC_BLOCK_TECH', label: '生产暂停｜工艺资料原因' },
-    { key: 'EXEC_BLOCK_EQUIPMENT', label: '生产暂停｜设备原因' },
-    { key: 'EXEC_BLOCK_CAPACITY', label: '生产暂停｜人员原因' },
-    { key: 'EXEC_BLOCK_QUALITY', label: '生产暂停｜质量原因' },
-    { key: 'EXEC_BLOCK_OTHER', label: '生产暂停｜其他原因' },
-  ],
-  TECH_PACK: [
-    { key: 'TECH_PACK_NOT_RELEASED', label: '技术包未发布' },
-    { key: 'TECH_PACK_MISSING', label: '技术包缺失' },
-    { key: 'TECH_PACK_PENDING_CONFIRM', label: '技术资料待确认' },
-  ],
-  MATERIAL: [
-    { key: 'MATERIAL_NOT_READY', label: '领料未齐套' },
-    { key: 'MATERIAL_PREP_PENDING', label: '配料未完成' },
-    { key: 'MATERIAL_QTY_SHORT', label: '配料数量不足' },
-    { key: 'MATERIAL_MULTI_OPEN', label: '多次领料未闭合' },
-  ],
-  HANDOUT: [
-    { key: 'HANDOUT_DIFF', label: '仓库登记数量差异' },
-    { key: 'HANDOUT_OBJECTION', label: '数量异议' },
-    { key: 'HANDOUT_MIXED', label: '混批' },
-    { key: 'HANDOUT_DAMAGE', label: '损耗/破损' },
-    { key: 'HANDOUT_PENDING_CHECK', label: '差异原因待查' },
-  ],
-}
-
-const REASON_TO_SUB_CATEGORY_KEY: Partial<Record<ReasonCode, SubCategoryKey>> = {
-  TENDER_OVERDUE: 'ASSIGN_TENDER_OVERDUE',
-  TENDER_NEAR_DEADLINE: 'ASSIGN_TENDER_NEAR_DEADLINE',
-  NO_BID: 'ASSIGN_NO_BID',
-  PRICE_ABNORMAL: 'ASSIGN_PRICE_ABNORMAL',
-  DISPATCH_REJECTED: 'ASSIGN_DISPATCH_REJECTED',
-  ACK_TIMEOUT: 'ASSIGN_ACK_TIMEOUT',
-  FACTORY_BLACKLISTED: 'ASSIGN_FACTORY_BLOCKED',
-  START_OVERDUE: 'EXEC_START_OVERDUE',
-  MILESTONE_NOT_REPORTED: 'EXEC_MILESTONE_NOT_REPORTED',
-  BLOCKED_MATERIAL: 'EXEC_BLOCK_MATERIAL',
-  BLOCKED_TECH: 'EXEC_BLOCK_TECH',
-  BLOCKED_EQUIPMENT: 'EXEC_BLOCK_EQUIPMENT',
-  BLOCKED_CAPACITY: 'EXEC_BLOCK_CAPACITY',
-  BLOCKED_QUALITY: 'EXEC_BLOCK_QUALITY',
-  BLOCKED_OTHER: 'EXEC_BLOCK_OTHER',
-  TECH_PACK_NOT_RELEASED: 'TECH_PACK_NOT_RELEASED',
-  MATERIAL_NOT_READY: 'MATERIAL_NOT_READY',
-  HANDOVER_DIFF: 'HANDOUT_DIFF',
-}
 
 const REASON_LABEL: Record<ReasonCode, string> = {
   BLOCKED_MATERIAL: '物料待处理',
@@ -342,68 +223,17 @@ function normalizeCaseStatus(status: CaseStatus): UiCaseStatus {
 }
 
 function getUnifiedCategory(exc: ExceptionCase): UnifiedCategory {
-  if (
-    [
-      'TENDER_OVERDUE',
-      'TENDER_NEAR_DEADLINE',
-      'NO_BID',
-      'PRICE_ABNORMAL',
-      'DISPATCH_REJECTED',
-      'ACK_TIMEOUT',
-      'FACTORY_BLACKLISTED',
-    ].includes(exc.reasonCode)
-  ) {
-    return 'ASSIGNMENT'
-  }
-  if (exc.reasonCode === 'TECH_PACK_NOT_RELEASED') return 'TECH_PACK'
-  if (exc.reasonCode === 'MATERIAL_NOT_READY') return 'MATERIAL'
-  if (exc.reasonCode === 'HANDOVER_DIFF') return 'HANDOUT'
-  if (
-    [
-      'START_OVERDUE',
-      'MILESTONE_NOT_REPORTED',
-      'BLOCKED_MATERIAL',
-      'BLOCKED_CAPACITY',
-      'BLOCKED_QUALITY',
-      'BLOCKED_TECH',
-      'BLOCKED_EQUIPMENT',
-      'BLOCKED_OTHER',
-    ].includes(exc.reasonCode)
-  ) {
-    return 'EXECUTION'
-  }
-
-  if (exc.category === 'ASSIGNMENT') return 'ASSIGNMENT'
-  if (exc.category === 'TECH_PACK') return 'TECH_PACK'
-  if (exc.category === 'MATERIAL') return 'MATERIAL'
-  if (exc.category === 'HANDOVER') return 'HANDOUT'
-  return 'EXECUTION'
+  if (exc.unifiedCategory) return exc.unifiedCategory
+  return getUnifiedCategoryFromReason(exc.reasonCode, exc.category)
 }
 
 function getSubCategoryKey(exc: ExceptionCase): SubCategoryKey {
-  if (exc.reasonCode === 'TECH_PACK_NOT_RELEASED') {
-    if (/(缺失|缺少|缺项)/.test(exc.detail)) return 'TECH_PACK_MISSING'
-    if (/(确认|待批复|待评审)/.test(exc.detail)) return 'TECH_PACK_PENDING_CONFIRM'
-    return 'TECH_PACK_NOT_RELEASED'
-  }
-
-  if (exc.reasonCode === 'MATERIAL_NOT_READY') {
-    if (/(配料未完成|待配料)/.test(exc.detail)) return 'MATERIAL_PREP_PENDING'
-    if (/(不足|缺口|不够)/.test(exc.detail)) return 'MATERIAL_QTY_SHORT'
-    if (/(多次|分批)/.test(exc.detail)) return 'MATERIAL_MULTI_OPEN'
-    return 'MATERIAL_NOT_READY'
-  }
-
-  if (exc.reasonCode === 'HANDOVER_DIFF') {
-    const text = `${exc.summary} ${exc.detail}`
-    if (/异议/.test(text)) return 'HANDOUT_OBJECTION'
-    if (/混批/.test(text)) return 'HANDOUT_MIXED'
-    if (/(破损|损耗)/.test(text)) return 'HANDOUT_DAMAGE'
-    if (/(待查|待确认|待核实)/.test(text)) return 'HANDOUT_PENDING_CHECK'
-    return 'HANDOUT_DIFF'
-  }
-
-  return REASON_TO_SUB_CATEGORY_KEY[exc.reasonCode] ?? 'EXEC_BLOCK_OTHER'
+  if (exc.subCategoryKey) return exc.subCategoryKey
+  const byReason = getDefaultSubCategoryKeyFromReason(exc.reasonCode)
+  if (byReason) return byReason
+  const legacy = inferLegacySubCategoryKey(exc.reasonCode, exc.summary, exc.detail)
+  if (legacy) return legacy
+  return 'EXEC_BLOCK_OTHER'
 }
 
 function getSubCategoryLabel(exc: ExceptionCase): string {
@@ -450,10 +280,7 @@ function getRelatedObjects(exc: ExceptionCase): Array<{ typeLabel: string; id: s
 }
 
 function getSubCategoryOptions(category: 'ALL' | UnifiedCategory): Array<{ key: SubCategoryKey; label: string }> {
-  if (category === 'ALL') {
-    return Object.values(SUB_CATEGORY_OPTIONS).flat()
-  }
-  return SUB_CATEGORY_OPTIONS[category]
+  return getSubCategoryOptionsByCategory(category)
 }
 
 const OWNER_OPTIONS: Array<{ id: string; name: string }> = [
@@ -548,6 +375,7 @@ interface ResolveJudgeResult {
   ruleText: string
   currentResultText: string
   resolvedDetail: string
+  resolvedRuleCode: ResolveRuleCode
 }
 
 function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
@@ -570,6 +398,7 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
         ? '当前已满足：任务已落实承接方，可进入关闭流程。'
         : '当前未满足：任务尚未真正落实承接方，请继续推进分配或接单。',
       resolvedDetail: '任务已真正落实承接方，系统自动判定为已解决',
+      resolvedRuleCode: 'ASSIGNMENT_TARGET_SECURED',
     }
   }
 
@@ -583,6 +412,7 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
           ? '当前已满足：任务已确认开工，可进入关闭流程。'
           : '当前未满足：任务仍未开工，请先推动工厂确认开工。',
         resolvedDetail: '工厂已确认开工，系统自动判定为已解决',
+        resolvedRuleCode: 'EXEC_START_CONFIRMED',
       }
     }
 
@@ -597,6 +427,7 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
           ? '当前已满足：任务已补报关键节点，可进入关闭流程。'
           : '当前未满足：关键节点仍未上报，请先在 PDA 侧完成节点上报。',
         resolvedDetail: '任务已补报关键节点，系统自动判定为已解决',
+        resolvedRuleCode: 'EXEC_MILESTONE_REPORTED',
       }
     }
 
@@ -611,6 +442,7 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
         ? '当前已满足：任务已恢复进行中，可进入关闭流程。'
         : '当前未满足：任务仍处于生产暂停，请先处理暂停原因并允许继续。',
       resolvedDetail: '任务已恢复可执行状态，系统自动判定为已解决',
+      resolvedRuleCode: 'EXEC_RESUMED',
     }
   }
 
@@ -623,6 +455,7 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
         ? '当前已满足：技术包已发布，可进入关闭流程。'
         : '当前未满足：技术包仍未发布或资料未补齐，请先处理技术包。',
       resolvedDetail: '技术包已发布并可用于生产，系统自动判定为已解决',
+      resolvedRuleCode: 'TECH_PACK_RELEASED',
     }
   }
 
@@ -637,6 +470,7 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
         ? '当前已满足：领料记录已满足，可进入关闭流程。'
         : '当前未满足：仍有领料缺口或未闭合记录，请继续推进领料。',
       resolvedDetail: '领料记录已满足并闭合，系统自动判定为已解决',
+      resolvedRuleCode: 'MATERIAL_SATISFIED',
     }
   }
 
@@ -652,6 +486,7 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
       ? '当前已满足：交出记录已闭合，可进入关闭流程。'
       : '当前未满足：仍有数量差异或异议未处理，请继续跟进交出处理。',
     resolvedDetail: '交出差异/异议已处理完成，系统自动判定为已解决',
+    resolvedRuleCode: 'HANDOUT_ISSUE_CLOSED',
   }
 }
 
@@ -665,33 +500,17 @@ function syncExceptionResolvedByBusiness(): void {
     const judge = getResolveJudgeResult(exc)
     if (!judge.resolved) continue
 
-    updateException({
-      ...exc,
-      caseStatus: 'RESOLVED',
-      resolvedAt: now,
-      resolvedBy: '系统',
-      updatedAt: now,
-      actions: [
-        ...exc.actions,
-        {
-          id: `EA-${Date.now()}-${exc.caseId}`,
-          actionType: 'AUTO_RESOLVE',
-          actionDetail: judge.resolvedDetail,
-          at: now,
-          by: '系统',
-        },
-      ],
-      auditLogs: [
-        ...exc.auditLogs,
-        {
-          id: `EAL-${Date.now()}-${exc.caseId}`,
-          action: 'AUTO_RESOLVE',
-          detail: judge.resolvedDetail,
-          at: now,
-          by: '系统',
-        },
-      ],
+    const resolved = markCaseResolved(exc, {
+      by: '系统',
+      source: 'SYSTEM',
+      ruleCode: judge.resolvedRuleCode,
+      detail: judge.resolvedDetail,
+      at: now,
+      actionType: 'AUTO_RESOLVE',
+      auditAction: 'AUTO_RESOLVE',
     })
+    const closedIfNeeded = maybeAutoCloseResolvedCase(resolved, '系统')
+    updateException(closedIfNeeded)
   }
 }
 
@@ -907,7 +726,7 @@ function syncFromQuery(): void {
 
   if (state.upstreamReasonCode) {
     const reasonCode = state.upstreamReasonCode as ReasonCode
-    const key = REASON_TO_SUB_CATEGORY_KEY[reasonCode]
+    const key = getDefaultSubCategoryKeyFromReason(reasonCode)
     if (key) state.subCategoryFilter = key
   }
 
@@ -961,7 +780,7 @@ function filterCases(): ExceptionCase[] {
       }
 
       if (state.aggregateFilter) {
-        if (state.aggregateFilter.type === 'reason' && getSubCategoryLabel(exc) !== state.aggregateFilter.value) {
+        if (state.aggregateFilter.type === 'reason' && getSubCategoryKey(exc) !== state.aggregateFilter.value) {
           return false
         }
 
@@ -1029,19 +848,19 @@ function getKpis(now: Date): {
 }
 
 function getAggregates(): {
-  topReasons: Array<[string, number]>
+  topReasons: Array<[SubCategoryKey, number]>
   topFactories: Array<[string, number]>
   topProcesses: Array<[string, number]>
 } {
   const activeCases = initialExceptions.filter((exc) => normalizeCaseStatus(exc.caseStatus) !== 'CLOSED')
 
-  const reasonCounts: Record<string, number> = {}
+  const reasonCounts: Partial<Record<SubCategoryKey, number>> = {}
   const factoryCounts: Record<string, number> = {}
   const processCounts: Record<string, number> = {}
 
   for (const exc of activeCases) {
-    const subLabel = getSubCategoryLabel(exc)
-    reasonCounts[subLabel] = (reasonCounts[subLabel] ?? 0) + 1
+    const subKey = getSubCategoryKey(exc)
+    reasonCounts[subKey] = (reasonCounts[subKey] ?? 0) + 1
 
     for (const taskId of exc.relatedTaskIds) {
       const task = getTaskById(taskId)
@@ -1054,7 +873,7 @@ function getAggregates(): {
     }
   }
 
-  const topReasons = Object.entries(reasonCounts)
+  const topReasons = (Object.entries(reasonCounts) as Array<[SubCategoryKey, number]>)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
 
@@ -1095,54 +914,34 @@ function assignCaseOwner(exc: ExceptionCase, userId: string, userName: string): 
   const currentStatus = normalizeCaseStatus(exc.caseStatus)
   const promoteToInProgress = currentStatus === 'OPEN'
 
-  const updated: ExceptionCase = {
+  let updated: ExceptionCase = {
     ...exc,
     caseStatus: promoteToInProgress ? 'IN_PROGRESS' : exc.caseStatus,
     ownerUserId: userId,
     ownerUserName: userName,
     updatedAt: now,
-    actions: [
-      ...exc.actions,
-      {
-        id: `EA-${Date.now()}`,
-        actionType: 'ASSIGN_OWNER',
-        actionDetail: `指派责任人：${userName}`,
-        at: now,
-        by: 'Admin',
-      },
-      ...(promoteToInProgress
-        ? [
-            {
-              id: `EA-${Date.now()}-P`,
-              actionType: 'FOLLOW_UP',
-              actionDetail: '指派责任人后自动转为处理中',
-              at: now,
-              by: 'Admin',
-            },
-          ]
-        : []),
-    ],
-    auditLogs: [
-      ...exc.auditLogs,
-      {
-        id: `EAL-${Date.now()}`,
-        action: 'ASSIGN',
-        detail: `指派给 ${userName}`,
-        at: now,
-        by: 'Admin',
-      },
-      ...(promoteToInProgress
-        ? [
-            {
-              id: `EAL-${Date.now()}-P`,
-              action: 'STATUS_CHANGE',
-              detail: 'OPEN -> IN_PROGRESS',
-              at: now,
-              by: 'Admin',
-            },
-          ]
-        : []),
-    ],
+  }
+
+  updated = appendCaseAction(updated, {
+    actionType: 'ASSIGN_OWNER',
+    actionDetail: `指派责任人：${userName}`,
+    at: now,
+    by: 'Admin',
+  })
+  updated = appendCaseAuditLog(updated, {
+    action: 'ASSIGN',
+    detail: `指派给 ${userName}`,
+    at: now,
+    by: 'Admin',
+  })
+  if (promoteToInProgress) {
+    updated = appendCaseAction(updated, {
+      actionType: 'FOLLOW_UP',
+      actionDetail: '指派责任人后自动转为处理中',
+      at: now,
+      by: 'Admin',
+    })
+    updated = appendCaseStatusChangeAudit(updated, exc.caseStatus, 'IN_PROGRESS', now, 'Admin')
   }
 
   updateException(updated)
@@ -1173,31 +972,24 @@ function confirmUnblock(): void {
     }
   }
 
-  const updated: ExceptionCase = {
+  let updated: ExceptionCase = {
     ...exc,
     caseStatus: 'IN_PROGRESS',
     updatedAt: now,
-    actions: [
-      ...exc.actions,
-      {
-        id: `EA-${Date.now()}`,
-        actionType: 'UNBLOCK',
-        actionDetail: `恢复执行：${state.unblockRemark.trim()}`,
-        at: now,
-        by: 'Admin',
-      },
-    ],
-    auditLogs: [
-      ...exc.auditLogs,
-      {
-        id: `EAL-${Date.now()}`,
-        action: 'UNBLOCK',
-        detail: `执行恢复执行，备注：${state.unblockRemark.trim()}`,
-        at: now,
-        by: 'Admin',
-      },
-    ],
   }
+  updated = appendCaseAction(updated, {
+    actionType: 'UNBLOCK',
+    actionDetail: `恢复执行：${state.unblockRemark.trim()}`,
+    at: now,
+    by: 'Admin',
+  })
+  updated = appendCaseAuditLog(updated, {
+    action: 'UNBLOCK',
+    detail: `执行恢复执行，备注：${state.unblockRemark.trim()}`,
+    at: now,
+    by: 'Admin',
+  })
+  updated = appendCaseStatusChangeAudit(updated, exc.caseStatus, 'IN_PROGRESS', now, 'Admin')
 
   updateException(updated)
   showProgressExceptionsToast('已恢复执行')
@@ -1220,31 +1012,24 @@ function confirmExtendTender(): void {
     extendTenderDeadline(tenderId, 24)
   }
 
-  const updated: ExceptionCase = {
+  let updated: ExceptionCase = {
     ...exc,
     caseStatus: 'IN_PROGRESS',
     updatedAt: now,
-    actions: [
-      ...exc.actions,
-      {
-        id: `EA-${Date.now()}`,
-        actionType: 'EXTEND_TENDER',
-        actionDetail: '延长竞价截止时间 24 小时',
-        at: now,
-        by: 'Admin',
-      },
-    ],
-    auditLogs: [
-      ...exc.auditLogs,
-      {
-        id: `EAL-${Date.now()}`,
-        action: 'EXTEND_TENDER',
-        detail: '执行延长竞价 24 小时',
-        at: now,
-        by: 'Admin',
-      },
-    ],
   }
+  updated = appendCaseAction(updated, {
+    actionType: 'EXTEND_TENDER',
+    actionDetail: '延长竞价截止时间 24 小时',
+    at: now,
+    by: 'Admin',
+  })
+  updated = appendCaseAuditLog(updated, {
+    action: 'EXTEND_TENDER',
+    detail: '执行延长竞价 24 小时',
+    at: now,
+    by: 'Admin',
+  })
+  updated = appendCaseStatusChangeAudit(updated, exc.caseStatus, 'IN_PROGRESS', now, 'Admin')
 
   updateException(updated)
   showProgressExceptionsToast('已延长竞价 24 小时')
@@ -1273,41 +1058,25 @@ function confirmPauseFollowUp(): void {
   } else {
     const now = nowTimestamp()
     const shouldPromote = normalizeCaseStatus(exc.caseStatus) === 'OPEN'
-    const updated: ExceptionCase = {
+    let updated: ExceptionCase = {
       ...exc,
       caseStatus: shouldPromote ? 'IN_PROGRESS' : exc.caseStatus,
       updatedAt: now,
-      actions: [
-        ...exc.actions,
-        {
-          id: `EA-${Date.now()}`,
-          actionType: 'FOLLOW_UP',
-          actionDetail: `记录跟进：${remark}`,
-          at: now,
-          by: 'Admin',
-        },
-      ],
-      auditLogs: [
-        ...exc.auditLogs,
-        {
-          id: `EAL-${Date.now()}`,
-          action: 'FOLLOW_UP',
-          detail: `记录跟进：${remark}`,
-          at: now,
-          by: 'Admin',
-        },
-        ...(shouldPromote
-          ? [
-              {
-                id: `EAL-${Date.now()}-P`,
-                action: 'STATUS_CHANGE',
-                detail: 'OPEN -> IN_PROGRESS',
-                at: now,
-                by: 'Admin',
-              },
-            ]
-          : []),
-      ],
+    }
+    updated = appendCaseAction(updated, {
+      actionType: 'FOLLOW_UP',
+      actionDetail: `记录跟进：${remark}`,
+      at: now,
+      by: 'Admin',
+    })
+    updated = appendCaseAuditLog(updated, {
+      action: 'FOLLOW_UP',
+      detail: `记录跟进：${remark}`,
+      at: now,
+      by: 'Admin',
+    })
+    if (shouldPromote) {
+      updated = appendCaseStatusChangeAudit(updated, exc.caseStatus, 'IN_PROGRESS', now, 'Admin')
     }
     updateException(updated)
     result = { ok: true, message: '已记录跟进' }
@@ -1377,33 +1146,17 @@ function confirmCloseException(): void {
     .filter(Boolean)
     .join('，')
 
-  updateException({
-    ...exc,
-    caseStatus: 'CLOSED',
-    updatedAt: now,
-    closedAt: now,
-    closeRemark: closeDetail,
-    actions: [
-      ...exc.actions,
-      {
-        id: `EA-${Date.now()}`,
-        actionType: 'CLOSE_EXCEPTION',
-        actionDetail: closeDetail,
-        at: now,
-        by: 'Admin',
-      },
-    ],
-    auditLogs: [
-      ...exc.auditLogs,
-      {
-        id: `EAL-${Date.now()}`,
-        action: 'CLOSE_EXCEPTION',
-        detail: closeDetail,
-        at: now,
-        by: 'Admin',
-      },
-    ],
-  })
+  updateException(
+    markCaseClosed(exc, {
+      by: 'Admin',
+      reasonCode: reason,
+      detail: closeDetail,
+      mergedCaseId: mergedCaseId || undefined,
+      at: now,
+      actionType: 'CLOSE_EXCEPTION',
+      auditAction: 'CLOSE_EXCEPTION',
+    }),
+  )
 
   showProgressExceptionsToast('异常已关闭')
   closeCloseDialog()
@@ -1606,7 +1359,7 @@ function renderKpiCards(kpis: { open: number; inProgress: number; s1: number; to
 }
 
 function renderAggregateCards(aggregates: {
-  topReasons: Array<[string, number]>
+  topReasons: Array<[SubCategoryKey, number]>
   topFactories: Array<[string, number]>
   topProcesses: Array<[string, number]>
 }): string {
@@ -1620,9 +1373,9 @@ function renderAggregateCards(aggregates: {
               ? '<p class="text-sm text-muted-foreground">暂无数据</p>'
               : aggregates.topReasons
                   .map(
-                    ([code, count]) => `
-                      <button class="flex w-full items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted" data-pe-action="aggregate-reason" data-value="${escapeAttr(code)}">
-                        <span class="truncate">${escapeHtml(code)}</span>
+                    ([key, count]) => `
+                      <button class="flex w-full items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted" data-pe-action="aggregate-reason" data-value="${escapeAttr(key)}">
+                        <span class="truncate">${escapeHtml(SUB_CATEGORY_LABEL[key])}</span>
                         ${renderBadge(String(count), 'border-border bg-background text-foreground')}
                       </button>
                     `,
@@ -1798,7 +1551,7 @@ function renderFilters(): string {
               <span class="text-sm text-muted-foreground">聚合筛选：</span>
               ${renderBadge(
                 state.aggregateFilter.type === 'reason'
-                  ? state.aggregateFilter.value
+                  ? SUB_CATEGORY_LABEL[state.aggregateFilter.value]
                   : state.aggregateFilter.type === 'factory'
                     ? getFactoryById(state.aggregateFilter.value)?.name || state.aggregateFilter.value
                     : getProcessTypeByCode(state.aggregateFilter.value)?.nameZh || state.aggregateFilter.value,
@@ -1896,6 +1649,10 @@ function renderTable(cases: ExceptionCase[]): string {
 function renderBasicTab(detailCase: ExceptionCase): string {
   const unifiedCategory = getUnifiedCategory(detailCase)
   const subCategory = getSubCategoryLabel(detailCase)
+  const resolvedStateLabel = detailCase.resolvedAt ? '已解决' : '未解决'
+  const resolvedRuleLabel = detailCase.resolvedRuleCode ? RESOLVE_RULE_LABEL[detailCase.resolvedRuleCode] : '-'
+  const resolvedSourceLabel = detailCase.resolvedSource ? RESOLVE_SOURCE_LABEL[detailCase.resolvedSource] : '-'
+  const closeReasonLabel = detailCase.closeReasonCode ? CLOSE_REASON_LABEL[detailCase.closeReasonCode] : '-'
 
   return `
     <div class="space-y-4">
@@ -1931,6 +1688,56 @@ function renderBasicTab(detailCase: ExceptionCase): string {
         <div>
           <p class="text-xs text-muted-foreground">最近更新时间</p>
           <p class="font-medium">${escapeHtml(detailCase.updatedAt)}</p>
+        </div>
+      </div>
+
+      <div class="rounded-md border bg-muted/20 p-3">
+        <p class="mb-2 text-xs font-medium text-muted-foreground">处理结果</p>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p class="text-xs text-muted-foreground">解决状态</p>
+            <p class="font-medium">${escapeHtml(resolvedStateLabel)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">解决规则</p>
+            <p class="font-medium">${escapeHtml(resolvedRuleLabel)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">解决来源</p>
+            <p class="font-medium">${escapeHtml(resolvedSourceLabel)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">解决人</p>
+            <p class="font-medium">${escapeHtml(detailCase.resolvedBy || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">解决时间</p>
+            <p class="font-medium">${escapeHtml(detailCase.resolvedAt || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">关闭原因</p>
+            <p class="font-medium">${escapeHtml(closeReasonLabel)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">关闭人</p>
+            <p class="font-medium">${escapeHtml(detailCase.closedBy || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">关闭时间</p>
+            <p class="font-medium">${escapeHtml(detailCase.closedAt || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">关联异常号</p>
+            <p class="font-medium">${escapeHtml(detailCase.mergedCaseId || '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">解决说明</p>
+            <p class="font-medium">${escapeHtml(detailCase.resolvedDetail || '-')}</p>
+          </div>
+          <div class="col-span-2">
+            <p class="text-xs text-muted-foreground">关闭说明</p>
+            <p class="font-medium">${escapeHtml(detailCase.closeDetail || detailCase.closeRemark || '-')}</p>
+          </div>
         </div>
       </div>
 
@@ -3076,7 +2883,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
 
   if (action === 'aggregate-reason') {
     const value = actionNode.dataset.value
-    if (value) {
+    if (value && isSubCategoryKey(value)) {
       state.aggregateFilter = { type: 'reason', value }
     }
     return true

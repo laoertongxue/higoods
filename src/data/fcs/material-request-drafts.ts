@@ -22,6 +22,18 @@ export interface MaterialRequestDraftLine {
   unit: string
   sourceRef: string
   note: string
+  sourceBomItemId?: string
+  sourceBomItemCode?: string
+  sourceBomItemName?: string
+  sourceSkuCodes?: string[]
+  sourceSkuLabels?: string[]
+  linkedPatternIds?: string[]
+  linkedPatternNames?: string[]
+  patternSpecText?: string
+  patternTotalPieceCount?: number
+  pieceSummaryText?: string
+  sourceRuleLabel?: string
+  sourceReasonText?: string
 }
 
 export interface MaterialRequestDraft {
@@ -119,6 +131,18 @@ interface DraftMaterialCandidate {
   unit: string
   sourceRef: string
   note: string
+  sourceBomItemId?: string
+  sourceBomItemCode?: string
+  sourceBomItemName?: string
+  sourceSkuCodes?: string[]
+  sourceSkuLabels?: string[]
+  linkedPatternIds?: string[]
+  linkedPatternNames?: string[]
+  patternSpecText?: string
+  patternTotalPieceCount?: number
+  pieceSummaryText?: string
+  sourceRuleLabel?: string
+  sourceReasonText?: string
   requiresPrint: boolean
   requiresDye: boolean
 }
@@ -159,8 +183,91 @@ function normalizeQty(value: number): number {
   return Math.max(1, Math.round(value * 100) / 100)
 }
 
-function getOrderTotalQty(order: ProductionOrder): number {
-  return order.demandSnapshot.skuLines.reduce((sum, sku) => sum + sku.qty, 0)
+type SkuScopeLine = {
+  skuCode: string
+  color: string
+  qty: number
+}
+
+function getOrderSkuScope(order: ProductionOrder): SkuScopeLine[] {
+  return order.demandSnapshot.skuLines.map((line) => ({
+    skuCode: line.skuCode,
+    color: line.color || '未识别颜色',
+    qty: Number.isFinite(line.qty) ? line.qty : 0,
+  }))
+}
+
+function getTaskSkuScope(order: ProductionOrder, _task?: ProcessTask): SkuScopeLine[] {
+  // 当前任务层未拆分 SKU 范围，先按生产单 SKU 范围承接。
+  return getOrderSkuScope(order)
+}
+
+function formatPatternSpecText(widthCm?: number, markerLengthM?: number): string | undefined {
+  const widthPart = Number.isFinite(widthCm) && Number(widthCm) > 0 ? `${Number(widthCm)}cm` : ''
+  const markerPart = Number.isFinite(markerLengthM) && Number(markerLengthM) > 0 ? `${Number(markerLengthM)}m` : ''
+  if (widthPart && markerPart) return `${widthPart} × ${markerPart}`
+  if (widthPart) return widthPart
+  if (markerPart) return markerPart
+  return undefined
+}
+
+function buildPatternEvidence(
+  bomItem: TechPackBomItem,
+  patternFiles: Array<{
+    id: string
+    fileName: string
+    linkedBomItemId?: string
+    widthCm?: number
+    markerLengthM?: number
+    totalPieceCount?: number
+    pieceRows?: Array<{ name: string; count: number; note?: string }>
+  }>,
+): {
+  patternIds: string[]
+  patternNames: string[]
+  patternSpecText?: string
+  patternTotalPieceCount?: number
+  pieceSummaryText?: string
+} {
+  const fromBom = bomItem.linkedPatternIds ?? []
+  const fromPattern = patternFiles
+    .filter((pattern) => pattern.linkedBomItemId === bomItem.id)
+    .map((pattern) => pattern.id)
+  const patternIds = Array.from(new Set([...fromBom, ...fromPattern]))
+  const linkedPatterns = patternFiles.filter((pattern) => patternIds.includes(pattern.id))
+
+  const patternNames = linkedPatterns.map((pattern) => pattern.fileName.replace(/\.[^/.]+$/, ''))
+  const specTexts = linkedPatterns
+    .map((pattern) => formatPatternSpecText(pattern.widthCm, pattern.markerLengthM))
+    .filter((text): text is string => Boolean(text))
+  const uniqueSpecTexts = Array.from(new Set(specTexts))
+  const patternSpecText = uniqueSpecTexts.length > 0 ? uniqueSpecTexts.join('；') : undefined
+
+  let patternTotalPieceCount = 0
+  const pieceBlocks: string[] = []
+  linkedPatterns.forEach((pattern, index) => {
+    const fallbackName = pattern.fileName.replace(/\.[^/.]+$/, '') || `纸样${index + 1}`
+    const rows = (pattern.pieceRows ?? []).filter((row) => row.name.trim().length > 0)
+    const rowCount = rows.reduce((sum, row) => sum + (Number.isFinite(row.count) ? row.count : 0), 0)
+    const totalCount =
+      Number.isFinite(pattern.totalPieceCount) && Number(pattern.totalPieceCount) > 0
+        ? Number(pattern.totalPieceCount)
+        : rowCount
+    patternTotalPieceCount += totalCount
+
+    if (rows.length > 0) {
+      const rowSummary = rows.map((row) => `${row.name}${row.count}`).join('、')
+      pieceBlocks.push(`${fallbackName}：${rowSummary}`)
+    }
+  })
+
+  return {
+    patternIds,
+    patternNames,
+    patternSpecText,
+    patternTotalPieceCount: patternTotalPieceCount > 0 ? normalizeQty(patternTotalPieceCount) : undefined,
+    pieceSummaryText: pieceBlocks.length > 0 ? pieceBlocks.join('；') : undefined,
+  }
 }
 
 function inferMaterialCategory(item: TechPackBomItem): '面料' | '辅料' {
@@ -209,46 +316,85 @@ function getOrderProcessFlags(orderId: string): { hasPrintTask: boolean; hasDyeT
   return { hasPrintTask, hasDyeTask }
 }
 
-function buildBomCandidates(order: ProductionOrder): DraftMaterialCandidate[] {
+function buildBomCandidates(order: ProductionOrder, task?: ProcessTask): DraftMaterialCandidate[] {
   const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
-  const orderQty = getOrderTotalQty(order)
+  const taskSkuScope = getTaskSkuScope(order, task)
   const processFlags = getOrderProcessFlags(order.productionOrderId)
 
   if (!techPack || techPack.bomItems.length === 0) {
     return []
   }
 
-  return techPack.bomItems.map((item) => {
-    const category = inferMaterialCategory(item)
-    const keyword = `${item.name} ${item.spec}`.toLowerCase()
+  return techPack.bomItems
+    .map((item) => {
+      const applicableSkuCodes = item.applicableSkuCodes ?? []
+      const matchedSkuScope =
+        applicableSkuCodes.length > 0
+          ? taskSkuScope.filter((sku) => applicableSkuCodes.includes(sku.skuCode))
+          : taskSkuScope
 
-    const requiresPrintKeyword = /印花|图案|转印|logo/.test(keyword)
-    const requiresDyeKeyword = /染|色号|色牢度|色彩/.test(keyword)
+      if (matchedSkuScope.length === 0) return null
 
-    // 规则可读：有印花/染色任务时，面料默认进入对应建议范围。
-    const requiresPrint = requiresPrintKeyword || (category === '面料' && processFlags.hasPrintTask)
-    const requiresDye = requiresDyeKeyword || (category === '面料' && processFlags.hasDyeTask)
+      const scopedQty = matchedSkuScope.reduce((sum, sku) => sum + sku.qty, 0)
+      if (!Number.isFinite(scopedQty) || scopedQty <= 0) return null
 
-    const suggestedQty = normalizeQty(
-      orderQty * item.unitConsumption * (1 + item.lossRate / 100),
-    )
+      const sourceSkuCodes = matchedSkuScope.map((sku) => sku.skuCode)
+      const sourceSkuLabels = matchedSkuScope.map((sku) => `${sku.color}（${sku.skuCode}）`)
+      const skuScopeLabel =
+        applicableSkuCodes.length > 0 ? sourceSkuLabels.join('、') : '全部 SKU'
 
-    return {
-      optionKey: `bom:${item.id}`,
-      sourceType: 'bom',
-      sourceTypeLabel: SOURCE_TYPE_LABEL.bom,
-      materialCode: `BOM-${order.demandSnapshot.spuCode}-${item.id}`,
-      materialName: item.name,
-      materialSpec: item.spec,
-      materialCategory: category,
-      suggestedQty,
-      unit: inferMaterialUnit(item, category),
-      sourceRef: item.id,
-      note: `来源技术包BOM：${item.type}`,
-      requiresPrint,
-      requiresDye,
-    }
-  })
+      const patternEvidence = buildPatternEvidence(item, techPack.patternFiles)
+      const patternHint =
+        patternEvidence.patternNames.length > 0
+          ? `对应纸样：${patternEvidence.patternNames.join('、')}`
+          : '当前 BOM 行未关联纸样'
+      const pieceHint = patternEvidence.pieceSummaryText
+        ? `裁片明细：${patternEvidence.pieceSummaryText}`
+        : '暂无裁片明细'
+
+      const category = inferMaterialCategory(item)
+      const keyword = `${item.name} ${item.spec}`.toLowerCase()
+
+      const requiresPrintKeyword = /印花|图案|转印|logo/.test(keyword)
+      const requiresDyeKeyword = /染|色号|色牢度|色彩/.test(keyword)
+
+      // 规则可读：有印花/染色任务时，面料默认进入对应建议范围。
+      const requiresPrint = requiresPrintKeyword || (category === '面料' && processFlags.hasPrintTask)
+      const requiresDye = requiresDyeKeyword || (category === '面料' && processFlags.hasDyeTask)
+
+      const suggestedQty = normalizeQty(
+        scopedQty * item.unitConsumption * (1 + item.lossRate / 100),
+      )
+
+      return {
+        optionKey: `bom:${item.id}:${sourceSkuCodes.join('|') || 'ALL'}`,
+        sourceType: 'bom',
+        sourceTypeLabel: SOURCE_TYPE_LABEL.bom,
+        materialCode: `BOM-${order.demandSnapshot.spuCode}-${item.id}`,
+        materialName: item.name,
+        materialSpec: item.spec,
+        materialCategory: category,
+        suggestedQty,
+        unit: inferMaterialUnit(item, category),
+        sourceRef: `${item.id}:${sourceSkuCodes.join('|') || 'ALL'}`,
+        note: `来源技术包BOM：${item.type}`,
+        sourceBomItemId: item.id,
+        sourceBomItemCode: `BOM-${order.demandSnapshot.spuCode}-${item.id}`,
+        sourceBomItemName: item.name,
+        sourceSkuCodes,
+        sourceSkuLabels,
+        linkedPatternIds: patternEvidence.patternIds,
+        linkedPatternNames: patternEvidence.patternNames,
+        patternSpecText: patternEvidence.patternSpecText,
+        patternTotalPieceCount: patternEvidence.patternTotalPieceCount,
+        pieceSummaryText: patternEvidence.pieceSummaryText,
+        sourceRuleLabel: '技术包SKU维度BOM自动建议',
+        sourceReasonText: `来源 SKU：${skuScopeLabel}；${patternHint}；${pieceHint}`,
+        requiresPrint,
+        requiresDye,
+      }
+    })
+    .filter((item): item is DraftMaterialCandidate => Boolean(item))
 }
 
 function buildUpstreamCandidates(order: ProductionOrder): DraftMaterialCandidate[] {
@@ -279,8 +425,12 @@ function buildUpstreamCandidates(order: ProductionOrder): DraftMaterialCandidate
   })
 }
 
-function buildDraftCandidates(order: ProductionOrder, taskType: MaterialTaskType): DraftMaterialCandidate[] {
-  const bomCandidates = buildBomCandidates(order)
+function buildDraftCandidates(
+  order: ProductionOrder,
+  taskType: MaterialTaskType,
+  task?: ProcessTask,
+): DraftMaterialCandidate[] {
+  const bomCandidates = buildBomCandidates(order, task)
   const upstreamCandidates = buildUpstreamCandidates(order)
 
   if (taskType === 'PRINT') {
@@ -318,7 +468,19 @@ function toDraftLines(draftId: string, candidates: DraftMaterialCandidate[]): Ma
       confirmedQty: suggestedQty,
       unit: candidate.unit,
       sourceRef: candidate.sourceRef,
-      note: candidate.note,
+      note: candidate.sourceReasonText || candidate.note,
+      sourceBomItemId: candidate.sourceBomItemId,
+      sourceBomItemCode: candidate.sourceBomItemCode,
+      sourceBomItemName: candidate.sourceBomItemName,
+      sourceSkuCodes: candidate.sourceSkuCodes ? [...candidate.sourceSkuCodes] : undefined,
+      sourceSkuLabels: candidate.sourceSkuLabels ? [...candidate.sourceSkuLabels] : undefined,
+      linkedPatternIds: candidate.linkedPatternIds ? [...candidate.linkedPatternIds] : undefined,
+      linkedPatternNames: candidate.linkedPatternNames ? [...candidate.linkedPatternNames] : undefined,
+      patternSpecText: candidate.patternSpecText,
+      patternTotalPieceCount: candidate.patternTotalPieceCount,
+      pieceSummaryText: candidate.pieceSummaryText,
+      sourceRuleLabel: candidate.sourceRuleLabel,
+      sourceReasonText: candidate.sourceReasonText,
     }
   })
 }
@@ -393,7 +555,7 @@ function buildInitialDrafts(): MaterialRequestDraft[] {
       if (!taskType) continue
 
       const draftId = buildDraftId(order.productionOrderId, task.taskId)
-      const candidates = buildDraftCandidates(order, taskType)
+      const candidates = buildDraftCandidates(order, taskType, task)
 
       list.push({
         draftId,
@@ -568,7 +730,8 @@ function rebuildDraftLines(draft: MaterialRequestDraft): MaterialRequestDraftLin
   const order = getOrderById(draft.productionOrderId)
   if (!order) return []
 
-  const candidates = buildDraftCandidates(order, draft.taskType)
+  const task = getTaskById(draft.taskId)
+  const candidates = buildDraftCandidates(order, draft.taskType, task)
   return toDraftLines(draft.draftId, candidates)
 }
 
@@ -822,7 +985,8 @@ export function listMaterialDraftSupplementOptions(draftId: string): DraftMateri
   const order = getOrderById(draft.productionOrderId)
   if (!order) return []
 
-  const candidates = buildDraftCandidates(order, draft.taskType)
+  const task = getTaskById(draft.taskId)
+  const candidates = buildDraftCandidates(order, draft.taskType, task)
   const selectedRefs = new Set(
     draft.lines.map((line) => `${line.sourceType}:${line.sourceRef}`),
   )
@@ -854,7 +1018,19 @@ export function addMaterialToDraft(draftId: string, optionKeys: string[], operat
       confirmedQty: suggestedQty,
       unit: option.unit,
       sourceRef: option.sourceRef,
-      note: option.note,
+      note: option.sourceReasonText || option.note,
+      sourceBomItemId: option.sourceBomItemId,
+      sourceBomItemCode: option.sourceBomItemCode,
+      sourceBomItemName: option.sourceBomItemName,
+      sourceSkuCodes: option.sourceSkuCodes ? [...option.sourceSkuCodes] : undefined,
+      sourceSkuLabels: option.sourceSkuLabels ? [...option.sourceSkuLabels] : undefined,
+      linkedPatternIds: option.linkedPatternIds ? [...option.linkedPatternIds] : undefined,
+      linkedPatternNames: option.linkedPatternNames ? [...option.linkedPatternNames] : undefined,
+      patternSpecText: option.patternSpecText,
+      patternTotalPieceCount: option.patternTotalPieceCount,
+      pieceSummaryText: option.pieceSummaryText,
+      sourceRuleLabel: option.sourceRuleLabel,
+      sourceReasonText: option.sourceReasonText,
     } satisfies MaterialRequestDraftLine
   })
 
@@ -1008,6 +1184,6 @@ export function getSupplementOptionDisplayRows(draftId: string): Array<{
     materialSpec: item.materialSpec,
     suggestedQty: item.suggestedQty,
     unit: item.unit,
-    note: item.note,
+    note: item.sourceReasonText || item.note,
   }))
 }

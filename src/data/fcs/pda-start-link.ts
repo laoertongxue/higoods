@@ -1,5 +1,13 @@
 import { processTasks, type ProcessTask } from './process-tasks'
 import { generateCaseId, initialExceptions, type ExceptionCase } from './store-domain-progress'
+import {
+  getDefaultSubCategoryKeyFromReason,
+  getUnifiedCategoryFromReason,
+} from './progress-exception-taxonomy'
+import {
+  markCaseResolved,
+  maybeAutoCloseResolvedCase,
+} from './progress-exception-lifecycle'
 
 export type StartDueSource = 'ACCEPTED' | 'AWARDED'
 export type StartRiskStatus = 'NORMAL' | 'DUE_SOON' | 'OVERDUE'
@@ -115,12 +123,15 @@ function findTaskOpenStartOverdueException(taskId: string): ExceptionCase | unde
 }
 
 function createStartOverdueException(task: ProcessTask, startDueAt: string, now: string): ExceptionCase {
+  const reasonCode = 'START_OVERDUE'
   const exceptionCase: ExceptionCase = {
     caseId: generateCaseId(),
     caseStatus: 'OPEN',
     severity: 'S2',
     category: 'EXECUTION',
-    reasonCode: 'START_OVERDUE',
+    unifiedCategory: getUnifiedCategoryFromReason(reasonCode, 'EXECUTION'),
+    subCategoryKey: getDefaultSubCategoryKeyFromReason(reasonCode) || 'EXEC_START_OVERDUE',
+    reasonCode,
     sourceType: 'TASK',
     sourceId: task.taskId,
     relatedOrderIds: [task.productionOrderId],
@@ -149,21 +160,24 @@ function createStartOverdueException(task: ProcessTask, startDueAt: string, now:
   return exceptionCase
 }
 
+function replaceException(updated: ExceptionCase): void {
+  const index = initialExceptions.findIndex((item) => item.caseId === updated.caseId)
+  if (index >= 0) {
+    initialExceptions[index] = updated
+  }
+}
+
 function resolveStartOverdueException(exceptionCase: ExceptionCase, now: string): void {
-  exceptionCase.caseStatus = 'RESOLVED'
-  exceptionCase.updatedAt = now
-  exceptionCase.resolvedAt = now
-  exceptionCase.resolvedBy = '系统'
-  exceptionCase.auditLogs = [
-    ...exceptionCase.auditLogs,
-    {
-      id: `EAL-${Date.now()}`,
-      action: 'AUTO_RESOLVE',
-      detail: '工厂已确认开工，系统自动判定为已解决',
-      at: now,
-      by: '系统',
-    },
-  ]
+  const resolved = markCaseResolved(exceptionCase, {
+    by: '系统',
+    source: 'SYSTEM',
+    ruleCode: 'EXEC_START_CONFIRMED',
+    detail: '工厂已确认开工，系统自动判定为已解决',
+    at: now,
+    actionType: 'AUTO_RESOLVE',
+    auditAction: 'AUTO_RESOLVE',
+  })
+  replaceException(maybeAutoCloseResolvedCase(resolved, '系统'))
 }
 
 export function syncPdaStartRiskAndExceptions(now: Date = new Date()): void {

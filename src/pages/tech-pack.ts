@@ -6,6 +6,7 @@ import {
   type TechPack,
   type TechPackSizeRow,
 } from '../data/fcs/tech-packs'
+import { productionOrders } from '../data/fcs/production-orders'
 
 type TechPackTab = 'pattern' | 'bom' | 'process' | 'cost' | 'size' | 'design' | 'attachments'
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
@@ -64,6 +65,11 @@ type PatternPieceRow = {
   name: string
   count: number
   note: string
+}
+
+type SkuOption = {
+  skuCode: string
+  color: string
 }
 
 type PatternItem = {
@@ -134,7 +140,6 @@ const dyeOptions = ['无', '匹染', '成衣染', '扎染', '渐变染', '其他
 const currencyOptions = ['人民币', '美元', '印尼盾']
 const materialUnitOptions = ['人民币/米', '人民币/码', '人民币/件', '美元/米', '美元/件', '印尼盾/件']
 const processUnitOptions = ['人民币/件', '人民币/批', '美元/件', '美元/批', '印尼盾/件', '印尼盾/批']
-const patternPieceOptions = ['前片', '后片', '袖片', '领片', '口袋']
 const timeUnitOptions = ['分钟/件', '分钟/批', '分钟/米', '分钟/打']
 const difficultyOptions: Array<TechniqueItem['difficulty']> = ['简单', '中等', '困难']
 const stageOptions = ['准备阶段', '生产阶段', '后整阶段']
@@ -339,34 +344,6 @@ const legacySyncedTechniques = new Set([
   '成衣整烫',
 ])
 
-const patternMockInfo: Record<string, { name: string; image: string; desc: string }> = {
-  前片: {
-    name: '前片',
-    image: '/placeholder.svg?height=120&width=120',
-    desc: '服装正面主体部分，包含门襟、口袋位置等细节。',
-  },
-  后片: {
-    name: '后片',
-    image: '/placeholder.svg?height=120&width=120',
-    desc: '服装背面主体部分，通常包含后育克或开衩设计。',
-  },
-  袖片: {
-    name: '袖片',
-    image: '/placeholder.svg?height=120&width=120',
-    desc: '左右袖片，包含袖山、袖口等结构。',
-  },
-  领片: {
-    name: '领片',
-    image: '/placeholder.svg?height=120&width=120',
-    desc: '领口部分，可能是罗纹领、翻领或立领。',
-  },
-  口袋: {
-    name: '口袋',
-    image: '/placeholder.svg?height=120&width=120',
-    desc: '贴袋或插袋结构，根据款式定位缝制。',
-  },
-}
-
 const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
   {
     id: 'PAT-001',
@@ -569,6 +546,7 @@ interface TechPackPageState {
   selectedPattern: string | null
 
   editPatternItemId: string | null
+  editBomItemId: string | null
   newPattern: Omit<PatternItem, 'id'>
   newBomItem: {
     type: string
@@ -634,6 +612,7 @@ const state: TechPackPageState = {
   selectedPattern: null,
 
   editPatternItemId: null,
+  editBomItemId: null,
   newPattern: {
     name: '',
     type: '主体片',
@@ -787,6 +766,47 @@ function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.filter((item) => item.trim().length > 0)))
 }
 
+function formatPatternSpec(widthCm: number, markerLengthM: number): string {
+  const width = Number.isFinite(widthCm) && widthCm > 0 ? `${widthCm}cm` : '-'
+  const markerLength = Number.isFinite(markerLengthM) && markerLengthM > 0 ? `${markerLengthM}m` : '-'
+  if (width === '-' && markerLength === '-') return '-'
+  if (width === '-') return markerLength
+  if (markerLength === '-') return width
+  return `${width} × ${markerLength}`
+}
+
+function getSkuOptionsForCurrentSpu(): SkuOption[] {
+  if (!state.techPack) return []
+  const byCode = new Map<string, SkuOption>()
+
+  for (const order of productionOrders) {
+    if (order.demandSnapshot.spuCode !== state.techPack.spuCode) continue
+    for (const line of order.demandSnapshot.skuLines) {
+      if (!byCode.has(line.skuCode)) {
+        byCode.set(line.skuCode, { skuCode: line.skuCode, color: line.color || '未识别颜色' })
+      }
+    }
+  }
+
+  for (const item of state.bomItems) {
+    for (const skuCode of item.applicableSkuCodes) {
+      if (!byCode.has(skuCode)) {
+        byCode.set(skuCode, { skuCode, color: '未识别颜色' })
+      }
+    }
+  }
+
+  return Array.from(byCode.values())
+}
+
+function getPatternBySelectionKey(selectionKey: string): PatternItem | null {
+  return (
+    state.patternItems.find((item) => item.id === selectionKey) ??
+    state.patternItems.find((item) => item.name === selectionKey) ??
+    null
+  )
+}
+
 function normalizePatternPieceRows(rows: PatternPieceRow[], patternId: string): PatternPieceRow[] {
   return rows.map((row, index) => ({
     id: row.id || `${patternId}-piece-${index + 1}`,
@@ -874,7 +894,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       materialCode: item.id || `MAT-${index + 1}`,
       materialName: item.name,
       spec: item.spec,
-      patternPieces: patternPieces.length > 0 ? patternPieces : ['前片'],
+      patternPieces,
       linkedPatternIds,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       usage: item.unitConsumption,
@@ -1115,6 +1135,7 @@ function resetPatternForm(): void {
 }
 
 function resetBomForm(): void {
+  state.editBomItemId = null
   state.newBomItem = {
     type: '面料',
     materialCode: '',
@@ -1251,6 +1272,8 @@ function renderTabHeader(): string {
 }
 
 function renderPatternTab(): string {
+  const bomById = new Map(state.bomItems.map((item) => [item.id, item]))
+
   return `
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
@@ -1270,7 +1293,10 @@ function renderPatternTab(): string {
                   <tr class="border-b bg-muted/30">
                     <th class="px-3 py-2 text-left">纸样名称</th>
                     <th class="px-3 py-2 text-left">类型</th>
-                    <th class="px-3 py-2 text-left">示意图</th>
+                    <th class="px-3 py-2 text-left">关联物料</th>
+                    <th class="px-3 py-2 text-left">规格</th>
+                    <th class="px-3 py-2 text-right">裁片总片数</th>
+                    <th class="px-3 py-2 text-left">裁片明细</th>
                     <th class="px-3 py-2 text-left">文件</th>
                     <th class="px-3 py-2 text-left">备注</th>
                     <th class="px-3 py-2 text-left">操作</th>
@@ -1279,15 +1305,30 @@ function renderPatternTab(): string {
                 <tbody>
                   ${state.patternItems
                     .map(
-                      (item) => `
+                      (item) => {
+                        const linkedBom = item.linkedBomItemId ? bomById.get(item.linkedBomItemId) : null
+                        const linkedBomLabel = linkedBom
+                          ? `${linkedBom.materialCode} · ${linkedBom.materialName}`
+                          : '未关联'
+                        const pieceCount =
+                          Number.isFinite(item.totalPieceCount) && item.totalPieceCount > 0
+                            ? item.totalPieceCount
+                            : item.pieceRows.reduce((sum, row) => sum + row.count, 0)
+
+                        return `
                         <tr class="border-b last:border-0">
                           <td class="px-3 py-2 font-medium">${escapeHtml(item.name)}</td>
                           <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.type)}</span></td>
+                          <td class="px-3 py-2 text-sm ${linkedBom ? '' : 'text-muted-foreground'}">
+                            ${escapeHtml(linkedBomLabel)}
+                          </td>
+                          <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(formatPatternSpec(item.widthCm, item.markerLengthM))}</td>
+                          <td class="px-3 py-2 text-right">${pieceCount} 片</td>
                           <td class="px-3 py-2">
                             ${
-                              item.image
-                                ? '<img src="/placeholder.svg?height=60&width=80" alt="pattern" class="h-[60px] w-[80px] rounded border object-cover" />'
-                                : '<span class="text-sm text-muted-foreground">无</span>'
+                              item.pieceRows.length > 0
+                                ? `<button class="text-blue-600 hover:underline" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">${item.pieceRows.length} 项明细</button>`
+                                : '<span class="text-sm text-muted-foreground">暂无</span>'
                             }
                           </td>
                           <td class="px-3 py-2">
@@ -1303,13 +1344,17 @@ function renderPatternTab(): string {
                               <button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="edit-2" class="h-4 w-4"></i>
                               </button>
+                              <button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">
+                                <i data-lucide="eye" class="h-4 w-4"></i>
+                              </button>
                               <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="trash-2" class="h-4 w-4"></i>
                               </button>
                             </div>
                           </td>
                         </tr>
-                      `,
+                      `
+                      },
                     )
                     .join('')}
                 </tbody>
@@ -1593,12 +1638,32 @@ function renderSizeTab(): string {
 }
 
 function renderBomTab(): string {
+  const spuLabel = state.techPack?.spuCode || '-'
+  const skuOptions = getSkuOptionsForCurrentSpu()
+  const groups =
+    skuOptions.length > 0
+      ? skuOptions.map((sku) => ({
+          groupKey: sku.skuCode,
+          colorLabel: `${sku.color}（SKU: ${sku.skuCode}）`,
+          rows: state.bomItems.filter(
+            (item) => item.applicableSkuCodes.length === 0 || item.applicableSkuCodes.includes(sku.skuCode),
+          ),
+        }))
+      : [
+          {
+            groupKey: 'ALL',
+            colorLabel: '全部SKU（当前未区分颜色）',
+            rows: state.bomItems,
+          },
+        ]
+  const patternById = new Map(state.patternItems.map((item) => [item.id, item]))
+
   return `
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h3 class="text-base font-semibold">BOM</h3>
-          <p class="mt-1 text-sm text-muted-foreground">物料清单，定义生产所需原材料与辅料</p>
+          <p class="mt-1 text-sm text-muted-foreground">按 SKU 分组展示物料清单，便于按颜色/规格查看对应物料</p>
         </div>
         <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-bom">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
@@ -1613,6 +1678,8 @@ function renderBomTab(): string {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b bg-muted/30">
+                    <th class="px-3 py-2 text-left">SPU</th>
+                    <th class="px-3 py-2 text-left">颜色</th>
                     <th class="px-3 py-2 text-left">类型</th>
                     <th class="px-3 py-2 text-left">物料编码</th>
                     <th class="px-3 py-2 text-left">物料名称</th>
@@ -1626,46 +1693,95 @@ function renderBomTab(): string {
                   </tr>
                 </thead>
                 <tbody>
-                  ${state.bomItems
+                  ${groups
                     .map(
-                      (item) => `
-                        <tr class="border-b last:border-0">
-                          <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.type)}</span></td>
-                          <td class="px-3 py-2 font-mono text-sm">${escapeHtml(item.materialCode)}</td>
-                          <td class="px-3 py-2 font-medium">${escapeHtml(item.materialName)}</td>
-                          <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(item.spec || '-')}</td>
-                          <td class="px-3 py-2">
-                            <div class="flex flex-wrap gap-1">
-                              ${item.patternPieces
-                                .map(
-                                  (piece) => `<button class="inline-flex rounded border bg-secondary px-2 py-0.5 text-xs hover:bg-secondary/80" data-tech-action="open-pattern-detail" data-pattern-name="${escapeHtml(piece)}">${escapeHtml(piece)}</button>`,
-                                )
-                                .join('')}
-                            </div>
-                          </td>
-                          <td class="px-3 py-2 text-right">${item.usage}</td>
-                          <td class="px-3 py-2 text-right">${item.lossRate}%</td>
-                          <td class="px-3 py-2">
-                            <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-print" data-bom-id="${item.id}">
-                              ${printOptions
-                                .map((option) => `<option value="${option}" ${item.printRequirement === option ? 'selected' : ''}>${option}</option>`)
-                                .join('')}
-                            </select>
-                          </td>
-                          <td class="px-3 py-2">
-                            <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}">
-                              ${dyeOptions
-                                .map((option) => `<option value="${option}" ${item.dyeRequirement === option ? 'selected' : ''}>${option}</option>`)
-                                .join('')}
-                            </select>
-                          </td>
-                          <td class="px-3 py-2">
-                            <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-bom" data-bom-id="${item.id}">
-                              <i data-lucide="trash-2" class="h-4 w-4"></i>
-                            </button>
-                          </td>
-                        </tr>
-                      `,
+                      (group) => {
+                        if (group.rows.length === 0) {
+                          return `
+                            <tr class="border-b last:border-0 bg-muted/10">
+                              <td class="px-3 py-2 font-medium">${escapeHtml(spuLabel)}</td>
+                              <td class="px-3 py-2 text-sm">${escapeHtml(group.colorLabel)}</td>
+                              <td colspan="10" class="px-3 py-2 text-sm text-muted-foreground">当前 SKU 暂无适用物料</td>
+                            </tr>
+                          `
+                        }
+
+                        return group.rows
+                          .map((item, rowIndex) => {
+                            const linkedPatterns =
+                              item.linkedPatternIds.length > 0
+                                ? item.linkedPatternIds
+                                    .map((id) => patternById.get(id))
+                                    .filter((item): item is PatternItem => Boolean(item))
+                                : []
+                            const fallbackPatternNames = item.patternPieces.filter(
+                              (name) => !linkedPatterns.some((pattern) => pattern.name === name),
+                            )
+
+                            return `
+                              <tr class="border-b last:border-0">
+                                ${
+                                  rowIndex === 0
+                                    ? `<td rowspan="${group.rows.length}" class="px-3 py-2 align-top font-medium">${escapeHtml(spuLabel)}</td>
+                                       <td rowspan="${group.rows.length}" class="px-3 py-2 align-top text-sm">${escapeHtml(group.colorLabel)}</td>`
+                                    : ''
+                                }
+                                <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.type)}</span></td>
+                                <td class="px-3 py-2 font-mono text-sm">${escapeHtml(item.materialCode)}</td>
+                                <td class="px-3 py-2 font-medium">${escapeHtml(item.materialName)}</td>
+                                <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(item.spec || '-')}</td>
+                                <td class="px-3 py-2">
+                                  <div class="flex flex-wrap gap-1">
+                                    ${linkedPatterns
+                                      .map(
+                                        (pattern) =>
+                                          `<button class="inline-flex rounded border bg-secondary px-2 py-0.5 text-xs hover:bg-secondary/80" data-tech-action="open-pattern-detail" data-pattern-id="${pattern.id}">${escapeHtml(pattern.name)}</button>`,
+                                      )
+                                      .join('')}
+                                    ${fallbackPatternNames
+                                      .map(
+                                        (name) =>
+                                          `<button class="inline-flex rounded border bg-secondary px-2 py-0.5 text-xs hover:bg-secondary/80" data-tech-action="open-pattern-detail" data-pattern-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`,
+                                      )
+                                      .join('')}
+                                    ${
+                                      linkedPatterns.length === 0 && fallbackPatternNames.length === 0
+                                        ? '<span class="text-xs text-muted-foreground">未关联</span>'
+                                        : ''
+                                    }
+                                  </div>
+                                </td>
+                                <td class="px-3 py-2 text-right">${item.usage}</td>
+                                <td class="px-3 py-2 text-right">${item.lossRate}%</td>
+                                <td class="px-3 py-2">
+                                  <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-print" data-bom-id="${item.id}">
+                                    ${printOptions
+                                      .map((option) => `<option value="${option}" ${item.printRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                      .join('')}
+                                  </select>
+                                </td>
+                                <td class="px-3 py-2">
+                                  <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}">
+                                    ${dyeOptions
+                                      .map((option) => `<option value="${option}" ${item.dyeRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                      .join('')}
+                                  </select>
+                                </td>
+                                <td class="px-3 py-2">
+                                  <div class="flex items-center gap-1">
+                                    <button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-bom" data-bom-id="${item.id}">
+                                      <i data-lucide="edit-2" class="h-4 w-4"></i>
+                                    </button>
+                                    <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-bom" data-bom-id="${item.id}">
+                                      <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            `
+                          })
+                          .join('')
+                      },
                     )
                     .join('')}
                 </tbody>
@@ -1941,21 +2057,90 @@ function renderCurrentTabContent(): string {
 function renderPatternDialog(): string {
   if (!state.patternDialogOpen || !state.selectedPattern) return ''
 
-  const info = patternMockInfo[state.selectedPattern]
-  if (!info) return ''
+  const pattern = getPatternBySelectionKey(state.selectedPattern)
+  if (!pattern) return ''
+  const linkedBom =
+    pattern.linkedBomItemId.length > 0
+      ? state.bomItems.find((item) => item.id === pattern.linkedBomItemId) ?? null
+      : null
+  const image = pattern.image ? `/placeholder.svg?height=96&width=96` : '/placeholder.svg?height=96&width=96'
+  const pieceRows = pattern.pieceRows
+  const pieceTotal =
+    Number.isFinite(pattern.totalPieceCount) && pattern.totalPieceCount > 0
+      ? pattern.totalPieceCount
+      : pieceRows.reduce((sum, row) => sum + row.count, 0)
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+      <section class="w-full max-w-2xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">纸样详情</h3>
         </header>
-        <div class="space-y-4 px-6 py-4">
+        <div class="space-y-4 px-6 py-4 text-sm">
           <div class="flex items-center gap-4">
-            <img src="${escapeHtml(info.image)}" alt="${escapeHtml(info.name)}" class="h-24 w-24 rounded border object-cover" />
-            <h4 class="text-lg font-semibold">${escapeHtml(info.name)}</h4>
+            <img src="${escapeHtml(image)}" alt="${escapeHtml(pattern.name)}" class="h-24 w-24 rounded border object-cover" />
+            <div>
+              <h4 class="text-lg font-semibold">${escapeHtml(pattern.name)}</h4>
+              <p class="text-sm text-muted-foreground">${escapeHtml(pattern.type)}</p>
+            </div>
           </div>
-          <p class="text-sm text-muted-foreground">${escapeHtml(info.desc)}</p>
+          <div class="grid grid-cols-1 gap-3 rounded-md border p-3 md:grid-cols-2">
+            <div>
+              <p class="text-xs text-muted-foreground">关联物料</p>
+              <p class="mt-1">${escapeHtml(linkedBom ? `${linkedBom.materialCode} · ${linkedBom.materialName}` : '未关联')}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground">规格（门幅 × 排料长度）</p>
+              <p class="mt-1">${escapeHtml(formatPatternSpec(pattern.widthCm, pattern.markerLengthM))}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground">裁片总片数</p>
+              <p class="mt-1">${pieceTotal} 片</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground">纸样文件</p>
+              <p class="mt-1 text-muted-foreground">${escapeHtml(pattern.file || '-')}</p>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h5 class="text-sm font-medium">裁片明细</h5>
+              <span class="text-xs text-muted-foreground">单位：片</span>
+            </div>
+            ${
+              pieceRows.length === 0
+                ? '<div class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">当前暂无裁片明细</div>'
+                : `
+                  <table class="w-full text-xs">
+                    <thead>
+                      <tr class="border-b bg-muted/20">
+                        <th class="px-2 py-1 text-left">裁片名称</th>
+                        <th class="px-2 py-1 text-right">片数</th>
+                        <th class="px-2 py-1 text-left">备注</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${pieceRows
+                        .map(
+                          (row) => `
+                            <tr class="border-b last:border-0">
+                              <td class="px-2 py-1">${escapeHtml(row.name)}</td>
+                              <td class="px-2 py-1 text-right">${row.count}</td>
+                              <td class="px-2 py-1 text-muted-foreground">${escapeHtml(row.note || '-')}</td>
+                            </tr>
+                          `,
+                        )
+                        .join('')}
+                    </tbody>
+                  </table>
+                `
+            }
+          </div>
+          ${
+            pattern.remark
+              ? `<p class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">备注：${escapeHtml(pattern.remark)}</p>`
+              : ''
+          }
         </div>
         <footer class="flex items-center justify-end border-t px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-pattern-detail">关闭</button>
@@ -1986,38 +2171,111 @@ function renderReleaseDialog(): string {
 
 function renderPatternFormDialog(): string {
   if (!state.addPatternDialogOpen) return ''
+  const bomOptions = state.bomItems
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+      <section class="w-full max-w-3xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">${state.editPatternItemId ? '编辑纸样' : '新增纸样'}</h3>
         </header>
         <div class="space-y-4 px-6 py-4">
-          <label class="space-y-1">
-            <span class="text-sm">纸样名称 <span class="text-red-500">*</span></span>
-            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-name" value="${escapeHtml(state.newPattern.name)}" placeholder="例如 前片" />
-          </label>
-          <label class="space-y-1">
-            <span class="text-sm">纸样类型</span>
-            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-type">
-              ${['主体片', '结构片', '装饰片', '其他']
-                .map((option) => `<option value="${option}" ${state.newPattern.type === option ? 'selected' : ''}>${option}</option>`)
-                .join('')}
-            </select>
-          </label>
-          <label class="space-y-1">
-            <span class="text-sm">纸样图片</span>
-            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-image" value="${escapeHtml(state.newPattern.image)}" placeholder="图片文件名" />
-          </label>
-          <label class="space-y-1">
-            <span class="text-sm">纸样文件</span>
-            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-file" value="${escapeHtml(state.newPattern.file)}" placeholder="例如 front.dxf" />
-          </label>
-          <label class="space-y-1">
-            <span class="text-sm">备注</span>
-            <textarea rows="2" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-remark" placeholder="备注信息">${escapeHtml(state.newPattern.remark)}</textarea>
-          </label>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label class="space-y-1">
+              <span class="text-sm">纸样名称 <span class="text-red-500">*</span></span>
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-name" value="${escapeHtml(state.newPattern.name)}" placeholder="例如 前片" />
+            </label>
+            <label class="space-y-1">
+              <span class="text-sm">纸样类型</span>
+              <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-type">
+                ${['主体片', '结构片', '装饰片', '其他']
+                  .map((option) => `<option value="${option}" ${state.newPattern.type === option ? 'selected' : ''}>${option}</option>`)
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-1">
+              <span class="text-sm">关联物料（BOM）</span>
+              <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-linked-bom-item">
+                <option value="">请选择关联物料</option>
+                ${bomOptions
+                  .map(
+                    (item) =>
+                      `<option value="${item.id}" ${state.newPattern.linkedBomItemId === item.id ? 'selected' : ''}>${escapeHtml(`${item.materialCode} · ${item.materialName}`)}</option>`,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-1">
+              <span class="text-sm">门幅（cm）</span>
+              <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="例如 142" />
+            </label>
+            <label class="space-y-1">
+              <span class="text-sm">排料长度（m）</span>
+              <input type="number" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-marker-length-m" value="${escapeHtml(String(state.newPattern.markerLengthM || ''))}" placeholder="例如 2.62" />
+            </label>
+            <label class="space-y-1">
+              <span class="text-sm">裁片总片数（片）</span>
+              <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-total-piece-count" value="${escapeHtml(String(state.newPattern.totalPieceCount || ''))}" placeholder="例如 6" />
+            </label>
+            <label class="space-y-1 md:col-span-2">
+              <span class="text-sm">纸样文件</span>
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-file" value="${escapeHtml(state.newPattern.file)}" placeholder="例如 front.dxf" />
+            </label>
+            <label class="space-y-1 md:col-span-2">
+              <span class="text-sm">备注</span>
+              <textarea rows="2" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-remark" placeholder="备注信息">${escapeHtml(state.newPattern.remark)}</textarea>
+            </label>
+          </div>
+
+          <section class="space-y-2 rounded-md border p-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-sm font-medium">裁片明细</h4>
+              <button type="button" class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-new-pattern-piece-row">
+                <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
+                新增裁片
+              </button>
+            </div>
+            ${
+              state.newPattern.pieceRows.length === 0
+                ? '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无裁片明细，可点击“新增裁片”补充</div>'
+                : `
+                  <table class="w-full text-xs">
+                    <thead>
+                      <tr class="border-b bg-muted/20">
+                        <th class="px-2 py-1 text-left">裁片名称</th>
+                        <th class="px-2 py-1 text-right">片数</th>
+                        <th class="px-2 py-1 text-left">备注</th>
+                        <th class="px-2 py-1 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${state.newPattern.pieceRows
+                        .map(
+                          (row) => `
+                            <tr class="border-b last:border-0">
+                              <td class="px-2 py-1">
+                                <input class="h-7 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-name" data-piece-id="${row.id}" value="${escapeHtml(row.name)}" placeholder="例如 前片" />
+                              </td>
+                              <td class="px-2 py-1">
+                                <input type="number" class="h-7 w-20 rounded border px-2 text-right text-xs" data-tech-field="new-pattern-piece-count" data-piece-id="${row.id}" value="${escapeHtml(String(row.count || 0))}" />
+                              </td>
+                              <td class="px-2 py-1">
+                                <input class="h-7 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-note" data-piece-id="${row.id}" value="${escapeHtml(row.note)}" placeholder="备注" />
+                              </td>
+                              <td class="px-2 py-1 text-right">
+                                <button type="button" class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-new-pattern-piece-row" data-piece-id="${row.id}">
+                                  <i data-lucide="trash-2" class="h-3 w-3"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          `,
+                        )
+                        .join('')}
+                    </tbody>
+                  </table>
+                `
+            }
+          </section>
         </div>
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-pattern">取消</button>
@@ -2032,12 +2290,15 @@ function renderPatternFormDialog(): string {
 
 function renderBomFormDialog(): string {
   if (!state.addBomDialogOpen) return ''
+  const skuOptions = getSkuOptionsForCurrentSpu()
+  const applyAllSku = state.newBomItem.applicableSkuCodes.length === 0
+  const patternOptions = state.patternItems
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="w-full max-w-2xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">添加物料</h3>
+          <h3 class="text-lg font-semibold">${state.editBomItemId ? '编辑物料' : '添加物料'}</h3>
         </header>
         <div class="grid grid-cols-1 gap-6 px-6 py-4 md:grid-cols-2">
           <div class="space-y-4">
@@ -2060,24 +2321,62 @@ function renderBomFormDialog(): string {
             <div class="space-y-1">
               <span class="text-sm">关联纸样</span>
               <div class="mt-1 flex flex-wrap gap-2">
-                ${patternPieceOptions
+                ${(patternOptions.length > 0 ? patternOptions : DEFAULT_PATTERN_ITEMS)
                   .map(
-                    (piece) => `
+                    (pattern) => `
                       <button
                         type="button"
                         class="inline-flex rounded border px-2 py-0.5 text-xs ${
-                          state.newBomItem.patternPieces.includes(piece)
+                          state.newBomItem.linkedPatternIds.includes(pattern.id)
                             ? 'bg-blue-600 text-white border-blue-600'
                             : 'hover:bg-muted'
                         }"
-                        data-tech-action="toggle-new-bom-pattern-piece"
-                        data-piece="${piece}"
+                        data-tech-action="toggle-new-bom-pattern"
+                        data-pattern-id="${pattern.id}"
+                        data-pattern-name="${escapeHtml(pattern.name)}"
                       >
-                        ${piece}
+                        ${escapeHtml(pattern.name)}
                       </button>
                     `,
                   )
                   .join('')}
+              </div>
+            </div>
+            <div class="space-y-1">
+              <span class="text-sm">适用 SKU</span>
+              <div class="space-y-2 rounded-md border p-2 text-xs">
+                <label class="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    data-tech-field="new-bom-apply-all-sku"
+                    ${applyAllSku ? 'checked' : ''}
+                  />
+                  <span>全部 SKU</span>
+                </label>
+                ${
+                  skuOptions.length === 0
+                    ? '<p class="text-muted-foreground">当前 SPU 暂无 SKU 数据，默认按全部 SKU 处理</p>'
+                    : `
+                      <div class="grid grid-cols-1 gap-1">
+                        ${skuOptions
+                          .map(
+                            (sku) => `
+                              <label class="inline-flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  data-tech-field="new-bom-sku"
+                                  data-sku-code="${sku.skuCode}"
+                                  ${state.newBomItem.applicableSkuCodes.includes(sku.skuCode) ? 'checked' : ''}
+                                  ${applyAllSku ? 'disabled' : ''}
+                                />
+                                <span>${escapeHtml(`${sku.color}（${sku.skuCode}）`)}</span>
+                              </label>
+                            `,
+                          )
+                          .join('')}
+                      </div>
+                    `
+                }
               </div>
             </div>
             <label class="space-y-1">
@@ -2451,6 +2750,46 @@ function handleTechPackField(
     state.newPattern.remark = value
     return true
   }
+  if (field === 'new-pattern-linked-bom-item') {
+    state.newPattern.linkedBomItemId = value
+    return true
+  }
+  if (field === 'new-pattern-width-cm') {
+    state.newPattern.widthCm = Number.parseFloat(value) || 0
+    return true
+  }
+  if (field === 'new-pattern-marker-length-m') {
+    state.newPattern.markerLengthM = Number.parseFloat(value) || 0
+    return true
+  }
+  if (field === 'new-pattern-total-piece-count') {
+    state.newPattern.totalPieceCount = Number.parseInt(value, 10) || 0
+    return true
+  }
+  if (field === 'new-pattern-piece-name') {
+    const pieceId = node.dataset.pieceId
+    if (!pieceId) return true
+    state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
+      row.id === pieceId ? { ...row, name: value } : row,
+    )
+    return true
+  }
+  if (field === 'new-pattern-piece-count') {
+    const pieceId = node.dataset.pieceId
+    if (!pieceId) return true
+    state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
+      row.id === pieceId ? { ...row, count: Number.parseInt(value, 10) || 0 } : row,
+    )
+    return true
+  }
+  if (field === 'new-pattern-piece-note') {
+    const pieceId = node.dataset.pieceId
+    if (!pieceId) return true
+    state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
+      row.id === pieceId ? { ...row, note: value } : row,
+    )
+    return true
+  }
 
   if (field === 'new-bom-type') {
     state.newBomItem.type = value
@@ -2482,6 +2821,31 @@ function handleTechPackField(
   }
   if (field === 'new-bom-dye-requirement') {
     state.newBomItem.dyeRequirement = value
+    return true
+  }
+  if (field === 'new-bom-apply-all-sku') {
+    if (checked) {
+      state.newBomItem.applicableSkuCodes = []
+    } else if (state.newBomItem.applicableSkuCodes.length === 0) {
+      const skuOptions = getSkuOptionsForCurrentSpu()
+      if (skuOptions.length > 0) {
+        state.newBomItem.applicableSkuCodes = [skuOptions[0].skuCode]
+      }
+    }
+    return true
+  }
+  if (field === 'new-bom-sku') {
+    const skuCode = node.dataset.skuCode
+    if (!skuCode) return true
+    if (checked) {
+      const current = new Set(state.newBomItem.applicableSkuCodes)
+      current.add(skuCode)
+      state.newBomItem.applicableSkuCodes = Array.from(current)
+    } else {
+      state.newBomItem.applicableSkuCodes = state.newBomItem.applicableSkuCodes.filter(
+        (code) => code !== skuCode,
+      )
+    }
     return true
   }
 
@@ -2854,6 +3218,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-pattern') {
     if (!state.newPattern.name.trim()) return true
+    const nowId = state.editPatternItemId || `PAT-${Date.now()}`
+    const normalizedPieceRows = normalizePatternPieceRows(
+      state.newPattern.pieceRows.map((row) => ({ ...row })),
+      nowId,
+    )
 
     if (state.editPatternItemId) {
       state.patternItems = state.patternItems.map((item) =>
@@ -2861,6 +3230,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           ? {
               ...item,
               ...state.newPattern,
+              pieceRows: normalizedPieceRows,
             }
           : item,
       )
@@ -2868,8 +3238,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.patternItems = [
         ...state.patternItems,
         {
-          id: `PAT-${Date.now()}`,
+          id: nowId,
           ...state.newPattern,
+          pieceRows: normalizedPieceRows,
         },
       ]
     }
@@ -2878,11 +3249,30 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.addPatternDialogOpen = false
     return true
   }
+  if (action === 'add-new-pattern-piece-row') {
+    state.newPattern.pieceRows = [
+      ...state.newPattern.pieceRows,
+      {
+        id: `piece-${Date.now()}`,
+        name: '',
+        count: 1,
+        note: '',
+      },
+    ]
+    return true
+  }
+  if (action === 'delete-new-pattern-piece-row') {
+    const pieceId = actionNode.dataset.pieceId
+    if (!pieceId) return true
+    state.newPattern.pieceRows = state.newPattern.pieceRows.filter((row) => row.id !== pieceId)
+    return true
+  }
 
   if (action === 'open-pattern-detail') {
+    const patternId = actionNode.dataset.patternId
     const patternName = actionNode.dataset.patternName
-    if (!patternName) return true
-    state.selectedPattern = patternName
+    if (!patternId && !patternName) return true
+    state.selectedPattern = patternId || patternName || null
     state.patternDialogOpen = true
     return true
   }
@@ -2897,18 +3287,45 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.addBomDialogOpen = true
     return true
   }
+  if (action === 'edit-bom') {
+    const bomId = actionNode.dataset.bomId
+    if (!bomId) return true
+    const bom = state.bomItems.find((item) => item.id === bomId)
+    if (!bom) return true
+    state.editBomItemId = bom.id
+    state.newBomItem = {
+      type: bom.type,
+      materialCode: bom.materialCode,
+      materialName: bom.materialName,
+      spec: bom.spec,
+      patternPieces: [...bom.patternPieces],
+      linkedPatternIds: [...bom.linkedPatternIds],
+      applicableSkuCodes: [...bom.applicableSkuCodes],
+      usage: String(bom.usage),
+      lossRate: String(bom.lossRate),
+      printRequirement: bom.printRequirement,
+      dyeRequirement: bom.dyeRequirement,
+    }
+    state.addBomDialogOpen = true
+    return true
+  }
   if (action === 'close-add-bom') {
     state.addBomDialogOpen = false
     return true
   }
-  if (action === 'toggle-new-bom-pattern-piece') {
-    const piece = actionNode.dataset.piece
-    if (!piece) return true
+  if (action === 'toggle-new-bom-pattern') {
+    const patternId = actionNode.dataset.patternId
+    const patternName = actionNode.dataset.patternName
+    if (!patternId || !patternName) return true
 
-    if (state.newBomItem.patternPieces.includes(piece)) {
-      state.newBomItem.patternPieces = state.newBomItem.patternPieces.filter((item) => item !== piece)
+    if (state.newBomItem.linkedPatternIds.includes(patternId)) {
+      state.newBomItem.linkedPatternIds = state.newBomItem.linkedPatternIds.filter(
+        (item) => item !== patternId,
+      )
+      state.newBomItem.patternPieces = state.newBomItem.patternPieces.filter((item) => item !== patternName)
     } else {
-      state.newBomItem.patternPieces = [...state.newBomItem.patternPieces, piece]
+      state.newBomItem.linkedPatternIds = [...state.newBomItem.linkedPatternIds, patternId]
+      state.newBomItem.patternPieces = dedupeStrings([...state.newBomItem.patternPieces, patternName])
     }
     return true
   }
@@ -2921,24 +3338,32 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         .map((piece) => patternIdByName.get(piece) || '')
         .filter((id) => id.trim().length > 0),
     ])
+    const patternNameById = new Map(state.patternItems.map((item) => [item.id, item.name]))
+    const patternPieces = dedupeStrings(
+      linkedPatternIds
+        .map((id) => patternNameById.get(id) || '')
+        .filter((name) => name.trim().length > 0),
+    )
+    const nextBom: BomItemRow = {
+      id: state.editBomItemId || `bom-${Date.now()}`,
+      type: state.newBomItem.type,
+      materialCode: state.newBomItem.materialCode,
+      materialName: state.newBomItem.materialName,
+      spec: state.newBomItem.spec,
+      patternPieces,
+      linkedPatternIds,
+      applicableSkuCodes: [...state.newBomItem.applicableSkuCodes],
+      usage: Number.parseFloat(state.newBomItem.usage) || 0,
+      lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
+      printRequirement: state.newBomItem.printRequirement,
+      dyeRequirement: state.newBomItem.dyeRequirement,
+    }
 
-    state.bomItems = [
-      ...state.bomItems,
-      {
-        id: `bom-${Date.now()}`,
-        type: state.newBomItem.type,
-        materialCode: state.newBomItem.materialCode,
-        materialName: state.newBomItem.materialName,
-        spec: state.newBomItem.spec,
-        patternPieces: [...state.newBomItem.patternPieces],
-        linkedPatternIds,
-        applicableSkuCodes: [...state.newBomItem.applicableSkuCodes],
-        usage: Number.parseFloat(state.newBomItem.usage) || 0,
-        lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
-        printRequirement: state.newBomItem.printRequirement,
-        dyeRequirement: state.newBomItem.dyeRequirement,
-      },
-    ]
+    if (state.editBomItemId) {
+      state.bomItems = state.bomItems.map((item) => (item.id === state.editBomItemId ? nextBom : item))
+    } else {
+      state.bomItems = [...state.bomItems, nextBom]
+    }
 
     syncMaterialCostRows()
     syncTechPackToStore()

@@ -3,6 +3,15 @@
 // 进度域静态类型、生成器和 seed 数据
 // 当前原型仓直接使用的数据域文件（无 React 依赖）
 // =============================================
+import type {
+  SubCategoryKey,
+  UnifiedCategory,
+} from './progress-exception-taxonomy'
+import type {
+  CloseReasonCode,
+  ResolveRuleCode,
+  ResolveSource,
+} from './progress-exception-lifecycle'
 
 // =============================================
 // ExceptionCase 相关
@@ -46,6 +55,8 @@ export interface ExceptionCase {
   caseStatus: CaseStatus
   severity: Severity
   category: ExceptionCategory
+  unifiedCategory?: UnifiedCategory
+  subCategoryKey?: SubCategoryKey
   reasonCode: ReasonCode
   sourceType: 'TASK' | 'ORDER' | 'TENDER' | 'FACTORY_PAUSE_REPORT'
   sourceId: string
@@ -64,7 +75,14 @@ export interface ExceptionCase {
   updatedAt: string
   resolvedAt?: string
   resolvedBy?: string
+  resolvedRuleCode?: ResolveRuleCode
+  resolvedSource?: ResolveSource
+  resolvedDetail?: string
   closedAt?: string
+  closeReasonCode?: CloseReasonCode
+  mergedCaseId?: string
+  closedBy?: string
+  closeDetail?: string
   closeRemark?: string
   reasonLabel?: string
   linkedFactoryName?: string
@@ -109,6 +127,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S1',
     category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    subCategoryKey: 'ASSIGN_TENDER_OVERDUE',
     reasonCode: 'TENDER_OVERDUE',
     sourceType: 'TENDER',
     sourceId: 'TENDER-0005-002',
@@ -131,6 +151,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'IN_PROGRESS',
     severity: 'S1',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_MATERIAL',
     reasonCode: 'BLOCKED_MATERIAL',
     sourceType: 'TASK',
     sourceId: 'TASK-BLOCKED-001',
@@ -159,6 +181,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S1',
     category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    subCategoryKey: 'ASSIGN_DISPATCH_REJECTED',
     reasonCode: 'DISPATCH_REJECTED',
     sourceType: 'TASK',
     sourceId: 'TASK-0001-003',
@@ -181,6 +205,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_CAPACITY',
     reasonCode: 'BLOCKED_CAPACITY',
     sourceType: 'TASK',
     sourceId: 'TASK-BLOCKED-002',
@@ -206,6 +232,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_QUALITY',
     reasonCode: 'BLOCKED_QUALITY',
     sourceType: 'TASK',
     sourceId: 'TASK-BLOCKED-003',
@@ -230,6 +258,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S2',
     category: 'TECH_PACK',
+    unifiedCategory: 'TECH_PACK',
+    subCategoryKey: 'TECH_PACK_NOT_RELEASED',
     reasonCode: 'TECH_PACK_NOT_RELEASED',
     sourceType: 'ORDER',
     sourceId: 'PO-202603-0003',
@@ -252,6 +282,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S2',
     category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    subCategoryKey: 'ASSIGN_TENDER_NEAR_DEADLINE',
     reasonCode: 'TENDER_NEAR_DEADLINE',
     sourceType: 'TENDER',
     sourceId: 'TENDER-0002-001',
@@ -274,6 +306,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_TECH',
     reasonCode: 'BLOCKED_TECH',
     sourceType: 'TASK',
     sourceId: 'TASK-BLOCKED-004',
@@ -299,6 +333,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_EQUIPMENT',
     reasonCode: 'BLOCKED_EQUIPMENT',
     sourceType: 'TASK',
     sourceId: 'TASK-BLOCKED-005',
@@ -323,6 +359,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'RESOLVED',
     severity: 'S3',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_OTHER',
     reasonCode: 'BLOCKED_OTHER',
     sourceType: 'TASK',
     sourceId: 'TASK-BLOCKED-006',
@@ -333,6 +371,11 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '春节假期工人返乡，节后恢复',
     createdAt: twoDaysAgo,
     updatedAt: mockNow,
+    resolvedAt: mockNow,
+    resolvedBy: '运营',
+    resolvedRuleCode: 'EXEC_RESUMED',
+    resolvedSource: 'USER',
+    resolvedDetail: '节后排产已恢复，异常判定为已解决',
     tags: ['假期'],
     actions: [
       { id: 'EA-002', actionType: 'SCHEDULE', actionDetail: '已安排节后优先处理', at: oneDayAgo, by: '运营' },
@@ -348,6 +391,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S1',
     category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    subCategoryKey: 'ASSIGN_FACTORY_BLOCKED',
     reasonCode: 'FACTORY_BLACKLISTED',
     sourceType: 'TASK',
     sourceId: 'TASK-0003-001',
@@ -370,6 +415,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S2',
     category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    subCategoryKey: 'ASSIGN_ACK_TIMEOUT',
     reasonCode: 'ACK_TIMEOUT',
     sourceType: 'TASK',
     sourceId: 'TASK-0004-002',
@@ -392,6 +439,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'CLOSED',
     severity: 'S3',
     category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    subCategoryKey: 'ASSIGN_NO_BID',
     reasonCode: 'NO_BID',
     sourceType: 'TENDER',
     sourceId: 'TENDER-OLD-001',
@@ -402,6 +451,16 @@ export const initialExceptions: ExceptionCase[] = [
     detail: '招标单无人报价，已转为派单处理',
     createdAt: twoDaysAgo,
     updatedAt: oneDayAgo,
+    resolvedAt: oneDayAgo,
+    resolvedBy: 'Admin',
+    resolvedRuleCode: 'ASSIGNMENT_TARGET_SECURED',
+    resolvedSource: 'USER',
+    resolvedDetail: '任务已转派并确认承接，异常判定为已解决',
+    closedAt: oneDayAgo,
+    closeReasonCode: 'RESOLVED_DONE',
+    closedBy: 'Admin',
+    closeDetail: '已解决后关闭：任务已转派并确认承接',
+    closeRemark: '已解决后关闭：任务已转派并确认承接',
     tags: ['竞价', '已关闭'],
     actions: [
       { id: 'EA-003', actionType: 'CONVERT_TO_DISPATCH', actionDetail: '转为派单处理', at: oneDayAgo, by: 'Admin' },
@@ -417,6 +476,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    subCategoryKey: 'HANDOUT_DIFF',
     reasonCode: 'HANDOVER_DIFF',
     sourceType: 'TASK',
     sourceId: 'TASK-0007-003',
@@ -441,6 +502,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S1',
     category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    subCategoryKey: 'HANDOUT_OBJECTION',
     reasonCode: 'HANDOVER_DIFF',
     sourceType: 'TASK',
     sourceId: 'TASK-0005-001',
@@ -463,6 +526,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'IN_PROGRESS',
     severity: 'S1',
     category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    subCategoryKey: 'HANDOUT_DAMAGE',
     reasonCode: 'HANDOVER_DIFF',
     sourceType: 'ORDER',
     sourceId: 'PO-2024-0002',
@@ -488,6 +553,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S2',
     category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    subCategoryKey: 'HANDOUT_MIXED',
     reasonCode: 'HANDOVER_DIFF',
     sourceType: 'ORDER',
     sourceId: 'PO-2024-0010',
@@ -510,6 +577,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S1',
     category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    subCategoryKey: 'HANDOUT_PENDING_CHECK',
     reasonCode: 'HANDOVER_DIFF',
     sourceType: 'ORDER',
     sourceId: 'PO-202603-0005',
@@ -532,6 +601,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S2',
     category: 'MATERIAL',
+    unifiedCategory: 'MATERIAL',
+    subCategoryKey: 'MATERIAL_NOT_READY',
     reasonCode: 'MATERIAL_NOT_READY',
     sourceType: 'TASK',
     sourceId: 'TASK-0008-001',
@@ -550,7 +621,7 @@ export const initialExceptions: ExceptionCase[] = [
   },
   // 演示专用：与 202603-0003~0006 对齐
   {
-    caseId: 'EX-202603-2001', caseStatus: 'OPEN', severity: 'S2', category: 'ASSIGNMENT', reasonCode: 'DISPATCH_REJECTED',
+    caseId: 'EX-202603-2001', caseStatus: 'OPEN', severity: 'S2', category: 'ASSIGNMENT', unifiedCategory: 'ASSIGNMENT', subCategoryKey: 'ASSIGN_DISPATCH_REJECTED', reasonCode: 'DISPATCH_REJECTED',
     sourceType: 'TASK', sourceId: 'TASK-202603-0006-003',
     relatedOrderIds: ['PO-202603-0006'], relatedTaskIds: ['TASK-202603-0006-003'], relatedTenderIds: [],
     ownerUserId: 'U002', ownerUserName: '跟单A',
@@ -562,7 +633,7 @@ export const initialExceptions: ExceptionCase[] = [
     auditLogs: [{ id: 'EXL-202603-2001-01', action: 'CREATE', detail: '创建异常：拒单', at: '2026-03-06 09:00:00', by: '系统' }],
   },
   {
-    caseId: 'EX-202603-2002', caseStatus: 'IN_PROGRESS', severity: 'S2', category: 'ASSIGNMENT', reasonCode: 'ACK_TIMEOUT',
+    caseId: 'EX-202603-2002', caseStatus: 'IN_PROGRESS', severity: 'S2', category: 'ASSIGNMENT', unifiedCategory: 'ASSIGNMENT', subCategoryKey: 'ASSIGN_ACK_TIMEOUT', reasonCode: 'ACK_TIMEOUT',
     sourceType: 'TASK', sourceId: 'TASK-202603-0005-003',
     relatedOrderIds: ['PO-202603-0005'], relatedTaskIds: ['TASK-202603-0005-003'], relatedTenderIds: [],
     ownerUserId: 'U003', ownerUserName: '跟单B',
@@ -577,7 +648,7 @@ export const initialExceptions: ExceptionCase[] = [
     auditLogs: [{ id: 'EXL-202603-2002-01', action: 'CREATE', detail: '创建异常：派单超时', at: '2026-03-06 14:00:00', by: '系统' }],
   },
   {
-    caseId: 'EX-202603-2003', caseStatus: 'IN_PROGRESS', severity: 'S3', category: 'MATERIAL', reasonCode: 'MATERIAL_NOT_READY',
+    caseId: 'EX-202603-2003', caseStatus: 'IN_PROGRESS', severity: 'S3', category: 'MATERIAL', unifiedCategory: 'MATERIAL', subCategoryKey: 'MATERIAL_PREP_PENDING', reasonCode: 'MATERIAL_NOT_READY',
     sourceType: 'TASK', sourceId: 'TASK-202603-0003-002',
     relatedOrderIds: ['PO-202603-0003'], relatedTaskIds: ['TASK-202603-0003-002'], relatedTenderIds: [],
     ownerUserId: 'U004', ownerUserName: '计划员A',
@@ -594,6 +665,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S2',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_QUALITY',
     reasonCode: 'BLOCKED_QUALITY',
     reasonLabel: '裁片问题',
     sourceType: 'FACTORY_PAUSE_REPORT',
@@ -633,6 +706,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'IN_PROGRESS',
     severity: 'S2',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_MATERIAL',
     reasonCode: 'BLOCKED_MATERIAL',
     reasonLabel: '物料问题',
     sourceType: 'FACTORY_PAUSE_REPORT',
@@ -681,6 +756,8 @@ export const initialExceptions: ExceptionCase[] = [
     caseStatus: 'OPEN',
     severity: 'S1',
     category: 'PRODUCTION_BLOCK',
+    unifiedCategory: 'EXECUTION',
+    subCategoryKey: 'EXEC_BLOCK_EQUIPMENT',
     reasonCode: 'BLOCKED_EQUIPMENT',
     reasonLabel: '设备异常',
     sourceType: 'FACTORY_PAUSE_REPORT',

@@ -505,10 +505,12 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
   }
 
   if (row.sourceType === 'PICKUP_HEAD' || (row.sourceType === 'COMPLETED_HEAD' && head.headType === 'PICKUP')) {
+    const firstPickupRecord = getPdaPickupRecordsByHead(row.handoverId)[0]
+    const pickupModeLabel = firstPickupRecord?.pickupModeLabel || '-'
     return `
       <div class="space-y-1 text-sm">
         <p><span class="text-muted-foreground">事实来源：</span>PDA 领料头</p>
-        <p><span class="text-muted-foreground">领料方式：</span>${escapeHtml(head.modeLabel)}</p>
+        <p><span class="text-muted-foreground">领料方式：</span>${escapeHtml(pickupModeLabel)}</p>
         <p><span class="text-muted-foreground">记录数：</span>${head.recordCount} 次</p>
         <p><span class="text-muted-foreground">累计已领：</span>${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</p>
         <p><span class="text-muted-foreground">待完成记录：</span>${head.pendingWritebackCount} 条</p>
@@ -1978,7 +1980,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'open-pda-detail') {
     const handoverId = actionNode.dataset.handoverId
     if (handoverId) {
-      const head = findPdaHandoverHead(handoverId)
+      const head = findPdaHeadByHandoverId(handoverId)
       const detailTitle = head?.headType === 'PICKUP' ? `领料详情 ${handoverId}` : `交出详情 ${handoverId}`
       openLinkedPage(detailTitle, `/fcs/pda/handover/${encodeURIComponent(handoverId)}`)
     }

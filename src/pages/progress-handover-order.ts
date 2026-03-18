@@ -232,6 +232,11 @@ function createEmptyProcessSection(
   }
 }
 
+function getTaskDisplayNo(task: { taskId: string }): string {
+  // 当前 ProcessTask 无 taskNo 字段，统一展示为 taskId，避免散落的不存在字段依赖。
+  return task.taskId
+}
+
 function getCompleteProcessSections(
   orderId: string,
   view: ReturnType<typeof getHandoverOrderTimelineViewById>,
@@ -273,7 +278,7 @@ function getCompleteProcessSections(
     if (!existed) {
       return createEmptyProcessSection(
         matchedTask.taskId,
-        matchedTask.taskNo || matchedTask.taskId,
+        getTaskDisplayNo(matchedTask),
         matchedTask.seq,
         matchedTask.processNameZh,
       )
@@ -282,7 +287,7 @@ function getCompleteProcessSections(
     return {
       ...existed,
       taskId: matchedTask.taskId,
-      taskNo: matchedTask.taskNo || matchedTask.taskId,
+      taskNo: getTaskDisplayNo(matchedTask),
       seq: matchedTask.seq,
       processName: matchedTask.processNameZh,
     }
@@ -322,7 +327,7 @@ function renderTimeTab(rows: HandoverLedgerRow[]): string {
                       </div>
                       <div class="mt-3 flex flex-wrap gap-2">
                         <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-handover-order-action="goto-task" data-task-id="${escapeHtml(row.taskId)}">去任务</button>
-                        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-handover-order-action="goto-exception" data-order-id="${escapeHtml(row.productionOrderId)}" data-task-id="${escapeHtml(row.taskId)}">去异常定位与处理</button>
+                        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-handover-order-action="goto-exception" data-po="${escapeHtml(row.productionOrderId)}" data-task-id="${escapeHtml(row.taskId)}">去异常定位与处理</button>
                         <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-handover-order-action="open-pda" data-handover-id="${escapeHtml(row.handoverId)}">查看PDA记录</button>
                       </div>
                     </article>
@@ -439,9 +444,9 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'goto-exception') {
-    const orderId = actionNode.dataset.orderId || state.orderId
+    const po = actionNode.dataset.po || state.orderId
     const taskId = actionNode.dataset.taskId || ''
-    const query = taskId ? `?orderId=${encodeURIComponent(orderId)}&taskId=${encodeURIComponent(taskId)}` : `?orderId=${encodeURIComponent(orderId)}`
+    const query = taskId ? `?po=${encodeURIComponent(po)}&taskId=${encodeURIComponent(taskId)}` : `?po=${encodeURIComponent(po)}`
     openLinkedPage('异常定位与处理', `/fcs/progress/exceptions${query}`)
     return true
   }
