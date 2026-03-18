@@ -1137,11 +1137,7 @@ function renderOrdersDimension(rows: HandoverLedgerRow[]): string {
     <section class="space-y-4">
       ${renderOrdersPreviewCards(timelineViews)}
       ${renderOrdersFilters(timelineViews)}
-      ${
-        pageViews.length === 0
-          ? '<div class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">当前筛选范围下暂无生产单交接记录</div>'
-          : pageViews.map((view) => renderTimelineOrderSummaryCard(view, rows)).join('')
-      }
+      ${renderOrdersTable(pageViews, rows)}
       ${renderOrdersPagination(total, totalPages)}
     </section>
   `
@@ -1360,6 +1356,22 @@ function getOrderProcessSummary(view: HandoverOrderTimelineView): string {
   return `${processNames.slice(0, 3).join(' / ')} 等${processNames.length}道工序`
 }
 
+function renderOrderBottleneckBadge(label: string): string {
+  const className =
+    label === '有异议'
+      ? 'bg-red-100 text-red-700 border-red-200'
+      : label === '异议处理中'
+        ? 'bg-orange-100 text-orange-700 border-orange-200'
+        : label === '待仓库确认'
+          ? 'bg-amber-100 text-amber-700 border-amber-200'
+          : label === '待交出' || label === '待领料'
+            ? 'bg-blue-100 text-blue-700 border-blue-200'
+            : label === '已完成'
+              ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+              : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+  return `<span class="inline-flex rounded border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
+}
+
 function renderTimelineOrderSummaryCard(view: HandoverOrderTimelineView, rows: HandoverLedgerRow[]): string {
   const latestEvent = getLatestOrderEvent(view.productionOrderId, rows)
   const summary = getProductionOrderHandoverSummary(view.productionOrderId, rows)
@@ -1371,18 +1383,31 @@ function renderTimelineOrderSummaryCard(view: HandoverOrderTimelineView, rows: H
   const taskId = highlighted ? state.timelineAnchorTaskId : ''
 
   return `
-    <article
+    <tr
       id="handover-order-${escapeAttr(view.productionOrderId)}"
       data-handover-order-card="${escapeAttr(view.productionOrderId)}"
-      class="rounded-lg border bg-card p-4 ${highlighted ? 'ring-1 ring-blue-400' : ''}"
+      class="border-b last:border-0 ${highlighted ? 'bg-blue-50/40' : ''}"
     >
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p class="text-sm font-medium">${escapeHtml(view.productionOrderNo)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">
-            最近交接事件：${escapeHtml(latestEvent?.occurredAt || '-')} · ${escapeHtml(latestEvent?.eventTypeLabel || '暂无事件')}
-          </p>
-        </div>
+      <td class="px-3 py-3">
+        <button class="inline-flex items-center text-sm font-medium text-primary hover:underline" data-handover-action="goto-order" data-order-id="${escapeAttr(view.productionOrderId)}">
+          ${escapeHtml(view.productionOrderNo)}
+        </button>
+        <p class="mt-1 text-xs text-muted-foreground">工序数 / 事件数：${view.processSections.length} / ${view.totalEventCount}</p>
+      </td>
+      <td class="px-3 py-3 text-xs">
+        <p>${escapeHtml(latestEvent?.eventTypeLabel || '暂无事件')}</p>
+        <p class="mt-1 text-muted-foreground">${escapeHtml(latestEvent?.occurredAt || '-')}</p>
+      </td>
+      <td class="px-3 py-3">${renderOrderBottleneckBadge(view.currentBottleneckLabel)}</td>
+      <td class="px-3 py-3 text-sm">${view.pendingCount}</td>
+      <td class="px-3 py-3 text-sm ${view.objectionCount > 0 ? 'text-red-600 font-medium' : ''}">${view.objectionCount}</td>
+      <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(getOrderProcessSummary(view))}</td>
+      <td class="px-3 py-3 text-xs">
+        <span class="inline-flex items-center rounded-md bg-muted px-2 py-1 text-muted-foreground">${escapeHtml(
+          summary.primaryActionHint || view.currentBottleneckHint,
+        )}</span>
+      </td>
+      <td class="px-3 py-3 text-right">
         <button
           class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted"
           data-handover-action="open-order-detail"
@@ -1392,34 +1417,38 @@ function renderTimelineOrderSummaryCard(view: HandoverOrderTimelineView, rows: H
         >
           查看交接详情
         </button>
-      </div>
+      </td>
+    </tr>
+  `
+}
 
-      <div class="mt-3 grid gap-2 text-xs md:grid-cols-4">
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-muted-foreground">当前交接卡点</p>
-          <p class="mt-1 font-medium">${escapeHtml(view.currentBottleneckLabel)}</p>
-        </div>
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-muted-foreground">待处理交接事件</p>
-          <p class="mt-1 font-medium">${view.pendingCount}</p>
-        </div>
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-muted-foreground">异议事件数</p>
-          <p class="mt-1 font-medium">${view.objectionCount}</p>
-        </div>
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-muted-foreground">当前涉及工序</p>
-          <p class="mt-1 font-medium">${escapeHtml(getOrderProcessSummary(view))}</p>
-        </div>
+function renderOrdersTable(views: HandoverOrderTimelineView[], rows: HandoverLedgerRow[]): string {
+  return `
+    <section class="overflow-hidden rounded-lg border bg-card">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-muted/40">
+            <tr class="border-b text-left text-muted-foreground">
+              <th class="px-3 py-2 font-medium">生产单</th>
+              <th class="px-3 py-2 font-medium">最近交接事件</th>
+              <th class="px-3 py-2 font-medium">当前交接卡点</th>
+              <th class="px-3 py-2 font-medium">待处理交接事件</th>
+              <th class="px-3 py-2 font-medium">异议事件数</th>
+              <th class="px-3 py-2 font-medium">当前涉及工序</th>
+              <th class="px-3 py-2 font-medium">下一步</th>
+              <th class="px-3 py-2 font-medium text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              views.length === 0
+                ? '<tr><td colspan="8" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选范围下暂无生产单交接事件</td></tr>'
+                : views.map((view) => renderTimelineOrderSummaryCard(view, rows)).join('')
+            }
+          </tbody>
+        </table>
       </div>
-
-      <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        <span>工序数 / 事件数：${view.processSections.length} / ${view.totalEventCount}</span>
-      </div>
-      <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-        下一步：${escapeHtml(view.currentBottleneckHint)}
-      </p>
-    </article>
+    </section>
   `
 }
 
@@ -1428,11 +1457,7 @@ function renderTimelineTab(rows: HandoverLedgerRow[]): string {
 
   return `
     <section class="space-y-4">
-      ${
-        timelineViews.length === 0
-          ? '<div class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">当前筛选范围下暂无生产单交接事件</div>'
-          : timelineViews.map((view) => renderTimelineOrderSummaryCard(view, rows)).join('')
-      }
+      ${renderOrdersTable(timelineViews, rows)}
     </section>
   `
 }
