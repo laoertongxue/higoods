@@ -6,6 +6,17 @@ export interface TechPackPatternFile {
   fileUrl: string
   uploadedAt: string
   uploadedBy: string
+  // 纸样结构化信息（门幅单位：cm，排料长度单位：m，pieces 为裁片片数）
+  linkedBomItemId?: string
+  widthCm?: number
+  markerLengthM?: number
+  totalPieceCount?: number
+  pieceRows?: Array<{
+    id: string
+    name: string
+    count: number
+    note?: string
+  }>
 }
 
 export interface TechPackProcess {
@@ -35,6 +46,10 @@ export interface TechPackBomItem {
   unitConsumption: number
   lossRate: number
   supplier: string
+  // 适用 SKU 范围；为空表示默认适用全部 SKU
+  applicableSkuCodes?: string[]
+  // 与纸样形成结构化双向关联
+  linkedPatternIds?: string[]
 }
 
 export interface TechPackPatternDesign {
@@ -129,8 +144,37 @@ export const techPacks: TechPack[] = [
     lastUpdatedAt: '2024-03-15 14:30:00',
     lastUpdatedBy: 'Budi Santoso',
     patternFiles: [
-      { id: 'pf-1', fileName: '前片纸样.pdf', fileUrl: '#', uploadedAt: '2024-03-10', uploadedBy: 'Budi' },
-      { id: 'pf-2', fileName: '后片纸样.pdf', fileUrl: '#', uploadedAt: '2024-03-10', uploadedBy: 'Budi' },
+      {
+        id: 'pf-1',
+        fileName: '前片纸样.pdf',
+        fileUrl: '#',
+        uploadedAt: '2024-03-10',
+        uploadedBy: 'Budi',
+        linkedBomItemId: 'b-1',
+        widthCm: 142,
+        markerLengthM: 2.62,
+        totalPieceCount: 6,
+        pieceRows: [
+          { id: 'pf-1-piece-1', name: '前片', count: 2 },
+          { id: 'pf-1-piece-2', name: '门襟', count: 2 },
+          { id: 'pf-1-piece-3', name: '口袋贴', count: 2, note: '可选口袋款' },
+        ],
+      },
+      {
+        id: 'pf-2',
+        fileName: '后片纸样.pdf',
+        fileUrl: '#',
+        uploadedAt: '2024-03-10',
+        uploadedBy: 'Budi',
+        linkedBomItemId: 'b-1',
+        widthCm: 142,
+        markerLengthM: 2.2,
+        totalPieceCount: 4,
+        pieceRows: [
+          { id: 'pf-2-piece-1', name: '后片', count: 2 },
+          { id: 'pf-2-piece-2', name: '肩部补强片', count: 2 },
+        ],
+      },
     ],
     patternDesc: '标准休闲版型，前后片分开裁剪，袖口收边处理',
     processes: [
@@ -146,8 +190,28 @@ export const techPacks: TechPack[] = [
       { id: 's-3', part: '肩宽', S: 42, M: 44, L: 46, XL: 48, tolerance: 2 },
     ],
     bomItems: [
-      { id: 'b-1', type: '面料', name: '纯棉针织布', spec: '180g/m²', unitConsumption: 0.8, lossRate: 3, supplier: 'PT Textile Indo' },
-      { id: 'b-2', type: '辅料', name: '缝纫线', spec: '40s/2', unitConsumption: 50, lossRate: 5, supplier: 'CV Thread Jaya' },
+      {
+        id: 'b-1',
+        type: '面料',
+        name: '纯棉针织布',
+        spec: '180g/m²',
+        unitConsumption: 0.8,
+        lossRate: 3,
+        supplier: 'PT Textile Indo',
+        applicableSkuCodes: [],
+        linkedPatternIds: ['pf-1', 'pf-2'],
+      },
+      {
+        id: 'b-2',
+        type: '辅料',
+        name: '缝纫线',
+        spec: '40s/2',
+        unitConsumption: 50,
+        lossRate: 5,
+        supplier: 'CV Thread Jaya',
+        applicableSkuCodes: [],
+        linkedPatternIds: [],
+      },
     ],
     patternDesigns: [
       { id: 'pd-1', name: '胸前Logo', imageUrl: '/placeholder.svg' },

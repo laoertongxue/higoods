@@ -51,10 +51,19 @@ type BomItemRow = {
   materialName: string
   spec: string
   patternPieces: string[]
+  linkedPatternIds: string[]
+  applicableSkuCodes: string[]
   usage: number
   lossRate: number
   printRequirement: string
   dyeRequirement: string
+}
+
+type PatternPieceRow = {
+  id: string
+  name: string
+  count: number
+  note: string
 }
 
 type PatternItem = {
@@ -64,6 +73,11 @@ type PatternItem = {
   image: string
   file: string
   remark: string
+  linkedBomItemId: string
+  widthCm: number
+  markerLengthM: number
+  totalPieceCount: number
+  pieceRows: PatternPieceRow[]
 }
 
 type MaterialCostRow = {
@@ -354,8 +368,39 @@ const patternMockInfo: Record<string, { name: string; image: string; desc: strin
 }
 
 const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
-  { id: 'PAT-001', name: '前片', type: '主体片', image: 'pattern-front.png', file: 'front.dxf', remark: '标准前片' },
-  { id: 'PAT-002', name: '后片', type: '主体片', image: 'pattern-back.png', file: 'back.dxf', remark: '标准后片' },
+  {
+    id: 'PAT-001',
+    name: '前片',
+    type: '主体片',
+    image: 'pattern-front.png',
+    file: 'front.dxf',
+    remark: '标准前片',
+    linkedBomItemId: 'bom-1',
+    widthCm: 142,
+    markerLengthM: 2.62,
+    totalPieceCount: 6,
+    pieceRows: [
+      { id: 'PAT-001-R1', name: '前片', count: 2, note: '' },
+      { id: 'PAT-001-R2', name: '门襟', count: 2, note: '' },
+      { id: 'PAT-001-R3', name: '口袋贴', count: 2, note: '可选口袋款' },
+    ],
+  },
+  {
+    id: 'PAT-002',
+    name: '后片',
+    type: '主体片',
+    image: 'pattern-back.png',
+    file: 'back.dxf',
+    remark: '标准后片',
+    linkedBomItemId: 'bom-1',
+    widthCm: 142,
+    markerLengthM: 2.2,
+    totalPieceCount: 4,
+    pieceRows: [
+      { id: 'PAT-002-R1', name: '后片', count: 2, note: '' },
+      { id: 'PAT-002-R2', name: '肩部补强片', count: 2, note: '' },
+    ],
+  },
 ]
 
 const DEFAULT_BOM_ITEMS: BomItemRow[] = [
@@ -366,6 +411,8 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     materialName: '纯棉针织布',
     spec: '180g/m²',
     patternPieces: ['前片', '后片', '袖片'],
+    linkedPatternIds: ['PAT-001', 'PAT-002'],
+    applicableSkuCodes: [],
     usage: 0.8,
     lossRate: 3,
     printRequirement: '数码印',
@@ -378,6 +425,8 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     materialName: '弹力罗纹',
     spec: '200g/m²',
     patternPieces: ['领片'],
+    linkedPatternIds: [],
+    applicableSkuCodes: [],
     usage: 0.1,
     lossRate: 5,
     printRequirement: '无',
@@ -390,6 +439,8 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     materialName: '纽扣',
     spec: '15mm圆形',
     patternPieces: ['前片'],
+    linkedPatternIds: [],
+    applicableSkuCodes: [],
     usage: 5,
     lossRate: 2,
     printRequirement: '无',
@@ -525,6 +576,8 @@ interface TechPackPageState {
     materialName: string
     spec: string
     patternPieces: string[]
+    linkedPatternIds: string[]
+    applicableSkuCodes: string[]
     usage: string
     lossRate: string
     printRequirement: string
@@ -587,6 +640,11 @@ const state: TechPackPageState = {
     image: '',
     file: '',
     remark: '',
+    linkedBomItemId: '',
+    widthCm: 0,
+    markerLengthM: 0,
+    totalPieceCount: 0,
+    pieceRows: [],
   },
   newBomItem: {
     type: '面料',
@@ -594,6 +652,8 @@ const state: TechPackPageState = {
     materialName: '',
     spec: '',
     patternPieces: [],
+    linkedPatternIds: [],
+    applicableSkuCodes: [],
     usage: '',
     lossRate: '',
     printRequirement: '无',
@@ -641,10 +701,17 @@ function decodeSpuCode(rawSpuCode: string): string {
 function cloneTechPack(techPack: TechPack): TechPack {
   return {
     ...techPack,
-    patternFiles: techPack.patternFiles.map((item) => ({ ...item })),
+    patternFiles: techPack.patternFiles.map((item) => ({
+      ...item,
+      pieceRows: (item.pieceRows ?? []).map((row) => ({ ...row })),
+    })),
     processes: techPack.processes.map((item) => ({ ...item })),
     sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
-    bomItems: techPack.bomItems.map((item) => ({ ...item })),
+    bomItems: techPack.bomItems.map((item) => ({
+      ...item,
+      applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+      linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    })),
     patternDesigns: techPack.patternDesigns.map((item) => ({ ...item })),
     attachments: techPack.attachments.map((item) => ({ ...item })),
     missingChecklist: [...techPack.missingChecklist],
@@ -716,38 +783,106 @@ function mapProcessToStage(name: string): {
   return { stage: '生产阶段', process: '特殊工艺', source: '老系统同步' }
 }
 
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter((item) => item.trim().length > 0)))
+}
+
+function normalizePatternPieceRows(rows: PatternPieceRow[], patternId: string): PatternPieceRow[] {
+  return rows.map((row, index) => ({
+    id: row.id || `${patternId}-piece-${index + 1}`,
+    name: row.name || `裁片-${index + 1}`,
+    count: Number.isFinite(row.count) ? Number(row.count) : 0,
+    note: row.note || '',
+  }))
+}
+
 function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
   if (techPack.patternFiles.length === 0) {
-    return DEFAULT_PATTERN_ITEMS.map((item) => ({ ...item }))
+    return DEFAULT_PATTERN_ITEMS.map((item) => ({
+      ...item,
+      pieceRows: item.pieceRows.map((row) => ({ ...row })),
+    }))
   }
 
-  return techPack.patternFiles.map((item, index) => ({
-    id: item.id || `PAT-${index + 1}`,
-    name: item.fileName.replace(/\.[^/.]+$/, ''),
-    type: '主体片',
-    image: '',
-    file: item.fileName,
-    remark: '',
-  }))
+  return techPack.patternFiles.map((item, index) => {
+    const patternId = item.id || `PAT-${index + 1}`
+    const normalizedRows = normalizePatternPieceRows(
+      (item.pieceRows ?? []).map((row) => ({
+        id: row.id || '',
+        name: row.name,
+        count: Number(row.count),
+        note: row.note || '',
+      })),
+      patternId,
+    )
+    const inferredPieceCount = normalizedRows.reduce((sum, row) => sum + row.count, 0)
+
+    return {
+      id: patternId,
+      name: item.fileName.replace(/\.[^/.]+$/, ''),
+      type: '主体片',
+      image: '',
+      file: item.fileName,
+      remark: '',
+      linkedBomItemId: item.linkedBomItemId ?? '',
+      // 门幅单位固定 cm
+      widthCm: Number.isFinite(item.widthCm) ? Number(item.widthCm) : 0,
+      // 排料长度单位固定 m
+      markerLengthM: Number.isFinite(item.markerLengthM) ? Number(item.markerLengthM) : 0,
+      // totalPieceCount 固定语义：裁片总片数
+      totalPieceCount:
+        Number.isFinite(item.totalPieceCount) && Number(item.totalPieceCount) > 0
+          ? Number(item.totalPieceCount)
+          : inferredPieceCount,
+      pieceRows: normalizedRows,
+    }
+  })
 }
 
 function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
   if (techPack.bomItems.length === 0) {
-    return DEFAULT_BOM_ITEMS.map((item) => ({ ...item, patternPieces: [...item.patternPieces] }))
+    return DEFAULT_BOM_ITEMS.map((item) => ({
+      ...item,
+      patternPieces: [...item.patternPieces],
+      linkedPatternIds: [...item.linkedPatternIds],
+      applicableSkuCodes: [...item.applicableSkuCodes],
+    }))
   }
 
-  return techPack.bomItems.map((item, index) => ({
-    id: item.id || `bom-${index + 1}`,
-    type: item.type,
-    materialCode: item.id || `MAT-${index + 1}`,
-    materialName: item.name,
-    spec: item.spec,
-    patternPieces: ['前片'],
-    usage: item.unitConsumption,
-    lossRate: item.lossRate,
-    printRequirement: '无',
-    dyeRequirement: '无',
-  }))
+  const patternNameById = new Map(
+    techPack.patternFiles.map((item) => [item.id, item.fileName.replace(/\.[^/.]+$/, '')]),
+  )
+  const patternNamesByLinkedBom = new Map<string, string[]>()
+  techPack.patternFiles.forEach((item) => {
+    if (!item.linkedBomItemId) return
+    const current = patternNamesByLinkedBom.get(item.linkedBomItemId) ?? []
+    current.push(item.fileName.replace(/\.[^/.]+$/, ''))
+    patternNamesByLinkedBom.set(item.linkedBomItemId, current)
+  })
+
+  return techPack.bomItems.map((item, index) => {
+    const linkedPatternIds = dedupeStrings([...(item.linkedPatternIds ?? [])])
+    const namesFromLinkedIds = linkedPatternIds
+      .map((id) => patternNameById.get(id) || '')
+      .filter((name) => name.trim().length > 0)
+    const namesFromLinkedBom = patternNamesByLinkedBom.get(item.id) ?? []
+    const patternPieces = dedupeStrings([...namesFromLinkedIds, ...namesFromLinkedBom])
+
+    return {
+      id: item.id || `bom-${index + 1}`,
+      type: item.type,
+      materialCode: item.id || `MAT-${index + 1}`,
+      materialName: item.name,
+      spec: item.spec,
+      patternPieces: patternPieces.length > 0 ? patternPieces : ['前片'],
+      linkedPatternIds,
+      applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+      usage: item.unitConsumption,
+      lossRate: item.lossRate,
+      printRequirement: '无',
+      dyeRequirement: '无',
+    }
+  })
 }
 
 function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
@@ -885,16 +1020,36 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
   const doneCount = requiredItems.filter((item) => item.done).length
   const score = requiredItems.length === 0 ? 100 : Math.round((doneCount / requiredItems.length) * 100)
   const missing = requiredItems.filter((item) => !item.done).map((item) => item.label)
+  const patternIdByName = new Map(state.patternItems.map((item) => [item.name, item.id]))
 
   const next: TechPack = {
     ...state.techPack,
-    patternFiles: state.patternItems.map((item) => ({
-      id: item.id,
-      fileName: item.file || `${item.name}.dxf`,
-      fileUrl: '#',
-      uploadedAt: state.techPack?.lastUpdatedAt || toTimestamp(),
-      uploadedBy: currentUser.name,
-    })),
+    patternFiles: state.patternItems.map((item) => {
+      const pieceRows = normalizePatternPieceRows(item.pieceRows, item.id)
+      const inferredPieceCount = pieceRows.reduce((sum, row) => sum + row.count, 0)
+      return {
+        id: item.id,
+        fileName: item.file || `${item.name}.dxf`,
+        fileUrl: '#',
+        uploadedAt: state.techPack?.lastUpdatedAt || toTimestamp(),
+        uploadedBy: currentUser.name,
+        linkedBomItemId: item.linkedBomItemId || undefined,
+        // 门幅单位固定 cm；排料长度单位固定 m
+        widthCm: Number.isFinite(item.widthCm) ? item.widthCm : 0,
+        markerLengthM: Number.isFinite(item.markerLengthM) ? item.markerLengthM : 0,
+        // totalPieceCount 固定语义：裁片总片数
+        totalPieceCount:
+          Number.isFinite(item.totalPieceCount) && item.totalPieceCount > 0
+            ? item.totalPieceCount
+            : inferredPieceCount,
+        pieceRows: pieceRows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          count: row.count,
+          note: row.note || undefined,
+        })),
+      }
+    }),
     processes: state.techniques.map((item, index) => ({
       id: item.id,
       seq: index + 1,
@@ -914,6 +1069,13 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
       unitConsumption: Number(item.usage) || 0,
       lossRate: Number(item.lossRate) || 0,
       supplier: '-',
+      applicableSkuCodes: dedupeStrings([...(item.applicableSkuCodes ?? [])]),
+      linkedPatternIds: dedupeStrings([
+        ...(item.linkedPatternIds ?? []),
+        ...item.patternPieces
+          .map((pieceName) => patternIdByName.get(pieceName) || '')
+          .filter((id) => id.trim().length > 0),
+      ]),
     })),
     completenessScore: score,
     missingChecklist: missing,
@@ -943,6 +1105,11 @@ function resetPatternForm(): void {
     image: '',
     file: '',
     remark: '',
+    linkedBomItemId: '',
+    widthCm: 0,
+    markerLengthM: 0,
+    totalPieceCount: 0,
+    pieceRows: [],
   }
   state.editPatternItemId = null
 }
@@ -954,6 +1121,8 @@ function resetBomForm(): void {
     materialName: '',
     spec: '',
     patternPieces: [],
+    linkedPatternIds: [],
+    applicableSkuCodes: [],
     usage: '',
     lossRate: '',
     printRequirement: '无',
@@ -2666,6 +2835,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       image: pattern.image,
       file: pattern.file,
       remark: pattern.remark,
+      linkedBomItemId: pattern.linkedBomItemId,
+      widthCm: pattern.widthCm,
+      markerLengthM: pattern.markerLengthM,
+      totalPieceCount: pattern.totalPieceCount,
+      pieceRows: pattern.pieceRows.map((row) => ({ ...row })),
     }
     state.addPatternDialogOpen = true
     return true
@@ -2740,6 +2914,13 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-bom') {
     if (!state.newBomItem.materialName.trim()) return true
+    const patternIdByName = new Map(state.patternItems.map((item) => [item.name, item.id]))
+    const linkedPatternIds = dedupeStrings([
+      ...(state.newBomItem.linkedPatternIds ?? []),
+      ...state.newBomItem.patternPieces
+        .map((piece) => patternIdByName.get(piece) || '')
+        .filter((id) => id.trim().length > 0),
+    ])
 
     state.bomItems = [
       ...state.bomItems,
@@ -2750,6 +2931,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         materialName: state.newBomItem.materialName,
         spec: state.newBomItem.spec,
         patternPieces: [...state.newBomItem.patternPieces],
+        linkedPatternIds,
+        applicableSkuCodes: [...state.newBomItem.applicableSkuCodes],
         usage: Number.parseFloat(state.newBomItem.usage) || 0,
         lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
         printRequirement: state.newBomItem.printRequirement,
