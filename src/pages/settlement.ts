@@ -60,6 +60,7 @@ const CURRENCIES = ['CNY', 'USD', 'EUR', 'HKD'] as const
 
 type DetailTab = 'profile' | 'accounts' | 'rules' | 'history'
 type InitTab = 'config' | 'account' | 'rules'
+type ProfileTab = 'config' | 'rules'
 type ConfirmActionType = 'disableAccount' | 'setDefault' | 'disableRule'
 type SettlementListView = 'effective' | 'requests'
 
@@ -101,6 +102,9 @@ interface SettlementState {
 
   profileForm: SettlementProfileFormData
   profileErrors: Partial<Record<'cycleType' | 'pricingMode' | 'currency' | 'effectiveFrom', string>>
+  profileActiveTab: ProfileTab
+  profileRulesDraft: SettlementDefaultDeductionRuleSnapshot[]
+  profileRulesError: string
 
   accountForm: BankAccountFormData
   accountErrors: Partial<Record<'accountName' | 'bankName' | 'accountMasked' | 'currency', string>>
@@ -163,6 +167,17 @@ const state: SettlementState = {
     effectiveFrom: '',
   },
   profileErrors: {},
+  profileActiveTab: 'config',
+  profileRulesDraft: [
+    {
+      ruleType: 'QUALITY_DEFECT',
+      ruleMode: 'PERCENTAGE',
+      ruleValue: 5,
+      effectiveFrom: today(),
+      status: 'ACTIVE',
+    },
+  ],
+  profileRulesError: '',
 
   accountForm: {
     accountName: '',
@@ -418,17 +433,16 @@ function getVersionRecordById(factoryId: string, versionId: string) {
 }
 
 function resetProfileForm(factoryId?: string): void {
-  const activeProfile = factoryId
-    ? getFactoryProfiles(factoryId).find((profile) => profile.isActive) ??
-      getFactoryProfiles(factoryId)[0]
+  const effectiveInfo = factoryId
+    ? state.effectiveInfos.find((item) => item.factoryId === factoryId) ?? null
     : null
 
-  state.profileForm = activeProfile
+  state.profileForm = effectiveInfo
     ? {
-        cycleType: activeProfile.cycleType,
-        settlementDayRule: activeProfile.settlementDayRule || '',
-        pricingMode: activeProfile.pricingMode,
-        currency: activeProfile.currency,
+        cycleType: effectiveInfo.settlementConfigSnapshot.cycleType,
+        settlementDayRule: effectiveInfo.settlementConfigSnapshot.settlementDayRule || '',
+        pricingMode: effectiveInfo.settlementConfigSnapshot.pricingMode,
+        currency: effectiveInfo.settlementConfigSnapshot.currency,
         effectiveFrom: today(),
       }
     : {
@@ -438,7 +452,21 @@ function resetProfileForm(factoryId?: string): void {
         currency: 'CNY',
         effectiveFrom: today(),
       }
+  state.profileRulesDraft =
+    effectiveInfo && effectiveInfo.defaultDeductionRulesSnapshot.length > 0
+      ? effectiveInfo.defaultDeductionRulesSnapshot.map((item) => ({ ...item }))
+      : [
+          {
+            ruleType: 'QUALITY_DEFECT',
+            ruleMode: 'PERCENTAGE',
+            ruleValue: 5,
+            effectiveFrom: today(),
+            status: 'ACTIVE',
+          },
+        ]
+  state.profileRulesError = ''
   state.profileErrors = {}
+  state.profileActiveTab = 'config'
 }
 
 function resetAccountForm(account: FactoryBankAccount | null): void {
@@ -489,6 +517,7 @@ function resetRuleForm(rule: DefaultPenaltyRule | null): void {
 
 function openProfileDrawer(factoryId: string): void {
   resetProfileForm(factoryId)
+  state.profileActiveTab = 'config'
   state.dialog = { type: 'profile-drawer', factoryId }
 }
 
@@ -995,6 +1024,19 @@ function renderSettlementVersionViewDialog(): string {
           </header>
           <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5 text-sm">
             <section class="rounded-md border p-4">
+              <p class="text-sm font-semibold">版本信息</p>
+              <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
+                <p class="text-muted-foreground">版本号：<span class="font-medium text-foreground">${escapeHtml(record.versionNo)}</span></p>
+                <p class="text-muted-foreground">状态：<span class="font-medium text-foreground">${record.status === 'EFFECTIVE' ? '生效中' : '已失效'}</span></p>
+                <p class="text-muted-foreground">生效日期：<span class="font-medium text-foreground">${escapeHtml(record.effectiveAt)}</span></p>
+                <p class="text-muted-foreground">失效日期：<span class="font-medium text-foreground">${escapeHtml(record.expiryAt || '—')}</span></p>
+                <p class="text-muted-foreground">变更项：<span class="font-medium text-foreground">${escapeHtml(record.changeItems.join('、'))}</span></p>
+                <p class="text-muted-foreground">变更来源：<span class="font-medium text-foreground">${escapeHtml(record.changeSource || '平台新增版本')}</span></p>
+                <p class="text-muted-foreground">操作人：<span class="font-medium text-foreground">${escapeHtml(record.effectiveBy)}</span></p>
+                <p class="text-muted-foreground">来源单号：<span class="font-medium text-foreground">${escapeHtml(record.sourceRequestId)}</span></p>
+              </div>
+            </section>
+            <section class="rounded-md border p-4">
               <p class="text-sm font-semibold">结算配置</p>
               <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
                 <p class="text-muted-foreground">结算周期：<span class="font-medium text-foreground">${escapeHtml(
@@ -1081,95 +1123,192 @@ function renderSettlementVersionViewDialog(): string {
 function renderProfileDrawer(): string {
   if (state.dialog.type !== 'profile-drawer') return ''
 
+  const configTab = `
+    <section class="space-y-3 rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold">结算配置</p>
+        <span class="text-xs text-muted-foreground">当前版本基础上创建新版本</span>
+      </div>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">结算周期 *</span>
+          <select data-settle-field="profile.cycleType" class="h-9 w-full rounded-md border px-3 text-sm ${state.profileErrors.cycleType ? 'border-red-600' : ''}">
+            ${(Object.keys(cycleTypeConfig) as CycleType[])
+              .map(
+                (cycleType) =>
+                  `<option value="${cycleType}" ${
+                    state.profileForm.cycleType === cycleType ? 'selected' : ''
+                  }>${escapeHtml(cycleTypeConfig[cycleType].label)}</option>`,
+              )
+              .join('')}
+          </select>
+          ${
+            state.profileErrors.cycleType
+              ? `<p class="text-xs text-red-600">${escapeHtml(state.profileErrors.cycleType)}</p>`
+              : ''
+          }
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">计价方式 *</span>
+          <select data-settle-field="profile.pricingMode" class="h-9 w-full rounded-md border px-3 text-sm ${state.profileErrors.pricingMode ? 'border-red-600' : ''}">
+            ${(Object.keys(pricingModeConfig) as PricingMode[])
+              .map(
+                (pricingMode) =>
+                  `<option value="${pricingMode}" ${
+                    state.profileForm.pricingMode === pricingMode ? 'selected' : ''
+                  }>${escapeHtml(pricingModeConfig[pricingMode].label)}</option>`,
+              )
+              .join('')}
+          </select>
+          ${
+            state.profileErrors.pricingMode
+              ? `<p class="text-xs text-red-600">${escapeHtml(state.profileErrors.pricingMode)}</p>`
+              : ''
+          }
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">币种 *</span>
+          <select data-settle-field="profile.currency" class="h-9 w-full rounded-md border px-3 text-sm ${state.profileErrors.currency ? 'border-red-600' : ''}">
+            ${CURRENCIES.map(
+              (currency) =>
+                `<option value="${currency}" ${
+                  state.profileForm.currency === currency ? 'selected' : ''
+                }>${currency}</option>`,
+            ).join('')}
+          </select>
+          ${
+            state.profileErrors.currency
+              ? `<p class="text-xs text-red-600">${escapeHtml(state.profileErrors.currency)}</p>`
+              : ''
+          }
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">结算日规则</span>
+          <input
+            data-settle-field="profile.settlementDayRule"
+            value="${escapeHtml(state.profileForm.settlementDayRule ?? '')}"
+            placeholder="例如：每月25日"
+            class="h-9 w-full rounded-md border px-3 text-sm"
+          />
+        </label>
+        <label class="space-y-1 md:col-span-2">
+          <span class="text-xs text-muted-foreground">生效日期 *</span>
+          <input
+            type="date"
+            data-settle-field="profile.effectiveFrom"
+            value="${escapeHtml(state.profileForm.effectiveFrom)}"
+            class="h-9 w-full rounded-md border px-3 text-sm ${state.profileErrors.effectiveFrom ? 'border-red-600' : ''}"
+          />
+          ${
+            state.profileErrors.effectiveFrom
+              ? `<p class="text-xs text-red-600">${escapeHtml(state.profileErrors.effectiveFrom)}</p>`
+              : ''
+          }
+        </label>
+      </div>
+    </section>
+  `
+
+  const rulesTab = `
+    <section class="space-y-3 rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold">扣款规则</p>
+        <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-settle-action="add-profile-rule">新增扣款规则</button>
+      </div>
+      <div class="overflow-x-auto rounded-md border">
+        <table class="w-full text-sm">
+          <thead class="border-b bg-muted/30">
+            <tr>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">规则类型</th>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">计算方式</th>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">数值</th>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">生效日期</th>
+              <th class="px-2 py-2 text-left text-xs font-medium text-muted-foreground">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              state.profileRulesDraft.length === 0
+                ? '<tr><td colspan="5" class="px-2 py-4 text-center text-muted-foreground">暂无扣款规则</td></tr>'
+                : state.profileRulesDraft
+                    .map(
+                      (rule, index) => `
+                        <tr class="border-b last:border-0">
+                          <td class="px-2 py-2">
+                            <select data-settle-profile-rule-field="rule.${index}.ruleType" class="h-8 w-full rounded border px-2 text-xs">
+                              ${(Object.keys(ruleTypeConfig) as RuleType[])
+                                .map(
+                                  (ruleType) =>
+                                    `<option value="${ruleType}" ${rule.ruleType === ruleType ? 'selected' : ''}>${escapeHtml(
+                                      ruleTypeConfig[ruleType].label,
+                                    )}</option>`,
+                                )
+                                .join('')}
+                            </select>
+                          </td>
+                          <td class="px-2 py-2">
+                            <select data-settle-profile-rule-field="rule.${index}.ruleMode" class="h-8 w-full rounded border px-2 text-xs">
+                              ${(Object.keys(ruleModeConfig) as RuleMode[])
+                                .map(
+                                  (ruleMode) =>
+                                    `<option value="${ruleMode}" ${rule.ruleMode === ruleMode ? 'selected' : ''}>${escapeHtml(
+                                      ruleModeConfig[ruleMode].label,
+                                    )}</option>`,
+                                )
+                                .join('')}
+                            </select>
+                          </td>
+                          <td class="px-2 py-2">
+                            <input type="number" min="0" step="0.1" data-settle-profile-rule-field="rule.${index}.ruleValue" class="h-8 w-full rounded border px-2 text-xs" value="${rule.ruleValue}" />
+                          </td>
+                          <td class="px-2 py-2">
+                            <input type="date" data-settle-profile-rule-field="rule.${index}.effectiveFrom" class="h-8 w-full rounded border px-2 text-xs" value="${escapeHtml(
+                              rule.effectiveFrom,
+                            )}" />
+                          </td>
+                          <td class="px-2 py-2">
+                            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted ${
+                              state.profileRulesDraft.length <= 1 ? 'pointer-events-none opacity-50' : ''
+                            }" data-settle-action="remove-profile-rule" data-rule-index="${index}">删除</button>
+                          </td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+      ${
+        state.profileRulesError
+          ? `<p class="text-xs text-red-600">${escapeHtml(state.profileRulesError)}</p>`
+          : '<p class="text-xs text-muted-foreground">当前规则会随本次新增版本一起生效。</p>'
+      }
+    </section>
+  `
+
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-settle-action="close-dialog" aria-label="关闭"></button>
-      <section class="absolute inset-y-0 right-0 w-full border-l bg-background shadow-2xl sm:max-w-[480px]" data-dialog-panel="true">
+      <section class="absolute inset-y-0 right-0 w-full border-l bg-background shadow-2xl sm:max-w-[760px]" data-dialog-panel="true">
         <div class="flex h-full flex-col">
           <header class="border-b px-6 py-4">
             <h3 class="text-lg font-semibold">新增结算版本</h3>
-            <p class="mt-1 text-sm text-muted-foreground">创建新的结算配置版本，原有生效版本将自动失效</p>
+            <p class="mt-1 text-sm text-muted-foreground">创建新版本并更新结算配置与扣款规则，原有生效版本将自动失效。</p>
           </header>
 
           <form data-settle-form="profile" class="flex flex-1 flex-col">
-            <div class="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-              <label class="space-y-1.5">
-                <span class="text-sm font-medium">结算周期 *</span>
-                <select data-settle-field="profile.cycleType" class="w-full rounded-md border px-3 py-2 text-sm ${state.profileErrors.cycleType ? 'border-red-600' : ''}">
-                  ${(Object.keys(cycleTypeConfig) as CycleType[])
-                    .map(
-                      (cycleType) =>
-                        `<option value="${cycleType}" ${state.profileForm.cycleType === cycleType ? 'selected' : ''}>${escapeHtml(
-                          cycleTypeConfig[cycleType].label,
-                        )}</option>`,
-                    )
-                    .join('')}
-                </select>
-                ${
-                  state.profileErrors.cycleType
-                    ? `<p class="text-xs text-red-600">${escapeHtml(state.profileErrors.cycleType)}</p>`
-                    : ''
-                }
-              </label>
+            <div class="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+              <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                新增版本沿用“初始化结算信息”结构，仅支持修改结算配置和扣款规则。收款账号请由工厂端（PDA）发起修改申请。
+              </div>
 
-              <label class="space-y-1.5">
-                <span class="text-sm font-medium">结算日规则</span>
-                <input
-                  data-settle-field="profile.settlementDayRule"
-                  value="${escapeHtml(state.profileForm.settlementDayRule ?? '')}"
-                  placeholder="例如：每月25日、每周五"
-                  class="w-full rounded-md border px-3 py-2 text-sm"
-                />
-              </label>
+              <div class="inline-flex rounded-md border bg-muted/30 p-1">
+                <button class="rounded px-3 py-1.5 text-sm ${state.profileActiveTab === 'config' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-profile-tab" data-tab="config">结算配置</button>
+                <button class="rounded px-3 py-1.5 text-sm ${state.profileActiveTab === 'rules' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-profile-tab" data-tab="rules">扣款规则</button>
+              </div>
 
-              <label class="space-y-1.5">
-                <span class="text-sm font-medium">计价方式 *</span>
-                <select data-settle-field="profile.pricingMode" class="w-full rounded-md border px-3 py-2 text-sm ${state.profileErrors.pricingMode ? 'border-red-600' : ''}">
-                  ${(Object.keys(pricingModeConfig) as PricingMode[])
-                    .map(
-                      (pricingMode) =>
-                        `<option value="${pricingMode}" ${state.profileForm.pricingMode === pricingMode ? 'selected' : ''}>${escapeHtml(
-                          pricingModeConfig[pricingMode].label,
-                        )}</option>`,
-                    )
-                    .join('')}
-                </select>
-                ${
-                  state.profileErrors.pricingMode
-                    ? `<p class="text-xs text-red-600">${escapeHtml(state.profileErrors.pricingMode)}</p>`
-                    : ''
-                }
-              </label>
-
-              <label class="space-y-1.5">
-                <span class="text-sm font-medium">默认币种 *</span>
-                <select data-settle-field="profile.currency" class="w-full rounded-md border px-3 py-2 text-sm ${state.profileErrors.currency ? 'border-red-600' : ''}">
-                  ${CURRENCIES.map(
-                    (currency) =>
-                      `<option value="${currency}" ${state.profileForm.currency === currency ? 'selected' : ''}>${currency}</option>`,
-                  ).join('')}
-                </select>
-                ${
-                  state.profileErrors.currency
-                    ? `<p class="text-xs text-red-600">${escapeHtml(state.profileErrors.currency)}</p>`
-                    : ''
-                }
-              </label>
-
-              <label class="space-y-1.5">
-                <span class="text-sm font-medium">生效日期 *</span>
-                <input
-                  type="date"
-                  data-settle-field="profile.effectiveFrom"
-                  value="${escapeHtml(state.profileForm.effectiveFrom)}"
-                  class="w-full rounded-md border px-3 py-2 text-sm ${state.profileErrors.effectiveFrom ? 'border-red-600' : ''}"
-                />
-                ${
-                  state.profileErrors.effectiveFrom
-                    ? `<p class="text-xs text-red-600">${escapeHtml(state.profileErrors.effectiveFrom)}</p>`
-                    : ''
-                }
-              </label>
+              ${state.profileActiveTab === 'config' ? configTab : rulesTab}
             </div>
 
             <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
@@ -1442,6 +1581,9 @@ function renderDetailProfileTab(currentProfile: FactorySettlementProfile | undef
   return `
     <div class="rounded-lg border bg-card p-6">
       <h3 class="mb-4 font-semibold">当前有效版本</h3>
+      <div class="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        当前页仅展示生效版本，结算配置与扣款规则修改请通过“新增版本”完成。
+      </div>
       <div class="grid grid-cols-2 gap-6 md:grid-cols-3">
         <div>
           <p class="text-sm text-muted-foreground">结算周期</p>
@@ -1472,95 +1614,43 @@ function renderDetailProfileTab(currentProfile: FactorySettlementProfile | undef
   `
 }
 
-function renderDetailAccountsTab(factoryId: string, accounts: FactoryBankAccount[]): string {
+function renderDetailAccountsTab(effectiveInfo: SettlementEffectiveInfo | null): string {
+  if (!effectiveInfo) {
+    return `
+      <div class="rounded-lg border bg-card p-6 text-center text-muted-foreground">
+        暂无当前生效收款账号
+      </div>
+    `
+  }
+
+  const account = effectiveInfo.receivingAccountSnapshot
   return `
     <div class="space-y-4">
-      <div class="flex justify-end">
-        <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-settle-action="open-account-drawer" data-factory-id="${factoryId}">
-          <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-          新增账户
-        </button>
+      <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        收款账号除初始化外，只能由工厂端（PDA）发起修改申请，平台侧当前仅支持查看。
       </div>
 
       <div class="overflow-x-auto rounded-md border">
         <table class="w-full text-sm">
           <thead class="border-b bg-muted/30">
             <tr>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">账户名称</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">银行</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">账号</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">币种</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">默认账户</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
-              <th class="px-3 py-3 text-right text-xs font-medium text-muted-foreground">操作</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">开户名</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">证件号</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">银行名称</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">银行账号</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">开户支行</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前版本</th>
             </tr>
           </thead>
           <tbody>
-            ${
-              accounts.length === 0
-                ? '<tr><td colspan="7" class="h-24 px-3 text-center text-muted-foreground">暂无收款账户</td></tr>'
-                : accounts
-                    .map((account) => {
-                      const statusConfig = settlementStatusConfig[account.status]
-                      return `
-                        <tr class="border-b last:border-0">
-                          <td class="px-3 py-3 font-medium">${escapeHtml(account.accountName)}</td>
-                          <td class="px-3 py-3">${escapeHtml(account.bankName)}</td>
-                          <td class="px-3 py-3 font-mono">${escapeHtml(account.accountMasked)}</td>
-                          <td class="px-3 py-3">${escapeHtml(account.currency)}</td>
-                          <td class="px-3 py-3">
-                            ${
-                              account.isDefault
-                                ? `<span class="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-blue-50 text-blue-700 border-blue-200"><i data-lucide="star" class="mr-1 h-3 w-3"></i>默认</span>`
-                                : '<span class="text-muted-foreground">-</span>'
-                            }
-                          </td>
-                          <td class="px-3 py-3">
-                            <span class="inline-flex rounded border px-2 py-0.5 text-xs ${statusConfig.color}">${escapeHtml(
-                        statusConfig.label,
-                      )}</span>
-                          </td>
-                          <td class="px-3 py-3 text-right">
-                            <div class="relative inline-block text-left">
-                              <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-settle-action="toggle-account-menu" data-account-id="${account.id}">
-                                <i data-lucide="more-horizontal" class="h-4 w-4"></i>
-                              </button>
-                              ${
-                                state.accountActionMenuId === account.id
-                                  ? `
-                                    <div class="absolute right-0 z-20 mt-1 min-w-[130px] rounded-md border bg-background p-1 shadow-lg">
-                                      <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-settle-action="open-account-drawer" data-factory-id="${factoryId}" data-account-id="${account.id}">
-                                        <i data-lucide="pencil" class="mr-2 h-4 w-4"></i>编辑
-                                      </button>
-                                      ${
-                                        !account.isDefault && account.status === 'ACTIVE'
-                                          ? `
-                                            <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-settle-action="open-confirm" data-factory-id="${factoryId}" data-confirm-type="setDefault" data-item-id="${account.id}">
-                                              <i data-lucide="star" class="mr-2 h-4 w-4"></i>设为默认
-                                            </button>
-                                          `
-                                          : ''
-                                      }
-                                      ${
-                                        account.status === 'ACTIVE'
-                                          ? `
-                                            <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-red-600 hover:bg-red-50" data-settle-action="open-confirm" data-factory-id="${factoryId}" data-confirm-type="disableAccount" data-item-id="${account.id}">
-                                              <i data-lucide="ban" class="mr-2 h-4 w-4"></i>禁用
-                                            </button>
-                                          `
-                                          : ''
-                                      }
-                                    </div>
-                                  `
-                                  : ''
-                              }
-                            </div>
-                          </td>
-                        </tr>
-                      `
-                    })
-                    .join('')
-            }
+            <tr>
+              <td class="px-3 py-3 font-medium">${escapeHtml(account.accountHolderName)}</td>
+              <td class="px-3 py-3">${escapeHtml(account.idNumber)}</td>
+              <td class="px-3 py-3">${escapeHtml(account.bankName)}</td>
+              <td class="px-3 py-3 font-mono">${escapeHtml(maskBankAccountNo(account.bankAccountNo))}</td>
+              <td class="px-3 py-3">${escapeHtml(account.bankBranch || '—')}</td>
+              <td class="px-3 py-3">${escapeHtml(effectiveInfo.versionNo)}</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -1568,14 +1658,11 @@ function renderDetailAccountsTab(factoryId: string, accounts: FactoryBankAccount
   `
 }
 
-function renderDetailRulesTab(factoryId: string, rules: DefaultPenaltyRule[]): string {
+function renderDetailRulesTab(rules: SettlementDefaultDeductionRuleSnapshot[]): string {
   return `
     <div class="space-y-4">
-      <div class="flex justify-end">
-        <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-settle-action="open-rule-drawer" data-factory-id="${factoryId}">
-          <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-          新增规则
-        </button>
+      <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        当前页仅展示当前生效版本的扣款规则，修改请通过右上角“新增版本”完成。
       </div>
 
       <div class="overflow-x-auto rounded-md border">
@@ -1588,13 +1675,12 @@ function renderDetailRulesTab(factoryId: string, rules: DefaultPenaltyRule[]): s
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">生效日期</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">失效日期</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
-              <th class="px-3 py-3 text-right text-xs font-medium text-muted-foreground">操作</th>
             </tr>
           </thead>
           <tbody>
             ${
               rules.length === 0
-                ? '<tr><td colspan="7" class="h-24 px-3 text-center text-muted-foreground">暂无扣款规则</td></tr>'
+                ? '<tr><td colspan="6" class="h-24 px-3 text-center text-muted-foreground">暂无扣款规则</td></tr>'
                 : rules
                     .map((rule) => {
                       const statusConfig = settlementStatusConfig[rule.status]
@@ -1612,33 +1698,6 @@ function renderDetailRulesTab(factoryId: string, rules: DefaultPenaltyRule[]): s
                             <span class="inline-flex rounded border px-2 py-0.5 text-xs ${statusConfig.color}">${escapeHtml(
                         statusConfig.label,
                       )}</span>
-                          </td>
-                          <td class="px-3 py-3 text-right">
-                            <div class="relative inline-block text-left">
-                              <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-settle-action="toggle-rule-menu" data-rule-id="${rule.id}">
-                                <i data-lucide="more-horizontal" class="h-4 w-4"></i>
-                              </button>
-                              ${
-                                state.ruleActionMenuId === rule.id
-                                  ? `
-                                    <div class="absolute right-0 z-20 mt-1 min-w-[120px] rounded-md border bg-background p-1 shadow-lg">
-                                      <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-settle-action="open-rule-drawer" data-factory-id="${factoryId}" data-rule-id="${rule.id}">
-                                        <i data-lucide="pencil" class="mr-2 h-4 w-4"></i>编辑
-                                      </button>
-                                      ${
-                                        rule.status === 'ACTIVE'
-                                          ? `
-                                            <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm text-red-600 hover:bg-red-50" data-settle-action="open-confirm" data-factory-id="${factoryId}" data-confirm-type="disableRule" data-item-id="${rule.id}">
-                                              <i data-lucide="ban" class="mr-2 h-4 w-4"></i>禁用
-                                            </button>
-                                          `
-                                          : ''
-                                      }
-                                    </div>
-                                  `
-                                  : ''
-                              }
-                            </div>
                           </td>
                         </tr>
                       `
@@ -1666,19 +1725,27 @@ function renderDetailHistoryTab(factoryId: string): string {
             <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">收款账号</th>
             <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">扣款规则</th>
             <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">生效日期</th>
-            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">生效人</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">失效日期</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">变更项</th>
+            <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">变更来源</th>
             <th class="px-3 py-3 text-right text-xs font-medium text-muted-foreground">操作</th>
           </tr>
         </thead>
         <tbody>
           ${
             records.length === 0
-              ? '<tr><td colspan="7" class="h-24 px-3 text-center text-muted-foreground">暂无历史版本</td></tr>'
+              ? '<tr><td colspan="10" class="h-24 px-3 text-center text-muted-foreground">暂无历史版本</td></tr>'
               : records
                   .map((record) => {
                     const configText = `${cycleTypeConfig[record.settlementConfigSnapshot.cycleType].label} · ${
                       pricingModeConfig[record.settlementConfigSnapshot.pricingMode].label
                     } · ${record.settlementConfigSnapshot.currency}`
+                    const statusText = record.status === 'EFFECTIVE' ? '生效中' : '已失效'
+                    const statusClass =
+                      record.status === 'EFFECTIVE'
+                        ? 'border-green-200 bg-green-50 text-green-700'
+                        : 'border-slate-200 bg-slate-50 text-slate-600'
                     return `
                       <tr class="border-b last:border-0">
                         <td class="px-3 py-3 font-medium">${escapeHtml(record.versionNo)}</td>
@@ -1686,7 +1753,10 @@ function renderDetailHistoryTab(factoryId: string): string {
                         <td class="px-3 py-3">${escapeHtml(maskBankAccountNo(record.receivingAccountSnapshot.bankAccountNo))}</td>
                         <td class="px-3 py-3">${record.defaultDeductionRulesSnapshot.length} 条</td>
                         <td class="px-3 py-3">${escapeHtml(record.effectiveAt)}</td>
-                        <td class="px-3 py-3">${escapeHtml(record.effectiveBy)}</td>
+                        <td class="px-3 py-3">${escapeHtml(record.expiryAt || '—')}</td>
+                        <td class="px-3 py-3"><span class="inline-flex rounded border px-2 py-0.5 text-xs ${statusClass}">${statusText}</span></td>
+                        <td class="px-3 py-3">${escapeHtml(record.changeItems.join('、'))}</td>
+                        <td class="px-3 py-3">${escapeHtml(record.changeSource || '平台新增版本')}</td>
                         <td class="px-3 py-3 text-right">
                           <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-settle-action="open-version-view" data-factory-id="${escapeHtml(factoryId)}" data-version-id="${escapeHtml(record.versionId)}">查看版本</button>
                         </td>
@@ -2224,9 +2294,8 @@ export function renderSettlementDetailPage(factoryId: string): string {
   }
 
   const profiles = getFactoryProfiles(factoryId)
-  const accounts = getFactoryAccounts(factoryId)
-  const rules = getFactoryRules(factoryId)
-
+  const effectiveInfo = state.effectiveInfos.find((item) => item.factoryId === factoryId) ?? null
+  const rulesSnapshot = effectiveInfo?.defaultDeductionRulesSnapshot ?? []
   const currentProfile = profiles.find((profile) => profile.isActive)
   const factoryName = getFactoryName(factoryId)
 
@@ -2268,16 +2337,13 @@ export function renderSettlementDetailPage(factoryId: string): string {
         state.detailActiveTab === 'profile'
           ? renderDetailProfileTab(currentProfile)
           : state.detailActiveTab === 'accounts'
-            ? renderDetailAccountsTab(factoryId, accounts)
+            ? renderDetailAccountsTab(effectiveInfo)
             : state.detailActiveTab === 'rules'
-              ? renderDetailRulesTab(factoryId, rules)
+              ? renderDetailRulesTab(rulesSnapshot)
               : renderDetailHistoryTab(factoryId)
       }
 
       ${renderProfileDrawer()}
-      ${renderAccountDrawer()}
-      ${renderRuleDrawer()}
-      ${renderSettleConfirmDialog()}
       ${renderSettlementVersionViewDialog()}
     </div>
   `
@@ -2520,6 +2586,28 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
     const field = fieldNode.dataset.settleField
     if (!field) return true
     updateSettlementField(field, fieldNode)
+    return true
+  }
+
+  const profileRuleFieldNode = target.closest<HTMLElement>('[data-settle-profile-rule-field]')
+  if (
+    profileRuleFieldNode instanceof HTMLInputElement ||
+    profileRuleFieldNode instanceof HTMLSelectElement
+  ) {
+    const field = profileRuleFieldNode.dataset.settleProfileRuleField
+    if (!field) return true
+    const matched = field.match(/^rule\.(\d+)\.(ruleType|ruleMode|ruleValue|effectiveFrom)$/)
+    if (!matched) return true
+    const index = Number(matched[1])
+    const key = matched[2]
+    const rule = state.profileRulesDraft[index]
+    if (!rule) return true
+    const value = profileRuleFieldNode.value
+    if (key === 'ruleType') rule.ruleType = value as RuleType
+    if (key === 'ruleMode') rule.ruleMode = value as RuleMode
+    if (key === 'ruleValue') rule.ruleValue = Number(value) || 0
+    if (key === 'effectiveFrom') rule.effectiveFrom = value
+    state.profileRulesError = ''
     return true
   }
 
@@ -2809,6 +2897,13 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'switch-profile-tab') {
+    const tab = actionNode.dataset.tab as ProfileTab | undefined
+    if (!tab) return true
+    state.profileActiveTab = tab
+    return true
+  }
+
   if (action === 'open-version-view') {
     const factoryId = actionNode.dataset.factoryId
     const versionId = actionNode.dataset.versionId
@@ -2837,6 +2932,27 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
     const factoryId = actionNode.dataset.factoryId
     if (!factoryId) return true
     openProfileDrawer(factoryId)
+    return true
+  }
+
+  if (action === 'add-profile-rule') {
+    state.profileRulesDraft.push({
+      ruleType: 'QUALITY_DEFECT',
+      ruleMode: 'PERCENTAGE',
+      ruleValue: 5,
+      effectiveFrom: state.profileForm.effectiveFrom || today(),
+      status: 'ACTIVE',
+    })
+    state.profileRulesError = ''
+    return true
+  }
+
+  if (action === 'remove-profile-rule') {
+    const index = Number(actionNode.dataset.ruleIndex ?? '-1')
+    if (index < 0 || index >= state.profileRulesDraft.length) return true
+    if (state.profileRulesDraft.length <= 1) return true
+    state.profileRulesDraft.splice(index, 1)
+    state.profileRulesError = ''
     return true
   }
 
@@ -3043,6 +3159,13 @@ export function handleSettlementSubmit(form: HTMLFormElement): boolean {
       state.profileErrors = errors
       return true
     }
+    if (
+      state.profileRulesDraft.length === 0 ||
+      state.profileRulesDraft.some((rule) => !rule.effectiveFrom || Number(rule.ruleValue) <= 0)
+    ) {
+      state.profileRulesError = '请先补全扣款规则后再创建新版本'
+      return true
+    }
 
     state.profiles = state.profiles.map((profile) =>
       profile.factoryId === factoryId && profile.isActive
@@ -3068,23 +3191,7 @@ export function handleSettlementSubmit(form: HTMLFormElement): boolean {
     }
 
     state.profiles = [...state.profiles, newProfile]
-
-    const currentRules = getFactoryRules(factoryId)
-    const rulesSnapshot: SettlementDefaultDeductionRuleSnapshot[] = (
-      currentRules.length > 0
-        ? currentRules
-        : [
-            {
-              id: `pr-${Date.now()}-default`,
-              factoryId,
-              ruleType: 'QUALITY_DEFECT',
-              ruleMode: 'PERCENTAGE',
-              ruleValue: 5,
-              effectiveFrom: state.profileForm.effectiveFrom || today(),
-              status: 'ACTIVE',
-            },
-          ]
-    ).map((rule) => ({
+    const rulesSnapshot: SettlementDefaultDeductionRuleSnapshot[] = state.profileRulesDraft.map((rule) => ({
       ruleType: rule.ruleType,
       ruleMode: rule.ruleMode,
       ruleValue: rule.ruleValue,
@@ -3105,7 +3212,21 @@ export function handleSettlementSubmit(form: HTMLFormElement): boolean {
       deductionRulesSnapshot: rulesSnapshot,
       effectiveAt: state.profileForm.effectiveFrom,
     })
+    state.rules = state.rules.filter((rule) => rule.factoryId !== factoryId)
+    state.rules.push(
+      ...state.profileRulesDraft.map((rule, index) => ({
+        id: `pr-${Date.now()}-${index}`,
+        factoryId,
+        ruleType: rule.ruleType,
+        ruleMode: rule.ruleMode,
+        ruleValue: rule.ruleValue,
+        effectiveFrom: rule.effectiveFrom,
+        effectiveTo: rule.effectiveTo,
+        status: rule.status,
+      })),
+    )
     syncSettlementRequestState()
+    state.profileRulesError = ''
     closeDialog()
     return true
   }

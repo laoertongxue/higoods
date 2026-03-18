@@ -98,6 +98,7 @@ import { renderProgressExceptionsPage } from '../pages/progress-exceptions'
 import { renderProgressMaterialPage } from '../pages/progress-material'
 import { renderProgressUrgePage } from '../pages/progress-urge'
 import { renderProgressHandoverPage } from '../pages/progress-handover'
+import { renderProgressHandoverOrderPage } from '../pages/progress-handover-order'
 import { renderProgressMilestoneConfigPage } from '../pages/progress-milestone-config'
 import {
   renderTraceMappingPage,
@@ -434,6 +435,10 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/fcs\/pda\/task-receive\/([^/]+)$/,
     render: (match) => renderPdaTaskReceiveDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/progress\/handover\/order\/([^/]+)$/,
+    render: (match) => renderProgressHandoverOrderPage(match[1]),
   },
   {
     pattern: /^\/fcs\/pda\/handover\/([^/]+)$/,

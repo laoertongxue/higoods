@@ -1,95 +1,93 @@
 import { appStore } from '../state/store'
-import { escapeHtml, toClassName } from '../utils'
-import {
-  processTasks,
-  type ProcessTask,
-} from '../data/fcs/process-tasks'
+import { escapeHtml } from '../utils'
 import { productionOrders } from '../data/fcs/production-orders'
-import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
-  generateCaseId,
-  generateHandoverEventId,
-  generateNotificationId,
-  generateUrgeId,
-  initialExceptions,
-  initialHandoverEvents,
-  initialNotifications,
-  initialUrges,
-  type DiffReasonCode,
-  type ExceptionCase,
-  type HandoverEvent,
-  type HandoverEventType,
-  type HandoverParty,
-  type HandoverStatus,
-  type Notification,
-  type PartyKind,
-  type RecipientType,
-  type UrgeLog,
-  type UrgeType,
-} from '../data/fcs/store-domain-progress'
-import {
-  getPdaCompletedHeads,
   findPdaHandoverRecord,
   followupPdaHandoverObjection,
+  getPdaCompletedHeads,
   getPdaHandoutHeads,
-  getPdaPickupHeads,
   getPdaPickupRecordsByHead,
-  getPdaHandoverRecordsByHead,
+  getPdaPickupHeads,
   markPdaHandoutHeadCompleted,
   markPdaPickupHeadCompleted,
   mockWritebackPdaHandoverRecord,
   resolvePdaHandoverObjection,
   type PdaHandoverHead,
-  type PdaHandoverRecord,
-  type PdaPickupRecord,
+  type PdaHandoverHeadType,
 } from '../data/fcs/pda-handover-events'
+import {
+  buildHandoverOrderDetailLink,
+  type HandoverFocus,
+  getHandoverOrderTimelineViews,
+  getHandoverLedgerRows,
+  getProductionOrderHandoverSummary,
+  getHandoverPreviewStats,
+  type HandoverLedgerRow,
+  type HandoverOrderTimelineView,
+  type HandoverTimelineProcessSection,
+  type HandoverLedgerStatusGroup,
+  type HandoverLedgerStatusTone,
+} from '../data/fcs/handover-ledger-view'
 
-type HandoverTab = 'list' | 'timeline'
+type HandoverTab = 'events' | 'orders'
 type DiffFilter = 'ALL' | 'YES' | 'NO'
+type LedgerEventTypeFilter = 'ALL' | 'PICKUP' | 'HANDOUT' | 'WAREHOUSE' | 'OBJECTION' | 'COMPLETED'
+type LedgerStatusFilter =
+  | 'ALL'
+  | 'PENDING_PICKUP'
+  | 'PENDING_HANDOUT'
+  | 'PENDING_WAREHOUSE'
+  | 'HAS_OBJECTION'
+  | 'OBJECTION_PROCESSING'
+  | 'OBJECTION_RESOLVED'
+  | 'DONE'
+  | HandoverLedgerStatusGroup
 
 interface ProgressHandoverState {
   lastQueryKey: string
 
   keyword: string
   filterPo: string
+  filterProcess: string
   filterTaskId: string
-  filterEventType: 'ALL' | HandoverEventType
-  filterStatus: 'ALL' | HandoverStatus
+  filterEventType: LedgerEventTypeFilter
+  filterStatus: LedgerStatusFilter
   filterHasDiff: DiffFilter
   showUrlFilterBanner: boolean
+  focusHint: HandoverFocus | ''
+  sourceHint: string
 
   activeTab: HandoverTab
-  timelineOrderId: string
+  timelineExpandedOrderIds: string[]
+  timelineAnchorOrderId: string
+  timelineAnchorTaskId: string
+  timelineAnchorFocus: HandoverFocus | ''
+  timelineScrollTargetOrderId: string
 
-  rowMenuEventId: string | null
+  ordersKeyword: string
+  ordersBottleneckFilter:
+    | 'ALL'
+    | '待领料'
+    | '待交出'
+    | '待仓库确认'
+    | '有异议'
+    | '异议处理中'
+    | '已完成'
+    | '暂无事件'
+  ordersObjectionFilter: 'ALL' | 'YES' | 'NO'
+  ordersProcessFilter: string
+  ordersPage: number
+  ordersPageSize: number
 
-  newDrawerOpen: boolean
-  detailEventId: string | null
+  rowMenuRowId: string | null
+  detailRowId: string | null
 
-  confirmEventId: string | null
-  disputeEventId: string | null
-  disputeReason: string
   writebackRecordId: string | null
   writebackReturnNo: string
   writebackQty: string
   writebackAt: string
   objectionRecordId: string | null
   objectionFollowUpRemark: string
-
-  formOrderId: string
-  formTaskId: string
-  formEventType: HandoverEventType
-  formFromKind: PartyKind
-  formFromId: string
-  formFromName: string
-  formToKind: PartyKind
-  formToId: string
-  formToName: string
-  formExpected: number
-  formActual: number
-  formDiffReason: '' | DiffReasonCode
-  formDiffRemark: string
-  formOccurredAt: string
 }
 
 const state: ProgressHandoverState = {
@@ -97,72 +95,88 @@ const state: ProgressHandoverState = {
 
   keyword: '',
   filterPo: '',
+  filterProcess: '',
   filterTaskId: '',
   filterEventType: 'ALL',
   filterStatus: 'ALL',
   filterHasDiff: 'ALL',
   showUrlFilterBanner: false,
+  focusHint: '',
+  sourceHint: '',
 
-  activeTab: 'list',
-  timelineOrderId: '',
+  activeTab: 'events',
+  timelineExpandedOrderIds: [],
+  timelineAnchorOrderId: '',
+  timelineAnchorTaskId: '',
+  timelineAnchorFocus: '',
+  timelineScrollTargetOrderId: '',
 
-  rowMenuEventId: null,
+  ordersKeyword: '',
+  ordersBottleneckFilter: 'ALL',
+  ordersObjectionFilter: 'ALL',
+  ordersProcessFilter: '',
+  ordersPage: 1,
+  ordersPageSize: 10,
 
-  newDrawerOpen: false,
-  detailEventId: null,
+  rowMenuRowId: null,
+  detailRowId: null,
 
-  confirmEventId: null,
-  disputeEventId: null,
-  disputeReason: '',
   writebackRecordId: null,
   writebackReturnNo: '',
   writebackQty: '',
   writebackAt: getCurrentLocalDateTimeInput(),
   objectionRecordId: null,
   objectionFollowUpRemark: '',
-
-  formOrderId: '',
-  formTaskId: '',
-  formEventType: 'CUT_PIECES_TO_MAIN_FACTORY',
-  formFromKind: 'FACTORY',
-  formFromId: '',
-  formFromName: '',
-  formToKind: 'FACTORY',
-  formToId: '',
-  formToName: '',
-  formExpected: 0,
-  formActual: 0,
-  formDiffReason: '',
-  formDiffRemark: '',
-  formOccurredAt: getCurrentLocalDateTimeInput(),
 }
 
-const STATUS_CONFIG: Record<HandoverStatus, { label: string; className: string; icon: string }> = {
-  PENDING_CONFIRM: { label: '待确认', className: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: 'clock' },
-  CONFIRMED: { label: '已确认', className: 'bg-green-100 text-green-700 border-green-200', icon: 'check-circle' },
-  DISPUTED: { label: '争议', className: 'bg-red-100 text-red-700 border-red-200', icon: 'alert-circle' },
-  VOID: { label: '已作废', className: 'bg-zinc-100 text-zinc-500 border-zinc-200', icon: 'x-circle' },
-}
+const LEDGER_EVENT_FILTER_OPTIONS: Array<{ value: LedgerEventTypeFilter; label: string }> = [
+  { value: 'ALL', label: '事件类型' },
+  { value: 'PICKUP', label: '领料' },
+  { value: 'HANDOUT', label: '交出' },
+  { value: 'WAREHOUSE', label: '仓库确认' },
+  { value: 'OBJECTION', label: '数量异议' },
+  { value: 'COMPLETED', label: '已完成' },
+]
 
-const EVENT_TYPE_CONFIG: Record<HandoverEventType, { label: string; icon: string }> = {
-  CUT_PIECES_TO_MAIN_FACTORY: { label: '裁片交接主工厂', icon: 'truck' },
-  FINISHED_GOODS_TO_WAREHOUSE: { label: '成衣交接仓库', icon: 'warehouse' },
-  MATERIAL_TO_PROCESSOR: { label: '物料交接加工方', icon: 'package' },
-}
+const LEDGER_STATUS_FILTER_OPTIONS: Array<{ value: LedgerStatusFilter; label: string }> = [
+  { value: 'ALL', label: '当前状态' },
+  { value: 'PENDING_PICKUP', label: '待领料' },
+  { value: 'PENDING_HANDOUT', label: '待交出' },
+  { value: 'PENDING_WAREHOUSE', label: '待仓库确认' },
+  { value: 'HAS_OBJECTION', label: '有异议' },
+  { value: 'OBJECTION_PROCESSING', label: '异议处理中' },
+  { value: 'OBJECTION_RESOLVED', label: '异议已处理' },
+  { value: 'DONE', label: '已完成' },
+]
 
-const DIFF_REASON_CONFIG: Record<DiffReasonCode, string> = {
-  SHORTAGE: '短缺',
-  OVERAGE: '超发',
-  DAMAGE: '损坏',
-  MIXED_BATCH: '混批',
-  UNKNOWN: '未知',
-}
+const ORDER_BOTTLENECK_FILTER_OPTIONS: Array<{
+  value:
+    | 'ALL'
+    | '待领料'
+    | '待交出'
+    | '待仓库确认'
+    | '有异议'
+    | '异议处理中'
+    | '已完成'
+    | '暂无事件'
+  label: string
+}> = [
+  { value: 'ALL', label: '当前交接卡点' },
+  { value: '待领料', label: '待领料' },
+  { value: '待交出', label: '待交出' },
+  { value: '待仓库确认', label: '待仓库确认' },
+  { value: '有异议', label: '有异议' },
+  { value: '异议处理中', label: '异议处理中' },
+  { value: '已完成', label: '已完成' },
+  { value: '暂无事件', label: '暂无事件' },
+]
 
-const PARTY_KIND_CONFIG: Record<PartyKind, { label: string; icon: string }> = {
-  FACTORY: { label: '工厂', icon: 'building-2' },
-  WAREHOUSE: { label: '仓库', icon: 'warehouse' },
-  LEGAL_ENTITY: { label: '法律实体', icon: 'building-2' },
-  OTHER: { label: '其他', icon: 'package' },
+const LEDGER_STATUS_CONFIG: Record<HandoverLedgerStatusTone, { className: string; icon: string }> = {
+  muted: { className: 'bg-zinc-100 text-zinc-700 border-zinc-200', icon: 'circle' },
+  warning: { className: 'bg-amber-100 text-amber-700 border-amber-200', icon: 'clock' },
+  info: { className: 'bg-blue-100 text-blue-700 border-blue-200', icon: 'activity' },
+  success: { className: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: 'check-circle' },
+  danger: { className: 'bg-red-100 text-red-700 border-red-200', icon: 'alert-circle' },
 }
 
 function escapeAttr(value: string): string {
@@ -173,15 +187,15 @@ function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
+function parseDateMs(value: string | undefined): number {
+  if (!value) return Number.NaN
+  return new Date(value.replace(' ', 'T')).getTime()
+}
+
 function getCurrentLocalDateTimeInput(): string {
   const date = new Date()
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
   return date.toISOString().slice(0, 16)
-}
-
-function parseDateTime(value: string | undefined): number {
-  if (!value) return Number.NaN
-  return new Date(value.replace(' ', 'T')).getTime()
 }
 
 function getCurrentQueryString(): string {
@@ -194,20 +208,35 @@ function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(getCurrentQueryString())
 }
 
-function isEventType(value: string | null): value is HandoverEventType {
-  return value === 'CUT_PIECES_TO_MAIN_FACTORY' || value === 'FINISHED_GOODS_TO_WAREHOUSE' || value === 'MATERIAL_TO_PROCESSOR'
+function isLedgerEventType(value: string | null): value is LedgerEventTypeFilter {
+  return value === 'ALL' || value === 'PICKUP' || value === 'HANDOUT' || value === 'WAREHOUSE' || value === 'OBJECTION' || value === 'COMPLETED'
 }
 
-function isHandoverStatus(value: string | null): value is HandoverStatus {
-  return value === 'PENDING_CONFIRM' || value === 'CONFIRMED' || value === 'DISPUTED' || value === 'VOID'
+function isLedgerStatusFilter(value: string | null): value is LedgerStatusFilter {
+  return (
+    value === 'ALL' ||
+    value === 'PENDING_PICKUP' ||
+    value === 'PENDING_HANDOUT' ||
+    value === 'PENDING_WAREHOUSE' ||
+    value === 'HAS_OBJECTION' ||
+    value === 'OBJECTION_PROCESSING' ||
+    value === 'OBJECTION_RESOLVED' ||
+    value === 'DONE' ||
+    value === 'PENDING' ||
+    value === 'IN_PROGRESS' ||
+    value === 'EXCEPTION'
+  )
 }
 
-function isPartyKind(value: string | null): value is PartyKind {
-  return value === 'FACTORY' || value === 'WAREHOUSE' || value === 'LEGAL_ENTITY' || value === 'OTHER'
+function isHandoverFocus(value: string | null): value is HandoverFocus {
+  return value === 'pickup' || value === 'handout' || value === 'warehouse-confirm' || value === 'objection'
 }
 
-function isDiffReasonCode(value: string | null): value is DiffReasonCode {
-  return value === 'SHORTAGE' || value === 'OVERAGE' || value === 'DAMAGE' || value === 'MIXED_BATCH' || value === 'UNKNOWN'
+function getFocusLabel(focus: HandoverFocus): string {
+  if (focus === 'pickup') return '待领料'
+  if (focus === 'handout') return '待交出'
+  if (focus === 'warehouse-confirm') return '待仓库确认'
+  return '异议处理'
 }
 
 function showProgressHandoverToast(message: string, tone: 'success' | 'error' = 'success'): void {
@@ -265,294 +294,96 @@ function getOrderById(orderId: string) {
   return productionOrders.find((item) => item.productionOrderId === orderId)
 }
 
-function getFactoryById(factoryId: string) {
-  return indonesiaFactories.find((item) => item.id === factoryId)
-}
-
-function getHandoverEventById(eventId: string): HandoverEvent | undefined {
-  return initialHandoverEvents.find((item) => item.eventId === eventId)
-}
-
-function getTasksByOrderId(orderId: string): ProcessTask[] {
-  return processTasks.filter((task) => task.productionOrderId === orderId)
-}
-
-function updateHandoverEvent(updated: HandoverEvent): void {
-  const index = initialHandoverEvents.findIndex((item) => item.eventId === updated.eventId)
-  if (index >= 0) {
-    initialHandoverEvents[index] = updated
-  }
-}
-
-function createNotification(payload: Omit<Notification, 'notificationId' | 'createdAt'>): Notification {
-  const notification: Notification = {
-    ...payload,
-    notificationId: generateNotificationId(),
-    createdAt: nowTimestamp(),
-  }
-
-  initialNotifications.push(notification)
-  return notification
-}
-
-function createUrge(payload: Omit<UrgeLog, 'urgeId' | 'createdAt' | 'status' | 'auditLogs'>): UrgeLog {
-  const createdAt = nowTimestamp()
-
-  const urge: UrgeLog = {
-    ...payload,
-    urgeId: generateUrgeId(),
-    createdAt,
-    status: 'SENT',
-    auditLogs: [
-      {
-        id: `UAL-${Date.now()}`,
-        action: 'SEND',
-        detail: '发送催办',
-        at: createdAt,
-        by: payload.fromName,
-      },
-    ],
-  }
-
-  initialUrges.push(urge)
-
-  const urgeTypeLabel: Record<UrgeType, string> = {
-    URGE_ASSIGN_ACK: '催确认接单',
-    URGE_START: '催开工',
-    URGE_FINISH: '催完工',
-    URGE_UNBLOCK: '催尽快处理',
-    URGE_TENDER_BID: '催报价',
-    URGE_TENDER_AWARD: '催定标',
-    URGE_HANDOVER_CONFIRM: '催交接确认',
-    URGE_HANDOVER_EVIDENCE: '催补证据/处理差异',
-    URGE_CASE_HANDLE: '催处理异常',
-  }
-
-  createNotification({
-    level: 'INFO',
-    title: '收到催办',
-    content: `${payload.fromName}：${urgeTypeLabel[payload.urgeType]} - ${payload.message}`,
-    recipientType: payload.toType,
-    recipientId: payload.toId,
-    recipientName: payload.toName,
-    targetType: payload.targetType,
-    targetId: payload.targetId,
-    related: {},
-    deepLink: payload.deepLink,
-    createdBy: payload.fromId,
-  })
-
-  return urge
-}
-
-function createOrUpdateHandoverException(event: HandoverEvent, detail: string): ExceptionCase {
-  const sourceType: ExceptionCase['sourceType'] = event.relatedTaskId ? 'TASK' : 'ORDER'
-  const sourceId = event.relatedTaskId || event.productionOrderId
-
-  const existed = initialExceptions.find(
-    (item) =>
-      item.sourceType === sourceType &&
-      item.sourceId === sourceId &&
-      item.reasonCode === 'HANDOVER_DIFF' &&
-      item.caseStatus !== 'CLOSED',
-  )
-
-  const now = nowTimestamp()
-
-  if (existed) {
-    const updated: ExceptionCase = {
-      ...existed,
-      updatedAt: now,
-      detail,
-      auditLogs: [
-        ...existed.auditLogs,
-        {
-          id: `EAL-${Date.now()}`,
-          action: 'UPDATE',
-          detail: '交接差异信号触发，更新异常',
-          at: now,
-          by: '系统',
-        },
-      ],
-    }
-
-    const index = initialExceptions.findIndex((item) => item.caseId === existed.caseId)
-    if (index >= 0) {
-      initialExceptions[index] = updated
-    }
-
-    return updated
-  }
-
-  const created: ExceptionCase = {
-    caseId: generateCaseId(),
-    caseStatus: 'OPEN',
-    severity: 'S1',
-    category: 'HANDOVER',
-    reasonCode: 'HANDOVER_DIFF',
-    sourceType,
-    sourceId,
-    relatedOrderIds: [event.productionOrderId],
-    relatedTaskIds: event.relatedTaskId ? [event.relatedTaskId] : [],
-    relatedTenderIds: [],
-    summary: '交接差异',
-    detail,
-    createdAt: now,
-    updatedAt: now,
-    tags: ['交接', '差异'],
-    actions: [],
-    auditLogs: [
-      {
-        id: `EAL-${Date.now()}`,
-        action: 'CREATE',
-        detail: '系统自动生成异常单',
-        at: now,
-        by: '系统',
-      },
-    ],
-  }
-
-  initialExceptions.push(created)
-  return created
-}
-
-function createHandoverEvent(payload: Omit<HandoverEvent, 'eventId' | 'createdAt' | 'auditLogs'>): HandoverEvent {
-  const now = nowTimestamp()
-
-  const event: HandoverEvent = {
-    ...payload,
-    eventId: generateHandoverEventId(),
-    createdAt: now,
-    auditLogs: [
-      {
-        id: `HAL-${Date.now()}`,
-        action: 'CREATE',
-        detail: '创建交接事件',
-        at: now,
-        by: payload.createdBy,
-      },
-    ],
-  }
-
-  initialHandoverEvents.push(event)
-
-  if (event.qtyDiff !== 0 || event.status === 'DISPUTED') {
-    createOrUpdateHandoverException(
-      event,
-      `交接差异：${event.fromParty.name} -> ${event.toParty.name}，应交${event.qtyExpected}，实交${event.qtyActual}，差异${event.qtyDiff}${event.diffReasonCode ? `，原因：${event.diffReasonCode}` : ''}，生产单：${event.productionOrderId}`,
-    )
-  }
-
-  return event
-}
-
-function confirmHandoverEvent(eventId: string, by: string): void {
-  const event = getHandoverEventById(eventId)
-  if (!event || event.status !== 'PENDING_CONFIRM') return
-
-  const now = nowTimestamp()
-  const nextStatus: HandoverStatus = event.qtyDiff !== 0 ? 'DISPUTED' : 'CONFIRMED'
-
-  const updated: HandoverEvent = {
-    ...event,
-    status: nextStatus,
-    confirmedAt: now,
-    confirmedBy: by,
-    auditLogs: [
-      ...event.auditLogs,
-      {
-        id: `HAL-${Date.now()}`,
-        action: nextStatus === 'DISPUTED' ? 'DISPUTE' : 'CONFIRM',
-        detail: nextStatus === 'DISPUTED' ? '确认时发现差异，标记争议' : '确认交接',
-        at: now,
-        by,
-      },
-    ],
-  }
-
-  updateHandoverEvent(updated)
-
-  if (event.qtyDiff !== 0) {
-    createOrUpdateHandoverException(
-      updated,
-      `交接差异确认：${event.fromParty.name} -> ${event.toParty.name}，应交${event.qtyExpected}，实交${event.qtyActual}，差异${event.qtyDiff}${event.diffReasonCode ? `，原因：${event.diffReasonCode}` : ''}，生产单：${event.productionOrderId}`,
-    )
-  }
-}
-
-function markHandoverDisputed(eventId: string, reason: string, by: string): void {
-  const event = getHandoverEventById(eventId)
-  if (!event) return
-
-  const now = nowTimestamp()
-
-  const updated: HandoverEvent = {
-    ...event,
-    status: 'DISPUTED',
-    diffRemark: reason,
-    auditLogs: [
-      ...event.auditLogs,
-      {
-        id: `HAL-${Date.now()}`,
-        action: 'DISPUTE',
-        detail: `标记争议：${reason}`,
-        at: now,
-        by,
-      },
-    ],
-  }
-
-  updateHandoverEvent(updated)
-
-  createOrUpdateHandoverException(
-    updated,
-    `交接争议：${event.fromParty.name} -> ${event.toParty.name}，原因：${reason}，生产单：${event.productionOrderId}`,
-  )
-}
-
-function voidHandoverEvent(eventId: string, by: string): void {
-  const event = getHandoverEventById(eventId)
-  if (!event) return
-
-  const now = nowTimestamp()
-
-  const updated: HandoverEvent = {
-    ...event,
-    status: 'VOID',
-    auditLogs: [
-      ...event.auditLogs,
-      {
-        id: `HAL-${Date.now()}`,
-        action: 'VOID',
-        detail: '作废交接事件',
-        at: now,
-        by,
-      },
-    ],
-  }
-
-  updateHandoverEvent(updated)
-}
-
-function resetForm(): void {
-  state.formOrderId = ''
-  state.formTaskId = ''
-  state.formEventType = 'CUT_PIECES_TO_MAIN_FACTORY'
-  state.formFromKind = 'FACTORY'
-  state.formFromId = ''
-  state.formFromName = ''
-  state.formToKind = 'FACTORY'
-  state.formToId = ''
-  state.formToName = ''
-  state.formExpected = 0
-  state.formActual = 0
-  state.formDiffReason = ''
-  state.formDiffRemark = ''
-  state.formOccurredAt = getCurrentLocalDateTimeInput()
-}
-
 function closeRowMenu(): void {
-  state.rowMenuEventId = null
+  state.rowMenuRowId = null
+}
+
+function getLedgerRows(): HandoverLedgerRow[] {
+  return getHandoverLedgerRows()
+}
+
+function getLedgerRowById(rowId: string): HandoverLedgerRow | undefined {
+  return getLedgerRows().find((row) => row.rowId === rowId)
+}
+
+function findOrderIdByTaskId(taskId: string): string {
+  if (!taskId) return ''
+  const row = getLedgerRows().find((item) => item.taskId === taskId)
+  return row?.productionOrderId || ''
+}
+
+function getEventTypeLabel(value: LedgerEventTypeFilter): string {
+  return LEDGER_EVENT_FILTER_OPTIONS.find((item) => item.value === value)?.label || value
+}
+
+function getStatusFilterLabel(value: LedgerStatusFilter): string {
+  if (value === 'PENDING') return '待处理'
+  if (value === 'IN_PROGRESS') return '处理中'
+  if (value === 'EXCEPTION') return '异议处理中'
+  return LEDGER_STATUS_FILTER_OPTIONS.find((item) => item.value === value)?.label || value
+}
+
+function matchEventTypeFilter(row: HandoverLedgerRow, filter: LedgerEventTypeFilter): boolean {
+  if (filter === 'ALL') return true
+  if (filter === 'PICKUP') {
+    return row.sourceType === 'PICKUP_HEAD' || row.sourceType === 'PICKUP_RECORD'
+  }
+  if (filter === 'HANDOUT') {
+    return row.sourceType === 'HANDOUT_HEAD' || row.sourceType === 'HANDOUT_RECORD'
+  }
+  if (filter === 'WAREHOUSE') {
+    return row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK' || row.eventTypeCode === 'WAREHOUSE_CONFIRMED'
+  }
+  if (filter === 'OBJECTION') {
+    return row.eventTypeCode === 'HANDOUT_OBJECTION' || row.eventTypeCode === 'HANDOUT_OBJECTION_PROCESSING' || row.eventTypeCode === 'HANDOUT_OBJECTION_RESOLVED'
+  }
+  if (filter === 'COMPLETED') {
+    return row.sourceType === 'COMPLETED_HEAD'
+  }
+  return true
+}
+
+function normalizeStatusFilter(value: string | null): LedgerStatusFilter {
+  if (!value) return 'ALL'
+  if (isLedgerStatusFilter(value)) return value
+  return 'ALL'
+}
+
+function matchStatusFilter(row: HandoverLedgerRow, filter: LedgerStatusFilter): boolean {
+  if (filter === 'ALL') return true
+  if (filter === 'DONE') return row.statusGroup === 'DONE'
+  if (filter === 'PENDING_PICKUP') {
+    return row.statusCode === 'PICKUP_PENDING' || row.statusCode === 'PICKUP_RECORD_PENDING_DISPATCH' || row.statusCode === 'PICKUP_RECORD_PENDING_PICKUP'
+  }
+  if (filter === 'PENDING_HANDOUT') {
+    return row.statusCode === 'HANDOUT_PENDING' || row.statusCode === 'HANDOUT_SUBMITTED'
+  }
+  if (filter === 'PENDING_WAREHOUSE') {
+    return row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK' || row.statusCode === 'HANDOUT_PARTIAL_WRITTEN' || row.statusCode === 'HANDOUT_WRITTEN'
+  }
+  if (filter === 'HAS_OBJECTION') {
+    return row.statusCode === 'HANDOUT_HAS_OBJECTION' || row.statusCode === 'HANDOUT_OBJECTION_REPORTED'
+  }
+  if (filter === 'OBJECTION_PROCESSING') {
+    return row.statusCode === 'HANDOUT_OBJECTION_PROCESSING'
+  }
+  if (filter === 'OBJECTION_RESOLVED') {
+    return row.statusCode === 'HANDOUT_OBJECTION_RESOLVED'
+  }
+  if (filter === 'PENDING' || filter === 'IN_PROGRESS' || filter === 'EXCEPTION') {
+    return row.statusGroup === filter
+  }
+  return true
+}
+
+function hasDiffOrObjection(row: HandoverLedgerRow): boolean {
+  if (typeof row.qtyDiff === 'number' && row.qtyDiff !== 0) return true
+  return (
+    row.statusCode === 'HANDOUT_HAS_OBJECTION' ||
+    row.statusCode === 'HANDOUT_OBJECTION_REPORTED' ||
+    row.statusCode === 'HANDOUT_OBJECTION_PROCESSING' ||
+    row.statusCode === 'HANDOUT_OBJECTION_RESOLVED'
+  )
 }
 
 function syncFromQuery(): void {
@@ -563,79 +394,214 @@ function syncFromQuery(): void {
 
   const params = getCurrentSearchParams()
   const po = params.get('po') || ''
+  const process = params.get('process') || ''
   const taskId = params.get('taskId') || ''
   const eventType = params.get('eventType')
   const status = params.get('status')
-  const eventId = params.get('eventId') || ''
+  const focus = params.get('focus')
+  const source = params.get('source') || ''
+  const tab = params.get('tab')
+  const isOrdersTab = tab === 'timeline' || tab === 'orders'
+  const anchorOrderId = po || findOrderIdByTaskId(taskId)
 
-  state.filterPo = po
-  state.filterTaskId = taskId
-  state.filterEventType = isEventType(eventType) ? eventType : 'ALL'
-  state.filterStatus = isHandoverStatus(status) ? status : 'ALL'
-
-  state.showUrlFilterBanner = Boolean(po || taskId || eventType || status || eventId)
-
-  if (po) {
-    state.timelineOrderId = po
-  }
-
-  if (eventId && getHandoverEventById(eventId)) {
-    state.detailEventId = eventId
-  }
-}
-
-function getFilteredEvents(): HandoverEvent[] {
-  return initialHandoverEvents
-    .filter((event) => {
-      const keyword = state.keyword.trim().toLowerCase()
-      if (keyword) {
-        const combined = `${event.eventId} ${event.productionOrderId} ${event.fromParty.name} ${event.toParty.name}`.toLowerCase()
-        if (!combined.includes(keyword)) return false
+  if (isOrdersTab && (po || taskId || focus)) {
+    state.filterPo = ''
+    state.filterTaskId = ''
+    state.filterProcess = process
+    state.timelineAnchorOrderId = anchorOrderId
+    state.timelineAnchorTaskId = taskId
+    state.timelineAnchorFocus = isHandoverFocus(focus) ? focus : ''
+    if (anchorOrderId) {
+      state.timelineScrollTargetOrderId = anchorOrderId
+      if (!state.timelineExpandedOrderIds.includes(anchorOrderId)) {
+        state.timelineExpandedOrderIds = [...state.timelineExpandedOrderIds, anchorOrderId]
       }
-
-      if (state.filterPo && event.productionOrderId !== state.filterPo) return false
-      if (state.filterTaskId && event.relatedTaskId !== state.filterTaskId) return false
-      if (state.filterEventType !== 'ALL' && event.eventType !== state.filterEventType) return false
-      if (state.filterStatus !== 'ALL' && event.status !== state.filterStatus) return false
-      if (state.filterHasDiff === 'YES' && event.qtyDiff === 0) return false
-      if (state.filterHasDiff === 'NO' && event.qtyDiff !== 0) return false
-
-      return true
-    })
-    .sort((a, b) => parseDateTime(b.occurredAt) - parseDateTime(a.occurredAt))
-}
-
-function getKpiStats(): { pending: number; disputed: number; todayNew: number } {
-  const today = new Date().toISOString().slice(0, 10)
-
-  return {
-    pending: initialHandoverEvents.filter((event) => event.status === 'PENDING_CONFIRM').length,
-    disputed: initialHandoverEvents.filter((event) => event.status === 'DISPUTED' || event.qtyDiff !== 0).length,
-    todayNew: initialHandoverEvents.filter((event) => event.createdAt.startsWith(today)).length,
+    }
+  } else {
+    state.filterPo = po
+    state.filterProcess = process
+    state.filterTaskId = taskId
+    state.timelineAnchorOrderId = ''
+    state.timelineAnchorTaskId = ''
+    state.timelineAnchorFocus = ''
   }
-}
 
-function getOrderIdsWithHandover(): string[] {
-  const ids = new Set<string>()
-  initialHandoverEvents.forEach((event) => ids.add(event.productionOrderId))
-  return Array.from(ids).sort((a, b) => a.localeCompare(b))
-}
+  state.filterEventType = isLedgerEventType(eventType) ? eventType : 'ALL'
+  state.filterStatus = normalizeStatusFilter(status)
+  state.focusHint = isHandoverFocus(focus) ? focus : ''
+  state.sourceHint = source
 
-function getTimelineEvents(orderId: string): HandoverEvent[] {
-  if (!orderId) return []
-  return initialHandoverEvents
-    .filter((event) => event.productionOrderId === orderId)
-    .sort((a, b) => parseDateTime(a.occurredAt) - parseDateTime(b.occurredAt))
-}
-
-function getTimelineSummary(orderId: string): { pending: number; confirmed: number; disputed: number } {
-  const events = getTimelineEvents(orderId)
-
-  return {
-    pending: events.filter((event) => event.status === 'PENDING_CONFIRM').length,
-    confirmed: events.filter((event) => event.status === 'CONFIRMED').length,
-    disputed: events.filter((event) => event.status === 'DISPUTED').length,
+  if (tab === 'timeline' || tab === 'orders') {
+    state.activeTab = 'orders'
+  } else if (tab === 'list' || tab === 'events') {
+    state.activeTab = 'events'
   }
+
+  if (!eventType && state.focusHint && !(isOrdersTab && (po || taskId || focus))) {
+    if (state.focusHint === 'pickup') state.filterEventType = 'PICKUP'
+    if (state.focusHint === 'handout') state.filterEventType = 'HANDOUT'
+    if (state.focusHint === 'warehouse-confirm') {
+      state.filterEventType = 'WAREHOUSE'
+      if (state.filterStatus === 'ALL') state.filterStatus = 'PENDING_WAREHOUSE'
+    }
+    if (state.focusHint === 'objection') {
+      state.filterEventType = 'OBJECTION'
+      if (state.filterStatus === 'ALL') state.filterStatus = 'HAS_OBJECTION'
+    }
+  }
+
+  state.showUrlFilterBanner = Boolean(
+    po ||
+      process ||
+      taskId ||
+      eventType ||
+      status ||
+      focus ||
+      source ||
+      tab ||
+      state.timelineAnchorOrderId ||
+      state.timelineAnchorTaskId,
+  )
+}
+
+function getFilteredRows(rows: HandoverLedgerRow[]): HandoverLedgerRow[] {
+  return rows.filter((row) => {
+    const keyword = state.keyword.trim().toLowerCase()
+    if (keyword) {
+      const combined = `${row.rowId} ${row.productionOrderId} ${row.taskNo} ${row.processName} ${row.eventTypeLabel} ${row.handoverId} ${row.recordId || ''}`.toLowerCase()
+      if (!combined.includes(keyword)) return false
+    }
+
+    if (state.filterPo && row.productionOrderId !== state.filterPo) return false
+    if (state.filterProcess && row.processName !== state.filterProcess) return false
+    if (state.filterTaskId && row.taskId !== state.filterTaskId) return false
+    if (!matchEventTypeFilter(row, state.filterEventType)) return false
+    if (!matchStatusFilter(row, state.filterStatus)) return false
+    if (state.filterHasDiff === 'YES' && !hasDiffOrObjection(row)) return false
+    if (state.filterHasDiff === 'NO' && hasDiffOrObjection(row)) return false
+
+    return true
+  })
+}
+
+function getTimelineBaseRows(rows: HandoverLedgerRow[]): HandoverLedgerRow[] {
+  return rows.filter((row) => {
+    if (state.filterPo && row.productionOrderId !== state.filterPo) return false
+    if (state.filterTaskId && row.taskId !== state.filterTaskId) return false
+    return true
+  })
+}
+
+function findPdaHeadByHandoverId(handoverId: string): PdaHandoverHead | undefined {
+  return [...getPdaPickupHeads(), ...getPdaHandoutHeads(), ...getPdaCompletedHeads()].find(
+    (head) => head.handoverId === handoverId,
+  )
+}
+
+function renderSourceFacts(row: HandoverLedgerRow): string {
+  const head = findPdaHeadByHandoverId(row.handoverId)
+  if (!head) {
+    return `<p class="text-sm text-muted-foreground">当前未找到原始事实记录，请刷新后重试。</p>`
+  }
+
+  if (row.sourceType === 'PICKUP_HEAD' || (row.sourceType === 'COMPLETED_HEAD' && head.headType === 'PICKUP')) {
+    return `
+      <div class="space-y-1 text-sm">
+        <p><span class="text-muted-foreground">事实来源：</span>PDA 领料头</p>
+        <p><span class="text-muted-foreground">领料方式：</span>${escapeHtml(head.modeLabel)}</p>
+        <p><span class="text-muted-foreground">记录数：</span>${head.recordCount} 次</p>
+        <p><span class="text-muted-foreground">累计已领：</span>${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</p>
+        <p><span class="text-muted-foreground">待完成记录：</span>${head.pendingWritebackCount} 条</p>
+      </div>
+    `
+  }
+
+  if (row.sourceType === 'PICKUP_RECORD' && row.recordId) {
+    const pickupRecord = getPdaPickupRecordsByHead(row.handoverId).find((record) => record.recordId === row.recordId)
+    if (!pickupRecord) {
+      return `<p class="text-sm text-muted-foreground">当前未找到对应领料记录，请刷新后重试。</p>`
+    }
+
+    return `
+      <div class="space-y-1 text-sm">
+        <p><span class="text-muted-foreground">事实来源：</span>PDA 领料记录</p>
+        <p><span class="text-muted-foreground">记录编号：</span>${escapeHtml(pickupRecord.recordId)}</p>
+        <p><span class="text-muted-foreground">计划数量：</span>${pickupRecord.qtyExpected} ${escapeHtml(pickupRecord.qtyUnit)}</p>
+        <p><span class="text-muted-foreground">实际数量：</span>${
+          typeof pickupRecord.qtyActual === 'number'
+            ? `${pickupRecord.qtyActual} ${escapeHtml(pickupRecord.qtyUnit)}`
+            : '待确认'
+        }</p>
+        <p><span class="text-muted-foreground">记录时间：</span>${escapeHtml(pickupRecord.submittedAt)}</p>
+      </div>
+    `
+  }
+
+  if (row.sourceType === 'HANDOUT_HEAD' || (row.sourceType === 'COMPLETED_HEAD' && head.headType === 'HANDOUT')) {
+    return `
+      <div class="space-y-1 text-sm">
+        <p><span class="text-muted-foreground">事实来源：</span>PDA 交出头</p>
+        <p><span class="text-muted-foreground">交出次数：</span>${head.recordCount} 次</p>
+        <p><span class="text-muted-foreground">累计回写：</span>${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</p>
+        <p><span class="text-muted-foreground">待仓库确认：</span>${head.pendingWritebackCount} 条</p>
+        <p><span class="text-muted-foreground">异议条数：</span>${head.objectionCount} 条</p>
+      </div>
+    `
+  }
+
+  if (row.sourceType === 'HANDOUT_RECORD' && row.recordId) {
+    const handoutRecord = findPdaHandoverRecord(row.recordId)
+    if (!handoutRecord) {
+      return `<p class="text-sm text-muted-foreground">当前未找到对应交出记录，请刷新后重试。</p>`
+    }
+
+    return `
+      <div class="space-y-1 text-sm">
+        <p><span class="text-muted-foreground">事实来源：</span>PDA 交出记录</p>
+        <p><span class="text-muted-foreground">记录编号：</span>${escapeHtml(handoutRecord.recordId)}（第 ${handoutRecord.sequenceNo} 次）</p>
+        <p><span class="text-muted-foreground">工厂发起：</span>${escapeHtml(handoutRecord.factorySubmittedAt)}</p>
+        <p><span class="text-muted-foreground">仓库回写：</span>${
+          typeof handoutRecord.warehouseWrittenQty === 'number'
+            ? `${handoutRecord.warehouseWrittenQty} ${escapeHtml(head.qtyUnit)}`
+            : '待仓库确认'
+        }</p>
+        <p><span class="text-muted-foreground">异议状态：</span>${
+          handoutRecord.status === 'OBJECTION_REPORTED'
+            ? '已发起异议'
+            : handoutRecord.status === 'OBJECTION_PROCESSING'
+              ? '异议处理中'
+              : handoutRecord.status === 'OBJECTION_RESOLVED'
+                ? '异议已处理'
+                : '无'
+        }</p>
+      </div>
+    `
+  }
+
+  return `<p class="text-sm text-muted-foreground">当前来源明细已同步，请前往关联模块继续处理。</p>`
+}
+
+function renderCurrentStatusText(row: HandoverLedgerRow): string {
+  if (row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK') return '仓库还未回写数量，先等待仓库确认。'
+  if (row.statusCode === 'HANDOUT_OBJECTION_REPORTED') return '工厂已发起异议，待平台跟进。'
+  if (row.statusCode === 'HANDOUT_OBJECTION_PROCESSING') return '平台正在跟进异议，等待处理结论。'
+  if (row.statusCode === 'HANDOUT_OBJECTION_RESOLVED') return '异议已处理完成，可继续关注是否完成。'
+  if (row.statusCode === 'PICKUP_PENDING') return '当前任务还没开始领料，先推进领料。'
+  if (row.statusCode === 'HANDOUT_PENDING') return '当前任务还没发起交出记录，先推进交出。'
+  if (row.statusCode === 'HEAD_COMPLETED') return '仓库已发起完成，这条链路当前无需额外处理。'
+  return '当前状态正常，按下一步建议继续跟进。'
+}
+
+function buildExceptionHrefByRow(row: HandoverLedgerRow): string {
+  const params = new URLSearchParams()
+  params.set('po', row.productionOrderId)
+  if (row.taskId) {
+    params.set('taskId', row.taskId)
+  }
+  if (row.statusGroup === 'EXCEPTION') {
+    params.set('reasonCode', 'HANDOVER_DIFF')
+  }
+  return `/fcs/progress/exceptions?${params.toString()}`
 }
 
 function renderBadge(label: string, className: string, icon?: string): string {
@@ -647,26 +613,43 @@ function renderBadge(label: string, className: string, icon?: string): string {
   `
 }
 
-function renderStatusBadge(status: HandoverStatus): string {
-  const config = STATUS_CONFIG[status]
-  return renderBadge(config.label, config.className, config.icon)
+function renderStatusBadge(row: HandoverLedgerRow): string {
+  const config = LEDGER_STATUS_CONFIG[row.statusTone]
+  return renderBadge(row.statusLabel, config.className, config.icon)
 }
 
 function renderHeader(): string {
   return `
-    <header class="flex flex-wrap items-start justify-between gap-3">
+    <header class="flex items-center justify-between gap-3">
       <div>
-        <h2 class="text-xl font-semibold">交接链路追踪</h2>
-        <p class="text-sm text-muted-foreground">生产交接事件追踪与管理</p>
+        <h1 class="flex items-center gap-2 text-xl font-semibold">
+          <i data-lucide="scan-line" class="h-5 w-5"></i>
+          交接链路追踪
+        </h1>
+        <p class="text-sm text-muted-foreground">按事件维度和生产单维度追踪交接事实，并支持下钻处理</p>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <button class="inline-flex h-8 items-center rounded-md border bg-primary px-3 text-sm text-primary-foreground hover:opacity-90" data-handover-action="open-new-drawer">
-          <i data-lucide="plus" class="mr-1.5 h-4 w-4"></i>新增交接事件
-        </button>
+
+      <div class="flex items-center gap-2">
+        <div class="flex rounded-md border">
+          <button
+            class="inline-flex h-8 items-center rounded-r-none px-3 text-sm ${state.activeTab === 'events' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+            data-handover-action="switch-dimension"
+            data-dimension="events"
+          >
+            <i data-lucide="list" class="mr-1.5 h-4 w-4"></i>事件维度
+          </button>
+          <button
+            class="inline-flex h-8 items-center rounded-l-none px-3 text-sm ${state.activeTab === 'orders' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+            data-handover-action="switch-dimension"
+            data-dimension="orders"
+          >
+            <i data-lucide="layers" class="mr-1.5 h-4 w-4"></i>生产单维度
+          </button>
+        </div>
         <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="refresh">
           <i data-lucide="refresh-cw" class="mr-1.5 h-4 w-4"></i>刷新
         </button>
-        <button class="inline-flex h-8 cursor-not-allowed items-center rounded-md border border-muted-foreground/20 bg-muted px-3 text-sm text-muted-foreground" disabled>
+        <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="export">
           <i data-lucide="download" class="mr-1.5 h-4 w-4"></i>导出
         </button>
       </div>
@@ -681,19 +664,24 @@ function renderUrlBanner(): string {
     <section class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2">
       <div class="flex flex-wrap items-center gap-2 text-sm text-blue-700">
         <i data-lucide="alert-triangle" class="h-4 w-4"></i>
-        <span>来自看板的筛选条件</span>
+        <span>来自其他页面的筛选条件</span>
         ${state.filterPo ? renderBadge(`生产单: ${state.filterPo}`, 'bg-white text-blue-700 border-blue-200') : ''}
+        ${state.filterProcess ? renderBadge(`工序: ${state.filterProcess}`, 'bg-white text-blue-700 border-blue-200') : ''}
         ${state.filterTaskId ? renderBadge(`任务: ${state.filterTaskId}`, 'bg-white text-blue-700 border-blue-200') : ''}
         ${
-          state.filterEventType !== 'ALL'
-            ? renderBadge(`类型: ${EVENT_TYPE_CONFIG[state.filterEventType].label}`, 'bg-white text-blue-700 border-blue-200')
+          state.timelineAnchorOrderId
+            ? renderBadge(`定位生产单: ${state.timelineAnchorOrderId}`, 'bg-white text-blue-700 border-blue-200')
             : ''
         }
         ${
-          state.filterStatus !== 'ALL'
-            ? renderBadge(`状态: ${STATUS_CONFIG[state.filterStatus].label}`, 'bg-white text-blue-700 border-blue-200')
+          state.timelineAnchorTaskId
+            ? renderBadge(`定位任务: ${state.timelineAnchorTaskId}`, 'bg-white text-blue-700 border-blue-200')
             : ''
         }
+        ${state.filterEventType !== 'ALL' ? renderBadge(`类型: ${getEventTypeLabel(state.filterEventType)}`, 'bg-white text-blue-700 border-blue-200') : ''}
+        ${state.filterStatus !== 'ALL' ? renderBadge(`状态: ${getStatusFilterLabel(state.filterStatus)}`, 'bg-white text-blue-700 border-blue-200') : ''}
+        ${state.focusHint ? renderBadge(`聚焦: ${getFocusLabel(state.focusHint)}`, 'bg-white text-blue-700 border-blue-200') : ''}
+        ${state.sourceHint ? renderBadge(`来源: ${state.sourceHint}`, 'bg-white text-blue-700 border-blue-200') : ''}
       </div>
       <button class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-blue-200 bg-white hover:bg-blue-100" data-handover-action="clear-filters" aria-label="清除筛选">
         <i data-lucide="x" class="h-4 w-4"></i>
@@ -702,52 +690,80 @@ function renderUrlBanner(): string {
   `
 }
 
-function renderKpis(kpi: { pending: number; disputed: number; todayNew: number }): string {
+function renderEventsPreviewCards(rows: HandoverLedgerRow[]): string {
+  const stats = getHandoverPreviewStats(rows)
+
   return `
-    <section class="grid gap-4 md:grid-cols-3">
+    <section class="grid gap-4 md:grid-cols-4">
       <button
-        class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40 ${state.filterStatus === 'PENDING_CONFIRM' ? 'ring-2 ring-primary' : ''}"
-        data-handover-action="toggle-pending-filter"
+        class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40 ${state.filterEventType === 'PICKUP' ? 'ring-2 ring-primary' : ''}"
+        data-handover-action="toggle-preview-filter"
+        data-filter-type="PICKUP"
       >
         <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <i data-lucide="clock" class="h-4 w-4 text-yellow-500"></i>
-          待确认
+          <i data-lucide="package" class="h-4 w-4 text-amber-500"></i>
+          待领料
         </p>
-        <p class="mt-2 text-2xl font-bold">${kpi.pending}</p>
+        <p class="mt-2 text-2xl font-bold">${stats.pendingPickupHeads}</p>
       </button>
 
       <button
-        class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40 ${state.filterStatus === 'DISPUTED' ? 'ring-2 ring-primary' : ''}"
-        data-handover-action="toggle-disputed-filter"
+        class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40 ${state.filterEventType === 'HANDOUT' ? 'ring-2 ring-primary' : ''}"
+        data-handover-action="toggle-preview-filter"
+        data-filter-type="HANDOUT"
+      >
+        <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <i data-lucide="truck" class="h-4 w-4 text-blue-500"></i>
+          待交出
+        </p>
+        <p class="mt-2 text-2xl font-bold">${stats.pendingHandoutHeads}</p>
+      </button>
+
+      <button
+        class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40 ${state.filterEventType === 'WAREHOUSE' ? 'ring-2 ring-primary' : ''}"
+        data-handover-action="toggle-preview-filter"
+        data-filter-type="WAREHOUSE"
+      >
+        <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <i data-lucide="clipboard-check" class="h-4 w-4 text-yellow-500"></i>
+          待仓库确认
+        </p>
+        <p class="mt-2 text-2xl font-bold">${stats.pendingWarehouseConfirm}</p>
+      </button>
+
+      <button
+        class="rounded-lg border bg-card p-4 text-left transition hover:bg-muted/40 ${state.filterEventType === 'OBJECTION' ? 'ring-2 ring-primary' : ''}"
+        data-handover-action="toggle-preview-filter"
+        data-filter-type="OBJECTION"
       >
         <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
           <i data-lucide="alert-circle" class="h-4 w-4 text-red-500"></i>
-          争议/差异
+          待处理异议
         </p>
-        <p class="mt-2 text-2xl font-bold text-red-600">${kpi.disputed}</p>
+        <p class="mt-2 text-2xl font-bold text-red-600">${stats.pendingObjections}</p>
       </button>
-
-      <article class="rounded-lg border bg-card p-4">
-        <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <i data-lucide="plus" class="h-4 w-4 text-blue-500"></i>
-          今日新增
-        </p>
-        <p class="mt-2 text-2xl font-bold">${kpi.todayNew}</p>
-      </article>
     </section>
   `
 }
 
-function renderTabs(): string {
-  return `
-    <div class="inline-flex rounded-md border p-1 text-sm">
-      <button class="rounded px-3 py-1.5 ${state.activeTab === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-handover-action="switch-tab" data-tab="list">交接事件台账</button>
-      <button class="rounded px-3 py-1.5 ${state.activeTab === 'timeline' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-handover-action="switch-tab" data-tab="timeline">生产单时间线</button>
-    </div>
-  `
+function getProductionOrderFilterOptions(rows: HandoverLedgerRow[]): string[] {
+  const orderIds = new Set<string>()
+  rows.forEach((row) => orderIds.add(row.productionOrderId))
+  return Array.from(orderIds).sort((a, b) => a.localeCompare(b))
 }
 
-function renderListFilters(): string {
+function getProcessFilterOptions(rows: HandoverLedgerRow[]): string[] {
+  const processes = new Set<string>()
+  rows.forEach((row) => {
+    if (row.processName) processes.add(row.processName)
+  })
+  return Array.from(processes).sort((a, b) => a.localeCompare(b))
+}
+
+function renderEventsFilters(rows: HandoverLedgerRow[]): string {
+  const orderOptions = getProductionOrderFilterOptions(rows)
+  const processOptions = getProcessFilterOptions(rows)
+
   return `
     <section class="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
       <div class="min-w-[220px] flex-1">
@@ -755,31 +771,45 @@ function renderListFilters(): string {
           <i data-lucide="search" class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"></i>
           <input
             class="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
-            placeholder="搜索交接单号/生产单/工厂"
+            placeholder="搜索生产单/任务/工序/记录编号"
             value="${escapeAttr(state.keyword)}"
             data-handover-field="keyword"
           />
         </div>
       </div>
 
+      <select class="h-9 w-[210px] rounded-md border bg-background px-3 text-sm" data-handover-field="filterPo">
+        <option value="">生产单</option>
+        ${orderOptions
+          .map(
+            (item) =>
+              `<option value="${escapeAttr(item)}" ${state.filterPo === item ? 'selected' : ''}>${escapeHtml(item)}</option>`,
+          )
+          .join('')}
+      </select>
+
+      <select class="h-9 w-[170px] rounded-md border bg-background px-3 text-sm" data-handover-field="filterProcess">
+        <option value="">工序工艺</option>
+        ${processOptions
+          .map(
+            (item) =>
+              `<option value="${escapeAttr(item)}" ${state.filterProcess === item ? 'selected' : ''}>${escapeHtml(item)}</option>`,
+          )
+          .join('')}
+      </select>
+
       <select class="h-9 w-[190px] rounded-md border bg-background px-3 text-sm" data-handover-field="filterEventType">
-        <option value="ALL" ${state.filterEventType === 'ALL' ? 'selected' : ''}>事件类型</option>
-        ${Object.entries(EVENT_TYPE_CONFIG)
-          .map(([key, config]) => `<option value="${key}" ${state.filterEventType === key ? 'selected' : ''}>${escapeHtml(config.label)}</option>`)
-          .join('')}
+        ${LEDGER_EVENT_FILTER_OPTIONS.map((item) => `<option value="${item.value}" ${state.filterEventType === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
       </select>
 
-      <select class="h-9 w-[140px] rounded-md border bg-background px-3 text-sm" data-handover-field="filterStatus">
-        <option value="ALL" ${state.filterStatus === 'ALL' ? 'selected' : ''}>状态</option>
-        ${Object.entries(STATUS_CONFIG)
-          .map(([key, config]) => `<option value="${key}" ${state.filterStatus === key ? 'selected' : ''}>${escapeHtml(config.label)}</option>`)
-          .join('')}
+      <select class="h-9 w-[190px] rounded-md border bg-background px-3 text-sm" data-handover-field="filterStatus">
+        ${LEDGER_STATUS_FILTER_OPTIONS.map((item) => `<option value="${item.value}" ${state.filterStatus === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
       </select>
 
-      <select class="h-9 w-[140px] rounded-md border bg-background px-3 text-sm" data-handover-field="filterHasDiff">
-        <option value="ALL" ${state.filterHasDiff === 'ALL' ? 'selected' : ''}>是否有差异</option>
-        <option value="YES" ${state.filterHasDiff === 'YES' ? 'selected' : ''}>有差异</option>
-        <option value="NO" ${state.filterHasDiff === 'NO' ? 'selected' : ''}>无差异</option>
+      <select class="h-9 w-[170px] rounded-md border bg-background px-3 text-sm" data-handover-field="filterHasDiff">
+        <option value="ALL" ${state.filterHasDiff === 'ALL' ? 'selected' : ''}>差异/异议</option>
+        <option value="YES" ${state.filterHasDiff === 'YES' ? 'selected' : ''}>有差异/异议</option>
+        <option value="NO" ${state.filterHasDiff === 'NO' ? 'selected' : ''}>无差异/异议</option>
       </select>
 
       <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="clear-filters">重置</button>
@@ -787,42 +817,53 @@ function renderListFilters(): string {
   `
 }
 
-function renderRowActionMenu(event: HandoverEvent): string {
-  const isOpen = state.rowMenuEventId === event.eventId
+function renderRowActionMenu(row: HandoverLedgerRow): string {
+  const isOpen = state.rowMenuRowId === row.rowId
+  const canWriteback = row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK' && Boolean(row.recordId)
+  const canHandleObjection =
+    (row.statusCode === 'HANDOUT_OBJECTION_REPORTED' || row.statusCode === 'HANDOUT_OBJECTION_PROCESSING') &&
+    Boolean(row.recordId)
+  const canMarkPickupComplete = row.sourceType === 'PICKUP_HEAD'
+  const canMarkHandoutComplete = row.sourceType === 'HANDOUT_HEAD'
+
+  let primaryAction = ''
+  if (canWriteback) {
+    primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-writeback-dialog" data-record-id="${escapeAttr(
+      row.recordId || '',
+    )}"><i data-lucide="clipboard-check" class="mr-2 h-4 w-4"></i>模拟仓库回写</button>`
+  } else if (canHandleObjection) {
+    primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-objection-dialog" data-record-id="${escapeAttr(
+      row.recordId || '',
+    )}"><i data-lucide="message-square" class="mr-2 h-4 w-4"></i>处理异议</button>`
+  } else if (canMarkPickupComplete) {
+    primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="mark-pickup-complete" data-handover-id="${escapeAttr(
+      row.handoverId,
+    )}"><i data-lucide="check-check" class="mr-2 h-4 w-4"></i>标记领料完成</button>`
+  } else if (canMarkHandoutComplete) {
+    primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="mark-handout-complete" data-handover-id="${escapeAttr(
+      row.handoverId,
+    )}"><i data-lucide="check-check" class="mr-2 h-4 w-4"></i>标记交出完成</button>`
+  }
 
   return `
     <div class="relative inline-flex" data-handover-stop="true">
-      <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-handover-action="toggle-row-menu" data-event-id="${escapeAttr(event.eventId)}">
+      <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-handover-action="toggle-row-menu" data-row-id="${escapeAttr(row.rowId)}">
         <i data-lucide="more-horizontal" class="h-4 w-4"></i>
       </button>
       ${
         isOpen
           ? `
-            <div class="absolute right-0 top-9 z-20 min-w-[170px] rounded-md border bg-popover p-1 shadow-lg">
-              <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-detail" data-event-id="${escapeAttr(event.eventId)}">
+            <div class="absolute right-0 top-9 z-20 min-w-[180px] rounded-md border bg-popover p-1 shadow-lg">
+              <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-detail" data-row-id="${escapeAttr(row.rowId)}">
                 <i data-lucide="eye" class="mr-2 h-4 w-4"></i>查看详情
               </button>
-              ${
-                event.status === 'PENDING_CONFIRM'
-                  ? `
-                    <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-confirm-dialog" data-event-id="${escapeAttr(event.eventId)}">
-                      <i data-lucide="check-circle" class="mr-2 h-4 w-4"></i>确认交接
-                    </button>
-                  `
-                  : ''
-              }
-              ${
-                event.status === 'PENDING_CONFIRM' || (event.status === 'CONFIRMED' && event.qtyDiff !== 0)
-                  ? `
-                    <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-dispute-dialog" data-event-id="${escapeAttr(event.eventId)}">
-                      <i data-lucide="alert-circle" class="mr-2 h-4 w-4"></i>标记争议
-                    </button>
-                  `
-                  : ''
-              }
+              <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="goto-task" data-task-id="${escapeAttr(row.taskId)}">
+                <i data-lucide="list-checks" class="mr-2 h-4 w-4"></i>去任务看板
+              </button>
+              ${primaryAction}
               <div class="my-1 h-px bg-border"></div>
-              <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="view-exception" data-event-id="${escapeAttr(event.eventId)}">
-                <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>查看异常
+              <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="view-exception" data-row-id="${escapeAttr(row.rowId)}">
+                <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>去异常定位与处理
               </button>
             </div>
           `
@@ -832,221 +873,64 @@ function renderRowActionMenu(event: HandoverEvent): string {
   `
 }
 
-function renderEventsTable(events: HandoverEvent[]): string {
+function renderLedgerTable(rows: HandoverLedgerRow[]): string {
   return `
     <section class="overflow-hidden rounded-lg border bg-card">
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead class="bg-muted/40">
             <tr class="border-b text-left text-muted-foreground">
-              <th class="px-3 py-2 font-medium">交接单号</th>
-              <th class="px-3 py-2 font-medium">生产单号</th>
-              <th class="px-3 py-2 font-medium">关联任务</th>
               <th class="px-3 py-2 font-medium">事件类型</th>
-              <th class="px-3 py-2 font-medium">发出方 → 接收方</th>
-              <th class="px-3 py-2 font-medium text-right">应交/实交/差异</th>
-              <th class="px-3 py-2 font-medium">状态</th>
+              <th class="px-3 py-2 font-medium">生产单</th>
+              <th class="px-3 py-2 font-medium">关联任务/工序</th>
+              <th class="px-3 py-2 font-medium">数量摘要</th>
+              <th class="px-3 py-2 font-medium">当前状态</th>
+              <th class="px-3 py-2 font-medium">来源模块</th>
+              <th class="px-3 py-2 font-medium">下一步</th>
               <th class="px-3 py-2 font-medium">发生时间</th>
               <th class="px-3 py-2 font-medium text-right">操作</th>
             </tr>
           </thead>
           <tbody>
             ${
-              events.length === 0
+              rows.length === 0
                 ? `
                   <tr>
-                    <td colspan="9" class="px-3 py-10 text-center text-muted-foreground">
-                      未找到交接事件
-                      <button class="ml-2 inline-flex items-center text-primary hover:underline" data-handover-action="open-new-drawer">可新建交接事件</button>
-                    </td>
+                    <td colspan="9" class="px-3 py-10 text-center text-muted-foreground">当前筛选条件下暂无交接事件</td>
                   </tr>
                 `
-                : events
-                    .map((event) => {
-                      const relatedTask = event.relatedTaskId ? processTasks.find((task) => task.taskId === event.relatedTaskId) : null
-
-                      return `
+                : rows
+                    .map(
+                      (row) => `
                         <tr class="border-b">
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(event.eventId)}</td>
                           <td class="px-3 py-2">
-                            <button class="inline-flex items-center text-xs text-primary hover:underline" data-handover-action="goto-order" data-order-id="${escapeAttr(event.productionOrderId)}">
-                              ${escapeHtml(event.productionOrderId)}
+                            <div class="inline-flex items-center gap-1.5 text-xs">
+                              <i data-lucide="workflow" class="h-3.5 w-3.5 text-muted-foreground"></i>
+                              <span>${escapeHtml(row.eventTypeLabel)}</span>
+                            </div>
+                          </td>
+                          <td class="px-3 py-2">
+                            <button class="inline-flex items-center text-xs text-primary hover:underline" data-handover-action="goto-order" data-order-id="${escapeAttr(row.productionOrderId)}">
+                              ${escapeHtml(row.productionOrderId)}
                             </button>
                           </td>
-                          <td class="px-3 py-2">
-                            ${
-                              relatedTask
-                                ? `
-                                  <button class="inline-flex items-center text-xs text-primary hover:underline" data-handover-action="goto-task" data-task-id="${escapeAttr(relatedTask.taskId)}">
-                                    ${escapeHtml(relatedTask.processNameZh)} (${escapeHtml(relatedTask.taskId)})
-                                  </button>
-                                `
-                                : '<span class="text-xs text-muted-foreground">-</span>'
-                            }
-                          </td>
-                          <td class="px-3 py-2">
-                            <span class="inline-flex items-center gap-1.5 text-xs">
-                              <i data-lucide="${EVENT_TYPE_CONFIG[event.eventType].icon}" class="h-3.5 w-3.5"></i>
-                              ${escapeHtml(EVENT_TYPE_CONFIG[event.eventType].label)}
-                            </span>
+                          <td class="px-3 py-2 text-xs">
+                            <div>
+                              <button class="inline-flex items-center text-primary hover:underline" data-handover-action="goto-task" data-task-id="${escapeAttr(row.taskId)}">${escapeHtml(row.taskNo)}</button>
+                            </div>
+                            <div class="text-muted-foreground">${escapeHtml(row.processName)}</div>
                           </td>
                           <td class="px-3 py-2 text-xs">
-                            ${escapeHtml(event.fromParty.name)}
-                            <i data-lucide="arrow-right" class="mx-1 inline h-3 w-3"></i>
-                            ${escapeHtml(event.toParty.name)}
+                            <div>${escapeHtml(row.qtySummary)}</div>
+                            <div class="text-muted-foreground">${escapeHtml(row.directionLabel)}</div>
                           </td>
-                          <td class="px-3 py-2 text-right font-mono text-xs">
-                            ${event.qtyExpected} / ${event.qtyActual} /
-                            <span class="${event.qtyDiff !== 0 ? 'font-bold text-red-600' : ''}">${event.qtyDiff > 0 ? '+' : ''}${event.qtyDiff}</span>
+                          <td class="px-3 py-2">${renderStatusBadge(row)}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(row.sourceModuleLabel)}</td>
+                          <td class="px-3 py-2 text-xs">
+                            <span class="inline-flex items-center rounded-md bg-muted px-2 py-1 text-muted-foreground">${escapeHtml(row.nextActionHint)}</span>
                           </td>
-                          <td class="px-3 py-2">${renderStatusBadge(event.status)}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(event.occurredAt)}</td>
-                          <td class="px-3 py-2 text-right">${renderRowActionMenu(event)}</td>
-                        </tr>
-                      `
-                    })
-                    .join('')
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderPdaRecordStatusBadge(record: PdaHandoverRecord): string {
-  if (record.status === 'PENDING_WRITEBACK') {
-    return renderBadge('待仓库回写', 'bg-amber-50 text-amber-700 border-amber-200')
-  }
-  if (record.status === 'WRITTEN_BACK') {
-    return renderBadge('已回写', 'bg-emerald-50 text-emerald-700 border-emerald-200')
-  }
-  if (record.status === 'OBJECTION_REPORTED') {
-    return renderBadge('已发起异议', 'bg-red-50 text-red-700 border-red-200')
-  }
-  if (record.status === 'OBJECTION_PROCESSING') {
-    return renderBadge('异议处理中', 'bg-blue-50 text-blue-700 border-blue-200')
-  }
-  return renderBadge('异议已处理', 'bg-zinc-100 text-zinc-700 border-zinc-200')
-}
-
-function renderPdaPickupRecordStatusBadge(record: PdaPickupRecord): string {
-  if (record.status === 'PENDING_WAREHOUSE_DISPATCH') {
-    return renderBadge('待仓库发出', 'bg-amber-50 text-amber-700 border-amber-200')
-  }
-  if (record.status === 'PENDING_FACTORY_PICKUP') {
-    return renderBadge('待自提', 'bg-blue-50 text-blue-700 border-blue-200')
-  }
-  return renderBadge('已领料确认', 'bg-emerald-50 text-emerald-700 border-emerald-200')
-}
-
-function renderPdaHandoutSection(): string {
-  const pickupHeads = getPdaPickupHeads()
-  const handoutHeads = getPdaHandoutHeads()
-  const completedHeads = getPdaCompletedHeads()
-  const pickupRows = pickupHeads
-    .flatMap((head) =>
-      getPdaPickupRecordsByHead(head.handoverId).map((record) => ({
-        head,
-        record,
-      })),
-    )
-    .sort((a, b) => parseDateTime(b.record.submittedAt) - parseDateTime(a.record.submittedAt))
-  const handoutRows = handoutHeads
-    .flatMap((head) =>
-      getPdaHandoverRecordsByHead(head.handoverId).map((record) => ({
-        head,
-        record,
-      })),
-    )
-    .sort((a, b) => parseDateTime(b.record.factorySubmittedAt) - parseDateTime(a.record.factorySubmittedAt))
-
-  return `
-    <section class="space-y-3 rounded-lg border bg-card p-4">
-      <div class="flex items-center justify-between gap-2">
-        <div>
-          <h3 class="text-sm font-semibold">工厂端交接追踪</h3>
-          <p class="text-xs text-muted-foreground">仓库侧可在此模拟发起“领料完成/交出完成”，PDA 已完成仅接收仓库完成结果</p>
-        </div>
-      </div>
-
-      <div class="grid gap-2 rounded-md border bg-muted/20 px-3 py-2 text-xs md:grid-cols-3">
-        <div>待领料头：<span class="font-medium">${pickupHeads.length}</span></div>
-        <div>待交出头：<span class="font-medium">${handoutHeads.length}</span></div>
-        <div>仓库已发起完成：<span class="font-medium">${completedHeads.length}</span></div>
-      </div>
-
-      <div class="space-y-2">
-        <h4 class="text-xs font-medium text-muted-foreground">领料头（仓库 -> 工厂）</h4>
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          ${
-            pickupHeads.length === 0
-              ? '<div class="col-span-full rounded-md border border-dashed px-3 py-5 text-center text-xs text-muted-foreground">暂无待领料头单</div>'
-              : pickupHeads
-                  .map(
-                    (head) => `
-                      <article class="space-y-1.5 rounded-md border bg-background p-3 text-xs">
-                        <div class="flex items-center justify-between gap-2">
-                          <span class="font-mono text-[11px] text-muted-foreground">${escapeHtml(head.handoverId)}</span>
-                          <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">领料头</span>
-                        </div>
-                        <div><span class="text-muted-foreground">生产单：</span>${escapeHtml(head.productionOrderNo)}</div>
-                        <div><span class="text-muted-foreground">任务：</span>${escapeHtml(head.taskNo)} / ${escapeHtml(head.processName)}</div>
-                        <div><span class="text-muted-foreground">累计记录：</span>${head.recordCount} 次</div>
-                        <div><span class="text-muted-foreground">待完成记录：</span>${head.pendingWritebackCount} 次</div>
-                        <div><span class="text-muted-foreground">应领/实领：</span>${head.qtyExpectedTotal}/${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</div>
-                        <div class="${head.qtyDiffTotal !== 0 ? 'text-red-600' : ''}"><span class="text-muted-foreground">数量差异：</span>${head.qtyDiffTotal > 0 ? '-' : head.qtyDiffTotal < 0 ? '+' : ''}${Math.abs(head.qtyDiffTotal)} ${escapeHtml(head.qtyUnit)}</div>
-                        <div class="flex items-center gap-1.5 pt-1">
-                          <button
-                            class="inline-flex h-7 items-center rounded-md border px-2 hover:bg-muted"
-                            data-handover-action="open-pda-detail"
-                            data-handover-id="${escapeAttr(head.handoverId)}"
-                          >查看</button>
-                          <button
-                            class="inline-flex h-7 items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 text-emerald-700 hover:bg-emerald-100"
-                            data-handover-action="mark-pickup-complete"
-                            data-handover-id="${escapeAttr(head.handoverId)}"
-                          >标记领料完成</button>
-                        </div>
-                      </article>
-                    `,
-                  )
-                  .join('')
-          }
-        </div>
-      </div>
-
-      <div class="overflow-x-auto rounded-md border">
-        <table class="min-w-full text-xs">
-          <thead class="bg-muted/40 text-muted-foreground">
-            <tr class="border-b text-left">
-              <th class="px-3 py-2 font-medium">领料记录号</th>
-              <th class="px-3 py-2 font-medium">生产单 / 任务</th>
-              <th class="px-3 py-2 font-medium">领料方式</th>
-              <th class="px-3 py-2 font-medium">物料摘要</th>
-              <th class="px-3 py-2 font-medium">本次数量</th>
-              <th class="px-3 py-2 font-medium">发起时间</th>
-              <th class="px-3 py-2 font-medium">状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              pickupRows.length === 0
-                ? '<tr><td colspan="7" class="px-3 py-8 text-center text-muted-foreground">暂无领料记录</td></tr>'
-                : pickupRows
-                    .map(
-                      ({ head, record }) => `
-                        <tr class="border-b">
-                          <td class="px-3 py-2 font-mono">${escapeHtml(record.recordId)}</td>
-                          <td class="px-3 py-2">
-                            <div>${escapeHtml(head.productionOrderNo)}</div>
-                            <div class="text-muted-foreground">${escapeHtml(head.taskNo)} / ${escapeHtml(head.processName)}</div>
-                          </td>
-                          <td class="px-3 py-2">${escapeHtml(record.pickupModeLabel)}</td>
-                          <td class="px-3 py-2">${escapeHtml(record.materialSummary)}</td>
-                          <td class="px-3 py-2">${record.qtyExpected}/${typeof record.qtyActual === 'number' ? record.qtyActual : '待确认'} ${escapeHtml(record.qtyUnit)}</td>
-                          <td class="px-3 py-2">${escapeHtml(record.submittedAt)}</td>
-                          <td class="px-3 py-2">${renderPdaPickupRecordStatusBadge(record)}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(row.occurredAt || '-')}</td>
+                          <td class="px-3 py-2 text-right">${renderRowActionMenu(row)}</td>
                         </tr>
                       `,
                     )
@@ -1055,464 +939,565 @@ function renderPdaHandoutSection(): string {
           </tbody>
         </table>
       </div>
-
-      <div class="space-y-2">
-        <h4 class="text-xs font-medium text-muted-foreground">交出头（工厂 -> 仓库）</h4>
-      </div>
-
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${
-          handoutHeads.length === 0
-            ? '<div class="col-span-full rounded-md border border-dashed px-3 py-5 text-center text-xs text-muted-foreground">暂无工厂端交出头数据</div>'
-            : handoutHeads
-                .map(
-                  (head) => `
-                    <article class="space-y-1.5 rounded-md border bg-background p-3 text-xs">
-                      <div class="flex items-center justify-between gap-2">
-                        <span class="font-mono text-[11px] text-muted-foreground">${escapeHtml(head.handoverId)}</span>
-                        <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${head.taskStatus === 'DONE' ? '已完工任务' : '进行中任务'}</span>
-                      </div>
-                      <div><span class="text-muted-foreground">生产单：</span>${escapeHtml(head.productionOrderNo)}</div>
-                      <div><span class="text-muted-foreground">任务：</span>${escapeHtml(head.taskNo)} / ${escapeHtml(head.processName)}</div>
-                      <div><span class="text-muted-foreground">已发起：</span>${head.recordCount} 次</div>
-                      <div><span class="text-muted-foreground">待回写：</span>${head.pendingWritebackCount} 次</div>
-                      <div><span class="text-muted-foreground">已回写数量：</span>${head.writtenBackQtyTotal} ${escapeHtml(head.qtyUnit)}</div>
-                      <div><span class="text-muted-foreground">数量异议：</span>${head.objectionCount} 条</div>
-                      <div class="${head.qtyDiffTotal !== 0 ? 'text-red-600' : ''}"><span class="text-muted-foreground">数量差异：</span>${head.qtyDiffTotal > 0 ? '-' : head.qtyDiffTotal < 0 ? '+' : ''}${Math.abs(head.qtyDiffTotal)} ${escapeHtml(head.qtyUnit)}</div>
-                      <div class="flex items-center gap-1.5 pt-1">
-                        <button
-                          class="inline-flex h-7 items-center rounded-md border px-2 hover:bg-muted"
-                          data-handover-action="open-pda-detail"
-                          data-handover-id="${escapeAttr(head.handoverId)}"
-                        >查看</button>
-                        <button
-                          class="inline-flex h-7 items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 text-emerald-700 hover:bg-emerald-100"
-                          data-handover-action="mark-handout-complete"
-                          data-handover-id="${escapeAttr(head.handoverId)}"
-                        >标记交出完成</button>
-                      </div>
-                    </article>
-                  `,
-                )
-                .join('')
-        }
-      </div>
-
-      <div class="overflow-x-auto rounded-md border">
-        <table class="min-w-full text-xs">
-          <thead class="bg-muted/40 text-muted-foreground">
-            <tr class="border-b text-left">
-              <th class="px-3 py-2 font-medium">交出记录号</th>
-              <th class="px-3 py-2 font-medium">生产单 / 任务</th>
-              <th class="px-3 py-2 font-medium">发起工厂</th>
-              <th class="px-3 py-2 font-medium">第几次</th>
-              <th class="px-3 py-2 font-medium">发起时间</th>
-              <th class="px-3 py-2 font-medium">回货单号</th>
-              <th class="px-3 py-2 font-medium">回写数量</th>
-              <th class="px-3 py-2 font-medium">状态</th>
-              <th class="px-3 py-2 font-medium text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              handoutRows.length === 0
-                ? '<tr><td colspan="9" class="px-3 py-8 text-center text-muted-foreground">暂无交出记录</td></tr>'
-                : handoutRows
-                    .map(({ head, record }) => {
-                      const canWriteback = record.status === 'PENDING_WRITEBACK'
-                      const canHandleObjection =
-                        record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING'
-
-                      return `
-                        <tr class="border-b">
-                          <td class="px-3 py-2 font-mono">${escapeHtml(record.recordId)}</td>
-                          <td class="px-3 py-2">
-                            <div>${escapeHtml(head.productionOrderNo)}</div>
-                            <div class="text-muted-foreground">${escapeHtml(head.taskNo)} / ${escapeHtml(head.processName)}</div>
-                          </td>
-                          <td class="px-3 py-2">${escapeHtml(head.sourceFactoryName)}</td>
-                          <td class="px-3 py-2">第 ${record.sequenceNo} 次</td>
-                          <td class="px-3 py-2">${escapeHtml(record.factorySubmittedAt)}</td>
-                          <td class="px-3 py-2">${escapeHtml(record.warehouseReturnNo || '待仓库回写')}</td>
-                          <td class="px-3 py-2">${
-                            typeof record.warehouseWrittenQty === 'number'
-                              ? `${record.warehouseWrittenQty} ${escapeHtml(head.qtyUnit)}`
-                              : '待仓库回写'
-                          }</td>
-                          <td class="px-3 py-2">${renderPdaRecordStatusBadge(record)}</td>
-                          <td class="px-3 py-2 text-right">
-                            <div class="inline-flex items-center gap-1.5">
-                              <button
-                                class="inline-flex h-7 items-center rounded-md border px-2 hover:bg-muted"
-                                data-handover-action="open-pda-detail"
-                                data-handover-id="${escapeAttr(head.handoverId)}"
-                              >查看</button>
-                              ${
-                                canWriteback
-                                  ? `
-                                    <button
-                                      class="inline-flex h-7 items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 text-emerald-700 hover:bg-emerald-100"
-                                      data-handover-action="open-writeback-dialog"
-                                      data-record-id="${escapeAttr(record.recordId)}"
-                                    >模拟仓库回写</button>
-                                  `
-                                  : ''
-                              }
-                              ${
-                                canHandleObjection
-                                  ? `
-                                    <button
-                                      class="inline-flex h-7 items-center rounded-md border border-red-200 bg-red-50 px-2 text-red-700 hover:bg-red-100"
-                                      data-handover-action="open-objection-dialog"
-                                      data-record-id="${escapeAttr(record.recordId)}"
-                                    >处理异议</button>
-                                  `
-                                  : ''
-                              }
-                              ${
-                                !canWriteback && !canHandleObjection
-                                  ? `
-                                    <button
-                                      class="inline-flex h-7 items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 text-emerald-700 hover:bg-emerald-100"
-                                      data-handover-action="mark-handout-complete"
-                                      data-handover-id="${escapeAttr(head.handoverId)}"
-                                    >标记交出完成</button>
-                                  `
-                                  : ''
-                              }
-                            </div>
-                          </td>
-                        </tr>
-                      `
-                    })
-                    .join('')
-            }
-          </tbody>
-        </table>
-      </div>
     </section>
   `
 }
 
-function renderListTab(events: HandoverEvent[]): string {
+function renderEventsDimension(rows: HandoverLedgerRow[], allRows: HandoverLedgerRow[]): string {
   return `
     <div class="space-y-4">
-      ${renderListFilters()}
-      ${renderEventsTable(events)}
-      ${renderPdaHandoutSection()}
+      ${renderEventsPreviewCards(allRows)}
+      ${renderEventsFilters(allRows)}
+      ${renderLedgerTable(rows)}
     </div>
   `
 }
 
-function renderTimelineTab(): string {
-  const orderIds = getOrderIdsWithHandover()
-  const timelineOrderId = state.timelineOrderId || orderIds[0] || ''
-  const timelineEvents = getTimelineEvents(timelineOrderId)
-  const summary = getTimelineSummary(timelineOrderId)
+function isToday(value: string): boolean {
+  const time = parseDateMs(value)
+  if (!Number.isFinite(time)) return false
+  const now = new Date()
+  const target = new Date(time)
+  return (
+    now.getFullYear() === target.getFullYear() &&
+    now.getMonth() === target.getMonth() &&
+    now.getDate() === target.getDate()
+  )
+}
 
+function getOrdersPreviewStats(views: HandoverOrderTimelineView[]): {
+  totalOrders: number
+  pendingOrders: number
+  objectionOrders: number
+  todayOrders: number
+} {
+  return {
+    totalOrders: views.length,
+    pendingOrders: views.filter((view) => view.pendingCount > 0 || view.currentBottleneckLabel !== '全部完成').length,
+    objectionOrders: views.filter((view) => view.objectionCount > 0).length,
+    todayOrders: views.filter((view) => isToday(view.latestOccurredAt)).length,
+  }
+}
+
+function renderOrdersPreviewCards(views: HandoverOrderTimelineView[]): string {
+  const stats = getOrdersPreviewStats(views)
   return `
-    <section class="grid gap-4 md:grid-cols-3">
-      <article class="overflow-hidden rounded-lg border bg-card md:col-span-1">
-        <div class="border-b px-4 py-3 text-sm font-medium">生产单</div>
-        <div class="max-h-[500px] overflow-y-auto">
-          ${
-            orderIds.length === 0
-              ? '<div class="px-4 py-10 text-center text-sm text-muted-foreground">暂无交接数据</div>'
-              : orderIds
-                  .map((orderId) => {
-                    const order = getOrderById(orderId)
-                    const eventsCount = initialHandoverEvents.filter((event) => event.productionOrderId === orderId).length
-                    const pendingCount = initialHandoverEvents.filter((event) => event.productionOrderId === orderId && event.status === 'PENDING_CONFIRM').length
-                    const disputedCount = initialHandoverEvents.filter((event) => event.productionOrderId === orderId && event.status === 'DISPUTED').length
-
-                    return `
-                      <button
-                        class="flex w-full items-center justify-between border-b px-4 py-3 text-left hover:bg-muted ${timelineOrderId === orderId ? 'bg-muted' : ''}"
-                        data-handover-action="select-timeline-order"
-                        data-order-id="${escapeAttr(orderId)}"
-                      >
-                        <span>
-                          <span class="block font-mono text-sm">${escapeHtml(orderId)}</span>
-                          <span class="block text-xs text-muted-foreground">${escapeHtml(order?.demandSnapshot.spuName || '')}</span>
-                        </span>
-                        <span class="flex items-center gap-1.5 text-xs">
-                          ${renderBadge(String(eventsCount), 'bg-background text-foreground border-border')}
-                          ${pendingCount > 0 ? renderBadge(String(pendingCount), 'bg-yellow-100 text-yellow-700 border-yellow-200') : ''}
-                          ${disputedCount > 0 ? renderBadge(String(disputedCount), 'bg-red-100 text-red-700 border-red-200') : ''}
-                          <i data-lucide="chevron-right" class="h-4 w-4 text-muted-foreground"></i>
-                        </span>
-                      </button>
-                    `
-                  })
-                  .join('')
-          }
-        </div>
+    <section class="grid gap-4 md:grid-cols-4">
+      <article class="rounded-lg border bg-card p-4">
+        <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <i data-lucide="layers" class="h-4 w-4 text-blue-500"></i>
+          有交接事件的生产单
+        </p>
+        <p class="mt-2 text-2xl font-bold">${stats.totalOrders}</p>
       </article>
-
-      <article class="overflow-hidden rounded-lg border bg-card md:col-span-2">
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-          <p class="text-sm font-medium">${timelineOrderId ? `${escapeHtml(timelineOrderId)} 交接时间线` : '请选择生产单'}</p>
-          ${
-            timelineOrderId
-              ? `
-                <div class="flex items-center gap-3 text-xs">
-                  <span class="text-yellow-700">待确认: ${summary.pending}</span>
-                  <span class="text-green-700">已确认: ${summary.confirmed}</span>
-                  <span class="text-red-700">争议: ${summary.disputed}</span>
-                </div>
-              `
-              : ''
-          }
-        </div>
-
-        ${
-          !timelineOrderId
-            ? '<div class="flex h-[450px] items-center justify-center text-sm text-muted-foreground">请从左侧选择一个生产单查看交接时间线</div>'
-            : `
-              <div class="h-[450px] overflow-y-auto p-4">
-                <div class="relative pl-6">
-                  <div class="absolute bottom-0 left-2 top-0 w-0.5 bg-border"></div>
-                  ${
-                    timelineEvents.length === 0
-                      ? '<div class="py-8 text-center text-sm text-muted-foreground">未找到交接事件</div>'
-                      : timelineEvents
-                          .map((event) => {
-                            const nodeClass =
-                              event.status === 'CONFIRMED'
-                                ? 'border-green-500'
-                                : event.status === 'PENDING_CONFIRM'
-                                  ? 'border-yellow-500'
-                                  : event.status === 'DISPUTED'
-                                    ? 'border-red-500'
-                                    : 'border-zinc-300'
-
-                            return `
-                              <div class="relative pb-6 last:pb-0">
-                                <div class="absolute left-[-20px] h-4 w-4 rounded-full border-2 bg-background ${nodeClass}"></div>
-                                <button
-                                  class="ml-4 w-[calc(100%-1rem)] rounded-lg border bg-background p-3 text-left shadow-sm transition hover:shadow-md"
-                                  data-handover-action="open-detail"
-                                  data-event-id="${escapeAttr(event.eventId)}"
-                                >
-                                  <div class="flex items-start justify-between gap-3">
-                                    <div>
-                                      <p class="inline-flex items-center gap-2 text-sm font-medium">
-                                        <i data-lucide="${EVENT_TYPE_CONFIG[event.eventType].icon}" class="h-4 w-4"></i>
-                                        ${escapeHtml(EVENT_TYPE_CONFIG[event.eventType].label)}
-                                        ${renderStatusBadge(event.status)}
-                                      </p>
-                                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(event.fromParty.name)} → ${escapeHtml(event.toParty.name)}</p>
-                                      <p class="mt-1 text-xs">应交: ${event.qtyExpected} | 实交: ${event.qtyActual} | 差异: <span class="${event.qtyDiff !== 0 ? 'font-bold text-red-600' : ''}">${event.qtyDiff > 0 ? '+' : ''}${event.qtyDiff}</span></p>
-                                      ${event.evidence.length > 0 ? `<p class="mt-1 text-xs text-muted-foreground">附件: ${event.evidence.length} 个</p>` : ''}
-                                    </div>
-                                    <div class="shrink-0 text-right text-xs text-muted-foreground">
-                                      <p>${escapeHtml(event.occurredAt.slice(0, 10))}</p>
-                                      <p>${escapeHtml(event.occurredAt.slice(11, 16))}</p>
-                                    </div>
-                                  </div>
-                                </button>
-                              </div>
-                            `
-                          })
-                          .join('')
-                  }
-                </div>
-              </div>
-            `
-        }
+      <article class="rounded-lg border bg-card p-4">
+        <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <i data-lucide="timer" class="h-4 w-4 text-amber-500"></i>
+          有待处理交接事件
+        </p>
+        <p class="mt-2 text-2xl font-bold">${stats.pendingOrders}</p>
+      </article>
+      <article class="rounded-lg border bg-card p-4">
+        <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <i data-lucide="alert-circle" class="h-4 w-4 text-red-500"></i>
+          有异议生产单
+        </p>
+        <p class="mt-2 text-2xl font-bold text-red-600">${stats.objectionOrders}</p>
+      </article>
+      <article class="rounded-lg border bg-card p-4">
+        <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <i data-lucide="calendar-days" class="h-4 w-4 text-emerald-500"></i>
+          今日有新增交接事件
+        </p>
+        <p class="mt-2 text-2xl font-bold">${stats.todayOrders}</p>
       </article>
     </section>
   `
 }
 
-function renderPartySelect(kindField: 'formFromKind' | 'formToKind', idField: 'formFromId' | 'formToId', nameField: 'formFromName' | 'formToName'): string {
-  const kind = state[kindField]
-  const id = state[idField]
-  const name = state[nameField]
+function getOrderProcessFilterOptions(views: HandoverOrderTimelineView[]): string[] {
+  const options = new Set<string>()
+  views.forEach((view) => {
+    view.processSections.forEach((section) => {
+      if (section.processName && section.processName !== '未识别工序') {
+        options.add(section.processName)
+      }
+    })
+  })
+  return Array.from(options).sort((a, b) => a.localeCompare(b))
+}
+
+function getFilteredOrderViews(
+  views: HandoverOrderTimelineView[],
+  rows: HandoverLedgerRow[],
+): HandoverOrderTimelineView[] {
+  return views.filter((view) => {
+    const latestEvent = getLatestOrderEvent(view.productionOrderId, rows)
+    const keyword = state.ordersKeyword.trim().toLowerCase()
+    if (keyword) {
+      const processText = view.processSections.map((section) => section.processName).join(' ')
+      const combined = `${view.productionOrderNo} ${latestEvent?.eventTypeLabel || ''} ${view.currentBottleneckLabel} ${processText}`.toLowerCase()
+      if (!combined.includes(keyword)) return false
+    }
+
+    if (state.ordersBottleneckFilter !== 'ALL' && view.currentBottleneckLabel !== state.ordersBottleneckFilter) {
+      return false
+    }
+
+    if (state.ordersObjectionFilter === 'YES' && view.objectionCount <= 0) return false
+    if (state.ordersObjectionFilter === 'NO' && view.objectionCount > 0) return false
+
+    if (state.ordersProcessFilter) {
+      const matched = view.processSections.some((section) => section.processName === state.ordersProcessFilter)
+      if (!matched) return false
+    }
+
+    return true
+  })
+}
+
+function renderOrdersFilters(views: HandoverOrderTimelineView[]): string {
+  const processOptions = getOrderProcessFilterOptions(views)
 
   return `
-    <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-handover-field="${kindField}">
-      ${Object.entries(PARTY_KIND_CONFIG)
-        .map(([key, config]) => `<option value="${key}" ${kind === key ? 'selected' : ''}>${escapeHtml(config.label)}</option>`)
-        .join('')}
-    </select>
-    ${
-      kind === 'FACTORY'
-        ? `
-          <select class="mt-2 h-9 w-full rounded-md border bg-background px-3 text-sm" data-handover-field="${idField}">
-            <option value="">选择工厂</option>
-            ${indonesiaFactories
-              .map((factory) => `<option value="${escapeAttr(factory.id)}" ${id === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`)
-              .join('')}
-          </select>
-        `
-        : `
+    <section class="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
+      <div class="min-w-[240px] flex-1">
+        <div class="relative">
+          <i data-lucide="search" class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"></i>
           <input
-            class="mt-2 h-9 w-full rounded-md border bg-background px-3 text-sm"
-            placeholder="名称"
-            value="${escapeAttr(name)}"
-            data-handover-field="${nameField}"
+            class="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+            placeholder="搜索生产单号/工序/最近交接事件"
+            value="${escapeAttr(state.ordersKeyword)}"
+            data-handover-field="ordersKeyword"
           />
-        `
-    }
+        </div>
+      </div>
+
+      <select class="h-9 w-[190px] rounded-md border bg-background px-3 text-sm" data-handover-field="ordersBottleneckFilter">
+        ${ORDER_BOTTLENECK_FILTER_OPTIONS.map((item) => `<option value="${item.value}" ${state.ordersBottleneckFilter === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
+      </select>
+
+      <select class="h-9 w-[170px] rounded-md border bg-background px-3 text-sm" data-handover-field="ordersObjectionFilter">
+        <option value="ALL" ${state.ordersObjectionFilter === 'ALL' ? 'selected' : ''}>异议状态</option>
+        <option value="YES" ${state.ordersObjectionFilter === 'YES' ? 'selected' : ''}>有异议</option>
+        <option value="NO" ${state.ordersObjectionFilter === 'NO' ? 'selected' : ''}>无异议</option>
+      </select>
+
+      <select class="h-9 w-[170px] rounded-md border bg-background px-3 text-sm" data-handover-field="ordersProcessFilter">
+        <option value="">工序工艺</option>
+        ${processOptions
+          .map(
+            (item) =>
+              `<option value="${escapeAttr(item)}" ${state.ordersProcessFilter === item ? 'selected' : ''}>${escapeHtml(item)}</option>`,
+          )
+          .join('')}
+      </select>
+
+      <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="clear-orders-filters">重置</button>
+    </section>
   `
 }
 
-function renderNewDrawer(): string {
-  if (!state.newDrawerOpen) return ''
-
-  const orderTasks = state.formOrderId ? getTasksByOrderId(state.formOrderId) : []
-  const diff = state.formActual - state.formExpected
-
+function renderOrdersPagination(total: number, totalPages: number): string {
+  if (total === 0) return ''
   return `
-    <div class="fixed inset-0 z-[55]">
-      <button class="absolute inset-0 bg-black/45" data-handover-action="close-new-drawer" aria-label="关闭"></button>
-      <section class="absolute inset-y-0 right-0 w-full max-w-[500px] overflow-y-auto border-l bg-background shadow-2xl">
-        <header class="sticky top-0 z-10 border-b bg-background/95 px-5 py-4 backdrop-blur">
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <h3 class="text-lg font-semibold">新增交接事件</h3>
-              <p class="text-sm text-muted-foreground">生产交接事件追踪与管理</p>
-            </div>
-            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-handover-action="close-new-drawer" aria-label="关闭">
-              <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-          </div>
-        </header>
-
-        <div class="space-y-5 px-5 py-5">
-          <section class="space-y-3">
-            <h4 class="text-sm font-medium">关联对象</h4>
-
-            <label class="space-y-1">
-              <span class="text-sm">选择生产单 *</span>
-              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-handover-field="formOrderId">
-                <option value="">选择生产单</option>
-                ${productionOrders
-                  .map(
-                    (order) =>
-                      `<option value="${escapeAttr(order.productionOrderId)}" ${state.formOrderId === order.productionOrderId ? 'selected' : ''}>${escapeHtml(order.productionOrderId)} - ${escapeHtml(order.demandSnapshot.spuName)}</option>`,
-                  )
-                  .join('')}
-              </select>
-            </label>
-
-            ${
-              state.formOrderId
-                ? `
-                  <label class="space-y-1">
-                    <span class="text-sm">关联任务（可选）</span>
-                    <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-handover-field="formTaskId">
-                      <option value="">不关联任务</option>
-                      ${orderTasks
-                        .map((task) => `<option value="${escapeAttr(task.taskId)}" ${state.formTaskId === task.taskId ? 'selected' : ''}>${escapeHtml(task.processNameZh)} (${escapeHtml(task.taskId)})</option>`)
-                        .join('')}
-                    </select>
-                  </label>
-                `
-                : ''
-            }
-          </section>
-
-          <section class="space-y-3 border-t pt-4">
-            <h4 class="text-sm font-medium">事件信息</h4>
-
-            <label class="space-y-1">
-              <span class="text-sm">事件类型 *</span>
-              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-handover-field="formEventType">
-                ${Object.entries(EVENT_TYPE_CONFIG)
-                  .map(([key, config]) => `<option value="${key}" ${state.formEventType === key ? 'selected' : ''}>${escapeHtml(config.label)}</option>`)
-                  .join('')}
-              </select>
-            </label>
-
-            <div class="grid grid-cols-2 gap-3">
-              <label class="space-y-1">
-                <span class="text-sm">发出方 *</span>
-                ${renderPartySelect('formFromKind', 'formFromId', 'formFromName')}
-              </label>
-              <label class="space-y-1">
-                <span class="text-sm">接收方 *</span>
-                ${renderPartySelect('formToKind', 'formToId', 'formToName')}
-              </label>
-            </div>
-          </section>
-
-          <section class="space-y-3 border-t pt-4">
-            <h4 class="text-sm font-medium">数量信息</h4>
-
-            <div class="grid grid-cols-3 gap-3">
-              <label class="space-y-1">
-                <span class="text-sm">应交数量</span>
-                <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" value="${state.formExpected}" data-handover-field="formExpected" />
-              </label>
-
-              <label class="space-y-1">
-                <span class="text-sm">实交数量 *</span>
-                <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" value="${state.formActual}" data-handover-field="formActual" />
-              </label>
-
-              <div class="space-y-1">
-                <span class="text-sm">差异</span>
-                <div class="${toClassName('flex h-9 items-center rounded-md border bg-muted px-3 font-mono text-sm', diff !== 0 && 'font-bold text-red-600')}">${diff > 0 ? '+' : ''}${diff}</div>
-              </div>
-            </div>
-
-            ${
-              diff !== 0
-                ? `
-                  <label class="space-y-1">
-                    <span class="text-sm">差异原因 *</span>
-                    <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-handover-field="formDiffReason">
-                      <option value="">选择差异原因</option>
-                      ${Object.entries(DIFF_REASON_CONFIG)
-                        .map(([key, label]) => `<option value="${key}" ${state.formDiffReason === key ? 'selected' : ''}>${escapeHtml(label)}</option>`)
-                        .join('')}
-                    </select>
-                  </label>
-                  <label class="space-y-1">
-                    <span class="text-sm">差异备注</span>
-                    <textarea class="min-h-[90px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="填写差异备注" data-handover-field="formDiffRemark">${escapeHtml(state.formDiffRemark)}</textarea>
-                  </label>
-                `
-                : ''
-            }
-          </section>
-
-          <section class="space-y-1 border-t pt-4">
-            <span class="text-sm">发生时间</span>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" value="${escapeAttr(state.formOccurredAt)}" data-handover-field="formOccurredAt" />
-          </section>
-        </div>
-
-        <footer class="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-background px-5 py-4">
-          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-handover-action="close-new-drawer">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-handover-action="save-pending">暂存为待确认</button>
-          <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-handover-action="save-and-confirm">保存并确认</button>
-        </footer>
-      </section>
+    <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
+      <span>共 ${total} 条，当前第 ${state.ordersPage} / ${totalPages} 页，每页 ${state.ordersPageSize} 条</span>
+      <div class="flex items-center gap-2">
+        <button
+          class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          data-handover-action="orders-prev-page"
+          ${state.ordersPage <= 1 ? 'disabled' : ''}
+        >
+          上一页
+        </button>
+        <button
+          class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          data-handover-action="orders-next-page"
+          ${state.ordersPage >= totalPages ? 'disabled' : ''}
+        >
+          下一页
+        </button>
+      </div>
     </div>
   `
 }
 
-function renderDetailDrawer(): string {
-  if (!state.detailEventId) return ''
+function renderOrdersDimension(rows: HandoverLedgerRow[]): string {
+  const timelineViews = getHandoverOrderTimelineViews(rows)
+  const filteredViews = getFilteredOrderViews(timelineViews, rows)
+  const total = filteredViews.length
+  const totalPages = Math.max(1, Math.ceil(total / state.ordersPageSize))
+  if (state.ordersPage > totalPages) state.ordersPage = totalPages
+  if (state.ordersPage < 1) state.ordersPage = 1
+  const pageStart = (state.ordersPage - 1) * state.ordersPageSize
+  const pageViews = filteredViews.slice(pageStart, pageStart + state.ordersPageSize)
 
-  const event = getHandoverEventById(state.detailEventId)
-  if (!event) return ''
+  return `
+    <section class="space-y-4">
+      ${renderOrdersPreviewCards(timelineViews)}
+      ${renderOrdersFilters(timelineViews)}
+      ${
+        pageViews.length === 0
+          ? '<div class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">当前筛选范围下暂无生产单交接记录</div>'
+          : pageViews.map((view) => renderTimelineOrderSummaryCard(view, rows)).join('')
+      }
+      ${renderOrdersPagination(total, totalPages)}
+    </section>
+  `
+}
 
-  const canConfirm = event.status === 'PENDING_CONFIRM'
-  const canDispute = event.status === 'PENDING_CONFIRM' || (event.status === 'CONFIRMED' && event.qtyDiff !== 0)
+function renderTimelineProcessStatusBadge(section: HandoverTimelineProcessSection): string {
+  const className =
+    section.processStatusTone === 'success'
+      ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      : section.processStatusTone === 'warning'
+        ? 'bg-amber-100 text-amber-700 border-amber-200'
+        : section.processStatusTone === 'danger'
+          ? 'bg-red-100 text-red-700 border-red-200'
+          : section.processStatusTone === 'info'
+            ? 'bg-blue-100 text-blue-700 border-blue-200'
+            : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+
+  return `<span class="inline-flex items-center rounded border px-2 py-0.5 text-xs ${className}">${escapeHtml(
+    section.processStatusLabel,
+  )}</span>`
+}
+
+function buildDefaultExpandedOrderIds(views: HandoverOrderTimelineView[]): string[] {
+  const defaultIds = views
+    .filter((view) => view.pendingCount > 0 || view.objectionCount > 0 || view.currentBottleneckLabel !== '全部完成')
+    .map((view) => view.productionOrderId)
+
+  if (defaultIds.length > 0) return defaultIds
+  return views.slice(0, 2).map((view) => view.productionOrderId)
+}
+
+function ensureTimelineExpandedState(views: HandoverOrderTimelineView[]): void {
+  const validOrderIds = new Set(views.map((view) => view.productionOrderId))
+  const normalized = state.timelineExpandedOrderIds.filter((id) => validOrderIds.has(id))
+
+  if (normalized.length === 0 && views.length > 0) {
+    state.timelineExpandedOrderIds = buildDefaultExpandedOrderIds(views)
+  } else {
+    state.timelineExpandedOrderIds = normalized
+  }
+
+  if (state.timelineAnchorOrderId && validOrderIds.has(state.timelineAnchorOrderId)) {
+    if (!state.timelineExpandedOrderIds.includes(state.timelineAnchorOrderId)) {
+      state.timelineExpandedOrderIds = [...state.timelineExpandedOrderIds, state.timelineAnchorOrderId]
+    }
+  }
+}
+
+function isTimelineSectionFocused(view: HandoverOrderTimelineView, section: HandoverTimelineProcessSection): boolean {
+  if (state.timelineAnchorOrderId && state.timelineAnchorOrderId !== view.productionOrderId) return false
+
+  if (state.timelineAnchorTaskId && section.taskId === state.timelineAnchorTaskId) {
+    return true
+  }
+
+  const focus = state.timelineAnchorFocus
+  if (!focus) return false
+
+  if (focus === 'pickup') return section.processStatusLabel === '待领料'
+  if (focus === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已领料待交出'
+  if (focus === 'warehouse-confirm') return section.processStatusLabel === '待仓库确认'
+  if (focus === 'objection') return section.processStatusLabel === '有异议' || section.processStatusLabel === '异议处理中'
+  return false
+}
+
+function renderTimelineSection(view: HandoverOrderTimelineView, section: HandoverTimelineProcessSection): string {
+  const processName = section.processName || '未识别工序'
+  const processTitle = processName === '未识别工序' ? processName : `${section.seq}. ${processName}`
+  const focused = isTimelineSectionFocused(view, section)
+
+  return `
+    <section class="rounded-lg border bg-background p-3 ${focused ? 'ring-1 ring-blue-400 bg-blue-50/30' : ''}">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p class="text-sm font-medium">${escapeHtml(processTitle)}</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(section.taskNo)}</p>
+        </div>
+        ${renderTimelineProcessStatusBadge(section)}
+      </div>
+      <p class="mt-2 text-xs text-muted-foreground">下一步：${escapeHtml(section.nextActionHint)}</p>
+
+      ${
+        section.events.length === 0
+          ? '<div class="mt-3 rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">当前工序暂无领料或交出事件</div>'
+          : `
+            <div class="mt-3 space-y-2">
+              ${section.events
+                .map(
+                  (event) => `
+                    <button
+                      class="w-full rounded-md border bg-muted/20 p-2 text-left transition hover:bg-muted/40"
+                      data-handover-action="open-detail"
+                      data-row-id="${escapeAttr(event.rowId)}"
+                    >
+                      <div class="flex items-start justify-between gap-2">
+                        <div>
+                          <p class="inline-flex items-center gap-1.5 text-xs font-medium">
+                            <i data-lucide="workflow" class="h-3.5 w-3.5 text-muted-foreground"></i>
+                            ${escapeHtml(event.eventTypeLabel)}
+                            ${renderStatusBadge(event)}
+                          </p>
+                          <p class="mt-1 text-xs">${escapeHtml(event.qtySummary)}</p>
+                          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(event.sourceModuleLabel)} · ${escapeHtml(event.nextActionHint)}</p>
+                        </div>
+                        <div class="shrink-0 text-right text-xs text-muted-foreground">${escapeHtml(event.occurredAt || '-')}</div>
+                      </div>
+                    </button>
+                  `,
+                )
+                .join('')}
+            </div>
+          `
+      }
+    </section>
+  `
+}
+
+function renderTimelineOrderCard(view: HandoverOrderTimelineView): string {
+  const order = getOrderById(view.productionOrderId)
+  const isExpanded = state.timelineExpandedOrderIds.includes(view.productionOrderId)
+  const isHighlighted = Boolean(state.timelineAnchorOrderId && state.timelineAnchorOrderId === view.productionOrderId)
+
+  return `
+    <article
+      id="handover-timeline-order-${escapeAttr(view.productionOrderId)}"
+      data-handover-timeline-order="${escapeAttr(view.productionOrderId)}"
+      class="overflow-hidden rounded-lg border bg-card ${isHighlighted ? 'ring-1 ring-blue-400' : ''}"
+    >
+      <div class="space-y-4 border-b px-4 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="text-sm font-medium">${escapeHtml(view.productionOrderNo)} 生产单维度</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(order?.demandSnapshot.spuName || '')}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-muted-foreground">最近事件：${escapeHtml(view.latestOccurredAt || '-')}</span>
+            <button
+              class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+              data-handover-action="toggle-timeline-order"
+              data-order-id="${escapeAttr(view.productionOrderId)}"
+            >
+              ${isExpanded ? '收起' : '展开'}
+            </button>
+          </div>
+        </div>
+        <div class="grid gap-2 text-xs sm:grid-cols-4">
+          <div class="rounded-md border bg-muted/20 px-3 py-2">
+            <p class="text-muted-foreground">当前卡点</p>
+            <p class="mt-1 font-medium">${escapeHtml(view.currentBottleneckLabel)}</p>
+          </div>
+          <div class="rounded-md border bg-muted/20 px-3 py-2">
+            <p class="text-muted-foreground">工序数 / 事件数</p>
+            <p class="mt-1 font-medium">${view.processSections.length} / ${view.totalEventCount}</p>
+          </div>
+          <div class="rounded-md border bg-muted/20 px-3 py-2">
+            <p class="text-muted-foreground">待处理工序</p>
+            <p class="mt-1 font-medium">${view.pendingCount}</p>
+          </div>
+          <div class="rounded-md border bg-muted/20 px-3 py-2">
+            <p class="text-muted-foreground">异议工序</p>
+            <p class="mt-1 font-medium">${view.objectionCount}</p>
+          </div>
+        </div>
+        <p class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          下一步：${escapeHtml(view.currentBottleneckHint)}
+        </p>
+      </div>
+
+      ${
+        isExpanded
+          ? `
+            <div class="space-y-4 p-4">
+              ${view.processSections.map((section) => renderTimelineSection(view, section)).join('')}
+            </div>
+          `
+          : ''
+      }
+    </article>
+  `
+}
+
+function scheduleTimelineAnchorScroll(): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+  if (state.activeTab !== 'orders') return
+  const orderId = state.timelineScrollTargetOrderId
+  if (!orderId) return
+
+  state.timelineScrollTargetOrderId = ''
+
+  window.setTimeout(() => {
+    const selector = `[data-handover-order-card="${orderId}"]`
+    const target = document.querySelector<HTMLElement>(selector)
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, 60)
+}
+
+function getLatestOrderEvent(orderId: string, rows: HandoverLedgerRow[]): HandoverLedgerRow | undefined {
+  return rows
+    .filter((row) => row.productionOrderId === orderId)
+    .sort((a, b) => parseDateMs(b.occurredAt) - parseDateMs(a.occurredAt))[0]
+}
+
+function getOrderProcessSummary(view: HandoverOrderTimelineView): string {
+  const processNames = Array.from(
+    new Set(
+      view.processSections
+        .filter((section) => section.eventCount > 0)
+        .map((section) => section.processName)
+        .filter(Boolean),
+    ),
+  )
+  if (processNames.length === 0) return '暂无交接工序'
+  if (processNames.length <= 3) return processNames.join(' / ')
+  return `${processNames.slice(0, 3).join(' / ')} 等${processNames.length}道工序`
+}
+
+function renderTimelineOrderSummaryCard(view: HandoverOrderTimelineView, rows: HandoverLedgerRow[]): string {
+  const latestEvent = getLatestOrderEvent(view.productionOrderId, rows)
+  const summary = getProductionOrderHandoverSummary(view.productionOrderId, rows)
+  const highlighted = state.timelineAnchorOrderId && state.timelineAnchorOrderId === view.productionOrderId
+  const focus =
+    highlighted && state.timelineAnchorFocus
+      ? state.timelineAnchorFocus
+      : summary.recommendedFocus || ''
+  const taskId = highlighted ? state.timelineAnchorTaskId : ''
+
+  return `
+    <article
+      id="handover-order-${escapeAttr(view.productionOrderId)}"
+      data-handover-order-card="${escapeAttr(view.productionOrderId)}"
+      class="rounded-lg border bg-card p-4 ${highlighted ? 'ring-1 ring-blue-400' : ''}"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-sm font-medium">${escapeHtml(view.productionOrderNo)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">
+            最近交接事件：${escapeHtml(latestEvent?.occurredAt || '-')} · ${escapeHtml(latestEvent?.eventTypeLabel || '暂无事件')}
+          </p>
+        </div>
+        <button
+          class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted"
+          data-handover-action="open-order-detail"
+          data-order-id="${escapeAttr(view.productionOrderId)}"
+          data-task-id="${escapeAttr(taskId)}"
+          data-focus="${escapeAttr(focus)}"
+        >
+          查看交接详情
+        </button>
+      </div>
+
+      <div class="mt-3 grid gap-2 text-xs md:grid-cols-4">
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-muted-foreground">当前交接卡点</p>
+          <p class="mt-1 font-medium">${escapeHtml(view.currentBottleneckLabel)}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-muted-foreground">待处理交接事件</p>
+          <p class="mt-1 font-medium">${view.pendingCount}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-muted-foreground">异议事件数</p>
+          <p class="mt-1 font-medium">${view.objectionCount}</p>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <p class="text-muted-foreground">当前涉及工序</p>
+          <p class="mt-1 font-medium">${escapeHtml(getOrderProcessSummary(view))}</p>
+        </div>
+      </div>
+
+      <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <span>工序数 / 事件数：${view.processSections.length} / ${view.totalEventCount}</span>
+      </div>
+      <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        下一步：${escapeHtml(view.currentBottleneckHint)}
+      </p>
+    </article>
+  `
+}
+
+function renderTimelineTab(rows: HandoverLedgerRow[]): string {
+  const timelineViews = getHandoverOrderTimelineViews(rows)
+
+  return `
+    <section class="space-y-4">
+      ${
+        timelineViews.length === 0
+          ? '<div class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">当前筛选范围下暂无生产单交接事件</div>'
+          : timelineViews.map((view) => renderTimelineOrderSummaryCard(view, rows)).join('')
+      }
+    </section>
+  `
+}
+
+function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
+  if (!state.detailRowId) return ''
+
+  const row = rows.find((item) => item.rowId === state.detailRowId)
+  if (!row) return ''
+
+  const canWriteback = row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK' && Boolean(row.recordId)
+  const canHandleObjection =
+    (row.statusCode === 'HANDOUT_OBJECTION_REPORTED' || row.statusCode === 'HANDOUT_OBJECTION_PROCESSING') &&
+    Boolean(row.recordId)
+  const headType: PdaHandoverHeadType | null = row.sourceType === 'PICKUP_HEAD' ? 'PICKUP' : row.sourceType === 'HANDOUT_HEAD' ? 'HANDOUT' : null
+  const sourceTypeLabel =
+    row.sourceType === 'PICKUP_HEAD'
+      ? '领料头'
+      : row.sourceType === 'PICKUP_RECORD'
+        ? '领料记录'
+        : row.sourceType === 'HANDOUT_HEAD'
+          ? '交出头'
+          : row.sourceType === 'HANDOUT_RECORD'
+            ? '交出记录'
+            : '完成记录'
+
+  const directActions: string[] = []
+  if (canWriteback) {
+    directActions.push(
+      `<button class="inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm text-emerald-700 hover:bg-emerald-100" data-handover-action="open-writeback-dialog" data-record-id="${escapeAttr(
+        row.recordId || '',
+      )}">模拟仓库回写</button>`,
+    )
+  }
+  if (canHandleObjection) {
+    directActions.push(
+      `<button class="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-sm text-red-700 hover:bg-red-100" data-handover-action="open-objection-dialog" data-record-id="${escapeAttr(
+        row.recordId || '',
+      )}">处理异议</button>`,
+    )
+  }
+  if (headType === 'PICKUP') {
+    directActions.push(
+      `<button class="inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm text-emerald-700 hover:bg-emerald-100" data-handover-action="mark-pickup-complete" data-handover-id="${escapeAttr(
+        row.handoverId,
+      )}">标记领料完成</button>`,
+    )
+  }
+  if (headType === 'HANDOUT') {
+    directActions.push(
+      `<button class="inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm text-emerald-700 hover:bg-emerald-100" data-handover-action="mark-handout-complete" data-handover-id="${escapeAttr(
+        row.handoverId,
+      )}">标记交出完成</button>`,
+    )
+  }
 
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-handover-action="close-detail" aria-label="关闭"></button>
-      <section class="absolute inset-y-0 right-0 w-full max-w-[500px] overflow-y-auto border-l bg-background shadow-2xl">
+      <section class="absolute inset-y-0 right-0 w-full max-w-[520px] overflow-y-auto border-l bg-background shadow-2xl">
         <header class="sticky top-0 z-10 border-b bg-background/95 px-5 py-4 backdrop-blur">
           <div class="flex items-center justify-between gap-2">
             <div>
               <h3 class="text-lg font-semibold">交接事件详情</h3>
-              <p class="font-mono text-xs text-muted-foreground">${escapeHtml(event.eventId)}</p>
+              <p class="font-mono text-xs text-muted-foreground">${escapeHtml(row.rowId)}</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-handover-action="close-detail" aria-label="关闭">
               <i data-lucide="x" class="h-4 w-4"></i>
@@ -1521,231 +1506,105 @@ function renderDetailDrawer(): string {
         </header>
 
         <div class="space-y-5 px-5 py-5">
-          <div class="flex items-center gap-2">
-            ${renderStatusBadge(event.status)}
-            ${event.qtyDiff !== 0 ? renderBadge('交接差异', 'bg-red-100 text-red-700 border-red-200') : ''}
-          </div>
-
           <section class="space-y-3">
-            <h4 class="text-sm font-medium">事件信息</h4>
+            <h4 class="text-sm font-medium">基础信息</h4>
             <div class="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p class="text-xs text-muted-foreground">生产单号</p>
-                <p class="font-mono">${escapeHtml(event.productionOrderId)}</p>
-              </div>
-              <div>
-                <p class="text-xs text-muted-foreground">关联任务</p>
-                <p class="font-mono">${escapeHtml(event.relatedTaskId || '-')}</p>
-              </div>
-              <div>
                 <p class="text-xs text-muted-foreground">事件类型</p>
-                <p>${escapeHtml(EVENT_TYPE_CONFIG[event.eventType].label)}</p>
+                <p>${escapeHtml(row.eventTypeLabel)}</p>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground">当前状态</p>
+                <p>${renderStatusBadge(row)}</p>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground">来源模块</p>
+                <p>${escapeHtml(row.sourceModuleLabel)}</p>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground">事实类型</p>
+                <p>${escapeHtml(sourceTypeLabel)}</p>
               </div>
               <div>
                 <p class="text-xs text-muted-foreground">发生时间</p>
-                <p>${escapeHtml(event.occurredAt)}</p>
+                <p>${escapeHtml(row.occurredAt || '-')}</p>
               </div>
             </div>
           </section>
 
           <section class="space-y-3 border-t pt-4">
-            <div class="flex items-center gap-2">
-              <article class="flex-1 rounded-lg border p-3">
-                <p class="text-xs text-muted-foreground">发出方</p>
-                <p class="font-medium">${escapeHtml(event.fromParty.name)}</p>
-                <p class="text-xs text-muted-foreground">${escapeHtml(PARTY_KIND_CONFIG[event.fromParty.kind].label)}</p>
-              </article>
-              <i data-lucide="arrow-right" class="h-5 w-5 text-muted-foreground"></i>
-              <article class="flex-1 rounded-lg border p-3">
-                <p class="text-xs text-muted-foreground">接收方</p>
-                <p class="font-medium">${escapeHtml(event.toParty.name)}</p>
-                <p class="text-xs text-muted-foreground">${escapeHtml(PARTY_KIND_CONFIG[event.toParty.kind].label)}</p>
-              </article>
+            <h4 class="text-sm font-medium">关联对象</h4>
+            <div class="space-y-1 text-sm">
+              <p>生产单：${escapeHtml(row.productionOrderId)}</p>
+              <p>任务：${escapeHtml(row.taskNo)}</p>
+              <p>工序：${escapeHtml(row.processName)}</p>
+              <p>交接头：${escapeHtml(row.handoverId)}</p>
+              ${row.recordId ? `<p>交接记录：${escapeHtml(row.recordId)}</p>` : ''}
+            </div>
+          </section>
+
+          <section class="space-y-3 border-t pt-4">
+            <h4 class="text-sm font-medium">事实来源</h4>
+            <div class="rounded-md border bg-muted/20 p-3">
+              ${renderSourceFacts(row)}
             </div>
           </section>
 
           <section class="space-y-3 border-t pt-4">
             <h4 class="text-sm font-medium">数量信息</h4>
-            <div class="grid grid-cols-3 gap-3">
-              <article class="rounded-lg border p-3 text-center">
-                <p class="text-xs text-muted-foreground">应交数量</p>
-                <p class="text-lg font-bold">${event.qtyExpected}</p>
-              </article>
-              <article class="rounded-lg border p-3 text-center">
-                <p class="text-xs text-muted-foreground">实交数量</p>
-                <p class="text-lg font-bold">${event.qtyActual}</p>
-              </article>
-              <article class="${toClassName('rounded-lg border p-3 text-center', event.qtyDiff !== 0 && 'border-red-200 bg-red-50')}">
-                <p class="text-xs text-muted-foreground">差异</p>
-                <p class="${toClassName('text-lg font-bold', event.qtyDiff !== 0 && 'text-red-600')}">${event.qtyDiff > 0 ? '+' : ''}${event.qtyDiff}</p>
-              </article>
+            <div class="rounded-md border bg-muted/20 p-3 text-sm">
+              <p><span class="text-muted-foreground">流向：</span>${escapeHtml(row.directionLabel)}</p>
+              <p class="mt-1"><span class="text-muted-foreground">数量摘要：</span>${escapeHtml(row.qtySummary)}</p>
+              ${
+                typeof row.qtyDiff === 'number'
+                  ? `<p class="mt-1"><span class="text-muted-foreground">数量差异：</span>${row.qtyDiff === 0 ? '无差异' : `${row.qtyDiff > 0 ? '-' : '+'}${Math.abs(row.qtyDiff)}`}</p>`
+                  : ''
+              }
             </div>
-            ${event.diffReasonCode ? `<p class="text-sm"><span class="text-xs text-muted-foreground">差异原因</span><br/>${escapeHtml(DIFF_REASON_CONFIG[event.diffReasonCode])}</p>` : ''}
-            ${event.diffRemark ? `<p class="text-sm"><span class="text-xs text-muted-foreground">差异备注</span><br/>${escapeHtml(event.diffRemark)}</p>` : ''}
           </section>
 
           <section class="space-y-3 border-t pt-4">
-            <h4 class="text-sm font-medium">证据附件</h4>
+            <h4 class="text-sm font-medium">当前状态</h4>
+            <div class="rounded-md border bg-muted/20 p-3 text-sm">
+              <p>${renderStatusBadge(row)}</p>
+              <p class="mt-2 text-muted-foreground">${escapeHtml(renderCurrentStatusText(row))}</p>
+            </div>
+          </section>
+
+          <section class="space-y-3 border-t pt-4">
+            <h4 class="text-sm font-medium">下一步怎么做</h4>
+            <div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+              ${escapeHtml(row.nextActionHint)}
+            </div>
+          </section>
+
+          <section class="space-y-2 border-t pt-4">
+            <h4 class="text-sm font-medium">处理动作</h4>
             ${
-              event.evidence.length > 0
+              directActions.length > 0
                 ? `
                   <div class="space-y-2">
-                    ${event.evidence
-                      .map(
-                        (evidence) => `
-                          <div class="flex items-center gap-2 text-sm">
-                            <i data-lucide="${evidence.type === 'PHOTO' ? 'camera' : 'file-text'}" class="h-4 w-4"></i>
-                            <span>${escapeHtml(evidence.name)}</span>
-                          </div>
-                        `,
-                      )
-                      .join('')}
+                    <p class="text-xs text-muted-foreground">可以直接处理</p>
+                    <div class="flex flex-wrap gap-2">${directActions.join('')}</div>
                   </div>
                 `
-                : '<p class="text-sm text-muted-foreground">无附件</p>'
+                : ''
             }
-          </section>
 
-          <section class="space-y-3 border-t pt-4">
-            <h4 class="text-sm font-medium">操作日志</h4>
             <div class="space-y-2">
-              ${event.auditLogs
-                .map(
-                  (log) => `
-                    <div class="flex items-start gap-2 text-xs">
-                      <p class="w-28 shrink-0 text-muted-foreground">${escapeHtml(log.at)}</p>
-                      <p><span class="font-medium">${escapeHtml(log.by)}</span>: ${escapeHtml(log.detail)}</p>
-                    </div>
-                  `,
-                )
-                .join('')}
+              <p class="text-xs text-muted-foreground">去业务页面处理</p>
+              <div class="flex flex-wrap gap-2">
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="open-pda-detail" data-handover-id="${escapeAttr(row.handoverId)}">查看 PDA 记录</button>
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="goto-order" data-order-id="${escapeAttr(row.productionOrderId)}">去生产单</button>
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="goto-task" data-task-id="${escapeAttr(row.taskId)}">去任务看板</button>
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="view-exception" data-row-id="${escapeAttr(row.rowId)}">去异常定位与处理</button>
+              </div>
             </div>
           </section>
         </div>
-
-        <footer class="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-background px-5 py-4">
-          ${
-            canConfirm
-              ? `
-                <button class="inline-flex h-9 items-center rounded-md border bg-primary px-3 text-sm text-primary-foreground hover:opacity-90" data-handover-action="open-confirm-dialog" data-event-id="${escapeAttr(event.eventId)}">
-                  <i data-lucide="check-circle" class="mr-1.5 h-4 w-4"></i>确认交接
-                </button>
-              `
-              : ''
-          }
-
-          ${
-            canDispute
-              ? `
-                <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="open-dispute-dialog" data-event-id="${escapeAttr(event.eventId)}">
-                  <i data-lucide="alert-circle" class="mr-1.5 h-4 w-4"></i>标记争议
-                </button>
-              `
-              : ''
-          }
-
-          ${
-            event.status === 'PENDING_CONFIRM' && event.toParty.id
-              ? `
-                <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="urge-confirm" data-event-id="${escapeAttr(event.eventId)}">
-                  <i data-lucide="bell" class="mr-1.5 h-4 w-4"></i>催确认
-                </button>
-              `
-              : ''
-          }
-
-          ${
-            event.status === 'DISPUTED' && event.toParty.id
-              ? `
-                <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="urge-dispute" data-event-id="${escapeAttr(event.eventId)}">
-                  <i data-lucide="bell" class="mr-1.5 h-4 w-4"></i>催处理差异
-                </button>
-              `
-              : ''
-          }
-
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="view-exception" data-event-id="${escapeAttr(event.eventId)}">
-            <i data-lucide="external-link" class="mr-1.5 h-4 w-4"></i>查看异常
-          </button>
-
-          ${
-            event.status !== 'VOID'
-              ? `
-                <button class="inline-flex h-9 items-center rounded-md border border-red-200 bg-red-50 px-3 text-sm text-red-700 hover:bg-red-100" data-handover-action="void-event" data-event-id="${escapeAttr(event.eventId)}">
-                  作废
-                </button>
-              `
-              : ''
-          }
-        </footer>
       </section>
     </div>
   `
-}
-
-function renderConfirmDialog(): string {
-  if (!state.confirmEventId) return ''
-
-  const event = getHandoverEventById(state.confirmEventId)
-  if (!event) return ''
-
-  return `
-    <div class="fixed inset-0 z-[60]" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-handover-action="close-confirm-dialog" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
-        <header class="space-y-1">
-          <h3 class="text-lg font-semibold">确认交接</h3>
-          <p class="text-sm text-muted-foreground">${event.qtyDiff !== 0 ? '存在差异，确认后将自动生成异常单' : '确认此交接事件？'}</p>
-        </header>
-
-        <div class="mt-4 space-y-2 text-sm">
-          <p>交接单号: ${escapeHtml(event.eventId)}</p>
-          <p>生产单: ${escapeHtml(event.productionOrderId)}</p>
-          <p>应交: ${event.qtyExpected} | 实交: ${event.qtyActual} | 差异: ${event.qtyDiff > 0 ? '+' : ''}${event.qtyDiff}</p>
-        </div>
-
-        <footer class="mt-6 flex justify-end gap-2">
-          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-handover-action="close-confirm-dialog">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-handover-action="confirm-event" data-event-id="${escapeAttr(event.eventId)}">确认</button>
-        </footer>
-      </section>
-    </div>
-  `
-}
-
-function renderDisputeDialog(): string {
-  if (!state.disputeEventId) return ''
-
-  const event = getHandoverEventById(state.disputeEventId)
-  if (!event) return ''
-
-  return `
-    <div class="fixed inset-0 z-[60]" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-handover-action="close-dispute-dialog" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
-        <header class="space-y-1">
-          <h3 class="text-lg font-semibold">标记争议</h3>
-          <p class="text-sm text-muted-foreground">请填写争议原因</p>
-        </header>
-
-        <div class="mt-4 space-y-1">
-          <p class="text-sm text-muted-foreground">交接单号：${escapeHtml(event.eventId)}</p>
-          <textarea class="mt-2 min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请填写争议原因" data-handover-field="disputeReason">${escapeHtml(state.disputeReason)}</textarea>
-        </div>
-
-        <footer class="mt-6 flex justify-end gap-2">
-          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-handover-action="close-dispute-dialog">取消</button>
-          <button class="${toClassName('inline-flex h-9 items-center rounded-md px-4 text-sm', state.disputeReason.trim() ? 'border bg-primary text-primary-foreground hover:opacity-90' : 'cursor-not-allowed border border-muted-foreground/20 bg-muted text-muted-foreground')}" data-handover-action="confirm-dispute" data-event-id="${escapeAttr(event.eventId)}" ${state.disputeReason.trim() ? '' : 'disabled'}>确认</button>
-        </footer>
-      </section>
-    </div>
-  `
-}
-
-function findPdaHeadByHandoverId(handoverId: string): PdaHandoverHead | undefined {
-  return [...getPdaPickupHeads(), ...getPdaHandoutHeads(), ...getPdaCompletedHeads()].find(
-    (head) => head.handoverId === handoverId,
-  )
 }
 
 function renderWritebackDialog(): string {
@@ -1886,128 +1745,20 @@ function renderObjectionDialog(): string {
 function renderPage(): string {
   syncFromQuery()
 
-  const events = getFilteredEvents()
-  const kpi = getKpiStats()
+  const rows = getLedgerRows()
+  const filteredRows = getFilteredRows(rows)
+  const orderRows = getTimelineBaseRows(rows)
 
   return `
     <div class="space-y-4">
       ${renderHeader()}
       ${renderUrlBanner()}
-      ${renderKpis(kpi)}
-      ${renderTabs()}
-      ${state.activeTab === 'list' ? renderListTab(events) : renderTimelineTab()}
-      ${renderNewDrawer()}
-      ${renderDetailDrawer()}
-      ${renderConfirmDialog()}
-      ${renderDisputeDialog()}
+      ${state.activeTab === 'events' ? renderEventsDimension(filteredRows, rows) : renderOrdersDimension(orderRows)}
+      ${renderDetailDrawer(rows)}
       ${renderWritebackDialog()}
       ${renderObjectionDialog()}
     </div>
   `
-}
-
-function handleSelectOrder(orderId: string): void {
-  state.formOrderId = orderId
-  state.formTaskId = ''
-
-  const order = getOrderById(orderId)
-  if (!order) {
-    state.formExpected = 0
-    state.formActual = 0
-    return
-  }
-
-  const totalQty = order.demandSnapshot.skuLines.reduce((sum, sku) => sum + sku.qty, 0)
-  state.formExpected = totalQty
-  state.formActual = totalQty
-
-  state.formToKind = 'FACTORY'
-  state.formToId = order.mainFactoryId
-  state.formToName = order.mainFactorySnapshot.name
-}
-
-function buildExceptionHrefByEvent(event: HandoverEvent): string {
-  const params = new URLSearchParams()
-  params.set('po', event.productionOrderId)
-  if (event.relatedTaskId) {
-    params.set('taskId', event.relatedTaskId)
-  }
-  params.set('reasonCode', 'HANDOVER_DIFF')
-
-  return `/fcs/progress/exceptions?${params.toString()}`
-}
-
-function handleSaveEvent(andConfirm: boolean): void {
-  if (!state.formOrderId) {
-    showProgressHandoverToast('请选择生产单', 'error')
-    return
-  }
-
-  if (state.formFromKind === 'FACTORY' && !state.formFromId) {
-    showProgressHandoverToast('请选择发出方工厂', 'error')
-    return
-  }
-
-  if (state.formToKind === 'FACTORY' && !state.formToId) {
-    showProgressHandoverToast('请选择接收方工厂', 'error')
-    return
-  }
-
-  if (state.formFromKind !== 'FACTORY' && !state.formFromName.trim()) {
-    showProgressHandoverToast('请填写发出方名称', 'error')
-    return
-  }
-
-  if (state.formToKind !== 'FACTORY' && !state.formToName.trim()) {
-    showProgressHandoverToast('请填写接收方名称', 'error')
-    return
-  }
-
-  const qtyDiff = state.formActual - state.formExpected
-  if (qtyDiff !== 0 && !state.formDiffReason) {
-    showProgressHandoverToast('有差异时必须填写差异原因', 'error')
-    return
-  }
-
-  const fromFactory = state.formFromKind === 'FACTORY' ? getFactoryById(state.formFromId) : undefined
-  const toFactory = state.formToKind === 'FACTORY' ? getFactoryById(state.formToId) : undefined
-
-  const fromParty: HandoverParty = {
-    kind: state.formFromKind,
-    id: state.formFromKind === 'FACTORY' ? state.formFromId : undefined,
-    name: state.formFromKind === 'FACTORY' ? fromFactory?.name || state.formFromId : state.formFromName.trim(),
-  }
-
-  const toParty: HandoverParty = {
-    kind: state.formToKind,
-    id: state.formToKind === 'FACTORY' ? state.formToId : undefined,
-    name: state.formToKind === 'FACTORY' ? toFactory?.name || state.formToId : state.formToName.trim(),
-  }
-
-  const now = nowTimestamp()
-
-  createHandoverEvent({
-    productionOrderId: state.formOrderId,
-    relatedTaskId: state.formTaskId || undefined,
-    eventType: state.formEventType,
-    fromParty,
-    toParty,
-    qtyExpected: state.formExpected,
-    qtyActual: state.formActual,
-    qtyDiff,
-    diffReasonCode: state.formDiffReason || undefined,
-    diffRemark: state.formDiffRemark || undefined,
-    status: andConfirm ? (qtyDiff !== 0 ? 'DISPUTED' : 'CONFIRMED') : 'PENDING_CONFIRM',
-    occurredAt: `${state.formOccurredAt.replace('T', ' ')}:00`,
-    createdBy: 'Admin',
-    confirmedAt: andConfirm ? now : undefined,
-    confirmedBy: andConfirm ? 'Admin' : undefined,
-    evidence: [],
-  })
-
-  showProgressHandoverToast('交接事件已创建')
-  state.newDrawerOpen = false
-  resetForm()
 }
 
 function updateField(field: string, node: HTMLElement): void {
@@ -2017,12 +1768,22 @@ function updateField(field: string, node: HTMLElement): void {
   }
 
   if (field === 'filterEventType' && node instanceof HTMLSelectElement) {
-    state.filterEventType = isEventType(node.value) ? node.value : 'ALL'
+    state.filterEventType = isLedgerEventType(node.value) ? node.value : 'ALL'
+    return
+  }
+
+  if (field === 'filterPo' && node instanceof HTMLSelectElement) {
+    state.filterPo = node.value
+    return
+  }
+
+  if (field === 'filterProcess' && node instanceof HTMLSelectElement) {
+    state.filterProcess = node.value
     return
   }
 
   if (field === 'filterStatus' && node instanceof HTMLSelectElement) {
-    state.filterStatus = isHandoverStatus(node.value) ? node.value : 'ALL'
+    state.filterStatus = normalizeStatusFilter(node.value)
     return
   }
 
@@ -2033,90 +1794,29 @@ function updateField(field: string, node: HTMLElement): void {
     return
   }
 
-  if (field === 'formOrderId' && node instanceof HTMLSelectElement) {
-    handleSelectOrder(node.value)
+  if (field === 'ordersKeyword' && node instanceof HTMLInputElement) {
+    state.ordersKeyword = node.value
+    state.ordersPage = 1
     return
   }
 
-  if (field === 'formTaskId' && node instanceof HTMLSelectElement) {
-    state.formTaskId = node.value
+  if (field === 'ordersBottleneckFilter' && node instanceof HTMLSelectElement) {
+    state.ordersBottleneckFilter = (node.value || 'ALL') as ProgressHandoverState['ordersBottleneckFilter']
+    state.ordersPage = 1
     return
   }
 
-  if (field === 'formEventType' && node instanceof HTMLSelectElement) {
-    if (isEventType(node.value)) {
-      state.formEventType = node.value
+  if (field === 'ordersObjectionFilter' && node instanceof HTMLSelectElement) {
+    if (node.value === 'ALL' || node.value === 'YES' || node.value === 'NO') {
+      state.ordersObjectionFilter = node.value
+      state.ordersPage = 1
     }
     return
   }
 
-  if (field === 'formFromKind' && node instanceof HTMLSelectElement) {
-    if (!isPartyKind(node.value)) return
-    state.formFromKind = node.value
-    state.formFromId = ''
-    state.formFromName = ''
-    return
-  }
-
-  if (field === 'formFromId' && node instanceof HTMLSelectElement) {
-    state.formFromId = node.value
-    const factory = getFactoryById(node.value)
-    state.formFromName = factory?.name || ''
-    return
-  }
-
-  if (field === 'formFromName' && node instanceof HTMLInputElement) {
-    state.formFromName = node.value
-    return
-  }
-
-  if (field === 'formToKind' && node instanceof HTMLSelectElement) {
-    if (!isPartyKind(node.value)) return
-    state.formToKind = node.value
-    state.formToId = ''
-    state.formToName = ''
-    return
-  }
-
-  if (field === 'formToId' && node instanceof HTMLSelectElement) {
-    state.formToId = node.value
-    const factory = getFactoryById(node.value)
-    state.formToName = factory?.name || ''
-    return
-  }
-
-  if (field === 'formToName' && node instanceof HTMLInputElement) {
-    state.formToName = node.value
-    return
-  }
-
-  if (field === 'formExpected' && node instanceof HTMLInputElement) {
-    state.formExpected = Number(node.value) || 0
-    return
-  }
-
-  if (field === 'formActual' && node instanceof HTMLInputElement) {
-    state.formActual = Number(node.value) || 0
-    return
-  }
-
-  if (field === 'formDiffReason' && node instanceof HTMLSelectElement) {
-    state.formDiffReason = isDiffReasonCode(node.value) ? node.value : ''
-    return
-  }
-
-  if (field === 'formDiffRemark' && node instanceof HTMLTextAreaElement) {
-    state.formDiffRemark = node.value
-    return
-  }
-
-  if (field === 'formOccurredAt' && node instanceof HTMLInputElement) {
-    state.formOccurredAt = node.value
-    return
-  }
-
-  if (field === 'disputeReason' && node instanceof HTMLTextAreaElement) {
-    state.disputeReason = node.value
+  if (field === 'ordersProcessFilter' && node instanceof HTMLSelectElement) {
+    state.ordersProcessFilter = node.value
+    state.ordersPage = 1
     return
   }
 
@@ -2141,10 +1841,33 @@ function updateField(field: string, node: HTMLElement): void {
 }
 
 function handleAction(action: string, actionNode: HTMLElement): boolean {
+  if (action === 'switch-dimension') {
+    const dimension = actionNode.dataset.dimension
+    if (dimension === 'events' || dimension === 'orders') {
+      state.activeTab = dimension
+    }
+    return true
+  }
+
   if (action === 'switch-tab') {
-    const tab = actionNode.dataset.tab
-    if (tab === 'list' || tab === 'timeline') {
-      state.activeTab = tab
+    const tab = (actionNode.dataset.tab || '').trim()
+    if (tab === 'events' || tab === 'list') {
+      state.activeTab = 'events'
+      return true
+    }
+    if (tab === 'orders' || tab === 'timeline') {
+      state.activeTab = 'orders'
+      return true
+    }
+    // 兜底：即使 data-tab 异常，也按按钮文案判断，避免点击失效
+    const label = (actionNode.textContent || '').trim()
+    if (label.includes('事件维度')) {
+      state.activeTab = 'events'
+      return true
+    }
+    if (label.includes('生产单维度')) {
+      state.activeTab = 'orders'
+      return true
     }
     return true
   }
@@ -2154,147 +1877,83 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'export') {
+    showProgressHandoverToast('导出功能已触发（原型演示）')
+    return true
+  }
+
   if (action === 'clear-filters') {
     state.keyword = ''
     state.filterPo = ''
+    state.filterProcess = ''
     state.filterTaskId = ''
     state.filterEventType = 'ALL'
     state.filterStatus = 'ALL'
     state.filterHasDiff = 'ALL'
     state.showUrlFilterBanner = false
+    state.focusHint = ''
+    state.sourceHint = ''
+    state.timelineAnchorOrderId = ''
+    state.timelineAnchorTaskId = ''
+    state.timelineAnchorFocus = ''
+    state.timelineScrollTargetOrderId = ''
+    state.timelineExpandedOrderIds = []
     appStore.navigate('/fcs/progress/handover')
     return true
   }
 
-  if (action === 'toggle-pending-filter') {
-    state.filterStatus = state.filterStatus === 'PENDING_CONFIRM' ? 'ALL' : 'PENDING_CONFIRM'
+  if (action === 'clear-orders-filters') {
+    state.ordersKeyword = ''
+    state.ordersBottleneckFilter = 'ALL'
+    state.ordersObjectionFilter = 'ALL'
+    state.ordersProcessFilter = ''
+    state.ordersPage = 1
     return true
   }
 
-  if (action === 'toggle-disputed-filter') {
-    state.filterStatus = state.filterStatus === 'DISPUTED' ? 'ALL' : 'DISPUTED'
+  if (action === 'orders-prev-page') {
+    state.ordersPage = Math.max(1, state.ordersPage - 1)
     return true
   }
 
-  if (action === 'open-new-drawer') {
-    state.newDrawerOpen = true
+  if (action === 'orders-next-page') {
+    state.ordersPage += 1
     return true
   }
 
-  if (action === 'close-new-drawer') {
-    state.newDrawerOpen = false
-    resetForm()
-    return true
-  }
-
-  if (action === 'save-pending') {
-    handleSaveEvent(false)
-    return true
-  }
-
-  if (action === 'save-and-confirm') {
-    handleSaveEvent(true)
+  if (action === 'toggle-preview-filter') {
+    const filterType = actionNode.dataset.filterType
+    if (isLedgerEventType(filterType) && filterType !== 'ALL') {
+      state.filterEventType = state.filterEventType === filterType ? 'ALL' : filterType
+    }
     return true
   }
 
   if (action === 'toggle-row-menu') {
-    const eventId = actionNode.dataset.eventId
-    if (!eventId) return true
-    state.rowMenuEventId = state.rowMenuEventId === eventId ? null : eventId
+    const rowId = actionNode.dataset.rowId
+    if (!rowId) return true
+    state.rowMenuRowId = state.rowMenuRowId === rowId ? null : rowId
     return true
   }
 
   if (action === 'open-detail') {
-    const eventId = actionNode.dataset.eventId
-    if (eventId) {
-      state.detailEventId = eventId
+    const rowId = actionNode.dataset.rowId
+    if (rowId) {
+      state.detailRowId = rowId
     }
     closeRowMenu()
     return true
   }
 
   if (action === 'close-detail') {
-    state.detailEventId = null
-    return true
-  }
-
-  if (action === 'open-confirm-dialog') {
-    const eventId = actionNode.dataset.eventId
-    if (eventId) {
-      state.confirmEventId = eventId
-    }
-    closeRowMenu()
-    return true
-  }
-
-  if (action === 'close-confirm-dialog') {
-    state.confirmEventId = null
-    return true
-  }
-
-  if (action === 'confirm-event') {
-    const eventId = actionNode.dataset.eventId
-    if (!eventId) return true
-    confirmHandoverEvent(eventId, 'Admin')
-    state.confirmEventId = null
-    state.detailEventId = null
-    showProgressHandoverToast('交接已确认')
-    return true
-  }
-
-  if (action === 'open-dispute-dialog') {
-    const eventId = actionNode.dataset.eventId
-    if (eventId) {
-      state.disputeEventId = eventId
-      state.disputeReason = ''
-    }
-    closeRowMenu()
-    return true
-  }
-
-  if (action === 'close-dispute-dialog') {
-    state.disputeEventId = null
-    state.disputeReason = ''
-    return true
-  }
-
-  if (action === 'confirm-dispute') {
-    const eventId = actionNode.dataset.eventId
-    if (!eventId || !state.disputeReason.trim()) {
-      showProgressHandoverToast('请填写争议原因', 'error')
-      return true
-    }
-    markHandoverDisputed(eventId, state.disputeReason.trim(), 'Admin')
-    state.disputeEventId = null
-    state.disputeReason = ''
-    state.detailEventId = null
-    showProgressHandoverToast('已标记为争议')
-    return true
-  }
-
-  if (action === 'void-event') {
-    const eventId = actionNode.dataset.eventId
-    if (!eventId) return true
-    voidHandoverEvent(eventId, 'Admin')
-    state.detailEventId = null
-    showProgressHandoverToast('交接事件已作废')
-    return true
-  }
-
-  if (action === 'view-exception') {
-    const eventId = actionNode.dataset.eventId
-    const event = eventId ? getHandoverEventById(eventId) : undefined
-    if (event) {
-      openLinkedPage('异常定位与处理', buildExceptionHrefByEvent(event))
-    }
-    closeRowMenu()
+    state.detailRowId = null
     return true
   }
 
   if (action === 'open-pda-detail') {
     const handoverId = actionNode.dataset.handoverId
     if (handoverId) {
-      const head = findPdaHeadByHandoverId(handoverId)
+      const head = findPdaHandoverHead(handoverId)
       const detailTitle = head?.headType === 'PICKUP' ? `领料详情 ${handoverId}` : `交出详情 ${handoverId}`
       openLinkedPage(detailTitle, `/fcs/pda/handover/${encodeURIComponent(handoverId)}`)
     }
@@ -2428,59 +2087,13 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'urge-confirm') {
-    const eventId = actionNode.dataset.eventId
-    const event = eventId ? getHandoverEventById(eventId) : undefined
-    if (!event || !event.toParty.id) return true
-
-    const toType: RecipientType = event.toParty.kind === 'FACTORY' ? 'FACTORY' : 'INTERNAL_USER'
-
-    createUrge({
-      urgeType: 'URGE_HANDOVER_CONFIRM',
-      fromType: 'INTERNAL_USER',
-      fromId: 'U002',
-      fromName: '跟单A',
-      toType,
-      toId: event.toParty.id,
-      toName: event.toParty.name,
-      targetType: 'HANDOVER',
-      targetId: event.eventId,
-      message: `请尽快确认交接事件 ${event.eventId}`,
-      deepLink: {
-        path: '/fcs/progress/handover',
-        query: { eventId: event.eventId },
-      },
-    })
-
-    showProgressHandoverToast('催办已发送')
-    return true
-  }
-
-  if (action === 'urge-dispute') {
-    const eventId = actionNode.dataset.eventId
-    const event = eventId ? getHandoverEventById(eventId) : undefined
-    if (!event || !event.toParty.id) return true
-
-    const toType: RecipientType = event.toParty.kind === 'FACTORY' ? 'FACTORY' : 'INTERNAL_USER'
-
-    createUrge({
-      urgeType: 'URGE_HANDOVER_EVIDENCE',
-      fromType: 'INTERNAL_USER',
-      fromId: 'U002',
-      fromName: '跟单A',
-      toType,
-      toId: event.toParty.id,
-      toName: event.toParty.name,
-      targetType: 'HANDOVER',
-      targetId: event.eventId,
-      message: `请补充证据或处理交接差异 ${event.eventId}`,
-      deepLink: {
-        path: '/fcs/progress/handover',
-        query: { eventId: event.eventId },
-      },
-    })
-
-    showProgressHandoverToast('催办已发送')
+  if (action === 'view-exception') {
+    const rowId = actionNode.dataset.rowId
+    const row = rowId ? getLedgerRowById(rowId) : undefined
+    if (row) {
+      openLinkedPage('异常定位与处理', buildExceptionHrefByRow(row))
+    }
+    closeRowMenu()
     return true
   }
 
@@ -2500,10 +2113,34 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'select-timeline-order') {
+  if (action === 'open-order-detail') {
     const orderId = actionNode.dataset.orderId
     if (orderId) {
-      state.timelineOrderId = orderId
+      const focusValue = actionNode.dataset.focus
+      const focus = isHandoverFocus(focusValue) ? focusValue : undefined
+      const taskId = actionNode.dataset.taskId || ''
+      openLinkedPage(
+        `交接详情-${orderId}`,
+        buildHandoverOrderDetailLink({
+          productionOrderId: orderId,
+          tab: 'process',
+          taskId: taskId || undefined,
+          focus,
+          source: '交接链路跟踪',
+        }),
+      )
+    }
+    return true
+  }
+
+  if (action === 'toggle-timeline-order') {
+    const orderId = actionNode.dataset.orderId
+    if (orderId) {
+      if (state.timelineExpandedOrderIds.includes(orderId)) {
+        state.timelineExpandedOrderIds = state.timelineExpandedOrderIds.filter((id) => id !== orderId)
+      } else {
+        state.timelineExpandedOrderIds = [...state.timelineExpandedOrderIds, orderId]
+      }
     }
     return true
   }
@@ -2512,7 +2149,9 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
 }
 
 export function renderProgressHandoverPage(): string {
-  return renderPage()
+  const html = renderPage()
+  scheduleTimelineAnchorScroll()
+  return html
 }
 
 export function handleProgressHandoverEvent(target: HTMLElement): boolean {
@@ -2526,7 +2165,7 @@ export function handleProgressHandoverEvent(target: HTMLElement): boolean {
 
   const actionNode = target.closest<HTMLElement>('[data-handover-action]')
   if (!actionNode) {
-    if (state.rowMenuEventId) {
+    if (state.rowMenuRowId) {
       closeRowMenu()
       return true
     }
@@ -2540,12 +2179,5 @@ export function handleProgressHandoverEvent(target: HTMLElement): boolean {
 }
 
 export function isProgressHandoverDialogOpen(): boolean {
-  return Boolean(
-    state.newDrawerOpen ||
-      state.detailEventId ||
-      state.confirmEventId ||
-      state.disputeEventId ||
-      state.writebackRecordId ||
-      state.objectionRecordId,
-  )
+  return Boolean(state.detailRowId || state.writebackRecordId || state.objectionRecordId)
 }

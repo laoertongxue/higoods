@@ -86,9 +86,15 @@ function shouldBypassClickDispatch(target: Element): boolean {
   return false
 }
 
+function resolveEventElementTarget(eventTarget: EventTarget | null): Element | null {
+  if (eventTarget instanceof Element) return eventTarget
+  if (eventTarget instanceof Node) return eventTarget.parentElement
+  return null
+}
+
 root.addEventListener('click', (event) => {
-  const target = event.target
-  if (!(target instanceof Element)) return
+  const target = resolveEventElementTarget(event.target)
+  if (!target) return
 
   if (shouldBypassClickDispatch(target)) return
 
@@ -176,8 +182,8 @@ root.addEventListener('click', (event) => {
 })
 
 root.addEventListener('input', (event) => {
-  const target = event.target
-  if (!(target instanceof Element)) return
+  const target = resolveEventElementTarget(event.target)
+  if (!target) return
 
   if (dispatchPcsInputEvent(target)) {
     render()
@@ -190,8 +196,8 @@ root.addEventListener('input', (event) => {
 })
 
 root.addEventListener('change', (event) => {
-  const target = event.target
-  if (!(target instanceof Element)) return
+  const target = resolveEventElementTarget(event.target)
+  if (!target) return
 
   if (dispatchPageEvent(target)) {
     render()

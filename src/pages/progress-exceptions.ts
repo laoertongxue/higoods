@@ -21,7 +21,6 @@ import {
 } from '../data/fcs/store-domain-dispatch-process'
 import {
   initialExceptions,
-  initialHandoverEvents,
   initialNotifications,
   initialUrges,
   mockInternalUsers,
@@ -43,6 +42,11 @@ import {
   recordPauseExceptionFollowUp,
   syncMilestoneOverdueExceptions,
 } from '../data/fcs/pda-exec-link'
+import {
+  buildHandoverOrderDetailLink,
+  getProductionOrderHandoverSummary,
+  getTaskHandoverSummary,
+} from '../data/fcs/handover-ledger-view'
 
 applyQualitySeedBootstrap()
 
@@ -513,11 +517,17 @@ function getMaterialIssueRows(exc: ExceptionCase) {
   )
 }
 
-function getHandoverRows(exc: ExceptionCase) {
-  return initialHandoverEvents.filter((item) =>
-    (exc.relatedTaskIds.length > 0 && item.relatedTaskId && exc.relatedTaskIds.includes(item.relatedTaskId)) ||
-    exc.relatedOrderIds.includes(item.productionOrderId),
-  )
+function getHandoverCaseSnapshot(exc: ExceptionCase): {
+  orderSummary: ReturnType<typeof getProductionOrderHandoverSummary> | null
+  taskSummary: ReturnType<typeof getTaskHandoverSummary> | null
+} {
+  const firstOrderId = exc.relatedOrderIds[0]
+  const firstTaskId = exc.relatedTaskIds[0]
+
+  return {
+    orderSummary: firstOrderId ? getProductionOrderHandoverSummary(firstOrderId) : null,
+    taskSummary: firstTaskId ? getTaskHandoverSummary(firstTaskId) : null,
+  }
 }
 
 function parseTimestampToMs(value: string): number {
@@ -630,9 +640,11 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
     }
   }
 
-  const rows = getHandoverRows(exc)
-  const allSettled = rows.every((row) => row.status === 'CONFIRMED' || row.status === 'VOID')
-  const resolved = rows.length > 0 && allSettled
+  const { orderSummary, taskSummary } = getHandoverCaseSnapshot(exc)
+  const resolved = taskSummary
+    ? taskSummary.processStatusLabel === '已完成'
+    : Boolean(orderSummary && !orderSummary.hasOpenIssue)
+
   return {
     resolved,
     ruleText: '交出差异/数量异议处理完成并闭合后，系统自动判定为已解决。',
@@ -1479,7 +1491,7 @@ function renderActionMenu(exc: ExceptionCase): string {
               }
               ${
                 unifiedCategory === 'HANDOUT'
-                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-handover" data-order-id="${escapeAttr(firstOrderId)}" data-task-id="${escapeAttr(firstTaskId)}" data-pe-stop="true"><i data-lucide="scan-line" class="mr-2 h-4 w-4"></i>查看交出记录</button>`
+                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-handover" data-order-id="${escapeAttr(firstOrderId)}" data-task-id="${escapeAttr(firstTaskId)}" data-pe-stop="true"><i data-lucide="scan-line" class="mr-2 h-4 w-4"></i>查看交接链路</button>`
                   : ''
               }
               ${
@@ -1973,7 +1985,7 @@ function renderRelatedTab(detailCase: ExceptionCase): string {
           }
           ${
             firstOrderId
-              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="drawer-view-handover" data-order-id="${escapeAttr(firstOrderId)}" data-task-id="${escapeAttr(firstTaskId)}"><i data-lucide="scan-line" class="mr-1 h-4 w-4"></i>交出记录</button>`
+              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="drawer-view-handover" data-order-id="${escapeAttr(firstOrderId)}" data-task-id="${escapeAttr(firstTaskId)}"><i data-lucide="scan-line" class="mr-1 h-4 w-4"></i>查看交接链路</button>`
               : ''
           }
           ${
@@ -1996,7 +2008,7 @@ function renderSourceTab(detailCase: ExceptionCase): string {
   const order = firstOrderId !== '-' ? getOrderById(firstOrderId) : undefined
   const tender = firstTenderId !== '-' ? getTenderById(firstTenderId) : undefined
   const materialRows = getMaterialIssueRows(detailCase)
-  const handoverRows = getHandoverRows(detailCase)
+  const { orderSummary: handoverOrderSummary, taskSummary: handoverTaskSummary } = getHandoverCaseSnapshot(detailCase)
 
   const renderKv = (label: string, value: string): string => `
     <div class="rounded-md border bg-background px-3 py-2">
@@ -2141,43 +2153,23 @@ function renderSourceTab(detailCase: ExceptionCase): string {
     `
   }
 
-  const handoverStatusLabel: Record<string, string> = {
-    PENDING_CONFIRM: '待确认',
-    CONFIRMED: '已确认',
-    DISPUTED: '异议中',
-    VOID: '作废',
-  }
-  const expectedSum = handoverRows.reduce((sum, row) => sum + row.qtyExpected, 0)
-  const actualSum = handoverRows.reduce((sum, row) => sum + row.qtyActual, 0)
-  const diffSum = actualSum - expectedSum
-
   return `
     <div class="space-y-3 rounded-lg border border-cyan-200 bg-cyan-50 p-4">
       <p class="text-sm font-medium text-cyan-700">交出异常来源明细</p>
+      <p class="text-xs text-cyan-700">交接链路情况</p>
       <div class="grid grid-cols-2 gap-2">
         ${renderKv('生产单号', firstOrderId)}
         ${renderKv('任务号', firstTaskId)}
         ${renderKv('异常类型', getSubCategoryLabel(detailCase))}
-        ${renderKv('交出记录数', String(handoverRows.length))}
-        ${renderKv('累计应交数量', `${expectedSum || 0}`)}
-        ${renderKv('累计登记数量', `${actualSum || 0}`)}
+        ${renderKv('当前交接状态', handoverTaskSummary?.processStatusLabel || handoverOrderSummary?.currentBottleneckLabel || '暂无交接事件')}
+        ${renderKv('当前卡点', handoverOrderSummary?.currentBottleneckLabel || '暂无卡点')}
+        ${renderKv('下一步', handoverTaskSummary?.nextActionHint || handoverOrderSummary?.currentBottleneckHint || '当前暂无处理动作')}
       </div>
-      <p class="text-xs ${diffSum === 0 ? 'text-muted-foreground' : 'text-amber-700'}">
-        数量差异：${diffSum === 0 ? '无差异' : `${diffSum > 0 ? '+' : ''}${diffSum}`}
-      </p>
-      ${
-        handoverRows.length > 0
-          ? `
-            <div class="space-y-1 rounded-md border bg-background p-2">
-              ${handoverRows
-                .slice(0, 3)
-                .map((row) => `<p class="text-xs text-muted-foreground">${escapeHtml(row.eventId)}｜${row.qtyActual}/${row.qtyExpected}｜${handoverStatusLabel[row.status] || row.status}</p>`)
-                .join('')}
-              ${handoverRows.length > 3 ? `<p class="text-xs text-muted-foreground">还有 ${handoverRows.length - 3} 条记录</p>` : ''}
-            </div>
-          `
-          : '<p class="text-xs text-muted-foreground">暂无交出记录，当前异常由交出链路自动沉淀。</p>'
-      }
+      <div class="rounded-md border bg-background p-2 text-xs text-muted-foreground">
+        <p>最近事件时间：${escapeHtml(handoverTaskSummary?.latestOccurredAt || handoverOrderSummary?.latestOccurredAt || '-')}</p>
+        <p class="mt-1">待处理节点：${handoverOrderSummary?.pendingCount || 0} ｜ 异议节点：${handoverOrderSummary?.objectionCount || 0}</p>
+        <p class="mt-1">说明：当前交接情况来自交接链路事实台帐，可直接跳转查看明细记录。</p>
+      </div>
     </div>
   `
 }
@@ -2401,8 +2393,8 @@ function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="scan-line" class="h-5 w-5 text-cyan-600"></i>
           <div>
-            <p class="font-medium">查看交出记录</p>
-            <p class="text-xs text-muted-foreground">查看交出头、交出记录与仓库登记数量</p>
+            <p class="font-medium">查看交接链路</p>
+            <p class="text-xs text-muted-foreground">查看交出头、交出记录、仓库确认和异议处理</p>
           </div>
         </div>
       </button>
@@ -2940,7 +2932,16 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'row-handover') {
     const orderId = actionNode.dataset.orderId || ''
     const taskId = actionNode.dataset.taskId || ''
-    openLinkedPage('交出记录', `/fcs/progress/handover?po=${encodeURIComponent(orderId)}&taskId=${encodeURIComponent(taskId)}`)
+    const summary = getProductionOrderHandoverSummary(orderId)
+    openLinkedPage(
+      '交接链路',
+      buildHandoverOrderDetailLink({
+        productionOrderId: orderId,
+        taskId,
+        focus: summary.recommendedFocus,
+        source: '异常定位',
+      }),
+    )
     state.rowActionMenuCaseId = null
     return true
   }
@@ -2948,7 +2949,15 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'row-handover-objection') {
     const orderId = actionNode.dataset.orderId || ''
     const taskId = actionNode.dataset.taskId || ''
-    openLinkedPage('数量异议', `/fcs/progress/handover?po=${encodeURIComponent(orderId)}&taskId=${encodeURIComponent(taskId)}&focus=objection`)
+    openLinkedPage(
+      '数量异议',
+      buildHandoverOrderDetailLink({
+        productionOrderId: orderId,
+        taskId,
+        focus: 'objection',
+        source: '异常定位',
+      }),
+    )
     state.rowActionMenuCaseId = null
     return true
   }
@@ -2972,14 +2981,31 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'drawer-view-handover') {
     const orderId = actionNode.dataset.orderId || ''
     const taskId = actionNode.dataset.taskId || ''
-    openLinkedPage('交出记录', `/fcs/progress/handover?po=${encodeURIComponent(orderId)}&taskId=${encodeURIComponent(taskId)}`)
+    const summary = getProductionOrderHandoverSummary(orderId)
+    openLinkedPage(
+      '交接链路',
+      buildHandoverOrderDetailLink({
+        productionOrderId: orderId,
+        taskId,
+        focus: summary.recommendedFocus,
+        source: '异常定位',
+      }),
+    )
     return true
   }
 
   if (action === 'drawer-view-handover-objection') {
     const orderId = actionNode.dataset.orderId || ''
     const taskId = actionNode.dataset.taskId || ''
-    openLinkedPage('数量异议', `/fcs/progress/handover?po=${encodeURIComponent(orderId)}&taskId=${encodeURIComponent(taskId)}&focus=objection`)
+    openLinkedPage(
+      '数量异议',
+      buildHandoverOrderDetailLink({
+        productionOrderId: orderId,
+        taskId,
+        focus: 'objection',
+        source: '异常定位',
+      }),
+    )
     return true
   }
 

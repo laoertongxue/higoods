@@ -118,6 +118,7 @@ import {
   handleProgressHandoverEvent,
   isProgressHandoverDialogOpen,
 } from '../pages/progress-handover'
+import { handleProgressHandoverOrderEvent } from '../pages/progress-handover-order'
 import {
   handleProgressMaterialEvent,
   isProgressMaterialDrawerOpen,
@@ -160,6 +161,7 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleProgressExceptionsEvent(target) ||
     handleProgressUrgeEvent(target) ||
     handleProgressHandoverEvent(target) ||
+    handleProgressHandoverOrderEvent(target) ||
     handleProgressMilestoneConfigEvent(target) ||
     handleProgressMaterialEvent(target) ||
     handlePenaltyOutputEvent(target) ||

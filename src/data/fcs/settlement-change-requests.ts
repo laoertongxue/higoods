@@ -59,6 +59,10 @@ export interface SettlementVersionRecord extends SettlementEffectiveInfoSnapshot
   factoryName: string
   versionNo: string
   effectiveAt: string
+  expiryAt: string
+  status: 'EFFECTIVE' | 'EXPIRED'
+  changeItems: string[]
+  changeSource: string
   effectiveBy: string
   sourceRequestId: string
   settlementConfigSnapshot: SettlementConfigSnapshot
@@ -145,6 +149,18 @@ interface SettlementVersionSeed extends SettlementEffectiveInfoSnapshot {
   sourceRequestId: string
 }
 
+function inferVersionChangeSource(sourceRequestId: string): string {
+  if (sourceRequestId === 'INIT') return '初始化'
+  if (sourceRequestId === 'VERSION_MANUAL') return '平台新增版本'
+  return 'PDA收款账号修改申请'
+}
+
+function inferVersionChangeItems(sourceRequestId: string): string[] {
+  if (sourceRequestId === 'INIT') return ['结算配置', '收款账号', '扣款规则']
+  if (sourceRequestId === 'VERSION_MANUAL') return ['结算配置', '扣款规则']
+  return ['收款账号']
+}
+
 function cloneAccountSnapshot(snapshot: SettlementEffectiveInfoSnapshot): SettlementEffectiveInfoSnapshot {
   return {
     accountHolderName: snapshot.accountHolderName,
@@ -229,6 +245,10 @@ function buildVersionRecord(seed: SettlementVersionSeed): SettlementVersionRecor
   const accountSnapshot = cloneAccountSnapshot(seed)
   return {
     ...seed,
+    expiryAt: '',
+    status: 'EFFECTIVE',
+    changeItems: inferVersionChangeItems(seed.sourceRequestId),
+    changeSource: inferVersionChangeSource(seed.sourceRequestId),
     settlementConfigSnapshot: resolveSettlementConfigSnapshot(seed.factoryId),
     receivingAccountSnapshot: accountSnapshot,
     defaultDeductionRulesSnapshot: resolveDeductionRuleSnapshots(seed.factoryId),
@@ -486,6 +506,8 @@ const settlementVersionHistory: SettlementVersionRecord[] = [
     sourceRequestId: 'SR202602020009',
   },
 ].map(buildVersionRecord)
+
+normalizeAllVersionHistory()
 
 function createLog(actor: string, action: string, remark: string, createdAt: string): SettlementRequestLog {
   return {
@@ -800,6 +822,27 @@ function getLatestVersionRecordByFactory(factoryId: string): SettlementVersionRe
   )
 }
 
+function normalizeFactoryVersionHistory(factoryId: string): void {
+  const records = settlementVersionHistory
+    .filter((item) => item.factoryId === factoryId)
+    .sort((a, b) => parseVersionNo(a.versionNo) - parseVersionNo(b.versionNo))
+
+  records.forEach((record, index) => {
+    const nextRecord = records[index + 1]
+    record.expiryAt = nextRecord ? nextRecord.effectiveAt : ''
+    record.status = nextRecord ? 'EXPIRED' : 'EFFECTIVE'
+    record.changeSource = record.changeSource || inferVersionChangeSource(record.sourceRequestId)
+    if (!record.changeItems || record.changeItems.length === 0) {
+      record.changeItems = inferVersionChangeItems(record.sourceRequestId)
+    }
+  })
+}
+
+function normalizeAllVersionHistory(): void {
+  const factoryIds = Array.from(new Set(settlementVersionHistory.map((item) => item.factoryId)))
+  factoryIds.forEach((factoryId) => normalizeFactoryVersionHistory(factoryId))
+}
+
 function getLatestVersionNoByFactory(factoryId: string): string {
   const effective = getEffectiveInfoByFactoryOrNull(factoryId)
   const historyRecord = getLatestVersionRecordByFactory(factoryId)
@@ -982,12 +1025,17 @@ export function initializeSettlementInfo(payload: {
     bankAccountNo: accountSnapshot.bankAccountNo,
     bankBranch: accountSnapshot.bankBranch,
     effectiveAt: now,
+    expiryAt: '',
+    status: 'EFFECTIVE',
+    changeItems: ['结算配置', '收款账号', '扣款规则'],
+    changeSource: '初始化',
     effectiveBy: payload.operator,
     sourceRequestId: 'INIT',
     settlementConfigSnapshot: cloneConfigSnapshot(configSnapshot),
     receivingAccountSnapshot: cloneAccountSnapshot(accountSnapshot),
     defaultDeductionRulesSnapshot: cloneDeductionRuleSnapshots(rulesSnapshot),
   })
+  normalizeFactoryVersionHistory(payload.factoryId)
 
   clearSettlementInitDraft(payload.factoryId)
   return { ok: true, message: '已完成结算信息初始化', data: effectiveInfo }
@@ -1029,12 +1077,17 @@ export function createSettlementVersionFromCurrent(payload: {
     bankAccountNo: accountSnapshot.bankAccountNo,
     bankBranch: accountSnapshot.bankBranch,
     effectiveAt: nextEffectiveAt,
+    expiryAt: '',
+    status: 'EFFECTIVE',
+    changeItems: ['结算配置', '扣款规则'],
+    changeSource: '平台新增版本',
     effectiveBy: payload.operator,
     sourceRequestId: 'VERSION_MANUAL',
     settlementConfigSnapshot: cloneConfigSnapshot(nextConfigSnapshot),
     receivingAccountSnapshot: cloneAccountSnapshot(accountSnapshot),
     defaultDeductionRulesSnapshot: cloneDeductionRuleSnapshots(nextRulesSnapshot),
   })
+  normalizeFactoryVersionHistory(current.factoryId)
 
   return { ok: true, message: `已生成新版本 ${nextVersionNo}`, data: current }
 }
@@ -1218,12 +1271,17 @@ export function approveSettlementRequest(
     bankAccountNo: current.bankAccountNo,
     bankBranch: current.bankBranch,
     effectiveAt: current.effectiveAt,
+    expiryAt: '',
+    status: 'EFFECTIVE',
+    changeItems: ['收款账号'],
+    changeSource: 'PDA收款账号修改申请',
     effectiveBy: current.effectiveBy,
     sourceRequestId: request.requestId,
     settlementConfigSnapshot: cloneConfigSnapshot(nextConfigSnapshot),
     receivingAccountSnapshot: cloneAccountSnapshot(nextAccountSnapshot),
     defaultDeductionRulesSnapshot: cloneDeductionRuleSnapshots(nextRulesSnapshot),
   })
+  normalizeFactoryVersionHistory(current.factoryId)
 
   request.status = 'APPROVED'
   request.effectiveAt = current.effectiveAt

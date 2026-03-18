@@ -30,6 +30,12 @@ import {
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
 import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
+import {
+  buildHandoverOrderDetailLink,
+  getHandoverLedgerRows,
+  getProductionOrderHandoverSummary,
+  getTaskHandoverSummary,
+} from '../data/fcs/handover-ledger-view'
 
 applyQualitySeedBootstrap()
 
@@ -66,6 +72,12 @@ interface PoViewRow {
   risks: string[]
   blockpoint: string
   nextAction: string
+  handoverStatusLabel: string
+  handoverNextAction: string
+  handoverPendingCount: number
+  handoverObjectionCount: number
+  handoverLatestOccurredAt: string
+  handoverFocus: string
 }
 
 interface ProgressBoardState {
@@ -404,11 +416,13 @@ function getTaskKpiStats(): {
 }
 
 function getPoViewRows(): PoViewRow[] {
+  const handoverRows = getHandoverLedgerRows()
   const orderIds = [...new Set(processTasks.map((task) => task.productionOrderId))]
 
   return orderIds.map((orderId) => {
     const tasks = processTasks.filter((task) => task.productionOrderId === orderId)
     const order = getOrderById(orderId)
+    const handoverSummary = getProductionOrderHandoverSummary(orderId, handoverRows)
     const mainFactoryId = order?.mainFactoryId ?? tasks.find((task) => task.assignedFactoryId)?.assignedFactoryId
     const mainFactory = mainFactoryId ? getFactoryById(mainFactoryId)?.name ?? mainFactoryId : '未指定'
     const lifecycle = deriveLifecycle(tasks, order)
@@ -434,6 +448,12 @@ function getPoViewRows(): PoViewRow[] {
       risks,
       blockpoint: deriveBlockpoint(tasks),
       nextAction: deriveNextAction(lifecycle, tasks),
+      handoverStatusLabel: handoverSummary.currentBottleneckLabel,
+      handoverNextAction: handoverSummary.primaryActionHint,
+      handoverPendingCount: handoverSummary.pendingCount,
+      handoverObjectionCount: handoverSummary.objectionCount,
+      handoverLatestOccurredAt: handoverSummary.latestOccurredAt,
+      handoverFocus: handoverSummary.recommendedFocus || '',
     }
   })
 }
@@ -1219,6 +1239,7 @@ function renderOrderActionMenu(row: PoViewRow): string {
 }
 
 function renderTaskListView(filteredTasks: ProcessTask[]): string {
+  const handoverRows = getHandoverLedgerRows()
   const allSelected = filteredTasks.length > 0 && filteredTasks.every((task) => state.selectedTaskIds.includes(task.taskId))
 
   return `
@@ -1257,6 +1278,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                       const order = getOrderById(task.productionOrderId)
                       const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
                       const risks = getTaskRisks(task)
+                      const handoverSummary = getTaskHandoverSummary(task.taskId, handoverRows)
 
                       return `
                         <tr class="cursor-pointer border-b hover:bg-muted/50" data-progress-action="open-task-detail" data-task-id="${escapeAttr(task.taskId)}">
@@ -1293,6 +1315,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                             <div class="text-xs">
                               <div>${escapeHtml(task.processNameZh)}</div>
                               <div class="text-muted-foreground">${escapeHtml(task.processCode)}</div>
+                              <div class="text-blue-600">交接：${escapeHtml(handoverSummary.processStatusLabel)}</div>
                             </div>
                           </td>
                           <td class="px-3 py-2">${renderBadge(stageLabels[task.stage as ProcessStage], 'border-border bg-background text-foreground')}</td>
@@ -1570,8 +1593,14 @@ function renderOrderListView(rows: PoViewRow[]): string {
                               }
                             </div>
                           </td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(row.blockpoint)}</td>
-                          <td class="px-3 py-2 text-xs font-medium text-foreground">${escapeHtml(row.nextAction)}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">
+                            <div>${escapeHtml(row.blockpoint)}</div>
+                            <div class="text-blue-600">交接卡点：${escapeHtml(row.handoverStatusLabel)}</div>
+                          </td>
+                          <td class="px-3 py-2 text-xs font-medium text-foreground">
+                            <div>${escapeHtml(row.nextAction)}</div>
+                            <div class="text-blue-600">交接下一步：${escapeHtml(row.handoverNextAction)}</div>
+                          </td>
                           <td class="px-3 py-2 text-right" data-progress-stop="true">${renderOrderActionMenu(row)}</td>
                         </tr>
                       `
@@ -1632,6 +1661,7 @@ function renderOrderKanbanView(rows: PoViewRow[]): string {
                                     ? `<div class="mt-2 rounded bg-orange-50 px-1.5 py-1 text-xs text-orange-700">卡点：${escapeHtml(row.blockpoint)}</div>`
                                     : ''
                                 }
+                                <div class="mt-2 rounded bg-blue-50 px-1.5 py-1 text-xs text-blue-700">交接：${escapeHtml(row.handoverStatusLabel)}</div>
                                 ${
                                   row.risks.length > 0
                                     ? `<div class="mt-2 flex flex-wrap gap-1">${row.risks
@@ -1641,6 +1671,7 @@ function renderOrderKanbanView(rows: PoViewRow[]): string {
                                     : ''
                                 }
                                 <div class="mt-2 text-xs font-medium text-blue-600">${escapeHtml(row.nextAction)}</div>
+                                <div class="mt-1 text-xs text-blue-600">交接下一步：${escapeHtml(row.handoverNextAction)}</div>
                               </article>
                             `
                           })
@@ -1721,6 +1752,7 @@ function renderTaskDrawer(): string {
   const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
   const tender = task.tenderId ? getTenderById(task.tenderId) : undefined
   const taskRisks = getTaskRisks(task)
+  const taskHandoverSummary = getTaskHandoverSummary(task.taskId)
   const activeTab = task.status === 'BLOCKED' ? state.taskDetailTab : state.taskDetailTab === 'block' ? 'basic' : state.taskDetailTab
 
   return `
@@ -1795,6 +1827,14 @@ function renderTaskDrawer(): string {
                       ? `<div><p class="text-xs text-muted-foreground">难度</p><p>${task.difficulty === 'EASY' ? '简单' : task.difficulty === 'MEDIUM' ? '中等' : '困难'}</p></div>`
                       : ''
                   }
+                </div>
+                <div class="rounded-md border bg-blue-50 p-3 text-sm">
+                  <p class="text-xs text-blue-700">交接情况</p>
+                  <p class="mt-1 text-blue-700">当前状态：${escapeHtml(taskHandoverSummary.processStatusLabel)}</p>
+                  <p class="mt-1 text-blue-700">下一步：${escapeHtml(taskHandoverSummary.nextActionHint)}</p>
+                  <button class="mt-2 inline-flex h-8 items-center rounded-md border border-blue-200 bg-white px-3 text-sm text-blue-700 hover:bg-blue-100" data-progress-action="task-action-handover" data-task-id="${escapeAttr(task.taskId)}" data-po-id="${escapeAttr(task.productionOrderId)}">
+                    <i data-lucide="scan-line" class="mr-1.5 h-4 w-4"></i>查看交接链路
+                  </button>
                 </div>
                 ${
                   task.qcPoints.length > 0
@@ -2121,6 +2161,16 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
           </div>
 
           <div>
+            <p class="text-xs text-muted-foreground">交接状态</p>
+            <div class="mt-1.5 rounded bg-blue-50 px-3 py-2 text-sm text-blue-700">${escapeHtml(row.handoverStatusLabel)}</div>
+          </div>
+
+          <div>
+            <p class="text-xs text-muted-foreground">交接下一步</p>
+            <div class="mt-1.5 rounded bg-blue-50 px-3 py-2 text-sm text-blue-700">${escapeHtml(row.handoverNextAction)}</div>
+          </div>
+
+          <div>
             <p class="text-xs text-muted-foreground">任务清单摘要</p>
             <div class="mt-1.5 space-y-1">
               ${orderTasks
@@ -2382,7 +2432,16 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'task-action-handover' && taskId && poId) {
-    openLinkedPage('交接链路', `/fcs/progress/handover?po=${encodeURIComponent(poId)}&taskId=${encodeURIComponent(taskId)}`)
+    const handoverSummary = getTaskHandoverSummary(taskId)
+    openLinkedPage(
+      '交接链路',
+      buildHandoverOrderDetailLink({
+        productionOrderId: poId,
+        taskId,
+        focus: handoverSummary.recommendedFocus,
+        source: '看板',
+      }),
+    )
     state.taskActionMenuId = null
     return true
   }
@@ -2431,7 +2490,15 @@ function handleOrderAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'order-action-handover') {
-    openLinkedPage('交接链路', `/fcs/progress/handover?po=${encodeURIComponent(orderId)}`)
+    const handoverSummary = getProductionOrderHandoverSummary(orderId)
+    openLinkedPage(
+      '交接链路',
+      buildHandoverOrderDetailLink({
+        productionOrderId: orderId,
+        focus: handoverSummary.recommendedFocus,
+        source: '看板',
+      }),
+    )
     state.orderActionMenuId = null
     return true
   }

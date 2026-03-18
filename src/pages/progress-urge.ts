@@ -10,7 +10,6 @@ import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { initialTenders } from '../data/fcs/store-domain-dispatch-process'
 import {
   initialExceptions,
-  initialHandoverEvents,
   initialNotifications,
   initialUrges,
   mockInternalUsers,
@@ -25,6 +24,12 @@ import {
   type UrgeStatus,
   type UrgeType,
 } from '../data/fcs/store-domain-progress'
+import {
+  buildHandoverOrderDetailLink,
+  getHandoverLedgerRows,
+  getHandoverOrderTimelineViews,
+  getProductionOrderHandoverSummary,
+} from '../data/fcs/handover-ledger-view'
 
 type UrgeTab = 'inbox' | 'outbox'
 type TargetTypeWithoutTechPack = Exclude<TargetType, 'TECH_PACK'>
@@ -111,7 +116,7 @@ const RECIPIENT_CONFIG: Record<RecipientType, { label: string; icon: string }> =
 const TARGET_CONFIG: Record<TargetType, { label: string; icon: string }> = {
   TASK: { label: '任务', icon: 'clock' },
   CASE: { label: '异常单', icon: 'alert-circle' },
-  HANDOVER: { label: '交接事件', icon: 'truck' },
+  HANDOVER: { label: '交接链路', icon: 'truck' },
   TENDER: { label: '竞价单', icon: 'gavel' },
   ORDER: { label: '生产单', icon: 'file-text' },
   TECH_PACK: { label: '技术包', icon: 'package' },
@@ -335,66 +340,100 @@ function recomputeAutoNotifications(): number {
     return true
   }
 
-  // A. 交接待确认超时
-  initialHandoverEvents.forEach((event) => {
-    if (event.status !== 'PENDING_CONFIRM') return
+  const handoverRows = getHandoverLedgerRows()
 
-    const occurredAt = new Date(event.occurredAt.replace(' ', 'T'))
-    if (now.getTime() - occurredAt.getTime() < 4 * 60 * 60 * 1000) return
-
-    if (event.toParty.kind === 'FACTORY' && event.toParty.id) {
-      const factoryNotification: Omit<Notification, 'notificationId' | 'createdAt'> = {
-        level: 'WARN',
-        title: '交接待确认超时',
-        content: `交接事件${event.eventId}已超过4小时未确认`,
-        recipientType: 'FACTORY',
-        recipientId: event.toParty.id,
-        recipientName: event.toParty.name,
-        targetType: 'HANDOVER',
-        targetId: event.eventId,
-        related: {
-          handoverEventId: event.eventId,
-          productionOrderId: event.productionOrderId,
-        },
-        deepLink: {
-          path: '/fcs/progress/handover',
-          query: { eventId: event.eventId },
-        },
-        createdBy: 'SYSTEM',
-      }
-
-      if (shouldAdd(factoryNotification)) {
-        newNotifications.push({
-          ...factoryNotification,
-          notificationId: generateNotificationId(),
-          createdAt: nowStr,
-        })
-      }
+  // A. 交出后待仓库确认超过 24 小时（示例规则）
+  const warehouseOverdueByTask = new Map<string, (typeof handoverRows)[number]>()
+  handoverRows.forEach((row) => {
+    if (row.statusCode !== 'HANDOUT_RECORD_PENDING_WRITEBACK') return
+    const occurredAtMs = parseDateTime(row.occurredAt)
+    if (Number.isNaN(occurredAtMs)) return
+    if (now.getTime() - occurredAtMs < 24 * 60 * 60 * 1000) return
+    const key = `${row.productionOrderId}_${row.taskId}`
+    const existed = warehouseOverdueByTask.get(key)
+    if (!existed || parseDateTime(existed.occurredAt) > occurredAtMs) {
+      warehouseOverdueByTask.set(key, row)
     }
+  })
 
-    const internalNotification: Omit<Notification, 'notificationId' | 'createdAt'> = {
-      level: 'INFO',
-      title: '交接待确认超时',
-      content: `交接事件${event.eventId}（${event.toParty.name}）已超过4小时未确认`,
+  warehouseOverdueByTask.forEach((row) => {
+    const summary = getProductionOrderHandoverSummary(row.productionOrderId, handoverRows)
+    const notification: Omit<Notification, 'notificationId' | 'createdAt'> = {
+      level: 'WARN',
+      title: '交出后待仓库确认超时',
+      content: `生产单${row.productionOrderId} 任务${row.taskNo}交出后待仓库确认已超过24小时，请尽快核实（当前卡点：${summary.currentBottleneckLabel}）`,
       recipientType: 'INTERNAL_USER',
       recipientId: 'U001',
       recipientName: '管理员',
       targetType: 'HANDOVER',
-      targetId: event.eventId,
+      targetId: row.productionOrderId,
       related: {
-        handoverEventId: event.eventId,
-        productionOrderId: event.productionOrderId,
+        productionOrderId: row.productionOrderId,
+        taskId: row.taskId,
       },
-      deepLink: {
-        path: '/fcs/progress/handover',
-        query: { eventId: event.eventId },
-      },
+      deepLink: parseHandoverHref(
+        buildHandoverOrderDetailLink({
+          productionOrderId: row.productionOrderId,
+          taskId: row.taskId,
+          focus: 'warehouse-confirm',
+          source: '催办通知',
+        }),
+      ),
       createdBy: 'SYSTEM',
     }
 
-    if (shouldAdd(internalNotification)) {
+    if (shouldAdd(notification)) {
       newNotifications.push({
-        ...internalNotification,
+        ...notification,
+        notificationId: generateNotificationId(),
+        createdAt: nowStr,
+      })
+    }
+  })
+
+  // B. 交接异议超过 24 小时未处理（示例规则）
+  const objectionOverdueByTask = new Map<string, (typeof handoverRows)[number]>()
+  handoverRows.forEach((row) => {
+    if (row.statusCode !== 'HANDOUT_OBJECTION_REPORTED' && row.statusCode !== 'HANDOUT_OBJECTION_PROCESSING') return
+    const occurredAtMs = parseDateTime(row.occurredAt)
+    if (Number.isNaN(occurredAtMs)) return
+    if (now.getTime() - occurredAtMs < 24 * 60 * 60 * 1000) return
+    const key = `${row.productionOrderId}_${row.taskId}`
+    const existed = objectionOverdueByTask.get(key)
+    if (!existed || parseDateTime(existed.occurredAt) > occurredAtMs) {
+      objectionOverdueByTask.set(key, row)
+    }
+  })
+
+  objectionOverdueByTask.forEach((row) => {
+    const summary = getProductionOrderHandoverSummary(row.productionOrderId, handoverRows)
+    const notification: Omit<Notification, 'notificationId' | 'createdAt'> = {
+      level: 'WARN',
+      title: '交接异议处理超时',
+      content: `生产单${row.productionOrderId} 任务${row.taskNo}的交接异议已超过24小时未处理，请及时跟进（当前卡点：${summary.currentBottleneckLabel}）`,
+      recipientType: 'INTERNAL_USER',
+      recipientId: 'U001',
+      recipientName: '管理员',
+      targetType: 'HANDOVER',
+      targetId: row.productionOrderId,
+      related: {
+        productionOrderId: row.productionOrderId,
+        taskId: row.taskId,
+      },
+      deepLink: parseHandoverHref(
+        buildHandoverOrderDetailLink({
+          productionOrderId: row.productionOrderId,
+          taskId: row.taskId,
+          focus: 'objection',
+          source: '催办通知',
+        }),
+      ),
+      createdBy: 'SYSTEM',
+    }
+
+    if (shouldAdd(notification)) {
+      newNotifications.push({
+        ...notification,
         notificationId: generateNotificationId(),
         createdAt: nowStr,
       })
@@ -627,9 +666,9 @@ function getTargetOptions(targetType: TargetTypeWithoutTechPack): Array<{ id: st
     case 'CASE':
       return initialExceptions.map((exception) => ({ id: exception.caseId, label: `${exception.caseId} - ${exception.summary}` }))
     case 'HANDOVER':
-      return initialHandoverEvents.map((event) => ({
-        id: event.eventId,
-        label: `${event.eventId} - ${event.fromParty.name} → ${event.toParty.name}`,
+      return getHandoverOrderTimelineViews(getHandoverLedgerRows()).map((view) => ({
+        id: view.productionOrderId,
+        label: `${view.productionOrderNo} - ${view.currentBottleneckLabel}`,
       }))
     case 'TENDER':
       return initialTenders.map((tender) => ({ id: tender.tenderId, label: `${tender.tenderId} - ${tender.taskIds.length}个任务` }))
@@ -677,12 +716,14 @@ function inferRecipient(targetType: TargetTypeWithoutTechPack, targetId: string)
       return { toType: 'INTERNAL_USER', toId: 'U001', toName: '管理员' }
     }
     case 'HANDOVER': {
-      const event = initialHandoverEvents.find((item) => item.eventId === targetId)
-      if (event?.toParty.kind === 'FACTORY' && event.toParty.id) {
+      const orderTasks = processTasks.filter((item) => item.productionOrderId === targetId)
+      const assignedFactoryTask = orderTasks.find((item) => item.assignedFactoryId)
+      if (assignedFactoryTask?.assignedFactoryId) {
+        const factory = indonesiaFactories.find((item) => item.id === assignedFactoryTask.assignedFactoryId)
         return {
           toType: 'FACTORY',
-          toId: event.toParty.id,
-          toName: event.toParty.name,
+          toId: assignedFactoryTask.assignedFactoryId,
+          toName: factory?.name || assignedFactoryTask.assignedFactoryId,
         }
       }
 
@@ -697,9 +738,19 @@ function inferRecipient(targetType: TargetTypeWithoutTechPack, targetId: string)
   }
 }
 
+function parseHandoverHref(href: string): NotificationDeepLink {
+  const [path, queryString] = href.split('?')
+  if (!queryString) return { path }
+  const query: Record<string, string> = {}
+  const params = new URLSearchParams(queryString)
+  params.forEach((value, key) => {
+    query[key] = value
+  })
+  return { path, query }
+}
+
 function getDeepLink(targetType: TargetTypeWithoutTechPack, targetId: string): NotificationDeepLink {
   const task = processTasks.find((item) => item.taskId === targetId)
-  const handover = initialHandoverEvents.find((item) => item.eventId === targetId)
 
   switch (targetType) {
     case 'TASK':
@@ -716,13 +767,13 @@ function getDeepLink(targetType: TargetTypeWithoutTechPack, targetId: string): N
         query: { caseId: targetId },
       }
     case 'HANDOVER':
-      return {
-        path: '/fcs/progress/handover',
-        query: {
-          eventId: targetId,
-          po: handover?.productionOrderId || '',
-        },
-      }
+      return parseHandoverHref(
+        buildHandoverOrderDetailLink({
+          productionOrderId: targetId,
+          focus: getProductionOrderHandoverSummary(targetId).recommendedFocus,
+          source: '催办通知',
+        }),
+      )
     case 'TENDER':
       return {
         path: '/fcs/dispatch/board',
