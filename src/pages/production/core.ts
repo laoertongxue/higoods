@@ -2313,7 +2313,7 @@ export function renderProductionOrdersPage(): string {
       </section>
 
       <div class="rounded-lg border">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto overflow-y-visible">
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-muted/50">
@@ -2336,7 +2336,7 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">主工厂</th>
                 <th class="min-w-[150px] px-3 py-3 text-left font-medium">风险</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">最近更新</th>
-                <th class="sticky right-0 min-w-[160px] bg-muted/50 px-3 py-3 text-left font-medium">操作</th>
+                <th class="sticky right-0 z-20 min-w-[160px] bg-muted/50 px-3 py-3 text-left font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -2473,7 +2473,7 @@ export function renderProductionOrdersPage(): string {
                             <td class="px-3 py-3 text-sm text-muted-foreground">
                               ${escapeHtml(safeText(lastLog?.at.split(' ')[0] ?? order.updatedAt.split(' ')[0]))}
                             </td>
-                            <td class="sticky right-0 bg-background px-3 py-3" data-prod-action="noop">
+                            <td class="sticky right-0 ${state.ordersActionMenuId === order.productionOrderId ? 'z-40' : 'z-10'} bg-background px-3 py-3" data-prod-action="noop">
                               <div class="flex items-center gap-1">
                                 <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-prod-action="open-order-detail" data-order-id="${order.productionOrderId}">
                                   <i data-lucide="eye" class="h-4 w-4"></i>
@@ -2491,7 +2491,7 @@ export function renderProductionOrdersPage(): string {
                                   ${
                                     state.ordersActionMenuId === order.productionOrderId
                                       ? `
-                                        <div class="absolute right-0 z-20 mt-1 min-w-[150px] rounded-md border bg-background p-1 shadow-lg">
+                                        <div class="absolute right-0 z-50 mt-1 min-w-[150px] rounded-md border bg-background p-1 shadow-lg">
                                           <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-tech-pack" data-spu-code="${escapeHtml(order.demandSnapshot.spuCode)}">
                                             <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>
                                             完善技术包
