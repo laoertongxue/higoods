@@ -1,6 +1,15 @@
 import { appStore } from '../state/store'
-import { processTasks, type ProcessTask, type TaskAuditLog } from '../data/fcs/process-tasks'
 import { productionOrders } from '../data/fcs/production-orders'
+import {
+  batchDispatchRuntimeTasks,
+  batchSetRuntimeTaskAssignMode,
+  getRuntimeTaskById as getRuntimeTaskByIdFromStore,
+  listRuntimeProcessTasks,
+  setRuntimeTaskAssignMode,
+  upsertRuntimeTaskTender,
+  validateRuntimeBatchDispatchSelection,
+  type RuntimeProcessTask,
+} from '../data/fcs/runtime-process-tasks'
 import {
   initialDyePrintOrders,
   initialQualityInspections,
@@ -12,6 +21,8 @@ import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-boot
 import { escapeHtml, toClassName } from '../utils'
 
 applyQualitySeedBootstrap()
+
+type DispatchTask = RuntimeProcessTask
 
 type AssignPath = 'DIRECT' | 'BIDDING' | 'HOLD' | 'NONE'
 
@@ -330,6 +341,7 @@ interface DispatchBoardState {
   selectedIds: Set<string>
   autoAssignDone: boolean
   dispatchDialogTaskIds: string[] | null
+  dispatchDialogError: string | null
   dispatchForm: DirectDispatchForm
   tenderState: TenderState
   createTenderTaskId: string | null
@@ -345,6 +357,7 @@ const state: DispatchBoardState = {
   selectedIds: new Set(),
   autoAssignDone: false,
   dispatchDialogTaskIds: null,
+  dispatchDialogError: null,
   dispatchForm: emptyDispatchForm(),
   tenderState: {},
   createTenderTaskId: null,
@@ -353,8 +366,6 @@ const state: DispatchBoardState = {
   priceSnapshotTaskId: null,
   actionMenuTaskId: null,
 }
-
-let auditSeq = 0
 
 function emptyDispatchForm(): DirectDispatchForm {
   return {
@@ -402,23 +413,6 @@ function toDateTimeLocal(value: string | undefined): string {
   return normalized.length >= 16 ? normalized.slice(0, 16) : normalized
 }
 
-function makeAuditId(taskId: string): string {
-  auditSeq += 1
-  const cleanTaskId = taskId.replace(/[^A-Za-z0-9]/g, '')
-  return `AL-${cleanTaskId}-${Date.now()}-${auditSeq}`
-}
-
-function pushTaskAudit(task: ProcessTask, action: string, detail: string, by: string): void {
-  const audit: TaskAuditLog = {
-    id: makeAuditId(task.taskId),
-    action,
-    detail,
-    at: nowTimestamp(),
-    by,
-  }
-  task.auditLogs = [...task.auditLogs, audit]
-}
-
 function openAppRoute(pathname: string, key?: string, title?: string): void {
   if (key && title) {
     appStore.openTab({
@@ -433,17 +427,22 @@ function openAppRoute(pathname: string, key?: string, title?: string): void {
   appStore.navigate(pathname)
 }
 
-function getMockTender(task: ProcessTask): MockTender | undefined {
-  return mockTenders.find((item) => item.taskId === task.taskId || (task.tenderId ? item.tenderId === task.tenderId : false))
+function getMockTender(task: DispatchTask): MockTender | undefined {
+  return mockTenders.find(
+    (item) =>
+      item.taskId === task.taskId ||
+      item.taskId === task.baseTaskId ||
+      (task.tenderId ? item.tenderId === task.tenderId : false),
+  )
 }
 
-function getEffectiveTender(task: ProcessTask): MockTender | LocalTender | undefined {
+function getEffectiveTender(task: DispatchTask): MockTender | LocalTender | undefined {
   const local = state.tenderState[task.taskId]
   if (local) return local
   return getMockTender(task)
 }
 
-function hasTender(task: ProcessTask): boolean {
+function hasTender(task: DispatchTask): boolean {
   return Boolean(state.tenderState[task.taskId] || getMockTender(task))
 }
 
@@ -464,7 +463,7 @@ function calcRemaining(deadline: string): string {
   return `还剩 ${mins} 分钟`
 }
 
-function deriveAssignPath(task: ProcessTask): AssignPath {
+function deriveAssignPath(task: DispatchTask): AssignPath {
   if (task.assignmentMode === 'DIRECT') return 'DIRECT'
   if (task.assignmentMode === 'BIDDING') return 'BIDDING'
 
@@ -476,7 +475,7 @@ function deriveAssignPath(task: ProcessTask): AssignPath {
   return 'NONE'
 }
 
-function deriveAssignResult(task: ProcessTask, hasException: boolean): AssignResult {
+function deriveAssignResult(task: DispatchTask, hasException: boolean): AssignResult {
   if (hasException) return 'EXCEPTION'
 
   const lastLog = task.auditLogs[task.auditLogs.length - 1]
@@ -503,7 +502,7 @@ function deriveAssignResult(task: ProcessTask, hasException: boolean): AssignRes
   return 'UNASSIGNED'
 }
 
-function deriveKanbanCol(task: ProcessTask, hasException: boolean): KanbanCol {
+function deriveKanbanCol(task: DispatchTask, hasException: boolean): KanbanCol {
   const result = deriveAssignResult(task, hasException)
 
   const map: Record<AssignResult, KanbanCol> = {
@@ -519,7 +518,7 @@ function deriveKanbanCol(task: ProcessTask, hasException: boolean): KanbanCol {
   return map[result]
 }
 
-function getStandardPrice(task: ProcessTask): { price: number; currency: string; unit: string } {
+function getStandardPrice(task: DispatchTask): { price: number; currency: string; unit: string } {
   return {
     price: task.standardPrice ?? mockStandardPrices[task.processCode] ?? 10000,
     currency: task.standardPriceCurrency ?? 'IDR',
@@ -527,7 +526,7 @@ function getStandardPrice(task: ProcessTask): { price: number; currency: string;
   }
 }
 
-function getPriceStatus(task: ProcessTask): PriceStatus {
+function getPriceStatus(task: DispatchTask): PriceStatus {
   if (task.standardPrice == null || task.dispatchPrice == null) return 'NO_STANDARD'
 
   const diff = task.dispatchPrice - task.standardPrice
@@ -536,7 +535,7 @@ function getPriceStatus(task: ProcessTask): PriceStatus {
   return diff > 0 ? 'ABOVE_STANDARD' : 'BELOW_STANDARD'
 }
 
-function getDeadlineStatus(task: ProcessTask): DeadlineStatus {
+function getDeadlineStatus(task: DispatchTask): DeadlineStatus {
   if (task.assignmentMode !== 'DIRECT' || task.assignmentStatus !== 'ASSIGNED') return 'NONE'
   if (task.status === 'DONE' || task.status === 'CANCELLED') return 'NONE'
 
@@ -564,7 +563,7 @@ function getDeadlineStatus(task: ProcessTask): DeadlineStatus {
   return 'NORMAL'
 }
 
-function formatDeadlineBadge(status: DeadlineStatus, task: ProcessTask): { label: string; className: string } | null {
+function formatDeadlineBadge(status: DeadlineStatus, task: DispatchTask): { label: string; className: string } | null {
   if (status === 'NONE' || status === 'NORMAL') return null
 
   if (status === 'ACCEPT_OVERDUE') {
@@ -612,7 +611,7 @@ function formatRemainingTime(taskDeadline: string | undefined): string {
 }
 
 function currentCheckpoint(
-  task: ProcessTask,
+  task: DispatchTask,
   result: AssignResult,
   tender: MockTender | LocalTender | undefined,
   dyePendingIds: Set<string>,
@@ -679,7 +678,7 @@ function currentCheckpoint(
     return '任务正常推进中'
   }
 
-  if (dyePendingIds.has(task.taskId)) return '受染印回货影响，待确认'
+  if (isAffectedByTaskSet(task, dyePendingIds)) return '受染印回货影响，待确认'
   if (qcPendingOrderIds.has(task.productionOrderId)) return '存在待质检项，暂不可分配'
 
   const deps = task.dependsOnTaskIds ?? []
@@ -735,6 +734,18 @@ function getExceptionTaskIds(): Set<string> {
   return set
 }
 
+function isAffectedByTaskSet(task: DispatchTask, taskSet: Set<string>): boolean {
+  return taskSet.has(task.taskId) || taskSet.has(task.baseTaskId)
+}
+
+function formatScopeLabel(task: DispatchTask): string {
+  if (task.scopeType === 'SKU') {
+    const pieces = [task.skuCode, task.skuColor, task.skuSize].filter(Boolean)
+    return pieces.length > 0 ? pieces.join(' / ') : task.scopeLabel
+  }
+  return task.scopeLabel
+}
+
 function getFactoryOptions(): Array<{ id: string; name: string }> {
   const activeFactories = indonesiaFactories.filter((factory) => factory.status === 'ACTIVE')
 
@@ -754,104 +765,11 @@ function getFactoryOptions(): Array<{ id: string; name: string }> {
   ]
 }
 
-function createFallbackTasks(orderIds: string[]): ProcessTask[] {
-  const pairs = [
-    {
-      processCode: 'CUT',
-      processNameZh: '裁剪',
-      mode: 'DIRECT' as const,
-      status: 'NOT_STARTED' as const,
-      assignmentStatus: 'UNASSIGNED' as const,
-    },
-    {
-      processCode: 'SEW',
-      processNameZh: '车缝',
-      mode: 'BIDDING' as const,
-      status: 'NOT_STARTED' as const,
-      assignmentStatus: 'BIDDING' as const,
-    },
-    {
-      processCode: 'DYE',
-      processNameZh: '染印',
-      mode: 'BIDDING' as const,
-      status: 'NOT_STARTED' as const,
-      assignmentStatus: 'ASSIGNING' as const,
-    },
-    {
-      processCode: 'POST',
-      processNameZh: '后整',
-      mode: 'DIRECT' as const,
-      status: 'NOT_STARTED' as const,
-      assignmentStatus: 'UNASSIGNED' as const,
-    },
-    {
-      processCode: 'PACK',
-      processNameZh: '包装',
-      mode: 'DIRECT' as const,
-      status: 'IN_PROGRESS' as const,
-      assignmentStatus: 'ASSIGNED' as const,
-    },
-    {
-      processCode: 'QC',
-      processNameZh: '质检终检',
-      mode: 'DIRECT' as const,
-      status: 'NOT_STARTED' as const,
-      assignmentStatus: 'AWARDED' as const,
-    },
-  ]
-
-  const now = nowTimestamp()
-  const result: ProcessTask[] = []
-
-  orderIds
-    .slice(0, 2)
-    .forEach((orderId, orderIndex) => {
-      pairs.forEach((pair, pairIndex) => {
-        const taskId = `FB-${orderId}-${pair.processCode}`
-
-        result.push({
-          taskId,
-          productionOrderId: orderId,
-          seq: pairIndex + 1,
-          processCode: pair.processCode,
-          processNameZh: pair.processNameZh,
-          stage: 'SEWING',
-          status: pair.status,
-          assignmentMode: pair.mode,
-          assignmentStatus: pair.assignmentStatus,
-          dependsOnTaskIds: pairIndex === 0 ? [] : [`FB-${orderId}-${pairs[pairIndex - 1].processCode}`],
-          ownerSuggestion: { kind: 'MAIN_FACTORY' },
-          qty: 100 + orderIndex * 50,
-          qtyUnit: 'PIECE',
-          qcPoints: [],
-          attachments: [],
-          auditLogs:
-            pair.assignmentStatus === 'ASSIGNED'
-              ? [{ id: `AL-${taskId}-ASSIGN`, action: 'DISPATCH', detail: '派单至工厂', at: now, by: 'Admin' }]
-              : [],
-          assignedFactoryName: pair.assignmentStatus === 'ASSIGNED' ? '雅加达主工厂' : undefined,
-          assignedFactoryId: pair.assignmentStatus === 'ASSIGNED' ? 'ID-F001' : undefined,
-          dispatchPrice:
-            pair.assignmentStatus === 'ASSIGNED' ? mockStandardPrices[pair.processCode] ?? 10000 : undefined,
-          taskDeadline: pair.assignmentStatus === 'ASSIGNED' ? '2026-04-15 18:00:00' : undefined,
-          acceptDeadline: pair.assignmentStatus === 'ASSIGNED' ? '2026-03-25 18:00:00' : undefined,
-          createdAt: now,
-          updatedAt: now,
-        })
-      })
-    })
-
-  return result
+function getEffectiveTasks(): DispatchTask[] {
+  return listRuntimeProcessTasks()
 }
 
-function getEffectiveTasks(): ProcessTask[] {
-  if (processTasks.length >= 10) return processTasks
-
-  const orderIds = productionOrders.map((order) => order.productionOrderId)
-  return [...processTasks, ...createFallbackTasks(orderIds)]
-}
-
-function getFilteredRows(keyword: string): ProcessTask[] {
+function getFilteredRows(keyword: string): DispatchTask[] {
   const normalizedKeyword = keyword.trim().toLowerCase()
   const tasks = getEffectiveTasks()
 
@@ -859,45 +777,50 @@ function getFilteredRows(keyword: string): ProcessTask[] {
 
   return tasks.filter((task) => {
     const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+    const scopeLabel = formatScopeLabel(task)
 
     return (
       task.taskId.toLowerCase().includes(normalizedKeyword) ||
+      task.baseTaskId.toLowerCase().includes(normalizedKeyword) ||
       task.processNameZh.toLowerCase().includes(normalizedKeyword) ||
+      scopeLabel.toLowerCase().includes(normalizedKeyword) ||
+      (task.skuCode ?? '').toLowerCase().includes(normalizedKeyword) ||
+      (task.skuColor ?? '').toLowerCase().includes(normalizedKeyword) ||
       task.productionOrderId.toLowerCase().includes(normalizedKeyword) ||
       (order?.legacyOrderNo ?? '').toLowerCase().includes(normalizedKeyword)
     )
   })
 }
 
-function getVisibleRows(): ProcessTask[] {
+function getVisibleRows(): DispatchTask[] {
   return getFilteredRows(state.keyword)
 }
 
-function getTaskById(taskId: string | null): ProcessTask | null {
+function getTaskById(taskId: string | null): DispatchTask | null {
   if (!taskId) return null
-  return getEffectiveTasks().find((task) => task.taskId === taskId) ?? null
+  return getRuntimeTaskByIdFromStore(taskId)
 }
 
-function getDispatchDialogTasks(): ProcessTask[] {
+function getDispatchDialogTasks(): DispatchTask[] {
   if (!state.dispatchDialogTaskIds || state.dispatchDialogTaskIds.length === 0) return []
 
   const selected = new Set(state.dispatchDialogTaskIds)
   return getEffectiveTasks().filter((task) => selected.has(task.taskId))
 }
 
-function getCreateTenderTask(): ProcessTask | null {
+function getCreateTenderTask(): DispatchTask | null {
   return getTaskById(state.createTenderTaskId)
 }
 
-function getViewTenderTask(): ProcessTask | null {
+function getViewTenderTask(): DispatchTask | null {
   return getTaskById(state.viewTenderTaskId)
 }
 
-function getPriceSnapshotTask(): ProcessTask | null {
+function getPriceSnapshotTask(): DispatchTask | null {
   return getTaskById(state.priceSnapshotTaskId)
 }
 
-function getDispatchDialogValidation(tasks: ProcessTask[]): {
+function getDispatchDialogValidation(tasks: DispatchTask[]): {
   valid: boolean
   needDiffReason: boolean
   stdPrice: number
@@ -942,29 +865,11 @@ function getDispatchDialogValidation(tasks: ProcessTask[]): {
 }
 
 function setTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
-  const task = processTasks.find((item) => item.taskId === taskId)
-  if (!task) return
-
-  task.updatedAt = nowTimestamp()
-
-  if (mode === 'BIDDING') {
-    task.assignmentMode = 'BIDDING'
-    if (task.assignmentStatus === 'UNASSIGNED' || task.assignmentStatus === 'ASSIGNED') {
-      task.assignmentStatus = 'BIDDING'
-    }
-
-    pushTaskAudit(task, 'SET_ASSIGN_MODE', '设为竞价分配', by)
-    return
-  }
-
-  task.assignmentStatus = 'UNASSIGNED'
-  pushTaskAudit(task, 'SET_ASSIGN_MODE', '设为暂不分配', by)
+  setRuntimeTaskAssignMode(taskId, mode, by)
 }
 
 function batchSetTaskAssignMode(taskIds: string[], mode: 'BIDDING' | 'HOLD', by: string): void {
-  for (const taskId of taskIds) {
-    setTaskAssignMode(taskId, mode, by)
-  }
+  batchSetRuntimeTaskAssignMode(taskIds, mode, by)
 }
 
 function batchDispatch(
@@ -979,31 +884,20 @@ function batchDispatch(
   dispatchPriceCurrency: string,
   dispatchPriceUnit: string,
   priceDiffReason: string,
-): void {
-  const now = nowTimestamp()
-
-  for (const taskId of taskIds) {
-    const task = processTasks.find((item) => item.taskId === taskId)
-    if (!task) continue
-
-    task.assignmentMode = 'DIRECT'
-    task.assignmentStatus = 'ASSIGNED'
-    task.assignedFactoryId = factoryId
-    task.assignedFactoryName = factoryName
-    task.acceptDeadline = acceptDeadline
-    task.taskDeadline = taskDeadline
-    task.dispatchRemark = remark.trim() || undefined
-    task.dispatchedAt = now
-    task.dispatchedBy = by
-    task.dispatchPrice = dispatchPrice
-    task.dispatchPriceCurrency = dispatchPriceCurrency
-    task.dispatchPriceUnit = dispatchPriceUnit
-    task.priceDiffReason = priceDiffReason.trim() || undefined
-    task.acceptanceStatus = 'PENDING'
-    task.updatedAt = now
-
-    pushTaskAudit(task, 'DISPATCH', '已发起直接派单，待工厂确认', by)
-  }
+): { ok: boolean; message?: string } {
+  return batchDispatchRuntimeTasks({
+    taskIds,
+    factoryId,
+    factoryName,
+    acceptDeadline,
+    taskDeadline,
+    remark,
+    by,
+    dispatchPrice,
+    dispatchPriceCurrency,
+    dispatchPriceUnit,
+    priceDiffReason,
+  })
 }
 
 function openDispatchDialog(taskIds: string[]): void {
@@ -1011,12 +905,14 @@ function openDispatchDialog(taskIds: string[]): void {
   if (filtered.length === 0) return
 
   state.dispatchDialogTaskIds = filtered
+  state.dispatchDialogError = null
   state.dispatchForm = emptyDispatchForm()
   state.actionMenuTaskId = null
 }
 
 function closeDispatchDialog(): void {
   state.dispatchDialogTaskIds = null
+  state.dispatchDialogError = null
   state.dispatchForm = emptyDispatchForm()
 }
 
@@ -1069,13 +965,16 @@ function closeAllDialogs(): void {
   closePriceSnapshot()
 }
 
-function renderDirectDispatchDialog(tasks: ProcessTask[], factoryOptions: Array<{ id: string; name: string }>): string {
+function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array<{ id: string; name: string }>): string {
   if (!state.dispatchDialogTaskIds) return ''
   if (tasks.length === 0) return ''
 
   const isBatch = tasks.length > 1
+  const selectionValidation = validateRuntimeBatchDispatchSelection(tasks.map((task) => task.taskId))
   const validation = getDispatchDialogValidation(tasks)
   const refTask = tasks[0]
+  const canSubmit = selectionValidation.valid && validation.valid
+  const selectionError = state.dispatchDialogError ?? (!selectionValidation.valid ? selectionValidation.reason ?? '批量派单条件不满足' : '')
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -1095,8 +994,14 @@ function renderDirectDispatchDialog(tasks: ProcessTask[], factoryOptions: Array<
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">任务编号</span><span class="font-mono text-xs">${escapeHtml(refTask.taskId)}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">生产单号</span><span class="font-mono text-xs">${escapeHtml(refTask.productionOrderId)}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(refTask.processNameZh)}</span></div>
-                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${refTask.qty} 件</span></div>
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(refTask))}</span></div>
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${refTask.scopeQty} 件</span></div>
                 </div>`
+          }
+          ${
+            selectionError
+              ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">${escapeHtml(selectionError)}</div>`
+              : ''
           }
 
           <div class="space-y-1.5">
@@ -1178,7 +1083,7 @@ function renderDirectDispatchDialog(tasks: ProcessTask[], factoryOptions: Array<
         <div class="mt-6 flex justify-end gap-2">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-dispatch-action="close-direct-dispatch">取消</button>
           <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            validation.valid ? '' : 'pointer-events-none opacity-50'
+            canSubmit ? '' : 'pointer-events-none opacity-50'
           }" data-dispatch-action="confirm-direct-dispatch">确认派单</button>
         </div>
       </section>
@@ -1186,7 +1091,7 @@ function renderDirectDispatchDialog(tasks: ProcessTask[], factoryOptions: Array<
   `
 }
 
-function renderCreateTenderSheet(task: ProcessTask | null): string {
+function renderCreateTenderSheet(task: DispatchTask | null): string {
   if (!task || !state.createTenderTaskId) return ''
 
   const std = getStandardPrice(task)
@@ -1233,7 +1138,8 @@ function renderCreateTenderSheet(task: ProcessTask | null): string {
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">任务编号</span><span class="font-mono text-xs">${escapeHtml(task.taskId)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">生产单号</span><span class="font-mono text-xs">${escapeHtml(task.productionOrderId)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(task.processNameZh)}</span></div>
-            <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.qty} ${escapeHtml(task.qtyUnit === 'PIECE' ? '件' : task.qtyUnit)}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(task))}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.scopeQty} ${escapeHtml(task.qtyUnit === 'PIECE' ? '件' : task.qtyUnit)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序标准价</span><span class="font-mono text-xs">${std.price.toLocaleString()} ${escapeHtml(std.currency)}/${escapeHtml(std.unit)}</span></div>
           </div>
 
@@ -1369,7 +1275,7 @@ function renderCreateTenderSheet(task: ProcessTask | null): string {
   `
 }
 
-function renderViewTenderSheet(task: ProcessTask | null): string {
+function renderViewTenderSheet(task: DispatchTask | null): string {
   if (!task || !state.viewTenderTaskId) return ''
 
   const tender = getEffectiveTender(task)
@@ -1425,7 +1331,8 @@ function renderViewTenderSheet(task: ProcessTask | null): string {
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">任务编号</span><span class="font-mono text-xs">${escapeHtml(task.taskId)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">生产单号</span><span class="font-mono text-xs">${escapeHtml(task.productionOrderId)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(task.processNameZh)}</span></div>
-            <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.qty} 件</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(task))}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.scopeQty} 件</span></div>
           </div>
 
           <div class="space-y-1.5">
@@ -1474,7 +1381,7 @@ function renderViewTenderSheet(task: ProcessTask | null): string {
   `
 }
 
-function renderPriceSnapshotSheet(task: ProcessTask | null): string {
+function renderPriceSnapshotSheet(task: DispatchTask | null): string {
   if (!task || !state.priceSnapshotTaskId) return ''
 
   const std = getStandardPrice(task)
@@ -1561,12 +1468,12 @@ function renderPriceSnapshotSheet(task: ProcessTask | null): string {
 }
 
 function renderKanbanCard(
-  task: ProcessTask,
+  task: DispatchTask,
   dyePendingTaskIds: Set<string>,
   qcPendingOrderIds: Set<string>,
   exceptionTaskIds: Set<string>,
 ): string {
-  const hasException = exceptionTaskIds.has(task.taskId)
+  const hasException = isAffectedByTaskSet(task, exceptionTaskIds)
   const assignPath = deriveAssignPath(task)
   const assignResult = deriveAssignResult(task, hasException)
   const tender = getEffectiveTender(task)
@@ -1666,7 +1573,8 @@ function renderKanbanCard(
         </div>
 
         <p class="font-medium leading-tight">${escapeHtml(task.processNameZh)}</p>
-        <p class="text-xs text-muted-foreground">${escapeHtml(task.productionOrderId)} · ${task.qty} 件</p>
+        <p class="text-xs text-muted-foreground">${escapeHtml(task.productionOrderId)} · ${task.scopeQty} 件</p>
+        <p class="text-xs text-muted-foreground">执行范围：${escapeHtml(formatScopeLabel(task))}</p>
 
         <div class="flex flex-wrap items-center gap-1.5">
           ${
@@ -1727,12 +1635,12 @@ function renderKanbanCard(
 }
 
 function renderKanbanView(
-  rows: ProcessTask[],
+  rows: DispatchTask[],
   dyePendingTaskIds: Set<string>,
   qcPendingOrderIds: Set<string>,
   exceptionTaskIds: Set<string>,
 ): string {
-  const cols: Record<KanbanCol, ProcessTask[]> = {
+  const cols: Record<KanbanCol, DispatchTask[]> = {
     UNASSIGNED: [],
     BIDDING: [],
     AWAIT_AWARD: [],
@@ -1743,7 +1651,7 @@ function renderKanbanView(
   }
 
   for (const task of rows) {
-    const col = deriveKanbanCol(task, exceptionTaskIds.has(task.taskId))
+    const col = deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds))
     cols[col].push(task)
   }
 
@@ -1790,7 +1698,7 @@ function renderKanbanView(
 }
 
 function renderListView(
-  rows: ProcessTask[],
+  rows: DispatchTask[],
   dyePendingTaskIds: Set<string>,
   qcPendingOrderIds: Set<string>,
   exceptionTaskIds: Set<string>,
@@ -1811,6 +1719,7 @@ function renderListView(
               <th class="w-10 px-3 py-2 text-left"><input type="checkbox" data-dispatch-field="list.selectAll" ${rows.length > 0 && state.selectedIds.size === rows.length ? 'checked' : ''} /></th>
               <th class="px-3 py-2 text-left font-medium">任务ID</th>
               <th class="px-3 py-2 text-left font-medium">任务名称</th>
+              <th class="px-3 py-2 text-left font-medium">执行范围</th>
               <th class="px-3 py-2 text-left font-medium">生产单号</th>
               <th class="px-3 py-2 text-left font-medium">分配路径</th>
               <th class="px-3 py-2 text-left font-medium">分配结果</th>
@@ -1837,10 +1746,10 @@ function renderListView(
           <tbody>
             ${
               rows.length === 0
-                ? '<tr><td colspan="23" class="py-8 text-center text-sm text-muted-foreground">暂无任务数据</td></tr>'
+                ? '<tr><td colspan="24" class="py-8 text-center text-sm text-muted-foreground">暂无任务数据</td></tr>'
                 : rows
                     .map((task) => {
-                      const hasException = exceptionTaskIds.has(task.taskId)
+                      const hasException = isAffectedByTaskSet(task, exceptionTaskIds)
                       const assignPath = deriveAssignPath(task)
                       const assignResult = deriveAssignResult(task, hasException)
                       const tender = getEffectiveTender(task)
@@ -1875,6 +1784,7 @@ function renderListView(
                           <td class="px-3 py-3"><input type="checkbox" data-dispatch-field="list.selectTask" data-task-id="${escapeHtml(task.taskId)}" ${state.selectedIds.has(task.taskId) ? 'checked' : ''} /></td>
                           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(task.taskId)}</td>
                           <td class="px-3 py-3 text-sm font-medium">${escapeHtml(task.processNameZh)}</td>
+                          <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(formatScopeLabel(task))}</td>
                           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(task.productionOrderId)}</td>
 
                           <td class="px-3 py-3">
@@ -2004,13 +1914,13 @@ function renderDispatchBoardInner(): string {
   const exceptionTaskIds = getExceptionTaskIds()
 
   const stats = {
-    unassigned: allRows.filter((task) => deriveKanbanCol(task, exceptionTaskIds.has(task.taskId)) === 'UNASSIGNED').length,
-    directAssigned: allRows.filter((task) => deriveKanbanCol(task, exceptionTaskIds.has(task.taskId)) === 'DIRECT_ASSIGNED').length,
-    bidding: allRows.filter((task) => deriveKanbanCol(task, exceptionTaskIds.has(task.taskId)) === 'BIDDING').length,
-    awaitAward: allRows.filter((task) => deriveKanbanCol(task, exceptionTaskIds.has(task.taskId)) === 'AWAIT_AWARD').length,
-    awarded: allRows.filter((task) => deriveKanbanCol(task, exceptionTaskIds.has(task.taskId)) === 'AWARDED').length,
-    hold: allRows.filter((task) => deriveKanbanCol(task, exceptionTaskIds.has(task.taskId)) === 'HOLD').length,
-    exception: allRows.filter((task) => deriveKanbanCol(task, exceptionTaskIds.has(task.taskId)) === 'EXCEPTION').length,
+    unassigned: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'UNASSIGNED').length,
+    directAssigned: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'DIRECT_ASSIGNED').length,
+    bidding: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'BIDDING').length,
+    awaitAward: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'AWAIT_AWARD').length,
+    awarded: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'AWARDED').length,
+    hold: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'HOLD').length,
+    exception: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'EXCEPTION').length,
   }
 
   const createTenderTask = getCreateTenderTask()
@@ -2052,7 +1962,7 @@ function renderDispatchBoardInner(): string {
       <section class="flex items-center gap-3">
         <div class="relative w-full max-w-xs">
           <i data-lucide="search" class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"></i>
-          <input class="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm" data-dispatch-field="filter.keyword" placeholder="关键词（任务ID / 任务名 / 生产单号）" value="${escapeHtml(state.keyword)}" />
+          <input class="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm" data-dispatch-field="filter.keyword" placeholder="关键词（任务ID / 执行范围 / 生产单号）" value="${escapeHtml(state.keyword)}" />
         </div>
         <button class="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted" data-dispatch-action="clear-keyword"><i data-lucide="refresh-cw" class="h-4 w-4"></i></button>
         <p class="ml-auto text-sm text-muted-foreground">共 ${allRows.length} 条任务</p>
@@ -2128,9 +2038,9 @@ function applyAutoAssign(): void {
 
   const bidTaskIds = unsetRows
     .filter((task) => {
-      const alloc = initialAllocationByTaskId[task.taskId]
+      const alloc = initialAllocationByTaskId[task.taskId] ?? initialAllocationByTaskId[task.baseTaskId]
       return (
-        dyePendingTaskIds.has(task.taskId) ||
+        isAffectedByTaskSet(task, dyePendingTaskIds) ||
         qcPendingOrderIds.has(task.productionOrderId) ||
         Boolean(alloc && (alloc.availableQty ?? 1) <= 0)
       )
@@ -2138,7 +2048,7 @@ function applyAutoAssign(): void {
     .map((task) => task.taskId)
 
   const holdTaskIds = unsetRows
-    .filter((task) => task.status === 'BLOCKED' || exceptionTaskIds.has(task.taskId))
+    .filter((task) => task.status === 'BLOCKED' || isAffectedByTaskSet(task, exceptionTaskIds))
     .map((task) => task.taskId)
 
   if (bidTaskIds.length > 0) {
@@ -2156,13 +2066,19 @@ function confirmDirectDispatch(): void {
   const tasks = getDispatchDialogTasks()
   if (tasks.length === 0) return
 
+  const selectionValidation = validateRuntimeBatchDispatchSelection(tasks.map((task) => task.taskId))
+  if (!selectionValidation.valid) {
+    state.dispatchDialogError = selectionValidation.reason ?? '批量派单条件不满足'
+    return
+  }
+
   const validation = getDispatchDialogValidation(tasks)
   if (!validation.valid || validation.dispatchPrice == null) return
 
   const acceptDeadline = fromDateTimeLocal(state.dispatchForm.acceptDeadline)
   const taskDeadline = fromDateTimeLocal(state.dispatchForm.taskDeadline)
 
-  batchDispatch(
+  const result = batchDispatch(
     tasks.map((task) => task.taskId),
     state.dispatchForm.factoryId,
     state.dispatchForm.factoryName,
@@ -2175,6 +2091,11 @@ function confirmDirectDispatch(): void {
     validation.stdUnit,
     state.dispatchForm.priceDiffReason,
   )
+
+  if (!result.ok) {
+    state.dispatchDialogError = result.message ?? '派单失败，请调整后重试'
+    return
+  }
 
   closeDispatchDialog()
   state.selectedIds = new Set<string>()
@@ -2224,7 +2145,15 @@ function confirmCreateTender(): void {
     quotedCount: 0,
   }
 
-  setTaskAssignMode(task.taskId, 'BIDDING', '跟单A')
+  upsertRuntimeTaskTender(
+    task.taskId,
+    {
+      tenderId: state.createTenderForm.tenderId,
+      biddingDeadline: fromDateTimeLocal(state.createTenderForm.biddingDeadline),
+      taskDeadline: fromDateTimeLocal(state.createTenderForm.taskDeadline),
+    },
+    '跟单A',
+  )
   closeCreateTender()
 }
 

@@ -133,7 +133,8 @@ export interface ProcessTask {
   auditLogs: TaskAuditLog[]
 }
 
-// 预置工序任务（为6张生产单预生成）
+// 预置工序任务（base task seeds）
+// 说明：这里仍然保持“整单工序任务”语义，运行时按 SKU/COLOR/ORDER 展开由 runtime-process-tasks.ts 负责。
 export const processTasks: ProcessTask[] = [
   // PO-2024-0001：已拆解，全部DIRECT
   {

@@ -26,6 +26,11 @@ import { getTechPackBySpuCode } from '../../data/fcs/tech-packs'
 import { legalEntities } from '../../data/fcs/legal-entities'
 import { processTasks, type ProcessTask } from '../../data/fcs/process-tasks'
 import {
+  getRuntimeAssignmentSummaryByOrder,
+  getRuntimeBiddingSummaryByOrder,
+  getRuntimeTaskCountByOrder,
+} from '../../data/fcs/runtime-process-tasks'
+import {
   applyQualitySeedBootstrap,
 } from '../../data/fcs/store-domain-quality-bootstrap'
 import {
@@ -447,6 +452,76 @@ function renderBadge(text: string, className: string): string {
   return `<span class="inline-flex rounded border px-2 py-0.5 text-xs ${className}">${escapeHtml(text)}</span>`
 }
 
+function deriveRuntimeAssignmentProgressStatus(input: {
+  totalTasks: number
+  unassignedCount: number
+  directAssignedCount: number
+  biddingLaunchedCount: number
+  biddingAwardedCount: number
+}): AssignmentProgressStatus {
+  if (input.totalTasks === 0) return 'NOT_READY'
+
+  const handledCount =
+    input.directAssignedCount + input.biddingLaunchedCount + input.biddingAwardedCount
+  if (handledCount === 0) return 'PENDING'
+
+  if (input.unassignedCount === 0 && input.directAssignedCount + input.biddingAwardedCount >= input.totalTasks) {
+    return 'DONE'
+  }
+
+  return 'IN_PROGRESS'
+}
+
+function getOrderRuntimeAssignmentSnapshot(order: ProductionOrder): {
+  assignmentSummary: ProductionOrder['assignmentSummary']
+  assignmentProgress: ProductionOrder['assignmentProgress']
+  biddingSummary: ProductionOrder['biddingSummary']
+  directDispatchSummary: ProductionOrder['directDispatchSummary']
+} {
+  const runtimeTaskCount = getRuntimeTaskCountByOrder(order.productionOrderId)
+  if (runtimeTaskCount === 0) {
+    return {
+      assignmentSummary: order.assignmentSummary,
+      assignmentProgress: order.assignmentProgress,
+      biddingSummary: order.biddingSummary,
+      directDispatchSummary: order.directDispatchSummary,
+    }
+  }
+
+  const assignmentSummary = getRuntimeAssignmentSummaryByOrder(order.productionOrderId)
+  const biddingSummary = getRuntimeBiddingSummaryByOrder(order.productionOrderId)
+  const assignmentProgress = {
+    directAssignedCount: assignmentSummary.directAssignedCount,
+    biddingLaunchedCount: assignmentSummary.biddingLaunchedCount,
+    biddingAwardedCount: assignmentSummary.biddingAwardedCount,
+    status: deriveRuntimeAssignmentProgressStatus({
+      totalTasks: assignmentSummary.totalTasks,
+      unassignedCount: assignmentSummary.unassignedCount,
+      directAssignedCount: assignmentSummary.directAssignedCount,
+      biddingLaunchedCount: assignmentSummary.biddingLaunchedCount,
+      biddingAwardedCount: assignmentSummary.biddingAwardedCount,
+    }),
+  }
+
+  const directDispatchSummary = {
+    assignedFactoryCount: assignmentSummary.assignedFactoryCount,
+    rejectedCount: assignmentSummary.rejectedCount,
+    overdueAckCount: assignmentSummary.overdueAckCount,
+  }
+
+  return {
+    assignmentSummary: {
+      directCount: assignmentSummary.directCount,
+      biddingCount: assignmentSummary.biddingCount,
+      totalTasks: assignmentSummary.totalTasks,
+      unassignedCount: assignmentSummary.unassignedCount,
+    },
+    assignmentProgress,
+    biddingSummary,
+    directDispatchSummary,
+  }
+}
+
 function renderStatCard(label: string, value: string | number, valueClass = ''): string {
   return `
     <article class="rounded-lg border bg-card">
@@ -708,14 +783,17 @@ function getFilteredOrders(): ProductionOrder[] {
 
   if (state.ordersAssignmentProgressFilter !== 'ALL') {
     result = result.filter(
-      (order) => order.assignmentProgress.status === state.ordersAssignmentProgressFilter,
+      (order) =>
+        getOrderRuntimeAssignmentSnapshot(order).assignmentProgress.status ===
+        state.ordersAssignmentProgressFilter,
     )
   }
 
   if (state.ordersAssignmentModeFilter !== 'ALL') {
     result = result.filter((order) => {
-      const direct = order.assignmentSummary.directCount
-      const bidding = order.assignmentSummary.biddingCount
+      const runtime = getOrderRuntimeAssignmentSnapshot(order)
+      const direct = runtime.assignmentSummary.directCount
+      const bidding = runtime.assignmentSummary.biddingCount
 
       if (state.ordersAssignmentModeFilter === 'DIRECT_ONLY') return direct > 0 && bidding === 0
       if (state.ordersAssignmentModeFilter === 'BIDDING_ONLY') return bidding > 0 && direct === 0
@@ -726,16 +804,17 @@ function getFilteredOrders(): ProductionOrder[] {
 
   if (state.ordersBiddingRiskFilter !== 'ALL') {
     result = result.filter((order) => {
+      const runtime = getOrderRuntimeAssignmentSnapshot(order)
       if (state.ordersBiddingRiskFilter === 'OVERDUE') {
-        return order.biddingSummary.overdueTenderCount > 0
+        return runtime.biddingSummary.overdueTenderCount > 0
       }
       if (state.ordersBiddingRiskFilter === 'NEAR_DEADLINE') {
         return order.riskFlags.includes('TENDER_NEAR_DEADLINE')
       }
       if (state.ordersBiddingRiskFilter === 'NONE') {
         return (
-          order.biddingSummary.activeTenderCount === 0 &&
-          order.biddingSummary.overdueTenderCount === 0
+          runtime.biddingSummary.activeTenderCount === 0 &&
+          runtime.biddingSummary.overdueTenderCount === 0
         )
       }
       return true
@@ -1557,13 +1636,14 @@ function renderOrderRiskFlags(flags: RiskFlag[]): string {
 }
 
 function renderOrderAssignmentOverview(order: ProductionOrder): string {
-  const total = order.assignmentSummary.totalTasks
+  const runtime = getOrderRuntimeAssignmentSnapshot(order)
+  const total = runtime.assignmentSummary.totalTasks
   if (total === 0) return '<span class="text-muted-foreground">-</span>'
 
   return `
     <div class="space-y-0.5 text-xs">
-      <p class="flex items-center gap-1"><i data-lucide="send" class="h-3 w-3 text-blue-500"></i>派单: ${order.assignmentSummary.directCount}</p>
-      <p class="flex items-center gap-1"><i data-lucide="gavel" class="h-3 w-3 text-purple-500"></i>竞价: ${order.assignmentSummary.biddingCount}</p>
+      <p class="flex items-center gap-1"><i data-lucide="send" class="h-3 w-3 text-blue-500"></i>派单: ${runtime.assignmentSummary.directCount}</p>
+      <p class="flex items-center gap-1"><i data-lucide="gavel" class="h-3 w-3 text-purple-500"></i>竞价: ${runtime.assignmentSummary.biddingCount}</p>
       <p class="text-muted-foreground">总计: ${total}</p>
     </div>
   `
@@ -2024,6 +2104,7 @@ function renderMaterialDraftDrawer(): string {
   const drafts = listMaterialRequestDraftsByOrder(order.productionOrderId)
   const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
   const techPack = getOrderTechPackInfo(order)
+  const runtime = getOrderRuntimeAssignmentSnapshot(order)
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -2344,7 +2425,8 @@ export function renderProductionOrdersPage(): string {
                 pagedOrders.length === 0
                   ? renderEmptyRow(16, '暂无数据')
                   : pagedOrders
-                      .map((order) => {
+                    .map((order) => {
+                        const runtime = getOrderRuntimeAssignmentSnapshot(order)
                         const techPack = getOrderTechPackInfo(order)
                         const mergedLogs = getOrderMergedAuditLogs(order)
                         const lastLog = mergedLogs[mergedLogs.length - 1]
@@ -2402,29 +2484,29 @@ export function renderProductionOrdersPage(): string {
                             <td class="px-3 py-3">${renderOrderAssignmentOverview(order)}</td>
                             <td class="px-3 py-3">
                               ${renderBadge(
-                                assignmentProgressStatusConfig[order.assignmentProgress.status]?.label ?? order.assignmentProgress.status,
-                                assignmentProgressStatusConfig[order.assignmentProgress.status]?.color ?? 'bg-slate-100 text-slate-700',
+                                assignmentProgressStatusConfig[runtime.assignmentProgress.status]?.label ?? runtime.assignmentProgress.status,
+                                assignmentProgressStatusConfig[runtime.assignmentProgress.status]?.color ?? 'bg-slate-100 text-slate-700',
                               )}
                             </td>
                             <td class="px-3 py-3">
                               ${
-                                order.biddingSummary.activeTenderCount > 0 || order.biddingSummary.overdueTenderCount > 0
+                                runtime.biddingSummary.activeTenderCount > 0 || runtime.biddingSummary.overdueTenderCount > 0
                                   ? `
                                     <div class="space-y-0.5 text-xs">
-                                      <div>活跃: ${order.biddingSummary.activeTenderCount}</div>
+                                      <div>活跃: ${runtime.biddingSummary.activeTenderCount}</div>
                                       ${
-                                        order.biddingSummary.nearestDeadline
+                                        runtime.biddingSummary.nearestDeadline
                                           ? `
                                             <div class="flex items-center gap-1 text-yellow-600">
                                               <i data-lucide="clock" class="h-3 w-3"></i>
-                                              ${escapeHtml(order.biddingSummary.nearestDeadline.split(' ')[0])}
+                                              ${escapeHtml(runtime.biddingSummary.nearestDeadline.split(' ')[0])}
                                             </div>
                                           `
                                           : ''
                                       }
                                       ${
-                                        order.biddingSummary.overdueTenderCount > 0
-                                          ? `<div class="text-red-600">过期: ${order.biddingSummary.overdueTenderCount}</div>`
+                                        runtime.biddingSummary.overdueTenderCount > 0
+                                          ? `<div class="text-red-600">过期: ${runtime.biddingSummary.overdueTenderCount}</div>`
                                           : ''
                                       }
                                     </div>
@@ -2434,20 +2516,20 @@ export function renderProductionOrdersPage(): string {
                             </td>
                             <td class="px-3 py-3">
                               ${
-                                order.directDispatchSummary.assignedFactoryCount > 0 ||
-                                order.directDispatchSummary.rejectedCount > 0 ||
-                                order.directDispatchSummary.overdueAckCount > 0
+                                runtime.directDispatchSummary.assignedFactoryCount > 0 ||
+                                runtime.directDispatchSummary.rejectedCount > 0 ||
+                                runtime.directDispatchSummary.overdueAckCount > 0
                                   ? `
                                     <div class="space-y-0.5 text-xs">
-                                      <div>已分配: ${order.directDispatchSummary.assignedFactoryCount}</div>
+                                      <div>已分配: ${runtime.directDispatchSummary.assignedFactoryCount}</div>
                                       ${
-                                        order.directDispatchSummary.rejectedCount > 0
-                                          ? `<div class="text-orange-600">拒单: ${order.directDispatchSummary.rejectedCount}</div>`
+                                        runtime.directDispatchSummary.rejectedCount > 0
+                                          ? `<div class="text-orange-600">拒单: ${runtime.directDispatchSummary.rejectedCount}</div>`
                                           : ''
                                       }
                                       ${
-                                        order.directDispatchSummary.overdueAckCount > 0
-                                          ? `<div class="text-red-600">超时: ${order.directDispatchSummary.overdueAckCount}</div>`
+                                        runtime.directDispatchSummary.overdueAckCount > 0
+                                          ? `<div class="text-red-600">超时: ${runtime.directDispatchSummary.overdueAckCount}</div>`
                                           : ''
                                       }
                                     </div>
@@ -4536,28 +4618,29 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
   }
 
   if (state.detailTab === 'assignment') {
+    const runtime = getOrderRuntimeAssignmentSnapshot(order)
     return `
       <div class="grid gap-4 md:grid-cols-3">
         <section class="rounded-lg border bg-card p-4 space-y-2">
           <h3 class="text-base font-semibold">分配摘要</h3>
-          <p class="text-sm">派单任务: ${order.assignmentSummary.directCount}</p>
-          <p class="text-sm">竞价任务: ${order.assignmentSummary.biddingCount}</p>
-          <p class="text-sm">总任务数: ${order.assignmentSummary.totalTasks}</p>
-          <p class="text-sm text-orange-700">未分配: ${order.assignmentSummary.unassignedCount}</p>
+          <p class="text-sm">派单任务: ${runtime.assignmentSummary.directCount}</p>
+          <p class="text-sm">竞价任务: ${runtime.assignmentSummary.biddingCount}</p>
+          <p class="text-sm">总任务数: ${runtime.assignmentSummary.totalTasks}</p>
+          <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
         </section>
 
         <section class="rounded-lg border bg-card p-4 space-y-2">
           <h3 class="text-base font-semibold">竞价摘要</h3>
-          <p class="text-sm">活跃竞价: ${order.biddingSummary.activeTenderCount}</p>
-          <p class="text-sm">最近截止: ${escapeHtml(safeText(order.biddingSummary.nearestDeadline?.slice(0, 10)))}</p>
-          <p class="text-sm text-red-700">已过期: ${order.biddingSummary.overdueTenderCount}</p>
+          <p class="text-sm">活跃竞价: ${runtime.biddingSummary.activeTenderCount}</p>
+          <p class="text-sm">最近截止: ${escapeHtml(safeText(runtime.biddingSummary.nearestDeadline?.slice(0, 10)))}</p>
+          <p class="text-sm text-red-700">已过期: ${runtime.biddingSummary.overdueTenderCount}</p>
         </section>
 
         <section class="rounded-lg border bg-card p-4 space-y-2">
           <h3 class="text-base font-semibold">派单摘要</h3>
-          <p class="text-sm">已分配工厂: ${order.directDispatchSummary.assignedFactoryCount}</p>
-          <p class="text-sm text-orange-700">拒单数: ${order.directDispatchSummary.rejectedCount}</p>
-          <p class="text-sm text-red-700">确认超时: ${order.directDispatchSummary.overdueAckCount}</p>
+          <p class="text-sm">已分配工厂: ${runtime.directDispatchSummary.assignedFactoryCount}</p>
+          <p class="text-sm text-orange-700">拒单数: ${runtime.directDispatchSummary.rejectedCount}</p>
+          <p class="text-sm text-red-700">确认超时: ${runtime.directDispatchSummary.overdueAckCount}</p>
         </section>
       </div>
     `
@@ -4790,21 +4873,21 @@ export function renderProductionOrderDetailPage(orderId: string): string {
 
         <article class="rounded-lg border bg-card p-4">
           <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配摘要</h3>
-          <p class="text-sm">派单: ${order.assignmentSummary.directCount}</p>
-          <p class="text-sm">竞价: ${order.assignmentSummary.biddingCount}</p>
-          <p class="text-sm">总任务: ${order.assignmentSummary.totalTasks}</p>
-          <p class="text-sm text-orange-700">未分配: ${order.assignmentSummary.unassignedCount}</p>
+          <p class="text-sm">派单: ${runtime.assignmentSummary.directCount}</p>
+          <p class="text-sm">竞价: ${runtime.assignmentSummary.biddingCount}</p>
+          <p class="text-sm">总任务: ${runtime.assignmentSummary.totalTasks}</p>
+          <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
         </article>
 
         <article class="rounded-lg border bg-card p-4">
           <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配进度</h3>
           ${renderBadge(
-            assignmentProgressStatusConfig[order.assignmentProgress.status].label,
-            assignmentProgressStatusConfig[order.assignmentProgress.status].color,
+            assignmentProgressStatusConfig[runtime.assignmentProgress.status].label,
+            assignmentProgressStatusConfig[runtime.assignmentProgress.status].color,
           )}
-          <p class="mt-2 text-xs text-muted-foreground">已派单: ${order.assignmentProgress.directAssignedCount}</p>
-          <p class="text-xs text-muted-foreground">已发起竞价: ${order.assignmentProgress.biddingLaunchedCount}</p>
-          <p class="text-xs text-muted-foreground">已中标: ${order.assignmentProgress.biddingAwardedCount}</p>
+          <p class="mt-2 text-xs text-muted-foreground">已派单: ${runtime.assignmentProgress.directAssignedCount}</p>
+          <p class="text-xs text-muted-foreground">已发起竞价: ${runtime.assignmentProgress.biddingLaunchedCount}</p>
+          <p class="text-xs text-muted-foreground">已中标: ${runtime.assignmentProgress.biddingAwardedCount}</p>
         </article>
 
         <article class="rounded-lg border bg-card p-4">

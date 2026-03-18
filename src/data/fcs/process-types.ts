@@ -4,11 +4,13 @@
 export type ProcessStage = 'PREP' | 'CUTTING' | 'SEWING' | 'POST' | 'SPECIAL' | 'MATERIAL' | 'WAREHOUSE'
 export type AssignmentMode = 'DIRECT' | 'BIDDING'
 export type OwnerTier = 'ANY' | 'CENTRAL' | 'SATELLITE' | 'THIRD_PARTY'
+export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU'
 
 export interface ProcessType {
   code: string
   nameZh: string
   stage: ProcessStage
+  assignmentGranularity: ProcessAssignmentGranularity
   canOutsource: boolean
   isExternalConstraint: boolean
   recommendedAssignmentMode: AssignmentMode
@@ -28,8 +30,18 @@ export const stageLabels: Record<ProcessStage, string> = {
   WAREHOUSE: '仓储',
 }
 
+const processAssignmentGranularityOverrides: Partial<Record<string, ProcessAssignmentGranularity>> = {
+  PROC_PRINT: 'COLOR',
+  PROC_DYE: 'COLOR',
+  PROC_SEW: 'SKU',
+  PROC_IRON: 'SKU',
+  PROC_PACK: 'SKU',
+  PROC_QC: 'SKU',
+  PROC_FINISHING: 'SKU',
+}
+
 // 预置工艺字典（30+）
-export const processTypes: ProcessType[] = [
+const processTypeSeeds: Omit<ProcessType, 'assignmentGranularity'>[] = [
   // 裁剪类
   {
     code: 'PROC_CUT',
@@ -429,6 +441,12 @@ export const processTypes: ProcessType[] = [
   },
 ]
 
+export const processTypes: ProcessType[] = processTypeSeeds.map((item) => ({
+  ...item,
+  // 仅对明确冻结的工序覆盖为 SKU/COLOR，其余默认整单。
+  assignmentGranularity: processAssignmentGranularityOverrides[item.code] ?? 'ORDER',
+}))
+
 // 根据code获取工艺
 export function getProcessTypeByCode(code: string): ProcessType | undefined {
   return processTypes.find(p => p.code === code)
@@ -442,4 +460,18 @@ export function getProcessTypesByStage(stage: ProcessStage): ProcessType[] {
 // 获取所有工艺code列表
 export function getAllProcessCodes(): string[] {
   return processTypes.map(p => p.code)
+}
+
+export function getProcessAssignmentGranularity(code: string): ProcessAssignmentGranularity {
+  const process = getProcessTypeByCode(code)
+  if (!process) return processAssignmentGranularityOverrides[code] ?? 'ORDER'
+  return process.assignmentGranularity
+}
+
+export function isSkuGranularityProcess(code: string): boolean {
+  return getProcessAssignmentGranularity(code) === 'SKU'
+}
+
+export function isColorGranularityProcess(code: string): boolean {
+  return getProcessAssignmentGranularity(code) === 'COLOR'
 }
