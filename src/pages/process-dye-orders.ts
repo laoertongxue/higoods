@@ -88,6 +88,7 @@ interface DemandOption {
 interface CreateForm {
   createMode: CreateModeZh
   factoryName: string
+  materialKeyword: string
   plannedFeedQty: string
   plannedFinishAt: string
   sourceSummary: string
@@ -113,6 +114,7 @@ interface DyeOrdersState {
   page: number
   pageSize: PageSize
   createDrawerOpen: boolean
+  materialPickerOpen: boolean
   createForm: CreateForm
   dynamicDemandOptions: DemandOption[]
 }
@@ -386,6 +388,7 @@ function createDefaultForm(): CreateForm {
   return {
     createMode: '按需求创建',
     factoryName: '',
+    materialKeyword: '',
     plannedFeedQty: '',
     plannedFinishAt: '',
     sourceSummary: '',
@@ -408,6 +411,7 @@ const state: DyeOrdersState = {
   page: 1,
   pageSize: 10,
   createDrawerOpen: false,
+  materialPickerOpen: false,
   createForm: createDefaultForm(),
   dynamicDemandOptions: [],
 }
@@ -565,6 +569,7 @@ function upsertDynamicDemandOption(option: DemandOption): void {
 
 function openCreateDrawer(prefill?: Partial<CreateForm>): void {
   state.createDrawerOpen = true
+  state.materialPickerOpen = false
   state.createForm = {
     ...createDefaultForm(),
     ...prefill,
@@ -573,6 +578,7 @@ function openCreateDrawer(prefill?: Partial<CreateForm>): void {
     selectedMaterialCode: prefill?.selectedMaterialCode ?? '',
     selectedMaterialName: prefill?.selectedMaterialName ?? '',
     selectedMaterialUnit: prefill?.selectedMaterialUnit ?? '',
+    materialKeyword: prefill?.materialKeyword ?? '',
   }
   closeDetail()
 }
@@ -875,34 +881,36 @@ function renderCreateDemandPick(): string {
   `
 }
 
-function renderCreateMaterialPick(): string {
+function getStockMaterialDisplay(item: StockMaterialOption): string {
+  return `${item.materialCode}｜${item.materialName}｜${formatQty(item.totalRequiredQty, item.unit)}｜${item.demandCount}张需求单`
+}
+
+function getStockMaterialSelectedSummary(item: StockMaterialOption): string {
+  return `${item.materialCode}｜${item.materialName}｜${formatQty(item.totalRequiredQty, item.unit)}`
+}
+
+function getFilteredStockMaterialOptions(keyword: string): StockMaterialOption[] {
+  const normalized = keyword.trim().toLowerCase()
   const options = getStockMaterialOptions()
-  if (options.length === 0) {
-    return '<p class="rounded-md border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">暂无可选备货物料，请先完善需求物料池。</p>'
-  }
-  return `
-    <div class="space-y-2">
-      ${options
-        .map((item) => {
-          const selected = state.createForm.selectedMaterialKey === item.materialKey
-          return `
-            <button class="flex w-full items-start justify-between rounded-md border px-3 py-2 text-left text-xs ${selected ? 'border-blue-300 bg-blue-50' : 'hover:bg-muted'}" data-dye-order-action="select-create-material" data-material-key="${escapeHtml(item.materialKey)}">
-              <span>
-                <span class="font-mono">${escapeHtml(item.materialCode)}</span>
-                <span class="ml-2 text-muted-foreground">${escapeHtml(item.materialName)}</span>
-                <span class="mt-1 block text-muted-foreground">${escapeHtml(formatQty(item.totalRequiredQty, item.unit))} · ${item.demandCount}张需求单</span>
-              </span>
-              <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-1 ${selected ? 'border-blue-500 text-blue-600' : 'border-slate-300 text-slate-500'}">${selected ? '✓' : ''}</span>
-            </button>
-          `
-        })
-        .join('')}
-    </div>
-  `
+  if (!normalized) return options
+  return options.filter((item) => {
+    const haystack = `${item.materialCode} ${item.materialName}`.toLowerCase()
+    return haystack.includes(normalized)
+  })
+}
+
+function getSelectedCreateMaterial(): StockMaterialOption | null {
+  if (!state.createForm.selectedMaterialKey) return null
+  return getStockMaterialOptions().find((item) => item.materialKey === state.createForm.selectedMaterialKey) ?? null
 }
 
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
+  const filteredMaterialOptions = getFilteredStockMaterialOptions(state.createForm.materialKeyword)
+  const selectedMaterial = getSelectedCreateMaterial()
+  const selectedMaterialSummary = selectedMaterial
+    ? getStockMaterialSelectedSummary(selectedMaterial)
+    : '请选择备货物料，可搜索物料编码/名称'
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-dye-order-action="close-create-drawer" aria-label="关闭"></button>
@@ -934,6 +942,42 @@ function renderCreateDrawer(): string {
                   ${DYE_FACTORY_OPTIONS.map((factory) => `<option value="${escapeHtml(factory)}" ${state.createForm.factoryName === factory ? 'selected' : ''}>${escapeHtml(factory)}</option>`).join('')}
                 </select>
               </div>
+              ${
+                state.createForm.createMode === '按备货创建'
+                  ? `
+                    <div class="md:col-span-2">
+                      <label class="mb-1 block text-xs text-muted-foreground">备货物料</label>
+                      <div class="relative" data-dye-order-material-combobox="true">
+                        <button class="flex h-9 w-full items-center justify-between rounded-md border bg-background px-3 text-sm hover:bg-muted/40" data-dye-order-action="toggle-material-picker" type="button">
+                          <span class="${selectedMaterial ? 'text-foreground' : 'text-muted-foreground'}">${escapeHtml(selectedMaterialSummary)}</span>
+                          <i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i>
+                        </button>
+                        ${
+                          state.materialPickerOpen
+                            ? `
+                              <div class="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-md border bg-background shadow-lg">
+                                <div class="border-b p-2">
+                                  <input class="h-8 w-full rounded-md border bg-background px-2 text-sm" value="${escapeHtml(state.createForm.materialKeyword)}" data-dye-order-create-field="materialKeyword" placeholder="请选择备货物料，可搜索物料编码/名称" />
+                                </div>
+                                <div class="max-h-56 overflow-y-auto p-1">
+                                  ${
+                                    filteredMaterialOptions.length === 0
+                                      ? '<p class="px-2 py-4 text-center text-xs text-muted-foreground">未找到匹配的物料</p>'
+                                      : filteredMaterialOptions
+                                          .map((item) => `<button class="flex w-full items-start rounded-md px-2 py-2 text-left text-xs hover:bg-muted ${state.createForm.selectedMaterialKey === item.materialKey ? 'bg-blue-50 text-blue-700' : ''}" data-dye-order-action="select-create-material" data-material-key="${escapeHtml(item.materialKey)}" type="button">${escapeHtml(getStockMaterialDisplay(item))}</button>`)
+                                          .join('')
+                                  }
+                                </div>
+                              </div>
+                            `
+                            : ''
+                        }
+                      </div>
+                      <p class="mt-1 text-xs text-muted-foreground">按备货创建时，需先选择物料。</p>
+                    </div>
+                  `
+                  : ''
+              }
               <div>
                 <label class="mb-1 block text-xs text-muted-foreground">计划投料数量</label>
                 <input type="number" min="0" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.plannedFeedQty)}" data-dye-order-create-field="plannedFeedQty" placeholder="请输入数量（米）" />
@@ -961,13 +1005,7 @@ function renderCreateDrawer(): string {
                   ${renderCreateDemandPick()}
                 </section>
               `
-              : `
-                <section class="rounded-lg border bg-card p-4">
-                  <h3 class="mb-2 text-sm font-semibold">选择备货物料</h3>
-                  <p class="mb-3 text-xs text-muted-foreground">按备货创建时，不强制关联需求单，但必须先选择备货物料，后续可服务多张需求单。</p>
-                  ${renderCreateMaterialPick()}
-                </section>
-              `
+              : ''
           }
 
           <footer class="sticky bottom-0 flex items-center justify-end gap-2 border-t bg-background px-1 py-3">
@@ -1112,6 +1150,7 @@ function submitCreate(): void {
   })
 
   state.createDrawerOpen = false
+  state.materialPickerOpen = false
   state.createForm = createDefaultForm()
   closeDetail()
   state.page = 1
@@ -1119,6 +1158,10 @@ function submitCreate(): void {
 }
 
 export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
+  if (state.materialPickerOpen && !target.closest('[data-dye-order-material-combobox="true"]')) {
+    state.materialPickerOpen = false
+  }
+
   const createFieldNode = target.closest<HTMLElement>('[data-dye-order-create-field]')
   if (createFieldNode instanceof HTMLInputElement || createFieldNode instanceof HTMLTextAreaElement || createFieldNode instanceof HTMLSelectElement) {
     const key = createFieldNode.dataset.dyeOrderCreateField
@@ -1127,11 +1170,17 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
       if (state.createForm.createMode === '按备货创建') {
         state.createForm.selectedDemandIds = []
       } else {
+        state.createForm.materialKeyword = ''
         state.createForm.selectedMaterialKey = ''
         state.createForm.selectedMaterialCode = ''
         state.createForm.selectedMaterialName = ''
         state.createForm.selectedMaterialUnit = ''
+        state.materialPickerOpen = false
       }
+      return true
+    }
+    if (key === 'materialKeyword') {
+      state.createForm.materialKeyword = createFieldNode.value
       return true
     }
     if (key === 'factoryName') {
@@ -1226,7 +1275,17 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
 
   if (action === 'close-create-drawer') {
     state.createDrawerOpen = false
+    state.materialPickerOpen = false
     state.createForm = createDefaultForm()
+    return true
+  }
+
+  if (action === 'toggle-material-picker') {
+    if (state.createForm.createMode !== '按备货创建') return true
+    state.materialPickerOpen = !state.materialPickerOpen
+    if (state.materialPickerOpen) {
+      state.createForm.materialKeyword = ''
+    }
     return true
   }
 
@@ -1249,6 +1308,8 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
     state.createForm.selectedMaterialCode = selected.materialCode
     state.createForm.selectedMaterialName = selected.materialName
     state.createForm.selectedMaterialUnit = selected.unit
+    state.createForm.materialKeyword = ''
+    state.materialPickerOpen = false
     return true
   }
 
@@ -1298,6 +1359,7 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
   if (action === 'close-all') {
     closeDetail()
     state.createDrawerOpen = false
+    state.materialPickerOpen = false
     state.notice = null
     return true
   }
