@@ -43,6 +43,7 @@ export interface TechPackBomItem {
   type: string
   name: string
   spec: string
+  colorLabel?: string
   unitConsumption: number
   lossRate: number
   supplier: string
@@ -50,6 +51,38 @@ export interface TechPackBomItem {
   applicableSkuCodes?: string[]
   // 与纸样形成结构化双向关联
   linkedPatternIds?: string[]
+}
+
+export interface TechPackCustomCostItem {
+  id: string
+  name: string
+  price: number
+  currency: string
+  unit: string
+  remark?: string
+  sort?: number
+}
+
+export interface TechPackMaterialCostItem {
+  id: string
+  bomItemId: string
+  price: number
+  currency: string
+  unit: string
+}
+
+export interface TechPackProcessCostItem {
+  id: string
+  processId: string
+  price: number
+  currency: string
+  unit: string
+}
+
+export interface TechPackSkuLine {
+  skuCode: string
+  color: string
+  size: string
 }
 
 export interface TechPackPatternDesign {
@@ -83,6 +116,10 @@ export interface TechPack {
   processes: TechPackProcess[]
   sizeTable: TechPackSizeRow[]
   bomItems: TechPackBomItem[]
+  skuCatalog?: TechPackSkuLine[]
+  materialCostItems?: TechPackMaterialCostItem[]
+  processCostItems?: TechPackProcessCostItem[]
+  customCostItems?: TechPackCustomCostItem[]
   patternDesigns: TechPackPatternDesign[]
   attachments: TechPackAttachment[]
 }
@@ -175,6 +212,22 @@ export const techPacks: TechPack[] = [
           { id: 'pf-2-piece-2', name: '肩部补强片', count: 2 },
         ],
       },
+      {
+        id: 'pf-3',
+        fileName: '拼接片纸样.pdf',
+        fileUrl: '#',
+        uploadedAt: '2024-03-11',
+        uploadedBy: 'Budi',
+        linkedBomItemId: 'b-3',
+        widthCm: 138,
+        markerLengthM: 1.16,
+        totalPieceCount: 8,
+        pieceRows: [
+          { id: 'pf-3-piece-1', name: '左袖拼接片', count: 2 },
+          { id: 'pf-3-piece-2', name: '右袖拼接片', count: 2 },
+          { id: 'pf-3-piece-3', name: '下摆拼接片', count: 4 },
+        ],
+      },
     ],
     patternDesc: '标准休闲版型，前后片分开裁剪，袖口收边处理',
     processes: [
@@ -193,25 +246,92 @@ export const techPacks: TechPack[] = [
       {
         id: 'b-1',
         type: '面料',
-        name: '纯棉针织布',
+        name: '纯棉针织布（白色）',
         spec: '180g/m²',
+        colorLabel: 'White',
         unitConsumption: 0.8,
         lossRate: 3,
         supplier: 'PT Textile Indo',
-        applicableSkuCodes: [],
+        applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
         linkedPatternIds: ['pf-1', 'pf-2'],
       },
       {
         id: 'b-2',
+        type: '面料',
+        name: '纯棉针织布（黑色）',
+        spec: '180g/m²',
+        colorLabel: 'Black',
+        unitConsumption: 0.82,
+        lossRate: 3.5,
+        supplier: 'PT Textile Indo',
+        applicableSkuCodes: ['SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+        linkedPatternIds: ['pf-1', 'pf-2'],
+      },
+      {
+        id: 'b-3',
+        type: '面料',
+        name: '弹力罗纹拼接布（黑色）',
+        spec: '220g/m²',
+        colorLabel: 'White',
+        unitConsumption: 0.16,
+        lossRate: 5,
+        supplier: 'CV Knit Delta',
+        applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+        linkedPatternIds: ['pf-3'],
+      },
+      {
+        id: 'b-4',
         type: '辅料',
         name: '缝纫线',
         spec: '40s/2',
+        colorLabel: '全部SKU（当前未区分颜色）',
         unitConsumption: 50,
         lossRate: 5,
         supplier: 'CV Thread Jaya',
         applicableSkuCodes: [],
         linkedPatternIds: [],
       },
+      {
+        id: 'b-5',
+        type: '包装材料',
+        name: '独立包装袋',
+        spec: '35cm × 45cm',
+        colorLabel: '全部SKU（当前未区分颜色）',
+        unitConsumption: 1,
+        lossRate: 2,
+        supplier: 'PT Packindo',
+        applicableSkuCodes: [],
+        linkedPatternIds: [],
+      },
+    ],
+    skuCatalog: [
+      { skuCode: 'SKU-001-S-WHT', color: 'White', size: 'S' },
+      { skuCode: 'SKU-001-M-WHT', color: 'White', size: 'M' },
+      { skuCode: 'SKU-001-L-WHT', color: 'White', size: 'L' },
+      { skuCode: 'SKU-001-XL-WHT', color: 'White', size: 'XL' },
+      { skuCode: 'SKU-001-S-BLK', color: 'Black', size: 'S' },
+      { skuCode: 'SKU-001-M-BLK', color: 'Black', size: 'M' },
+      { skuCode: 'SKU-001-L-BLK', color: 'Black', size: 'L' },
+      { skuCode: 'SKU-001-XL-BLK', color: 'Black', size: 'XL' },
+    ],
+    materialCostItems: [
+      { id: 'mc-001-1', bomItemId: 'b-1', price: 23.6, currency: '人民币', unit: '人民币/米' },
+      { id: 'mc-001-2', bomItemId: 'b-2', price: 24.2, currency: '人民币', unit: '人民币/米' },
+      { id: 'mc-001-3', bomItemId: 'b-3', price: 18.5, currency: '人民币', unit: '人民币/米' },
+      { id: 'mc-001-4', bomItemId: 'b-4', price: 0.32, currency: '人民币', unit: '人民币/件' },
+      { id: 'mc-001-5', bomItemId: 'b-5', price: 0.45, currency: '人民币', unit: '人民币/件' },
+    ],
+    processCostItems: [
+      { id: 'pc-001-1', processId: 'p-1', price: 0.85, currency: '人民币', unit: '人民币/件' },
+      { id: 'pc-001-2', processId: 'p-2', price: 1.12, currency: '人民币', unit: '人民币/件' },
+      { id: 'pc-001-3', processId: 'p-3', price: 1.8, currency: '人民币', unit: '人民币/件' },
+      { id: 'pc-001-4', processId: 'p-4', price: 0.95, currency: '人民币', unit: '人民币/件' },
+      { id: 'pc-001-5', processId: 'p-5', price: 0.66, currency: '人民币', unit: '人民币/件' },
+    ],
+    customCostItems: [
+      { id: 'cc-001-1', name: '开版费分摊', price: 3600, currency: '人民币', unit: '人民币/批', remark: '按本批次总量均摊' },
+      { id: 'cc-001-2', name: '包装辅材补贴', price: 0.25, currency: '人民币', unit: '人民币/件', remark: '特殊吊牌与防尘袋' },
+      { id: 'cc-001-3', name: '印花菲林费', price: 420, currency: '人民币', unit: '人民币/项', remark: '白色与黑色共版' },
     ],
     patternDesigns: [
       { id: 'pd-1', name: '胸前Logo', imageUrl: '/placeholder.svg' },
@@ -243,7 +363,37 @@ export const techPacks: TechPack[] = [
       { id: 's-5', part: '裤长', S: 100, M: 102, L: 104, XL: 106, tolerance: 2 },
     ],
     bomItems: [
-      { id: 'b-3', type: '面料', name: '棉涤混纺', spec: '250g/m²', unitConsumption: 1.2, lossRate: 4, supplier: 'PT Fabric Master' },
+      {
+        id: 'b-3',
+        type: '面料',
+        name: '棉涤混纺（Grey）',
+        spec: '250g/m²',
+        colorLabel: 'Grey',
+        unitConsumption: 1.2,
+        lossRate: 4,
+        supplier: 'PT Fabric Master',
+        applicableSkuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'],
+      },
+      {
+        id: 'b-3-a',
+        type: '辅料',
+        name: '腰头粘衬',
+        spec: '90cm 门幅',
+        colorLabel: '全部SKU（当前未区分颜色）',
+        unitConsumption: 0.28,
+        lossRate: 6,
+        supplier: 'PT Interlining',
+        applicableSkuCodes: [],
+      },
+    ],
+    skuCatalog: [
+      { skuCode: 'SKU-005-S-GRY', color: 'Grey', size: 'S' },
+      { skuCode: 'SKU-005-M-GRY', color: 'Grey', size: 'M' },
+      { skuCode: 'SKU-005-L-GRY', color: 'Grey', size: 'L' },
+      { skuCode: 'SKU-005-XL-GRY', color: 'Grey', size: 'XL' },
+    ],
+    customCostItems: [
+      { id: 'cc-002-1', name: '特殊洗水费', price: 0.58, currency: '人民币', unit: '人民币/件' },
     ],
     patternDesigns: [],
     attachments: [],
@@ -313,8 +463,38 @@ export const techPacks: TechPack[] = [
       { id: 's-9', part: '衣长', S: 60, M: 62, L: 64, XL: 66, tolerance: 2 },
     ],
     bomItems: [
-      { id: 'b-5', type: '面料', name: '针织罗纹', spec: '280g/m²', unitConsumption: 0.9, lossRate: 3, supplier: 'PT Knit Jaya' },
-      { id: 'b-6', type: '辅料', name: '纽扣', spec: '15mm', unitConsumption: 6, lossRate: 2, supplier: 'CV Button Indo' },
+      {
+        id: 'b-5',
+        type: '面料',
+        name: '针织罗纹（Grey）',
+        spec: '280g/m²',
+        colorLabel: 'Grey',
+        unitConsumption: 0.9,
+        lossRate: 3,
+        supplier: 'PT Knit Jaya',
+        applicableSkuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'],
+      },
+      {
+        id: 'b-6',
+        type: '辅料',
+        name: '纽扣',
+        spec: '15mm',
+        colorLabel: '全部SKU（当前未区分颜色）',
+        unitConsumption: 6,
+        lossRate: 2,
+        supplier: 'CV Button Indo',
+        applicableSkuCodes: [],
+      },
+    ],
+    skuCatalog: [
+      { skuCode: 'SKU-005-S-GRY', color: 'Grey', size: 'S' },
+      { skuCode: 'SKU-005-M-GRY', color: 'Grey', size: 'M' },
+      { skuCode: 'SKU-005-L-GRY', color: 'Grey', size: 'L' },
+      { skuCode: 'SKU-005-XL-GRY', color: 'Grey', size: 'XL' },
+    ],
+    customCostItems: [
+      { id: 'cc-005-1', name: '开袋工艺附加费', price: 0.35, currency: '人民币', unit: '人民币/件' },
+      { id: 'cc-005-2', name: '运输分摊', price: 180, currency: '人民币', unit: '人民币/批' },
     ],
     patternDesigns: [
       { id: 'pd-2', name: '袖口花纹', imageUrl: '/placeholder.svg' },
@@ -347,8 +527,37 @@ export const techPacks: TechPack[] = [
       { id: 's-11', part: '衣长', S: 62, M: 64, L: 66, XL: 68, tolerance: 2 },
     ],
     bomItems: [
-      { id: 'b-7', type: '面料', name: '牛仔布', spec: '12oz', unitConsumption: 1.3, lossRate: 4, supplier: 'PT Denim Indo' },
-      { id: 'b-8', type: '辅料', name: '金属扣', spec: '17mm', unitConsumption: 8, lossRate: 2, supplier: 'CV Metal Jaya' },
+      {
+        id: 'b-7',
+        type: '面料',
+        name: '牛仔布（Black）',
+        spec: '12oz',
+        colorLabel: 'Black',
+        unitConsumption: 1.3,
+        lossRate: 4,
+        supplier: 'PT Denim Indo',
+        applicableSkuCodes: ['SKU-014-S-BLK', 'SKU-014-M-BLK', 'SKU-014-L-BLK', 'SKU-014-XL-BLK'],
+      },
+      {
+        id: 'b-8',
+        type: '辅料',
+        name: '金属扣',
+        spec: '17mm',
+        colorLabel: '全部SKU（当前未区分颜色）',
+        unitConsumption: 8,
+        lossRate: 2,
+        supplier: 'CV Metal Jaya',
+        applicableSkuCodes: [],
+      },
+    ],
+    skuCatalog: [
+      { skuCode: 'SKU-014-S-BLK', color: 'Black', size: 'S' },
+      { skuCode: 'SKU-014-M-BLK', color: 'Black', size: 'M' },
+      { skuCode: 'SKU-014-L-BLK', color: 'Black', size: 'L' },
+      { skuCode: 'SKU-014-XL-BLK', color: 'Black', size: 'XL' },
+    ],
+    customCostItems: [
+      { id: 'cc-006-1', name: '做旧洗水附加费', price: 0.92, currency: '人民币', unit: '人民币/件' },
     ],
     patternDesigns: [
       { id: 'pd-3', name: '后背刺绣', imageUrl: '/placeholder.svg' },
@@ -378,6 +587,10 @@ export function createBetaTechPack(spuCode: string, spuName: string): TechPack {
     processes: [],
     sizeTable: [],
     bomItems: [],
+    skuCatalog: [],
+    materialCostItems: [],
+    processCostItems: [],
+    customCostItems: [],
     patternDesigns: [],
     attachments: [],
   }

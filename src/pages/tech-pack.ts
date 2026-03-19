@@ -48,6 +48,7 @@ type DictionaryProcess = {
 type BomItemRow = {
   id: string
   type: string
+  colorLabel: string
   materialCode: string
   materialName: string
   spec: string
@@ -70,6 +71,7 @@ type PatternPieceRow = {
 type SkuOption = {
   skuCode: string
   color: string
+  size: string
 }
 
 type PatternItem = {
@@ -106,6 +108,15 @@ type ProcessCostRow = {
   unit: string
 }
 
+type CustomCostRow = {
+  id: string
+  name: string
+  price: string
+  currency: string
+  unit: string
+  remark: string
+}
+
 type ChecklistItem = {
   key: string
   label: string
@@ -140,6 +151,7 @@ const dyeOptions = ['无', '匹染', '成衣染', '扎染', '渐变染', '其他
 const currencyOptions = ['人民币', '美元', '印尼盾']
 const materialUnitOptions = ['人民币/米', '人民币/码', '人民币/件', '美元/米', '美元/件', '印尼盾/件']
 const processUnitOptions = ['人民币/件', '人民币/批', '美元/件', '美元/批', '印尼盾/件', '印尼盾/批']
+const customCostUnitOptions = ['人民币/件', '人民币/批', '人民币/项', '美元/项', '印尼盾/项']
 const timeUnitOptions = ['分钟/件', '分钟/批', '分钟/米', '分钟/打']
 const difficultyOptions: Array<TechniqueItem['difficulty']> = ['简单', '中等', '困难']
 const stageOptions = ['准备阶段', '生产阶段', '后整阶段']
@@ -384,6 +396,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
   {
     id: 'bom-1',
     type: '面料',
+    colorLabel: 'White',
     materialCode: 'FAB-001',
     materialName: '纯棉针织布',
     spec: '180g/m²',
@@ -398,6 +411,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
   {
     id: 'bom-2',
     type: '面料',
+    colorLabel: 'White',
     materialCode: 'FAB-002',
     materialName: '弹力罗纹',
     spec: '200g/m²',
@@ -412,6 +426,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
   {
     id: 'bom-3',
     type: '辅料',
+    colorLabel: '全部SKU（当前未区分颜色）',
     materialCode: 'ACC-001',
     materialName: '纽扣',
     spec: '15mm圆形',
@@ -533,6 +548,7 @@ interface TechPackPageState {
   techniques: TechniqueItem[]
   materialCostRows: MaterialCostRow[]
   processCostRows: ProcessCostRow[]
+  customCostRows: CustomCostRow[]
 
   releaseDialogOpen: boolean
   addPatternDialogOpen: boolean
@@ -550,6 +566,7 @@ interface TechPackPageState {
   newPattern: Omit<PatternItem, 'id'>
   newBomItem: {
     type: string
+    colorLabel: string
     materialCode: string
     materialName: string
     spec: string
@@ -599,6 +616,7 @@ const state: TechPackPageState = {
   techniques: [],
   materialCostRows: [],
   processCostRows: [],
+  customCostRows: [],
 
   releaseDialogOpen: false,
   addPatternDialogOpen: false,
@@ -627,6 +645,7 @@ const state: TechPackPageState = {
   },
   newBomItem: {
     type: '面料',
+    colorLabel: '',
     materialCode: '',
     materialName: '',
     spec: '',
@@ -691,6 +710,10 @@ function cloneTechPack(techPack: TechPack): TechPack {
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       linkedPatternIds: [...(item.linkedPatternIds ?? [])],
     })),
+    skuCatalog: (techPack.skuCatalog ?? []).map((item) => ({ ...item })),
+    materialCostItems: (techPack.materialCostItems ?? []).map((item) => ({ ...item })),
+    processCostItems: (techPack.processCostItems ?? []).map((item) => ({ ...item })),
+    customCostItems: (techPack.customCostItems ?? []).map((item) => ({ ...item })),
     patternDesigns: techPack.patternDesigns.map((item) => ({ ...item })),
     attachments: techPack.attachments.map((item) => ({ ...item })),
     missingChecklist: [...techPack.missingChecklist],
@@ -779,11 +802,25 @@ function getSkuOptionsForCurrentSpu(): SkuOption[] {
   if (!state.techPack) return []
   const byCode = new Map<string, SkuOption>()
 
+  for (const line of state.techPack.skuCatalog ?? []) {
+    if (!byCode.has(line.skuCode)) {
+      byCode.set(line.skuCode, {
+        skuCode: line.skuCode,
+        color: line.color || '未识别颜色',
+        size: line.size || '-',
+      })
+    }
+  }
+
   for (const order of productionOrders) {
     if (order.demandSnapshot.spuCode !== state.techPack.spuCode) continue
     for (const line of order.demandSnapshot.skuLines) {
       if (!byCode.has(line.skuCode)) {
-        byCode.set(line.skuCode, { skuCode: line.skuCode, color: line.color || '未识别颜色' })
+        byCode.set(line.skuCode, {
+          skuCode: line.skuCode,
+          color: line.color || '未识别颜色',
+          size: line.size || '-',
+        })
       }
     }
   }
@@ -791,7 +828,7 @@ function getSkuOptionsForCurrentSpu(): SkuOption[] {
   for (const item of state.bomItems) {
     for (const skuCode of item.applicableSkuCodes) {
       if (!byCode.has(skuCode)) {
-        byCode.set(skuCode, { skuCode, color: '未识别颜色' })
+        byCode.set(skuCode, { skuCode, color: '未识别颜色', size: '-' })
       }
     }
   }
@@ -891,6 +928,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
     return {
       id: item.id || `bom-${index + 1}`,
       type: item.type,
+      colorLabel: item.colorLabel || '',
       materialCode: item.id || `MAT-${index + 1}`,
       materialName: item.name,
       spec: item.spec,
@@ -934,27 +972,42 @@ function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
   })
 }
 
-function buildMaterialCostRows(bomItems: BomItemRow[]): MaterialCostRow[] {
+function buildMaterialCostRows(bomItems: BomItemRow[], techPack: TechPack): MaterialCostRow[] {
+  const costByBomItemId = new Map((techPack.materialCostItems ?? []).map((item) => [item.bomItemId, item]))
+
   return bomItems.map((item) => ({
     id: item.id,
     materialName: item.materialName,
     spec: item.spec,
     usage: item.usage,
-    price: '',
-    currency: '人民币',
-    unit: '人民币/件',
+    price: String(costByBomItemId.get(item.id)?.price ?? ''),
+    currency: costByBomItemId.get(item.id)?.currency || '人民币',
+    unit: costByBomItemId.get(item.id)?.unit || '人民币/件',
   }))
 }
 
-function buildProcessCostRows(techniques: TechniqueItem[]): ProcessCostRow[] {
+function buildProcessCostRows(techniques: TechniqueItem[], techPack: TechPack): ProcessCostRow[] {
+  const costByProcessId = new Map((techPack.processCostItems ?? []).map((item) => [item.processId, item]))
+
   return techniques.map((item) => ({
     id: item.id,
     stage: item.stage,
     process: item.process,
     technique: item.technique,
-    price: '',
-    currency: '人民币',
-    unit: '人民币/件',
+    price: String(costByProcessId.get(item.id)?.price ?? ''),
+    currency: costByProcessId.get(item.id)?.currency || '人民币',
+    unit: costByProcessId.get(item.id)?.unit || '人民币/件',
+  }))
+}
+
+function buildCustomCostRows(techPack: TechPack): CustomCostRow[] {
+  return (techPack.customCostItems ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    price: String(item.price ?? ''),
+    currency: item.currency || '人民币',
+    unit: item.unit || '人民币/项',
+    remark: item.remark || '',
   }))
 }
 
@@ -1086,6 +1139,7 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
       type: item.type,
       name: item.materialName,
       spec: item.spec,
+      colorLabel: item.colorLabel || undefined,
       unitConsumption: Number(item.usage) || 0,
       lossRate: Number(item.lossRate) || 0,
       supplier: '-',
@@ -1095,7 +1149,30 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
         ...item.patternPieces
           .map((pieceName) => patternIdByName.get(pieceName) || '')
           .filter((id) => id.trim().length > 0),
-      ]),
+        ]),
+    })),
+    materialCostItems: state.materialCostRows.map((row) => ({
+      id: `MC-${row.id}`,
+      bomItemId: row.id,
+      price: Number.parseFloat(row.price) || 0,
+      currency: row.currency,
+      unit: row.unit,
+    })),
+    processCostItems: state.processCostRows.map((row) => ({
+      id: `PC-${row.id}`,
+      processId: row.id,
+      price: Number.parseFloat(row.price) || 0,
+      currency: row.currency,
+      unit: row.unit,
+    })),
+    customCostItems: state.customCostRows.map((row, index) => ({
+      id: row.id,
+      name: row.name.trim() || `自定义成本-${index + 1}`,
+      price: Number.parseFloat(row.price) || 0,
+      currency: row.currency,
+      unit: row.unit,
+      remark: row.remark.trim() || undefined,
+      sort: index + 1,
     })),
     completenessScore: score,
     missingChecklist: missing,
@@ -1138,6 +1215,7 @@ function resetBomForm(): void {
   state.editBomItemId = null
   state.newBomItem = {
     type: '面料',
+    colorLabel: '',
     materialCode: '',
     materialName: '',
     spec: '',
@@ -1201,8 +1279,9 @@ function ensureTechPackPageState(rawSpuCode: string): void {
   state.patternItems = buildPatternItemsFromTechPack(techPack)
   state.bomItems = buildBomItemsFromTechPack(techPack)
   state.techniques = buildTechniquesFromTechPack(techPack)
-  state.materialCostRows = buildMaterialCostRows(state.bomItems)
-  state.processCostRows = buildProcessCostRows(state.techniques)
+  state.materialCostRows = buildMaterialCostRows(state.bomItems, techPack)
+  state.processCostRows = buildProcessCostRows(state.techniques, techPack)
+  state.customCostRows = buildCustomCostRows(techPack)
 
   closeAllDialogs()
   resetPatternForm()
@@ -1640,22 +1719,49 @@ function renderSizeTab(): string {
 function renderBomTab(): string {
   const spuLabel = state.techPack?.spuCode || '-'
   const skuOptions = getSkuOptionsForCurrentSpu()
-  const groups =
-    skuOptions.length > 0
-      ? skuOptions.map((sku) => ({
-          groupKey: sku.skuCode,
-          colorLabel: `${sku.color}（SKU: ${sku.skuCode}）`,
-          rows: state.bomItems.filter(
-            (item) => item.applicableSkuCodes.length === 0 || item.applicableSkuCodes.includes(sku.skuCode),
-          ),
-        }))
-      : [
-          {
-            groupKey: 'ALL',
-            colorLabel: '全部SKU（当前未区分颜色）',
-            rows: state.bomItems,
-          },
-        ]
+  const skuByCode = new Map(skuOptions.map((item) => [item.skuCode, item]))
+  const deriveColorLabel = (item: BomItemRow): string => {
+    if (item.colorLabel.trim()) return item.colorLabel.trim()
+    if (item.applicableSkuCodes.length === 0) return '全部SKU（当前未区分颜色）'
+    const colors = dedupeStrings(
+      item.applicableSkuCodes
+        .map((skuCode) => skuByCode.get(skuCode)?.color || '')
+        .filter((color) => color.trim().length > 0),
+    )
+    if (colors.length === 1) return colors[0]
+    if (colors.length > 1) return '多颜色'
+    return '未识别颜色'
+  }
+
+  type BomColorGroup = {
+    groupKey: string
+    colorLabel: string
+    skuCodes: string[]
+    rows: BomItemRow[]
+  }
+
+  const groupsByColor = new Map<string, BomColorGroup>()
+  state.bomItems.forEach((item) => {
+    const colorLabel = deriveColorLabel(item)
+    const groupKey = colorLabel
+    const current = groupsByColor.get(groupKey)
+    if (current) {
+      current.rows.push(item)
+      current.skuCodes = dedupeStrings([...current.skuCodes, ...item.applicableSkuCodes])
+      return
+    }
+    groupsByColor.set(groupKey, {
+      groupKey,
+      colorLabel,
+      skuCodes: [...item.applicableSkuCodes],
+      rows: [item],
+    })
+  })
+  const groups = Array.from(groupsByColor.values()).sort((a, b) => {
+    if (a.colorLabel.startsWith('全部')) return -1
+    if (b.colorLabel.startsWith('全部')) return 1
+    return a.colorLabel.localeCompare(b.colorLabel)
+  })
   const patternById = new Map(state.patternItems.map((item) => [item.id, item]))
 
   return `
@@ -1723,7 +1829,24 @@ function renderBomTab(): string {
                                 ${
                                   rowIndex === 0
                                     ? `<td rowspan="${group.rows.length}" class="px-3 py-2 align-top font-medium">${escapeHtml(spuLabel)}</td>
-                                       <td rowspan="${group.rows.length}" class="px-3 py-2 align-top text-sm">${escapeHtml(group.colorLabel)}</td>`
+                                       <td rowspan="${group.rows.length}" class="px-3 py-2 align-top text-sm">
+                                         <div class="space-y-1">
+                                           <div>${escapeHtml(group.colorLabel)}</div>
+                                           ${
+                                             group.skuCodes.length > 0
+                                               ? `<div class="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
+                                                    ${group.skuCodes
+                                                      .map((skuCode) => {
+                                                        const sku = skuByCode.get(skuCode)
+                                                        const sizeLabel = sku?.size ? `/${sku.size}` : ''
+                                                        return `<span class="inline-flex rounded border px-1.5 py-0.5">${escapeHtml(`${skuCode}${sizeLabel}`)}</span>`
+                                                      })
+                                                      .join('')}
+                                                  </div>`
+                                               : '<div class="text-[11px] text-muted-foreground">全部 SKU</div>'
+                                           }
+                                         </div>
+                                       </td>`
                                     : ''
                                 }
                                 <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.type)}</span></td>
@@ -1802,7 +1925,11 @@ function renderCostTab(): string {
     (sum, row) => sum + (Number.parseFloat(row.price) || 0),
     0,
   )
-  const grandTotal = materialTotal + processTotal
+  const customTotal = state.customCostRows.reduce(
+    (sum, row) => sum + (Number.parseFloat(row.price) || 0),
+    0,
+  )
+  const grandTotal = materialTotal + processTotal + customTotal
 
   return `
     <div class="space-y-6">
@@ -1910,7 +2037,77 @@ function renderCostTab(): string {
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section class="rounded-lg border bg-card">
+        <header class="flex items-center justify-between border-b px-4 py-3">
+          <h3 class="text-base font-semibold">自定义成本项</h3>
+          <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="add-custom-cost">
+            <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+            添加成本项
+          </button>
+        </header>
+        <div class="p-4">
+          ${
+            state.customCostRows.length === 0
+              ? '<div class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">暂无自定义成本项，可点击“添加成本项”补充开版费、包装补贴等</div>'
+              : `
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-b bg-muted/30">
+                      <th class="px-3 py-2 text-left">成本项名称</th>
+                      <th class="px-3 py-2 text-left">标准单价</th>
+                      <th class="px-3 py-2 text-left">币种</th>
+                      <th class="px-3 py-2 text-left">单位</th>
+                      <th class="px-3 py-2 text-left">备注</th>
+                      <th class="px-3 py-2 text-right">金额</th>
+                      <th class="px-3 py-2 text-left">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${state.customCostRows
+                      .map(
+                        (row) => `
+                          <tr class="border-b last:border-0">
+                            <td class="px-3 py-2">
+                              <input class="h-8 w-44 rounded border px-2 text-sm" value="${escapeHtml(row.name)}" placeholder="例如 开版费分摊" data-tech-field="custom-cost-name" data-row-id="${row.id}" />
+                            </td>
+                            <td class="px-3 py-2">
+                              <input class="h-8 w-24 rounded border px-2 text-sm" type="number" value="${escapeHtml(row.price)}" placeholder="0.00" data-tech-field="custom-cost-price" data-row-id="${row.id}" />
+                            </td>
+                            <td class="px-3 py-2">
+                              <select class="h-8 w-24 rounded border px-2 text-sm" data-tech-field="custom-cost-currency" data-row-id="${row.id}">
+                                ${currencyOptions
+                                  .map((option) => `<option value="${option}" ${row.currency === option ? 'selected' : ''}>${option}</option>`)
+                                  .join('')}
+                              </select>
+                            </td>
+                            <td class="px-3 py-2">
+                              <select class="h-8 w-32 rounded border px-2 text-sm" data-tech-field="custom-cost-unit" data-row-id="${row.id}">
+                                ${customCostUnitOptions
+                                  .map((option) => `<option value="${option}" ${row.unit === option ? 'selected' : ''}>${option}</option>`)
+                                  .join('')}
+                              </select>
+                            </td>
+                            <td class="px-3 py-2">
+                              <input class="h-8 w-48 rounded border px-2 text-sm" value="${escapeHtml(row.remark || '')}" placeholder="备注（可选）" data-tech-field="custom-cost-remark" data-row-id="${row.id}" />
+                            </td>
+                            <td class="px-3 py-2 text-right font-medium">${(Number.parseFloat(row.price) || 0).toFixed(2)}</td>
+                            <td class="px-3 py-2">
+                              <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-custom-cost" data-row-id="${row.id}">
+                                <i data-lucide="trash-2" class="h-4 w-4"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                      .join('')}
+                  </tbody>
+                </table>
+              `
+          }
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-4">
         <article class="rounded-lg border bg-card">
           <header class="px-4 pb-2 pt-4 text-sm text-muted-foreground">物料标准成本</header>
           <div class="px-4 pb-4">
@@ -1921,6 +2118,12 @@ function renderCostTab(): string {
           <header class="px-4 pb-2 pt-4 text-sm text-muted-foreground">工序标准成本</header>
           <div class="px-4 pb-4">
             <p class="text-2xl font-semibold">${processTotal.toFixed(2)}</p>
+          </div>
+        </article>
+        <article class="rounded-lg border bg-card">
+          <header class="px-4 pb-2 pt-4 text-sm text-muted-foreground">自定义成本</header>
+          <div class="px-4 pb-4">
+            <p class="text-2xl font-semibold">${customTotal.toFixed(2)}</p>
           </div>
         </article>
         <article class="rounded-lg border bg-card">
@@ -2291,6 +2494,7 @@ function renderPatternFormDialog(): string {
 function renderBomFormDialog(): string {
   if (!state.addBomDialogOpen) return ''
   const skuOptions = getSkuOptionsForCurrentSpu()
+  const colorOptions = dedupeStrings(skuOptions.map((item) => item.color))
   const applyAllSku = state.newBomItem.applicableSkuCodes.length === 0
   const patternOptions = state.patternItems
 
@@ -2307,6 +2511,19 @@ function renderBomFormDialog(): string {
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-type">
                 ${['面料', '辅料', '包装材料', '其他']
                   .map((option) => `<option value="${option}" ${state.newBomItem.type === option ? 'selected' : ''}>${option}</option>`)
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-1">
+              <span class="text-sm">颜色</span>
+              <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-color-label">
+                <option value="">未指定颜色</option>
+                <option value="全部SKU（当前未区分颜色）" ${state.newBomItem.colorLabel === '全部SKU（当前未区分颜色）' ? 'selected' : ''}>全部SKU（当前未区分颜色）</option>
+                ${colorOptions
+                  .map(
+                    (option) =>
+                      `<option value="${escapeHtml(option)}" ${state.newBomItem.colorLabel === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
+                  )
                   .join('')}
               </select>
             </label>
@@ -2369,7 +2586,7 @@ function renderBomFormDialog(): string {
                                   ${state.newBomItem.applicableSkuCodes.includes(sku.skuCode) ? 'checked' : ''}
                                   ${applyAllSku ? 'disabled' : ''}
                                 />
-                                <span>${escapeHtml(`${sku.color}（${sku.skuCode}）`)}</span>
+                                <span>${escapeHtml(`${sku.color}（${sku.skuCode}${sku.size ? ` / ${sku.size}` : ''}）`)}</span>
                               </label>
                             `,
                           )
@@ -2795,6 +3012,10 @@ function handleTechPackField(
     state.newBomItem.type = value
     return true
   }
+  if (field === 'new-bom-color-label') {
+    state.newBomItem.colorLabel = value
+    return true
+  }
   if (field === 'new-bom-material-code') {
     state.newBomItem.materialCode = value
     return true
@@ -2826,10 +3047,14 @@ function handleTechPackField(
   if (field === 'new-bom-apply-all-sku') {
     if (checked) {
       state.newBomItem.applicableSkuCodes = []
+      state.newBomItem.colorLabel = '全部SKU（当前未区分颜色）'
     } else if (state.newBomItem.applicableSkuCodes.length === 0) {
       const skuOptions = getSkuOptionsForCurrentSpu()
       if (skuOptions.length > 0) {
         state.newBomItem.applicableSkuCodes = [skuOptions[0].skuCode]
+        if (!state.newBomItem.colorLabel || state.newBomItem.colorLabel.startsWith('全部SKU')) {
+          state.newBomItem.colorLabel = skuOptions[0].color
+        }
       }
     }
     return true
@@ -3020,6 +3245,7 @@ function handleTechPackField(
     state.materialCostRows = state.materialCostRows.map((row) =>
       row.id === rowId ? { ...row, price: value } : row,
     )
+    syncTechPackToStore({ touch: false })
     return true
   }
   if (field === 'material-currency') {
@@ -3028,6 +3254,7 @@ function handleTechPackField(
     state.materialCostRows = state.materialCostRows.map((row) =>
       row.id === rowId ? { ...row, currency: value } : row,
     )
+    syncTechPackToStore({ touch: false })
     return true
   }
   if (field === 'material-unit') {
@@ -3036,6 +3263,7 @@ function handleTechPackField(
     state.materialCostRows = state.materialCostRows.map((row) =>
       row.id === rowId ? { ...row, unit: value } : row,
     )
+    syncTechPackToStore({ touch: false })
     return true
   }
 
@@ -3045,6 +3273,7 @@ function handleTechPackField(
     state.processCostRows = state.processCostRows.map((row) =>
       row.id === rowId ? { ...row, price: value } : row,
     )
+    syncTechPackToStore({ touch: false })
     return true
   }
   if (field === 'process-currency') {
@@ -3053,6 +3282,7 @@ function handleTechPackField(
     state.processCostRows = state.processCostRows.map((row) =>
       row.id === rowId ? { ...row, currency: value } : row,
     )
+    syncTechPackToStore({ touch: false })
     return true
   }
   if (field === 'process-unit') {
@@ -3061,6 +3291,53 @@ function handleTechPackField(
     state.processCostRows = state.processCostRows.map((row) =>
       row.id === rowId ? { ...row, unit: value } : row,
     )
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+
+  if (field === 'custom-cost-name') {
+    const rowId = node.dataset.rowId
+    if (!rowId) return true
+    state.customCostRows = state.customCostRows.map((row) =>
+      row.id === rowId ? { ...row, name: value } : row,
+    )
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+  if (field === 'custom-cost-price') {
+    const rowId = node.dataset.rowId
+    if (!rowId) return true
+    state.customCostRows = state.customCostRows.map((row) =>
+      row.id === rowId ? { ...row, price: value } : row,
+    )
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+  if (field === 'custom-cost-currency') {
+    const rowId = node.dataset.rowId
+    if (!rowId) return true
+    state.customCostRows = state.customCostRows.map((row) =>
+      row.id === rowId ? { ...row, currency: value } : row,
+    )
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+  if (field === 'custom-cost-unit') {
+    const rowId = node.dataset.rowId
+    if (!rowId) return true
+    state.customCostRows = state.customCostRows.map((row) =>
+      row.id === rowId ? { ...row, unit: value } : row,
+    )
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+  if (field === 'custom-cost-remark') {
+    const rowId = node.dataset.rowId
+    if (!rowId) return true
+    state.customCostRows = state.customCostRows.map((row) =>
+      row.id === rowId ? { ...row, remark: value } : row,
+    )
+    syncTechPackToStore({ touch: false })
     return true
   }
 
@@ -3295,6 +3572,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.editBomItemId = bom.id
     state.newBomItem = {
       type: bom.type,
+      colorLabel: bom.colorLabel,
       materialCode: bom.materialCode,
       materialName: bom.materialName,
       spec: bom.spec,
@@ -3347,6 +3625,20 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const nextBom: BomItemRow = {
       id: state.editBomItemId || `bom-${Date.now()}`,
       type: state.newBomItem.type,
+      colorLabel: (() => {
+        const skuOptions = getSkuOptionsForCurrentSpu()
+        const skuByCode = new Map(skuOptions.map((item) => [item.skuCode, item]))
+        if (state.newBomItem.applicableSkuCodes.length === 0) return '全部SKU（当前未区分颜色）'
+        if (state.newBomItem.colorLabel.trim()) return state.newBomItem.colorLabel.trim()
+        const colors = dedupeStrings(
+          state.newBomItem.applicableSkuCodes
+            .map((skuCode) => skuByCode.get(skuCode)?.color || '')
+            .filter((color) => color.trim().length > 0),
+        )
+        if (colors.length === 1) return colors[0]
+        if (colors.length > 1) return '多颜色'
+        return '未识别颜色'
+      })(),
       materialCode: state.newBomItem.materialCode,
       materialName: state.newBomItem.materialName,
       spec: state.newBomItem.spec,
@@ -3377,6 +3669,30 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.bomItems = state.bomItems.filter((item) => item.id !== bomId)
     syncMaterialCostRows()
     syncTechPackToStore()
+    return true
+  }
+
+  if (action === 'add-custom-cost') {
+    state.customCostRows = [
+      ...state.customCostRows,
+      {
+        id: `custom-cost-${Date.now()}`,
+        name: '',
+        price: '',
+        currency: '人民币',
+        unit: '人民币/项',
+        remark: '',
+      },
+    ]
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+
+  if (action === 'delete-custom-cost') {
+    const rowId = actionNode.dataset.rowId
+    if (!rowId) return true
+    state.customCostRows = state.customCostRows.filter((row) => row.id !== rowId)
+    syncTechPackToStore({ touch: false })
     return true
   }
 
