@@ -1,5 +1,11 @@
 // 生产需求 Mock 数据
 
+import {
+  generateDemandArtifactsForAllOrders,
+  generateDemandArtifactsForOrder,
+  type GeneratedDemandArtifact,
+} from './production-artifact-generation'
+
 export type LegacyType = 'ID_PURCHASE' | 'GOODS_PURCHASE'
 export type SourceSystem = 'LEGACY' | 'NEW'
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL'
@@ -524,4 +530,19 @@ export const priorityConfig: Record<Priority, { label: string; color: string }> 
   URGENT: { label: '紧急', color: 'bg-red-100 text-red-700' },
   HIGH:   { label: '高', color: 'bg-orange-100 text-orange-700' },
   NORMAL: { label: '普通', color: 'bg-blue-100 text-blue-700' },
+}
+
+// 统一生成引擎产物（准备阶段需求单）
+// 说明：productionDemands 继续服务“生产需求池”页面；这里新增的导出用于承接
+// “生产单依技术包生成的印花/染色需求单”统一真相源。
+export type ProductionDemandArtifact = GeneratedDemandArtifact
+
+export const generatedProductionDemandArtifacts: ProductionDemandArtifact[] = generateDemandArtifactsForAllOrders()
+
+export function listGeneratedProductionDemandArtifacts(): ProductionDemandArtifact[] {
+  return generatedProductionDemandArtifacts.map((item) => ({ ...item }))
+}
+
+export function listGeneratedProductionDemandArtifactsByOrder(orderId: string): ProductionDemandArtifact[] {
+  return generateDemandArtifactsForOrder(orderId)
 }

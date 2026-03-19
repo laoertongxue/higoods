@@ -4,12 +4,25 @@ import {
   getOrCreateTechPack,
   updateTechPack,
   type TechPack,
+  type TechPackAssignmentGranularity,
   type TechPackColorMappingGeneratedMode,
   type TechPackColorMappingStatus,
   type TechPackColorMaterialMapping,
   type TechPackColorMaterialMappingLine,
+  type TechPackProcessEntry,
+  type TechPackProcessEntryType,
   type TechPackSizeRow,
 } from '../data/fcs/tech-packs'
+import {
+  PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
+  PROCESS_DOC_TYPE_LABEL,
+  TASK_TYPE_MODE_LABEL,
+  getProcessCraftByCode,
+  getProcessDefinitionByCode,
+  listProcessCraftDefinitions,
+  listProcessDefinitions,
+  listProcessStages,
+} from '../data/fcs/process-craft-dict'
 import { productionOrders } from '../data/fcs/production-orders'
 
 type TechPackTab =
@@ -32,29 +45,47 @@ type QualityCheckItem = {
 
 type TechniqueItem = {
   id: string
+  entryType: TechPackProcessEntryType
+  stageCode: 'PREP' | 'PROD' | 'POST'
   stage: string
+  processCode: string
   process: string
+  craftCode: string
   technique: string
+  assignmentGranularity: TechPackAssignmentGranularity
+  defaultDocType: 'DEMAND' | 'TASK'
+  taskTypeMode: 'PROCESS' | 'CRAFT'
+  isSpecialCraft: boolean
+  triggerSource: string
   standardTime: number
   timeUnit: string
   difficulty: '简单' | '中等' | '困难'
-  enableQualityCheck: boolean
-  qualityChecks: QualityCheckItem[]
   remark: string
-  source: '老系统同步' | '字典新增'
+  source: '字典引用'
 }
 
-type DictionaryTechnique = {
-  name: string
-  stdTime: number
-  timeUnit: string
-  difficulty: TechniqueItem['difficulty']
-  checks: string[]
+type BaselineProcessOption = {
+  processCode: string
+  processName: string
+  stageCode: 'PREP' | 'PROD' | 'POST'
+  stageName: string
+  assignmentGranularity: TechPackAssignmentGranularity
+  defaultDocType: 'DEMAND' | 'TASK'
+  taskTypeMode: 'PROCESS' | 'CRAFT'
+  triggerSource: string
 }
 
-type DictionaryProcess = {
-  process: string
-  techniques: DictionaryTechnique[]
+type CraftOption = {
+  craftCode: string
+  craftName: string
+  processCode: string
+  processName: string
+  stageCode: 'PREP' | 'PROD' | 'POST'
+  stageName: string
+  assignmentGranularity: TechPackAssignmentGranularity
+  defaultDocType: 'DEMAND' | 'TASK'
+  taskTypeMode: 'PROCESS' | 'CRAFT'
+  isSpecialCraft: boolean
 }
 
 type BomItemRow = {
@@ -207,207 +238,43 @@ const bomUsageProcessOptions = [
 ]
 const timeUnitOptions = ['分钟/件', '分钟/批', '分钟/米', '分钟/打']
 const difficultyOptions: Array<TechniqueItem['difficulty']> = ['简单', '中等', '困难']
-const stageOptions = ['准备阶段', '生产阶段', '后整阶段']
+const stageCodeToName = new Map(listProcessStages().map((item) => [item.stageCode, item.stageName]))
+const stageOptions = listProcessStages()
+  .slice()
+  .sort((a, b) => a.sort - b.sort)
+  .map((item) => item.stageName)
+const stageNameToCode = new Map(listProcessStages().map((item) => [item.stageName, item.stageCode]))
 
-const dictProcessOptions: Record<string, DictionaryProcess[]> = {
-  准备阶段: [
-    {
-      process: '裁片',
-      techniques: [
-        {
-          name: '排料裁剪（自动）',
-          stdTime: 5,
-          timeUnit: '分钟/件',
-          difficulty: '简单',
-          checks: ['裁片尺寸（公差 ±1cm）'],
-        },
-        {
-          name: '手工裁领片',
-          stdTime: 8,
-          timeUnit: '分钟/件',
-          difficulty: '中等',
-          checks: ['裁片形状'],
-        },
-      ],
-    },
-    {
-      process: '特殊工艺',
-      techniques: [
-        {
-          name: '特殊吊牌加固',
-          stdTime: 5,
-          timeUnit: '分钟/件',
-          difficulty: '简单',
-          checks: ['加固位置'],
-        },
-      ],
-    },
-  ],
-  生产阶段: [
-    {
-      process: '车缝',
-      techniques: [
-        {
-          name: '合肩',
-          stdTime: 8,
-          timeUnit: '分钟/件',
-          difficulty: '中等',
-          checks: ['缝合宽度（1cm ±0.2cm）'],
-        },
-        {
-          name: '上领',
-          stdTime: 10,
-          timeUnit: '分钟/件',
-          difficulty: '中等',
-          checks: ['领口圆顺度'],
-        },
-        {
-          name: '锁边',
-          stdTime: 6,
-          timeUnit: '分钟/件',
-          difficulty: '简单',
-          checks: [],
-        },
-        {
-          name: '拼袖',
-          stdTime: 9,
-          timeUnit: '分钟/件',
-          difficulty: '中等',
-          checks: ['袖窿对齐'],
-        },
-        {
-          name: '装拉链',
-          stdTime: 12,
-          timeUnit: '分钟/件',
-          difficulty: '中等',
-          checks: ['拉链顺滑度'],
-        },
-      ],
-    },
-    {
-      process: '印花',
-      techniques: [
-        {
-          name: '数码印花',
-          stdTime: 10,
-          timeUnit: '分钟/件',
-          difficulty: '中等',
-          checks: ['印花位置（误差 ≤2mm）', '色牢度（≥4级）'],
-        },
-        {
-          name: '丝网印花',
-          stdTime: 12,
-          timeUnit: '分钟/件',
-          difficulty: '中等',
-          checks: ['对位精度'],
-        },
-      ],
-    },
-    {
-      process: '染色',
-      techniques: [
-        {
-          name: '染缸染色',
-          stdTime: 60,
-          timeUnit: '分钟/批',
-          difficulty: '中等',
-          checks: ['色差（≤1级）'],
-        },
-      ],
-    },
-    {
-      process: '特殊工艺',
-      techniques: [
-        {
-          name: '手工钉珠定位',
-          stdTime: 25,
-          timeUnit: '分钟/件',
-          difficulty: '困难',
-          checks: ['珠位偏差（≤1mm）'],
-        },
-        {
-          name: '局部压皱处理',
-          stdTime: 18,
-          timeUnit: '分钟/件',
-          difficulty: '困难',
-          checks: ['压皱均匀度'],
-        },
-      ],
-    },
-  ],
-  后整阶段: [
-    {
-      process: '整烫',
-      techniques: [
-        {
-          name: '成衣整烫',
-          stdTime: 3,
-          timeUnit: '分钟/件',
-          difficulty: '简单',
-          checks: [],
-        },
-        {
-          name: '定型整烫',
-          stdTime: 5,
-          timeUnit: '分钟/件',
-          difficulty: '简单',
-          checks: [],
-        },
-      ],
-    },
-    {
-      process: '水洗',
-      techniques: [
-        {
-          name: '成衣水洗',
-          stdTime: 30,
-          timeUnit: '分钟/批',
-          difficulty: '简单',
-          checks: ['缩水率（≤3%）'],
-        },
-      ],
-    },
-    {
-      process: '包装',
-      techniques: [
-        {
-          name: '成衣包装',
-          stdTime: 2,
-          timeUnit: '分钟/件',
-          difficulty: '简单',
-          checks: [],
-        },
-        {
-          name: '礼盒包装',
-          stdTime: 5,
-          timeUnit: '分钟/件',
-          difficulty: '中等',
-          checks: [],
-        },
-      ],
-    },
-    {
-      process: '特殊工艺',
-      techniques: [
-        {
-          name: '特殊吊牌加固',
-          stdTime: 5,
-          timeUnit: '分钟/件',
-          difficulty: '简单',
-          checks: [],
-        },
-      ],
-    },
-  ],
-}
+const baselineProcessOptions: BaselineProcessOption[] = listProcessDefinitions()
+  .filter((item) => item.stageCode === 'PREP')
+  .map((item) => ({
+    processCode: item.processCode,
+    processName: item.processName,
+    stageCode: item.stageCode,
+    stageName: stageCodeToName.get(item.stageCode) || item.stageCode,
+    assignmentGranularity: item.assignmentGranularity,
+    defaultDocType: item.defaultDocType,
+    taskTypeMode: item.taskTypeMode,
+    triggerSource: item.triggerSource || '',
+  }))
 
-const legacySyncedTechniques = new Set([
-  '排料裁剪（自动）',
-  '合肩',
-  '数码印花',
-  '锁边',
-  '成衣整烫',
-])
+const craftOptions: CraftOption[] = listProcessCraftDefinitions()
+  .map((item) => {
+    const processDef = getProcessDefinitionByCode(item.processCode)
+    return {
+      craftCode: item.craftCode,
+      craftName: item.craftName,
+      processCode: item.processCode,
+      processName: processDef?.processName || item.processCode,
+      stageCode: item.stageCode,
+      stageName: stageCodeToName.get(item.stageCode) || item.stageCode,
+      assignmentGranularity: item.assignmentGranularity,
+      defaultDocType: item.defaultDocType,
+      taskTypeMode: item.taskTypeMode,
+      isSpecialCraft: item.isSpecialCraft,
+    }
+  })
+  .sort((a, b) => a.craftName.localeCompare(b.craftName, 'zh-Hans-CN'))
 
 const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
   {
@@ -498,98 +365,64 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
 
 const DEFAULT_TECHNIQUES: TechniqueItem[] = [
   {
-    id: 'tech-1',
+    id: 'tech-default-1',
+    entryType: 'PROCESS_BASELINE',
+    stageCode: 'PREP',
     stage: '准备阶段',
-    process: '裁片',
-    technique: '排料裁剪（自动）',
-    standardTime: 5,
-    timeUnit: '分钟/件',
-    difficulty: '简单',
-    source: '老系统同步',
-    enableQualityCheck: true,
-    qualityChecks: [{ id: 'qc-1', name: '裁片尺寸', required: true, standard: '公差 ±1cm' }],
-    remark: '自动排料，减少面料损耗',
-  },
-  {
-    id: 'tech-2',
-    stage: '生产阶段',
-    process: '车缝',
-    technique: '合肩',
-    standardTime: 8,
-    timeUnit: '分钟/件',
-    difficulty: '中等',
-    source: '老系统同步',
-    enableQualityCheck: true,
-    qualityChecks: [{ id: 'qc-2', name: '缝合宽度', required: true, standard: '1cm ±0.2cm' }],
-    remark: '',
-  },
-  {
-    id: 'tech-3',
-    stage: '生产阶段',
+    processCode: 'PRINT',
     process: '印花',
-    technique: '数码印花',
+    craftCode: '',
+    technique: '印花',
+    assignmentGranularity: 'COLOR',
+    defaultDocType: 'DEMAND',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    triggerSource: 'BOM上存在印花要求',
     standardTime: 10,
     timeUnit: '分钟/件',
     difficulty: '中等',
-    source: '老系统同步',
-    enableQualityCheck: true,
-    qualityChecks: [
-      { id: 'qc-3', name: '印花位置', required: true, standard: '误差 ≤2mm' },
-      { id: 'qc-4', name: '色牢度', required: true, standard: '≥4级' },
-    ],
-    remark: '图案必须居中，严格按色稿执行',
+    remark: '',
+    source: '字典引用',
   },
   {
-    id: 'tech-4',
+    id: 'tech-default-2',
+    entryType: 'CRAFT',
+    stageCode: 'PROD',
     stage: '生产阶段',
-    process: '车缝',
-    technique: '锁边',
+    processCode: 'CUT_PANEL',
+    process: '裁片',
+    craftCode: 'CRAFT_000001',
+    technique: '定位裁',
+    assignmentGranularity: 'ORDER',
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    triggerSource: '',
     standardTime: 6,
     timeUnit: '分钟/件',
     difficulty: '简单',
-    source: '老系统同步',
-    enableQualityCheck: false,
-    qualityChecks: [],
     remark: '',
+    source: '字典引用',
   },
   {
-    id: 'tech-5',
+    id: 'tech-default-3',
+    entryType: 'CRAFT',
+    stageCode: 'PROD',
     stage: '生产阶段',
-    process: '特殊工艺',
-    technique: '手工钉珠定位',
-    standardTime: 25,
+    processCode: 'SEW',
+    process: '车缝',
+    craftCode: 'CRAFT_262144',
+    technique: '曲牙',
+    assignmentGranularity: 'SKU',
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    triggerSource: '',
+    standardTime: 12,
     timeUnit: '分钟/件',
-    difficulty: '困难',
-    source: '字典新增',
-    enableQualityCheck: true,
-    qualityChecks: [{ id: 'qc-5', name: '珠位偏差', required: true, standard: '≤1mm' }],
-    remark: '按设计图纸定位，不可机器替代',
-  },
-  {
-    id: 'tech-6',
-    stage: '后整阶段',
-    process: '整烫',
-    technique: '成衣整烫',
-    standardTime: 3,
-    timeUnit: '分钟/件',
-    difficulty: '简单',
-    source: '老系统同步',
-    enableQualityCheck: false,
-    qualityChecks: [],
+    difficulty: '中等',
     remark: '',
-  },
-  {
-    id: 'tech-7',
-    stage: '后整阶段',
-    process: '特殊工艺',
-    technique: '局部压皱处理',
-    standardTime: 18,
-    timeUnit: '分钟/件',
-    difficulty: '困难',
-    source: '字典新增',
-    enableQualityCheck: true,
-    qualityChecks: [{ id: 'qc-6', name: '压皱均匀度', required: true, standard: '目视无明显不均' }],
-    remark: '压皱区域参照设计稿',
+    source: '字典引用',
   },
 ]
 
@@ -620,6 +453,7 @@ interface TechPackPageState {
 
   editPatternItemId: string | null
   editBomItemId: string | null
+  editTechniqueId: string | null
   newPattern: Omit<PatternItem, 'id'>
   newBomItem: {
     type: string
@@ -637,14 +471,12 @@ interface TechPackPageState {
     dyeRequirement: string
   }
   newTechnique: {
-    stage: string
-    process: string
-    technique: string
+    entryType: TechPackProcessEntryType
+    baselineProcessCode: string
+    craftCode: string
     standardTime: string
     timeUnit: string
     difficulty: TechniqueItem['difficulty']
-    enableQualityCheck: boolean
-    qualityChecks: QualityCheckItem[]
     remark: string
   }
   newSizeRow: {
@@ -690,6 +522,7 @@ const state: TechPackPageState = {
 
   editPatternItemId: null,
   editBomItemId: null,
+  editTechniqueId: null,
   newPattern: {
     name: '',
     type: '主体片',
@@ -718,14 +551,12 @@ const state: TechPackPageState = {
     dyeRequirement: '无',
   },
   newTechnique: {
-    stage: stageOptions[0],
-    process: '',
-    technique: '',
+    entryType: 'CRAFT',
+    baselineProcessCode: '',
+    craftCode: '',
     standardTime: '',
     timeUnit: '分钟/件',
     difficulty: '中等',
-    enableQualityCheck: false,
-    qualityChecks: [],
     remark: '',
   },
   newSizeRow: {
@@ -767,6 +598,7 @@ function cloneTechPack(techPack: TechPack): TechPack {
       })),
     })),
     processes: techPack.processes.map((item) => ({ ...item })),
+    processEntries: (techPack.processEntries ?? []).map((item) => ({ ...item })),
     sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
     bomItems: techPack.bomItems.map((item) => ({
       ...item,
@@ -803,57 +635,69 @@ function mapDifficultyToEnum(value: TechniqueItem['difficulty']): DifficultyLeve
   return 'MEDIUM'
 }
 
-function getTechniqueDictionaryEntry(
-  stage: string,
-  process: string,
-  technique: string,
-): DictionaryTechnique | null {
-  const processEntry = (dictProcessOptions[stage] ?? []).find((item) => item.process === process)
-  if (!processEntry) return null
-  return processEntry.techniques.find((item) => item.name === technique) ?? null
+function getStageName(stageCode: 'PREP' | 'PROD' | 'POST'): string {
+  return stageCodeToName.get(stageCode) || stageCode
 }
 
-function mapProcessToStage(name: string): {
-  stage: string
-  process: string
-  source: TechniqueItem['source']
-} {
-  for (const stage of stageOptions) {
-    const processEntries = dictProcessOptions[stage] ?? []
-    for (const processEntry of processEntries) {
-      const found = processEntry.techniques.find((item) => item.name === name)
-      if (found) {
-        return {
-          stage,
-          process: processEntry.process,
-          source: legacySyncedTechniques.has(name) ? '老系统同步' : '字典新增',
-        }
-      }
+function getBaselineProcessByCode(code: string): BaselineProcessOption | null {
+  return baselineProcessOptions.find((item) => item.processCode === code) ?? null
+}
+
+function getCraftOptionByCode(code: string): CraftOption | null {
+  return craftOptions.find((item) => item.craftCode === code) ?? null
+}
+
+function getSelectedDraftMeta():
+  | {
+      entryType: TechPackProcessEntryType
+      stageCode: 'PREP' | 'PROD' | 'POST'
+      stageName: string
+      processCode: string
+      processName: string
+      craftCode: string
+      craftName: string
+      assignmentGranularity: TechPackAssignmentGranularity
+      defaultDocType: 'DEMAND' | 'TASK'
+      taskTypeMode: 'PROCESS' | 'CRAFT'
+      isSpecialCraft: boolean
+      triggerSource: string
+    }
+  | null {
+  if (state.newTechnique.entryType === 'PROCESS_BASELINE') {
+    const baseline = getBaselineProcessByCode(state.newTechnique.baselineProcessCode)
+    if (!baseline) return null
+    return {
+      entryType: 'PROCESS_BASELINE',
+      stageCode: baseline.stageCode,
+      stageName: baseline.stageName,
+      processCode: baseline.processCode,
+      processName: baseline.processName,
+      craftCode: '',
+      craftName: baseline.processName,
+      assignmentGranularity: baseline.assignmentGranularity,
+      defaultDocType: baseline.defaultDocType,
+      taskTypeMode: baseline.taskTypeMode,
+      isSpecialCraft: false,
+      triggerSource: baseline.triggerSource,
     }
   }
 
-  if (name.includes('裁') || name.includes('验布') || name.includes('排版')) {
-    return { stage: '准备阶段', process: '裁片', source: '老系统同步' }
+  const craft = getCraftOptionByCode(state.newTechnique.craftCode)
+  if (!craft) return null
+  return {
+    entryType: 'CRAFT',
+    stageCode: craft.stageCode,
+    stageName: craft.stageName,
+    processCode: craft.processCode,
+    processName: craft.processName,
+    craftCode: craft.craftCode,
+    craftName: craft.craftName,
+    assignmentGranularity: craft.assignmentGranularity,
+    defaultDocType: craft.defaultDocType,
+    taskTypeMode: craft.taskTypeMode,
+    isSpecialCraft: craft.isSpecialCraft,
+    triggerSource: '',
   }
-  if (name.includes('整烫')) {
-    return { stage: '后整阶段', process: '整烫', source: '老系统同步' }
-  }
-  if (name.includes('水洗')) {
-    return { stage: '后整阶段', process: '水洗', source: '老系统同步' }
-  }
-  if (name.includes('包装')) {
-    return { stage: '后整阶段', process: '包装', source: '老系统同步' }
-  }
-  if (name.includes('染')) {
-    return { stage: '生产阶段', process: '染色', source: '老系统同步' }
-  }
-  if (name.includes('印')) {
-    return { stage: '生产阶段', process: '印花', source: '老系统同步' }
-  }
-  if (name.includes('车') || name.includes('缝')) {
-    return { stage: '生产阶段', process: '车缝', source: '老系统同步' }
-  }
-  return { stage: '生产阶段', process: '特殊工艺', source: '老系统同步' }
 }
 
 function dedupeStrings(values: string[]): string[] {
@@ -1313,31 +1157,111 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
   })
 }
 
+function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: number): TechniqueItem {
+  return {
+    id: entry.id || `tech-${fallbackIndex + 1}`,
+    entryType: entry.entryType,
+    stageCode: entry.stageCode,
+    stage: entry.stageName,
+    processCode: entry.processCode,
+    process: entry.processName,
+    craftCode: entry.craftCode || '',
+    technique: entry.entryType === 'PROCESS_BASELINE' ? entry.processName : entry.craftName || '',
+    assignmentGranularity: entry.assignmentGranularity,
+    defaultDocType: entry.defaultDocType,
+    taskTypeMode: entry.taskTypeMode,
+    isSpecialCraft: entry.isSpecialCraft,
+    triggerSource: entry.triggerSource || '',
+    standardTime: Number.isFinite(entry.standardTimeMinutes) ? Number(entry.standardTimeMinutes) : 0,
+    timeUnit: entry.timeUnit || '分钟/件',
+    difficulty: mapDifficultyToZh(entry.difficulty || 'MEDIUM'),
+    remark: entry.remark || '',
+    source: '字典引用',
+  }
+}
+
 function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
+  if ((techPack.processEntries ?? []).length > 0) {
+    return (techPack.processEntries ?? []).map((entry, index) =>
+      toTechniqueItemFromEntry(entry, index),
+    )
+  }
+
   if (techPack.processes.length === 0) {
-    return DEFAULT_TECHNIQUES.map((item) => ({
-      ...item,
-      qualityChecks: item.qualityChecks.map((qc) => ({ ...qc })),
-    }))
+    return DEFAULT_TECHNIQUES.map((item) => ({ ...item }))
   }
 
   return techPack.processes.map((item, index) => {
-    const mapped = mapProcessToStage(item.name)
-    const dictionaryEntry = getTechniqueDictionaryEntry(mapped.stage, mapped.process, item.name)
+    const craft = listProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
+    if (craft) {
+      const processDef = getProcessDefinitionByCode(craft.processCode)
+      return {
+        id: item.id || `tech-${index + 1}`,
+        entryType: 'CRAFT',
+        stageCode: craft.stageCode,
+        stage: getStageName(craft.stageCode),
+        processCode: craft.processCode,
+        process: processDef?.processName || craft.processCode,
+        craftCode: craft.craftCode,
+        technique: craft.craftName,
+        assignmentGranularity: craft.assignmentGranularity,
+        defaultDocType: craft.defaultDocType,
+        taskTypeMode: craft.taskTypeMode,
+        isSpecialCraft: craft.isSpecialCraft,
+        triggerSource: '',
+        standardTime: item.timeMinutes,
+        timeUnit: '分钟/件',
+        difficulty: mapDifficultyToZh(item.difficulty),
+        remark: '',
+        source: '字典引用',
+      }
+    }
+
+    const processDef = listProcessDefinitions().find(
+      (processItem) => processItem.processName === item.name || processItem.systemProcessCode === item.name,
+    )
+    if (processDef) {
+      return {
+        id: item.id || `tech-${index + 1}`,
+        entryType: 'PROCESS_BASELINE',
+        stageCode: processDef.stageCode,
+        stage: getStageName(processDef.stageCode),
+        processCode: processDef.processCode,
+        process: processDef.processName,
+        craftCode: '',
+        technique: processDef.processName,
+        assignmentGranularity: processDef.assignmentGranularity,
+        defaultDocType: processDef.defaultDocType,
+        taskTypeMode: processDef.taskTypeMode,
+        isSpecialCraft: false,
+        triggerSource: processDef.triggerSource || '',
+        standardTime: item.timeMinutes,
+        timeUnit: '分钟/件',
+        difficulty: mapDifficultyToZh(item.difficulty),
+        remark: '',
+        source: '字典引用',
+      }
+    }
+
     return {
       id: item.id || `tech-${index + 1}`,
-      stage: mapped.stage,
-      process: mapped.process,
+      entryType: 'CRAFT',
+      stageCode: 'PROD',
+      stage: getStageName('PROD'),
+      processCode: 'SEW',
+      process: '车缝',
+      craftCode: '',
       technique: item.name,
+      assignmentGranularity: 'SKU',
+      defaultDocType: 'TASK',
+      taskTypeMode: 'PROCESS',
+      isSpecialCraft: false,
+      triggerSource: '',
       standardTime: item.timeMinutes,
-      timeUnit: dictionaryEntry?.timeUnit ?? '分钟/件',
+      timeUnit: '分钟/件',
       difficulty: mapDifficultyToZh(item.difficulty),
-      enableQualityCheck: Boolean(item.qcPoint),
-      qualityChecks: item.qcPoint
-        ? [{ id: `qc-${item.id}`, name: item.qcPoint, required: true, standard: item.qcPoint }]
-        : [],
       remark: '',
-      source: mapped.source,
+      source: '字典引用',
     }
   })
 }
@@ -1514,10 +1438,26 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
       name: item.technique,
       timeMinutes: Number(item.standardTime) || 0,
       difficulty: mapDifficultyToEnum(item.difficulty),
-      qcPoint:
-        item.qualityChecks.find((qc) => qc.required)?.name ||
-        item.qualityChecks[0]?.name ||
-        '',
+      qcPoint: '',
+    })),
+    processEntries: state.techniques.map((item) => ({
+      id: item.id,
+      entryType: item.entryType,
+      stageCode: item.stageCode,
+      stageName: item.stage,
+      processCode: item.processCode,
+      processName: item.process,
+      craftCode: item.craftCode || undefined,
+      craftName: item.entryType === 'CRAFT' ? item.technique : undefined,
+      assignmentGranularity: item.assignmentGranularity,
+      defaultDocType: item.defaultDocType,
+      taskTypeMode: item.taskTypeMode,
+      isSpecialCraft: item.isSpecialCraft,
+      triggerSource: item.triggerSource || undefined,
+      standardTimeMinutes: Number(item.standardTime) || 0,
+      timeUnit: item.timeUnit,
+      difficulty: mapDifficultyToEnum(item.difficulty),
+      remark: item.remark || undefined,
     })),
     bomItems: state.bomItems.map((item) => ({
       id: item.id,
@@ -1656,16 +1596,15 @@ function resetBomForm(): void {
   }
 }
 
-function resetTechniqueForm(defaultStage: string = stageOptions[0]): void {
+function resetTechniqueForm(): void {
+  state.editTechniqueId = null
   state.newTechnique = {
-    stage: defaultStage,
-    process: '',
-    technique: '',
+    entryType: 'CRAFT',
+    baselineProcessCode: '',
+    craftCode: '',
     standardTime: '',
     timeUnit: '分钟/件',
     difficulty: '中等',
-    enableQualityCheck: false,
-    qualityChecks: [],
     remark: '',
   }
 }
@@ -1877,24 +1816,43 @@ function renderPatternTab(): string {
 
 function renderProcessTechniqueCard(item: TechniqueItem): string {
   return `
-    <article class="space-y-3">
-      <div class="mb-3 flex items-start justify-between gap-2">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-sm font-medium">${escapeHtml(item.process)}</span>
-          <span class="text-sm text-muted-foreground">·</span>
-          <span class="text-sm">${escapeHtml(item.technique)}</span>
-          <span class="inline-flex rounded border px-1.5 py-0 text-[10px] font-medium ${
-            item.source === '老系统同步'
-              ? 'border-blue-200 bg-blue-50 text-blue-700'
-              : 'border-green-200 bg-green-50 text-green-700'
-          }">${escapeHtml(item.source)}</span>
+    <article class="space-y-3 rounded-lg border bg-muted/20 p-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="space-y-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-semibold">${escapeHtml(item.technique)}</span>
+            <span class="inline-flex rounded border px-1.5 py-0 text-[10px] ${
+              item.entryType === 'PROCESS_BASELINE'
+                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                : 'border-green-200 bg-green-50 text-green-700'
+            }">${item.entryType === 'PROCESS_BASELINE' ? '工序基线项' : '工艺引用项'}</span>
+            <span class="inline-flex rounded border px-1.5 py-0 text-[10px] text-muted-foreground">${escapeHtml(item.source)}</span>
+          </div>
+          <div class="text-xs text-muted-foreground">
+            所属工序：${escapeHtml(item.process)} · 所属阶段：${escapeHtml(item.stage)}
+          </div>
+          <div class="text-xs text-muted-foreground">
+            分配粒度：${escapeHtml(PROCESS_ASSIGNMENT_GRANULARITY_LABEL[item.assignmentGranularity])}
+            · 默认单据：${escapeHtml(PROCESS_DOC_TYPE_LABEL[item.defaultDocType])}
+            · 任务模式：${escapeHtml(TASK_TYPE_MODE_LABEL[item.taskTypeMode])}
+            · 特殊工艺：${item.isSpecialCraft ? '是' : '否'}
+          </div>
+          ${
+            item.triggerSource
+              ? `<div class="text-xs text-muted-foreground">触发来源：${escapeHtml(item.triggerSource)}</div>`
+              : ''
+          }
         </div>
-        <button class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${item.id}">
-          <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-        </button>
+        <div class="flex items-center gap-1">
+          <button class="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-technique" data-tech-id="${item.id}">
+            <i data-lucide="edit-2" class="h-3.5 w-3.5"></i>
+          </button>
+          <button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${item.id}">
+            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+          </button>
+        </div>
       </div>
-
-      <div class="mb-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+      <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
         <label>
           <span class="text-xs text-muted-foreground">标准工时</span>
           <div class="mt-1 flex items-center gap-1">
@@ -1916,106 +1874,23 @@ function renderProcessTechniqueCard(item: TechniqueItem): string {
             </select>
           </div>
         </label>
-
         <label>
           <span class="text-xs text-muted-foreground">难度</span>
           <select class="mt-1 h-8 w-full rounded-md border px-2 text-sm" data-tech-field="tech-difficulty" data-tech-id="${item.id}">
             ${difficultyOptions.map((option) => `<option value="${option}" ${item.difficulty === option ? 'selected' : ''}>${option}</option>`).join('')}
           </select>
         </label>
-
-        <label class="inline-flex items-end gap-2 pb-0.5">
-          <input type="checkbox" data-tech-field="tech-enable-qc" data-tech-id="${item.id}" ${item.enableQualityCheck ? 'checked' : ''} />
-          <span class="text-xs">安排质检</span>
+        <label>
+          <span class="text-xs text-muted-foreground">备注</span>
+          <input
+            class="mt-1 h-8 w-full rounded-md border px-2 text-sm"
+            value="${escapeHtml(item.remark)}"
+            data-tech-field="tech-remark"
+            data-tech-id="${item.id}"
+            placeholder="可填写补充说明"
+          />
         </label>
       </div>
-
-      ${
-        item.enableQualityCheck
-          ? `
-            <div class="mb-3 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="text-xs text-muted-foreground">检查项</span>
-                <button class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-quality-check" data-tech-id="${item.id}">
-                  <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
-                  新增
-                </button>
-              </div>
-              ${
-                item.qualityChecks.length > 0
-                  ? `
-                    <table class="w-full rounded-md border text-xs">
-                      <thead>
-                        <tr class="border-b bg-muted/20">
-                          <th class="px-2 py-1 text-left">检查项名称</th>
-                          <th class="px-2 py-1 text-left">必检</th>
-                          <th class="px-2 py-1 text-left">标准要求</th>
-                          <th class="px-2 py-1 text-left"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${item.qualityChecks
-                          .map(
-                            (qc) => `
-                              <tr class="border-b last:border-0">
-                                <td class="px-2 py-1">
-                                  <input
-                                    class="h-7 w-full rounded border px-2 text-xs"
-                                    value="${escapeHtml(qc.name)}"
-                                    placeholder="检查项名称"
-                                    data-tech-field="qc-name"
-                                    data-tech-id="${item.id}"
-                                    data-qc-id="${qc.id}"
-                                  />
-                                </td>
-                                <td class="px-2 py-1">
-                                  <input
-                                    type="checkbox"
-                                    data-tech-field="qc-required"
-                                    data-tech-id="${item.id}"
-                                    data-qc-id="${qc.id}"
-                                    ${qc.required ? 'checked' : ''}
-                                  />
-                                </td>
-                                <td class="px-2 py-1">
-                                  <input
-                                    class="h-7 w-full rounded border px-2 text-xs"
-                                    value="${escapeHtml(qc.standard)}"
-                                    placeholder="标准要求"
-                                    data-tech-field="qc-standard"
-                                    data-tech-id="${item.id}"
-                                    data-qc-id="${qc.id}"
-                                  />
-                                </td>
-                                <td class="px-2 py-1">
-                                  <button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-quality-check" data-tech-id="${item.id}" data-qc-id="${qc.id}">
-                                    <i data-lucide="trash-2" class="h-3 w-3"></i>
-                                  </button>
-                                </td>
-                              </tr>
-                            `,
-                          )
-                          .join('')}
-                      </tbody>
-                    </table>
-                  `
-                  : ''
-              }
-            </div>
-          `
-          : ''
-      }
-
-      <label>
-        <span class="text-xs text-muted-foreground">备注</span>
-        <textarea
-          rows="2"
-          class="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-          placeholder="备注信息"
-          data-tech-field="tech-remark"
-          data-tech-id="${item.id}"
-        >${escapeHtml(item.remark)}</textarea>
-      </label>
     </article>
   `
 }
@@ -3341,51 +3216,74 @@ function renderBomFormDialog(): string {
 
 function renderAddTechniqueDialog(): string {
   if (!state.addTechniqueDialogOpen) return ''
-
-  const currentStageProcesses = dictProcessOptions[state.newTechnique.stage] ?? []
-  const currentProcessEntry = currentStageProcesses.find((item) => item.process === state.newTechnique.process)
-  const techniquesForProcess = currentProcessEntry?.techniques ?? []
+  const selectedMeta = getSelectedDraftMeta()
+  const isEdit = Boolean(state.editTechniqueId)
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="w-full max-w-lg rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">新增工序工艺</h3>
+          <h3 class="text-lg font-semibold">${isEdit ? '编辑工序配置' : '新增工序配置'}</h3>
         </header>
         <div class="space-y-4 px-6 py-4">
           <label class="space-y-1">
-            <span class="text-sm">阶段 <span class="text-red-500">*</span></span>
-            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-stage">
-              ${stageOptions
-                .map((option) => `<option value="${option}" ${state.newTechnique.stage === option ? 'selected' : ''}>${option}</option>`)
-                .join('')}
-            </select>
-          </label>
-
-          <label class="space-y-1">
-            <span class="text-sm">工序 <span class="text-red-500">*</span></span>
-            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-process">
-              <option value="">从字典中选择工序</option>
-              ${currentStageProcesses
-                .map((item) => `<option value="${item.process}" ${state.newTechnique.process === item.process ? 'selected' : ''}>${item.process}</option>`)
-                .join('')}
-            </select>
-          </label>
-
-          <label class="space-y-1">
-            <span class="text-sm">工艺 <span class="text-red-500">*</span></span>
-            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-technique" ${state.newTechnique.process ? '' : 'disabled'}>
-              <option value="">${state.newTechnique.process ? '从字典中选择工艺' : '请先选择工序'}</option>
-              ${techniquesForProcess
-                .map((item) => `<option value="${item.name}" ${state.newTechnique.technique === item.name ? 'selected' : ''}>${item.name}</option>`)
-                .join('')}
+            <span class="text-sm">配置类型 <span class="text-red-500">*</span></span>
+            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-entry-type">
+              <option value="CRAFT" ${state.newTechnique.entryType === 'CRAFT' ? 'selected' : ''}>工艺引用项</option>
+              <option value="PROCESS_BASELINE" ${state.newTechnique.entryType === 'PROCESS_BASELINE' ? 'selected' : ''}>工序基线项（准备阶段）</option>
             </select>
           </label>
 
           ${
-            state.newTechnique.technique
-              ? '<p class="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">来源：工序工艺字典（字典新增）。标准工时、难度均可在下方调整为该商品实际值。</p>'
-              : ''
+            state.newTechnique.entryType === 'PROCESS_BASELINE'
+              ? `
+                <label class="space-y-1">
+                  <span class="text-sm">准备阶段工序 <span class="text-red-500">*</span></span>
+                  <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-baseline-process">
+                    <option value="">选择印花或染色</option>
+                    ${baselineProcessOptions
+                      .map(
+                        (item) =>
+                          `<option value="${item.processCode}" ${state.newTechnique.baselineProcessCode === item.processCode ? 'selected' : ''}>${item.processName}</option>`,
+                      )
+                      .join('')}
+                  </select>
+                </label>
+              `
+              : `
+                <label class="space-y-1">
+                  <span class="text-sm">工艺字典项 <span class="text-red-500">*</span></span>
+                  <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-craft-code">
+                    <option value="">从工艺字典中选择</option>
+                    ${craftOptions
+                      .map(
+                        (item) =>
+                          `<option value="${item.craftCode}" ${state.newTechnique.craftCode === item.craftCode ? 'selected' : ''}>${item.craftName}（${item.processName}）</option>`,
+                      )
+                      .join('')}
+                  </select>
+                </label>
+              `
+          }
+
+          ${
+            selectedMeta
+              ? `
+                <div class="grid grid-cols-2 gap-3 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  <div>所属阶段：${escapeHtml(selectedMeta.stageName)}</div>
+                  <div>所属工序：${escapeHtml(selectedMeta.processName)}</div>
+                  <div>分配粒度：${escapeHtml(PROCESS_ASSIGNMENT_GRANULARITY_LABEL[selectedMeta.assignmentGranularity])}</div>
+                  <div>默认单据：${escapeHtml(PROCESS_DOC_TYPE_LABEL[selectedMeta.defaultDocType])}</div>
+                  <div>任务模式：${escapeHtml(TASK_TYPE_MODE_LABEL[selectedMeta.taskTypeMode])}</div>
+                  <div>特殊工艺：${selectedMeta.isSpecialCraft ? '是' : '否'}</div>
+                  ${
+                    selectedMeta.triggerSource
+                      ? `<div class="col-span-2">触发来源：${escapeHtml(selectedMeta.triggerSource)}</div>`
+                      : ''
+                  }
+                </div>
+              `
+              : '<p class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">请选择工序基线或工艺字典项后自动带出阶段/工序/分配粒度/单据类型。</p>'
           }
 
           <div class="grid grid-cols-2 gap-4">
@@ -3412,40 +3310,6 @@ function renderAddTechniqueDialog(): string {
             </select>
           </label>
 
-          <div class="space-y-2">
-            <label class="inline-flex items-center gap-2">
-              <input type="checkbox" data-tech-field="new-technique-enable-qc" ${state.newTechnique.enableQualityCheck ? 'checked' : ''} />
-              <span class="text-sm">安排质检</span>
-            </label>
-            ${
-              state.newTechnique.enableQualityCheck
-                ? `
-                  <div class="rounded-md border">
-                    ${state.newTechnique.qualityChecks
-                      .map(
-                        (qc, index) => `
-                          <div class="flex items-center gap-2 border-b px-3 py-1.5 last:border-b-0">
-                            <span class="w-4 shrink-0 text-xs text-muted-foreground">${index + 1}</span>
-                            <input class="h-7 flex-1 rounded border px-2 text-xs" data-tech-field="new-qc-name" data-qc-id="${qc.id}" value="${escapeHtml(qc.name)}" placeholder="检查项名称" />
-                            <button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-new-quality-check" data-qc-id="${qc.id}">
-                              <i data-lucide="trash-2" class="h-3 w-3"></i>
-                            </button>
-                          </div>
-                        `,
-                      )
-                      .join('')}
-                    <div class="px-3 py-1.5">
-                      <button class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-new-quality-check">
-                        <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
-                        新增检查项
-                      </button>
-                    </div>
-                  </div>
-                `
-                : ''
-            }
-          </div>
-
           <label class="space-y-1">
             <span class="text-sm">备注</span>
             <textarea rows="2" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-remark" placeholder="备注信息">${escapeHtml(state.newTechnique.remark)}</textarea>
@@ -3455,8 +3319,8 @@ function renderAddTechniqueDialog(): string {
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-technique">取消</button>
           <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            state.newTechnique.process && state.newTechnique.technique ? '' : 'pointer-events-none opacity-50'
-          }" data-tech-action="save-technique">确认新增</button>
+            selectedMeta ? '' : 'pointer-events-none opacity-50'
+          }" data-tech-action="save-technique">${isEdit ? '保存' : '确认新增'}</button>
         </footer>
       </section>
     </div>
@@ -3625,17 +3489,6 @@ function updateTechnique(techId: string, updater: (item: TechniqueItem) => Techn
   syncTechPackToStore()
 }
 
-function updateQualityCheck(
-  techId: string,
-  qcId: string,
-  updater: (item: QualityCheckItem) => QualityCheckItem,
-): void {
-  updateTechnique(techId, (item) => ({
-    ...item,
-    qualityChecks: item.qualityChecks.map((qc) => (qc.id === qcId ? updater(qc) : qc)),
-  }))
-}
-
 function handleTechPackField(
   node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
 ): boolean {
@@ -3787,54 +3640,39 @@ function handleTechPackField(
     return true
   }
 
-  if (field === 'new-technique-stage') {
+  if (field === 'new-technique-entry-type') {
+    const entryType = value === 'PROCESS_BASELINE' ? 'PROCESS_BASELINE' : 'CRAFT'
     state.newTechnique = {
       ...state.newTechnique,
-      stage: value,
-      process: '',
-      technique: '',
+      entryType,
+      baselineProcessCode: '',
+      craftCode: '',
       standardTime: '',
       timeUnit: '分钟/件',
       difficulty: '中等',
-      enableQualityCheck: false,
-      qualityChecks: [],
+      remark: '',
     }
     return true
   }
-  if (field === 'new-technique-process') {
+  if (field === 'new-technique-baseline-process') {
+    const option = getBaselineProcessByCode(value)
     state.newTechnique = {
       ...state.newTechnique,
-      process: value,
-      technique: '',
-      standardTime: '',
-      timeUnit: '分钟/件',
-      difficulty: '中等',
-      enableQualityCheck: false,
-      qualityChecks: [],
+      baselineProcessCode: value,
+      standardTime: option?.processCode === 'DYE' ? '10' : option ? '12' : '',
+      timeUnit: option?.processCode === 'DYE' ? '分钟/件' : '分钟/件',
+      difficulty: option?.processCode === 'DYE' ? '中等' : option ? '中等' : state.newTechnique.difficulty,
     }
     return true
   }
-  if (field === 'new-technique-technique') {
-    const dictionaryEntry = getTechniqueDictionaryEntry(
-      state.newTechnique.stage,
-      state.newTechnique.process,
-      value,
-    )
+  if (field === 'new-technique-craft-code') {
+    const option = getCraftOptionByCode(value)
     state.newTechnique = {
       ...state.newTechnique,
-      technique: value,
-      standardTime: dictionaryEntry ? String(dictionaryEntry.stdTime) : state.newTechnique.standardTime,
-      timeUnit: dictionaryEntry ? dictionaryEntry.timeUnit : state.newTechnique.timeUnit,
-      difficulty: dictionaryEntry ? dictionaryEntry.difficulty : state.newTechnique.difficulty,
-      qualityChecks: dictionaryEntry
-        ? dictionaryEntry.checks.map((item, index) => ({
-            id: `qc-new-${index}`,
-            name: item,
-            required: true,
-            standard: '',
-          }))
-        : state.newTechnique.qualityChecks,
-      enableQualityCheck: dictionaryEntry ? dictionaryEntry.checks.length > 0 : state.newTechnique.enableQualityCheck,
+      craftCode: value,
+      standardTime: option ? String(state.newTechnique.standardTime || '') : state.newTechnique.standardTime,
+      difficulty:
+        option && option.isSpecialCraft ? '困难' : option ? '中等' : state.newTechnique.difficulty,
     }
     return true
   }
@@ -3852,21 +3690,6 @@ function handleTechPackField(
   }
   if (field === 'new-technique-remark') {
     state.newTechnique.remark = value
-    return true
-  }
-  if (field === 'new-technique-enable-qc') {
-    state.newTechnique.enableQualityCheck = checked
-    if (!checked) {
-      state.newTechnique.qualityChecks = []
-    }
-    return true
-  }
-  if (field === 'new-qc-name') {
-    const qcId = node.dataset.qcId
-    if (!qcId) return true
-    state.newTechnique.qualityChecks = state.newTechnique.qualityChecks.map((item) =>
-      item.id === qcId ? { ...item, name: value } : item,
-    )
     return true
   }
 
@@ -3913,42 +3736,10 @@ function handleTechPackField(
     }))
     return true
   }
-  if (field === 'tech-enable-qc') {
-    const techId = node.dataset.techId
-    if (!techId) return true
-    updateTechnique(techId, (item) => ({
-      ...item,
-      enableQualityCheck: checked,
-      qualityChecks: checked ? item.qualityChecks : [],
-    }))
-    return true
-  }
   if (field === 'tech-remark') {
     const techId = node.dataset.techId
     if (!techId) return true
     updateTechnique(techId, (item) => ({ ...item, remark: value }))
-    return true
-  }
-
-  if (field === 'qc-name') {
-    const techId = node.dataset.techId
-    const qcId = node.dataset.qcId
-    if (!techId || !qcId) return true
-    updateQualityCheck(techId, qcId, (item) => ({ ...item, name: value }))
-    return true
-  }
-  if (field === 'qc-standard') {
-    const techId = node.dataset.techId
-    const qcId = node.dataset.qcId
-    if (!techId || !qcId) return true
-    updateQualityCheck(techId, qcId, (item) => ({ ...item, standard: value }))
-    return true
-  }
-  if (field === 'qc-required') {
-    const techId = node.dataset.techId
-    const qcId = node.dataset.qcId
-    if (!techId || !qcId) return true
-    updateQualityCheck(techId, qcId, (item) => ({ ...item, required: checked }))
     return true
   }
 
@@ -4609,52 +4400,70 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-add-technique') {
-    const stage = actionNode.dataset.stage || stageOptions[0]
-    resetTechniqueForm(stage)
+    resetTechniqueForm()
+    state.addTechniqueDialogOpen = true
+    return true
+  }
+  if (action === 'edit-technique') {
+    const techId = actionNode.dataset.techId
+    if (!techId) return true
+    const target = getTechniqueById(techId)
+    if (!target) return true
+    state.editTechniqueId = target.id
+    state.newTechnique = {
+      entryType: target.entryType,
+      baselineProcessCode: target.entryType === 'PROCESS_BASELINE' ? target.processCode : '',
+      craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
+      standardTime: String(target.standardTime || ''),
+      timeUnit: target.timeUnit,
+      difficulty: target.difficulty,
+      remark: target.remark,
+    }
     state.addTechniqueDialogOpen = true
     return true
   }
   if (action === 'close-add-technique') {
     state.addTechniqueDialogOpen = false
-    return true
-  }
-  if (action === 'add-new-quality-check') {
-    state.newTechnique.qualityChecks = [
-      ...state.newTechnique.qualityChecks,
-      { id: `qc-${Date.now()}`, name: '', required: true, standard: '' },
-    ]
-    state.newTechnique.enableQualityCheck = true
-    return true
-  }
-  if (action === 'delete-new-quality-check') {
-    const qcId = actionNode.dataset.qcId
-    if (!qcId) return true
-    state.newTechnique.qualityChecks = state.newTechnique.qualityChecks.filter((item) => item.id !== qcId)
+    resetTechniqueForm()
     return true
   }
   if (action === 'save-technique') {
-    if (!state.newTechnique.process || !state.newTechnique.technique) return true
+    const selectedMeta = getSelectedDraftMeta()
+    if (!selectedMeta) return true
 
-    state.techniques = [
-      ...state.techniques,
-      {
-        id: `tech-${Date.now()}`,
-        stage: state.newTechnique.stage,
-        process: state.newTechnique.process,
-        technique: state.newTechnique.technique,
-        standardTime: Number.parseFloat(state.newTechnique.standardTime) || 0,
-        timeUnit: state.newTechnique.timeUnit,
-        difficulty: state.newTechnique.difficulty,
-        enableQualityCheck: state.newTechnique.enableQualityCheck,
-        qualityChecks: state.newTechnique.qualityChecks.map((item) => ({ ...item })),
-        remark: state.newTechnique.remark,
-        source: '字典新增',
-      },
-    ]
+    const nextItem: TechniqueItem = {
+      id: state.editTechniqueId || `tech-${Date.now()}`,
+      entryType: selectedMeta.entryType,
+      stageCode: selectedMeta.stageCode,
+      stage: selectedMeta.stageName,
+      processCode: selectedMeta.processCode,
+      process: selectedMeta.processName,
+      craftCode: selectedMeta.craftCode,
+      technique: selectedMeta.craftName,
+      assignmentGranularity: selectedMeta.assignmentGranularity,
+      defaultDocType: selectedMeta.defaultDocType,
+      taskTypeMode: selectedMeta.taskTypeMode,
+      isSpecialCraft: selectedMeta.isSpecialCraft,
+      triggerSource: selectedMeta.triggerSource,
+      standardTime: Number.parseFloat(state.newTechnique.standardTime) || 0,
+      timeUnit: state.newTechnique.timeUnit,
+      difficulty: state.newTechnique.difficulty,
+      remark: state.newTechnique.remark,
+      source: '字典引用',
+    }
+
+    if (state.editTechniqueId) {
+      state.techniques = state.techniques.map((item) =>
+        item.id === state.editTechniqueId ? nextItem : item,
+      )
+    } else {
+      state.techniques = [...state.techniques, nextItem]
+    }
 
     syncProcessCostRows()
     syncTechPackToStore()
     state.addTechniqueDialogOpen = false
+    resetTechniqueForm()
     return true
   }
   if (action === 'delete-technique') {
@@ -4664,35 +4473,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.techniques = state.techniques.filter((item) => item.id !== techId)
     syncProcessCostRows()
     syncTechPackToStore()
-    return true
-  }
-  if (action === 'add-quality-check') {
-    const techId = actionNode.dataset.techId
-    if (!techId) return true
-
-    updateTechnique(techId, (item) => ({
-      ...item,
-      qualityChecks: [
-        ...item.qualityChecks,
-        {
-          id: `qc-${Date.now()}`,
-          name: '',
-          required: true,
-          standard: '',
-        },
-      ],
-    }))
-    return true
-  }
-  if (action === 'delete-quality-check') {
-    const techId = actionNode.dataset.techId
-    const qcId = actionNode.dataset.qcId
-    if (!techId || !qcId) return true
-
-    updateTechnique(techId, (item) => ({
-      ...item,
-      qualityChecks: item.qualityChecks.filter((qc) => qc.id !== qcId),
-    }))
     return true
   }
 

@@ -2,15 +2,19 @@ import { indonesiaFactories } from './indonesia-factories'
 import { productionOrders } from './production-orders'
 import {
   getProcessAssignmentGranularity,
+  getProcessTypeByCode,
   type ProcessAssignmentGranularity,
 } from './process-types'
 import {
-  processTasks,
   type AcceptanceStatus,
   type ProcessTask,
   type TaskAssignmentStatus,
   type TaskAuditLog,
 } from './process-tasks'
+import {
+  generateTaskArtifactsForAllOrders,
+  type GeneratedTaskArtifact,
+} from './production-artifact-generation'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
 export type RuntimeExecutorKind = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'
@@ -99,6 +103,13 @@ export interface RuntimeAssignmentSummaryByOrder {
   overdueAckCount: number
 }
 
+export interface RuntimeTaskSummaryByOrder {
+  totalTasks: number
+  normalTaskCount: number
+  specialTaskCount: number
+  stageCounts: Record<'PREP' | 'PROD' | 'POST', number>
+}
+
 export interface RuntimeBatchDispatchInput {
   taskIds: string[]
   factoryId: string
@@ -115,6 +126,7 @@ export interface RuntimeBatchDispatchInput {
 
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
 let runtimeAuditSeq = 0
+const GENERATED_RUNTIME_CREATED_AT = '2026-03-01 00:00:00'
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
@@ -162,6 +174,44 @@ function resolveExecutorKindByFactoryId(factoryId?: string): RuntimeExecutorKind
     return 'WAREHOUSE_WORKSHOP'
   }
   return 'EXTERNAL_FACTORY'
+}
+
+function toRuntimeOwnerSuggestion(artifact: GeneratedTaskArtifact): ProcessTask['ownerSuggestion'] {
+  if (artifact.isSpecialCraft) {
+    return {
+      kind: 'RECOMMENDED_FACTORY_POOL',
+      recommendedTier: 'CENTRAL',
+      recommendedTypes: ['SPECIAL_PROCESS'],
+    }
+  }
+
+  if (artifact.stageCode === 'POST') {
+    return {
+      kind: 'RECOMMENDED_FACTORY_POOL',
+      recommendedTier: 'ANY',
+      recommendedTypes: ['FINISHING', 'WAREHOUSE'],
+    }
+  }
+
+  return { kind: 'MAIN_FACTORY' }
+}
+
+function mapArtifactToTaskStage(artifact: GeneratedTaskArtifact): ProcessTask['stage'] {
+  const processType = getProcessTypeByCode(artifact.systemProcessCode)
+  if (processType?.stage) return processType.stage
+
+  if (artifact.stageCode === 'PREP') return 'PREP'
+  if (artifact.stageCode === 'POST') return 'POST'
+  if (artifact.processCode === 'CUT_PANEL') return 'CUTTING'
+  if (artifact.isSpecialCraft || artifact.processCode === 'SPECIAL_CRAFT') return 'SPECIAL'
+  return 'SEWING'
+}
+
+function getTaskTypeLabelFromArtifact(artifact: GeneratedTaskArtifact): string {
+  if (artifact.isSpecialCraft) {
+    return artifact.craftName || artifact.processName
+  }
+  return artifact.processName
 }
 
 function getOrderSkuLines(productionOrderId: string): RuntimeTaskSkuLine[] {
@@ -246,7 +296,8 @@ function buildSkuScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[
 
 function buildRuntimeTasksByGranularity(baseTask: ProcessTask): RuntimeProcessTask[] {
   const skuLines = getOrderSkuLines(baseTask.productionOrderId)
-  const granularity = getProcessAssignmentGranularity(baseTask.processCode)
+  const granularity = (baseTask.assignmentGranularity as ProcessAssignmentGranularity | undefined)
+    ?? getProcessAssignmentGranularity(baseTask.processCode)
 
   if (granularity === 'SKU') return buildSkuScopeTasks(baseTask, skuLines)
   if (granularity === 'COLOR') return buildColorScopeTasks(baseTask, skuLines)
@@ -391,8 +442,81 @@ function compareRuntimeTask(a: RuntimeProcessTask, b: RuntimeProcessTask): numbe
   return a.scopeLabel.localeCompare(b.scopeLabel)
 }
 
+function buildRuntimeBaseTasksFromGeneratedArtifacts(): ProcessTask[] {
+  const artifacts = generateTaskArtifactsForAllOrders()
+  if (!artifacts.length) return []
+
+  const baseTasks: ProcessTask[] = []
+  const groupedByOrder = new Map<string, GeneratedTaskArtifact[]>()
+
+  for (const artifact of artifacts) {
+    const current = groupedByOrder.get(artifact.orderId) ?? []
+    current.push(artifact)
+    groupedByOrder.set(artifact.orderId, current)
+  }
+
+  for (const [orderId, orderArtifacts] of groupedByOrder.entries()) {
+    const sortedArtifacts = [...orderArtifacts].sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    const generatedTaskIds: string[] = []
+
+    sortedArtifacts.forEach((artifact, idx) => {
+      const seq = idx + 1
+      const taskId = `TASKGEN-${orderId.replace('PO-', '')}-${String(seq).padStart(3, '0')}`
+      generatedTaskIds.push(taskId)
+      const prevTaskId = generatedTaskIds[idx - 1]
+      const assignmentMode = artifact.isSpecialCraft ? 'BIDDING' : 'DIRECT'
+
+      baseTasks.push({
+        taskId,
+        productionOrderId: orderId,
+        seq,
+        processCode: artifact.systemProcessCode,
+        processNameZh: artifact.processName,
+        stage: mapArtifactToTaskStage(artifact),
+        qty: Math.max(artifact.orderQty, 0),
+        qtyUnit: 'PIECE',
+        assignmentMode,
+        assignmentStatus: 'UNASSIGNED',
+        ownerSuggestion: toRuntimeOwnerSuggestion(artifact),
+        qcPoints: [],
+        attachments: [],
+        status: 'NOT_STARTED',
+        dependsOnTaskIds: prevTaskId ? [prevTaskId] : [],
+        taskKind: 'NORMAL',
+        taskCategoryZh: getTaskTypeLabelFromArtifact(artifact),
+        sourceEntryId: artifact.sourceEntryId,
+        sourceEntryType: artifact.sourceEntryType,
+        stageCode: artifact.stageCode,
+        stageName: artifact.stageName,
+        processBusinessCode: artifact.processCode,
+        processBusinessName: artifact.processName,
+        craftCode: artifact.craftCode,
+        craftName: artifact.craftName,
+        assignmentGranularity: artifact.assignmentGranularity,
+        defaultDocType: artifact.defaultDocType,
+        taskTypeMode: artifact.taskTypeMode,
+        isSpecialCraft: artifact.isSpecialCraft,
+        createdAt: GENERATED_RUNTIME_CREATED_AT,
+        updatedAt: GENERATED_RUNTIME_CREATED_AT,
+        auditLogs: [
+          {
+            id: `RAL-${taskId}-INIT`,
+            action: 'GENERATE',
+            detail: `由任务单生成引擎产物 ${artifact.artifactId} 构建`,
+            at: GENERATED_RUNTIME_CREATED_AT,
+            by: '系统',
+          },
+        ],
+      })
+    })
+  }
+
+  return baseTasks
+}
+
 function buildRuntimeProcessTasksBase(): RuntimeProcessTask[] {
-  const expanded = processTasks.flatMap((task) => buildRuntimeTasksByGranularity(task))
+  const baseTasks = buildRuntimeBaseTasksFromGeneratedArtifacts()
+  const expanded = baseTasks.flatMap((task) => buildRuntimeTasksByGranularity(task))
   return applyRuntimeDependencies(expanded)
 }
 
@@ -464,6 +588,16 @@ export function getRuntimeTaskById(taskId: string): RuntimeProcessTask | null {
 
 export function listRuntimeTasksByBaseTaskId(baseTaskId: string): RuntimeProcessTask[] {
   return listRuntimeProcessTasks().filter((task) => task.baseTaskId === baseTaskId)
+}
+
+export function listRuntimeTasksByStage(stageCode: 'PREP' | 'PROD' | 'POST'): RuntimeProcessTask[] {
+  return listRuntimeProcessTasks().filter((task) => task.stageCode === stageCode)
+}
+
+export function listRuntimeTasksByProcess(processCode: string): RuntimeProcessTask[] {
+  return listRuntimeProcessTasks().filter(
+    (task) => task.processBusinessCode === processCode || task.processCode === processCode,
+  )
 }
 
 export function setRuntimeTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
@@ -734,6 +868,33 @@ export function getRuntimeAssignmentSummaryByOrder(productionOrderId: string): R
 
 export function getRuntimeTaskCountByOrder(productionOrderId: string): number {
   return getRuntimeAssignmentSummaryByOrder(productionOrderId).totalTasks
+}
+
+export function getRuntimeTaskSummaryByOrder(productionOrderId: string): RuntimeTaskSummaryByOrder {
+  const tasks = listRuntimeTasksByOrder(productionOrderId)
+  const totalTasks = tasks.length
+  const specialTaskCount = tasks.filter((task) => Boolean(task.isSpecialCraft)).length
+  const normalTaskCount = totalTasks - specialTaskCount
+
+  const stageCounts: RuntimeTaskSummaryByOrder['stageCounts'] = {
+    PREP: 0,
+    PROD: 0,
+    POST: 0,
+  }
+
+  for (const task of tasks) {
+    const stageCode = task.stageCode
+    if (stageCode === 'PREP' || stageCode === 'PROD' || stageCode === 'POST') {
+      stageCounts[stageCode] += 1
+    }
+  }
+
+  return {
+    totalTasks,
+    normalTaskCount,
+    specialTaskCount,
+    stageCounts,
+  }
 }
 
 export function getRuntimeBiddingSummaryByOrder(productionOrderId: string): {

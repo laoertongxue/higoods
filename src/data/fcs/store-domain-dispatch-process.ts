@@ -1,10 +1,13 @@
 // =============================================
 // 任务分配 / 执行准备域 — 静态类型 + seed 数据
 // 当前原型仓直接使用的数据域定义与种子文件
+// 冻结规则：本文件作为兼容适配层时，只做旧 shape 到新事实源的映射，
+// 不作为页面 UI/交互改造入口。
 // =============================================
-import { listMaterialRequests } from './material-request-drafts'
-import { getRuntimeTaskById } from './runtime-process-tasks'
-import { listWarehouseExecutionDocsByMaterialRequestNo } from './warehouse-material-execution'
+import {
+  listProgressMaterialIssueRows,
+  listProgressMaterialStatementDrafts,
+} from './store-domain-progress'
 
 // ─── 招标单台账 ──────────────────────────────
 export type TenderOrderStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'VOID'
@@ -54,70 +57,43 @@ export interface MaterialIssueSheet {
   updatedBy?: string
 }
 
-function toIssueStatusFromExecution(input: {
-  requestStatus: string
-  hasExecutionDocs: boolean
-  requestedQty: number
-  completedQty: number
-}): MaterialIssueStatus {
-  if (!input.hasExecutionDocs) return 'DRAFT'
-  if (input.completedQty >= input.requestedQty && input.requestedQty > 0) return 'ISSUED'
-  if (input.completedQty > 0) return 'PARTIAL'
-  if (input.requestStatus === '待配送' || input.requestStatus === '待自提') return 'TO_ISSUE'
-  return 'DRAFT'
-}
-
 function buildLegacyMaterialIssueSheetsFromRuntime(): MaterialIssueSheet[] {
-  const requests = listMaterialRequests()
-
-  return requests
-    .map((request) => {
-      const docs = listWarehouseExecutionDocsByMaterialRequestNo(request.materialRequestNo)
-      const requestedQty = docs.reduce(
-        (sum, doc) => sum + doc.lines.reduce((lineSum, line) => lineSum + line.plannedQty, 0),
-        0,
-      )
-      const completedQty = docs.reduce(
-        (sum, doc) =>
-          sum +
-          doc.lines.reduce(
-            (lineSum, line) => lineSum + (line.issuedQty ?? 0) + (line.transferredQty ?? 0),
-            0,
-          ),
-        0,
-      )
-      const normalizedRequested = Math.max(1, Math.round(requestedQty || request.lineCount || 1))
-      const normalizedCompleted = Math.max(0, Math.round(completedQty))
-      const status = toIssueStatusFromExecution({
-        requestStatus: request.requestStatus,
-        hasExecutionDocs: docs.length > 0,
-        requestedQty: normalizedRequested,
-        completedQty: normalizedCompleted,
-      })
-      const runtimeTask = getRuntimeTaskById(request.taskId)
-      const scopeLabel = runtimeTask?.scopeLabel || '整单'
-      const processName = runtimeTask?.processNameZh || request.taskName
-
-      return {
-        issueId: `MIS-${request.materialRequestNo}`,
-        productionOrderId: request.productionOrderNo,
-        taskId: request.taskId,
-        materialSummaryZh: `${request.materialSummary}（${processName} / ${scopeLabel}）`,
-        requestedQty: normalizedRequested,
-        issuedQty: normalizedCompleted,
-        status,
-        remark: docs.length > 0 ? `来源新执行链路：${docs.map((doc) => doc.docNo).join('、')}` : '来源新执行链路：待生成仓库执行单',
-        createdAt: request.updatedAt,
-        createdBy: request.createdBy,
-        updatedAt: request.updatedAt,
-        updatedBy: request.createdBy,
-      } satisfies MaterialIssueSheet
-    })
-    .sort((a, b) => b.updatedAt!.localeCompare(a.updatedAt!))
+  return listProgressMaterialIssueRows().map((row) => ({
+    issueId: row.issueId,
+    productionOrderId: row.productionOrderId,
+    taskId: row.taskId,
+    materialSummaryZh: `${row.materialSummaryZh}（${row.processName} / ${row.assignmentGranularityLabel}）`,
+    requestedQty: row.requestedQty,
+    issuedQty: row.issuedQty,
+    status: row.status,
+    remark: row.sourceDocNos.length > 0 ? `来源新执行链路：${row.sourceDocNos.join('、')}` : '来源新执行链路：待生成仓库执行单',
+    createdAt: row.updatedAt,
+    createdBy: row.createdBy,
+    updatedAt: row.updatedAt,
+    updatedBy: row.createdBy,
+  }))
 }
 
 export function listMaterialIssueSheetsFromRuntime(): MaterialIssueSheet[] {
   return buildLegacyMaterialIssueSheetsFromRuntime().map((item) => ({ ...item }))
+}
+
+export function listMaterialStatementDraftsFromRuntime(): MaterialStatementDraft[] {
+  return listProgressMaterialStatementDrafts().map((draft) => ({
+    materialStatementId: draft.materialStatementId,
+    productionOrderId: draft.productionOrderId,
+    itemCount: draft.itemCount,
+    totalRequestedQty: draft.totalRequestedQty,
+    totalIssuedQty: draft.totalIssuedQty,
+    status: draft.status,
+    issueIds: [...draft.issueIds],
+    items: draft.items.map((item) => ({ ...item })),
+    remark: draft.remark,
+    createdAt: draft.createdAt,
+    createdBy: draft.createdBy,
+    updatedAt: draft.updatedAt,
+    updatedBy: draft.updatedBy,
+  }))
 }
 
 // ─── 质检点 / 验收标准单 ──────────────────────

@@ -2,6 +2,8 @@
 // store-domain-progress.ts
 // 进度域静态类型、生成器和 seed 数据
 // 当前原型仓直接使用的数据域文件（无 React 依赖）
+// 冻结规则：凡“统一数据源/统一事实源”类改造，仅允许修改数据源、
+// 映射层、查询层、状态来源与兼容层；不得顺带改已有页面 UI 与交互。
 // =============================================
 import type {
   SubCategoryKey,
@@ -1369,11 +1371,20 @@ export const initialUrges: UrgeLog[] = [
 // 第6步统一进度/异常事实域（基于 runtime + 仓库执行 + PDA）
 // =============================================
 export interface ProgressFact {
+  artifactId?: string
+  artifactType: 'TASK'
   productionOrderId: string
   runtimeTaskId: string
   baseTaskId: string
+  stageCode?: string
+  stageName?: string
   processCode: string
   processNameZh: string
+  craftCode?: string
+  craftName?: string
+  taskTypeCode?: string
+  taskTypeLabel?: string
+  assignmentGranularity?: RuntimeProcessTask['assignmentGranularity']
   scopeType: RuntimeProcessTask['scopeType']
   scopeKey: string
   scopeLabel: string
@@ -1396,6 +1407,54 @@ export interface ProgressFact {
       | 'WAIT_EXECUTION_DOC'
     reasonText: string
   }
+}
+
+export interface ProgressMaterialIssueRow {
+  issueId: string
+  productionOrderId: string
+  taskId: string
+  baseTaskId: string
+  materialRequestNo: string
+  materialSummaryZh: string
+  requestedQty: number
+  issuedQty: number
+  status: 'DRAFT' | 'TO_ISSUE' | 'PARTIAL' | 'ISSUED'
+  stageCode?: string
+  stageName?: string
+  processCode: string
+  processName: string
+  craftCode?: string
+  craftName?: string
+  taskTypeLabel?: string
+  assignmentGranularityLabel: '按生产单' | '按颜色' | '按SKU'
+  executorKind: RuntimeProcessTask['executorKind']
+  sourceDocNos: string[]
+  updatedAt: string
+  createdBy: string
+}
+
+export interface ProgressMaterialStatementItem {
+  issueId: string
+  taskId: string
+  materialSummaryZh: string
+  requestedQty: number
+  issuedQty: number
+}
+
+export interface ProgressMaterialStatementDraft {
+  materialStatementId: string
+  productionOrderId: string
+  itemCount: number
+  totalRequestedQty: number
+  totalIssuedQty: number
+  status: 'DRAFT' | 'CONFIRMED' | 'CLOSED'
+  issueIds: string[]
+  items: ProgressMaterialStatementItem[]
+  remark?: string
+  createdAt: string
+  createdBy: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
 export interface ProgressExceptionSummary {
@@ -1493,6 +1552,27 @@ function hasPreparingStatus(docs: WarehouseExecutionDoc[]): boolean {
   )
 }
 
+function toIssueStatusFromExecution(input: {
+  requestStatus: string
+  hasExecutionDocs: boolean
+  requestedQty: number
+  completedQty: number
+}): 'DRAFT' | 'TO_ISSUE' | 'PARTIAL' | 'ISSUED' {
+  if (!input.hasExecutionDocs) return 'DRAFT'
+  if (input.completedQty >= input.requestedQty && input.requestedQty > 0) return 'ISSUED'
+  if (input.completedQty > 0) return 'PARTIAL'
+  if (input.requestStatus === '待配送' || input.requestStatus === '待自提') return 'TO_ISSUE'
+  return 'DRAFT'
+}
+
+function formatGranularityLabel(
+  granularity?: RuntimeProcessTask['assignmentGranularity'],
+): '按生产单' | '按颜色' | '按SKU' {
+  if (granularity === 'SKU') return '按SKU'
+  if (granularity === 'COLOR') return '按颜色'
+  return '按生产单'
+}
+
 function resolveRuntimeTaskForRequest(request: MaterialRequestRecord): RuntimeProcessTask | null {
   const direct = getRuntimeTaskById(request.taskId)
   if (direct) return direct
@@ -1560,11 +1640,20 @@ export function listProgressFacts(): ProgressFact[] {
     const executionDocs = listWarehouseExecutionDocsByRuntimeTaskId(task.taskId)
     const requests = getRequestsByRuntimeTask(task)
     return {
+      artifactId: task.sourceEntryId ? `TASKART-${task.productionOrderId}-${task.sourceEntryId}` : undefined,
+      artifactType: 'TASK',
       productionOrderId: task.productionOrderId,
       runtimeTaskId: task.taskId,
       baseTaskId: task.baseTaskId,
+      stageCode: task.stageCode,
+      stageName: task.stageName,
       processCode: task.processCode,
       processNameZh: task.processNameZh,
+      craftCode: task.craftCode,
+      craftName: task.craftName,
+      taskTypeCode: task.isSpecialCraft ? task.craftCode || task.processBusinessCode || task.processCode : task.processBusinessCode || task.processCode,
+      taskTypeLabel: task.taskCategoryZh || task.processBusinessName || task.processNameZh,
+      assignmentGranularity: task.assignmentGranularity,
       scopeType: task.scopeType,
       scopeKey: task.scopeKey,
       scopeLabel: task.scopeLabel,
@@ -1584,6 +1673,111 @@ export function listProgressFacts(): ProgressFact[] {
 
 export function listProgressFactsByOrder(productionOrderId: string): ProgressFact[] {
   return listProgressFacts().filter((fact) => fact.productionOrderId === productionOrderId)
+}
+
+export function listProgressMaterialIssueRows(): ProgressMaterialIssueRow[] {
+  return listMaterialRequests()
+    .map((request) => {
+      const runtimeTask = resolveRuntimeTaskForRequest(request)
+      if (!runtimeTask) return null
+
+      const executionDocs = listWarehouseExecutionDocsByMaterialRequestNo(request.materialRequestNo)
+      const requestedQty = executionDocs.reduce(
+        (sum, doc) => sum + doc.lines.reduce((lineSum, line) => lineSum + line.plannedQty, 0),
+        0,
+      )
+      const issuedQty = executionDocs.reduce(
+        (sum, doc) =>
+          sum +
+          doc.lines.reduce(
+            (lineSum, line) => lineSum + (line.issuedQty ?? 0) + (line.transferredQty ?? 0),
+            0,
+          ),
+        0,
+      )
+
+      const normalizedRequested = Math.max(1, Math.round(requestedQty || request.lineCount || 1))
+      const normalizedIssued = Math.max(0, Math.round(issuedQty))
+
+      return {
+        issueId: `MIS-${request.materialRequestNo}`,
+        productionOrderId: request.productionOrderNo,
+        taskId: runtimeTask.taskId,
+        baseTaskId: runtimeTask.baseTaskId,
+        materialRequestNo: request.materialRequestNo,
+        materialSummaryZh: request.materialSummary,
+        requestedQty: normalizedRequested,
+        issuedQty: normalizedIssued,
+        status: toIssueStatusFromExecution({
+          requestStatus: request.requestStatus,
+          hasExecutionDocs: executionDocs.length > 0,
+          requestedQty: normalizedRequested,
+          completedQty: normalizedIssued,
+        }),
+        stageCode: runtimeTask.stageCode,
+        stageName: runtimeTask.stageName,
+        processCode: runtimeTask.processBusinessCode || runtimeTask.processCode,
+        processName: runtimeTask.processBusinessName || runtimeTask.processNameZh || runtimeTask.processCode,
+        craftCode: runtimeTask.craftCode,
+        craftName: runtimeTask.craftName,
+        taskTypeLabel: runtimeTask.taskCategoryZh || runtimeTask.processBusinessName || runtimeTask.processNameZh,
+        assignmentGranularityLabel: formatGranularityLabel(runtimeTask.assignmentGranularity),
+        executorKind: runtimeTask.executorKind ?? 'EXTERNAL_FACTORY',
+        sourceDocNos: executionDocs.map((doc) => doc.docNo),
+        updatedAt: request.updatedAt,
+        createdBy: request.createdBy,
+      } satisfies ProgressMaterialIssueRow
+    })
+    .filter((item): item is ProgressMaterialIssueRow => Boolean(item))
+    .sort((a, b) => parseDateMs(b.updatedAt) - parseDateMs(a.updatedAt))
+}
+
+export function listProgressMaterialIssueRowsByOrder(productionOrderId: string): ProgressMaterialIssueRow[] {
+  return listProgressMaterialIssueRows().filter((row) => row.productionOrderId === productionOrderId)
+}
+
+export function listProgressMaterialStatementDrafts(): ProgressMaterialStatementDraft[] {
+  const grouped = new Map<string, ProgressMaterialIssueRow[]>()
+  listProgressMaterialIssueRows().forEach((row) => {
+    const current = grouped.get(row.productionOrderId) ?? []
+    current.push(row)
+    grouped.set(row.productionOrderId, current)
+  })
+
+  return Array.from(grouped.entries())
+    .map(([productionOrderId, rows]) => {
+      const sortedRows = rows
+        .slice()
+        .sort((a, b) => a.issueId.localeCompare(b.issueId))
+      const allIssued = sortedRows.length > 0 && sortedRows.every((row) => row.status === 'ISSUED')
+      const status: ProgressMaterialStatementDraft['status'] = allIssued ? 'CONFIRMED' : 'DRAFT'
+      const newest = sortedRows.reduce((acc, row) =>
+        parseDateMs(row.updatedAt) > parseDateMs(acc.updatedAt) ? row : acc, sortedRows[0])
+      const issueIds = sortedRows.map((row) => row.issueId)
+      const items = sortedRows.map((row) => ({
+        issueId: row.issueId,
+        taskId: row.taskId,
+        materialSummaryZh: row.materialSummaryZh,
+        requestedQty: row.requestedQty,
+        issuedQty: row.issuedQty,
+      }))
+      return {
+        materialStatementId: `MST-${productionOrderId}`,
+        productionOrderId,
+        itemCount: items.length,
+        totalRequestedQty: items.reduce((sum, item) => sum + item.requestedQty, 0),
+        totalIssuedQty: items.reduce((sum, item) => sum + item.issuedQty, 0),
+        status,
+        issueIds,
+        items,
+        remark: '来源新链路执行事实自动汇总',
+        createdAt: newest.updatedAt,
+        createdBy: newest.createdBy,
+        updatedAt: newest.updatedAt,
+        updatedBy: newest.createdBy,
+      } satisfies ProgressMaterialStatementDraft
+    })
+    .sort((a, b) => parseDateMs(b.updatedAt) - parseDateMs(a.updatedAt))
 }
 
 function buildAutoCaseKey(runtimeTaskId: string, subCategoryKey: SubCategoryKey): string {
@@ -1705,7 +1899,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           key: buildAutoCaseKey(fact.runtimeTaskId, 'HANDOUT_PENDING_CHECK'),
           reasonCode: 'HANDOVER_DIFF',
           category: 'HANDOVER',
-          unifiedCategory: 'HANDOVER',
+          unifiedCategory: 'HANDOUT',
           subCategoryKey: 'HANDOUT_PENDING_CHECK',
           severity: 'S2',
           sourceId: fact.runtimeTaskId,
@@ -1730,7 +1924,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           key: buildAutoCaseKey(fact.runtimeTaskId, 'HANDOUT_DIFF'),
           reasonCode: 'HANDOVER_DIFF',
           category: 'HANDOVER',
-          unifiedCategory: 'HANDOVER',
+          unifiedCategory: 'HANDOUT',
           subCategoryKey: 'HANDOUT_DIFF',
           severity: 'S2',
           sourceId: fact.runtimeTaskId,

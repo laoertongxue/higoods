@@ -6,6 +6,10 @@ import {
   type WarehouseReturnOrder,
 } from './warehouse-material-execution'
 import {
+  PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
+  type ProcessAssignmentGranularity,
+} from './process-craft-dict'
+import {
   getRuntimeTaskById,
   type RuntimeExecutorKind,
   type RuntimeProcessTask,
@@ -101,6 +105,17 @@ export interface PdaHandoverHead {
   executorKind?: RuntimeExecutorKind
   transitionFromPrev?: 'RETURN_TO_WAREHOUSE' | 'SAME_FACTORY_CONTINUE' | 'NOT_APPLICABLE'
   transitionToNext?: 'RETURN_TO_WAREHOUSE' | 'SAME_FACTORY_CONTINUE' | 'NOT_APPLICABLE'
+  stageCode?: 'PREP' | 'PROD' | 'POST'
+  stageName?: string
+  processBusinessCode?: string
+  processBusinessName?: string
+  craftCode?: string
+  craftName?: string
+  taskTypeCode?: string
+  taskTypeLabel?: string
+  assignmentGranularity?: ProcessAssignmentGranularity
+  assignmentGranularityLabel?: string
+  isSpecialCraft?: boolean
 }
 
 export interface PdaHandoverRecord {
@@ -235,6 +250,7 @@ function mapTaskStatus(task: RuntimeProcessTask | null): 'IN_PROGRESS' | 'DONE' 
 
 function buildPickupHeadFromIssue(doc: WarehouseIssueOrder): PdaHandoverHead {
   const runtimeTask = getRuntimeTaskById(doc.runtimeTaskId)
+  const assignmentGranularity = runtimeTask?.assignmentGranularity
   return {
     handoverId: makePickupHeadId(doc.id),
     headType: 'PICKUP',
@@ -266,11 +282,29 @@ function buildPickupHeadFromIssue(doc: WarehouseIssueOrder): PdaHandoverHead {
     executorKind: doc.executorKind,
     transitionFromPrev: runtimeTask?.transitionFromPrev,
     transitionToNext: runtimeTask?.transitionToNext,
+    stageCode: runtimeTask?.stageCode,
+    stageName: runtimeTask?.stageName,
+    processBusinessCode: runtimeTask?.processBusinessCode,
+    processBusinessName: runtimeTask?.processBusinessName,
+    craftCode: runtimeTask?.craftCode,
+    craftName: runtimeTask?.craftName,
+    taskTypeCode: runtimeTask
+      ? runtimeTask.isSpecialCraft
+        ? runtimeTask.craftCode || runtimeTask.processBusinessCode
+        : runtimeTask.processBusinessCode
+      : undefined,
+    taskTypeLabel: runtimeTask?.taskCategoryZh,
+    assignmentGranularity,
+    assignmentGranularityLabel: assignmentGranularity
+      ? PROCESS_ASSIGNMENT_GRANULARITY_LABEL[assignmentGranularity]
+      : undefined,
+    isSpecialCraft: runtimeTask?.isSpecialCraft,
   }
 }
 
 function buildHandoutHeadFromReturn(doc: WarehouseReturnOrder): PdaHandoverHead {
   const runtimeTask = getRuntimeTaskById(doc.runtimeTaskId)
+  const assignmentGranularity = runtimeTask?.assignmentGranularity
   return {
     handoverId: makeHandoutHeadId(doc.id),
     headType: 'HANDOUT',
@@ -302,7 +336,39 @@ function buildHandoutHeadFromReturn(doc: WarehouseReturnOrder): PdaHandoverHead 
     executorKind: doc.executorKind,
     transitionFromPrev: runtimeTask?.transitionFromPrev,
     transitionToNext: runtimeTask?.transitionToNext,
+    stageCode: runtimeTask?.stageCode,
+    stageName: runtimeTask?.stageName,
+    processBusinessCode: runtimeTask?.processBusinessCode,
+    processBusinessName: runtimeTask?.processBusinessName,
+    craftCode: runtimeTask?.craftCode,
+    craftName: runtimeTask?.craftName,
+    taskTypeCode: runtimeTask
+      ? runtimeTask.isSpecialCraft
+        ? runtimeTask.craftCode || runtimeTask.processBusinessCode
+        : runtimeTask.processBusinessCode
+      : undefined,
+    taskTypeLabel: runtimeTask?.taskCategoryZh,
+    assignmentGranularity,
+    assignmentGranularityLabel: assignmentGranularity
+      ? PROCESS_ASSIGNMENT_GRANULARITY_LABEL[assignmentGranularity]
+      : undefined,
+    isSpecialCraft: runtimeTask?.isSpecialCraft,
   }
+}
+
+function isPrepProcessCode(code: string | undefined): boolean {
+  if (!code) return false
+  return code === 'PRINT' || code === 'DYE' || code === 'PROC_PRINT' || code === 'PROC_DYE'
+}
+
+function shouldIncludePdaDoc(
+  doc: WarehouseIssueOrder | WarehouseReturnOrder,
+  runtimeTask: RuntimeProcessTask | null,
+): boolean {
+  if (runtimeTask?.stageCode === 'PREP') return false
+  if (isPrepProcessCode(runtimeTask?.processBusinessCode) || isPrepProcessCode(runtimeTask?.processCode)) return false
+  if (isPrepProcessCode(doc.processCode)) return false
+  return true
 }
 
 function mapIssueLineStatus(doc: WarehouseIssueOrder, line: WarehouseIssueOrder['lines'][number]): PdaPickupRecordStatus {
@@ -522,11 +588,12 @@ function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
 function buildHeadsInternal(): PdaHandoverHead[] {
   const pickupHeads = listWarehouseIssueOrders()
     .filter((doc) => doc.targetType === 'EXTERNAL_FACTORY')
+    .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
     .map((doc) => refreshPickupHeadSummary(buildPickupHeadFromIssue(doc)))
 
-  const handoutHeads = listWarehouseReturnOrders().map((doc) =>
-    refreshHandoutHeadSummary(buildHandoutHeadFromReturn(doc)),
-  )
+  const handoutHeads = listWarehouseReturnOrders()
+    .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
+    .map((doc) => refreshHandoutHeadSummary(buildHandoutHeadFromReturn(doc)))
 
   return [...pickupHeads, ...handoutHeads]
 }

@@ -807,6 +807,50 @@ export const productionOrders: ProductionOrder[] = [
     createdAt: '2026-02-26 15:00:00',
     updatedAt: '2026-03-06 09:00:00',
   },
+  // PO-0015: WAIT_ASSIGNMENT（混合场景：准备阶段 + 普通工艺 + 特殊工艺 + 后道）
+  {
+    productionOrderId: 'PO-202603-0015',
+    demandId: 'DEM-202603-0018',
+    legacyOrderNo: '240793',
+    status: 'WAIT_ASSIGNMENT',
+    lockedLegacy: false,
+    mainFactoryId: 'ID-F001',
+    mainFactorySnapshot: createFactorySnapshot(indonesiaFactories.find((f) => f.id === 'ID-F001')!),
+    ownerPartyType: 'FACTORY',
+    ownerPartyId: 'ID-F001',
+    planStartDate: '2026-03-16',
+    planEndDate: '2026-04-08',
+    techPackSnapshot: {
+      status: 'RELEASED',
+      versionLabel: 'v1.0',
+      snapshotAt: '2026-03-15 09:00:00',
+    },
+    demandSnapshot: {
+      demandId: 'DEM-202603-0018',
+      spuCode: 'SPU-2024-001',
+      spuName: '春季休闲T恤',
+      priority: 'P1',
+      requiredDeliveryDate: '2026-04-12',
+      constraintsNote: '白黑双色同批，含激光切和打揽特殊工艺。',
+      skuLines: [
+        { skuCode: 'SKU-001-S-WHT', size: 'S', color: 'White', qty: 300 },
+        { skuCode: 'SKU-001-M-WHT', size: 'M', color: 'White', qty: 400 },
+        { skuCode: 'SKU-001-L-BLK', size: 'L', color: 'Black', qty: 450 },
+        { skuCode: 'SKU-001-XL-BLK', size: 'XL', color: 'Black', qty: 250 },
+      ],
+    },
+    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 0, unassignedCount: 0 },
+    assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
+    biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
+    directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
+    taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
+    riskFlags: [],
+    auditLogs: [
+      { id: 'LOG-040', action: 'CREATE', detail: '混合场景生产单创建', at: '2026-03-15 09:00:00', by: 'Yudi Prakoso' },
+    ],
+    createdAt: '2026-03-15 09:00:00',
+    updatedAt: '2026-03-15 09:00:00',
+  },
 ]
 
 // 生产单状态配置（中文）

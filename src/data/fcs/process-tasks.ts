@@ -1,7 +1,15 @@
 // 工序/工艺单实例 - ProcessTask
 
-import type { AssignmentMode, ProcessStage } from './process-types'
+import {
+  getProcessTypeByCode,
+  type AssignmentMode,
+  type ProcessStage,
+} from './process-types'
 import type { OwnerSuggestion } from './routing-templates'
+import {
+  generateTaskArtifactsForAllOrders,
+  type GeneratedTaskArtifact,
+} from './production-artifact-generation'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
@@ -128,6 +136,19 @@ export interface ProcessTask {
   sourceProductionOrderId?: string   // 来源生产单ID
   taskKind?: 'NORMAL'
   taskCategoryZh?: string            // 任务分类展示
+  // 第3步统一生成引擎追溯字段
+  sourceEntryId?: string
+  sourceEntryType?: 'PROCESS_BASELINE' | 'CRAFT'
+  stageCode?: 'PREP' | 'PROD' | 'POST'
+  stageName?: string
+  processBusinessCode?: string
+  processBusinessName?: string
+  craftCode?: string
+  craftName?: string
+  assignmentGranularity?: 'ORDER' | 'COLOR' | 'SKU'
+  defaultDocType?: 'DEMAND' | 'TASK'
+  taskTypeMode?: 'PROCESS' | 'CRAFT'
+  isSpecialCraft?: boolean
   createdAt: string
   updatedAt: string
   auditLogs: TaskAuditLog[]
@@ -135,7 +156,7 @@ export interface ProcessTask {
 
 // 预置工序任务（base task seeds）
 // 说明：这里仍然保持“整单工序任务”语义，运行时按 SKU/COLOR/ORDER 展开由 runtime-process-tasks.ts 负责。
-export const processTasks: ProcessTask[] = [
+const legacyProcessTasks: ProcessTask[] = [
   // PO-2024-0001：已拆解，全部DIRECT
   {
     taskId: 'TASK-0001-001',
@@ -2110,6 +2131,121 @@ export const processTasks: ProcessTask[] = [
   auditLogs: [],
 } as any,
 ]
+
+const GENERATED_TASK_CREATED_AT = '2026-03-01 00:00:00'
+
+function mapArtifactToTaskStage(artifact: GeneratedTaskArtifact): ProcessStage {
+  const mappedBySystemCode = getProcessTypeByCode(artifact.systemProcessCode)?.stage
+  if (mappedBySystemCode) return mappedBySystemCode
+  if (artifact.stageCode === 'PREP') return 'PREP'
+  if (artifact.stageCode === 'POST') return 'POST'
+  if (artifact.processCode === 'CUT_PANEL') return 'CUTTING'
+  if (artifact.isSpecialCraft || artifact.processCode === 'SPECIAL_CRAFT') return 'SPECIAL'
+  return 'SEWING'
+}
+
+function toGeneratedOwnerSuggestion(artifact: GeneratedTaskArtifact): OwnerSuggestion {
+  if (artifact.isSpecialCraft) {
+    return {
+      kind: 'RECOMMENDED_FACTORY_POOL',
+      recommendedTier: 'CENTRAL',
+      recommendedTypes: ['SPECIAL_PROCESS'],
+    }
+  }
+
+  if (artifact.stageCode === 'POST') {
+    return {
+      kind: 'RECOMMENDED_FACTORY_POOL',
+      recommendedTier: 'ANY',
+      recommendedTypes: ['FINISHING', 'WAREHOUSE'],
+    }
+  }
+
+  return { kind: 'MAIN_FACTORY' }
+}
+
+function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
+  const artifacts = generateTaskArtifactsForAllOrders()
+  if (!artifacts.length) return []
+
+  const tasks: ProcessTask[] = []
+  const artifactsByOrder = new Map<string, GeneratedTaskArtifact[]>()
+
+  for (const artifact of artifacts) {
+    const current = artifactsByOrder.get(artifact.orderId) ?? []
+    current.push(artifact)
+    artifactsByOrder.set(artifact.orderId, current)
+  }
+
+  for (const [orderId, orderArtifacts] of artifactsByOrder.entries()) {
+    orderArtifacts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    const generatedIds: string[] = []
+
+    orderArtifacts.forEach((artifact, index) => {
+      const seq = index + 1
+      const taskId = `TASKGEN-${orderId.replace('PO-', '')}-${String(seq).padStart(3, '0')}`
+      generatedIds.push(taskId)
+      const prevTaskId = generatedIds[index - 1]
+      const assignmentMode: AssignmentMode = artifact.isSpecialCraft ? 'BIDDING' : 'DIRECT'
+
+      tasks.push({
+        taskId,
+        productionOrderId: orderId,
+        seq,
+        processCode: artifact.systemProcessCode,
+        processNameZh: artifact.processName,
+        stage: mapArtifactToTaskStage(artifact),
+        qty: Math.max(artifact.orderQty, 0),
+        qtyUnit: 'PIECE',
+        assignmentMode,
+        assignmentStatus: 'UNASSIGNED',
+        ownerSuggestion: toGeneratedOwnerSuggestion(artifact),
+        qcPoints: [],
+        attachments: [],
+        status: 'NOT_STARTED',
+        dependsOnTaskIds: prevTaskId ? [prevTaskId] : [],
+        taskKind: 'NORMAL',
+        taskCategoryZh: artifact.taskTypeLabel,
+        sourceEntryId: artifact.sourceEntryId,
+        sourceEntryType: artifact.sourceEntryType,
+        stageCode: artifact.stageCode,
+        stageName: artifact.stageName,
+        processBusinessCode: artifact.processCode,
+        processBusinessName: artifact.processName,
+        craftCode: artifact.craftCode,
+        craftName: artifact.craftName,
+        assignmentGranularity: artifact.assignmentGranularity,
+        defaultDocType: artifact.defaultDocType,
+        taskTypeMode: artifact.taskTypeMode,
+        isSpecialCraft: artifact.isSpecialCraft,
+        createdAt: GENERATED_TASK_CREATED_AT,
+        updatedAt: GENERATED_TASK_CREATED_AT,
+        auditLogs: [
+          {
+            id: `GAL-${taskId}-001`,
+            action: 'GENERATE',
+            detail: `由技术包配置 ${artifact.sourceEntryId} 统一生成`,
+            at: GENERATED_TASK_CREATED_AT,
+            by: '系统',
+          },
+        ],
+      })
+    })
+  }
+
+  return tasks
+}
+
+function createInitialProcessTasks(): ProcessTask[] {
+  const generatedTasks = createGeneratedProcessTasksFromArtifacts()
+  if (!generatedTasks.length) return legacyProcessTasks.slice()
+
+  const generatedOrderIds = new Set(generatedTasks.map((task) => task.productionOrderId))
+  const fallbackLegacyTasks = legacyProcessTasks.filter((task) => !generatedOrderIds.has(task.productionOrderId))
+  return [...generatedTasks, ...fallbackLegacyTasks]
+}
+
+export const processTasks: ProcessTask[] = createInitialProcessTasks()
 
 // 根据生产单ID获取任务列表
 export function getTasksByOrderId(productionOrderId: string): ProcessTask[] {

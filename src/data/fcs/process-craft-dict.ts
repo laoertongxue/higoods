@@ -1,37 +1,51 @@
-import {
-  getProcessAssignmentGranularity,
-  type ProcessAssignmentGranularity,
-} from './process-types'
-
+export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU'
 export type CraftStageCode = 'PREP' | 'PROD' | 'POST'
+export type ProcessDocType = 'DEMAND' | 'TASK'
+export type TaskTypeMode = 'PROCESS' | 'CRAFT'
 
-export type CraftStageDictItem = {
+export interface ProcessStageDefinition {
   stageCode: CraftStageCode
   stageName: string
   sort: number
   description: string
 }
 
-export type CraftProcessDictItem = {
+export interface ProcessDefinition {
   processCode: string
+  systemProcessCode: string
   processName: string
   stageCode: CraftStageCode
-  stageName: string
   sort: number
-  isGarmentManufacturing: boolean
-  defaultDocument: string
-  note?: string
+  assignmentGranularity: ProcessAssignmentGranularity
+  defaultDocType: ProcessDocType
+  taskTypeMode: TaskTypeMode
+  isSpecialCraftContainer: boolean
+  description?: string
   triggerSource?: string
+  defaultDocLabel: string
 }
 
-export type LegacyCraftMappingItem = {
+export interface ProcessCraftDefinition {
+  craftCode: string
+  craftName: string
+  legacyValue: number
+  legacyCraftName: string
+  processCode: string
+  systemProcessCode: string
+  stageCode: CraftStageCode
+  assignmentGranularity: ProcessAssignmentGranularity
+  defaultDocType: ProcessDocType
+  taskTypeMode: TaskTypeMode
+  isSpecialCraft: boolean
+  carrySuggestion: string
+  remark?: string
+}
+
+export interface LegacyCraftMappingDefinition {
   legacyValue: number
   legacyCraftName: string
   craftName: string
   processCode: string
-  processName: string
-  stageCode: CraftStageCode
-  stageName: string
   isSpecialCraft: boolean
   defaultDocument: string
   remark?: string
@@ -51,19 +65,37 @@ export type ProcessCraftDictRow = {
   legacyCraftName: string
   isSpecialCraft: boolean
   defaultDocument: string
+  defaultDocType: ProcessDocType
+  taskTypeMode: TaskTypeMode
   remark?: string
   processNote?: string
   triggerSource?: string
 }
 
-const PROCESS_TO_RUNTIME_CODE: Record<string, string | undefined> = {
+export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranularity, string> = {
+  ORDER: '按生产单',
+  COLOR: '按颜色',
+  SKU: '按SKU',
+}
+
+export const PROCESS_DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
+  DEMAND: '需求单',
+  TASK: '任务单',
+}
+
+export const TASK_TYPE_MODE_LABEL: Record<TaskTypeMode, string> = {
+  PROCESS: '按工序',
+  CRAFT: '按工艺',
+}
+
+const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
   PRINT: 'PROC_PRINT',
   DYE: 'PROC_DYE',
   CUT_PANEL: 'PROC_CUT',
   EMBROIDERY: 'PROC_EMBROIDER',
   PLEATING: 'PROC_PLEAT',
   SEW: 'PROC_SEW',
-  SPECIAL_CRAFT: undefined,
+  SPECIAL_CRAFT: 'PROC_SPECIAL_CRAFT',
   SHRINKING: 'PROC_SHRINK',
   WASHING: 'PROC_WASH',
   BUTTONHOLE: 'PROC_BUTTONHOLE',
@@ -72,7 +104,31 @@ const PROCESS_TO_RUNTIME_CODE: Record<string, string | undefined> = {
   FROG_BUTTON: 'PROC_PANKOU',
 }
 
-const HANDOFF_ADVICE_BY_PROCESS: Record<string, string> = {
+const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
+  1: 'PROC_POSITION_CUT',
+  2: 'PROC_EMBROIDER',
+  4: 'PROC_PLEAT',
+  8: 'PROC_DALAN',
+  16: 'PROC_DIRECTION_CUT',
+  32: 'PROC_DATIAO',
+  64: 'PROC_LASER_CUT',
+  128: 'PROC_WASH',
+  256: 'PROC_HAND_BUTTON',
+  512: 'PROC_MACHINE_BUTTON',
+  1024: 'PROC_FOUR_CLAW',
+  2048: 'PROC_EYELET',
+  4096: 'PROC_SHRINK',
+  8192: 'PROC_TANHUA',
+  16384: 'PROC_DIRECT_PRINT',
+  32768: 'PROC_CLOTH_BUTTON',
+  65536: 'PROC_PANKOU',
+  131072: 'PROC_KUNTIAO',
+  262144: 'PROC_QUYA',
+  524288: 'PROC_BUTTONHOLE',
+  1048576: 'PROC_SHELL_EMBROIDER',
+}
+
+const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
   PRINT: '印花厂优先',
   DYE: '染色厂优先',
   CUT_PANEL: '裁片厂优先',
@@ -88,13 +144,19 @@ const HANDOFF_ADVICE_BY_PROCESS: Record<string, string> = {
   FROG_BUTTON: '盘扣工艺厂优先',
 }
 
-export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranularity, string> = {
-  ORDER: '按生产单',
-  COLOR: '按颜色',
-  SKU: '按SKU',
+function toProcessDocType(documentLabel: string): ProcessDocType {
+  return documentLabel === '需求单' ? 'DEMAND' : 'TASK'
 }
 
-export const craftStageDict: CraftStageDictItem[] = [
+function toTaskTypeMode(isSpecialCraft: boolean): TaskTypeMode {
+  return isSpecialCraft ? 'CRAFT' : 'PROCESS'
+}
+
+function toCraftCode(legacyValue: number): string {
+  return `CRAFT_${String(legacyValue).padStart(6, '0')}`
+}
+
+export const processStageDefinitions: ProcessStageDefinition[] = [
   {
     stageCode: 'PREP',
     stageName: '准备阶段',
@@ -115,195 +177,226 @@ export const craftStageDict: CraftStageDictItem[] = [
   },
 ]
 
-export const craftProcessDict: CraftProcessDictItem[] = [
+const processDefinitionSeeds: Array<
+  Omit<ProcessDefinition, 'systemProcessCode' | 'assignmentGranularity' | 'defaultDocType' | 'taskTypeMode' | 'isSpecialCraftContainer' | 'defaultDocLabel'> & {
+    defaultDocument: string
+    isGarmentManufacturing: boolean
+  }
+> = [
   {
     processCode: 'PRINT',
     processName: '印花',
     stageCode: 'PREP',
-    stageName: '准备阶段',
     sort: 10,
     isGarmentManufacturing: false,
     defaultDocument: '需求单',
-    note: '由BOM上的印花要求触发',
+    description: '由BOM上的印花要求触发',
     triggerSource: 'BOM上存在印花要求',
   },
   {
     processCode: 'DYE',
     processName: '染色',
     stageCode: 'PREP',
-    stageName: '准备阶段',
     sort: 20,
     isGarmentManufacturing: false,
     defaultDocument: '需求单',
-    note: '由BOM上的染色要求触发',
+    description: '由BOM上的染色要求触发',
     triggerSource: 'BOM上存在染色要求',
   },
-  {
-    processCode: 'CUT_PANEL',
-    processName: '裁片',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    sort: 10,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
-  {
-    processCode: 'EMBROIDERY',
-    processName: '绣花',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    sort: 20,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
-  {
-    processCode: 'PLEATING',
-    processName: '压褶',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    sort: 30,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
-  {
-    processCode: 'SEW',
-    processName: '车缝',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    sort: 40,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
+  { processCode: 'CUT_PANEL', processName: '裁片', stageCode: 'PROD', sort: 10, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'EMBROIDERY', processName: '绣花', stageCode: 'PROD', sort: 20, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'PLEATING', processName: '压褶', stageCode: 'PROD', sort: 30, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'SEW', processName: '车缝', stageCode: 'PROD', sort: 40, isGarmentManufacturing: true, defaultDocument: '任务单' },
   {
     processCode: 'SPECIAL_CRAFT',
     processName: '特殊工艺',
     stageCode: 'PROD',
-    stageName: '生产阶段',
     sort: 50,
     isGarmentManufacturing: true,
     defaultDocument: '任务单',
-    note: '用于打揽、打条、捆条、激光切、烫画、直喷等',
+    description: '用于打揽、打条、捆条、激光切、烫画、直喷等',
   },
-  {
-    processCode: 'SHRINKING',
-    processName: '缩水',
-    stageCode: 'PROD',
-    stageName: '生产阶段',
-    sort: 60,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
-  {
-    processCode: 'WASHING',
-    processName: '洗水',
-    stageCode: 'POST',
-    stageName: '后道阶段',
-    sort: 10,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
-  {
-    processCode: 'BUTTONHOLE',
-    processName: '开扣眼',
-    stageCode: 'POST',
-    stageName: '后道阶段',
-    sort: 20,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
-  {
-    processCode: 'BUTTON_ATTACH',
-    processName: '钉扣',
-    stageCode: 'POST',
-    stageName: '后道阶段',
-    sort: 30,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
-  {
-    processCode: 'HARDWARE',
-    processName: '五金',
-    stageCode: 'POST',
-    stageName: '后道阶段',
-    sort: 40,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
-  {
-    processCode: 'FROG_BUTTON',
-    processName: '盘扣',
-    stageCode: 'POST',
-    stageName: '后道阶段',
-    sort: 50,
-    isGarmentManufacturing: true,
-    defaultDocument: '任务单',
-  },
+  { processCode: 'SHRINKING', processName: '缩水', stageCode: 'PROD', sort: 60, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'WASHING', processName: '洗水', stageCode: 'POST', sort: 10, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'BUTTONHOLE', processName: '开扣眼', stageCode: 'POST', sort: 20, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'BUTTON_ATTACH', processName: '钉扣', stageCode: 'POST', sort: 30, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'HARDWARE', processName: '五金', stageCode: 'POST', sort: 40, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'FROG_BUTTON', processName: '盘扣', stageCode: 'POST', sort: 50, isGarmentManufacturing: true, defaultDocument: '任务单' },
 ]
 
-export const legacyProcessCraftMappings: LegacyCraftMappingItem[] = [
-  { legacyValue: 1, legacyCraftName: '定位裁', craftName: '定位裁', processCode: 'CUT_PANEL', processName: '裁片', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 2, legacyCraftName: '绣花', craftName: '绣花', processCode: 'EMBROIDERY', processName: '绣花', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 4, legacyCraftName: '压褶', craftName: '压褶', processCode: 'PLEATING', processName: '压褶', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 8, legacyCraftName: '打揽', craftName: '打揽', processCode: 'SPECIAL_CRAFT', processName: '特殊工艺', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
-  { legacyValue: 16, legacyCraftName: '定向裁', craftName: '定向裁', processCode: 'CUT_PANEL', processName: '裁片', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 32, legacyCraftName: '打条', craftName: '打条', processCode: 'SPECIAL_CRAFT', processName: '特殊工艺', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
-  { legacyValue: 64, legacyCraftName: '激光切', craftName: '激光切', processCode: 'SPECIAL_CRAFT', processName: '特殊工艺', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
-  { legacyValue: 128, legacyCraftName: '洗水', craftName: '洗水', processCode: 'WASHING', processName: '洗水', stageCode: 'POST', stageName: '后道阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 256, legacyCraftName: '手缝扣', craftName: '手缝扣', processCode: 'BUTTON_ATTACH', processName: '钉扣', stageCode: 'POST', stageName: '后道阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 512, legacyCraftName: '机打扣', craftName: '机打扣', processCode: 'BUTTON_ATTACH', processName: '钉扣', stageCode: 'POST', stageName: '后道阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 1024, legacyCraftName: '四爪扣', craftName: '四爪扣', processCode: 'BUTTON_ATTACH', processName: '钉扣', stageCode: 'POST', stageName: '后道阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 2048, legacyCraftName: '鸡眼扣', craftName: '鸡眼扣', processCode: 'HARDWARE', processName: '五金', stageCode: 'POST', stageName: '后道阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 4096, legacyCraftName: '缩水', craftName: '缩水', processCode: 'SHRINKING', processName: '缩水', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: false, defaultDocument: '任务单', remark: '准备阶段只保留印花和染色，因此缩水归生产阶段' },
-  { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', processName: '特殊工艺', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺生成任务单' },
-  { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', processName: '特殊工艺', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺生成任务单' },
-  { legacyValue: 32768, legacyCraftName: '布包扣', craftName: '布包扣', processCode: 'BUTTON_ATTACH', processName: '钉扣', stageCode: 'POST', stageName: '后道阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 65536, legacyCraftName: '手工盘扣', craftName: '手工盘扣', processCode: 'FROG_BUTTON', processName: '盘扣', stageCode: 'POST', stageName: '后道阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', processName: '特殊工艺', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
-  { legacyValue: 262144, legacyCraftName: '曲牙', craftName: '曲牙', processCode: 'SEW', processName: '车缝', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按车缝归类' },
-  { legacyValue: 524288, legacyCraftName: '开扣眼', craftName: '开扣眼', processCode: 'BUTTONHOLE', processName: '开扣眼', stageCode: 'POST', stageName: '后道阶段', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 1048576, legacyCraftName: '贝壳绣', craftName: '贝壳绣', processCode: 'EMBROIDERY', processName: '绣花', stageCode: 'PROD', stageName: '生产阶段', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按绣花归类' },
-]
-
-function toCraftCode(legacyValue: number): string {
-  return `CRAFT_${String(legacyValue).padStart(6, '0')}`
-}
-
-function resolveGranularity(processCode: string): ProcessAssignmentGranularity {
-  const runtimeCode = PROCESS_TO_RUNTIME_CODE[processCode]
-  if (runtimeCode) return getProcessAssignmentGranularity(runtimeCode)
+function resolveProcessGranularity(processCode: string): ProcessAssignmentGranularity {
   if (processCode === 'PRINT' || processCode === 'DYE') return 'COLOR'
+  if (processCode === 'SEW') return 'SKU'
   return 'ORDER'
 }
 
-function resolveHandoffAdvice(processCode: string): string {
-  return HANDOFF_ADVICE_BY_PROCESS[processCode] ?? '工艺匹配工厂优先'
-}
+export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.map((seed) => {
+  const defaultDocType = toProcessDocType(seed.defaultDocument)
+  const isSpecialCraftContainer = seed.processCode === 'SPECIAL_CRAFT'
+  return {
+    processCode: seed.processCode,
+    systemProcessCode: PROCESS_SYSTEM_CODE_MAP[seed.processCode] ?? `PROC_${seed.processCode}`,
+    processName: seed.processName,
+    stageCode: seed.stageCode,
+    sort: seed.sort,
+    assignmentGranularity: resolveProcessGranularity(seed.processCode),
+    defaultDocType,
+    taskTypeMode: isSpecialCraftContainer ? 'CRAFT' : 'PROCESS',
+    isSpecialCraftContainer,
+    description: seed.description,
+    triggerSource: seed.triggerSource,
+    defaultDocLabel: PROCESS_DOC_TYPE_LABEL[defaultDocType],
+  }
+})
 
-export const processCraftDictRows: ProcessCraftDictRow[] = legacyProcessCraftMappings
+export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
+  { legacyValue: 1, legacyCraftName: '定位裁', craftName: '定位裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 2, legacyCraftName: '绣花', craftName: '绣花', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 4, legacyCraftName: '压褶', craftName: '压褶', processCode: 'PLEATING', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 8, legacyCraftName: '打揽', craftName: '打揽', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
+  { legacyValue: 16, legacyCraftName: '定向裁', craftName: '定向裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 32, legacyCraftName: '打条', craftName: '打条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
+  { legacyValue: 64, legacyCraftName: '激光切', craftName: '激光切', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
+  { legacyValue: 128, legacyCraftName: '洗水', craftName: '洗水', processCode: 'WASHING', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 256, legacyCraftName: '手缝扣', craftName: '手缝扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 512, legacyCraftName: '机打扣', craftName: '机打扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 1024, legacyCraftName: '四爪扣', craftName: '四爪扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 2048, legacyCraftName: '鸡眼扣', craftName: '鸡眼扣', processCode: 'HARDWARE', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 4096, legacyCraftName: '缩水', craftName: '缩水', processCode: 'SHRINKING', isSpecialCraft: false, defaultDocument: '任务单', remark: '准备阶段只保留印花和染色，因此缩水归生产阶段' },
+  { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺生成任务单' },
+  { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺生成任务单' },
+  { legacyValue: 32768, legacyCraftName: '布包扣', craftName: '布包扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 65536, legacyCraftName: '手工盘扣', craftName: '手工盘扣', processCode: 'FROG_BUTTON', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
+  { legacyValue: 262144, legacyCraftName: '曲牙', craftName: '曲牙', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按车缝归类' },
+  { legacyValue: 524288, legacyCraftName: '开扣眼', craftName: '开扣眼', processCode: 'BUTTONHOLE', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 1048576, legacyCraftName: '贝壳绣', craftName: '贝壳绣', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按绣花归类' },
+]
+
+const processDefinitionByCode = new Map(processDefinitions.map((item) => [item.processCode, item]))
+const processDefinitionBySystemCode = new Map(processDefinitions.map((item) => [item.systemProcessCode, item]))
+const stageDefinitionByCode = new Map(processStageDefinitions.map((item) => [item.stageCode, item]))
+
+export const processCraftDefinitions: ProcessCraftDefinition[] = legacyProcessCraftMappings
   .slice()
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
-    const process = craftProcessDict.find((entry) => entry.processCode === item.processCode)
-    const assignmentGranularity = resolveGranularity(item.processCode)
+    const process = processDefinitionByCode.get(item.processCode)
+    const assignmentGranularity = process?.assignmentGranularity ?? 'ORDER'
+    const defaultDocType = toProcessDocType(item.defaultDocument)
     return {
       craftCode: toCraftCode(item.legacyValue),
       craftName: item.craftName,
-      processCode: item.processCode,
-      processName: item.processName,
-      stageCode: item.stageCode,
-      stageName: item.stageName,
-      assignmentGranularity,
-      assignmentGranularityLabel: PROCESS_ASSIGNMENT_GRANULARITY_LABEL[assignmentGranularity],
-      handoffAdvice: resolveHandoffAdvice(item.processCode),
       legacyValue: item.legacyValue,
       legacyCraftName: item.legacyCraftName,
+      processCode: item.processCode,
+      systemProcessCode: CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE[item.legacyValue] ?? process?.systemProcessCode ?? `PROC_${item.processCode}`,
+      stageCode: process?.stageCode ?? 'PROD',
+      assignmentGranularity,
+      defaultDocType,
+      taskTypeMode: toTaskTypeMode(item.isSpecialCraft),
       isSpecialCraft: item.isSpecialCraft,
-      defaultDocument: item.defaultDocument,
+      carrySuggestion: CARRY_SUGGESTION_BY_PROCESS_CODE[item.processCode] ?? '工艺匹配工厂优先',
       remark: item.remark,
-      processNote: process?.note,
-      triggerSource: process?.triggerSource,
     }
   })
+
+const processCraftByCode = new Map(processCraftDefinitions.map((item) => [item.craftCode, item]))
+const processCraftByLegacyValue = new Map(processCraftDefinitions.map((item) => [item.legacyValue, item]))
+
+export const craftStageDict = processStageDefinitions
+
+export function listProcessStages(): ProcessStageDefinition[] {
+  return processStageDefinitions.slice().sort((a, b) => a.sort - b.sort)
+}
+
+export function getProcessStageByCode(stageCode: CraftStageCode): ProcessStageDefinition | undefined {
+  return stageDefinitionByCode.get(stageCode)
+}
+
+export function listProcessDefinitions(): ProcessDefinition[] {
+  return processDefinitions
+    .slice()
+    .sort((a, b) => {
+      const stageA = stageDefinitionByCode.get(a.stageCode)?.sort ?? 999
+      const stageB = stageDefinitionByCode.get(b.stageCode)?.sort ?? 999
+      if (stageA !== stageB) return stageA - stageB
+      return a.sort - b.sort
+    })
+}
+
+export function getProcessDefinitionByCode(processCode: string): ProcessDefinition | undefined {
+  return processDefinitionByCode.get(processCode)
+}
+
+export function getProcessDefinitionBySystemCode(systemProcessCode: string): ProcessDefinition | undefined {
+  return processDefinitionBySystemCode.get(systemProcessCode)
+}
+
+export function listProcessesByStageCode(stageCode: CraftStageCode): ProcessDefinition[] {
+  return listProcessDefinitions().filter((item) => item.stageCode === stageCode)
+}
+
+export function listProcessCraftDefinitions(): ProcessCraftDefinition[] {
+  return processCraftDefinitions.slice()
+}
+
+export function getProcessCraftByCode(craftCode: string): ProcessCraftDefinition | undefined {
+  return processCraftByCode.get(craftCode)
+}
+
+export function getProcessCraftByLegacyValue(legacyValue: number): ProcessCraftDefinition | undefined {
+  return processCraftByLegacyValue.get(legacyValue)
+}
+
+export function listCraftsByProcessCode(processCode: string): ProcessCraftDefinition[] {
+  return processCraftDefinitions.filter((item) => item.processCode === processCode)
+}
+
+export function listCraftsByStageCode(stageCode: CraftStageCode): ProcessCraftDefinition[] {
+  return processCraftDefinitions.filter((item) => item.stageCode === stageCode)
+}
+
+export function getAssignmentGranularityByCraftCode(craftCode: string): ProcessAssignmentGranularity {
+  return processCraftByCode.get(craftCode)?.assignmentGranularity ?? 'ORDER'
+}
+
+export function getDefaultDocTypeByCraftCode(craftCode: string): ProcessDocType {
+  return processCraftByCode.get(craftCode)?.defaultDocType ?? 'TASK'
+}
+
+export function getTaskTypeModeByCraftCode(craftCode: string): TaskTypeMode {
+  return processCraftByCode.get(craftCode)?.taskTypeMode ?? 'PROCESS'
+}
+
+export function isSpecialCraftByCraftCode(craftCode: string): boolean {
+  return processCraftByCode.get(craftCode)?.isSpecialCraft ?? false
+}
+
+export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitions.map((item) => {
+  const process = processDefinitionByCode.get(item.processCode)
+  const stage = stageDefinitionByCode.get(item.stageCode)
+  return {
+    craftCode: item.craftCode,
+    craftName: item.craftName,
+    processCode: item.processCode,
+    processName: process?.processName ?? item.processCode,
+    stageCode: item.stageCode,
+    stageName: stage?.stageName ?? item.stageCode,
+    assignmentGranularity: item.assignmentGranularity,
+    assignmentGranularityLabel: PROCESS_ASSIGNMENT_GRANULARITY_LABEL[item.assignmentGranularity],
+    handoffAdvice: item.carrySuggestion,
+    legacyValue: item.legacyValue,
+    legacyCraftName: item.legacyCraftName,
+    isSpecialCraft: item.isSpecialCraft,
+    defaultDocument: PROCESS_DOC_TYPE_LABEL[item.defaultDocType],
+    defaultDocType: item.defaultDocType,
+    taskTypeMode: item.taskTypeMode,
+    remark: item.remark,
+    processNote: process?.description,
+    triggerSource: process?.triggerSource,
+  }
+})
 
 export function getProcessCraftDictRowByCode(craftCode: string): ProcessCraftDictRow | undefined {
   return processCraftDictRows.find((item) => item.craftCode === craftCode)
