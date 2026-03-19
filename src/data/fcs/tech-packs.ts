@@ -16,6 +16,7 @@ export interface TechPackPatternFile {
     name: string
     count: number
     note?: string
+    applicableSkuCodes?: string[]
   }>
 }
 
@@ -51,6 +52,46 @@ export interface TechPackBomItem {
   applicableSkuCodes?: string[]
   // 与纸样形成结构化双向关联
   linkedPatternIds?: string[]
+  // 当前 BOM 行用于哪些工序
+  usageProcessCodes?: string[]
+}
+
+export type TechPackColorMappingStatus =
+  | 'AUTO_CONFIRMED'
+  | 'AUTO_DRAFT'
+  | 'CONFIRMED'
+  | 'MANUAL_ADJUSTED'
+
+export type TechPackColorMappingGeneratedMode = 'AUTO' | 'MANUAL'
+
+export interface TechPackColorMaterialMappingLine {
+  id: string
+  bomItemId?: string
+  materialCode?: string
+  materialName: string
+  materialType: '面料' | '辅料' | '半成品' | '包装材料' | '其他'
+  patternId?: string
+  patternName?: string
+  pieceId?: string
+  pieceName?: string
+  pieceCountPerUnit?: number
+  unit: string
+  applicableSkuCodes?: string[]
+  sourceMode: TechPackColorMappingGeneratedMode
+  note?: string
+}
+
+export interface TechPackColorMaterialMapping {
+  id: string
+  spuCode: string
+  colorCode: string
+  colorName: string
+  status: TechPackColorMappingStatus
+  generatedMode: TechPackColorMappingGeneratedMode
+  confirmedBy?: string
+  confirmedAt?: string
+  remark?: string
+  lines: TechPackColorMaterialMappingLine[]
 }
 
 export interface TechPackCustomCostItem {
@@ -120,6 +161,7 @@ export interface TechPack {
   materialCostItems?: TechPackMaterialCostItem[]
   processCostItems?: TechPackProcessCostItem[]
   customCostItems?: TechPackCustomCostItem[]
+  colorMaterialMappings?: TechPackColorMaterialMapping[]
   patternDesigns: TechPackPatternDesign[]
   attachments: TechPackAttachment[]
 }
@@ -192,9 +234,25 @@ export const techPacks: TechPack[] = [
         markerLengthM: 2.62,
         totalPieceCount: 6,
         pieceRows: [
-          { id: 'pf-1-piece-1', name: '前片', count: 2 },
-          { id: 'pf-1-piece-2', name: '门襟', count: 2 },
-          { id: 'pf-1-piece-3', name: '口袋贴', count: 2, note: '可选口袋款' },
+          {
+            id: 'pf-1-piece-1',
+            name: '前片',
+            count: 2,
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT', 'SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+          },
+          {
+            id: 'pf-1-piece-2',
+            name: '门襟',
+            count: 2,
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT', 'SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+          },
+          {
+            id: 'pf-1-piece-3',
+            name: '口袋贴',
+            count: 2,
+            note: '可选口袋款',
+            applicableSkuCodes: ['SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-M-BLK', 'SKU-001-L-BLK'],
+          },
         ],
       },
       {
@@ -208,8 +266,18 @@ export const techPacks: TechPack[] = [
         markerLengthM: 2.2,
         totalPieceCount: 4,
         pieceRows: [
-          { id: 'pf-2-piece-1', name: '后片', count: 2 },
-          { id: 'pf-2-piece-2', name: '肩部补强片', count: 2 },
+          {
+            id: 'pf-2-piece-1',
+            name: '后片',
+            count: 2,
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT', 'SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+          },
+          {
+            id: 'pf-2-piece-2',
+            name: '肩部补强片',
+            count: 2,
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT', 'SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+          },
         ],
       },
       {
@@ -223,9 +291,24 @@ export const techPacks: TechPack[] = [
         markerLengthM: 1.16,
         totalPieceCount: 8,
         pieceRows: [
-          { id: 'pf-3-piece-1', name: '左袖拼接片', count: 2 },
-          { id: 'pf-3-piece-2', name: '右袖拼接片', count: 2 },
-          { id: 'pf-3-piece-3', name: '下摆拼接片', count: 4 },
+          {
+            id: 'pf-3-piece-1',
+            name: '左袖拼接片',
+            count: 2,
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+          },
+          {
+            id: 'pf-3-piece-2',
+            name: '右袖拼接片',
+            count: 2,
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+          },
+          {
+            id: 'pf-3-piece-3',
+            name: '下摆拼接片',
+            count: 4,
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+          },
         ],
       },
     ],
@@ -254,6 +337,7 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Textile Indo',
         applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
         linkedPatternIds: ['pf-1', 'pf-2'],
+        usageProcessCodes: ['PROC_CUT'],
       },
       {
         id: 'b-2',
@@ -266,6 +350,7 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Textile Indo',
         applicableSkuCodes: ['SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
         linkedPatternIds: ['pf-1', 'pf-2'],
+        usageProcessCodes: ['PROC_CUT'],
       },
       {
         id: 'b-3',
@@ -278,6 +363,7 @@ export const techPacks: TechPack[] = [
         supplier: 'CV Knit Delta',
         applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
         linkedPatternIds: ['pf-3'],
+        usageProcessCodes: ['PROC_CUT', 'PROC_SEW'],
       },
       {
         id: 'b-4',
@@ -290,6 +376,7 @@ export const techPacks: TechPack[] = [
         supplier: 'CV Thread Jaya',
         applicableSkuCodes: [],
         linkedPatternIds: [],
+        usageProcessCodes: ['PROC_SEW'],
       },
       {
         id: 'b-5',
@@ -302,6 +389,7 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Packindo',
         applicableSkuCodes: [],
         linkedPatternIds: [],
+        usageProcessCodes: ['PROC_PACK'],
       },
     ],
     skuCatalog: [
@@ -332,6 +420,119 @@ export const techPacks: TechPack[] = [
       { id: 'cc-001-1', name: '开版费分摊', price: 3600, currency: '人民币', unit: '人民币/批', remark: '按本批次总量均摊' },
       { id: 'cc-001-2', name: '包装辅材补贴', price: 0.25, currency: '人民币', unit: '人民币/件', remark: '特殊吊牌与防尘袋' },
       { id: 'cc-001-3', name: '印花菲林费', price: 420, currency: '人民币', unit: '人民币/项', remark: '白色与黑色共版' },
+    ],
+    colorMaterialMappings: [
+      {
+        id: 'MAP-001-WHT',
+        spuCode: 'SPU-2024-001',
+        colorCode: 'WHT',
+        colorName: 'White',
+        status: 'CONFIRMED',
+        generatedMode: 'AUTO',
+        confirmedBy: 'Budi Santoso',
+        confirmedAt: '2026-03-18 11:20:00',
+        remark: '复杂款中白色款已人工确认，车缝与后道由同厂连续处理同一 SKU。',
+        lines: [
+          {
+            id: 'MAP-001-WHT-L1',
+            bomItemId: 'b-1',
+            materialCode: 'b-1',
+            materialName: '纯棉针织布（白色）',
+            materialType: '面料',
+            patternId: 'pf-1',
+            patternName: '前片纸样',
+            pieceId: 'pf-1-piece-1',
+            pieceName: '前片',
+            pieceCountPerUnit: 2,
+            unit: '片',
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+            sourceMode: 'AUTO',
+          },
+          {
+            id: 'MAP-001-WHT-L2',
+            bomItemId: 'b-1',
+            materialCode: 'b-1',
+            materialName: '纯棉针织布（白色）',
+            materialType: '面料',
+            patternId: 'pf-2',
+            patternName: '后片纸样',
+            pieceId: 'pf-2-piece-1',
+            pieceName: '后片',
+            pieceCountPerUnit: 2,
+            unit: '片',
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+            sourceMode: 'AUTO',
+          },
+          {
+            id: 'MAP-001-WHT-L3',
+            bomItemId: 'b-4',
+            materialCode: 'b-4',
+            materialName: '缝纫线',
+            materialType: '辅料',
+            unit: '卷',
+            applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+            sourceMode: 'MANUAL',
+            note: '车缝辅料，按后道同厂连续规则不重复承接上一步半成品',
+          },
+          {
+            id: 'MAP-001-WHT-L4',
+            bomItemId: 'b-3',
+            materialCode: 'b-3',
+            materialName: '拼接布（白色）',
+            materialType: '面料',
+            patternId: 'pf-3',
+            patternName: '拼接片纸样',
+            pieceId: 'pf-3-piece-1',
+            pieceName: '左袖拼接片',
+            pieceCountPerUnit: 2,
+            unit: '片',
+            applicableSkuCodes: ['SKU-001-M-WHT', 'SKU-001-L-WHT'],
+            sourceMode: 'MANUAL',
+            note: '白色款专属裁片，黑色款无此裁片',
+          },
+        ],
+      },
+      {
+        id: 'MAP-001-BLK',
+        spuCode: 'SPU-2024-001',
+        colorCode: 'BLK',
+        colorName: 'Black',
+        status: 'AUTO_DRAFT',
+        generatedMode: 'AUTO',
+        remark: '多色复杂款，系统已生成草稿，待人工确认拼接片是否全部适用黑色 SKU。',
+        lines: [
+          {
+            id: 'MAP-001-BLK-L1',
+            bomItemId: 'b-2',
+            materialCode: 'b-2',
+            materialName: '纯棉针织布（黑色）',
+            materialType: '面料',
+            patternId: 'pf-1',
+            patternName: '前片纸样',
+            pieceId: 'pf-1-piece-1',
+            pieceName: '前片',
+            pieceCountPerUnit: 2,
+            unit: '片',
+            applicableSkuCodes: ['SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+            sourceMode: 'AUTO',
+          },
+          {
+            id: 'MAP-001-BLK-L2',
+            bomItemId: 'b-2',
+            materialCode: 'b-2',
+            materialName: '纯棉针织布（黑色）',
+            materialType: '面料',
+            patternId: 'pf-2',
+            patternName: '后片纸样',
+            pieceId: 'pf-2-piece-1',
+            pieceName: '后片',
+            pieceCountPerUnit: 2,
+            unit: '片',
+            applicableSkuCodes: ['SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+            sourceMode: 'AUTO',
+          },
+        ],
+      },
     ],
     patternDesigns: [
       { id: 'pd-1', name: '胸前Logo', imageUrl: '/placeholder.svg' },
@@ -373,6 +574,7 @@ export const techPacks: TechPack[] = [
         lossRate: 4,
         supplier: 'PT Fabric Master',
         applicableSkuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'],
+        usageProcessCodes: ['PROC_CUT', 'PROC_DYE'],
       },
       {
         id: 'b-3-a',
@@ -384,6 +586,7 @@ export const techPacks: TechPack[] = [
         lossRate: 6,
         supplier: 'PT Interlining',
         applicableSkuCodes: [],
+        usageProcessCodes: ['PROC_SEW', 'PROC_IRON'],
       },
     ],
     skuCatalog: [
@@ -394,6 +597,45 @@ export const techPacks: TechPack[] = [
     ],
     customCostItems: [
       { id: 'cc-002-1', name: '特殊洗水费', price: 0.58, currency: '人民币', unit: '人民币/件' },
+    ],
+    colorMaterialMappings: [
+      {
+        id: 'MAP-002-GRY',
+        spuCode: 'SPU-2024-002',
+        colorCode: 'GRY',
+        colorName: 'Grey',
+        status: 'AUTO_CONFIRMED',
+        generatedMode: 'AUTO',
+        confirmedBy: 'Dewi Lestari',
+        confirmedAt: '2026-03-15 09:30:00',
+        remark: '单色简单款，系统自动生成并直接确认。',
+        lines: [
+          {
+            id: 'MAP-002-GRY-L1',
+            bomItemId: 'b-3',
+            materialCode: 'b-3',
+            materialName: '棉涤混纺（Grey）',
+            materialType: '面料',
+            patternId: 'pf-3',
+            patternName: '裤片纸样',
+            pieceName: '裤身片',
+            pieceCountPerUnit: 4,
+            unit: '片',
+            applicableSkuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'],
+            sourceMode: 'AUTO',
+          },
+          {
+            id: 'MAP-002-GRY-L2',
+            bomItemId: 'b-3-a',
+            materialCode: 'b-3-a',
+            materialName: '腰头粘衬',
+            materialType: '辅料',
+            unit: '米',
+            applicableSkuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'],
+            sourceMode: 'AUTO',
+          },
+        ],
+      },
     ],
     patternDesigns: [],
     attachments: [],
@@ -417,7 +659,103 @@ export const techPacks: TechPack[] = [
       { id: 's-7', part: '裙长', S: 90, M: 92, L: 94, XL: 96, tolerance: 2 },
     ],
     bomItems: [
-      { id: 'b-4', type: '面料', name: '雪纺', spec: '100g/m²', unitConsumption: 1.5, lossRate: 5, supplier: 'CV Chiffon Indo' },
+      {
+        id: 'b-4',
+        type: '面料',
+        name: '雪纺',
+        spec: '100g/m²',
+        colorLabel: 'Red',
+        unitConsumption: 1.5,
+        lossRate: 5,
+        supplier: 'CV Chiffon Indo',
+        applicableSkuCodes: ['SKU-003-S-RED', 'SKU-003-M-RED', 'SKU-003-L-RED', 'SKU-003-S-BLU', 'SKU-003-M-BLU', 'SKU-003-L-BLU'],
+        usageProcessCodes: ['PROC_PRINT', 'PROC_DYE', 'PROC_CUT'],
+      },
+      {
+        id: 'b-4-a',
+        type: '辅料',
+        name: '肩带调节扣',
+        spec: '12mm',
+        colorLabel: '全部SKU（当前未区分颜色）',
+        unitConsumption: 2,
+        lossRate: 3,
+        supplier: 'CV Metal Basic',
+        applicableSkuCodes: [],
+        usageProcessCodes: ['PROC_SEW', 'PROC_PACK'],
+      },
+    ],
+    skuCatalog: [
+      { skuCode: 'SKU-003-S-RED', color: 'Red', size: 'S' },
+      { skuCode: 'SKU-003-M-RED', color: 'Red', size: 'M' },
+      { skuCode: 'SKU-003-L-RED', color: 'Red', size: 'L' },
+      { skuCode: 'SKU-003-S-BLU', color: 'Blue', size: 'S' },
+      { skuCode: 'SKU-003-M-BLU', color: 'Blue', size: 'M' },
+      { skuCode: 'SKU-003-L-BLU', color: 'Blue', size: 'L' },
+    ],
+    colorMaterialMappings: [
+      {
+        id: 'MAP-003-RED',
+        spuCode: 'SPU-2024-003',
+        colorCode: 'RED',
+        colorName: 'Red',
+        status: 'AUTO_DRAFT',
+        generatedMode: 'AUTO',
+        remark: '多色复杂款，系统已生成红色草稿，待人工复核裁片映射。',
+        lines: [
+          {
+            id: 'MAP-003-RED-L1',
+            bomItemId: 'b-4',
+            materialCode: 'b-4',
+            materialName: '雪纺',
+            materialType: '面料',
+            patternId: 'pf-4',
+            patternName: '裙身纸样',
+            pieceName: '裙身主片',
+            pieceCountPerUnit: 4,
+            unit: '片',
+            applicableSkuCodes: ['SKU-003-S-RED', 'SKU-003-M-RED', 'SKU-003-L-RED'],
+            sourceMode: 'AUTO',
+          },
+        ],
+      },
+      {
+        id: 'MAP-003-BLU',
+        spuCode: 'SPU-2024-003',
+        colorCode: 'BLU',
+        colorName: 'Blue',
+        status: 'MANUAL_ADJUSTED',
+        generatedMode: 'MANUAL',
+        confirmedBy: 'Ahmad Wijaya',
+        confirmedAt: '2026-03-16 15:50:00',
+        remark: '蓝色款拼接片和肩带辅料已人工调整，作为复杂款确认样例。',
+        lines: [
+          {
+            id: 'MAP-003-BLU-L1',
+            bomItemId: 'b-4',
+            materialCode: 'b-4',
+            materialName: '雪纺',
+            materialType: '面料',
+            patternId: 'pf-4',
+            patternName: '裙身纸样',
+            pieceName: '裙身主片',
+            pieceCountPerUnit: 4,
+            unit: '片',
+            applicableSkuCodes: ['SKU-003-S-BLU', 'SKU-003-M-BLU', 'SKU-003-L-BLU'],
+            sourceMode: 'MANUAL',
+          },
+          {
+            id: 'MAP-003-BLU-L2',
+            bomItemId: 'b-4-a',
+            materialCode: 'b-4-a',
+            materialName: '肩带调节扣',
+            materialType: '辅料',
+            unit: '个',
+            applicableSkuCodes: ['SKU-003-S-BLU', 'SKU-003-M-BLU', 'SKU-003-L-BLU'],
+            sourceMode: 'MANUAL',
+            note: '人工确认蓝色款肩带需额外补强，系统草稿未覆盖',
+          },
+        ],
+      },
     ],
     patternDesigns: [],
     attachments: [],
@@ -473,6 +811,7 @@ export const techPacks: TechPack[] = [
         lossRate: 3,
         supplier: 'PT Knit Jaya',
         applicableSkuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'],
+        usageProcessCodes: ['PROC_CUT', 'PROC_DYE'],
       },
       {
         id: 'b-6',
@@ -484,6 +823,7 @@ export const techPacks: TechPack[] = [
         lossRate: 2,
         supplier: 'CV Button Indo',
         applicableSkuCodes: [],
+        usageProcessCodes: ['PROC_SEW', 'PROC_PACK'],
       },
     ],
     skuCatalog: [
@@ -495,6 +835,36 @@ export const techPacks: TechPack[] = [
     customCostItems: [
       { id: 'cc-005-1', name: '开袋工艺附加费', price: 0.35, currency: '人民币', unit: '人民币/件' },
       { id: 'cc-005-2', name: '运输分摊', price: 180, currency: '人民币', unit: '人民币/批' },
+    ],
+    colorMaterialMappings: [
+      {
+        id: 'MAP-005-GRY',
+        spuCode: 'SPU-2024-005',
+        colorCode: 'GRY',
+        colorName: 'Grey',
+        status: 'AUTO_CONFIRMED',
+        generatedMode: 'AUTO',
+        confirmedBy: 'Siti Rahayu',
+        confirmedAt: '2026-03-17 10:12:00',
+        remark: '单色款自动确认示例：系统直接生成并可用于领料草稿。',
+        lines: [
+          {
+            id: 'MAP-005-GRY-L1',
+            bomItemId: 'b-5',
+            materialCode: 'b-5',
+            materialName: '针织罗纹（Grey）',
+            materialType: '面料',
+            patternId: 'pf-5',
+            patternName: '开衫前片',
+            pieceName: '前片',
+            pieceCountPerUnit: 2,
+            unit: '片',
+            applicableSkuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'],
+            sourceMode: 'AUTO',
+            note: '同厂连续同一SKU时，后道不重复承接上一步半成品',
+          },
+        ],
+      },
     ],
     patternDesigns: [
       { id: 'pd-2', name: '袖口花纹', imageUrl: '/placeholder.svg' },
@@ -537,6 +907,7 @@ export const techPacks: TechPack[] = [
         lossRate: 4,
         supplier: 'PT Denim Indo',
         applicableSkuCodes: ['SKU-014-S-BLK', 'SKU-014-M-BLK', 'SKU-014-L-BLK', 'SKU-014-XL-BLK'],
+        usageProcessCodes: ['PROC_CUT'],
       },
       {
         id: 'b-8',
@@ -548,6 +919,7 @@ export const techPacks: TechPack[] = [
         lossRate: 2,
         supplier: 'CV Metal Jaya',
         applicableSkuCodes: [],
+        usageProcessCodes: ['PROC_PACK'],
       },
     ],
     skuCatalog: [
@@ -558,6 +930,35 @@ export const techPacks: TechPack[] = [
     ],
     customCostItems: [
       { id: 'cc-006-1', name: '做旧洗水附加费', price: 0.92, currency: '人民币', unit: '人民币/件' },
+    ],
+    colorMaterialMappings: [
+      {
+        id: 'MAP-006-BLK',
+        spuCode: 'SPU-2024-006',
+        colorCode: 'BLK',
+        colorName: 'Black',
+        status: 'CONFIRMED',
+        generatedMode: 'AUTO',
+        confirmedBy: 'Hendra Kusuma',
+        confirmedAt: '2026-03-18 17:30:00',
+        remark: '仓内后道样例：外部工序回仓后由仓内后道继续处理，不走外部工厂交接。',
+        lines: [
+          {
+            id: 'MAP-006-BLK-L1',
+            bomItemId: 'b-7',
+            materialCode: 'b-7',
+            materialName: '牛仔布（Black）',
+            materialType: '面料',
+            patternId: 'pf-7',
+            patternName: '夹克纸样',
+            pieceName: '衣身片',
+            pieceCountPerUnit: 6,
+            unit: '片',
+            applicableSkuCodes: ['SKU-014-S-BLK', 'SKU-014-M-BLK', 'SKU-014-L-BLK', 'SKU-014-XL-BLK'],
+            sourceMode: 'AUTO',
+          },
+        ],
+      },
     ],
     patternDesigns: [
       { id: 'pd-3', name: '后背刺绣', imageUrl: '/placeholder.svg' },
@@ -591,6 +992,7 @@ export function createBetaTechPack(spuCode: string, spuName: string): TechPack {
     materialCostItems: [],
     processCostItems: [],
     customCostItems: [],
+    colorMaterialMappings: [],
     patternDesigns: [],
     attachments: [],
   }

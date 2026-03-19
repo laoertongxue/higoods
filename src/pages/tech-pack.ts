@@ -4,11 +4,23 @@ import {
   getOrCreateTechPack,
   updateTechPack,
   type TechPack,
+  type TechPackColorMappingGeneratedMode,
+  type TechPackColorMappingStatus,
+  type TechPackColorMaterialMapping,
+  type TechPackColorMaterialMappingLine,
   type TechPackSizeRow,
 } from '../data/fcs/tech-packs'
 import { productionOrders } from '../data/fcs/production-orders'
 
-type TechPackTab = 'pattern' | 'bom' | 'process' | 'cost' | 'size' | 'design' | 'attachments'
+type TechPackTab =
+  | 'pattern'
+  | 'bom'
+  | 'process'
+  | 'cost'
+  | 'color-mapping'
+  | 'size'
+  | 'design'
+  | 'attachments'
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 
 type QualityCheckItem = {
@@ -55,6 +67,7 @@ type BomItemRow = {
   patternPieces: string[]
   linkedPatternIds: string[]
   applicableSkuCodes: string[]
+  usageProcessCodes: string[]
   usage: number
   lossRate: number
   printRequirement: string
@@ -66,6 +79,7 @@ type PatternPieceRow = {
   name: string
   count: number
   note: string
+  applicableSkuCodes: string[]
 }
 
 type SkuOption = {
@@ -86,6 +100,36 @@ type PatternItem = {
   markerLengthM: number
   totalPieceCount: number
   pieceRows: PatternPieceRow[]
+}
+
+type ColorMaterialMappingLineRow = {
+  id: string
+  bomItemId: string
+  materialCode: string
+  materialName: string
+  materialType: string
+  patternId: string
+  patternName: string
+  pieceId: string
+  pieceName: string
+  pieceCountPerUnit: number
+  unit: string
+  applicableSkuCodes: string[]
+  sourceMode: TechPackColorMappingGeneratedMode
+  note: string
+}
+
+type ColorMaterialMappingRow = {
+  id: string
+  spuCode: string
+  colorCode: string
+  colorName: string
+  status: TechPackColorMappingStatus
+  generatedMode: TechPackColorMappingGeneratedMode
+  confirmedBy: string
+  confirmedAt: string
+  remark: string
+  lines: ColorMaterialMappingLineRow[]
 }
 
 type MaterialCostRow = {
@@ -137,8 +181,9 @@ const techPackStatusConfig: Record<string, { label: string; className: string }>
 }
 
 const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [
-  { key: 'pattern', icon: 'file-text', label: '纸样' },
   { key: 'bom', icon: 'clipboard-list', label: 'BOM' },
+  { key: 'pattern', icon: 'file-text', label: '纸样' },
+  { key: 'color-mapping', icon: 'git-merge', label: '款色-物料-纸样-裁片映射' },
   { key: 'process', icon: 'scissors', label: '工序' },
   { key: 'cost', icon: 'dollar-sign', label: '核价' },
   { key: 'size', icon: 'ruler', label: '尺码表' },
@@ -152,6 +197,14 @@ const currencyOptions = ['人民币', '美元', '印尼盾']
 const materialUnitOptions = ['人民币/米', '人民币/码', '人民币/件', '美元/米', '美元/件', '印尼盾/件']
 const processUnitOptions = ['人民币/件', '人民币/批', '美元/件', '美元/批', '印尼盾/件', '印尼盾/批']
 const customCostUnitOptions = ['人民币/件', '人民币/批', '人民币/项', '美元/项', '印尼盾/项']
+const bomUsageProcessOptions = [
+  { code: 'PROC_CUT', label: '裁片' },
+  { code: 'PROC_PRINT', label: '印花' },
+  { code: 'PROC_DYE', label: '染色' },
+  { code: 'PROC_SEW', label: '车缝' },
+  { code: 'PROC_IRON', label: '后道' },
+  { code: 'PROC_PACK', label: '包装' },
+]
 const timeUnitOptions = ['分钟/件', '分钟/批', '分钟/米', '分钟/打']
 const difficultyOptions: Array<TechniqueItem['difficulty']> = ['简单', '中等', '困难']
 const stageOptions = ['准备阶段', '生产阶段', '后整阶段']
@@ -369,9 +422,9 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     markerLengthM: 2.62,
     totalPieceCount: 6,
     pieceRows: [
-      { id: 'PAT-001-R1', name: '前片', count: 2, note: '' },
-      { id: 'PAT-001-R2', name: '门襟', count: 2, note: '' },
-      { id: 'PAT-001-R3', name: '口袋贴', count: 2, note: '可选口袋款' },
+      { id: 'PAT-001-R1', name: '前片', count: 2, note: '', applicableSkuCodes: [] },
+      { id: 'PAT-001-R2', name: '门襟', count: 2, note: '', applicableSkuCodes: [] },
+      { id: 'PAT-001-R3', name: '口袋贴', count: 2, note: '可选口袋款', applicableSkuCodes: [] },
     ],
   },
   {
@@ -386,8 +439,8 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     markerLengthM: 2.2,
     totalPieceCount: 4,
     pieceRows: [
-      { id: 'PAT-002-R1', name: '后片', count: 2, note: '' },
-      { id: 'PAT-002-R2', name: '肩部补强片', count: 2, note: '' },
+      { id: 'PAT-002-R1', name: '后片', count: 2, note: '', applicableSkuCodes: [] },
+      { id: 'PAT-002-R2', name: '肩部补强片', count: 2, note: '', applicableSkuCodes: [] },
     ],
   },
 ]
@@ -403,6 +456,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     patternPieces: ['前片', '后片', '袖片'],
     linkedPatternIds: ['PAT-001', 'PAT-002'],
     applicableSkuCodes: [],
+    usageProcessCodes: ['PROC_CUT'],
     usage: 0.8,
     lossRate: 3,
     printRequirement: '数码印',
@@ -418,6 +472,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     patternPieces: ['领片'],
     linkedPatternIds: [],
     applicableSkuCodes: [],
+    usageProcessCodes: ['PROC_CUT', 'PROC_SEW'],
     usage: 0.1,
     lossRate: 5,
     printRequirement: '无',
@@ -433,6 +488,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     patternPieces: ['前片'],
     linkedPatternIds: [],
     applicableSkuCodes: [],
+    usageProcessCodes: ['PROC_PACK'],
     usage: 5,
     lossRate: 2,
     printRequirement: '无',
@@ -549,6 +605,7 @@ interface TechPackPageState {
   materialCostRows: MaterialCostRow[]
   processCostRows: ProcessCostRow[]
   customCostRows: CustomCostRow[]
+  colorMaterialMappings: ColorMaterialMappingRow[]
 
   releaseDialogOpen: boolean
   addPatternDialogOpen: boolean
@@ -573,6 +630,7 @@ interface TechPackPageState {
     patternPieces: string[]
     linkedPatternIds: string[]
     applicableSkuCodes: string[]
+    usageProcessCodes: string[]
     usage: string
     lossRate: string
     printRequirement: string
@@ -617,6 +675,7 @@ const state: TechPackPageState = {
   materialCostRows: [],
   processCostRows: [],
   customCostRows: [],
+  colorMaterialMappings: [],
 
   releaseDialogOpen: false,
   addPatternDialogOpen: false,
@@ -652,6 +711,7 @@ const state: TechPackPageState = {
     patternPieces: [],
     linkedPatternIds: [],
     applicableSkuCodes: [],
+    usageProcessCodes: [],
     usage: '',
     lossRate: '',
     printRequirement: '无',
@@ -701,7 +761,10 @@ function cloneTechPack(techPack: TechPack): TechPack {
     ...techPack,
     patternFiles: techPack.patternFiles.map((item) => ({
       ...item,
-      pieceRows: (item.pieceRows ?? []).map((row) => ({ ...row })),
+      pieceRows: (item.pieceRows ?? []).map((row) => ({
+        ...row,
+        applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+      })),
     })),
     processes: techPack.processes.map((item) => ({ ...item })),
     sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
@@ -709,11 +772,19 @@ function cloneTechPack(techPack: TechPack): TechPack {
       ...item,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+      usageProcessCodes: [...(item.usageProcessCodes ?? [])],
     })),
     skuCatalog: (techPack.skuCatalog ?? []).map((item) => ({ ...item })),
     materialCostItems: (techPack.materialCostItems ?? []).map((item) => ({ ...item })),
     processCostItems: (techPack.processCostItems ?? []).map((item) => ({ ...item })),
     customCostItems: (techPack.customCostItems ?? []).map((item) => ({ ...item })),
+    colorMaterialMappings: (techPack.colorMaterialMappings ?? []).map((item) => ({
+      ...item,
+      lines: item.lines.map((line) => ({
+        ...line,
+        applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
+      })),
+    })),
     patternDesigns: techPack.patternDesigns.map((item) => ({ ...item })),
     attachments: techPack.attachments.map((item) => ({ ...item })),
     missingChecklist: [...techPack.missingChecklist],
@@ -798,6 +869,64 @@ function formatPatternSpec(widthCm: number, markerLengthM: number): string {
   return `${width} × ${markerLength}`
 }
 
+const colorMappingStatusLabel: Record<TechPackColorMappingStatus, string> = {
+  AUTO_CONFIRMED: '系统自动确认',
+  AUTO_DRAFT: '系统草稿待确认',
+  CONFIRMED: '已确认',
+  MANUAL_ADJUSTED: '人工调整',
+}
+
+const colorMappingStatusClass: Record<TechPackColorMappingStatus, string> = {
+  AUTO_CONFIRMED: 'border-blue-200 bg-blue-50 text-blue-700',
+  AUTO_DRAFT: 'border-amber-200 bg-amber-50 text-amber-700',
+  CONFIRMED: 'border-green-200 bg-green-50 text-green-700',
+  MANUAL_ADJUSTED: 'border-purple-200 bg-purple-50 text-purple-700',
+}
+
+const generatedModeLabel: Record<TechPackColorMappingGeneratedMode, string> = {
+  AUTO: '系统生成',
+  MANUAL: '人工维护',
+}
+
+function normalizeColorMappingLineRows(
+  lines: Array<Partial<ColorMaterialMappingLineRow>>,
+  mappingId: string,
+): ColorMaterialMappingLineRow[] {
+  return lines.map((line, index) => ({
+    id: line.id || `${mappingId}-L${index + 1}`,
+    bomItemId: line.bomItemId?.trim() || '',
+    materialCode: line.materialCode?.trim() || '',
+    materialName: line.materialName?.trim() || '-',
+    materialType: line.materialType?.trim() || '其他',
+    patternId: line.patternId?.trim() || '',
+    patternName: line.patternName?.trim() || '',
+    pieceId: line.pieceId?.trim() || '',
+    pieceName: line.pieceName?.trim() || '',
+    pieceCountPerUnit: Number.isFinite(Number(line.pieceCountPerUnit))
+      ? Number(line.pieceCountPerUnit)
+      : 0,
+    unit: line.unit?.trim() || '件',
+    applicableSkuCodes: dedupeStrings([...(line.applicableSkuCodes ?? [])]),
+    sourceMode: line.sourceMode === 'MANUAL' ? 'MANUAL' : 'AUTO',
+    note: line.note?.trim() || '',
+  }))
+}
+
+function buildColorMaterialMappings(techPack: TechPack): ColorMaterialMappingRow[] {
+  return (techPack.colorMaterialMappings ?? []).map((item) => ({
+    id: item.id,
+    spuCode: item.spuCode,
+    colorCode: item.colorCode,
+    colorName: item.colorName,
+    status: item.status,
+    generatedMode: item.generatedMode,
+    confirmedBy: item.confirmedBy || '',
+    confirmedAt: item.confirmedAt || '',
+    remark: item.remark || '',
+    lines: normalizeColorMappingLineRows(item.lines, item.id),
+  }))
+}
+
 function getSkuOptionsForCurrentSpu(): SkuOption[] {
   if (!state.techPack) return []
   const byCode = new Map<string, SkuOption>()
@@ -836,6 +965,243 @@ function getSkuOptionsForCurrentSpu(): SkuOption[] {
   return Array.from(byCode.values())
 }
 
+function getSkuCodesByColor(colorCodeOrName: string): string[] {
+  const token = colorCodeOrName.trim().toLowerCase()
+  if (!token) return []
+  return getSkuOptionsForCurrentSpu()
+    .filter((item) => item.color.trim().toLowerCase() === token || item.skuCode.toLowerCase().includes(token))
+    .map((item) => item.skuCode)
+}
+
+function getPatternById(patternId: string): PatternItem | null {
+  return state.patternItems.find((item) => item.id === patternId) ?? null
+}
+
+function getPatternPieceById(patternId: string, pieceId: string): PatternPieceRow | null {
+  const pattern = getPatternById(patternId)
+  if (!pattern) return null
+  return pattern.pieceRows.find((row) => row.id === pieceId) ?? null
+}
+
+function createEmptyMappingLine(mappingId: string): ColorMaterialMappingLineRow {
+  return {
+    id: `${mappingId}-L${Date.now()}`,
+    bomItemId: '',
+    materialCode: '',
+    materialName: '',
+    materialType: '其他',
+    patternId: '',
+    patternName: '',
+    pieceId: '',
+    pieceName: '',
+    pieceCountPerUnit: 0,
+    unit: '片',
+    applicableSkuCodes: [],
+    sourceMode: 'MANUAL',
+    note: '',
+  }
+}
+
+function isComplexColorMappingScenario(colorCount: number): boolean {
+  if (colorCount > 1) return true
+  const hasPieceSkuRestriction = state.patternItems.some((pattern) =>
+    pattern.pieceRows.some((piece) => piece.applicableSkuCodes.length > 0),
+  )
+  const hasBomSkuRestriction = state.bomItems.some((item) => item.applicableSkuCodes.length > 0)
+  return hasPieceSkuRestriction || hasBomSkuRestriction
+}
+
+function buildAutoMappingLinesForColor(
+  colorName: string,
+  mappingId: string,
+): ColorMaterialMappingLineRow[] {
+  const skuCodesOfColor = getSkuCodesByColor(colorName)
+  const skuCodeSet = new Set(skuCodesOfColor)
+
+  return state.bomItems.flatMap((bomItem) => {
+    const matchedSkuCodes =
+      bomItem.applicableSkuCodes.length === 0
+        ? skuCodesOfColor
+        : skuCodesOfColor.filter((skuCode) => bomItem.applicableSkuCodes.includes(skuCode))
+
+    if (matchedSkuCodes.length === 0) return []
+
+    const linkedPatterns = state.patternItems.filter(
+      (pattern) =>
+        pattern.linkedBomItemId === bomItem.id || bomItem.linkedPatternIds.includes(pattern.id),
+    )
+
+    if (linkedPatterns.length === 0) {
+      return [
+        normalizeColorMappingLineRows(
+          [
+            {
+              id: `${mappingId}-${bomItem.id}-M`,
+              bomItemId: bomItem.id,
+              materialCode: bomItem.materialCode,
+              materialName: bomItem.materialName,
+              materialType:
+                bomItem.type === '面料' || bomItem.type === '辅料' ? bomItem.type : '其他',
+              unit: bomItem.type === '辅料' ? '个' : '米',
+              applicableSkuCodes: matchedSkuCodes,
+              sourceMode: 'AUTO',
+              note: `系统按 ${colorName} 自动匹配（未关联纸样）`,
+            },
+          ],
+          mappingId,
+        )[0],
+      ]
+    }
+
+    return linkedPatterns.flatMap((pattern) => {
+      const matchedPieces = pattern.pieceRows.filter((piece) => {
+        if (piece.applicableSkuCodes.length === 0) return true
+        return piece.applicableSkuCodes.some((skuCode) => skuCodeSet.has(skuCode))
+      })
+
+      if (matchedPieces.length === 0) {
+        return [
+          normalizeColorMappingLineRows(
+            [
+              {
+                id: `${mappingId}-${bomItem.id}-${pattern.id}-M`,
+                bomItemId: bomItem.id,
+                materialCode: bomItem.materialCode,
+                materialName: bomItem.materialName,
+                materialType:
+                  bomItem.type === '面料' || bomItem.type === '辅料' ? bomItem.type : '其他',
+                patternId: pattern.id,
+                patternName: pattern.name,
+                unit: '片',
+                applicableSkuCodes: matchedSkuCodes,
+                sourceMode: 'AUTO',
+                note: `系统按 ${colorName} 自动匹配（纸样无裁片明细）`,
+              },
+            ],
+            mappingId,
+          )[0],
+        ]
+      }
+
+      return matchedPieces.map((piece) =>
+        normalizeColorMappingLineRows(
+          [
+            {
+              id: `${mappingId}-${bomItem.id}-${pattern.id}-${piece.id}`,
+              bomItemId: bomItem.id,
+              materialCode: bomItem.materialCode,
+              materialName: bomItem.materialName,
+              materialType:
+                bomItem.type === '面料' || bomItem.type === '辅料' ? bomItem.type : '其他',
+              patternId: pattern.id,
+              patternName: pattern.name,
+              pieceId: piece.id,
+              pieceName: piece.name,
+              pieceCountPerUnit: piece.count,
+              unit: '片',
+              applicableSkuCodes:
+                piece.applicableSkuCodes.length > 0
+                  ? matchedSkuCodes.filter((skuCode) => piece.applicableSkuCodes.includes(skuCode))
+                  : matchedSkuCodes,
+              sourceMode: 'AUTO',
+              note: `系统按 ${colorName} 自动生成`,
+            },
+          ],
+          mappingId,
+        )[0],
+      )
+    })
+  })
+}
+
+function buildSystemSuggestedColorMappings(): ColorMaterialMappingRow[] {
+  if (!state.techPack) return []
+
+  const skuOptions = getSkuOptionsForCurrentSpu()
+  const colorMap = new Map<string, { colorCode: string; colorName: string }>()
+  skuOptions.forEach((sku) => {
+    const colorName = sku.color || '未识别颜色'
+    const colorCode = colorName.toUpperCase().replace(/\s+/g, '_')
+    colorMap.set(colorCode, { colorCode, colorName })
+  })
+  if (colorMap.size === 0) {
+    colorMap.set('ALL', { colorCode: 'ALL', colorName: '全部颜色' })
+  }
+
+  const complex = isComplexColorMappingScenario(colorMap.size)
+  const defaultStatus: TechPackColorMappingStatus =
+    complex ? 'AUTO_DRAFT' : 'AUTO_CONFIRMED'
+
+  return Array.from(colorMap.values()).map((color) => {
+    const mappingId = `MAP-${state.techPack?.spuCode || 'SPU'}-${color.colorCode}`
+    return {
+      id: mappingId,
+      spuCode: state.techPack?.spuCode || '',
+      colorCode: color.colorCode,
+      colorName: color.colorName,
+      status: defaultStatus,
+      generatedMode: 'AUTO',
+      confirmedBy: defaultStatus === 'AUTO_CONFIRMED' ? '系统' : '',
+      confirmedAt: defaultStatus === 'AUTO_CONFIRMED' ? toTimestamp() : '',
+      remark:
+        defaultStatus === 'AUTO_CONFIRMED'
+          ? '单色或简单款，系统自动生成并直接确认。'
+          : '多色或复杂款，系统生成草稿，待人工确认。',
+      lines: buildAutoMappingLinesForColor(color.colorName, mappingId),
+    }
+  })
+}
+
+function touchMappingAsManual(mapping: ColorMaterialMappingRow): ColorMaterialMappingRow {
+  return {
+    ...mapping,
+    status: 'MANUAL_ADJUSTED',
+    generatedMode: 'MANUAL',
+    confirmedBy: '',
+    confirmedAt: '',
+    remark: mapping.remark || '人工修订后待确认',
+    lines: mapping.lines.map((line) => ({ ...line, sourceMode: 'MANUAL' })),
+  }
+}
+
+function updateColorMapping(
+  mappingId: string,
+  updater: (mapping: ColorMaterialMappingRow) => ColorMaterialMappingRow,
+): void {
+  state.colorMaterialMappings = state.colorMaterialMappings.map((mapping) =>
+    mapping.id === mappingId ? updater(mapping) : mapping,
+  )
+}
+
+function updateColorMappingLine(
+  mappingId: string,
+  lineId: string,
+  updater: (line: ColorMaterialMappingLineRow) => ColorMaterialMappingLineRow,
+): void {
+  updateColorMapping(mappingId, (mapping) =>
+    touchMappingAsManual({
+      ...mapping,
+      lines: mapping.lines.map((line) => (line.id === lineId ? updater(line) : line)),
+    }),
+  )
+}
+
+function copySystemDraftToManual(mappingId: string): void {
+  updateColorMapping(mappingId, (mapping) => ({
+    ...touchMappingAsManual(mapping),
+    remark: mapping.remark || '系统草稿已复制为人工版本，可继续修订并确认',
+    lines: mapping.lines.map((line) => ({ ...line, sourceMode: 'MANUAL' })),
+  }))
+}
+
+function resetColorMappingToSystemSuggestion(mappingId: string): void {
+  const suggestions = buildSystemSuggestedColorMappings()
+  const suggested = suggestions.find((item) => item.id === mappingId)
+  if (!suggested) return
+
+  updateColorMapping(mappingId, () => suggested)
+}
+
 function getPatternBySelectionKey(selectionKey: string): PatternItem | null {
   return (
     state.patternItems.find((item) => item.id === selectionKey) ??
@@ -850,6 +1216,7 @@ function normalizePatternPieceRows(rows: PatternPieceRow[], patternId: string): 
     name: row.name || `裁片-${index + 1}`,
     count: Number.isFinite(row.count) ? Number(row.count) : 0,
     note: row.note || '',
+    applicableSkuCodes: dedupeStrings([...(row.applicableSkuCodes ?? [])]),
   }))
 }
 
@@ -869,6 +1236,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         name: row.name,
         count: Number(row.count),
         note: row.note || '',
+        applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
       })),
       patternId,
     )
@@ -903,6 +1271,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       patternPieces: [...item.patternPieces],
       linkedPatternIds: [...item.linkedPatternIds],
       applicableSkuCodes: [...item.applicableSkuCodes],
+      usageProcessCodes: [...item.usageProcessCodes],
     }))
   }
 
@@ -935,6 +1304,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       patternPieces,
       linkedPatternIds,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+      usageProcessCodes: [...(item.usageProcessCodes ?? [])],
       usage: item.unitConsumption,
       lossRate: item.lossRate,
       printRequirement: '无',
@@ -1069,10 +1439,23 @@ function getChecklist(): ChecklistItem[] {
   const hasDesignRequirement = state.bomItems.some(
     (item) => item.printRequirement && item.printRequirement !== '无',
   )
+  const mappingConfirmed =
+    state.colorMaterialMappings.length > 0 &&
+    state.colorMaterialMappings.every(
+      (item) =>
+        (item.status === 'CONFIRMED' || item.status === 'AUTO_CONFIRMED') &&
+        item.lines.length > 0,
+    )
 
   return [
-    { key: 'pattern', label: '纸样', required: true, done: state.patternItems.length > 0 },
     { key: 'bom', label: 'BOM', required: true, done: state.bomItems.length > 0 },
+    { key: 'pattern', label: '纸样', required: true, done: state.patternItems.length > 0 },
+    {
+      key: 'color-mapping',
+      label: '款色-物料-纸样-裁片映射',
+      required: true,
+      done: mappingConfirmed,
+    },
     { key: 'process', label: '工序', required: true, done: state.techniques.length > 0 },
     { key: 'cost', label: '核价', required: true, done: true },
     { key: 'size', label: '尺码表', required: true, done: state.techPack.sizeTable.length > 0 },
@@ -1120,6 +1503,8 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
           name: row.name,
           count: row.count,
           note: row.note || undefined,
+          applicableSkuCodes:
+            row.applicableSkuCodes.length > 0 ? [...row.applicableSkuCodes] : undefined,
         })),
       }
     }),
@@ -1149,7 +1534,11 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
         ...item.patternPieces
           .map((pieceName) => patternIdByName.get(pieceName) || '')
           .filter((id) => id.trim().length > 0),
-        ]),
+      ]),
+      usageProcessCodes:
+        item.usageProcessCodes.length > 0
+          ? dedupeStrings([...item.usageProcessCodes])
+          : undefined,
     })),
     materialCostItems: state.materialCostRows.map((row) => ({
       id: `MC-${row.id}`,
@@ -1173,6 +1562,43 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
       unit: row.unit,
       remark: row.remark.trim() || undefined,
       sort: index + 1,
+    })),
+    colorMaterialMappings: state.colorMaterialMappings.map((mapping) => ({
+      id: mapping.id,
+      spuCode: mapping.spuCode,
+      colorCode: mapping.colorCode,
+      colorName: mapping.colorName,
+      status: mapping.status,
+      generatedMode: mapping.generatedMode,
+      confirmedBy: mapping.confirmedBy.trim() || undefined,
+      confirmedAt: mapping.confirmedAt.trim() || undefined,
+      remark: mapping.remark.trim() || undefined,
+      lines: mapping.lines.map((line) => ({
+        id: line.id,
+        bomItemId: line.bomItemId.trim() || undefined,
+        materialCode: line.materialCode.trim() || undefined,
+        materialName: line.materialName,
+        materialType:
+          line.materialType === '面料' ||
+          line.materialType === '辅料' ||
+          line.materialType === '半成品' ||
+          line.materialType === '包装材料'
+            ? line.materialType
+            : '其他',
+        patternId: line.patternId.trim() || undefined,
+        patternName: line.patternName.trim() || undefined,
+        pieceId: line.pieceId.trim() || undefined,
+        pieceName: line.pieceName.trim() || undefined,
+        pieceCountPerUnit:
+          Number.isFinite(line.pieceCountPerUnit) && line.pieceCountPerUnit > 0
+            ? line.pieceCountPerUnit
+            : undefined,
+        unit: line.unit,
+        applicableSkuCodes:
+          line.applicableSkuCodes.length > 0 ? [...line.applicableSkuCodes] : undefined,
+        sourceMode: line.sourceMode,
+        note: line.note.trim() || undefined,
+      })),
     })),
     completenessScore: score,
     missingChecklist: missing,
@@ -1222,6 +1648,7 @@ function resetBomForm(): void {
     patternPieces: [],
     linkedPatternIds: [],
     applicableSkuCodes: [],
+    usageProcessCodes: [],
     usage: '',
     lossRate: '',
     printRequirement: '无',
@@ -1282,6 +1709,9 @@ function ensureTechPackPageState(rawSpuCode: string): void {
   state.materialCostRows = buildMaterialCostRows(state.bomItems, techPack)
   state.processCostRows = buildProcessCostRows(state.techniques, techPack)
   state.customCostRows = buildCustomCostRows(techPack)
+  const loadedMappings = buildColorMaterialMappings(techPack)
+  state.colorMaterialMappings =
+    loadedMappings.length > 0 ? loadedMappings : buildSystemSuggestedColorMappings()
 
   closeAllDialogs()
   resetPatternForm()
@@ -1329,7 +1759,7 @@ function renderChecklist(): string {
 
 function renderTabHeader(): string {
   return `
-    <div class="grid w-full grid-cols-7 gap-2 rounded-lg border bg-muted/20 p-2">
+    <div class="grid w-full grid-cols-8 gap-2 rounded-lg border bg-muted/20 p-2">
       ${tabItems
         .map(
           (tab) => `
@@ -1762,8 +2192,6 @@ function renderBomTab(): string {
     if (b.colorLabel.startsWith('全部')) return 1
     return a.colorLabel.localeCompare(b.colorLabel)
   })
-  const patternById = new Map(state.patternItems.map((item) => [item.id, item]))
-
   return `
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
@@ -1790,7 +2218,6 @@ function renderBomTab(): string {
                     <th class="px-3 py-2 text-left">物料编码</th>
                     <th class="px-3 py-2 text-left">物料名称</th>
                     <th class="px-3 py-2 text-left">规格</th>
-                    <th class="px-3 py-2 text-left">关联纸样</th>
                     <th class="px-3 py-2 text-right">单位用量</th>
                     <th class="px-3 py-2 text-right">损耗率(%)</th>
                     <th class="px-3 py-2 text-left">印花需求</th>
@@ -1807,23 +2234,13 @@ function renderBomTab(): string {
                             <tr class="border-b last:border-0 bg-muted/10">
                               <td class="px-3 py-2 font-medium">${escapeHtml(spuLabel)}</td>
                               <td class="px-3 py-2 text-sm">${escapeHtml(group.colorLabel)}</td>
-                              <td colspan="10" class="px-3 py-2 text-sm text-muted-foreground">当前 SKU 暂无适用物料</td>
+                              <td colspan="9" class="px-3 py-2 text-sm text-muted-foreground">当前 SKU 暂无适用物料</td>
                             </tr>
                           `
                         }
 
                         return group.rows
                           .map((item, rowIndex) => {
-                            const linkedPatterns =
-                              item.linkedPatternIds.length > 0
-                                ? item.linkedPatternIds
-                                    .map((id) => patternById.get(id))
-                                    .filter((item): item is PatternItem => Boolean(item))
-                                : []
-                            const fallbackPatternNames = item.patternPieces.filter(
-                              (name) => !linkedPatterns.some((pattern) => pattern.name === name),
-                            )
-
                             return `
                               <tr class="border-b last:border-0">
                                 ${
@@ -1853,27 +2270,6 @@ function renderBomTab(): string {
                                 <td class="px-3 py-2 font-mono text-sm">${escapeHtml(item.materialCode)}</td>
                                 <td class="px-3 py-2 font-medium">${escapeHtml(item.materialName)}</td>
                                 <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(item.spec || '-')}</td>
-                                <td class="px-3 py-2">
-                                  <div class="flex flex-wrap gap-1">
-                                    ${linkedPatterns
-                                      .map(
-                                        (pattern) =>
-                                          `<button class="inline-flex rounded border bg-secondary px-2 py-0.5 text-xs hover:bg-secondary/80" data-tech-action="open-pattern-detail" data-pattern-id="${pattern.id}">${escapeHtml(pattern.name)}</button>`,
-                                      )
-                                      .join('')}
-                                    ${fallbackPatternNames
-                                      .map(
-                                        (name) =>
-                                          `<button class="inline-flex rounded border bg-secondary px-2 py-0.5 text-xs hover:bg-secondary/80" data-tech-action="open-pattern-detail" data-pattern-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`,
-                                      )
-                                      .join('')}
-                                    ${
-                                      linkedPatterns.length === 0 && fallbackPatternNames.length === 0
-                                        ? '<span class="text-xs text-muted-foreground">未关联</span>'
-                                        : ''
-                                    }
-                                  </div>
-                                </td>
                                 <td class="px-3 py-2 text-right">${item.usage}</td>
                                 <td class="px-3 py-2 text-right">${item.lossRate}%</td>
                                 <td class="px-3 py-2">
@@ -2137,6 +2533,299 @@ function renderCostTab(): string {
   `
 }
 
+function renderColorMappingTab(): string {
+  if (!state.techPack) return ''
+
+  const mappings = state.colorMaterialMappings
+  const bomOptions = state.bomItems
+  const patternOptions = state.patternItems
+  const skuOptions = getSkuOptionsForCurrentSpu()
+  const skuLabelByCode = new Map(
+    skuOptions.map((item) => [item.skuCode, `${item.color}/${item.size}（${item.skuCode}）`]),
+  )
+  const totalLineCount = mappings.reduce((sum, item) => sum + item.lines.length, 0)
+  const autoDraftCount = mappings.filter((item) => item.status === 'AUTO_DRAFT').length
+  const confirmedCount = mappings.filter(
+    (item) => item.status === 'CONFIRMED' || item.status === 'AUTO_CONFIRMED',
+  ).length
+  const manualAdjustedCount = mappings.filter((item) => item.status === 'MANUAL_ADJUSTED').length
+
+  return `
+    <div class="space-y-4">
+      <section class="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <article class="rounded-lg border bg-card p-3">
+          <p class="text-xs text-muted-foreground">映射颜色数</p>
+          <p class="mt-1 text-2xl font-semibold">${mappings.length}</p>
+        </article>
+        <article class="rounded-lg border bg-card p-3">
+          <p class="text-xs text-muted-foreground">映射明细行</p>
+          <p class="mt-1 text-2xl font-semibold">${totalLineCount}</p>
+        </article>
+        <article class="rounded-lg border bg-card p-3">
+          <p class="text-xs text-muted-foreground">待人工确认</p>
+          <p class="mt-1 text-2xl font-semibold text-amber-700">${autoDraftCount}</p>
+        </article>
+        <article class="rounded-lg border bg-card p-3">
+          <p class="text-xs text-muted-foreground">已确认 / 人工调整</p>
+          <p class="mt-1 text-2xl font-semibold text-green-700">${confirmedCount + manualAdjustedCount}</p>
+        </article>
+      </section>
+
+      <section class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <h3 class="text-base font-semibold">款色-物料-纸样-裁片映射</h3>
+          <p class="mt-1 text-sm text-muted-foreground">用于明确 SPU + 颜色下，单件成衣所需物料、纸样与裁片明细。复杂款自动生成后需人工确认。</p>
+        </header>
+        <div class="space-y-4 p-4">
+          ${
+            mappings.length === 0
+              ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">当前技术包暂无款色映射，可先完善 BOM / 纸样后由系统生成草稿</div>'
+              : mappings
+                  .map((mapping) => {
+                    const statusLabel = colorMappingStatusLabel[mapping.status]
+                    const statusClass = colorMappingStatusClass[mapping.status]
+
+                    return `
+                      <article class="rounded-lg border">
+                        <header class="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-sm font-semibold">${escapeHtml(`${mapping.colorName}（${mapping.colorCode}）`)}</span>
+                            <span class="inline-flex rounded border px-2 py-0.5 text-xs ${statusClass}">${escapeHtml(statusLabel)}</span>
+                            <span class="inline-flex rounded border px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(generatedModeLabel[mapping.generatedMode])}</span>
+                          </div>
+                          <div class="flex flex-wrap items-center gap-2">
+                            <button
+                              class="inline-flex h-7 items-center rounded border px-2 text-xs hover:bg-muted ${
+                                mapping.status === 'AUTO_DRAFT' || mapping.status === 'MANUAL_ADJUSTED'
+                                  ? ''
+                                  : 'pointer-events-none opacity-50'
+                              }"
+                              data-tech-action="confirm-color-mapping"
+                              data-mapping-id="${mapping.id}"
+                            >
+                              确认映射
+                            </button>
+                            <button
+                              class="inline-flex h-7 items-center rounded border px-2 text-xs hover:bg-muted"
+                              data-tech-action="copy-system-draft-manual"
+                              data-mapping-id="${mapping.id}"
+                            >
+                              复制系统稿为人工版
+                            </button>
+                            <button
+                              class="inline-flex h-7 items-center rounded border px-2 text-xs hover:bg-muted"
+                              data-tech-action="add-mapping-line"
+                              data-mapping-id="${mapping.id}"
+                            >
+                              新增映射行
+                            </button>
+                            <button
+                              class="inline-flex h-7 items-center rounded border px-2 text-xs hover:bg-muted"
+                              data-tech-action="reset-color-mapping-suggestion"
+                              data-mapping-id="${mapping.id}"
+                            >
+                              重置为系统建议
+                            </button>
+                          </div>
+                        </header>
+                        <div class="space-y-2 p-3">
+                          <div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                            <span>SPU：${escapeHtml(mapping.spuCode)}</span>
+                            <span>确认人：${escapeHtml(mapping.confirmedBy || '-')}</span>
+                            <span>确认时间：${escapeHtml(mapping.confirmedAt || '-')}</span>
+                          </div>
+                          <div class="rounded border bg-muted/20 px-2 py-1.5">
+                            <label class="block text-[11px] text-muted-foreground">映射备注</label>
+                            <input
+                              class="mt-1 h-7 w-full rounded border bg-background px-2 text-xs"
+                              value="${escapeHtml(mapping.remark || '')}"
+                              placeholder="可记录系统草稿说明、人工修订原因"
+                              data-tech-field="mapping-remark"
+                              data-mapping-id="${mapping.id}"
+                            />
+                          </div>
+                          <div class="overflow-x-auto rounded border">
+                            <table class="w-full text-xs">
+                              <thead>
+                                <tr class="border-b bg-muted/20">
+                                  <th class="px-2 py-1 text-left">物料（BOM）</th>
+                                  <th class="px-2 py-1 text-left">纸样</th>
+                                  <th class="px-2 py-1 text-left">裁片</th>
+                                  <th class="px-2 py-1 text-right">单件片数</th>
+                                  <th class="px-2 py-1 text-left">适用 SKU</th>
+                                  <th class="px-2 py-1 text-left">来源</th>
+                                  <th class="px-2 py-1 text-left">备注</th>
+                                  <th class="px-2 py-1 text-left">操作</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${
+                                  mapping.lines.length === 0
+                                    ? '<tr><td colspan="8" class="px-2 py-4 text-center text-muted-foreground">暂无映射明细</td></tr>'
+                                    : mapping.lines
+                                        .map(
+                                          (line) => {
+                                            const pieceOptions = line.patternId
+                                              ? getPatternById(line.patternId)?.pieceRows ?? []
+                                              : []
+                                            return `
+                                            <tr class="border-b last:border-0">
+                                              <td class="px-2 py-1.5">
+                                                <div class="grid gap-1">
+                                                  <select
+                                                    class="h-7 rounded border px-2 text-xs"
+                                                    data-tech-field="mapping-line-bom-item"
+                                                    data-mapping-id="${mapping.id}"
+                                                    data-line-id="${line.id}"
+                                                  >
+                                                    <option value="">未绑定BOM</option>
+                                                    ${bomOptions
+                                                      .map(
+                                                        (bom) => `<option value="${bom.id}" ${line.bomItemId === bom.id ? 'selected' : ''}>${escapeHtml(`${bom.materialCode || bom.id} · ${bom.materialName}`)}</option>`,
+                                                      )
+                                                      .join('')}
+                                                  </select>
+                                                  <input
+                                                    class="h-7 rounded border px-2 text-xs"
+                                                    value="${escapeHtml(line.materialName)}"
+                                                    placeholder="物料名称"
+                                                    data-tech-field="mapping-line-material-name"
+                                                    data-mapping-id="${mapping.id}"
+                                                    data-line-id="${line.id}"
+                                                  />
+                                                  <input
+                                                    class="h-7 rounded border px-2 text-[11px] text-muted-foreground"
+                                                    value="${escapeHtml(line.materialCode || '')}"
+                                                    placeholder="物料编码"
+                                                    data-tech-field="mapping-line-material-code"
+                                                    data-mapping-id="${mapping.id}"
+                                                    data-line-id="${line.id}"
+                                                  />
+                                                </div>
+                                              </td>
+                                              <td class="px-2 py-1.5">
+                                                <select
+                                                  class="h-7 min-w-[150px] rounded border px-2 text-xs"
+                                                  data-tech-field="mapping-line-pattern-id"
+                                                  data-mapping-id="${mapping.id}"
+                                                  data-line-id="${line.id}"
+                                                >
+                                                  <option value="">未绑定纸样</option>
+                                                  ${patternOptions
+                                                    .map(
+                                                      (pattern) => `<option value="${pattern.id}" ${line.patternId === pattern.id ? 'selected' : ''}>${escapeHtml(pattern.name)}</option>`,
+                                                    )
+                                                    .join('')}
+                                                </select>
+                                              </td>
+                                              <td class="px-2 py-1.5">
+                                                <select
+                                                  class="h-7 min-w-[140px] rounded border px-2 text-xs"
+                                                  data-tech-field="mapping-line-piece-id"
+                                                  data-mapping-id="${mapping.id}"
+                                                  data-line-id="${line.id}"
+                                                >
+                                                  <option value="">未绑定裁片</option>
+                                                  ${pieceOptions
+                                                    .map(
+                                                      (piece) => `<option value="${piece.id}" ${line.pieceId === piece.id ? 'selected' : ''}>${escapeHtml(piece.name)}</option>`,
+                                                    )
+                                                    .join('')}
+                                                </select>
+                                              </td>
+                                              <td class="px-2 py-1.5 text-right">
+                                                <div class="flex items-center justify-end gap-1">
+                                                  <input
+                                                    class="h-7 w-20 rounded border px-2 text-right text-xs"
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    value="${escapeHtml(String(line.pieceCountPerUnit || 0))}"
+                                                    data-tech-field="mapping-line-piece-count"
+                                                    data-mapping-id="${mapping.id}"
+                                                    data-line-id="${line.id}"
+                                                  />
+                                                  <input
+                                                    class="h-7 w-12 rounded border px-1 text-center text-[11px]"
+                                                    value="${escapeHtml(line.unit)}"
+                                                    data-tech-field="mapping-line-unit"
+                                                    data-mapping-id="${mapping.id}"
+                                                    data-line-id="${line.id}"
+                                                  />
+                                                </div>
+                                              </td>
+                                              <td class="px-2 py-1.5">
+                                                <input
+                                                  class="h-7 min-w-[220px] rounded border px-2 text-xs"
+                                                  value="${escapeHtml(line.applicableSkuCodes.join(','))}"
+                                                  placeholder="留空=全部SKU，或输入 SKU-001-A,SKU-001-B"
+                                                  data-tech-field="mapping-line-skus"
+                                                  data-mapping-id="${mapping.id}"
+                                                  data-line-id="${line.id}"
+                                                />
+                                                ${
+                                                  line.applicableSkuCodes.length > 0
+                                                    ? `<div class="mt-1 flex flex-wrap gap-1">${line.applicableSkuCodes
+                                                        .map((skuCode) => {
+                                                          const label = skuLabelByCode.get(skuCode) || skuCode
+                                                          return `<span class="inline-flex rounded border px-1.5 py-0.5 text-[10px]">${escapeHtml(label)}</span>`
+                                                        })
+                                                        .join('')}</div>`
+                                                    : '<div class="mt-1 text-[10px] text-muted-foreground">全部 SKU</div>'
+                                                }
+                                              </td>
+                                              <td class="px-2 py-1.5">
+                                                <select
+                                                  class="h-7 rounded border px-2 text-xs"
+                                                  data-tech-field="mapping-line-source-mode"
+                                                  data-mapping-id="${mapping.id}"
+                                                  data-line-id="${line.id}"
+                                                >
+                                                  <option value="AUTO" ${line.sourceMode === 'AUTO' ? 'selected' : ''}>系统生成</option>
+                                                  <option value="MANUAL" ${line.sourceMode === 'MANUAL' ? 'selected' : ''}>人工维护</option>
+                                                </select>
+                                              </td>
+                                              <td class="px-2 py-1.5">
+                                                <input
+                                                  class="h-7 min-w-[160px] rounded border px-2 text-xs"
+                                                  value="${escapeHtml(line.note || '')}"
+                                                  placeholder="备注"
+                                                  data-tech-field="mapping-line-note"
+                                                  data-mapping-id="${mapping.id}"
+                                                  data-line-id="${line.id}"
+                                                />
+                                              </td>
+                                              <td class="px-2 py-1.5">
+                                                <button
+                                                  class="inline-flex h-7 items-center rounded border px-2 text-xs text-red-600 hover:bg-red-50"
+                                                  data-tech-action="delete-mapping-line"
+                                                  data-mapping-id="${mapping.id}"
+                                                  data-line-id="${line.id}"
+                                                >
+                                                  删除
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          `
+                                          },
+                                        )
+                                        .join('')
+                                }
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </article>
+                    `
+                  })
+                  .join('')
+          }
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderDesignTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
@@ -2252,6 +2941,7 @@ function renderCurrentTabContent(): string {
   if (state.activeTab === 'bom') return renderBomTab()
   if (state.activeTab === 'process') return renderProcessTab()
   if (state.activeTab === 'cost') return renderCostTab()
+  if (state.activeTab === 'color-mapping') return renderColorMappingTab()
   if (state.activeTab === 'size') return renderSizeTab()
   if (state.activeTab === 'design') return renderDesignTab()
   return renderAttachmentsTab()
@@ -2319,6 +3009,7 @@ function renderPatternDialog(): string {
                       <tr class="border-b bg-muted/20">
                         <th class="px-2 py-1 text-left">裁片名称</th>
                         <th class="px-2 py-1 text-right">片数</th>
+                        <th class="px-2 py-1 text-left">适用 SKU</th>
                         <th class="px-2 py-1 text-left">备注</th>
                       </tr>
                     </thead>
@@ -2329,6 +3020,18 @@ function renderPatternDialog(): string {
                             <tr class="border-b last:border-0">
                               <td class="px-2 py-1">${escapeHtml(row.name)}</td>
                               <td class="px-2 py-1 text-right">${row.count}</td>
+                              <td class="px-2 py-1">
+                                ${
+                                  row.applicableSkuCodes.length === 0
+                                    ? '<span class="text-muted-foreground">全部 SKU</span>'
+                                    : `<div class="flex flex-wrap gap-1">${row.applicableSkuCodes
+                                        .map(
+                                          (skuCode) =>
+                                            `<span class="inline-flex rounded border px-1 py-0.5 text-[10px]">${escapeHtml(skuCode)}</span>`,
+                                        )
+                                        .join('')}</div>`
+                                }
+                              </td>
                               <td class="px-2 py-1 text-muted-foreground">${escapeHtml(row.note || '-')}</td>
                             </tr>
                           `,
@@ -2496,7 +3199,6 @@ function renderBomFormDialog(): string {
   const skuOptions = getSkuOptionsForCurrentSpu()
   const colorOptions = dedupeStrings(skuOptions.map((item) => item.color))
   const applyAllSku = state.newBomItem.applicableSkuCodes.length === 0
-  const patternOptions = state.patternItems
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
@@ -2536,30 +3238,6 @@ function renderBomFormDialog(): string {
               <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-spec" value="${escapeHtml(state.newBomItem.spec)}" placeholder="例如 180g/m²" />
             </label>
             <div class="space-y-1">
-              <span class="text-sm">关联纸样</span>
-              <div class="mt-1 flex flex-wrap gap-2">
-                ${(patternOptions.length > 0 ? patternOptions : DEFAULT_PATTERN_ITEMS)
-                  .map(
-                    (pattern) => `
-                      <button
-                        type="button"
-                        class="inline-flex rounded border px-2 py-0.5 text-xs ${
-                          state.newBomItem.linkedPatternIds.includes(pattern.id)
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'hover:bg-muted'
-                        }"
-                        data-tech-action="toggle-new-bom-pattern"
-                        data-pattern-id="${pattern.id}"
-                        data-pattern-name="${escapeHtml(pattern.name)}"
-                      >
-                        ${escapeHtml(pattern.name)}
-                      </button>
-                    `,
-                  )
-                  .join('')}
-              </div>
-            </div>
-            <div class="space-y-1">
               <span class="text-sm">适用 SKU</span>
               <div class="space-y-2 rounded-md border p-2 text-xs">
                 <label class="inline-flex items-center gap-2">
@@ -2594,6 +3272,26 @@ function renderBomFormDialog(): string {
                       </div>
                     `
                 }
+              </div>
+            </div>
+            <div class="space-y-1">
+              <span class="text-sm">使用工序</span>
+              <div class="grid grid-cols-2 gap-2 rounded-md border p-2 text-xs">
+                ${bomUsageProcessOptions
+                  .map(
+                    (option) => `
+                      <label class="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          data-tech-field="new-bom-usage-process"
+                          data-process-code="${option.code}"
+                          ${state.newBomItem.usageProcessCodes.includes(option.code) ? 'checked' : ''}
+                        />
+                        <span>${escapeHtml(option.label)}</span>
+                      </label>
+                    `,
+                  )
+                  .join('')}
               </div>
             </div>
             <label class="space-y-1">
@@ -3073,6 +3771,21 @@ function handleTechPackField(
     }
     return true
   }
+  if (field === 'new-bom-usage-process') {
+    const processCode = node.dataset.processCode
+    if (!processCode) return true
+    if (checked) {
+      state.newBomItem.usageProcessCodes = dedupeStrings([
+        ...state.newBomItem.usageProcessCodes,
+        processCode,
+      ])
+    } else {
+      state.newBomItem.usageProcessCodes = state.newBomItem.usageProcessCodes.filter(
+        (code) => code !== processCode,
+      )
+    }
+    return true
+  }
 
   if (field === 'new-technique-stage') {
     state.newTechnique = {
@@ -3341,6 +4054,141 @@ function handleTechPackField(
     return true
   }
 
+  if (field === 'mapping-remark') {
+    const mappingId = node.dataset.mappingId
+    if (!mappingId) return true
+    updateColorMapping(mappingId, (mapping) => ({
+      ...mapping,
+      remark: value,
+      ...(mapping.generatedMode === 'AUTO' ? { generatedMode: 'MANUAL', status: 'MANUAL_ADJUSTED' } : {}),
+    }))
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+
+  if (
+    field === 'mapping-line-bom-item' ||
+    field === 'mapping-line-material-name' ||
+    field === 'mapping-line-material-code' ||
+    field === 'mapping-line-pattern-id' ||
+    field === 'mapping-line-piece-id' ||
+    field === 'mapping-line-piece-count' ||
+    field === 'mapping-line-unit' ||
+    field === 'mapping-line-skus' ||
+    field === 'mapping-line-source-mode' ||
+    field === 'mapping-line-note'
+  ) {
+    const mappingId = node.dataset.mappingId
+    const lineId = node.dataset.lineId
+    if (!mappingId || !lineId) return true
+
+    if (field === 'mapping-line-bom-item') {
+      const selectedBom = state.bomItems.find((item) => item.id === value)
+      updateColorMappingLine(mappingId, lineId, (line) => ({
+        ...line,
+        bomItemId: value,
+        materialCode: selectedBom?.materialCode || line.materialCode,
+        materialName: selectedBom?.materialName || line.materialName,
+        materialType: selectedBom?.type || line.materialType,
+        applicableSkuCodes:
+          selectedBom && selectedBom.applicableSkuCodes.length > 0
+            ? [...selectedBom.applicableSkuCodes]
+            : line.applicableSkuCodes,
+      }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-material-name') {
+      updateColorMappingLine(mappingId, lineId, (line) => ({ ...line, materialName: value }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-material-code') {
+      updateColorMappingLine(mappingId, lineId, (line) => ({ ...line, materialCode: value }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-pattern-id') {
+      const selectedPattern = getPatternById(value)
+      updateColorMappingLine(mappingId, lineId, (line) => ({
+        ...line,
+        patternId: value,
+        patternName: selectedPattern?.name || '',
+        pieceId: '',
+        pieceName: '',
+      }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-piece-id') {
+      let patternId = ''
+      const currentMapping = state.colorMaterialMappings.find((item) => item.id === mappingId)
+      const currentLine = currentMapping?.lines.find((line) => line.id === lineId)
+      if (currentLine) patternId = currentLine.patternId
+      const piece = getPatternPieceById(patternId, value)
+      updateColorMappingLine(mappingId, lineId, (line) => ({
+        ...line,
+        pieceId: value,
+        pieceName: piece?.name || '',
+        pieceCountPerUnit: piece?.count ?? line.pieceCountPerUnit,
+        applicableSkuCodes:
+          piece && piece.applicableSkuCodes.length > 0
+            ? [...piece.applicableSkuCodes]
+            : line.applicableSkuCodes,
+      }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-piece-count') {
+      updateColorMappingLine(mappingId, lineId, (line) => ({
+        ...line,
+        pieceCountPerUnit: Number.parseFloat(value) || 0,
+      }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-unit') {
+      updateColorMappingLine(mappingId, lineId, (line) => ({ ...line, unit: value }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-skus') {
+      updateColorMappingLine(mappingId, lineId, (line) => ({
+        ...line,
+        applicableSkuCodes: dedupeStrings(
+          value
+            .split(',')
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0),
+        ),
+      }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-source-mode') {
+      updateColorMappingLine(mappingId, lineId, (line) => ({
+        ...line,
+        sourceMode: value === 'MANUAL' ? 'MANUAL' : 'AUTO',
+      }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+
+    if (field === 'mapping-line-note') {
+      updateColorMappingLine(mappingId, lineId, (line) => ({ ...line, note: value }))
+      syncTechPackToStore({ touch: false })
+      return true
+    }
+  }
+
   if (field === 'new-size-part') {
     state.newSizeRow.part = value
     return true
@@ -3534,6 +4382,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         name: '',
         count: 1,
         note: '',
+        applicableSkuCodes: [],
       },
     ]
     return true
@@ -3579,6 +4428,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       patternPieces: [...bom.patternPieces],
       linkedPatternIds: [...bom.linkedPatternIds],
       applicableSkuCodes: [...bom.applicableSkuCodes],
+      usageProcessCodes: [...bom.usageProcessCodes],
       usage: String(bom.usage),
       lossRate: String(bom.lossRate),
       printRequirement: bom.printRequirement,
@@ -3591,37 +4441,13 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.addBomDialogOpen = false
     return true
   }
-  if (action === 'toggle-new-bom-pattern') {
-    const patternId = actionNode.dataset.patternId
-    const patternName = actionNode.dataset.patternName
-    if (!patternId || !patternName) return true
-
-    if (state.newBomItem.linkedPatternIds.includes(patternId)) {
-      state.newBomItem.linkedPatternIds = state.newBomItem.linkedPatternIds.filter(
-        (item) => item !== patternId,
-      )
-      state.newBomItem.patternPieces = state.newBomItem.patternPieces.filter((item) => item !== patternName)
-    } else {
-      state.newBomItem.linkedPatternIds = [...state.newBomItem.linkedPatternIds, patternId]
-      state.newBomItem.patternPieces = dedupeStrings([...state.newBomItem.patternPieces, patternName])
-    }
-    return true
-  }
   if (action === 'save-bom') {
     if (!state.newBomItem.materialName.trim()) return true
-    const patternIdByName = new Map(state.patternItems.map((item) => [item.name, item.id]))
-    const linkedPatternIds = dedupeStrings([
-      ...(state.newBomItem.linkedPatternIds ?? []),
-      ...state.newBomItem.patternPieces
-        .map((piece) => patternIdByName.get(piece) || '')
-        .filter((id) => id.trim().length > 0),
-    ])
-    const patternNameById = new Map(state.patternItems.map((item) => [item.id, item.name]))
-    const patternPieces = dedupeStrings(
-      linkedPatternIds
-        .map((id) => patternNameById.get(id) || '')
-        .filter((name) => name.trim().length > 0),
-    )
+    const editingBom = state.editBomItemId
+      ? state.bomItems.find((item) => item.id === state.editBomItemId) ?? null
+      : null
+    const linkedPatternIds = editingBom ? [...editingBom.linkedPatternIds] : []
+    const patternPieces = editingBom ? [...editingBom.patternPieces] : []
     const nextBom: BomItemRow = {
       id: state.editBomItemId || `bom-${Date.now()}`,
       type: state.newBomItem.type,
@@ -3645,6 +4471,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       patternPieces,
       linkedPatternIds,
       applicableSkuCodes: [...state.newBomItem.applicableSkuCodes],
+      usageProcessCodes:
+        state.newBomItem.usageProcessCodes.length > 0
+          ? dedupeStrings([...state.newBomItem.usageProcessCodes])
+          : [],
       usage: Number.parseFloat(state.newBomItem.usage) || 0,
       lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
       printRequirement: state.newBomItem.printRequirement,
@@ -3692,6 +4522,88 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const rowId = actionNode.dataset.rowId
     if (!rowId) return true
     state.customCostRows = state.customCostRows.filter((row) => row.id !== rowId)
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+
+  if (action === 'confirm-color-mapping') {
+    const mappingId = actionNode.dataset.mappingId
+    if (!mappingId) return true
+    state.colorMaterialMappings = state.colorMaterialMappings.map((item) =>
+      item.id === mappingId
+        ? {
+            ...item,
+            status:
+              item.status === 'AUTO_DRAFT' || item.status === 'MANUAL_ADJUSTED'
+                ? 'CONFIRMED'
+                : item.status,
+            confirmedBy: currentUser.name,
+            confirmedAt: toTimestamp(),
+          }
+        : item,
+    )
+    syncTechPackToStore()
+    return true
+  }
+
+  if (action === 'mark-color-mapping-manual') {
+    const mappingId = actionNode.dataset.mappingId
+    if (!mappingId) return true
+    state.colorMaterialMappings = state.colorMaterialMappings.map((item) =>
+      item.id === mappingId
+        ? {
+            ...item,
+            status: 'MANUAL_ADJUSTED',
+            generatedMode: 'MANUAL',
+            confirmedBy: currentUser.name,
+            confirmedAt: toTimestamp(),
+            remark: item.remark || '已由技术员人工调整映射关系',
+          }
+        : item,
+    )
+    syncTechPackToStore()
+    return true
+  }
+
+  if (action === 'copy-system-draft-manual') {
+    const mappingId = actionNode.dataset.mappingId
+    if (!mappingId) return true
+    copySystemDraftToManual(mappingId)
+    syncTechPackToStore()
+    return true
+  }
+
+  if (action === 'reset-color-mapping-suggestion') {
+    const mappingId = actionNode.dataset.mappingId
+    if (!mappingId) return true
+    resetColorMappingToSystemSuggestion(mappingId)
+    syncTechPackToStore()
+    return true
+  }
+
+  if (action === 'add-mapping-line') {
+    const mappingId = actionNode.dataset.mappingId
+    if (!mappingId) return true
+    updateColorMapping(mappingId, (mapping) =>
+      touchMappingAsManual({
+        ...mapping,
+        lines: [...mapping.lines, createEmptyMappingLine(mapping.id)],
+      }),
+    )
+    syncTechPackToStore({ touch: false })
+    return true
+  }
+
+  if (action === 'delete-mapping-line') {
+    const mappingId = actionNode.dataset.mappingId
+    const lineId = actionNode.dataset.lineId
+    if (!mappingId || !lineId) return true
+    updateColorMapping(mappingId, (mapping) =>
+      touchMappingAsManual({
+        ...mapping,
+        lines: mapping.lines.filter((line) => line.id !== lineId),
+      }),
+    )
     syncTechPackToStore({ touch: false })
     return true
   }

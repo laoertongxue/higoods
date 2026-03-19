@@ -1,8 +1,14 @@
 import { productionOrders, type ProductionOrder } from './production-orders'
 import { processTasks, type ProcessTask } from './process-tasks'
 import { getTechPackBySpuCode, type TechPackBomItem } from './tech-packs'
+import {
+  getRuntimeTaskById,
+  listRuntimeProcessTasks,
+  listRuntimeTasksByBaseTaskId,
+  type RuntimeProcessTask,
+} from './runtime-process-tasks'
 
-export type MaterialTaskType = 'PRINT' | 'DYE' | 'CUT' | 'SEW'
+export type MaterialTaskType = 'PRINT' | 'DYE' | 'CUT' | 'SEW' | 'POST'
 export type MaterialDraftStatus = 'pending' | 'created' | 'not_applicable'
 export type MaterialMode = 'warehouse_delivery' | 'factory_pickup'
 export type MaterialLineSourceType = 'bom' | 'upstream_output'
@@ -34,6 +40,10 @@ export interface MaterialRequestDraftLine {
   pieceSummaryText?: string
   sourceRuleLabel?: string
   sourceReasonText?: string
+  sourcePatternId?: string
+  sourcePieceId?: string
+  sourceMappingId?: string
+  sourceMappingLineId?: string
 }
 
 export interface MaterialRequestDraft {
@@ -143,6 +153,10 @@ interface DraftMaterialCandidate {
   pieceSummaryText?: string
   sourceRuleLabel?: string
   sourceReasonText?: string
+  sourcePatternId?: string
+  sourcePieceId?: string
+  sourceMappingId?: string
+  sourceMappingLineId?: string
   requiresPrint: boolean
   requiresDye: boolean
 }
@@ -157,6 +171,7 @@ const TASK_TYPE_LABEL: Record<MaterialTaskType, string> = {
   DYE: '染色',
   CUT: '裁片',
   SEW: '车缝',
+  POST: '后道',
 }
 
 const SOURCE_TYPE_LABEL: Record<MaterialLineSourceType, 'BOM物料' | '上道产出'> = {
@@ -186,19 +201,70 @@ function normalizeQty(value: number): number {
 type SkuScopeLine = {
   skuCode: string
   color: string
+  size?: string
   qty: number
+}
+
+function resolveBaseTaskId(taskId: string): string {
+  const markerIndex = taskId.indexOf('__')
+  return markerIndex >= 0 ? taskId.slice(0, markerIndex) : taskId
 }
 
 function getOrderSkuScope(order: ProductionOrder): SkuScopeLine[] {
   return order.demandSnapshot.skuLines.map((line) => ({
     skuCode: line.skuCode,
     color: line.color || '未识别颜色',
+    size: line.size,
     qty: Number.isFinite(line.qty) ? line.qty : 0,
   }))
 }
 
-function getTaskSkuScope(order: ProductionOrder, _task?: ProcessTask): SkuScopeLine[] {
-  // 当前任务层未拆分 SKU 范围，先按生产单 SKU 范围承接。
+function toSkuScopeLines(lines: Array<{ skuCode: string; color: string; size: string; qty: number }>): SkuScopeLine[] {
+  return lines.map((line) => ({
+    skuCode: line.skuCode,
+    color: line.color || '未识别颜色',
+    size: line.size,
+    qty: Number.isFinite(line.qty) ? line.qty : 0,
+  }))
+}
+
+function getRuntimeTaskForDraft(task?: ProcessTask, draftTaskId?: string): RuntimeProcessTask | null {
+  if (draftTaskId) {
+    const direct = getRuntimeTaskById(draftTaskId)
+    if (direct) return direct
+  }
+
+  if (!task) return null
+  const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId)
+  if (runtimeTasks.length === 1) return runtimeTasks[0]
+
+  return null
+}
+
+function getTaskSkuScope(
+  order: ProductionOrder,
+  task?: ProcessTask,
+  runtimeTask?: RuntimeProcessTask | null,
+): SkuScopeLine[] {
+  if (runtimeTask) {
+    if (runtimeTask.scopeType === 'SKU') {
+      return toSkuScopeLines(runtimeTask.scopeSkuLines)
+    }
+
+    if (runtimeTask.scopeType === 'COLOR') {
+      return toSkuScopeLines(runtimeTask.scopeSkuLines)
+    }
+
+    return toSkuScopeLines(runtimeTask.scopeSkuLines)
+  }
+
+  if (task) {
+    const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId)
+    if (runtimeTasks.length === 1) {
+      return toSkuScopeLines(runtimeTasks[0].scopeSkuLines)
+    }
+  }
+
   return getOrderSkuScope(order)
 }
 
@@ -288,7 +354,7 @@ function inferMaterialUnit(item: TechPackBomItem, category: '面料' | '辅料')
   return '个'
 }
 
-function resolveTaskType(task: ProcessTask): MaterialTaskType | null {
+function resolveTaskType(task: Pick<ProcessTask, 'processNameZh' | 'processCode'>): MaterialTaskType | null {
   const processName = task.processNameZh
   const processCode = task.processCode
 
@@ -298,6 +364,20 @@ function resolveTaskType(task: ProcessTask): MaterialTaskType | null {
   }
   if (processName.includes('裁片') || processCode === 'PROC_CUT') return 'CUT'
   if (processName.includes('车缝') || processName.includes('缝纫') || processCode === 'PROC_SEW') return 'SEW'
+  if (
+    processName.includes('后道') ||
+    processName.includes('整烫') ||
+    processName.includes('包装') ||
+    processName.includes('终检') ||
+    processCode === 'PROC_IRON' ||
+    processCode === 'PROC_PACK' ||
+    processCode === 'PROC_FINISH' ||
+    processCode === 'PROC_FINISHING' ||
+    processCode === 'PROC_QC' ||
+    processCode === 'PROC_FINAL_QC'
+  ) {
+    return 'POST'
+  }
 
   return null
 }
@@ -316,10 +396,15 @@ function getOrderProcessFlags(orderId: string): { hasPrintTask: boolean; hasDyeT
   return { hasPrintTask, hasDyeTask }
 }
 
-function buildBomCandidates(order: ProductionOrder, task?: ProcessTask): DraftMaterialCandidate[] {
+function buildBomCandidates(
+  order: ProductionOrder,
+  task?: ProcessTask,
+  runtimeTask?: RuntimeProcessTask | null,
+): DraftMaterialCandidate[] {
   const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
-  const taskSkuScope = getTaskSkuScope(order, task)
+  const taskSkuScope = getTaskSkuScope(order, task, runtimeTask)
   const processFlags = getOrderProcessFlags(order.productionOrderId)
+  const targetProcessCode = runtimeTask?.processCode ?? task?.processCode
 
   if (!techPack || techPack.bomItems.length === 0) {
     return []
@@ -327,6 +412,13 @@ function buildBomCandidates(order: ProductionOrder, task?: ProcessTask): DraftMa
 
   return techPack.bomItems
     .map((item) => {
+      if (targetProcessCode) {
+        const usageProcessCodes = item.usageProcessCodes ?? []
+        if (usageProcessCodes.length > 0 && !usageProcessCodes.includes(targetProcessCode)) {
+          return null
+        }
+      }
+
       const applicableSkuCodes = item.applicableSkuCodes ?? []
       const matchedSkuScope =
         applicableSkuCodes.length > 0
@@ -397,41 +489,131 @@ function buildBomCandidates(order: ProductionOrder, task?: ProcessTask): DraftMa
     .filter((item): item is DraftMaterialCandidate => Boolean(item))
 }
 
-function buildUpstreamCandidates(order: ProductionOrder): DraftMaterialCandidate[] {
-  const cutTasks = processTasks.filter(
-    (task) => task.productionOrderId === order.productionOrderId && resolveTaskType(task) === 'CUT',
-  )
+function normalizeColorToken(value: string): string {
+  return value.trim().toLowerCase()
+}
 
-  if (cutTasks.length === 0) return []
+function buildSewUpstreamCandidates(
+  order: ProductionOrder,
+  task?: ProcessTask,
+  runtimeTask?: RuntimeProcessTask | null,
+): DraftMaterialCandidate[] {
+  const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
+  if (!techPack) return []
 
-  return cutTasks.map((task, index) => {
-    const suggestedQty = normalizeQty(task.qty)
+  const mappings = techPack.colorMaterialMappings ?? []
+  if (mappings.length === 0) return []
 
-    return {
-      optionKey: `upstream:${task.taskId}`,
-      sourceType: 'upstream_output',
-      sourceTypeLabel: SOURCE_TYPE_LABEL.upstream_output,
-      materialCode: `${order.productionOrderId}-CP-${String(index + 1).padStart(2, '0')}`,
-      materialName: '裁片半成品',
-      materialSpec: `来自${task.processNameZh}`,
-      materialCategory: '裁片',
-      suggestedQty,
-      unit: CATEGORY_UNIT.裁片,
-      sourceRef: task.taskId,
-      note: `上道产出：${task.taskId}`,
-      requiresPrint: false,
-      requiresDye: false,
-    }
+  const skuScope = getTaskSkuScope(order, task, runtimeTask).filter((sku) => sku.qty > 0)
+  if (skuScope.length === 0) return []
+
+  const mappingByColor = new Map<string, typeof mappings[number]>()
+  const bomById = new Map(techPack.bomItems.map((item) => [item.id, item]))
+  mappings.forEach((mapping) => {
+    mappingByColor.set(normalizeColorToken(mapping.colorName), mapping)
+    mappingByColor.set(normalizeColorToken(mapping.colorCode), mapping)
   })
+
+  const candidates: DraftMaterialCandidate[] = []
+  skuScope.forEach((sku) => {
+    const mapping = mappingByColor.get(normalizeColorToken(sku.color))
+    if (!mapping) return
+
+    const candidateLines = mapping.lines.filter((line) => {
+      if (!line.pieceName || !Number.isFinite(line.pieceCountPerUnit) || Number(line.pieceCountPerUnit) <= 0) {
+        return false
+      }
+      if (!line.applicableSkuCodes || line.applicableSkuCodes.length === 0) return true
+      return line.applicableSkuCodes.includes(sku.skuCode)
+    })
+
+    candidateLines.forEach((line, index) => {
+      const pieceCountPerUnit = Number(line.pieceCountPerUnit) || 0
+      if (pieceCountPerUnit <= 0) return
+      const suggestedQty = normalizeQty(sku.qty * pieceCountPerUnit)
+      const sourceRuleLabel =
+        mapping.status === 'AUTO_DRAFT' ? '款色映射草稿自动建议（待确认）' : '款色映射确认后自动建议'
+
+      candidates.push({
+        optionKey: `upstream:sew:${mapping.id}:${sku.skuCode}:${line.id}:${index}`,
+        sourceType: 'upstream_output',
+        sourceTypeLabel: SOURCE_TYPE_LABEL.upstream_output,
+        materialCode: line.materialCode || `CP-${sku.skuCode}-${line.pieceId || line.id}`,
+        materialName: `${line.pieceName}裁片`,
+        materialSpec: line.patternName ? `纸样：${line.patternName}` : `颜色：${mapping.colorName}`,
+        materialCategory: '裁片',
+        suggestedQty,
+        unit: line.unit || CATEGORY_UNIT.裁片,
+        sourceRef: `${mapping.id}:${line.id}:${sku.skuCode}`,
+        note: `来自款色映射 ${mapping.colorName}`,
+        sourceBomItemId: line.bomItemId || undefined,
+        sourceBomItemCode:
+          line.bomItemId && bomById.get(line.bomItemId)
+            ? `BOM-${order.demandSnapshot.spuCode}-${line.bomItemId}`
+            : undefined,
+        sourceBomItemName: line.bomItemId ? bomById.get(line.bomItemId)?.name : undefined,
+        sourceSkuCodes: [sku.skuCode],
+        sourceSkuLabels: [`${sku.color}（${sku.skuCode}）`],
+        linkedPatternIds: line.patternId ? [line.patternId] : undefined,
+        linkedPatternNames: line.patternName ? [line.patternName] : undefined,
+        patternSpecText: line.patternName ? `${line.patternName}` : undefined,
+        patternTotalPieceCount: pieceCountPerUnit,
+        pieceSummaryText: `${line.pieceName}${pieceCountPerUnit}`,
+        sourceRuleLabel,
+        sourceReasonText: `颜色 ${mapping.colorName} / SKU ${sku.skuCode}：${line.pieceName} × ${pieceCountPerUnit}（每件）`,
+        sourcePatternId: line.patternId || undefined,
+        sourcePieceId: line.pieceId || undefined,
+        sourceMappingId: mapping.id,
+        sourceMappingLineId: line.id,
+        requiresPrint: false,
+        requiresDye: false,
+      })
+    })
+  })
+
+  return candidates
+}
+
+function buildPostUpstreamCandidates(
+  order: ProductionOrder,
+  task?: ProcessTask,
+  runtimeTask?: RuntimeProcessTask | null,
+): DraftMaterialCandidate[] {
+  if (runtimeTask?.transitionFromPrev === 'SAME_FACTORY_CONTINUE') {
+    return []
+  }
+
+  const skuScope = getTaskSkuScope(order, task, runtimeTask).filter((sku) => sku.qty > 0)
+  if (skuScope.length === 0) return []
+
+  return skuScope.map((sku, index) => ({
+    optionKey: `upstream:post:${runtimeTask?.taskId ?? task?.taskId ?? 'unknown'}:${sku.skuCode}:${index}`,
+    sourceType: 'upstream_output',
+    sourceTypeLabel: SOURCE_TYPE_LABEL.upstream_output,
+    materialCode: `${order.productionOrderId}-SF-${String(index + 1).padStart(2, '0')}-${sku.skuCode}`,
+    materialName: '上道半成品',
+    materialSpec: `来自上一步工序（${sku.color}/${sku.skuCode}）`,
+    materialCategory: '裁片',
+    suggestedQty: normalizeQty(sku.qty),
+    unit: '件',
+    sourceRef: runtimeTask?.baseDependsOnTaskIds.join(',') || task?.dependsOnTaskIds?.join(',') || '',
+    note: '后道承接上一步半成品',
+    sourceSkuCodes: [sku.skuCode],
+    sourceSkuLabels: [`${sku.color}（${sku.skuCode}）`],
+    sourceRuleLabel: '后道承接上一步半成品',
+    sourceReasonText: `SKU ${sku.skuCode}（${sku.color}）需承接上一步半成品`,
+    requiresPrint: false,
+    requiresDye: false,
+  }))
 }
 
 function buildDraftCandidates(
   order: ProductionOrder,
   taskType: MaterialTaskType,
   task?: ProcessTask,
+  runtimeTask?: RuntimeProcessTask | null,
 ): DraftMaterialCandidate[] {
-  const bomCandidates = buildBomCandidates(order, task)
-  const upstreamCandidates = buildUpstreamCandidates(order)
+  const bomCandidates = buildBomCandidates(order, task, runtimeTask)
 
   if (taskType === 'PRINT') {
     return bomCandidates.filter((item) => item.requiresPrint)
@@ -445,10 +627,19 @@ function buildDraftCandidates(
     return bomCandidates.filter((item) => item.materialCategory === '面料')
   }
 
-  return [
-    ...upstreamCandidates,
-    ...bomCandidates.filter((item) => item.materialCategory === '辅料'),
-  ]
+  if (taskType === 'SEW') {
+    const sewUpstream = buildSewUpstreamCandidates(order, task, runtimeTask)
+    const accessoryBom = bomCandidates.filter((item) => item.materialCategory === '辅料')
+    return [...sewUpstream, ...accessoryBom]
+  }
+
+  if (taskType === 'POST') {
+    const postUpstream = buildPostUpstreamCandidates(order, task, runtimeTask)
+    const postBom = bomCandidates.filter((item) => item.materialCategory === '辅料')
+    return [...postUpstream, ...postBom]
+  }
+
+  return bomCandidates
 }
 
 function toDraftLines(draftId: string, candidates: DraftMaterialCandidate[]): MaterialRequestDraftLine[] {
@@ -481,12 +672,17 @@ function toDraftLines(draftId: string, candidates: DraftMaterialCandidate[]): Ma
       pieceSummaryText: candidate.pieceSummaryText,
       sourceRuleLabel: candidate.sourceRuleLabel,
       sourceReasonText: candidate.sourceReasonText,
+      sourcePatternId: candidate.sourcePatternId,
+      sourcePieceId: candidate.sourcePieceId,
+      sourceMappingId: candidate.sourceMappingId,
+      sourceMappingLineId: candidate.sourceMappingLineId,
     }
   })
 }
 
 function buildDraftId(orderId: string, taskId: string): string {
-  return `MRD-${orderId.replace(/[^0-9]/g, '')}-${taskId.replace(/[^0-9]/g, '')}`
+  const normalizedTask = taskId.replace(/[^A-Za-z0-9]/g, '')
+  return `MRD-${orderId.replace(/[^0-9]/g, '')}-${normalizedTask}`
 }
 
 function cloneDraftLine(line: MaterialRequestDraftLine): MaterialRequestDraftLine {
@@ -531,8 +727,12 @@ function applyTaskBinding(request: MaterialRequestRecord): void {
   }
 
   taskBindings.set(request.taskId, binding)
+  const baseTaskId = resolveBaseTaskId(request.taskId)
+  if (baseTaskId !== request.taskId) {
+    taskBindings.set(baseTaskId, { ...binding, taskId: baseTaskId })
+  }
 
-  const task = processTasks.find((item) => item.taskId === request.taskId)
+  const task = processTasks.find((item) => item.taskId === baseTaskId)
   if (!task) return
 
   task.hasMaterialRequest = true
@@ -544,49 +744,58 @@ function applyTaskBinding(request: MaterialRequestRecord): void {
 
 function buildInitialDrafts(): MaterialRequestDraft[] {
   const list: MaterialRequestDraft[] = []
+  const runtimeTasks = listRuntimeProcessTasks()
+    .slice()
+    .sort((a, b) => {
+      if (a.productionOrderId !== b.productionOrderId) return a.productionOrderId.localeCompare(b.productionOrderId)
+      if (a.seq !== b.seq) return a.seq - b.seq
+      return a.taskId.localeCompare(b.taskId)
+    })
 
-  for (const order of productionOrders) {
-    const orderTasks = processTasks
-      .filter((task) => task.productionOrderId === order.productionOrderId)
-      .sort((a, b) => a.seq - b.seq)
+  for (const runtimeTask of runtimeTasks) {
+    const order = productionOrders.find((item) => item.productionOrderId === runtimeTask.productionOrderId)
+    if (!order) continue
+    const baseTask = processTasks.find((task) => task.taskId === runtimeTask.baseTaskId)
+    if (!baseTask) continue
 
-    for (const task of orderTasks) {
-      const taskType = resolveTaskType(task)
-      if (!taskType) continue
+    const taskType = resolveTaskType(runtimeTask)
+    if (!taskType) continue
 
-      const draftId = buildDraftId(order.productionOrderId, task.taskId)
-      const candidates = buildDraftCandidates(order, taskType, task)
+    const draftId = buildDraftId(order.productionOrderId, runtimeTask.taskId)
+    const candidates = buildDraftCandidates(order, taskType, baseTask, runtimeTask)
 
-      list.push({
-        draftId,
-        productionOrderId: order.productionOrderId,
-        productionOrderNo: order.productionOrderId,
-        spuCode: order.demandSnapshot.spuCode,
-        spuName: order.demandSnapshot.spuName,
-        taskId: task.taskId,
-        taskNo: task.taskId,
-        taskName: task.processNameZh,
-        taskType,
-        draftStatus: 'pending',
-        needMaterial: true,
-        materialMode: 'warehouse_delivery',
-        materialModeLabel: MATERIAL_MODE_LABEL.warehouse_delivery,
-        remark: `系统按${TASK_TYPE_LABEL[taskType]}任务自动建议`,
-        createdMaterialRequestNo: '',
-        createdBy: '',
-        createdAt: '',
-        updatedBy: '系统',
-        updatedAt: order.createdAt,
-        lines: toDraftLines(draftId, candidates),
-      })
-    }
+    list.push({
+      draftId,
+      productionOrderId: order.productionOrderId,
+      productionOrderNo: order.productionOrderId,
+      spuCode: order.demandSnapshot.spuCode,
+      spuName: order.demandSnapshot.spuName,
+      taskId: runtimeTask.taskId,
+      taskNo: runtimeTask.taskId,
+      taskName: `${runtimeTask.processNameZh}（${runtimeTask.scopeLabel}）`,
+      taskType,
+      draftStatus: 'pending',
+      needMaterial: true,
+      materialMode: 'warehouse_delivery',
+      materialModeLabel: MATERIAL_MODE_LABEL.warehouse_delivery,
+      remark: `系统按${TASK_TYPE_LABEL[taskType]}任务自动建议`,
+      createdMaterialRequestNo: '',
+      createdBy: '',
+      createdAt: '',
+      updatedBy: '系统',
+      updatedAt: order.createdAt,
+      lines: toDraftLines(draftId, candidates),
+    })
   }
 
   return list
 }
 
 function markDraftNotApplicable(taskId: string, operatorName = '跟单员', operateAt: string = toTimestamp()): void {
-  const draft = materialRequestDrafts.find((item) => item.taskId === taskId)
+  const baseTaskId = resolveBaseTaskId(taskId)
+  const draft =
+    materialRequestDrafts.find((item) => item.taskId === taskId) ??
+    materialRequestDrafts.find((item) => resolveBaseTaskId(item.taskId) === baseTaskId)
   if (!draft) return
 
   draft.needMaterial = false
@@ -605,7 +814,10 @@ function markDraftNotApplicable(taskId: string, operatorName = '跟单员', oper
 }
 
 function seedCreatedDraft(taskId: string, mode: MaterialMode, createdAt: string, createdBy: string, requestStatus?: MaterialRequestProgressStatus): void {
-  const draft = materialRequestDrafts.find((item) => item.taskId === taskId)
+  const baseTaskId = resolveBaseTaskId(taskId)
+  const draft =
+    materialRequestDrafts.find((item) => item.taskId === taskId) ??
+    materialRequestDrafts.find((item) => resolveBaseTaskId(item.taskId) === baseTaskId)
   if (!draft) return
 
   draft.needMaterial = true
@@ -719,7 +931,8 @@ function getOrderById(orderId: string): ProductionOrder | undefined {
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return processTasks.find((task) => task.taskId === taskId)
+  const baseTaskId = resolveBaseTaskId(taskId)
+  return processTasks.find((task) => task.taskId === baseTaskId)
 }
 
 function getDraftById(draftId: string): MaterialRequestDraft | undefined {
@@ -731,14 +944,15 @@ function rebuildDraftLines(draft: MaterialRequestDraft): MaterialRequestDraftLin
   if (!order) return []
 
   const task = getTaskById(draft.taskId)
-  const candidates = buildDraftCandidates(order, draft.taskType, task)
+  const runtimeTask = getRuntimeTaskById(draft.taskId) ?? getRuntimeTaskForDraft(task)
+  const candidates = buildDraftCandidates(order, draft.taskType, task, runtimeTask)
   return toDraftLines(draft.draftId, candidates)
 }
 
 export function listMaterialRequestDraftsByOrder(orderId: string): MaterialRequestDraft[] {
   return materialRequestDrafts
     .filter((draft) => draft.productionOrderId === orderId)
-    .sort((a, b) => a.taskNo.localeCompare(b.taskNo))
+    .sort((a, b) => a.taskId.localeCompare(b.taskId))
     .map(cloneDraft)
 }
 
@@ -986,7 +1200,8 @@ export function listMaterialDraftSupplementOptions(draftId: string): DraftMateri
   if (!order) return []
 
   const task = getTaskById(draft.taskId)
-  const candidates = buildDraftCandidates(order, draft.taskType, task)
+  const runtimeTask = getRuntimeTaskById(draft.taskId) ?? getRuntimeTaskForDraft(task)
+  const candidates = buildDraftCandidates(order, draft.taskType, task, runtimeTask)
   const selectedRefs = new Set(
     draft.lines.map((line) => `${line.sourceType}:${line.sourceRef}`),
   )
@@ -1031,6 +1246,10 @@ export function addMaterialToDraft(draftId: string, optionKeys: string[], operat
       pieceSummaryText: option.pieceSummaryText,
       sourceRuleLabel: option.sourceRuleLabel,
       sourceReasonText: option.sourceReasonText,
+      sourcePatternId: option.sourcePatternId,
+      sourcePieceId: option.sourcePieceId,
+      sourceMappingId: option.sourceMappingId,
+      sourceMappingLineId: option.sourceMappingLineId,
     } satisfies MaterialRequestDraftLine
   })
 
