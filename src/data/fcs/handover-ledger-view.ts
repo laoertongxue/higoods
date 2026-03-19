@@ -9,6 +9,7 @@ import {
   type PdaPickupRecord,
 } from './pda-handover-events'
 import { processTasks } from './process-tasks'
+import { listRuntimeProcessTasks, type RuntimeProcessTask } from './runtime-process-tasks'
 
 export type HandoverLedgerSourceType =
   | 'PICKUP_HEAD'
@@ -16,6 +17,8 @@ export type HandoverLedgerSourceType =
   | 'HANDOUT_HEAD'
   | 'HANDOUT_RECORD'
   | 'COMPLETED_HEAD'
+  | 'SAME_FACTORY_CONTINUE'
+  | 'WAREHOUSE_WORKSHOP'
 
 export type HandoverLedgerStatusGroup = 'PENDING' | 'IN_PROGRESS' | 'EXCEPTION' | 'DONE'
 
@@ -32,6 +35,8 @@ export type HandoverLedgerEventTypeCode =
   | 'HANDOUT_OBJECTION_RESOLVED'
   | 'PICKUP_COMPLETED'
   | 'HANDOUT_COMPLETED'
+  | 'SAME_FACTORY_CONTINUE'
+  | 'WAREHOUSE_WORKSHOP'
 
 export interface HandoverLedgerRow {
   rowId: string
@@ -70,6 +75,8 @@ export type HandoverTimelineProcessStatusLabel =
   | '已交出待仓库确认'
   | '有异议'
   | '异议处理中'
+  | '厂内连续流转'
+  | '仓内处理'
   | '已完成'
 
 export interface HandoverTimelineProcessSection {
@@ -393,6 +400,58 @@ function buildCompletedHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
   }
 }
 
+function buildSameFactoryContinueRow(task: RuntimeProcessTask): HandoverLedgerRow {
+  return {
+    rowId: `RTC-${task.taskId}`,
+    sourceType: 'SAME_FACTORY_CONTINUE',
+    eventTypeCode: 'SAME_FACTORY_CONTINUE',
+    eventTypeLabel: '厂内连续流转',
+    productionOrderId: task.productionOrderId,
+    taskId: task.baseTaskId,
+    taskNo: task.taskId,
+    processName: task.processNameZh,
+    directionLabel: '同厂连续',
+    qtySummary: `${task.scopeLabel} / ${task.scopeQty} ${task.qtyUnit}`,
+    statusCode: task.status === 'DONE' ? 'SAME_FACTORY_DONE' : 'SAME_FACTORY_CONTINUE',
+    statusLabel: task.status === 'DONE' ? '厂内连续已完成' : '厂内连续流转',
+    statusGroup: task.status === 'DONE' ? 'DONE' : 'IN_PROGRESS',
+    statusTone: task.status === 'DONE' ? 'success' : 'info',
+    occurredAt: task.updatedAt,
+    sourceModuleLabel: '运行时任务流转',
+    nextActionHint:
+      task.status === 'DONE'
+        ? '连续工序已完成，按后续工序流转'
+        : '同厂同 SKU 连续工序，中间无需回仓再领料',
+    handoverId: `RTC-${task.taskId}`,
+  }
+}
+
+function buildWarehouseWorkshopRow(task: RuntimeProcessTask): HandoverLedgerRow {
+  return {
+    rowId: `WHW-${task.taskId}`,
+    sourceType: 'WAREHOUSE_WORKSHOP',
+    eventTypeCode: 'WAREHOUSE_WORKSHOP',
+    eventTypeLabel: '仓内处理',
+    productionOrderId: task.productionOrderId,
+    taskId: task.baseTaskId,
+    taskNo: task.taskId,
+    processName: task.processNameZh,
+    directionLabel: '仓库内流转',
+    qtySummary: `${task.scopeLabel} / ${task.scopeQty} ${task.qtyUnit}`,
+    statusCode: task.status === 'DONE' ? 'WAREHOUSE_WORKSHOP_DONE' : 'WAREHOUSE_WORKSHOP_PENDING',
+    statusLabel: task.status === 'DONE' ? '仓内处理已完成' : '仓内处理',
+    statusGroup: task.status === 'DONE' ? 'DONE' : 'IN_PROGRESS',
+    statusTone: task.status === 'DONE' ? 'success' : 'info',
+    occurredAt: task.updatedAt,
+    sourceModuleLabel: '仓内流转',
+    nextActionHint:
+      task.status === 'DONE'
+        ? '仓内后道处理已完成'
+        : '仓内后道不走外部工厂 PDA，等待仓内流转到位',
+    handoverId: `WHW-${task.taskId}`,
+  }
+}
+
 export function getHandoverLedgerRows(): HandoverLedgerRow[] {
   const rows: HandoverLedgerRow[] = []
   const pickupHeads = getPdaPickupHeads()
@@ -425,6 +484,15 @@ export function getHandoverLedgerRows(): HandoverLedgerRow[] {
       rows.push(buildHandoutRecordRow(head, record))
     })
   })
+
+  const runtimeRows = listRuntimeProcessTasks()
+    .filter((task) => task.executorKind === 'WAREHOUSE_WORKSHOP' || task.transitionFromPrev === 'SAME_FACTORY_CONTINUE')
+    .map((task) =>
+      task.executorKind === 'WAREHOUSE_WORKSHOP'
+        ? buildWarehouseWorkshopRow(task)
+        : buildSameFactoryContinueRow(task),
+    )
+  rows.push(...runtimeRows)
 
   return rows.sort((a, b) => {
     const bTime = parseDateMs(b.occurredAt)
@@ -472,6 +540,26 @@ function deriveProcessSectionStatus(events: HandoverLedgerRow[]): {
 
   const statusCodes = new Set(events.map((event) => event.statusCode))
   const statusGroups = new Set(events.map((event) => event.statusGroup))
+
+  if (statusCodes.has('WAREHOUSE_WORKSHOP_PENDING') || statusCodes.has('WAREHOUSE_WORKSHOP_DONE')) {
+    return {
+      label: '仓内处理',
+      tone: statusCodes.has('WAREHOUSE_WORKSHOP_DONE') ? 'success' : 'info',
+      nextActionHint: statusCodes.has('WAREHOUSE_WORKSHOP_DONE')
+        ? '仓内后道处理完成'
+        : '当前由仓内后道处理，不走外部工厂交接',
+    }
+  }
+
+  if (statusCodes.has('SAME_FACTORY_CONTINUE') || statusCodes.has('SAME_FACTORY_DONE')) {
+    return {
+      label: '厂内连续流转',
+      tone: statusCodes.has('SAME_FACTORY_DONE') ? 'success' : 'info',
+      nextActionHint: statusCodes.has('SAME_FACTORY_DONE')
+        ? '同厂连续工序已完成'
+        : '同厂同 SKU 连续工序，中间无需回仓',
+    }
+  }
 
   if (statusCodes.has('HANDOUT_OBJECTION_REPORTED') || statusCodes.has('HANDOUT_HAS_OBJECTION')) {
     return {
@@ -548,6 +636,10 @@ function getSectionPriority(label: HandoverTimelineProcessStatusLabel): number {
     case '已领料待交出':
       return 4
     case '待领料':
+      return 5
+    case '仓内处理':
+      return 5
+    case '厂内连续流转':
       return 5
     case '暂无事件':
       return 6

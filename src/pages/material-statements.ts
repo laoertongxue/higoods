@@ -1,5 +1,5 @@
 import {
-  initialMaterialIssueSheets,
+  listMaterialIssueSheetsFromRuntime,
   type MaterialIssueSheet,
   type MaterialStatementDraft,
   type MaterialStatementItem,
@@ -50,6 +50,14 @@ const state: MaterialStatementsState = {
   draftKeyword: '',
   draftStatusFilter: 'ALL',
   detailStatementId: null,
+}
+
+function getIssueSheets(): MaterialIssueSheet[] {
+  return listMaterialIssueSheetsFromRuntime()
+}
+
+function getIssueById(issueId: string): MaterialIssueSheet | undefined {
+  return getIssueSheets().find((issue) => issue.issueId === issueId)
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -110,7 +118,7 @@ function getOccupiedIssueIds(): Set<string> {
 
 function getPoolIssues(): MaterialIssueSheet[] {
   const occupiedIds = getOccupiedIssueIds()
-  return initialMaterialIssueSheets.filter(
+  return getIssueSheets().filter(
     (issue) =>
       (issue.status === 'PARTIAL' || issue.status === 'ISSUED') &&
       !!issue.productionOrderId &&
@@ -139,20 +147,20 @@ function getFilteredPool(poolIssues: MaterialIssueSheet[]): MaterialIssueSheet[]
 
 function getSelectedOrder(): string | null {
   if (state.selected.length === 0) return null
-  const firstIssue = initialMaterialIssueSheets.find((issue) => issue.issueId === state.selected[0])
+  const firstIssue = getIssueById(state.selected[0])
   return firstIssue?.productionOrderId ?? null
 }
 
 function getSelectedTotalRequested(): number {
   return state.selected.reduce((sum, issueId) => {
-    const issue = initialMaterialIssueSheets.find((item) => item.issueId === issueId)
+    const issue = getIssueById(issueId)
     return sum + (issue?.requestedQty ?? 0)
   }, 0)
 }
 
 function getSelectedTotalIssued(): number {
   return state.selected.reduce((sum, issueId) => {
-    const issue = initialMaterialIssueSheets.find((item) => item.issueId === issueId)
+    const issue = getIssueById(issueId)
     return sum + (issue?.issuedQty ?? 0)
   }, 0)
 }
@@ -166,7 +174,7 @@ function generateMaterialStatementDraft(
   if (!issueIds.length) return { ok: false, message: '至少选择一条领料需求' }
 
   for (const issueId of issueIds) {
-    const issue = initialMaterialIssueSheets.find((item) => item.issueId === issueId)
+    const issue = getIssueById(issueId)
     if (!issue) return { ok: false, message: `领料需求 ${issueId} 不存在` }
     if (issue.productionOrderId !== productionOrderId) {
       return { ok: false, message: `领料需求 ${issueId} 不属于生产单 ${productionOrderId}` }
@@ -195,7 +203,7 @@ function generateMaterialStatementDraft(
   }
 
   const items: MaterialStatementItem[] = issueIds.map((issueId) => {
-    const issue = initialMaterialIssueSheets.find((item) => item.issueId === issueId)!
+    const issue = getIssueById(issueId)!
     return {
       issueId: issue.issueId,
       taskId: issue.taskId,
@@ -675,7 +683,7 @@ export function handleMaterialStatementsEvent(target: HTMLElement): boolean {
   if (action === 'toggle-select') {
     const issueId = actionNode.dataset.issueId
     if (!issueId) return true
-    const issue = initialMaterialIssueSheets.find((item) => item.issueId === issueId)
+    const issue = getIssueById(issueId)
     if (!issue) return true
 
     if (state.selected.includes(issueId)) {

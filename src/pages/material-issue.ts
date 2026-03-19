@@ -1,6 +1,6 @@
 import { processTasks } from '../data/fcs/process-tasks'
 import {
-  initialMaterialIssueSheets,
+  listMaterialIssueSheetsFromRuntime,
   type MaterialIssueSheet,
   type MaterialIssueStatus,
 } from '../data/fcs/store-domain-dispatch-process'
@@ -73,6 +73,9 @@ const state: MaterialIssueState = {
   statusRemark: '',
 }
 
+// 第6步：页面改为以新链路兼容适配结果为基础数据，不再直接依赖旧静态 seed。
+const runtimeMaterialIssueSheets: MaterialIssueSheet[] = listMaterialIssueSheetsFromRuntime()
+
 function emptyCreateForm(): CreateForm {
   return {
     taskId: '',
@@ -138,7 +141,7 @@ function showMaterialIssueToast(message: string, tone: 'success' | 'error' = 'su
 }
 
 function getSheets(): MaterialIssueSheet[] {
-  return initialMaterialIssueSheets
+  return runtimeMaterialIssueSheets
 }
 
 function getSheetById(issueId: string | null): MaterialIssueSheet | null {

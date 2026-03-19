@@ -2,6 +2,9 @@
 // 任务分配 / 执行准备域 — 静态类型 + seed 数据
 // 当前原型仓直接使用的数据域定义与种子文件
 // =============================================
+import { listMaterialRequests } from './material-request-drafts'
+import { getRuntimeTaskById } from './runtime-process-tasks'
+import { listWarehouseExecutionDocsByMaterialRequestNo } from './warehouse-material-execution'
 
 // ─── 招标单台账 ──────────────────────────────
 export type TenderOrderStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'VOID'
@@ -49,6 +52,72 @@ export interface MaterialIssueSheet {
   createdBy: string
   updatedAt?: string
   updatedBy?: string
+}
+
+function toIssueStatusFromExecution(input: {
+  requestStatus: string
+  hasExecutionDocs: boolean
+  requestedQty: number
+  completedQty: number
+}): MaterialIssueStatus {
+  if (!input.hasExecutionDocs) return 'DRAFT'
+  if (input.completedQty >= input.requestedQty && input.requestedQty > 0) return 'ISSUED'
+  if (input.completedQty > 0) return 'PARTIAL'
+  if (input.requestStatus === '待配送' || input.requestStatus === '待自提') return 'TO_ISSUE'
+  return 'DRAFT'
+}
+
+function buildLegacyMaterialIssueSheetsFromRuntime(): MaterialIssueSheet[] {
+  const requests = listMaterialRequests()
+
+  return requests
+    .map((request) => {
+      const docs = listWarehouseExecutionDocsByMaterialRequestNo(request.materialRequestNo)
+      const requestedQty = docs.reduce(
+        (sum, doc) => sum + doc.lines.reduce((lineSum, line) => lineSum + line.plannedQty, 0),
+        0,
+      )
+      const completedQty = docs.reduce(
+        (sum, doc) =>
+          sum +
+          doc.lines.reduce(
+            (lineSum, line) => lineSum + (line.issuedQty ?? 0) + (line.transferredQty ?? 0),
+            0,
+          ),
+        0,
+      )
+      const normalizedRequested = Math.max(1, Math.round(requestedQty || request.lineCount || 1))
+      const normalizedCompleted = Math.max(0, Math.round(completedQty))
+      const status = toIssueStatusFromExecution({
+        requestStatus: request.requestStatus,
+        hasExecutionDocs: docs.length > 0,
+        requestedQty: normalizedRequested,
+        completedQty: normalizedCompleted,
+      })
+      const runtimeTask = getRuntimeTaskById(request.taskId)
+      const scopeLabel = runtimeTask?.scopeLabel || '整单'
+      const processName = runtimeTask?.processNameZh || request.taskName
+
+      return {
+        issueId: `MIS-${request.materialRequestNo}`,
+        productionOrderId: request.productionOrderNo,
+        taskId: request.taskId,
+        materialSummaryZh: `${request.materialSummary}（${processName} / ${scopeLabel}）`,
+        requestedQty: normalizedRequested,
+        issuedQty: normalizedCompleted,
+        status,
+        remark: docs.length > 0 ? `来源新执行链路：${docs.map((doc) => doc.docNo).join('、')}` : '来源新执行链路：待生成仓库执行单',
+        createdAt: request.updatedAt,
+        createdBy: request.createdBy,
+        updatedAt: request.updatedAt,
+        updatedBy: request.createdBy,
+      } satisfies MaterialIssueSheet
+    })
+    .sort((a, b) => b.updatedAt!.localeCompare(a.updatedAt!))
+}
+
+export function listMaterialIssueSheetsFromRuntime(): MaterialIssueSheet[] {
+  return buildLegacyMaterialIssueSheetsFromRuntime().map((item) => ({ ...item }))
 }
 
 // ─── 质检点 / 验收标准单 ──────────────────────
@@ -222,15 +291,9 @@ export const initialTenderOrders: TenderOrder[] = [
 ]
 
 // ─── initialMaterialIssueSheets ───────────────
-export const initialMaterialIssueSheets: MaterialIssueSheet[] = [
-  { issueId: 'MIS-202603-1001', taskId: 'TASK-0002-001', productionOrderId: 'PO-202603-001', materialSummaryZh: '主面料 × 100m', requestedQty: 100, issuedQty: 0, status: 'DRAFT', createdAt: '2026-03-01 09:00:00', createdBy: '管理员' },
-  { issueId: 'MIS-202603-1002', taskId: 'TASK-0005-002', productionOrderId: 'PO-202603-002', materialSummaryZh: '辅料（纽扣）× 500个', requestedQty: 500, issuedQty: 200, status: 'PARTIAL', createdAt: '2026-03-02 10:00:00', createdBy: '管理员', updatedAt: '2026-03-05 15:00:00', updatedBy: '管理员' },
-  { issueId: 'MIS-202603-1003', taskId: 'TASK-0007-001', productionOrderId: 'PO-202603-003', materialSummaryZh: '里布 × 80m', requestedQty: 80, issuedQty: 80, status: 'ISSUED', createdAt: '2026-03-03 11:00:00', createdBy: '管理员', updatedAt: '2026-03-06 09:00:00', updatedBy: '管理员' },
-  { issueId: 'MIS-202603-2001', taskId: 'TASK-202603-0003-001', productionOrderId: 'PO-202603-0003', materialSummaryZh: '主面料 6000 片，领底衬 6000 片', requestedQty: 12000, issuedQty: 0, status: 'DRAFT', createdAt: '2026-03-05 11:00:00', createdBy: '管理员' },
-  { issueId: 'MIS-202603-2002', taskId: 'TASK-202603-0005-001', productionOrderId: 'PO-202603-0005', materialSummaryZh: '主面料 3200 片，辅料包 3200 套', requestedQty: 6400, issuedQty: 3200, status: 'PARTIAL', createdAt: '2026-03-03 17:00:00', createdBy: '管理员', updatedAt: '2026-03-04 15:00:00', updatedBy: '管理员' },
-  { issueId: 'MIS-202603-2003', taskId: 'TASK-202603-0005-003', productionOrderId: 'PO-202603-0005', materialSummaryZh: '缝制辅料包 3200 套', requestedQty: 3200, issuedQty: 0, status: 'TO_ISSUE', createdAt: '2026-03-05 12:00:00', createdBy: '管理员' },
-  { issueId: 'MIS-202603-2004', taskId: 'TASK-202603-0006-001', productionOrderId: 'PO-202603-0006', materialSummaryZh: '主面料 1500 片，门襟衬 1500 片', requestedQty: 3000, issuedQty: 3000, status: 'ISSUED', createdAt: '2026-03-01 10:30:00', createdBy: '管理员', updatedAt: '2026-03-01 11:30:00', updatedBy: '管理员' },
-]
+// 兼容导出：保留旧字段名，底层改为由新执行链路映射生成。
+// 注意：该常量不再作为主真相源，若需实时数据请使用 listMaterialIssueSheetsFromRuntime。
+export const initialMaterialIssueSheets: MaterialIssueSheet[] = buildLegacyMaterialIssueSheetsFromRuntime()
 
 // ─── initialQcStandardSheets ──────────────────
 export const initialQcStandardSheets: QcStandardSheet[] = [

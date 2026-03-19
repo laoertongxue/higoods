@@ -12,6 +12,35 @@ import type {
   ResolveRuleCode,
   ResolveSource,
 } from './progress-exception-lifecycle'
+import {
+  getRuntimeTaskById,
+  listRuntimeProcessTasks,
+  listRuntimeTasksByBaseTaskId,
+  type RuntimeProcessTask,
+} from './runtime-process-tasks'
+import {
+  listMaterialRequests,
+  listMaterialRequestsByOrder,
+  type MaterialRequestRecord,
+} from './material-request-drafts'
+import {
+  listWarehouseExecutionDocsByOrder,
+  listWarehouseExecutionDocsByRuntimeTaskId,
+  listWarehouseExecutionDocsByMaterialRequestNo,
+  listWarehouseInternalTransferOrdersByRuntimeTaskId,
+  listWarehouseIssueOrdersByRuntimeTaskId,
+  listWarehouseReturnOrdersByRuntimeTaskId,
+  getWarehouseExecutionSummaryByOrder,
+  type WarehouseExecutionDoc,
+  type WarehouseExecutionStatus,
+} from './warehouse-material-execution'
+import {
+  getPdaHandoutHeads,
+  getPdaHandoverRecordsByHead,
+  getPdaPickupHeads,
+  getPdaPickupRecordsByHead,
+} from './pda-handover-events'
+import { processTasks } from './process-tasks'
 
 // =============================================
 // ExceptionCase 相关
@@ -1335,3 +1364,569 @@ export const initialUrges: UrgeLog[] = [
   { urgeId: 'UG-202603-0019', urgeType: 'URGE_FINISH', fromType: 'INTERNAL_USER', fromId: 'U003', fromName: '跟单B', toType: 'FACTORY', toId: 'ID-F009', toName: 'Semarang Pleating', targetType: 'TASK', targetId: 'TASK-0009-001', message: '任务已严重延期，请尽快完成', createdAt: '2026-03-03 06:30:00', status: 'SENT', deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0009-001' } }, auditLogs: [{ id: 'UAL-024', action: 'SEND', detail: '发送催办', at: '2026-03-03 06:30:00', by: '跟单B' }] },
   { urgeId: 'UG-202603-0020', urgeType: 'URGE_ASSIGN_ACK', fromType: 'INTERNAL_USER', fromId: 'U002', fromName: '跟单A', toType: 'FACTORY', toId: 'ID-F010', toName: 'Jakarta Special Process', targetType: 'TASK', targetId: 'TASK-0010-001', message: '新任务已分配，请尽快确认', createdAt: '2026-03-02 11:00:00', status: 'RESOLVED', deepLink: { path: '/fcs/dispatch/board', query: { taskId: 'TASK-0010-001' } }, auditLogs: [{ id: 'UAL-025', action: 'SEND', detail: '发送催办', at: '2026-03-02 11:00:00', by: '跟单A' }, { id: 'UAL-026', action: 'RESOLVE', detail: '工厂已确认接单', at: '2026-03-02 12:00:00', by: 'Jakarta Special Process' }] },
 ]
+
+// =============================================
+// 第6步统一进度/异常事实域（基于 runtime + 仓库执行 + PDA）
+// =============================================
+export interface ProgressFact {
+  productionOrderId: string
+  runtimeTaskId: string
+  baseTaskId: string
+  processCode: string
+  processNameZh: string
+  scopeType: RuntimeProcessTask['scopeType']
+  scopeKey: string
+  scopeLabel: string
+  executorKind: RuntimeProcessTask['executorKind']
+  assignedFactoryId?: string
+  assignedFactoryName?: string
+  transitionFromPrev: RuntimeProcessTask['transitionFromPrev']
+  transitionToNext: RuntimeProcessTask['transitionToNext']
+  materialRequests: MaterialRequestRecord[]
+  executionDocs: WarehouseExecutionDoc[]
+  pickupHeadIds: string[]
+  handoutHeadIds: string[]
+  startReadiness: {
+    canStart: boolean
+    reasonCode:
+      | 'READY'
+      | 'WAIT_PICKUP'
+      | 'WAIT_INTERNAL_TRANSFER'
+      | 'WAIT_PREV_DONE'
+      | 'WAIT_EXECUTION_DOC'
+    reasonText: string
+  }
+}
+
+export interface ProgressExceptionSummary {
+  totalCount: number
+  openCount: number
+  inProgressCount: number
+  resolvedCount: number
+  closedCount: number
+  s1Count: number
+  s2Count: number
+  s3Count: number
+}
+
+export interface ProgressMaterialFlowSummary {
+  productionOrderId: string
+  requestCount: number
+  issueOrderCount: number
+  returnOrderCount: number
+  internalTransferCount: number
+  shortLineCount: number
+  completionRate: number
+  completenessRate: number
+}
+
+export interface ProgressExecutionHealthSummary {
+  productionOrderId: string
+  blockingExceptionCount: number
+  handoutExceptionCount: number
+  materialExceptionCount: number
+  waitingStartTaskCount: number
+  openExceptionCount: number
+}
+
+export interface ProgressOrderSummary {
+  productionOrderId: string
+  taskCount: number
+  canStartTaskCount: number
+  issueOrderCount: number
+  returnOrderCount: number
+  internalTransferCount: number
+  openExceptionCount: number
+}
+
+interface ProgressExceptionCandidate {
+  key: string
+  reasonCode: ReasonCode
+  category: ExceptionCategory
+  unifiedCategory: UnifiedCategory
+  subCategoryKey: SubCategoryKey
+  severity: Severity
+  sourceId: string
+  relatedOrderIds: string[]
+  relatedTaskIds: string[]
+  linkedFactoryName?: string
+  summary: string
+  detail: string
+  closureReady: boolean
+}
+
+const AUTO_PROGRESS_TAG = 'AUTO_PROGRESS_FACT'
+
+function parseDateMs(value?: string): number {
+  if (!value) return Number.NaN
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const ts = new Date(normalized).getTime()
+  return Number.isFinite(ts) ? ts : Number.NaN
+}
+
+function nowAt(): string {
+  return new Date().toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function toExceptionStatus(status: CaseStatus): 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' {
+  return status
+}
+
+function isDocClosed(status: WarehouseExecutionStatus): boolean {
+  return status === 'CLOSED' || status === 'RETURNED' || status === 'RECEIVED'
+}
+
+function isDocActive(status: WarehouseExecutionStatus): boolean {
+  return !isDocClosed(status)
+}
+
+function hasDocShortage(docs: WarehouseExecutionDoc[]): boolean {
+  return docs.some((doc) => doc.lines.some((line) => line.shortQty > 0))
+}
+
+function hasPreparingStatus(docs: WarehouseExecutionDoc[]): boolean {
+  return docs.some((doc) =>
+    doc.status === 'PLANNED' ||
+    doc.status === 'PREPARING' ||
+    doc.status === 'PARTIALLY_PREPARED' ||
+    doc.status === 'READY',
+  )
+}
+
+function resolveRuntimeTaskForRequest(request: MaterialRequestRecord): RuntimeProcessTask | null {
+  const direct = getRuntimeTaskById(request.taskId)
+  if (direct) return direct
+  const byBase = listRuntimeTasksByBaseTaskId(request.taskId)
+  if (byBase.length === 0) return null
+  if (byBase.length === 1) return byBase[0]
+  const orderScope = byBase.find((task) => task.scopeType === 'ORDER')
+  return orderScope ?? byBase[0]
+}
+
+function getRequestsByRuntimeTask(task: RuntimeProcessTask): MaterialRequestRecord[] {
+  return listMaterialRequestsByOrder(task.productionOrderId).filter((request) => {
+    const resolved = resolveRuntimeTaskForRequest(request)
+    return resolved?.taskId === task.taskId
+  })
+}
+
+function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): ProgressFact['startReadiness'] {
+  if (task.executorKind === 'WAREHOUSE_WORKSHOP') {
+    const transferDocs = listWarehouseInternalTransferOrdersByRuntimeTaskId(task.taskId)
+    const ready = transferDocs.some((doc) =>
+      doc.status === 'IN_TRANSIT' ||
+      doc.status === 'RECEIVED' ||
+      doc.status === 'CLOSED' ||
+      doc.lines.some((line) => line.transferredQty > 0),
+    )
+    return ready
+      ? { canStart: true, reasonCode: 'READY', reasonText: '仓内流转已到位' }
+      : { canStart: false, reasonCode: 'WAIT_INTERNAL_TRANSFER', reasonText: '仓内流转尚未到位' }
+  }
+
+  if (task.transitionFromPrev === 'SAME_FACTORY_CONTINUE') {
+    const ready = task.dependsOnTaskIds.every((upstreamTaskId) => {
+      const upstream = getRuntimeTaskById(upstreamTaskId)
+      if (!upstream) return false
+      if (upstream.status === 'DONE') return true
+      return listWarehouseReturnOrdersByRuntimeTaskId(upstream.taskId).some((doc) => isDocClosed(doc.status))
+    })
+    return ready
+      ? { canStart: true, reasonCode: 'READY', reasonText: '同厂连续流转已就绪' }
+      : { canStart: false, reasonCode: 'WAIT_PREV_DONE', reasonText: '上一工序尚未完成连续流转' }
+  }
+
+  const issueDocs = listWarehouseIssueOrdersByRuntimeTaskId(task.taskId)
+  if (!issueDocs.length) {
+    return { canStart: false, reasonCode: 'WAIT_EXECUTION_DOC', reasonText: '尚未生成仓库发料单' }
+  }
+
+  const pickupHeads = getPdaPickupHeads().filter((head) => head.runtimeTaskId === task.taskId)
+  const ready = pickupHeads.some((head) => {
+    if (head.completionStatus === 'COMPLETED' || head.summaryStatus === 'WRITTEN_BACK') return true
+    return getPdaPickupRecordsByHead(head.handoverId).some((record) => record.status === 'RECEIVED')
+  })
+
+  return ready
+    ? { canStart: true, reasonCode: 'READY', reasonText: '仓库发料已领料，可开工' }
+    : { canStart: false, reasonCode: 'WAIT_PICKUP', reasonText: '待工厂领料' }
+}
+
+export function listProgressFacts(): ProgressFact[] {
+  const pickupHeads = getPdaPickupHeads()
+  const handoutHeads = getPdaHandoutHeads()
+
+  return listRuntimeProcessTasks().map((task) => {
+    const executionDocs = listWarehouseExecutionDocsByRuntimeTaskId(task.taskId)
+    const requests = getRequestsByRuntimeTask(task)
+    return {
+      productionOrderId: task.productionOrderId,
+      runtimeTaskId: task.taskId,
+      baseTaskId: task.baseTaskId,
+      processCode: task.processCode,
+      processNameZh: task.processNameZh,
+      scopeType: task.scopeType,
+      scopeKey: task.scopeKey,
+      scopeLabel: task.scopeLabel,
+      executorKind: task.executorKind ?? 'EXTERNAL_FACTORY',
+      assignedFactoryId: task.assignedFactoryId,
+      assignedFactoryName: task.assignedFactoryName,
+      transitionFromPrev: task.transitionFromPrev ?? 'NOT_APPLICABLE',
+      transitionToNext: task.transitionToNext ?? 'NOT_APPLICABLE',
+      materialRequests: requests,
+      executionDocs,
+      pickupHeadIds: pickupHeads.filter((head) => head.runtimeTaskId === task.taskId).map((head) => head.handoverId),
+      handoutHeadIds: handoutHeads.filter((head) => head.runtimeTaskId === task.taskId).map((head) => head.handoverId),
+      startReadiness: evaluateRuntimeStartReadiness(task),
+    }
+  })
+}
+
+export function listProgressFactsByOrder(productionOrderId: string): ProgressFact[] {
+  return listProgressFacts().filter((fact) => fact.productionOrderId === productionOrderId)
+}
+
+function buildAutoCaseKey(runtimeTaskId: string, subCategoryKey: SubCategoryKey): string {
+  return `${AUTO_PROGRESS_TAG}:${runtimeTaskId}:${subCategoryKey}`
+}
+
+function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
+  const facts = listProgressFacts()
+  const candidates: ProgressExceptionCandidate[] = []
+
+  facts.forEach((fact) => {
+    const runtimeTask = getRuntimeTaskById(fact.runtimeTaskId)
+    if (!runtimeTask) return
+    const issueOrTransferDocs = fact.executionDocs.filter(
+      (doc) => doc.docType === 'ISSUE' || doc.docType === 'INTERNAL_TRANSFER',
+    )
+    const returnDocs = fact.executionDocs.filter((doc) => doc.docType === 'RETURN')
+    const skipMaterialChecks =
+      fact.transitionFromPrev === 'SAME_FACTORY_CONTINUE' &&
+      issueOrTransferDocs.length === 0 &&
+      fact.executorKind === 'EXTERNAL_FACTORY'
+
+    const relatedTaskIds = [fact.baseTaskId]
+    const relatedOrderIds = [fact.productionOrderId]
+    const linkedFactoryName = fact.assignedFactoryName
+
+    if (!skipMaterialChecks) {
+      if (!fact.startReadiness.canStart) {
+        candidates.push({
+          key: buildAutoCaseKey(fact.runtimeTaskId, 'MATERIAL_NOT_READY'),
+          reasonCode: 'MATERIAL_NOT_READY',
+          category: 'MATERIAL',
+          unifiedCategory: 'MATERIAL',
+          subCategoryKey: 'MATERIAL_NOT_READY',
+          severity: 'S2',
+          sourceId: fact.runtimeTaskId,
+          relatedOrderIds,
+          relatedTaskIds,
+          linkedFactoryName,
+          summary: '物料未齐套，暂不可开工',
+          detail: `${fact.processNameZh}（${fact.scopeLabel}）当前卡点：${fact.startReadiness.reasonText}`,
+          closureReady: runtimeTask.status === 'DONE' || runtimeTask.status === 'CANCELLED',
+        })
+      }
+
+      if (hasPreparingStatus(issueOrTransferDocs)) {
+        candidates.push({
+          key: buildAutoCaseKey(fact.runtimeTaskId, 'MATERIAL_PREP_PENDING'),
+          reasonCode: 'MATERIAL_NOT_READY',
+          category: 'MATERIAL',
+          unifiedCategory: 'MATERIAL',
+          subCategoryKey: 'MATERIAL_PREP_PENDING',
+          severity: 'S3',
+          sourceId: fact.runtimeTaskId,
+          relatedOrderIds,
+          relatedTaskIds,
+          linkedFactoryName,
+          summary: '仓库备料未完成',
+          detail: `${fact.processNameZh}（${fact.scopeLabel}）存在待备料执行单，仓库尚未齐套`,
+          closureReady: issueOrTransferDocs.every((doc) => !isDocActive(doc.status)),
+        })
+      }
+
+      if (hasDocShortage(issueOrTransferDocs)) {
+        const shortageLine = issueOrTransferDocs
+          .flatMap((doc) => doc.lines.map((line) => ({ ...line, docNo: doc.docNo })))
+          .find((line) => line.shortQty > 0)
+        candidates.push({
+          key: buildAutoCaseKey(fact.runtimeTaskId, 'MATERIAL_QTY_SHORT'),
+          reasonCode: 'MATERIAL_NOT_READY',
+          category: 'MATERIAL',
+          unifiedCategory: 'MATERIAL',
+          subCategoryKey: 'MATERIAL_QTY_SHORT',
+          severity: 'S2',
+          sourceId: fact.runtimeTaskId,
+          relatedOrderIds,
+          relatedTaskIds,
+          linkedFactoryName,
+          summary: '领料数量存在缺口',
+          detail: shortageLine
+            ? `${fact.processNameZh}（${fact.scopeLabel}）物料 ${shortageLine.materialName} 缺口 ${shortageLine.shortQty}${shortageLine.unit}`
+            : `${fact.processNameZh}（${fact.scopeLabel}）存在领料数量缺口`,
+          closureReady: !hasDocShortage(issueOrTransferDocs),
+        })
+      }
+
+      const openIssueDocs = issueOrTransferDocs.filter((doc) => isDocActive(doc.status))
+      const openByType = openIssueDocs.reduce<Record<string, number>>((acc, doc) => {
+        acc[doc.docType] = (acc[doc.docType] ?? 0) + 1
+        return acc
+      }, {})
+      const hasMultiOpen = Object.values(openByType).some((count) => count > 1)
+      if (hasMultiOpen) {
+        candidates.push({
+          key: buildAutoCaseKey(fact.runtimeTaskId, 'MATERIAL_MULTI_OPEN'),
+          reasonCode: 'MATERIAL_NOT_READY',
+          category: 'MATERIAL',
+          unifiedCategory: 'MATERIAL',
+          subCategoryKey: 'MATERIAL_MULTI_OPEN',
+          severity: 'S3',
+          sourceId: fact.runtimeTaskId,
+          relatedOrderIds,
+          relatedTaskIds,
+          linkedFactoryName,
+          summary: '同任务存在多张未闭合领料执行单',
+          detail: `${fact.processNameZh}（${fact.scopeLabel}）存在多张活跃执行单，请先收口后继续`,
+          closureReady: !hasMultiOpen,
+        })
+      }
+    }
+
+    const shouldReturnToWarehouse =
+      fact.executorKind === 'EXTERNAL_FACTORY' && fact.transitionToNext !== 'SAME_FACTORY_CONTINUE'
+
+    if (shouldReturnToWarehouse) {
+      const hasPendingCheck = returnDocs.some((doc) => doc.status !== 'RETURNED' && doc.status !== 'CLOSED')
+      if (hasPendingCheck || (runtimeTask.status === 'DONE' && returnDocs.length === 0)) {
+        candidates.push({
+          key: buildAutoCaseKey(fact.runtimeTaskId, 'HANDOUT_PENDING_CHECK'),
+          reasonCode: 'HANDOVER_DIFF',
+          category: 'HANDOVER',
+          unifiedCategory: 'HANDOVER',
+          subCategoryKey: 'HANDOUT_PENDING_CHECK',
+          severity: 'S2',
+          sourceId: fact.runtimeTaskId,
+          relatedOrderIds,
+          relatedTaskIds,
+          linkedFactoryName,
+          summary: '工序回货待仓库确认',
+          detail:
+            returnDocs.length === 0
+              ? `${fact.processNameZh}（${fact.scopeLabel}）已完工但未生成回货单，请补齐回仓链路`
+              : `${fact.processNameZh}（${fact.scopeLabel}）已交出，等待仓库确认入仓`,
+          closureReady: returnDocs.every((doc) => isDocClosed(doc.status)),
+        })
+      }
+
+      const diffLine = returnDocs
+        .flatMap((doc) => doc.lines)
+        .find((line) => Math.abs((line.plannedQty ?? 0) - (line.returnedQty ?? 0)) > 0)
+      if (diffLine) {
+        const diffQty = Math.round(((diffLine.plannedQty ?? 0) - (diffLine.returnedQty ?? 0)) * 100) / 100
+        candidates.push({
+          key: buildAutoCaseKey(fact.runtimeTaskId, 'HANDOUT_DIFF'),
+          reasonCode: 'HANDOVER_DIFF',
+          category: 'HANDOVER',
+          unifiedCategory: 'HANDOVER',
+          subCategoryKey: 'HANDOUT_DIFF',
+          severity: 'S2',
+          sourceId: fact.runtimeTaskId,
+          relatedOrderIds,
+          relatedTaskIds,
+          linkedFactoryName,
+          summary: '回货数量存在差异',
+          detail: `${fact.processNameZh}（${fact.scopeLabel}）回货差异 ${diffQty}${diffLine.unit}`,
+          closureReady: !diffLine,
+        })
+      }
+    }
+  })
+
+  return candidates
+}
+
+export function syncProgressFactsAndExceptions(): ExceptionCase[] {
+  const now = nowAt()
+  const candidates = createProgressExceptionCandidates()
+  const activeKeys = new Set(candidates.map((candidate) => candidate.key))
+
+  for (const candidate of candidates) {
+    const existed = initialExceptions.find((item) => item.sourceModule === candidate.key)
+    if (!existed) {
+      initialExceptions.push({
+        caseId: generateCaseId(),
+        caseStatus: 'OPEN',
+        severity: candidate.severity,
+        category: candidate.category,
+        unifiedCategory: candidate.unifiedCategory,
+        subCategoryKey: candidate.subCategoryKey,
+        reasonCode: candidate.reasonCode,
+        sourceType: 'TASK',
+        sourceId: candidate.sourceId,
+        sourceSystem: 'RUNTIME_FLOW',
+        sourceModule: candidate.key,
+        relatedOrderIds: candidate.relatedOrderIds,
+        relatedTaskIds: candidate.relatedTaskIds,
+        relatedTenderIds: [],
+        linkedFactoryName: candidate.linkedFactoryName,
+        summary: candidate.summary,
+        detail: candidate.detail,
+        createdAt: now,
+        updatedAt: now,
+        tags: ['自动生成', AUTO_PROGRESS_TAG],
+        actions: [],
+        auditLogs: [
+          {
+            id: `EAL-AUTO-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+            action: 'CREATE',
+            detail: '新链路事实自动生成异常',
+            at: now,
+            by: '系统',
+          },
+        ],
+      })
+      continue
+    }
+
+    existed.summary = candidate.summary
+    existed.detail = candidate.detail
+    existed.updatedAt = now
+    existed.unifiedCategory = candidate.unifiedCategory
+    existed.subCategoryKey = candidate.subCategoryKey
+    existed.category = candidate.category
+    existed.reasonCode = candidate.reasonCode
+    existed.relatedOrderIds = candidate.relatedOrderIds
+    existed.relatedTaskIds = candidate.relatedTaskIds
+    existed.linkedFactoryName = candidate.linkedFactoryName
+    if (toExceptionStatus(existed.caseStatus) !== 'OPEN' && toExceptionStatus(existed.caseStatus) !== 'IN_PROGRESS') {
+      existed.caseStatus = 'OPEN'
+      existed.resolvedAt = undefined
+      existed.resolvedBy = undefined
+      existed.closedAt = undefined
+      existed.closedBy = undefined
+      existed.closeReasonCode = undefined
+      existed.closeDetail = undefined
+      existed.closeRemark = undefined
+    }
+  }
+
+  initialExceptions.forEach((item) => {
+    if (!item.tags.includes(AUTO_PROGRESS_TAG)) return
+    if (activeKeys.has(item.sourceModule || '')) return
+    const status = toExceptionStatus(item.caseStatus)
+    if (status === 'OPEN' || status === 'IN_PROGRESS') {
+      item.caseStatus = 'RESOLVED'
+      item.resolvedAt = now
+      item.resolvedBy = '系统'
+      item.resolvedDetail = '新链路条件恢复正常，系统自动判定为已解决'
+      item.updatedAt = now
+      return
+    }
+
+    if (status === 'RESOLVED') {
+      const runtimeTask = getRuntimeTaskById(item.sourceId)
+      if (!runtimeTask || runtimeTask.status === 'DONE' || runtimeTask.status === 'CANCELLED') {
+        item.caseStatus = 'CLOSED'
+        item.closedAt = now
+        item.closedBy = '系统'
+        item.closeReasonCode = 'RESOLVED_DONE'
+        item.closeDetail = '链路已闭环，系统自动关闭'
+        item.closeRemark = item.closeDetail
+        item.updatedAt = now
+      }
+    }
+  })
+
+  return initialExceptions
+}
+
+export function listProgressExceptions(): ExceptionCase[] {
+  return syncProgressFactsAndExceptions()
+    .slice()
+    .sort((a, b) => parseDateMs(b.updatedAt) - parseDateMs(a.updatedAt))
+}
+
+export function listProgressExceptionsByOrder(productionOrderId: string): ExceptionCase[] {
+  return listProgressExceptions().filter((item) => item.relatedOrderIds.includes(productionOrderId))
+}
+
+export function getProgressExceptionSummary(): ProgressExceptionSummary {
+  const cases = listProgressExceptions()
+  return {
+    totalCount: cases.length,
+    openCount: cases.filter((item) => item.caseStatus === 'OPEN').length,
+    inProgressCount: cases.filter((item) => item.caseStatus === 'IN_PROGRESS').length,
+    resolvedCount: cases.filter((item) => item.caseStatus === 'RESOLVED').length,
+    closedCount: cases.filter((item) => item.caseStatus === 'CLOSED').length,
+    s1Count: cases.filter((item) => item.severity === 'S1').length,
+    s2Count: cases.filter((item) => item.severity === 'S2').length,
+    s3Count: cases.filter((item) => item.severity === 'S3').length,
+  }
+}
+
+export function getProgressExceptionSummaryByOrder(productionOrderId: string): ProgressExceptionSummary {
+  const cases = listProgressExceptionsByOrder(productionOrderId)
+  return {
+    totalCount: cases.length,
+    openCount: cases.filter((item) => item.caseStatus === 'OPEN').length,
+    inProgressCount: cases.filter((item) => item.caseStatus === 'IN_PROGRESS').length,
+    resolvedCount: cases.filter((item) => item.caseStatus === 'RESOLVED').length,
+    closedCount: cases.filter((item) => item.caseStatus === 'CLOSED').length,
+    s1Count: cases.filter((item) => item.severity === 'S1').length,
+    s2Count: cases.filter((item) => item.severity === 'S2').length,
+    s3Count: cases.filter((item) => item.severity === 'S3').length,
+  }
+}
+
+export function getOrderMaterialFlowSummary(productionOrderId: string): ProgressMaterialFlowSummary {
+  const summary = getWarehouseExecutionSummaryByOrder(productionOrderId)
+  return {
+    productionOrderId,
+    requestCount: summary.requestCount,
+    issueOrderCount: summary.issueOrderCount,
+    returnOrderCount: summary.returnOrderCount,
+    internalTransferCount: summary.internalTransferCount,
+    shortLineCount: summary.shortLineCount,
+    completionRate: summary.completionRate,
+    completenessRate: summary.completenessRate,
+  }
+}
+
+export function getOrderExecutionHealthSummary(productionOrderId: string): ProgressExecutionHealthSummary {
+  const facts = listProgressFactsByOrder(productionOrderId)
+  const exceptions = listProgressExceptionsByOrder(productionOrderId)
+  return {
+    productionOrderId,
+    blockingExceptionCount: exceptions.filter((item) => item.caseStatus === 'OPEN' || item.caseStatus === 'IN_PROGRESS').length,
+    handoutExceptionCount: exceptions.filter(
+      (item) =>
+        (item.caseStatus === 'OPEN' || item.caseStatus === 'IN_PROGRESS') &&
+        item.subCategoryKey?.startsWith('HANDOUT_'),
+    ).length,
+    materialExceptionCount: exceptions.filter(
+      (item) =>
+        (item.caseStatus === 'OPEN' || item.caseStatus === 'IN_PROGRESS') &&
+        item.unifiedCategory === 'MATERIAL',
+    ).length,
+    waitingStartTaskCount: facts.filter((fact) => !fact.startReadiness.canStart).length,
+    openExceptionCount: exceptions.filter((item) => item.caseStatus === 'OPEN').length,
+  }
+}
+
+export function getOrderProgressSummary(productionOrderId: string): ProgressOrderSummary {
+  const facts = listProgressFactsByOrder(productionOrderId)
+  const docs = listWarehouseExecutionDocsByOrder(productionOrderId)
+  const exceptions = listProgressExceptionsByOrder(productionOrderId)
+  return {
+    productionOrderId,
+    taskCount: facts.length,
+    canStartTaskCount: facts.filter((fact) => fact.startReadiness.canStart).length,
+    issueOrderCount: docs.filter((doc) => doc.docType === 'ISSUE').length,
+    returnOrderCount: docs.filter((doc) => doc.docType === 'RETURN').length,
+    internalTransferCount: docs.filter((doc) => doc.docType === 'INTERNAL_TRANSFER').length,
+    openExceptionCount: exceptions.filter((item) => item.caseStatus === 'OPEN' || item.caseStatus === 'IN_PROGRESS').length,
+  }
+}

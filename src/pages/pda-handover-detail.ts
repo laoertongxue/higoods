@@ -5,6 +5,8 @@ import {
   confirmPdaPickupRecordReceived,
   createPdaPickupRecord,
   findPdaHandoverHead,
+  getPdaHeadRuntimeTask,
+  getPdaHeadSourceExecutionDoc,
   findPdaPickupRecord,
   createPdaHandoverRecord,
   getPdaPickupRecordsByHead,
@@ -305,10 +307,7 @@ function renderProofUploadSection(prefix: string, hint: string, required = false
 }
 
 function appendTaskAudit(taskId: string, action: string, detail: string, by: string): void {
-  const task = processTasks.find((item) => item.taskId === taskId) as (ProcessTask & {
-    handoverStatus?: string
-    handoutStatus?: string
-  }) | undefined
+  const task = processTasks.find((item) => item.taskId === taskId) as ProcessTask | undefined
   if (!task) return
 
   const now = nowTimestamp()
@@ -369,8 +368,18 @@ function renderPickupRecordItem(record: PdaPickupRecord, head: PdaHandoverHead):
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         <div><span class="text-muted-foreground">领料方式：</span>${escapeHtml(record.pickupModeLabel)}</div>
         <div><span class="text-muted-foreground">物料摘要：</span>${escapeHtml(record.materialSummary)}</div>
+        <div><span class="text-muted-foreground">物料名称：</span>${escapeHtml(record.materialName || '—')}</div>
+        <div><span class="text-muted-foreground">物料规格：</span>${escapeHtml(record.materialSpec || '—')}</div>
+        <div><span class="text-muted-foreground">SKU：</span>${escapeHtml(record.skuCode || '—')}</div>
+        <div><span class="text-muted-foreground">颜色/尺码：</span>${escapeHtml(record.skuColor || '—')} / ${escapeHtml(record.skuSize || '—')}</div>
+        <div><span class="text-muted-foreground">裁片：</span>${escapeHtml(record.pieceName || '—')}</div>
         <div><span class="text-muted-foreground">本次应领：</span>${record.qtyExpected} ${escapeHtml(record.qtyUnit)}</div>
         <div><span class="text-muted-foreground">本次实领：</span>${typeof record.qtyActual === 'number' ? `${record.qtyActual} ${escapeHtml(record.qtyUnit)}` : '待确认'}</div>
+        <div><span class="text-muted-foreground">剩余数量：</span>${
+          typeof record.qtyActual === 'number'
+            ? `${Math.max(record.qtyExpected - record.qtyActual, 0)} ${escapeHtml(record.qtyUnit)}`
+            : `${record.qtyExpected} ${escapeHtml(record.qtyUnit)}`
+        }</div>
         <div><span class="text-muted-foreground">备注：</span>${escapeHtml(record.remark || '—')}</div>
         <div><span class="text-muted-foreground">确认时间：</span>${escapeHtml(record.receivedAt || '待确认')}</div>
       </div>
@@ -401,6 +410,8 @@ function renderPickupRecordItem(record: PdaPickupRecord, head: PdaHandoverHead):
 function renderPickupHeadDetail(head: PdaHandoverHead): string {
   const records = getPdaPickupRecordsByHead(head.handoverId)
   const isCompleted = head.completionStatus === 'COMPLETED'
+  const sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)
+  const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
 
   return `
     ${renderSectionCard(
@@ -415,6 +426,13 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
       <div class="h-px bg-border"></div>
       ${renderPartyRow('来源仓库', 'WAREHOUSE', head.sourceFactoryName)}
       ${renderPartyRow('领料工厂', 'FACTORY', head.targetName)}
+      <div class="h-px bg-border"></div>
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        ${renderFieldRow('来源执行单', sourceDoc?.docNo || sourceDoc?.id || '—')}
+        ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType || '—')}
+        ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
+        ${renderFieldRow('运行时任务', runtimeTask?.taskId || head.runtimeTaskId || '—')}
+      </div>
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('累计领料记录', `${head.recordCount} 次`)}
@@ -575,9 +593,26 @@ function renderHandoutRecordItem(record: PdaHandoverRecord): string {
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         <div><span class="text-muted-foreground">工厂说明：</span>${escapeHtml(record.factoryRemark || '—')}</div>
         <div><span class="text-muted-foreground">交出凭证：</span>${record.factoryProofFiles.length} 个</div>
+        <div><span class="text-muted-foreground">物料名称：</span>${escapeHtml(record.materialName || '—')}</div>
+        <div><span class="text-muted-foreground">物料规格：</span>${escapeHtml(record.materialSpec || '—')}</div>
+        <div><span class="text-muted-foreground">SKU：</span>${escapeHtml(record.skuCode || '—')}</div>
+        <div><span class="text-muted-foreground">颜色/尺码：</span>${escapeHtml(record.skuColor || '—')} / ${escapeHtml(record.skuSize || '—')}</div>
+        <div><span class="text-muted-foreground">裁片：</span>${escapeHtml(record.pieceName || '—')}</div>
+        <div><span class="text-muted-foreground">计划交出：</span>${
+          typeof record.plannedQty === 'number'
+            ? `${record.plannedQty} ${escapeHtml(record.qtyUnit || '件')}`
+            : '—'
+        }</div>
         <div><span class="text-muted-foreground">回货单号：</span>${escapeHtml(record.warehouseReturnNo || '待仓库回写')}</div>
-        <div><span class="text-muted-foreground">回写数量：</span>${
-          typeof record.warehouseWrittenQty === 'number' ? `${record.warehouseWrittenQty}` : '待仓库回写'
+        <div><span class="text-muted-foreground">已交数量：</span>${
+          typeof record.warehouseWrittenQty === 'number'
+            ? `${record.warehouseWrittenQty} ${escapeHtml(record.qtyUnit || '件')}`
+            : '待仓库回写'
+        }</div>
+        <div><span class="text-muted-foreground">剩余数量：</span>${
+          typeof record.plannedQty === 'number' && typeof record.warehouseWrittenQty === 'number'
+            ? `${Math.max(record.plannedQty - record.warehouseWrittenQty, 0)} ${escapeHtml(record.qtyUnit || '件')}`
+            : '待仓库回写'
         }</div>
         <div><span class="text-muted-foreground">回写时间：</span>${escapeHtml(record.warehouseWrittenAt || '待仓库回写')}</div>
         <div><span class="text-muted-foreground">异议状态：</span>${escapeHtml(
@@ -668,6 +703,8 @@ function renderHandoutRecordItem(record: PdaHandoverRecord): string {
 function renderHandoutHeadDetail(head: PdaHandoverHead): string {
   const records = getPdaHandoverRecordsByHead(head.handoverId)
   const isCompleted = head.completionStatus === 'COMPLETED'
+  const sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)
+  const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
 
   return `
     ${renderSectionCard(
@@ -682,6 +719,13 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       <div class="h-px bg-border"></div>
       ${renderPartyRow('交出工厂', 'FACTORY', head.sourceFactoryName)}
       ${renderPartyRow(head.targetKind === 'WAREHOUSE' ? '去向仓库' : '去向工厂', head.targetKind, head.targetName)}
+      <div class="h-px bg-border"></div>
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        ${renderFieldRow('来源执行单', sourceDoc?.docNo || sourceDoc?.id || '—')}
+        ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType || '—')}
+        ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
+        ${renderFieldRow('运行时任务', runtimeTask?.taskId || head.runtimeTaskId || '—')}
+      </div>
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('累计交出次数', `${head.recordCount} 次`)}
@@ -943,13 +987,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
-    const task = processTasks.find((item) => item.taskId === created.taskId) as (ProcessTask & {
-      handoutStatus?: 'PENDING' | 'HANDED_OUT'
-    }) | undefined
-    if (task) {
-      task.handoutStatus = 'HANDED_OUT'
-    }
-
     appendTaskAudit(
       created.taskId,
       'HANDOUT_RECORD_CREATE',
@@ -1025,12 +1062,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     if (!updated) {
       showPdaHandoverDetailToast('当前记录暂不可确认领料')
       return true
-    }
-    const task = processTasks.find((item) => item.taskId === updated.taskId) as
-      | (ProcessTask & { handoverStatus?: string })
-      | undefined
-    if (task) {
-      task.handoverStatus = 'PICKED_UP'
     }
     appendTaskAudit(
       updated.taskId,

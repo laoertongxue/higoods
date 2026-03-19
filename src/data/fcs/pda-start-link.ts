@@ -1,6 +1,20 @@
 import { processTasks, type ProcessTask } from './process-tasks'
 import { generateCaseId, initialExceptions, type ExceptionCase } from './store-domain-progress'
 import {
+  getRuntimeTaskById,
+  listRuntimeTasksByBaseTaskId,
+  type RuntimeProcessTask,
+} from './runtime-process-tasks'
+import {
+  getPdaPickupHeads,
+  getPdaPickupRecordsByHead,
+} from './pda-handover-events'
+import {
+  listWarehouseInternalTransferOrdersByRuntimeTaskId,
+  listWarehouseIssueOrdersByRuntimeTaskId,
+  listWarehouseReturnOrdersByRuntimeTaskId,
+} from './warehouse-material-execution'
+import {
   getDefaultSubCategoryKeyFromReason,
   getUnifiedCategoryFromReason,
 } from './progress-exception-taxonomy'
@@ -25,6 +39,13 @@ interface StartPrerequisiteInfo {
   hint: string
 }
 
+type RuntimeStartReadiness =
+  | 'READY'
+  | 'WAIT_PICKUP'
+  | 'WAIT_PREV_DONE'
+  | 'WAIT_INTERNAL_TRANSFER'
+  | 'NO_RUNTIME_TASK'
+
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
@@ -40,17 +61,110 @@ function addHours(baseAt: string, hours: number): string {
 }
 
 export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
-  const handoverStatus = (task as ProcessTask & { handoverStatus?: string }).handoverStatus
-  const met = handoverStatus === 'PICKED_UP'
+  const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId)
+  if (!runtimeTasks.length) {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '已有领料记录',
+      summaryLabel: '暂无执行任务',
+      statusLabel: '暂无执行任务，暂不可开工',
+      blocker: '暂无执行任务，暂不可开工',
+      hint: '请先完成任务分配后再判断开工前置',
+    }
+  }
+
+  const readinessList = runtimeTasks.map((runtimeTask) => evaluateRuntimeStartReadiness(runtimeTask))
+  const blocked = readinessList.find((item) => item.code !== 'READY')
+  const met = !blocked
+  const hasWarehouseWorkshop = runtimeTasks.some((runtimeTask) => runtimeTask.executorKind === 'WAREHOUSE_WORKSHOP')
+  const hasSameFactoryContinue = runtimeTasks.some(
+    (runtimeTask) => runtimeTask.transitionFromPrev === 'SAME_FACTORY_CONTINUE',
+  )
+  const conditionLabel = hasWarehouseWorkshop
+    ? '仓内流转已到位'
+    : hasSameFactoryContinue
+      ? '上一工序连续流转已完成'
+      : '已有领料记录'
+
+  const statusLabel = met
+    ? '已满足开工前置，可开工'
+    : blocked?.code === 'WAIT_PREV_DONE'
+      ? '上一工序未完成连续流转，暂不可开工'
+      : blocked?.code === 'WAIT_INTERNAL_TRANSFER'
+        ? '仓内流转尚未就绪，暂不可开工'
+        : '尚无领料记录，暂不可开工'
+
+  const blocker = met
+    ? '已满足开工前置'
+    : blocked?.code === 'WAIT_PREV_DONE'
+      ? '上一工序未完成连续流转，暂不可开工'
+      : blocked?.code === 'WAIT_INTERNAL_TRANSFER'
+        ? '仓内流转尚未就绪，暂不可开工'
+        : '尚无领料记录，暂不可开工'
+
+  const hint = met
+    ? '已满足开工前置，工厂可开始本工序'
+    : blocked?.code === 'WAIT_PREV_DONE'
+      ? '同厂连续工序无需重复领料，待上一工序完成后可直接开工'
+      : blocked?.code === 'WAIT_INTERNAL_TRANSFER'
+        ? '当前工序由仓内后道执行，需等待仓内流转到位后开工'
+        : '外部工厂需先完成仓库发料领料后才能开工'
+
+  const summaryLabel = met ? '前置已满足' : blocked?.label ?? '前置未满足'
+
   return {
     met,
     type: 'PICKUP',
-    conditionLabel: '已有领料记录',
-    summaryLabel: met ? '已有领料记录' : '尚无领料记录',
-    statusLabel: met ? '已有领料记录，可开工' : '尚无领料记录，暂不可开工',
-    blocker: '尚无领料记录，暂不可开工',
-    hint: '拿到首批物料后即可开始本工序',
+    conditionLabel,
+    summaryLabel,
+    statusLabel,
+    blocker,
+    hint,
   }
+}
+
+function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): { code: RuntimeStartReadiness; label: string } {
+  if (task.executorKind === 'WAREHOUSE_WORKSHOP') {
+    const transferDocs = listWarehouseInternalTransferOrdersByRuntimeTaskId(task.taskId)
+    const hasReadyTransfer = transferDocs.some((doc) =>
+      doc.status === 'RECEIVED' ||
+      doc.status === 'CLOSED' ||
+      doc.status === 'IN_TRANSIT' ||
+      doc.lines.some((line) => line.transferredQty > 0),
+    )
+    return hasReadyTransfer
+      ? { code: 'READY', label: '仓内流转已到位' }
+      : { code: 'WAIT_INTERNAL_TRANSFER', label: '待仓内流转' }
+  }
+
+  if (task.transitionFromPrev === 'SAME_FACTORY_CONTINUE') {
+    const upstreamDone = task.dependsOnTaskIds.every((upstreamTaskId) => {
+      const upstreamTask = getRuntimeTaskById(upstreamTaskId)
+      if (!upstreamTask) return false
+      if (upstreamTask.status === 'DONE') return true
+      return listWarehouseReturnOrdersByRuntimeTaskId(upstreamTask.taskId).some(
+        (doc) => doc.status === 'RETURNED' || doc.status === 'CLOSED',
+      )
+    })
+    return upstreamDone
+      ? { code: 'READY', label: '同厂连续流转已就绪' }
+      : { code: 'WAIT_PREV_DONE', label: '待上一工序完成' }
+  }
+
+  const issueDocs = listWarehouseIssueOrdersByRuntimeTaskId(task.taskId)
+  if (!issueDocs.length) {
+    return { code: 'NO_RUNTIME_TASK', label: '待仓库发料单生成' }
+  }
+
+  const pickupHeads = getPdaPickupHeads().filter((head) => head.runtimeTaskId === task.taskId)
+  const hasReadyPickup = pickupHeads.some((head) => {
+    if (head.summaryStatus === 'WRITTEN_BACK' || head.completionStatus === 'COMPLETED') return true
+    const records = getPdaPickupRecordsByHead(head.handoverId)
+    return records.some((record) => record.status === 'RECEIVED')
+  })
+
+  return hasReadyPickup ? { code: 'READY', label: '领料记录已满足' } : { code: 'WAIT_PICKUP', label: '待领料' }
 }
 
 export function getStartDueBase(task: ProcessTask): { baseAt?: string; source?: StartDueSource } {

@@ -16,7 +16,7 @@ import {
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
   initialTenders,
-  initialMaterialIssueSheets,
+  listMaterialIssueSheetsFromRuntime,
   type Tender,
 } from '../data/fcs/store-domain-dispatch-process'
 import {
@@ -34,6 +34,8 @@ import {
   type Severity,
   type UrgeLog,
   type UrgeType,
+  listProgressExceptions,
+  syncProgressFactsAndExceptions,
 } from '../data/fcs/store-domain-progress'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
@@ -316,8 +318,13 @@ function getTenderById(tenderId: string): Tender | undefined {
   return initialTenders.find((tender) => tender.tenderId === tenderId)
 }
 
+function getExceptionCases(): ExceptionCase[] {
+  syncProgressFactsAndExceptions()
+  return listProgressExceptions()
+}
+
 function getCaseById(caseId: string): ExceptionCase | undefined {
-  return initialExceptions.find((item) => item.caseId === caseId)
+  return getExceptionCases().find((item) => item.caseId === caseId)
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
@@ -338,7 +345,7 @@ function getTaskStatusLabel(task?: ProcessTask): string {
 }
 
 function getMaterialIssueRows(exc: ExceptionCase) {
-  return initialMaterialIssueSheets.filter((item) =>
+  return listMaterialIssueSheetsFromRuntime().filter((item) =>
     (exc.relatedTaskIds.length > 0 && exc.relatedTaskIds.includes(item.taskId)) ||
     (exc.relatedOrderIds.length > 0 && item.productionOrderId && exc.relatedOrderIds.includes(item.productionOrderId)),
   )
@@ -492,8 +499,9 @@ function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
 
 function syncExceptionResolvedByBusiness(): void {
   const now = nowTimestamp()
+  const exceptionCases = getExceptionCases()
 
-  for (const exc of initialExceptions) {
+  for (const exc of exceptionCases) {
     const uiStatus = normalizeCaseStatus(exc.caseStatus)
     if (uiStatus === 'RESOLVED' || uiStatus === 'CLOSED') continue
 
@@ -742,12 +750,13 @@ function getSpuFromCase(exc: ExceptionCase): string {
 }
 
 function filterCases(): ExceptionCase[] {
+  const exceptionCases = getExceptionCases()
   const queryTaskId = state.upstreamTaskId
   const queryPo = state.upstreamPo
   const queryTenderId = state.upstreamTenderId
   const queryCaseId = state.upstreamCaseId
 
-  return initialExceptions
+  return exceptionCases
     .filter((exc) => {
       if (queryTaskId && !exc.relatedTaskIds.includes(queryTaskId)) return false
       if (queryPo && !exc.relatedOrderIds.includes(queryPo)) return false
@@ -835,7 +844,7 @@ function getKpis(now: Date): {
   todayNew: number
   todayClosed: number
 } {
-  const all = initialExceptions
+  const all = getExceptionCases()
   const today = now.toISOString().slice(0, 10)
 
   return {
@@ -852,7 +861,7 @@ function getAggregates(): {
   topFactories: Array<[string, number]>
   topProcesses: Array<[string, number]>
 } {
-  const activeCases = initialExceptions.filter((exc) => normalizeCaseStatus(exc.caseStatus) !== 'CLOSED')
+  const activeCases = getExceptionCases().filter((exc) => normalizeCaseStatus(exc.caseStatus) !== 'CLOSED')
 
   const reasonCounts: Partial<Record<SubCategoryKey, number>> = {}
   const factoryCounts: Record<string, number> = {}
@@ -1454,7 +1463,7 @@ function renderCategoryQuickSwitch(): string {
 
 function getFactoryFilterOptions(): Array<{ id: string; name: string }> {
   const map = new Map<string, string>()
-  for (const exc of initialExceptions) {
+  for (const exc of getExceptionCases()) {
     const factoryId = getCaseFactoryId(exc)
     if (!factoryId) continue
     map.set(factoryId, getFactoryById(factoryId)?.name || factoryId)
@@ -1466,7 +1475,7 @@ function getFactoryFilterOptions(): Array<{ id: string; name: string }> {
 
 function getProcessFilterOptions(): Array<{ code: string; name: string }> {
   const map = new Map<string, string>()
-  for (const exc of initialExceptions) {
+  for (const exc of getExceptionCases()) {
     const taskId = exc.relatedTaskIds[0]
     if (!taskId) continue
     const task = getTaskById(taskId)
