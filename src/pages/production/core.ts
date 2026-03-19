@@ -24,22 +24,26 @@ import {
 } from '../../data/fcs/indonesia-factories'
 import { getTechPackBySpuCode } from '../../data/fcs/tech-packs'
 import { legalEntities } from '../../data/fcs/legal-entities'
-import { processTasks, type ProcessTask } from '../../data/fcs/process-tasks'
 import {
   getRuntimeAssignmentSummaryByOrder,
   getRuntimeBiddingSummaryByOrder,
+  getRuntimeTaskById,
   getRuntimeTaskCountByOrder,
+  listRuntimeTasksByOrder,
+  type RuntimeProcessTask,
 } from '../../data/fcs/runtime-process-tasks'
 import {
   applyQualitySeedBootstrap,
 } from '../../data/fcs/store-domain-quality-bootstrap'
 import {
-  initialDyePrintOrders,
   initialQualityInspections,
   initialDeductionBasisItems,
   initialAllocationByTaskId,
 } from '../../data/fcs/store-domain-quality-seeds'
-import { initialExceptions } from '../../data/fcs/store-domain-progress'
+import {
+  listLegacyLikeDyePrintOrdersForTailPages,
+  listLegacyLikeExceptionsForTailPages,
+} from '../../data/fcs/page-adapters/long-tail-pages-adapter'
 import {
   initialStatementDrafts,
   initialSettlementBatches,
@@ -72,6 +76,9 @@ import {
 } from '../../data/fcs/material-request-drafts'
 
 applyQualitySeedBootstrap()
+
+const initialDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
+const initialExceptions = listLegacyLikeExceptionsForTailPages()
 
 const PAGE_SIZE = 10
 
@@ -279,7 +286,7 @@ const lifecycleStatusClass: Record<LifecycleStatus, string> = {
   CLOSED: 'bg-gray-100 text-gray-600',
 }
 
-const taskStatusLabel: Record<ProcessTask['status'], string> = {
+const taskStatusLabel: Record<RuntimeProcessTask['status'], string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
   DONE: '已完成',
@@ -287,7 +294,7 @@ const taskStatusLabel: Record<ProcessTask['status'], string> = {
   CANCELLED: '已取消',
 }
 
-const taskStatusClass: Record<ProcessTask['status'], string> = {
+const taskStatusClass: Record<RuntimeProcessTask['status'], string> = {
   NOT_STARTED: 'bg-slate-100 text-slate-700',
   IN_PROGRESS: 'bg-blue-100 text-blue-700',
   DONE: 'bg-green-100 text-green-700',
@@ -395,6 +402,25 @@ function normalizeSeedChanges(
 
 function toTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+let productionCoreLocalSeq = 0
+
+function nextLocalEntityId(prefix: string, width = 6): string {
+  productionCoreLocalSeq += 1
+  return `${prefix}-${Date.now()}-${String(productionCoreLocalSeq).padStart(width, '0')}`
+}
+
+function nextChangeId(month: string, existingIds: Set<string>): string {
+  const prefix = `CHG-${month}-`
+  let max = 0
+  existingIds.forEach((id) => {
+    if (!id.startsWith(prefix)) return
+    const tail = Number(id.slice(prefix.length))
+    if (Number.isFinite(tail) && tail > max) max = tail
+  })
+  const next = max + 1
+  return `${prefix}${String(next).padStart(4, '0')}`
 }
 
 function showPlanMessage(message: string, tone: 'success' | 'error' = 'success'): void {
@@ -522,6 +548,57 @@ function getOrderRuntimeAssignmentSnapshot(order: ProductionOrder): {
   }
 }
 
+interface OrderTaskBreakdownSnapshot {
+  isBrokenDown: boolean
+  taskTypesTop3: string[]
+  lastBreakdownAt: string
+  lastBreakdownBy: string
+}
+
+function getRuntimeTaskTypeLabel(task: RuntimeProcessTask): string {
+  if (task.taskCategoryZh) return task.taskCategoryZh
+  if (task.isSpecialCraft) return task.craftName || task.processBusinessName || task.processNameZh
+  return task.processBusinessName || task.processNameZh
+}
+
+function getOrderTaskBreakdownSnapshot(order: ProductionOrder): OrderTaskBreakdownSnapshot {
+  const runtimeTasks = listRuntimeTasksByOrder(order.productionOrderId)
+  if (runtimeTasks.length === 0) {
+    return {
+      isBrokenDown: false,
+      taskTypesTop3: [],
+      lastBreakdownAt: '-',
+      lastBreakdownBy: '-',
+    }
+  }
+
+  const typeCounter = new Map<string, number>()
+  for (const task of runtimeTasks) {
+    const label = getRuntimeTaskTypeLabel(task)
+    typeCounter.set(label, (typeCounter.get(label) ?? 0) + 1)
+  }
+
+  const taskTypesTop3 = [...typeCounter.entries()]
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1]
+      return a[0].localeCompare(b[0])
+    })
+    .slice(0, 3)
+    .map(([label]) => label)
+
+  const lastBreakdownAt = runtimeTasks
+    .map((task) => task.updatedAt || task.createdAt)
+    .sort((a, b) => b.localeCompare(a))[0] || '-'
+  const lastBreakdownBy = '系统'
+
+  return {
+    isBrokenDown: true,
+    taskTypesTop3,
+    lastBreakdownAt,
+    lastBreakdownBy,
+  }
+}
+
 function renderStatCard(label: string, value: string | number, valueClass = ''): string {
   return `
     <article class="rounded-lg border bg-card">
@@ -635,8 +712,8 @@ function getOrderById(orderId: string | null): ProductionOrder | null {
   return state.orders.find((order) => order.productionOrderId === orderId) ?? null
 }
 
-function getProcessTaskById(taskId: string): ProcessTask | null {
-  return processTasks.find((task) => task.taskId === taskId) ?? null
+function getProcessTaskById(taskId: string): RuntimeProcessTask | null {
+  return getRuntimeTaskById(taskId)
 }
 
 function getChangeById(changeId: string | null): ProductionOrderChange | null {
@@ -778,7 +855,7 @@ function getFilteredOrders(): ProductionOrder[] {
 
   if (state.ordersBreakdownFilter !== 'ALL') {
     const expected = state.ordersBreakdownFilter === 'YES'
-    result = result.filter((order) => order.taskBreakdownSummary.isBrokenDown === expected)
+    result = result.filter((order) => getOrderTaskBreakdownSnapshot(order).isBrokenDown === expected)
   }
 
   if (state.ordersAssignmentProgressFilter !== 'ALL') {
@@ -2105,6 +2182,7 @@ function renderMaterialDraftDrawer(): string {
   const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
   const techPack = getOrderTechPackInfo(order)
   const runtime = getOrderRuntimeAssignmentSnapshot(order)
+  const breakdown = getOrderTaskBreakdownSnapshot(order)
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -2142,7 +2220,7 @@ function renderMaterialDraftDrawer(): string {
               </div>
               <div>
                 <div class="text-xs text-muted-foreground">拆解状态</div>
-                <div class="text-sm">${order.taskBreakdownSummary.isBrokenDown ? '已拆解' : '未拆解'}</div>
+                <div class="text-sm">${breakdown.isBrokenDown ? '已拆解' : '未拆解'}</div>
               </div>
               <div>
                 <div class="text-xs text-muted-foreground">主工厂</div>
@@ -2428,6 +2506,7 @@ export function renderProductionOrdersPage(): string {
                     .map((order) => {
                         const runtime = getOrderRuntimeAssignmentSnapshot(order)
                         const techPack = getOrderTechPackInfo(order)
+                        const breakdown = getOrderTaskBreakdownSnapshot(order)
                         const mergedLogs = getOrderMergedAuditLogs(order)
                         const lastLog = mergedLogs[mergedLogs.length - 1]
 
@@ -2470,11 +2549,11 @@ export function renderProductionOrdersPage(): string {
                             <td class="px-3 py-3">
                               <div class="text-sm">
                                 ${
-                                  order.taskBreakdownSummary.isBrokenDown
+                                  breakdown.isBrokenDown
                                     ? `
                                       ${renderBadge('已拆解', 'bg-green-50 text-green-700')}
                                       <div class="mt-0.5 text-xs text-muted-foreground">
-                                        ${escapeHtml(safeText(order.taskBreakdownSummary.lastBreakdownAt?.split(' ')[0]))}
+                                        ${escapeHtml(safeText(breakdown.lastBreakdownAt.split(' ')[0]))}
                                       </div>
                                     `
                                     : renderBadge('未拆解', 'bg-gray-50 text-gray-700')
@@ -2652,7 +2731,7 @@ function getPlanDownstreamMap(): Map<
   >()
 
   for (const order of state.orders) {
-    const tasks = processTasks.filter((task) => task.productionOrderId === order.productionOrderId)
+    const tasks = listRuntimeTasksByOrder(order.productionOrderId)
     const dyes = initialDyePrintOrders.filter((dye) => dye.productionOrderId === order.productionOrderId)
 
     const taskCount = tasks.length
@@ -3014,7 +3093,7 @@ function getDeliverySummaryMap(): Map<
 
   for (const order of state.orders) {
     const orderId = order.productionOrderId
-    const tasks = processTasks.filter((task) => task.productionOrderId === order.productionOrderId)
+    const tasks = listRuntimeTasksByOrder(order.productionOrderId)
 
     const doneCount = tasks.filter((task) => task.status === 'DONE').length
     const taskSummary = tasks.length === 0 ? '未拆解' : `已完成 ${doneCount}/${tasks.length}`
@@ -3380,7 +3459,7 @@ function getChangeSummaryMap(): Map<
   for (const change of state.changes) {
     const orderId = change.productionOrderId
 
-    const taskCount = processTasks.filter((task) => task.productionOrderId === orderId).length
+    const taskCount = listRuntimeTasksByOrder(orderId).length
     const dyePrintCount = initialDyePrintOrders.filter((dye) => dye.productionOrderId === orderId).length
     const openQcCount = initialQualityInspections.filter(
       (inspection) => inspection.productionOrderId === orderId && inspection.status !== 'CLOSED',
@@ -3837,7 +3916,7 @@ function getOrdersWithLifecycleSummary(): Array<
 
     const deliveryStatus = order.deliveryWarehouseStatus === 'SET' ? '已配置' : '未配置'
 
-    const tasks = processTasks.filter((task) => task.productionOrderId === order.productionOrderId)
+    const tasks = listRuntimeTasksByOrder(order.productionOrderId)
     const blockedTaskCount = tasks.filter((task) => task.status === 'BLOCKED').length
 
     const relatedDyes = initialDyePrintOrders.filter(
@@ -4745,11 +4824,13 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   }
 
   const techPack = getOrderTechPackInfo(order)
+  const runtime = getOrderRuntimeAssignmentSnapshot(order)
+  const breakdown = getOrderTaskBreakdownSnapshot(order)
 
   const canBreakdown =
     order.techPackSnapshot.status === 'RELEASED' && order.status === 'READY_FOR_BREAKDOWN'
   const canAssign =
-    order.taskBreakdownSummary.isBrokenDown &&
+    breakdown.isBrokenDown &&
     (order.status === 'WAIT_ASSIGNMENT' || order.status === 'ASSIGNING')
 
   const breakdownDisabledReason =
@@ -4760,7 +4841,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
         : ''
 
   const assignDisabledReason =
-    !order.taskBreakdownSummary.isBrokenDown
+    !breakdown.isBrokenDown
       ? '请先完成工艺任务拆解'
       : order.status !== 'WAIT_ASSIGNMENT' && order.status !== 'ASSIGNING'
         ? '当前状态不支持分配'
@@ -4859,14 +4940,14 @@ export function renderProductionOrderDetailPage(orderId: string): string {
         <article class="rounded-lg border bg-card p-4">
           <h3 class="mb-2 text-sm font-medium text-muted-foreground">拆解摘要</h3>
           ${
-            order.taskBreakdownSummary.isBrokenDown
+            breakdown.isBrokenDown
               ? `${renderBadge('已拆解', 'bg-green-100 text-green-700')}
                  <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(
-                   order.taskBreakdownSummary.taskTypesTop3.join('、') || '-',
+                   breakdown.taskTypesTop3.join('、') || '-',
                  )}</p>
                  <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(
-                   safeText(order.taskBreakdownSummary.lastBreakdownAt),
-                 )} by ${escapeHtml(safeText(order.taskBreakdownSummary.lastBreakdownBy))}</p>`
+                   safeText(breakdown.lastBreakdownAt),
+                 )} by ${escapeHtml(safeText(breakdown.lastBreakdownBy))}</p>`
               : renderBadge('未拆解', 'bg-slate-100 text-slate-700')
           }
         </article>
@@ -4981,7 +5062,7 @@ function performDemandGenerate(): void {
 
     const auditLogs: AuditLog[] = [
       {
-        id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+        id: nextLocalEntityId('LOG'),
         action: 'CREATE',
         detail: `从需求 ${demand.demandId} 生成生产单`,
         at: now,
@@ -6096,17 +6177,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const now = toTimestamp()
     const month = now.slice(0, 7).replace('-', '')
     const existingIds = new Set(state.changes.map((change) => change.changeId))
-    let changeId = ''
-    for (let i = 0; i < 20; i += 1) {
-      const candidate = `CHG-${month}-${String(Math.floor(Math.random() * 9000) + 1000)}`
-      if (!existingIds.has(candidate)) {
-        changeId = candidate
-        break
-      }
-    }
-    if (!changeId) {
-      changeId = `CHG-${month}-${String(Date.now()).slice(-4)}`
-    }
+    const changeId = nextChangeId(month, existingIds)
 
     const changeType = state.changesCreateForm.changeType as ProductionChangeType
 
@@ -6302,7 +6373,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       if (order.productionOrderId !== orderId) return order
 
       const auditLog: AuditLog = {
-        id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+        id: nextLocalEntityId('LOG', 4),
         action: 'STATUS_SIMULATE',
         detail: `状态模拟从 ${productionOrderStatusConfig[order.status].label} 变更为 ${productionOrderStatusConfig[targetStatus].label}`,
         at: now,

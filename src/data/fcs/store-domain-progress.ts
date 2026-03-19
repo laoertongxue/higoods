@@ -137,13 +137,13 @@ export interface ExceptionCase {
 
 // 生成异常号
 export function generateCaseId(): string {
-  const now = new Date()
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  return `EX-${ymd}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+  generateCaseIdSeq += 1
+  return `EX-202603-${String(generateCaseIdSeq).padStart(4, '0')}`
 }
+let generateCaseIdSeq = 9000
 
 // seed 时间辅助
-const nowDate = new Date()
+const nowDate = new Date('2026-03-20T10:00:00+08:00')
 const mockNow = nowDate.toISOString().replace('T', ' ').slice(0, 19)
 const eightHoursAgo = new Date(nowDate.getTime() - 8 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
 const sixHoursLater = new Date(nowDate.getTime() + 6 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
@@ -876,10 +876,10 @@ export interface HandoverEvent {
 }
 
 export function generateHandoverEventId(): string {
-  const now = new Date()
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  return `HV-${ymd}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+  handoverEventSeq += 1
+  return `HV-202603-${String(handoverEventSeq).padStart(4, '0')}`
 }
+let handoverEventSeq = 9000
 
 export const initialHandoverEvents: HandoverEvent[] = [
   // 1. 待确认 - 裁片交接
@@ -1258,10 +1258,10 @@ export interface Notification {
 }
 
 export function generateNotificationId(): string {
-  const now = new Date()
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  return `NT-${ymd}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+  notificationSeq += 1
+  return `NT-202603-${String(notificationSeq).padStart(4, '0')}`
 }
+let notificationSeq = 9000
 
 export const initialNotifications: Notification[] = [
   { notificationId: 'NT-202603-0001', level: 'INFO', title: '任务已分配', content: '任务TASK-0001-001已分配至Jakarta Central Factory', recipientType: 'FACTORY', recipientId: 'ID-F001', recipientName: 'Jakarta Central Factory', targetType: 'TASK', targetId: 'TASK-0001-001', related: { taskId: 'TASK-0001-001', productionOrderId: 'PO-202603-0004' }, deepLink: { path: '/fcs/progress/board', query: { taskId: 'TASK-0001-001' } }, createdAt: '2026-03-02 09:00:00', createdBy: 'SYSTEM' },
@@ -1339,10 +1339,10 @@ export interface UrgeLog {
 }
 
 export function generateUrgeId(): string {
-  const now = new Date()
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  return `UG-${ymd}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+  urgeSeq += 1
+  return `UG-202603-${String(urgeSeq).padStart(4, '0')}`
 }
+let urgeSeq = 9000
 
 export const initialUrges: UrgeLog[] = [
   { urgeId: 'UG-202603-0001', urgeType: 'URGE_ASSIGN_ACK', fromType: 'INTERNAL_USER', fromId: 'U002', fromName: '跟单A', toType: 'FACTORY', toId: 'ID-F001', toName: 'Jakarta Central Factory', targetType: 'TASK', targetId: 'TASK-0001-001', message: '请尽快确认接单，订单交期紧迫', createdAt: '2026-03-02 10:00:00', status: 'SENT', deepLink: { path: '/fcs/dispatch/board', query: { taskId: 'TASK-0001-001' } }, auditLogs: [{ id: 'UAL-001', action: 'SEND', detail: '发送催办', at: '2026-03-02 10:00:00', by: '跟单A' }] },
@@ -1512,6 +1512,7 @@ interface ProgressExceptionCandidate {
   summary: string
   detail: string
   closureReady: boolean
+  eventAt: string
 }
 
 const AUTO_PROGRESS_TAG = 'AUTO_PROGRESS_FACT'
@@ -1524,7 +1525,37 @@ function parseDateMs(value?: string): number {
 }
 
 function nowAt(): string {
-  return new Date().toISOString().replace('T', ' ').slice(0, 19)
+  return mockNow
+}
+
+function pickLatestTimestamp(values: Array<string | undefined>, fallback: string = mockNow): string {
+  const valid = values
+    .filter((value): value is string => Boolean(value))
+    .map((value) => ({ value, ts: parseDateMs(value) }))
+    .filter((item) => Number.isFinite(item.ts))
+    .sort((a, b) => b.ts - a.ts)
+  return valid[0]?.value ?? fallback
+}
+
+function maxTimestamp(left: string, right: string): string {
+  const leftMs = parseDateMs(left)
+  const rightMs = parseDateMs(right)
+  if (!Number.isFinite(leftMs)) return right
+  if (!Number.isFinite(rightMs)) return left
+  return rightMs > leftMs ? right : left
+}
+
+function shortStableKey(input: string): string {
+  let hash = 0
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(index)
+    hash |= 0
+  }
+  return Math.abs(hash).toString(36).toUpperCase().padStart(6, '0').slice(0, 6)
+}
+
+function generateAutoProgressCaseId(candidateKey: string): string {
+  return `EX-AUTO-${shortStableKey(candidateKey)}`
 }
 
 function toExceptionStatus(status: CaseStatus): 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' {
@@ -1675,6 +1706,10 @@ export function listProgressFactsByOrder(productionOrderId: string): ProgressFac
   return listProgressFacts().filter((fact) => fact.productionOrderId === productionOrderId)
 }
 
+export function getProgressFactByTaskId(taskId: string): ProgressFact | undefined {
+  return listProgressFacts().find((fact) => fact.runtimeTaskId === taskId || fact.baseTaskId === taskId)
+}
+
 export function listProgressMaterialIssueRows(): ProgressMaterialIssueRow[] {
   return listMaterialRequests()
     .map((request) => {
@@ -1803,6 +1838,12 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
     const relatedTaskIds = [fact.baseTaskId]
     const relatedOrderIds = [fact.productionOrderId]
     const linkedFactoryName = fact.assignedFactoryName
+    const eventAt = pickLatestTimestamp([
+      runtimeTask.updatedAt,
+      ...fact.materialRequests.map((request) => request.updatedAt),
+      ...fact.executionDocs.map((doc) => doc.updatedAt),
+      ...fact.executionDocs.map((doc) => doc.createdAt),
+    ])
 
     if (!skipMaterialChecks) {
       if (!fact.startReadiness.canStart) {
@@ -1820,6 +1861,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           summary: '物料未齐套，暂不可开工',
           detail: `${fact.processNameZh}（${fact.scopeLabel}）当前卡点：${fact.startReadiness.reasonText}`,
           closureReady: runtimeTask.status === 'DONE' || runtimeTask.status === 'CANCELLED',
+          eventAt,
         })
       }
 
@@ -1838,6 +1880,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           summary: '仓库备料未完成',
           detail: `${fact.processNameZh}（${fact.scopeLabel}）存在待备料执行单，仓库尚未齐套`,
           closureReady: issueOrTransferDocs.every((doc) => !isDocActive(doc.status)),
+          eventAt,
         })
       }
 
@@ -1861,6 +1904,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
             ? `${fact.processNameZh}（${fact.scopeLabel}）物料 ${shortageLine.materialName} 缺口 ${shortageLine.shortQty}${shortageLine.unit}`
             : `${fact.processNameZh}（${fact.scopeLabel}）存在领料数量缺口`,
           closureReady: !hasDocShortage(issueOrTransferDocs),
+          eventAt,
         })
       }
 
@@ -1885,6 +1929,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           summary: '同任务存在多张未闭合领料执行单',
           detail: `${fact.processNameZh}（${fact.scopeLabel}）存在多张活跃执行单，请先收口后继续`,
           closureReady: !hasMultiOpen,
+          eventAt,
         })
       }
     }
@@ -1912,6 +1957,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
               ? `${fact.processNameZh}（${fact.scopeLabel}）已完工但未生成回货单，请补齐回仓链路`
               : `${fact.processNameZh}（${fact.scopeLabel}）已交出，等待仓库确认入仓`,
           closureReady: returnDocs.every((doc) => isDocClosed(doc.status)),
+          eventAt,
         })
       }
 
@@ -1934,6 +1980,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           summary: '回货数量存在差异',
           detail: `${fact.processNameZh}（${fact.scopeLabel}）回货差异 ${diffQty}${diffLine.unit}`,
           closureReady: !diffLine,
+          eventAt,
         })
       }
     }
@@ -1943,15 +1990,15 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
 }
 
 export function syncProgressFactsAndExceptions(): ExceptionCase[] {
-  const now = nowAt()
   const candidates = createProgressExceptionCandidates()
   const activeKeys = new Set(candidates.map((candidate) => candidate.key))
 
   for (const candidate of candidates) {
     const existed = initialExceptions.find((item) => item.sourceModule === candidate.key)
     if (!existed) {
+      const createdAt = candidate.eventAt || nowAt()
       initialExceptions.push({
-        caseId: generateCaseId(),
+        caseId: generateAutoProgressCaseId(candidate.key),
         caseStatus: 'OPEN',
         severity: candidate.severity,
         category: candidate.category,
@@ -1968,16 +2015,16 @@ export function syncProgressFactsAndExceptions(): ExceptionCase[] {
         linkedFactoryName: candidate.linkedFactoryName,
         summary: candidate.summary,
         detail: candidate.detail,
-        createdAt: now,
-        updatedAt: now,
+        createdAt,
+        updatedAt: createdAt,
         tags: ['自动生成', AUTO_PROGRESS_TAG],
         actions: [],
         auditLogs: [
           {
-            id: `EAL-AUTO-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+            id: `EAL-AUTO-${shortStableKey(candidate.key)}-CREATE`,
             action: 'CREATE',
             detail: '新链路事实自动生成异常',
-            at: now,
+            at: createdAt,
             by: '系统',
           },
         ],
@@ -1985,16 +2032,46 @@ export function syncProgressFactsAndExceptions(): ExceptionCase[] {
       continue
     }
 
-    existed.summary = candidate.summary
-    existed.detail = candidate.detail
-    existed.updatedAt = now
-    existed.unifiedCategory = candidate.unifiedCategory
-    existed.subCategoryKey = candidate.subCategoryKey
-    existed.category = candidate.category
-    existed.reasonCode = candidate.reasonCode
-    existed.relatedOrderIds = candidate.relatedOrderIds
-    existed.relatedTaskIds = candidate.relatedTaskIds
-    existed.linkedFactoryName = candidate.linkedFactoryName
+    let changed = false
+    if (existed.summary !== candidate.summary) {
+      existed.summary = candidate.summary
+      changed = true
+    }
+    if (existed.detail !== candidate.detail) {
+      existed.detail = candidate.detail
+      changed = true
+    }
+    if (existed.unifiedCategory !== candidate.unifiedCategory) {
+      existed.unifiedCategory = candidate.unifiedCategory
+      changed = true
+    }
+    if (existed.subCategoryKey !== candidate.subCategoryKey) {
+      existed.subCategoryKey = candidate.subCategoryKey
+      changed = true
+    }
+    if (existed.category !== candidate.category) {
+      existed.category = candidate.category
+      changed = true
+    }
+    if (existed.reasonCode !== candidate.reasonCode) {
+      existed.reasonCode = candidate.reasonCode
+      changed = true
+    }
+    if (existed.relatedOrderIds.join('|') !== candidate.relatedOrderIds.join('|')) {
+      existed.relatedOrderIds = candidate.relatedOrderIds
+      changed = true
+    }
+    if (existed.relatedTaskIds.join('|') !== candidate.relatedTaskIds.join('|')) {
+      existed.relatedTaskIds = candidate.relatedTaskIds
+      changed = true
+    }
+    if (existed.linkedFactoryName !== candidate.linkedFactoryName) {
+      existed.linkedFactoryName = candidate.linkedFactoryName
+      changed = true
+    }
+    if (changed) {
+      existed.updatedAt = maxTimestamp(existed.updatedAt, candidate.eventAt)
+    }
     if (toExceptionStatus(existed.caseStatus) !== 'OPEN' && toExceptionStatus(existed.caseStatus) !== 'IN_PROGRESS') {
       existed.caseStatus = 'OPEN'
       existed.resolvedAt = undefined
@@ -2004,6 +2081,7 @@ export function syncProgressFactsAndExceptions(): ExceptionCase[] {
       existed.closeReasonCode = undefined
       existed.closeDetail = undefined
       existed.closeRemark = undefined
+      existed.updatedAt = maxTimestamp(existed.updatedAt, candidate.eventAt)
     }
   }
 
@@ -2013,10 +2091,10 @@ export function syncProgressFactsAndExceptions(): ExceptionCase[] {
     const status = toExceptionStatus(item.caseStatus)
     if (status === 'OPEN' || status === 'IN_PROGRESS') {
       item.caseStatus = 'RESOLVED'
-      item.resolvedAt = now
+      item.resolvedAt = item.updatedAt || nowAt()
       item.resolvedBy = '系统'
       item.resolvedDetail = '新链路条件恢复正常，系统自动判定为已解决'
-      item.updatedAt = now
+      item.updatedAt = item.resolvedAt
       return
     }
 
@@ -2024,12 +2102,12 @@ export function syncProgressFactsAndExceptions(): ExceptionCase[] {
       const runtimeTask = getRuntimeTaskById(item.sourceId)
       if (!runtimeTask || runtimeTask.status === 'DONE' || runtimeTask.status === 'CANCELLED') {
         item.caseStatus = 'CLOSED'
-        item.closedAt = now
+        item.closedAt = item.resolvedAt || item.updatedAt || nowAt()
         item.closedBy = '系统'
         item.closeReasonCode = 'RESOLVED_DONE'
         item.closeDetail = '链路已闭环，系统自动关闭'
         item.closeRemark = item.closeDetail
-        item.updatedAt = now
+        item.updatedAt = item.closedAt
       }
     }
   })
@@ -2037,10 +2115,32 @@ export function syncProgressFactsAndExceptions(): ExceptionCase[] {
   return initialExceptions
 }
 
+function isProgressFactBackedCase(item: ExceptionCase): boolean {
+  if (item.tags.includes(AUTO_PROGRESS_TAG)) return true
+  if (item.sourceSystem === 'RUNTIME_FLOW') return true
+  if (item.relatedTaskIds.some((taskId) => Boolean(getRuntimeTaskById(taskId)))) return true
+  if (item.relatedTaskIds.some((taskId) => processTasks.some((task) => task.taskId === taskId))) return true
+  return false
+}
+
 export function listProgressExceptions(): ExceptionCase[] {
   return syncProgressFactsAndExceptions()
+    .filter(isProgressFactBackedCase)
     .slice()
     .sort((a, b) => parseDateMs(b.updatedAt) - parseDateMs(a.updatedAt))
+}
+
+export function getProgressExceptionById(caseId: string): ExceptionCase | undefined {
+  return listProgressExceptions().find((item) => item.caseId === caseId)
+}
+
+export function upsertProgressExceptionCase(updated: ExceptionCase): void {
+  const index = initialExceptions.findIndex((item) => item.caseId === updated.caseId)
+  if (index >= 0) {
+    initialExceptions[index] = updated
+    return
+  }
+  initialExceptions.push(updated)
 }
 
 export function listProgressExceptionsByOrder(productionOrderId: string): ExceptionCase[] {

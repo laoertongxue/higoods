@@ -1,14 +1,19 @@
-import { processTasks } from '../data/fcs/process-tasks'
 import {
-  initialQualityInspections,
-  initialDeductionBasisItems,
-  initialDyePrintOrders,
-} from '../data/fcs/store-domain-quality-seeds'
-import { initialStatementDrafts, initialSettlementBatches } from '../data/fcs/store-domain-settlement-seeds'
-import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+  listLegacyLikeDeductionBasisForTailPages,
+  listLegacyLikeDyePrintOrdersForTailPages,
+  listLegacyLikeProcessTasksForTailPages,
+  listLegacyLikeQualityInspectionsForTailPages,
+  listLegacyLikeSettlementBatchesForTailPages,
+  listLegacyLikeStatementDraftsForTailPages,
+} from '../data/fcs/page-adapters/long-tail-pages-adapter'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 
-applyQualitySeedBootstrap()
+const processTasks = listLegacyLikeProcessTasksForTailPages()
+const initialQualityInspections = listLegacyLikeQualityInspectionsForTailPages()
+const initialDeductionBasisItems = listLegacyLikeDeductionBasisForTailPages()
+const initialDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
+const initialStatementDrafts = listLegacyLikeStatementDraftsForTailPages()
+const initialSettlementBatches = listLegacyLikeSettlementBatchesForTailPages()
 
 const QC_STATUS_ZH: Record<string, string> = {
   DRAFT: '草稿',

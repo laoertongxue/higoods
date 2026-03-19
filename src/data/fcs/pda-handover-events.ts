@@ -856,9 +856,10 @@ export function createPdaPickupRecord(
 
   const existing = getPdaPickupRecordsByHead(handoverId)
   const sequenceNo = existing.reduce((max, record) => Math.max(max, record.sequenceNo), 0) + 1
+  const recordId = `HPR-${handoverId.replace(/[^A-Za-z0-9]/g, '')}-${String(sequenceNo).padStart(3, '0')}`
 
   const created: PdaPickupRecord = {
-    recordId: `HPR-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+    recordId,
     handoverId,
     taskId: head.taskId,
     sequenceNo,
@@ -909,9 +910,10 @@ export function createPdaHandoverRecord(
 
   const existing = getPdaHandoverRecordsByHead(handoverId)
   const sequenceNo = existing.reduce((max, record) => Math.max(max, record.sequenceNo), 0) + 1
+  const recordId = `HOR-${handoverId.replace(/[^A-Za-z0-9]/g, '')}-${String(sequenceNo).padStart(3, '0')}`
 
   const created: PdaHandoverRecord = {
-    recordId: `HOR-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+    recordId,
     handoverId,
     taskId: head.taskId,
     sequenceNo,

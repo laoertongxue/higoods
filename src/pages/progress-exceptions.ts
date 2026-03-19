@@ -20,7 +20,6 @@ import {
   type Tender,
 } from '../data/fcs/store-domain-dispatch-process'
 import {
-  initialExceptions,
   initialNotifications,
   initialUrges,
   mockInternalUsers,
@@ -34,8 +33,9 @@ import {
   type Severity,
   type UrgeLog,
   type UrgeType,
+  getProgressExceptionById,
   listProgressExceptions,
-  syncProgressFactsAndExceptions,
+  upsertProgressExceptionCase,
 } from '../data/fcs/store-domain-progress'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
@@ -319,12 +319,11 @@ function getTenderById(tenderId: string): Tender | undefined {
 }
 
 function getExceptionCases(): ExceptionCase[] {
-  syncProgressFactsAndExceptions()
   return listProgressExceptions()
 }
 
 function getCaseById(caseId: string): ExceptionCase | undefined {
-  return getExceptionCases().find((item) => item.caseId === caseId)
+  return getProgressExceptionById(caseId)
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
@@ -523,10 +522,7 @@ function syncExceptionResolvedByBusiness(): void {
 }
 
 function updateException(updated: ExceptionCase): void {
-  const index = initialExceptions.findIndex((item) => item.caseId === updated.caseId)
-  if (index >= 0) {
-    initialExceptions[index] = updated
-  }
+  upsertProgressExceptionCase(updated)
 }
 
 function updateTaskStatus(taskId: string, newStatus: ProcessTask['status'], by: string = 'Admin'): void {

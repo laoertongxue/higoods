@@ -1,11 +1,11 @@
 import {
   listMaterialIssueSheetsFromRuntime,
+  listMaterialStatementDraftsFromRuntime,
   type MaterialIssueSheet,
   type MaterialStatementDraft,
   type MaterialStatementItem,
   type MaterialStatementStatus,
 } from '../data/fcs/store-domain-dispatch-process'
-import { initialMaterialStatementDrafts } from '../data/fcs/store-domain-settlement-seeds'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { escapeHtml, toClassName } from '../utils'
 
@@ -52,6 +52,12 @@ const state: MaterialStatementsState = {
   detailStatementId: null,
 }
 
+// 第3轮整改：页面保留原交互，草稿实时读取新链路兼容适配层；
+// 页面内新增/状态流转通过本地覆写层承接，避免回落到旧 seed 主真相。
+const localDraftAdditions: MaterialStatementDraft[] = []
+const localDraftOverrides = new Map<string, MaterialStatementDraft>()
+let materialStatementSeq = listMaterialStatementDraftsFromRuntime().length + 1
+
 function getIssueSheets(): MaterialIssueSheet[] {
   return listMaterialIssueSheetsFromRuntime()
 }
@@ -60,12 +66,45 @@ function getIssueById(issueId: string): MaterialIssueSheet | undefined {
   return getIssueSheets().find((issue) => issue.issueId === issueId)
 }
 
-function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+function cloneDraft(draft: MaterialStatementDraft): MaterialStatementDraft {
+  return {
+    ...draft,
+    issueIds: [...draft.issueIds],
+    items: draft.items.map((item) => ({ ...item })),
+  }
 }
 
-function randomSuffix(length = 4): string {
-  return Math.random().toString(36).slice(2, 2 + length).toUpperCase()
+function getDrafts(): MaterialStatementDraft[] {
+  const baseDrafts = listMaterialStatementDraftsFromRuntime().map(cloneDraft)
+  const mapped = baseDrafts.map((draft) => localDraftOverrides.get(draft.materialStatementId) ?? draft)
+  const idSet = new Set(mapped.map((draft) => draft.materialStatementId))
+  for (const addition of localDraftAdditions) {
+    if (!idSet.has(addition.materialStatementId)) {
+      mapped.push(cloneDraft(addition))
+    }
+  }
+  return mapped
+}
+
+function getMutableDraftById(materialStatementId: string): MaterialStatementDraft | null {
+  const localAdded = localDraftAdditions.find((item) => item.materialStatementId === materialStatementId)
+  if (localAdded) return localAdded
+
+  const localOverride = localDraftOverrides.get(materialStatementId)
+  if (localOverride) return localOverride
+
+  const baseDraft = listMaterialStatementDraftsFromRuntime().find(
+    (item) => item.materialStatementId === materialStatementId,
+  )
+  if (!baseDraft) return null
+
+  const cloned = cloneDraft(baseDraft)
+  localDraftOverrides.set(materialStatementId, cloned)
+  return cloned
+}
+
+function nowTimestamp(date: Date = new Date()): string {
+  return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
 function showMaterialStatementsToast(message: string, tone: 'success' | 'error' = 'success'): void {
@@ -108,7 +147,7 @@ function showMaterialStatementsToast(message: string, tone: 'success' | 'error' 
 
 function getOccupiedIssueIds(): Set<string> {
   const set = new Set<string>()
-  for (const draft of initialMaterialStatementDrafts) {
+  for (const draft of getDrafts()) {
     if (draft.status !== 'CLOSED') {
       draft.issueIds.forEach((issueId) => set.add(issueId))
     }
@@ -193,14 +232,12 @@ function generateMaterialStatementDraft(
 
   const timestamp = nowTimestamp()
   const month = timestamp.slice(0, 7).replace('-', '')
-  let materialStatementId = `MST-${month}-${String(Math.floor(Math.random() * 9000) + 1000)}`
-  while (
-    initialMaterialStatementDrafts.some(
-      (draft) => draft.materialStatementId === materialStatementId,
-    )
-  ) {
-    materialStatementId = `MST-${month}-${randomSuffix(4)}`
+  let materialStatementId = `MST-${month}-${String(materialStatementSeq).padStart(4, '0')}`
+  while (getDrafts().some((draft) => draft.materialStatementId === materialStatementId)) {
+    materialStatementSeq += 1
+    materialStatementId = `MST-${month}-${String(materialStatementSeq).padStart(4, '0')}`
   }
+  materialStatementSeq += 1
 
   const items: MaterialStatementItem[] = issueIds.map((issueId) => {
     const issue = getIssueById(issueId)!
@@ -226,7 +263,7 @@ function generateMaterialStatementDraft(
     createdAt: timestamp,
     createdBy: by,
   }
-  initialMaterialStatementDrafts.push(draft)
+  localDraftAdditions.push(draft)
   return { ok: true, materialStatementId }
 }
 
@@ -234,9 +271,7 @@ function confirmMaterialStatementDraft(
   materialStatementId: string,
   by: string,
 ): { ok: boolean; message?: string } {
-  const draft = initialMaterialStatementDrafts.find(
-    (item) => item.materialStatementId === materialStatementId,
-  )
+  const draft = getMutableDraftById(materialStatementId)
   if (!draft) return { ok: false, message: `领料对账单 ${materialStatementId} 不存在` }
   if (draft.status === 'CONFIRMED') return { ok: true }
   if (draft.status === 'CLOSED') return { ok: false, message: '已关闭的领料对账单不允许确认' }
@@ -250,9 +285,7 @@ function closeMaterialStatementDraft(
   materialStatementId: string,
   by: string,
 ): { ok: boolean; message?: string } {
-  const draft = initialMaterialStatementDrafts.find(
-    (item) => item.materialStatementId === materialStatementId,
-  )
+  const draft = getMutableDraftById(materialStatementId)
   if (!draft) return { ok: false, message: `领料对账单 ${materialStatementId} 不存在` }
   if (draft.status === 'CLOSED') return { ok: true }
   draft.status = 'CLOSED'
@@ -263,7 +296,7 @@ function closeMaterialStatementDraft(
 
 function getFilteredDrafts(): MaterialStatementDraft[] {
   const keyword = state.draftKeyword.trim().toLowerCase()
-  return initialMaterialStatementDrafts.filter((draft) => {
+  return getDrafts().filter((draft) => {
     const matchKeyword =
       !keyword ||
       draft.materialStatementId.toLowerCase().includes(keyword) ||
@@ -278,7 +311,7 @@ function getFilteredDrafts(): MaterialStatementDraft[] {
 function getDetailDraft(): MaterialStatementDraft | null {
   if (!state.detailStatementId) return null
   return (
-    initialMaterialStatementDrafts.find(
+    getDrafts().find(
       (draft) => draft.materialStatementId === state.detailStatementId,
     ) ?? null
   )
@@ -342,11 +375,12 @@ function renderDetailDialog(detailDraft: MaterialStatementDraft | null): string 
 
 export function renderMaterialStatementsPage(): string {
   const poolIssues = getPoolIssues()
+  const drafts = getDrafts()
   const stats = {
     pool: poolIssues.length,
-    draft: initialMaterialStatementDrafts.filter((draft) => draft.status === 'DRAFT').length,
-    confirmed: initialMaterialStatementDrafts.filter((draft) => draft.status === 'CONFIRMED').length,
-    closed: initialMaterialStatementDrafts.filter((draft) => draft.status === 'CLOSED').length,
+    draft: drafts.filter((draft) => draft.status === 'DRAFT').length,
+    confirmed: drafts.filter((draft) => draft.status === 'CONFIRMED').length,
+    closed: drafts.filter((draft) => draft.status === 'CLOSED').length,
   }
 
   const orderOptions = getPoolOrderOptions(poolIssues)

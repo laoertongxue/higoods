@@ -1,5 +1,6 @@
 import { consumeProcessCreateDemandIntent } from './process-order-create-bridge'
 import { escapeHtml } from '../utils'
+import { listPrepProcessOrders } from '../data/fcs/page-adapters/process-prep-pages-adapter'
 
 type CreateModeZh = '按需求创建' | '按备货创建'
 type Unit = '米'
@@ -129,232 +130,58 @@ const RULES = [
   '需求完成判定：以回货批次关联满足为准（加工单不等于需求完成）',
 ]
 
-const ORDER_SEEDS: DyeProcessOrder[] = [
-  {
-    orderNo: 'RSJG20260314021',
-    status: '部分回货',
-    createMode: '按需求创建',
-    dyeFactoryName: '万隆染色厂',
-    plannedFeedQty: 2400,
+const ORDERS: DyeProcessOrder[] = listPrepProcessOrders('DYE').map((item) => ({
+  orderNo: item.orderNo,
+  status: item.status,
+  createMode: item.createMode,
+  dyeFactoryName: item.factoryName,
+  plannedFeedQty: item.plannedFeedQty,
+  unit: '米',
+  plannedFinishAt: item.plannedFinishAt,
+  sourceSummary: item.sourceSummary,
+  note: item.note,
+  createdAt: item.createdAt,
+  updatedAt: item.updatedAt,
+  linkedDemands: item.linkedDemands.map((demand) => ({
+    demandId: demand.demandId,
+    sourceProductionOrderId: demand.sourceProductionOrderId,
+    materialCode: demand.materialCode,
+    materialName: demand.materialName,
+    requiredQty: demand.requiredQty,
+    satisfiedQty: demand.satisfiedQty,
     unit: '米',
-    plannedFinishAt: '2026-03-18 18:00:00',
-    sourceSummary: '按需求创建，来源于 2 张染色需求单联合排产。',
-    note: '优先保障 PO-202603-1020 的首批交期。',
-    createdAt: '2026-03-14 08:35:00',
-    updatedAt: '2026-03-14 13:20:00',
-    linkedDemands: [
-      {
-        demandId: 'RSXQ20260314002',
-        sourceProductionOrderId: 'PO-202603-1020',
-        materialCode: 'M-DYE-019',
-        materialName: '人棉梭织布 110g',
-        requiredQty: 1600,
-        satisfiedQty: 900,
+    status: demand.status,
+  })),
+  stockMaterial: item.stockMaterial
+    ? {
+        materialCode: item.stockMaterial.materialCode,
+        materialName: item.stockMaterial.materialName,
         unit: '米',
-        status: '部分满足',
-      },
-      {
-        demandId: 'RSXQ20260314006',
-        sourceProductionOrderId: 'PO-202603-1036',
-        materialCode: 'M-DYE-073',
-        materialName: '锦棉弹力布 170g',
-        requiredQty: 800,
-        satisfiedQty: 500,
-        unit: '米',
-        status: '部分满足',
-      },
-    ],
-    materialReceipt: {
-      receiveStatus: '已接收',
-      receivedQty: 2400,
-      receivedAt: '2026-03-14 09:10:00',
-      receiptVoucher: 'WMS 入库单 RK202603140089 + 送料签收单 SL20260314016',
-      qualityConclusion: '来料检验合格，可投入染色。',
-    },
-    batches: [
-      {
-        batchNo: 'RSPH2026031407',
-        returnedQty: 800,
-        qualifiedQty: 760,
-        availableQty: 760,
-        linkedQty: 700,
-        status: '部分关联',
-        returnedAt: '2026-03-14 11:30:00',
-      },
-      {
-        batchNo: 'RSPH2026031411',
-        returnedQty: 700,
-        qualifiedQty: 680,
-        availableQty: 680,
-        linkedQty: 620,
-        status: '部分关联',
-        returnedAt: '2026-03-14 12:45:00',
-      },
-    ],
-    destinations: [
-      { batchNo: 'RSPH2026031407', demandId: 'RSXQ20260314002', fulfilledQty: 500, linkedAt: '2026-03-14 11:42:00' },
-      { batchNo: 'RSPH2026031407', demandId: 'RSXQ20260314006', fulfilledQty: 200, linkedAt: '2026-03-14 11:51:00' },
-      { batchNo: 'RSPH2026031411', demandId: 'RSXQ20260314002', fulfilledQty: 400, linkedAt: '2026-03-14 12:56:00' },
-      { batchNo: 'RSPH2026031411', demandId: 'RSXQ20260314006', fulfilledQty: 220, linkedAt: '2026-03-14 13:02:00' },
-    ],
+      }
+    : undefined,
+  materialReceipt: {
+    receiveStatus: item.materialReceipt.receiveStatus,
+    receivedQty: item.materialReceipt.receivedQty,
+    receivedAt: item.materialReceipt.receivedAt,
+    receiptVoucher: item.materialReceipt.receiptVoucher,
+    qualityConclusion: item.materialReceipt.qualityConclusion,
   },
-  {
-    orderNo: 'RSJG20260314024',
-    status: '加工中',
-    createMode: '按备货创建',
-    dyeFactoryName: '泗水染色厂',
-    plannedFeedQty: 3200,
-    unit: '米',
-    plannedFinishAt: '2026-03-19 20:00:00',
-    sourceSummary: '按备货创建，先形成可用染色库存池，后续可分配给多张需求单。',
-    note: '备货池优先覆盖春季快返款，需求单动态挂接。',
-    createdAt: '2026-03-14 09:25:00',
-    updatedAt: '2026-03-14 13:05:00',
-    stockMaterial: {
-      materialCode: 'M-DYE-081',
-      materialName: '涤纶纬弹布 145g',
-      unit: '米',
-    },
-    linkedDemands: [
-      {
-        demandId: 'RSXQ20260314009',
-        sourceProductionOrderId: 'PO-202603-1042',
-        materialCode: 'M-DYE-081',
-        materialName: '涤纶纬弹布 145g',
-        requiredQty: 900,
-        satisfiedQty: 0,
-        unit: '米',
-        status: '待满足',
-      },
-      {
-        demandId: 'RSXQ20260314010',
-        sourceProductionOrderId: 'PO-202603-1043',
-        materialCode: 'M-DYE-081',
-        materialName: '涤纶纬弹布 145g',
-        requiredQty: 1200,
-        satisfiedQty: 0,
-        unit: '米',
-        status: '待满足',
-      },
-      {
-        demandId: 'RSXQ20260314011',
-        sourceProductionOrderId: 'PO-202603-1044',
-        materialCode: 'M-DYE-081',
-        materialName: '涤纶纬弹布 145g',
-        requiredQty: 600,
-        satisfiedQty: 0,
-        unit: '米',
-        status: '待满足',
-      },
-    ],
-    materialReceipt: {
-      receiveStatus: '部分接收',
-      receivedQty: 2200,
-      receivedAt: '2026-03-14 10:20:00',
-      receiptVoucher: 'WMS 入库单 RK202603140112（第一车）',
-      qualityConclusion: '第一批来料通过质检，剩余来料待收。',
-    },
-    batches: [
-      {
-        batchNo: 'RSPH2026031503',
-        returnedQty: 500,
-        qualifiedQty: 490,
-        availableQty: 490,
-        linkedQty: 0,
-        status: '待关联',
-        returnedAt: '2026-03-14 12:58:00',
-      },
-    ],
-    destinations: [],
-  },
-  {
-    orderNo: 'RSJG20260314028',
-    status: '已完工',
-    createMode: '按需求创建',
-    dyeFactoryName: '雅加达染整中心',
-    plannedFeedQty: 1500,
-    unit: '米',
-    plannedFinishAt: '2026-03-16 16:00:00',
-    sourceSummary: '按需求创建，单次排产完成后已全部回货。',
-    note: '完工后仅保留批次追溯，不再新增关联。',
-    createdAt: '2026-03-13 15:20:00',
-    updatedAt: '2026-03-14 11:48:00',
-    linkedDemands: [
-      {
-        demandId: 'RSXQ20260314003',
-        sourceProductionOrderId: 'PO-202603-1025',
-        materialCode: 'M-DYE-033',
-        materialName: '珠地棉布 200g',
-        requiredQty: 900,
-        satisfiedQty: 900,
-        unit: '米',
-        status: '已满足',
-      },
-      {
-        demandId: 'RSXQ20260314012',
-        sourceProductionOrderId: 'PO-202603-1048',
-        materialCode: 'M-DYE-091',
-        materialName: '天丝平纹布 130g',
-        requiredQty: 600,
-        satisfiedQty: 600,
-        unit: '米',
-        status: '已满足',
-      },
-    ],
-    materialReceipt: {
-      receiveStatus: '已接收',
-      receivedQty: 1500,
-      receivedAt: '2026-03-13 16:02:00',
-      receiptVoucher: 'WMS 入库单 RK202603130066 + 收料签认 SR20260313009',
-      qualityConclusion: '全批次来料合格，已完成执行已完成。',
-    },
-    batches: [
-      {
-        batchNo: 'RSPH2026031322',
-        returnedQty: 1500,
-        qualifiedQty: 1470,
-        availableQty: 1470,
-        linkedQty: 1470,
-        status: '已关联',
-        returnedAt: '2026-03-14 10:40:00',
-      },
-    ],
-    destinations: [
-      { batchNo: 'RSPH2026031322', demandId: 'RSXQ20260314003', fulfilledQty: 900, linkedAt: '2026-03-14 10:52:00' },
-      { batchNo: 'RSPH2026031322', demandId: 'RSXQ20260314012', fulfilledQty: 570, linkedAt: '2026-03-14 10:59:00' },
-    ],
-  },
-]
-
-function buildOrders(total: number): DyeProcessOrder[] {
-  const rows = [...ORDER_SEEDS]
-  let cursor = 0
-  while (rows.length < total) {
-    const seed = ORDER_SEEDS[cursor % ORDER_SEEDS.length]
-    const cloned = JSON.parse(JSON.stringify(seed)) as DyeProcessOrder
-    const serial = 17000 + rows.length + 1
-    const day = 14 + Math.floor(rows.length / 3)
-    const minute = (rows.length * 8) % 60
-    cloned.orderNo = `RSJG202603${String(serial).padStart(5, '0')}`
-    cloned.createdAt = `2026-03-${String(day).padStart(2, '0')} 08:${String(minute).padStart(2, '0')}:00`
-    cloned.updatedAt = `2026-03-${String(day).padStart(2, '0')} 13:${String(minute).padStart(2, '0')}:00`
-    cloned.batches = cloned.batches.map((batch, idx) => ({
-      ...batch,
-      batchNo: `RSPH202603${String(22000 + rows.length * 10 + idx).padStart(5, '0')}`,
-      returnedAt: `2026-03-${String(day).padStart(2, '0')} 12:${String((minute + idx * 3) % 60).padStart(2, '0')}:00`,
-    }))
-    cloned.destinations = cloned.destinations.map((target, idx) => ({
-      ...target,
-      batchNo: cloned.batches[Math.min(idx, cloned.batches.length - 1)]?.batchNo ?? target.batchNo,
-      linkedAt: `2026-03-${String(day).padStart(2, '0')} 13:${String((minute + idx * 2) % 60).padStart(2, '0')}:00`,
-    }))
-    rows.push(cloned)
-    cursor += 1
-  }
-  return rows
-}
-
-const ORDERS: DyeProcessOrder[] = buildOrders(15)
+  batches: item.batches.map((batch) => ({
+    batchNo: batch.batchNo,
+    returnedQty: batch.returnedQty,
+    qualifiedQty: batch.qualifiedQty,
+    availableQty: batch.availableQty,
+    linkedQty: batch.linkedQty,
+    status: batch.status,
+    returnedAt: batch.returnedAt,
+  })),
+  destinations: item.destinations.map((dest) => ({
+    batchNo: dest.batchNo,
+    demandId: dest.demandId,
+    fulfilledQty: dest.fulfilledQty,
+    linkedAt: dest.linkedAt,
+  })),
+}))
 
 const ORDER_STATUS_CLASS: Record<OrderStatusZh, string> = {
   待接收来料: 'border-slate-200 bg-slate-50 text-slate-700',

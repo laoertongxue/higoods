@@ -1,5 +1,6 @@
 import { consumeProcessCreateDemandIntent } from './process-order-create-bridge'
 import { escapeHtml } from '../utils'
+import { listPrepProcessOrders } from '../data/fcs/page-adapters/process-prep-pages-adapter'
 
 type CreateModeZh = '按需求创建' | '按备货创建'
 type Unit = '片'
@@ -129,232 +130,58 @@ const RULES = [
   '需求完成判定：以回货批次关联满足为准（加工单不等于需求完成）',
 ]
 
-const ORDER_SEEDS: PrintProcessOrder[] = [
-  {
-    orderNo: 'YHJG20260314031',
-    status: '部分回货',
-    createMode: '按需求创建',
-    printFactoryName: '鸿辉印花厂',
-    plannedFeedQty: 3000,
+const ORDERS: PrintProcessOrder[] = listPrepProcessOrders('PRINT').map((item) => ({
+  orderNo: item.orderNo,
+  status: item.status,
+  createMode: item.createMode,
+  printFactoryName: item.factoryName,
+  plannedFeedQty: item.plannedFeedQty,
+  unit: '片',
+  plannedFinishAt: item.plannedFinishAt,
+  sourceSummary: item.sourceSummary,
+  note: item.note,
+  createdAt: item.createdAt,
+  updatedAt: item.updatedAt,
+  linkedDemands: item.linkedDemands.map((demand) => ({
+    demandId: demand.demandId,
+    sourceProductionOrderId: demand.sourceProductionOrderId,
+    materialCode: demand.materialCode,
+    materialName: demand.materialName,
+    requiredQty: demand.requiredQty,
+    satisfiedQty: demand.satisfiedQty,
     unit: '片',
-    plannedFinishAt: '2026-03-18 19:00:00',
-    sourceSummary: '按需求创建，承接 2 张印花需求单的集中排产执行。',
-    note: '优先保障 PO-202603-1054 的首批交付节奏。',
-    createdAt: '2026-03-14 08:42:00',
-    updatedAt: '2026-03-14 13:36:00',
-    linkedDemands: [
-      {
-        demandId: 'YHXQ20260314002',
-        sourceProductionOrderId: 'PO-202603-1054',
-        materialCode: 'M-PRINT-025',
-        materialName: '毛圈卫衣布 300g',
-        requiredQty: 2400,
-        satisfiedQty: 1200,
+    status: demand.status,
+  })),
+  stockMaterial: item.stockMaterial
+    ? {
+        materialCode: item.stockMaterial.materialCode,
+        materialName: item.stockMaterial.materialName,
         unit: '片',
-        status: '部分满足',
-      },
-      {
-        demandId: 'YHXQ20260314007',
-        sourceProductionOrderId: 'PO-202603-1066',
-        materialCode: 'M-PRINT-062',
-        materialName: '罗纹针织布 210g',
-        requiredQty: 600,
-        satisfiedQty: 380,
-        unit: '片',
-        status: '部分满足',
-      },
-    ],
-    materialReceipt: {
-      receiveStatus: '已接收',
-      receivedQty: 3000,
-      receivedAt: '2026-03-14 09:18:00',
-      receiptVoucher: 'WMS 入库单 RK202603140203 + 印花投料签收 YHSL20260314009',
-      qualityConclusion: '来料印花前检验合格，可进入印花工序。',
-    },
-    batches: [
-      {
-        batchNo: 'YHPH2026031409',
-        returnedQty: 1100,
-        qualifiedQty: 1060,
-        availableQty: 1060,
-        linkedQty: 980,
-        status: '部分关联',
-        returnedAt: '2026-03-14 11:46:00',
-      },
-      {
-        batchNo: 'YHPH2026031414',
-        returnedQty: 900,
-        qualifiedQty: 870,
-        availableQty: 870,
-        linkedQty: 600,
-        status: '部分关联',
-        returnedAt: '2026-03-14 13:06:00',
-      },
-    ],
-    destinations: [
-      { batchNo: 'YHPH2026031409', demandId: 'YHXQ20260314002', fulfilledQty: 700, linkedAt: '2026-03-14 11:58:00' },
-      { batchNo: 'YHPH2026031409', demandId: 'YHXQ20260314007', fulfilledQty: 280, linkedAt: '2026-03-14 12:05:00' },
-      { batchNo: 'YHPH2026031414', demandId: 'YHXQ20260314002', fulfilledQty: 500, linkedAt: '2026-03-14 13:15:00' },
-      { batchNo: 'YHPH2026031414', demandId: 'YHXQ20260314007', fulfilledQty: 100, linkedAt: '2026-03-14 13:21:00' },
-    ],
+      }
+    : undefined,
+  materialReceipt: {
+    receiveStatus: item.materialReceipt.receiveStatus,
+    receivedQty: item.materialReceipt.receivedQty,
+    receivedAt: item.materialReceipt.receivedAt,
+    receiptVoucher: item.materialReceipt.receiptVoucher,
+    qualityConclusion: item.materialReceipt.qualityConclusion,
   },
-  {
-    orderNo: 'YHJG20260314036',
-    status: '加工中',
-    createMode: '按备货创建',
-    printFactoryName: '嘉泽印花中心',
-    plannedFeedQty: 4200,
-    unit: '片',
-    plannedFinishAt: '2026-03-19 21:00:00',
-    sourceSummary: '按备货创建，先形成印花可用库存池，后续服务多张需求单动态挂接。',
-    note: '备货池优先覆盖快返款的胸前标识印花需求。',
-    createdAt: '2026-03-14 09:36:00',
-    updatedAt: '2026-03-14 13:18:00',
-    stockMaterial: {
-      materialCode: 'M-PRINT-088',
-      materialName: '涤棉双面布 180g',
-      unit: '片',
-    },
-    linkedDemands: [
-      {
-        demandId: 'YHXQ20260314009',
-        sourceProductionOrderId: 'PO-202603-1072',
-        materialCode: 'M-PRINT-088',
-        materialName: '涤棉双面布 180g',
-        requiredQty: 1200,
-        satisfiedQty: 0,
-        unit: '片',
-        status: '待满足',
-      },
-      {
-        demandId: 'YHXQ20260314010',
-        sourceProductionOrderId: 'PO-202603-1073',
-        materialCode: 'M-PRINT-088',
-        materialName: '涤棉双面布 180g',
-        requiredQty: 900,
-        satisfiedQty: 0,
-        unit: '片',
-        status: '待满足',
-      },
-      {
-        demandId: 'YHXQ20260314011',
-        sourceProductionOrderId: 'PO-202603-1074',
-        materialCode: 'M-PRINT-088',
-        materialName: '涤棉双面布 180g',
-        requiredQty: 700,
-        satisfiedQty: 0,
-        unit: '片',
-        status: '待满足',
-      },
-    ],
-    materialReceipt: {
-      receiveStatus: '部分接收',
-      receivedQty: 2600,
-      receivedAt: '2026-03-14 10:32:00',
-      receiptVoucher: 'WMS 入库单 RK202603140237（第一车）',
-      qualityConclusion: '首批来料通过印花前检验，剩余来料待接收。',
-    },
-    batches: [
-      {
-        batchNo: 'YHPH2026031511',
-        returnedQty: 600,
-        qualifiedQty: 590,
-        availableQty: 590,
-        linkedQty: 0,
-        status: '待关联',
-        returnedAt: '2026-03-14 13:02:00',
-      },
-    ],
-    destinations: [],
-  },
-  {
-    orderNo: 'YHJG20260314040',
-    status: '已完工',
-    createMode: '按需求创建',
-    printFactoryName: '盛彩印花厂',
-    plannedFeedQty: 1800,
-    unit: '片',
-    plannedFinishAt: '2026-03-16 17:00:00',
-    sourceSummary: '按需求创建，单次印花排产已完工并全部回货。',
-    note: '完工后仅保留批次与满足去向追溯。',
-    createdAt: '2026-03-13 15:45:00',
-    updatedAt: '2026-03-14 11:54:00',
-    linkedDemands: [
-      {
-        demandId: 'YHXQ20260314003',
-        sourceProductionOrderId: 'PO-202603-1060',
-        materialCode: 'M-PRINT-039',
-        materialName: '珠地棉布 220g',
-        requiredQty: 1800,
-        satisfiedQty: 1800,
-        unit: '片',
-        status: '已满足',
-      },
-      {
-        demandId: 'YHXQ20260314012',
-        sourceProductionOrderId: 'PO-202603-1078',
-        materialCode: 'M-PRINT-097',
-        materialName: '锦纶弹力布 165g',
-        requiredQty: 300,
-        satisfiedQty: 300,
-        unit: '片',
-        status: '已满足',
-      },
-    ],
-    materialReceipt: {
-      receiveStatus: '已接收',
-      receivedQty: 1800,
-      receivedAt: '2026-03-13 16:18:00',
-      receiptVoucher: 'WMS 入库单 RK202603130121 + 印花收料签认 SR20260313018',
-      qualityConclusion: '全批来料合格，已完成印花执行已完成。',
-    },
-    batches: [
-      {
-        batchNo: 'YHPH2026031328',
-        returnedQty: 1800,
-        qualifiedQty: 1760,
-        availableQty: 1760,
-        linkedQty: 1760,
-        status: '已关联',
-        returnedAt: '2026-03-14 10:46:00',
-      },
-    ],
-    destinations: [
-      { batchNo: 'YHPH2026031328', demandId: 'YHXQ20260314003', fulfilledQty: 1500, linkedAt: '2026-03-14 10:58:00' },
-      { batchNo: 'YHPH2026031328', demandId: 'YHXQ20260314012', fulfilledQty: 260, linkedAt: '2026-03-14 11:05:00' },
-    ],
-  },
-]
-
-function buildOrders(total: number): PrintProcessOrder[] {
-  const rows = [...ORDER_SEEDS]
-  let cursor = 0
-  while (rows.length < total) {
-    const seed = ORDER_SEEDS[cursor % ORDER_SEEDS.length]
-    const cloned = JSON.parse(JSON.stringify(seed)) as PrintProcessOrder
-    const serial = 26000 + rows.length + 1
-    const day = 14 + Math.floor(rows.length / 3)
-    const minute = (rows.length * 7) % 60
-    cloned.orderNo = `YHJG202603${String(serial).padStart(5, '0')}`
-    cloned.createdAt = `2026-03-${String(day).padStart(2, '0')} 08:${String(minute).padStart(2, '0')}:00`
-    cloned.updatedAt = `2026-03-${String(day).padStart(2, '0')} 13:${String(minute).padStart(2, '0')}:00`
-    cloned.batches = cloned.batches.map((batch, idx) => ({
-      ...batch,
-      batchNo: `YHPH202603${String(33000 + rows.length * 10 + idx).padStart(5, '0')}`,
-      returnedAt: `2026-03-${String(day).padStart(2, '0')} 12:${String((minute + idx * 3) % 60).padStart(2, '0')}:00`,
-    }))
-    cloned.destinations = cloned.destinations.map((target, idx) => ({
-      ...target,
-      batchNo: cloned.batches[Math.min(idx, cloned.batches.length - 1)]?.batchNo ?? target.batchNo,
-      linkedAt: `2026-03-${String(day).padStart(2, '0')} 13:${String((minute + idx * 2) % 60).padStart(2, '0')}:00`,
-    }))
-    rows.push(cloned)
-    cursor += 1
-  }
-  return rows
-}
-
-const ORDERS: PrintProcessOrder[] = buildOrders(15)
+  batches: item.batches.map((batch) => ({
+    batchNo: batch.batchNo,
+    returnedQty: batch.returnedQty,
+    qualifiedQty: batch.qualifiedQty,
+    availableQty: batch.availableQty,
+    linkedQty: batch.linkedQty,
+    status: batch.status,
+    returnedAt: batch.returnedAt,
+  })),
+  destinations: item.destinations.map((dest) => ({
+    batchNo: dest.batchNo,
+    demandId: dest.demandId,
+    fulfilledQty: dest.fulfilledQty,
+    linkedAt: dest.linkedAt,
+  })),
+}))
 
 const ORDER_STATUS_CLASS: Record<OrderStatusZh, string> = {
   待接收来料: 'border-slate-200 bg-slate-50 text-slate-700',

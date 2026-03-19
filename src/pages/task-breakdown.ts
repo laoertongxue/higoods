@@ -1,14 +1,9 @@
 import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders'
-import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
-import { initialDyePrintOrders } from '../data/fcs/store-domain-quality-seeds'
-import {
-  initialMaterialIssueSheets,
-  initialQcStandardSheets,
-} from '../data/fcs/store-domain-dispatch-process'
-import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+import { type ProcessTask } from '../data/fcs/process-tasks'
+import { listRuntimeProcessTasks } from '../data/fcs/runtime-process-tasks'
+import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-demands'
+import { getTaskTypeDisplayName } from '../data/fcs/page-adapters/task-execution-adapter'
 import { escapeHtml, toClassName } from '../utils'
-
-applyQualitySeedBootstrap()
 
 type TaskBreakdownTab = 'by-order' | 'all'
 
@@ -16,12 +11,6 @@ interface TaskBreakdownState {
   keyword: string
   activeTab: TaskBreakdownTab
   chainDetailOrderId: string | null
-}
-
-interface FallbackTask extends ProcessTask {
-  _isFallback?: true
-  _hasMaterial?: boolean
-  _hasQc?: boolean
 }
 
 interface OrderRow {
@@ -34,7 +23,6 @@ interface OrderRow {
   materialCount: number
   qcCount: number
   chain: string
-  isFallback: boolean
 }
 
 const state: TaskBreakdownState = {
@@ -43,15 +31,15 @@ const state: TaskBreakdownState = {
   chainDetailOrderId: null,
 }
 
-const DYE_KEYWORDS = ['染', '印花', '染色', '染印', '印染']
-const STAGE_ORDER = ['裁', '染', '绣', '印', '车', '缝', '后整', '整烫', '包']
+const STAGE_ORDER = ['PREP', 'CUTTING', 'SEWING', 'SPECIAL', 'POST']
 
-function isDyeTask(name: string): boolean {
-  return DYE_KEYWORDS.some((keyword) => name.includes(keyword))
+function taskDisplayName(task: ProcessTask): string {
+  return getTaskTypeDisplayName(task)
 }
 
-function stageScore(name: string): number {
-  const idx = STAGE_ORDER.findIndex((keyword) => name.includes(keyword))
+function stageScore(task: ProcessTask): number {
+  const stageCode = task.stageCode || task.stage
+  const idx = STAGE_ORDER.findIndex((stage) => stage === stageCode)
   return idx === -1 ? 99 : idx
 }
 
@@ -62,81 +50,13 @@ function inferDeps(tasks: ProcessTask[]): ProcessTask[] {
   if (hasAnyDep) return tasks
 
   const sorted = [...tasks].sort(
-    (a, b) => a.seq - b.seq || stageScore(a.processNameZh) - stageScore(b.processNameZh),
+    (a, b) => a.seq - b.seq || stageScore(a) - stageScore(b),
   )
 
   return sorted.map((task, idx) => ({
     ...task,
     dependsOnTaskIds: idx === 0 ? [] : [sorted[idx - 1].taskId],
   }))
-}
-
-function createFallbackTask(
-  orderId: string,
-  taskId: string,
-  seq: number,
-  processCode: string,
-  processNameZh: string,
-  stage: ProcessTask['stage'],
-  dependsOnTaskIds: string[],
-  extras?: Partial<FallbackTask>,
-): FallbackTask {
-  return {
-    taskId,
-    productionOrderId: orderId,
-    seq,
-    processCode,
-    processNameZh,
-    stage,
-    qty: 0,
-    qtyUnit: 'PIECE',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: 'UNASSIGNED',
-    ownerSuggestion: { kind: 'MAIN_FACTORY' },
-    qcPoints: [],
-    attachments: [],
-    auditLogs: [],
-    createdAt: '',
-    updatedAt: '',
-    status: 'NOT_STARTED',
-    dependsOnTaskIds,
-    _isFallback: true,
-    ...extras,
-  }
-}
-
-function makeFallbackTasks(orderId: string, variant: number): FallbackTask[] {
-  if (variant === 0) {
-    return [
-      createFallbackTask(orderId, `${orderId}-FB-001`, 1, 'CUT', '裁剪', 'CUTTING', []),
-      createFallbackTask(orderId, `${orderId}-FB-002`, 2, 'SEW', '车缝', 'SEWING', [`${orderId}-FB-001`], {
-        _hasMaterial: true,
-      }),
-      createFallbackTask(orderId, `${orderId}-FB-003`, 3, 'POST', '后整', 'POST', [`${orderId}-FB-002`]),
-      createFallbackTask(orderId, `${orderId}-FB-004`, 4, 'PACK', '包装', 'POST', [`${orderId}-FB-003`], {
-        _hasQc: true,
-      }),
-    ]
-  }
-
-  if (variant === 1) {
-    return [
-      createFallbackTask(orderId, `${orderId}-FB-001`, 1, 'CUT', '裁剪', 'CUTTING', []),
-      createFallbackTask(orderId, `${orderId}-FB-002`, 2, 'DYE', '染印', 'SEWING', [`${orderId}-FB-001`]),
-      createFallbackTask(orderId, `${orderId}-FB-003`, 3, 'SEW', '车缝', 'SEWING', [`${orderId}-FB-002`]),
-      createFallbackTask(orderId, `${orderId}-FB-004`, 4, 'POST', '后整', 'POST', [`${orderId}-FB-003`], {
-        _hasQc: true,
-      }),
-    ]
-  }
-
-  return [
-    createFallbackTask(orderId, `${orderId}-FB-001`, 1, 'CUT', '裁剪', 'CUTTING', []),
-    createFallbackTask(orderId, `${orderId}-FB-002`, 2, 'SEW', '车缝', 'SEWING', [`${orderId}-FB-001`], {
-      _hasMaterial: true,
-    }),
-    createFallbackTask(orderId, `${orderId}-FB-003`, 3, 'PACK', '包装', 'POST', [`${orderId}-FB-002`]),
-  ]
 }
 
 function topoSort(tasks: ProcessTask[]): ProcessTask[] {
@@ -151,7 +71,7 @@ function topoSort(tasks: ProcessTask[]): ProcessTask[] {
 
   const queue = tasks
     .filter((task) => indegree[task.taskId] === 0)
-    .sort((a, b) => stageScore(a.processNameZh) - stageScore(b.processNameZh))
+    .sort((a, b) => stageScore(a) - stageScore(b))
 
   const result: ProcessTask[] = []
   const visited = new Set<string>()
@@ -181,27 +101,18 @@ function topoSort(tasks: ProcessTask[]): ProcessTask[] {
 }
 
 function getAllProcessTasks(): ProcessTask[] {
-  const result: ProcessTask[] = []
+  const runtimeTasks = listRuntimeProcessTasks()
   const tasksByOrder = new Map<string, ProcessTask[]>()
 
-  for (const task of processTasks) {
+  for (const task of runtimeTasks) {
     const current = tasksByOrder.get(task.productionOrderId) ?? []
     current.push(task)
     tasksByOrder.set(task.productionOrderId, current)
   }
 
+  const result: ProcessTask[] = []
   for (const tasks of tasksByOrder.values()) {
     result.push(...inferDeps(tasks))
-  }
-
-  let fallbackCount = 0
-  for (const order of productionOrders) {
-    if (fallbackCount >= 3) break
-    const tasks = tasksByOrder.get(order.productionOrderId)
-    if (!tasks || tasks.length === 0) {
-      result.push(...makeFallbackTasks(order.productionOrderId, fallbackCount % 3))
-      fallbackCount += 1
-    }
   }
 
   return result
@@ -209,11 +120,15 @@ function getAllProcessTasks(): ProcessTask[] {
 
 function getTaskMaterialSet(allTasks: ProcessTask[]): Set<string> {
   const set = new Set<string>()
-  for (const sheet of initialMaterialIssueSheets) {
-    if (sheet.taskId) set.add(sheet.taskId)
-  }
+
   for (const task of allTasks) {
-    if ((task as FallbackTask)._hasMaterial) {
+    // 本页仅切换事实源，不改 UI 结构：领料需求按 runtime 任务字段判定，
+    // 不再读取旧 material issue seed。
+    if (
+      task.defaultDocType === 'TASK'
+      || Boolean(task.hasMaterialRequest)
+      || Boolean(task.materialRequestNo)
+    ) {
       set.add(task.taskId)
     }
   }
@@ -222,11 +137,15 @@ function getTaskMaterialSet(allTasks: ProcessTask[]): Set<string> {
 
 function getTaskQcSet(allTasks: ProcessTask[]): Set<string> {
   const set = new Set<string>()
-  for (const sheet of initialQcStandardSheets) {
-    if (sheet.taskId) set.add(sheet.taskId)
-  }
+
   for (const task of allTasks) {
-    if ((task as FallbackTask)._hasQc) {
+    // 使用任务事实上下文（工序/阶段）推导质检挂接，不再读旧 QC seed。
+    if (
+      task.processCode === 'PROC_QC'
+      || task.processBusinessCode === 'QC'
+      || task.stageCode === 'POST'
+      || task.stage === 'POST'
+    ) {
       set.add(task.taskId)
     }
   }
@@ -235,13 +154,23 @@ function getTaskQcSet(allTasks: ProcessTask[]): Set<string> {
 
 function getTaskDyeSet(allTasks: ProcessTask[]): Set<string> {
   const set = new Set<string>()
+  const prepDemandOrderIds = new Set(
+    listGeneratedProductionDemandArtifacts()
+      .filter((artifact) => artifact.stageCode === 'PREP' && (artifact.processCode === 'PRINT' || artifact.processCode === 'DYE'))
+      .map((artifact) => artifact.orderId),
+  )
 
-  for (const dye of initialDyePrintOrders) {
-    set.add(dye.relatedTaskId)
-  }
+  if (prepDemandOrderIds.size > 0) {
+    const orderFirstTask = new Map<string, ProcessTask>()
+    for (const task of allTasks) {
+      if (!prepDemandOrderIds.has(task.productionOrderId)) continue
+      const current = orderFirstTask.get(task.productionOrderId)
+      if (!current || task.seq < current.seq) {
+        orderFirstTask.set(task.productionOrderId, task)
+      }
+    }
 
-  for (const task of allTasks) {
-    if ((task as FallbackTask)._isFallback && isDyeTask(task.processNameZh)) {
+    for (const task of orderFirstTask.values()) {
       set.add(task.taskId)
     }
   }
@@ -249,32 +178,26 @@ function getTaskDyeSet(allTasks: ProcessTask[]): Set<string> {
   return set
 }
 
-function chainTypeZh(task: ProcessTask): string {
-  return isDyeTask(task.processNameZh) ? '相关流程' : '当前生产流程'
-}
-
-function chainTypeClass(task: ProcessTask): string {
-  return isDyeTask(task.processNameZh)
-    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-    : 'bg-slate-50 text-slate-700 border-slate-200'
-}
-
 function prevNames(task: ProcessTask, allTasks: ProcessTask[]): string {
   const ids = task.dependsOnTaskIds ?? []
   if (ids.length === 0) return '起始任务'
   return ids
-    .map((id) => allTasks.find((item) => item.taskId === id)?.processNameZh ?? id)
+    .map((id) => {
+      const matched = allTasks.find((item) => item.taskId === id)
+      return matched ? taskDisplayName(matched) : id
+    })
     .join('、')
 }
 
 function nextNames(task: ProcessTask, allTasks: ProcessTask[]): string {
   const downstream = allTasks.filter((item) => (item.dependsOnTaskIds ?? []).includes(task.taskId))
   if (downstream.length === 0) return '末端任务'
-  return downstream.map((item) => item.processNameZh).join('、')
+  return downstream.map((item) => taskDisplayName(item)).join('、')
 }
 
 function chainSummaryText(
   sorted: ProcessTask[],
+  taskDyeSet: Set<string>,
   materialTaskIds: Set<string>,
   qcTaskIds: Set<string>,
 ): string {
@@ -282,18 +205,17 @@ function chainSummaryText(
 
   return sorted
     .map((task) => {
-      let label = task.processNameZh
-      const fallbackTask = task as FallbackTask
+      let label = taskDisplayName(task)
 
-      if (isDyeTask(label)) {
+      if (taskDyeSet.has(task.taskId)) {
         label += '（相关流程）'
       }
 
-      if (materialTaskIds.has(task.taskId) || fallbackTask._hasMaterial) {
+      if (materialTaskIds.has(task.taskId)) {
         label += '（需领料）'
       }
 
-      if (qcTaskIds.has(task.taskId) || fallbackTask._hasQc) {
+      if (qcTaskIds.has(task.taskId)) {
         label += '（需质检）'
       }
 
@@ -362,14 +284,18 @@ function renderChainDetailDialog(
                           const hasDye = taskDyeSet.has(task.taskId)
                           const hasMaterial = taskMaterialSet.has(task.taskId)
                           const hasQc = taskQcSet.has(task.taskId)
+                          const chainTypeClass = hasDye
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            : 'bg-slate-50 text-slate-700 border-slate-200'
+                          const chainTypeLabel = hasDye ? '相关流程' : '当前生产流程'
                           return `
                             <tr class="border-b last:border-0">
                               <td class="px-3 py-2 text-xs text-muted-foreground">${idx + 1}</td>
-                              <td class="px-3 py-2 text-sm font-medium">${escapeHtml(task.processNameZh)}</td>
+                              <td class="px-3 py-2 text-sm font-medium">${escapeHtml(taskDisplayName(task))}</td>
                               <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, chainDetailTasks))}</td>
                               <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(nextNames(task, chainDetailTasks))}</td>
                               <td class="px-3 py-2">
-                                <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${chainTypeClass(task)}">${chainTypeZh(task)}</span>
+                                <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${chainTypeClass}">${chainTypeLabel}</span>
                               </td>
                               <td class="px-3 py-2 text-center">${renderNeedBadge(hasDye, 'bg-indigo-50 text-indigo-700 border-indigo-200')}</td>
                               <td class="px-3 py-2 text-center">${renderNeedBadge(hasMaterial, 'bg-amber-50 text-amber-700 border-amber-200')}</td>
@@ -405,13 +331,12 @@ function getOrderRows(
     .map((order) => {
       const tasks = allTasks.filter((task) => task.productionOrderId === order.productionOrderId)
       const sorted = topoSort(tasks)
-      const mainCount = sorted.filter((task) => !isDyeTask(task.processNameZh)).length
-      const subCount = sorted.filter((task) => isDyeTask(task.processNameZh)).length
+      const mainCount = sorted.filter((task) => !taskDyeSet.has(task.taskId)).length
+      const subCount = sorted.filter((task) => taskDyeSet.has(task.taskId)).length
       const dyeCount = tasks.filter((task) => taskDyeSet.has(task.taskId)).length
       const materialCount = tasks.filter((task) => taskMaterialSet.has(task.taskId)).length
       const qcCount = tasks.filter((task) => taskQcSet.has(task.taskId)).length
-      const isFallback = tasks.some((task) => (task as FallbackTask)._isFallback)
-      const chain = tasks.length > 0 ? chainSummaryText(sorted, taskMaterialSet, taskQcSet) : '—'
+      const chain = tasks.length > 0 ? chainSummaryText(sorted, taskDyeSet, taskMaterialSet, taskQcSet) : '—'
 
       return {
         order,
@@ -423,7 +348,6 @@ function getOrderRows(
         materialCount,
         qcCount,
         chain,
-        isFallback,
       }
     })
 }
@@ -449,7 +373,7 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
             orderRows.length === 0
               ? '<tr><td colspan="8" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
               : orderRows
-                  .map(({ order, tasks, mainCount, subCount, dyeCount, materialCount, qcCount, chain, isFallback }) => {
+                  .map(({ order, tasks, mainCount, subCount, dyeCount, materialCount, qcCount, chain }) => {
                     const prepSummary =
                       tasks.length === 0
                         ? '—'
@@ -465,7 +389,6 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
                       <tr class="border-b last:border-0">
                         <td class="px-3 py-3 font-mono text-sm">
                           <div>${escapeHtml(order.productionOrderId)}</div>
-                          ${isFallback ? '<div class="mt-0.5 text-[10px] text-muted-foreground">示例结构</div>' : ''}
                         </td>
                         <td class="px-3 py-3 text-sm">${escapeHtml(order.mainFactorySnapshot?.name ?? '—')}</td>
                         <td class="px-3 py-3 text-center text-sm">${tasks.length}</td>
@@ -570,24 +493,22 @@ function renderAllTasksTable(
                     const hasMaterial = taskMaterialSet.has(task.taskId)
                     const hasQc = taskQcSet.has(task.taskId)
                     const orderTasks = allTasks.filter((item) => item.productionOrderId === task.productionOrderId)
-                    const isFallback = (task as FallbackTask)._isFallback
+                    const chainTypeClass = hasDye
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      : 'bg-slate-50 text-slate-700 border-slate-200'
+                    const chainTypeLabel = hasDye ? '相关流程' : '当前生产流程'
+                    const displayName = taskDisplayName(task)
 
                     return `
                       <tr class="border-b last:border-0">
                         <td class="px-3 py-2 text-xs text-muted-foreground">${idx + 1}</td>
-                        <td class="px-3 py-2 font-mono text-xs">
-                          ${
-                            isFallback
-                              ? `<span class="text-muted-foreground">${escapeHtml(task.processNameZh)}（示例）</span>`
-                              : escapeHtml(task.taskId)
-                          }
-                        </td>
-                        <td class="px-3 py-2 text-sm font-medium">${escapeHtml(task.processNameZh)}</td>
+                        <td class="px-3 py-2 font-mono text-xs">${escapeHtml(task.taskId)}</td>
+                        <td class="px-3 py-2 text-sm font-medium">${escapeHtml(displayName)}</td>
                         <td class="px-3 py-2 font-mono text-xs text-muted-foreground">${escapeHtml(task.productionOrderId || '—')}</td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, orderTasks))}</td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(nextNames(task, orderTasks))}</td>
                         <td class="px-3 py-2">
-                          <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${chainTypeClass(task)}">${chainTypeZh(task)}</span>
+                          <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${chainTypeClass}">${chainTypeLabel}</span>
                         </td>
                         <td class="px-3 py-2 text-center">${renderNeedBadge(hasDye, 'bg-indigo-50 text-indigo-700 border-indigo-200')}</td>
                         <td class="px-3 py-2 text-center">${renderNeedBadge(hasMaterial, 'bg-amber-50 text-amber-700 border-amber-200')}</td>
@@ -633,9 +554,10 @@ export function renderTaskBreakdownPage(): string {
   const allTaskRows = allTasks
     .filter((task) => {
       if (!keyword) return true
+      const displayName = taskDisplayName(task)
       return (
         task.taskId.toLowerCase().includes(keyword) ||
-        task.processNameZh.includes(keyword) ||
+        displayName.toLowerCase().includes(keyword) ||
         task.productionOrderId.toLowerCase().includes(keyword)
       )
     })
@@ -647,17 +569,16 @@ export function renderTaskBreakdownPage(): string {
 
   const orderRows = getOrderRows(allTasks, keyword, taskDyeSet, taskMaterialSet, taskQcSet)
 
-  const realTasks = allTasks.filter((task) => !(task as FallbackTask)._isFallback)
   const stats = {
     orderCount: productionOrders.length,
-    total: realTasks.length,
-    mainCount: realTasks.filter((task) => !isDyeTask(task.processNameZh)).length,
-    subCount: realTasks.filter((task) => isDyeTask(task.processNameZh)).length,
+    total: allTasks.length,
+    mainCount: allTasks.filter((task) => !taskDyeSet.has(task.taskId)).length,
+    subCount: allTasks.filter((task) => taskDyeSet.has(task.taskId)).length,
     materialCount: allTasks.filter(
-      (task) => taskMaterialSet.has(task.taskId) && !(task as FallbackTask)._isFallback,
+      (task) => taskMaterialSet.has(task.taskId),
     ).length,
     qcCount: allTasks.filter(
-      (task) => taskQcSet.has(task.taskId) && !(task as FallbackTask)._isFallback,
+      (task) => taskQcSet.has(task.taskId),
     ).length,
   }
 

@@ -1,7 +1,12 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
-import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
+import { type ProcessTask } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import {
+  getExecutionTaskFactById,
+  getTaskProcessDisplayName,
+  listExecutionTaskFacts,
+} from '../data/fcs/page-adapters/task-execution-adapter'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
@@ -45,6 +50,14 @@ const state: PdaExecState = {
   rawTabParam: '',
   bannerVisible: true,
   querySignature: '',
+}
+
+function listTaskFacts(): ProcessTask[] {
+  return listExecutionTaskFacts()
+}
+
+function getTaskFactById(taskId: string): ProcessTask | null {
+  return getExecutionTaskFactById(taskId)
 }
 
 const TAB_PARAM_MAP: Record<string, TaskStatusTab> = {
@@ -209,7 +222,7 @@ function showPdaExecToast(message: string): void {
 
 function mutateFinishTask(taskId: string, by: string): void {
   const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
   if (!task) return
 
   task.status = 'DONE'
@@ -228,7 +241,7 @@ function mutateFinishTask(taskId: string, by: string): void {
 }
 
 function getAcceptedTasks(factoryId: string): ProcessTask[] {
-  return processTasks.filter(
+  return listTaskFacts().filter(
     (task) => task.assignedFactoryId === factoryId && task.acceptanceStatus === 'ACCEPTED',
   )
 }
@@ -260,7 +273,7 @@ function getFilteredTasks(
     (task) =>
       task.taskId.toLowerCase().includes(keyword) ||
       task.productionOrderId.toLowerCase().includes(keyword) ||
-      task.processNameZh.toLowerCase().includes(keyword),
+      getTaskProcessDisplayName(task).toLowerCase().includes(keyword),
   )
 }
 
@@ -283,6 +296,7 @@ function renderSourceBadge(mode: string): string {
 }
 
 function renderNotStartedCard(task: ProcessTask): string {
+  const displayProcessName = getTaskProcessDisplayName(task)
   const prereq = getStartPrerequisite(task)
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
@@ -310,7 +324,7 @@ function renderNotStartedCard(task: ProcessTask): string {
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
           <div class="text-muted-foreground">当前工序</div>
-          <div class="font-medium">${escapeHtml(task.processNameZh)}</div>
+          <div class="font-medium">${escapeHtml(displayProcessName)}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
           ${
@@ -395,6 +409,7 @@ function renderNotStartedCard(task: ProcessTask): string {
 }
 
 function renderInProgressCard(task: ProcessTask): string {
+  const displayProcessName = getTaskProcessDisplayName(task)
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
@@ -422,7 +437,7 @@ function renderInProgressCard(task: ProcessTask): string {
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
           <div class="text-muted-foreground">当前工序</div>
-          <div class="font-medium">${escapeHtml(task.processNameZh)}</div>
+          <div class="font-medium">${escapeHtml(displayProcessName)}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
 
@@ -505,6 +520,7 @@ function renderInProgressCard(task: ProcessTask): string {
 }
 
 function renderBlockedCard(task: ProcessTask): string {
+  const displayProcessName = getTaskProcessDisplayName(task)
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
@@ -525,7 +541,7 @@ function renderBlockedCard(task: ProcessTask): string {
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
           <div class="text-muted-foreground">当前工序</div>
-          <div class="font-medium">${escapeHtml(task.processNameZh)}</div>
+          <div class="font-medium">${escapeHtml(displayProcessName)}</div>
           ${
             (task as ProcessTask & { taskDeadline?: string }).taskDeadline
               ? `
@@ -561,6 +577,7 @@ function renderBlockedCard(task: ProcessTask): string {
 }
 
 function renderDoneCard(task: ProcessTask): string {
+  const displayProcessName = getTaskProcessDisplayName(task)
   const handoutStatus =
     (task as ProcessTask & { handoutStatus?: 'PENDING' | 'HANDED_OUT' }).handoutStatus || 'PENDING'
   const handoutLabel = handoutStatus === 'HANDED_OUT' ? '已交出' : '待交出'
@@ -577,7 +594,7 @@ function renderDoneCard(task: ProcessTask): string {
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
           <div class="text-muted-foreground">当前工序</div>
-          <div class="font-medium">${escapeHtml(task.processNameZh)}</div>
+          <div class="font-medium">${escapeHtml(displayProcessName)}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
 
@@ -825,7 +842,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
 
-    const task = processTasks.find((item) => item.taskId === taskId)
+    const task = getTaskFactById(taskId)
     if (!task) return true
 
     if (!isTaskMilestoneReported(task)) {

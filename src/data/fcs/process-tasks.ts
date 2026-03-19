@@ -2238,11 +2238,10 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
 
 function createInitialProcessTasks(): ProcessTask[] {
   const generatedTasks = createGeneratedProcessTasksFromArtifacts()
-  if (!generatedTasks.length) return legacyProcessTasks.slice()
-
-  const generatedOrderIds = new Set(generatedTasks.map((task) => task.productionOrderId))
-  const fallbackLegacyTasks = legacyProcessTasks.filter((task) => !generatedOrderIds.has(task.productionOrderId))
-  return [...generatedTasks, ...fallbackLegacyTasks]
+  // 第二轮整改：processTasks 仅作为“任务单兼容层”，主来源必须是统一生成引擎的 TASK 产物。
+  // 不再将 legacy seed 无感混入主列表，避免页面出现新旧任务事实混杂。
+  if (!generatedTasks.length) return []
+  return generatedTasks
 }
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()

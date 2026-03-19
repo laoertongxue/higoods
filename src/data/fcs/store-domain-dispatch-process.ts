@@ -75,25 +75,29 @@ function buildLegacyMaterialIssueSheetsFromRuntime(): MaterialIssueSheet[] {
 }
 
 export function listMaterialIssueSheetsFromRuntime(): MaterialIssueSheet[] {
-  return buildLegacyMaterialIssueSheetsFromRuntime().map((item) => ({ ...item }))
+  return buildLegacyMaterialIssueSheetsFromRuntime()
+    .map((item) => ({ ...item }))
+    .sort((left, right) => left.issueId.localeCompare(right.issueId))
 }
 
 export function listMaterialStatementDraftsFromRuntime(): MaterialStatementDraft[] {
-  return listProgressMaterialStatementDrafts().map((draft) => ({
-    materialStatementId: draft.materialStatementId,
-    productionOrderId: draft.productionOrderId,
-    itemCount: draft.itemCount,
-    totalRequestedQty: draft.totalRequestedQty,
-    totalIssuedQty: draft.totalIssuedQty,
-    status: draft.status,
-    issueIds: [...draft.issueIds],
-    items: draft.items.map((item) => ({ ...item })),
-    remark: draft.remark,
-    createdAt: draft.createdAt,
-    createdBy: draft.createdBy,
-    updatedAt: draft.updatedAt,
-    updatedBy: draft.updatedBy,
-  }))
+  return listProgressMaterialStatementDrafts()
+    .map((draft) => ({
+      materialStatementId: draft.materialStatementId,
+      productionOrderId: draft.productionOrderId,
+      itemCount: draft.itemCount,
+      totalRequestedQty: draft.totalRequestedQty,
+      totalIssuedQty: draft.totalIssuedQty,
+      status: draft.status,
+      issueIds: [...draft.issueIds],
+      items: draft.items.map((item) => ({ ...item })),
+      remark: draft.remark,
+      createdAt: draft.createdAt,
+      createdBy: draft.createdBy,
+      updatedAt: draft.updatedAt,
+      updatedBy: draft.updatedBy,
+    }))
+    .sort((left, right) => left.materialStatementId.localeCompare(right.materialStatementId))
 }
 
 // ─── 质检点 / 验收标准单 ──────────────────────
@@ -270,6 +274,19 @@ export const initialTenderOrders: TenderOrder[] = [
 // 兼容导出：保留旧字段名，底层改为由新执行链路映射生成。
 // 注意：该常量不再作为主真相源，若需实时数据请使用 listMaterialIssueSheetsFromRuntime。
 export const initialMaterialIssueSheets: MaterialIssueSheet[] = buildLegacyMaterialIssueSheetsFromRuntime()
+
+// 兼容读取：旧页面若仍按“初始常量”语义读取，可改用本 getter 获取实时映射结果。
+export function getInitialMaterialIssueSheetsLegacy(): MaterialIssueSheet[] {
+  return listMaterialIssueSheetsFromRuntime().map((item) => ({ ...item }))
+}
+
+export function getInitialMaterialStatementDraftsLegacy(): MaterialStatementDraft[] {
+  return listMaterialStatementDraftsFromRuntime().map((item) => ({
+    ...item,
+    issueIds: [...item.issueIds],
+    items: item.items.map((row) => ({ ...row })),
+  }))
+}
 
 // ─── initialQcStandardSheets ──────────────────
 export const initialQcStandardSheets: QcStandardSheet[] = [

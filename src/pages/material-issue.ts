@@ -73,8 +73,11 @@ const state: MaterialIssueState = {
   statusRemark: '',
 }
 
-// 第6步：页面改为以新链路兼容适配结果为基础数据，不再直接依赖旧静态 seed。
-const runtimeMaterialIssueSheets: MaterialIssueSheet[] = listMaterialIssueSheetsFromRuntime()
+// 第3步整改：页面保持既有交互，数据源实时读取新链路事实；
+// 页面内新增/编辑通过本地覆写层承接，避免回落到旧 seed 主真相。
+const localIssueAdditions: MaterialIssueSheet[] = []
+const localIssueOverrides = new Map<string, MaterialIssueSheet>()
+let materialIssueSeq = listMaterialIssueSheetsFromRuntime().length + 1
 
 function emptyCreateForm(): CreateForm {
   return {
@@ -140,8 +143,35 @@ function showMaterialIssueToast(message: string, tone: 'success' | 'error' = 'su
   }, 2200)
 }
 
+function cloneIssue(sheet: MaterialIssueSheet): MaterialIssueSheet {
+  return { ...sheet }
+}
+
 function getSheets(): MaterialIssueSheet[] {
-  return runtimeMaterialIssueSheets
+  const baseSheets = listMaterialIssueSheetsFromRuntime().map(cloneIssue)
+  const mapped = baseSheets.map((sheet) => localIssueOverrides.get(sheet.issueId) ?? sheet)
+  const idSet = new Set(mapped.map((sheet) => sheet.issueId))
+  for (const addition of localIssueAdditions) {
+    if (!idSet.has(addition.issueId)) {
+      mapped.push(cloneIssue(addition))
+    }
+  }
+  return mapped
+}
+
+function getMutableSheetById(issueId: string): MaterialIssueSheet | null {
+  const localAdded = localIssueAdditions.find((item) => item.issueId === issueId)
+  if (localAdded) return localAdded
+
+  const localOverride = localIssueOverrides.get(issueId)
+  if (localOverride) return localOverride
+
+  const baseSheet = listMaterialIssueSheetsFromRuntime().find((item) => item.issueId === issueId)
+  if (!baseSheet) return null
+
+  const cloned = cloneIssue(baseSheet)
+  localIssueOverrides.set(issueId, cloned)
+  return cloned
 }
 
 function getSheetById(issueId: string | null): MaterialIssueSheet | null {
@@ -171,9 +201,10 @@ function createMaterialIssueSheet(
 
   const ts = nowTimestamp()
   const month = ts.slice(0, 7).replace('-', '')
-  const issueId = `MIS-${month}-${String(Math.floor(Math.random() * 9000) + 1000)}`
+  const issueId = `MIS-${month}-${String(materialIssueSeq).padStart(4, '0')}`
+  materialIssueSeq += 1
 
-  getSheets().push({
+  localIssueAdditions.push({
     issueId,
     productionOrderId: task.productionOrderId,
     taskId,
@@ -200,7 +231,7 @@ function updateMaterialIssueSheet(
   by: string,
 ): { ok: boolean; message?: string } {
   const { issueId, materialSummaryZh, requestedQty, issuedQty, remark } = input
-  const sheet = getSheets().find((item) => item.issueId === issueId)
+  const sheet = getMutableSheetById(issueId)
   if (!sheet) return { ok: false, message: `领料需求单 ${issueId} 不存在` }
 
   if (requestedQty !== undefined && requestedQty <= 0) {
@@ -242,7 +273,7 @@ function updateMaterialIssueStatus(
   by: string,
 ): { ok: boolean; message?: string } {
   const { issueId, nextStatus, remark } = input
-  const sheet = getSheets().find((item) => item.issueId === issueId)
+  const sheet = getMutableSheetById(issueId)
   if (!sheet) return { ok: false, message: `领料需求单 ${issueId} 不存在` }
   if (!nextStatus) return { ok: false, message: '目标状态不能为空' }
 

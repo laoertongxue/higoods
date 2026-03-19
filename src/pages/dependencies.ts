@@ -1,5 +1,4 @@
 import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
-import { initialAllocationByTaskId } from '../data/fcs/store-domain-quality-seeds'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { escapeHtml } from '../utils'
 
@@ -23,6 +22,14 @@ function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
+function listDependencyTasks(): ProcessTask[] {
+  return processTasks.filter((task) => task.defaultDocType !== 'DEMAND')
+}
+
+function getTaskDisplayName(task: ProcessTask): string {
+  return task.taskCategoryZh || task.craftName || task.processBusinessName || task.processNameZh
+}
+
 function getTaskDeps(task: ProcessTask): string[] {
   return (
     (task as ProcessTask & { dependencyTaskIds?: string[]; predecessorTaskIds?: string[] })
@@ -40,24 +47,27 @@ function shortId(taskId: string): string {
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return processTasks.find((task) => task.taskId === taskId)
+  return listDependencyTasks().find((task) => task.taskId === taskId)
 }
 
 function syncAllocationGates(by: string): void {
   const now = nowTimestamp()
 
-  for (const task of processTasks) {
+  for (const task of listDependencyTasks()) {
     const depIds = getTaskDeps(task)
     if (!depIds.length) continue
 
-    const gateOk = depIds.every((depId) => (initialAllocationByTaskId[depId]?.availableQty ?? 0) > 0)
+    const gateOk = depIds.every((depId) => getTaskById(depId)?.status === 'DONE')
 
     if (!gateOk) {
       if (task.status === 'DONE' || task.status === 'CANCELLED') continue
       if (task.status === 'BLOCKED' && task.blockReason === 'QUALITY') continue
       if (task.status === 'BLOCKED' && task.blockReason === 'ALLOCATION_GATE') continue
 
-      const depNames = depIds.map((id) => getTaskById(id)?.processNameZh ?? id)
+      const depNames = depIds.map((id) => {
+        const depTask = getTaskById(id)
+        return depTask ? getTaskDisplayName(depTask) : id
+      })
       const noteZh = `等待上一步完成：${depNames.join('、')}（可用量=0）`
 
       task.status = 'BLOCKED'
@@ -109,7 +119,7 @@ function updateTaskDependencies(
   if (!task) return { ok: false, message: `任务 ${taskId} 不存在` }
 
   const oldDeps = getTaskDeps(task)
-  const candidateIds = new Set(processTasks.map((item) => item.taskId))
+  const candidateIds = new Set(listDependencyTasks().map((item) => item.taskId))
 
   const cleaned = [...new Set(dependsOnTaskIds)]
     .filter((id) => id !== taskId)
@@ -157,12 +167,12 @@ function renderEditDialog(editingTask: ProcessTask | null): string {
   if (!state.dialogOpen || !editingTask) return ''
 
   const query = state.dialogSearch.trim().toLowerCase()
-  const candidates = processTasks
+  const candidates = listDependencyTasks()
     .filter((task) => task.taskId !== editingTask.taskId)
     .filter((task) => {
       if (!query) return true
       return (
-        task.processNameZh.toLowerCase().includes(query) ||
+        getTaskDisplayName(task).toLowerCase().includes(query) ||
         task.taskId.toLowerCase().includes(query)
       )
     })
@@ -179,7 +189,7 @@ function renderEditDialog(editingTask: ProcessTask | null): string {
 
         <p class="-mt-0.5 mt-2 text-sm text-muted-foreground">
           当前任务：
-          <span class="font-medium text-foreground">${escapeHtml(editingTask.processNameZh)}</span>
+          <span class="font-medium text-foreground">${escapeHtml(getTaskDisplayName(editingTask))}</span>
           <span class="ml-1 text-xs">（编号尾段：${escapeHtml(shortId(editingTask.taskId))}）</span>
         </p>
 
@@ -207,7 +217,7 @@ function renderEditDialog(editingTask: ProcessTask | null): string {
                         data-candidate-id="${escapeHtml(task.taskId)}"
                       >
                         <input type="checkbox" class="h-4 w-4 rounded border" ${checked ? 'checked' : ''} tabindex="-1" aria-hidden="true" />
-                        <span class="flex-1">${escapeHtml(task.processNameZh)}</span>
+                        <span class="flex-1">${escapeHtml(getTaskDisplayName(task))}</span>
                         <span class="shrink-0 text-xs text-muted-foreground">…${escapeHtml(shortId(task.taskId))}</span>
                       </button>
                     `
@@ -247,7 +257,7 @@ export function renderDependenciesPage(): string {
       <section class="rounded-lg border bg-card">
         <header class="px-6 pb-3 pt-6">
           <h2 class="text-base font-semibold">任务列表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">共 ${processTasks.length} 个任务</p>
+        <p class="mt-1 text-sm text-muted-foreground">共 ${listDependencyTasks().length} 个任务</p>
         </header>
 
         <div class="overflow-x-auto">
@@ -261,16 +271,19 @@ export function renderDependenciesPage(): string {
               </tr>
             </thead>
             <tbody>
-              ${processTasks
+              ${listDependencyTasks()
                 .map((task) => {
                   const deps = getTaskDeps(task)
                   const isGated = task.status === 'BLOCKED' && task.blockReason === 'ALLOCATION_GATE'
-                  const depNames = deps.map((id) => getTaskById(id)?.processNameZh ?? `…${shortId(id)}`)
+                  const depNames = deps.map((id) => {
+                    const depTask = getTaskById(id)
+                    return depTask ? getTaskDisplayName(depTask) : `…${shortId(id)}`
+                  })
 
                   return `
                     <tr class="border-b last:border-b-0">
                       <td class="px-4 py-3">
-                        <div class="text-sm font-medium">${escapeHtml(task.processNameZh)}</div>
+                        <div class="text-sm font-medium">${escapeHtml(getTaskDisplayName(task))}</div>
                         <div class="mt-0.5 text-xs text-muted-foreground">…${escapeHtml(shortId(task.taskId))}</div>
                       </td>
 

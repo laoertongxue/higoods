@@ -16,7 +16,8 @@ import {
   generateCaseId,
   generateNotificationId,
   generateUrgeId,
-  initialExceptions,
+  listProgressExceptions,
+  upsertProgressExceptionCase,
   initialNotifications,
   initialUrges,
   type ExceptionCase,
@@ -271,8 +272,16 @@ function getTenderById(tenderId: string): Tender | undefined {
   return initialTenders.find((item) => item.tenderId === tenderId)
 }
 
+function listBoardTasks(): ProcessTask[] {
+  return processTasks.filter((task) => task.defaultDocType !== 'DEMAND')
+}
+
+function getTaskDisplayName(task: ProcessTask): string {
+  return task.taskCategoryZh || task.craftName || task.processBusinessName || task.processNameZh
+}
+
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return processTasks.find((task) => task.taskId === taskId)
+  return listBoardTasks().find((task) => task.taskId === taskId)
 }
 
 function getTaskDependencies(task: ProcessTask): string[] {
@@ -405,13 +414,14 @@ function getTaskKpiStats(): {
   unassigned: number
   tenderOverdue: number
 } {
+  const boardTasks = listBoardTasks()
   return {
-    notStarted: processTasks.filter((task) => task.status === 'NOT_STARTED').length,
-    inProgress: processTasks.filter((task) => task.status === 'IN_PROGRESS').length,
-    blocked: processTasks.filter((task) => task.status === 'BLOCKED').length,
-    done: processTasks.filter((task) => task.status === 'DONE').length,
-    unassigned: processTasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length,
-    tenderOverdue: processTasks.filter((task) => {
+    notStarted: boardTasks.filter((task) => task.status === 'NOT_STARTED').length,
+    inProgress: boardTasks.filter((task) => task.status === 'IN_PROGRESS').length,
+    blocked: boardTasks.filter((task) => task.status === 'BLOCKED').length,
+    done: boardTasks.filter((task) => task.status === 'DONE').length,
+    unassigned: boardTasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length,
+    tenderOverdue: boardTasks.filter((task) => {
       if (!task.tenderId) return false
       const tender = getTenderById(task.tenderId)
       return tender?.status === 'OVERDUE'
@@ -421,10 +431,11 @@ function getTaskKpiStats(): {
 
 function getPoViewRows(): PoViewRow[] {
   const handoverRows = getHandoverLedgerRows()
-  const orderIds = [...new Set(processTasks.map((task) => task.productionOrderId))]
+  const boardTasks = listBoardTasks()
+  const orderIds = [...new Set(boardTasks.map((task) => task.productionOrderId))]
 
   return orderIds.map((orderId) => {
-    const tasks = processTasks.filter((task) => task.productionOrderId === orderId)
+    const tasks = boardTasks.filter((task) => task.productionOrderId === orderId)
     const order = getOrderById(orderId)
     const handoverSummary = getProductionOrderHandoverSummary(orderId, handoverRows)
     const mainFactoryId = order?.mainFactoryId ?? tasks.find((task) => task.assignedFactoryId)?.assignedFactoryId
@@ -517,7 +528,7 @@ function getPoKanbanGroups(rows: PoViewRow[]): Record<PoLifecycle, PoViewRow[]> 
 function getFilteredTasks(): ProcessTask[] {
   const keyword = state.keyword.trim().toLowerCase()
 
-  return processTasks.filter((task) => {
+  return listBoardTasks().filter((task) => {
     if (keyword) {
       const order = getOrderById(task.productionOrderId)
       const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
@@ -554,12 +565,12 @@ function getTaskKanbanGroups(tasks: ProcessTask[]): Record<'NOT_STARTED' | 'IN_P
 }
 
 function getUniqueFactories(): Array<{ id: string; name: string }> {
-  const factoryIds = [...new Set(processTasks.filter((task) => task.assignedFactoryId).map((task) => task.assignedFactoryId as string))]
+  const factoryIds = [...new Set(listBoardTasks().filter((task) => task.assignedFactoryId).map((task) => task.assignedFactoryId as string))]
   return factoryIds.map((id) => ({ id, name: getFactoryById(id)?.name ?? id }))
 }
 
 function getExceptionsByTaskId(taskId: string): ExceptionCase[] {
-  return initialExceptions.filter((item) => item.relatedTaskIds.includes(taskId))
+  return listProgressExceptions().filter((item) => item.relatedTaskIds.includes(taskId))
 }
 
 function createNotification(payload: Omit<Notification, 'notificationId' | 'createdAt'>): Notification {
@@ -633,7 +644,7 @@ function createOrUpdateExceptionFromSignal(signal: {
   const unifiedCategory = getUnifiedCategoryFromReason(signal.reasonCode)
   const subCategoryKey = getDefaultSubCategoryKeyFromReason(signal.reasonCode) || 'EXEC_BLOCK_OTHER'
 
-  const existed = initialExceptions.find(
+  const existed = listProgressExceptions().find(
     (item) =>
       item.sourceType === signal.sourceType &&
       item.sourceId === signal.sourceId &&
@@ -656,6 +667,7 @@ function createOrUpdateExceptionFromSignal(signal: {
         by: '系统',
       },
     ]
+    upsertProgressExceptionCase(existed)
     return existed
   }
 
@@ -697,7 +709,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     }
   } else if (signal.sourceType === 'ORDER') {
     relatedOrderIds = [signal.sourceId]
-    relatedTaskIds = processTasks.filter((task) => task.productionOrderId === signal.sourceId).map((task) => task.taskId)
+    relatedTaskIds = listBoardTasks().filter((task) => task.productionOrderId === signal.sourceId).map((task) => task.taskId)
   } else {
     const tender = getTenderById(signal.sourceId)
     relatedTenderIds = [signal.sourceId]
@@ -758,7 +770,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     ],
   }
 
-  initialExceptions.push(exception)
+  upsertProgressExceptionCase(exception)
   return exception
 }
 
@@ -816,7 +828,7 @@ function updateTaskStatus(
   if (orderIndex < 0) return
 
   const order = productionOrders[orderIndex]
-  const relatedTasks = processTasks.filter((item) => item.productionOrderId === task.productionOrderId)
+  const relatedTasks = listBoardTasks().filter((item) => item.productionOrderId === task.productionOrderId)
   const doneCount = relatedTasks.filter((item) => item.status === 'DONE').length
   const inProgressCount = relatedTasks.filter((item) => item.status === 'IN_PROGRESS').length
   const blockedCount = relatedTasks.filter((item) => item.status === 'BLOCKED').length
@@ -1033,7 +1045,7 @@ function openTaskDetail(taskId: string): void {
 }
 
 function handleBatchUrge(): void {
-  const selectedTasks = processTasks.filter((task) => state.selectedTaskIds.includes(task.taskId))
+  const selectedTasks = listBoardTasks().filter((task) => state.selectedTaskIds.includes(task.taskId))
   let sent = 0
 
   for (const task of selectedTasks) {
@@ -1315,7 +1327,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                           </td>
                           <td class="px-3 py-2">
                             <div class="text-xs">
-                              <div>${escapeHtml(task.processNameZh)}</div>
+                              <div>${escapeHtml(getTaskDisplayName(task))}</div>
                               <div class="text-muted-foreground">${escapeHtml(task.processCode)}</div>
                               <div class="text-blue-600">交接：${escapeHtml(handoverSummary.processStatusLabel)}</div>
                             </div>
@@ -1391,7 +1403,7 @@ function renderTaskKanbanView(filteredTasks: ProcessTask[]): string {
                                   }
                                 </div>
                                 <div class="mt-2 truncate text-sm font-medium">${escapeHtml(getOrderSpuName(order) || getOrderSpuCode(order, task.productionOrderId))}</div>
-                                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.processNameZh)}</div>
+                                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(getTaskDisplayName(task))}</div>
                                 <div class="mt-2 flex items-center justify-between text-xs">
                                   <span class="truncate text-muted-foreground">${escapeHtml(factory?.name ?? (task.assignmentStatus === 'BIDDING' ? '待定标' : '-'))}</span>
                                   ${renderBadge(ASSIGNMENT_STATUS_LABEL[task.assignmentStatus], ASSIGNMENT_STATUS_COLOR_CLASS[task.assignmentStatus])}
@@ -1768,7 +1780,7 @@ function renderTaskDrawer(): string {
                 任务详情
                 ${renderBadge(TASK_STATUS_LABEL[task.status], STATUS_COLOR_CLASS[task.status])}
               </h3>
-              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskId)} · ${escapeHtml(task.processNameZh)}</p>
+              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskId)} · ${escapeHtml(getTaskDisplayName(task))}</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-progress-action="close-task-drawer" aria-label="关闭">
               <i data-lucide="x" class="h-4 w-4"></i>
@@ -1805,7 +1817,7 @@ function renderTaskDrawer(): string {
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">工序</p>
-                    <p>${escapeHtml(task.processNameZh)} (${escapeHtml(task.processCode)})</p>
+                    <p>${escapeHtml(getTaskDisplayName(task))} (${escapeHtml(task.processCode)})</p>
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">阶段</p>
@@ -2082,7 +2094,7 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
   const row = rows.find((item) => item.orderId === state.detailOrderId)
   if (!row) return ''
 
-  const orderTasks = processTasks.filter((task) => task.productionOrderId === row.orderId)
+  const orderTasks = listBoardTasks().filter((task) => task.productionOrderId === row.orderId)
   const progress = row.totalTasks > 0 ? Math.round((row.doneTasks / row.totalTasks) * 100) : 0
 
   return `
@@ -2184,7 +2196,7 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
                     <div class="flex items-center justify-between border-b py-1 text-xs last:border-0">
                       <div class="flex items-center gap-2">
                         <span class="font-mono text-muted-foreground">${escapeHtml(task.taskId)}</span>
-                        <span>${escapeHtml(task.processNameZh)}</span>
+                        <span>${escapeHtml(getTaskDisplayName(task))}</span>
                       </div>
                       <div class="flex items-center gap-1.5">
                         <span class="text-muted-foreground">${escapeHtml(factory?.name ?? '未分配')}</span>
@@ -2237,7 +2249,7 @@ function renderBlockDialog(): string {
       <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
         <header class="space-y-1">
           <h3 class="text-lg font-semibold">标记生产暂停</h3>
-          <p class="text-sm text-muted-foreground">任务 ${escapeHtml(task.taskId)} - ${escapeHtml(task.processNameZh)}</p>
+          <p class="text-sm text-muted-foreground">任务 ${escapeHtml(task.taskId)} - ${escapeHtml(getTaskDisplayName(task))}</p>
         </header>
 
         <div class="mt-4 space-y-4">

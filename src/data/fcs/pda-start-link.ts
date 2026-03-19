@@ -1,5 +1,10 @@
 import { processTasks, type ProcessTask } from './process-tasks'
-import { generateCaseId, initialExceptions, type ExceptionCase } from './store-domain-progress'
+import {
+  generateCaseId,
+  listProgressExceptions,
+  upsertProgressExceptionCase,
+  type ExceptionCase,
+} from './store-domain-progress'
 import {
   getRuntimeTaskById,
   listRuntimeTasksByBaseTaskId,
@@ -231,7 +236,7 @@ function isOpenStartOverdueException(exceptionCase: ExceptionCase): boolean {
 }
 
 function findTaskOpenStartOverdueException(taskId: string): ExceptionCase | undefined {
-  return initialExceptions.find(
+  return listProgressExceptions().find(
     (item) => isOpenStartOverdueException(item) && item.relatedTaskIds.includes(taskId),
   )
 }
@@ -270,15 +275,12 @@ function createStartOverdueException(task: ProcessTask, startDueAt: string, now:
     ],
   }
 
-  initialExceptions.push(exceptionCase)
+  upsertProgressExceptionCase(exceptionCase)
   return exceptionCase
 }
 
 function replaceException(updated: ExceptionCase): void {
-  const index = initialExceptions.findIndex((item) => item.caseId === updated.caseId)
-  if (index >= 0) {
-    initialExceptions[index] = updated
-  }
+  upsertProgressExceptionCase(updated)
 }
 
 function resolveStartOverdueException(exceptionCase: ExceptionCase, now: string): void {

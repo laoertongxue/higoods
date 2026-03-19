@@ -9,9 +9,9 @@ import { productionOrders } from '../data/fcs/production-orders'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { initialTenders } from '../data/fcs/store-domain-dispatch-process'
 import {
-  initialExceptions,
   initialNotifications,
   initialUrges,
+  listProgressExceptions,
   mockInternalUsers,
   generateNotificationId,
   generateUrgeId,
@@ -146,6 +146,14 @@ function escapeAttr(value: string): string {
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function listUrgeTasks(): ProcessTask[] {
+  return processTasks.filter((task) => task.defaultDocType !== 'DEMAND')
+}
+
+function getTaskDisplayName(task: ProcessTask): string {
+  return task.taskCategoryZh || task.craftName || task.processBusinessName || task.processNameZh
 }
 
 function parseDateTime(value: string | undefined): number {
@@ -500,7 +508,7 @@ function recomputeAutoNotifications(): number {
   })
 
   // D. 任务生产暂停
-  processTasks.forEach((task) => {
+  listUrgeTasks().forEach((task) => {
     if (task.status !== 'BLOCKED') return
 
     const merchNotification: Omit<Notification, 'notificationId' | 'createdAt'> = {
@@ -564,7 +572,7 @@ function recomputeAutoNotifications(): number {
   })
 
   // E. 派单未确认
-  processTasks.forEach((task) => {
+  listUrgeTasks().forEach((task) => {
     if (task.assignmentStatus !== 'ASSIGNED') return
     if (task.status !== 'NOT_STARTED') return
     if (!task.assignedFactoryId) return
@@ -656,15 +664,15 @@ function isMaterialRelated(title: string, content: string, tags?: string[]): boo
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return processTasks.find((item) => item.taskId === taskId)
+  return listUrgeTasks().find((item) => item.taskId === taskId)
 }
 
 function getTargetOptions(targetType: TargetTypeWithoutTechPack): Array<{ id: string; label: string }> {
   switch (targetType) {
     case 'TASK':
-      return processTasks.map((task) => ({ id: task.taskId, label: `${task.taskId} - ${task.processNameZh}` }))
+      return listUrgeTasks().map((task) => ({ id: task.taskId, label: `${task.taskId} - ${getTaskDisplayName(task)}` }))
     case 'CASE':
-      return initialExceptions.map((exception) => ({ id: exception.caseId, label: `${exception.caseId} - ${exception.summary}` }))
+      return listProgressExceptions().map((exception) => ({ id: exception.caseId, label: `${exception.caseId} - ${exception.summary}` }))
     case 'HANDOVER':
       return getHandoverOrderTimelineViews(getHandoverLedgerRows()).map((view) => ({
         id: view.productionOrderId,
@@ -690,7 +698,7 @@ function getRecipientOptions(recipientType: RecipientType): Array<{ id: string; 
 function inferRecipient(targetType: TargetTypeWithoutTechPack, targetId: string): { toType: RecipientType; toId: string; toName: string } {
   switch (targetType) {
     case 'TASK': {
-      const task = processTasks.find((item) => item.taskId === targetId)
+      const task = listUrgeTasks().find((item) => item.taskId === targetId)
       if (task?.assignedFactoryId) {
         const factory = indonesiaFactories.find((item) => item.id === task.assignedFactoryId)
         return {
@@ -703,7 +711,7 @@ function inferRecipient(targetType: TargetTypeWithoutTechPack, targetId: string)
       return { toType: 'INTERNAL_USER', toId: 'U001', toName: '管理员' }
     }
     case 'CASE': {
-      const exception = initialExceptions.find((item) => item.caseId === targetId)
+      const exception = listProgressExceptions().find((item) => item.caseId === targetId)
       if (exception?.ownerUserId) {
         const user = mockInternalUsers.find((item) => item.id === exception.ownerUserId)
         return {
@@ -716,7 +724,7 @@ function inferRecipient(targetType: TargetTypeWithoutTechPack, targetId: string)
       return { toType: 'INTERNAL_USER', toId: 'U001', toName: '管理员' }
     }
     case 'HANDOVER': {
-      const orderTasks = processTasks.filter((item) => item.productionOrderId === targetId)
+      const orderTasks = listUrgeTasks().filter((item) => item.productionOrderId === targetId)
       const assignedFactoryTask = orderTasks.find((item) => item.assignedFactoryId)
       if (assignedFactoryTask?.assignedFactoryId) {
         const factory = indonesiaFactories.find((item) => item.id === assignedFactoryTask.assignedFactoryId)
@@ -750,7 +758,7 @@ function parseHandoverHref(href: string): NotificationDeepLink {
 }
 
 function getDeepLink(targetType: TargetTypeWithoutTechPack, targetId: string): NotificationDeepLink {
-  const task = processTasks.find((item) => item.taskId === targetId)
+  const task = listUrgeTasks().find((item) => item.taskId === targetId)
 
   switch (targetType) {
     case 'TASK':

@@ -1,7 +1,12 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
-import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
+import { type ProcessTask } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import {
+  getExecutionTaskFactById,
+  getTaskProcessDisplayName,
+  listExecutionTaskFacts,
+} from '../data/fcs/page-adapters/task-execution-adapter'
 import { renderPdaFrame } from './pda-shell'
 
 type TabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
@@ -153,6 +158,14 @@ const state: TaskReceiveState = {
   rejectReason: '',
 }
 
+function listTaskFacts(): ProcessTask[] {
+  return listExecutionTaskFacts()
+}
+
+function getTaskFactById(taskId: string): ProcessTask | null {
+  return getExecutionTaskFactById(taskId)
+}
+
 function getCurrentQueryString(): string {
   const pathname = appStore.getState().pathname
   const [, query] = pathname.split('?')
@@ -270,7 +283,7 @@ function getTaskPricing(task: ProcessTask): {
 
 function mutateAcceptTask(taskId: string, by: string): void {
   const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
   if (!task) return
 
   task.acceptanceStatus = 'ACCEPTED'
@@ -291,7 +304,7 @@ function mutateAcceptTask(taskId: string, by: string): void {
 
 function mutateRejectTask(taskId: string, reason: string, by: string): void {
   const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
   if (!task) return
 
   task.acceptanceStatus = 'REJECTED'
@@ -369,7 +382,7 @@ function getActiveBiddingTenders(): BiddingTender[] {
 }
 
 function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
-  return processTasks.filter(
+  return listTaskFacts().filter(
     (task) =>
       task.assignedFactoryId === selectedFactoryId &&
       task.assignmentMode === 'DIRECT' &&
@@ -380,16 +393,17 @@ function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
 function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask[] {
   return pendingAcceptTasks.filter((task) => {
     const keyword = state.keyword.trim()
+    const displayProcessName = getTaskProcessDisplayName(task)
     if (
       keyword &&
       !task.taskId.includes(keyword) &&
       !task.productionOrderId.includes(keyword) &&
-      !task.processNameZh.includes(keyword)
+      !displayProcessName.includes(keyword)
     ) {
       return false
     }
 
-    if (state.processFilter !== 'ALL' && task.processNameZh !== state.processFilter) {
+    if (state.processFilter !== 'ALL' && displayProcessName !== state.processFilter) {
       return false
     }
 
@@ -416,6 +430,7 @@ function renderEmptyState(label: string): string {
 }
 
 function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string {
+  const displayProcessName = getTaskProcessDisplayName(task)
   const deadlineStatus = getDeadlineStatus(task.acceptDeadline || '')
   const pricing = getTaskPricing(task)
   const dispatchedAt = (task as ProcessTask & { dispatchedAt?: string }).dispatchedAt
@@ -433,7 +448,7 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           ${renderFieldRow('生产单号', task.productionOrderId)}
-          ${renderFieldRow('工序', task.processNameZh)}
+          ${renderFieldRow('工序', displayProcessName)}
           ${renderFieldRow('数量', `${task.qty} ${pricing.unit}`)}
           ${dispatchedAt ? renderFieldRow('直接派单时间', dispatchedAt) : ''}
           ${task.acceptDeadline ? renderFieldRow('接单截止', task.acceptDeadline) : ''}
@@ -483,6 +498,8 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
 }
 
 function renderPendingQuoteItem(tender: BiddingTender): string {
+  const task = getTaskFactById(tender.taskId)
+  const processName = task ? getTaskProcessDisplayName(task) : tender.processName
   return `
     <article class="overflow-hidden rounded-lg border bg-card">
       <div class="space-y-2 p-3">
@@ -494,7 +511,7 @@ function renderPendingQuoteItem(tender: BiddingTender): string {
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           ${renderFieldRow('任务编号', tender.taskId)}
           ${renderFieldRow('生产单号', tender.productionOrderId)}
-          ${renderFieldRow('工序', tender.processName)}
+          ${renderFieldRow('工序', processName)}
           ${renderFieldRow('数量', `${tender.qty} ${tender.qtyUnit}`)}
           ${renderFieldRow('工厂池', `${tender.factoryPoolCount} 家`)}
           ${renderFieldRow('竞价截止', tender.biddingDeadline)}
@@ -515,6 +532,8 @@ function renderPendingQuoteItem(tender: BiddingTender): string {
 }
 
 function renderQuotedItem(tender: QuotedTender): string {
+  const task = getTaskFactById(tender.taskId)
+  const processName = task ? getTaskProcessDisplayName(task) : tender.processName
   return `
     <article class="rounded-lg border bg-card">
       <div class="space-y-2 p-3">
@@ -526,7 +545,7 @@ function renderQuotedItem(tender: QuotedTender): string {
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           ${renderFieldRow('任务编号', tender.taskId)}
           ${renderFieldRow('生产单号', tender.productionOrderId)}
-          ${renderFieldRow('工序', tender.processName)}
+          ${renderFieldRow('工序', processName)}
           ${renderFieldRow('数量', `${tender.qty} ${tender.unit}`)}
           ${renderFieldRow('报价金额', `${tender.quotedPrice.toLocaleString()} ${tender.currency}/${tender.unit}`, true)}
           ${renderFieldRow('报价时间', tender.quotedAt)}
@@ -540,6 +559,8 @@ function renderQuotedItem(tender: QuotedTender): string {
 }
 
 function renderAwardedItem(item: AwardedTender): string {
+  const task = getTaskFactById(item.taskId)
+  const processName = task ? getTaskProcessDisplayName(task) : item.processName
   return `
     <article class="overflow-hidden rounded-lg border border-green-200 bg-card">
       <div class="space-y-2 p-3">
@@ -558,7 +579,7 @@ function renderAwardedItem(item: AwardedTender): string {
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           ${renderFieldRow('任务编号', item.taskId)}
           ${renderFieldRow('生产单号', item.productionOrderId)}
-          ${renderFieldRow('工序', item.processName)}
+          ${renderFieldRow('工序', processName)}
           ${renderFieldRow('数量', `${item.qty} ${item.unit}`)}
           ${renderFieldRow('中标价格', `${item.awardedPrice.toLocaleString()} ${item.currency}/${item.unit}`, true)}
           ${renderFieldRow('任务截止', item.taskDeadline)}
@@ -596,6 +617,10 @@ function renderAwardedItem(item: AwardedTender): string {
 
 function renderQuoteDialog(quotingTender: BiddingTender | null): string {
   if (!state.quoteDialogOpen) return ''
+  const quotingTask = quotingTender ? getTaskFactById(quotingTender.taskId) : null
+  const quotingProcessName = quotingTask
+    ? getTaskProcessDisplayName(quotingTask)
+    : (quotingTender?.processName || '')
 
   return `
     <div class="fixed inset-0 z-[120] bg-black/35" data-pda-tr-action="close-quote"></div>
@@ -604,7 +629,7 @@ function renderQuoteDialog(quotingTender: BiddingTender | null): string {
         <header class="space-y-1 border-b px-4 py-3">
           <h3 class="text-base font-semibold">立即报价</h3>
           <p class="text-xs text-muted-foreground">
-            ${escapeHtml(quotingTender?.tenderId || '')} · ${escapeHtml(quotingTender?.processName || '')}
+            ${escapeHtml(quotingTender?.tenderId || '')} · ${escapeHtml(quotingProcessName)}
             <br />
             <span class="font-medium text-amber-600">同一招标单内只允许报价一次，提交后不可修改。</span>
           </p>
@@ -706,7 +731,7 @@ export function renderPdaTaskReceivePage(): string {
   const factoryName = getFactoryName(selectedFactoryId)
 
   const pendingAcceptTasks = getPendingAcceptTasks(selectedFactoryId)
-  const processOptions = Array.from(new Set(pendingAcceptTasks.map((task) => task.processNameZh)))
+  const processOptions = Array.from(new Set(pendingAcceptTasks.map((task) => getTaskProcessDisplayName(task))))
 
   const activeBiddingTenders = getActiveBiddingTenders()
   const allQuotedTenders = getQuotedTenders()

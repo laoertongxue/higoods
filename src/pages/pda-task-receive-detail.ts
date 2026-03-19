@@ -1,8 +1,14 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
+import { type ProcessTask } from '../data/fcs/process-tasks'
 import { productionOrders } from '../data/fcs/production-orders'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import {
+  getExecutionTaskFactById,
+  getTaskProcessDisplayName,
+  getTaskStageDisplayName,
+  listExecutionTaskFacts,
+} from '../data/fcs/page-adapters/task-execution-adapter'
 import { renderPdaFrame } from './pda-shell'
 
 interface TaskReceiveDetailState {
@@ -15,17 +21,12 @@ const state: TaskReceiveDetailState = {
   rejectReason: '',
 }
 
-const STAGE_ZH: Record<string, string> = {
-  CUTTING: '裁片',
-  SEWING: '车缝',
-  IRONING: '整烫',
-  PACKING: '包装',
-  PRINTING: '印花',
-  DYEING: '染色',
-  WASHING: '水洗',
-  EMBROIDERY: '刺绣',
-  BUTTON: '钉扣',
-  QC: '质检',
+function listTaskFacts(): ProcessTask[] {
+  return listExecutionTaskFacts()
+}
+
+function getTaskFactById(taskId: string): ProcessTask | null {
+  return getExecutionTaskFactById(taskId)
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -58,7 +59,7 @@ function getFactoryName(factoryId: string): string {
 
 function mutateAcceptTask(taskId: string, by: string): void {
   const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
   if (!task) return
 
   task.acceptanceStatus = 'ACCEPTED'
@@ -79,7 +80,7 @@ function mutateAcceptTask(taskId: string, by: string): void {
 
 function mutateRejectTask(taskId: string, reason: string, by: string): void {
   const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
   if (!task) return
 
   task.acceptanceStatus = 'REJECTED'
@@ -231,7 +232,7 @@ function renderRejectDialog(taskId: string): string {
 }
 
 export function renderPdaTaskReceiveDetailPage(taskId: string): string {
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
 
   if (!task) {
     const content = `
@@ -258,7 +259,8 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
   const spuCode = order?.demandSnapshot?.spuCode || '-'
   const spuName = order?.demandSnapshot?.spuName || '-'
   const deliveryDate = order?.demandSnapshot?.requiredDeliveryDate || '-'
-  const stageLabel = STAGE_ZH[task.stage] || task.stage
+  const stageLabel = getTaskStageDisplayName(task)
+  const displayProcessName = getTaskProcessDisplayName(task)
   const spuImageUrl = (task as ProcessTask & { spuImageUrl?: string }).spuImageUrl
   const dispatchedAt = (task as ProcessTask & { dispatchedAt?: string }).dispatchedAt
 
@@ -300,8 +302,8 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
             <div class="grid grid-cols-2 gap-3 text-sm">
               ${renderField('生产单号', task.productionOrderId)}
               ${renderField('工序序号', String(task.seq))}
-              ${renderField('工序名称', task.processNameZh)}
-              ${renderField('工序编码', task.processCode)}
+              ${renderField('工序名称', displayProcessName)}
+              ${renderField('工序编码', task.processBusinessCode || task.processCode)}
               ${renderField('阶段', stageLabel)}
               ${renderField('数量', `${task.qty} ${task.qtyUnit}`)}
             </div>

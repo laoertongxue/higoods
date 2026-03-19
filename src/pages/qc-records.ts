@@ -1,5 +1,5 @@
 import { appStore } from '../state/store'
-import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
+import { type ProcessTask } from '../data/fcs/process-tasks'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import {
   initialDeductionBasisItems,
@@ -32,9 +32,12 @@ import {
   RETURN_INBOUND_QC_POLICY_LABEL,
   SEW_POST_PROCESS_MODE_LABEL,
 } from '../data/fcs/return-inbound-qc-view'
+import { listLegacyLikeProcessTasksForTailPages } from '../data/fcs/page-adapters/long-tail-pages-adapter'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 
 applyQualitySeedBootstrap()
+
+const processTasks: ProcessTask[] = listLegacyLikeProcessTasksForTailPages()
 
 type QcResult = 'PASS' | 'FAIL'
 type QcStatus = 'DRAFT' | 'SUBMITTED' | 'CLOSED'
@@ -174,8 +177,11 @@ function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
+let qcLocalIdSeq = 0
+
 function randomSuffix(length = 4): string {
-  return Math.random().toString(36).slice(2, 2 + length).toUpperCase()
+  qcLocalIdSeq += 1
+  return qcLocalIdSeq.toString(36).toUpperCase().padStart(length, '0').slice(-length)
 }
 
 function showQcRecordsToast(message: string, tone: 'success' | 'error' = 'success'): void {

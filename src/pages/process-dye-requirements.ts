@@ -2,6 +2,7 @@ import { appStore } from '../state/store'
 import { setProcessCreateDemandIntent } from './process-order-create-bridge'
 import { escapeHtml } from '../utils'
 import { renderDialog } from '../components/ui'
+import { listPrepRequirementDemands } from '../data/fcs/page-adapters/process-prep-pages-adapter'
 
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type PreparationStatusZh = '待配料' | '部分配料' | '已完成配料'
@@ -83,304 +84,48 @@ const RULES = [
   '进入下一工序前需完成：仓库完成配料',
 ]
 
-const DEMAND_SEEDS: DyeRequirementDemand[] = [
-  {
-    demandId: 'RSXQ20260314001',
-    sourceProductionOrderId: 'PO-202603-1018',
-    spuCode: 'SPU-COAT-2403',
-    spuName: '男款轻量风衣',
-    techPackVersion: 'TP v2.3',
-    materialCode: 'M-DYE-001',
-    materialName: '涤纶平纹布 150D',
-    requiredQty: 1200,
+const DEMANDS: DyeRequirementDemand[] = listPrepRequirementDemands('DYE').map((item) => ({
+  demandId: item.demandId,
+  sourceProductionOrderId: item.sourceProductionOrderId,
+  spuCode: item.spuCode,
+  spuName: item.spuName,
+  techPackVersion: item.techPackVersion,
+  materialCode: item.materialCode,
+  materialName: item.materialName,
+  requiredQty: item.requiredQty,
+  unit: '米',
+  dyeRequirement: item.requirementText,
+  sourceBomItem: item.sourceBomItem,
+  sourceTechPackVersion: item.sourceTechPackVersion,
+  nextProcessName: item.nextProcessName,
+  updatedAt: item.updatedAt,
+  handoverCompleted: item.handoverCompleted,
+  sources: item.sources.map((source) => ({
+    preparationOrderNo: source.preparationOrderNo,
+    qty: source.qty,
     unit: '米',
-    dyeRequirement: '雾霾蓝，色差≤4级，克重偏差±3%',
-    sourceBomItem: 'BOM-PO1018-03',
-    sourceTechPackVersion: 'TP v2.3',
-    nextProcessName: '印花',
-    updatedAt: '2026-03-14 09:10:00',
-    handoverCompleted: false,
-    sources: [],
-    linkedOrders: [],
-  },
-  {
-    demandId: 'RSXQ20260314002',
-    sourceProductionOrderId: 'PO-202603-1020',
-    spuCode: 'SPU-DRESS-1160',
-    spuName: '女款连衣裙',
-    techPackVersion: 'TP v1.9',
-    materialCode: 'M-DYE-019',
-    materialName: '人棉梭织布 110g',
-    requiredQty: 1600,
+    preparedAt: source.preparedAt,
+    warehouseName: source.warehouseName,
+    preparationStatus: source.preparationStatus,
+    cumulativeSatisfiedQty: source.cumulativeSatisfiedQty,
+    traceLines: source.traceLines.map((trace) => ({
+      processOrderNo: trace.processOrderNo,
+      batchNo: trace.batchNo,
+      batchSupplyQty: trace.batchSupplyQty,
+      usedQty: trace.usedQty,
+      unit: '米',
+      batchStatus: trace.batchStatus,
+    })),
+  })),
+  linkedOrders: item.linkedOrders.map((order) => ({
+    processOrderNo: order.processOrderNo,
+    createMode: order.createMode,
+    dyeFactoryName: order.factoryName,
+    status: order.status,
+    returnedQty: order.returnedQty,
     unit: '米',
-    dyeRequirement: '奶杏色，色牢度3-4级，手感柔软',
-    sourceBomItem: 'BOM-PO1020-02',
-    sourceTechPackVersion: 'TP v1.9',
-    nextProcessName: '车缝',
-    updatedAt: '2026-03-14 10:35:00',
-    handoverCompleted: false,
-    sources: [
-      {
-        preparationOrderNo: 'PL20260314001',
-        qty: 500,
-        unit: '米',
-        preparedAt: '2026/03/14 10:20',
-        warehouseName: '雅加达裁片仓',
-        preparationStatus: '部分配料',
-        cumulativeSatisfiedQty: 500,
-        traceLines: [
-          {
-            processOrderNo: 'RSJG20260314001',
-            batchNo: 'RSPH2026031401',
-            batchSupplyQty: 520,
-            usedQty: 300,
-            unit: '米',
-            batchStatus: '已入裁片仓',
-          },
-          {
-            processOrderNo: 'RSJG20260314003',
-            batchNo: 'RSPH2026031410',
-            batchSupplyQty: 260,
-            usedQty: 200,
-            unit: '米',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-      {
-        preparationOrderNo: 'PL20260315003',
-        qty: 300,
-        unit: '米',
-        preparedAt: '2026/03/15 16:40',
-        warehouseName: '雅加达裁片仓',
-        preparationStatus: '部分配料',
-        cumulativeSatisfiedQty: 800,
-        traceLines: [
-          {
-            processOrderNo: 'RSJG20260314003',
-            batchNo: 'RSPH2026031502',
-            batchSupplyQty: 360,
-            usedQty: 300,
-            unit: '米',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-    ],
-    linkedOrders: [
-      {
-        processOrderNo: 'RSJG20260314001',
-        createMode: '按需求创建',
-        dyeFactoryName: '万隆染色厂',
-        status: '部分回货',
-        returnedQty: 500,
-        unit: '米',
-      },
-      {
-        processOrderNo: 'RSJG20260314003',
-        createMode: '按备货创建',
-        dyeFactoryName: '雅加达染整中心',
-        status: '部分回货',
-        returnedQty: 300,
-        unit: '米',
-      },
-    ],
-  },
-  {
-    demandId: 'RSXQ20260314003',
-    sourceProductionOrderId: 'PO-202603-1025',
-    spuCode: 'SPU-POLO-3302',
-    spuName: '男款翻领 POLO',
-    techPackVersion: 'TP v3.0',
-    materialCode: 'M-DYE-033',
-    materialName: '珠地棉布 200g',
-    requiredQty: 900,
-    unit: '米',
-    dyeRequirement: '深藏青，预缩处理，色牢度4级',
-    sourceBomItem: 'BOM-PO1025-01',
-    sourceTechPackVersion: 'TP v3.0',
-    nextProcessName: '裁片',
-    updatedAt: '2026-03-14 11:25:00',
-    handoverCompleted: false,
-    sources: [
-      {
-        preparationOrderNo: 'PL20260315012',
-        qty: 900,
-        unit: '米',
-        preparedAt: '2026/03/15 11:20',
-        warehouseName: '万隆裁片仓',
-        preparationStatus: '已完成配料',
-        cumulativeSatisfiedQty: 900,
-        traceLines: [
-          {
-            processOrderNo: 'RSJG20260314008',
-            batchNo: 'RSPH2026031601',
-            batchSupplyQty: 930,
-            usedQty: 900,
-            unit: '米',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-    ],
-    linkedOrders: [
-      {
-        processOrderNo: 'RSJG20260314008',
-        createMode: '按需求创建',
-        dyeFactoryName: '泗水染色厂',
-        status: '已回货',
-        returnedQty: 900,
-        unit: '米',
-      },
-    ],
-  },
-  {
-    demandId: 'RSXQ20260314004',
-    sourceProductionOrderId: 'PO-202603-1031',
-    spuCode: 'SPU-SHIRT-8721',
-    spuName: '休闲衬衫',
-    techPackVersion: 'TP v2.1',
-    materialCode: 'M-DYE-052',
-    materialName: '天丝混纺布 135g',
-    requiredQty: 1000,
-    unit: '米',
-    dyeRequirement: '浅卡其，连续缸差控制，软整理',
-    sourceBomItem: 'BOM-PO1031-04',
-    sourceTechPackVersion: 'TP v2.1',
-    nextProcessName: '印花',
-    updatedAt: '2026-03-14 12:05:00',
-    handoverCompleted: true,
-    sources: [
-      {
-        preparationOrderNo: 'PL20260314010',
-        qty: 450,
-        unit: '米',
-        preparedAt: '2026/03/14 10:45',
-        warehouseName: '泗水裁片仓',
-        preparationStatus: '已完成配料',
-        cumulativeSatisfiedQty: 450,
-        traceLines: [
-          {
-            processOrderNo: 'RSJG20260314010',
-            batchNo: 'RSPH2026031701',
-            batchSupplyQty: 460,
-            usedQty: 450,
-            unit: '米',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-      {
-        preparationOrderNo: 'PL20260314018',
-        qty: 350,
-        unit: '米',
-        preparedAt: '2026/03/14 11:28',
-        warehouseName: '泗水裁片仓',
-        preparationStatus: '已完成配料',
-        cumulativeSatisfiedQty: 800,
-        traceLines: [
-          {
-            processOrderNo: 'RSJG20260314011',
-            batchNo: 'RSPH2026031705',
-            batchSupplyQty: 360,
-            usedQty: 350,
-            unit: '米',
-            batchStatus: '质检中',
-          },
-        ],
-      },
-      {
-        preparationOrderNo: 'PL20260314022',
-        qty: 200,
-        unit: '米',
-        preparedAt: '2026/03/14 11:55',
-        warehouseName: '泗水裁片仓',
-        preparationStatus: '已完成配料',
-        cumulativeSatisfiedQty: 1000,
-        traceLines: [
-          {
-            processOrderNo: 'RSJG20260314011',
-            batchNo: 'RSPH2026031710',
-            batchSupplyQty: 210,
-            usedQty: 200,
-            unit: '米',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-    ],
-    linkedOrders: [
-      {
-        processOrderNo: 'RSJG20260314010',
-        createMode: '按需求创建',
-        dyeFactoryName: '万隆染色厂',
-        status: '部分回货',
-        returnedQty: 450,
-        unit: '米',
-      },
-      {
-        processOrderNo: 'RSJG20260314011',
-        createMode: '按备货创建',
-        dyeFactoryName: '泗水染色厂',
-        status: '已回货',
-        returnedQty: 550,
-        unit: '米',
-      },
-    ],
-  },
-]
-
-function buildDyeDemands(total: number): DyeRequirementDemand[] {
-  const rows = [...DEMAND_SEEDS]
-  let cursor = 0
-  while (rows.length < total) {
-    const seed = DEMAND_SEEDS[cursor % DEMAND_SEEDS.length]
-    const serial = 20000 + rows.length + 1
-    const demandId = `RSXQ202603${String(serial).padStart(5, '0')}`
-    const sourceProductionOrderId = `PO-202603-${1100 + rows.length}`
-    const day = 14 + Math.floor(rows.length / 4)
-    const minute = (rows.length * 7) % 60
-    const orderNoMap = new Map<string, string>()
-    const linkedOrders = seed.linkedOrders.map((order, idx) => {
-      const orderSerial = 30000 + rows.length * 10 + idx + 1
-      const processOrderNo = `RSJG202603${String(orderSerial).padStart(5, '0')}`
-      orderNoMap.set(order.processOrderNo, processOrderNo)
-      return {
-        ...order,
-        processOrderNo,
-      }
-    })
-    const sources = seed.sources.map((source, idx) => {
-      const preparationSerial = 50000 + rows.length * 10 + idx + 1
-      return {
-        ...source,
-        preparationOrderNo: `PL202603${String(preparationSerial).padStart(5, '0')}`,
-        preparedAt: `2026/03/${String(day).padStart(2, '0')} 10:${String(minute).padStart(2, '0')}`,
-        traceLines: source.traceLines.map((trace, traceIndex) => {
-          const fallbackOrderSerial = 30000 + rows.length * 10 + idx * 3 + traceIndex + 1
-          const batchSerial = 40000 + rows.length * 10 + idx * 3 + traceIndex + 1
-          return {
-            ...trace,
-            processOrderNo: orderNoMap.get(trace.processOrderNo) ?? `RSJG202603${String(fallbackOrderSerial).padStart(5, '0')}`,
-            batchNo: `RSPH202603${String(batchSerial).padStart(5, '0')}`,
-          }
-        }),
-      }
-    })
-    rows.push({
-      ...seed,
-      demandId,
-      sourceProductionOrderId,
-      updatedAt: `2026-03-${String(day).padStart(2, '0')} 13:${String(minute).padStart(2, '0')}:00`,
-      sources,
-      linkedOrders,
-    })
-    cursor += 1
-  }
-  return rows
-}
-
-const DEMANDS: DyeRequirementDemand[] = buildDyeDemands(16)
+  })),
+}))
 
 const STATUS_CLASS: Record<DemandStatusZh, string> = {
   待满足: 'border-slate-200 bg-slate-50 text-slate-700',

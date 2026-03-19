@@ -1,7 +1,12 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { processTasks, type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks'
+import { type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import {
+  getExecutionTaskFactById,
+  getTaskProcessDisplayName,
+  listExecutionTaskFacts,
+} from '../data/fcs/page-adapters/task-execution-adapter'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
@@ -50,6 +55,14 @@ const detailState: PdaExecDetailState = {
   pauseRemark: '',
   pauseTime: '',
   fromPauseAction: false,
+}
+
+function listTaskFacts(): ProcessTask[] {
+  return listExecutionTaskFacts()
+}
+
+function getTaskFactById(taskId: string): ProcessTask | null {
+  return getExecutionTaskFactById(taskId)
 }
 
 const MOCK_START_PROOF: Record<string, StartProofFile[]> = {
@@ -348,7 +361,7 @@ function mutateStartTask(
   payload: { startTime: string; headcount: number; proofFiles: StartProofFile[] },
 ): void {
   const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
   if (!task) return
 
   const writableTask = task as ProcessTask & {
@@ -375,7 +388,7 @@ function mutateStartTask(
 
 function mutateFinishTask(taskId: string, by: string): void {
   const now = nowTimestamp()
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
   if (!task) return
 
   task.status = 'DONE'
@@ -420,7 +433,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
   syncPdaStartRiskAndExceptions()
   syncMilestoneOverdueExceptions()
 
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getTaskFactById(taskId)
 
   if (!task) {
     const content = `
@@ -490,6 +503,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const handoutLabel = handoutStatus === 'HANDED_OUT' ? '已交出' : '待交出'
   const pauseReasonLabel = (task as ProcessTask & { pauseReasonLabel?: string | null }).pauseReasonLabel || ''
   const pauseReportedAt = (task as ProcessTask & { pauseReportedAt?: string | null }).pauseReportedAt || ''
+  const displayProcessName = getTaskProcessDisplayName(task)
 
   const pricing = getTaskPricing(task)
 
@@ -516,9 +530,9 @@ export function renderPdaExecDetailPage(taskId: string): string {
             <span class="text-xs text-muted-foreground">生产单号</span>
             <span class="text-xs font-medium">${escapeHtml(task.productionOrderId)}</span>
             <span class="text-xs text-muted-foreground">当前工序</span>
-            <span class="text-xs font-medium">${escapeHtml(task.processNameZh)}</span>
+            <span class="text-xs font-medium">${escapeHtml(displayProcessName)}</span>
             <span class="text-xs text-muted-foreground">工序代码</span>
-            <span class="font-mono text-xs">${escapeHtml(task.processCode)}</span>
+            <span class="font-mono text-xs">${escapeHtml(task.processBusinessCode || task.processCode)}</span>
             <span class="text-xs text-muted-foreground">数量</span>
             <span class="text-xs font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</span>
             ${
@@ -1089,7 +1103,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
 
-    const task = processTasks.find((item) => item.taskId === taskId)
+    const task = getTaskFactById(taskId)
     if (!task) return true
 
     const prereq = getStartPrerequisite(task)
@@ -1136,7 +1150,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
 
-    const task = processTasks.find((item) => item.taskId === taskId)
+    const task = getTaskFactById(taskId)
     if (!task) return true
 
     if (!detailState.milestoneTime) {
@@ -1217,7 +1231,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
 
-    const task = processTasks.find((item) => item.taskId === taskId)
+    const task = getTaskFactById(taskId)
     if (!task) return true
 
     if (!isTaskMilestoneReported(task)) {

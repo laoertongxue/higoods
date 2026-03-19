@@ -2,6 +2,7 @@ import { appStore } from '../state/store'
 import { setProcessCreateDemandIntent } from './process-order-create-bridge'
 import { escapeHtml } from '../utils'
 import { renderDialog } from '../components/ui'
+import { listPrepRequirementDemands } from '../data/fcs/page-adapters/process-prep-pages-adapter'
 
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type PreparationStatusZh = '待配料' | '部分配料' | '已完成配料'
@@ -83,296 +84,50 @@ const RULES = [
   '进入下一工序前需完成：仓库完成配料',
 ]
 
-const DEMAND_SEEDS: PrintRequirementDemand[] = [
-  {
-    demandId: 'YHXQ20260314001',
-    sourceProductionOrderId: 'PO-202603-1051',
-    spuCode: 'SPU-TEE-9012',
-    spuName: '圆领短袖 T 恤',
-    techPackVersion: 'TP v3.1',
-    materialCode: 'M-PRINT-011',
-    materialName: '全棉汗布 180g',
-    requiredQty: 3200,
+const DEMAND_FACTS: PrintRequirementDemand[] = listPrepRequirementDemands('PRINT').map((item) => ({
+  demandId: item.demandId,
+  sourceProductionOrderId: item.sourceProductionOrderId,
+  spuCode: item.spuCode,
+  spuName: item.spuName,
+  techPackVersion: item.techPackVersion,
+  materialCode: item.materialCode,
+  materialName: item.materialName,
+  requiredQty: item.requiredQty,
+  unit: '片',
+  printRequirement: item.requirementText,
+  sourceBomItem: item.sourceBomItem,
+  sourceTechPackVersion: item.sourceTechPackVersion,
+  nextProcessName: item.nextProcessName,
+  updatedAt: item.updatedAt,
+  handoverCompleted: item.handoverCompleted,
+  sources: item.sources.map((source) => ({
+    preparationOrderNo: source.preparationOrderNo,
+    qty: source.qty,
     unit: '片',
-    printRequirement: '前胸数码印花，四色套印，图案偏差≤1mm',
-    sourceBomItem: 'BOM-PO1051-05',
-    sourceTechPackVersion: 'TP v3.1',
-    nextProcessName: '车缝',
-    updatedAt: '2026-03-14 09:40:00',
-    handoverCompleted: false,
-    sources: [],
-    linkedOrders: [],
-  },
-  {
-    demandId: 'YHXQ20260314002',
-    sourceProductionOrderId: 'PO-202603-1054',
-    spuCode: 'SPU-HOOD-4410',
-    spuName: '连帽卫衣',
-    techPackVersion: 'TP v2.8',
-    materialCode: 'M-PRINT-025',
-    materialName: '毛圈卫衣布 300g',
-    requiredQty: 2400,
+    preparedAt: source.preparedAt,
+    warehouseName: source.warehouseName,
+    preparationStatus: source.preparationStatus,
+    cumulativeSatisfiedQty: source.cumulativeSatisfiedQty,
+    traceLines: source.traceLines.map((trace) => ({
+      processOrderNo: trace.processOrderNo,
+      batchNo: trace.batchNo,
+      batchSupplyQty: trace.batchSupplyQty,
+      usedQty: trace.usedQty,
+      unit: '片',
+      batchStatus: trace.batchStatus,
+    })),
+  })),
+  linkedOrders: item.linkedOrders.map((order) => ({
+    processOrderNo: order.processOrderNo,
+    createMode: order.createMode,
+    printFactoryName: order.factoryName,
+    status: order.status,
+    returnedQty: order.returnedQty,
     unit: '片',
-    printRequirement: '后背胶浆印花，抗裂等级≥4级，图层附着牢度A级',
-    sourceBomItem: 'BOM-PO1054-02',
-    sourceTechPackVersion: 'TP v2.8',
-    nextProcessName: '后整',
-    updatedAt: '2026-03-14 10:48:00',
-    handoverCompleted: false,
-    sources: [
-      {
-        preparationOrderNo: 'PL20260314008',
-        qty: 700,
-        unit: '片',
-        preparedAt: '2026/03/14 11:10',
-        warehouseName: '雅加达裁片仓',
-        preparationStatus: '部分配料',
-        cumulativeSatisfiedQty: 700,
-        traceLines: [
-          {
-            processOrderNo: 'YHJG20260314002',
-            batchNo: 'YHPH2026031401',
-            batchSupplyQty: 760,
-            usedQty: 700,
-            unit: '片',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-      {
-        preparationOrderNo: 'PL20260315006',
-        qty: 500,
-        unit: '片',
-        preparedAt: '2026/03/15 15:30',
-        warehouseName: '雅加达裁片仓',
-        preparationStatus: '部分配料',
-        cumulativeSatisfiedQty: 1200,
-        traceLines: [
-          {
-            processOrderNo: 'YHJG20260314005',
-            batchNo: 'YHPH2026031502',
-            batchSupplyQty: 530,
-            usedQty: 500,
-            unit: '片',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-    ],
-    linkedOrders: [
-      {
-        processOrderNo: 'YHJG20260314002',
-        createMode: '按需求创建',
-        printFactoryName: '鸿辉印花厂',
-        status: '部分回货',
-        returnedQty: 700,
-        unit: '片',
-      },
-      {
-        processOrderNo: 'YHJG20260314005',
-        createMode: '按备货创建',
-        printFactoryName: '嘉泽印花中心',
-        status: '部分回货',
-        returnedQty: 500,
-        unit: '片',
-      },
-    ],
-  },
-  {
-    demandId: 'YHXQ20260314003',
-    sourceProductionOrderId: 'PO-202603-1060',
-    spuCode: 'SPU-POLO-7750',
-    spuName: '翻领 POLO 衫',
-    techPackVersion: 'TP v1.6',
-    materialCode: 'M-PRINT-039',
-    materialName: '珠地棉布 220g',
-    requiredQty: 1800,
-    unit: '片',
-    printRequirement: '胸前热转印 Logo，转印牢度4级，位置偏差≤1.5mm',
-    sourceBomItem: 'BOM-PO1060-01',
-    sourceTechPackVersion: 'TP v1.6',
-    nextProcessName: '锁边',
-    updatedAt: '2026-03-14 11:32:00',
-    handoverCompleted: false,
-    sources: [
-      {
-        preparationOrderNo: 'PL20260315018',
-        qty: 1800,
-        unit: '片',
-        preparedAt: '2026/03/15 11:50',
-        warehouseName: '万隆裁片仓',
-        preparationStatus: '已完成配料',
-        cumulativeSatisfiedQty: 1800,
-        traceLines: [
-          {
-            processOrderNo: 'YHJG20260314008',
-            batchNo: 'YHPH2026031603',
-            batchSupplyQty: 1840,
-            usedQty: 1800,
-            unit: '片',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-    ],
-    linkedOrders: [
-      {
-        processOrderNo: 'YHJG20260314008',
-        createMode: '按需求创建',
-        printFactoryName: '盛彩印花厂',
-        status: '已回货',
-        returnedQty: 1800,
-        unit: '片',
-      },
-    ],
-  },
-  {
-    demandId: 'YHXQ20260314004',
-    sourceProductionOrderId: 'PO-202603-1064',
-    spuCode: 'SPU-JACKET-5102',
-    spuName: '梭织夹克',
-    techPackVersion: 'TP v2.2',
-    materialCode: 'M-PRINT-052',
-    materialName: '尼龙复合面料 145g',
-    requiredQty: 2000,
-    unit: '片',
-    printRequirement: '袖臂丝网印花，网点完整度≥98%，油墨耐磨等级4级',
-    sourceBomItem: 'BOM-PO1064-04',
-    sourceTechPackVersion: 'TP v2.2',
-    nextProcessName: '后整',
-    updatedAt: '2026-03-14 12:18:00',
-    handoverCompleted: true,
-    sources: [
-      {
-        preparationOrderNo: 'PL20260314020',
-        qty: 900,
-        unit: '片',
-        preparedAt: '2026/03/14 10:55',
-        warehouseName: '泗水裁片仓',
-        preparationStatus: '已完成配料',
-        cumulativeSatisfiedQty: 900,
-        traceLines: [
-          {
-            processOrderNo: 'YHJG20260314010',
-            batchNo: 'YHPH2026031701',
-            batchSupplyQty: 930,
-            usedQty: 900,
-            unit: '片',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-      {
-        preparationOrderNo: 'PL20260314027',
-        qty: 700,
-        unit: '片',
-        preparedAt: '2026/03/14 11:33',
-        warehouseName: '泗水裁片仓',
-        preparationStatus: '已完成配料',
-        cumulativeSatisfiedQty: 1600,
-        traceLines: [
-          {
-            processOrderNo: 'YHJG20260314012',
-            batchNo: 'YHPH2026031706',
-            batchSupplyQty: 720,
-            usedQty: 700,
-            unit: '片',
-            batchStatus: '质检中',
-          },
-        ],
-      },
-      {
-        preparationOrderNo: 'PL20260314031',
-        qty: 400,
-        unit: '片',
-        preparedAt: '2026/03/14 12:08',
-        warehouseName: '泗水裁片仓',
-        preparationStatus: '已完成配料',
-        cumulativeSatisfiedQty: 2000,
-        traceLines: [
-          {
-            processOrderNo: 'YHJG20260314012',
-            batchNo: 'YHPH2026031712',
-            batchSupplyQty: 430,
-            usedQty: 400,
-            unit: '片',
-            batchStatus: '已入裁片仓',
-          },
-        ],
-      },
-    ],
-    linkedOrders: [
-      {
-        processOrderNo: 'YHJG20260314010',
-        createMode: '按需求创建',
-        printFactoryName: '鸿辉印花厂',
-        status: '部分回货',
-        returnedQty: 900,
-        unit: '片',
-      },
-      {
-        processOrderNo: 'YHJG20260314012',
-        createMode: '按备货创建',
-        printFactoryName: '嘉泽印花中心',
-        status: '已回货',
-        returnedQty: 1100,
-        unit: '片',
-      },
-    ],
-  },
-]
+  })),
+}))
 
-function buildPrintDemands(total: number): PrintRequirementDemand[] {
-  const rows = [...DEMAND_SEEDS]
-  let cursor = 0
-  while (rows.length < total) {
-    const seed = DEMAND_SEEDS[cursor % DEMAND_SEEDS.length]
-    const serial = 26000 + rows.length + 1
-    const demandId = `YHXQ202603${String(serial).padStart(5, '0')}`
-    const sourceProductionOrderId = `PO-202603-${1300 + rows.length}`
-    const day = 14 + Math.floor(rows.length / 4)
-    const minute = (rows.length * 9) % 60
-    const orderNoMap = new Map<string, string>()
-    const linkedOrders = seed.linkedOrders.map((order, idx) => {
-      const orderSerial = 50000 + rows.length * 10 + idx + 1
-      const processOrderNo = `YHJG202603${String(orderSerial).padStart(5, '0')}`
-      orderNoMap.set(order.processOrderNo, processOrderNo)
-      return {
-        ...order,
-        processOrderNo,
-      }
-    })
-    const sources = seed.sources.map((source, idx) => {
-      const preparationSerial = 70000 + rows.length * 10 + idx + 1
-      return {
-        ...source,
-        preparationOrderNo: `PL202603${String(preparationSerial).padStart(5, '0')}`,
-        preparedAt: `2026/03/${String(day).padStart(2, '0')} 10:${String(minute).padStart(2, '0')}`,
-        traceLines: source.traceLines.map((trace, traceIndex) => {
-          const fallbackOrderSerial = 50000 + rows.length * 10 + idx * 3 + traceIndex + 1
-          const batchSerial = 60000 + rows.length * 10 + idx * 3 + traceIndex + 1
-          return {
-            ...trace,
-            processOrderNo: orderNoMap.get(trace.processOrderNo) ?? `YHJG202603${String(fallbackOrderSerial).padStart(5, '0')}`,
-            batchNo: `YHPH202603${String(batchSerial).padStart(5, '0')}`,
-          }
-        }),
-      }
-    })
-    rows.push({
-      ...seed,
-      demandId,
-      sourceProductionOrderId,
-      updatedAt: `2026-03-${String(day).padStart(2, '0')} 13:${String(minute).padStart(2, '0')}:00`,
-      sources,
-      linkedOrders,
-    })
-    cursor += 1
-  }
-  return rows
-}
-
-const DEMANDS: PrintRequirementDemand[] = buildPrintDemands(16)
+const DEMANDS: PrintRequirementDemand[] = DEMAND_FACTS
 
 const STATUS_CLASS: Record<DemandStatusZh, string> = {
   待满足: 'border-slate-200 bg-slate-50 text-slate-700',

@@ -1,15 +1,18 @@
 import { productionOrders } from '../data/fcs/production-orders'
-import { processTasks } from '../data/fcs/process-tasks'
 import {
-  initialDeductionBasisItems,
-  initialDyePrintOrders,
-  initialQualityInspections,
-} from '../data/fcs/store-domain-quality-seeds'
-import { initialExceptions } from '../data/fcs/store-domain-progress'
-import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+  listLegacyLikeDeductionBasisForTailPages,
+  listLegacyLikeDyePrintOrdersForTailPages,
+  listLegacyLikeExceptionsForTailPages,
+  listLegacyLikeProcessTasksForTailPages,
+  listLegacyLikeQualityInspectionsForTailPages,
+} from '../data/fcs/page-adapters/long-tail-pages-adapter'
 import { escapeHtml, toClassName } from '../utils'
 
-applyQualitySeedBootstrap()
+const processTasks = listLegacyLikeProcessTasksForTailPages()
+const initialQualityInspections = listLegacyLikeQualityInspectionsForTailPages()
+const initialDeductionBasisItems = listLegacyLikeDeductionBasisForTailPages()
+const initialDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
+const initialExceptions = listLegacyLikeExceptionsForTailPages()
 
 type Tone = 'default' | 'secondary' | 'destructive' | 'outline'
 
