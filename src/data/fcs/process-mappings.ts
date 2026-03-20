@@ -83,9 +83,32 @@ const aliasMappings: ProcessMapping[] = [
     processCode: 'CUT_PANEL',
     assignmentGranularity: 'ORDER',
   },
+  {
+    id: 'PM-ALIAS-IRON',
+    source: 'LEGACY_TECH_PACK',
+    legacyNameRaw: '整烫',
+    legacyNameNorm: normalizeName('整烫'),
+    mapType: 'ALIAS',
+    processCodes: ['PROC_IRON'],
+    confidence: 'MED',
+    processCode: 'IRONING',
+    assignmentGranularity: 'SKU',
+  },
+  {
+    id: 'PM-ALIAS-PACK',
+    source: 'LEGACY_TECH_PACK',
+    legacyNameRaw: '打包',
+    legacyNameNorm: normalizeName('打包'),
+    mapType: 'ALIAS',
+    processCodes: ['PROC_PACK'],
+    confidence: 'MED',
+    processCode: 'PACKAGING',
+    assignmentGranularity: 'SKU',
+  },
 ]
 
 export const processMappings: ProcessMapping[] = [...craftMappings, ...aliasMappings]
+let temporaryProcessMappingSeq = 0
 
 // 根据名称获取映射（优先命中字典工艺）
 export function getMappingByName(name: string): ProcessMapping | undefined {
@@ -115,8 +138,9 @@ export function mapProcessNames(names: string[]): { name: string; mapping: Proce
 
 // 添加临时映射（运行时）
 export function addTemporaryMapping(legacyName: string, processCodes: string[]): ProcessMapping {
+  temporaryProcessMappingSeq += 1
   const newMapping: ProcessMapping = {
-    id: `PM-TEMP-${Date.now()}`,
+    id: `PM-TEMP-${String(temporaryProcessMappingSeq).padStart(4, '0')}`,
     source: 'NEW_TECH_PACK',
     legacyNameRaw: legacyName,
     legacyNameNorm: normalizeName(legacyName),

@@ -36,13 +36,12 @@ import {
   applyQualitySeedBootstrap,
 } from '../../data/fcs/store-domain-quality-bootstrap'
 import {
-  initialQualityInspections,
   initialDeductionBasisItems,
   initialAllocationByTaskId,
 } from '../../data/fcs/store-domain-quality-seeds'
 import {
+  listLegacyLikeQualityInspectionsForTailPages,
   listLegacyLikeDyePrintOrdersForTailPages,
-  listLegacyLikeExceptionsForTailPages,
 } from '../../data/fcs/page-adapters/long-tail-pages-adapter'
 import {
   initialStatementDrafts,
@@ -76,9 +75,6 @@ import {
 } from '../../data/fcs/material-request-drafts'
 
 applyQualitySeedBootstrap()
-
-const initialDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
-const initialExceptions = listLegacyLikeExceptionsForTailPages()
 
 const PAGE_SIZE = 10
 
@@ -408,7 +404,7 @@ let productionCoreLocalSeq = 0
 
 function nextLocalEntityId(prefix: string, width = 6): string {
   productionCoreLocalSeq += 1
-  return `${prefix}-${Date.now()}-${String(productionCoreLocalSeq).padStart(width, '0')}`
+  return `${prefix}-${String(productionCoreLocalSeq).padStart(width, '0')}`
 }
 
 function nextChangeId(month: string, existingIds: Set<string>): string {
@@ -506,11 +502,41 @@ function getOrderRuntimeAssignmentSnapshot(order: ProductionOrder): {
 } {
   const runtimeTaskCount = getRuntimeTaskCountByOrder(order.productionOrderId)
   if (runtimeTaskCount === 0) {
+    const emptySummary = {
+      totalTasks: 0,
+      directCount: 0,
+      biddingCount: 0,
+      unassignedCount: 0,
+      directAssignedCount: 0,
+      biddingLaunchedCount: 0,
+      biddingAwardedCount: 0,
+      assignedFactoryCount: 0,
+      rejectedCount: 0,
+      overdueAckCount: 0,
+    }
     return {
-      assignmentSummary: order.assignmentSummary,
-      assignmentProgress: order.assignmentProgress,
-      biddingSummary: order.biddingSummary,
-      directDispatchSummary: order.directDispatchSummary,
+      assignmentSummary: {
+        directCount: 0,
+        biddingCount: 0,
+        totalTasks: 0,
+        unassignedCount: 0,
+      },
+      assignmentProgress: {
+        directAssignedCount: 0,
+        biddingLaunchedCount: 0,
+        biddingAwardedCount: 0,
+        status: deriveRuntimeAssignmentProgressStatus(emptySummary),
+      },
+      biddingSummary: {
+        activeTenderCount: 0,
+        nearestDeadline: undefined,
+        overdueTenderCount: 0,
+      },
+      directDispatchSummary: {
+        assignedFactoryCount: 0,
+        rejectedCount: 0,
+        overdueAckCount: 0,
+      },
     }
   }
 
@@ -674,6 +700,14 @@ function getTechPackSnapshotForDemand(demand: ProductionDemand): {
     versionLabel: techPack.versionLabel,
     missingChecklist: [...techPack.missingChecklist],
   }
+}
+
+function getLegacyLikeDyePrintOrders() {
+  return listLegacyLikeDyePrintOrdersForTailPages()
+}
+
+function getLegacyLikeQualityInspections() {
+  return listLegacyLikeQualityInspectionsForTailPages()
 }
 
 function getOrderTechPackInfo(order: ProductionOrder): {
@@ -2720,6 +2754,7 @@ function getPlanDownstreamMap(): Map<
     readyStatus: '未准备' | '部分准备' | '已准备'
   }
 > {
+  const legacyLikeDyePrintOrders = getLegacyLikeDyePrintOrders()
   const map = new Map<
     string,
     {
@@ -2732,7 +2767,7 @@ function getPlanDownstreamMap(): Map<
 
   for (const order of state.orders) {
     const tasks = listRuntimeTasksByOrder(order.productionOrderId)
-    const dyes = initialDyePrintOrders.filter((dye) => dye.productionOrderId === order.productionOrderId)
+    const dyes = legacyLikeDyePrintOrders.filter((dye) => dye.productionOrderId === order.productionOrderId)
 
     const taskCount = tasks.length
     const keyProcessCount = tasks.filter((task) =>
@@ -3080,6 +3115,7 @@ function getDeliverySummaryMap(): Map<
     deliverableQty: number
   }
 > {
+  const legacyLikeQualityInspections = getLegacyLikeQualityInspections()
   const map = new Map<
     string,
     {
@@ -3105,7 +3141,7 @@ function getDeliverySummaryMap(): Map<
       if (tasks.length === 0) {
         deliverableStatus = '未准备'
       } else {
-        const openQcCount = initialQualityInspections.filter(
+        const openQcCount = legacyLikeQualityInspections.filter(
           (inspection) =>
             inspection.productionOrderId === orderId && inspection.status !== 'CLOSED',
         ).length
@@ -3444,6 +3480,8 @@ function getChangeSummaryMap(): Map<
     batchCount: number
   }
 > {
+  const legacyLikeQualityInspections = getLegacyLikeQualityInspections()
+  const legacyLikeDyePrintOrders = getLegacyLikeDyePrintOrders()
   const map = new Map<
     string,
     {
@@ -3460,8 +3498,8 @@ function getChangeSummaryMap(): Map<
     const orderId = change.productionOrderId
 
     const taskCount = listRuntimeTasksByOrder(orderId).length
-    const dyePrintCount = initialDyePrintOrders.filter((dye) => dye.productionOrderId === orderId).length
-    const openQcCount = initialQualityInspections.filter(
+    const dyePrintCount = legacyLikeDyePrintOrders.filter((dye) => dye.productionOrderId === orderId).length
+    const openQcCount = legacyLikeQualityInspections.filter(
       (inspection) => inspection.productionOrderId === orderId && inspection.status !== 'CLOSED',
     ).length
     const basisCount = initialDeductionBasisItems.filter(
@@ -3891,6 +3929,8 @@ function getOrdersWithLifecycleSummary(): Array<
     _settlementStatusZh: string
   }
 > {
+  const legacyLikeQualityInspections = getLegacyLikeQualityInspections()
+  const legacyLikeDyePrintOrders = getLegacyLikeDyePrintOrders()
   const basisToStatement = new Map<string, string>()
   for (const statement of initialStatementDrafts) {
     for (const basisId of statement.itemBasisIds) {
@@ -3919,7 +3959,7 @@ function getOrdersWithLifecycleSummary(): Array<
     const tasks = listRuntimeTasksByOrder(order.productionOrderId)
     const blockedTaskCount = tasks.filter((task) => task.status === 'BLOCKED').length
 
-    const relatedDyes = initialDyePrintOrders.filter(
+    const relatedDyes = legacyLikeDyePrintOrders.filter(
       (dye) => dye.productionOrderId === order.productionOrderId,
     )
 
@@ -3934,7 +3974,7 @@ function getOrdersWithLifecycleSummary(): Array<
         return failBatches.some((batch) => {
           const linkedQcId = batch.qcId ?? (batch as { linkedQcId?: string }).linkedQcId
           if (!linkedQcId) return false
-          const qc = initialQualityInspections.find((inspection) => inspection.qcId === linkedQcId)
+          const qc = legacyLikeQualityInspections.find((inspection) => inspection.qcId === linkedQcId)
           return Boolean(qc && qc.status !== 'CLOSED')
         })
       })

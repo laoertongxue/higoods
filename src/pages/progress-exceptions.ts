@@ -15,7 +15,8 @@ import {
 } from '../data/fcs/production-orders'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
-  initialTenders,
+  extendTenderDeadlineFromRuntime,
+  getTenderByIdFromRuntime,
   listMaterialIssueSheetsFromRuntime,
   type Tender,
 } from '../data/fcs/store-domain-dispatch-process'
@@ -315,7 +316,7 @@ function getFactoryById(factoryId: string) {
 }
 
 function getTenderById(tenderId: string): Tender | undefined {
-  return initialTenders.find((tender) => tender.tenderId === tenderId)
+  return getTenderByIdFromRuntime(tenderId)
 }
 
 function getExceptionCases(): ExceptionCase[] {
@@ -373,7 +374,9 @@ function getRelatedTasks(exc: ExceptionCase): ProcessTask[] {
 }
 
 function getRelatedTenders(exc: ExceptionCase): Tender[] {
-  return exc.relatedTenderIds.map((tenderId) => getTenderById(tenderId)).filter((tender): tender is Tender => Boolean(tender))
+  return exc.relatedTenderIds
+    .map((tenderId) => getTenderById(tenderId))
+    .filter((tender): tender is Tender => Boolean(tender))
 }
 
 interface ResolveJudgeResult {
@@ -549,7 +552,7 @@ function updateTaskStatus(taskId: string, newStatus: ProcessTask['status'], by: 
   }
 
   const taskAudit: TaskAuditLog = {
-    id: `AL-${Date.now()}-${taskId}`,
+    id: `AL-${taskId}-${String(task.auditLogs.length + 1).padStart(4, '0')}`,
     action: actionMap[newStatus],
     detail: detailMap[newStatus],
     at: now,
@@ -566,30 +569,7 @@ function updateTaskStatus(taskId: string, newStatus: ProcessTask['status'], by: 
 }
 
 function extendTenderDeadline(tenderId: string, hours: number = 24): void {
-  const index = initialTenders.findIndex((item) => item.tenderId === tenderId)
-  if (index < 0) return
-
-  const tender = initialTenders[index]
-  const now = nowTimestamp()
-  const deadline = new Date(tender.deadline.replace(' ', 'T'))
-  deadline.setHours(deadline.getHours() + hours)
-
-  initialTenders[index] = {
-    ...tender,
-    deadline: deadline.toISOString().replace('T', ' ').slice(0, 19),
-    status: 'OPEN',
-    updatedAt: now,
-    auditLogs: [
-      ...tender.auditLogs,
-      {
-        id: `TAL-${Date.now()}`,
-        action: 'EXTEND',
-        detail: `竞价截止时间延长 ${hours} 小时`,
-        at: now,
-        by: 'Admin',
-      },
-    ],
-  }
+  extendTenderDeadlineFromRuntime(tenderId, hours, 'Admin')
 }
 
 function createNotification(payload: Omit<Notification, 'notificationId' | 'createdAt'>): Notification {
@@ -613,7 +593,7 @@ function createUrge(payload: Omit<UrgeLog, 'urgeId' | 'createdAt' | 'status' | '
     status: 'SENT',
     auditLogs: [
       {
-        id: `UAL-${Date.now()}`,
+        id: `UAL-${payload.targetId}-${String(initialUrges.length + 1).padStart(4, '0')}`,
         action: 'SEND',
         detail: '发送催办',
         at: createdAt,

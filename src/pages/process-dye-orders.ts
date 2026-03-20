@@ -211,6 +211,10 @@ const BATCH_STATUS_CLASS: Record<BatchStatusZh, string> = {
   已关联: 'border-green-200 bg-green-50 text-green-700',
 }
 
+const WAITING_RECEIVE_STATUSES: OrderStatusZh[] = ['待接收来料']
+const IN_PROCESSING_STATUSES: OrderStatusZh[] = ['待开工', '加工中', '部分回货']
+const DONE_STATUSES: OrderStatusZh[] = ['已完工']
+
 function createDefaultForm(): CreateForm {
   return {
     createMode: '按需求创建',
@@ -326,11 +330,9 @@ function getOrderByNo(orderNo: string | null): DyeProcessOrder | null {
 
 function getStats() {
   const total = ORDERS.length
-  const waitingReceive = ORDERS.filter((item) => item.status === '待接收来料').length
-  const inProcessing = ORDERS.filter((item) =>
-    item.status === '待开工' || item.status === '加工中' || item.status === '部分回货',
-  ).length
-  const done = ORDERS.filter((item) => item.status === '已完工').length
+  const waitingReceive = ORDERS.filter((item) => WAITING_RECEIVE_STATUSES.includes(item.status)).length
+  const inProcessing = ORDERS.filter((item) => IN_PROCESSING_STATUSES.includes(item.status)).length
+  const done = ORDERS.filter((item) => DONE_STATUSES.includes(item.status)).length
   return { total, waitingReceive, inProcessing, done }
 }
 

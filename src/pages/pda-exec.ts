@@ -3,10 +3,12 @@ import { escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
-  getExecutionTaskFactById,
   getTaskProcessDisplayName,
-  listExecutionTaskFacts,
 } from '../data/fcs/page-adapters/task-execution-adapter'
+import {
+  getTaskChainTaskById,
+  listTaskChainTasks,
+} from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
@@ -53,11 +55,11 @@ const state: PdaExecState = {
 }
 
 function listTaskFacts(): ProcessTask[] {
-  return listExecutionTaskFacts()
+  return listTaskChainTasks()
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getExecutionTaskFactById(taskId)
+  return getTaskChainTaskById(taskId) ?? null
 }
 
 const TAB_PARAM_MAP: Record<string, TaskStatusTab> = {

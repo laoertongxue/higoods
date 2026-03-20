@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check:menu-routes": "node scripts/check-menu-routes.mjs"
+    "check:menu-routes": "node scripts/check-menu-routes.mjs",
+    "check:fcs-truth-sources": "node scripts/check-fcs-truth-sources.mjs --write-report"
   },
   "dependencies": {
     "lucide": "^0.468.0"

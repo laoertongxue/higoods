@@ -509,9 +509,13 @@ const settlementVersionHistory: SettlementVersionRecord[] = [
 
 normalizeAllVersionHistory()
 
+let settlementRequestLogSeq = 1
+
 function createLog(actor: string, action: string, remark: string, createdAt: string): SettlementRequestLog {
+  const id = `LOG-${String(settlementRequestLogSeq).padStart(7, '0')}`
+  settlementRequestLogSeq += 1
   return {
-    id: `LOG-${Math.random().toString(36).slice(2, 9).toUpperCase()}`,
+    id,
     action,
     actor,
     remark,

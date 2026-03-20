@@ -102,6 +102,8 @@ const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
   BUTTON_ATTACH: 'PROC_MACHINE_BUTTON',
   HARDWARE: 'PROC_EYELET',
   FROG_BUTTON: 'PROC_PANKOU',
+  IRONING: 'PROC_IRON',
+  PACKAGING: 'PROC_PACK',
 }
 
 const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
@@ -126,6 +128,12 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   262144: 'PROC_QUYA',
   524288: 'PROC_BUTTONHOLE',
   1048576: 'PROC_SHELL_EMBROIDER',
+  2000001: 'PROC_PRINT',
+  2000002: 'PROC_PRINT',
+  2000003: 'PROC_DYE',
+  2000004: 'PROC_DYE',
+  2000005: 'PROC_IRON',
+  2000006: 'PROC_PACK',
 }
 
 const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
@@ -142,6 +150,8 @@ const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
   BUTTON_ATTACH: '后道辅料厂优先',
   HARDWARE: '五金/辅料厂优先',
   FROG_BUTTON: '盘扣工艺厂优先',
+  IRONING: '后道整烫优先',
+  PACKAGING: '后道包装优先',
 }
 
 function toProcessDocType(documentLabel: string): ProcessDocType {
@@ -222,11 +232,13 @@ const processDefinitionSeeds: Array<
   { processCode: 'BUTTON_ATTACH', processName: '钉扣', stageCode: 'POST', sort: 30, isGarmentManufacturing: true, defaultDocument: '任务单' },
   { processCode: 'HARDWARE', processName: '五金', stageCode: 'POST', sort: 40, isGarmentManufacturing: true, defaultDocument: '任务单' },
   { processCode: 'FROG_BUTTON', processName: '盘扣', stageCode: 'POST', sort: 50, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'IRONING', processName: '熨烫', stageCode: 'POST', sort: 60, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  { processCode: 'PACKAGING', processName: '包装', stageCode: 'POST', sort: 70, isGarmentManufacturing: true, defaultDocument: '任务单' },
 ]
 
 function resolveProcessGranularity(processCode: string): ProcessAssignmentGranularity {
   if (processCode === 'PRINT' || processCode === 'DYE') return 'COLOR'
-  if (processCode === 'SEW') return 'SKU'
+  if (processCode === 'SEW' || processCode === 'IRONING' || processCode === 'PACKAGING') return 'SKU'
   return 'ORDER'
 }
 
@@ -273,11 +285,20 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 1048576, legacyCraftName: '贝壳绣', craftName: '贝壳绣', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按绣花归类' },
 ]
 
+const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
+  { legacyValue: 2000001, legacyCraftName: '丝网印', craftName: '丝网印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '需求单' },
+  { legacyValue: 2000002, legacyCraftName: '数码印', craftName: '数码印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '需求单' },
+  { legacyValue: 2000003, legacyCraftName: '匹染', craftName: '匹染', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '需求单' },
+  { legacyValue: 2000004, legacyCraftName: '色织', craftName: '色织', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '需求单' },
+  { legacyValue: 2000005, legacyCraftName: '熨烫', craftName: '熨烫', processCode: 'IRONING', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, defaultDocument: '任务单' },
+]
+
 const processDefinitionByCode = new Map(processDefinitions.map((item) => [item.processCode, item]))
 const processDefinitionBySystemCode = new Map(processDefinitions.map((item) => [item.systemProcessCode, item]))
 const stageDefinitionByCode = new Map(processStageDefinitions.map((item) => [item.stageCode, item]))
 
-export const processCraftDefinitions: ProcessCraftDefinition[] = legacyProcessCraftMappings
+export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProcessCraftMappings, ...supplementalProcessCraftMappings]
   .slice()
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {

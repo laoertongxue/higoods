@@ -43,22 +43,6 @@ function stageScore(task: ProcessTask): number {
   return idx === -1 ? 99 : idx
 }
 
-function inferDeps(tasks: ProcessTask[]): ProcessTask[] {
-  if (tasks.length === 0) return tasks
-
-  const hasAnyDep = tasks.some((task) => (task.dependsOnTaskIds ?? []).length > 0)
-  if (hasAnyDep) return tasks
-
-  const sorted = [...tasks].sort(
-    (a, b) => a.seq - b.seq || stageScore(a) - stageScore(b),
-  )
-
-  return sorted.map((task, idx) => ({
-    ...task,
-    dependsOnTaskIds: idx === 0 ? [] : [sorted[idx - 1].taskId],
-  }))
-}
-
 function topoSort(tasks: ProcessTask[]): ProcessTask[] {
   if (tasks.length === 0) return []
 
@@ -112,7 +96,7 @@ function getAllProcessTasks(): ProcessTask[] {
 
   const result: ProcessTask[] = []
   for (const tasks of tasksByOrder.values()) {
-    result.push(...inferDeps(tasks))
+    result.push(...tasks)
   }
 
   return result
@@ -139,10 +123,9 @@ function getTaskQcSet(allTasks: ProcessTask[]): Set<string> {
   const set = new Set<string>()
 
   for (const task of allTasks) {
-    // 使用任务事实上下文（工序/阶段）推导质检挂接，不再读旧 QC seed。
+    // 使用任务事实上下文（工序/阶段）推导质检挂接，不再依赖旧 PROC_* 编码判断。
     if (
-      task.processCode === 'PROC_QC'
-      || task.processBusinessCode === 'QC'
+      task.processBusinessCode === 'QC'
       || task.stageCode === 'POST'
       || task.stage === 'POST'
     ) {

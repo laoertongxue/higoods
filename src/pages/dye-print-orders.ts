@@ -2,9 +2,9 @@ import {
   initialAllocationByTaskId,
   initialAllocationEvents,
   initialDeductionBasisItems,
-  initialDyePrintOrders,
   initialQualityInspections,
   initialReturnInboundBatches,
+  listDyePrintOrdersStore,
 } from '../data/fcs/store-domain-quality-seeds'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { processTasks } from '../data/fcs/process-tasks'
@@ -214,7 +214,7 @@ function showDyePrintToast(message: string, tone: 'success' | 'error' = 'success
 }
 
 function getOrders(): DyePrintOrder[] {
-  return initialDyePrintOrders
+  return listDyePrintOrdersStore()
 }
 
 function getQcRecords(): QualityInspection[] {
@@ -231,9 +231,10 @@ function getReturnTarget(): DyePrintOrder | null {
 }
 
 function replaceOrder(nextOrder: DyePrintOrder): void {
-  const idx = initialDyePrintOrders.findIndex((item) => item.dpId === nextOrder.dpId)
+  const orders = getOrders()
+  const idx = orders.findIndex((item) => item.dpId === nextOrder.dpId)
   if (idx >= 0) {
-    initialDyePrintOrders[idx] = nextOrder
+    orders[idx] = nextOrder
   }
 }
 
@@ -338,7 +339,7 @@ function createDyePrintOrder(): { ok: boolean; dpId?: string; message?: string }
     updatedBy: '管理员',
   }
 
-  initialDyePrintOrders.push(order)
+  getOrders().push(order)
   return { ok: true, dpId }
 }
 

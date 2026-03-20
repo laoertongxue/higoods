@@ -11,11 +11,11 @@ import {
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks'
 import {
-  initialDyePrintOrders,
   initialQualityInspections,
   initialAllocationByTaskId,
 } from '../data/fcs/store-domain-quality-seeds'
-import { initialExceptions, type ExceptionCase } from '../data/fcs/store-domain-progress'
+import { listProgressExceptions, type ExceptionCase } from '../data/fcs/store-domain-progress'
+import { listLegacyLikeDyePrintOrdersForTailPages } from '../data/fcs/page-adapters/long-tail-pages-adapter'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { escapeHtml, toClassName } from '../utils'
@@ -689,11 +689,22 @@ function currentCheckpoint(
 
 function getDyePendingTaskIds(): Set<string> {
   const set = new Set<string>()
+  const taskIdsByOrder = new Map<string, string[]>()
 
-  for (const order of initialDyePrintOrders) {
-    if (order.status === 'COMPLETED' || order.status === 'CLOSED') continue
+  for (const task of listRuntimeProcessTasks()) {
+    const list = taskIdsByOrder.get(task.productionOrderId) ?? []
+    list.push(task.taskId)
+    taskIdsByOrder.set(task.productionOrderId, list)
+  }
 
-    set.add(order.relatedTaskId)
+  for (const order of listLegacyLikeDyePrintOrdersForTailPages()) {
+    const isPending = order.availableQty <= 0 || order.returnedFailQty > 0
+    if (!isPending) continue
+
+    const relatedTasks = taskIdsByOrder.get(order.productionOrderId) ?? []
+    for (const taskId of relatedTasks) {
+      set.add(taskId)
+    }
   }
 
   return set
@@ -715,7 +726,7 @@ function getExceptionTaskIds(): Set<string> {
   const active = new Set<ExceptionCase['caseStatus']>(['OPEN', 'IN_PROGRESS', 'RESOLVED'])
   const set = new Set<string>()
 
-  for (const item of initialExceptions) {
+  for (const item of listProgressExceptions()) {
     if (!active.has(item.caseStatus)) continue
 
     const relatedIds = item.relatedTaskIds ?? []

@@ -48,8 +48,8 @@ function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
-function buildEventId(prefix: 'EA' | 'EAL'): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+function buildSequentialEventId(prefix: 'EA' | 'EAL', caseId: string, nextIndex: number): string {
+  return `${prefix}-${caseId}-${String(nextIndex).padStart(3, '0')}`
 }
 
 function deriveSubCategoryKey(exceptionCase: ExceptionCase): SubCategoryKey {
@@ -85,7 +85,7 @@ export function appendCaseAction(
 ): ExceptionCase {
   const at = payload.at || nowTimestamp()
   const action: ExceptionAction = {
-    id: payload.id || buildEventId('EA'),
+    id: payload.id || buildSequentialEventId('EA', exceptionCase.caseId, exceptionCase.actions.length + 1),
     actionType: payload.actionType,
     actionDetail: payload.actionDetail,
     at,
@@ -109,7 +109,7 @@ export function appendCaseAuditLog(
 ): ExceptionCase {
   const at = payload.at || nowTimestamp()
   const audit: ExceptionAuditLog = {
-    id: payload.id || buildEventId('EAL'),
+    id: payload.id || buildSequentialEventId('EAL', exceptionCase.caseId, exceptionCase.auditLogs.length + 1),
     action: payload.action,
     detail: payload.detail,
     at,

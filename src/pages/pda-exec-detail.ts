@@ -3,10 +3,12 @@ import { escapeHtml } from '../utils'
 import { type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
-  getExecutionTaskFactById,
   getTaskProcessDisplayName,
-  listExecutionTaskFacts,
 } from '../data/fcs/page-adapters/task-execution-adapter'
+import {
+  getTaskChainTaskById,
+  listTaskChainTasks,
+} from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
@@ -58,11 +60,11 @@ const detailState: PdaExecDetailState = {
 }
 
 function listTaskFacts(): ProcessTask[] {
-  return listExecutionTaskFacts()
+  return listTaskChainTasks()
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getExecutionTaskFactById(taskId)
+  return getTaskChainTaskById(taskId) ?? null
 }
 
 const MOCK_START_PROOF: Record<string, StartProofFile[]> = {

@@ -266,7 +266,7 @@ function createStartOverdueException(task: ProcessTask, startDueAt: string, now:
     actions: [],
     auditLogs: [
       {
-        id: `EAL-${Date.now()}`,
+        id: `EAL-START-${task.taskId.replace(/[^A-Za-z0-9]/g, '').slice(-24)}-CREATE`,
         action: 'CREATE',
         detail: '系统自动生成：开工逾期',
         at: now,

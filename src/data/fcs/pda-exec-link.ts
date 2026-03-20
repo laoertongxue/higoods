@@ -20,7 +20,9 @@ import {
 } from './milestone-configs'
 import {
   generateCaseId,
-  initialExceptions,
+  getProgressExceptionById,
+  listProgressExceptions,
+  upsertProgressExceptionCase,
   type ExceptionCase,
   type ReasonCode,
   type Severity,
@@ -68,6 +70,21 @@ export const PAUSE_REASON_OPTIONS: PauseReasonOption[] = [
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function nextTaskAuditId(task: ProcessTask, actionCode: string): string {
+  const nextIndex = (task.auditLogs?.length ?? 0) + 1
+  return `AL-${task.taskId}-${actionCode}-${String(nextIndex).padStart(3, '0')}`
+}
+
+function nextExceptionActionId(exceptionCase: ExceptionCase): string {
+  const nextIndex = (exceptionCase.actions?.length ?? 0) + 1
+  return `EA-${exceptionCase.caseId}-${String(nextIndex).padStart(3, '0')}`
+}
+
+function nextExceptionAuditId(exceptionCase: ExceptionCase, actionCode: string): string {
+  const nextIndex = (exceptionCase.auditLogs?.length ?? 0) + 1
+  return `EAL-${exceptionCase.caseId}-${actionCode}-${String(nextIndex).padStart(3, '0')}`
 }
 
 function mapPauseReasonToBlockReason(reasonCode: PauseReasonCode): BlockReason {
@@ -230,7 +247,7 @@ export function reportTaskMilestone(
   task.auditLogs = [
     ...task.auditLogs,
     {
-      id: `AL-MILESTONE-${Date.now()}`,
+      id: nextTaskAuditId(task, 'MILESTONE'),
       action: 'REPORT_MILESTONE',
       detail: `上报关键节点：${milestone.ruleLabel}，上报时间：${payload.reportedAt}，数量：${milestone.targetQty} ${milestone.targetUnitLabel}，凭证：${payload.proofFiles.length}个`,
       at: now,
@@ -247,12 +264,11 @@ function getTaskById(taskId: string): ProcessTask | undefined {
 }
 
 function getCaseById(caseId: string): ExceptionCase | undefined {
-  return initialExceptions.find((item) => item.caseId === caseId)
+  return getProgressExceptionById(caseId)
 }
 
 function updateCase(updated: ExceptionCase): void {
-  const index = initialExceptions.findIndex((item) => item.caseId === updated.caseId)
-  if (index >= 0) initialExceptions[index] = updated
+  upsertProgressExceptionCase(updated)
 }
 
 function createPauseException(task: ProcessTask, payload: {
@@ -310,7 +326,7 @@ function createPauseException(task: ProcessTask, payload: {
       : { required: false },
     actions: [
       {
-        id: `EA-${Date.now()}`,
+        id: `EA-${caseId}-001`,
         actionType: 'REPORT_PAUSE',
         actionDetail: `工厂上报暂停：${payload.reasonLabel}`,
         at: createdAt,
@@ -319,7 +335,7 @@ function createPauseException(task: ProcessTask, payload: {
     ],
     auditLogs: [
       {
-        id: `EAL-${Date.now()}`,
+        id: `EAL-${caseId}-CREATE-001`,
         action: 'CREATE',
         detail: '工厂端 PDA 上报暂停，系统自动生成异常单',
         at: createdAt,
@@ -330,7 +346,7 @@ function createPauseException(task: ProcessTask, payload: {
 }
 
 function getActivePauseException(taskId: string): ExceptionCase | undefined {
-  return initialExceptions.find(
+  return listProgressExceptions().find(
     (item) =>
       item.sourceType === 'FACTORY_PAUSE_REPORT' &&
       item.relatedTaskIds.includes(taskId) &&
@@ -352,7 +368,7 @@ function isOpenMilestoneOverdueException(exceptionCase: ExceptionCase): boolean 
 }
 
 function findTaskOpenMilestoneOverdueException(taskId: string): ExceptionCase | undefined {
-  return initialExceptions.find(
+  return listProgressExceptions().find(
     (item) => isOpenMilestoneOverdueException(item) && item.relatedTaskIds.includes(taskId),
   )
 }
@@ -390,7 +406,7 @@ function createMilestoneOverdueException(
     actions: [],
     auditLogs: [
       {
-        id: `EAL-${Date.now()}`,
+        id: `EAL-${caseId}-CREATE-001`,
         action: 'CREATE',
         detail: '系统自动生成：关键节点未上报',
         at: now,
@@ -437,7 +453,7 @@ export function syncMilestoneOverdueExceptions(now: Date = new Date()): void {
           writableTask.milestoneOverdueExceptionId = activeException.caseId
         } else {
           const created = createMilestoneOverdueException(task, milestone, overdueAt, nowAt)
-          initialExceptions.push(created)
+          upsertProgressExceptionCase(created)
           writableTask.milestoneOverdueExceptionId = created.caseId
         }
         return
@@ -477,7 +493,7 @@ export function reportTaskPause(
     ...payload,
     reasonLabel,
   })
-  initialExceptions.unshift(exception)
+  upsertProgressExceptionCase(exception)
 
   task.status = 'BLOCKED'
   task.blockReason = mapPauseReasonToBlockReason(payload.reasonCode)
@@ -494,7 +510,7 @@ export function reportTaskPause(
   task.auditLogs = [
     ...task.auditLogs,
     {
-      id: `AL-PAUSE-${Date.now()}`,
+      id: nextTaskAuditId(task, 'PAUSE'),
       action: 'REPORT_PAUSE',
       detail: `上报暂停，原因：${reasonLabel}，上报时间：${payload.reportedAt}，凭证：${payload.proofFiles.length}个`,
       at: now,
@@ -523,7 +539,7 @@ export function recordPauseExceptionFollowUp(
     actions: [
       ...exc.actions,
       {
-        id: `EA-${Date.now()}`,
+        id: nextExceptionActionId(exc),
         actionType: 'FOLLOW_UP_EXCEPTION',
         actionDetail: `平台已记录跟进：${remark}`,
         at: now,
@@ -533,7 +549,7 @@ export function recordPauseExceptionFollowUp(
     auditLogs: [
       ...exc.auditLogs,
       {
-        id: `EAL-${Date.now()}`,
+        id: nextExceptionAuditId(exc, 'FOLLOW_UP_EXCEPTION'),
         action: 'FOLLOW_UP_EXCEPTION',
         detail: `平台已记录跟进：${remark}`,
         at: now,
@@ -587,7 +603,7 @@ export function allowContinueFromPauseException(
     task.auditLogs = [
       ...task.auditLogs,
       {
-        id: `AL-CONTINUE-${Date.now()}`,
+        id: nextTaskAuditId(task, 'CONTINUE'),
         action: 'ALLOW_CONTINUE',
         detail: '平台已允许继续',
         at: now,

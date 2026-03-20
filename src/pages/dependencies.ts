@@ -1,5 +1,10 @@
-import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
+import { type ProcessTask } from '../data/fcs/process-tasks'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+import {
+  getTaskChainTaskById,
+  getTaskChainTaskDisplayName,
+  listTaskChainTasks,
+} from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { escapeHtml } from '../utils'
 
 applyQualitySeedBootstrap()
@@ -23,11 +28,11 @@ function nowTimestamp(date: Date = new Date()): string {
 }
 
 function listDependencyTasks(): ProcessTask[] {
-  return processTasks.filter((task) => task.defaultDocType !== 'DEMAND')
+  return listTaskChainTasks()
 }
 
 function getTaskDisplayName(task: ProcessTask): string {
-  return task.taskCategoryZh || task.craftName || task.processBusinessName || task.processNameZh
+  return getTaskChainTaskDisplayName(task)
 }
 
 function getTaskDeps(task: ProcessTask): string[] {
@@ -47,7 +52,11 @@ function shortId(taskId: string): string {
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return listDependencyTasks().find((task) => task.taskId === taskId)
+  return getTaskChainTaskById(taskId)
+}
+
+function nextDependencyAuditId(task: ProcessTask, prefix: string): string {
+  return `${prefix}-${task.taskId}-${String(task.auditLogs.length + 1).padStart(3, '0')}`
 }
 
 function syncAllocationGates(by: string): void {
@@ -79,7 +88,7 @@ function syncAllocationGates(by: string): void {
       task.auditLogs = [
         ...task.auditLogs,
         {
-          id: `AL-GATE-BLOCK-${Date.now()}-${task.taskId}`,
+          id: nextDependencyAuditId(task, 'AL-GATE-BLOCK'),
           action: 'BLOCK_BY_ALLOCATION_GATE',
           detail: noteZh,
           at: now,
@@ -99,7 +108,7 @@ function syncAllocationGates(by: string): void {
       task.auditLogs = [
         ...task.auditLogs,
         {
-          id: `AL-GATE-UNBLOCK-${Date.now()}-${task.taskId}`,
+          id: nextDependencyAuditId(task, 'AL-GATE-UNBLOCK'),
           action: 'UNBLOCK_BY_ALLOCATION_GATE',
           detail: '上一步已完成，开始条件已满足',
           at: now,
@@ -133,7 +142,7 @@ function updateTaskDependencies(
   task.auditLogs = [
     ...task.auditLogs,
     {
-      id: `AL-DEP-${Date.now()}-${taskId}`,
+      id: nextDependencyAuditId(task, 'AL-DEP'),
       action: 'UPDATE_DEPENDENCIES',
       detail,
       at: now,

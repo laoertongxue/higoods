@@ -4,11 +4,13 @@ import { type ProcessTask } from '../data/fcs/process-tasks'
 import { productionOrders } from '../data/fcs/production-orders'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
-  getExecutionTaskFactById,
   getTaskProcessDisplayName,
   getTaskStageDisplayName,
-  listExecutionTaskFacts,
 } from '../data/fcs/page-adapters/task-execution-adapter'
+import {
+  getTaskChainTaskById,
+  listTaskChainTasks,
+} from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { renderPdaFrame } from './pda-shell'
 
 interface TaskReceiveDetailState {
@@ -22,11 +24,11 @@ const state: TaskReceiveDetailState = {
 }
 
 function listTaskFacts(): ProcessTask[] {
-  return listExecutionTaskFacts()
+  return listTaskChainTasks()
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getExecutionTaskFactById(taskId)
+  return getTaskChainTaskById(taskId) ?? null
 }
 
 function nowTimestamp(date: Date = new Date()): string {

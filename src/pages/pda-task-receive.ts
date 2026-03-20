@@ -3,10 +3,15 @@ import { escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
-  getExecutionTaskFactById,
   getTaskProcessDisplayName,
-  listExecutionTaskFacts,
 } from '../data/fcs/page-adapters/task-execution-adapter'
+import {
+  getTaskChainTaskById,
+  listTaskChainTasks,
+  listTaskChainTenders,
+  resolveTaskChainTenderId,
+  type TaskChainTenderStatus,
+} from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { renderPdaFrame } from './pda-shell'
 
 type TabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
@@ -61,6 +66,13 @@ interface AwardedTender {
   execStatus: string
 }
 
+interface SubmittedQuoteSnapshot {
+  quotedPrice: number
+  quotedAt: string
+  deliveryDays: number
+  remark: string
+}
+
 interface TaskReceiveState {
   selectedFactoryId: string
   activeTab: TabKey
@@ -86,60 +98,6 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'awarded', label: '已中标任务' },
 ]
 
-const MOCK_TENDERS_BIDDING: BiddingTender[] = [
-  {
-    tenderId: 'TENDER-0002-001',
-    taskId: 'TASK-0002-002',
-    productionOrderId: 'PO-2024-0002',
-    processName: '裁剪',
-    qty: 800,
-    qtyUnit: '件',
-    factoryPoolCount: 5,
-    biddingDeadline: '2026-03-20 18:00',
-    taskDeadline: '2026-04-10',
-    standardPrice: 8000,
-    currency: 'CNY',
-  },
-]
-
-const MOCK_TENDERS_QUOTED: QuotedTender[] = [
-  {
-    tenderId: 'TENDER-0003-001',
-    taskId: 'TASK-0003-001',
-    productionOrderId: 'PO-2024-0003',
-    processName: '刺绣',
-    qty: 600,
-    qtyUnit: '件',
-    quotedPrice: 15600,
-    quotedAt: '2026-03-05 14:22',
-    deliveryDays: 12,
-    tenderStatus: '招标中',
-    currency: 'CNY',
-    unit: '件',
-    biddingDeadline: '2026-03-20 18:00',
-    taskDeadline: '2026-04-08',
-    remark: '',
-  },
-]
-
-const MOCK_AWARDED: AwardedTender[] = [
-  {
-    tenderId: 'TENDER-0004-001',
-    taskId: 'TASK-0004-002',
-    productionOrderId: 'PO-2024-0004',
-    processName: '车缝',
-    qty: 1200,
-    qtyUnit: '件',
-    awardedPrice: 13200,
-    currency: 'CNY',
-    unit: '件',
-    taskDeadline: '2026-04-15',
-    notifiedAt: '2026-03-09 10:00',
-    awardNote: '报价最低，交期符合要求',
-    execStatus: '待开工',
-  },
-]
-
 const state: TaskReceiveState = {
   selectedFactoryId: '',
   activeTab: 'pending-accept',
@@ -158,12 +116,14 @@ const state: TaskReceiveState = {
   rejectReason: '',
 }
 
+const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>()
+
 function listTaskFacts(): ProcessTask[] {
-  return listExecutionTaskFacts()
+  return listTaskChainTasks()
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getExecutionTaskFactById(taskId)
+  return getTaskChainTaskById(taskId) ?? null
 }
 
 function getCurrentQueryString(): string {
@@ -364,21 +324,110 @@ function showTaskReceiveToast(message: string): void {
   }, 2200)
 }
 
-function getTabCounts(pendingAcceptTasks: ProcessTask[], activeBiddingTenders: BiddingTender[]): Record<TabKey, number> {
+function getTabCounts(
+  pendingAcceptTasks: ProcessTask[],
+  activeBiddingTenders: BiddingTender[],
+  quotedTenders: QuotedTender[],
+  awardedTenders: AwardedTender[],
+): Record<TabKey, number> {
   return {
     'pending-accept': pendingAcceptTasks.length,
     'pending-quote': activeBiddingTenders.length,
-    quoted: MOCK_TENDERS_QUOTED.length,
-    awarded: MOCK_AWARDED.length,
+    quoted: quotedTenders.length,
+    awarded: awardedTenders.length,
   }
 }
 
+function toTenderStatusLabel(status: TaskChainTenderStatus): string {
+  if (status === 'OVERDUE') return '已逾期'
+  if (status === 'AWARDED') return '已定标'
+  if (status === 'CLOSED') return '已关闭'
+  if (status === 'CANCELLED') return '已取消'
+  return '招标中'
+}
+
 function getQuotedTenders(): QuotedTender[] {
-  return MOCK_TENDERS_QUOTED
+  return listTaskChainTenders()
+    .filter((tender) => state.submittedTenderIds.has(tender.tenderId))
+    .map((tender) => {
+      const taskId = tender.taskIds[0] ?? ''
+      const task = taskId ? getTaskFactById(taskId) : null
+      const snapshot = submittedQuotes.get(tender.tenderId)
+      const qtyUnit = task?.qtyUnit || '件'
+      const currency = task?.standardPriceCurrency || task?.dispatchPriceCurrency || 'CNY'
+
+      return {
+        tenderId: tender.tenderId,
+        taskId,
+        productionOrderId: task?.productionOrderId || tender.productionOrderIds[0] || '',
+        processName: task ? getTaskProcessDisplayName(task) : '-',
+        qty: task?.qty ?? 0,
+        qtyUnit,
+        quotedPrice: snapshot?.quotedPrice ?? task?.dispatchPrice ?? task?.standardPrice ?? 0,
+        quotedAt: snapshot?.quotedAt ?? nowTimestamp(),
+        deliveryDays: snapshot?.deliveryDays ?? 0,
+        tenderStatus: toTenderStatusLabel(tender.status),
+        currency,
+        unit: qtyUnit,
+        biddingDeadline: tender.deadline,
+        taskDeadline: task?.taskDeadline || '',
+        remark: snapshot?.remark ?? '',
+      } satisfies QuotedTender
+    })
+    .sort((left, right) => right.quotedAt.localeCompare(left.quotedAt))
 }
 
 function getActiveBiddingTenders(): BiddingTender[] {
-  return MOCK_TENDERS_BIDDING.filter((item) => !state.submittedTenderIds.has(item.tenderId))
+  return listTaskChainTenders()
+    .filter((tender) => tender.status === 'OPEN' || tender.status === 'OVERDUE')
+    .filter((tender) => !state.submittedTenderIds.has(tender.tenderId))
+    .map((tender) => {
+      const taskId = tender.taskIds[0] ?? ''
+      const task = taskId ? getTaskFactById(taskId) : null
+      const qtyUnit = task?.qtyUnit || '件'
+      const processName = task ? getTaskProcessDisplayName(task) : '-'
+
+      return {
+        tenderId: tender.tenderId,
+        taskId,
+        productionOrderId: task?.productionOrderId || tender.productionOrderIds[0] || '',
+        processName,
+        qty: task?.qty ?? 0,
+        qtyUnit,
+        factoryPoolCount: Math.max(tender.taskIds.length, 1),
+        biddingDeadline: tender.deadline,
+        taskDeadline: task?.taskDeadline || '',
+        standardPrice: task?.standardPrice ?? 0,
+        currency: task?.standardPriceCurrency || task?.dispatchPriceCurrency || 'CNY',
+      } satisfies BiddingTender
+    })
+    .sort((left, right) => left.biddingDeadline.localeCompare(right.biddingDeadline))
+}
+
+function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
+  return listTaskFacts()
+    .filter(
+      (task) =>
+        task.assignmentMode === 'BIDDING'
+        && task.assignmentStatus === 'AWARDED'
+        && task.assignedFactoryId === selectedFactoryId,
+    )
+    .map((task) => ({
+      tenderId: resolveTaskChainTenderId(task) || `TENDER-${task.taskId}`,
+      taskId: task.taskId,
+      productionOrderId: task.productionOrderId,
+      processName: getTaskProcessDisplayName(task),
+      qty: task.qty,
+      qtyUnit: task.qtyUnit,
+      awardedPrice: task.dispatchPrice ?? task.standardPrice ?? 0,
+      currency: task.dispatchPriceCurrency || task.standardPriceCurrency || 'CNY',
+      unit: task.dispatchPriceUnit || task.standardPriceUnit || task.qtyUnit || '件',
+      taskDeadline: task.taskDeadline || '',
+      notifiedAt: task.awardedAt || task.updatedAt || task.createdAt,
+      awardNote: task.priceDiffReason || '',
+      execStatus: task.status === 'NOT_STARTED' ? '待开工' : task.status === 'IN_PROGRESS' ? '进行中' : '已完工',
+    }))
+    .sort((left, right) => right.notifiedAt.localeCompare(left.notifiedAt))
 }
 
 function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
@@ -735,9 +784,15 @@ export function renderPdaTaskReceivePage(): string {
 
   const activeBiddingTenders = getActiveBiddingTenders()
   const allQuotedTenders = getQuotedTenders()
+  const awardedTenders = getAwardedTenders(selectedFactoryId)
   const filteredPendingTasks = getFilteredPendingTasks(pendingAcceptTasks)
-  const tabCounts = getTabCounts(pendingAcceptTasks, activeBiddingTenders)
-  const quotingTender = MOCK_TENDERS_BIDDING.find((item) => item.tenderId === state.quotingTenderId) ?? null
+  const tabCounts = getTabCounts(
+    pendingAcceptTasks,
+    activeBiddingTenders,
+    allQuotedTenders,
+    awardedTenders,
+  )
+  const quotingTender = activeBiddingTenders.find((item) => item.tenderId === state.quotingTenderId) ?? null
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
@@ -856,9 +911,9 @@ export function renderPdaTaskReceivePage(): string {
                 平台定标即视为任务归属确定，无需二次确认，直接进入生产执行。
               </div>
               ${
-                MOCK_AWARDED.length === 0
+                awardedTenders.length === 0
                   ? renderEmptyState('暂无已中标任务')
-                  : MOCK_AWARDED.map((item) => renderAwardedItem(item)).join('')
+                  : awardedTenders.map((item) => renderAwardedItem(item)).join('')
               }
             `
             : ''
@@ -1025,6 +1080,12 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
     const quotingTenderId = state.quotingTenderId
     if (quotingTenderId) {
       state.submittedTenderIds = new Set([...state.submittedTenderIds, quotingTenderId])
+      submittedQuotes.set(quotingTenderId, {
+        quotedPrice: Number(state.quoteAmount),
+        quotedAt: nowTimestamp(),
+        deliveryDays: Number(state.deliveryDays || '0') || 0,
+        remark: state.quoteRemark.trim(),
+      })
     }
 
     closeQuoteDialog()

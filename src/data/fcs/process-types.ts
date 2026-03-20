@@ -148,7 +148,7 @@ for (const craftDef of listProcessCraftDefinitions()) {
 const compatibilitySeeds: ProcessType[] = [
   {
     code: 'PROC_IRON',
-    nameZh: '整烫',
+    nameZh: '熨烫',
     stage: 'POST',
     assignmentGranularity: 'SKU',
     canOutsource: false,
@@ -158,7 +158,7 @@ const compatibilitySeeds: ProcessType[] = [
     recommendedOwnerTypes: ['FINISHING', 'SEWING'],
     defaultQcPoints: [],
     defaultParamKeys: [],
-    processCode: 'POST',
+    processCode: 'IRONING',
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
@@ -175,7 +175,7 @@ const compatibilitySeeds: ProcessType[] = [
     recommendedOwnerTypes: ['WAREHOUSE', 'FINISHING'],
     defaultQcPoints: [],
     defaultParamKeys: [],
-    processCode: 'POST',
+    processCode: 'PACKAGING',
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,

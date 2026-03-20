@@ -1,13 +1,8 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
-import {
-  processTasks,
-  type ProcessTask,
-  type TaskStatus,
-} from '../data/fcs/process-tasks'
+import { type ProcessTask, type TaskStatus } from '../data/fcs/process-tasks'
 import { productionOrders } from '../data/fcs/production-orders'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
-import { initialTenders } from '../data/fcs/store-domain-dispatch-process'
 import {
   initialNotifications,
   initialUrges,
@@ -30,6 +25,12 @@ import {
   getHandoverOrderTimelineViews,
   getProductionOrderHandoverSummary,
 } from '../data/fcs/handover-ledger-view'
+import {
+  getTaskChainTaskById,
+  getTaskChainTaskDisplayName,
+  listTaskChainTasks,
+  listTaskChainTenders,
+} from '../data/fcs/page-adapters/task-chain-pages-adapter'
 
 type UrgeTab = 'inbox' | 'outbox'
 type TargetTypeWithoutTechPack = Exclude<TargetType, 'TECH_PACK'>
@@ -149,11 +150,11 @@ function nowTimestamp(date: Date = new Date()): string {
 }
 
 function listUrgeTasks(): ProcessTask[] {
-  return processTasks.filter((task) => task.defaultDocType !== 'DEMAND')
+  return listTaskChainTasks()
 }
 
 function getTaskDisplayName(task: ProcessTask): string {
-  return task.taskCategoryZh || task.craftName || task.processBusinessName || task.processNameZh
+  return getTaskChainTaskDisplayName(task)
 }
 
 function parseDateTime(value: string | undefined): number {
@@ -252,6 +253,10 @@ function updateNotification(updated: Notification): void {
   }
 }
 
+function nextUrgeAuditLogId(urgeId: string, index: number): string {
+  return `UAL-${urgeId}-${String(index).padStart(3, '0')}`
+}
+
 function createNotification(payload: Omit<Notification, 'notificationId' | 'createdAt'>): Notification {
   const notification: Notification = {
     ...payload,
@@ -291,15 +296,16 @@ function markAllNotificationsRead(filter?: { recipientType?: RecipientType; reci
 
 function createUrge(payload: Omit<UrgeLog, 'urgeId' | 'createdAt' | 'status' | 'auditLogs'>): UrgeLog {
   const createdAt = nowTimestamp()
+  const urgeId = generateUrgeId()
 
   const urge: UrgeLog = {
     ...payload,
-    urgeId: generateUrgeId(),
+    urgeId,
     createdAt,
     status: 'SENT',
     auditLogs: [
       {
-        id: `UAL-${Date.now()}`,
+        id: nextUrgeAuditLogId(urgeId, 1),
         action: 'SEND',
         detail: '发送催办',
         at: createdAt,
@@ -449,7 +455,7 @@ function recomputeAutoNotifications(): number {
   })
 
   // C. 竞价临近截止/逾期
-  initialTenders.forEach((tender) => {
+  listTaskChainTenders().forEach((tender) => {
     if (tender.status !== 'OPEN') return
 
     const deadline = new Date(tender.deadline.replace(' ', 'T'))
@@ -664,7 +670,7 @@ function isMaterialRelated(title: string, content: string, tags?: string[]): boo
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return listUrgeTasks().find((item) => item.taskId === taskId)
+  return getTaskChainTaskById(taskId)
 }
 
 function getTargetOptions(targetType: TargetTypeWithoutTechPack): Array<{ id: string; label: string }> {
@@ -679,7 +685,7 @@ function getTargetOptions(targetType: TargetTypeWithoutTechPack): Array<{ id: st
         label: `${view.productionOrderNo} - ${view.currentBottleneckLabel}`,
       }))
     case 'TENDER':
-      return initialTenders.map((tender) => ({ id: tender.tenderId, label: `${tender.tenderId} - ${tender.taskIds.length}个任务` }))
+      return listTaskChainTenders().map((tender) => ({ id: tender.tenderId, label: `${tender.tenderId} - ${tender.taskIds.length}个任务` }))
     case 'ORDER':
       return productionOrders.map((order) => ({ id: order.productionOrderId, label: `${order.productionOrderId} - ${order.demandSnapshot.spuName}` }))
     default:

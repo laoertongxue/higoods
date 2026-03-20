@@ -99,19 +99,19 @@ function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
-function randomSuffix(length = 4): string {
-  return Math.random().toString(36).slice(2, 2 + length).toUpperCase()
-}
+let returnInboundGeneratedSeq = 1
 
 function ensureUniqueId(prefix: string, hasId: (id: string) => boolean): string {
-  const base = Date.now()
-  let offset = 0
-  while (offset < 1000) {
-    const id = `${prefix}-${base + offset}-${randomSuffix(3)}`
+  let attempts = 0
+  while (attempts < 10000) {
+    const id = `${prefix}-${String(returnInboundGeneratedSeq).padStart(6, '0')}`
+    returnInboundGeneratedSeq += 1
     if (!hasId(id)) return id
-    offset += 1
+    attempts += 1
   }
-  return `${prefix}-${base}-${randomSuffix(6)}`
+  const id = `${prefix}-${String(returnInboundGeneratedSeq).padStart(6, '0')}`
+  returnInboundGeneratedSeq += 1
+  return id
 }
 
 export function createReturnInboundBatchRecord(input: CreateReturnInboundBatchRecordInput): ReturnInboundBatch {

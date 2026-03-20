@@ -9,9 +9,9 @@ import {
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 
 const processTasks = listLegacyLikeProcessTasksForTailPages()
-const initialQualityInspections = listLegacyLikeQualityInspectionsForTailPages()
-const initialDeductionBasisItems = listLegacyLikeDeductionBasisForTailPages()
-const initialDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
+const legacyLikeQualityInspections = listLegacyLikeQualityInspectionsForTailPages()
+const legacyLikeDeductionBasisItems = listLegacyLikeDeductionBasisForTailPages()
+const legacyLikeDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
 const initialStatementDrafts = listLegacyLikeStatementDraftsForTailPages()
 const initialSettlementBatches = listLegacyLikeSettlementBatchesForTailPages()
 
@@ -128,7 +128,7 @@ function renderSectionTable(title: string, header: string[], rowsHtml: string, e
 function buildTodos(): TodoItem[] {
   const todos: TodoItem[] = []
 
-  initialQualityInspections
+  legacyLikeQualityInspections
     .filter((qc) => qc.status === 'SUBMITTED' && (!qc.liabilityStatus || qc.liabilityStatus === 'DRAFT'))
     .forEach((qc) => {
       todos.push({
@@ -144,7 +144,7 @@ function buildTodos(): TodoItem[] {
       })
     })
 
-  initialQualityInspections
+  legacyLikeQualityInspections
     .filter((qc) => qc.status === 'SUBMITTED' && qc.liabilityStatus === 'CONFIRMED')
     .forEach((qc) => {
       todos.push({
@@ -160,7 +160,7 @@ function buildTodos(): TodoItem[] {
       })
     })
 
-  initialQualityInspections
+  legacyLikeQualityInspections
     .filter((qc) => qc.liabilityStatus === 'DISPUTED')
     .forEach((qc) => {
       todos.push({
@@ -182,7 +182,7 @@ function buildTodos(): TodoItem[] {
       .flatMap((statement) => statement.itemBasisIds),
   )
 
-  initialDeductionBasisItems
+  legacyLikeDeductionBasisItems
     .filter((basis) => basis.settlementReady === true && !occupiedIds.has(basis.basisId))
     .forEach((basis) => {
       todos.push({
@@ -236,7 +236,7 @@ function buildRisks(): RiskItem[] {
       })
     })
 
-  initialDeductionBasisItems
+  legacyLikeDeductionBasisItems
     .filter((basis) => basis.status === 'DISPUTED' || (basis.settlementFreezeReason?.includes('争议') ?? false))
     .forEach((basis) => {
       risks.push({
@@ -256,7 +256,7 @@ function buildRisks(): RiskItem[] {
   const now = Date.now()
   const olderThan3Days = (value: string) => now - new Date(value).getTime() > threeDaysMs
 
-  initialQualityInspections
+  legacyLikeQualityInspections
     .filter((qc) => qc.status === 'SUBMITTED' && olderThan3Days(qc.createdAt))
     .forEach((qc) => {
       risks.push({
@@ -293,23 +293,23 @@ function buildRisks(): RiskItem[] {
 
 export function renderOverviewPage(): string {
   const blockedTasks = processTasks.filter((task) => task.status === 'BLOCKED' && task.blockReason === 'ALLOCATION_GATE')
-  const openQc = initialQualityInspections.filter((item) => item.status !== 'CLOSED')
-  const disputedQc = initialQualityInspections.filter((item) => item.liabilityStatus === 'DISPUTED')
-  const disputedBasis = initialDeductionBasisItems.filter((item) => item.status === 'DISPUTED')
-  const readyBasis = initialDeductionBasisItems.filter((item) => item.settlementReady === true)
-  const frozenBasis = initialDeductionBasisItems.filter((item) => !item.settlementReady && item.status !== 'VOID')
+  const openQc = legacyLikeQualityInspections.filter((item) => item.status !== 'CLOSED')
+  const disputedQc = legacyLikeQualityInspections.filter((item) => item.liabilityStatus === 'DISPUTED')
+  const disputedBasis = legacyLikeDeductionBasisItems.filter((item) => item.status === 'DISPUTED')
+  const readyBasis = legacyLikeDeductionBasisItems.filter((item) => item.settlementReady === true)
+  const frozenBasis = legacyLikeDeductionBasisItems.filter((item) => !item.settlementReady && item.status !== 'VOID')
   const draftStatements = initialStatementDrafts.filter((item) => item.status === 'DRAFT')
   const processingBatches = initialSettlementBatches.filter((item) => item.status === 'PROCESSING')
-  const dpTotal = initialDyePrintOrders.length
-  const dpAvailable = initialDyePrintOrders.filter((item) => item.availableQty > 0).length
-  const dpFail = initialDyePrintOrders.filter((item) => item.returnedFailQty > 0).length
+  const dpTotal = legacyLikeDyePrintOrders.length
+  const dpAvailable = legacyLikeDyePrintOrders.filter((item) => item.availableQty > 0).length
+  const dpFail = legacyLikeDyePrintOrders.filter((item) => item.returnedFailQty > 0).length
 
   const disputedCount = new Set([
     ...disputedQc.map((item) => item.qcId),
     ...disputedBasis.map((item) => item.basisId),
   ]).size
 
-  const recentQc = [...initialQualityInspections]
+  const recentQc = [...legacyLikeQualityInspections]
     .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))
     .slice(0, 5)
 
@@ -414,7 +414,7 @@ export function renderOverviewPage(): string {
           ${statCard('染印加工单总数', dpTotal)}
           ${statCard('染印可继续工单数', dpAvailable, 'text-green-600')}
           ${statCard('染印不合格处理中数', dpFail, dpFail > 0 ? 'text-red-600' : 'text-foreground')}
-          ${statCard('回货批次数', initialDyePrintOrders.reduce((sum, item) => sum + item.returnBatches.length, 0))}
+          ${statCard('回货批次数', legacyLikeDyePrintOrders.reduce((sum, item) => sum + item.returnBatches.length, 0))}
         </div>
       </section>
 

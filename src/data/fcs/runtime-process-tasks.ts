@@ -146,7 +146,7 @@ function normalizeColorLabel(color: string): string {
 function makeRuntimeAuditId(taskId: string): string {
   runtimeAuditSeq += 1
   const cleanTaskId = taskId.replace(/[^A-Za-z0-9]/g, '')
-  return `RAL-${cleanTaskId}-${Date.now()}-${runtimeAuditSeq}`
+  return `RAL-${cleanTaskId}-${String(runtimeAuditSeq).padStart(6, '0')}`
 }
 
 function appendRuntimeAudit(task: RuntimeProcessTask, action: string, detail: string, by: string): TaskAuditLog[] {

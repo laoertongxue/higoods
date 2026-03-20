@@ -8,6 +8,11 @@ import {
   listProgressMaterialIssueRows,
   listProgressMaterialStatementDrafts,
 } from './store-domain-progress'
+import {
+  listRuntimeProcessTasks,
+  upsertRuntimeTaskTender,
+  type RuntimeProcessTask,
+} from './runtime-process-tasks'
 
 // ─── 招标单台账 ──────────────────────────────
 export type TenderOrderStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'VOID'
@@ -171,109 +176,179 @@ export interface Tender {
   auditLogs: { id: string; action: string; detail: string; at: string; by: string }[]
 }
 
-// ─── Seed 时间常量 ────────────────────────────
-// Use FIXED dates to avoid hydration mismatch (module-level new Date() produces
-// different values on server vs client, causing useReducer initial state divergence).
-export const now = new Date('2026-03-12T10:00:00Z')
-export const tomorrow = new Date('2026-03-13T10:00:00Z')
-export const yesterday = new Date('2026-03-11T10:00:00Z')
-export const threeDaysLater = new Date('2026-03-15T10:00:00Z')
+function parseDateLike(value: string | undefined): number {
+  if (!value) return Number.NaN
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  return new Date(normalized).getTime()
+}
 
-// ─── initialTenders ───────────────────────────
-export const initialTenders: Tender[] = [
-  // 1. 即将截止的竞价 (<24h) - PO-202603-0006 打条工艺
-  {
-    tenderId: 'TENDER-0002-001',
-    taskIds: ['TASK-202603-0006-002', 'TASK-0002-002'],
-    productionOrderIds: ['PO-202603-0006', 'PO-2024-0002'],
-    deadline: tomorrow.toISOString().replace('T', ' ').slice(0, 19),
-    invitedFactoryIds: ['ID-F003', 'ID-F005', 'ID-F008', 'ID-F012'],
-    status: 'OPEN',
-    bids: [
-      { bidId: 'BID-001', factoryId: 'ID-F003', factoryName: 'Tangerang Satellite Cluster', price: 15000, currency: 'IDR', deliveryDays: 5, submittedAt: '2026-03-02 10:00:00' },
-      { bidId: 'BID-002', factoryId: 'ID-F005', factoryName: 'Bandung Print House', price: 14500, currency: 'IDR', deliveryDays: 6, submittedAt: '2026-03-02 11:00:00' },
-    ],
-    awardRule: 'LOWEST_PRICE',
-    createdAt: '2026-03-01 10:00:00',
-    createdBy: 'Admin',
-    updatedAt: '2026-03-02 11:00:00',
-    auditLogs: [
-      { id: 'TAL-001', action: 'CREATE', detail: '创建竞价招标单', at: '2026-03-01 10:00:00', by: 'Admin' },
-    ],
-  },
-  // 2. 已逾期的竞价
-  {
-    tenderId: 'TENDER-0005-002',
-    taskIds: ['TASK-0005-003'],
-    productionOrderIds: ['PO-2024-0005'],
-    deadline: yesterday.toISOString().replace('T', ' ').slice(0, 19),
-    invitedFactoryIds: ['ID-F007', 'ID-F009', 'ID-F011'],
-    status: 'OVERDUE',
-    bids: [],
-    awardRule: 'LOWEST_PRICE',
-    createdAt: '2026-02-25 09:00:00',
-    createdBy: 'Admin',
-    updatedAt: yesterday.toISOString().replace('T', ' ').slice(0, 19),
-    auditLogs: [
-      { id: 'TAL-002', action: 'CREATE', detail: '创建竞价招标单', at: '2026-02-25 09:00:00', by: 'Admin' },
-      { id: 'TAL-003', action: 'OVERDUE', detail: '竞价已逾期', at: yesterday.toISOString().replace('T', ' ').slice(0, 19), by: '系统' },
-    ],
-  },
-  // 3. 已中标的竞价
-  {
-    tenderId: 'TENDER-0005-001',
-    taskIds: ['TASK-0005-002'],
-    productionOrderIds: ['PO-2024-0005'],
-    deadline: '2026-02-20 18:00:00',
-    invitedFactoryIds: ['ID-F010', 'ID-F012', 'ID-F014'],
-    status: 'AWARDED',
-    winnerFactoryId: 'ID-F010',
-    winnerBidId: 'BID-003',
-    bids: [
-      { bidId: 'BID-003', factoryId: 'ID-F010', factoryName: 'Jakarta Special Process', price: 28000, currency: 'IDR', deliveryDays: 7, submittedAt: '2026-02-19 14:00:00' },
-      { bidId: 'BID-004', factoryId: 'ID-F012', factoryName: 'Cimahi Micro Sewing', price: 30000, currency: 'IDR', deliveryDays: 6, submittedAt: '2026-02-19 15:00:00' },
-    ],
-    awardRule: 'LOWEST_PRICE',
-    createdAt: '2026-02-15 10:00:00',
-    createdBy: 'Admin',
-    updatedAt: '2026-02-20 18:30:00',
-    auditLogs: [
-      { id: 'TAL-004', action: 'CREATE', detail: '创建竞价招标单', at: '2026-02-15 10:00:00', by: 'Admin' },
-      { id: 'TAL-005', action: 'AWARD', detail: '定标完成，中标工厂: ID-F010', at: '2026-02-20 18:30:00', by: 'Admin' },
-    ],
-  },
-  // 4. 正常进行中的竞价 (>24h)
-  {
-    tenderId: 'TENDER-NEW-001',
-    taskIds: ['TASK-NEW-001', 'TASK-NEW-002'],
-    productionOrderIds: ['PO-2024-0010'],
-    deadline: threeDaysLater.toISOString().replace('T', ' ').slice(0, 19),
-    invitedFactoryIds: ['ID-F001', 'ID-F002', 'ID-F003', 'ID-F004', 'ID-F005'],
-    status: 'OPEN',
-    bids: [
-      { bidId: 'BID-005', factoryId: 'ID-F001', factoryName: 'Jakarta Central Factory', price: 12000, currency: 'IDR', deliveryDays: 4, submittedAt: '2026-03-02 09:00:00' },
-    ],
-    awardRule: 'LOWEST_PRICE',
-    createdAt: '2026-03-01 14:00:00',
-    createdBy: 'Admin',
-    updatedAt: '2026-03-02 09:00:00',
-    auditLogs: [
-      { id: 'TAL-006', action: 'CREATE', detail: '创建竞价招标单', at: '2026-03-01 14:00:00', by: 'Admin' },
-    ],
-  },
-]
+function formatTimestamp(date: Date): string {
+  return date.toISOString().replace('T', ' ').slice(0, 19)
+}
 
-// ─── initialTenderOrders ──────────────────────
-export const initialTenderOrders: TenderOrder[] = [
-  { tenderId: 'TD-202603-0001', taskIds: ['TASK-0002-001'], titleZh: '染色工序竞价招标', targetFactoryIds: ['ID-F005', 'ID-F007'], bidDeadline: '2026-03-10 18:00:00', status: 'OPEN', createdAt: '2026-03-01 10:00:00', createdBy: '管理员', updatedAt: '2026-03-01 10:00:00', updatedBy: '管理员' },
-  { tenderId: 'TD-202603-0002', taskIds: ['TASK-0005-002', 'TASK-0005-003'], titleZh: '车缝及后整竞价', targetFactoryIds: ['ID-F006'], bidDeadline: '2026-03-08 12:00:00', status: 'CLOSED', createdAt: '2026-02-28 09:00:00', createdBy: '管理员', updatedAt: '2026-03-08 12:01:00', updatedBy: '管理员' },
-  { tenderId: 'TD-202603-0003', taskIds: ['TASK-0007-001'], titleZh: '打条竞价招标单', targetFactoryIds: [], bidDeadline: '2026-03-15 18:00:00', status: 'DRAFT', createdAt: '2026-03-05 14:00:00', createdBy: '管理员' },
-]
+function resolveTenderStatus(tasks: RuntimeProcessTask[], deadline: string): TenderStatus {
+  const hasAwarded = tasks.some((task) => task.assignmentStatus === 'AWARDED')
+  if (hasAwarded) return 'AWARDED'
 
-// ─── initialMaterialIssueSheets ───────────────
-// 兼容导出：保留旧字段名，底层改为由新执行链路映射生成。
-// 注意：该常量不再作为主真相源，若需实时数据请使用 listMaterialIssueSheetsFromRuntime。
-export const initialMaterialIssueSheets: MaterialIssueSheet[] = buildLegacyMaterialIssueSheetsFromRuntime()
+  const hasActiveBidding = tasks.some(
+    (task) =>
+      task.assignmentMode === 'BIDDING'
+      && (task.assignmentStatus === 'BIDDING' || task.assignmentStatus === 'ASSIGNING'),
+  )
+  if (!hasActiveBidding) return 'CLOSED'
+
+  const deadlineMs = parseDateLike(deadline)
+  const mockNowMs = parseDateLike('2026-03-20 10:00:00')
+  if (Number.isFinite(deadlineMs) && Number.isFinite(mockNowMs) && deadlineMs < mockNowMs) return 'OVERDUE'
+  return 'OPEN'
+}
+
+function resolveTenderDeadline(tasks: RuntimeProcessTask[]): string {
+  const deadlines = tasks
+    .map((task) => task.biddingDeadline || task.taskDeadline || '')
+    .filter((value) => Boolean(value))
+    .sort((left, right) => parseDateLike(left) - parseDateLike(right))
+  return deadlines[0] ?? ''
+}
+
+function buildLegacyTendersFromRuntime(): Tender[] {
+  const runtimeTasks = listRuntimeProcessTasks().filter(
+    (task) => Boolean(task.tenderId) && task.defaultDocType !== 'DEMAND',
+  )
+  const grouped = new Map<string, RuntimeProcessTask[]>()
+
+  for (const task of runtimeTasks) {
+    if (!task.tenderId) continue
+    const current = grouped.get(task.tenderId) ?? []
+    current.push(task)
+    grouped.set(task.tenderId, current)
+  }
+
+  return Array.from(grouped.entries())
+    .map(([tenderId, tasks]) => {
+      const taskIds = Array.from(new Set(tasks.map((task) => task.baseTaskId || task.taskId)))
+      const productionOrderIds = Array.from(new Set(tasks.map((task) => task.productionOrderId)))
+      const invitedFactoryIds = Array.from(
+        new Set(tasks.map((task) => task.assignedFactoryId).filter((factoryId): factoryId is string => Boolean(factoryId))),
+      )
+      const deadline = resolveTenderDeadline(tasks)
+      const createdAt = [...tasks]
+        .map((task) => task.createdAt)
+        .filter((value) => Boolean(value))
+        .sort((left, right) => parseDateLike(left) - parseDateLike(right))[0] ?? formatTimestamp(new Date('2026-03-01T00:00:00Z'))
+      const updatedAt = [...tasks]
+        .map((task) => task.updatedAt)
+        .filter((value) => Boolean(value))
+        .sort((left, right) => parseDateLike(right) - parseDateLike(left))[0] ?? createdAt
+      const winnerTask = tasks.find((task) => task.assignmentStatus === 'AWARDED')
+      const winnerFactoryId = winnerTask?.assignedFactoryId
+
+      return {
+        tenderId,
+        taskIds,
+        productionOrderIds,
+        deadline,
+        invitedFactoryIds,
+        status: resolveTenderStatus(tasks, deadline),
+        winnerFactoryId,
+        bids: [],
+        awardRule: 'LOWEST_PRICE',
+        createdAt,
+        createdBy: '系统',
+        updatedAt,
+        auditLogs: [
+          {
+            id: `TAL-${tenderId}-001`,
+            action: 'DERIVE',
+            detail: '由 runtime 任务事实映射生成竞价台账',
+            at: updatedAt,
+            by: '系统',
+          },
+        ],
+      } satisfies Tender
+    })
+    .sort((left, right) => left.tenderId.localeCompare(right.tenderId))
+}
+
+export function listTendersFromRuntime(): Tender[] {
+  return buildLegacyTendersFromRuntime().map((item) => ({
+    ...item,
+    taskIds: [...item.taskIds],
+    productionOrderIds: [...item.productionOrderIds],
+    invitedFactoryIds: [...item.invitedFactoryIds],
+    bids: item.bids.map((bid) => ({ ...bid })),
+    auditLogs: item.auditLogs.map((log) => ({ ...log })),
+  }))
+}
+
+export function getTenderByIdFromRuntime(tenderId: string): Tender | undefined {
+  return listTendersFromRuntime().find((item) => item.tenderId === tenderId)
+}
+
+export function listTenderOrdersFromRuntime(): TenderOrder[] {
+  return listTendersFromRuntime().map((tender) => {
+    const status: TenderOrderStatus =
+      tender.status === 'CANCELLED'
+        ? 'VOID'
+        : tender.status === 'OPEN' || tender.status === 'OVERDUE'
+          ? 'OPEN'
+          : 'CLOSED'
+
+    return {
+      tenderId: tender.tenderId,
+      productionOrderId: tender.productionOrderIds[0],
+      taskIds: [...tender.taskIds],
+      titleZh: '工序竞价招标',
+      targetFactoryIds: [...tender.invitedFactoryIds],
+      bidDeadline: tender.deadline,
+      status,
+      candidateFactoryIds: [...tender.invitedFactoryIds],
+      awardedFactoryId: tender.winnerFactoryId,
+      awardStatus: tender.status === 'AWARDED' ? 'AWARDED' : 'PENDING',
+      createdAt: tender.createdAt,
+      createdBy: tender.createdBy,
+      updatedAt: tender.updatedAt,
+      updatedBy: '系统',
+    } satisfies TenderOrder
+  })
+}
+
+export function extendTenderDeadlineFromRuntime(
+  tenderId: string,
+  extendHours: number,
+  by: string,
+): string | null {
+  const targetTasks = listRuntimeProcessTasks().filter((task) => task.tenderId === tenderId)
+  if (!targetTasks.length) return null
+
+  const currentDeadline = resolveTenderDeadline(targetTasks)
+  const baseMs = parseDateLike(currentDeadline)
+  const baseDate = Number.isFinite(baseMs) ? new Date(baseMs) : new Date('2026-03-20T00:00:00Z')
+  baseDate.setHours(baseDate.getHours() + extendHours)
+  const nextDeadline = formatTimestamp(baseDate)
+
+  targetTasks.forEach((task) => {
+    upsertRuntimeTaskTender(
+      task.taskId,
+      {
+        tenderId,
+        biddingDeadline: nextDeadline,
+        taskDeadline: task.taskDeadline || nextDeadline,
+      },
+      by,
+    )
+  })
+
+  return nextDeadline
+}
+
+// ─── 兼容常量导出（非主真相） ──────────────────
+export const initialTenders: Tender[] = buildLegacyTendersFromRuntime()
+export const initialTenderOrders: TenderOrder[] = listTenderOrdersFromRuntime()
+
+// ─── 历史领料单快照（兼容读取，非主真相） ───────────────
+// 主流程请使用 listMaterialIssueSheetsFromRuntime 获取实时映射。
+export const legacyMaterialIssueSheetsSnapshot: MaterialIssueSheet[] = buildLegacyMaterialIssueSheetsFromRuntime()
 
 // 兼容读取：旧页面若仍按“初始常量”语义读取，可改用本 getter 获取实时映射结果。
 export function getInitialMaterialIssueSheetsLegacy(): MaterialIssueSheet[] {

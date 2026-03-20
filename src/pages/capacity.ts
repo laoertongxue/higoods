@@ -9,10 +9,10 @@ import {
 import { escapeHtml, toClassName } from '../utils'
 
 const processTasks = listLegacyLikeProcessTasksForTailPages()
-const initialQualityInspections = listLegacyLikeQualityInspectionsForTailPages()
-const initialDeductionBasisItems = listLegacyLikeDeductionBasisForTailPages()
-const initialDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
-const initialExceptions = listLegacyLikeExceptionsForTailPages()
+const legacyLikeQualityInspections = listLegacyLikeQualityInspectionsForTailPages()
+const legacyLikeDeductionBasisItems = listLegacyLikeDeductionBasisForTailPages()
+const legacyLikeDyePrintOrders = listLegacyLikeDyePrintOrdersForTailPages()
+const legacyLikeExceptions = listLegacyLikeExceptionsForTailPages()
 
 type Tone = 'default' | 'secondary' | 'destructive' | 'outline'
 
@@ -110,20 +110,20 @@ function orderFactoryName(orderId: string): string {
 }
 
 function getOrderDyeStatus(orderId: string): string {
-  const orderDyes = initialDyePrintOrders.filter((item) => item.productionOrderId === orderId)
+  const orderDyes = legacyLikeDyePrintOrders.filter((item) => item.productionOrderId === orderId)
   if (orderDyes.length === 0) return '无染印'
   if (orderDyes.some((item) => item.availableQty > 0)) return '可继续'
   return '生产暂停'
 }
 
 function getOrderQcPendingCount(orderId: string): number {
-  return initialQualityInspections.filter(
+  return legacyLikeQualityInspections.filter(
     (item) => item.productionOrderId === orderId && item.status !== 'CLOSED',
   ).length
 }
 
 function getOrderOpenExceptionCount(orderId: string): number {
-  return initialExceptions.filter(
+  return legacyLikeExceptions.filter(
     (item) => item.relatedOrderIds.includes(orderId) && item.caseStatus !== 'CLOSED',
   ).length
 }
@@ -140,9 +140,9 @@ function getOverviewStats() {
   const orders = productionOrders.length
   const tasks = processTasks.length
   const blocked = processTasks.filter((task) => task.status === 'BLOCKED').length
-  const dyePending = initialDyePrintOrders.filter((dpo) => dpo.availableQty <= 0).length
-  const qcPending = initialQualityInspections.filter((item) => item.status !== 'CLOSED').length
-  const settlementReady = initialDeductionBasisItems.filter((item) => item.settlementReady === true).length
+  const dyePending = legacyLikeDyePrintOrders.filter((dpo) => dpo.availableQty <= 0).length
+  const qcPending = legacyLikeQualityInspections.filter((item) => item.status !== 'CLOSED').length
+  const settlementReady = legacyLikeDeductionBasisItems.filter((item) => item.settlementReady === true).length
 
   return { orders, tasks, blocked, dyePending, qcPending, settlementReady }
 }
@@ -184,7 +184,7 @@ function getOverviewFactoryRows() {
     if (task.status === 'BLOCKED') row.blockedCount += 1
   }
 
-  for (const dpo of initialDyePrintOrders) {
+  for (const dpo of legacyLikeDyePrintOrders) {
     const factoryId = dpo.processorFactoryId ?? '未知工厂'
     if (!map.has(factoryId)) {
       map.set(factoryId, {
@@ -202,8 +202,8 @@ function getOverviewFactoryRows() {
     row.dyeCount += 1
   }
 
-  for (const qc of initialQualityInspections.filter((item) => item.status !== 'CLOSED')) {
-    const basis = initialDeductionBasisItems.find(
+  for (const qc of legacyLikeQualityInspections.filter((item) => item.status !== 'CLOSED')) {
+    const basis = legacyLikeDeductionBasisItems.find(
       (item) => item.sourceRefId === qc.qcId || item.sourceId === qc.qcId,
     )
     const factoryId =
@@ -485,8 +485,8 @@ export function renderCapacityOverviewPage(): string {
 
 function getRiskTaskRows() {
   return processTasks.map((task) => {
-    const orderDyes = initialDyePrintOrders.filter((dpo) => dpo.productionOrderId === task.productionOrderId)
-    const orderQcs = initialQualityInspections.filter((qc) => qc.productionOrderId === task.productionOrderId)
+    const orderDyes = legacyLikeDyePrintOrders.filter((dpo) => dpo.productionOrderId === task.productionOrderId)
+    const orderQcs = legacyLikeQualityInspections.filter((qc) => qc.productionOrderId === task.productionOrderId)
 
     const dyeRiskZh =
       orderDyes.length === 0
@@ -801,11 +801,11 @@ function getBottleneckFactoryRows() {
     const taskCount = tasks.length
     const blockedTaskCount = tasks.filter((task) => task.status === 'BLOCKED').length
 
-    const qcPendingCount = initialQualityInspections.filter(
+    const qcPendingCount = legacyLikeQualityInspections.filter(
       (qc) => item.orderIds.has(qc.productionOrderId) && qc.status !== 'CLOSED',
     ).length
 
-    const dyePendingCount = initialDyePrintOrders.filter(
+    const dyePendingCount = legacyLikeDyePrintOrders.filter(
       (dpo) => item.orderIds.has(dpo.productionOrderId) && dpo.availableQty <= 0,
     ).length
 
@@ -1071,7 +1071,7 @@ export function renderCapacityBottleneckPage(): string {
     taskHigh: taskRows.filter((row) => row.bottleneckLevelZh === '高').length,
     blocked: processTasks.filter((task) => task.status === 'BLOCKED').length,
     qcPending: new Set(
-      initialQualityInspections
+      legacyLikeQualityInspections
         .filter((item) => item.status !== 'CLOSED')
         .map((item) => item.productionOrderId),
     ).size,
@@ -1247,10 +1247,10 @@ function getTaskConstraints(): TaskConstraint[] {
 
     const qcConstraintZh = getOrderQcPendingCount(orderId) > 0 ? '存在待质检' : '无质检约束'
 
-    const taskException = initialExceptions.find(
+    const taskException = legacyLikeExceptions.find(
       (item) => item.sourceType === 'TASK' && item.sourceId === task.taskId && item.caseStatus !== 'CLOSED',
     )
-    const orderException = initialExceptions.find(
+    const orderException = legacyLikeExceptions.find(
       (item) => item.relatedOrderIds.includes(orderId) && item.caseStatus !== 'CLOSED',
     )
 
@@ -1679,7 +1679,7 @@ function getTaskPolicies() {
 
     const qcConstraintZh = orderQcMap.get(orderId) ? '存在待质检' : '无质检约束'
 
-    const taskHasException = initialExceptions.some(
+    const taskHasException = legacyLikeExceptions.some(
       (item) => item.sourceType === 'TASK' && item.sourceId === task.taskId && item.caseStatus !== 'CLOSED',
     )
     const orderHasException = orderExceptionMap.get(orderId)

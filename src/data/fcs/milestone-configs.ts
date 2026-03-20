@@ -134,6 +134,18 @@ const milestoneConfigs: MilestoneConfig[] = [
   },
 ]
 
+let milestoneConfigSeq = 1
+
+function nextMilestoneConfigId(processCode: string): string {
+  const sanitized = processCode.replace(/[^A-Z0-9_-]/gi, '').toUpperCase() || 'PROC'
+  while (milestoneConfigs.some((item) => item.id === `MC-${sanitized}-${String(milestoneConfigSeq).padStart(4, '0')}`)) {
+    milestoneConfigSeq += 1
+  }
+  const id = `MC-${sanitized}-${String(milestoneConfigSeq).padStart(4, '0')}`
+  milestoneConfigSeq += 1
+  return id
+}
+
 function cloneConfig(item: MilestoneConfig): MilestoneConfig {
   return { ...item }
 }
@@ -242,7 +254,7 @@ export function createMilestoneConfig(
   const targetQty = normalizeTargetQty(payload.targetQty)
   const targetUnit = getMilestoneTargetUnitByRuleType(payload.ruleType)
   const next: MilestoneConfig = {
-    id: `MC-${payload.processCode}-${Date.now()}`,
+    id: nextMilestoneConfigId(payload.processCode),
     processCode: payload.processCode,
     processNameZh: payload.processNameZh,
     enabled: payload.enabled,

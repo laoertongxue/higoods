@@ -1,7 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import {
-  processTasks,
   type BlockReason,
   type ProcessTask,
   type TaskAssignmentStatus,
@@ -11,7 +10,6 @@ import {
 import { stageLabels, type ProcessStage } from '../data/fcs/process-types'
 import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
-import { initialTenders, type Tender } from '../data/fcs/store-domain-dispatch-process'
 import {
   generateCaseId,
   generateNotificationId,
@@ -41,6 +39,14 @@ import {
   getDefaultSubCategoryKeyFromReason,
   getUnifiedCategoryFromReason,
 } from '../data/fcs/progress-exception-taxonomy'
+import {
+  getTaskChainTaskById,
+  getTaskChainTaskDisplayName,
+  getTaskChainTenderById,
+  listTaskChainTasks,
+  type TaskChainTender,
+  resolveTaskChainTenderId,
+} from '../data/fcs/page-adapters/task-chain-pages-adapter'
 
 applyQualitySeedBootstrap()
 
@@ -268,20 +274,24 @@ function getFactoryById(factoryId: string) {
   return indonesiaFactories.find((factory) => factory.id === factoryId)
 }
 
-function getTenderById(tenderId: string): Tender | undefined {
-  return initialTenders.find((item) => item.tenderId === tenderId)
+function getTenderById(tenderId: string): TaskChainTender | undefined {
+  return getTaskChainTenderById(tenderId)
 }
 
 function listBoardTasks(): ProcessTask[] {
-  return processTasks.filter((task) => task.defaultDocType !== 'DEMAND')
+  return listTaskChainTasks()
 }
 
 function getTaskDisplayName(task: ProcessTask): string {
-  return task.taskCategoryZh || task.craftName || task.processBusinessName || task.processNameZh
+  return getTaskChainTaskDisplayName(task)
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return listBoardTasks().find((task) => task.taskId === taskId)
+  return getTaskChainTaskById(taskId)
+}
+
+function getTaskTenderId(task: ProcessTask): string | undefined {
+  return resolveTaskChainTenderId(task)
 }
 
 function getTaskDependencies(task: ProcessTask): string[] {
@@ -379,8 +389,9 @@ function getTaskRisks(task: ProcessTask): TaskRiskFlag[] {
     risks.push('TECH_PACK_NOT_RELEASED')
   }
 
-  if (task.tenderId) {
-    const tender = getTenderById(task.tenderId)
+  const tenderId = getTaskTenderId(task)
+  if (tenderId) {
+    const tender = getTenderById(tenderId)
     if (tender) {
       const deadlineTime = parseDateTime(tender.deadline)
       const now = Date.now()
@@ -422,8 +433,9 @@ function getTaskKpiStats(): {
     done: boardTasks.filter((task) => task.status === 'DONE').length,
     unassigned: boardTasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length,
     tenderOverdue: boardTasks.filter((task) => {
-      if (!task.tenderId) return false
-      const tender = getTenderById(task.tenderId)
+      const tenderId = getTaskTenderId(task)
+      if (!tenderId) return false
+      const tender = getTenderById(tenderId)
       return tender?.status === 'OVERDUE'
     }).length,
   }
@@ -573,6 +585,22 @@ function getExceptionsByTaskId(taskId: string): ExceptionCase[] {
   return listProgressExceptions().filter((item) => item.relatedTaskIds.includes(taskId))
 }
 
+function nextUrgeAuditLogId(urgeId: string, index: number): string {
+  return `UAL-${urgeId}-${String(index).padStart(3, '0')}`
+}
+
+function nextExceptionAuditLogId(exception: ExceptionCase): string {
+  return `EAL-${exception.caseId}-${String(exception.auditLogs.length + 1).padStart(3, '0')}`
+}
+
+function nextTaskAuditLogId(task: ProcessTask): string {
+  return `AL-${task.taskId}-${String(task.auditLogs.length + 1).padStart(3, '0')}`
+}
+
+function nextOrderAuditLogId(order: ProductionOrder): string {
+  return `AL-ORDER-${order.productionOrderId}-${String(order.auditLogs.length + 1).padStart(3, '0')}`
+}
+
 function createNotification(payload: Omit<Notification, 'notificationId' | 'createdAt'>): Notification {
   const notification: Notification = {
     ...payload,
@@ -586,15 +614,16 @@ function createNotification(payload: Omit<Notification, 'notificationId' | 'crea
 
 function createUrge(payload: Omit<UrgeLog, 'urgeId' | 'createdAt' | 'status' | 'auditLogs'>): UrgeLog {
   const createdAt = nowTimestamp()
+  const urgeId = generateUrgeId()
 
   const urge: UrgeLog = {
     ...payload,
-    urgeId: generateUrgeId(),
+    urgeId,
     createdAt,
     status: 'SENT',
     auditLogs: [
       {
-        id: `UAL-${Date.now()}`,
+        id: nextUrgeAuditLogId(urgeId, 1),
         action: 'SEND',
         detail: '发送催办',
         at: createdAt,
@@ -660,7 +689,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     existed.auditLogs = [
       ...existed.auditLogs,
       {
-        id: `EAL-${Date.now()}`,
+        id: nextExceptionAuditLogId(existed),
         action: 'UPDATE',
         detail: '信号重新触发，更新异常',
         at: now,
@@ -705,7 +734,8 @@ function createOrUpdateExceptionFromSignal(signal: {
     relatedTaskIds = [signal.sourceId]
     if (task) {
       relatedOrderIds = [task.productionOrderId]
-      if (task.tenderId) relatedTenderIds = [task.tenderId]
+      const tenderId = getTaskTenderId(task)
+      if (tenderId) relatedTenderIds = [tenderId]
     }
   } else if (signal.sourceType === 'ORDER') {
     relatedOrderIds = [signal.sourceId]
@@ -761,7 +791,7 @@ function createOrUpdateExceptionFromSignal(signal: {
     actions: [],
     auditLogs: [
       {
-        id: `EAL-${Date.now()}`,
+        id: `EAL-${exception.caseId}-001`,
         action: 'CREATE',
         detail: '系统自动生成异常单',
         at: now,
@@ -781,10 +811,8 @@ function updateTaskStatus(
   blockRemark?: string,
   by: string = 'Admin',
 ): void {
-  const index = processTasks.findIndex((task) => task.taskId === taskId)
-  if (index < 0) return
-
-  const task = processTasks[index]
+  const task = getTaskById(taskId)
+  if (!task) return
   const now = nowTimestamp()
 
   const actionMap: Record<TaskStatus, string> = {
@@ -804,7 +832,7 @@ function updateTaskStatus(
   }
 
   const auditLog: TaskAuditLog = {
-    id: `AL-${Date.now()}-${taskId}`,
+    id: nextTaskAuditLogId(task),
     action: actionMap[newStatus],
     detail: detailMap[newStatus],
     at: now,
@@ -822,7 +850,7 @@ function updateTaskStatus(
     ...(newStatus !== 'BLOCKED' ? { blockReason: undefined, blockRemark: undefined, blockedAt: undefined } : {}),
   }
 
-  processTasks[index] = updatedTask
+  Object.assign(task, updatedTask)
 
   const orderIndex = productionOrders.findIndex((order) => order.productionOrderId === task.productionOrderId)
   if (orderIndex < 0) return
@@ -847,7 +875,7 @@ function updateTaskStatus(
     auditLogs: [
       ...order.auditLogs,
       {
-        id: `AL-ORDER-${Date.now()}`,
+        id: nextOrderAuditLogId(order),
         action: 'TASK_STATUS_WRITEBACK',
         detail: `任务 ${taskId} 状态变更为 ${newStatus}`,
         at: now,
@@ -1764,7 +1792,8 @@ function renderTaskDrawer(): string {
 
   const order = getOrderById(task.productionOrderId)
   const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
-  const tender = task.tenderId ? getTenderById(task.tenderId) : undefined
+  const taskTenderId = getTaskTenderId(task)
+  const tender = taskTenderId ? getTenderById(taskTenderId) : undefined
   const taskRisks = getTaskRisks(task)
   const taskHandoverSummary = getTaskHandoverSummary(task.taskId)
   const activeTab = task.status === 'BLOCKED' ? state.taskDetailTab : state.taskDetailTab === 'block' ? 'basic' : state.taskDetailTab
@@ -1915,12 +1944,12 @@ function renderTaskDrawer(): string {
                 }
 
                 ${
-                  task.tenderId
+                  taskTenderId
                     ? `
                       <div class="space-y-2 text-sm">
                         <div>
                           <p class="text-xs text-muted-foreground">竞价ID</p>
-                          <p class="font-mono">${escapeHtml(task.tenderId)}</p>
+                          <p class="font-mono">${escapeHtml(taskTenderId)}</p>
                         </div>
                         ${
                           tender

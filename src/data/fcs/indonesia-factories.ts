@@ -929,8 +929,16 @@ export function getFactoryByCode(code: string): IndonesiaFactory | undefined {
   return indonesiaFactories.find(f => f.code === code)
 }
 
+let generatedFactoryCodeSeq = indonesiaFactories.reduce((max, factory) => {
+  const matched = factory.code.match(/ID-FAC-(\d+)/)
+  if (!matched) return max
+  const parsed = Number.parseInt(matched[1], 10)
+  return Number.isFinite(parsed) ? Math.max(max, parsed) : max
+}, 0) + 1
+
 export function generateFactoryCode(): string {
-  const num = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+  const num = String(generatedFactoryCodeSeq).padStart(4, '0')
+  generatedFactoryCodeSeq += 1
   return `ID-FAC-${num}`
 }
 

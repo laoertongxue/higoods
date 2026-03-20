@@ -189,8 +189,12 @@ function toTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
+let materialDraftLogSeq = 1
+
 function createMaterialDraftLogId(): string {
-  return `MRL-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+  const id = `MRL-202603-${String(materialDraftLogSeq).padStart(5, '0')}`
+  materialDraftLogSeq += 1
+  return id
 }
 
 function normalizeQty(value: number): number {

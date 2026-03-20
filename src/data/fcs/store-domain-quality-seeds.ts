@@ -593,9 +593,9 @@ export const initialReturnInboundBatches: ReturnInboundBatch[] = [
   },
 ]
 
-// ── initialDyePrintOrders ────────────────────
+// ── legacyDyePrintOrdersSnapshot（兼容快照，非主真相） ─────────────
 
-export const initialDyePrintOrders: DyePrintOrder[] = [
+export const legacyDyePrintOrdersSnapshot: DyePrintOrder[] = [
   { dpId: 'DPO-202603-0001', orderId: 'DPO-202603-0001', productionOrderId: 'PO-202603-0004', relatedTaskId: 'TASK-202603-0004-003', processorFactoryId: 'ID-F005', processorFactoryName: 'Bandung Print House', settlementPartyType: 'PROCESSOR', settlementPartyId: 'ID-F005', settlementRelation: 'GROUP_INTERNAL', processType: 'PRINT', plannedQty: 3000, returnedPassQty: 2500, returnedFailQty: 0, availableQty: 2500, status: 'PARTIAL_RETURNED', returnBatches: [{ returnId: 'RB-DPO-001-1', returnedAt: '2026-03-01 10:00:00', qty: 2500, result: 'PASS' }], createdAt: '2026-02-28 09:00:00', createdBy: '张三', updatedAt: '2026-03-01 10:05:00' },
   { dpId: 'DPO-202603-0002', orderId: 'DPO-202603-0002', productionOrderId: 'PO-202603-0005', relatedTaskId: 'TASK-202603-0005-002', processorFactoryId: 'ID-F005', processorFactoryName: 'Bandung Print House', settlementPartyType: 'PROCESSOR', settlementPartyId: 'ID-F005', settlementRelation: 'GROUP_INTERNAL', processType: 'DYE', plannedQty: 1200, returnedPassQty: 0, returnedFailQty: 0, availableQty: 0, status: 'PROCESSING', returnBatches: [], createdAt: '2026-02-26 14:00:00', createdBy: '李四', updatedAt: '2026-02-26 14:00:00' },
   { dpId: 'DPO-202603-0003', orderId: 'DPO-202603-0003', productionOrderId: 'PO-0002', relatedTaskId: 'TASK-0002-003', processorFactoryId: 'ID-F005', processorFactoryName: 'Bandung Print House', settlementPartyType: 'PROCESSOR', settlementPartyId: 'ID-F005', settlementRelation: 'GROUP_INTERNAL', processType: 'DYE_PRINT', plannedQty: 800, returnedPassQty: 600, returnedFailQty: 50, availableQty: 600, status: 'PARTIAL_RETURNED', returnBatches: [{ returnId: 'RB-DPO-003-1', returnedAt: '2026-02-25 15:00:00', qty: 600, result: 'PASS' }, { returnId: 'RB-DPO-003-2', returnedAt: '2026-02-27 09:00:00', qty: 50, result: 'FAIL', disposition: 'ACCEPT_AS_DEFECT', qcId: 'QC-DP-003-1' }], createdAt: '2026-02-20 08:00:00', createdBy: '王五', updatedAt: '2026-02-27 09:05:00' },
@@ -606,3 +606,8 @@ export const initialDyePrintOrders: DyePrintOrder[] = [
   { dpId: 'DPO-202603-2002', orderId: 'DPO-202603-2002', relatedTaskId: 'TASK-202603-0004-003', productionOrderId: 'PO-202603-0004', processorFactoryId: 'ID-F005', processorFactoryName: 'Bandung Print House', settlementPartyType: 'PROCESSOR', settlementPartyId: 'ID-F005', settlementRelation: 'GROUP_INTERNAL', processType: 'DYE_PRINT', plannedQty: 2800, returnedPassQty: 1200, returnedFailQty: 0, availableQty: 1200, status: 'PARTIAL_RETURNED', remark: '已分批回货一部分，待继续回货', returnBatches: [{ returnId: 'RB-202603-2002-01', returnedAt: '2026-03-07 10:00:00', qty: 1200, result: 'PASS' }], createdAt: '2026-03-05 11:00:00', createdBy: '管理员', updatedAt: '2026-03-07 10:00:00', updatedBy: '管理员' },
   { dpId: 'DPO-202603-2003', orderId: 'DPO-202603-2003', relatedTaskId: 'TASK-202603-0005-002', productionOrderId: 'PO-202603-0005', processorFactoryId: 'ID-F005', processorFactoryName: 'Bandung Print House', settlementPartyType: 'PROCESSOR', settlementPartyId: 'ID-F005', settlementRelation: 'GROUP_INTERNAL', processType: 'DYE_PRINT', plannedQty: 3200, returnedPassQty: 1800, returnedFailQty: 0, availableQty: 1800, status: 'PARTIAL_RETURNED', remark: '首批回货已完成，剩余待回', returnBatches: [{ returnId: 'RB-202603-2003-01', returnedAt: '2026-03-06 16:00:00', qty: 1800, result: 'PASS' }], createdAt: '2026-03-04 09:00:00', createdBy: '管理员', updatedAt: '2026-03-06 16:00:00', updatedBy: '管理员' },
 ]
+
+// 兼容 getter：页面仅通过函数获取，避免继续直接把旧 seed 常量当主真相源。
+export function listDyePrintOrdersStore(): DyePrintOrder[] {
+  return legacyDyePrintOrdersSnapshot
+}
