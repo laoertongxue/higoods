@@ -11,6 +11,15 @@ import {
   type TaskAssignmentStatus,
   type TaskAuditLog,
 } from './process-tasks'
+import type { TaskDetailRow } from './task-detail-rows'
+import {
+  listTaskAllocatableGroups,
+  resolveTaskSplitDecision,
+  validateAllocatableGroupAssignments,
+  type TaskAllocatableGroup,
+  type TaskSplitFactoryBucket,
+  type TaskAllocatableGroupAssignment,
+} from './task-split-dispatch'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
 export type RuntimeExecutorKind = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'
@@ -34,6 +43,7 @@ export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'depend
   scopeLabel: string
   scopeQty: number
   scopeSkuLines: RuntimeTaskSkuLine[]
+  scopeDetailRows: TaskDetailRow[]
   skuCode?: string
   skuColor?: string
   skuSize?: string
@@ -41,7 +51,19 @@ export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'depend
   transitionFromPrev?: RuntimeTransitionMode
   transitionToNext?: RuntimeTransitionMode
   biddingDeadline?: string
+  taskNo?: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  splitSeq?: number
+  detailRowKeys?: string[]
+  isSplitResult?: boolean
+  isSplitSource?: boolean
+  executionEnabled?: boolean
 }
+
+export type RuntimeTaskAllocatableGroup = TaskAllocatableGroup
+export type RuntimeTaskAllocatableGroupAssignment = TaskAllocatableGroupAssignment
 
 interface RuntimeTaskOverride {
   assignmentMode?: ProcessTask['assignmentMode']
@@ -69,6 +91,29 @@ interface RuntimeTaskOverride {
   executorKind?: RuntimeExecutorKind
   transitionFromPrev?: RuntimeTransitionMode
   transitionToNext?: RuntimeTransitionMode
+  taskNo?: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  splitSeq?: number
+  detailRowKeys?: string[]
+  isSplitResult?: boolean
+  isSplitSource?: boolean
+  executionEnabled?: boolean
+}
+
+interface RuntimeSplitFactoryPlan extends TaskSplitFactoryBucket {
+  taskId: string
+}
+
+interface RuntimeTaskSplitPlan {
+  sourceTaskId: string
+  sourceTaskNo: string
+  rootTaskNo: string
+  splitGroupId: string
+  createdAt: string
+  createdBy: string
+  factories: RuntimeSplitFactoryPlan[]
 }
 
 export interface RuntimeFactoryAssignmentValidation {
@@ -106,6 +151,30 @@ export interface RuntimeTaskSummaryByOrder {
   stageCounts: Record<'PREP' | 'PROD' | 'POST', number>
 }
 
+export interface RuntimeTaskSplitResultSnapshot {
+  taskId: string
+  taskNo: string
+  splitSeq: number
+  assignedFactoryId?: string
+  assignedFactoryName?: string
+  scopeQty: number
+  status: RuntimeProcessTask['status']
+  detailRowKeys: string[]
+}
+
+export interface RuntimeTaskSplitGroupSnapshot {
+  splitGroupId: string
+  rootTaskNo: string
+  sourceTaskId: string
+  sourceTaskNo: string
+  sourceStatus: RuntimeProcessTask['status']
+  sourceExecutionEnabled: boolean
+  resultTasks: RuntimeTaskSplitResultSnapshot[]
+  eventAt: string
+  statusSummary: string
+  factorySummary: string
+}
+
 export interface RuntimeBatchDispatchInput {
   taskIds: string[]
   factoryId: string
@@ -120,7 +189,14 @@ export interface RuntimeBatchDispatchInput {
   priceDiffReason: string
 }
 
+export interface RuntimeDetailDispatchInput {
+  taskId: string
+  assignments: TaskAllocatableGroupAssignment[]
+  by: string
+}
+
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
+const runtimeTaskSplitPlans = new Map<string, RuntimeTaskSplitPlan>()
 let runtimeAuditSeq = 0
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -182,7 +258,177 @@ function getOrderSkuLines(productionOrderId: string): RuntimeTaskSkuLine[] {
   }))
 }
 
+function cloneTaskDetailRows(rows: TaskDetailRow[] | undefined): TaskDetailRow[] {
+  if (!rows || rows.length === 0) return []
+  return rows.map((row) => ({
+    ...row,
+    dimensions: { ...row.dimensions },
+    sourceRefs: { ...row.sourceRefs },
+  }))
+}
+
+function getTaskDetailRows(baseTask: ProcessTask): TaskDetailRow[] {
+  return cloneTaskDetailRows(baseTask.detailRows).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+}
+
+function filterDetailRowsByScope(
+  rows: TaskDetailRow[],
+  scopeType: RuntimeTaskScopeType,
+  scopeSkuLines: RuntimeTaskSkuLine[],
+): TaskDetailRow[] {
+  if (rows.length === 0) return []
+  if (scopeType === 'ORDER') return rows
+
+  const scopeSkuSet = new Set(scopeSkuLines.map((line) => line.skuCode))
+  const scopeColorSet = new Set(scopeSkuLines.map((line) => line.color))
+
+  return rows.filter((row) => {
+    const rowSku = row.dimensions.GARMENT_SKU
+    const rowColor = row.dimensions.GARMENT_COLOR
+
+    if (scopeType === 'SKU') {
+      if (rowSku && !scopeSkuSet.has(rowSku)) return false
+      if (rowColor && !scopeColorSet.has(rowColor)) return false
+      return true
+    }
+
+    if (scopeType === 'COLOR') {
+      if (rowColor && !scopeColorSet.has(rowColor)) return false
+      if (rowSku && !scopeSkuSet.has(rowSku)) return false
+      return true
+    }
+
+    return true
+  })
+}
+
+function getTaskNo(task: RuntimeProcessTask): string {
+  return task.taskNo || task.taskId
+}
+
+function getTaskRootNo(task: RuntimeProcessTask): string {
+  return task.rootTaskNo || getTaskNo(task)
+}
+
+function pickDetailRowsByKeys(rows: TaskDetailRow[], keys: string[]): TaskDetailRow[] {
+  if (!keys.length) return cloneTaskDetailRows(rows)
+  const keySet = new Set(keys)
+  return cloneTaskDetailRows(rows).filter((row) => keySet.has(row.rowKey))
+}
+
+function deriveScopeSkuLinesByDetailRows(scopeSkuLines: RuntimeTaskSkuLine[], detailRows: TaskDetailRow[]): RuntimeTaskSkuLine[] {
+  if (!detailRows.length) return [...scopeSkuLines]
+
+  const skuSet = new Set(
+    detailRows
+      .map((row) => row.dimensions.GARMENT_SKU)
+      .filter((sku): sku is string => Boolean(sku)),
+  )
+  const colorSet = new Set(
+    detailRows
+      .map((row) => row.dimensions.GARMENT_COLOR)
+      .filter((color): color is string => Boolean(color)),
+  )
+
+  if (skuSet.size === 0 && colorSet.size === 0) return [...scopeSkuLines]
+
+  return scopeSkuLines.filter((line) => {
+    if (skuSet.size > 0 && skuSet.has(line.skuCode)) return true
+    if (colorSet.size > 0 && colorSet.has(line.color)) return true
+    return false
+  })
+}
+
+function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
+  if (runtimeTaskSplitPlans.size === 0) return tasks
+
+  const planBySourceTaskId = new Map(runtimeTaskSplitPlans)
+  const splitResultTaskIdsBySource = new Map<string, string[]>()
+  for (const plan of runtimeTaskSplitPlans.values()) {
+    splitResultTaskIdsBySource.set(plan.sourceTaskId, plan.factories.map((factory) => factory.taskId))
+  }
+
+  const expanded: RuntimeProcessTask[] = []
+
+  for (const task of tasks) {
+    const plan = planBySourceTaskId.get(task.taskId)
+    if (!plan) {
+      expanded.push(task)
+      continue
+    }
+
+    const sourceTaskNo = getTaskNo(task)
+    const sourceRootNo = getTaskRootNo(task)
+    const sourceDetailRows = task.scopeDetailRows.length > 0 ? task.scopeDetailRows : task.detailRows ?? []
+    const sourceDetailRowKeys = sourceDetailRows.map((row) => row.rowKey)
+
+    expanded.push({
+      ...task,
+      taskNo: sourceTaskNo,
+      rootTaskNo: sourceRootNo,
+      splitGroupId: plan.splitGroupId,
+      splitFromTaskNo: task.splitFromTaskNo,
+      splitSeq: 0,
+      detailRowKeys: sourceDetailRowKeys,
+      isSplitResult: false,
+      isSplitSource: true,
+      executionEnabled: false,
+      assignmentStatus: 'ASSIGNED',
+      updatedAt: plan.createdAt,
+    })
+
+    for (const factory of plan.factories) {
+      const scopedDetailRows = pickDetailRowsByKeys(sourceDetailRows, factory.detailRowKeys)
+      const scopeSkuLines = deriveScopeSkuLinesByDetailRows(task.scopeSkuLines, scopedDetailRows)
+      const scopeQty = factory.scopeQty > 0
+        ? factory.scopeQty
+        : scopedDetailRows.reduce((sum, row) => sum + row.qty, 0)
+
+      expanded.push({
+        ...task,
+        taskId: factory.taskId,
+        taskNo: factory.taskNo,
+        rootTaskNo: sourceRootNo,
+        splitGroupId: plan.splitGroupId,
+        splitFromTaskNo: sourceTaskNo,
+        splitSeq: factory.splitSeq,
+        detailRowKeys: [...factory.detailRowKeys],
+        isSplitResult: true,
+        isSplitSource: false,
+        executionEnabled: true,
+        assignmentMode: 'DIRECT',
+        assignmentStatus: 'ASSIGNED',
+        assignedFactoryId: factory.factoryId,
+        assignedFactoryName: factory.factoryName,
+        scopeKey: factory.taskNo,
+        scopeLabel: factory.scopeLabel,
+        scopeQty,
+        qty: scopeQty,
+        scopeSkuLines,
+        scopeDetailRows: scopedDetailRows,
+        detailRows: cloneTaskDetailRows(scopedDetailRows),
+        updatedAt: plan.createdAt,
+      })
+    }
+  }
+
+  if (splitResultTaskIdsBySource.size === 0) return expanded
+
+  return expanded.map((task) => {
+    const rewrittenDepends = task.dependsOnTaskIds.flatMap((dependsTaskId) => {
+      const splitResultTaskIds = splitResultTaskIdsBySource.get(dependsTaskId)
+      if (!splitResultTaskIds || splitResultTaskIds.length === 0) return [dependsTaskId]
+      return splitResultTaskIds
+    })
+    return {
+      ...task,
+      dependsOnTaskIds: Array.from(new Set(rewrittenDepends)),
+    }
+  })
+}
+
 function buildOrderScopeTask(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask {
+  const detailRows = getTaskDetailRows(baseTask)
   return {
     ...baseTask,
     taskId: `${baseTask.taskId}__ORDER`,
@@ -196,11 +442,13 @@ function buildOrderScopeTask(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine
     scopeLabel: '整单',
     scopeQty: baseTask.qty,
     scopeSkuLines: skuLines,
+    scopeDetailRows: detailRows,
   }
 }
 
 function buildColorScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask[] {
   if (!skuLines.length) return [buildOrderScopeTask(baseTask, [])]
+  const baseDetailRows = getTaskDetailRows(baseTask)
 
   const grouped = new Map<string, RuntimeTaskSkuLine[]>()
   for (const line of skuLines) {
@@ -212,6 +460,7 @@ function buildColorScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLin
 
   return Array.from(grouped.entries()).map(([color, lines]) => {
     const qty = lines.reduce((sum, line) => sum + line.qty, 0)
+    const detailRows = filterDetailRowsByScope(baseDetailRows, 'COLOR', lines)
     return {
       ...baseTask,
       taskId: `${baseTask.taskId}__COLOR__${normalizeScopeToken(color)}`,
@@ -225,12 +474,14 @@ function buildColorScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLin
       scopeLabel: color,
       scopeQty: qty,
       scopeSkuLines: lines,
+      scopeDetailRows: detailRows,
     }
   })
 }
 
 function buildSkuScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask[] {
   if (!skuLines.length) return [buildOrderScopeTask(baseTask, [])]
+  const baseDetailRows = getTaskDetailRows(baseTask)
 
   return skuLines.map((line) => ({
     ...baseTask,
@@ -248,16 +499,17 @@ function buildSkuScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[
     skuCode: line.skuCode,
     skuColor: line.color,
     skuSize: line.size,
+    scopeDetailRows: filterDetailRowsByScope(baseDetailRows, 'SKU', [line]),
   }))
 }
 
 function buildRuntimeTasksByGranularity(baseTask: ProcessTask): RuntimeProcessTask[] {
   const skuLines = getOrderSkuLines(baseTask.productionOrderId)
-  const granularity = (baseTask.assignmentGranularity as ProcessAssignmentGranularity | undefined)
+  // 冻结规则：任务拆分仅在分配时发生。runtime 不再按粒度预拆任务。
+  // assignmentGranularity 仅决定“可分配单元”边界，不决定任务是否先天拆成多条。
+  const _granularity = (baseTask.assignmentGranularity as ProcessAssignmentGranularity | undefined)
     ?? getProcessAssignmentGranularity(baseTask.processCode)
-
-  if (granularity === 'SKU') return buildSkuScopeTasks(baseTask, skuLines)
-  if (granularity === 'COLOR') return buildColorScopeTasks(baseTask, skuLines)
+  void _granularity
   return [buildOrderScopeTask(baseTask, skuLines)]
 }
 
@@ -392,10 +644,13 @@ function compareRuntimeTask(a: RuntimeProcessTask, b: RuntimeProcessTask): numbe
   const orderCompare = a.productionOrderId.localeCompare(b.productionOrderId)
   if (orderCompare !== 0) return orderCompare
   if (a.seq !== b.seq) return a.seq - b.seq
-  const scopeRank: Record<RuntimeTaskScopeType, number> = { ORDER: 0, COLOR: 1, SKU: 2 }
+  const scopeRank: Record<RuntimeTaskScopeType, number> = { ORDER: 0, COLOR: 1, SKU: 2, DETAIL: 3 }
   if (scopeRank[a.scopeType] !== scopeRank[b.scopeType]) {
     return scopeRank[a.scopeType] - scopeRank[b.scopeType]
   }
+  const splitSeqA = a.splitSeq ?? 0
+  const splitSeqB = b.splitSeq ?? 0
+  if (splitSeqA !== splitSeqB) return splitSeqA - splitSeqB
   return a.scopeLabel.localeCompare(b.scopeLabel)
 }
 
@@ -409,6 +664,17 @@ function buildRuntimeBaseTasksFromTaskFacts(): ProcessTask[] {
       auditLogs: [...(task.auditLogs ?? [])],
       attachments: [...(task.attachments ?? [])],
       qcPoints: [...(task.qcPoints ?? [])],
+      detailSplitDimensions: [...(task.detailSplitDimensions ?? [])],
+      detailRows: cloneTaskDetailRows(task.detailRows),
+      taskNo: task.taskNo ?? task.taskId,
+      rootTaskNo: task.rootTaskNo ?? task.taskNo ?? task.taskId,
+      splitGroupId: task.splitGroupId,
+      splitFromTaskNo: task.splitFromTaskNo,
+      splitSeq: task.splitSeq ?? 0,
+      detailRowKeys: [...(task.detailRowKeys ?? task.detailRows?.map((row) => row.rowKey) ?? [])],
+      isSplitResult: task.isSplitResult ?? false,
+      isSplitSource: task.isSplitSource ?? false,
+      executionEnabled: task.executionEnabled ?? true,
     }))
 }
 
@@ -419,7 +685,9 @@ function buildRuntimeProcessTasksBase(): RuntimeProcessTask[] {
 }
 
 function buildRuntimeProcessTasks(): RuntimeProcessTask[] {
-  const withOverrides = applyRuntimeOverrides(buildRuntimeProcessTasksBase())
+  const baseWithOverrides = applyRuntimeOverrides(buildRuntimeProcessTasksBase())
+  const withSplit = applyRuntimeSplitPlans(baseWithOverrides)
+  const withOverrides = applyRuntimeOverrides(withSplit)
   const grouped = new Map<string, RuntimeProcessTask[]>()
   for (const task of withOverrides) {
     const current = grouped.get(task.productionOrderId) ?? []
@@ -498,6 +766,271 @@ export function listRuntimeTasksByProcess(processCode: string): RuntimeProcessTa
   )
 }
 
+function formatSplitStatusSummary(tasks: RuntimeTaskSplitResultSnapshot[]): string {
+  if (tasks.length === 0) return '无拆分结果任务'
+  const done = tasks.filter((task) => task.status === 'DONE').length
+  const inProgress = tasks.filter((task) => task.status === 'IN_PROGRESS').length
+  const pending = tasks.filter((task) => task.status === 'NOT_STARTED').length
+  const blocked = tasks.filter((task) => task.status === 'BLOCKED').length
+  const cancelled = tasks.filter((task) => task.status === 'CANCELLED').length
+  const parts: string[] = []
+  if (done > 0) parts.push(`已完成${done}`)
+  if (inProgress > 0) parts.push(`进行中${inProgress}`)
+  if (pending > 0) parts.push(`待执行${pending}`)
+  if (blocked > 0) parts.push(`暂停${blocked}`)
+  if (cancelled > 0) parts.push(`已取消${cancelled}`)
+  return parts.length > 0 ? parts.join(' / ') : '待执行'
+}
+
+function formatSplitFactorySummary(tasks: RuntimeTaskSplitResultSnapshot[]): string {
+  if (tasks.length === 0) return '-'
+  const names = Array.from(
+    new Set(
+      tasks
+        .map((task) => task.assignedFactoryName?.trim())
+        .filter((name): name is string => Boolean(name)),
+    ),
+  )
+  return names.length > 0 ? names.join('、') : '-'
+}
+
+export function listRuntimeTaskSplitGroupsByOrder(productionOrderId: string): RuntimeTaskSplitGroupSnapshot[] {
+  const orderTasks = listRuntimeTasksByOrder(productionOrderId)
+  const grouped = new Map<string, { sourceTask?: RuntimeProcessTask; resultTasks: RuntimeProcessTask[] }>()
+
+  for (const task of orderTasks) {
+    if (!task.splitGroupId) continue
+    const bucket = grouped.get(task.splitGroupId) ?? { sourceTask: undefined, resultTasks: [] }
+    if (task.isSplitSource) {
+      bucket.sourceTask = task
+    } else if (task.isSplitResult) {
+      bucket.resultTasks.push(task)
+    }
+    grouped.set(task.splitGroupId, bucket)
+  }
+
+  const snapshots: RuntimeTaskSplitGroupSnapshot[] = []
+  for (const [splitGroupId, bucket] of grouped.entries()) {
+    const sourceTask = bucket.sourceTask
+    if (!sourceTask) continue
+
+    const resultTasks = bucket.resultTasks
+      .map<RuntimeTaskSplitResultSnapshot>((task) => ({
+        taskId: task.taskId,
+        taskNo: task.taskNo || task.taskId,
+        splitSeq: task.splitSeq ?? 0,
+        assignedFactoryId: task.assignedFactoryId,
+        assignedFactoryName: task.assignedFactoryName,
+        scopeQty: task.scopeQty,
+        status: task.status,
+        detailRowKeys: [...(task.detailRowKeys ?? task.scopeDetailRows.map((row) => row.rowKey))],
+      }))
+      .sort((a, b) => (a.splitSeq - b.splitSeq) || a.taskNo.localeCompare(b.taskNo))
+
+    const eventAtCandidates = [
+      sourceTask.updatedAt,
+      sourceTask.createdAt,
+      ...bucket.resultTasks.map((task) => task.updatedAt || task.createdAt),
+    ].filter((value): value is string => Boolean(value))
+
+    const eventAt = eventAtCandidates.sort((a, b) => b.localeCompare(a))[0] ?? nowTimestamp()
+
+    snapshots.push({
+      splitGroupId,
+      rootTaskNo: sourceTask.rootTaskNo || sourceTask.taskNo || sourceTask.taskId,
+      sourceTaskId: sourceTask.taskId,
+      sourceTaskNo: sourceTask.taskNo || sourceTask.taskId,
+      sourceStatus: sourceTask.status,
+      sourceExecutionEnabled: isRuntimeTaskExecutionTask(sourceTask),
+      resultTasks,
+      eventAt,
+      statusSummary: formatSplitStatusSummary(resultTasks),
+      factorySummary: formatSplitFactorySummary(resultTasks),
+    })
+  }
+
+  return snapshots.sort((a, b) => b.eventAt.localeCompare(a.eventAt))
+}
+
+export function isRuntimeTaskExecutionTask(task: RuntimeProcessTask): boolean {
+  return task.executionEnabled !== false && task.isSplitSource !== true
+}
+
+export function listRuntimeExecutionTasks(): RuntimeProcessTask[] {
+  return listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task))
+}
+
+function resolveTaskAssignmentGranularity(task: RuntimeProcessTask): ProcessAssignmentGranularity {
+  return (task.assignmentGranularity as ProcessAssignmentGranularity | undefined)
+    ?? getProcessAssignmentGranularity(task.processCode)
+}
+
+export function listRuntimeTaskAllocatableGroups(taskId: string): RuntimeTaskAllocatableGroup[] {
+  const task = getRuntimeTaskById(taskId)
+  if (!task) return []
+
+  const detailRows = task.scopeDetailRows.length > 0
+    ? task.scopeDetailRows
+    : cloneTaskDetailRows(task.detailRows)
+
+  return listTaskAllocatableGroups({
+    taskId: task.taskId,
+    assignmentGranularity: resolveTaskAssignmentGranularity(task),
+    detailRows,
+    fallbackQty: task.scopeQty,
+    fallbackScopeLabel: task.scopeLabel || '整任务',
+    scopeSkuLines: task.scopeSkuLines,
+  })
+}
+
+function clearRuntimeTaskSplitPlan(sourceTaskId: string): void {
+  const plan = runtimeTaskSplitPlans.get(sourceTaskId)
+  if (!plan) return
+
+  for (const splitTask of plan.factories) {
+    runtimeTaskOverrides.delete(splitTask.taskId)
+  }
+  runtimeTaskSplitPlans.delete(sourceTaskId)
+}
+
+export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchInput): {
+  ok: boolean
+  mode?: 'SINGLE_FACTORY' | 'MULTI_FACTORY'
+  message?: string
+  createdTaskIds?: string[]
+} {
+  const task = getRuntimeTaskById(input.taskId)
+  if (!task) return { ok: false, message: '任务不存在或已被移除' }
+  if (task.isSplitResult) return { ok: false, message: '拆分结果任务不支持再次按明细分配，请对来源任务操作' }
+
+  const groups = listRuntimeTaskAllocatableGroups(task.taskId)
+  const validation = validateAllocatableGroupAssignments(groups, input.assignments)
+  if (!validation.valid) return { ok: false, message: validation.reason ?? '分配单元校验失败' }
+
+  const assignmentGranularity = resolveTaskAssignmentGranularity(task)
+  const uniqueFactoryIds = Array.from(new Set(input.assignments.map((item) => item.factoryId)))
+  if (assignmentGranularity === 'ORDER' && uniqueFactoryIds.length > 1) {
+    return { ok: false, message: '该任务粒度为按生产单，仅支持整任务分配给同一工厂' }
+  }
+
+  const sourceTaskNo = getTaskNo(task)
+  const rootTaskNo = getTaskRootNo(task)
+  const splitDecision = resolveTaskSplitDecision({
+    rootTaskNo,
+    sourceTaskNo,
+    groups,
+    assignments: input.assignments,
+  })
+
+  const baseDetailRows = task.scopeDetailRows.length > 0
+    ? task.scopeDetailRows
+    : cloneTaskDetailRows(task.detailRows)
+  const sourceDetailRowKeys = baseDetailRows.map((row) => row.rowKey)
+
+  if (splitDecision.mode === 'SINGLE_FACTORY') {
+    clearRuntimeTaskSplitPlan(task.taskId)
+    const updated = updateRuntimeTaskWithAudit(
+      task.taskId,
+      {
+        taskNo: splitDecision.sourceTaskNo,
+        rootTaskNo: splitDecision.rootTaskNo,
+        splitGroupId: undefined,
+        splitFromTaskNo: undefined,
+        splitSeq: 0,
+        detailRowKeys: splitDecision.detailRowKeys,
+        isSplitResult: false,
+        isSplitSource: false,
+        executionEnabled: true,
+        assignmentMode: 'DIRECT',
+        assignmentStatus: 'ASSIGNED',
+        assignedFactoryId: splitDecision.factoryId,
+        assignedFactoryName: splitDecision.factoryName,
+      },
+      'DETAIL_DISPATCH',
+      `按明细分配完成（同一工厂：${splitDecision.factoryName}），保持原任务执行`,
+      input.by,
+    )
+
+    if (!updated) {
+      return { ok: false, message: '更新任务分配结果失败' }
+    }
+
+    recomputeRuntimeTransitionsForOrder(task.productionOrderId)
+    return {
+      ok: true,
+      mode: 'SINGLE_FACTORY',
+      createdTaskIds: [],
+    }
+  }
+
+  clearRuntimeTaskSplitPlan(task.taskId)
+
+  const splitFactories: RuntimeSplitFactoryPlan[] = splitDecision.factories.map((factory) => ({
+    ...factory,
+    taskId: factory.taskNo,
+  }))
+
+  runtimeTaskSplitPlans.set(task.taskId, {
+    sourceTaskId: task.taskId,
+    sourceTaskNo: splitDecision.sourceTaskNo,
+    rootTaskNo: splitDecision.rootTaskNo,
+    splitGroupId: splitDecision.splitGroupId,
+    createdAt: nowTimestamp(),
+    createdBy: input.by,
+    factories: splitFactories,
+  })
+
+  const sourceAuditLogs = appendRuntimeAudit(
+    task,
+    'DETAIL_SPLIT',
+    `按明细分配到多个工厂，生成 ${splitFactories.length} 条平级任务`,
+    input.by,
+  )
+
+  patchRuntimeTask(task.taskId, {
+    taskNo: splitDecision.sourceTaskNo,
+    rootTaskNo: splitDecision.rootTaskNo,
+    splitGroupId: splitDecision.splitGroupId,
+    splitFromTaskNo: undefined,
+    splitSeq: 0,
+    detailRowKeys: sourceDetailRowKeys,
+    isSplitResult: false,
+    isSplitSource: true,
+    executionEnabled: false,
+    assignedFactoryId: undefined,
+    assignedFactoryName: undefined,
+    assignmentStatus: 'ASSIGNED',
+    updatedAt: nowTimestamp(),
+    auditLogs: sourceAuditLogs,
+  })
+
+  for (const factory of splitFactories) {
+    runtimeTaskOverrides.set(factory.taskId, {
+      taskNo: factory.taskNo,
+      rootTaskNo: splitDecision.rootTaskNo,
+      splitGroupId: splitDecision.splitGroupId,
+      splitFromTaskNo: splitDecision.sourceTaskNo,
+      splitSeq: factory.splitSeq,
+      detailRowKeys: [...factory.detailRowKeys],
+      isSplitResult: true,
+      isSplitSource: false,
+      executionEnabled: true,
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: factory.factoryId,
+      assignedFactoryName: factory.factoryName,
+      updatedAt: nowTimestamp(),
+    })
+  }
+
+  recomputeRuntimeTransitionsForOrder(task.productionOrderId)
+  return {
+    ok: true,
+    mode: 'MULTI_FACTORY',
+    createdTaskIds: splitFactories.map((factory) => factory.taskId),
+  }
+}
+
 export function setRuntimeTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
   const task = getRuntimeTaskById(taskId)
   if (!task) return
@@ -571,6 +1104,10 @@ export function validateRuntimeBatchDispatchSelection(taskIds: string[]): Runtim
 
   if (selected.length === 0) {
     return { valid: false, reason: '请选择至少一条任务后再派单' }
+  }
+
+  if (selected.some((task) => !isRuntimeTaskExecutionTask(task))) {
+    return { valid: false, reason: '拆分来源任务不可直接派单，请选择可执行任务' }
   }
 
   const orderIds = new Set(selected.map((task) => task.productionOrderId))
@@ -712,7 +1249,7 @@ export function recomputeRuntimeTransitionsForOrder(productionOrderId: string): 
 }
 
 export function getRuntimeAssignmentSummaryByOrder(productionOrderId: string): RuntimeAssignmentSummaryByOrder {
-  const tasks = listRuntimeTasksByOrder(productionOrderId)
+  const tasks = listRuntimeTasksByOrder(productionOrderId).filter((task) => isRuntimeTaskExecutionTask(task))
   const now = Date.now()
 
   const totalTasks = tasks.length
@@ -769,7 +1306,7 @@ export function getRuntimeTaskCountByOrder(productionOrderId: string): number {
 }
 
 export function getRuntimeTaskSummaryByOrder(productionOrderId: string): RuntimeTaskSummaryByOrder {
-  const tasks = listRuntimeTasksByOrder(productionOrderId)
+  const tasks = listRuntimeTasksByOrder(productionOrderId).filter((task) => isRuntimeTaskExecutionTask(task))
   const totalTasks = tasks.length
   const specialTaskCount = tasks.filter((task) => Boolean(task.isSpecialCraft)).length
   const normalTaskCount = totalTasks - specialTaskCount
@@ -800,7 +1337,7 @@ export function getRuntimeBiddingSummaryByOrder(productionOrderId: string): {
   nearestDeadline?: string
   overdueTenderCount: number
 } {
-  const tasks = listRuntimeTasksByOrder(productionOrderId)
+  const tasks = listRuntimeTasksByOrder(productionOrderId).filter((task) => isRuntimeTaskExecutionTask(task))
 
   const biddingTasks = tasks.filter((task) => task.assignmentMode === 'BIDDING')
   const activeTasks = biddingTasks.filter((task) => task.assignmentStatus === 'BIDDING' || task.assignmentStatus === 'ASSIGNING')

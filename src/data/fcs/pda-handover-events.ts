@@ -77,6 +77,11 @@ export interface PdaHandoverHead {
   headType: PdaHandoverHeadType
   taskId: string
   taskNo: string
+  baseTaskId?: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  isSplitResult?: boolean
   productionOrderNo: string
   processName: string
   sourceFactoryName: string
@@ -254,8 +259,13 @@ function buildPickupHeadFromIssue(doc: WarehouseIssueOrder): PdaHandoverHead {
   return {
     handoverId: makePickupHeadId(doc.id),
     headType: 'PICKUP',
-    taskId: runtimeTask?.baseTaskId ?? doc.baseTaskId,
-    taskNo: runtimeTask?.taskId ?? doc.runtimeTaskId,
+    taskId: runtimeTask?.taskId ?? doc.runtimeTaskId,
+    taskNo: runtimeTask?.taskNo ?? doc.taskNo ?? doc.runtimeTaskId,
+    baseTaskId: runtimeTask?.baseTaskId ?? doc.baseTaskId,
+    rootTaskNo: runtimeTask?.rootTaskNo ?? doc.rootTaskNo,
+    splitGroupId: runtimeTask?.splitGroupId ?? doc.splitGroupId,
+    splitFromTaskNo: runtimeTask?.splitFromTaskNo ?? doc.splitFromTaskNo,
+    isSplitResult: runtimeTask?.isSplitResult ?? doc.isSplitResult,
     productionOrderNo: doc.productionOrderId,
     processName: doc.processNameZh,
     sourceFactoryName: doc.warehouseName ?? '仓库',
@@ -308,8 +318,13 @@ function buildHandoutHeadFromReturn(doc: WarehouseReturnOrder): PdaHandoverHead 
   return {
     handoverId: makeHandoutHeadId(doc.id),
     headType: 'HANDOUT',
-    taskId: runtimeTask?.baseTaskId ?? doc.baseTaskId,
-    taskNo: runtimeTask?.taskId ?? doc.runtimeTaskId,
+    taskId: runtimeTask?.taskId ?? doc.runtimeTaskId,
+    taskNo: runtimeTask?.taskNo ?? doc.taskNo ?? doc.runtimeTaskId,
+    baseTaskId: runtimeTask?.baseTaskId ?? doc.baseTaskId,
+    rootTaskNo: runtimeTask?.rootTaskNo ?? doc.rootTaskNo,
+    splitGroupId: runtimeTask?.splitGroupId ?? doc.splitGroupId,
+    splitFromTaskNo: runtimeTask?.splitFromTaskNo ?? doc.splitFromTaskNo,
+    isSplitResult: runtimeTask?.isSplitResult ?? doc.isSplitResult,
     productionOrderNo: doc.productionOrderId,
     processName: doc.processNameZh,
     sourceFactoryName: doc.targetFactoryName ?? runtimeTask?.assignedFactoryName ?? '待分配工厂',

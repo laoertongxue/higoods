@@ -126,6 +126,16 @@ function getTaskFactById(taskId: string): ProcessTask | null {
   return getTaskChainTaskById(taskId) ?? null
 }
 
+function getTaskDisplayNo(task: ProcessTask | null): string {
+  if (!task) return '-'
+  return task.taskNo || task.taskId
+}
+
+function getTaskRootNo(task: ProcessTask | null): string {
+  if (!task) return '-'
+  return task.rootTaskNo || task.taskNo || task.taskId
+}
+
 function getCurrentQueryString(): string {
   const pathname = appStore.getState().pathname
   const [, query] = pathname.split('?')
@@ -446,6 +456,7 @@ function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask
     if (
       keyword &&
       !task.taskId.includes(keyword) &&
+      !(task.taskNo || '').includes(keyword) &&
       !task.productionOrderId.includes(keyword) &&
       !displayProcessName.includes(keyword)
     ) {
@@ -488,7 +499,7 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
     <article class="overflow-hidden rounded-lg border bg-card">
       <div class="space-y-2 p-3">
         <div class="flex items-center justify-between gap-2">
-          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(task.taskId)}</span>
+          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
           <span class="inline-flex shrink-0 items-center rounded border px-1.5 text-[10px] ${toClassName(
             getDeadlineBadgeClass(deadlineStatus.variant),
             deadlineStatus.label === '即将逾期' ? 'bg-amber-500 text-white border-amber-500' : '',
@@ -496,9 +507,11 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          ${renderFieldRow('原始任务', getTaskRootNo(task))}
           ${renderFieldRow('生产单号', task.productionOrderId)}
           ${renderFieldRow('工序', displayProcessName)}
           ${renderFieldRow('数量', `${task.qty} ${pricing.unit}`)}
+          ${renderFieldRow('拆分组', task.splitGroupId || '未拆分')}
           ${dispatchedAt ? renderFieldRow('直接派单时间', dispatchedAt) : ''}
           ${task.acceptDeadline ? renderFieldRow('接单截止', task.acceptDeadline) : ''}
           ${(task as ProcessTask & { taskDeadline?: string }).taskDeadline ? renderFieldRow('任务截止', (task as ProcessTask & { taskDeadline?: string }).taskDeadline || '') : ''}
@@ -558,7 +571,8 @@ function renderPendingQuoteItem(tender: BiddingTender): string {
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          ${renderFieldRow('任务编号', tender.taskId)}
+          ${renderFieldRow('任务编号', getTaskDisplayNo(task))}
+          ${renderFieldRow('原始任务', getTaskRootNo(task))}
           ${renderFieldRow('生产单号', tender.productionOrderId)}
           ${renderFieldRow('工序', processName)}
           ${renderFieldRow('数量', `${tender.qty} ${tender.qtyUnit}`)}
@@ -592,7 +606,8 @@ function renderQuotedItem(tender: QuotedTender): string {
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          ${renderFieldRow('任务编号', tender.taskId)}
+          ${renderFieldRow('任务编号', getTaskDisplayNo(task))}
+          ${renderFieldRow('原始任务', getTaskRootNo(task))}
           ${renderFieldRow('生产单号', tender.productionOrderId)}
           ${renderFieldRow('工序', processName)}
           ${renderFieldRow('数量', `${tender.qty} ${tender.unit}`)}
@@ -626,7 +641,8 @@ function renderAwardedItem(item: AwardedTender): string {
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          ${renderFieldRow('任务编号', item.taskId)}
+          ${renderFieldRow('任务编号', getTaskDisplayNo(task))}
+          ${renderFieldRow('原始任务', getTaskRootNo(task))}
           ${renderFieldRow('生产单号', item.productionOrderId)}
           ${renderFieldRow('工序', processName)}
           ${renderFieldRow('数量', `${item.qty} ${item.unit}`)}

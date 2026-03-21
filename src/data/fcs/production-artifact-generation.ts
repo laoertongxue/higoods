@@ -4,8 +4,11 @@ import {
   getProcessDefinitionByCode,
   getProcessStageByCode,
   type CraftStageCode,
+  type DetailSplitDimension,
+  type DetailSplitMode,
   type ProcessAssignmentGranularity,
   type ProcessDocType,
+  type RuleSource,
   type TaskTypeMode,
 } from './process-craft-dict'
 import {
@@ -33,6 +36,9 @@ export interface GeneratedProductionArtifactBase {
   craftCode?: string
   craftName?: string
   assignmentGranularity: ProcessAssignmentGranularity
+  ruleSource: RuleSource
+  detailSplitMode: DetailSplitMode
+  detailSplitDimensions: DetailSplitDimension[]
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
   isSpecialCraft: boolean
@@ -70,6 +76,9 @@ interface ResolvedEntryContext {
   craftCode?: string
   craftName?: string
   assignmentGranularity: ProcessAssignmentGranularity
+  ruleSource: RuleSource
+  detailSplitMode: DetailSplitMode
+  detailSplitDimensions: DetailSplitDimension[]
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
   isSpecialCraft: boolean
@@ -101,6 +110,26 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
   const craftDefinition = entry.craftCode ? getProcessCraftByCode(entry.craftCode) : undefined
   const stageCode = (entry.stageCode || processDefinition?.stageCode || craftDefinition?.stageCode || 'PROD') as CraftStageCode
   const stageDefinition = getProcessStageByCode(stageCode)
+  const fallbackRuleSource: RuleSource =
+    entry.entryType === 'CRAFT' && (entry.isSpecialCraft || craftDefinition?.isSpecialCraft)
+      ? 'OVERRIDE_CRAFT'
+      : 'INHERIT_PROCESS'
+  const fallbackGranularity = processDefinition?.assignmentGranularity
+    || craftDefinition?.assignmentGranularity
+    || 'ORDER'
+  const fallbackSplitMode = processDefinition?.detailSplitMode
+    || craftDefinition?.detailSplitMode
+    || 'COMPOSITE'
+  const fallbackSplitDimensions = processDefinition?.detailSplitDimensions?.length
+    ? processDefinition.detailSplitDimensions
+    : craftDefinition?.detailSplitDimensions?.length
+      ? craftDefinition.detailSplitDimensions
+      : fallbackGranularity === 'SKU' || fallbackGranularity === 'DETAIL'
+        ? (['GARMENT_SKU'] as DetailSplitDimension[])
+        : fallbackGranularity === 'COLOR'
+          ? (['GARMENT_COLOR', 'MATERIAL_SKU'] as DetailSplitDimension[])
+          : (['PATTERN', 'MATERIAL_SKU'] as DetailSplitDimension[])
+  const resolvedRuleSource = entry.ruleSource || craftDefinition?.ruleSource || fallbackRuleSource
 
   return {
     orderId,
@@ -117,8 +146,12 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     systemProcessCode: processDefinition?.systemProcessCode || craftDefinition?.systemProcessCode || `PROC_${entry.processCode}`,
     craftCode: entry.craftCode,
     craftName: entry.craftName,
-    assignmentGranularity:
-      entry.assignmentGranularity || processDefinition?.assignmentGranularity || craftDefinition?.assignmentGranularity || 'ORDER',
+    assignmentGranularity: entry.assignmentGranularity || fallbackGranularity,
+    ruleSource: resolvedRuleSource,
+    detailSplitMode: entry.detailSplitMode || craftDefinition?.detailSplitMode || fallbackSplitMode,
+    detailSplitDimensions: entry.detailSplitDimensions?.length
+      ? [...entry.detailSplitDimensions]
+      : [...fallbackSplitDimensions],
     defaultDocType: entry.defaultDocType || processDefinition?.defaultDocType || craftDefinition?.defaultDocType || 'TASK',
     taskTypeMode: entry.taskTypeMode || processDefinition?.taskTypeMode || craftDefinition?.taskTypeMode || 'PROCESS',
     isSpecialCraft: entry.isSpecialCraft ?? craftDefinition?.isSpecialCraft ?? false,
@@ -150,6 +183,9 @@ function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifac
     craftCode: context.craftCode,
     craftName: context.craftName,
     assignmentGranularity: context.assignmentGranularity,
+    ruleSource: context.ruleSource,
+    detailSplitMode: context.detailSplitMode,
+    detailSplitDimensions: [...context.detailSplitDimensions],
     defaultDocType: context.defaultDocType,
     taskTypeMode: context.taskTypeMode,
     isSpecialCraft: context.isSpecialCraft,
@@ -179,6 +215,9 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     craftCode: context.craftCode,
     craftName: context.craftName,
     assignmentGranularity: context.assignmentGranularity,
+    ruleSource: context.ruleSource,
+    detailSplitMode: context.detailSplitMode,
+    detailSplitDimensions: [...context.detailSplitDimensions],
     defaultDocType: context.defaultDocType,
     taskTypeMode: context.taskTypeMode,
     isSpecialCraft: context.isSpecialCraft,

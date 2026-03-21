@@ -1,6 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { processTasks, type ProcessTask } from '../data/fcs/process-tasks'
+import type { ProcessTask } from '../data/fcs/process-tasks'
 import {
   confirmPdaPickupRecordReceived,
   createPdaPickupRecord,
@@ -17,6 +17,7 @@ import {
   type PdaHandoverRecord,
   type HandoverPartyKind,
 } from '../data/fcs/pda-handover-events'
+import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { renderPdaFrame } from './pda-shell'
 
 interface ProofFile {
@@ -307,7 +308,7 @@ function renderProofUploadSection(prefix: string, hint: string, required = false
 }
 
 function appendTaskAudit(taskId: string, action: string, detail: string, by: string): void {
-  const task = processTasks.find((item) => item.taskId === taskId) as ProcessTask | undefined
+  const task = getTaskChainTaskById(taskId) as ProcessTask | undefined
   if (!task) return
 
   const now = nowTimestamp()
@@ -367,7 +368,7 @@ function renderPickupRecordItem(record: PdaPickupRecord, head: PdaHandoverHead):
 
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         <div><span class="text-muted-foreground">领料方式：</span>${escapeHtml(record.pickupModeLabel)}</div>
-        <div><span class="text-muted-foreground">物料摘要：</span>${escapeHtml(record.materialSummary)}</div>
+        <div><span class="text-muted-foreground">物料说明：</span>${escapeHtml(record.materialSummary)}</div>
         <div><span class="text-muted-foreground">物料名称：</span>${escapeHtml(record.materialName || '—')}</div>
         <div><span class="text-muted-foreground">物料规格：</span>${escapeHtml(record.materialSpec || '—')}</div>
         <div><span class="text-muted-foreground">SKU：</span>${escapeHtml(record.skuCode || '—')}</div>
@@ -419,6 +420,7 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
       `
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('任务编号', head.taskNo)}
+        ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
         ${renderFieldRow('生产单号', head.productionOrderNo)}
         ${renderFieldRow('当前工序', head.processName)}
         ${renderFieldRow('任务状态', head.taskStatus === 'DONE' ? '已完工' : '进行中')}
@@ -431,7 +433,9 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
         ${renderFieldRow('来源执行单', sourceDoc?.docNo || sourceDoc?.id || '—')}
         ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType || '—')}
         ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
-        ${renderFieldRow('运行时任务', runtimeTask?.taskId || head.runtimeTaskId || '—')}
+        ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+        ${renderFieldRow('拆分组', head.splitGroupId || '未拆分')}
+        ${renderFieldRow('拆分来源', head.splitFromTaskNo || '—')}
       </div>
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -476,7 +480,7 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
         </div>
       </div>
       <div class="space-y-1">
-        <label class="text-xs font-medium">物料摘要 *</label>
+        <label class="text-xs font-medium">物料说明 *</label>
         <input
           class="h-9 w-full rounded-md border bg-background px-3 text-sm"
           value="${escapeHtml(detailState.pickupRecordMaterialSummary)}"
@@ -712,6 +716,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       `
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('任务编号', head.taskNo)}
+        ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
         ${renderFieldRow('生产单号', head.productionOrderNo)}
         ${renderFieldRow('当前工序', head.processName)}
         ${renderFieldRow('任务状态', head.taskStatus === 'DONE' ? '已完工' : '进行中')}
@@ -724,7 +729,9 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
         ${renderFieldRow('来源执行单', sourceDoc?.docNo || sourceDoc?.id || '—')}
         ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType || '—')}
         ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
-        ${renderFieldRow('运行时任务', runtimeTask?.taskId || head.runtimeTaskId || '—')}
+        ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+        ${renderFieldRow('拆分组', head.splitGroupId || '未拆分')}
+        ${renderFieldRow('拆分来源', head.splitFromTaskNo || '—')}
       </div>
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -1014,7 +1021,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       return true
     }
     if (!detailState.pickupRecordMaterialSummary.trim()) {
-      showPdaHandoverDetailToast('请先填写物料摘要')
+      showPdaHandoverDetailToast('请先填写物料说明')
       return true
     }
     const qtyExpected = Number(detailState.pickupRecordQty)

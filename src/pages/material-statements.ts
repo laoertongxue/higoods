@@ -338,7 +338,7 @@ function renderDetailDialog(detailDraft: MaterialStatementDraft | null): string 
               <tr class="border-b bg-muted/40 text-left">
                 <th class="px-4 py-2 font-medium">领料单号</th>
                 <th class="px-4 py-2 font-medium">任务ID</th>
-                <th class="px-4 py-2 font-medium">用料摘要</th>
+                <th class="px-4 py-2 font-medium">用料说明</th>
                 <th class="px-4 py-2 text-center font-medium">需求数量</th>
                 <th class="px-4 py-2 text-center font-medium">已下发数量</th>
                 <th class="px-4 py-2 font-medium">操作</th>
@@ -461,7 +461,7 @@ export function renderMaterialStatementsPage(): string {
             <section class="flex flex-wrap gap-3">
               <input
                 class="h-9 w-64 rounded-md border bg-background px-3 text-sm"
-                placeholder="关键词（单号 / 任务 / 摘要）"
+                placeholder="关键词（单号 / 任务 / 概况）"
                 data-mst-pool-filter="keyword"
                 value="${escapeHtml(state.poolKeyword)}"
               />
@@ -497,7 +497,7 @@ export function renderMaterialStatementsPage(): string {
                     <th class="px-4 py-2 font-medium">领料单号</th>
                     <th class="px-4 py-2 font-medium">生产单号</th>
                     <th class="px-4 py-2 font-medium">任务ID</th>
-                    <th class="px-4 py-2 font-medium">用料摘要</th>
+                    <th class="px-4 py-2 font-medium">用料说明</th>
                     <th class="px-4 py-2 text-center font-medium">需求数量</th>
                     <th class="px-4 py-2 text-center font-medium">已下发数量</th>
                     <th class="px-4 py-2 font-medium">领料状态</th>

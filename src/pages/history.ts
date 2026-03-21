@@ -268,7 +268,7 @@ export function renderHistoryPage(): string {
                     <th class="px-4 py-2 text-center font-medium">扣款总数量</th>
                     <th class="px-4 py-2 font-medium">最终金额</th>
                     <th class="px-4 py-2 text-center font-medium">调整项数</th>
-                    <th class="px-4 py-2 font-medium">核算摘要</th>
+                    <th class="px-4 py-2 font-medium">核算情况</th>
                     <th class="px-4 py-2 font-medium">关联批次</th>
                     <th class="px-4 py-2 font-medium">关闭时间</th>
                     <th class="px-4 py-2 font-medium">操作</th>
@@ -345,7 +345,7 @@ export function renderHistoryPage(): string {
                     <th class="px-4 py-2 font-medium">批次名称</th>
                     <th class="px-4 py-2 text-center font-medium">对账单数</th>
                     <th class="px-4 py-2 font-medium">总金额</th>
-                    <th class="px-4 py-2 font-medium">结算对象摘要</th>
+                    <th class="px-4 py-2 font-medium">结算对象说明</th>
                     <th class="px-4 py-2 font-medium">完成时间</th>
                     <th class="px-4 py-2 font-medium">操作</th>
                   </tr>

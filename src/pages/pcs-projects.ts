@@ -907,7 +907,7 @@ function renderDetailDrawer(): string {
     </div>
 
     <section class="rounded-lg border bg-card p-4">
-      <h3 class="mb-3 text-sm font-semibold">摘要</h3>
+      <h3 class="mb-3 text-sm font-semibold">基本情况</h3>
       <div class="grid gap-3 text-sm sm:grid-cols-2">
         <div><span class="text-muted-foreground">项目状态：</span>${renderBadge(project.status, STATUS_COLORS[project.status])}</div>
         <div><span class="text-muted-foreground">款式类型：</span>${renderBadge(project.styleType, STYLE_TYPE_COLORS[project.styleType])}</div>

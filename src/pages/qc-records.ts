@@ -32,12 +32,12 @@ import {
   RETURN_INBOUND_QC_POLICY_LABEL,
   SEW_POST_PROCESS_MODE_LABEL,
 } from '../data/fcs/return-inbound-qc-view'
-import { listLegacyLikeProcessTasksForTailPages } from '../data/fcs/page-adapters/long-tail-pages-adapter'
+import { listExecutionTaskFacts } from '../data/fcs/page-adapters/task-execution-adapter'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 
 applyQualitySeedBootstrap()
 
-const processTasks: ProcessTask[] = listLegacyLikeProcessTasksForTailPages()
+const processTasks: ProcessTask[] = listExecutionTaskFacts()
 
 type QcResult = 'PASS' | 'FAIL'
 type QcStatus = 'DRAFT' | 'SUBMITTED' | 'CLOSED'

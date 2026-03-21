@@ -678,7 +678,7 @@ function renderSettlementInfoSection(): string {
                 <p>申请号：${escapeHtml(currentRequest.requestId)} · 申请时间：${escapeHtml(currentRequest.submittedAt)}</p>
                 <p>当前处理阶段：${escapeHtml(getSettlementStatusLabel(currentRequest.status))}</p>
                 <p>签字证明：${currentRequest.signedProofFiles.length > 0 ? `已上传 ${currentRequest.signedProofFiles.length} 份` : '未上传'}</p>
-                <p>变更摘要：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
+                <p>变更内容：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
                 <p>下一步：${escapeHtml(getRequestNextStepText(currentRequest))}</p>
               </div>
             </div>
@@ -782,7 +782,7 @@ function renderSettlementRequestDrawer(): string {
         <p class="mt-1 text-[10px] text-muted-foreground">申请时间：${escapeHtml(currentRequest.submittedAt)} · 提交人：${escapeHtml(currentRequest.submittedBy)}</p>
         <p class="mt-1 text-[10px] text-muted-foreground">当前版本：${escapeHtml(currentRequest.currentVersionNo)} · 目标版本：${escapeHtml(currentRequest.targetVersionNo)}</p>
         <p class="mt-1 text-[10px] text-muted-foreground">签字证明：${currentRequest.signedProofFiles.length > 0 ? `已上传 ${currentRequest.signedProofFiles.length} 份` : '未上传'}</p>
-        <p class="mt-1 text-[10px] text-muted-foreground">变更摘要：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
+        <p class="mt-1 text-[10px] text-muted-foreground">变更内容：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
         <p class="mt-1 text-[10px] text-muted-foreground">下一步：${escapeHtml(getRequestNextStepText(currentRequest))}</p>
       </div>
 

@@ -1574,7 +1574,7 @@ function renderOrderListView(rows: PoViewRow[]): string {
               <th class="px-3 py-2 font-medium">主工厂</th>
               <th class="px-3 py-2 font-medium">生命周期</th>
               <th class="px-3 py-2 font-medium">任务进度</th>
-              <th class="px-3 py-2 font-medium">执行摘要</th>
+              <th class="px-3 py-2 font-medium">执行情况</th>
               <th class="px-3 py-2 font-medium">风险</th>
               <th class="px-3 py-2 font-medium">当前卡点</th>
               <th class="px-3 py-2 font-medium">下一动作</th>
@@ -2183,7 +2183,7 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
           </div>
 
           <div>
-            <p class="text-xs text-muted-foreground">风险摘要</p>
+            <p class="text-xs text-muted-foreground">风险情况</p>
             <div class="mt-1.5 flex flex-wrap gap-1.5">
               ${
                 row.risks.length === 0
@@ -2214,7 +2214,7 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
           </div>
 
           <div>
-            <p class="text-xs text-muted-foreground">任务清单摘要</p>
+            <p class="text-xs text-muted-foreground">任务概况</p>
             <div class="mt-1.5 space-y-1">
               ${orderTasks
                 .slice(0, 6)

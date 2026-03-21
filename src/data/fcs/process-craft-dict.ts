@@ -1,7 +1,10 @@
-export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU'
+export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
 export type CraftStageCode = 'PREP' | 'PROD' | 'POST'
 export type ProcessDocType = 'DEMAND' | 'TASK'
 export type TaskTypeMode = 'PROCESS' | 'CRAFT'
+export type DetailSplitMode = 'COMPOSITE'
+export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' | 'GARMENT_SKU'
+export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
 
 export interface ProcessStageDefinition {
   stageCode: CraftStageCode
@@ -19,6 +22,8 @@ export interface ProcessDefinition {
   assignmentGranularity: ProcessAssignmentGranularity
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
+  detailSplitMode: DetailSplitMode
+  detailSplitDimensions: DetailSplitDimension[]
   isSpecialCraftContainer: boolean
   description?: string
   triggerSource?: string
@@ -34,8 +39,11 @@ export interface ProcessCraftDefinition {
   systemProcessCode: string
   stageCode: CraftStageCode
   assignmentGranularity: ProcessAssignmentGranularity
+  ruleSource: RuleSource
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
+  detailSplitMode: DetailSplitMode
+  detailSplitDimensions: DetailSplitDimension[]
   isSpecialCraft: boolean
   carrySuggestion: string
   remark?: string
@@ -48,6 +56,10 @@ export interface LegacyCraftMappingDefinition {
   processCode: string
   isSpecialCraft: boolean
   defaultDocument: string
+  ruleSource?: RuleSource
+  assignmentGranularity?: ProcessAssignmentGranularity
+  detailSplitMode?: DetailSplitMode
+  detailSplitDimensions?: DetailSplitDimension[]
   remark?: string
 }
 
@@ -60,6 +72,12 @@ export type ProcessCraftDictRow = {
   stageName: string
   assignmentGranularity: ProcessAssignmentGranularity
   assignmentGranularityLabel: string
+  ruleSource: RuleSource
+  ruleSourceLabel: string
+  detailSplitMode: DetailSplitMode
+  detailSplitModeLabel: string
+  detailSplitDimensions: DetailSplitDimension[]
+  detailSplitDimensionsText: string
   handoffAdvice: string
   legacyValue: number
   legacyCraftName: string
@@ -67,6 +85,12 @@ export type ProcessCraftDictRow = {
   defaultDocument: string
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
+  processAssignmentGranularity: ProcessAssignmentGranularity
+  processAssignmentGranularityLabel: string
+  processDetailSplitMode: DetailSplitMode
+  processDetailSplitModeLabel: string
+  processDetailSplitDimensions: DetailSplitDimension[]
+  processDetailSplitDimensionsText: string
   remark?: string
   processNote?: string
   triggerSource?: string
@@ -76,6 +100,23 @@ export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranu
   ORDER: '按生产单',
   COLOR: '按颜色',
   SKU: '按SKU',
+  DETAIL: '按明细行',
+}
+
+export const DETAIL_SPLIT_MODE_LABEL: Record<DetailSplitMode, string> = {
+  COMPOSITE: '组合维度',
+}
+
+export const DETAIL_SPLIT_DIMENSION_LABEL: Record<DetailSplitDimension, string> = {
+  PATTERN: '纸样',
+  MATERIAL_SKU: '物料SKU',
+  GARMENT_COLOR: '成衣颜色',
+  GARMENT_SKU: '成衣SKU',
+}
+
+export const RULE_SOURCE_LABEL: Record<RuleSource, string> = {
+  INHERIT_PROCESS: '继承工序规则',
+  OVERRIDE_CRAFT: '工艺覆盖规则',
 }
 
 export const PROCESS_DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
@@ -132,6 +173,8 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   2000002: 'PROC_PRINT',
   2000003: 'PROC_DYE',
   2000004: 'PROC_DYE',
+  2000101: 'PROC_SPECIAL_PRINT',
+  2000102: 'PROC_SPECIAL_DYE',
   2000005: 'PROC_IRON',
   2000006: 'PROC_PACK',
 }
@@ -152,6 +195,90 @@ const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
   FROG_BUTTON: '盘扣工艺厂优先',
   IRONING: '后道整烫优先',
   PACKAGING: '后道包装优先',
+}
+
+type ProcessDefaultRule = {
+  assignmentGranularity: ProcessAssignmentGranularity
+  detailSplitMode: DetailSplitMode
+  detailSplitDimensions: DetailSplitDimension[]
+}
+
+const PROCESS_DEFAULT_RULES: Record<string, ProcessDefaultRule> = {
+  PRINT: {
+    assignmentGranularity: 'COLOR',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+  },
+  DYE: {
+    assignmentGranularity: 'COLOR',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_COLOR', 'MATERIAL_SKU'],
+  },
+  CUT_PANEL: {
+    assignmentGranularity: 'ORDER',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_COLOR', 'PATTERN', 'MATERIAL_SKU'],
+  },
+  EMBROIDERY: {
+    assignmentGranularity: 'ORDER',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+  },
+  PLEATING: {
+    assignmentGranularity: 'ORDER',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+  },
+  SEW: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
+  SPECIAL_CRAFT: {
+    assignmentGranularity: 'ORDER',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+  },
+  SHRINKING: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
+  WASHING: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
+  BUTTONHOLE: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
+  BUTTON_ATTACH: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
+  HARDWARE: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
+  FROG_BUTTON: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
+  IRONING: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
+  PACKAGING: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+  },
 }
 
 function toProcessDocType(documentLabel: string): ProcessDocType {
@@ -188,7 +315,17 @@ export const processStageDefinitions: ProcessStageDefinition[] = [
 ]
 
 const processDefinitionSeeds: Array<
-  Omit<ProcessDefinition, 'systemProcessCode' | 'assignmentGranularity' | 'defaultDocType' | 'taskTypeMode' | 'isSpecialCraftContainer' | 'defaultDocLabel'> & {
+  Omit<
+    ProcessDefinition,
+    | 'systemProcessCode'
+    | 'assignmentGranularity'
+    | 'detailSplitMode'
+    | 'detailSplitDimensions'
+    | 'defaultDocType'
+    | 'taskTypeMode'
+    | 'isSpecialCraftContainer'
+    | 'defaultDocLabel'
+  > & {
     defaultDocument: string
     isGarmentManufacturing: boolean
   }
@@ -242,16 +379,50 @@ function resolveProcessGranularity(processCode: string): ProcessAssignmentGranul
   return 'ORDER'
 }
 
+function resolveProcessDefaultRule(processCode: string): ProcessDefaultRule {
+  const configured = PROCESS_DEFAULT_RULES[processCode]
+  if (configured) return configured
+
+  const assignmentGranularity = resolveProcessGranularity(processCode)
+  if (assignmentGranularity === 'SKU') {
+    return {
+      assignmentGranularity,
+      detailSplitMode: 'COMPOSITE',
+      detailSplitDimensions: ['GARMENT_SKU'],
+    }
+  }
+  if (assignmentGranularity === 'COLOR') {
+    return {
+      assignmentGranularity,
+      detailSplitMode: 'COMPOSITE',
+      detailSplitDimensions: ['GARMENT_COLOR', 'MATERIAL_SKU'],
+    }
+  }
+  return {
+    assignmentGranularity,
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+  }
+}
+
+function formatDetailSplitDimensions(dimensions: DetailSplitDimension[]): string {
+  if (dimensions.length === 0) return '-'
+  return dimensions.map((dimension) => DETAIL_SPLIT_DIMENSION_LABEL[dimension]).join(' + ')
+}
+
 export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.map((seed) => {
   const defaultDocType = toProcessDocType(seed.defaultDocument)
   const isSpecialCraftContainer = seed.processCode === 'SPECIAL_CRAFT'
+  const defaultRule = resolveProcessDefaultRule(seed.processCode)
   return {
     processCode: seed.processCode,
     systemProcessCode: PROCESS_SYSTEM_CODE_MAP[seed.processCode] ?? `PROC_${seed.processCode}`,
     processName: seed.processName,
     stageCode: seed.stageCode,
     sort: seed.sort,
-    assignmentGranularity: resolveProcessGranularity(seed.processCode),
+    assignmentGranularity: defaultRule.assignmentGranularity,
+    detailSplitMode: defaultRule.detailSplitMode,
+    detailSplitDimensions: [...defaultRule.detailSplitDimensions],
     defaultDocType,
     taskTypeMode: isSpecialCraftContainer ? 'CRAFT' : 'PROCESS',
     isSpecialCraftContainer,
@@ -290,6 +461,32 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 2000002, legacyCraftName: '数码印', craftName: '数码印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '需求单' },
   { legacyValue: 2000003, legacyCraftName: '匹染', craftName: '匹染', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '需求单' },
   { legacyValue: 2000004, legacyCraftName: '色织', craftName: '色织', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '需求单' },
+  {
+    legacyValue: 2000101,
+    legacyCraftName: '印花工艺',
+    craftName: '印花工艺',
+    processCode: 'SPECIAL_CRAFT',
+    isSpecialCraft: true,
+    defaultDocument: '任务单',
+    ruleSource: 'OVERRIDE_CRAFT',
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+    remark: '特殊工艺任务，使用工艺级覆盖规则',
+  },
+  {
+    legacyValue: 2000102,
+    legacyCraftName: '染色工艺',
+    craftName: '染色工艺',
+    processCode: 'SPECIAL_CRAFT',
+    isSpecialCraft: true,
+    defaultDocument: '任务单',
+    ruleSource: 'OVERRIDE_CRAFT',
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+    remark: '特殊工艺任务，使用工艺级覆盖规则',
+  },
   { legacyValue: 2000005, legacyCraftName: '熨烫', craftName: '熨烫', processCode: 'IRONING', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, defaultDocument: '任务单' },
 ]
@@ -303,7 +500,27 @@ export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProce
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
     const process = processDefinitionByCode.get(item.processCode)
-    const assignmentGranularity = process?.assignmentGranularity ?? 'ORDER'
+    const inheritedRule: ProcessDefaultRule = {
+      assignmentGranularity: process?.assignmentGranularity ?? 'ORDER',
+      detailSplitMode: process?.detailSplitMode ?? 'COMPOSITE',
+      detailSplitDimensions: process?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'],
+    }
+    const forceOverrideBySpecialCraft = item.isSpecialCraft
+    const resolvedRuleSource: RuleSource = forceOverrideBySpecialCraft
+      ? 'OVERRIDE_CRAFT'
+      : item.ruleSource ?? 'INHERIT_PROCESS'
+    const resolvedAssignmentGranularity =
+      resolvedRuleSource === 'OVERRIDE_CRAFT'
+        ? item.assignmentGranularity ?? inheritedRule.assignmentGranularity
+        : inheritedRule.assignmentGranularity
+    const resolvedDetailSplitMode =
+      resolvedRuleSource === 'OVERRIDE_CRAFT'
+        ? item.detailSplitMode ?? inheritedRule.detailSplitMode
+        : inheritedRule.detailSplitMode
+    const resolvedDetailSplitDimensions =
+      resolvedRuleSource === 'OVERRIDE_CRAFT'
+        ? [...(item.detailSplitDimensions ?? inheritedRule.detailSplitDimensions)]
+        : [...inheritedRule.detailSplitDimensions]
     const defaultDocType = toProcessDocType(item.defaultDocument)
     return {
       craftCode: toCraftCode(item.legacyValue),
@@ -313,9 +530,12 @@ export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProce
       processCode: item.processCode,
       systemProcessCode: CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE[item.legacyValue] ?? process?.systemProcessCode ?? `PROC_${item.processCode}`,
       stageCode: process?.stageCode ?? 'PROD',
-      assignmentGranularity,
+      assignmentGranularity: resolvedAssignmentGranularity,
+      ruleSource: resolvedRuleSource,
       defaultDocType,
       taskTypeMode: toTaskTypeMode(item.isSpecialCraft),
+      detailSplitMode: resolvedDetailSplitMode,
+      detailSplitDimensions: resolvedDetailSplitDimensions,
       isSpecialCraft: item.isSpecialCraft,
       carrySuggestion: CARRY_SUGGESTION_BY_PROCESS_CODE[item.processCode] ?? '工艺匹配工厂优先',
       remark: item.remark,
@@ -382,6 +602,18 @@ export function getAssignmentGranularityByCraftCode(craftCode: string): ProcessA
   return processCraftByCode.get(craftCode)?.assignmentGranularity ?? 'ORDER'
 }
 
+export function getDetailSplitModeByCraftCode(craftCode: string): DetailSplitMode {
+  return processCraftByCode.get(craftCode)?.detailSplitMode ?? 'COMPOSITE'
+}
+
+export function getDetailSplitDimensionsByCraftCode(craftCode: string): DetailSplitDimension[] {
+  return [...(processCraftByCode.get(craftCode)?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])]
+}
+
+export function getRuleSourceByCraftCode(craftCode: string): RuleSource {
+  return processCraftByCode.get(craftCode)?.ruleSource ?? 'INHERIT_PROCESS'
+}
+
 export function getDefaultDocTypeByCraftCode(craftCode: string): ProcessDocType {
   return processCraftByCode.get(craftCode)?.defaultDocType ?? 'TASK'
 }
@@ -397,6 +629,9 @@ export function isSpecialCraftByCraftCode(craftCode: string): boolean {
 export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitions.map((item) => {
   const process = processDefinitionByCode.get(item.processCode)
   const stage = stageDefinitionByCode.get(item.stageCode)
+  const processAssignmentGranularity = process?.assignmentGranularity ?? 'ORDER'
+  const processDetailSplitMode = process?.detailSplitMode ?? 'COMPOSITE'
+  const processDetailSplitDimensions = [...(process?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])]
   return {
     craftCode: item.craftCode,
     craftName: item.craftName,
@@ -406,6 +641,12 @@ export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitio
     stageName: stage?.stageName ?? item.stageCode,
     assignmentGranularity: item.assignmentGranularity,
     assignmentGranularityLabel: PROCESS_ASSIGNMENT_GRANULARITY_LABEL[item.assignmentGranularity],
+    ruleSource: item.ruleSource,
+    ruleSourceLabel: RULE_SOURCE_LABEL[item.ruleSource],
+    detailSplitMode: item.detailSplitMode,
+    detailSplitModeLabel: DETAIL_SPLIT_MODE_LABEL[item.detailSplitMode],
+    detailSplitDimensions: [...item.detailSplitDimensions],
+    detailSplitDimensionsText: formatDetailSplitDimensions(item.detailSplitDimensions),
     handoffAdvice: item.carrySuggestion,
     legacyValue: item.legacyValue,
     legacyCraftName: item.legacyCraftName,
@@ -413,6 +654,13 @@ export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitio
     defaultDocument: PROCESS_DOC_TYPE_LABEL[item.defaultDocType],
     defaultDocType: item.defaultDocType,
     taskTypeMode: item.taskTypeMode,
+    processAssignmentGranularity,
+    processAssignmentGranularityLabel:
+      PROCESS_ASSIGNMENT_GRANULARITY_LABEL[processAssignmentGranularity],
+    processDetailSplitMode,
+    processDetailSplitModeLabel: DETAIL_SPLIT_MODE_LABEL[processDetailSplitMode],
+    processDetailSplitDimensions,
+    processDetailSplitDimensionsText: formatDetailSplitDimensions(processDetailSplitDimensions),
     remark: item.remark,
     processNote: process?.description,
     triggerSource: process?.triggerSource,

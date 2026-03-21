@@ -690,7 +690,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
           </div>
 
           <div class="space-y-3 rounded-md border p-3">
-            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">报价进度摘要</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">报价进度</p>
             <div class="grid grid-cols-2 gap-2">
               ${[
                 { label: '工厂池总数', value: `${tender.factoryPoolCount} 家`, color: 'text-gray-700' },

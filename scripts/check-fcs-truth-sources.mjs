@@ -337,7 +337,7 @@ function toMarkdownReport(payload) {
   lines.push(`- 发现问题数：${payload.summary.totalFindings}`)
   lines.push(`- 高风险：${payload.summary.highRiskCount}｜中风险：${payload.summary.mediumRiskCount}｜低风险：${payload.summary.lowRiskCount}`)
   lines.push('')
-  lines.push('## 审计结论摘要')
+  lines.push('## 审计结论概况')
   lines.push('')
   lines.push(`- 页面覆盖：${payload.summary.pageCheckedCount}（高风险 ${payload.summary.pageHighRiskCount}）`)
   lines.push(`- 旧 seed 直接引用命中：${payload.summary.legacySeedHits}`)

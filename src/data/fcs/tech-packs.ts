@@ -1,3 +1,11 @@
+import {
+  getProcessCraftByCode,
+  getProcessDefinitionByCode,
+  type DetailSplitDimension,
+  type DetailSplitMode,
+  type RuleSource,
+} from './process-craft-dict'
+
 export type TechPackStatus = 'MISSING' | 'BETA' | 'RELEASED'
 
 export interface TechPackPatternFile {
@@ -30,9 +38,12 @@ export interface TechPackProcess {
 }
 
 export type TechPackProcessEntryType = 'PROCESS_BASELINE' | 'CRAFT'
-export type TechPackAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU'
+export type TechPackAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
 export type TechPackProcessDocType = 'DEMAND' | 'TASK'
 export type TechPackTaskTypeMode = 'PROCESS' | 'CRAFT'
+export type TechPackRuleSource = RuleSource
+export type TechPackDetailSplitMode = DetailSplitMode
+export type TechPackDetailSplitDimension = DetailSplitDimension
 
 export interface TechPackProcessEntry {
   id: string
@@ -44,6 +55,9 @@ export interface TechPackProcessEntry {
   craftCode?: string
   craftName?: string
   assignmentGranularity: TechPackAssignmentGranularity
+  ruleSource?: TechPackRuleSource
+  detailSplitMode?: TechPackDetailSplitMode
+  detailSplitDimensions?: TechPackDetailSplitDimension[]
   defaultDocType: TechPackProcessDocType
   taskTypeMode: TechPackTaskTypeMode
   isSpecialCraft: boolean
@@ -355,6 +369,9 @@ export const techPacks: TechPack[] = [
         processCode: 'PRINT',
         processName: '印花',
         assignmentGranularity: 'COLOR',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
         defaultDocType: 'DEMAND',
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
@@ -372,6 +389,9 @@ export const techPacks: TechPack[] = [
         processCode: 'DYE',
         processName: '染色',
         assignmentGranularity: 'COLOR',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_COLOR', 'MATERIAL_SKU'],
         defaultDocType: 'DEMAND',
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
@@ -391,6 +411,9 @@ export const techPacks: TechPack[] = [
         craftCode: 'CRAFT_000001',
         craftName: '定位裁',
         assignmentGranularity: 'ORDER',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_COLOR', 'PATTERN', 'MATERIAL_SKU'],
         defaultDocType: 'TASK',
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
@@ -408,6 +431,9 @@ export const techPacks: TechPack[] = [
         craftCode: 'CRAFT_000004',
         craftName: '压褶',
         assignmentGranularity: 'ORDER',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
         defaultDocType: 'TASK',
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
@@ -425,6 +451,9 @@ export const techPacks: TechPack[] = [
         craftCode: 'CRAFT_262144',
         craftName: '曲牙',
         assignmentGranularity: 'SKU',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
         defaultDocType: 'TASK',
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
@@ -439,9 +468,12 @@ export const techPacks: TechPack[] = [
         stageName: '生产阶段',
         processCode: 'SPECIAL_CRAFT',
         processName: '特殊工艺',
-        craftCode: 'CRAFT_000008',
-        craftName: '打揽',
-        assignmentGranularity: 'ORDER',
+        craftCode: 'CRAFT_2000101',
+        craftName: '印花工艺',
+        assignmentGranularity: 'SKU',
+        ruleSource: 'OVERRIDE_CRAFT',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
         defaultDocType: 'TASK',
         taskTypeMode: 'CRAFT',
         isSpecialCraft: true,
@@ -456,9 +488,12 @@ export const techPacks: TechPack[] = [
         stageName: '生产阶段',
         processCode: 'SPECIAL_CRAFT',
         processName: '特殊工艺',
-        craftCode: 'CRAFT_000064',
-        craftName: '激光切',
-        assignmentGranularity: 'ORDER',
+        craftCode: 'CRAFT_2000102',
+        craftName: '染色工艺',
+        assignmentGranularity: 'SKU',
+        ruleSource: 'OVERRIDE_CRAFT',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
         defaultDocType: 'TASK',
         taskTypeMode: 'CRAFT',
         isSpecialCraft: true,
@@ -476,6 +511,9 @@ export const techPacks: TechPack[] = [
         craftCode: 'CRAFT_000032',
         craftName: '打条',
         assignmentGranularity: 'ORDER',
+        ruleSource: 'OVERRIDE_CRAFT',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
         defaultDocType: 'TASK',
         taskTypeMode: 'CRAFT',
         isSpecialCraft: true,
@@ -492,7 +530,10 @@ export const techPacks: TechPack[] = [
         processName: '洗水',
         craftCode: 'CRAFT_000128',
         craftName: '洗水',
-        assignmentGranularity: 'ORDER',
+        assignmentGranularity: 'SKU',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
         defaultDocType: 'TASK',
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
@@ -509,7 +550,10 @@ export const techPacks: TechPack[] = [
         processName: '开扣眼',
         craftCode: 'CRAFT_524288',
         craftName: '开扣眼',
-        assignmentGranularity: 'ORDER',
+        assignmentGranularity: 'SKU',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
         defaultDocType: 'TASK',
         taskTypeMode: 'PROCESS',
         isSpecialCraft: false,
@@ -1621,10 +1665,71 @@ export function updateTechPack(spuCode: string, updates: Partial<TechPack>): Tec
   return techPacks[index]
 }
 
+function fallbackDetailDimensions(
+  granularity: TechPackAssignmentGranularity,
+): TechPackDetailSplitDimension[] {
+  if (granularity === 'SKU') return ['GARMENT_SKU']
+  if (granularity === 'COLOR') return ['GARMENT_COLOR', 'MATERIAL_SKU']
+  return ['PATTERN', 'MATERIAL_SKU']
+}
+
+export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): TechPackProcessEntry {
+  const processDef = getProcessDefinitionByCode(entry.processCode)
+  const craftDef = entry.craftCode ? getProcessCraftByCode(entry.craftCode) : undefined
+
+  const inheritedGranularity = (processDef?.assignmentGranularity ??
+    entry.assignmentGranularity ??
+    'ORDER') as TechPackAssignmentGranularity
+  const inheritedSplitMode = processDef?.detailSplitMode ?? entry.detailSplitMode ?? 'COMPOSITE'
+  const inheritedSplitDimensions =
+    processDef?.detailSplitDimensions?.length
+      ? [...processDef.detailSplitDimensions]
+      : entry.detailSplitDimensions && entry.detailSplitDimensions.length > 0
+        ? [...entry.detailSplitDimensions]
+        : fallbackDetailDimensions(inheritedGranularity)
+
+  const forcedInherit = entry.entryType === 'PROCESS_BASELINE'
+  const forcedOverride = entry.entryType === 'CRAFT' && (entry.isSpecialCraft || craftDef?.isSpecialCraft)
+  const defaultRuleSource: TechPackRuleSource = forcedOverride
+    ? 'OVERRIDE_CRAFT'
+    : craftDef?.ruleSource ?? 'INHERIT_PROCESS'
+  const resolvedRuleSource: TechPackRuleSource = forcedInherit
+    ? 'INHERIT_PROCESS'
+    : forcedOverride
+      ? 'OVERRIDE_CRAFT'
+      : entry.ruleSource ?? defaultRuleSource
+
+  const overrideGranularity = (entry.assignmentGranularity ??
+    craftDef?.assignmentGranularity ??
+    inheritedGranularity) as TechPackAssignmentGranularity
+  const overrideSplitMode = entry.detailSplitMode ?? craftDef?.detailSplitMode ?? inheritedSplitMode
+  const overrideSplitDimensions =
+    entry.detailSplitDimensions && entry.detailSplitDimensions.length > 0
+      ? [...entry.detailSplitDimensions]
+      : craftDef?.detailSplitDimensions && craftDef.detailSplitDimensions.length > 0
+        ? [...craftDef.detailSplitDimensions]
+        : fallbackDetailDimensions(overrideGranularity)
+
+  const resolvedGranularity =
+    resolvedRuleSource === 'OVERRIDE_CRAFT' ? overrideGranularity : inheritedGranularity
+  const resolvedSplitMode =
+    resolvedRuleSource === 'OVERRIDE_CRAFT' ? overrideSplitMode : inheritedSplitMode
+  const resolvedSplitDimensions =
+    resolvedRuleSource === 'OVERRIDE_CRAFT' ? overrideSplitDimensions : inheritedSplitDimensions
+
+  return {
+    ...entry,
+    assignmentGranularity: resolvedGranularity,
+    ruleSource: resolvedRuleSource,
+    detailSplitMode: resolvedSplitMode,
+    detailSplitDimensions: resolvedSplitDimensions,
+  }
+}
+
 export function listTechPackProcessEntries(spuCode: string): TechPackProcessEntry[] {
   const techPack = getTechPackBySpuCode(spuCode)
   if (!techPack) return []
-  return (techPack.processEntries ?? []).map((item) => ({ ...item }))
+  return (techPack.processEntries ?? []).map((item) => resolveTechPackProcessEntryRule(item))
 }
 
 export function getTechPackProcessEntryById(spuCode: string, entryId: string): TechPackProcessEntry | null {

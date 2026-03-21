@@ -11,13 +11,19 @@ import {
   type TechPackColorMaterialMappingLine,
   type TechPackProcessEntry,
   type TechPackProcessEntryType,
+  type TechPackRuleSource,
+  type TechPackDetailSplitMode,
+  type TechPackDetailSplitDimension,
   type TechPackSizeRow,
+  resolveTechPackProcessEntryRule,
 } from '../data/fcs/tech-packs'
 import {
+  DETAIL_SPLIT_DIMENSION_LABEL,
+  DETAIL_SPLIT_MODE_LABEL,
   PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
   PROCESS_DOC_TYPE_LABEL,
+  RULE_SOURCE_LABEL,
   TASK_TYPE_MODE_LABEL,
-  getProcessCraftByCode,
   getProcessDefinitionByCode,
   listProcessCraftDefinitions,
   listProcessDefinitions,
@@ -53,6 +59,9 @@ type TechniqueItem = {
   craftCode: string
   technique: string
   assignmentGranularity: TechPackAssignmentGranularity
+  ruleSource: TechPackRuleSource
+  detailSplitMode: TechPackDetailSplitMode
+  detailSplitDimensions: TechPackDetailSplitDimension[]
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
@@ -70,6 +79,9 @@ type BaselineProcessOption = {
   stageCode: 'PREP' | 'PROD' | 'POST'
   stageName: string
   assignmentGranularity: TechPackAssignmentGranularity
+  ruleSource: TechPackRuleSource
+  detailSplitMode: TechPackDetailSplitMode
+  detailSplitDimensions: TechPackDetailSplitDimension[]
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   triggerSource: string
@@ -83,6 +95,9 @@ type CraftOption = {
   stageCode: 'PREP' | 'PROD' | 'POST'
   stageName: string
   assignmentGranularity: TechPackAssignmentGranularity
+  ruleSource: TechPackRuleSource
+  detailSplitMode: TechPackDetailSplitMode
+  detailSplitDimensions: TechPackDetailSplitDimension[]
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
@@ -253,6 +268,9 @@ const baselineProcessOptions: BaselineProcessOption[] = listProcessDefinitions()
     stageCode: item.stageCode,
     stageName: stageCodeToName.get(item.stageCode) || item.stageCode,
     assignmentGranularity: item.assignmentGranularity,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: item.detailSplitMode,
+    detailSplitDimensions: [...item.detailSplitDimensions],
     defaultDocType: item.defaultDocType,
     taskTypeMode: item.taskTypeMode,
     triggerSource: item.triggerSource || '',
@@ -269,6 +287,9 @@ const craftOptions: CraftOption[] = listProcessCraftDefinitions()
       stageCode: item.stageCode,
       stageName: stageCodeToName.get(item.stageCode) || item.stageCode,
       assignmentGranularity: item.assignmentGranularity,
+      ruleSource: item.ruleSource,
+      detailSplitMode: item.detailSplitMode,
+      detailSplitDimensions: [...item.detailSplitDimensions],
       defaultDocType: item.defaultDocType,
       taskTypeMode: item.taskTypeMode,
       isSpecialCraft: item.isSpecialCraft,
@@ -374,6 +395,9 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     craftCode: '',
     technique: '印花',
     assignmentGranularity: 'COLOR',
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
     defaultDocType: 'DEMAND',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
@@ -394,6 +418,9 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     craftCode: 'CRAFT_000001',
     technique: '定位裁',
     assignmentGranularity: 'ORDER',
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_COLOR', 'PATTERN', 'MATERIAL_SKU'],
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
@@ -414,6 +441,9 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     craftCode: 'CRAFT_262144',
     technique: '曲牙',
     assignmentGranularity: 'SKU',
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
@@ -474,6 +504,10 @@ interface TechPackPageState {
     entryType: TechPackProcessEntryType
     baselineProcessCode: string
     craftCode: string
+    ruleSource: TechPackRuleSource
+    assignmentGranularity: TechPackAssignmentGranularity
+    detailSplitMode: TechPackDetailSplitMode
+    detailSplitDimensions: TechPackDetailSplitDimension[]
     standardTime: string
     timeUnit: string
     difficulty: TechniqueItem['difficulty']
@@ -554,6 +588,10 @@ const state: TechPackPageState = {
     entryType: 'CRAFT',
     baselineProcessCode: '',
     craftCode: '',
+    ruleSource: 'INHERIT_PROCESS',
+    assignmentGranularity: 'ORDER',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
     standardTime: '',
     timeUnit: '分钟/件',
     difficulty: '中等',
@@ -598,7 +636,10 @@ function cloneTechPack(techPack: TechPack): TechPack {
       })),
     })),
     processes: techPack.processes.map((item) => ({ ...item })),
-    processEntries: (techPack.processEntries ?? []).map((item) => ({ ...item })),
+    processEntries: (techPack.processEntries ?? []).map((item) => ({
+      ...item,
+      detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+    })),
     sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
     bomItems: techPack.bomItems.map((item) => ({
       ...item,
@@ -656,7 +697,10 @@ function getSelectedDraftMeta():
       processName: string
       craftCode: string
       craftName: string
+      ruleSource: TechPackRuleSource
       assignmentGranularity: TechPackAssignmentGranularity
+      detailSplitMode: TechPackDetailSplitMode
+      detailSplitDimensions: TechPackDetailSplitDimension[]
       defaultDocType: 'DEMAND' | 'TASK'
       taskTypeMode: 'PROCESS' | 'CRAFT'
       isSpecialCraft: boolean
@@ -675,6 +719,9 @@ function getSelectedDraftMeta():
       craftCode: '',
       craftName: baseline.processName,
       assignmentGranularity: baseline.assignmentGranularity,
+      ruleSource: 'INHERIT_PROCESS',
+      detailSplitMode: baseline.detailSplitMode,
+      detailSplitDimensions: [...baseline.detailSplitDimensions],
       defaultDocType: baseline.defaultDocType,
       taskTypeMode: baseline.taskTypeMode,
       isSpecialCraft: false,
@@ -684,6 +731,23 @@ function getSelectedDraftMeta():
 
   const craft = getCraftOptionByCode(state.newTechnique.craftCode)
   if (!craft) return null
+  const forceOverride = craft.isSpecialCraft
+  const ruleSource = forceOverride ? 'OVERRIDE_CRAFT' : state.newTechnique.ruleSource
+  const effectiveRuleSource: TechPackRuleSource = ruleSource === 'OVERRIDE_CRAFT' ? 'OVERRIDE_CRAFT' : 'INHERIT_PROCESS'
+  const assignmentGranularity =
+    effectiveRuleSource === 'OVERRIDE_CRAFT'
+      ? state.newTechnique.assignmentGranularity
+      : craft.assignmentGranularity
+  const detailSplitMode =
+    effectiveRuleSource === 'OVERRIDE_CRAFT'
+      ? state.newTechnique.detailSplitMode
+      : craft.detailSplitMode
+  const detailSplitDimensions =
+    effectiveRuleSource === 'OVERRIDE_CRAFT'
+      ? state.newTechnique.detailSplitDimensions.length > 0
+        ? [...state.newTechnique.detailSplitDimensions]
+        : [...craft.detailSplitDimensions]
+      : [...craft.detailSplitDimensions]
   return {
     entryType: 'CRAFT',
     stageCode: craft.stageCode,
@@ -692,7 +756,10 @@ function getSelectedDraftMeta():
     processName: craft.processName,
     craftCode: craft.craftCode,
     craftName: craft.craftName,
-    assignmentGranularity: craft.assignmentGranularity,
+    ruleSource: effectiveRuleSource,
+    assignmentGranularity,
+    detailSplitMode,
+    detailSplitDimensions,
     defaultDocType: craft.defaultDocType,
     taskTypeMode: craft.taskTypeMode,
     isSpecialCraft: craft.isSpecialCraft,
@@ -702,6 +769,11 @@ function getSelectedDraftMeta():
 
 function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.filter((item) => item.trim().length > 0)))
+}
+
+function formatDetailSplitDimensionsText(dimensions: TechPackDetailSplitDimension[]): string {
+  if (dimensions.length === 0) return '-'
+  return dimensions.map((item) => DETAIL_SPLIT_DIMENSION_LABEL[item]).join(' + ')
 }
 
 function formatPatternSpec(widthCm: number, markerLengthM: number): string {
@@ -1158,24 +1230,33 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
 }
 
 function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: number): TechniqueItem {
+  const normalizedEntry = resolveTechPackProcessEntryRule(entry)
   return {
-    id: entry.id || `tech-${fallbackIndex + 1}`,
-    entryType: entry.entryType,
-    stageCode: entry.stageCode,
-    stage: entry.stageName,
-    processCode: entry.processCode,
-    process: entry.processName,
-    craftCode: entry.craftCode || '',
-    technique: entry.entryType === 'PROCESS_BASELINE' ? entry.processName : entry.craftName || '',
-    assignmentGranularity: entry.assignmentGranularity,
-    defaultDocType: entry.defaultDocType,
-    taskTypeMode: entry.taskTypeMode,
-    isSpecialCraft: entry.isSpecialCraft,
-    triggerSource: entry.triggerSource || '',
-    standardTime: Number.isFinite(entry.standardTimeMinutes) ? Number(entry.standardTimeMinutes) : 0,
-    timeUnit: entry.timeUnit || '分钟/件',
-    difficulty: mapDifficultyToZh(entry.difficulty || 'MEDIUM'),
-    remark: entry.remark || '',
+    id: normalizedEntry.id || `tech-${fallbackIndex + 1}`,
+    entryType: normalizedEntry.entryType,
+    stageCode: normalizedEntry.stageCode,
+    stage: normalizedEntry.stageName,
+    processCode: normalizedEntry.processCode,
+    process: normalizedEntry.processName,
+    craftCode: normalizedEntry.craftCode || '',
+    technique:
+      normalizedEntry.entryType === 'PROCESS_BASELINE'
+        ? normalizedEntry.processName
+        : normalizedEntry.craftName || '',
+    assignmentGranularity: normalizedEntry.assignmentGranularity,
+    ruleSource: normalizedEntry.ruleSource ?? 'INHERIT_PROCESS',
+    detailSplitMode: normalizedEntry.detailSplitMode ?? 'COMPOSITE',
+    detailSplitDimensions: [...(normalizedEntry.detailSplitDimensions ?? [])],
+    defaultDocType: normalizedEntry.defaultDocType,
+    taskTypeMode: normalizedEntry.taskTypeMode,
+    isSpecialCraft: normalizedEntry.isSpecialCraft,
+    triggerSource: normalizedEntry.triggerSource || '',
+    standardTime: Number.isFinite(normalizedEntry.standardTimeMinutes)
+      ? Number(normalizedEntry.standardTimeMinutes)
+      : 0,
+    timeUnit: normalizedEntry.timeUnit || '分钟/件',
+    difficulty: mapDifficultyToZh(normalizedEntry.difficulty || 'MEDIUM'),
+    remark: normalizedEntry.remark || '',
     source: '字典引用',
   }
 }
@@ -1188,7 +1269,10 @@ function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
   }
 
   if (techPack.processes.length === 0) {
-    return DEFAULT_TECHNIQUES.map((item) => ({ ...item }))
+    return DEFAULT_TECHNIQUES.map((item) => ({
+      ...item,
+      detailSplitDimensions: [...item.detailSplitDimensions],
+    }))
   }
 
   return techPack.processes.map((item, index) => {
@@ -1205,6 +1289,9 @@ function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
         craftCode: craft.craftCode,
         technique: craft.craftName,
         assignmentGranularity: craft.assignmentGranularity,
+        ruleSource: craft.ruleSource,
+        detailSplitMode: craft.detailSplitMode,
+        detailSplitDimensions: [...craft.detailSplitDimensions],
         defaultDocType: craft.defaultDocType,
         taskTypeMode: craft.taskTypeMode,
         isSpecialCraft: craft.isSpecialCraft,
@@ -1231,6 +1318,9 @@ function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
         craftCode: '',
         technique: processDef.processName,
         assignmentGranularity: processDef.assignmentGranularity,
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: processDef.detailSplitMode,
+        detailSplitDimensions: [...processDef.detailSplitDimensions],
         defaultDocType: processDef.defaultDocType,
         taskTypeMode: processDef.taskTypeMode,
         isSpecialCraft: false,
@@ -1253,6 +1343,9 @@ function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
       craftCode: '',
       technique: item.name,
       assignmentGranularity: 'SKU',
+      ruleSource: 'INHERIT_PROCESS',
+      detailSplitMode: 'COMPOSITE',
+      detailSplitDimensions: ['GARMENT_SKU'],
       defaultDocType: 'TASK',
       taskTypeMode: 'PROCESS',
       isSpecialCraft: false,
@@ -1450,6 +1543,9 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
       craftCode: item.craftCode || undefined,
       craftName: item.entryType === 'CRAFT' ? item.technique : undefined,
       assignmentGranularity: item.assignmentGranularity,
+      ruleSource: item.ruleSource,
+      detailSplitMode: item.detailSplitMode,
+      detailSplitDimensions: [...item.detailSplitDimensions],
       defaultDocType: item.defaultDocType,
       taskTypeMode: item.taskTypeMode,
       isSpecialCraft: item.isSpecialCraft,
@@ -1602,6 +1698,10 @@ function resetTechniqueForm(): void {
     entryType: 'CRAFT',
     baselineProcessCode: '',
     craftCode: '',
+    ruleSource: 'INHERIT_PROCESS',
+    assignmentGranularity: 'ORDER',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
     standardTime: '',
     timeUnit: '分钟/件',
     difficulty: '中等',
@@ -1836,6 +1936,11 @@ function renderProcessTechniqueCard(item: TechniqueItem): string {
             · 默认单据：${escapeHtml(PROCESS_DOC_TYPE_LABEL[item.defaultDocType])}
             · 任务模式：${escapeHtml(TASK_TYPE_MODE_LABEL[item.taskTypeMode])}
             · 特殊工艺：${item.isSpecialCraft ? '是' : '否'}
+          </div>
+          <div class="text-xs text-muted-foreground">
+            规则来源：${escapeHtml(RULE_SOURCE_LABEL[item.ruleSource])}
+            · 明细拆分方式：${escapeHtml(DETAIL_SPLIT_MODE_LABEL[item.detailSplitMode])}
+            · 明细拆分维度：${escapeHtml(formatDetailSplitDimensionsText(item.detailSplitDimensions))}
           </div>
           ${
             item.triggerSource
@@ -3273,9 +3378,12 @@ function renderAddTechniqueDialog(): string {
                   <div>所属阶段：${escapeHtml(selectedMeta.stageName)}</div>
                   <div>所属工序：${escapeHtml(selectedMeta.processName)}</div>
                   <div>分配粒度：${escapeHtml(PROCESS_ASSIGNMENT_GRANULARITY_LABEL[selectedMeta.assignmentGranularity])}</div>
+                  <div>规则来源：${escapeHtml(RULE_SOURCE_LABEL[selectedMeta.ruleSource])}</div>
                   <div>默认单据：${escapeHtml(PROCESS_DOC_TYPE_LABEL[selectedMeta.defaultDocType])}</div>
                   <div>任务模式：${escapeHtml(TASK_TYPE_MODE_LABEL[selectedMeta.taskTypeMode])}</div>
                   <div>特殊工艺：${selectedMeta.isSpecialCraft ? '是' : '否'}</div>
+                  <div class="col-span-2">明细拆分方式：${escapeHtml(DETAIL_SPLIT_MODE_LABEL[selectedMeta.detailSplitMode])}</div>
+                  <div class="col-span-2">明细拆分维度：${escapeHtml(formatDetailSplitDimensionsText(selectedMeta.detailSplitDimensions))}</div>
                   ${
                     selectedMeta.triggerSource
                       ? `<div class="col-span-2">触发来源：${escapeHtml(selectedMeta.triggerSource)}</div>`
@@ -3284,6 +3392,83 @@ function renderAddTechniqueDialog(): string {
                 </div>
               `
               : '<p class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">请选择工序基线或工艺字典项后自动带出阶段/工序/分配粒度/单据类型。</p>'
+          }
+
+          ${
+            selectedMeta
+              ? `
+                <div class="space-y-3 rounded-md border bg-muted/20 px-3 py-3">
+                  <p class="text-xs font-semibold text-muted-foreground">任务拆分规则</p>
+                  <label class="space-y-1">
+                    <span class="text-sm">规则来源</span>
+                    <select
+                      class="w-full rounded-md border px-3 py-2 text-sm"
+                      data-tech-field="new-technique-rule-source"
+                      ${state.newTechnique.entryType === 'PROCESS_BASELINE' || selectedMeta.isSpecialCraft ? 'disabled' : ''}
+                    >
+                      <option value="INHERIT_PROCESS" ${(state.newTechnique.entryType === 'PROCESS_BASELINE' || state.newTechnique.ruleSource === 'INHERIT_PROCESS') ? 'selected' : ''}>继承工序规则</option>
+                      <option value="OVERRIDE_CRAFT" ${(selectedMeta.isSpecialCraft || state.newTechnique.ruleSource === 'OVERRIDE_CRAFT') ? 'selected' : ''}>工艺覆盖规则</option>
+                    </select>
+                  </label>
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="space-y-1">
+                      <span class="text-sm">最小可分配粒度</span>
+                      <select
+                        class="w-full rounded-md border px-3 py-2 text-sm"
+                        data-tech-field="new-technique-assignment-granularity"
+                        ${(state.newTechnique.entryType === 'PROCESS_BASELINE' || (!selectedMeta.isSpecialCraft && state.newTechnique.ruleSource !== 'OVERRIDE_CRAFT')) ? 'disabled' : ''}
+                      >
+                        <option value="ORDER" ${state.newTechnique.assignmentGranularity === 'ORDER' ? 'selected' : ''}>按生产单</option>
+                        <option value="COLOR" ${state.newTechnique.assignmentGranularity === 'COLOR' ? 'selected' : ''}>按颜色</option>
+                        <option value="SKU" ${state.newTechnique.assignmentGranularity === 'SKU' ? 'selected' : ''}>按SKU</option>
+                        <option value="DETAIL" ${state.newTechnique.assignmentGranularity === 'DETAIL' ? 'selected' : ''}>按明细行</option>
+                      </select>
+                    </label>
+                    <label class="space-y-1">
+                      <span class="text-sm">明细拆分方式</span>
+                      <select
+                        class="w-full rounded-md border px-3 py-2 text-sm"
+                        data-tech-field="new-technique-detail-split-mode"
+                        ${(state.newTechnique.entryType === 'PROCESS_BASELINE' || (!selectedMeta.isSpecialCraft && state.newTechnique.ruleSource !== 'OVERRIDE_CRAFT')) ? 'disabled' : ''}
+                      >
+                        <option value="COMPOSITE" selected>组合维度</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="space-y-1">
+                    <span class="text-sm">明细拆分维度</span>
+                    <div class="grid grid-cols-2 gap-2 rounded-md border bg-background px-2 py-2">
+                      ${(['PATTERN', 'MATERIAL_SKU', 'GARMENT_COLOR', 'GARMENT_SKU'] as const)
+                        .map(
+                          (dimension) => `
+                            <label class="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <input
+                                type="checkbox"
+                                class="h-3.5 w-3.5"
+                                data-tech-field="new-technique-detail-split-dimension"
+                                data-dimension="${dimension}"
+                                ${state.newTechnique.detailSplitDimensions.includes(dimension) ? 'checked' : ''}
+                                ${(state.newTechnique.entryType === 'PROCESS_BASELINE' || (!selectedMeta.isSpecialCraft && state.newTechnique.ruleSource !== 'OVERRIDE_CRAFT')) ? 'disabled' : ''}
+                              />
+                              ${DETAIL_SPLIT_DIMENSION_LABEL[dimension]}
+                            </label>
+                          `,
+                        )
+                        .join('')}
+                    </div>
+                    <p class="text-[11px] text-muted-foreground">
+                      ${state.newTechnique.entryType === 'PROCESS_BASELINE'
+                        ? '工序基线项固定继承工序规则。'
+                        : selectedMeta.isSpecialCraft
+                          ? '特殊工艺必须使用工艺级覆盖规则。'
+                          : state.newTechnique.ruleSource === 'OVERRIDE_CRAFT'
+                            ? '当前使用工艺覆盖规则。'
+                            : '当前继承工序规则，可切换为工艺覆盖。'}
+                    </p>
+                  </div>
+                </div>
+              `
+              : ''
           }
 
           <div class="grid grid-cols-2 gap-4">
@@ -3647,6 +3832,10 @@ function handleTechPackField(
       entryType,
       baselineProcessCode: '',
       craftCode: '',
+      ruleSource: entryType === 'PROCESS_BASELINE' ? 'INHERIT_PROCESS' : 'INHERIT_PROCESS',
+      assignmentGranularity: 'ORDER',
+      detailSplitMode: 'COMPOSITE',
+      detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
       standardTime: '',
       timeUnit: '分钟/件',
       difficulty: '中等',
@@ -3659,6 +3848,10 @@ function handleTechPackField(
     state.newTechnique = {
       ...state.newTechnique,
       baselineProcessCode: value,
+      ruleSource: 'INHERIT_PROCESS',
+      assignmentGranularity: option?.assignmentGranularity ?? 'ORDER',
+      detailSplitMode: option?.detailSplitMode ?? 'COMPOSITE',
+      detailSplitDimensions: [...(option?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])],
       standardTime: option?.processCode === 'DYE' ? '10' : option ? '12' : '',
       timeUnit: option?.processCode === 'DYE' ? '分钟/件' : '分钟/件',
       difficulty: option?.processCode === 'DYE' ? '中等' : option ? '中等' : state.newTechnique.difficulty,
@@ -3667,13 +3860,42 @@ function handleTechPackField(
   }
   if (field === 'new-technique-craft-code') {
     const option = getCraftOptionByCode(value)
+    const forceOverride = Boolean(option?.isSpecialCraft)
     state.newTechnique = {
       ...state.newTechnique,
       craftCode: value,
+      ruleSource: forceOverride ? 'OVERRIDE_CRAFT' : option?.ruleSource ?? 'INHERIT_PROCESS',
+      assignmentGranularity: option?.assignmentGranularity ?? state.newTechnique.assignmentGranularity,
+      detailSplitMode: option?.detailSplitMode ?? 'COMPOSITE',
+      detailSplitDimensions: [...(option?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])],
       standardTime: option ? String(state.newTechnique.standardTime || '') : state.newTechnique.standardTime,
       difficulty:
         option && option.isSpecialCraft ? '困难' : option ? '中等' : state.newTechnique.difficulty,
     }
+    return true
+  }
+  if (field === 'new-technique-rule-source') {
+    state.newTechnique.ruleSource = value === 'OVERRIDE_CRAFT' ? 'OVERRIDE_CRAFT' : 'INHERIT_PROCESS'
+    return true
+  }
+  if (field === 'new-technique-assignment-granularity') {
+    state.newTechnique.assignmentGranularity = (value || 'ORDER') as TechPackAssignmentGranularity
+    return true
+  }
+  if (field === 'new-technique-detail-split-mode') {
+    state.newTechnique.detailSplitMode = 'COMPOSITE'
+    return true
+  }
+  if (field === 'new-technique-detail-split-dimension') {
+    const dimension = node.dataset.dimension as TechPackDetailSplitDimension | undefined
+    if (!dimension) return true
+    const current = new Set(state.newTechnique.detailSplitDimensions)
+    if (checked) {
+      current.add(dimension)
+    } else {
+      current.delete(dimension)
+    }
+    state.newTechnique.detailSplitDimensions = Array.from(current)
     return true
   }
   if (field === 'new-technique-standard-time') {
@@ -4414,6 +4636,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       entryType: target.entryType,
       baselineProcessCode: target.entryType === 'PROCESS_BASELINE' ? target.processCode : '',
       craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
+      ruleSource: target.ruleSource,
+      assignmentGranularity: target.assignmentGranularity,
+      detailSplitMode: target.detailSplitMode,
+      detailSplitDimensions: [...target.detailSplitDimensions],
       standardTime: String(target.standardTime || ''),
       timeUnit: target.timeUnit,
       difficulty: target.difficulty,
@@ -4441,6 +4667,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       craftCode: selectedMeta.craftCode,
       technique: selectedMeta.craftName,
       assignmentGranularity: selectedMeta.assignmentGranularity,
+      ruleSource: selectedMeta.ruleSource,
+      detailSplitMode: selectedMeta.detailSplitMode,
+      detailSplitDimensions: [...selectedMeta.detailSplitDimensions],
       defaultDocType: selectedMeta.defaultDocType,
       taskTypeMode: selectedMeta.taskTypeMode,
       isSpecialCraft: selectedMeta.isSpecialCraft,

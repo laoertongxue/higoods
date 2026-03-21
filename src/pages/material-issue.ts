@@ -1,9 +1,12 @@
-import { processTasks } from '../data/fcs/process-tasks'
 import {
   listMaterialIssueSheetsFromRuntime,
   type MaterialIssueSheet,
   type MaterialIssueStatus,
 } from '../data/fcs/store-domain-dispatch-process'
+import {
+  getExecutionTaskFactById,
+  listExecutionTaskFacts,
+} from '../data/fcs/page-adapters/task-execution-adapter'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { escapeHtml } from '../utils'
 
@@ -78,6 +81,10 @@ const state: MaterialIssueState = {
 const localIssueAdditions: MaterialIssueSheet[] = []
 const localIssueOverrides = new Map<string, MaterialIssueSheet>()
 let materialIssueSeq = listMaterialIssueSheetsFromRuntime().length + 1
+
+function listMaterialIssueTasks() {
+  return listExecutionTaskFacts()
+}
 
 function emptyCreateForm(): CreateForm {
   return {
@@ -191,10 +198,10 @@ function createMaterialIssueSheet(
   const { taskId, materialSummaryZh, requestedQty, remark } = input
   if (!taskId.trim()) return { ok: false, message: '任务ID不能为空' }
 
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = getExecutionTaskFactById(taskId)
   if (!task) return { ok: false, message: `任务 ${taskId} 不存在` }
 
-  if (!materialSummaryZh.trim()) return { ok: false, message: '用料摘要不能为空' }
+  if (!materialSummaryZh.trim()) return { ok: false, message: '用料说明不能为空' }
   if (!Number.isInteger(requestedQty) || requestedQty <= 0) {
     return { ok: false, message: '需求数量必须为大于0的整数' }
   }
@@ -307,7 +314,7 @@ function renderCreateDialog(): string {
             <label class="text-sm font-medium">任务 <span class="text-red-600">*</span></label>
             <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-mis-field="create.taskId">
               <option value="" ${state.createForm.taskId === '' ? 'selected' : ''}>选择任务</option>
-              ${processTasks
+              ${listMaterialIssueTasks()
                 .map(
                   (task) =>
                     `<option value="${escapeHtml(task.taskId)}" ${
@@ -319,7 +326,7 @@ function renderCreateDialog(): string {
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-sm font-medium">用料摘要 <span class="text-red-600">*</span></label>
+            <label class="text-sm font-medium">用料说明 <span class="text-red-600">*</span></label>
             <input
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
               placeholder="例：主面料 × 100m"
@@ -375,7 +382,7 @@ function renderEditDialog(editSheet: MaterialIssueSheet | null): string {
 
         <div class="mt-4 space-y-4">
           <div class="space-y-1.5">
-            <label class="text-sm font-medium">用料摘要</label>
+            <label class="text-sm font-medium">用料说明</label>
             <input
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
               data-mis-field="edit.materialSummaryZh"
@@ -542,7 +549,7 @@ export function renderMaterialIssuePage(): string {
           class="h-9 w-72 rounded-md border bg-background px-3 text-sm"
           data-mis-filter="keyword"
           value="${escapeHtml(state.keyword)}"
-          placeholder="关键词（领料单号/生产单号/任务ID/用料摘要）"
+          placeholder="关键词（领料单号/生产单号/任务ID/用料说明）"
         />
         <select class="h-9 w-36 rounded-md border bg-background px-3 text-sm" data-mis-filter="status">
           <option value="ALL" ${state.filterStatus === 'ALL' ? 'selected' : ''}>全部</option>
@@ -561,7 +568,7 @@ export function renderMaterialIssuePage(): string {
                 <th class="px-4 py-2 font-medium">领料单号</th>
                 <th class="px-4 py-2 font-medium">生产单号</th>
                 <th class="px-4 py-2 font-medium">任务ID</th>
-                <th class="px-4 py-2 font-medium">用料摘要</th>
+                <th class="px-4 py-2 font-medium">用料说明</th>
                 <th class="px-4 py-2 text-right font-medium">需求数量</th>
                 <th class="px-4 py-2 text-right font-medium">已下发数量</th>
                 <th class="px-4 py-2 font-medium">状态</th>

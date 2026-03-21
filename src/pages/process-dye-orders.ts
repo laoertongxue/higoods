@@ -495,7 +495,7 @@ function renderOrderRow(order: DyeProcessOrder): string {
             <div><span>计划投料数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
             <div><span>计划完成时间：</span><span class="text-foreground">${escapeHtml(order.plannedFinishAt)}</span></div>
             <div class="md:col-span-2 xl:col-span-3"><span>备货物料：</span><span class="text-foreground">${escapeHtml(stockMaterialText)}</span></div>
-            <div class="md:col-span-2 xl:col-span-3"><span>来源说明摘要：</span><span class="text-foreground">${escapeHtml(order.sourceSummary)}</span></div>
+            <div class="md:col-span-2 xl:col-span-3"><span>来源说明：</span><span class="text-foreground">${escapeHtml(order.sourceSummary)}</span></div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-order-action="open-detail" data-order-no="${escapeHtml(order.orderNo)}">查看详情</button>
@@ -580,7 +580,7 @@ function renderDetailDrawer(): string {
 
         <div class="space-y-4 px-6 py-5">
           <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-3 text-sm font-semibold">摘要</h3>
+            <h3 class="mb-3 text-sm font-semibold">基本情况</h3>
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">加工单号：</span><span class="font-mono">${escapeHtml(order.orderNo)}</span></div>
               <div><span class="text-muted-foreground">状态：</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
@@ -635,7 +635,7 @@ function renderDetailDrawer(): string {
               <div><span class="text-muted-foreground">接收数量：</span>${escapeHtml(formatQty(order.materialReceipt.receivedQty, order.unit))}</div>
               <div><span class="text-muted-foreground">接收时间：</span>${escapeHtml(order.materialReceipt.receivedAt)}</div>
               <div><span class="text-muted-foreground">接收质检结论：</span>${escapeHtml(order.materialReceipt.qualityConclusion)}</div>
-              <div class="md:col-span-2"><span class="text-muted-foreground">接收凭证摘要：</span>${escapeHtml(order.materialReceipt.receiptVoucher)}</div>
+              <div class="md:col-span-2"><span class="text-muted-foreground">接收凭证说明：</span>${escapeHtml(order.materialReceipt.receiptVoucher)}</div>
             </div>
           </section>
 

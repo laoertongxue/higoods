@@ -1,10 +1,12 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
-  processTasks,
   type ProcessTask,
   type TaskAuditLog,
 } from '../data/fcs/process-tasks'
+import {
+  getExecutionTaskFactById,
+} from '../data/fcs/page-adapters/task-execution-adapter'
 import {
   processTypes,
   getProcessTypeByCode,
@@ -328,7 +330,7 @@ function getCaseById(caseId: string): ExceptionCase | undefined {
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return processTasks.find((task) => task.taskId === taskId)
+  return getExecutionTaskFactById(taskId) ?? undefined
 }
 
 const TASK_STATUS_LABEL: Record<ProcessTask['status'], string> = {
@@ -529,10 +531,8 @@ function updateException(updated: ExceptionCase): void {
 }
 
 function updateTaskStatus(taskId: string, newStatus: ProcessTask['status'], by: string = 'Admin'): void {
-  const index = processTasks.findIndex((task) => task.taskId === taskId)
-  if (index < 0) return
-
-  const task = processTasks[index]
+  const task = getExecutionTaskFactById(taskId)
+  if (!task) return
   const now = nowTimestamp()
 
   const actionMap: Record<ProcessTask['status'], string> = {
@@ -559,13 +559,14 @@ function updateTaskStatus(taskId: string, newStatus: ProcessTask['status'], by: 
     by,
   }
 
-  processTasks[index] = {
-    ...task,
-    status: newStatus,
-    updatedAt: now,
-    ...(newStatus === 'IN_PROGRESS' ? { blockReason: undefined, blockRemark: undefined, blockedAt: undefined } : {}),
-    auditLogs: [...task.auditLogs, taskAudit],
+  task.status = newStatus
+  task.updatedAt = now
+  if (newStatus === 'IN_PROGRESS') {
+    task.blockReason = undefined
+    task.blockRemark = undefined
+    task.blockedAt = undefined
   }
+  task.auditLogs = [...task.auditLogs, taskAudit]
 }
 
 function extendTenderDeadline(tenderId: string, hours: number = 24): void {
@@ -1474,7 +1475,7 @@ function renderFilters(): string {
         <div class="min-w-[220px] flex-1">
           <input
             class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-            placeholder="异常单号 / 生产单 / 任务 / SPU / 摘要"
+            placeholder="异常单号 / 生产单 / 任务 / SPU / 概况"
             value="${escapeAttr(state.keyword)}"
             data-pe-field="keyword"
           />
@@ -1727,7 +1728,7 @@ function renderBasicTab(detailCase: ExceptionCase): string {
       </div>
 
       <div class="border-t pt-3">
-        <p class="text-xs text-muted-foreground">摘要</p>
+        <p class="text-xs text-muted-foreground">基本情况</p>
         <p class="font-medium">${escapeHtml(detailCase.summary)}</p>
       </div>
 

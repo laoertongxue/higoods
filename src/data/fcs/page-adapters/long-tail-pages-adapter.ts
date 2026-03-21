@@ -1,12 +1,13 @@
 import { productionOrders } from '../production-orders'
 import { listGeneratedProductionDemandArtifacts } from '../production-demands'
-import { processTasks, type ProcessTask } from '../process-tasks'
+import type { ProcessTask } from '../process-tasks'
 import {
   listProgressExceptions,
   listProgressFacts,
   listProgressMaterialStatementDrafts,
   type ExceptionCase,
 } from '../store-domain-progress'
+import { listExecutionTaskFacts } from './task-execution-adapter'
 
 export interface LegacyLikeQualityInspection {
   qcId: string
@@ -73,7 +74,7 @@ function toLegacyQcResult(exception: ExceptionCase): 'PASS' | 'FAIL' {
 }
 
 export function listLegacyLikeProcessTasksForTailPages(): ProcessTask[] {
-  return processTasks.filter((task) => task.defaultDocType !== 'DEMAND')
+  return listExecutionTaskFacts().filter((task) => task.defaultDocType !== 'DEMAND')
 }
 
 export function listLegacyLikeExceptionsForTailPages(): ExceptionCase[] {

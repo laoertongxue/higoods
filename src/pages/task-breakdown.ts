@@ -1,8 +1,16 @@
 import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders'
-import { type ProcessTask } from '../data/fcs/process-tasks'
-import { listRuntimeProcessTasks } from '../data/fcs/runtime-process-tasks'
+import {
+  isRuntimeTaskExecutionTask,
+  listRuntimeProcessTasks,
+  listRuntimeTaskSplitGroupsByOrder,
+  type RuntimeProcessTask,
+} from '../data/fcs/runtime-process-tasks'
 import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-demands'
 import { getTaskTypeDisplayName } from '../data/fcs/page-adapters/task-execution-adapter'
+import {
+  formatTaskDetailDimensionsText,
+  summarizeTaskDetailRows,
+} from '../data/fcs/task-detail-rows'
 import { escapeHtml, toClassName } from '../utils'
 
 type TaskBreakdownTab = 'by-order' | 'all'
@@ -15,13 +23,17 @@ interface TaskBreakdownState {
 
 interface OrderRow {
   order: ProductionOrder
-  tasks: ProcessTask[]
-  sorted: ProcessTask[]
+  tasks: RuntimeProcessTask[]
+  sorted: RuntimeProcessTask[]
   mainCount: number
   subCount: number
   dyeCount: number
   materialCount: number
   qcCount: number
+  splitGroupCount: number
+  splitResultCount: number
+  splitSourceCount: number
+  executionTaskCount: number
   chain: string
 }
 
@@ -33,17 +45,29 @@ const state: TaskBreakdownState = {
 
 const STAGE_ORDER = ['PREP', 'CUTTING', 'SEWING', 'SPECIAL', 'POST']
 
-function taskDisplayName(task: ProcessTask): string {
+function taskDisplayName(task: RuntimeProcessTask): string {
   return getTaskTypeDisplayName(task)
 }
 
-function stageScore(task: ProcessTask): number {
+function taskDisplayNo(task: RuntimeProcessTask): string {
+  return task.taskNo || task.taskId
+}
+
+const splitTaskStatusLabel: Record<RuntimeProcessTask['status'], string> = {
+  NOT_STARTED: '待执行',
+  IN_PROGRESS: '进行中',
+  DONE: '已完成',
+  BLOCKED: '暂停',
+  CANCELLED: '已取消',
+}
+
+function stageScore(task: RuntimeProcessTask): number {
   const stageCode = task.stageCode || task.stage
   const idx = STAGE_ORDER.findIndex((stage) => stage === stageCode)
   return idx === -1 ? 99 : idx
 }
 
-function topoSort(tasks: ProcessTask[]): ProcessTask[] {
+function topoSort(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
   if (tasks.length === 0) return []
 
   const ids = new Set(tasks.map((task) => task.taskId))
@@ -57,7 +81,7 @@ function topoSort(tasks: ProcessTask[]): ProcessTask[] {
     .filter((task) => indegree[task.taskId] === 0)
     .sort((a, b) => stageScore(a) - stageScore(b))
 
-  const result: ProcessTask[] = []
+  const result: RuntimeProcessTask[] = []
   const visited = new Set<string>()
 
   while (queue.length > 0) {
@@ -84,9 +108,9 @@ function topoSort(tasks: ProcessTask[]): ProcessTask[] {
   return result
 }
 
-function getAllProcessTasks(): ProcessTask[] {
+function getAllProcessTasks(): RuntimeProcessTask[] {
   const runtimeTasks = listRuntimeProcessTasks()
-  const tasksByOrder = new Map<string, ProcessTask[]>()
+  const tasksByOrder = new Map<string, RuntimeProcessTask[]>()
 
   for (const task of runtimeTasks) {
     const current = tasksByOrder.get(task.productionOrderId) ?? []
@@ -94,7 +118,7 @@ function getAllProcessTasks(): ProcessTask[] {
     tasksByOrder.set(task.productionOrderId, current)
   }
 
-  const result: ProcessTask[] = []
+  const result: RuntimeProcessTask[] = []
   for (const tasks of tasksByOrder.values()) {
     result.push(...tasks)
   }
@@ -102,7 +126,7 @@ function getAllProcessTasks(): ProcessTask[] {
   return result
 }
 
-function getTaskMaterialSet(allTasks: ProcessTask[]): Set<string> {
+function getTaskMaterialSet(allTasks: RuntimeProcessTask[]): Set<string> {
   const set = new Set<string>()
 
   for (const task of allTasks) {
@@ -119,7 +143,7 @@ function getTaskMaterialSet(allTasks: ProcessTask[]): Set<string> {
   return set
 }
 
-function getTaskQcSet(allTasks: ProcessTask[]): Set<string> {
+function getTaskQcSet(allTasks: RuntimeProcessTask[]): Set<string> {
   const set = new Set<string>()
 
   for (const task of allTasks) {
@@ -135,7 +159,7 @@ function getTaskQcSet(allTasks: ProcessTask[]): Set<string> {
   return set
 }
 
-function getTaskDyeSet(allTasks: ProcessTask[]): Set<string> {
+function getTaskDyeSet(allTasks: RuntimeProcessTask[]): Set<string> {
   const set = new Set<string>()
   const prepDemandOrderIds = new Set(
     listGeneratedProductionDemandArtifacts()
@@ -144,7 +168,7 @@ function getTaskDyeSet(allTasks: ProcessTask[]): Set<string> {
   )
 
   if (prepDemandOrderIds.size > 0) {
-    const orderFirstTask = new Map<string, ProcessTask>()
+    const orderFirstTask = new Map<string, RuntimeProcessTask>()
     for (const task of allTasks) {
       if (!prepDemandOrderIds.has(task.productionOrderId)) continue
       const current = orderFirstTask.get(task.productionOrderId)
@@ -161,7 +185,7 @@ function getTaskDyeSet(allTasks: ProcessTask[]): Set<string> {
   return set
 }
 
-function prevNames(task: ProcessTask, allTasks: ProcessTask[]): string {
+function prevNames(task: RuntimeProcessTask, allTasks: RuntimeProcessTask[]): string {
   const ids = task.dependsOnTaskIds ?? []
   if (ids.length === 0) return '起始任务'
   return ids
@@ -172,14 +196,14 @@ function prevNames(task: ProcessTask, allTasks: ProcessTask[]): string {
     .join('、')
 }
 
-function nextNames(task: ProcessTask, allTasks: ProcessTask[]): string {
+function nextNames(task: RuntimeProcessTask, allTasks: RuntimeProcessTask[]): string {
   const downstream = allTasks.filter((item) => (item.dependsOnTaskIds ?? []).includes(task.taskId))
   if (downstream.length === 0) return '末端任务'
   return downstream.map((item) => taskDisplayName(item)).join('、')
 }
 
 function chainSummaryText(
-  sorted: ProcessTask[],
+  sorted: RuntimeProcessTask[],
   taskDyeSet: Set<string>,
   materialTaskIds: Set<string>,
   qcTaskIds: Set<string>,
@@ -214,10 +238,73 @@ function renderNeedBadge(need: boolean, className: string): string {
   return `<span class="inline-flex rounded-md border px-2 py-0.5 text-[11px] ${className}">需要</span>`
 }
 
+function getTaskDetailRows(task: RuntimeProcessTask) {
+  if (task.scopeDetailRows && task.scopeDetailRows.length > 0) return task.scopeDetailRows
+  return task.detailRows ?? []
+}
+
+function renderTaskDetailSummary(task: RuntimeProcessTask): string {
+  const detailRows = getTaskDetailRows(task)
+  if (detailRows.length === 0) {
+    return '<p class="mt-1 text-[11px] text-muted-foreground">任务明细行：0 条</p>'
+  }
+
+  const summary = summarizeTaskDetailRows(detailRows, 2)
+  const firstRowDimensions = formatTaskDetailDimensionsText(detailRows[0])
+  const previewText =
+    summary.previewText.length > 0
+      ? `${summary.previewText}${detailRows.length > 2 ? ' 等' : ''}`
+      : '-'
+
+  return `
+    <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：${summary.count} 条（合计 ${summary.totalQty}件）</p>
+    <p class="text-[11px] text-muted-foreground">${escapeHtml(previewText)}</p>
+    <p class="text-[11px] text-muted-foreground">维度：${escapeHtml(firstRowDimensions)}</p>
+  `
+}
+
+function getSplitResultTasks(task: RuntimeProcessTask, allTasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
+  if (!task.splitGroupId) return []
+  return allTasks
+    .filter((item) => item.splitGroupId === task.splitGroupId && item.isSplitResult)
+    .sort((a, b) => (a.splitSeq ?? 0) - (b.splitSeq ?? 0))
+}
+
+function renderTaskSplitSummary(task: RuntimeProcessTask, allTasks: RuntimeProcessTask[]): string {
+  const splitGroup = task.splitGroupId || '-'
+
+  if (task.isSplitResult) {
+    const detailSummary = summarizeTaskDetailRows(getTaskDetailRows(task), 1)
+    const sourceTaskNo = task.splitFromTaskNo || task.rootTaskNo || '-'
+    const factoryName = task.assignedFactoryName || '-'
+    return `
+      <p class="text-[11px] text-muted-foreground">原始任务：${escapeHtml(sourceTaskNo)} · 拆分组：${escapeHtml(splitGroup)} · 拆分序号：${task.splitSeq ?? 0}</p>
+      <p class="text-[11px] text-muted-foreground">承接明细：${escapeHtml(detailSummary.previewText || '-')}（${detailSummary.count}条） · 工厂：${escapeHtml(factoryName)} · 状态：${escapeHtml(splitTaskStatusLabel[task.status])}</p>
+    `
+  }
+
+  if (task.isSplitSource) {
+    const splitResults = getSplitResultTasks(task, allTasks)
+    const splitResultText =
+      splitResults.length === 0
+        ? '暂无拆分结果'
+        : splitResults
+            .map((item) => `${taskDisplayNo(item)}（${item.assignedFactoryName || '-'}，${splitTaskStatusLabel[item.status]}）`)
+            .join('；')
+
+    return `
+      <p class="text-[11px] text-muted-foreground">拆分来源任务（不再执行） · 拆分组：${escapeHtml(splitGroup)}</p>
+      <p class="text-[11px] text-muted-foreground">拆分结果：${escapeHtml(splitResultText)}</p>
+    `
+  }
+
+  return '<p class="text-[11px] text-muted-foreground">拆分关系：未拆分</p>'
+}
+
 function renderChainDetailDialog(
   chainDetailOrderId: string | null,
   chainDetailOrder: ProductionOrder | null,
-  chainDetailTasks: ProcessTask[],
+  chainDetailTasks: RuntimeProcessTask[],
   taskDyeSet: Set<string>,
   taskMaterialSet: Set<string>,
   taskQcSet: Set<string>,
@@ -274,7 +361,13 @@ function renderChainDetailDialog(
                           return `
                             <tr class="border-b last:border-0">
                               <td class="px-3 py-2 text-xs text-muted-foreground">${idx + 1}</td>
-                              <td class="px-3 py-2 text-sm font-medium">${escapeHtml(taskDisplayName(task))}</td>
+                              <td class="px-3 py-2 text-sm font-medium">
+                                <div class="space-y-0.5">
+                                  <p>${escapeHtml(taskDisplayName(task))}</p>
+                                  ${renderTaskDetailSummary(task)}
+                                  ${renderTaskSplitSummary(task, chainDetailTasks)}
+                                </div>
+                              </td>
                               <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, chainDetailTasks))}</td>
                               <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(nextNames(task, chainDetailTasks))}</td>
                               <td class="px-3 py-2">
@@ -297,7 +390,7 @@ function renderChainDetailDialog(
 }
 
 function getOrderRows(
-  allTasks: ProcessTask[],
+  allTasks: RuntimeProcessTask[],
   keyword: string,
   taskDyeSet: Set<string>,
   taskMaterialSet: Set<string>,
@@ -319,6 +412,10 @@ function getOrderRows(
       const dyeCount = tasks.filter((task) => taskDyeSet.has(task.taskId)).length
       const materialCount = tasks.filter((task) => taskMaterialSet.has(task.taskId)).length
       const qcCount = tasks.filter((task) => taskQcSet.has(task.taskId)).length
+      const splitGroupCount = listRuntimeTaskSplitGroupsByOrder(order.productionOrderId).length
+      const splitResultCount = tasks.filter((task) => task.isSplitResult).length
+      const splitSourceCount = tasks.filter((task) => task.isSplitSource).length
+      const executionTaskCount = tasks.filter((task) => isRuntimeTaskExecutionTask(task)).length
       const chain = tasks.length > 0 ? chainSummaryText(sorted, taskDyeSet, taskMaterialSet, taskQcSet) : '—'
 
       return {
@@ -330,6 +427,10 @@ function getOrderRows(
         dyeCount,
         materialCount,
         qcCount,
+        splitGroupCount,
+        splitResultCount,
+        splitSourceCount,
+        executionTaskCount,
         chain,
       }
     })
@@ -346,8 +447,8 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
             <th class="px-3 py-2 text-center font-medium">任务总数</th>
             <th class="px-3 py-2 text-center font-medium">当前生产流程</th>
             <th class="px-3 py-2 text-center font-medium">相关流程</th>
-            <th class="min-w-[320px] px-3 py-2 text-left font-medium">任务链摘要</th>
-            <th class="px-3 py-2 text-left font-medium">执行准备摘要</th>
+            <th class="min-w-[320px] px-3 py-2 text-left font-medium">任务流程</th>
+            <th class="px-3 py-2 text-left font-medium">开工准备</th>
             <th class="px-3 py-2 text-left font-medium">操作</th>
           </tr>
         </thead>
@@ -356,7 +457,7 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
             orderRows.length === 0
               ? '<tr><td colspan="8" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
               : orderRows
-                  .map(({ order, tasks, mainCount, subCount, dyeCount, materialCount, qcCount, chain }) => {
+                  .map(({ order, tasks, mainCount, subCount, dyeCount, materialCount, qcCount, splitGroupCount, splitResultCount, splitSourceCount, executionTaskCount, chain }) => {
                     const prepSummary =
                       tasks.length === 0
                         ? '—'
@@ -364,6 +465,10 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
                             dyeCount > 0 ? '含染印' : null,
                             materialCount > 0 ? `领料需求：${materialCount}个任务` : null,
                             qcCount > 0 ? `质检标准：${qcCount}个任务` : null,
+                            splitGroupCount > 0 ? `拆分组：${splitGroupCount}` : '拆分组：0',
+                            splitResultCount > 0 ? `拆分结果任务：${splitResultCount}` : null,
+                            splitSourceCount > 0 ? `拆分来源任务：${splitSourceCount}` : null,
+                            `执行任务：${executionTaskCount}`,
                           ]
                             .filter(Boolean)
                             .join('；') || '无执行准备挂载'
@@ -393,7 +498,7 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
                                   <div>
                                     <p class="text-xs leading-relaxed text-muted-foreground">${escapeHtml(chain)}</p>
                                     ${
-                                      dyeCount > 0 || materialCount > 0 || qcCount > 0
+                                      dyeCount > 0 || materialCount > 0 || qcCount > 0 || splitGroupCount > 0
                                         ? `
                                             <div class="mt-1.5 flex flex-wrap gap-1">
                                               ${
@@ -409,6 +514,11 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
                                               ${
                                                 qcCount > 0
                                                   ? `<span class="inline-flex rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0 text-[10px] text-cyan-700">质检×${qcCount}</span>`
+                                                  : ''
+                                              }
+                                              ${
+                                                splitGroupCount > 0
+                                                  ? `<span class="inline-flex rounded-md border border-violet-200 bg-violet-50 px-2 py-0 text-[10px] text-violet-700">拆分组×${splitGroupCount}</span>`
                                                   : ''
                                               }
                                             </div>
@@ -442,8 +552,8 @@ function renderByOrderTable(orderRows: OrderRow[]): string {
 }
 
 function renderAllTasksTable(
-  allTaskRows: ProcessTask[],
-  allTasks: ProcessTask[],
+  allTaskRows: RuntimeProcessTask[],
+  allTasks: RuntimeProcessTask[],
   taskDyeSet: Set<string>,
   taskMaterialSet: Set<string>,
   taskQcSet: Set<string>,
@@ -485,8 +595,21 @@ function renderAllTasksTable(
                     return `
                       <tr class="border-b last:border-0">
                         <td class="px-3 py-2 text-xs text-muted-foreground">${idx + 1}</td>
-                        <td class="px-3 py-2 font-mono text-xs">${escapeHtml(task.taskId)}</td>
-                        <td class="px-3 py-2 text-sm font-medium">${escapeHtml(displayName)}</td>
+                        <td class="px-3 py-2 font-mono text-xs">
+                          <div>${escapeHtml(taskDisplayNo(task))}</div>
+                          ${
+                            taskDisplayNo(task) !== task.taskId
+                              ? `<div class="text-[10px] text-muted-foreground">${escapeHtml(task.taskId)}</div>`
+                              : ''
+                          }
+                        </td>
+                        <td class="px-3 py-2 text-sm font-medium">
+                          <div class="space-y-0.5">
+                            <p>${escapeHtml(displayName)}</p>
+                            ${renderTaskDetailSummary(task)}
+                            ${renderTaskSplitSummary(task, orderTasks)}
+                          </div>
+                        </td>
                         <td class="px-3 py-2 font-mono text-xs text-muted-foreground">${escapeHtml(task.productionOrderId || '—')}</td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, orderTasks))}</td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(nextNames(task, orderTasks))}</td>

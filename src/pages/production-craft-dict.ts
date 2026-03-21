@@ -95,12 +95,20 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
               ['所属工序', row.processName],
               ['所属阶段', row.stageName],
               ['分配粒度', row.assignmentGranularityLabel],
+              ['工艺规则来源', row.ruleSourceLabel],
+              [
+                '规则继承说明',
+                row.ruleSource === 'INHERIT_PROCESS'
+                  ? '当前工艺继承工序默认规则'
+                  : '当前工艺使用工艺级覆盖规则',
+              ],
+              ['工艺规则拆分方式', row.detailSplitModeLabel],
+              ['工艺规则拆分维度', row.detailSplitDimensionsText],
+              ['工序默认可分配粒度', row.processAssignmentGranularityLabel],
+              ['工序默认拆分方式', row.processDetailSplitModeLabel],
+              ['工序默认拆分维度', row.processDetailSplitDimensionsText],
               ['是否特殊工艺', row.isSpecialCraft ? '是' : '否'],
               ['默认生成单据', row.defaultDocument],
-              ['承接建议', row.handoffAdvice],
-              ['备注', row.remark || '-'],
-              ['工序说明', row.processNote || '-'],
-              ['触发来源', row.triggerSource || '-'],
             ] as Array<[string, string]>
           )
             .map(
@@ -114,10 +122,6 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
             .join('')}
         </div>
 
-        <div class="space-y-2 rounded-md border p-4">
-          <p class="text-sm font-semibold">收口说明</p>
-          <p class="text-xs text-muted-foreground">工艺详情仅通过总览页 + 侧边弹窗查看，不新增页签。列表主数据以老系统工艺映射为准，准备阶段的印花/染色用于工序字典和粒度说明，不强行制造映射行。</p>
-        </div>
       </div>
     </aside>
   `
@@ -139,7 +143,7 @@ export function renderProductionCraftDictPage(): string {
               <span class="rounded border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">总览页</span>
               <span class="rounded border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">详情侧边弹窗</span>
             </div>
-            <p class="text-sm text-muted-foreground">列表主数据来自老系统工艺映射，字段收敛为编码、工艺、工序、阶段、粒度、承接建议。</p>
+            <p class="text-sm text-muted-foreground">列表主数据来自老系统工艺映射，字段收敛为编码、工艺、工序、阶段、粒度、工艺规则拆分维度。</p>
           </div>
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-craft-dict-action="refresh">
             <i data-lucide="refresh-cw" class="mr-1 h-3.5 w-3.5"></i>刷新
@@ -181,6 +185,7 @@ export function renderProductionCraftDictPage(): string {
             <option value="ORDER" ${state.filterGranularity === 'ORDER' ? 'selected' : ''}>按生产单</option>
             <option value="COLOR" ${state.filterGranularity === 'COLOR' ? 'selected' : ''}>按颜色</option>
             <option value="SKU" ${state.filterGranularity === 'SKU' ? 'selected' : ''}>按SKU</option>
+            <option value="DETAIL" ${state.filterGranularity === 'DETAIL' ? 'selected' : ''}>按明细行</option>
           </select>
           ${
             hasFilters
@@ -199,7 +204,7 @@ export function renderProductionCraftDictPage(): string {
                 <th class="px-3 py-2 text-left">所属工序</th>
                 <th class="px-3 py-2 text-left">所属阶段</th>
                 <th class="px-3 py-2 text-left">分配粒度</th>
-                <th class="px-3 py-2 text-left">承接建议</th>
+                <th class="px-3 py-2 text-left">工艺规则拆分维度</th>
               </tr>
             </thead>
             <tbody>
@@ -225,7 +230,7 @@ export function renderProductionCraftDictPage(): string {
                             <td class="whitespace-nowrap px-3 py-2">
                               <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(row.assignmentGranularityLabel)}</span>
                             </td>
-                            <td class="max-w-[360px] px-3 py-2 text-muted-foreground">${escapeHtml(row.handoffAdvice)}</td>
+                            <td class="max-w-[360px] px-3 py-2 text-muted-foreground">${escapeHtml(row.detailSplitDimensionsText)}</td>
                           </tr>
                         `,
                       )

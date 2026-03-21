@@ -139,7 +139,7 @@ const FULL_DATA_SEED: Record<string, WorkItemFullData> = {
   wi_09: {
     sections: [
       {
-        title: '测款摘要',
+        title: '测款结果',
         fields: [
           { k: '测款目标', v: '验证兴趣与点击，筛选有效内容方向' },
           { k: '投放渠道', v: 'TikTok 短视频' },
@@ -265,13 +265,13 @@ function createFallbackFullData(workItem: WorkItem): WorkItemFullData {
         ],
       },
       {
-        title: '关键产出摘要',
+        title: '关键产出',
         fields: workItem.summary.keyOutputs.map((item) => ({ k: item.label, v: item.value })),
       },
     ],
     records: workItem.summary.latestRecords.map((item, index) => ({
       id: `${workItem.id}-record-${index + 1}`,
-      cols: { 标题: item.title, 摘要: item.meta },
+      cols: { 标题: item.title, 概况: item.meta },
       time: item.time,
     })),
     attachments: [],

@@ -695,7 +695,7 @@ function renderDetailDrawer(): string {
           }
 
           <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-2 text-sm font-semibold">风险摘要</h3>
+            <h3 class="mb-2 text-sm font-semibold">风险情况</h3>
             <p class="text-sm text-muted-foreground">${escapeHtml(risk.description)}</p>
           </section>
 

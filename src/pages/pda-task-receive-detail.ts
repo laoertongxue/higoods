@@ -31,6 +31,14 @@ function getTaskFactById(taskId: string): ProcessTask | null {
   return getTaskChainTaskById(taskId) ?? null
 }
 
+function getTaskDisplayNo(task: ProcessTask): string {
+  return task.taskNo || task.taskId
+}
+
+function getRootTaskDisplayNo(task: ProcessTask): string {
+  return task.rootTaskNo || task.taskNo || task.taskId
+}
+
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
@@ -296,18 +304,20 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
           <header class="border-b px-4 py-3">
             <h2 class="flex items-center gap-2 text-base font-semibold">
               <i data-lucide="clipboard-list" class="h-4 w-4"></i>
-              ${escapeHtml(task.taskId)}
+              ${escapeHtml(getTaskDisplayNo(task))}
             </h2>
           </header>
 
           <div class="space-y-3 p-4">
             <div class="grid grid-cols-2 gap-3 text-sm">
+              ${renderField('原始任务', getRootTaskDisplayNo(task))}
               ${renderField('生产单号', task.productionOrderId)}
               ${renderField('工序序号', String(task.seq))}
               ${renderField('工序名称', displayProcessName)}
               ${renderField('工序编码', task.processBusinessCode || task.processCode)}
               ${renderField('阶段', stageLabel)}
               ${renderField('数量', `${task.qty} ${task.qtyUnit}`)}
+              ${renderField('拆分组', task.splitGroupId || '未拆分')}
             </div>
 
             <div class="h-px bg-border"></div>

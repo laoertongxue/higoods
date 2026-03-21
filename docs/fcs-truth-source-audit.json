@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-20T02:51:54.646Z",
+  "generatedAt": "2026-03-20T08:15:02.246Z",
   "summary": {
-    "scannedFiles": 67,
+    "scannedFiles": 69,
     "totalFindings": 44,
     "highRiskCount": 0,
     "mediumRiskCount": 0,
@@ -19,7 +19,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/data/fcs/page-adapters/task-chain-pages-adapter.ts",
-      "line": 36,
+      "line": 38,
       "content": "const now = Date.now()",
       "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
     },
@@ -28,7 +28,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/data/fcs/pda-start-link.ts",
-      "line": 190,
+      "line": 193,
       "content": "export function getTaskStartDueInfo(task: ProcessTask, nowMs: number = Date.now()): {",
       "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
     },
@@ -37,7 +37,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/data/fcs/runtime-process-tasks.ts",
-      "line": 716,
+      "line": 1253,
       "content": "const now = Date.now()",
       "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
     },
@@ -46,7 +46,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/data/fcs/runtime-process-tasks.ts",
-      "line": 808,
+      "line": 1345,
       "content": "const now = Date.now()",
       "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
     },
@@ -55,7 +55,7 @@
       "key": "direct-legacy-seed-import",
       "severity": "LOW",
       "file": "src/pages/production/core.ts",
-      "line": 41,
+      "line": 44,
       "content": "} from '../../data/fcs/store-domain-quality-seeds'",
       "hint": "页面直接读取旧 quality seeds"
     },
@@ -64,7 +64,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-task-receive.ts",
-      "line": 192,
+      "line": 202,
       "content": "const diff = parseDateMs(deadline) - Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -73,7 +73,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-task-receive.ts",
-      "line": 256,
+      "line": 266,
       "content": "id: `AL-ACC-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -82,7 +82,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-task-receive.ts",
-      "line": 278,
+      "line": 288,
       "content": "id: `AL-REJ-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -91,7 +91,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-task-receive-detail.ts",
-      "line": 74,
+      "line": 82,
       "content": "id: `AL-ACC-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -100,7 +100,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-task-receive-detail.ts",
-      "line": 96,
+      "line": 104,
       "content": "id: `AL-REJ-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -109,7 +109,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-task-receive-detail.ts",
-      "line": 274,
+      "line": 282,
       "content": "const diff = new Date(acceptDeadline.replace(' ', 'T')).getTime() - Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -118,7 +118,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec.ts",
-      "line": 160,
+      "line": 168,
       "content": "const diff = parseDateMs(taskDeadline) - Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -127,7 +127,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec.ts",
-      "line": 236,
+      "line": 244,
       "content": "id: `AL-FINISH-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -136,7 +136,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec.ts",
-      "line": 258,
+      "line": 266,
       "content": "const nowMs = Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -145,7 +145,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 162,
+      "line": 170,
       "content": "const diff = parseDateMs(taskDeadline) - Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -154,7 +154,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 239,
+      "line": 247,
       "content": "id: `${scope}-proof-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -163,7 +163,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 382,
+      "line": 390,
       "content": "id: `AL-START-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -172,7 +172,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 402,
+      "line": 410,
       "content": "id: `AL-FINISH-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -181,7 +181,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 1125,
+      "line": 1137,
       "content": "if (Number.isNaN(startMs) || startMs > Date.now()) {",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -190,7 +190,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 1165,
+      "line": 1177,
       "content": "if (Number.isNaN(reportMs) || reportMs > Date.now()) {",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -199,7 +199,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 1208,
+      "line": 1220,
       "content": "if (Number.isNaN(reportMs) || reportMs > Date.now()) {",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -388,7 +388,7 @@
       "key": "direct-material-legacy-import",
       "severity": "LOW",
       "file": "src/pages/progress-exceptions.ts",
-      "line": 22,
+      "line": 24,
       "content": "} from '../data/fcs/store-domain-dispatch-process'",
       "hint": "页面直接读取 dispatch 兼容层，请确认不是旧 seed 字段直读"
     },
@@ -397,7 +397,7 @@
       "key": "direct-material-legacy-import",
       "severity": "LOW",
       "file": "src/pages/material-issue.ts",
-      "line": 6,
+      "line": 5,
       "content": "} from '../data/fcs/store-domain-dispatch-process'",
       "hint": "页面直接读取 dispatch 兼容层，请确认不是旧 seed 字段直读"
     },
@@ -461,10 +461,10 @@
       "category": "核心执行页",
       "primarySources": [
         "../data/fcs/production-orders",
-        "../data/fcs/process-tasks",
         "../data/fcs/runtime-process-tasks",
         "../data/fcs/production-demands",
-        "../data/fcs/page-adapters/task-execution-adapter"
+        "../data/fcs/page-adapters/task-execution-adapter",
+        "../data/fcs/task-detail-rows"
       ],
       "legacySeedHits": 0,
       "selfGuessHits": 0,
@@ -481,6 +481,7 @@
         "../../data/fcs/tech-packs",
         "../../data/fcs/legal-entities",
         "../../data/fcs/runtime-process-tasks",
+        "../../data/fcs/task-detail-rows",
         "../../data/fcs/store-domain-quality-bootstrap",
         "../../data/fcs/store-domain-quality-seeds",
         "../../data/fcs/page-adapters/long-tail-pages-adapter",
@@ -637,7 +638,7 @@
         "../data/fcs/store-domain-quality-types",
         "../data/fcs/return-inbound-workflow",
         "../data/fcs/return-inbound-qc-view",
-        "../data/fcs/page-adapters/long-tail-pages-adapter"
+        "../data/fcs/page-adapters/task-execution-adapter"
       ],
       "legacySeedHits": 1,
       "selfGuessHits": 0,
@@ -649,6 +650,7 @@
       "category": "进度/异常/台账页",
       "primarySources": [
         "../data/fcs/process-tasks",
+        "../data/fcs/page-adapters/task-execution-adapter",
         "../data/fcs/process-types",
         "../data/fcs/production-orders",
         "../data/fcs/indonesia-factories",
@@ -670,8 +672,8 @@
       "file": "src/pages/material-issue.ts",
       "category": "进度/异常/台账页",
       "primarySources": [
-        "../data/fcs/process-tasks",
         "../data/fcs/store-domain-dispatch-process",
+        "../data/fcs/page-adapters/task-execution-adapter",
         "../data/fcs/store-domain-quality-bootstrap"
       ],
       "legacySeedHits": 1,

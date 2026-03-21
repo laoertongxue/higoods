@@ -16,7 +16,8 @@ import type {
 } from './progress-exception-lifecycle'
 import {
   getRuntimeTaskById,
-  listRuntimeProcessTasks,
+  isRuntimeTaskExecutionTask,
+  listRuntimeExecutionTasks,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from './runtime-process-tasks'
@@ -326,6 +327,12 @@ export interface ProgressFact {
   artifactType: 'TASK'
   productionOrderId: string
   runtimeTaskId: string
+  taskNo?: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  splitSeq?: number
+  isSplitResult?: boolean
   baseTaskId: string
   stageCode?: string
   stageName?: string
@@ -364,6 +371,11 @@ export interface ProgressMaterialIssueRow {
   issueId: string
   productionOrderId: string
   taskId: string
+  taskNo?: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  isSplitResult?: boolean
   baseTaskId: string
   materialRequestNo: string
   materialSummaryZh: string
@@ -387,6 +399,11 @@ export interface ProgressMaterialIssueRow {
 export interface ProgressMaterialStatementItem {
   issueId: string
   taskId: string
+  taskNo?: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  isSplitResult?: boolean
   materialSummaryZh: string
   requestedQty: number
   issuedQty: number
@@ -549,7 +566,8 @@ function toIssueStatusFromExecution(input: {
 
 function formatGranularityLabel(
   granularity?: RuntimeProcessTask['assignmentGranularity'],
-): '按生产单' | '按颜色' | '按SKU' {
+): '按生产单' | '按颜色' | '按SKU' | '按明细行' {
+  if (granularity === 'DETAIL') return '按明细行'
   if (granularity === 'SKU') return '按SKU'
   if (granularity === 'COLOR') return '按颜色'
   return '按生产单'
@@ -557,10 +575,14 @@ function formatGranularityLabel(
 
 function resolveRuntimeTaskForRequest(request: MaterialRequestRecord): RuntimeProcessTask | null {
   const direct = getRuntimeTaskById(request.taskId)
-  if (direct) return direct
-  const byBase = listRuntimeTasksByBaseTaskId(request.taskId)
+  if (direct && isRuntimeTaskExecutionTask(direct)) return direct
+  const byBase = listRuntimeTasksByBaseTaskId(request.taskId).filter((task) =>
+    isRuntimeTaskExecutionTask(task),
+  )
   if (byBase.length === 0) return null
   if (byBase.length === 1) return byBase[0]
+  const byTaskNo = byBase.find((task) => (task.taskNo || task.taskId) === request.taskNo)
+  if (byTaskNo) return byTaskNo
   const orderScope = byBase.find((task) => task.scopeType === 'ORDER')
   return orderScope ?? byBase[0]
 }
@@ -618,7 +640,7 @@ export function listProgressFacts(): ProgressFact[] {
   const pickupHeads = getPdaPickupHeads()
   const handoutHeads = getPdaHandoutHeads()
 
-  return listRuntimeProcessTasks().map((task) => {
+  return listRuntimeExecutionTasks().map((task) => {
     const executionDocs = listWarehouseExecutionDocsByRuntimeTaskId(task.taskId)
     const requests = getRequestsByRuntimeTask(task)
     return {
@@ -626,6 +648,12 @@ export function listProgressFacts(): ProgressFact[] {
       artifactType: 'TASK',
       productionOrderId: task.productionOrderId,
       runtimeTaskId: task.taskId,
+      taskNo: task.taskNo || task.taskId,
+      rootTaskNo: task.rootTaskNo || task.taskNo || task.taskId,
+      splitGroupId: task.splitGroupId,
+      splitFromTaskNo: task.splitFromTaskNo,
+      splitSeq: task.splitSeq,
+      isSplitResult: task.isSplitResult === true,
       baseTaskId: task.baseTaskId,
       stageCode: task.stageCode,
       stageName: task.stageName,
@@ -689,6 +717,11 @@ export function listProgressMaterialIssueRows(): ProgressMaterialIssueRow[] {
         issueId: `MIS-${request.materialRequestNo}`,
         productionOrderId: request.productionOrderNo,
         taskId: runtimeTask.taskId,
+        taskNo: runtimeTask.taskNo || runtimeTask.taskId,
+        rootTaskNo: runtimeTask.rootTaskNo || runtimeTask.taskNo || runtimeTask.taskId,
+        splitGroupId: runtimeTask.splitGroupId,
+        splitFromTaskNo: runtimeTask.splitFromTaskNo,
+        isSplitResult: runtimeTask.isSplitResult === true,
         baseTaskId: runtimeTask.baseTaskId,
         materialRequestNo: request.materialRequestNo,
         materialSummaryZh: request.materialSummary,
@@ -743,6 +776,11 @@ export function listProgressMaterialStatementDrafts(): ProgressMaterialStatement
       const items = sortedRows.map((row) => ({
         issueId: row.issueId,
         taskId: row.taskId,
+        taskNo: row.taskNo,
+        rootTaskNo: row.rootTaskNo,
+        splitGroupId: row.splitGroupId,
+        splitFromTaskNo: row.splitFromTaskNo,
+        isSplitResult: row.isSplitResult,
         materialSummaryZh: row.materialSummaryZh,
         requestedQty: row.requestedQty,
         issuedQty: row.issuedQty,
@@ -786,7 +824,7 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
       issueOrTransferDocs.length === 0 &&
       fact.executorKind === 'EXTERNAL_FACTORY'
 
-    const relatedTaskIds = [fact.baseTaskId]
+    const relatedTaskIds = [fact.runtimeTaskId]
     const relatedOrderIds = [fact.productionOrderId]
     const linkedFactoryName = fact.assignedFactoryName
     const eventAt = pickLatestTimestamp([

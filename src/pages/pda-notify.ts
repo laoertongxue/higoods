@@ -720,7 +720,7 @@ export function renderPdaNotifyPage(): string {
           ? `
             <div class="flex-1 space-y-4 p-4">
               <section>
-                <p class="mb-2 text-xs font-medium text-muted-foreground">摘要总览</p>
+                <p class="mb-2 text-xs font-medium text-muted-foreground">总览</p>
                 <div class="grid grid-cols-3 gap-2">
                   ${summaryCards.map((card) => renderSummaryCard(card)).join('')}
                 </div>

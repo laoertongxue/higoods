@@ -9,7 +9,7 @@ import {
   listProgressMaterialStatementDrafts,
 } from './store-domain-progress'
 import {
-  listRuntimeProcessTasks,
+  listRuntimeExecutionTasks,
   upsertRuntimeTaskTender,
   type RuntimeProcessTask,
 } from './runtime-process-tasks'
@@ -23,6 +23,11 @@ export type MaterialStatementStatus = 'DRAFT' | 'CONFIRMED' | 'CLOSED'
 export interface MaterialStatementItem {
   issueId: string
   taskId: string
+  taskNo?: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  isSplitResult?: boolean
   materialSummaryZh: string
   requestedQty: number
   issuedQty: number
@@ -51,6 +56,11 @@ export interface MaterialIssueSheet {
   issueId: string
   productionOrderId?: string
   taskId: string
+  taskNo?: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  isSplitResult?: boolean
   materialSummaryZh: string
   requestedQty: number
   issuedQty: number
@@ -67,6 +77,11 @@ function buildLegacyMaterialIssueSheetsFromRuntime(): MaterialIssueSheet[] {
     issueId: row.issueId,
     productionOrderId: row.productionOrderId,
     taskId: row.taskId,
+    taskNo: row.taskNo,
+    rootTaskNo: row.rootTaskNo,
+    splitGroupId: row.splitGroupId,
+    splitFromTaskNo: row.splitFromTaskNo,
+    isSplitResult: row.isSplitResult,
     materialSummaryZh: `${row.materialSummaryZh}（${row.processName} / ${row.assignmentGranularityLabel}）`,
     requestedQty: row.requestedQty,
     issuedQty: row.issuedQty,
@@ -212,7 +227,8 @@ function resolveTenderDeadline(tasks: RuntimeProcessTask[]): string {
 }
 
 function buildLegacyTendersFromRuntime(): Tender[] {
-  const runtimeTasks = listRuntimeProcessTasks().filter(
+  // 兼容层口径：仅基于当前实际执行任务生成竞价视图，避免拆分来源任务误入执行主线。
+  const runtimeTasks = listRuntimeExecutionTasks().filter(
     (task) => Boolean(task.tenderId) && task.defaultDocType !== 'DEMAND',
   )
   const grouped = new Map<string, RuntimeProcessTask[]>()
@@ -318,7 +334,7 @@ export function extendTenderDeadlineFromRuntime(
   extendHours: number,
   by: string,
 ): string | null {
-  const targetTasks = listRuntimeProcessTasks().filter((task) => task.tenderId === tenderId)
+  const targetTasks = listRuntimeExecutionTasks().filter((task) => task.tenderId === tenderId)
   if (!targetTasks.length) return null
 
   const currentDeadline = resolveTenderDeadline(targetTasks)

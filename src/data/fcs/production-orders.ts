@@ -74,7 +74,7 @@ export interface DemandSnapshot {
   }>
 }
 
-// B. 分配摘要
+// B. 分配情况
 export interface AssignmentSummary {
   directCount: number      // 派单数量
   biddingCount: number     // 竞价数量
@@ -177,20 +177,20 @@ function createFactorySnapshot(factory: IndonesiaFactory): FactorySnapshot {
 
 // Mock 生产单数据 - 覆盖所有状态与分配组合（12+条）
 export const productionOrders: ProductionOrder[] = [
-  // PO-0001: WAIT_TECH_PACK_RELEASE (techPack=BETA, 未拆解)
+  // PO-0001: READY_FOR_BREAKDOWN (techPack=RELEASED, 未拆解)
   {
     productionOrderId: 'PO-202603-0001',
     demandId: 'DEM-202603-0004',
     legacyOrderNo: '240779',
-    status: 'WAIT_TECH_PACK_RELEASE',
+    status: 'READY_FOR_BREAKDOWN',
     lockedLegacy: false,
     mainFactoryId: 'ID-F002',
     mainFactorySnapshot: createFactorySnapshot(indonesiaFactories.find(f => f.id === 'ID-F002')!),
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F002',
     techPackSnapshot: {
-      status: 'BETA',
-      versionLabel: 'beta-v2',
+      status: 'RELEASED',
+      versionLabel: 'v1.0',
       snapshotAt: '2026-03-02 16:00:00',
     },
     demandSnapshot: {
@@ -212,7 +212,7 @@ export const productionOrders: ProductionOrder[] = [
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
     taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
-    riskFlags: ['TECH_PACK_NOT_RELEASED'],
+    riskFlags: [],
     auditLogs: [
       { id: 'LOG-001', action: 'CREATE', detail: '生产单从需求 DEM-202603-0004 创建', at: '2026-03-02 16:00:00', by: 'Budi Santoso' },
     ],
@@ -676,20 +676,20 @@ export const productionOrders: ProductionOrder[] = [
     createdAt: '2026-02-28 09:00:00',
     updatedAt: '2026-03-04 11:00:00',
   },
-  // PO-0012: WAIT_TECH_PACK_RELEASE (techPack=MISSING)
+  // PO-0012: READY_FOR_BREAKDOWN (techPack=RELEASED)
   {
     productionOrderId: 'PO-202603-0012',
     demandId: 'DEM-202603-0015',
     legacyOrderNo: '240790',
-    status: 'WAIT_TECH_PACK_RELEASE',
+    status: 'READY_FOR_BREAKDOWN',
     lockedLegacy: false,
     mainFactoryId: 'ID-F005',
     mainFactorySnapshot: createFactorySnapshot(indonesiaFactories.find(f => f.id === 'ID-F005')!),
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F005',
     techPackSnapshot: {
-      status: 'MISSING',
-      versionLabel: '-',
+      status: 'RELEASED',
+      versionLabel: 'v1.3',
       snapshotAt: '2026-03-04 14:00:00',
     },
     demandSnapshot: {
@@ -711,9 +711,9 @@ export const productionOrders: ProductionOrder[] = [
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
     taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
-    riskFlags: ['TECH_PACK_MISSING', 'MAIN_FACTORY_BLACKLISTED'],
+    riskFlags: ['MAIN_FACTORY_BLACKLISTED'],
     auditLogs: [
-      { id: 'LOG-034', action: 'CREATE', detail: '生产单创建（技术包缺失）', at: '2026-03-04 14:00:00', by: 'Lina Susanti' },
+      { id: 'LOG-034', action: 'CREATE', detail: '生产单创建', at: '2026-03-04 14:00:00', by: 'Lina Susanti' },
     ],
     createdAt: '2026-03-04 14:00:00',
     updatedAt: '2026-03-04 14:00:00',
@@ -730,8 +730,8 @@ export const productionOrders: ProductionOrder[] = [
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F007',
     techPackSnapshot: {
-      status: 'BETA',
-      versionLabel: 'beta',
+      status: 'RELEASED',
+      versionLabel: 'v1.1',
       snapshotAt: '2026-03-05 10:00:00',
     },
     demandSnapshot: {
@@ -753,7 +753,7 @@ export const productionOrders: ProductionOrder[] = [
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
     taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
-    riskFlags: ['TECH_PACK_NOT_RELEASED'],
+    riskFlags: [],
     auditLogs: [
       { id: 'LOG-035', action: 'CREATE', detail: 'Draft 生产单创建', at: '2026-03-05 10:00:00', by: 'Novi Rahmawati' },
     ],

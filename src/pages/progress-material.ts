@@ -18,6 +18,7 @@ import {
 } from '../data/fcs/warehouse-material-execution'
 import {
   getRuntimeTaskById,
+  isRuntimeTaskExecutionTask,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks'
@@ -173,11 +174,16 @@ function renderProgressBar(percent: number, widthClass: string): string {
 
 function resolveRuntimeTaskForRequest(request: MaterialRequestRecord): RuntimeProcessTask | null {
   const direct = getRuntimeTaskById(request.taskId)
-  if (direct) return direct
+  if (direct && isRuntimeTaskExecutionTask(direct)) return direct
 
-  const baseMatches = listRuntimeTasksByBaseTaskId(request.taskId)
+  const baseMatches = listRuntimeTasksByBaseTaskId(request.taskId).filter((task) =>
+    isRuntimeTaskExecutionTask(task),
+  )
   if (baseMatches.length === 0) return null
   if (baseMatches.length === 1) return baseMatches[0]
+
+  const matchedByTaskNo = baseMatches.find((task) => (task.taskNo || task.taskId) === request.taskNo)
+  if (matchedByTaskNo) return matchedByTaskNo
 
   const orderScope = baseMatches.find((task) => task.scopeType === 'ORDER')
   return orderScope ?? baseMatches[0]
@@ -310,7 +316,7 @@ function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
               <th class="px-3 py-2 font-medium">执行方</th>
               <th class="px-3 py-2 font-medium">领料需求编号</th>
               <th class="px-3 py-2 font-medium">领料方式</th>
-              <th class="px-3 py-2 font-medium">物料摘要</th>
+              <th class="px-3 py-2 font-medium">物料说明</th>
               <th class="px-3 py-2 font-medium">仓库执行状态</th>
               <th class="px-3 py-2 font-medium">最近更新时间</th>
             </tr>
@@ -815,7 +821,7 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
         <header class="px-4 pb-3 pt-4">
           <h2 class="flex items-center gap-2 text-base font-semibold">
             <i data-lucide="package" class="h-4 w-4"></i>
-            生产单摘要
+            生产单概况
           </h2>
         </header>
         <div class="px-4 pb-4">

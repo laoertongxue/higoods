@@ -885,7 +885,7 @@ function renderLedgerTable(rows: HandoverLedgerRow[]): string {
               <th class="px-3 py-2 font-medium">事件类型</th>
               <th class="px-3 py-2 font-medium">生产单</th>
               <th class="px-3 py-2 font-medium">关联任务/工序</th>
-              <th class="px-3 py-2 font-medium">数量摘要</th>
+              <th class="px-3 py-2 font-medium">数量情况</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">来源模块</th>
               <th class="px-3 py-2 font-medium">下一步</th>
@@ -1581,7 +1581,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
             <h4 class="text-sm font-medium">数量信息</h4>
             <div class="rounded-md border bg-muted/20 p-3 text-sm">
               <p><span class="text-muted-foreground">流向：</span>${escapeHtml(row.directionLabel)}</p>
-              <p class="mt-1"><span class="text-muted-foreground">数量摘要：</span>${escapeHtml(row.qtySummary)}</p>
+              <p class="mt-1"><span class="text-muted-foreground">数量情况：</span>${escapeHtml(row.qtySummary)}</p>
               ${
                 typeof row.qtyDiff === 'number'
                   ? `<p class="mt-1"><span class="text-muted-foreground">数量差异：</span>${row.qtyDiff === 0 ? '无差异' : `${row.qtyDiff > 0 ? '-' : '+'}${Math.abs(row.qtyDiff)}`}</p>`

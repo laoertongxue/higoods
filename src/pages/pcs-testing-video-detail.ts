@@ -147,7 +147,7 @@ function renderOverview(record: VideoRecord, items: VideoItem[]): string {
         </div>
       </article>
       <article class="rounded-lg border bg-card p-3">
-        <p class="text-xs text-muted-foreground">测款摘要</p>
+        <p class="text-xs text-muted-foreground">测款结果</p>
         <div class="mt-2 space-y-1 text-sm">
           <p>测款条目：${testItems.length}</p>
           <p>待改版建议：${testItems.filter((item) => item.recommendation === '改版').length}</p>

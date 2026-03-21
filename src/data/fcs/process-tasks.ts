@@ -10,6 +10,15 @@ import {
   generateTaskArtifactsForAllOrders,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation'
+import type {
+  DetailSplitDimension,
+  DetailSplitMode,
+  RuleSource,
+} from './process-craft-dict'
+import {
+  generateTaskDetailRowsForArtifact,
+  type TaskDetailRow,
+} from './task-detail-rows'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
@@ -47,6 +56,7 @@ export type ExecProofFile = StartProofFile
 
 export interface ProcessTask {
   taskId: string
+  taskNo?: string
   productionOrderId: string
   seq: number
   processCode: string
@@ -145,7 +155,19 @@ export interface ProcessTask {
   processBusinessName?: string
   craftCode?: string
   craftName?: string
-  assignmentGranularity?: 'ORDER' | 'COLOR' | 'SKU'
+  assignmentGranularity?: 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
+  ruleSource?: RuleSource
+  detailSplitMode?: DetailSplitMode
+  detailSplitDimensions?: DetailSplitDimension[]
+  detailRows?: TaskDetailRow[]
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  splitSeq?: number
+  detailRowKeys?: string[]
+  isSplitResult?: boolean
+  isSplitSource?: boolean
+  executionEnabled?: boolean
   defaultDocType?: 'DEMAND' | 'TASK'
   taskTypeMode?: 'PROCESS' | 'CRAFT'
   isSpecialCraft?: boolean
@@ -208,12 +230,17 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
     orderArtifacts.forEach((artifact, index) => {
       const seq = index + 1
       const taskId = `TASKGEN-${orderId.replace('PO-', '')}-${String(seq).padStart(3, '0')}`
+      const detailRows = generateTaskDetailRowsForArtifact({
+        taskId,
+        artifact,
+      })
       generatedIds.push(taskId)
       const prevTaskId = generatedIds[index - 1]
       const assignmentMode: AssignmentMode = artifact.isSpecialCraft ? 'BIDDING' : 'DIRECT'
 
       tasks.push({
         taskId,
+        taskNo: taskId,
         productionOrderId: orderId,
         seq,
         processCode: artifact.systemProcessCode,
@@ -239,6 +266,15 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         craftCode: artifact.craftCode,
         craftName: artifact.craftName,
         assignmentGranularity: artifact.assignmentGranularity,
+        ruleSource: artifact.ruleSource,
+        detailSplitMode: artifact.detailSplitMode,
+        detailSplitDimensions: [...artifact.detailSplitDimensions],
+        detailRows,
+        rootTaskNo: taskId,
+        detailRowKeys: detailRows.map((row) => row.rowKey),
+        isSplitResult: false,
+        isSplitSource: false,
+        executionEnabled: true,
         defaultDocType: artifact.defaultDocType,
         taskTypeMode: artifact.taskTypeMode,
         isSpecialCraft: artifact.isSpecialCraft,

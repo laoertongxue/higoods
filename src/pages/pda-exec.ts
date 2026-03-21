@@ -62,6 +62,14 @@ function getTaskFactById(taskId: string): ProcessTask | null {
   return getTaskChainTaskById(taskId) ?? null
 }
 
+function getTaskDisplayNo(task: ProcessTask): string {
+  return task.taskNo || task.taskId
+}
+
+function getTaskRootNo(task: ProcessTask): string {
+  return task.rootTaskNo || task.taskNo || task.taskId
+}
+
 const TAB_PARAM_MAP: Record<string, TaskStatusTab> = {
   blocked: 'BLOCKED',
   BLOCKED: 'BLOCKED',
@@ -274,6 +282,7 @@ function getFilteredTasks(
   return tasks.filter(
     (task) =>
       task.taskId.toLowerCase().includes(keyword) ||
+      (task.taskNo || '').toLowerCase().includes(keyword) ||
       task.productionOrderId.toLowerCase().includes(keyword) ||
       getTaskProcessDisplayName(task).toLowerCase().includes(keyword),
   )
@@ -318,15 +327,19 @@ function renderNotStartedCard(task: ProcessTask): string {
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
-          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(task.taskId)}</span>
+          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
           ${renderSourceBadge(task.assignmentMode)}
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+          <div class="text-muted-foreground">原始任务</div>
+          <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+          <div class="text-muted-foreground">拆分组</div>
+          <div class="font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
           ${
@@ -428,7 +441,7 @@ function renderInProgressCard(task: ProcessTask): string {
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
-          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(task.taskId)}</span>
+          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
           <div class="flex items-center gap-1.5">
             ${renderSourceBadge(task.assignmentMode)}
             ${milestoneTag}
@@ -438,8 +451,12 @@ function renderInProgressCard(task: ProcessTask): string {
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+          <div class="text-muted-foreground">原始任务</div>
+          <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+          <div class="text-muted-foreground">拆分组</div>
+          <div class="font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
 
@@ -535,15 +552,19 @@ function renderBlockedCard(task: ProcessTask): string {
     <article class="cursor-pointer rounded-lg border border-red-200 transition-colors hover:border-red-400" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
-          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(task.taskId)}</span>
+          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
           ${renderSourceBadge(task.assignmentMode)}
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+          <div class="text-muted-foreground">原始任务</div>
+          <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+          <div class="text-muted-foreground">拆分组</div>
+          <div class="font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</div>
           ${
             (task as ProcessTask & { taskDeadline?: string }).taskDeadline
               ? `
@@ -588,15 +609,19 @@ function renderDoneCard(task: ProcessTask): string {
     <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
-          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(task.taskId)}</span>
+          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
           ${renderSourceBadge(task.assignmentMode)}
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+          <div class="text-muted-foreground">原始任务</div>
+          <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+          <div class="text-muted-foreground">拆分组</div>
+          <div class="font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
 

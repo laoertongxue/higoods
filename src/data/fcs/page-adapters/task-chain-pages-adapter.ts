@@ -1,5 +1,7 @@
 import type { ProcessTask } from '../process-tasks'
 import {
+  isRuntimeTaskExecutionTask,
+  listRuntimeExecutionTasks,
   listRuntimeProcessTasks,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
@@ -62,9 +64,13 @@ export function getTaskChainTaskById(taskId: string): ProcessTask | undefined {
 }
 
 export function listTaskChainRuntimeTasksByBaseTaskId(baseTaskId: string): RuntimeProcessTask[] {
-  const byBase = listRuntimeTasksByBaseTaskId(baseTaskId)
+  const byBase = listRuntimeTasksByBaseTaskId(baseTaskId).filter((task) =>
+    isRuntimeTaskExecutionTask(task),
+  )
   if (byBase.length > 0) return byBase
-  return listRuntimeProcessTasks().filter((task) => task.taskId === baseTaskId)
+  return listRuntimeProcessTasks().filter(
+    (task) => task.taskId === baseTaskId && isRuntimeTaskExecutionTask(task),
+  )
 }
 
 export function resolveTaskChainTenderId(task: ProcessTask): string | undefined {
@@ -73,7 +79,7 @@ export function resolveTaskChainTenderId(task: ProcessTask): string | undefined 
 }
 
 export function listTaskChainTenders(): TaskChainTender[] {
-  const runtimeTasks = listRuntimeProcessTasks().filter(
+  const runtimeTasks = listRuntimeExecutionTasks().filter(
     (task) => Boolean(task.tenderId) && task.defaultDocType !== 'DEMAND',
   )
   const grouped = new Map<string, RuntimeProcessTask[]>()
@@ -114,4 +120,3 @@ export function getTaskChainTenderById(tenderId: string): TaskChainTender | unde
 export function getTaskChainTaskDisplayName(task: ProcessTask): string {
   return getTaskTypeDisplayName(task)
 }
-

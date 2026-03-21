@@ -67,6 +67,14 @@ function getTaskFactById(taskId: string): ProcessTask | null {
   return getTaskChainTaskById(taskId) ?? null
 }
 
+function getTaskDisplayNo(task: ProcessTask): string {
+  return task.taskNo || task.taskId
+}
+
+function getRootTaskDisplayNo(task: ProcessTask): string {
+  return task.rootTaskNo || task.taskNo || task.taskId
+}
+
 const MOCK_START_PROOF: Record<string, StartProofFile[]> = {
   'PDA-EXEC-007': [
     { id: 'sp-001', type: 'IMAGE', name: '开工现场_01.jpg', uploadedAt: '2026-03-10 08:05:22' },
@@ -522,7 +530,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <div class="flex items-center justify-between gap-2 text-sm">
-            <span class="font-mono font-semibold">${escapeHtml(task.taskId)}</span>
+            <span class="font-mono font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
             <span class="inline-flex items-center rounded px-2 py-0.5 text-xs ${statusColorMap[status] ?? 'bg-muted text-muted-foreground'}">${escapeHtml(statusLabelMap[status] ?? status)}</span>
           </div>
         </header>
@@ -531,10 +539,14 @@ export function renderPdaExecDetailPage(taskId: string): string {
           <div class="grid grid-cols-2 gap-x-4 gap-y-1">
             <span class="text-xs text-muted-foreground">生产单号</span>
             <span class="text-xs font-medium">${escapeHtml(task.productionOrderId)}</span>
+            <span class="text-xs text-muted-foreground">原始任务</span>
+            <span class="text-xs font-medium">${escapeHtml(getRootTaskDisplayNo(task))}</span>
             <span class="text-xs text-muted-foreground">当前工序</span>
             <span class="text-xs font-medium">${escapeHtml(displayProcessName)}</span>
             <span class="text-xs text-muted-foreground">工序代码</span>
             <span class="font-mono text-xs">${escapeHtml(task.processBusinessCode || task.processCode)}</span>
+            <span class="text-xs text-muted-foreground">拆分组</span>
+            <span class="text-xs font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</span>
             <span class="text-xs text-muted-foreground">数量</span>
             <span class="text-xs font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</span>
             ${
@@ -874,7 +886,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
         <header class="border-b px-4 py-3">
           <h2 class="flex items-center gap-2 text-sm font-semibold">
             <i data-lucide="coins" class="h-4 w-4"></i>
-            金额摘要
+            金额情况
           </h2>
         </header>
 

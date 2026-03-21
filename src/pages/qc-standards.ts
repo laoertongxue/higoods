@@ -173,8 +173,8 @@ function createQcStandardSheet(
   const task = processTasks.find((item) => item.taskId === taskId)
   if (!task) return { ok: false, message: `任务 ${taskId} 不存在` }
 
-  if (!checkpointSummaryZh.trim()) return { ok: false, message: '质检点摘要不能为空' }
-  if (!acceptanceSummaryZh.trim()) return { ok: false, message: '验收标准摘要不能为空' }
+  if (!checkpointSummaryZh.trim()) return { ok: false, message: '质检点说明不能为空' }
+  if (!acceptanceSummaryZh.trim()) return { ok: false, message: '验收标准说明不能为空' }
 
   const ts = nowTimestamp()
   const month = ts.slice(0, 7).replace('-', '')
@@ -213,11 +213,11 @@ function updateQcStandardSheet(
   if (!sheet) return { ok: false, message: `质检标准单 ${standardId} 不存在` }
 
   if (checkpointSummaryZh !== undefined && !checkpointSummaryZh.trim()) {
-    return { ok: false, message: '质检点摘要不能为空' }
+    return { ok: false, message: '质检点说明不能为空' }
   }
 
   if (acceptanceSummaryZh !== undefined && !acceptanceSummaryZh.trim()) {
-    return { ok: false, message: '验收标准摘要不能为空' }
+    return { ok: false, message: '验收标准说明不能为空' }
   }
 
   sheet.checkpointSummaryZh = checkpointSummaryZh?.trim() ?? sheet.checkpointSummaryZh
@@ -318,21 +318,21 @@ function renderCreateDialog(): string {
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-sm font-medium">质检点摘要 <span class="text-red-600">*</span></label>
+            <label class="text-sm font-medium">质检点说明 <span class="text-red-600">*</span></label>
             <textarea
               rows="2"
               class="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              placeholder="请输入质检点摘要"
+              placeholder="请输入质检点说明"
               data-qcs-field="create.checkpointSummaryZh"
             >${escapeHtml(state.createForm.checkpointSummaryZh)}</textarea>
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-sm font-medium">验收标准摘要 <span class="text-red-600">*</span></label>
+            <label class="text-sm font-medium">验收标准说明 <span class="text-red-600">*</span></label>
             <textarea
               rows="2"
               class="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              placeholder="请输入验收标准摘要"
+              placeholder="请输入验收标准说明"
               data-qcs-field="create.acceptanceSummaryZh"
             >${escapeHtml(state.createForm.acceptanceSummaryZh)}</textarea>
           </div>
@@ -382,7 +382,7 @@ function renderEditDialog(editTarget: QcStandardSheet | null): string {
 
         <div class="mt-4 space-y-4">
           <div class="space-y-1.5">
-            <label class="text-sm font-medium">质检点摘要 <span class="text-red-600">*</span></label>
+            <label class="text-sm font-medium">质检点说明 <span class="text-red-600">*</span></label>
             <textarea
               rows="2"
               class="w-full rounded-md border bg-background px-3 py-2 text-sm"
@@ -391,7 +391,7 @@ function renderEditDialog(editTarget: QcStandardSheet | null): string {
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-sm font-medium">验收标准摘要 <span class="text-red-600">*</span></label>
+            <label class="text-sm font-medium">验收标准说明 <span class="text-red-600">*</span></label>
             <textarea
               rows="2"
               class="w-full rounded-md border bg-background px-3 py-2 text-sm"
@@ -549,7 +549,7 @@ export function renderQcStandardsPage(): string {
           class="h-9 w-80 rounded-md border bg-background px-3 text-sm"
           data-qcs-filter="keyword"
           value="${escapeHtml(state.keyword)}"
-          placeholder="关键词（标准单号 / 生产单号 / 任务ID / 摘要）"
+          placeholder="关键词（标准单号 / 生产单号 / 任务ID / 说明）"
         />
 
         <select class="h-9 w-36 rounded-md border bg-background px-3 text-sm" data-qcs-filter="status">
@@ -568,8 +568,8 @@ export function renderQcStandardsPage(): string {
               <th class="px-4 py-2 font-medium">标准单号</th>
               <th class="px-4 py-2 font-medium">生产单号</th>
               <th class="px-4 py-2 font-medium">任务ID</th>
-              <th class="px-4 py-2 font-medium">质检点摘要</th>
-              <th class="px-4 py-2 font-medium">验收标准摘要</th>
+              <th class="px-4 py-2 font-medium">质检点说明</th>
+              <th class="px-4 py-2 font-medium">验收标准说明</th>
               <th class="px-4 py-2 font-medium">抽检说明</th>
               <th class="px-4 py-2 font-medium">状态</th>
               <th class="px-4 py-2 font-medium">更新时间</th>

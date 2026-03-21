@@ -44,7 +44,7 @@ export interface ProductionDemand {
 }
 
 // Mock 数据 - 覆盖所有状态组合
-export const productionDemands: ProductionDemand[] = [
+const seedProductionDemands: ProductionDemand[] = [
   // PENDING_CONVERT + INCOMPLETE + 未生成
   {
     demandId: 'DEM-202603-0001',
@@ -59,7 +59,7 @@ export const productionDemands: ProductionDemand[] = [
     priority: 'URGENT',
     demandStatus: 'PENDING_CONVERT',
     techPackStatus: 'INCOMPLETE',
-    techPackVersionLabel: '-',
+    techPackVersionLabel: 'beta',
     requiredDeliveryDate: '2026-04-15',
     requiredQtyTotal: 1500,
     constraintsNote: 'Bahan harus 100% katun. Warna tidak boleh luntur setelah 5x cuci.',
@@ -132,7 +132,7 @@ export const productionDemands: ProductionDemand[] = [
     createdAt: '2026-03-02 08:00:00',
     updatedAt: '2026-03-02 14:00:00',
   },
-  // CONVERTED + INCOMPLETE + 已生成
+  // CONVERTED + RELEASED + 已生成
   {
     demandId: 'DEM-202603-0004',
     legacyType: 'GOODS_PURCHASE',
@@ -145,8 +145,8 @@ export const productionDemands: ProductionDemand[] = [
     marketScopes: ['ID', 'VN'],
     priority: 'HIGH',
     demandStatus: 'CONVERTED',
-    techPackStatus: 'INCOMPLETE',
-    techPackVersionLabel: 'beta-v2',
+    techPackStatus: 'RELEASED',
+    techPackVersionLabel: 'v1.0',
     requiredDeliveryDate: '2026-04-25',
     requiredQtyTotal: 5000,
     constraintsNote: 'Cotton combed 30s. Warna harus sesuai Pantone.',
@@ -204,7 +204,7 @@ export const productionDemands: ProductionDemand[] = [
     priority: 'NORMAL',
     demandStatus: 'HOLD',
     techPackStatus: 'INCOMPLETE',
-    techPackVersionLabel: '-',
+    techPackVersionLabel: 'beta',
     requiredDeliveryDate: null,
     requiredQtyTotal: 1800,
     constraintsNote: 'Menunggu konfirmasi warna dari buyer.',
@@ -335,7 +335,7 @@ export const productionDemands: ProductionDemand[] = [
     createdAt: '2026-02-15 09:00:00',
     updatedAt: '2026-03-02 16:00:00',
   },
-  // CONVERTED + INCOMPLETE + 已生成
+  // CONVERTED + RELEASED + 已生成
   {
     demandId: 'DEM-202603-0011',
     legacyType: 'ID_PURCHASE',
@@ -348,8 +348,8 @@ export const productionDemands: ProductionDemand[] = [
     marketScopes: ['ID', 'VN'],
     priority: 'URGENT',
     demandStatus: 'CONVERTED',
-    techPackStatus: 'INCOMPLETE',
-    techPackVersionLabel: '-',
+    techPackStatus: 'RELEASED',
+    techPackVersionLabel: 'v1.1',
     requiredDeliveryDate: '2026-04-18',
     requiredQtyTotal: 2200,
     constraintsNote: 'Rajutan harus rapat. Tidak boleh melar.',
@@ -364,7 +364,7 @@ export const productionDemands: ProductionDemand[] = [
     createdAt: '2026-03-01 08:00:00',
     updatedAt: '2026-03-01 14:00:00',
   },
-  // CONVERTED + INCOMPLETE + 已生成
+  // CONVERTED + RELEASED + 已生成
   {
     demandId: 'DEM-202603-0012',
     legacyType: 'GOODS_PURCHASE',
@@ -377,8 +377,8 @@ export const productionDemands: ProductionDemand[] = [
     marketScopes: ['ID'],
     priority: 'HIGH',
     demandStatus: 'CONVERTED',
-    techPackStatus: 'INCOMPLETE',
-    techPackVersionLabel: 'beta',
+    techPackStatus: 'RELEASED',
+    techPackVersionLabel: 'v1.0',
     requiredDeliveryDate: '2026-04-22',
     requiredQtyTotal: 1600,
     constraintsNote: 'Kancing mutiara. Rajutan halus.',
@@ -451,7 +451,7 @@ export const productionDemands: ProductionDemand[] = [
     createdAt: '2026-02-25 10:00:00',
     updatedAt: '2026-03-04 09:00:00',
   },
-  // CONVERTED + INCOMPLETE + 已生成
+  // CONVERTED + RELEASED + 已生成
   {
     demandId: 'DEM-202603-0015',
     legacyType: 'ID_PURCHASE',
@@ -464,8 +464,8 @@ export const productionDemands: ProductionDemand[] = [
     marketScopes: ['ID'],
     priority: 'HIGH',
     demandStatus: 'CONVERTED',
-    techPackStatus: 'INCOMPLETE',
-    techPackVersionLabel: '-',
+    techPackStatus: 'RELEASED',
+    techPackVersionLabel: 'v1.3',
     requiredDeliveryDate: '2026-05-05',
     requiredQtyTotal: 2800,
     constraintsNote: 'Linen premium. Jahitan Perancis.',
@@ -511,6 +511,38 @@ export const productionDemands: ProductionDemand[] = [
   },
 ]
 
+function normalizeReleasedVersionLabel(versionLabel: string): string {
+  const trimmed = versionLabel.trim()
+  if (!trimmed || trimmed === '-' || trimmed.toLowerCase() === 'beta') {
+    return 'v1.0'
+  }
+  return trimmed
+}
+
+function normalizeDemandSeed(demand: ProductionDemand): ProductionDemand {
+  const forceReleased =
+    demand.demandStatus === 'CONVERTED' || demand.hasProductionOrder || demand.productionOrderId !== null
+  const techPackStatus: TechPackStatus = forceReleased ? 'RELEASED' : demand.techPackStatus
+  const hasProductionOrder = techPackStatus === 'RELEASED' ? demand.hasProductionOrder : false
+  const productionOrderId = techPackStatus === 'RELEASED' ? demand.productionOrderId : null
+  const demandStatus: DemandStatus =
+    hasProductionOrder || productionOrderId !== null ? 'CONVERTED' : demand.demandStatus
+
+  return {
+    ...demand,
+    demandStatus,
+    techPackStatus,
+    techPackVersionLabel:
+      techPackStatus === 'INCOMPLETE'
+        ? 'beta'
+        : normalizeReleasedVersionLabel(demand.techPackVersionLabel),
+    hasProductionOrder,
+    productionOrderId,
+  }
+}
+
+export const productionDemands: ProductionDemand[] = seedProductionDemands.map(normalizeDemandSeed)
+
 // 需求状态配置
 export const demandStatusConfig: Record<DemandStatus, { label: string; color: string }> = {
   PENDING_CONVERT: { label: '待转单', color: 'bg-blue-100 text-blue-700' },
@@ -521,7 +553,7 @@ export const demandStatusConfig: Record<DemandStatus, { label: string; color: st
 
 // 技术包状态配置
 export const techPackStatusConfig: Record<TechPackStatus, { label: string; color: string }> = {
-  INCOMPLETE: { label: '未完成', color: 'bg-orange-100 text-orange-700' },
+  INCOMPLETE: { label: '待完善', color: 'bg-orange-100 text-orange-700' },
   RELEASED:   { label: '已发布', color: 'bg-green-100 text-green-700' },
 }
 

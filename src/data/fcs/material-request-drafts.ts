@@ -3,7 +3,8 @@ import { processTasks, type ProcessTask } from './process-tasks'
 import { getTechPackBySpuCode, type TechPackBomItem } from './tech-packs'
 import {
   getRuntimeTaskById,
-  listRuntimeProcessTasks,
+  isRuntimeTaskExecutionTask,
+  listRuntimeExecutionTasks,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from './runtime-process-tasks'
@@ -54,6 +55,10 @@ export interface MaterialRequestDraft {
   spuName: string
   taskId: string
   taskNo: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  isSplitResult?: boolean
   taskName: string
   taskType: MaterialTaskType
   draftStatus: MaterialDraftStatus
@@ -74,6 +79,11 @@ export interface MaterialRequestRecord {
   materialRequestNo: string
   productionOrderNo: string
   taskId: string
+  taskNo: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  isSplitResult?: boolean
   taskName: string
   taskType: MaterialTaskType
   materialMode: MaterialMode
@@ -235,11 +245,13 @@ function toSkuScopeLines(lines: Array<{ skuCode: string; color: string; size: st
 function getRuntimeTaskForDraft(task?: ProcessTask, draftTaskId?: string): RuntimeProcessTask | null {
   if (draftTaskId) {
     const direct = getRuntimeTaskById(draftTaskId)
-    if (direct) return direct
+    if (direct && isRuntimeTaskExecutionTask(direct)) return direct
   }
 
   if (!task) return null
-  const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId)
+  const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId).filter((item) =>
+    isRuntimeTaskExecutionTask(item),
+  )
   if (runtimeTasks.length === 1) return runtimeTasks[0]
 
   return null
@@ -748,7 +760,9 @@ function applyTaskBinding(request: MaterialRequestRecord): void {
 
 function buildInitialDrafts(): MaterialRequestDraft[] {
   const list: MaterialRequestDraft[] = []
-  const runtimeTasks = listRuntimeProcessTasks()
+  // 执行链路口径：领料草稿仅挂到“当前实际执行任务”。
+  // 未拆分时是原任务，已拆分时是拆分结果任务，拆分来源任务不再生成执行用领料草稿。
+  const runtimeTasks = listRuntimeExecutionTasks()
     .slice()
     .sort((a, b) => {
       if (a.productionOrderId !== b.productionOrderId) return a.productionOrderId.localeCompare(b.productionOrderId)
@@ -775,7 +789,11 @@ function buildInitialDrafts(): MaterialRequestDraft[] {
       spuCode: order.demandSnapshot.spuCode,
       spuName: order.demandSnapshot.spuName,
       taskId: runtimeTask.taskId,
-      taskNo: runtimeTask.taskId,
+      taskNo: runtimeTask.taskNo || runtimeTask.taskId,
+      rootTaskNo: runtimeTask.rootTaskNo || runtimeTask.taskNo || runtimeTask.taskId,
+      splitGroupId: runtimeTask.splitGroupId,
+      splitFromTaskNo: runtimeTask.splitFromTaskNo,
+      isSplitResult: runtimeTask.isSplitResult === true,
       taskName: `${runtimeTask.processNameZh}（${runtimeTask.scopeLabel}）`,
       taskType,
       draftStatus: 'pending',
@@ -848,11 +866,16 @@ function seedCreatedDraft(taskId: string, mode: MaterialMode, createdAt: string,
 
   const request: MaterialRequestRecord = {
     materialRequestId: `MR-${materialRequestNo}`,
-    materialRequestNo,
-    productionOrderNo: draft.productionOrderNo,
-    taskId: draft.taskId,
-    taskName: draft.taskName,
-    taskType: draft.taskType,
+      materialRequestNo,
+      productionOrderNo: draft.productionOrderNo,
+      taskId: draft.taskId,
+      taskNo: draft.taskNo,
+      rootTaskNo: draft.rootTaskNo,
+      splitGroupId: draft.splitGroupId,
+      splitFromTaskNo: draft.splitFromTaskNo,
+      isSplitResult: draft.isSplitResult,
+      taskName: draft.taskName,
+      taskType: draft.taskType,
     materialMode: draft.materialMode,
     materialModeLabel: draft.materialModeLabel,
     lineCount: activeLines.length,
@@ -1322,6 +1345,11 @@ export function confirmMaterialRequestDraft(
     materialRequestNo,
     productionOrderNo: draft.productionOrderNo,
     taskId: draft.taskId,
+    taskNo: draft.taskNo,
+    rootTaskNo: draft.rootTaskNo,
+    splitGroupId: draft.splitGroupId,
+    splitFromTaskNo: draft.splitFromTaskNo,
+    isSplitResult: draft.isSplitResult,
     taskName: draft.taskName,
     taskType: draft.taskType,
     materialMode: draft.materialMode,

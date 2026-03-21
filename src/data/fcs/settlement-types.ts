@@ -52,7 +52,7 @@ export interface DefaultPenaltyRule {
   status: SettlementStatus
 }
 
-// 工厂结算摘要（列表页用）
+// 工厂结算情况（列表页用）
 export interface FactorySettlementSummary {
   factoryId: string
   factoryName: string

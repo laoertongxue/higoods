@@ -469,7 +469,7 @@ export function renderCapacityOverviewPage(): string {
                       <th class="px-3 py-2 text-center font-medium">生产暂停任务数</th>
                       <th class="px-3 py-2 text-left font-medium">染印状态</th>
                       <th class="px-3 py-2 text-center font-medium">待质检数</th>
-                      <th class="px-3 py-2 text-left font-medium">交付压力摘要</th>
+                      <th class="px-3 py-2 text-left font-medium">交付压力情况</th>
                       <th class="px-3 py-2 text-left font-medium">操作</th>
                     </tr>
                   </thead>
@@ -756,7 +756,7 @@ export function renderCapacityRiskPage(): string {
                       <th class="px-3 py-2 text-center font-medium">生产暂停任务数</th>
                       <th class="px-3 py-2 text-center font-medium">待质检数</th>
                       <th class="px-3 py-2 text-left font-medium">染印状态</th>
-                      <th class="px-3 py-2 text-left font-medium">风险摘要</th>
+                      <th class="px-3 py-2 text-left font-medium">风险情况</th>
                       <th class="px-3 py-2 text-left font-medium">操作</th>
                     </tr>
                   </thead>
@@ -1574,7 +1574,7 @@ export function renderCapacityConstraintsPage(): string {
                       <th class="px-3 py-2 text-left font-medium">强约束任务数</th>
                       <th class="px-3 py-2 text-left font-medium">中约束任务数</th>
                       <th class="px-3 py-2 text-left font-medium">低约束任务数</th>
-                      <th class="px-3 py-2 text-left font-medium">分配建议摘要</th>
+                      <th class="px-3 py-2 text-left font-medium">分配建议</th>
                       <th class="px-3 py-2 text-left font-medium">操作</th>
                     </tr>
                   </thead>

@@ -7,6 +7,7 @@ import {
 } from './store-domain-progress'
 import {
   getRuntimeTaskById,
+  isRuntimeTaskExecutionTask,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from './runtime-process-tasks'
@@ -66,7 +67,9 @@ function addHours(baseAt: string, hours: number): string {
 }
 
 export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
-  const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId)
+  const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId).filter((runtimeTask) =>
+    isRuntimeTaskExecutionTask(runtimeTask),
+  )
   if (!runtimeTasks.length) {
     return {
       met: false,

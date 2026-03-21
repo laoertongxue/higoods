@@ -2605,7 +2605,7 @@ const workItemTemplateConfigs: Record<string, WorkItemTemplateConfig> = {
         fields: [
           {
             id: "feedback-summary",
-            label: "用户反馈摘要",
+            label: "用户反馈",
             type: "textarea",
             required: false,
             rows: 4,
@@ -2738,7 +2738,7 @@ const workItemTemplateConfigs: Record<string, WorkItemTemplateConfig> = {
         fields: [
           {
             id: "feedback-summary",
-            label: "用户反馈摘要",
+            label: "用户反馈",
             type: "textarea",
             required: false,
             rows: 4,

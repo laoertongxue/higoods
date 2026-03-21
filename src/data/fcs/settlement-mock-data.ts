@@ -185,7 +185,7 @@ export const penaltyRules: DefaultPenaltyRule[] = [
   },
 ]
 
-// 结算摘要列表（列表页用）- 从印尼工厂生成
+// 结算情况列表（列表页用）- 从印尼工厂生成
 export const settlementSummaries: FactorySettlementSummary[] = indonesiaFactories.slice(0, 8).map((f, i) => ({
   factoryId: f.code,
   factoryName: f.name,

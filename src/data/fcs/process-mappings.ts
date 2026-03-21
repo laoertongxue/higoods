@@ -5,7 +5,11 @@ import {
   getProcessCraftByCode,
   getProcessCraftByLegacyValue,
   listProcessCraftDefinitions,
+  type DetailSplitDimension,
+  type DetailSplitMode,
+  type ProcessAssignmentGranularity,
   type ProcessCraftDefinition,
+  type RuleSource,
 } from './process-craft-dict'
 
 export type MappingSource = 'LEGACY_TECH_PACK' | 'NEW_TECH_PACK' | 'CRAFT_DICT'
@@ -23,7 +27,10 @@ export interface ProcessMapping {
   craftCode?: string
   processCode?: string
   stageCode?: string
-  assignmentGranularity?: 'ORDER' | 'COLOR' | 'SKU'
+  assignmentGranularity?: ProcessAssignmentGranularity
+  ruleSource?: RuleSource
+  detailSplitMode?: DetailSplitMode
+  detailSplitDimensions?: DetailSplitDimension[]
   legacyValue?: number
   ruleJson?: {
     seqOrder?: string[]
@@ -54,6 +61,9 @@ function toMappingFromCraft(craft: ProcessCraftDefinition): ProcessMapping {
     processCode: craft.processCode,
     stageCode: craft.stageCode,
     assignmentGranularity: craft.assignmentGranularity,
+    ruleSource: craft.ruleSource,
+    detailSplitMode: craft.detailSplitMode,
+    detailSplitDimensions: [...craft.detailSplitDimensions],
     legacyValue: craft.legacyValue,
   }
 }

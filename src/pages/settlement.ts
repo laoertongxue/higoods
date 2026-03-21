@@ -1964,7 +1964,7 @@ export function renderSettlementListPage(): string {
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前状态</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前版本号</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">目标版本号</th>
-                    <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">变更摘要</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">变更内容</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">生效账号</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">申请新账号</th>
                     <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">签字证明</th>

@@ -8,8 +8,9 @@ import {
 } from './material-request-drafts'
 import {
   getRuntimeTaskById,
+  isRuntimeTaskExecutionTask,
+  listRuntimeExecutionTasks,
   listRuntimeTasksByBaseTaskId,
-  listRuntimeTasksByOrder,
   type RuntimeExecutorKind,
   type RuntimeProcessTask,
   type RuntimeTaskScopeType,
@@ -76,6 +77,11 @@ interface WarehouseExecutionDocBase {
   productionOrderId: string
   baseTaskId: string
   runtimeTaskId: string
+  taskNo: string
+  rootTaskNo?: string
+  splitGroupId?: string
+  splitFromTaskNo?: string
+  isSplitResult?: boolean
   processCode: string
   processNameZh: string
   scopeType: RuntimeTaskScopeType
@@ -190,14 +196,19 @@ function inferProcessCodeByTaskType(taskType: MaterialRequestRecord['taskType'])
 
 function resolveRuntimeTaskForRequest(request: MaterialRequestRecord): RuntimeProcessTask | null {
   const direct = getRuntimeTaskById(request.taskId)
-  if (direct) return direct
+  if (direct && isRuntimeTaskExecutionTask(direct)) return direct
 
-  const byBase = listRuntimeTasksByBaseTaskId(request.taskId)
+  const byBase = listRuntimeTasksByBaseTaskId(request.taskId).filter((task) =>
+    isRuntimeTaskExecutionTask(task),
+  )
   if (byBase.length === 0) return null
   if (byBase.length === 1) return byBase[0]
 
   const assigned = byBase.filter((task) => Boolean(task.assignedFactoryId))
   if (assigned.length === 1) return assigned[0]
+
+  const matchedByTaskNo = byBase.find((task) => (task.taskNo || task.taskId) === request.taskNo)
+  if (matchedByTaskNo) return matchedByTaskNo
 
   const orderScope = byBase.find((task) => task.scopeType === 'ORDER')
   return orderScope ?? byBase[0]
@@ -306,6 +317,11 @@ function createIssueOrTransferFromRequest(
     productionOrderId: request.productionOrderNo,
     baseTaskId: task?.baseTaskId ?? request.taskId,
     runtimeTaskId: task?.taskId ?? request.taskId,
+    taskNo: task?.taskNo ?? request.taskNo ?? request.taskId,
+    rootTaskNo: task?.rootTaskNo ?? request.rootTaskNo,
+    splitGroupId: task?.splitGroupId ?? request.splitGroupId,
+    splitFromTaskNo: task?.splitFromTaskNo ?? request.splitFromTaskNo,
+    isSplitResult: task?.isSplitResult ?? request.isSplitResult ?? false,
     processCode: task?.processCode ?? inferProcessCodeByTaskType(request.taskType),
     processNameZh: task?.processNameZh ?? request.taskName,
     scopeType: task?.scopeType ?? 'ORDER',
@@ -419,7 +435,7 @@ function deriveReturnStatus(task: RuntimeProcessTask): WarehouseExecutionStatus 
 }
 
 function buildReturnOrdersForOrder(productionOrderId: string): WarehouseReturnOrder[] {
-  const runtimeTasks = listRuntimeTasksByOrder(productionOrderId)
+  const runtimeTasks = listRuntimeExecutionTasks().filter((task) => task.productionOrderId === productionOrderId)
   const { warehouseId, warehouseName } = getWarehouseByOrder(productionOrderId)
 
   return runtimeTasks
@@ -468,6 +484,11 @@ function buildReturnOrdersForOrder(productionOrderId: string): WarehouseReturnOr
         productionOrderId,
         baseTaskId: task.baseTaskId,
         runtimeTaskId: task.taskId,
+        taskNo: task.taskNo || task.taskId,
+        rootTaskNo: task.rootTaskNo || task.taskNo || task.taskId,
+        splitGroupId: task.splitGroupId,
+        splitFromTaskNo: task.splitFromTaskNo,
+        isSplitResult: task.isSplitResult === true,
         processCode: task.processCode,
         processNameZh: task.processNameZh,
         scopeType: task.scopeType,

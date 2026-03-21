@@ -687,7 +687,7 @@ function renderDetailDrawer(): string {
               <div><span class="text-muted-foreground">事件类型: </span>${escapeHtml(eventLabel)}</div>
               <div><span class="text-muted-foreground">发生时间: </span>${formatFullDate(record.event_time)}</div>
               <div><span class="text-muted-foreground">经办人: </span>${escapeHtml(record.operator.role)} - ${escapeHtml(record.operator.name)}</div>
-              <div><span class="text-muted-foreground">摘要: </span>${escapeHtml(record.summary)}</div>
+              <div><span class="text-muted-foreground">说明：</span>${escapeHtml(record.summary)}</div>
             </div>
           </div>
 

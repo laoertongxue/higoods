@@ -11,7 +11,6 @@ import {
   type RiskFlag,
   productionOrderStatusConfig,
   assignmentProgressStatusConfig,
-  techPackStatusConfig,
   riskFlagConfig,
 } from '../../data/fcs/production-orders'
 import {
@@ -29,9 +28,12 @@ import {
   getRuntimeBiddingSummaryByOrder,
   getRuntimeTaskById,
   getRuntimeTaskCountByOrder,
+  listRuntimeTaskSplitGroupsByOrder,
   listRuntimeTasksByOrder,
   type RuntimeProcessTask,
+  type RuntimeTaskSplitGroupSnapshot,
 } from '../../data/fcs/runtime-process-tasks'
+import { summarizeTaskDetailRows } from '../../data/fcs/task-detail-rows'
 import {
   applyQualitySeedBootstrap,
 } from '../../data/fcs/store-domain-quality-bootstrap'
@@ -152,7 +154,7 @@ interface ProductionState {
 
   ordersKeyword: string
   ordersStatusFilter: ProductionOrderStatus[]
-  ordersTechPackFilter: 'ALL' | 'MISSING' | 'BETA' | 'RELEASED'
+  ordersTechPackFilter: 'ALL' | ProductionDemand['techPackStatus']
   ordersBreakdownFilter: 'ALL' | 'YES' | 'NO'
   ordersAssignmentProgressFilter: 'ALL' | AssignmentProgressStatus
   ordersAssignmentModeFilter: AssignmentModeFilter
@@ -474,6 +476,28 @@ function renderBadge(text: string, className: string): string {
   return `<span class="inline-flex rounded border px-2 py-0.5 text-xs ${className}">${escapeHtml(text)}</span>`
 }
 
+function renderSplitEventList(events: RuntimeTaskSplitGroupSnapshot[], limit = 3): string {
+  if (events.length === 0) {
+    return '<p class="text-xs text-muted-foreground">暂无拆分事件</p>'
+  }
+
+  return events
+    .slice(0, limit)
+    .map((event) => {
+      const resultText = event.resultTasks
+        .map((task) => `${task.taskNo}（${task.assignedFactoryName || '-'}，${taskStatusLabel[task.status]}）`)
+        .join('；')
+      return `
+        <div class="rounded-md border bg-muted/20 px-2.5 py-2 text-xs">
+          <p>来源任务：${escapeHtml(event.sourceTaskNo)} · 拆分组：${escapeHtml(event.splitGroupId)}</p>
+          <p class="mt-0.5 text-muted-foreground">结果任务：${event.resultTasks.length} 条 · 工厂：${escapeHtml(event.factorySummary)} · 状态：${escapeHtml(event.statusSummary)}</p>
+          <p class="mt-0.5 text-muted-foreground">${escapeHtml(resultText || '-')}</p>
+        </div>
+      `
+    })
+    .join('')
+}
+
 function deriveRuntimeAssignmentProgressStatus(input: {
   totalTasks: number
   unassignedCount: number
@@ -577,6 +601,15 @@ function getOrderRuntimeAssignmentSnapshot(order: ProductionOrder): {
 interface OrderTaskBreakdownSnapshot {
   isBrokenDown: boolean
   taskTypesTop3: string[]
+  detailRowCount: number
+  detailRowTotalQty: number
+  detailRowPreview: string
+  sourceTaskCount: number
+  splitSourceCount: number
+  splitResultCount: number
+  executionTaskCount: number
+  splitGroupCount: number
+  splitEvents: RuntimeTaskSplitGroupSnapshot[]
   lastBreakdownAt: string
   lastBreakdownBy: string
 }
@@ -587,12 +620,27 @@ function getRuntimeTaskTypeLabel(task: RuntimeProcessTask): string {
   return task.processBusinessName || task.processNameZh
 }
 
+function getTaskDetailRows(task: RuntimeProcessTask) {
+  if (task.scopeDetailRows && task.scopeDetailRows.length > 0) return task.scopeDetailRows
+  return task.detailRows ?? []
+}
+
 function getOrderTaskBreakdownSnapshot(order: ProductionOrder): OrderTaskBreakdownSnapshot {
   const runtimeTasks = listRuntimeTasksByOrder(order.productionOrderId)
+  const splitEvents = listRuntimeTaskSplitGroupsByOrder(order.productionOrderId)
   if (runtimeTasks.length === 0) {
     return {
       isBrokenDown: false,
       taskTypesTop3: [],
+      detailRowCount: 0,
+      detailRowTotalQty: 0,
+      detailRowPreview: '-',
+      sourceTaskCount: 0,
+      splitSourceCount: 0,
+      splitResultCount: 0,
+      executionTaskCount: 0,
+      splitGroupCount: 0,
+      splitEvents: [],
       lastBreakdownAt: '-',
       lastBreakdownBy: '-',
     }
@@ -616,10 +664,31 @@ function getOrderTaskBreakdownSnapshot(order: ProductionOrder): OrderTaskBreakdo
     .map((task) => task.updatedAt || task.createdAt)
     .sort((a, b) => b.localeCompare(a))[0] || '-'
   const lastBreakdownBy = '系统'
+  const detailRowMap = new Map<string, ReturnType<typeof getTaskDetailRows>[number]>()
+
+  for (const task of runtimeTasks) {
+    for (const row of getTaskDetailRows(task)) {
+      if (!detailRowMap.has(row.rowKey)) detailRowMap.set(row.rowKey, row)
+    }
+  }
+  const detailRowSummary = summarizeTaskDetailRows([...detailRowMap.values()], 2)
+  const splitResultCount = runtimeTasks.filter((task) => task.isSplitResult).length
+  const splitSourceCount = runtimeTasks.filter((task) => task.isSplitSource).length
+  const executionTaskCount = runtimeTasks.filter((task) => task.executionEnabled !== false && task.isSplitSource !== true).length
+  const sourceTaskCount = runtimeTasks.filter((task) => !task.isSplitResult).length
 
   return {
     isBrokenDown: true,
     taskTypesTop3,
+    detailRowCount: detailRowSummary.count,
+    detailRowTotalQty: detailRowSummary.totalQty,
+    detailRowPreview: detailRowSummary.previewText || '-',
+    sourceTaskCount,
+    splitSourceCount,
+    splitResultCount,
+    executionTaskCount,
+    splitGroupCount: splitEvents.length,
+    splitEvents,
     lastBreakdownAt,
     lastBreakdownBy,
   }
@@ -663,6 +732,19 @@ function toOrderTechPackStatus(status: ProductionDemand['techPackStatus']): 'MIS
   return 'BETA'
 }
 
+function normalizeTechPackVersionLabel(
+  status: ProductionDemand['techPackStatus'],
+  versionLabel: string | null | undefined,
+): string {
+  if (status === 'INCOMPLETE') return 'beta'
+  if (!versionLabel || !versionLabel.trim()) return '-'
+  return versionLabel
+}
+
+function getOrderBusinessTechPackStatus(status: 'MISSING' | 'BETA' | 'RELEASED'): ProductionDemand['techPackStatus'] {
+  return toDemandTechPackStatus(status)
+}
+
 function deriveLifecycleStatus(order: ProductionOrder): LifecycleStatus {
   if (order.lifecycleStatus) return order.lifecycleStatus
 
@@ -686,18 +768,34 @@ function getTechPackSnapshotForDemand(demand: ProductionDemand): {
   versionLabel: string
   missingChecklist: string[]
 } {
-  const techPack = getTechPackBySpuCode(demand.spuCode)
-  if (!techPack) {
+  const forceReleased =
+    demand.demandStatus === 'CONVERTED' || demand.hasProductionOrder || demand.productionOrderId !== null
+  const demandStatus: ProductionDemand['techPackStatus'] = forceReleased ? 'RELEASED' : demand.techPackStatus
+  const demandVersionLabel = normalizeTechPackVersionLabel(demandStatus, demand.techPackVersionLabel)
+
+  // 已转单或已绑定生产单的需求在该业务线视为“已发布快照”，避免出现“待完善但已转单”口径冲突。
+  if (forceReleased) {
     return {
-      status: demand.techPackStatus,
-      versionLabel: demand.techPackVersionLabel,
+      status: 'RELEASED',
+      versionLabel: demandVersionLabel === '-' ? 'v1.0' : demandVersionLabel,
       missingChecklist: [],
     }
   }
 
+  const techPack = getTechPackBySpuCode(demand.spuCode)
+  if (!techPack) {
+    return {
+      status: demandStatus,
+      versionLabel: demandVersionLabel,
+      missingChecklist: [],
+    }
+  }
+
+  const mappedStatus = toDemandTechPackStatus(techPack.status)
+
   return {
-    status: toDemandTechPackStatus(techPack.status),
-    versionLabel: techPack.versionLabel,
+    status: mappedStatus,
+    versionLabel: normalizeTechPackVersionLabel(mappedStatus, techPack.versionLabel),
     missingChecklist: [...techPack.missingChecklist],
   }
 }
@@ -711,28 +809,31 @@ function getLegacyLikeQualityInspections() {
 }
 
 function getOrderTechPackInfo(order: ProductionOrder): {
-  snapshotStatus: 'MISSING' | 'BETA' | 'RELEASED'
+  snapshotStatus: ProductionDemand['techPackStatus']
   snapshotVersion: string
-  currentStatus: 'MISSING' | 'BETA' | 'RELEASED'
+  currentStatus: ProductionDemand['techPackStatus']
   currentVersion: string
   completenessScore: number
   missingChecklist: string[]
   isOutOfSync: boolean
 } {
   const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
-  const currentStatus = techPack?.status ?? order.techPackSnapshot.status
-  const currentVersion = techPack?.versionLabel ?? order.techPackSnapshot.versionLabel
+  const snapshotStatus = getOrderBusinessTechPackStatus(order.techPackSnapshot.status)
+  const snapshotVersion = normalizeTechPackVersionLabel(snapshotStatus, order.techPackSnapshot.versionLabel)
+  const currentRawStatus = techPack?.status ?? order.techPackSnapshot.status
+  const currentStatus = getOrderBusinessTechPackStatus(currentRawStatus)
+  const currentVersion = normalizeTechPackVersionLabel(currentStatus, techPack?.versionLabel ?? order.techPackSnapshot.versionLabel)
 
   return {
-    snapshotStatus: order.techPackSnapshot.status,
-    snapshotVersion: order.techPackSnapshot.versionLabel,
+    snapshotStatus,
+    snapshotVersion,
     currentStatus,
     currentVersion,
     completenessScore: techPack?.completenessScore ?? 0,
     missingChecklist: [...(techPack?.missingChecklist ?? [])],
     isOutOfSync:
-      currentStatus !== order.techPackSnapshot.status ||
-      currentVersion !== order.techPackSnapshot.versionLabel,
+      currentStatus !== snapshotStatus ||
+      currentVersion !== snapshotVersion,
   }
 }
 
@@ -833,7 +934,7 @@ function getFilteredDemands(): ProductionDemand[] {
   }
 
   if (state.demandTechPackFilter !== 'ALL') {
-    result = result.filter((demand) => demand.techPackStatus === state.demandTechPackFilter)
+    result = result.filter((demand) => getTechPackSnapshotForDemand(demand).status === state.demandTechPackFilter)
   }
 
   if (state.demandHasOrderFilter === 'YES') {
@@ -859,7 +960,11 @@ function getBatchGeneratableDemandIds(): string[] {
   return [...state.demandSelectedIds].filter((demandId) => {
     const demand = state.demands.find((item) => item.demandId === demandId)
     if (!demand) return false
-    return demand.demandStatus === 'PENDING_CONVERT' && !demand.hasProductionOrder
+    return (
+      demand.demandStatus === 'PENDING_CONVERT' &&
+      !demand.hasProductionOrder &&
+      getTechPackSnapshotForDemand(demand).status === 'RELEASED'
+    )
   })
 }
 
@@ -884,7 +989,10 @@ function getFilteredOrders(): ProductionOrder[] {
   }
 
   if (state.ordersTechPackFilter !== 'ALL') {
-    result = result.filter((order) => order.techPackSnapshot.status === state.ordersTechPackFilter)
+    result = result.filter(
+      (order) =>
+        getOrderBusinessTechPackStatus(order.techPackSnapshot.status) === state.ordersTechPackFilter,
+    )
   }
 
   if (state.ordersBreakdownFilter !== 'ALL') {
@@ -1443,7 +1551,7 @@ function renderDemandConfirmDialog(): string {
       <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">确认生成</h3>
-          <p class="mt-1 text-sm text-muted-foreground">技术包待完善的需求可先转单，但后续任务拆解需待技术包发布后进行。</p>
+          <p class="mt-1 text-sm text-muted-foreground">仅已发布技术包的需求可生成生产单，待完善技术包请先完善并发布。</p>
         </header>
         <footer class="flex items-center justify-end gap-2 px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-demand-generate-confirm">取消</button>
@@ -1667,7 +1775,9 @@ export function renderProductionDemandInboxPage(): string {
                                 完善技术包
                               </button>
                               ${
-                                demand.demandStatus === 'PENDING_CONVERT' && !demand.hasProductionOrder
+                                demand.demandStatus === 'PENDING_CONVERT' &&
+                                !demand.hasProductionOrder &&
+                                techPack.status === 'RELEASED'
                                   ? `<button class="rounded border px-2 py-1 text-xs hover:bg-muted" data-prod-action="open-demand-single" data-demand-id="${
                                       demand.demandId
                                     }">生成</button>`
@@ -1895,6 +2005,31 @@ function getOrderMaterialIndicators(order: ProductionOrder) {
   return getMaterialDraftIndicatorsByOrder(order.productionOrderId)
 }
 
+function getOrderSplitAuditLogs(order: ProductionOrder): AuditLog[] {
+  const splitEvents = listRuntimeTaskSplitGroupsByOrder(order.productionOrderId)
+  if (splitEvents.length === 0) return []
+
+  return splitEvents.flatMap((event) => {
+    const splitLog: AuditLog = {
+      id: `LOG-SPLIT-${order.productionOrderId}-${event.splitGroupId}`,
+      action: 'TASK_SPLIT',
+      detail: `任务 ${event.sourceTaskNo} 按明细分配拆分为 ${event.resultTasks.length} 条平级任务（${event.statusSummary}）`,
+      at: event.eventAt,
+      by: '系统',
+    }
+
+    const resultLog: AuditLog = {
+      id: `LOG-SPLIT-RESULT-${order.productionOrderId}-${event.splitGroupId}`,
+      action: 'TASK_SPLIT_RESULT',
+      detail: `拆分结果：${event.resultTasks.map((task) => `${task.taskNo}(${task.assignedFactoryName || '-'}，${taskStatusLabel[task.status]})`).join('；')}`,
+      at: event.eventAt,
+      by: '系统',
+    }
+
+    return [splitLog, resultLog]
+  })
+}
+
 function getOrderMergedAuditLogs(order: ProductionOrder): AuditLog[] {
   const materialLogs = listMaterialDraftOperationLogsByOrder(order.productionOrderId).map((log) => ({
     id: log.id,
@@ -1903,7 +2038,8 @@ function getOrderMergedAuditLogs(order: ProductionOrder): AuditLog[] {
     at: log.at,
     by: log.by,
   }))
-  return [...order.auditLogs, ...materialLogs].sort((a, b) => a.at.localeCompare(b.at))
+  const splitLogs = getOrderSplitAuditLogs(order)
+  return [...order.auditLogs, ...materialLogs, ...splitLogs].sort((a, b) => a.at.localeCompare(b.at))
 }
 
 function renderOrderMaterialSummary(order: ProductionOrder): string {
@@ -2382,8 +2518,7 @@ export function renderProductionOrdersPage(): string {
             <span class="text-xs text-muted-foreground">技术包状态</span>
             <select data-prod-field="ordersTechPackFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
               <option value="ALL" ${state.ordersTechPackFilter === 'ALL' ? 'selected' : ''}>全部</option>
-              <option value="MISSING" ${state.ordersTechPackFilter === 'MISSING' ? 'selected' : ''}>缺失</option>
-              <option value="BETA" ${state.ordersTechPackFilter === 'BETA' ? 'selected' : ''}>测试版</option>
+              <option value="INCOMPLETE" ${state.ordersTechPackFilter === 'INCOMPLETE' ? 'selected' : ''}>待完善</option>
               <option value="RELEASED" ${state.ordersTechPackFilter === 'RELEASED' ? 'selected' : ''}>已发布</option>
             </select>
           </div>
@@ -2523,9 +2658,9 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">拆解状态</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">分配概览</th>
                 <th class="min-w-[90px] px-3 py-3 text-left font-medium">分配进度</th>
-                <th class="min-w-[130px] px-3 py-3 text-left font-medium">竞价摘要</th>
-                <th class="min-w-[130px] px-3 py-3 text-left font-medium">派单摘要</th>
-                <th class="min-w-[170px] px-3 py-3 text-left font-medium">领料摘要</th>
+                <th class="min-w-[130px] px-3 py-3 text-left font-medium">竞价情况</th>
+                <th class="min-w-[130px] px-3 py-3 text-left font-medium">派单情况</th>
+                <th class="min-w-[170px] px-3 py-3 text-left font-medium">领料情况</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">主工厂</th>
                 <th class="min-w-[150px] px-3 py-3 text-left font-medium">风险</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">最近更新</th>
@@ -2574,8 +2709,8 @@ export function renderProductionOrdersPage(): string {
                             <td class="px-3 py-3">
                               <div class="space-y-1">
                                 ${renderBadge(
-                                  techPackStatusConfig[techPack.currentStatus]?.label ?? techPack.currentStatus,
-                                  techPackStatusConfig[techPack.currentStatus]?.color ?? 'bg-slate-100 text-slate-700',
+                                  demandTechPackStatusConfig[techPack.currentStatus].label,
+                                  demandTechPackStatusConfig[techPack.currentStatus].className,
                                 )}
                                 <div class="text-xs text-muted-foreground">${escapeHtml(techPack.currentVersion)}</div>
                               </div>
@@ -2918,7 +3053,7 @@ export function renderProductionPlanPage(): string {
         </div>
       </header>
 
-      <div class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">生产单计划用于明确计划时间、数量与计划工厂；本页同步展示任务拆解、染印需求与下一步准备状态摘要</div>
+      <div class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">生产单计划用于明确计划时间、数量与计划工厂；本页同步展示任务拆解、染印需求与下一步准备情况</div>
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-4">
         <article class="rounded-lg border bg-card">
@@ -3308,7 +3443,7 @@ export function renderProductionDeliveryWarehousePage(): string {
         </div>
       </header>
 
-      <div class="rounded-md border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">交付仓配置用于明确生产单成品交付去向；本页同步展示计划状态、任务完成度与交付承接状态摘要</div>
+      <div class="rounded-md border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">交付仓配置用于明确生产单成品交付去向；本页同步展示计划状态、任务完成度与交付承接情况</div>
 
       <section class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <article class="rounded-lg border bg-card">
@@ -3755,7 +3890,7 @@ export function renderProductionChangesPage(): string {
         <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-prod-action="open-changes-create">新建变更</button>
       </header>
 
-      <div class="rounded-md border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">生产单变更用于记录数量、日期、工厂等关键信息调整；本页同步展示该变更对任务、染印、质检、扣款与结算的影响范围摘要</div>
+      <div class="rounded-md border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">生产单变更用于记录数量、日期、工厂等关键信息调整；本页同步展示该变更对任务、染印、质检、扣款与结算影响范围</div>
 
       <section class="grid grid-cols-2 gap-4 sm:grid-cols-4">
         ${statusStats
@@ -3838,7 +3973,7 @@ export function renderProductionChangesPage(): string {
                       <th class="px-3 py-3 text-center font-medium">影响染印工单数</th>
                       <th class="px-3 py-3 text-center font-medium">影响未结案 QC 数</th>
                       <th class="px-3 py-3 text-center font-medium">影响扣款依据数</th>
-                      <th class="px-3 py-3 text-left font-medium">影响结算摘要</th>
+                      <th class="px-3 py-3 text-left font-medium">结算影响</th>
                       <th class="px-3 py-3 text-left font-medium">更新时间</th>
                       <th class="px-3 py-3 text-left font-medium">操作</th>
                     </tr>
@@ -4137,7 +4272,7 @@ export function renderProductionStatusPage(): string {
       <header class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-semibold">生产单当前生产流程状态总览</h1>
-          <p class="mt-1 text-sm text-muted-foreground">汇总每张生产单的执行状态、计划、交付仓配置、任务、染印及结算摘要；原型阶段支持人工状态推进与有限回退</p>
+          <p class="mt-1 text-sm text-muted-foreground">汇总每张生产单的执行状态、计划、交付仓配置、任务、染印与结算情况；原型阶段支持人工状态推进与有限回退</p>
         </div>
         <span class="text-sm text-muted-foreground">共 ${filteredOrders.length} 条</span>
       </header>
@@ -4208,7 +4343,7 @@ export function renderProductionStatusPage(): string {
                     <th class="px-3 py-3 text-left font-medium">关联任务</th>
                     <th class="px-3 py-3 text-left font-medium">生产暂停任务</th>
                     <th class="px-3 py-3 text-left font-medium">染印状态</th>
-                    <th class="px-3 py-3 text-left font-medium">结算摘要</th>
+                    <th class="px-3 py-3 text-left font-medium">结算情况</th>
                     <th class="px-3 py-3 text-left font-medium">状态说明</th>
                     <th class="px-3 py-3 text-left font-medium">状态更新时间</th>
                     <th class="px-3 py-3 text-right font-medium">操作</th>
@@ -4697,8 +4832,8 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
             <h4 class="text-sm font-medium">快照信息</h4>
             <p class="text-xs text-muted-foreground">状态</p>
             <div>${renderBadge(
-              techPackStatusConfig[techPack.snapshotStatus].label,
-              techPackStatusConfig[techPack.snapshotStatus].color,
+              demandTechPackStatusConfig[techPack.snapshotStatus].label,
+              demandTechPackStatusConfig[techPack.snapshotStatus].className,
             )}</div>
             <p class="text-xs text-muted-foreground">版本 ${escapeHtml(techPack.snapshotVersion)}</p>
             <p class="text-xs text-muted-foreground">快照时间 ${escapeHtml(order.techPackSnapshot.snapshotAt)}</p>
@@ -4709,8 +4844,8 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
             <p class="text-xs text-muted-foreground">状态</p>
             <div class="flex items-center gap-2">
               ${renderBadge(
-                techPackStatusConfig[techPack.currentStatus].label,
-                techPackStatusConfig[techPack.currentStatus].color,
+                demandTechPackStatusConfig[techPack.currentStatus].label,
+                demandTechPackStatusConfig[techPack.currentStatus].className,
               )}
               ${techPack.isOutOfSync ? renderBadge('不一致', 'bg-orange-100 text-orange-700') : ''}
             </div>
@@ -4738,28 +4873,39 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
 
   if (state.detailTab === 'assignment') {
     const runtime = getOrderRuntimeAssignmentSnapshot(order)
+    const breakdown = getOrderTaskBreakdownSnapshot(order)
     return `
-      <div class="grid gap-4 md:grid-cols-3">
-        <section class="rounded-lg border bg-card p-4 space-y-2">
-          <h3 class="text-base font-semibold">分配摘要</h3>
-          <p class="text-sm">派单任务: ${runtime.assignmentSummary.directCount}</p>
-          <p class="text-sm">竞价任务: ${runtime.assignmentSummary.biddingCount}</p>
-          <p class="text-sm">总任务数: ${runtime.assignmentSummary.totalTasks}</p>
-          <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
-        </section>
+      <div class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-3">
+          <section class="rounded-lg border bg-card p-4 space-y-2">
+            <h3 class="text-base font-semibold">分配情况</h3>
+            <p class="text-sm">派单任务: ${runtime.assignmentSummary.directCount}</p>
+            <p class="text-sm">竞价任务: ${runtime.assignmentSummary.biddingCount}</p>
+            <p class="text-sm">总任务数: ${runtime.assignmentSummary.totalTasks}</p>
+            <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
+            <p class="text-sm text-muted-foreground">任务明细行: ${breakdown.detailRowCount} 条</p>
+            <p class="text-xs text-muted-foreground">原始任务 ${breakdown.sourceTaskCount} · 执行任务 ${breakdown.executionTaskCount}</p>
+            <p class="text-xs text-muted-foreground">拆分来源 ${breakdown.splitSourceCount} · 拆分结果 ${breakdown.splitResultCount} · 拆分组 ${breakdown.splitGroupCount}</p>
+          </section>
+
+          <section class="rounded-lg border bg-card p-4 space-y-2">
+            <h3 class="text-base font-semibold">竞价情况</h3>
+            <p class="text-sm">活跃竞价: ${runtime.biddingSummary.activeTenderCount}</p>
+            <p class="text-sm">最近截止: ${escapeHtml(safeText(runtime.biddingSummary.nearestDeadline?.slice(0, 10)))}</p>
+            <p class="text-sm text-red-700">已过期: ${runtime.biddingSummary.overdueTenderCount}</p>
+          </section>
+
+          <section class="rounded-lg border bg-card p-4 space-y-2">
+            <h3 class="text-base font-semibold">派单情况</h3>
+            <p class="text-sm">已分配工厂: ${runtime.directDispatchSummary.assignedFactoryCount}</p>
+            <p class="text-sm text-orange-700">拒单数: ${runtime.directDispatchSummary.rejectedCount}</p>
+            <p class="text-sm text-red-700">确认超时: ${runtime.directDispatchSummary.overdueAckCount}</p>
+          </section>
+        </div>
 
         <section class="rounded-lg border bg-card p-4 space-y-2">
-          <h3 class="text-base font-semibold">竞价摘要</h3>
-          <p class="text-sm">活跃竞价: ${runtime.biddingSummary.activeTenderCount}</p>
-          <p class="text-sm">最近截止: ${escapeHtml(safeText(runtime.biddingSummary.nearestDeadline?.slice(0, 10)))}</p>
-          <p class="text-sm text-red-700">已过期: ${runtime.biddingSummary.overdueTenderCount}</p>
-        </section>
-
-        <section class="rounded-lg border bg-card p-4 space-y-2">
-          <h3 class="text-base font-semibold">派单摘要</h3>
-          <p class="text-sm">已分配工厂: ${runtime.directDispatchSummary.assignedFactoryCount}</p>
-          <p class="text-sm text-orange-700">拒单数: ${runtime.directDispatchSummary.rejectedCount}</p>
-          <p class="text-sm text-red-700">确认超时: ${runtime.directDispatchSummary.overdueAckCount}</p>
+          <h3 class="text-base font-semibold">拆分事件与结果</h3>
+          ${renderSplitEventList(breakdown.splitEvents, 6)}
         </section>
       </div>
     `
@@ -4868,13 +5014,14 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   const breakdown = getOrderTaskBreakdownSnapshot(order)
 
   const canBreakdown =
-    order.techPackSnapshot.status === 'RELEASED' && order.status === 'READY_FOR_BREAKDOWN'
+    getOrderBusinessTechPackStatus(order.techPackSnapshot.status) === 'RELEASED' &&
+    order.status === 'READY_FOR_BREAKDOWN'
   const canAssign =
     breakdown.isBrokenDown &&
     (order.status === 'WAIT_ASSIGNMENT' || order.status === 'ASSIGNING')
 
   const breakdownDisabledReason =
-    order.techPackSnapshot.status !== 'RELEASED'
+    getOrderBusinessTechPackStatus(order.techPackSnapshot.status) !== 'RELEASED'
       ? '技术包未发布，无法拆解'
       : order.status !== 'READY_FOR_BREAKDOWN'
         ? '当前状态不支持拆解'
@@ -4934,20 +5081,20 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           ? `<section class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
                <p class="font-medium">技术包快照与当前版本不一致</p>
                <p class="mt-1">快照版本：${escapeHtml(techPack.snapshotVersion)} (${escapeHtml(
-                 techPackStatusConfig[techPack.snapshotStatus].label,
+                 demandTechPackStatusConfig[techPack.snapshotStatus].label,
                )}) | 当前版本：${escapeHtml(techPack.currentVersion)} (${escapeHtml(
-                 techPackStatusConfig[techPack.currentStatus].label,
+                 demandTechPackStatusConfig[techPack.currentStatus].label,
                )})</p>
              </section>`
           : ''
       }
 
       ${
-        order.techPackSnapshot.status !== 'RELEASED'
+        getOrderBusinessTechPackStatus(order.techPackSnapshot.status) !== 'RELEASED'
           ? `<section class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
                <p class="font-medium">技术包未发布，无法拆解</p>
                <p class="mt-1">当前技术包状态为 ${escapeHtml(
-                 techPackStatusConfig[order.techPackSnapshot.status].label,
+                 demandTechPackStatusConfig[getOrderBusinessTechPackStatus(order.techPackSnapshot.status)].label,
                )}，请先完善并发布。</p>
              </section>`
           : ''
@@ -4978,22 +5125,31 @@ export function renderProductionOrderDetailPage(orderId: string): string {
         </article>
 
         <article class="rounded-lg border bg-card p-4">
-          <h3 class="mb-2 text-sm font-medium text-muted-foreground">拆解摘要</h3>
+          <h3 class="mb-2 text-sm font-medium text-muted-foreground">拆解结果</h3>
           ${
             breakdown.isBrokenDown
               ? `${renderBadge('已拆解', 'bg-green-100 text-green-700')}
                  <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(
                    breakdown.taskTypesTop3.join('、') || '-',
                  )}</p>
+                 <p class="text-xs text-muted-foreground">任务明细行 ${breakdown.detailRowCount} 条 · 合计 ${breakdown.detailRowTotalQty}件</p>
+                 <p class="text-xs text-muted-foreground">原始任务 ${breakdown.sourceTaskCount} · 执行任务 ${breakdown.executionTaskCount}</p>
+                 <p class="text-xs text-muted-foreground">拆分来源 ${breakdown.splitSourceCount} · 拆分结果 ${breakdown.splitResultCount} · 拆分组 ${breakdown.splitGroupCount}</p>
+                 <p class="text-xs text-muted-foreground">${escapeHtml(breakdown.detailRowPreview)}</p>
                  <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(
                    safeText(breakdown.lastBreakdownAt),
-                 )} by ${escapeHtml(safeText(breakdown.lastBreakdownBy))}</p>`
+                 )} by ${escapeHtml(safeText(breakdown.lastBreakdownBy))}</p>
+                 ${
+                   breakdown.splitEvents.length > 0
+                     ? `<div class="mt-2">${renderSplitEventList(breakdown.splitEvents, 1)}</div>`
+                     : ''
+                 }`
               : renderBadge('未拆解', 'bg-slate-100 text-slate-700')
           }
         </article>
 
         <article class="rounded-lg border bg-card p-4">
-          <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配摘要</h3>
+          <h3 class="mb-2 text-sm font-medium text-muted-foreground">分配情况</h3>
           <p class="text-sm">派单: ${runtime.assignmentSummary.directCount}</p>
           <p class="text-sm">竞价: ${runtime.assignmentSummary.biddingCount}</p>
           <p class="text-sm">总任务: ${runtime.assignmentSummary.totalTasks}</p>
@@ -5077,11 +5233,17 @@ function performDemandGenerate(): void {
   for (const demandId of demandIds) {
     const demand = state.demands.find((item) => item.demandId === demandId)
     if (!demand) continue
-    if (demand.hasProductionOrder || demand.demandStatus !== 'PENDING_CONVERT') continue
+    const techPack = getTechPackSnapshotForDemand(demand)
+    if (
+      demand.hasProductionOrder ||
+      demand.demandStatus !== 'PENDING_CONVERT' ||
+      techPack.status !== 'RELEASED'
+    ) {
+      continue
+    }
 
     const orderId = nextProductionOrderId([...state.orders, ...newOrders])
-    const initialStatus: ProductionOrderStatus =
-      demand.techPackStatus === 'RELEASED' ? 'READY_FOR_BREAKDOWN' : 'WAIT_TECH_PACK_RELEASE'
+    const initialStatus: ProductionOrderStatus = 'READY_FOR_BREAKDOWN'
 
     const ownerPartyType: DemandOwnerPartyType = state.demandOwnerPartyManual
       ? state.demandOwnerPartyType
@@ -5093,9 +5255,6 @@ function performDemandGenerate(): void {
         : factory.id
 
     const riskFlags: RiskFlag[] = []
-    if (demand.techPackStatus !== 'RELEASED') {
-      riskFlags.push('TECH_PACK_NOT_RELEASED')
-    }
     if (ownerPartyType !== 'FACTORY' || ownerPartyId !== factory.id) {
       riskFlags.push('OWNER_ADJUSTED')
     }
@@ -5132,8 +5291,8 @@ function performDemandGenerate(): void {
       ownerPartyId: ownerPartyId || factory.id,
       ownerReason: state.demandOwnerReason.trim() || undefined,
       techPackSnapshot: {
-        status: toOrderTechPackStatus(demand.techPackStatus),
-        versionLabel: demand.techPackVersionLabel,
+        status: toOrderTechPackStatus(techPack.status),
+        versionLabel: normalizeTechPackVersionLabel(techPack.status, techPack.versionLabel),
         snapshotAt: now,
       },
       demandSnapshot: {

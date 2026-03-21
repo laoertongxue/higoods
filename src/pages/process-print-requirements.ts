@@ -414,7 +414,7 @@ function renderDetailDrawer(): string {
 
         <div class="space-y-4 px-6 py-5">
           <section class="rounded-lg border bg-card p-4">
-            <h3 class="mb-3 text-sm font-semibold">摘要</h3>
+            <h3 class="mb-3 text-sm font-semibold">基本情况</h3>
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">需求单号：</span><span class="font-mono">${escapeHtml(demand.demandId)}</span></div>
               <div><span class="text-muted-foreground">状态：</span>${renderBadge(status, STATUS_CLASS[status])}</div>

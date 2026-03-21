@@ -5,7 +5,10 @@ import {
   getProcessDefinitionByCode,
   listProcessCraftDefinitions,
   listProcessDefinitions,
+  type DetailSplitDimension,
+  type DetailSplitMode,
   type ProcessAssignmentGranularity as DictProcessAssignmentGranularity,
+  type RuleSource,
 } from './process-craft-dict'
 
 export type ProcessStage = 'PREP' | 'CUTTING' | 'SEWING' | 'POST' | 'SPECIAL' | 'MATERIAL' | 'WAREHOUSE'
@@ -29,6 +32,9 @@ export interface ProcessType {
   defaultDocType?: 'DEMAND' | 'TASK'
   taskTypeMode?: 'PROCESS' | 'CRAFT'
   isSpecialCraft?: boolean
+  ruleSource?: RuleSource
+  detailSplitMode?: DetailSplitMode
+  detailSplitDimensions?: DetailSplitDimension[]
 }
 
 export const stageLabels: Record<ProcessStage, string> = {
@@ -98,6 +104,9 @@ for (const processDef of listProcessDefinitions()) {
     defaultDocType: processDef.defaultDocType,
     taskTypeMode: processDef.taskTypeMode,
     isSpecialCraft: processDef.isSpecialCraftContainer,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: processDef.detailSplitMode,
+    detailSplitDimensions: [...processDef.detailSplitDimensions],
   })
 }
 
@@ -122,6 +131,9 @@ for (const craftDef of listProcessCraftDefinitions()) {
     defaultDocType: craftDef.defaultDocType,
     taskTypeMode: craftDef.taskTypeMode,
     isSpecialCraft: craftDef.isSpecialCraft,
+    ruleSource: craftDef.ruleSource,
+    detailSplitMode: craftDef.detailSplitMode,
+    detailSplitDimensions: [...craftDef.detailSplitDimensions],
   })
 
   if (processDef && !processTypeMap.has(processDef.systemProcessCode)) {
@@ -141,6 +153,9 @@ for (const craftDef of listProcessCraftDefinitions()) {
       defaultDocType: processDef.defaultDocType,
       taskTypeMode: processDef.taskTypeMode,
       isSpecialCraft: processDef.isSpecialCraftContainer,
+      ruleSource: 'INHERIT_PROCESS',
+      detailSplitMode: processDef.detailSplitMode,
+      detailSplitDimensions: [...processDef.detailSplitDimensions],
     })
   }
 }
@@ -162,6 +177,9 @@ const compatibilitySeeds: ProcessType[] = [
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
   },
   {
     code: 'PROC_PACK',
@@ -179,6 +197,9 @@ const compatibilitySeeds: ProcessType[] = [
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
   },
   {
     code: 'PROC_QC',
@@ -196,6 +217,9 @@ const compatibilitySeeds: ProcessType[] = [
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
   },
   {
     code: 'PROC_FINISHING',
@@ -213,6 +237,9 @@ const compatibilitySeeds: ProcessType[] = [
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
   },
   {
     code: 'PROC_MATERIAL_PREP',
@@ -230,6 +257,9 @@ const compatibilitySeeds: ProcessType[] = [
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
   },
   {
     code: 'PROC_WAREHOUSE_IN',
@@ -247,6 +277,9 @@ const compatibilitySeeds: ProcessType[] = [
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
   },
 ]
 

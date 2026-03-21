@@ -149,7 +149,7 @@ function renderOverview(session: LiveSession, items: LiveSessionItem[]): string 
         </div>
       </article>
       <article class="rounded-lg border bg-card p-3">
-        <p class="text-xs text-muted-foreground">测款摘要</p>
+        <p class="text-xs text-muted-foreground">测款结果</p>
         <div class="mt-2 space-y-1 text-sm">
           <p>测款条目：${testItems.length}</p>
           <p>待决策条目：${testItems.filter((item) => item.recommendation !== '继续').length}</p>
@@ -218,7 +218,7 @@ function renderItems(items: LiveSessionItem[]): string {
 function renderReconcile(session: LiveSession): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <h3 class="text-sm font-semibold">数据核对摘要</h3>
+      <h3 class="text-sm font-semibold">数据核对结果</h3>
       <div class="mt-3 grid gap-3 md:grid-cols-3 text-sm">
         <article class="rounded-md border bg-background p-3">
           <p class="text-xs text-muted-foreground">开播/下播时间</p>
