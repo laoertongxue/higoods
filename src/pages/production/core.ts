@@ -167,6 +167,8 @@ interface ProductionState {
   ordersDemandSnapshotId: string | null
   ordersLogsId: string | null
   ordersActionMenuId: string | null
+  ordersFromDemandDialogOpen: boolean
+  ordersFromDemandSelectedIds: Set<string>
   materialDraftOrderId: string | null
   materialDraftAddDraftId: string | null
   materialDraftAddSelections: Set<string>
@@ -800,6 +802,75 @@ function getTechPackSnapshotForDemand(demand: ProductionDemand): {
   }
 }
 
+type DemandOperation = 'VIEW_DETAIL' | 'GENERATE' | 'HOLD' | 'UNHOLD' | 'CANCEL'
+
+function listDemandOperationsByStatus(status: ProductionDemand['demandStatus']): DemandOperation[] {
+  if (status === 'PENDING_CONVERT') return ['VIEW_DETAIL', 'GENERATE', 'HOLD', 'CANCEL']
+  if (status === 'CONVERTED') return ['VIEW_DETAIL']
+  if (status === 'HOLD') return ['UNHOLD', 'CANCEL']
+  return ['VIEW_DETAIL']
+}
+
+function getTechPackOperationLabel(status: ProductionDemand['techPackStatus']): string {
+  return status === 'RELEASED' ? '查看技术包' : '完善技术包'
+}
+
+function renderDemandOperations(
+  demand: ProductionDemand,
+  techPackStatus: ProductionDemand['techPackStatus'],
+  options?: {
+    compact?: boolean
+    techPackAction?: 'open-tech-pack' | 'open-tech-pack-from-demand-detail'
+  },
+): string {
+  const compact = options?.compact ?? true
+  const techPackAction = options?.techPackAction ?? 'open-tech-pack'
+  const baseClass = compact
+    ? 'rounded px-2 py-1 text-xs hover:bg-muted'
+    : 'inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted'
+  const generateClass = compact
+    ? 'rounded border px-2 py-1 text-xs hover:bg-muted'
+    : 'inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted'
+  const dangerClass = compact
+    ? 'rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50'
+    : 'inline-flex items-center rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50'
+
+  const ops = listDemandOperationsByStatus(demand.demandStatus)
+  const demandOpButtons = ops
+    .map((op) => {
+      if (op === 'VIEW_DETAIL') {
+        return `<button class="${baseClass}" data-prod-action="open-demand-detail" data-demand-id="${demand.demandId}">查看详情</button>`
+      }
+      if (op === 'GENERATE') {
+        return `<button class="${generateClass}" data-prod-action="open-demand-single" data-demand-id="${demand.demandId}">生成</button>`
+      }
+      if (op === 'HOLD') {
+        return `<button class="${baseClass}" data-prod-action="hold-demand" data-demand-id="${demand.demandId}">挂起</button>`
+      }
+      if (op === 'UNHOLD') {
+        return `<button class="${baseClass}" data-prod-action="unhold-demand" data-demand-id="${demand.demandId}">取消挂起</button>`
+      }
+      return `<button class="${dangerClass}" data-prod-action="cancel-demand" data-demand-id="${demand.demandId}">取消</button>`
+    })
+    .join('')
+
+  const techPackButton = compact
+    ? `<button class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted" data-prod-action="${techPackAction}" data-spu-code="${escapeHtml(
+        demand.spuCode,
+      )}">
+           <i data-lucide="file-text" class="mr-1 h-4 w-4"></i>
+           ${getTechPackOperationLabel(techPackStatus)}
+         </button>`
+    : `<button class="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-prod-action="${techPackAction}" data-spu-code="${escapeHtml(
+        demand.spuCode,
+      )}">
+           <i data-lucide="external-link" class="mr-2 h-4 w-4"></i>
+           ${getTechPackOperationLabel(techPackStatus)}
+         </button>`
+
+  return `${demandOpButtons}${techPackButton}`
+}
+
 function getLegacyLikeDyePrintOrders() {
   return listLegacyLikeDyePrintOrdersForTailPages()
 }
@@ -968,6 +1039,20 @@ function getBatchGeneratableDemandIds(): string[] {
   })
 }
 
+function listOrdersFromDemandGeneratableDemands(): ProductionDemand[] {
+  return state.demands.filter((demand) => {
+    if (demand.demandStatus !== 'PENDING_CONVERT') return false
+    if (demand.hasProductionOrder) return false
+    if (demand.productionOrderId !== null) return false
+    return getTechPackSnapshotForDemand(demand).status === 'RELEASED'
+  })
+}
+
+function getOrdersFromDemandSelectedIds(): string[] {
+  const available = new Set(listOrdersFromDemandGeneratableDemands().map((item) => item.demandId))
+  return [...state.ordersFromDemandSelectedIds].filter((demandId) => available.has(demandId))
+}
+
 function getFilteredOrders(): ProductionOrder[] {
   let result = [...state.orders]
 
@@ -1107,6 +1192,8 @@ function closeAllProductionDialogs(): void {
   state.demandGenerateConfirmOpen = false
   state.ordersDemandSnapshotId = null
   state.ordersLogsId = null
+  state.ordersFromDemandDialogOpen = false
+  state.ordersFromDemandSelectedIds = new Set<string>()
   state.materialDraftOrderId = null
   state.materialDraftAddDraftId = null
   state.materialDraftAddSelections = new Set<string>()
@@ -1162,6 +1249,8 @@ const state: ProductionState = {
   ordersDemandSnapshotId: null,
   ordersLogsId: null,
   ordersActionMenuId: null,
+  ordersFromDemandDialogOpen: false,
+  ordersFromDemandSelectedIds: new Set<string>(),
   materialDraftOrderId: null,
   materialDraftAddDraftId: null,
   materialDraftAddSelections: new Set<string>(),
@@ -1208,6 +1297,10 @@ function renderDemandDetailDrawer(): string {
   if (!demand) return ''
 
   const techPackInfo = getTechPackSnapshotForDemand(demand)
+  const detailActions = renderDemandOperations(demand, techPackInfo.status, {
+    compact: false,
+    techPackAction: 'open-tech-pack-from-demand-detail',
+  })
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -1276,12 +1369,9 @@ function renderDemandDetailDrawer(): string {
                   `
                   : ''
               }
-              <button class="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-prod-action="open-tech-pack-from-demand-detail" data-spu-code="${escapeHtml(
-                demand.spuCode,
-              )}">
-                <i data-lucide="external-link" class="mr-2 h-4 w-4"></i>
-                完善技术包
-              </button>
+              <div class="flex flex-wrap items-center gap-2">
+                ${detailActions}
+              </div>
             </div>
           </section>
 
@@ -1543,6 +1633,87 @@ function renderDemandSingleGenerateDialog(singleDemand: ProductionDemand | null)
   `
 }
 
+function renderOrdersFromDemandDialog(): string {
+  if (!state.ordersFromDemandDialogOpen) return ''
+
+  const demands = listOrdersFromDemandGeneratableDemands()
+  const selectedIds = getOrdersFromDemandSelectedIds()
+  const selectedAll = demands.length > 0 && demands.every((demand) => state.ordersFromDemandSelectedIds.has(demand.demandId))
+
+  return `
+    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-prod-action="close-orders-from-demand" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+        <header class="border-b px-6 py-4">
+          <h3 class="text-lg font-semibold">从需求生成</h3>
+          <p class="mt-1 text-sm text-muted-foreground">仅支持已发布技术包且状态为待转单的需求</p>
+        </header>
+
+        <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
+          <section class="rounded-md border">
+            <div class="max-h-[220px] overflow-y-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b">
+                    <th class="w-10 px-3 py-2 text-left">
+                      <input type="checkbox" data-prod-action="toggle-orders-demand-select-all" ${selectedAll ? 'checked' : ''} />
+                    </th>
+                    <th class="px-3 py-2 text-left">需求编号</th>
+                    <th class="px-3 py-2 text-left">SPU</th>
+                    <th class="px-3 py-2 text-left">技术包</th>
+                    <th class="px-3 py-2 text-right">数量</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${
+                    demands.length === 0
+                      ? renderEmptyRow(5, '暂无可生成需求')
+                      : demands
+                          .map((demand) => {
+                            const selected = state.ordersFromDemandSelectedIds.has(demand.demandId)
+                            const techPack = getTechPackSnapshotForDemand(demand)
+                            return `
+                              <tr class="border-b last:border-0">
+                                <td class="px-3 py-2">
+                                  <input type="checkbox" data-prod-action="toggle-orders-demand-select" data-demand-id="${
+                                    demand.demandId
+                                  }" ${selected ? 'checked' : ''} />
+                                </td>
+                                <td class="px-3 py-2 font-mono">${escapeHtml(demand.demandId)}</td>
+                                <td class="px-3 py-2">
+                                  <div class="font-mono text-xs text-muted-foreground">${escapeHtml(demand.spuCode)}</div>
+                                  <div class="truncate" title="${escapeHtml(demand.spuName)}">${escapeHtml(demand.spuName)}</div>
+                                </td>
+                                <td class="px-3 py-2">${renderBadge(
+                                  demandTechPackStatusConfig[techPack.status].label,
+                                  demandTechPackStatusConfig[techPack.status].className,
+                                )}</td>
+                                <td class="px-3 py-2 text-right">${demand.requiredQtyTotal.toLocaleString()}</td>
+                              </tr>
+                            `
+                          })
+                          .join('')
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          ${renderDemandFactorySelectorFields()}
+          <p class="text-xs text-muted-foreground">已选 ${selectedIds.length} 条需求</p>
+        </div>
+
+        <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
+          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-orders-from-demand">取消</button>
+          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
+            selectedIds.length === 0 || !state.demandSelectedFactoryId ? 'pointer-events-none opacity-50' : ''
+          }" data-prod-action="open-orders-demand-generate-confirm">确认生成</button>
+        </footer>
+      </section>
+    </div>
+  `
+}
+
 function renderDemandConfirmDialog(): string {
   if (!state.demandGenerateConfirmOpen) return ''
 
@@ -1765,45 +1936,7 @@ export function renderProductionDemandInboxPage(): string {
                           </td>
                           <td class="px-3 py-3">
                             <div class="flex flex-wrap items-center gap-1">
-                              <button class="rounded px-2 py-1 text-xs hover:bg-muted" data-prod-action="open-demand-detail" data-demand-id="${
-                                demand.demandId
-                              }">查看详情</button>
-                              <button class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted" data-prod-action="open-tech-pack" data-spu-code="${escapeHtml(
-                                demand.spuCode,
-                              )}">
-                                <i data-lucide="file-text" class="mr-1 h-4 w-4"></i>
-                                完善技术包
-                              </button>
-                              ${
-                                demand.demandStatus === 'PENDING_CONVERT' &&
-                                !demand.hasProductionOrder &&
-                                techPack.status === 'RELEASED'
-                                  ? `<button class="rounded border px-2 py-1 text-xs hover:bg-muted" data-prod-action="open-demand-single" data-demand-id="${
-                                      demand.demandId
-                                    }">生成</button>`
-                                  : ''
-                              }
-                              ${
-                                demand.demandStatus === 'PENDING_CONVERT'
-                                  ? `<button class="rounded px-2 py-1 text-xs hover:bg-muted" data-prod-action="hold-demand" data-demand-id="${
-                                      demand.demandId
-                                    }">挂起</button>`
-                                  : ''
-                              }
-                              ${
-                                demand.demandStatus === 'HOLD'
-                                  ? `<button class="rounded px-2 py-1 text-xs hover:bg-muted" data-prod-action="unhold-demand" data-demand-id="${
-                                      demand.demandId
-                                    }">取消挂起</button>`
-                                  : ''
-                              }
-                              ${
-                                demand.demandStatus === 'PENDING_CONVERT' || demand.demandStatus === 'HOLD'
-                                  ? `<button class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50" data-prod-action="cancel-demand" data-demand-id="${
-                                      demand.demandId
-                                    }">取消</button>`
-                                  : ''
-                              }
+                              ${renderDemandOperations(demand, techPack.status)}
                             </div>
                           </td>
                         </tr>
@@ -2443,6 +2576,8 @@ export function renderProductionOrdersPage(): string {
     },
     { noDraft: 0, pendingOnly: 0, confirmed: 0 },
   )
+  const ordersFromDemandDialog = renderOrdersFromDemandDialog()
+  const confirmDialog = renderDemandConfirmDialog()
 
   return `
     <div class="space-y-4">
@@ -2877,6 +3012,8 @@ export function renderProductionOrdersPage(): string {
       ${renderMaterialDraftDrawer()}
       ${renderOrderDemandSnapshotDrawer()}
       ${renderOrderLogsDialog()}
+      ${ordersFromDemandDialog}
+      ${confirmDialog}
     </div>
   `
 }
@@ -5208,6 +5345,13 @@ function openDemandBatchGenerate(): void {
   state.demandSingleGenerateId = null
 }
 
+function openOrdersFromDemandGenerateDialog(): void {
+  resetDemandGenerateForm()
+  const ids = listOrdersFromDemandGeneratableDemands().map((item) => item.demandId)
+  state.ordersFromDemandSelectedIds = new Set(ids)
+  state.ordersFromDemandDialogOpen = true
+}
+
 function openDemandSingleGenerate(demandId: string): void {
   resetDemandGenerateForm()
   state.demandSingleGenerateId = demandId
@@ -5382,6 +5526,144 @@ function performDemandGenerate(): void {
       `生产单管理 ${created.productionOrderId}`,
     )
   }
+}
+
+function performOrdersFromDemandGenerate(): void {
+  const factory = indonesiaFactories.find((item) => item.id === state.demandSelectedFactoryId)
+  if (!factory) return
+
+  const demandIds = getOrdersFromDemandSelectedIds()
+  if (demandIds.length === 0) {
+    state.demandGenerateConfirmOpen = false
+    return
+  }
+
+  const now = toTimestamp()
+  const newOrders: ProductionOrder[] = []
+
+  for (const demandId of demandIds) {
+    const demand = state.demands.find((item) => item.demandId === demandId)
+    if (!demand) continue
+    const techPack = getTechPackSnapshotForDemand(demand)
+    if (
+      demand.hasProductionOrder ||
+      demand.productionOrderId !== null ||
+      demand.demandStatus !== 'PENDING_CONVERT' ||
+      techPack.status !== 'RELEASED'
+    ) {
+      continue
+    }
+
+    const orderId = nextProductionOrderId([...state.orders, ...newOrders])
+
+    const order: ProductionOrder = {
+      productionOrderId: orderId,
+      demandId: demand.demandId,
+      legacyOrderNo: demand.legacyOrderNo,
+      status: 'READY_FOR_BREAKDOWN',
+      lockedLegacy: false,
+      mainFactoryId: factory.id,
+      mainFactorySnapshot: {
+        id: factory.id,
+        code: factory.code,
+        name: factory.name,
+        tier: factory.tier,
+        type: factory.type,
+        status: factory.status,
+        province: factory.province,
+        city: factory.city,
+        tags: [...factory.tags],
+      },
+      ownerPartyType: 'FACTORY',
+      ownerPartyId: factory.id,
+      techPackSnapshot: {
+        status: toOrderTechPackStatus(techPack.status),
+        versionLabel: normalizeTechPackVersionLabel(techPack.status, techPack.versionLabel),
+        snapshotAt: now,
+      },
+      demandSnapshot: {
+        demandId: demand.demandId,
+        spuCode: demand.spuCode,
+        spuName: demand.spuName,
+        priority: demand.priority,
+        requiredDeliveryDate: demand.requiredDeliveryDate,
+        constraintsNote: demand.constraintsNote,
+        skuLines: demand.skuLines.map((sku) => ({ ...sku })),
+      },
+      assignmentSummary: {
+        directCount: 0,
+        biddingCount: 0,
+        totalTasks: 0,
+        unassignedCount: 0,
+      },
+      assignmentProgress: {
+        status: 'NOT_READY',
+        directAssignedCount: 0,
+        biddingLaunchedCount: 0,
+        biddingAwardedCount: 0,
+      },
+      biddingSummary: {
+        activeTenderCount: 0,
+        overdueTenderCount: 0,
+      },
+      directDispatchSummary: {
+        assignedFactoryCount: 0,
+        rejectedCount: 0,
+        overdueAckCount: 0,
+      },
+      taskBreakdownSummary: {
+        isBrokenDown: false,
+        taskTypesTop3: [],
+      },
+      riskFlags: [],
+      planStatus: 'UNPLANNED',
+      deliveryWarehouseStatus: 'UNSET',
+      lifecycleStatus: deriveLifecycleStatus({
+        ...productionOrders[0],
+        status: 'READY_FOR_BREAKDOWN',
+        lifecycleStatus: undefined,
+      }),
+      lifecycleUpdatedAt: now,
+      lifecycleUpdatedBy: currentUser.name,
+      auditLogs: [
+        {
+          id: nextLocalEntityId('LOG'),
+          action: 'CREATE',
+          detail: `从需求 ${demand.demandId} 生成生产单`,
+          at: now,
+          by: currentUser.name,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    newOrders.push(order)
+  }
+
+  if (newOrders.length === 0) {
+    state.demandGenerateConfirmOpen = false
+    return
+  }
+
+  const generatedMap = new Map(newOrders.map((order) => [order.demandId, order.productionOrderId]))
+  state.orders = [...state.orders, ...newOrders]
+  state.demands = state.demands.map((demand) => {
+    const orderId = generatedMap.get(demand.demandId)
+    if (!orderId) return demand
+    return {
+      ...demand,
+      hasProductionOrder: true,
+      productionOrderId: orderId,
+      demandStatus: 'CONVERTED',
+      updatedAt: now,
+    }
+  })
+
+  state.demandGenerateConfirmOpen = false
+  state.ordersFromDemandDialogOpen = false
+  state.ordersFromDemandSelectedIds = new Set<string>()
+  resetDemandGenerateForm()
 }
 
 function updateProductionField(
@@ -5968,7 +6250,44 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'confirm-demand-generate') {
-    performDemandGenerate()
+    if (state.ordersFromDemandDialogOpen) {
+      performOrdersFromDemandGenerate()
+    } else {
+      performDemandGenerate()
+    }
+    return true
+  }
+
+  if (action === 'toggle-orders-demand-select-all') {
+    const demands = listOrdersFromDemandGeneratableDemands()
+    const shouldClear = demands.length > 0 && demands.every((demand) => state.ordersFromDemandSelectedIds.has(demand.demandId))
+    if (shouldClear) {
+      state.ordersFromDemandSelectedIds = new Set<string>()
+    } else {
+      state.ordersFromDemandSelectedIds = new Set<string>(demands.map((demand) => demand.demandId))
+    }
+    return true
+  }
+
+  if (action === 'toggle-orders-demand-select') {
+    const demandId = actionNode.dataset.demandId
+    if (!demandId) return true
+    const next = new Set(state.ordersFromDemandSelectedIds)
+    if (next.has(demandId)) next.delete(demandId)
+    else next.add(demandId)
+    state.ordersFromDemandSelectedIds = next
+    return true
+  }
+
+  if (action === 'open-orders-demand-generate-confirm') {
+    state.demandGenerateConfirmOpen = true
+    return true
+  }
+
+  if (action === 'close-orders-from-demand') {
+    state.ordersFromDemandDialogOpen = false
+    state.ordersFromDemandSelectedIds = new Set<string>()
+    state.demandGenerateConfirmOpen = false
     return true
   }
 
@@ -6161,7 +6480,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
   if (action === 'orders-from-demand') {
     state.ordersActionMenuId = null
-    if (typeof window !== 'undefined') window.alert('从需求生成 - 占位')
+    openOrdersFromDemandGenerateDialog()
     return true
   }
 

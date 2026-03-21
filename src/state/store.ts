@@ -328,6 +328,53 @@ class AppStore {
     this.patch({ allTabs: nextAllTabs, pathname: nextPath })
   }
 
+  closeAllTabs(): void {
+    const system = getCurrentSystem(this.state.pathname)
+    const systemId = system.id
+    const systemTabs = this.state.allTabs[systemId] ?? {
+      systemId,
+      tabs: [],
+      activeKey: '',
+    }
+
+    const defaultItem = findMenuItemByPath(system.defaultPage)
+    const pinnedTabs = systemTabs.tabs.filter((tab) => !tab.closable)
+    const nextTabs = [...pinnedTabs]
+
+    if (defaultItem?.href && !nextTabs.some((tab) => tab.key === defaultItem.key)) {
+      const existingDefaultTab = systemTabs.tabs.find((tab) => tab.key === defaultItem.key)
+      nextTabs.unshift(
+        existingDefaultTab ?? {
+          key: defaultItem.key,
+          title: defaultItem.title,
+          href: defaultItem.href,
+          closable: true,
+        },
+      )
+    }
+
+    const nextActiveTab =
+      nextTabs.find((tab) => tab.key === defaultItem?.key) ??
+      nextTabs[0] ??
+      null
+
+    const nextPath = nextActiveTab?.href ?? system.defaultPage ?? defaultPath
+    const nextActiveKey = nextActiveTab?.key ?? ''
+
+    const nextAllTabs: AllSystemTabs = {
+      ...this.state.allTabs,
+      [systemId]: {
+        ...systemTabs,
+        tabs: nextTabs,
+        activeKey: nextActiveKey,
+      },
+    }
+
+    this.state.allTabs = nextAllTabs
+    saveTabs(nextAllTabs)
+    this.patch({ allTabs: nextAllTabs, pathname: nextPath })
+  }
+
   setSidebarOpen(open: boolean): void {
     this.patch({ sidebarOpen: open })
   }

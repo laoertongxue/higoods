@@ -259,31 +259,41 @@ function renderTabsBar(state: AppState): string {
 
   return `
     <div class="border-b bg-muted/30">
-      <div class="flex items-center overflow-x-auto whitespace-nowrap">
-        ${tabs
-          .map((tab) => {
-            const active = activeKey === tab.key
+      <div class="flex items-center">
+        <div class="min-w-0 flex-1 overflow-x-auto whitespace-nowrap">
+          ${tabs
+            .map((tab) => {
+              const active = activeKey === tab.key
 
-            return `
-              <div
-                class="group relative flex items-center gap-2 border-r px-4 py-2 text-sm transition-colors ${
-                  active
-                    ? 'bg-background text-foreground'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-accent'
-                }"
-                data-active="${active ? 'true' : 'false'}"
-              >
-                <button class="max-w-32 truncate" data-action="activate-tab" data-tab-key="${tab.key}">${escapeHtml(tab.title)}</button>
-                ${
-                  tab.closable
-                    ? `<button class="rounded-sm p-0.5 hover:bg-muted-foreground/20" data-action="close-tab" data-tab-key="${tab.key}" data-tab-close>${renderIcon('X', 'h-3 w-3')}</button>`
-                    : ''
-                }
-                ${active ? '<span class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></span>' : ''}
-              </div>
-            `
-          })
-          .join('')}
+              return `
+                <div
+                  class="group relative inline-flex items-center gap-2 border-r px-4 py-2 text-sm transition-colors ${
+                    active
+                      ? 'bg-background text-foreground'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-accent'
+                  }"
+                  data-active="${active ? 'true' : 'false'}"
+                >
+                  <button class="max-w-32 truncate" data-action="activate-tab" data-tab-key="${tab.key}">${escapeHtml(tab.title)}</button>
+                  ${
+                    tab.closable
+                      ? `<button class="rounded-sm p-0.5 hover:bg-muted-foreground/20" data-action="close-tab" data-tab-key="${tab.key}" data-tab-close>${renderIcon('X', 'h-3 w-3')}</button>`
+                      : ''
+                  }
+                  ${active ? '<span class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></span>' : ''}
+                </div>
+              `
+            })
+            .join('')}
+        </div>
+        <div class="shrink-0 border-l px-2">
+          <button
+            class="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            data-action="close-all-tabs"
+          >
+            全部关闭
+          </button>
+        </div>
       </div>
     </div>
   `

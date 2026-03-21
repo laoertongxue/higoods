@@ -179,6 +179,11 @@ root.addEventListener('click', (event) => {
     if (key) appStore.closeTab(key)
     return
   }
+
+  if (action === 'close-all-tabs') {
+    appStore.closeAllTabs()
+    return
+  }
 })
 
 root.addEventListener('input', (event) => {
