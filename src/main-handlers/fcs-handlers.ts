@@ -58,17 +58,9 @@ import {
   isDyePrintOrdersDialogOpen,
 } from '../pages/dye-print-orders'
 import {
-  handleDependenciesEvent,
-  isDependenciesDialogOpen,
-} from '../pages/dependencies'
-import {
   handleMaterialIssueEvent,
   isMaterialIssueDialogOpen,
 } from '../pages/material-issue'
-import {
-  handleQcStandardsEvent,
-  isQcStandardsDialogOpen,
-} from '../pages/qc-standards'
 import { handleQcRecordsEvent } from '../pages/qc-records'
 import { handleDeductionCalcEvent } from '../pages/deduction-calc'
 import {
@@ -143,9 +135,7 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleProcessPrintRequirementsEvent(target) ||
     handleProcessDyeOrdersEvent(target) ||
     handleProcessPrintOrdersEvent(target) ||
-    handleDependenciesEvent(target) ||
     handleMaterialIssueEvent(target) ||
-    handleQcStandardsEvent(target) ||
     handleQcRecordsEvent(target) ||
     handleDeductionCalcEvent(target) ||
     handleArbitrationEvent(target) ||
@@ -262,24 +252,10 @@ export function closeFcsDialogsOnEscape(): boolean {
     return true
   }
 
-  if (isDependenciesDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.depAction = 'close-dialog'
-    handleDependenciesEvent(fakeButton)
-    return true
-  }
-
   if (isMaterialIssueDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.misAction = 'close-dialog'
     handleMaterialIssueEvent(fakeButton)
-    return true
-  }
-
-  if (isQcStandardsDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.qcsAction = 'close-dialog'
-    handleQcStandardsEvent(fakeButton)
     return true
   }
 

@@ -123,7 +123,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'workbench-overview', title: '概览看板', icon: 'LayoutDashboard', href: '/fcs/workbench/overview' },
             { key: 'workbench-todos', title: '我的待办', icon: 'ListTodo', href: '/fcs/workbench/todos' },
-            { key: 'workbench-risks', title: '风险提醒', icon: 'AlertTriangle', href: '/fcs/workbench/risks' },
           ],
         },
         {
@@ -162,8 +161,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'process-print-requirements', title: '印花需求单', icon: 'FileText', href: '/fcs/process/print-requirements' },
             { key: 'process-dye-orders', title: '染色加工单', icon: 'Package', href: '/fcs/process/dye-orders' },
             { key: 'process-print-orders', title: '印花加工单', icon: 'ClipboardSignature', href: '/fcs/process/print-orders' },
-            { key: 'process-dependencies', title: '任务依赖配置', icon: 'Network', href: '/fcs/process/dependencies' },
-            { key: 'process-qc-standards', title: '质检标准下发', icon: 'CheckSquare', href: '/fcs/process/qc-standards' },
           ],
         },
         {
@@ -289,7 +286,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       ],
     },
     {
-      title: '工厂端（PDA）',
+      title: '工厂端（移动应用）',
       items: [
         { key: 'pda-todo', title: '待办', icon: 'Bell', href: '/fcs/pda/notify' },
         { key: 'pda-task-receive', title: '接单', icon: 'ClipboardList', href: '/fcs/pda/task-receive' },

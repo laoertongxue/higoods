@@ -1,6 +1,6 @@
 import { menusBySystem } from '../data/app-shell-config'
 import { renderFactoryProfilePage } from '../pages/factory-profile'
-import { renderOverviewPage, renderRisksPage, renderTodosPage } from '../pages/workbench'
+import { renderOverviewPage, renderTodosPage } from '../pages/workbench'
 import { renderPcsOverviewPage } from '../pages/pcs-workspace-overview'
 import { renderPcsTodosPage } from '../pages/pcs-workspace-todos'
 import { renderPcsAlertsPage } from '../pages/pcs-workspace-alerts'
@@ -75,9 +75,7 @@ import { renderProcessDyeRequirementsPage } from '../pages/process-dye-requireme
 import { renderProcessPrintRequirementsPage } from '../pages/process-print-requirements'
 import { renderProcessDyeOrdersPage } from '../pages/process-dye-orders'
 import { renderProcessPrintOrdersPage } from '../pages/process-print-orders'
-import { renderDependenciesPage } from '../pages/dependencies'
 import { renderMaterialIssuePage } from '../pages/material-issue'
-import { renderQcStandardsPage } from '../pages/qc-standards'
 import { renderQcRecordDetailPage, renderQcRecordsPage } from '../pages/qc-records'
 import {
   renderDeductionCalcPage,
@@ -170,7 +168,6 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/settings/template-center': () => renderPcsTemplatesPage(),
   '/pcs/settings/platforms': () => renderPlatformConfigPage(),
   '/fcs/workbench/todos': () => renderTodosPage(),
-  '/fcs/workbench/risks': () => renderRisksPage(),
   '/fcs/capacity/overview': () => renderCapacityOverviewPage(),
   '/fcs/capacity/risk': () => renderCapacityRiskPage(),
   '/fcs/capacity/bottleneck': () => renderCapacityBottleneckPage(),
@@ -188,9 +185,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/process/print-requirements': () => renderProcessPrintRequirementsPage(),
   '/fcs/process/dye-orders': () => renderProcessDyeOrdersPage(),
   '/fcs/process/print-orders': () => renderProcessPrintOrdersPage(),
-  '/fcs/process/dependencies': () => renderDependenciesPage(),
   '/fcs/process/material-issue': () => renderMaterialIssuePage(),
-  '/fcs/process/qc-standards': () => renderQcStandardsPage(),
   '/fcs/quality/qc-records': () => renderQcRecordsPage(),
   '/fcs/quality/deduction-calc': () => renderDeductionCalcPage(),
   '/fcs/quality/arbitration': () => renderArbitrationPage(),

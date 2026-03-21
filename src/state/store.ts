@@ -19,6 +19,8 @@ const LEGACY_DISPATCH_EXCEPTIONS_PATH = '/fcs/dispatch/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_KEY = 'progress-exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_PATH = '/fcs/progress/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_TITLE = '异常定位与处理'
+const REMOVED_FCS_TAB_KEYS = new Set(['workbench-risks', 'process-dependencies', 'process-qc-standards'])
+const REMOVED_FCS_TAB_PATHS = new Set(['/fcs/workbench/risks', '/fcs/process/dependencies', '/fcs/process/qc-standards'])
 
 function createEmptyTabs(): AllSystemTabs {
   const tabs: AllSystemTabs = {}
@@ -46,11 +48,34 @@ function getStoredTabs(): AllSystemTabs {
       }
     }
 
-    const migrated = migrateLegacyDispatchExceptionsTabs(parsed)
+    const migrated = pruneRemovedFcsTabs(migrateLegacyDispatchExceptionsTabs(parsed))
     localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(migrated))
     return migrated
   } catch {
     return emptyTabs
+  }
+}
+
+function pruneRemovedFcsTabs(allTabs: AllSystemTabs): AllSystemTabs {
+  const fcsTabs = allTabs.fcs
+  if (!fcsTabs) return allTabs
+
+  const nextTabs = fcsTabs.tabs.filter(
+    (tab) => !REMOVED_FCS_TAB_KEYS.has(tab.key) && !REMOVED_FCS_TAB_PATHS.has(tab.href),
+  )
+  const nextActiveKey = nextTabs.some((tab) => tab.key === fcsTabs.activeKey) ? fcsTabs.activeKey : ''
+
+  if (nextTabs.length === fcsTabs.tabs.length && nextActiveKey === fcsTabs.activeKey) {
+    return allTabs
+  }
+
+  return {
+    ...allTabs,
+    fcs: {
+      ...fcsTabs,
+      tabs: nextTabs,
+      activeKey: nextActiveKey,
+    },
   }
 }
 

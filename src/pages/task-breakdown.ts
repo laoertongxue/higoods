@@ -632,11 +632,6 @@ function renderAllTasksTable(
                                 ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/material-issue">领料</button>'
                                 : ''
                             }
-                            ${
-                              hasQc
-                                ? '<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/process/qc-standards">质检标准</button>'
-                                : ''
-                            }
                           </div>
                         </td>
                       </tr>
