@@ -1,6 +1,7 @@
 import type { OwnerSuggestion } from './routing-templates'
 import type { ProcessTask } from './process-tasks'
 import { getTaskChainTaskById, listTaskChainTasks } from './page-adapters/task-chain-pages-adapter'
+import { findPdaHandoverHead } from './pda-handover-events'
 
 export type PdaTaskEntryMode = 'DEFAULT' | 'CUTTING_SPECIAL'
 export type CuttingMaterialType = 'PRINT' | 'DYE' | 'SOLID' | 'LINING'
@@ -173,6 +174,57 @@ function buildTaskAuditLogs(action: string, detail: string, at: string, by: stri
       by,
     },
   ]
+}
+
+type CuttingActionIdPrefix = 'PK' | 'SPR' | 'INB' | 'HO' | 'FB'
+
+interface CuttingActionAnchorInput {
+  cutPieceOrderNo?: string
+  taskNo?: string
+  sourceTaskNo?: string
+  productionOrderNo?: string
+}
+
+function normalizeCuttingBusinessAnchor(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^A-Za-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+function resolveCuttingBusinessAnchor(input: CuttingActionAnchorInput): string {
+  const rawAnchor = [input.cutPieceOrderNo, input.taskNo, input.sourceTaskNo, input.productionOrderNo].find(
+    (value) => typeof value === 'string' && value.trim().length > 0,
+  )
+
+  return normalizeCuttingBusinessAnchor(rawAnchor ?? 'CUTTING')
+}
+
+function resolveNextStableSequence(existingIds: string[], prefix: CuttingActionIdPrefix, anchor: string): string {
+  const idPrefix = `${prefix}-${anchor}-`
+  let maxSequence = 0
+
+  existingIds.forEach((existingId) => {
+    if (!existingId.startsWith(idPrefix)) return
+    const sequence = Number.parseInt(existingId.slice(idPrefix.length), 10)
+    if (Number.isFinite(sequence) && sequence > maxSequence) {
+      maxSequence = sequence
+    }
+  })
+
+  return String(maxSequence + 1).padStart(3, '0')
+}
+
+function createStableCuttingActionId(
+  prefix: CuttingActionIdPrefix,
+  anchorInput: CuttingActionAnchorInput,
+  existingIds: string[],
+): string {
+  const anchor = resolveCuttingBusinessAnchor(anchorInput)
+  const nextSequence = resolveNextStableSequence(existingIds, prefix, anchor)
+  return `${prefix}-${anchor}-${nextSequence}`
 }
 
 function createMockTask(input: {
@@ -497,7 +549,7 @@ const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
     scanResultLabel: '扫码领取成功',
     latestReceiveAt: '2026-03-19 10:18:00',
     latestReceiveBy: 'Rian',
-    latestPickupRecordNo: 'PK-001',
+    latestPickupRecordNo: 'PK-CPO-20260319-B-001',
     latestPickupScanAt: '2026-03-19 10:18:00',
     latestPickupOperatorName: 'Rian',
     configuredQtyText: '卷数 8 卷 / 长度 320 米',
@@ -508,7 +560,7 @@ const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
     hasMarkerImage: true,
     latestSpreadingAt: '2026-03-19 13:10:00',
     latestSpreadingBy: 'Rian',
-    latestSpreadingRecordNo: 'SPR-002',
+    latestSpreadingRecordNo: 'SPR-CPO-20260319-B-002',
     inboundZoneLabel: 'B 区',
     inboundLocationLabel: 'B-02 临时位',
     latestInboundAt: '-',
@@ -521,7 +573,7 @@ const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
     replenishmentRiskSummary: '存在轻微长度差异，待观察是否需补料',
     latestReplenishmentFeedbackAt: '2026-03-19 15:20:00',
     latestReplenishmentFeedbackBy: 'Rian',
-    latestReplenishmentFeedbackRecordNo: 'FB-001',
+    latestReplenishmentFeedbackRecordNo: 'FB-CPO-20260319-B-001',
     latestFeedbackAt: '2026-03-19 15:20:00',
     latestFeedbackBy: 'Rian',
     latestFeedbackReason: '铺布余量不足预警',
@@ -551,7 +603,7 @@ const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
     ],
     pickupLogs: [
       {
-        id: 'PK-001',
+        id: 'PK-CPO-20260319-B-001',
         scannedAt: '2026-03-19 10:18:00',
         operatorName: 'Rian',
         resultLabel: '扫码领取成功',
@@ -561,7 +613,7 @@ const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
     ],
     spreadingRecords: [
       {
-        id: 'SPR-001',
+        id: 'SPR-CPO-20260319-B-001',
         fabricRollNo: 'ROLL-PRINT-011',
         layerCount: 24,
         actualLength: 68,
@@ -574,7 +626,7 @@ const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
         note: '首卷铺布完成',
       },
       {
-        id: 'SPR-002',
+        id: 'SPR-CPO-20260319-B-002',
         fabricRollNo: 'ROLL-PRINT-012',
         layerCount: 20,
         actualLength: 60,
@@ -591,7 +643,7 @@ const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
     handoverRecords: [],
     replenishmentFeedbacks: [
       {
-        id: 'FB-001',
+        id: 'FB-CPO-20260319-B-001',
         feedbackAt: '2026-03-19 15:20:00',
         operatorName: 'Rian',
         reasonLabel: '铺布余量不足预警',
@@ -645,20 +697,38 @@ export function buildPdaCuttingRoute(taskId: string, routeKey: PdaCuttingRouteKe
   return `/fcs/pda/cutting/replenishment-feedback/${taskId}`
 }
 
-export function resolvePdaTaskDetailPath(taskId: string): string {
-  const task = getPdaTaskFlowTaskById(taskId)
-  if (isCuttingSpecialTask(task)) {
+function buildPdaCuttingTaskDetailPath(taskId: string, returnTo?: string): string {
+  if (!returnTo) {
     return buildPdaCuttingRoute(taskId, 'task')
   }
-  return `/fcs/pda/task-receive/${taskId}`
+
+  const params = new URLSearchParams()
+  params.set('returnTo', returnTo)
+  return `${buildPdaCuttingRoute(taskId, 'task')}?${params.toString()}`
 }
 
-export function resolvePdaTaskExecPath(taskId: string): string {
+function resolvePdaTaskDetailEntryPath(taskId: string, fallbackPath: string, returnTo?: string): string {
   const task = getPdaTaskFlowTaskById(taskId)
   if (isCuttingSpecialTask(task)) {
-    return buildPdaCuttingRoute(taskId, 'task')
+    return buildPdaCuttingTaskDetailPath(taskId, returnTo)
   }
-  return `/fcs/pda/exec/${taskId}`
+  return fallbackPath
+}
+
+export function resolvePdaTaskDetailPath(taskId: string, returnTo?: string): string {
+  return resolvePdaTaskDetailEntryPath(taskId, `/fcs/pda/task-receive/${taskId}`, returnTo)
+}
+
+export function resolvePdaTaskExecPath(taskId: string, returnTo?: string): string {
+  return resolvePdaTaskDetailEntryPath(taskId, `/fcs/pda/exec/${taskId}`, returnTo)
+}
+
+export function resolvePdaHandoverDetailPath(handoverId: string, returnTo?: string): string {
+  const head = findPdaHandoverHead(handoverId)
+  if (!head) {
+    return `/fcs/pda/handover/${handoverId}`
+  }
+  return resolvePdaTaskDetailEntryPath(head.taskId, `/fcs/pda/handover/${handoverId}`, returnTo)
 }
 
 function touchCuttingTask(taskId: string, patch: Partial<PdaCuttingTaskDetailData>, logPatch?: Partial<PdaTaskSummary>): void {
@@ -699,7 +769,15 @@ export function submitCuttingPickupResult(taskId: string, payload: {
 
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.pickupLogs.unshift({
-    id: `PK-${Date.now()}`,
+    id: createStableCuttingActionId(
+      'PK',
+      {
+        cutPieceOrderNo: detail.cutPieceOrderNo,
+        taskNo: detail.taskNo,
+        productionOrderNo: detail.productionOrderNo,
+      },
+      detail.pickupLogs.map((item) => item.id),
+    ),
     scannedAt: now,
     operatorName: payload.operatorName,
     resultLabel: payload.resultLabel,
@@ -764,7 +842,15 @@ export function addCuttingSpreadingRecord(taskId: string, payload: {
   const calculatedLength = Number((payload.actualLength + payload.headLength + payload.tailLength).toFixed(1))
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.spreadingRecords.unshift({
-    id: `SPR-${Date.now()}`,
+    id: createStableCuttingActionId(
+      'SPR',
+      {
+        cutPieceOrderNo: detail.cutPieceOrderNo,
+        taskNo: detail.taskNo,
+        productionOrderNo: detail.productionOrderNo,
+      },
+      detail.spreadingRecords.map((item) => item.id),
+    ),
     fabricRollNo: payload.fabricRollNo,
     layerCount: payload.layerCount,
     actualLength: payload.actualLength,
@@ -817,7 +903,15 @@ export function confirmCuttingInbound(taskId: string, payload: {
   if (!detail) return
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.inboundRecords.unshift({
-    id: `INB-${Date.now()}`,
+    id: createStableCuttingActionId(
+      'INB',
+      {
+        cutPieceOrderNo: detail.cutPieceOrderNo,
+        taskNo: detail.taskNo,
+        productionOrderNo: detail.productionOrderNo,
+      },
+      detail.inboundRecords.map((item) => item.id),
+    ),
     scannedAt: now,
     operatorName: payload.operatorName,
     zoneCode: payload.zoneCode,
@@ -866,7 +960,15 @@ export function confirmCuttingHandover(taskId: string, payload: {
   if (!detail) return
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.handoverRecords.unshift({
-    id: `HO-${Date.now()}`,
+    id: createStableCuttingActionId(
+      'HO',
+      {
+        cutPieceOrderNo: detail.cutPieceOrderNo,
+        taskNo: detail.taskNo,
+        productionOrderNo: detail.productionOrderNo,
+      },
+      detail.handoverRecords.map((item) => item.id),
+    ),
     handoverAt: now,
     operatorName: payload.operatorName,
     targetLabel: payload.targetLabel,
@@ -915,7 +1017,15 @@ export function submitCuttingReplenishmentFeedback(taskId: string, payload: {
   if (!detail) return
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.replenishmentFeedbacks.unshift({
-    id: `FB-${Date.now()}`,
+    id: createStableCuttingActionId(
+      'FB',
+      {
+        cutPieceOrderNo: detail.cutPieceOrderNo,
+        taskNo: detail.taskNo,
+        productionOrderNo: detail.productionOrderNo,
+      },
+      detail.replenishmentFeedbacks.map((item) => item.id),
+    ),
     feedbackAt: now,
     operatorName: payload.operatorName,
     reasonLabel: payload.reasonLabel,

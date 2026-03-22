@@ -25,8 +25,6 @@ import {
   formatQty,
   getPendingPrintBatches,
   materialTypeMeta,
-  printMeta,
-  qrMeta,
   receiveMeta,
   receiveResultMeta,
   reviewMeta,
@@ -353,7 +351,7 @@ function renderGroupCard(group: CuttingMaterialPrepGroup): string {
               .map((line) => {
                 const pickupView = buildMaterialPrepPickupView(line, group)
                 const canPrint = line.configBatches.length > 0
-                const canViewQr = line.qrStatus === 'GENERATED' || line.configuredRollCount > 0
+                const canViewQr = pickupView.qrStatus === 'GENERATED' || line.configuredRollCount > 0
                 return `
                   <tr class="border-b last:border-b-0 hover:bg-muted/20">
                     <td class="px-4 py-4 align-top">
@@ -378,11 +376,11 @@ function renderGroupCard(group: CuttingMaterialPrepGroup): string {
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildReceiveSummary(line))}</div>
                     </td>
                     <td class="px-4 py-4 align-top">
-                      ${renderBadge(printMeta[line.printSlipStatus].label, printMeta[line.printSlipStatus].className)}
+                      ${renderBadge(pickupView.printSlipStatusLabel, pickupView.printSlipStatus === 'PRINTED' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700')}
                       <div class="mt-1 text-xs text-muted-foreground">${pickupView.latestPrintVersionNo !== '-' ? `版本 ${escapeHtml(pickupView.latestPrintVersionNo)} · 已打印 ${pickupView.printCopyCount} 次` : '尚未打印'}</div>
                     </td>
                     <td class="px-4 py-4 align-top">
-                      ${renderBadge(qrMeta[line.qrStatus].label, qrMeta[line.qrStatus].className)}
+                      ${renderBadge(pickupView.qrStatusLabel, pickupView.qrStatus === 'GENERATED' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-700')}
                       <div class="mt-1 text-xs text-muted-foreground">${pickupView.qrStatus === 'GENERATED' ? `裁片单级二维码复用 · ${escapeHtml(pickupView.qrCodeValue)}` : '配置后自动生成'}</div>
                     </td>
                     <td class="px-4 py-4 align-top">
@@ -559,7 +557,7 @@ function renderBatchDetailDrawer(): string {
           </div>
           <div>
             <p class="text-xs text-muted-foreground">二维码状态</p>
-            <div class="mt-1">${renderBadge(qrMeta[line.qrStatus].label, qrMeta[line.qrStatus].className)}</div>
+            <div class="mt-1">${renderBadge(pickupView.qrStatusLabel, pickupView.qrStatus === 'GENERATED' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-700')}</div>
           </div>
         </section>
         <section class="rounded-lg border p-4">
@@ -635,7 +633,7 @@ function renderPrintPreview(): string {
           </div>
           <div>
             <p class="text-xs text-muted-foreground">打印状态</p>
-            <div class="mt-1">${renderBadge(printMeta[line.printSlipStatus].label, printMeta[line.printSlipStatus].className)}</div>
+            <div class="mt-1">${renderBadge(pickupView.printSlipStatusLabel, pickupView.printSlipStatus === 'PRINTED' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700')}</div>
             <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(pickupView.pickupSlipNo)}</p>
           </div>
         </section>
@@ -708,7 +706,7 @@ function renderQrPreview(): string {
         </div>
         <div class="rounded-lg border bg-muted/20 px-4 py-3 text-left text-sm text-muted-foreground">
           <p>二维码编码值：<span class="font-medium text-foreground">${escapeHtml(pickupView.qrCodeValue)}</span></p>
-          <p class="mt-2">${escapeHtml(line.qrVersionNote)}</p>
+          <p class="mt-2">${pickupView.qrStatus === 'GENERATED' ? '该二维码会贯穿领料、执行、入仓等后续环节。' : '配置后自动生成二维码，并沿用同一绑定对象。'}</p>
           <p class="mt-2">最近一次打印版本：<span class="font-medium text-foreground">${escapeHtml(pickupView.latestPrintVersionNo)}</span></p>
           <p class="mt-2">扫码回执：<span class="font-medium text-foreground">${escapeHtml(pickupView.receiptStatusLabel)}</span></p>
         </div>
@@ -748,7 +746,10 @@ function renderReceiveDrawer(): string {
           </div>
           <div>
             <p class="text-xs text-muted-foreground">差异照片状态</p>
-            <div class="mt-1">${renderBadge(pickupView.hasPhotoEvidence ? '已提交照片' : discrepancyMeta[line.discrepancyStatus].label, pickupView.hasPhotoEvidence ? 'bg-blue-100 text-blue-700' : discrepancyMeta[line.discrepancyStatus].className)}</div>
+            <div class="mt-1">${renderBadge(
+              pickupView.hasPhotoEvidence ? '已提交照片' : pickupView.needsRecheck ? '需补齐凭证' : '当前无差异凭证',
+              pickupView.hasPhotoEvidence ? 'bg-blue-100 text-blue-700' : pickupView.needsRecheck ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700',
+            )}</div>
             <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(pickupView.resultSummaryText)}</p>
           </div>
         </section>

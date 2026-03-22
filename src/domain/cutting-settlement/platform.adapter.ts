@@ -34,16 +34,25 @@ function buildFactoryCode(factoryName: string): string {
 
 function buildPickupSummary(row: PlatformCuttingOverviewRow): CuttingPickupInputSummary {
   return {
-    pickupSlipNo: row.pickupSlipNo,
-    latestPrintVersionNo: row.latestPrintVersionNo,
-    printCopyCount: row.printCopyCount,
-    qrCodeValue: row.pickupSummary.qrStatus === '已生成二维码' ? row.record.searchKeywords.find((item) => item.startsWith('QR-')) || row.pickupSummary.pickupSlipNo : '-',
+    pickupSlipNo: row.pickupSummary.pickupSlipNo,
+    latestPrintVersionNo: row.pickupSummary.latestPrintVersionNo,
+    printCopyCount: row.pickupSummary.printCopyCount,
+    printSlipStatusLabel: row.pickupSummary.printSlipStatusLabel,
+    qrCodeValue: row.pickupSummary.qrCodeValue,
     qrStatus: row.pickupSummary.qrStatus,
+    latestResultStatus: row.pickupSummary.latestResultStatus,
     latestResultLabel: row.pickupSummary.latestResultLabel,
     latestScannedAt: row.pickupSummary.latestScannedAt,
-    latestScannedBy: row.record.receiveSummary.latestReceiveBy || '-',
+    latestScannedBy: row.pickupSummary.latestScannedBy,
     needsRecheck: row.pickupSummary.needsRecheck,
     hasPhotoEvidence: row.pickupSummary.hasPhotoEvidence,
+    photoProofCount: row.pickupSummary.photoProofCount,
+    receiptStatus: row.pickupSummary.receiptStatus,
+    receiptStatusLabel: row.pickupSummary.receiptStatusLabel,
+    printVersionSummaryText: row.pickupSummary.printVersionSummaryText,
+    qrBindingSummaryText: row.pickupSummary.qrBindingSummaryText,
+    resultSummaryText: row.pickupSummary.resultSummaryText,
+    evidenceSummaryText: row.pickupSummary.evidenceSummaryText,
     summaryText: row.pickupSummary.summaryText,
   }
 }
@@ -298,7 +307,9 @@ export function buildPlatformCuttingSettlementInputViews(
       executionStabilitySummary: row.executionSummaryText,
       exceptionPenaltySummary: impact.summaryText,
       recheckSummary: impact.repeatedRecheckCount > 0 ? `当前有 ${impact.repeatedRecheckCount} 项复核相关异常。` : '当前没有复核阻断。',
-      evidenceComplianceSummary: settlementInput.pickupSummary.hasPhotoEvidence ? '存在照片凭证留痕，需核对合规性。' : '当前没有照片凭证留痕。',
+      evidenceComplianceSummary: settlementInput.pickupSummary.hasPhotoEvidence
+        ? `存在照片凭证留痕，需核对合规性。${settlementInput.pickupSummary.evidenceSummaryText}`
+        : '当前没有照片凭证留痕。',
       sampleHandlingSummary: row.sampleSummaryText,
       scoreFocusLevel,
       recommendedScoreBand: buildRecommendedScoreBand(scoreFocusLevel),

@@ -34,6 +34,8 @@ export interface CuttingPickupView {
   pickupSlipNo: string
   latestPrintVersionNo: string
   printCopyCount: number
+  printSlipStatus: 'PRINTED' | 'NOT_PRINTED'
+  printSlipStatusLabel: string
   qrCodeValue: string
   qrStatus: 'GENERATED' | 'NOT_GENERATED'
   qrStatusLabel: string
@@ -205,6 +207,8 @@ function buildView(
     pickupSlipNo: slip.pickupSlipNo,
     latestPrintVersionNo: latestPrintVersion?.printVersionNo || slip.latestPrintVersionNo || '-',
     printCopyCount: latestPrintVersion?.printCopyCount ?? 0,
+    printSlipStatus: latestPrintVersion || slip.latestPrintVersionNo ? 'PRINTED' : 'NOT_PRINTED',
+    printSlipStatusLabel: latestPrintVersion || slip.latestPrintVersionNo ? '已打印' : '未打印',
     qrCodeValue: qrBinding?.qrCodeValue || slip.latestQrCodeValue || '-',
     qrStatus: qrBinding ? 'GENERATED' : 'NOT_GENERATED',
     qrStatusLabel: qrBinding ? '已生成二维码' : '未生成二维码',

@@ -417,14 +417,14 @@ function renderSummaryDrawer(): string {
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <div class="rounded-lg border bg-muted/20 p-4">
               <p class="text-xs text-muted-foreground">领料单号 / 打印版本</p>
-              <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSlipNo)}</p>
-              <p class="mt-2 text-xs text-muted-foreground">最新打印版本：${escapeHtml(row.latestPrintVersionNo)}</p>
-              <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.printCopyCount}</p>
+              <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.pickupSlipNo)}</p>
+              <p class="mt-2 text-xs text-muted-foreground">最新打印版本：${escapeHtml(row.pickupSummary.latestPrintVersionNo)}</p>
+              <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.pickupSummary.printCopyCount}</p>
             </div>
             <div class="rounded-lg border bg-muted/20 p-4">
               <p class="text-xs text-muted-foreground">二维码 / 扫码结果</p>
               <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.qrStatus)} · ${escapeHtml(row.pickupSummary.latestResultLabel)}</p>
-              <p class="mt-2 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.pickupSummary.latestScannedAt)}</p>
+              <p class="mt-2 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.pickupSummary.latestScannedAt)} · ${escapeHtml(row.pickupSummary.latestScannedBy)}</p>
               <div class="mt-2 flex flex-wrap gap-2">
                 ${row.pickupSummary.needsRecheck ? renderBadge('需复核', 'bg-amber-50 text-amber-700') : ''}
                 ${row.pickupSummary.hasPhotoEvidence ? renderBadge('有照片凭证', 'bg-blue-50 text-blue-700') : ''}

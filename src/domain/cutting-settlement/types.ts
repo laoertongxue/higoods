@@ -32,13 +32,22 @@ export interface CuttingPickupInputSummary {
   pickupSlipNo: string
   latestPrintVersionNo: string
   printCopyCount: number
+  printSlipStatusLabel: string
   qrCodeValue: string
   qrStatus: string
+  latestResultStatus: string
   latestResultLabel: string
   latestScannedAt: string
   latestScannedBy: string
   needsRecheck: boolean
   hasPhotoEvidence: boolean
+  photoProofCount: number
+  receiptStatus: string
+  receiptStatusLabel: string
+  printVersionSummaryText: string
+  qrBindingSummaryText: string
+  resultSummaryText: string
+  evidenceSummaryText: string
   summaryText: string
 }
 

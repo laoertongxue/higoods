@@ -12,6 +12,7 @@ import {
   type CuttingPickupView,
 } from '../pickup/page-adapters/cutting-shared'
 import {
+  buildEmptyPlatformCuttingPickupSummary,
   buildPlatformCuttingPickupSummary,
   type PlatformCuttingPickupSummary,
 } from '../pickup/page-adapters/platform-cutting-summary'
@@ -106,19 +107,6 @@ function getLatestPickupView(productionOrderNo: string): CuttingPickupView | nul
   )
 }
 
-function buildEmptyPickupSummary(): PlatformCuttingPickupSummary {
-  return {
-    pickupSlipNo: '-',
-    qrStatus: '未生成二维码',
-    latestResultStatus: 'NOT_SCANNED',
-    latestResultLabel: '未扫码回写',
-    needsRecheck: false,
-    hasPhotoEvidence: false,
-    latestScannedAt: '-',
-    summaryText: '当前没有领料回执摘要。',
-  }
-}
-
 function getCurrentStage(
   record: CuttingSummaryRecord,
   pickupAggregate: ReturnType<typeof buildCuttingSummaryPickupView>,
@@ -199,12 +187,8 @@ export function buildPlatformCuttingOverviewRows(
     const pickupAggregate = buildCuttingSummaryPickupView(record.productionOrderNo)
     const latestPickupView = getLatestPickupView(record.productionOrderNo)
     const pickupSummary = latestPickupView
-      ? buildPlatformCuttingPickupSummary(
-          latestPickupView.slip,
-          latestPickupView.receiptSummary,
-          latestPickupView.qrBinding,
-        )
-      : buildEmptyPickupSummary()
+      ? buildPlatformCuttingPickupSummary(latestPickupView)
+      : buildEmptyPlatformCuttingPickupSummary()
     const currentStage = getCurrentStage(record, pickupAggregate)
     const mainIssue = pickMainIssue(record)
     const recentAction = buildRecentFactoryAction(record)
@@ -224,8 +208,8 @@ export function buildPlatformCuttingOverviewRows(
       pendingIssueCount: record.pendingIssueCount,
       highRiskIssueCount: record.highRiskIssueCount,
       pickupSlipNo: pickupSummary.pickupSlipNo,
-      latestPrintVersionNo: latestPickupView?.latestPrintVersionNo || '-',
-      printCopyCount: latestPickupView?.printCopyCount || 0,
+      latestPrintVersionNo: pickupSummary.latestPrintVersionNo,
+      printCopyCount: pickupSummary.printCopyCount,
       pickupSummary,
       pickupAggregate,
       pickupSummaryText: `${pickupAggregate.materialReceiveSummaryText} · ${pickupSummary.summaryText}`,

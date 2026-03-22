@@ -179,15 +179,16 @@ function renderPickupSection(recordId: string): string {
       <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3 text-sm">
         <article class="rounded-lg border bg-muted/20 p-4">
           <p class="text-xs text-muted-foreground">领料单号</p>
-          <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSlipNo)}</p>
-          <p class="mt-2 text-xs text-muted-foreground">最新打印版本：${escapeHtml(row.latestPrintVersionNo)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.printCopyCount}</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.pickupSlipNo)}</p>
+          <p class="mt-2 text-xs text-muted-foreground">最新打印版本：${escapeHtml(row.pickupSummary.latestPrintVersionNo)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.pickupSummary.printCopyCount}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 p-4">
           <p class="text-xs text-muted-foreground">二维码 / 扫码结果</p>
           <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.qrStatus)} · ${escapeHtml(row.pickupSummary.latestResultLabel)}</p>
           <p class="mt-2 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.pickupSummary.latestScannedAt)}</p>
           <p class="mt-1 text-xs text-muted-foreground">扫码人：${escapeHtml(row.pickupSummary.latestScannedBy)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">回执状态：${escapeHtml(row.pickupSummary.receiptStatusLabel)}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 p-4">
           <p class="text-xs text-muted-foreground">复核与凭证</p>

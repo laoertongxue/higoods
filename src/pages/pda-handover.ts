@@ -7,6 +7,7 @@ import {
   getPdaPickupHeads,
   type PdaHandoverHead,
 } from '../data/fcs/pda-handover-events'
+import { resolvePdaHandoverDetailPath } from '../data/fcs/pda-cutting-special'
 
 type HandoverTab = 'pickup' | 'handout' | 'done'
 
@@ -373,7 +374,7 @@ export function handlePdaHandoverEvent(target: HTMLElement): boolean {
   if (action === 'open-detail') {
     const eventId = actionNode.dataset.eventId
     if (eventId) {
-      appStore.navigate(`/fcs/pda/handover/${eventId}`)
+      appStore.navigate(resolvePdaHandoverDetailPath(eventId, appStore.getState().pathname))
     }
     return true
   }

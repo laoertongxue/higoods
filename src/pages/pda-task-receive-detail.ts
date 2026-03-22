@@ -247,7 +247,7 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
   const task = getTaskFactById(taskId)
 
   if (isCuttingSpecialTask(task)) {
-    return renderPdaCuttingTaskDetailPage(taskId)
+    return renderPdaCuttingTaskDetailPage(taskId, { backHref: '/fcs/pda/task-receive' })
   }
 
   if (!task) {

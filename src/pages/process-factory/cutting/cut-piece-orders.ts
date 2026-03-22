@@ -495,8 +495,8 @@ function renderDetailDrawer(): string {
           <div class="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div>${renderBadge(configReceiveMeta[record.configStatus].label, configReceiveMeta[record.configStatus].className)}</div>
             <div>${renderBadge(record.receiveStatus === 'PARTIAL' ? configReceiveMeta.RECEIVED_PARTIAL.label : configReceiveMeta[record.receiveStatus].label, record.receiveStatus === 'PARTIAL' ? configReceiveMeta.RECEIVED_PARTIAL.className : configReceiveMeta[record.receiveStatus].className)}</div>
-            <div>${renderBadge(configReceiveMeta[record.printSlipStatus].label, configReceiveMeta[record.printSlipStatus].className)}</div>
-            <div>${renderBadge(configReceiveMeta[record.qrStatus].label, configReceiveMeta[record.qrStatus].className)}</div>
+            <div>${renderBadge(pickupView.printSlipStatusLabel, pickupView.printSlipStatus === 'PRINTED' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700')}</div>
+            <div>${renderBadge(pickupView.qrStatusLabel, pickupView.qrStatus === 'GENERATED' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-700')}</div>
           </div>
           <div class="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
             <p>领料单号 / 最新打印版本：<span class="font-medium text-foreground">${escapeHtml(pickupView.pickupSlipNo)} / ${escapeHtml(pickupView.latestPrintVersionNo)}</span></p>
@@ -840,8 +840,8 @@ function renderQrDialog(): string {
         </div>
         <div class="rounded-lg border bg-muted/20 px-4 py-3 text-left text-sm text-muted-foreground">
           <p>二维码编码值：<span class="font-medium text-foreground">${escapeHtml(pickupView.qrCodeValue)}</span></p>
-          <p class="mt-2">${record.qrStatus === 'GENERATED' ? '该二维码会贯穿领料、执行、入仓等后续环节。' : '当前尚未配置配料，二维码将在首次有配置后自动生成。'}</p>
-          <p class="mt-2">打印状态 / 版本：<span class="font-medium text-foreground">${configReceiveMeta[record.printSlipStatus].label} / ${escapeHtml(pickupView.latestPrintVersionNo)}</span></p>
+          <p class="mt-2">${pickupView.qrStatus === 'GENERATED' ? '该二维码会贯穿领料、执行、入仓等后续环节。' : '当前尚未配置配料，二维码将在首次有配置后自动生成。'}</p>
+          <p class="mt-2">打印状态 / 版本：<span class="font-medium text-foreground">${pickupView.printSlipStatusLabel} / ${escapeHtml(pickupView.latestPrintVersionNo)}</span></p>
           <p class="mt-2">扫码回执：<span class="font-medium text-foreground">${escapeHtml(pickupView.receiptStatusLabel)}</span></p>
         </div>
       </div>

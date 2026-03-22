@@ -1,3 +1,4 @@
+import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { buildPdaCuttingRoute, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
 import { buildPdaCuttingTaskPickupView } from '../domain/pickup/page-adapters/pda-cutting-task-detail'
@@ -15,6 +16,10 @@ interface PdaCuttingTaskDetailPageState {
   actionsExpanded: boolean
 }
 
+interface PdaCuttingTaskDetailRenderOptions {
+  backHref?: string
+}
+
 const pageStateStore = new Map<string, PdaCuttingTaskDetailPageState>()
 
 function getPageState(taskId: string): PdaCuttingTaskDetailPageState {
@@ -27,6 +32,24 @@ function getPageState(taskId: string): PdaCuttingTaskDetailPageState {
   }
   pageStateStore.set(taskId, initial)
   return initial
+}
+
+function resolveSafeBackHref(explicitBackHref?: string): string {
+  if (explicitBackHref) return explicitBackHref
+
+  const pathname = appStore.getState().pathname
+  const [, queryString = ''] = pathname.split('?')
+  const returnTo = new URLSearchParams(queryString).get('returnTo')
+
+  if (!returnTo || !returnTo.startsWith('/fcs/pda/')) {
+    return '/fcs/pda/exec'
+  }
+
+  if (returnTo.startsWith('/fcs/pda/cutting/')) {
+    return '/fcs/pda/exec'
+  }
+
+  return returnTo
 }
 
 function renderStatusChip(label: string, tone: 'slate' | 'green' | 'amber' | 'red' | 'blue'): string {
@@ -94,22 +117,22 @@ function renderQrSummary(taskId: string, state: PdaCuttingTaskDetailPageState): 
         <div class="flex items-center justify-between gap-2">
           <div>
             <div class="text-muted-foreground">二维码状态</div>
-            <div class="mt-1 text-sm font-medium text-foreground">${pickupView?.qrStatusLabel || (detail.hasQrCode ? '已生成裁片单级二维码' : '未生成二维码')}</div>
+            <div class="mt-1 text-sm font-medium text-foreground">${pickupView?.qrStatusLabel || '未生成二维码'}</div>
           </div>
-          ${renderStatusChip(detail.hasQrCode ? '已生成二维码' : '未生成二维码', detail.hasQrCode ? 'green' : 'amber')}
+          ${renderStatusChip(pickupView?.qrStatusLabel || '未生成二维码', pickupView?.qrStatus === 'GENERATED' ? 'green' : 'amber')}
         </div>
         <div class="mt-3 rounded-xl border border-dashed bg-background px-3 py-4 text-center">
           <div class="text-[11px] text-muted-foreground">二维码值</div>
-          <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(detail.qrCodeValue)}</div>
+          <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-3">
           <div>
             <div class="text-muted-foreground">领料单号</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.pickupSlipNo)}</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.pickupSlipNo || detail.pickupSlipNo)}</div>
           </div>
           <div>
             <div class="text-muted-foreground">最新打印版本</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.latestPrintVersionNo || detail.qrVersionNote)}</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.latestPrintVersionNo || '暂无打印版本')}</div>
           </div>
         </div>
         <div class="mt-3 text-xs text-muted-foreground">${escapeHtml(pickupView?.qrBindingSummaryText || detail.qrVersionNote)}</div>
@@ -225,9 +248,10 @@ function renderSpecialEntryCards(taskId: string): string {
   `
 }
 
-export function renderPdaCuttingTaskDetailPage(taskId: string): string {
+export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCuttingTaskDetailRenderOptions): string {
   const detail = getPdaCuttingTaskDetail(taskId)
   const pickupView = buildPdaCuttingTaskPickupView(taskId)
+  const backHref = resolveSafeBackHref(options?.backHref)
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
@@ -236,7 +260,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string): string {
       subtitle: '用于承接裁片任务的领料、铺布、入仓、交接和补料反馈。',
       activeTab: 'exec',
       body: '',
-      backHref: '/fcs/pda/exec',
+      backHref,
     })
   }
 
@@ -244,10 +268,10 @@ export function renderPdaCuttingTaskDetailPage(taskId: string): string {
 
   const summaryGrid = renderPdaCuttingSummaryGrid([
     { label: '当前状态', value: detail.taskStatusLabel, hint: detail.currentStage },
-      { label: '下一步建议', value: detail.nextRecommendedAction, hint: detail.currentActionHint },
-      { label: '领料摘要', value: detail.receiveSummary, hint: pickupView ? `${pickupView.latestResultLabel} / ${pickupView.receiptStatusLabel}` : detail.currentReceiveStatus },
-      { label: '交接摘要', value: detail.handoverSummary, hint: detail.currentHandoverStatus },
-    ])
+    { label: '下一步建议', value: detail.nextRecommendedAction, hint: detail.currentActionHint },
+    { label: '领料摘要', value: pickupView?.latestResultLabel || detail.receiveSummary, hint: pickupView?.receiptStatusLabel || detail.currentReceiveStatus },
+    { label: '交接摘要', value: detail.handoverSummary, hint: detail.currentHandoverStatus },
+  ])
 
   const basicInfoSection = renderInfoGrid([
     { label: '任务编号', value: detail.taskNo },
@@ -264,10 +288,10 @@ export function renderPdaCuttingTaskDetailPage(taskId: string): string {
     ${renderInfoGrid([
       { label: '面料 SKU', value: detail.materialSku },
       { label: '面料类型', value: detail.materialTypeLabel },
-      { label: '领料单号', value: detail.pickupSlipNo },
-      { label: '领料状态', value: detail.currentReceiveStatus },
-      { label: '配置摘要', value: detail.configuredQtyText, hint: pickupView?.slip.plannedQtySummary.summaryText },
-      { label: '领取摘要', value: detail.actualReceivedQtyText, hint: pickupView?.resultSummaryText },
+      { label: '领料单号', value: pickupView?.pickupSlipNo || detail.pickupSlipNo },
+      { label: '领料状态', value: pickupView?.receiptStatusLabel || detail.currentReceiveStatus },
+      { label: '配置摘要', value: pickupView?.slip.configuredQtySummary.summaryText || detail.configuredQtyText, hint: pickupView?.slip.plannedQtySummary.summaryText },
+      { label: '领取摘要', value: pickupView?.slip.receivedQtySummary.summaryText || detail.actualReceivedQtyText, hint: pickupView?.resultSummaryText },
       {
         label: '最新打印版本',
         value: pickupView?.latestPrintVersionNo || '暂无打印版本',
@@ -280,7 +304,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string): string {
       },
       {
         label: '二维码状态',
-        value: detail.hasQrCode ? '已生成裁片单级二维码' : '未生成二维码',
+        value: pickupView?.qrStatusLabel || '未生成二维码',
         hint: pickupView?.qrCodeValue || detail.qrCodeValue,
       },
       {
@@ -365,7 +389,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string): string {
     subtitle: '用于承接裁片任务的领料、铺布、入仓、交接和补料反馈。',
     activeTab: 'exec',
     body,
-    backHref: '/fcs/pda/exec',
+    backHref,
   })
 }
 

@@ -838,7 +838,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
   if (action === 'open-detail') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(resolvePdaTaskExecPath(taskId))
+      appStore.navigate(resolvePdaTaskExecPath(taskId, appStore.getState().pathname))
     }
     return true
   }
@@ -847,7 +847,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     const detailAction = actionNode.dataset.action
     if (taskId && detailAction) {
-      const targetPath = resolvePdaTaskExecPath(taskId)
+      const targetPath = resolvePdaTaskExecPath(taskId, appStore.getState().pathname)
       appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : `${targetPath}?action=${detailAction}`)
     }
     return true
@@ -856,7 +856,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
   if (action === 'go-start') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      const targetPath = resolvePdaTaskExecPath(taskId)
+      const targetPath = resolvePdaTaskExecPath(taskId, appStore.getState().pathname)
       appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : `${targetPath}?action=start`)
     }
     return true

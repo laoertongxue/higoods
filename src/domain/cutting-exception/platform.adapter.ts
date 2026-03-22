@@ -106,11 +106,11 @@ function buildCommonException(
   const source = deriveSource(type)
   const cutPieceOrderNo = view?.slip.boundObjectNo || '-'
   const materialSku = view?.slip.materialSku || row.record.searchKeywords.find((item) => item.startsWith('FAB-')) || '-'
-  const pickupSlipNo = view?.pickupSlipNo || row.pickupSlipNo
-  const latestPrintVersionNo = view?.latestPrintVersionNo || row.latestPrintVersionNo
-  const qrCodeValue = view?.qrCodeValue || '-'
+  const pickupSlipNo = view?.pickupSlipNo || row.pickupSummary.pickupSlipNo
+  const latestPrintVersionNo = view?.latestPrintVersionNo || row.pickupSummary.latestPrintVersionNo
+  const qrCodeValue = view?.qrCodeValue || row.pickupSummary.qrCodeValue
   const latestScanResultLabel = view?.latestResultLabel || row.pickupSummary.latestResultLabel
-  const evidenceCount = view?.photoProofCount || 0
+  const evidenceCount = view?.photoProofCount ?? row.pickupSummary.photoProofCount
 
   return {
     exceptionNo: buildExceptionNo(row, type, index),
@@ -143,8 +143,8 @@ function buildCommonException(
     latestPrintVersionNo,
     qrCodeValue,
     latestScanResultLabel,
-    hasPhotoEvidence: view?.hasPhotoEvidence || row.hasPhotoEvidence,
-    needsRecheck: view?.needsRecheck || row.hasReceiveRecheck,
+    hasPhotoEvidence: view?.hasPhotoEvidence ?? row.pickupSummary.hasPhotoEvidence,
+    needsRecheck: view?.needsRecheck ?? row.pickupSummary.needsRecheck,
     pickupSummaryText: row.pickupSummaryText,
     executionSummaryText: row.executionSummaryText,
     replenishmentSummaryText: row.replenishmentSummaryText,

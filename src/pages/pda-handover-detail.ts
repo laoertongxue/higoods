@@ -18,6 +18,8 @@ import {
   type HandoverPartyKind,
 } from '../data/fcs/pda-handover-events'
 import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages-adapter'
+import { getPdaTaskFlowTaskById, isCuttingSpecialTask } from '../data/fcs/pda-cutting-special'
+import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 
 interface ProofFile {
@@ -809,6 +811,12 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
       </div>
     `
     return renderPdaFrame(content, 'handover')
+  }
+
+  const task = getPdaTaskFlowTaskById(head.taskId)
+  if (isCuttingSpecialTask(task)) {
+    const backHref = head.headType === 'PICKUP' ? '/fcs/pda/handover?tab=pickup' : '/fcs/pda/handover?tab=handout'
+    return renderPdaCuttingTaskDetailPage(head.taskId, { backHref })
   }
 
   if (head.headType === 'PICKUP') {

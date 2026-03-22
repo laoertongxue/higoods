@@ -1027,7 +1027,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
   if (action === 'open-detail') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(resolvePdaTaskDetailPath(taskId))
+      appStore.navigate(resolvePdaTaskDetailPath(taskId, appStore.getState().pathname))
     }
     return true
   }
@@ -1035,7 +1035,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
   if (action === 'open-exec') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(resolvePdaTaskExecPath(taskId))
+      appStore.navigate(resolvePdaTaskExecPath(taskId, appStore.getState().pathname))
     }
     return true
   }

@@ -66,12 +66,12 @@ function renderPickupStatus(taskId: string): string {
     <div class="grid grid-cols-2 gap-3 text-xs">
       <article class="rounded-xl border px-3 py-3">
         <div class="text-muted-foreground">领料结果状态</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(pickupView?.latestResultLabel || detail.scanResultLabel)}</div>
-        <div class="mt-1 text-muted-foreground">回执状态：${escapeHtml(pickupView?.receiptStatusLabel || detail.currentReceiveStatus)}</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(pickupView?.latestResultLabel || '未扫码回写')}</div>
+        <div class="mt-1 text-muted-foreground">回执状态：${escapeHtml(pickupView?.receiptStatusLabel || '未回执')}</div>
       </article>
       <article class="rounded-xl border px-3 py-3">
         <div class="text-muted-foreground">打印与二维码对象</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(pickupView?.latestPrintVersionNo || detail.pickupSlipPrintStatusLabel)}</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(pickupView?.latestPrintVersionNo || '暂无打印版本')}</div>
         <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrObjectLabel)}：${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
       </article>
       <article class="rounded-xl border px-3 py-3">
@@ -83,7 +83,7 @@ function renderPickupStatus(taskId: string): string {
       <article class="rounded-xl border px-3 py-3">
         <div class="text-muted-foreground">差异与凭证</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.discrepancyAllowed ? '支持差异处理' : '仅支持正常领取')}</div>
-        <div class="mt-1 text-muted-foreground">照片凭证：${escapeHtml(String(pickupView?.photoProofCount ?? detail.photoProofCount))} 张</div>
+        <div class="mt-1 text-muted-foreground">照片凭证：${escapeHtml(String(pickupView?.photoProofCount ?? 0))} 张</div>
         <div class="mt-1 text-muted-foreground">${pickupView?.needsRecheck ? '当前回执需复核' : '当前无复核提示'}</div>
       </article>
     </div>
@@ -137,10 +137,10 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
   const form = getState(taskId)
 
   const summary = renderPdaCuttingSummaryGrid([
-    { label: '领料单号', value: detail.pickupSlipNo },
+    { label: '领料单号', value: pickupView?.pickupSlipNo || detail.pickupSlipNo },
     { label: '二维码', value: pickupView?.qrCodeValue || detail.qrCodeValue },
-    { label: '最新打印版本', value: pickupView?.latestPrintVersionNo || detail.pickupSlipPrintStatusLabel },
-    { label: '当前结果', value: pickupView?.latestResultLabel || detail.scanResultLabel, hint: pickupView?.receiptStatusLabel || detail.currentReceiveStatus },
+    { label: '最新打印版本', value: pickupView?.latestPrintVersionNo || '暂无打印版本' },
+    { label: '当前结果', value: pickupView?.latestResultLabel || '未扫码回写', hint: pickupView?.receiptStatusLabel || '未回执' },
   ])
 
   const scanSection = `
@@ -152,12 +152,12 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
       <div class="grid grid-cols-2 gap-3">
         <div class="rounded-xl border px-3 py-3">
           <div class="text-muted-foreground">领料单 / 二维码</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.pickupSlipNo)}</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.pickupSlipNo || detail.pickupSlipNo)}</div>
           <div class="mt-1 text-muted-foreground">${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
         </div>
         <div class="rounded-xl border px-3 py-3">
           <div class="text-muted-foreground">配置数量 vs 实领数量</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.configuredQtyText)}</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.slip.configuredQtySummary.summaryText || detail.configuredQtyText)}</div>
           <div class="mt-1 text-muted-foreground">当前实领：${escapeHtml(pickupView?.slip.receivedQtySummary.summaryText || detail.actualReceivedQtyText)}</div>
         </div>
       </div>
