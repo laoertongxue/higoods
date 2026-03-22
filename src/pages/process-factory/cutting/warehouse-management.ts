@@ -33,9 +33,22 @@ import {
   stockStatusMeta,
   zoneMeta,
 } from './warehouse-management.helpers'
+import {
+  paginateItems,
+  renderStickyFilterShell,
+  renderStickyTableScroller,
+  renderWorkbenchActionCard,
+  renderWorkbenchCardLayer,
+  renderWorkbenchFilterChip,
+  renderWorkbenchPagination,
+  renderWorkbenchSecondaryPanel,
+  renderWorkbenchStateBar,
+} from './layout.helpers'
 
 type WarehouseTab = 'fabric' | 'cutPiece' | 'sample'
 type OverlayType = 'stock-detail' | 'location-guide' | 'sample-flow'
+type WarehousePriorityMode = 'FABRIC_RECHECK' | 'UNASSIGNED_ZONE' | 'SAMPLE_RETURN' | 'WAITING_HANDOVER'
+type WarehouseKpiFilter = 'FABRIC_RECHECK' | 'PENDING_INBOUND' | 'INBOUNDED' | 'UNASSIGNED_ZONE' | 'WAITING_RETURN' | 'WAITING_HANDOVER'
 
 interface WarehouseManagementState {
   fabricStocks: CuttingFabricStockRecord[]
@@ -44,8 +57,11 @@ interface WarehouseManagementState {
   alerts: ReturnType<typeof cloneWarehouseManagementData>['alerts']
   activeTab: WarehouseTab
   filters: WarehouseManagementFilters
+  activePriorityMode: WarehousePriorityMode | null
+  activeKpiFilter: WarehouseKpiFilter | null
   activeOverlay: OverlayType | null
   activeRecordId: string | null
+  pagination: Record<WarehouseTab, { page: number; pageSize: number }>
   locationDraft: {
     zoneCode: CutPieceZoneCode
     locationLabel: string
@@ -56,31 +72,40 @@ interface WarehouseManagementState {
   }
 }
 
+const initialFilters: WarehouseManagementFilters = {
+  cuttingFabric: {
+    keyword: '',
+    materialType: 'ALL',
+    stockStatus: 'ALL',
+  },
+  cutPiece: {
+    keyword: '',
+    zoneCode: 'ALL',
+    inboundStatus: 'ALL',
+    handoverStatus: 'ALL',
+  },
+  sample: {
+    keyword: '',
+    stage: 'ALL',
+    status: 'ALL',
+  },
+}
+
 const initialData = cloneWarehouseManagementData()
 
 const state: WarehouseManagementState = {
   ...initialData,
   activeTab: 'fabric',
-  filters: {
-    cuttingFabric: {
-      keyword: '',
-      materialType: 'ALL',
-      stockStatus: 'ALL',
-    },
-    cutPiece: {
-      keyword: '',
-      zoneCode: 'ALL',
-      inboundStatus: 'ALL',
-      handoverStatus: 'ALL',
-    },
-    sample: {
-      keyword: '',
-      stage: 'ALL',
-      status: 'ALL',
-    },
-  },
+  filters: { ...initialFilters },
+  activePriorityMode: null,
+  activeKpiFilter: null,
   activeOverlay: null,
   activeRecordId: null,
+  pagination: {
+    fabric: { page: 1, pageSize: 20 },
+    cutPiece: { page: 1, pageSize: 20 },
+    sample: { page: 1, pageSize: 20 },
+  },
   locationDraft: {
     zoneCode: 'A',
     locationLabel: '',
@@ -93,18 +118,6 @@ const state: WarehouseManagementState = {
 
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
-}
-
-function buildSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
-  return `
-    <article class="rounded-lg border bg-card p-4">
-      <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
-      <div class="mt-3 flex items-end justify-between gap-3">
-        <p class="text-3xl font-semibold tabular-nums ${accentClass}">${value}</p>
-        <p class="text-right text-xs text-muted-foreground">${escapeHtml(hint)}</p>
-      </div>
-    </article>
-  `
 }
 
 function renderFilterSelect(
@@ -140,6 +153,220 @@ function getFilteredCutPieceRecords(): CutPieceWarehouseRecord[] {
 
 function getFilteredSampleRecords(): SampleWarehouseRecord[] {
   return filterSampleWarehouseRecords(state.sampleRecords, state.filters.sample)
+}
+
+function resetPagination(tab: WarehouseTab = state.activeTab): void {
+  state.pagination = {
+    ...state.pagination,
+    [tab]: {
+      ...state.pagination[tab],
+      page: 1,
+    },
+  }
+}
+
+function setActiveTabWithReset(tab: WarehouseTab): void {
+  state.activeTab = tab
+  resetPagination(tab)
+}
+
+function applyPriorityModeForFabric(records: CuttingFabricStockRecord[]): CuttingFabricStockRecord[] {
+  if (state.activePriorityMode === 'FABRIC_RECHECK') return records.filter((record) => record.stockStatus === 'NEED_RECHECK')
+  return records
+}
+
+function applyPriorityModeForCutPiece(records: CutPieceWarehouseRecord[]): CutPieceWarehouseRecord[] {
+  if (state.activePriorityMode === 'UNASSIGNED_ZONE') return records.filter((record) => record.zoneCode === 'UNASSIGNED')
+  if (state.activePriorityMode === 'WAITING_HANDOVER') return records.filter((record) => record.handoverStatus === 'WAITING_HANDOVER')
+  return records
+}
+
+function applyPriorityModeForSample(records: SampleWarehouseRecord[]): SampleWarehouseRecord[] {
+  if (state.activePriorityMode === 'SAMPLE_RETURN') return records.filter((record) => record.currentStatus === 'WAITING_RETURN')
+  return records
+}
+
+function applyKpiFilterForFabric(records: CuttingFabricStockRecord[]): CuttingFabricStockRecord[] {
+  if (state.activeKpiFilter === 'FABRIC_RECHECK') return records.filter((record) => record.stockStatus === 'NEED_RECHECK')
+  return records
+}
+
+function applyKpiFilterForCutPiece(records: CutPieceWarehouseRecord[]): CutPieceWarehouseRecord[] {
+  if (state.activeKpiFilter === 'PENDING_INBOUND') return records.filter((record) => record.inboundStatus === 'PENDING_INBOUND')
+  if (state.activeKpiFilter === 'INBOUNDED') return records.filter((record) => record.inboundStatus !== 'PENDING_INBOUND')
+  if (state.activeKpiFilter === 'UNASSIGNED_ZONE') return records.filter((record) => record.zoneCode === 'UNASSIGNED')
+  if (state.activeKpiFilter === 'WAITING_HANDOVER') return records.filter((record) => record.handoverStatus === 'WAITING_HANDOVER')
+  return records
+}
+
+function applyKpiFilterForSample(records: SampleWarehouseRecord[]): SampleWarehouseRecord[] {
+  if (state.activeKpiFilter === 'WAITING_RETURN') return records.filter((record) => record.currentStatus === 'WAITING_RETURN')
+  return records
+}
+
+function getPriorityModeTab(mode: WarehousePriorityMode | null): WarehouseTab | null {
+  if (mode === 'FABRIC_RECHECK') return 'fabric'
+  if (mode === 'UNASSIGNED_ZONE' || mode === 'WAITING_HANDOVER') return 'cutPiece'
+  if (mode === 'SAMPLE_RETURN') return 'sample'
+  return null
+}
+
+function getKpiFilterTab(filter: WarehouseKpiFilter | null): WarehouseTab | null {
+  if (filter === 'FABRIC_RECHECK') return 'fabric'
+  if (filter === 'PENDING_INBOUND' || filter === 'INBOUNDED' || filter === 'UNASSIGNED_ZONE' || filter === 'WAITING_HANDOVER') return 'cutPiece'
+  if (filter === 'WAITING_RETURN') return 'sample'
+  return null
+}
+
+function alignCrossTabViewState(targetTab: WarehouseTab): void {
+  if (state.activePriorityMode && getPriorityModeTab(state.activePriorityMode) !== targetTab) {
+    state.activePriorityMode = null
+  }
+  if (state.activeKpiFilter && getKpiFilterTab(state.activeKpiFilter) !== targetTab) {
+    state.activeKpiFilter = null
+  }
+}
+
+function getPriorityModeLabel(mode: WarehousePriorityMode | null): string | null {
+  if (mode === 'FABRIC_RECHECK') return '重点模式：待核对库存'
+  if (mode === 'UNASSIGNED_ZONE') return '重点模式：未分配区域'
+  if (mode === 'SAMPLE_RETURN') return '重点模式：样衣待归还 / 超期'
+  if (mode === 'WAITING_HANDOVER') return '重点模式：待发后道'
+  return null
+}
+
+function getKpiFilterLabel(filter: WarehouseKpiFilter | null): string | null {
+  if (filter === 'FABRIC_RECHECK') return 'KPI：裁床仓待核对库存'
+  if (filter === 'PENDING_INBOUND') return 'KPI：裁片仓待入仓'
+  if (filter === 'INBOUNDED') return 'KPI：裁片仓已入仓'
+  if (filter === 'UNASSIGNED_ZONE') return 'KPI：未分配区域'
+  if (filter === 'WAITING_RETURN') return 'KPI：样衣待归还'
+  if (filter === 'WAITING_HANDOVER') return 'KPI：待发后道'
+  return null
+}
+
+function renderPriorityCardLayer(): string {
+  const fabricRecords = getFilteredFabricStocks()
+  const cutPieceRecords = getFilteredCutPieceRecords()
+  const sampleRecords = getFilteredSampleRecords()
+  const sampleFocusCount = sampleRecords.filter((record) => record.currentStatus === 'WAITING_RETURN').length
+
+  return renderWorkbenchCardLayer({
+    title: '高优先级重点入口',
+    hint: '先切到仓务重点模式，再在当前 tab 主表里集中处理待核对、未分区、样衣超期和待发后道问题。',
+    cardsHtml: [
+      renderWorkbenchActionCard({
+        title: '待核对库存',
+        count: fabricRecords.filter((record) => record.stockStatus === 'NEED_RECHECK').length,
+        hint: '切到裁床仓待核对模式，优先核对剩余卷数与长度。',
+        attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="FABRIC_RECHECK" data-tab="fabric"',
+        active: state.activePriorityMode === 'FABRIC_RECHECK',
+        accentClass: 'text-rose-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '未分配区域',
+        count: cutPieceRecords.filter((record) => record.zoneCode === 'UNASSIGNED').length,
+        hint: '切到裁片仓未分区模式，优先补齐区域与库位。',
+        attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="UNASSIGNED_ZONE" data-tab="cutPiece"',
+        active: state.activePriorityMode === 'UNASSIGNED_ZONE',
+        accentClass: 'text-violet-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '样衣待归还 / 超期',
+        count: sampleFocusCount,
+        hint: '切到样衣仓重点模式，优先催回样衣和处理超期样衣。',
+        attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="SAMPLE_RETURN" data-tab="sample"',
+        active: state.activePriorityMode === 'SAMPLE_RETURN',
+        accentClass: 'text-amber-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '待发后道',
+        count: cutPieceRecords.filter((record) => record.handoverStatus === 'WAITING_HANDOVER').length,
+        hint: '切到裁片仓待发后道模式，优先推进交接。',
+        attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="WAITING_HANDOVER" data-tab="cutPiece"',
+        active: state.activePriorityMode === 'WAITING_HANDOVER',
+        accentClass: 'text-sky-600',
+      }),
+    ].join(''),
+  })
+}
+
+function renderSummaryCards(): string {
+  const summary = buildWarehouseSummary(getFilteredFabricStocks(), getFilteredCutPieceRecords(), getFilteredSampleRecords())
+  return renderWorkbenchCardLayer({
+    title: 'KPI 快捷筛选',
+    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
+    cardsHtml: [
+      renderWorkbenchActionCard({
+        title: '裁床仓待核对库存数',
+        count: summary.fabricRecheckCount,
+        hint: '裁床仓待核对库存',
+        attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="FABRIC_RECHECK" data-tab="fabric"',
+        active: state.activeKpiFilter === 'FABRIC_RECHECK',
+        accentClass: 'text-rose-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '裁片仓待入仓记录数',
+        count: summary.pendingInboundCount,
+        hint: '切到待入仓记录',
+        attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="PENDING_INBOUND" data-tab="cutPiece"',
+        active: state.activeKpiFilter === 'PENDING_INBOUND',
+        accentClass: 'text-slate-900',
+      }),
+      renderWorkbenchActionCard({
+        title: '已入仓裁片组数',
+        count: summary.inboundedCount,
+        hint: '切到已入仓记录',
+        attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="INBOUNDED" data-tab="cutPiece"',
+        active: state.activeKpiFilter === 'INBOUNDED',
+        accentClass: 'text-emerald-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '未分配区域记录数',
+        count: summary.unassignedZoneCount,
+        hint: '切到未分区记录',
+        attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="UNASSIGNED_ZONE" data-tab="cutPiece"',
+        active: state.activeKpiFilter === 'UNASSIGNED_ZONE',
+        accentClass: 'text-violet-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '样衣待归还数',
+        count: summary.waitingReturnCount,
+        hint: '切到待归还样衣',
+        attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="WAITING_RETURN" data-tab="sample"',
+        active: state.activeKpiFilter === 'WAITING_RETURN',
+        accentClass: 'text-amber-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '待发后道记录数',
+        count: summary.waitingHandoverCount,
+        hint: '切到待发后道记录',
+        attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="WAITING_HANDOVER" data-tab="cutPiece"',
+        active: state.activeKpiFilter === 'WAITING_HANDOVER',
+        accentClass: 'text-sky-600',
+      }),
+    ].join(''),
+  })
+}
+
+function renderActiveStateBar(): string {
+  const chips: string[] = []
+  const priorityLabel = getPriorityModeLabel(state.activePriorityMode)
+  const kpiLabel = getKpiFilterLabel(state.activeKpiFilter)
+
+  if (priorityLabel) {
+    chips.push(renderWorkbenchFilterChip(priorityLabel, 'data-cutting-warehouse-action="clear-priority-mode"', 'amber'))
+  }
+  if (kpiLabel) {
+    chips.push(renderWorkbenchFilterChip(kpiLabel, 'data-cutting-warehouse-action="clear-kpi-filter"', 'blue'))
+  }
+
+  return renderWorkbenchStateBar({
+    summary: `当前主表视图 · ${state.activeTab === 'fabric' ? '裁床仓' : state.activeTab === 'cutPiece' ? '裁片仓' : '样衣仓'}`,
+    chips,
+    clearAttrs: 'data-cutting-warehouse-action="clear-view-state"',
+  })
 }
 
 function findFabricStock(recordId: string | null): CuttingFabricStockRecord | null {
@@ -246,11 +473,11 @@ function saveSampleReturn(): boolean {
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
         <h1 class="text-2xl font-bold">仓库管理</h1>
-        <p class="mt-2 max-w-4xl text-sm text-muted-foreground">承接裁床仓、裁片仓、样衣仓的查询、分区和流转管理，重点表达裁片专厂的仓务运营视角。</p>
+        <p class="mt-1 text-sm text-muted-foreground">承接裁床仓、裁片仓、样衣仓的查询、分区和流转管理，首屏优先查看当前 tab 主表。</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">去裁片单</button>
@@ -260,53 +487,32 @@ function renderPageHeader(): string {
   `
 }
 
-function renderSummaryCards(): string {
-  const summary = buildWarehouseSummary(state.fabricStocks, state.cutPieceRecords, state.sampleRecords)
-  return `
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-      ${buildSummaryCard('裁床仓待核对库存数', summary.fabricRecheckCount, '优先核对剩余卷数与长度', 'text-rose-600')}
-      ${buildSummaryCard('裁片仓待入仓记录数', summary.pendingInboundCount, '待确认具体区域与位置', 'text-slate-900')}
-      ${buildSummaryCard('已入仓裁片组数', summary.inboundedCount, '便于后续查找和交接', 'text-emerald-600')}
-      ${buildSummaryCard('未分配区域记录数', summary.unassignedZoneCount, '需要先完成区域提示', 'text-violet-600')}
-      ${buildSummaryCard('样衣待归还数', summary.waitingReturnCount, '样衣超期会影响后续调用', 'text-amber-600')}
-      ${buildSummaryCard('待发后道记录数', summary.waitingHandoverCount, '作为后续交接的仓务摘要', 'text-sky-600')}
-    </section>
-  `
-}
-
 function renderAlertSection(): string {
   const alerts = sortAlerts(state.alerts)
-  return `
-    <section class="rounded-lg border bg-card p-5">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-base font-semibold text-foreground">仓务提醒</h2>
-          <p class="mt-1 text-sm text-muted-foreground">优先处理未分配区域、待交接后道、样衣超期未归还和库存待核对的问题。</p>
-        </div>
-        <span class="text-sm text-muted-foreground">共 ${alerts.length} 条重点提醒</span>
-      </div>
-      <div class="mt-4 grid gap-4 xl:grid-cols-4">
+  return renderWorkbenchSecondaryPanel({
+    title: '仓务提醒',
+    hint: '优先处理未分配区域、待交接后道、样衣超期未归还和库存待核对。',
+    countText: `${alerts.length} 条提醒`,
+    body: `
+      <div class="grid gap-3 xl:grid-cols-4">
         ${alerts
           .map(
             (alert) => `
-              <article class="rounded-lg border bg-muted/20 p-4">
+              <article class="rounded-lg border bg-muted/20 p-3">
                 <div class="flex items-center justify-between gap-3">
                   <h3 class="text-sm font-semibold text-foreground">${escapeHtml(alert.title)}</h3>
                   ${renderBadge(alertLevelMeta[alert.level].label, alertLevelMeta[alert.level].className)}
                 </div>
-                <p class="mt-3 text-sm text-muted-foreground">${escapeHtml(alert.description)}</p>
-                <div class="mt-3 rounded-md bg-background px-3 py-2 text-sm">
-                  <p class="text-xs text-muted-foreground">关联编号</p>
-                  <p class="mt-1 font-medium text-foreground">${escapeHtml(alert.relatedNo)}</p>
-                </div>
-                <p class="mt-3 text-xs text-muted-foreground">建议动作：${escapeHtml(alert.suggestedAction)}</p>
+                <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(alert.description)}</p>
+                <p class="mt-2 text-xs text-muted-foreground">关联编号：${escapeHtml(alert.relatedNo)}</p>
+                <p class="mt-1 text-xs text-muted-foreground">建议动作：${escapeHtml(alert.suggestedAction)}</p>
               </article>
             `,
           )
           .join('')}
       </div>
-    </section>
-  `
+    `,
+  })
 }
 
 function renderTabButton(tab: WarehouseTab, label: string): string {
@@ -324,7 +530,7 @@ function renderTabButton(tab: WarehouseTab, label: string): string {
 
 function renderTabs(): string {
   return `
-    <section class="rounded-lg border bg-card p-4">
+    <section class="rounded-lg border bg-card p-3">
       <div class="flex flex-wrap gap-2">
         ${renderTabButton('fabric', '裁床仓')}
         ${renderTabButton('cutPiece', '裁片仓')}
@@ -343,12 +549,14 @@ function renderEmptyState(text: string): string {
 }
 
 function renderFabricView(): string {
-  const records = getFilteredFabricStocks()
-  const summary = buildFabricSummary(records)
-  const hasFilters = hasFabricFilters(state.filters.cuttingFabric)
+  const baseRecords = getFilteredFabricStocks()
+  const records = applyKpiFilterForFabric(applyPriorityModeForFabric(baseRecords))
+  const summary = buildFabricSummary(baseRecords)
+  const hasFilters = hasFabricFilters(state.filters.cuttingFabric) || state.activePriorityMode !== null || state.activeKpiFilter !== null
+  const pagination = paginateItems(records, state.pagination.fabric.page, state.pagination.fabric.pageSize)
   return `
     <section class="space-y-4">
-      <div class="rounded-lg border bg-card p-5">
+      ${renderStickyFilterShell(`
         <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-5">
           <label class="space-y-2 xl:col-span-2">
             <span class="text-sm font-medium text-foreground">关键词搜索</span>
@@ -377,31 +585,25 @@ function renderFabricView(): string {
             裁床仓聚焦“已配置、已使用、剩余可查、待核对”四类仓内运营口径，不展开复杂库存总账。
           </div>
         </div>
-      </div>
-
-      <section class="grid gap-4 md:grid-cols-3">
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">当前配置总长度</p>
-          <p class="mt-3 text-2xl font-semibold text-foreground">${formatLength(summary.totalConfiguredLength)}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">当前剩余总长度</p>
-          <p class="mt-3 text-2xl font-semibold text-emerald-600">${formatLength(summary.totalRemainingLength)}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">待核对库存条数</p>
-          <p class="mt-3 text-2xl font-semibold text-rose-600">${summary.recheckCount}</p>
-        </article>
-      </section>
+      `)}
 
       ${
         records.length === 0
           ? renderEmptyState(buildWarehouseEmptyText('fabric', hasFilters))
           : `
               <section class="overflow-hidden rounded-lg border bg-card">
-                <div class="overflow-x-auto">
+                <div class="border-b px-4 py-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 class="text-base font-semibold text-foreground">裁床仓主表</h2>
+                      <p class="mt-1 text-sm text-muted-foreground">主表优先查看配置、已用、剩余和待核对状态。</p>
+                    </div>
+                    <span class="text-sm text-muted-foreground">共 ${pagination.total} 条库存</span>
+                  </div>
+                </div>
+                ${renderStickyTableScroller(`
                   <table class="min-w-full divide-y divide-border text-sm">
-                    <thead class="bg-muted/30 text-left text-muted-foreground">
+                    <thead class="sticky top-0 z-10 bg-muted/95 text-left text-muted-foreground backdrop-blur">
                       <tr>
                         <th class="px-4 py-3 font-medium">生产单号</th>
                         <th class="px-4 py-3 font-medium">裁片单号</th>
@@ -416,7 +618,7 @@ function renderFabricView(): string {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
-                      ${records
+                      ${pagination.items
                         .map(
                           (record) => `
                             <tr class="align-top">
@@ -448,21 +650,54 @@ function renderFabricView(): string {
                         .join('')}
                     </tbody>
                   </table>
-                </div>
+                `, 'max-h-[56vh]')}
+                ${renderWorkbenchPagination({
+                  page: pagination.page,
+                  pageSize: pagination.pageSize,
+                  total: pagination.total,
+                  actionAttr: 'data-cutting-warehouse-action',
+                  pageAction: 'set-page',
+                  pageSizeAttr: 'data-cutting-warehouse-page-size',
+                  extraAttrs: 'data-tab="fabric"',
+                })}
               </section>
             `
       }
+
+      ${renderWorkbenchSecondaryPanel({
+        title: '库存摘要',
+        hint: '压缩展示裁床仓总长度和待核对规模。',
+        countText: `${summary.recheckCount} 条待核对`,
+        body: `
+          <div class="grid gap-3 md:grid-cols-3">
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">当前配置总长度</p>
+              <p class="mt-2 text-xl font-semibold text-foreground">${formatLength(summary.totalConfiguredLength)}</p>
+            </article>
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">当前剩余总长度</p>
+              <p class="mt-2 text-xl font-semibold text-emerald-600">${formatLength(summary.totalRemainingLength)}</p>
+            </article>
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">待核对库存条数</p>
+              <p class="mt-2 text-xl font-semibold text-rose-600">${summary.recheckCount}</p>
+            </article>
+          </div>
+        `,
+      })}
     </section>
   `
 }
 
 function renderCutPieceView(): string {
-  const records = getFilteredCutPieceRecords()
-  const summary = buildCutPieceSummary(records)
-  const hasFilters = hasCutPieceFilters(state.filters.cutPiece)
+  const baseRecords = getFilteredCutPieceRecords()
+  const records = applyKpiFilterForCutPiece(applyPriorityModeForCutPiece(baseRecords))
+  const summary = buildCutPieceSummary(baseRecords)
+  const hasFilters = hasCutPieceFilters(state.filters.cutPiece) || state.activePriorityMode !== null || state.activeKpiFilter !== null
+  const pagination = paginateItems(records, state.pagination.cutPiece.page, state.pagination.cutPiece.pageSize)
   return `
     <section class="space-y-4">
-      <div class="rounded-lg border bg-card p-5">
+      ${renderStickyFilterShell(`
         <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-5">
           <label class="space-y-2 xl:col-span-2">
             <span class="text-sm font-medium text-foreground">关键词搜索</span>
@@ -494,35 +729,25 @@ function renderCutPieceView(): string {
             { value: 'HANDED_OVER', label: '已交接后道' },
           ])}
         </div>
-      </div>
-
-      <section class="grid gap-4 md:grid-cols-4">
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">A 区组数</p>
-          <p class="mt-3 text-2xl font-semibold text-blue-600">${summary.zoneACount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">B 区组数</p>
-          <p class="mt-3 text-2xl font-semibold text-violet-600">${summary.zoneBCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">C 区组数</p>
-          <p class="mt-3 text-2xl font-semibold text-amber-600">${summary.zoneCCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">未分配区域</p>
-          <p class="mt-3 text-2xl font-semibold text-rose-600">${summary.unassignedCount}</p>
-        </article>
-      </section>
+      `)}
 
       ${
         records.length === 0
           ? renderEmptyState(buildWarehouseEmptyText('cutPiece', hasFilters))
           : `
               <section class="overflow-hidden rounded-lg border bg-card">
-                <div class="overflow-x-auto">
+                <div class="border-b px-4 py-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 class="text-base font-semibold text-foreground">裁片仓主表</h2>
+                      <p class="mt-1 text-sm text-muted-foreground">主表优先查看区域、位置、入仓和后道交接状态。</p>
+                    </div>
+                    <span class="text-sm text-muted-foreground">共 ${pagination.total} 条入仓记录</span>
+                  </div>
+                </div>
+                ${renderStickyTableScroller(`
                   <table class="min-w-full divide-y divide-border text-sm">
-                    <thead class="bg-muted/30 text-left text-muted-foreground">
+                    <thead class="sticky top-0 z-10 bg-muted/95 text-left text-muted-foreground backdrop-blur">
                       <tr>
                         <th class="px-4 py-3 font-medium">生产单号</th>
                         <th class="px-4 py-3 font-medium">裁片单号</th>
@@ -536,7 +761,7 @@ function renderCutPieceView(): string {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
-                      ${records
+                      ${pagination.items
                         .map(
                           (record) => `
                             <tr class="align-top">
@@ -563,21 +788,58 @@ function renderCutPieceView(): string {
                         .join('')}
                     </tbody>
                   </table>
-                </div>
+                `, 'max-h-[56vh]')}
+                ${renderWorkbenchPagination({
+                  page: pagination.page,
+                  pageSize: pagination.pageSize,
+                  total: pagination.total,
+                  actionAttr: 'data-cutting-warehouse-action',
+                  pageAction: 'set-page',
+                  pageSizeAttr: 'data-cutting-warehouse-page-size',
+                  extraAttrs: 'data-tab="cutPiece"',
+                })}
               </section>
             `
       }
+
+      ${renderWorkbenchSecondaryPanel({
+        title: '区域摘要',
+        hint: '压缩查看 A/B/C 区分布和未分配规模。',
+        countText: `${summary.unassignedCount} 条未分配`,
+        body: `
+          <div class="grid gap-3 md:grid-cols-4">
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">A 区组数</p>
+              <p class="mt-2 text-xl font-semibold text-blue-600">${summary.zoneACount}</p>
+            </article>
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">B 区组数</p>
+              <p class="mt-2 text-xl font-semibold text-violet-600">${summary.zoneBCount}</p>
+            </article>
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">C 区组数</p>
+              <p class="mt-2 text-xl font-semibold text-amber-600">${summary.zoneCCount}</p>
+            </article>
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">未分配区域</p>
+              <p class="mt-2 text-xl font-semibold text-rose-600">${summary.unassignedCount}</p>
+            </article>
+          </div>
+        `,
+      })}
     </section>
   `
 }
 
 function renderSampleView(): string {
-  const records = getFilteredSampleRecords()
-  const summary = buildSampleSummary(records)
-  const hasFilters = hasSampleFilters(state.filters.sample)
+  const baseRecords = getFilteredSampleRecords()
+  const records = applyKpiFilterForSample(applyPriorityModeForSample(baseRecords))
+  const summary = buildSampleSummary(baseRecords)
+  const hasFilters = hasSampleFilters(state.filters.sample) || state.activePriorityMode !== null || state.activeKpiFilter !== null
+  const pagination = paginateItems(records, state.pagination.sample.page, state.pagination.sample.pageSize)
   return `
     <section class="space-y-4">
-      <div class="rounded-lg border bg-card p-5">
+      ${renderStickyFilterShell(`
         <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-5">
           <label class="space-y-2 xl:col-span-2">
             <span class="text-sm font-medium text-foreground">关键词搜索</span>
@@ -609,35 +871,25 @@ function renderSampleView(): string {
             样衣流转用于表达裁床调用、PMC 仓保管、工厂核价和回货抽检的关键节点，不做复杂流转引擎。
           </div>
         </div>
-      </div>
-
-      <section class="grid gap-4 md:grid-cols-4">
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">可调用</p>
-          <p class="mt-3 text-2xl font-semibold text-emerald-600">${summary.availableCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">使用中</p>
-          <p class="mt-3 text-2xl font-semibold text-sky-600">${summary.inUseCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">待归还</p>
-          <p class="mt-3 text-2xl font-semibold text-amber-600">${summary.waitingReturnCount}</p>
-        </article>
-        <article class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">抽检中</p>
-          <p class="mt-3 text-2xl font-semibold text-violet-600">${summary.checkingCount}</p>
-        </article>
-      </section>
+      `)}
 
       ${
         records.length === 0
           ? renderEmptyState(buildWarehouseEmptyText('sample', hasFilters))
           : `
               <section class="overflow-hidden rounded-lg border bg-card">
-                <div class="overflow-x-auto">
+                <div class="border-b px-4 py-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 class="text-base font-semibold text-foreground">样衣仓主表</h2>
+                      <p class="mt-1 text-sm text-muted-foreground">主表优先查看阶段、当前持有人、状态和下一步建议动作。</p>
+                    </div>
+                    <span class="text-sm text-muted-foreground">共 ${pagination.total} 条样衣记录</span>
+                  </div>
+                </div>
+                ${renderStickyTableScroller(`
                   <table class="min-w-full divide-y divide-border text-sm">
-                    <thead class="bg-muted/30 text-left text-muted-foreground">
+                    <thead class="sticky top-0 z-10 bg-muted/95 text-left text-muted-foreground backdrop-blur">
                       <tr>
                         <th class="px-4 py-3 font-medium">样衣编号</th>
                         <th class="px-4 py-3 font-medium">样衣名称</th>
@@ -651,7 +903,7 @@ function renderSampleView(): string {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
-                      ${records
+                      ${pagination.items
                         .map(
                           (record) => `
                             <tr class="align-top">
@@ -679,10 +931,45 @@ function renderSampleView(): string {
                         .join('')}
                     </tbody>
                   </table>
-                </div>
+                `, 'max-h-[56vh]')}
+                ${renderWorkbenchPagination({
+                  page: pagination.page,
+                  pageSize: pagination.pageSize,
+                  total: pagination.total,
+                  actionAttr: 'data-cutting-warehouse-action',
+                  pageAction: 'set-page',
+                  pageSizeAttr: 'data-cutting-warehouse-page-size',
+                  extraAttrs: 'data-tab="sample"',
+                })}
               </section>
             `
       }
+
+      ${renderWorkbenchSecondaryPanel({
+        title: '流转摘要',
+        hint: '压缩查看样衣可调用、使用中、待归还和抽检中规模。',
+        countText: `${summary.waitingReturnCount} 条待归还`,
+        body: `
+          <div class="grid gap-3 md:grid-cols-4">
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">可调用</p>
+              <p class="mt-2 text-xl font-semibold text-emerald-600">${summary.availableCount}</p>
+            </article>
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">使用中</p>
+              <p class="mt-2 text-xl font-semibold text-sky-600">${summary.inUseCount}</p>
+            </article>
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">待归还</p>
+              <p class="mt-2 text-xl font-semibold text-amber-600">${summary.waitingReturnCount}</p>
+            </article>
+            <article class="rounded-lg border bg-muted/20 p-3">
+              <p class="text-sm text-muted-foreground">抽检中</p>
+              <p class="mt-2 text-xl font-semibold text-violet-600">${summary.checkingCount}</p>
+            </article>
+          </div>
+        `,
+      })}
     </section>
   `
 }
@@ -939,12 +1226,14 @@ function renderCurrentView(): string {
 
 export function renderCraftCuttingWarehouseManagementPage(): string {
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-4 p-5">
       ${renderPageHeader()}
+      ${renderPriorityCardLayer()}
       ${renderSummaryCards()}
-      ${renderAlertSection()}
       ${renderTabs()}
+      ${renderActiveStateBar()}
       ${renderCurrentView()}
+      ${renderAlertSection()}
       ${renderStockDetailDrawer()}
       ${renderLocationGuideDrawer()}
       ${renderSampleFlowDrawer()}
@@ -953,6 +1242,22 @@ export function renderCraftCuttingWarehouseManagementPage(): string {
 }
 
 export function handleCraftCuttingWarehouseManagementEvent(target: Element): boolean {
+  const pageSizeNode = target.closest<HTMLElement>('[data-cutting-warehouse-page-size]')
+  if (pageSizeNode) {
+    const tab = (pageSizeNode.dataset.tab as WarehouseTab | undefined) ?? state.activeTab
+    const select = pageSizeNode as HTMLSelectElement
+    const nextPageSize = Number(select.value)
+    if (!Number.isFinite(nextPageSize)) return false
+    state.pagination = {
+      ...state.pagination,
+      [tab]: {
+        page: 1,
+        pageSize: nextPageSize,
+      },
+    }
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-cutting-warehouse-field]')
   if (fieldNode) {
     const scope = fieldNode.dataset.cuttingWarehouseScope as 'fabric' | 'cutPiece' | 'sample' | undefined
@@ -966,6 +1271,7 @@ export function handleCraftCuttingWarehouseManagementEvent(target: Element): boo
         [field]: input.value,
       },
     } as WarehouseManagementState['filters']
+    resetPagination(scope === 'fabric' ? 'fabric' : scope === 'cutPiece' ? 'cutPiece' : 'sample')
     return true
   }
 
@@ -998,7 +1304,61 @@ export function handleCraftCuttingWarehouseManagementEvent(target: Element): boo
   const tab = actionNode?.dataset.tab as WarehouseTab | undefined
 
   if (action === 'switch-tab' && tab) {
-    state.activeTab = tab
+    setActiveTabWithReset(tab)
+    alignCrossTabViewState(tab)
+    return true
+  }
+
+  if (action === 'toggle-priority-mode') {
+    const mode = actionNode?.dataset.priorityMode as WarehousePriorityMode | undefined
+    if (!mode || !tab) return false
+    setActiveTabWithReset(tab)
+    alignCrossTabViewState(tab)
+    state.activePriorityMode = state.activePriorityMode === mode ? null : mode
+    resetPagination(tab)
+    return true
+  }
+
+  if (action === 'clear-priority-mode') {
+    state.activePriorityMode = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'toggle-kpi-filter') {
+    const filter = actionNode?.dataset.kpiFilter as WarehouseKpiFilter | undefined
+    if (!filter || !tab) return false
+    setActiveTabWithReset(tab)
+    alignCrossTabViewState(tab)
+    state.activeKpiFilter = state.activeKpiFilter === filter ? null : filter
+    resetPagination(tab)
+    return true
+  }
+
+  if (action === 'clear-kpi-filter') {
+    state.activeKpiFilter = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-view-state') {
+    state.activePriorityMode = null
+    state.activeKpiFilter = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'set-page') {
+    const page = Number(actionNode?.dataset.page)
+    const targetTab = tab ?? state.activeTab
+    if (!Number.isFinite(page)) return false
+    state.pagination = {
+      ...state.pagination,
+      [targetTab]: {
+        ...state.pagination[targetTab],
+        page,
+      },
+    }
     return true
   }
 

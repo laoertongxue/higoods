@@ -29,19 +29,46 @@ import {
   receiveResultMeta,
   reviewMeta,
 } from './material-prep.helpers'
+import {
+  paginateItems,
+  renderCompactKpiCard,
+  renderStickyFilterShell,
+  renderStickyTableScroller,
+  renderWorkbenchActionCard,
+  renderWorkbenchCardLayer,
+  renderWorkbenchFilterChip,
+  renderWorkbenchPagination,
+  renderWorkbenchSecondaryPanel,
+  renderWorkbenchStateBar,
+} from './layout.helpers'
 
 type OverlayType = 'config' | 'batches' | 'print' | 'qr' | 'receive'
+type MaterialPrepPriorityMode = 'PREP_PROGRESS' | 'DISCREPANCY'
+type MaterialPrepKpiFilter = 'PENDING_CONFIG' | 'PARTIAL_CONFIG' | 'QR_READY' | 'PENDING_RECEIVE' | 'RECEIVE_DONE' | 'DISCREPANCY'
 
 interface MaterialPrepState {
   groups: CuttingMaterialPrepGroup[]
   filters: CuttingMaterialPrepFilters
   activeOverlay: OverlayType | null
   activeLineId: string | null
+  activePriorityMode: MaterialPrepPriorityMode | null
+  activeKpiFilter: MaterialPrepKpiFilter | null
+  page: number
+  pageSize: number
   configDraft: {
     rollCount: string
     length: string
     remarks: string
   }
+}
+
+const initialFilters: CuttingMaterialPrepFilters = {
+  keyword: '',
+  materialType: 'ALL',
+  reviewStatus: 'ALL',
+  configStatus: 'ALL',
+  receiveStatus: 'ALL',
+  riskFilter: 'ALL',
 }
 
 const FIELD_TO_FILTER_KEY = {
@@ -55,16 +82,13 @@ const FIELD_TO_FILTER_KEY = {
 
 const state: MaterialPrepState = {
   groups: cloneCuttingMaterialPrepGroups(),
-  filters: {
-    keyword: '',
-    materialType: 'ALL',
-    reviewStatus: 'ALL',
-    configStatus: 'ALL',
-    receiveStatus: 'ALL',
-    riskFilter: 'ALL',
-  },
+  filters: { ...initialFilters },
   activeOverlay: null,
   activeLineId: null,
+  activePriorityMode: null,
+  activeKpiFilter: null,
+  page: 1,
+  pageSize: 20,
   configDraft: {
     rollCount: '',
     length: '',
@@ -78,6 +102,45 @@ function renderBadge(label: string, className: string): string {
 
 function getFilteredGroups(): CuttingMaterialPrepGroup[] {
   return filterMaterialPrepGroups(state.groups, state.filters)
+}
+
+function resetPagination(): void {
+  state.page = 1
+}
+
+function applyPriorityMode(groups: CuttingMaterialPrepGroup[]): CuttingMaterialPrepGroup[] {
+  if (state.activePriorityMode === 'PREP_PROGRESS') {
+    return groups.filter((group) => group.materialLines.some((line) => line.configStatus !== 'CONFIGURED' || line.receiveStatus !== 'RECEIVED'))
+  }
+  if (state.activePriorityMode === 'DISCREPANCY') {
+    return groups.filter((group) =>
+      group.materialLines.some((line) => line.discrepancyStatus !== 'NONE' || line.reviewStatus === 'PENDING' || line.receiveStatus !== 'RECEIVED'),
+    )
+  }
+  return groups
+}
+
+function applyKpiFilter(groups: CuttingMaterialPrepGroup[]): CuttingMaterialPrepGroup[] {
+  switch (state.activeKpiFilter) {
+    case 'PENDING_CONFIG':
+      return groups.filter((group) => group.materialLines.some((line) => line.configStatus === 'NOT_CONFIGURED'))
+    case 'PARTIAL_CONFIG':
+      return groups.filter((group) => group.materialLines.some((line) => line.configStatus === 'PARTIAL'))
+    case 'QR_READY':
+      return groups.filter((group) => group.materialLines.some((line) => line.qrStatus === 'GENERATED'))
+    case 'PENDING_RECEIVE':
+      return groups.filter((group) => group.materialLines.some((line) => line.receiveStatus !== 'RECEIVED'))
+    case 'RECEIVE_DONE':
+      return groups.filter((group) => group.materialLines.every((line) => line.receiveStatus === 'RECEIVED'))
+    case 'DISCREPANCY':
+      return groups.filter((group) => group.materialLines.some((line) => line.discrepancyStatus !== 'NONE'))
+    default:
+      return groups
+  }
+}
+
+function getDisplayGroups(): CuttingMaterialPrepGroup[] {
+  return applyKpiFilter(applyPriorityMode(getFilteredGroups()))
 }
 
 function findLineContext(lineId: string | null): { group: CuttingMaterialPrepGroup; line: CuttingMaterialPrepLine } | null {
@@ -116,15 +179,7 @@ function closeOverlay(): void {
 }
 
 function buildSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
-  return `
-    <article class="rounded-lg border bg-card p-4">
-      <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
-      <div class="mt-3 flex items-end justify-between gap-3">
-        <p class="text-3xl font-semibold tabular-nums ${accentClass}">${value}</p>
-        <p class="text-right text-xs text-muted-foreground">${escapeHtml(hint)}</p>
-      </div>
-    </article>
-  `
+  return renderCompactKpiCard(label, value, hint, accentClass)
 }
 
 function renderFilterSelect(
@@ -149,11 +204,11 @@ function renderFilterSelect(
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
         <h1 class="text-2xl font-bold">仓库配料</h1>
-        <p class="mt-2 max-w-4xl text-sm text-muted-foreground">承接配料配置、打印领料单、二维码和领料状态，连接平台生产单与工厂端扫码领取回写。</p>
+        <p class="mt-1 text-sm text-muted-foreground">统一查看审核、配置、领料、打印与二维码状态，并快速进入仓库配料动作。</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-order-progress">去订单进度</button>
@@ -163,23 +218,131 @@ function renderPageHeader(): string {
   `
 }
 
+function getPriorityModeLabel(mode: MaterialPrepPriorityMode | null): string | null {
+  if (mode === 'PREP_PROGRESS') return '重点模式：待配置 / 待领料'
+  if (mode === 'DISCREPANCY') return '重点模式：差异待核对 / 待照片提交'
+  return null
+}
+
+function getKpiFilterLabel(filter: MaterialPrepKpiFilter | null): string | null {
+  if (filter === 'PENDING_CONFIG') return 'KPI：待配置裁片单'
+  if (filter === 'PARTIAL_CONFIG') return 'KPI：部分配置裁片单'
+  if (filter === 'QR_READY') return 'KPI：已生成二维码裁片单'
+  if (filter === 'PENDING_RECEIVE') return 'KPI：待领料裁片单'
+  if (filter === 'RECEIVE_DONE') return 'KPI：领料成功裁片单'
+  if (filter === 'DISCREPANCY') return 'KPI：差异待处理裁片单'
+  return null
+}
+
+function renderPriorityCardLayer(groups: CuttingMaterialPrepGroup[]): string {
+  const prepGroups = groups.filter((group) => group.materialLines.some((line) => line.configStatus !== 'CONFIGURED' || line.receiveStatus !== 'RECEIVED'))
+  const discrepancyGroups = groups.filter((group) =>
+    group.materialLines.some((line) => line.discrepancyStatus !== 'NONE' || line.reviewStatus === 'PENDING' || line.receiveStatus !== 'RECEIVED'),
+  )
+
+  return renderWorkbenchCardLayer({
+    title: '高优先级重点入口',
+    hint: '先切到重点模式，再在生产单分组主视图中处理待配置和差异待核对记录。',
+    columnsClass: 'grid gap-3 md:grid-cols-2',
+    cardsHtml: [
+      renderWorkbenchActionCard({
+        title: '配料进展',
+        count: prepGroups.length,
+        hint: '切到待配置 / 部分配置 / 待领料模式。',
+        attrs: 'data-cutting-prep-action="toggle-priority-mode" data-priority-mode="PREP_PROGRESS"',
+        active: state.activePriorityMode === 'PREP_PROGRESS',
+      }),
+      renderWorkbenchActionCard({
+        title: '差异处理',
+        count: discrepancyGroups.length,
+        hint: '切到差异待核对 / 待照片提交模式。',
+        attrs: 'data-cutting-prep-action="toggle-priority-mode" data-priority-mode="DISCREPANCY"',
+        active: state.activePriorityMode === 'DISCREPANCY',
+        accentClass: 'text-rose-600',
+      }),
+    ].join(''),
+  })
+}
+
 function renderSummaryCards(): string {
   const summary = buildMaterialPrepSummary(getFilteredGroups())
-  return `
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-      ${buildSummaryCard('待配置裁片单数', summary.pendingConfigCount, '仍未生成配料批次', 'text-slate-900')}
-      ${buildSummaryCard('部分配置裁片单数', summary.partialConfigCount, '已配但尚未补齐', 'text-orange-600')}
-      ${buildSummaryCard('已生成二维码裁片单数', summary.qrReadyCount, '有配置即生成二维码', 'text-violet-600')}
-      ${buildSummaryCard('待领料裁片单数', summary.pendingReceiveCount, '尚未完成扫码领取', 'text-slate-900')}
-      ${buildSummaryCard('领料成功裁片单数', summary.receiveDoneCount, '扫码领取已完成', 'text-emerald-600')}
-      ${buildSummaryCard('差异待处理裁片单数', summary.discrepancyCount, '含待核对或照片提交', 'text-rose-600')}
-    </section>
-  `
+  return renderWorkbenchCardLayer({
+    title: 'KPI 快捷筛选',
+    hint: '点击 KPI 在当前重点模式结果上继续筛主视图，再次点击同卡片取消。',
+    columnsClass: 'grid gap-3 md:grid-cols-2 xl:grid-cols-6',
+    cardsHtml: [
+      renderWorkbenchActionCard({
+        title: '待配置裁片单数',
+        count: summary.pendingConfigCount,
+        hint: '仍未生成配料批次',
+        attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PENDING_CONFIG"',
+        active: state.activeKpiFilter === 'PENDING_CONFIG',
+        accentClass: 'text-slate-900',
+      }),
+      renderWorkbenchActionCard({
+        title: '部分配置裁片单数',
+        count: summary.partialConfigCount,
+        hint: '已配但尚未补齐',
+        attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PARTIAL_CONFIG"',
+        active: state.activeKpiFilter === 'PARTIAL_CONFIG',
+        accentClass: 'text-orange-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '已生成二维码裁片单数',
+        count: summary.qrReadyCount,
+        hint: '有配置即生成二维码',
+        attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="QR_READY"',
+        active: state.activeKpiFilter === 'QR_READY',
+        accentClass: 'text-violet-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '待领料裁片单数',
+        count: summary.pendingReceiveCount,
+        hint: '尚未完成扫码领取',
+        attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PENDING_RECEIVE"',
+        active: state.activeKpiFilter === 'PENDING_RECEIVE',
+        accentClass: 'text-slate-900',
+      }),
+      renderWorkbenchActionCard({
+        title: '领料成功裁片单数',
+        count: summary.receiveDoneCount,
+        hint: '扫码领取已完成',
+        attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="RECEIVE_DONE"',
+        active: state.activeKpiFilter === 'RECEIVE_DONE',
+        accentClass: 'text-emerald-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '差异待处理裁片单数',
+        count: summary.discrepancyCount,
+        hint: '含待核对或照片提交',
+        attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="DISCREPANCY"',
+        active: state.activeKpiFilter === 'DISCREPANCY',
+        accentClass: 'text-rose-600',
+      }),
+    ].join(''),
+  })
+}
+
+function renderActiveStateBar(): string {
+  const chips: string[] = []
+  const priorityLabel = getPriorityModeLabel(state.activePriorityMode)
+  const kpiLabel = getKpiFilterLabel(state.activeKpiFilter)
+  if (priorityLabel) {
+    chips.push(renderWorkbenchFilterChip(priorityLabel, 'data-cutting-prep-action="clear-priority-mode"', 'amber'))
+  }
+  if (kpiLabel) {
+    chips.push(renderWorkbenchFilterChip(kpiLabel, 'data-cutting-prep-action="clear-kpi-filter"', 'blue'))
+  }
+
+  return renderWorkbenchStateBar({
+    summary: '当前主视图',
+    chips,
+    clearAttrs: 'data-cutting-prep-action="clear-view-state"',
+  })
 }
 
 function renderFilterSection(): string {
-  return `
-    <section class="rounded-lg border bg-card p-5">
+  return renderStickyFilterShell(`
       <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词搜索</span>
@@ -225,27 +388,25 @@ function renderFilterSection(): string {
           { value: 'RECEIVE_ONLY', label: '仅看待领料' },
         ])}
         <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          页面聚焦“生产单分组 + 面料行明细”，用于统一查看审核、配置、领料、打印与二维码状态。
+          页面聚焦“生产单分组 + 面料行明细”，首屏优先主表，次级跟进信息下沉到后方。
         </div>
       </div>
-    </section>
-  `
+  `)
 }
 
 function renderPrepProgressPanel(groups: CuttingMaterialPrepGroup[]): string {
   const focusGroups = groups.filter((group) => group.materialLines.some((line) => line.configStatus !== 'CONFIGURED' || line.receiveStatus !== 'RECEIVED')).slice(0, 4)
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="text-base font-semibold">配料进展区</h2>
-        <p class="mt-1 text-sm text-muted-foreground">优先展示仍在配置或等待领料的生产单，便于仓库快速切换处理。</p>
-      </div>
+  return renderWorkbenchSecondaryPanel({
+    title: '配料进展区',
+    hint: '优先查看仍在配置或等待领料的生产单。',
+    countText: `${focusGroups.length} 个生产单`,
+    body: `
       <div class="divide-y">
         ${
           focusGroups.length
             ? focusGroups
                 .map((group) => `
-                  <div class="flex items-center justify-between gap-4 px-5 py-4">
+                  <div class="flex items-center justify-between gap-4 px-4 py-3">
                     <div>
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="font-medium text-foreground">${escapeHtml(group.productionOrderNo)}</span>
@@ -257,11 +418,11 @@ function renderPrepProgressPanel(groups: CuttingMaterialPrepGroup[]): string {
                   </div>
                 `)
                 .join('')
-            : '<div class="px-5 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无待跟进的配料进展。</div>'
+            : '<div class="px-4 py-8 text-center text-sm text-muted-foreground">当前筛选范围内暂无待跟进的配料进展。</div>'
         }
       </div>
-    </section>
-  `
+    `,
+  })
 }
 
 function renderRiskPanel(groups: CuttingMaterialPrepGroup[]): string {
@@ -272,18 +433,17 @@ function renderRiskPanel(groups: CuttingMaterialPrepGroup[]): string {
       .map((line) => ({ group, line })),
   )
 
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="text-base font-semibold">差异处理区</h2>
-        <p class="mt-1 text-sm text-muted-foreground">关注待核对、照片提交和待审核记录，避免仓库与现场状态脱节。</p>
-      </div>
+  return renderWorkbenchSecondaryPanel({
+    title: '差异处理区',
+    hint: '关注待核对、照片提交和待审核记录。',
+    countText: `${riskyLines.length} 条待处理`,
+    body: `
       <div class="divide-y">
         ${
           riskyLines.length
             ? riskyLines
                 .map(({ group, line }) => `
-                  <div class="px-5 py-4">
+                  <div class="px-4 py-3">
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="font-medium text-foreground">${escapeHtml(group.productionOrderNo)}</span>
                       <span class="text-sm text-muted-foreground">${escapeHtml(line.cutPieceOrderNo)}</span>
@@ -293,26 +453,26 @@ function renderRiskPanel(groups: CuttingMaterialPrepGroup[]): string {
                   </div>
                 `)
                 .join('')
-            : '<div class="px-5 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无差异待处理记录。</div>'
+            : '<div class="px-4 py-8 text-center text-sm text-muted-foreground">当前筛选范围内暂无差异待处理记录。</div>'
         }
       </div>
-    </section>
-  `
+    `,
+  })
 }
 
 function renderGroupCard(group: CuttingMaterialPrepGroup): string {
   const riskFlags = buildGroupRiskFlags(group)
   return `
     <article class="rounded-lg border bg-card">
-      <header class="border-b px-5 py-4">
+      <header class="border-b px-4 py-3">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="space-y-2">
             <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-lg font-semibold text-foreground">${escapeHtml(group.productionOrderNo)}</h2>
+              <h2 class="text-base font-semibold text-foreground">${escapeHtml(group.productionOrderNo)}</h2>
               <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">采购日期 ${escapeHtml(group.purchaseDate)}</span>
               <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">计划发货 ${escapeHtml(group.plannedShipDate)}</span>
             </div>
-            <div class="grid gap-2 text-sm text-muted-foreground md:grid-cols-4">
+            <div class="grid gap-2 text-xs text-muted-foreground md:grid-cols-4">
               <div>下单数量：<span class="font-medium text-foreground">${formatQty(group.orderQty)}</span></div>
               <div>裁片任务号：<span class="font-medium text-foreground">${escapeHtml(group.cuttingTaskNo)}</span></div>
               <div>裁片厂：<span class="font-medium text-foreground">${escapeHtml(group.assignedFactoryName)}</span></div>
@@ -325,14 +485,15 @@ function renderGroupCard(group: CuttingMaterialPrepGroup): string {
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-order-progress">去订单进度</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单</button>
+            <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-prep-action="go-order-progress">去订单进度</button>
+            <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单</button>
           </div>
         </div>
       </header>
-      <div class="overflow-x-auto">
+      ${renderStickyTableScroller(
+        `
         <table class="w-full min-w-[1320px] text-sm">
-          <thead class="border-b bg-muted/30 text-muted-foreground">
+          <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
             <tr>
               <th class="px-4 py-3 text-left font-medium">裁片单号</th>
               <th class="px-4 py-3 text-left font-medium">面料 SKU</th>
@@ -354,36 +515,36 @@ function renderGroupCard(group: CuttingMaterialPrepGroup): string {
                 const canViewQr = pickupView.qrStatus === 'GENERATED' || line.configuredRollCount > 0
                 return `
                   <tr class="border-b last:border-b-0 hover:bg-muted/20">
-                    <td class="px-4 py-4 align-top">
+                    <td class="px-4 py-3 align-top">
                       <div class="font-medium text-foreground">${escapeHtml(line.cutPieceOrderNo)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${formatQty(line.demandRollCount)} 卷 / ${formatLength(line.demandLength)}</div>
                     </td>
-                    <td class="px-4 py-4 align-top">
+                    <td class="px-4 py-3 align-top">
                       <div class="font-medium text-foreground">${escapeHtml(line.materialSku)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.materialLabel)}</div>
                     </td>
-                    <td class="px-4 py-4 align-top">${renderBadge(materialTypeMeta[line.materialType].label, materialTypeMeta[line.materialType].className)}</td>
-                    <td class="px-4 py-4 align-top">
+                    <td class="px-4 py-3 align-top">${renderBadge(materialTypeMeta[line.materialType].label, materialTypeMeta[line.materialType].className)}</td>
+                    <td class="px-4 py-3 align-top">
                       ${renderBadge(reviewMeta[line.reviewStatus].label, reviewMeta[line.reviewStatus].className)}
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildReviewSummary(line))}</div>
                     </td>
-                    <td class="px-4 py-4 align-top">
+                    <td class="px-4 py-3 align-top">
                       ${renderBadge(configMeta[line.configStatus].label, configMeta[line.configStatus].className)}
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildConfigSummary(line))}</div>
                     </td>
-                    <td class="px-4 py-4 align-top">
+                    <td class="px-4 py-3 align-top">
                       ${renderBadge(receiveMeta[line.receiveStatus].label, receiveMeta[line.receiveStatus].className)}
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildReceiveSummary(line))}</div>
                     </td>
-                    <td class="px-4 py-4 align-top">
+                    <td class="px-4 py-3 align-top">
                       ${renderBadge(pickupView.printSlipStatusLabel, pickupView.printSlipStatus === 'PRINTED' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700')}
                       <div class="mt-1 text-xs text-muted-foreground">${pickupView.latestPrintVersionNo !== '-' ? `版本 ${escapeHtml(pickupView.latestPrintVersionNo)} · 已打印 ${pickupView.printCopyCount} 次` : '尚未打印'}</div>
                     </td>
-                    <td class="px-4 py-4 align-top">
+                    <td class="px-4 py-3 align-top">
                       ${renderBadge(pickupView.qrStatusLabel, pickupView.qrStatus === 'GENERATED' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-700')}
                       <div class="mt-1 text-xs text-muted-foreground">${pickupView.qrStatus === 'GENERATED' ? `裁片单级二维码复用 · ${escapeHtml(pickupView.qrCodeValue)}` : '配置后自动生成'}</div>
                     </td>
-                    <td class="px-4 py-4 align-top">
+                    <td class="px-4 py-3 align-top">
                       <div class="text-sm text-foreground">${escapeHtml(line.latestActionText)}</div>
                       <div class="mt-2 flex flex-wrap gap-2">
                         ${renderBadge(pickupView.receiptStatusLabel, pickupView.needsRecheck ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')}
@@ -391,13 +552,13 @@ function renderGroupCard(group: CuttingMaterialPrepGroup): string {
                         ${line.issueFlags.slice(0, 2).map((flag) => renderBadge(flag, 'bg-amber-100 text-amber-700')).join('')}
                       </div>
                     </td>
-                    <td class="px-4 py-4 align-top">
-                      <div class="flex flex-col items-start gap-2 text-sm">
-                        <button class="text-blue-600 hover:underline" data-cutting-prep-action="open-config" data-line-id="${line.id}">配置配料</button>
-                        <button class="text-blue-600 hover:underline" data-cutting-prep-action="open-batches" data-line-id="${line.id}">查看配置明细</button>
-                        <button class="text-blue-600 hover:underline ${canPrint ? '' : 'opacity-50'}" ${canPrint ? `data-cutting-prep-action="open-print" data-line-id="${line.id}"` : 'disabled'}>打印领料单</button>
-                        <button class="text-blue-600 hover:underline ${canViewQr ? '' : 'opacity-50'}" ${canViewQr ? `data-cutting-prep-action="open-qr" data-line-id="${line.id}"` : 'disabled'}>查看二维码</button>
-                        <button class="text-blue-600 hover:underline" data-cutting-prep-action="open-receive" data-line-id="${line.id}">查看领料记录</button>
+                    <td class="px-4 py-3 align-top">
+                      <div class="flex flex-wrap gap-2 text-xs">
+                        <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-prep-action="open-config" data-line-id="${line.id}">配置配料</button>
+                        <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-prep-action="open-batches" data-line-id="${line.id}">查看配置明细</button>
+                        <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted ${canPrint ? '' : 'opacity-50'}" ${canPrint ? `data-cutting-prep-action="open-print" data-line-id="${line.id}"` : 'disabled'}>打印领料单</button>
+                        <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted ${canViewQr ? '' : 'opacity-50'}" ${canViewQr ? `data-cutting-prep-action="open-qr" data-line-id="${line.id}"` : 'disabled'}>查看二维码</button>
+                        <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-prep-action="open-receive" data-line-id="${line.id}">查看领料记录</button>
                       </div>
                     </td>
                   </tr>
@@ -406,14 +567,17 @@ function renderGroupCard(group: CuttingMaterialPrepGroup): string {
               .join('')}
           </tbody>
         </table>
-      </div>
+      `,
+        'max-h-[58vh]',
+      )}
     </article>
   `
 }
 
 function renderMainSection(): string {
-  const groups = getFilteredGroups()
-  if (!groups.length) {
+  const groups = getDisplayGroups()
+  const pagination = paginateItems(groups, state.page, state.pageSize)
+  if (!pagination.total) {
     return `
       <section class="rounded-lg border bg-card px-6 py-16 text-center">
         <h2 class="text-base font-semibold text-foreground">暂无匹配的仓库配料记录</h2>
@@ -423,8 +587,25 @@ function renderMainSection(): string {
   }
 
   return `
-    <section class="space-y-4">
-      ${groups.map((group) => renderGroupCard(group)).join('')}
+    <section class="overflow-hidden rounded-lg border bg-card">
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h2 class="text-base font-semibold text-foreground">生产单分组主视图</h2>
+          <p class="mt-1 text-sm text-muted-foreground">高优先级卡片和 KPI 只切主视图模式，具体处理仍在分组表内完成。</p>
+        </div>
+        <div class="text-sm text-muted-foreground">共 ${pagination.total} 个生产单分组</div>
+      </div>
+      <div class="space-y-4 p-4">
+        ${pagination.items.map((group) => renderGroupCard(group)).join('')}
+      </div>
+      ${renderWorkbenchPagination({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        actionAttr: 'data-cutting-prep-action',
+        pageAction: 'set-page',
+        pageSizeAttr: 'data-cutting-prep-page-size',
+      })}
     </section>
   `
 }
@@ -793,14 +974,12 @@ function renderReceiveDrawer(): string {
 export function renderCraftCuttingMaterialPrepPage(): string {
   const groups = getFilteredGroups()
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-4 p-5">
       ${renderPageHeader()}
+      ${renderPriorityCardLayer(groups)}
       ${renderSummaryCards()}
       ${renderFilterSection()}
-      <section class="grid gap-4 xl:grid-cols-2">
-        ${renderPrepProgressPanel(groups)}
-        ${renderRiskPanel(groups)}
-      </section>
+      ${renderActiveStateBar()}
       ${renderMainSection()}
       ${renderConfigDrawer()}
       ${renderBatchDetailDrawer()}
@@ -916,6 +1095,14 @@ function confirmPrint(lineId: string): boolean {
 }
 
 export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
+  const pageSizeNode = target.closest<HTMLElement>('[data-cutting-prep-page-size]')
+  if (pageSizeNode) {
+    const input = pageSizeNode as HTMLSelectElement
+    state.pageSize = Number(input.value) || 20
+    state.page = 1
+    return true
+  }
+
   const filterNode = target.closest<HTMLElement>('[data-cutting-prep-field]')
   if (filterNode) {
     const field = filterNode.dataset.cuttingPrepField as keyof typeof FIELD_TO_FILTER_KEY | undefined
@@ -926,6 +1113,7 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
       ...state.filters,
       [filterKey]: input.value,
     }
+    resetPagination()
     return true
   }
 
@@ -946,6 +1134,47 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
   if (!action) return false
 
   const lineId = actionNode?.dataset.lineId ?? ''
+
+  if (action === 'toggle-priority-mode') {
+    const mode = actionNode?.dataset.priorityMode as MaterialPrepPriorityMode | undefined
+    if (!mode) return false
+    state.activePriorityMode = state.activePriorityMode === mode ? null : mode
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-priority-mode') {
+    state.activePriorityMode = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'toggle-kpi-filter') {
+    const filter = actionNode?.dataset.kpiFilter as MaterialPrepKpiFilter | undefined
+    if (!filter) return false
+    state.activeKpiFilter = state.activeKpiFilter === filter ? null : filter
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-kpi-filter') {
+    state.activeKpiFilter = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-view-state') {
+    state.activePriorityMode = null
+    state.activeKpiFilter = null
+    state.filters = { ...initialFilters }
+    resetPagination()
+    return true
+  }
+
+  if (action === 'set-page') {
+    state.page = Number(actionNode?.dataset.page) || 1
+    return true
+  }
 
   if (action === 'go-order-progress') {
     appStore.navigate('/fcs/craft/cutting/order-progress')

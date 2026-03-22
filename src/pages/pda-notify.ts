@@ -1,9 +1,13 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { processTasks } from '../data/fcs/process-tasks'
 import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress'
 import { getStartPrerequisite, getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
 import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
+import { isCuttingSpecialTask, listPdaTaskFlowTasks } from '../data/fcs/pda-cutting-special'
+import {
+  PDA_MOCK_AWARDED_TENDER_NOTICES,
+  PDA_MOCK_BIDDING_TENDERS,
+} from '../data/fcs/pda-mobile-mock'
 import { renderPdaFrame } from './pda-shell'
 
 type NotifyTab = 'todo' | 'inbox'
@@ -55,42 +59,6 @@ const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   QUALITY: '质量/争议提醒',
   SETTLEMENT: '结算提醒',
 }
-
-const MOCK_TENDERS_BIDDING = [
-  {
-    tenderId: 'TENDER-0002-001',
-    processName: '裁剪',
-    qty: 800,
-    biddingDeadline: '2026-03-20 18:00',
-    productionOrderId: 'PO-2024-0002',
-  },
-  {
-    tenderId: 'TENDER-PDA-003',
-    processName: '车缝',
-    qty: 1600,
-    biddingDeadline: '2026-03-13 08:00',
-    productionOrderId: 'PO-2024-0018',
-  },
-]
-
-const MOCK_AWARDED = [
-  {
-    tenderId: 'TENDER-PDA-001',
-    taskId: 'PDA-EXEC-003',
-    processName: '车缝',
-    qty: 1800,
-    notifiedAt: '2026-03-10 16:30',
-    productionOrderId: 'PO-2024-0012',
-  },
-  {
-    tenderId: 'TENDER-PDA-005',
-    taskId: 'PDA-EXEC-016',
-    processName: '裁片',
-    qty: 1100,
-    notifiedAt: '2026-03-08 10:00',
-    productionOrderId: 'PO-2024-0026',
-  },
-]
 
 const NOW_DUE = new Date()
 const SOON_MS = 24 * 3600 * 1000
@@ -268,12 +236,13 @@ function getNotifyPageData(): {
   syncPdaStartRiskAndExceptions()
   syncMilestoneOverdueExceptions()
   const selectedFactoryId = getCurrentFactoryId()
+  const taskFacts = listPdaTaskFlowTasks()
 
-  const myTasks = processTasks.filter(
+  const myTasks = taskFacts.filter(
     (task) => task.assignedFactoryId === selectedFactoryId && task.acceptanceStatus === 'ACCEPTED',
   )
 
-  const pendingAcceptTasks = processTasks.filter(
+  const pendingAcceptTasks = taskFacts.filter(
     (task) =>
       task.assignedFactoryId === selectedFactoryId &&
       task.assignmentMode === 'DIRECT' &&
@@ -285,13 +254,22 @@ function getNotifyPageData(): {
   const blockedTasks = myTasks.filter((task) => task.status === 'BLOCKED')
   const doneTasks = myTasks.filter((task) => task.status === 'DONE')
 
-  const pendingPickup = notStartedTasks.filter((task) => !getStartPrerequisite(task).met)
+  const pendingPickup = notStartedTasks.filter((task) => {
+    const receiveSummary = (task as { summary?: { receiveSummary?: string } }).summary?.receiveSummary ?? ''
+    const requiresPickup =
+      isCuttingSpecialTask(task as any) ||
+      Boolean(task.hasMaterialRequest) ||
+      receiveSummary.includes('领料') ||
+      receiveSummary.includes('扫码')
+
+    return requiresPickup && !getStartPrerequisite(task).met
+  })
 
   const pendingHandout = doneTasks.filter(
     (task) => (task as typeof task & { handoutStatus?: string }).handoutStatus === 'PENDING',
   )
 
-  const acceptSoonCount = processTasks.filter(
+  const acceptSoonCount = taskFacts.filter(
     (task) =>
       task.assignedFactoryId === selectedFactoryId &&
       task.assignmentMode === 'DIRECT' &&
@@ -341,7 +319,7 @@ function getNotifyPageData(): {
     {
       key: 'quote',
       label: '待报价',
-      count: MOCK_TENDERS_BIDDING.length,
+      count: PDA_MOCK_BIDDING_TENDERS.length,
       icon: 'package',
       colorClass: 'text-blue-600',
       bgClass: 'bg-blue-50',
@@ -351,7 +329,7 @@ function getNotifyPageData(): {
     {
       key: 'awarded',
       label: '已中标',
-      count: MOCK_AWARDED.length,
+      count: PDA_MOCK_AWARDED_TENDER_NOTICES.length,
       icon: 'trophy',
       colorClass: 'text-green-600',
       bgClass: 'bg-green-50',
@@ -426,7 +404,7 @@ function getNotifyPageData(): {
     })
   })
 
-  MOCK_TENDERS_BIDDING.forEach((item) => {
+  PDA_MOCK_BIDDING_TENDERS.forEach((item) => {
     todoItems.push({
       id: item.tenderId,
       type: '待报价',
@@ -441,7 +419,7 @@ function getNotifyPageData(): {
     })
   })
 
-  MOCK_AWARDED.forEach((item) => {
+  PDA_MOCK_AWARDED_TENDER_NOTICES.forEach((item) => {
     todoItems.push({
       id: item.tenderId,
       type: '已中标',

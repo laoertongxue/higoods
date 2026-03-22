@@ -6,10 +6,12 @@ import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
-  listTaskChainTenders,
   resolveTaskChainTenderId,
-  type TaskChainTenderStatus,
 } from '../data/fcs/page-adapters/task-chain-pages-adapter'
+import {
+  PDA_MOCK_BIDDING_TENDERS,
+  PDA_MOCK_QUOTED_TENDERS,
+} from '../data/fcs/pda-mobile-mock'
 import {
   getPdaTaskFlowTaskById,
   listPdaTaskFlowTasks,
@@ -114,13 +116,23 @@ const state: TaskReceiveState = {
   deliveryDays: '',
   quoteRemark: '',
   submittingQuote: false,
-  submittedTenderIds: new Set<string>(),
+  submittedTenderIds: new Set<string>(PDA_MOCK_QUOTED_TENDERS.map((item) => item.tenderId)),
   rejectDialogOpen: false,
   rejectingTaskId: '',
   rejectReason: '',
 }
 
-const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>()
+const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
+  PDA_MOCK_QUOTED_TENDERS.map((item) => [
+    item.tenderId,
+    {
+      quotedPrice: item.quotedPrice,
+      quotedAt: item.quotedAt,
+      deliveryDays: item.deliveryDays,
+      remark: item.remark,
+    },
+  ]),
+)
 
 function listTaskFacts(): ProcessTask[] {
   return listPdaTaskFlowTasks()
@@ -352,67 +364,56 @@ function getTabCounts(
   }
 }
 
-function toTenderStatusLabel(status: TaskChainTenderStatus): string {
-  if (status === 'OVERDUE') return '已逾期'
-  if (status === 'AWARDED') return '已定标'
-  if (status === 'CLOSED') return '已关闭'
-  if (status === 'CANCELLED') return '已取消'
-  return '招标中'
-}
-
 function getQuotedTenders(): QuotedTender[] {
-  return listTaskChainTenders()
+  return PDA_MOCK_QUOTED_TENDERS
     .filter((tender) => state.submittedTenderIds.has(tender.tenderId))
     .map((tender) => {
-      const taskId = tender.taskIds[0] ?? ''
-      const task = taskId ? getTaskFactById(taskId) : null
+      const task = tender.taskId ? getTaskFactById(tender.taskId) : null
       const snapshot = submittedQuotes.get(tender.tenderId)
-      const qtyUnit = task?.qtyUnit || '件'
-      const currency = task?.standardPriceCurrency || task?.dispatchPriceCurrency || 'CNY'
+      const qtyUnit = task?.qtyUnit || tender.qtyUnit || tender.unit
+      const currency = task?.standardPriceCurrency || task?.dispatchPriceCurrency || tender.currency
 
       return {
         tenderId: tender.tenderId,
-        taskId,
-        productionOrderId: task?.productionOrderId || tender.productionOrderIds[0] || '',
-        processName: task ? getTaskProcessDisplayName(task) : '-',
-        qty: task?.qty ?? 0,
+        taskId: tender.taskId,
+        productionOrderId: task?.productionOrderId || tender.productionOrderId,
+        processName: task ? getTaskProcessDisplayName(task) : tender.processName,
+        qty: task?.qty ?? tender.qty,
         qtyUnit,
-        quotedPrice: snapshot?.quotedPrice ?? task?.dispatchPrice ?? task?.standardPrice ?? 0,
-        quotedAt: snapshot?.quotedAt ?? nowTimestamp(),
-        deliveryDays: snapshot?.deliveryDays ?? 0,
-        tenderStatus: toTenderStatusLabel(tender.status),
+        quotedPrice: snapshot?.quotedPrice ?? tender.quotedPrice,
+        quotedAt: snapshot?.quotedAt ?? tender.quotedAt,
+        deliveryDays: snapshot?.deliveryDays ?? tender.deliveryDays,
+        tenderStatus: tender.tenderStatusLabel,
         currency,
         unit: qtyUnit,
-        biddingDeadline: tender.deadline,
-        taskDeadline: task?.taskDeadline || '',
-        remark: snapshot?.remark ?? '',
+        biddingDeadline: tender.biddingDeadline,
+        taskDeadline: task?.taskDeadline || tender.taskDeadline,
+        remark: snapshot?.remark ?? tender.remark,
       } satisfies QuotedTender
     })
     .sort((left, right) => right.quotedAt.localeCompare(left.quotedAt))
 }
 
 function getActiveBiddingTenders(): BiddingTender[] {
-  return listTaskChainTenders()
-    .filter((tender) => tender.status === 'OPEN' || tender.status === 'OVERDUE')
+  return PDA_MOCK_BIDDING_TENDERS
     .filter((tender) => !state.submittedTenderIds.has(tender.tenderId))
     .map((tender) => {
-      const taskId = tender.taskIds[0] ?? ''
-      const task = taskId ? getTaskFactById(taskId) : null
-      const qtyUnit = task?.qtyUnit || '件'
-      const processName = task ? getTaskProcessDisplayName(task) : '-'
+      const task = tender.taskId ? getTaskFactById(tender.taskId) : null
+      const qtyUnit = task?.qtyUnit || tender.qtyUnit
+      const processName = task ? getTaskProcessDisplayName(task) : tender.processName
 
       return {
         tenderId: tender.tenderId,
-        taskId,
-        productionOrderId: task?.productionOrderId || tender.productionOrderIds[0] || '',
+        taskId: tender.taskId,
+        productionOrderId: task?.productionOrderId || tender.productionOrderId,
         processName,
-        qty: task?.qty ?? 0,
+        qty: task?.qty ?? tender.qty,
         qtyUnit,
-        factoryPoolCount: Math.max(tender.taskIds.length, 1),
-        biddingDeadline: tender.deadline,
-        taskDeadline: task?.taskDeadline || '',
-        standardPrice: task?.standardPrice ?? 0,
-        currency: task?.standardPriceCurrency || task?.dispatchPriceCurrency || 'CNY',
+        factoryPoolCount: tender.factoryPoolCount,
+        biddingDeadline: tender.biddingDeadline,
+        taskDeadline: task?.taskDeadline || tender.taskDeadline,
+        standardPrice: task?.standardPrice ?? tender.standardPrice,
+        currency: task?.standardPriceCurrency || task?.dispatchPriceCurrency || tender.currency,
       } satisfies BiddingTender
     })
     .sort((left, right) => left.biddingDeadline.localeCompare(right.biddingDeadline))

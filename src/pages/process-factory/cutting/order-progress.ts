@@ -25,6 +25,20 @@ import {
   riskMeta,
   urgencyMeta,
 } from './order-progress.helpers'
+import {
+  paginateItems,
+  renderCompactKpiCard,
+  renderStickyFilterShell,
+  renderStickyTableScroller,
+  renderWorkbenchActionCard,
+  renderWorkbenchCardLayer,
+  renderWorkbenchFilterChip,
+  renderWorkbenchPagination,
+  renderWorkbenchStateBar,
+} from './layout.helpers'
+
+type OrderProgressPriorityMode = 'PREP_FOCUS' | 'RISK_FOCUS'
+type OrderProgressKpiFilter = 'PENDING_AUDIT' | 'PARTIAL_CONFIG' | 'PENDING_RECEIVE' | 'RECEIVE_DONE' | 'REPLENISH_PENDING' | 'URGENT'
 
 const FIELD_TO_FILTER_KEY = {
   keyword: 'keyword',
@@ -38,22 +52,69 @@ const FIELD_TO_FILTER_KEY = {
 interface CuttingOrderProgressState {
   filters: CuttingOrderProgressFilters
   activeDetailId: string | null
+  activePriorityMode: OrderProgressPriorityMode | null
+  activeKpiFilter: OrderProgressKpiFilter | null
+  page: number
+  pageSize: number
+}
+
+const initialFilters: CuttingOrderProgressFilters = {
+  keyword: '',
+  urgencyLevel: 'ALL',
+  auditStatus: 'ALL',
+  configStatus: 'ALL',
+  receiveStatus: 'ALL',
+  riskFilter: 'ALL',
 }
 
 const state: CuttingOrderProgressState = {
-  filters: {
-    keyword: '',
-    urgencyLevel: 'ALL',
-    auditStatus: 'ALL',
-    configStatus: 'ALL',
-    receiveStatus: 'ALL',
-    riskFilter: 'ALL',
-  },
+  filters: { ...initialFilters },
   activeDetailId: null,
+  activePriorityMode: null,
+  activeKpiFilter: null,
+  page: 1,
+  pageSize: 20,
 }
 
-function getFilteredRecords() {
+function resetPagination(): void {
+  state.page = 1
+}
+
+function getBaseRecords() {
   return filterCuttingOrderProgressRecords(cuttingOrderProgressRecords, state.filters)
+}
+
+function applyPriorityMode(records: typeof cuttingOrderProgressRecords) {
+  if (state.activePriorityMode === 'PREP_FOCUS') {
+    return records.filter((record) => deriveConfigStatus(record.materialLines) !== 'CONFIGURED' || deriveReceiveStatus(record.materialLines) !== 'RECEIVED')
+  }
+  if (state.activePriorityMode === 'RISK_FOCUS') {
+    return records.filter((record) => record.riskFlags.length > 0)
+  }
+  return records
+}
+
+function applyKpiFilter(records: typeof cuttingOrderProgressRecords) {
+  switch (state.activeKpiFilter) {
+    case 'PENDING_AUDIT':
+      return records.filter((record) => deriveAuditStatus(record.materialLines) === 'PENDING')
+    case 'PARTIAL_CONFIG':
+      return records.filter((record) => deriveConfigStatus(record.materialLines) === 'PARTIAL')
+    case 'PENDING_RECEIVE':
+      return records.filter((record) => deriveReceiveStatus(record.materialLines) !== 'RECEIVED')
+    case 'RECEIVE_DONE':
+      return records.filter((record) => deriveReceiveStatus(record.materialLines) === 'RECEIVED')
+    case 'REPLENISH_PENDING':
+      return records.filter((record) => record.riskFlags.includes('REPLENISH_PENDING'))
+    case 'URGENT':
+      return records.filter((record) => record.urgencyLevel === 'AA' || record.urgencyLevel === 'A')
+    default:
+      return records
+  }
+}
+
+function getDisplayRecords() {
+  return applyKpiFilter(applyPriorityMode(getBaseRecords()))
 }
 
 function renderBadge(label: string, className: string): string {
@@ -61,15 +122,7 @@ function renderBadge(label: string, className: string): string {
 }
 
 function renderSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
-  return `
-    <article class="rounded-lg border bg-card p-4">
-      <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
-      <div class="mt-3 flex items-end justify-between gap-3">
-        <p class="text-3xl font-semibold tabular-nums ${accentClass}">${value}</p>
-        <p class="text-right text-xs text-muted-foreground">${escapeHtml(hint)}</p>
-      </div>
-    </article>
-  `
+  return renderCompactKpiCard(label, value, hint, accentClass)
 }
 
 function renderFilterSelect(
@@ -90,25 +143,148 @@ function renderFilterSelect(
   `
 }
 
+function getPriorityModeLabel(mode: OrderProgressPriorityMode | null): string | null {
+  if (mode === 'PREP_FOCUS') return '重点模式：待跟进生产单'
+  if (mode === 'RISK_FOCUS') return '重点模式：风险生产单'
+  return null
+}
+
+function getKpiFilterLabel(filter: OrderProgressKpiFilter | null): string | null {
+  if (filter === 'PENDING_AUDIT') return 'KPI：待审核生产单'
+  if (filter === 'PARTIAL_CONFIG') return 'KPI：部分配置生产单'
+  if (filter === 'PENDING_RECEIVE') return 'KPI：待领料生产单'
+  if (filter === 'RECEIVE_DONE') return 'KPI：领料成功生产单'
+  if (filter === 'REPLENISH_PENDING') return 'KPI：待补料生产单'
+  if (filter === 'URGENT') return 'KPI：AA / A 紧急生产单'
+  return null
+}
+
+function renderPriorityCardLayer(): string {
+  const baseRecords = getBaseRecords()
+  const prepCount = baseRecords.filter((record) => deriveConfigStatus(record.materialLines) !== 'CONFIGURED' || deriveReceiveStatus(record.materialLines) !== 'RECEIVED').length
+  const riskCount = baseRecords.filter((record) => record.riskFlags.length > 0).length
+
+  return renderWorkbenchCardLayer({
+    title: '高优先级重点入口',
+    hint: '先切到重点模式，再在主表里集中处理配料跟进和风险生产单。',
+    columnsClass: 'grid gap-3 md:grid-cols-2',
+    cardsHtml: [
+      renderWorkbenchActionCard({
+        title: '配料进展',
+        count: prepCount,
+        hint: '切到待跟进生产单模式，优先处理待配置和待领料记录。',
+        attrs: 'data-cutting-progress-action="toggle-priority-mode" data-priority-mode="PREP_FOCUS"',
+        active: state.activePriorityMode === 'PREP_FOCUS',
+      }),
+      renderWorkbenchActionCard({
+        title: '风险提示',
+        count: riskCount,
+        hint: '切到风险生产单模式，优先处理补料、交期和领料差异风险。',
+        attrs: 'data-cutting-progress-action="toggle-priority-mode" data-priority-mode="RISK_FOCUS"',
+        active: state.activePriorityMode === 'RISK_FOCUS',
+        accentClass: 'text-rose-600',
+      }),
+    ].join(''),
+  })
+}
+
+function renderKpiCardLayer(): string {
+  const summary = buildCuttingOrderProgressSummary(getBaseRecords())
+  return renderWorkbenchCardLayer({
+    title: 'KPI 快捷筛选',
+    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
+    cardsHtml: [
+      renderWorkbenchActionCard({
+        title: '待审核生产单数',
+        count: summary.pendingAuditCount,
+        hint: '优先处理上游审核缺口',
+        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PENDING_AUDIT"',
+        active: state.activeKpiFilter === 'PENDING_AUDIT',
+        accentClass: 'text-amber-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '部分配置生产单数',
+        count: summary.partialConfigCount,
+        hint: '需要继续补齐仓库配料',
+        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PARTIAL_CONFIG"',
+        active: state.activeKpiFilter === 'PARTIAL_CONFIG',
+        accentClass: 'text-orange-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '待领料生产单数',
+        count: summary.pendingReceiveCount,
+        hint: '含未领料和部分领料',
+        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PENDING_RECEIVE"',
+        active: state.activeKpiFilter === 'PENDING_RECEIVE',
+        accentClass: 'text-slate-700',
+      }),
+      renderWorkbenchActionCard({
+        title: '领料成功生产单数',
+        count: summary.receiveDoneCount,
+        hint: '可继续推进裁剪或入仓',
+        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="RECEIVE_DONE"',
+        active: state.activeKpiFilter === 'RECEIVE_DONE',
+        accentClass: 'text-emerald-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '待补料生产单数',
+        count: summary.replenishmentPendingCount,
+        hint: '待补料风险需尽快处理',
+        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="REPLENISH_PENDING"',
+        active: state.activeKpiFilter === 'REPLENISH_PENDING',
+        accentClass: 'text-fuchsia-600',
+      }),
+      renderWorkbenchActionCard({
+        title: 'AA / A 紧急生产单数',
+        count: summary.urgentCount,
+        hint: '优先关注临近发货订单',
+        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="URGENT"',
+        active: state.activeKpiFilter === 'URGENT',
+        accentClass: 'text-rose-600',
+      }),
+    ].join(''),
+  })
+}
+
+function renderActiveStateBar(): string {
+  const chips: string[] = []
+  const priorityLabel = getPriorityModeLabel(state.activePriorityMode)
+  const kpiLabel = getKpiFilterLabel(state.activeKpiFilter)
+  if (priorityLabel) {
+    chips.push(renderWorkbenchFilterChip(priorityLabel, 'data-cutting-progress-action="clear-priority-mode"', 'amber'))
+  }
+  if (kpiLabel) {
+    chips.push(renderWorkbenchFilterChip(kpiLabel, 'data-cutting-progress-action="clear-kpi-filter"', 'blue'))
+  }
+
+  return renderWorkbenchStateBar({
+    summary: '当前主表视图',
+    chips,
+    clearAttrs: 'data-cutting-progress-action="clear-view-state"',
+  })
+}
+
 function renderOrderProgressTable(): string {
-  const records = getFilteredRecords()
+  const records = getDisplayRecords()
   const emptyText =
     state.filters.riskFilter === 'RISK_ONLY'
       ? '当前筛选条件下暂无风险生产单。'
       : '当前筛选条件下暂无匹配的裁片生产单。'
+  const pagination = paginateItems(records, state.page, state.pageSize)
 
   return `
     <section class="rounded-lg border bg-card">
-      <div class="flex items-center justify-between border-b px-5 py-4">
+      <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <h2 class="text-base font-semibold">生产单列表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">按生产单聚合查看裁片配料、领料和现场回写情况。</p>
+          <h2 class="text-sm font-semibold">生产单主表</h2>
+          <p class="mt-1 text-xs text-muted-foreground">按生产单聚合查看配料、领料、当前阶段和风险。</p>
         </div>
-        <div class="text-sm text-muted-foreground">共 ${records.length} 条生产单</div>
+        <div class="text-xs text-muted-foreground">共 ${pagination.total} 条生产单</div>
       </div>
-      <div class="overflow-x-auto">
+      ${renderStickyTableScroller(`
         <table class="w-full min-w-[1260px] text-sm">
-          <thead class="border-b bg-muted/30 text-muted-foreground">
+          <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
             <tr>
               <th class="px-4 py-3 text-left font-medium">紧急程度</th>
               <th class="px-4 py-3 text-left font-medium">采购日期</th>
@@ -126,8 +302,8 @@ function renderOrderProgressTable(): string {
           </thead>
           <tbody>
             ${
-              records.length
-                ? records
+              pagination.items.length
+                ? pagination.items
                     .map((record) => {
                       const auditStatus = deriveAuditStatus(record.materialLines)
                       const configStatus = deriveConfigStatus(record.materialLines)
@@ -135,9 +311,9 @@ function renderOrderProgressTable(): string {
 
                       return `
                         <tr class="border-b last:border-b-0 hover:bg-muted/20">
-                          <td class="px-4 py-4 align-top">${renderBadge(urgencyMeta[record.urgencyLevel].label, urgencyMeta[record.urgencyLevel].className)}</td>
-                          <td class="px-4 py-4 align-top text-sm text-muted-foreground">${escapeHtml(record.purchaseDate)}</td>
-                          <td class="px-4 py-4 align-top">
+                          <td class="px-4 py-3 align-top">${renderBadge(urgencyMeta[record.urgencyLevel].label, urgencyMeta[record.urgencyLevel].className)}</td>
+                          <td class="px-4 py-3 align-top text-sm text-muted-foreground">${escapeHtml(record.purchaseDate)}</td>
+                          <td class="px-4 py-3 align-top">
                             <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${record.id}">
                               ${escapeHtml(record.productionOrderNo)}
                             </button>
@@ -146,25 +322,25 @@ function renderOrderProgressTable(): string {
                               <div>裁片厂：${escapeHtml(record.assignedFactoryName)}</div>
                             </div>
                           </td>
-                          <td class="px-4 py-4 align-top font-medium tabular-nums">${formatQty(record.orderQty)}</td>
-                          <td class="px-4 py-4 align-top">${escapeHtml(record.plannedShipDate)}</td>
-                          <td class="px-4 py-4 align-top">
+                          <td class="px-4 py-3 align-top font-medium tabular-nums">${formatQty(record.orderQty)}</td>
+                          <td class="px-4 py-3 align-top">${escapeHtml(record.plannedShipDate)}</td>
+                          <td class="px-4 py-3 align-top">
                             ${renderBadge(reviewMeta[auditStatus].label, reviewMeta[auditStatus].className)}
                             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildAuditSummaryText(record.materialLines))}</div>
                           </td>
-                          <td class="px-4 py-4 align-top">
+                          <td class="px-4 py-3 align-top">
                             ${renderBadge(configMeta[configStatus].label, configMeta[configStatus].className)}
                             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildConfigSummaryText(record.materialLines))}</div>
                           </td>
-                          <td class="px-4 py-4 align-top">
+                          <td class="px-4 py-3 align-top">
                             ${renderBadge(receiveMeta[receiveStatus].label, receiveMeta[receiveStatus].className)}
                             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildReceiveSummaryText(record.materialLines))}</div>
                           </td>
-                          <td class="px-4 py-4 align-top font-medium">${record.materialLines.length}</td>
-                          <td class="px-4 py-4 align-top">
+                          <td class="px-4 py-3 align-top font-medium">${record.materialLines.length}</td>
+                          <td class="px-4 py-3 align-top">
                             <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(record.cuttingStage)}</span>
                           </td>
-                          <td class="px-4 py-4 align-top">
+                          <td class="px-4 py-3 align-top">
                             <div class="flex flex-wrap gap-1">
                               ${
                                 record.riskFlags.length
@@ -181,11 +357,11 @@ function renderOrderProgressTable(): string {
                               }
                             </div>
                           </td>
-                          <td class="px-4 py-4 align-top">
-                            <div class="flex flex-col items-start gap-2 text-sm">
-                              <button class="text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${record.id}">查看详情</button>
-                              <button class="text-blue-600 hover:underline" data-cutting-progress-action="go-material-prep" data-record-id="${record.id}">去仓库配料</button>
-                              <button class="text-blue-600 hover:underline" data-cutting-progress-action="go-cut-piece-orders" data-record-id="${record.id}">去裁片单</button>
+                          <td class="px-4 py-3 align-top">
+                            <div class="flex flex-wrap gap-2 text-xs">
+                              <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="open-detail" data-record-id="${record.id}">查看详情</button>
+                              <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="go-material-prep" data-record-id="${record.id}">去仓库配料</button>
+                              <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="go-cut-piece-orders" data-record-id="${record.id}">去裁片单</button>
                             </div>
                           </td>
                         </tr>
@@ -196,19 +372,26 @@ function renderOrderProgressTable(): string {
             }
           </tbody>
         </table>
-      </div>
+      `)}
+      ${renderWorkbenchPagination({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        actionAttr: 'data-cutting-progress-action',
+        pageAction: 'set-page',
+        pageSizeAttr: 'data-cutting-progress-page-size',
+      })}
     </section>
   `
 }
 
 function renderPrepFocusSection(): string {
   const records = getPrepFocusRecords(getFilteredRecords())
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="text-base font-semibold">配料进展区</h2>
-        <p class="mt-1 text-sm text-muted-foreground">优先查看仍在配料、领料中的生产单，直接进入仓库配料页跟进。</p>
-      </div>
+  return renderWorkbenchSecondaryPanel({
+    title: '配料进展区',
+    hint: '优先查看仍在配料、领料中的生产单。',
+    countText: `${records.length} 条待跟进`,
+    body: `
       <div class="divide-y">
         ${
           records.length
@@ -217,7 +400,7 @@ function renderPrepFocusSection(): string {
                   const configStatus = deriveConfigStatus(record.materialLines)
                   const receiveStatus = deriveReceiveStatus(record.materialLines)
                   return `
-                    <div class="flex items-center justify-between gap-4 px-5 py-4">
+                    <div class="flex items-center justify-between gap-4 px-4 py-3">
                       <div class="min-w-0">
                         <div class="flex items-center gap-2">
                           <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${record.id}">${escapeHtml(record.productionOrderNo)}</button>
@@ -236,27 +419,26 @@ function renderPrepFocusSection(): string {
                   `
                 })
                 .join('')
-            : '<div class="px-5 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无需要跟进的配料生产单。</div>'
+            : '<div class="px-4 py-8 text-center text-sm text-muted-foreground">当前筛选范围内暂无需要跟进的配料生产单。</div>'
         }
       </div>
-    </section>
-  `
+    `,
+  })
 }
 
 function renderRiskSection(): string {
   const records = getTopRiskRecords(getFilteredRecords())
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="text-base font-semibold">风险提示区</h2>
-        <p class="mt-1 text-sm text-muted-foreground">按紧急程度优先展示当前需要运营跟进的裁片风险。</p>
-      </div>
+  return renderWorkbenchSecondaryPanel({
+    title: '风险提示区',
+    hint: '按紧急程度优先展示当前需要跟进的裁片风险。',
+    countText: `${records.length} 条风险`,
+    body: `
       <div class="divide-y">
         ${
           records.length
             ? records
                 .map((record) => `
-                  <div class="px-5 py-4">
+                  <div class="px-4 py-3">
                     <div class="flex items-center justify-between gap-4">
                       <div class="min-w-0">
                         <div class="flex items-center gap-2">
@@ -275,11 +457,11 @@ function renderRiskSection(): string {
                   </div>
                 `)
                 .join('')
-            : '<div class="px-5 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无风险生产单。</div>'
+            : '<div class="px-4 py-8 text-center text-sm text-muted-foreground">当前筛选范围内暂无风险生产单。</div>'
         }
       </div>
-    </section>
-  `
+    `,
+  })
 }
 
 function renderDetailDrawer(): string {
@@ -487,27 +669,20 @@ function renderDetailDrawer(): string {
 }
 
 export function renderCraftCuttingOrderProgressPage(): string {
-  const filteredRecords = getFilteredRecords()
-  const summary = buildCuttingOrderProgressSummary(filteredRecords)
-
   return `
-    <div class="space-y-6 p-6">
-      <div>
-        <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-2xl font-bold">订单进度</h1>
-        <p class="mt-2 max-w-3xl text-sm text-muted-foreground">以生产单维度查看裁片进度、配料和领料情况，快速发现紧急交期和现场执行风险。</p>
+    <div class="space-y-4 p-5">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
+          <h1 class="text-2xl font-bold">订单进度</h1>
+          <p class="mt-1 text-sm text-muted-foreground">以生产单维度快速定位配料、领料、当前阶段和风险。</p>
+        </div>
       </div>
 
-      <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        ${renderSummaryCard('待审核生产单数', summary.pendingAuditCount, '优先处理上游审核缺口', 'text-amber-600')}
-        ${renderSummaryCard('部分配置生产单数', summary.partialConfigCount, '需要继续补齐仓库配料', 'text-orange-600')}
-        ${renderSummaryCard('待领料生产单数', summary.pendingReceiveCount, '含未领料和部分领料', 'text-slate-700')}
-        ${renderSummaryCard('领料成功生产单数', summary.receiveDoneCount, '可继续推进裁剪或入仓', 'text-emerald-600')}
-        ${renderSummaryCard('待补料生产单数', summary.replenishmentPendingCount, '待补料风险需尽快处理', 'text-fuchsia-600')}
-        ${renderSummaryCard('AA / A 紧急生产单数', summary.urgentCount, '优先关注临近发货订单', 'text-rose-600')}
-      </section>
+      ${renderPriorityCardLayer()}
+      ${renderKpiCardLayer()}
 
-      <section class="rounded-lg border bg-card p-5">
+      ${renderStickyFilterShell(`
         <div class="grid gap-4 lg:grid-cols-6">
           <label class="space-y-2 lg:col-span-2">
             <span class="text-sm font-medium text-foreground">关键词</span>
@@ -551,17 +726,13 @@ export function renderCraftCuttingOrderProgressPage(): string {
             { value: 'ALL', label: '全部' },
             { value: 'RISK_ONLY', label: '仅看有风险' },
           ], state.filters.riskFilter)}
-          <div class="flex items-end text-sm text-muted-foreground">
-            当前列表会即时联动筛选结果，并同步更新顶部汇总卡片、配料进展区和风险提示区。
+          <div class="flex items-end text-xs text-muted-foreground">
+            公共筛选会影响顶部卡片计数与主表；重点模式和 KPI 快捷筛选会在此基础上继续收紧主表结果。
           </div>
         </div>
-      </section>
+      `)}
 
-      <section class="grid gap-4 xl:grid-cols-2">
-        ${renderPrepFocusSection()}
-        ${renderRiskSection()}
-      </section>
-
+      ${renderActiveStateBar()}
       ${renderOrderProgressTable()}
 
       ${renderDetailDrawer()}
@@ -570,6 +741,14 @@ export function renderCraftCuttingOrderProgressPage(): string {
 }
 
 export function handleCraftCuttingOrderProgressEvent(target: Element): boolean {
+  const pageSizeNode = target.closest<HTMLElement>('[data-cutting-progress-page-size]')
+  if (pageSizeNode) {
+    const input = pageSizeNode as HTMLSelectElement
+    state.pageSize = Number(input.value) || 20
+    state.page = 1
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-cutting-progress-field]')
   if (fieldNode) {
     const field = fieldNode.dataset.cuttingProgressField as keyof typeof FIELD_TO_FILTER_KEY | undefined
@@ -581,6 +760,7 @@ export function handleCraftCuttingOrderProgressEvent(target: Element): boolean {
       ...state.filters,
       [filterKey]: input.value,
     }
+    resetPagination()
     return true
   }
 
@@ -590,6 +770,47 @@ export function handleCraftCuttingOrderProgressEvent(target: Element): boolean {
 
   if (action === 'open-detail') {
     state.activeDetailId = actionNode?.dataset.recordId ?? null
+    return true
+  }
+
+  if (action === 'toggle-priority-mode') {
+    const mode = actionNode?.dataset.priorityMode as OrderProgressPriorityMode | undefined
+    if (!mode) return false
+    state.activePriorityMode = state.activePriorityMode === mode ? null : mode
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-priority-mode') {
+    state.activePriorityMode = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'toggle-kpi-filter') {
+    const filter = actionNode?.dataset.kpiFilter as OrderProgressKpiFilter | undefined
+    if (!filter) return false
+    state.activeKpiFilter = state.activeKpiFilter === filter ? null : filter
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-kpi-filter') {
+    state.activeKpiFilter = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-view-state') {
+    state.activePriorityMode = null
+    state.activeKpiFilter = null
+    state.filters = { ...initialFilters }
+    resetPagination()
+    return true
+  }
+
+  if (action === 'set-page') {
+    state.page = Number(actionNode?.dataset.page) || 1
     return true
   }
 

@@ -20,44 +20,68 @@ import {
   updatedSourceMeta,
   urgencyMeta,
 } from './cutting-summary.helpers'
+import {
+  paginateItems,
+  renderStickyFilterShell,
+  renderStickyTableScroller,
+  renderWorkbenchActionCard,
+  renderWorkbenchCardLayer,
+  renderWorkbenchFilterChip,
+  renderWorkbenchPagination,
+  renderWorkbenchStateBar,
+} from './layout.helpers'
 
 type OverlayType = 'detail' | 'issues'
+type CuttingSummaryPriorityMode = 'ISSUE_FOCUS'
+type CuttingSummaryKpiFilter =
+  | 'PENDING_CLOSURE'
+  | 'DONE_PENDING_REVIEW'
+  | 'CLOSED'
+  | 'HIGH_RISK'
+  | 'PENDING_REPLENISHMENT'
+  | 'PENDING_WAREHOUSE'
 
 interface CuttingSummaryState {
   records: CuttingSummaryRecord[]
   filters: CuttingSummaryFilters
+  activePriorityMode: CuttingSummaryPriorityMode | null
+  activeKpiFilter: CuttingSummaryKpiFilter | null
   activeOverlay: OverlayType | null
   activeRecordId: string | null
+  page: number
+  pageSize: number
+}
+
+const initialFilters: CuttingSummaryFilters = {
+  keyword: '',
+  urgencyLevel: 'ALL',
+  summaryStatus: 'ALL',
+  riskLevel: 'ALL',
+  issueSource: 'ALL',
+  pendingOnly: 'ALL',
 }
 
 const state: CuttingSummaryState = {
   records: cloneCuttingSummaryRecords(),
-  filters: {
-    keyword: '',
-    urgencyLevel: 'ALL',
-    summaryStatus: 'ALL',
-    riskLevel: 'ALL',
-    issueSource: 'ALL',
-    pendingOnly: 'ALL',
-  },
+  filters: { ...initialFilters },
+  activePriorityMode: null,
+  activeKpiFilter: null,
   activeOverlay: null,
   activeRecordId: null,
+  page: 1,
+  pageSize: 20,
 }
 
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function buildSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
-  return `
-    <article class="rounded-lg border bg-card p-4">
-      <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
-      <div class="mt-3 flex items-end justify-between gap-3">
-        <p class="text-3xl font-semibold tabular-nums ${accentClass}">${value}</p>
-        <p class="text-right text-xs text-muted-foreground">${escapeHtml(hint)}</p>
-      </div>
-    </article>
-  `
+function resetPagination(): void {
+  state.page = 1
+}
+
+function getBaseRecords(): CuttingSummaryRecord[] {
+  return filterCuttingSummaryRecords(state.records, state.filters)
 }
 
 function renderFilterSelect(
@@ -81,12 +105,45 @@ function renderFilterSelect(
   `
 }
 
-function getFilteredRecords(): CuttingSummaryRecord[] {
-  return filterCuttingSummaryRecords(state.records, state.filters)
+function applyPriorityMode(records: CuttingSummaryRecord[]): CuttingSummaryRecord[] {
+  if (state.activePriorityMode === 'ISSUE_FOCUS') return buildPriorityRecords(records)
+  return records
 }
 
-function getPriorityRecords(): CuttingSummaryRecord[] {
-  return buildPriorityRecords(getFilteredRecords())
+function applyKpiFilter(records: CuttingSummaryRecord[]): CuttingSummaryRecord[] {
+  if (state.activeKpiFilter === 'PENDING_CLOSURE') return records.filter((record) => record.overallSummaryStatus !== 'CLOSED')
+  if (state.activeKpiFilter === 'DONE_PENDING_REVIEW') return records.filter((record) => record.overallSummaryStatus === 'DONE_PENDING_REVIEW')
+  if (state.activeKpiFilter === 'CLOSED') return records.filter((record) => record.overallSummaryStatus === 'CLOSED')
+  if (state.activeKpiFilter === 'HIGH_RISK') return records.filter((record) => record.overallRiskLevel === 'HIGH')
+  if (state.activeKpiFilter === 'PENDING_REPLENISHMENT') return records.filter((record) => record.replenishmentSummary.pendingReviewCount > 0 || record.replenishmentSummary.needMoreInfoCount > 0)
+  if (state.activeKpiFilter === 'PENDING_WAREHOUSE') {
+    return records.filter(
+      (record) =>
+        record.warehouseSummary.cutPiecePendingInboundCount > 0 ||
+        record.warehouseSummary.waitingHandoverCount > 0 ||
+        record.sampleSummary.sampleWaitingReturnCount > 0,
+    )
+  }
+  return records
+}
+
+function getDisplayRecords(): CuttingSummaryRecord[] {
+  return applyKpiFilter(applyPriorityMode(getBaseRecords()))
+}
+
+function getPriorityModeLabel(mode: CuttingSummaryPriorityMode | null): string | null {
+  if (mode === 'ISSUE_FOCUS') return '重点模式：待收口问题生产单'
+  return null
+}
+
+function getKpiFilterLabel(filter: CuttingSummaryKpiFilter | null): string | null {
+  if (filter === 'PENDING_CLOSURE') return 'KPI：待收口生产单'
+  if (filter === 'DONE_PENDING_REVIEW') return 'KPI：已完成待核查生产单'
+  if (filter === 'CLOSED') return 'KPI：已收口生产单'
+  if (filter === 'HIGH_RISK') return 'KPI：高风险生产单'
+  if (filter === 'PENDING_REPLENISHMENT') return 'KPI：待补料处理生产单'
+  if (filter === 'PENDING_WAREHOUSE') return 'KPI：待入仓 / 待发后道生产单'
+  return null
 }
 
 function findRecord(recordId: string | null): CuttingSummaryRecord | null {
@@ -118,87 +175,89 @@ function renderPageHeader(): string {
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
         <h1 class="text-2xl font-bold">裁剪总结</h1>
-        <p class="mt-2 max-w-4xl text-sm text-muted-foreground">按生产单汇总裁片管理前序细数据，便于核查问题、收口风险并快速跳回对应页面处理。</p>
+        <p class="mt-1 text-sm text-muted-foreground">按生产单汇总裁片管理前序细数据，首屏优先查看生产单汇总表并快速回源处理。</p>
       </div>
     </header>
   `
 }
 
-function renderSummaryCards(): string {
-  const summary = buildSummaryOverview(getFilteredRecords())
-  return `
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-      ${buildSummaryCard('待收口生产单数', summary.pendingClosureCount, '仍处于前序收口过程', 'text-slate-900')}
-      ${buildSummaryCard('已完成待核查生产单数', summary.donePendingReviewCount, '执行完成但仍需运营复核', 'text-emerald-600')}
-      ${buildSummaryCard('已收口生产单数', summary.closedCount, '可作为完成样本参考', 'text-emerald-600')}
-      ${buildSummaryCard('高风险生产单数', summary.highRiskCount, '优先处理差异和补料未决项', 'text-rose-600')}
-      ${buildSummaryCard('待补料处理生产单数', summary.pendingReplenishmentCount, '先审核再决定是否生效', 'text-violet-600')}
-      ${buildSummaryCard('待入仓 / 待发后道生产单数', summary.pendingWarehouseCount, '重点关注仓务收口与交接', 'text-sky-600')}
-    </section>
-  `
+function renderPriorityCardLayer(): string {
+  const baseRecords = getBaseRecords()
+  return renderWorkbenchCardLayer({
+    title: '高优先级重点入口',
+    hint: '先切到待收口问题模式，再在生产单主表里集中核查关键问题和回源处理入口。',
+    columnsClass: 'grid gap-3 md:grid-cols-1',
+    cardsHtml: renderWorkbenchActionCard({
+      title: '重点问题',
+      count: buildPriorityRecords(baseRecords).length,
+      hint: '切到待收口问题生产单模式，优先处理领料差异、补料未决和仓务未收口问题。',
+      attrs: 'data-cutting-summary-action="toggle-priority-mode" data-priority-mode="ISSUE_FOCUS"',
+      active: state.activePriorityMode === 'ISSUE_FOCUS',
+      accentClass: 'text-rose-600',
+    }),
+  })
 }
 
-function renderPrioritySection(): string {
-  const records = getPriorityRecords()
-  return `
-    <section class="rounded-lg border bg-card p-5">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h2 class="text-base font-semibold text-foreground">待核查重点区</h2>
-          <p class="mt-1 text-sm text-muted-foreground">优先暴露高风险缺口、领料差异、待补料审核、未入仓和样衣超期未归还的生产单。</p>
-        </div>
-        <span class="text-sm text-muted-foreground">当前重点 ${records.length} 单</span>
-      </div>
-      <div class="mt-4 grid gap-4 xl:grid-cols-4">
-        ${
-          records.length === 0
-            ? `<div class="xl:col-span-4">${renderEmptyState(buildEmptyStateText(false, 'priority'))}</div>`
-            : records
-                .map(
-                  (record) => `
-                    <article class="rounded-lg border bg-muted/20 p-4">
-                      <div class="flex flex-wrap items-center gap-2">
-                        ${renderBadge(urgencyMeta[record.urgencyLevel].label, urgencyMeta[record.urgencyLevel].className)}
-                        ${renderBadge(riskLevelMeta[record.overallRiskLevel].label, riskLevelMeta[record.overallRiskLevel].className)}
-                        ${renderBadge(summaryStatusMeta[record.overallSummaryStatus].label, summaryStatusMeta[record.overallSummaryStatus].className)}
-                      </div>
-                      <button class="mt-3 text-left text-base font-semibold text-blue-600 hover:underline" data-cutting-summary-action="open-detail" data-record-id="${record.id}">
-                        ${escapeHtml(record.productionOrderNo)}
-                      </button>
-                      <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(record.platformStageSummary)}</p>
-                      <div class="mt-3 space-y-2">
-                        ${record.issues
-                          .slice(0, 2)
-                          .map(
-                            (issue) => `
-                              <div class="rounded-md border bg-background px-3 py-2">
-                                <div class="flex items-center justify-between gap-3">
-                                  <p class="text-sm font-medium text-foreground">${escapeHtml(issue.title)}</p>
-                                  ${renderBadge(riskLevelMeta[issue.level].label, riskLevelMeta[issue.level].className)}
-                                </div>
-                                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(issueSourceMeta[issue.sourcePage].label)}</p>
-                              </div>
-                            `,
-                          )
-                          .join('')}
-                      </div>
-                      <div class="mt-4 flex flex-wrap gap-2">
-                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="open-detail" data-record-id="${record.id}">查看总结详情</button>
-                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-route" data-route="${record.issues[0]?.suggestedRoute ?? '/fcs/craft/cutting/order-progress'}">去处理</button>
-                      </div>
-                    </article>
-                  `,
-                )
-                .join('')
-        }
-      </div>
-    </section>
-  `
+function renderSummaryCards(): string {
+  const summary = buildSummaryOverview(getBaseRecords())
+  return renderWorkbenchCardLayer({
+    title: 'KPI 快捷筛选',
+    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
+    cardsHtml: [
+      renderWorkbenchActionCard({
+        title: '待收口生产单数',
+        count: summary.pendingClosureCount,
+        hint: '仍处于前序收口过程',
+        attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_CLOSURE"',
+        active: state.activeKpiFilter === 'PENDING_CLOSURE',
+      }),
+      renderWorkbenchActionCard({
+        title: '已完成待核查生产单数',
+        count: summary.donePendingReviewCount,
+        hint: '执行完成但仍需运营复核',
+        attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="DONE_PENDING_REVIEW"',
+        active: state.activeKpiFilter === 'DONE_PENDING_REVIEW',
+        accentClass: 'text-emerald-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '已收口生产单数',
+        count: summary.closedCount,
+        hint: '可作为完成样本参考',
+        attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="CLOSED"',
+        active: state.activeKpiFilter === 'CLOSED',
+        accentClass: 'text-emerald-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '高风险生产单数',
+        count: summary.highRiskCount,
+        hint: '优先处理差异和补料未决项',
+        attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="HIGH_RISK"',
+        active: state.activeKpiFilter === 'HIGH_RISK',
+        accentClass: 'text-rose-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '待补料处理生产单数',
+        count: summary.pendingReplenishmentCount,
+        hint: '先审核再决定是否生效',
+        attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_REPLENISHMENT"',
+        active: state.activeKpiFilter === 'PENDING_REPLENISHMENT',
+        accentClass: 'text-violet-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '待入仓 / 待发后道生产单数',
+        count: summary.pendingWarehouseCount,
+        hint: '重点关注仓务收口与交接',
+        attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_WAREHOUSE"',
+        active: state.activeKpiFilter === 'PENDING_WAREHOUSE',
+        accentClass: 'text-sky-600',
+      }),
+    ].join(''),
+  })
 }
 
 function renderFilterSection(): string {
-  return `
-    <section class="rounded-lg border bg-card p-5">
+  return renderStickyFilterShell(`
       <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词搜索</span>
@@ -251,8 +310,7 @@ function renderFilterSection(): string {
           本页是生产单级收口页，只做汇总、核查和跳转，不新增新的业务操作流程。
         </div>
       </div>
-    </section>
-  `
+  `)
 }
 
 function renderEmptyState(text: string): string {
@@ -263,9 +321,29 @@ function renderEmptyState(text: string): string {
   `
 }
 
+function renderActiveStateBar(): string {
+  const chips: string[] = []
+  const priorityLabel = getPriorityModeLabel(state.activePriorityMode)
+  const kpiLabel = getKpiFilterLabel(state.activeKpiFilter)
+
+  if (priorityLabel) {
+    chips.push(renderWorkbenchFilterChip(priorityLabel, 'data-cutting-summary-action="clear-priority-mode"', 'amber'))
+  }
+  if (kpiLabel) {
+    chips.push(renderWorkbenchFilterChip(kpiLabel, 'data-cutting-summary-action="clear-kpi-filter"', 'blue'))
+  }
+
+  return renderWorkbenchStateBar({
+    summary: '当前主表视图',
+    chips,
+    clearAttrs: 'data-cutting-summary-action="clear-view-state"',
+  })
+}
+
 function renderMainTable(): string {
-  const records = getFilteredRecords()
-  const hasFilters = hasSummaryFilters(state.filters)
+  const records = getDisplayRecords()
+  const hasFilters = hasSummaryFilters(state.filters) || state.activePriorityMode !== null || state.activeKpiFilter !== null
+  const pagination = paginateItems(records, state.page, state.pageSize)
 
   if (records.length === 0) {
     return renderEmptyState(buildEmptyStateText(hasFilters, 'records'))
@@ -273,9 +351,18 @@ function renderMainTable(): string {
 
   return `
     <section class="overflow-hidden rounded-lg border bg-card">
-      <div class="overflow-x-auto">
+      <div class="border-b px-4 py-3">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-foreground">生产单汇总主表</h2>
+            <p class="mt-1 text-sm text-muted-foreground">首屏优先查看收口状态、风险和回源处理入口。</p>
+          </div>
+          <span class="text-sm text-muted-foreground">共 ${pagination.total} 条汇总</span>
+        </div>
+      </div>
+      ${renderStickyTableScroller(`
         <table class="min-w-full divide-y divide-border text-sm">
-          <thead class="bg-muted/30 text-left text-muted-foreground">
+          <thead class="sticky top-0 z-10 bg-muted/95 text-left text-muted-foreground backdrop-blur">
             <tr>
               <th class="px-4 py-3 font-medium">紧急程度</th>
               <th class="px-4 py-3 font-medium">生产单号</th>
@@ -292,7 +379,7 @@ function renderMainTable(): string {
             </tr>
           </thead>
           <tbody class="divide-y divide-border">
-            ${records
+            ${pagination.items
               .map((record) => {
                 const pickupSummary = buildCuttingSummaryPickupView(record.productionOrderNo)
                 return `
@@ -346,7 +433,15 @@ function renderMainTable(): string {
               .join('')}
           </tbody>
         </table>
-      </div>
+      `, 'max-h-[58vh]')}
+      ${renderWorkbenchPagination({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        actionAttr: 'data-cutting-summary-action',
+        pageAction: 'set-page',
+        pageSizeAttr: 'data-cutting-summary-page-size',
+      })}
     </section>
   `
 }
@@ -624,11 +719,12 @@ function renderIssuesDrawer(): string {
 
 export function renderCraftCuttingSummaryPage(): string {
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-4 p-5">
       ${renderPageHeader()}
+      ${renderPriorityCardLayer()}
       ${renderSummaryCards()}
-      ${renderPrioritySection()}
       ${renderFilterSection()}
+      ${renderActiveStateBar()}
       ${renderMainTable()}
       ${renderDetailDrawer()}
       ${renderIssuesDrawer()}
@@ -637,6 +733,16 @@ export function renderCraftCuttingSummaryPage(): string {
 }
 
 export function handleCraftCuttingSummaryEvent(target: Element): boolean {
+  const pageSizeNode = target.closest<HTMLElement>('[data-cutting-summary-page-size]')
+  if (pageSizeNode) {
+    const select = pageSizeNode as HTMLSelectElement
+    const nextPageSize = Number(select.value)
+    if (!Number.isFinite(nextPageSize)) return false
+    state.page = 1
+    state.pageSize = nextPageSize
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-cutting-summary-field]')
   if (fieldNode) {
     const field = fieldNode.dataset.cuttingSummaryField as keyof CuttingSummaryFilters | undefined
@@ -646,6 +752,7 @@ export function handleCraftCuttingSummaryEvent(target: Element): boolean {
       ...state.filters,
       [field]: input.value,
     }
+    resetPagination()
     return true
   }
 
@@ -668,6 +775,48 @@ export function handleCraftCuttingSummaryEvent(target: Element): boolean {
 
   if (action === 'close-overlay') {
     closeOverlay()
+    return true
+  }
+
+  if (action === 'toggle-priority-mode') {
+    const mode = actionNode?.dataset.priorityMode as CuttingSummaryPriorityMode | undefined
+    if (!mode) return false
+    state.activePriorityMode = state.activePriorityMode === mode ? null : mode
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-priority-mode') {
+    state.activePriorityMode = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'toggle-kpi-filter') {
+    const filter = actionNode?.dataset.kpiFilter as CuttingSummaryKpiFilter | undefined
+    if (!filter) return false
+    state.activeKpiFilter = state.activeKpiFilter === filter ? null : filter
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-kpi-filter') {
+    state.activeKpiFilter = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-view-state') {
+    state.activePriorityMode = null
+    state.activeKpiFilter = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'set-page') {
+    const page = Number(actionNode?.dataset.page)
+    if (!Number.isFinite(page)) return false
+    state.page = page
     return true
   }
 

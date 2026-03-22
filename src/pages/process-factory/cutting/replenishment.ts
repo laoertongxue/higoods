@@ -25,18 +25,45 @@ import {
   riskTagMeta,
   sourceTypeMeta,
 } from './replenishment.helpers'
+import {
+  paginateItems,
+  renderCompactKpiCard,
+  renderStickyFilterShell,
+  renderStickyTableScroller,
+  renderWorkbenchActionCard,
+  renderWorkbenchCardLayer,
+  renderWorkbenchFilterChip,
+  renderWorkbenchPagination,
+  renderWorkbenchSecondaryPanel,
+  renderWorkbenchStateBar,
+} from './layout.helpers'
 
 type OverlayType = 'detail' | 'review' | 'impact'
+type ReplenishmentPriorityMode = 'PRIORITY_REVIEW'
+type ReplenishmentKpiFilter = 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIGH_RISK' | 'RECONFIG_REQUIRED' | 'AFFECTED_CRAFT'
 
 interface ReplenishmentState {
   records: ReplenishmentSuggestionRecord[]
   filters: ReplenishmentFilters
   activeOverlay: OverlayType | null
   activeRecordId: string | null
+  activePriorityMode: ReplenishmentPriorityMode | null
+  activeKpiFilter: ReplenishmentKpiFilter | null
+  page: number
+  pageSize: number
   reviewDraft: {
     result: ReplenishmentReviewStatus
     comment: string
   }
+}
+
+const initialFilters: ReplenishmentFilters = {
+  keyword: '',
+  materialType: 'ALL',
+  reviewStatus: 'ALL',
+  riskLevel: 'ALL',
+  impactFilter: 'ALL',
+  sourceType: 'ALL',
 }
 
 const FIELD_TO_FILTER_KEY = {
@@ -50,16 +77,13 @@ const FIELD_TO_FILTER_KEY = {
 
 const state: ReplenishmentState = {
   records: cloneReplenishmentSuggestionRecords(),
-  filters: {
-    keyword: '',
-    materialType: 'ALL',
-    reviewStatus: 'ALL',
-    riskLevel: 'ALL',
-    impactFilter: 'ALL',
-    sourceType: 'ALL',
-  },
+  filters: { ...initialFilters },
   activeOverlay: null,
   activeRecordId: null,
+  activePriorityMode: null,
+  activeKpiFilter: null,
+  page: 1,
+  pageSize: 20,
   reviewDraft: {
     result: 'APPROVED',
     comment: '',
@@ -68,6 +92,40 @@ const state: ReplenishmentState = {
 
 function getFilteredRecords(): ReplenishmentSuggestionRecord[] {
   return filterReplenishmentRecords(state.records, state.filters)
+}
+
+function resetPagination(): void {
+  state.page = 1
+}
+
+function applyPriorityMode(records: ReplenishmentSuggestionRecord[]): ReplenishmentSuggestionRecord[] {
+  if (state.activePriorityMode === 'PRIORITY_REVIEW') {
+    return buildPriorityRecords(records)
+  }
+  return records
+}
+
+function applyKpiFilter(records: ReplenishmentSuggestionRecord[]): ReplenishmentSuggestionRecord[] {
+  switch (state.activeKpiFilter) {
+    case 'PENDING':
+      return records.filter((record) => record.reviewStatus === 'PENDING')
+    case 'APPROVED':
+      return records.filter((record) => record.reviewStatus === 'APPROVED')
+    case 'REJECTED':
+      return records.filter((record) => record.reviewStatus === 'REJECTED')
+    case 'HIGH_RISK':
+      return records.filter((record) => record.riskLevel === 'HIGH')
+    case 'RECONFIG_REQUIRED':
+      return records.filter((record) => record.impactFlags.includes('RECONFIG_REQUIRED'))
+    case 'AFFECTED_CRAFT':
+      return records.filter((record) => record.impactFlags.includes('PRINTING_AFFECTED') || record.impactFlags.includes('DYEING_AFFECTED'))
+    default:
+      return records
+  }
+}
+
+function getDisplayRecords(): ReplenishmentSuggestionRecord[] {
+  return applyKpiFilter(applyPriorityMode(getFilteredRecords()))
 }
 
 function findRecord(recordId: string | null): ReplenishmentSuggestionRecord | null {
@@ -84,15 +142,7 @@ function renderBadge(label: string, className: string): string {
 }
 
 function buildSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
-  return `
-    <article class="rounded-lg border bg-card p-4">
-      <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
-      <div class="mt-3 flex items-end justify-between gap-3">
-        <p class="text-3xl font-semibold tabular-nums ${accentClass}">${value}</p>
-        <p class="text-right text-xs text-muted-foreground">${escapeHtml(hint)}</p>
-      </div>
-    </article>
-  `
+  return renderCompactKpiCard(label, value, hint, accentClass)
 }
 
 function renderFilterSelect(
@@ -115,11 +165,11 @@ function renderFilterSelect(
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
         <h1 class="text-2xl font-bold">补料管理</h1>
-        <p class="mt-2 max-w-4xl text-sm text-muted-foreground">基于唛架与铺布数据生成补料建议，并经审核后生效，页面重点展示建议依据、审核结论和反向联动影响。</p>
+        <p class="mt-1 text-sm text-muted-foreground">基于唛架与铺布数据生成补料建议，首屏优先处理补料主表与审核动作。</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单</button>
@@ -129,23 +179,116 @@ function renderPageHeader(): string {
   `
 }
 
+function getPriorityModeLabel(mode: ReplenishmentPriorityMode | null): string | null {
+  if (mode === 'PRIORITY_REVIEW') return '重点模式：优先处理补料建议'
+  return null
+}
+
+function getKpiFilterLabel(filter: ReplenishmentKpiFilter | null): string | null {
+  if (filter === 'PENDING') return 'KPI：待审核补料建议'
+  if (filter === 'APPROVED') return 'KPI：已通过补料建议'
+  if (filter === 'REJECTED') return 'KPI：已驳回补料建议'
+  if (filter === 'HIGH_RISK') return 'KPI：高风险缺口建议'
+  if (filter === 'RECONFIG_REQUIRED') return 'KPI：需重新配料建议'
+  if (filter === 'AFFECTED_CRAFT') return 'KPI：影响印花 / 染色建议'
+  return null
+}
+
+function renderPriorityCardLayer(records: ReplenishmentSuggestionRecord[]): string {
+  return renderWorkbenchCardLayer({
+    title: '高优先级重点入口',
+    hint: '先切到优先处理模式，再在补料主表里集中审核高风险、待审核和待补充说明记录。',
+    columnsClass: 'grid gap-3',
+    cardsHtml: renderWorkbenchActionCard({
+      title: '待审核优先区',
+      count: buildPriorityRecords(records).length,
+      hint: '切到优先处理补料建议模式。',
+      attrs: 'data-cutting-replenish-action="toggle-priority-mode" data-priority-mode="PRIORITY_REVIEW"',
+      active: state.activePriorityMode === 'PRIORITY_REVIEW',
+      accentClass: 'text-rose-600',
+    }),
+  })
+}
+
 function renderSummaryCards(): string {
   const summary = buildReplenishmentSummary(getFilteredRecords())
-  return `
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-      ${buildSummaryCard('待审核补料建议数', summary.pendingCount, '系统建议尚未生效', 'text-amber-600')}
-      ${buildSummaryCard('已通过补料建议数', summary.approvedCount, '审核通过后作为后续动作依据', 'text-emerald-600')}
-      ${buildSummaryCard('已驳回补料建议数', summary.rejectedCount, '保留审核痕迹，不再生效', 'text-slate-900')}
-      ${buildSummaryCard('高风险缺口建议数', summary.highRiskCount, '优先处理长度或数量缺口', 'text-rose-600')}
-      ${buildSummaryCard('需重新配料建议数', summary.reconfigCount, '后续回仓库配料重新处理', 'text-blue-600')}
-      ${buildSummaryCard('可能影响印花 / 染色的建议数', summary.affectedCraftCount, '需提醒后续工艺侧关注', 'text-violet-600')}
-    </section>
-  `
+  return renderWorkbenchCardLayer({
+    title: 'KPI 快捷筛选',
+    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    columnsClass: 'grid gap-3 md:grid-cols-2 xl:grid-cols-6',
+    cardsHtml: [
+      renderWorkbenchActionCard({
+        title: '待审核补料建议数',
+        count: summary.pendingCount,
+        hint: '系统建议尚未生效',
+        attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="PENDING"',
+        active: state.activeKpiFilter === 'PENDING',
+        accentClass: 'text-amber-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '已通过补料建议数',
+        count: summary.approvedCount,
+        hint: '审核通过后作为后续动作依据',
+        attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="APPROVED"',
+        active: state.activeKpiFilter === 'APPROVED',
+        accentClass: 'text-emerald-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '已驳回补料建议数',
+        count: summary.rejectedCount,
+        hint: '保留审核痕迹，不再生效',
+        attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="REJECTED"',
+        active: state.activeKpiFilter === 'REJECTED',
+        accentClass: 'text-slate-900',
+      }),
+      renderWorkbenchActionCard({
+        title: '高风险缺口建议数',
+        count: summary.highRiskCount,
+        hint: '优先处理长度或数量缺口',
+        attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="HIGH_RISK"',
+        active: state.activeKpiFilter === 'HIGH_RISK',
+        accentClass: 'text-rose-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '需重新配料建议数',
+        count: summary.reconfigCount,
+        hint: '后续回仓库配料重新处理',
+        attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="RECONFIG_REQUIRED"',
+        active: state.activeKpiFilter === 'RECONFIG_REQUIRED',
+        accentClass: 'text-blue-600',
+      }),
+      renderWorkbenchActionCard({
+        title: '可能影响印花 / 染色的建议数',
+        count: summary.affectedCraftCount,
+        hint: '需提醒后续工艺侧关注',
+        attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="AFFECTED_CRAFT"',
+        active: state.activeKpiFilter === 'AFFECTED_CRAFT',
+        accentClass: 'text-violet-600',
+      }),
+    ].join(''),
+  })
+}
+
+function renderActiveStateBar(): string {
+  const chips: string[] = []
+  const priorityLabel = getPriorityModeLabel(state.activePriorityMode)
+  const kpiLabel = getKpiFilterLabel(state.activeKpiFilter)
+  if (priorityLabel) {
+    chips.push(renderWorkbenchFilterChip(priorityLabel, 'data-cutting-replenish-action="clear-priority-mode"', 'amber'))
+  }
+  if (kpiLabel) {
+    chips.push(renderWorkbenchFilterChip(kpiLabel, 'data-cutting-replenish-action="clear-kpi-filter"', 'blue'))
+  }
+
+  return renderWorkbenchStateBar({
+    summary: '当前主表视图',
+    chips,
+    clearAttrs: 'data-cutting-replenish-action="clear-view-state"',
+  })
 }
 
 function renderFilterSection(): string {
-  return `
-    <section class="rounded-lg border bg-card p-5">
+  return renderStickyFilterShell(`
       <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词搜索</span>
@@ -193,27 +336,25 @@ function renderFilterSection(): string {
           { value: 'EXECUTION_RISK', label: '执行风险' },
         ])}
         <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          当前仅展示“建议 + 审核 + 影响说明”。是否需要独立补料配置流程暂未冻结，本页只提供返回仓库配料页处理的入口。
+          当前仅展示“建议 + 审核 + 影响说明”，首屏主表优先，优先处理信息压缩到后方。
         </div>
       </div>
-    </section>
-  `
+  `)
 }
 
 function renderPrioritySection(records: ReplenishmentSuggestionRecord[]): string {
   const priorityRecords = buildPriorityRecords(records)
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="text-base font-semibold">待审核优先区</h2>
-        <p class="mt-1 text-sm text-muted-foreground">优先处理高风险、待审核和待补充说明的补料建议，避免影响后续配料和工艺排产。</p>
-      </div>
+  return renderWorkbenchSecondaryPanel({
+    title: '优先处理条',
+    hint: '优先处理高风险、待审核和待补充说明的补料建议。',
+    countText: `${priorityRecords.length} 条优先`,
+    body: `
       <div class="divide-y">
         ${
           priorityRecords.length
             ? priorityRecords
                 .map((record) => `
-                  <div class="flex items-center justify-between gap-4 px-5 py-4">
+                  <div class="flex items-center justify-between gap-4 px-4 py-3">
                     <div class="min-w-0">
                       <div class="flex flex-wrap items-center gap-2">
                         <button class="font-medium text-blue-600 hover:underline" data-cutting-replenish-action="open-detail" data-record-id="${record.id}">${escapeHtml(record.replenishmentNo)}</button>
@@ -229,16 +370,17 @@ function renderPrioritySection(records: ReplenishmentSuggestionRecord[]): string
                   </div>
                 `)
                 .join('')
-            : '<div class="px-5 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无重点补料建议。</div>'
+            : '<div class="px-4 py-8 text-center text-sm text-muted-foreground">当前筛选范围内暂无重点补料建议。</div>'
         }
       </div>
-    </section>
-  `
+    `,
+  })
 }
 
 function renderMainTable(): string {
-  const records = getFilteredRecords()
-  if (!records.length) {
+  const records = getDisplayRecords()
+  const pagination = paginateItems(records, state.page, state.pageSize)
+  if (!pagination.total) {
     return `
       <section class="rounded-lg border bg-card px-6 py-16 text-center">
         <h2 class="text-base font-semibold text-foreground">暂无匹配的补料建议</h2>
@@ -249,16 +391,17 @@ function renderMainTable(): string {
 
   return `
     <section class="rounded-lg border bg-card">
-      <div class="flex items-center justify-between border-b px-5 py-4">
+      <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <h2 class="text-base font-semibold">补料建议列表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">以补料建议为核心对象，明确系统建议、审核结果和反向联动影响。</p>
+          <h2 class="text-base font-semibold">补料建议主表</h2>
+          <p class="mt-1 text-sm text-muted-foreground">主表优先查看风险、缺口、审核状态和影响摘要。</p>
         </div>
-        <div class="text-sm text-muted-foreground">共 ${records.length} 条补料建议</div>
+        <div class="text-sm text-muted-foreground">共 ${pagination.total} 条补料建议</div>
       </div>
-      <div class="overflow-x-auto">
+      ${renderStickyTableScroller(
+        `
         <table class="w-full min-w-[1320px] text-sm">
-          <thead class="border-b bg-muted/30 text-muted-foreground">
+          <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
             <tr>
               <th class="px-4 py-3 text-left font-medium">补料单号</th>
               <th class="px-4 py-3 text-left font-medium">裁片单号</th>
@@ -273,38 +416,38 @@ function renderMainTable(): string {
             </tr>
           </thead>
           <tbody>
-            ${records
+            ${pagination.items
               .map((record) => `
                 <tr class="border-b last:border-b-0 hover:bg-muted/20">
-                  <td class="px-4 py-4 align-top">
+                  <td class="px-4 py-3 align-top">
                     <button class="font-medium text-blue-600 hover:underline" data-cutting-replenish-action="open-detail" data-record-id="${record.id}">
                       ${escapeHtml(record.replenishmentNo)}
                     </button>
                     <div class="mt-1 text-xs text-muted-foreground">生成于 ${escapeHtml(formatDateTime(record.suggestionCreatedAt))}</div>
                   </td>
-                  <td class="px-4 py-4 align-top">
+                  <td class="px-4 py-3 align-top">
                     <div class="font-medium text-foreground">${escapeHtml(record.cutPieceOrderNo)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.productionOrderNo)}</div>
                   </td>
-                  <td class="px-4 py-4 align-top">${escapeHtml(record.productionOrderNo)}</td>
-                  <td class="px-4 py-4 align-top">
+                  <td class="px-4 py-3 align-top">${escapeHtml(record.productionOrderNo)}</td>
+                  <td class="px-4 py-3 align-top">
                     <div class="font-medium text-foreground">${escapeHtml(record.materialSku)}</div>
                     <div class="mt-1">${renderBadge(materialTypeMeta[record.materialType].label, materialTypeMeta[record.materialType].className)}</div>
                   </td>
-                  <td class="px-4 py-4 align-top">${renderBadge(riskLevelMeta[record.riskLevel].label, riskLevelMeta[record.riskLevel].className)}</td>
-                  <td class="px-4 py-4 align-top">
+                  <td class="px-4 py-3 align-top">${renderBadge(riskLevelMeta[record.riskLevel].label, riskLevelMeta[record.riskLevel].className)}</td>
+                  <td class="px-4 py-3 align-top">
                     <div class="font-medium text-foreground">${formatQty(record.gapQty)} 件</div>
                     <div class="mt-1 text-xs text-muted-foreground">理论 ${formatQty(record.theoreticalYieldQty)} / 预计 ${formatQty(record.predictedActualQty)}</div>
                   </td>
-                  <td class="px-4 py-4 align-top">
+                  <td class="px-4 py-3 align-top">
                     <div class="font-medium text-foreground">${formatQty(record.suggestedReplenishRollCount)} 卷 / ${formatLength(record.suggestedReplenishLength)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(reasonTypeMeta[record.shortageReasonType])}</div>
                   </td>
-                  <td class="px-4 py-4 align-top">
+                  <td class="px-4 py-3 align-top">
                     ${renderBadge(reviewStatusMeta[record.reviewStatus].label, reviewStatusMeta[record.reviewStatus].className)}
                     <div class="mt-1 text-xs text-muted-foreground">${record.reviewerName ? `${escapeHtml(record.reviewerName)} · ${escapeHtml(formatDateTime(record.reviewedAt))}` : '尚未审核'}</div>
                   </td>
-                  <td class="px-4 py-4 align-top">
+                  <td class="px-4 py-3 align-top">
                     <div class="flex flex-wrap gap-1">
                       ${
                         record.impactFlags.length
@@ -314,13 +457,13 @@ function renderMainTable(): string {
                     </div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildImpactSummary(record))}</div>
                   </td>
-                  <td class="px-4 py-4 align-top">
-                    <div class="flex flex-col items-start gap-2 text-sm">
-                      <button class="text-blue-600 hover:underline" data-cutting-replenish-action="open-detail" data-record-id="${record.id}">查看依据</button>
-                      <button class="text-blue-600 hover:underline" data-cutting-replenish-action="open-review" data-record-id="${record.id}">审核处理</button>
-                      <button class="text-blue-600 hover:underline" data-cutting-replenish-action="open-impact" data-record-id="${record.id}">查看影响</button>
-                      <button class="text-blue-600 hover:underline" data-cutting-replenish-action="go-cut-piece-orders">去裁片单</button>
-                      <button class="text-blue-600 hover:underline" data-cutting-replenish-action="go-material-prep">去仓库配料</button>
+                  <td class="px-4 py-3 align-top">
+                    <div class="flex flex-wrap gap-2 text-xs">
+                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="open-detail" data-record-id="${record.id}">查看依据</button>
+                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="open-review" data-record-id="${record.id}">审核处理</button>
+                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="open-impact" data-record-id="${record.id}">查看影响</button>
+                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单</button>
+                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料</button>
                     </div>
                   </td>
                 </tr>
@@ -328,7 +471,17 @@ function renderMainTable(): string {
               .join('')}
           </tbody>
         </table>
-      </div>
+      `,
+        'max-h-[58vh]',
+      )}
+      ${renderWorkbenchPagination({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        actionAttr: 'data-cutting-replenish-action',
+        pageAction: 'set-page',
+        pageSizeAttr: 'data-cutting-replenish-page-size',
+      })}
     </section>
   `
 }
@@ -605,11 +758,12 @@ function saveReview(): boolean {
 export function renderCraftCuttingReplenishmentPage(): string {
   const records = getFilteredRecords()
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-4 p-5">
       ${renderPageHeader()}
+      ${renderPriorityCardLayer(records)}
       ${renderSummaryCards()}
       ${renderFilterSection()}
-      ${renderPrioritySection(records)}
+      ${renderActiveStateBar()}
       ${renderMainTable()}
       ${renderDetailDrawer()}
       ${renderReviewDrawer()}
@@ -619,6 +773,14 @@ export function renderCraftCuttingReplenishmentPage(): string {
 }
 
 export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
+  const pageSizeNode = target.closest<HTMLElement>('[data-cutting-replenish-page-size]')
+  if (pageSizeNode) {
+    const input = pageSizeNode as HTMLSelectElement
+    state.pageSize = Number(input.value) || 20
+    state.page = 1
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-cutting-replenish-field]')
   if (fieldNode) {
     const field = fieldNode.dataset.cuttingReplenishField as keyof typeof FIELD_TO_FILTER_KEY | undefined
@@ -629,6 +791,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
       ...state.filters,
       [filterKey]: input.value,
     }
+    resetPagination()
     return true
   }
 
@@ -650,6 +813,47 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
   if (!action) return false
 
   const recordId = actionNode?.dataset.recordId ?? state.activeRecordId ?? ''
+
+  if (action === 'toggle-priority-mode') {
+    const mode = actionNode?.dataset.priorityMode as ReplenishmentPriorityMode | undefined
+    if (!mode) return false
+    state.activePriorityMode = state.activePriorityMode === mode ? null : mode
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-priority-mode') {
+    state.activePriorityMode = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'toggle-kpi-filter') {
+    const filter = actionNode?.dataset.kpiFilter as ReplenishmentKpiFilter | undefined
+    if (!filter) return false
+    state.activeKpiFilter = state.activeKpiFilter === filter ? null : filter
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-kpi-filter') {
+    state.activeKpiFilter = null
+    resetPagination()
+    return true
+  }
+
+  if (action === 'clear-view-state') {
+    state.activePriorityMode = null
+    state.activeKpiFilter = null
+    state.filters = { ...initialFilters }
+    resetPagination()
+    return true
+  }
+
+  if (action === 'set-page') {
+    state.page = Number(actionNode?.dataset.page) || 1
+    return true
+  }
 
   if (action === 'go-cut-piece-orders') {
     appStore.navigate('/fcs/craft/cutting/cut-piece-orders')
