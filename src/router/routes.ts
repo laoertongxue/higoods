@@ -114,6 +114,12 @@ import { renderPdaExecDetailPage } from '../pages/pda-exec-detail'
 import { renderPdaHandoverPage } from '../pages/pda-handover'
 import { renderPdaHandoverDetailPage } from '../pages/pda-handover-detail'
 import { renderPdaSettlementPage } from '../pages/pda-settlement'
+import { renderPdaCuttingTaskDetailPage } from '../pages/pda-cutting-task-detail'
+import { renderPdaCuttingPickupPage } from '../pages/pda-cutting-pickup'
+import { renderPdaCuttingSpreadingPage } from '../pages/pda-cutting-spreading'
+import { renderPdaCuttingInboundPage } from '../pages/pda-cutting-inbound'
+import { renderPdaCuttingHandoverPage } from '../pages/pda-cutting-handover'
+import { renderPdaCuttingReplenishmentFeedbackPage } from '../pages/pda-cutting-replenishment-feedback'
 import {
   renderCraftWorkbenchOverviewPage,
   renderCraftCuttingOrderProgressPage,
@@ -352,6 +358,30 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/fcs\/pda\/exec\/([^/]+)$/,
     render: (match) => renderPdaExecDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/cutting\/task\/([^/]+)$/,
+    render: (match) => renderPdaCuttingTaskDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/cutting\/pickup\/([^/]+)$/,
+    render: (match) => renderPdaCuttingPickupPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/cutting\/spreading\/([^/]+)$/,
+    render: (match) => renderPdaCuttingSpreadingPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/cutting\/inbound\/([^/]+)$/,
+    render: (match) => renderPdaCuttingInboundPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/cutting\/handover\/([^/]+)$/,
+    render: (match) => renderPdaCuttingHandoverPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/cutting\/replenishment-feedback\/([^/]+)$/,
+    render: (match) => renderPdaCuttingReplenishmentFeedbackPage(match[1]),
   },
   {
     pattern: /^\/fcs\/pda\/task-receive\/([^/]+)$/,

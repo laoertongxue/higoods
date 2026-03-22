@@ -6,12 +6,16 @@ import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
-  getTaskChainTaskById,
-  listTaskChainTasks,
   listTaskChainTenders,
   resolveTaskChainTenderId,
   type TaskChainTenderStatus,
 } from '../data/fcs/page-adapters/task-chain-pages-adapter'
+import {
+  getPdaTaskFlowTaskById,
+  listPdaTaskFlowTasks,
+  resolvePdaTaskDetailPath,
+  resolvePdaTaskExecPath,
+} from '../data/fcs/pda-cutting-special'
 import { renderPdaFrame } from './pda-shell'
 
 type TabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
@@ -119,11 +123,11 @@ const state: TaskReceiveState = {
 const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>()
 
 function listTaskFacts(): ProcessTask[] {
-  return listTaskChainTasks()
+  return listPdaTaskFlowTasks()
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getTaskChainTaskById(taskId) ?? null
+  return getPdaTaskFlowTaskById(taskId) ?? null
 }
 
 function getTaskDisplayNo(task: ProcessTask | null): string {
@@ -1023,7 +1027,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
   if (action === 'open-detail') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(`/fcs/pda/task-receive/${taskId}`)
+      appStore.navigate(resolvePdaTaskDetailPath(taskId))
     }
     return true
   }
@@ -1031,7 +1035,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
   if (action === 'open-exec') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(`/fcs/pda/exec/${taskId}`)
+      appStore.navigate(resolvePdaTaskExecPath(taskId))
     }
     return true
   }

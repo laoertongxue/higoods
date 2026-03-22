@@ -8,6 +8,12 @@ import { handlePdaExecDetailEvent } from '../pages/pda-exec-detail'
 import { handlePdaHandoverEvent } from '../pages/pda-handover'
 import { handlePdaHandoverDetailEvent } from '../pages/pda-handover-detail'
 import { handlePdaSettlementEvent } from '../pages/pda-settlement'
+import { handlePdaCuttingTaskDetailEvent } from '../pages/pda-cutting-task-detail'
+import { handlePdaCuttingPickupEvent } from '../pages/pda-cutting-pickup'
+import { handlePdaCuttingSpreadingEvent } from '../pages/pda-cutting-spreading'
+import { handlePdaCuttingInboundEvent } from '../pages/pda-cutting-inbound'
+import { handlePdaCuttingHandoverEvent } from '../pages/pda-cutting-handover'
+import { handlePdaCuttingReplenishmentFeedbackEvent } from '../pages/pda-cutting-replenishment-feedback'
 
 export function dispatchPdaPageEvent(target: HTMLElement): boolean {
   return (
@@ -18,6 +24,12 @@ export function dispatchPdaPageEvent(target: HTMLElement): boolean {
     handlePdaTaskReceiveDetailEvent(target) ||
     handlePdaExecEvent(target) ||
     handlePdaExecDetailEvent(target) ||
+    handlePdaCuttingTaskDetailEvent(target) ||
+    handlePdaCuttingPickupEvent(target) ||
+    handlePdaCuttingSpreadingEvent(target) ||
+    handlePdaCuttingInboundEvent(target) ||
+    handlePdaCuttingHandoverEvent(target) ||
+    handlePdaCuttingReplenishmentFeedbackEvent(target) ||
     handlePdaHandoverEvent(target) ||
     handlePdaHandoverDetailEvent(target) ||
     handlePdaSettlementEvent(target)

@@ -6,9 +6,10 @@ import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
-  getTaskChainTaskById,
-  listTaskChainTasks,
-} from '../data/fcs/page-adapters/task-chain-pages-adapter'
+  getPdaTaskFlowTaskById,
+  listPdaTaskFlowTasks,
+  resolvePdaTaskExecPath,
+} from '../data/fcs/pda-cutting-special'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
@@ -55,11 +56,11 @@ const state: PdaExecState = {
 }
 
 function listTaskFacts(): ProcessTask[] {
-  return listTaskChainTasks()
+  return listPdaTaskFlowTasks()
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getTaskChainTaskById(taskId) ?? null
+  return getPdaTaskFlowTaskById(taskId) ?? null
 }
 
 function getTaskDisplayNo(task: ProcessTask): string {
@@ -837,7 +838,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
   if (action === 'open-detail') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(`/fcs/pda/exec/${taskId}`)
+      appStore.navigate(resolvePdaTaskExecPath(taskId))
     }
     return true
   }
@@ -846,7 +847,8 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     const detailAction = actionNode.dataset.action
     if (taskId && detailAction) {
-      appStore.navigate(`/fcs/pda/exec/${taskId}?action=${detailAction}`)
+      const targetPath = resolvePdaTaskExecPath(taskId)
+      appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : `${targetPath}?action=${detailAction}`)
     }
     return true
   }
@@ -854,7 +856,8 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
   if (action === 'go-start') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(`/fcs/pda/exec/${taskId}?action=start`)
+      const targetPath = resolvePdaTaskExecPath(taskId)
+      appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : `${targetPath}?action=start`)
     }
     return true
   }

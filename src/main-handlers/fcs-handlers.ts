@@ -119,6 +119,30 @@ import {
   handleProgressMilestoneConfigEvent,
   isProgressMilestoneConfigDialogOpen,
 } from '../pages/progress-milestone-config'
+import {
+  handleCraftCuttingOrderProgressEvent,
+  isCraftCuttingOrderProgressDialogOpen,
+} from '../pages/process-factory/cutting/order-progress'
+import {
+  handleCraftCuttingMaterialPrepEvent,
+  isCraftCuttingMaterialPrepDialogOpen,
+} from '../pages/process-factory/cutting/material-prep'
+import {
+  handleCraftCuttingPieceOrdersEvent,
+  isCraftCuttingPieceOrdersDialogOpen,
+} from '../pages/process-factory/cutting/cut-piece-orders'
+import {
+  handleCraftCuttingReplenishmentEvent,
+  isCraftCuttingReplenishmentDialogOpen,
+} from '../pages/process-factory/cutting/replenishment'
+import {
+  handleCraftCuttingWarehouseManagementEvent,
+  isCraftCuttingWarehouseManagementDialogOpen,
+} from '../pages/process-factory/cutting/warehouse-management'
+import {
+  handleCraftCuttingSummaryEvent,
+  isCraftCuttingSummaryDialogOpen,
+} from '../pages/process-factory/cutting/cutting-summary'
 
 export function dispatchFcsPageEvent(target: HTMLElement): boolean {
   return (
@@ -154,6 +178,12 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleProgressHandoverOrderEvent(target) ||
     handleProgressMilestoneConfigEvent(target) ||
     handleProgressMaterialEvent(target) ||
+    handleCraftCuttingOrderProgressEvent(target) ||
+    handleCraftCuttingMaterialPrepEvent(target) ||
+    handleCraftCuttingPieceOrdersEvent(target) ||
+    handleCraftCuttingReplenishmentEvent(target) ||
+    handleCraftCuttingWarehouseManagementEvent(target) ||
+    handleCraftCuttingSummaryEvent(target) ||
     handlePenaltyOutputEvent(target) ||
     handleDyePrintOrdersEvent(target) ||
     handleTaskBreakdownEvent(target)
@@ -373,6 +403,48 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.materialAction = 'close-drawer'
     handleProgressMaterialEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingOrderProgressDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingProgressAction = 'close-detail'
+    handleCraftCuttingOrderProgressEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingMaterialPrepDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingPrepAction = 'close-overlay'
+    handleCraftCuttingMaterialPrepEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingPieceOrdersDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingPieceAction = 'close-overlay'
+    handleCraftCuttingPieceOrdersEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingReplenishmentDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingReplenishAction = 'close-overlay'
+    handleCraftCuttingReplenishmentEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingWarehouseManagementDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingWarehouseAction = 'close-overlay'
+    handleCraftCuttingWarehouseManagementEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingSummaryDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingSummaryAction = 'close-overlay'
+    handleCraftCuttingSummaryEvent(fakeButton)
     return true
   }
 

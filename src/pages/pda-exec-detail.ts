@@ -6,9 +6,10 @@ import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
-  getTaskChainTaskById,
-  listTaskChainTasks,
-} from '../data/fcs/page-adapters/task-chain-pages-adapter'
+  getPdaTaskFlowTaskById,
+  isCuttingSpecialTask,
+  listPdaTaskFlowTasks,
+} from '../data/fcs/pda-cutting-special'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
@@ -27,6 +28,7 @@ import {
   reportTaskPause,
   syncMilestoneOverdueExceptions,
 } from '../data/fcs/pda-exec-link'
+import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 
 interface PdaExecDetailState {
@@ -60,11 +62,11 @@ const detailState: PdaExecDetailState = {
 }
 
 function listTaskFacts(): ProcessTask[] {
-  return listTaskChainTasks()
+  return listPdaTaskFlowTasks()
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getTaskChainTaskById(taskId) ?? null
+  return getPdaTaskFlowTaskById(taskId) ?? null
 }
 
 function getTaskDisplayNo(task: ProcessTask): string {
@@ -444,6 +446,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
   syncMilestoneOverdueExceptions()
 
   const task = getTaskFactById(taskId)
+
+  if (isCuttingSpecialTask(task)) {
+    return renderPdaCuttingTaskDetailPage(taskId)
+  }
 
   if (!task) {
     const content = `
