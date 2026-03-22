@@ -6,6 +6,7 @@ import {
   type CutPieceOrderRecord,
   type CutPieceSpreadingRecord,
 } from '../../../data/fcs/cutting/cut-piece-orders'
+import { buildCutPieceOrderPickupView } from '../../../domain/pickup/page-adapters/pcs-cut-piece-orders'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
@@ -354,6 +355,7 @@ function renderMainTable(): string {
           <tbody>
             ${records
               .map((record) => {
+                const pickupView = buildCutPieceOrderPickupView(record)
                 const markerStatus = deriveMarkerStatus(record)
                 const spreadingStatus = deriveSpreadingStatus(record)
                 const riskFlags = buildRiskFlags(record)
@@ -363,7 +365,8 @@ function renderMainTable(): string {
                       <button class="font-medium text-blue-600 hover:underline" data-cutting-piece-action="open-detail" data-record-id="${record.id}">
                         ${escapeHtml(record.cutPieceOrderNo)}
                       </button>
-                      <div class="mt-1 text-xs text-muted-foreground">二维码：${record.qrStatus === 'GENERATED' ? escapeHtml(record.qrCodeValue) : '未生成'}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">领料单：${escapeHtml(pickupView.pickupSlipNo)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">二维码：${pickupView.qrStatus === 'GENERATED' ? escapeHtml(pickupView.qrCodeValue) : '未生成'}</div>
                     </td>
                     <td class="px-4 py-4 align-top">
                       <div class="font-medium text-foreground">${escapeHtml(record.productionOrderNo)}</div>
@@ -378,6 +381,7 @@ function renderMainTable(): string {
                       <div>${renderBadge(configReceiveMeta[record.configStatus].label, configReceiveMeta[record.configStatus].className)}</div>
                       <div class="mt-1">${renderBadge(record.receiveStatus === 'PARTIAL' ? configReceiveMeta.RECEIVED_PARTIAL.label : configReceiveMeta[record.receiveStatus].label, record.receiveStatus === 'PARTIAL' ? configReceiveMeta.RECEIVED_PARTIAL.className : configReceiveMeta[record.receiveStatus].className)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildConfigReceiveSummary(record))}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(pickupView.latestResultLabel)} · ${escapeHtml(pickupView.receiptStatusLabel)}</div>
                     </td>
                     <td class="px-4 py-4 align-top">
                       ${renderBadge(markerStatusMeta[markerStatus].label, markerStatusMeta[markerStatus].className)}
@@ -440,6 +444,7 @@ function renderDetailDrawer(): string {
   if (state.activeOverlay !== 'detail') return ''
   const record = getActiveRecord()
   if (!record) return ''
+  const pickupView = buildCutPieceOrderPickupView(record)
   const riskFlags = buildRiskFlags(record)
   return uiDrawer(
     {
@@ -494,7 +499,10 @@ function renderDetailDrawer(): string {
             <div>${renderBadge(configReceiveMeta[record.qrStatus].label, configReceiveMeta[record.qrStatus].className)}</div>
           </div>
           <div class="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
-            <p>最近一次领料时间：<span class="font-medium text-foreground">${record.latestReceiveScanAt ? escapeHtml(formatDateTime(record.latestReceiveScanAt)) : '暂无回写'}</span></p>
+            <p>领料单号 / 最新打印版本：<span class="font-medium text-foreground">${escapeHtml(pickupView.pickupSlipNo)} / ${escapeHtml(pickupView.latestPrintVersionNo)}</span></p>
+            <p>扫码回执 / 结果：<span class="font-medium text-foreground">${escapeHtml(pickupView.receiptStatusLabel)} / ${escapeHtml(pickupView.latestResultLabel)}</span></p>
+            <p>照片凭证 / 是否复核：<span class="font-medium text-foreground">${pickupView.hasPhotoEvidence ? '有' : '无'} / ${pickupView.needsRecheck ? '需复核' : '无需复核'}</span></p>
+            <p>最近一次领料时间：<span class="font-medium text-foreground">${pickupView.latestScannedAt !== '-' ? escapeHtml(formatDateTime(pickupView.latestScannedAt)) : '暂无回写'}</span></p>
             <p>最近一次铺布录入：<span class="font-medium text-foreground">${record.latestSpreadingAt ? escapeHtml(formatDateTime(record.latestSpreadingAt)) : '暂无铺布'}</span></p>
             <p>入仓状态：<span class="font-medium text-foreground">${inboundStatusMeta[deriveInboundStatus(record)].label}</span></p>
           </div>
@@ -813,6 +821,7 @@ function renderQrDialog(): string {
   if (state.activeOverlay !== 'qr') return ''
   const record = getActiveRecord()
   if (!record) return ''
+  const pickupView = buildCutPieceOrderPickupView(record)
   return uiDialog(
     {
       title: '裁片单二维码',
@@ -827,13 +836,13 @@ function renderQrDialog(): string {
           <p class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(record.cutPieceOrderNo)}</p>
         </div>
         <div class="mx-auto flex h-56 w-56 items-center justify-center rounded-2xl border-2 border-dashed border-muted bg-white text-xs text-muted-foreground">
-          ${escapeHtml(record.qrCodeValue)}
+          ${escapeHtml(pickupView.qrCodeValue)}
         </div>
         <div class="rounded-lg border bg-muted/20 px-4 py-3 text-left text-sm text-muted-foreground">
-          <p>二维码编码值：<span class="font-medium text-foreground">${escapeHtml(record.qrCodeValue)}</span></p>
+          <p>二维码编码值：<span class="font-medium text-foreground">${escapeHtml(pickupView.qrCodeValue)}</span></p>
           <p class="mt-2">${record.qrStatus === 'GENERATED' ? '该二维码会贯穿领料、执行、入仓等后续环节。' : '当前尚未配置配料，二维码将在首次有配置后自动生成。'}</p>
-          <p class="mt-2">打印状态：<span class="font-medium text-foreground">${configReceiveMeta[record.printSlipStatus].label}</span></p>
-          <p class="mt-2">配料状态：<span class="font-medium text-foreground">${configReceiveMeta[record.configStatus].label}</span></p>
+          <p class="mt-2">打印状态 / 版本：<span class="font-medium text-foreground">${configReceiveMeta[record.printSlipStatus].label} / ${escapeHtml(pickupView.latestPrintVersionNo)}</span></p>
+          <p class="mt-2">扫码回执：<span class="font-medium text-foreground">${escapeHtml(pickupView.receiptStatusLabel)}</span></p>
         </div>
       </div>
     `,
@@ -845,6 +854,7 @@ function renderDocsDrawer(): string {
   if (state.activeOverlay !== 'docs') return ''
   const record = getActiveRecord()
   if (!record) return ''
+  const pickupView = buildCutPieceOrderPickupView(record)
   return uiDrawer(
     {
       title: '关联单据',
@@ -854,6 +864,12 @@ function renderDocsDrawer(): string {
     },
     `
       <div class="space-y-4">
+        <section class="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+          <p>领料单号：<span class="font-medium text-foreground">${escapeHtml(pickupView.pickupSlipNo)}</span></p>
+          <p class="mt-2">最新打印版本：<span class="font-medium text-foreground">${escapeHtml(pickupView.latestPrintVersionNo)}</span></p>
+          <p class="mt-2">扫码结果：<span class="font-medium text-foreground">${escapeHtml(pickupView.latestResultLabel)}</span></p>
+          <p class="mt-2">差异凭证：<span class="font-medium text-foreground">${escapeHtml(pickupView.evidenceSummaryText)}</span></p>
+        </section>
         ${
           record.linkedDocuments.length
             ? record.linkedDocuments

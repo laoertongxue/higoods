@@ -89,6 +89,7 @@ import { renderBatchesPage } from '../pages/batches'
 import { renderMaterialStatementsPage } from '../pages/material-statements'
 import { renderPaymentSyncPage } from '../pages/payment-sync'
 import { renderHistoryPage } from '../pages/history'
+import { renderCuttingSettlementInputPage } from '../pages/settlement-cutting-input'
 import { renderDispatchBoardPage } from '../pages/dispatch-board'
 import { renderDispatchTendersPage } from '../pages/dispatch-tenders'
 import { renderProgressBoardPage } from '../pages/progress-board'
@@ -98,6 +99,9 @@ import { renderProgressUrgePage } from '../pages/progress-urge'
 import { renderProgressHandoverPage } from '../pages/progress-handover'
 import { renderProgressHandoverOrderPage } from '../pages/progress-handover-order'
 import { renderProgressMilestoneConfigPage } from '../pages/progress-milestone-config'
+import { renderProgressCuttingOverviewPage } from '../pages/progress-cutting-overview'
+import { renderProgressCuttingDetailPage } from '../pages/progress-cutting-detail'
+import { renderProgressCuttingExceptionCenterPage } from '../pages/progress-cutting-exception-center'
 import {
   renderTraceMappingPage,
   renderTraceParentCodesPage,
@@ -219,6 +223,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/settlement/material-statements': () => renderMaterialStatementsPage(),
   '/fcs/settlement/payment-sync': () => renderPaymentSyncPage(),
   '/fcs/settlement/history': () => renderHistoryPage(),
+  '/fcs/settlement/cutting-input': () => renderCuttingSettlementInputPage(),
   '/fcs/dispatch/board': () => renderDispatchBoardPage(),
   '/fcs/dispatch/tenders': () => renderDispatchTendersPage(),
   '/fcs/dispatch/exceptions': () => renderProgressExceptionsPage(),
@@ -228,6 +233,8 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/progress/urge': () => renderProgressUrgePage(),
   '/fcs/progress/milestone-config': () => renderProgressMilestoneConfigPage(),
   '/fcs/progress/material': () => renderProgressMaterialPage(),
+  '/fcs/progress/cutting-overview': () => renderProgressCuttingOverviewPage(),
+  '/fcs/progress/cutting-exception-center': () => renderProgressCuttingExceptionCenterPage(),
   '/fcs/craft/workbench/overview': () => renderCraftWorkbenchOverviewPage(),
   '/fcs/craft/workbench/todos': () => renderCraftWorkbenchOverviewPage(),
   '/fcs/craft/workbench/risks': () => renderCraftWorkbenchOverviewPage(),
@@ -382,6 +389,10 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/fcs\/pda\/cutting\/replenishment-feedback\/([^/]+)$/,
     render: (match) => renderPdaCuttingReplenishmentFeedbackPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/progress\/cutting-overview\/([^/]+)$/,
+    render: (match) => renderProgressCuttingDetailPage(match[1]),
   },
   {
     pattern: /^\/fcs\/pda\/task-receive\/([^/]+)$/,

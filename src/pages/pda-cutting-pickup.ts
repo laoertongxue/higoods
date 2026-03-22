@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils'
 import { buildPdaCuttingRoute, getPdaCuttingTaskDetail, submitCuttingPickupResult } from '../data/fcs/pda-cutting-special'
+import { buildPdaCuttingPickupActionView } from '../domain/pickup/page-adapters/pda-cutting-pickup'
 import {
   renderPdaCuttingEmptyState,
   renderPdaCuttingPageLayout,
@@ -58,30 +59,32 @@ function renderTaskSnapshot(taskId: string): string {
 
 function renderPickupStatus(taskId: string): string {
   const detail = getPdaCuttingTaskDetail(taskId)
+  const pickupView = buildPdaCuttingPickupActionView(taskId)
   if (!detail) return ''
 
   return `
     <div class="grid grid-cols-2 gap-3 text-xs">
       <article class="rounded-xl border px-3 py-3">
         <div class="text-muted-foreground">领料结果状态</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.scanResultLabel)}</div>
-        <div class="mt-1 text-muted-foreground">回执状态：${escapeHtml(detail.currentReceiveStatus)}</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(pickupView?.latestResultLabel || detail.scanResultLabel)}</div>
+        <div class="mt-1 text-muted-foreground">回执状态：${escapeHtml(pickupView?.receiptStatusLabel || detail.currentReceiveStatus)}</div>
       </article>
       <article class="rounded-xl border px-3 py-3">
         <div class="text-muted-foreground">打印与二维码对象</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.pickupSlipPrintStatusLabel)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrObjectLabel)}：${escapeHtml(detail.qrCodeValue)}</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(pickupView?.latestPrintVersionNo || detail.pickupSlipPrintStatusLabel)}</div>
+        <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrObjectLabel)}：${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
       </article>
       <article class="rounded-xl border px-3 py-3">
         <div class="text-muted-foreground">最近一次扫码领取</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.latestReceiveAt)}</div>
-        <div class="mt-1 text-muted-foreground">操作人：${escapeHtml(detail.latestReceiveBy)}</div>
-        <div class="mt-1 text-muted-foreground">回执记录：${escapeHtml(detail.latestPickupRecordNo)}</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(pickupView?.latestScannedAt || detail.latestReceiveAt)}</div>
+        <div class="mt-1 text-muted-foreground">操作人：${escapeHtml(pickupView?.latestScannedBy || detail.latestReceiveBy)}</div>
+        <div class="mt-1 text-muted-foreground">回执记录：${escapeHtml(pickupView?.latestScanRecordNo || detail.latestPickupRecordNo)}</div>
       </article>
       <article class="rounded-xl border px-3 py-3">
         <div class="text-muted-foreground">差异与凭证</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.discrepancyAllowed ? '支持差异处理' : '仅支持正常领取')}</div>
-        <div class="mt-1 text-muted-foreground">照片凭证：${escapeHtml(String(detail.photoProofCount))} 张</div>
+        <div class="mt-1 text-muted-foreground">照片凭证：${escapeHtml(String(pickupView?.photoProofCount ?? detail.photoProofCount))} 张</div>
+        <div class="mt-1 text-muted-foreground">${pickupView?.needsRecheck ? '当前回执需复核' : '当前无复核提示'}</div>
       </article>
     </div>
   `
@@ -89,21 +92,23 @@ function renderPickupStatus(taskId: string): string {
 
 function renderPickupLogs(taskId: string): string {
   const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail || !detail.pickupLogs.length) {
+  const pickupView = buildPdaCuttingPickupActionView(taskId)
+  if (!detail || !pickupView || !pickupView.scanRecords.length) {
     return renderPdaCuttingEmptyState('暂无扫码领料记录', '后续真实扫码领料完成后，这里会展示扫码时间、领取人、差异结果和照片凭证摘要。')
   }
 
   return `
     <div class="space-y-2">
-      ${detail.pickupLogs
+      ${pickupView.scanRecords
         .map(
           (log) => `
             <article class="rounded-xl border px-3 py-3 text-xs">
               <div class="flex items-center justify-between gap-2">
-                <div class="font-medium text-foreground">${escapeHtml(log.resultLabel)}</div>
+                <div class="font-medium text-foreground">${escapeHtml(log.resultStatus === 'MATCHED' ? '扫码领取成功' : log.resultStatus === 'RECHECK_REQUIRED' ? '驳回核对' : log.resultStatus === 'PHOTO_SUBMITTED' ? '带照片提交' : '已取消')}</div>
                 <div class="text-muted-foreground">${escapeHtml(log.scannedAt)}</div>
               </div>
-              <div class="mt-2 text-muted-foreground">领取人：${escapeHtml(log.operatorName)}</div>
+              <div class="mt-2 text-muted-foreground">领取人：${escapeHtml(log.scannedBy)}</div>
+              <div class="mt-1 text-muted-foreground">实领摘要：${escapeHtml(log.receivedQtySummary.summaryText)}</div>
               <div class="mt-1 text-muted-foreground">备注：${escapeHtml(log.note || '无')}</div>
               <div class="mt-1 text-muted-foreground">照片凭证：${escapeHtml(String(log.photoProofCount))} 张</div>
             </article>
@@ -116,6 +121,7 @@ function renderPickupLogs(taskId: string): string {
 
 export function renderPdaCuttingPickupPage(taskId: string): string {
   const detail = getPdaCuttingTaskDetail(taskId)
+  const pickupView = buildPdaCuttingPickupActionView(taskId)
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
@@ -132,9 +138,9 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
 
   const summary = renderPdaCuttingSummaryGrid([
     { label: '领料单号', value: detail.pickupSlipNo },
-    { label: '二维码', value: detail.qrCodeValue },
-    { label: '配置数量', value: detail.configuredQtyText },
-    { label: '当前结果', value: detail.scanResultLabel, hint: detail.currentReceiveStatus },
+    { label: '二维码', value: pickupView?.qrCodeValue || detail.qrCodeValue },
+    { label: '最新打印版本', value: pickupView?.latestPrintVersionNo || detail.pickupSlipPrintStatusLabel },
+    { label: '当前结果', value: pickupView?.latestResultLabel || detail.scanResultLabel, hint: pickupView?.receiptStatusLabel || detail.currentReceiveStatus },
   ])
 
   const scanSection = `
@@ -147,12 +153,12 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
         <div class="rounded-xl border px-3 py-3">
           <div class="text-muted-foreground">领料单 / 二维码</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.pickupSlipNo)}</div>
-          <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrCodeValue)}</div>
+          <div class="mt-1 text-muted-foreground">${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
         </div>
         <div class="rounded-xl border px-3 py-3">
           <div class="text-muted-foreground">配置数量 vs 实领数量</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.configuredQtyText)}</div>
-          <div class="mt-1 text-muted-foreground">当前实领：${escapeHtml(detail.actualReceivedQtyText)}</div>
+          <div class="mt-1 text-muted-foreground">当前实领：${escapeHtml(pickupView?.slip.receivedQtySummary.summaryText || detail.actualReceivedQtyText)}</div>
         </div>
       </div>
       <div class="rounded-xl bg-blue-50 px-3 py-3 text-xs text-blue-800">
@@ -190,6 +196,7 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.resultLabel)}</div>
         <div class="mt-1 text-muted-foreground">实领数量：${escapeHtml(form.actualReceivedQtyText || '待填写')}</div>
         <div class="mt-1 text-muted-foreground">差异说明：${escapeHtml(form.discrepancyNote || '当前无差异')}</div>
+        <div class="mt-1 text-muted-foreground">统一回执状态：${escapeHtml(form.resultLabel === '扫码领取成功' ? '已回执' : form.resultLabel === '驳回核对' ? '待复核' : '已提交照片')}</div>
       </div>
       <div class="rounded-xl bg-amber-50 px-3 py-3 text-xs text-amber-800">
         差异处理入口已预留：若选择“驳回核对”或“带照片提交”，请同步填写差异说明和凭证数量。

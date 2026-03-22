@@ -183,6 +183,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'progress-handover', title: '交接链路追踪', icon: 'ScanLine', href: '/fcs/progress/handover' },
             { key: 'progress-material', title: '领料进度跟踪', icon: 'PackageSearch', href: '/fcs/progress/material' },
             { key: 'progress-milestone-config', title: '节点上报配置', icon: 'Flag', href: '/fcs/progress/milestone-config' },
+            { key: 'progress-cutting-overview', title: '裁片任务总览', icon: 'Scissors', href: '/fcs/progress/cutting-overview' },
+            { key: 'progress-cutting-exception-center', title: '裁片专项异常中心', icon: 'AlertTriangle', href: '/fcs/progress/cutting-exception-center' },
           ],
         },
         {
@@ -207,6 +209,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'settlement-material-statements', title: '领料对账单生成', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
             { key: 'settlement-payment-sync', title: '打款结果同步更新', icon: 'ArrowLeftRight', href: '/fcs/settlement/payment-sync' },
             { key: 'settlement-history', title: '历史对账与核算', icon: 'History', href: '/fcs/settlement/history' },
+            { key: 'settlement-cutting-input', title: '裁片结算与评分输入', icon: 'ClipboardCheck', href: '/fcs/settlement/cutting-input' },
           ],
         },
         {

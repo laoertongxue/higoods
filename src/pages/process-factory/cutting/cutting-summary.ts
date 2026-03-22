@@ -1,5 +1,6 @@
 import { renderDrawer as uiDrawer } from '../../../components/ui'
 import { cloneCuttingSummaryRecords, type CuttingSummaryFilters, type CuttingSummaryRecord } from '../../../data/fcs/cutting/cutting-summary'
+import { buildCuttingSummaryPickupView } from '../../../domain/pickup/page-adapters/pcs-cutting-summary'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
@@ -292,8 +293,9 @@ function renderMainTable(): string {
           </thead>
           <tbody class="divide-y divide-border">
             ${records
-              .map(
-                (record) => `
+              .map((record) => {
+                const pickupSummary = buildCuttingSummaryPickupView(record.productionOrderNo)
+                return `
                   <tr class="align-top">
                     <td class="px-4 py-3">${renderBadge(urgencyMeta[record.urgencyLevel].label, urgencyMeta[record.urgencyLevel].className)}</td>
                     <td class="px-4 py-3">
@@ -307,7 +309,7 @@ function renderMainTable(): string {
                     <td class="px-4 py-3">${record.cutPieceOrderCount}</td>
                     <td class="px-4 py-3">
                       <p class="font-medium text-foreground">${escapeHtml(buildMaterialReceiveText(record))}</p>
-                      <p class="mt-1 text-xs text-muted-foreground">打印 ${record.materialSummary.printedSlipCount} · 二维码 ${record.materialSummary.qrGeneratedCount} · 差异 ${record.receiveSummary.receiveDiscrepancyCount}</p>
+                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(pickupSummary.materialReceiveSummaryText)}</p>
                     </td>
                     <td class="px-4 py-3">
                       <p class="font-medium text-foreground">${escapeHtml(buildExecutionText(record))}</p>
@@ -339,8 +341,8 @@ function renderMainTable(): string {
                       </div>
                     </td>
                   </tr>
-                `,
-              )
+                `
+              })
               .join('')}
           </tbody>
         </table>
@@ -353,6 +355,7 @@ function renderDetailDrawer(): string {
   if (state.activeOverlay !== 'detail') return ''
   const record = getActiveRecord()
   if (!record) return ''
+  const pickupSummary = buildCuttingSummaryPickupView(record.productionOrderNo)
 
   return uiDrawer(
     {
@@ -404,19 +407,19 @@ function renderDetailDrawer(): string {
             </div>
             <div>
               <p class="text-xs text-muted-foreground">已打印领料单 / 二维码</p>
-              <p class="mt-1 font-medium text-foreground">${record.materialSummary.printedSlipCount} / ${record.materialSummary.qrGeneratedCount}</p>
+              <p class="mt-1 font-medium text-foreground">${pickupSummary.printedSlipCount} / ${pickupSummary.qrGeneratedCount}</p>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">领料成功 / 部分领料</p>
-              <p class="mt-1 font-medium text-foreground">${record.receiveSummary.receivedSuccessCount} / ${record.receiveSummary.receivedPartialCount}</p>
+              <p class="mt-1 font-medium text-foreground">${pickupSummary.receiveSuccessCount} / ${record.receiveSummary.receivedPartialCount}</p>
             </div>
             <div>
-              <p class="text-xs text-muted-foreground">领料差异 / 照片凭证</p>
-              <p class="mt-1 font-medium text-foreground">${record.receiveSummary.receiveDiscrepancyCount} / ${record.receiveSummary.photoProofCount}</p>
+              <p class="text-xs text-muted-foreground">待复核 / 已提交照片</p>
+              <p class="mt-1 font-medium text-foreground">${pickupSummary.recheckRequiredCount} / ${pickupSummary.photoSubmittedCount}</p>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">最近一次领料</p>
-              <p class="mt-1 font-medium text-foreground">${escapeHtml(formatDateTime(record.receiveSummary.latestReceiveAt))} ${record.receiveSummary.latestReceiveBy ? ` / ${escapeHtml(record.receiveSummary.latestReceiveBy)}` : ''}</p>
+              <p class="mt-1 font-medium text-foreground">${pickupSummary.latestReceiveAt !== '-' ? escapeHtml(formatDateTime(pickupSummary.latestReceiveAt)) : '-'} ${pickupSummary.latestReceiveBy !== '-' ? ` / ${escapeHtml(pickupSummary.latestReceiveBy)}` : ''}</p>
             </div>
           </div>
         </section>

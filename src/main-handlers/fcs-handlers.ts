@@ -116,6 +116,19 @@ import {
   isProgressMaterialDrawerOpen,
 } from '../pages/progress-material'
 import {
+  handleProgressCuttingOverviewEvent,
+  isProgressCuttingOverviewDialogOpen,
+} from '../pages/progress-cutting-overview'
+import { handleProgressCuttingDetailEvent } from '../pages/progress-cutting-detail'
+import {
+  handleProgressCuttingExceptionCenterEvent,
+  isProgressCuttingExceptionCenterDialogOpen,
+} from '../pages/progress-cutting-exception-center'
+import {
+  handleCuttingSettlementInputEvent,
+  isCuttingSettlementInputDialogOpen,
+} from '../pages/settlement-cutting-input'
+import {
   handleProgressMilestoneConfigEvent,
   isProgressMilestoneConfigDialogOpen,
 } from '../pages/progress-milestone-config'
@@ -178,6 +191,10 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleProgressHandoverOrderEvent(target) ||
     handleProgressMilestoneConfigEvent(target) ||
     handleProgressMaterialEvent(target) ||
+    handleProgressCuttingOverviewEvent(target) ||
+    handleProgressCuttingDetailEvent(target) ||
+    handleProgressCuttingExceptionCenterEvent(target) ||
+    handleCuttingSettlementInputEvent(target) ||
     handleCraftCuttingOrderProgressEvent(target) ||
     handleCraftCuttingMaterialPrepEvent(target) ||
     handleCraftCuttingPieceOrdersEvent(target) ||
@@ -403,6 +420,27 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.materialAction = 'close-drawer'
     handleProgressMaterialEvent(fakeButton)
+    return true
+  }
+
+  if (isProgressCuttingOverviewDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.platformCuttingAction = 'close-summary'
+    handleProgressCuttingOverviewEvent(fakeButton)
+    return true
+  }
+
+  if (isProgressCuttingExceptionCenterDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingExceptionAction = 'close-overlay'
+    handleProgressCuttingExceptionCenterEvent(fakeButton)
+    return true
+  }
+
+  if (isCuttingSettlementInputDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingSettlementAction = 'close-overlay'
+    handleCuttingSettlementInputEvent(fakeButton)
     return true
   }
 
