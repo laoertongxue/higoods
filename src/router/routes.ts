@@ -114,6 +114,23 @@ import { renderPdaExecDetailPage } from '../pages/pda-exec-detail'
 import { renderPdaHandoverPage } from '../pages/pda-handover'
 import { renderPdaHandoverDetailPage } from '../pages/pda-handover-detail'
 import { renderPdaSettlementPage } from '../pages/pda-settlement'
+import {
+  renderCraftWorkbenchOverviewPage,
+  renderCraftCuttingOrderProgressPage,
+  renderCraftCuttingMaterialPrepPage,
+  renderCraftCuttingPieceOrdersPage,
+  renderCraftCuttingWarehouseManagementPage,
+  renderCraftCuttingReplenishmentPage,
+  renderCraftCuttingSummaryPage,
+  renderCraftPrintingWorkOrdersPage,
+  renderCraftPrintingPendingReviewPage,
+  renderCraftPrintingProgressPage,
+  renderCraftPrintingStatisticsPage,
+  renderCraftPrintingDashboardsPage,
+  renderCraftDyeingWorkOrdersPage,
+  renderCraftDyeingDyeOrdersPage,
+  renderCraftDyeingReportsPage,
+} from '../pages/process-factory'
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 
 type RouteRenderer = (pathname: string) => string
@@ -205,132 +222,41 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/progress/urge': () => renderProgressUrgePage(),
   '/fcs/progress/milestone-config': () => renderProgressMilestoneConfigPage(),
   '/fcs/progress/material': () => renderProgressMaterialPage(),
-  '/fcs/craft/workbench/overview': () =>
-    renderPlaceholderPage(
-      '概览看板',
-      '工艺工厂运营系统工作台入口，聚合裁片/印花/染色运营全局态势，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/workbench/todos': () =>
-    renderPlaceholderPage(
-      '我的待办',
-      '工艺工厂运营系统工作台入口，聚焦工艺后台待处理事项，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/workbench/risks': () =>
-    renderPlaceholderPage(
-      '风险提醒',
-      '工艺工厂运营系统工作台入口，聚焦工艺执行风险预警，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/cutting': () =>
-    renderPlaceholderPage(
-      '裁片管理',
-      '工艺工厂运营系统入口，聚焦裁片模块工作区，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/cutting/tasks': () =>
-    renderPlaceholderPage(
-      '裁片任务',
-      '工艺工厂运营系统入口，聚焦裁片任务排产与执行协同，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/cutting/orders': () =>
-    renderPlaceholderPage(
-      '裁片单',
-      '工艺工厂运营系统入口，聚焦裁片单据管理与状态跟踪，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/cutting/fei-ticket': () =>
-    renderPlaceholderPage(
-      '打菲票',
-      '工艺工厂运营系统入口，聚焦打菲票开立与流转，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/cutting/fei-list': () =>
-    renderPlaceholderPage(
-      '打菲列表',
-      '工艺工厂运营系统入口，聚焦打菲票列表追踪，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/cutting/warehouse': () =>
-    renderPlaceholderPage(
-      '裁片仓管理',
-      '工艺工厂运营系统入口，聚焦裁片仓库存与库位运营，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/cutting/stats': () =>
-    renderPlaceholderPage(
-      '裁片数据统计',
-      '工艺工厂运营系统入口，聚焦裁片执行数据统计，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/cutting/bed-stats': () =>
-    renderPlaceholderPage(
-      '裁床数据统计',
-      '工艺工厂运营系统入口，聚焦裁床效率与产出统计，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/printing': () =>
-    renderPlaceholderPage(
-      '印花管理',
-      '工艺工厂运营系统入口，聚焦印花模块工作区，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/printing/tasks': () =>
-    renderPlaceholderPage(
-      '印花任务',
-      '工艺工厂运营系统入口，聚焦印花任务排程与执行协同，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/printing/orders': () =>
-    renderPlaceholderPage(
-      '印花单',
-      '工艺工厂运营系统入口，聚焦印花单据管理与状态跟踪，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/printing/batches': () =>
-    renderPlaceholderPage(
-      '印花回货批次',
-      '工艺工厂运营系统入口，聚焦印花回货批次追踪，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/printing/stats': () =>
-    renderPlaceholderPage(
-      '印花数据统计',
-      '工艺工厂运营系统入口，聚焦印花执行数据统计，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/dyeing': () =>
-    renderPlaceholderPage(
-      '染色管理',
-      '工艺工厂运营系统入口，聚焦染色模块工作区，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/dyeing/tasks': () =>
-    renderPlaceholderPage(
-      '染色任务',
-      '工艺工厂运营系统入口，聚焦染色任务排程与执行协同，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/dyeing/orders': () =>
-    renderPlaceholderPage(
-      '染色单',
-      '工艺工厂运营系统入口，聚焦染色单据管理与状态跟踪，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/dyeing/batches': () =>
-    renderPlaceholderPage(
-      '染色回货批次',
-      '工艺工厂运营系统入口，聚焦染色回货批次追踪，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
-  '/fcs/craft/dyeing/stats': () =>
-    renderPlaceholderPage(
-      '染色数据统计',
-      '工艺工厂运营系统入口，聚焦染色执行数据统计，后续承接专业后台型工厂细运营。',
-      '工艺工厂运营系统',
-    ),
+  '/fcs/craft/workbench/overview': () => renderCraftWorkbenchOverviewPage(),
+  '/fcs/craft/workbench/todos': () => renderCraftWorkbenchOverviewPage(),
+  '/fcs/craft/workbench/risks': () => renderCraftWorkbenchOverviewPage(),
+  '/fcs/craft/cutting': () => renderCraftCuttingOrderProgressPage(),
+  '/fcs/craft/cutting/order-progress': () => renderCraftCuttingOrderProgressPage(),
+  '/fcs/craft/cutting/tasks': () => renderCraftCuttingOrderProgressPage(),
+  '/fcs/craft/cutting/material-prep': () => renderCraftCuttingMaterialPrepPage(),
+  '/fcs/craft/cutting/orders': () => renderCraftCuttingPieceOrdersPage(),
+  '/fcs/craft/cutting/cut-piece-orders': () => renderCraftCuttingPieceOrdersPage(),
+  '/fcs/craft/cutting/fei-ticket': () => renderCraftCuttingPieceOrdersPage(),
+  '/fcs/craft/cutting/fei-list': () => renderCraftCuttingPieceOrdersPage(),
+  '/fcs/craft/cutting/warehouse': () => renderCraftCuttingWarehouseManagementPage(),
+  '/fcs/craft/cutting/warehouse-management': () => renderCraftCuttingWarehouseManagementPage(),
+  '/fcs/craft/cutting/replenishment': () => renderCraftCuttingReplenishmentPage(),
+  '/fcs/craft/cutting/stats': () => renderCraftCuttingSummaryPage(),
+  '/fcs/craft/cutting/bed-stats': () => renderCraftCuttingSummaryPage(),
+  '/fcs/craft/cutting/cutting-summary': () => renderCraftCuttingSummaryPage(),
+  '/fcs/craft/printing': () => renderCraftPrintingWorkOrdersPage(),
+  '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
+  '/fcs/craft/printing/tasks': () => renderCraftPrintingWorkOrdersPage(),
+  '/fcs/craft/printing/orders': () => renderCraftPrintingWorkOrdersPage(),
+  '/fcs/craft/printing/pending-review': () => renderCraftPrintingPendingReviewPage(),
+  '/fcs/craft/printing/batches': () => renderCraftPrintingPendingReviewPage(),
+  '/fcs/craft/printing/progress': () => renderCraftPrintingProgressPage(),
+  '/fcs/craft/printing/stats': () => renderCraftPrintingStatisticsPage(),
+  '/fcs/craft/printing/statistics': () => renderCraftPrintingStatisticsPage(),
+  '/fcs/craft/printing/dashboards': () => renderCraftPrintingDashboardsPage(),
+  '/fcs/craft/dyeing': () => renderCraftDyeingWorkOrdersPage(),
+  '/fcs/craft/dyeing/work-orders': () => renderCraftDyeingWorkOrdersPage(),
+  '/fcs/craft/dyeing/tasks': () => renderCraftDyeingWorkOrdersPage(),
+  '/fcs/craft/dyeing/orders': () => renderCraftDyeingDyeOrdersPage(),
+  '/fcs/craft/dyeing/dye-orders': () => renderCraftDyeingDyeOrdersPage(),
+  '/fcs/craft/dyeing/batches': () => renderCraftDyeingDyeOrdersPage(),
+  '/fcs/craft/dyeing/stats': () => renderCraftDyeingReportsPage(),
+  '/fcs/craft/dyeing/reports': () => renderCraftDyeingReportsPage(),
   '/fcs/production/create': () =>
     renderPlaceholderPage(
       '生成生产单',
