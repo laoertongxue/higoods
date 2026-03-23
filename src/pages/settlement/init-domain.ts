@@ -1,5 +1,6 @@
 import {
   state,
+  CURRENCIES,
   cycleTypeConfig,
   pricingModeConfig,
   ruleModeConfig,
@@ -37,7 +38,7 @@ export function renderInitFactoryPickerDialog(): string {
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-settle-action="close-dialog" aria-label="关闭"></button>
-      <section class="absolute inset-y-0 right-0 w-full border-l bg-background shadow-2xl sm:max-w-[620px]" data-dialog-panel="true">
+      <section class="absolute inset-y-0 right-0 z-10 w-full border-l bg-background shadow-2xl sm:max-w-[620px]" data-dialog-panel="true">
         <div class="flex h-full flex-col">
           <header class="border-b px-6 py-4">
             <h3 class="text-lg font-semibold">新增结算信息</h3>
@@ -115,8 +116,8 @@ export function renderInitFactoryPickerDialog(): string {
             }
           </div>
           <footer class="flex items-center justify-end gap-2 border-t px-6 py-3">
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-settle-action="close-dialog">取消</button>
-            <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 ${!selectedFactory || Boolean(selectedDraft) ? 'pointer-events-none opacity-50' : ''}" data-settle-action="open-init-editor">开始初始化</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-settle-action="close-dialog">取消</button>
+            <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 ${!selectedFactory || Boolean(selectedDraft) ? 'pointer-events-none opacity-50' : ''}" data-settle-action="open-init-editor">开始初始化</button>
           </footer>
         </div>
       </section>
@@ -357,4 +358,3 @@ export function renderSettlementInitPage(factoryId: string): string {
     </div>
   `
 }
-

@@ -9,6 +9,8 @@ import {
   getCraftOptionByCode,
   getPatternById,
   getPatternPieceById,
+  isBomDrivenPrepTechnique,
+  isPrepStage,
   getSelectedDraftMeta,
   getSkuOptionsForCurrentSpu,
   normalizePatternPieceRows,
@@ -993,6 +995,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-add-technique') {
+    const stage = actionNode.dataset.stage || ''
+    if (isPrepStage(stage)) return true
     resetTechniqueForm()
     state.addTechniqueDialogOpen = true
     return true
@@ -1027,24 +1031,51 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   if (action === 'save-technique') {
     const selectedMeta = getSelectedDraftMeta()
     if (!selectedMeta) return true
+    const editingTarget = state.editTechniqueId ? getTechniqueById(state.editTechniqueId) : null
+
+    if (!editingTarget && selectedMeta.stageCode === 'PREP') {
+      return true
+    }
+
+    const immutablePrepMeta =
+      editingTarget && isBomDrivenPrepTechnique(editingTarget)
+        ? {
+            entryType: editingTarget.entryType,
+            stageCode: editingTarget.stageCode,
+            stageName: editingTarget.stage,
+            processCode: editingTarget.processCode,
+            processName: editingTarget.process,
+            craftCode: editingTarget.craftCode,
+            craftName: editingTarget.technique,
+            assignmentGranularity: editingTarget.assignmentGranularity,
+            ruleSource: editingTarget.ruleSource,
+            detailSplitMode: editingTarget.detailSplitMode,
+            detailSplitDimensions: [...editingTarget.detailSplitDimensions],
+            defaultDocType: editingTarget.defaultDocType,
+            taskTypeMode: editingTarget.taskTypeMode,
+            isSpecialCraft: editingTarget.isSpecialCraft,
+            triggerSource: editingTarget.triggerSource,
+          }
+        : null
+    const effectiveMeta = immutablePrepMeta ?? selectedMeta
 
     const nextItem: TechniqueItem = {
       id: state.editTechniqueId || `tech-${Date.now()}`,
-      entryType: selectedMeta.entryType,
-      stageCode: selectedMeta.stageCode,
-      stage: selectedMeta.stageName,
-      processCode: selectedMeta.processCode,
-      process: selectedMeta.processName,
-      craftCode: selectedMeta.craftCode,
-      technique: selectedMeta.craftName,
-      assignmentGranularity: selectedMeta.assignmentGranularity,
-      ruleSource: selectedMeta.ruleSource,
-      detailSplitMode: selectedMeta.detailSplitMode,
-      detailSplitDimensions: [...selectedMeta.detailSplitDimensions],
-      defaultDocType: selectedMeta.defaultDocType,
-      taskTypeMode: selectedMeta.taskTypeMode,
-      isSpecialCraft: selectedMeta.isSpecialCraft,
-      triggerSource: selectedMeta.triggerSource,
+      entryType: effectiveMeta.entryType,
+      stageCode: effectiveMeta.stageCode,
+      stage: effectiveMeta.stageName,
+      processCode: effectiveMeta.processCode,
+      process: effectiveMeta.processName,
+      craftCode: effectiveMeta.craftCode,
+      technique: effectiveMeta.craftName,
+      assignmentGranularity: effectiveMeta.assignmentGranularity,
+      ruleSource: effectiveMeta.ruleSource,
+      detailSplitMode: effectiveMeta.detailSplitMode,
+      detailSplitDimensions: [...effectiveMeta.detailSplitDimensions],
+      defaultDocType: effectiveMeta.defaultDocType,
+      taskTypeMode: effectiveMeta.taskTypeMode,
+      isSpecialCraft: effectiveMeta.isSpecialCraft,
+      triggerSource: effectiveMeta.triggerSource,
       standardTime: Number.parseFloat(state.newTechnique.standardTime) || 0,
       timeUnit: state.newTechnique.timeUnit,
       difficulty: state.newTechnique.difficulty,
@@ -1069,6 +1100,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   if (action === 'delete-technique') {
     const techId = actionNode.dataset.techId
     if (!techId) return true
+    const target = getTechniqueById(techId)
+    if (target && isBomDrivenPrepTechnique(target)) return true
 
     state.techniques = state.techniques.filter((item) => item.id !== techId)
     syncProcessCostRows()
@@ -1220,4 +1253,3 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
   return false
 }
-

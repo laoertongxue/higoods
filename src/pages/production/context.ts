@@ -84,6 +84,7 @@ type OrderViewMode = 'table' | 'board'
 type OrderDetailTab = 'overview' | 'demand-snapshot' | 'tech-pack' | 'assignment' | 'handover' | 'logs'
 type AssignmentModeFilter = 'ALL' | 'DIRECT_ONLY' | 'BIDDING_ONLY' | 'MIXED'
 type BiddingRiskFilter = 'ALL' | 'OVERDUE' | 'NEAR_DEADLINE' | 'NONE'
+type OrderMaterialStageFilter = 'ALL' | 'PREVIEW' | 'ACTUAL_PENDING' | 'ACTUAL_CONFIRMED'
 type LifecycleStatus =
   | 'DRAFT'
   | 'PLANNED'
@@ -162,6 +163,7 @@ interface ProductionState {
   ordersTierFilter: FactoryTier | 'ALL'
   ordersHasMaterialDraftFilter: 'ALL' | 'YES' | 'NO'
   ordersHasConfirmedMaterialRequestFilter: 'ALL' | 'YES' | 'NO'
+  ordersMaterialStageFilter: OrderMaterialStageFilter
   ordersCurrentPage: number
   ordersSelectedIds: Set<string>
   ordersDemandSnapshotId: string | null
@@ -883,6 +885,121 @@ function getOrderMaterialIndicators(order: ProductionOrder) {
   return getMaterialDraftIndicatorsByOrder(order.productionOrderId)
 }
 
+function getOrderDisplayBreakdownSnapshot(order: ProductionOrder): {
+  isBrokenDown: boolean
+  lastBreakdownAt: string
+  lastBreakdownBy: string
+} {
+  return {
+    isBrokenDown: order.taskBreakdownSummary.isBrokenDown,
+    lastBreakdownAt: order.taskBreakdownSummary.lastBreakdownAt ?? '-',
+    lastBreakdownBy: order.taskBreakdownSummary.lastBreakdownBy ?? '-',
+  }
+}
+
+function getOrderDisplayAssignmentSnapshot(order: ProductionOrder): {
+  assignmentSummary: ProductionOrder['assignmentSummary']
+  assignmentProgress: ProductionOrder['assignmentProgress']
+  biddingSummary: ProductionOrder['biddingSummary']
+  directDispatchSummary: ProductionOrder['directDispatchSummary']
+} {
+  return {
+    assignmentSummary: { ...order.assignmentSummary },
+    assignmentProgress: { ...order.assignmentProgress },
+    biddingSummary: { ...order.biddingSummary },
+    directDispatchSummary: { ...order.directDispatchSummary },
+  }
+}
+
+function getOrderMaterialDisplaySummary(order: ProductionOrder): {
+  stage: 'NOT_READY' | 'PREVIEW' | 'ACTUAL_PENDING' | 'ACTUAL_PARTIAL' | 'ACTUAL_CONFIRMED'
+  previewCount: number
+  summaryText: string
+  badgeLabel: string
+  badgeClassName: string
+  hasActualDraft: boolean
+  hasConfirmedDraft: boolean
+} {
+  const breakdown = getOrderDisplayBreakdownSnapshot(order)
+  const assignment = getOrderDisplayAssignmentSnapshot(order)
+  const materialSummary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
+
+  if (!breakdown.isBrokenDown) {
+    return {
+      stage: 'NOT_READY',
+      previewCount: 0,
+      summaryText: '待拆任务后生成',
+      badgeLabel: '待生成',
+      badgeClassName: 'bg-slate-100 text-slate-700',
+      hasActualDraft: false,
+      hasConfirmedDraft: false,
+    }
+  }
+
+  if (assignment.assignmentProgress.status === 'PENDING') {
+    const previewCount = Math.max(
+      materialSummary.totalDraftCount,
+      order.assignmentSummary.totalTasks,
+      1,
+    )
+    return {
+      stage: 'PREVIEW',
+      previewCount,
+      summaryText: `预览 ${previewCount} / 待分配后确认`,
+      badgeLabel: '预览草稿',
+      badgeClassName: 'bg-blue-100 text-blue-700',
+      hasActualDraft: false,
+      hasConfirmedDraft: false,
+    }
+  }
+
+  if (materialSummary.totalDraftCount === 0) {
+    return {
+      stage: 'ACTUAL_PENDING',
+      previewCount: 0,
+      summaryText: '实际分配后待生成',
+      badgeLabel: '未建草稿',
+      badgeClassName: 'bg-slate-100 text-slate-700',
+      hasActualDraft: false,
+      hasConfirmedDraft: false,
+    }
+  }
+
+  if (materialSummary.createdCount === 0) {
+    return {
+      stage: 'ACTUAL_PENDING',
+      previewCount: 0,
+      summaryText: `草稿 ${materialSummary.totalDraftCount} / 待确认 ${materialSummary.pendingCount}`,
+      badgeLabel: '待确认草稿',
+      badgeClassName: 'bg-amber-100 text-amber-700',
+      hasActualDraft: true,
+      hasConfirmedDraft: false,
+    }
+  }
+
+  if (materialSummary.pendingCount > 0) {
+    return {
+      stage: 'ACTUAL_PARTIAL',
+      previewCount: 0,
+      summaryText: `草稿 ${materialSummary.totalDraftCount} / 已确认 ${materialSummary.createdCount} / 待确认 ${materialSummary.pendingCount}`,
+      badgeLabel: '部分确认',
+      badgeClassName: 'bg-blue-100 text-blue-700',
+      hasActualDraft: true,
+      hasConfirmedDraft: true,
+    }
+  }
+
+  return {
+    stage: 'ACTUAL_CONFIRMED',
+    previewCount: 0,
+    summaryText: `草稿 ${materialSummary.totalDraftCount} / 已确认 ${materialSummary.createdCount}`,
+    badgeLabel: '已确认草稿',
+    badgeClassName: 'bg-green-100 text-green-700',
+    hasActualDraft: true,
+    hasConfirmedDraft: true,
+  }
+}
+
 function getOrderTechPackInfo(order: ProductionOrder): {
   snapshotStatus: ProductionDemand['techPackStatus']
   snapshotVersion: string
@@ -1077,31 +1194,24 @@ function getFilteredOrders(): ProductionOrder[] {
     result = result.filter((order) => state.ordersStatusFilter.includes(order.status))
   }
 
-  if (state.ordersTechPackFilter !== 'ALL') {
-    result = result.filter(
-      (order) =>
-        getOrderBusinessTechPackStatus(order.techPackSnapshot.status) === state.ordersTechPackFilter,
-    )
-  }
-
   if (state.ordersBreakdownFilter !== 'ALL') {
     const expected = state.ordersBreakdownFilter === 'YES'
-    result = result.filter((order) => getOrderTaskBreakdownSnapshot(order).isBrokenDown === expected)
+    result = result.filter((order) => getOrderDisplayBreakdownSnapshot(order).isBrokenDown === expected)
   }
 
   if (state.ordersAssignmentProgressFilter !== 'ALL') {
     result = result.filter(
       (order) =>
-        getOrderRuntimeAssignmentSnapshot(order).assignmentProgress.status ===
+        getOrderDisplayAssignmentSnapshot(order).assignmentProgress.status ===
         state.ordersAssignmentProgressFilter,
     )
   }
 
   if (state.ordersAssignmentModeFilter !== 'ALL') {
     result = result.filter((order) => {
-      const runtime = getOrderRuntimeAssignmentSnapshot(order)
-      const direct = runtime.assignmentSummary.directCount
-      const bidding = runtime.assignmentSummary.biddingCount
+      const assignment = getOrderDisplayAssignmentSnapshot(order)
+      const direct = assignment.assignmentSummary.directCount
+      const bidding = assignment.assignmentSummary.biddingCount
 
       if (state.ordersAssignmentModeFilter === 'DIRECT_ONLY') return direct > 0 && bidding === 0
       if (state.ordersAssignmentModeFilter === 'BIDDING_ONLY') return bidding > 0 && direct === 0
@@ -1112,17 +1222,17 @@ function getFilteredOrders(): ProductionOrder[] {
 
   if (state.ordersBiddingRiskFilter !== 'ALL') {
     result = result.filter((order) => {
-      const runtime = getOrderRuntimeAssignmentSnapshot(order)
+      const assignment = getOrderDisplayAssignmentSnapshot(order)
       if (state.ordersBiddingRiskFilter === 'OVERDUE') {
-        return runtime.biddingSummary.overdueTenderCount > 0
+        return assignment.biddingSummary.overdueTenderCount > 0
       }
       if (state.ordersBiddingRiskFilter === 'NEAR_DEADLINE') {
         return order.riskFlags.includes('TENDER_NEAR_DEADLINE')
       }
       if (state.ordersBiddingRiskFilter === 'NONE') {
         return (
-          runtime.biddingSummary.activeTenderCount === 0 &&
-          runtime.biddingSummary.overdueTenderCount === 0
+          assignment.biddingSummary.activeTenderCount === 0 &&
+          assignment.biddingSummary.overdueTenderCount === 0
         )
       }
       return true
@@ -1135,19 +1245,30 @@ function getFilteredOrders(): ProductionOrder[] {
 
   if (state.ordersHasMaterialDraftFilter !== 'ALL') {
     result = result.filter((order) => {
-      const indicators = getOrderMaterialIndicators(order)
+      const indicators = getOrderMaterialDisplaySummary(order)
       return state.ordersHasMaterialDraftFilter === 'YES'
-        ? indicators.hasMaterialDraft
-        : !indicators.hasMaterialDraft
+        ? indicators.hasActualDraft
+        : !indicators.hasActualDraft
     })
   }
 
   if (state.ordersHasConfirmedMaterialRequestFilter !== 'ALL') {
     result = result.filter((order) => {
-      const indicators = getOrderMaterialIndicators(order)
+      const indicators = getOrderMaterialDisplaySummary(order)
       return state.ordersHasConfirmedMaterialRequestFilter === 'YES'
-        ? indicators.hasConfirmedMaterialRequest
-        : !indicators.hasConfirmedMaterialRequest
+        ? indicators.hasConfirmedDraft
+        : !indicators.hasConfirmedDraft
+    })
+  }
+
+  if (state.ordersMaterialStageFilter !== 'ALL') {
+    result = result.filter((order) => {
+      const indicators = getOrderMaterialDisplaySummary(order)
+      if (state.ordersMaterialStageFilter === 'PREVIEW') return indicators.stage === 'PREVIEW'
+      if (state.ordersMaterialStageFilter === 'ACTUAL_PENDING') {
+        return indicators.stage === 'ACTUAL_PENDING' || indicators.stage === 'ACTUAL_PARTIAL'
+      }
+      return indicators.stage === 'ACTUAL_CONFIRMED'
     })
   }
 
@@ -1248,6 +1369,7 @@ const state: ProductionState = {
   ordersTierFilter: 'ALL',
   ordersHasMaterialDraftFilter: 'ALL',
   ordersHasConfirmedMaterialRequestFilter: 'ALL',
+  ordersMaterialStageFilter: 'ALL',
   ordersCurrentPage: 1,
   ordersSelectedIds: new Set<string>(),
   ordersDemandSnapshotId: null,
@@ -1302,6 +1424,7 @@ export type {
   OrderDetailTab,
   AssignmentModeFilter,
   BiddingRiskFilter,
+  OrderMaterialStageFilter,
   LifecycleStatus,
   DemandOwnerPartyType,
   PlanForm,
@@ -1426,6 +1549,9 @@ export {
   getLegacyLikeDyePrintOrders,
   getLegacyLikeQualityInspections,
   getOrderMaterialIndicators,
+  getOrderDisplayBreakdownSnapshot,
+  getOrderDisplayAssignmentSnapshot,
+  getOrderMaterialDisplaySummary,
   getOrderTechPackInfo,
   getDemandById,
   getOrderById,

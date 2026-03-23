@@ -259,6 +259,8 @@ const stageOptions = listProcessStages()
   .sort((a, b) => a.sort - b.sort)
   .map((item) => item.stageName)
 const stageNameToCode = new Map(listProcessStages().map((item) => [item.stageName, item.stageCode]))
+const prepDemandProcessCodes = ['PRINT', 'DYE'] as const
+type PrepDemandProcessCode = (typeof prepDemandProcessCodes)[number]
 
 const baselineProcessOptions: BaselineProcessOption[] = listProcessDefinitions()
   .filter((item) => item.stageCode === 'PREP')
@@ -682,6 +684,103 @@ function getStageName(stageCode: 'PREP' | 'PROD' | 'POST'): string {
 
 function getBaselineProcessByCode(code: string): BaselineProcessOption | null {
   return baselineProcessOptions.find((item) => item.processCode === code) ?? null
+}
+
+function isPrepStage(stage: string): boolean {
+  return stageNameToCode.get(stage) === 'PREP'
+}
+
+function isPrepDemandProcessCode(processCode: string): processCode is PrepDemandProcessCode {
+  return prepDemandProcessCodes.includes(processCode as PrepDemandProcessCode)
+}
+
+function isBomDrivenPrepTechnique(
+  item: Pick<TechniqueItem, 'stageCode' | 'processCode'>,
+): item is Pick<TechniqueItem, 'stageCode' | 'processCode'> & { processCode: PrepDemandProcessCode } {
+  return item.stageCode === 'PREP' && isPrepDemandProcessCode(item.processCode)
+}
+
+function hasPrintDemand(bomItems: BomItemRow[]): boolean {
+  return bomItems.some((item) => (item.printRequirement || '无') !== '无')
+}
+
+function hasDyeDemand(bomItems: BomItemRow[]): boolean {
+  return bomItems.some((item) => (item.dyeRequirement || '无') !== '无')
+}
+
+function getRequiredPrepProcessCodes(bomItems: BomItemRow[]): PrepDemandProcessCode[] {
+  const codes: PrepDemandProcessCode[] = []
+  if (hasPrintDemand(bomItems)) codes.push('PRINT')
+  if (hasDyeDemand(bomItems)) codes.push('DYE')
+  return codes
+}
+
+function createBomDrivenPrepTechnique(
+  processCode: PrepDemandProcessCode,
+  existing?: TechniqueItem,
+): TechniqueItem {
+  const baseline = getBaselineProcessByCode(processCode)
+
+  return {
+    id: existing?.id || `tech-prep-${processCode.toLowerCase()}`,
+    entryType: 'PROCESS_BASELINE',
+    stageCode: 'PREP',
+    stage: baseline?.stageName || '准备阶段',
+    processCode,
+    process: baseline?.processName || (processCode === 'PRINT' ? '印花' : '染色'),
+    craftCode: '',
+    technique: baseline?.processName || (processCode === 'PRINT' ? '印花' : '染色'),
+    assignmentGranularity: baseline?.assignmentGranularity || 'COLOR',
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: baseline?.detailSplitMode || 'COMPOSITE',
+    detailSplitDimensions: [...(baseline?.detailSplitDimensions || ['PATTERN', 'MATERIAL_SKU'])],
+    defaultDocType: baseline?.defaultDocType || 'DEMAND',
+    taskTypeMode: baseline?.taskTypeMode || 'PROCESS',
+    isSpecialCraft: false,
+    triggerSource: baseline?.triggerSource || '',
+    standardTime: existing?.standardTime ?? (processCode === 'DYE' ? 10 : 12),
+    timeUnit: existing?.timeUnit || '分钟/件',
+    difficulty: existing?.difficulty || '中等',
+    remark: existing?.remark || '',
+    source: '字典引用',
+  }
+}
+
+function syncBomDrivenPrepTechniques(
+  techniques: TechniqueItem[],
+  bomItems: BomItemRow[],
+): TechniqueItem[] {
+  const requiredCodes = getRequiredPrepProcessCodes(bomItems)
+  const existingByCode = new Map<PrepDemandProcessCode, TechniqueItem>()
+  const prepManualItems: TechniqueItem[] = []
+  const nonPrepItems: TechniqueItem[] = []
+
+  techniques.forEach((item) => {
+    const normalizedItem = {
+      ...item,
+      detailSplitDimensions: [...item.detailSplitDimensions],
+    }
+
+    if (isBomDrivenPrepTechnique(normalizedItem)) {
+      if (!existingByCode.has(normalizedItem.processCode)) {
+        existingByCode.set(normalizedItem.processCode, normalizedItem)
+      }
+      return
+    }
+
+    if (normalizedItem.stageCode === 'PREP') {
+      prepManualItems.push(normalizedItem)
+      return
+    }
+
+    nonPrepItems.push(normalizedItem)
+  })
+
+  const prepDemandItems = requiredCodes.map((code) =>
+    createBomDrivenPrepTechnique(code, existingByCode.get(code)),
+  )
+
+  return [...prepManualItems, ...prepDemandItems, ...nonPrepItems]
 }
 
 function getCraftOptionByCode(code: string): CraftOption | null {
@@ -1223,8 +1322,8 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],
       usage: item.unitConsumption,
       lossRate: item.lossRate,
-      printRequirement: '无',
-      dyeRequirement: '无',
+      printRequirement: item.printRequirement ?? '无',
+      dyeRequirement: item.dyeRequirement ?? '无',
     }
   })
 }
@@ -1261,40 +1360,104 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
   }
 }
 
-function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
+function buildTechniquesFromTechPack(
+  techPack: TechPack,
+  bomItems: BomItemRow[] = buildBomItemsFromTechPack(techPack),
+): TechniqueItem[] {
   if ((techPack.processEntries ?? []).length > 0) {
-    return (techPack.processEntries ?? []).map((entry, index) =>
-      toTechniqueItemFromEntry(entry, index),
+    return syncBomDrivenPrepTechniques(
+      (techPack.processEntries ?? []).map((entry, index) =>
+        toTechniqueItemFromEntry(entry, index),
+      ),
+      bomItems,
     )
   }
 
   if (techPack.processes.length === 0) {
-    return DEFAULT_TECHNIQUES.map((item) => ({
-      ...item,
-      detailSplitDimensions: [...item.detailSplitDimensions],
-    }))
+    return syncBomDrivenPrepTechniques(
+      DEFAULT_TECHNIQUES.map((item) => ({
+        ...item,
+        detailSplitDimensions: [...item.detailSplitDimensions],
+      })),
+      bomItems,
+    )
   }
 
-  return techPack.processes.map((item, index) => {
-    const craft = listProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
-    if (craft) {
-      const processDef = getProcessDefinitionByCode(craft.processCode)
+  return syncBomDrivenPrepTechniques(
+    techPack.processes.map((item, index) => {
+      const craft = listProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
+      if (craft) {
+        const processDef = getProcessDefinitionByCode(craft.processCode)
+        return {
+          id: item.id || `tech-${index + 1}`,
+          entryType: 'CRAFT',
+          stageCode: craft.stageCode,
+          stage: getStageName(craft.stageCode),
+          processCode: craft.processCode,
+          process: processDef?.processName || craft.processCode,
+          craftCode: craft.craftCode,
+          technique: craft.craftName,
+          assignmentGranularity: craft.assignmentGranularity,
+          ruleSource: craft.ruleSource,
+          detailSplitMode: craft.detailSplitMode,
+          detailSplitDimensions: [...craft.detailSplitDimensions],
+          defaultDocType: craft.defaultDocType,
+          taskTypeMode: craft.taskTypeMode,
+          isSpecialCraft: craft.isSpecialCraft,
+          triggerSource: '',
+          standardTime: item.timeMinutes,
+          timeUnit: '分钟/件',
+          difficulty: mapDifficultyToZh(item.difficulty),
+          remark: '',
+          source: '字典引用',
+        }
+      }
+
+      const processDef = listProcessDefinitions().find(
+        (processItem) => processItem.processName === item.name || processItem.systemProcessCode === item.name,
+      )
+      if (processDef) {
+        return {
+          id: item.id || `tech-${index + 1}`,
+          entryType: 'PROCESS_BASELINE',
+          stageCode: processDef.stageCode,
+          stage: getStageName(processDef.stageCode),
+          processCode: processDef.processCode,
+          process: processDef.processName,
+          craftCode: '',
+          technique: processDef.processName,
+          assignmentGranularity: processDef.assignmentGranularity,
+          ruleSource: 'INHERIT_PROCESS',
+          detailSplitMode: processDef.detailSplitMode,
+          detailSplitDimensions: [...processDef.detailSplitDimensions],
+          defaultDocType: processDef.defaultDocType,
+          taskTypeMode: processDef.taskTypeMode,
+          isSpecialCraft: false,
+          triggerSource: processDef.triggerSource || '',
+          standardTime: item.timeMinutes,
+          timeUnit: '分钟/件',
+          difficulty: mapDifficultyToZh(item.difficulty),
+          remark: '',
+          source: '字典引用',
+        }
+      }
+
       return {
         id: item.id || `tech-${index + 1}`,
         entryType: 'CRAFT',
-        stageCode: craft.stageCode,
-        stage: getStageName(craft.stageCode),
-        processCode: craft.processCode,
-        process: processDef?.processName || craft.processCode,
-        craftCode: craft.craftCode,
-        technique: craft.craftName,
-        assignmentGranularity: craft.assignmentGranularity,
-        ruleSource: craft.ruleSource,
-        detailSplitMode: craft.detailSplitMode,
-        detailSplitDimensions: [...craft.detailSplitDimensions],
-        defaultDocType: craft.defaultDocType,
-        taskTypeMode: craft.taskTypeMode,
-        isSpecialCraft: craft.isSpecialCraft,
+        stageCode: 'PROD',
+        stage: getStageName('PROD'),
+        processCode: 'SEW',
+        process: '车缝',
+        craftCode: '',
+        technique: item.name,
+        assignmentGranularity: 'SKU',
+        ruleSource: 'INHERIT_PROCESS',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
         triggerSource: '',
         standardTime: item.timeMinutes,
         timeUnit: '分钟/件',
@@ -1302,61 +1465,9 @@ function buildTechniquesFromTechPack(techPack: TechPack): TechniqueItem[] {
         remark: '',
         source: '字典引用',
       }
-    }
-
-    const processDef = listProcessDefinitions().find(
-      (processItem) => processItem.processName === item.name || processItem.systemProcessCode === item.name,
-    )
-    if (processDef) {
-      return {
-        id: item.id || `tech-${index + 1}`,
-        entryType: 'PROCESS_BASELINE',
-        stageCode: processDef.stageCode,
-        stage: getStageName(processDef.stageCode),
-        processCode: processDef.processCode,
-        process: processDef.processName,
-        craftCode: '',
-        technique: processDef.processName,
-        assignmentGranularity: processDef.assignmentGranularity,
-        ruleSource: 'INHERIT_PROCESS',
-        detailSplitMode: processDef.detailSplitMode,
-        detailSplitDimensions: [...processDef.detailSplitDimensions],
-        defaultDocType: processDef.defaultDocType,
-        taskTypeMode: processDef.taskTypeMode,
-        isSpecialCraft: false,
-        triggerSource: processDef.triggerSource || '',
-        standardTime: item.timeMinutes,
-        timeUnit: '分钟/件',
-        difficulty: mapDifficultyToZh(item.difficulty),
-        remark: '',
-        source: '字典引用',
-      }
-    }
-
-    return {
-      id: item.id || `tech-${index + 1}`,
-      entryType: 'CRAFT',
-      stageCode: 'PROD',
-      stage: getStageName('PROD'),
-      processCode: 'SEW',
-      process: '车缝',
-      craftCode: '',
-      technique: item.name,
-      assignmentGranularity: 'SKU',
-      ruleSource: 'INHERIT_PROCESS',
-      detailSplitMode: 'COMPOSITE',
-      detailSplitDimensions: ['GARMENT_SKU'],
-      defaultDocType: 'TASK',
-      taskTypeMode: 'PROCESS',
-      isSpecialCraft: false,
-      triggerSource: '',
-      standardTime: item.timeMinutes,
-      timeUnit: '分钟/件',
-      difficulty: mapDifficultyToZh(item.difficulty),
-      remark: '',
-      source: '字典引用',
-    }
-  })
+    }),
+    bomItems,
+  )
 }
 
 function buildMaterialCostRows(bomItems: BomItemRow[], techPack: TechPack): MaterialCostRow[] {
@@ -1488,6 +1599,9 @@ function getChecklist(): ChecklistItem[] {
 function syncTechPackToStore(options: { touch: boolean } = { touch: true }): void {
   if (!state.techPack) return
 
+  state.techniques = syncBomDrivenPrepTechniques(state.techniques, state.bomItems)
+  syncProcessCostRows()
+
   const checklist = getChecklist()
   const requiredItems = checklist.filter((item) => item.required)
   const doneCount = requiredItems.filter((item) => item.done).length
@@ -1564,6 +1678,8 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
       unitConsumption: Number(item.usage) || 0,
       lossRate: Number(item.lossRate) || 0,
       supplier: '-',
+      printRequirement: item.printRequirement || '无',
+      dyeRequirement: item.dyeRequirement || '无',
       applicableSkuCodes: dedupeStrings([...(item.applicableSkuCodes ?? [])]),
       linkedPatternIds: dedupeStrings([
         ...(item.linkedPatternIds ?? []),
@@ -1744,7 +1860,7 @@ function ensureTechPackPageState(rawSpuCode: string): void {
 
   state.patternItems = buildPatternItemsFromTechPack(techPack)
   state.bomItems = buildBomItemsFromTechPack(techPack)
-  state.techniques = buildTechniquesFromTechPack(techPack)
+  state.techniques = buildTechniquesFromTechPack(techPack, state.bomItems)
   state.materialCostRows = buildMaterialCostRows(state.bomItems, techPack)
   state.processCostRows = buildProcessCostRows(state.techniques, techPack)
   state.customCostRows = buildCustomCostRows(techPack)
@@ -1867,6 +1983,10 @@ export {
   getSkuCodesByColor,
   getPatternById,
   getPatternPieceById,
+  hasDyeDemand,
+  hasPrintDemand,
+  isBomDrivenPrepTechnique,
+  isPrepStage,
   createEmptyMappingLine,
   isComplexColorMappingScenario,
   buildAutoMappingLinesForColor,
@@ -1882,6 +2002,7 @@ export {
   buildBomItemsFromTechPack,
   toTechniqueItemFromEntry,
   buildTechniquesFromTechPack,
+  syncBomDrivenPrepTechniques,
   buildMaterialCostRows,
   buildProcessCostRows,
   buildCustomCostRows,

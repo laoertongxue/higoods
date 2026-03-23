@@ -11,24 +11,21 @@ import {
   type FactoryTier,
   type FactoryType,
   type MaterialRequestDraft,
-  type ProductionOrderStatus,
   tierLabels,
   typeLabels,
   riskFlagConfig,
   assignmentProgressStatusConfig,
-  demandTechPackStatusConfig,
   taskStatusLabel,
   taskStatusClass,
   getOrderById,
   getRuntimeTaskTypeLabel,
   getTaskDetailRows,
-  getOrderTaskBreakdownSnapshot,
-  getOrderRuntimeAssignmentSnapshot,
-  getOrderTechPackInfo,
+  getOrderDisplayBreakdownSnapshot,
+  getOrderDisplayAssignmentSnapshot,
+  getOrderMaterialDisplaySummary,
   getFilteredOrders,
   getPaginatedOrders,
   getProcessTaskById,
-  getMaterialDraftIndicatorsByOrder,
   getDraftStatusLabel,
   getMaterialRequestDraftById,
   getMaterialRequestDraftSummaryByOrder,
@@ -81,15 +78,42 @@ function renderOrderRiskFlags(flags: RiskFlag[]): string {
 }
 
 function renderOrderAssignmentOverview(order: ProductionOrder): string {
-  const runtime = getOrderRuntimeAssignmentSnapshot(order)
-  const total = runtime.assignmentSummary.totalTasks
+  const assignment = getOrderDisplayAssignmentSnapshot(order)
+  const total = assignment.assignmentSummary.totalTasks
   if (total === 0) return '<span class="text-muted-foreground">-</span>'
+
+  if (assignment.assignmentProgress.status === 'PENDING') {
+    return `
+      <div class="space-y-0.5 text-xs">
+        <p>任务 ${total} / 待分配</p>
+      </div>
+    `
+  }
+
+  if (assignment.assignmentProgress.status === 'DONE') {
+    return `
+      <div class="space-y-0.5 text-xs">
+        <p>已分配 ${total} / 总计 ${total}</p>
+      </div>
+    `
+  }
+
+  const lines: string[] = []
+  if (assignment.assignmentSummary.directCount > 0) {
+    lines.push(
+      `派单 ${assignment.assignmentSummary.directCount} / 已确认 ${assignment.directDispatchSummary.assignedFactoryCount} / 待确认 ${Math.max(0, assignment.assignmentSummary.directCount - assignment.directDispatchSummary.assignedFactoryCount)}`,
+    )
+  }
+  if (assignment.assignmentSummary.biddingCount > 0) {
+    lines.push(
+      `竞价 ${assignment.assignmentSummary.biddingCount} / 已发起 ${assignment.assignmentProgress.biddingLaunchedCount} / 待定标 ${Math.max(0, assignment.assignmentSummary.biddingCount - assignment.assignmentProgress.biddingAwardedCount)}`,
+    )
+  }
+  lines.push(`总计 ${total}`)
 
   return `
     <div class="space-y-0.5 text-xs">
-      <p class="flex items-center gap-1"><i data-lucide="send" class="h-3 w-3 text-blue-500"></i>派单: ${runtime.assignmentSummary.directCount}</p>
-      <p class="flex items-center gap-1"><i data-lucide="gavel" class="h-3 w-3 text-purple-500"></i>竞价: ${runtime.assignmentSummary.biddingCount}</p>
-      <p class="text-muted-foreground">总计: ${total}</p>
+      ${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
     </div>
   `
 }
@@ -225,10 +249,6 @@ function renderOrderLogsDialog(): string {
   `
 }
 
-function getOrderMaterialIndicators(order: ProductionOrder) {
-  return getMaterialDraftIndicatorsByOrder(order.productionOrderId)
-}
-
 function getOrderSplitAuditLogs(order: ProductionOrder): AuditLog[] {
   const splitEvents = listRuntimeTaskSplitGroupsByOrder(order.productionOrderId)
   if (splitEvents.length === 0) return []
@@ -268,56 +288,7 @@ function getOrderMergedAuditLogs(order: ProductionOrder): AuditLog[] {
 
 function renderOrderMaterialSummary(order: ProductionOrder): string {
   const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
-  const indicators = getOrderMaterialIndicators(order)
-
-  if (summary.totalDraftCount === 0) {
-    return `
-      <button
-        class="w-full rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
-        data-prod-action="open-material-draft-drawer"
-        data-order-id="${order.productionOrderId}"
-      >
-        ${renderBadge('未建草稿', 'bg-slate-100 text-slate-700')}
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(indicators.materialDraftHintText)}</div>
-      </button>
-    `
-  }
-
-  if (summary.status === 'pending') {
-    return `
-      <button
-        class="w-full rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
-        data-prod-action="open-material-draft-drawer"
-        data-order-id="${order.productionOrderId}"
-      >
-        ${renderBadge('待确认', 'bg-amber-100 text-amber-700')}
-        <div class="mt-1 text-xs text-muted-foreground">草稿 ${summary.totalDraftCount} / 待确认 ${summary.pendingCount}</div>
-        ${
-          summary.notApplicableCount > 0
-            ? `<div class="text-xs text-muted-foreground">不涉及 ${summary.notApplicableCount}</div>`
-            : ''
-        }
-      </button>
-    `
-  }
-
-  if (summary.status === 'partial_created') {
-    return `
-      <button
-        class="w-full rounded-md border border-transparent px-1 py-1 text-left hover:border-border hover:bg-muted/40"
-        data-prod-action="open-material-draft-drawer"
-        data-order-id="${order.productionOrderId}"
-      >
-        ${renderBadge('部分确认', 'bg-blue-100 text-blue-700')}
-        <div class="mt-1 text-xs text-muted-foreground">已确认 ${summary.createdCount} / 待确认 ${summary.pendingCount}</div>
-        ${
-          summary.notApplicableCount > 0
-            ? `<div class="text-xs text-muted-foreground">不涉及 ${summary.notApplicableCount}</div>`
-            : ''
-        }
-      </button>
-    `
-  }
+  const display = getOrderMaterialDisplaySummary(order)
 
   return `
     <button
@@ -325,14 +296,35 @@ function renderOrderMaterialSummary(order: ProductionOrder): string {
       data-prod-action="open-material-draft-drawer"
       data-order-id="${order.productionOrderId}"
     >
-      ${renderBadge('已确认', summary.status === 'created' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700')}
-      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(indicators.materialDraftHintText)}</div>
+      ${renderBadge(display.badgeLabel, display.badgeClassName)}
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(display.summaryText)}</div>
       ${
         summary.notApplicableCount > 0
           ? `<div class="text-xs text-muted-foreground">不涉及 ${summary.notApplicableCount}</div>`
           : ''
       }
     </button>
+  `
+}
+
+function renderOrderMainFactory(order: ProductionOrder): string {
+  const materialDisplay = getOrderMaterialDisplaySummary(order)
+  const factoryRoleLabel =
+    materialDisplay.stage === 'PREVIEW' || materialDisplay.stage === 'NOT_READY'
+      ? '预设主工厂'
+      : '实际主工厂'
+
+  return `
+    <div class="text-sm">
+      <div class="max-w-[150px] truncate font-medium" title="${escapeHtml(order.mainFactorySnapshot.name)}">
+        ${escapeHtml(order.mainFactorySnapshot.name)}
+      </div>
+      <div class="mt-0.5 text-xs text-muted-foreground">${factoryRoleLabel}</div>
+      <div class="mt-1 flex items-center gap-1">
+        ${renderBadge(tierLabels[order.mainFactorySnapshot.tier as FactoryTier] ?? order.mainFactorySnapshot.tier, 'bg-slate-100 text-slate-700')}
+        ${renderBadge(typeLabels[order.mainFactorySnapshot.type as FactoryType] ?? order.mainFactorySnapshot.type, 'bg-slate-100 text-slate-700')}
+      </div>
+    </div>
   `
 }
 
@@ -574,9 +566,7 @@ function renderMaterialDraftDrawer(): string {
 
   const drafts = listMaterialRequestDraftsByOrder(order.productionOrderId)
   const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
-  const techPack = getOrderTechPackInfo(order)
-  const runtime = getOrderRuntimeAssignmentSnapshot(order)
-  const breakdown = getOrderTaskBreakdownSnapshot(order)
+  const breakdown = getOrderDisplayBreakdownSnapshot(order)
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -610,7 +600,7 @@ function renderMaterialDraftDrawer(): string {
               </div>
               <div>
                 <div class="text-xs text-muted-foreground">技术包</div>
-                <div class="text-sm">${escapeHtml(techPack.currentVersion)}</div>
+                <div class="text-sm">${escapeHtml(order.techPackSnapshot.versionLabel)}</div>
               </div>
               <div>
                 <div class="text-xs text-muted-foreground">拆解状态</div>
@@ -659,13 +649,13 @@ export function renderProductionOrdersPage(): string {
     state.ordersSelectedIds.size === pagedOrders.length && pagedOrders.length > 0
   const materialReminderStats = filteredOrders.reduce(
     (acc, order) => {
-      const indicators = getOrderMaterialIndicators(order)
-      if (!indicators.hasMaterialDraft) acc.noDraft += 1
-      if (indicators.hasMaterialDraft && !indicators.hasConfirmedMaterialRequest) acc.pendingOnly += 1
-      if (indicators.hasConfirmedMaterialRequest) acc.confirmed += 1
+      const indicators = getOrderMaterialDisplaySummary(order)
+      if (indicators.stage === 'PREVIEW') acc.preview += 1
+      if (indicators.stage === 'ACTUAL_PENDING' || indicators.stage === 'ACTUAL_PARTIAL') acc.pendingOnly += 1
+      if (indicators.stage === 'ACTUAL_CONFIRMED') acc.confirmed += 1
       return acc
     },
-    { noDraft: 0, pendingOnly: 0, confirmed: 0 },
+    { preview: 0, pendingOnly: 0, confirmed: 0 },
   )
   const ordersFromDemandDialog = renderOrdersFromDemandDialog()
   const confirmDialog = renderDemandConfirmDialog()
@@ -737,15 +727,6 @@ export function renderProductionOrdersPage(): string {
                     }>${escapeHtml(productionOrderStatusConfig[status].label)}</option>`,
                 )
                 .join('')}
-            </select>
-          </div>
-
-          <div>
-            <span class="text-xs text-muted-foreground">技术包状态</span>
-            <select data-prod-field="ordersTechPackFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
-              <option value="ALL" ${state.ordersTechPackFilter === 'ALL' ? 'selected' : ''}>全部</option>
-              <option value="INCOMPLETE" ${state.ordersTechPackFilter === 'INCOMPLETE' ? 'selected' : ''}>待完善</option>
-              <option value="RELEASED" ${state.ordersTechPackFilter === 'RELEASED' ? 'selected' : ''}>已发布</option>
             </select>
           </div>
 
@@ -845,16 +826,16 @@ export function renderProductionOrdersPage(): string {
           <button
             class="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
             data-prod-action="apply-material-reminder-filter"
-            data-target="no_draft"
+            data-target="preview"
           >
-            未建领料草稿：${materialReminderStats.noDraft} 单
+            预览草稿：${materialReminderStats.preview} 单
           </button>
           <button
             class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-700 hover:bg-amber-100"
             data-prod-action="apply-material-reminder-filter"
             data-target="pending"
           >
-            待确认领料草稿：${materialReminderStats.pendingOnly} 单
+            实际草稿待确认：${materialReminderStats.pendingOnly} 单
           </button>
           <button
             class="inline-flex items-center rounded-md border border-green-200 bg-green-50 px-2.5 py-1 text-xs text-green-700 hover:bg-green-100"
@@ -880,12 +861,10 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[80px] px-3 py-3 text-left font-medium">旧单号</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">SPU</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
-                <th class="min-w-[100px] px-3 py-3 text-left font-medium">技术包</th>
+                <th class="min-w-[100px] px-3 py-3 text-left font-medium">技术包版本</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">拆解状态</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">分配概览</th>
                 <th class="min-w-[90px] px-3 py-3 text-left font-medium">分配进度</th>
-                <th class="min-w-[130px] px-3 py-3 text-left font-medium">竞价情况</th>
-                <th class="min-w-[130px] px-3 py-3 text-left font-medium">派单情况</th>
                 <th class="min-w-[170px] px-3 py-3 text-left font-medium">领料情况</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">主工厂</th>
                 <th class="min-w-[150px] px-3 py-3 text-left font-medium">风险</th>
@@ -896,12 +875,11 @@ export function renderProductionOrdersPage(): string {
             <tbody>
               ${
                 pagedOrders.length === 0
-                  ? renderEmptyRow(16, '暂无数据')
+                  ? renderEmptyRow(14, '暂无数据')
                   : pagedOrders
                     .map((order) => {
-                        const runtime = getOrderRuntimeAssignmentSnapshot(order)
-                        const techPack = getOrderTechPackInfo(order)
-                        const breakdown = getOrderTaskBreakdownSnapshot(order)
+                        const assignment = getOrderDisplayAssignmentSnapshot(order)
+                        const breakdown = getOrderDisplayBreakdownSnapshot(order)
                         const mergedLogs = getOrderMergedAuditLogs(order)
                         const lastLog = mergedLogs[mergedLogs.length - 1]
 
@@ -933,13 +911,7 @@ export function renderProductionOrdersPage(): string {
                               )}
                             </td>
                             <td class="px-3 py-3">
-                              <div class="space-y-1">
-                                ${renderBadge(
-                                  demandTechPackStatusConfig[techPack.currentStatus].label,
-                                  demandTechPackStatusConfig[techPack.currentStatus].className,
-                                )}
-                                <div class="text-xs text-muted-foreground">${escapeHtml(techPack.currentVersion)}</div>
-                              </div>
+                              <div class="text-sm text-muted-foreground">${escapeHtml(order.techPackSnapshot.versionLabel || '-')}</div>
                             </td>
                             <td class="px-3 py-3">
                               <div class="text-sm">
@@ -958,73 +930,14 @@ export function renderProductionOrdersPage(): string {
                             <td class="px-3 py-3">${renderOrderAssignmentOverview(order)}</td>
                             <td class="px-3 py-3">
                               ${renderBadge(
-                                assignmentProgressStatusConfig[runtime.assignmentProgress.status]?.label ?? runtime.assignmentProgress.status,
-                                assignmentProgressStatusConfig[runtime.assignmentProgress.status]?.color ?? 'bg-slate-100 text-slate-700',
+                                assignmentProgressStatusConfig[assignment.assignmentProgress.status]?.label ?? assignment.assignmentProgress.status,
+                                assignmentProgressStatusConfig[assignment.assignmentProgress.status]?.color ?? 'bg-slate-100 text-slate-700',
                               )}
-                            </td>
-                            <td class="px-3 py-3">
-                              ${
-                                runtime.biddingSummary.activeTenderCount > 0 || runtime.biddingSummary.overdueTenderCount > 0
-                                  ? `
-                                    <div class="space-y-0.5 text-xs">
-                                      <div>活跃: ${runtime.biddingSummary.activeTenderCount}</div>
-                                      ${
-                                        runtime.biddingSummary.nearestDeadline
-                                          ? `
-                                            <div class="flex items-center gap-1 text-yellow-600">
-                                              <i data-lucide="clock" class="h-3 w-3"></i>
-                                              ${escapeHtml(runtime.biddingSummary.nearestDeadline.split(' ')[0])}
-                                            </div>
-                                          `
-                                          : ''
-                                      }
-                                      ${
-                                        runtime.biddingSummary.overdueTenderCount > 0
-                                          ? `<div class="text-red-600">过期: ${runtime.biddingSummary.overdueTenderCount}</div>`
-                                          : ''
-                                      }
-                                    </div>
-                                  `
-                                  : '<span class="text-muted-foreground">-</span>'
-                              }
-                            </td>
-                            <td class="px-3 py-3">
-                              ${
-                                runtime.directDispatchSummary.assignedFactoryCount > 0 ||
-                                runtime.directDispatchSummary.rejectedCount > 0 ||
-                                runtime.directDispatchSummary.overdueAckCount > 0
-                                  ? `
-                                    <div class="space-y-0.5 text-xs">
-                                      <div>已分配: ${runtime.directDispatchSummary.assignedFactoryCount}</div>
-                                      ${
-                                        runtime.directDispatchSummary.rejectedCount > 0
-                                          ? `<div class="text-orange-600">拒单: ${runtime.directDispatchSummary.rejectedCount}</div>`
-                                          : ''
-                                      }
-                                      ${
-                                        runtime.directDispatchSummary.overdueAckCount > 0
-                                          ? `<div class="text-red-600">超时: ${runtime.directDispatchSummary.overdueAckCount}</div>`
-                                          : ''
-                                      }
-                                    </div>
-                                  `
-                                  : '<span class="text-muted-foreground">-</span>'
-                              }
                             </td>
                             <td class="px-3 py-3">
                               ${renderOrderMaterialSummary(order)}
                             </td>
-                            <td class="px-3 py-3">
-                              <div class="text-sm">
-                                <div class="max-w-[150px] truncate font-medium" title="${escapeHtml(order.mainFactorySnapshot.name)}">
-                                  ${escapeHtml(order.mainFactorySnapshot.name)}
-                                </div>
-                                <div class="mt-0.5 flex items-center gap-1">
-                                  ${renderBadge(tierLabels[order.mainFactorySnapshot.tier as FactoryTier] ?? order.mainFactorySnapshot.tier, 'bg-slate-100 text-slate-700')}
-                                  ${renderBadge(typeLabels[order.mainFactorySnapshot.type as FactoryType] ?? order.mainFactorySnapshot.type, 'bg-slate-100 text-slate-700')}
-                                </div>
-                              </div>
-                            </td>
+                            <td class="px-3 py-3">${renderOrderMainFactory(order)}</td>
                             <td class="px-3 py-3">${renderOrderRiskFlags(order.riskFlags)}</td>
                             <td class="px-3 py-3 text-sm text-muted-foreground">
                               ${escapeHtml(safeText(lastLog?.at.split(' ')[0] ?? order.updatedAt.split(' ')[0]))}

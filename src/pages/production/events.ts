@@ -729,6 +729,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.ordersTierFilter = 'ALL'
     state.ordersHasMaterialDraftFilter = 'ALL'
     state.ordersHasConfirmedMaterialRequestFilter = 'ALL'
+    state.ordersMaterialStageFilter = 'ALL'
     state.ordersCurrentPage = 1
     state.ordersSelectedIds = new Set()
     state.ordersActionMenuId = null
@@ -743,15 +744,16 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
   if (action === 'apply-material-reminder-filter') {
     const targetFilter = actionNode.dataset.target
-    if (targetFilter === 'no_draft') {
-      state.ordersHasMaterialDraftFilter = 'NO'
-      state.ordersHasConfirmedMaterialRequestFilter = 'ALL'
+    state.ordersHasMaterialDraftFilter = 'ALL'
+    state.ordersHasConfirmedMaterialRequestFilter = 'ALL'
+    state.ordersMaterialStageFilter = 'ALL'
+
+    if (targetFilter === 'preview') {
+      state.ordersMaterialStageFilter = 'PREVIEW'
     } else if (targetFilter === 'pending') {
-      state.ordersHasMaterialDraftFilter = 'YES'
-      state.ordersHasConfirmedMaterialRequestFilter = 'NO'
+      state.ordersMaterialStageFilter = 'ACTUAL_PENDING'
     } else if (targetFilter === 'confirmed') {
-      state.ordersHasMaterialDraftFilter = 'ALL'
-      state.ordersHasConfirmedMaterialRequestFilter = 'YES'
+      state.ordersMaterialStageFilter = 'ACTUAL_CONFIRMED'
     }
     state.ordersCurrentPage = 1
     state.ordersActionMenuId = null

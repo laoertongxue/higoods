@@ -14,6 +14,7 @@ import {
   getFactoryProfiles,
   hasInitializedSettlement,
   getFactoryName,
+  getSettlementVersionHistory,
   closeDialog,
   type CycleType,
   type PricingMode,
@@ -830,7 +831,7 @@ export function renderSettlementDetailPage(factoryId: string): string {
     <div class="space-y-6">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
-          <button class="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted" data-settle-action="go-back">
+          <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted" data-settle-action="go-back">
             <i data-lucide="arrow-left" class="h-4 w-4"></i>
           </button>
           <div>
@@ -847,17 +848,17 @@ export function renderSettlementDetailPage(factoryId: string): string {
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(factoryId)}</p>
           </div>
         </div>
-        <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-settle-action="open-profile-drawer" data-factory-id="${factoryId}">
+        <button type="button" class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-settle-action="open-profile-drawer" data-factory-id="${factoryId}">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
           新增版本
         </button>
       </div>
 
       <div class="inline-flex rounded-md border bg-muted/30 p-1">
-        <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'profile' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="profile">结算配置</button>
-        <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'accounts' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="accounts">收款账号</button>
-        <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'rules' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="rules">扣款规则</button>
-        <button class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'history' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="history">版本历史</button>
+        <button type="button" class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'profile' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="profile">结算配置</button>
+        <button type="button" class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'accounts' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="accounts">收款账号</button>
+        <button type="button" class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'rules' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="rules">扣款规则</button>
+        <button type="button" class="rounded px-3 py-1.5 text-sm ${state.detailActiveTab === 'history' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}" data-settle-action="switch-tab" data-tab="history">版本历史</button>
       </div>
 
       ${
@@ -986,4 +987,3 @@ function hydrateRequestOperateForm(requestId: string): void {
   }
   state.requestOperateError = ''
 }
-

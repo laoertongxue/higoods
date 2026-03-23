@@ -309,7 +309,7 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
   if (!action) return false
 
   if (action === 'go-back') {
-    window.history.back()
+    appStore.navigate('/fcs/factories/settlement')
     return true
   }
 
@@ -1010,4 +1010,3 @@ export function handleSettlementSubmit(form: HTMLFormElement): boolean {
 
   return false
 }
-

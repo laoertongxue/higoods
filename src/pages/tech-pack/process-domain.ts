@@ -11,6 +11,8 @@ import {
   escapeHtml,
   formatDetailSplitDimensionsText,
   getSelectedDraftMeta,
+  isBomDrivenPrepTechnique,
+  isPrepStage,
   renderStatusBadge,
   stageOptions,
   state,
@@ -19,6 +21,7 @@ import {
 import type { TechniqueItem } from './context'
 
 export function renderProcessTechniqueCard(item: TechniqueItem): string {
+  const canDelete = !isBomDrivenPrepTechnique(item)
   return `
     <article class="space-y-3 rounded-lg border bg-muted/20 p-3">
       <div class="flex items-start justify-between gap-3">
@@ -56,9 +59,13 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
           <button class="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-technique" data-tech-id="${item.id}">
             <i data-lucide="edit-2" class="h-3.5 w-3.5"></i>
           </button>
-          <button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${item.id}">
-            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-          </button>
+          ${
+            canDelete
+              ? `<button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${item.id}">
+                  <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                </button>`
+              : ''
+          }
         </div>
       </div>
       <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
@@ -115,18 +122,23 @@ export function renderProcessTab(): string {
         ${stageOptions
           .map((stage) => {
             const stageItems = state.techniques.filter((item) => item.stage === stage)
+            const allowAddTechnique = !isPrepStage(stage)
             return `
               <section class="rounded-lg border bg-card">
                 <header class="flex items-center justify-between px-4 py-3">
                   <h4 class="text-base font-semibold">${escapeHtml(stage)}</h4>
-                  <button
-                    class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
-                    data-tech-action="open-add-technique"
-                    data-stage="${escapeHtml(stage)}"
-                  >
-                    <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
-                    新增工序工艺
-                  </button>
+                  ${
+                    allowAddTechnique
+                      ? `<button
+                          class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
+                          data-tech-action="open-add-technique"
+                          data-stage="${escapeHtml(stage)}"
+                        >
+                          <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
+                          新增工序工艺
+                        </button>`
+                      : ''
+                  }
                 </header>
                 <div class="px-4 pb-4">
                   ${
@@ -134,14 +146,18 @@ export function renderProcessTab(): string {
                       ? `
                         <div class="space-y-2 py-6 text-center text-muted-foreground">
                           <p class="text-sm">暂无工序工艺</p>
-                          <button
-                            class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted"
-                            data-tech-action="open-add-technique"
-                            data-stage="${escapeHtml(stage)}"
-                          >
-                            <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
-                            新增工序工艺
-                          </button>
+                          ${
+                            allowAddTechnique
+                              ? `<button
+                                  class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted"
+                                  data-tech-action="open-add-technique"
+                                  data-stage="${escapeHtml(stage)}"
+                                >
+                                  <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
+                                  新增工序工艺
+                                </button>`
+                              : ''
+                          }
                         </div>
                       `
                       : `
@@ -173,6 +189,10 @@ export function renderAddTechniqueDialog(): string {
   if (!state.addTechniqueDialogOpen) return ''
   const selectedMeta = getSelectedDraftMeta()
   const isEdit = Boolean(state.editTechniqueId)
+  const editingTechnique = state.editTechniqueId
+    ? state.techniques.find((item) => item.id === state.editTechniqueId) ?? null
+    : null
+  const isLockedPrepTechnique = editingTechnique ? isBomDrivenPrepTechnique(editingTechnique) : false
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
@@ -183,7 +203,7 @@ export function renderAddTechniqueDialog(): string {
         <div class="space-y-4 px-6 py-4">
           <label class="space-y-1">
             <span class="text-sm">配置类型 <span class="text-red-500">*</span></span>
-            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-entry-type">
+            <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-entry-type" ${isLockedPrepTechnique ? 'disabled' : ''}>
               <option value="CRAFT" ${state.newTechnique.entryType === 'CRAFT' ? 'selected' : ''}>工艺引用项</option>
               <option value="PROCESS_BASELINE" ${state.newTechnique.entryType === 'PROCESS_BASELINE' ? 'selected' : ''}>工序基线项（准备阶段）</option>
             </select>
@@ -194,7 +214,7 @@ export function renderAddTechniqueDialog(): string {
               ? `
                 <label class="space-y-1">
                   <span class="text-sm">准备阶段工序 <span class="text-red-500">*</span></span>
-                  <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-baseline-process">
+                  <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-baseline-process" ${isLockedPrepTechnique ? 'disabled' : ''}>
                     <option value="">选择印花或染色</option>
                     ${baselineProcessOptions
                       .map(

@@ -307,12 +307,12 @@ export const productionOrders: ProductionOrder[] = [
     createdAt: '2026-02-25 10:00:00',
     updatedAt: '2026-03-05 10:05:00',
   },
-  // PO-0004: WAIT_ASSIGNMENT (已拆解, 全竞价, 待分配)
+  // PO-0004: ASSIGNING (已拆解, 全竞价, 竞价中)
   {
     productionOrderId: 'PO-202603-0004',
     demandId: 'DEM-202603-0007',
     legacyOrderNo: '240782',
-    status: 'WAIT_ASSIGNMENT',
+    status: 'ASSIGNING',
     lockedLegacy: false,
     mainFactoryId: 'ID-F006',
     mainFactorySnapshot: createFactorySnapshot(indonesiaFactories.find(f => f.id === 'ID-F006')!),
@@ -807,7 +807,7 @@ export const productionOrders: ProductionOrder[] = [
     createdAt: '2026-02-26 15:00:00',
     updatedAt: '2026-03-06 09:00:00',
   },
-  // PO-0015: WAIT_ASSIGNMENT（混合场景：准备阶段 + 普通工艺 + 特殊工艺 + 后道）
+  // PO-0015: WAIT_ASSIGNMENT（混合场景：已拆解，待分配）
   {
     productionOrderId: 'PO-202603-0015',
     demandId: 'DEM-202603-0018',
@@ -839,17 +839,24 @@ export const productionOrders: ProductionOrder[] = [
         { skuCode: 'SKU-001-XL-BLK', size: 'XL', color: 'Black', qty: 250 },
       ],
     },
-    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 0, unassignedCount: 0 },
+    assignmentSummary: { directCount: 3, biddingCount: 2, totalTasks: 5, unassignedCount: 5 },
     assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
-    taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
+    taskBreakdownSummary: {
+      isBrokenDown: true,
+      taskTypesTop3: ['准备阶段', '裁片', '后道'],
+      lastBreakdownAt: '2026-03-16 10:00:00',
+      lastBreakdownBy: 'Yudi Prakoso',
+    },
     riskFlags: [],
     auditLogs: [
       { id: 'LOG-040', action: 'CREATE', detail: '混合场景生产单创建', at: '2026-03-15 09:00:00', by: 'Yudi Prakoso' },
+      { id: 'LOG-041', action: 'BREAKDOWN', detail: '工艺任务拆解完成，共5个任务', at: '2026-03-16 10:00:00', by: 'Yudi Prakoso' },
+      { id: 'LOG-042', action: 'STATUS_CHANGE', detail: '状态变更为待分配', at: '2026-03-16 10:05:00', by: 'System' },
     ],
     createdAt: '2026-03-15 09:00:00',
-    updatedAt: '2026-03-15 09:00:00',
+    updatedAt: '2026-03-16 10:05:00',
   },
 ]
 
