@@ -1,4 +1,5 @@
 import {
+  dedupeStrings,
   bomUsageProcessOptions,
   dyeOptions,
   escapeHtml,
@@ -6,6 +7,7 @@ import {
   printOptions,
   state,
 } from './context'
+import type { BomItemRow } from './context'
 
 export function renderBomTab(): string {
   const spuLabel = state.techPack?.spuCode || '-'
@@ -318,4 +320,3 @@ export function renderBomFormDialog(): string {
     </div>
   `
 }
-

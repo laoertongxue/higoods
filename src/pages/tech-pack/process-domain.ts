@@ -12,6 +12,7 @@ import {
   formatDetailSplitDimensionsText,
   getSelectedDraftMeta,
   renderStatusBadge,
+  stageOptions,
   state,
   timeUnitOptions,
 } from './context'
@@ -360,4 +361,3 @@ export function renderAddTechniqueDialog(): string {
     </div>
   `
 }
-

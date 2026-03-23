@@ -5,6 +5,7 @@ import {
   generatedModeLabel,
   getPatternById,
   getPatternPieceById,
+  getSkuOptionsForCurrentSpu,
   state,
 } from './context'
 
@@ -300,4 +301,3 @@ export function renderColorMappingTab(): string {
     </div>
   `
 }
-
