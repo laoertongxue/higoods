@@ -27,6 +27,7 @@ import {
   getProcessDefinitionByCode,
   listProcessCraftDefinitions,
   listProcessDefinitions,
+  listProcessesByStageCode,
   listProcessStages,
 } from '../../data/fcs/process-craft-dict'
 import { productionOrders } from '../../data/fcs/production-orders'
@@ -503,6 +504,8 @@ interface TechPackPageState {
     dyeRequirement: string
   }
   newTechnique: {
+    stageCode: '' | 'PREP' | 'PROD' | 'POST'
+    processCode: string
     entryType: TechPackProcessEntryType
     baselineProcessCode: string
     craftCode: string
@@ -587,6 +590,8 @@ const state: TechPackPageState = {
     dyeRequirement: '无',
   },
   newTechnique: {
+    stageCode: '',
+    processCode: '',
     entryType: 'CRAFT',
     baselineProcessCode: '',
     craftCode: '',
@@ -684,6 +689,26 @@ function getStageName(stageCode: 'PREP' | 'PROD' | 'POST'): string {
 
 function getBaselineProcessByCode(code: string): BaselineProcessOption | null {
   return baselineProcessOptions.find((item) => item.processCode === code) ?? null
+}
+
+function getTechniqueProcessOptions(stageCode: '' | 'PREP' | 'PROD' | 'POST') {
+  if (!stageCode) return []
+  return listProcessesByStageCode(stageCode).map((item) => ({
+    processCode: item.processCode,
+    processName: item.processName,
+    stageCode: item.stageCode,
+    stageName: getStageName(item.stageCode),
+  }))
+}
+
+function getTechniqueCraftOptions(
+  stageCode: '' | 'PREP' | 'PROD' | 'POST',
+  processCode: string,
+): CraftOption[] {
+  if (!stageCode || !processCode) return []
+  return craftOptions.filter(
+    (item) => item.stageCode === stageCode && item.processCode === processCode,
+  )
 }
 
 function isPrepStage(stage: string): boolean {
@@ -806,6 +831,31 @@ function getSelectedDraftMeta():
       triggerSource: string
     }
   | null {
+  if (state.newTechnique.stageCode && state.newTechnique.processCode && state.newTechnique.craftCode) {
+    const craft = getTechniqueCraftOptions(
+      state.newTechnique.stageCode,
+      state.newTechnique.processCode,
+    ).find((item) => item.craftCode === state.newTechnique.craftCode)
+    if (!craft) return null
+    return {
+      entryType: 'CRAFT',
+      stageCode: craft.stageCode,
+      stageName: craft.stageName,
+      processCode: craft.processCode,
+      processName: craft.processName,
+      craftCode: craft.craftCode,
+      craftName: craft.craftName,
+      ruleSource: craft.ruleSource,
+      assignmentGranularity: craft.assignmentGranularity,
+      detailSplitMode: craft.detailSplitMode,
+      detailSplitDimensions: [...craft.detailSplitDimensions],
+      defaultDocType: craft.defaultDocType,
+      taskTypeMode: craft.taskTypeMode,
+      isSpecialCraft: craft.isSpecialCraft,
+      triggerSource: '',
+    }
+  }
+
   if (state.newTechnique.entryType === 'PROCESS_BASELINE') {
     const baseline = getBaselineProcessByCode(state.newTechnique.baselineProcessCode)
     if (!baseline) return null
@@ -864,6 +914,11 @@ function getSelectedDraftMeta():
     isSpecialCraft: craft.isSpecialCraft,
     triggerSource: '',
   }
+}
+
+function canEditTechnique(item: TechniqueItem): boolean {
+  if (isBomDrivenPrepTechnique(item)) return false
+  return item.stageCode !== 'PROD' && item.stageCode !== 'POST'
 }
 
 function dedupeStrings(values: string[]): string[] {
@@ -1811,6 +1866,8 @@ function resetBomForm(): void {
 function resetTechniqueForm(): void {
   state.editTechniqueId = null
   state.newTechnique = {
+    stageCode: '',
+    processCode: '',
     entryType: 'CRAFT',
     baselineProcessCode: '',
     craftCode: '',
@@ -1961,6 +2018,8 @@ export {
   stageNameToCode,
   baselineProcessOptions,
   craftOptions,
+  getTechniqueProcessOptions,
+  getTechniqueCraftOptions,
   state,
   toTimestamp,
   decodeSpuCode,
@@ -1971,6 +2030,7 @@ export {
   getBaselineProcessByCode,
   getCraftOptionByCode,
   getSelectedDraftMeta,
+  canEditTechnique,
   dedupeStrings,
   formatDetailSplitDimensionsText,
   formatPatternSpec,

@@ -1,6 +1,7 @@
 import { appStore } from '../../state/store'
 import {
   closeAllDialogs,
+  canEditTechnique,
   copySystemDraftToManual,
   createEmptyMappingLine,
   currentUser,
@@ -21,6 +22,7 @@ import {
   resetSizeForm,
   resetTechniqueForm,
   state,
+  stageNameToCode,
   syncMaterialCostRows,
   syncProcessCostRows,
   syncTechPackToStore,
@@ -216,6 +218,14 @@ function handleTechPackField(
     }
     return true
   }
+  if (field === 'new-technique-process-code') {
+    state.newTechnique = {
+      ...state.newTechnique,
+      processCode: value,
+      craftCode: '',
+    }
+    return true
+  }
   if (field === 'new-technique-baseline-process') {
     const option = getBaselineProcessByCode(value)
     state.newTechnique = {
@@ -232,18 +242,9 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-technique-craft-code') {
-    const option = getCraftOptionByCode(value)
-    const forceOverride = Boolean(option?.isSpecialCraft)
     state.newTechnique = {
       ...state.newTechnique,
       craftCode: value,
-      ruleSource: forceOverride ? 'OVERRIDE_CRAFT' : option?.ruleSource ?? 'INHERIT_PROCESS',
-      assignmentGranularity: option?.assignmentGranularity ?? state.newTechnique.assignmentGranularity,
-      detailSplitMode: option?.detailSplitMode ?? 'COMPOSITE',
-      detailSplitDimensions: [...(option?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])],
-      standardTime: option ? String(state.newTechnique.standardTime || '') : state.newTechnique.standardTime,
-      difficulty:
-        option && option.isSpecialCraft ? '困难' : option ? '中等' : state.newTechnique.difficulty,
     }
     return true
   }
@@ -998,6 +999,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const stage = actionNode.dataset.stage || ''
     if (isPrepStage(stage)) return true
     resetTechniqueForm()
+    state.newTechnique.stageCode = stageNameToCode.get(stage) ?? ''
     state.addTechniqueDialogOpen = true
     return true
   }
@@ -1006,8 +1008,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!techId) return true
     const target = getTechniqueById(techId)
     if (!target) return true
+    if (!canEditTechnique(target)) return true
     state.editTechniqueId = target.id
     state.newTechnique = {
+      stageCode: target.stageCode,
+      processCode: target.processCode,
       entryType: target.entryType,
       baselineProcessCode: target.entryType === 'PROCESS_BASELINE' ? target.processCode : '',
       craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
@@ -1032,6 +1037,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const selectedMeta = getSelectedDraftMeta()
     if (!selectedMeta) return true
     const editingTarget = state.editTechniqueId ? getTechniqueById(state.editTechniqueId) : null
+    if (editingTarget && !canEditTechnique(editingTarget)) return true
 
     if (!editingTarget && selectedMeta.stageCode === 'PREP') {
       return true
