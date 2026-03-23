@@ -165,15 +165,15 @@ function renderFilterSelect(
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-2xl font-bold">补料管理</h1>
-        <p class="mt-1 text-sm text-muted-foreground">基于唛架与铺布数据生成补料建议，首屏优先处理补料主表与审核动作。</p>
+        <h1 class="text-xl font-bold">补料管理</h1>
+        <p class="mt-0.5 text-xs text-muted-foreground">补料主表优先。</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单</button>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料</button>
+        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单</button>
+        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料</button>
       </div>
     </header>
   `
@@ -197,12 +197,12 @@ function getKpiFilterLabel(filter: ReplenishmentKpiFilter | null): string | null
 function renderPriorityCardLayer(records: ReplenishmentSuggestionRecord[]): string {
   return renderWorkbenchCardLayer({
     title: '高优先级重点入口',
-    hint: '先切到优先处理模式，再在补料主表里集中审核高风险、待审核和待补充说明记录。',
+    hint: '点击卡片切重点视图。',
     columnsClass: 'grid gap-3',
     cardsHtml: renderWorkbenchActionCard({
       title: '待审核优先区',
       count: buildPriorityRecords(records).length,
-      hint: '切到优先处理补料建议模式。',
+      hint: '高风险 / 待审核 / 待补充',
       attrs: 'data-cutting-replenish-action="toggle-priority-mode" data-priority-mode="PRIORITY_REVIEW"',
       active: state.activePriorityMode === 'PRIORITY_REVIEW',
       accentClass: 'text-rose-600',
@@ -214,13 +214,13 @@ function renderSummaryCards(): string {
   const summary = buildReplenishmentSummary(getFilteredRecords())
   return renderWorkbenchCardLayer({
     title: 'KPI 快捷筛选',
-    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    hint: '点击卡片筛主表。',
     columnsClass: 'grid gap-3 md:grid-cols-2 xl:grid-cols-6',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待审核补料建议数',
         count: summary.pendingCount,
-        hint: '系统建议尚未生效',
+        hint: '待审核',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="PENDING"',
         active: state.activeKpiFilter === 'PENDING',
         accentClass: 'text-amber-600',
@@ -228,7 +228,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '已通过补料建议数',
         count: summary.approvedCount,
-        hint: '审核通过后作为后续动作依据',
+        hint: '已通过',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="APPROVED"',
         active: state.activeKpiFilter === 'APPROVED',
         accentClass: 'text-emerald-600',
@@ -236,7 +236,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '已驳回补料建议数',
         count: summary.rejectedCount,
-        hint: '保留审核痕迹，不再生效',
+        hint: '已驳回',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="REJECTED"',
         active: state.activeKpiFilter === 'REJECTED',
         accentClass: 'text-slate-900',
@@ -244,7 +244,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '高风险缺口建议数',
         count: summary.highRiskCount,
-        hint: '优先处理长度或数量缺口',
+        hint: '高风险',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="HIGH_RISK"',
         active: state.activeKpiFilter === 'HIGH_RISK',
         accentClass: 'text-rose-600',
@@ -252,7 +252,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '需重新配料建议数',
         count: summary.reconfigCount,
-        hint: '后续回仓库配料重新处理',
+        hint: '需重新配料',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="RECONFIG_REQUIRED"',
         active: state.activeKpiFilter === 'RECONFIG_REQUIRED',
         accentClass: 'text-blue-600',
@@ -260,7 +260,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '可能影响印花 / 染色的建议数',
         count: summary.affectedCraftCount,
-        hint: '需提醒后续工艺侧关注',
+        hint: '影响后续工艺',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="AFFECTED_CRAFT"',
         active: state.activeKpiFilter === 'AFFECTED_CRAFT',
         accentClass: 'text-violet-600',
@@ -289,7 +289,7 @@ function renderActiveStateBar(): string {
 
 function renderFilterSection(): string {
   return renderStickyFilterShell(`
-      <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-7">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词搜索</span>
           <input
@@ -326,8 +326,6 @@ function renderFilterSection(): string {
           { value: 'PRINTING_AFFECTED', label: '影响印花' },
           { value: 'DYEING_AFFECTED', label: '影响染色' },
         ])}
-      </div>
-      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,220px)_1fr]">
         ${renderFilterSelect('来源筛选', 'sourceType', state.filters.sourceType, [
           { value: 'ALL', label: '全部' },
           { value: 'MARKER', label: '唛架' },
@@ -335,9 +333,6 @@ function renderFilterSection(): string {
           { value: 'RECEIVE_DISCREPANCY', label: '领料差异' },
           { value: 'EXECUTION_RISK', label: '执行风险' },
         ])}
-        <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          当前仅展示“建议 + 审核 + 影响说明”，首屏主表优先，优先处理信息压缩到后方。
-        </div>
       </div>
   `)
 }
@@ -394,7 +389,7 @@ function renderMainTable(): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-base font-semibold">补料建议主表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">主表优先查看风险、缺口、审核状态和影响摘要。</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">风险、缺口、审核一屏查看。</p>
         </div>
         <div class="text-sm text-muted-foreground">共 ${pagination.total} 条补料建议</div>
       </div>
@@ -758,7 +753,7 @@ function saveReview(): boolean {
 export function renderCraftCuttingReplenishmentPage(): string {
   const records = getFilteredRecords()
   return `
-    <div class="space-y-4 p-5">
+    <div class="space-y-3 p-4">
       ${renderPageHeader()}
       ${renderPriorityCardLayer(records)}
       ${renderSummaryCards()}

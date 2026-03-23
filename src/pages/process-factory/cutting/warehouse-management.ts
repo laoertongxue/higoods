@@ -253,12 +253,12 @@ function renderPriorityCardLayer(): string {
 
   return renderWorkbenchCardLayer({
     title: '高优先级重点入口',
-    hint: '先切到仓务重点模式，再在当前 tab 主表里集中处理待核对、未分区、样衣超期和待发后道问题。',
+    hint: '点击卡片切重点视图。',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待核对库存',
         count: fabricRecords.filter((record) => record.stockStatus === 'NEED_RECHECK').length,
-        hint: '切到裁床仓待核对模式，优先核对剩余卷数与长度。',
+        hint: '库存待核对',
         attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="FABRIC_RECHECK" data-tab="fabric"',
         active: state.activePriorityMode === 'FABRIC_RECHECK',
         accentClass: 'text-rose-600',
@@ -266,7 +266,7 @@ function renderPriorityCardLayer(): string {
       renderWorkbenchActionCard({
         title: '未分配区域',
         count: cutPieceRecords.filter((record) => record.zoneCode === 'UNASSIGNED').length,
-        hint: '切到裁片仓未分区模式，优先补齐区域与库位。',
+        hint: '未分区 / 待补位',
         attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="UNASSIGNED_ZONE" data-tab="cutPiece"',
         active: state.activePriorityMode === 'UNASSIGNED_ZONE',
         accentClass: 'text-violet-600',
@@ -274,7 +274,7 @@ function renderPriorityCardLayer(): string {
       renderWorkbenchActionCard({
         title: '样衣待归还 / 超期',
         count: sampleFocusCount,
-        hint: '切到样衣仓重点模式，优先催回样衣和处理超期样衣。',
+        hint: '待归还 / 超期',
         attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="SAMPLE_RETURN" data-tab="sample"',
         active: state.activePriorityMode === 'SAMPLE_RETURN',
         accentClass: 'text-amber-600',
@@ -282,7 +282,7 @@ function renderPriorityCardLayer(): string {
       renderWorkbenchActionCard({
         title: '待发后道',
         count: cutPieceRecords.filter((record) => record.handoverStatus === 'WAITING_HANDOVER').length,
-        hint: '切到裁片仓待发后道模式，优先推进交接。',
+        hint: '待交接',
         attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="WAITING_HANDOVER" data-tab="cutPiece"',
         active: state.activePriorityMode === 'WAITING_HANDOVER',
         accentClass: 'text-sky-600',
@@ -295,13 +295,13 @@ function renderSummaryCards(): string {
   const summary = buildWarehouseSummary(getFilteredFabricStocks(), getFilteredCutPieceRecords(), getFilteredSampleRecords())
   return renderWorkbenchCardLayer({
     title: 'KPI 快捷筛选',
-    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    hint: '点击卡片筛主表。',
     columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '裁床仓待核对库存数',
         count: summary.fabricRecheckCount,
-        hint: '裁床仓待核对库存',
+        hint: '待核对',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="FABRIC_RECHECK" data-tab="fabric"',
         active: state.activeKpiFilter === 'FABRIC_RECHECK',
         accentClass: 'text-rose-600',
@@ -309,7 +309,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '裁片仓待入仓记录数',
         count: summary.pendingInboundCount,
-        hint: '切到待入仓记录',
+        hint: '待入仓',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="PENDING_INBOUND" data-tab="cutPiece"',
         active: state.activeKpiFilter === 'PENDING_INBOUND',
         accentClass: 'text-slate-900',
@@ -317,7 +317,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '已入仓裁片组数',
         count: summary.inboundedCount,
-        hint: '切到已入仓记录',
+        hint: '已入仓',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="INBOUNDED" data-tab="cutPiece"',
         active: state.activeKpiFilter === 'INBOUNDED',
         accentClass: 'text-emerald-600',
@@ -325,7 +325,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '未分配区域记录数',
         count: summary.unassignedZoneCount,
-        hint: '切到未分区记录',
+        hint: '未分区',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="UNASSIGNED_ZONE" data-tab="cutPiece"',
         active: state.activeKpiFilter === 'UNASSIGNED_ZONE',
         accentClass: 'text-violet-600',
@@ -333,7 +333,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '样衣待归还数',
         count: summary.waitingReturnCount,
-        hint: '切到待归还样衣',
+        hint: '待归还',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="WAITING_RETURN" data-tab="sample"',
         active: state.activeKpiFilter === 'WAITING_RETURN',
         accentClass: 'text-amber-600',
@@ -341,7 +341,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '待发后道记录数',
         count: summary.waitingHandoverCount,
-        hint: '切到待发后道记录',
+        hint: '待发后道',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="WAITING_HANDOVER" data-tab="cutPiece"',
         active: state.activeKpiFilter === 'WAITING_HANDOVER',
         accentClass: 'text-sky-600',
@@ -473,15 +473,15 @@ function saveSampleReturn(): boolean {
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-2xl font-bold">仓库管理</h1>
-        <p class="mt-1 text-sm text-muted-foreground">承接裁床仓、裁片仓、样衣仓的查询、分区和流转管理，首屏优先查看当前 tab 主表。</p>
+        <h1 class="text-xl font-bold">仓库管理</h1>
+        <p class="mt-0.5 text-xs text-muted-foreground">当前 tab 主表优先。</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">去裁片单</button>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cutting-summary">去裁剪总结</button>
+        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">去裁片单</button>
+        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cutting-summary">去裁剪总结</button>
       </div>
     </header>
   `
@@ -530,7 +530,7 @@ function renderTabButton(tab: WarehouseTab, label: string): string {
 
 function renderTabs(): string {
   return `
-    <section class="rounded-lg border bg-card p-3">
+    <section class="rounded-lg border bg-card p-2.5">
       <div class="flex flex-wrap gap-2">
         ${renderTabButton('fabric', '裁床仓')}
         ${renderTabButton('cutPiece', '裁片仓')}
@@ -557,7 +557,7 @@ function renderFabricView(): string {
   return `
     <section class="space-y-4">
       ${renderStickyFilterShell(`
-        <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-4">
           <label class="space-y-2 xl:col-span-2">
             <span class="text-sm font-medium text-foreground">关键词搜索</span>
             <input
@@ -581,9 +581,6 @@ function renderFabricView(): string {
             { value: 'PARTIAL_USED', label: '部分已用' },
             { value: 'NEED_RECHECK', label: '待核对' },
           ])}
-          <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-            裁床仓聚焦“已配置、已使用、剩余可查、待核对”四类仓内运营口径，不展开复杂库存总账。
-          </div>
         </div>
       `)}
 
@@ -596,7 +593,7 @@ function renderFabricView(): string {
                   <div class="flex items-center justify-between gap-3">
                     <div>
                       <h2 class="text-base font-semibold text-foreground">裁床仓主表</h2>
-                      <p class="mt-1 text-sm text-muted-foreground">主表优先查看配置、已用、剩余和待核对状态。</p>
+                      <p class="mt-0.5 text-xs text-muted-foreground">配置、已用、剩余一屏查看。</p>
                     </div>
                     <span class="text-sm text-muted-foreground">共 ${pagination.total} 条库存</span>
                   </div>
@@ -698,7 +695,7 @@ function renderCutPieceView(): string {
   return `
     <section class="space-y-4">
       ${renderStickyFilterShell(`
-        <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-4">
           <label class="space-y-2 xl:col-span-2">
             <span class="text-sm font-medium text-foreground">关键词搜索</span>
             <input
@@ -740,7 +737,7 @@ function renderCutPieceView(): string {
                   <div class="flex items-center justify-between gap-3">
                     <div>
                       <h2 class="text-base font-semibold text-foreground">裁片仓主表</h2>
-                      <p class="mt-1 text-sm text-muted-foreground">主表优先查看区域、位置、入仓和后道交接状态。</p>
+                      <p class="mt-0.5 text-xs text-muted-foreground">区域、入仓、交接一屏查看。</p>
                     </div>
                     <span class="text-sm text-muted-foreground">共 ${pagination.total} 条入仓记录</span>
                   </div>
@@ -840,7 +837,7 @@ function renderSampleView(): string {
   return `
     <section class="space-y-4">
       ${renderStickyFilterShell(`
-        <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-4">
           <label class="space-y-2 xl:col-span-2">
             <span class="text-sm font-medium text-foreground">关键词搜索</span>
             <input
@@ -867,9 +864,6 @@ function renderSampleView(): string {
             { value: 'WAITING_RETURN', label: '待归还' },
             { value: 'CHECKING', label: '抽检中' },
           ])}
-          <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-            样衣流转用于表达裁床调用、PMC 仓保管、工厂核价和回货抽检的关键节点，不做复杂流转引擎。
-          </div>
         </div>
       `)}
 
@@ -882,7 +876,7 @@ function renderSampleView(): string {
                   <div class="flex items-center justify-between gap-3">
                     <div>
                       <h2 class="text-base font-semibold text-foreground">样衣仓主表</h2>
-                      <p class="mt-1 text-sm text-muted-foreground">主表优先查看阶段、当前持有人、状态和下一步建议动作。</p>
+                      <p class="mt-0.5 text-xs text-muted-foreground">阶段、持有人、状态一屏查看。</p>
                     </div>
                     <span class="text-sm text-muted-foreground">共 ${pagination.total} 条样衣记录</span>
                   </div>
@@ -1226,7 +1220,7 @@ function renderCurrentView(): string {
 
 export function renderCraftCuttingWarehouseManagementPage(): string {
   return `
-    <div class="space-y-4 p-5">
+    <div class="space-y-3 p-4">
       ${renderPageHeader()}
       ${renderPriorityCardLayer()}
       ${renderSummaryCards()}

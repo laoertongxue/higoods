@@ -2,13 +2,13 @@ import { escapeHtml } from '../../../utils'
 
 export function renderCompactKpiCard(label: string, value: number | string, hint: string, accentClass: string): string {
   return `
-    <article class="rounded-lg border bg-card px-3 py-2.5">
-      <div class="flex items-start justify-between gap-3">
+    <article class="rounded-lg border bg-card px-3 py-2">
+      <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
-          <p class="mt-1 text-xl font-semibold leading-none tabular-nums ${accentClass}">${escapeHtml(String(value))}</p>
+          <p class="mt-0.5 text-lg font-semibold leading-none tabular-nums ${accentClass}">${escapeHtml(String(value))}</p>
         </div>
-        <p class="max-w-[10rem] text-right text-[11px] leading-4 text-muted-foreground">${escapeHtml(hint)}</p>
+        ${hint ? `<p class="max-w-[9rem] text-right text-[10px] leading-4 text-muted-foreground">${escapeHtml(hint)}</p>` : ''}
       </div>
     </article>
   `
@@ -26,18 +26,18 @@ export function renderWorkbenchActionCard(options: {
     <button
       type="button"
       ${options.attrs}
-      class="w-full rounded-lg border px-3 py-3 text-left transition ${options.active ? 'border-blue-500 bg-blue-50 shadow-sm' : 'bg-card hover:border-slate-300 hover:bg-muted/20'}"
+      class="w-full rounded-lg border px-3 py-2 text-left transition ${options.active ? 'border-blue-500 bg-blue-50 shadow-sm' : 'bg-card hover:border-slate-300 hover:bg-muted/20'}"
     >
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <p class="text-sm font-semibold text-foreground">${escapeHtml(options.title)}</p>
-          <p class="mt-1 text-2xl font-semibold leading-none tabular-nums ${options.accentClass ?? 'text-slate-900'}">${escapeHtml(String(options.count))}</p>
+          <p class="text-xs font-semibold text-foreground">${escapeHtml(options.title)}</p>
+          <p class="mt-0.5 text-xl font-semibold leading-none tabular-nums ${options.accentClass ?? 'text-slate-900'}">${escapeHtml(String(options.count))}</p>
         </div>
-        <span class="rounded-full px-2 py-0.5 text-[11px] ${options.active ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'}">
+        <span class="rounded-full px-2 py-0.5 text-[10px] ${options.active ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'}">
           ${options.active ? '当前模式' : '点击筛选'}
         </span>
       </div>
-      <p class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(options.hint)}</p>
+      ${options.hint ? `<p class="mt-1 text-[11px] leading-4 text-muted-foreground">${escapeHtml(options.hint)}</p>` : ''}
     </button>
   `
 }
@@ -49,11 +49,11 @@ export function renderWorkbenchCardLayer(options: {
   columnsClass?: string
 }): string {
   return `
-    <section class="rounded-lg border bg-card p-3">
-      <div class="mb-3 flex items-start justify-between gap-4">
+    <section class="rounded-lg border bg-card p-2.5">
+      <div class="mb-2 flex items-start justify-between gap-3">
         <div>
           <h2 class="text-sm font-semibold text-foreground">${escapeHtml(options.title)}</h2>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(options.hint)}</p>
+          ${options.hint ? `<p class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(options.hint)}</p>` : ''}
         </div>
       </div>
       <div class="${options.columnsClass ?? 'grid gap-3 md:grid-cols-2 xl:grid-cols-4'}">
@@ -88,7 +88,7 @@ export function renderWorkbenchStateBar(options: {
   if (!options.chips.length) return ''
 
   return `
-    <section class="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/20 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+    <section class="flex flex-col gap-2 rounded-lg border border-dashed bg-muted/20 px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
       <div class="flex flex-wrap items-center gap-2">
         <span class="text-xs font-medium text-muted-foreground">${escapeHtml(options.summary)}</span>
         ${options.chips.join('')}
@@ -102,7 +102,7 @@ export function renderWorkbenchStateBar(options: {
 
 export function renderStickyFilterShell(content: string, extraClass = ''): string {
   return `
-    <section class="sticky top-4 z-20 rounded-lg border bg-card/95 p-4 shadow-sm backdrop-blur ${extraClass}">
+    <section class="sticky top-3 z-20 rounded-lg border bg-card/95 p-3 shadow-sm backdrop-blur ${extraClass}">
       ${content}
     </section>
   `
@@ -117,17 +117,17 @@ export function renderWorkbenchSecondaryPanel(options: {
 }): string {
   return `
     <details class="rounded-lg border bg-card" ${options.defaultOpen ? 'open' : ''}>
-      <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <h2 class="text-sm font-semibold text-foreground">${escapeHtml(options.title)}</h2>
             ${options.countText ? `<span class="text-xs text-muted-foreground">${escapeHtml(options.countText)}</span>` : ''}
           </div>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(options.hint)}</p>
+          <p class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(options.hint)}</p>
         </div>
         <span class="shrink-0 text-xs text-muted-foreground">展开查看</span>
       </summary>
-      <div class="border-t p-4">
+      <div class="border-t p-3">
         ${options.body}
       </div>
     </details>
@@ -208,11 +208,11 @@ export function renderWorkbenchPagination(options: {
   const end = options.total === 0 ? 0 : Math.min(options.total, safePage * options.pageSize)
 
   return `
-    <div class="flex flex-col gap-3 border-t px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex flex-col gap-2 border-t px-3 py-2.5 lg:flex-row lg:items-center lg:justify-between">
       <div class="text-xs text-muted-foreground">
         显示 ${start}-${end} 条，共 ${options.total} 条，第 ${safePage} / ${totalPages} 页
       </div>
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2">
         <label class="flex items-center gap-2 text-xs text-muted-foreground">
           <span>每页</span>
           <select ${options.pageSizeAttr}="true"${extraAttrs} class="h-8 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">

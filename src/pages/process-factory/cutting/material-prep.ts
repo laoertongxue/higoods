@@ -204,15 +204,15 @@ function renderFilterSelect(
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-2xl font-bold">仓库配料</h1>
-        <p class="mt-1 text-sm text-muted-foreground">统一查看审核、配置、领料、打印与二维码状态，并快速进入仓库配料动作。</p>
+        <h1 class="text-xl font-bold">仓库配料</h1>
+        <p class="mt-0.5 text-xs text-muted-foreground">生产单分组主视图优先。</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-order-progress">去订单进度</button>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单</button>
+        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="go-order-progress">去订单进度</button>
+        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单</button>
       </div>
     </header>
   `
@@ -242,20 +242,20 @@ function renderPriorityCardLayer(groups: CuttingMaterialPrepGroup[]): string {
 
   return renderWorkbenchCardLayer({
     title: '高优先级重点入口',
-    hint: '先切到重点模式，再在生产单分组主视图中处理待配置和差异待核对记录。',
+    hint: '点击卡片切重点视图。',
     columnsClass: 'grid gap-3 md:grid-cols-2',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '配料进展',
         count: prepGroups.length,
-        hint: '切到待配置 / 部分配置 / 待领料模式。',
+        hint: '待配置 / 待领料',
         attrs: 'data-cutting-prep-action="toggle-priority-mode" data-priority-mode="PREP_PROGRESS"',
         active: state.activePriorityMode === 'PREP_PROGRESS',
       }),
       renderWorkbenchActionCard({
         title: '差异处理',
         count: discrepancyGroups.length,
-        hint: '切到差异待核对 / 待照片提交模式。',
+        hint: '差异 / 待照片',
         attrs: 'data-cutting-prep-action="toggle-priority-mode" data-priority-mode="DISCREPANCY"',
         active: state.activePriorityMode === 'DISCREPANCY',
         accentClass: 'text-rose-600',
@@ -268,13 +268,13 @@ function renderSummaryCards(): string {
   const summary = buildMaterialPrepSummary(getFilteredGroups())
   return renderWorkbenchCardLayer({
     title: 'KPI 快捷筛选',
-    hint: '点击 KPI 在当前重点模式结果上继续筛主视图，再次点击同卡片取消。',
+    hint: '点击卡片筛主视图。',
     columnsClass: 'grid gap-3 md:grid-cols-2 xl:grid-cols-6',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待配置裁片单数',
         count: summary.pendingConfigCount,
-        hint: '仍未生成配料批次',
+        hint: '待配置',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PENDING_CONFIG"',
         active: state.activeKpiFilter === 'PENDING_CONFIG',
         accentClass: 'text-slate-900',
@@ -282,7 +282,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '部分配置裁片单数',
         count: summary.partialConfigCount,
-        hint: '已配但尚未补齐',
+        hint: '部分配置',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PARTIAL_CONFIG"',
         active: state.activeKpiFilter === 'PARTIAL_CONFIG',
         accentClass: 'text-orange-600',
@@ -290,7 +290,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '已生成二维码裁片单数',
         count: summary.qrReadyCount,
-        hint: '有配置即生成二维码',
+        hint: '二维码已就绪',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="QR_READY"',
         active: state.activeKpiFilter === 'QR_READY',
         accentClass: 'text-violet-600',
@@ -298,7 +298,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '待领料裁片单数',
         count: summary.pendingReceiveCount,
-        hint: '尚未完成扫码领取',
+        hint: '待领取',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PENDING_RECEIVE"',
         active: state.activeKpiFilter === 'PENDING_RECEIVE',
         accentClass: 'text-slate-900',
@@ -306,7 +306,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '领料成功裁片单数',
         count: summary.receiveDoneCount,
-        hint: '扫码领取已完成',
+        hint: '已领取',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="RECEIVE_DONE"',
         active: state.activeKpiFilter === 'RECEIVE_DONE',
         accentClass: 'text-emerald-600',
@@ -314,7 +314,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '差异待处理裁片单数',
         count: summary.discrepancyCount,
-        hint: '含待核对或照片提交',
+        hint: '差异待处理',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="DISCREPANCY"',
         active: state.activeKpiFilter === 'DISCREPANCY',
         accentClass: 'text-rose-600',
@@ -343,7 +343,7 @@ function renderActiveStateBar(): string {
 
 function renderFilterSection(): string {
   return renderStickyFilterShell(`
-      <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-7">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词搜索</span>
           <input
@@ -379,17 +379,12 @@ function renderFilterSection(): string {
           { value: 'PARTIAL', label: '部分领料' },
           { value: 'RECEIVED', label: '领料成功' },
         ])}
-      </div>
-      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,220px)_1fr]">
         ${renderFilterSelect('风险筛选', 'riskFilter', state.filters.riskFilter, [
           { value: 'ALL', label: '全部' },
           { value: 'DIFF_ONLY', label: '仅看有差异' },
           { value: 'REVIEW_ONLY', label: '仅看待审核' },
           { value: 'RECEIVE_ONLY', label: '仅看待领料' },
         ])}
-        <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          页面聚焦“生产单分组 + 面料行明细”，首屏优先主表，次级跟进信息下沉到后方。
-        </div>
       </div>
   `)
 }
@@ -591,7 +586,7 @@ function renderMainSection(): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">生产单分组主视图</h2>
-          <p class="mt-1 text-sm text-muted-foreground">高优先级卡片和 KPI 只切主视图模式，具体处理仍在分组表内完成。</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">处理仍在分组表内完成。</p>
         </div>
         <div class="text-sm text-muted-foreground">共 ${pagination.total} 个生产单分组</div>
       </div>
@@ -974,7 +969,7 @@ function renderReceiveDrawer(): string {
 export function renderCraftCuttingMaterialPrepPage(): string {
   const groups = getFilteredGroups()
   return `
-    <div class="space-y-4 p-5">
+    <div class="space-y-3 p-4">
       ${renderPageHeader()}
       ${renderPriorityCardLayer(groups)}
       ${renderSummaryCards()}

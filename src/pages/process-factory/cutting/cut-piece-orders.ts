@@ -221,15 +221,15 @@ function renderFilterSelect(
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-2xl font-bold">裁片单</h1>
-        <p class="mt-1 text-sm text-muted-foreground">承接裁片单、唛架、铺布和关联单据，首屏优先查看裁片单主表与执行状态。</p>
+        <h1 class="text-xl font-bold">裁片单</h1>
+        <p class="mt-0.5 text-xs text-muted-foreground">裁片单主表优先。</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep">去仓库配料</button>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment">去补料管理</button>
+        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep">去仓库配料</button>
+        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment">去补料管理</button>
       </div>
     </header>
   `
@@ -257,20 +257,20 @@ function renderPriorityCardLayer(records: CutPieceOrderRecord[]): string {
 
   return renderWorkbenchCardLayer({
     title: '高优先级重点入口',
-    hint: '先切到重点模式，再在裁片单主表里集中处理待维护、待铺布、待入仓和补料风险。',
+    hint: '点击卡片切重点视图。',
     columnsClass: 'grid gap-3 md:grid-cols-2',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待跟进裁片单',
         count: followUpCount,
-        hint: '切到待维护 / 待铺布 / 待入仓模式。',
+        hint: '待维护 / 待铺布 / 待入仓',
         attrs: 'data-cutting-piece-action="toggle-priority-mode" data-priority-mode="FOLLOW_UP"',
         active: state.activePriorityMode === 'FOLLOW_UP',
       }),
       renderWorkbenchActionCard({
         title: '补料与执行风险',
         count: riskCount,
-        hint: '切到补料风险 / 执行异常模式。',
+        hint: '补料 / 执行异常',
         attrs: 'data-cutting-piece-action="toggle-priority-mode" data-priority-mode="EXECUTION_RISK"',
         active: state.activePriorityMode === 'EXECUTION_RISK',
         accentClass: 'text-rose-600',
@@ -283,13 +283,13 @@ function renderSummaryCards(): string {
   const summary = buildCutPieceOrderSummary(getFilteredRecords())
   return renderWorkbenchCardLayer({
     title: 'KPI 快捷筛选',
-    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    hint: '点击卡片筛主表。',
     columnsClass: 'grid gap-3 md:grid-cols-2 xl:grid-cols-6',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待维护唛架信息裁片单数',
         count: summary.pendingMarkerCount,
-        hint: '需先维护尺码配比与净长',
+        hint: '待维护',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="PENDING_MARKER"',
         active: state.activeKpiFilter === 'PENDING_MARKER',
         accentClass: 'text-slate-900',
@@ -297,7 +297,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '已上传唛架图裁片单数',
         count: summary.uploadedMarkerCount,
-        hint: '可直接给裁床查看版本',
+        hint: '已上传',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="UPLOADED_MARKER"',
         active: state.activeKpiFilter === 'UPLOADED_MARKER',
         accentClass: 'text-emerald-600',
@@ -305,7 +305,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '待铺布裁片单数',
         count: summary.pendingSpreadCount,
-        hint: '尚无工厂端铺布回写',
+        hint: '待铺布',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="PENDING_SPREAD"',
         active: state.activeKpiFilter === 'PENDING_SPREAD',
         accentClass: 'text-slate-900',
@@ -313,7 +313,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '已有铺布记录裁片单数',
         count: summary.spreadDoneCount,
-        hint: '可核对卷号与铺布长度',
+        hint: '已有铺布',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="SPREAD_DONE"',
         active: state.activeKpiFilter === 'SPREAD_DONE',
         accentClass: 'text-sky-600',
@@ -321,7 +321,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '待补料裁片单数',
         count: summary.replenishmentRiskCount,
-        hint: '根据差异与铺布数据预警',
+        hint: '待补料',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="REPLENISHMENT_RISK"',
         active: state.activeKpiFilter === 'REPLENISHMENT_RISK',
         accentClass: 'text-rose-600',
@@ -329,7 +329,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '待入仓裁片单数',
         count: summary.pendingInboundCount,
-        hint: '裁片完成后等待入裁片仓',
+        hint: '待入仓',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="PENDING_INBOUND"',
         active: state.activeKpiFilter === 'PENDING_INBOUND',
         accentClass: 'text-violet-600',
@@ -357,7 +357,7 @@ function renderActiveStateBar(): string {
 
 function renderFilterSection(): string {
   return renderStickyFilterShell(`
-      <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-7">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词搜索</span>
           <input
@@ -389,16 +389,11 @@ function renderFilterSection(): string {
           { value: 'ALL', label: '全部' },
           { value: 'RISK_ONLY', label: '仅看待补料' },
         ])}
-      </div>
-      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,220px)_1fr]">
         ${renderFilterSelect('入仓状态', 'inboundStatus', state.filters.inboundStatus, [
           { value: 'ALL', label: '全部' },
           { value: 'NOT_INBOUND', label: '未入仓' },
           { value: 'INBOUND', label: '已入仓' },
         ])}
-        <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          页面按“裁片单维度”组织，主表优先，待跟进与风险信息下沉到后方折叠区。
-        </div>
       </div>
   `)
 }
@@ -488,7 +483,7 @@ function renderMainTable(): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-base font-semibold">裁片单主表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">主表优先查看裁片单、唛架、铺布、入仓与补料风险。</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">唛架、铺布、入仓一屏查看。</p>
         </div>
         <div class="text-sm text-muted-foreground">共 ${pagination.total} 张裁片单</div>
       </div>
@@ -1183,7 +1178,7 @@ function saveSpreading(): boolean {
 export function renderCraftCuttingPieceOrdersPage(): string {
   const records = getFilteredRecords()
   return `
-    <div class="space-y-4 p-5">
+    <div class="space-y-3 p-4">
       ${renderPageHeader()}
       ${renderPriorityCardLayer(records)}
       ${renderSummaryCards()}

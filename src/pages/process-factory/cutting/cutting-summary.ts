@@ -171,11 +171,11 @@ function navigateTo(route: string): void {
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-3">
+    <header class="flex flex-col gap-2">
       <div>
         <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-2xl font-bold">裁剪总结</h1>
-        <p class="mt-1 text-sm text-muted-foreground">按生产单汇总裁片管理前序细数据，首屏优先查看生产单汇总表并快速回源处理。</p>
+        <h1 class="text-xl font-bold">裁剪总结</h1>
+        <p class="mt-0.5 text-xs text-muted-foreground">生产单汇总主表优先。</p>
       </div>
     </header>
   `
@@ -185,12 +185,12 @@ function renderPriorityCardLayer(): string {
   const baseRecords = getBaseRecords()
   return renderWorkbenchCardLayer({
     title: '高优先级重点入口',
-    hint: '先切到待收口问题模式，再在生产单主表里集中核查关键问题和回源处理入口。',
+    hint: '点击卡片切重点视图。',
     columnsClass: 'grid gap-3 md:grid-cols-1',
     cardsHtml: renderWorkbenchActionCard({
       title: '重点问题',
       count: buildPriorityRecords(baseRecords).length,
-      hint: '切到待收口问题生产单模式，优先处理领料差异、补料未决和仓务未收口问题。',
+      hint: '领料差异 / 补料 / 仓务',
       attrs: 'data-cutting-summary-action="toggle-priority-mode" data-priority-mode="ISSUE_FOCUS"',
       active: state.activePriorityMode === 'ISSUE_FOCUS',
       accentClass: 'text-rose-600',
@@ -202,20 +202,20 @@ function renderSummaryCards(): string {
   const summary = buildSummaryOverview(getBaseRecords())
   return renderWorkbenchCardLayer({
     title: 'KPI 快捷筛选',
-    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    hint: '点击卡片筛主表。',
     columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待收口生产单数',
         count: summary.pendingClosureCount,
-        hint: '仍处于前序收口过程',
+        hint: '待收口',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_CLOSURE"',
         active: state.activeKpiFilter === 'PENDING_CLOSURE',
       }),
       renderWorkbenchActionCard({
         title: '已完成待核查生产单数',
         count: summary.donePendingReviewCount,
-        hint: '执行完成但仍需运营复核',
+        hint: '待核查',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="DONE_PENDING_REVIEW"',
         active: state.activeKpiFilter === 'DONE_PENDING_REVIEW',
         accentClass: 'text-emerald-600',
@@ -223,7 +223,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '已收口生产单数',
         count: summary.closedCount,
-        hint: '可作为完成样本参考',
+        hint: '已收口',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="CLOSED"',
         active: state.activeKpiFilter === 'CLOSED',
         accentClass: 'text-emerald-600',
@@ -231,7 +231,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '高风险生产单数',
         count: summary.highRiskCount,
-        hint: '优先处理差异和补料未决项',
+        hint: '高风险',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="HIGH_RISK"',
         active: state.activeKpiFilter === 'HIGH_RISK',
         accentClass: 'text-rose-600',
@@ -239,7 +239,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '待补料处理生产单数',
         count: summary.pendingReplenishmentCount,
-        hint: '先审核再决定是否生效',
+        hint: '待补料',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_REPLENISHMENT"',
         active: state.activeKpiFilter === 'PENDING_REPLENISHMENT',
         accentClass: 'text-violet-600',
@@ -247,7 +247,7 @@ function renderSummaryCards(): string {
       renderWorkbenchActionCard({
         title: '待入仓 / 待发后道生产单数',
         count: summary.pendingWarehouseCount,
-        hint: '重点关注仓务收口与交接',
+        hint: '待入仓 / 交接',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_WAREHOUSE"',
         active: state.activeKpiFilter === 'PENDING_WAREHOUSE',
         accentClass: 'text-sky-600',
@@ -258,7 +258,7 @@ function renderSummaryCards(): string {
 
 function renderFilterSection(): string {
   return renderStickyFilterShell(`
-      <div class="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-7">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词搜索</span>
           <input
@@ -300,15 +300,10 @@ function renderFilterSection(): string {
           { value: 'WAREHOUSE', label: '仓库' },
           { value: 'SAMPLE', label: '样衣' },
         ])}
-      </div>
-      <div class="mt-4 grid gap-4 lg:grid-cols-[220px_1fr]">
         ${renderFilterSelect('仅看待核查', 'pendingOnly', state.filters.pendingOnly, [
           { value: 'ALL', label: '全部' },
           { value: 'PENDING_ONLY', label: '仅看待核查' },
         ])}
-        <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          本页是生产单级收口页，只做汇总、核查和跳转，不新增新的业务操作流程。
-        </div>
       </div>
   `)
 }
@@ -355,7 +350,7 @@ function renderMainTable(): string {
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-semibold text-foreground">生产单汇总主表</h2>
-            <p class="mt-1 text-sm text-muted-foreground">首屏优先查看收口状态、风险和回源处理入口。</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">收口状态与回源入口一屏查看。</p>
           </div>
           <span class="text-sm text-muted-foreground">共 ${pagination.total} 条汇总</span>
         </div>
@@ -719,7 +714,7 @@ function renderIssuesDrawer(): string {
 
 export function renderCraftCuttingSummaryPage(): string {
   return `
-    <div class="space-y-4 p-5">
+    <div class="space-y-3 p-4">
       ${renderPageHeader()}
       ${renderPriorityCardLayer()}
       ${renderSummaryCards()}

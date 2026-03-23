@@ -166,20 +166,20 @@ function renderPriorityCardLayer(): string {
 
   return renderWorkbenchCardLayer({
     title: '高优先级重点入口',
-    hint: '先切到重点模式，再在主表里集中处理配料跟进和风险生产单。',
+    hint: '点击卡片切重点视图。',
     columnsClass: 'grid gap-3 md:grid-cols-2',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '配料进展',
         count: prepCount,
-        hint: '切到待跟进生产单模式，优先处理待配置和待领料记录。',
+        hint: '待配置 / 待领料',
         attrs: 'data-cutting-progress-action="toggle-priority-mode" data-priority-mode="PREP_FOCUS"',
         active: state.activePriorityMode === 'PREP_FOCUS',
       }),
       renderWorkbenchActionCard({
         title: '风险提示',
         count: riskCount,
-        hint: '切到风险生产单模式，优先处理补料、交期和领料差异风险。',
+        hint: '补料 / 交期 / 差异',
         attrs: 'data-cutting-progress-action="toggle-priority-mode" data-priority-mode="RISK_FOCUS"',
         active: state.activePriorityMode === 'RISK_FOCUS',
         accentClass: 'text-rose-600',
@@ -192,13 +192,13 @@ function renderKpiCardLayer(): string {
   const summary = buildCuttingOrderProgressSummary(getBaseRecords())
   return renderWorkbenchCardLayer({
     title: 'KPI 快捷筛选',
-    hint: '点击 KPI 在当前重点模式结果上继续筛主表，再次点击同卡片取消。',
+    hint: '点击卡片筛主表。',
     columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待审核生产单数',
         count: summary.pendingAuditCount,
-        hint: '优先处理上游审核缺口',
+        hint: '审核缺口',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PENDING_AUDIT"',
         active: state.activeKpiFilter === 'PENDING_AUDIT',
         accentClass: 'text-amber-600',
@@ -206,7 +206,7 @@ function renderKpiCardLayer(): string {
       renderWorkbenchActionCard({
         title: '部分配置生产单数',
         count: summary.partialConfigCount,
-        hint: '需要继续补齐仓库配料',
+        hint: '继续补配料',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PARTIAL_CONFIG"',
         active: state.activeKpiFilter === 'PARTIAL_CONFIG',
         accentClass: 'text-orange-600',
@@ -214,7 +214,7 @@ function renderKpiCardLayer(): string {
       renderWorkbenchActionCard({
         title: '待领料生产单数',
         count: summary.pendingReceiveCount,
-        hint: '含未领料和部分领料',
+        hint: '未领料 / 部分领料',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PENDING_RECEIVE"',
         active: state.activeKpiFilter === 'PENDING_RECEIVE',
         accentClass: 'text-slate-700',
@@ -222,7 +222,7 @@ function renderKpiCardLayer(): string {
       renderWorkbenchActionCard({
         title: '领料成功生产单数',
         count: summary.receiveDoneCount,
-        hint: '可继续推进裁剪或入仓',
+        hint: '可继续推进',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="RECEIVE_DONE"',
         active: state.activeKpiFilter === 'RECEIVE_DONE',
         accentClass: 'text-emerald-600',
@@ -230,7 +230,7 @@ function renderKpiCardLayer(): string {
       renderWorkbenchActionCard({
         title: '待补料生产单数',
         count: summary.replenishmentPendingCount,
-        hint: '待补料风险需尽快处理',
+        hint: '补料待处理',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="REPLENISH_PENDING"',
         active: state.activeKpiFilter === 'REPLENISH_PENDING',
         accentClass: 'text-fuchsia-600',
@@ -238,7 +238,7 @@ function renderKpiCardLayer(): string {
       renderWorkbenchActionCard({
         title: 'AA / A 紧急生产单数',
         count: summary.urgentCount,
-        hint: '优先关注临近发货订单',
+        hint: '临近发货',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="URGENT"',
         active: state.activeKpiFilter === 'URGENT',
         accentClass: 'text-rose-600',
@@ -670,12 +670,12 @@ function renderDetailDrawer(): string {
 
 export function renderCraftCuttingOrderProgressPage(): string {
   return `
-    <div class="space-y-4 p-5">
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div class="space-y-3 p-4">
+      <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-          <h1 class="text-2xl font-bold">订单进度</h1>
-          <p class="mt-1 text-sm text-muted-foreground">以生产单维度快速定位配料、领料、当前阶段和风险。</p>
+          <h1 class="text-xl font-bold">订单进度</h1>
+          <p class="mt-0.5 text-xs text-muted-foreground">生产单主表优先。</p>
         </div>
       </div>
 
@@ -683,7 +683,7 @@ export function renderCraftCuttingOrderProgressPage(): string {
       ${renderKpiCardLayer()}
 
       ${renderStickyFilterShell(`
-        <div class="grid gap-4 lg:grid-cols-6">
+        <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-7">
           <label class="space-y-2 lg:col-span-2">
             <span class="text-sm font-medium text-foreground">关键词</span>
             <input
@@ -720,15 +720,10 @@ export function renderCraftCuttingOrderProgressPage(): string {
             { value: 'PARTIAL', label: '部分领料' },
             { value: 'RECEIVED', label: '领料成功' },
           ], state.filters.receiveStatus)}
-        </div>
-        <div class="mt-4 grid gap-4 lg:grid-cols-[220px_1fr]">
           ${renderFilterSelect('风险筛选', 'risk', [
             { value: 'ALL', label: '全部' },
             { value: 'RISK_ONLY', label: '仅看有风险' },
           ], state.filters.riskFilter)}
-          <div class="flex items-end text-xs text-muted-foreground">
-            公共筛选会影响顶部卡片计数与主表；重点模式和 KPI 快捷筛选会在此基础上继续收紧主表结果。
-          </div>
         </div>
       `)}
 
