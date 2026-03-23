@@ -43,11 +43,11 @@ import {
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchActionCard,
-  renderWorkbenchCardLayer,
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
+  renderWorkbenchShortcutZone,
 } from './layout.helpers'
 
 type OverlayType = 'detail' | 'marker' | 'spreading' | 'qr' | 'docs'
@@ -251,88 +251,83 @@ function getKpiFilterLabel(filter: CutPieceKpiFilter | null): string | null {
   return null
 }
 
-function renderPriorityCardLayer(records: CutPieceOrderRecord[]): string {
+function renderShortcutCardZone(records: CutPieceOrderRecord[]): string {
   const followUpCount = records.filter((record) => deriveMarkerStatus(record) !== 'UPLOADED' || deriveSpreadingStatus(record) === 'NOT_SPREAD' || !record.hasInboundRecord).length
   const riskCount = records.filter((record) => buildRiskFlags(record).length > 0).length
-
-  return renderWorkbenchCardLayer({
-    title: '高优先级重点入口',
-    hint: '点击卡片切重点视图。',
-    columnsClass: 'grid gap-3 md:grid-cols-2',
+  const summary = buildCutPieceOrderSummary(getFilteredRecords())
+  return renderWorkbenchShortcutZone({
+    columnsClass: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待跟进裁片单',
         count: followUpCount,
-        hint: '待维护 / 待铺布 / 待入仓',
+        hint: '',
         attrs: 'data-cutting-piece-action="toggle-priority-mode" data-priority-mode="FOLLOW_UP"',
         active: state.activePriorityMode === 'FOLLOW_UP',
+        variant: 'priority',
       }),
       renderWorkbenchActionCard({
         title: '补料与执行风险',
         count: riskCount,
-        hint: '补料 / 执行异常',
+        hint: '',
         attrs: 'data-cutting-piece-action="toggle-priority-mode" data-priority-mode="EXECUTION_RISK"',
         active: state.activePriorityMode === 'EXECUTION_RISK',
         accentClass: 'text-rose-600',
+        variant: 'priority',
       }),
-    ].join(''),
-  })
-}
-
-function renderSummaryCards(): string {
-  const summary = buildCutPieceOrderSummary(getFilteredRecords())
-  return renderWorkbenchCardLayer({
-    title: 'KPI 快捷筛选',
-    hint: '点击卡片筛主表。',
-    columnsClass: 'grid gap-3 md:grid-cols-2 xl:grid-cols-6',
-    cardsHtml: [
       renderWorkbenchActionCard({
-        title: '待维护唛架信息裁片单数',
+        title: '待维护唛架',
         count: summary.pendingMarkerCount,
-        hint: '待维护',
+        hint: '',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="PENDING_MARKER"',
         active: state.activeKpiFilter === 'PENDING_MARKER',
         accentClass: 'text-slate-900',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '已上传唛架图裁片单数',
+        title: '已上传唛架图',
         count: summary.uploadedMarkerCount,
-        hint: '已上传',
+        hint: '',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="UPLOADED_MARKER"',
         active: state.activeKpiFilter === 'UPLOADED_MARKER',
         accentClass: 'text-emerald-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待铺布裁片单数',
+        title: '待铺布',
         count: summary.pendingSpreadCount,
-        hint: '待铺布',
+        hint: '',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="PENDING_SPREAD"',
         active: state.activeKpiFilter === 'PENDING_SPREAD',
         accentClass: 'text-slate-900',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '已有铺布记录裁片单数',
+        title: '已有铺布',
         count: summary.spreadDoneCount,
-        hint: '已有铺布',
+        hint: '',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="SPREAD_DONE"',
         active: state.activeKpiFilter === 'SPREAD_DONE',
         accentClass: 'text-sky-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待补料裁片单数',
+        title: '待补料',
         count: summary.replenishmentRiskCount,
-        hint: '待补料',
+        hint: '',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="REPLENISHMENT_RISK"',
         active: state.activeKpiFilter === 'REPLENISHMENT_RISK',
         accentClass: 'text-rose-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待入仓裁片单数',
+        title: '待入仓',
         count: summary.pendingInboundCount,
-        hint: '待入仓',
+        hint: '',
         attrs: 'data-cutting-piece-action="toggle-kpi-filter" data-kpi-filter="PENDING_INBOUND"',
         active: state.activeKpiFilter === 'PENDING_INBOUND',
         accentClass: 'text-violet-600',
+        variant: 'kpi',
       }),
     ].join(''),
   })
@@ -1178,10 +1173,9 @@ function saveSpreading(): boolean {
 export function renderCraftCuttingPieceOrdersPage(): string {
   const records = getFilteredRecords()
   return `
-    <div class="space-y-3 p-4">
+    <div class="space-y-2.5 p-4">
       ${renderPageHeader()}
-      ${renderPriorityCardLayer(records)}
-      ${renderSummaryCards()}
+      ${renderShortcutCardZone(records)}
       ${renderFilterSection()}
       ${renderActiveStateBar()}
       ${renderMainTable()}

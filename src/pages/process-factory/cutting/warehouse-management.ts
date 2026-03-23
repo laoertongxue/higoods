@@ -38,11 +38,11 @@ import {
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchActionCard,
-  renderWorkbenchCardLayer,
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
+  renderWorkbenchShortcutZone,
 } from './layout.helpers'
 
 type WarehouseTab = 'fabric' | 'cutPiece' | 'sample'
@@ -245,106 +245,105 @@ function getKpiFilterLabel(filter: WarehouseKpiFilter | null): string | null {
   return null
 }
 
-function renderPriorityCardLayer(): string {
+function renderShortcutCardZone(): string {
   const fabricRecords = getFilteredFabricStocks()
   const cutPieceRecords = getFilteredCutPieceRecords()
   const sampleRecords = getFilteredSampleRecords()
   const sampleFocusCount = sampleRecords.filter((record) => record.currentStatus === 'WAITING_RETURN').length
+  const summary = buildWarehouseSummary(fabricRecords, cutPieceRecords, sampleRecords)
 
-  return renderWorkbenchCardLayer({
-    title: '高优先级重点入口',
-    hint: '点击卡片切重点视图。',
+  return renderWorkbenchShortcutZone({
+    columnsClass: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-10',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '待核对库存',
         count: fabricRecords.filter((record) => record.stockStatus === 'NEED_RECHECK').length,
-        hint: '库存待核对',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="FABRIC_RECHECK" data-tab="fabric"',
         active: state.activePriorityMode === 'FABRIC_RECHECK',
         accentClass: 'text-rose-600',
+        variant: 'priority',
       }),
       renderWorkbenchActionCard({
         title: '未分配区域',
         count: cutPieceRecords.filter((record) => record.zoneCode === 'UNASSIGNED').length,
-        hint: '未分区 / 待补位',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="UNASSIGNED_ZONE" data-tab="cutPiece"',
         active: state.activePriorityMode === 'UNASSIGNED_ZONE',
         accentClass: 'text-violet-600',
+        variant: 'priority',
       }),
       renderWorkbenchActionCard({
         title: '样衣待归还 / 超期',
         count: sampleFocusCount,
-        hint: '待归还 / 超期',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="SAMPLE_RETURN" data-tab="sample"',
         active: state.activePriorityMode === 'SAMPLE_RETURN',
         accentClass: 'text-amber-600',
+        variant: 'priority',
       }),
       renderWorkbenchActionCard({
         title: '待发后道',
         count: cutPieceRecords.filter((record) => record.handoverStatus === 'WAITING_HANDOVER').length,
-        hint: '待交接',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-priority-mode" data-priority-mode="WAITING_HANDOVER" data-tab="cutPiece"',
         active: state.activePriorityMode === 'WAITING_HANDOVER',
         accentClass: 'text-sky-600',
+        variant: 'priority',
       }),
-    ].join(''),
-  })
-}
-
-function renderSummaryCards(): string {
-  const summary = buildWarehouseSummary(getFilteredFabricStocks(), getFilteredCutPieceRecords(), getFilteredSampleRecords())
-  return renderWorkbenchCardLayer({
-    title: 'KPI 快捷筛选',
-    hint: '点击卡片筛主表。',
-    columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
-    cardsHtml: [
       renderWorkbenchActionCard({
-        title: '裁床仓待核对库存数',
+        title: '待核对',
         count: summary.fabricRecheckCount,
-        hint: '待核对',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="FABRIC_RECHECK" data-tab="fabric"',
         active: state.activeKpiFilter === 'FABRIC_RECHECK',
         accentClass: 'text-rose-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '裁片仓待入仓记录数',
+        title: '待入仓',
         count: summary.pendingInboundCount,
-        hint: '待入仓',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="PENDING_INBOUND" data-tab="cutPiece"',
         active: state.activeKpiFilter === 'PENDING_INBOUND',
         accentClass: 'text-slate-900',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '已入仓裁片组数',
+        title: '已入仓',
         count: summary.inboundedCount,
-        hint: '已入仓',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="INBOUNDED" data-tab="cutPiece"',
         active: state.activeKpiFilter === 'INBOUNDED',
         accentClass: 'text-emerald-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '未分配区域记录数',
+        title: '未分区',
         count: summary.unassignedZoneCount,
-        hint: '未分区',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="UNASSIGNED_ZONE" data-tab="cutPiece"',
         active: state.activeKpiFilter === 'UNASSIGNED_ZONE',
         accentClass: 'text-violet-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '样衣待归还数',
+        title: '待归还',
         count: summary.waitingReturnCount,
-        hint: '待归还',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="WAITING_RETURN" data-tab="sample"',
         active: state.activeKpiFilter === 'WAITING_RETURN',
         accentClass: 'text-amber-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待发后道记录数',
+        title: '待发后道',
         count: summary.waitingHandoverCount,
-        hint: '待发后道',
+        hint: '',
         attrs: 'data-cutting-warehouse-action="toggle-kpi-filter" data-kpi-filter="WAITING_HANDOVER" data-tab="cutPiece"',
         active: state.activeKpiFilter === 'WAITING_HANDOVER',
         accentClass: 'text-sky-600',
+        variant: 'kpi',
       }),
     ].join(''),
   })
@@ -1220,10 +1219,9 @@ function renderCurrentView(): string {
 
 export function renderCraftCuttingWarehouseManagementPage(): string {
   return `
-    <div class="space-y-3 p-4">
+    <div class="space-y-2.5 p-4">
       ${renderPageHeader()}
-      ${renderPriorityCardLayer()}
-      ${renderSummaryCards()}
+      ${renderShortcutCardZone()}
       ${renderTabs()}
       ${renderActiveStateBar()}
       ${renderCurrentView()}

@@ -25,10 +25,10 @@ import {
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchActionCard,
-  renderWorkbenchCardLayer,
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
+  renderWorkbenchShortcutZone,
 } from './layout.helpers'
 
 type OverlayType = 'detail' | 'issues'
@@ -181,76 +181,73 @@ function renderPageHeader(): string {
   `
 }
 
-function renderPriorityCardLayer(): string {
+function renderShortcutCardZone(): string {
   const baseRecords = getBaseRecords()
-  return renderWorkbenchCardLayer({
-    title: '高优先级重点入口',
-    hint: '点击卡片切重点视图。',
-    columnsClass: 'grid gap-3 md:grid-cols-1',
-    cardsHtml: renderWorkbenchActionCard({
-      title: '重点问题',
-      count: buildPriorityRecords(baseRecords).length,
-      hint: '领料差异 / 补料 / 仓务',
-      attrs: 'data-cutting-summary-action="toggle-priority-mode" data-priority-mode="ISSUE_FOCUS"',
-      active: state.activePriorityMode === 'ISSUE_FOCUS',
-      accentClass: 'text-rose-600',
-    }),
-  })
-}
-
-function renderSummaryCards(): string {
   const summary = buildSummaryOverview(getBaseRecords())
-  return renderWorkbenchCardLayer({
-    title: 'KPI 快捷筛选',
-    hint: '点击卡片筛主表。',
-    columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
+  return renderWorkbenchShortcutZone({
+    columnsClass: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7',
     cardsHtml: [
       renderWorkbenchActionCard({
-        title: '待收口生产单数',
-        count: summary.pendingClosureCount,
-        hint: '待收口',
-        attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_CLOSURE"',
-        active: state.activeKpiFilter === 'PENDING_CLOSURE',
+        title: '重点问题',
+        count: buildPriorityRecords(baseRecords).length,
+        hint: '',
+        attrs: 'data-cutting-summary-action="toggle-priority-mode" data-priority-mode="ISSUE_FOCUS"',
+        active: state.activePriorityMode === 'ISSUE_FOCUS',
+        accentClass: 'text-rose-600',
+        variant: 'priority',
       }),
       renderWorkbenchActionCard({
-        title: '已完成待核查生产单数',
+        title: '待收口',
+        count: summary.pendingClosureCount,
+        hint: '',
+        attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_CLOSURE"',
+        active: state.activeKpiFilter === 'PENDING_CLOSURE',
+        variant: 'kpi',
+      }),
+      renderWorkbenchActionCard({
+        title: '待核查',
         count: summary.donePendingReviewCount,
-        hint: '待核查',
+        hint: '',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="DONE_PENDING_REVIEW"',
         active: state.activeKpiFilter === 'DONE_PENDING_REVIEW',
         accentClass: 'text-emerald-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '已收口生产单数',
+        title: '已收口',
         count: summary.closedCount,
-        hint: '已收口',
+        hint: '',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="CLOSED"',
         active: state.activeKpiFilter === 'CLOSED',
         accentClass: 'text-emerald-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '高风险生产单数',
+        title: '高风险',
         count: summary.highRiskCount,
-        hint: '高风险',
+        hint: '',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="HIGH_RISK"',
         active: state.activeKpiFilter === 'HIGH_RISK',
         accentClass: 'text-rose-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待补料处理生产单数',
+        title: '待补料',
         count: summary.pendingReplenishmentCount,
-        hint: '待补料',
+        hint: '',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_REPLENISHMENT"',
         active: state.activeKpiFilter === 'PENDING_REPLENISHMENT',
         accentClass: 'text-violet-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待入仓 / 待发后道生产单数',
+        title: '待入仓 / 交接',
         count: summary.pendingWarehouseCount,
-        hint: '待入仓 / 交接',
+        hint: '',
         attrs: 'data-cutting-summary-action="toggle-kpi-filter" data-kpi-filter="PENDING_WAREHOUSE"',
         active: state.activeKpiFilter === 'PENDING_WAREHOUSE',
         accentClass: 'text-sky-600',
+        variant: 'kpi',
       }),
     ].join(''),
   })
@@ -714,10 +711,9 @@ function renderIssuesDrawer(): string {
 
 export function renderCraftCuttingSummaryPage(): string {
   return `
-    <div class="space-y-3 p-4">
+    <div class="space-y-2.5 p-4">
       ${renderPageHeader()}
-      ${renderPriorityCardLayer()}
-      ${renderSummaryCards()}
+      ${renderShortcutCardZone()}
       ${renderFilterSection()}
       ${renderActiveStateBar()}
       ${renderMainTable()}

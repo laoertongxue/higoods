@@ -21,24 +21,57 @@ export function renderWorkbenchActionCard(options: {
   attrs: string
   active?: boolean
   accentClass?: string
+  variant?: 'priority' | 'kpi'
 }): string {
+  const variant = options.variant ?? 'kpi'
+  const activeClass =
+    variant === 'priority'
+      ? 'border-amber-500 bg-amber-50 shadow-sm'
+      : 'border-blue-500 bg-blue-50 shadow-sm'
+  const inactiveClass =
+    variant === 'priority'
+      ? 'border-amber-200/80 bg-amber-50/40 hover:border-amber-300 hover:bg-amber-50/70'
+      : 'bg-card hover:border-slate-300 hover:bg-muted/20'
+  const typeBadgeClass =
+    variant === 'priority'
+      ? 'bg-amber-100 text-amber-700'
+      : 'bg-slate-100 text-slate-600'
+  const activeBadgeClass = variant === 'priority' ? 'bg-amber-600 text-white' : 'bg-blue-600 text-white'
+  const typeLabel = variant === 'priority' ? '重点' : 'KPI'
+
   return `
     <button
       type="button"
       ${options.attrs}
-      class="w-full rounded-lg border px-3 py-2 text-left transition ${options.active ? 'border-blue-500 bg-blue-50 shadow-sm' : 'bg-card hover:border-slate-300 hover:bg-muted/20'}"
+      class="w-full rounded-lg border px-2 py-1.5 text-left transition ${options.active ? activeClass : inactiveClass}"
     >
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <p class="text-xs font-semibold text-foreground">${escapeHtml(options.title)}</p>
-          <p class="mt-0.5 text-xl font-semibold leading-none tabular-nums ${options.accentClass ?? 'text-slate-900'}">${escapeHtml(String(options.count))}</p>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${typeBadgeClass}">${typeLabel}</span>
+            <p class="truncate text-[11px] font-semibold leading-4 text-foreground">${escapeHtml(options.title)}</p>
+          </div>
+          ${options.hint ? `<p class="mt-1 text-[10px] leading-4 text-muted-foreground">${escapeHtml(options.hint)}</p>` : ''}
         </div>
-        <span class="rounded-full px-2 py-0.5 text-[10px] ${options.active ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'}">
-          ${options.active ? '当前模式' : '点击筛选'}
-        </span>
+        <div class="shrink-0 text-right">
+          <p class="text-base font-semibold leading-none tabular-nums ${options.accentClass ?? 'text-slate-900'}">${escapeHtml(String(options.count))}</p>
+          ${options.active ? `<span class="mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium ${activeBadgeClass}">已选</span>` : ''}
+        </div>
       </div>
-      ${options.hint ? `<p class="mt-1 text-[11px] leading-4 text-muted-foreground">${escapeHtml(options.hint)}</p>` : ''}
     </button>
+  `
+}
+
+export function renderWorkbenchShortcutZone(options: {
+  cardsHtml: string
+  columnsClass?: string
+}): string {
+  return `
+    <section class="rounded-lg border bg-card px-2 py-1.5">
+      <div class="${options.columnsClass ?? 'grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8'}">
+        ${options.cardsHtml}
+      </div>
+    </section>
   `
 }
 
@@ -102,7 +135,7 @@ export function renderWorkbenchStateBar(options: {
 
 export function renderStickyFilterShell(content: string, extraClass = ''): string {
   return `
-    <section class="sticky top-3 z-20 rounded-lg border bg-card/95 p-3 shadow-sm backdrop-blur ${extraClass}">
+    <section class="sticky top-2 z-20 rounded-lg border bg-card/95 p-2.5 shadow-sm backdrop-blur ${extraClass}">
       ${content}
     </section>
   `

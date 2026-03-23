@@ -31,11 +31,11 @@ import {
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchActionCard,
-  renderWorkbenchCardLayer,
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
+  renderWorkbenchShortcutZone,
 } from './layout.helpers'
 
 type OverlayType = 'detail' | 'review' | 'impact'
@@ -194,76 +194,73 @@ function getKpiFilterLabel(filter: ReplenishmentKpiFilter | null): string | null
   return null
 }
 
-function renderPriorityCardLayer(records: ReplenishmentSuggestionRecord[]): string {
-  return renderWorkbenchCardLayer({
-    title: '高优先级重点入口',
-    hint: '点击卡片切重点视图。',
-    columnsClass: 'grid gap-3',
-    cardsHtml: renderWorkbenchActionCard({
-      title: '待审核优先区',
-      count: buildPriorityRecords(records).length,
-      hint: '高风险 / 待审核 / 待补充',
-      attrs: 'data-cutting-replenish-action="toggle-priority-mode" data-priority-mode="PRIORITY_REVIEW"',
-      active: state.activePriorityMode === 'PRIORITY_REVIEW',
-      accentClass: 'text-rose-600',
-    }),
-  })
-}
-
-function renderSummaryCards(): string {
+function renderShortcutCardZone(records: ReplenishmentSuggestionRecord[]): string {
   const summary = buildReplenishmentSummary(getFilteredRecords())
-  return renderWorkbenchCardLayer({
-    title: 'KPI 快捷筛选',
-    hint: '点击卡片筛主表。',
-    columnsClass: 'grid gap-3 md:grid-cols-2 xl:grid-cols-6',
+  return renderWorkbenchShortcutZone({
+    columnsClass: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7',
     cardsHtml: [
       renderWorkbenchActionCard({
-        title: '待审核补料建议数',
+        title: '待审核优先区',
+        count: buildPriorityRecords(records).length,
+        hint: '',
+        attrs: 'data-cutting-replenish-action="toggle-priority-mode" data-priority-mode="PRIORITY_REVIEW"',
+        active: state.activePriorityMode === 'PRIORITY_REVIEW',
+        accentClass: 'text-rose-600',
+        variant: 'priority',
+      }),
+      renderWorkbenchActionCard({
+        title: '待审核',
         count: summary.pendingCount,
-        hint: '待审核',
+        hint: '',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="PENDING"',
         active: state.activeKpiFilter === 'PENDING',
         accentClass: 'text-amber-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '已通过补料建议数',
+        title: '已通过',
         count: summary.approvedCount,
-        hint: '已通过',
+        hint: '',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="APPROVED"',
         active: state.activeKpiFilter === 'APPROVED',
         accentClass: 'text-emerald-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '已驳回补料建议数',
+        title: '已驳回',
         count: summary.rejectedCount,
-        hint: '已驳回',
+        hint: '',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="REJECTED"',
         active: state.activeKpiFilter === 'REJECTED',
         accentClass: 'text-slate-900',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '高风险缺口建议数',
+        title: '高风险',
         count: summary.highRiskCount,
-        hint: '高风险',
+        hint: '',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="HIGH_RISK"',
         active: state.activeKpiFilter === 'HIGH_RISK',
         accentClass: 'text-rose-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '需重新配料建议数',
+        title: '需重新配料',
         count: summary.reconfigCount,
-        hint: '需重新配料',
+        hint: '',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="RECONFIG_REQUIRED"',
         active: state.activeKpiFilter === 'RECONFIG_REQUIRED',
         accentClass: 'text-blue-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '可能影响印花 / 染色的建议数',
+        title: '影响后续工艺',
         count: summary.affectedCraftCount,
-        hint: '影响后续工艺',
+        hint: '',
         attrs: 'data-cutting-replenish-action="toggle-kpi-filter" data-kpi-filter="AFFECTED_CRAFT"',
         active: state.activeKpiFilter === 'AFFECTED_CRAFT',
         accentClass: 'text-violet-600',
+        variant: 'kpi',
       }),
     ].join(''),
   })
@@ -753,10 +750,9 @@ function saveReview(): boolean {
 export function renderCraftCuttingReplenishmentPage(): string {
   const records = getFilteredRecords()
   return `
-    <div class="space-y-3 p-4">
+    <div class="space-y-2.5 p-4">
       ${renderPageHeader()}
-      ${renderPriorityCardLayer(records)}
-      ${renderSummaryCards()}
+      ${renderShortcutCardZone(records)}
       ${renderFilterSection()}
       ${renderActiveStateBar()}
       ${renderMainTable()}

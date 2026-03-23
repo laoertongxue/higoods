@@ -35,11 +35,11 @@ import {
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchActionCard,
-  renderWorkbenchCardLayer,
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
+  renderWorkbenchShortcutZone,
 } from './layout.helpers'
 
 type OverlayType = 'config' | 'batches' | 'print' | 'qr' | 'receive'
@@ -234,90 +234,86 @@ function getKpiFilterLabel(filter: MaterialPrepKpiFilter | null): string | null 
   return null
 }
 
-function renderPriorityCardLayer(groups: CuttingMaterialPrepGroup[]): string {
+function renderShortcutCardZone(groups: CuttingMaterialPrepGroup[]): string {
   const prepGroups = groups.filter((group) => group.materialLines.some((line) => line.configStatus !== 'CONFIGURED' || line.receiveStatus !== 'RECEIVED'))
   const discrepancyGroups = groups.filter((group) =>
     group.materialLines.some((line) => line.discrepancyStatus !== 'NONE' || line.reviewStatus === 'PENDING' || line.receiveStatus !== 'RECEIVED'),
   )
+  const summary = buildMaterialPrepSummary(getFilteredGroups())
 
-  return renderWorkbenchCardLayer({
-    title: '高优先级重点入口',
-    hint: '点击卡片切重点视图。',
-    columnsClass: 'grid gap-3 md:grid-cols-2',
+  return renderWorkbenchShortcutZone({
+    columnsClass: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '配料进展',
         count: prepGroups.length,
-        hint: '待配置 / 待领料',
+        hint: '',
         attrs: 'data-cutting-prep-action="toggle-priority-mode" data-priority-mode="PREP_PROGRESS"',
         active: state.activePriorityMode === 'PREP_PROGRESS',
+        variant: 'priority',
       }),
       renderWorkbenchActionCard({
         title: '差异处理',
         count: discrepancyGroups.length,
-        hint: '差异 / 待照片',
+        hint: '',
         attrs: 'data-cutting-prep-action="toggle-priority-mode" data-priority-mode="DISCREPANCY"',
         active: state.activePriorityMode === 'DISCREPANCY',
         accentClass: 'text-rose-600',
+        variant: 'priority',
       }),
-    ].join(''),
-  })
-}
-
-function renderSummaryCards(): string {
-  const summary = buildMaterialPrepSummary(getFilteredGroups())
-  return renderWorkbenchCardLayer({
-    title: 'KPI 快捷筛选',
-    hint: '点击卡片筛主视图。',
-    columnsClass: 'grid gap-3 md:grid-cols-2 xl:grid-cols-6',
-    cardsHtml: [
       renderWorkbenchActionCard({
-        title: '待配置裁片单数',
+        title: '待配置',
         count: summary.pendingConfigCount,
-        hint: '待配置',
+        hint: '',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PENDING_CONFIG"',
         active: state.activeKpiFilter === 'PENDING_CONFIG',
         accentClass: 'text-slate-900',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '部分配置裁片单数',
+        title: '部分配置',
         count: summary.partialConfigCount,
-        hint: '部分配置',
+        hint: '',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PARTIAL_CONFIG"',
         active: state.activeKpiFilter === 'PARTIAL_CONFIG',
         accentClass: 'text-orange-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '已生成二维码裁片单数',
+        title: '已生成二维码',
         count: summary.qrReadyCount,
-        hint: '二维码已就绪',
+        hint: '',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="QR_READY"',
         active: state.activeKpiFilter === 'QR_READY',
         accentClass: 'text-violet-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待领料裁片单数',
+        title: '待领料',
         count: summary.pendingReceiveCount,
-        hint: '待领取',
+        hint: '',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="PENDING_RECEIVE"',
         active: state.activeKpiFilter === 'PENDING_RECEIVE',
         accentClass: 'text-slate-900',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '领料成功裁片单数',
+        title: '领料成功',
         count: summary.receiveDoneCount,
-        hint: '已领取',
+        hint: '',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="RECEIVE_DONE"',
         active: state.activeKpiFilter === 'RECEIVE_DONE',
         accentClass: 'text-emerald-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '差异待处理裁片单数',
+        title: '差异待处理',
         count: summary.discrepancyCount,
-        hint: '差异待处理',
+        hint: '',
         attrs: 'data-cutting-prep-action="toggle-kpi-filter" data-kpi-filter="DISCREPANCY"',
         active: state.activeKpiFilter === 'DISCREPANCY',
         accentClass: 'text-rose-600',
+        variant: 'kpi',
       }),
     ].join(''),
   })
@@ -969,10 +965,9 @@ function renderReceiveDrawer(): string {
 export function renderCraftCuttingMaterialPrepPage(): string {
   const groups = getFilteredGroups()
   return `
-    <div class="space-y-3 p-4">
+    <div class="space-y-2.5 p-4">
       ${renderPageHeader()}
-      ${renderPriorityCardLayer(groups)}
-      ${renderSummaryCards()}
+      ${renderShortcutCardZone(groups)}
       ${renderFilterSection()}
       ${renderActiveStateBar()}
       ${renderMainSection()}

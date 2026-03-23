@@ -31,10 +31,10 @@ import {
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchActionCard,
-  renderWorkbenchCardLayer,
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
+  renderWorkbenchShortcutZone,
 } from './layout.helpers'
 
 type OrderProgressPriorityMode = 'PREP_FOCUS' | 'RISK_FOCUS'
@@ -159,89 +159,85 @@ function getKpiFilterLabel(filter: OrderProgressKpiFilter | null): string | null
   return null
 }
 
-function renderPriorityCardLayer(): string {
+function renderShortcutCardZone(): string {
   const baseRecords = getBaseRecords()
   const prepCount = baseRecords.filter((record) => deriveConfigStatus(record.materialLines) !== 'CONFIGURED' || deriveReceiveStatus(record.materialLines) !== 'RECEIVED').length
   const riskCount = baseRecords.filter((record) => record.riskFlags.length > 0).length
+  const summary = buildCuttingOrderProgressSummary(baseRecords)
 
-  return renderWorkbenchCardLayer({
-    title: '高优先级重点入口',
-    hint: '点击卡片切重点视图。',
-    columnsClass: 'grid gap-3 md:grid-cols-2',
+  return renderWorkbenchShortcutZone({
+    columnsClass: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8',
     cardsHtml: [
       renderWorkbenchActionCard({
         title: '配料进展',
         count: prepCount,
-        hint: '待配置 / 待领料',
+        hint: '',
         attrs: 'data-cutting-progress-action="toggle-priority-mode" data-priority-mode="PREP_FOCUS"',
         active: state.activePriorityMode === 'PREP_FOCUS',
+        variant: 'priority',
       }),
       renderWorkbenchActionCard({
         title: '风险提示',
         count: riskCount,
-        hint: '补料 / 交期 / 差异',
+        hint: '',
         attrs: 'data-cutting-progress-action="toggle-priority-mode" data-priority-mode="RISK_FOCUS"',
         active: state.activePriorityMode === 'RISK_FOCUS',
         accentClass: 'text-rose-600',
+        variant: 'priority',
       }),
-    ].join(''),
-  })
-}
-
-function renderKpiCardLayer(): string {
-  const summary = buildCuttingOrderProgressSummary(getBaseRecords())
-  return renderWorkbenchCardLayer({
-    title: 'KPI 快捷筛选',
-    hint: '点击卡片筛主表。',
-    columnsClass: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-6',
-    cardsHtml: [
       renderWorkbenchActionCard({
-        title: '待审核生产单数',
+        title: '待审核',
         count: summary.pendingAuditCount,
-        hint: '审核缺口',
+        hint: '',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PENDING_AUDIT"',
         active: state.activeKpiFilter === 'PENDING_AUDIT',
         accentClass: 'text-amber-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '部分配置生产单数',
+        title: '部分配置',
         count: summary.partialConfigCount,
-        hint: '继续补配料',
+        hint: '',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PARTIAL_CONFIG"',
         active: state.activeKpiFilter === 'PARTIAL_CONFIG',
         accentClass: 'text-orange-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待领料生产单数',
+        title: '待领料',
         count: summary.pendingReceiveCount,
-        hint: '未领料 / 部分领料',
+        hint: '',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PENDING_RECEIVE"',
         active: state.activeKpiFilter === 'PENDING_RECEIVE',
         accentClass: 'text-slate-700',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '领料成功生产单数',
+        title: '领料成功',
         count: summary.receiveDoneCount,
-        hint: '可继续推进',
+        hint: '',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="RECEIVE_DONE"',
         active: state.activeKpiFilter === 'RECEIVE_DONE',
         accentClass: 'text-emerald-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: '待补料生产单数',
+        title: '待补料',
         count: summary.replenishmentPendingCount,
-        hint: '补料待处理',
+        hint: '',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="REPLENISH_PENDING"',
         active: state.activeKpiFilter === 'REPLENISH_PENDING',
         accentClass: 'text-fuchsia-600',
+        variant: 'kpi',
       }),
       renderWorkbenchActionCard({
-        title: 'AA / A 紧急生产单数',
+        title: 'AA / A',
         count: summary.urgentCount,
-        hint: '临近发货',
+        hint: '',
         attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="URGENT"',
         active: state.activeKpiFilter === 'URGENT',
         accentClass: 'text-rose-600',
+        variant: 'kpi',
       }),
     ].join(''),
   })
@@ -670,7 +666,7 @@ function renderDetailDrawer(): string {
 
 export function renderCraftCuttingOrderProgressPage(): string {
   return `
-    <div class="space-y-3 p-4">
+    <div class="space-y-2.5 p-4">
       <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
@@ -679,8 +675,7 @@ export function renderCraftCuttingOrderProgressPage(): string {
         </div>
       </div>
 
-      ${renderPriorityCardLayer()}
-      ${renderKpiCardLayer()}
+      ${renderShortcutCardZone()}
 
       ${renderStickyFilterShell(`
         <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-7">
