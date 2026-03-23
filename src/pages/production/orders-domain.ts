@@ -118,6 +118,13 @@ function renderOrderAssignmentOverview(order: ProductionOrder): string {
   `
 }
 
+function getOrderListStatusDisplay(order: ProductionOrder): { label: string; color: string } {
+  if (order.status === 'READY_FOR_BREAKDOWN') {
+    return productionOrderStatusConfig.WAIT_ASSIGNMENT
+  }
+  return productionOrderStatusConfig[order.status] ?? { label: order.status, color: 'bg-slate-100 text-slate-700' }
+}
+
 function renderOrderDemandSnapshotDrawer(): string {
   const order = getOrderById(state.ordersDemandSnapshotId)
   if (!order) return ''
@@ -603,8 +610,8 @@ function renderMaterialDraftDrawer(): string {
                 <div class="text-sm">${escapeHtml(order.techPackSnapshot.versionLabel)}</div>
               </div>
               <div>
-                <div class="text-xs text-muted-foreground">拆解状态</div>
-                <div class="text-sm">${breakdown.isBrokenDown ? '已拆解' : '未拆解'}</div>
+                <div class="text-xs text-muted-foreground">任务准备</div>
+                <div class="text-sm">${escapeHtml(breakdown.label)}</div>
               </div>
               <div>
                 <div class="text-xs text-muted-foreground">主工厂</div>
@@ -624,7 +631,7 @@ function renderMaterialDraftDrawer(): string {
             drafts.length === 0
               ? `
                 <section class="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
-                  当前生产单暂无可识别领料任务，任务拆解后会自动生成建议草稿。
+                  当前生产单暂无可识别领料任务，进入分配后会自动生成建议草稿。
                 </section>
               `
               : drafts.map((draft) => renderMaterialDraftTaskCard(draft)).join('')
@@ -718,6 +725,7 @@ export function renderProductionOrdersPage(): string {
             <select data-prod-field="ordersStatusFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
               <option value="ALL" ${state.ordersStatusFilter.length === 0 ? 'selected' : ''}>全部</option>
               ${(Object.keys(productionOrderStatusConfig) as ProductionOrderStatus[])
+                .filter((status) => status !== 'READY_FOR_BREAKDOWN')
                 .map(
                   (status) =>
                     `<option value="${status}" ${
@@ -731,11 +739,11 @@ export function renderProductionOrdersPage(): string {
           </div>
 
           <div>
-            <span class="text-xs text-muted-foreground">是否已拆解</span>
+            <span class="text-xs text-muted-foreground">任务准备</span>
             <select data-prod-field="ordersBreakdownFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
               <option value="ALL" ${state.ordersBreakdownFilter === 'ALL' ? 'selected' : ''}>全部</option>
-              <option value="YES" ${state.ordersBreakdownFilter === 'YES' ? 'selected' : ''}>已拆解</option>
-              <option value="NO" ${state.ordersBreakdownFilter === 'NO' ? 'selected' : ''}>未拆解</option>
+              <option value="PENDING" ${state.ordersBreakdownFilter === 'PENDING' ? 'selected' : ''}>待分配</option>
+              <option value="ACTIVE" ${state.ordersBreakdownFilter === 'ACTIVE' ? 'selected' : ''}>已进入分配</option>
             </select>
           </div>
 
@@ -862,7 +870,7 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">SPU</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">技术包版本</th>
-                <th class="min-w-[120px] px-3 py-3 text-left font-medium">拆解状态</th>
+                <th class="min-w-[120px] px-3 py-3 text-left font-medium">任务准备</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">分配概览</th>
                 <th class="min-w-[90px] px-3 py-3 text-left font-medium">分配进度</th>
                 <th class="min-w-[170px] px-3 py-3 text-left font-medium">领料情况</th>
@@ -905,26 +913,17 @@ export function renderProductionOrdersPage(): string {
                               </div>
                             </td>
                             <td class="px-3 py-3">
-                              ${renderBadge(
-                                productionOrderStatusConfig[order.status]?.label ?? order.status,
-                                productionOrderStatusConfig[order.status]?.color ?? 'bg-slate-100 text-slate-700',
-                              )}
+                              ${renderBadge(getOrderListStatusDisplay(order).label, getOrderListStatusDisplay(order).color)}
                             </td>
                             <td class="px-3 py-3">
                               <div class="text-sm text-muted-foreground">${escapeHtml(order.techPackSnapshot.versionLabel || '-')}</div>
                             </td>
                             <td class="px-3 py-3">
                               <div class="text-sm">
-                                ${
-                                  breakdown.isBrokenDown
-                                    ? `
-                                      ${renderBadge('已拆解', 'bg-green-50 text-green-700')}
-                                      <div class="mt-0.5 text-xs text-muted-foreground">
-                                        ${escapeHtml(safeText(breakdown.lastBreakdownAt.split(' ')[0]))}
-                                      </div>
-                                    `
-                                    : renderBadge('未拆解', 'bg-gray-50 text-gray-700')
-                                }
+                                ${renderBadge(breakdown.label, breakdown.badgeClassName)}
+                                <div class="mt-0.5 text-xs text-muted-foreground">
+                                  ${escapeHtml(breakdown.detailText)}
+                                </div>
                               </div>
                             </td>
                             <td class="px-3 py-3">${renderOrderAssignmentOverview(order)}</td>

@@ -156,7 +156,7 @@ interface ProductionState {
   ordersKeyword: string
   ordersStatusFilter: ProductionOrderStatus[]
   ordersTechPackFilter: 'ALL' | ProductionDemand['techPackStatus']
-  ordersBreakdownFilter: 'ALL' | 'YES' | 'NO'
+  ordersBreakdownFilter: 'ALL' | 'PENDING' | 'ACTIVE'
   ordersAssignmentProgressFilter: 'ALL' | AssignmentProgressStatus
   ordersAssignmentModeFilter: AssignmentModeFilter
   ordersBiddingRiskFilter: BiddingRiskFilter
@@ -887,13 +887,79 @@ function getOrderMaterialIndicators(order: ProductionOrder) {
 
 function getOrderDisplayBreakdownSnapshot(order: ProductionOrder): {
   isBrokenDown: boolean
+  phase: 'INITIAL_TASK' | 'WAIT_ASSIGNMENT' | 'ASSIGNING' | 'ASSIGNED'
+  label: string
+  detailText: string
+  badgeClassName: string
   lastBreakdownAt: string
   lastBreakdownBy: string
+  isPendingAssignment: boolean
+  hasEnteredAssignment: boolean
 } {
+  const assignment = getOrderDisplayAssignmentSnapshot(order)
+  const initialTaskCount =
+    order.status === 'DRAFT' || order.status === 'WAIT_TECH_PACK_RELEASE' ? 0 : Math.max(order.assignmentSummary.totalTasks, 1)
+  const lastAt =
+    assignment.assignmentProgress.status === 'IN_PROGRESS' || assignment.assignmentProgress.status === 'DONE'
+      ? order.taskBreakdownSummary.lastBreakdownAt ?? order.updatedAt ?? order.createdAt
+      : order.updatedAt ?? order.createdAt
+  const lastBy =
+    assignment.assignmentProgress.status === 'IN_PROGRESS' || assignment.assignmentProgress.status === 'DONE'
+      ? order.taskBreakdownSummary.lastBreakdownBy ?? '系统'
+      : order.auditLogs[order.auditLogs.length - 1]?.by ?? '系统'
+
+  if (assignment.assignmentProgress.status === 'DONE') {
+    return {
+      isBrokenDown: true,
+      phase: 'ASSIGNED',
+      label: '已分配',
+      detailText: `任务 ${Math.max(assignment.assignmentSummary.totalTasks, initialTaskCount)} / 已分配`,
+      badgeClassName: 'bg-green-50 text-green-700',
+      lastBreakdownAt: lastAt,
+      lastBreakdownBy: lastBy,
+      isPendingAssignment: false,
+      hasEnteredAssignment: true,
+    }
+  }
+
+  if (assignment.assignmentProgress.status === 'IN_PROGRESS') {
+    return {
+      isBrokenDown: true,
+      phase: 'ASSIGNING',
+      label: '分配中',
+      detailText: `任务 ${Math.max(assignment.assignmentSummary.totalTasks, initialTaskCount)} / 分配中`,
+      badgeClassName: 'bg-blue-50 text-blue-700',
+      lastBreakdownAt: lastAt,
+      lastBreakdownBy: lastBy,
+      isPendingAssignment: false,
+      hasEnteredAssignment: true,
+    }
+  }
+
+  if (assignment.assignmentProgress.status === 'PENDING') {
+    return {
+      isBrokenDown: false,
+      phase: 'WAIT_ASSIGNMENT',
+      label: '待分配',
+      detailText: `任务 ${Math.max(assignment.assignmentSummary.totalTasks, initialTaskCount)} / 待分配`,
+      badgeClassName: 'bg-yellow-50 text-yellow-700',
+      lastBreakdownAt: lastAt,
+      lastBreakdownBy: lastBy,
+      isPendingAssignment: true,
+      hasEnteredAssignment: false,
+    }
+  }
+
   return {
-    isBrokenDown: order.taskBreakdownSummary.isBrokenDown,
-    lastBreakdownAt: order.taskBreakdownSummary.lastBreakdownAt ?? '-',
-    lastBreakdownBy: order.taskBreakdownSummary.lastBreakdownBy ?? '-',
+    isBrokenDown: false,
+    phase: 'INITIAL_TASK',
+    label: initialTaskCount > 0 ? '已生成任务' : '未建任务',
+    detailText: initialTaskCount > 0 ? `初始任务 ${initialTaskCount}` : '尚未生成任务',
+    badgeClassName: initialTaskCount > 0 ? 'bg-slate-100 text-slate-700' : 'bg-gray-100 text-gray-600',
+    lastBreakdownAt: lastAt,
+    lastBreakdownBy: lastBy,
+    isPendingAssignment: true,
+    hasEnteredAssignment: false,
   }
 }
 
@@ -924,11 +990,11 @@ function getOrderMaterialDisplaySummary(order: ProductionOrder): {
   const assignment = getOrderDisplayAssignmentSnapshot(order)
   const materialSummary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
 
-  if (!breakdown.isBrokenDown) {
+  if (breakdown.phase === 'INITIAL_TASK') {
     return {
       stage: 'NOT_READY',
       previewCount: 0,
-      summaryText: '待拆任务后生成',
+      summaryText: '待进入分配后生成',
       badgeLabel: '待生成',
       badgeClassName: 'bg-slate-100 text-slate-700',
       hasActualDraft: false,
@@ -936,7 +1002,7 @@ function getOrderMaterialDisplaySummary(order: ProductionOrder): {
     }
   }
 
-  if (assignment.assignmentProgress.status === 'PENDING') {
+  if (breakdown.phase === 'WAIT_ASSIGNMENT') {
     const previewCount = Math.max(
       materialSummary.totalDraftCount,
       order.assignmentSummary.totalTasks,
@@ -1195,8 +1261,11 @@ function getFilteredOrders(): ProductionOrder[] {
   }
 
   if (state.ordersBreakdownFilter !== 'ALL') {
-    const expected = state.ordersBreakdownFilter === 'YES'
-    result = result.filter((order) => getOrderDisplayBreakdownSnapshot(order).isBrokenDown === expected)
+    result = result.filter((order) => {
+      const snapshot = getOrderDisplayBreakdownSnapshot(order)
+      if (state.ordersBreakdownFilter === 'PENDING') return snapshot.isPendingAssignment
+      return snapshot.hasEnteredAssignment
+    })
   }
 
   if (state.ordersAssignmentProgressFilter !== 'ALL') {

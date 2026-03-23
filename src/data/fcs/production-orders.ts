@@ -1,4 +1,4 @@
-// 生产单 Mock 数据 - 统一业务口径：拆解后进入"待分配"
+// 生产单 Mock 数据 - 统一业务口径：生产单生成后先有一条初始任务，分配时再按结果拆分任务
 
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories'
 
@@ -7,8 +7,8 @@ export type ProductionOrderStatus =
   | 'DRAFT' 
   | 'WAIT_TECH_PACK_RELEASE' 
   | 'READY_FOR_BREAKDOWN' 
-  | 'WAIT_ASSIGNMENT'    // 已拆解，待分配（派单/竞价）
-  | 'ASSIGNING'          // 分配中（派单中/竞价中）
+  | 'WAIT_ASSIGNMENT'    // 初始任务已生成，待分配（派单/竞价）
+  | 'ASSIGNING'          // 分配中（按分配结果生成/拆分任务）
   | 'EXECUTING'          // 生产执行中（原 IN_PROGRESS）
   | 'COMPLETED' 
   | 'CANCELLED' 
@@ -177,12 +177,12 @@ function createFactorySnapshot(factory: IndonesiaFactory): FactorySnapshot {
 
 // Mock 生产单数据 - 覆盖所有状态与分配组合（12+条）
 export const productionOrders: ProductionOrder[] = [
-  // PO-0001: READY_FOR_BREAKDOWN (techPack=RELEASED, 未拆解)
+  // PO-0001: WAIT_ASSIGNMENT（已生成初始任务，待分配）
   {
     productionOrderId: 'PO-202603-0001',
     demandId: 'DEM-202603-0004',
     legacyOrderNo: '240779',
-    status: 'READY_FOR_BREAKDOWN',
+    status: 'WAIT_ASSIGNMENT',
     lockedLegacy: false,
     mainFactoryId: 'ID-F002',
     mainFactorySnapshot: createFactorySnapshot(indonesiaFactories.find(f => f.id === 'ID-F002')!),
@@ -207,24 +207,25 @@ export const productionOrders: ProductionOrder[] = [
         { skuCode: 'SKU-004-XL-WHT', size: 'XL', color: 'White', qty: 1000 },
       ],
     },
-    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 0, unassignedCount: 0 },
-    assignmentProgress: { status: 'NOT_READY', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
+    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 1, unassignedCount: 1 },
+    assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
     taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
     riskFlags: [],
     auditLogs: [
       { id: 'LOG-001', action: 'CREATE', detail: '生产单从需求 DEM-202603-0004 创建', at: '2026-03-02 16:00:00', by: 'Budi Santoso' },
+      { id: 'LOG-001-A', action: 'TASK_READY', detail: '已生成初始任务，进入待分配', at: '2026-03-02 16:05:00', by: '系统' },
     ],
     createdAt: '2026-03-02 16:00:00',
-    updatedAt: '2026-03-02 16:00:00',
+    updatedAt: '2026-03-02 16:05:00',
   },
-  // PO-0002: READY_FOR_BREAKDOWN (techPack=RELEASED, 未拆解)
+  // PO-0002: WAIT_ASSIGNMENT（已生成初始任务，待分配）
   {
     productionOrderId: 'PO-202603-0002',
     demandId: 'DEM-202603-0005',
     legacyOrderNo: '240780',
-    status: 'READY_FOR_BREAKDOWN',
+    status: 'WAIT_ASSIGNMENT',
     lockedLegacy: false,
     mainFactoryId: 'ID-F004',
     mainFactorySnapshot: createFactorySnapshot(indonesiaFactories.find(f => f.id === 'ID-F004')!),
@@ -249,19 +250,20 @@ export const productionOrders: ProductionOrder[] = [
         { skuCode: 'SKU-005-XL-GRY', size: 'XL', color: 'Grey', qty: 500 },
       ],
     },
-    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 0, unassignedCount: 0 },
-    assignmentProgress: { status: 'NOT_READY', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
+    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 1, unassignedCount: 1 },
+    assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
     taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
     riskFlags: [],
     auditLogs: [
       { id: 'LOG-002', action: 'CREATE', detail: '生产单从需求 DEM-202603-0005 创建', at: '2026-03-03 15:00:00', by: 'Dewi Lestari' },
+      { id: 'LOG-002-A', action: 'TASK_READY', detail: '已生成初始任务，进入待分配', at: '2026-03-03 15:05:00', by: '系统' },
     ],
     createdAt: '2026-03-03 15:00:00',
-    updatedAt: '2026-03-03 15:00:00',
+    updatedAt: '2026-03-03 15:05:00',
   },
-  // PO-0003: WAIT_ASSIGNMENT (已拆解, 全派单, 待分配)
+  // PO-0003: WAIT_ASSIGNMENT（已生成初始任务，待分配）
   {
     productionOrderId: 'PO-202603-0003',
     demandId: 'DEM-202603-0006',
@@ -293,21 +295,21 @@ export const productionOrders: ProductionOrder[] = [
         { skuCode: 'SKU-006-XL-WHT', size: 'XL', color: 'White', qty: 1200 },
       ],
     },
-    assignmentSummary: { directCount: 5, biddingCount: 0, totalTasks: 5, unassignedCount: 5 },
+    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 1, unassignedCount: 1 },
     assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
-    taskBreakdownSummary: { isBrokenDown: true, taskTypesTop3: ['裁片', '车缝', '后整'], lastBreakdownAt: '2026-03-05 10:00:00', lastBreakdownBy: 'Ahmad Wijaya' },
+    taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
     riskFlags: ['DELIVERY_DATE_NEAR'],
     auditLogs: [
       { id: 'LOG-003', action: 'CREATE', detail: '生产单创建', at: '2026-02-25 10:00:00', by: 'Ahmad Wijaya' },
-      { id: 'LOG-004', action: 'BREAKDOWN', detail: '工艺任务拆解完成，共5个任务', at: '2026-03-05 10:00:00', by: 'Ahmad Wijaya' },
-      { id: 'LOG-005', action: 'STATUS_CHANGE', detail: '状态变更为待分配', at: '2026-03-05 10:05:00', by: 'System' },
+      { id: 'LOG-004', action: 'TASK_READY', detail: '已生成初始任务，进入待分配', at: '2026-03-05 10:00:00', by: 'Ahmad Wijaya' },
+      { id: 'LOG-005', action: 'STATUS_CHANGE', detail: '状态变更为待分配', at: '2026-03-05 10:05:00', by: '系统' },
     ],
     createdAt: '2026-02-25 10:00:00',
     updatedAt: '2026-03-05 10:05:00',
   },
-  // PO-0004: ASSIGNING (已拆解, 全竞价, 竞价中)
+  // PO-0004: ASSIGNING（全竞价，分配中）
   {
     productionOrderId: 'PO-202603-0004',
     demandId: 'DEM-202603-0007',
@@ -349,12 +351,12 @@ export const productionOrders: ProductionOrder[] = [
     auditLogs: [
       { id: 'LOG-006', action: 'CREATE', detail: '生产单创建', at: '2026-03-01 09:00:00', by: 'Siti Rahayu' },
       { id: 'LOG-007', action: 'OWNER_CHANGE', detail: '货权主体调整为法人实体 PT HIGOOD LIVE JAKARTA', at: '2026-03-01 09:30:00', by: 'Siti Rahayu' },
-      { id: 'LOG-008', action: 'BREAKDOWN', detail: '工艺任务拆解完成，共4个任务', at: '2026-03-06 14:00:00', by: 'Siti Rahayu' },
+      { id: 'LOG-008', action: 'TASK_SPLIT', detail: '按竞价方案生成 4 个待分配任务', at: '2026-03-06 14:00:00', by: 'Siti Rahayu' },
     ],
     createdAt: '2026-03-01 09:00:00',
     updatedAt: '2026-03-06 14:00:00',
   },
-  // PO-0005: ASSIGNING (混合模式, 分配中)
+  // PO-0005: ASSIGNING（混合模式，分配中）
   {
     productionOrderId: 'PO-202603-0005',
     demandId: 'DEM-202603-0008',
@@ -394,14 +396,14 @@ export const productionOrders: ProductionOrder[] = [
     riskFlags: ['TENDER_NEAR_DEADLINE', 'HANDOVER_DIFF'],
     auditLogs: [
       { id: 'LOG-009', action: 'CREATE', detail: '生产单创建', at: '2026-02-20 11:00:00', by: 'Hendra Kusuma' },
-      { id: 'LOG-010', action: 'BREAKDOWN', detail: '工艺任务拆解完成，共5个任务', at: '2026-03-02 16:00:00', by: 'Hendra Kusuma' },
+      { id: 'LOG-010', action: 'TASK_SPLIT', detail: '按混合分配方案生成 4 个待分配任务', at: '2026-03-02 16:00:00', by: 'Hendra Kusuma' },
       { id: 'LOG-011', action: 'DISPATCH', detail: '发起派单：任务1、任务2、任务3', at: '2026-03-04 09:00:00', by: 'Hendra Kusuma' },
       { id: 'LOG-012', action: 'TENDER', detail: '发起竞价：任务4、任务5', at: '2026-03-04 09:30:00', by: 'Hendra Kusuma' },
     ],
     createdAt: '2026-02-20 11:00:00',
     updatedAt: '2026-03-04 09:30:00',
   },
-  // PO-0006: ASSIGNING (全派单, 有拒单)
+  // PO-0006: ASSIGNING（全派单，有拒单）
   {
     productionOrderId: 'PO-202603-0006',
     demandId: 'DEM-202603-0009',
@@ -441,14 +443,14 @@ export const productionOrders: ProductionOrder[] = [
     riskFlags: ['DISPATCH_REJECTED'],
     auditLogs: [
       { id: 'LOG-013', action: 'CREATE', detail: '生产单创建', at: '2026-02-22 14:00:00', by: 'Wulan Sari' },
-      { id: 'LOG-014', action: 'BREAKDOWN', detail: '工艺任务拆解完成，共4个任务', at: '2026-03-03 10:00:00', by: 'Wulan Sari' },
+      { id: 'LOG-014', action: 'TASK_SPLIT', detail: '按派单方案生成 4 个待分配任务', at: '2026-03-03 10:00:00', by: 'Wulan Sari' },
       { id: 'LOG-015', action: 'DISPATCH', detail: '发起派单：全部4个任务', at: '2026-03-05 11:00:00', by: 'Wulan Sari' },
       { id: 'LOG-016', action: 'DISPATCH_REJECT', detail: '任务3被工厂拒绝', at: '2026-03-06 09:00:00', by: 'System' },
     ],
     createdAt: '2026-02-22 14:00:00',
     updatedAt: '2026-03-06 09:00:00',
   },
-  // PO-0007: ASSIGNING (全竞价, 有过期)
+  // PO-0007: ASSIGNING（全竞价，有过期）
   {
     productionOrderId: 'PO-202603-0007',
     demandId: 'DEM-202603-0010',
@@ -488,7 +490,7 @@ export const productionOrders: ProductionOrder[] = [
     riskFlags: ['TENDER_OVERDUE', 'TENDER_NEAR_DEADLINE', 'HANDOVER_PENDING'],
     auditLogs: [
       { id: 'LOG-017', action: 'CREATE', detail: '生产单创建', at: '2026-02-25 16:00:00', by: 'Dian Putra' },
-      { id: 'LOG-018', action: 'BREAKDOWN', detail: '工艺任务拆解完成，共6个任务', at: '2026-03-01 11:00:00', by: 'Dian Putra' },
+      { id: 'LOG-018', action: 'TASK_SPLIT', detail: '按竞价方案生成 6 个待分配任务', at: '2026-03-01 11:00:00', by: 'Dian Putra' },
       { id: 'LOG-019', action: 'TENDER', detail: '发起竞价：任务1-5', at: '2026-03-02 10:00:00', by: 'Dian Putra' },
       { id: 'LOG-020', action: 'TENDER_OVERDUE', detail: '任务2竞价已过期', at: '2026-03-05 12:00:00', by: 'System' },
     ],
@@ -535,7 +537,7 @@ export const productionOrders: ProductionOrder[] = [
     riskFlags: [],
     auditLogs: [
       { id: 'LOG-021', action: 'CREATE', detail: '生产单创建', at: '2026-02-15 10:00:00', by: 'Rina Wijaya' },
-      { id: 'LOG-022', action: 'BREAKDOWN', detail: '工艺任务拆解完成', at: '2026-02-20 14:00:00', by: 'Rina Wijaya' },
+      { id: 'LOG-022', action: 'TASK_SPLIT', detail: '按分配方案生成 5 个执行任务', at: '2026-02-20 14:00:00', by: 'Rina Wijaya' },
       { id: 'LOG-023', action: 'ASSIGNMENT_DONE', detail: '所有任务已分配完成', at: '2026-02-25 16:00:00', by: 'System' },
       { id: 'LOG-024', action: 'STATUS_CHANGE', detail: '状态变更为生产执行中', at: '2026-02-28 08:00:00', by: 'System' },
     ],
@@ -582,7 +584,7 @@ export const productionOrders: ProductionOrder[] = [
     riskFlags: [],
     auditLogs: [
       { id: 'LOG-025', action: 'CREATE', detail: '生产单创建', at: '2026-02-05 09:00:00', by: 'Fajar Hidayat' },
-      { id: 'LOG-026', action: 'BREAKDOWN', detail: '工艺任务拆解完成', at: '2026-02-08 10:00:00', by: 'Fajar Hidayat' },
+      { id: 'LOG-026', action: 'TASK_SPLIT', detail: '按分配方案生成 4 个执行任务', at: '2026-02-08 10:00:00', by: 'Fajar Hidayat' },
       { id: 'LOG-027', action: 'STATUS_CHANGE', detail: '状态变更为生产执行中', at: '2026-02-10 08:00:00', by: 'System' },
       { id: 'LOG-028', action: 'STATUS_CHANGE', detail: '状态变更为已完成', at: '2026-02-28 17:00:00', by: 'System' },
     ],
@@ -662,26 +664,26 @@ export const productionOrders: ProductionOrder[] = [
         { skuCode: 'SKU-014-XL-BLK', size: 'XL', color: 'Black', qty: 350 },
       ],
     },
-    assignmentSummary: { directCount: 3, biddingCount: 0, totalTasks: 3, unassignedCount: 3 },
+    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 1, unassignedCount: 1 },
     assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
-    taskBreakdownSummary: { isBrokenDown: true, taskTypesTop3: ['裁片', '车缝', '后整'], lastBreakdownAt: '2026-03-02 10:00:00', lastBreakdownBy: 'Andi Permana' },
+    taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
     riskFlags: ['MAIN_FACTORY_SUSPENDED'],
     auditLogs: [
       { id: 'LOG-031', action: 'CREATE', detail: '生产单创建', at: '2026-02-28 09:00:00', by: 'Andi Permana' },
-      { id: 'LOG-032', action: 'BREAKDOWN', detail: '工艺任务拆解完成', at: '2026-03-02 10:00:00', by: 'Andi Permana' },
-      { id: 'LOG-033', action: 'STATUS_CHANGE', detail: '状态变更为挂起，原因：主工厂暂停合作', at: '2026-03-04 11:00:00', by: 'System' },
+      { id: 'LOG-032', action: 'TASK_READY', detail: '已生成初始任务，待主工厂恢复后进入分配', at: '2026-03-02 10:00:00', by: 'Andi Permana' },
+      { id: 'LOG-033', action: 'STATUS_CHANGE', detail: '状态变更为挂起，原因：主工厂暂停合作', at: '2026-03-04 11:00:00', by: '系统' },
     ],
     createdAt: '2026-02-28 09:00:00',
     updatedAt: '2026-03-04 11:00:00',
   },
-  // PO-0012: READY_FOR_BREAKDOWN (techPack=RELEASED)
+  // PO-0012: WAIT_ASSIGNMENT（已生成初始任务，待分配）
   {
     productionOrderId: 'PO-202603-0012',
     demandId: 'DEM-202603-0015',
     legacyOrderNo: '240790',
-    status: 'READY_FOR_BREAKDOWN',
+    status: 'WAIT_ASSIGNMENT',
     lockedLegacy: false,
     mainFactoryId: 'ID-F005',
     mainFactorySnapshot: createFactorySnapshot(indonesiaFactories.find(f => f.id === 'ID-F005')!),
@@ -706,17 +708,18 @@ export const productionOrders: ProductionOrder[] = [
         { skuCode: 'SKU-015-XL-PNK', size: 'XL', color: 'Pink', qty: 400 },
       ],
     },
-    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 0, unassignedCount: 0 },
-    assignmentProgress: { status: 'NOT_READY', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
+    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 1, unassignedCount: 1 },
+    assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
     taskBreakdownSummary: { isBrokenDown: false, taskTypesTop3: [] },
     riskFlags: ['MAIN_FACTORY_BLACKLISTED'],
     auditLogs: [
       { id: 'LOG-034', action: 'CREATE', detail: '生产单创建', at: '2026-03-04 14:00:00', by: 'Lina Susanti' },
+      { id: 'LOG-034-A', action: 'TASK_READY', detail: '已生成初始任务，进入待分配', at: '2026-03-04 14:05:00', by: '系统' },
     ],
     createdAt: '2026-03-04 14:00:00',
-    updatedAt: '2026-03-04 14:00:00',
+    updatedAt: '2026-03-04 14:05:00',
   },
   // PO-0013: DRAFT
   {
@@ -800,14 +803,14 @@ export const productionOrders: ProductionOrder[] = [
     riskFlags: ['DISPATCH_ACK_OVERDUE'],
     auditLogs: [
       { id: 'LOG-036', action: 'CREATE', detail: '生产单创建', at: '2026-02-26 15:00:00', by: 'Yudi Prakoso' },
-      { id: 'LOG-037', action: 'BREAKDOWN', detail: '工艺任务拆解完成', at: '2026-03-01 14:00:00', by: 'Yudi Prakoso' },
+      { id: 'LOG-037', action: 'TASK_SPLIT', detail: '按派单方案生成 4 个待分配任务', at: '2026-03-01 14:00:00', by: 'Yudi Prakoso' },
       { id: 'LOG-038', action: 'DISPATCH', detail: '发起派单：全部4个任务', at: '2026-03-03 09:00:00', by: 'Yudi Prakoso' },
       { id: 'LOG-039', action: 'DISPATCH_ACK_OVERDUE', detail: '任务4派单确认超时', at: '2026-03-06 09:00:00', by: 'System' },
     ],
     createdAt: '2026-02-26 15:00:00',
     updatedAt: '2026-03-06 09:00:00',
   },
-  // PO-0015: WAIT_ASSIGNMENT（混合场景：已拆解，待分配）
+  // PO-0015: WAIT_ASSIGNMENT（已生成初始任务，待分配）
   {
     productionOrderId: 'PO-202603-0015',
     demandId: 'DEM-202603-0018',
@@ -839,21 +842,19 @@ export const productionOrders: ProductionOrder[] = [
         { skuCode: 'SKU-001-XL-BLK', size: 'XL', color: 'Black', qty: 250 },
       ],
     },
-    assignmentSummary: { directCount: 3, biddingCount: 2, totalTasks: 5, unassignedCount: 5 },
+    assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 1, unassignedCount: 1 },
     assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
     directDispatchSummary: { assignedFactoryCount: 0, rejectedCount: 0, overdueAckCount: 0 },
     taskBreakdownSummary: {
-      isBrokenDown: true,
-      taskTypesTop3: ['准备阶段', '裁片', '后道'],
-      lastBreakdownAt: '2026-03-16 10:00:00',
-      lastBreakdownBy: 'Yudi Prakoso',
+      isBrokenDown: false,
+      taskTypesTop3: [],
     },
     riskFlags: [],
     auditLogs: [
       { id: 'LOG-040', action: 'CREATE', detail: '混合场景生产单创建', at: '2026-03-15 09:00:00', by: 'Yudi Prakoso' },
-      { id: 'LOG-041', action: 'BREAKDOWN', detail: '工艺任务拆解完成，共5个任务', at: '2026-03-16 10:00:00', by: 'Yudi Prakoso' },
-      { id: 'LOG-042', action: 'STATUS_CHANGE', detail: '状态变更为待分配', at: '2026-03-16 10:05:00', by: 'System' },
+      { id: 'LOG-041', action: 'TASK_READY', detail: '已生成初始任务，进入待分配', at: '2026-03-16 10:00:00', by: 'Yudi Prakoso' },
+      { id: 'LOG-042', action: 'STATUS_CHANGE', detail: '状态变更为待分配', at: '2026-03-16 10:05:00', by: '系统' },
     ],
     createdAt: '2026-03-15 09:00:00',
     updatedAt: '2026-03-16 10:05:00',
@@ -864,7 +865,7 @@ export const productionOrders: ProductionOrder[] = [
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },
   WAIT_TECH_PACK_RELEASE: { label: '等待技术包发布', color: 'bg-orange-100 text-orange-700' },
-  READY_FOR_BREAKDOWN: { label: '待拆解', color: 'bg-blue-100 text-blue-700' },
+  READY_FOR_BREAKDOWN: { label: '待分配', color: 'bg-blue-100 text-blue-700' },
   WAIT_ASSIGNMENT: { label: '待分配', color: 'bg-purple-100 text-purple-700' },
   ASSIGNING: { label: '分配中', color: 'bg-indigo-100 text-indigo-700' },
   EXECUTING: { label: '生产执行中', color: 'bg-cyan-100 text-cyan-700' },
