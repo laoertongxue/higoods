@@ -173,6 +173,17 @@ function syncTabWithQuery(): void {
   }
 }
 
+function syncQuoteDialogWithQuery(activeBiddingTenders: BiddingTender[]): void {
+  const tenderId = getCurrentSearchParams().get('quoteTenderId')
+  if (!tenderId || state.activeTab !== 'pending-quote') return
+
+  const quotingTender = activeBiddingTenders.find((item) => item.tenderId === tenderId)
+  if (!quotingTender) return
+
+  state.quotingTenderId = quotingTender.tenderId
+  state.quoteDialogOpen = true
+}
+
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
@@ -589,11 +600,19 @@ function renderPendingQuoteItem(tender: BiddingTender): string {
       </div>
 
       <div class="border-t px-3 py-2">
-        <button
-          class="inline-flex h-8 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          data-pda-tr-action="open-quote"
-          data-tender-id="${escapeHtml(tender.tenderId)}"
-        >立即报价</button>
+        <div class="flex items-center gap-2">
+          <button
+            class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+            data-pda-tr-action="open-detail"
+            data-task-id="${escapeHtml(tender.taskId)}"
+          >查看详情</button>
+
+          <button
+            class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            data-pda-tr-action="open-quote"
+            data-tender-id="${escapeHtml(tender.tenderId)}"
+          >立即报价</button>
+        </div>
       </div>
     </article>
   `
@@ -603,7 +622,7 @@ function renderQuotedItem(tender: QuotedTender): string {
   const task = getTaskFactById(tender.taskId)
   const processName = task ? getTaskProcessDisplayName(task) : tender.processName
   return `
-    <article class="rounded-lg border bg-card">
+    <article class="overflow-hidden rounded-lg border bg-card">
       <div class="space-y-2 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(tender.tenderId)}</span>
@@ -622,6 +641,14 @@ function renderQuotedItem(tender: QuotedTender): string {
           ${renderFieldRow('竞价截止', tender.biddingDeadline)}
           ${renderFieldRow('任务截止', tender.taskDeadline)}
         </div>
+      </div>
+
+      <div class="border-t px-3 py-2">
+        <button
+          class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+          data-pda-tr-action="open-detail"
+          data-task-id="${escapeHtml(tender.taskId)}"
+        >查看详情</button>
       </div>
     </article>
   `
@@ -804,6 +831,7 @@ export function renderPdaTaskReceivePage(): string {
   const processOptions = Array.from(new Set(pendingAcceptTasks.map((task) => getTaskProcessDisplayName(task))))
 
   const activeBiddingTenders = getActiveBiddingTenders()
+  syncQuoteDialogWithQuery(activeBiddingTenders)
   const allQuotedTenders = getQuotedTenders()
   const awardedTenders = getAwardedTenders(selectedFactoryId)
   const filteredPendingTasks = getFilteredPendingTasks(pendingAcceptTasks)
@@ -956,6 +984,11 @@ function closeQuoteDialog(): void {
   state.deliveryDays = ''
   state.quoteRemark = ''
   state.submittingQuote = false
+
+  const currentPath = appStore.getState().pathname
+  if (currentPath.includes('quoteTenderId=')) {
+    appStore.navigate('/fcs/pda/task-receive?tab=pending-quote')
+  }
 }
 
 function closeRejectDialog(): void {

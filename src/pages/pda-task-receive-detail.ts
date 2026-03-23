@@ -4,6 +4,10 @@ import { type ProcessTask } from '../data/fcs/process-tasks'
 import { productionOrders } from '../data/fcs/production-orders'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
+  PDA_MOCK_BIDDING_TENDERS,
+  PDA_MOCK_QUOTED_TENDERS,
+} from '../data/fcs/pda-mobile-mock'
+import {
   getTaskProcessDisplayName,
   getTaskStageDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
@@ -11,13 +15,19 @@ import {
   getPdaTaskFlowTaskById,
   isCuttingSpecialTask,
   listPdaTaskFlowTasks,
+  resolvePdaTaskExecPath,
 } from '../data/fcs/pda-cutting-special'
-import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 
 interface TaskReceiveDetailState {
   rejectDialogOpen: boolean
   rejectReason: string
+}
+
+type ReceiveDetailTabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
+
+type PdaReceiveTask = ProcessTask & {
+  cutPieceOrderNo?: string
 }
 
 const state: TaskReceiveDetailState = {
@@ -67,6 +77,90 @@ function getCurrentFactoryId(): string {
 function getFactoryName(factoryId: string): string {
   const factory = indonesiaFactories.find((item) => item.id === factoryId)
   return factory?.name ?? factoryId
+}
+
+function getReceiveDetailSearchParams(): URLSearchParams {
+  const pathname = appStore.getState().pathname
+  const [, queryString = ''] = pathname.split('?')
+  return new URLSearchParams(queryString)
+}
+
+function resolveReceiveBackHref(): string {
+  const returnTo = getReceiveDetailSearchParams().get('returnTo')
+  if (returnTo && returnTo.startsWith('/fcs/pda/task-receive')) {
+    return returnTo
+  }
+  return '/fcs/pda/task-receive'
+}
+
+function getReceiveDetailTab(task: ProcessTask): ReceiveDetailTabKey {
+  const returnTo = getReceiveDetailSearchParams().get('returnTo')
+  if (returnTo) {
+    const [, queryString = ''] = returnTo.split('?')
+    const tab = new URLSearchParams(queryString).get('tab')
+    if (tab === 'pending-accept' || tab === 'pending-quote' || tab === 'quoted' || tab === 'awarded') {
+      return tab
+    }
+  }
+
+  if (PDA_MOCK_QUOTED_TENDERS.some((item) => item.taskId === task.taskId)) {
+    return 'quoted'
+  }
+  if (PDA_MOCK_BIDDING_TENDERS.some((item) => item.taskId === task.taskId)) {
+    return 'pending-quote'
+  }
+  if (task.assignmentMode === 'BIDDING' && task.assignmentStatus === 'AWARDED') {
+    return 'awarded'
+  }
+  return 'pending-accept'
+}
+
+function getPendingQuoteTender(taskId: string) {
+  return PDA_MOCK_BIDDING_TENDERS.find((item) => item.taskId === taskId) ?? null
+}
+
+function getQuotedTender(taskId: string) {
+  return PDA_MOCK_QUOTED_TENDERS.find((item) => item.taskId === taskId) ?? null
+}
+
+function buildReceiveQuotePath(tenderId: string): string {
+  return `/fcs/pda/task-receive?tab=pending-quote&quoteTenderId=${encodeURIComponent(tenderId)}`
+}
+
+function getTaskStyleSnapshot(task: ProcessTask): {
+  spuCode: string
+  spuName: string
+  deliveryDate: string
+  spuImageUrl?: string
+} {
+  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  const taskSnapshot = task as ProcessTask & {
+    spuCode?: string
+    spuName?: string
+    requiredDeliveryDate?: string
+    spuImageUrl?: string
+  }
+
+  return {
+    spuCode: order?.demandSnapshot?.spuCode || taskSnapshot.spuCode || '-',
+    spuName: order?.demandSnapshot?.spuName || taskSnapshot.spuName || '-',
+    deliveryDate: order?.demandSnapshot?.requiredDeliveryDate || taskSnapshot.requiredDeliveryDate || '-',
+    spuImageUrl: taskSnapshot.spuImageUrl,
+  }
+}
+
+function renderSectionCard(title: string, icon: string, body: string): string {
+  return `
+    <article class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <h2 class="flex items-center gap-2 text-base font-semibold">
+          <i data-lucide="${escapeHtml(icon)}" class="h-4 w-4"></i>
+          ${escapeHtml(title)}
+        </h2>
+      </header>
+      <div class="space-y-3 p-4 text-sm">${body}</div>
+    </article>
+  `
 }
 
 function mutateAcceptTask(taskId: string, by: string): void {
@@ -243,11 +337,349 @@ function renderRejectDialog(taskId: string): string {
   `
 }
 
+function renderTaskStyleCard(task: ProcessTask): string {
+  const styleSnapshot = getTaskStyleSnapshot(task)
+
+  return `
+    <div class="flex items-start gap-3 text-sm">
+      <div class="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
+        ${
+          styleSnapshot.spuImageUrl
+            ? `<img src="${escapeHtml(styleSnapshot.spuImageUrl)}" alt="SPU ${escapeHtml(styleSnapshot.spuCode)}" class="h-full w-full object-cover" crossorigin="anonymous" />`
+            : `
+                <div class="flex h-full w-full items-center justify-center">
+                  <i data-lucide="package" class="h-6 w-6 text-muted-foreground"></i>
+                </div>
+              `
+        }
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="mb-0.5 text-xs text-muted-foreground">款式信息 / SPU 缩略图</div>
+        <div class="font-mono text-xs font-medium">${escapeHtml(styleSnapshot.spuCode)}</div>
+        ${
+          styleSnapshot.spuName !== '-'
+            ? `<div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(styleSnapshot.spuName)}</div>`
+            : ''
+        }
+        <div class="mt-0.5 text-xs text-muted-foreground">交付日期：${escapeHtml(styleSnapshot.deliveryDate)}</div>
+      </div>
+    </div>
+  `
+}
+
+function renderReceiveStatusChips(task: ProcessTask, tab: ReceiveDetailTabKey): string {
+  const sceneBadge =
+    tab === 'pending-quote'
+      ? renderBadge('待报价', 'border-blue-200 bg-blue-50 text-blue-700')
+      : tab === 'quoted'
+        ? renderBadge('已报价', 'border-slate-200 bg-slate-50 text-slate-700')
+        : tab === 'awarded'
+          ? renderBadge('已中标', 'border-emerald-200 bg-emerald-50 text-emerald-700')
+          : renderBadge('待接单', 'border-amber-200 bg-amber-50 text-amber-700')
+
+  return `
+    <div class="flex flex-wrap gap-2">
+      ${sceneBadge}
+      ${renderBadge(getAssignmentModeLabel(task.assignmentMode), 'border-border bg-muted text-foreground')}
+      ${
+        task.assignmentStatus
+          ? renderBadge(
+              task.assignmentStatus === 'ASSIGNED'
+                ? '已分配'
+                : task.assignmentStatus === 'AWARDED'
+                  ? '已中标'
+                  : task.assignmentStatus === 'BIDDING'
+                    ? '竞价中'
+                    : task.assignmentStatus,
+              'border-border bg-background text-muted-foreground',
+            )
+          : ''
+      }
+      ${
+        task.acceptanceStatus
+          ? renderBadge(
+              task.acceptanceStatus === 'ACCEPTED'
+                ? '已接单'
+                : task.acceptanceStatus === 'REJECTED'
+                  ? '已拒单'
+                  : '待接单',
+              task.acceptanceStatus === 'ACCEPTED'
+                ? 'border-primary/20 bg-primary text-primary-foreground'
+                : task.acceptanceStatus === 'REJECTED'
+                  ? 'border-destructive/20 bg-destructive text-destructive-foreground'
+                  : 'border-border bg-background text-muted-foreground',
+            )
+          : ''
+      }
+    </div>
+  `
+}
+
+function renderReceiveSpecificSection(task: ProcessTask, tab: ReceiveDetailTabKey): string {
+  const pricing = getTaskPricing(task)
+  const pendingQuoteTender = getPendingQuoteTender(task.taskId)
+  const quotedTender = getQuotedTender(task.taskId)
+  const acceptDeadline = task.acceptDeadline || ''
+  const dispatchedAt = (task as ProcessTask & { dispatchedAt?: string }).dispatchedAt
+  const execHref = resolvePdaTaskExecPath(task.taskId, appStore.getState().pathname)
+  const deliveryDays = quotedTender?.deliveryDays ? `${quotedTender.deliveryDays} 天` : '-'
+  const execStatus =
+    task.status === 'DONE'
+      ? '已完工'
+      : task.status === 'IN_PROGRESS'
+        ? '进行中'
+        : task.status === 'BLOCKED'
+          ? '生产暂停'
+          : '待开工'
+
+  if (tab === 'pending-quote' && pendingQuoteTender) {
+    return renderSectionCard(
+      '招标信息',
+      'gavel',
+      `
+        <div class="grid grid-cols-2 gap-3">
+          ${renderField('招标单号', pendingQuoteTender.tenderId)}
+          ${renderField('工厂池数量', `${pendingQuoteTender.factoryPoolCount} 家`)}
+          ${renderField('竞价截止时间', pendingQuoteTender.biddingDeadline)}
+          ${renderField('任务截止时间', pendingQuoteTender.taskDeadline)}
+          ${renderField('工序标准价', `${pendingQuoteTender.standardPrice.toLocaleString()} ${pendingQuoteTender.currency}/${pendingQuoteTender.qtyUnit}`)}
+          ${renderField('当前报价状态', '待报价')}
+        </div>
+        <div class="rounded bg-blue-50 px-3 py-2 text-xs text-blue-700">当前仍在招标阶段，确认款式与交付要求后可直接报价。</div>
+        <button
+          class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          data-pda-trd-action="open-quote"
+          data-tender-id="${escapeHtml(pendingQuoteTender.tenderId)}"
+        >立即报价</button>
+      `,
+    )
+  }
+
+  if (tab === 'quoted' && quotedTender) {
+    return renderSectionCard(
+      '已报价信息',
+      'badge-cent',
+      `
+        <div class="grid grid-cols-2 gap-3">
+          ${renderField('招标单号', quotedTender.tenderId)}
+          ${renderField('已报价金额', `${quotedTender.quotedPrice.toLocaleString()} ${quotedTender.currency}/${quotedTender.unit}`)}
+          ${renderField('报价时间', quotedTender.quotedAt)}
+          ${renderField('交付承诺', deliveryDays)}
+          ${renderField('竞价截止时间', quotedTender.biddingDeadline)}
+          ${renderField('当前报价状态', quotedTender.tenderStatusLabel)}
+        </div>
+        <div class="rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">同一招标单内同一工厂只允许报价一次，当前报价记录仅供查看，不支持修改。</div>
+      `,
+    )
+  }
+
+  if (tab === 'awarded') {
+    return renderSectionCard(
+      '中标信息',
+      'award',
+      `
+        <div class="grid grid-cols-2 gap-3">
+          ${renderField('招标单号', task.tenderId || `TENDER-${task.taskId}`)}
+          ${
+            pricing.directPrice != null
+              ? renderField('中标价格', `${pricing.directPrice.toLocaleString()} ${pricing.currency}/${pricing.unit}`)
+              : renderField('中标价格', '-')
+          }
+          ${renderField('平台通知时间', task.awardedAt || task.updatedAt)}
+          ${renderField('当前执行状态', execStatus)}
+        </div>
+        ${
+          task.priceDiffReason
+            ? `<div class="rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">中标说明：${escapeHtml(task.priceDiffReason)}</div>`
+            : ''
+        }
+        <button class="inline-flex h-9 w-full items-center justify-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(execHref)}">去执行</button>
+      `,
+    )
+  }
+
+  return renderSectionCard(
+    '直接派单信息',
+    'clipboard-list',
+    `
+      <div class="grid grid-cols-2 gap-3">
+        ${dispatchedAt ? renderField('直接派单时间', dispatchedAt) : ''}
+        ${acceptDeadline ? renderField('接单截止时间', acceptDeadline) : ''}
+        ${task.taskDeadline ? renderField('任务截止时间', task.taskDeadline) : ''}
+        ${renderField('币种 / 单位', `${pricing.currency} / ${pricing.unit}`)}
+        ${
+          pricing.standardPrice != null
+            ? renderField('工序标准价', `${pricing.standardPrice.toLocaleString()} ${pricing.currency}/${pricing.unit}`)
+            : ''
+        }
+        ${
+          pricing.directPrice != null
+            ? renderField('直接派单价', `${pricing.directPrice.toLocaleString()} ${pricing.currency}/${pricing.unit}`)
+            : ''
+        }
+      </div>
+      ${
+        pricing.priceStatus
+          ? `<div class="text-xs font-medium ${pricing.priceStatusColor}">${escapeHtml(pricing.priceStatus)}</div>`
+          : ''
+      }
+      ${
+        task.priceDiffReason
+          ? `<div class="rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">价格偏差原因：${escapeHtml(task.priceDiffReason)}</div>`
+          : ''
+      }
+      ${
+        task.dispatchRemark
+          ? `<div class="rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">派单备注：${escapeHtml(task.dispatchRemark)}</div>`
+          : ''
+      }
+    `,
+  )
+}
+
+function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
+  const factory = task.assignedFactoryId
+    ? indonesiaFactories.find((item) => item.id === task.assignedFactoryId)
+    : undefined
+  const displayProcessName = getTaskProcessDisplayName(task)
+  const stageLabel = getTaskStageDisplayName(task)
+  const tab = getReceiveDetailTab(task)
+  const canOperate =
+    (!task.acceptanceStatus || task.acceptanceStatus === 'PENDING') && tab === 'pending-accept'
+
+  const content = `
+    <div class="flex min-h-[760px] flex-col bg-background">
+      <header class="sticky top-0 z-30 border-b bg-background px-4 py-3">
+        <div class="flex items-center gap-3">
+          <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-pda-trd-action="back">
+            <i data-lucide="arrow-left" class="h-4 w-4"></i>
+          </button>
+          <h1 class="text-lg font-semibold">任务详情</h1>
+        </div>
+      </header>
+
+      <div class="flex-1 space-y-4 p-4 pb-28">
+        <article class="rounded-lg border bg-card">
+          <header class="border-b px-4 py-3">
+            <h2 class="flex items-center gap-2 text-base font-semibold">
+              <i data-lucide="clipboard-list" class="h-4 w-4"></i>
+              ${escapeHtml(getTaskDisplayNo(task))}
+            </h2>
+          </header>
+
+          <div class="space-y-3 p-4">
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              ${renderField('原始任务', getRootTaskDisplayNo(task))}
+              ${renderField('生产单号', task.productionOrderId)}
+              ${renderField('工序序号', String(task.seq))}
+              ${renderField('工序名称', displayProcessName)}
+              ${renderField('工序编码', task.processBusinessCode || task.processCode)}
+              ${renderField('阶段', stageLabel)}
+              ${renderField('数量', `${task.qty} ${task.qtyUnit}`)}
+              ${renderField('裁片单号', task.cutPieceOrderNo || '-')}
+            </div>
+
+            <div class="h-px bg-border"></div>
+            ${renderTaskStyleCard(task)}
+
+            <div class="h-px bg-border"></div>
+            ${renderReceiveStatusChips(task, tab)}
+          </div>
+        </article>
+
+        ${renderReceiveSpecificSection(task, tab)}
+
+        <article class="rounded-lg border bg-card">
+          <header class="border-b px-4 py-3">
+            <h2 class="flex items-center gap-2 text-base font-semibold">
+              <i data-lucide="factory" class="h-4 w-4"></i>
+              ${escapeHtml(tab === 'pending-quote' || tab === 'quoted' ? '当前查看工厂' : '承接工厂')}
+            </h2>
+          </header>
+          <div class="p-4 text-sm">
+            <div class="font-medium">${escapeHtml(factory?.name || task.assignedFactoryName || task.assignedFactoryId || '-')}</div>
+            ${
+              factory
+                ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(factory.city)}, ${escapeHtml(factory.province)}</div>`
+                : ''
+            }
+          </div>
+        </article>
+
+        <article class="rounded-lg border bg-card">
+          <header class="border-b px-4 py-3">
+            <h2 class="flex items-center gap-2 text-base font-semibold">
+              <i data-lucide="clock" class="h-4 w-4"></i>
+              最近动作
+            </h2>
+          </header>
+          <div class="p-4">
+            ${
+              !task.auditLogs || task.auditLogs.length === 0
+                ? '<p class="text-sm text-muted-foreground">暂无日志</p>'
+                : `
+                    <div class="space-y-2">
+                      ${[...task.auditLogs]
+                        .reverse()
+                        .slice(0, 10)
+                        .map(
+                          (log) => `
+                            <article class="border-l-2 border-muted py-1 pl-3 text-sm">
+                              <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center rounded border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(log.action)}</span>
+                                <span class="text-xs text-muted-foreground">${escapeHtml(log.at)}</span>
+                              </div>
+                              <div class="mt-0.5 text-muted-foreground">${escapeHtml(log.detail)}</div>
+                              <div class="text-xs text-muted-foreground">操作人: ${escapeHtml(log.by)}</div>
+                            </article>
+                          `,
+                        )
+                        .join('')}
+                    </div>
+                  `
+            }
+          </div>
+        </article>
+      </div>
+
+      ${
+        canOperate
+          ? `
+              <div class="absolute bottom-[72px] left-0 right-0 border-t bg-background px-4 py-3">
+                <div class="flex gap-3">
+                  <button
+                    class="inline-flex h-9 flex-1 items-center justify-center rounded-md border px-3 text-sm hover:bg-muted"
+                    data-pda-trd-action="open-reject"
+                  >
+                    <i data-lucide="x-circle" class="mr-1.5 h-4 w-4"></i>
+                    拒单
+                  </button>
+                  <button
+                    class="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                    data-pda-trd-action="accept"
+                    data-task-id="${escapeHtml(task.taskId)}"
+                  >
+                    <i data-lucide="check-circle" class="mr-1.5 h-4 w-4"></i>
+                    接单
+                  </button>
+                </div>
+              </div>
+            `
+          : ''
+      }
+
+      ${renderRejectDialog(task.taskId)}
+    </div>
+  `
+
+  return renderPdaFrame(content, 'task-receive')
+}
+
 export function renderPdaTaskReceiveDetailPage(taskId: string): string {
   const task = getTaskFactById(taskId)
 
   if (isCuttingSpecialTask(task)) {
-    return renderPdaCuttingTaskDetailPage(taskId, { backHref: '/fcs/pda/task-receive' })
+    return renderPdaTaskReceiveCuttingDetailPage(task as PdaReceiveTask)
   }
 
   if (!task) {
@@ -267,32 +699,15 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
     return renderPdaFrame(content, 'task-receive')
   }
 
-  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
   const factory = task.assignedFactoryId
     ? indonesiaFactories.find((item) => item.id === task.assignedFactoryId)
     : undefined
 
-  const spuCode = order?.demandSnapshot?.spuCode || '-'
-  const spuName = order?.demandSnapshot?.spuName || '-'
-  const deliveryDate = order?.demandSnapshot?.requiredDeliveryDate || '-'
+  const styleSnapshot = getTaskStyleSnapshot(task)
   const stageLabel = getTaskStageDisplayName(task)
   const displayProcessName = getTaskProcessDisplayName(task)
-  const spuImageUrl = (task as ProcessTask & { spuImageUrl?: string }).spuImageUrl
-  const dispatchedAt = (task as ProcessTask & { dispatchedAt?: string }).dispatchedAt
-
-  const pricing = getTaskPricing(task)
-  const acceptDeadline = task.acceptDeadline || ''
-
-  const deadlineStatus = (() => {
-    if (!acceptDeadline) return null
-    const diff = new Date(acceptDeadline.replace(' ', 'T')).getTime() - Date.now()
-    const hours = diff / 3600000
-    if (diff < 0) return { label: '接单逾期', color: 'text-destructive' }
-    if (hours < 4) return { label: '即将逾期', color: 'text-amber-600' }
-    return { label: '正常', color: 'text-muted-foreground' }
-  })()
-
-  const canOperate = !task.acceptanceStatus || task.acceptanceStatus === 'PENDING'
+  const tab = getReceiveDetailTab(task)
+  const canOperate = (!task.acceptanceStatus || task.acceptanceStatus === 'PENDING') && tab === 'pending-accept'
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
@@ -331,8 +746,8 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
             <div class="flex items-start gap-3 text-sm">
               <div class="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
                 ${
-                  spuImageUrl
-                    ? `<img src="${escapeHtml(spuImageUrl)}" alt="SPU ${escapeHtml(spuCode)}" class="h-full w-full object-cover" crossorigin="anonymous" />`
+                  styleSnapshot.spuImageUrl
+                    ? `<img src="${escapeHtml(styleSnapshot.spuImageUrl)}" alt="SPU ${escapeHtml(styleSnapshot.spuCode)}" class="h-full w-full object-cover" crossorigin="anonymous" />`
                     : `
                         <div class="flex h-full w-full items-center justify-center">
                           <i data-lucide="package" class="h-6 w-6 text-muted-foreground"></i>
@@ -342,13 +757,13 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
               </div>
               <div class="min-w-0 flex-1">
                 <div class="mb-0.5 text-xs text-muted-foreground">款式信息 / SPU 缩略图</div>
-                <div class="font-mono text-xs font-medium">${escapeHtml(spuCode)}</div>
+                <div class="font-mono text-xs font-medium">${escapeHtml(styleSnapshot.spuCode)}</div>
                 ${
-                  spuName !== '-'
-                    ? `<div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(spuName)}</div>`
+                  styleSnapshot.spuName !== '-'
+                    ? `<div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(styleSnapshot.spuName)}</div>`
                     : ''
                 }
-                <div class="mt-0.5 text-xs text-muted-foreground">交付日期：${escapeHtml(deliveryDate)}</div>
+                <div class="mt-0.5 text-xs text-muted-foreground">交付日期：${escapeHtml(styleSnapshot.deliveryDate)}</div>
               </div>
             </div>
 
@@ -377,85 +792,7 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
           </div>
         </article>
 
-        <article class="rounded-lg border bg-card">
-          <header class="border-b px-4 py-3">
-            <h2 class="flex items-center gap-2 text-base font-semibold">
-              <i data-lucide="clipboard-list" class="h-4 w-4"></i>
-              直接派单信息
-            </h2>
-          </header>
-
-          <div class="space-y-3 p-4 text-sm">
-            <div class="grid grid-cols-2 gap-3">
-              ${dispatchedAt ? renderField('直接派单时间', dispatchedAt) : ''}
-              ${
-                acceptDeadline
-                  ? `
-                      <div>
-                        <span class="text-muted-foreground">接单截止时间:</span>
-                        <div class="font-medium">${escapeHtml(acceptDeadline)}</div>
-                        ${
-                          deadlineStatus
-                            ? `<div class="mt-0.5 text-xs font-medium ${deadlineStatus.color}">${escapeHtml(deadlineStatus.label)}</div>`
-                            : ''
-                        }
-                      </div>
-                    `
-                  : ''
-              }
-              ${
-                (task as ProcessTask & { taskDeadline?: string }).taskDeadline
-                  ? renderField('任务截止时间', (task as ProcessTask & { taskDeadline?: string }).taskDeadline || '-')
-                  : ''
-              }
-              ${renderField('币种 / 单位', `${pricing.currency} / ${pricing.unit}`)}
-              ${
-                pricing.standardPrice != null
-                  ? renderField('工序标准价', `${pricing.standardPrice.toLocaleString()} ${pricing.currency}/${pricing.unit}`)
-                  : ''
-              }
-              ${
-                pricing.directPrice != null
-                  ? `
-                      <div>
-                        <span class="text-muted-foreground">直接派单价:</span>
-                        <div class="font-medium text-primary">${pricing.directPrice.toLocaleString()} ${escapeHtml(pricing.currency)}/${escapeHtml(pricing.unit)}</div>
-                        ${
-                          pricing.priceStatus
-                            ? `<div class="mt-0.5 text-xs font-medium ${pricing.priceStatusColor}">${escapeHtml(pricing.priceStatus)}</div>`
-                            : ''
-                        }
-                      </div>
-                    `
-                  : ''
-              }
-            </div>
-
-            ${
-              task.priceDiffReason
-                ? `
-                    <div class="h-px bg-border"></div>
-                    <div class="text-sm">
-                      <span class="text-muted-foreground">价格偏差原因:</span>
-                      <div class="mt-1 rounded bg-amber-50 p-2 text-xs text-amber-700">${escapeHtml(task.priceDiffReason)}</div>
-                    </div>
-                  `
-                : ''
-            }
-
-            ${
-              task.dispatchRemark
-                ? `
-                    <div class="h-px bg-border"></div>
-                    <div class="text-sm">
-                      <span class="text-muted-foreground">派单备注:</span>
-                      <div class="mt-1 rounded bg-muted/50 p-2 text-xs">${escapeHtml(task.dispatchRemark)}</div>
-                    </div>
-                  `
-                : ''
-            }
-          </div>
-        </article>
+        ${renderReceiveSpecificSection(task, tab)}
 
         <article class="rounded-lg border bg-card">
           <header class="border-b px-4 py-3">
@@ -561,7 +898,14 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
   if (!action) return false
 
   if (action === 'back') {
-    appStore.navigate('/fcs/pda/task-receive')
+    appStore.navigate(resolveReceiveBackHref())
+    return true
+  }
+
+  if (action === 'open-quote') {
+    const tenderId = actionNode.dataset.tenderId
+    if (!tenderId) return true
+    appStore.navigate(buildReceiveQuotePath(tenderId))
     return true
   }
 
@@ -586,7 +930,7 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
     showTaskReceiveDetailToast('接单成功')
     state.rejectDialogOpen = false
     state.rejectReason = ''
-    appStore.navigate('/fcs/pda/task-receive')
+    appStore.navigate(resolveReceiveBackHref())
     return true
   }
 
@@ -599,7 +943,7 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
     showTaskReceiveDetailToast('已拒绝接单')
     state.rejectDialogOpen = false
     state.rejectReason = ''
-    appStore.navigate('/fcs/pda/task-receive')
+    appStore.navigate(resolveReceiveBackHref())
     return true
   }
 
