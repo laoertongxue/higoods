@@ -278,9 +278,7 @@ function getPlatformQcWritebackItems(): PlatformQcWritebackItem[] {
             ? '已确认，可结算'
             : chain.settlementImpact.status === 'PENDING_ARBITRATION'
               ? '争议中，待仲裁'
-              : chain.settlementImpact.status === 'SUSPENDED'
-                ? '暂不结算'
-                : chain.settlementImpact.summary || '冻结中'
+              : chain.settlementImpact.summary || '冻结中'
       const settlementVariant: BadgeVariant =
         chain.settlementImpact.status === 'READY' || chain.settlementImpact.status === 'SETTLED'
           ? 'green'

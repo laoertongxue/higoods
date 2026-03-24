@@ -238,8 +238,6 @@ export function getSettlementImpactLabel(status: SettlementImpactStatus): string
       return '已结算'
     case 'PENDING_ARBITRATION':
       return '待仲裁'
-    case 'SUSPENDED':
-      return '暂不结算'
     case 'FROZEN':
       return '冻结中'
     default:

@@ -158,8 +158,7 @@ export function renderQcRecordsPage(): string {
   ).length
   const frozenSettlementCount = chainFacts.filter((item) =>
     item.settlementImpact.status === 'FROZEN' ||
-    item.settlementImpact.status === 'PENDING_ARBITRATION' ||
-    item.settlementImpact.status === 'SUSPENDED',
+    item.settlementImpact.status === 'PENDING_ARBITRATION',
   ).length
 
   return `
