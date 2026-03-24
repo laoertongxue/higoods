@@ -185,11 +185,10 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片异常收口',
     pageTitle: '特殊工艺',
-    pageSubtitle: '管理需单独承接的裁片厂特殊工艺任务与附加记录',
+    pageSubtitle: '管理需单独承接的裁片厂特殊工艺任务与工艺单记录',
     breadcrumb: createBreadcrumb('裁片异常收口', '特殊工艺'),
-    isPlaceholder: true,
-    futureStageHint: '阶段 6 / 步骤 2',
-    shortDescription: '管理需单独承接的裁片厂特殊工艺任务与附加记录。',
+    isPlaceholder: false,
+    shortDescription: '管理需单独承接的裁片厂特殊工艺任务与工艺单记录。',
   },
   summary: {
     key: 'summary',
@@ -197,10 +196,10 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: ['/fcs/craft/cutting/stats', '/fcs/craft/cutting/bed-stats', '/fcs/craft/cutting/cutting-summary'],
     menuGroupTitle: '裁片异常收口',
     pageTitle: '裁剪总结',
-    pageSubtitle: '汇总生产单、原始裁片单、批次、仓储与异常，形成裁片域收口视图',
+    pageSubtitle: '汇总生产单、原始裁片单、批次、仓储、打票、补料与交接信息，形成裁片域总收口视图',
     breadcrumb: createBreadcrumb('裁片异常收口', '裁剪总结'),
     isPlaceholder: false,
-    shortDescription: '汇总生产单、原始裁片单、批次、仓储与异常，形成裁片域收口视图。',
+    shortDescription: '汇总生产单、原始裁片单、批次、仓储、打票、补料与交接信息，形成裁片域总收口视图。',
   },
 }
 
