@@ -6,7 +6,13 @@ import {
   buildMarkerSpreadingViewModel,
   buildSpreadingVarianceSummary,
   buildSpreadingWarningMessages,
+  buildRollHandoverViewModel,
+  buildOperatorAmountWarnings,
+  computeOperatorCalculatedAmount,
+  computeOperatorDisplayAmount,
   computeRemainingLength,
+  computeOperatorHandledLayerCount,
+  computeOperatorHandledPieceQty,
   computeRollActualCutPieceQty,
   createOperatorRecordDraft,
   createRollRecordDraft,
@@ -19,13 +25,17 @@ import {
   upsertSpreadingSession,
   updateSessionStatus,
   validateSpreadingCompletion,
+  summarizeSpreadingOperatorAmounts,
   type MarkerLineItem,
   type MarkerModeKey,
   type MarkerRecord,
   type MarkerSpreadingContext,
   type MarkerSpreadingPrefilter,
+  type SpreadingPricingMode,
   type SpreadingReplenishmentWarning,
   type SpreadingOperatorRecord,
+  type SpreadingOperatorAmountSummary,
+  type SpreadingRollHandoverSummary,
   type SpreadingRollRecord,
   type SpreadingSession,
   type SpreadingStatusKey,
@@ -40,6 +50,7 @@ import {
   buildSpreadingListViewModel,
   buildSpreadingReplenishmentWarning,
   buildMarkerWarningMessages,
+  buildSpreadingHandoverListSummary,
   computeHighLowCuttingTotals,
   computeHighLowPatternTotals,
   computeMarkerTotalPieces,
@@ -137,7 +148,23 @@ type SpreadingRollField =
   | 'layerCount'
   | 'occurredAt'
   | 'note'
-type SpreadingOperatorField = 'rollRecordId' | 'operatorName' | 'operatorAccountId' | 'startAt' | 'endAt' | 'actionType' | 'handoverNotes' | 'note'
+type SpreadingOperatorField =
+  | 'rollRecordId'
+  | 'operatorName'
+  | 'operatorAccountId'
+  | 'startAt'
+  | 'endAt'
+  | 'actionType'
+  | 'startLayer'
+  | 'endLayer'
+  | 'handledLength'
+  | 'unitPrice'
+  | 'pricingMode'
+  | 'manualAmountAdjusted'
+  | 'adjustedAmount'
+  | 'amountNote'
+  | 'handoverNotes'
+  | 'note'
 
 interface MarkerSpreadingPageState {
   querySignature: string
@@ -219,6 +246,11 @@ function formatLength(value: number): string {
 
 function formatQty(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(Math.max(value || 0, 0))
+}
+
+function formatCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '待补录'
+  return `${Number(value).toFixed(2)} 元`
 }
 
 function formatDateText(value: string): string {
@@ -1304,6 +1336,8 @@ function renderSpreadingTable(rows: SpreadingListRow[]): string {
           <th class="px-3 py-2 font-medium">款号 / 款式编码</th>
           <th class="px-3 py-2 font-medium">铺布模式</th>
           <th class="px-3 py-2 font-medium">卷数 / 人员数</th>
+          <th class="px-3 py-2 font-medium">交接摘要</th>
+          <th class="px-3 py-2 font-medium">分摊摘要</th>
           <th class="px-3 py-2 font-medium">实际铺布总长度</th>
           <th class="px-3 py-2 font-medium">总可用长度</th>
           <th class="px-3 py-2 font-medium">实际裁剪件数</th>
@@ -1335,6 +1369,19 @@ function renderSpreadingTable(rows: SpreadingListRow[]): string {
                 </td>
                 <td class="px-3 py-3">${renderTag(modeMeta.label, modeMeta.className)}</td>
                 <td class="px-3 py-3">${escapeHtml(String(row.rollCount))} 卷 / ${escapeHtml(String(row.operatorCount))} 人</td>
+                <td class="px-3 py-3">
+                  <div class="space-y-1">
+                    <p class="text-[11px] ${row.hasHandoverWarnings ? 'text-amber-700' : row.hasHandover ? 'text-blue-700' : 'text-muted-foreground'}">${escapeHtml(row.handoverStatusLabel)}</p>
+                  </div>
+                </td>
+                <td class="px-3 py-3">
+                  <div class="space-y-1">
+                    <p class="text-[11px] ${row.hasOperatorAllocation ? 'text-blue-700' : 'text-muted-foreground'}">${escapeHtml(row.operatorAllocationStatusLabel)}</p>
+                    <p class="text-[11px] ${row.hasManualAdjustedAmount ? 'text-amber-700' : 'text-muted-foreground'}">${escapeHtml(
+                      row.hasOperatorAllocation ? `金额 ${formatCurrency(row.operatorAllocationAmountTotal)}` : '待补录',
+                    )}</p>
+                  </div>
+                </td>
                 <td class="px-3 py-3">${escapeHtml(formatLength(row.totalActualLength))}</td>
                 <td class="px-3 py-3">${escapeHtml(formatLength(row.totalCalculatedUsableLength))}</td>
                 <td class="px-3 py-3">${escapeHtml(formatQty(row.actualCutPieceQty))} 件</td>
@@ -1437,8 +1484,126 @@ function renderSpreadingWarningSection(warningMessages: string[]): string {
               .join('')}
           </div>
         `
-      : '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">当前未识别明显长度异常、剩余异常或补料预警。</div>',
+      : '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">当前未识别明显长度异常、交接异常、剩余异常或补料预警。</div>',
   )
+}
+
+function formatLayerValue(value: number | null | undefined): string {
+  return value === null || value === undefined || Number.isNaN(value) ? '待补录' : String(value)
+}
+
+function formatHandledLengthValue(value: number | null | undefined): string {
+  return value === null || value === undefined || Number.isNaN(value) ? '待补录' : formatLength(value)
+}
+
+function renderOperatorAllocationSummary(summary: SpreadingOperatorAmountSummary): string {
+  if (!summary.rows.length) {
+    return '<div class="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-sm text-muted-foreground">当前尚未形成按人分摊数据，待补录层数、长度和单价后自动汇总。</div>'
+  }
+
+  return `
+    <div class="space-y-3">
+      ${renderInfoGrid([
+        { label: '按人分摊人数', value: `${formatQty(summary.rows.length)} 人` },
+        { label: '总负责层数', value: `${formatQty(summary.totalHandledLayerCount)} 层` },
+        { label: '总负责长度', value: formatHandledLengthValue(summary.totalHandledLength) },
+        { label: '总负责件数', value: `${formatQty(summary.totalHandledPieceQty)} 件` },
+        { label: '人员金额合计', value: formatCurrency(summary.totalDisplayAmount) },
+        { label: '人工调整金额', value: summary.hasManualAdjustedAmount ? '存在人工调整' : '未人工调整' },
+      ])}
+      <div class="overflow-auto">
+        <table class="min-w-[880px] text-sm">
+          <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2">人员姓名</th>
+              <th class="px-3 py-2">负责层数合计</th>
+              <th class="px-3 py-2">负责长度合计</th>
+              <th class="px-3 py-2">负责件数合计</th>
+              <th class="px-3 py-2">金额合计</th>
+              <th class="px-3 py-2">人工调整</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summary.rows
+              .map(
+                (row) => `
+                  <tr class="border-b">
+                    <td class="px-3 py-2">${escapeHtml(row.operatorName)}</td>
+                    <td class="px-3 py-2">${escapeHtml(`${formatQty(row.handledLayerCountTotal)} 层`)}</td>
+                    <td class="px-3 py-2">${escapeHtml(formatHandledLengthValue(row.handledLengthTotal))}</td>
+                    <td class="px-3 py-2">${escapeHtml(`${formatQty(row.handledPieceQtyTotal)} 件`)}</td>
+                    <td class="px-3 py-2">${escapeHtml(formatCurrency(row.displayAmountTotal))}</td>
+                    <td class="px-3 py-2">${escapeHtml(row.hasManualAdjustedAmount ? '已调整' : '未调整')}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `
+}
+
+function renderOperatorAmountWarningSection(warningMessages: string[]): string {
+  if (!warningMessages.length) {
+    return '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">当前按人分摊金额字段完整，未识别明显金额异常。</div>'
+  }
+
+  return `
+    <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700">
+      <p class="font-medium">金额提醒</p>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        ${warningMessages.map((message) => `<li>${escapeHtml(message)}</li>`).join('')}
+      </ul>
+    </div>
+  `
+}
+
+function buildRollHandoverSummaryMap(session: SpreadingSession, markerTotalPieces: number): Record<string, SpreadingRollHandoverSummary> {
+  return Object.fromEntries(
+    session.rolls.map((roll) => [
+      roll.rollRecordId,
+      buildRollHandoverViewModel(
+        roll,
+        session.operators.filter((operator) => operator.rollRecordId === roll.rollRecordId),
+        markerTotalPieces,
+      ),
+    ]),
+  )
+}
+
+function renderRollHandoverStatus(summary: SpreadingRollHandoverSummary): string {
+  const tags: string[] = []
+  if (summary.hasHandover) {
+    tags.push(renderTag('有交接班', 'bg-blue-100 text-blue-700 border border-blue-200'))
+  } else {
+    tags.push(renderTag('无交接班', 'bg-slate-100 text-slate-700 border border-slate-200'))
+  }
+  if (summary.hasWarnings) {
+    tags.push(renderTag('交接异常', 'bg-amber-100 text-amber-700 border border-amber-200'))
+  } else {
+    tags.push(renderTag('交接正常', 'bg-emerald-100 text-emerald-700 border border-emerald-200'))
+  }
+  return `<div class="flex flex-wrap gap-2">${tags.join('')}</div>`
+}
+
+function renderRollHandoverWarnings(summary: SpreadingRollHandoverSummary): string {
+  if (!summary.warnings.length) {
+    return '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">当前卷的层数、长度与交接区间已形成可追溯闭环。</div>'
+  }
+
+  return `
+    <div class="space-y-2">
+      ${summary.warnings
+        .map(
+          (warning) => `
+            <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(warning)}</div>
+          `,
+        )
+        .join('')}
+    </div>
+  `
 }
 
 function buildSpreadingCompletionTargetIds(session: SpreadingSession): string[] {
@@ -2259,6 +2424,8 @@ function renderSpreadingDetailPage(): string {
   const linkedMarker = detailView.markerRecord
   const varianceSummary = detailView.varianceSummary
   const replenishmentWarning = detailView.replenishmentWarning
+  const operatorAmountSummary = detailView.operatorAmountSummary
+  const operatorAmountWarnings = detailView.amountWarnings
 
   return `
     <div class="space-y-3 p-4">
@@ -2390,46 +2557,183 @@ function renderSpreadingDetailPage(): string {
       )}
       ${renderSection(
         '人员记录区',
-        `
-          <div class="mb-3 rounded-md border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
-            同一卷出现多条人员记录时，即表示同卷换班或交接；以下记录按开始时间排序，便于核查谁开始、谁接手、谁结束。
-          </div>
-          <div class="overflow-auto">
-            <table class="min-w-[1100px] text-sm">
-              <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
-                <tr>
-                  <th class="px-3 py-2">排序</th>
-                  <th class="px-3 py-2">关联卷号</th>
-                  <th class="px-3 py-2">人员</th>
-                  <th class="px-3 py-2">开始时间</th>
-                  <th class="px-3 py-2">结束时间</th>
-                  <th class="px-3 py-2">动作类型</th>
-                  <th class="px-3 py-2">交接说明</th>
-                  <th class="px-3 py-2">备注</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${detailView.sortedOperators
-                  .map(
-                    (operator, index) => `
-                      <tr class="border-b">
-                        <td class="px-3 py-2 text-muted-foreground">${escapeHtml(String(operator.sortOrder || index + 1))}</td>
-                        <td class="px-3 py-2">${escapeHtml(detailView.linkedRollNos[operator.rollRecordId] || '待关联')}</td>
-                        <td class="px-3 py-2">${escapeHtml(operator.operatorName || '待补')}</td>
-                        <td class="px-3 py-2">${escapeHtml(operator.startAt || '待补')}</td>
-                        <td class="px-3 py-2">${escapeHtml(operator.endAt || '待补')}</td>
-                        <td class="px-3 py-2">${escapeHtml(operator.actionType || '待补')}</td>
-                        <td class="px-3 py-2">${escapeHtml(operator.handoverNotes || (operator.handoverFlag ? '已记录换班交接' : '—'))}</td>
-                        <td class="px-3 py-2">${escapeHtml(operator.note || '—')}</td>
-                      </tr>
-                    `,
-                  )
+        session.rolls.length
+          ? `
+              <div class="mb-3 rounded-md border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
+                同卷换班不会拆成第二卷。以下按“卷 -> 人员交接记录”展示每个人从第几层铺到第几层、负责多少长度、负责多少件，以及交接是否连续。
+              </div>
+              <div class="space-y-4">
+                ${session.rolls
+                  .map((roll) => {
+                    const handoverSummary = detailView.handoverSummaryByRollId[roll.rollRecordId] || buildRollHandoverViewModel(roll, [], linkedMarker?.totalPieces || 0)
+                    return `
+                      <article class="rounded-lg border bg-muted/10 p-3">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                          <div class="space-y-1">
+                            <h4 class="text-sm font-semibold text-foreground">卷 ${escapeHtml(roll.rollNo || '待补')}</h4>
+                            <p class="text-xs text-muted-foreground">当前卷共有 ${escapeHtml(String(handoverSummary.operators.length))} 条人员记录，负责长度合计 ${escapeHtml(formatLength(handoverSummary.totalHandledLength))}。</p>
+                          </div>
+                          ${renderRollHandoverStatus(handoverSummary)}
+                        </div>
+                        <div class="mt-3">
+                          ${renderInfoGrid([
+                            { label: '卷号', value: roll.rollNo || '待补' },
+                            { label: '铺布层数', value: `${formatQty(roll.layerCount)} 层` },
+                            { label: '最后结束层', value: formatLayerValue(handoverSummary.finalHandledLayer) },
+                            { label: '负责长度合计', value: formatHandledLengthValue(handoverSummary.totalHandledLength) },
+                            { label: '层数连续性', value: handoverSummary.continuityStatus },
+                            { label: '铺完状态', value: handoverSummary.incompleteCoverage ? '未完整铺完' : '当前卷已铺完' },
+                          ])}
+                        </div>
+                        <div class="mt-3 overflow-auto">
+                          <table class="min-w-[2140px] text-sm">
+                            <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+                              <tr>
+                                <th class="px-3 py-2">排序号</th>
+                                <th class="px-3 py-2">人员姓名</th>
+                                <th class="px-3 py-2">动作类型</th>
+                                <th class="px-3 py-2">开始时间</th>
+                                <th class="px-3 py-2">结束时间</th>
+                                <th class="px-3 py-2">开始层</th>
+                                <th class="px-3 py-2">结束层</th>
+                                <th class="px-3 py-2">负责层数</th>
+                                <th class="px-3 py-2">负责长度</th>
+                                <th class="px-3 py-2">负责件数</th>
+                                <th class="px-3 py-2">单价</th>
+                                <th class="px-3 py-2">计价方式</th>
+                                <th class="px-3 py-2">计算金额</th>
+                                <th class="px-3 py-2">最终显示金额</th>
+                                <th class="px-3 py-2">人工调整</th>
+                                <th class="px-3 py-2">金额备注</th>
+                                <th class="px-3 py-2">上一个交接人</th>
+                                <th class="px-3 py-2">下一个接手人</th>
+                                <th class="px-3 py-2">交接说明</th>
+                                <th class="px-3 py-2">备注</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              ${handoverSummary.operators
+                                .map(
+                                  (item, index) => `
+                                    <tr class="border-b">
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(String(item.operator.sortOrder || index + 1))}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.operatorName || '待补录')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.actionType || '待补录')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.startAt || '待补录')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.endAt || '待补录')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(formatLayerValue(item.operator.startLayer))}</td>
+                                      <td class="px-3 py-2">${escapeHtml(formatLayerValue(item.operator.endLayer))}</td>
+                                      <td class="px-3 py-2">${escapeHtml(formatLayerValue(item.handledLayerCount))}</td>
+                                      <td class="px-3 py-2">${escapeHtml(formatHandledLengthValue(item.operator.handledLength ?? item.handoverAtLength))}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.handledPieceQty === null ? '待补录' : `${formatQty(item.handledPieceQty)} 件`)}</td>
+                                      <td class="px-3 py-2">${escapeHtml(formatCurrency(item.operator.unitPrice))}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.pricingMode || '按件计价')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(formatCurrency(item.calculatedAmount))}</td>
+                                      <td class="px-3 py-2">${escapeHtml(formatCurrency(item.displayAmount))}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.manualAmountAdjusted ? '已调整' : '未调整')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.amountNote || '—')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.previousOperatorName || item.operator.previousOperatorName || '—')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.nextOperatorName || item.operator.nextOperatorName || '—')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.handoverNotes || '—')}</td>
+                                      <td class="px-3 py-2">${escapeHtml(item.operator.note || '—')}</td>
+                                    </tr>
+                                  `,
+                                )
+                                .join('')}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div class="mt-3">
+                          ${renderRollHandoverWarnings(handoverSummary)}
+                        </div>
+                      </article>
+                    `
+                  })
                   .join('')}
-              </tbody>
-            </table>
-          </div>
-        `,
+                ${
+                  detailView.sortedOperators.some((operator) => !operator.rollRecordId)
+                    ? `
+                        <article class="rounded-lg border border-dashed bg-card p-3">
+                          <h4 class="text-sm font-semibold text-foreground">未关联卷的人员记录</h4>
+                          <p class="mt-1 text-xs text-muted-foreground">以下旧记录尚未绑定到具体卷，当前无法形成同卷交接链，请回编辑页补齐。</p>
+                          <div class="mt-3 overflow-auto">
+                            <table class="min-w-[1680px] text-sm">
+                              <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+                                <tr>
+                                  <th class="px-3 py-2">排序号</th>
+                                  <th class="px-3 py-2">人员姓名</th>
+                                  <th class="px-3 py-2">动作类型</th>
+                                  <th class="px-3 py-2">开始时间</th>
+                                  <th class="px-3 py-2">结束时间</th>
+                                  <th class="px-3 py-2">开始层</th>
+                                  <th class="px-3 py-2">结束层</th>
+                                  <th class="px-3 py-2">负责长度</th>
+                                  <th class="px-3 py-2">负责件数</th>
+                                  <th class="px-3 py-2">单价</th>
+                                  <th class="px-3 py-2">计价方式</th>
+                                  <th class="px-3 py-2">最终显示金额</th>
+                                  <th class="px-3 py-2">交接说明</th>
+                                  <th class="px-3 py-2">备注</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${detailView.sortedOperators
+                                  .filter((operator) => !operator.rollRecordId)
+                                  .map(
+                                    (operator, index) => `
+                                      <tr class="border-b">
+                                        <td class="px-3 py-2 text-muted-foreground">${escapeHtml(String(operator.sortOrder || index + 1))}</td>
+                                        <td class="px-3 py-2">${escapeHtml(operator.operatorName || '待补录')}</td>
+                                        <td class="px-3 py-2">${escapeHtml(operator.actionType || '待补录')}</td>
+                                        <td class="px-3 py-2">${escapeHtml(operator.startAt || '待补录')}</td>
+                                        <td class="px-3 py-2">${escapeHtml(operator.endAt || '待补录')}</td>
+                                        <td class="px-3 py-2">${escapeHtml(formatLayerValue(operator.startLayer))}</td>
+                                        <td class="px-3 py-2">${escapeHtml(formatLayerValue(operator.endLayer))}</td>
+                                        <td class="px-3 py-2">${escapeHtml(formatHandledLengthValue(operator.handledLength))}</td>
+                                        <td class="px-3 py-2">${escapeHtml(
+                                          computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, linkedMarker?.totalPieces || 0) === null
+                                            ? '待补录'
+                                            : `${formatQty(computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, linkedMarker?.totalPieces || 0) || 0)} 件`,
+                                        )}</td>
+                                        <td class="px-3 py-2">${escapeHtml(formatCurrency(operator.unitPrice))}</td>
+                                        <td class="px-3 py-2">${escapeHtml(operator.pricingMode || '按件计价')}</td>
+                                        <td class="px-3 py-2">${escapeHtml(
+                                          formatCurrency(
+                                            computeOperatorDisplayAmount(
+                                              operator,
+                                              computeOperatorCalculatedAmount({
+                                                pricingMode: operator.pricingMode,
+                                                unitPrice: operator.unitPrice ?? session.unitPrice,
+                                                handledLayerCount: computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer),
+                                                handledLength: operator.handledLength,
+                                                handledPieceQty: computeOperatorHandledPieceQty(
+                                                  operator.startLayer,
+                                                  operator.endLayer,
+                                                  linkedMarker?.totalPieces || 0,
+                                                ),
+                                              }),
+                                            ),
+                                          ),
+                                        )}</td>
+                                        <td class="px-3 py-2">${escapeHtml(operator.handoverNotes || '—')}</td>
+                                        <td class="px-3 py-2">${escapeHtml(operator.note || '—')}</td>
+                                      </tr>
+                                    `,
+                                  )
+                                  .join('')}
+                              </tbody>
+                            </table>
+                          </div>
+                        </article>
+                      `
+                    : ''
+                }
+              </div>
+            `
+          : '<div class="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-sm text-muted-foreground">当前尚未录入卷记录，因此没有卷内交接量化数据。</div>',
       )}
+      ${renderSection('按人汇总区', renderOperatorAllocationSummary(operatorAmountSummary))}
+      ${renderSection('金额提醒区', renderOperatorAmountWarningSection(operatorAmountWarnings))}
       ${renderSection(
         '汇总区',
         renderInfoGrid([
@@ -2441,6 +2745,7 @@ function renderSpreadingDetailPage(): string {
           { label: '总可用长度', value: formatLength(rollSummary.totalCalculatedUsableLength) },
           { label: '总剩余长度', value: formatLength(rollSummary.totalRemainingLength) },
           { label: '实际裁剪件数合计', value: `${formatQty(row.actualCutPieceQty)} 件` },
+          { label: '人员金额合计', value: formatCurrency(operatorAmountSummary.totalDisplayAmount) },
           { label: '已配置总长度', value: formatLength(varianceSummary?.configuredLengthTotal || row.configuredLengthTotal) },
           { label: '已领取总长度', value: formatLength(varianceSummary?.claimedLengthTotal || row.claimedLengthTotal) },
           { label: '差异长度', value: formatLength(varianceSummary?.varianceLength || row.varianceLength) },
@@ -2477,6 +2782,10 @@ function renderSpreadingEditPage(): string {
   const rollSummary = derived.rollSummary
   const varianceSummary = derived.varianceSummary
   const replenishmentWarning = buildSpreadingReplenishmentPreview(draft, linkedOriginalCutOrderNos, derived)
+  const handoverSummaryByRollId = buildRollHandoverSummaryMap(draft, derived.markerTotalPieces)
+  const handoverListSummary = buildSpreadingHandoverListSummary(draft.rolls, draft.operators, derived.markerTotalPieces)
+  const operatorAmountSummary = summarizeSpreadingOperatorAmounts(draft.operators, derived.markerTotalPieces, draft.unitPrice)
+  const operatorAmountWarnings = buildOperatorAmountWarnings(draft.operators, derived.markerTotalPieces, draft.unitPrice)
   const headerActions = renderHeaderActions(([
     '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="cancel-spreading-edit">取消</button>',
     draft.importedFromMarker
@@ -2613,68 +2922,275 @@ function renderSpreadingEditPage(): string {
       )}
       ${renderSection(
         '人员记录编辑区',
-        `
-          <div class="mb-3 flex items-center justify-between">
-            <p class="text-sm text-muted-foreground">支持同卷多人交接。每条人员记录都需要明确关联到某一卷，才能追溯换班关系。</p>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="add-operator">新增人员</button>
-          </div>
-          <div class="mb-3 rounded-md border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
-            同卷换班时，不要新建第二卷；应继续沿用同一卷记录，并新增“中途交接 / 接手继续”的人员记录。
-          </div>
-          <div class="overflow-auto">
-            <table class="min-w-[1260px] text-sm">
-              <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
-                <tr>
-                  <th class="px-3 py-2">排序</th>
-                  <th class="px-3 py-2">关联卷</th>
-                  <th class="px-3 py-2">人员姓名</th>
-                  <th class="px-3 py-2">账号</th>
-                  <th class="px-3 py-2">开始时间</th>
-                  <th class="px-3 py-2">结束时间</th>
-                  <th class="px-3 py-2">动作类型</th>
-                  <th class="px-3 py-2">交接说明</th>
-                  <th class="px-3 py-2">备注</th>
-                  <th class="px-3 py-2">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${draft.operators
-                  .map(
-                    (operator, index) => `
-                      <tr class="border-b align-top">
-                        <td class="px-3 py-2 text-muted-foreground">${escapeHtml(String(operator.sortOrder || index + 1))}</td>
-                        <td class="px-3 py-2">
-                          <select class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="rollRecordId">
-                            <option value="">请选择卷号</option>
-                            ${draft.rolls
-                              .map(
-                                (roll) => `<option value="${escapeHtml(roll.rollRecordId)}" ${roll.rollRecordId === operator.rollRecordId ? 'selected' : ''}>${escapeHtml(roll.rollNo || '未命名卷')}</option>`,
-                              )
-                              .join('')}
-                          </select>
-                        </td>
-                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.operatorName)}" class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="operatorName" /></td>
-                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.operatorAccountId)}" class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="operatorAccountId" /></td>
-                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.startAt)}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="startAt" /></td>
-                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.endAt)}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="endAt" /></td>
-                        <td class="px-3 py-2">
-                          <select class="h-9 w-32 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="actionType">
-                            ${['开始铺布', '中途交接', '接手继续', '完成铺布']
-                              .map((actionType) => `<option value="${escapeHtml(actionType)}" ${actionType === operator.actionType ? 'selected' : ''}>${escapeHtml(actionType)}</option>`)
-                              .join('')}
-                          </select>
-                        </td>
-                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.handoverNotes || '')}" class="h-9 w-40 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="handoverNotes" /></td>
-                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.note)}" class="h-9 w-44 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="note" /></td>
-                        <td class="px-3 py-2"><button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="remove-operator" data-index="${index}">删除</button></td>
-                      </tr>
-                    `,
-                  )
+        draft.rolls.length
+          ? `
+              <div class="mb-3 rounded-md border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
+                同卷换班不要新建第二卷。请直接在该卷下继续新增人员交接记录，并明确填写开始层、结束层、负责长度和交接说明。
+              </div>
+              <div class="space-y-4">
+                ${draft.rolls
+                  .map((roll) => {
+                    const handoverSummary = handoverSummaryByRollId[roll.rollRecordId] || buildRollHandoverViewModel(roll, [], derived.markerTotalPieces)
+                    return `
+                      <article class="rounded-lg border bg-muted/10 p-3">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                          <div class="space-y-1">
+                            <h4 class="text-sm font-semibold text-foreground">卷 ${escapeHtml(roll.rollNo || '待补')}</h4>
+                            <p class="text-xs text-muted-foreground">当前卷共 ${escapeHtml(String(handoverSummary.operators.length))} 条交接记录，负责长度合计 ${escapeHtml(formatLength(handoverSummary.totalHandledLength))}。</p>
+                          </div>
+                          <div class="flex flex-wrap gap-2">
+                            ${renderRollHandoverStatus(handoverSummary)}
+                            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="add-operator-for-roll" data-roll-record-id="${escapeHtml(roll.rollRecordId)}">在该卷下新增人员</button>
+                          </div>
+                        </div>
+                        <div class="mt-3 overflow-auto">
+                          <table class="min-w-[2520px] text-sm">
+                            <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+                              <tr>
+                                <th class="px-3 py-2">排序</th>
+                                <th class="px-3 py-2">人员姓名</th>
+                                <th class="px-3 py-2">账号</th>
+                                <th class="px-3 py-2">开始时间</th>
+                                <th class="px-3 py-2">结束时间</th>
+                                <th class="px-3 py-2">动作类型</th>
+                                <th class="px-3 py-2">开始层</th>
+                                <th class="px-3 py-2">结束层</th>
+                                <th class="px-3 py-2">负责层数</th>
+                                <th class="px-3 py-2">负责长度</th>
+                                <th class="px-3 py-2">负责件数</th>
+                                <th class="px-3 py-2">单价</th>
+                                <th class="px-3 py-2">计价方式</th>
+                                <th class="px-3 py-2">计算金额</th>
+                                <th class="px-3 py-2">人工调整</th>
+                                <th class="px-3 py-2">调整后金额</th>
+                                <th class="px-3 py-2">最终显示金额</th>
+                                <th class="px-3 py-2">金额备注</th>
+                                <th class="px-3 py-2">上一个交接人</th>
+                                <th class="px-3 py-2">下一个接手人</th>
+                                <th class="px-3 py-2">交接时层数</th>
+                                <th class="px-3 py-2">交接时长度</th>
+                                <th class="px-3 py-2">交接说明</th>
+                                <th class="px-3 py-2">备注</th>
+                                <th class="px-3 py-2">操作</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              ${handoverSummary.operators
+                                .map((item) => {
+                                  const index = draft.operators.findIndex((operator) => operator.operatorRecordId === item.operator.operatorRecordId)
+                                  if (index < 0) return ''
+                                  return `
+                                    <tr class="border-b align-top">
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(String(item.operator.sortOrder || index + 1))}</td>
+                                      <td class="px-3 py-2"><input type="text" value="${escapeHtml(item.operator.operatorName || '')}" class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="operatorName" /></td>
+                                      <td class="px-3 py-2"><input type="text" value="${escapeHtml(item.operator.operatorAccountId || '')}" class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="operatorAccountId" /></td>
+                                      <td class="px-3 py-2"><input type="text" value="${escapeHtml(item.operator.startAt || '')}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="startAt" placeholder="YYYY-MM-DD HH:mm" /></td>
+                                      <td class="px-3 py-2"><input type="text" value="${escapeHtml(item.operator.endAt || '')}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="endAt" placeholder="YYYY-MM-DD HH:mm" /></td>
+                                      <td class="px-3 py-2">
+                                        <select class="h-9 w-32 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="actionType">
+                                          ${['开始铺布', '中途交接', '接手继续', '完成铺布']
+                                            .map((actionType) => `<option value="${escapeHtml(actionType)}" ${actionType === item.operator.actionType ? 'selected' : ''}>${escapeHtml(actionType)}</option>`)
+                                            .join('')}
+                                        </select>
+                                      </td>
+                                      <td class="px-3 py-2"><input type="number" value="${escapeHtml(item.operator.startLayer === undefined ? '' : String(item.operator.startLayer))}" class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="startLayer" /></td>
+                                      <td class="px-3 py-2"><input type="number" value="${escapeHtml(item.operator.endLayer === undefined ? '' : String(item.operator.endLayer))}" class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="endLayer" /></td>
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(formatLayerValue(item.handledLayerCount))}</td>
+                                      <td class="px-3 py-2"><input type="number" value="${escapeHtml(item.operator.handledLength === undefined ? '' : String(item.operator.handledLength))}" class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="handledLength" step="0.01" /></td>
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(item.handledPieceQty === null ? '待补录' : `${formatQty(item.handledPieceQty)} 件`)}</td>
+                                      <td class="px-3 py-2"><input type="number" value="${escapeHtml(item.operator.unitPrice === undefined ? String(draft.unitPrice || '') : String(item.operator.unitPrice))}" class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="unitPrice" step="0.01" /></td>
+                                      <td class="px-3 py-2">
+                                        <select class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="pricingMode">
+                                          ${['按件计价', '按长度计价', '按层计价']
+                                            .map((pricingMode) => `<option value="${escapeHtml(pricingMode)}" ${(item.operator.pricingMode || '按件计价') === pricingMode ? 'selected' : ''}>${escapeHtml(pricingMode)}</option>`)
+                                            .join('')}
+                                        </select>
+                                      </td>
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(formatCurrency(item.calculatedAmount))}</td>
+                                      <td class="px-3 py-2">
+                                        <select class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="manualAmountAdjusted">
+                                          <option value="false" ${item.operator.manualAmountAdjusted ? '' : 'selected'}>否</option>
+                                          <option value="true" ${item.operator.manualAmountAdjusted ? 'selected' : ''}>是</option>
+                                        </select>
+                                      </td>
+                                      <td class="px-3 py-2"><input type="number" value="${escapeHtml(item.operator.adjustedAmount === undefined ? '' : String(item.operator.adjustedAmount))}" class="h-9 w-28 rounded-md border px-3 text-sm ${item.operator.manualAmountAdjusted ? '' : 'bg-muted/20'}" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="adjustedAmount" step="0.01" ${item.operator.manualAmountAdjusted ? '' : 'disabled'} /></td>
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(formatCurrency(computeOperatorDisplayAmount(item.operator, item.calculatedAmount)))}</td>
+                                      <td class="px-3 py-2"><input type="text" value="${escapeHtml(item.operator.amountNote || '')}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="amountNote" /></td>
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(item.previousOperatorName || '—')}</td>
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(item.nextOperatorName || '—')}</td>
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(formatLayerValue(item.handoverAtLayer))}</td>
+                                      <td class="px-3 py-2 text-muted-foreground">${escapeHtml(formatHandledLengthValue(item.handoverAtLength))}</td>
+                                      <td class="px-3 py-2"><input type="text" value="${escapeHtml(item.operator.handoverNotes || '')}" class="h-9 w-44 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="handoverNotes" /></td>
+                                      <td class="px-3 py-2"><input type="text" value="${escapeHtml(item.operator.note || '')}" class="h-9 w-44 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="note" /></td>
+                                      <td class="px-3 py-2"><button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="remove-operator" data-index="${index}">删除</button></td>
+                                    </tr>
+                                  `
+                                })
+                                .join('')}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div class="mt-3">
+                          ${renderRollHandoverWarnings(handoverSummary)}
+                        </div>
+                      </article>
+                    `
+                  })
                   .join('')}
-              </tbody>
-            </table>
-          </div>
-        `,
+                ${
+                  draft.operators.some((operator) => !operator.rollRecordId)
+                    ? `
+                        <article class="rounded-lg border border-dashed bg-card p-3">
+                          <div class="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 class="text-sm font-semibold text-foreground">未关联卷的人员记录</h4>
+                              <p class="mt-1 text-xs text-muted-foreground">旧数据或临时记录若尚未绑定卷，会先显示在这里。请优先补齐所属卷，再回到对应卷下完成交接量化。</p>
+                            </div>
+                            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="add-operator">新增未分配人员记录</button>
+                          </div>
+                          <div class="mt-3 overflow-auto">
+                            <table class="min-w-[2360px] text-sm">
+                              <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+                                <tr>
+                                  <th class="px-3 py-2">排序</th>
+                                  <th class="px-3 py-2">关联卷</th>
+                                  <th class="px-3 py-2">人员姓名</th>
+                                  <th class="px-3 py-2">账号</th>
+                                  <th class="px-3 py-2">开始时间</th>
+                                  <th class="px-3 py-2">结束时间</th>
+                                  <th class="px-3 py-2">动作类型</th>
+                                  <th class="px-3 py-2">开始层</th>
+                                  <th class="px-3 py-2">结束层</th>
+                                  <th class="px-3 py-2">负责层数</th>
+                                  <th class="px-3 py-2">负责长度</th>
+                                  <th class="px-3 py-2">负责件数</th>
+                                  <th class="px-3 py-2">单价</th>
+                                  <th class="px-3 py-2">计价方式</th>
+                                  <th class="px-3 py-2">计算金额</th>
+                                  <th class="px-3 py-2">人工调整</th>
+                                  <th class="px-3 py-2">调整后金额</th>
+                                  <th class="px-3 py-2">最终显示金额</th>
+                                  <th class="px-3 py-2">金额备注</th>
+                                  <th class="px-3 py-2">交接说明</th>
+                                  <th class="px-3 py-2">备注</th>
+                                  <th class="px-3 py-2">操作</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${draft.operators
+                                  .map((operator, index) => ({ operator, index }))
+                                  .filter(({ operator }) => !operator.rollRecordId)
+                                  .map(({ operator, index }) => {
+                                    const handledLayerCount = computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer)
+                                    const handledPieceQty = computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, derived.markerTotalPieces)
+                                    const calculatedAmount = computeOperatorCalculatedAmount({
+                                      pricingMode: operator.pricingMode || '按件计价',
+                                      unitPrice: operator.unitPrice ?? draft.unitPrice,
+                                      handledLayerCount,
+                                      handledLength: operator.handledLength,
+                                      handledPieceQty,
+                                    })
+                                    const displayAmount = computeOperatorDisplayAmount(operator, calculatedAmount)
+                                    return `
+                                      <tr class="border-b align-top">
+                                        <td class="px-3 py-2 text-muted-foreground">${escapeHtml(String(operator.sortOrder || index + 1))}</td>
+                                        <td class="px-3 py-2">
+                                          <select class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="rollRecordId">
+                                            <option value="">请选择卷号</option>
+                                            ${draft.rolls
+                                              .map(
+                                                (roll) => `<option value="${escapeHtml(roll.rollRecordId)}">${escapeHtml(roll.rollNo || '未命名卷')}</option>`,
+                                              )
+                                              .join('')}
+                                          </select>
+                                        </td>
+                                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.operatorName || '')}" class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="operatorName" /></td>
+                                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.operatorAccountId || '')}" class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="operatorAccountId" /></td>
+                                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.startAt || '')}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="startAt" placeholder="YYYY-MM-DD HH:mm" /></td>
+                                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.endAt || '')}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="endAt" placeholder="YYYY-MM-DD HH:mm" /></td>
+                                        <td class="px-3 py-2">
+                                          <select class="h-9 w-32 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="actionType">
+                                            ${['开始铺布', '中途交接', '接手继续', '完成铺布']
+                                              .map((actionType) => `<option value="${escapeHtml(actionType)}" ${actionType === operator.actionType ? 'selected' : ''}>${escapeHtml(actionType)}</option>`)
+                                              .join('')}
+                                          </select>
+                                        </td>
+                                        <td class="px-3 py-2"><input type="number" value="${escapeHtml(operator.startLayer === undefined ? '' : String(operator.startLayer))}" class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="startLayer" /></td>
+                                        <td class="px-3 py-2"><input type="number" value="${escapeHtml(operator.endLayer === undefined ? '' : String(operator.endLayer))}" class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="endLayer" /></td>
+                                        <td class="px-3 py-2 text-muted-foreground">${escapeHtml(formatLayerValue(handledLayerCount))}</td>
+                                        <td class="px-3 py-2"><input type="number" value="${escapeHtml(operator.handledLength === undefined ? '' : String(operator.handledLength))}" class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="handledLength" step="0.01" /></td>
+                                        <td class="px-3 py-2 text-muted-foreground">${escapeHtml(handledPieceQty === null ? '待补录' : `${formatQty(handledPieceQty)} 件`)}</td>
+                                        <td class="px-3 py-2"><input type="number" value="${escapeHtml(operator.unitPrice === undefined ? String(draft.unitPrice || '') : String(operator.unitPrice))}" class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="unitPrice" step="0.01" /></td>
+                                        <td class="px-3 py-2">
+                                          <select class="h-9 w-28 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="pricingMode">
+                                            ${['按件计价', '按长度计价', '按层计价']
+                                              .map((pricingMode) => `<option value="${escapeHtml(pricingMode)}" ${(operator.pricingMode || '按件计价') === pricingMode ? 'selected' : ''}>${escapeHtml(pricingMode)}</option>`)
+                                              .join('')}
+                                          </select>
+                                        </td>
+                                        <td class="px-3 py-2 text-muted-foreground">${escapeHtml(formatCurrency(calculatedAmount))}</td>
+                                        <td class="px-3 py-2">
+                                          <select class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="manualAmountAdjusted">
+                                            <option value="false" ${operator.manualAmountAdjusted ? '' : 'selected'}>否</option>
+                                            <option value="true" ${operator.manualAmountAdjusted ? 'selected' : ''}>是</option>
+                                          </select>
+                                        </td>
+                                        <td class="px-3 py-2"><input type="number" value="${escapeHtml(operator.adjustedAmount === undefined ? '' : String(operator.adjustedAmount))}" class="h-9 w-28 rounded-md border px-3 text-sm ${operator.manualAmountAdjusted ? '' : 'bg-muted/20'}" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="adjustedAmount" step="0.01" ${operator.manualAmountAdjusted ? '' : 'disabled'} /></td>
+                                        <td class="px-3 py-2 text-muted-foreground">${escapeHtml(formatCurrency(displayAmount))}</td>
+                                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.amountNote || '')}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="amountNote" /></td>
+                                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.handoverNotes || '')}" class="h-9 w-44 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="handoverNotes" /></td>
+                                        <td class="px-3 py-2"><input type="text" value="${escapeHtml(operator.note || '')}" class="h-9 w-44 rounded-md border px-3 text-sm" data-cutting-spreading-operator-index="${index}" data-cutting-spreading-operator-field="note" /></td>
+                                        <td class="px-3 py-2"><button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="remove-operator" data-index="${index}">删除</button></td>
+                                      </tr>
+                                    `
+                                  })
+                                  .join('')}
+                              </tbody>
+                            </table>
+                          </div>
+                        </article>
+                      `
+                    : ''
+                }
+              </div>
+            `
+          : `
+              <div class="space-y-3">
+                <div class="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-sm text-muted-foreground">请先新增卷记录，再在对应卷下维护人员交接记录。</div>
+                <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="add-roll">先新增卷</button>
+              </div>
+            `,
+      )}
+      ${renderSection('按人汇总预览区', renderOperatorAllocationSummary(operatorAmountSummary))}
+      ${renderSection('金额提醒区', renderOperatorAmountWarningSection(operatorAmountWarnings))}
+      ${renderSection(
+        '交接校验提醒区',
+        handoverListSummary.hasHandover || handoverListSummary.hasAbnormalHandover
+          ? `
+              <div class="space-y-3">
+                ${renderInfoGrid([
+                  { label: '存在交接班', value: handoverListSummary.hasHandover ? '是' : '否' },
+                  { label: '交接异常卷数', value: `${formatQty(handoverListSummary.abnormalRollCount)} 卷` },
+                  { label: '交接摘要', value: handoverListSummary.statusLabel },
+                ])}
+                ${
+                  Object.values(handoverSummaryByRollId)
+                    .filter((summary) => summary.hasWarnings)
+                    .map(
+                      (summary) => `
+                        <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                          <p class="font-medium">卷 ${escapeHtml(summary.rollNo || '待补')}</p>
+                          <ul class="mt-1 space-y-1 list-disc pl-5">
+                            ${summary.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}
+                          </ul>
+                        </div>
+                      `,
+                    )
+                    .join('') || '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">当前虽存在交接班，但尚未识别异常。</div>'
+                }
+              </div>
+            `
+          : '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">当前各卷暂无交接班，或已补录完整交接数据且未识别异常。</div>',
       )}
       ${renderSection(
         '汇总区',
@@ -2687,6 +3203,7 @@ function renderSpreadingEditPage(): string {
           { label: '总可用长度', value: formatLength(rollSummary.totalCalculatedUsableLength) },
           { label: '总剩余长度', value: formatLength(rollSummary.totalRemainingLength) },
           { label: '实际裁剪件数合计', value: `${formatQty(rollSummary.totalActualCutPieceQty)} 件` },
+          { label: '人员金额合计', value: formatCurrency(operatorAmountSummary.totalDisplayAmount) },
           { label: '已配置长度摘要', value: formatLength(varianceSummary?.configuredLengthTotal || 0) },
           { label: '已领取长度摘要', value: formatLength(varianceSummary?.claimedLengthTotal || 0) },
           { label: '差异长度', value: formatLength(varianceSummary?.varianceLength || 0) },
@@ -2912,11 +3429,48 @@ function saveCurrentMarker(goDetail: boolean): boolean {
   return true
 }
 
+function createOperatorDraftForRoll(session: SpreadingSession, rollRecordId: string): SpreadingOperatorRecord {
+  const linkedOperators = session.operators
+    .filter((operator) => operator.rollRecordId === rollRecordId)
+    .sort((left, right) => {
+      const startGap = (left.sortOrder || 0) - (right.sortOrder || 0)
+      if (startGap !== 0) return startGap
+      return left.startAt.localeCompare(right.startAt, 'zh-CN')
+    })
+  const previousOperator = linkedOperators[linkedOperators.length - 1] || null
+  const nextDraft = {
+    ...createOperatorRecordDraft(session.spreadingSessionId),
+    sortOrder: session.operators.length + 1,
+    rollRecordId,
+    unitPrice: session.unitPrice,
+    pricingMode: '按件计价' as SpreadingPricingMode,
+  }
+
+  if (!previousOperator) {
+    return nextDraft
+  }
+
+  return {
+    ...nextDraft,
+    actionType: '接手继续',
+    previousOperatorName: previousOperator.operatorName || '',
+    startLayer: previousOperator.endLayer !== undefined ? Number(previousOperator.endLayer) + 1 : undefined,
+    handoverAtLayer: previousOperator.endLayer,
+    handoverAtLength: previousOperator.handledLength,
+    handoverNotes: '',
+  }
+}
+
 function buildPersistableSpreadingDraft(draft: SpreadingSession): {
   normalizedDraft: SpreadingSession
   derived: ReturnType<typeof resolveSpreadingDerivedState>
   primaryRows: ReturnType<typeof readMarkerSpreadingPrototypeData>['rows']
 } {
+  const normalizeOptionalNumber = (value: number | string | undefined | null): number | undefined => {
+    if (value === undefined || value === null || value === '') return undefined
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
   const derived = resolveSpreadingDerivedState(draft)
   const markerTotalPieces = derived.markerTotalPieces
 
@@ -2945,16 +3499,58 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
   })
 
   const actualCutPieceQty = normalizedRolls.reduce((sum, roll) => sum + Math.max(roll.actualCutPieceQty || 0, 0), 0)
-  const normalizedOperators = draft.operators.map((operator, index) => ({
+  const baseOperators = draft.operators.map((operator, index) => ({
     ...operator,
     sortOrder: index + 1,
+    startLayer: normalizeOptionalNumber(operator.startLayer),
+    endLayer: normalizeOptionalNumber(operator.endLayer),
+    handledLength: normalizeOptionalNumber(operator.handledLength),
+    pricingMode: (operator.pricingMode || '按件计价') as SpreadingPricingMode,
+    unitPrice: normalizeOptionalNumber(operator.unitPrice) ?? normalizeOptionalNumber(draft.unitPrice),
+    manualAmountAdjusted: Boolean(operator.manualAmountAdjusted),
+    adjustedAmount: normalizeOptionalNumber(operator.adjustedAmount),
+    amountNote: operator.amountNote || '',
     handoverFlag:
       operator.handoverFlag ||
       operator.actionType === '中途交接' ||
       operator.actionType === '接手继续' ||
       Boolean(operator.handoverNotes),
   }))
+  const quantifiedOperatorsById = new Map<string, SpreadingOperatorRecord>()
+  normalizedRolls.forEach((roll) => {
+    const handoverSummary = buildRollHandoverViewModel(
+      roll,
+      baseOperators.filter((operator) => operator.rollRecordId === roll.rollRecordId),
+      markerTotalPieces,
+    )
+    handoverSummary.operators.forEach((item) => {
+      quantifiedOperatorsById.set(item.operator.operatorRecordId, {
+        ...item.operator,
+        handledLayerCount: item.handledLayerCount ?? undefined,
+        handledPieceQty: item.handledPieceQty ?? undefined,
+        pricingMode: (item.operator.pricingMode || '按件计价') as SpreadingPricingMode,
+        unitPrice: item.operator.unitPrice ?? normalizeOptionalNumber(draft.unitPrice) ?? undefined,
+        calculatedAmount:
+          computeOperatorCalculatedAmount({
+            pricingMode: item.operator.pricingMode || '按件计价',
+            unitPrice: item.operator.unitPrice ?? normalizeOptionalNumber(draft.unitPrice),
+            handledLayerCount: item.handledLayerCount,
+            handledLength: item.operator.handledLength,
+            handledPieceQty: item.handledPieceQty,
+          }) ?? undefined,
+        manualAmountAdjusted: Boolean(item.operator.manualAmountAdjusted),
+        adjustedAmount: item.operator.adjustedAmount ?? undefined,
+        amountNote: item.operator.amountNote || '',
+        previousOperatorName: item.previousOperatorName || '',
+        nextOperatorName: item.nextOperatorName || '',
+        handoverAtLayer: item.handoverAtLayer ?? undefined,
+        handoverAtLength: item.handoverAtLength ?? undefined,
+      })
+    })
+  })
+  const normalizedOperators = baseOperators.map((operator) => quantifiedOperatorsById.get(operator.operatorRecordId) || operator)
   const rollSummary = summarizeSpreadingRolls(normalizedRolls)
+  const operatorAmountSummary = summarizeSpreadingOperatorAmounts(normalizedOperators, markerTotalPieces, draft.unitPrice)
   const data = readMarkerSpreadingPrototypeData()
   const primaryRows = draft.originalCutOrderIds.map((id) => data.rowsById[id]).filter((row): row is (typeof data.rows)[number] => Boolean(row))
   const varianceContext = primaryRows.length
@@ -3018,7 +3614,10 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
       draft.theoreticalActualCutPieceQty ?? Math.max((draft.plannedLayers || 0) * Math.max(derived.markerRecord?.totalPieces || 0, 0), 0),
     importAdjustmentRequired: Boolean(draft.importAdjustmentRequired),
     importAdjustmentNote: draft.importAdjustmentNote || '',
-    totalAmount: Number(((draft.unitPrice || 0) * actualCutPieceQty).toFixed(2)),
+    totalAmount:
+      operatorAmountSummary.hasAnyAllocationData
+        ? operatorAmountSummary.totalDisplayAmount
+        : Number(((draft.unitPrice || 0) * actualCutPieceQty).toFixed(2)),
   }
 
   return {
@@ -3357,6 +3956,19 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       operator.handoverFlag = operator.actionType === '中途交接' || operator.actionType === '接手继续'
       return true
     }
+    if (field === 'startLayer' || field === 'endLayer' || field === 'handledLength' || field === 'unitPrice' || field === 'adjustedAmount') {
+      const rawValue = (spreadingOperatorFieldNode as HTMLInputElement | HTMLSelectElement).value
+      ;(operator as Record<string, number | undefined>)[field] = rawValue === '' ? undefined : Number(rawValue)
+      return true
+    }
+    if (field === 'manualAmountAdjusted') {
+      operator.manualAmountAdjusted = (spreadingOperatorFieldNode as HTMLInputElement | HTMLSelectElement).value === 'true'
+      return true
+    }
+    if (field === 'pricingMode') {
+      operator.pricingMode = (spreadingOperatorFieldNode as HTMLInputElement | HTMLSelectElement).value as SpreadingPricingMode
+      return true
+    }
     ;(operator as Record<string, string>)[field] = (spreadingOperatorFieldNode as HTMLInputElement | HTMLSelectElement).value
     if (field === 'handoverNotes') {
       operator.handoverFlag = Boolean(operator.handoverNotes)
@@ -3657,7 +4269,19 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       {
         ...createOperatorRecordDraft(state.spreadingDraft.spreadingSessionId),
         sortOrder: state.spreadingDraft.operators.length + 1,
+        unitPrice: state.spreadingDraft.unitPrice,
+        pricingMode: '按件计价',
       },
+    ]
+    return true
+  }
+
+  if (action === 'add-operator-for-roll' && state.spreadingDraft) {
+    const rollRecordId = actionNode.dataset.rollRecordId
+    if (!rollRecordId) return false
+    state.spreadingDraft.operators = [
+      ...state.spreadingDraft.operators,
+      createOperatorDraftForRoll(state.spreadingDraft, rollRecordId),
     ]
     return true
   }

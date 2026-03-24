@@ -50,6 +50,34 @@ export const qrMeta: Record<CuttingQrStatus, { label: string; className: string 
   GENERATED: { label: '已生成二维码', className: 'bg-violet-100 text-violet-700' },
 }
 
+type PrepQrHintVariant = 'list' | 'detail' | 'print'
+
+export function shouldDisplayQrByPrepStatus(status?: CuttingConfigStatus | null): boolean {
+  return status === 'CONFIGURED' || status === 'PARTIAL'
+}
+
+export function shouldDisplayQrLabelByPrepStatus(status?: CuttingConfigStatus | null): boolean {
+  return shouldDisplayQrByPrepStatus(status)
+}
+
+export function canViewPrepQr(status?: CuttingConfigStatus | null): boolean {
+  return shouldDisplayQrByPrepStatus(status)
+}
+
+export function shouldPrintPrepQr(status?: CuttingConfigStatus | null): boolean {
+  return shouldDisplayQrByPrepStatus(status)
+}
+
+export function getPrepQrHiddenText(
+  status?: CuttingConfigStatus | null,
+  variant: PrepQrHintVariant = 'list',
+): string {
+  if (shouldDisplayQrByPrepStatus(status)) return ''
+  if (variant === 'detail') return '当前未配置，配置完成后生成并显示二维码。'
+  if (variant === 'print') return '当前项未配置，本次打印不带二维码。'
+  return '未配置，不显示二维码'
+}
+
 export const discrepancyMeta: Record<CuttingDiscrepancyStatus, { label: string; className: string }> = {
   NONE: { label: '无差异', className: 'bg-slate-100 text-slate-700' },
   RECHECK_REQUIRED: { label: '待核对', className: 'bg-rose-100 text-rose-700' },
@@ -162,7 +190,7 @@ export function buildMaterialPrepSummary(groups: CuttingMaterialPrepGroup[]): Ma
   cutPieceMap.forEach((lines) => {
     const configStatus = deriveCutPieceConfigStatus(lines)
     const receiveStatus = deriveCutPieceReceiveStatus(lines)
-    const hasQr = lines.some((line) => line.qrStatus === 'GENERATED' || line.configuredRollCount > 0 || line.configuredLength > 0)
+    const hasQr = shouldDisplayQrByPrepStatus(configStatus)
     const hasDiscrepancy = lines.some((line) => line.discrepancyStatus !== 'NONE')
 
     if (configStatus === 'NOT_CONFIGURED') pendingConfigCount += 1

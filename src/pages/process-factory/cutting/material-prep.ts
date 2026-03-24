@@ -10,6 +10,7 @@ import {
   deserializeMergeBatchStorage,
   type MergeBatchRecord,
 } from './merge-batches-model'
+import { getPrepQrHiddenText } from './material-prep.helpers'
 import {
   buildIssueListPrintPayload,
   buildMaterialPrepNavigationPayload,
@@ -169,6 +170,13 @@ function ensureRowsInitialized(): void {
   state.rows = buildMaterialPrepViewModel(cuttingOrderProgressRecords, getMergeBatchLedger()).rows
 }
 
+function syncRowsWithLatestClaimDisputes(): void {
+  if (!state.rows.length) return
+  state.rows.forEach((row) => {
+    recalculateMaterialPrepRow(row, sourceRecordMap.get(row.id))
+  })
+}
+
 function resetPagination(): void {
   state.page = 1
 }
@@ -234,6 +242,7 @@ function getMergeBatchLedger(): MergeBatchRecord[] {
 
 function getViewModel() {
   ensureRowsInitialized()
+  syncRowsWithLatestClaimDisputes()
   return {
     rows: state.rows,
     rowsById: Object.fromEntries(state.rows.map((row) => [row.id, row])),
@@ -543,6 +552,23 @@ function renderClaimCell(row: MaterialPrepRow): string {
   `
 }
 
+function renderClaimDisputeCell(row: MaterialPrepRow): string {
+  if (!row.hasClaimDispute || !row.latestClaimDispute) {
+    return '<div class="text-xs text-muted-foreground">暂无领料异议</div>'
+  }
+
+  return `
+    <div class="space-y-1">
+      <div class="flex flex-wrap items-center gap-1">
+        ${renderBadge(row.claimDisputeStatusLabel, row.latestClaimDispute.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : row.latestClaimDispute.status === 'VIEWED' ? 'bg-blue-100 text-blue-700' : row.latestClaimDispute.status === 'CONFIRMED' ? 'bg-orange-100 text-orange-700' : row.latestClaimDispute.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700')}
+        <span class="text-xs text-muted-foreground">${escapeHtml(row.claimDisputeDiscrepancyText)}</span>
+      </div>
+      <p class="text-xs text-muted-foreground">${escapeHtml(row.claimDisputeSummary)}</p>
+      <p class="text-xs text-muted-foreground">证据 ${escapeHtml(String(row.claimDisputeEvidenceCount))} 个 · ${escapeHtml(row.claimDisputeHandleSummary)}</p>
+    </div>
+  `
+}
+
 function renderSchedulingCell(row: MaterialPrepRow): string {
   return `
     <div class="space-y-1">
@@ -552,10 +578,27 @@ function renderSchedulingCell(row: MaterialPrepRow): string {
   `
 }
 
+function renderQrCell(row: MaterialPrepRow): string {
+  if (!row.shouldDisplayQr) {
+    return `
+      <div class="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        ${escapeHtml(row.qrHiddenHint)}
+      </div>
+    `
+  }
+
+  return `
+    <div class="space-y-1">
+      <div class="font-medium">${escapeHtml(row.sameCodeValue)}</div>
+      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.qrCodeLabel)}：${escapeHtml(row.qrCodeValue)}</p>
+    </div>
+  `
+}
+
 function renderEmptyTableState(): string {
   return `
     <tr>
-      <td colspan="12" class="px-4 py-16 text-center text-sm text-muted-foreground">
+      <td colspan="13" class="px-4 py-16 text-center text-sm text-muted-foreground">
         当前条件下暂无原始裁片单，请调整筛选条件或清除预筛后重试。
       </td>
     </tr>
@@ -586,6 +629,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
               <th class="px-4 py-3 text-left font-medium">面料审核</th>
               <th class="px-4 py-3 text-left font-medium">配料进展</th>
               <th class="px-4 py-3 text-left font-medium">领料进展</th>
+              <th class="px-4 py-3 text-left font-medium">领料异议</th>
               <th class="px-4 py-3 text-left font-medium">排单状态</th>
               <th class="px-4 py-3 text-left font-medium">当前阶段</th>
               <th class="px-4 py-3 text-left font-medium">风险提示</th>
@@ -607,8 +651,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
                             <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.color)} · ${escapeHtml(row.urgencyLabel)}</p>
                           </td>
                           <td class="px-4 py-3 align-top">
-                            <div class="font-medium">${escapeHtml(row.sameCodeValue)}</div>
-                            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.qrCodeLabel)}：${escapeHtml(row.qrCodeValue)}</p>
+                            ${renderQrCell(row)}
                           </td>
                           <td class="px-4 py-3 align-top">
                             <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-blue-600" data-cutting-prep-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">
@@ -627,6 +670,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
                           <td class="px-4 py-3 align-top">${renderMaterialAuditCell(row)}</td>
                           <td class="px-4 py-3 align-top">${renderPrepCell(row)}</td>
                           <td class="px-4 py-3 align-top">${renderClaimCell(row)}</td>
+                          <td class="px-4 py-3 align-top">${renderClaimDisputeCell(row)}</td>
                           <td class="px-4 py-3 align-top">${renderSchedulingCell(row)}</td>
                           <td class="px-4 py-3 align-top">
                             ${renderBadge(row.currentStage.label, row.currentStage.className)}
@@ -785,17 +829,34 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
     <div class="space-y-4">
       ${renderDetailSection(
         '基础身份信息',
-        renderInfoGrid([
-          { label: '原始裁片单号', value: row.originalCutOrderNo, tone: 'strong' },
-          { label: '同一码', value: row.sameCodeValue, hint: '同一码始终回落原始裁片单。' },
-          { label: '二维码值', value: row.qrCodeValue, hint: row.qrCodeLabel },
-          { label: '来源生产单号', value: row.productionOrderNo },
-          { label: '款号 / SPU', value: `${row.styleCode || row.spuCode} / ${row.styleName || row.spuCode}` },
-          { label: '颜色', value: row.color },
-          { label: '计划发货日期', value: formatDate(row.plannedShipDate) },
-          { label: '紧急程度', value: row.urgencyLabel },
-          { label: '关联批次', value: row.latestMergeBatchNo || '未入批次', hint: '批次只是执行上下文，不改变原始单身份。' },
-        ]),
+        `
+          <div class="space-y-3">
+            ${renderInfoGrid([
+              { label: '原始裁片单号', value: row.originalCutOrderNo, tone: 'strong' },
+              ...(row.shouldDisplayQr
+                ? [
+                    { label: '同一码', value: row.sameCodeValue, hint: '同一码始终回落原始裁片单。' },
+                    { label: '二维码值', value: row.qrCodeValue, hint: row.shouldDisplayQrLabel ? row.qrCodeLabel : '' },
+                  ]
+                : []),
+              { label: '来源生产单号', value: row.productionOrderNo },
+              { label: '款号 / SPU', value: `${row.styleCode || row.spuCode} / ${row.styleName || row.spuCode}` },
+              { label: '颜色', value: row.color },
+              { label: '计划发货日期', value: formatDate(row.plannedShipDate) },
+              { label: '紧急程度', value: row.urgencyLabel },
+              { label: '关联批次', value: row.latestMergeBatchNo || '未入批次', hint: '批次只是执行上下文，不改变原始单身份。' },
+            ])}
+            ${
+              row.shouldDisplayQr
+                ? ''
+                : `
+                  <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                    ${escapeHtml(getPrepQrHiddenText(row.materialPrepStatus.key, 'detail'))}
+                  </div>
+                `
+            }
+          </div>
+        `,
       )}
 
       ${renderDetailSection(
@@ -835,6 +896,15 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '打印人', value: row.printedBy || '待补' },
               { label: '打印摘要', value: summarizeMaterialLineItems(row.materialLineItems) },
             ])}
+            ${
+              row.shouldPrintQr
+                ? ''
+                : `
+                  <div class="rounded-lg border border-dashed border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700">
+                    ${escapeHtml(getPrepQrHiddenText(row.materialPrepStatus.key, 'print'))}
+                  </div>
+                `
+            }
             <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-700">
               发料清单上的码回落原始裁片单，本清单只是仓库到裁床之间的准备单据，不会生成新的主体码。
             </div>
@@ -844,6 +914,11 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       )}
 
       ${renderDetailSection('领料记录区', renderClaimRecords(row))}
+
+      ${renderDetailSection(
+        '领料异议区',
+        renderClaimDisputeDetail(row),
+      )}
 
       ${renderDetailSection(
         '关联入口区',
@@ -875,6 +950,65 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
     content,
     extraButtons,
   )
+}
+
+function renderClaimDisputeEvidence(files: Array<{ fileId: string; fileName: string; fileType: 'IMAGE' | 'VIDEO'; uploadedAt: string }>): string {
+  if (!files.length) {
+    return '<div class="rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">当前未上传该类型证据。</div>'
+  }
+
+  return `
+    <div class="flex flex-wrap gap-2">
+      ${files
+        .map(
+          (file) => `
+            <div class="rounded-md border bg-muted/10 px-3 py-2 text-xs">
+              <div class="font-medium">${escapeHtml(file.fileName)}</div>
+              <div class="mt-1 text-muted-foreground">${escapeHtml(file.fileType === 'IMAGE' ? '图片' : '视频')} · ${escapeHtml(file.uploadedAt)}</div>
+            </div>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function renderClaimDisputeDetail(row: MaterialPrepRow): string {
+  if (!row.latestClaimDispute) {
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">暂无领料异议。</div>'
+  }
+
+  const dispute = row.latestClaimDispute
+  return `
+    <div class="space-y-4">
+      ${renderInfoGrid([
+        { label: '仓库配置数量', value: `${dispute.configuredQty} 米` },
+        { label: '默认应领数量', value: `${dispute.defaultClaimQty} 米` },
+        { label: '实际领取数量', value: `${dispute.actualClaimQty} 米`, tone: 'strong' },
+        { label: '差异数量', value: `${dispute.discrepancyQty} 米`, tone: 'strong' },
+        { label: '异议状态', value: row.claimDisputeStatusLabel },
+        { label: '处理结论', value: dispute.handleConclusion || '待平台处理' },
+        { label: '提交人', value: dispute.submittedBy },
+        { label: '提交时间', value: dispute.submittedAt },
+        { label: '处理说明', value: dispute.handleNote || '待平台处理说明' },
+        { label: '处理回写', value: `${dispute.writtenBackToCraft ? '已回写工艺端' : '待回写工艺端'} / ${dispute.writtenBackToPda ? '已回写移动端' : '待回写移动端'}` },
+      ])}
+      <div class="rounded-lg border bg-muted/10 px-3 py-3 text-sm">
+        <p class="text-xs text-muted-foreground">异议原因</p>
+        <p class="mt-1">${escapeHtml(dispute.disputeReason)}</p>
+        <p class="mt-3 text-xs text-muted-foreground">异议说明</p>
+        <p class="mt-1">${escapeHtml(dispute.disputeNote || '无')}</p>
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs font-medium text-muted-foreground">图片证据</p>
+        ${renderClaimDisputeEvidence(dispute.imageFiles)}
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs font-medium text-muted-foreground">视频证据</p>
+        ${renderClaimDisputeEvidence(dispute.videoFiles)}
+      </div>
+    </div>
+  `
 }
 
 function renderConfigDialog(viewModel = getViewModel()): string {
@@ -1254,7 +1388,7 @@ function printIssueList(recordId: string | undefined): boolean {
         <h1>发料清单</h1>
         <div class="meta">
           <div class="meta-item"><div class="label">原始裁片单号</div><div class="value">${escapeHtml(payload.originalCutOrderNo)}</div></div>
-          <div class="meta-item"><div class="label">同一码 / 二维码</div><div class="value">${escapeHtml(payload.sameCodeValue)} / ${escapeHtml(payload.qrCodeValue)}</div></div>
+          <div class="meta-item"><div class="label">同一码 / 二维码</div><div class="value">${payload.shouldPrintQr ? `${escapeHtml(payload.sameCodeValue)} / ${escapeHtml(payload.qrCodeValue)}` : escapeHtml(payload.qrHiddenHint)}</div></div>
           <div class="meta-item"><div class="label">来源生产单号</div><div class="value">${escapeHtml(payload.productionOrderNo)}</div></div>
           <div class="meta-item"><div class="label">款号 / SPU</div><div class="value">${escapeHtml(`${payload.styleCode || payload.spuCode} / ${payload.styleName || payload.spuCode}`)}</div></div>
           <div class="meta-item"><div class="label">打印时间</div><div class="value">${escapeHtml(payload.printTime)}</div></div>

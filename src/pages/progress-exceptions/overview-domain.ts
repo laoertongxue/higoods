@@ -25,6 +25,8 @@ import {
   type ReasonCode,
   type UnifiedCategory,
 } from './context'
+import { getClaimDisputeStatusLabel } from '../../helpers/fcs-claim-dispute'
+import { getClaimDisputeByCaseId } from '../../state/fcs-claim-dispute-store'
 
 export function renderActionMenu(exc: ExceptionCase): string {
   const isOpen = state.rowActionMenuCaseId === exc.caseId
@@ -452,6 +454,7 @@ export function renderTable(cases: ExceptionCase[]): string {
                       const relatedObjects = getRelatedObjects(exc)
                       const processName = getCaseProcessName(exc)
                       const linkedFactory = getCaseFactoryName(exc)
+                      const claimDispute = exc.sourceModule === 'CUTTING_CLAIM_DISPUTE' ? getClaimDisputeByCaseId(exc.caseId) : null
 
                       return `
                         <tr class="cursor-pointer border-b hover:bg-muted/50" data-pe-action="open-detail" data-case-id="${escapeAttr(exc.caseId)}">
@@ -467,6 +470,16 @@ export function renderTable(cases: ExceptionCase[]): string {
                                 .map((item) => `<div class="text-xs text-muted-foreground">${escapeHtml(item.typeLabel)}：${escapeHtml(item.id)}</div>`)
                                 .join('')}
                               ${relatedObjects.length > 3 ? `<div class="text-xs text-muted-foreground">+${relatedObjects.length - 3} 条</div>` : ''}
+                              ${
+                                claimDispute
+                                  ? `
+                                    <div class="text-xs text-muted-foreground">原始裁片单：${escapeHtml(claimDispute.originalCutOrderNo)}</div>
+                                    <div class="text-xs text-muted-foreground">面料编码：${escapeHtml(claimDispute.materialSku)}</div>
+                                    <div class="text-xs text-muted-foreground">配置 / 实领 / 差异：${escapeHtml(`${claimDispute.configuredQty} / ${claimDispute.actualClaimQty} / ${claimDispute.discrepancyQty} 米`)}</div>
+                                    <div class="text-xs text-muted-foreground">提交人 / 状态：${escapeHtml(`${claimDispute.submittedBy} / ${getClaimDisputeStatusLabel(claimDispute.status)}`)}</div>
+                                  `
+                                  : ''
+                              }
                             </div>
                           </td>
                           <td class="px-3 py-2 text-xs">${escapeHtml(linkedFactory)}</td>

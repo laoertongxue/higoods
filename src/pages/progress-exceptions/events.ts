@@ -9,11 +9,13 @@ import {
   buildHandoverOrderDetailLink,
   getTaskById,
   mockInternalUsers,
+  nowTimestamp,
   type SubCategoryKey,
   type UnifiedCategory,
   type CloseReasonCode,
   type UiCaseStatus,
 } from './context'
+import { getClaimDisputeByCaseId, updateClaimDisputePlatformHandling } from '../../state/fcs-claim-dispute-store'
 import {
   clearFilters,
   assignCaseOwner,
@@ -28,6 +30,27 @@ import {
   showProgressExceptionsToast,
   openLinkedPage,
 } from './actions'
+
+function syncClaimDisputeHandleForm(caseId: string | null): void {
+  if (!caseId) {
+    state.claimDisputeHandleStatus = 'VIEWED'
+    state.claimDisputeHandleConclusion = ''
+    state.claimDisputeHandleNote = ''
+    return
+  }
+
+  const dispute = getClaimDisputeByCaseId(caseId)
+  if (!dispute) {
+    state.claimDisputeHandleStatus = 'VIEWED'
+    state.claimDisputeHandleConclusion = ''
+    state.claimDisputeHandleNote = ''
+    return
+  }
+
+  state.claimDisputeHandleStatus = dispute.status
+  state.claimDisputeHandleConclusion = dispute.handleConclusion || ''
+  state.claimDisputeHandleNote = dispute.handleNote || ''
+}
 
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
@@ -99,6 +122,21 @@ function updateField(field: string, node: HTMLElement): void {
 
   if (field === 'closeMergeCaseId' && node instanceof HTMLInputElement) {
     state.closeMergeCaseId = node.value
+    return
+  }
+
+  if (field === 'claimDisputeHandleStatus' && node instanceof HTMLSelectElement) {
+    state.claimDisputeHandleStatus = node.value as typeof state.claimDisputeHandleStatus
+    return
+  }
+
+  if (field === 'claimDisputeHandleConclusion' && node instanceof HTMLInputElement) {
+    state.claimDisputeHandleConclusion = node.value
+    return
+  }
+
+  if (field === 'claimDisputeHandleNote' && node instanceof HTMLTextAreaElement) {
+    state.claimDisputeHandleNote = node.value
   }
 }
 
@@ -107,6 +145,7 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
     const caseId = actionNode.dataset.caseId
     if (!caseId) return true
     state.detailCaseId = caseId
+    syncClaimDisputeHandleForm(caseId)
     state.rowActionMenuCaseId = null
     return true
   }
@@ -262,6 +301,22 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'drawer-go-craft-dispute') {
+    const originalCutOrderNo = actionNode.dataset.originalCutOrderNo || ''
+    openLinkedPage(
+      '仓库配料 / 领料',
+      `/fcs/craft/cutting/material-prep${originalCutOrderNo ? `?originalCutOrderNo=${encodeURIComponent(originalCutOrderNo)}` : ''}`,
+    )
+    return true
+  }
+
+  if (action === 'drawer-go-pda-dispute') {
+    const taskId = actionNode.dataset.taskId || ''
+    if (!taskId) return true
+    openLinkedPage('执行（PDA）', `/fcs/pda/cutting/task/${encodeURIComponent(taskId)}`)
+    return true
+  }
+
   return false
 }
 
@@ -353,6 +408,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     const caseId = actionNode.dataset.caseId
     if (caseId) {
       state.detailCaseId = caseId
+      syncClaimDisputeHandleForm(caseId)
       state.rowActionMenuCaseId = null
     }
     return true
@@ -360,6 +416,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
 
   if (action === 'close-detail') {
     state.detailCaseId = null
+    syncClaimDisputeHandleForm(null)
     closeCloseDialog()
     return true
   }
@@ -541,6 +598,33 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (caseId) {
       confirmPauseAllowContinue(caseId)
     }
+    return true
+  }
+
+  if (action === 'submit-claim-dispute-handle') {
+    const caseId = actionNode.dataset.caseId
+    if (!caseId) return true
+    const dispute = getClaimDisputeByCaseId(caseId)
+    if (!dispute) {
+      showProgressExceptionsToast('未找到对应的裁片领料数量异议', 'error')
+      return true
+    }
+
+    const result = updateClaimDisputePlatformHandling(dispute.disputeId, {
+      status: state.claimDisputeHandleStatus,
+      handledBy: '平台运营',
+      handledAt: nowTimestamp(),
+      handleConclusion: state.claimDisputeHandleConclusion.trim(),
+      handleNote: state.claimDisputeHandleNote.trim(),
+    })
+
+    if (!result.record) {
+      showProgressExceptionsToast(result.issues.join('；') || '处理失败，请补齐处理结论和说明。', 'error')
+      return true
+    }
+
+    syncClaimDisputeHandleForm(caseId)
+    showProgressExceptionsToast(`已更新异议状态：${result.record.handleConclusion || '已处理'}`)
     return true
   }
 

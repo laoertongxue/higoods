@@ -2,6 +2,8 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { buildPdaCuttingRoute, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
 import { buildPdaCuttingTaskPickupView } from '../domain/pickup/page-adapters/pda-cutting-task-detail'
+import { getClaimDisputeStatusMeta } from '../helpers/fcs-claim-dispute'
+import { getLatestClaimDisputeByTaskId } from '../state/fcs-claim-dispute-store'
 import {
   renderPdaCuttingEmptyState,
   renderPdaCuttingPageLayout,
@@ -248,6 +250,50 @@ function renderSpecialEntryCards(taskId: string): string {
   `
 }
 
+function renderClaimDisputeSummary(taskId: string): string {
+  const dispute = getLatestClaimDisputeByTaskId(taskId)
+  if (!dispute) {
+    return renderPdaCuttingEmptyState('暂无领料数量异议', '当前任务尚未发起领料数量异议；若现场实领数量与默认应领数量不一致，需要到扫码领料页提交异议并上传图片或视频证据。')
+  }
+
+  const meta = getClaimDisputeStatusMeta(dispute.status)
+  return `
+    <div class="space-y-3">
+      <div class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <div class="text-blue-700">异议编号</div>
+            <div class="mt-1 text-sm font-semibold text-blue-900">${escapeHtml(dispute.disputeNo)}</div>
+          </div>
+          <span class="inline-flex items-center rounded-full border px-2.5 py-1 ${meta.className}">${escapeHtml(meta.label)}</span>
+        </div>
+      </div>
+      ${renderInfoGrid([
+        { label: '默认应领数量', value: `${dispute.defaultClaimQty} 米` },
+        { label: '实际领取数量', value: `${dispute.actualClaimQty} 米`, hint: `差异 ${dispute.discrepancyQty} 米` },
+        { label: '异议原因', value: dispute.disputeReason },
+        { label: '证据数量', value: `${dispute.evidenceCount} 个`, hint: dispute.hasEvidence ? '已上传图片 / 视频' : '待补录' },
+        { label: '提交时间', value: dispute.submittedAt, hint: `提交人：${dispute.submittedBy}` },
+        { label: '平台处理结论', value: dispute.handleConclusion || '待平台处理', hint: dispute.handleNote || '当前暂无处理说明' },
+      ])}
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div class="rounded-xl border px-3 py-3">
+          <div class="text-muted-foreground">工艺端回写</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(dispute.writtenBackToCraft ? '已回写工艺工厂运营系统' : '待回写工艺工厂运营系统')}</div>
+        </div>
+        <div class="rounded-xl border px-3 py-3">
+          <div class="text-muted-foreground">移动端回写</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(dispute.writtenBackToPda ? '已回写移动端' : '待回写移动端')}</div>
+        </div>
+      </div>
+      <div class="rounded-xl border px-3 py-3 text-xs">
+        <div class="text-muted-foreground">异议说明</div>
+        <div class="mt-1 text-sm text-foreground">${escapeHtml(dispute.disputeNote || '无')}</div>
+      </div>
+    </div>
+  `
+}
+
 export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCuttingTaskDetailRenderOptions): string {
   const detail = getPdaCuttingTaskDetail(taskId)
   const pickupView = buildPdaCuttingTaskPickupView(taskId)
@@ -370,6 +416,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
     ${summaryGrid}
     ${renderPdaCuttingSection('任务基础信息', '用于确认当前裁片任务的任务编号、生产单、裁片单、工厂和责任人。', basicInfoSection)}
     ${renderPdaCuttingSection('面料与领料摘要', '承接面料、领料单、配置数量和最近一次扫码领取摘要，帮助现场先判断是否能继续执行。', materialSection)}
+    ${renderPdaCuttingSection('领料数量异议', '若现场实领数量与默认应领数量不一致，平台处理结果会在这里同步回写到移动端任务详情。', renderClaimDisputeSummary(taskId))}
     ${renderPdaCuttingSection('执行进度摘要', '集中查看铺布、入仓、交接与补料反馈的最新状态和最近一次现场回写。', executionSection)}
     ${renderPdaCuttingSection('风险提示', '优先暴露待领料、待铺布、待入仓、待交接和补料风险，帮助现场尽快判断阻塞点。', `
       <div class="space-y-3">

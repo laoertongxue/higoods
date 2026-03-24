@@ -2,6 +2,17 @@ import { escapeHtml } from '../utils'
 import { buildPdaCuttingRoute, getPdaCuttingTaskDetail, submitCuttingPickupResult } from '../data/fcs/pda-cutting-special'
 import { buildPdaCuttingPickupActionView } from '../domain/pickup/page-adapters/pda-cutting-pickup'
 import {
+  buildClaimDisputeEvidenceFiles,
+  computeClaimDisputeQty,
+  getClaimDisputeEvidenceHint,
+  getClaimDisputeStatusMeta,
+  parseLengthQtyFromText,
+} from '../helpers/fcs-claim-dispute'
+import {
+  createClaimDispute,
+  getLatestClaimDisputeByTaskId,
+} from '../state/fcs-claim-dispute-store'
+import {
   renderPdaCuttingEmptyState,
   renderPdaCuttingPageLayout,
   renderPdaCuttingSection,
@@ -11,10 +22,16 @@ import {
 
 interface PickupFormState {
   operatorName: string
+  actualClaimQtyText: string
   actualReceivedQtyText: string
   resultLabel: string
+  disputeReason: string
   discrepancyNote: string
   photoProofCount: string
+  imageProofNames: string[]
+  videoProofNames: string[]
+  feedbackMessage: string
+  feedbackTone: 'default' | 'success' | 'warning'
 }
 
 const pickupState = new Map<string, PickupFormState>()
@@ -26,13 +43,66 @@ function getState(taskId: string): PickupFormState {
   const detail = getPdaCuttingTaskDetail(taskId)
   const initial: PickupFormState = {
     operatorName: detail?.latestPickupOperatorName && detail.latestPickupOperatorName !== '-' ? detail.latestPickupOperatorName : '现场领料员',
+    actualClaimQtyText: detail ? String(parseLengthQtyFromText(detail.actualReceivedQtyText || detail.configuredQtyText || '')) : '',
     actualReceivedQtyText: detail?.actualReceivedQtyText && detail.actualReceivedQtyText !== '待扫码回写' ? detail.actualReceivedQtyText : detail?.configuredQtyText ?? '',
     resultLabel: detail?.scanResultLabel && detail.scanResultLabel !== '待扫码领取' ? detail.scanResultLabel : '扫码领取成功',
+    disputeReason: '',
     discrepancyNote: detail?.discrepancyNote && detail.discrepancyNote !== '当前无差异' ? detail.discrepancyNote : '',
     photoProofCount: String(detail?.photoProofCount ?? 0),
+    imageProofNames: [],
+    videoProofNames: [],
+    feedbackMessage: '',
+    feedbackTone: 'default',
   }
   pickupState.set(taskId, initial)
   return initial
+}
+
+function formatQty(value: number): string {
+  return `${Number.isFinite(value) ? value : 0} 米`
+}
+
+function getExpectedClaimQty(taskId: string): number {
+  const detail = getPdaCuttingTaskDetail(taskId)
+  return detail ? parseLengthQtyFromText(detail.configuredQtyText) : 0
+}
+
+function getActualClaimQty(taskId: string): number {
+  const form = getState(taskId)
+  return Number(form.actualClaimQtyText || '0') || 0
+}
+
+function hasDisputeMismatch(taskId: string): boolean {
+  return getActualClaimQty(taskId) !== getExpectedClaimQty(taskId)
+}
+
+function syncActualSummaryText(taskId: string): void {
+  const detail = getPdaCuttingTaskDetail(taskId)
+  const form = getState(taskId)
+  const rollCount = detail ? detail.configuredQtyText.match(/卷数\\s*([0-9]+\\s*卷)/)?.[1] || '卷数待补' : '卷数待补'
+  const actualClaimQty = getActualClaimQty(taskId)
+  form.actualReceivedQtyText = `${rollCount} / 长度 ${actualClaimQty || 0} 米`
+  form.photoProofCount = String(form.imageProofNames.length + form.videoProofNames.length)
+}
+
+function renderDisputeStatus(taskId: string): string {
+  const latestDispute = getLatestClaimDisputeByTaskId(taskId)
+  if (!latestDispute) return ''
+  const meta = getClaimDisputeStatusMeta(latestDispute.status)
+  return `
+    <div class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs">
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-sm font-medium text-foreground">当前领料异议</div>
+        <span class="inline-flex items-center rounded-full border px-2 py-0.5 ${meta.className}">${escapeHtml(meta.label)}</span>
+      </div>
+      <div class="mt-2 space-y-1 text-muted-foreground">
+        <p>差异数量：${escapeHtml(formatQty(latestDispute.discrepancyQty))}</p>
+        <p>证据数量：${escapeHtml(String(latestDispute.evidenceCount))} 个</p>
+        <p>平台处理：${escapeHtml(latestDispute.handleConclusion || '待平台处理')}</p>
+        <p>处理说明：${escapeHtml(latestDispute.handleNote || '待平台回写')}</p>
+      </div>
+    </div>
+  `
 }
 
 function renderTaskSnapshot(taskId: string): string {
@@ -135,6 +205,10 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
   }
 
   const form = getState(taskId)
+  const expectedClaimQty = getExpectedClaimQty(taskId)
+  const actualClaimQty = getActualClaimQty(taskId)
+  const discrepancyQty = computeClaimDisputeQty(actualClaimQty, expectedClaimQty)
+  const mismatch = hasDisputeMismatch(taskId)
 
   const summary = renderPdaCuttingSummaryGrid([
     { label: '领料单号', value: pickupView?.pickupSlipNo || detail.pickupSlipNo },
@@ -173,9 +247,24 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
         <span class="text-muted-foreground">操作人</span>
         <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-pickup-field="operatorName" value="${escapeHtml(form.operatorName)}" />
       </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block space-y-1">
+          <span class="text-muted-foreground">默认应领数量（米）</span>
+          <input class="h-10 w-full rounded-xl border bg-muted/20 px-3 text-sm" value="${escapeHtml(String(expectedClaimQty))}" readonly />
+        </label>
+        <label class="block space-y-1">
+          <span class="text-muted-foreground">实际领取数量（米）</span>
+          <input type="number" min="0" step="1" class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-pickup-field="actualClaimQtyText" value="${escapeHtml(form.actualClaimQtyText)}" placeholder="请输入实际领取数量" />
+        </label>
+      </div>
+      <div class="rounded-xl border px-3 py-3">
+        <div class="text-muted-foreground">差异数量</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatQty(discrepancyQty))}</div>
+        <div class="mt-1 text-muted-foreground">${mismatch ? '当前实领数量与仓库配置数量不一致，可发起数量异议。' : '当前实领数量与默认应领数量一致，可正常确认领料成功。'}</div>
+      </div>
       <label class="block space-y-1">
         <span class="text-muted-foreground">实领数量摘要</span>
-        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-pickup-field="actualReceivedQtyText" value="${escapeHtml(form.actualReceivedQtyText)}" placeholder="例如：卷数 8 卷 / 长度 318 米" />
+        <input class="h-10 w-full rounded-xl border bg-muted/20 px-3 text-sm" data-pda-cut-pickup-field="actualReceivedQtyText" value="${escapeHtml(form.actualReceivedQtyText)}" placeholder="例如：卷数 8 卷 / 长度 318 米" readonly />
       </label>
       <label class="block space-y-1">
         <span class="text-muted-foreground">领料结果</span>
@@ -184,13 +273,45 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
         </select>
       </label>
       <label class="block space-y-1">
+        <span class="text-muted-foreground">异议原因</span>
+        <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-pickup-field="disputeReason">
+          ${['', '数量不符', '少卷 / 少米数', '现场复点异常', '其他数量异议'].map((item) => `<option value="${escapeHtml(item)}" ${form.disputeReason === item ? 'selected' : ''}>${escapeHtml(item || '请选择异议原因')}</option>`).join('')}
+        </select>
+      </label>
+      <label class="block space-y-1">
         <span class="text-muted-foreground">差异说明</span>
         <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-pickup-field="discrepancyNote" placeholder="请填写领料数量差异、驳回原因或照片凭证说明">${escapeHtml(form.discrepancyNote)}</textarea>
       </label>
-      <label class="block space-y-1">
-        <span class="text-muted-foreground">照片凭证数量</span>
-        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-pickup-field="photoProofCount" value="${escapeHtml(form.photoProofCount)}" />
-      </label>
+      <div class="rounded-xl border px-3 py-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="inline-flex min-h-9 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-pda-cut-pickup-action="add-image-proof" data-task-id="${escapeHtml(taskId)}">
+            添加图片凭证
+          </button>
+          <button class="inline-flex min-h-9 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-pda-cut-pickup-action="add-video-proof" data-task-id="${escapeHtml(taskId)}">
+            添加视频凭证
+          </button>
+          <span class="text-muted-foreground">证据数量：${escapeHtml(form.photoProofCount)} 个</span>
+        </div>
+        <p class="mt-2 text-[11px] text-muted-foreground">${escapeHtml(getClaimDisputeEvidenceHint())}</p>
+        ${
+          form.imageProofNames.length || form.videoProofNames.length
+            ? `
+              <div class="mt-3 space-y-2">
+                ${[...form.imageProofNames.map((name) => ({ type: 'IMAGE' as const, name })), ...form.videoProofNames.map((name) => ({ type: 'VIDEO' as const, name }))]
+                  .map(
+                    (file) => `
+                      <div class="flex items-center justify-between gap-2 rounded-lg border bg-muted/10 px-3 py-2">
+                        <div class="text-xs text-muted-foreground">${escapeHtml(file.type === 'IMAGE' ? '图片' : '视频')}：${escapeHtml(file.name)}</div>
+                        <button class="text-xs text-rose-600 hover:underline" data-pda-cut-pickup-action="remove-proof" data-task-id="${escapeHtml(taskId)}" data-file-type="${file.type}" data-file-name="${escapeHtml(file.name)}">移除</button>
+                      </div>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            `
+            : ''
+        }
+      </div>
       <div class="rounded-xl border bg-muted/20 px-3 py-3">
         <div class="text-muted-foreground">本次回写预览</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.resultLabel)}</div>
@@ -199,14 +320,23 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
         <div class="mt-1 text-muted-foreground">统一回执状态：${escapeHtml(form.resultLabel === '扫码领取成功' ? '已回执' : form.resultLabel === '驳回核对' ? '待复核' : '已提交照片')}</div>
       </div>
       <div class="rounded-xl bg-amber-50 px-3 py-3 text-xs text-amber-800">
-        差异处理入口已预留：若选择“驳回核对”或“带照片提交”，请同步填写差异说明和凭证数量。
+        若实际领取数量与默认应领数量不一致，必须走“数量异议发起”路径，并至少上传图片或视频之一。
       </div>
+      ${
+        form.feedbackMessage
+          ? `<div class="rounded-xl px-3 py-3 text-xs ${form.feedbackTone === 'warning' ? 'border border-amber-200 bg-amber-50 text-amber-800' : form.feedbackTone === 'success' ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-slate-200 bg-slate-50 text-slate-700'}">${escapeHtml(form.feedbackMessage)}</div>`
+          : ''
+      }
+      ${renderDisputeStatus(taskId)}
       <div class="grid grid-cols-2 gap-2">
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(buildPdaCuttingRoute(taskId, 'task'))}">
           返回任务详情
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-pickup-action="submit" data-task-id="${escapeHtml(taskId)}">
           提交领料结果
+        </button>
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 ${mismatch ? '' : 'opacity-50'}" data-pda-cut-pickup-action="submit-dispute" data-task-id="${escapeHtml(taskId)}" ${mismatch ? '' : 'disabled'}>
+          提交数量异议
         </button>
       </div>
     </div>
@@ -246,8 +376,13 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
     if (!field) return true
 
     if (field === 'operatorName') form.operatorName = fieldNode.value
+    if (field === 'actualClaimQtyText') {
+      form.actualClaimQtyText = fieldNode.value
+      syncActualSummaryText(taskId)
+    }
     if (field === 'actualReceivedQtyText') form.actualReceivedQtyText = fieldNode.value
     if (field === 'resultLabel') form.resultLabel = fieldNode.value
+    if (field === 'disputeReason') form.disputeReason = fieldNode.value
     if (field === 'discrepancyNote') form.discrepancyNote = fieldNode.value
     if (field === 'photoProofCount') form.photoProofCount = fieldNode.value
     return true
@@ -261,13 +396,98 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
 
   if (action === 'submit') {
     const form = getState(taskId)
+    const expectedClaimQty = getExpectedClaimQty(taskId)
+    const actualClaimQty = getActualClaimQty(taskId)
+    if (hasDisputeMismatch(taskId)) {
+      form.feedbackMessage = '当前实领数量与默认应领数量不一致，请走“提交数量异议”路径。'
+      form.feedbackTone = 'warning'
+      return true
+    }
     submitCuttingPickupResult(taskId, {
       operatorName: form.operatorName.trim() || '现场领料员',
-      resultLabel: form.resultLabel,
-      actualReceivedQtyText: form.actualReceivedQtyText.trim() || '待补充实领数量',
+      resultLabel: '扫码领取成功',
+      actualReceivedQtyText: form.actualReceivedQtyText.trim() || `长度 ${expectedClaimQty || actualClaimQty} 米`,
       discrepancyNote: form.discrepancyNote.trim() || '当前无差异',
       photoProofCount: Number(form.photoProofCount || '0') || 0,
     })
+    form.feedbackMessage = '领料结果已按一致数量回写。'
+    form.feedbackTone = 'success'
+    return true
+  }
+
+  if (action === 'add-image-proof' || action === 'add-video-proof') {
+    const form = getState(taskId)
+    const nowSuffix = `${Date.now()}`.slice(-4)
+    if (action === 'add-image-proof') {
+      form.imageProofNames = [...form.imageProofNames, `领料异议图片-${nowSuffix}.jpg`]
+    } else {
+      form.videoProofNames = [...form.videoProofNames, `领料异议视频-${nowSuffix}.mp4`]
+    }
+    syncActualSummaryText(taskId)
+    form.feedbackMessage = ''
+    return true
+  }
+
+  if (action === 'remove-proof') {
+    const form = getState(taskId)
+    const fileType = actionNode.dataset.fileType
+    const fileName = actionNode.dataset.fileName
+    if (fileType === 'IMAGE') {
+      form.imageProofNames = form.imageProofNames.filter((item) => item !== fileName)
+    }
+    if (fileType === 'VIDEO') {
+      form.videoProofNames = form.videoProofNames.filter((item) => item !== fileName)
+    }
+    syncActualSummaryText(taskId)
+    return true
+  }
+
+  if (action === 'submit-dispute') {
+    const detail = getPdaCuttingTaskDetail(taskId)
+    const form = getState(taskId)
+    if (!detail) return true
+
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
+    const imageFiles = buildClaimDisputeEvidenceFiles(form.imageProofNames, 'IMAGE', now)
+    const videoFiles = buildClaimDisputeEvidenceFiles(form.videoProofNames, 'VIDEO', now)
+    const result = createClaimDispute({
+      sourceTaskId: taskId,
+      sourceTaskNo: detail.taskNo,
+      originalCutOrderNo: detail.cutPieceOrderNo,
+      productionOrderNo: detail.productionOrderNo,
+      relatedClaimRecordNo: detail.latestPickupRecordNo || detail.pickupSlipNo,
+      materialSku: detail.materialSku,
+      materialCategory: detail.materialTypeLabel,
+      materialAttr: detail.qrObjectLabel,
+      configuredQty: getExpectedClaimQty(taskId),
+      actualClaimQty: getActualClaimQty(taskId),
+      disputeReason: form.disputeReason.trim(),
+      disputeNote: form.discrepancyNote.trim(),
+      submittedBy: form.operatorName.trim() || '现场领料员',
+      submittedAt: now,
+      imageFiles,
+      videoFiles,
+      note: '移动端发起裁片领料数量异议',
+    })
+
+    if (!result.record) {
+      form.feedbackMessage = result.issues.join('；')
+      form.feedbackTone = 'warning'
+      return true
+    }
+
+    submitCuttingPickupResult(taskId, {
+      operatorName: form.operatorName.trim() || '现场领料员',
+      resultLabel: '已发起数量异议',
+      actualReceivedQtyText: form.actualReceivedQtyText.trim() || `长度 ${getActualClaimQty(taskId)} 米`,
+      discrepancyNote: form.discrepancyNote.trim() || form.disputeReason.trim(),
+      photoProofCount: result.record.evidenceCount,
+    })
+
+    form.resultLabel = '已发起数量异议'
+    form.photoProofCount = String(result.record.evidenceCount)
+    form.feedbackMessage = `数量异议已提交：${result.record.disputeNo}`
+    form.feedbackTone = 'success'
     return true
   }
 

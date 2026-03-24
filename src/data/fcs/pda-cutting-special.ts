@@ -2,6 +2,8 @@ import type { OwnerSuggestion } from './routing-templates'
 import type { ProcessTask } from './process-tasks'
 import { getTaskChainTaskById, listTaskChainTasks } from './page-adapters/task-chain-pages-adapter'
 import { findPdaHandoverHead } from './pda-handover-events'
+import { buildClaimDisputeWritebackSummary, formatClaimQty, getClaimDisputeStatusLabel } from '../../helpers/fcs-claim-dispute'
+import { getLatestClaimDisputeByOriginalCutOrderNo, getLatestClaimDisputeByTaskId } from '../../state/fcs-claim-dispute-store'
 
 export type PdaTaskEntryMode = 'DEFAULT' | 'CUTTING_SPECIAL'
 export type CuttingMaterialType = 'PRINT' | 'DYE' | 'SOLID' | 'LINING'
@@ -2661,15 +2663,35 @@ function compareTask(left: ProcessTask, right: ProcessTask): number {
   return rightTime - leftTime
 }
 
+function getLatestCuttingClaimDispute(taskId: string, cutPieceOrderNo?: string) {
+  return getLatestClaimDisputeByTaskId(taskId) || (cutPieceOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(cutPieceOrderNo) : null)
+}
+
+function withClaimDisputeTaskSummary(task: PdaTaskFlowMock): PdaTaskFlowMock {
+  if (!isCuttingSpecialTask(task)) return task
+  const latestDispute = getLatestCuttingClaimDispute(task.taskId, task.cutPieceOrderNo)
+  if (!latestDispute) return task
+
+  return {
+    ...task,
+    summary: {
+      ...task.summary,
+      currentStage: latestDispute.status === 'COMPLETED' || latestDispute.status === 'REJECTED' ? '领料异议已处理' : '领料异议处理中',
+      receiveSummary: buildClaimDisputeWritebackSummary(latestDispute),
+    },
+  }
+}
+
 export function listPdaTaskFlowTasks(): PdaTaskFlowMock[] {
   const baseTasks = listTaskChainTasks() as PdaTaskFlowMock[]
-  return [...ordinaryTaskStore, ...cuttingTaskStore, ...baseTasks].sort(compareTask)
+  return [...ordinaryTaskStore, ...cuttingTaskStore, ...baseTasks].map((task) => withClaimDisputeTaskSummary(task)).sort(compareTask)
 }
 
 export function getPdaTaskFlowTaskById(taskId: string): PdaTaskFlowMock | null {
   const localTask = [...ordinaryTaskStore, ...cuttingTaskStore].find((task) => task.taskId === taskId)
-  if (localTask) return localTask
-  return (getTaskChainTaskById(taskId) as PdaTaskFlowMock | undefined) ?? null
+  if (localTask) return withClaimDisputeTaskSummary(localTask)
+  const runtimeTask = (getTaskChainTaskById(taskId) as PdaTaskFlowMock | undefined) ?? null
+  return runtimeTask ? withClaimDisputeTaskSummary(runtimeTask) : null
 }
 
 export function listPdaOrdinaryTaskMocks(): PdaTaskFlowMock[] {
@@ -2686,7 +2708,37 @@ export function isCuttingSpecialTask(task: Partial<PdaTaskFlowMock> | null | und
 }
 
 export function getPdaCuttingTaskDetail(taskId: string): PdaCuttingTaskDetailData | null {
-  return cuttingDetailStore[taskId] ?? null
+  const detail = cuttingDetailStore[taskId] ?? null
+  if (!detail) return null
+
+  const latestDispute = getLatestCuttingClaimDispute(taskId, detail.cutPieceOrderNo)
+  if (!latestDispute) return detail
+
+  const handledSummary =
+    latestDispute.status === 'COMPLETED' || latestDispute.status === 'REJECTED'
+      ? `${getClaimDisputeStatusLabel(latestDispute.status)} · ${latestDispute.handleConclusion || '已处理'}`
+      : `${getClaimDisputeStatusLabel(latestDispute.status)} · 待平台处理`
+
+  return {
+    ...detail,
+    currentReceiveStatus: handledSummary,
+    receiveSummary: buildClaimDisputeWritebackSummary(latestDispute),
+    actualReceivedQtyText: `长度 ${formatClaimQty(latestDispute.actualClaimQty)}`,
+    discrepancyNote:
+      latestDispute.handleConclusion
+        ? `${latestDispute.disputeNote}；平台结果：${latestDispute.handleConclusion}`
+        : latestDispute.disputeNote,
+    photoProofCount: latestDispute.evidenceCount,
+    currentActionHint:
+      latestDispute.status === 'COMPLETED' || latestDispute.status === 'REJECTED'
+        ? '当前领料异议已收到平台处理结果，请按处理结论继续执行。'
+        : '当前存在领料数量异议，等待平台处理结果回写。',
+    nextRecommendedAction:
+      latestDispute.status === 'COMPLETED' || latestDispute.status === 'REJECTED'
+        ? '查看处理结果'
+        : '等待平台处理',
+    riskFlags: Array.from(new Set([...detail.riskFlags, '领料异议'])),
+  }
 }
 
 export function buildPdaCuttingRoute(taskId: string, routeKey: PdaCuttingRouteKey): string {

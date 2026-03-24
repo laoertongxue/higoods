@@ -3,10 +3,13 @@ import {
   initialReturnInboundBatches,
   normalizeQcForView,
   RETURN_INBOUND_PROCESS_LABEL,
+  RETURN_INBOUND_QC_POLICY_LABEL,
+  SEW_POST_PROCESS_MODE_LABEL,
   escapeHtml,
   formatDateTime,
   toClassName,
   NEEDS_AFFECTED_QTY,
+  RESULT_LABEL,
   STATUS_LABEL,
   STATUS_CLASS,
   DISPOSITION_LABEL,
@@ -21,6 +24,7 @@ import {
   requiresFinalDecisionForForm,
   toInputValue,
   type QcDisposition,
+  type QcResult,
   type RootCauseType,
   type LiabilityStatus,
   type SettlementPartyType,
@@ -29,6 +33,10 @@ import {
   type QcRecordDetailState,
 } from './context'
 import { isDetailReadOnly } from './actions'
+import {
+  getQcChainFactByRouteKey,
+  getSettlementImpactLabel,
+} from '../../data/fcs/quality-chain-adapter'
 
 function renderDispositionOptions(selected: QcDisposition | ''): string {
   return `
@@ -153,6 +161,81 @@ function renderBreakdownCard(detail: QcRecordDetailState, existingQc: QualityIns
   `
 }
 
+function renderChainOverview(params: {
+  qc: QualityInspection
+  batchId: string
+  warehouseName: string
+  returnFactoryName: string
+  processLabel: string
+  basisCount: number
+  basisReadyCount: number
+  basisFrozenCount: number
+  basisAmountTotal: number
+  evidenceCount: number
+  settlementImpactLabel: string
+  settlementSummary: string
+  disputeSummary?: string
+}): string {
+  const {
+    qc,
+    batchId,
+    warehouseName,
+    returnFactoryName,
+    processLabel,
+    basisCount,
+    basisReadyCount,
+    basisFrozenCount,
+    basisAmountTotal,
+    evidenceCount,
+    settlementImpactLabel,
+    settlementSummary,
+    disputeSummary,
+  } = params
+
+  const decisionText =
+    qc.deductionDecision === 'DEDUCT'
+      ? `${qc.deductionAmount ?? '-'} ${qc.deductionCurrency ?? 'CNY'}`
+      : qc.deductionDecision === 'NO_DEDUCT'
+        ? '不扣款'
+        : basisCount > 0
+          ? '已生成扣款依据，待后续处理'
+          : '待同步扣款依据'
+
+  return `
+    <section class="grid gap-3 md:grid-cols-3">
+      <article class="rounded-md border bg-card px-4 py-3">
+        <p class="text-xs text-muted-foreground">仓库质检现场</p>
+        <p class="mt-1 text-sm font-semibold">${escapeHtml(processLabel)} · ${escapeHtml(batchId || '-')}</p>
+        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(returnFactoryName || '-')} / ${escapeHtml(warehouseName || '-')}</p>
+      </article>
+      <article class="rounded-md border bg-card px-4 py-3">
+        <p class="text-xs text-muted-foreground">责任判定与扣款</p>
+        <div class="mt-1 flex flex-wrap items-center gap-2">
+          <span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${
+            qc.liabilityStatus === 'CONFIRMED'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : qc.liabilityStatus === 'DISPUTED'
+                ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
+                : 'border-slate-200 bg-slate-50 text-slate-600'
+          }">${escapeHtml(LIABILITY_LABEL[qc.liabilityStatus] ?? qc.liabilityStatus)}</span>
+        </div>
+        <p class="mt-1 text-sm font-semibold">${escapeHtml(decisionText)}</p>
+        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(disputeSummary ?? qc.deductionDecisionRemark ?? qc.dispositionRemark ?? '按仓库质检结果回写平台判责与扣款链路')}</p>
+      </article>
+      <article class="rounded-md border bg-card px-4 py-3">
+        <p class="text-xs text-muted-foreground">扣款与结算串联</p>
+        <p class="mt-1 text-sm font-semibold">${basisCount} 条扣款依据 · ${escapeHtml(settlementImpactLabel)}</p>
+        <p class="mt-1 text-xs text-muted-foreground">可进入结算 ${basisReadyCount} 条 · 冻结 ${basisFrozenCount} 条</p>
+        ${
+          basisAmountTotal > 0
+            ? `<p class="mt-1 text-xs text-muted-foreground">扣款金额快照合计 ${basisAmountTotal} CNY · 证据 ${evidenceCount} 份</p>`
+            : `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementSummary || qc.settlementFreezeReason || '结算状态由扣款依据自动维护')}</p>`
+        }
+      </article>
+    </section>
+  `
+}
+
 function renderDetailNotFound(qcId: string): string {
   return `
     <div class="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-8">
@@ -169,7 +252,8 @@ function renderDetailNotFound(qcId: string): string {
 
 export function renderQcRecordDetailPage(qcId: string): string {
   const detail = ensureDetailState(qcId)
-  const existingQc = detail.currentQcId ? getQcById(detail.currentQcId) : null
+  const chainFact = qcId === 'new' ? null : getQcChainFactByRouteKey(qcId)
+  const existingQc = chainFact?.qc ?? (detail.currentQcId ? getQcById(detail.currentQcId) : null)
 
   if (qcId !== 'new' && !existingQc) {
     return renderDetailNotFound(qcId)
@@ -187,11 +271,17 @@ export function renderQcRecordDetailPage(qcId: string): string {
     (inboundView?.sourceTaskId ? processTasks.find((item) => item.taskId === inboundView.sourceTaskId) : null) ??
     refTask
   const maxQty = selectedBatch?.returnedQty ?? refTask?.qty
-  const basisItems = detail.currentQcId
+  const basisItems = chainFact?.basisItems ?? (detail.currentQcId
     ? initialDeductionBasisItems.filter(
         (item) => item.sourceRefId === detail.currentQcId || item.sourceId === detail.currentQcId,
       )
-    : []
+    : [])
+  const basisReadyCount = basisItems.filter((item) => item.settlementReady === true).length
+  const basisFrozenCount = basisItems.filter((item) => item.settlementReady === false).length
+  const basisAmountTotal = chainFact?.deductionAmountCny ?? basisItems.reduce((sum, item) => sum + (item.deductionAmountSnapshot ?? 0), 0)
+  const settlementImpact = chainFact?.settlementImpact ?? null
+  const dispute = chainFact?.dispute ?? null
+  const evidenceCount = chainFact?.evidenceCount ?? basisItems.reduce((sum, item) => sum + item.evidenceRefs.length, 0)
   const sourceTypeLabel =
     inboundView?.isReturnInbound || detail.form.refType === 'RETURN_BATCH'
       ? '来源类型：回货入仓批次'
@@ -220,6 +310,29 @@ export function renderQcRecordDetailPage(qcId: string): string {
             : ''
         }
       </div>
+
+      ${
+        existingQc
+          ? renderChainOverview({
+              qc: existingQc,
+              batchId: inboundView?.batchId || selectedBatch?.batchId || '-',
+              warehouseName: inboundView?.warehouseName || selectedBatch?.warehouseName || '-',
+              returnFactoryName:
+                inboundView?.returnFactoryName || selectedBatch?.returnFactoryName || sourceTaskForView?.assignedFactoryName || '-',
+              processLabel:
+                inboundView?.processLabel ||
+                (selectedBatch ? selectedBatch.processLabel ?? RETURN_INBOUND_PROCESS_LABEL[selectedBatch.processType] : '-'),
+              basisCount: basisItems.length,
+              basisReadyCount,
+              basisFrozenCount,
+              basisAmountTotal,
+              evidenceCount,
+              settlementImpactLabel: settlementImpact ? getSettlementImpactLabel(settlementImpact.status) : '未串联',
+              settlementSummary: settlementImpact?.summary ?? existingQc.settlementFreezeReason ?? '结算状态由扣款依据自动维护',
+              disputeSummary: dispute?.summary,
+            })
+          : ''
+      }
 
       <section class="rounded-md border bg-card">
         <header class="border-b px-4 py-3">
@@ -717,7 +830,19 @@ export function renderQcRecordDetailPage(qcId: string): string {
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">结算冻结原因</p>
-                    <p>${escapeHtml(existingQc.settlementFreezeReason ?? '-')}</p>
+                    <p>${escapeHtml(settlementImpact?.summary ?? existingQc.settlementFreezeReason ?? '-')}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">结算影响状态</p>
+                    <p>${escapeHtml(settlementImpact ? getSettlementImpactLabel(settlementImpact.status) : '未串联')}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">争议/申诉</p>
+                    <p>${escapeHtml(dispute?.summary ?? '-')}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">证据材料</p>
+                    <p>${evidenceCount > 0 ? `${evidenceCount} 份` : '-'}</p>
                   </div>
                 </div>
               </article>
@@ -760,6 +885,7 @@ export function renderQcRecordDetailPage(qcId: string): string {
                                       ? ` · 可扣款数量：${basis.deductionQty}`
                                       : ''
                                   }
+                                  ${basis.evidenceRefs.length > 0 ? ` · 证据 ${basis.evidenceRefs.length} 份` : ''}
                                 </div>
                                 <button class="inline-flex items-center gap-1 text-xs text-primary underline" data-nav="/fcs/quality/deduction-calc/${escapeHtml(basis.basisId)}">
                                   去扣款计算查看

@@ -34,6 +34,128 @@ import {
   escapeHtml,
   type ExceptionCase,
 } from './context'
+import { getClaimDisputeStatusMeta } from '../../helpers/fcs-claim-dispute'
+import { getClaimDisputeByCaseId } from '../../state/fcs-claim-dispute-store'
+
+function isCuttingClaimDisputeCase(detailCase: ExceptionCase): boolean {
+  return detailCase.sourceModule === 'CUTTING_CLAIM_DISPUTE'
+}
+
+function renderClaimDisputeSourcePanel(detailCase: ExceptionCase): string {
+  const dispute = getClaimDisputeByCaseId(detailCase.caseId)
+  if (!dispute) {
+    return `
+      <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
+        <p class="text-sm font-medium text-teal-700">裁片领料数量异议来源明细</p>
+        <p class="text-xs text-teal-700">未找到共享异议对象，请回到移动端或工艺端检查是否已写入裁片领料异议 ledger。</p>
+      </div>
+    `
+  }
+
+  const statusMeta = getClaimDisputeStatusMeta(dispute.status)
+  const renderKv = (label: string, value: string): string => `
+    <div class="rounded-md border bg-background px-3 py-2">
+      <p class="text-[11px] text-muted-foreground">${escapeHtml(label)}</p>
+      <p class="mt-1 text-sm">${escapeHtml(value || '-')}</p>
+    </div>
+  `
+
+  return `
+    <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-medium text-teal-700">裁片领料数量异议来源明细</p>
+        <span class="inline-flex items-center rounded-full border px-2.5 py-1 ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        ${renderKv('异议编号', dispute.disputeNo)}
+        ${renderKv('来源端', '移动端')}
+        ${renderKv('原始裁片单号', dispute.originalCutOrderNo)}
+        ${renderKv('生产单号', dispute.productionOrderNo)}
+        ${renderKv('面料编码', dispute.materialSku)}
+        ${renderKv('面料属性 / 类别', `${dispute.materialCategory} / ${dispute.materialAttr}`)}
+        ${renderKv('仓库配置数量', `${dispute.configuredQty} 米`)}
+        ${renderKv('默认应领数量', `${dispute.defaultClaimQty} 米`)}
+        ${renderKv('实际领取数量', `${dispute.actualClaimQty} 米`)}
+        ${renderKv('差异数量', `${dispute.discrepancyQty} 米`)}
+        ${renderKv('提交人', dispute.submittedBy)}
+        ${renderKv('提交时间', dispute.submittedAt)}
+      </div>
+      <div class="rounded-md border bg-background p-3 text-sm">
+        <p class="text-xs text-muted-foreground">异议原因</p>
+        <p class="mt-1">${escapeHtml(dispute.disputeReason)}</p>
+        <p class="mt-3 text-xs text-muted-foreground">异议说明</p>
+        <p class="mt-1">${escapeHtml(dispute.disputeNote || '无')}</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="rounded-md border bg-background p-3">
+          <p class="text-xs text-muted-foreground">图片证据</p>
+          <div class="mt-2 space-y-1 text-xs text-muted-foreground">
+            ${
+              dispute.imageFiles.length
+                ? dispute.imageFiles
+                    .map((file) => `<p>${escapeHtml(file.fileName)} ｜ ${escapeHtml(file.uploadedAt)}</p>`)
+                    .join('')
+                : '<p>暂无图片证据</p>'
+            }
+          </div>
+        </div>
+        <div class="rounded-md border bg-background p-3">
+          <p class="text-xs text-muted-foreground">视频证据</p>
+          <div class="mt-2 space-y-1 text-xs text-muted-foreground">
+            ${
+              dispute.videoFiles.length
+                ? dispute.videoFiles
+                    .map((file) => `<p>${escapeHtml(file.fileName)} ｜ ${escapeHtml(file.uploadedAt)}</p>`)
+                    .join('')
+                : '<p>暂无视频证据</p>'
+            }
+          </div>
+        </div>
+      </div>
+      <div class="rounded-md border bg-background p-3 text-xs text-muted-foreground">
+        <p>处理结论：${escapeHtml(dispute.handleConclusion || '待平台处理')}</p>
+        <p class="mt-1">处理说明：${escapeHtml(dispute.handleNote || '待补')}</p>
+        <p class="mt-1">回写状态：${escapeHtml(dispute.writtenBackToCraft ? '已回写工艺端' : '待回写工艺端')} / ${escapeHtml(dispute.writtenBackToPda ? '已回写移动端' : '待回写移动端')}</p>
+      </div>
+    </div>
+  `
+}
+
+function renderClaimDisputeActionPanel(detailCase: ExceptionCase): string {
+  const dispute = getClaimDisputeByCaseId(detailCase.caseId)
+  if (!dispute) return ''
+
+  return `
+    <div class="rounded-md border border-teal-200 bg-teal-50 p-3">
+      <p class="text-sm font-medium text-teal-700">裁片领料数量异议处理区</p>
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">处理状态</span>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pe-field="claimDisputeHandleStatus">
+            <option value="PENDING" ${state.claimDisputeHandleStatus === 'PENDING' ? 'selected' : ''}>待处理</option>
+            <option value="VIEWED" ${state.claimDisputeHandleStatus === 'VIEWED' ? 'selected' : ''}>已查看</option>
+            <option value="CONFIRMED" ${state.claimDisputeHandleStatus === 'CONFIRMED' ? 'selected' : ''}>已确认差异</option>
+            <option value="REJECTED" ${state.claimDisputeHandleStatus === 'REJECTED' ? 'selected' : ''}>已驳回异议</option>
+            <option value="COMPLETED" ${state.claimDisputeHandleStatus === 'COMPLETED' ? 'selected' : ''}>已处理完成</option>
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">处理结论</span>
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeAttr(state.claimDisputeHandleConclusion)}" data-pe-field="claimDisputeHandleConclusion" placeholder="例如：确认少领 23 米，待仓库复点" />
+        </label>
+        <label class="col-span-2 space-y-1">
+          <span class="text-xs text-muted-foreground">处理说明</span>
+          <textarea class="min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pe-field="claimDisputeHandleNote" placeholder="填写平台处理说明、结论依据和回写说明">${escapeHtml(state.claimDisputeHandleNote)}</textarea>
+        </label>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-pe-action="submit-claim-dispute-handle" data-case-id="${escapeAttr(detailCase.caseId)}">保存处理结果</button>
+        <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="drawer-go-craft-dispute" data-original-cut-order-no="${escapeAttr(dispute.originalCutOrderNo)}">去工艺端查看</button>
+        <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="drawer-go-pda-dispute" data-task-id="${escapeAttr(dispute.sourceTaskId)}">去移动端查看</button>
+      </div>
+    </div>
+  `
+}
 
 export function renderBasicTab(detailCase: ExceptionCase): string {
   const unifiedCategory = getUnifiedCategory(detailCase)
@@ -319,6 +441,9 @@ export function renderSourceTab(detailCase: ExceptionCase): string {
   }
 
   if (unifiedCategory === 'MATERIAL') {
+    if (isCuttingClaimDisputeCase(detailCase)) {
+      return renderClaimDisputeSourcePanel(detailCase)
+    }
     const totalRequested = materialRows.reduce((sum, row) => sum + row.requestedQty, 0)
     const totalIssued = materialRows.reduce((sum, row) => sum + row.issuedQty, 0)
     return `
@@ -380,6 +505,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
   const judge = getResolveJudgeResult(detailCase)
   const processingCards: string[] = []
   const linkCards: string[] = []
+  const claimDisputeActionPanel = isCuttingClaimDisputeCase(detailCase) ? renderClaimDisputeActionPanel(detailCase) : ''
 
   if (unifiedCategory === 'ASSIGNMENT') {
     if (['TENDER_OVERDUE', 'TENDER_NEAR_DEADLINE'].includes(detailCase.reasonCode) && detailCase.relatedTenderIds.length > 0) {
@@ -635,6 +761,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
 
   return `
     <div class="space-y-4">
+      ${claimDisputeActionPanel}
       <div class="rounded-md border p-3">
         <p class="text-sm font-medium">处理动作</p>
         <div class="mt-3 grid grid-cols-2 gap-3">

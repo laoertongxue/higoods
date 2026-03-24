@@ -1,5 +1,8 @@
 import { renderPdaFrame } from './pda-shell'
-import { escapeHtml, toClassName } from '../utils'
+import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
+import { listQcChainFacts } from '../data/fcs/quality-chain-adapter'
+import { escapeHtml, formatDateTime, toClassName } from '../utils'
 import {
   createSettlementChangeRequest,
   getSettlementActiveRequestByFactory,
@@ -120,8 +123,28 @@ interface PdaSettlementState {
   settlementRequestForm: SettlementEffectiveInfoSnapshot & { submitRemark: string }
 }
 
+interface PlatformQcWritebackItem {
+  basisId: string
+  qcId: string
+  productionOrderId: string
+  taskId?: string
+  batchId?: string
+  processLabel: string
+  warehouseName: string
+  returnFactoryName: string
+  summary: string
+  liabilityStatusText: string
+  settlementStatusText: string
+  settlementVariant: BadgeVariant
+  deductionQty: number
+  deductionAmountCny: number
+  inspectedAt: string
+}
+
 const CURRENT_FACTORY_ID = 'ID-FAC-0001'
 const CURRENT_FACTORY_OPERATOR = '工厂财务-Adi'
+
+applyQualitySeedBootstrap()
 
 const state: PdaSettlementState = {
   activeTab: 'overview',
@@ -159,6 +182,10 @@ function fmtQty(n: number, unit = '件'): string {
   return `${n.toLocaleString('id-ID')} ${unit}`
 }
 
+function fmtCny(n: number): string {
+  return `${n.toLocaleString('zh-CN')} CNY`
+}
+
 function maskBankAccountNo(accountNo: string): string {
   const raw = accountNo.replace(/\s+/g, '')
   if (raw.length <= 8) return raw
@@ -179,6 +206,221 @@ function getRequestNextStepText(request: SettlementChangeRequest): string {
   if (request.status === 'PENDING_REVIEW') return '平台正在审核申请，待上传签字证明后完成通过处理'
   if (request.status === 'APPROVED') return '申请已通过，当前结算信息已更新为新版本'
   return request.rejectReason || '申请未通过，可重新发起申请'
+}
+
+function getCurrentFactoryIdentity() {
+  const current =
+    indonesiaFactories.find((item) => item.code === CURRENT_FACTORY_ID || item.id === CURRENT_FACTORY_ID) ?? null
+  return {
+    current,
+    keys: new Set([CURRENT_FACTORY_ID, current?.id, current?.code].filter(Boolean) as string[]),
+  }
+}
+
+function getPlatformQcWritebackItems(): PlatformQcWritebackItem[] {
+  const identity = getCurrentFactoryIdentity()
+  const matchesCurrentFactory = (value?: string) => Boolean(value && identity.keys.has(value))
+  const processLabelMap: Record<string, string> = {
+    PRINT: '印花',
+    DYE: '染色',
+    CUT_PANEL: '裁片',
+    SEW: '车缝',
+    OTHER: '其他',
+    DYE_PRINT: '染印',
+  }
+  const sewModeLabelMap: Record<string, string> = {
+    SEW_WITH_POST: '车缝（含后道）',
+    SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED: '车缝（后道仓一体）',
+  }
+  const liabilityStatusLabelMap: Record<string, string> = {
+    DRAFT: '待判定',
+    CONFIRMED: '已确认',
+    DISPUTED: '争议中',
+    VOID: '已作废',
+    PENDING: '待判定',
+  }
+
+  return listQcChainFacts()
+    .flatMap((chain) =>
+      chain.basisItems.map((basis) => ({
+        chain,
+        basis,
+      })),
+    )
+    .filter(({ chain, basis }) => {
+      return (
+        matchesCurrentFactory(chain.qc.returnFactoryId) ||
+        matchesCurrentFactory(basis.factoryId) ||
+        matchesCurrentFactory(basis.settlementPartyId) ||
+        matchesCurrentFactory(basis.responsiblePartyIdSnapshot)
+      )
+    })
+    .map(({ chain, basis }) => {
+      const qc = chain.qc
+      const processLabel =
+        qc.sewPostProcessMode && sewModeLabelMap[qc.sewPostProcessMode]
+          ? sewModeLabelMap[qc.sewPostProcessMode]
+          : processLabelMap[(qc.sourceProcessType ?? basis.sourceProcessType ?? 'OTHER') as string] ?? '其他'
+      const liabilityStatusText =
+        chain.dispute?.status === 'ADJUSTED'
+          ? '改判生效'
+          : chain.dispute?.status === 'ARCHIVED'
+            ? '已归档'
+          : chain.dispute?.status === 'REJECTED'
+            ? '争议驳回'
+            : chain.dispute?.status === 'OPEN'
+              ? '争议中'
+              : liabilityStatusLabelMap[(qc.liabilityStatus ?? basis.liabilityStatusSnapshot ?? basis.status) as string] ?? '待判定'
+      const settlementStatusText =
+        chain.settlementImpact.status === 'SETTLED'
+          ? `已结算 · ${chain.settlementImpact.settlementBatchId ?? ''}`.trim()
+          : chain.settlementImpact.status === 'READY'
+            ? '已确认，可结算'
+            : chain.settlementImpact.status === 'PENDING_ARBITRATION'
+              ? '争议中，待仲裁'
+              : chain.settlementImpact.status === 'SUSPENDED'
+                ? '暂不结算'
+                : chain.settlementImpact.summary || '冻结中'
+      const settlementVariant: BadgeVariant =
+        chain.settlementImpact.status === 'READY' || chain.settlementImpact.status === 'SETTLED'
+          ? 'green'
+          : chain.settlementImpact.status === 'PENDING_ARBITRATION'
+            ? 'amber'
+            : 'orange'
+
+      return {
+        basisId: basis.basisId,
+        qcId: qc.qcId,
+        productionOrderId: basis.productionOrderId,
+        taskId: basis.taskId,
+        batchId: basis.sourceBatchId ?? qc.returnBatchId,
+        processLabel,
+        warehouseName: qc.warehouseName ?? '-',
+        returnFactoryName: qc.returnFactoryName ?? identity.current?.name ?? '-',
+        summary: basis.summary || chain.settlementImpact.summary || '仓库质检不合格已回写平台扣款依据',
+        liabilityStatusText,
+        settlementStatusText,
+        settlementVariant,
+        deductionQty: basis.deductionQty ?? basis.qty ?? 0,
+        deductionAmountCny: basis.deductionAmountSnapshot ?? 0,
+        inspectedAt: qc.inspectedAt ?? basis.updatedAt ?? basis.createdAt,
+      }
+    })
+    .sort((left, right) => {
+      return new Date(right.inspectedAt.replace(' ', 'T')).getTime() - new Date(left.inspectedAt.replace(' ', 'T')).getTime()
+    })
+}
+
+function getCompactPlatformQcWritebackItems(items: PlatformQcWritebackItem[]): PlatformQcWritebackItem[] {
+  if (items.length <= 3) return items
+
+  const picks: PlatformQcWritebackItem[] = []
+  const pushIfPresent = (item?: PlatformQcWritebackItem) => {
+    if (!item) return
+    if (picks.some((current) => current.basisId === item.basisId)) return
+    picks.push(item)
+  }
+
+  pushIfPresent(items.find((item) => item.liabilityStatusText === '争议中'))
+  pushIfPresent(items.find((item) => item.liabilityStatusText === '改判生效'))
+  pushIfPresent(items.find((item) => item.settlementStatusText.includes('已结算')))
+
+  for (const item of items) {
+    pushIfPresent(item)
+    if (picks.length >= 3) break
+  }
+
+  return picks.slice(0, 3)
+}
+
+function renderPlatformQcWritebackSection(compact = false): string {
+  const items = getPlatformQcWritebackItems()
+  const identity = getCurrentFactoryIdentity()
+  if (items.length === 0) return ''
+
+  const visibleItems = compact ? getCompactPlatformQcWritebackItems(items) : items
+  const readyCount = items.filter((item) => item.settlementVariant === 'green').length
+  const frozenCount = items.filter((item) => item.settlementVariant !== 'green').length
+  const disputedCount = items.filter((item) => item.liabilityStatusText === '争议中').length
+  const totalQty = items.reduce((sum, item) => sum + item.deductionQty, 0)
+  const totalAmountCny = items.reduce((sum, item) => sum + item.deductionAmountCny, 0)
+
+  return `
+    <article class="rounded-lg border border-sky-200 bg-sky-50/40 shadow-none">
+      <header class="border-b border-sky-100 px-4 py-3">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-semibold text-sky-900">平台回写的仓库质检扣款</h3>
+            <p class="mt-0.5 text-[10px] text-sky-700">${escapeHtml(
+              `${identity.current?.name ?? CURRENT_FACTORY_ID} 的仓库质检结果已同步到平台运营系统，PDA 结算可直接看到对应扣款依据。`,
+            )}</p>
+          </div>
+          ${
+            compact && items.length > visibleItems.length
+              ? `
+                <button class="rounded-md border border-sky-200 bg-white px-3 py-1.5 text-[10px] text-sky-700 hover:bg-sky-50" data-pda-sett-action="open-platform-quality-deductions">
+                  查看全部 ${items.length} 条
+                </button>
+              `
+              : ''
+          }
+        </div>
+      </header>
+
+      <div class="grid grid-cols-2 gap-2 border-b border-sky-100 px-4 py-3 md:grid-cols-4">
+        <div class="rounded-md border bg-white/80 px-3 py-2">
+          <div class="text-[10px] text-muted-foreground">质检扣款条数</div>
+          <div class="mt-0.5 text-sm font-semibold">${items.length}</div>
+        </div>
+        <div class="rounded-md border bg-white/80 px-3 py-2">
+          <div class="text-[10px] text-muted-foreground">影响数量</div>
+          <div class="mt-0.5 text-sm font-semibold">${totalQty} 件</div>
+        </div>
+        <div class="rounded-md border bg-white/80 px-3 py-2">
+          <div class="text-[10px] text-muted-foreground">平台判责金额</div>
+          <div class="mt-0.5 text-sm font-semibold">${escapeHtml(fmtCny(totalAmountCny))}</div>
+        </div>
+        <div class="rounded-md border bg-white/80 px-3 py-2">
+          <div class="text-[10px] text-muted-foreground">结算状态</div>
+          <div class="mt-0.5 text-sm font-semibold">${readyCount} 条可结算 / ${frozenCount} 条冻结</div>
+          <div class="mt-0.5 text-[10px] text-muted-foreground">争议中 ${disputedCount} 条</div>
+        </div>
+      </div>
+
+      <div class="space-y-2 px-4 py-3">
+        ${visibleItems
+          .map(
+            (item) => `
+              <div class="rounded-md border bg-background px-3 py-2.5">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-mono text-[11px] font-medium text-primary">${escapeHtml(item.basisId)}</span>
+                  ${renderStatusBadge(item.settlementStatusText, item.settlementVariant)}
+                  <span class="text-[10px] text-muted-foreground">质检单 ${escapeHtml(item.qcId)}</span>
+                </div>
+                <div class="mt-1 text-xs font-medium">${escapeHtml(item.summary)}</div>
+                <div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                  <span>${escapeHtml(item.processLabel)} · ${escapeHtml(item.batchId || '-')}</span>
+                  <span>${escapeHtml(item.returnFactoryName)} / ${escapeHtml(item.warehouseName)}</span>
+                  <span>责任状态 ${escapeHtml(item.liabilityStatusText)}</span>
+                  <span>可扣款数量 ${item.deductionQty} 件</span>
+                  <span>平台金额 ${escapeHtml(fmtCny(item.deductionAmountCny))}</span>
+                  <span>${escapeHtml(formatDateTime(item.inspectedAt))}</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button class="rounded-md border px-3 py-1.5 text-[10px] hover:bg-muted" data-nav="/fcs/quality/qc-records/${escapeHtml(item.qcId)}">
+                    查看质检
+                  </button>
+                  <button class="rounded-md border px-3 py-1.5 text-[10px] hover:bg-muted" data-nav="/fcs/quality/deduction-calc/${escapeHtml(item.basisId)}">
+                    查看扣款依据
+                  </button>
+                </div>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </article>
+  `
 }
 
 function resetSettlementRequestForm(): void {
@@ -906,6 +1148,8 @@ function renderOverviewContent(cwPaidRate: number): string {
 
       ${renderSettlementInfoSection()}
 
+      ${renderPlatformQcWritebackSection(true)}
+
       <div>
         <h3 class="mb-2 text-xs font-semibold text-muted-foreground">本周钱从哪里来</h3>
         <div class="grid grid-cols-2 gap-2.5">
@@ -1156,6 +1400,8 @@ function renderDeductionsContent(visibleDeds: DeductionRecord[]): string {
           `
           : ''
       }
+
+      ${renderPlatformQcWritebackSection(false)}
 
       ${
         visibleDeds.length === 0
@@ -1477,6 +1723,15 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   if (action === 'open-week-deductions') {
     state.activeTab = 'deductions'
     state.dedView = 'week'
+    return true
+  }
+
+  if (action === 'open-platform-quality-deductions') {
+    state.activeTab = 'deductions'
+    state.dedView = 'all'
+    state.taskDrawerTaskId = null
+    state.dedDrawerId = null
+    state.cycleDrawerId = null
     return true
   }
 

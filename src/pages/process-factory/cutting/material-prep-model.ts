@@ -5,6 +5,20 @@ import type {
   CuttingReceiveStatus,
   CuttingReviewStatus,
 } from '../../../data/fcs/cutting/types'
+import {
+  buildCraftClaimDisputeSummary,
+  formatClaimQty as formatDisputeQty,
+  getClaimDisputeStatusLabel,
+} from '../../../helpers/fcs-claim-dispute'
+import type { ClaimDisputeRecord } from '../../../models/fcs-claim-dispute'
+import { getLatestClaimDisputeByOriginalCutOrderNo, listClaimDisputesByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store'
+import {
+  canViewPrepQr,
+  getPrepQrHiddenText,
+  shouldDisplayQrByPrepStatus,
+  shouldDisplayQrLabelByPrepStatus,
+  shouldPrintPrepQr,
+} from './material-prep.helpers'
 import { summarizeMergeBatchParticipation } from './original-orders-model'
 import type { MergeBatchRecord } from './merge-batches-model'
 import { buildProductionProgressRows, type ProductionProgressUrgencyKey, urgencyMeta } from './production-progress-model'
@@ -100,6 +114,11 @@ export interface MaterialPrepRow {
   sameCodeValue: string
   qrCodeValue: string
   qrCodeLabel: string
+  shouldDisplayQr: boolean
+  shouldDisplayQrLabel: boolean
+  canViewQr: boolean
+  shouldPrintQr: boolean
+  qrHiddenHint: string
   materialAuditStatus: MaterialPrepSummaryMeta<CuttingReviewStatus>
   materialPrepStatus: MaterialPrepSummaryMeta<CuttingConfigStatus>
   materialClaimStatus: MaterialPrepSummaryMeta<MaterialPrepClaimAggregateKey>
@@ -112,6 +131,15 @@ export interface MaterialPrepRow {
   claimRecordCount: number
   latestClaimRecordAt: string
   latestClaimRecordSummary: string
+  claimDisputes: ClaimDisputeRecord[]
+  claimDisputeCount: number
+  latestClaimDispute: ClaimDisputeRecord | null
+  hasClaimDispute: boolean
+  claimDisputeStatusLabel: string
+  claimDisputeSummary: string
+  claimDisputeDiscrepancyText: string
+  claimDisputeEvidenceCount: number
+  claimDisputeHandleSummary: string
   printedAt: string
   printedBy: string
   latestMergeBatchNo: string
@@ -172,6 +200,9 @@ export interface IssueListPrintPayload {
   originalCutOrderNo: string
   sameCodeValue: string
   qrCodeValue: string
+  qrCodeLabel: string
+  shouldPrintQr: boolean
+  qrHiddenHint: string
   productionOrderNo: string
   styleCode: string
   spuCode: string
@@ -594,6 +625,11 @@ function createRow(
     sameCodeValue: buildSameCodeValue(line.cutPieceOrderNo),
     qrCodeValue: buildQrCodeValue(line.cutPieceOrderNo),
     qrCodeLabel: '原始裁片单二维码',
+    shouldDisplayQr: false,
+    shouldDisplayQrLabel: false,
+    canViewQr: false,
+    shouldPrintQr: false,
+    qrHiddenHint: getPrepQrHiddenText('NOT_CONFIGURED'),
     materialAuditStatus,
     materialPrepStatus,
     materialClaimStatus,
@@ -606,6 +642,15 @@ function createRow(
     claimRecordCount: claimRecords.length,
     latestClaimRecordAt: claimRecords[0]?.claimedAt || '',
     latestClaimRecordSummary: claimRecords[0]?.summary || '暂无领料记录',
+    claimDisputes: [],
+    claimDisputeCount: 0,
+    latestClaimDispute: null,
+    hasClaimDispute: false,
+    claimDisputeStatusLabel: '暂无异议',
+    claimDisputeSummary: '当前暂无领料数量异议。',
+    claimDisputeDiscrepancyText: '差异 0 米',
+    claimDisputeEvidenceCount: 0,
+    claimDisputeHandleSummary: '待平台处理结果',
     printedAt: line.printSlipStatus === 'PRINTED' ? record.lastFieldUpdateAt || record.lastPickupScanAt || '' : '',
     printedBy: line.printSlipStatus === 'PRINTED' ? `${record.lastOperatorName || '系统'} / 打印回写` : '',
     latestMergeBatchNo: batchSummary.latestMergeBatchNo || line.mergeBatchNo || '',
@@ -673,9 +718,25 @@ export function recalculateMaterialPrepRow(
   row.materialPrepStatus = deriveMaterialPrepStatus(row.materialLineItems)
   row.materialClaimStatus = deriveMaterialClaimStatus(row.materialLineItems)
   row.schedulingStatus = deriveSchedulingStatus(row.assignedCuttingGroup)
+  row.shouldDisplayQr = shouldDisplayQrByPrepStatus(row.materialPrepStatus.key)
+  row.shouldDisplayQrLabel = shouldDisplayQrLabelByPrepStatus(row.materialPrepStatus.key)
+  row.canViewQr = canViewPrepQr(row.materialPrepStatus.key)
+  row.shouldPrintQr = shouldPrintPrepQr(row.materialPrepStatus.key)
+  row.qrHiddenHint = getPrepQrHiddenText(row.materialPrepStatus.key)
   row.claimRecordCount = row.claimRecords.length
   row.latestClaimRecordAt = row.claimRecords[0]?.claimedAt || ''
   row.latestClaimRecordSummary = row.claimRecords[0]?.summary || '暂无领料记录'
+  row.claimDisputes = listClaimDisputesByOriginalCutOrderNo(row.originalCutOrderNo)
+  row.claimDisputeCount = row.claimDisputes.length
+  row.latestClaimDispute = getLatestClaimDisputeByOriginalCutOrderNo(row.originalCutOrderNo)
+  row.hasClaimDispute = Boolean(row.latestClaimDispute)
+  row.claimDisputeStatusLabel = row.latestClaimDispute ? getClaimDisputeStatusLabel(row.latestClaimDispute.status) : '暂无异议'
+  row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无领料数量异议。'
+  row.claimDisputeDiscrepancyText = row.latestClaimDispute ? `差异 ${formatDisputeQty(row.latestClaimDispute.discrepancyQty)}` : '差异 0 米'
+  row.claimDisputeEvidenceCount = row.latestClaimDispute?.evidenceCount ?? 0
+  row.claimDisputeHandleSummary = row.latestClaimDispute
+    ? row.latestClaimDispute.handleConclusion || row.latestClaimDispute.handleNote || '待平台处理结果'
+    : '待平台处理结果'
 
   const fallbackRecord: CuttingOrderProgressRecord = sourceRecord || {
     id: row.productionOrderId,
@@ -778,7 +839,7 @@ export function filterMaterialPrepRows(
     if (filters.schedulingStatus !== 'ALL' && row.schedulingStatus.key !== filters.schedulingStatus) return false
     if (filters.cuttingGroup && !row.assignedCuttingGroup.toLowerCase().includes(filters.cuttingGroup.trim().toLowerCase())) return false
     if (filters.issuesOnly && !row.riskTags.length) return false
-    if (filters.onlyPrintable && !row.materialLineItems.some((item) => item.configuredQty > 0)) return false
+    if (filters.onlyPrintable && !row.shouldPrintQr) return false
     if (filters.onlyPendingScheduling && row.schedulingStatus.key !== 'UNASSIGNED') return false
     return true
   })
@@ -818,6 +879,9 @@ export function buildIssueListPrintPayload(row: MaterialPrepRow): IssueListPrint
     originalCutOrderNo: row.originalCutOrderNo,
     sameCodeValue: row.sameCodeValue,
     qrCodeValue: row.qrCodeValue,
+    qrCodeLabel: row.qrCodeLabel,
+    shouldPrintQr: row.shouldPrintQr,
+    qrHiddenHint: getPrepQrHiddenText(row.materialPrepStatus.key, 'print'),
     productionOrderNo: row.productionOrderNo,
     styleCode: row.styleCode,
     spuCode: row.spuCode,

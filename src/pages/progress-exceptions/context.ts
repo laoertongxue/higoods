@@ -42,6 +42,7 @@ import {
 } from '../../data/fcs/store-domain-progress'
 import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap'
 import { syncPdaStartRiskAndExceptions } from '../../data/fcs/pda-start-link'
+import type { ClaimDisputeStatus } from '../../models/fcs-claim-dispute'
 import {
   allowContinueFromPauseException,
   recordPauseExceptionFollowUp,
@@ -122,6 +123,10 @@ export interface ProgressExceptionsState {
 
   extendDialogCaseId: string | null
 
+  claimDisputeHandleStatus: ClaimDisputeStatus
+  claimDisputeHandleConclusion: string
+  claimDisputeHandleNote: string
+
   rowActionMenuCaseId: string | null
 }
 
@@ -160,6 +165,10 @@ export const state: ProgressExceptionsState = {
   pauseFollowUpRemark: '',
 
   extendDialogCaseId: null,
+
+  claimDisputeHandleStatus: 'VIEWED',
+  claimDisputeHandleConclusion: '',
+  claimDisputeHandleNote: '',
 
   rowActionMenuCaseId: null,
 }

@@ -37,6 +37,8 @@ import {
 import { buildMarkerSpreadingCountsByOriginalOrder } from './marker-spreading-utils'
 import { configMeta, receiveMeta } from './production-progress-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+import { getClaimDisputeStatusLabel } from '../../../helpers/fcs-claim-dispute'
+import { getLatestClaimDisputeByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store'
 import {
   paginateItems,
   renderCompactKpiCard,
@@ -667,6 +669,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   if (!row) return ''
   const qrSummary = buildOriginalOrderQrSummary(row)
   const markerSpreadingCounts = buildMarkerSpreadingCountsByOriginalOrder(row.originalCutOrderId)
+  const latestClaimDispute = getLatestClaimDisputeByOriginalCutOrderNo(row.originalCutOrderNo)
 
   const siblingRows = viewModel.rows.filter(
     (item) => item.productionOrderId === row.productionOrderId && item.originalCutOrderId !== row.originalCutOrderId,
@@ -801,6 +804,9 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '铺布状态摘要', value: markerSpreadingCounts.statusSummary },
               { label: '当前铺布状态', value: markerSpreadingCounts.spreadingStatusLabel, tone: 'strong' },
               { label: '最近铺布记录', value: markerSpreadingCounts.latestSessionNo },
+              { label: '是否已完成人员分摊', value: markerSpreadingCounts.hasOperatorAllocation ? '已形成按人分摊' : '待补录分摊' },
+              { label: '人员金额摘要', value: `${formatOriginalOrderCurrency(markerSpreadingCounts.operatorAmountTotal)}` },
+              { label: '人工调价', value: markerSpreadingCounts.hasManualAdjustedAmount ? '存在人工调整金额' : '当前未人工调整' },
               { label: '补料预警', value: markerSpreadingCounts.hasReplenishmentWarning ? `有预警（${markerSpreadingCounts.warningLevelLabel}）` : '当前无明显预警' },
               { label: '建议动作', value: markerSpreadingCounts.suggestedAction },
             ])}
@@ -811,6 +817,32 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             <div class="flex flex-wrap gap-2">
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架 / 铺布</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
+            </div>
+          </div>
+        `,
+      )}
+
+      ${renderDetailSection(
+        '领料异议摘要',
+        `
+          <div class="space-y-3">
+            ${renderInfoGrid([
+              { label: '当前是否存在领料异议', value: latestClaimDispute ? '存在' : '暂无' },
+              { label: '异议状态', value: latestClaimDispute ? getClaimDisputeStatusLabel(latestClaimDispute.status) : '暂无异议', tone: 'strong' },
+              { label: '差异数量', value: latestClaimDispute ? `${latestClaimDispute.discrepancyQty} 米` : '0 米' },
+              { label: '处理结论', value: latestClaimDispute?.handleConclusion || '待平台处理' },
+              { label: '提交时间', value: latestClaimDispute?.submittedAt || '待补' },
+              { label: '证据数量', value: latestClaimDispute ? `${latestClaimDispute.evidenceCount} 个` : '0 个' },
+            ])}
+            <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
+              ${
+                latestClaimDispute
+                  ? `当前已存在领料数量异议，提交人 ${escapeHtml(latestClaimDispute.submittedBy)}，原因：${escapeHtml(latestClaimDispute.disputeReason)}。`
+                  : '当前未发现领料数量异议，后续如移动端提交异议，会在这里同步展示摘要。'
+              }
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料 / 领料</button>
             </div>
           </div>
         `,

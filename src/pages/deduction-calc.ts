@@ -1,12 +1,16 @@
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { processTasks } from '../data/fcs/process-tasks'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
-import { initialDeductionBasisItems } from '../data/fcs/store-domain-quality-seeds'
 import type {
   DeductionBasisItem,
   DeductionBasisSourceType,
   DeductionBasisStatus,
 } from '../data/fcs/store-domain-quality-types'
+import {
+  getBasisById,
+  getCanonicalQcHrefForBasis,
+  listDeductionBasisLedgerItems,
+} from '../data/fcs/quality-chain-adapter'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 
 applyQualitySeedBootstrap()
@@ -167,7 +171,7 @@ function resolveFreezeHint(basis: DeductionBasisItem): string | null {
 }
 
 export function renderDeductionCalcPage(): string {
-  const items = initialDeductionBasisItems
+  const items = listDeductionBasisLedgerItems()
   const filtered = getFilteredBasisItems(items)
   const factoryOptions = getFactoryOptions(items)
 
@@ -392,7 +396,7 @@ export function renderDeductionCalcPage(): string {
 }
 
 export function renderDeductionCalcDetailPage(basisId: string): string {
-  const basis = initialDeductionBasisItems.find((item) => item.basisId === basisId)
+  const basis = getBasisById(basisId)
   if (!basis) {
     return `
       <div class="flex flex-col items-center justify-center gap-4 py-32">
@@ -412,6 +416,7 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
   const canEditAmount = basis.deductionAmountEditable === true
   const freezeHint = resolveFreezeHint(basis)
   const amountInput = deductionAmountDraftByBasisId[basisId] ?? ''
+  const qcHref = getCanonicalQcHrefForBasis(basis)
 
   const settlementPartyText = basis.settlementPartyType
     ? `${SETTLEMENT_PARTY_LABEL[basis.settlementPartyType] ?? basis.settlementPartyType} / ${basis.settlementPartyId ?? '—'}`
@@ -663,7 +668,7 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
           ${
             basis.sourceType === 'QC_FAIL' || basis.sourceType === 'QC_DEFECT_ACCEPT'
               ? `
-                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/quality/qc-records/${escapeHtml(basis.sourceRefId)}">
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(qcHref ?? `/fcs/quality/qc-records/${basis.sourceRefId}`)}">
                   <i data-lucide="external-link" class="mr-1.5 h-4 w-4"></i>
                   查看质检
                 </button>
@@ -811,7 +816,7 @@ export function handleDeductionCalcEvent(target: HTMLElement): boolean {
 
     const basisId = fieldNode.dataset.basisId
     if (!basisId) return true
-    const basis = initialDeductionBasisItems.find((item) => item.basisId === basisId)
+    const basis = getBasisById(basisId)
     if (!basis) return true
     if (basis.deductionAmountEditable !== true) return true
 

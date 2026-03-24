@@ -9,6 +9,7 @@ export type MarkerModeKey = 'normal' | 'high-low' | 'folded'
 export type SpreadingStatusKey = 'DRAFT' | 'IN_PROGRESS' | 'DONE' | 'TO_FILL'
 export type SpreadingSourceChannel = 'MANUAL' | 'PDA_WRITEBACK' | 'MIXED'
 export type SpreadingOperatorActionType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
+export type SpreadingPricingMode = '按件计价' | '按长度计价' | '按层计价'
 export type SpreadingWarningLevel = '低' | '中' | '高'
 export type SpreadingSuggestedAction = '无需补料' | '建议补料' | '数据不足，待补录' | '存在异常差异，需人工确认'
 export const MARKER_SIZE_KEYS = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'onesize', 'plusonesize'] as const
@@ -177,12 +178,85 @@ export interface SpreadingOperatorRecord {
   startAt: string
   endAt: string
   actionType: SpreadingOperatorActionType
+  startLayer?: number
+  endLayer?: number
+  handledLayerCount?: number
+  handledLength?: number
+  handledPieceQty?: number
+  pricingMode?: SpreadingPricingMode
+  unitPrice?: number
+  calculatedAmount?: number
+  manualAmountAdjusted?: boolean
+  adjustedAmount?: number
+  amountNote?: string
   handoverFlag: boolean
   handoverNotes: string
+  previousOperatorName?: string
+  nextOperatorName?: string
+  handoverAtLayer?: number
+  handoverAtLength?: number
   note: string
   sourceChannel: SpreadingSourceChannel
   sourceWritebackId: string
   updatedFromPdaAt: string
+}
+
+export interface SpreadingOperatorQuantifiedRecord {
+  operator: SpreadingOperatorRecord
+  previousOperatorName: string
+  nextOperatorName: string
+  handledLayerCount: number | null
+  handledPieceQty: number | null
+  calculatedAmount: number | null
+  displayAmount: number | null
+  handoverAtLayer: number | null
+  handoverAtLength: number | null
+}
+
+export interface SpreadingOperatorAmountSummaryRow {
+  operatorName: string
+  recordCount: number
+  handledLayerCountTotal: number
+  handledLengthTotal: number
+  handledPieceQtyTotal: number
+  calculatedAmountTotal: number
+  displayAmountTotal: number
+  hasManualAdjustedAmount: boolean
+}
+
+export interface SpreadingOperatorAmountSummary {
+  rows: SpreadingOperatorAmountSummaryRow[]
+  totalHandledLayerCount: number
+  totalHandledLength: number
+  totalHandledPieceQty: number
+  totalCalculatedAmount: number
+  totalDisplayAmount: number
+  hasManualAdjustedAmount: boolean
+  hasAnyAllocationData: boolean
+}
+
+export interface SpreadingRollHandoverSummary {
+  rollRecordId: string
+  rollNo: string
+  operators: SpreadingOperatorQuantifiedRecord[]
+  hasHandover: boolean
+  hasWarnings: boolean
+  continuityStatus: '连续' | '层数断档' | '层数重叠' | '待补录'
+  totalHandledLength: number
+  finalHandledLayer: number | null
+  overlapDetected: boolean
+  gapDetected: boolean
+  lengthExceeded: boolean
+  incompleteCoverage: boolean
+  warnings: string[]
+}
+
+export interface SpreadingHandoverListSummary {
+  handoverRollCount: number
+  abnormalRollCount: number
+  hasHandover: boolean
+  hasAbnormalHandover: boolean
+  statusLabel: string
 }
 
 export interface SpreadingImportSource {
@@ -1407,13 +1481,490 @@ export function summarizeSpreadingRolls(rolls: SpreadingRollRecord[]): {
   }
 }
 
-export function summarizeSpreadingOperators(operators: SpreadingOperatorRecord[]): SpreadingOperatorSummary {
+function parseOptionalNumber(value: number | string | undefined | null): number | null {
+  if (value === undefined || value === null || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function computeOperatorHandledLayerCount(
+  startLayer: number | string | undefined | null,
+  endLayer: number | string | undefined | null,
+): number | null {
+  const start = parseOptionalNumber(startLayer)
+  const end = parseOptionalNumber(endLayer)
+  if (start === null || end === null) return null
+  if (end < start) return null
+  return end - start + 1
+}
+
+export function computeOperatorHandledPieceQty(
+  startLayer: number | string | undefined | null,
+  endLayer: number | string | undefined | null,
+  markerTotalPieces: number,
+): number | null {
+  const handledLayerCount = computeOperatorHandledLayerCount(startLayer, endLayer)
+  if (handledLayerCount === null || markerTotalPieces <= 0) return null
+  return handledLayerCount * markerTotalPieces
+}
+
+export function computeOperatorCalculatedAmount(options: {
+  pricingMode?: SpreadingPricingMode | null
+  unitPrice?: number | string | null
+  handledLayerCount?: number | string | null
+  handledLength?: number | string | null
+  handledPieceQty?: number | string | null
+}): number | null {
+  const pricingMode = options.pricingMode || '按件计价'
+  const unitPrice = parseOptionalNumber(options.unitPrice)
+  const handledLayerCount = parseOptionalNumber(options.handledLayerCount)
+  const handledLength = parseOptionalNumber(options.handledLength)
+  const handledPieceQty = parseOptionalNumber(options.handledPieceQty)
+
+  if (unitPrice === null || unitPrice < 0) return null
+
+  if (pricingMode === '按长度计价') {
+    if (handledLength === null) return null
+    return Number((handledLength * unitPrice).toFixed(2))
+  }
+
+  if (pricingMode === '按层计价') {
+    if (handledLayerCount === null) return null
+    return Number((handledLayerCount * unitPrice).toFixed(2))
+  }
+
+  if (handledPieceQty === null) return null
+  return Number((handledPieceQty * unitPrice).toFixed(2))
+}
+
+export function computeOperatorDisplayAmount(
+  operator: Pick<SpreadingOperatorRecord, 'manualAmountAdjusted' | 'adjustedAmount' | 'calculatedAmount'>,
+  calculatedAmount?: number | null,
+): number | null {
+  if (operator.manualAmountAdjusted) {
+    return parseOptionalNumber(operator.adjustedAmount)
+  }
+  return parseOptionalNumber(operator.calculatedAmount) ?? parseOptionalNumber(calculatedAmount)
+}
+
+export function validateOperatorManualAmountAdjustment(
+  operator: Pick<SpreadingOperatorRecord, 'operatorName' | 'manualAmountAdjusted' | 'adjustedAmount'>,
+): string[] {
+  const warnings: string[] = []
+  const operatorLabel = operator.operatorName || '未命名人员'
+  if (!operator.manualAmountAdjusted) return warnings
+
+  const adjustedAmount = parseOptionalNumber(operator.adjustedAmount)
+  if (adjustedAmount === null) {
+    warnings.push(`${operatorLabel} 已开启人工调整金额，但未填写调整后金额。`)
+    return warnings
+  }
+  if (adjustedAmount < 0) {
+    warnings.push(`${operatorLabel} 的调整后金额小于 0，请复核。`)
+  }
+  return warnings
+}
+
+function buildOperatorAmountAggregation(
+  operators: SpreadingOperatorRecord[],
+  markerTotalPieces: number,
+  defaultUnitPrice?: number | null,
+): SpreadingOperatorAmountSummary {
+  const summaryMap = new Map<string, SpreadingOperatorAmountSummaryRow>()
+  let totalHandledLayerCount = 0
+  let totalHandledLength = 0
+  let totalHandledPieceQty = 0
+  let totalCalculatedAmount = 0
+  let totalDisplayAmount = 0
+  let hasManualAdjustedAmount = false
+  let hasAnyAllocationData = false
+
+  operators.forEach((operator) => {
+    const operatorName = operator.operatorName || '待补录人员'
+    const handledLayerCount =
+      parseOptionalNumber(operator.handledLayerCount) ??
+      computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer) ??
+      0
+    const handledLength = parseOptionalNumber(operator.handledLength) ?? 0
+    const handledPieceQty =
+      parseOptionalNumber(operator.handledPieceQty) ??
+      computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces) ??
+      0
+    const unitPrice = parseOptionalNumber(operator.unitPrice) ?? parseOptionalNumber(defaultUnitPrice)
+    const calculatedAmount =
+      parseOptionalNumber(operator.calculatedAmount) ??
+      computeOperatorCalculatedAmount({
+        pricingMode: operator.pricingMode,
+        unitPrice,
+        handledLayerCount,
+        handledLength,
+        handledPieceQty,
+      }) ??
+      0
+    const displayAmount = computeOperatorDisplayAmount(operator, calculatedAmount) ?? 0
+
+    const current = summaryMap.get(operatorName) || {
+      operatorName,
+      recordCount: 0,
+      handledLayerCountTotal: 0,
+      handledLengthTotal: 0,
+      handledPieceQtyTotal: 0,
+      calculatedAmountTotal: 0,
+      displayAmountTotal: 0,
+      hasManualAdjustedAmount: false,
+    }
+
+    current.recordCount += 1
+    current.handledLayerCountTotal += handledLayerCount
+    current.handledLengthTotal = Number((current.handledLengthTotal + handledLength).toFixed(2))
+    current.handledPieceQtyTotal += handledPieceQty
+    current.calculatedAmountTotal = Number((current.calculatedAmountTotal + calculatedAmount).toFixed(2))
+    current.displayAmountTotal = Number((current.displayAmountTotal + displayAmount).toFixed(2))
+    current.hasManualAdjustedAmount = current.hasManualAdjustedAmount || Boolean(operator.manualAmountAdjusted)
+
+    summaryMap.set(operatorName, current)
+
+    totalHandledLayerCount += handledLayerCount
+    totalHandledLength = Number((totalHandledLength + handledLength).toFixed(2))
+    totalHandledPieceQty += handledPieceQty
+    totalCalculatedAmount = Number((totalCalculatedAmount + calculatedAmount).toFixed(2))
+    totalDisplayAmount = Number((totalDisplayAmount + displayAmount).toFixed(2))
+    hasManualAdjustedAmount = hasManualAdjustedAmount || Boolean(operator.manualAmountAdjusted)
+    hasAnyAllocationData =
+      hasAnyAllocationData ||
+      Boolean(handledLayerCount || handledLength || handledPieceQty || displayAmount || unitPrice !== null)
+  })
+
+  return {
+    rows: Array.from(summaryMap.values()).sort((left, right) => left.operatorName.localeCompare(right.operatorName, 'zh-CN')),
+    totalHandledLayerCount,
+    totalHandledLength,
+    totalHandledPieceQty,
+    totalCalculatedAmount,
+    totalDisplayAmount,
+    hasManualAdjustedAmount,
+    hasAnyAllocationData,
+  }
+}
+
+export function summarizeRollOperatorAmounts(
+  operators: SpreadingOperatorRecord[],
+  markerTotalPieces: number,
+  defaultUnitPrice?: number | null,
+): SpreadingOperatorAmountSummary {
+  return buildOperatorAmountAggregation(operators, markerTotalPieces, defaultUnitPrice)
+}
+
+export function summarizeSpreadingOperatorAmounts(
+  operators: SpreadingOperatorRecord[],
+  markerTotalPieces: number,
+  defaultUnitPrice?: number | null,
+): SpreadingOperatorAmountSummary {
+  return buildOperatorAmountAggregation(operators, markerTotalPieces, defaultUnitPrice)
+}
+
+export function buildOperatorAmountWarnings(
+  operators: SpreadingOperatorRecord[],
+  markerTotalPieces: number,
+  defaultUnitPrice?: number | null,
+): string[] {
+  const warnings: string[] = []
+  const positivePieceRows = operators
+    .map((operator) => ({
+      operator,
+      handledPieceQty:
+        parseOptionalNumber(operator.handledPieceQty) ??
+        computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces),
+      unitPrice: parseOptionalNumber(operator.unitPrice) ?? parseOptionalNumber(defaultUnitPrice),
+      displayAmount:
+        computeOperatorDisplayAmount(operator) ??
+        computeOperatorCalculatedAmount({
+          pricingMode: operator.pricingMode,
+          unitPrice: parseOptionalNumber(operator.unitPrice) ?? parseOptionalNumber(defaultUnitPrice),
+          handledLayerCount: operator.handledLayerCount,
+          handledLength: operator.handledLength,
+          handledPieceQty:
+            parseOptionalNumber(operator.handledPieceQty) ??
+            computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces),
+        }),
+    }))
+    .filter((item) => (item.handledPieceQty ?? 0) > 0)
+
+  const pieceAverage =
+    positivePieceRows.length > 1
+      ? positivePieceRows.reduce((sum, item) => sum + Math.max(item.handledPieceQty || 0, 0), 0) / positivePieceRows.length
+      : 0
+  const amountAverage =
+    positivePieceRows.length > 1
+      ? positivePieceRows.reduce((sum, item) => sum + Math.max(item.displayAmount || 0, 0), 0) / positivePieceRows.length
+      : 0
+
+  operators.forEach((operator, index) => {
+    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员记录`
+    const handledLayerCount =
+      parseOptionalNumber(operator.handledLayerCount) ??
+      computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer)
+    const handledPieceQty =
+      parseOptionalNumber(operator.handledPieceQty) ??
+      computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces)
+    const pricingMode = operator.pricingMode || '按件计价'
+    const unitPrice = parseOptionalNumber(operator.unitPrice) ?? parseOptionalNumber(defaultUnitPrice)
+    const calculatedAmount =
+      parseOptionalNumber(operator.calculatedAmount) ??
+      computeOperatorCalculatedAmount({
+        pricingMode,
+        unitPrice,
+        handledLayerCount,
+        handledLength: operator.handledLength,
+        handledPieceQty,
+      })
+    const displayAmount = computeOperatorDisplayAmount(operator, calculatedAmount)
+
+    if (unitPrice === null) {
+      warnings.push(`${operatorLabel} 缺少单价，当前无法形成完整金额。`)
+    }
+    if (handledPieceQty === null) {
+      warnings.push(`${operatorLabel} 缺少开始层 / 结束层或唛架总件数，当前无法计算负责件数。`)
+    }
+    if (parseOptionalNumber(operator.handledLength) === null) {
+      warnings.push(`${operatorLabel} 缺少负责长度。`)
+    }
+    validateOperatorManualAmountAdjustment(operator).forEach((message) => warnings.push(message))
+
+    if (pieceAverage > 0 && (handledPieceQty || 0) > pieceAverage * 2) {
+      warnings.push(`${operatorLabel} 的负责件数明显高于当前平均值，请复核层数区间。`)
+    }
+    if (amountAverage > 0 && (displayAmount || 0) > amountAverage * 2) {
+      warnings.push(`${operatorLabel} 的金额明显高于当前平均值，请复核单价或人工调整。`)
+    }
+  })
+
+  return Array.from(new Set(warnings))
+}
+
+export function validateRollHandoverContinuity(
+  operators: SpreadingOperatorRecord[],
+): {
+  continuityStatus: '连续' | '层数断档' | '层数重叠' | '待补录'
+  overlapDetected: boolean
+  gapDetected: boolean
+  warnings: string[]
+} {
+  const warnings: string[] = []
+  let overlapDetected = false
+  let gapDetected = false
+  let previousEndLayer: number | null = null
+
+  operators.forEach((operator) => {
+    const startLayer = parseOptionalNumber(operator.startLayer)
+    const endLayer = parseOptionalNumber(operator.endLayer)
+    const operatorLabel = operator.operatorName || '未命名人员'
+
+    if (startLayer === null || endLayer === null) {
+      warnings.push(`${operatorLabel} 缺少开始层或结束层，当前交接区间待补录。`)
+      return
+    }
+
+    if (endLayer < startLayer) {
+      warnings.push(`${operatorLabel} 的结束层小于开始层，请复核交接区间。`)
+      return
+    }
+
+    if (previousEndLayer !== null) {
+      if (startLayer <= previousEndLayer) {
+        overlapDetected = true
+        warnings.push(`${operatorLabel} 的开始层与上一条记录重叠，请检查同卷交接层数。`)
+      } else if (startLayer > previousEndLayer + 1) {
+        gapDetected = true
+        warnings.push(`${operatorLabel} 的开始层与上一条记录之间存在断档，请补齐中间层数。`)
+      }
+    }
+
+    previousEndLayer = endLayer
+  })
+
+  return {
+    continuityStatus: overlapDetected ? '层数重叠' : gapDetected ? '层数断档' : warnings.length ? '待补录' : '连续',
+    overlapDetected,
+    gapDetected,
+    warnings,
+  }
+}
+
+export function validateRollHandledLength(
+  roll: SpreadingRollRecord,
+  operators: SpreadingOperatorRecord[],
+): {
+  totalHandledLength: number
+  lengthExceeded: boolean
+  warnings: string[]
+} {
+  const totalHandledLength = Number(
+    operators.reduce((sum, operator) => sum + Math.max(parseOptionalNumber(operator.handledLength) || 0, 0), 0).toFixed(2),
+  )
+  const lengthExceeded = roll.actualLength > 0 && totalHandledLength - roll.actualLength > 0.0001
+  return {
+    totalHandledLength,
+    lengthExceeded,
+    warnings: lengthExceeded ? [`卷 ${roll.rollNo || '未命名卷'} 的人员负责长度合计已超过该卷实际长度。`] : [],
+  }
+}
+
+export function buildRollHandoverWarnings(
+  roll: SpreadingRollRecord,
+  operators: SpreadingOperatorRecord[],
+  markerTotalPieces: number,
+): string[] {
+  const warnings: string[] = []
+  const rollLabel = roll.rollNo || '未命名卷'
+  const continuity = validateRollHandoverContinuity(operators)
+  const handledLength = validateRollHandledLength(roll, operators)
   const sortedOperators = [...operators].sort((left, right) => {
+    const sortGap = (left.sortOrder || 0) - (right.sortOrder || 0)
+    if (sortGap !== 0) return sortGap
+    const startGap = parseTimeWeight(left.startAt) - parseTimeWeight(right.startAt)
+    if (startGap !== 0) return startGap
+    return 0
+  })
+  const lastOperator = sortedOperators[sortedOperators.length - 1] || null
+  const finalHandledLayer = lastOperator ? parseOptionalNumber(lastOperator.endLayer) : null
+
+  continuity.warnings.forEach((message) => warnings.push(message))
+  handledLength.warnings.forEach((message) => warnings.push(message))
+
+  sortedOperators.forEach((operator, index) => {
+    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员记录`
+    const handledLayerCount = computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer)
+    const handledPieceQty = computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces)
+
+    if (handledLayerCount === null) {
+      warnings.push(`${rollLabel} / ${operatorLabel} 缺少有效层数区间。`)
+    }
+    if (handledPieceQty === null) {
+      warnings.push(`${rollLabel} / ${operatorLabel} 无法计算负责件数，请补录层数或唛架总件数。`)
+    }
+    if (parseOptionalNumber(operator.handledLength) === null) {
+      warnings.push(`${rollLabel} / ${operatorLabel} 缺少负责长度。`)
+    }
+    if ((operator.actionType === '中途交接' || operator.actionType === '接手继续') && !operator.handoverNotes.trim()) {
+      warnings.push(`${rollLabel} / ${operatorLabel} 已标记交接动作，但缺少交接说明。`)
+    }
+  })
+
+  if (roll.layerCount > 0 && finalHandledLayer !== null && finalHandledLayer < roll.layerCount) {
+    warnings.push(`${rollLabel} 当前最后一条人员记录只铺到第 ${finalHandledLayer} 层，尚未完整铺完至第 ${roll.layerCount} 层。`)
+  }
+
+  return Array.from(new Set(warnings))
+}
+
+export function buildRollHandoverViewModel(
+  roll: SpreadingRollRecord,
+  operators: SpreadingOperatorRecord[],
+  markerTotalPieces: number,
+): SpreadingRollHandoverSummary {
+  const sortedOperators = [...operators].sort((left, right) => {
+    const sortGap = (left.sortOrder || 0) - (right.sortOrder || 0)
+    if (sortGap !== 0) return sortGap
     const startGap = parseTimeWeight(left.startAt) - parseTimeWeight(right.startAt)
     if (startGap !== 0) return startGap
     const endGap = parseTimeWeight(left.endAt) - parseTimeWeight(right.endAt)
     if (endGap !== 0) return endGap
-    return (left.sortOrder || 0) - (right.sortOrder || 0)
+    return 0
+  })
+  const continuity = validateRollHandoverContinuity(sortedOperators)
+  const handledLength = validateRollHandledLength(roll, sortedOperators)
+  const quantifiedOperators = sortedOperators.map((operator, index) => {
+    const previousOperator = sortedOperators[index - 1]
+    const nextOperator = sortedOperators[index + 1]
+    const handledLayerCount = computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer)
+    const handledPieceQty = computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces)
+    const calculatedAmount =
+      parseOptionalNumber(operator.calculatedAmount) ??
+      computeOperatorCalculatedAmount({
+        pricingMode: operator.pricingMode,
+        unitPrice: operator.unitPrice,
+        handledLayerCount,
+        handledLength: operator.handledLength,
+        handledPieceQty,
+      })
+    const displayAmount = computeOperatorDisplayAmount(operator, calculatedAmount)
+    return {
+      operator,
+      previousOperatorName: operator.previousOperatorName || previousOperator?.operatorName || '',
+      nextOperatorName: operator.nextOperatorName || nextOperator?.operatorName || '',
+      handledLayerCount,
+      handledPieceQty,
+      calculatedAmount,
+      displayAmount,
+      handoverAtLayer:
+        parseOptionalNumber(operator.handoverAtLayer) ??
+        (operator.actionType === '接手继续'
+          ? parseOptionalNumber(operator.startLayer)
+          : parseOptionalNumber(operator.endLayer)),
+      handoverAtLength: parseOptionalNumber(operator.handoverAtLength) ?? parseOptionalNumber(operator.handledLength),
+    }
+  })
+  const lastOperator = quantifiedOperators[quantifiedOperators.length - 1] || null
+  const finalHandledLayer = lastOperator ? parseOptionalNumber(lastOperator.operator.endLayer) : null
+  const incompleteCoverage = roll.layerCount > 0 && finalHandledLayer !== null && finalHandledLayer < roll.layerCount
+  const warnings = buildRollHandoverWarnings(roll, sortedOperators, markerTotalPieces)
+
+  return {
+    rollRecordId: roll.rollRecordId,
+    rollNo: roll.rollNo,
+    operators: quantifiedOperators,
+    hasHandover: quantifiedOperators.length > 1,
+    hasWarnings: warnings.length > 0,
+    continuityStatus: continuity.continuityStatus,
+    totalHandledLength: handledLength.totalHandledLength,
+    finalHandledLayer,
+    overlapDetected: continuity.overlapDetected,
+    gapDetected: continuity.gapDetected,
+    lengthExceeded: handledLength.lengthExceeded,
+    incompleteCoverage,
+    warnings,
+  }
+}
+
+export function buildSpreadingHandoverListSummary(
+  rolls: SpreadingRollRecord[],
+  operators: SpreadingOperatorRecord[],
+  markerTotalPieces: number,
+): SpreadingHandoverListSummary {
+  const summaries = rolls.map((roll) =>
+    buildRollHandoverViewModel(
+      roll,
+      operators.filter((operator) => operator.rollRecordId === roll.rollRecordId),
+      markerTotalPieces,
+    ),
+  )
+  const handoverRollCount = summaries.filter((item) => item.hasHandover).length
+  const abnormalRollCount = summaries.filter((item) => item.hasWarnings).length
+
+  return {
+    handoverRollCount,
+    abnormalRollCount,
+    hasHandover: handoverRollCount > 0,
+    hasAbnormalHandover: abnormalRollCount > 0,
+    statusLabel:
+      abnormalRollCount > 0
+        ? `有 ${abnormalRollCount} 卷存在交接异常`
+        : handoverRollCount > 0
+          ? `已记录 ${handoverRollCount} 卷交接班`
+          : '无交接班',
+  }
+}
+
+export function summarizeSpreadingOperators(operators: SpreadingOperatorRecord[]): SpreadingOperatorSummary {
+  const sortedOperators = [...operators].sort((left, right) => {
+    const sortGap = (left.sortOrder || 0) - (right.sortOrder || 0)
+    if (sortGap !== 0) return sortGap
+    const startGap = parseTimeWeight(left.startAt) - parseTimeWeight(right.startAt)
+    if (startGap !== 0) return startGap
+    const endGap = parseTimeWeight(left.endAt) - parseTimeWeight(right.endAt)
+    if (endGap !== 0) return endGap
+    return 0
   })
   const operatorsByRollId = sortedOperators.reduce<Record<string, SpreadingOperatorRecord[]>>((accumulator, operator) => {
     const key = operator.rollRecordId || '__UNBOUND__'
@@ -1557,6 +2108,7 @@ export function buildSpreadingWarningMessages(options: {
     const usableLength = computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0))
     const remainingLength = computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0))
     const linkedOperators = operatorSummary.operatorsByRollId[roll.rollRecordId] || []
+    const handoverSummary = buildRollHandoverViewModel(roll, linkedOperators, options.markerTotalPieces)
 
     if (usableLength < 0) {
       warnings.push(`${rollLabel} 的单卷可用长度小于 0，请复核布头 / 布尾与实际长度。`)
@@ -1573,9 +2125,7 @@ export function buildSpreadingWarningMessages(options: {
     if (!linkedOperators.length) {
       warnings.push(`${rollLabel} 缺少人员记录，无法追溯开始、交接与完成情况。`)
     }
-    if (linkedOperators.length > 1 && !linkedOperators.some((operator) => operator.handoverNotes.trim())) {
-      warnings.push(`${rollLabel} 发生了同卷换班，但没有填写交接说明。`)
-    }
+    handoverSummary.warnings.forEach((message) => warnings.push(message))
   })
 
   if (options.claimedLengthTotal > 0 && rollSummary.totalActualLength > options.claimedLengthTotal) {
@@ -1597,10 +2147,9 @@ export function buildSpreadingWarningMessages(options: {
     if (!operator.startAt || !operator.endAt) {
       warnings.push(`${operatorLabel} 缺少开始或结束时间。`)
     }
-    if ((operator.actionType === '中途交接' || operator.actionType === '接手继续') && !operator.handoverNotes.trim()) {
-      warnings.push(`${operatorLabel} 已标记交接动作，但缺少交接说明。`)
-    }
   })
+
+  buildOperatorAmountWarnings(operators, options.markerTotalPieces, options.session.unitPrice).forEach((message) => warnings.push(message))
 
   return Array.from(new Set(warnings))
 }
@@ -1698,7 +2247,40 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                     sortOrder: Number(operator.sortOrder ?? 0),
                     rollRecordId: operator.rollRecordId || '',
                     actionType: (operator.actionType || '开始铺布') as SpreadingOperatorActionType,
+                    startLayer: operator.startLayer !== undefined && operator.startLayer !== null ? Number(operator.startLayer) : undefined,
+                    endLayer: operator.endLayer !== undefined && operator.endLayer !== null ? Number(operator.endLayer) : undefined,
+                    handledLayerCount:
+                      operator.handledLayerCount !== undefined && operator.handledLayerCount !== null
+                        ? Number(operator.handledLayerCount)
+                        : undefined,
+                    handledLength: operator.handledLength !== undefined && operator.handledLength !== null ? Number(operator.handledLength) : undefined,
+                    handledPieceQty:
+                      operator.handledPieceQty !== undefined && operator.handledPieceQty !== null
+                        ? Number(operator.handledPieceQty)
+                        : undefined,
+                    pricingMode: operator.pricingMode || '按件计价',
+                    unitPrice: operator.unitPrice !== undefined && operator.unitPrice !== null ? Number(operator.unitPrice) : undefined,
+                    calculatedAmount:
+                      operator.calculatedAmount !== undefined && operator.calculatedAmount !== null
+                        ? Number(operator.calculatedAmount)
+                        : undefined,
+                    manualAmountAdjusted: Boolean(operator.manualAmountAdjusted),
+                    adjustedAmount:
+                      operator.adjustedAmount !== undefined && operator.adjustedAmount !== null
+                        ? Number(operator.adjustedAmount)
+                        : undefined,
+                    amountNote: operator.amountNote || '',
                     handoverNotes: operator.handoverNotes || '',
+                    previousOperatorName: operator.previousOperatorName || '',
+                    nextOperatorName: operator.nextOperatorName || '',
+                    handoverAtLayer:
+                      operator.handoverAtLayer !== undefined && operator.handoverAtLayer !== null
+                        ? Number(operator.handoverAtLayer)
+                        : undefined,
+                    handoverAtLength:
+                      operator.handoverAtLength !== undefined && operator.handoverAtLength !== null
+                        ? Number(operator.handoverAtLength)
+                        : undefined,
                   }))
                 : [],
               totalActualLength: session.totalActualLength || rollSummary.totalActualLength,
@@ -1826,8 +2408,23 @@ export function createOperatorRecordDraft(spreadingSessionId: string): Spreading
     startAt: '',
     endAt: '',
     actionType: '开始铺布',
+    startLayer: undefined,
+    endLayer: undefined,
+    handledLayerCount: undefined,
+    handledLength: undefined,
+    handledPieceQty: undefined,
+    pricingMode: '按件计价',
+    unitPrice: undefined,
+    calculatedAmount: undefined,
+    manualAmountAdjusted: false,
+    adjustedAmount: undefined,
+    amountNote: '',
     handoverFlag: false,
     handoverNotes: '',
+    previousOperatorName: '',
+    nextOperatorName: '',
+    handoverAtLayer: undefined,
+    handoverAtLength: undefined,
     note: '',
     sourceChannel: 'MANUAL',
     sourceWritebackId: '',
@@ -1840,12 +2437,85 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     ...roll,
     sortOrder: Number(roll.sortOrder ?? index + 1),
   }))
-  const normalizedOperators = summarizeSpreadingOperators(
+  const markerTotalPieces = session.markerId
+    ? store.markers.find((item) => item.markerId === session.markerId)?.totalPieces || 0
+    : 0
+  const baseOperators = summarizeSpreadingOperators(
     session.operators.map((operator, index) => ({
       ...operator,
       sortOrder: Number(operator.sortOrder ?? index + 1),
+      startLayer: operator.startLayer !== undefined && operator.startLayer !== null ? Number(operator.startLayer) : undefined,
+      endLayer: operator.endLayer !== undefined && operator.endLayer !== null ? Number(operator.endLayer) : undefined,
+      handledLength: operator.handledLength !== undefined && operator.handledLength !== null ? Number(operator.handledLength) : undefined,
+      pricingMode: operator.pricingMode || '按件计价',
+      unitPrice: operator.unitPrice !== undefined && operator.unitPrice !== null ? Number(operator.unitPrice) : undefined,
+      calculatedAmount:
+        operator.calculatedAmount !== undefined && operator.calculatedAmount !== null ? Number(operator.calculatedAmount) : undefined,
+      manualAmountAdjusted: Boolean(operator.manualAmountAdjusted),
+      adjustedAmount: operator.adjustedAmount !== undefined && operator.adjustedAmount !== null ? Number(operator.adjustedAmount) : undefined,
+      amountNote: operator.amountNote || '',
+      handoverAtLayer:
+        operator.handoverAtLayer !== undefined && operator.handoverAtLayer !== null ? Number(operator.handoverAtLayer) : undefined,
+      handoverAtLength:
+        operator.handoverAtLength !== undefined && operator.handoverAtLength !== null ? Number(operator.handoverAtLength) : undefined,
     })),
   ).sortedOperators
+  const quantifiedOperatorsById = new Map<string, SpreadingOperatorRecord>()
+  normalizedRolls.forEach((roll) => {
+    const handoverSummary = buildRollHandoverViewModel(
+      roll,
+      baseOperators.filter((operator) => operator.rollRecordId === roll.rollRecordId),
+      markerTotalPieces,
+    )
+    handoverSummary.operators.forEach((item) => {
+      quantifiedOperatorsById.set(item.operator.operatorRecordId, {
+        ...item.operator,
+        handledLayerCount: item.handledLayerCount ?? undefined,
+        handledPieceQty: item.handledPieceQty ?? undefined,
+        unitPrice: item.operator.unitPrice ?? session.unitPrice ?? undefined,
+        pricingMode: item.operator.pricingMode || '按件计价',
+        calculatedAmount:
+          computeOperatorCalculatedAmount({
+            pricingMode: item.operator.pricingMode || '按件计价',
+            unitPrice: item.operator.unitPrice ?? session.unitPrice ?? undefined,
+            handledLayerCount: item.handledLayerCount,
+            handledLength: item.operator.handledLength,
+            handledPieceQty: item.handledPieceQty,
+          }) ?? undefined,
+        manualAmountAdjusted: Boolean(item.operator.manualAmountAdjusted),
+        adjustedAmount: item.operator.adjustedAmount ?? undefined,
+        amountNote: item.operator.amountNote || '',
+        previousOperatorName: item.previousOperatorName,
+        nextOperatorName: item.nextOperatorName,
+        handoverAtLayer: item.handoverAtLayer ?? undefined,
+        handoverAtLength: item.handoverAtLength ?? undefined,
+      })
+    })
+  })
+  const normalizedOperators = baseOperators.map((operator) => {
+    const quantified = quantifiedOperatorsById.get(operator.operatorRecordId)
+    if (quantified) return quantified
+    return {
+      ...operator,
+      handledLayerCount: computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer) ?? undefined,
+      handledPieceQty: computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces) ?? undefined,
+      pricingMode: operator.pricingMode || '按件计价',
+      unitPrice: operator.unitPrice ?? session.unitPrice ?? undefined,
+      calculatedAmount:
+        computeOperatorCalculatedAmount({
+          pricingMode: operator.pricingMode || '按件计价',
+          unitPrice: operator.unitPrice ?? session.unitPrice ?? undefined,
+          handledLayerCount: computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer),
+          handledLength: operator.handledLength,
+          handledPieceQty: computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces),
+        }) ?? undefined,
+      manualAmountAdjusted: Boolean(operator.manualAmountAdjusted),
+      adjustedAmount: operator.adjustedAmount ?? undefined,
+      amountNote: operator.amountNote || '',
+      previousOperatorName: operator.previousOperatorName || '',
+      nextOperatorName: operator.nextOperatorName || '',
+    }
+  })
   const operatorNamesByRollId = Object.fromEntries(
     Object.entries(summarizeSpreadingOperators(normalizedOperators).rollParticipantNames).map(([rollId, names]) => [rollId, names]),
   )
@@ -1854,6 +2524,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     operatorNames: operatorNamesByRollId[roll.rollRecordId] || [],
   }))
   const summary = summarizeSpreadingRolls(rollsWithOperatorNames)
+  const operatorAmountSummary = summarizeSpreadingOperatorAmounts(normalizedOperators, markerTotalPieces, session.unitPrice)
   const normalized: SpreadingSession = {
     ...session,
     rolls: rollsWithOperatorNames,
@@ -1873,8 +2544,10 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     varianceLength: session.varianceLength ?? 0,
     varianceNote: session.varianceNote || '',
     totalAmount:
-      session.totalAmount ??
-      Number((((session.unitPrice ?? 0) * (session.actualCutPieceQty ?? 0))).toFixed(2)),
+      operatorAmountSummary.hasAnyAllocationData
+        ? operatorAmountSummary.totalDisplayAmount
+        : session.totalAmount ??
+          Number((((session.unitPrice ?? 0) * (session.actualCutPieceQty ?? 0))).toFixed(2)),
     updatedAt: nowText(now),
     warningMessages: session.warningMessages || [],
     sourceChannel: session.sourceChannel || 'MANUAL',

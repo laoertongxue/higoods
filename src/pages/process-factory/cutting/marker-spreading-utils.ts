@@ -9,6 +9,8 @@ import {
   buildSpreadingVarianceSummary,
   buildSpreadingWarningMessages,
   computeActualCutQty,
+  computeOperatorHandledLayerCount,
+  computeOperatorHandledPieceQty,
   computeLengthVariance,
   computeHighLowCuttingTotals,
   computeHighLowPatternTotals,
@@ -21,6 +23,8 @@ import {
   computeNormalMarkerSpreadTotalLength,
   computeUsableLength,
   computeUsageSummary,
+  buildRollHandoverViewModel,
+  buildSpreadingHandoverListSummary,
   createEmptyStore,
   createOperatorRecordDraft,
   createRollRecordDraft,
@@ -33,8 +37,10 @@ import {
   deserializeMarkerSpreadingStorage,
   MARKER_SIZE_KEYS,
   summarizeSpreadingRolls,
+  summarizeSpreadingOperatorAmounts,
   summarizeSpreadingOperators,
   validateMarkerModeShape,
+  buildOperatorAmountWarnings,
   type SpreadingReplenishmentWarning,
   type SpreadingSuggestedAction,
   type HighLowCuttingRow,
@@ -44,7 +50,9 @@ import {
   type MarkerSpreadingContext,
   type MarkerSpreadingPrefilter,
   type MarkerSpreadingStore,
+  type SpreadingOperatorAmountSummary,
   type SpreadingOperatorRecord,
+  type SpreadingRollHandoverSummary,
   type SpreadingSession,
 } from './marker-spreading-model'
 import { readWarehouseMergeBatchLedger } from './warehouse-shared'
@@ -56,6 +64,8 @@ export {
   buildSpreadingVarianceSummary,
   buildSpreadingWarningMessages,
   computeActualCutQty,
+  computeOperatorHandledLayerCount,
+  computeOperatorHandledPieceQty,
   computeLengthVariance,
   computeHighLowCuttingTotals,
   computeHighLowPatternTotals,
@@ -68,12 +78,16 @@ export {
   computeNormalMarkerSpreadTotalLength,
   computeUsableLength,
   computeUsageSummary,
+  buildRollHandoverViewModel,
+  buildSpreadingHandoverListSummary,
+  buildOperatorAmountWarnings,
   DEFAULT_HIGH_LOW_PATTERN_KEYS,
   deriveMarkerTemplateByMode,
   deriveMarkerModeMeta,
   deriveSpreadingModeMeta,
   MARKER_SIZE_KEYS,
   summarizeSpreadingRolls,
+  summarizeSpreadingOperatorAmounts,
   validateMarkerModeShape,
 }
 
@@ -148,6 +162,13 @@ export interface SpreadingListRow {
   differenceStatusLabel: string
   differenceStatusTone: 'normal' | 'warning'
   completedOriginalOrderCount: number
+  hasHandover: boolean
+  hasHandoverWarnings: boolean
+  handoverStatusLabel: string
+  hasOperatorAllocation: boolean
+  operatorAllocationAmountTotal: number
+  hasManualAdjustedAmount: boolean
+  operatorAllocationStatusLabel: string
   hasWarnings: boolean
   warningStatusLabel: string
   hasReplenishmentWarning: boolean
@@ -176,7 +197,10 @@ export interface SpreadingDetailViewModel {
   linkedOriginalCutOrderNos: string[]
   sortedOperators: SpreadingOperatorRecord[]
   operatorsByRollId: Record<string, SpreadingOperatorRecord[]>
+  handoverSummaryByRollId: Record<string, SpreadingRollHandoverSummary>
   rollParticipantSummary: Record<string, string>
+  operatorAmountSummary: SpreadingOperatorAmountSummary
+  amountWarnings: string[]
 }
 
 export interface MarkerLineItemSummary {
@@ -327,7 +351,10 @@ function createSeedSession(marker: MarkerRecord, context: MarkerSpreadingContext
   operatorA.operatorAccountId = 'CUT001'
   operatorA.startAt = `2026-03-${String(10 + index).padStart(2, '0')} 09:00`
   operatorA.endAt = `2026-03-${String(10 + index).padStart(2, '0')} 12:00`
-  operatorA.actionType = '开始铺布'
+  operatorA.actionType = '完成铺布'
+  operatorA.startLayer = 1
+  operatorA.endLayer = rollA.layerCount
+  operatorA.handledLength = rollA.actualLength
 
   const operatorB = createOperatorRecordDraft(session.spreadingSessionId)
   operatorB.sortOrder = 2
@@ -335,15 +362,36 @@ function createSeedSession(marker: MarkerRecord, context: MarkerSpreadingContext
   operatorB.operatorName = '李师傅'
   operatorB.operatorAccountId = 'CUT002'
   operatorB.startAt = `2026-03-${String(10 + index).padStart(2, '0')} 13:00`
-  operatorB.endAt = `2026-03-${String(10 + index).padStart(2, '0')} 17:30`
-  operatorB.actionType = '接手继续'
+  operatorB.endAt = `2026-03-${String(10 + index).padStart(2, '0')} 15:00`
+  operatorB.actionType = '中途交接'
   operatorB.handoverFlag = true
-  operatorB.note = '接续同卷铺布。'
-  operatorB.handoverNotes = '午后换班接手同卷。'
+  operatorB.startLayer = 1
+  operatorB.endLayer = Math.max(Math.floor(rollB.layerCount / 2), 1)
+  operatorB.handledLength = Number((rollB.actualLength * 0.45).toFixed(2))
+  operatorB.note = '先完成本卷前半段铺布。'
+  operatorB.handoverNotes = '午后换班，将该卷交接给王师傅继续铺。'
+
+  const operatorC = createOperatorRecordDraft(session.spreadingSessionId)
+  operatorC.sortOrder = 3
+  operatorC.rollRecordId = rollB.rollRecordId
+  operatorC.operatorName = '王师傅'
+  operatorC.operatorAccountId = 'CUT003'
+  operatorC.startAt = `2026-03-${String(10 + index).padStart(2, '0')} 15:00`
+  operatorC.endAt = `2026-03-${String(10 + index).padStart(2, '0')} 17:30`
+  operatorC.actionType = '完成铺布'
+  operatorC.handoverFlag = true
+  operatorC.startLayer = operatorB.endLayer + 1
+  operatorC.endLayer = rollB.layerCount
+  operatorC.handledLength = Number((rollB.actualLength - (operatorB.handledLength || 0)).toFixed(2))
+  operatorC.previousOperatorName = operatorB.operatorName
+  operatorC.handoverAtLayer = operatorB.endLayer
+  operatorC.handoverAtLength = operatorB.handledLength
+  operatorC.note = '接手完成本卷剩余铺布。'
+  operatorC.handoverNotes = '承接李师傅交接，继续铺至本卷结束。'
 
   session.sessionNo = session.sessionNo || `PB-${String(2000 + index).padStart(4, '0')}`
   session.rolls = index % 2 === 0 ? [rollA, rollB] : [rollA]
-  session.operators = index % 2 === 0 ? [operatorA, operatorB] : [operatorA]
+  session.operators = index % 2 === 0 ? [operatorA, operatorB, operatorC] : [operatorA]
   session.status = index % 2 === 0 ? 'IN_PROGRESS' : 'DONE'
   session.actualCutPieceQty = session.rolls.reduce((sum, roll) => sum + Math.max(roll.actualCutPieceQty || 0, 0), 0)
   session.unitPrice = 0.46 + index * 0.04
@@ -538,6 +586,12 @@ export function buildSpreadingListViewModel(options: {
       const markerRecord = session.markerId ? markerById[session.markerId] || null : null
       const context = buildSessionContext(session, originalRows, batch)
       const varianceSummary = buildSpreadingVarianceSummary(context, markerRecord, session)
+      const handoverSummary = buildSpreadingHandoverListSummary(session.rolls, session.operators, markerRecord?.totalPieces || 0)
+      const operatorAmountSummary = summarizeSpreadingOperatorAmounts(
+        session.operators,
+        markerRecord?.totalPieces || 0,
+        session.unitPrice,
+      )
       const warningMessages = buildSpreadingWarningMessages({
         session,
         markerTotalPieces: markerRecord?.totalPieces || 0,
@@ -589,6 +643,17 @@ export function buildSpreadingListViewModel(options: {
         differenceStatusTone:
           Math.abs(varianceSummary?.varianceLength || session.varianceLength || 0) > 0.01 ? 'warning' : 'normal',
         completedOriginalOrderCount,
+        hasHandover: handoverSummary.hasHandover,
+        hasHandoverWarnings: handoverSummary.hasAbnormalHandover,
+        handoverStatusLabel: handoverSummary.statusLabel,
+        hasOperatorAllocation: operatorAmountSummary.hasAnyAllocationData,
+        operatorAllocationAmountTotal: operatorAmountSummary.totalDisplayAmount,
+        hasManualAdjustedAmount: operatorAmountSummary.hasManualAdjustedAmount,
+        operatorAllocationStatusLabel: operatorAmountSummary.hasAnyAllocationData
+          ? operatorAmountSummary.hasManualAdjustedAmount
+            ? '已生成人员分摊，含人工调价'
+            : '已生成人员分摊'
+          : '待补录人员分摊',
         hasWarnings: warningMessages.length > 0,
         warningStatusLabel:
           warningMessages.length > 0
@@ -648,6 +713,14 @@ export function buildSpreadingDetailViewModel(options: {
     claimedLengthTotal: varianceSummary?.claimedLengthTotal || 0,
   })
   const operatorSummary = summarizeSpreadingOperators(session.operators)
+  const operatorAmountSummary = summarizeSpreadingOperatorAmounts(session.operators, markerRecord?.totalPieces || 0, session.unitPrice)
+  const amountWarnings = buildOperatorAmountWarnings(session.operators, markerRecord?.totalPieces || 0, session.unitPrice)
+  const handoverSummaryByRollId = Object.fromEntries(
+    session.rolls.map((roll) => [
+      roll.rollRecordId,
+      buildRollHandoverViewModel(roll, operatorSummary.operatorsByRollId[roll.rollRecordId] || [], markerRecord?.totalPieces || 0),
+    ]),
+  )
   const replenishmentWarning =
     session.replenishmentWarning ||
     buildSpreadingReplenishmentWarning({
@@ -669,9 +742,12 @@ export function buildSpreadingDetailViewModel(options: {
     linkedOriginalCutOrderNos: originalRows.map((item) => item.originalCutOrderNo),
     sortedOperators: operatorSummary.sortedOperators,
     operatorsByRollId: operatorSummary.operatorsByRollId,
+    handoverSummaryByRollId,
     rollParticipantSummary: Object.fromEntries(
       Object.entries(operatorSummary.rollParticipantNames).map(([rollId, names]) => [rollId, names.join(' → ') || '待补录']),
     ),
+    operatorAmountSummary,
+    amountWarnings,
   }
 }
 
@@ -752,13 +828,21 @@ export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: st
   hasReplenishmentWarning: boolean
   warningLevelLabel: string
   suggestedAction: string
+  hasOperatorAllocation: boolean
+  operatorAmountTotal: number
+  hasManualAdjustedAmount: boolean
 } {
   const { store } = readMarkerSpreadingPrototypeData()
   const linkedSessions = store.sessions.filter((item) => item.originalCutOrderIds.includes(originalCutOrderId))
+  const markersById = Object.fromEntries(store.markers.map((marker) => [marker.markerId, marker]))
   const doneCount = linkedSessions.filter((item) => item.status === 'DONE').length
   const inProgressCount = linkedSessions.filter((item) => item.status === 'IN_PROGRESS').length
   const latestSession = [...linkedSessions].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))[0] || null
   const latestWarning = latestSession?.replenishmentWarning || null
+  const latestMarkerTotalPieces = latestSession?.markerId ? markersById[latestSession.markerId]?.totalPieces || 0 : 0
+  const latestAmountSummary = latestSession
+    ? summarizeSpreadingOperatorAmounts(latestSession.operators, latestMarkerTotalPieces, latestSession.unitPrice)
+    : null
   const completedForCurrentOrder = linkedSessions.some((item) => getCompletedLinkedOriginalCutOrderIds(item).includes(originalCutOrderId))
   const spreadingStatusLabel = latestWarning && latestWarning.suggestedAction !== '无需补料'
     ? '待补料确认'
@@ -788,5 +872,8 @@ export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: st
     hasReplenishmentWarning: Boolean(latestWarning && latestWarning.suggestedAction !== '无需补料'),
     warningLevelLabel: latestWarning?.warningLevel || '低',
     suggestedAction: latestWarning?.suggestedAction || '无需补料',
+    hasOperatorAllocation: Boolean(latestAmountSummary?.hasAnyAllocationData),
+    operatorAmountTotal: latestAmountSummary?.totalDisplayAmount || 0,
+    hasManualAdjustedAmount: Boolean(latestAmountSummary?.hasManualAdjustedAmount),
   }
 }

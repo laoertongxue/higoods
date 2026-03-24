@@ -2,6 +2,10 @@ import { appStore } from '../../state/store'
 import { type ProcessTask } from '../../data/fcs/process-tasks'
 import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap'
 import {
+  getQcById as getQcByIdFromChain,
+  resolveQcIdFromRouteKey,
+} from '../../data/fcs/quality-chain-adapter'
+import {
   initialDeductionBasisItems,
   initialQualityInspections,
   initialReturnInboundBatches,
@@ -298,7 +302,7 @@ function qcToForm(qc: QualityInspection): QcRecordFormState {
 }
 
 function getQcById(qcId: string): QualityInspection | null {
-  return initialQualityInspections.find((item) => item.qcId === qcId) ?? null
+  return getQcByIdFromChain(qcId)
 }
 
 function getReturnInboundBatchById(batchId: string): (typeof initialReturnInboundBatches)[number] | null {
@@ -349,7 +353,7 @@ function ensureDetailState(routeQcId: string): QcRecordDetailState {
 
   if (!detailState || detailState.routeQcId !== routeQcId || detailState.queryKey !== queryKey) {
     const isNew = routeQcId === 'new'
-    const currentQcId = isNew ? null : routeQcId
+    const currentQcId = isNew ? null : resolveQcIdFromRouteKey(routeQcId) ?? routeQcId
     const existingQc = currentQcId ? getQcById(currentQcId) : null
 
     const params = getCurrentSearchParams()
@@ -566,6 +570,7 @@ export {
   emptyForm,
   qcToForm,
   getQcById,
+  resolveQcIdFromRouteKey,
   getReturnInboundBatchById,
   applyReturnInboundBatchToForm,
   isSewReturnInboundFromForm,
