@@ -39,11 +39,11 @@ export const updatedSourceMeta: Record<CuttingSummaryUpdatedSource, string> = {
 }
 
 export const issueSourceMeta: Record<CuttingSummaryIssue['sourcePage'], { label: string; shortLabel: string }> = {
-  MATERIAL_PREP: { label: '仓库配料', shortLabel: '配料领料' },
-  CUT_PIECE_ORDER: { label: '裁片单', shortLabel: '裁片执行' },
+  MATERIAL_PREP: { label: '仓库配料 / 领料', shortLabel: '配料领料' },
+  CUT_PIECE_ORDER: { label: '原始裁片单', shortLabel: '原始单' },
   REPLENISHMENT: { label: '补料管理', shortLabel: '补料' },
-  WAREHOUSE: { label: '仓库管理', shortLabel: '仓库' },
-  SAMPLE: { label: '样衣流转', shortLabel: '样衣' },
+  WAREHOUSE: { label: '裁片仓交接', shortLabel: '仓交接' },
+  SAMPLE: { label: '样衣仓', shortLabel: '样衣仓' },
 }
 
 export function filterCuttingSummaryRecords(

@@ -1,3 +1,5 @@
+// 本文件继续复用旧 renderer 承接 canonical 页面“仓库配料 / 领料”。
+// 后续页面深化应以物料衔接对象为中心，不再退回旧仓库平铺语义。
 import { renderDialog as uiDialog, renderDrawer as uiDrawer, renderFormDrawer as uiFormDrawer } from '../../../components/ui'
 import {
   cloneCuttingMaterialPrepGroups,
@@ -8,6 +10,7 @@ import {
 import { buildMaterialPrepPickupView } from '../../../domain/pickup/page-adapters/pcs-material-prep'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
   buildBatchCoverageSummary,
   buildConfigSummary,
@@ -203,18 +206,18 @@ function renderFilterSelect(
 }
 
 function renderPageHeader(): string {
+  const pathname = appStore.getState().pathname
+  const meta = getCanonicalCuttingMeta(pathname, 'material-prep')
   return `
-    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-xl font-bold">仓库配料</h1>
-        <p class="mt-0.5 text-xs text-muted-foreground">生产单分组主视图优先。</p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="go-order-progress">去订单进度</button>
-        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单</button>
-      </div>
-    </header>
+    ${renderCuttingPageHeader(meta, {
+      showCompatibilityBadge: isCuttingAliasPath(pathname),
+      actionsHtml: `
+        <div class="flex flex-wrap gap-2">
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="go-order-progress">返回生产单进度</button>
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单（原始单）</button>
+        </div>
+      `,
+    })}
   `
 }
 
@@ -405,7 +408,7 @@ function renderPrepProgressPanel(groups: CuttingMaterialPrepGroup[]): string {
                       </div>
                       <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(group.assignedFactoryName)} · ${escapeHtml(buildGroupConfigSummary(group))} · ${escapeHtml(buildGroupReceiveSummary(group))}</p>
                     </div>
-                    <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单</button>
+                    <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单（原始单）</button>
                   </div>
                 `)
                 .join('')
@@ -476,8 +479,8 @@ function renderGroupCard(group: CuttingMaterialPrepGroup): string {
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
-            <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-prep-action="go-order-progress">去订单进度</button>
-            <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单</button>
+            <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-prep-action="go-order-progress">返回生产单进度</button>
+            <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-prep-action="go-cut-piece-orders">去裁片单（原始单）</button>
           </div>
         </div>
       </header>
@@ -1167,12 +1170,12 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
   }
 
   if (action === 'go-order-progress') {
-    appStore.navigate('/fcs/craft/cutting/order-progress')
+    appStore.navigate(getCanonicalCuttingPath('production-progress'))
     return true
   }
 
   if (action === 'go-cut-piece-orders') {
-    appStore.navigate('/fcs/craft/cutting/cut-piece-orders')
+    appStore.navigate(getCanonicalCuttingPath('original-orders'))
     return true
   }
 

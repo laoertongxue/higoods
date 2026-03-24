@@ -1,8 +1,11 @@
+// 旧 renderer 继续承接 canonical 页面“裁剪总结”。
+// 这里是裁片域收口视图，不是旧 stats / summary 命名下的泛统计页。
 import { renderDrawer as uiDrawer } from '../../../components/ui'
 import { cloneCuttingSummaryRecords, type CuttingSummaryFilters, type CuttingSummaryRecord } from '../../../data/fcs/cutting/cutting-summary'
 import { buildCuttingSummaryPickupView } from '../../../domain/pickup/page-adapters/pcs-cutting-summary'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
   buildEmptyStateText,
   buildExecutionText,
@@ -170,14 +173,12 @@ function navigateTo(route: string): void {
 }
 
 function renderPageHeader(): string {
+  const pathname = appStore.getState().pathname
+  const meta = getCanonicalCuttingMeta(pathname, 'summary')
   return `
-    <header class="flex flex-col gap-2">
-      <div>
-        <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-xl font-bold">裁剪总结</h1>
-        <p class="mt-0.5 text-xs text-muted-foreground">生产单汇总主表优先。</p>
-      </div>
-    </header>
+    ${renderCuttingPageHeader(meta, {
+      showCompatibilityBadge: isCuttingAliasPath(pathname),
+    })}
   `
 }
 
@@ -412,11 +413,11 @@ function renderMainTable(): string {
                     <td class="px-4 py-3">
                       <div class="flex flex-wrap gap-2">
                         <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="open-detail" data-record-id="${record.id}">查看总结详情</button>
-                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-order-progress">去订单进度</button>
-                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-material-prep">去仓库配料</button>
-                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-cut-piece-orders">去裁片单</button>
+                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-order-progress">去生产单进度</button>
+                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-material-prep">去仓库配料 / 领料</button>
+                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-cut-piece-orders">去裁片单（原始单）</button>
                         <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-replenishment">去补料管理</button>
-                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-warehouse-management">去仓库管理</button>
+                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-summary-action="go-warehouse-management">去裁片仓交接</button>
                       </div>
                     </td>
                   </tr>
@@ -645,11 +646,11 @@ function renderDetailDrawer(): string {
         <section class="rounded-lg border p-4">
           <h3 class="font-semibold text-foreground">快捷入口区</h3>
           <div class="mt-4 flex flex-wrap gap-2">
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-order-progress">去订单进度</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-material-prep">去仓库配料</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-cut-piece-orders">去裁片单</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-order-progress">去生产单进度</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-material-prep">去仓库配料 / 领料</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-cut-piece-orders">去裁片单（原始单）</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-replenishment">去补料管理</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-warehouse-management">去仓库管理</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="go-warehouse-management">去裁片仓交接</button>
           </div>
         </section>
       </div>
@@ -817,27 +818,27 @@ export function handleCraftCuttingSummaryEvent(target: Element): boolean {
   }
 
   if (action === 'go-order-progress') {
-    navigateTo('/fcs/craft/cutting/order-progress')
+    navigateTo(getCanonicalCuttingPath('production-progress'))
     return true
   }
 
   if (action === 'go-material-prep') {
-    navigateTo('/fcs/craft/cutting/material-prep')
+    navigateTo(getCanonicalCuttingPath('material-prep'))
     return true
   }
 
   if (action === 'go-cut-piece-orders') {
-    navigateTo('/fcs/craft/cutting/cut-piece-orders')
+    navigateTo(getCanonicalCuttingPath('original-orders'))
     return true
   }
 
   if (action === 'go-replenishment') {
-    navigateTo('/fcs/craft/cutting/replenishment')
+    navigateTo(getCanonicalCuttingPath('replenishment'))
     return true
   }
 
   if (action === 'go-warehouse-management') {
-    navigateTo('/fcs/craft/cutting/warehouse-management')
+    navigateTo(getCanonicalCuttingPath('fabric-warehouse'))
     return true
   }
 

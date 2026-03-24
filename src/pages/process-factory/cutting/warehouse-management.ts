@@ -9,6 +9,7 @@ import {
 } from '../../../data/fcs/cutting/warehouse-management'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
+import { renderCuttingPageHeader } from './meta'
 import {
   alertLevelMeta,
   buildCutPieceSummary,
@@ -472,17 +473,27 @@ function saveSampleReturn(): boolean {
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-xl font-bold">仓库管理</h1>
-        <p class="mt-0.5 text-xs text-muted-foreground">当前 tab 主表优先。</p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">去裁片单</button>
-        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cutting-summary">去裁剪总结</button>
-      </div>
-    </header>
+    ${renderCuttingPageHeader(
+      {
+        key: 'warehouse-compat',
+        canonicalPath: '/fcs/craft/cutting/fabric-warehouse',
+        aliases: ['/fcs/craft/cutting/warehouse', '/fcs/craft/cutting/warehouse-management'],
+        menuGroupTitle: '裁片仓交接',
+        pageTitle: '裁片仓交接',
+        pageSubtitle: '当前兼容总览仅用于承接旧仓库管理入口，后续访问与跳转应优先进入拆分后的仓交接页面',
+        breadcrumb: ['工艺工厂运营系统', '裁片仓交接', '裁片仓交接'],
+        isPlaceholder: false,
+      },
+      {
+        showCompatibilityBadge: true,
+        actionsHtml: `
+          <div class="flex flex-wrap gap-2">
+            <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">去裁片单（原始单）</button>
+            <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-warehouse-action="go-cutting-summary">去裁剪总结</button>
+          </div>
+        `,
+      },
+    )}
   `
 }
 
@@ -637,7 +648,7 @@ function renderFabricView(): string {
                               <td class="px-4 py-3">
                                 <div class="flex flex-wrap gap-2">
                                   <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-warehouse-action="open-stock-detail" data-record-id="${record.id}">查看库存明细</button>
-                                  <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">查看裁片单</button>
+                                  <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">查看原始裁片单</button>
                                 </div>
                               </td>
                             </tr>
@@ -915,7 +926,7 @@ function renderSampleView(): string {
                                 <div class="flex flex-wrap gap-2">
                                   <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-warehouse-action="open-sample-flow" data-record-id="${record.id}">查看流转详情</button>
                                   <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-warehouse-action="open-sample-flow" data-record-id="${record.id}">登记归还</button>
-                                  <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">查看关联裁片单</button>
+                                  <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-warehouse-action="go-cut-piece-orders">查看关联原始单</button>
                                 </div>
                               </td>
                             </tr>
@@ -1355,12 +1366,12 @@ export function handleCraftCuttingWarehouseManagementEvent(target: Element): boo
   }
 
   if (action === 'go-cut-piece-orders') {
-    appStore.navigate('/fcs/craft/cutting/cut-piece-orders')
+    appStore.navigate('/fcs/craft/cutting/original-orders')
     return true
   }
 
   if (action === 'go-cutting-summary') {
-    appStore.navigate('/fcs/craft/cutting/cutting-summary')
+    appStore.navigate('/fcs/craft/cutting/summary')
     return true
   }
 

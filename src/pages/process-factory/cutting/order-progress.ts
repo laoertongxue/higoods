@@ -1,140 +1,186 @@
+// 旧 renderer 继续承接新的 canonical 页面“生产单进度”。
+// 文件名保留仅为兼容历史实现，不代表未来仍以“订单进度”作为对象命名。
 import { renderDrawer as uiDrawer } from '../../../components/ui'
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
-import type { CuttingOrderProgressFilters } from '../../../data/fcs/cutting/types'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
+import type { CuttingCanonicalPageKey } from './meta'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
-  buildAuditSummaryText,
-  buildConfigSummaryText,
-  buildCuttingOrderProgressSummary,
-  buildReceiveSummaryText,
+  auditMeta,
+  buildProductionProgressRows,
+  buildProductionProgressSummary,
   configMeta,
-  deriveAuditStatus,
-  deriveConfigStatus,
-  deriveReceiveStatus,
-  filterCuttingOrderProgressRecords,
-  formatLength,
+  filterProductionProgressRows,
   formatQty,
-  getPrepFocusRecords,
-  getTopRiskRecords,
-  materialTypeMeta,
-  printSlipMeta,
-  qrMeta,
   receiveMeta,
-  reviewMeta,
   riskMeta,
+  sortProductionProgressRows,
+  stageMeta,
+  type ProductionProgressFilters,
+  type ProductionProgressRow,
+  type ProductionProgressSortKey,
   urgencyMeta,
-} from './order-progress.helpers'
+} from './production-progress-model'
 import {
   paginateItems,
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
-  renderWorkbenchActionCard,
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
-  renderWorkbenchShortcutZone,
 } from './layout.helpers'
 
-type OrderProgressPriorityMode = 'PREP_FOCUS' | 'RISK_FOCUS'
-type OrderProgressKpiFilter = 'PENDING_AUDIT' | 'PARTIAL_CONFIG' | 'PENDING_RECEIVE' | 'RECEIVE_DONE' | 'REPLENISH_PENDING' | 'URGENT'
+type ProductionProgressQuickFilter = 'URGENT_ONLY' | 'PREP_DELAY' | 'CLAIM_EXCEPTION' | 'CUTTING_ACTIVE'
+type FilterField = 'keyword' | 'urgency' | 'stage' | 'audit' | 'config' | 'claim' | 'risk' | 'sort'
 
-const FIELD_TO_FILTER_KEY = {
+const FIELD_TO_FILTER_KEY: Record<FilterField, keyof ProductionProgressFilters> = {
   keyword: 'keyword',
   urgency: 'urgencyLevel',
+  stage: 'currentStage',
   audit: 'auditStatus',
   config: 'configStatus',
-  receive: 'receiveStatus',
+  claim: 'receiveStatus',
   risk: 'riskFilter',
-} as const
-
-interface CuttingOrderProgressState {
-  filters: CuttingOrderProgressFilters
-  activeDetailId: string | null
-  activePriorityMode: OrderProgressPriorityMode | null
-  activeKpiFilter: OrderProgressKpiFilter | null
-  page: number
-  pageSize: number
+  sort: 'sortBy',
 }
 
-const initialFilters: CuttingOrderProgressFilters = {
+const initialFilters: ProductionProgressFilters = {
   keyword: '',
   urgencyLevel: 'ALL',
+  currentStage: 'ALL',
   auditStatus: 'ALL',
   configStatus: 'ALL',
   receiveStatus: 'ALL',
   riskFilter: 'ALL',
+  sortBy: 'URGENCY_THEN_SHIP',
 }
 
-const state: CuttingOrderProgressState = {
+interface ProductionProgressPageState {
+  filters: ProductionProgressFilters
+  activeQuickFilter: ProductionProgressQuickFilter | null
+  activeDetailId: string | null
+  page: number
+  pageSize: number
+}
+
+const state: ProductionProgressPageState = {
   filters: { ...initialFilters },
+  activeQuickFilter: null,
   activeDetailId: null,
-  activePriorityMode: null,
-  activeKpiFilter: null,
   page: 1,
   pageSize: 20,
+}
+
+function getAllRows(): ProductionProgressRow[] {
+  return buildProductionProgressRows(cuttingOrderProgressRecords)
 }
 
 function resetPagination(): void {
   state.page = 1
 }
 
-function getBaseRecords() {
-  return filterCuttingOrderProgressRecords(cuttingOrderProgressRecords, state.filters)
-}
-
-function applyPriorityMode(records: typeof cuttingOrderProgressRecords) {
-  if (state.activePriorityMode === 'PREP_FOCUS') {
-    return records.filter((record) => deriveConfigStatus(record.materialLines) !== 'CONFIGURED' || deriveReceiveStatus(record.materialLines) !== 'RECEIVED')
-  }
-  if (state.activePriorityMode === 'RISK_FOCUS') {
-    return records.filter((record) => record.riskFlags.length > 0)
-  }
-  return records
-}
-
-function applyKpiFilter(records: typeof cuttingOrderProgressRecords) {
-  switch (state.activeKpiFilter) {
-    case 'PENDING_AUDIT':
-      return records.filter((record) => deriveAuditStatus(record.materialLines) === 'PENDING')
-    case 'PARTIAL_CONFIG':
-      return records.filter((record) => deriveConfigStatus(record.materialLines) === 'PARTIAL')
-    case 'PENDING_RECEIVE':
-      return records.filter((record) => deriveReceiveStatus(record.materialLines) !== 'RECEIVED')
-    case 'RECEIVE_DONE':
-      return records.filter((record) => deriveReceiveStatus(record.materialLines) === 'RECEIVED')
-    case 'REPLENISH_PENDING':
-      return records.filter((record) => record.riskFlags.includes('REPLENISH_PENDING'))
-    case 'URGENT':
-      return records.filter((record) => record.urgencyLevel === 'AA' || record.urgencyLevel === 'A')
-    default:
-      return records
-  }
-}
-
-function getDisplayRecords() {
-  return applyKpiFilter(applyPriorityMode(getBaseRecords()))
-}
-
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function renderSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
-  return renderCompactKpiCard(label, value, hint, accentClass)
+function buildRouteWithQuery(key: CuttingCanonicalPageKey, payload?: { productionOrderId: string; productionOrderNo: string }): string {
+  const pathname = getCanonicalCuttingPath(key)
+  if (!payload) return pathname
+
+  const params = new URLSearchParams()
+  if (payload.productionOrderId) params.set('productionOrderId', payload.productionOrderId)
+  if (payload.productionOrderNo) params.set('productionOrderNo', payload.productionOrderNo)
+
+  const query = params.toString()
+  return query ? `${pathname}?${query}` : pathname
+}
+
+function applyQuickFilter(rows: ProductionProgressRow[]): ProductionProgressRow[] {
+  switch (state.activeQuickFilter) {
+    case 'URGENT_ONLY':
+      return rows.filter((row) => row.urgency.key === 'AA' || row.urgency.key === 'A')
+    case 'PREP_DELAY':
+      return rows.filter((row) => row.materialAuditSummary.key !== 'APPROVED' || row.materialPrepSummary.key !== 'CONFIGURED')
+    case 'CLAIM_EXCEPTION':
+      return rows.filter((row) => row.materialClaimSummary.key === 'EXCEPTION' || row.materialClaimSummary.key === 'NOT_RECEIVED')
+    case 'CUTTING_ACTIVE':
+      return rows.filter((row) => row.currentStage.key === 'CUTTING' || row.currentStage.key === 'WAITING_INBOUND')
+    default:
+      return rows
+  }
+}
+
+function getDisplayRows(): ProductionProgressRow[] {
+  const filteredRows = filterProductionProgressRows(getAllRows(), state.filters)
+  const quickFilteredRows = applyQuickFilter(filteredRows)
+  return sortProductionProgressRows(quickFilteredRows, state.filters.sortBy)
+}
+
+function getQuickFilterLabel(filter: ProductionProgressQuickFilter | null): string | null {
+  if (filter === 'URGENT_ONLY') return '快捷筛选：只看 AA / A 紧急'
+  if (filter === 'PREP_DELAY') return '快捷筛选：只看配料异常'
+  if (filter === 'CLAIM_EXCEPTION') return '快捷筛选：只看领料异常'
+  if (filter === 'CUTTING_ACTIVE') return '快捷筛选：只看裁剪中'
+  return null
+}
+
+function getFilterLabels(): string[] {
+  const labels: string[] = []
+  const quickFilterLabel = getQuickFilterLabel(state.activeQuickFilter)
+  if (quickFilterLabel) labels.push(quickFilterLabel)
+
+  if (state.filters.keyword) labels.push(`关键词：${state.filters.keyword}`)
+  if (state.filters.urgencyLevel !== 'ALL') labels.push(`紧急程度：${urgencyMeta[state.filters.urgencyLevel].label}`)
+  if (state.filters.currentStage !== 'ALL') labels.push(`当前阶段：${stageMeta[state.filters.currentStage].label}`)
+  if (state.filters.auditStatus !== 'ALL') labels.push(`面料审核：${auditMeta[state.filters.auditStatus].label}`)
+  if (state.filters.configStatus !== 'ALL') labels.push(`配料进展：${configMeta[state.filters.configStatus].label}`)
+  if (state.filters.receiveStatus !== 'ALL') labels.push(`领料进展：${receiveMeta[state.filters.receiveStatus].label}`)
+  if (state.filters.riskFilter !== 'ALL') {
+    labels.push(state.filters.riskFilter === 'ANY' ? '风险：只看有风险' : `风险：${riskMeta[state.filters.riskFilter].label}`)
+  }
+
+  if (state.filters.sortBy !== 'URGENCY_THEN_SHIP') {
+    const sortLabelMap: Record<ProductionProgressSortKey, string> = {
+      URGENCY_THEN_SHIP: '默认排序',
+      SHIP_DATE_ASC: '计划发货日期升序',
+      ORDER_QTY_DESC: '下单数量降序',
+    }
+    labels.push(`排序：${sortLabelMap[state.filters.sortBy]}`)
+  }
+
+  return labels
+}
+
+function renderStatsCards(rows: ProductionProgressRow[]): string {
+  const summary = buildProductionProgressSummary(rows)
+
+  return `
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      ${renderCompactKpiCard('生产单总数', summary.totalCount, '当前筛选范围', 'text-slate-900')}
+      ${renderCompactKpiCard('AA / A 紧急单', summary.urgentCount, '优先跟进交付', 'text-rose-600')}
+      ${renderCompactKpiCard('配料异常单', summary.prepExceptionCount, '审核或配料未齐', 'text-amber-600')}
+      ${renderCompactKpiCard('领料异常单', summary.claimExceptionCount, '待领取或现场差异', 'text-orange-600')}
+      ${renderCompactKpiCard('裁剪中单数', summary.cuttingCount, '含待入仓', 'text-violet-600')}
+      ${renderCompactKpiCard('已完成单数', summary.doneCount, '已收口', 'text-emerald-600')}
+    </section>
+  `
 }
 
 function renderFilterSelect(
   label: string,
-  field: keyof typeof FIELD_TO_FILTER_KEY,
-  options: Array<{ value: string; label: string }>,
+  field: FilterField,
   value: string,
+  options: Array<{ value: string; label: string }>,
 ): string {
   return `
     <label class="space-y-2">
       <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
-      <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-progress-field="${field}">
+      <select
+        class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        data-cutting-progress-field="${field}"
+      >
         ${options
           .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
           .join('')}
@@ -143,232 +189,152 @@ function renderFilterSelect(
   `
 }
 
-function getPriorityModeLabel(mode: OrderProgressPriorityMode | null): string | null {
-  if (mode === 'PREP_FOCUS') return '重点模式：待跟进生产单'
-  if (mode === 'RISK_FOCUS') return '重点模式：风险生产单'
-  return null
-}
+function renderQuickFilterRow(): string {
+  const options: Array<{ key: ProductionProgressQuickFilter; label: string; tone: 'blue' | 'amber' | 'rose' }> = [
+    { key: 'URGENT_ONLY', label: '只看紧急', tone: 'rose' },
+    { key: 'PREP_DELAY', label: '只看配料未齐', tone: 'amber' },
+    { key: 'CLAIM_EXCEPTION', label: '只看领料异常', tone: 'rose' },
+    { key: 'CUTTING_ACTIVE', label: '只看裁剪中', tone: 'blue' },
+  ]
 
-function getKpiFilterLabel(filter: OrderProgressKpiFilter | null): string | null {
-  if (filter === 'PENDING_AUDIT') return 'KPI：待审核生产单'
-  if (filter === 'PARTIAL_CONFIG') return 'KPI：部分配置生产单'
-  if (filter === 'PENDING_RECEIVE') return 'KPI：待领料生产单'
-  if (filter === 'RECEIVE_DONE') return 'KPI：领料成功生产单'
-  if (filter === 'REPLENISH_PENDING') return 'KPI：待补料生产单'
-  if (filter === 'URGENT') return 'KPI：AA / A 紧急生产单'
-  return null
-}
-
-function renderShortcutCardZone(): string {
-  const baseRecords = getBaseRecords()
-  const prepCount = baseRecords.filter((record) => deriveConfigStatus(record.materialLines) !== 'CONFIGURED' || deriveReceiveStatus(record.materialLines) !== 'RECEIVED').length
-  const riskCount = baseRecords.filter((record) => record.riskFlags.length > 0).length
-  const summary = buildCuttingOrderProgressSummary(baseRecords)
-
-  return renderWorkbenchShortcutZone({
-    columnsClass: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8',
-    cardsHtml: [
-      renderWorkbenchActionCard({
-        title: '配料进展',
-        count: prepCount,
-        hint: '',
-        attrs: 'data-cutting-progress-action="toggle-priority-mode" data-priority-mode="PREP_FOCUS"',
-        active: state.activePriorityMode === 'PREP_FOCUS',
-        variant: 'priority',
-      }),
-      renderWorkbenchActionCard({
-        title: '风险提示',
-        count: riskCount,
-        hint: '',
-        attrs: 'data-cutting-progress-action="toggle-priority-mode" data-priority-mode="RISK_FOCUS"',
-        active: state.activePriorityMode === 'RISK_FOCUS',
-        accentClass: 'text-rose-600',
-        variant: 'priority',
-      }),
-      renderWorkbenchActionCard({
-        title: '待审核',
-        count: summary.pendingAuditCount,
-        hint: '',
-        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PENDING_AUDIT"',
-        active: state.activeKpiFilter === 'PENDING_AUDIT',
-        accentClass: 'text-amber-600',
-        variant: 'kpi',
-      }),
-      renderWorkbenchActionCard({
-        title: '部分配置',
-        count: summary.partialConfigCount,
-        hint: '',
-        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PARTIAL_CONFIG"',
-        active: state.activeKpiFilter === 'PARTIAL_CONFIG',
-        accentClass: 'text-orange-600',
-        variant: 'kpi',
-      }),
-      renderWorkbenchActionCard({
-        title: '待领料',
-        count: summary.pendingReceiveCount,
-        hint: '',
-        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="PENDING_RECEIVE"',
-        active: state.activeKpiFilter === 'PENDING_RECEIVE',
-        accentClass: 'text-slate-700',
-        variant: 'kpi',
-      }),
-      renderWorkbenchActionCard({
-        title: '领料成功',
-        count: summary.receiveDoneCount,
-        hint: '',
-        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="RECEIVE_DONE"',
-        active: state.activeKpiFilter === 'RECEIVE_DONE',
-        accentClass: 'text-emerald-600',
-        variant: 'kpi',
-      }),
-      renderWorkbenchActionCard({
-        title: '待补料',
-        count: summary.replenishmentPendingCount,
-        hint: '',
-        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="REPLENISH_PENDING"',
-        active: state.activeKpiFilter === 'REPLENISH_PENDING',
-        accentClass: 'text-fuchsia-600',
-        variant: 'kpi',
-      }),
-      renderWorkbenchActionCard({
-        title: 'AA / A',
-        count: summary.urgentCount,
-        hint: '',
-        attrs: 'data-cutting-progress-action="toggle-kpi-filter" data-kpi-filter="URGENT"',
-        active: state.activeKpiFilter === 'URGENT',
-        accentClass: 'text-rose-600',
-        variant: 'kpi',
-      }),
-    ].join(''),
-  })
+  return `
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs font-medium text-muted-foreground">快捷筛选</span>
+      ${options
+        .map((option) =>
+          renderWorkbenchFilterChip(
+            option.label,
+            `data-cutting-progress-action="toggle-quick-filter" data-quick-filter="${option.key}"`,
+            state.activeQuickFilter === option.key ? option.tone : 'blue',
+          ),
+        )
+        .join('')}
+    </div>
+  `
 }
 
 function renderActiveStateBar(): string {
-  const chips: string[] = []
-  const priorityLabel = getPriorityModeLabel(state.activePriorityMode)
-  const kpiLabel = getKpiFilterLabel(state.activeKpiFilter)
-  if (priorityLabel) {
-    chips.push(renderWorkbenchFilterChip(priorityLabel, 'data-cutting-progress-action="clear-priority-mode"', 'amber'))
-  }
-  if (kpiLabel) {
-    chips.push(renderWorkbenchFilterChip(kpiLabel, 'data-cutting-progress-action="clear-kpi-filter"', 'blue'))
-  }
+  const labels = getFilterLabels()
+  if (!labels.length) return ''
 
   return renderWorkbenchStateBar({
-    summary: '当前主表视图',
-    chips,
-    clearAttrs: 'data-cutting-progress-action="clear-view-state"',
+    summary: '当前视图条件',
+    chips: labels.map((label) => renderWorkbenchFilterChip(label, 'data-cutting-progress-action="clear-filters"', 'blue')),
+    clearAttrs: 'data-cutting-progress-action="clear-filters"',
   })
 }
 
-function renderOrderProgressTable(): string {
-  const records = getDisplayRecords()
-  const emptyText =
-    state.filters.riskFilter === 'RISK_ONLY'
-      ? '当前筛选条件下暂无风险生产单。'
-      : '当前筛选条件下暂无匹配的裁片生产单。'
-  const pagination = paginateItems(records, state.page, state.pageSize)
+function renderTable(rows: ProductionProgressRow[]): string {
+  const pagination = paginateItems(rows, state.page, state.pageSize)
 
   return `
     <section class="rounded-lg border bg-card">
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">生产单主表</h2>
-          <p class="mt-1 text-xs text-muted-foreground">按生产单聚合查看配料、领料、当前阶段和风险。</p>
+          <p class="mt-1 text-xs text-muted-foreground">按生产单聚合查看原始裁片单、配料、领料和阶段风险。</p>
         </div>
         <div class="text-xs text-muted-foreground">共 ${pagination.total} 条生产单</div>
       </div>
-      ${renderStickyTableScroller(`
-        <table class="w-full min-w-[1260px] text-sm">
-          <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
-            <tr>
-              <th class="px-4 py-3 text-left font-medium">紧急程度</th>
-              <th class="px-4 py-3 text-left font-medium">采购日期</th>
-              <th class="px-4 py-3 text-left font-medium">生产单号</th>
-              <th class="px-4 py-3 text-left font-medium">下单数量</th>
-              <th class="px-4 py-3 text-left font-medium">计划发货日期</th>
-              <th class="px-4 py-3 text-left font-medium">面料审核</th>
-              <th class="px-4 py-3 text-left font-medium">配料进展</th>
-              <th class="px-4 py-3 text-left font-medium">领料进展</th>
-              <th class="px-4 py-3 text-left font-medium">裁片单数</th>
-              <th class="px-4 py-3 text-left font-medium">当前阶段</th>
-              <th class="px-4 py-3 text-left font-medium">风险提示</th>
-              <th class="px-4 py-3 text-left font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              pagination.items.length
-                ? pagination.items
-                    .map((record) => {
-                      const auditStatus = deriveAuditStatus(record.materialLines)
-                      const configStatus = deriveConfigStatus(record.materialLines)
-                      const receiveStatus = deriveReceiveStatus(record.materialLines)
-
-                      return `
-                        <tr class="border-b last:border-b-0 hover:bg-muted/20">
-                          <td class="px-4 py-3 align-top">${renderBadge(urgencyMeta[record.urgencyLevel].label, urgencyMeta[record.urgencyLevel].className)}</td>
-                          <td class="px-4 py-3 align-top text-sm text-muted-foreground">${escapeHtml(record.purchaseDate)}</td>
-                          <td class="px-4 py-3 align-top">
-                            <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${record.id}">
-                              ${escapeHtml(record.productionOrderNo)}
-                            </button>
-                            <div class="mt-1 text-xs text-muted-foreground">
-                              <div>裁片任务号：${escapeHtml(record.cuttingTaskNo)}</div>
-                              <div>裁片厂：${escapeHtml(record.assignedFactoryName)}</div>
-                            </div>
-                          </td>
-                          <td class="px-4 py-3 align-top font-medium tabular-nums">${formatQty(record.orderQty)}</td>
-                          <td class="px-4 py-3 align-top">${escapeHtml(record.plannedShipDate)}</td>
-                          <td class="px-4 py-3 align-top">
-                            ${renderBadge(reviewMeta[auditStatus].label, reviewMeta[auditStatus].className)}
-                            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildAuditSummaryText(record.materialLines))}</div>
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            ${renderBadge(configMeta[configStatus].label, configMeta[configStatus].className)}
-                            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildConfigSummaryText(record.materialLines))}</div>
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            ${renderBadge(receiveMeta[receiveStatus].label, receiveMeta[receiveStatus].className)}
-                            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(buildReceiveSummaryText(record.materialLines))}</div>
-                          </td>
-                          <td class="px-4 py-3 align-top font-medium">${record.materialLines.length}</td>
-                          <td class="px-4 py-3 align-top">
-                            <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(record.cuttingStage)}</span>
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            <div class="flex flex-wrap gap-1">
-                              ${
-                                record.riskFlags.length
-                                  ? record.riskFlags
-                                      .slice(0, 3)
-                                      .map((flag) => renderBadge(riskMeta[flag].label, riskMeta[flag].className))
-                                      .join('')
-                                  : '<span class="text-xs text-muted-foreground">无风险</span>'
-                              }
-                              ${
-                                record.riskFlags.length > 3
-                                  ? `<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">+${record.riskFlags.length - 3}</span>`
-                                  : ''
-                              }
-                            </div>
-                          </td>
-                          <td class="px-4 py-3 align-top">
-                            <div class="flex flex-wrap gap-2 text-xs">
-                              <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="open-detail" data-record-id="${record.id}">查看详情</button>
-                              <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="go-material-prep" data-record-id="${record.id}">去仓库配料</button>
-                              <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="go-cut-piece-orders" data-record-id="${record.id}">去裁片单</button>
-                            </div>
-                          </td>
-                        </tr>
-                      `
-                    })
-                    .join('')
-                : `<tr><td colspan="12" class="px-6 py-12 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</td></tr>`
-            }
-          </tbody>
-        </table>
-      `)}
+      ${renderStickyTableScroller(
+        `
+          <table class="w-full min-w-[1680px] text-sm">
+            <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium">紧急程度</th>
+                <th class="px-4 py-3 text-left font-medium">采购日期</th>
+                <th class="px-4 py-3 text-left font-medium">实际下单日期</th>
+                <th class="px-4 py-3 text-left font-medium">生产单号</th>
+                <th class="px-4 py-3 text-left font-medium">款号 / SPU</th>
+                <th class="px-4 py-3 text-left font-medium">下单数量</th>
+                <th class="px-4 py-3 text-left font-medium">计划发货日期</th>
+                <th class="px-4 py-3 text-left font-medium">面料审核</th>
+                <th class="px-4 py-3 text-left font-medium">配料进展</th>
+                <th class="px-4 py-3 text-left font-medium">领料进展</th>
+                <th class="px-4 py-3 text-left font-medium">裁片单数</th>
+                <th class="px-4 py-3 text-left font-medium">当前阶段</th>
+                <th class="px-4 py-3 text-left font-medium">裁剪齐套汇总</th>
+                <th class="px-4 py-3 text-left font-medium">风险提示</th>
+                <th class="px-4 py-3 text-left font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                pagination.items.length
+                  ? pagination.items
+                      .map(
+                        (row) => `
+                          <tr class="border-b last:border-b-0 align-top hover:bg-muted/20">
+                            <td class="px-4 py-3">
+                              ${renderBadge(row.urgency.label, row.urgency.className)}
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.urgency.detailText)}</div>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-muted-foreground">${escapeHtml(row.purchaseDate || '-')}</td>
+                            <td class="px-4 py-3 text-sm text-muted-foreground">${escapeHtml(row.actualOrderDate || '-')}</td>
+                            <td class="px-4 py-3">
+                              <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${row.id}">
+                                ${escapeHtml(row.productionOrderNo)}
+                              </button>
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.assignedFactoryName)}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                              <div class="font-medium text-foreground">${escapeHtml(row.styleCode || row.spuCode || '-')}</div>
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.styleName || row.spuCode || '-')}</div>
+                            </td>
+                            <td class="px-4 py-3 font-medium tabular-nums">${formatQty(row.orderQty)}</td>
+                            <td class="px-4 py-3">
+                              <div>${escapeHtml(row.plannedShipDateDisplay)}</div>
+                              ${row.plannedShipDate ? '' : '<div class="mt-1 text-xs text-muted-foreground">待补日期</div>'}
+                            </td>
+                            <td class="px-4 py-3">
+                              ${renderBadge(row.materialAuditSummary.label, row.materialAuditSummary.className)}
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.materialAuditSummary.detailText)}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                              ${renderBadge(row.materialPrepSummary.label, row.materialPrepSummary.className)}
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.materialPrepSummary.detailText)}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                              ${renderBadge(row.materialClaimSummary.label, row.materialClaimSummary.className)}
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.materialClaimSummary.detailText)}</div>
+                            </td>
+                            <td class="px-4 py-3 font-medium">${row.originalCutOrderCount}</td>
+                            <td class="px-4 py-3">
+                              ${renderBadge(row.currentStage.label, row.currentStage.className)}
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.rawStageText || row.currentStage.label)}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                              ${renderBadge(row.cuttingCompletionSummary.label, row.cuttingCompletionSummary.className)}
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.cuttingCompletionSummary.detailText)}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                              <div class="flex flex-wrap gap-1">
+                                ${
+                                  row.riskTags.length
+                                    ? row.riskTags.map((riskTag) => renderBadge(riskTag.label, riskTag.className)).join('')
+                                    : '<span class="text-xs text-muted-foreground">无风险</span>'
+                                }
+                              </div>
+                            </td>
+                            <td class="px-4 py-3">
+                              <div class="flex flex-wrap gap-2 text-xs">
+                                <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="go-original-orders" data-record-id="${row.id}">查看裁片单</button>
+                                <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="go-material-prep" data-record-id="${row.id}">查看配料</button>
+                                <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="go-cuttable-pool" data-record-id="${row.id}">去可裁排产</button>
+                                <button class="rounded-md border px-2.5 py-1 hover:bg-muted" data-cutting-progress-action="go-summary" data-record-id="${row.id}">查看裁剪总结</button>
+                              </div>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                      .join('')
+                  : '<tr><td colspan="15" class="px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无匹配生产单。</td></tr>'
+              }
+            </tbody>
+          </table>
+        `,
+        'max-h-[64vh]',
+      )}
       ${renderWorkbenchPagination({
         page: pagination.page,
         pageSize: pagination.pageSize,
@@ -381,262 +347,165 @@ function renderOrderProgressTable(): string {
   `
 }
 
-function renderPrepFocusSection(): string {
-  const records = getPrepFocusRecords(getFilteredRecords())
-  return renderWorkbenchSecondaryPanel({
-    title: '配料进展区',
-    hint: '优先查看仍在配料、领料中的生产单。',
-    countText: `${records.length} 条待跟进`,
-    body: `
-      <div class="divide-y">
-        ${
-          records.length
-            ? records
-                .map((record) => {
-                  const configStatus = deriveConfigStatus(record.materialLines)
-                  const receiveStatus = deriveReceiveStatus(record.materialLines)
-                  return `
-                    <div class="flex items-center justify-between gap-4 px-4 py-3">
-                      <div class="min-w-0">
-                        <div class="flex items-center gap-2">
-                          <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${record.id}">${escapeHtml(record.productionOrderNo)}</button>
-                          ${renderBadge(urgencyMeta[record.urgencyLevel].label, urgencyMeta[record.urgencyLevel].className)}
-                        </div>
-                        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.assignedFactoryName)} · ${escapeHtml(record.cuttingStage)}</p>
-                        <div class="mt-2 flex flex-wrap gap-2">
-                          ${renderBadge(configMeta[configStatus].label, configMeta[configStatus].className)}
-                          ${renderBadge(receiveMeta[receiveStatus].label, receiveMeta[receiveStatus].className)}
-                        </div>
-                      </div>
-                      <button class="shrink-0 rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-material-prep" data-record-id="${record.id}">
-                        去仓库配料
-                      </button>
-                    </div>
-                  `
-                })
-                .join('')
-            : '<div class="px-4 py-8 text-center text-sm text-muted-foreground">当前筛选范围内暂无需要跟进的配料生产单。</div>'
-        }
-      </div>
-    `,
-  })
-}
-
-function renderRiskSection(): string {
-  const records = getTopRiskRecords(getFilteredRecords())
-  return renderWorkbenchSecondaryPanel({
-    title: '风险提示区',
-    hint: '按紧急程度优先展示当前需要跟进的裁片风险。',
-    countText: `${records.length} 条风险`,
-    body: `
-      <div class="divide-y">
-        ${
-          records.length
-            ? records
-                .map((record) => `
-                  <div class="px-4 py-3">
-                    <div class="flex items-center justify-between gap-4">
-                      <div class="min-w-0">
-                        <div class="flex items-center gap-2">
-                          <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${record.id}">${escapeHtml(record.productionOrderNo)}</button>
-                          ${renderBadge(urgencyMeta[record.urgencyLevel].label, urgencyMeta[record.urgencyLevel].className)}
-                        </div>
-                        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.cuttingTaskNo)} · ${escapeHtml(record.assignedFactoryName)}</p>
-                      </div>
-                      <button class="shrink-0 rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-cut-piece-orders" data-record-id="${record.id}">
-                        去裁片单
-                      </button>
-                    </div>
-                    <div class="mt-3 flex flex-wrap gap-2">
-                      ${record.riskFlags.map((flag) => renderBadge(riskMeta[flag].label, riskMeta[flag].className)).join('')}
-                    </div>
-                  </div>
-                `)
-                .join('')
-            : '<div class="px-4 py-8 text-center text-sm text-muted-foreground">当前筛选范围内暂无风险生产单。</div>'
-        }
-      </div>
-    `,
-  })
-}
-
 function renderDetailDrawer(): string {
-  const record = cuttingOrderProgressRecords.find((item) => item.id === state.activeDetailId)
-  if (!record) return ''
+  const row = getAllRows().find((item) => item.id === state.activeDetailId)
+  if (!row) return ''
 
-  const auditStatus = deriveAuditStatus(record.materialLines)
-  const configStatus = deriveConfigStatus(record.materialLines)
-  const receiveStatus = deriveReceiveStatus(record.materialLines)
+  const materialPreviewRows = row.materialLines
+    .map(
+      (line) => `
+        <tr class="border-b last:border-b-0 align-top">
+          <td class="px-4 py-3 font-medium">${escapeHtml(line.cutPieceOrderNo)}</td>
+          <td class="px-4 py-3">
+            <div class="font-medium">${escapeHtml(line.materialSku)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.materialLabel)}</div>
+          </td>
+          <td class="px-4 py-3">${renderBadge(auditMeta[line.reviewStatus].label, auditMeta[line.reviewStatus].className)}</td>
+          <td class="px-4 py-3">${renderBadge(configMeta[line.configStatus].label, configMeta[line.configStatus].className)}</td>
+          <td class="px-4 py-3">${renderBadge(receiveMeta[line.receiveStatus].label, receiveMeta[line.receiveStatus].className)}</td>
+          <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(line.latestActionText)}</td>
+        </tr>
+      `,
+    )
+    .join('')
 
   const content = `
     <div class="space-y-6">
-      <section class="grid gap-4 rounded-lg border bg-muted/10 p-4 sm:grid-cols-2">
+      <section class="grid gap-4 rounded-lg border bg-muted/10 p-4 sm:grid-cols-2 xl:grid-cols-4">
         <div>
           <p class="text-xs text-muted-foreground">生产单号</p>
-          <p class="mt-1 text-sm font-semibold">${escapeHtml(record.productionOrderNo)}</p>
+          <p class="mt-1 text-sm font-semibold">${escapeHtml(row.productionOrderNo)}</p>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">裁片任务号</p>
-          <p class="mt-1 text-sm font-semibold">${escapeHtml(record.cuttingTaskNo)}</p>
+          <p class="text-xs text-muted-foreground">款号 / SPU</p>
+          <p class="mt-1 text-sm font-semibold">${escapeHtml(row.styleCode || row.spuCode || '-')}</p>
+        </div>
+        <div>
+          <p class="text-xs text-muted-foreground">款式名称</p>
+          <p class="mt-1 text-sm">${escapeHtml(row.styleName || '-')}</p>
+        </div>
+        <div>
+          <p class="text-xs text-muted-foreground">当前协调工厂</p>
+          <p class="mt-1 text-sm">${escapeHtml(row.assignedFactoryName)}</p>
         </div>
         <div>
           <p class="text-xs text-muted-foreground">采购日期</p>
-          <p class="mt-1 text-sm">${escapeHtml(record.purchaseDate)}</p>
+          <p class="mt-1 text-sm">${escapeHtml(row.purchaseDate || '-')}</p>
+        </div>
+        <div>
+          <p class="text-xs text-muted-foreground">实际下单日期</p>
+          <p class="mt-1 text-sm">${escapeHtml(row.actualOrderDate || '-')}</p>
         </div>
         <div>
           <p class="text-xs text-muted-foreground">计划发货日期</p>
-          <p class="mt-1 text-sm">${escapeHtml(record.plannedShipDate)}</p>
+          <p class="mt-1 text-sm">${escapeHtml(row.plannedShipDateDisplay)}</p>
         </div>
         <div>
           <p class="text-xs text-muted-foreground">下单数量</p>
-          <p class="mt-1 text-sm">${formatQty(record.orderQty)}</p>
-        </div>
-        <div>
-          <p class="text-xs text-muted-foreground">当前紧急程度</p>
-          <div class="mt-1">${renderBadge(urgencyMeta[record.urgencyLevel].label, urgencyMeta[record.urgencyLevel].className)}</div>
-        </div>
-        <div>
-          <p class="text-xs text-muted-foreground">当前分配工厂 / 裁片厂</p>
-          <p class="mt-1 text-sm">${escapeHtml(record.assignedFactoryName)}</p>
-        </div>
-        <div>
-          <p class="text-xs text-muted-foreground">当前订单级裁片阶段</p>
-          <p class="mt-1 text-sm">${escapeHtml(record.cuttingStage)}</p>
+          <p class="mt-1 text-sm">${formatQty(row.orderQty)}</p>
         </div>
       </section>
 
-      <section class="rounded-lg border bg-card">
-        <div class="border-b px-4 py-3">
-          <h3 class="text-sm font-semibold">聚合状态</h3>
-        </div>
-        <div class="grid gap-4 px-4 py-4 sm:grid-cols-3">
-          <div>
-            <p class="text-xs text-muted-foreground">面料是否审核</p>
-            <div class="mt-1 flex items-center gap-2">
-              ${renderBadge(reviewMeta[auditStatus].label, reviewMeta[auditStatus].className)}
-              <span class="text-xs text-muted-foreground">${escapeHtml(buildAuditSummaryText(record.materialLines))}</span>
-            </div>
-          </div>
-          <div>
-            <p class="text-xs text-muted-foreground">配料状态</p>
-            <div class="mt-1 flex items-center gap-2">
-              ${renderBadge(configMeta[configStatus].label, configMeta[configStatus].className)}
-              <span class="text-xs text-muted-foreground">${escapeHtml(buildConfigSummaryText(record.materialLines))}</span>
-            </div>
-          </div>
-          <div>
-            <p class="text-xs text-muted-foreground">领料状态</p>
-            <div class="mt-1 flex items-center gap-2">
-              ${renderBadge(receiveMeta[receiveStatus].label, receiveMeta[receiveStatus].className)}
-              <span class="text-xs text-muted-foreground">${escapeHtml(buildReceiveSummaryText(record.materialLines))}</span>
-            </div>
-          </div>
-        </div>
+      <section class="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+        <article class="rounded-lg border bg-card p-4">
+          <p class="text-xs text-muted-foreground">面料审核</p>
+          <div class="mt-2">${renderBadge(row.materialAuditSummary.label, row.materialAuditSummary.className)}</div>
+          <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.materialAuditSummary.detailText)}</p>
+        </article>
+        <article class="rounded-lg border bg-card p-4">
+          <p class="text-xs text-muted-foreground">配料进展</p>
+          <div class="mt-2">${renderBadge(row.materialPrepSummary.label, row.materialPrepSummary.className)}</div>
+          <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.materialPrepSummary.detailText)}</p>
+        </article>
+        <article class="rounded-lg border bg-card p-4">
+          <p class="text-xs text-muted-foreground">领料进展</p>
+          <div class="mt-2">${renderBadge(row.materialClaimSummary.label, row.materialClaimSummary.className)}</div>
+          <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.materialClaimSummary.detailText)}</p>
+        </article>
+        <article class="rounded-lg border bg-card p-4">
+          <p class="text-xs text-muted-foreground">当前阶段</p>
+          <div class="mt-2">${renderBadge(row.currentStage.label, row.currentStage.className)}</div>
+          <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.cuttingCompletionSummary.detailText)}</p>
+        </article>
       </section>
 
-      <section class="rounded-lg border bg-card">
-        <div class="border-b px-4 py-3">
-          <h3 class="text-sm font-semibold">面料进展列表</h3>
+      <section class="rounded-lg border bg-card p-4">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <h3 class="text-sm font-semibold">原始裁片单与面料预览</h3>
+            <p class="mt-1 text-xs text-muted-foreground">本页只做生产单层快速查问题，下钻明细请进入裁片单（原始单）。</p>
+          </div>
+          <div class="text-xs text-muted-foreground">${row.originalCutOrderCount} 个原始裁片单</div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[980px] text-sm">
+        <div class="mt-3 flex flex-wrap gap-2">
+          ${row.originalCutOrderNos.map((cutOrderNo) => `<span class="inline-flex rounded-full border px-2.5 py-1 text-xs text-slate-700">${escapeHtml(cutOrderNo)}</span>`).join('')}
+        </div>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full min-w-[920px] text-sm">
             <thead class="border-b bg-muted/30 text-muted-foreground">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">裁片单号</th>
+                <th class="px-4 py-3 text-left font-medium">原始裁片单</th>
                 <th class="px-4 py-3 text-left font-medium">面料 SKU</th>
-                <th class="px-4 py-3 text-left font-medium">面料类型</th>
-                <th class="px-4 py-3 text-left font-medium">审核状态</th>
-                <th class="px-4 py-3 text-left font-medium">配料状态</th>
-                <th class="px-4 py-3 text-left font-medium">领料状态</th>
-                <th class="px-4 py-3 text-left font-medium">打印状态</th>
-                <th class="px-4 py-3 text-left font-medium">二维码状态</th>
-                <th class="px-4 py-3 text-left font-medium">最新动作说明</th>
+                <th class="px-4 py-3 text-left font-medium">面料审核</th>
+                <th class="px-4 py-3 text-left font-medium">配料进展</th>
+                <th class="px-4 py-3 text-left font-medium">领料进展</th>
+                <th class="px-4 py-3 text-left font-medium">最新动作</th>
               </tr>
             </thead>
-            <tbody>
-              ${record.materialLines
-                .map(
-                  (line) => `
-                    <tr class="border-b last:border-b-0 align-top">
-                      <td class="px-4 py-4">${escapeHtml(line.cutPieceOrderNo)}</td>
-                      <td class="px-4 py-4">
-                        <div class="font-medium">${escapeHtml(line.materialSku)}</div>
-                        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.materialLabel)}</div>
-                      </td>
-                      <td class="px-4 py-4">${escapeHtml(materialTypeMeta[line.materialType])}</td>
-                      <td class="px-4 py-4">${renderBadge(reviewMeta[line.reviewStatus].label, reviewMeta[line.reviewStatus].className)}</td>
-                      <td class="px-4 py-4">
-                        ${renderBadge(configMeta[line.configStatus].label, configMeta[line.configStatus].className)}
-                        <div class="mt-1 text-xs text-muted-foreground">${line.configuredRollCount} 卷 / ${escapeHtml(formatLength(line.configuredLength))}</div>
-                      </td>
-                      <td class="px-4 py-4">
-                        ${renderBadge(receiveMeta[line.receiveStatus].label, receiveMeta[line.receiveStatus].className)}
-                        <div class="mt-1 text-xs text-muted-foreground">${line.receivedRollCount} 卷 / ${escapeHtml(formatLength(line.receivedLength))}</div>
-                      </td>
-                      <td class="px-4 py-4">${renderBadge(printSlipMeta[line.printSlipStatus].label, printSlipMeta[line.printSlipStatus].className)}</td>
-                      <td class="px-4 py-4">${renderBadge(qrMeta[line.qrStatus].label, qrMeta[line.qrStatus].className)}</td>
-                      <td class="px-4 py-4">
-                        <p>${escapeHtml(line.latestActionText)}</p>
-                        ${
-                          line.issueFlags.length
-                            ? `<div class="mt-2 flex flex-wrap gap-1">${line.issueFlags
-                                .map((flag) => renderBadge(riskMeta[flag].label, riskMeta[flag].className))
-                                .join('')}</div>`
-                            : ''
-                        }
-                      </td>
-                    </tr>
-                  `,
-                )
-                .join('')}
-            </tbody>
+            <tbody>${materialPreviewRows}</tbody>
           </table>
         </div>
       </section>
 
-      <section class="grid gap-4 sm:grid-cols-2">
+      <section class="grid gap-4 lg:grid-cols-[1.4fr,1fr]">
         <article class="rounded-lg border bg-card p-4">
-          <h3 class="text-sm font-semibold">风险与备注</h3>
+          <h3 class="text-sm font-semibold">风险提示</h3>
           <div class="mt-3 flex flex-wrap gap-2">
             ${
-              record.riskFlags.length
-                ? record.riskFlags.map((flag) => renderBadge(riskMeta[flag].label, riskMeta[flag].className)).join('')
+              row.riskTags.length
+                ? row.riskTags.map((riskTag) => renderBadge(riskTag.label, riskTag.className)).join('')
                 : '<span class="text-sm text-muted-foreground">当前暂无风险标签。</span>'
             }
           </div>
           <dl class="mt-4 space-y-3 text-sm">
             <div class="flex items-start justify-between gap-3">
-              <dt class="text-muted-foreground">最近一次领料扫码时间</dt>
-              <dd class="text-right">${escapeHtml(formatDateTime(record.lastPickupScanAt))}</dd>
+              <dt class="text-muted-foreground">最近扫码时间</dt>
+              <dd class="text-right">${escapeHtml(row.latestPickupScanAt ? formatDateTime(row.latestPickupScanAt) : '-')}</dd>
             </div>
             <div class="flex items-start justify-between gap-3">
-              <dt class="text-muted-foreground">最近一次现场执行回写时间</dt>
-              <dd class="text-right">${escapeHtml(formatDateTime(record.lastFieldUpdateAt))}</dd>
+              <dt class="text-muted-foreground">最近现场回写</dt>
+              <dd class="text-right">${escapeHtml(row.latestUpdatedAt ? formatDateTime(row.latestUpdatedAt) : '-')}</dd>
             </div>
             <div class="flex items-start justify-between gap-3">
-              <dt class="text-muted-foreground">最近一次操作人</dt>
-              <dd class="text-right">${escapeHtml(record.lastOperatorName || '-')}</dd>
+              <dt class="text-muted-foreground">最近操作人</dt>
+              <dd class="text-right">${escapeHtml(row.latestOperatorName || '-')}</dd>
             </div>
             <div class="flex items-start justify-between gap-3">
-              <dt class="text-muted-foreground">是否已有铺布记录</dt>
-              <dd class="text-right">${record.hasSpreadingRecord ? '已记录' : '未记录'}</dd>
+              <dt class="text-muted-foreground">铺布记录</dt>
+              <dd class="text-right">${row.hasSpreadingRecord ? '已记录' : '未记录'}</dd>
             </div>
             <div class="flex items-start justify-between gap-3">
-              <dt class="text-muted-foreground">是否已有入仓动作</dt>
-              <dd class="text-right">${record.hasInboundRecord ? '已入仓' : '待入仓'}</dd>
+              <dt class="text-muted-foreground">入仓记录</dt>
+              <dd class="text-right">${row.hasInboundRecord ? '已回写' : '待回写'}</dd>
             </div>
           </dl>
         </article>
 
         <article class="rounded-lg border bg-card p-4">
-          <h3 class="text-sm font-semibold">快捷入口区</h3>
-          <p class="mt-2 text-sm text-muted-foreground">从订单进度直接联动到仓库配料和裁片单，后续继续承接配料详情、裁片单详情与补料管理。</p>
+          <h3 class="text-sm font-semibold">后续入口</h3>
+          <p class="mt-2 text-sm text-muted-foreground">生产单进度只承接监控与筛查，正式动作在各对象页继续完成。</p>
           <div class="mt-4 flex flex-wrap gap-3">
-            <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-progress-action="go-material-prep" data-record-id="${record.id}">
-              去仓库配料
+            <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-progress-action="go-original-orders" data-record-id="${row.id}">
+              查看裁片单
             </button>
-            <button class="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted" data-cutting-progress-action="go-cut-piece-orders" data-record-id="${record.id}">
-              去裁片单
+            <button class="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted" data-cutting-progress-action="go-material-prep" data-record-id="${row.id}">
+              查看配料
+            </button>
+            <button class="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted" data-cutting-progress-action="go-cuttable-pool" data-record-id="${row.id}">
+              去可裁排产
+            </button>
+            <button class="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted" data-cutting-progress-action="go-summary" data-record-id="${row.id}">
+              查看裁剪总结
             </button>
           </div>
         </article>
@@ -646,8 +515,8 @@ function renderDetailDrawer(): string {
 
   return uiDrawer(
     {
-      title: '生产单裁片进度详情',
-      subtitle: `${record.productionOrderNo} · ${record.assignedFactoryName}`,
+      title: '生产单进度概览',
+      subtitle: `${row.productionOrderNo} · ${row.styleName || row.assignedFactoryName}`,
       closeAction: { prefix: 'cutting-progress', action: 'close-detail' },
       width: 'lg',
     },
@@ -656,78 +525,135 @@ function renderDetailDrawer(): string {
       cancel: { prefix: 'cutting-progress', action: 'close-detail', label: '关闭' },
       extra: `
         <div class="flex items-center gap-3">
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-material-prep" data-record-id="${record.id}">去仓库配料</button>
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-cut-piece-orders" data-record-id="${record.id}">去裁片单</button>
+          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-original-orders" data-record-id="${row.id}">查看裁片单</button>
+          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-material-prep" data-record-id="${row.id}">查看配料</button>
         </div>
       `,
     },
   )
 }
 
-export function renderCraftCuttingOrderProgressPage(): string {
+function renderActionBar(): string {
   return `
-    <div class="space-y-2.5 p-4">
-      <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-          <h1 class="text-xl font-bold">订单进度</h1>
-          <p class="mt-0.5 text-xs text-muted-foreground">生产单主表优先。</p>
-        </div>
-      </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-cuttable-pool-index">去可裁排产</button>
+      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-summary-index">查看裁剪总结</button>
+    </div>
+  `
+}
 
-      ${renderShortcutCardZone()}
+export function renderCraftCuttingOrderProgressPage(): string {
+  const pathname = appStore.getState().pathname
+  const meta = getCanonicalCuttingMeta(pathname, 'production-progress')
+  const rows = getDisplayRows()
+
+  return `
+    <div class="space-y-3 p-4">
+      ${renderCuttingPageHeader(meta, {
+        actionsHtml: renderActionBar(),
+        showCompatibilityBadge: isCuttingAliasPath(pathname),
+      })}
+
+      ${renderStatsCards(rows)}
 
       ${renderStickyFilterShell(`
-        <div class="grid gap-3 lg:grid-cols-3 xl:grid-cols-7">
-          <label class="space-y-2 lg:col-span-2">
-            <span class="text-sm font-medium text-foreground">关键词</span>
-            <input
-              type="text"
-              value="${escapeHtml(state.filters.keyword)}"
-              placeholder="支持生产单号 / 裁片任务号 / 面料 SKU"
-              class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              data-cutting-progress-field="keyword"
-            />
-          </label>
-          ${renderFilterSelect('紧急程度', 'urgency', [
-            { value: 'ALL', label: '全部' },
-            { value: 'AA', label: 'AA 紧急' },
-            { value: 'A', label: 'A 紧急' },
-            { value: 'B', label: 'B 紧急' },
-            { value: 'C', label: 'C 优先' },
-            { value: 'D', label: 'D 常规' },
-          ], state.filters.urgencyLevel)}
-          ${renderFilterSelect('审核状态', 'audit', [
-            { value: 'ALL', label: '全部' },
-            { value: 'PENDING', label: '待审核' },
-            { value: 'PARTIAL', label: '部分审核' },
-            { value: 'APPROVED', label: '已审核' },
-          ], state.filters.auditStatus)}
-          ${renderFilterSelect('配料状态', 'config', [
-            { value: 'ALL', label: '全部' },
-            { value: 'NOT_CONFIGURED', label: '未配置' },
-            { value: 'PARTIAL', label: '部分配置' },
-            { value: 'CONFIGURED', label: '已配置' },
-          ], state.filters.configStatus)}
-          ${renderFilterSelect('领料状态', 'receive', [
-            { value: 'ALL', label: '全部' },
-            { value: 'NOT_RECEIVED', label: '未领料' },
-            { value: 'PARTIAL', label: '部分领料' },
-            { value: 'RECEIVED', label: '领料成功' },
-          ], state.filters.receiveStatus)}
-          ${renderFilterSelect('风险筛选', 'risk', [
-            { value: 'ALL', label: '全部' },
-            { value: 'RISK_ONLY', label: '仅看有风险' },
-          ], state.filters.riskFilter)}
+        <div class="space-y-3">
+          ${renderQuickFilterRow()}
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
+            <label class="space-y-2 md:col-span-2 xl:col-span-2">
+              <span class="text-sm font-medium text-foreground">关键词</span>
+              <input
+                type="text"
+                value="${escapeHtml(state.filters.keyword)}"
+                placeholder="支持生产单号 / 款号 / 面料 SKU"
+                class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                data-cutting-progress-field="keyword"
+              />
+            </label>
+            ${renderFilterSelect('紧急程度', 'urgency', state.filters.urgencyLevel, [
+              { value: 'ALL', label: '全部' },
+              { value: 'AA', label: 'AA 紧急' },
+              { value: 'A', label: 'A 紧急' },
+              { value: 'B', label: 'B 紧急' },
+              { value: 'C', label: 'C 优先' },
+              { value: 'D', label: 'D 常规' },
+              { value: 'UNKNOWN', label: '待补日期' },
+            ])}
+            ${renderFilterSelect('当前阶段', 'stage', state.filters.currentStage, [
+              { value: 'ALL', label: '全部' },
+              { value: 'WAITING_PREP', label: '待配料' },
+              { value: 'PREPPING', label: '配料中' },
+              { value: 'WAITING_CLAIM', label: '待领料' },
+              { value: 'CUTTING', label: '裁剪中' },
+              { value: 'WAITING_INBOUND', label: '待入仓' },
+              { value: 'DONE', label: '已完成' },
+            ])}
+            ${renderFilterSelect('面料审核', 'audit', state.filters.auditStatus, [
+              { value: 'ALL', label: '全部' },
+              { value: 'NOT_REQUIRED', label: '无需审核' },
+              { value: 'PENDING', label: '待审核' },
+              { value: 'PARTIAL', label: '部分已审核' },
+              { value: 'APPROVED', label: '全部已审核' },
+            ])}
+            ${renderFilterSelect('配料进展', 'config', state.filters.configStatus, [
+              { value: 'ALL', label: '全部' },
+              { value: 'NOT_CONFIGURED', label: '未配置' },
+              { value: 'PARTIAL', label: '部分配置' },
+              { value: 'CONFIGURED', label: '已配置' },
+            ])}
+            ${renderFilterSelect('领料进展', 'claim', state.filters.receiveStatus, [
+              { value: 'ALL', label: '全部' },
+              { value: 'NOT_RECEIVED', label: '待领取' },
+              { value: 'PARTIAL', label: '部分领取' },
+              { value: 'RECEIVED', label: '领料成功' },
+              { value: 'EXCEPTION', label: '领取异常' },
+            ])}
+            ${renderFilterSelect('风险状态', 'risk', state.filters.riskFilter, [
+              { value: 'ALL', label: '全部' },
+              { value: 'ANY', label: '仅看有风险' },
+              { value: 'CONFIG_DELAY', label: '配料滞后' },
+              { value: 'RECEIVE_EXCEPTION', label: '领料异常' },
+              { value: 'SHIP_URGENT', label: '临近发货' },
+              { value: 'DATE_MISSING', label: '日期缺失' },
+              { value: 'STATUS_CONFLICT', label: '状态冲突' },
+              { value: 'REPLENISH_PENDING', label: '待补料' },
+            ])}
+            ${renderFilterSelect('排序', 'sort', state.filters.sortBy, [
+              { value: 'URGENCY_THEN_SHIP', label: '默认：紧急程度 + 发货时间' },
+              { value: 'SHIP_DATE_ASC', label: '计划发货日期升序' },
+              { value: 'ORDER_QTY_DESC', label: '下单数量降序' },
+            ])}
+          </div>
         </div>
       `)}
 
       ${renderActiveStateBar()}
-      ${renderOrderProgressTable()}
-
+      ${renderTable(rows)}
       ${renderDetailDrawer()}
     </div>
   `
+}
+
+function findRowById(recordId: string | undefined): ProductionProgressRow | undefined {
+  if (!recordId) return undefined
+  return getAllRows().find((row) => row.id === recordId)
+}
+
+function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanonicalPageKey): boolean {
+  const row = findRowById(recordId)
+  if (!row) return false
+
+  const payload =
+    key === 'material-prep'
+      ? row.filterPayloadForMaterialPrep
+      : key === 'cuttable-pool'
+        ? row.filterPayloadForCuttablePool
+        : key === 'summary'
+          ? row.filterPayloadForSummary
+          : row.filterPayloadForOriginalOrders
+
+  appStore.navigate(buildRouteWithQuery(key, payload))
+  return true
 }
 
 export function handleCraftCuttingOrderProgressEvent(target: Element): boolean {
@@ -741,7 +667,7 @@ export function handleCraftCuttingOrderProgressEvent(target: Element): boolean {
 
   const fieldNode = target.closest<HTMLElement>('[data-cutting-progress-field]')
   if (fieldNode) {
-    const field = fieldNode.dataset.cuttingProgressField as keyof typeof FIELD_TO_FILTER_KEY | undefined
+    const field = fieldNode.dataset.cuttingProgressField as FilterField | undefined
     if (!field) return false
 
     const filterKey = FIELD_TO_FILTER_KEY[field]
@@ -758,49 +684,23 @@ export function handleCraftCuttingOrderProgressEvent(target: Element): boolean {
   const action = actionNode?.dataset.cuttingProgressAction
   if (!action) return false
 
-  if (action === 'open-detail') {
-    state.activeDetailId = actionNode?.dataset.recordId ?? null
-    return true
-  }
-
-  if (action === 'toggle-priority-mode') {
-    const mode = actionNode?.dataset.priorityMode as OrderProgressPriorityMode | undefined
-    if (!mode) return false
-    state.activePriorityMode = state.activePriorityMode === mode ? null : mode
+  if (action === 'toggle-quick-filter') {
+    const quickFilter = actionNode.dataset.quickFilter as ProductionProgressQuickFilter | undefined
+    if (!quickFilter) return false
+    state.activeQuickFilter = state.activeQuickFilter === quickFilter ? null : quickFilter
     resetPagination()
     return true
   }
 
-  if (action === 'clear-priority-mode') {
-    state.activePriorityMode = null
-    resetPagination()
-    return true
-  }
-
-  if (action === 'toggle-kpi-filter') {
-    const filter = actionNode?.dataset.kpiFilter as OrderProgressKpiFilter | undefined
-    if (!filter) return false
-    state.activeKpiFilter = state.activeKpiFilter === filter ? null : filter
-    resetPagination()
-    return true
-  }
-
-  if (action === 'clear-kpi-filter') {
-    state.activeKpiFilter = null
-    resetPagination()
-    return true
-  }
-
-  if (action === 'clear-view-state') {
-    state.activePriorityMode = null
-    state.activeKpiFilter = null
+  if (action === 'clear-filters') {
     state.filters = { ...initialFilters }
+    state.activeQuickFilter = null
     resetPagination()
     return true
   }
 
-  if (action === 'set-page') {
-    state.page = Number(actionNode?.dataset.page) || 1
+  if (action === 'open-detail') {
+    state.activeDetailId = actionNode.dataset.recordId ?? null
     return true
   }
 
@@ -809,13 +709,34 @@ export function handleCraftCuttingOrderProgressEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'go-material-prep') {
-    appStore.navigate('/fcs/craft/cutting/material-prep')
+  if (action === 'set-page') {
+    state.page = Number(actionNode.dataset.page) || 1
     return true
   }
 
-  if (action === 'go-cut-piece-orders') {
-    appStore.navigate('/fcs/craft/cutting/cut-piece-orders')
+  if (action === 'go-original-orders') {
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'original-orders')
+  }
+
+  if (action === 'go-material-prep') {
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'material-prep')
+  }
+
+  if (action === 'go-cuttable-pool') {
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'cuttable-pool')
+  }
+
+  if (action === 'go-summary') {
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'summary')
+  }
+
+  if (action === 'go-cuttable-pool-index') {
+    appStore.navigate(getCanonicalCuttingPath('cuttable-pool'))
+    return true
+  }
+
+  if (action === 'go-summary-index') {
+    appStore.navigate(getCanonicalCuttingPath('summary'))
     return true
   }
 

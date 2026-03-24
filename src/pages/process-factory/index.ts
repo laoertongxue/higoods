@@ -2,10 +2,19 @@ export { renderCraftWorkbenchOverviewPage } from './workbench/overview'
 
 export {
   renderCraftCuttingOrderProgressPage,
+  renderCraftCuttingCuttablePoolPage,
+  renderCraftCuttingMergeBatchesPage,
+  renderCraftCuttingMarkerSpreadingPage,
+  renderCraftCuttingFeiTicketsPage,
   renderCraftCuttingMaterialPrepPage,
   renderCraftCuttingPieceOrdersPage,
+  renderCraftCuttingFabricWarehousePage,
+  renderCraftCuttingCutPieceWarehousePage,
+  renderCraftCuttingSampleWarehousePage,
+  renderCraftCuttingTransferBagsPage,
   renderCraftCuttingWarehouseManagementPage,
   renderCraftCuttingReplenishmentPage,
+  renderCraftCuttingSpecialProcessesPage,
   renderCraftCuttingSummaryPage,
 } from './cutting'
 

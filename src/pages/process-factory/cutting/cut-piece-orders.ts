@@ -1,3 +1,5 @@
+// 旧 renderer 继续承接新的 canonical 页面“裁片单（原始单）”。
+// 这里强调主对象是原始裁片单，不是生产单，也不是合并裁剪批次。
 import { renderDialog as uiDialog, renderDrawer as uiDrawer, renderFormDrawer as uiFormDrawer } from '../../../components/ui'
 import {
   cloneCutPieceOrderRecords,
@@ -9,6 +11,7 @@ import {
 import { buildCutPieceOrderPickupView } from '../../../domain/pickup/page-adapters/pcs-cut-piece-orders'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
   buildConfigReceiveSummary,
   buildCutPieceOrderSummary,
@@ -220,18 +223,18 @@ function renderFilterSelect(
 }
 
 function renderPageHeader(): string {
+  const pathname = appStore.getState().pathname
+  const meta = getCanonicalCuttingMeta(pathname, 'original-orders')
   return `
-    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-xl font-bold">裁片单</h1>
-        <p class="mt-0.5 text-xs text-muted-foreground">裁片单主表优先。</p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep">去仓库配料</button>
-        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment">去补料管理</button>
-      </div>
-    </header>
+    ${renderCuttingPageHeader(meta, {
+      showCompatibilityBadge: isCuttingAliasPath(pathname),
+      actionsHtml: `
+        <div class="flex flex-wrap gap-2">
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep">去仓库配料 / 领料</button>
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment">去补料管理</button>
+        </div>
+      `,
+    })}
   `
 }
 
@@ -1297,12 +1300,12 @@ export function handleCraftCuttingPieceOrdersEvent(target: Element): boolean {
   }
 
   if (action === 'go-material-prep') {
-    appStore.navigate('/fcs/craft/cutting/material-prep')
+    appStore.navigate(getCanonicalCuttingPath('material-prep'))
     return true
   }
 
   if (action === 'go-replenishment') {
-    appStore.navigate('/fcs/craft/cutting/replenishment')
+    appStore.navigate(getCanonicalCuttingPath('replenishment'))
     return true
   }
 

@@ -248,17 +248,52 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'craft-workbench-overview', title: '总览', icon: 'LayoutDashboard', href: '/fcs/craft/workbench/overview' },
           ],
         },
+        // 裁片域菜单按“主对象 + 主责任”拆成 4 个并列域，而不是继续用单一“裁片管理”平铺页面。
+        // 这样做是为了把生产单、原始裁片单、合并裁剪批次、仓交接载具等对象边界固定下来，
+        // 避免后续实现再次把仓库管理、菲票、合批和生产单视图混成一个菜单域。
+        // 本组菜单标题必须直接使用 canonical 名称，不能再把旧页面名当作主名称继续外露。
         {
-          key: 'craft-cutting',
-          title: '裁片管理',
+          key: 'craft-cutting-overview',
+          title: '裁片总览',
           icon: 'Scissors',
           children: [
-            { key: 'craft-cutting-order-progress', title: '订单进度', icon: 'ListTodo', href: '/fcs/craft/cutting/order-progress' },
-            { key: 'craft-cutting-material-prep', title: '仓库配料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
-            { key: 'craft-cutting-orders', title: '裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/cut-piece-orders' },
-            { key: 'craft-cutting-warehouse-management', title: '仓库管理', icon: 'Warehouse', href: '/fcs/craft/cutting/warehouse-management' },
+            { key: 'craft-cutting-production-progress', title: '生产单进度', icon: 'ListTodo', href: '/fcs/craft/cutting/production-progress' },
+            { key: 'craft-cutting-cuttable-pool', title: '可裁排产', icon: 'CalendarClock', href: '/fcs/craft/cutting/cuttable-pool' },
+            { key: 'craft-cutting-merge-batches', title: '合并裁剪批次', icon: 'Layers', href: '/fcs/craft/cutting/merge-batches' },
+          ],
+        },
+        {
+          key: 'craft-cutting-prep',
+          title: '裁片执行准备',
+          icon: 'PackageSearch',
+          children: [
+            { key: 'craft-cutting-original-orders', title: '裁片单（原始单）', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
+            { key: 'craft-cutting-material-prep', title: '仓库配料 / 领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
+            { key: 'craft-cutting-marker-spreading', title: '唛架 / 铺布', icon: 'Ruler', href: '/fcs/craft/cutting/marker-spreading' },
+            { key: 'craft-cutting-fei-tickets', title: '菲票 / 打编号', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
+          ],
+        },
+        {
+          key: 'craft-cutting-handover',
+          title: '裁片仓交接',
+          icon: 'Warehouse',
+          // 旧“仓库管理”被拆成裁床仓 / 裁片仓 / 样衣仓 / 周转口袋 / 车缝交接，
+          // 因为这些页面分别对应库存对象、样衣对象和独立载具对象，不能继续用一个仓库总名覆盖。
+          children: [
+            { key: 'craft-cutting-fabric-warehouse', title: '裁床仓', icon: 'Warehouse', href: '/fcs/craft/cutting/fabric-warehouse' },
+            { key: 'craft-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
+            { key: 'craft-cutting-sample-warehouse', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/sample-warehouse' },
+            { key: 'craft-cutting-transfer-bags', title: '周转口袋 / 车缝交接', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
+          ],
+        },
+        {
+          key: 'craft-cutting-closure',
+          title: '裁片异常收口',
+          icon: 'AlertTriangle',
+          children: [
             { key: 'craft-cutting-replenishment', title: '补料管理', icon: 'ClipboardSignature', href: '/fcs/craft/cutting/replenishment' },
-            { key: 'craft-cutting-summary', title: '裁剪总结', icon: 'BarChart3', href: '/fcs/craft/cutting/cutting-summary' },
+            { key: 'craft-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
+            { key: 'craft-cutting-summary', title: '裁剪总结', icon: 'BarChart3', href: '/fcs/craft/cutting/summary' },
           ],
         },
         {

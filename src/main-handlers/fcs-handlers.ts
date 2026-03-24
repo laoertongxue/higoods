@@ -136,6 +136,8 @@ import {
   handleCraftCuttingOrderProgressEvent,
   isCraftCuttingOrderProgressDialogOpen,
 } from '../pages/process-factory/cutting/order-progress'
+import { handleCraftCuttingCuttablePoolEvent } from '../pages/process-factory/cutting/cuttable-pool'
+import { handleCraftCuttingMergeBatchesEvent } from '../pages/process-factory/cutting/merge-batches'
 import {
   handleCraftCuttingMaterialPrepEvent,
   isCraftCuttingMaterialPrepDialogOpen,
@@ -196,6 +198,8 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleProgressCuttingExceptionCenterEvent(target) ||
     handleCuttingSettlementInputEvent(target) ||
     handleCraftCuttingOrderProgressEvent(target) ||
+    handleCraftCuttingCuttablePoolEvent(target) ||
+    handleCraftCuttingMergeBatchesEvent(target) ||
     handleCraftCuttingMaterialPrepEvent(target) ||
     handleCraftCuttingPieceOrdersEvent(target) ||
     handleCraftCuttingReplenishmentEvent(target) ||

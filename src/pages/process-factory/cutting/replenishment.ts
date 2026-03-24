@@ -1,3 +1,5 @@
+// 本文件继续承接 canonical 页面“补料管理”。
+// 页面主对象是补料建议与审核收口，不应与铺布、仓交接或生产单总览混用。
 import { renderDialog as uiDialog, renderDrawer as uiDrawer, renderFormDrawer as uiFormDrawer } from '../../../components/ui'
 import {
   cloneReplenishmentSuggestionRecords,
@@ -7,6 +9,7 @@ import {
 } from '../../../data/fcs/cutting/replenishment'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
   buildEmptyStateText,
   buildGapSummary,
@@ -164,18 +167,18 @@ function renderFilterSelect(
 }
 
 function renderPageHeader(): string {
+  const pathname = appStore.getState().pathname
+  const meta = getCanonicalCuttingMeta(pathname, 'replenishment')
   return `
-    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <p class="mb-1 text-sm text-muted-foreground">工艺工厂运营系统 / 裁片管理</p>
-        <h1 class="text-xl font-bold">补料管理</h1>
-        <p class="mt-0.5 text-xs text-muted-foreground">补料主表优先。</p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单</button>
-        <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料</button>
-      </div>
-    </header>
+    ${renderCuttingPageHeader(meta, {
+      showCompatibilityBadge: isCuttingAliasPath(pathname),
+      actionsHtml: `
+        <div class="flex flex-wrap gap-2">
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单（原始单）</button>
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料 / 领料</button>
+        </div>
+      `,
+    })}
   `
 }
 
@@ -454,8 +457,8 @@ function renderMainTable(): string {
                       <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="open-detail" data-record-id="${record.id}">查看依据</button>
                       <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="open-review" data-record-id="${record.id}">审核处理</button>
                       <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="open-impact" data-record-id="${record.id}">查看影响</button>
-                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单</button>
-                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料</button>
+                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单（原始单）</button>
+                      <button class="rounded-md border px-2.5 py-1.5 hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料 / 领料</button>
                     </div>
                   </td>
                 </tr>
@@ -593,8 +596,8 @@ function renderDetailDrawer(): string {
         <section class="rounded-lg border p-4">
           <h3 class="text-sm font-semibold text-foreground">快捷入口区</h3>
           <div class="mt-4 flex flex-wrap gap-2">
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-cut-piece-orders">去裁片单（原始单）</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep">去仓库配料 / 领料</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="open-review" data-record-id="${record.id}">打开审核处理</button>
           </div>
         </section>
@@ -847,12 +850,12 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
   }
 
   if (action === 'go-cut-piece-orders') {
-    appStore.navigate('/fcs/craft/cutting/cut-piece-orders')
+    appStore.navigate(getCanonicalCuttingPath('original-orders'))
     return true
   }
 
   if (action === 'go-material-prep') {
-    appStore.navigate('/fcs/craft/cutting/material-prep')
+    appStore.navigate(getCanonicalCuttingPath('material-prep'))
     return true
   }
 

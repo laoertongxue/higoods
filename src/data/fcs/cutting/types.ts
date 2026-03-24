@@ -7,6 +7,7 @@ export type CuttingConfigStatus = 'NOT_CONFIGURED' | 'PARTIAL' | 'CONFIGURED'
 export type CuttingReceiveStatus = 'NOT_RECEIVED' | 'PARTIAL' | 'RECEIVED'
 export type CuttingPrintSlipStatus = 'NOT_PRINTED' | 'PRINTED'
 export type CuttingQrStatus = 'NOT_GENERATED' | 'GENERATED'
+export type CuttingBatchOccupancyStatus = 'AVAILABLE' | 'IN_BATCH'
 
 export type CuttingRiskFlag =
   | 'PENDING_REVIEW'
@@ -30,16 +31,23 @@ export interface CuttingMaterialLine {
   receivedLength: number
   printSlipStatus: CuttingPrintSlipStatus
   qrStatus: CuttingQrStatus
+  batchOccupancyStatus?: CuttingBatchOccupancyStatus
+  mergeBatchNo?: string
   issueFlags: CuttingRiskFlag[]
   latestActionText: string
 }
 
 export interface CuttingOrderProgressRecord {
   id: string
+  productionOrderId: string
   productionOrderNo: string
+  actualOrderDate: string
   purchaseDate: string
   orderQty: number
   plannedShipDate: string
+  spuCode: string
+  styleCode: string
+  styleName: string
   urgencyLevel: CuttingUrgencyLevel
   cuttingTaskNo: string
   assignedFactoryName: string
