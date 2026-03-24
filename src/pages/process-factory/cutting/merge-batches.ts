@@ -21,6 +21,12 @@ import {
   type MergeBatchValidationResult,
   validateIncomingBatchSelection,
 } from './merge-batches-model'
+import {
+  CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
+  deserializeFeiTicketRecordsStorage,
+  type FeiTicketLabelRecord,
+} from './fei-tickets-model'
+import { FEI_QR_SCHEMA_VERSION } from './fei-qr-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import { renderCompactKpiCard, renderStickyFilterShell } from './layout.helpers'
 
@@ -101,6 +107,14 @@ function clearIncomingSelection(): void {
     sessionStorage.removeItem(CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY)
   } catch {
     // 原型页允许静默失败，页面会继续以当前内存态显示。
+  }
+}
+
+function readStoredFeiTicketRecords(): FeiTicketLabelRecord[] {
+  try {
+    return deserializeFeiTicketRecordsStorage(localStorage.getItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY))
+  } catch {
+    return []
   }
 }
 
@@ -189,6 +203,12 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       ${renderActionButton('返回可裁排产', 'data-merge-batches-action="go-cuttable-pool"')}
+      ${renderActionButton(
+        '去菲票 / 打编号',
+        `data-merge-batches-action="go-fei-tickets"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
+        'secondary',
+        !activeBatch,
+      )}
       ${renderActionButton(
         '去唛架 / 铺布',
         `data-merge-batches-action="go-marker-spreading"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
@@ -561,6 +581,7 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
                     <td class="px-3 py-3">
                       <div class="flex flex-wrap gap-2">
                         <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="open-detail" data-batch-id="${escapeHtml(batch.mergeBatchId)}">查看详情</button>
+                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去菲票 / 打编号</button>
                         <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-marker-spreading" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去唛架 / 铺布</button>
                         <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-original-orders-batch" data-batch-id="${escapeHtml(batch.mergeBatchId)}">查看原始裁片单</button>
                         ${
@@ -593,6 +614,10 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
   const sourceGroups = groupMergeBatchItemsByProductionOrder(batch.items)
   const transitions = getStatusTransitions(batch)
   const statusMeta = getMergeBatchStatusMeta(batch.status)
+  const relatedOrderIds = Array.from(new Set(batch.items.map((item) => item.originalCutOrderId)))
+  const qrRecords = readStoredFeiTicketRecords().filter((record) => relatedOrderIds.includes(record.originalCutOrderId))
+  const printedOwnerGroupCount = new Set(qrRecords.map((record) => record.originalCutOrderId)).size
+  const qrSchemaVersion = qrRecords[0]?.schemaVersion || FEI_QR_SCHEMA_VERSION
 
   return `
     <aside class="rounded-lg border bg-card">
@@ -700,6 +725,30 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
           </div>
         </section>
 
+        <section class="rounded-lg border bg-muted/10 p-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold">二维码 / 打票状态摘要</h3>
+              <p class="mt-1 text-xs text-muted-foreground">这里展示的是该批次关联的原始裁片单二维码 / 打票进度，不代表批次拥有二维码或菲票。</p>
+            </div>
+            <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去菲票 / 打编号</button>
+          </div>
+          <div class="mt-3 grid gap-3 md:grid-cols-3">
+            <div class="rounded-md border bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">关联 owner groups 数</p>
+              <p class="mt-1 font-medium">${escapeHtml(String(relatedOrderIds.length))}</p>
+            </div>
+            <div class="rounded-md border bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">已打票 owner groups 数</p>
+              <p class="mt-1 font-medium">${escapeHtml(String(printedOwnerGroupCount))}</p>
+            </div>
+            <div class="rounded-md border bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">当前二维码 schema version</p>
+              <p class="mt-1 font-medium">${escapeHtml(qrSchemaVersion)}</p>
+            </div>
+          </div>
+        </section>
+
         <section class="rounded-lg border bg-blue-50/60 p-3">
           <h3 class="text-sm font-semibold">说明与下一步</h3>
           <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
@@ -719,6 +768,10 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
               ),
             )
             .join('')}
+          ${renderActionButton(
+            '去菲票 / 打编号',
+            `data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`,
+          )}
           ${renderActionButton(
             '去唛架 / 铺布',
             `data-merge-batches-action="go-marker-spreading" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`,
@@ -808,6 +861,21 @@ function goMarkerSpreading(batchId: string | undefined): boolean {
   return true
 }
 
+function goFeiTickets(batchId: string | undefined): boolean {
+  if (!batchId) {
+    setFeedback('warning', '请先选择一个批次，再进入菲票 / 打编号。')
+    return true
+  }
+  const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
+  appStore.navigate(
+    buildRouteWithQuery(getCanonicalCuttingPath('fei-tickets'), {
+      mergeBatchId: batchId,
+      mergeBatchNo: batch?.mergeBatchNo,
+    }),
+  )
+  return true
+}
+
 function goOriginalOrdersByBatch(batchId: string | undefined): boolean {
   if (!batchId) {
     setFeedback('warning', '请先选择一个批次，再查看来源原始裁片单。')
@@ -880,6 +948,10 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
 
   if (action === 'go-marker-spreading') {
     return goMarkerSpreading(actionNode.dataset.batchId)
+  }
+
+  if (action === 'go-fei-tickets') {
+    return goFeiTickets(actionNode.dataset.batchId)
   }
 
   if (action === 'go-original-orders-batch') {

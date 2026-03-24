@@ -12,6 +12,17 @@ import {
   type MergeBatchRecord,
 } from './merge-batches-model'
 import {
+  CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
+  deserializeFeiTicketRecordsStorage,
+  type FeiTicketLabelRecord,
+} from './fei-tickets-model'
+import {
+  FEI_QR_SCHEMA_VERSION,
+  buildFeiQrCompatibilityMeta,
+  buildFeiQrPayload,
+  buildFeiQrPayloadSummary,
+} from './fei-qr-model'
+import {
   buildOriginalCutOrderStats,
   buildOriginalCutOrderViewModel,
   filterOriginalCutOrderRows,
@@ -201,6 +212,74 @@ function formatDate(value: string): string {
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value)
+}
+
+function readStoredFeiTicketRecords(): FeiTicketLabelRecord[] {
+  try {
+    return deserializeFeiTicketRecordsStorage(localStorage.getItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY))
+  } catch {
+    return []
+  }
+}
+
+function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
+  latestTicketNo: string
+  schemaVersion: string
+  ownerType: string
+  qrBaseValue: string
+  sourceContextText: string
+  reservedProcessText: string
+  compatibilityText: string
+} {
+  const latestRecord =
+    readStoredFeiTicketRecords()
+      .filter((record) => record.originalCutOrderId === row.originalCutOrderId || record.originalCutOrderNo === row.originalCutOrderNo)
+      .sort(
+        (left, right) =>
+          right.printedAt.localeCompare(left.printedAt, 'zh-CN') ||
+          right.createdAt.localeCompare(left.createdAt, 'zh-CN') ||
+          right.sequenceNo - left.sequenceNo,
+      )[0] ?? null
+
+  if (!latestRecord) {
+    return {
+      latestTicketNo: '待生成',
+      schemaVersion: FEI_QR_SCHEMA_VERSION,
+      ownerType: 'original-cut-order',
+      qrBaseValue: `QR-${row.originalCutOrderNo}`,
+      sourceContextText: row.latestMergeBatchNo ? `最近来自批次 ${row.latestMergeBatchNo}` : '原始单上下文',
+      reservedProcessText: '已预留 4 类工艺扩展槽位',
+      compatibilityText: '当前尚无历史票据记录，二维码将按 1.0.0 默认结构生成。',
+    }
+  }
+
+  const payload = buildFeiQrPayload({
+    ticketRecord: latestRecord,
+    owner: {
+      originalCutOrderId: row.originalCutOrderId,
+      originalCutOrderNo: row.originalCutOrderNo,
+      productionOrderId: row.productionOrderId,
+      productionOrderNo: row.productionOrderNo,
+      styleCode: row.styleCode,
+      spuCode: row.spuCode,
+      color: row.color,
+      materialSku: row.materialSku,
+      sameCodeValue: row.originalCutOrderNo,
+      qrBaseValue: latestRecord.legacyQrBaseValue || `QR-${row.originalCutOrderNo}`,
+    },
+  })
+  const summary = buildFeiQrPayloadSummary(payload)
+  const compatibility = buildFeiQrCompatibilityMeta(latestRecord)
+
+  return {
+    latestTicketNo: latestRecord.ticketNo,
+    schemaVersion: summary.schemaVersion,
+    ownerType: summary.ownerType,
+    qrBaseValue: summary.qrBaseValue,
+    sourceContextText: summary.sourceContextType === 'merge-batch' ? `来自批次 ${latestRecord.sourceMergeBatchNo || '待补批次号'}` : '原始单上下文',
+    reservedProcessText: summary.hasReservedProcess ? '已预留 4 类工艺扩展槽位' : '待补',
+    compatibilityText: compatibility.compatibilityNote,
+  }
 }
 
 function buildStatsCards(rows: OriginalCutOrderRow[]): string {
@@ -585,6 +664,7 @@ function renderDetailSection(title: string, body: string): string {
 function renderDetailDrawer(viewModel = getViewModel()): string {
   const row = getActiveRow(viewModel)
   if (!row) return ''
+  const qrSummary = buildOriginalOrderQrSummary(row)
 
   const siblingRows = viewModel.rows.filter(
     (item) => item.productionOrderId === row.productionOrderId && item.originalCutOrderId !== row.originalCutOrderId,
@@ -679,6 +759,29 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-same-production-orders" data-record-id="${escapeHtml(row.id)}">
                 查看同生产单下其他原始裁片单${siblingRows.length ? `（${siblingRows.length}）` : ''}
               </button>
+            </div>
+          </div>
+        `,
+      )}
+
+      ${renderDetailSection(
+        '二维码摘要',
+        `
+          <div class="space-y-3">
+            ${renderInfoGrid([
+              { label: '最新 ticketNo', value: qrSummary.latestTicketNo, tone: 'strong' },
+              { label: 'schema version', value: qrSummary.schemaVersion },
+              { label: 'ownerType', value: qrSummary.ownerType },
+              { label: 'qrBaseValue', value: qrSummary.qrBaseValue },
+              { label: 'sourceContext 摘要', value: qrSummary.sourceContextText },
+              { label: 'reservedProcess', value: qrSummary.reservedProcessText },
+            ])}
+            <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
+              <p>二维码当前归属原始裁片单；合并裁剪批次仅作为来源上下文摘要存在。</p>
+              <p class="mt-1">${escapeHtml(qrSummary.compatibilityText)}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去菲票 / 打编号</button>
             </div>
           </div>
         `,

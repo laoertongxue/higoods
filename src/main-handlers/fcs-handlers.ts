@@ -146,6 +146,7 @@ import {
   handleCraftCuttingMarkerSpreadingEvent,
   isCraftCuttingMarkerSpreadingDialogOpen,
 } from '../pages/process-factory/cutting/marker-spreading'
+import { handleCraftCuttingFeiTicketsEvent } from '../pages/process-factory/cutting/fei-tickets'
 import {
   handleCraftCuttingPieceOrdersEvent,
   isCraftCuttingPieceOrdersDialogOpen,
@@ -206,6 +207,7 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleCraftCuttingMergeBatchesEvent(target) ||
     handleCraftCuttingMaterialPrepEvent(target) ||
     handleCraftCuttingMarkerSpreadingEvent(target) ||
+    handleCraftCuttingFeiTicketsEvent(target) ||
     handleCraftCuttingPieceOrdersEvent(target) ||
     handleCraftCuttingReplenishmentEvent(target) ||
     handleCraftCuttingWarehouseManagementEvent(target) ||
