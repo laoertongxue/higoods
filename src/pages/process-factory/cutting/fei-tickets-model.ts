@@ -217,6 +217,13 @@ export interface CreateFeiTicketPrintJobResult {
   nextRecords: FeiTicketLabelRecord[]
 }
 
+type MergeBatchRefLike = {
+  relatedMergeBatchIds?: string[]
+  relatedMergeBatchNos?: string[]
+  mergeBatchIds?: string[]
+  mergeBatchNos?: string[]
+}
+
 const feiTicketStatusMetaMap: Record<FeiTicketStatusKey, FeiTicketStatusMeta> = {
   NOT_GENERATED: {
     label: '未生成',
@@ -248,6 +255,18 @@ const feiTicketStatusMetaMap: Record<FeiTicketStatusKey, FeiTicketStatusMeta> = 
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
     detailText: '当前票据基础数据不足，需要补录后再生成菲票。',
   },
+}
+
+function getMergeBatchIds(source: MergeBatchRefLike): string[] {
+  if (Array.isArray(source.relatedMergeBatchIds)) return source.relatedMergeBatchIds
+  if (Array.isArray(source.mergeBatchIds)) return source.mergeBatchIds
+  return []
+}
+
+function getMergeBatchNos(source: MergeBatchRefLike): string[] {
+  if (Array.isArray(source.relatedMergeBatchNos)) return source.relatedMergeBatchNos
+  if (Array.isArray(source.mergeBatchNos)) return source.mergeBatchNos
+  return []
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -367,12 +386,14 @@ function buildContext(
     null
 
   if (!owner) return null
+  const mergeBatchIds = getMergeBatchIds(owner)
+  const mergeBatchNos = getMergeBatchNos(owner)
   return {
     contextType: 'original-order',
     originalCutOrderIds: [owner.originalCutOrderId],
     originalCutOrderNos: [owner.originalCutOrderNo],
-    mergeBatchId: owner.relatedMergeBatchIds[0] || '',
-    mergeBatchNo: owner.relatedMergeBatchNos[0] || '',
+    mergeBatchId: mergeBatchIds[0] || '',
+    mergeBatchNo: mergeBatchNos[0] || '',
     productionOrderNos: [owner.productionOrderNo],
     styleCode: owner.styleCode,
     spuCode: owner.spuCode,
@@ -391,8 +412,10 @@ function findRelevantMarkerPieceCount(
   )
   if (originalMarker?.totalPieces) return originalMarker.totalPieces
 
-  const targetBatchId = context?.contextType === 'merge-batch' ? context.mergeBatchId : owner.relatedMergeBatchIds[0]
-  const targetBatchNo = context?.contextType === 'merge-batch' ? context.mergeBatchNo : owner.relatedMergeBatchNos[0]
+  const ownerMergeBatchIds = getMergeBatchIds(owner)
+  const ownerMergeBatchNos = getMergeBatchNos(owner)
+  const targetBatchId = context?.contextType === 'merge-batch' ? context.mergeBatchId : ownerMergeBatchIds[0]
+  const targetBatchNo = context?.contextType === 'merge-batch' ? context.mergeBatchNo : ownerMergeBatchNos[0]
   const mergeMarker = markerStore.markers.find((marker) => {
     if (marker.contextType !== 'merge-batch') return false
     return (targetBatchId && marker.mergeBatchId === targetBatchId) || (targetBatchNo && marker.mergeBatchNo === targetBatchNo)
@@ -632,10 +655,12 @@ export function createFeiTicketPrintJob(options: {
 }
 
 export function buildFeiNavigationPayload(
-  owner: Pick<OriginalCutOrderTicketOwner, 'originalCutOrderId' | 'originalCutOrderNo' | 'productionOrderNo' | 'relatedMergeBatchNos'>,
+  owner: Pick<OriginalCutOrderTicketOwner, 'originalCutOrderId' | 'originalCutOrderNo' | 'productionOrderNo'> &
+    MergeBatchRefLike,
   context: FeiTicketsContext | null,
 ): FeiNavigationPayload {
-  const mergeBatchNo = context?.contextType === 'merge-batch' ? context.mergeBatchNo || undefined : owner.relatedMergeBatchNos[0] || undefined
+  const mergeBatchNos = getMergeBatchNos(owner)
+  const mergeBatchNo = context?.contextType === 'merge-batch' ? context.mergeBatchNo || undefined : mergeBatchNos[0] || undefined
 
   return {
     originalOrders: {
@@ -694,12 +719,14 @@ export function buildFeiTicketsViewModel(options: {
   const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.originalCutOrderId, row]))
 
   const owners = options.originalRows.map((row) => {
+    const mergeBatchIds = Array.isArray(row.mergeBatchIds) ? row.mergeBatchIds : []
+    const mergeBatchNos = Array.isArray(row.mergeBatchNos) ? row.mergeBatchNos : []
     const materialRow = materialRowsById[row.originalCutOrderId]
     const ticketCountBasis = resolveTicketCountBasis(
       {
         originalCutOrderId: row.originalCutOrderId,
-        relatedMergeBatchIds: row.mergeBatchIds,
-        relatedMergeBatchNos: row.mergeBatchNos,
+        relatedMergeBatchIds: mergeBatchIds,
+        relatedMergeBatchNos: mergeBatchNos,
         orderQtyHint: row.orderQty,
       },
       options.markerStore,
@@ -738,8 +765,8 @@ export function buildFeiTicketsViewModel(options: {
       ticketStatus: statusMeta.key,
       sameCodeValue: materialRow?.sameCodeValue || row.originalCutOrderNo,
       qrBaseValue: materialRow?.qrCodeValue || `QR-${row.originalCutOrderNo}`,
-      relatedMergeBatchIds: row.mergeBatchIds,
-      relatedMergeBatchNos: row.mergeBatchNos,
+      relatedMergeBatchIds: mergeBatchIds,
+      relatedMergeBatchNos: mergeBatchNos,
       sourceContextLabel: '原始裁片单上下文',
       ticketCountBasisLabel: ticketCountBasis.basisLabel,
       ticketCountBasisDetail: ticketCountBasis.detailText,
@@ -920,12 +947,14 @@ export function buildSystemSeedFeiTicketLedger(options: {
   }> = options.originalRows
     .slice(0, 2)
     .map((row) => {
+      const mergeBatchIds = Array.isArray(row.mergeBatchIds) ? row.mergeBatchIds : []
+      const mergeBatchNos = Array.isArray(row.mergeBatchNos) ? row.mergeBatchNos : []
       const materialRow = materialRowsById[row.originalCutOrderId]
       const ticketCountBasis = resolveTicketCountBasis(
         {
           originalCutOrderId: row.originalCutOrderId,
-          relatedMergeBatchIds: row.mergeBatchIds,
-          relatedMergeBatchNos: row.mergeBatchNos,
+          relatedMergeBatchIds: mergeBatchIds,
+          relatedMergeBatchNos: mergeBatchNos,
           orderQtyHint: row.orderQty,
         },
         options.markerStore,
@@ -953,8 +982,8 @@ export function buildSystemSeedFeiTicketLedger(options: {
           ticketStatus: 'NOT_GENERATED' as FeiTicketStatusKey,
           sameCodeValue: materialRow?.sameCodeValue || row.originalCutOrderNo,
           qrBaseValue: materialRow?.qrCodeValue || `QR-${row.originalCutOrderNo}`,
-          relatedMergeBatchIds: row.mergeBatchIds,
-          relatedMergeBatchNos: row.mergeBatchNos,
+          relatedMergeBatchIds: mergeBatchIds,
+          relatedMergeBatchNos: mergeBatchNos,
           sourceContextLabel: sourceContextType === 'merge-batch' ? `来自批次 ${row.latestMergeBatchNo}` : '原始单上下文',
           ticketCountBasisLabel: ticketCountBasis.basisLabel,
           ticketCountBasisDetail: ticketCountBasis.detailText,
@@ -967,12 +996,21 @@ export function buildSystemSeedFeiTicketLedger(options: {
             reservedProcessFields: {},
             reservedVersion: 'v-next',
           },
-          navigationPayload: buildFeiNavigationPayload(row, null),
+          navigationPayload: buildFeiNavigationPayload(
+            {
+              originalCutOrderId: row.originalCutOrderId,
+              originalCutOrderNo: row.originalCutOrderNo,
+              productionOrderNo: row.productionOrderNo,
+              mergeBatchIds,
+              mergeBatchNos,
+            },
+            null,
+          ),
           keywordIndex: [],
         },
         sourceContextType,
-        sourceMergeBatchId: row.mergeBatchIds[0] || '',
-        sourceMergeBatchNo: row.mergeBatchNos[0] || '',
+        sourceMergeBatchId: mergeBatchIds[0] || '',
+        sourceMergeBatchNo: mergeBatchNos[0] || '',
       }
     })
 

@@ -168,7 +168,7 @@ function loadTicketRecords(): FeiTicketLabelRecord[] {
   const materialRows = buildMaterialPrepViewModel(cuttingOrderProgressRecords, mergeBatches).rows
   const seed = buildSystemSeedFeiTicketLedger({
     originalRows,
-    materialRows,
+    materialPrepRows: materialRows,
     markerStore,
     mergeBatches,
   }).ticketRecords
