@@ -22,6 +22,8 @@ export interface CuttingMaterialLine {
   materialSku: string
   materialType: CuttingMaterialType
   materialLabel: string
+  color?: string
+  materialCategory?: string
   reviewStatus: CuttingReviewStatus
   configStatus: CuttingConfigStatus
   receiveStatus: CuttingReceiveStatus
@@ -48,6 +50,7 @@ export interface CuttingOrderProgressRecord {
   spuCode: string
   styleCode: string
   styleName: string
+  sellingPrice?: number
   urgencyLevel: CuttingUrgencyLevel
   cuttingTaskNo: string
   assignedFactoryName: string

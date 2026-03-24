@@ -110,8 +110,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '唛架 / 铺布',
     pageSubtitle: '承接唛架信息、铺布模式、铺布记录与后续补料判断基础数据',
     breadcrumb: createBreadcrumb('裁片执行准备', '唛架 / 铺布'),
-    isPlaceholder: true,
-    futureStageHint: '阶段 3 / 步骤 1',
+    isPlaceholder: false,
     shortDescription: '承接唛架信息、铺布模式、铺布记录与后续补料判断基础数据。',
   },
   'fei-tickets': {
