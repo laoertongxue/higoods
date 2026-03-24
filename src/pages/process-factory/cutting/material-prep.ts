@@ -1128,7 +1128,11 @@ function navigateToRowTarget(
     mergeBatches: getCanonicalCuttingPath('merge-batches'),
   }
 
-  appStore.navigate(buildRouteWithQuery(pathMap[target], row.navigationPayload[target]))
+  const payload =
+    target === 'markerSpreading'
+      ? { ...row.navigationPayload[target], tab: 'spreadings' }
+      : row.navigationPayload[target]
+  appStore.navigate(buildRouteWithQuery(pathMap[target], payload))
   return true
 }
 
@@ -1486,7 +1490,7 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
   }
 
   if (action === 'go-marker-spreading-index') {
-    appStore.navigate(getCanonicalCuttingPath('marker-spreading'))
+    appStore.navigate(buildRouteWithQuery(getCanonicalCuttingPath('marker-spreading'), { tab: 'spreadings' }))
     return true
   }
 

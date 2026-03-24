@@ -92,11 +92,101 @@ function resolveEventElementTarget(eventTarget: EventTarget | null): Element | n
   return null
 }
 
+const SHELL_ACTIONS = new Set([
+  'switch-system',
+  'set-sidebar-open',
+  'toggle-sidebar-collapsed',
+  'toggle-menu-group',
+  'toggle-menu-item',
+  'open-tab',
+  'activate-tab',
+  'close-tab',
+  'close-all-tabs',
+])
+
+function handleShellAction(actionNode: HTMLElement): boolean {
+  const action = actionNode.dataset.action
+  if (!action || !SHELL_ACTIONS.has(action)) return false
+
+  if (action === 'switch-system') {
+    const systemId = actionNode.dataset.systemId
+    if (systemId) {
+      appStore.switchSystem(systemId)
+      closeMobileSidebar()
+    }
+    return true
+  }
+
+  if (action === 'set-sidebar-open') {
+    appStore.setSidebarOpen(actionNode.dataset.sidebarOpen === 'true')
+    return true
+  }
+
+  if (action === 'toggle-sidebar-collapsed') {
+    appStore.toggleSidebarCollapsed()
+    return true
+  }
+
+  if (action === 'toggle-menu-group') {
+    const groupKey = actionNode.dataset.groupKey
+    if (groupKey) appStore.toggleGroup(groupKey)
+    return true
+  }
+
+  if (action === 'toggle-menu-item') {
+    const itemKey = actionNode.dataset.itemKey
+    if (itemKey) appStore.toggleItem(itemKey)
+    return true
+  }
+
+  if (action === 'open-tab') {
+    const href = actionNode.dataset.tabHref
+    const key = actionNode.dataset.tabKey
+    const title = actionNode.dataset.tabTitle
+
+    if (href && key && title) {
+      appStore.openTab({
+        href,
+        key,
+        title,
+        closable: true,
+      })
+      closeMobileSidebar()
+    }
+    return true
+  }
+
+  if (action === 'activate-tab') {
+    const key = actionNode.dataset.tabKey
+    if (key) appStore.activateTab(key)
+    return true
+  }
+
+  if (action === 'close-tab') {
+    const key = actionNode.dataset.tabKey
+    if (key) appStore.closeTab(key)
+    return true
+  }
+
+  if (action === 'close-all-tabs') {
+    appStore.closeAllTabs()
+    return true
+  }
+
+  return false
+}
+
 root.addEventListener('click', (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
 
   if (shouldBypassClickDispatch(target)) return
+
+  const shellActionNode = target.closest<HTMLElement>('[data-action]')
+  if (shellActionNode && handleShellAction(shellActionNode)) {
+    event.preventDefault()
+    return
+  }
 
   if (dispatchPageEvent(target)) {
     event.preventDefault()
@@ -115,74 +205,8 @@ root.addEventListener('click', (event) => {
   const actionNode = target.closest<HTMLElement>('[data-action]')
   if (!actionNode) return
 
-  const action = actionNode.dataset.action
-  if (!action) return
-
-  event.preventDefault()
-
-  if (action === 'switch-system') {
-    const systemId = actionNode.dataset.systemId
-    if (systemId) {
-      appStore.switchSystem(systemId)
-      closeMobileSidebar()
-    }
-    return
-  }
-
-  if (action === 'set-sidebar-open') {
-    appStore.setSidebarOpen(actionNode.dataset.sidebarOpen === 'true')
-    return
-  }
-
-  if (action === 'toggle-sidebar-collapsed') {
-    appStore.toggleSidebarCollapsed()
-    return
-  }
-
-  if (action === 'toggle-menu-group') {
-    const groupKey = actionNode.dataset.groupKey
-    if (groupKey) appStore.toggleGroup(groupKey)
-    return
-  }
-
-  if (action === 'toggle-menu-item') {
-    const itemKey = actionNode.dataset.itemKey
-    if (itemKey) appStore.toggleItem(itemKey)
-    return
-  }
-
-  if (action === 'open-tab') {
-    const href = actionNode.dataset.tabHref
-    const key = actionNode.dataset.tabKey
-    const title = actionNode.dataset.tabTitle
-
-    if (href && key && title) {
-      appStore.openTab({
-        href,
-        key,
-        title,
-        closable: true,
-      })
-      closeMobileSidebar()
-    }
-    return
-  }
-
-  if (action === 'activate-tab') {
-    const key = actionNode.dataset.tabKey
-    if (key) appStore.activateTab(key)
-    return
-  }
-
-  if (action === 'close-tab') {
-    const key = actionNode.dataset.tabKey
-    if (key) appStore.closeTab(key)
-    return
-  }
-
-  if (action === 'close-all-tabs') {
-    appStore.closeAllTabs()
-    return
+  if (handleShellAction(actionNode)) {
+    event.preventDefault()
   }
 })
 

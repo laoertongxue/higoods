@@ -857,7 +857,14 @@ function goMarkerSpreading(batchId: string | undefined): boolean {
     setFeedback('warning', '请先选择一个批次，再进入唛架 / 铺布。')
     return true
   }
-  appStore.navigate(buildRouteWithQuery(getCanonicalCuttingPath('marker-spreading'), { mergeBatchId: batchId }))
+  const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
+  appStore.navigate(
+    buildRouteWithQuery(getCanonicalCuttingPath('marker-spreading'), {
+      mergeBatchId: batchId,
+      mergeBatchNo: batch?.mergeBatchNo,
+      tab: 'spreadings',
+    }),
+  )
   return true
 }
 

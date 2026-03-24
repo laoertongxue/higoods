@@ -413,6 +413,7 @@ export function buildOriginalOrderNavigationPayload(row: {
       originalCutOrderId: row.originalCutOrderId,
       originalCutOrderNo: row.originalCutOrderNo,
       mergeBatchNo: row.latestMergeBatchNo || undefined,
+      tab: 'spreadings',
     },
     feiTickets: {
       originalCutOrderId: row.originalCutOrderId,

@@ -507,6 +507,7 @@ export function buildMaterialPrepNavigationPayload(row: Pick<
       originalCutOrderNo: row.originalCutOrderNo,
       mergeBatchNo: row.latestMergeBatchNo || undefined,
       productionOrderNo: row.productionOrderNo,
+      tab: 'spreadings',
     },
     summary: {
       productionOrderId: row.productionOrderId,

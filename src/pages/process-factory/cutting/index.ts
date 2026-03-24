@@ -6,7 +6,13 @@ export { renderCraftCuttingReplenishmentPage } from './replenishment'
 export { renderCraftCuttingSummaryPage } from './cutting-summary'
 export { renderCraftCuttingCuttablePoolPage } from './cuttable-pool'
 export { renderCraftCuttingMergeBatchesPage } from './merge-batches'
-export { renderCraftCuttingMarkerSpreadingPage } from './marker-spreading'
+export {
+  renderCraftCuttingMarkerSpreadingPage,
+  renderCraftCuttingMarkerDetailPage,
+  renderCraftCuttingMarkerEditPage,
+  renderCraftCuttingSpreadingDetailPage,
+  renderCraftCuttingSpreadingEditPage,
+} from './marker-spreading'
 export { renderCraftCuttingFeiTicketsPage } from './fei-tickets'
 export { renderCraftCuttingFabricWarehousePage } from './fabric-warehouse'
 export { renderCraftCuttingCutPieceWarehousePage } from './cut-piece-warehouse'

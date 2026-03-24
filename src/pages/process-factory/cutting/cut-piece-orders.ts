@@ -34,6 +34,7 @@ import {
   type OriginalCutOrderPrefilter,
   type OriginalCutOrderRow,
 } from './original-orders-model'
+import { buildMarkerSpreadingCountsByOriginalOrder } from './marker-spreading-utils'
 import { configMeta, receiveMeta } from './production-progress-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
@@ -665,6 +666,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   const row = getActiveRow(viewModel)
   if (!row) return ''
   const qrSummary = buildOriginalOrderQrSummary(row)
+  const markerSpreadingCounts = buildMarkerSpreadingCountsByOriginalOrder(row.originalCutOrderId)
 
   const siblingRows = viewModel.rows.filter(
     (item) => item.productionOrderId === row.productionOrderId && item.originalCutOrderId !== row.originalCutOrderId,
@@ -788,6 +790,33 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       )}
 
       ${renderDetailSection(
+        '唛架 / 铺布摘要',
+        `
+          <div class="space-y-3">
+            ${renderInfoGrid([
+              { label: '相关唛架数', value: `${markerSpreadingCounts.markerCount} 条`, tone: 'strong' },
+              { label: '铺布 session 数', value: `${markerSpreadingCounts.sessionCount} 条` },
+              { label: '卷记录数', value: `${markerSpreadingCounts.rollCount} 条` },
+              { label: '人员记录数', value: `${markerSpreadingCounts.operatorCount} 条` },
+              { label: '铺布状态摘要', value: markerSpreadingCounts.statusSummary },
+              { label: '当前铺布状态', value: markerSpreadingCounts.spreadingStatusLabel, tone: 'strong' },
+              { label: '最近铺布记录', value: markerSpreadingCounts.latestSessionNo },
+              { label: '补料预警', value: markerSpreadingCounts.hasReplenishmentWarning ? `有预警（${markerSpreadingCounts.warningLevelLabel}）` : '当前无明显预警' },
+              { label: '建议动作', value: markerSpreadingCounts.suggestedAction },
+            ])}
+            <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
+              <p>完成铺布后，原始裁片单会在这里直接看到“铺布完成 / 待补料确认”等联动结果。</p>
+              <p class="mt-1">当前已可查看铺布记录数、卷记录数、人员记录数、最近铺布记录与补料预警摘要，并继续跳转到铺布页或补料页处理。</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架 / 铺布</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
+            </div>
+          </div>
+        `,
+      )}
+
+      ${renderDetailSection(
         '关联单据 / 关联入口',
         `
           <div class="flex flex-wrap gap-2">
@@ -882,7 +911,11 @@ function navigateToRecordTarget(
     sameProductionOrders: getCanonicalCuttingPath('original-orders'),
   }
 
-  appStore.navigate(buildRouteWithQuery(pathMap[target], row.navigationPayload[target]))
+  const payload =
+    target === 'markerSpreading'
+      ? { ...row.navigationPayload[target], tab: 'spreadings' }
+      : row.navigationPayload[target]
+  appStore.navigate(buildRouteWithQuery(pathMap[target], payload))
   return true
 }
 
@@ -996,7 +1029,7 @@ export function handleCraftCuttingPieceOrdersEvent(target: Element): boolean {
   }
 
   if (action === 'go-marker-spreading-index') {
-    appStore.navigate(getCanonicalCuttingPath('marker-spreading'))
+    appStore.navigate(buildRouteWithQuery(getCanonicalCuttingPath('marker-spreading'), { tab: 'spreadings' }))
     return true
   }
 

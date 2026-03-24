@@ -5,9 +5,16 @@ const numberFormatter = new Intl.NumberFormat('zh-CN')
 
 export const CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY = 'cuttingMarkerSpreadingLedger'
 
-export type MarkerModeKey = 'NORMAL' | 'HIGH_LOW' | 'FOLDED'
+export type MarkerModeKey = 'normal' | 'high-low' | 'folded'
 export type SpreadingStatusKey = 'DRAFT' | 'IN_PROGRESS' | 'DONE' | 'TO_FILL'
 export type SpreadingSourceChannel = 'MANUAL' | 'PDA_WRITEBACK' | 'MIXED'
+export type SpreadingOperatorActionType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
+export type SpreadingWarningLevel = '低' | '中' | '高'
+export type SpreadingSuggestedAction = '无需补料' | '建议补料' | '数据不足，待补录' | '存在异常差异，需人工确认'
+export const MARKER_SIZE_KEYS = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'onesize', 'plusonesize'] as const
+export type MarkerSizeKey = (typeof MARKER_SIZE_KEYS)[number]
+export const DEFAULT_HIGH_LOW_PATTERN_KEYS = ['S*1', 'XL*1', 'L*1+plusonesize', 'M*1+onesize', '2XL'] as const
+export type MarkerTemplateKey = 'row-template' | 'matrix-template'
 
 export interface MarkerSpreadingSummaryMeta<Key extends string> {
   key: Key
@@ -19,6 +26,48 @@ export interface MarkerSpreadingSummaryMeta<Key extends string> {
 export interface MarkerSizeDistributionItem {
   sizeLabel: string
   quantity: number
+}
+
+export interface MarkerLineItem {
+  lineItemId: string
+  markerId: string
+  lineNo: number
+  layoutCode: string
+  layoutDetailText: string
+  color: string
+  spreadRepeatCount: number
+  markerLength: number
+  markerPieceCount: number
+  singlePieceUsage: number
+  spreadTotalLength: number
+  widthHint?: string
+  note: string
+  markerLineItemId?: string
+  ratioLabel?: string
+  pieceCount?: number
+  spreadingTotalLength?: number
+}
+
+export interface HighLowCuttingRow {
+  rowId: string
+  markerId: string
+  color: string
+  sizeValues: Record<MarkerSizeKey, number>
+  total: number
+}
+
+export interface HighLowPatternRow {
+  rowId: string
+  markerId: string
+  color: string
+  patternValues: Record<string, number>
+  total: number
+}
+
+export interface HighLowSummary {
+  cuttingTotal: number
+  patternTotal: number
+  warningMessages: string[]
 }
 
 export interface MarkerSpreadingPrefilter {
@@ -48,32 +97,67 @@ export interface MarkerSpreadingContext {
 
 export interface MarkerRecord {
   markerId: string
+  markerNo?: string
   contextType: 'original-order' | 'merge-batch'
   originalCutOrderIds: string[]
+  originalCutOrderNos?: string[]
   mergeBatchId: string
   mergeBatchNo: string
+  styleCode?: string
+  spuCode?: string
+  materialSkuSummary?: string
+  colorSummary?: string
   markerMode: MarkerModeKey
   sizeDistribution: MarkerSizeDistributionItem[]
   totalPieces: number
   netLength: number
   singlePieceUsage: number
+  spreadTotalLength?: number
+  materialCategory?: string
+  materialAttr?: string
+  plannedSizeRatioText?: string
+  plannedLayerCount?: number
+  plannedMarkerCount?: number
+  markerLength?: number
+  procurementUnitUsage?: number
+  actualUnitUsage?: number
+  fabricSku?: string
+  plannedMaterialMeter?: number
+  actualMaterialMeter?: number
+  actualCutQty?: number
+  lineItems?: MarkerLineItem[]
+  highLowPatternKeys?: string[]
+  highLowCuttingRows?: HighLowCuttingRow[]
+  highLowPatternRows?: HighLowPatternRow[]
+  warningMessages?: string[]
   markerImageUrl: string
   markerImageName: string
+  adjustmentRequired?: boolean
+  adjustmentNote?: string
+  replacementDraftFlag?: boolean
+  adjustmentSummary?: string
   note: string
   updatedAt: string
+  updatedBy?: string
 }
 
 export interface SpreadingRollRecord {
   rollRecordId: string
   spreadingSessionId: string
+  sortOrder: number
   rollNo: string
   materialSku: string
+  color?: string
   width: number
   labeledLength: number
   actualLength: number
   headLength: number
   tailLength: number
   layerCount: number
+  totalLength?: number
+  remainingLength?: number
+  actualCutPieceQty?: number
+  occurredAt?: string
   operatorNames: string[]
   handoverNotes: string
   usableLength: number
@@ -86,24 +170,122 @@ export interface SpreadingRollRecord {
 export interface SpreadingOperatorRecord {
   operatorRecordId: string
   spreadingSessionId: string
+  sortOrder: number
+  rollRecordId: string
   operatorAccountId: string
   operatorName: string
   startAt: string
   endAt: string
-  actionType: string
+  actionType: SpreadingOperatorActionType
   handoverFlag: boolean
+  handoverNotes: string
   note: string
   sourceChannel: SpreadingSourceChannel
   sourceWritebackId: string
   updatedFromPdaAt: string
 }
 
+export interface SpreadingImportSource {
+  sourceMarkerId: string
+  sourceMarkerNo: string
+  sourceMarkerMode: MarkerModeKey
+  sourceContextType: 'original-order' | 'merge-batch'
+  sourceOriginalCutOrderIds: string[]
+  sourceOriginalCutOrderNos: string[]
+  sourceMergeBatchId: string
+  sourceMergeBatchNo: string
+  sourceStyleCode: string
+  sourceSpuCode: string
+  sourceMaterialSkuSummary: string
+  sourceColorSummary: string
+  importedAt: string
+  importedBy: string
+  reimported: boolean
+  importNote: string
+}
+
+export interface SpreadingPlanLineItem {
+  planItemId: string
+  sourceMarkerLineItemId: string
+  layoutCode: string
+  layoutDetailText: string
+  color: string
+  spreadRepeatCount: number
+  markerLength: number
+  markerPieceCount: number
+  singlePieceUsage: number
+  plannedSpreadTotalLength: number
+  widthHint: string
+  note: string
+}
+
+export interface SpreadingHighLowPlanSnapshot {
+  patternKeys: string[]
+  cuttingRows: HighLowCuttingRow[]
+  patternRows: HighLowPatternRow[]
+  cuttingTotal: number
+  patternTotal: number
+}
+
+export interface SpreadingReplenishmentWarning {
+  warningId: string
+  sourceType: 'original-order' | 'merge-batch' | 'spreading-session'
+  sourceContextType: 'original-order' | 'merge-batch'
+  spreadingSessionId: string
+  spreadingSessionNo: string
+  originalCutOrderIds: string[]
+  originalCutOrderNos: string[]
+  mergeBatchId: string
+  mergeBatchNo: string
+  productionOrderNos: string[]
+  styleCode: string
+  spuCode: string
+  materialSku: string
+  materialAttr: string
+  requiredQty: number
+  theoreticalCapacityQty: number
+  actualCutQty: number
+  configuredLengthTotal: number
+  claimedLengthTotal: number
+  totalActualLength: number
+  totalUsableLength: number
+  varianceLength: number
+  shortageQty: number
+  warningLevel: SpreadingWarningLevel
+  suggestedAction: SpreadingSuggestedAction
+  handled: boolean
+  createdAt: string
+  note: string
+}
+
+export interface SpreadingCompletionLinkage {
+  completedAt: string
+  completedBy: string
+  linkedOriginalCutOrderIds: string[]
+  linkedOriginalCutOrderNos: string[]
+  generatedWarningId: string
+  generatedWarning: boolean
+  note: string
+}
+
+export interface SpreadingCompletionValidationResult {
+  allowed: boolean
+  messages: string[]
+}
+
 export interface SpreadingSession {
   spreadingSessionId: string
+  sessionNo?: string
   contextType: 'original-order' | 'merge-batch'
   originalCutOrderIds: string[]
   mergeBatchId: string
   mergeBatchNo: string
+  markerId?: string
+  markerNo?: string
+  styleCode?: string
+  spuCode?: string
+  materialSkuSummary?: string
+  colorSummary?: string
   spreadingMode: MarkerModeKey
   status: SpreadingStatusKey
   importedFromMarker: boolean
@@ -113,11 +295,29 @@ export interface SpreadingSession {
   totalHeadLength: number
   totalTailLength: number
   totalCalculatedUsableLength: number
+  totalRemainingLength: number
   operatorCount: number
   rollCount: number
+  configuredLengthTotal: number
+  claimedLengthTotal: number
+  varianceLength: number
+  varianceNote: string
+  actualCutPieceQty?: number
+  unitPrice?: number
+  totalAmount?: number
   note: string
   createdAt: string
   updatedAt: string
+  warningMessages?: string[]
+  importSource?: SpreadingImportSource | null
+  planLineItems?: SpreadingPlanLineItem[]
+  highLowPlanSnapshot?: SpreadingHighLowPlanSnapshot | null
+  theoreticalSpreadTotalLength?: number
+  theoreticalActualCutPieceQty?: number
+  importAdjustmentRequired?: boolean
+  importAdjustmentNote?: string
+  replenishmentWarning?: SpreadingReplenishmentWarning | null
+  completionLinkage?: SpreadingCompletionLinkage | null
   sourceChannel: SpreadingSourceChannel
   sourceWritebackId: string
   updatedFromPdaAt: string
@@ -130,11 +330,21 @@ export interface SpreadingVarianceSummary {
   claimedLengthTotal: number
   actualLengthTotal: number
   usableLengthTotal: number
+  remainingLengthTotal: number
   varianceLength: number
   estimatedPieceCapacity: number
   requiredPieceQty: number
+  actualCutPieceQtyTotal: number
   shortageIndicator: boolean
   replenishmentHint: string
+}
+
+export interface SpreadingOperatorSummary {
+  operatorCount: number
+  handoverRollCount: number
+  sortedOperators: SpreadingOperatorRecord[]
+  operatorsByRollId: Record<string, SpreadingOperatorRecord[]>
+  rollParticipantNames: Record<string, string[]>
 }
 
 export interface ReplenishmentPreview {
@@ -150,6 +360,11 @@ export interface MarkerSpreadingNavigationPayload {
   originalOrders: Record<string, string | undefined>
   mergeBatches: Record<string, string | undefined>
   summary: Record<string, string | undefined>
+}
+
+export interface MarkerImportValidationResult {
+  allowed: boolean
+  messages: string[]
 }
 
 export interface MarkerSpreadingStore {
@@ -177,20 +392,20 @@ export interface MarkerSpreadingViewModel {
 }
 
 const markerModeMeta: Record<MarkerModeKey, { label: string; className: string; detailText: string }> = {
-  NORMAL: {
+  normal: {
     label: '正常铺布',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '标准顺铺方式，适合常规裁床执行。',
+    detailText: 'normal：正常模式铺布，适合常规裁床直接平铺执行。',
   },
-  HIGH_LOW: {
+  'high-low': {
     label: '高低层模式',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '用于高低层组合铺布，便于控制层间差异。',
+    detailText: 'high-low：高低层模式，体现台阶式往上铺布的业务差异。',
   },
-  FOLDED: {
+  folded: {
     label: '对折铺布模式',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    detailText: '用于对折裁片场景，后续菲票仍回落原始裁片单。',
+    detailText: 'folded：对折铺布模式，用于对折裁片场景。',
   },
 }
 
@@ -221,6 +436,12 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
+function parseTimeWeight(value: string): number {
+  if (!value) return 0
+  const timestamp = new Date(value.replace(' ', 'T')).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
 function formatQty(value: number): string {
   return numberFormatter.format(Math.max(value, 0))
 }
@@ -238,9 +459,296 @@ function createSummaryMeta<Key extends string>(
   return { key, label, className, detailText }
 }
 
-export function deriveMarkerModeMeta(mode: MarkerModeKey): MarkerSpreadingSummaryMeta<MarkerModeKey> {
-  const meta = markerModeMeta[mode]
-  return createSummaryMeta(mode, meta.label, meta.className, meta.detailText)
+function normalizeMarkerMode(mode: string | undefined): MarkerModeKey {
+  if (mode === 'NORMAL') return 'normal'
+  if (mode === 'HIGH_LOW') return 'high-low'
+  if (mode === 'FOLDED') return 'folded'
+  if (mode === 'high-low' || mode === 'folded' || mode === 'normal') return mode
+  return 'normal'
+}
+
+function buildPlannedSizeRatioText(sizeDistribution: MarkerSizeDistributionItem[]): string {
+  return sizeDistribution
+    .filter((item) => item.quantity > 0)
+    .map((item) => `${item.sizeLabel}×${item.quantity}`)
+    .join(' / ')
+}
+
+function createDefaultSizeValueMap(): Record<MarkerSizeKey, number> {
+  return {
+    S: 0,
+    M: 0,
+    L: 0,
+    XL: 0,
+    '2XL': 0,
+    '3XL': 0,
+    '4XL': 0,
+    onesize: 0,
+    plusonesize: 0,
+  }
+}
+
+function normalizeHighLowCuttingRow(item: Partial<HighLowCuttingRow>, markerId: string, index: number): HighLowCuttingRow {
+  const sizeValues = createDefaultSizeValueMap()
+  MARKER_SIZE_KEYS.forEach((sizeKey) => {
+    sizeValues[sizeKey] = Number(item.sizeValues?.[sizeKey] ?? 0)
+  })
+  const total = MARKER_SIZE_KEYS.reduce((sum, sizeKey) => sum + Math.max(sizeValues[sizeKey], 0), 0)
+
+  return {
+    rowId: item.rowId || `high-low-cutting-${markerId}-${index + 1}`,
+    markerId,
+    color: item.color || '',
+    sizeValues,
+    total,
+  }
+}
+
+function normalizeHighLowPatternRow(
+  item: Partial<HighLowPatternRow>,
+  markerId: string,
+  index: number,
+  patternKeys: string[],
+): HighLowPatternRow {
+  const patternValues = Object.fromEntries(patternKeys.map((key) => [key, Number(item.patternValues?.[key] ?? 0)]))
+  const total = patternKeys.reduce((sum, key) => sum + Math.max(patternValues[key] || 0, 0), 0)
+
+  return {
+    rowId: item.rowId || `high-low-pattern-${markerId}-${index + 1}`,
+    markerId,
+    color: item.color || '',
+    patternValues,
+    total,
+  }
+}
+
+function normalizeMarkerLineItem(item: Partial<MarkerLineItem>, markerId: string, index: number): MarkerLineItem {
+  const markerPieceCount = Number(item.markerPieceCount ?? item.pieceCount ?? 0)
+  const markerLength = Number(item.markerLength ?? 0)
+  const spreadRepeatCount = Number(item.spreadRepeatCount ?? 1)
+  const spreadTotalLength = Number(
+    item.spreadTotalLength ??
+      item.spreadingTotalLength ??
+      Number((((markerLength || 0) + 0.06) * Math.max(spreadRepeatCount, 0)).toFixed(2)),
+  )
+  return {
+    lineItemId: item.lineItemId || item.markerLineItemId || `line-${markerId}-${index + 1}`,
+    markerId,
+    lineNo: Number(item.lineNo ?? index + 1),
+    layoutCode: item.layoutCode || `A-${index + 1}`,
+    layoutDetailText: item.layoutDetailText || item.ratioLabel || '',
+    color: item.color || '',
+    spreadRepeatCount,
+    markerLength,
+    markerPieceCount,
+    singlePieceUsage: Number(item.singlePieceUsage ?? computeSinglePieceUsage(markerLength, markerPieceCount)),
+    spreadTotalLength,
+    widthHint: item.widthHint || '',
+    note: item.note || '',
+    markerLineItemId: item.lineItemId || item.markerLineItemId || `line-${markerId}-${index + 1}`,
+    ratioLabel: item.layoutDetailText || item.ratioLabel || '',
+    pieceCount: markerPieceCount,
+    spreadingTotalLength: spreadTotalLength,
+  }
+}
+
+export function deriveMarkerTemplateByMode(mode: MarkerModeKey | string): MarkerTemplateKey {
+  return normalizeMarkerMode(mode) === 'high-low' ? 'matrix-template' : 'row-template'
+}
+
+export function computeSinglePieceUsage(markerLength: number, markerPieceCount: number): number {
+  if (markerPieceCount <= 0) return 0
+  return Number((markerLength / markerPieceCount).toFixed(3))
+}
+
+export function computeNormalMarkerSpreadTotalLength(lineItems: MarkerLineItem[] = []): number {
+  return Number(
+    lineItems
+      .reduce(
+        (sum, item) =>
+          sum +
+          Math.max(
+            Number((((item.markerLength || 0) + 0.06) * Math.max(item.spreadRepeatCount || 0, 0)).toFixed(2)),
+            0,
+          ),
+        0,
+      )
+      .toFixed(2),
+  )
+}
+
+export function computeHighLowCuttingTotals(rows: HighLowCuttingRow[] = []): {
+  rows: HighLowCuttingRow[]
+  cuttingTotal: number
+} {
+  const normalizedRows = rows.map((row, index) => normalizeHighLowCuttingRow(row, row.markerId, index))
+  return {
+    rows: normalizedRows,
+    cuttingTotal: normalizedRows.reduce((sum, row) => sum + row.total, 0),
+  }
+}
+
+export function computeHighLowPatternTotals(rows: HighLowPatternRow[] = [], patternKeys: string[] = []): {
+  rows: HighLowPatternRow[]
+  patternTotal: number
+} {
+  const normalizedRows = rows.map((row, index) => normalizeHighLowPatternRow(row, row.markerId, index, patternKeys))
+  return {
+    rows: normalizedRows,
+    patternTotal: normalizedRows.reduce((sum, row) => sum + row.total, 0),
+  }
+}
+
+export function computeUsageSummary(marker: Partial<MarkerRecord>): {
+  procurementUnitUsage: number
+  actualUnitUsage: number
+  plannedMaterialMeter: number
+  actualMaterialMeter: number
+  actualCutQty: number
+} {
+  const matrixActualCutQty =
+    normalizeMarkerMode(marker.markerMode as string | undefined) === 'high-low'
+      ? computeHighLowCuttingTotals(marker.highLowCuttingRows || []).cuttingTotal
+      : 0
+  const actualCutQty = Number(marker.actualCutQty ?? (matrixActualCutQty > 0 ? matrixActualCutQty : marker.totalPieces ?? 0))
+  const procurementUnitUsage = Number(marker.procurementUnitUsage ?? marker.singlePieceUsage ?? 0)
+  const actualUnitUsage = Number(marker.actualUnitUsage ?? marker.singlePieceUsage ?? 0)
+  const layerCount = Number(marker.plannedLayerCount ?? 0)
+  const totalPieces = Number(marker.totalPieces ?? 0)
+  const mode = normalizeMarkerMode(marker.markerMode as string | undefined)
+  const plannedMaterialMeter = Number(
+    marker.plannedMaterialMeter ??
+      (mode === 'folded'
+        ? Number(((procurementUnitUsage * Math.max(totalPieces, 0)) / 2).toFixed(2))
+        : Number((((procurementUnitUsage || 0) + 0.06) * Math.max(layerCount, 0)).toFixed(2))) ??
+      0,
+  )
+  const actualMaterialMeter = Number(
+    marker.actualMaterialMeter ??
+      (mode === 'folded'
+        ? Number(((actualUnitUsage * Math.max(actualCutQty, 0)) / 2).toFixed(2))
+        : Number((((actualUnitUsage || 0) + 0.06) * Math.max(layerCount || actualCutQty, 0)).toFixed(2))) ??
+      0,
+  )
+
+  return {
+    procurementUnitUsage,
+    actualUnitUsage,
+    plannedMaterialMeter,
+    actualMaterialMeter,
+    actualCutQty,
+  }
+}
+
+export function validateMarkerModeShape(marker: Partial<MarkerRecord>): string[] {
+  const mode = normalizeMarkerMode(marker.markerMode as string | undefined)
+  const template = deriveMarkerTemplateByMode(mode)
+  const issues: string[] = []
+
+  if (template === 'row-template' && !(marker.lineItems || []).length) {
+    issues.push('当前模式应使用行明细模板，但排版明细为空。')
+  }
+
+  if (template === 'matrix-template') {
+    if (!(marker.highLowCuttingRows || []).length) {
+      issues.push('高低层模式缺少裁剪明细矩阵。')
+    }
+    if (!(marker.highLowPatternRows || []).length) {
+      issues.push('高低层模式缺少唛架模式矩阵。')
+    }
+  }
+
+  return issues
+}
+
+export function buildMarkerWarningMessages(marker: Partial<MarkerRecord>): string[] {
+  const warnings: string[] = []
+  const usageSummary = computeUsageSummary(marker)
+
+  if ((marker.spreadTotalLength || 0) > 0 && usageSummary.plannedMaterialMeter > 0 && (marker.spreadTotalLength || 0) > usageSummary.plannedMaterialMeter) {
+    warnings.push('铺布总长度超过领取布料长度参考值。')
+  }
+  if (usageSummary.actualMaterialMeter > usageSummary.plannedMaterialMeter && usageSummary.plannedMaterialMeter > 0) {
+    warnings.push('实际使用米数超过预算米数。')
+  }
+  if (usageSummary.actualUnitUsage > usageSummary.procurementUnitUsage && usageSummary.procurementUnitUsage > 0) {
+    warnings.push('实际单件用量大于采购单件用量。')
+  }
+
+  if (normalizeMarkerMode(marker.markerMode as string | undefined) === 'high-low') {
+    const cuttingTotal = computeHighLowCuttingTotals(marker.highLowCuttingRows || []).cuttingTotal
+    const patternTotal = computeHighLowPatternTotals(marker.highLowPatternRows || [], marker.highLowPatternKeys || []).patternTotal
+    const sizeTotal = computeMarkerTotalPieces(marker.sizeDistribution || [])
+    if ((cuttingTotal > 0 || patternTotal > 0) && (cuttingTotal !== sizeTotal || patternTotal !== sizeTotal)) {
+      warnings.push('高低层模式矩阵合计与尺码配比总件数不一致。')
+    }
+  }
+
+  return [...validateMarkerModeShape(marker), ...warnings]
+}
+
+function normalizeMarkerRecord(marker: MarkerRecord): MarkerRecord {
+  const sizeDistribution = Array.isArray(marker.sizeDistribution) ? marker.sizeDistribution : []
+  const normalizedMode = normalizeMarkerMode(marker.markerMode as string | undefined)
+  const lineItems = (marker.lineItems || []).map((item, index) => normalizeMarkerLineItem(item, marker.markerId, index))
+  const highLowPatternKeys = uniqueStrings([...(marker.highLowPatternKeys || []), ...DEFAULT_HIGH_LOW_PATTERN_KEYS])
+  const highLowCuttingRows = (marker.highLowCuttingRows || []).map((item, index) => normalizeHighLowCuttingRow(item, marker.markerId, index))
+  const highLowPatternRows = (marker.highLowPatternRows || []).map((item, index) =>
+    normalizeHighLowPatternRow(item, marker.markerId, index, highLowPatternKeys),
+  )
+  const totalPieces = computeMarkerTotalPieces(sizeDistribution)
+  const spreadTotalLength =
+    marker.spreadTotalLength ??
+    (deriveMarkerTemplateByMode(normalizedMode) === 'row-template'
+      ? computeNormalMarkerSpreadTotalLength(lineItems)
+      : Number(marker.actualMaterialMeter ?? 0))
+  const usageSummary = computeUsageSummary(marker)
+  const warningMessages = buildMarkerWarningMessages({
+    ...marker,
+    markerMode: normalizedMode,
+    lineItems,
+    highLowPatternKeys,
+    highLowCuttingRows,
+    highLowPatternRows,
+    spreadTotalLength,
+    totalPieces,
+  })
+  return {
+    ...marker,
+    originalCutOrderNos: marker.originalCutOrderNos || [],
+    markerMode: normalizedMode,
+    totalPieces,
+    spreadTotalLength,
+    lineItems,
+    highLowPatternKeys,
+    highLowCuttingRows,
+    highLowPatternRows,
+    colorSummary:
+      marker.colorSummary ||
+      uniqueStrings([...lineItems.map((item) => item.color), ...highLowCuttingRows.map((item) => item.color), ...highLowPatternRows.map((item) => item.color)]).join(' / '),
+    plannedSizeRatioText: marker.plannedSizeRatioText || buildPlannedSizeRatioText(sizeDistribution),
+    markerLength: marker.markerLength ?? marker.netLength,
+    adjustmentRequired: Boolean(marker.adjustmentRequired),
+    adjustmentNote: marker.adjustmentNote || marker.adjustmentSummary || '',
+    replacementDraftFlag: Boolean(marker.replacementDraftFlag),
+    actualUnitUsage: usageSummary.actualUnitUsage,
+    procurementUnitUsage: usageSummary.procurementUnitUsage,
+    plannedMaterialMeter: usageSummary.plannedMaterialMeter,
+    actualMaterialMeter: usageSummary.actualMaterialMeter,
+    actualCutQty: usageSummary.actualCutQty,
+    warningMessages,
+    updatedBy: marker.updatedBy || '',
+  }
+}
+
+export function deriveMarkerModeMeta(mode: MarkerModeKey | string): MarkerSpreadingSummaryMeta<MarkerModeKey> {
+  const normalized = normalizeMarkerMode(mode)
+  const meta = markerModeMeta[normalized]
+  return createSummaryMeta(normalized, meta.label, meta.className, meta.detailText)
+}
+
+export function deriveSpreadingModeMeta(mode: MarkerModeKey | string): MarkerSpreadingSummaryMeta<MarkerModeKey> {
+  return deriveMarkerModeMeta(mode)
 }
 
 export function computeMarkerTotalPieces(sizeDistribution: MarkerSizeDistributionItem[]): number {
@@ -248,7 +756,69 @@ export function computeMarkerTotalPieces(sizeDistribution: MarkerSizeDistributio
 }
 
 export function computeUsableLength(actualLength: number, headLength: number, tailLength: number): number {
-  return Math.max(actualLength - headLength - tailLength, 0)
+  return Number((actualLength - headLength - tailLength).toFixed(2))
+}
+
+export function computeRemainingLength(labeledLength: number, actualLength: number): number {
+  return Number((labeledLength - actualLength).toFixed(2))
+}
+
+export function computeRollActualCutPieceQty(layerCount: number, markerTotalPieces: number): number {
+  if (layerCount <= 0 || markerTotalPieces <= 0) return 0
+  return Math.max(Math.round(layerCount * markerTotalPieces), 0)
+}
+
+export function computeTheoreticalCutQty(session: Partial<SpreadingSession>, markerTotalPieces: number): number {
+  const rollLayerTotal = summarizeSpreadingRolls(session.rolls || []).totalLayers
+  const actualLayerTotal = Number(session.actualLayers || 0)
+  const layerBase = Math.max(rollLayerTotal || actualLayerTotal, 0)
+  if (layerBase <= 0 || markerTotalPieces <= 0) return 0
+  return Math.max(Math.round(layerBase * markerTotalPieces), 0)
+}
+
+export function computeActualCutQty(session: Partial<SpreadingSession>): number {
+  const rollSummary = summarizeSpreadingRolls(session.rolls || [])
+  return Math.max(Number(session.actualCutPieceQty || rollSummary.totalActualCutPieceQty || 0), 0)
+}
+
+export function computeLengthVariance(claimedLengthTotal: number, actualLengthTotal: number): number {
+  return Number((Number(claimedLengthTotal || 0) - Number(actualLengthTotal || 0)).toFixed(2))
+}
+
+export function computeShortageQty(requiredQty: number, actualCutQty: number): number {
+  return Math.max(Number(requiredQty || 0) - Math.max(Number(actualCutQty || 0), 0), 0)
+}
+
+export function deriveSpreadingWarningLevel(options: {
+  requiredQty: number
+  actualCutQty: number
+  varianceLength: number
+  claimedLengthTotal: number
+  actualLengthTotal: number
+  warningMessages?: string[]
+}): SpreadingWarningLevel {
+  const { requiredQty, actualCutQty, varianceLength, claimedLengthTotal, actualLengthTotal, warningMessages = [] } = options
+
+  if (!requiredQty || !claimedLengthTotal || !actualLengthTotal) return '中'
+  if (varianceLength < 0 || computeShortageQty(requiredQty, actualCutQty) > 0) return '高'
+  if (warningMessages.length > 0 || Math.abs(varianceLength) <= 5) return '中'
+  return '低'
+}
+
+export function deriveSpreadingSuggestedAction(options: {
+  requiredQty: number
+  actualCutQty: number
+  varianceLength: number
+  claimedLengthTotal: number
+  actualLengthTotal: number
+  warningMessages?: string[]
+}): SpreadingSuggestedAction {
+  const { requiredQty, actualCutQty, varianceLength, claimedLengthTotal, actualLengthTotal, warningMessages = [] } = options
+
+  if (!requiredQty || !claimedLengthTotal || !actualLengthTotal) return '数据不足，待补录'
+  if (computeShortageQty(requiredQty, actualCutQty) > 0 || varianceLength < 0) return '建议补料'
+  if (warningMessages.length > 0) return '存在异常差异，需人工确认'
+  return '无需补料'
 }
 
 function nowText(input = new Date()): string {
@@ -262,12 +832,57 @@ function nowText(input = new Date()): string {
 
 function defaultSizeDistribution(rowCount: number): MarkerSizeDistributionItem[] {
   const baseline = Math.max(rowCount, 1)
-  return [
-    { sizeLabel: 'S', quantity: baseline * 12 },
-    { sizeLabel: 'M', quantity: baseline * 18 },
-    { sizeLabel: 'L', quantity: baseline * 16 },
-    { sizeLabel: 'XL', quantity: baseline * 10 },
-  ]
+  return MARKER_SIZE_KEYS.map((sizeLabel, index) => ({
+    sizeLabel,
+    quantity: index < 5 ? [baseline * 12, baseline * 18, baseline * 16, baseline * 10, baseline * 6][index] || 0 : 0,
+  }))
+}
+
+function createDefaultHighLowCuttingRows(markerId: string, colors: string[], sizeDistribution: MarkerSizeDistributionItem[]): HighLowCuttingRow[] {
+  const primaryColor = colors[0] || '主色'
+  const secondaryColor = colors[1] || ''
+  const distributionMap = Object.fromEntries(sizeDistribution.map((item) => [item.sizeLabel, item.quantity]))
+  return [primaryColor, secondaryColor]
+    .filter(Boolean)
+    .map((color, index) =>
+      normalizeHighLowCuttingRow(
+        {
+          rowId: `seed-high-low-cutting-${markerId}-${index + 1}`,
+          markerId,
+          color,
+          sizeValues: {
+            ...createDefaultSizeValueMap(),
+            S: Math.max(Math.floor((distributionMap.S || 0) / Math.max(index + 1, 1)), 0),
+            M: Math.max(Math.floor((distributionMap.M || 0) / Math.max(index + 1, 1)), 0),
+            L: Math.max(Math.floor((distributionMap.L || 0) / Math.max(index + 1, 1)), 0),
+            XL: Math.max(Math.floor((distributionMap.XL || 0) / Math.max(index + 1, 1)), 0),
+            '2XL': Math.max(Math.floor((distributionMap['2XL'] || 0) / Math.max(index + 1, 1)), 0),
+            '3XL': distributionMap['3XL'] || 0,
+            '4XL': distributionMap['4XL'] || 0,
+            onesize: distributionMap.onesize || 0,
+            plusonesize: distributionMap.plusonesize || 0,
+          },
+        },
+        markerId,
+        index,
+      ),
+    )
+}
+
+function createDefaultHighLowPatternRows(markerId: string, colors: string[], patternKeys: string[]): HighLowPatternRow[] {
+  return (colors.length ? colors : ['主色']).map((color, index) =>
+    normalizeHighLowPatternRow(
+      {
+        rowId: `seed-high-low-pattern-${markerId}-${index + 1}`,
+        markerId,
+        color,
+        patternValues: Object.fromEntries(patternKeys.map((key, patternIndex) => [key, patternIndex === index ? 12 : 0])),
+      },
+      markerId,
+      index,
+      patternKeys,
+    ),
+  )
 }
 
 function summarizeMaterialSku(rows: MaterialPrepRow[]): string {
@@ -353,22 +968,91 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
   )
   const netLength = Number((configuredLengthTotal > 0 ? configuredLengthTotal : totalPieces * 1.2).toFixed(2))
   const singlePieceUsage = totalPieces > 0 ? Number((netLength / totalPieces).toFixed(3)) : 0
+  const markerId = `seed-marker-${context.contextType}-${context.mergeBatchId || context.originalCutOrderIds[0]}`
+  const markerMode: MarkerModeKey = context.contextType === 'merge-batch' ? 'high-low' : 'normal'
+  const highLowPatternKeys = [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
+  const colors = uniqueStrings(context.materialPrepRows.map((row) => row.color))
+  const lineItems =
+    markerMode === 'high-low'
+      ? []
+      : context.materialPrepRows.map((row, index) => ({
+          lineItemId: `seed-line-${context.contextType}-${context.mergeBatchId || row.originalCutOrderId}-${index}`,
+          markerId,
+          lineNo: index + 1,
+          layoutCode: `A-${index + 1}`,
+          layoutDetailText: sizeDistribution.filter((item) => item.quantity > 0).map((item) => `${item.sizeLabel}*${item.quantity}`).join(' + '),
+          color: row.color,
+          ratioLabel: sizeDistribution.map((item) => `${item.sizeLabel}×${item.quantity}`).join(' / '),
+          spreadRepeatCount: Math.max(Math.ceil(totalPieces / 20), 1),
+          markerLength: Number((netLength / Math.max(context.materialPrepRows.length, 1)).toFixed(2)),
+          markerPieceCount: Math.max(Math.floor(totalPieces / Math.max(context.materialPrepRows.length, 1)), 1),
+          pieceCount: Math.max(Math.floor(totalPieces / Math.max(context.materialPrepRows.length, 1)), 1),
+          singlePieceUsage,
+          spreadTotalLength: Number((netLength * 1.1).toFixed(2)),
+          spreadingTotalLength: Number((netLength * 1.1).toFixed(2)),
+          widthHint: '默认门幅 160cm',
+          note: `${row.materialSkuSummary} · 默认排版明细`,
+        }))
+  const highLowCuttingRows = markerMode === 'high-low' ? createDefaultHighLowCuttingRows(markerId, colors, sizeDistribution) : []
+  const highLowPatternRows = markerMode === 'high-low' ? createDefaultHighLowPatternRows(markerId, colors, highLowPatternKeys) : []
 
   return {
-    markerId: `seed-marker-${context.contextType}-${context.mergeBatchId || context.originalCutOrderIds[0]}`,
+    markerId,
+    markerNo: `MJ-${context.contextType === 'merge-batch' ? 'B' : 'O'}-${(context.mergeBatchNo || context.originalCutOrderNos[0] || '001').slice(-6)}`,
     contextType: context.contextType,
     originalCutOrderIds: [...context.originalCutOrderIds],
+    originalCutOrderNos: [...context.originalCutOrderNos],
     mergeBatchId: context.mergeBatchId,
     mergeBatchNo: context.mergeBatchNo,
-    markerMode: 'NORMAL',
+    styleCode: context.styleCode,
+    spuCode: context.spuCode,
+    materialSkuSummary: context.materialSkuSummary,
+    colorSummary: uniqueStrings(context.materialPrepRows.map((row) => row.color)).join(' / '),
+    markerMode,
     sizeDistribution,
     totalPieces,
     netLength,
     singlePieceUsage,
+    spreadTotalLength: Number((netLength * 1.1).toFixed(2)),
+    materialCategory: context.materialPrepRows[0]?.materialCategory || '',
+    materialAttr: context.materialPrepRows[0]?.materialLabel || '',
+    plannedSizeRatioText: buildPlannedSizeRatioText(sizeDistribution),
+    plannedLayerCount: Math.max(Math.ceil(totalPieces / 20), 1),
+    plannedMarkerCount: context.materialPrepRows.length,
+    markerLength: netLength,
+    procurementUnitUsage: singlePieceUsage,
+    actualUnitUsage: Number((singlePieceUsage * 1.02).toFixed(3)),
+    fabricSku: context.materialPrepRows[0]?.materialLineItems[0]?.materialSku || '',
+    plannedMaterialMeter: Number((configuredLengthTotal || netLength * 1.05).toFixed(2)),
+    actualMaterialMeter: Number((netLength * 0.98).toFixed(2)),
+    actualCutQty: totalPieces,
+    lineItems,
+    highLowPatternKeys,
+    highLowCuttingRows,
+    highLowPatternRows,
     markerImageUrl: '',
     markerImageName: '',
+    adjustmentRequired: false,
+    adjustmentNote: '',
+    replacementDraftFlag: false,
+    adjustmentSummary: '后续可补唛架调整记录 / 换一入口。',
     note: '当前为原型默认唛架草稿，可根据现场唛架图与尺码配比继续调整。',
     updatedAt: '',
+    updatedBy: '系统预置',
+    warningMessages: buildMarkerWarningMessages({
+      markerMode,
+      sizeDistribution,
+      spreadTotalLength: Number((netLength * 1.1).toFixed(2)),
+      procurementUnitUsage: singlePieceUsage,
+      actualUnitUsage: Number((singlePieceUsage * 1.02).toFixed(3)),
+      plannedMaterialMeter: Number((configuredLengthTotal || netLength * 1.05).toFixed(2)),
+      actualMaterialMeter: Number((netLength * 0.98).toFixed(2)),
+      actualCutQty: totalPieces,
+      lineItems,
+      highLowPatternKeys,
+      highLowCuttingRows,
+      highLowPatternRows,
+    }),
   }
 }
 
@@ -376,34 +1060,329 @@ export function createSpreadingDraftFromMarker(
   marker: MarkerRecord,
   context: MarkerSpreadingContext,
   now = new Date(),
+  options?: {
+    baseSession?: Partial<SpreadingSession> | null
+    reimported?: boolean
+    importNote?: string
+  },
 ): SpreadingSession {
+  const importSource = buildSpreadingImportSource(marker, context, now, options?.reimported, options?.importNote)
+  const planLineItems = buildSpreadingPlanLineItemsFromMarker(marker)
+  const highLowPlanSnapshot = buildSpreadingHighLowPlanSnapshotFromMarker(marker)
+  const plannedLayers = Math.max(Number(marker.plannedLayerCount || Math.ceil(marker.totalPieces / 20) || 1), 1)
+  const theoreticalSpreadTotalLength =
+    normalizeMarkerMode(marker.markerMode as string | undefined) === 'high-low'
+      ? Number(marker.spreadTotalLength || marker.actualMaterialMeter || 0)
+      : Number(marker.spreadTotalLength || computeNormalMarkerSpreadTotalLength(marker.lineItems || []))
+  const theoreticalActualCutPieceQty = Math.max(plannedLayers * Math.max(marker.totalPieces || 0, 0), 0)
+  const baseSession = options?.baseSession || null
   const timestamp = now.getTime()
   return {
-    spreadingSessionId: `spreading-session-${timestamp}`,
+    spreadingSessionId: baseSession?.spreadingSessionId || `spreading-session-${timestamp}`,
+    sessionNo: baseSession?.sessionNo || `PB-${String(timestamp).slice(-6)}`,
     contextType: context.contextType,
     originalCutOrderIds: [...context.originalCutOrderIds],
     mergeBatchId: context.mergeBatchId,
     mergeBatchNo: context.mergeBatchNo,
-    spreadingMode: marker.markerMode,
-    status: 'DRAFT',
+    markerId: marker.markerId,
+    markerNo: marker.markerNo || '',
+    styleCode: context.styleCode,
+    spuCode: context.spuCode,
+    materialSkuSummary: context.materialSkuSummary,
+    colorSummary: marker.colorSummary || uniqueStrings(context.materialPrepRows.map((row) => row.color)).join(' / '),
+    spreadingMode: normalizeMarkerMode(marker.markerMode as string | undefined),
+    status: (baseSession?.status as SpreadingStatusKey) || 'DRAFT',
     importedFromMarker: true,
-    plannedLayers: Math.max(Math.ceil(marker.totalPieces / 20), 1),
-    actualLayers: 0,
-    totalActualLength: 0,
-    totalHeadLength: 0,
-    totalTailLength: 0,
-    totalCalculatedUsableLength: 0,
-    operatorCount: 0,
-    rollCount: 0,
-    note: '铺布草稿已从当前唛架记录导入，可继续补录卷与人员。',
-    createdAt: nowText(now),
+    plannedLayers,
+    actualLayers: baseSession?.actualLayers || 0,
+    totalActualLength: baseSession?.totalActualLength || 0,
+    totalHeadLength: baseSession?.totalHeadLength || 0,
+    totalTailLength: baseSession?.totalTailLength || 0,
+    totalCalculatedUsableLength: baseSession?.totalCalculatedUsableLength || 0,
+    totalRemainingLength: baseSession?.totalRemainingLength || 0,
+    operatorCount: baseSession?.operatorCount || 0,
+    rollCount: baseSession?.rollCount || 0,
+    configuredLengthTotal: baseSession?.configuredLengthTotal || 0,
+    claimedLengthTotal: baseSession?.claimedLengthTotal || 0,
+    varianceLength: baseSession?.varianceLength || 0,
+    varianceNote: baseSession?.varianceNote || '',
+    actualCutPieceQty: baseSession?.actualCutPieceQty || 0,
+    unitPrice: baseSession?.unitPrice || 0,
+    totalAmount: baseSession?.totalAmount || 0,
+    note: baseSession?.note || '铺布草稿已从当前唛架记录导入，可继续补录卷与人员。',
+    createdAt: baseSession?.createdAt || nowText(now),
     updatedAt: nowText(now),
+    warningMessages: baseSession?.warningMessages || [],
+    importSource,
+    planLineItems,
+    highLowPlanSnapshot,
+    theoreticalSpreadTotalLength,
+    theoreticalActualCutPieceQty,
+    importAdjustmentRequired: baseSession?.importAdjustmentRequired || false,
+    importAdjustmentNote: baseSession?.importAdjustmentNote || '',
+    replenishmentWarning: baseSession?.replenishmentWarning || null,
+    completionLinkage: baseSession?.completionLinkage || null,
     sourceChannel: 'MANUAL',
     sourceWritebackId: '',
     updatedFromPdaAt: '',
-    rolls: [],
-    operators: [],
+    rolls: baseSession?.rolls ? [...baseSession.rolls] : [],
+    operators: baseSession?.operators ? [...baseSession.operators] : [],
   }
+}
+
+export function validateMarkerForSpreadingImport(marker: Partial<MarkerRecord>): MarkerImportValidationResult {
+  const messages: string[] = []
+  const mode = marker.markerMode ? normalizeMarkerMode(marker.markerMode as string) : null
+  const templateType = mode ? deriveMarkerTemplateByMode(mode) : null
+
+  if (!mode) messages.push('唛架模式不能为空，不能发起铺布导入。')
+  if (!marker.contextType) messages.push('上下文类型不能为空，不能发起铺布导入。')
+  if (!(marker.originalCutOrderIds || []).length && !marker.mergeBatchId && !marker.mergeBatchNo) {
+    messages.push('唛架必须至少关联原始裁片单或合并裁剪批次，才能导入铺布。')
+  }
+  if (Number(marker.totalPieces || 0) <= 0) messages.push('唛架总件数必须大于 0，才能导入铺布。')
+  if (Number(marker.netLength || 0) <= 0) messages.push('唛架净长度不能为空，才能导入铺布。')
+  if (Number(marker.singlePieceUsage || 0) <= 0) messages.push('唛架单件用量不能为空，才能导入铺布。')
+
+  if (templateType === 'row-template' && !(marker.lineItems || []).length) {
+    messages.push('当前唛架缺少排版明细，不能导入铺布草稿。')
+  }
+
+  if (templateType === 'matrix-template') {
+    if (!(marker.highLowCuttingRows || []).length) {
+      messages.push('高低层模式缺少裁剪明细矩阵，不能导入铺布草稿。')
+    }
+    if (!(marker.highLowPatternRows || []).length) {
+      messages.push('高低层模式缺少模式分布矩阵，不能导入铺布草稿。')
+    }
+  }
+
+  return {
+    allowed: messages.length === 0,
+    messages,
+  }
+}
+
+export function buildSpreadingPlanLineItemsFromMarker(marker: MarkerRecord): SpreadingPlanLineItem[] {
+  return (marker.lineItems || []).map((item, index) => ({
+    planItemId: `spreading-plan-${marker.markerId}-${index + 1}`,
+    sourceMarkerLineItemId: item.lineItemId || item.markerLineItemId || '',
+    layoutCode: item.layoutCode || `A-${index + 1}`,
+    layoutDetailText: item.layoutDetailText || item.ratioLabel || '',
+    color: item.color || '',
+    spreadRepeatCount: Number(item.spreadRepeatCount || 0),
+    markerLength: Number(item.markerLength || 0),
+    markerPieceCount: Number(item.markerPieceCount ?? item.pieceCount ?? 0),
+    singlePieceUsage:
+      Number(item.singlePieceUsage || 0) ||
+      computeSinglePieceUsage(Number(item.markerLength || 0), Number(item.markerPieceCount ?? item.pieceCount ?? 0)),
+    plannedSpreadTotalLength:
+      Number(item.spreadTotalLength || item.spreadingTotalLength || 0) ||
+      Number((((Number(item.markerLength || 0) + 0.06) * Math.max(Number(item.spreadRepeatCount || 0), 0)).toFixed(2))),
+    widthHint: item.widthHint || '',
+    note: item.note || '',
+  }))
+}
+
+export function buildSpreadingHighLowPlanSnapshotFromMarker(marker: MarkerRecord): SpreadingHighLowPlanSnapshot | null {
+  if (deriveMarkerTemplateByMode(marker.markerMode) !== 'matrix-template') return null
+  const patternKeys = marker.highLowPatternKeys?.length ? [...marker.highLowPatternKeys] : [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
+  const cuttingTotals = computeHighLowCuttingTotals(marker.highLowCuttingRows || [])
+  const patternTotals = computeHighLowPatternTotals(marker.highLowPatternRows || [], patternKeys)
+  return {
+    patternKeys,
+    cuttingRows: cuttingTotals.rows,
+    patternRows: patternTotals.rows,
+    cuttingTotal: cuttingTotals.cuttingTotal,
+    patternTotal: patternTotals.patternTotal,
+  }
+}
+
+export function buildSpreadingImportSource(
+  marker: MarkerRecord,
+  context: MarkerSpreadingContext,
+  now = new Date(),
+  reimported = false,
+  importNote = '',
+): SpreadingImportSource {
+  return {
+    sourceMarkerId: marker.markerId,
+    sourceMarkerNo: marker.markerNo || marker.markerId,
+    sourceMarkerMode: normalizeMarkerMode(marker.markerMode as string | undefined),
+    sourceContextType: context.contextType,
+    sourceOriginalCutOrderIds: [...context.originalCutOrderIds],
+    sourceOriginalCutOrderNos: [...context.originalCutOrderNos],
+    sourceMergeBatchId: context.mergeBatchId,
+    sourceMergeBatchNo: context.mergeBatchNo,
+    sourceStyleCode: marker.styleCode || context.styleCode,
+    sourceSpuCode: marker.spuCode || context.spuCode,
+    sourceMaterialSkuSummary: marker.materialSkuSummary || context.materialSkuSummary,
+    sourceColorSummary: marker.colorSummary || uniqueStrings(context.materialPrepRows.map((row) => row.color)).join(' / '),
+    importedAt: nowText(now),
+    importedBy: '系统导入',
+    reimported,
+    importNote: importNote || (reimported ? '已按导入策略重新同步唛架理论数据。' : '由唛架记录生成铺布草稿。'),
+  }
+}
+
+export function buildSpreadingReplenishmentWarning(options: {
+  session: Partial<SpreadingSession>
+  markerTotalPieces: number
+  originalCutOrderNos: string[]
+  productionOrderNos: string[]
+  materialAttr?: string
+  createdAt?: string
+  note?: string
+  warningMessages?: string[]
+}): SpreadingReplenishmentWarning {
+  const session = options.session
+  const rollSummary = summarizeSpreadingRolls(session.rolls || [])
+  const claimedLengthTotal = Number(session.claimedLengthTotal || 0)
+  const configuredLengthTotal = Number(session.configuredLengthTotal || 0)
+  const totalActualLength = Number(session.totalActualLength || rollSummary.totalActualLength || 0)
+  const totalUsableLength = Number(session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength || 0)
+  const requiredQty = Math.max(
+    Number(session.theoreticalActualCutPieceQty || 0),
+    Number(session.plannedLayers || 0) * Math.max(options.markerTotalPieces, 0),
+  )
+  const theoreticalCapacityQty = computeTheoreticalCutQty(session, options.markerTotalPieces)
+  const actualCutQty = computeActualCutQty(session)
+  const varianceLength = computeLengthVariance(claimedLengthTotal, totalActualLength)
+  const shortageQty = computeShortageQty(requiredQty, actualCutQty)
+  const warningMessages = options.warningMessages || []
+  const warningLevel = deriveSpreadingWarningLevel({
+    requiredQty,
+    actualCutQty,
+    varianceLength,
+    claimedLengthTotal,
+    actualLengthTotal: totalActualLength,
+    warningMessages,
+  })
+  const suggestedAction = deriveSpreadingSuggestedAction({
+    requiredQty,
+    actualCutQty,
+    varianceLength,
+    claimedLengthTotal,
+    actualLengthTotal: totalActualLength,
+    warningMessages,
+  })
+
+  return {
+    warningId: `spread-warning-${session.spreadingSessionId || Date.now()}`,
+    sourceType: 'spreading-session',
+    sourceContextType: session.contextType || 'original-order',
+    spreadingSessionId: session.spreadingSessionId || '',
+    spreadingSessionNo: session.sessionNo || session.spreadingSessionId || '',
+    originalCutOrderIds: [...(session.originalCutOrderIds || [])],
+    originalCutOrderNos: [...options.originalCutOrderNos],
+    mergeBatchId: session.mergeBatchId || '',
+    mergeBatchNo: session.mergeBatchNo || '',
+    productionOrderNos: [...options.productionOrderNos],
+    styleCode: session.styleCode || '',
+    spuCode: session.spuCode || '',
+    materialSku: session.materialSkuSummary || '',
+    materialAttr: options.materialAttr || '',
+    requiredQty,
+    theoreticalCapacityQty,
+    actualCutQty,
+    configuredLengthTotal,
+    claimedLengthTotal,
+    totalActualLength,
+    totalUsableLength,
+    varianceLength,
+    shortageQty,
+    warningLevel,
+    suggestedAction,
+    handled: false,
+    createdAt: options.createdAt || nowText(),
+    note: options.note || warningMessages[0] || '当前由铺布完成动作生成补料预警基础数据。',
+  }
+}
+
+export function validateSpreadingCompletion(options: {
+  session: Partial<SpreadingSession>
+  markerTotalPieces: number
+  selectedOriginalCutOrderIds: string[]
+}): SpreadingCompletionValidationResult {
+  const { session, markerTotalPieces, selectedOriginalCutOrderIds } = options
+  const messages: string[] = []
+  const rolls = session.rolls || []
+
+  if (!rolls.length) {
+    messages.push('必须至少录入一条卷记录后，才能完成铺布。')
+  }
+
+  if (rolls.some((roll) => !roll.rollNo.trim() || !roll.occurredAt || Number(roll.actualLength || 0) <= 0)) {
+    messages.push('存在卷记录缺少卷号、时间或实际长度，当前不能完成铺布。')
+  }
+
+  if (markerTotalPieces <= 0) {
+    messages.push('当前缺少唛架总件数，无法准确推导裁剪数量，不能完成铺布。')
+  }
+
+  if (session.contextType === 'merge-batch' && !selectedOriginalCutOrderIds.length) {
+    messages.push('批次上下文下必须勾选至少一个原始裁片单，才能联动完成铺布。')
+  }
+
+  if (session.contextType === 'original-order' && !(session.originalCutOrderIds || []).length) {
+    messages.push('当前缺少原始裁片单上下文，不能完成铺布。')
+  }
+
+  return {
+    allowed: messages.length === 0,
+    messages,
+  }
+}
+
+export function finalizeSpreadingCompletion(options: {
+  session: SpreadingSession
+  linkedOriginalCutOrderIds: string[]
+  linkedOriginalCutOrderNos: string[]
+  productionOrderNos: string[]
+  markerTotalPieces: number
+  materialAttr?: string
+  warningMessages?: string[]
+  completedBy?: string
+  now?: Date
+}): SpreadingSession {
+  const completedAt = nowText(options.now)
+  const replenishmentWarning = buildSpreadingReplenishmentWarning({
+    session: options.session,
+    markerTotalPieces: options.markerTotalPieces,
+    originalCutOrderNos: options.linkedOriginalCutOrderNos,
+    productionOrderNos: options.productionOrderNos,
+    materialAttr: options.materialAttr,
+    createdAt: completedAt,
+    warningMessages: options.warningMessages,
+  })
+
+  return {
+    ...options.session,
+    status: 'DONE',
+    replenishmentWarning,
+    completionLinkage: {
+      completedAt,
+      completedBy: options.completedBy || '铺布编辑页',
+      linkedOriginalCutOrderIds: [...options.linkedOriginalCutOrderIds],
+      linkedOriginalCutOrderNos: [...options.linkedOriginalCutOrderNos],
+      generatedWarningId: replenishmentWarning.warningId,
+      generatedWarning: true,
+      note:
+        replenishmentWarning.suggestedAction === '无需补料'
+          ? '当前铺布已完成，未触发明显补料预警。'
+          : `当前铺布已完成，并生成补料预警：${replenishmentWarning.suggestedAction}。`,
+    },
+    varianceLength: replenishmentWarning.varianceLength,
+    varianceNote:
+      replenishmentWarning.suggestedAction === '无需补料'
+        ? '当前铺布已完成，差异未触发补料建议。'
+        : replenishmentWarning.suggestedAction,
+  }
+}
+
+export function hasSpreadingActualExecution(session: Partial<SpreadingSession> | null | undefined): boolean {
+  if (!session) return false
+  return Boolean((session.rolls || []).length || (session.operators || []).length)
 }
 
 export function summarizeSpreadingRolls(rolls: SpreadingRollRecord[]): {
@@ -411,6 +1390,8 @@ export function summarizeSpreadingRolls(rolls: SpreadingRollRecord[]): {
   totalHeadLength: number
   totalTailLength: number
   totalCalculatedUsableLength: number
+  totalRemainingLength: number
+  totalActualCutPieceQty: number
   rollCount: number
   totalLayers: number
 } {
@@ -419,8 +1400,38 @@ export function summarizeSpreadingRolls(rolls: SpreadingRollRecord[]): {
     totalHeadLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.headLength, 0), 0).toFixed(2)),
     totalTailLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.tailLength, 0), 0).toFixed(2)),
     totalCalculatedUsableLength: Number(rolls.reduce((sum, roll) => sum + computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength), 0).toFixed(2)),
+    totalRemainingLength: Number(rolls.reduce((sum, roll) => sum + computeRemainingLength(roll.labeledLength, roll.actualLength), 0).toFixed(2)),
+    totalActualCutPieceQty: rolls.reduce((sum, roll) => sum + Math.max(roll.actualCutPieceQty || 0, 0), 0),
     rollCount: rolls.length,
     totalLayers: rolls.reduce((sum, roll) => sum + Math.max(roll.layerCount, 0), 0),
+  }
+}
+
+export function summarizeSpreadingOperators(operators: SpreadingOperatorRecord[]): SpreadingOperatorSummary {
+  const sortedOperators = [...operators].sort((left, right) => {
+    const startGap = parseTimeWeight(left.startAt) - parseTimeWeight(right.startAt)
+    if (startGap !== 0) return startGap
+    const endGap = parseTimeWeight(left.endAt) - parseTimeWeight(right.endAt)
+    if (endGap !== 0) return endGap
+    return (left.sortOrder || 0) - (right.sortOrder || 0)
+  })
+  const operatorsByRollId = sortedOperators.reduce<Record<string, SpreadingOperatorRecord[]>>((accumulator, operator) => {
+    const key = operator.rollRecordId || '__UNBOUND__'
+    accumulator[key] = accumulator[key] || []
+    accumulator[key].push(operator)
+    return accumulator
+  }, {})
+  const handoverRollCount = Object.entries(operatorsByRollId).filter(([rollId, rows]) => rollId !== '__UNBOUND__' && rows.length > 1).length
+  const rollParticipantNames = Object.fromEntries(
+    Object.entries(operatorsByRollId).map(([rollId, rows]) => [rollId, uniqueStrings(rows.map((row) => row.operatorName))]),
+  )
+
+  return {
+    operatorCount: sortedOperators.length,
+    handoverRollCount,
+    sortedOperators,
+    operatorsByRollId,
+    rollParticipantNames,
   }
 }
 
@@ -446,7 +1457,7 @@ export function buildSpreadingVarianceSummary(
   const rollSummary = summarizeSpreadingRolls(session?.rolls ?? [])
   const requiredPieceQty = marker?.totalPieces || 0
   const estimatedPieceCapacity = marker && marker.singlePieceUsage > 0 ? Math.floor(rollSummary.totalCalculatedUsableLength / marker.singlePieceUsage) : 0
-  const varianceLength = Number((rollSummary.totalCalculatedUsableLength - claimedLengthTotal).toFixed(2))
+  const varianceLength = Number((claimedLengthTotal - rollSummary.totalActualLength).toFixed(2))
   const shortageIndicator = Boolean(marker && marker.singlePieceUsage > 0 && requiredPieceQty > 0 && estimatedPieceCapacity < requiredPieceQty)
 
   let replenishmentHint = '当前铺布数据与仓库配料数据基本匹配。'
@@ -455,7 +1466,7 @@ export function buildSpreadingVarianceSummary(
   } else if (shortageIndicator) {
     replenishmentHint = '预计承载件数低于唛架总件数，建议进入补料管理进一步确认。'
   } else if (varianceLength < 0) {
-    replenishmentHint = '可用长度低于已领取长度，建议复核铺布损耗与补料可能性。'
+    replenishmentHint = '总实际铺布长度超过已领取长度，建议复核差异并关注补料可能性。'
   }
 
   return {
@@ -463,9 +1474,11 @@ export function buildSpreadingVarianceSummary(
     claimedLengthTotal,
     actualLengthTotal: rollSummary.totalActualLength,
     usableLengthTotal: rollSummary.totalCalculatedUsableLength,
+    remainingLengthTotal: rollSummary.totalRemainingLength,
     varianceLength,
     estimatedPieceCapacity,
     requiredPieceQty,
+    actualCutPieceQtyTotal: rollSummary.totalActualCutPieceQty,
     shortageIndicator,
     replenishmentHint,
   }
@@ -516,9 +1529,86 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
   }
 }
 
+export function buildSpreadingWarningMessages(options: {
+  session: Partial<SpreadingSession>
+  markerTotalPieces: number
+  claimedLengthTotal: number
+}): string[] {
+  const warnings: string[] = []
+  const rolls = options.session.rolls || []
+  const operators = options.session.operators || []
+  const rollSummary = summarizeSpreadingRolls(rolls)
+  const operatorSummary = summarizeSpreadingOperators(operators)
+  const normalizedRollNos = rolls
+    .map((roll) => roll.rollNo.trim())
+    .filter(Boolean)
+  const duplicateRollNos = normalizedRollNos.filter((rollNo, index) => normalizedRollNos.indexOf(rollNo) !== index)
+
+  duplicateRollNos.forEach((rollNo) => {
+    warnings.push(`卷号 ${rollNo} 在同一条铺布记录下重复，请调整卷记录。`)
+  })
+
+  if (!rolls.length) {
+    warnings.push('当前缺少卷记录，请至少录入一卷实际铺布数据。')
+  }
+
+  rolls.forEach((roll, index) => {
+    const rollLabel = roll.rollNo || `第 ${index + 1} 卷`
+    const usableLength = computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0))
+    const remainingLength = computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0))
+    const linkedOperators = operatorSummary.operatorsByRollId[roll.rollRecordId] || []
+
+    if (usableLength < 0) {
+      warnings.push(`${rollLabel} 的单卷可用长度小于 0，请复核布头 / 布尾与实际长度。`)
+    }
+    if (remainingLength < 0) {
+      warnings.push(`${rollLabel} 的单卷剩余长度小于 0，说明实际使用已超过标注长度。`)
+    }
+    if (!roll.rollNo || !roll.occurredAt) {
+      warnings.push(`${rollLabel} 缺少卷号或时间，铺布记录仍不完整。`)
+    }
+    if (Number(roll.layerCount || 0) <= 0 || options.markerTotalPieces <= 0) {
+      warnings.push(`${rollLabel} 缺少层数或唛架总件数，实际裁剪件数暂无法准确推导。`)
+    }
+    if (!linkedOperators.length) {
+      warnings.push(`${rollLabel} 缺少人员记录，无法追溯开始、交接与完成情况。`)
+    }
+    if (linkedOperators.length > 1 && !linkedOperators.some((operator) => operator.handoverNotes.trim())) {
+      warnings.push(`${rollLabel} 发生了同卷换班，但没有填写交接说明。`)
+    }
+  })
+
+  if (options.claimedLengthTotal > 0 && rollSummary.totalActualLength > options.claimedLengthTotal) {
+    warnings.push('总实际铺布长度超过已领取总长度，可能需要补料。')
+  }
+
+  if (!operators.length) {
+    warnings.push('当前缺少铺布人员记录，请补录开始 / 交接 / 完成信息。')
+  }
+
+  operators.forEach((operator, index) => {
+    const operatorLabel = operator.operatorName || `第 ${index + 1} 条人员记录`
+    if (!operator.rollRecordId) {
+      warnings.push(`${operatorLabel} 尚未关联卷记录，同卷换班关系不可追溯。`)
+    }
+    if (!operator.operatorName) {
+      warnings.push(`第 ${index + 1} 条人员记录缺少人员姓名。`)
+    }
+    if (!operator.startAt || !operator.endAt) {
+      warnings.push(`${operatorLabel} 缺少开始或结束时间。`)
+    }
+    if ((operator.actionType === '中途交接' || operator.actionType === '接手继续') && !operator.handoverNotes.trim()) {
+      warnings.push(`${operatorLabel} 已标记交接动作，但缺少交接说明。`)
+    }
+  })
+
+  return Array.from(new Set(warnings))
+}
+
 export function buildMarkerSpreadingNavigationPayload(
   context: MarkerSpreadingContext | null,
   varianceSummary: SpreadingVarianceSummary | null,
+  warning?: SpreadingReplenishmentWarning | null,
 ): MarkerSpreadingNavigationPayload {
   if (!context) {
     return {
@@ -532,14 +1622,21 @@ export function buildMarkerSpreadingNavigationPayload(
 
   const baseOriginal = context.originalCutOrderNos[0]
   const baseProduction = context.productionOrderNos[0]
-  const varianceHint = varianceSummary ? String(varianceSummary.varianceLength) : undefined
-  const shortageHint = varianceSummary?.shortageIndicator ? 'true' : undefined
+  const varianceHint = warning ? String(warning.varianceLength) : varianceSummary ? String(varianceSummary.varianceLength) : undefined
+  const shortageHint =
+    warning ? (warning.shortageQty > 0 ? 'true' : undefined) : varianceSummary?.shortageIndicator ? 'true' : undefined
+  const riskLevel =
+    warning?.warningLevel === '高' ? 'high' : warning?.warningLevel === '中' ? 'medium' : warning?.warningLevel === '低' ? 'low' : undefined
 
   return {
     replenishment: {
+      spreadingSessionId: warning?.spreadingSessionId,
+      warningId: warning?.warningId,
       mergeBatchNo: context.contextType === 'merge-batch' ? context.mergeBatchNo || undefined : undefined,
       originalCutOrderNo: context.contextType === 'original-order' ? baseOriginal || undefined : undefined,
       productionOrderNo: baseProduction || undefined,
+      materialSku: context.materialSkuSummary?.split(' / ')[0] || undefined,
+      riskLevel,
       varianceLength: varianceHint,
       shortageHint,
     },
@@ -574,8 +1671,57 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
   try {
     const parsed = JSON.parse(raw)
     return {
-      markers: Array.isArray(parsed?.markers) ? parsed.markers : [],
-      sessions: Array.isArray(parsed?.sessions) ? parsed.sessions : [],
+      markers: Array.isArray(parsed?.markers) ? parsed.markers.map((item: MarkerRecord) => normalizeMarkerRecord(item)) : [],
+      sessions: Array.isArray(parsed?.sessions)
+        ? parsed.sessions.map((session: SpreadingSession) => {
+            const rolls = Array.isArray(session.rolls)
+              ? session.rolls.map((roll) => ({
+                  ...roll,
+                  sortOrder: Number(roll.sortOrder ?? 0),
+                  totalLength: Number(((Number(roll.actualLength || 0) + Number(roll.headLength || 0) + Number(roll.tailLength || 0))).toFixed(2)),
+                  remainingLength:
+                    roll.remainingLength ??
+                    computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0)),
+                  usableLength:
+                    roll.usableLength ??
+                    computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0)),
+                }))
+              : []
+            const rollSummary = summarizeSpreadingRolls(rolls)
+            return {
+              ...session,
+              spreadingMode: normalizeMarkerMode(session.spreadingMode as string | undefined),
+              rolls,
+              operators: Array.isArray(session.operators)
+                ? session.operators.map((operator) => ({
+                    ...operator,
+                    sortOrder: Number(operator.sortOrder ?? 0),
+                    rollRecordId: operator.rollRecordId || '',
+                    actionType: (operator.actionType || '开始铺布') as SpreadingOperatorActionType,
+                    handoverNotes: operator.handoverNotes || '',
+                  }))
+                : [],
+              totalActualLength: session.totalActualLength || rollSummary.totalActualLength,
+              totalHeadLength: session.totalHeadLength || rollSummary.totalHeadLength,
+              totalTailLength: session.totalTailLength || rollSummary.totalTailLength,
+              totalCalculatedUsableLength: session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
+              totalRemainingLength: session.totalRemainingLength ?? rollSummary.totalRemainingLength,
+              actualCutPieceQty: session.actualCutPieceQty ?? rollSummary.totalActualCutPieceQty,
+              configuredLengthTotal: session.configuredLengthTotal || 0,
+              claimedLengthTotal: session.claimedLengthTotal || 0,
+              varianceLength: session.varianceLength || 0,
+              varianceNote: session.varianceNote || '',
+              warningMessages: session.warningMessages || [],
+              importSource: session.importSource || null,
+              planLineItems: Array.isArray(session.planLineItems) ? session.planLineItems : [],
+              highLowPlanSnapshot: session.highLowPlanSnapshot || null,
+              theoreticalSpreadTotalLength: session.theoreticalSpreadTotalLength ?? 0,
+              theoreticalActualCutPieceQty: session.theoreticalActualCutPieceQty ?? 0,
+              importAdjustmentRequired: Boolean(session.importAdjustmentRequired),
+              importAdjustmentNote: session.importAdjustmentNote || '',
+            }
+          })
+        : [],
     }
   } catch {
     return { markers: [], sessions: [] }
@@ -637,18 +1783,28 @@ export function createEmptyStore(): MarkerSpreadingStore {
   return { markers: [], sessions: [] }
 }
 
+function createDraftId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 export function createRollRecordDraft(spreadingSessionId: string, materialSku = ''): SpreadingRollRecord {
   return {
-    rollRecordId: `roll-${Date.now()}`,
+    rollRecordId: createDraftId('roll'),
     spreadingSessionId,
+    sortOrder: 0,
     rollNo: '',
     materialSku,
+    color: '',
     width: 0,
     labeledLength: 0,
     actualLength: 0,
     headLength: 0,
     tailLength: 0,
     layerCount: 0,
+    totalLength: 0,
+    remainingLength: 0,
+    actualCutPieceQty: 0,
+    occurredAt: '',
     operatorNames: [],
     handoverNotes: '',
     usableLength: 0,
@@ -661,14 +1817,17 @@ export function createRollRecordDraft(spreadingSessionId: string, materialSku = 
 
 export function createOperatorRecordDraft(spreadingSessionId: string): SpreadingOperatorRecord {
   return {
-    operatorRecordId: `operator-${Date.now()}`,
+    operatorRecordId: createDraftId('operator'),
     spreadingSessionId,
+    sortOrder: 0,
+    rollRecordId: '',
     operatorAccountId: '',
     operatorName: '',
     startAt: '',
     endAt: '',
-    actionType: '铺布',
+    actionType: '开始铺布',
     handoverFlag: false,
+    handoverNotes: '',
     note: '',
     sourceChannel: 'MANUAL',
     sourceWritebackId: '',
@@ -677,17 +1836,47 @@ export function createOperatorRecordDraft(spreadingSessionId: string): Spreading
 }
 
 export function upsertSpreadingSession(session: SpreadingSession, store: MarkerSpreadingStore, now = new Date()): MarkerSpreadingStore {
-  const summary = summarizeSpreadingRolls(session.rolls)
+  const normalizedRolls = session.rolls.map((roll, index) => ({
+    ...roll,
+    sortOrder: Number(roll.sortOrder ?? index + 1),
+  }))
+  const normalizedOperators = summarizeSpreadingOperators(
+    session.operators.map((operator, index) => ({
+      ...operator,
+      sortOrder: Number(operator.sortOrder ?? index + 1),
+    })),
+  ).sortedOperators
+  const operatorNamesByRollId = Object.fromEntries(
+    Object.entries(summarizeSpreadingOperators(normalizedOperators).rollParticipantNames).map(([rollId, names]) => [rollId, names]),
+  )
+  const rollsWithOperatorNames = normalizedRolls.map((roll) => ({
+    ...roll,
+    operatorNames: operatorNamesByRollId[roll.rollRecordId] || [],
+  }))
+  const summary = summarizeSpreadingRolls(rollsWithOperatorNames)
   const normalized: SpreadingSession = {
     ...session,
+    rolls: rollsWithOperatorNames,
+    operators: normalizedOperators,
     totalActualLength: summary.totalActualLength,
     totalHeadLength: summary.totalHeadLength,
     totalTailLength: summary.totalTailLength,
     totalCalculatedUsableLength: summary.totalCalculatedUsableLength,
-    rollCount: session.rolls.length,
-    operatorCount: session.operators.length,
+    totalRemainingLength: session.totalRemainingLength ?? summary.totalRemainingLength,
+    rollCount: rollsWithOperatorNames.length,
+    operatorCount: normalizedOperators.length,
     actualLayers: summary.totalLayers,
+    actualCutPieceQty:
+      session.actualCutPieceQty ?? summary.totalActualCutPieceQty,
+    configuredLengthTotal: session.configuredLengthTotal ?? 0,
+    claimedLengthTotal: session.claimedLengthTotal ?? 0,
+    varianceLength: session.varianceLength ?? 0,
+    varianceNote: session.varianceNote || '',
+    totalAmount:
+      session.totalAmount ??
+      Number((((session.unitPrice ?? 0) * (session.actualCutPieceQty ?? 0))).toFixed(2)),
     updatedAt: nowText(now),
+    warningMessages: session.warningMessages || [],
     sourceChannel: session.sourceChannel || 'MANUAL',
     sourceWritebackId: session.sourceWritebackId || '',
     updatedFromPdaAt: session.updatedFromPdaAt || '',
@@ -702,11 +1891,18 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
 }
 
 export function upsertMarkerRecord(marker: MarkerRecord, store: MarkerSpreadingStore, now = new Date()): MarkerSpreadingStore {
-  const normalized: MarkerRecord = {
+  const normalized = normalizeMarkerRecord({
     ...marker,
     totalPieces: computeMarkerTotalPieces(marker.sizeDistribution),
+    spreadTotalLength:
+      marker.spreadTotalLength ??
+      (deriveMarkerTemplateByMode(marker.markerMode) === 'row-template'
+        ? computeNormalMarkerSpreadTotalLength(marker.lineItems || [])
+        : Number(marker.actualMaterialMeter ?? 0)),
+    plannedSizeRatioText: marker.plannedSizeRatioText || buildPlannedSizeRatioText(marker.sizeDistribution),
     updatedAt: nowText(now),
-  }
+    updatedBy: marker.updatedBy || '唛架编辑页',
+  })
 
   return {
     ...store,

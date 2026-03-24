@@ -537,6 +537,7 @@ function getQrPreviewForRecord(
   record: FeiTicketLabelRecord,
   bundle = getDataBundle(),
 ): {
+  schemaVersion: string
   payloadJson: string
   serializedValue: string
   validationText: string
@@ -571,6 +572,7 @@ function getQrPreviewForRecord(
     .join('')
 
   return {
+    schemaVersion: summary.schemaVersion || payload.schemaVersion || FEI_QR_SCHEMA_VERSION,
     payloadJson: JSON.stringify(payload, null, 2),
     serializedValue,
     validationText: validation.isValid
@@ -1528,7 +1530,7 @@ function renderOwnerDetail(bundle: FeiDataBundle): string {
               <h3 class="text-sm font-semibold text-foreground">二维码 schema / payload 预览</h3>
               <p class="mt-1 text-xs text-muted-foreground">当前仅冻结 owner 回落、schema 版本和工艺扩展槽位；merge-batch 仍只作为 sourceContext。</p>
             </div>
-            ${renderBadge(`schema ${qrPreview?.summary.schemaVersion || FEI_QR_SCHEMA_VERSION}`, 'bg-blue-100 text-blue-700 border border-blue-200')}
+            ${renderBadge(`schema ${qrPreview?.schemaVersion || FEI_QR_SCHEMA_VERSION}`, 'bg-blue-100 text-blue-700 border border-blue-200')}
           </div>
           ${
             qrPreview

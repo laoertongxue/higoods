@@ -16,6 +16,10 @@ export type CuttingCanonicalPageKey =
   | 'original-orders'
   | 'material-prep'
   | 'marker-spreading'
+  | 'marker-detail'
+  | 'marker-edit'
+  | 'spreading-detail'
+  | 'spreading-edit'
   | 'fei-tickets'
   | 'fabric-warehouse'
   | 'cut-piece-warehouse'
@@ -112,6 +116,50 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     breadcrumb: createBreadcrumb('裁片执行准备', '唛架 / 铺布'),
     isPlaceholder: false,
     shortDescription: '承接唛架信息、铺布模式、铺布记录与后续补料判断基础数据。',
+  },
+  'marker-detail': {
+    key: 'marker-detail',
+    canonicalPath: '/fcs/craft/cutting/marker-detail',
+    aliases: [],
+    menuGroupTitle: '裁片执行准备',
+    pageTitle: '唛架详情',
+    pageSubtitle: '查看唛架模式、尺码配比、排版明细、唛架图与调整入口占位',
+    breadcrumb: createBreadcrumb('裁片执行准备', '唛架详情'),
+    isPlaceholder: false,
+    shortDescription: '查看唛架模式、尺码配比、排版明细、唛架图与调整入口占位。',
+  },
+  'marker-edit': {
+    key: 'marker-edit',
+    canonicalPath: '/fcs/craft/cutting/marker-edit',
+    aliases: [],
+    menuGroupTitle: '裁片执行准备',
+    pageTitle: '唛架编辑',
+    pageSubtitle: '编辑唛架基础信息、尺码配比、排版明细与图片备注骨架',
+    breadcrumb: createBreadcrumb('裁片执行准备', '唛架编辑'),
+    isPlaceholder: false,
+    shortDescription: '编辑唛架基础信息、尺码配比、排版明细与图片备注骨架。',
+  },
+  'spreading-detail': {
+    key: 'spreading-detail',
+    canonicalPath: '/fcs/craft/cutting/spreading-detail',
+    aliases: [],
+    menuGroupTitle: '裁片执行准备',
+    pageTitle: '铺布详情',
+    pageSubtitle: '查看铺布 session、关联唛架、卷记录、人员记录与汇总数据',
+    breadcrumb: createBreadcrumb('裁片执行准备', '铺布详情'),
+    isPlaceholder: false,
+    shortDescription: '查看铺布 session、关联唛架、卷记录、人员记录与汇总数据。',
+  },
+  'spreading-edit': {
+    key: 'spreading-edit',
+    canonicalPath: '/fcs/craft/cutting/spreading-edit',
+    aliases: [],
+    menuGroupTitle: '裁片执行准备',
+    pageTitle: '铺布编辑',
+    pageSubtitle: '编辑铺布 session、卷记录、人员记录与汇总骨架',
+    breadcrumb: createBreadcrumb('裁片执行准备', '铺布编辑'),
+    isPlaceholder: false,
+    shortDescription: '编辑铺布 session、卷记录、人员记录与汇总骨架。',
   },
   'fei-tickets': {
     key: 'fei-tickets',
