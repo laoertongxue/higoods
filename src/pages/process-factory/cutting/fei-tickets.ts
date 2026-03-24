@@ -33,6 +33,7 @@ import {
   type FeiTicketsViewModel,
   type OriginalCutOrderTicketOwner,
 } from './fei-tickets-model'
+import { CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY } from './transfer-bags-model'
 import {
   FEI_QR_SCHEMA_NAME,
   FEI_QR_SCHEMA_VERSION,
@@ -2338,15 +2339,33 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
 
   if (action === 'go-transfer-bags') {
     const bundle = getDataBundle()
-    const owner =
+    const printJob =
       actionNode.dataset.printJobId
-        ? (() => {
-            const printJob = bundle.pageViewModel.printJobs.find((job) => job.printJobId === actionNode.dataset.printJobId) ??
-              bundle.fullViewModel.printJobs.find((job) => job.printJobId === actionNode.dataset.printJobId)
-            if (!printJob) return getActiveOwner(bundle)
-            return bundle.fullViewModel.owners.find((item) => item.originalCutOrderId === printJob.originalCutOrderIds[0]) ?? getActiveOwner(bundle)
-          })()
-        : getOwnerFromActionNode(actionNode, bundle)
+        ? bundle.pageViewModel.printJobs.find((job) => job.printJobId === actionNode.dataset.printJobId) ??
+          bundle.fullViewModel.printJobs.find((job) => job.printJobId === actionNode.dataset.printJobId)
+        : null
+    const owner = printJob
+      ? bundle.fullViewModel.owners.find((item) => item.originalCutOrderId === printJob.originalCutOrderIds[0]) ?? getActiveOwner(bundle)
+      : getOwnerFromActionNode(actionNode, bundle)
+    const selectedTicketRecordIds = printJob
+      ? bundle.fullViewModel.ticketRecords
+          .filter((record) => record.sourcePrintJobId === printJob.printJobId)
+          .map((record) => record.ticketRecordId)
+      : owner
+        ? bundle.fullViewModel.ticketRecords
+            .filter((record) => record.originalCutOrderId === owner.originalCutOrderId)
+            .map((record) => record.ticketRecordId)
+        : []
+
+    if (selectedTicketRecordIds.length) {
+      sessionStorage.setItem(
+        CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY,
+        JSON.stringify(selectedTicketRecordIds),
+      )
+    } else {
+      sessionStorage.removeItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY)
+    }
+
     return navigateToPayload('transferBags', owner, bundle.pageViewModel.context)
   }
 

@@ -148,6 +148,14 @@ import {
 } from '../pages/process-factory/cutting/marker-spreading'
 import { handleCraftCuttingFeiTicketsEvent } from '../pages/process-factory/cutting/fei-tickets'
 import {
+  handleCraftCuttingFabricWarehouseEvent,
+  isCraftCuttingFabricWarehouseDialogOpen,
+} from '../pages/process-factory/cutting/fabric-warehouse'
+import {
+  handleCraftCuttingCutPieceWarehouseEvent,
+  isCraftCuttingCutPieceWarehouseDialogOpen,
+} from '../pages/process-factory/cutting/cut-piece-warehouse'
+import {
   handleCraftCuttingPieceOrdersEvent,
   isCraftCuttingPieceOrdersDialogOpen,
 } from '../pages/process-factory/cutting/cut-piece-orders'
@@ -155,6 +163,11 @@ import {
   handleCraftCuttingReplenishmentEvent,
   isCraftCuttingReplenishmentDialogOpen,
 } from '../pages/process-factory/cutting/replenishment'
+import {
+  handleCraftCuttingSampleWarehouseEvent,
+  isCraftCuttingSampleWarehouseDialogOpen,
+} from '../pages/process-factory/cutting/sample-warehouse'
+import { handleCraftCuttingTransferBagsEvent } from '../pages/process-factory/cutting/transfer-bags'
 import {
   handleCraftCuttingWarehouseManagementEvent,
   isCraftCuttingWarehouseManagementDialogOpen,
@@ -208,6 +221,10 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleCraftCuttingMaterialPrepEvent(target) ||
     handleCraftCuttingMarkerSpreadingEvent(target) ||
     handleCraftCuttingFeiTicketsEvent(target) ||
+    handleCraftCuttingFabricWarehouseEvent(target) ||
+    handleCraftCuttingCutPieceWarehouseEvent(target) ||
+    handleCraftCuttingSampleWarehouseEvent(target) ||
+    handleCraftCuttingTransferBagsEvent(target) ||
     handleCraftCuttingPieceOrdersEvent(target) ||
     handleCraftCuttingReplenishmentEvent(target) ||
     handleCraftCuttingWarehouseManagementEvent(target) ||
@@ -480,6 +497,27 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cuttingPieceAction = 'close-overlay'
     handleCraftCuttingPieceOrdersEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingFabricWarehouseDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.fabricWarehouseAction = 'close-detail'
+    handleCraftCuttingFabricWarehouseEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingCutPieceWarehouseDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cutPieceWarehouseAction = 'close-detail'
+    handleCraftCuttingCutPieceWarehouseEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingSampleWarehouseDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.sampleWarehouseAction = 'close-detail'
+    handleCraftCuttingSampleWarehouseEvent(fakeButton)
     return true
   }
 
