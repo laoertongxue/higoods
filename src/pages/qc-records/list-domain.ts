@@ -19,7 +19,7 @@ import {
   type QcDisposition,
   type ReturnInboundQcPolicy,
 } from './context'
-import { buildQcDetailHref } from '../../data/fcs/quality-chain-adapter'
+import { buildQcDeductionHref, buildQcDetailHref } from '../../data/fcs/quality-chain-adapter'
 import {
   PLATFORM_QC_WORKBENCH_VIEW_LABEL,
   QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL,
@@ -516,7 +516,12 @@ export function renderQcRecordsPage(): string {
                       return `
                         <tr class="border-b last:border-b-0 hover:bg-muted/30">
                           <td class="px-4 py-3 align-top">
-                            <button class="font-mono text-xs font-semibold text-primary hover:underline" data-nav="${escapeHtml(detailHref)}">
+                            <button
+                              type="button"
+                              class="font-mono text-xs font-semibold text-primary hover:underline"
+                              data-qcr-action="open-detail"
+                              data-qcr-href="${escapeHtml(detailHref)}"
+                            >
                               ${escapeHtml(row.qcNo)}
                             </button>
                             ${
@@ -554,13 +559,17 @@ export function renderQcRecordsPage(): string {
                           <td class="px-4 py-3 align-top">${renderSettlementSummary(row)}</td>
                           <td class="px-4 py-3 align-top">
                             <div class="flex flex-wrap gap-2">
-                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">
+                              <button
+                                type="button"
+                                class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted"
+                                data-nav="${escapeHtml(detailHref)}"
+                              >
                                 查看详情
                               </button>
                               ${
                                 row.canViewDeduction && row.basisId
                                   ? `
-                                    <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="/fcs/quality/deduction-calc/${escapeHtml(row.basisId)}">
+                                    <button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildQcDeductionHref(row.qcId))}">
                                       查看扣款
                                     </button>
                                   `
@@ -570,9 +579,9 @@ export function renderQcRecordsPage(): string {
                                 row.canHandleDispute
                                   ? `
                                     <button
+                                      type="button"
                                       class="inline-flex h-8 items-center rounded-md border px-2 text-xs text-amber-700 hover:bg-amber-50"
-                                      data-qcr-action="handle-dispute"
-                                      data-qcr-href="${escapeHtml(disputeHref)}"
+                                      data-nav="${escapeHtml(disputeHref)}"
                                     >
                                       处理异议
                                     </button>

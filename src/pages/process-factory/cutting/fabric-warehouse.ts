@@ -25,9 +25,19 @@ import {
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
   buildWarehouseOriginalRows,
-  buildWarehouseRouteWithQuery,
   getWarehouseSearchParams,
 } from './warehouse-shared'
+import {
+  buildCuttingDrillChipLabels,
+  buildCuttingDrillSummary,
+  buildCuttingRouteWithContext,
+  buildReturnToSummaryContext,
+  hasSummaryReturnContext,
+  normalizeLegacyCuttingPayload,
+  readCuttingDrillContextFromLocation,
+  type CuttingDrillContext,
+  type CuttingNavigationTarget,
+} from './navigation-context'
 
 type FilterField = 'keyword' | 'materialCategory' | 'status' | 'risk'
 
@@ -36,6 +46,7 @@ interface FabricWarehousePageState {
   filters: FabricWarehouseFilters
   activeStockId: string | null
   prefilter: FabricWarehousePrefilter | null
+  drillContext: CuttingDrillContext | null
   querySignature: string
   focusedStockIds: string[]
 }
@@ -60,6 +71,7 @@ const state: FabricWarehousePageState = {
   filters: { ...initialFilters },
   activeStockId: null,
   prefilter: null,
+  drillContext: null,
   querySignature: '',
   focusedStockIds: [],
 }
@@ -74,10 +86,11 @@ function getFilteredItems() {
 
 function getPrefilterFromQuery(): FabricWarehousePrefilter | null {
   const params = getWarehouseSearchParams()
+  const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: FabricWarehousePrefilter = {
-    materialSku: params.get('materialSku') || undefined,
-    originalCutOrderNo: params.get('originalCutOrderNo') || undefined,
-    productionOrderNo: params.get('productionOrderNo') || undefined,
+    materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
+    originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
+    productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
     rollNo: params.get('rollNo') || undefined,
   }
 
@@ -88,6 +101,7 @@ function syncPrefilterFromQuery(): void {
   const pathname = appStore.getState().pathname
   if (pathname === state.querySignature) return
   state.querySignature = pathname
+  state.drillContext = readCuttingDrillContextFromLocation(getWarehouseSearchParams())
   state.prefilter = getPrefilterFromQuery()
   const matched = findFabricWarehouseByPrefilter(getViewModel().items, state.prefilter)
   state.activeStockId = matched?.stockItemId ?? null
@@ -124,11 +138,15 @@ function renderFilterSelect(
 }
 
 function renderHeaderActions(): string {
+  const returnToSummary = hasSummaryReturnContext(state.drillContext)
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="return-summary">返回裁剪总表</button>`
+    : ''
   return `
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-material-prep-index">返回仓库配料 / 领料</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-original-orders-index">查看裁片单（原始单）</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-summary-index">查看裁剪总结</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-material-prep-index">返回仓库配料领料</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-original-orders-index">查看原始裁片单</button>
+      ${returnToSummary}
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }
@@ -139,7 +157,7 @@ function renderStatsCards(): string {
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('面料 SKU 数', summary.stockItemCount, '当前裁床仓库存对象', 'text-slate-900')}
       ${renderCompactKpiCard('卷数', summary.rollCount, '当前卷级明细总量', 'text-blue-600')}
-      ${renderCompactKpiCard('配置长度总量', formatFabricWarehouseLength(summary.configuredLengthTotal), '来自仓库配料 / 领料', 'text-emerald-600')}
+      ${renderCompactKpiCard('配置长度总量', formatFabricWarehouseLength(summary.configuredLengthTotal), '来自仓库配料领料', 'text-emerald-600')}
       ${renderCompactKpiCard('剩余长度总量', formatFabricWarehouseLength(summary.remainingLengthTotal), '裁床侧当前可用余量', 'text-violet-600')}
       ${renderCompactKpiCard('低余量项数', summary.lowRemainingItemCount, '建议优先核对并关注', 'text-amber-600')}
     </section>
@@ -149,15 +167,15 @@ function renderStatsCards(): string {
 function renderPrefilterBar(): string {
   if (!state.prefilter) return ''
 
-  const labels = [
-    state.prefilter.materialSku ? `面料 SKU：${state.prefilter.materialSku}` : '',
-    state.prefilter.originalCutOrderNo ? `原始裁片单：${state.prefilter.originalCutOrderNo}` : '',
-    state.prefilter.productionOrderNo ? `来源生产单：${state.prefilter.productionOrderNo}` : '',
-    state.prefilter.rollNo ? `卷号：${state.prefilter.rollNo}` : '',
-  ].filter(Boolean)
+  const labels = Array.from(
+    new Set([
+      ...buildCuttingDrillChipLabels(state.drillContext),
+      state.prefilter.rollNo ? `卷号：${state.prefilter.rollNo}` : '',
+    ].filter(Boolean)),
+  )
 
   return renderWorkbenchStateBar({
-    summary: '当前按外部上下文预筛裁床仓记录',
+    summary: buildCuttingDrillSummary(state.drillContext) || '当前按外部上下文预筛裁床仓记录',
     chips: labels.map((label) => renderWorkbenchFilterChip(label, 'data-fabric-warehouse-action="clear-prefilter"', 'amber')),
     clearAttrs: 'data-fabric-warehouse-action="clear-prefilter"',
   })
@@ -299,7 +317,7 @@ function renderDetailDrawer(): string {
   return uiDetailDrawer(
     {
       title: `裁床仓详情 · ${item.materialSku}`,
-      subtitle: '当前以配置面料库存与剩余面料库存为主视角。',
+      subtitle: '',
       closeAction: { prefix: 'fabric-warehouse', action: 'close-detail' },
       width: 'lg',
     },
@@ -388,7 +406,7 @@ function renderDetailDrawer(): string {
       </div>
     `,
     `
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-material-prep" data-stock-id="${escapeHtml(item.stockItemId)}">跳去仓库配料 / 领料</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-material-prep" data-stock-id="${escapeHtml(item.stockItemId)}">跳去仓库配料领料</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-fabric-warehouse-action="go-original-orders" data-stock-id="${escapeHtml(item.stockItemId)}">查看原始裁片单</button>
     `,
   )
@@ -420,15 +438,14 @@ function navigateByPayload(stockId: string | undefined, target: keyof FabricWare
   if (!stockId) return false
   const item = getViewModel().itemsById[stockId]
   if (!item) return false
-
-  const pathMap: Record<keyof FabricWarehouseStockItem['navigationPayload'], string> = {
-    originalOrders: getCanonicalCuttingPath('original-orders'),
-    materialPrep: getCanonicalCuttingPath('material-prep'),
-    summary: getCanonicalCuttingPath('summary'),
-    transferBags: getCanonicalCuttingPath('transfer-bags'),
-  }
-
-  appStore.navigate(buildWarehouseRouteWithQuery(pathMap[target], item.navigationPayload[target]))
+  const context = normalizeLegacyCuttingPayload(item.navigationPayload[target], 'fabric-warehouse', {
+    materialSku: item.materialSku,
+    productionOrderNo: item.productionOrderNos[0] || undefined,
+    originalCutOrderNo: item.originalCutOrderNos[0] || undefined,
+    warehouseRecordId: item.stockItemId,
+    autoOpenDetail: true,
+  })
+  appStore.navigate(buildCuttingRouteWithContext(target as CuttingNavigationTarget, context))
   return true
 }
 
@@ -466,6 +483,7 @@ export function handleCraftCuttingFabricWarehouseEvent(target: Element): boolean
 
   if (action === 'clear-prefilter') {
     state.prefilter = null
+    state.drillContext = null
     state.activeStockId = null
     state.querySignature = getCanonicalCuttingPath('fabric-warehouse')
     appStore.navigate(getCanonicalCuttingPath('fabric-warehouse'))
@@ -507,6 +525,13 @@ export function handleCraftCuttingFabricWarehouseEvent(target: Element): boolean
 
   if (action === 'go-summary-index') {
     appStore.navigate(getCanonicalCuttingPath('summary'))
+    return true
+  }
+
+  if (action === 'return-summary') {
+    const context = buildReturnToSummaryContext(state.drillContext)
+    if (!context) return false
+    appStore.navigate(buildCuttingRouteWithContext('summary', context))
     return true
   }
 

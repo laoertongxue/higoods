@@ -1,4 +1,6 @@
 import { menusBySystem } from '../data/app-shell-config'
+import { appStore } from '../state/store'
+import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import { renderFactoryProfilePage } from '../pages/factory-profile'
 import { renderOverviewPage, renderTodosPage } from '../pages/workbench'
 import { renderPcsOverviewPage } from '../pages/pcs-workspace-overview'
@@ -81,11 +83,6 @@ import {
   renderQcRecordMobileDetailPage,
   renderQcRecordsPage,
 } from '../pages/qc-records'
-import {
-  renderDeductionCalcPage,
-  renderDeductionCalcDetailPage,
-} from '../pages/deduction-calc'
-import { renderArbitrationPage } from '../pages/arbitration'
 import { renderDeductionAnalysisPage } from '../pages/deduction-analysis'
 import { renderStatementsPage } from '../pages/statements'
 import { renderAdjustmentsPage } from '../pages/adjustments'
@@ -170,6 +167,18 @@ import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 
 type RouteRenderer = (pathname: string) => string
 
+function renderRouteRedirect(targetPath: string, title: string): string {
+  const currentPath = appStore.getState().pathname
+  if (currentPath !== targetPath) {
+    queueMicrotask(() => {
+      if (appStore.getState().pathname !== targetPath) {
+        appStore.navigate(targetPath)
+      }
+    })
+  }
+  return renderPlaceholderPage(title, '正在跳转到新的页面结构…', '页面跳转')
+}
+
 function normalizePathname(pathname: string): string {
   return pathname.split('#')[0].split('?')[0] || '/'
 }
@@ -240,8 +249,10 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/process/material-issue': () => renderMaterialIssuePage(),
   '/fcs/quality/qc-records': () => renderQcRecordsPage(),
   '/fcs/quality/deduction-analysis': () => renderDeductionAnalysisPage(),
-  '/fcs/quality/deduction-calc': () => renderDeductionCalcPage(),
-  '/fcs/quality/arbitration': () => renderArbitrationPage(),
+  '/fcs/quality/deduction-calc': () =>
+    renderRouteRedirect('/fcs/quality/deduction-analysis', '正在跳转到扣款分析'),
+  '/fcs/quality/arbitration': () =>
+    renderRouteRedirect('/fcs/quality/qc-records?view=WAIT_PLATFORM_REVIEW', '正在跳转到质检记录'),
   '/fcs/quality/penalty-output': () => renderDeductionAnalysisPage(),
   '/fcs/settlement/statements': () => renderStatementsPage(),
   '/fcs/settlement/adjustments': () => renderAdjustmentsPage(),
@@ -414,7 +425,11 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   },
   {
     pattern: /^\/fcs\/quality\/deduction-calc\/([^/]+)$/,
-    render: (match) => renderDeductionCalcDetailPage(match[1]),
+    render: (match) =>
+      renderRouteRedirect(
+        buildDeductionEntryHrefByBasisId(decodeURIComponent(match[1])),
+        '正在跳转到关联质检记录',
+      ),
   },
   {
     pattern: /^\/fcs\/tech-pack\/([^/]+)$/,

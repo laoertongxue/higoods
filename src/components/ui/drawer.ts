@@ -9,6 +9,7 @@ const WIDTH_CLASSES: Record<DrawerWidth, string> = {
   sm: 'sm:max-w-[480px]',
   md: 'sm:max-w-[600px]',
   lg: 'sm:max-w-[720px]',
+  xl: 'sm:max-w-[960px]',
 }
 
 /**

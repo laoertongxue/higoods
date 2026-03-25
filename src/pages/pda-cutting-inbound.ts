@@ -105,7 +105,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
     return renderPdaCuttingPageLayout({
       taskId,
       title: '入仓扫码',
-      subtitle: '围绕裁片入仓对象、区域提示和库位说明完成轻量入仓确认。',
+      subtitle: '',
       activeTab: 'exec',
       body: '',
       backHref: buildPdaCuttingRoute(taskId, 'task'),
@@ -206,7 +206,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   return renderPdaCuttingPageLayout({
     taskId,
     title: '入仓扫码',
-    subtitle: '围绕裁片入仓对象、区域提示和库位说明完成轻量入仓确认。',
+    subtitle: '',
     activeTab: 'exec',
     body,
     backHref: buildPdaCuttingRoute(taskId, 'task'),

@@ -125,7 +125,14 @@ function getCurrentFactoryOperatorName(factoryId: string): string {
 }
 
 function getBackPath(): string {
-  return getCurrentSearchParams().get('back') === 'settlement' ? '/fcs/pda/settlement' : '/fcs/pda/quality'
+  const params = getCurrentSearchParams()
+  const view = params.get('view')
+  const search = new URLSearchParams()
+  search.set('tab', 'quality')
+  if (view && ['pending', 'soon', 'disputing', 'processed', 'history'].includes(view)) {
+    search.set('view', view)
+  }
+  return `/fcs/pda/settlement?${search.toString()}`
 }
 
 function buildPdaQualityDetailHref(qcId: string): string {
@@ -214,12 +221,11 @@ function renderStatusBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function renderSectionCard(title: string, body: string, description?: string): string {
+function renderSectionCard(title: string, body: string, _description?: string): string {
   return `
     <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
       <div class="mb-3">
         <h2 class="text-sm font-semibold text-foreground">${escapeHtml(title)}</h2>
-        ${description ? `<p class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(description)}</p>` : ''}
       </div>
       ${body}
     </section>
@@ -438,7 +444,7 @@ function renderListCard(item: FutureMobileFactoryQcListItem): string {
 
       <dl class="mt-3 grid grid-cols-2 gap-2 text-[11px]">
         <div class="rounded-xl bg-muted/40 px-3 py-2">
-          <dt class="text-muted-foreground">数量摘要</dt>
+          <dt class="text-muted-foreground">数量概况</dt>
           <dd class="mt-1 font-medium text-foreground">${formatQty(item.inspectedQty)} / 合格 ${formatQty(item.qualifiedQty)} / 不合格 ${formatQty(item.unqualifiedQty)}</dd>
         </div>
         <div class="rounded-xl bg-muted/40 px-3 py-2">
@@ -531,8 +537,8 @@ export function renderPdaQualityPage(): string {
         <header class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <div class="text-lg font-semibold text-foreground">质检处理</div>
-              <div class="mt-1 text-xs leading-5 text-muted-foreground">围绕同一条质检记录统一查看事实、冻结影响、异议进度与平台裁决结果。</div>
+              <div class="text-lg font-semibold text-foreground">结算中的质检扣款处理</div>
+              <div class="mt-1 text-xs leading-5 text-muted-foreground">围绕同一条质检记录统一查看事实、冻结影响、异议进度与平台裁决结果，已并入结算主工作台。</div>
             </div>
             <div class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">${escapeHtml(factoryId)}</div>
           </div>
@@ -562,7 +568,7 @@ export function renderPdaQualityPage(): string {
         </section>
       </div>
     `,
-    'quality',
+    'settlement',
   )
 }
 
@@ -570,7 +576,7 @@ function renderDetailHeader(detail: FutureMobileFactoryQcDetail): string {
   return `
     <header class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
       <button class="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground" data-pda-quality-action="back-list">
-        <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>${escapeHtml(getBackPath() === '/fcs/pda/settlement' ? '返回结算' : '返回质检处理')}
+        <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>返回结算
       </button>
       <div class="text-lg font-semibold text-foreground">${escapeHtml(detail.qcNo)}</div>
       <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(detail.returnInboundBatchNo)} · ${escapeHtml(detail.productionOrderNo)} · ${escapeHtml(detail.processLabel)}</div>
@@ -629,7 +635,7 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
         { label: '工厂责任数量', value: formatQty(detail.factoryLiabilityQty) },
         { label: '非工厂责任数量', value: formatQty(detail.nonFactoryLiabilityQty) },
         { label: '责任状态', value: renderStatusBadge(detail.liabilityStatusLabel, getBadgeClass(detail.liabilityStatus === 'FACTORY' ? 'red' : detail.liabilityStatus === 'MIXED' ? 'amber' : detail.liabilityStatus === 'NON_FACTORY' ? 'green' : 'gray')) },
-        { label: '责任摘要', value: escapeHtml(detail.responsibilitySummary) },
+        { label: '责任说明', value: escapeHtml(detail.responsibilitySummary) },
       ]),
       '“部分合格”会同时展示合格与不合格数量，工厂责任数量单独列出，避免只看 badge 看不清判定依据。',
     ),
@@ -639,30 +645,16 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
         <div class="rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-foreground">
           <div class="font-medium">缺陷说明</div>
           <div class="mt-1 text-muted-foreground">${escapeHtml(
-            detail.unqualifiedReasonSummary || detail.defectItems.map((item) => `${item.defectName}×${item.qty}`).join('、') || '当前无额外缺陷摘要',
+            detail.unqualifiedReasonSummary || detail.defectItems.map((item) => `${item.defectName}×${item.qty}`).join('、') || '当前无额外缺陷说明',
           )}</div>
         </div>
         <div class="mt-3 text-[11px] text-muted-foreground">仓库证据 ${detail.warehouseEvidenceCount} 份</div>
         <div class="mt-2">${renderEvidenceAssets(detail.warehouseEvidenceAssets, '当前无仓库证据。', '仓库证据')}</div>
       `,
-      '这里仅展示仓库质检证据，工厂异议证据在下方“异议区”单独展示。',
+      '这里仅展示仓库质检证据，工厂异议证据在下方“异议与平台处理结果”单独展示。',
     ),
     renderSectionCard(
-      '结算影响',
-      renderInfoGrid([
-        { label: '结算影响状态', value: renderStatusBadge(detail.settlementImpactStatusLabel, getSettlementBadgeClass(detail.settlementImpactStatusLabel)) },
-        { label: '冻结数量', value: formatQty(detail.blockedSettlementQty) },
-        { label: '冻结加工费金额', value: formatCny(detail.blockedProcessingFeeAmount) },
-        { label: '生效质量扣款金额', value: formatCny(detail.effectiveQualityDeductionAmount) },
-        { label: '可结算批次', value: escapeHtml(detail.candidateSettlementCycleId ?? '—') },
-        { label: '结算单号', value: escapeHtml(detail.includedSettlementStatementId ?? '—') },
-        { label: '结算批次号', value: escapeHtml(detail.includedSettlementBatchId ?? '—') },
-        { label: '调整摘要', value: escapeHtml(detail.settlementAdjustmentSummary ?? '当前无下周期调整项') },
-      ]),
-      '冻结加工费金额与生效质量扣款金额分开展示，避免在工厂端被误读为单一“扣款金额”。',
-    ),
-    renderSectionCard(
-      '工厂响应',
+      '工厂处理与金额影响',
       renderInfoGrid([
         { label: '是否需要响应', value: escapeHtml(detail.requiresFactoryResponse ? '需要' : '无需') },
         { label: '响应状态', value: renderStatusBadge(detail.factoryResponseStatusLabel, getResponseBadgeClass(detail.factoryResponseStatusLabel)) },
@@ -672,14 +664,23 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
         { label: '自动确认时间', value: escapeHtml(detail.autoConfirmedAt ? formatDateTime(detail.autoConfirmedAt) : '—') },
         { label: '响应人', value: escapeHtml(detail.responderUserName ?? '—') },
         { label: '状态说明', value: escapeHtml(detail.isOverdue ? '已超时' : responseSummary) },
-      ]) +
-        (detail.responseComment
-          ? `<div class="mt-3 rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(detail.responseComment)}</div>`
-          : ''),
-      '平台端和工厂端都会直接读取这组响应事实，确认、异议、自动确认的时间与处理人保持一致。',
+        { label: '结算影响状态', value: renderStatusBadge(detail.settlementImpactStatusLabel, getSettlementBadgeClass(detail.settlementImpactStatusLabel)) },
+        { label: '冻结数量', value: formatQty(detail.blockedSettlementQty) },
+        { label: '冻结加工费金额', value: formatCny(detail.blockedProcessingFeeAmount) },
+        { label: '生效质量扣款金额', value: formatCny(detail.effectiveQualityDeductionAmount) },
+        { label: '可结算批次', value: escapeHtml(detail.candidateSettlementCycleId ?? '—') },
+        { label: '结算单号', value: escapeHtml(detail.includedSettlementStatementId ?? '—') },
+        { label: '结算批次号', value: escapeHtml(detail.includedSettlementBatchId ?? '—') },
+        { label: '下周期调整说明', value: escapeHtml(detail.settlementAdjustmentSummary ?? '当前无下周期调整项') },
+      ]),
+      (detail.responseComment
+        ? `<div class="mt-3 rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(detail.responseComment)}</div>`
+        : '') +
+        '',
+      '先看当前是否需要处理、还剩多久，再看这件事对冻结金额和质量扣款的影响。',
     ),
     renderSectionCard(
-      '异议区',
+      '异议与平台处理结果',
       `
         <div class="rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(disputeSummary)}</div>
         ${
@@ -881,12 +882,12 @@ function renderDetailEmptyState(): string {
       <div class="px-4 py-6">
         <div class="rounded-2xl border border-dashed bg-card px-4 py-10 text-center">
           <div class="text-base font-medium text-foreground">未找到对应质检记录</div>
-          <div class="mt-2 text-xs leading-5 text-muted-foreground">请返回“质检处理”重新选择记录，或确认当前登录工厂是否有权限查看该记录。</div>
+          <div class="mt-2 text-xs leading-5 text-muted-foreground">请返回“结算”中的质检扣款处理分组重新选择记录，或确认当前登录工厂是否有权限查看该记录。</div>
           <button class="mt-4 rounded-xl border px-4 py-2 text-sm hover:bg-muted" data-pda-quality-action="back-list">返回</button>
         </div>
       </div>
     `,
-    'quality',
+    'settlement',
   )
 }
 
@@ -904,7 +905,7 @@ export function renderPdaQualityDetailPage(qcId: string): string {
       ${renderConfirmDialog(detail)}
       ${renderDisputeSheet(detail)}
     `,
-    'quality',
+    'settlement',
   )
 }
 

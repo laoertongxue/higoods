@@ -107,7 +107,7 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
     return renderPdaCuttingPageLayout({
       taskId,
       title: '补料反馈',
-      subtitle: '围绕裁片现场的补料风险、反馈说明和凭证位建立专项页面骨架。',
+      subtitle: '',
       activeTab: 'exec',
       body: '',
       backHref: buildPdaCuttingRoute(taskId, 'task'),
@@ -179,7 +179,7 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
   return renderPdaCuttingPageLayout({
     taskId,
     title: '补料反馈',
-    subtitle: '围绕裁片现场的补料风险、反馈说明和凭证位建立专项页面骨架。',
+    subtitle: '',
     activeTab: 'exec',
     body,
     backHref: buildPdaCuttingRoute(taskId, 'task'),

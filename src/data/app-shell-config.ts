@@ -202,7 +202,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'FileText',
           children: [
             { key: 'settlement-statements', title: '对账单生成', icon: 'FileText', href: '/fcs/settlement/statements' },
-            { key: 'settlement-adjustments', title: '扣款/补差管理', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
+            { key: 'settlement-adjustments', title: '扣款补差管理', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
             { key: 'settlement-batches', title: '结算批次进度', icon: 'Layers', href: '/fcs/settlement/batches' },
             { key: 'settlement-material-statements', title: '领料对账单生成', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
             { key: 'settlement-payment-sync', title: '打款结果同步更新', icon: 'ArrowLeftRight', href: '/fcs/settlement/payment-sync' },
@@ -215,7 +215,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '成本溯源管理',
           icon: 'SearchCheck',
           children: [
-            { key: 'trace-parent-codes', title: '扎包/周转包父码管理', icon: 'Boxes', href: '/fcs/trace/parent-codes' },
+            { key: 'trace-parent-codes', title: '扎包周转包父码管理', icon: 'Boxes', href: '/fcs/trace/parent-codes' },
             { key: 'trace-unique-codes', title: '唯一码管理', icon: 'Fingerprint', href: '/fcs/trace/unique-codes' },
             { key: 'trace-mapping', title: '父子码映射', icon: 'Merge', href: '/fcs/trace/mapping' },
             { key: 'trace-unit-price', title: '单价追溯查询', icon: 'SearchCheck', href: '/fcs/trace/unit-price' },
@@ -230,7 +230,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'capacity-risk', title: '任务占用与交付风险', icon: 'TrendingUp', href: '/fcs/capacity/risk' },
             { key: 'capacity-bottleneck', title: '瓶颈预警', icon: 'AlertOctagon', href: '/fcs/capacity/bottleneck' },
             { key: 'capacity-constraints', title: '派单/竞价约束', icon: 'Filter', href: '/fcs/capacity/constraints' },
-            { key: 'capacity-policies', title: '调度策略（限额/优先级）', icon: 'Settings2', href: '/fcs/capacity/policies' },
+            { key: 'capacity-policies', title: '调度策略', icon: 'Settings2', href: '/fcs/capacity/policies' },
           ],
         },
       ],
@@ -265,9 +265,9 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '裁片执行准备',
           icon: 'PackageSearch',
           children: [
-            { key: 'craft-cutting-original-orders', title: '裁片单（原始单）', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
-            { key: 'craft-cutting-material-prep', title: '仓库配料 / 领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
-            { key: 'craft-cutting-marker-spreading', title: '唛架 / 铺布', icon: 'Ruler', href: '/fcs/craft/cutting/marker-spreading' },
+            { key: 'craft-cutting-original-orders', title: '原始裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
+            { key: 'craft-cutting-material-prep', title: '仓库配料领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
+            { key: 'craft-cutting-marker-spreading', title: '唛架铺布', icon: 'Ruler', href: '/fcs/craft/cutting/marker-spreading' },
             { key: 'craft-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
           ],
         },
@@ -281,17 +281,17 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'craft-cutting-fabric-warehouse', title: '裁床仓', icon: 'Warehouse', href: '/fcs/craft/cutting/fabric-warehouse' },
             { key: 'craft-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
             { key: 'craft-cutting-sample-warehouse', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/sample-warehouse' },
-            { key: 'craft-cutting-transfer-bags', title: '周转口袋 / 车缝交接', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
+            { key: 'craft-cutting-transfer-bags', title: '周转口袋车缝交接', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
           ],
         },
         {
           key: 'craft-cutting-closure',
-          title: '裁片异常收口',
+          title: '裁片后续管理',
           icon: 'AlertTriangle',
           children: [
             { key: 'craft-cutting-replenishment', title: '补料管理', icon: 'ClipboardSignature', href: '/fcs/craft/cutting/replenishment' },
             { key: 'craft-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
-            { key: 'craft-cutting-summary', title: '裁剪总结', icon: 'BarChart3', href: '/fcs/craft/cutting/summary' },
+            { key: 'craft-cutting-summary', title: '裁剪总表', icon: 'BarChart3', href: '/fcs/craft/cutting/summary' },
           ],
         },
         {
@@ -319,10 +319,9 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       ],
     },
     {
-      title: '工厂端（移动应用）',
+      title: '工厂端移动应用',
       items: [
         { key: 'pda-todo', title: '待办', icon: 'Bell', href: '/fcs/pda/notify' },
-        { key: 'pda-quality', title: '质检处理', icon: 'ClipboardCheck', href: '/fcs/pda/quality' },
         { key: 'pda-task-receive', title: '接单', icon: 'ClipboardList', href: '/fcs/pda/task-receive' },
         { key: 'pda-exec', title: '执行', icon: 'Play', href: '/fcs/pda/exec' },
         { key: 'pda-handover', title: '交接', icon: 'ArrowLeftRight', href: '/fcs/pda/handover' },

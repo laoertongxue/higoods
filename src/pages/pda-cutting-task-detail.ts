@@ -107,8 +107,8 @@ function renderQrSummary(taskId: string, state: PdaCuttingTaskDetailPageState): 
   const explainBlock = state.qrExpanded
     ? `
         <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs leading-5 text-muted-foreground">
-          该二维码绑定的是裁片单号 <span class="font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</span>，
-          后续扫码领料、铺布录入、入仓扫码和交接扫码都沿用同一个二维码对象，不会在现场重复发号。
+          当前裁片单主码对应裁片单号 <span class="font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</span>，
+          后续领料、铺布、入仓和交接都沿用同一个主码对象。
         </div>
       `
     : ''
@@ -118,13 +118,13 @@ function renderQrSummary(taskId: string, state: PdaCuttingTaskDetailPageState): 
       <div class="rounded-xl border bg-muted/20 px-3 py-3">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <div class="text-muted-foreground">二维码状态</div>
-            <div class="mt-1 text-sm font-medium text-foreground">${pickupView?.qrStatusLabel || '未生成二维码'}</div>
+            <div class="text-muted-foreground">裁片单主码状态</div>
+            <div class="mt-1 text-sm font-medium text-foreground">${pickupView?.qrStatusLabel || '未生成主码'}</div>
           </div>
-          ${renderStatusChip(pickupView?.qrStatusLabel || '未生成二维码', pickupView?.qrStatus === 'GENERATED' ? 'green' : 'amber')}
+          ${renderStatusChip(pickupView?.qrStatusLabel || '未生成主码', pickupView?.qrStatus === 'GENERATED' ? 'green' : 'amber')}
         </div>
         <div class="mt-3 rounded-xl border border-dashed bg-background px-3 py-4 text-center">
-          <div class="text-[11px] text-muted-foreground">二维码值</div>
+          <div class="text-[11px] text-muted-foreground">裁片单主码值</div>
           <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-3">
@@ -141,7 +141,7 @@ function renderQrSummary(taskId: string, state: PdaCuttingTaskDetailPageState): 
       </div>
       ${explainBlock}
       <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-pda-cut-task-action="toggle-qr-detail" data-task-id="${escapeHtml(taskId)}">
-        ${state.qrExpanded ? '收起二维码说明' : '查看二维码说明'}
+        ${state.qrExpanded ? '收起主码说明' : '查看主码说明'}
       </button>
     </div>
   `
@@ -194,33 +194,33 @@ function renderSpecialEntryCards(taskId: string): string {
 
   const entries = [
     {
-      title: '扫码领料',
+      title: '扫裁片单主码领料',
       summary: detail.currentReceiveStatus,
-      description: `查看领料单 ${detail.pickupSlipNo}、二维码与实领结果回写。`,
+      description: '',
       href: buildPdaCuttingRoute(taskId, 'pickup'),
     },
     {
       title: '铺布录入',
       summary: detail.currentExecutionStatus,
-      description: '维护卷号、层数、长度、布头布尾和多卷铺布记录。',
+      description: '',
       href: buildPdaCuttingRoute(taskId, 'spreading'),
     },
     {
       title: '入仓扫码',
       summary: detail.currentInboundStatus,
-      description: '确认 A/B/C 区和当前位置，形成最近一次入仓摘要。',
+      description: '',
       href: buildPdaCuttingRoute(taskId, 'inbound'),
     },
     {
       title: '交接扫码',
       summary: detail.currentHandoverStatus,
-      description: `确认交接去向并回写后续环节：${detail.handoverTargetLabel}。`,
+      description: '',
       href: buildPdaCuttingRoute(taskId, 'handover'),
     },
     {
       title: '补料反馈',
       summary: detail.replenishmentRiskSummary,
-      description: '反馈现场缺口、照片凭证和补料风险说明，等待 PCS 跟进。',
+      description: '',
       href: buildPdaCuttingRoute(taskId, 'replenishment-feedback'),
     },
   ]
@@ -234,7 +234,7 @@ function renderSpecialEntryCards(taskId: string): string {
               <div class="flex items-start justify-between gap-3">
                 <div class="space-y-1">
                   <div class="text-sm font-semibold text-foreground">${escapeHtml(entry.title)}</div>
-                  <div class="text-xs text-muted-foreground">${escapeHtml(entry.description)}</div>
+                  ${entry.description ? `<div class="text-xs text-muted-foreground">${escapeHtml(entry.description)}</div>` : ''}
                 </div>
                 ${renderStatusChip(entry.summary, entry.summary.includes('成功') || entry.summary.includes('已') ? 'green' : 'amber')}
               </div>
@@ -303,7 +303,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
     return renderPdaCuttingPageLayout({
       taskId,
       title: '裁片任务详情',
-      subtitle: '用于承接裁片任务的领料、铺布、入仓、交接和补料反馈。',
+      subtitle: '',
       activeTab: 'exec',
       body: '',
       backHref,
@@ -349,8 +349,8 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
         hint: pickupView?.hasPhotoEvidence ? '含照片凭证' : '当前无照片凭证',
       },
       {
-        label: '二维码状态',
-        value: pickupView?.qrStatusLabel || '未生成二维码',
+        label: '裁片单主码状态',
+        value: pickupView?.qrStatusLabel || '未生成主码',
         hint: pickupView?.qrCodeValue || detail.qrCodeValue,
       },
       {
@@ -414,26 +414,26 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
       <div class="mt-2 text-xs text-blue-800">建议下一步：${escapeHtml(detail.nextRecommendedAction)}</div>
     </section>
     ${summaryGrid}
-    ${renderPdaCuttingSection('任务基础信息', '用于确认当前裁片任务的任务编号、生产单、裁片单、工厂和责任人。', basicInfoSection)}
-    ${renderPdaCuttingSection('面料与领料摘要', '承接面料、领料单、配置数量和最近一次扫码领取摘要，帮助现场先判断是否能继续执行。', materialSection)}
-    ${renderPdaCuttingSection('领料数量异议', '若现场实领数量与默认应领数量不一致，平台处理结果会在这里同步回写到移动端任务详情。', renderClaimDisputeSummary(taskId))}
-    ${renderPdaCuttingSection('执行进度摘要', '集中查看铺布、入仓、交接与补料反馈的最新状态和最近一次现场回写。', executionSection)}
-    ${renderPdaCuttingSection('风险提示', '优先暴露待领料、待铺布、待入仓、待交接和补料风险，帮助现场尽快判断阻塞点。', `
+    ${renderPdaCuttingSection('任务基础信息', '', basicInfoSection)}
+    ${renderPdaCuttingSection('面料与领料摘要', '', materialSection)}
+    ${renderPdaCuttingSection('领料数量异议', '', renderClaimDisputeSummary(taskId))}
+    ${renderPdaCuttingSection('执行进度摘要', '', executionSection)}
+    ${renderPdaCuttingSection('风险提示', '', `
       <div class="space-y-3">
         ${pickupView && pickupView.needsRecheck ? `<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-700">当前领料回执标记为“${escapeHtml(pickupView.latestResultLabel)}”，请先处理复核或照片凭证。</div>` : ''}
         ${renderRiskFlags(detail.riskFlags)}
         ${renderPdaCuttingRiskList(detail.riskTips)}
       </div>
     `)}
-    ${renderPdaCuttingSection('二维码摘要', '这里展示裁片单级二维码和说明文案，强调同一裁片单会贯穿后续领料、执行、入仓和交接。', renderQrSummary(taskId, state))}
-    ${renderPdaCuttingSection('最近动作', '汇总最近一次扫码领取、铺布录入、入仓、交接和补料反馈，便于现场快速判断最新执行结果。', renderRecentActions(taskId, state))}
-    ${renderPdaCuttingSection('专项操作入口', '裁片任务详情作为裁片专项能力的中枢页，执行人员从这里进入 5 个专项页继续处理。', renderSpecialEntryCards(taskId))}
+    ${renderPdaCuttingSection('裁片单主码摘要', '', renderQrSummary(taskId, state))}
+    ${renderPdaCuttingSection('最近动作', '', renderRecentActions(taskId, state))}
+    ${renderPdaCuttingSection('专项操作入口', '', renderSpecialEntryCards(taskId))}
   `
 
   return renderPdaCuttingPageLayout({
     taskId,
     title: '裁片任务详情',
-    subtitle: '用于承接裁片任务的领料、铺布、入仓、交接和补料反馈。',
+    subtitle: '',
     activeTab: 'exec',
     body,
     backHref,

@@ -246,6 +246,8 @@ export interface TransferBagStore {
 export interface TransferBagPrefilter {
   originalCutOrderNo?: string
   mergeBatchNo?: string
+  裁剪批次No?: string
+  productionOrderNo?: string
   cuttingGroup?: string
   warehouseStatus?: string
   ticketNo?: string
@@ -408,7 +410,7 @@ const masterStatusMetaMap: Record<TransferBagMasterStatusKey, { label: string; c
   REUSABLE: {
     label: '可复用',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前口袋已完成本轮 usage 闭环，可继续复用。',
+    detailText: '当前口袋已完成本轮使用周期闭环，可继续复用。',
   },
   WAITING_CLEANING: {
     label: '待清洁',
@@ -469,47 +471,47 @@ const usageStatusMetaMap: Record<TransferBagUsageStatusKey, { label: string; cla
   DRAFT: {
     label: '草稿',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '当前 usage 仅完成袋子与任务草稿绑定。',
+    detailText: '当前使用周期仅完成口袋与任务草稿绑定。',
   },
   PACKING: {
     label: '装袋中',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    detailText: '当前 usage 正在持续建立口袋码 -> 菲票码父子映射。',
+    detailText: '当前使用周期正在持续建立父子码映射。',
   },
   READY_TO_DISPATCH: {
     label: '待发出',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: '当前 usage 已完成装袋，可打印交接清单并发出。',
+    detailText: '当前使用周期已完成装袋，可打印交接清单并发出。',
   },
   DISPATCHED: {
     label: '已发出',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前 usage 已发出，但尚未进入回货闭环。',
+    detailText: '当前使用周期已发出，但尚未进入回货闭环。',
   },
   PENDING_SIGNOFF: {
     label: '待签收',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前 usage 已到待签收状态，后续在阶段 5 / 步骤 3 进入回货与复用处理。',
+    detailText: '当前使用周期已到待签收状态，后续进入回货与复用处理。',
   },
   WAITING_RETURN: {
     label: '待回仓',
     className: 'bg-orange-100 text-orange-700 border border-orange-200',
-    detailText: '当前 usage 已到回货前置阶段，等待返仓。',
+    detailText: '当前使用周期已到回货前置阶段，等待返仓。',
   },
   RETURN_INSPECTING: {
     label: '回仓验收中',
     className: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
-    detailText: '当前 usage 已进入回货验收与袋况确认。',
+    detailText: '当前使用周期已进入回货验收与袋况确认。',
   },
   CLOSED: {
     label: '已关闭',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前 usage 已完成回货验收并正式关闭。',
+    detailText: '当前使用周期已完成回货验收并正式关闭。',
   },
   EXCEPTION_CLOSED: {
     label: '异常关闭',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前 usage 在存在差异或袋况异常时带说明关闭。',
+    detailText: '当前使用周期在存在差异或袋况异常时带说明关闭。',
   },
 }
 
@@ -679,15 +681,15 @@ export function createTransferBagUsageDraft(options: {
     signoffStatus: 'PENDING',
     signedAt: '',
     returnedAt: '',
-    note: options.note?.trim() || '周转口袋 usage 草稿已创建，等待装袋与交接。',
+    note: options.note?.trim() || '周转口袋使用周期草稿已创建，等待装袋与交接。',
   }
 }
 
 export function validateBagToSewingTaskBinding(usage: TransferBagUsage | null, sewingTaskId: string): TransferBagValidationResult {
-  if (!usage) return { ok: false, reason: '当前没有可绑定的 usage，请先创建 usage 草稿。' }
-  if (!sewingTaskId) return { ok: false, reason: '当前 usage 尚未绑定车缝任务。' }
+  if (!usage) return { ok: false, reason: '当前没有可绑定的使用周期，请先创建使用周期草稿。' }
+  if (!sewingTaskId) return { ok: false, reason: '当前使用周期尚未绑定车缝任务。' }
   if (usage.sewingTaskId && usage.sewingTaskId !== sewingTaskId) {
-    return { ok: false, reason: '同一次 usage 只能归属一个车缝任务，请不要混装到多个车缝任务。' }
+    return { ok: false, reason: '同一次使用周期只能归属一个车缝任务，请不要混装到多个车缝任务。' }
   }
   return { ok: true, reason: '' }
 }
@@ -700,8 +702,8 @@ export function validateTicketBindingEligibility(options: {
   usagesById: Record<string, TransferBagUsage>
 }): TransferBagValidationResult {
   if (!options.ticket) return { ok: false, reason: '当前票号不存在，请先确认菲票记录。' }
-  if (!options.usage) return { ok: false, reason: '请先创建或选择一个 usage，再进行装袋。' }
-  if (!options.sewingTask) return { ok: false, reason: '当前 usage 尚未绑定车缝任务。' }
+  if (!options.usage) return { ok: false, reason: '请先创建或选择一个使用周期，再进行装袋。' }
+  if (!options.sewingTask) return { ok: false, reason: '当前使用周期尚未绑定车缝任务。' }
   if (options.ticket.ticketStatus === 'VOIDED') {
     return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
   }
@@ -725,11 +727,11 @@ export function validateTicketBindingEligibility(options: {
   }
 
   if (options.sewingTask.styleCode && options.ticket.styleCode && options.sewingTask.styleCode !== options.ticket.styleCode) {
-    return { ok: false, reason: `${options.ticket.ticketNo} 的款号与当前车缝任务不一致，不能装入同一 usage。` }
+    return { ok: false, reason: `${options.ticket.ticketNo} 的款号与当前车缝任务不一致，不能装入同一使用周期。` }
   }
 
   if (options.sewingTask.spuCode && options.ticket.spuCode && options.sewingTask.spuCode !== options.ticket.spuCode) {
-    return { ok: false, reason: `${options.ticket.ticketNo} 的 SPU 与当前车缝任务不一致，不能装入同一 usage。` }
+    return { ok: false, reason: `${options.ticket.ticketNo} 的 SPU 与当前车缝任务不一致，不能装入同一使用周期。` }
   }
 
   return { ok: true, reason: '' }
@@ -757,7 +759,10 @@ export function createTransferBagDispatchManifest(options: {
   }
 }
 
-function buildSewingTaskSeeds(originalRows: OriginalCutOrderRow[], mergeBatches: MergeBatchRecord[]): SewingTaskRef[] {
+function buildSewingTaskSeeds(
+  originalRows: OriginalCutOrderRow[] = [],
+  mergeBatches: MergeBatchRecord[] = [],
+): SewingTaskRef[] {
   const mergeTaskSeeds = mergeBatches.slice(0, 3).map((batch, index) => ({
     sewingTaskId: `sewing-task-${sanitizeId(batch.mergeBatchNo)}`,
     sewingTaskNo: `CF-${String(index + 1).padStart(3, '0')}`,
@@ -863,9 +868,11 @@ export function applyPocketBindingLocksToTicketRecords(
 export function buildSystemSeedTransferBagStore(options: {
   originalRows: OriginalCutOrderRow[]
   ticketRecords: FeiTicketLabelRecord[]
-  mergeBatches: MergeBatchRecord[]
+  mergeBatches?: MergeBatchRecord[]
+  裁剪批次es?: MergeBatchRecord[]
 }): TransferBagStore {
-  const sewingTasks = buildSewingTaskSeeds(options.originalRows, options.mergeBatches)
+  const mergeBatches = options.mergeBatches ?? options.裁剪批次es ?? []
+  const sewingTasks = buildSewingTaskSeeds(options.originalRows, mergeBatches)
   const ticketCandidates = buildTicketCandidates(options.ticketRecords)
 
   const masters: TransferBagMaster[] = [
@@ -1019,7 +1026,7 @@ export function buildSystemSeedTransferBagStore(options: {
     auditTrail.push(
       buildBagUsageAuditTrail({
         usageId: usage.usageId,
-        action: '创建 usage',
+        action: '创建使用周期',
         actionAt: '2026-03-24 08:35',
         actionBy: '交接员-陈红',
         note: `${usage.bagCode} 已绑定 ${usage.sewingTaskNo}。`,
@@ -1100,7 +1107,7 @@ export function buildSystemSeedTransferBagStore(options: {
     auditTrail.push(
       buildBagUsageAuditTrail({
         usageId: usage.usageId,
-        action: '创建 usage',
+        action: '创建使用周期',
         actionAt: '2026-03-24 09:00',
         actionBy: '交接员-张敏',
         note: `${usage.bagCode} 已绑定 ${usage.sewingTaskNo}。`,
@@ -1140,7 +1147,7 @@ export function buildSystemSeedTransferBagStore(options: {
       signoffStatus: 'SIGNED',
       signedAt: '2026-03-23 17:10',
       returnedAt: '2026-03-24 09:35',
-      note: '本轮 usage 已完成回货验收并释放口袋。',
+      note: '本轮使用周期已完成回货验收并释放口袋。',
     }
     usages.push(usage)
     masters[1].currentStatus = 'REUSABLE'
@@ -1164,7 +1171,7 @@ export function buildSystemSeedTransferBagStore(options: {
         qty: ticket.qty,
         boundAt: '2026-03-23 15:10',
         boundBy: '交接员-周婷',
-        note: '历史闭环 usage 的装袋记录。',
+        note: '历史闭环使用周期的装袋记录。',
       })
     })
     manifests.push({
@@ -1178,7 +1185,7 @@ export function buildSystemSeedTransferBagStore(options: {
       createdAt: '2026-03-23 15:20',
       createdBy: '交接员-周婷',
       printStatus: 'PRINTED',
-      note: '历史闭环 usage 的发出清单。',
+      note: '历史闭环使用周期的发出清单。',
     })
     returnReceipts.push({
       returnReceiptId: 'seed-return-001',
@@ -1249,7 +1256,7 @@ export function buildSystemSeedTransferBagStore(options: {
         action: '关闭 usage',
         actionAt: '2026-03-24 09:50',
         actionBy: '仓管-吴洁',
-        payloadSummary: 'usage 已关闭，口袋释放为可复用',
+        payloadSummary: '使用周期已关闭，口袋释放为可复用',
         note: '当前 bag 已回到裁片仓复用位。',
       },
     )
@@ -1272,7 +1279,7 @@ export function buildSystemSeedTransferBagStore(options: {
     auditTrail.push(
       buildBagUsageAuditTrail({
         usageId: usage.usageId,
-        action: '创建 usage',
+        action: '创建使用周期',
         actionAt: '2026-03-23 15:00',
         actionBy: '交接员-周婷',
         note: `${usage.bagCode} 已绑定 ${usage.sewingTaskNo}。`,
@@ -1313,7 +1320,7 @@ export function buildSystemSeedTransferBagStore(options: {
         sizeSummary: caseFLockedTicket.size || '待补尺码',
         plannedQty: caseFLockedTicket.qty,
         status: '装袋中',
-        note: '开发环境验收：用于验证 active usage 锁定与混装拦截。',
+        note: '用于验证活跃使用周期锁定与混装拦截。',
       }
       sewingTasks.push(demoTask)
     }
@@ -1340,7 +1347,7 @@ export function buildSystemSeedTransferBagStore(options: {
       dispatchAt: '',
       dispatchBy: '',
       signoffStatus: 'PENDING',
-      note: '开发环境验收：当前 usage 仍处于装袋中，用于验证 active usage 锁定与同款混装拦截。',
+      note: '当前使用周期仍处于装袋中，用于验证活跃使用周期锁定与同款混装拦截。',
     }
     usages.push(demoUsage)
     masters[4].currentStatus = 'IN_USE'
@@ -1362,15 +1369,15 @@ export function buildSystemSeedTransferBagStore(options: {
       qty: caseFLockedTicket.qty,
       boundAt: '2026-03-25 10:25',
       boundBy: '交接员-演示',
-      note: '开发环境验收：已绑定 active usage，打印模块中应显示不可作废。',
+      note: '当前已绑定活跃使用周期，打印模块中应显示不可作废。',
     })
     auditTrail.push(
       buildBagUsageAuditTrail({
         usageId: demoUsage.usageId,
-        action: '创建 usage',
+        action: '创建使用周期',
         actionAt: '2026-03-25 10:20',
         actionBy: '交接员-演示',
-        note: `${demoUsage.bagCode} 已进入装袋中，用于验证 active usage 锁定。`,
+        note: `${demoUsage.bagCode} 已进入装袋中，用于验证活跃使用周期锁定。`,
       }),
       buildBagUsageAuditTrail({
         usageId: demoUsage.usageId,

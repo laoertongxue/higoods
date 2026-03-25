@@ -1,4 +1,4 @@
-import { productionOrders } from './production-orders'
+import { productionOrders } from './production-orders.ts'
 import {
   getProcessCraftByCode,
   getProcessDefinitionByCode,
@@ -10,13 +10,13 @@ import {
   type ProcessDocType,
   type RuleSource,
   type TaskTypeMode,
-} from './process-craft-dict'
+} from './process-craft-dict.ts'
 import {
   getTechPackBySpuCode,
   listTechPackProcessEntries,
   type TechPackProcessEntry,
   type TechPackProcessEntryType,
-} from './tech-packs'
+} from './tech-packs.ts'
 
 export type ProductionArtifactType = 'DEMAND' | 'TASK'
 

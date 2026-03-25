@@ -113,8 +113,6 @@ export function renderHeader(): string {
     <header class="flex items-center justify-between">
       <div>
         <h1 class="text-xl font-semibold">异常定位与处理</h1>
-        <p class="text-sm text-muted-foreground">按异常分类定位问题，并联动处理</p>
-        <p class="mt-1 text-xs text-muted-foreground">严重度口径：S1 已影响当前生产或交付，需要优先处理；S2 问题已成立，需要尽快处理；S3 为预警或轻度问题，需要持续跟进。</p>
       </div>
       <div class="flex items-center gap-2">
         <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="refresh">

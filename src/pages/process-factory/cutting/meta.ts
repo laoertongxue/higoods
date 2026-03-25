@@ -1,13 +1,11 @@
 /**
  * 裁片域页面元数据单一来源。
  *
- * 这里冻结 canonicalPath、可见 pageTitle / breadcrumb / subtitle 和 alias 兼容关系，
- * 目的是避免菜单、页面头部、breadcrumb 和旧路由标题再次漂移。
+ * 这里冻结 canonicalPath、可见 pageTitle 和 alias 兼容关系，
+ * 目的是避免菜单、页面头部和旧路由标题再次漂移。
  * alias 只用于兼容旧入口；后续实现和内部跳转必须优先使用 canonicalPath。
  */
 import { escapeHtml } from '../../../utils'
-
-const CUTTING_SYSTEM_TITLE = '工艺工厂运营系统'
 
 export type CuttingCanonicalPageKey =
   | 'production-progress'
@@ -45,17 +43,10 @@ export interface CuttingPageMeta {
   menuGroupTitle: string
   pageTitle: string
   pageSubtitle: string
-  breadcrumb: [string, string, string]
   isPlaceholder: boolean
   futureStageHint?: string
   shortDescription?: string
 }
-
-const createBreadcrumb = (menuGroupTitle: string, pageTitle: string): [string, string, string] => [
-  CUTTING_SYSTEM_TITLE,
-  menuGroupTitle,
-  pageTitle,
-]
 
 export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta> = {
   'production-progress': {
@@ -64,8 +55,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: ['/fcs/craft/cutting', '/fcs/craft/cutting/order-progress', '/fcs/craft/cutting/tasks'],
     menuGroupTitle: '裁片总览',
     pageTitle: '生产单进度',
-    pageSubtitle: '按生产单查看裁片进度',
-    breadcrumb: createBreadcrumb('裁片总览', '生产单进度'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '按生产单查看裁片进度。',
   },
@@ -75,8 +65,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片总览',
     pageTitle: '可裁排产',
-    pageSubtitle: '查看可裁范围与排产选择',
-    breadcrumb: createBreadcrumb('裁片总览', '可裁排产'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看可裁范围与排产选择。',
   },
@@ -86,8 +75,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片总览',
     pageTitle: '合并裁剪批次',
-    pageSubtitle: '管理合并裁剪批次',
-    breadcrumb: createBreadcrumb('裁片总览', '合并裁剪批次'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '管理合并裁剪批次。',
   },
@@ -96,9 +84,8 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/original-orders',
     aliases: ['/fcs/craft/cutting/orders', '/fcs/craft/cutting/cut-piece-orders'],
     menuGroupTitle: '裁片执行准备',
-    pageTitle: '裁片单（原始单）',
-    pageSubtitle: '查看原始裁片单与执行记录',
-    breadcrumb: createBreadcrumb('裁片执行准备', '裁片单（原始单）'),
+    pageTitle: '原始裁片单',
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看原始裁片单与执行记录。',
   },
@@ -107,9 +94,8 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/material-prep',
     aliases: [],
     menuGroupTitle: '裁片执行准备',
-    pageTitle: '仓库配料 / 领料',
-    pageSubtitle: '查看配料、领料与裁片单主码',
-    breadcrumb: createBreadcrumb('裁片执行准备', '仓库配料 / 领料'),
+    pageTitle: '仓库配料领料',
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看配料、领料与裁片单主码。',
   },
@@ -118,9 +104,8 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/marker-spreading',
     aliases: [],
     menuGroupTitle: '裁片执行准备',
-    pageTitle: '唛架 / 铺布',
-    pageSubtitle: '查看唛架与铺布记录',
-    breadcrumb: createBreadcrumb('裁片执行准备', '唛架 / 铺布'),
+    pageTitle: '唛架铺布',
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看唛架与铺布记录。',
   },
@@ -130,8 +115,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片执行准备',
     pageTitle: '唛架详情',
-    pageSubtitle: '查看唛架明细',
-    breadcrumb: createBreadcrumb('裁片执行准备', '唛架详情'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看唛架明细。',
   },
@@ -141,8 +125,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片执行准备',
     pageTitle: '唛架编辑',
-    pageSubtitle: '编辑唛架',
-    breadcrumb: createBreadcrumb('裁片执行准备', '唛架编辑'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '编辑唛架。',
   },
@@ -152,8 +135,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片执行准备',
     pageTitle: '铺布详情',
-    pageSubtitle: '查看铺布明细',
-    breadcrumb: createBreadcrumb('裁片执行准备', '铺布详情'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看铺布明细。',
   },
@@ -163,8 +145,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片执行准备',
     pageTitle: '铺布编辑',
-    pageSubtitle: '编辑铺布',
-    breadcrumb: createBreadcrumb('裁片执行准备', '铺布编辑'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '编辑铺布。',
   },
@@ -175,7 +156,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     menuGroupTitle: '裁片执行准备',
     pageTitle: '打印菲票',
     pageSubtitle: '',
-    breadcrumb: createBreadcrumb('裁片执行准备', '打印菲票'),
     isPlaceholder: false,
     shortDescription: '查看可打印单元与打印状态。',
   },
@@ -186,7 +166,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     menuGroupTitle: '裁片执行准备',
     pageTitle: '打印菲票详情',
     pageSubtitle: '',
-    breadcrumb: createBreadcrumb('裁片执行准备', '打印菲票详情'),
     isPlaceholder: false,
     shortDescription: '查看打印单元、菲票码与打印记录。',
   },
@@ -197,7 +176,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     menuGroupTitle: '裁片执行准备',
     pageTitle: '已打印菲票',
     pageSubtitle: '',
-    breadcrumb: createBreadcrumb('裁片执行准备', '已打印菲票'),
     isPlaceholder: false,
     shortDescription: '查看已打印菲票与作废记录。',
   },
@@ -206,9 +184,8 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/fei-ticket-records',
     aliases: [],
     menuGroupTitle: '裁片执行准备',
-    pageTitle: '菲票打印记录',
+    pageTitle: '打印菲票记录',
     pageSubtitle: '',
-    breadcrumb: createBreadcrumb('裁片执行准备', '菲票打印记录'),
     isPlaceholder: false,
     shortDescription: '查看打印流水。',
   },
@@ -219,7 +196,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     menuGroupTitle: '裁片执行准备',
     pageTitle: '打印菲票',
     pageSubtitle: '',
-    breadcrumb: createBreadcrumb('裁片执行准备', '打印菲票'),
     isPlaceholder: false,
     shortDescription: '首次打印菲票。',
   },
@@ -230,7 +206,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     menuGroupTitle: '裁片执行准备',
     pageTitle: '继续打印菲票',
     pageSubtitle: '',
-    breadcrumb: createBreadcrumb('裁片执行准备', '继续打印菲票'),
     isPlaceholder: false,
     shortDescription: '继续打印缺口菲票。',
   },
@@ -241,7 +216,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     menuGroupTitle: '裁片执行准备',
     pageTitle: '补打菲票',
     pageSubtitle: '',
-    breadcrumb: createBreadcrumb('裁片执行准备', '补打菲票'),
     isPlaceholder: false,
     shortDescription: '补打菲票。',
   },
@@ -252,7 +226,6 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     menuGroupTitle: '裁片执行准备',
     pageTitle: '作废菲票',
     pageSubtitle: '',
-    breadcrumb: createBreadcrumb('裁片执行准备', '作废菲票'),
     isPlaceholder: false,
     shortDescription: '作废单张菲票。',
   },
@@ -262,8 +235,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片仓交接',
     pageTitle: '裁床仓',
-    pageSubtitle: '查看裁床仓库存',
-    breadcrumb: createBreadcrumb('裁片仓交接', '裁床仓'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看裁床仓库存。',
   },
@@ -273,8 +245,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片仓交接',
     pageTitle: '裁片仓',
-    pageSubtitle: '查看裁片仓状态',
-    breadcrumb: createBreadcrumb('裁片仓交接', '裁片仓'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看裁片仓状态。',
   },
@@ -284,8 +255,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     aliases: [],
     menuGroupTitle: '裁片仓交接',
     pageTitle: '样衣仓',
-    pageSubtitle: '查看样衣仓记录',
-    breadcrumb: createBreadcrumb('裁片仓交接', '样衣仓'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看样衣仓记录。',
   },
@@ -294,9 +264,8 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/transfer-bags',
     aliases: [],
     menuGroupTitle: '裁片仓交接',
-    pageTitle: '周转口袋 / 车缝交接',
-    pageSubtitle: '查看周转口袋、装袋与父子码映射',
-    breadcrumb: createBreadcrumb('裁片仓交接', '周转口袋 / 车缝交接'),
+    pageTitle: '周转口袋车缝交接',
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看周转口袋、装袋与父子码映射。',
   },
@@ -304,10 +273,9 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'replenishment',
     canonicalPath: '/fcs/craft/cutting/replenishment',
     aliases: [],
-    menuGroupTitle: '裁片异常收口',
+    menuGroupTitle: '裁片后续管理',
     pageTitle: '补料管理',
-    pageSubtitle: '查看补料建议与影响',
-    breadcrumb: createBreadcrumb('裁片异常收口', '补料管理'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看补料建议与影响。',
   },
@@ -315,10 +283,9 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'special-processes',
     canonicalPath: '/fcs/craft/cutting/special-processes',
     aliases: [],
-    menuGroupTitle: '裁片异常收口',
+    menuGroupTitle: '裁片后续管理',
     pageTitle: '特殊工艺',
-    pageSubtitle: '查看特殊工艺单',
-    breadcrumb: createBreadcrumb('裁片异常收口', '特殊工艺'),
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看特殊工艺单。',
   },
@@ -326,10 +293,9 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'summary',
     canonicalPath: '/fcs/craft/cutting/summary',
     aliases: ['/fcs/craft/cutting/stats', '/fcs/craft/cutting/bed-stats', '/fcs/craft/cutting/cutting-summary'],
-    menuGroupTitle: '裁片异常收口',
-    pageTitle: '裁剪总结',
-    pageSubtitle: '查看裁片域总收口',
-    breadcrumb: createBreadcrumb('裁片异常收口', '裁剪总结'),
+    menuGroupTitle: '裁片后续管理',
+    pageTitle: '裁剪总表',
+    pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看裁片域总收口。',
   },
@@ -342,8 +308,7 @@ const CUTTING_WAREHOUSE_COMPAT_META: CuttingPageMeta = {
   aliases: ['/fcs/craft/cutting/warehouse', '/fcs/craft/cutting/warehouse-management'],
   menuGroupTitle: '裁片仓交接',
   pageTitle: '裁片仓交接',
-  pageSubtitle: '旧仓库入口兼容页',
-  breadcrumb: createBreadcrumb('裁片仓交接', '裁片仓交接'),
+  pageSubtitle: '',
   isPlaceholder: false,
   shortDescription: '旧仓库入口兼容页。',
 }
@@ -387,22 +352,10 @@ export function renderCuttingPageHeader(
     showPlaceholderBadge?: boolean
   } = {},
 ): string {
-  const badges = [
-    options.showCompatibilityBadge ? renderHeaderBadge('兼容入口', 'amber') : '',
-    options.showPlaceholderBadge ? renderHeaderBadge('占位页', 'blue') : '',
-  ]
-    .filter(Boolean)
-    .join('')
-
   return `
-    <header class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div>
-        <p class="mb-1 text-sm text-muted-foreground">${escapeHtml(meta.breadcrumb.join(' / '))}</p>
-        <div class="flex flex-wrap items-center gap-2">
-          <h1 class="text-xl font-bold">${escapeHtml(meta.pageTitle)}</h1>
-          ${badges}
-        </div>
-        ${meta.pageSubtitle ? `<p class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(meta.pageSubtitle)}</p>` : ''}
+        <h1 class="text-xl font-bold">${escapeHtml(meta.pageTitle)}</h1>
       </div>
       ${options.actionsHtml ?? ''}
     </header>

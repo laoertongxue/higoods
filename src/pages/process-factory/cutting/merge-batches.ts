@@ -246,18 +246,18 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
     <div class="flex flex-wrap items-center gap-2">
       ${renderActionButton('返回可裁排产', 'data-merge-batches-action="go-cuttable-pool"')}
       ${renderActionButton(
-        '去菲票 / 打编号',
+        '去打印菲票',
         `data-merge-batches-action="go-fei-tickets"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
         'secondary',
         !activeBatch,
       )}
       ${renderActionButton(
-        '去唛架 / 铺布',
+        '去唛架铺布',
         `data-merge-batches-action="go-marker-spreading"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
         'primary',
         !activeBatch,
       )}
-      ${renderActionButton('查看裁剪总结', 'data-merge-batches-action="go-summary"')}
+      ${renderActionButton('去裁剪总表', 'data-merge-batches-action="go-summary"')}
     </div>
   `
 }
@@ -623,8 +623,8 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
                     <td class="px-3 py-3">
                       <div class="flex flex-wrap gap-2">
                         <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="open-detail" data-batch-id="${escapeHtml(batch.mergeBatchId)}">查看详情</button>
-                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去菲票 / 打编号</button>
-                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-marker-spreading" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去唛架 / 铺布</button>
+                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去打印菲票</button>
+                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-marker-spreading" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去唛架铺布</button>
                         <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-original-orders-batch" data-batch-id="${escapeHtml(batch.mergeBatchId)}">查看原始裁片单</button>
                         ${
                           batch.status !== 'DONE' && batch.status !== 'CANCELLED'
@@ -774,7 +774,7 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
             <div>
               <h3 class="text-sm font-semibold">打印菲票摘要</h3>
             </div>
-            <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去菲票 / 打编号</button>
+            <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去打印菲票</button>
           </div>
           <div class="mt-3 grid gap-3 md:grid-cols-4 xl:grid-cols-7">
             <div class="rounded-md border bg-background px-3 py-2">
@@ -831,11 +831,11 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
             )
             .join('')}
           ${renderActionButton(
-            '去菲票 / 打编号',
+            '去打印菲票',
             `data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`,
           )}
           ${renderActionButton(
-            '去唛架 / 铺布',
+            '去唛架铺布',
             `data-merge-batches-action="go-marker-spreading" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`,
             'primary',
           )}
@@ -916,7 +916,7 @@ function buildRouteWithQuery(path: string, params: Record<string, string | undef
 
 function goMarkerSpreading(batchId: string | undefined): boolean {
   if (!batchId) {
-    setFeedback('warning', '请先选择一个批次，再进入唛架 / 铺布。')
+    setFeedback('warning', '请先选择一个批次，再进入唛架铺布。')
     return true
   }
   const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
@@ -932,7 +932,7 @@ function goMarkerSpreading(batchId: string | undefined): boolean {
 
 function goFeiTickets(batchId: string | undefined): boolean {
   if (!batchId) {
-    setFeedback('warning', '请先选择一个批次，再进入菲票 / 打编号。')
+    setFeedback('warning', '请先选择一个批次，再进入打印菲票。')
     return true
   }
   const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)

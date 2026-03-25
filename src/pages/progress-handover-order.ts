@@ -161,44 +161,11 @@ function syncDetailTabToUrl(tab: HandoverOrderDetailTab): void {
 
 function renderHeader(summary: ReturnType<typeof getProductionOrderHandoverSummary>): string {
   return `
-    <header class="space-y-3 rounded-lg border bg-card px-4 py-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p class="text-xs text-muted-foreground">单生产单交接详情</p>
-          <h2 class="text-xl font-semibold">${escapeHtml(summary.productionOrderNo || state.orderId)}</h2>
-          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(getOrderName(state.orderId))}</p>
-        </div>
-        <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-handover-order-action="back-list">
-          <i data-lucide="arrow-left" class="mr-1.5 h-4 w-4"></i>返回生产单列表
-        </button>
-      </div>
-      <div class="grid gap-2 text-xs sm:grid-cols-4">
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-muted-foreground">当前卡点</p>
-          <p class="mt-1 font-medium">${escapeHtml(summary.currentBottleneckLabel)}</p>
-        </div>
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-muted-foreground">下一步</p>
-          <p class="mt-1 font-medium">${escapeHtml(summary.currentBottleneckHint)}</p>
-        </div>
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-muted-foreground">最近交接事件</p>
-          <p class="mt-1 font-medium">${escapeHtml(summary.latestOccurredAt || '-')}</p>
-        </div>
-        <div class="rounded-md border bg-muted/20 px-3 py-2">
-          <p class="text-muted-foreground">待处理 / 异议</p>
-          <p class="mt-1 font-medium">${summary.pendingCount} / ${summary.objectionCount}</p>
-        </div>
-      </div>
-      ${
-        state.sourceHint || state.focusHint || state.taskIdHint
-          ? `<div class="flex flex-wrap gap-2 text-xs">
-              ${state.sourceHint ? renderBadge(`来源：${state.sourceHint}`, 'bg-blue-50 text-blue-700 border-blue-200') : ''}
-              ${state.focusHint ? renderBadge(`聚焦：${getFocusLabel(state.focusHint)}`, 'bg-blue-50 text-blue-700 border-blue-200') : ''}
-              ${state.taskIdHint ? renderBadge(`任务：${state.taskIdHint}`, 'bg-blue-50 text-blue-700 border-blue-200') : ''}
-            </div>`
-          : ''
-      }
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-xl font-semibold">${escapeHtml(summary.productionOrderNo || state.orderId)}</h1>
+      <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-handover-order-action="back-list">
+        <i data-lucide="arrow-left" class="mr-1.5 h-4 w-4"></i>返回生产单列表
+      </button>
     </header>
   `
 }

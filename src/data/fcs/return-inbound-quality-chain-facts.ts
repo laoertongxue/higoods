@@ -16,7 +16,7 @@ import type {
   RootCauseType,
   SettlementPartyType,
   SewPostProcessMode,
-} from './store-domain-quality-types'
+} from './store-domain-quality-types.ts'
 
 export type QualityDisputeStatus = 'OPEN' | 'REJECTED' | 'ADJUSTED' | 'ARCHIVED'
 export type SettlementImpactStatus =

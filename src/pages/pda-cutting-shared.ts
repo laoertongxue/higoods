@@ -59,23 +59,21 @@ export function renderPdaCuttingSummaryGrid(items: CuttingSummaryItem[]): string
   `
 }
 
-export function renderPdaCuttingSection(title: string, description: string, content: string): string {
+export function renderPdaCuttingSection(title: string, _description: string, content: string): string {
   return `
     <section class="rounded-2xl border bg-card shadow-sm">
       <header class="border-b px-4 py-3">
         <h3 class="text-sm font-semibold text-foreground">${escapeHtml(title)}</h3>
-        <p class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(description)}</p>
       </header>
       <div class="px-4 py-4">${content}</div>
     </section>
   `
 }
 
-export function renderPdaCuttingEmptyState(title: string, description: string): string {
+export function renderPdaCuttingEmptyState(title: string, _description: string): string {
   return `
     <section class="rounded-2xl border border-dashed bg-muted/20 px-4 py-8 text-center">
       <div class="text-sm font-medium text-foreground">${escapeHtml(title)}</div>
-      <p class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(description)}</p>
     </section>
   `
 }
@@ -98,7 +96,7 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
           <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
         </div>
         <div class="rounded-xl bg-muted/40 px-3 py-3">
-          <div class="text-muted-foreground">二维码摘要</div>
+          <div class="text-muted-foreground">裁片单主码摘要</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.qrCodeValue)}</div>
           <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrVersionNote)}</div>
         </div>
@@ -159,7 +157,6 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
           </div>
           <div>
             <h1 class="text-xl font-semibold text-foreground">${escapeHtml(options.title)}</h1>
-            <p class="mt-1 text-sm leading-6 text-muted-foreground">${escapeHtml(options.subtitle)}</p>
           </div>
         </header>
         ${options.body}
@@ -174,7 +171,7 @@ export function renderPdaCuttingQuickLinks(taskId: string, options?: { includeTa
     options?.includeTaskDetail !== false
       ? { label: '返回裁片任务详情', href: buildPdaCuttingRoute(taskId, 'task') }
       : null,
-    { label: '扫码领料', href: buildPdaCuttingRoute(taskId, 'pickup') },
+    { label: '扫裁片单主码领料', href: buildPdaCuttingRoute(taskId, 'pickup') },
     { label: '铺布录入', href: buildPdaCuttingRoute(taskId, 'spreading') },
     { label: '入仓扫码', href: buildPdaCuttingRoute(taskId, 'inbound') },
     { label: '交接扫码', href: buildPdaCuttingRoute(taskId, 'handover') },

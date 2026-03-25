@@ -56,6 +56,17 @@ import {
   type SpreadingSession,
 } from './marker-spreading-model'
 import { readWarehouseMergeBatchLedger } from './warehouse-shared'
+import {
+  buildMarkerAllocationSourceRows,
+  buildMarkerPieceExplosionViewModel,
+  type MarkerAllocationSizeSummaryRow,
+  type MarkerAllocationSourceRow,
+  type MarkerExplosionAllocationRow,
+  type MarkerExplosionMissingMappingRow,
+  type MarkerExplosionPieceDetailRow,
+  type MarkerExplosionSkuSummaryRow,
+  type MarkerPieceExplosionTotals,
+} from './marker-piece-explosion'
 
 export {
   buildMarkerSpreadingNavigationPayload,
@@ -132,6 +143,14 @@ export interface MarkerDetailViewModel {
   highLowPatternRows: HighLowPatternRow[]
   highLowCuttingTotal: number
   highLowPatternTotal: number
+  sourceOrderRows: MarkerAllocationSourceRow[]
+  allocationRows: MarkerExplosionAllocationRow[]
+  allocationSizeSummary: MarkerAllocationSizeSummaryRow[]
+  skuSummaryRows: MarkerExplosionSkuSummaryRow[]
+  pieceDetailRows: MarkerExplosionPieceDetailRow[]
+  mappingWarnings: string[]
+  missingMappings: MarkerExplosionMissingMappingRow[]
+  totals: MarkerPieceExplosionTotals
 }
 
 export interface SpreadingListRow {
@@ -234,6 +253,10 @@ function buildSessionContext(
     productionOrderNos: uniqueStrings(originalRows.map((row) => row.productionOrderNo)),
     styleCode: session.styleCode || originalRows[0]?.styleCode || batch?.styleCode || '',
     spuCode: session.spuCode || originalRows[0]?.spuCode || batch?.spuCode || '',
+    techPackSpuCode:
+      uniqueStrings(originalRows.map((row) => row.techPackSpuCode)).length === 1
+        ? uniqueStrings(originalRows.map((row) => row.techPackSpuCode))[0]
+        : '',
     styleName: batch?.styleName || originalRows[0]?.styleName || '',
     materialSkuSummary:
       session.materialSkuSummary ||
@@ -276,6 +299,7 @@ function buildOriginalContext(row: MaterialPrepRow): MarkerSpreadingContext {
     productionOrderNos: [row.productionOrderNo],
     styleCode: row.styleCode,
     spuCode: row.spuCode,
+    techPackSpuCode: row.techPackSpuCode || '',
     styleName: row.styleName,
     materialSkuSummary: row.materialSkuSummary,
     materialPrepRows: [row],
@@ -298,6 +322,10 @@ function buildMergeBatchContext(batch: MergeBatchRecord, rowsById: Record<string
     productionOrderNos: uniqueStrings(materialPrepRows.map((row) => row.productionOrderNo)),
     styleCode: batch.styleCode || materialPrepRows[0]?.styleCode || '',
     spuCode: batch.spuCode || materialPrepRows[0]?.spuCode || '',
+    techPackSpuCode:
+      uniqueStrings(materialPrepRows.map((row) => row.techPackSpuCode)).length === 1
+        ? uniqueStrings(materialPrepRows.map((row) => row.techPackSpuCode))[0]
+        : '',
     styleName: batch.styleName || materialPrepRows[0]?.styleName || '',
     materialSkuSummary: batch.materialSkuSummary || uniqueStrings(materialPrepRows.map((row) => row.materialSkuSummary)).join(' / '),
     materialPrepRows,
@@ -758,6 +786,13 @@ export function buildMarkerDetailViewModel(row: MarkerListRow): MarkerDetailView
   const highLowPatternKeys = row.record.highLowPatternKeys?.length ? row.record.highLowPatternKeys : [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
   const highLowCuttingTotals = computeHighLowCuttingTotals(row.record.highLowCuttingRows || [])
   const highLowPatternTotals = computeHighLowPatternTotals(row.record.highLowPatternRows || [], highLowPatternKeys)
+  const prototypeData = readMarkerSpreadingPrototypeData()
+  const sourceRows = buildMarkerAllocationSourceRows(row.record, prototypeData.rowsById)
+  const pieceExplosion = buildMarkerPieceExplosionViewModel({
+    marker: row.record,
+    sourceRows,
+  })
+  const warningMessages = uniqueStrings([...buildMarkerWarningMessages(row.record), ...pieceExplosion.mappingWarnings])
   return {
     row,
     lineSummary,
@@ -770,12 +805,20 @@ export function buildMarkerDetailViewModel(row: MarkerListRow): MarkerDetailView
     totalLineSpreadLength: computeNormalMarkerSpreadTotalLength(row.record.lineItems || []),
     templateType,
     usageSummary,
-    warningMessages: buildMarkerWarningMessages(row.record),
+    warningMessages,
     highLowPatternKeys,
     highLowCuttingRows: highLowCuttingTotals.rows,
     highLowPatternRows: highLowPatternTotals.rows,
     highLowCuttingTotal: highLowCuttingTotals.cuttingTotal,
     highLowPatternTotal: highLowPatternTotals.patternTotal,
+    sourceOrderRows: pieceExplosion.sourceOrderRows,
+    allocationRows: pieceExplosion.allocationRows,
+    allocationSizeSummary: pieceExplosion.allocationSizeSummary,
+    skuSummaryRows: pieceExplosion.skuSummaryRows,
+    pieceDetailRows: pieceExplosion.pieceDetailRows,
+    mappingWarnings: pieceExplosion.mappingWarnings,
+    missingMappings: pieceExplosion.missingMappings,
+    totals: pieceExplosion.totals,
   }
 }
 

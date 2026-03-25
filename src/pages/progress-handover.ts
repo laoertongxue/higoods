@@ -628,7 +628,6 @@ function renderHeader(): string {
           <i data-lucide="scan-line" class="h-5 w-5"></i>
           交接链路追踪
         </h1>
-        <p class="text-sm text-muted-foreground">按事件维度和生产单维度追踪交接事实，并支持下钻处理</p>
       </div>
 
       <div class="flex items-center gap-2">
@@ -1647,9 +1646,8 @@ function renderWritebackDialog(): string {
     <div class="fixed inset-0 z-[60]" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-handover-action="close-writeback-dialog" aria-label="关闭"></button>
       <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
-        <header class="space-y-1">
+        <header>
           <h3 class="text-lg font-semibold">模拟仓库回写</h3>
-          <p class="text-sm text-muted-foreground">交出记录 ${escapeHtml(record.recordId)}（第 ${record.sequenceNo} 次）</p>
         </header>
 
         <div class="mt-4 space-y-2 text-sm">

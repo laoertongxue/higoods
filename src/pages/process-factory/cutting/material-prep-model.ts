@@ -104,6 +104,7 @@ export interface MaterialPrepRow {
   productionOrderNo: string
   styleCode: string
   spuCode: string
+  techPackSpuCode?: string
   styleName: string
   color: string
   materialSkuSummary: string
@@ -400,7 +401,7 @@ function deriveCurrentStage(
   if (row.schedulingStatus.key === 'UNASSIGNED') {
     return buildSummaryMeta('WAITING_SCHEDULING', materialPrepStageMeta.WAITING_SCHEDULING.label, materialPrepStageMeta.WAITING_SCHEDULING.className, '领料已到位，等待分配裁床组。')
   }
-  return buildSummaryMeta('ASSIGNED', materialPrepStageMeta.ASSIGNED.label, materialPrepStageMeta.ASSIGNED.className, '当前已具备进入唛架 / 铺布的执行准备。')
+  return buildSummaryMeta('ASSIGNED', materialPrepStageMeta.ASSIGNED.label, materialPrepStageMeta.ASSIGNED.className, '当前已具备进入唛架铺布的执行准备。')
 }
 
 function buildInitialClaimRecords(
@@ -615,6 +616,7 @@ function createRow(
     productionOrderNo: record.productionOrderNo,
     styleCode: record.styleCode,
     spuCode: record.spuCode,
+    techPackSpuCode: record.techPackSpuCode || '',
     styleName: record.styleName,
     color: line.color || '待补',
     materialSkuSummary: buildMaterialSkuSummary(lineItems),
@@ -673,6 +675,7 @@ function createRow(
       record.productionOrderNo,
       record.styleCode,
       record.spuCode,
+      record.techPackSpuCode,
       record.styleName,
       line.materialSku,
       line.materialLabel,
@@ -747,6 +750,7 @@ export function recalculateMaterialPrepRow(
     orderQty: 0,
     plannedShipDate: row.plannedShipDate,
     spuCode: row.spuCode,
+    techPackSpuCode: row.techPackSpuCode,
     styleCode: row.styleCode,
     styleName: row.styleName,
     urgencyLevel: row.urgencyKey === 'UNKNOWN' ? 'D' : row.urgencyKey,

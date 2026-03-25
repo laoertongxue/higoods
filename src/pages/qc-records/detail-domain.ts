@@ -38,6 +38,7 @@ import {
 } from './context'
 import { isDetailReadOnly } from './actions'
 import {
+  buildDeductionEntryHrefByBasisId,
   buildQcDetailHref,
   getQcChainFactByRouteKey,
   getSettlementImpactLabel,
@@ -369,7 +370,7 @@ function renderBasisLinkGroup(basisItems: DeductionBasisItem[]): string {
           (basis) => `
             <button
               class="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs text-primary hover:bg-muted"
-              data-nav="/fcs/quality/deduction-calc/${escapeHtml(basis.basisId)}"
+              data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(basis.basisId))}"
             >
               ${escapeHtml(basis.basisId)}
               <i data-lucide="external-link" class="h-3 w-3"></i>
@@ -600,7 +601,7 @@ function renderAdjudicationPanel(
               </div>
             </div>
             <div class="mt-4 space-y-2">
-              <label class="text-xs text-muted-foreground">调整原因摘要</label>
+              <label class="text-xs text-muted-foreground">调整说明</label>
               <textarea
                 class="min-h-20 w-full rounded-md border bg-white px-3 py-2 text-sm"
                 data-qcd-adjudication-field="adjustmentReasonSummary"
@@ -654,27 +655,11 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
       ? qcRecord.defectItems.map((item) => `${escapeHtml(item.defectName)} × ${item.qty}`).join('；')
       : escapeHtml(qcRecord.unqualifiedReasonSummary ?? qcRecord.remark ?? '—')
   const ruleVersion = qcRecord.inspectedAt.slice(0, 7).replace('-', '.') || '2026.03'
-  const basisSourceLabel =
-    deductionBasis?.sourceType === 'QC_DEFECT_ACCEPT'
-      ? '瑕疵接收'
-      : deductionBasis?.sourceType === 'QC_FAIL'
-        ? '质检不合格'
-        : deductionBasis
-          ? deductionBasis.sourceType
-          : '—'
   const disputeSectionClass =
     focusSection === 'dispute'
       ? 'rounded-lg border border-amber-200 bg-amber-50/40 ring-2 ring-amber-100'
       : 'rounded-lg border bg-card'
   const adjudicationPanel = renderAdjudicationPanel(detailVm, detail)
-  const focusDisputeShortcutSection =
-    focusSection === 'dispute' && adjudicationPanel
-      ? renderPcSection(
-          '异议快捷处理',
-          '从列表“处理异议”进入时，直接在这里完成裁决并写回共享链路。',
-          adjudicationPanel,
-        )
-      : ''
   const logSection =
     qcRecord.auditLogs.length > 0
       ? renderPcSection(
@@ -699,7 +684,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
       : ''
 
   return `
-    <div class="mx-auto flex w-full max-w-[1680px] flex-col gap-6 px-6 py-6">
+    <div class="flex flex-col gap-6 p-6">
       <header class="rounded-lg border bg-card px-5 py-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="flex min-w-0 items-start gap-3">
@@ -730,7 +715,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
               </p>
               ${
                 detailVm.canHandleDispute
-                  ? '<div class="mt-3 inline-flex rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">当前记录待平台处理异议，请在下方“异议区”完成裁决。</div>'
+                  ? '<div class="mt-3 inline-flex rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">当前记录待平台处理异议，请在下方“工厂响应与异议”完成裁决。</div>'
                   : ''
               }
             </div>
@@ -739,15 +724,6 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
             ${
               detailVm.canHandleDispute
                 ? `<button class="inline-flex h-9 items-center rounded-md border border-amber-200 px-4 text-sm text-amber-700 hover:bg-amber-50" data-nav="${buildQcDetailHref(detailVm.qcId)}?focus=dispute">处理异议</button>`
-                : ''
-            }
-            ${
-              detailVm.canViewDeduction && deductionBasis
-                ? `
-                  <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm text-primary hover:bg-muted" data-nav="/fcs/quality/deduction-calc/${escapeHtml(deductionBasis.basisId)}">
-                    查看扣款依据
-                  </button>
-                `
                 : ''
             }
             <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-qcd-action="back-list">
@@ -759,7 +735,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
 
       <section class="grid gap-4 xl:grid-cols-4">
         ${renderOverviewCard(
-          '质检现场摘要',
+          '质检现场概况',
           [
             { label: '回货环节', value: escapeHtml(qcRecord.processLabel) },
             { label: '回货工厂', value: formatDetailValue(qcRecord.returnFactoryName) },
@@ -772,7 +748,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
           `来源类型：${escapeHtml(detailVm.sourceTypeLabel)}`,
         )}
         ${renderOverviewCard(
-          '数量与结果摘要',
+          '数量与结果概况',
           [
             { label: '质检结果', value: renderBadge(resultLabel, resultClass) },
             { label: '总检数量', value: String(qcRecord.inspectedQty) },
@@ -782,7 +758,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
           escapeHtml(resultExplanation),
         )}
         ${renderOverviewCard(
-          '工厂响应与异议摘要',
+          '工厂响应概况',
           [
             { label: '是否需要工厂响应', value: detailVm.requiresFactoryResponse ? '需要' : '无需' },
             { label: '当前响应状态', value: renderBadge(detailVm.factoryResponseStatusLabel, getFactoryResponseBadgeClass(factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED')) },
@@ -792,7 +768,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
           escapeHtml(factoryResponse?.responseComment ?? disputeCase?.disputeDescription ?? '当前无工厂补充说明'),
         )}
         ${renderOverviewCard(
-          '扣款与结算摘要',
+          '扣款与结算概况',
           [
             { label: '扣款依据', value: deductionBasis ? `<span class="font-mono">${escapeHtml(deductionBasis.basisId)}</span>` : '未生成' },
             { label: '冻结加工费', value: formatMoney(settlementImpact.blockedProcessingFeeAmount) },
@@ -802,8 +778,6 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
           escapeHtml(settlementImpact.summary),
         )}
       </section>
-
-      ${focusDisputeShortcutSection}
 
       ${renderPcSection(
         '基本信息',
@@ -875,7 +849,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
 
       ${renderPcSection(
         '缺陷与仓库证据',
-        '仓库质检证据与工厂异议证据分开展示，平台先确认现场判定再处理工厂反馈。',
+        '这里只展示仓库现场缺陷与仓库证据，用于先确认发生了什么。',
         `
           <div class="space-y-5">
             ${renderPcFieldGrid(
@@ -889,7 +863,6 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
                 },
                 { label: '缺陷描述', value: defectSummary },
                 { label: '仓库质检证据数量', value: `${detailVm.warehouseEvidenceCount} 份` },
-                { label: '责任原因摘要', value: escapeHtml(ROOT_CAUSE_LABEL[qcRecord.rootCauseType] ?? qcRecord.rootCauseType) },
               ],
             )}
             ${renderEvidenceAssets(qcRecord.evidenceAssets, '当前暂无仓库质检证据素材。')}
@@ -900,7 +873,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
       ${renderPcSection(
         '责任判定与不合格品处理',
         detailVm.showUnqualifiedHandling
-          ? '该区块承接责任判定、不合格品处置、冻结加工费金额与质量扣款金额。'
+          ? '该区块只说明谁负责、责任数量是多少，以及不合格品如何处理。'
           : '该记录全部合格，仅保留责任与金额空态，不展示完整不合格品处理流程。',
         detailVm.showUnqualifiedHandling
           ? `
@@ -914,10 +887,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
                       label: '不合格品处置方式',
                       value: qcRecord.unqualifiedDisposition ? escapeHtml(DISPOSITION_LABEL[qcRecord.unqualifiedDisposition] ?? qcRecord.unqualifiedDisposition) : '—',
                     },
-                    { label: '冻结加工费金额', value: formatMoney(settlementImpact.blockedProcessingFeeAmount) },
-                    { label: '初始质量扣款金额', value: formatMoney(deductionBasis?.proposedQualityDeductionAmount ?? 0) },
-                    { label: '生效质量扣款金额', value: formatMoney(settlementImpact.effectiveQualityDeductionAmount) },
-                    { label: '责任原因摘要', value: escapeHtml(qcRecord.unqualifiedReasonSummary ?? qcRecord.deductionDecisionRemark ?? qcRecord.dispositionRemark ?? '—') },
+                    { label: '责任说明', value: escapeHtml(qcRecord.unqualifiedReasonSummary ?? qcRecord.deductionDecisionRemark ?? qcRecord.dispositionRemark ?? ROOT_CAUSE_LABEL[qcRecord.rootCauseType] ?? qcRecord.rootCauseType) },
                   ],
                 )}
               </div>
@@ -926,194 +896,210 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
       )}
 
       ${renderPcSection(
-        '工厂响应',
-        '这里展示工厂是否已确认、是否超时自动确认、是否发起异议，以及平台后续处理需要依赖的 SLA 字段。',
+        '工厂响应与异议',
+        '先看工厂是否已响应、是否超时，再顺着看异议提交、平台裁决和回写结果。',
         `
-          <div class="space-y-5">
-            ${renderPcFieldGrid(
-              [
-                { label: '是否需要工厂响应', value: detailVm.requiresFactoryResponse ? '需要' : '无需' },
-                { label: '工厂响应状态', value: renderBadge(detailVm.factoryResponseStatusLabel, getFactoryResponseBadgeClass(factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED')) },
-                {
-                  label: '响应动作',
-                  value: factoryResponse?.responseAction ? FACTORY_RESPONSE_ACTION_LABEL[factoryResponse.responseAction] : '—',
-                },
-                {
-                  label: '响应截止时间',
-                  value: escapeHtml(formatDeadlineSummary(factoryResponse?.responseDeadlineAt, factoryResponse?.isOverdue)),
-                },
-                { label: '响应时间', value: factoryResponse?.respondedAt ? escapeHtml(formatDateTime(factoryResponse.respondedAt)) : '—' },
-                { label: '自动确认时间', value: factoryResponse?.autoConfirmedAt ? escapeHtml(formatDateTime(factoryResponse.autoConfirmedAt)) : '—' },
-                { label: '响应人', value: formatDetailValue(factoryResponse?.responderUserName) },
-                { label: '是否超时', value: factoryResponse?.isOverdue ? '是' : '否' },
-              ],
-            )}
+          <div id="qc-dispute-section" class="space-y-5">
             ${
-              factoryResponse?.responseComment
-                ? `<div class="rounded-md border bg-background px-4 py-3 text-sm text-muted-foreground">工厂备注：${escapeHtml(factoryResponse.responseComment)}</div>`
-                : '<div class="rounded-md border border-dashed bg-background px-4 py-3 text-sm text-muted-foreground">当前无工厂备注。</div>'
+              focusSection === 'dispute' && adjudicationPanel
+                ? `
+                  <div class="${disputeSectionClass} p-4">
+                    <div class="mb-3">
+                      <h3 class="text-sm font-semibold text-foreground">异议处理入口</h3>
+                      <p class="mt-1 text-xs text-muted-foreground">从列表“处理异议”进入时，直接在这里完成裁决并写回共享链路。</p>
+                    </div>
+                    ${adjudicationPanel}
+                  </div>
+                `
+                : ''
             }
+            <div class="space-y-4">
+              <div class="flex items-center justify-between gap-3">
+                <h3 class="text-sm font-semibold text-foreground">工厂响应</h3>
+                ${renderBadge(detailVm.factoryResponseStatusLabel, getFactoryResponseBadgeClass(factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED'))}
+              </div>
+              ${renderPcFieldGrid(
+                [
+                  { label: '是否需要工厂响应', value: detailVm.requiresFactoryResponse ? '需要' : '无需' },
+                  {
+                    label: '响应动作',
+                    value: factoryResponse?.responseAction ? FACTORY_RESPONSE_ACTION_LABEL[factoryResponse.responseAction] : '—',
+                  },
+                  {
+                    label: '响应截止时间',
+                    value: escapeHtml(formatDeadlineSummary(factoryResponse?.responseDeadlineAt, factoryResponse?.isOverdue)),
+                  },
+                  { label: '响应时间', value: factoryResponse?.respondedAt ? escapeHtml(formatDateTime(factoryResponse.respondedAt)) : '—' },
+                  { label: '自动确认时间', value: factoryResponse?.autoConfirmedAt ? escapeHtml(formatDateTime(factoryResponse.autoConfirmedAt)) : '—' },
+                  { label: '响应人', value: formatDetailValue(factoryResponse?.responderUserName) },
+                  { label: '是否超时', value: factoryResponse?.isOverdue ? '是' : '否' },
+                ],
+              )}
+              ${
+                factoryResponse?.responseComment
+                  ? `<div class="rounded-md border bg-background px-4 py-3 text-sm text-muted-foreground">工厂备注：${escapeHtml(factoryResponse.responseComment)}</div>`
+                  : '<div class="rounded-md border border-dashed bg-background px-4 py-3 text-sm text-muted-foreground">当前无工厂备注。</div>'
+              }
+            </div>
+            <div class="space-y-4 border-t pt-5">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-semibold text-foreground">异议处理结果</h3>
+                  <p class="mt-1 text-xs text-muted-foreground">平台在这里查看工厂异议证据、裁决结果和回写结果。</p>
+                </div>
+                ${
+                  detailVm.canHandleDispute
+                    ? '<div class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700">当前待平台处理</div>'
+                    : ''
+                }
+              </div>
+              ${
+                !disputeCase
+                  ? '<div class="rounded-md border border-dashed bg-background px-4 py-6 text-sm text-muted-foreground">当前无异议单。</div>'
+                  : `
+                      <div class="space-y-5">
+                        ${
+                          detailVm.canHandleDispute && focusSection !== 'dispute'
+                            ? adjudicationPanel
+                            : ''
+                        }
+                        ${renderPcFieldGrid(
+                          [
+                            { label: '异议单号', value: `<span class="font-mono">${escapeHtml(disputeCase.disputeId)}</span>` },
+                            { label: '异议状态', value: renderBadge(detailVm.disputeStatusLabel, getDisputeBadgeClass(disputeCase.status)) },
+                            { label: '异议原因', value: escapeHtml(disputeCase.disputeReasonName) },
+                            { label: '异议说明', value: escapeHtml(disputeCase.disputeDescription) },
+                            { label: '提交时间', value: disputeCase.submittedAt ? escapeHtml(formatDateTime(disputeCase.submittedAt)) : '—' },
+                            { label: '提交人', value: formatDetailValue(disputeCase.submittedByUserName) },
+                            { label: '平台处理人', value: formatDetailValue(disputeCase.reviewerUserName) },
+                            { label: '裁决时间', value: disputeCase.adjudicatedAt ? escapeHtml(formatDateTime(disputeCase.adjudicatedAt)) : '—' },
+                            { label: '裁决结果', value: escapeHtml(disputeCase.adjudicationResult ? PLATFORM_ADJUDICATION_RESULT_LABEL[disputeCase.adjudicationResult] : detailVm.disputeStatusLabel) },
+                            { label: '裁决意见', value: escapeHtml(disputeCase.adjudicationComment ?? '—') },
+                            { label: '回写时间', value: disputeCase.resultWrittenBackAt ? escapeHtml(formatDateTime(disputeCase.resultWrittenBackAt)) : settlementAdjustment?.writtenBackAt ? escapeHtml(formatDateTime(settlementAdjustment.writtenBackAt)) : '—' },
+                            {
+                              label: '金额变化',
+                              value:
+                                disputeCase.adjudicatedAmount !== undefined
+                                  ? `${disputeCase.requestedAmount ?? 0} → ${disputeCase.adjudicatedAmount} CNY`
+                                  : disputeCase.requestedAmount !== undefined
+                                    ? `${disputeCase.requestedAmount} CNY`
+                                    : '—',
+                            },
+                          ],
+                        )}
+                        <div class="space-y-3">
+                          <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-semibold text-foreground">工厂异议证据</h4>
+                            <span class="text-xs text-muted-foreground">${detailVm.disputeEvidenceCount} 份</span>
+                          </div>
+                          ${renderEvidenceAssets(disputeCase.disputeEvidenceAssets, '当前无工厂异议证据。')}
+                        </div>
+                      </div>
+                    `
+              }
+            </div>
           </div>
         `,
       )}
 
-      <section id="qc-dispute-section" class="${disputeSectionClass}">
-        <header class="border-b px-5 py-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold">异议区</h2>
-              <p class="mt-1 text-sm text-muted-foreground">平台在此查看工厂异议证据、裁决结果和结算调整，统一在质检记录内完成处理。</p>
-            </div>
-            ${
-              detailVm.canHandleDispute
-                ? '<div class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700">当前待平台处理</div>'
-                : ''
-            }
-          </div>
-        </header>
-        <div class="px-5 py-5">
-          ${
-            !disputeCase
-              ? '<div class="rounded-md border border-dashed bg-background px-4 py-6 text-sm text-muted-foreground">当前无异议单。</div>'
-              : `
-                  <div class="space-y-5">
-                    ${
-                      detailVm.canHandleDispute && focusSection !== 'dispute'
-                        ? renderAdjudicationPanel(detailVm, detail)
-                        : ''
-                    }
-                    ${renderPcFieldGrid(
-                      [
-                        { label: '异议单号', value: `<span class="font-mono">${escapeHtml(disputeCase.disputeId)}</span>` },
-                        { label: '异议状态', value: renderBadge(detailVm.disputeStatusLabel, getDisputeBadgeClass(disputeCase.status)) },
-                        { label: '异议原因', value: escapeHtml(disputeCase.disputeReasonName) },
-                        { label: '异议说明', value: escapeHtml(disputeCase.disputeDescription) },
-                        { label: '提交时间', value: disputeCase.submittedAt ? escapeHtml(formatDateTime(disputeCase.submittedAt)) : '—' },
-                        { label: '提交人', value: formatDetailValue(disputeCase.submittedByUserName) },
-                        { label: '平台处理人', value: formatDetailValue(disputeCase.reviewerUserName) },
-                        { label: '裁决时间', value: disputeCase.adjudicatedAt ? escapeHtml(formatDateTime(disputeCase.adjudicatedAt)) : '—' },
-                        { label: '裁决结果', value: escapeHtml(disputeCase.adjudicationResult ? PLATFORM_ADJUDICATION_RESULT_LABEL[disputeCase.adjudicationResult] : detailVm.disputeStatusLabel) },
-                        { label: '裁决意见', value: escapeHtml(disputeCase.adjudicationComment ?? '—') },
-                        { label: '回写时间', value: disputeCase.resultWrittenBackAt ? escapeHtml(formatDateTime(disputeCase.resultWrittenBackAt)) : settlementAdjustment?.writtenBackAt ? escapeHtml(formatDateTime(settlementAdjustment.writtenBackAt)) : '—' },
-                        {
-                          label: '金额变化',
-                          value:
-                            disputeCase.adjudicatedAmount !== undefined
-                              ? `${disputeCase.requestedAmount ?? 0} → ${disputeCase.adjudicatedAmount} CNY`
-                              : disputeCase.requestedAmount !== undefined
-                                ? `${disputeCase.requestedAmount} CNY`
-                                : '—',
-                        },
-                      ],
-                    )}
-                    <div class="space-y-3">
-                      <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-semibold text-foreground">工厂异议证据</h3>
-                        <span class="text-xs text-muted-foreground">${detailVm.disputeEvidenceCount} 份</span>
-                      </div>
-                      ${renderEvidenceAssets(disputeCase.disputeEvidenceAssets, '当前无工厂异议证据。')}
-                    </div>
-                    ${
-                      settlementAdjustment
-                        ? `
-                          <div class="rounded-md border bg-background px-4 py-4">
-                            <div class="flex items-center justify-between gap-3">
-                              <div>
-                                <p class="text-sm font-semibold text-foreground">结算调整项</p>
-                                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementAdjustment.summary)}</p>
-                              </div>
-                              ${renderBadge(
-                                QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_TYPE_LABEL[settlementAdjustment.adjustmentType],
-                                settlementAdjustment.adjustmentType === 'REVERSAL'
-                                  ? 'border-red-200 bg-red-50 text-red-700'
-                                  : 'border-blue-200 bg-blue-50 text-blue-700',
-                              )}
-                            </div>
-                            <div class="mt-4">
-                              ${renderPcFieldGrid(
-                                [
-                                  { label: '调整数量', value: String(settlementAdjustment.adjustmentQty) },
-                                  { label: '调整金额', value: formatMoney(settlementAdjustment.adjustmentAmount) },
-                                  { label: '目标结算周期', value: escapeHtml(settlementAdjustment.targetSettlementCycleId) },
-                                  { label: '写回状态', value: escapeHtml(QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_WRITEBACK_STATUS_LABEL[settlementAdjustment.writebackStatus]) },
-                                ],
-                                'md:grid-cols-2 xl:grid-cols-4',
-                              )}
-                            </div>
-                          </div>
-                        `
-                        : ''
-                    }
-                  </div>
-                `
-          }
-        </div>
-      </section>
-
       ${renderPcSection(
-        '扣款依据区',
-        '在质检详情中统一核对扣款依据、冻结加工费和质量扣款金额，不再跳出当前主工作台。',
-        !deductionBasis
-          ? '<div class="rounded-md border border-dashed bg-background px-4 py-6 text-sm text-muted-foreground">当前暂无关联扣款依据。</div>'
-          : `
-              <div class="space-y-5">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="font-mono text-xs font-semibold text-primary">${escapeHtml(deductionBasis.basisId)}</span>
-                  ${renderBadge(detailVm.deductionBasisStatusLabel, getBasisBadgeClass(detailVm.deductionBasisStatusLabel))}
-                </div>
-                ${renderPcFieldGrid(
-                  [
-                    { label: '扣款依据编号', value: `<span class="font-mono">${escapeHtml(deductionBasis.basisId)}</span>` },
-                    { label: '规则名称', value: '回货入仓质量扣款规则' },
-                    { label: '规则版本', value: `${escapeHtml(ruleVersion)} 原型版` },
-                    { label: 'liableQty', value: String(deductionBasis.deductionQty) },
-                    { label: '来源类型', value: escapeHtml(basisSourceLabel) },
-                    { label: '不合格品处置方式', value: deductionBasis.unqualifiedDisposition ? escapeHtml(DISPOSITION_LABEL[deductionBasis.unqualifiedDisposition] ?? deductionBasis.unqualifiedDisposition) : '—' },
-                    { label: '冻结加工费金额', value: formatMoney(deductionBasis.blockedProcessingFeeAmount) },
-                    { label: '初始质量扣款金额', value: formatMoney(deductionBasis.proposedQualityDeductionAmount) },
-                    { label: '生效质量扣款金额', value: formatMoney(deductionBasis.effectiveQualityDeductionAmount) },
-                    { label: '证据快照数量', value: `${detailVm.basisEvidenceCount} 份` },
-                  ],
-                )}
-                <div class="rounded-md border bg-background px-4 py-3 text-sm text-muted-foreground">${escapeHtml(deductionBasis.summary)}</div>
-                <div class="flex flex-wrap gap-3">
-                  <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm text-primary hover:bg-muted" data-nav="/fcs/quality/deduction-calc/${escapeHtml(deductionBasis.basisId)}">
-                    查看扣款依据
-                  </button>
-                </div>
-              </div>
-            `,
-      )}
-
-      ${renderPcSection(
-        '结算影响区',
-        '这里展示冻结加工费金额、生效质量扣款金额、结算单/批次归属以及待下周期调整信息，为后续结算联动保留主承接区。',
+        '扣款与结算',
+        '这里统一查看扣款依据、金额口径、结算影响和下周期调整，不再拆成两个重复区块。',
         `
           <div class="space-y-5">
-            ${renderPcFieldGrid(
-              [
-                { label: '结算影响状态', value: renderBadge(detailVm.settlementImpactStatusLabel, getSettlementBadgeClass(settlementImpact.status)) },
-                { label: '当前冻结数量', value: String(settlementImpact.blockedSettlementQty) },
-                { label: '当前冻结加工费金额', value: formatMoney(settlementImpact.blockedProcessingFeeAmount) },
-                { label: '生效质量扣款金额', value: formatMoney(settlementImpact.effectiveQualityDeductionAmount) },
-                { label: '当前是否可结算', value: detailVm.settlementReady ? '是' : '否' },
-                { label: '是否已纳入结算单', value: settlementImpact.includedSettlementStatementId ? '是' : '否' },
-                { label: '是否已结算', value: settlementImpact.status === 'SETTLED' ? '是' : '否' },
-                { label: '是否待下周期调整', value: settlementImpact.status === 'NEXT_CYCLE_ADJUSTMENT_PENDING' ? '是' : '否' },
-                { label: '结算周期', value: formatDetailValue(settlementImpact.candidateSettlementCycleId) },
-                { label: '纳入结算时间', value: settlementImpact.includedAt ? escapeHtml(formatDateTime(settlementImpact.includedAt)) : '—' },
-                { label: '结算单号', value: formatDetailValue(settlementImpact.includedSettlementStatementId) },
-                { label: '结算批次号', value: formatDetailValue(settlementImpact.includedSettlementBatchId) },
-                { label: '锁账时间', value: settlementImpact.statementLockedAt ? escapeHtml(formatDateTime(settlementImpact.statementLockedAt)) : '—' },
-                { label: '结算完成时间', value: settlementImpact.settledAt ? escapeHtml(formatDateTime(settlementImpact.settledAt)) : '—' },
-                { label: '最近回写时间', value: settlementImpact.lastWrittenBackAt ? escapeHtml(formatDateTime(settlementImpact.lastWrittenBackAt)) : '—' },
-                { label: '总财务影响金额', value: formatMoney(settlementImpact.totalFinancialImpactAmount) },
-                { label: '写回可用量', value: formatDetailValue(qcRecord.writebackAvailableQty) },
-                { label: '写回瑕疵接收量', value: formatDetailValue(qcRecord.writebackAcceptedAsDefectQty) },
-                { label: '写回报废量', value: formatDetailValue(qcRecord.writebackScrapQty) },
-              ],
-            )}
-            <div class="rounded-md border bg-background px-4 py-3 text-sm text-muted-foreground">${escapeHtml(settlementImpact.summary)}</div>
+            <div class="space-y-4 rounded-md border bg-background px-4 py-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h3 class="text-sm font-semibold text-foreground">扣款依据</h3>
+                ${
+                  deductionBasis
+                    ? renderBadge(detailVm.deductionBasisStatusLabel, getBasisBadgeClass(detailVm.deductionBasisStatusLabel))
+                    : '<span class="text-sm text-muted-foreground">未生成</span>'
+                }
+              </div>
+              ${
+                !deductionBasis
+                  ? '<div class="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">当前暂无关联扣款依据。</div>'
+                  : `
+                      ${renderPcFieldGrid(
+                        [
+                          { label: '扣款依据编号', value: `<span class="font-mono">${escapeHtml(deductionBasis.basisId)}</span>` },
+                          { label: '依据状态', value: renderBadge(detailVm.deductionBasisStatusLabel, getBasisBadgeClass(detailVm.deductionBasisStatusLabel)) },
+                          { label: '规则名称', value: '回货入仓质量扣款规则' },
+                          { label: '规则版本', value: `${escapeHtml(ruleVersion)} 原型版` },
+                          { label: '计扣说明', value: escapeHtml(deductionBasis.summary) },
+                          { label: '规则说明', value: escapeHtml(qcRecord.deductionDecisionRemark ?? qcRecord.dispositionRemark ?? '按质检责任与处置结果生成扣款依据') },
+                          { label: '冻结加工费金额', value: formatMoney(deductionBasis.blockedProcessingFeeAmount) },
+                          { label: '初始质量扣款金额', value: formatMoney(deductionBasis.proposedQualityDeductionAmount) },
+                          { label: '生效质量扣款金额', value: formatMoney(deductionBasis.effectiveQualityDeductionAmount) },
+                        ],
+                      )}
+                      <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-sm font-semibold text-foreground">引用证据</h4>
+                          <span class="text-xs text-muted-foreground">${detailVm.basisEvidenceCount} 份</span>
+                        </div>
+                        ${renderEvidenceAssets(deductionBasis.evidenceAssets, '当前无引用证据。')}
+                      </div>
+                    `
+              }
+            </div>
+            <div class="space-y-4 rounded-md border bg-background px-4 py-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h3 class="text-sm font-semibold text-foreground">结算影响</h3>
+                ${renderBadge(detailVm.settlementImpactStatusLabel, getSettlementBadgeClass(settlementImpact.status))}
+              </div>
+              ${renderPcFieldGrid(
+                [
+                  { label: '结算影响状态', value: renderBadge(detailVm.settlementImpactStatusLabel, getSettlementBadgeClass(settlementImpact.status)) },
+                  { label: '冻结加工费金额', value: formatMoney(settlementImpact.blockedProcessingFeeAmount) },
+                  { label: '初始质量扣款金额', value: formatMoney(deductionBasis?.proposedQualityDeductionAmount ?? 0) },
+                  { label: '生效质量扣款金额', value: formatMoney(settlementImpact.effectiveQualityDeductionAmount) },
+                  { label: '当前是否可结算', value: detailVm.settlementReady ? '是' : '否' },
+                  { label: '是否已纳入结算单', value: settlementImpact.includedSettlementStatementId ? '是' : '否' },
+                  { label: '是否已结算', value: settlementImpact.status === 'SETTLED' ? '是' : '否' },
+                  { label: '是否待下周期调整', value: settlementImpact.status === 'NEXT_CYCLE_ADJUSTMENT_PENDING' ? '是' : '否' },
+                  { label: '结算周期', value: formatDetailValue(settlementImpact.candidateSettlementCycleId) },
+                  { label: '结算单号', value: formatDetailValue(settlementImpact.includedSettlementStatementId) },
+                  { label: '结算批次号', value: formatDetailValue(settlementImpact.includedSettlementBatchId) },
+                  { label: '纳入结算时间', value: settlementImpact.includedAt ? escapeHtml(formatDateTime(settlementImpact.includedAt)) : '—' },
+                  { label: '锁账时间', value: settlementImpact.statementLockedAt ? escapeHtml(formatDateTime(settlementImpact.statementLockedAt)) : '—' },
+                  { label: '结算完成时间', value: settlementImpact.settledAt ? escapeHtml(formatDateTime(settlementImpact.settledAt)) : '—' },
+                  { label: '最近回写时间', value: settlementImpact.lastWrittenBackAt ? escapeHtml(formatDateTime(settlementImpact.lastWrittenBackAt)) : '—' },
+                ],
+              )}
+              <div class="rounded-md border bg-card px-4 py-3 text-sm text-muted-foreground">${escapeHtml(settlementImpact.summary)}</div>
+              ${
+                settlementAdjustment
+                  ? `
+                    <div class="rounded-md border bg-card px-4 py-4">
+                      <div class="flex items-center justify-between gap-3">
+                        <div>
+                          <p class="text-sm font-semibold text-foreground">下周期调整项</p>
+                          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementAdjustment.summary)}</p>
+                        </div>
+                        ${renderBadge(
+                          QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_TYPE_LABEL[settlementAdjustment.adjustmentType],
+                          settlementAdjustment.adjustmentType === 'REVERSAL'
+                            ? 'border-red-200 bg-red-50 text-red-700'
+                            : 'border-blue-200 bg-blue-50 text-blue-700',
+                        )}
+                      </div>
+                      <div class="mt-4">
+                        ${renderPcFieldGrid(
+                          [
+                            { label: '调整数量', value: String(settlementAdjustment.adjustmentQty) },
+                            { label: '调整金额', value: formatMoney(settlementAdjustment.adjustmentAmount) },
+                            { label: '目标结算周期', value: escapeHtml(settlementAdjustment.targetSettlementCycleId) },
+                            { label: '写回状态', value: escapeHtml(QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_WRITEBACK_STATUS_LABEL[settlementAdjustment.writebackStatus]) },
+                          ],
+                          'md:grid-cols-2 xl:grid-cols-4',
+                        )}
+                      </div>
+                    </div>
+                  `
+                  : ''
+              }
+            </div>
           </div>
         `,
       )}
@@ -1769,7 +1755,7 @@ function renderQcRecordDetailPageByVariant(
                                   }
                                   ${basis.evidenceRefs.length > 0 ? ` · 证据 ${basis.evidenceRefs.length} 份` : ''}
                                 </div>
-                                <button class="inline-flex items-center gap-1 text-xs text-primary underline" data-nav="/fcs/quality/deduction-calc/${escapeHtml(basis.basisId)}">
+                                <button class="inline-flex items-center gap-1 text-xs text-primary underline" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(basis.basisId))}">
                                   查看扣款依据
                                   <i data-lucide="external-link" class="h-3 w-3"></i>
                                 </button>

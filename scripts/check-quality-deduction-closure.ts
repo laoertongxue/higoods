@@ -4,6 +4,7 @@ import process from 'node:process'
 import { readFileSync } from 'node:fs'
 import {
   getFutureMobileFactoryQcDetail,
+  getFutureMobileFactoryQcSummary,
   getPlatformQcDetailViewModelByRouteKey,
   listFutureMobileFactoryQcBuckets,
   listPdaSettlementWritebackItems,
@@ -32,9 +33,16 @@ function main(): void {
   const mobileSource = readFileSync(new URL('../src/pages/pda-quality.ts', import.meta.url), 'utf8')
   const platformListSource = readFileSync(new URL('../src/pages/qc-records/list-domain.ts', import.meta.url), 'utf8')
   const platformDetailSource = readFileSync(new URL('../src/pages/qc-records/detail-domain.ts', import.meta.url), 'utf8')
+  assert(
+    /data-nav="\$\{escapeHtml\(detailHref\)\}"[\s\S]*?>\s*查看详情\s*<\/button>/.test(platformListSource),
+    '链路 1：平台列表未渲染真实“查看详情”入口',
+  )
   assert(mobileSource.includes('data-pda-quality-action="go-confirm"'), '工厂端待处理卡片未渲染确认处理入口')
   assert(mobileSource.includes('data-pda-quality-action="go-dispute"'), '工厂端待处理卡片未渲染发起异议入口')
-  assert(platformListSource.includes('data-qcr-action="handle-dispute"'), '平台列表未渲染处理异议入口')
+  assert(
+    /data-nav="\$\{escapeHtml\(disputeHref\)\}"[\s\S]*?>\s*处理异议\s*<\/button>/.test(platformListSource),
+    '平台列表未渲染处理异议入口',
+  )
   assert(platformDetailSource.includes('异议快捷处理'), '平台详情未承接异议快捷处理区')
 
   const autoConfirmCandidates = findAutoConfirmCandidates()
@@ -42,12 +50,21 @@ function main(): void {
   const chain5AutoConfirm = autoConfirmOverdueQualityCases()
   assert(chain5AutoConfirm.processedQcIds.includes('QC-RIB-202603-0003'), '链路 5：自动确认未处理超时记录')
 
+  const detailSamples = ['QC-NEW-001', 'QC-NEW-004', 'QC-RIB-202603-0002']
+  assert(
+    detailSamples.every((qcId) => Boolean(getPlatformQcDetailViewModelByRouteKey(qcId))),
+    '链路 1：至少 3 条平台“查看详情”样例未能正常打开',
+  )
+
   const mobileAfterAutoConfirm = getFutureMobileFactoryQcDetail('QC-RIB-202603-0003', 'ID-F004')
   const platformAfterAutoConfirm = getPlatformQcDetailViewModelByRouteKey('QC-RIB-202603-0003')
   assert(platformAfterAutoConfirm?.factoryResponse?.factoryResponseStatus === 'AUTO_CONFIRMED', '链路 5：平台端未同步自动确认')
   assert(mobileAfterAutoConfirm?.factoryResponseStatus === 'AUTO_CONFIRMED', '链路 5：工厂端未同步自动确认')
   assert(platformAfterAutoConfirm?.settlementImpact.status === 'ELIGIBLE', '链路 5：自动确认后未进入可结算')
+  assert(getFutureMobileFactoryQcSummary('ID-F004').soonOverdueCount === 0, '链路 5：自动确认后即将逾期未移出')
 
+  const pendingBeforeConfirm = getFutureMobileFactoryQcSummary('ID-F001').pendingCount
+  const soonBeforeConfirm = getFutureMobileFactoryQcSummary('ID-F001').soonOverdueCount
   const chain1Confirm = confirmQualityDeductionFactoryResponse({
     qcId: 'QC-NEW-001',
     responderUserName: '工厂财务-Adi',
@@ -64,7 +81,10 @@ function main(): void {
   assert(platformAfterConfirm?.settlementImpact.status === 'ELIGIBLE', '链路 1：平台端未进入可结算')
   assert(pdaAfterConfirm?.settlementStatusText === platformAfterConfirm?.settlementImpactStatusLabel, '链路 1：PDA 结算感知状态未同步')
   assert(listFutureMobileFactoryQcBuckets('ID-F001').pending.every((item) => item.qcId !== 'QC-NEW-001'), '链路 1：确认后记录仍在待处理')
+  assert(getFutureMobileFactoryQcSummary('ID-F001').pendingCount === pendingBeforeConfirm - 1, '链路 1：确认后待处理数量未减少')
+  assert(getFutureMobileFactoryQcSummary('ID-F001').soonOverdueCount <= soonBeforeConfirm, '链路 1：确认后即将逾期数量未同步刷新')
 
+  const pendingBeforeDispute = getFutureMobileFactoryQcSummary('ID-F004').pendingCount
   const chain2Dispute = submitQualityDeductionDispute({
     qcId: 'QC-NEW-005',
     submittedByUserName: '工厂厂长-Siti',
@@ -86,6 +106,7 @@ function main(): void {
   assert(platformAfterDispute?.disputeCase?.status === 'PENDING_REVIEW', '链路 2：平台端未看到待平台处理')
   assert(platformAfterDispute?.factoryResponse?.factoryResponseStatus === 'DISPUTED', '链路 2：平台端未看到已发起异议')
   assert(platformDetailSource.includes('data-qcd-action="submit-adjudication"'), '链路 2：平台详情未接裁决提交按钮')
+  assert(getFutureMobileFactoryQcSummary('ID-F004').pendingCount === pendingBeforeDispute - 1, '链路 2：发起异议后待处理数量未减少')
 
   const chain3Upheld = adjudicateDisputeCase({
     qcId: 'QC-NEW-005',
@@ -127,12 +148,16 @@ function main(): void {
       {
         chain1Confirm: {
           qcId: platformAfterConfirm?.qcId,
+          pendingBefore: pendingBeforeConfirm,
+          pendingAfter: getFutureMobileFactoryQcSummary('ID-F001').pendingCount,
           mobileStatus: mobileAfterConfirm?.factoryResponseStatusLabel,
           platformStatus: platformAfterConfirm?.factoryResponseStatusLabel,
           settlement: platformAfterConfirm?.settlementImpactStatusLabel,
         },
         chain2Dispute: {
           qcId: platformAfterDispute?.qcId,
+          pendingBefore: pendingBeforeDispute,
+          pendingAfter: getFutureMobileFactoryQcSummary('ID-F004').pendingCount,
           platformDisputeStatus: platformAfterDispute?.disputeStatusLabel,
           evidenceCount: mobileAfterDispute?.submittedDisputeEvidenceAssets.length,
         },
@@ -152,6 +177,7 @@ function main(): void {
           status: platformAfterAutoConfirm?.factoryResponseStatusLabel,
           settlement: platformAfterAutoConfirm?.settlementImpactStatusLabel,
         },
+        chainDetailOpen: detailSamples,
       },
       null,
       2,

@@ -5,13 +5,17 @@ import type {
 import type { OriginalCutOrderRow } from './original-orders-model'
 import type { MaterialPrepRow } from './material-prep-model'
 import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model'
-import type { MergeBatchRecord } from './merge-batches-model'
+import {
+  getMergeBatchStatusMeta,
+  type MergeBatchRecord,
+} from './merge-batches-model'
 import type {
   FeiTicketsViewModel,
   FeiTicketLabelRecord,
   FeiTicketPrintJob,
   OriginalCutOrderTicketOwner,
 } from './fei-tickets-model'
+import { getFeiTicketStatusMeta } from './fei-tickets-model'
 import type {
   FabricWarehouseStockItem,
   FabricWarehouseViewModel,
@@ -43,6 +47,17 @@ import type {
   SpecialProcessRow,
   SpecialProcessViewModel,
 } from './special-processes-model'
+import {
+  buildCuttingCheckResult,
+  cuttingCheckCompletionMetaMap,
+  cuttingCheckSectionLabelMap,
+  type CuttingCheckBlockerItem,
+  type CuttingCheckCompletionKey,
+  type CuttingCheckNextAction,
+  type CuttingCheckSectionKey,
+  type CuttingCheckSectionState,
+  type CuttingCheckSourceObjectType,
+} from './cutting-summary-checks'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -105,6 +120,20 @@ export interface CuttingSummaryRow {
   warehouseSummary: string
   bagUsageSummary: string
   specialProcessSummary: string
+  completionState: CuttingCheckCompletionKey
+  completionLabel: string
+  completionClassName: string
+  completionDetailText: string
+  checkSections: CuttingCheckSectionState[]
+  blockerItems: CuttingCheckBlockerItem[]
+  nextActions: CuttingCheckNextAction[]
+  primaryBlockerSectionKey: CuttingCheckSectionKey | ''
+  primaryBlockerSectionLabel: string
+  primaryBlockerTitle: string
+  primaryBlockerReason: string
+  blockingCount: number
+  pendingActionCount: number
+  keySourceObjects: string[]
   overallRiskLevel: CuttingSummaryRiskLevel
   riskTags: string[]
   issueTypes: CuttingSummaryIssueType[]
@@ -131,14 +160,31 @@ export interface CuttingSummaryIssue {
   issueId: string
   issueType: CuttingSummaryIssueType
   severity: CuttingSummaryRiskLevel
+  highestRiskLevel: CuttingSummaryRiskLevel
   relatedRowIds: string[]
   relatedProductionOrderNos: string[]
   relatedOriginalCutOrderNos: string[]
   relatedMergeBatchNos: string[]
   relatedUsageNos: string[]
   relatedProcessOrderNos: string[]
+  blockerIds: string[]
+  blockingProductionOrderCount: number
+  blockingObjectCount: number
+  primaryActionLabel: string
   summary: string
   actionHint: string
+}
+
+export interface CuttingSummarySourceObjectItem {
+  sourceType: CuttingCheckSourceObjectType
+  sourceLabel: string
+  sourceId: string
+  sourceNo: string
+  statusLabel: string
+  materialSku: string
+  blockerCount: number
+  navigationTarget: keyof CuttingSummaryNavigationPayload
+  navigationPayload: Record<string, string | undefined>
 }
 
 export interface CuttingSummaryTraceNode {
@@ -183,6 +229,17 @@ export interface CuttingSummaryDashboardCard {
 
 export interface CuttingSummaryDetailPanelData {
   row: CuttingSummaryRow
+  completionMeta: {
+    key: CuttingCheckCompletionKey
+    label: string
+    className: string
+    detailText: string
+  }
+  primaryBlocker: CuttingCheckBlockerItem | null
+  blockerItems: CuttingCheckBlockerItem[]
+  sectionStates: CuttingCheckSectionState[]
+  nextActions: CuttingCheckNextAction[]
+  sourceObjects: CuttingSummarySourceObjectItem[]
   productionRow: ProductionProgressRow | null
   originalRows: OriginalCutOrderRow[]
   mergeBatches: MergeBatchRecord[]
@@ -263,34 +320,34 @@ export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, Cutting
     label: '配料 / 领料问题',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
     detailText: '审核未完成、配料未齐或领料不齐。',
-    actionHint: '去仓库配料 / 领料',
+    actionHint: '去仓库配料领料',
   },
   SPREADING_REPLENISH: {
     key: 'SPREADING_REPLENISH',
     label: '铺布 / 补料问题',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: '铺布差异、补料待审核或待回写。',
-    actionHint: '去唛架 / 铺布或补料管理',
+    detailText: '铺布差异、补料待审核或待执行动作。',
+    actionHint: '去唛架铺布或补料管理',
   },
   TICKET_QR: {
     key: 'TICKET_QR',
-    label: '打票 / 二维码问题',
+    label: '打印菲票问题',
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
-    detailText: '待打票、部分已打票或二维码兼容警告。',
-    actionHint: '去菲票 / 打编号',
+    detailText: '待打印、部分已打印或主码兼容警告。',
+    actionHint: '去打印菲票',
   },
   WAREHOUSE_HANDOFF: {
     key: 'WAREHOUSE_HANDOFF',
     label: '仓储 / 交接问题',
     className: 'bg-orange-100 text-orange-700 border border-orange-200',
     detailText: '待入仓、待交接、待回仓或袋况异常。',
-    actionHint: '去裁片仓或周转口袋 / 车缝交接',
+    actionHint: '去裁片仓或周转口袋车缝交接',
   },
   SPECIAL_PROCESS: {
     key: 'SPECIAL_PROCESS',
     label: '特殊工艺问题',
     className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200',
-    detailText: '捆条等特殊工艺待执行、执行中或异常。',
+    detailText: '特殊工艺待执行、执行中，或预留类型尚未接入执行链。',
     actionHint: '去特殊工艺',
   },
 }
@@ -313,7 +370,7 @@ function summarizeTicketStatus(owners: OriginalCutOrderTicketOwner[], records: F
   const printed = records.length
   const pendingOwners = owners.filter((owner) => !['PRINTED', 'REPRINTED'].includes(owner.ticketStatus)).length
   const partialOwners = owners.filter((owner) => owner.ticketStatus === 'PARTIAL_PRINTED').length
-  return `${formatCount(printed)}/${formatCount(planned)} 已打票 · 待处理主体 ${pendingOwners}${partialOwners ? ` · 部分已打票 ${partialOwners}` : ''}`
+  return `${formatCount(printed)}/${formatCount(planned)} 已打印菲票 · 待处理主体 ${pendingOwners}${partialOwners ? ` · 部分已打印 ${partialOwners}` : ''}`
 }
 
 function summarizeWarehouseStatus(options: {
@@ -368,7 +425,9 @@ function summarizeMaterialPrep(rows: MaterialPrepRow[]): string {
 
 function summarizeSpreading(sessions: SpreadingSession[], replenishments: ReplenishmentSuggestionRow[]): string {
   if (!sessions.length) {
-    const pending = replenishments.filter((item) => ['PENDING_REVIEW', 'PENDING_SUPPLEMENT', 'APPROVED'].includes(item.statusMeta.key)).length
+    const pending = replenishments.filter((item) =>
+      ['PENDING_REVIEW', 'PENDING_SUPPLEMENT', 'APPROVED_PENDING_ACTION', 'IN_ACTION'].includes(item.statusMeta.key),
+    ).length
     return pending ? `待补料确认 ${pending}` : '未进入铺布'
   }
 
@@ -385,117 +444,190 @@ function summarizeSpreading(sessions: SpreadingSession[], replenishments: Replen
 
 function summarizeReplenishment(items: ReplenishmentSuggestionRow[]): string {
   if (!items.length) return '暂无补料建议'
-  const openCount = items.filter((item) => !['NO_ACTION', 'REJECTED', 'APPLIED'].includes(item.statusMeta.key)).length
-  const appliedCount = items.filter((item) => item.statusMeta.key === 'APPLIED').length
+  const openCount = items.filter((item) => !['NO_ACTION', 'REJECTED', 'COMPLETED'].includes(item.statusMeta.key)).length
+  const appliedCount = items.filter((item) => item.statusMeta.key === 'COMPLETED').length
   const highRiskCount = items.filter((item) => item.riskLevel === 'HIGH').length
   return [
     `建议 ${items.length}`,
     openCount ? `待处理 ${openCount}` : '',
-    appliedCount ? `已回写 ${appliedCount}` : '',
+    appliedCount ? `已完成 ${appliedCount}` : '',
     highRiskCount ? `高风险 ${highRiskCount}` : '',
   ]
     .filter(Boolean)
     .join(' / ')
 }
 
+function isReservedSpecialProcess(item: SpecialProcessRow): boolean {
+  return !item.typeExecutionMeta.enabledForExecution
+}
+
+function isOpenSpecialProcess(item: SpecialProcessRow): boolean {
+  if (isReservedSpecialProcess(item)) return true
+  return !['DONE', 'CANCELLED'].includes(item.status)
+}
+
 function summarizeSpecialProcess(items: SpecialProcessRow[]): string {
-  if (!items.length) return '无特殊工艺单'
-  const pendingCount = items.filter((item) => ['DRAFT', 'PENDING_EXECUTION'].includes(item.status)).length
+  if (!items.length) return '未创建'
+  const reservedCount = items.filter(isReservedSpecialProcess).length
+  const draftCount = items.filter((item) => item.typeExecutionMeta.enabledForExecution && item.status === 'DRAFT').length
+  const pendingCount = items.filter((item) => item.typeExecutionMeta.enabledForExecution && item.status === 'PENDING_EXECUTION').length
   const inProgressCount = items.filter((item) => item.status === 'IN_PROGRESS').length
-  const doneCount = items.filter((item) => item.status === 'DONE').length
+  const doneCount = items.filter((item) => item.typeExecutionMeta.enabledForExecution && item.status === 'DONE').length
+  const cancelledCount = items.filter((item) => item.typeExecutionMeta.enabledForExecution && item.status === 'CANCELLED').length
   return [
     `工艺单 ${items.length}`,
+    reservedCount ? `预留未接入 ${reservedCount}` : '',
+    draftCount ? `草稿 ${draftCount}` : '',
     pendingCount ? `待执行 ${pendingCount}` : '',
     inProgressCount ? `执行中 ${inProgressCount}` : '',
     doneCount ? `已完成 ${doneCount}` : '',
+    cancelledCount ? `已取消 ${cancelledCount}` : '',
   ]
     .filter(Boolean)
     .join(' / ')
 }
 
-function buildIssueTags(options: {
-  materialPrepRows: MaterialPrepRow[]
-  replenishments: ReplenishmentSuggestionRow[]
-  ticketOwners: OriginalCutOrderTicketOwner[]
-  ticketRecords: FeiTicketLabelRecord[]
-  cutPieceItems: CutPieceWarehouseItem[]
-  bagUsages: TransferBagUsageItem[]
-  returnUsages: TransferBagReturnUsageItem[]
-  conditionItems: TransferBagConditionDecisionItem[]
-  specialProcesses: SpecialProcessRow[]
-}): CuttingSummaryIssueType[] {
-  const issueTypes: CuttingSummaryIssueType[] = []
-
-  if (
-    options.materialPrepRows.some(
-      (row) =>
-        row.materialAuditStatus.key !== 'APPROVED' ||
-        row.materialPrepStatus.key !== 'CONFIGURED' ||
-        row.materialClaimStatus.key !== 'RECEIVED',
-    )
-  ) {
-    issueTypes.push('MATERIAL_PREP')
-  }
-
-  if (
-    options.replenishments.some((item) => !['NO_ACTION', 'REJECTED', 'APPLIED'].includes(item.statusMeta.key)) ||
-    options.replenishments.some((item) => item.riskLevel !== 'LOW')
-  ) {
-    issueTypes.push('SPREADING_REPLENISH')
-  }
-
-  if (
-    options.ticketOwners.some((owner) => !['PRINTED', 'REPRINTED'].includes(owner.ticketStatus)) ||
-    options.ticketRecords.some((record) => !record.schemaVersion)
-  ) {
-    issueTypes.push('TICKET_QR')
-  }
-
-  if (
-    options.cutPieceItems.some((item) => item.warehouseStatus.key === 'PENDING_INBOUND' || item.handoffStatus.key === 'WAITING_HANDOVER') ||
-    options.bagUsages.some((usage) => !['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)) ||
-    options.returnUsages.some((usage) => ['WAITING_RETURN', 'RETURN_INSPECTING'].includes(usage.usageStatus)) ||
-    options.conditionItems.some((item) => item.decisionMeta.reusableDecision !== 'REUSABLE')
-  ) {
-    issueTypes.push('WAREHOUSE_HANDOFF')
-  }
-
-  if (options.specialProcesses.some((item) => !['DONE', 'CANCELLED'].includes(item.status))) {
-    issueTypes.push('SPECIAL_PROCESS')
-  }
-
-  return issueTypes
+function mapSectionKeyToIssueType(sectionKey: CuttingCheckSectionKey): CuttingSummaryIssueType {
+  if (sectionKey === 'MATERIAL_PREP') return 'MATERIAL_PREP'
+  if (sectionKey === 'SPREADING' || sectionKey === 'REPLENISHMENT') return 'SPREADING_REPLENISH'
+  if (sectionKey === 'FEI_TICKETS') return 'TICKET_QR'
+  if (sectionKey === 'WAREHOUSE_HANDOFF') return 'WAREHOUSE_HANDOFF'
+  return 'SPECIAL_PROCESS'
 }
 
-export function deriveOverallRiskLevel(options: {
-  productionRow: ProductionProgressRow
-  materialPrepRows: MaterialPrepRow[]
-  replenishments: ReplenishmentSuggestionRow[]
-  ticketOwners: OriginalCutOrderTicketOwner[]
-  cutPieceItems: CutPieceWarehouseItem[]
-  returnUsages: TransferBagReturnUsageItem[]
-  conditionItems: TransferBagConditionDecisionItem[]
-  specialProcesses: SpecialProcessRow[]
+function summarizeCheckSections(sections: CuttingCheckSectionState[]): CuttingSummaryIssueType[] {
+  return uniqueStrings(
+    sections
+      .filter((section) => section.blocking || section.stateKey === 'DATA_PENDING')
+      .map((section) => mapSectionKeyToIssueType(section.sectionKey)),
+  ) as CuttingSummaryIssueType[]
+}
+
+const feiPrintJobStatusLabelMap: Record<FeiTicketPrintJob['status'], string> = {
+  PRINTED: '已打印',
+  REPRINTED: '已补打',
+  CANCELLED: '已取消',
+}
+
+function deriveOverallRiskLevel(options: {
+  completionState: CuttingCheckCompletionKey
+  blockerItems: CuttingCheckBlockerItem[]
+  productionRiskTags: ProductionProgressRow['riskTags']
 }): CuttingSummaryRiskLevel {
-  let highScore = 0
-  let mediumScore = 0
-
-  if (options.productionRow.riskTags.some((tag) => ['RECEIVE_EXCEPTION', 'REPLENISH_PENDING'].includes(tag.key))) {
-    highScore += 1
-  }
-  if (options.materialPrepRows.some((row) => row.materialClaimStatus.key === 'EXCEPTION')) highScore += 1
-  if (options.replenishments.some((item) => item.riskLevel === 'HIGH')) highScore += 2
-  if (options.replenishments.some((item) => ['PENDING_REVIEW', 'PENDING_SUPPLEMENT'].includes(item.statusMeta.key))) mediumScore += 1
-  if (options.ticketOwners.some((owner) => ['NOT_GENERATED', 'PENDING_SUPPLEMENT'].includes(owner.ticketStatus))) mediumScore += 1
-  if (options.ticketOwners.some((owner) => owner.ticketStatus === 'PARTIAL_PRINTED')) mediumScore += 1
-  if (options.cutPieceItems.some((item) => item.warehouseStatus.key === 'PENDING_INBOUND' || item.handoffStatus.key === 'WAITING_HANDOVER')) mediumScore += 1
-  if (options.returnUsages.some((item) => item.returnExceptionMeta || item.latestClosureResult?.closureStatus === 'EXCEPTION_CLOSED')) highScore += 1
-  if (options.conditionItems.some((item) => item.decisionMeta.reusableDecision !== 'REUSABLE')) mediumScore += 1
-  if (options.specialProcesses.some((item) => item.status === 'IN_PROGRESS' || item.status === 'PENDING_EXECUTION')) mediumScore += 1
-
-  if (highScore >= 2 || (highScore >= 1 && mediumScore >= 2)) return 'HIGH'
-  if (highScore >= 1 || mediumScore >= 1 || options.productionRow.riskTags.length) return 'MEDIUM'
+  if (options.blockerItems.some((item) => item.severity === 'HIGH')) return 'HIGH'
+  if (options.blockerItems.length || options.completionState === 'DATA_PENDING') return 'MEDIUM'
+  if (options.productionRiskTags.length) return 'MEDIUM'
   return 'LOW'
+}
+
+function buildSummarySourceObjects(options: {
+  row: CuttingSummaryRow
+  originalRows: OriginalCutOrderRow[]
+  mergeBatches: MergeBatchRecord[]
+  ticketOwners: OriginalCutOrderTicketOwner[]
+  printJobs: FeiTicketPrintJob[]
+  bagUsages: TransferBagUsageItem[]
+  replenishments: ReplenishmentSuggestionRow[]
+  specialProcesses: SpecialProcessRow[]
+}): CuttingSummarySourceObjectItem[] {
+  const blockerCountBySourceNo = options.row.blockerItems.reduce<Record<string, number>>((result, item) => {
+    result[item.sourceNo] = (result[item.sourceNo] || 0) + 1
+    return result
+  }, {})
+
+  const originalObjects = options.originalRows.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'ORIGINAL_CUT_ORDER',
+    sourceLabel: '原始裁片单',
+    sourceId: item.originalCutOrderId,
+    sourceNo: item.originalCutOrderNo,
+    statusLabel: `${item.currentStage.label} / ${item.cuttableState.label}`,
+    materialSku: item.materialSku,
+    blockerCount: blockerCountBySourceNo[item.originalCutOrderNo] || 0,
+    navigationTarget: 'originalOrders',
+    navigationPayload: item.navigationPayload.originalOrders,
+  }))
+
+  const mergeBatchObjects = options.mergeBatches.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'MERGE_BATCH',
+    sourceLabel: '合并裁剪批次',
+    sourceId: item.mergeBatchId,
+    sourceNo: item.mergeBatchNo,
+    statusLabel: getMergeBatchStatusMeta(item.status).label,
+    materialSku: uniqueStrings(item.items.map((row) => row.materialSku)).join(' / '),
+    blockerCount: blockerCountBySourceNo[item.mergeBatchNo] || 0,
+    navigationTarget: 'mergeBatches',
+    navigationPayload: options.row.navigationPayload.mergeBatches,
+  }))
+
+  const ticketOwners = options.ticketOwners.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'FEI_OWNER',
+    sourceLabel: '打票主体',
+    sourceId: item.originalCutOrderId,
+    sourceNo: item.originalCutOrderNo,
+    statusLabel: getFeiTicketStatusMeta(item.ticketStatus).label,
+    materialSku: item.materialSku,
+    blockerCount: blockerCountBySourceNo[item.originalCutOrderNo] || 0,
+    navigationTarget: 'feiTickets',
+    navigationPayload: item.navigationPayload.feiTickets,
+  }))
+
+  const printJobs = options.printJobs.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'FEI_PRINT_JOB',
+    sourceLabel: '打印作业',
+    sourceId: item.printJobId,
+    sourceNo: item.printJobNo,
+    statusLabel: feiPrintJobStatusLabelMap[item.status],
+    materialSku: '',
+    blockerCount: blockerCountBySourceNo[item.printJobNo] || 0,
+    navigationTarget: 'feiTickets',
+    navigationPayload: options.row.navigationPayload.feiTickets,
+  }))
+
+  const bagUsages = options.bagUsages.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'BAG_USAGE',
+    sourceLabel: '周转口袋使用周期',
+    sourceId: item.usageId,
+    sourceNo: item.usageNo,
+    statusLabel: item.pocketStatusMeta.label,
+    materialSku: '',
+    blockerCount: blockerCountBySourceNo[item.usageNo] || 0,
+    navigationTarget: 'transferBags',
+    navigationPayload: item.navigationPayload,
+  }))
+
+  const replenishments = options.replenishments.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'REPLENISHMENT',
+    sourceLabel: '补料建议',
+    sourceId: item.suggestionId,
+    sourceNo: item.suggestionNo,
+    statusLabel: item.statusMeta.label,
+    materialSku: item.materialSku,
+    blockerCount: blockerCountBySourceNo[item.suggestionNo] || 0,
+    navigationTarget: 'replenishment',
+    navigationPayload: item.navigationPayload.replenishment,
+  }))
+
+  const specialProcesses = options.specialProcesses.map<CuttingSummarySourceObjectItem>((item) => ({
+    sourceType: 'SPECIAL_PROCESS',
+    sourceLabel: '特殊工艺单',
+    sourceId: item.processOrderId,
+    sourceNo: item.processOrderNo,
+    statusLabel: item.statusMeta.label,
+    materialSku: item.materialSku,
+    blockerCount: blockerCountBySourceNo[item.processOrderNo] || 0,
+    navigationTarget: 'specialProcesses',
+    navigationPayload: item.navigationPayload.specialProcesses,
+  }))
+
+  return [
+    ...originalObjects,
+    ...mergeBatchObjects,
+    ...ticketOwners,
+    ...printJobs,
+    ...bagUsages,
+    ...replenishments,
+    ...specialProcesses,
+  ]
 }
 
 export function buildSummaryNavigationPayload(options: {
@@ -642,36 +774,6 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const replenishments = options.replenishmentView.rows.filter((item) => item.productionOrderNos.includes(productionRow.productionOrderNo))
     const specialProcesses = options.specialProcessView.rows.filter((item) => item.productionOrderNos.includes(productionRow.productionOrderNo))
 
-    const issueTypes = buildIssueTags({
-      materialPrepRows,
-      replenishments,
-      ticketOwners,
-      ticketRecords,
-      cutPieceItems,
-      bagUsages,
-      returnUsages,
-      conditionItems,
-      specialProcesses,
-    })
-    const overallRiskLevel = deriveOverallRiskLevel({
-      productionRow,
-      materialPrepRows,
-      replenishments,
-      ticketOwners,
-      cutPieceItems,
-      returnUsages,
-      conditionItems,
-      specialProcesses,
-    })
-    const riskTags = uniqueStrings([
-      ...productionRow.riskTags.map((tag) => tag.label),
-      ...replenishments.filter((item) => item.riskLevel === 'HIGH').map(() => '补料高风险'),
-      ...cutPieceItems.filter((item) => item.handoffStatus.key === 'WAITING_HANDOVER').map(() => '待交接'),
-      ...ticketOwners.filter((owner) => !['PRINTED', 'REPRINTED'].includes(owner.ticketStatus)).map(() => '待打票'),
-      ...conditionItems.filter((item) => item.decisionMeta.reusableDecision !== 'REUSABLE').map((item) => item.decisionMeta.label),
-      ...specialProcesses.filter((item) => !['DONE', 'CANCELLED'].includes(item.status)).map(() => '特殊工艺待处理'),
-    ])
-
     const relatedOriginalCutOrderNos = uniqueStrings(originalRows.map((row) => row.originalCutOrderNo))
     const relatedMergeBatchNos = uniqueStrings([
       ...Array.from(mergeBatchNoSet),
@@ -688,6 +790,49 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const relatedSuggestionIds = uniqueStrings(replenishments.map((item) => item.suggestionId))
     const relatedProcessOrderNos = uniqueStrings(specialProcesses.map((item) => item.processOrderNo))
     const qrSchemaVersions = uniqueStrings(ticketRecords.map((record) => record.schemaVersion || '1.0.0'))
+
+    const navigationPayload = buildSummaryNavigationPayload({
+      productionOrderNo: productionRow.productionOrderNo,
+      originalCutOrderNos: relatedOriginalCutOrderNos,
+      mergeBatchNos: relatedMergeBatchNos,
+      materialSkus: relatedMaterialSkus,
+      styleCode: productionRow.styleCode,
+      ticketNos: uniqueStrings(ticketRecords.map((record) => record.ticketNo)),
+      bagCodes: relatedBagCodes,
+      usageNos: relatedUsageNos,
+      processOrderNos: relatedProcessOrderNos,
+      suggestionIds: relatedSuggestionIds,
+    })
+
+    const checkResult = buildCuttingCheckResult({
+      productionRow,
+      originalRows,
+      mergeBatches,
+      materialPrepRows,
+      spreadingSessions,
+      markerStore: options.markerStore,
+      ticketOwners,
+      ticketRecords,
+      printJobs,
+      cutPieceItems,
+      bagUsages,
+      returnUsages,
+      conditionItems,
+      replenishments,
+      specialProcesses,
+      navigationPayload,
+    })
+    const issueTypes = summarizeCheckSections(checkResult.sectionStates)
+    const overallRiskLevel = deriveOverallRiskLevel({
+      completionState: checkResult.completionMeta.key,
+      blockerItems: checkResult.blockerItems,
+      productionRiskTags: productionRow.riskTags,
+    })
+    const riskTags = uniqueStrings([
+      ...productionRow.riskTags.map((tag) => tag.label),
+      ...replenishments.filter((item) => item.riskLevel === 'HIGH').map(() => '补料高风险'),
+      ...checkResult.blockerItems.map((item) => item.title),
+    ])
 
     return {
       rowId: `summary-${productionRow.productionOrderId}`,
@@ -708,6 +853,22 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       warehouseSummary: summarizeWarehouseStatus({ fabricStocks, cutPieceItems, sampleItems }),
       bagUsageSummary: summarizeBagUsageStatus(bagUsages, returnUsages),
       specialProcessSummary: summarizeSpecialProcess(specialProcesses),
+      completionState: checkResult.completionMeta.key,
+      completionLabel: checkResult.completionMeta.label,
+      completionClassName: checkResult.completionMeta.className,
+      completionDetailText: checkResult.completionMeta.detailText,
+      checkSections: checkResult.sectionStates,
+      blockerItems: checkResult.blockerItems,
+      nextActions: checkResult.nextActions,
+      primaryBlockerSectionKey: checkResult.primaryBlocker?.sectionKey || '',
+      primaryBlockerSectionLabel: checkResult.primaryBlocker
+        ? cuttingCheckSectionLabelMap[checkResult.primaryBlocker.sectionKey]
+        : '',
+      primaryBlockerTitle: checkResult.primaryBlocker?.title || '',
+      primaryBlockerReason: checkResult.primaryBlocker?.blockerReason || '',
+      blockingCount: checkResult.blockerCount,
+      pendingActionCount: checkResult.pendingActionCount,
+      keySourceObjects: checkResult.keySourceObjects,
       overallRiskLevel,
       riskTags,
       issueTypes,
@@ -722,13 +883,13 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       latestPrintJobNo: printJobs[0]?.printJobNo || '',
       qrSchemaVersions,
       unprintedOwnerCount: ticketOwners.filter((owner) => !['PRINTED', 'REPRINTED'].includes(owner.ticketStatus)).length,
-      pendingReplenishmentCount: replenishments.filter((item) => !['NO_ACTION', 'REJECTED', 'APPLIED'].includes(item.statusMeta.key)).length,
+      pendingReplenishmentCount: replenishments.filter((item) => !['NO_ACTION', 'REJECTED', 'COMPLETED'].includes(item.statusMeta.key)).length,
       warehouseIssueCount:
         fabricStocks.filter((item) => item.riskTags.length > 0).length +
         cutPieceItems.filter((item) => item.riskTags.length > 0).length +
         returnUsages.filter((item) => item.returnExceptionMeta || item.latestConditionRecord?.reusableDecision !== 'REUSABLE').length,
       openBagUsageCount: bagUsages.filter((usage) => !['CLOSED', 'EXCEPTION_CLOSED'].includes(usage.usageStatus)).length,
-      openSpecialProcessCount: specialProcesses.filter((item) => !['DONE', 'CANCELLED'].includes(item.status)).length,
+      openSpecialProcessCount: specialProcesses.filter((item) => isOpenSpecialProcess(item)).length,
       keywordIndex: lowerKeywordIndex([
         productionRow.productionOrderNo,
         productionRow.productionOrderId,
@@ -744,24 +905,18 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
         ...relatedProcessOrderNos,
         ...relatedMaterialSkus,
         ...riskTags,
+        ...checkResult.blockerItems.map((item) => item.sourceNo),
+        ...checkResult.blockerItems.map((item) => item.materialSku),
+        ...checkResult.keySourceObjects,
       ]),
-      navigationPayload: buildSummaryNavigationPayload({
-        productionOrderNo: productionRow.productionOrderNo,
-        originalCutOrderNos: relatedOriginalCutOrderNos,
-        mergeBatchNos: relatedMergeBatchNos,
-        materialSkus: relatedMaterialSkus,
-        styleCode: productionRow.styleCode,
-        ticketNos: uniqueStrings(ticketRecords.map((record) => record.ticketNo)),
-        bagCodes: relatedBagCodes,
-        usageNos: relatedUsageNos,
-        processOrderNos: relatedProcessOrderNos,
-        suggestionIds: relatedSuggestionIds,
-      }),
+      navigationPayload,
     }
   })
 }
 
 function summarizeIssueSeverity(rows: CuttingSummaryRow[]): CuttingSummaryRiskLevel {
+  if (rows.some((row) => row.blockerItems.some((item) => item.severity === 'HIGH'))) return 'HIGH'
+  if (rows.some((row) => row.blockerItems.some((item) => item.severity === 'MEDIUM'))) return 'MEDIUM'
   if (rows.some((row) => row.overallRiskLevel === 'HIGH')) return 'HIGH'
   if (rows.some((row) => row.overallRiskLevel === 'MEDIUM')) return 'MEDIUM'
   return 'LOW'
@@ -770,20 +925,36 @@ function summarizeIssueSeverity(rows: CuttingSummaryRow[]): CuttingSummaryRiskLe
 export function buildCuttingSummaryIssues(rows: CuttingSummaryRow[]): CuttingSummaryIssue[] {
   return Object.values(cuttingSummaryIssueMetaMap)
     .map((meta) => {
-      const relatedRows = filterSummaryByIssueType(rows, meta.key)
+      const relatedRows = filterSummaryByIssueType(rows, meta.key).filter(
+        (row) =>
+          row.blockerItems.some((item) => mapSectionKeyToIssueType(item.sectionKey) === meta.key) ||
+          row.checkSections.some((section) => mapSectionKeyToIssueType(section.sectionKey) === meta.key && section.stateKey === 'DATA_PENDING'),
+      )
       if (!relatedRows.length) return null
+      const relatedBlockers = relatedRows.flatMap((row) =>
+        row.blockerItems.filter((item) => mapSectionKeyToIssueType(item.sectionKey) === meta.key),
+      )
+      const primaryActionLabel =
+        relatedRows.flatMap((row) => row.nextActions.filter((action) => mapSectionKeyToIssueType(action.sectionKey) === meta.key))[0]
+          ?.label || meta.actionHint
+      const severity = summarizeIssueSeverity(relatedRows)
       return {
         issueId: `issue-${meta.key.toLowerCase()}`,
         issueType: meta.key,
-        severity: summarizeIssueSeverity(relatedRows),
+        severity,
+        highestRiskLevel: severity,
         relatedRowIds: relatedRows.map((row) => row.rowId),
         relatedProductionOrderNos: uniqueStrings(relatedRows.map((row) => row.productionOrderNo)),
         relatedOriginalCutOrderNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedOriginalCutOrderNos)),
         relatedMergeBatchNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedMergeBatchNos)),
         relatedUsageNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedUsageNos)),
         relatedProcessOrderNos: uniqueStrings(relatedRows.flatMap((row) => row.relatedProcessOrderNos)),
-        summary: `${meta.detailText} 当前关联 ${formatCount(relatedRows.length)} 个生产单收口行。`,
-        actionHint: meta.actionHint,
+        blockerIds: uniqueStrings(relatedBlockers.map((item) => item.blockerId)),
+        blockingProductionOrderCount: uniqueStrings(relatedRows.map((row) => row.productionOrderNo)).length,
+        blockingObjectCount: uniqueStrings(relatedBlockers.map((item) => `${item.sourceType}:${item.sourceId}`)).length,
+        primaryActionLabel,
+        summary: `当前阻塞生产单 ${formatCount(uniqueStrings(relatedRows.map((row) => row.productionOrderNo)).length)} 个 / 阻塞对象 ${formatCount(uniqueStrings(relatedBlockers.map((item) => `${item.sourceType}:${item.sourceId}`)).length)} 个。`,
+        actionHint: primaryActionLabel,
       }
     })
     .filter((item): item is CuttingSummaryIssue => Boolean(item))
@@ -806,7 +977,7 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
         nodeType: 'merge-batch',
         nodeLabel: batch.mergeBatchNo,
         relatedIds: [batch.mergeBatchId, batch.mergeBatchNo],
-        status: batch.status,
+        status: getMergeBatchStatusMeta(batch.status).label,
         children: [],
       }))
 
@@ -818,7 +989,7 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
         nodeType: 'ticket',
         nodeLabel: record.ticketNo,
         relatedIds: [record.ticketRecordId, record.ticketNo],
-        status: record.schemaVersion ? `二维码 ${record.schemaVersion}` : '旧版二维码兼容',
+        status: record.schemaVersion ? `菲票码 ${record.schemaVersion}` : '菲票码待补版本',
         children: [],
       }))
 
@@ -867,7 +1038,7 @@ export function buildCuttingTraceTree(detail: Omit<CuttingSummaryDetailPanelData
       nodeType: 'production-order',
       nodeLabel: detail.row.productionOrderNo,
       relatedIds: [detail.row.productionOrderId, detail.row.productionOrderNo],
-      status: `${detail.row.currentStageLabel} / ${cuttingSummaryRiskMetaMap[detail.row.overallRiskLevel].label}`,
+      status: `${detail.completionMeta.label} / ${detail.row.currentStageLabel}`,
       children: [...originalNodes, ...replenishmentNodes, ...specialProcessNodes],
     },
   ]
@@ -907,9 +1078,25 @@ export function buildSummaryDetailPanelData(
   const conditionItems = options.transferBagReturnView.conditionItems.filter((item) => usageIdSet.has(item.usageId))
   const replenishments = options.replenishmentView.rows.filter((item) => item.productionOrderNos.includes(row.productionOrderNo))
   const specialProcesses = options.specialProcessView.rows.filter((item) => item.productionOrderNos.includes(row.productionOrderNo))
+  const sourceObjects = buildSummarySourceObjects({
+    row,
+    originalRows,
+    mergeBatches,
+    ticketOwners,
+    printJobs,
+    bagUsages,
+    replenishments,
+    specialProcesses,
+  })
 
   const base = {
     row,
+    completionMeta: cuttingCheckCompletionMetaMap[row.completionState],
+    primaryBlocker: row.primaryBlockerSectionKey ? row.blockerItems[0] || null : null,
+    blockerItems: row.blockerItems,
+    sectionStates: row.checkSections,
+    nextActions: row.nextActions,
+    sourceObjects,
     productionRow,
     originalRows,
     mergeBatches,
@@ -966,7 +1153,7 @@ export function buildSummaryDashboardCards(
       key: 'replenishment-open',
       label: '待处理补料建议数',
       value: dashboard.openReplenishmentCount,
-      hint: '待审核或待回写',
+      hint: '待审核或待执行动作',
       accentClass: 'text-amber-600',
       filterType: 'pending-replenishment',
       filterValue: 'true',
@@ -975,7 +1162,7 @@ export function buildSummaryDashboardCards(
       key: 'special-process-open',
       label: '特殊工艺单数',
       value: dashboard.openSpecialProcessCount,
-      hint: '当前待执行 / 执行中',
+      hint: '含草稿、待执行、执行中与预留类型',
       accentClass: 'text-fuchsia-600',
       filterType: 'special-process',
       filterValue: 'true',
@@ -991,14 +1178,14 @@ export function buildSummaryDashboardCards(
       key: 'ticket-unprinted',
       label: '未打印票主体数',
       value: dashboard.unprintedOwnerCount,
-      hint: '待打票或部分已打票',
+      hint: '待打印或部分已打印',
       accentClass: 'text-sky-600',
       filterType: 'pending-ticket',
       filterValue: 'true',
     },
     {
       key: 'bag-open',
-      label: '待交接 / 待回仓 usage 数',
+      label: '待交接 / 待回仓使用周期数',
       value: dashboard.bagOpenUsageCount,
       hint: '交接与返仓闭环待处理',
       accentClass: 'text-orange-600',
@@ -1040,8 +1227,8 @@ export function buildCuttingSummaryViewModel(options: CuttingSummaryBuildOptions
     productionOrderCount: rows.length,
     originalCutOrderCount: rows.reduce((sum, row) => sum + row.originalCutOrderCount, 0),
     mergeBatchCount: options.mergeBatches.length,
-    openReplenishmentCount: options.replenishmentView.rows.filter((item) => !['NO_ACTION', 'REJECTED', 'APPLIED'].includes(item.statusMeta.key)).length,
-    openSpecialProcessCount: options.specialProcessView.rows.filter((item) => !['DONE', 'CANCELLED'].includes(item.status)).length,
+    openReplenishmentCount: options.replenishmentView.rows.filter((item) => !['NO_ACTION', 'REJECTED', 'COMPLETED'].includes(item.statusMeta.key)).length,
+    openSpecialProcessCount: options.specialProcessView.rows.filter((item) => isOpenSpecialProcess(item)).length,
     ticketPrintedCount: options.feiViewModel.ticketRecords.length,
     unprintedOwnerCount: options.feiViewModel.owners.filter((owner) => !['PRINTED', 'REPRINTED'].includes(owner.ticketStatus)).length,
     bagOpenUsageCount: options.transferBagReturnView.waitingReturnUsages.filter((item) => !['CLOSED', 'EXCEPTION_CLOSED'].includes(item.usageStatus)).length,

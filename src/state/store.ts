@@ -21,6 +21,18 @@ const UNIFIED_PROGRESS_EXCEPTIONS_PATH = '/fcs/progress/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_TITLE = '异常定位与处理'
 const REMOVED_FCS_TAB_KEYS = new Set(['workbench-risks', 'process-dependencies', 'process-qc-standards'])
 const REMOVED_FCS_TAB_PATHS = new Set(['/fcs/workbench/risks', '/fcs/process/dependencies', '/fcs/process/qc-standards'])
+const FCS_TAB_TITLE_MIGRATIONS: Record<string, string> = {
+  '裁片单（原始单）': '原始裁片单',
+  '仓库配料 / 领料': '仓库配料领料',
+  '唛架 / 铺布': '唛架铺布',
+  '周转口袋 / 车缝交接': '周转口袋车缝交接',
+  '扣款/补差管理': '扣款补差管理',
+  '扎包/周转包父码管理': '扎包周转包父码管理',
+  '调度策略（限额/优先级）': '调度策略',
+  '裁片异常收口': '裁片后续管理',
+  '裁剪总结': '裁剪总表',
+  菲票打印记录: '打印菲票记录',
+}
 
 function createEmptyTabs(): AllSystemTabs {
   const tabs: AllSystemTabs = {}
@@ -48,7 +60,7 @@ function getStoredTabs(): AllSystemTabs {
       }
     }
 
-    const migrated = pruneRemovedFcsTabs(migrateLegacyDispatchExceptionsTabs(parsed))
+    const migrated = pruneRemovedFcsTabs(migrateFcsTabTitles(migrateLegacyDispatchExceptionsTabs(parsed)))
     localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(migrated))
     return migrated
   } catch {
@@ -128,6 +140,32 @@ function migrateLegacyDispatchExceptionsTabs(allTabs: AllSystemTabs): AllSystemT
       ...fcsTabs,
       tabs: Array.from(deduped.values()),
       activeKey: nextActiveKey,
+    },
+  }
+}
+
+function migrateFcsTabTitles(allTabs: AllSystemTabs): AllSystemTabs {
+  const fcsTabs = allTabs.fcs
+  if (!fcsTabs) return allTabs
+
+  let changed = false
+  const nextTabs = fcsTabs.tabs.map((tab) => {
+    const nextTitle = FCS_TAB_TITLE_MIGRATIONS[tab.title]
+    if (!nextTitle || nextTitle === tab.title) return tab
+    changed = true
+    return {
+      ...tab,
+      title: nextTitle,
+    }
+  })
+
+  if (!changed) return allTabs
+
+  return {
+    ...allTabs,
+    fcs: {
+      ...fcsTabs,
+      tabs: nextTabs,
     },
   }
 }

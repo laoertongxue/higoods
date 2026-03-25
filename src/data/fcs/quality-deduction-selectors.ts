@@ -284,10 +284,15 @@ export interface FutureMobileFactoryQcListItem {
   settlementImpactStatus: QualityDeductionSettlementImpactStatus
   settlementImpactStatusLabel: string
   responseDeadlineAt?: string
+  respondedAt?: string
+  autoConfirmedAt?: string
   factoryResponseStatus: QualityDeductionFactoryResponseStatus
   factoryResponseStatusLabel: string
   disputeStatus: QualityDeductionDisputeStatus
   disputeStatusLabel: string
+  submittedAt?: string
+  adjudicatedAt?: string
+  resultWrittenBackAt?: string
   caseStatus: QualityDeductionCaseStatus
   caseStatusLabel: string
   isOverdue: boolean
@@ -373,6 +378,8 @@ export interface FutureMobileFactoryQcSummary {
   disputingCount: number
   processedCount: number
   historyCount: number
+  nearestPendingDeadlineAt?: string
+  nearestSoonOverdueDeadlineAt?: string
 }
 
 export interface FutureSettlementAdjustmentListItem {
@@ -1025,11 +1032,16 @@ function toFutureMobileListItem(caseFact: QualityDeductionCaseFact): FutureMobil
     settlementImpactStatus: settlementImpact.status,
     settlementImpactStatusLabel: QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL[settlementImpact.status],
     responseDeadlineAt: factoryResponse?.responseDeadlineAt,
+    respondedAt: factoryResponse?.respondedAt,
+    autoConfirmedAt: factoryResponse?.autoConfirmedAt,
     factoryResponseStatus: factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED',
     factoryResponseStatusLabel:
       QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL[factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED'],
     disputeStatus: disputeCase?.status ?? 'NONE',
     disputeStatusLabel: QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL[disputeCase?.status ?? 'NONE'],
+    submittedAt: disputeCase?.submittedAt,
+    adjudicatedAt: disputeCase?.adjudicatedAt,
+    resultWrittenBackAt: disputeCase?.resultWrittenBackAt,
     caseStatus,
     caseStatusLabel: QUALITY_DEDUCTION_CASE_STATUS_LABEL[caseStatus],
     isOverdue: factoryResponse?.isOverdue ?? false,
@@ -1064,15 +1076,35 @@ export function listFutureMobileFactoryQcBuckets(factoryId: string): FutureMobil
   return buckets
 }
 
+export function listFutureMobileFactorySoonOverdueQcItems(factoryId: string): FutureMobileFactoryQcListItem[] {
+  ensureQualityDeductionLifecycle()
+  return listFutureMobileFactoryQcBuckets(factoryId)
+    .pending.filter((item) => isSoonOverdue(item.responseDeadlineAt) && !item.isOverdue)
+    .slice()
+    .sort((left, right) => {
+      const leftTime = left.responseDeadlineAt ? new Date(left.responseDeadlineAt.replace(' ', 'T')).getTime() : Number.MAX_SAFE_INTEGER
+      const rightTime = right.responseDeadlineAt ? new Date(right.responseDeadlineAt.replace(' ', 'T')).getTime() : Number.MAX_SAFE_INTEGER
+      return leftTime - rightTime
+    })
+}
+
 export function getFutureMobileFactoryQcSummary(factoryId: string): FutureMobileFactoryQcSummary {
   ensureQualityDeductionLifecycle()
   const buckets = listFutureMobileFactoryQcBuckets(factoryId)
+  const soonOverdueItems = listFutureMobileFactorySoonOverdueQcItems(factoryId)
+  const pendingDeadlines = buckets.pending
+    .map((item) => item.responseDeadlineAt)
+    .filter((item): item is string => Boolean(item))
+    .slice()
+    .sort()
   return {
     pendingCount: buckets.pending.length,
-    soonOverdueCount: buckets.pending.filter((item) => isSoonOverdue(item.responseDeadlineAt) && !item.isOverdue).length,
+    soonOverdueCount: soonOverdueItems.length,
     disputingCount: buckets.disputing.length,
     processedCount: buckets.processed.length,
     historyCount: buckets.history.length,
+    nearestPendingDeadlineAt: pendingDeadlines[0],
+    nearestSoonOverdueDeadlineAt: soonOverdueItems[0]?.responseDeadlineAt,
   }
 }
 

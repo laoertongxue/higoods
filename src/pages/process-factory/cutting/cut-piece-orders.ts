@@ -1,4 +1,4 @@
-// 旧 renderer 继续承接新的 canonical 页面“裁片单（原始单）”。
+// 旧 renderer 继续承接新的 canonical 页面“原始裁片单”。
 // 本页主对象冻结为原始裁片单；生产单只作为来源关系，合并裁剪批次只作为执行层关联记录。
 import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
@@ -58,6 +58,17 @@ import {
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
 } from './layout.helpers'
+import {
+  buildCuttingDrillChipLabels,
+  buildCuttingDrillSummary,
+  buildCuttingRouteWithContext,
+  buildReturnToSummaryContext,
+  hasSummaryReturnContext,
+  normalizeLegacyCuttingPayload,
+  readCuttingDrillContextFromLocation,
+  type CuttingDrillContext,
+  type CuttingNavigationTarget,
+} from './navigation-context'
 
 type FilterField =
   | 'keyword'
@@ -102,6 +113,7 @@ interface OriginalOrdersPageState {
   pageSize: number
   querySignature: string
   prefilter: OriginalCutOrderPrefilter | null
+  drillContext: CuttingDrillContext | null
 }
 
 const state: OriginalOrdersPageState = {
@@ -111,6 +123,7 @@ const state: OriginalOrdersPageState = {
   pageSize: 20,
   querySignature: '',
   prefilter: null,
+  drillContext: null,
 }
 
 function getCurrentQueryString(): string {
@@ -169,17 +182,18 @@ function getViewModel() {
 
 function parsePrefilterFromPath(): OriginalCutOrderPrefilter | null {
   const params = getCurrentSearchParams()
+  const drillContext = readCuttingDrillContextFromLocation(params)
   const nextPrefilter: OriginalCutOrderPrefilter = {}
 
-  const productionOrderId = params.get('productionOrderId') || ''
-  const productionOrderNo = params.get('productionOrderNo') || ''
-  const originalCutOrderId = params.get('originalCutOrderId') || ''
-  const originalCutOrderNo = params.get('originalCutOrderNo') || ''
-  const mergeBatchId = params.get('mergeBatchId') || ''
-  const mergeBatchNo = params.get('mergeBatchNo') || ''
-  const styleCode = params.get('styleCode') || ''
-  const spuCode = params.get('spuCode') || ''
-  const materialSku = params.get('materialSku') || ''
+  const productionOrderId = drillContext?.productionOrderId || params.get('productionOrderId') || ''
+  const productionOrderNo = drillContext?.productionOrderNo || params.get('productionOrderNo') || ''
+  const originalCutOrderId = drillContext?.originalCutOrderId || params.get('originalCutOrderId') || ''
+  const originalCutOrderNo = drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || ''
+  const mergeBatchId = drillContext?.mergeBatchId || params.get('mergeBatchId') || ''
+  const mergeBatchNo = drillContext?.mergeBatchNo || params.get('mergeBatchNo') || ''
+  const styleCode = drillContext?.styleCode || params.get('styleCode') || ''
+  const spuCode = drillContext?.spuCode || params.get('spuCode') || ''
+  const materialSku = drillContext?.materialSku || params.get('materialSku') || ''
 
   if (productionOrderId) nextPrefilter.productionOrderId = productionOrderId
   if (productionOrderNo) nextPrefilter.productionOrderNo = productionOrderNo
@@ -198,6 +212,7 @@ function syncStateFromPath(viewModel = getViewModel()): void {
   const pathname = appStore.getState().pathname
   if (state.querySignature === pathname) return
 
+  state.drillContext = readCuttingDrillContextFromLocation(getCurrentSearchParams())
   state.prefilter = parsePrefilterFromPath()
   state.querySignature = pathname
   resetPagination()
@@ -360,12 +375,16 @@ function renderFilterSelect(
 }
 
 function renderHeaderActions(): string {
+  const returnToSummary = hasSummaryReturnContext(state.drillContext)
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="return-summary">返回裁剪总表</button>`
+    : ''
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress-index">返回生产单进度</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep-index">去仓库配料 / 领料</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading-index">去唛架 / 铺布</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-summary-index">查看裁剪总结</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep-index">去仓库配料领料</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading-index">去唛架铺布</button>
+      ${returnToSummary}
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }
@@ -404,11 +423,11 @@ function getFilterLabels(): string[] {
 }
 
 function renderPrefilterBar(): string {
-  const labels = getPrefilterLabels()
+  const labels = Array.from(new Set([...buildCuttingDrillChipLabels(state.drillContext), ...getPrefilterLabels()]))
   if (!labels.length) return ''
 
   return renderWorkbenchStateBar({
-    summary: '当前预筛条件',
+    summary: buildCuttingDrillSummary(state.drillContext) || '当前预筛条件',
     chips: labels.map((label) => renderWorkbenchFilterChip(label, 'data-cutting-piece-action="clear-prefilter"', 'amber')),
     clearAttrs: 'data-cutting-piece-action="clear-prefilter"',
   })
@@ -645,8 +664,8 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                               <div class="flex flex-wrap gap-2">
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">查看配料</button>
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架 / 铺布</button>
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去菲票 / 打编号</button>
+                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
+                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
                               </div>
                             </td>
                           </tr>
@@ -725,7 +744,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去配料</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去菲票</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
     </div>
   `
 
@@ -825,7 +844,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             ])}
             <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">${escapeHtml(qrSummary.compatibilityText)}</div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去菲票 / 打编号</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
             </div>
           </div>
         `,
@@ -872,7 +891,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       )}
 
       ${renderDetailSection(
-        '唛架 / 铺布摘要',
+        '唛架铺布摘要',
         `
           <div class="space-y-3">
             ${renderInfoGrid([
@@ -894,7 +913,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               <p class="mt-1">当前已可查看铺布记录数、卷记录数、人员记录数、最近铺布记录与补料预警摘要，并继续跳转到铺布页或补料页处理。</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架 / 铺布</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
             </div>
           </div>
@@ -921,7 +940,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               }
             </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料 / 领料</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
             </div>
           </div>
         `,
@@ -931,9 +950,9 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         '关联单据 / 关联入口',
         `
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料 / 领料</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架 / 铺布</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去菲票 / 打编号</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
           </div>
@@ -961,7 +980,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   return uiDetailDrawer(
     {
       title: row.originalCutOrderNo,
-      subtitle: `来源生产单 ${row.productionOrderNo} · ${row.styleCode || row.spuCode || '款号待补'}`,
+      subtitle: '',
       closeAction: { prefix: 'cuttingPiece', action: 'close-overlay' },
       width: 'lg',
     },
@@ -1000,22 +1019,19 @@ function navigateToRecordTarget(
   if (!recordId) return false
   const row = getViewModel().rowsById[recordId]
   if (!row) return false
-
-  const pathMap: Record<keyof OriginalCutOrderRow['navigationPayload'], string> = {
-    productionProgress: getCanonicalCuttingPath('production-progress'),
-    materialPrep: getCanonicalCuttingPath('material-prep'),
-    markerSpreading: getCanonicalCuttingPath('marker-spreading'),
-    feiTickets: getCanonicalCuttingPath('fei-tickets'),
-    replenishment: getCanonicalCuttingPath('replenishment'),
-    mergeBatches: getCanonicalCuttingPath('merge-batches'),
-    sameProductionOrders: getCanonicalCuttingPath('original-orders'),
-  }
-
-  const payload =
-    target === 'markerSpreading'
-      ? { ...row.navigationPayload[target], tab: 'spreadings' }
-      : row.navigationPayload[target]
-  appStore.navigate(buildRouteWithQuery(pathMap[target], payload))
+  const context = normalizeLegacyCuttingPayload(row.navigationPayload[target], 'original-orders', {
+    productionOrderId: row.productionOrderId,
+    productionOrderNo: row.productionOrderNo,
+    originalCutOrderId: row.originalCutOrderId,
+    originalCutOrderNo: row.originalCutOrderNo,
+    mergeBatchNo: row.latestMergeBatchNo || undefined,
+    styleCode: row.styleCode,
+    spuCode: row.spuCode,
+    materialSku: row.materialSku,
+    autoOpenDetail: true,
+    focusTab: target === 'markerSpreading' ? 'spreadings' : undefined,
+  })
+  appStore.navigate(buildCuttingRouteWithContext(target === 'sameProductionOrders' ? 'originalOrders' : (target as CuttingNavigationTarget), context))
   return true
 }
 
@@ -1068,6 +1084,7 @@ export function handleCraftCuttingPieceOrdersEvent(target: Element): boolean {
 
   if (action === 'clear-prefilter') {
     state.prefilter = null
+    state.drillContext = null
     state.activeOrderId = null
     state.querySignature = getCanonicalCuttingPath('original-orders')
     appStore.navigate(getCanonicalCuttingPath('original-orders'))
@@ -1135,6 +1152,13 @@ export function handleCraftCuttingPieceOrdersEvent(target: Element): boolean {
 
   if (action === 'go-summary-index') {
     appStore.navigate(getCanonicalCuttingPath('summary'))
+    return true
+  }
+
+  if (action === 'return-summary') {
+    const context = buildReturnToSummaryContext(state.drillContext)
+    if (!context) return false
+    appStore.navigate(buildCuttingRouteWithContext('summary', context))
     return true
   }
 

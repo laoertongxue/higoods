@@ -1,5 +1,5 @@
-import { processTasks } from './process-tasks'
-import { productionOrders } from './production-orders'
+import { processTasks } from './process-tasks.ts'
+import { productionOrders } from './production-orders.ts'
 import {
   initialQualityInspections,
   initialDeductionBasisItems,
@@ -7,7 +7,7 @@ import {
   BASIS_SEEDS,
   seedParentTask,
   seedProductionOrder,
-} from './store-domain-quality-seeds'
+} from './store-domain-quality-seeds.ts'
 
 export function applyQualitySeedBootstrap() {
   if (!processTasks.find(task => task.taskId === seedParentTask.taskId)) {

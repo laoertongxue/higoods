@@ -44,13 +44,12 @@ function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function buildSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
+function buildSummaryCard(label: string, value: number, _hint: string, accentClass: string): string {
   return `
     <article class="rounded-lg border bg-card p-4">
       <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
       <div class="mt-3 flex items-end justify-between gap-3">
         <p class="text-3xl font-semibold tabular-nums ${accentClass}">${value}</p>
-        <p class="text-right text-xs text-muted-foreground">${escapeHtml(hint)}</p>
       </div>
     </article>
   `
@@ -115,12 +114,8 @@ function renderEmptyState(text: string): string {
 
 function renderPageHeader(): string {
   return `
-    <header class="flex flex-col gap-3">
-      <div>
-        <p class="mb-1 text-sm text-muted-foreground">平台运营系统 / 任务进度与异常</p>
-        <h1 class="text-2xl font-bold">裁片任务总览</h1>
-        <p class="mt-2 max-w-4xl text-sm text-muted-foreground">用于平台侧查看裁片任务整体盘面、识别卡点并快速跳转到对应 PCS 页面跟进。</p>
-      </div>
+    <header>
+      <h1 class="text-2xl font-bold">裁片任务总览</h1>
     </header>
   `
 }
@@ -131,7 +126,7 @@ function renderSummaryCards(): string {
     <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
       ${buildSummaryCard('进行中的裁片任务数', summary.inProgressCount, '仍处于现场执行或收口阶段', 'text-slate-900')}
       ${buildSummaryCard('高风险裁片任务数', summary.highRiskCount, '优先关注差异、补料和交期问题', 'text-rose-600')}
-      ${buildSummaryCard('待领料任务数', summary.pendingPickupCount, '扫码领料仍未完成', 'text-sky-600')}
+      ${buildSummaryCard('待领料任务数', summary.pendingPickupCount, '扫裁片单主码领料仍未完成', 'text-sky-600')}
       ${buildSummaryCard('待补料处理任务数', summary.pendingReplenishmentCount, '补料建议仍需平台跟进', 'text-violet-600')}
       ${buildSummaryCard('待入仓 / 待交接任务数', summary.pendingWarehouseOrHandoverCount, '仓务收口仍未完成', 'text-amber-600')}
       ${buildSummaryCard('需复核 / 有照片凭证任务数', summary.recheckOrPhotoCount, '需要核对差异和凭证', 'text-fuchsia-600')}
@@ -146,7 +141,6 @@ function renderFocusSection(): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">平台待跟进区</h2>
-          <p class="mt-1 text-sm text-muted-foreground">优先暴露高风险补料、领料差异待复核、执行停滞、未入仓与待交接等关键问题。</p>
         </div>
         <span class="text-sm text-muted-foreground">当前重点 ${rows.length} 单</span>
       </div>
@@ -379,7 +373,6 @@ function renderSummaryDrawer(): string {
   return uiDrawer(
     {
       title: '裁片任务跟进摘要',
-      subtitle: '平台只查看盘面摘要、识别卡点并跳回对应页面跟进。',
       closeAction: { prefix: 'platform-cutting', action: 'close-summary' },
       width: 'lg',
     },
@@ -422,7 +415,7 @@ function renderSummaryDrawer(): string {
               <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.pickupSummary.printCopyCount}</p>
             </div>
             <div class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">二维码 / 扫码结果</p>
+              <p class="text-xs text-muted-foreground">裁片单主码 / 扫描结果</p>
               <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.qrStatus)} · ${escapeHtml(row.pickupSummary.latestResultLabel)}</p>
               <p class="mt-2 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.pickupSummary.latestScannedAt)} · ${escapeHtml(row.pickupSummary.latestScannedBy)}</p>
               <div class="mt-2 flex flex-wrap gap-2">

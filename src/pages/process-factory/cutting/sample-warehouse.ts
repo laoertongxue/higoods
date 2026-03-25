@@ -152,7 +152,7 @@ function renderHeaderActions(): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-original-orders-index">查看相关裁片单 / 款号</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-summary-index">查看裁剪总结</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }
@@ -327,7 +327,7 @@ function renderDetailDrawer(): string {
   return uiDetailDrawer(
     {
       title: `样衣仓详情 · ${item.sampleNo}`,
-      subtitle: '当前页只承接样衣主档、持有人、位置与流转记录。',
+      subtitle: '',
       closeAction: { prefix: 'sample-warehouse', action: 'close-detail' },
       width: 'lg',
     },
@@ -437,7 +437,7 @@ function renderDetailDrawer(): string {
           </div>
           <div class="mt-4 flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-original-orders" data-item-id="${escapeHtml(item.sampleItemId)}">查看相关裁片单</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-summary" data-item-id="${escapeHtml(item.sampleItemId)}">查看裁剪总结</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-summary" data-item-id="${escapeHtml(item.sampleItemId)}">去裁剪总表</button>
           </div>
         </section>
       </div>

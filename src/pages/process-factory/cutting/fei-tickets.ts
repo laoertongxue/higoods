@@ -51,10 +51,21 @@ import {
   type TransferBagStore,
 } from './transfer-bags-model'
 import {
+  renderWorkbenchFilterChip,
+  renderWorkbenchStateBar,
   renderStickyFilterShell,
   renderStickyTableScroller,
 } from './layout.helpers'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+import {
+  buildCuttingDrillChipLabels,
+  buildCuttingDrillSummary,
+  buildCuttingRouteWithContext,
+  buildReturnToSummaryContext,
+  hasSummaryReturnContext,
+  readCuttingDrillContextFromLocation,
+  serializeCuttingDrillContext,
+} from './navigation-context'
 
 interface FeiTicketsPageState {
   filters: PrintableUnitFilters
@@ -170,6 +181,16 @@ function buildRouteWithQuery(pathname: string, payload?: Record<string, string |
   })
   const query = params.toString()
   return query ? `${pathname}?${query}` : pathname
+}
+
+function clearCurrentFeiDrillRoute(): string {
+  const pathname = getCurrentPathname()
+  const params = getCurrentSearchParams()
+  const drillPayload = serializeCuttingDrillContext(getCurrentDrillContext())
+  Object.keys(drillPayload).forEach((key) => {
+    params.delete(key)
+  })
+  return buildRouteWithQuery(pathname, Object.fromEntries(params.entries()))
 }
 
 function nowText(input = new Date()): string {
@@ -303,13 +324,30 @@ function inferPrintableUnitType(params: URLSearchParams): 'ALL' | PrintableUnitT
   return 'ALL'
 }
 
+function getCurrentDrillContext() {
+  return readCuttingDrillContextFromLocation(getCurrentSearchParams())
+}
+
+function renderReturnToSummaryButton(): string {
+  if (!hasSummaryReturnContext(getCurrentDrillContext())) return ''
+  return `<button type="button" data-cutting-fei-action="return-summary" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">返回裁剪总表</button>`
+}
+
 function buildFiltersFromQuery(params: URLSearchParams): PrintableUnitFilters {
+  const drillContext = readCuttingDrillContextFromLocation(params)
+  const keyword =
+    params.get('keyword') ||
+    drillContext?.printableUnitNo ||
+    drillContext?.ticketNo ||
+    drillContext?.originalCutOrderNo ||
+    drillContext?.mergeBatchNo ||
+    ''
   return {
-    keyword: params.get('keyword') || '',
+    keyword,
     printableUnitType: inferPrintableUnitType(params),
-    styleCode: params.get('styleCode') || '',
-    fabricSku: params.get('fabricSku') || params.get('materialSku') || '',
-    productionOrderNo: params.get('productionOrderNo') || '',
+    styleCode: drillContext?.styleCode || params.get('styleCode') || '',
+    fabricSku: params.get('fabricSku') || drillContext?.materialSku || params.get('materialSku') || '',
+    productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || '',
     printableUnitStatus: mapLegacyStatus(params.get('printableUnitStatus') || params.get('ticketStatus')),
     printedFrom: params.get('printedFrom') || '',
     printedTo: params.get('printedTo') || '',
@@ -525,6 +563,7 @@ function buildDetailRoute(
   payload?: Record<string, string | undefined>,
 ): string {
   return buildRouteWithQuery(getCanonicalCuttingPath(pageKey), {
+    ...serializeCuttingDrillContext(getCurrentDrillContext()),
     ...buildPrintableUnitQuery(unit),
     ...payload,
   })
@@ -536,6 +575,7 @@ function buildActionHref(
   payload?: Record<string, string | undefined>,
 ): string {
   return buildRouteWithQuery(getCanonicalCuttingPath(pageKey), {
+    ...serializeCuttingDrillContext(getCurrentDrillContext()),
     ...buildPrintableUnitQuery(unit),
     ...payload,
   })
@@ -815,7 +855,15 @@ function renderTruncatedText(value: string, fallback = '—', maxWidthClass = 'm
 }
 
 function renderPrintablePageShell(content: string): string {
-  return `<div class="space-y-3 p-4">${content}</div>`
+  const drillContext = getCurrentDrillContext()
+  const locateBar =
+    drillContext &&
+    renderWorkbenchStateBar({
+      summary: buildCuttingDrillSummary(drillContext),
+      chips: buildCuttingDrillChipLabels(drillContext).map((label) => renderWorkbenchFilterChip(label, '', 'amber')),
+      clearAttrs: 'data-cutting-fei-action="clear-locate"',
+    })
+  return `<div class="space-y-3 p-4">${locateBar || ''}${content}</div>`
 }
 
 function renderListTable(bundle: FeiTicketsDataBundle): string {
@@ -901,10 +949,12 @@ function renderListPage(): string {
   const bundle = getDataBundle()
   const pathname = getCurrentPathname()
   const meta = getCanonicalCuttingMeta(pathname, 'fei-tickets')
+  const summaryAction = renderReturnToSummaryButton()
 
   return renderPrintablePageShell(`
     ${renderCuttingPageHeader(meta, {
       showCompatibilityBadge: isCuttingAliasPath(pathname),
+      actionsHtml: summaryAction ? `<div class="flex flex-wrap gap-2">${summaryAction}</div>` : '',
     })}
     ${renderFilterArea()}
     ${renderStatusTabsArea(bundle)}
@@ -1024,12 +1074,11 @@ function renderDetailTabs(unit: PrintableUnit, activeTab: DetailTabKey): string 
   `
 }
 
-function renderSectionCard(title: string, subtitle: string, content: string): string {
+function renderSectionCard(title: string, _subtitle: string, content: string): string {
   return `
     <section class="rounded-lg border bg-white shadow-sm">
       <div class="border-b border-slate-200 px-4 py-3">
         <h2 class="text-sm font-semibold text-slate-900">${escapeHtml(title)}</h2>
-        ${subtitle ? `<p class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(subtitle)}</p>` : ''}
       </div>
       <div class="p-4">${content}</div>
     </section>
@@ -1325,7 +1374,9 @@ function renderDetailOrChildPage(pageKey: 'fei-ticket-detail' | 'fei-ticket-prin
 
   if (!unit) {
     return renderPrintablePageShell(`
-      ${renderCuttingPageHeader(meta)}
+      ${renderCuttingPageHeader(meta, {
+        actionsHtml: renderReturnToSummaryButton() ? `<div class="flex flex-wrap gap-2">${renderReturnToSummaryButton()}</div>` : '',
+      })}
       ${renderSectionCard('未找到打印单元', '', `<div class="space-y-3"><p class="text-sm text-slate-600">请先从打印菲票进入。</p>${renderBackToList(null)}</div>`)}
     `)
   }
@@ -1344,7 +1395,7 @@ function renderDetailOrChildPage(pageKey: 'fei-ticket-detail' | 'fei-ticket-prin
 
   return renderPrintablePageShell(`
     ${renderCuttingPageHeader(meta, {
-      actions: renderBackToList(unit),
+      actionsHtml: `<div class="flex flex-wrap gap-2">${renderBackToList(unit)}${renderReturnToSummaryButton()}</div>`,
     })}
     ${renderDetailSummary(detailView)}
     ${renderDetailTabs(unit, activeTab)}
@@ -1414,7 +1465,7 @@ function renderOperationValidation(message: string, unit: PrintableUnit | null, 
   const meta = getCanonicalCuttingMeta(getCurrentPathname(), pageKey)
   return renderPrintablePageShell(`
     ${renderCuttingPageHeader(meta, {
-      actions: renderBackToList(unit),
+      actionsHtml: `<div class="flex flex-wrap gap-2">${renderBackToList(unit)}${renderReturnToSummaryButton()}</div>`,
     })}
     ${renderSectionCard('当前操作不可执行', '', `<p class="text-sm text-slate-600">${escapeHtml(message)}</p>`)}
   `)
@@ -1495,7 +1546,7 @@ function renderOperationPage(pageKey: OperationPageKey): string {
 
   return renderPrintablePageShell(`
     ${renderCuttingPageHeader(meta, {
-      actions: renderBackToList(unit),
+      actionsHtml: `<div class="flex flex-wrap gap-2">${renderBackToList(unit)}${renderReturnToSummaryButton()}</div>`,
     })}
     ${renderSectionCard('当前打印单元基础信息', '', `${infoGrid}${operationSpecific}`)}
     ${
@@ -1687,6 +1738,19 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
 
   if (action === 'reset-filters') {
     resetFilters()
+    return true
+  }
+
+  if (action === 'clear-locate') {
+    state.querySignature = ''
+    appStore.navigate(clearCurrentFeiDrillRoute())
+    return true
+  }
+
+  if (action === 'return-summary') {
+    const context = buildReturnToSummaryContext(getCurrentDrillContext())
+    if (!context) return false
+    appStore.navigate(buildCuttingRouteWithContext('summary', context))
     return true
   }
 

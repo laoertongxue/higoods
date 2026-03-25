@@ -105,7 +105,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
     return renderPdaCuttingPageLayout({
       taskId,
       title: '交接扫码',
-      subtitle: '在裁片任务上下文里承接交接对象、去向和最近交接记录。',
+      subtitle: '',
       activeTab: 'handover',
       body: '',
       backHref: buildPdaCuttingRoute(taskId, 'task'),
@@ -191,7 +191,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   return renderPdaCuttingPageLayout({
     taskId,
     title: '交接扫码',
-    subtitle: '承接裁片任务的交接对象、去向确认和最近交接记录。',
+    subtitle: '',
     activeTab: 'handover',
     body,
     backHref: buildPdaCuttingRoute(taskId, 'task'),

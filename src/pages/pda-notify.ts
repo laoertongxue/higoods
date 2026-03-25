@@ -8,12 +8,26 @@ import {
   PDA_MOCK_AWARDED_TENDER_NOTICES,
   PDA_MOCK_BIDDING_TENDERS,
 } from '../data/fcs/pda-mobile-mock'
+import {
+  getFutureMobileFactoryQcSummary,
+  listFutureMobileFactoryQcBuckets,
+  listFutureMobileFactorySoonOverdueQcItems,
+} from '../data/fcs/quality-deduction-selectors'
 import { renderPdaFrame } from './pda-shell'
 
 type NotifyTab = 'todo' | 'inbox'
 type NotifFilter = 'all' | 'unread' | 'read'
 
-type TodoType = '待接单' | '待报价' | '已中标' | '待领料' | '待交出' | '生产暂停' | '即将逾期'
+type TodoType =
+  | '待接单'
+  | '待报价'
+  | '已中标'
+  | '待领料'
+  | '待交出'
+  | '生产暂停'
+  | '质检扣款待处理'
+  | '质检扣款即将逾期'
+  | '即将逾期'
 
 interface PdaNotifyState {
   activeTab: NotifyTab
@@ -287,8 +301,14 @@ function getNotifyPageData(): {
     return dueInfo.prerequisiteMet && dueInfo.startRiskStatus === 'DUE_SOON'
   }).length
 
+  const qualitySummary = getFutureMobileFactoryQcSummary(selectedFactoryId)
+  const qualityBuckets = listFutureMobileFactoryQcBuckets(selectedFactoryId)
+  const qualitySoonItems = listFutureMobileFactorySoonOverdueQcItems(selectedFactoryId)
+  const nearestQualityPendingDeadline = qualitySummary.nearestPendingDeadlineAt ?? qualityBuckets.pending[0]?.responseDeadlineAt
+  const nearestQualitySoonDeadline = qualitySummary.nearestSoonOverdueDeadlineAt ?? qualitySoonItems[0]?.responseDeadlineAt
+
   const dueSoonTotalCount =
-    acceptSoonCount + MOCK_TENDERS_SOON.length + MOCK_HO_SOON_DEADLINES.length + execSoonCount + startSoonCount
+    acceptSoonCount + MOCK_TENDERS_SOON.length + MOCK_HO_SOON_DEADLINES.length + execSoonCount + startSoonCount + qualitySummary.soonOverdueCount
 
   const allNotifications = initialNotifications
     .filter(
@@ -365,6 +385,26 @@ function getNotifyPageData(): {
       bgClass: 'bg-red-50',
       href: '/fcs/pda/exec',
       query: { tab: 'blocked' },
+    },
+    {
+      key: 'quality-pending',
+      label: '质检扣款待处理',
+      count: qualitySummary.pendingCount,
+      icon: 'clipboard-check',
+      colorClass: 'text-amber-700',
+      bgClass: 'bg-amber-50',
+      href: '/fcs/pda/settlement',
+      query: { tab: 'quality', view: 'pending' },
+    },
+    {
+      key: 'quality-soondue',
+      label: '质检扣款即将逾期',
+      count: qualitySummary.soonOverdueCount,
+      icon: 'clock-3',
+      colorClass: 'text-rose-600',
+      bgClass: 'bg-rose-50',
+      href: '/fcs/pda/settlement',
+      query: { tab: 'quality', view: 'soon' },
     },
     {
       key: 'soondue',
@@ -477,6 +517,36 @@ function getNotifyPageData(): {
     })
   })
 
+  if (qualitySummary.pendingCount > 0) {
+    todoItems.push({
+      id: 'quality-pending-entry',
+      type: '质检扣款待处理',
+      title: `质检扣款待处理 ${qualitySummary.pendingCount} 条`,
+      subtitle: nearestQualityPendingDeadline
+        ? `最晚截止 ${nearestQualityPendingDeadline}，请在 48 小时窗口内确认处理或发起异议`
+        : '存在工厂责任的质检扣款待处理记录，请进入结算处理',
+      deadline: nearestQualityPendingDeadline,
+      href: '/fcs/pda/settlement',
+      query: { tab: 'quality', view: 'pending' },
+      urgent: qualitySummary.soonOverdueCount > 0,
+    })
+  }
+
+  if (qualitySummary.soonOverdueCount > 0) {
+    todoItems.push({
+      id: 'quality-soon-entry',
+      type: '质检扣款即将逾期',
+      title: `质检扣款快到 48 小时期限 ${qualitySummary.soonOverdueCount} 条`,
+      subtitle: nearestQualitySoonDeadline
+        ? `最紧急一条截止 ${nearestQualitySoonDeadline}，请尽快确认处理或上传图片/视频证据发起异议`
+        : '请尽快处理即将到期的质检扣款记录',
+      deadline: nearestQualitySoonDeadline,
+      href: '/fcs/pda/settlement',
+      query: { tab: 'quality', view: 'soon' },
+      urgent: true,
+    })
+  }
+
   if (dueSoonTotalCount > 0) {
     todoItems.push({
       id: 'due-soon-entry',
@@ -490,12 +560,14 @@ function getNotifyPageData(): {
 
   const todoOrder: Record<TodoType, number> = {
     生产暂停: 1,
-    即将逾期: 2,
-    待接单: 3,
-    待报价: 4,
-    已中标: 5,
-    待领料: 6,
-    待交出: 7,
+    质检扣款即将逾期: 2,
+    即将逾期: 3,
+    质检扣款待处理: 4,
+    待接单: 5,
+    待报价: 6,
+    已中标: 7,
+    待领料: 8,
+    待交出: 9,
   }
 
   todoItems.sort((a, b) => (todoOrder[a.type] ?? 9) - (todoOrder[b.type] ?? 9))
@@ -546,6 +618,8 @@ function renderTodoTypeBadge(type: TodoType): string {
     待领料: { label: '待领料', className: 'bg-amber-100 text-amber-700 border-amber-200' },
     待交出: { label: '待交出', className: 'bg-teal-100 text-teal-700 border-teal-200' },
     生产暂停: { label: '生产暂停', className: 'bg-red-100 text-red-700 border-red-200' },
+    质检扣款待处理: { label: '质检扣款待处理', className: 'bg-amber-100 text-amber-800 border-amber-200' },
+    质检扣款即将逾期: { label: '质检扣款即将逾期', className: 'bg-rose-100 text-rose-700 border-rose-200' },
     即将逾期: { label: '即将逾期', className: 'bg-rose-100 text-rose-700 border-rose-200' },
   }
 

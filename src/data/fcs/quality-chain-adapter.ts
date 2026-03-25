@@ -1,17 +1,17 @@
-import { applyQualitySeedBootstrap } from './store-domain-quality-bootstrap'
+import { applyQualitySeedBootstrap } from './store-domain-quality-bootstrap.ts'
 import {
   initialDeductionBasisItems,
   initialQualityInspections,
   initialReturnInboundBatches,
-} from './store-domain-quality-seeds'
-import type { DeductionBasisItem, QualityInspection } from './store-domain-quality-types'
+} from './store-domain-quality-seeds.ts'
+import type { DeductionBasisItem, QualityInspection } from './store-domain-quality-types.ts'
 import {
   getQualityDeductionCaseFactByBasisId,
   getQualityDeductionCaseFactByQcId,
   getQualityDeductionCaseFactByRouteKey,
   listQualityDeductionCaseFacts,
   resolveQualityDeductionQcId,
-} from './quality-deduction-repository'
+} from './quality-deduction-repository.ts'
 import { syncQualityDeductionLifecycle } from './quality-deduction-lifecycle.ts'
 import {
   listDeductionBasisCompatItems,
@@ -21,7 +21,7 @@ import {
   type CompatChainDispute,
   type CompatChainSettlementImpact,
   type CompatQcChainFact,
-} from './quality-deduction-selectors'
+} from './quality-deduction-selectors.ts'
 
 applyQualitySeedBootstrap()
 
@@ -185,6 +185,15 @@ export function buildQcDetailHref(routeKeyOrQcId: string): string {
   return `/fcs/quality/qc-records/${encodeURIComponent(qcId)}`
 }
 
+export function buildQcDeductionHref(routeKeyOrQcId: string): string {
+  return `${buildQcDetailHref(routeKeyOrQcId)}?focus=deduction`
+}
+
+export function buildDeductionAnalysisHref(keyword?: string): string {
+  if (!keyword?.trim()) return '/fcs/quality/deduction-analysis'
+  return `/fcs/quality/deduction-analysis?keyword=${encodeURIComponent(keyword.trim())}`
+}
+
 export function getLinkedBasisItems(qcId: string): DeductionBasisItem[] {
   ensureQualityDeductionLifecycle()
   const caseFact = getQualityDeductionCaseFactByQcId(qcId)
@@ -226,6 +235,26 @@ export function getCanonicalQcHrefForBasis(basis: DeductionBasisItem): string | 
     extractQcIdFromHref(basis.deepLinks.qcHref)
 
   return qcId ? buildQcDetailHref(qcId) : null
+}
+
+export function resolveQcRouteKeyByBasisId(basisId: string): string | null {
+  ensureQualityDeductionLifecycle()
+  const caseFact = getQualityDeductionCaseFactByBasisId(basisId) ?? getQualityDeductionCaseFactByRouteKey(basisId)
+  if (caseFact) return caseFact.qcRecord.qcId
+
+  const basis = getLegacyBasisById(basisId)
+  if (!basis) return null
+
+  return (
+    resolveQcIdFromRouteKey(basis.sourceRefId) ??
+    (basis.sourceId ? resolveQcIdFromRouteKey(basis.sourceId) : null) ??
+    extractQcIdFromHref(basis.deepLinks.qcHref)
+  )
+}
+
+export function buildDeductionEntryHrefByBasisId(basisId: string): string {
+  const qcRouteKey = resolveQcRouteKeyByBasisId(basisId)
+  return qcRouteKey ? buildQcDeductionHref(qcRouteKey) : buildDeductionAnalysisHref(basisId)
 }
 
 export function getBasisById(basisId: string): DeductionBasisItem | null {

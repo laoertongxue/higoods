@@ -7,15 +7,14 @@ import type {
   ReturnBatch,
   ReturnInboundBatch,
   DyePrintOrder,
-} from './store-domain-quality-types'
-
-import type { ProcessTask } from './process-tasks'
-import type { ProductionOrder } from './production-orders'
+} from './store-domain-quality-types.ts'
+import type { ProcessTask } from './process-tasks.ts'
+import type { ProductionOrder } from './production-orders.ts'
 import {
   returnInboundChainBasisSeeds,
   returnInboundChainBatches,
   returnInboundChainQualityInspections,
-} from './return-inbound-quality-chain-facts'
+} from './return-inbound-quality-chain-facts.ts'
 
 // =============================================
 // Quality seed constants

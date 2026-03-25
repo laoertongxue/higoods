@@ -117,11 +117,11 @@ export function deriveReturnEligibility(options: {
   bag: TransferBagMaster | null
   latestClosureResult?: TransferBagUsageClosureResult | null
 }): TransferBagValidationResult {
-  if (!options.usage) return { ok: false, reason: '当前没有可回货的 usage。' }
-  if (!options.bag) return { ok: false, reason: '当前 usage 缺少对应 bag 主档。' }
-  if (options.latestClosureResult) return { ok: false, reason: '当前 usage 已关闭，不能重复进入回货流程。' }
+  if (!options.usage) return { ok: false, reason: '当前没有可回货的使用周期。' }
+  if (!options.bag) return { ok: false, reason: '当前使用周期缺少对应口袋主档。' }
+  if (options.latestClosureResult) return { ok: false, reason: '当前使用周期已关闭，不能重复进入回货流程。' }
   if (!['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING'].includes(options.usage.usageStatus)) {
-    return { ok: false, reason: '当前 usage 尚未进入可回货状态。' }
+    return { ok: false, reason: '当前使用周期尚未进入可回货状态。' }
   }
   return { ok: true, reason: '' }
 }
@@ -169,7 +169,7 @@ export function validateReturnReceiptPayload(options: {
     return { ok: false, reason: '回货成衣数量必须是非负数。' }
   }
   if (!Number.isFinite(options.receipt.returnedTicketCountSummary) || options.receipt.returnedTicketCountSummary < 0) {
-    return { ok: false, reason: '回货 ticket 数必须是非负数。' }
+    return { ok: false, reason: '回货菲票数必须是非负数。' }
   }
   if (options.receipt.discrepancyType !== 'NONE' && !options.receipt.discrepancyNote.trim()) {
     return { ok: false, reason: '存在差异时请补充差异说明。' }
@@ -221,7 +221,7 @@ export function deriveBagConditionDecision(options: {
     nextBagStatus: 'REUSABLE',
     label: '可复用',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '回货验收已完成，当前口袋可以进入下一轮 usage。',
+      detailText: '回货验收已完成，当前口袋可以进入下一轮使用周期。',
   }
 }
 
@@ -254,7 +254,7 @@ export function closeTransferBagUsageCycle(options: {
     closedBy: options.closedBy,
     closureStatus: warningMessages.length ? 'EXCEPTION_CLOSED' : 'CLOSED',
     nextBagStatus: decision.nextBagStatus,
-    reason: warningMessages.length ? '当前 usage 在存在差异或袋况异常的前提下完成关闭。' : '当前 usage 已完成回货验收并正式关闭。',
+    reason: warningMessages.length ? '当前使用周期在存在差异或袋况异常的前提下完成关闭。' : '当前使用周期已完成回货验收并正式关闭。',
     warningMessages,
   }
 }

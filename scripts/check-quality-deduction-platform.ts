@@ -43,9 +43,20 @@ function main(): void {
   assert(reviewRows.length >= 1, '待平台处理视图为空')
 
   const listSource = readFileSync(new URL('../src/pages/qc-records/list-domain.ts', import.meta.url), 'utf8')
+  const eventSource = readFileSync(new URL('../src/pages/qc-records/events.ts', import.meta.url), 'utf8')
   const detailSource = readFileSync(new URL('../src/pages/qc-records/detail-domain.ts', import.meta.url), 'utf8')
-  assert(listSource.includes('data-qcr-action="handle-dispute"'), '平台端列表未渲染“处理异议”真实入口')
-  assert(detailSource.includes('异议快捷处理'), '平台端详情未承接从列表进入的异议快捷处理区')
+  assert(
+    /data-nav="\$\{escapeHtml\(detailHref\)\}"[\s\S]*?>\s*查看详情\s*<\/button>/.test(listSource),
+    '平台端列表未把“查看详情”按钮接到真实详情跳转',
+  )
+  assert(
+    /data-nav="\$\{escapeHtml\(disputeHref\)\}"[\s\S]*?>\s*处理异议\s*<\/button>/.test(listSource),
+    '平台端列表未把“处理异议”按钮接到真实异议处理入口',
+  )
+  assert(eventSource.includes("action === 'open-detail'"), '平台端列表未处理“查看详情”点击动作')
+  assert(eventSource.includes("action === 'handle-dispute'"), '平台端列表未处理“处理异议”点击动作')
+  assert(detailSource.includes('工厂响应与异议'), '平台端详情未合并工厂响应与异议信息链')
+  assert(detailSource.includes('异议处理入口'), '平台端详情未承接从列表进入的异议处理入口')
   assert(detailSource.includes('data-qcd-action="submit-adjudication"'), '平台端详情未接裁决提交动作')
 
   const qualifiedDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-007')
@@ -53,6 +64,7 @@ function main(): void {
   const unqualifiedDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-005')
   const disputeDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-002')
   const adjustedDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-004')
+  const detailSamples = ['QC-NEW-001', 'QC-NEW-004', 'QC-RIB-202603-0002']
 
   assert(qualifiedDetail?.qcResultLabel === '合格', '合格详情样例缺失或结果错误')
   assert(qualifiedDetail?.showUnqualifiedHandling === false, '合格详情不应展示完整不合格处理区')
@@ -77,6 +89,10 @@ function main(): void {
   assert(disputeDetail?.disputeEvidenceCount !== undefined, '详情 view model 缺少工厂异议证据计数')
   assert(Boolean(disputeDetail?.deductionBasis?.basisId), '详情 view model 缺少扣款依据对象')
   assert(Boolean(disputeDetail?.settlementImpact?.impactId), '详情 view model 缺少结算影响对象')
+  assert(
+    detailSamples.every((qcId) => Boolean(getPlatformQcDetailViewModelByRouteKey(qcId))),
+    '平台端至少 3 条“查看详情”样例未能稳定解析到详情 view model',
+  )
 
   console.log(
     JSON.stringify(
@@ -89,6 +105,7 @@ function main(): void {
         qualifiedSample: qualifiedDetail?.qcId,
         partialSample: partialDetail?.qcId,
         unqualifiedSample: unqualifiedDetail?.qcId,
+        detailSamples,
       },
       null,
       2,

@@ -1,5 +1,6 @@
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { initialDeductionBasisItems } from '../data/fcs/store-domain-quality-seeds'
+import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import { initialStatementDrafts } from '../data/fcs/store-domain-settlement-seeds'
 import type {
   StatementDraft,
@@ -334,7 +335,7 @@ function renderDetailDialog(detailDraft: StatementDraft | null): string {
                       <td class="px-4 py-3 text-right tabular-nums">${item.deductionQty}</td>
                       <td class="px-4 py-3 text-right tabular-nums">${item.deductionAmount.toFixed(2)}</td>
                       <td class="px-4 py-3">
-                        <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/quality/deduction-calc/${escapeHtml(item.basisId)}">查看依据</button>
+                        <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(item.basisId))}">查看依据</button>
                       </td>
                     </tr>
                   `,
@@ -464,7 +465,7 @@ export function renderStatementsPage(): string {
                             <td class="px-4 py-3 text-right tabular-nums">${getDeductionAmount(item).toFixed(2)}</td>
                             <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.updatedAt ?? item.createdAt)}</td>
                             <td class="px-4 py-3">
-                              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/quality/deduction-calc/${escapeHtml(item.basisId)}">查看依据</button>
+                              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(item.basisId))}">查看依据</button>
                             </td>
                           </tr>
                         `,

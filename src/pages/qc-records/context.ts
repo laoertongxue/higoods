@@ -6,6 +6,7 @@ import {
   resolveQcIdFromRouteKey,
 } from '../../data/fcs/quality-chain-adapter'
 import {
+  getPlatformQcDetailViewModelByRouteKey,
   getPlatformQcWorkbenchStats,
   getPlatformQcWorkbenchTabCounts,
   listPlatformQcListItems,
@@ -288,6 +289,21 @@ function getCurrentQueryString(): string {
 
 function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(getCurrentQueryString())
+}
+
+function syncListViewFromRouteQuery(): void {
+  const routeView = getCurrentSearchParams().get('view')
+  const allowedViews: PlatformQcWorkbenchViewKey[] = [
+    'ALL',
+    'WAIT_FACTORY_RESPONSE',
+    'AUTO_CONFIRMED',
+    'DISPUTING',
+    'WAIT_PLATFORM_REVIEW',
+    'CLOSED',
+  ]
+  if (routeView && allowedViews.includes(routeView as PlatformQcWorkbenchViewKey)) {
+    listState.activeView = routeView as PlatformQcWorkbenchViewKey
+  }
 }
 
 function getCurrentDetailRouteId(): string | null {
@@ -573,6 +589,7 @@ function getWorkbenchTabCounts(): Record<PlatformQcWorkbenchViewKey, number> {
 }
 
 function getFilteredQcRows() {
+  syncListViewFromRouteQuery()
   const keyword = listState.keyword.trim().toLowerCase()
 
   return getQcViewRows()
@@ -699,6 +716,7 @@ export {
   showQcRecordsToast,
   getCurrentQueryString,
   getCurrentSearchParams,
+  syncListViewFromRouteQuery,
   getCurrentDetailRouteId,
   emptyForm,
   qcToForm,

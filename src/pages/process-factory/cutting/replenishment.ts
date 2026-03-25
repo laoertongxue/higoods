@@ -6,23 +6,30 @@ import { buildMaterialPrepViewModel } from './material-prep-model'
 import {
   buildReplenishmentAuditTrail,
   buildReplenishmentViewModel,
+  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
   CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY,
   CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
   CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
+  deserializeReplenishmentActionsStorage,
   deserializeReplenishmentAuditTrailStorage,
   deserializeReplenishmentImpactPlansStorage,
   deserializeReplenishmentReviewsStorage,
   filterReplenishmentRows,
   findReplenishmentByPrefilter,
+  replenishmentFollowupActionStatusMetaMap,
+  replenishmentFollowupActionTypeMetaMap,
   replenishmentRiskMetaMap,
   replenishmentSourceMeta,
   replenishmentStatusMetaMap,
+  serializeReplenishmentActionsStorage,
   serializeReplenishmentAuditTrailStorage,
   serializeReplenishmentImpactPlansStorage,
   serializeReplenishmentReviewsStorage,
   validateReplenishmentReviewAction,
   type ReplenishmentAuditTrail,
   type ReplenishmentFilters,
+  type ReplenishmentFollowupAction,
+  type ReplenishmentFollowupActionStatus,
   type ReplenishmentImpactPlan,
   type ReplenishmentPrefilter,
   type ReplenishmentReview,
@@ -43,10 +50,21 @@ import {
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
 import {
   buildWarehouseOriginalRows,
-  buildWarehouseRouteWithQuery,
   getWarehouseSearchParams,
   readWarehouseMergeBatchLedger,
 } from './warehouse-shared'
+import {
+  buildCuttingDrillChipLabels,
+  buildCuttingDrillSummary,
+  buildCuttingRouteWithContext,
+  buildReturnToSummaryContext,
+  getCuttingNavigationActionLabel,
+  hasSummaryReturnContext,
+  normalizeLegacyCuttingPayload,
+  readCuttingDrillContextFromLocation,
+  type CuttingDrillContext,
+  type CuttingNavigationTarget,
+} from './navigation-context'
 
 type FilterField = 'keyword' | 'sourceType' | 'status' | 'riskLevel' | 'craftImpact'
 type ReviewField = 'status' | 'reason' | 'note'
@@ -55,10 +73,12 @@ type FeedbackTone = 'success' | 'warning'
 interface ReplenishmentPageState {
   filters: ReplenishmentFilters
   prefilter: ReplenishmentPrefilter | null
+  drillContext: CuttingDrillContext | null
   querySignature: string
   activeSuggestionId: string | null
   reviews: ReplenishmentReview[]
   impactPlans: ReplenishmentImpactPlan[]
+  actions: ReplenishmentFollowupAction[]
   audits: ReplenishmentAuditTrail[]
   reviewDraft: {
     status: ReplenishmentReviewStatus
@@ -78,16 +98,18 @@ const initialFilters: ReplenishmentFilters = {
   riskLevel: 'ALL',
   craftImpact: 'ALL',
   pendingReviewOnly: false,
-  pendingApplyOnly: false,
+  pendingActionOnly: false,
 }
 
 const state: ReplenishmentPageState = {
   filters: { ...initialFilters },
   prefilter: null,
+  drillContext: null,
   querySignature: '',
   activeSuggestionId: null,
   reviews: deserializeReplenishmentReviewsStorage(localStorage.getItem(CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY)),
   impactPlans: deserializeReplenishmentImpactPlansStorage(localStorage.getItem(CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY)),
+  actions: deserializeReplenishmentActionsStorage(localStorage.getItem(CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY)),
   audits: deserializeReplenishmentAuditTrailStorage(localStorage.getItem(CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY)),
   reviewDraft: {
     status: 'APPROVED',
@@ -123,29 +145,46 @@ function buildViewModel() {
     markerStore,
     reviews: state.reviews,
     impactPlans: state.impactPlans,
+    actions: state.actions,
   })
 }
 
+function refreshDerivedImpactPlans(): void {
+  state.impactPlans = buildViewModel().rows.map((row) => row.impactPlan)
+}
+
 function persistStore(): void {
+  refreshDerivedImpactPlans()
   localStorage.setItem(CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY, serializeReplenishmentReviewsStorage(state.reviews))
   localStorage.setItem(CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY, serializeReplenishmentImpactPlansStorage(state.impactPlans))
+  localStorage.setItem(CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY, serializeReplenishmentActionsStorage(state.actions))
   localStorage.setItem(CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY, serializeReplenishmentAuditTrailStorage(state.audits))
 }
 
 function getPrefilterFromQuery(): ReplenishmentPrefilter | null {
   const params = getWarehouseSearchParams()
+  const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: ReplenishmentPrefilter = {
-    originalCutOrderNo: params.get('originalCutOrderNo') || undefined,
-    originalCutOrderId: params.get('originalCutOrderId') || undefined,
-    mergeBatchNo: params.get('mergeBatchNo') || undefined,
-    mergeBatchId: params.get('mergeBatchId') || undefined,
-    productionOrderNo: params.get('productionOrderNo') || undefined,
-    materialSku: params.get('materialSku') || undefined,
+    originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
+    originalCutOrderId: drillContext?.originalCutOrderId || params.get('originalCutOrderId') || undefined,
+    mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
+    mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
+    productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
+    materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
+    suggestionId: drillContext?.suggestionId || params.get('suggestionId') || undefined,
+    suggestionNo: drillContext?.suggestionNo || params.get('suggestionNo') || undefined,
     riskLevel: (params.get('riskLevel') as ReplenishmentPrefilter['riskLevel']) || undefined,
     replenishmentStatus: (params.get('replenishmentStatus') as ReplenishmentPrefilter['replenishmentStatus']) || undefined,
   }
 
   return Object.values(prefilter).some(Boolean) ? prefilter : null
+}
+
+function getPrefilterStatusLabel(value: ReplenishmentPrefilter['replenishmentStatus']): string {
+  if (!value) return ''
+  if (value === 'APPROVED') return '已通过待动作 / 处理中'
+  if (value === 'APPLIED') return '已完成'
+  return replenishmentStatusMetaMap[value]?.label || value
 }
 
 function syncReviewDraft(row: ReplenishmentSuggestionRow | null): void {
@@ -160,6 +199,7 @@ function syncPrefilterFromQuery(): void {
   const pathname = appStore.getState().pathname
   if (pathname === state.querySignature) return
   state.querySignature = pathname
+  state.drillContext = readCuttingDrillContextFromLocation(getWarehouseSearchParams())
   state.prefilter = getPrefilterFromQuery()
   const matched = findReplenishmentByPrefilter(buildViewModel().rows, state.prefilter)
   if (matched) {
@@ -175,6 +215,16 @@ function getFilteredRows(): ReplenishmentSuggestionRow[] {
 function getActiveRow(): ReplenishmentSuggestionRow | null {
   if (!state.activeSuggestionId) return null
   return buildViewModel().rowsById[state.activeSuggestionId] || null
+}
+
+function getFollowupActionById(actionId: string | undefined): { row: ReplenishmentSuggestionRow; action: ReplenishmentFollowupAction } | null {
+  if (!actionId) return null
+  const rows = buildViewModel().rows
+  for (const row of rows) {
+    const matched = row.followupActions.find((item) => item.actionId === actionId)
+    if (matched) return { row, action: matched }
+  }
+  return null
 }
 
 function setFeedback(tone: FeedbackTone, message: string): void {
@@ -193,12 +243,16 @@ function upsertImpactPlan(impactPlan: ReplenishmentImpactPlan): void {
   state.impactPlans = [...state.impactPlans.filter((item) => item.suggestionId !== impactPlan.suggestionId), impactPlan]
 }
 
+function upsertFollowupAction(action: ReplenishmentFollowupAction): void {
+  state.actions = [...state.actions.filter((item) => item.actionId !== action.actionId), action]
+}
+
 function prependAudit(audit: ReplenishmentAuditTrail): void {
   state.audits = [audit, ...state.audits]
 }
 
 function renderTag(label: string, className: string): string {
-  return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
+  return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${className}">${escapeHtml(label)}</span>`
 }
 
 function renderFilterSelect(
@@ -220,11 +274,15 @@ function renderFilterSelect(
 }
 
 function renderHeaderActions(): string {
+  const returnToSummary = hasSummaryReturnContext(state.drillContext)
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="return-summary">返回裁剪总表</button>`
+    : ''
   return `
     <div class="flex flex-wrap gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker-index">返回唛架 / 铺布</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-original-index">查看裁片单（原始单）</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary-index">查看裁剪总结</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker-index">返回唛架铺布</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-original-index">查看原始裁片单</button>
+      ${returnToSummary}
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }
@@ -232,13 +290,14 @@ function renderHeaderActions(): string {
 function renderStats(): string {
   const { stats } = buildViewModel()
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-      ${renderCompactKpiCard('补料建议总数', stats.totalCount, '来源于铺布与裁剪差异', 'text-slate-900')}
-      ${renderCompactKpiCard('待审核数', stats.pendingReviewCount, '含待补录', 'text-amber-600')}
-      ${renderCompactKpiCard('审核通过数', stats.approvedCount, '待回写动作', 'text-blue-600')}
-      ${renderCompactKpiCard('审核驳回数', stats.rejectedCount, '当前不进入回写', 'text-slate-700')}
-      ${renderCompactKpiCard('待回写数', stats.pendingApplyCount, '已通过待后续影响确认', 'text-violet-600')}
-      ${renderCompactKpiCard('高风险数', stats.highRiskCount, '需优先处理', 'text-rose-600')}
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+      ${renderCompactKpiCard('补料上下文数', stats.totalCount, '按原始单 / 合批收口', 'text-slate-900')}
+      ${renderCompactKpiCard('待审核', stats.pendingReviewCount, '尚未给出审核结论', 'text-amber-600')}
+      ${renderCompactKpiCard('待补录', stats.pendingSupplementCount, '差异依据仍需补齐', 'text-orange-600')}
+      ${renderCompactKpiCard('待动作', stats.approvedPendingActionCount, '审核已通过但未开始', 'text-blue-600')}
+      ${renderCompactKpiCard('处理中', stats.inActionCount, '后续动作未全部闭环', 'text-violet-600')}
+      ${renderCompactKpiCard('已完成', stats.completedCount, '审核与动作均已完成', 'text-fuchsia-600')}
+      ${renderCompactKpiCard('高风险', stats.highRiskCount, '需优先纠偏', 'text-rose-600')}
     </section>
   `
 }
@@ -255,18 +314,14 @@ function renderFeedbackBar(): string {
 
 function renderPrefilterBar(): string {
   if (!state.prefilter) return ''
-
   const labels = [
-    state.prefilter.originalCutOrderNo ? `原始裁片单：${state.prefilter.originalCutOrderNo}` : '',
-    state.prefilter.mergeBatchNo ? `合并批次：${state.prefilter.mergeBatchNo}` : '',
-    state.prefilter.productionOrderNo ? `生产单：${state.prefilter.productionOrderNo}` : '',
-    state.prefilter.materialSku ? `面料 SKU：${state.prefilter.materialSku}` : '',
+    ...buildCuttingDrillChipLabels(state.drillContext),
     state.prefilter.riskLevel ? `风险：${replenishmentRiskMetaMap[state.prefilter.riskLevel].label}` : '',
-    state.prefilter.replenishmentStatus ? `状态：${replenishmentStatusMetaMap[state.prefilter.replenishmentStatus].label}` : '',
+    state.prefilter.replenishmentStatus ? `状态：${getPrefilterStatusLabel(state.prefilter.replenishmentStatus)}` : '',
   ].filter(Boolean)
 
   return renderWorkbenchStateBar({
-    summary: '当前按外部上下文预筛补料建议',
+    summary: buildCuttingDrillSummary(state.drillContext) || '当前按外部上下文预筛补料纠偏项',
     chips: labels.map((label) => renderWorkbenchFilterChip(label, 'data-cutting-replenish-action="clear-prefilter"', 'amber')),
     clearAttrs: 'data-cutting-replenish-action="clear-prefilter"',
   })
@@ -276,14 +331,22 @@ function renderFilterBar(): string {
   return renderStickyFilterShell(`
     <div class="space-y-3">
       <div class="flex flex-wrap gap-2">
-        ${renderWorkbenchFilterChip(state.filters.pendingReviewOnly ? '仅看待审核：已开启' : '仅看待审核', 'data-cutting-replenish-action="toggle-pending-review"', state.filters.pendingReviewOnly ? 'amber' : 'blue')}
-        ${renderWorkbenchFilterChip(state.filters.pendingApplyOnly ? '仅看待回写：已开启' : '仅看待回写', 'data-cutting-replenish-action="toggle-pending-apply"', state.filters.pendingApplyOnly ? 'amber' : 'blue')}
+        ${renderWorkbenchFilterChip(
+          state.filters.pendingReviewOnly ? '仅看待审核：已开启' : '仅看待审核',
+          'data-cutting-replenish-action="toggle-pending-review"',
+          state.filters.pendingReviewOnly ? 'amber' : 'blue',
+        )}
+        ${renderWorkbenchFilterChip(
+          state.filters.pendingActionOnly ? '仅看待处理动作：已开启' : '仅看待处理动作',
+          'data-cutting-replenish-action="toggle-pending-action"',
+          state.filters.pendingActionOnly ? 'amber' : 'blue',
+        )}
         <button type="button" class="rounded-md border px-3 py-1 text-xs hover:bg-muted" data-cutting-replenish-action="clear-filters">重置筛选</button>
       </div>
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词</span>
-          <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持原始裁片单号 / 批次号 / 生产单号 / materialSku" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-field="keyword" />
+          <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持裁片单号 / 合批号 / 生产单号 / 面料 SKU" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-field="keyword" />
         </label>
         ${renderFilterSelect('来源类型', 'sourceType', state.filters.sourceType, [
           { value: 'ALL', label: '全部' },
@@ -296,9 +359,10 @@ function renderFilterBar(): string {
           { value: 'NO_ACTION', label: '无需补料' },
           { value: 'PENDING_REVIEW', label: '待审核' },
           { value: 'PENDING_SUPPLEMENT', label: '待补录' },
-          { value: 'APPROVED', label: '审核通过' },
+          { value: 'APPROVED_PENDING_ACTION', label: '已通过待动作' },
+          { value: 'IN_ACTION', label: '处理中' },
           { value: 'REJECTED', label: '审核驳回' },
-          { value: 'APPLIED', label: '已回写' },
+          { value: 'COMPLETED', label: '已完成' },
         ])}
         ${renderFilterSelect('风险等级', 'riskLevel', state.filters.riskLevel, [
           { value: 'ALL', label: '全部' },
@@ -312,15 +376,67 @@ function renderFilterBar(): string {
           { value: 'ALL', label: '全部' },
           { value: 'PRINTING', label: '影响印花' },
           { value: 'DYEING', label: '影响染色' },
+          { value: 'SPECIAL_PROCESS', label: '影响特殊工艺' },
         ])}
       </div>
     </div>
   `)
 }
 
+function renderActionButton(label: string, action: string, suggestionId: string, extraAttrs = ''): string {
+  return `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="${action}" data-suggestion-id="${escapeHtml(suggestionId)}" ${extraAttrs}>${escapeHtml(label)}</button>`
+}
+
+function resolvePrimaryFollowupTarget(row: ReplenishmentSuggestionRow): keyof ReplenishmentSuggestionRow['navigationPayload'] {
+  const firstAction = row.followupActions.find((item) => item.status !== 'SKIPPED') || row.followupActions[0]
+  if (firstAction) return firstAction.targetPageKey
+  if (row.statusMeta.key === 'PENDING_SUPPLEMENT') {
+    return row.sourceType === 'spreading-session' ? 'markerSpreading' : 'materialPrep'
+  }
+  return 'materialPrep'
+}
+
+function renderRowActions(row: ReplenishmentSuggestionRow): string {
+  if (row.statusMeta.key === 'PENDING_REVIEW') {
+    return `
+      <div class="flex flex-wrap gap-2">
+        ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
+        ${renderActionButton('去审核', 'open-review', row.suggestionId)}
+      </div>
+    `
+  }
+
+  if (row.statusMeta.key === 'PENDING_SUPPLEMENT') {
+    const action = row.sourceType === 'spreading-session' ? 'go-marker' : 'go-material-prep'
+    const label = row.sourceType === 'spreading-session' ? '去唛架铺布' : '去配料领料'
+    return `
+      <div class="flex flex-wrap gap-2">
+        ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
+        ${renderActionButton(label, action, row.suggestionId)}
+      </div>
+    `
+  }
+
+  if (['APPROVED_PENDING_ACTION', 'IN_ACTION'].includes(row.statusMeta.key)) {
+    return `
+      <div class="flex flex-wrap gap-2">
+        ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
+        ${renderActionButton('处理动作', 'open-actions', row.suggestionId)}
+      </div>
+    `
+  }
+
+  return `
+    <div class="flex flex-wrap gap-2">
+      ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
+      ${renderActionButton(getCuttingNavigationActionLabel(resolvePrimaryFollowupTarget(row) as CuttingNavigationTarget), 'go-related', row.suggestionId, `data-target-key="${escapeHtml(resolvePrimaryFollowupTarget(row))}"`)}
+    </div>
+  `
+}
+
 function renderTable(rows: ReplenishmentSuggestionRow[]): string {
   if (!rows.length) {
-    return '<section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无补料建议。</section>'
+    return '<section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无补料纠偏项。</section>'
   }
 
   return renderStickyTableScroller(`
@@ -328,14 +444,12 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
         <tr>
           <th class="px-4 py-3 text-left">建议编号</th>
-          <th class="px-4 py-3 text-left">来源</th>
-          <th class="px-4 py-3 text-left">materialSku</th>
-          <th class="px-4 py-3 text-right">需求数量</th>
-          <th class="px-4 py-3 text-right">预计可裁</th>
-          <th class="px-4 py-3 text-right">缺口</th>
-          <th class="px-4 py-3 text-left">风险</th>
+          <th class="px-4 py-3 text-left">来源上下文</th>
+          <th class="px-4 py-3 text-left">来源生产单</th>
+          <th class="px-4 py-3 text-left">当前主要缺口</th>
+          <th class="px-4 py-3 text-left">审核结果</th>
+          <th class="px-4 py-3 text-left">后续动作</th>
           <th class="px-4 py-3 text-left">状态</th>
-          <th class="px-4 py-3 text-left">影响摘要</th>
           <th class="px-4 py-3 text-left">操作</th>
         </tr>
       </thead>
@@ -348,25 +462,39 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatDateTime(row.createdAt))}</div>
               </td>
               <td class="px-4 py-3">
-                ${renderTag(row.sourceLabel, replenishmentSourceMeta[row.sourceType].className)}
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.sourceSummary)}</div>
+                <div class="flex flex-wrap gap-2">
+                  ${renderTag(row.sourceLabel, replenishmentSourceMeta[row.sourceType].className)}
+                  ${renderTag(row.riskMeta.label, row.riskMeta.className)}
+                </div>
+                <div class="mt-1 text-xs text-foreground">${escapeHtml(row.sourceSummary)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${row.materialSku} · ${row.materialCategory}`)}</div>
               </td>
               <td class="px-4 py-3">
-                <div class="font-medium text-foreground">${escapeHtml(row.materialSku)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${row.materialCategory} / ${row.materialAttr}`)}</div>
+                <div class="text-xs text-foreground">${escapeHtml(row.sourceProductionSummary)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.sourceOrderSummary)}</div>
               </td>
-              <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(formatQty(row.requiredQty))}</td>
-              <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(formatQty(row.estimatedCapacityQty))}</td>
-              <td class="px-4 py-3 text-right tabular-nums ${row.shortageQty > 0 ? 'font-semibold text-rose-600' : 'text-slate-700'}">${escapeHtml(formatQty(row.shortageQty))}</td>
-              <td class="px-4 py-3">${renderTag(row.riskMeta.label, row.riskMeta.className)}</td>
-              <td class="px-4 py-3">${renderTag(row.statusMeta.label, row.statusMeta.className)}</td>
-              <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(row.impactSummary)}</td>
+              <td class="px-4 py-3">
+                <div class="font-medium ${row.shortageQty > 0 || row.varianceLength < 0 ? 'text-rose-600' : 'text-foreground'}">${escapeHtml(row.majorGapSummary)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.differenceSummary)}</div>
+              </td>
               <td class="px-4 py-3">
                 <div class="flex flex-wrap gap-2">
-                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="open-detail" data-suggestion-id="${escapeHtml(row.suggestionId)}">查看详情</button>
-                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去配料</button>
-                  <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">回铺布</button>
+                  ${row.review ? renderTag(row.reviewSummary, row.review?.reviewStatus === 'APPROVED' ? 'bg-blue-100 text-blue-700' : row.review?.reviewStatus === 'REJECTED' ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-700') : '<span class="text-xs text-muted-foreground">未审核</span>'}
                 </div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.review?.decisionReason || row.suggestedAction)}</div>
+              </td>
+              <td class="px-4 py-3">
+                <div class="text-xs font-medium text-foreground">${escapeHtml(row.followupProgressText)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.impactPlan.impactSummary)}</div>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-2">
+                  ${renderTag(row.statusMeta.label, row.statusMeta.className)}
+                </div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.blockingSummary)}</div>
+              </td>
+              <td class="px-4 py-3">
+                ${renderRowActions(row)}
               </td>
             </tr>
           `)
@@ -376,123 +504,297 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
   `)
 }
 
+function renderEvidenceSection(row: ReplenishmentSuggestionRow): string {
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold text-foreground">补料依据</h3>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">来源类型</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.sourceLabel)}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">来源原始裁片单</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.originalCutOrderNos.join(' / ') || '待补')}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">来源合批</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.mergeBatchNo || '无')}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">来源生产单</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.productionOrderNos.join(' / ') || '待补')}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">来源唛架</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.context.marker?.markerNo || '未关联')}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">来源铺布记录</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.context.session?.sessionNo || '未关联')}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">面料 SKU</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.materialSku)}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">面料类别</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.materialCategory)}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">面料属性</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.materialAttr)}</div>
+        </article>
+      </div>
+    </section>
+  `
+}
+
+function renderDifferenceSection(row: ReplenishmentSuggestionRow): string {
+  const latestUpdatedAt = row.context.session?.updatedAt || row.context.marker?.updatedAt || row.createdAt
+  const latestOperatorName =
+    row.context.session?.completionLinkage?.completedBy || row.context.marker?.updatedBy || '待补'
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold text-foreground">差异计算</h3>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">理论需求数量</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatQty(row.requiredQty))} 件</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">预计可裁数量</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatQty(row.estimatedCapacityQty))} 件</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">缺口数量</div>
+          <div class="mt-1 font-medium ${row.shortageQty > 0 ? 'text-rose-600' : 'text-foreground'}">${escapeHtml(formatQty(row.shortageQty))} 件</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">已配置长度</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(String(row.configuredLengthTotal))} 米</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">已领用长度</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(String(row.claimedLengthTotal))} 米</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">可用长度</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(String(row.usableLengthTotal))} 米</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">缺口长度</div>
+          <div class="mt-1 font-medium ${row.shortageLengthTotal > 0 ? 'text-rose-600' : 'text-foreground'}">${escapeHtml(String(row.shortageLengthTotal))} 米</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">差异长度</div>
+          <div class="mt-1 font-medium ${row.varianceLength < 0 ? 'text-rose-600' : 'text-foreground'}">${escapeHtml(String(row.varianceLength))} 米</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">最近更新时间</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatDateTime(latestUpdatedAt))}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">最近操作人</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(latestOperatorName)}</div>
+        </article>
+      </div>
+      <div class="mt-3 rounded-lg border border-dashed bg-amber-50/70 p-3 text-xs text-muted-foreground">${escapeHtml(row.note)}</div>
+    </section>
+  `
+}
+
+function renderReviewSection(row: ReplenishmentSuggestionRow): string {
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold text-foreground">审核判断</h3>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">当前审核结果</div>
+          <div class="mt-1 flex flex-wrap gap-2">
+            ${row.review ? renderTag(row.reviewSummary, row.review.reviewStatus === 'APPROVED' ? 'bg-blue-100 text-blue-700' : row.review.reviewStatus === 'REJECTED' ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-700') : '<span class="text-xs text-muted-foreground">未审核</span>'}
+            ${renderTag(row.statusMeta.label, row.statusMeta.className)}
+          </div>
+          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.review?.decisionReason || row.suggestedAction)}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/20 p-3">
+          <div class="text-xs text-muted-foreground">当前阻塞判断</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(row.blockingSummary)}</div>
+          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.followupProgressText)}</div>
+        </article>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <label class="space-y-2">
+          <span class="text-xs text-muted-foreground">审核动作</span>
+          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-review-field="status">
+            <option value="APPROVED" ${state.reviewDraft.status === 'APPROVED' ? 'selected' : ''}>审核通过</option>
+            <option value="REJECTED" ${state.reviewDraft.status === 'REJECTED' ? 'selected' : ''}>审核驳回</option>
+            <option value="PENDING_SUPPLEMENT" ${state.reviewDraft.status === 'PENDING_SUPPLEMENT' ? 'selected' : ''}>标记待补录</option>
+          </select>
+        </label>
+        <label class="space-y-2">
+          <span class="text-xs text-muted-foreground">决策原因</span>
+          <input type="text" value="${escapeHtml(state.reviewDraft.reason)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="驳回或待补录时必须填写原因" data-cutting-replenish-review-field="reason" />
+        </label>
+      </div>
+      <label class="mt-3 block space-y-2">
+        <span class="text-xs text-muted-foreground">补充备注</span>
+        <textarea rows="3" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="补充审核依据或纠偏说明" data-cutting-replenish-review-field="note">${escapeHtml(state.reviewDraft.note)}</textarea>
+      </label>
+    </section>
+  `
+}
+
+function renderActionRows(row: ReplenishmentSuggestionRow): string {
+  if (!row.followupActions.length) {
+    return '<div class="rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">当前无需后续动作。</div>'
+  }
+
+  return `
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-muted/60 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 text-left">动作类型</th>
+            <th class="px-3 py-2 text-left">状态</th>
+            <th class="px-3 py-2 text-left">说明</th>
+            <th class="px-3 py-2 text-left">处理动作</th>
+            <th class="px-3 py-2 text-left">处理</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${row.followupActions
+            .map((action) => {
+              const typeMeta = replenishmentFollowupActionTypeMetaMap[action.actionType]
+              const statusMeta = replenishmentFollowupActionStatusMetaMap[action.status]
+              return `
+                <tr class="border-b align-top">
+                  <td class="px-3 py-3">
+                    <div class="flex flex-wrap gap-2">
+                      ${renderTag(typeMeta.label, typeMeta.className)}
+                    </div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(action.title)}</div>
+                  </td>
+                  <td class="px-3 py-3">
+                    ${renderTag(statusMeta.label, statusMeta.className)}
+                    <div class="mt-1 text-xs text-muted-foreground">
+                      ${escapeHtml(
+                        action.status === 'DONE'
+                          ? `${action.completedBy || '待补'} · ${action.completedAt || '待补'}`
+                          : action.status === 'SKIPPED'
+                            ? `${action.decidedBy || '待补'} · ${action.decidedAt || '待补'}`
+                            : action.status === 'CONFIRMED'
+                              ? `${action.decidedBy || '待补'} · ${action.decidedAt || '待补'}`
+                              : '待处理',
+                      )}
+                    </div>
+                  </td>
+                  <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(action.note || '无补充说明')}</td>
+                  <td class="px-3 py-3">
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="go-followup-target" data-action-id="${escapeHtml(action.actionId)}">${escapeHtml(getCuttingNavigationActionLabel(action.targetPageKey as CuttingNavigationTarget))}</button>
+                  </td>
+                  <td class="px-3 py-3">
+                    <div class="flex flex-wrap gap-2">
+                      ${action.status === 'PENDING' ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="confirm-followup" data-action-id="${escapeHtml(action.actionId)}">确认动作</button>` : ''}
+                      ${['PENDING', 'CONFIRMED'].includes(action.status) ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="complete-followup" data-action-id="${escapeHtml(action.actionId)}">标记完成</button>` : ''}
+                      ${['PENDING', 'CONFIRMED'].includes(action.status) ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="skip-followup" data-action-id="${escapeHtml(action.actionId)}">跳过</button>` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `
+            })
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderActionsSection(row: ReplenishmentSuggestionRow): string {
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-foreground">后续动作</h3>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.followupProgressText)} · ${escapeHtml(row.impactPlan.impactSummary)}</p>
+        </div>
+      </div>
+      <div class="mt-3">
+        ${renderActionRows(row)}
+      </div>
+    </section>
+  `
+}
+
+function renderAuditSection(row: ReplenishmentSuggestionRow): string {
+  const audits = state.audits
+    .filter((item) => item.suggestionId === row.suggestionId)
+    .sort((left, right) => right.actionAt.localeCompare(left.actionAt, 'zh-CN'))
+  const auditActionMeta: Record<ReplenishmentAuditTrail['action'], { label: string; className: string }> = {
+    SUGGESTED: { label: '生成建议', className: 'bg-slate-100 text-slate-700' },
+    APPROVED: { label: '审核通过', className: 'bg-blue-100 text-blue-700' },
+    REJECTED: { label: '审核驳回', className: 'bg-slate-200 text-slate-700' },
+    MARKED_SUPPLEMENT: { label: '标记待补录', className: 'bg-orange-100 text-orange-700' },
+    IMPACT_UPDATED: { label: '更新影响', className: 'bg-violet-100 text-violet-700' },
+    ACTION_CONFIRMED: { label: '确认动作', className: 'bg-blue-100 text-blue-700' },
+    ACTION_SKIPPED: { label: '跳过动作', className: 'bg-slate-100 text-slate-700' },
+    ACTION_DONE: { label: '动作完成', className: 'bg-emerald-100 text-emerald-700' },
+  }
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold text-foreground">审计记录</h3>
+      <div class="mt-3 space-y-2 text-xs text-muted-foreground">
+        ${
+          audits
+            .map(
+              (audit) => `
+                <article class="rounded-lg border bg-muted/20 p-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                      ${renderTag(auditActionMeta[audit.action].label, auditActionMeta[audit.action].className)}
+                      <span class="font-medium text-foreground">${escapeHtml(audit.payloadSummary)}</span>
+                    </div>
+                    <span>${escapeHtml(formatDateTime(audit.actionAt))}</span>
+                  </div>
+                  <div class="mt-1">${escapeHtml(`${audit.actionBy} · ${audit.note || '无补充说明'}`)}</div>
+                </article>
+              `,
+            )
+            .join('') || '<div class="rounded-lg border border-dashed px-3 py-4 text-center">当前暂无审计记录。</div>'
+        }
+      </div>
+    </section>
+  `
+}
+
 function renderDetailDrawer(): string {
   const row = getActiveRow()
   if (!row) return ''
 
-  const audits = state.audits
-    .filter((item) => item.suggestionId === row.suggestionId)
-    .sort((left, right) => right.actionAt.localeCompare(left.actionAt, 'zh-CN'))
-
   return uiDetailDrawer(
     {
       title: `补料详情 · ${row.suggestionNo}`,
-      subtitle: '自动建议只提供依据；审核通过后才能进入后续回写。',
+      subtitle: '',
       closeAction: { prefix: 'cuttingReplenish', action: 'close-overlay' },
-      width: 'lg',
+      width: 'xl',
     },
     `
       <div class="space-y-6 text-sm">
-        <section class="grid gap-3 md:grid-cols-2">
-          <div class="rounded-lg border bg-muted/20 p-3">
-            <div class="text-xs text-muted-foreground">来源摘要</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(row.sourceSummary)}</div>
-          </div>
-          <div class="rounded-lg border bg-muted/20 p-3">
-            <div class="text-xs text-muted-foreground">当前状态</div>
-            <div class="mt-1 flex flex-wrap gap-2">
-              ${renderTag(row.statusMeta.label, row.statusMeta.className)}
-              ${renderTag(row.riskMeta.label, row.riskMeta.className)}
-            </div>
-          </div>
-        </section>
-
-        <section class="rounded-lg border bg-card p-4">
-          <h3 class="text-sm font-semibold text-foreground">差异依据</h3>
-          <div class="mt-3 grid gap-3 md:grid-cols-2">
-            <div class="rounded-lg border bg-muted/20 p-3">
-              <div class="text-xs text-muted-foreground">数量差异</div>
-              <div class="mt-1 font-medium text-foreground">${escapeHtml(row.differenceSummary)}</div>
-            </div>
-            <div class="rounded-lg border bg-muted/20 p-3">
-              <div class="text-xs text-muted-foreground">长度差异</div>
-              <div class="mt-1 font-medium text-foreground">已配置 ${escapeHtml(String(row.configuredLengthTotal))} 米 / 可用 ${escapeHtml(String(row.usableLengthTotal))} 米 / 差异 ${escapeHtml(String(row.varianceLength))} 米</div>
-            </div>
-          </div>
-          <div class="mt-3 rounded-lg border border-dashed bg-amber-50/70 p-3 text-xs text-muted-foreground">${escapeHtml(row.note)}</div>
-        </section>
-
-        <section class="rounded-lg border bg-card p-4">
-          <h3 class="text-sm font-semibold text-foreground">审核区</h3>
-          <div class="mt-3 grid gap-3 md:grid-cols-2">
-            <label class="space-y-2">
-              <span class="text-xs text-muted-foreground">审核动作</span>
-              <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-review-field="status">
-                <option value="APPROVED" ${state.reviewDraft.status === 'APPROVED' ? 'selected' : ''}>审核通过</option>
-                <option value="REJECTED" ${state.reviewDraft.status === 'REJECTED' ? 'selected' : ''}>审核驳回</option>
-                <option value="PENDING_SUPPLEMENT" ${state.reviewDraft.status === 'PENDING_SUPPLEMENT' ? 'selected' : ''}>标记待补录</option>
-              </select>
-            </label>
-            <label class="space-y-2">
-              <span class="text-xs text-muted-foreground">决策原因</span>
-              <input type="text" value="${escapeHtml(state.reviewDraft.reason)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="驳回或待补录时必须填写原因" data-cutting-replenish-review-field="reason" />
-            </label>
-          </div>
-          <label class="mt-3 block space-y-2">
-            <span class="text-xs text-muted-foreground">补充备注</span>
-            <textarea rows="3" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="补充审核依据或影响说明" data-cutting-replenish-review-field="note">${escapeHtml(state.reviewDraft.note)}</textarea>
-          </label>
-        </section>
-
-        <section class="rounded-lg border bg-card p-4">
-          <h3 class="text-sm font-semibold text-foreground">回写影响区</h3>
-          <div class="mt-3 grid gap-3 md:grid-cols-2">
-            <div class="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-              <div class="font-medium text-foreground">影响摘要</div>
-              <div class="mt-1">${escapeHtml(row.impactPlan.impactSummary)}</div>
-            </div>
-            <div class="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-              <div class="font-medium text-foreground">影响标签</div>
-              <div class="mt-1 flex flex-wrap gap-2">
-                ${row.impactPlan.needReconfigureMaterial ? renderTag('需重新配料', 'bg-blue-100 text-blue-700') : ''}
-                ${row.impactPlan.needReclaimMaterial ? renderTag('需重新领料', 'bg-violet-100 text-violet-700') : ''}
-                ${row.impactPlan.affectPrintingOrder ? renderTag('影响印花', 'bg-amber-100 text-amber-700') : ''}
-                ${row.impactPlan.affectDyeingOrder ? renderTag('影响染色', 'bg-emerald-100 text-emerald-700') : ''}
-                ${row.impactPlan.affectSpecialProcess ? renderTag('影响特殊工艺', 'bg-rose-100 text-rose-700') : ''}
-                ${!row.impactPlan.needReconfigureMaterial && !row.impactPlan.needReclaimMaterial && !row.impactPlan.affectPrintingOrder && !row.impactPlan.affectDyeingOrder && !row.impactPlan.affectSpecialProcess ? '<span class="text-xs text-muted-foreground">当前无额外影响</span>' : ''}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="rounded-lg border bg-card p-4">
-          <h3 class="text-sm font-semibold text-foreground">审计记录</h3>
-          <div class="mt-3 space-y-2 text-xs text-muted-foreground">
-            ${audits
-              .map(
-                (audit) => `
-                  <article class="rounded-lg border bg-muted/20 p-3">
-                    <div class="flex items-center justify-between gap-3">
-                      <span class="font-medium text-foreground">${escapeHtml(audit.payloadSummary)}</span>
-                      <span>${escapeHtml(formatDateTime(audit.actionAt))}</span>
-                    </div>
-                    <div class="mt-1">${escapeHtml(`${audit.actionBy} · ${audit.note || '无补充说明'}`)}</div>
-                  </article>
-                `,
-              )
-              .join('') || '<div class="rounded-lg border border-dashed px-3 py-4 text-center">当前暂无审计记录。</div>'}
-          </div>
-        </section>
+        ${renderEvidenceSection(row)}
+        ${renderDifferenceSection(row)}
+        ${renderReviewSection(row)}
+        ${renderActionsSection(row)}
+        ${renderAuditSection(row)}
       </div>
     `,
     `
       <div class="flex flex-wrap gap-2">
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="submit-review">提交审核</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="mark-applied">标记已回写</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去仓库配料 / 领料</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">返回唛架 / 铺布</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-printing" data-suggestion-id="${escapeHtml(row.suggestionId)}">去印花入口</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-dyeing" data-suggestion-id="${escapeHtml(row.suggestionId)}">去染色入口</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去仓库配料领料</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">返回唛架铺布</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary" data-suggestion-id="${escapeHtml(row.suggestionId)}">去裁剪总表</button>
       </div>
     `,
   )
@@ -523,18 +825,77 @@ function navigateBySuggestion(
   if (!suggestionId) return false
   const row = buildViewModel().rowsById[suggestionId]
   if (!row) return false
+  const context = normalizeLegacyCuttingPayload(row.navigationPayload[target], 'replenishment', {
+    productionOrderNo: row.productionOrderNos[0] || undefined,
+    originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
+    mergeBatchNo: row.mergeBatchNo || undefined,
+    materialSku: row.materialSku,
+    suggestionId: row.suggestionId,
+    suggestionNo: row.suggestionNo,
+    autoOpenDetail: true,
+  })
+  appStore.navigate(buildCuttingRouteWithContext(target as CuttingNavigationTarget, context))
+  return true
+}
 
-  const pathMap: Record<keyof ReplenishmentSuggestionRow['navigationPayload'], string> = {
-    markerSpreading: getCanonicalCuttingPath('marker-spreading'),
-    materialPrep: getCanonicalCuttingPath('material-prep'),
-    originalOrders: getCanonicalCuttingPath('original-orders'),
-    mergeBatches: getCanonicalCuttingPath('merge-batches'),
-    summary: getCanonicalCuttingPath('summary'),
-    printing: '/fcs/craft/printing/work-orders',
-    dyeing: '/fcs/craft/dyeing/work-orders',
+function navigateByAction(actionId: string | undefined): boolean {
+  const matched = getFollowupActionById(actionId)
+  if (!matched) return false
+  const context = normalizeLegacyCuttingPayload(matched.action.targetQuery, 'replenishment', {
+    productionOrderNo: matched.row.productionOrderNos[0] || undefined,
+    originalCutOrderNo: matched.row.originalCutOrderNos[0] || undefined,
+    mergeBatchNo: matched.row.mergeBatchNo || undefined,
+    materialSku: matched.row.materialSku,
+    suggestionId: matched.row.suggestionId,
+    suggestionNo: matched.row.suggestionNo,
+    autoOpenDetail: true,
+  })
+  appStore.navigate(buildCuttingRouteWithContext(matched.action.targetPageKey as CuttingNavigationTarget, context))
+  return true
+}
+
+function updateFollowupActionStatus(options: {
+  actionId: string | undefined
+  nextStatus: ReplenishmentFollowupActionStatus
+  auditAction: 'ACTION_CONFIRMED' | 'ACTION_SKIPPED' | 'ACTION_DONE'
+  actor: string
+  successMessage: string
+}): boolean {
+  const matched = getFollowupActionById(options.actionId)
+  if (!matched) return false
+  if (matched.row.review?.reviewStatus !== 'APPROVED') {
+    setFeedback('warning', '请先审核通过，再处理后续动作。')
+    return true
   }
 
-  appStore.navigate(buildWarehouseRouteWithQuery(pathMap[target], row.navigationPayload[target]))
+  const now = nowText()
+  const nextAction: ReplenishmentFollowupAction = {
+    ...matched.action,
+    status: options.nextStatus,
+    note: matched.action.note,
+    decidedAt: ['CONFIRMED', 'SKIPPED', 'DONE'].includes(options.nextStatus)
+      ? matched.action.decidedAt || now
+      : matched.action.decidedAt,
+    decidedBy: ['CONFIRMED', 'SKIPPED', 'DONE'].includes(options.nextStatus)
+      ? matched.action.decidedBy || options.actor
+      : matched.action.decidedBy,
+    completedAt: options.nextStatus === 'DONE' ? now : '',
+    completedBy: options.nextStatus === 'DONE' ? options.actor : '',
+  }
+
+  upsertFollowupAction(nextAction)
+  prependAudit(
+    buildReplenishmentAuditTrail({
+      suggestion: matched.row,
+      action: options.auditAction,
+      actionBy: options.actor,
+      payloadSummary: `${matched.row.suggestionNo} · ${matched.action.title} 已更新为 ${replenishmentFollowupActionStatusMetaMap[options.nextStatus].label}`,
+      note: nextAction.note,
+      actionAt: now,
+    }),
+  )
+  persistStore()
+  setFeedback('success', options.successMessage)
   return true
 }
 
@@ -570,7 +931,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
 
   clearFeedback()
 
-  if (action === 'open-detail') {
+  if (action === 'open-detail' || action === 'open-review' || action === 'open-actions') {
     const suggestionId = actionNode.dataset.suggestionId
     if (!suggestionId) return false
     state.activeSuggestionId = suggestionId
@@ -585,6 +946,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
 
   if (action === 'clear-prefilter') {
     state.prefilter = null
+    state.drillContext = null
     state.activeSuggestionId = null
     state.querySignature = getCanonicalCuttingPath('replenishment')
     appStore.navigate(getCanonicalCuttingPath('replenishment'))
@@ -601,8 +963,8 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'toggle-pending-apply') {
-    state.filters.pendingApplyOnly = !state.filters.pendingApplyOnly
+  if (action === 'toggle-pending-action') {
+    state.filters.pendingActionOnly = !state.filters.pendingActionOnly
     return true
   }
 
@@ -639,7 +1001,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
               ? 'REJECTED'
               : 'MARKED_SUPPLEMENT',
         actionBy: review.reviewedBy,
-        payloadSummary: `${row.suggestionNo} 已更新为 ${replenishmentStatusMetaMap[state.reviewDraft.status === 'APPROVED' ? 'APPROVED' : state.reviewDraft.status === 'REJECTED' ? 'REJECTED' : 'PENDING_SUPPLEMENT'].label}`,
+        payloadSummary: `${row.suggestionNo} 已更新为 ${state.reviewDraft.status === 'APPROVED' ? '审核通过' : state.reviewDraft.status === 'REJECTED' ? '审核驳回' : '待补录'}`,
         note: review.decisionReason || review.note,
       }),
     )
@@ -648,33 +1010,43 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'mark-applied') {
-    const row = getActiveRow()
-    if (!row) return false
-    if (row.statusMeta.key !== 'APPROVED') {
-      setFeedback('warning', '只有审核通过的补料建议才能标记已回写。')
-      return true
-    }
+  if (action === 'confirm-followup') {
+    return updateFollowupActionStatus({
+      actionId: actionNode.dataset.actionId,
+      nextStatus: 'CONFIRMED',
+      auditAction: 'ACTION_CONFIRMED',
+      actor: '补料专员 宋安琪',
+      successMessage: '已确认后续动作。',
+    })
+  }
 
-    const impactPlan: ReplenishmentImpactPlan = {
-      ...row.impactPlan,
-      applied: true,
-      appliedAt: nowText(),
-      appliedBy: '补料专员 宋安琪',
-    }
-    upsertImpactPlan(impactPlan)
-    prependAudit(
-      buildReplenishmentAuditTrail({
-        suggestion: row,
-        action: 'MARKED_APPLIED',
-        actionBy: impactPlan.appliedBy,
-        payloadSummary: `${row.suggestionNo} 已标记回写`,
-        note: impactPlan.impactSummary,
-      }),
-    )
-    persistStore()
-    setFeedback('success', `已将 ${row.suggestionNo} 标记为已回写。`)
-    return true
+  if (action === 'skip-followup') {
+    return updateFollowupActionStatus({
+      actionId: actionNode.dataset.actionId,
+      nextStatus: 'SKIPPED',
+      auditAction: 'ACTION_SKIPPED',
+      actor: '补料专员 宋安琪',
+      successMessage: '已跳过该后续动作。',
+    })
+  }
+
+  if (action === 'complete-followup') {
+    return updateFollowupActionStatus({
+      actionId: actionNode.dataset.actionId,
+      nextStatus: 'DONE',
+      auditAction: 'ACTION_DONE',
+      actor: '补料专员 宋安琪',
+      successMessage: '已标记后续动作完成。',
+    })
+  }
+
+  if (action === 'go-followup-target') {
+    return navigateByAction(actionNode.dataset.actionId)
+  }
+
+  if (action === 'go-related') {
+    const targetKey = (actionNode.dataset.targetKey || 'materialPrep') as keyof ReplenishmentSuggestionRow['navigationPayload']
+    return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, targetKey)
   }
 
   if (action === 'go-marker') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'markerSpreading')
@@ -684,6 +1056,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
   if (action === 'go-summary') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'summary')
   if (action === 'go-printing') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'printing')
   if (action === 'go-dyeing') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'dyeing')
+  if (action === 'go-special-processes') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'specialProcesses')
 
   if (action === 'go-marker-index') {
     appStore.navigate(getCanonicalCuttingPath('marker-spreading'))
@@ -697,6 +1070,13 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
 
   if (action === 'go-summary-index') {
     appStore.navigate(getCanonicalCuttingPath('summary'))
+    return true
+  }
+
+  if (action === 'return-summary') {
+    const context = buildReturnToSummaryContext(state.drillContext)
+    if (!context) return false
+    appStore.navigate(buildCuttingRouteWithContext('summary', context))
     return true
   }
 

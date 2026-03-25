@@ -1,6 +1,6 @@
 import { escapeHtml, toClassName } from '../utils'
 
-export type PdaTabKey = 'notify' | 'quality' | 'task-receive' | 'exec' | 'handover' | 'settlement'
+export type PdaTabKey = 'notify' | 'task-receive' | 'exec' | 'handover' | 'settlement'
 
 interface PdaTabConfig {
   key: PdaTabKey
@@ -11,7 +11,6 @@ interface PdaTabConfig {
 
 const PDA_TABS: PdaTabConfig[] = [
   { key: 'notify', label: '待办', href: '/fcs/pda/notify', icon: 'bell' },
-  { key: 'quality', label: '质检处理', href: '/fcs/pda/quality', icon: 'clipboard-check' },
   { key: 'task-receive', label: '接单', href: '/fcs/pda/task-receive', icon: 'clipboard-list' },
   { key: 'exec', label: '执行', href: '/fcs/pda/exec', icon: 'play' },
   { key: 'handover', label: '交接', href: '/fcs/pda/handover', icon: 'arrow-left-right' },

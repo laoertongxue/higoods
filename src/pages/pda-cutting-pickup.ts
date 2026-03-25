@@ -140,7 +140,7 @@ function renderPickupStatus(taskId: string): string {
         <div class="mt-1 text-muted-foreground">回执状态：${escapeHtml(pickupView?.receiptStatusLabel || '未回执')}</div>
       </article>
       <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">打印与二维码对象</div>
+        <div class="text-muted-foreground">打印与裁片单主码对象</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(pickupView?.latestPrintVersionNo || '暂无打印版本')}</div>
         <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrObjectLabel)}：${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
       </article>
@@ -164,7 +164,7 @@ function renderPickupLogs(taskId: string): string {
   const detail = getPdaCuttingTaskDetail(taskId)
   const pickupView = buildPdaCuttingPickupActionView(taskId)
   if (!detail || !pickupView || !pickupView.scanRecords.length) {
-    return renderPdaCuttingEmptyState('暂无扫码领料记录', '后续真实扫码领料完成后，这里会展示扫码时间、领取人、差异结果和照片凭证摘要。')
+    return renderPdaCuttingEmptyState('暂无领料记录', '后续真实扫码领料完成后，这里会展示扫码时间、领取人、差异结果和照片凭证摘要。')
   }
 
   return `
@@ -196,8 +196,8 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '扫码领料',
-      subtitle: '扫码领料页承接领料单、二维码与领料结果回写。',
+      title: '扫裁片单主码领料',
+      subtitle: '',
       activeTab: 'exec',
       body: '',
       backHref: buildPdaCuttingRoute(taskId, 'task'),
@@ -212,7 +212,7 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
 
   const summary = renderPdaCuttingSummaryGrid([
     { label: '领料单号', value: pickupView?.pickupSlipNo || detail.pickupSlipNo },
-    { label: '二维码', value: pickupView?.qrCodeValue || detail.qrCodeValue },
+    { label: '裁片单主码', value: pickupView?.qrCodeValue || detail.qrCodeValue },
     { label: '最新打印版本', value: pickupView?.latestPrintVersionNo || '暂无打印版本' },
     { label: '当前结果', value: pickupView?.latestResultLabel || '未扫码回写', hint: pickupView?.receiptStatusLabel || '未回执' },
   ])
@@ -221,11 +221,10 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
     <div class="space-y-3 text-xs">
       <div class="rounded-xl border border-dashed px-3 py-4 text-center">
         <div class="text-sm font-medium text-foreground">扫码入口区</div>
-        <p class="mt-1 text-muted-foreground">当前页聚焦扫码领料确认，真实扫码能力后续补齐，先把现场对象、二维码和值班动作说明清楚。</p>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div class="rounded-xl border px-3 py-3">
-          <div class="text-muted-foreground">领料单 / 二维码</div>
+          <div class="text-muted-foreground">领料单 / 裁片单主码</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.pickupSlipNo || detail.pickupSlipNo)}</div>
           <div class="mt-1 text-muted-foreground">${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
         </div>
@@ -234,9 +233,6 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
           <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.slip.configuredQtySummary.summaryText || detail.configuredQtyText)}</div>
           <div class="mt-1 text-muted-foreground">当前实领：${escapeHtml(pickupView?.slip.receivedQtySummary.summaryText || detail.actualReceivedQtyText)}</div>
         </div>
-      </div>
-      <div class="rounded-xl bg-blue-50 px-3 py-3 text-xs text-blue-800">
-        扫码对象是裁片单级二维码，当前二维码与领料单、裁片单号是一一对应关系。若现场发现差异，请走“驳回核对”或“带照片提交”。
       </div>
     </div>
   `
@@ -345,17 +341,17 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
   const body = `
     ${renderPdaCuttingTaskHero(detail)}
     ${summary}
-    ${renderPdaCuttingSection('当前任务 / 裁片单摘要', '先确认当前正在处理哪张裁片单、哪种面料和哪张领料单。', renderTaskSnapshot(taskId))}
-    ${renderPdaCuttingSection('扫码入口与领料单摘要', '强调二维码、领料单和配置数量之间的对应关系。', scanSection)}
-    ${renderPdaCuttingSection('差异处理与领料回写', '现场扫码后在此回写领取结果、差异说明和照片凭证位。', formSection)}
-    ${renderPdaCuttingSection('领料结果状态', '这里集中展示打印状态、二维码对象、最近一次扫码结果和差异凭证摘要。', renderPickupStatus(taskId))}
-    ${renderPdaCuttingSection('最近领料结果', '领料结果只展示工厂端现场回写摘要，不在这里做真实扫码系统。', renderPickupLogs(taskId))}
+    ${renderPdaCuttingSection('当前任务 / 裁片单摘要', '', renderTaskSnapshot(taskId))}
+    ${renderPdaCuttingSection('扫码入口与领料单摘要', '', scanSection)}
+    ${renderPdaCuttingSection('差异处理与领料回写', '', formSection)}
+    ${renderPdaCuttingSection('领料结果状态', '', renderPickupStatus(taskId))}
+    ${renderPdaCuttingSection('最近领料结果', '', renderPickupLogs(taskId))}
   `
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '扫码领料',
-    subtitle: '承接领料单、二维码和领料结果回写，先把现场执行骨架和状态位搭起来。',
+    title: '扫裁片单主码领料',
+    subtitle: '',
     activeTab: 'exec',
     body,
     backHref: buildPdaCuttingRoute(taskId, 'task'),

@@ -1,4 +1,4 @@
-// 本文件继续复用旧导出名承接 canonical 页面“仓库配料 / 领料”。
+// 本文件继续复用旧导出名承接 canonical 页面“仓库配料领料”。
 // 页面主对象冻结为原始裁片单；同一码回落原始裁片单，配料 / 领料只表达仓库到裁床的准备衔接。
 import { renderDetailDrawer as uiDetailDrawer, renderDialog as uiDialog, renderFormDialog as uiFormDialog } from '../../../components/ui'
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
@@ -48,6 +48,17 @@ import {
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
 } from './layout.helpers'
+import {
+  buildCuttingDrillChipLabels,
+  buildCuttingDrillSummary,
+  buildCuttingRouteWithContext,
+  buildReturnToSummaryContext,
+  hasSummaryReturnContext,
+  normalizeLegacyCuttingPayload,
+  readCuttingDrillContextFromLocation,
+  type CuttingDrillContext,
+  type CuttingNavigationTarget,
+} from './navigation-context'
 
 type FilterField =
   | 'keyword'
@@ -109,6 +120,7 @@ interface MaterialPrepPageState {
   pageSize: number
   querySignature: string
   prefilter: MaterialPrepPrefilter | null
+  drillContext: CuttingDrillContext | null
   feedback: MaterialPrepFeedback | null
   configDrafts: Record<string, string>
   claimDrafts: Record<string, string>
@@ -126,6 +138,7 @@ const state: MaterialPrepPageState = {
   pageSize: 20,
   querySignature: '',
   prefilter: null,
+  drillContext: null,
   feedback: null,
   configDrafts: {},
   claimDrafts: {},
@@ -251,16 +264,17 @@ function getViewModel() {
 
 function parsePrefilterFromPath(): MaterialPrepPrefilter | null {
   const params = getCurrentSearchParams()
+  const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: MaterialPrepPrefilter = {}
 
   const entries: Array<[keyof MaterialPrepPrefilter, string | null]> = [
-    ['productionOrderId', params.get('productionOrderId')],
-    ['productionOrderNo', params.get('productionOrderNo')],
-    ['originalCutOrderId', params.get('originalCutOrderId')],
-    ['originalCutOrderNo', params.get('originalCutOrderNo')],
-    ['styleCode', params.get('styleCode')],
-    ['spuCode', params.get('spuCode')],
-    ['materialSku', params.get('materialSku')],
+    ['productionOrderId', drillContext?.productionOrderId || params.get('productionOrderId')],
+    ['productionOrderNo', drillContext?.productionOrderNo || params.get('productionOrderNo')],
+    ['originalCutOrderId', drillContext?.originalCutOrderId || params.get('originalCutOrderId')],
+    ['originalCutOrderNo', drillContext?.originalCutOrderNo || params.get('originalCutOrderNo')],
+    ['styleCode', drillContext?.styleCode || params.get('styleCode')],
+    ['spuCode', drillContext?.spuCode || params.get('spuCode')],
+    ['materialSku', drillContext?.materialSku || params.get('materialSku')],
     ['schedulingStatus', params.get('schedulingStatus')],
     ['materialPrepStatus', params.get('materialPrepStatus')],
     ['materialClaimStatus', params.get('materialClaimStatus')],
@@ -277,6 +291,7 @@ function syncStateFromPath(viewModel = getViewModel()): void {
   const pathname = appStore.getState().pathname
   if (state.querySignature === pathname) return
 
+  state.drillContext = readCuttingDrillContextFromLocation(getCurrentSearchParams())
   state.prefilter = parsePrefilterFromPath()
   state.querySignature = pathname
   resetPagination()
@@ -315,11 +330,15 @@ function renderBadge(label: string, className: string): string {
 }
 
 function renderHeaderActions(): string {
+  const returnToSummary = hasSummaryReturnContext(state.drillContext)
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="return-summary">返回裁剪总表</button>`
+    : ''
   return `
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-original-orders-index">返回裁片单（原始单）</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading-index">去唛架 / 铺布</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary-index">查看裁剪总结</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-original-orders-index">返回原始裁片单</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading-index">去唛架铺布</button>
+      ${returnToSummary}
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }
@@ -409,10 +428,10 @@ function getFilterLabels(): string[] {
 }
 
 function renderPrefilterBar(): string {
-  const labels = getPrefilterLabels()
+  const labels = Array.from(new Set([...buildCuttingDrillChipLabels(state.drillContext), ...getPrefilterLabels()]))
   if (!labels.length) return ''
   return renderWorkbenchStateBar({
-    summary: '当前预筛条件',
+    summary: buildCuttingDrillSummary(state.drillContext) || '当前预筛条件',
     chips: labels.map((label) => renderWorkbenchFilterChip(label, 'data-cutting-prep-action="clear-prefilter"', 'amber')),
     clearAttrs: 'data-cutting-prep-action="clear-prefilter"',
   })
@@ -680,7 +699,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印发料清单</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-records-dialog" data-record-id="${escapeHtml(row.id)}">查看领料记录</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
-                              <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架 / 铺布</button>
+                              <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
                             </div>
                           </td>
                         </tr>
@@ -918,10 +937,10 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         '关联入口区',
         `
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-original-orders" data-record-id="${escapeHtml(row.id)}">去裁片单（原始单）</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架 / 铺布</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-original-orders" data-record-id="${escapeHtml(row.id)}">去原始裁片单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary" data-record-id="${escapeHtml(row.id)}">查看裁剪总结</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary" data-record-id="${escapeHtml(row.id)}">去裁剪总表</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}" ${row.latestMergeBatchNo ? '' : 'disabled'}>
               查看合并裁剪批次
             </button>
@@ -934,7 +953,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   return uiDetailDrawer(
     {
       title: row.originalCutOrderNo,
-      subtitle: `来源生产单 ${row.productionOrderNo} · ${row.styleCode || row.spuCode || '款号待补'}`,
+      subtitle: '',
       closeAction: { prefix: 'cuttingPrep', action: 'close-overlay' },
       width: 'lg',
     },
@@ -1044,7 +1063,7 @@ function renderConfigDialog(viewModel = getViewModel()): string {
   return uiFormDialog(
     {
       title: '编辑配置结果',
-      description: '回写配置数量。',
+      description: '',
       closeAction: { prefix: 'cuttingPrep', action: 'close-overlay' },
       submitAction: { prefix: 'cuttingPrep', action: 'save-config', label: '保存配置结果' },
       width: 'lg',
@@ -1106,7 +1125,7 @@ function renderClaimDialog(viewModel = getViewModel()): string {
   return uiFormDialog(
     {
       title: '记录领料结果',
-      description: '回写领料数量与结果。',
+      description: '',
       closeAction: { prefix: 'cuttingPrep', action: 'close-overlay' },
       submitAction: { prefix: 'cuttingPrep', action: 'save-claim', label: '保存领料结果' },
       width: 'lg',
@@ -1135,7 +1154,6 @@ function renderScheduleDialog(viewModel = getViewModel()): string {
           data-cutting-prep-schedule-field="cuttingGroup"
         />
       </label>
-      <p class="text-xs text-muted-foreground">填写后自动回写为“已排单”；若清空裁床组，则回到“待排单”。</p>
     </div>
   `
 
@@ -1244,20 +1262,17 @@ function navigateToRowTarget(
 ): boolean {
   const row = getRecordById(recordId)
   if (!row) return false
-
-  const pathMap: Record<keyof MaterialPrepRow['navigationPayload'], string> = {
-    originalOrders: getCanonicalCuttingPath('original-orders'),
-    markerSpreading: getCanonicalCuttingPath('marker-spreading'),
-    summary: getCanonicalCuttingPath('summary'),
-    productionProgress: getCanonicalCuttingPath('production-progress'),
-    mergeBatches: getCanonicalCuttingPath('merge-batches'),
-  }
-
-  const payload =
-    target === 'markerSpreading'
-      ? { ...row.navigationPayload[target], tab: 'spreadings' }
-      : row.navigationPayload[target]
-  appStore.navigate(buildRouteWithQuery(pathMap[target], payload))
+  const context = normalizeLegacyCuttingPayload(row.navigationPayload[target], 'material-prep', {
+    productionOrderNo: row.productionOrderNo,
+    originalCutOrderId: row.originalCutOrderId,
+    originalCutOrderNo: row.originalCutOrderNo,
+    styleCode: row.styleCode,
+    spuCode: row.spuCode,
+    materialSku: row.materialLineItems[0]?.materialSku || undefined,
+    autoOpenDetail: true,
+    focusTab: target === 'markerSpreading' ? 'spreadings' : undefined,
+  })
+  appStore.navigate(buildCuttingRouteWithContext(target as CuttingNavigationTarget, context))
   return true
 }
 
@@ -1519,6 +1534,7 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
 
   if (action === 'clear-prefilter') {
     state.prefilter = null
+    state.drillContext = null
     state.activeOrderId = null
     state.querySignature = getCanonicalCuttingPath('material-prep')
     appStore.navigate(getCanonicalCuttingPath('material-prep'))
@@ -1618,6 +1634,13 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
 
   if (action === 'go-summary-index') {
     appStore.navigate(getCanonicalCuttingPath('summary'))
+    return true
+  }
+
+  if (action === 'return-summary') {
+    const context = buildReturnToSummaryContext(state.drillContext)
+    if (!context) return false
+    appStore.navigate(buildCuttingRouteWithContext('summary', context))
     return true
   }
 

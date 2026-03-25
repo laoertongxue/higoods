@@ -1,8 +1,8 @@
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import { appStore } from '../../../state/store'
-import { escapeHtml, formatDateTime } from '../../../utils'
-import { buildCutPieceWarehouseViewModel, formatCutPieceQuantity } from './cut-piece-warehouse-model'
-import { buildFabricWarehouseViewModel, formatFabricWarehouseLength } from './fabric-warehouse-model'
+import { escapeHtml } from '../../../utils'
+import { buildCutPieceWarehouseViewModel } from './cut-piece-warehouse-model'
+import { buildFabricWarehouseViewModel } from './fabric-warehouse-model'
 import {
   buildFeiTicketsViewModel,
   buildSystemSeedFeiTicketLedger,
@@ -31,7 +31,9 @@ import { buildMaterialPrepViewModel } from './material-prep-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
 import { buildProductionProgressRows, type ProductionProgressStageKey } from './production-progress-model'
 import {
+  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
   buildReplenishmentViewModel,
+  deserializeReplenishmentActionsStorage,
   CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
   CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
   deserializeReplenishmentImpactPlansStorage,
@@ -41,14 +43,20 @@ import { buildSampleWarehouseViewModel } from './sample-warehouse-model'
 import {
   buildSpecialProcessViewModel,
   CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY,
+  CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
+  CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY,
+  CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY,
   deserializeBindingStripPayloadsStorage,
+  deserializeSpecialProcessExecutionLogsStorage,
+  deserializeSpecialProcessFollowupActionsStorage,
   deserializeSpecialProcessOrdersStorage,
+  deserializeSpecialProcessScopeLinesStorage,
 } from './special-processes-model'
 import {
+  buildCuttingSummaryIssues,
   buildCuttingSummaryViewModel,
   buildSummaryDetailPanelData,
-  buildSummarySearchIndex,
   cuttingSummaryIssueMetaMap,
   cuttingSummaryRiskMetaMap,
   filterSummaryByIssueType,
@@ -59,6 +67,7 @@ import {
   type CuttingSummaryNavigationPayload,
   type CuttingSummaryRiskLevel,
   type CuttingSummaryRow,
+  type CuttingSummarySourceObjectItem,
   type CuttingSummaryTraceNode,
   type CuttingSummaryViewModel,
 } from './summary-model'
@@ -69,17 +78,42 @@ import {
   deserializeTransferBagStorage,
   mergeTransferBagStores,
 } from './transfer-bags-model'
-import {
-  buildTransferBagReturnViewModel,
-} from './transfer-bag-return-model'
+import { buildTransferBagReturnViewModel } from './transfer-bag-return-model'
 import {
   buildWarehouseOriginalRows,
-  buildWarehouseRouteWithQuery,
   getWarehouseSearchParams,
   readWarehouseMergeBatchLedger,
 } from './warehouse-shared'
+import {
+  buildCuttingDrillChipLabels,
+  buildCuttingDrillSummary,
+  buildCuttingRouteWithContext,
+  getCuttingNavigationActionLabel,
+  normalizeLegacyCuttingPayload,
+  readCuttingDrillContextFromLocation,
+  type CuttingDrillContext,
+  type CuttingNavigationTarget,
+} from './navigation-context'
+import {
+  cuttingCheckSectionLabelMap,
+  type CuttingCheckBlockerItem,
+  type CuttingCheckCompletionKey,
+  type CuttingCheckNextAction,
+  type CuttingCheckSectionKey,
+  type CuttingCheckSectionState,
+  type CuttingCheckSourceObjectType,
+} from './cutting-summary-checks'
 
-type SummaryFilterField = 'keyword' | 'riskLevel' | 'issueType' | 'currentStage'
+type SummaryFilterField =
+  | 'keyword'
+  | 'riskLevel'
+  | 'issueType'
+  | 'currentStage'
+  | 'completionState'
+  | 'blockerSection'
+  | 'sourceObjectType'
+  | 'materialSku'
+  | 'sourceNoKeyword'
 type SummaryNavigationTarget = keyof CuttingSummaryNavigationPayload
 
 interface SummaryFilters {
@@ -87,28 +121,21 @@ interface SummaryFilters {
   riskLevel: 'ALL' | CuttingSummaryRiskLevel
   issueType: 'ALL' | CuttingSummaryIssueType
   currentStage: 'ALL' | ProductionProgressStageKey
+  completionState: 'ALL' | CuttingCheckCompletionKey
+  blockerSection: 'ALL' | CuttingCheckSectionKey
+  sourceObjectType: 'ALL' | CuttingCheckSourceObjectType
+  materialSku: string
+  sourceNoKeyword: string
   pendingReplenishmentOnly: boolean
   pendingTicketsOnly: boolean
   pendingBagOnly: boolean
   specialProcessOnly: boolean
 }
 
-interface SummaryPrefilter {
-  productionOrderNo?: string
-  originalCutOrderNo?: string
-  mergeBatchNo?: string
-  ticketNo?: string
-  bagCode?: string
-  usageNo?: string
-  suggestionId?: string
-  processOrderNo?: string
-  issueType?: CuttingSummaryIssueType
-  riskLevel?: CuttingSummaryRiskLevel
-}
-
 interface SummaryPageState {
   filters: SummaryFilters
-  prefilter: SummaryPrefilter | null
+  prefilter: CuttingDrillContext | null
+  drillContext: CuttingDrillContext | null
   querySignature: string
   activeIssueId: string | null
   activeRowId: string | null
@@ -119,6 +146,11 @@ const initialFilters: SummaryFilters = {
   riskLevel: 'ALL',
   issueType: 'ALL',
   currentStage: 'ALL',
+  completionState: 'ALL',
+  blockerSection: 'ALL',
+  sourceObjectType: 'ALL',
+  materialSku: '',
+  sourceNoKeyword: '',
   pendingReplenishmentOnly: false,
   pendingTicketsOnly: false,
   pendingBagOnly: false,
@@ -128,10 +160,70 @@ const initialFilters: SummaryFilters = {
 const state: SummaryPageState = {
   filters: { ...initialFilters },
   prefilter: null,
+  drillContext: null,
   querySignature: '',
   activeIssueId: null,
   activeRowId: null,
 }
+
+const completionSortWeight: Record<CuttingCheckCompletionKey, number> = {
+  BLOCKED: 0,
+  DATA_PENDING: 1,
+  IN_PROGRESS: 2,
+  COMPLETED: 3,
+}
+
+const blockerLevelMetaMap: Record<CuttingCheckBlockerItem['severity'], { label: string; className: string }> = {
+  HIGH: {
+    label: '高阻塞',
+    className: 'bg-rose-100 text-rose-700 border border-rose-200',
+  },
+  MEDIUM: {
+    label: '中阻塞',
+    className: 'bg-amber-100 text-amber-700 border border-amber-200',
+  },
+  LOW: {
+    label: '低阻塞',
+    className: 'bg-slate-100 text-slate-700 border border-slate-200',
+  },
+}
+
+const sourceObjectTypeLabelMap: Record<CuttingCheckSourceObjectType, string> = {
+  ORIGINAL_CUT_ORDER: '原始裁片单',
+  MERGE_BATCH: '合并裁剪批次',
+  REPLENISHMENT: '补料建议',
+  FEI_OWNER: '打票主体',
+  FEI_PRINT_JOB: '打印作业',
+  BAG_USAGE: '周转口袋使用周期',
+  SPECIAL_PROCESS: '特殊工艺单',
+}
+
+const actionTargetLabelMap: Record<SummaryNavigationTarget, string> = {
+  productionProgress: '生产单进度',
+  cuttablePool: '可裁排产',
+  mergeBatches: '合并裁剪批次',
+  originalOrders: '原始裁片单',
+  materialPrep: '仓库配料领料',
+  markerSpreading: '唛架铺布',
+  feiTickets: '打印菲票',
+  fabricWarehouse: '裁床仓',
+  cutPieceWarehouse: '裁片仓',
+  sampleWarehouse: '样衣仓',
+  transferBags: '周转口袋车缝交接',
+  replenishment: '补料管理',
+  specialProcesses: '特殊工艺',
+  summary: '裁剪总表',
+}
+
+const sourceObjectGroupOrder: CuttingCheckSourceObjectType[] = [
+  'ORIGINAL_CUT_ORDER',
+  'MERGE_BATCH',
+  'REPLENISHMENT',
+  'FEI_OWNER',
+  'FEI_PRINT_JOB',
+  'BAG_USAGE',
+  'SPECIAL_PROCESS',
+]
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(Math.max(value, 0))
@@ -210,6 +302,7 @@ function buildSources(): CuttingSummaryBuildOptions {
     markerStore,
     reviews: deserializeReplenishmentReviewsStorage(localStorage.getItem(CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY)),
     impactPlans: deserializeReplenishmentImpactPlansStorage(localStorage.getItem(CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY)),
+    actions: deserializeReplenishmentActionsStorage(localStorage.getItem(CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY)),
   })
 
   const specialProcessView = buildSpecialProcessViewModel({
@@ -218,6 +311,15 @@ function buildSources(): CuttingSummaryBuildOptions {
     orders: deserializeSpecialProcessOrdersStorage(localStorage.getItem(CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY)),
     bindingPayloads: deserializeBindingStripPayloadsStorage(
       localStorage.getItem(CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY),
+    ),
+    scopeLines: deserializeSpecialProcessScopeLinesStorage(
+      localStorage.getItem(CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY),
+    ),
+    executionLogs: deserializeSpecialProcessExecutionLogsStorage(
+      localStorage.getItem(CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY),
+    ),
+    followupActions: deserializeSpecialProcessFollowupActionsStorage(
+      localStorage.getItem(CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY),
     ),
   })
 
@@ -249,25 +351,21 @@ function buildPageData(): {
   }
 }
 
-function getPrefilterFromQuery(): SummaryPrefilter | null {
+function getPrefilterFromQuery(): CuttingDrillContext | null {
   const params = getWarehouseSearchParams()
-  const prefilter: SummaryPrefilter = {
-    productionOrderNo: params.get('productionOrderNo') || undefined,
-    originalCutOrderNo: params.get('originalCutOrderNo') || undefined,
-    mergeBatchNo: params.get('mergeBatchNo') || undefined,
-    ticketNo: params.get('ticketNo') || undefined,
-    bagCode: params.get('bagCode') || undefined,
-    usageNo: params.get('usageNo') || undefined,
-    suggestionId: params.get('suggestionId') || undefined,
-    processOrderNo: params.get('processOrderNo') || undefined,
-    issueType: (params.get('issueType') as CuttingSummaryIssueType | null) || undefined,
-    riskLevel: (params.get('riskLevel') as CuttingSummaryRiskLevel | null) || undefined,
-  }
-
-  return Object.values(prefilter).some(Boolean) ? prefilter : null
+  const context = readCuttingDrillContextFromLocation(params)
+  const issueType = (params.get('issueType') as CuttingSummaryIssueType | null) || undefined
+  const blockerSection = params.get('blockerSection') || undefined
+  return context || issueType || blockerSection
+    ? {
+        ...context,
+        issueType,
+        blockerSection: blockerSection || context?.blockerSection,
+      }
+    : null
 }
 
-function rowMatchesPrefilter(row: CuttingSummaryRow, prefilter: SummaryPrefilter | null): boolean {
+function rowMatchesPrefilter(row: CuttingSummaryRow, prefilter: CuttingDrillContext | null): boolean {
   if (!prefilter) return true
   if (prefilter.productionOrderNo && row.productionOrderNo !== prefilter.productionOrderNo) return false
   if (prefilter.originalCutOrderNo && !row.relatedOriginalCutOrderNos.includes(prefilter.originalCutOrderNo)) return false
@@ -277,35 +375,122 @@ function rowMatchesPrefilter(row: CuttingSummaryRow, prefilter: SummaryPrefilter
   if (prefilter.usageNo && !row.relatedUsageNos.includes(prefilter.usageNo)) return false
   if (prefilter.suggestionId && !row.relatedSuggestionIds.includes(prefilter.suggestionId)) return false
   if (prefilter.processOrderNo && !row.relatedProcessOrderNos.includes(prefilter.processOrderNo)) return false
-  if (prefilter.issueType && !row.issueTypes.includes(prefilter.issueType)) return false
-  if (prefilter.riskLevel && row.overallRiskLevel !== prefilter.riskLevel) return false
+  if (prefilter.materialSku && !row.relatedMaterialSkus.includes(prefilter.materialSku)) return false
+  if (prefilter.issueType && !row.issueTypes.includes(prefilter.issueType as CuttingSummaryIssueType)) return false
+  if (prefilter.blockerSection && !row.blockerItems.some((item) => item.sectionKey === prefilter.blockerSection)) return false
   return true
 }
 
-function getFilteredRows(viewModel: CuttingSummaryViewModel): CuttingSummaryRow[] {
-  const keyword = state.filters.keyword.trim().toLowerCase()
-
-  return filterSummaryByIssueType(viewModel.rows, state.filters.issueType).filter((row) => {
-    if (!rowMatchesPrefilter(row, state.prefilter)) return false
-    if (state.filters.riskLevel !== 'ALL' && row.overallRiskLevel !== state.filters.riskLevel) return false
-    if (state.filters.currentStage !== 'ALL' && row.currentStageKey !== state.filters.currentStage) return false
-    if (state.filters.pendingReplenishmentOnly && row.pendingReplenishmentCount === 0) return false
-    if (state.filters.pendingTicketsOnly && row.unprintedOwnerCount === 0) return false
-    if (state.filters.pendingBagOnly && row.openBagUsageCount === 0) return false
-    if (state.filters.specialProcessOnly && row.openSpecialProcessCount === 0) return false
-    if (keyword && !row.keywordIndex.some((token) => token.includes(keyword))) return false
-    return true
-  })
+function getBlockerSourceFallback(row: CuttingSummaryRow, sourceType: CuttingCheckSourceObjectType): boolean {
+  if (sourceType === 'ORIGINAL_CUT_ORDER') return row.relatedOriginalCutOrderNos.length > 0
+  if (sourceType === 'MERGE_BATCH') return row.relatedMergeBatchNos.length > 0
+  if (sourceType === 'REPLENISHMENT') return row.relatedSuggestionIds.length > 0
+  if (sourceType === 'FEI_OWNER') return row.relatedOriginalCutOrderNos.length > 0 && row.relatedTicketNos.length > 0
+  if (sourceType === 'FEI_PRINT_JOB') return Boolean(row.latestPrintJobNo)
+  if (sourceType === 'BAG_USAGE') return row.relatedUsageNos.length > 0
+  return row.relatedProcessOrderNos.length > 0
 }
 
-function getActiveRowId(viewModel: CuttingSummaryViewModel, filteredRows: CuttingSummaryRow[]): string | null {
-  if (state.activeRowId && filteredRows.some((row) => row.rowId === state.activeRowId)) return state.activeRowId
+function getSourceNumberTokens(row: CuttingSummaryRow): string[] {
+  return [
+    ...row.relatedOriginalCutOrderNos,
+    ...row.relatedMergeBatchNos,
+    ...row.relatedSuggestionIds,
+    ...row.relatedProcessOrderNos,
+    ...row.relatedBagCodes,
+    ...row.relatedUsageNos,
+    ...row.relatedTicketNos,
+    row.latestPrintJobNo,
+    ...row.blockerItems.map((item) => item.sourceNo),
+  ]
+    .filter(Boolean)
+    .map((item) => item.toLowerCase())
+}
+
+function getHighestBlockerWeight(row: CuttingSummaryRow): number {
+  if (row.blockerItems.some((item) => item.severity === 'HIGH')) return 3
+  if (row.blockerItems.some((item) => item.severity === 'MEDIUM')) return 2
+  if (row.blockerItems.some((item) => item.severity === 'LOW')) return 1
+  return 0
+}
+
+function getFilteredRows(
+  viewModel: CuttingSummaryViewModel,
+  options: { ignoreIssueType?: boolean } = {},
+): CuttingSummaryRow[] {
+  const keyword = state.filters.keyword.trim().toLowerCase()
+  const materialSkuKeyword = state.filters.materialSku.trim().toLowerCase()
+  const sourceNoKeyword = state.filters.sourceNoKeyword.trim().toLowerCase()
+
+  return filterSummaryByIssueType(viewModel.rows, options.ignoreIssueType ? 'ALL' : state.filters.issueType)
+    .filter((row) => {
+      if (!rowMatchesPrefilter(row, state.prefilter)) return false
+      if (state.filters.riskLevel !== 'ALL' && row.overallRiskLevel !== state.filters.riskLevel) return false
+      if (state.filters.currentStage !== 'ALL' && row.currentStageKey !== state.filters.currentStage) return false
+      if (state.filters.completionState !== 'ALL' && row.completionState !== state.filters.completionState) return false
+      if (state.filters.pendingReplenishmentOnly && row.pendingReplenishmentCount === 0) return false
+      if (state.filters.pendingTicketsOnly && row.unprintedOwnerCount === 0) return false
+      if (state.filters.pendingBagOnly && row.openBagUsageCount === 0) return false
+      if (state.filters.specialProcessOnly && row.openSpecialProcessCount === 0) return false
+
+      if (state.filters.blockerSection !== 'ALL') {
+        const hasBlockingSection = row.blockerItems.some((item) => item.sectionKey === state.filters.blockerSection)
+        const hasRelevantSection = row.checkSections.some(
+          (section) => section.sectionKey === state.filters.blockerSection && section.stateKey !== 'NOT_APPLICABLE',
+        )
+        if (row.blockerItems.length) {
+          if (!hasBlockingSection) return false
+        } else if (!hasRelevantSection) {
+          return false
+        }
+      }
+
+      if (state.filters.sourceObjectType !== 'ALL') {
+        const hasBlockedSourceType = row.blockerItems.some((item) => item.sourceType === state.filters.sourceObjectType)
+        if (row.blockerItems.length) {
+          if (!hasBlockedSourceType) return false
+        } else if (!getBlockerSourceFallback(row, state.filters.sourceObjectType)) {
+          return false
+        }
+      }
+
+      if (keyword && !row.keywordIndex.some((token) => token.includes(keyword))) return false
+
+      if (
+        materialSkuKeyword &&
+        ![
+          ...row.relatedMaterialSkus.map((item) => item.toLowerCase()),
+          ...row.blockerItems.map((item) => item.materialSku.toLowerCase()),
+        ].some((token) => token.includes(materialSkuKeyword))
+      ) {
+        return false
+      }
+
+      if (sourceNoKeyword && !getSourceNumberTokens(row).some((token) => token.includes(sourceNoKeyword))) return false
+
+      return true
+    })
+    .sort((left, right) => {
+      const completionDiff = completionSortWeight[left.completionState] - completionSortWeight[right.completionState]
+      if (completionDiff !== 0) return completionDiff
+      const blockerDiff = right.blockingCount - left.blockingCount
+      if (blockerDiff !== 0) return blockerDiff
+      const severityDiff = getHighestBlockerWeight(right) - getHighestBlockerWeight(left)
+      if (severityDiff !== 0) return severityDiff
+      const pendingDiff = right.pendingActionCount - left.pendingActionCount
+      if (pendingDiff !== 0) return pendingDiff
+      return left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN')
+    })
+}
+
+function getActiveRowId(rows: CuttingSummaryRow[], issues: CuttingSummaryIssue[]): string | null {
+  if (state.activeRowId && rows.some((row) => row.rowId === state.activeRowId)) return state.activeRowId
   if (state.activeIssueId) {
-    const issue = viewModel.issuesById[state.activeIssueId]
-    const matched = filteredRows.find((row) => issue?.relatedRowIds.includes(row.rowId))
+    const issue = issues.find((item) => item.issueId === state.activeIssueId)
+    const matched = rows.find((row) => issue?.relatedRowIds.includes(row.rowId))
     if (matched) return matched.rowId
   }
-  return filteredRows[0]?.rowId || null
+  return rows[0]?.rowId || null
 }
 
 function syncStateWithQuery(viewModel: CuttingSummaryViewModel): void {
@@ -314,47 +499,53 @@ function syncStateWithQuery(viewModel: CuttingSummaryViewModel): void {
 
   state.querySignature = pathname
   state.prefilter = getPrefilterFromQuery()
+  state.drillContext = state.prefilter
 
-  if (state.prefilter?.issueType) state.filters.issueType = state.prefilter.issueType
-  if (state.prefilter?.riskLevel) state.filters.riskLevel = state.prefilter.riskLevel
+  if (state.prefilter?.issueType) state.filters.issueType = state.prefilter.issueType as CuttingSummaryIssueType
+  if (state.prefilter?.blockerSection) state.filters.blockerSection = state.prefilter.blockerSection as CuttingCheckSectionKey
 
   if (state.prefilter?.issueType) {
     const issue = viewModel.issues.find((item) => item.issueType === state.prefilter?.issueType) || null
     state.activeIssueId = issue?.issueId || null
     state.activeRowId = issue?.relatedRowIds[0] || null
-    return
+  } else {
+    const matched = viewModel.rows.find((row) => rowMatchesPrefilter(row, state.prefilter))
+    state.activeRowId = matched?.rowId || viewModel.rows[0]?.rowId || null
+    state.activeIssueId = null
   }
 
-  const matched = viewModel.rows.find((row) => rowMatchesPrefilter(row, state.prefilter))
-  state.activeRowId = matched?.rowId || viewModel.rows[0]?.rowId || null
-  state.activeIssueId = null
+  if (state.prefilter?.autoOpenDetail && state.activeRowId) {
+    state.activeRowId = state.activeRowId
+  }
 }
 
 function clearLocateState(): void {
   state.prefilter = null
+  state.drillContext = null
   state.querySignature = getCanonicalCuttingPath('summary')
   appStore.navigate(getCanonicalCuttingPath('summary'))
 }
 
-function navigateWithPayload(target: SummaryNavigationTarget, payload: Record<string, string | undefined>): boolean {
-  const pathMap: Record<SummaryNavigationTarget, string> = {
-    productionProgress: getCanonicalCuttingPath('production-progress'),
-    cuttablePool: getCanonicalCuttingPath('cuttable-pool'),
-    mergeBatches: getCanonicalCuttingPath('merge-batches'),
-    originalOrders: getCanonicalCuttingPath('original-orders'),
-    materialPrep: getCanonicalCuttingPath('material-prep'),
-    markerSpreading: getCanonicalCuttingPath('marker-spreading'),
-    feiTickets: getCanonicalCuttingPath('fei-tickets'),
-    fabricWarehouse: getCanonicalCuttingPath('fabric-warehouse'),
-    cutPieceWarehouse: getCanonicalCuttingPath('cut-piece-warehouse'),
-    sampleWarehouse: getCanonicalCuttingPath('sample-warehouse'),
-    transferBags: getCanonicalCuttingPath('transfer-bags'),
-    replenishment: getCanonicalCuttingPath('replenishment'),
-    specialProcesses: getCanonicalCuttingPath('special-processes'),
-    summary: getCanonicalCuttingPath('summary'),
-  }
+function buildSummaryDrillContext(
+  payload: Record<string, string | undefined>,
+  extra?: Partial<CuttingDrillContext>,
+): CuttingDrillContext {
+  return normalizeLegacyCuttingPayload(payload, 'cutting-summary', {
+    productionOrderNo: extra?.productionOrderNo,
+    productionOrderId: extra?.productionOrderId,
+    issueType: state.filters.issueType !== 'ALL' ? state.filters.issueType : undefined,
+    blockerSection: state.filters.blockerSection !== 'ALL' ? state.filters.blockerSection : undefined,
+    autoOpenDetail: true,
+    ...extra,
+  })
+}
 
-  appStore.navigate(buildWarehouseRouteWithQuery(pathMap[target], payload))
+function navigateWithPayload(
+  target: SummaryNavigationTarget,
+  payload: Record<string, string | undefined>,
+  extra?: Partial<CuttingDrillContext>,
+): boolean {
+  appStore.navigate(buildCuttingRouteWithContext(target as CuttingNavigationTarget, buildSummaryDrillContext(payload, extra)))
   return true
 }
 
@@ -385,23 +576,11 @@ function renderStats(viewModel: CuttingSummaryViewModel): string {
 }
 
 function renderPrefilterBar(): string {
-  if (!state.prefilter) return ''
-
-  const chips = [
-    state.prefilter.productionOrderNo ? `生产单：${state.prefilter.productionOrderNo}` : '',
-    state.prefilter.originalCutOrderNo ? `原始裁片单：${state.prefilter.originalCutOrderNo}` : '',
-    state.prefilter.mergeBatchNo ? `批次：${state.prefilter.mergeBatchNo}` : '',
-    state.prefilter.ticketNo ? `菲票：${state.prefilter.ticketNo}` : '',
-    state.prefilter.bagCode ? `口袋：${state.prefilter.bagCode}` : '',
-    state.prefilter.usageNo ? `usage：${state.prefilter.usageNo}` : '',
-    state.prefilter.processOrderNo ? `工艺单：${state.prefilter.processOrderNo}` : '',
-    state.prefilter.suggestionId ? `补料建议：${state.prefilter.suggestionId}` : '',
-    state.prefilter.issueType ? `问题：${cuttingSummaryIssueMetaMap[state.prefilter.issueType].label}` : '',
-    state.prefilter.riskLevel ? `风险：${cuttingSummaryRiskMetaMap[state.prefilter.riskLevel].label}` : '',
-  ].filter(Boolean)
+  if (!state.drillContext) return ''
+  const chips = buildCuttingDrillChipLabels(state.drillContext)
 
   return renderWorkbenchStateBar({
-    summary: '当前已根据外部入口定位相关链路：',
+    summary: buildCuttingDrillSummary(state.drillContext),
     chips: chips.map((label) => renderWorkbenchFilterChip(label, '', 'blue')),
     clearAttrs: 'data-cutting-summary-action="clear-prefilter"',
   })
@@ -425,84 +604,121 @@ function renderFilterSelect(
   `
 }
 
+function renderFilterInput(label: string, field: SummaryFilterField, value: string, placeholder: string): string {
+  return `
+    <label class="space-y-2">
+      <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
+      <input
+        value="${escapeHtml(value)}"
+        placeholder="${escapeHtml(placeholder)}"
+        class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        data-cutting-summary-field="${field}"
+      />
+    </label>
+  `
+}
+
 function renderFilterBar(): string {
   return renderStickyFilterShell(`
-    <div class="grid gap-3 xl:grid-cols-7">
-      <label class="space-y-2 xl:col-span-2">
-        <span class="text-sm font-medium text-foreground">跨对象搜索</span>
-        <input
-          value="${escapeHtml(state.filters.keyword)}"
-          placeholder="生产单 / 原始裁片单 / 批次 / 菲票 / bagCode / usage / 工艺单"
-          class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-          data-cutting-summary-field="keyword"
-        />
-      </label>
-      ${renderFilterSelect('风险等级', 'riskLevel', state.filters.riskLevel, [
-        { value: 'ALL', label: '全部风险' },
-        { value: 'HIGH', label: '高风险' },
-        { value: 'MEDIUM', label: '中风险' },
-        { value: 'LOW', label: '低风险' },
-      ])}
-      ${renderFilterSelect('问题类别', 'issueType', state.filters.issueType, [
-        { value: 'ALL', label: '全部问题' },
-        ...Object.values(cuttingSummaryIssueMetaMap).map((meta) => ({ value: meta.key, label: meta.label })),
-      ])}
-      ${renderFilterSelect('当前阶段', 'currentStage', state.filters.currentStage, [
-        { value: 'ALL', label: '全部阶段' },
-        { value: 'WAITING_PREP', label: '待配料' },
-        { value: 'PREPPING', label: '配料中' },
-        { value: 'WAITING_CLAIM', label: '待领料' },
-        { value: 'CUTTING', label: '裁剪中' },
-        { value: 'WAITING_INBOUND', label: '待入仓' },
-        { value: 'DONE', label: '已完成' },
-      ])}
-      <div class="flex flex-wrap items-end gap-2 xl:col-span-2">
-        ${renderWorkbenchFilterChip(
-          state.filters.pendingReplenishmentOnly ? '已选：待补料' : '只看待补料',
-          'data-cutting-summary-action="toggle-replenishment"',
-          'amber',
-        )}
-        ${renderWorkbenchFilterChip(
-          state.filters.pendingTicketsOnly ? '已选：待打票' : '只看待打票',
-          'data-cutting-summary-action="toggle-tickets"',
-          'blue',
-        )}
-        ${renderWorkbenchFilterChip(
-          state.filters.pendingBagOnly ? '已选：待交接 / 待回仓' : '只看待交接 / 待回仓',
-          'data-cutting-summary-action="toggle-bags"',
-          'rose',
-        )}
-        ${renderWorkbenchFilterChip(
-          state.filters.specialProcessOnly ? '已选：特殊工艺' : '只看特殊工艺',
-          'data-cutting-summary-action="toggle-special"',
-          'emerald',
-        )}
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="clear-filters">清除筛选条件</button>
+    <div class="space-y-3">
+      <div class="grid gap-3 xl:grid-cols-6">
+        <label class="space-y-2 xl:col-span-2">
+          <span class="text-sm font-medium text-foreground">跨对象搜索</span>
+          <input
+            value="${escapeHtml(state.filters.keyword)}"
+            placeholder="生产单 / 原始裁片单 / 批次 / 菲票 / 周转口袋 / 补料 / 工艺单"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            data-cutting-summary-field="keyword"
+          />
+        </label>
+        ${renderFilterSelect('闭环状态', 'completionState', state.filters.completionState, [
+          { value: 'ALL', label: '全部' },
+          { value: 'BLOCKED', label: '阻塞中' },
+          { value: 'IN_PROGRESS', label: '处理中' },
+          { value: 'COMPLETED', label: '已闭环' },
+          { value: 'DATA_PENDING', label: '待补数据' },
+        ])}
+        ${renderFilterSelect('阻塞链路', 'blockerSection', state.filters.blockerSection, [
+          { value: 'ALL', label: '全部链路' },
+          ...Object.entries(cuttingCheckSectionLabelMap).map(([value, label]) => ({ value, label })),
+        ])}
+        ${renderFilterSelect('来源对象类型', 'sourceObjectType', state.filters.sourceObjectType, [
+          { value: 'ALL', label: '全部对象' },
+          ...Object.entries(sourceObjectTypeLabelMap).map(([value, label]) => ({ value, label })),
+        ])}
+        ${renderFilterSelect('当前阶段', 'currentStage', state.filters.currentStage, [
+          { value: 'ALL', label: '全部阶段' },
+          { value: 'WAITING_PREP', label: '待配料' },
+          { value: 'PREPPING', label: '配料中' },
+          { value: 'WAITING_CLAIM', label: '待领料' },
+          { value: 'CUTTING', label: '裁剪中' },
+          { value: 'WAITING_INBOUND', label: '待入仓' },
+          { value: 'DONE', label: '已完成' },
+        ])}
+      </div>
+      <div class="grid gap-3 xl:grid-cols-6">
+        ${renderFilterInput('面料 SKU', 'materialSku', state.filters.materialSku, '输入面料 SKU 精确定位阻塞来源')}
+        ${renderFilterInput('来源对象号', 'sourceNoKeyword', state.filters.sourceNoKeyword, '原始裁片单 / 批次 / 补料 / 工艺单 / 使用周期')}
+        ${renderFilterSelect('风险等级', 'riskLevel', state.filters.riskLevel, [
+          { value: 'ALL', label: '全部风险' },
+          { value: 'HIGH', label: '高风险' },
+          { value: 'MEDIUM', label: '中风险' },
+          { value: 'LOW', label: '低风险' },
+        ])}
+        ${renderFilterSelect('问题分类', 'issueType', state.filters.issueType, [
+          { value: 'ALL', label: '全部问题' },
+          ...Object.values(cuttingSummaryIssueMetaMap).map((meta) => ({ value: meta.key, label: meta.label })),
+        ])}
+        <div class="flex flex-wrap items-end gap-2 xl:col-span-2">
+          ${renderWorkbenchFilterChip(
+            state.filters.pendingReplenishmentOnly ? '已选：只看待补料' : '只看待补料',
+            'data-cutting-summary-action="toggle-replenishment"',
+            'amber',
+          )}
+          ${renderWorkbenchFilterChip(
+            state.filters.pendingTicketsOnly ? '已选：只看待打印菲票' : '只看待打印菲票',
+            'data-cutting-summary-action="toggle-tickets"',
+            'blue',
+          )}
+          ${renderWorkbenchFilterChip(
+            state.filters.pendingBagOnly ? '已选：只看待交接 / 待回仓' : '只看待交接 / 待回仓',
+            'data-cutting-summary-action="toggle-bags"',
+            'rose',
+          )}
+          ${renderWorkbenchFilterChip(
+            state.filters.specialProcessOnly ? '已选：只看特殊工艺' : '只看特殊工艺',
+            'data-cutting-summary-action="toggle-special"',
+            'emerald',
+          )}
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="clear-filters">清除筛选条件</button>
+        </div>
       </div>
     </div>
   `)
 }
 
-function renderIssueBoard(viewModel: CuttingSummaryViewModel): string {
-  if (!viewModel.issues.length) {
+function renderIssueBoard(issues: CuttingSummaryIssue[]): string {
+  if (!issues.length) {
     return `
       <section class="rounded-lg border border-dashed bg-card px-4 py-6 text-sm text-muted-foreground">
-        当前没有待处理问题，裁片域链路已基本收口。
+        当前筛选范围内暂无阻塞项分类。
       </section>
     `
   }
 
   return `
     <section class="space-y-3 rounded-lg border bg-card p-4">
-      <div>
-        <h2 class="text-base font-semibold text-foreground">异常与待处理总览</h2>
-        <p class="mt-1 text-sm text-muted-foreground">先看问题类别，再联动下方主表和详情区定位断点。</p>
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-foreground">阻塞项分类</h2>
+        </div>
+        <p class="text-xs text-muted-foreground">当前共 ${formatCount(issues.length)} 类阻塞</p>
       </div>
       <div class="grid gap-3 xl:grid-cols-5">
-        ${viewModel.issues
+        ${issues
           .map((issue) => {
             const issueMeta = cuttingSummaryIssueMetaMap[issue.issueType]
-            const riskMeta = cuttingSummaryRiskMetaMap[issue.severity]
+            const riskMeta = cuttingSummaryRiskMetaMap[issue.highestRiskLevel]
             const activeClass = state.activeIssueId === issue.issueId ? 'border-blue-500 bg-blue-50' : 'hover:border-slate-300'
             return `
               <button
@@ -510,14 +726,24 @@ function renderIssueBoard(viewModel: CuttingSummaryViewModel): string {
                 class="rounded-lg border p-3 text-left transition ${activeClass}"
                 data-cutting-summary-action="focus-issue"
                 data-issue-id="${issue.issueId}"
+                data-row-id="${issue.relatedRowIds[0] || ''}"
               >
                 <div class="flex items-start justify-between gap-2">
                   <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${issueMeta.className}">${escapeHtml(issueMeta.label)}</span>
                   <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${riskMeta.className}">${escapeHtml(riskMeta.label)}</span>
                 </div>
-                <p class="mt-2 text-sm font-semibold text-foreground">${formatCount(issue.relatedProductionOrderNos.length)} 个关联生产单</p>
-                <p class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(issue.summary)}</p>
-                <p class="mt-2 text-xs text-blue-600">${escapeHtml(issue.actionHint)}</p>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div class="rounded-md bg-muted/30 px-2 py-2">
+                    <p class="text-[11px] text-muted-foreground">阻塞生产单</p>
+                    <p class="mt-1 font-semibold text-foreground">${formatCount(issue.blockingProductionOrderCount)}</p>
+                  </div>
+                  <div class="rounded-md bg-muted/30 px-2 py-2">
+                    <p class="text-[11px] text-muted-foreground">阻塞对象</p>
+                    <p class="mt-1 font-semibold text-foreground">${formatCount(issue.blockingObjectCount)}</p>
+                  </div>
+                </div>
+                <p class="mt-2 text-xs leading-5 text-muted-foreground">${escapeHtml(issue.summary)}</p>
+                <p class="mt-2 text-xs font-medium text-blue-700">首要处理动作：${escapeHtml(issue.primaryActionLabel)}</p>
               </button>
             `
           })
@@ -527,13 +753,33 @@ function renderIssueBoard(viewModel: CuttingSummaryViewModel): string {
   `
 }
 
+function renderCheckStateBar(rows: CuttingSummaryRow[]): string {
+  const blockerCount = rows.reduce((sum, row) => sum + row.blockingCount, 0)
+  const pendingActionCount = rows.reduce((sum, row) => sum + row.pendingActionCount, 0)
+  const blockedCount = rows.filter((row) => row.completionState === 'BLOCKED').length
+  const dataPendingCount = rows.filter((row) => row.completionState === 'DATA_PENDING').length
+
+  return `
+    <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+      当前筛选命中 ${formatCount(rows.length)} 个生产单，阻塞对象 ${formatCount(blockerCount)} 个，待处理动作 ${formatCount(pendingActionCount)} 个。
+      ${blockedCount ? `阻塞中 ${formatCount(blockedCount)} 个。` : ''} ${dataPendingCount ? `待补数据 ${formatCount(dataPendingCount)} 个。` : ''}
+    </section>
+  `
+}
+
+function renderPills(items: string[], emptyText: string): string {
+  if (!items.length) return `<span class="text-xs text-muted-foreground">${escapeHtml(emptyText)}</span>`
+  return items
+    .map((item) => `<span class="inline-flex max-w-[12rem] truncate rounded-full border bg-muted/30 px-2 py-0.5 text-xs text-foreground" title="${escapeHtml(item)}">${escapeHtml(item)}</span>`)
+    .join('')
+}
+
 function renderMainTable(rows: CuttingSummaryRow[]): string {
   return `
     <section class="space-y-3 rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-base font-semibold text-foreground">链路汇总主表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">默认按生产单视角汇总，继续串起原始裁片单、批次、打票、仓储、交接、补料与特殊工艺。</p>
+          <h2 class="text-base font-semibold text-foreground">生产单核查总表</h2>
         </div>
         <p class="text-xs text-muted-foreground">当前共 ${formatCount(rows.length)} 行</p>
       </div>
@@ -545,15 +791,13 @@ function renderMainTable(rows: CuttingSummaryRow[]): string {
                 <tr class="border-b text-left text-xs text-muted-foreground">
                   <th class="px-3 py-2">生产单号</th>
                   <th class="px-3 py-2">款号 / SPU</th>
-                  <th class="px-3 py-2">原始裁片单数</th>
-                  <th class="px-3 py-2">合并批次数</th>
-                  <th class="px-3 py-2">当前阶段总览</th>
-                  <th class="px-3 py-2">配料 / 领料摘要</th>
-                  <th class="px-3 py-2">铺布 / 补料摘要</th>
-                  <th class="px-3 py-2">打票摘要</th>
-                  <th class="px-3 py-2">仓储 / 交接摘要</th>
-                  <th class="px-3 py-2">特殊工艺摘要</th>
-                  <th class="px-3 py-2">总体风险</th>
+                  <th class="px-3 py-2">当前阶段</th>
+                  <th class="px-3 py-2">闭环状态</th>
+                  <th class="px-3 py-2">首要阻塞链路</th>
+                  <th class="px-3 py-2">阻塞对象数</th>
+                  <th class="px-3 py-2">待处理动作数</th>
+                  <th class="px-3 py-2">高风险标记</th>
+                  <th class="px-3 py-2">关键来源对象</th>
                   <th class="px-3 py-2 text-right">操作</th>
                 </tr>
               </thead>
@@ -562,6 +806,7 @@ function renderMainTable(rows: CuttingSummaryRow[]): string {
                   .map((row) => {
                     const riskMeta = cuttingSummaryRiskMetaMap[row.overallRiskLevel]
                     const activeClass = state.activeRowId === row.rowId ? 'bg-blue-50/70' : ''
+                    const primaryAction = row.nextActions[0] || null
                     return `
                       <tr class="border-b align-top ${activeClass}">
                         <td class="px-3 py-3">
@@ -574,22 +819,41 @@ function renderMainTable(rows: CuttingSummaryRow[]): string {
                           <div>${escapeHtml(row.styleCode)}</div>
                           <div class="mt-1">${escapeHtml(row.spuCode)}</div>
                         </td>
-                        <td class="px-3 py-3">${formatCount(row.originalCutOrderCount)}</td>
-                        <td class="px-3 py-3">${formatCount(row.mergeBatchCount)}</td>
-                        <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(row.progressSummary)}</td>
-                        <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(row.materialPrepSummary)}</td>
-                        <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(`${row.spreadingSummary} / ${row.replenishmentSummary}`)}</td>
-                        <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(row.ticketSummary)}</td>
-                        <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(`${row.warehouseSummary} / ${row.bagUsageSummary}`)}</td>
-                        <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(row.specialProcessSummary)}</td>
+                        <td class="px-3 py-3">
+                          <span class="inline-flex rounded-full border bg-muted/40 px-2 py-0.5 text-xs text-foreground">${escapeHtml(row.currentStageLabel)}</span>
+                        </td>
+                        <td class="px-3 py-3">
+                          <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${row.completionClassName}">${escapeHtml(row.completionLabel)}</span>
+                          <p class="mt-1 max-w-[12rem] text-xs leading-5 text-muted-foreground">${escapeHtml(row.completionDetailText)}</p>
+                        </td>
+                        <td class="px-3 py-3">
+                          ${
+                            row.primaryBlockerSectionLabel
+                              ? `<div>
+                                  <span class="inline-flex rounded-full border bg-rose-50 px-2 py-0.5 text-xs text-rose-700">${escapeHtml(row.primaryBlockerSectionLabel)}</span>
+                                  <p class="mt-1 max-w-[14rem] text-xs leading-5 text-muted-foreground">${escapeHtml(row.primaryBlockerReason)}</p>
+                                </div>`
+                              : '<span class="text-xs text-muted-foreground">当前无明确阻塞</span>'
+                          }
+                        </td>
+                        <td class="px-3 py-3 font-medium text-foreground">${formatCount(row.blockingCount)}</td>
+                        <td class="px-3 py-3 font-medium text-foreground">${formatCount(row.pendingActionCount)}</td>
                         <td class="px-3 py-3">
                           <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${riskMeta.className}">${escapeHtml(riskMeta.label)}</span>
-                          ${row.riskTags.length ? `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.riskTags.slice(0, 3).join(' / '))}</p>` : ''}
+                        </td>
+                        <td class="px-3 py-3">
+                          <div class="flex max-w-[16rem] flex-wrap gap-1">
+                            ${renderPills(row.keySourceObjects.slice(0, 3), '暂无关键对象')}
+                          </div>
                         </td>
                         <td class="px-3 py-3 text-right">
-                          <div class="flex justify-end gap-2">
-                            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-summary-action="focus-row" data-row-id="${row.rowId}">查看收口</button>
-                            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-summary-action="navigate-row" data-row-id="${row.rowId}" data-nav-target="productionProgress">去处理</button>
+                          <div class="flex flex-col items-end gap-2">
+                            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-summary-action="focus-row" data-row-id="${row.rowId}">查看核查</button>
+                            ${
+                              primaryAction
+                                ? `<button type="button" class="rounded-md border px-2 py-1 text-xs text-blue-700 hover:bg-muted" data-cutting-summary-action="navigate-next-action" data-row-id="${row.rowId}" data-action-id="${primaryAction.actionId}" title="${escapeHtml(primaryAction.label)}">${escapeHtml(primaryAction.label)}</button>`
+                                : ''
+                            }
                           </div>
                         </td>
                       </tr>
@@ -601,7 +865,7 @@ function renderMainTable(rows: CuttingSummaryRow[]): string {
           `
           : `
             <div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-              当前筛选条件下没有命中的裁片收口行，请调整搜索、问题类型或风险筛选。
+              当前筛选条件下没有命中的核查记录。
             </div>
           `,
       )}
@@ -609,14 +873,214 @@ function renderMainTable(rows: CuttingSummaryRow[]): string {
   `
 }
 
-function renderListPills(items: string[], emptyText: string): string {
-  if (!items.length) return `<p class="text-sm text-muted-foreground">${escapeHtml(emptyText)}</p>`
+function renderCheckConclusion(detail: CuttingSummaryDetailPanelData): string {
+  const whyBlocked =
+    detail.primaryBlocker?.blockerReason || detail.completionMeta.detailText || detail.row.primaryBlockerReason || '当前暂无阻塞说明。'
+
   return `
-    <div class="flex flex-wrap gap-2">
-      ${items
-        .map((item) => `<span class="inline-flex rounded-full border bg-muted/30 px-2 py-0.5 text-xs text-foreground">${escapeHtml(item)}</span>`)
-        .join('')}
-    </div>
+    <article class="rounded-lg border p-3">
+      <h3 class="text-sm font-semibold text-foreground">核查结论</h3>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div class="rounded-lg bg-muted/30 px-3 py-3">
+          <p class="text-xs text-muted-foreground">当前闭环状态</p>
+          <span class="mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${detail.completionMeta.className}">${escapeHtml(detail.completionMeta.label)}</span>
+        </div>
+        <div class="rounded-lg bg-muted/30 px-3 py-3">
+          <p class="text-xs text-muted-foreground">首要阻塞链路</p>
+          <p class="mt-2 text-sm font-semibold text-foreground">${escapeHtml(detail.row.primaryBlockerSectionLabel || '当前无明确阻塞')}</p>
+        </div>
+        <div class="rounded-lg bg-muted/30 px-3 py-3">
+          <p class="text-xs text-muted-foreground">阻塞对象数</p>
+          <p class="mt-2 text-sm font-semibold text-foreground">${formatCount(detail.row.blockingCount)}</p>
+        </div>
+        <div class="rounded-lg bg-muted/30 px-3 py-3">
+          <p class="text-xs text-muted-foreground">待处理动作数</p>
+          <p class="mt-2 text-sm font-semibold text-foreground">${formatCount(detail.row.pendingActionCount)}</p>
+        </div>
+        <div class="rounded-lg bg-muted/30 px-3 py-3">
+          <p class="text-xs text-muted-foreground">是否可判完成</p>
+          <p class="mt-2 text-sm font-semibold text-foreground">${detail.row.completionState === 'COMPLETED' ? '可判完成' : '暂不可判完成'}</p>
+        </div>
+      </div>
+      <div class="mt-3 rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+        ${escapeHtml(whyBlocked)}
+      </div>
+    </article>
+  `
+}
+
+function renderBlockerSeverity(level: CuttingCheckBlockerItem['severity']): string {
+  const meta = blockerLevelMetaMap[level]
+  return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${meta.className}">${escapeHtml(meta.label)}</span>`
+}
+
+function renderBlockerList(detail: CuttingSummaryDetailPanelData): string {
+  return `
+    <article class="rounded-lg border p-3">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-sm font-semibold text-foreground">阻塞项清单</h3>
+        <span class="text-xs text-muted-foreground">${formatCount(detail.blockerItems.length)} 项</span>
+      </div>
+      ${
+        detail.blockerItems.length
+          ? renderStickyTableScroller(
+              `
+                <table class="min-w-full text-sm">
+                  <thead class="sticky top-0 bg-card">
+                    <tr class="border-b text-left text-xs text-muted-foreground">
+                      <th class="px-3 py-2">链路</th>
+                      <th class="px-3 py-2">来源对象</th>
+                      <th class="px-3 py-2">面料 SKU</th>
+                      <th class="px-3 py-2">当前状态</th>
+                      <th class="px-3 py-2">阻塞原因</th>
+                      <th class="px-3 py-2">下一步动作</th>
+                      <th class="px-3 py-2 text-right">处理动作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${detail.blockerItems
+                      .map(
+                        (item) => `
+                          <tr class="border-b align-top">
+                            <td class="px-3 py-3">
+                              <div class="space-y-1">
+                                <span class="inline-flex rounded-full border bg-muted/30 px-2 py-0.5 text-xs text-foreground">${escapeHtml(cuttingCheckSectionLabelMap[item.sectionKey])}</span>
+                                <div>${renderBlockerSeverity(item.severity)}</div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-3 text-sm">
+                              <p class="font-medium text-foreground">${escapeHtml(item.sourceNo)}</p>
+                              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sourceLabel)}</p>
+                            </td>
+                            <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(item.materialSku || '—')}</td>
+                            <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentStateLabel)}</td>
+                            <td class="px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(item.blockerReason)}</td>
+                            <td class="px-3 py-3 text-xs text-blue-700">${escapeHtml(item.nextActionLabel)}</td>
+                            <td class="px-3 py-3 text-right">
+                              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-summary-action="navigate-blocker" data-row-id="${detail.row.rowId}" data-blocker-id="${item.blockerId}">
+                                ${escapeHtml(getCuttingNavigationActionLabel(blocker.navigationTarget as CuttingNavigationTarget))}
+                              </button>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                      .join('')}
+                  </tbody>
+                </table>
+              `,
+              'max-h-[26rem]',
+            )
+          : '<p class="mt-3 text-sm text-muted-foreground">当前没有明确阻塞项。</p>'
+      }
+    </article>
+  `
+}
+
+function renderSourceObjects(detail: CuttingSummaryDetailPanelData): string {
+  const groups = sourceObjectGroupOrder
+    .map((sourceType) => ({
+      sourceType,
+      label: sourceObjectTypeLabelMap[sourceType],
+      items: detail.sourceObjects.filter((item) => item.sourceType === sourceType),
+    }))
+    .filter((group) => group.items.length)
+
+  return `
+    <article class="rounded-lg border p-3">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-sm font-semibold text-foreground">来源对象</h3>
+        <span class="text-xs text-muted-foreground">${formatCount(detail.sourceObjects.length)} 个</span>
+      </div>
+      ${
+        groups.length
+          ? `<div class="mt-3 space-y-3">
+              ${groups
+                .map(
+                  (group) => `
+                    <section class="space-y-2">
+                      <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-xs font-semibold text-muted-foreground">${escapeHtml(group.label)}</h4>
+                        <span class="text-[11px] text-muted-foreground">${formatCount(group.items.length)} 个</span>
+                      </div>
+                      <div class="space-y-2">
+                        ${group.items
+                          .map(
+                            (item) => `
+                              <div class="rounded-md border px-3 py-2">
+                                <div class="flex items-start justify-between gap-3">
+                                  <div class="min-w-0">
+                                    <p class="truncate text-sm font-medium text-foreground">${escapeHtml(item.sourceNo)}</p>
+                                    <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.statusLabel)}</p>
+                                    ${item.materialSku ? `<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialSku)}</p>` : ''}
+                                  </div>
+                                  <div class="shrink-0 text-right">
+                                    ${
+                                      item.blockerCount
+                                        ? `<span class="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700">阻塞 ${formatCount(item.blockerCount)}</span>`
+                                        : '<span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">无阻塞</span>'
+                                    }
+                                    <div class="mt-2">
+                                      <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-summary-action="navigate-source-object" data-row-id="${detail.row.rowId}" data-source-type="${item.sourceType}" data-source-id="${item.sourceId}">
+                                        ${escapeHtml(getCuttingNavigationActionLabel(sourceObject.navigationTarget as CuttingNavigationTarget))}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            `,
+                          )
+                          .join('')}
+                      </div>
+                    </section>
+                  `,
+                )
+                .join('')}
+            </div>`
+          : '<p class="mt-3 text-sm text-muted-foreground">当前未挂出可核查来源对象。</p>'
+      }
+    </article>
+  `
+}
+
+function renderSectionStates(detail: CuttingSummaryDetailPanelData): string {
+  return `
+    <article class="rounded-lg border p-3">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-sm font-semibold text-foreground">链路完成度</h3>
+        <span class="text-xs text-muted-foreground">${formatCount(detail.sectionStates.length)} 条链路</span>
+      </div>
+      <div class="mt-3 space-y-2">
+        ${detail.sectionStates
+          .map(
+            (section) => `
+              <div class="rounded-md border px-3 py-2">
+                <div class="flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <p class="text-sm font-medium text-foreground">${escapeHtml(section.label)}</p>
+                      <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${section.className}">${escapeHtml(section.currentStateLabel)}</span>
+                    </div>
+                    <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(section.detailText)}</p>
+                    <p class="mt-1 text-xs text-muted-foreground">阻塞对象 ${formatCount(section.blockerCount)} / 完成 ${formatCount(section.doneCount)} / 总数 ${formatCount(section.totalCount)}</p>
+                  </div>
+                  <div class="shrink-0">
+                    <button
+                      type="button"
+                      class="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                      data-cutting-summary-action="navigate-section-action"
+                      data-row-id="${detail.row.rowId}"
+                      data-section-key="${section.sectionKey}"
+                    >
+                      ${escapeHtml(section.defaultAction.label)}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </article>
   `
 }
 
@@ -624,97 +1088,24 @@ function renderDetailPanel(detail: CuttingSummaryDetailPanelData | null): string
   if (!detail) {
     return `
       <section class="rounded-lg border bg-card p-4">
-        <h2 class="text-base font-semibold text-foreground">对象详情联动区</h2>
-        <p class="mt-2 text-sm text-muted-foreground">点击问题项或主表行后，这里会展示生产单、原始裁片单、批次、打票、仓储、交接、补料与特殊工艺的联动摘要。</p>
+        <h2 class="text-base font-semibold text-foreground">核查详情</h2>
+        <p class="mt-2 text-sm text-muted-foreground">请选择一条生产单核查记录。</p>
       </section>
     `
   }
 
-  const latestPrintJob = detail.printJobs[0]
   return `
     <section class="space-y-4 rounded-lg border bg-card p-4">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h2 class="text-base font-semibold text-foreground">对象详情联动区</h2>
-          <p class="mt-1 text-sm text-muted-foreground">当前聚焦 ${escapeHtml(detail.row.productionOrderNo)}，用于收口核查和问题回跳。</p>
+          <h2 class="text-base font-semibold text-foreground">核查详情</h2>
         </div>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="close-overlay">清空当前选中</button>
       </div>
-
-      <div class="grid gap-3 lg:grid-cols-2">
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <h3 class="text-sm font-semibold text-foreground">基础对象摘要</h3>
-          <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-            <div><dt class="text-muted-foreground">生产单号</dt><dd class="font-medium text-foreground">${escapeHtml(detail.row.productionOrderNo)}</dd></div>
-            <div><dt class="text-muted-foreground">款号 / SPU</dt><dd class="font-medium text-foreground">${escapeHtml(`${detail.row.styleCode} / ${detail.row.spuCode}`)}</dd></div>
-            <div><dt class="text-muted-foreground">原始裁片单数</dt><dd class="font-medium text-foreground">${formatCount(detail.row.originalCutOrderCount)}</dd></div>
-            <div><dt class="text-muted-foreground">合并批次数</dt><dd class="font-medium text-foreground">${formatCount(detail.row.mergeBatchCount)}</dd></div>
-            <div><dt class="text-muted-foreground">当前阶段</dt><dd class="font-medium text-foreground">${escapeHtml(detail.row.currentStageLabel)}</dd></div>
-            <div><dt class="text-muted-foreground">总体风险</dt><dd><span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cuttingSummaryRiskMetaMap[detail.row.overallRiskLevel].className}">${escapeHtml(cuttingSummaryRiskMetaMap[detail.row.overallRiskLevel].label)}</span></dd></div>
-          </dl>
-        </article>
-
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <h3 class="text-sm font-semibold text-foreground">打票 / 二维码摘要</h3>
-          <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-            <div><dt class="text-muted-foreground">最新打印作业号</dt><dd class="font-medium text-foreground">${escapeHtml(latestPrintJob?.printJobNo || detail.row.latestPrintJobNo || '待补')}</dd></div>
-            <div><dt class="text-muted-foreground">已打票数 / 待打票主体</dt><dd class="font-medium text-foreground">${formatCount(detail.ticketRecords.length)} / ${formatCount(detail.row.unprintedOwnerCount)}</dd></div>
-            <div><dt class="text-muted-foreground">二维码 schema version</dt><dd class="font-medium text-foreground">${escapeHtml(detail.row.qrSchemaVersions.join(' / ') || '1.0.0')}</dd></div>
-            <div><dt class="text-muted-foreground">最近打印时间</dt><dd class="font-medium text-foreground">${escapeHtml(latestPrintJob ? formatDateTime(latestPrintJob.printedAt) : '待打印')}</dd></div>
-          </dl>
-        </article>
-      </div>
-
-      <div class="grid gap-3 xl:grid-cols-2">
-        <article class="rounded-lg border p-3">
-          <h3 class="text-sm font-semibold text-foreground">原始裁片单摘要</h3>
-          <div class="mt-3 space-y-2">
-            ${detail.originalRows
-              .slice(0, 6)
-              .map(
-                (row) => `
-                  <div class="rounded-md border px-3 py-2 text-sm">
-                    <div class="flex items-center justify-between gap-2">
-                      <span class="font-medium text-foreground">${escapeHtml(row.originalCutOrderNo)}</span>
-                      <span class="text-xs text-muted-foreground">${escapeHtml(`${row.currentStage.label} / ${row.cuttableState.label}`)}</span>
-                    </div>
-                    <p class="mt-1 text-xs text-muted-foreground">关联批次：${escapeHtml(row.mergeBatchNos.join(' / ') || '未入批次')}</p>
-                  </div>
-                `,
-              )
-              .join('')}
-          </div>
-        </article>
-
-        <article class="rounded-lg border p-3">
-          <h3 class="text-sm font-semibold text-foreground">批次 / 仓储 / 交接摘要</h3>
-          <div class="mt-3 space-y-2 text-sm">
-            <p class="text-muted-foreground">批次：${escapeHtml(detail.mergeBatches.map((batch) => batch.mergeBatchNo).join(' / ') || '未生成')}</p>
-            <p class="text-muted-foreground">裁片仓：${escapeHtml(detail.cutPieceItems.length ? detail.cutPieceItems.map((item) => `${item.originalCutOrderNo}(${item.warehouseStatus.label}/${item.handoffStatus.label})`).slice(0, 4).join(' / ') : '暂无裁片仓记录')}</p>
-            <p class="text-muted-foreground">周转口袋：${escapeHtml(detail.bagUsages.length ? detail.bagUsages.map((item) => `${item.usageNo}/${item.statusMeta.label}`).join(' / ') : '未进入周转交接')}</p>
-            <p class="text-muted-foreground">回货状态：${escapeHtml(detail.returnUsages.length ? detail.returnUsages.map((item) => `${item.usageNo}/${item.bagStatusMeta?.label || '待补'}`).join(' / ') : '暂无回货记录')}</p>
-            <p class="text-muted-foreground">袋况异常：${escapeHtml(detail.conditionItems.filter((item) => item.decisionMeta.reusableDecision !== 'REUSABLE').map((item) => `${item.bagCode}/${item.decisionMeta.label}`).join(' / ') || '无异常')}</p>
-          </div>
-        </article>
-      </div>
-
-      <div class="grid gap-3 xl:grid-cols-2">
-        <article class="rounded-lg border p-3">
-          <h3 class="text-sm font-semibold text-foreground">补料 / 特殊工艺摘要</h3>
-          <div class="mt-3 space-y-2 text-sm text-muted-foreground">
-            <p>补料建议：${escapeHtml(detail.replenishments.length ? detail.replenishments.map((item) => `${item.suggestionNo}/${item.statusMeta.label}`).join(' / ') : '暂无')}</p>
-            <p>特殊工艺：${escapeHtml(detail.specialProcesses.length ? detail.specialProcesses.map((item) => `${item.processOrderNo}/${item.statusMeta.label}`).join(' / ') : '暂无')}</p>
-          </div>
-        </article>
-
-        <article class="rounded-lg border p-3">
-          <h3 class="text-sm font-semibold text-foreground">样衣 / 面料仓摘要</h3>
-          <div class="mt-3 space-y-2 text-sm text-muted-foreground">
-            <p>裁床仓：${escapeHtml(detail.fabricStocks.length ? detail.fabricStocks.map((item) => `${item.materialSku}/${formatFabricWarehouseLength(item.remainingLengthTotal)}`).slice(0, 4).join(' / ') : '暂无')}</p>
-            <p>样衣仓：${escapeHtml(detail.sampleItems.length ? detail.sampleItems.map((item) => `${item.sampleNo}/${item.status.label}`).slice(0, 4).join(' / ') : '暂无')}</p>
-          </div>
-        </article>
-      </div>
+      ${renderCheckConclusion(detail)}
+      ${renderBlockerList(detail)}
+      ${renderSourceObjects(detail)}
+      ${renderSectionStates(detail)}
     </section>
   `
 }
@@ -761,60 +1152,68 @@ function renderTraceNode(node: CuttingSummaryTraceNode, rowId: string): string {
 function renderTracePanel(detail: CuttingSummaryDetailPanelData | null): string {
   return renderWorkbenchSecondaryPanel({
     title: '追溯关系区',
-    hint: '按生产单 -> 原始裁片单 -> 批次 / 打票 / 周转口袋 / 补料 / 特殊工艺的结构查看链路。',
+    hint: '',
     defaultOpen: true,
     countText: detail ? `${detail.traceTree.length} 条根节点` : '待选择对象',
     body: detail
       ? `<ul class="space-y-3">${detail.traceTree.map((node) => renderTraceNode(node, detail.row.rowId)).join('')}</ul>`
-      : '<p class="text-sm text-muted-foreground">选中主表行后，这里会联动展示完整链路关系。</p>',
+      : '<p class="text-sm text-muted-foreground">请选择一条记录。</p>',
   })
 }
 
-function renderQuickActions(detail: CuttingSummaryDetailPanelData | null): string {
-  const renderAction = (label: string, target: SummaryNavigationTarget) =>
-    `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-summary-action="navigate-row" data-row-id="${detail?.row.rowId || ''}" data-nav-target="${target}">${escapeHtml(label)}</button>`
+function renderActionQueue(detail: CuttingSummaryDetailPanelData | null): string {
+  const actionCount = detail?.nextActions.length || 0
 
   return renderWorkbenchSecondaryPanel({
-    title: '快速跳转处理区',
-    hint: '发现问题后，直接跳回对应专业页面处理。',
+    title: '待处理动作',
+    hint: '',
     defaultOpen: true,
+    countText: detail ? `${formatCount(actionCount)} 项` : '待选择对象',
     body: detail
-      ? `
-          <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            ${renderAction('去生产单进度', 'productionProgress')}
-            ${renderAction('去可裁排产', 'cuttablePool')}
-            ${renderAction('去合并裁剪批次', 'mergeBatches')}
-            ${renderAction('去原始裁片单', 'originalOrders')}
-            ${renderAction('去仓库配料 / 领料', 'materialPrep')}
-            ${renderAction('去唛架 / 铺布', 'markerSpreading')}
-            ${renderAction('去菲票 / 打编号', 'feiTickets')}
-            ${renderAction('去裁床仓', 'fabricWarehouse')}
-            ${renderAction('去裁片仓', 'cutPieceWarehouse')}
-            ${renderAction('去样衣仓', 'sampleWarehouse')}
-            ${renderAction('去周转口袋 / 车缝交接', 'transferBags')}
-            ${renderAction('去补料管理', 'replenishment')}
-            ${renderAction('去特殊工艺', 'specialProcesses')}
-          </div>
-        `
-      : '<p class="text-sm text-muted-foreground">选中主表行后可快速跳到对应专业页面。</p>',
+      ? detail.nextActions.length
+        ? `
+            <div class="space-y-2">
+              ${detail.nextActions
+                .map(
+                  (action) => `
+                    <div class="rounded-md border px-3 py-2">
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex rounded-full border bg-muted/30 px-2 py-0.5 text-xs text-foreground">${escapeHtml(cuttingCheckSectionLabelMap[action.sectionKey])}</span>
+                            ${action.blocking ? '<span class="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700">阻塞动作</span>' : ''}
+                          </div>
+                          <p class="mt-2 text-sm font-medium text-foreground">${escapeHtml(action.label)}</p>
+                          <p class="mt-1 text-xs text-muted-foreground">来源对象：${escapeHtml(action.sourceNo || '当前生产单')} / 目标页面：${escapeHtml(actionTargetLabelMap[action.target])}</p>
+                        </div>
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                          data-cutting-summary-action="navigate-next-action"
+                          data-row-id="${detail.row.rowId}"
+                          data-action-id="${action.actionId}"
+                        >
+                          ${escapeHtml(action.label)}
+                        </button>
+                      </div>
+                    </div>
+                  `,
+                )
+                .join('')}
+            </div>
+          `
+        : '<p class="text-sm text-muted-foreground">当前没有待处理动作。</p>'
+      : '<p class="text-sm text-muted-foreground">请选择一条记录。</p>',
   })
-}
-
-function renderCrossObjectSearchHint(viewModel: CuttingSummaryViewModel, rows: CuttingSummaryRow[]): string {
-  const searchIndex = buildSummarySearchIndex(rows)
-  return `
-    <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-      当前跨对象搜索索引已覆盖 ${formatCount(searchIndex.length)} 条收口行，可直接搜 productionOrderNo / originalCutOrderNo / mergeBatchNo / ticketNo / bagCode / usageNo / processOrderNo。
-      ${state.activeIssueId ? `当前问题联动：${escapeHtml(viewModel.issuesById[state.activeIssueId]?.summary || '')}` : ''}
-    </section>
-  `
 }
 
 function renderPage(): string {
   const { sources, viewModel } = buildPageData()
   syncStateWithQuery(viewModel)
+  const issueRows = getFilteredRows(viewModel, { ignoreIssueType: true })
+  const issues = buildCuttingSummaryIssues(issueRows)
   const filteredRows = getFilteredRows(viewModel)
-  const activeRowId = getActiveRowId(viewModel, filteredRows)
+  const activeRowId = getActiveRowId(filteredRows, issues)
   const detail = activeRowId ? buildSummaryDetailPanelData(activeRowId, { ...sources, rows: viewModel.rows }) : null
   const pathname = appStore.getState().pathname
   const meta = getCanonicalCuttingMeta(pathname, 'summary')
@@ -825,16 +1224,16 @@ function renderPage(): string {
       ${renderStats(viewModel)}
       ${renderPrefilterBar()}
       ${renderFilterBar()}
-      ${renderIssueBoard(viewModel)}
-      ${renderCrossObjectSearchHint(viewModel, filteredRows)}
+      ${renderIssueBoard(issues)}
+      ${renderCheckStateBar(filteredRows)}
       ${renderMainTable(filteredRows)}
-      <section class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+      <section class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
         <div class="space-y-4">
           ${renderDetailPanel(detail)}
         </div>
         <div class="space-y-4">
+          ${renderActionQueue(detail)}
           ${renderTracePanel(detail)}
-          ${renderQuickActions(detail)}
         </div>
       </section>
     </div>
@@ -846,9 +1245,38 @@ function getRowById(rowId: string | undefined): CuttingSummaryRow | null {
   return buildPageData().viewModel.rowsById[rowId] || null
 }
 
-function getIssueById(issueId: string | undefined): CuttingSummaryIssue | null {
-  if (!issueId) return null
-  return buildPageData().viewModel.issuesById[issueId] || null
+function getDetailByRowId(rowId: string | undefined): CuttingSummaryDetailPanelData | null {
+  if (!rowId) return null
+  const { sources, viewModel } = buildPageData()
+  return buildSummaryDetailPanelData(rowId, { ...sources, rows: viewModel.rows })
+}
+
+function getRowAction(rowId: string | undefined, actionId: string | undefined): CuttingCheckNextAction | null {
+  const row = getRowById(rowId)
+  if (!row || !actionId) return null
+  return row.nextActions.find((item) => item.actionId === actionId) || null
+}
+
+function getRowBlocker(rowId: string | undefined, blockerId: string | undefined): CuttingCheckBlockerItem | null {
+  const row = getRowById(rowId)
+  if (!row || !blockerId) return null
+  return row.blockerItems.find((item) => item.blockerId === blockerId) || null
+}
+
+function getRowSection(rowId: string | undefined, sectionKey: string | undefined): CuttingCheckSectionState | null {
+  const row = getRowById(rowId)
+  if (!row || !sectionKey) return null
+  return row.checkSections.find((item) => item.sectionKey === sectionKey) || null
+}
+
+function getSourceObject(
+  rowId: string | undefined,
+  sourceType: string | undefined,
+  sourceId: string | undefined,
+): CuttingSummarySourceObjectItem | null {
+  const detail = getDetailByRowId(rowId)
+  if (!detail || !sourceType || !sourceId) return null
+  return detail.sourceObjects.find((item) => item.sourceType === sourceType && item.sourceId === sourceId) || null
 }
 
 export function renderCraftCuttingSummaryPage(): string {
@@ -880,11 +1308,10 @@ export function handleCraftCuttingSummaryEvent(target: Element): boolean {
   }
 
   if (action === 'focus-issue') {
-    const issue = getIssueById(actionNode.dataset.issueId)
-    if (!issue) return false
-    state.activeIssueId = issue.issueId
-    state.filters.issueType = issue.issueType
-    state.activeRowId = issue.relatedRowIds[0] || null
+    const issueId = actionNode.dataset.issueId
+    if (!issueId) return false
+    state.activeIssueId = issueId
+    state.activeRowId = actionNode.dataset.rowId || null
     return true
   }
 
@@ -958,7 +1385,67 @@ export function handleCraftCuttingSummaryEvent(target: Element): boolean {
     const row = getRowById(actionNode.dataset.rowId || state.activeRowId || undefined)
     const navTarget = actionNode.dataset.navTarget as SummaryNavigationTarget | undefined
     if (!row || !navTarget) return false
-    return navigateWithPayload(navTarget, row.navigationPayload[navTarget])
+    return navigateWithPayload(navTarget, row.navigationPayload[navTarget], {
+      productionOrderId: row.productionOrderId,
+      productionOrderNo: row.productionOrderNo,
+    })
+  }
+
+  if (action === 'navigate-next-action') {
+    const nextAction = getRowAction(actionNode.dataset.rowId || state.activeRowId || undefined, actionNode.dataset.actionId)
+    if (!nextAction) return false
+    return navigateWithPayload(nextAction.target as SummaryNavigationTarget, nextAction.payload, {
+      blockerSection: nextAction.sectionKey,
+      sourceSection: 'action-queue',
+    })
+  }
+
+  if (action === 'navigate-blocker') {
+    const blocker = getRowBlocker(actionNode.dataset.rowId || state.activeRowId || undefined, actionNode.dataset.blockerId)
+    if (!blocker) return false
+    return navigateWithPayload(blocker.navigationTarget as SummaryNavigationTarget, blocker.navigationPayload, {
+      productionOrderId: blocker.productionOrderId,
+      productionOrderNo: blocker.productionOrderNo,
+      blockerSection: blocker.sectionKey,
+      sourceSection: 'blocker-list',
+      originalCutOrderNo: blocker.sourceType === 'ORIGINAL_CUT_ORDER' ? blocker.sourceNo : undefined,
+      mergeBatchNo: blocker.sourceType === 'MERGE_BATCH' ? blocker.sourceNo : undefined,
+      suggestionId: blocker.sourceType === 'REPLENISHMENT' ? blocker.sourceId : undefined,
+      suggestionNo: blocker.sourceType === 'REPLENISHMENT' ? blocker.sourceNo : undefined,
+      processOrderId: blocker.sourceType === 'SPECIAL_PROCESS' ? blocker.sourceId : undefined,
+      processOrderNo: blocker.sourceType === 'SPECIAL_PROCESS' ? blocker.sourceNo : undefined,
+      bagCode: blocker.sourceType === 'BAG_USAGE' ? blocker.sourceNo : undefined,
+      materialSku: blocker.materialSku || undefined,
+    })
+  }
+
+  if (action === 'navigate-section-action') {
+    const section = getRowSection(actionNode.dataset.rowId || state.activeRowId || undefined, actionNode.dataset.sectionKey)
+    if (!section) return false
+    return navigateWithPayload(section.defaultAction.target as SummaryNavigationTarget, section.defaultAction.payload, {
+      blockerSection: section.sectionKey,
+      sourceSection: 'section-state',
+    })
+  }
+
+  if (action === 'navigate-source-object') {
+    const sourceObject = getSourceObject(
+      actionNode.dataset.rowId || state.activeRowId || undefined,
+      actionNode.dataset.sourceType,
+      actionNode.dataset.sourceId,
+    )
+    if (!sourceObject) return false
+    return navigateWithPayload(sourceObject.navigationTarget as SummaryNavigationTarget, sourceObject.navigationPayload, {
+      sourceSection: 'source-object',
+      originalCutOrderNo: sourceObject.sourceType === 'ORIGINAL_CUT_ORDER' ? sourceObject.sourceNo : undefined,
+      mergeBatchNo: sourceObject.sourceType === 'MERGE_BATCH' ? sourceObject.sourceNo : undefined,
+      suggestionId: sourceObject.sourceType === 'REPLENISHMENT' ? sourceObject.sourceId : undefined,
+      suggestionNo: sourceObject.sourceType === 'REPLENISHMENT' ? sourceObject.sourceNo : undefined,
+      processOrderId: sourceObject.sourceType === 'SPECIAL_PROCESS' ? sourceObject.sourceId : undefined,
+      processOrderNo: sourceObject.sourceType === 'SPECIAL_PROCESS' ? sourceObject.sourceNo : undefined,
+      bagCode: sourceObject.sourceType === 'BAG_USAGE' ? sourceObject.sourceNo : undefined,
+      materialSku: sourceObject.materialSku || undefined,
+    })
   }
 
   if (action === 'go-production-progress') {

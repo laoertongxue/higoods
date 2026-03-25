@@ -1,6 +1,7 @@
 import type { ReturnInboundProcessType } from './store-domain-quality-types.ts'
 import { listQualityDeductionCaseFacts } from './quality-deduction-repository.ts'
 import { getQualityDeductionNow, parseQualityDeductionTimestamp } from './quality-deduction-lifecycle.ts'
+import { buildDeductionEntryHrefByBasisId } from './quality-chain-adapter.ts'
 import type {
   QualityDeductionCaseFact,
   QualityDeductionDisputeStatus,
@@ -319,7 +320,7 @@ function buildBaseRows(): QualityDeductionAnalysisDetailRow[] {
           qcRecord.remark ??
           '—',
         qcHref: `/fcs/quality/qc-records/${qcRecord.qcId}`,
-        deductionHref: deductionBasis ? `/fcs/quality/deduction-calc/${deductionBasis.basisId}` : undefined,
+        deductionHref: deductionBasis ? buildDeductionEntryHrefByBasisId(deductionBasis.basisId) : undefined,
       }
     })
 }

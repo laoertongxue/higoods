@@ -1096,11 +1096,10 @@ function renderHeader(): string {
   return `
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 class="flex items-center gap-2 text-xl font-semibold">
+        <h1 class="flex items-center gap-2 text-xl font-semibold">
           <i data-lucide="bell" class="h-5 w-5"></i>
           催办与通知
-        </h2>
-        <p class="mt-1 text-sm text-muted-foreground">管理催办信息与系统通知</p>
+        </h1>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-urge-action="recompute">
@@ -1141,7 +1140,7 @@ function renderKpiCards(kpi: { unreadCount: number; criticalCount: number; facto
       <article class="rounded-lg border bg-card p-4">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-muted-foreground">工厂端(PDA)待办</p>
+            <p class="text-sm text-muted-foreground">工厂端移动应用待办</p>
             <p class="text-2xl font-bold">${kpi.factoryCount}</p>
           </div>
           <i data-lucide="factory" class="h-8 w-8 text-green-500/30"></i>
@@ -1647,7 +1646,6 @@ function renderNewUrgeDrawer(): string {
           <div class="flex items-center justify-between gap-2">
             <div>
               <h3 class="text-lg font-semibold">新建催办</h3>
-              <p class="text-sm text-muted-foreground">管理催办信息与系统通知</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted" data-urge-action="close-new-urge" aria-label="关闭">
               <i data-lucide="x" class="h-4 w-4"></i>

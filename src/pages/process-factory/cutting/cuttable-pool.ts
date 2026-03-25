@@ -189,7 +189,7 @@ function renderActionBar(viewModel = getViewModel()): string {
       <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cuttable-pool-action="go-merge-batches">
         去合并裁剪批次${selectedCount ? `（${selectedCount}）` : ''}
       </button>
-      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-summary-index">查看裁剪总结</button>
+      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }

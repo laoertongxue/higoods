@@ -1,5 +1,6 @@
 import type { MaterialPrepRow } from './material-prep-model'
 import type { MergeBatchRecord } from './merge-batches-model'
+import { getTechPackBySpuCode } from '../../../data/fcs/tech-packs'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -27,6 +28,23 @@ export interface MarkerSpreadingSummaryMeta<Key extends string> {
 export interface MarkerSizeDistributionItem {
   sizeLabel: string
   quantity: number
+}
+
+export interface MarkerAllocationLine {
+  allocationId: string
+  markerId: string
+  sourceCutOrderId: string
+  sourceCutOrderNo: string
+  sourceProductionOrderId: string
+  sourceProductionOrderNo: string
+  styleCode: string
+  spuCode: string
+  techPackSpuCode?: string
+  color: string
+  materialSku: string
+  sizeLabel: string
+  plannedGarmentQty: number
+  note: string
 }
 
 export interface MarkerLineItem {
@@ -91,6 +109,7 @@ export interface MarkerSpreadingContext {
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
+  techPackSpuCode?: string
   styleName: string
   materialSkuSummary: string
   materialPrepRows: MaterialPrepRow[]
@@ -106,6 +125,7 @@ export interface MarkerRecord {
   mergeBatchNo: string
   styleCode?: string
   spuCode?: string
+  techPackSpuCode?: string
   materialSkuSummary?: string
   colorSummary?: string
   markerMode: MarkerModeKey
@@ -126,6 +146,7 @@ export interface MarkerRecord {
   plannedMaterialMeter?: number
   actualMaterialMeter?: number
   actualCutQty?: number
+  allocationLines?: MarkerAllocationLine[]
   lineItems?: MarkerLineItem[]
   highLowPatternKeys?: string[]
   highLowCuttingRows?: HighLowCuttingRow[]
@@ -497,7 +518,7 @@ const spreadingStatusMeta: Record<SpreadingStatusKey, { label: string; className
   DONE: {
     label: '已完成',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前铺布记录已完成，可作为补料预警与后续打编号的基础数据。',
+    detailText: '当前铺布记录已完成，可作为补料预警与后续打印菲票的基础数据。',
   },
   TO_FILL: {
     label: '待补录',
@@ -623,6 +644,25 @@ function normalizeMarkerLineItem(item: Partial<MarkerLineItem>, markerId: string
     ratioLabel: item.layoutDetailText || item.ratioLabel || '',
     pieceCount: markerPieceCount,
     spreadingTotalLength: spreadTotalLength,
+  }
+}
+
+function normalizeMarkerAllocationLine(item: Partial<MarkerAllocationLine>, markerId: string, index: number): MarkerAllocationLine {
+  return {
+    allocationId: item.allocationId || `allocation-${markerId}-${index + 1}`,
+    markerId,
+    sourceCutOrderId: item.sourceCutOrderId || '',
+    sourceCutOrderNo: item.sourceCutOrderNo || '',
+    sourceProductionOrderId: item.sourceProductionOrderId || '',
+    sourceProductionOrderNo: item.sourceProductionOrderNo || '',
+    styleCode: item.styleCode || '',
+    spuCode: item.spuCode || '',
+    techPackSpuCode: item.techPackSpuCode || '',
+    color: item.color || '',
+    materialSku: item.materialSku || '',
+    sizeLabel: item.sizeLabel || '',
+    plannedGarmentQty: Math.max(Number(item.plannedGarmentQty || 0), 0),
+    note: item.note || '',
   }
 }
 
@@ -758,12 +798,15 @@ export function buildMarkerWarningMessages(marker: Partial<MarkerRecord>): strin
     }
   }
 
-  return [...validateMarkerModeShape(marker), ...warnings]
+  return uniqueStrings([...validateMarkerModeShape(marker), ...warnings])
 }
 
 function normalizeMarkerRecord(marker: MarkerRecord): MarkerRecord {
   const sizeDistribution = Array.isArray(marker.sizeDistribution) ? marker.sizeDistribution : []
   const normalizedMode = normalizeMarkerMode(marker.markerMode as string | undefined)
+  const allocationLines = (marker.allocationLines || []).map((item, index) =>
+    normalizeMarkerAllocationLine(item, marker.markerId, index),
+  )
   const lineItems = (marker.lineItems || []).map((item, index) => normalizeMarkerLineItem(item, marker.markerId, index))
   const highLowPatternKeys = uniqueStrings([...(marker.highLowPatternKeys || []), ...DEFAULT_HIGH_LOW_PATTERN_KEYS])
   const highLowCuttingRows = (marker.highLowCuttingRows || []).map((item, index) => normalizeHighLowCuttingRow(item, marker.markerId, index))
@@ -777,7 +820,7 @@ function normalizeMarkerRecord(marker: MarkerRecord): MarkerRecord {
       ? computeNormalMarkerSpreadTotalLength(lineItems)
       : Number(marker.actualMaterialMeter ?? 0))
   const usageSummary = computeUsageSummary(marker)
-  const warningMessages = buildMarkerWarningMessages({
+  const derivedWarningMessages = buildMarkerWarningMessages({
     ...marker,
     markerMode: normalizedMode,
     lineItems,
@@ -787,12 +830,15 @@ function normalizeMarkerRecord(marker: MarkerRecord): MarkerRecord {
     spreadTotalLength,
     totalPieces,
   })
+  const warningMessages = uniqueStrings([...(marker.warningMessages || []), ...derivedWarningMessages])
   return {
     ...marker,
     originalCutOrderNos: marker.originalCutOrderNos || [],
+    techPackSpuCode: marker.techPackSpuCode || '',
     markerMode: normalizedMode,
     totalPieces,
     spreadTotalLength,
+    allocationLines,
     lineItems,
     highLowPatternKeys,
     highLowCuttingRows,
@@ -912,6 +958,23 @@ function defaultSizeDistribution(rowCount: number): MarkerSizeDistributionItem[]
   }))
 }
 
+function buildTechPackSeedSizeDistribution(context: MarkerSpreadingContext): MarkerSizeDistributionItem[] | null {
+  if (context.contextType !== 'original-order' || context.materialPrepRows.length !== 1 || !context.techPackSpuCode) return null
+  const techPack = getTechPackBySpuCode(context.techPackSpuCode)
+  if (!techPack?.skuCatalog?.length) return null
+  const targetColor = String(context.materialPrepRows[0].color || '').trim().toLowerCase()
+  const matchedSizes = techPack.skuCatalog
+    .filter((item) => String(item.color || '').trim().toLowerCase() === targetColor)
+    .map((item) => item.size)
+  if (!matchedSizes.length) return null
+  const preferredSizeOrder = matchedSizes.filter((size) => MARKER_SIZE_KEYS.includes(size as MarkerSizeKey))
+  if (!preferredSizeOrder.length) return null
+  return MARKER_SIZE_KEYS.map((sizeLabel, index) => ({
+    sizeLabel,
+    quantity: preferredSizeOrder.includes(sizeLabel) ? [12, 18, 16, 10, 6][Math.min(index, 4)] || 4 : 0,
+  }))
+}
+
 function createDefaultHighLowCuttingRows(markerId: string, colors: string[], sizeDistribution: MarkerSizeDistributionItem[]): HighLowCuttingRow[] {
   const primaryColor = colors[0] || '主色'
   const secondaryColor = colors[1] || ''
@@ -963,6 +1026,11 @@ function summarizeMaterialSku(rows: MaterialPrepRow[]): string {
   return uniqueStrings(rows.flatMap((row) => row.materialLineItems.map((item) => item.materialSku))).join(' / ')
 }
 
+function summarizeTechPackSpuCode(rows: MaterialPrepRow[]): string {
+  const techPackSpuCodes = uniqueStrings(rows.map((row) => row.techPackSpuCode))
+  return techPackSpuCodes.length === 1 ? techPackSpuCodes[0] : ''
+}
+
 function getContextRowsByMergeBatch(batch: MergeBatchRecord, rowsById: Record<string, MaterialPrepRow>): MaterialPrepRow[] {
   return batch.items
     .map((item) => rowsById[item.originalCutOrderId] || rowsById[item.originalCutOrderNo])
@@ -994,6 +1062,7 @@ function buildContext(
       productionOrderNos: uniqueStrings(batchRows.map((row) => row.productionOrderNo)),
       styleCode: mergeBatch.styleCode || batchRows[0]?.styleCode || '',
       spuCode: mergeBatch.spuCode || batchRows[0]?.spuCode || '',
+      techPackSpuCode: summarizeTechPackSpuCode(batchRows),
       styleName: mergeBatch.styleName || batchRows[0]?.styleName || '',
       materialSkuSummary: mergeBatch.materialSkuSummary || summarizeMaterialSku(batchRows),
       materialPrepRows: batchRows,
@@ -1016,6 +1085,7 @@ function buildContext(
     productionOrderNos: [matchedRow.productionOrderNo],
     styleCode: matchedRow.styleCode,
     spuCode: matchedRow.spuCode,
+    techPackSpuCode: matchedRow.techPackSpuCode || '',
     styleName: matchedRow.styleName,
     materialSkuSummary: matchedRow.materialSkuSummary,
     materialPrepRows: [matchedRow],
@@ -1034,7 +1104,7 @@ function matchesContext<T extends { contextType: 'original-order' | 'merge-batch
 }
 
 function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
-  const sizeDistribution = defaultSizeDistribution(context.materialPrepRows.length)
+  const sizeDistribution = buildTechPackSeedSizeDistribution(context) || defaultSizeDistribution(context.materialPrepRows.length)
   const totalPieces = computeMarkerTotalPieces(sizeDistribution)
   const configuredLengthTotal = context.materialPrepRows.reduce(
     (sum, row) => sum + row.materialLineItems.reduce((lineSum, item) => lineSum + item.configuredQty, 0),
@@ -1046,6 +1116,27 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
   const markerMode: MarkerModeKey = context.contextType === 'merge-batch' ? 'high-low' : 'normal'
   const highLowPatternKeys = [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
   const colors = uniqueStrings(context.materialPrepRows.map((row) => row.color))
+  const allocationLines: MarkerAllocationLine[] =
+    context.contextType === 'original-order' && context.materialPrepRows.length === 1
+      ? sizeDistribution
+          .filter((item) => item.quantity > 0)
+          .map((item, index) => ({
+            allocationId: `seed-allocation-${markerId}-${index + 1}`,
+            markerId,
+            sourceCutOrderId: context.materialPrepRows[0].originalCutOrderId,
+            sourceCutOrderNo: context.materialPrepRows[0].originalCutOrderNo,
+            sourceProductionOrderId: context.materialPrepRows[0].productionOrderId,
+            sourceProductionOrderNo: context.materialPrepRows[0].productionOrderNo,
+            styleCode: context.materialPrepRows[0].styleCode,
+            spuCode: context.materialPrepRows[0].spuCode,
+            techPackSpuCode: context.materialPrepRows[0].techPackSpuCode || context.techPackSpuCode || '',
+            color: context.materialPrepRows[0].color,
+            materialSku: context.materialPrepRows[0].materialSkuSummary,
+            sizeLabel: item.sizeLabel,
+            plannedGarmentQty: item.quantity,
+            note: '',
+          }))
+      : []
   const lineItems =
     markerMode === 'high-low'
       ? []
@@ -1080,6 +1171,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
     mergeBatchNo: context.mergeBatchNo,
     styleCode: context.styleCode,
     spuCode: context.spuCode,
+    techPackSpuCode: context.techPackSpuCode || '',
     materialSkuSummary: context.materialSkuSummary,
     colorSummary: uniqueStrings(context.materialPrepRows.map((row) => row.color)).join(' / '),
     markerMode,
@@ -1100,6 +1192,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
     plannedMaterialMeter: Number((configuredLengthTotal || netLength * 1.05).toFixed(2)),
     actualMaterialMeter: Number((netLength * 0.98).toFixed(2)),
     actualCutQty: totalPieces,
+    allocationLines,
     lineItems,
     highLowPatternKeys,
     highLowCuttingRows,
@@ -2075,7 +2168,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
   return {
     level: 'OK',
     label: '无明显缺口',
-    detailText: '当前铺布数据未识别明显长度缺口，可继续流向后续打编号链路。',
+    detailText: '当前铺布数据未识别明显长度缺口，可继续流向后续打印菲票链路。',
     shortageIndicator: false,
   }
 }
@@ -2358,7 +2451,7 @@ export function summarizeContextHint(context: MarkerSpreadingContext | null): st
   if (context.contextType === 'merge-batch') {
     return `当前以合并裁剪批次 ${context.mergeBatchNo || '待补批次号'} 作为执行上下文，底层追溯仍回落 ${context.originalCutOrderNos.length} 个原始裁片单。`
   }
-  return `当前以原始裁片单 ${context.originalCutOrderNos[0]} 作为上下文，后续若进入菲票 / 打编号，归属仍回落该原始裁片单。`
+  return `当前以原始裁片单 ${context.originalCutOrderNos[0]} 作为上下文，后续若进入打印菲票，归属仍回落该原始裁片单。`
 }
 
 export function createEmptyStore(): MarkerSpreadingStore {

@@ -68,7 +68,7 @@ export interface StatusBadgeMap {
 
 // ============ 抽屉类型 ============
 
-export type DrawerWidth = 'sm' | 'md' | 'lg'  // sm=480px, md=600px, lg=720px
+export type DrawerWidth = 'sm' | 'md' | 'lg' | 'xl'  // sm=480px, md=600px, lg=720px, xl=960px
 
 export interface DrawerConfig {
   title: string

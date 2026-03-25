@@ -1,6 +1,6 @@
 // 工艺路线模板 - RoutingTemplate
 
-import type { AssignmentMode, OwnerTier } from './process-types'
+import type { AssignmentMode, OwnerTier } from './process-types.ts'
 
 export type TemplateStatus = 'ACTIVE' | 'INACTIVE'
 export type MatchMode = 'MANUAL' | 'AUTO'

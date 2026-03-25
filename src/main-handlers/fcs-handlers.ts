@@ -62,11 +62,6 @@ import {
   isMaterialIssueDialogOpen,
 } from '../pages/material-issue'
 import { handleQcRecordsEvent } from '../pages/qc-records'
-import { handleDeductionCalcEvent } from '../pages/deduction-calc'
-import {
-  handleArbitrationEvent,
-  isArbitrationDialogOpen,
-} from '../pages/arbitration'
 import { handleDeductionAnalysisEvent } from '../pages/deduction-analysis'
 import {
   handleStatementsEvent,
@@ -198,8 +193,6 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleProcessPrintOrdersEvent(target) ||
     handleMaterialIssueEvent(target) ||
     handleQcRecordsEvent(target) ||
-    handleDeductionCalcEvent(target) ||
-    handleArbitrationEvent(target) ||
     handleStatementsEvent(target) ||
     handleAdjustmentsEvent(target) ||
     handleBatchesEvent(target) ||
@@ -336,13 +329,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.misAction = 'close-dialog'
     handleMaterialIssueEvent(fakeButton)
-    return true
-  }
-
-  if (isArbitrationDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.arbAction = 'close-dialog'
-    handleArbitrationEvent(fakeButton)
     return true
   }
 

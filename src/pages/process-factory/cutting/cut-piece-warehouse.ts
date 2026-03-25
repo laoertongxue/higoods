@@ -27,9 +27,19 @@ import {
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
   buildWarehouseOriginalRows,
-  buildWarehouseRouteWithQuery,
   getWarehouseSearchParams,
 } from './warehouse-shared'
+import {
+  buildCuttingDrillChipLabels,
+  buildCuttingDrillSummary,
+  buildCuttingRouteWithContext,
+  buildReturnToSummaryContext,
+  hasSummaryReturnContext,
+  normalizeLegacyCuttingPayload,
+  readCuttingDrillContextFromLocation,
+  type CuttingDrillContext,
+  type CuttingNavigationTarget,
+} from './navigation-context'
 
 type FilterField = 'keyword' | 'zoneCode' | 'cuttingGroup' | 'warehouseStatus' | 'risk'
 type DetailField = 'zoneCode' | 'locationCode' | 'note'
@@ -40,6 +50,7 @@ interface CutPieceWarehousePageState {
   filters: CutPieceWarehouseFilters
   activeItemId: string | null
   prefilter: CutPieceWarehousePrefilter | null
+  drillContext: CuttingDrillContext | null
   querySignature: string
   detailDraft: {
     zoneCode: CutPieceZoneCode
@@ -70,6 +81,7 @@ const state: CutPieceWarehousePageState = {
   filters: { ...initialFilters },
   activeItemId: null,
   prefilter: null,
+  drillContext: null,
   querySignature: '',
   detailDraft: {
     zoneCode: 'A',
@@ -98,10 +110,11 @@ function getFilteredItems() {
 
 function getPrefilterFromQuery(): CutPieceWarehousePrefilter | null {
   const params = getWarehouseSearchParams()
+  const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: CutPieceWarehousePrefilter = {
-    originalCutOrderNo: params.get('originalCutOrderNo') || undefined,
-    productionOrderNo: params.get('productionOrderNo') || undefined,
-    mergeBatchNo: params.get('mergeBatchNo') || undefined,
+    originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
+    productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
+    mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
     cuttingGroup: params.get('cuttingGroup') || undefined,
     zoneCode: (params.get('zoneCode') as CutPieceZoneCode | null) || undefined,
     warehouseStatus: (params.get('warehouseStatus') as WarehouseStatusFilter | null) || undefined,
@@ -114,6 +127,7 @@ function syncPrefilterFromQuery(): void {
   const pathname = appStore.getState().pathname
   if (pathname === state.querySignature) return
   state.querySignature = pathname
+  state.drillContext = readCuttingDrillContextFromLocation(getWarehouseSearchParams())
   state.prefilter = getPrefilterFromQuery()
   const matched = findCutPieceWarehouseByPrefilter(getViewModel().items, state.prefilter)
   state.activeItemId = matched?.warehouseItemId ?? null
@@ -145,11 +159,15 @@ function renderTag(label: string, className: string): string {
 }
 
 function renderHeaderActions(): string {
+  const returnToSummary = hasSummaryReturnContext(state.drillContext)
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="return-summary">返回裁剪总表</button>`
+    : ''
   return `
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-original-orders-index">查看裁片单（原始单）</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags-index">去周转口袋 / 车缝交接</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-summary-index">查看裁剪总结</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-original-orders-index">查看原始裁片单</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags-index">去周转口袋车缝交接</button>
+      ${returnToSummary}
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }
@@ -227,17 +245,17 @@ function renderZoneSummary(): string {
 
 function renderPrefilterBar(): string {
   if (!state.prefilter) return ''
-  const labels = [
-    state.prefilter.originalCutOrderNo ? `原始裁片单：${state.prefilter.originalCutOrderNo}` : '',
-    state.prefilter.productionOrderNo ? `生产单：${state.prefilter.productionOrderNo}` : '',
-    state.prefilter.mergeBatchNo ? `批次：${state.prefilter.mergeBatchNo}` : '',
-    state.prefilter.cuttingGroup ? `裁床组：${state.prefilter.cuttingGroup}` : '',
-    state.prefilter.zoneCode ? `区域：${cutPieceWarehouseZoneMeta[state.prefilter.zoneCode].label}` : '',
-    state.prefilter.warehouseStatus ? `仓状态：${cutPieceWarehouseStatusMeta[state.prefilter.warehouseStatus].label}` : '',
-  ].filter(Boolean)
+  const labels = Array.from(
+    new Set([
+      ...buildCuttingDrillChipLabels(state.drillContext),
+      state.prefilter.cuttingGroup ? `裁床组：${state.prefilter.cuttingGroup}` : '',
+      state.prefilter.zoneCode ? `区域：${cutPieceWarehouseZoneMeta[state.prefilter.zoneCode].label}` : '',
+      state.prefilter.warehouseStatus ? `仓状态：${cutPieceWarehouseStatusMeta[state.prefilter.warehouseStatus].label}` : '',
+    ].filter(Boolean)),
+  )
 
   return renderWorkbenchStateBar({
-    summary: '当前按外部上下文预筛裁片仓记录',
+    summary: buildCuttingDrillSummary(state.drillContext) || '当前按外部上下文预筛裁片仓记录',
     chips: labels.map((label) => renderWorkbenchFilterChip(label, 'data-cut-piece-warehouse-action="clear-prefilter"', 'amber')),
     clearAttrs: 'data-cut-piece-warehouse-action="clear-prefilter"',
   })
@@ -395,7 +413,7 @@ function renderDetailDrawer(): string {
   return uiDetailDrawer(
     {
       title: `裁片仓详情 · ${item.originalCutOrderNo}`,
-      subtitle: '当前页只承接裁片入仓、区位查找与待交接状态。',
+      subtitle: '',
       closeAction: { prefix: 'cut-piece-warehouse', action: 'close-detail' },
       width: 'lg',
     },
@@ -484,7 +502,7 @@ function renderDetailDrawer(): string {
 
         <section class="rounded-lg border border-dashed bg-blue-50/50 p-4">
           <h3 class="text-sm font-semibold text-foreground">待交接信息</h3>
-          <p class="mt-1 text-xs text-muted-foreground">本步只保留去周转口袋 / 车缝交接入口，不正式进入口袋父子码逻辑。</p>
+          <p class="mt-1 text-xs text-muted-foreground">本步只保留去周转口袋车缝交接入口，不正式进入口袋父子码逻辑。</p>
           <div class="mt-3 flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去 transfer-bags 入口</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-original-orders" data-item-id="${escapeHtml(item.warehouseItemId)}">查看原始裁片单</button>
@@ -522,15 +540,15 @@ function navigateByPayload(itemId: string | undefined, target: keyof ReturnType<
   if (!itemId) return false
   const item = getViewModel().itemsById[itemId]
   if (!item) return false
-
-  const pathMap: Record<keyof ReturnType<typeof buildCutPieceWarehouseNavigationPayload>, string> = {
-    originalOrders: getCanonicalCuttingPath('original-orders'),
-    materialPrep: getCanonicalCuttingPath('material-prep'),
-    summary: getCanonicalCuttingPath('summary'),
-    transferBags: getCanonicalCuttingPath('transfer-bags'),
-  }
-
-  appStore.navigate(buildWarehouseRouteWithQuery(pathMap[target], item.navigationPayload[target]))
+  const context = normalizeLegacyCuttingPayload(item.navigationPayload[target], 'cut-piece-warehouse', {
+    productionOrderNo: item.productionOrderNos[0] || undefined,
+    originalCutOrderNo: item.originalCutOrderNo,
+    mergeBatchNo: item.mergeBatchNo || undefined,
+    materialSku: item.materialSku || undefined,
+    warehouseRecordId: item.warehouseItemId,
+    autoOpenDetail: true,
+  })
+  appStore.navigate(buildCuttingRouteWithContext(target as CuttingNavigationTarget, context))
   return true
 }
 
@@ -587,6 +605,7 @@ export function handleCraftCuttingCutPieceWarehouseEvent(target: Element): boole
 
   if (action === 'clear-prefilter') {
     state.prefilter = null
+    state.drillContext = null
     state.activeItemId = null
     state.querySignature = getCanonicalCuttingPath('cut-piece-warehouse')
     appStore.navigate(getCanonicalCuttingPath('cut-piece-warehouse'))
@@ -659,6 +678,13 @@ export function handleCraftCuttingCutPieceWarehouseEvent(target: Element): boole
 
   if (action === 'go-summary-index') {
     appStore.navigate(getCanonicalCuttingPath('summary'))
+    return true
+  }
+
+  if (action === 'return-summary') {
+    const context = buildReturnToSummaryContext(state.drillContext)
+    if (!context) return false
+    appStore.navigate(buildCuttingRouteWithContext('summary', context))
     return true
   }
 

@@ -1,6 +1,6 @@
 // 生产单 Mock 数据 - 统一业务口径：生产单生成后先有一条初始任务，分配时再按结果拆分任务
 
-import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories'
+import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories.ts'
 
 // 新状态机（禁止WAIT_DISPATCH，改用WAIT_ASSIGNMENT）
 export type ProductionOrderStatus = 

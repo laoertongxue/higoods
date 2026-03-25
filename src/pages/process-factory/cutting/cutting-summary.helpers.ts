@@ -39,7 +39,7 @@ export const updatedSourceMeta: Record<CuttingSummaryUpdatedSource, string> = {
 }
 
 export const issueSourceMeta: Record<CuttingSummaryIssue['sourcePage'], { label: string; shortLabel: string }> = {
-  MATERIAL_PREP: { label: '仓库配料 / 领料', shortLabel: '配料领料' },
+  MATERIAL_PREP: { label: '仓库配料领料', shortLabel: '配料领料' },
   CUT_PIECE_ORDER: { label: '原始裁片单', shortLabel: '原始单' },
   REPLENISHMENT: { label: '补料管理', shortLabel: '补料' },
   WAREHOUSE: { label: '裁片仓交接', shortLabel: '仓交接' },
@@ -120,7 +120,7 @@ export function buildPriorityRecords(records: CuttingSummaryRecord[]): CuttingSu
 
 export function buildEmptyStateText(hasFilters: boolean, mode: 'records' | 'priority'): string {
   if (mode === 'priority') return '当前没有需要优先处理的重点问题生产单。'
-  return hasFilters ? '未找到符合筛选条件的裁剪总结记录。' : '当前没有可展示的裁剪总结记录。'
+  return hasFilters ? '未找到符合筛选条件的裁剪总表记录。' : '当前没有可展示的裁剪总表记录。'
 }
 
 export function hasSummaryFilters(filters: CuttingSummaryFilters): boolean {

@@ -4,14 +4,15 @@ import { processTasks } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { formatRemainingHours, getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
 import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
+import { listFutureMobileFactorySoonOverdueQcItems } from '../data/fcs/quality-deduction-selectors'
 import { renderPdaFrame } from './pda-shell'
 
-type DueSoonCategory = '全部' | '接单类' | '报价类' | '交接类' | '执行类'
+type DueSoonCategory = '全部' | '接单类' | '报价类' | '交接类' | '执行类' | '结算类'
 
 interface DueSoonItem {
   id: string
   category: Exclude<DueSoonCategory, '全部'>
-  subtype: '待接单' | '待报价' | '待领料' | '待交出' | '执行进行中' | '开工预期'
+  subtype: '待接单' | '待报价' | '待领料' | '待交出' | '执行进行中' | '开工预期' | '质检扣款'
   taskId?: string
   eventId?: string
   tenderId?: string
@@ -287,6 +288,7 @@ const CATEGORIES: Array<{ key: DueSoonCategory; label: string; icon: string }> =
   { key: '报价类', label: '报价类', icon: 'package' },
   { key: '交接类', label: '交接类', icon: 'arrow-left-right' },
   { key: '执行类', label: '执行类', icon: 'play' },
+  { key: '结算类', label: '结算类', icon: 'wallet' },
 ]
 
 const SUBTYPE_STYLE: Record<string, { label: string; className: string }> = {
@@ -296,6 +298,7 @@ const SUBTYPE_STYLE: Record<string, { label: string; className: string }> = {
   待交出: { label: '待交出', className: 'bg-teal-100 text-teal-700 border-teal-200' },
   执行进行中: { label: '进行中', className: 'bg-sky-100 text-sky-700 border-sky-200' },
   开工预期: { label: '开工预期', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+  质检扣款: { label: '质检扣款', className: 'bg-rose-100 text-rose-700 border-rose-200' },
 }
 
 const CATEGORY_EMPTY: Record<DueSoonCategory, string> = {
@@ -304,6 +307,7 @@ const CATEGORY_EMPTY: Record<DueSoonCategory, string> = {
   报价类: '当前暂无报价类即将逾期事项',
   交接类: '当前暂无交接类即将逾期事项',
   执行类: '当前暂无执行类即将逾期事项',
+  结算类: '当前暂无结算类即将逾期事项',
 }
 
 function getAllItems(): DueSoonItem[] {
@@ -373,7 +377,22 @@ function getAllItems(): DueSoonItem[] {
       href: `/fcs/pda/exec/${item.task.taskId}`,
     }))
 
-  return [...staticItems, ...execInProgressItems, ...startDueItems]
+  const qualityDueSoonItems: DueSoonItem[] = listFutureMobileFactorySoonOverdueQcItems(selectedFactoryId).map((item) => ({
+    id: `quality-due-${item.qcId}`,
+    category: '结算类' as const,
+    subtype: '质检扣款' as const,
+    taskId: item.qcNo,
+    productionOrderId: item.productionOrderNo,
+    processName: item.processLabel,
+    currentFactory: item.returnFactoryName,
+    deadlineLabel: '质检响应截止时间',
+    deadline: item.responseDeadlineAt || addHours(NOW, 1),
+    statusLabel: item.factoryResponseStatusLabel,
+    riskNote: `需在 48 小时窗口内确认处理或补充图片/视频证据发起异议，当前冻结加工费 ${item.blockedProcessingFeeAmount.toLocaleString('zh-CN')} CNY。`,
+    href: `/fcs/pda/settlement?tab=quality&view=soon`,
+  }))
+
+  return [...staticItems, ...execInProgressItems, ...startDueItems, ...qualityDueSoonItems]
 }
 
 function getCountByCategory(items: DueSoonItem[]): Record<string, number> {
@@ -572,7 +591,7 @@ export function handlePdaNotifyDueSoonEvent(target: HTMLElement): boolean {
 
   if (action === 'set-category') {
     const category = actionNode.dataset.category as DueSoonCategory | undefined
-    if (category && ['全部', '接单类', '报价类', '交接类', '执行类'].includes(category)) {
+    if (category && ['全部', '接单类', '报价类', '交接类', '执行类', '结算类'].includes(category)) {
       state.activeCategory = category
     }
     return true

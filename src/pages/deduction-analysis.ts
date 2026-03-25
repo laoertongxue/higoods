@@ -11,6 +11,7 @@ import {
   type QualityDeductionAnalysisDimension,
   type QualityDeductionAnalysisQuery,
 } from '../data/fcs/quality-deduction-analysis.ts'
+import { appStore } from '../state/store.ts'
 import {
   QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL,
   QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL,
@@ -28,6 +29,25 @@ interface DeductionAnalysisPageState {
 const state: DeductionAnalysisPageState = {
   query: createDefaultQualityDeductionAnalysisQuery(),
   breakdownDimension: 'FACTORY',
+}
+
+let routeQueryKey = ''
+
+function getCurrentAnalysisSearchParams(): URLSearchParams {
+  const pathname = appStore.getState().pathname
+  const [, query] = pathname.split('?')
+  return new URLSearchParams(query ?? '')
+}
+
+function syncAnalysisStateFromRoute(): void {
+  const pathname = appStore.getState().pathname
+  const [, query = ''] = pathname.split('?')
+  if (query === routeQueryKey) return
+  routeQueryKey = query
+
+  const params = getCurrentAnalysisSearchParams()
+  const keyword = params.get('keyword')
+  state.query.keyword = keyword ?? ''
 }
 
 const BREAKDOWN_DIMENSIONS: QualityDeductionAnalysisDimension[] = [
@@ -228,6 +248,7 @@ function renderBreakdownSection(): string {
 }
 
 export function renderDeductionAnalysisPage(): string {
+  syncAnalysisStateFromRoute()
   const filterOptions = buildQualityDeductionAnalysisFilterOptions()
   const kpis = buildQualityDeductionKpis(state.query)
   const details = buildQualityDeductionDetails(state.query)

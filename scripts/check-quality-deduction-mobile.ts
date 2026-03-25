@@ -31,10 +31,39 @@ function main(): void {
   assert(idf001Summary.soonOverdueCount >= 1, '工厂端即将超时统计未命中样例')
 
   const mobileSource = readFileSync(new URL('../src/pages/pda-quality.ts', import.meta.url), 'utf8')
+  const settlementSource = readFileSync(new URL('../src/pages/pda-settlement.ts', import.meta.url), 'utf8')
+  const shellSource = readFileSync(new URL('../src/pages/pda-shell.ts', import.meta.url), 'utf8')
+  const appShellSource = readFileSync(new URL('../src/data/app-shell-config.ts', import.meta.url), 'utf8')
+  const notifySource = readFileSync(new URL('../src/pages/pda-notify.ts', import.meta.url), 'utf8')
+  const dueSoonSource = readFileSync(new URL('../src/pages/pda-notify-due-soon.ts', import.meta.url), 'utf8')
   assert(mobileSource.includes('data-pda-quality-action="go-confirm"'), '工厂端待处理卡片未渲染确认处理入口')
   assert(mobileSource.includes('data-pda-quality-action="go-dispute"'), '工厂端待处理卡片未渲染发起异议入口')
   assert(mobileSource.includes('data-pda-quality-action="submit-confirm"'), '工厂端详情未接确认处理提交动作')
   assert(mobileSource.includes('data-pda-quality-action="submit-dispute"'), '工厂端详情未接发起异议提交动作')
+  assert(!shellSource.includes("key: 'quality'"), 'PDA 底部 Tab 仍暴露独立“质检处理”')
+  assert(!appShellSource.includes("key: 'pda-quality'"), '工厂端应用菜单仍暴露独立“质检处理”')
+  assert(settlementSource.includes('质检扣款待处理'), '结算页未承接质检扣款待处理分组')
+  assert(settlementSource.includes('质检扣款即将逾期'), '结算页未承接质检扣款即将逾期分组')
+  assert(settlementSource.includes("data-pda-sett-action=\"set-quality-view\""), '结算页未提供质检扣款分组切换')
+  assert(
+    settlementSource.includes('renderQualityQuickActionCards(factoryId, { workbench: true })'),
+    '质检扣款页顶部待办摘要未收口为工作台专用模式',
+  )
+  assert(settlementSource.includes('function sortSettlementQualityItems('), '结算页未定义质检扣款工作台排序逻辑')
+  assert(
+    settlementSource.includes("view === 'pending' || view === 'soon'") &&
+      settlementSource.includes('getQualitySortTime(left.responseDeadlineAt'),
+    '待处理/即将逾期视图未按 deadline 紧急程度排序',
+  )
+  assert(
+    settlementSource.includes('getQualitySortTime(left.submittedAt)') &&
+      settlementSource.includes('getQualitySortTime(left.respondedAt)'),
+    '异议中/已处理视图未按最近状态时间排序',
+  )
+  assert(notifySource.includes('质检扣款待处理'), '待办页未接入质检扣款待处理')
+  assert(notifySource.includes('质检扣款即将逾期'), '待办页未接入质检扣款即将逾期')
+  assert(dueSoonSource.includes('结算类'), '即将逾期页未接入结算类分组')
+  assert(dueSoonSource.includes('质检扣款'), '即将逾期页未接入质检扣款项')
 
   const pendingDetail = getFutureMobileFactoryQcDetail('QC-NEW-001', 'ID-F001')
   assert(Boolean(pendingDetail), '缺少待处理详情样例 QC-NEW-001')
@@ -117,6 +146,8 @@ function main(): void {
         idf001Pending: idf001Buckets.pending.length,
         idf001SoonOverdue: idf001Summary.soonOverdueCount,
         idf004Disputing: idf004Buckets.disputing.length,
+        nearestPendingDeadline: idf001Summary.nearestPendingDeadlineAt,
+        nearestSoonDeadline: idf001Summary.nearestSoonOverdueDeadlineAt,
         confirmedQcId: confirmedMobileDetail?.qcId,
         disputedQcId: disputedMobileDetail?.qcId,
         adjudicatedQcId: adjudicatedDetail?.qcId,

@@ -1,21 +1,16 @@
 import { escapeHtml } from '../utils'
 
-function renderTracePlaceholderPage(title: string, description: string): string {
+function renderTracePlaceholderPage(title: string, _description: string): string {
   return `
-    <div class="p-6">
-      <div class="mb-6">
-        <p class="mb-1 text-sm text-muted-foreground">成衣溯源管理</p>
+    <div class="space-y-4 p-6">
+      <header>
         <h1 class="text-2xl font-bold">${escapeHtml(title)}</h1>
-      </div>
+      </header>
 
       <article class="rounded-lg border bg-card text-card-foreground shadow-sm">
-        <header class="flex flex-col space-y-1.5 p-6">
-          <h2 class="text-2xl font-semibold leading-none tracking-tight">${escapeHtml(title)}</h2>
-          <p class="text-sm text-muted-foreground">${escapeHtml(description)}</p>
-        </header>
-        <div class="p-6 pt-0">
+        <div class="p-6">
           <div class="flex h-64 items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/30">
-            <p class="text-muted-foreground">页面内容开发中...</p>
+            <p class="text-muted-foreground">页面开发中</p>
           </div>
         </div>
       </article>
@@ -24,10 +19,7 @@ function renderTracePlaceholderPage(title: string, description: string): string 
 }
 
 export function renderTraceParentCodesPage(): string {
-  return renderTracePlaceholderPage(
-    '扎包/周转包父码管理',
-    '管理生产过程中的扎包和周转包父码，建立生产批次的追溯基础。',
-  )
+  return renderTracePlaceholderPage('扎包周转包父码管理', '管理生产过程中的扎包和周转包父码，建立生产批次的追溯基础。')
 }
 
 export function renderTraceUniqueCodesPage(): string {

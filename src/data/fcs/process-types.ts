@@ -9,7 +9,7 @@ import {
   type DetailSplitMode,
   type ProcessAssignmentGranularity as DictProcessAssignmentGranularity,
   type RuleSource,
-} from './process-craft-dict'
+} from './process-craft-dict.ts'
 
 export type ProcessStage = 'PREP' | 'CUTTING' | 'SEWING' | 'POST' | 'SPECIAL' | 'MATERIAL' | 'WAREHOUSE'
 export type AssignmentMode = 'DIRECT' | 'BIDDING'

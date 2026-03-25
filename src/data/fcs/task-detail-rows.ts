@@ -2,10 +2,10 @@ import {
   DETAIL_SPLIT_DIMENSION_LABEL,
   type DetailSplitDimension,
   type DetailSplitMode,
-} from './process-craft-dict'
-import type { GeneratedTaskArtifact } from './production-artifact-generation'
-import { productionOrders } from './production-orders'
-import { getTechPackBySpuCode, type TechPackBomItem, type TechPackPatternFile } from './tech-packs'
+} from './process-craft-dict.ts'
+import type { GeneratedTaskArtifact } from './production-artifact-generation.ts'
+import { productionOrders } from './production-orders.ts'
+import { getTechPackBySpuCode, type TechPackBomItem, type TechPackPatternFile } from './tech-packs.ts'
 
 export type TaskDetailRowType = 'COMPOSITE'
 

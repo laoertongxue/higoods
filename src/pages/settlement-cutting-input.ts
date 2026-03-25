@@ -63,13 +63,12 @@ function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function buildSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
+function buildSummaryCard(label: string, value: number, _hint: string, accentClass: string): string {
   return `
     <article class="rounded-lg border bg-card p-4">
       <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
       <div class="mt-3 flex items-end justify-between gap-3">
         <p class="text-3xl font-semibold tabular-nums ${accentClass}">${value}</p>
-        <p class="text-right text-xs text-muted-foreground">${escapeHtml(hint)}</p>
       </div>
     </article>
   `
@@ -354,9 +353,7 @@ function renderPageHeader(): string {
     <header class="flex flex-col gap-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p class="mb-1 text-sm text-muted-foreground">平台运营系统 / 对账与结算</p>
           <h1 class="text-2xl font-bold">裁片结算与评分输入</h1>
-          <p class="mt-2 max-w-4xl text-sm text-muted-foreground">用于平台侧整理裁片执行数据、异常影响和个人 / 小组留痕，形成后续结算与评分关注输入。</p>
         </div>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-overview">返回裁片任务总览</button>
       </div>
@@ -367,7 +364,7 @@ function renderPageHeader(): string {
 function renderSummaryCards(): string {
   const stats = buildCuttingSettlementInputStats(getFilteredRows())
   return `
-    <section class="space-y-4">
+    <section>
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         ${buildSummaryCard('待确认输入数', stats.pendingConfirmCount, '仍需平台确认输入快照', 'text-slate-900')}
         ${buildSummaryCard('高关注结算输入数', stats.highSettlementFocusCount, '异常和留痕已影响结算关注', 'text-rose-600')}
@@ -376,16 +373,13 @@ function renderSummaryCards(): string {
         ${buildSummaryCard('需人工复核输入数', stats.manualReviewCount, '需要人工补充说明或继续核查', 'text-violet-600')}
         ${buildSummaryCard('低评分建议工厂数', stats.lowScoreRiskFactoryCount, '建议关注工厂后续评分风险', 'text-sky-600')}
       </div>
-      <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-        当前页面整理的是平台可消费的结算与评分输入，不直接生成财务结算单，也不直接输出最终工厂评分。
-      </div>
     </section>
   `
 }
 
 function renderFocusColumn(
   title: string,
-  description: string,
+  _description: string,
   rows: CuttingSettlementInputView[],
   emptyText: string,
 ): string {
@@ -393,7 +387,6 @@ function renderFocusColumn(
     <article class="rounded-lg border bg-muted/20 p-4">
       <div>
         <h3 class="font-semibold text-foreground">${escapeHtml(title)}</h3>
-        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(description)}</p>
       </div>
       <div class="mt-4 space-y-3">
         ${
@@ -435,7 +428,6 @@ function renderFocusSection(): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">待平台确认区</h2>
-          <p class="mt-1 text-sm text-muted-foreground">优先暴露高风险异常影响结算、高风险评分关注、多次复核 / 凭证不足，以及补料和仓务滞后带来的输入关注点。</p>
         </div>
         <span class="text-sm text-muted-foreground">当前重点 ${rows.filter((row) => row.isPending).length} 项</span>
       </div>
@@ -500,9 +492,6 @@ function renderFilterSection(): string {
           { value: 'ALL', label: '全部' },
           { value: 'PENDING_ONLY', label: '仅看待处理' },
         ])}
-        <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          当前页整理的是平台后续结算与评分输入，不直接做真实结算，也不直接做评分算法输出。
-        </div>
       </div>
     </section>
   `
@@ -517,7 +506,6 @@ function renderMainTable(): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">裁片结算与评分输入列表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">按生产单 / 裁片任务 / 工厂维度查看执行留痕、异常影响和平台复核输入。</p>
         </div>
         <span class="text-sm text-muted-foreground">共 ${rows.length} 项</span>
       </div>
@@ -628,7 +616,6 @@ function renderDetailDrawer(): string {
   return uiDrawer(
     {
       title: '裁片结算与评分输入详情',
-      subtitle: '只做平台输入整理和关注归集，不替代平台详情、异常中心和 PCS 页面。',
       closeAction: { prefix: 'cutting-settlement', action: 'close-overlay' },
       width: 'lg',
     },
@@ -683,7 +670,7 @@ function renderDetailDrawer(): string {
               <p class="mt-1 font-medium text-foreground">${escapeHtml(row.settlementInput.pickupSummary.summaryText)}</p>
               <p class="mt-2 text-xs text-muted-foreground">领料单号：${escapeHtml(row.settlementInput.pickupSummary.pickupSlipNo)}</p>
               <p class="mt-1 text-xs text-muted-foreground">打印版本 / 回执：${escapeHtml(row.settlementInput.pickupSummary.latestPrintVersionNo)} / ${escapeHtml(row.settlementInput.pickupSummary.receiptStatusLabel)}</p>
-              <p class="mt-1 text-xs text-muted-foreground">二维码 / 凭证：${escapeHtml(row.settlementInput.pickupSummary.qrCodeValue)} / ${row.settlementInput.pickupSummary.photoProofCount} 张</p>
+              <p class="mt-1 text-xs text-muted-foreground">裁片单主码 / 凭证：${escapeHtml(row.settlementInput.pickupSummary.qrCodeValue)} / ${row.settlementInput.pickupSummary.photoProofCount} 张</p>
               <p class="mt-1 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.settlementInput.pickupSummary.latestScannedAt)} · ${escapeHtml(row.settlementInput.pickupSummary.latestScannedBy)}</p>
             </div>
             <div class="rounded-lg border bg-muted/20 p-4">
@@ -798,7 +785,6 @@ function renderProcessDrawer(): string {
   return uiDrawer(
     {
       title: '输入处理',
-      subtitle: '本地演示平台对裁片结算与评分输入的确认、复核和备注。',
       closeAction: { prefix: 'cutting-settlement', action: 'close-overlay' },
       width: 'md',
     },

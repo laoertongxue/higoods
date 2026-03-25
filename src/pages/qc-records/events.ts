@@ -247,6 +247,14 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
       return true
     }
 
+    if (action === 'open-detail') {
+      const href = listActionNode.dataset.qcrHref
+      if (href) {
+        appStore.navigate(href)
+      }
+      return true
+    }
+
     if (action === 'handle-dispute') {
       const href = listActionNode.dataset.qcrHref
       if (href) {

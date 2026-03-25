@@ -4,6 +4,7 @@ import {
   initialStatementAdjustments,
   initialStatementDrafts,
 } from '../data/fcs/store-domain-settlement-seeds'
+import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import type {
   AdjustmentStatus,
   AdjustmentType,
@@ -447,7 +448,7 @@ export function renderAdjustmentsPage(): string {
                           <td class="px-4 py-3">
                             ${
                               adjustment.relatedBasisId
-                                ? `<button class="text-primary underline underline-offset-2" data-nav="/fcs/quality/deduction-calc/${escapeHtml(adjustment.relatedBasisId)}">${escapeHtml(adjustment.relatedBasisId)}</button>`
+                                ? `<button class="text-primary underline underline-offset-2" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(adjustment.relatedBasisId))}">${escapeHtml(adjustment.relatedBasisId)}</button>`
                                 : '—'
                             }
                           </td>
@@ -462,7 +463,7 @@ export function renderAdjustmentsPage(): string {
                               <button class="inline-flex h-6 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/settlement/statements">查看对账单</button>
                               ${
                                 adjustment.relatedBasisId
-                                  ? `<button class="inline-flex h-6 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/quality/deduction-calc/${escapeHtml(adjustment.relatedBasisId)}">查看依据</button>`
+                                  ? `<button class="inline-flex h-6 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(adjustment.relatedBasisId))}">查看依据</button>`
                                   : ''
                               }
                               ${

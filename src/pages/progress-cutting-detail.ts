@@ -38,9 +38,7 @@ function renderNotApplicable(): string {
   return `
     <div class="space-y-6 p-6">
       <header class="space-y-3">
-        <p class="text-sm text-muted-foreground">平台运营系统 / 任务进度与异常</p>
         <h1 class="text-2xl font-bold">裁片任务详情</h1>
-        <p class="text-sm text-muted-foreground">当前详情仅适用于裁片任务链路，无法识别的任务标识不会渲染错误详情。</p>
       </header>
       <section class="rounded-lg border bg-card p-6">
         <p class="text-sm text-muted-foreground">未找到对应的裁片任务详情，请返回裁片任务总览重新选择需要查看的记录。</p>
@@ -61,9 +59,7 @@ function renderPageHeader(recordId: string): string {
     <header class="flex flex-col gap-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p class="mb-1 text-sm text-muted-foreground">平台运营系统 / 任务进度与异常</p>
           <h1 class="text-2xl font-bold">裁片任务详情</h1>
-          <p class="mt-2 max-w-4xl text-sm text-muted-foreground">用于平台侧查看单个裁片任务的链路详情、问题与跟进建议。</p>
         </div>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-overview">返回裁片任务总览</button>
       </div>
@@ -184,7 +180,7 @@ function renderPickupSection(recordId: string): string {
           <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.pickupSummary.printCopyCount}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 p-4">
-          <p class="text-xs text-muted-foreground">二维码 / 扫码结果</p>
+          <p class="text-xs text-muted-foreground">裁片单主码 / 扫描结果</p>
           <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.qrStatus)} · ${escapeHtml(row.pickupSummary.latestResultLabel)}</p>
           <p class="mt-2 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.pickupSummary.latestScannedAt)}</p>
           <p class="mt-1 text-xs text-muted-foreground">扫码人：${escapeHtml(row.pickupSummary.latestScannedBy)}</p>

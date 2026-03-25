@@ -4,21 +4,21 @@ import {
   getProcessTypeByCode,
   type AssignmentMode,
   type ProcessStage,
-} from './process-types'
-import type { OwnerSuggestion } from './routing-templates'
+} from './process-types.ts'
+import type { OwnerSuggestion } from './routing-templates.ts'
 import {
   generateTaskArtifactsForAllOrders,
   type GeneratedTaskArtifact,
-} from './production-artifact-generation'
+} from './production-artifact-generation.ts'
 import type {
   DetailSplitDimension,
   DetailSplitMode,
   RuleSource,
-} from './process-craft-dict'
+} from './process-craft-dict.ts'
 import {
   generateTaskDetailRowsForArtifact,
   type TaskDetailRow,
-} from './task-detail-rows'
+} from './task-detail-rows.ts'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'

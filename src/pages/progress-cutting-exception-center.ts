@@ -1,7 +1,6 @@
 import { renderDrawer as uiDrawer } from '../components/ui'
 import {
   buildCuttingExceptionEmptyStateText,
-  buildCuttingExceptionFollowupSummary,
   buildCuttingExceptionFocusRows,
   buildCuttingExceptionStats,
   buildExceptionLatestActionText,
@@ -59,13 +58,12 @@ function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function buildSummaryCard(label: string, value: number, hint: string, accentClass: string): string {
+function buildSummaryCard(label: string, value: number, _hint: string, accentClass: string): string {
   return `
     <article class="rounded-lg border bg-card p-4">
       <p class="text-sm text-muted-foreground">${escapeHtml(label)}</p>
       <div class="mt-3 flex items-end justify-between gap-3">
         <p class="text-3xl font-semibold tabular-nums ${accentClass}">${value}</p>
-        <p class="text-right text-xs text-muted-foreground">${escapeHtml(hint)}</p>
       </div>
     </article>
   `
@@ -245,9 +243,7 @@ function renderPageHeader(): string {
     <header class="flex flex-col gap-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p class="mb-1 text-sm text-muted-foreground">平台运营系统 / 任务进度与异常</p>
           <h1 class="text-2xl font-bold">裁片专项异常中心</h1>
-          <p class="mt-2 max-w-4xl text-sm text-muted-foreground">用于平台侧统一查看裁片链路异常、识别责任主体、推进关闭并跳回对应 PCS 页面处理。</p>
         </div>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-exception-action="go-overview">返回裁片任务总览</button>
       </div>
@@ -257,10 +253,9 @@ function renderPageHeader(): string {
 
 function renderSummaryCards(): string {
   const summary = buildCuttingExceptionStats(getFilteredRows())
-  const followup = buildCuttingExceptionFollowupSummary(getFilteredRows())
 
   return `
-    <section class="space-y-4">
+    <section>
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         ${buildSummaryCard('未关闭异常总数', summary.openCount, '平台当前仍需继续跟进', 'text-slate-900')}
         ${buildSummaryCard('高风险异常数', summary.highRiskCount, '优先处理差异、补料和仓务阻断', 'text-rose-600')}
@@ -269,16 +264,13 @@ function renderSummaryCards(): string {
         ${buildSummaryCard('未入仓 / 未分区异常数', summary.warehouseRiskCount, '仓内节奏和查找效率待补齐', 'text-violet-600')}
         ${buildSummaryCard('样衣超期异常数', summary.sampleOverdueCount, '样衣归还和可调用状态待核对', 'text-sky-600')}
       </div>
-      <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-        后续结算 / 评分关注预留：高风险未关闭 ${followup.openHighRiskCount} 项，反复复核 ${followup.repeatedRecheckCount} 项，有照片凭证 ${followup.photoEvidenceCount} 项，长期未关闭 ${followup.longOpenCount} 项。
-      </div>
     </section>
   `
 }
 
 function renderFocusColumn(
   title: string,
-  description: string,
+  _description: string,
   rows: CuttingException[],
   emptyText: string,
 ): string {
@@ -286,7 +278,6 @@ function renderFocusColumn(
     <article class="rounded-lg border bg-muted/20 p-4">
       <div>
         <h3 class="font-semibold text-foreground">${escapeHtml(title)}</h3>
-        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(description)}</p>
       </div>
       <div class="mt-4 space-y-3">
         ${
@@ -329,7 +320,6 @@ function renderFocusSection(): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">待优先处理区</h2>
-          <p class="mt-1 text-sm text-muted-foreground">优先暴露高风险领料差异、无凭证补证、补料待审核、未入仓 / 未分区和样衣超期等关键异常。</p>
         </div>
         <span class="text-sm text-muted-foreground">当前重点 ${topRows.length} 项</span>
       </div>
@@ -399,9 +389,6 @@ function renderFilterSection(): string {
           { value: 'ALL', label: '全部' },
           { value: 'PENDING_ONLY', label: '仅看待跟进' },
         ])}
-        <div class="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          裁片专项异常中心只承接裁片链路异常，不替代 PCS 操作页，也不替代平台详情页和结算页。
-        </div>
       </div>
     </section>
   `
@@ -416,7 +403,6 @@ function renderMainTable(): string {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-foreground">裁片专项异常列表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">以异常对象维度查看风险来源、责任主体、当前状态和关闭条件。</p>
         </div>
         <span class="text-sm text-muted-foreground">共 ${rows.length} 项</span>
       </div>
@@ -518,7 +504,6 @@ function renderDetailDrawer(): string {
   return uiDrawer(
     {
       title: '裁片专项异常详情',
-      subtitle: '查看触发依据、责任主体、关闭条件和关联摘要，平台只做跟进与跳转。',
       closeAction: { prefix: 'cutting-exception', action: 'close-overlay' },
       width: 'lg',
     },
@@ -620,16 +605,16 @@ function renderDetailDrawer(): string {
           <h3 class="font-semibold text-foreground">关联摘要</h3>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <article class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">领料 / 二维码 / 扫码摘要</p>
+              <p class="text-xs text-muted-foreground">领料与裁片单主码摘要</p>
               <p class="mt-1 text-sm text-foreground">${escapeHtml(row.pickupSummaryText)}</p>
-              <p class="mt-2 text-xs text-muted-foreground">领料单号 ${escapeHtml(row.pickupSlipNo)} · 打印版本 ${escapeHtml(row.latestPrintVersionNo)} · 二维码 ${escapeHtml(row.qrCodeValue)}</p>
+              <p class="mt-2 text-xs text-muted-foreground">领料单号 ${escapeHtml(row.pickupSlipNo)} · 打印版本 ${escapeHtml(row.latestPrintVersionNo)} · 裁片单主码 ${escapeHtml(row.qrCodeValue)}</p>
               <div class="mt-2 flex flex-wrap gap-2">
                 ${row.needsRecheck ? renderBadge('需复核', 'bg-amber-50 text-amber-700') : renderBadge('无需复核', 'bg-emerald-50 text-emerald-700')}
                 ${row.hasPhotoEvidence ? renderBadge('有照片凭证', 'bg-blue-50 text-blue-700') : renderBadge('无照片凭证', 'bg-slate-100 text-slate-700')}
               </div>
             </article>
             <article class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">唛架 / 铺布摘要</p>
+              <p class="text-xs text-muted-foreground">唛架铺布摘要</p>
               <p class="mt-1 text-sm text-foreground">${escapeHtml(row.executionSummaryText)}</p>
             </article>
             <article class="rounded-lg border bg-muted/20 p-4">
@@ -671,7 +656,6 @@ function renderProcessDrawer(): string {
   return uiDrawer(
     {
       title: '异常处理',
-      subtitle: '平台侧只做轻量状态推进、责任主体调整和关闭留痕，不新增审批流。',
       closeAction: { prefix: 'cutting-exception', action: 'close-overlay' },
       width: 'md',
     },

@@ -17,6 +17,33 @@ export type CuttingRiskFlag =
   | 'INBOUND_PENDING'
   | 'SHIP_URGENT'
 
+export interface CuttingSkuRequirementLine {
+  skuCode: string
+  color: string
+  size: string
+  plannedQty: number
+}
+
+export interface CuttingCutOrderSkuScopeLine {
+  skuCode: string
+  color: string
+  size: string
+  plannedQty: number
+}
+
+export interface CuttingPieceProgressLine {
+  skuCode: string
+  color: string
+  size: string
+  partCode?: string
+  partName: string
+  actualCutQty: number
+  inboundQty: number
+  feiPrintedQty?: number
+  latestUpdatedAt?: string
+  latestOperatorName?: string
+}
+
 export interface CuttingMaterialLine {
   cutPieceOrderNo: string
   materialSku: string
@@ -35,6 +62,8 @@ export interface CuttingMaterialLine {
   qrStatus: CuttingQrStatus
   batchOccupancyStatus?: CuttingBatchOccupancyStatus
   mergeBatchNo?: string
+  skuScopeLines?: CuttingCutOrderSkuScopeLine[]
+  pieceProgressLines?: CuttingPieceProgressLine[]
   issueFlags: CuttingRiskFlag[]
   latestActionText: string
 }
@@ -48,6 +77,7 @@ export interface CuttingOrderProgressRecord {
   orderQty: number
   plannedShipDate: string
   spuCode: string
+  techPackSpuCode?: string
   styleCode: string
   styleName: string
   sellingPrice?: number
@@ -61,6 +91,7 @@ export interface CuttingOrderProgressRecord {
   lastOperatorName: string
   hasSpreadingRecord: boolean
   hasInboundRecord: boolean
+  skuRequirementLines?: CuttingSkuRequirementLine[]
   materialLines: CuttingMaterialLine[]
 }
 

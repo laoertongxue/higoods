@@ -131,7 +131,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
     return renderPdaCuttingPageLayout({
       taskId,
       title: '铺布录入',
-      subtitle: '围绕裁片单记录卷号、层数、长度和多卷布铺布情况。',
+      subtitle: '',
       activeTab: 'exec',
       body: '',
       backHref: buildPdaCuttingRoute(taskId, 'task'),
@@ -211,7 +211,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   return renderPdaCuttingPageLayout({
     taskId,
     title: '铺布录入',
-    subtitle: '记录卷号、层数、实际长度与多卷布铺布情况，为后续补料和入仓提供依据。',
+    subtitle: '',
     activeTab: 'exec',
     body,
     backHref: buildPdaCuttingRoute(taskId, 'task'),

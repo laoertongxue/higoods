@@ -557,7 +557,7 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
       bankAccountNo: '7789010012233445',
       bankBranch: 'Bandung Main Branch',
     },
-    logs: [createLog('工厂财务-Agus', '提交申请', '工厂提交结算信息修改申请', '2026-03-16 09:35')],
+    logs: [createLog('工厂财务-Agus', '提交申请', '工厂提交结算资料修改申请', '2026-03-16 09:35')],
   },
   {
     requestId: 'SR202603150002',
@@ -593,9 +593,9 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
       bankBranch: 'Bandung Kopo Branch',
     },
     logs: [
-      createLog('工厂财务-Rina', '提交申请', '工厂提交结算信息修改申请', '2026-03-15 11:18'),
+      createLog('工厂财务-Rina', '提交申请', '工厂提交结算资料修改申请', '2026-03-15 11:18'),
       createLog('平台运营-林静', '核实记录', '证件与账户信息核验完成', '2026-03-15 13:56'),
-      createLog('平台运营-林静', '平台打印结算信息变更申请单', '打印申请单用于线下签字', '2026-03-15 14:05'),
+      createLog('平台运营-林静', '平台打印结算资料变更申请单', '打印申请单用于线下签字', '2026-03-15 14:05'),
     ],
   },
   {
@@ -640,9 +640,9 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
       bankBranch: 'Jakarta Kelapa Gading Branch',
     },
     logs: [
-      createLog('工厂财务-Maya', '提交申请', '工厂提交结算信息修改申请', '2026-03-14 16:10'),
+      createLog('工厂财务-Maya', '提交申请', '工厂提交结算资料修改申请', '2026-03-14 16:10'),
       createLog('平台运营-陈彦', '核实记录', '证件与账户信息核验完成', '2026-03-15 08:55'),
-      createLog('平台运营-陈彦', '平台打印结算信息变更申请单', '打印申请单用于线下签字', '2026-03-15 09:20'),
+      createLog('平台运营-陈彦', '平台打印结算资料变更申请单', '打印申请单用于线下签字', '2026-03-15 09:20'),
       createLog('平台运营-陈彦', '平台上传签字证明附件', '签字证明已上传', '2026-03-15 17:31'),
     ],
   },
@@ -688,9 +688,9 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
       bankBranch: 'Surabaya Trade Branch',
     },
     logs: [
-      createLog('工厂财务-Novi', '提交申请', '工厂提交结算信息修改申请', '2026-03-12 10:26'),
+      createLog('工厂财务-Novi', '提交申请', '工厂提交结算资料修改申请', '2026-03-12 10:26'),
       createLog('平台运营-周航', '核实记录', '证件与账户信息核验完成', '2026-03-12 14:50'),
-      createLog('平台运营-周航', '平台打印结算信息变更申请单', '打印申请单用于线下签字', '2026-03-12 15:18'),
+      createLog('平台运营-周航', '平台打印结算资料变更申请单', '打印申请单用于线下签字', '2026-03-12 15:18'),
       createLog('平台运营-周航', '平台上传签字证明附件', '签字证明已上传', '2026-03-13 09:41'),
       createLog('平台运营-周航', '审核通过', '审核通过，生成新版本 V3', '2026-03-13 13:26'),
     ],
@@ -729,7 +729,7 @@ const settlementChangeRequests: SettlementChangeRequest[] = [
       bankBranch: 'Semarang Center Branch',
     },
     logs: [
-      createLog('工厂财务-Edo', '提交申请', '工厂提交结算信息修改申请', '2026-03-11 11:00'),
+      createLog('工厂财务-Edo', '提交申请', '工厂提交结算资料修改申请', '2026-03-11 11:00'),
       createLog(
         '平台运营-陈彦',
         '驳回申请',
@@ -903,6 +903,13 @@ export function getSettlementChangeRequests(): SettlementChangeRequest[] {
   return settlementChangeRequests
 }
 
+export function listSettlementRequestsByFactory(factoryId: string): SettlementChangeRequest[] {
+  return settlementChangeRequests
+    .filter((item) => item.factoryId === factoryId)
+    .slice()
+    .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+}
+
 export function getSettlementInitDrafts(): SettlementInitDraft[] {
   return settlementInitDrafts
 }
@@ -928,11 +935,7 @@ export function getSettlementInitDraftByFactory(factoryId: string): SettlementIn
 }
 
 export function getSettlementLatestRequestByFactory(factoryId: string): SettlementChangeRequest | null {
-  return (
-    settlementChangeRequests
-      .filter((item) => item.factoryId === factoryId)
-      .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0] ?? null
-  )
+  return listSettlementRequestsByFactory(factoryId)[0] ?? null
 }
 
 export function getSettlementActiveRequestByFactory(factoryId: string): SettlementChangeRequest | null {
@@ -948,7 +951,7 @@ export function saveSettlementInitDraft(payload: {
   deductionRulesDraft: SettlementDefaultDeductionRuleSnapshot[]
 }): ActionResult<SettlementInitDraft> {
   if (getEffectiveInfoByFactoryOrNull(payload.factoryId)) {
-    return { ok: false, message: '工厂已初始化结算信息，不可保存初始化草稿' }
+    return { ok: false, message: '工厂已初始化结算资料，不可保存初始化草稿' }
   }
 
   const now = nowText()
@@ -992,7 +995,7 @@ export function initializeSettlementInfo(payload: {
   deductionRulesSnapshot: SettlementDefaultDeductionRuleSnapshot[]
 }): ActionResult<SettlementEffectiveInfo> {
   const existed = getEffectiveInfoByFactoryOrNull(payload.factoryId)
-  if (existed) return { ok: false, message: '该工厂已初始化结算信息，请使用新增版本维护' }
+  if (existed) return { ok: false, message: '该工厂已初始化结算资料，请使用新增版本维护' }
 
   const now = nowText()
   const versionNo = 'V1'
@@ -1042,7 +1045,7 @@ export function initializeSettlementInfo(payload: {
   normalizeFactoryVersionHistory(payload.factoryId)
 
   clearSettlementInitDraft(payload.factoryId)
-  return { ok: true, message: '已完成结算信息初始化', data: effectiveInfo }
+  return { ok: true, message: '已完成结算资料初始化', data: effectiveInfo }
 }
 
 export function createSettlementVersionFromCurrent(payload: {
@@ -1053,7 +1056,7 @@ export function createSettlementVersionFromCurrent(payload: {
   effectiveAt?: string
 }): ActionResult<SettlementEffectiveInfo> {
   const current = getEffectiveInfoByFactoryOrNull(payload.factoryId)
-  if (!current) return { ok: false, message: '工厂尚未初始化结算信息，无法新增版本' }
+  if (!current) return { ok: false, message: '工厂尚未初始化结算资料，无法新增版本' }
   const latestVersionNo = getLatestVersionNoByFactory(payload.factoryId)
   const nextVersionNo = calcNextVersionNo(latestVersionNo)
   const nextEffectiveAt = payload.effectiveAt?.trim() || nowText()
@@ -1103,9 +1106,9 @@ export function createSettlementChangeRequest(payload: {
   after: SettlementEffectiveInfoSnapshot
 }): ActionResult<SettlementChangeRequest> {
   const current = getEffectiveInfoByFactoryOrNull(payload.factoryId)
-  if (!current) return { ok: false, message: '未找到当前生效结算信息' }
+  if (!current) return { ok: false, message: '未找到当前生效结算资料' }
   const activeRequest = getSettlementActiveRequestByFactory(payload.factoryId)
-  if (activeRequest) return { ok: false, message: '当前已有结算信息修改申请处理中' }
+  if (activeRequest) return { ok: false, message: '当前已有结算资料修改申请处理中' }
 
   const createdAt = nowText()
   const request: SettlementChangeRequest = {
@@ -1136,7 +1139,7 @@ export function createSettlementChangeRequest(payload: {
     request,
     payload.submittedBy,
     '提交申请',
-    `工厂提交结算信息修改申请（变更项：${summarizeChangedFields(request.before, request.after)}）`,
+    `工厂提交结算资料修改申请（变更项：${summarizeChangedFields(request.before, request.after)}）`,
   )
   settlementChangeRequests.unshift(request)
   return { ok: true, message: '修改申请已提交，等待平台审核', data: request }
@@ -1166,7 +1169,7 @@ export function markSettlementRequestPrinted(
   }
   request.printedAt = nowText()
   request.printedBy = operator
-  pushRequestLog(request, operator, '平台打印结算信息变更申请单', '打印申请单用于线下签字')
+  pushRequestLog(request, operator, '平台打印结算资料变更申请单', '打印申请单用于线下签字')
   return { ok: true, message: '已打开打印预览', data: request }
 }
 
@@ -1292,8 +1295,8 @@ export function approveSettlementRequest(
   request.effectiveBy = operator
   request.reviewRemark = reviewRemark.trim()
   pushRequestLog(request, operator, '审核通过', reviewRemark.trim() || `审核通过，生成新版本 ${nextVersionNo}`)
-  pushRequestLog(request, operator, '新版本生成', `结算信息版本由 ${latestVersionNo} 变更为 ${nextVersionNo}`)
-  return { ok: true, message: '审核通过完成，当前生效信息已更新', data: request }
+  pushRequestLog(request, operator, '新版本生成', `结算资料版本由 ${latestVersionNo} 变更为 ${nextVersionNo}`)
+  return { ok: true, message: '审核通过完成，当前生效资料已更新', data: request }
 }
 
 export function rejectSettlementRequest(
