@@ -6,41 +6,35 @@ import {
 } from './store-domain-quality-seeds'
 import type { DeductionBasisItem, QualityInspection } from './store-domain-quality-types'
 import {
-  RETURN_INBOUND_QC_CHAIN_SCENARIOS,
-  type ReturnInboundQualityDisputeFact,
-  type ReturnInboundSettlementImpactFact,
-  type SettlementImpactStatus,
-} from './return-inbound-quality-chain-facts'
+  getQualityDeductionCaseFactByBasisId,
+  getQualityDeductionCaseFactByQcId,
+  getQualityDeductionCaseFactByRouteKey,
+  listQualityDeductionCaseFacts,
+  resolveQualityDeductionQcId,
+} from './quality-deduction-repository'
+import { syncQualityDeductionLifecycle } from './quality-deduction-lifecycle.ts'
+import {
+  listDeductionBasisCompatItems,
+  toCompatQcChainFact,
+  toCompatibilityDeductionBasisItem,
+  toCompatibilityQualityInspection,
+  type CompatChainDispute,
+  type CompatChainSettlementImpact,
+  type CompatQcChainFact,
+} from './quality-deduction-selectors'
 
 applyQualitySeedBootstrap()
 
-export interface QcChainFact {
-  qc: QualityInspection
-  basisItems: DeductionBasisItem[]
-  dispute: ReturnInboundQualityDisputeFact | null
-  settlementImpact: ReturnInboundSettlementImpactFact
-  evidenceCount: number
-  deductionAmountCny: number
+function ensureQualityDeductionLifecycle(): void {
+  syncQualityDeductionLifecycle()
 }
 
-const disputeFacts = RETURN_INBOUND_QC_CHAIN_SCENARIOS
-  .map((scenario) => scenario.dispute ?? null)
-  .filter((item): item is ReturnInboundQualityDisputeFact => item !== null)
-
-const settlementImpactFacts = RETURN_INBOUND_QC_CHAIN_SCENARIOS.map((scenario) => scenario.settlementImpact)
+export interface QcChainFact extends CompatQcChainFact {}
 
 function extractQcIdFromHref(href?: string): string | null {
   if (!href) return null
   const match = /\/fcs\/quality\/qc-records\/([^/?#]+)/.exec(href)
   return match ? decodeURIComponent(match[1]) : null
-}
-
-function getAllQualityInspections(): QualityInspection[] {
-  return initialQualityInspections
-}
-
-function getAllBasisItems(): DeductionBasisItem[] {
-  return initialDeductionBasisItems
 }
 
 function resolveAliasCandidates(routeKey: string): string[] {
@@ -49,24 +43,25 @@ function resolveAliasCandidates(routeKey: string): string[] {
   return Array.from(new Set([normalized, decodeURIComponent(normalized)]))
 }
 
-export function getQcById(qcId: string): QualityInspection | null {
-  return getAllQualityInspections().find((item) => item.qcId === qcId) ?? null
+function getLegacyQcById(qcId: string): QualityInspection | null {
+  return initialQualityInspections.find((item) => item.qcId === qcId) ?? null
 }
 
-export function resolveQcIdFromRouteKey(routeKey: string): string | null {
+function getLegacyBasisById(basisId: string): DeductionBasisItem | null {
+  return initialDeductionBasisItems.find((item) => item.basisId === basisId) ?? null
+}
+
+function resolveLegacyQcIdFromRouteKey(routeKey: string): string | null {
   const aliasCandidates = resolveAliasCandidates(routeKey)
   if (aliasCandidates.length === 0) return null
 
-  const inspections = getAllQualityInspections()
-  const batches = initialReturnInboundBatches
-
   for (const candidate of aliasCandidates) {
-    const direct = inspections.find((item) => item.qcId === candidate)
+    const direct = initialQualityInspections.find((item) => item.qcId === candidate)
     if (direct) return direct.qcId
   }
 
   for (const candidate of aliasCandidates) {
-    const direct = inspections.find(
+    const direct = initialQualityInspections.find(
       (item) =>
         item.returnBatchId === candidate ||
         item.refId === candidate ||
@@ -77,61 +72,33 @@ export function resolveQcIdFromRouteKey(routeKey: string): string | null {
   }
 
   for (const candidate of aliasCandidates) {
-    const linkedBatch = batches.find((item) => item.batchId === candidate || item.linkedQcId === candidate)
-    if (linkedBatch?.linkedQcId && getQcById(linkedBatch.linkedQcId)) {
+    const linkedBatch = initialReturnInboundBatches.find((item) => item.batchId === candidate || item.linkedQcId === candidate)
+    if (linkedBatch?.linkedQcId && getLegacyQcById(linkedBatch.linkedQcId)) {
       return linkedBatch.linkedQcId
     }
   }
 
-  for (const basis of getAllBasisItems()) {
+  for (const basis of initialDeductionBasisItems) {
     const basisCandidates = [basis.sourceRefId, basis.sourceId, extractQcIdFromHref(basis.deepLinks.qcHref)].filter(
       Boolean,
     ) as string[]
     if (!basisCandidates.some((candidate) => aliasCandidates.includes(candidate))) continue
 
     const deepLinkedQcId = extractQcIdFromHref(basis.deepLinks.qcHref)
-    if (deepLinkedQcId && getQcById(deepLinkedQcId)) return deepLinkedQcId
+    if (deepLinkedQcId && getLegacyQcById(deepLinkedQcId)) return deepLinkedQcId
 
     const exactSource = basis.sourceRefId || basis.sourceId
-    if (exactSource && getQcById(exactSource)) return exactSource
+    if (exactSource && getLegacyQcById(exactSource)) return exactSource
   }
 
   return null
 }
 
-export function getQcByRouteKey(routeKey: string): QualityInspection | null {
-  const qcId = resolveQcIdFromRouteKey(routeKey)
-  return qcId ? getQcById(qcId) : null
-}
-
-export function buildQcDetailHref(routeKeyOrQcId: string): string {
-  const qcId = resolveQcIdFromRouteKey(routeKeyOrQcId) ?? routeKeyOrQcId
-  return `/fcs/quality/qc-records/${encodeURIComponent(qcId)}`
-}
-
-function resolveBasisQcId(basis: DeductionBasisItem): string | null {
-  const aliasCandidates = [basis.sourceRefId, basis.sourceId, extractQcIdFromHref(basis.deepLinks.qcHref)].filter(
-    Boolean,
-  ) as string[]
-
-  for (const candidate of aliasCandidates) {
-    const qcId = resolveQcIdFromRouteKey(candidate)
-    if (qcId) return qcId
-  }
-
-  return null
-}
-
-export function getLinkedBasisItems(qcId: string): DeductionBasisItem[] {
-  return getAllBasisItems().filter((item) => resolveBasisQcId(item) === qcId)
-}
-
-export function getQualityDisputeByQcId(qcId: string): ReturnInboundQualityDisputeFact | null {
-  return disputeFacts.find((item) => item.qcId === qcId) ?? null
-}
-
-function createFallbackSettlementImpact(qc: QualityInspection, basisItems: DeductionBasisItem[]): ReturnInboundSettlementImpactFact {
-  let status: SettlementImpactStatus = 'NO_IMPACT'
+function createFallbackSettlementImpact(
+  qc: QualityInspection,
+  basisItems: DeductionBasisItem[],
+): CompatChainSettlementImpact {
+  let status: CompatChainSettlementImpact['status'] = 'NO_IMPACT'
   let summary = '无扣款，不影响结算'
 
   if (basisItems.some((item) => item.status === 'DISPUTED')) {
@@ -164,48 +131,20 @@ function createFallbackSettlementImpact(qc: QualityInspection, basisItems: Deduc
   }
 }
 
-export function getSettlementImpactByQcId(qcId: string): ReturnInboundSettlementImpactFact {
-  const scenarioImpact = settlementImpactFacts.find((item) => item.qcId === qcId)
-  if (scenarioImpact) return scenarioImpact
-
-  const qc = getQcById(qcId)
-  if (!qc) {
-    return {
-      qcId,
-      factoryId: '',
-      batchId: '',
-      status: 'NO_IMPACT',
-      summary: '未找到质检记录',
-    }
-  }
-
-  return createFallbackSettlementImpact(qc, getLinkedBasisItems(qcId))
-}
-
-export function getCanonicalQcHrefForBasis(basis: DeductionBasisItem): string | null {
-  const resolvedQcId = resolveBasisQcId(basis)
-  if (!resolvedQcId) return null
-  return buildQcDetailHref(resolvedQcId)
-}
-
-export function getBasisById(basisId: string): DeductionBasisItem | null {
-  return getAllBasisItems().find((item) => item.basisId === basisId) ?? null
-}
-
-export function listDeductionBasisLedgerItems(): DeductionBasisItem[] {
-  return getAllBasisItems().filter((item) => {
-    if (item.sourceType === 'HANDOVER_DIFF') return true
-    return Boolean(getCanonicalQcHrefForBasis(item))
+function getLegacyLinkedBasisItems(qcId: string): DeductionBasisItem[] {
+  return initialDeductionBasisItems.filter((item) => {
+    const candidates = [item.sourceRefId, item.sourceId, extractQcIdFromHref(item.deepLinks.qcHref)].filter(Boolean)
+    return candidates.includes(qcId)
   })
 }
 
-export function getQcChainFact(qcId: string): QcChainFact | null {
-  const qc = getQcById(qcId)
+function getLegacyChainFact(qcId: string): QcChainFact | null {
+  const qc = getLegacyQcById(qcId)
   if (!qc) return null
 
-  const basisItems = getLinkedBasisItems(qcId)
-  const dispute = getQualityDisputeByQcId(qcId)
-  const settlementImpact = getSettlementImpactByQcId(qcId)
+  const basisItems = getLegacyLinkedBasisItems(qcId)
+  const dispute = null
+  const settlementImpact = createFallbackSettlementImpact(qc, basisItems)
   const evidenceCount = basisItems.reduce((sum, item) => sum + item.evidenceRefs.length, 0)
   const deductionAmountCny = basisItems.reduce((sum, item) => sum + (item.deductionAmountSnapshot ?? 0), 0)
 
@@ -216,21 +155,121 @@ export function getQcChainFact(qcId: string): QcChainFact | null {
     settlementImpact,
     evidenceCount,
     deductionAmountCny,
+    factoryResponse: null,
+    deductionBasis: null,
+    disputeCase: null,
+    settlementAdjustment: null,
+    caseStatus: 'NO_ACTION',
   }
 }
 
-export function getQcChainFactByRouteKey(routeKey: string): QcChainFact | null {
+export function getQcById(qcId: string): QualityInspection | null {
+  ensureQualityDeductionLifecycle()
+  const caseFact = getQualityDeductionCaseFactByQcId(qcId)
+  if (caseFact) return toCompatibilityQualityInspection(caseFact)
+  return getLegacyQcById(qcId)
+}
+
+export function resolveQcIdFromRouteKey(routeKey: string): string | null {
+  return resolveQualityDeductionQcId(routeKey) ?? resolveLegacyQcIdFromRouteKey(routeKey)
+}
+
+export function getQcByRouteKey(routeKey: string): QualityInspection | null {
+  ensureQualityDeductionLifecycle()
   const qcId = resolveQcIdFromRouteKey(routeKey)
-  return qcId ? getQcChainFact(qcId) : null
+  return qcId ? getQcById(qcId) : null
+}
+
+export function buildQcDetailHref(routeKeyOrQcId: string): string {
+  const qcId = resolveQcIdFromRouteKey(routeKeyOrQcId) ?? routeKeyOrQcId
+  return `/fcs/quality/qc-records/${encodeURIComponent(qcId)}`
+}
+
+export function getLinkedBasisItems(qcId: string): DeductionBasisItem[] {
+  ensureQualityDeductionLifecycle()
+  const caseFact = getQualityDeductionCaseFactByQcId(qcId)
+  if (caseFact) {
+    return caseFact.deductionBasis ? [toCompatibilityDeductionBasisItem(caseFact)!] : []
+  }
+  return getLegacyLinkedBasisItems(qcId)
+}
+
+export function getQualityDisputeByQcId(qcId: string): CompatChainDispute | null {
+  ensureQualityDeductionLifecycle()
+  const caseFact = getQualityDeductionCaseFactByQcId(qcId)
+  return caseFact ? toCompatQcChainFact(caseFact).dispute : null
+}
+
+export function getSettlementImpactByQcId(qcId: string): CompatChainSettlementImpact {
+  ensureQualityDeductionLifecycle()
+  const caseFact = getQualityDeductionCaseFactByQcId(qcId)
+  if (caseFact) return toCompatQcChainFact(caseFact).settlementImpact
+
+  const qc = getLegacyQcById(qcId)
+  if (!qc) {
+    return {
+      qcId,
+      factoryId: '',
+      batchId: '',
+      status: 'NO_IMPACT',
+      summary: '未找到质检记录',
+    }
+  }
+
+  return createFallbackSettlementImpact(qc, getLegacyLinkedBasisItems(qcId))
+}
+
+export function getCanonicalQcHrefForBasis(basis: DeductionBasisItem): string | null {
+  const qcId =
+    resolveQcIdFromRouteKey(basis.sourceRefId) ??
+    (basis.sourceId ? resolveQcIdFromRouteKey(basis.sourceId) : null) ??
+    extractQcIdFromHref(basis.deepLinks.qcHref)
+
+  return qcId ? buildQcDetailHref(qcId) : null
+}
+
+export function getBasisById(basisId: string): DeductionBasisItem | null {
+  ensureQualityDeductionLifecycle()
+  const caseFact = getQualityDeductionCaseFactByRouteKey(basisId) ?? getQualityDeductionCaseFactByBasisId(basisId)
+  if (caseFact) {
+    return caseFact.deductionBasis ? toCompatibilityDeductionBasisItem(caseFact) : null
+  }
+  return getLegacyBasisById(basisId)
+}
+
+export function listDeductionBasisLedgerItems(): DeductionBasisItem[] {
+  ensureQualityDeductionLifecycle()
+  const shared = listDeductionBasisCompatItems({ includeLegacy: true })
+  const sharedBasisIds = new Set(shared.map((item) => item.basisId))
+  const fallback = initialDeductionBasisItems.filter((item) => {
+    if (sharedBasisIds.has(item.basisId)) return false
+    if (item.sourceType === 'HANDOVER_DIFF') return true
+    return Boolean(getCanonicalQcHrefForBasis(item))
+  })
+  return [...shared, ...fallback]
+}
+
+export function getQcChainFact(qcId: string): QcChainFact | null {
+  ensureQualityDeductionLifecycle()
+  const caseFact = getQualityDeductionCaseFactByQcId(qcId)
+  if (caseFact) return toCompatQcChainFact(caseFact)
+  return getLegacyChainFact(qcId)
+}
+
+export function getQcChainFactByRouteKey(routeKey: string): QcChainFact | null {
+  ensureQualityDeductionLifecycle()
+  const caseFact = getQualityDeductionCaseFactByRouteKey(routeKey)
+  if (caseFact) return toCompatQcChainFact(caseFact)
+  const qcId = resolveLegacyQcIdFromRouteKey(routeKey)
+  return qcId ? getLegacyChainFact(qcId) : null
 }
 
 export function listQcChainFacts(): QcChainFact[] {
-  return getAllQualityInspections()
-    .map((item) => getQcChainFact(item.qcId))
-    .filter((item): item is QcChainFact => item !== null)
+  ensureQualityDeductionLifecycle()
+  return listQualityDeductionCaseFacts({ includeLegacy: true }).map((item) => toCompatQcChainFact(item))
 }
 
-export function getSettlementImpactLabel(status: SettlementImpactStatus): string {
+export function getSettlementImpactLabel(status: CompatChainSettlementImpact['status']): string {
   switch (status) {
     case 'READY':
       return '可结算'

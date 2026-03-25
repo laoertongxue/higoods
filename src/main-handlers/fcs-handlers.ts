@@ -67,7 +67,7 @@ import {
   handleArbitrationEvent,
   isArbitrationDialogOpen,
 } from '../pages/arbitration'
-import { handlePenaltyOutputEvent } from '../pages/penalty-output'
+import { handleDeductionAnalysisEvent } from '../pages/deduction-analysis'
 import {
   handleStatementsEvent,
   isStatementsDialogOpen,
@@ -234,7 +234,7 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleCraftCuttingSpecialProcessesEvent(target) ||
     handleCraftCuttingWarehouseManagementEvent(target) ||
     handleCraftCuttingSummaryEvent(target) ||
-    handlePenaltyOutputEvent(target) ||
+    handleDeductionAnalysisEvent(target) ||
     handleDyePrintOrdersEvent(target) ||
     handleTaskBreakdownEvent(target)
   )

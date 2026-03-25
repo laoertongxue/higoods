@@ -598,9 +598,7 @@ function renderQrCell(row: MaterialPrepRow): string {
 function renderEmptyTableState(): string {
   return `
     <tr>
-      <td colspan="13" class="px-4 py-16 text-center text-sm text-muted-foreground">
-        当前条件下暂无原始裁片单，请调整筛选条件或清除预筛后重试。
-      </td>
+      <td colspan="13" class="px-4 py-16 text-center text-sm text-muted-foreground">暂无匹配结果</td>
     </tr>
   `
 }
@@ -613,7 +611,6 @@ function renderTable(rows: MaterialPrepRow[]): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">原始裁片单配料主表</h2>
-          <p class="mt-1 text-xs text-muted-foreground">一行一个原始裁片单，同一码 / 二维码回落原始裁片单；配料与领料只表达仓库到裁床的准备衔接。</p>
         </div>
         <div class="text-xs text-muted-foreground">共 ${pagination.total} 条原始裁片单</div>
       </div>
@@ -622,7 +619,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
           <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
             <tr>
               <th class="px-4 py-3 text-left font-medium">原始裁片单号</th>
-              <th class="px-4 py-3 text-left font-medium">同一码 / 二维码</th>
+              <th class="px-4 py-3 text-left font-medium">裁片单主码</th>
               <th class="px-4 py-3 text-left font-medium">来源生产单号</th>
               <th class="px-4 py-3 text-left font-medium">款号 / SPU</th>
               <th class="px-4 py-3 text-left font-medium">面料摘要</th>
@@ -803,7 +800,7 @@ function renderClaimRecords(row: MaterialPrepRow): string {
                 <span class="text-xs text-muted-foreground">${escapeHtml(record.claimedAt || '待补时间')}</span>
               </div>
               <div class="mt-1 text-xs text-muted-foreground">操作人：${escapeHtml(record.claimedBy || '待补')}</div>
-              <div class="mt-1 text-xs text-muted-foreground">说明：${escapeHtml(record.note || '—')}</div>
+              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.note || '—')}</div>
             </article>
           `,
         )
@@ -835,8 +832,8 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '原始裁片单号', value: row.originalCutOrderNo, tone: 'strong' },
               ...(row.shouldDisplayQr
                 ? [
-                    { label: '同一码', value: row.sameCodeValue, hint: '同一码始终回落原始裁片单。' },
-                    { label: '二维码值', value: row.qrCodeValue, hint: row.shouldDisplayQrLabel ? row.qrCodeLabel : '' },
+                    { label: '裁片单主码', value: row.sameCodeValue },
+                    { label: '主码值', value: row.qrCodeValue, hint: row.shouldDisplayQrLabel ? row.qrCodeLabel : '' },
                   ]
                 : []),
               { label: '来源生产单号', value: row.productionOrderNo },
@@ -844,7 +841,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '颜色', value: row.color },
               { label: '计划发货日期', value: formatDate(row.plannedShipDate) },
               { label: '紧急程度', value: row.urgencyLabel },
-              { label: '关联批次', value: row.latestMergeBatchNo || '未入批次', hint: '批次只是执行上下文，不改变原始单身份。' },
+              { label: '关联批次', value: row.latestMergeBatchNo || '未入批次' },
             ])}
             ${
               row.shouldDisplayQr
@@ -905,9 +902,6 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
                   </div>
                 `
             }
-            <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-700">
-              发料清单上的码回落原始裁片单，本清单只是仓库到裁床之间的准备单据，不会生成新的主体码。
-            </div>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印发料清单</button>
           </div>
         `,
@@ -931,9 +925,6 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}" ${row.latestMergeBatchNo ? '' : 'disabled'}>
               查看合并裁剪批次
             </button>
-          </div>
-          <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-            本页主体是原始裁片单，合并裁剪批次只是执行上下文。后续若从本页进入菲票 / 打编号，菲票归属仍永远回落原始裁片单。
           </div>
         `,
       )}
@@ -1019,7 +1010,7 @@ function renderConfigDialog(viewModel = getViewModel()): string {
   const content = `
     <div class="space-y-4">
       <div class="rounded-lg border bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
-        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 同一码 ${escapeHtml(buildSameCodeValue(row.originalCutOrderNo))}
+        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 裁片单主码 ${escapeHtml(buildSameCodeValue(row.originalCutOrderNo))}
       </div>
       ${row.materialLineItems
         .map(
@@ -1053,7 +1044,7 @@ function renderConfigDialog(viewModel = getViewModel()): string {
   return uiFormDialog(
     {
       title: '编辑配置结果',
-      description: '轻量回写面料行项目的配置数量，并同步刷新配料聚合状态。',
+      description: '回写配置数量。',
       closeAction: { prefix: 'cuttingPrep', action: 'close-overlay' },
       submitAction: { prefix: 'cuttingPrep', action: 'save-config', label: '保存配置结果' },
       width: 'lg',
@@ -1115,7 +1106,7 @@ function renderClaimDialog(viewModel = getViewModel()): string {
   return uiFormDialog(
     {
       title: '记录领料结果',
-      description: '轻量回写领料数量与结果，不做真实扫码流程。',
+      description: '回写领料数量与结果。',
       closeAction: { prefix: 'cuttingPrep', action: 'close-overlay' },
       submitAction: { prefix: 'cuttingPrep', action: 'save-claim', label: '保存领料结果' },
       width: 'lg',
@@ -1151,7 +1142,7 @@ function renderScheduleDialog(viewModel = getViewModel()): string {
   return uiFormDialog(
     {
       title: '分配裁床组',
-      description: '排单状态挂在原始裁片单维度，不会影响生产单身份。',
+      description: '',
       closeAction: { prefix: 'cuttingPrep', action: 'close-overlay' },
       submitAction: { prefix: 'cuttingPrep', action: 'save-schedule', label: '保存裁床组' },
       width: 'md',
@@ -1168,7 +1159,7 @@ function renderClaimRecordsDialog(viewModel = getViewModel()): string {
   return uiDialog(
     {
       title: `${row.originalCutOrderNo} · 领料记录`,
-      description: '仅承接当前原始裁片单的轻量领料回写记录。',
+      description: '',
       closeAction: { prefix: 'cuttingPrep', action: 'close-overlay' },
       width: 'lg',
     },
@@ -1388,7 +1379,7 @@ function printIssueList(recordId: string | undefined): boolean {
         <h1>发料清单</h1>
         <div class="meta">
           <div class="meta-item"><div class="label">原始裁片单号</div><div class="value">${escapeHtml(payload.originalCutOrderNo)}</div></div>
-          <div class="meta-item"><div class="label">同一码 / 二维码</div><div class="value">${payload.shouldPrintQr ? `${escapeHtml(payload.sameCodeValue)} / ${escapeHtml(payload.qrCodeValue)}` : escapeHtml(payload.qrHiddenHint)}</div></div>
+          <div class="meta-item"><div class="label">裁片单主码</div><div class="value">${payload.shouldPrintQr ? `${escapeHtml(payload.sameCodeValue)} / ${escapeHtml(payload.qrCodeValue)}` : escapeHtml(payload.qrHiddenHint)}</div></div>
           <div class="meta-item"><div class="label">来源生产单号</div><div class="value">${escapeHtml(payload.productionOrderNo)}</div></div>
           <div class="meta-item"><div class="label">款号 / SPU</div><div class="value">${escapeHtml(`${payload.styleCode || payload.spuCode} / ${payload.styleName || payload.spuCode}`)}</div></div>
           <div class="meta-item"><div class="label">打印时间</div><div class="value">${escapeHtml(payload.printTime)}</div></div>
@@ -1406,9 +1397,6 @@ function printIssueList(recordId: string | undefined): boolean {
           </thead>
           <tbody>${rowsHtml}</tbody>
         </table>
-        <div class="note">
-          发料清单上的码回落原始裁片单。本清单只承接仓库到裁床之间的物料准备，不构成新的主体单据。
-        </div>
       </body>
     </html>
   `)

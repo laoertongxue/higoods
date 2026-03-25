@@ -178,8 +178,8 @@ export function renderDeductionCalcPage(): string {
   return `
     <div class="flex flex-col gap-6 p-6">
       <div>
-        <h1 class="text-2xl font-semibold text-foreground">扣款计算（依据台账）</h1>
-        <p class="mt-1 text-sm text-muted-foreground">质检不合格和交接差异形成的扣款依据只读台账</p>
+        <h1 class="text-2xl font-semibold text-foreground">扣款依据台账（兼容页）</h1>
+        <p class="mt-1 text-sm text-muted-foreground">该入口已从主导航收起，后续围绕质检记录与扣款分析统一承接扣款依据链路。</p>
       </div>
 
       <section>
@@ -215,7 +215,7 @@ export function renderDeductionCalcPage(): string {
             )}"
             data-dcalc-tab="output"
           >
-            结果输出
+            分析视图
           </button>
         </div>
       </section>
@@ -403,7 +403,7 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
         <p class="text-lg font-medium text-muted-foreground">未找到扣款依据</p>
         <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/quality/deduction-calc">
           <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>
-          返回扣款计算
+          返回扣款依据台账
         </button>
       </div>
     `
@@ -427,7 +427,7 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
       <div class="flex items-center gap-3">
         <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-nav="/fcs/quality/deduction-calc">
           <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
-          返回扣款计算
+          返回扣款依据台账
         </button>
         <div class="h-4 border-l"></div>
         <h1 class="text-xl font-semibold text-foreground">扣款依据详情</h1>
@@ -530,7 +530,7 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
           ${
             basis.dispositionSnapshot
               ? renderFieldRow(
-                  '处理方式快照',
+                  '不合格品处置方式快照',
                   escapeHtml(DISPOSITION_LABEL[basis.dispositionSnapshot] ?? basis.dispositionSnapshot),
                 )
               : ''
@@ -606,7 +606,7 @@ export function renderDeductionCalcDetailPage(basisId: string): string {
           </div>
           ${
             basis.disposition
-              ? renderFieldRow('处置方式', escapeHtml(DISPOSITION_LABEL[basis.disposition] ?? basis.disposition))
+              ? renderFieldRow('不合格品处置方式', escapeHtml(DISPOSITION_LABEL[basis.disposition] ?? basis.disposition))
               : ''
           }
           ${renderFieldRow('创建时间', escapeHtml(basis.createdAt))}

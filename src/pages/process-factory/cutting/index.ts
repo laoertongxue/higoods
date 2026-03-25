@@ -13,7 +13,16 @@ export {
   renderCraftCuttingSpreadingDetailPage,
   renderCraftCuttingSpreadingEditPage,
 } from './marker-spreading'
-export { renderCraftCuttingFeiTicketsPage } from './fei-tickets'
+export {
+  renderCraftCuttingFeiTicketsPage,
+  renderCraftCuttingFeiTicketDetailPage,
+  renderCraftCuttingFeiTicketPrintedPage,
+  renderCraftCuttingFeiTicketRecordsPage,
+  renderCraftCuttingFeiTicketPrintPage,
+  renderCraftCuttingFeiTicketContinuePrintPage,
+  renderCraftCuttingFeiTicketReprintPage,
+  renderCraftCuttingFeiTicketVoidPage,
+} from './fei-tickets'
 export { renderCraftCuttingFabricWarehousePage } from './fabric-warehouse'
 export { renderCraftCuttingCutPieceWarehousePage } from './cut-piece-warehouse'
 export { renderCraftCuttingSampleWarehousePage } from './sample-warehouse'

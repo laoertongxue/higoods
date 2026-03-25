@@ -624,7 +624,7 @@ function createRow(
     urgencyClassName: urgency.className,
     sameCodeValue: buildSameCodeValue(line.cutPieceOrderNo),
     qrCodeValue: buildQrCodeValue(line.cutPieceOrderNo),
-    qrCodeLabel: '原始裁片单二维码',
+    qrCodeLabel: '裁片单主码',
     shouldDisplayQr: false,
     shouldDisplayQrLabel: false,
     canViewQr: false,

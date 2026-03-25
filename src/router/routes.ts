@@ -76,13 +76,17 @@ import { renderProcessPrintRequirementsPage } from '../pages/process-print-requi
 import { renderProcessDyeOrdersPage } from '../pages/process-dye-orders'
 import { renderProcessPrintOrdersPage } from '../pages/process-print-orders'
 import { renderMaterialIssuePage } from '../pages/material-issue'
-import { renderQcRecordDetailPage, renderQcRecordsPage } from '../pages/qc-records'
+import {
+  renderQcRecordDetailPage,
+  renderQcRecordMobileDetailPage,
+  renderQcRecordsPage,
+} from '../pages/qc-records'
 import {
   renderDeductionCalcPage,
   renderDeductionCalcDetailPage,
 } from '../pages/deduction-calc'
 import { renderArbitrationPage } from '../pages/arbitration'
-import { renderPenaltyOutputPage } from '../pages/penalty-output'
+import { renderDeductionAnalysisPage } from '../pages/deduction-analysis'
 import { renderStatementsPage } from '../pages/statements'
 import { renderAdjustmentsPage } from '../pages/adjustments'
 import { renderBatchesPage } from '../pages/batches'
@@ -111,6 +115,7 @@ import {
 import { renderPdaNotifyPage } from '../pages/pda-notify'
 import { renderPdaNotifyDueSoonPage } from '../pages/pda-notify-due-soon'
 import { renderPdaNotifyDetailPage } from '../pages/pda-notify-detail'
+import { renderPdaQualityDetailPage, renderPdaQualityPage } from '../pages/pda-quality'
 import { renderPdaTaskReceivePage } from '../pages/pda-task-receive'
 import { renderPdaTaskReceiveDetailPage } from '../pages/pda-task-receive-detail'
 import { renderPdaExecPage } from '../pages/pda-exec'
@@ -135,6 +140,13 @@ import {
   renderCraftCuttingSpreadingDetailPage,
   renderCraftCuttingSpreadingEditPage,
   renderCraftCuttingFeiTicketsPage,
+  renderCraftCuttingFeiTicketDetailPage,
+  renderCraftCuttingFeiTicketPrintedPage,
+  renderCraftCuttingFeiTicketRecordsPage,
+  renderCraftCuttingFeiTicketPrintPage,
+  renderCraftCuttingFeiTicketContinuePrintPage,
+  renderCraftCuttingFeiTicketReprintPage,
+  renderCraftCuttingFeiTicketVoidPage,
   renderCraftCuttingMaterialPrepPage,
   renderCraftCuttingPieceOrdersPage,
   renderCraftCuttingFabricWarehousePage,
@@ -227,9 +239,10 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/process/print-orders': () => renderProcessPrintOrdersPage(),
   '/fcs/process/material-issue': () => renderMaterialIssuePage(),
   '/fcs/quality/qc-records': () => renderQcRecordsPage(),
+  '/fcs/quality/deduction-analysis': () => renderDeductionAnalysisPage(),
   '/fcs/quality/deduction-calc': () => renderDeductionCalcPage(),
   '/fcs/quality/arbitration': () => renderArbitrationPage(),
-  '/fcs/quality/penalty-output': () => renderPenaltyOutputPage(),
+  '/fcs/quality/penalty-output': () => renderDeductionAnalysisPage(),
   '/fcs/settlement/statements': () => renderStatementsPage(),
   '/fcs/settlement/adjustments': () => renderAdjustmentsPage(),
   '/fcs/settlement/batches': () => renderBatchesPage(),
@@ -264,6 +277,13 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/cutting/spreading-detail': () => renderCraftCuttingSpreadingDetailPage(),
   '/fcs/craft/cutting/spreading-edit': () => renderCraftCuttingSpreadingEditPage(),
   '/fcs/craft/cutting/fei-tickets': () => renderCraftCuttingFeiTicketsPage(),
+  '/fcs/craft/cutting/fei-ticket-detail': () => renderCraftCuttingFeiTicketDetailPage(),
+  '/fcs/craft/cutting/fei-ticket-printed': () => renderCraftCuttingFeiTicketPrintedPage(),
+  '/fcs/craft/cutting/fei-ticket-records': () => renderCraftCuttingFeiTicketRecordsPage(),
+  '/fcs/craft/cutting/fei-ticket-print': () => renderCraftCuttingFeiTicketPrintPage(),
+  '/fcs/craft/cutting/fei-ticket-continue-print': () => renderCraftCuttingFeiTicketContinuePrintPage(),
+  '/fcs/craft/cutting/fei-ticket-reprint': () => renderCraftCuttingFeiTicketReprintPage(),
+  '/fcs/craft/cutting/fei-ticket-void': () => renderCraftCuttingFeiTicketVoidPage(),
   '/fcs/craft/cutting/fabric-warehouse': () => renderCraftCuttingFabricWarehousePage(),
   '/fcs/craft/cutting/cut-piece-warehouse': () => renderCraftCuttingCutPieceWarehousePage(),
   '/fcs/craft/cutting/sample-warehouse': () => renderCraftCuttingSampleWarehousePage(),
@@ -320,6 +340,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/pda': () => renderPdaNotifyPage(),
   '/fcs/pda/notify': () => renderPdaNotifyPage(),
   '/fcs/pda/notify/due-soon': () => renderPdaNotifyDueSoonPage(),
+  '/fcs/pda/quality': () => renderPdaQualityPage(),
   '/fcs/pda/task-receive': () => renderPdaTaskReceivePage(),
   '/fcs/pda/exec': () => renderPdaExecPage(),
   '/fcs/pda/handover': () => renderPdaHandoverPage(),
@@ -382,6 +403,14 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/fcs\/quality\/qc-records\/([^/]+)$/,
     render: (match) => renderQcRecordDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/qc-records\/([^/]+)$/,
+    render: (match) => renderQcRecordMobileDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/quality\/([^/]+)$/,
+    render: (match) => renderPdaQualityDetailPage(match[1]),
   },
   {
     pattern: /^\/fcs\/quality\/deduction-calc\/([^/]+)$/,

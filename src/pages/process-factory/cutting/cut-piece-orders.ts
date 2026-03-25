@@ -12,8 +12,12 @@ import {
   type MergeBatchRecord,
 } from './merge-batches-model'
 import {
+  buildPrintableUnitViewModel,
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
+  CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
   deserializeFeiTicketRecordsStorage,
+  deserializeFeiTicketPrintJobsStorage,
+  getPrintableUnitStatusMeta,
   type FeiTicketLabelRecord,
 } from './fei-tickets-model'
 import {
@@ -35,6 +39,12 @@ import {
   type OriginalCutOrderRow,
 } from './original-orders-model'
 import { buildMarkerSpreadingCountsByOriginalOrder } from './marker-spreading-utils'
+import {
+  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
+  createEmptyStore as createEmptyMarkerStore,
+  deserializeMarkerSpreadingStorage,
+} from './marker-spreading-model'
+import { buildMaterialPrepViewModel } from './material-prep-model'
 import { configMeta, receiveMeta } from './production-progress-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import { getClaimDisputeStatusLabel } from '../../../helpers/fcs-claim-dispute'
@@ -225,6 +235,36 @@ function readStoredFeiTicketRecords(): FeiTicketLabelRecord[] {
   }
 }
 
+function readStoredFeiTicketPrintJobs() {
+  try {
+    return deserializeFeiTicketPrintJobsStorage(localStorage.getItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY))
+  } catch {
+    return []
+  }
+}
+
+function readMarkerStore() {
+  try {
+    return deserializeMarkerSpreadingStorage(localStorage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY))
+  } catch {
+    return createEmptyMarkerStore()
+  }
+}
+
+function buildPrintableUnitSummaryByCutOrder(rows: OriginalCutOrderRow[]) {
+  const mergeBatches = getMergeBatchLedger()
+  const printableView = buildPrintableUnitViewModel({
+    originalRows: rows,
+    materialPrepRows: buildMaterialPrepViewModel(cuttingOrderProgressRecords, mergeBatches).rows,
+    mergeBatches,
+    markerStore: readMarkerStore(),
+    ticketRecords: readStoredFeiTicketRecords(),
+    printJobs: readStoredFeiTicketPrintJobs(),
+    prefilter: null,
+  })
+  return Object.fromEntries(printableView.units.map((unit) => [unit.cutOrderId, unit]))
+}
+
 function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
   latestTicketNo: string
   schemaVersion: string
@@ -248,11 +288,11 @@ function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
     return {
       latestTicketNo: '待生成',
       schemaVersion: FEI_QR_SCHEMA_VERSION,
-      ownerType: 'original-cut-order',
+      ownerType: '原始裁片单',
       qrBaseValue: `QR-${row.originalCutOrderNo}`,
       sourceContextText: row.latestMergeBatchNo ? `最近来自批次 ${row.latestMergeBatchNo}` : '原始单上下文',
       reservedProcessText: '已预留 4 类工艺扩展槽位',
-      compatibilityText: '当前尚无历史票据记录，二维码将按 1.0.0 默认结构生成。',
+      compatibilityText: '当前尚无历史票据记录，裁片单主码按 1.0.0 结构生成。',
     }
   }
 
@@ -277,11 +317,11 @@ function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
   return {
     latestTicketNo: latestRecord.ticketNo,
     schemaVersion: summary.schemaVersion,
-    ownerType: summary.ownerType,
+    ownerType: summary.ownerType === 'original-cut-order' ? '原始裁片单' : summary.ownerType,
     qrBaseValue: summary.qrBaseValue,
     sourceContextText: summary.sourceContextType === 'merge-batch' ? `来自批次 ${latestRecord.sourceMergeBatchNo || '待补批次号'}` : '原始单上下文',
     reservedProcessText: summary.hasReservedProcess ? '已预留 4 类工艺扩展槽位' : '待补',
-    compatibilityText: compatibility.compatibilityNote,
+    compatibilityText: compatibility.compatibilityNote.replaceAll('二维码', '裁片单主码'),
   }
 }
 
@@ -670,6 +710,8 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   const qrSummary = buildOriginalOrderQrSummary(row)
   const markerSpreadingCounts = buildMarkerSpreadingCountsByOriginalOrder(row.originalCutOrderId)
   const latestClaimDispute = getLatestClaimDisputeByOriginalCutOrderNo(row.originalCutOrderNo)
+  const printableUnit = buildPrintableUnitSummaryByCutOrder(viewModel.rows)[row.originalCutOrderId] || null
+  const printableStatusMeta = printableUnit ? getPrintableUnitStatusMeta(printableUnit.printableUnitStatus) : null
 
   const siblingRows = viewModel.rows.filter(
     (item) => item.productionOrderId === row.productionOrderId && item.originalCutOrderId !== row.originalCutOrderId,
@@ -770,23 +812,60 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       )}
 
       ${renderDetailSection(
-        '二维码摘要',
+        '裁片单主码摘要',
         `
           <div class="space-y-3">
             ${renderInfoGrid([
               { label: '最新 ticketNo', value: qrSummary.latestTicketNo, tone: 'strong' },
-              { label: 'schema version', value: qrSummary.schemaVersion },
-              { label: 'ownerType', value: qrSummary.ownerType },
-              { label: 'qrBaseValue', value: qrSummary.qrBaseValue },
-              { label: 'sourceContext 摘要', value: qrSummary.sourceContextText },
-              { label: 'reservedProcess', value: qrSummary.reservedProcessText },
+              { label: '主码版本', value: qrSummary.schemaVersion },
+              { label: '归属对象', value: qrSummary.ownerType },
+              { label: '主码值', value: qrSummary.qrBaseValue },
+              { label: '来源上下文', value: qrSummary.sourceContextText },
+              { label: '工艺预留', value: qrSummary.reservedProcessText },
             ])}
-            <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
-              <p>二维码当前归属原始裁片单；合并裁剪批次仅作为来源上下文摘要存在。</p>
-              <p class="mt-1">${escapeHtml(qrSummary.compatibilityText)}</p>
-            </div>
+            <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">${escapeHtml(qrSummary.compatibilityText)}</div>
             <div class="flex flex-wrap gap-2">
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去菲票 / 打编号</button>
+            </div>
+          </div>
+        `,
+      )}
+
+      ${renderDetailSection(
+        '打印菲票摘要',
+        `
+          <div class="space-y-3">
+            ${renderInfoGrid([
+              { label: '打印状态', value: printableStatusMeta ? printableStatusMeta.label : '暂无可打印对象', tone: 'strong' },
+              { label: '应打菲票数', value: printableUnit ? `${formatCount(printableUnit.requiredTicketCount)} 张` : '0 张' },
+              { label: '有效已打印数', value: printableUnit ? `${formatCount(printableUnit.validPrintedTicketCount)} 张` : '0 张' },
+              { label: '已作废数', value: printableUnit ? `${formatCount(printableUnit.voidedTicketCount)} 张` : '0 张' },
+              { label: '需补打数', value: printableUnit ? `${formatCount(printableUnit.missingTicketCount)} 张` : '0 张' },
+              { label: '最近打印时间', value: printableUnit?.lastPrintedAt || '未打印' },
+              { label: '最近打印人', value: printableUnit?.lastPrintedBy || '未打印' },
+            ])}
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
+              ${
+                printableUnit
+                  ? `
+                    <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('fei-ticket-printed'), {
+                      printableUnitId: printableUnit.printableUnitId,
+                      printableUnitNo: printableUnit.printableUnitNo,
+                      printableUnitType: printableUnit.printableUnitType,
+                      cutOrderId: printableUnit.cutOrderId,
+                      cutOrderNo: printableUnit.cutOrderNo,
+                    }))}">查看已打印菲票</button>
+                    <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('fei-ticket-records'), {
+                      printableUnitId: printableUnit.printableUnitId,
+                      printableUnitNo: printableUnit.printableUnitNo,
+                      printableUnitType: printableUnit.printableUnitType,
+                      cutOrderId: printableUnit.cutOrderId,
+                      cutOrderNo: printableUnit.cutOrderNo,
+                    }))}">查看打印记录</button>
+                  `
+                  : ''
+              }
             </div>
           </div>
         `,
@@ -857,17 +936,6 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去菲票 / 打编号</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
-          </div>
-        `,
-      )}
-
-      ${renderDetailSection(
-        '说明区',
-        `
-          <div class="space-y-2 text-sm text-muted-foreground">
-            <p>本页主体是原始裁片单，生产单只作为来源关系存在。</p>
-            <p>合并裁剪批次仅作为执行上下文，不改变原始裁片单身份，也不替代原始单作为后续追溯主体。</p>
-            <p>后续若从批次进入菲票 / 打编号，菲票归属仍永远回落原始裁片单。</p>
           </div>
         `,
       )}

@@ -15,6 +15,7 @@ import {
   showQcRecordsToast,
   getQcById,
   getReturnInboundBatchById,
+  applyReturnInboundBatchToForm,
   requiresFinalDecisionForForm,
   replaceQc,
   syncDetailFromQc,
@@ -22,6 +23,7 @@ import {
   randomSuffix,
   parseNumberField,
   parseAmountField,
+  NEEDS_AFFECTED_QTY,
   type ProcessTask,
   type RootCauseType,
   type QualityInspection,
@@ -209,7 +211,7 @@ function submitQcRecord(qcId: string, by: string): { ok: boolean; message?: stri
     if (!qc.responsiblePartyType || !qc.responsiblePartyId?.trim()) {
       return { ok: false, message: '车缝回货入仓质检提交前必须填写责任方' }
     }
-    if (!qc.disposition) return { ok: false, message: '车缝回货入仓质检提交前必须填写处理方式' }
+    if (!qc.disposition) return { ok: false, message: '车缝回货入仓质检提交前必须填写不合格品处置方式' }
     if (!qc.deductionDecision) return { ok: false, message: '车缝回货入仓质检提交前必须明确是否扣款' }
     if (qc.deductionDecision === 'DEDUCT') {
       const amount = Number(qc.deductionAmount)
@@ -517,7 +519,7 @@ function validateForm(form: QcRecordFormState, forSubmit: boolean, existing?: Qu
   if (form.refType === 'RETURN_BATCH' && !getReturnInboundBatchById(form.refId.trim())) {
     return '回货批次号不存在，请先选择有效批次。'
   }
-  if (!form.inspector.trim()) return '请填写质检员姓名'
+  if (!form.inspector.trim()) return '请填写质检人姓名'
   if (!forSubmit) return null
 
   if (form.result === 'FAIL') {
@@ -528,7 +530,7 @@ function validateForm(form: QcRecordFormState, forSubmit: boolean, existing?: Qu
       if (!defect.qty || defect.qty < 1) return '缺陷数量须大于等于 1'
     }
 
-    if (!form.disposition) return '请选择处置方式'
+    if (!form.disposition) return '请选择不合格品处置方式'
 
     if (NEEDS_AFFECTED_QTY.includes(form.disposition)) {
       const qty = Number(form.affectedQty)
@@ -548,7 +550,7 @@ function validateForm(form: QcRecordFormState, forSubmit: boolean, existing?: Qu
     if (requiresFinalDecisionForForm(form, existing)) {
       if (!form.responsiblePartyType) return '车缝回货入仓质检提交前必须选择责任方类型'
       if (!form.responsiblePartyId.trim()) return '车缝回货入仓质检提交前必须填写责任方'
-      if (!form.disposition) return '车缝回货入仓质检提交前必须填写处理方式'
+      if (!form.disposition) return '车缝回货入仓质检提交前必须填写不合格品处置方式'
       if (!form.deductionDecision) return '车缝回货入仓质检提交前必须明确是否扣款'
       if (form.deductionDecision === 'DEDUCT') {
         const amount = Number(form.deductionAmount)

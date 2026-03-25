@@ -1,2 +1,2 @@
 export { renderQcRecordsPage } from './list-domain'
-export { renderQcRecordDetailPage } from './detail-domain'
+export { renderQcRecordDetailPage, renderQcRecordMobileDetailPage } from './detail-domain'

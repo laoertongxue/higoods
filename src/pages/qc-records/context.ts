@@ -6,6 +6,21 @@ import {
   resolveQcIdFromRouteKey,
 } from '../../data/fcs/quality-chain-adapter'
 import {
+  getPlatformQcWorkbenchStats,
+  getPlatformQcWorkbenchTabCounts,
+  listPlatformQcListItems,
+  matchesPlatformQcWorkbenchView,
+  type PlatformQcWorkbenchStats,
+  type PlatformQcWorkbenchViewKey,
+} from '../../data/fcs/quality-deduction-selectors'
+import type {
+  QualityDeductionDisputeAdjudicationResult,
+  QualityDeductionDisputeStatus,
+  QualityDeductionFactoryResponseStatus,
+  QualityDeductionLiabilityStatus,
+  QualityDeductionSettlementImpactStatus,
+} from '../../data/fcs/quality-deduction-domain'
+import {
   initialDeductionBasisItems,
   initialQualityInspections,
   initialReturnInboundBatches,
@@ -16,6 +31,7 @@ import {
   type DefectItem,
   type DeductionBasisItem,
   type LiabilityStatus,
+  type QcResult as DomainQcResult,
   type ReturnInboundProcessType,
   type ReturnInboundQcPolicy,
   type QualityInspection,
@@ -35,6 +51,7 @@ import {
   RETURN_INBOUND_PROCESS_LABEL,
   RETURN_INBOUND_QC_POLICY_LABEL,
   SEW_POST_PROCESS_MODE_LABEL,
+  type ReturnInboundQcDisplayResult,
 } from '../../data/fcs/return-inbound-qc-view'
 import { listExecutionTaskFacts } from '../../data/fcs/page-adapters/task-execution-adapter'
 import { escapeHtml, formatDateTime, toClassName } from '../../utils'
@@ -43,23 +60,35 @@ applyQualitySeedBootstrap()
 
 const processTasks: ProcessTask[] = listExecutionTaskFacts()
 
-type QcResult = 'PASS' | 'FAIL'
+type QcResult = DomainQcResult
+type QcDisplayResult = ReturnInboundQcDisplayResult
 type QcStatus = 'DRAFT' | 'SUBMITTED' | 'CLOSED'
 type QcDisposition = 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
 type RootCauseType = 'PROCESS' | 'MATERIAL' | 'DYE_PRINT' | 'CUTTING' | 'PATTERN_TECH' | 'UNKNOWN'
 type RefType = 'TASK' | 'HANDOVER' | 'RETURN_BATCH'
 
-type ResultFilter = 'ALL' | QcResult
+type ResultFilter = 'ALL' | QcDisplayResult
 type StatusFilter = 'ALL' | QcStatus
 type DispositionFilter = 'ALL' | QcDisposition
+type LiabilityFilter = 'ALL' | QualityDeductionLiabilityStatus
+type FactoryResponseFilter = 'ALL' | QualityDeductionFactoryResponseStatus
+type DisputeFilter = 'ALL' | QualityDeductionDisputeStatus
+type SettlementImpactFilter = 'ALL' | QualityDeductionSettlementImpactStatus
+type InspectorFilter = 'ALL' | string
 
 interface QcRecordsListState {
+  activeView: PlatformQcWorkbenchViewKey
   keyword: string
   filterProcessType: 'ALL' | ReturnInboundProcessType
   filterPolicy: 'ALL' | ReturnInboundQcPolicy
   filterResult: ResultFilter
   filterStatus: StatusFilter
   filterDisposition: DispositionFilter
+  filterLiabilityStatus: LiabilityFilter
+  filterFactoryResponseStatus: FactoryResponseFilter
+  filterDisputeStatus: DisputeFilter
+  filterSettlementImpactStatus: SettlementImpactFilter
+  filterInspector: InspectorFilter
   filterFactory: string
   filterWarehouse: string
   showLegacy: boolean
@@ -96,17 +125,28 @@ interface QcRecordDetailState {
   bdAcceptDefect: number | ''
   bdScrap: number | ''
   bdNoDeduct: number | ''
+  adjudication: {
+    result: '' | QualityDeductionDisputeAdjudicationResult
+    comment: string
+    adjustedLiableQty: number | ''
+    adjustedBlockedProcessingFeeAmount: number | ''
+    adjustedEffectiveQualityDeductionAmount: number | ''
+    adjustmentReasonSummary: string
+    errorText: string
+  }
 }
 
 const NEEDS_AFFECTED_QTY: QcDisposition[] = ['ACCEPT_AS_DEFECT']
 
-const RESULT_LABEL: Record<QcResult, string> = {
+const RESULT_LABEL: Record<QcDisplayResult, string> = {
   PASS: '合格',
+  PARTIAL_PASS: '部分合格',
   FAIL: '不合格',
 }
 
-const RESULT_CLASS: Record<QcResult, string> = {
+const RESULT_CLASS: Record<QcDisplayResult, string> = {
   PASS: 'bg-green-100 text-green-700 border-green-300',
+  PARTIAL_PASS: 'bg-amber-100 text-amber-700 border-amber-300',
   FAIL: 'bg-red-100 text-red-700 border-red-300',
 }
 
@@ -125,7 +165,7 @@ const STATUS_CLASS: Record<QcStatus, string> = {
 const DISPOSITION_LABEL: Record<QcDisposition, string> = {
   ACCEPT_AS_DEFECT: '接受（瑕疵品）',
   SCRAP: '报废',
-  ACCEPT: '接受（无扣款）',
+  ACCEPT: '接受（不合格品免扣）',
 }
 
 const DEDUCTION_DECISION_LABEL: Record<DeductionDecision, string> = {
@@ -148,11 +188,15 @@ const ROOT_CAUSE_LABEL: Record<RootCauseType, string> = {
   UNKNOWN: '未知',
 }
 
-const LIABILITY_LABEL: Record<LiabilityStatus, string> = {
+const LIABILITY_LABEL: Record<string, string> = {
   DRAFT: '草稿',
   CONFIRMED: '已确认',
   DISPUTED: '争议中',
   VOID: '已作废',
+  PENDING: '待判定',
+  FACTORY: '工厂责任',
+  NON_FACTORY: '非工厂责任',
+  MIXED: '混合责任',
 }
 
 const PARTY_TYPE_LABEL: Record<SettlementPartyType, string> = {
@@ -164,12 +208,18 @@ const PARTY_TYPE_LABEL: Record<SettlementPartyType, string> = {
 }
 
 const listState: QcRecordsListState = {
+  activeView: 'ALL',
   keyword: '',
   filterProcessType: 'ALL',
   filterPolicy: 'ALL',
   filterResult: 'ALL',
   filterStatus: 'ALL',
   filterDisposition: 'ALL',
+  filterLiabilityStatus: 'ALL',
+  filterFactoryResponseStatus: 'ALL',
+  filterDisputeStatus: 'ALL',
+  filterSettlementImpactStatus: 'ALL',
+  filterInspector: 'ALL',
   filterFactory: 'ALL',
   filterWarehouse: 'ALL',
   showLegacy: false,
@@ -243,7 +293,7 @@ function getCurrentSearchParams(): URLSearchParams {
 function getCurrentDetailRouteId(): string | null {
   const pathname = appStore.getState().pathname
   const normalized = pathname.split('#')[0]
-  const match = /^\/fcs\/quality\/qc-records\/([^/?]+)/.exec(normalized)
+  const match = /^\/fcs\/(?:quality|pda)\/qc-records\/([^/?]+)/.exec(normalized)
   if (!match) return null
   return decodeURIComponent(match[1])
 }
@@ -269,6 +319,21 @@ function emptyForm(overrides: Partial<QcRecordFormState> = {}): QcRecordFormStat
     deductionDecisionRemark: '',
     dispositionRemark: '',
     remark: '',
+    ...overrides,
+  }
+}
+
+function emptyAdjudicationDraft(
+  overrides: Partial<QcRecordDetailState['adjudication']> = {},
+): QcRecordDetailState['adjudication'] {
+  return {
+    result: '',
+    comment: '',
+    adjustedLiableQty: '',
+    adjustedBlockedProcessingFeeAmount: '',
+    adjustedEffectiveQualityDeductionAmount: '',
+    adjustmentReasonSummary: '',
+    errorText: '',
     ...overrides,
   }
 }
@@ -397,6 +462,23 @@ function ensureDetailState(routeQcId: string): QcRecordDetailState {
       bdAcceptDefect: existingQc?.dispositionQtyBreakdown?.acceptAsDefectQty ?? '',
       bdScrap: existingQc?.dispositionQtyBreakdown?.scrapQty ?? '',
       bdNoDeduct: existingQc?.dispositionQtyBreakdown?.acceptNoDeductQty ?? '',
+      adjudication: emptyAdjudicationDraft(
+        currentQcId
+          ? (() => {
+              const detailVm = getPlatformQcDetailViewModelByRouteKey(routeQcId)
+              return detailVm
+                ? {
+                    adjustedLiableQty:
+                      detailVm.deductionBasis?.deductionQty ?? detailVm.qcRecord.factoryLiabilityQty,
+                    adjustedBlockedProcessingFeeAmount:
+                      detailVm.settlementImpact.blockedProcessingFeeAmount,
+                    adjustedEffectiveQualityDeductionAmount:
+                      detailVm.settlementImpact.effectiveQualityDeductionAmount,
+                  }
+                : {}
+            })()
+          : {},
+      ),
     }
   }
 
@@ -449,7 +531,7 @@ function generateQcId(): string {
 
 
 function getQcViewRows() {
-  return initialQualityInspections.map((qc) => normalizeQcForView(qc, initialReturnInboundBatches, processTasks))
+  return listPlatformQcListItems({ includeLegacy: listState.showLegacy })
 }
 
 function getFactoryOptions(): string[] {
@@ -472,12 +554,30 @@ function getWarehouseOptions(): string[] {
   return Array.from(options).sort((a, b) => a.localeCompare(b))
 }
 
+function getInspectorOptions(): string[] {
+  const options = new Set<string>()
+  for (const row of getQcViewRows()) {
+    if (row.inspector && row.inspector !== '-') {
+      options.add(row.inspector)
+    }
+  }
+  return Array.from(options).sort((a, b) => a.localeCompare(b))
+}
+
+function getWorkbenchStats(): PlatformQcWorkbenchStats {
+  return getPlatformQcWorkbenchStats({ includeLegacy: listState.showLegacy })
+}
+
+function getWorkbenchTabCounts(): Record<PlatformQcWorkbenchViewKey, number> {
+  return getPlatformQcWorkbenchTabCounts({ includeLegacy: listState.showLegacy })
+}
+
 function getFilteredQcRows() {
   const keyword = listState.keyword.trim().toLowerCase()
 
   return getQcViewRows()
     .filter((row) => {
-      if (!listState.showLegacy && row.isLegacy) {
+      if (!matchesPlatformQcWorkbenchView(row, listState.activeView)) {
         return false
       }
 
@@ -498,9 +598,41 @@ function getFilteredQcRows() {
       }
 
       if (
+        listState.filterLiabilityStatus !== 'ALL' &&
+        row.liabilityStatus !== listState.filterLiabilityStatus
+      ) {
+        return false
+      }
+
+      if (
+        listState.filterFactoryResponseStatus !== 'ALL' &&
+        row.factoryResponseStatus !== listState.filterFactoryResponseStatus
+      ) {
+        return false
+      }
+
+      if (
+        listState.filterDisputeStatus !== 'ALL' &&
+        row.disputeStatus !== listState.filterDisputeStatus
+      ) {
+        return false
+      }
+
+      if (
+        listState.filterSettlementImpactStatus !== 'ALL' &&
+        row.settlementImpactStatus !== listState.filterSettlementImpactStatus
+      ) {
+        return false
+      }
+
+      if (
         listState.filterDisposition !== 'ALL' &&
         (row.disposition as QcDisposition | undefined) !== listState.filterDisposition
       ) {
+        return false
+      }
+
+      if (listState.filterInspector !== 'ALL' && row.inspector !== listState.filterInspector) {
         return false
       }
 
@@ -515,6 +647,7 @@ function getFilteredQcRows() {
       if (keyword) {
         const match =
           row.qcId.toLowerCase().includes(keyword) ||
+          row.qcNo.toLowerCase().includes(keyword) ||
           row.batchId.toLowerCase().includes(keyword) ||
           row.productionOrderId.toLowerCase().includes(keyword) ||
           row.sourceTaskId.toLowerCase().includes(keyword)
@@ -584,6 +717,9 @@ export {
   getQcViewRows,
   getFactoryOptions,
   getWarehouseOptions,
+  getInspectorOptions,
+  getWorkbenchStats,
+  getWorkbenchTabCounts,
   getFilteredQcRows,
 }
 
@@ -597,6 +733,7 @@ export type {
   ReturnInboundQcPolicy,
   QualityInspection,
   SettlementPartyType,
+  QcDisplayResult,
   QcResult,
   QcStatus,
   QcDisposition,
@@ -605,6 +742,11 @@ export type {
   ResultFilter,
   StatusFilter,
   DispositionFilter,
+  LiabilityFilter,
+  FactoryResponseFilter,
+  DisputeFilter,
+  SettlementImpactFilter,
+  InspectorFilter,
   QcRecordsListState,
   QcRecordFormState,
   QcRecordDetailState,

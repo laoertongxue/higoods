@@ -22,11 +22,22 @@ import {
   validateIncomingBatchSelection,
 } from './merge-batches-model'
 import {
+  buildPrintableUnitViewModel,
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
+  CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
   deserializeFeiTicketRecordsStorage,
+  deserializeFeiTicketPrintJobsStorage,
+  getPrintableUnitStatusMeta,
   type FeiTicketLabelRecord,
 } from './fei-tickets-model'
 import { FEI_QR_SCHEMA_VERSION } from './fei-qr-model'
+import {
+  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
+  createEmptyStore as createEmptyMarkerStore,
+  deserializeMarkerSpreadingStorage,
+} from './marker-spreading-model'
+import { buildMaterialPrepViewModel } from './material-prep-model'
+import { buildOriginalCutOrderViewModel } from './original-orders-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import { renderCompactKpiCard, renderStickyFilterShell } from './layout.helpers'
 
@@ -116,6 +127,37 @@ function readStoredFeiTicketRecords(): FeiTicketLabelRecord[] {
   } catch {
     return []
   }
+}
+
+function readStoredFeiTicketPrintJobs() {
+  try {
+    return deserializeFeiTicketPrintJobsStorage(localStorage.getItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY))
+  } catch {
+    return []
+  }
+}
+
+function readMarkerStore() {
+  try {
+    return deserializeMarkerSpreadingStorage(localStorage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY))
+  } catch {
+    return createEmptyMarkerStore()
+  }
+}
+
+function buildPrintableUnitSummaryByBatch(mergeBatchId: string) {
+  const mergeBatches = getMergedLedger()
+  const originalRows = buildOriginalCutOrderViewModel(cuttingOrderProgressRecords, mergeBatches).rows
+  const printableView = buildPrintableUnitViewModel({
+    originalRows,
+    materialPrepRows: buildMaterialPrepViewModel(cuttingOrderProgressRecords, mergeBatches).rows,
+    mergeBatches,
+    markerStore: readMarkerStore(),
+    ticketRecords: readStoredFeiTicketRecords(),
+    printJobs: readStoredFeiTicketPrintJobs(),
+    prefilter: null,
+  })
+  return printableView.units.find((unit) => unit.printableUnitType === 'BATCH' && unit.batchId === mergeBatchId) || null
 }
 
 function getMergedLedger(): MergeBatchRecord[] {
@@ -618,6 +660,8 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
   const qrRecords = readStoredFeiTicketRecords().filter((record) => relatedOrderIds.includes(record.originalCutOrderId))
   const printedOwnerGroupCount = new Set(qrRecords.map((record) => record.originalCutOrderId)).size
   const qrSchemaVersion = qrRecords[0]?.schemaVersion || FEI_QR_SCHEMA_VERSION
+  const printableUnit = buildPrintableUnitSummaryByBatch(batch.mergeBatchId)
+  const printableStatusMeta = printableUnit ? getPrintableUnitStatusMeta(printableUnit.printableUnitStatus) : null
 
   return `
     <aside class="rounded-lg border bg-card">
@@ -728,35 +772,53 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
         <section class="rounded-lg border bg-muted/10 p-3">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 class="text-sm font-semibold">二维码 / 打票状态摘要</h3>
-              <p class="mt-1 text-xs text-muted-foreground">这里展示的是该批次关联的原始裁片单二维码 / 打票进度，不代表批次拥有二维码或菲票。</p>
+              <h3 class="text-sm font-semibold">打印菲票摘要</h3>
             </div>
             <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去菲票 / 打编号</button>
           </div>
-          <div class="mt-3 grid gap-3 md:grid-cols-3">
+          <div class="mt-3 grid gap-3 md:grid-cols-4 xl:grid-cols-7">
             <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">关联 owner groups 数</p>
-              <p class="mt-1 font-medium">${escapeHtml(String(relatedOrderIds.length))}</p>
+              <p class="text-xs text-muted-foreground">打印状态</p>
+              <p class="mt-1 font-medium">${escapeHtml(printableStatusMeta?.label || '暂无可打印对象')}</p>
             </div>
             <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">已打票 owner groups 数</p>
-              <p class="mt-1 font-medium">${escapeHtml(String(printedOwnerGroupCount))}</p>
+              <p class="text-xs text-muted-foreground">应打菲票数</p>
+              <p class="mt-1 font-medium">${escapeHtml(String(printableUnit?.requiredTicketCount || 0))}</p>
             </div>
             <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">当前二维码 schema version</p>
-              <p class="mt-1 font-medium">${escapeHtml(qrSchemaVersion)}</p>
+              <p class="text-xs text-muted-foreground">有效已打印数</p>
+              <p class="mt-1 font-medium">${escapeHtml(String(printableUnit?.validPrintedTicketCount || 0))}</p>
+            </div>
+            <div class="rounded-md border bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">已作废数</p>
+              <p class="mt-1 font-medium">${escapeHtml(String(printableUnit?.voidedTicketCount || 0))}</p>
+            </div>
+            <div class="rounded-md border bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">需补打数</p>
+              <p class="mt-1 font-medium">${escapeHtml(String(printableUnit?.missingTicketCount || 0))}</p>
+            </div>
+            <div class="rounded-md border bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">最近打印时间</p>
+              <p class="mt-1 font-medium">${escapeHtml(printableUnit?.lastPrintedAt || '未打印')}</p>
+            </div>
+            <div class="rounded-md border bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">最近打印人</p>
+              <p class="mt-1 font-medium">${escapeHtml(printableUnit?.lastPrintedBy || '未打印')}</p>
             </div>
           </div>
-        </section>
-
-        <section class="rounded-lg border bg-blue-50/60 p-3">
-          <h3 class="text-sm font-semibold">说明与下一步</h3>
-          <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            <li>本批次仅为执行层对象，不改变生产单身份。</li>
-            <li>本批次仅为执行层对象，不改变原始裁片单身份。</li>
-            <li>后续若从本批次发起菲票打印，菲票仍归属原始裁片单。</li>
-            <li>本页下一步可进入“唛架 / 铺布”，继续承接执行上下文。</li>
-          </ul>
+          <div class="mt-3 rounded-md border border-dashed bg-background px-3 py-2 text-xs text-muted-foreground">
+            来源原始裁片单 ${escapeHtml(String(relatedOrderIds.length))} 个；已打票归属组 ${escapeHtml(String(printedOwnerGroupCount))} 个；菲票码版本 ${escapeHtml(qrSchemaVersion)}
+          </div>
+          ${
+            printableUnit
+              ? `
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${getCanonicalCuttingPath('fei-ticket-printed')}?printableUnitId=${encodeURIComponent(printableUnit.printableUnitId)}&printableUnitNo=${encodeURIComponent(printableUnit.printableUnitNo)}&printableUnitType=${encodeURIComponent(printableUnit.printableUnitType)}&batchId=${encodeURIComponent(printableUnit.batchId)}&batchNo=${encodeURIComponent(printableUnit.batchNo)}`)}">查看已打印菲票</button>
+                  <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${getCanonicalCuttingPath('fei-ticket-records')}?printableUnitId=${encodeURIComponent(printableUnit.printableUnitId)}&printableUnitNo=${encodeURIComponent(printableUnit.printableUnitNo)}&printableUnitType=${encodeURIComponent(printableUnit.printableUnitType)}&batchId=${encodeURIComponent(printableUnit.batchId)}&batchNo=${encodeURIComponent(printableUnit.batchNo)}`)}">查看打印记录</button>
+                </div>
+              `
+              : ''
+          }
         </section>
 
         <div class="flex flex-wrap items-center gap-2">

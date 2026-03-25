@@ -142,12 +142,12 @@ function buildTodos(): TodoItem[] {
         id: `arb-${qc.qcId}`,
         kind: 'PENDING_ARBITRATION',
         kindZh: '待仲裁',
-        title: `QC ${qc.qcId} 待仲裁`,
+        title: `QC ${qc.qcId} 待处理争议`,
         relatedObj: qc.productionOrderId ?? qc.qcId,
-        note: '质检结果存在争议，需仲裁处理',
+        note: '质检结果存在争议，后续在质检记录链路内处理',
         updatedAt: qc.updatedAt ?? qc.createdAt,
-        href: '/fcs/quality/arbitration',
-        actionLabel: '查看仲裁',
+        href: `/fcs/quality/qc-records/${qc.qcId}`,
+        actionLabel: '查看质检',
       })
     })
 

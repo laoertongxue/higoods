@@ -1,4 +1,4 @@
-import type { FeiTicketLabelRecord } from './fei-tickets-model'
+import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model'
 import type { MergeBatchRecord } from './merge-batches-model'
 import type { OriginalCutOrderRow } from './original-orders-model'
 
@@ -6,6 +6,19 @@ const numberFormatter = new Intl.NumberFormat('zh-CN')
 
 export const CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY = 'cuttingTransferBagLedger'
 export const CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY = 'cuttingTransferBagSelectedTicketRecordIds'
+
+export const TRANSFER_BAG_DEMO_CASE_IDS = {
+  CASE_F: {
+    pocketId: 'bag-master-005',
+    pocketNo: 'BAG-C-002',
+    usageId: 'seed-usage-case-f',
+    usageNo: 'TBU-DEMO-F-001',
+    lockedTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketId,
+    lockedTicketNo: FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketNo,
+    mismatchTicketId: 'ticket-CUT-260313-086-01-002-v1',
+    mismatchTicketNo: 'FT-CUT-260313-086-01-002',
+  },
+} as const
 
 export type TransferBagMasterStatusKey =
   | 'IDLE'
@@ -33,6 +46,7 @@ export type TransferBagDiscrepancyType = 'NONE' | 'QTY_MISMATCH' | 'DAMAGED_BAG'
 export type TransferBagConditionStatus = 'GOOD' | 'MINOR_DAMAGE' | 'SEVERE_DAMAGE'
 export type TransferBagCleanlinessStatus = 'CLEAN' | 'DIRTY'
 export type TransferBagReusableDecision = 'REUSABLE' | 'WAITING_CLEANING' | 'WAITING_REPAIR' | 'DISABLED'
+export type PocketCarrierStatusKey = 'IDLE' | 'PACKING' | 'READY_TO_DISPATCH' | 'DISPATCHED' | 'SIGNED' | 'RETURNED' | 'DISABLED'
 
 export interface TransferBagSummaryMeta<Key extends string> {
   key: Key
@@ -71,15 +85,20 @@ export interface TransferBagUsage {
   usageStatus: TransferBagUsageStatusKey
   packedTicketCount: number
   packedOriginalCutOrderCount: number
+  startedAt?: string
+  finishedPackingAt?: string
   dispatchAt: string
   dispatchBy: string
   signoffStatus: TransferBagSignoffStatus
+  signedAt?: string
+  returnedAt?: string
   note: string
 }
 
 export interface TransferBagItemBinding {
   bindingId: string
   usageId: string
+  usageNo: string
   bagId: string
   bagCode: string
   ticketRecordId: string
@@ -93,6 +112,10 @@ export interface TransferBagItemBinding {
   boundBy: string
   note: string
 }
+
+export type PocketCarrier = TransferBagMaster
+export type PocketUsage = TransferBagUsage
+export type TicketPocketBinding = TransferBagItemBinding
 
 export interface SewingTaskRef {
   sewingTaskId: string
@@ -257,8 +280,12 @@ export interface TransferBagTicketCandidate {
   styleCode: string
   spuCode: string
   color: string
+  size: string
+  partName: string
+  qty: number
   materialSku: string
   sourceContextType: string
+  ticketStatus: FeiTicketLabelRecord['status']
 }
 
 export interface TransferBagMasterItem extends TransferBagMaster {
@@ -266,13 +293,28 @@ export interface TransferBagMasterItem extends TransferBagMaster {
   latestUsageStatusMeta: TransferBagSummaryMeta<TransferBagUsageStatusKey> | null
   packedTicketCount: number
   packedOriginalCutOrderCount: number
+  pocketStatusKey: PocketCarrierStatusKey
+  pocketStatusMeta: TransferBagSummaryMeta<PocketCarrierStatusKey>
+  currentUsage: TransferBagUsageItem | null
+  currentStyleCode: string
+  currentTotalPieceCount: number
+  currentSourceProductionOrderCount: number
+  currentSourceCutOrderCount: number
+  currentSourceBatchCount: number
+  currentDispatchedAt: string
+  currentSignedAt: string
+  currentReturnedAt: string
 }
 
 export interface TransferBagUsageItem extends TransferBagUsage {
   statusMeta: TransferBagSummaryMeta<TransferBagUsageStatusKey>
+  pocketStatusKey: PocketCarrierStatusKey
+  pocketStatusMeta: TransferBagSummaryMeta<PocketCarrierStatusKey>
   bagMaster: TransferBagMaster | null
   sewingTask: SewingTaskRef | null
   summary: TransferBagParentChildSummary
+  bindingItems: TransferBagBindingItem[]
+  boundTicketIds: string[]
   ticketNos: string[]
   originalCutOrderNos: string[]
   productionOrderNos: string[]
@@ -284,7 +326,22 @@ export interface TransferBagUsageItem extends TransferBagUsage {
 export interface TransferBagBindingItem extends TransferBagItemBinding {
   usage: TransferBagUsage | null
   ticket: TransferBagTicketCandidate | null
+  pocketStatusKey: PocketCarrierStatusKey
+  removable: boolean
   navigationPayload: TransferBagNavigationPayload
+}
+
+export interface ActiveTicketPocketBinding {
+  bindingId: string
+  ticketRecordId: string
+  ticketNo: string
+  pocketId: string
+  pocketNo: string
+  usageId: string
+  usageNo: string
+  styleCode: string
+  boundAt: string
+  usageStatus: TransferBagUsageStatusKey
 }
 
 export interface TransferBagViewModel {
@@ -302,6 +359,7 @@ export interface TransferBagViewModel {
   usagesById: Record<string, TransferBagUsageItem>
   bindings: TransferBagBindingItem[]
   bindingsByUsageId: Record<string, TransferBagBindingItem[]>
+  activeTicketBindingsByTicketId: Record<string, ActiveTicketPocketBinding>
   manifestsByUsageId: Record<string, TransferBagDispatchManifest[]>
   sewingTasks: SewingTaskRef[]
   sewingTasksById: Record<string, SewingTaskRef>
@@ -366,6 +424,44 @@ const masterStatusMetaMap: Record<TransferBagMasterStatusKey, { label: string; c
     label: '停用 / 报废',
     className: 'bg-slate-200 text-slate-700 border border-slate-300',
     detailText: '当前口袋不再进入复用链路，仅保留周期台账追溯。',
+  },
+}
+
+const pocketCarrierStatusMetaMap: Record<PocketCarrierStatusKey, { label: string; className: string; detailText: string }> = {
+  IDLE: {
+    label: '空闲',
+    className: 'bg-slate-100 text-slate-700 border border-slate-200',
+    detailText: '当前口袋没有进行中的使用周期，可直接开始装袋。',
+  },
+  PACKING: {
+    label: '装袋中',
+    className: 'bg-blue-100 text-blue-700 border border-blue-200',
+    detailText: '当前口袋已进入使用周期，仍可继续扫描菲票并调整袋内明细。',
+  },
+  READY_TO_DISPATCH: {
+    label: '待发出',
+    className: 'bg-violet-100 text-violet-700 border border-violet-200',
+    detailText: '当前口袋已完成装袋，等待打印装袋清单并发出。',
+  },
+  DISPATCHED: {
+    label: '已发出',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '当前口袋已发往下游，等待签收。',
+  },
+  SIGNED: {
+    label: '已签收',
+    className: 'bg-amber-100 text-amber-700 border border-amber-200',
+    detailText: '当前口袋已完成签收，等待回仓与验收。',
+  },
+  RETURNED: {
+    label: '已回仓',
+    className: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
+    detailText: '当前口袋已回仓，等待关闭使用周期并释放复用。',
+  },
+  DISABLED: {
+    label: '停用',
+    className: 'bg-rose-100 text-rose-700 border border-rose-200',
+    detailText: '当前口袋已停用，不可继续进入装袋流程。',
   },
 }
 
@@ -447,6 +543,30 @@ export function deriveTransferBagMasterStatus(status: TransferBagMasterStatusKey
 
 export function deriveTransferBagUsageStatus(status: TransferBagUsageStatusKey): TransferBagSummaryMeta<TransferBagUsageStatusKey> {
   return createMeta(status, usageStatusMetaMap[status])
+}
+
+export function derivePocketCarrierStatus(status: PocketCarrierStatusKey): TransferBagSummaryMeta<PocketCarrierStatusKey> {
+  return createMeta(status, pocketCarrierStatusMetaMap[status])
+}
+
+export function isTransferBagUsageActiveStatus(status: TransferBagUsageStatusKey): boolean {
+  return status !== 'CLOSED' && status !== 'EXCEPTION_CLOSED'
+}
+
+export function mapUsageStatusToPocketCarrierStatus(options: {
+  usage: TransferBagUsage | null
+  masterStatus: TransferBagMasterStatusKey
+}): PocketCarrierStatusKey {
+  if (options.masterStatus === 'DISABLED') return 'DISABLED'
+  if (!options.usage) return 'IDLE'
+  if (options.usage.usageStatus === 'READY_TO_DISPATCH') return 'READY_TO_DISPATCH'
+  if (options.usage.usageStatus === 'DISPATCHED' || options.usage.usageStatus === 'PENDING_SIGNOFF') return 'DISPATCHED'
+  if (options.usage.usageStatus === 'WAITING_RETURN') return 'SIGNED'
+  if (options.usage.usageStatus === 'RETURN_INSPECTING') return 'RETURNED'
+  if (options.usage.usageStatus === 'CLOSED' || options.usage.usageStatus === 'EXCEPTION_CLOSED') {
+    return options.masterStatus === 'DISABLED' ? 'DISABLED' : 'IDLE'
+  }
+  return 'PACKING'
 }
 
 export function buildWarehouseQueryPayload(options: {
@@ -552,9 +672,13 @@ export function createTransferBagUsageDraft(options: {
     usageStatus: 'DRAFT',
     packedTicketCount: 0,
     packedOriginalCutOrderCount: 0,
+    startedAt: options.nowText,
+    finishedPackingAt: '',
     dispatchAt: '',
     dispatchBy: '',
     signoffStatus: 'PENDING',
+    signedAt: '',
+    returnedAt: '',
     note: options.note?.trim() || '周转口袋 usage 草稿已创建，等待装袋与交接。',
   }
 }
@@ -578,14 +702,24 @@ export function validateTicketBindingEligibility(options: {
   if (!options.ticket) return { ok: false, reason: '当前票号不存在，请先确认菲票记录。' }
   if (!options.usage) return { ok: false, reason: '请先创建或选择一个 usage，再进行装袋。' }
   if (!options.sewingTask) return { ok: false, reason: '当前 usage 尚未绑定车缝任务。' }
+  if (options.ticket.ticketStatus === 'VOIDED') {
+    return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
+  }
   if (!options.ticket.originalCutOrderId || !options.ticket.originalCutOrderNo) {
     return { ok: false, reason: '当前菲票缺少原始裁片单 owner，不能进入周转口袋。' }
+  }
+
+  const sameUsageBinding = options.bindings.find(
+    (binding) => binding.ticketRecordId === options.ticket.ticketRecordId && binding.usageId === options.usage.usageId,
+  )
+  if (sameUsageBinding) {
+    return { ok: false, reason: `${options.ticket.ticketNo} 已在当前口袋中，无需重复装袋。` }
   }
 
   const existingBinding = options.bindings.find((binding) => binding.ticketRecordId === options.ticket.ticketRecordId && binding.usageId !== options.usage.usageId)
   if (existingBinding) {
     const otherUsage = options.usagesById[existingBinding.usageId]
-    if (otherUsage && !['CLOSED', 'EXCEPTION_CLOSED'].includes(otherUsage.usageStatus)) {
+    if (otherUsage && isTransferBagUsageActiveStatus(otherUsage.usageStatus)) {
       return { ok: false, reason: `${options.ticket.ticketNo} 已绑定到 ${otherUsage.usageNo}，不能重复装袋。` }
     }
   }
@@ -669,10 +803,61 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       styleCode: record.styleCode,
       spuCode: record.spuCode,
       color: record.color,
+      size: record.size || '',
+      partName: record.partName || '',
+      qty: Math.max(record.quantity ?? 1, 1),
       materialSku: record.materialSku,
       sourceContextType: record.sourceContextType,
+      ticketStatus: record.status,
     }))
     .sort((left, right) => left.ticketNo.localeCompare(right.ticketNo, 'zh-CN'))
+}
+
+export function buildActiveTicketPocketBindingMap(store: TransferBagStore): Record<string, ActiveTicketPocketBinding> {
+  const usagesById = Object.fromEntries(store.usages.map((item) => [item.usageId, item]))
+  return store.bindings.reduce<Record<string, ActiveTicketPocketBinding>>((accumulator, binding) => {
+    const usage = usagesById[binding.usageId]
+    if (!usage || !isTransferBagUsageActiveStatus(usage.usageStatus)) return accumulator
+    accumulator[binding.ticketRecordId] = {
+      bindingId: binding.bindingId,
+      ticketRecordId: binding.ticketRecordId,
+      ticketNo: binding.ticketNo,
+      pocketId: binding.bagId,
+      pocketNo: binding.bagCode,
+      usageId: usage.usageId,
+      usageNo: binding.usageNo || usage.usageNo,
+      styleCode: usage.styleCode,
+      boundAt: binding.boundAt,
+      usageStatus: usage.usageStatus,
+    }
+    return accumulator
+  }, {})
+}
+
+export function applyPocketBindingLocksToTicketRecords(
+  ticketRecords: FeiTicketLabelRecord[],
+  store: TransferBagStore,
+): FeiTicketLabelRecord[] {
+  const activeBindings = buildActiveTicketPocketBindingMap(store)
+  return ticketRecords.map((record) => {
+    const binding = activeBindings[record.ticketRecordId]
+    if (!binding) {
+      return {
+        ...record,
+        downstreamLocked: false,
+        downstreamLockedReason: '',
+        boundPocketNo: '',
+        boundUsageNo: '',
+      }
+    }
+    return {
+      ...record,
+      downstreamLocked: true,
+      downstreamLockedReason: `${binding.pocketNo} / ${binding.usageNo} 使用周期未关闭，当前禁止作废或重复装袋。`,
+      boundPocketNo: binding.pocketNo,
+      boundUsageNo: binding.usageNo,
+    }
+  })
 }
 
 export function buildSystemSeedTransferBagStore(options: {
@@ -759,9 +944,14 @@ export function buildSystemSeedTransferBagStore(options: {
   const firstTask = sewingTasks[0]
   const secondTask = sewingTasks[1] || sewingTasks[0]
   const thirdTask = sewingTasks[2] || sewingTasks[0]
-  const firstChunk = ticketCandidates.slice(0, 2)
-  const secondChunk = ticketCandidates.slice(2, 4)
-  const thirdChunk = ticketCandidates.slice(4, 6)
+  const reservedTicketNos = new Set([
+    TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.lockedTicketNo,
+    TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.mismatchTicketNo,
+  ])
+  const genericTicketCandidates = ticketCandidates.filter((ticket) => !reservedTicketNos.has(ticket.ticketNo))
+  const firstChunk = genericTicketCandidates.slice(0, 2)
+  const secondChunk = genericTicketCandidates.slice(2, 4)
+  const thirdChunk = genericTicketCandidates.slice(4, 6)
 
   if (firstTask && firstChunk.length) {
     const usage: TransferBagUsage = {
@@ -781,6 +971,8 @@ export function buildSystemSeedTransferBagStore(options: {
       usageStatus: 'READY_TO_DISPATCH',
       packedTicketCount: firstChunk.length,
       packedOriginalCutOrderCount: uniqueStrings(firstChunk.map((item) => item.originalCutOrderNo)).length,
+      startedAt: '2026-03-24 08:35',
+      finishedPackingAt: '2026-03-24 08:50',
       dispatchAt: '',
       dispatchBy: '',
       signoffStatus: 'PENDING',
@@ -796,6 +988,7 @@ export function buildSystemSeedTransferBagStore(options: {
       bindings.push({
         bindingId: `seed-binding-a-${index + 1}`,
         usageId: usage.usageId,
+        usageNo: usage.usageNo,
         bagId: usage.bagId,
         bagCode: usage.bagCode,
         ticketRecordId: ticket.ticketRecordId,
@@ -804,7 +997,7 @@ export function buildSystemSeedTransferBagStore(options: {
         originalCutOrderNo: ticket.originalCutOrderNo,
         productionOrderNo: ticket.productionOrderNo,
         mergeBatchNo: ticket.mergeBatchNo,
-        qty: 1,
+        qty: ticket.qty,
         boundAt: '2026-03-24 08:40',
         boundBy: '交接员-陈红',
         note: index === 0 ? '首袋装入主票。' : '同 task 补充票据。',
@@ -859,6 +1052,8 @@ export function buildSystemSeedTransferBagStore(options: {
       usageStatus: 'DISPATCHED',
       packedTicketCount: secondChunk.length,
       packedOriginalCutOrderCount: uniqueStrings(secondChunk.map((item) => item.originalCutOrderNo)).length,
+      startedAt: '2026-03-24 09:00',
+      finishedPackingAt: '2026-03-24 09:10',
       dispatchAt: '2026-03-24 09:20',
       dispatchBy: '交接员-张敏',
       signoffStatus: 'WAITING',
@@ -874,6 +1069,7 @@ export function buildSystemSeedTransferBagStore(options: {
       bindings.push({
         bindingId: `seed-binding-b-${index + 1}`,
         usageId: usage.usageId,
+        usageNo: usage.usageNo,
         bagId: usage.bagId,
         bagCode: usage.bagCode,
         ticketRecordId: ticket.ticketRecordId,
@@ -882,7 +1078,7 @@ export function buildSystemSeedTransferBagStore(options: {
         originalCutOrderNo: ticket.originalCutOrderNo,
         productionOrderNo: ticket.productionOrderNo,
         mergeBatchNo: ticket.mergeBatchNo,
-        qty: 1,
+        qty: ticket.qty,
         boundAt: '2026-03-24 09:05',
         boundBy: '交接员-张敏',
         note: index === 0 ? '按批次下发前校对。' : '补装同款余票。',
@@ -937,9 +1133,13 @@ export function buildSystemSeedTransferBagStore(options: {
       usageStatus: 'CLOSED',
       packedTicketCount: thirdChunk.length,
       packedOriginalCutOrderCount: uniqueStrings(thirdChunk.map((item) => item.originalCutOrderNo)).length,
+      startedAt: '2026-03-23 15:00',
+      finishedPackingAt: '2026-03-23 15:15',
       dispatchAt: '2026-03-23 15:40',
       dispatchBy: '交接员-周婷',
       signoffStatus: 'SIGNED',
+      signedAt: '2026-03-23 17:10',
+      returnedAt: '2026-03-24 09:35',
       note: '本轮 usage 已完成回货验收并释放口袋。',
     }
     usages.push(usage)
@@ -952,6 +1152,7 @@ export function buildSystemSeedTransferBagStore(options: {
       bindings.push({
         bindingId: `seed-binding-c-${index + 1}`,
         usageId: usage.usageId,
+        usageNo: usage.usageNo,
         bagId: usage.bagId,
         bagCode: usage.bagCode,
         ticketRecordId: ticket.ticketRecordId,
@@ -960,7 +1161,7 @@ export function buildSystemSeedTransferBagStore(options: {
         originalCutOrderNo: ticket.originalCutOrderNo,
         productionOrderNo: ticket.productionOrderNo,
         mergeBatchNo: ticket.mergeBatchNo,
-        qty: 1,
+        qty: ticket.qty,
         boundAt: '2026-03-23 15:10',
         boundBy: '交接员-周婷',
         note: '历史闭环 usage 的装袋记录。',
@@ -1086,6 +1287,101 @@ export function buildSystemSeedTransferBagStore(options: {
     )
   }
 
+  const caseFLockedTicket =
+    ticketCandidates.find(
+      (ticket) =>
+        ticket.ticketRecordId === TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.lockedTicketId &&
+        ticket.ticketStatus !== 'VOIDED',
+    ) || null
+
+  if (caseFLockedTicket) {
+    let demoTask =
+      sewingTasks.find((task) => task.styleCode === caseFLockedTicket.styleCode) ||
+      sewingTasks.find((task) => task.spuCode === caseFLockedTicket.spuCode) ||
+      null
+
+    if (!demoTask) {
+      demoTask = {
+        sewingTaskId: 'sewing-task-demo-case-f',
+        sewingTaskNo: 'CF-DEMO-F-001',
+        sewingFactoryId: 'factory-demo-f',
+        sewingFactoryName: '打印验收演示车缝组',
+        styleCode: caseFLockedTicket.styleCode,
+        spuCode: caseFLockedTicket.spuCode,
+        skuSummary: caseFLockedTicket.materialSku,
+        colorSummary: caseFLockedTicket.color || '待补颜色',
+        sizeSummary: caseFLockedTicket.size || '待补尺码',
+        plannedQty: caseFLockedTicket.qty,
+        status: '装袋中',
+        note: '开发环境验收：用于验证 active usage 锁定与混装拦截。',
+      }
+      sewingTasks.push(demoTask)
+    }
+
+    const demoUsage: TransferBagUsage = {
+      usageId: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.usageId,
+      usageNo: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.usageNo,
+      bagId: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.pocketId,
+      bagCode: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.pocketNo,
+      sewingTaskId: demoTask.sewingTaskId,
+      sewingTaskNo: demoTask.sewingTaskNo,
+      sewingFactoryId: demoTask.sewingFactoryId,
+      sewingFactoryName: demoTask.sewingFactoryName,
+      styleCode: demoTask.styleCode,
+      spuCode: demoTask.spuCode,
+      skuSummary: demoTask.skuSummary,
+      colorSummary: demoTask.colorSummary,
+      sizeSummary: demoTask.sizeSummary,
+      usageStatus: 'PACKING',
+      packedTicketCount: 1,
+      packedOriginalCutOrderCount: 1,
+      startedAt: '2026-03-25 10:20',
+      finishedPackingAt: '',
+      dispatchAt: '',
+      dispatchBy: '',
+      signoffStatus: 'PENDING',
+      note: '开发环境验收：当前 usage 仍处于装袋中，用于验证 active usage 锁定与同款混装拦截。',
+    }
+    usages.push(demoUsage)
+    masters[4].currentStatus = 'IN_USE'
+    masters[4].latestUsageId = demoUsage.usageId
+    masters[4].latestUsageNo = demoUsage.usageNo
+    masters[4].currentLocation = '打印验收装袋工作台'
+    bindings.push({
+      bindingId: 'seed-binding-case-f-001',
+      usageId: demoUsage.usageId,
+      usageNo: demoUsage.usageNo,
+      bagId: demoUsage.bagId,
+      bagCode: demoUsage.bagCode,
+      ticketRecordId: caseFLockedTicket.ticketRecordId,
+      ticketNo: caseFLockedTicket.ticketNo,
+      originalCutOrderId: caseFLockedTicket.originalCutOrderId,
+      originalCutOrderNo: caseFLockedTicket.originalCutOrderNo,
+      productionOrderNo: caseFLockedTicket.productionOrderNo,
+      mergeBatchNo: caseFLockedTicket.mergeBatchNo,
+      qty: caseFLockedTicket.qty,
+      boundAt: '2026-03-25 10:25',
+      boundBy: '交接员-演示',
+      note: '开发环境验收：已绑定 active usage，打印模块中应显示不可作废。',
+    })
+    auditTrail.push(
+      buildBagUsageAuditTrail({
+        usageId: demoUsage.usageId,
+        action: '创建 usage',
+        actionAt: '2026-03-25 10:20',
+        actionBy: '交接员-演示',
+        note: `${demoUsage.bagCode} 已进入装袋中，用于验证 active usage 锁定。`,
+      }),
+      buildBagUsageAuditTrail({
+        usageId: demoUsage.usageId,
+        action: '绑定菲票',
+        actionAt: '2026-03-25 10:25',
+        actionBy: '交接员-演示',
+        note: `${caseFLockedTicket.ticketNo} 已装入 ${demoUsage.bagCode}，当前不可作废。`,
+      }),
+    )
+  }
+
   return {
     masters,
     usages,
@@ -1127,10 +1423,18 @@ export function deserializeTransferBagStorage(raw: string | null): TransferBagSt
     if (!parsed || typeof parsed !== 'object') {
       throw new Error('invalid transfer bag ledger')
     }
+    const usages = Array.isArray(parsed.usages) ? parsed.usages : []
+    const usagesById = Object.fromEntries(usages.map((item) => [item.usageId, item]))
+    const bindings = Array.isArray(parsed.bindings)
+      ? parsed.bindings.map((binding) => ({
+          ...binding,
+          usageNo: binding.usageNo || usagesById[binding.usageId]?.usageNo || '',
+        }))
+      : []
     return {
       masters: Array.isArray(parsed.masters) ? parsed.masters : [],
-      usages: Array.isArray(parsed.usages) ? parsed.usages : [],
-      bindings: Array.isArray(parsed.bindings) ? parsed.bindings : [],
+      usages,
+      bindings,
       manifests: Array.isArray(parsed.manifests) ? parsed.manifests : [],
       sewingTasks: Array.isArray(parsed.sewingTasks) ? parsed.sewingTasks : [],
       auditTrail: Array.isArray(parsed.auditTrail) ? parsed.auditTrail : [],
@@ -1204,6 +1508,7 @@ export function buildTransferBagViewModel(options: {
   const ticketCandidates = buildTicketCandidates(options.ticketRecords)
   const ticketCandidatesById = Object.fromEntries(ticketCandidates.map((item) => [item.ticketRecordId, item]))
   const ticketCandidatesByNo = Object.fromEntries(ticketCandidates.map((item) => [item.ticketNo, item]))
+  const activeTicketBindingsByTicketId = buildActiveTicketPocketBindingMap(options.store)
   const sewingTasksById = Object.fromEntries(options.store.sewingTasks.map((item) => [item.sewingTaskId, item]))
   const usagesByIdRaw = Object.fromEntries(options.store.usages.map((item) => [item.usageId, item]))
   const bindingsByUsageIdRaw: Record<string, TransferBagItemBinding[]> = {}
@@ -1230,12 +1535,21 @@ export function buildTransferBagViewModel(options: {
       const bindings = (bindingsByUsageIdRaw[usage.usageId] || []).slice().sort((left, right) => left.boundAt.localeCompare(right.boundAt, 'zh-CN'))
       const summary = buildTransferBagParentChildSummary(bindings)
       const manifests = (manifestsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.createdAt.localeCompare(left.createdAt, 'zh-CN'))
+      const bagMaster = options.store.masters.find((item) => item.bagId === usage.bagId) ?? null
+      const pocketStatusKey = mapUsageStatusToPocketCarrierStatus({
+        usage,
+        masterStatus: bagMaster?.currentStatus || 'IDLE',
+      })
       return {
         ...usage,
         statusMeta: deriveTransferBagUsageStatus(usage.usageStatus),
-        bagMaster: options.store.masters.find((item) => item.bagId === usage.bagId) ?? null,
+        pocketStatusKey,
+        pocketStatusMeta: derivePocketCarrierStatus(pocketStatusKey),
+        bagMaster,
         sewingTask: sewingTasksById[usage.sewingTaskId] ?? null,
         summary,
+        bindingItems: [],
+        boundTicketIds: bindings.map((item) => item.ticketRecordId),
         ticketNos: bindings.map((item) => item.ticketNo),
         originalCutOrderNos: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)),
         productionOrderNos: uniqueStrings(bindings.map((item) => item.productionOrderNo)),
@@ -1257,14 +1571,34 @@ export function buildTransferBagViewModel(options: {
 
   const masterItems: TransferBagMasterItem[] = options.store.masters
     .map((master) => {
-      const usage = usageItems.find((item) => item.usageId === master.latestUsageId) ?? null
+      const relatedUsages = usageItems
+        .filter((item) => item.bagId === master.bagId)
+        .sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
+      const usage = relatedUsages.find((item) => isTransferBagUsageActiveStatus(item.usageStatus)) ?? null
+      const latestUsage = relatedUsages[0] ?? null
       const bindings = usage ? bindingsByUsageIdRaw[usage.usageId] || [] : []
+      const summary = buildTransferBagParentChildSummary(bindings)
+      const pocketStatusKey = mapUsageStatusToPocketCarrierStatus({
+        usage,
+        masterStatus: master.currentStatus,
+      })
       return {
         ...master,
         statusMeta: deriveTransferBagMasterStatus(master.currentStatus),
-        latestUsageStatusMeta: usage ? usage.statusMeta : null,
-        packedTicketCount: bindings.length,
-        packedOriginalCutOrderCount: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)).length,
+        latestUsageStatusMeta: latestUsage ? latestUsage.statusMeta : null,
+        packedTicketCount: summary.ticketCount,
+        packedOriginalCutOrderCount: summary.originalCutOrderCount,
+        pocketStatusKey,
+        pocketStatusMeta: derivePocketCarrierStatus(pocketStatusKey),
+        currentUsage: usage,
+        currentStyleCode: usage?.styleCode || '',
+        currentTotalPieceCount: summary.quantityTotal,
+        currentSourceProductionOrderCount: summary.productionOrderCount,
+        currentSourceCutOrderCount: summary.originalCutOrderCount,
+        currentSourceBatchCount: summary.mergeBatchCount,
+        currentDispatchedAt: usage?.dispatchAt || latestUsage?.dispatchAt || '',
+        currentSignedAt: usage?.signedAt || latestUsage?.signedAt || '',
+        currentReturnedAt: usage?.returnedAt || latestUsage?.returnedAt || '',
       }
     })
     .sort((left, right) => left.bagCode.localeCompare(right.bagCode, 'zh-CN'))
@@ -1274,6 +1608,11 @@ export function buildTransferBagViewModel(options: {
       ...binding,
       usage: usageItemsById[binding.usageId] ?? null,
       ticket: ticketCandidatesById[binding.ticketRecordId] ?? null,
+      pocketStatusKey: mapUsageStatusToPocketCarrierStatus({
+        usage: usagesByIdRaw[binding.usageId] ?? null,
+        masterStatus: options.store.masters.find((item) => item.bagId === binding.bagId)?.currentStatus || 'IDLE',
+      }),
+      removable: ['DRAFT', 'PACKING'].includes(usagesByIdRaw[binding.usageId]?.usageStatus || ''),
       navigationPayload: buildTransferBagNavigationPayload({
         originalCutOrderNo: binding.originalCutOrderNo,
         productionOrderNo: binding.productionOrderNo,
@@ -1294,6 +1633,10 @@ export function buildTransferBagViewModel(options: {
     ]),
   )
 
+  usageItems.forEach((usageItem) => {
+    usageItem.bindingItems = bindingsByUsageId[usageItem.usageId] || []
+  })
+
   return {
     summary: {
       bagCount: masterItems.length,
@@ -1309,6 +1652,7 @@ export function buildTransferBagViewModel(options: {
     usagesById: usageItemsById,
     bindings: bindingItems,
     bindingsByUsageId,
+    activeTicketBindingsByTicketId,
     manifestsByUsageId,
     sewingTasks: options.store.sewingTasks,
     sewingTasksById,

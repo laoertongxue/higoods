@@ -193,9 +193,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'ClipboardCheck',
           children: [
             { key: 'quality-inspection', title: '质检记录', icon: 'ClipboardCheck', href: '/fcs/quality/qc-records' },
-            { key: 'quality-penalty', title: '扣款计算', icon: 'Calculator', href: '/fcs/quality/deduction-calc' },
-            { key: 'quality-arbitration', title: '争议仲裁', icon: 'Scale', href: '/fcs/quality/arbitration' },
-            { key: 'quality-penalty-output', title: '扣款结果输出', icon: 'FileDown', href: '/fcs/quality/penalty-output' },
+            { key: 'quality-deduction-analysis', title: '扣款分析', icon: 'BarChart3', href: '/fcs/quality/deduction-analysis' },
           ],
         },
         {
@@ -270,7 +268,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'craft-cutting-original-orders', title: '裁片单（原始单）', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
             { key: 'craft-cutting-material-prep', title: '仓库配料 / 领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
             { key: 'craft-cutting-marker-spreading', title: '唛架 / 铺布', icon: 'Ruler', href: '/fcs/craft/cutting/marker-spreading' },
-            { key: 'craft-cutting-fei-tickets', title: '菲票 / 打编号', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
+            { key: 'craft-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
           ],
         },
         {
@@ -324,6 +322,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       title: '工厂端（移动应用）',
       items: [
         { key: 'pda-todo', title: '待办', icon: 'Bell', href: '/fcs/pda/notify' },
+        { key: 'pda-quality', title: '质检处理', icon: 'ClipboardCheck', href: '/fcs/pda/quality' },
         { key: 'pda-task-receive', title: '接单', icon: 'ClipboardList', href: '/fcs/pda/task-receive' },
         { key: 'pda-exec', title: '执行', icon: 'Play', href: '/fcs/pda/exec' },
         { key: 'pda-handover', title: '交接', icon: 'ArrowLeftRight', href: '/fcs/pda/handover' },

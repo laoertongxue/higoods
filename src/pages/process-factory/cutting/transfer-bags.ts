@@ -5,6 +5,7 @@ import {
   buildSystemSeedFeiTicketLedger,
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
   deserializeFeiTicketRecordsStorage,
+  FEI_TICKET_DEMO_CASE_IDS,
   type FeiTicketLabelRecord,
 } from './fei-tickets-model'
 import {
@@ -28,6 +29,7 @@ import {
   readWarehouseMergeBatchLedger,
 } from './warehouse-shared'
 import {
+  applyPocketBindingLocksToTicketRecords,
   buildBagUsageAuditTrail,
   buildSystemSeedTransferBagStore,
   buildTransferBagNavigationPayload,
@@ -37,21 +39,23 @@ import {
   createTransferBagUsageDraft,
   CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
   CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY,
+  derivePocketCarrierStatus,
   deriveTransferBagMasterStatus,
   deriveTransferBagUsageStatus,
   deserializeTransferBagSelectedTicketIds,
   deserializeTransferBagStorage,
   mergeTransferBagStores,
+  TRANSFER_BAG_DEMO_CASE_IDS,
   serializeTransferBagSelectedTicketIds,
   serializeTransferBagStorage,
   validateBagToSewingTaskBinding,
   validateTicketBindingEligibility,
+  type PocketCarrierStatusKey,
   type SewingTaskRef,
   type TransferBagBindingItem,
   type TransferBagItemBinding,
   type TransferBagMaster,
   type TransferBagMasterItem,
-  type TransferBagMasterStatusKey,
   type TransferBagPrefilter,
   type TransferBagStore,
   type TransferBagTicketCandidate,
@@ -76,7 +80,9 @@ import {
   type TransferBagReturnReceipt,
 } from './transfer-bag-return-model'
 
-type MasterStatusFilter = 'ALL' | TransferBagMasterStatusKey
+const showDemoFixtures = import.meta.env.DEV
+
+type MasterStatusFilter = 'ALL' | PocketCarrierStatusKey
 
 type UsageStatusFilter = 'ALL' | TransferBagUsageStatusKey
 type ReturnStatusFilter = 'ALL' | 'WAITING_RETURN' | 'RETURN_INSPECTING' | 'CLOSED' | 'EXCEPTION_CLOSED'
@@ -256,6 +262,8 @@ function getReturnViewModel() {
 
 function persistStore(): void {
   localStorage.setItem(CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY, serializeTransferBagStorage(state.store))
+  const nextTicketRecords = applyPocketBindingLocksToTicketRecords(loadTicketRecords(), state.store)
+  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, JSON.stringify(nextTicketRecords))
 }
 
 function persistSelectedTicketIds(): void {
@@ -321,7 +329,7 @@ function matchesBindingPrefilter(item: TransferBagBindingItem): boolean {
 function getFilteredMasters() {
   const keyword = state.masterKeyword.trim().toLowerCase()
   return getViewModel().masters.filter((item) => {
-    if (state.masterStatus !== 'ALL' && item.currentStatus !== state.masterStatus) return false
+    if (state.masterStatus !== 'ALL' && item.pocketStatusKey !== state.masterStatus) return false
     if (!matchesMasterPrefilter(item)) return false
     if (keyword) {
       const haystack = [item.bagCode, item.bagType, item.currentLocation, item.latestUsageNo, item.note].join(' ').toLowerCase()
@@ -731,6 +739,74 @@ function renderFeedbackBar(): string {
   `
 }
 
+function renderDemoFixturePanel(): string {
+  if (!showDemoFixtures) return ''
+
+  const viewModel = getViewModel()
+  const caseUsage = viewModel.usagesById[TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.usageId] || null
+  const lockedTicket = viewModel.ticketCandidatesById[TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.lockedTicketId] || null
+  const mismatchTicket = viewModel.ticketCandidatesById[TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.mismatchTicketId] || null
+  const lockedTicketRoute = buildWarehouseRouteWithQuery(getCanonicalCuttingPath('fei-ticket-printed'), {
+    printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitId,
+    printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo,
+    printableUnitType: 'CUT_ORDER',
+    cutOrderId: lockedTicket?.originalCutOrderId || FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitId.replace('cut-order:', ''),
+    cutOrderNo: lockedTicket?.originalCutOrderNo || FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo,
+    ticketRecordId: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.lockedTicketId,
+  })
+  const pocketRoute = buildWarehouseRouteWithQuery(getCanonicalCuttingPath('transfer-bags'), {
+    bagCode: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.pocketNo,
+    usageNo: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.usageNo,
+    ticketNo: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.lockedTicketNo,
+  })
+
+  return `
+    <section class="rounded-xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="inline-flex items-center rounded-full border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold tracking-wide text-amber-700">DEV 验收入口</div>
+          <h2 class="mt-1 text-sm font-semibold text-slate-900">周转口袋测试数据说明区</h2>
+          <p class="mt-1 text-xs leading-5 text-slate-600">当前已内置 Case F：active usage 锁定 + 不同款混装拦截。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" data-nav="${escapeHtml(pocketRoute)}" class="inline-flex min-h-9 items-center rounded-md border border-amber-300 bg-white px-3 text-xs font-medium text-amber-700 hover:bg-amber-100">定位 Case F 口袋</button>
+          <button type="button" data-nav="${escapeHtml(lockedTicketRoute)}" class="inline-flex min-h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">查看锁定菲票</button>
+          <button type="button" data-transfer-bags-action="set-ticket-input" data-ticket-no="${escapeHtml(TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.mismatchTicketNo)}" class="inline-flex min-h-9 items-center rounded-md border border-rose-200 bg-white px-3 text-xs font-medium text-rose-700 hover:bg-rose-50">预填混装拦截票</button>
+        </div>
+      </div>
+      <div class="mt-3 grid gap-3 xl:grid-cols-3">
+        <article class="rounded-lg border border-amber-200 bg-white p-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-900">Case F-1：active usage 锁定票</div>
+          <div class="mt-2 space-y-1">
+            <p>口袋号：${escapeHtml(TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.pocketNo)}</p>
+            <p>usageNo：${escapeHtml(TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.usageNo)}</p>
+            <p>锁定菲票：${escapeHtml(lockedTicket?.ticketNo || TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.lockedTicketNo)}</p>
+            <p>当前款号：${escapeHtml(caseUsage?.styleCode || lockedTicket?.styleCode || '待补录')}</p>
+            <p>当前状态：${escapeHtml(caseUsage?.pocketStatusMeta.label || '待补录')}</p>
+          </div>
+        </article>
+        <article class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-900">Case F-2：混装拦截票</div>
+          <div class="mt-2 space-y-1">
+            <p>拦截菲票：${escapeHtml(mismatchTicket?.ticketNo || TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.mismatchTicketNo)}</p>
+            <p>拦截款号：${escapeHtml(mismatchTicket?.styleCode || '待补录')}</p>
+            <p>锁定口袋款号：${escapeHtml(caseUsage?.styleCode || lockedTicket?.styleCode || '待补录')}</p>
+            <p>验收方式：先定位当前 usage，再点击“预填混装拦截票”，最后执行绑定。</p>
+          </div>
+        </article>
+        <article class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-900">验收提示</div>
+          <div class="mt-2 space-y-1">
+            <p>1. 锁定票在“已打印菲票”页应显示已绑定口袋，且不可作废。</p>
+            <p>2. 混装票在当前口袋装袋时应被硬拦截，提示款号不一致。</p>
+            <p>3. 若本地存储已有历史操作，请先清理浏览器存储后再复验。</p>
+          </div>
+        </article>
+      </div>
+    </section>
+  `
+}
+
 function renderMasterSection(): string {
   const items = getFilteredMasters()
   const active = getActiveMaster()
@@ -738,8 +814,7 @@ function renderMasterSection(): string {
     <section class="space-y-3 rounded-lg border bg-card p-3">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="text-sm font-semibold text-foreground">周转口袋主档</h2>
-          <p class="mt-1 text-xs text-muted-foreground">周转口袋 / 周转箱是独立载具实体，不承接裁片 owner 身份，仅承接当前使用周期与位置状态。</p>
+          <h2 class="text-sm font-semibold text-foreground">周转口袋列表页</h2>
         </div>
       </div>
       ${renderStickyFilterShell(`
@@ -759,31 +834,34 @@ function renderMasterSection(): string {
             <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-master-field="status">
               <option value="ALL" ${state.masterStatus === 'ALL' ? 'selected' : ''}>全部</option>
               <option value="IDLE" ${state.masterStatus === 'IDLE' ? 'selected' : ''}>空闲</option>
-              <option value="IN_USE" ${state.masterStatus === 'IN_USE' ? 'selected' : ''}>使用中</option>
+              <option value="PACKING" ${state.masterStatus === 'PACKING' ? 'selected' : ''}>装袋中</option>
+              <option value="READY_TO_DISPATCH" ${state.masterStatus === 'READY_TO_DISPATCH' ? 'selected' : ''}>待发出</option>
               <option value="DISPATCHED" ${state.masterStatus === 'DISPATCHED' ? 'selected' : ''}>已发出</option>
-              <option value="WAITING_SIGNOFF" ${state.masterStatus === 'WAITING_SIGNOFF' ? 'selected' : ''}>待签收</option>
-              <option value="WAITING_RETURN" ${state.masterStatus === 'WAITING_RETURN' ? 'selected' : ''}>待回仓</option>
-              <option value="RETURN_INSPECTING" ${state.masterStatus === 'RETURN_INSPECTING' ? 'selected' : ''}>回仓验收中</option>
-              <option value="REUSABLE" ${state.masterStatus === 'REUSABLE' ? 'selected' : ''}>可复用</option>
-              <option value="WAITING_CLEANING" ${state.masterStatus === 'WAITING_CLEANING' ? 'selected' : ''}>待清洁</option>
-              <option value="WAITING_REPAIR" ${state.masterStatus === 'WAITING_REPAIR' ? 'selected' : ''}>待维修</option>
+              <option value="SIGNED" ${state.masterStatus === 'SIGNED' ? 'selected' : ''}>已签收</option>
+              <option value="RETURNED" ${state.masterStatus === 'RETURNED' ? 'selected' : ''}>已回仓</option>
               <option value="DISABLED" ${state.masterStatus === 'DISABLED' ? 'selected' : ''}>停用 / 报废</option>
             </select>
           </label>
         </div>
       `)}
       ${!items.length
-        ? '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前没有匹配的口袋主档记录。</div>'
+        ? '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">暂无匹配结果</div>'
         : renderStickyTableScroller(`
             <table class="min-w-full text-sm">
               <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th class="px-4 py-3 text-left">bagCode</th>
-                  <th class="px-4 py-3 text-left">载具类型</th>
-                  <th class="px-4 py-3 text-right">容量</th>
-                  <th class="px-4 py-3 text-left">当前状态</th>
-                  <th class="px-4 py-3 text-left">当前位置</th>
-                  <th class="px-4 py-3 text-left">最新 usage</th>
+                  <th class="px-4 py-3 text-left">口袋编码</th>
+                  <th class="px-4 py-3 text-left">口袋状态</th>
+                  <th class="px-4 py-3 text-left">当前 usageNo</th>
+                  <th class="px-4 py-3 text-left">当前款号</th>
+                  <th class="px-4 py-3 text-right">绑定菲票数</th>
+                  <th class="px-4 py-3 text-right">绑定总数量</th>
+                  <th class="px-4 py-3 text-right">来源生产单数</th>
+                  <th class="px-4 py-3 text-right">来源裁片单数</th>
+                  <th class="px-4 py-3 text-left">发出时间</th>
+                  <th class="px-4 py-3 text-left">签收时间</th>
+                  <th class="px-4 py-3 text-left">回仓时间</th>
+                  <th class="px-4 py-3 text-left">最后更新时间</th>
                   <th class="px-4 py-3 text-left">操作</th>
                 </tr>
               </thead>
@@ -794,19 +872,36 @@ function renderMasterSection(): string {
                       <tr class="border-b ${state.activeMasterId === item.bagId ? 'bg-blue-50/60' : 'bg-card'}">
                         <td class="px-4 py-3">
                           <button type="button" class="font-medium text-blue-700 hover:underline" data-transfer-bags-action="select-master" data-bag-id="${escapeHtml(item.bagId)}">${escapeHtml(item.bagCode)}</button>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.note || '无额外备注')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.bagType)} / ${escapeHtml(item.note || '无额外备注')}</div>
                         </td>
-                        <td class="px-4 py-3">${escapeHtml(item.bagType)}</td>
-                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.capacity))}</td>
-                        <td class="px-4 py-3">${renderTag(item.statusMeta.label, item.statusMeta.className)}</td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentLocation || '待命位')}</td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(item.latestUsageNo || '暂无 usage')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${item.latestUsageStatusMeta ? escapeHtml(item.latestUsageStatusMeta.label) : '尚未进入使用周期'}</div>
-                        </td>
+                        <td class="px-4 py-3">${renderTag(item.pocketStatusMeta.label, item.pocketStatusMeta.className)}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.currentUsage?.usageNo || '暂无')}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.currentStyleCode || '待锁定')}</td>
+                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.packedTicketCount))}</td>
+                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.currentTotalPieceCount))}</td>
+                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.currentSourceProductionOrderCount))}</td>
+                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.currentSourceCutOrderCount))}</td>
+                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentDispatchedAt || '待发出')}</td>
+                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentSignedAt || '待签收')}</td>
+                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentReturnedAt || '待回仓')}</td>
+                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentReturnedAt || item.currentSignedAt || item.currentDispatchedAt || item.latestUsageNo || '暂无')}</td>
                         <td class="px-4 py-3">
                           <div class="flex flex-wrap gap-2">
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">用于装袋</button>
+                            ${
+                              item.pocketStatusKey === 'IDLE'
+                                ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">开始装袋</button>`
+                                : item.pocketStatusKey === 'PACKING'
+                                  ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">继续装袋</button>`
+                                  : item.pocketStatusKey === 'READY_TO_DISPATCH'
+                                    ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(item.currentUsage?.usageId || '')}">打印装袋清单</button>`
+                                    : item.pocketStatusKey === 'DISPATCHED'
+                                      ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(item.currentUsage?.usageId || '')}">签收</button>`
+                                      : item.pocketStatusKey === 'SIGNED'
+                                        ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(item.currentUsage?.usageId || '')}">回仓</button>`
+                                        : item.pocketStatusKey === 'RETURNED'
+                                          ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(item.currentUsage?.usageId || '')}">关闭本次使用周期</button>`
+                                          : ''
+                            }
                             <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="select-master" data-bag-id="${escapeHtml(item.bagId)}">查看详情</button>
                           </div>
                         </td>
@@ -824,24 +919,133 @@ function renderMasterSection(): string {
 
 function renderMasterDetail(item: TransferBagMasterItem | null): string {
   if (!item) return ''
+  const currentUsage = item.currentUsage
+  const currentBindings = currentUsage?.bindingItems || []
+  const historyUsages = getViewModel().usages
+    .filter((usage) => usage.bagId === item.bagId)
+    .sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
   return renderWorkbenchSecondaryPanel({
-    title: `口袋详情：${item.bagCode}`,
-    hint: '当前展示载具主档与最新 usage 摘要；回货入仓与复用闭环请在下方回货区处理。',
+    title: `周转口袋详情：${item.bagCode}`,
+    hint: '',
     defaultOpen: true,
     body: `
-      <div class="grid gap-3 lg:grid-cols-2">
-        <div class="space-y-3 rounded-lg border bg-muted/15 p-3 text-sm">
-          <div><span class="text-muted-foreground">载具类型：</span><span class="font-medium text-foreground">${escapeHtml(item.bagType)}</span></div>
-          <div><span class="text-muted-foreground">容量：</span><span class="font-medium text-foreground">${escapeHtml(String(item.capacity))} 张菲票</span></div>
-          <div><span class="text-muted-foreground">当前状态：</span>${renderTag(item.statusMeta.label, item.statusMeta.className)}</div>
-          <div><span class="text-muted-foreground">当前位置：</span><span class="font-medium text-foreground">${escapeHtml(item.currentLocation || '待命位')}</span></div>
-        </div>
-        <div class="space-y-3 rounded-lg border bg-muted/15 p-3 text-sm">
-          <div><span class="text-muted-foreground">最新 usage：</span><span class="font-medium text-foreground">${escapeHtml(item.latestUsageNo || '暂无')}</span></div>
-          <div><span class="text-muted-foreground">当前装袋数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.packedTicketCount))}</span></div>
-          <div><span class="text-muted-foreground">涉及原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.packedOriginalCutOrderCount))}</span></div>
+      <div class="grid gap-3 xl:grid-cols-[0.88fr,1.12fr]">
+        <div class="space-y-3">
+          <div class="space-y-3 rounded-lg border bg-muted/15 p-3 text-sm">
+            <div><span class="text-muted-foreground">口袋编码：</span><span class="font-medium text-foreground">${escapeHtml(item.bagCode)}</span></div>
+            <div><span class="text-muted-foreground">口袋状态：</span>${renderTag(item.pocketStatusMeta.label, item.pocketStatusMeta.className)}</div>
+            <div><span class="text-muted-foreground">当前使用周期号：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.usageNo || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">开始时间：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.startedAt || '待开始')}</span></div>
+            <div><span class="text-muted-foreground">发出时间：</span><span class="font-medium text-foreground">${escapeHtml(item.currentDispatchedAt || '待发出')}</span></div>
+            <div><span class="text-muted-foreground">签收时间：</span><span class="font-medium text-foreground">${escapeHtml(item.currentSignedAt || '待签收')}</span></div>
+            <div><span class="text-muted-foreground">回仓时间：</span><span class="font-medium text-foreground">${escapeHtml(item.currentReturnedAt || '待回仓')}</span></div>
+            <div><span class="text-muted-foreground">当前位置：</span><span class="font-medium text-foreground">${escapeHtml(item.currentLocation || '待命位')}</span></div>
+          </div>
+          <div class="space-y-3 rounded-lg border bg-muted/15 p-3 text-sm">
+            <div><span class="text-muted-foreground">当前袋内菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.packedTicketCount))}</span></div>
+            <div><span class="text-muted-foreground">当前绑定总数量：</span><span class="font-medium text-foreground">${escapeHtml(String(item.currentTotalPieceCount))}</span></div>
+            <div><span class="text-muted-foreground">当前款号：</span><span class="font-medium text-foreground">${escapeHtml(item.currentStyleCode || '待锁定')}</span></div>
+            <div><span class="text-muted-foreground">来源生产单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.productionOrderNos.join(' / ') || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源原始裁片单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源裁片批次集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.mergeBatchNos.join(' / ') || '暂无')}</span></div>
+          </div>
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">将此口袋带入装袋工作台</button>
+            ${item.pocketStatusKey === 'IDLE' ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">开始装袋</button>` : ''}
+            ${item.pocketStatusKey === 'PACKING' ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">继续装袋</button>` : ''}
+            ${item.pocketStatusKey === 'READY_TO_DISPATCH' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(currentUsage.usageId)}">打印装袋清单</button><button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(currentUsage.usageId)}">发出</button>` : ''}
+            ${item.pocketStatusKey === 'DISPATCHED' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(currentUsage.usageId)}">签收</button>` : ''}
+            ${item.pocketStatusKey === 'SIGNED' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(currentUsage.usageId)}">回仓</button>` : ''}
+            ${item.pocketStatusKey === 'RETURNED' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(currentUsage.usageId)}">关闭本次使用周期</button>` : ''}
+          </div>
+        </div>
+        <div class="space-y-3">
+          <div class="rounded-lg border">
+            <div class="border-b px-3 py-2 text-xs font-medium text-muted-foreground">袋内菲票明细</div>
+            ${
+              currentBindings.length
+                ? renderStickyTableScroller(`
+                    <table class="min-w-full text-sm">
+                      <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th class="px-3 py-2 text-left">ticketNo</th>
+                          <th class="px-3 py-2 text-left">款号</th>
+                          <th class="px-3 py-2 text-left">SKU</th>
+                          <th class="px-3 py-2 text-left">部位</th>
+                          <th class="px-3 py-2 text-right">数量</th>
+                          <th class="px-3 py-2 text-left">来源生产单号</th>
+                          <th class="px-3 py-2 text-left">来源裁片单号</th>
+                          <th class="px-3 py-2 text-left">所属裁片批次号</th>
+                          <th class="px-3 py-2 text-left">菲票状态</th>
+                          <th class="px-3 py-2 text-left">是否允许移除</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${currentBindings
+                          .map(
+                            (binding) => `
+                              <tr class="border-b bg-card">
+                                <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(binding.ticketNo)}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || currentUsage?.styleCode || '待补')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket ? `${binding.ticket.color || '待补颜色'} / ${binding.ticket.size || '待补尺码'}` : '待补')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补部位')}</td>
+                                <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo)}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.mergeBatchNo || '—')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
+                                <td class="px-3 py-2">
+                                  ${
+                                    binding.removable
+                                      ? `<button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-transfer-bags-action="remove-binding" data-binding-id="${escapeHtml(binding.bindingId)}">可移除</button>`
+                                      : '<span class="text-xs text-muted-foreground">当前阶段不可移除</span>'
+                                  }
+                                </td>
+                              </tr>
+                            `,
+                          )
+                          .join('')}
+                      </tbody>
+                    </table>
+                  `, 'max-h-[24vh]')
+                : '<div class="px-3 py-8 text-center text-sm text-muted-foreground">当前口袋暂无已绑定菲票。</div>'
+            }
+          </div>
+          <div class="rounded-lg border">
+            <div class="border-b px-3 py-2 text-xs font-medium text-muted-foreground">历史使用周期</div>
+            ${
+              historyUsages.length
+                ? renderStickyTableScroller(`
+                    <table class="min-w-full text-sm">
+                      <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th class="px-3 py-2 text-left">usageNo</th>
+                          <th class="px-3 py-2 text-left">状态</th>
+                          <th class="px-3 py-2 text-left">时间</th>
+                          <th class="px-3 py-2 text-right">绑定菲票数</th>
+                          <th class="px-3 py-2 text-left">发出 / 签收 / 回仓</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${historyUsages
+                          .map(
+                            (usage) => `
+                              <tr class="border-b bg-card">
+                                <td class="px-3 py-2">
+                                  <button type="button" class="font-medium text-blue-700 hover:underline" data-transfer-bags-action="select-usage" data-usage-id="${escapeHtml(usage.usageId)}">${escapeHtml(usage.usageNo)}</button>
+                                </td>
+                                <td class="px-3 py-2">${renderTag(usage.pocketStatusMeta.label, usage.pocketStatusMeta.className)}</td>
+                                <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(usage.startedAt || usage.dispatchAt || '待补')}</td>
+                                <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(usage.summary.ticketCount))}</td>
+                                <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml([usage.dispatchAt || '待发出', usage.signedAt || '待签收', usage.returnedAt || '待回仓'].join(' / '))}</td>
+                              </tr>
+                            `,
+                          )
+                          .join('')}
+                      </tbody>
+                    </table>
+                  `, 'max-h-[20vh]')
+                : '<div class="px-3 py-8 text-center text-sm text-muted-foreground">当前还没有历史使用周期。</div>'
+            }
           </div>
         </div>
       </div>
@@ -862,12 +1066,11 @@ function renderWorkbenchSection(): string {
     <section class="grid gap-3 xl:grid-cols-[1.1fr,0.9fr]">
       <article class="space-y-3 rounded-lg border bg-card p-3">
         <div>
-          <h2 class="text-sm font-semibold text-foreground">装袋工作台</h2>
-          <p class="mt-1 text-xs text-muted-foreground">先确定 bag 与车缝任务，再建立口袋码（父码）与菲票码（子码）的绑定关系。一个 usage 只能绑定一个车缝任务。</p>
+          <h2 class="text-sm font-semibold text-foreground">周转口袋装袋</h2>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
           <label class="space-y-2">
-            <span class="text-sm font-medium text-foreground">选择周转口袋</span>
+            <span class="text-sm font-medium text-foreground">步骤 1：选择口袋</span>
             <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-workbench-field="bagId">
               <option value="">请选择口袋</option>
               ${getViewModel().masters
@@ -878,7 +1081,7 @@ function renderWorkbenchSection(): string {
             </select>
           </label>
           <label class="space-y-2">
-            <span class="text-sm font-medium text-foreground">模拟扫描 bagCode</span>
+            <span class="text-sm font-medium text-foreground">步骤 1：扫周转口袋码</span>
             <div class="flex gap-2">
               <input
                 type="text"
@@ -913,14 +1116,14 @@ function renderWorkbenchSection(): string {
           </label>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="create-usage">创建 usage 草稿</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="create-usage">开始装袋</button>
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="clear-draft">清空工作台</button>
           ${candidateTickets.length ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="import-prefill">导入候选菲票（${candidateTickets.length}）</button>` : ''}
         </div>
         ${renderCandidatePanel(candidateTickets)}
         <div class="grid gap-3 lg:grid-cols-[1fr,auto]">
           <label class="space-y-2">
-            <span class="text-sm font-medium text-foreground">模拟扫描 ticketNo</span>
+            <span class="text-sm font-medium text-foreground">步骤 2：扫菲票码</span>
             <input
               type="text"
               value="${escapeHtml(state.draft.ticketInput)}"
@@ -929,13 +1132,12 @@ function renderWorkbenchSection(): string {
               data-transfer-bags-workbench-field="ticketInput"
             />
           </label>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted lg:self-end" data-transfer-bags-action="bind-ticket">装袋绑定</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted lg:self-end" data-transfer-bags-action="bind-ticket">绑定父子码</button>
         </div>
       </article>
       <article class="space-y-3 rounded-lg border bg-card p-3">
         <div>
-          <h2 class="text-sm font-semibold text-foreground">当前 usage 摘要</h2>
-          <p class="mt-1 text-xs text-muted-foreground">usage 是单次使用周期对象。bag 是载具，ticket / original-cut-order 仍是裁片 owner。</p>
+          <h2 class="text-sm font-semibold text-foreground">当前口袋 usage 摘要</h2>
         </div>
         ${activeUsage
           ? `
@@ -943,12 +1145,14 @@ function renderWorkbenchSection(): string {
               <div class="space-y-2 rounded-lg border bg-muted/15 p-3 text-sm">
                 <div><span class="text-muted-foreground">usageNo：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.usageNo)}</span></div>
                 <div><span class="text-muted-foreground">bagCode：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.bagCode)}</span></div>
+                <div><span class="text-muted-foreground">当前锁定款号：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.styleCode || '待锁定')}</span></div>
                 <div><span class="text-muted-foreground">车缝任务：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.sewingTaskNo)}</span></div>
                 <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.sewingFactoryName)}</span></div>
                 <div><span class="text-muted-foreground">状态：</span>${renderTag(activeUsage.statusMeta.label, activeUsage.statusMeta.className)}</div>
               </div>
               <div class="space-y-2 rounded-lg border bg-muted/15 p-3 text-sm">
-                <div><span class="text-muted-foreground">ticket 数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.ticketCount || 0))}</span></div>
+                <div><span class="text-muted-foreground">已绑定菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.ticketCount || 0))}</span></div>
+                <div><span class="text-muted-foreground">当前总件数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.quantityTotal || 0))}</span></div>
                 <div><span class="text-muted-foreground">原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.originalCutOrderCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.productionOrderCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">mergeBatch 摘要：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.mergeBatchNos.join(' / ') || '无批次上下文')}</span></div>
@@ -956,22 +1160,27 @@ function renderWorkbenchSection(): string {
               </div>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(activeUsage.usageId)}">打印交接清单</button>
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-ready" data-usage-id="${escapeHtml(activeUsage.usageId)}">标记待发出</button>
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(activeUsage.usageId)}">标记已发出</button>
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-pending-signoff" data-usage-id="${escapeHtml(activeUsage.usageId)}">标记待签收</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(activeUsage.usageId)}">打印装袋清单</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-ready" data-usage-id="${escapeHtml(activeUsage.usageId)}">完成装袋</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(activeUsage.usageId)}">发出</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(activeUsage.usageId)}">签收</button>
             </div>
             <div class="rounded-lg border">
-              <div class="border-b px-3 py-2 text-xs font-medium text-muted-foreground">当前口袋内 ticket 列表</div>
+              <div class="border-b px-3 py-2 text-xs font-medium text-muted-foreground">袋内菲票明细</div>
               ${currentBindings.length
                 ? renderStickyTableScroller(`
                     <table class="min-w-full text-sm">
                       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
                           <th class="px-3 py-2 text-left">ticketNo</th>
+                          <th class="px-3 py-2 text-left">款号</th>
+                          <th class="px-3 py-2 text-left">SKU</th>
+                          <th class="px-3 py-2 text-left">部位</th>
+                          <th class="px-3 py-2 text-right">数量</th>
                           <th class="px-3 py-2 text-left">原始裁片单</th>
                           <th class="px-3 py-2 text-left">生产单</th>
                           <th class="px-3 py-2 text-left">mergeBatch</th>
+                          <th class="px-3 py-2 text-left">菲票状态</th>
                           <th class="px-3 py-2 text-left">操作</th>
                         </tr>
                       </thead>
@@ -981,11 +1190,20 @@ function renderWorkbenchSection(): string {
                             (binding) => `
                               <tr class="border-b bg-card">
                                 <td class="px-3 py-2">${escapeHtml(binding.ticketNo)}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || activeUsage.styleCode || '待补')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket ? `${binding.ticket.color || '待补颜色'} / ${binding.ticket.size || '待补尺码'}` : '待补')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补部位')}</td>
+                                <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.mergeBatchNo || '无')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
-                                  <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-transfer-bags-action="remove-binding" data-binding-id="${escapeHtml(binding.bindingId)}">移除错误绑定</button>
+                                  ${
+                                    binding.removable
+                                      ? `<button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-transfer-bags-action="remove-binding" data-binding-id="${escapeHtml(binding.bindingId)}">移除未锁定菲票</button>`
+                                      : '<span class="text-xs text-muted-foreground">当前阶段不可移除</span>'
+                                  }
                                 </td>
                               </tr>
                             `,
@@ -994,7 +1212,7 @@ function renderWorkbenchSection(): string {
                       </tbody>
                     </table>
                   `, 'max-h-[28vh]')
-                : '<div class="px-3 py-8 text-center text-sm text-muted-foreground">当前 usage 暂无已绑定菲票，可通过上方扫码输入或导入候选菲票。</div>'}
+                : '<div class="px-3 py-8 text-center text-sm text-muted-foreground">当前 usage 暂无已绑定菲票。</div>'}
             </div>
           `
           : '<div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">当前尚未选中 usage。请先创建或从发出台账中选择一个 usage。</div>'}
@@ -1007,7 +1225,7 @@ function renderCandidatePanel(candidates: TransferBagTicketCandidate[]): string 
   if (!candidates.length) return ''
   return renderWorkbenchSecondaryPanel({
     title: '候选菲票预填',
-    hint: '来自当前 query 预筛或 fei-tickets 预选结果，可一次导入当前 usage。',
+    hint: '',
     countText: `${candidates.length} 张`,
     defaultOpen: true,
     body: `
@@ -1128,16 +1346,16 @@ function renderUsageDetail(item: TransferBagUsageItem | null): string {
   const auditTrail = (getViewModel().auditTrailByUsageId[item.usageId] || []).slice().sort((left, right) => right.actionAt.localeCompare(left.actionAt, 'zh-CN'))
   return renderWorkbenchSecondaryPanel({
     title: `usage 详情：${item.usageNo}`,
-    hint: '当前详情保留发出前与发出时动作。回货入仓、袋况与复用闭环在下方专属区块处理。',
+    hint: '',
     countText: `${item.summary.ticketCount} 张票 / ${item.summary.originalCutOrderCount} 个原始裁片单`,
     defaultOpen: true,
     body: `
       <div class="grid gap-3 xl:grid-cols-[0.9fr,1.1fr]">
         <div class="space-y-3 rounded-lg border bg-muted/15 p-3 text-sm">
-          <div><span class="text-muted-foreground">载具父码：</span><span class="font-medium text-foreground">${escapeHtml(item.bagCode)}</span></div>
+          <div><span class="text-muted-foreground">周转口袋码：</span><span class="font-medium text-foreground">${escapeHtml(item.bagCode)}</span></div>
           <div><span class="text-muted-foreground">车缝任务：</span><span class="font-medium text-foreground">${escapeHtml(item.sewingTaskNo)}</span></div>
           <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(item.sewingFactoryName)}</span></div>
-          <div><span class="text-muted-foreground">ticket 子码数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.summary.ticketCount))}</span></div>
+          <div><span class="text-muted-foreground">菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.summary.ticketCount))}</span></div>
           <div><span class="text-muted-foreground">production 数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.summary.productionOrderCount))}</span></div>
           <div><span class="text-muted-foreground">最新 manifest：</span><span class="font-medium text-foreground">${escapeHtml(item.latestManifest?.manifestId || '尚未打印')}</span></div>
           <div class="flex flex-wrap gap-2">
@@ -1525,10 +1743,9 @@ function renderBindingSection(): string {
   const bindings = getFilteredBindings()
   return `
     <section class="space-y-3 rounded-lg border bg-card p-3">
-      <div>
-        <h2 class="text-sm font-semibold text-foreground">父子码映射明细</h2>
-        <p class="mt-1 text-xs text-muted-foreground">父码 = 周转口袋码，子码 = 菲票码。ticket owner 仍回落 original-cut-order，不会因为装袋而改变主体。</p>
-      </div>
+        <div>
+          <h2 class="text-sm font-semibold text-foreground">父子码映射明细</h2>
+        </div>
       ${renderStickyFilterShell(`
         <label class="space-y-2">
           <span class="text-sm font-medium text-foreground">关键词</span>
@@ -1542,7 +1759,7 @@ function renderBindingSection(): string {
         </label>
       `)}
       ${!bindings.length
-        ? '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前没有可展示的父子码映射。</div>'
+        ? '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">暂无父子码映射</div>'
         : renderStickyTableScroller(`
             <table class="min-w-full text-sm">
               <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
@@ -1589,6 +1806,7 @@ function renderPage(): string {
   return `
     <div class="space-y-3 p-4">
       ${renderCuttingPageHeader(meta, { actionsHtml: renderHeaderActions() })}
+      ${renderDemoFixturePanel()}
       ${renderStatsCards()}
       ${renderReturnStatsCards()}
       ${renderPrefilterBar()}
@@ -1611,6 +1829,9 @@ function syncMasterSelection(masterId: string): void {
   state.activeMasterId = masterId
   state.draft.bagId = master.bagId
   state.draft.bagCodeInput = master.bagCode
+  if (master.currentUsage) {
+    syncUsageSelection(master.currentUsage.usageId)
+  }
 }
 
 function syncUsageSelection(usageId: string): void {
@@ -1706,6 +1927,8 @@ function prepareReturnDraft(targetUsageId?: string): boolean {
   resetReturnDraft(usage.usageId)
   if (usage.usageStatus === 'DISPATCHED' || usage.usageStatus === 'PENDING_SIGNOFF') {
     usage.usageStatus = 'WAITING_RETURN'
+    usage.signoffStatus = 'SIGNED'
+    usage.signedAt = usage.signedAt || nowText()
     if (bag) {
       bag.currentStatus = 'WAITING_RETURN'
       bag.currentLocation = usage.sewingFactoryName || '待回仓工厂'
@@ -1774,6 +1997,7 @@ function completeReturnInspection(targetUsageId?: string): boolean {
 
   usage.usageStatus = 'RETURN_INSPECTING'
   usage.signoffStatus = 'SIGNED'
+  usage.returnedAt = receipt.returnAt
   usage.note = receipt.discrepancyType === 'NONE' ? '当前 usage 已完成回货验收，等待关闭。' : '当前 usage 已完成回货验收，但存在差异待带说明关闭。'
   bag.currentStatus = 'RETURN_INSPECTING'
   bag.currentLocation = receipt.returnWarehouseName
@@ -1940,6 +2164,7 @@ function bindTicketByInput(): boolean {
   state.store.bindings.push({
     bindingId: `binding-${Date.now()}`,
     usageId: usage.usageId,
+    usageNo: usage.usageNo,
     bagId: usage.bagId,
     bagCode: usage.bagCode,
     ticketRecordId: ticket.ticketRecordId,
@@ -1948,10 +2173,10 @@ function bindTicketByInput(): boolean {
     originalCutOrderNo: ticket.originalCutOrderNo,
     productionOrderNo: ticket.productionOrderNo,
     mergeBatchNo: ticket.mergeBatchNo,
-    qty: 1,
+    qty: ticket.qty,
     boundAt: nowText(),
     boundBy: '周转口袋工作台',
-    note: '通过装袋工作台补录父子码映射。',
+      note: '通过装袋工作台补录父子码绑定。',
   })
   state.store.auditTrail.push(
     buildBagUsageAuditTrail({
@@ -1959,7 +2184,7 @@ function bindTicketByInput(): boolean {
       action: '绑定菲票',
       actionAt: nowText(),
       actionBy: '周转口袋工作台',
-      note: `${usage.bagCode} -> ${ticket.ticketNo} 已建立父子码映射。`,
+      note: `${usage.bagCode} -> ${ticket.ticketNo} 已绑定父子码。`,
     }),
   )
   state.draft.ticketInput = ''
@@ -2003,6 +2228,7 @@ function importCandidateTickets(targetUsageId?: string): boolean {
     state.store.bindings.push({
       bindingId: `binding-${Date.now()}-${successCount}`,
       usageId: usage.usageId,
+      usageNo: usage.usageNo,
       bagId: usage.bagId,
       bagCode: usage.bagCode,
       ticketRecordId: ticket.ticketRecordId,
@@ -2011,10 +2237,10 @@ function importCandidateTickets(targetUsageId?: string): boolean {
       originalCutOrderNo: ticket.originalCutOrderNo,
       productionOrderNo: ticket.productionOrderNo,
       mergeBatchNo: ticket.mergeBatchNo,
-      qty: 1,
+      qty: ticket.qty,
       boundAt: nowText(),
       boundBy: '周转口袋工作台',
-      note: '通过候选导入批量建立父子码映射。',
+      note: '通过候选导入批量绑定父子码。',
     })
     successCount += 1
   })
@@ -2105,8 +2331,8 @@ function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferB
         <table>
           <thead>
             <tr>
-              <th>父码（bagCode）</th>
-              <th>子码（ticketNo）</th>
+              <th>周转口袋码</th>
+              <th>菲票码</th>
               <th>原始裁片单</th>
               <th>生产单</th>
               <th>mergeBatch</th>
@@ -2128,9 +2354,6 @@ function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferB
               .join('')}
           </tbody>
         </table>
-        <div class="tip">
-          说明：口袋为载具父码，菲票为子码。当前装袋与交接不会改变裁片 owner，裁片 owner 仍回落 original-cut-order。
-        </div>
       </body>
     </html>
   `
@@ -2191,6 +2414,14 @@ function updateUsageStatus(usageId: string | undefined, nextStatus: TransferBagU
     setFeedback('warning', `${usage.usageNo} 尚未装入菲票，不能进入后续交接状态。`)
     return true
   }
+  if (nextStatus === 'DISPATCHED' && !['READY_TO_DISPATCH', 'DISPATCHED'].includes(usage.usageStatus)) {
+    setFeedback('warning', `${usage.usageNo} 需先完成装袋，再标记发出。`)
+    return true
+  }
+  if (nextStatus === 'WAITING_RETURN' && !['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN'].includes(usage.usageStatus)) {
+    setFeedback('warning', `${usage.usageNo} 当前还不能签收，请先完成发出。`)
+    return true
+  }
 
   const currentSummary = buildTransferBagParentChildSummary(state.store.bindings.filter((item) => item.usageId === usage.usageId))
   if (!validateBagToSewingTaskBinding(usage, usage.sewingTaskId).ok) {
@@ -2200,6 +2431,7 @@ function updateUsageStatus(usageId: string | undefined, nextStatus: TransferBagU
 
   usage.usageStatus = nextStatus
   if (nextStatus === 'READY_TO_DISPATCH') {
+    usage.finishedPackingAt = nowText()
     usage.note = '当前 usage 已装袋完成，等待发出。'
   }
   if (nextStatus === 'DISPATCHED') {
@@ -2207,6 +2439,11 @@ function updateUsageStatus(usageId: string | undefined, nextStatus: TransferBagU
     usage.dispatchBy = '周转口袋工作台'
     usage.signoffStatus = 'WAITING'
     usage.note = `当前 usage 已发出，共 ${currentSummary.ticketCount} 张菲票。`
+  }
+  if (nextStatus === 'WAITING_RETURN') {
+    usage.signoffStatus = 'SIGNED'
+    usage.signedAt = nowText()
+    usage.note = '当前 usage 已完成签收，等待回仓验收。'
   }
   if (nextStatus === 'PENDING_SIGNOFF') {
     usage.signoffStatus = 'WAITING'
@@ -2216,7 +2453,14 @@ function updateUsageStatus(usageId: string | undefined, nextStatus: TransferBagU
   state.store.auditTrail.push(
     buildBagUsageAuditTrail({
       usageId: usage.usageId,
-      action: nextStatus === 'READY_TO_DISPATCH' ? '标记待发出' : nextStatus === 'DISPATCHED' ? '标记已发出' : '标记待签收',
+      action:
+        nextStatus === 'READY_TO_DISPATCH'
+          ? '完成装袋'
+          : nextStatus === 'DISPATCHED'
+            ? '标记已发出'
+            : nextStatus === 'WAITING_RETURN'
+              ? '标记已签收'
+              : '标记待签收',
       actionAt: nowText(),
       actionBy: '周转口袋工作台',
       note: `${usage.usageNo} 已更新为 ${deriveTransferBagUsageStatus(nextStatus).label}。`,
@@ -2363,7 +2607,14 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
       return true
     }
     syncMasterSelection(matched.bagId)
-    setFeedback('success', `${matched.bagCode} 已带入装袋工作台。`)
+    const masterItem = getViewModel().mastersById[matched.bagId]
+    if (masterItem?.pocketStatusKey === 'IDLE') {
+      setFeedback('success', `${matched.bagCode} 已带入装袋工作台，可开始本次装袋。`)
+    } else if (masterItem?.pocketStatusKey === 'PACKING') {
+      setFeedback('success', `${matched.bagCode} 已进入当前 active usage，可继续装袋。`)
+    } else {
+      setFeedback('warning', `${matched.bagCode} 当前状态为“${masterItem?.pocketStatusMeta.label || '待补'}”，已带入详情与当前 usage。`)
+    }
     return true
   }
   if (action === 'set-ticket-input') {
@@ -2380,7 +2631,8 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     const bagId = actionNode.dataset.bagId
     if (!bagId) return false
     syncMasterSelection(bagId)
-    setFeedback('success', '已将当前口袋带入装袋工作台。')
+    const masterItem = getViewModel().mastersById[bagId]
+    setFeedback('success', `已切换到 ${masterItem?.bagCode || '当前口袋'}，当前状态：${masterItem?.pocketStatusMeta.label || '待补'}。`)
     return true
   }
   if (action === 'select-usage') {
@@ -2396,6 +2648,7 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
   if (action === 'print-manifest') return printManifest(actionNode.dataset.usageId || state.activeUsageId || undefined)
   if (action === 'mark-ready') return updateUsageStatus(actionNode.dataset.usageId || state.activeUsageId || undefined, 'READY_TO_DISPATCH')
   if (action === 'mark-dispatched') return updateUsageStatus(actionNode.dataset.usageId || state.activeUsageId || undefined, 'DISPATCHED')
+  if (action === 'mark-signed') return updateUsageStatus(actionNode.dataset.usageId || state.activeUsageId || undefined, 'WAITING_RETURN')
   if (action === 'mark-pending-signoff') return updateUsageStatus(actionNode.dataset.usageId || state.activeUsageId || undefined, 'PENDING_SIGNOFF')
   if (action === 'prepare-return') return prepareReturnDraft(actionNode.dataset.usageId || state.activeUsageId || undefined)
   if (action === 'clear-return-draft') return clearReturnDraft()

@@ -1,7 +1,7 @@
 import { renderPdaFrame } from './pda-shell'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
-import { listQcChainFacts } from '../data/fcs/quality-chain-adapter'
+import { listPdaSettlementWritebackItems } from '../data/fcs/quality-deduction-selectors'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 import {
   createSettlementChangeRequest,
@@ -219,89 +219,31 @@ function getCurrentFactoryIdentity() {
 
 function getPlatformQcWritebackItems(): PlatformQcWritebackItem[] {
   const identity = getCurrentFactoryIdentity()
-  const matchesCurrentFactory = (value?: string) => Boolean(value && identity.keys.has(value))
-  const processLabelMap: Record<string, string> = {
-    PRINT: '印花',
-    DYE: '染色',
-    CUT_PANEL: '裁片',
-    SEW: '车缝',
-    OTHER: '其他',
-    DYE_PRINT: '染印',
-  }
-  const sewModeLabelMap: Record<string, string> = {
-    SEW_WITH_POST: '车缝（含后道）',
-    SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED: '车缝（后道仓一体）',
-  }
-  const liabilityStatusLabelMap: Record<string, string> = {
-    DRAFT: '待判定',
-    CONFIRMED: '已确认',
-    DISPUTED: '争议中',
-    VOID: '已作废',
-    PENDING: '待判定',
-  }
-
-  return listQcChainFacts()
-    .flatMap((chain) =>
-      chain.basisItems.map((basis) => ({
-        chain,
-        basis,
-      })),
-    )
-    .filter(({ chain, basis }) => {
-      return (
-        matchesCurrentFactory(chain.qc.returnFactoryId) ||
-        matchesCurrentFactory(basis.factoryId) ||
-        matchesCurrentFactory(basis.settlementPartyId) ||
-        matchesCurrentFactory(basis.responsiblePartyIdSnapshot)
-      )
-    })
-    .map(({ chain, basis }) => {
-      const qc = chain.qc
-      const processLabel =
-        qc.sewPostProcessMode && sewModeLabelMap[qc.sewPostProcessMode]
-          ? sewModeLabelMap[qc.sewPostProcessMode]
-          : processLabelMap[(qc.sourceProcessType ?? basis.sourceProcessType ?? 'OTHER') as string] ?? '其他'
-      const liabilityStatusText =
-        chain.dispute?.status === 'ADJUSTED'
-          ? '改判生效'
-          : chain.dispute?.status === 'ARCHIVED'
-            ? '已归档'
-          : chain.dispute?.status === 'REJECTED'
-            ? '争议驳回'
-            : chain.dispute?.status === 'OPEN'
-              ? '争议中'
-              : liabilityStatusLabelMap[(qc.liabilityStatus ?? basis.liabilityStatusSnapshot ?? basis.status) as string] ?? '待判定'
-      const settlementStatusText =
-        chain.settlementImpact.status === 'SETTLED'
-          ? `已结算 · ${chain.settlementImpact.settlementBatchId ?? ''}`.trim()
-          : chain.settlementImpact.status === 'READY'
-            ? '已确认，可结算'
-            : chain.settlementImpact.status === 'PENDING_ARBITRATION'
-              ? '争议中，待仲裁'
-              : chain.settlementImpact.summary || '冻结中'
+  return listPdaSettlementWritebackItems(identity.keys)
+    .map((item) => {
       const settlementVariant: BadgeVariant =
-        chain.settlementImpact.status === 'READY' || chain.settlementImpact.status === 'SETTLED'
+        item.settlementStatusText.includes('已结算') || item.settlementStatusText.includes('可结算')
           ? 'green'
-          : chain.settlementImpact.status === 'PENDING_ARBITRATION'
+          : item.liabilityStatusText === '争议中'
             ? 'amber'
             : 'orange'
 
       return {
-        basisId: basis.basisId,
-        qcId: qc.qcId,
-        productionOrderId: basis.productionOrderId,
-        taskId: basis.taskId,
-        batchId: basis.sourceBatchId ?? qc.returnBatchId,
-        processLabel,
-        warehouseName: qc.warehouseName ?? '-',
-        returnFactoryName: qc.returnFactoryName ?? identity.current?.name ?? '-',
-        summary: basis.summary || chain.settlementImpact.summary || '仓库质检不合格已回写平台扣款依据',
-        liabilityStatusText,
-        settlementStatusText,
+        basisId: item.basisId,
+        qcId: item.qcId,
+        productionOrderId: item.productionOrderId,
+        taskId: item.taskId,
+        batchId: item.batchId,
+        processLabel: item.processLabel,
+        warehouseName: item.warehouseName,
+        returnFactoryName: item.returnFactoryName || identity.current?.name || '-',
+        summary: item.summary,
+        liabilityStatusText: item.liabilityStatusText,
+        settlementStatusText: item.settlementStatusText,
         settlementVariant,
-        deductionQty: basis.deductionQty ?? basis.qty ?? 0,
-        deductionAmountCny: basis.deductionAmountSnapshot ?? 0,
-        inspectedAt: qc.inspectedAt ?? basis.updatedAt ?? basis.createdAt,
+        deductionQty: item.deductionQty,
+        deductionAmountCny: item.deductionAmountCny,
+        inspectedAt: item.inspectedAt,
       }
     })
     .sort((left, right) => {
@@ -405,7 +347,7 @@ function renderPlatformQcWritebackSection(compact = false): string {
                   <span>${escapeHtml(formatDateTime(item.inspectedAt))}</span>
                 </div>
                 <div class="mt-2 flex flex-wrap gap-2">
-                  <button class="rounded-md border px-3 py-1.5 text-[10px] hover:bg-muted" data-nav="/fcs/quality/qc-records/${escapeHtml(item.qcId)}">
+                  <button class="rounded-md border px-3 py-1.5 text-[10px] hover:bg-muted" data-nav="/fcs/pda/quality/${escapeHtml(item.qcId)}?back=settlement">
                     查看质检
                   </button>
                   <button class="rounded-md border px-3 py-1.5 text-[10px] hover:bg-muted" data-nav="/fcs/quality/deduction-calc/${escapeHtml(item.basisId)}">

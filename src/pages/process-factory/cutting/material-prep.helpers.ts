@@ -46,8 +46,8 @@ export const printMeta: Record<CuttingPrintSlipStatus, { label: string; classNam
 }
 
 export const qrMeta: Record<CuttingQrStatus, { label: string; className: string }> = {
-  NOT_GENERATED: { label: '未生成二维码', className: 'bg-slate-100 text-slate-700' },
-  GENERATED: { label: '已生成二维码', className: 'bg-violet-100 text-violet-700' },
+  NOT_GENERATED: { label: '未生成裁片单主码', className: 'bg-slate-100 text-slate-700' },
+  GENERATED: { label: '已生成裁片单主码', className: 'bg-violet-100 text-violet-700' },
 }
 
 type PrepQrHintVariant = 'list' | 'detail' | 'print'
@@ -73,9 +73,9 @@ export function getPrepQrHiddenText(
   variant: PrepQrHintVariant = 'list',
 ): string {
   if (shouldDisplayQrByPrepStatus(status)) return ''
-  if (variant === 'detail') return '当前未配置，配置完成后生成并显示二维码。'
-  if (variant === 'print') return '当前项未配置，本次打印不带二维码。'
-  return '未配置，不显示二维码'
+  if (variant === 'detail') return '当前未配置，暂不显示裁片单主码。'
+  if (variant === 'print') return '当前项未配置，本次打印不带裁片单主码。'
+  return '未配置，暂不显示裁片单主码'
 }
 
 export const discrepancyMeta: Record<CuttingDiscrepancyStatus, { label: string; className: string }> = {
@@ -269,6 +269,6 @@ export function getPendingPrintBatches(line: CuttingMaterialPrepLine) {
 }
 
 export function buildEmptyStateText(filters: CuttingMaterialPrepFilters): string {
-  if (filters.riskFilter !== 'ALL') return '当前筛选条件下暂无需要跟进的配料差异或待处理单据。'
-  return '当前筛选条件下暂无匹配的仓库配料记录。'
+  if (filters.riskFilter !== 'ALL') return '暂无待处理记录'
+  return '暂无匹配结果'
 }

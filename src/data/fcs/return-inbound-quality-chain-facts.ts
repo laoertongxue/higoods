@@ -69,6 +69,9 @@ export interface ReturnInboundQcChainScenario {
   inspector: string
   inspectedAt: string
   result: 'PASS' | 'FAIL'
+  inspectedQty?: number
+  qualifiedQty?: number
+  unqualifiedQty?: number
   status: QcStatus
   remark: string
   rootCauseType: RootCauseType
@@ -186,6 +189,21 @@ function resolveBatchStatus(scenario: ReturnInboundQcChainScenario): ReturnInbou
 }
 
 function createInspection(scenario: ReturnInboundQcChainScenario): QualityInspection {
+  const inspectedQty = scenario.inspectedQty ?? scenario.returnedQty
+  const unqualifiedQty =
+    scenario.unqualifiedQty ??
+    (scenario.result === 'PASS'
+      ? 0
+      : Math.min(
+          scenario.affectedQty ?? scenario.defectItems?.reduce((sum, item) => sum + item.qty, 0) ?? inspectedQty,
+          inspectedQty,
+        ))
+  const qualifiedQty =
+    scenario.qualifiedQty ??
+    (scenario.result === 'PASS'
+      ? inspectedQty
+      : Math.max(inspectedQty - unqualifiedQty, 0))
+
   return {
     qcId: scenario.qcId,
     refType: 'RETURN_BATCH',
@@ -195,6 +213,9 @@ function createInspection(scenario: ReturnInboundQcChainScenario): QualityInspec
     inspector: scenario.inspector,
     inspectedAt: scenario.inspectedAt,
     result: scenario.result,
+    inspectedQty,
+    qualifiedQty,
+    unqualifiedQty,
     defectItems: scenario.defectItems ?? [],
     remark: scenario.remark,
     status: scenario.status,
@@ -898,6 +919,9 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     inspector: '质检员B',
     inspectedAt: '2026-03-13 09:20:00',
     result: 'FAIL',
+    inspectedQty: 56,
+    qualifiedQty: 0,
+    unqualifiedQty: 56,
     status: 'CLOSED',
     remark: '裁片边缘破损已判责，扣款依据待当前结算批次处理',
     disposition: 'SCRAP',

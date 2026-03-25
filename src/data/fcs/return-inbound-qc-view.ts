@@ -3,7 +3,6 @@ import {
   inferReturnInboundProcessTypeFromTask,
   resolveDefaultReturnInboundQcPolicy,
   type QcDisposition,
-  type QcResult,
   type QcStatus,
   type QualityInspection,
   type ReturnInboundBatch,
@@ -37,6 +36,17 @@ export const SEW_POST_PROCESS_MODE_LABEL: Record<SewPostProcessMode, string> = {
   SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED: '车缝（后道仓一体）',
 }
 
+export type ReturnInboundQcDisplayResult = 'PASS' | 'PARTIAL_PASS' | 'FAIL'
+
+export interface ReturnInboundQcQuantitySummary {
+  inspectedQty: number
+  qualifiedQty: number
+  unqualifiedQty: number
+  qualifiedRate: number
+  unqualifiedRate: number
+  result: ReturnInboundQcDisplayResult
+}
+
 export interface ReturnInboundQcView {
   qc: QualityInspection
   qcId: string
@@ -57,11 +67,81 @@ export interface ReturnInboundQcView {
   sewPostProcessMode?: SewPostProcessMode
   sourceBusinessType: string
   sourceBusinessId: string
-  result: QcResult
+  inspector: string
+  result: ReturnInboundQcDisplayResult
   status: QcStatus
   disposition?: QcDisposition
   affectedQty?: number
+  inspectedQty: number
+  qualifiedQty: number
+  unqualifiedQty: number
+  qualifiedRate: number
+  unqualifiedRate: number
   inspectedAt: string
+}
+
+function normalizeQty(value?: number): number | null {
+  if (value === undefined || value === null) return null
+  if (!Number.isFinite(value)) return null
+  return Math.max(0, Math.floor(value))
+}
+
+export function resolveQcInspectionSummary(
+  qc: QualityInspection,
+  batch: ReturnInboundBatch | null,
+  task: ProcessTask | null,
+): ReturnInboundQcQuantitySummary {
+  const defectQty = qc.defectItems.reduce((sum, item) => sum + item.qty, 0)
+  const writebackQty =
+    (qc.writebackAvailableQty ?? 0) +
+    (qc.writebackAcceptedAsDefectQty ?? 0) +
+    (qc.writebackScrapQty ?? 0)
+
+  const inspectedQty =
+    normalizeQty(qc.inspectedQty) ??
+    normalizeQty(batch?.returnedQty) ??
+    normalizeQty(task?.qty) ??
+    normalizeQty(writebackQty > 0 ? writebackQty : undefined) ??
+    normalizeQty(qc.affectedQty) ??
+    normalizeQty(defectQty) ??
+    0
+
+  let qualifiedQty = normalizeQty(qc.qualifiedQty)
+  let unqualifiedQty = normalizeQty(qc.unqualifiedQty)
+
+  if (qc.result === 'PASS') {
+    qualifiedQty = inspectedQty
+    unqualifiedQty = 0
+  } else {
+    const derivedUnqualifiedQty =
+      unqualifiedQty ??
+      normalizeQty(qc.affectedQty) ??
+      normalizeQty(defectQty) ??
+      normalizeQty(
+        (qc.writebackAcceptedAsDefectQty ?? 0) + (qc.writebackScrapQty ?? 0) > 0
+          ? (qc.writebackAcceptedAsDefectQty ?? 0) + (qc.writebackScrapQty ?? 0)
+          : undefined,
+      ) ??
+      inspectedQty
+    unqualifiedQty = Math.min(derivedUnqualifiedQty, inspectedQty)
+    qualifiedQty = qualifiedQty ?? Math.max(inspectedQty - unqualifiedQty, 0)
+  }
+
+  const result: ReturnInboundQcDisplayResult =
+    unqualifiedQty <= 0
+      ? 'PASS'
+      : qualifiedQty > 0
+        ? 'PARTIAL_PASS'
+        : 'FAIL'
+
+  return {
+    inspectedQty,
+    qualifiedQty,
+    unqualifiedQty,
+    qualifiedRate: inspectedQty > 0 ? Math.round((qualifiedQty / inspectedQty) * 1000) / 10 : 0,
+    unqualifiedRate: inspectedQty > 0 ? Math.round((unqualifiedQty / inspectedQty) * 1000) / 10 : 0,
+    result,
+  }
 }
 
 export function getReturnInboundBatchById(
@@ -99,6 +179,7 @@ export function normalizeQcForView(
     processType === 'SEW' && (qc.sewPostProcessMode ?? inboundBatch?.sewPostProcessMode)
       ? SEW_POST_PROCESS_MODE_LABEL[qc.sewPostProcessMode ?? inboundBatch?.sewPostProcessMode!]
       : RETURN_INBOUND_PROCESS_LABEL[processType]
+  const inspectionSummary = resolveQcInspectionSummary(qc, inboundBatch, task)
 
   return {
     qc,
@@ -120,10 +201,16 @@ export function normalizeQcForView(
     sewPostProcessMode: qc.sewPostProcessMode ?? inboundBatch?.sewPostProcessMode,
     sourceBusinessType: qc.sourceBusinessType ?? inboundBatch?.sourceType ?? 'OTHER',
     sourceBusinessId: qc.sourceBusinessId ?? inboundBatch?.sourceId ?? '',
-    result: qc.result,
+    inspector: qc.inspector,
+    result: inspectionSummary.result,
     status: qc.status,
     disposition: qc.disposition,
     affectedQty: qc.affectedQty,
+    inspectedQty: inspectionSummary.inspectedQty,
+    qualifiedQty: inspectionSummary.qualifiedQty,
+    unqualifiedQty: inspectionSummary.unqualifiedQty,
+    qualifiedRate: inspectionSummary.qualifiedRate,
+    unqualifiedRate: inspectionSummary.unqualifiedRate,
     inspectedAt: qc.inspectedAt,
   }
 }

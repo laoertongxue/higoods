@@ -5,14 +5,21 @@ import {
   getCurrentDetailRouteId,
   ensureDetailState,
   parseNumberField,
+  parseAmountField,
+  nowTimestamp,
   getQcById,
   syncDetailFromQc,
   type ResultFilter,
   type StatusFilter,
   type DispositionFilter,
+  type LiabilityFilter,
+  type FactoryResponseFilter,
+  type DisputeFilter,
+  type SettlementImpactFilter,
   type QcResult,
   type QcRecordsListState,
 } from './context'
+import { adjudicateDisputeCase } from '../../data/fcs/quality-deduction-lifecycle'
 import {
   updateQcDispositionBreakdown,
   saveDraft,
@@ -52,6 +59,26 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
     }
     if (field === 'disposition') {
       listState.filterDisposition = listFilterNode.value as DispositionFilter
+      return true
+    }
+    if (field === 'liabilityStatus') {
+      listState.filterLiabilityStatus = listFilterNode.value as LiabilityFilter
+      return true
+    }
+    if (field === 'factoryResponseStatus') {
+      listState.filterFactoryResponseStatus = listFilterNode.value as FactoryResponseFilter
+      return true
+    }
+    if (field === 'disputeStatus') {
+      listState.filterDisputeStatus = listFilterNode.value as DisputeFilter
+      return true
+    }
+    if (field === 'settlementImpactStatus') {
+      listState.filterSettlementImpactStatus = listFilterNode.value as SettlementImpactFilter
+      return true
+    }
+    if (field === 'inspector') {
+      listState.filterInspector = listFilterNode.value
       return true
     }
     if (field === 'factory') {
@@ -138,21 +165,93 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
     return true
   }
 
+  const adjudicationFieldNode = target.closest<HTMLElement>('[data-qcd-adjudication-field]')
+  if (
+    adjudicationFieldNode instanceof HTMLInputElement ||
+    adjudicationFieldNode instanceof HTMLSelectElement ||
+    adjudicationFieldNode instanceof HTMLTextAreaElement
+  ) {
+    const routeQcId = getCurrentDetailRouteId()
+    if (!routeQcId) return false
+
+    const detail = ensureDetailState(routeQcId)
+    const field = adjudicationFieldNode.dataset.qcdAdjudicationField
+    if (!field) return true
+
+    if (field === 'result' && adjudicationFieldNode instanceof HTMLSelectElement) {
+      detail.adjudication.result = adjudicationFieldNode.value as typeof detail.adjudication.result
+      detail.adjudication.errorText = ''
+      return true
+    }
+
+    if (field === 'comment' && adjudicationFieldNode instanceof HTMLTextAreaElement) {
+      detail.adjudication.comment = adjudicationFieldNode.value
+      detail.adjudication.errorText = ''
+      return true
+    }
+
+    if (field === 'adjustmentReasonSummary' && adjudicationFieldNode instanceof HTMLTextAreaElement) {
+      detail.adjudication.adjustmentReasonSummary = adjudicationFieldNode.value
+      detail.adjudication.errorText = ''
+      return true
+    }
+
+    if (field === 'adjustedLiableQty' && adjudicationFieldNode instanceof HTMLInputElement) {
+      detail.adjudication.adjustedLiableQty = parseNumberField(adjudicationFieldNode.value)
+      detail.adjudication.errorText = ''
+      return true
+    }
+
+    if (field === 'adjustedBlockedProcessingFeeAmount' && adjudicationFieldNode instanceof HTMLInputElement) {
+      detail.adjudication.adjustedBlockedProcessingFeeAmount = parseAmountField(adjudicationFieldNode.value)
+      detail.adjudication.errorText = ''
+      return true
+    }
+
+    if (field === 'adjustedEffectiveQualityDeductionAmount' && adjudicationFieldNode instanceof HTMLInputElement) {
+      detail.adjudication.adjustedEffectiveQualityDeductionAmount = parseAmountField(adjudicationFieldNode.value)
+      detail.adjudication.errorText = ''
+      return true
+    }
+
+    return true
+  }
+
   const listActionNode = target.closest<HTMLElement>('[data-qcr-action]')
   if (listActionNode) {
     const action = listActionNode.dataset.qcrAction
     if (!action) return true
 
     if (action === 'reset-filters') {
+      listState.activeView = 'ALL'
       listState.keyword = ''
       listState.filterProcessType = 'ALL'
       listState.filterPolicy = 'ALL'
       listState.filterResult = 'ALL'
       listState.filterStatus = 'ALL'
       listState.filterDisposition = 'ALL'
+      listState.filterLiabilityStatus = 'ALL'
+      listState.filterFactoryResponseStatus = 'ALL'
+      listState.filterDisputeStatus = 'ALL'
+      listState.filterSettlementImpactStatus = 'ALL'
+      listState.filterInspector = 'ALL'
       listState.filterFactory = 'ALL'
       listState.filterWarehouse = 'ALL'
       listState.showLegacy = false
+      return true
+    }
+
+    if (action === 'set-view') {
+      listState.activeView =
+        (listActionNode.dataset.qcrView as QcRecordsListState['activeView'] | undefined) ?? 'ALL'
+      return true
+    }
+
+    if (action === 'handle-dispute') {
+      const href = listActionNode.dataset.qcrHref
+      if (href) {
+        appStore.navigate(href)
+      }
       return true
     }
 
@@ -169,7 +268,12 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
   const detail = routeQcId ? ensureDetailState(routeQcId) : null
 
   if (action === 'back-list') {
-    appStore.navigate('/fcs/quality/qc-records')
+    const pathname = appStore.getState().pathname
+    appStore.navigate(
+      pathname.startsWith('/fcs/pda/qc-records/')
+        ? '/fcs/pda/settlement'
+        : '/fcs/quality/qc-records',
+    )
     return true
   }
 
@@ -248,6 +352,60 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
       syncDetailFromQc(detail, latest)
     }
     showQcRecordsToast('处置数量拆分已保存，可扣款数量已同步')
+    return true
+  }
+
+  if (action === 'submit-adjudication') {
+    if (!detail.currentQcId) return true
+    if (!detail.adjudication.result) {
+      detail.adjudication.errorText = '请先选择裁决结果'
+      return true
+    }
+    if (!detail.adjudication.comment.trim()) {
+      detail.adjudication.errorText = '请填写裁决意见'
+      return true
+    }
+
+    const adjudicationResult = adjudicateDisputeCase({
+      qcId: detail.currentQcId,
+      reviewerUserName: '平台运营-裁决',
+      adjudicatedAt: nowTimestamp(),
+      adjudicationResult: detail.adjudication.result,
+      adjudicationComment: detail.adjudication.comment.trim(),
+      adjustedLiableQty:
+        detail.adjudication.result === 'PARTIALLY_ADJUSTED' && detail.adjudication.adjustedLiableQty !== ''
+          ? Number(detail.adjudication.adjustedLiableQty)
+          : undefined,
+      adjustedBlockedProcessingFeeAmount:
+        detail.adjudication.result === 'PARTIALLY_ADJUSTED' && detail.adjudication.adjustedBlockedProcessingFeeAmount !== ''
+          ? Number(detail.adjudication.adjustedBlockedProcessingFeeAmount)
+          : undefined,
+      adjustedEffectiveQualityDeductionAmount:
+        detail.adjudication.result === 'PARTIALLY_ADJUSTED' && detail.adjudication.adjustedEffectiveQualityDeductionAmount !== ''
+          ? Number(detail.adjudication.adjustedEffectiveQualityDeductionAmount)
+          : undefined,
+      adjustmentReasonSummary:
+        detail.adjudication.result === 'PARTIALLY_ADJUSTED'
+          ? detail.adjudication.adjustmentReasonSummary.trim()
+          : undefined,
+    })
+
+    if (!adjudicationResult.ok) {
+      detail.adjudication.errorText = adjudicationResult.message
+      showQcRecordsToast(adjudicationResult.message, 'error')
+      return true
+    }
+
+    detail.adjudication = {
+      result: '',
+      comment: '',
+      adjustedLiableQty: '',
+      adjustedBlockedProcessingFeeAmount: '',
+      adjustedEffectiveQualityDeductionAmount: '',
+      adjustmentReasonSummary: '',
+      errorText: '',
+    }
+    showQcRecordsToast('异议裁决已写回共享链路，平台端与工厂端状态已同步')
     return true
   }
 

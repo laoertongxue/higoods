@@ -508,8 +508,8 @@ export function renderArbitrationPage(): string {
     <div class="flex flex-col gap-6 p-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-semibold text-foreground">争议仲裁</h1>
-          <p class="mt-1 text-sm text-muted-foreground">共 ${rows.length} 条争议</p>
+          <h1 class="text-2xl font-semibold text-foreground">争议处理（兼容页）</h1>
+          <p class="mt-1 text-sm text-muted-foreground">该入口已从主导航收起，后续围绕质检记录统一承接争议处理。当前共 ${rows.length} 条争议。</p>
         </div>
       </div>
 

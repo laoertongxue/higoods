@@ -8,7 +8,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "check:menu-routes": "node scripts/check-menu-routes.mjs",
-    "check:fcs-truth-sources": "node scripts/check-fcs-truth-sources.mjs --write-report"
+    "check:fcs-truth-sources": "node scripts/check-fcs-truth-sources.mjs --write-report",
+    "check:quality-deduction-analysis": "node --experimental-strip-types scripts/check-quality-deduction-analysis.ts",
+    "check:quality-deduction-closure": "node --experimental-strip-types scripts/check-quality-deduction-closure.ts",
+    "check:quality-deduction-domain": "node --experimental-strip-types scripts/check-quality-deduction-domain.ts",
+    "check:quality-deduction-lifecycle": "node --experimental-strip-types scripts/check-quality-deduction-lifecycle.ts",
+    "check:quality-deduction-platform": "node --experimental-strip-types scripts/check-quality-deduction-platform.ts",
+    "check:quality-deduction-mobile": "node --experimental-strip-types scripts/check-quality-deduction-mobile.ts"
   },
   "dependencies": {
     "lucide": "^0.468.0"

@@ -15,6 +15,40 @@ export const CUTTING_FEI_TICKET_DRAFTS_STORAGE_KEY = 'cuttingFeiTicketDrafts'
 export const CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY = 'cuttingFeiTicketRecords'
 export const CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY = 'cuttingFeiTicketPrintJobs'
 
+export const FEI_TICKET_DEMO_CASE_IDS = {
+  CASE_A: {
+    printableUnitId: 'cut-order:CUT-260313-086-02',
+    printableUnitNo: 'CUT-260313-086-02',
+  },
+  CASE_B: {
+    printableUnitId: 'batch:demo-batch-fei-081',
+    printableUnitNo: 'MB-DEMO-PRINT-081',
+    batchId: 'demo-batch-fei-081',
+    batchNo: 'MB-DEMO-PRINT-081',
+    sourceCutOrderIds: ['CUT-260308-081-01', 'CUT-260314-087-01', 'CUT-260315-088-01'],
+  },
+  CASE_C: {
+    printableUnitId: 'cut-order:CUT-260310-083-01',
+    printableUnitNo: 'CUT-260310-083-01',
+    sampleTicketNo: 'FT-CUT-260310-083-01-001',
+    sampleTicketId: 'ticket-CUT-260310-083-01-001-v1',
+  },
+  CASE_D: {
+    printableUnitId: 'cut-order:CUT-260313-086-01',
+    printableUnitNo: 'CUT-260313-086-01',
+    voidedTicketNo: 'FT-CUT-260313-086-01-001',
+    voidedTicketId: 'ticket-CUT-260313-086-01-001-v1',
+  },
+  CASE_E: {
+    printableUnitId: 'cut-order:CUT-260310-083-02',
+    printableUnitNo: 'CUT-260310-083-02',
+    originalTicketNo: 'FT-CUT-260310-083-02-001',
+    originalTicketId: 'ticket-CUT-260310-083-02-001-v1',
+    replacementTicketNo: 'FT-CUT-260310-083-02-001-V2',
+    replacementTicketId: 'ticket-CUT-260310-083-02-001-v2',
+  },
+} as const
+
 export type FeiTicketsContextType = 'original-order' | 'merge-batch'
 export type FeiTicketStatusKey =
   | 'NOT_GENERATED'
@@ -25,6 +59,7 @@ export type FeiTicketStatusKey =
   | 'PENDING_SUPPLEMENT'
 
 export type FeiTicketPrintJobStatus = 'PRINTED' | 'REPRINTED' | 'CANCELLED'
+export type FeiTicketOperationType = 'FIRST_PRINT' | 'CONTINUE_PRINT' | 'REPRINT' | 'VOID'
 
 export interface FeiTicketsContext {
   contextType: FeiTicketsContextType
@@ -97,7 +132,7 @@ export interface FeiTicketLabelRecord {
   materialSku: string
   color: string
   sequenceNo: number
-  status: 'PRINTED'
+  status: 'PRINTED' | 'VOIDED'
   qrValue: string
   createdAt: string
   printedAt: string
@@ -107,6 +142,25 @@ export interface FeiTicketLabelRecord {
   sourceContextType: FeiTicketsContextType
   sourceMergeBatchId: string
   sourceMergeBatchNo: string
+  printableUnitId?: string
+  printableUnitNo?: string
+  printableUnitType?: PrintableUnitType
+  sourceProductionOrderId?: string
+  splitDetailId?: string
+  partName?: string
+  size?: string
+  quantity?: number
+  processTags?: string[]
+  version?: number
+  voidedAt?: string
+  voidedBy?: string
+  voidReason?: string
+  replacementTicketId?: string
+  replacementTicketNo?: string
+  downstreamLocked?: boolean
+  downstreamLockedReason?: string
+  boundPocketNo?: string
+  boundUsageNo?: string
   schemaName?: string
   schemaVersion?: string
   qrPayloadSnapshot?: string
@@ -131,6 +185,17 @@ export interface FeiTicketPrintJob {
   printedBy: string
   printedAt: string
   note: string
+  printableUnitId?: string
+  printableUnitNo?: string
+  printableUnitType?: PrintableUnitType
+  operationType?: FeiTicketOperationType
+  reason?: string
+  printerName?: string
+  templateName?: string
+  ticketRecordIds?: string[]
+  fromTicketId?: string
+  toTicketId?: string
+  remark?: string
 }
 
 export interface FeiTicketDraft {
@@ -308,6 +373,171 @@ function createEmptyPreviewRecord(
   }
 }
 
+function createSeedOwnerFromRow(options: {
+  row: OriginalCutOrderRow
+  materialRow: MaterialPrepRow | undefined
+  plannedTicketQty: number
+}): OriginalCutOrderTicketOwner {
+  const mergeBatchIds = Array.isArray(options.row.mergeBatchIds) ? options.row.mergeBatchIds : []
+  const mergeBatchNos = Array.isArray(options.row.mergeBatchNos) ? options.row.mergeBatchNos : []
+
+  return {
+    ownerType: 'original-cut-order',
+    id: options.row.id,
+    originalCutOrderId: options.row.originalCutOrderId,
+    originalCutOrderNo: options.row.originalCutOrderNo,
+    productionOrderId: options.row.productionOrderId,
+    productionOrderNo: options.row.productionOrderNo,
+    styleCode: options.row.styleCode,
+    spuCode: options.row.spuCode,
+    styleName: options.row.styleName,
+    color: options.row.color,
+    materialSku: options.row.materialSku,
+    plannedTicketQty: options.plannedTicketQty,
+    printedTicketQty: 0,
+    latestPrintJobNo: '',
+    ticketStatus: 'NOT_GENERATED',
+    sameCodeValue: options.materialRow?.sameCodeValue || options.row.originalCutOrderNo,
+    qrBaseValue: options.materialRow?.qrCodeValue || `QR-${options.row.originalCutOrderNo}`,
+    relatedMergeBatchIds: mergeBatchIds,
+    relatedMergeBatchNos: mergeBatchNos,
+    sourceContextLabel: mergeBatchNos[0] ? `来自批次 ${mergeBatchNos[0]}` : '原始单上下文',
+    ticketCountBasisLabel: '演示票数',
+    ticketCountBasisDetail: '当前 seed 仅用于打印模块人工验收，不影响其它业务口径。',
+    currentStageLabel: options.row.currentStage.label,
+    cuttableStateLabel: options.row.cuttableState.label,
+    riskLabels: options.row.riskTags.map((tag) => tag.label),
+    latestActionText: options.row.latestActionText,
+    qrReservedPayload: {
+      qrBaseValue: options.materialRow?.qrCodeValue || `QR-${options.row.originalCutOrderNo}`,
+      reservedProcessFields: {},
+      reservedVersion: 'v-next',
+    },
+    navigationPayload: buildFeiNavigationPayload(
+      {
+        originalCutOrderId: options.row.originalCutOrderId,
+        originalCutOrderNo: options.row.originalCutOrderNo,
+        productionOrderNo: options.row.productionOrderNo,
+        mergeBatchIds,
+        mergeBatchNos,
+      },
+      null,
+    ),
+    keywordIndex: buildKeywordIndex([
+      options.row.originalCutOrderNo,
+      options.row.productionOrderNo,
+      options.row.styleCode,
+      options.row.spuCode,
+      options.row.styleName,
+      options.row.materialSku,
+      options.materialRow?.sameCodeValue,
+      ...mergeBatchNos,
+    ]),
+  }
+}
+
+function createSeedTicketRecord(options: {
+  owner: OriginalCutOrderTicketOwner
+  sequenceNo: number
+  version: number
+  printedAt: string
+  printedBy: string
+  printJobId: string
+  printableUnitId: string
+  printableUnitNo: string
+  printableUnitType: PrintableUnitType
+  sourceContextType: FeiTicketsContextType
+  sourceMergeBatchId: string
+  sourceMergeBatchNo: string
+  quantity?: number
+  partName?: string
+  size?: string
+  processTags?: string[]
+}): FeiTicketLabelRecord {
+  return attachQrSnapshotToRecord(
+    {
+      ...createEmptyPreviewRecord(
+        options.owner,
+        options.sequenceNo,
+        options.sourceContextType,
+        options.sourceMergeBatchId,
+        options.sourceMergeBatchNo,
+      ),
+      ticketRecordId: buildTicketRecordId(options.owner.originalCutOrderId, options.sequenceNo, options.version),
+      ticketNo: buildVersionedTicketNo(options.owner.originalCutOrderNo, options.sequenceNo, options.version),
+      printableUnitId: options.printableUnitId,
+      printableUnitNo: options.printableUnitNo,
+      printableUnitType: options.printableUnitType,
+      sourceProductionOrderId: options.owner.productionOrderId,
+      splitDetailId: `${options.owner.originalCutOrderId}-${options.sequenceNo}`,
+      createdAt: options.printedAt,
+      printedAt: options.printedAt,
+      printedBy: options.printedBy,
+      reprintCount: Math.max(options.version - 1, 0),
+      sourcePrintJobId: options.printJobId,
+      status: 'PRINTED',
+      partName: options.partName || printablePartCycle[(options.sequenceNo - 1) % printablePartCycle.length],
+      size: options.size || printableSizeCycle[(options.sequenceNo - 1) % printableSizeCycle.length],
+      quantity: options.quantity ?? 1,
+      processTags: options.processTags || [],
+      version: options.version,
+    },
+    options.owner,
+    {
+      printJobId: options.printJobId,
+      printJobNo: '',
+    },
+  )
+}
+
+function createSeedPrintJob(options: {
+  printJobId: string
+  printJobNo: string
+  owner: OriginalCutOrderTicketOwner
+  printableUnitId: string
+  printableUnitNo: string
+  printableUnitType: PrintableUnitType
+  sourceContextType: FeiTicketsContextType
+  sourceMergeBatchId: string
+  sourceMergeBatchNo: string
+  operationType: FeiTicketOperationType
+  status: FeiTicketPrintJobStatus
+  printedBy: string
+  printedAt: string
+  ticketRecordIds: string[]
+  reason?: string
+  fromTicketId?: string
+  toTicketId?: string
+  note?: string
+}): FeiTicketPrintJob {
+  return {
+    printJobId: options.printJobId,
+    printJobNo: options.printJobNo,
+    ownerType: 'original-cut-order',
+    originalCutOrderIds: [options.owner.originalCutOrderId],
+    originalCutOrderNos: [options.owner.originalCutOrderNo],
+    sourceContextType: options.sourceContextType,
+    sourceMergeBatchId: options.sourceMergeBatchId,
+    sourceMergeBatchNo: options.sourceMergeBatchNo,
+    totalTicketCount: options.ticketRecordIds.length,
+    status: options.status,
+    printedBy: options.printedBy,
+    printedAt: options.printedAt,
+    note: options.note || '',
+    printableUnitId: options.printableUnitId,
+    printableUnitNo: options.printableUnitNo,
+    printableUnitType: options.printableUnitType,
+    operationType: options.operationType,
+    reason: options.reason || '',
+    printerName: options.operationType === 'VOID' ? '' : 'Zebra ZT411',
+    templateName: options.operationType === 'VOID' ? '' : '裁片菲票标准模板',
+    ticketRecordIds: options.ticketRecordIds,
+    fromTicketId: options.fromTicketId || '',
+    toTicketId: options.toTicketId || '',
+    remark: options.note || '',
+  }
+}
+
 function attachQrSnapshotToRecord(
   record: FeiTicketLabelRecord,
   owner: Pick<
@@ -342,6 +572,73 @@ function attachQrSnapshotToRecord(
     legacyQrBaseValue: owner.qrBaseValue,
     compatibilityNote: '',
   }
+}
+
+type PrintableUnitScope = Pick<
+  PrintableUnit,
+  'printableUnitId' | 'printableUnitNo' | 'printableUnitType' | 'batchId' | 'batchNo' | 'cutOrderId' | 'sourceCutOrderIds'
+>
+
+function normalizeRecordPrintableUnit(record: FeiTicketLabelRecord): FeiTicketLabelRecord {
+  if (record.printableUnitId && record.printableUnitNo && record.printableUnitType) return record
+
+  if (record.sourceContextType === 'merge-batch' && record.sourceMergeBatchId) {
+    return {
+      ...record,
+      printableUnitId: record.printableUnitId || `batch:${record.sourceMergeBatchId}`,
+      printableUnitNo: record.printableUnitNo || record.sourceMergeBatchNo,
+      printableUnitType: record.printableUnitType || 'BATCH',
+    }
+  }
+
+  return {
+    ...record,
+    printableUnitId: record.printableUnitId || `cut-order:${record.originalCutOrderId}`,
+    printableUnitNo: record.printableUnitNo || record.originalCutOrderNo,
+    printableUnitType: record.printableUnitType || 'CUT_ORDER',
+  }
+}
+
+function normalizePrintJobPrintableUnit(printJob: FeiTicketPrintJob): FeiTicketPrintJob {
+  if (printJob.printableUnitId && printJob.printableUnitNo && printJob.printableUnitType) return printJob
+
+  if (printJob.sourceContextType === 'merge-batch' && printJob.sourceMergeBatchId) {
+    return {
+      ...printJob,
+      printableUnitId: printJob.printableUnitId || `batch:${printJob.sourceMergeBatchId}`,
+      printableUnitNo: printJob.printableUnitNo || printJob.sourceMergeBatchNo,
+      printableUnitType: printJob.printableUnitType || 'BATCH',
+    }
+  }
+
+  const fallbackCutOrderId = printJob.originalCutOrderIds[0] || ''
+  const fallbackCutOrderNo = printJob.originalCutOrderNos[0] || ''
+  return {
+    ...printJob,
+    printableUnitId: printJob.printableUnitId || (fallbackCutOrderId ? `cut-order:${fallbackCutOrderId}` : ''),
+    printableUnitNo: printJob.printableUnitNo || fallbackCutOrderNo,
+    printableUnitType: printJob.printableUnitType || 'CUT_ORDER',
+  }
+}
+
+function matchesPrintableUnitRecord(scope: PrintableUnitScope, record: FeiTicketLabelRecord): boolean {
+  if (record.printableUnitId) return record.printableUnitId === scope.printableUnitId
+
+  if (scope.printableUnitType === 'BATCH') {
+    return Boolean(scope.batchId) && record.sourceContextType === 'merge-batch' && record.sourceMergeBatchId === scope.batchId
+  }
+
+  return record.originalCutOrderId === scope.cutOrderId
+}
+
+function matchesPrintableUnitPrintJob(scope: PrintableUnitScope, printJob: FeiTicketPrintJob): boolean {
+  if (printJob.printableUnitId) return printJob.printableUnitId === scope.printableUnitId
+
+  if (scope.printableUnitType === 'BATCH') {
+    return Boolean(scope.batchId) && printJob.sourceContextType === 'merge-batch' && printJob.sourceMergeBatchId === scope.batchId
+  }
+
+  return Boolean(scope.cutOrderId) && printJob.originalCutOrderIds.includes(scope.cutOrderId)
 }
 
 function findMatchingMergeBatch(
@@ -602,6 +899,9 @@ export function createFeiTicketPrintJob(options: {
     printedBy: options.printedBy,
     printedAt: options.nowText,
     note: options.draft.note,
+    printableUnitId: `cut-order:${options.owner.originalCutOrderId}`,
+    printableUnitNo: options.owner.originalCutOrderNo,
+    printableUnitType: 'CUT_ORDER',
   }
 
   const nextRecordsMap = new Map(options.existingRecords.map((record) => [record.ticketRecordId, record]))
@@ -611,14 +911,17 @@ export function createFeiTicketPrintJob(options: {
     if (existing) {
       const nextRecord = attachQrSnapshotToRecord(
         {
-        ...existing,
-        printedAt: options.nowText,
-        printedBy: options.printedBy,
-        reprintCount: existing.reprintCount + 1,
-        sourcePrintJobId: printJobId,
-        sourceContextType: options.draft.sourceContextType,
-        sourceMergeBatchId: options.draft.sourceMergeBatchId,
-        sourceMergeBatchNo: options.draft.sourceMergeBatchNo,
+          ...existing,
+          printedAt: options.nowText,
+          printedBy: options.printedBy,
+          reprintCount: existing.reprintCount + 1,
+          sourcePrintJobId: printJobId,
+          sourceContextType: options.draft.sourceContextType,
+          sourceMergeBatchId: options.draft.sourceMergeBatchId,
+          sourceMergeBatchNo: options.draft.sourceMergeBatchNo,
+          printableUnitId: printJob.printableUnitId,
+          printableUnitNo: printJob.printableUnitNo,
+          printableUnitType: printJob.printableUnitType,
         },
         options.owner,
         printJob,
@@ -639,6 +942,9 @@ export function createFeiTicketPrintJob(options: {
           printedBy: options.printedBy,
           reprintCount: 0,
           sourcePrintJobId: printJobId,
+          printableUnitId: printJob.printableUnitId,
+          printableUnitNo: printJob.printableUnitNo,
+          printableUnitType: printJob.printableUnitType,
         },
         options.owner,
         printJob,
@@ -907,7 +1213,7 @@ export function deserializeFeiTicketRecordsStorage(raw: string | null): FeiTicke
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.map((item) => normalizeRecordPrintableUnit(item as FeiTicketLabelRecord)) : []
   } catch {
     return []
   }
@@ -921,7 +1227,7 @@ export function deserializeFeiTicketPrintJobsStorage(raw: string | null): FeiTic
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.map((item) => normalizePrintJobPrintableUnit(item as FeiTicketPrintJob)) : []
   } catch {
     return []
   }
@@ -938,134 +1244,1311 @@ export function buildSystemSeedFeiTicketLedger(options: {
   markerStore: MarkerSpreadingStore
 }): FeiTicketSeedLedger {
   const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.originalCutOrderId, row]))
-
-  const seedOwners: Array<{
-    owner: OriginalCutOrderTicketOwner
-    sourceContextType: FeiTicketsContextType
-    sourceMergeBatchId: string
-    sourceMergeBatchNo: string
-  }> = options.originalRows
-    .slice(0, 2)
-    .map((row) => {
-      const mergeBatchIds = Array.isArray(row.mergeBatchIds) ? row.mergeBatchIds : []
-      const mergeBatchNos = Array.isArray(row.mergeBatchNos) ? row.mergeBatchNos : []
-      const materialRow = materialRowsById[row.originalCutOrderId]
-      const ticketCountBasis = resolveTicketCountBasis(
-        {
-          originalCutOrderId: row.originalCutOrderId,
-          relatedMergeBatchIds: mergeBatchIds,
-          relatedMergeBatchNos: mergeBatchNos,
-          orderQtyHint: row.orderQty,
-        },
-        options.markerStore,
-        null,
-      )
-
-      const sourceContextType: FeiTicketsContextType = row.latestMergeBatchNo ? 'merge-batch' : 'original-order'
-
-      return {
-        owner: {
-          ownerType: 'original-cut-order' as const,
-          id: row.id,
-          originalCutOrderId: row.originalCutOrderId,
-          originalCutOrderNo: row.originalCutOrderNo,
-          productionOrderId: row.productionOrderId,
-          productionOrderNo: row.productionOrderNo,
-          styleCode: row.styleCode,
-          spuCode: row.spuCode,
-          styleName: row.styleName,
-          color: row.color,
-          materialSku: row.materialSku,
-          plannedTicketQty: Math.max(1, Math.min(ticketCountBasis.ticketCount, row.latestMergeBatchNo ? 3 : 2)),
-          printedTicketQty: 0,
-          latestPrintJobNo: '',
-          ticketStatus: 'NOT_GENERATED' as FeiTicketStatusKey,
-          sameCodeValue: materialRow?.sameCodeValue || row.originalCutOrderNo,
-          qrBaseValue: materialRow?.qrCodeValue || `QR-${row.originalCutOrderNo}`,
-          relatedMergeBatchIds: mergeBatchIds,
-          relatedMergeBatchNos: mergeBatchNos,
-          sourceContextLabel: sourceContextType === 'merge-batch' ? `来自批次 ${row.latestMergeBatchNo}` : '原始单上下文',
-          ticketCountBasisLabel: ticketCountBasis.basisLabel,
-          ticketCountBasisDetail: ticketCountBasis.detailText,
-          currentStageLabel: row.currentStage.label,
-          cuttableStateLabel: row.cuttableState.label,
-          riskLabels: row.riskTags.map((tag) => tag.label),
-          latestActionText: row.latestActionText,
-          qrReservedPayload: {
-            qrBaseValue: materialRow?.qrCodeValue || `QR-${row.originalCutOrderNo}`,
-            reservedProcessFields: {},
-            reservedVersion: 'v-next',
-          },
-          navigationPayload: buildFeiNavigationPayload(
-            {
-              originalCutOrderId: row.originalCutOrderId,
-              originalCutOrderNo: row.originalCutOrderNo,
-              productionOrderNo: row.productionOrderNo,
-              mergeBatchIds,
-              mergeBatchNos,
-            },
-            null,
-          ),
-          keywordIndex: [],
-        },
-        sourceContextType,
-        sourceMergeBatchId: mergeBatchIds[0] || '',
-        sourceMergeBatchNo: mergeBatchNos[0] || '',
-      }
-    })
-
   const ticketRecords: FeiTicketLabelRecord[] = []
   const printJobs: FeiTicketPrintJob[] = []
 
-  seedOwners.forEach((entry, index) => {
-    const { owner, sourceContextType, sourceMergeBatchId, sourceMergeBatchNo } = entry
-    const ticketCount = index === 0 ? owner.plannedTicketQty : Math.max(1, owner.plannedTicketQty - 1)
-    const previewRecordsRaw = buildFeiTicketPreview(
-      owner,
-      sourceContextType,
-      sourceMergeBatchId,
-      sourceMergeBatchNo,
-      ticketCount,
+  const rowsById = Object.fromEntries(options.originalRows.map((row) => [row.originalCutOrderId, row]))
+  const caseAOwner = rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_A.printableUnitNo]
+    ? createSeedOwnerFromRow({
+        row: rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_A.printableUnitNo],
+        materialRow: materialRowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_A.printableUnitNo],
+        plannedTicketQty: 2,
+      })
+    : null
+  const caseCOwner = rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo]
+    ? createSeedOwnerFromRow({
+        row: rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo],
+        materialRow: materialRowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo],
+        plannedTicketQty: 3,
+      })
+    : null
+  const caseDOwner = rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo]
+    ? createSeedOwnerFromRow({
+        row: rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo],
+        materialRow: materialRowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo],
+        plannedTicketQty: 2,
+      })
+    : null
+  const caseEOwner = rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo]
+    ? createSeedOwnerFromRow({
+        row: rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo],
+        materialRow: materialRowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo],
+        plannedTicketQty: 2,
+      })
+    : null
+
+  if (caseCOwner) {
+    const printJob = createSeedPrintJob({
+      printJobId: 'seed-job-case-c-first',
+      printJobNo: 'FEI-PJ-DEMO-C-001',
+      owner: caseCOwner,
+      printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitId,
+      printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo,
+      printableUnitType: 'CUT_ORDER',
+      sourceContextType: 'original-order',
+      sourceMergeBatchId: '',
+      sourceMergeBatchNo: '',
+      operationType: 'FIRST_PRINT',
+      status: 'PRINTED',
+      printedBy: '打票员-陈耀',
+      printedAt: '2026-03-23 10:15',
+      ticketRecordIds: [FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketId],
+      note: 'Case C：仅完成部分打印，用于验证 PARTIAL_PRINTED。',
+    })
+    ticketRecords.push(
+      createSeedTicketRecord({
+        owner: caseCOwner,
+        sequenceNo: 1,
+        version: 1,
+        printedAt: printJob.printedAt,
+        printedBy: printJob.printedBy,
+        printJobId: printJob.printJobId,
+        printableUnitId: printJob.printableUnitId || '',
+        printableUnitNo: printJob.printableUnitNo || '',
+        printableUnitType: 'CUT_ORDER',
+        sourceContextType: 'original-order',
+        sourceMergeBatchId: '',
+        sourceMergeBatchNo: '',
+      }),
     )
-
-    const printJob: FeiTicketPrintJob = {
-      printJobId: `seed-job-${index + 1}`,
-      printJobNo: `FEI-PJ-26032${index + 2}-00${index + 1}`,
-      ownerType: 'original-cut-order',
-      originalCutOrderIds: [owner.originalCutOrderId],
-      originalCutOrderNos: [owner.originalCutOrderNo],
-      sourceContextType,
-      sourceMergeBatchId,
-      sourceMergeBatchNo,
-      totalTicketCount: previewRecordsRaw.length,
-      status: index === 0 ? 'REPRINTED' : 'PRINTED',
-      printedBy: index === 0 ? '打票员-周莉' : '打票员-陈耀',
-      printedAt: index === 0 ? '2026-03-22 09:15' : '2026-03-23 11:40',
-      note: index === 0 ? '首张因条码污损已重打一轮。' : '按原始裁片单完成首轮打印。',
-    }
-
-    const previewRecords = previewRecordsRaw.map((record) =>
-      attachQrSnapshotToRecord(
-        {
-          ...record,
-          ticketRecordId: `seed-${record.ticketNo}`,
-          createdAt: index === 0 ? '2026-03-22 09:10' : '2026-03-23 11:30',
-          printedAt: index === 0 ? '2026-03-22 09:15' : '2026-03-23 11:40',
-          printedBy: index === 0 ? '打票员-周莉' : '打票员-陈耀',
-          reprintCount: index === 0 && record.sequenceNo === 1 ? 1 : 0,
-          sourcePrintJobId: printJob.printJobId,
-        },
-        owner,
-        printJob,
-      ),
-    )
-
-    ticketRecords.push(...previewRecords)
     printJobs.push(printJob)
+  }
+
+  if (caseDOwner) {
+    const firstPrintJob = createSeedPrintJob({
+      printJobId: 'seed-job-case-d-first',
+      printJobNo: 'FEI-PJ-DEMO-D-001',
+      owner: caseDOwner,
+      printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitId,
+      printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo,
+      printableUnitType: 'CUT_ORDER',
+      sourceContextType: 'original-order',
+      sourceMergeBatchId: '',
+      sourceMergeBatchNo: '',
+      operationType: 'FIRST_PRINT',
+      status: 'PRINTED',
+      printedBy: '打票员-周莉',
+      printedAt: '2026-03-23 11:20',
+      ticketRecordIds: [
+        FEI_TICKET_DEMO_CASE_IDS.CASE_D.voidedTicketId,
+        buildTicketRecordId(caseDOwner.originalCutOrderId, 2, 1),
+      ],
+      note: 'Case D：首打完成后，后续作废其中一张。',
+    })
+    const voidedRecordBase = createSeedTicketRecord({
+      owner: caseDOwner,
+      sequenceNo: 1,
+      version: 1,
+      printedAt: firstPrintJob.printedAt,
+      printedBy: firstPrintJob.printedBy,
+      printJobId: firstPrintJob.printJobId,
+      printableUnitId: firstPrintJob.printableUnitId || '',
+      printableUnitNo: firstPrintJob.printableUnitNo || '',
+      printableUnitType: 'CUT_ORDER',
+      sourceContextType: 'original-order',
+      sourceMergeBatchId: '',
+      sourceMergeBatchNo: '',
+    })
+    ticketRecords.push(
+      {
+        ...voidedRecordBase,
+        status: 'VOIDED',
+        voidedAt: '2026-03-24 08:45',
+        voidedBy: '打票员-周莉',
+        voidReason: 'Case D：条码污损，尚未补打。',
+      },
+      createSeedTicketRecord({
+        owner: caseDOwner,
+        sequenceNo: 2,
+        version: 1,
+        printedAt: firstPrintJob.printedAt,
+        printedBy: firstPrintJob.printedBy,
+        printJobId: firstPrintJob.printJobId,
+        printableUnitId: firstPrintJob.printableUnitId || '',
+        printableUnitNo: firstPrintJob.printableUnitNo || '',
+        printableUnitType: 'CUT_ORDER',
+        sourceContextType: 'original-order',
+        sourceMergeBatchId: '',
+        sourceMergeBatchNo: '',
+      }),
+    )
+    printJobs.push(
+      firstPrintJob,
+      createSeedPrintJob({
+        printJobId: 'seed-job-case-d-void',
+        printJobNo: 'FEI-PJ-DEMO-D-002',
+        owner: caseDOwner,
+        printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitId,
+        printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo,
+        printableUnitType: 'CUT_ORDER',
+        sourceContextType: 'original-order',
+        sourceMergeBatchId: '',
+        sourceMergeBatchNo: '',
+        operationType: 'VOID',
+        status: 'CANCELLED',
+        printedBy: '打票员-周莉',
+        printedAt: '2026-03-24 08:45',
+        ticketRecordIds: [FEI_TICKET_DEMO_CASE_IDS.CASE_D.voidedTicketId],
+        fromTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_D.voidedTicketId,
+        reason: 'Case D：条码污损，待补打。',
+        note: 'Case D：作废后应转 NEED_REPRINT。',
+      }),
+    )
+  }
+
+  if (caseEOwner) {
+    const firstPrintJob = createSeedPrintJob({
+      printJobId: 'seed-job-case-e-first',
+      printJobNo: 'FEI-PJ-DEMO-E-001',
+      owner: caseEOwner,
+      printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitId,
+      printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo,
+      printableUnitType: 'CUT_ORDER',
+      sourceContextType: 'original-order',
+      sourceMergeBatchId: '',
+      sourceMergeBatchNo: '',
+      operationType: 'FIRST_PRINT',
+      status: 'PRINTED',
+      printedBy: '打票员-赵宁',
+      printedAt: '2026-03-23 14:10',
+      ticketRecordIds: [
+        FEI_TICKET_DEMO_CASE_IDS.CASE_E.originalTicketId,
+        buildTicketRecordId(caseEOwner.originalCutOrderId, 2, 1),
+      ],
+      note: 'Case E：首打后又发生补打替代。',
+    })
+    const originalRecord = createSeedTicketRecord({
+      owner: caseEOwner,
+      sequenceNo: 1,
+      version: 1,
+      printedAt: firstPrintJob.printedAt,
+      printedBy: firstPrintJob.printedBy,
+      printJobId: firstPrintJob.printJobId,
+      printableUnitId: firstPrintJob.printableUnitId || '',
+      printableUnitNo: firstPrintJob.printableUnitNo || '',
+      printableUnitType: 'CUT_ORDER',
+      sourceContextType: 'original-order',
+      sourceMergeBatchId: '',
+      sourceMergeBatchNo: '',
+    })
+    const replacementRecord = createSeedTicketRecord({
+      owner: caseEOwner,
+      sequenceNo: 1,
+      version: 2,
+      printedAt: '2026-03-24 09:25',
+      printedBy: '打票员-赵宁',
+      printJobId: 'seed-job-case-e-reprint',
+      printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitId,
+      printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo,
+      printableUnitType: 'CUT_ORDER',
+      sourceContextType: 'original-order',
+      sourceMergeBatchId: '',
+      sourceMergeBatchNo: '',
+      processTags: ['替代票'],
+    })
+    ticketRecords.push(
+      {
+        ...originalRecord,
+        status: 'VOIDED',
+        voidedAt: '2026-03-24 09:10',
+        voidedBy: '打票员-赵宁',
+        voidReason: 'Case E：首票条码偏移，已补打替代。',
+        replacementTicketId: replacementRecord.ticketRecordId,
+        replacementTicketNo: replacementRecord.ticketNo,
+      },
+      createSeedTicketRecord({
+        owner: caseEOwner,
+        sequenceNo: 2,
+        version: 1,
+        printedAt: firstPrintJob.printedAt,
+        printedBy: firstPrintJob.printedBy,
+        printJobId: firstPrintJob.printJobId,
+        printableUnitId: firstPrintJob.printableUnitId || '',
+        printableUnitNo: firstPrintJob.printableUnitNo || '',
+        printableUnitType: 'CUT_ORDER',
+        sourceContextType: 'original-order',
+        sourceMergeBatchId: '',
+        sourceMergeBatchNo: '',
+      }),
+      replacementRecord,
+    )
+    printJobs.push(
+      firstPrintJob,
+      createSeedPrintJob({
+        printJobId: 'seed-job-case-e-void',
+        printJobNo: 'FEI-PJ-DEMO-E-002',
+        owner: caseEOwner,
+        printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitId,
+        printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo,
+        printableUnitType: 'CUT_ORDER',
+        sourceContextType: 'original-order',
+        sourceMergeBatchId: '',
+        sourceMergeBatchNo: '',
+        operationType: 'VOID',
+        status: 'CANCELLED',
+        printedBy: '打票员-赵宁',
+        printedAt: '2026-03-24 09:10',
+        ticketRecordIds: [FEI_TICKET_DEMO_CASE_IDS.CASE_E.originalTicketId],
+        fromTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.originalTicketId,
+        reason: 'Case E：旧票作废，为替代票让位。',
+        note: 'Case E：补打前先作废旧票。',
+      }),
+      createSeedPrintJob({
+        printJobId: 'seed-job-case-e-reprint',
+        printJobNo: 'FEI-PJ-DEMO-E-003',
+        owner: caseEOwner,
+        printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitId,
+        printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo,
+        printableUnitType: 'CUT_ORDER',
+        sourceContextType: 'original-order',
+        sourceMergeBatchId: '',
+        sourceMergeBatchNo: '',
+        operationType: 'REPRINT',
+        status: 'REPRINTED',
+        printedBy: '打票员-赵宁',
+        printedAt: '2026-03-24 09:25',
+        ticketRecordIds: [replacementRecord.ticketRecordId],
+        fromTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.originalTicketId,
+        toTicketId: replacementRecord.ticketRecordId,
+        reason: 'Case E：补打一张替代票。',
+        note: 'Case E：原票 -> 新票替代关系。',
+      }),
+    )
+  }
+
+  return {
+    ticketRecords: ticketRecords.sort((left, right) => {
+      const unitDiff = (left.printableUnitNo || '').localeCompare(right.printableUnitNo || '', 'zh-CN')
+      if (unitDiff !== 0) return unitDiff
+      if (left.sequenceNo !== right.sequenceNo) return left.sequenceNo - right.sequenceNo
+      const leftVersion = left.version ?? left.reprintCount + 1
+      const rightVersion = right.version ?? right.reprintCount + 1
+      return leftVersion - rightVersion
+    }),
+    printJobs: printJobs.sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt)),
+  }
+}
+
+export type PrintableUnitType = 'BATCH' | 'CUT_ORDER'
+export type PrintableUnitStatus = 'WAITING_PRINT' | 'PARTIAL_PRINTED' | 'PRINTED' | 'NEED_REPRINT'
+
+export interface PrintableUnitNavigationPayload {
+  printableUnitId: string
+  printableUnitNo: string
+  printableUnitType: PrintableUnitType
+  batchId?: string
+  batchNo?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  sourceProductionOrderNo?: string
+}
+
+export interface PrintableUnit {
+  printableUnitId: string
+  printableUnitNo: string
+  printableUnitType: PrintableUnitType
+  batchId: string
+  batchNo: string
+  cutOrderId: string
+  cutOrderNo: string
+  styleCode: string
+  fabricSku: string
+  sourceProductionOrderIds: string[]
+  sourceProductionOrderNos: string[]
+  sourceCutOrderIds: string[]
+  sourceCutOrderNos: string[]
+  sourceProductionOrderCount: number
+  sourceCutOrderCount: number
+  requiredTicketCount: number
+  validPrintedTicketCount: number
+  voidedTicketCount: number
+  missingTicketCount: number
+  printableUnitStatus: PrintableUnitStatus
+  lastPrintedAt: string
+  lastPrintedBy: string
+  keywordIndex: string[]
+  navigationPayload: PrintableUnitNavigationPayload
+}
+
+export interface PrintableUnitFilters {
+  keyword: string
+  printableUnitType: 'ALL' | PrintableUnitType
+  styleCode: string
+  fabricSku: string
+  productionOrderNo: string
+  printableUnitStatus: 'ALL' | PrintableUnitStatus
+  printedFrom: string
+  printedTo: string
+}
+
+export interface PrintableUnitStatusMeta {
+  label: string
+  className: string
+  detailText: string
+}
+
+export interface PrintableUnitViewModel {
+  units: PrintableUnit[]
+  unitsById: Record<string, PrintableUnit>
+  statusCounts: Record<PrintableUnitStatus, number>
+}
+
+export type TicketCardStatus = 'VALID' | 'VOIDED'
+
+export interface TicketSplitDetail {
+  detailId: string
+  printableUnitId: string
+  sourceCutOrderId: string
+  sourceCutOrderNo: string
+  sourceProductionOrderId: string
+  sourceProductionOrderNo: string
+  batchNo: string
+  styleCode: string
+  color: string
+  size: string
+  partName: string
+  quantity: number
+  requiredTicketCount: number
+  validPrintedTicketCount: number
+  gapCount: number
+  sequenceNo: number
+}
+
+export interface TicketCard {
+  ticketId: string
+  ticketNo: string
+  printableUnitId: string
+  printableUnitNo: string
+  printableUnitType: PrintableUnitType
+  batchNo: string
+  sourceCutOrderId: string
+  sourceCutOrderNo: string
+  sourceProductionOrderId: string
+  sourceProductionOrderNo: string
+  styleCode: string
+  color: string
+  size: string
+  partName: string
+  quantity: number
+  processTags: string[]
+  qrPayload: string
+  version: number
+  status: TicketCardStatus
+  printedAt: string
+  printedBy: string
+  voidedAt: string
+  voidedBy: string
+  voidReason: string
+  replacementTicketId: string
+  replacementTicketNo: string
+  downstreamLocked: boolean
+  downstreamLockedReason: string
+  boundPocketNo: string
+  boundUsageNo: string
+}
+
+export interface TicketPrintRecord {
+  recordId: string
+  printableUnitId: string
+  operationType: FeiTicketOperationType
+  ticketIds: string[]
+  operator: string
+  operatedAt: string
+  reason: string
+  printerName: string
+  templateName: string
+  fromTicketId: string
+  toTicketId: string
+  remark: string
+  printableUnitNo: string
+  relatedTicketCount: number
+}
+
+export interface PrintableUnitDetailViewModel {
+  unit: PrintableUnit
+  statusMeta: PrintableUnitStatusMeta
+  splitDetails: TicketSplitDetail[]
+  ticketCards: TicketCard[]
+  printRecords: TicketPrintRecord[]
+  missingSplitDetails: TicketSplitDetail[]
+}
+
+export interface ExecutePrintableUnitPrintResult {
+  printJob: FeiTicketPrintJob
+  nextRecords: FeiTicketLabelRecord[]
+  nextJobs: FeiTicketPrintJob[]
+}
+
+export interface VoidTicketCardResult {
+  voidJob: FeiTicketPrintJob
+  nextRecords: FeiTicketLabelRecord[]
+  nextJobs: FeiTicketPrintJob[]
+}
+
+interface PrintableUnitSourceOwner {
+  owner: OriginalCutOrderTicketOwner
+  row: OriginalCutOrderRow
+}
+
+const printableUnitStatusMetaMap: Record<PrintableUnitStatus, PrintableUnitStatusMeta> = {
+  WAITING_PRINT: {
+    label: '待打印',
+    className: 'bg-slate-100 text-slate-700 border border-slate-200',
+    detailText: '已完成裁片，但当前还没有有效菲票。',
+  },
+  PARTIAL_PRINTED: {
+    label: '部分打印',
+    className: 'bg-amber-100 text-amber-700 border border-amber-200',
+    detailText: '已有部分有效菲票，当前仍存在未打印缺口。',
+  },
+  PRINTED: {
+    label: '已打印',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '有效菲票数已达到应打数量，当前没有补打缺口。',
+  },
+  NEED_REPRINT: {
+    label: '需补打',
+    className: 'bg-rose-100 text-rose-700 border border-rose-200',
+    detailText: '曾发生作废或替换，当前有效菲票数不足，需要补打。',
+  },
+}
+
+function isFeiTicketRecordVoided(record: FeiTicketLabelRecord): boolean {
+  return record.status === 'VOIDED'
+}
+
+function isPrintableSourceRow(row: OriginalCutOrderRow): boolean {
+  if (row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE') return true
+  return /待入仓|已完成|已入仓/.test(row.currentStage.label)
+}
+
+function comparePrintedAtDesc(left: string, right: string): number {
+  return right.localeCompare(left, 'zh-CN')
+}
+
+function derivePrintableUnitSortPriority(status: PrintableUnitStatus): number {
+  switch (status) {
+    case 'WAITING_PRINT':
+      return 0
+    case 'NEED_REPRINT':
+      return 1
+    case 'PARTIAL_PRINTED':
+      return 2
+    case 'PRINTED':
+    default:
+      return 3
+  }
+}
+
+function collectTicketStats(
+  scope: PrintableUnitScope,
+  ticketRecords: FeiTicketLabelRecord[],
+  printJobs: FeiTicketPrintJob[],
+): {
+  validPrintedTicketCount: number
+  voidedTicketCount: number
+  lastPrintedAt: string
+  lastPrintedBy: string
+} {
+  const relatedRecords = ticketRecords.filter((record) => matchesPrintableUnitRecord(scope, record))
+  const relatedJobs = printJobs
+    .filter((job) => matchesPrintableUnitPrintJob(scope, job))
+    .sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt))
+
+  const validPrintedRecords = relatedRecords.filter((record) => !isFeiTicketRecordVoided(record))
+  const voidedRecords = relatedRecords.filter((record) => isFeiTicketRecordVoided(record))
+  const latestRecord = [...relatedRecords].sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt))[0]
+  const latestJob = relatedJobs[0]
+
+  return {
+    validPrintedTicketCount: validPrintedRecords.length,
+    voidedTicketCount: voidedRecords.length,
+    lastPrintedAt: latestJob?.printedAt || latestRecord?.printedAt || '',
+    lastPrintedBy: latestJob?.printedBy || latestRecord?.printedBy || '',
+  }
+}
+
+export function derivePrintableUnitStatus(options: {
+  requiredTicketCount: number
+  validPrintedTicketCount: number
+  voidedTicketCount: number
+  hasPrintedHistory: boolean
+}): PrintableUnitStatus {
+  if (options.requiredTicketCount > 0 && options.validPrintedTicketCount === 0 && options.voidedTicketCount === 0) {
+    return 'WAITING_PRINT'
+  }
+
+  if (options.requiredTicketCount > 0 && options.validPrintedTicketCount >= options.requiredTicketCount) {
+    return 'PRINTED'
+  }
+
+  if (
+    options.hasPrintedHistory &&
+    options.validPrintedTicketCount < options.requiredTicketCount &&
+    options.voidedTicketCount > 0
+  ) {
+    return 'NEED_REPRINT'
+  }
+
+  return 'PARTIAL_PRINTED'
+}
+
+export function getPrintableUnitStatusMeta(status: PrintableUnitStatus): PrintableUnitStatusMeta {
+  return printableUnitStatusMetaMap[status]
+}
+
+export function buildPrintableUnitNavigationPayload(unit: PrintableUnit): PrintableUnitNavigationPayload {
+  return {
+    printableUnitId: unit.printableUnitId,
+    printableUnitNo: unit.printableUnitNo,
+    printableUnitType: unit.printableUnitType,
+    batchId: unit.batchId || undefined,
+    batchNo: unit.batchNo || undefined,
+    cutOrderId: unit.cutOrderId || undefined,
+    cutOrderNo: unit.cutOrderNo || undefined,
+    sourceProductionOrderNo: unit.sourceProductionOrderNos[0] || undefined,
+  }
+}
+
+function buildPrintableUnitFromCutOrder(options: {
+  owner: OriginalCutOrderTicketOwner
+  row: OriginalCutOrderRow
+  ticketRecords: FeiTicketLabelRecord[]
+  printJobs: FeiTicketPrintJob[]
+}): PrintableUnit {
+  const scope: PrintableUnitScope = {
+    printableUnitId: `cut-order:${options.owner.originalCutOrderId}`,
+    printableUnitNo: options.owner.originalCutOrderNo,
+    printableUnitType: 'CUT_ORDER',
+    batchId: '',
+    batchNo: '',
+    cutOrderId: options.owner.originalCutOrderId,
+    sourceCutOrderIds: [options.owner.originalCutOrderId],
+  }
+  const stats = collectTicketStats(scope, options.ticketRecords, options.printJobs)
+  const requiredTicketCount = Math.max(options.owner.plannedTicketQty, 0)
+  const missingTicketCount = Math.max(requiredTicketCount - stats.validPrintedTicketCount, 0)
+  const printableUnitStatus = derivePrintableUnitStatus({
+    requiredTicketCount,
+    validPrintedTicketCount: stats.validPrintedTicketCount,
+    voidedTicketCount: stats.voidedTicketCount,
+    hasPrintedHistory: stats.validPrintedTicketCount + stats.voidedTicketCount > 0,
+  })
+
+  const unit: PrintableUnit = {
+    printableUnitId: `cut-order:${options.owner.originalCutOrderId}`,
+    printableUnitNo: options.owner.originalCutOrderNo,
+    printableUnitType: 'CUT_ORDER',
+    batchId: '',
+    batchNo: '',
+    cutOrderId: options.owner.originalCutOrderId,
+    cutOrderNo: options.owner.originalCutOrderNo,
+    styleCode: options.owner.styleCode || options.owner.spuCode || '',
+    fabricSku: options.owner.materialSku,
+    sourceProductionOrderIds: [options.owner.productionOrderId],
+    sourceProductionOrderNos: [options.owner.productionOrderNo],
+    sourceCutOrderIds: [options.owner.originalCutOrderId],
+    sourceCutOrderNos: [options.owner.originalCutOrderNo],
+    sourceProductionOrderCount: 1,
+    sourceCutOrderCount: 1,
+    requiredTicketCount,
+    validPrintedTicketCount: stats.validPrintedTicketCount,
+    voidedTicketCount: stats.voidedTicketCount,
+    missingTicketCount,
+    printableUnitStatus,
+    lastPrintedAt: stats.lastPrintedAt,
+    lastPrintedBy: stats.lastPrintedBy,
+    keywordIndex: buildKeywordIndex([
+      options.owner.originalCutOrderNo,
+      options.owner.productionOrderNo,
+      options.owner.styleCode,
+      options.owner.spuCode,
+      options.owner.materialSku,
+      options.row.latestMergeBatchNo,
+    ]),
+    navigationPayload: {
+      printableUnitId: '',
+      printableUnitNo: '',
+      printableUnitType: 'CUT_ORDER',
+    },
+  }
+
+  unit.navigationPayload = buildPrintableUnitNavigationPayload(unit)
+  return unit
+}
+
+function buildPrintableUnitFromBatch(options: {
+  batch: MergeBatchRecord
+  owners: OriginalCutOrderTicketOwner[]
+  ticketRecords: FeiTicketLabelRecord[]
+  printJobs: FeiTicketPrintJob[]
+}): PrintableUnit {
+  const sourceProductionOrderIds = uniqueStrings(options.batch.items.map((item) => item.productionOrderId))
+  const sourceProductionOrderNos = uniqueStrings(options.batch.items.map((item) => item.productionOrderNo))
+  const sourceCutOrderIds = uniqueStrings(options.owners.map((owner) => owner.originalCutOrderId))
+  const sourceCutOrderNos = uniqueStrings(options.owners.map((owner) => owner.originalCutOrderNo))
+  const scope: PrintableUnitScope = {
+    printableUnitId: `batch:${options.batch.mergeBatchId}`,
+    printableUnitNo: options.batch.mergeBatchNo,
+    printableUnitType: 'BATCH',
+    batchId: options.batch.mergeBatchId,
+    batchNo: options.batch.mergeBatchNo,
+    cutOrderId: '',
+    sourceCutOrderIds,
+  }
+  const stats = collectTicketStats(scope, options.ticketRecords, options.printJobs)
+  const requiredTicketCount = options.owners.reduce((sum, owner) => sum + Math.max(owner.plannedTicketQty, 0), 0)
+  const missingTicketCount = Math.max(requiredTicketCount - stats.validPrintedTicketCount, 0)
+  const printableUnitStatus = derivePrintableUnitStatus({
+    requiredTicketCount,
+    validPrintedTicketCount: stats.validPrintedTicketCount,
+    voidedTicketCount: stats.voidedTicketCount,
+    hasPrintedHistory: stats.validPrintedTicketCount + stats.voidedTicketCount > 0,
+  })
+
+  const unit: PrintableUnit = {
+    printableUnitId: `batch:${options.batch.mergeBatchId}`,
+    printableUnitNo: options.batch.mergeBatchNo,
+    printableUnitType: 'BATCH',
+    batchId: options.batch.mergeBatchId,
+    batchNo: options.batch.mergeBatchNo,
+    cutOrderId: '',
+    cutOrderNo: '',
+    styleCode: options.batch.styleCode || options.owners[0]?.styleCode || options.batch.spuCode || '',
+    fabricSku: options.batch.materialSkuSummary || uniqueStrings(options.owners.map((owner) => owner.materialSku)).join(' / '),
+    sourceProductionOrderIds,
+    sourceProductionOrderNos,
+    sourceCutOrderIds,
+    sourceCutOrderNos,
+    sourceProductionOrderCount: sourceProductionOrderNos.length,
+    sourceCutOrderCount: sourceCutOrderNos.length,
+    requiredTicketCount,
+    validPrintedTicketCount: stats.validPrintedTicketCount,
+    voidedTicketCount: stats.voidedTicketCount,
+    missingTicketCount,
+    printableUnitStatus,
+    lastPrintedAt: stats.lastPrintedAt,
+    lastPrintedBy: stats.lastPrintedBy,
+    keywordIndex: buildKeywordIndex([
+      options.batch.mergeBatchNo,
+      options.batch.styleCode,
+      options.batch.spuCode,
+      options.batch.materialSkuSummary,
+      ...sourceProductionOrderNos,
+      ...sourceCutOrderNos,
+    ]),
+    navigationPayload: {
+      printableUnitId: '',
+      printableUnitNo: '',
+      printableUnitType: 'BATCH',
+    },
+  }
+
+  unit.navigationPayload = buildPrintableUnitNavigationPayload(unit)
+  return unit
+}
+
+function filterUnitsByContext(
+  units: PrintableUnit[],
+  prefilter: FeiTicketsPrefilter | null,
+): PrintableUnit[] {
+  if (!prefilter) return units
+  return units.filter((unit) => {
+    if (prefilter.mergeBatchId && unit.batchId !== prefilter.mergeBatchId) return false
+    if (prefilter.mergeBatchNo && unit.batchNo !== prefilter.mergeBatchNo) return false
+    if (prefilter.originalCutOrderId && !unit.sourceCutOrderIds.includes(prefilter.originalCutOrderId)) return false
+    if (prefilter.originalCutOrderNo && !unit.sourceCutOrderNos.includes(prefilter.originalCutOrderNo)) return false
+    if (prefilter.productionOrderNo && !unit.sourceProductionOrderNos.includes(prefilter.productionOrderNo)) return false
+    return true
+  })
+}
+
+export function filterPrintableUnits(units: PrintableUnit[], filters: PrintableUnitFilters): PrintableUnit[] {
+  const keyword = filters.keyword.trim().toLowerCase()
+  const styleCode = filters.styleCode.trim().toLowerCase()
+  const fabricSku = filters.fabricSku.trim().toLowerCase()
+  const productionOrderNo = filters.productionOrderNo.trim().toLowerCase()
+
+  return units.filter((unit) => {
+    if (filters.printableUnitType !== 'ALL' && unit.printableUnitType !== filters.printableUnitType) return false
+    if (filters.printableUnitStatus !== 'ALL' && unit.printableUnitStatus !== filters.printableUnitStatus) return false
+    if (styleCode && !unit.styleCode.toLowerCase().includes(styleCode)) return false
+    if (fabricSku && !unit.fabricSku.toLowerCase().includes(fabricSku)) return false
+    if (productionOrderNo && !unit.sourceProductionOrderNos.some((value) => value.toLowerCase().includes(productionOrderNo))) {
+      return false
+    }
+    if (filters.printedFrom && (!unit.lastPrintedAt || unit.lastPrintedAt.slice(0, 10) < filters.printedFrom)) return false
+    if (filters.printedTo && (!unit.lastPrintedAt || unit.lastPrintedAt.slice(0, 10) > filters.printedTo)) return false
+    if (!keyword) return true
+    return unit.keywordIndex.some((value) => value.includes(keyword))
+  })
+}
+
+export function buildPrintableUnitViewModel(options: {
+  originalRows: OriginalCutOrderRow[]
+  materialPrepRows: MaterialPrepRow[]
+  mergeBatches: MergeBatchRecord[]
+  markerStore: MarkerSpreadingStore
+  ticketRecords: FeiTicketLabelRecord[]
+  printJobs: FeiTicketPrintJob[]
+  prefilter: FeiTicketsPrefilter | null
+}): PrintableUnitViewModel {
+  const ownerView = buildFeiTicketsViewModel({
+    originalRows: options.originalRows,
+    materialPrepRows: options.materialPrepRows,
+    mergeBatches: options.mergeBatches,
+    markerStore: options.markerStore,
+    ticketRecords: options.ticketRecords,
+    printJobs: options.printJobs,
+    drafts: {},
+    prefilter: null,
+  })
+
+  const ownersByCutOrderId = Object.fromEntries(ownerView.owners.map((owner) => [owner.originalCutOrderId, owner]))
+  const rowsByCutOrderId = Object.fromEntries(options.originalRows.map((row) => [row.originalCutOrderId, row]))
+  const units: PrintableUnit[] = []
+  const coveredCutOrderIds = new Set<string>()
+
+  options.mergeBatches.forEach((batch) => {
+    const memberOwners = batch.items
+      .map((item) => ownersByCutOrderId[item.originalCutOrderId])
+      .filter((owner): owner is OriginalCutOrderTicketOwner => Boolean(owner))
+    if (!memberOwners.length) return
+
+    const memberRows = memberOwners
+      .map((owner) => rowsByCutOrderId[owner.originalCutOrderId])
+      .filter((row): row is OriginalCutOrderRow => Boolean(row))
+    if (!memberRows.length || !memberRows.every(isPrintableSourceRow)) return
+
+    memberRows.forEach((row) => coveredCutOrderIds.add(row.originalCutOrderId))
+    units.push(
+      buildPrintableUnitFromBatch({
+        batch,
+        owners: memberOwners,
+        ticketRecords: options.ticketRecords,
+        printJobs: options.printJobs,
+      }),
+    )
+  })
+
+  ownerView.owners.forEach((owner) => {
+    const row = rowsByCutOrderId[owner.originalCutOrderId]
+    if (!row || !isPrintableSourceRow(row)) return
+    if (coveredCutOrderIds.has(owner.originalCutOrderId)) return
+    if (owner.relatedMergeBatchIds.length || owner.relatedMergeBatchNos.length || row.latestMergeBatchNo) return
+    units.push(
+      buildPrintableUnitFromCutOrder({
+        owner,
+        row,
+        ticketRecords: options.ticketRecords,
+        printJobs: options.printJobs,
+      }),
+    )
+  })
+
+  const contextualUnits = filterUnitsByContext(units, options.prefilter)
+    .filter((unit) => unit.requiredTicketCount > 0)
+    .sort((left, right) => {
+      const priorityDiff = derivePrintableUnitSortPriority(left.printableUnitStatus) - derivePrintableUnitSortPriority(right.printableUnitStatus)
+      if (priorityDiff !== 0) return priorityDiff
+      const printedDiff = comparePrintedAtDesc(left.lastPrintedAt, right.lastPrintedAt)
+      if (printedDiff !== 0) return printedDiff
+      return left.printableUnitNo.localeCompare(right.printableUnitNo, 'zh-CN')
+    })
+
+  return {
+    units: contextualUnits,
+    unitsById: Object.fromEntries(contextualUnits.map((unit) => [unit.printableUnitId, unit])),
+    statusCounts: {
+      WAITING_PRINT: contextualUnits.filter((unit) => unit.printableUnitStatus === 'WAITING_PRINT').length,
+      PARTIAL_PRINTED: contextualUnits.filter((unit) => unit.printableUnitStatus === 'PARTIAL_PRINTED').length,
+      PRINTED: contextualUnits.filter((unit) => unit.printableUnitStatus === 'PRINTED').length,
+      NEED_REPRINT: contextualUnits.filter((unit) => unit.printableUnitStatus === 'NEED_REPRINT').length,
+    },
+  }
+}
+
+const printablePartCycle = ['左前片', '右前片', '左袖', '右袖', '后片', '领口']
+const printableSizeCycle = ['M', 'L', 'XL', 'S', '2XL', '均码']
+
+function buildOwnerMaps(options: {
+  originalRows: OriginalCutOrderRow[]
+  materialPrepRows: MaterialPrepRow[]
+  mergeBatches: MergeBatchRecord[]
+  markerStore: MarkerSpreadingStore
+  ticketRecords: FeiTicketLabelRecord[]
+  printJobs: FeiTicketPrintJob[]
+}): {
+  ownersByCutOrderId: Record<string, OriginalCutOrderTicketOwner>
+  rowsByCutOrderId: Record<string, OriginalCutOrderRow>
+} {
+  const ownerView = buildFeiTicketsViewModel({
+    originalRows: options.originalRows,
+    materialPrepRows: options.materialPrepRows,
+    mergeBatches: options.mergeBatches,
+    markerStore: options.markerStore,
+    ticketRecords: options.ticketRecords,
+    printJobs: options.printJobs,
+    drafts: {},
+    prefilter: null,
   })
 
   return {
-    ticketRecords,
-    printJobs,
+    ownersByCutOrderId: Object.fromEntries(ownerView.owners.map((owner) => [owner.originalCutOrderId, owner])),
+    rowsByCutOrderId: Object.fromEntries(options.originalRows.map((row) => [row.originalCutOrderId, row])),
+  }
+}
+
+function collectPrintableUnitOwners(
+  unit: PrintableUnit,
+  ownersByCutOrderId: Record<string, OriginalCutOrderTicketOwner>,
+  rowsByCutOrderId: Record<string, OriginalCutOrderRow>,
+): PrintableUnitSourceOwner[] {
+  return unit.sourceCutOrderIds
+    .map((cutOrderId) => {
+      const owner = ownersByCutOrderId[cutOrderId]
+      const row = rowsByCutOrderId[cutOrderId]
+      if (!owner || !row) return null
+      return { owner, row }
+    })
+    .filter((item): item is PrintableUnitSourceOwner => Boolean(item))
+}
+
+function findDetailSourceRecord(
+  detail: TicketSplitDetail,
+  ticketRecords: FeiTicketLabelRecord[],
+): FeiTicketLabelRecord[] {
+  return ticketRecords
+    .filter(
+      (record) =>
+        record.printableUnitId === detail.printableUnitId &&
+        record.originalCutOrderId === detail.sourceCutOrderId &&
+        record.sequenceNo === detail.sequenceNo,
+    )
+    .sort((left, right) => {
+      const leftVersion = left.version ?? left.reprintCount + 1
+      const rightVersion = right.version ?? right.reprintCount + 1
+      if (leftVersion !== rightVersion) return rightVersion - leftVersion
+      return comparePrintedAtDesc(left.printedAt, right.printedAt)
+    })
+}
+
+function buildSplitDetailsFromOwner(
+  unit: PrintableUnit,
+  source: PrintableUnitSourceOwner,
+  ticketRecords: FeiTicketLabelRecord[],
+): TicketSplitDetail[] {
+  return Array.from({ length: Math.max(source.owner.plannedTicketQty, 0) }, (_, index) => {
+    const sequenceNo = index + 1
+    const detailId = `${source.owner.originalCutOrderId}-${sequenceNo}`
+    const relatedRecords = findDetailSourceRecord(
+      {
+        detailId,
+        printableUnitId: unit.printableUnitId,
+        sourceCutOrderId: source.owner.originalCutOrderId,
+        sourceCutOrderNo: source.owner.originalCutOrderNo,
+        sourceProductionOrderId: source.owner.productionOrderId,
+        sourceProductionOrderNo: source.owner.productionOrderNo,
+        batchNo: unit.batchNo || source.owner.relatedMergeBatchNos[0] || '',
+        styleCode: source.owner.styleCode,
+        color: source.owner.color,
+        size: printableSizeCycle[index % printableSizeCycle.length],
+        partName: printablePartCycle[index % printablePartCycle.length],
+        quantity: 1,
+        requiredTicketCount: 1,
+        validPrintedTicketCount: 0,
+        gapCount: 0,
+        sequenceNo,
+      },
+      ticketRecords,
+    ).filter((record) => !isFeiTicketRecordVoided(record))
+    const validPrintedTicketCount = relatedRecords.length
+    return {
+      detailId,
+      printableUnitId: unit.printableUnitId,
+      sourceCutOrderId: source.owner.originalCutOrderId,
+      sourceCutOrderNo: source.owner.originalCutOrderNo,
+      sourceProductionOrderId: source.owner.productionOrderId,
+      sourceProductionOrderNo: source.owner.productionOrderNo,
+      batchNo: unit.batchNo || source.owner.relatedMergeBatchNos[0] || '',
+      styleCode: source.owner.styleCode,
+      color: source.owner.color,
+      size: printableSizeCycle[index % printableSizeCycle.length],
+      partName: printablePartCycle[index % printablePartCycle.length],
+      quantity: 1,
+      requiredTicketCount: 1,
+      validPrintedTicketCount,
+      gapCount: Math.max(1 - validPrintedTicketCount, 0),
+      sequenceNo,
+    }
+  })
+}
+
+export function buildTicketSplitDetails(options: {
+  unit: PrintableUnit
+  originalRows: OriginalCutOrderRow[]
+  materialPrepRows: MaterialPrepRow[]
+  mergeBatches: MergeBatchRecord[]
+  markerStore: MarkerSpreadingStore
+  ticketRecords: FeiTicketLabelRecord[]
+  printJobs: FeiTicketPrintJob[]
+}): TicketSplitDetail[] {
+  const { ownersByCutOrderId, rowsByCutOrderId } = buildOwnerMaps(options)
+  const sources = collectPrintableUnitOwners(options.unit, ownersByCutOrderId, rowsByCutOrderId)
+  return sources.flatMap((source) => buildSplitDetailsFromOwner(options.unit, source, options.ticketRecords))
+}
+
+export function buildTicketCards(options: {
+  unit: PrintableUnit
+  splitDetails: TicketSplitDetail[]
+  ticketRecords: FeiTicketLabelRecord[]
+}): TicketCard[] {
+  const detailMap = new Map(options.splitDetails.map((detail) => [`${detail.sourceCutOrderId}:${detail.sequenceNo}`, detail]))
+
+  return options.ticketRecords
+    .filter((record) => matchesPrintableUnitRecord(options.unit, record))
+    .map((record) => {
+      const detail =
+        detailMap.get(`${record.originalCutOrderId}:${record.sequenceNo}`) ||
+        options.splitDetails.find((item) => item.detailId === record.splitDetailId) ||
+        null
+      return {
+        ticketId: record.ticketRecordId,
+        ticketNo: record.ticketNo,
+        printableUnitId: options.unit.printableUnitId,
+        printableUnitNo: options.unit.printableUnitNo,
+        printableUnitType: options.unit.printableUnitType,
+        batchNo: record.sourceMergeBatchNo || options.unit.batchNo,
+        sourceCutOrderId: record.originalCutOrderId,
+        sourceCutOrderNo: record.originalCutOrderNo,
+        sourceProductionOrderId: record.sourceProductionOrderId || '',
+        sourceProductionOrderNo: record.productionOrderNo,
+        styleCode: record.styleCode,
+        color: record.color || detail?.color || '',
+        size: record.size || detail?.size || '待补尺码',
+        partName: record.partName || detail?.partName || '待补部位',
+        quantity: record.quantity ?? detail?.quantity ?? 1,
+        processTags: record.processTags || [],
+        qrPayload: record.qrSerializedValue || record.qrValue,
+        version: record.version ?? record.reprintCount + 1,
+        status: isFeiTicketRecordVoided(record) ? 'VOIDED' : 'VALID',
+        printedAt: record.printedAt,
+        printedBy: record.printedBy,
+        voidedAt: record.voidedAt || '',
+        voidedBy: record.voidedBy || '',
+        voidReason: record.voidReason || '',
+        replacementTicketId: record.replacementTicketId || '',
+        replacementTicketNo: record.replacementTicketNo || '',
+        downstreamLocked: Boolean(record.downstreamLocked),
+        downstreamLockedReason: record.downstreamLockedReason || '',
+        boundPocketNo: record.boundPocketNo || '',
+        boundUsageNo: record.boundUsageNo || '',
+      }
+    })
+    .sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt))
+}
+
+export function buildTicketPrintRecords(options: {
+  unit: PrintableUnit
+  printJobs: FeiTicketPrintJob[]
+}): TicketPrintRecord[] {
+  return options.printJobs
+    .filter((job) => matchesPrintableUnitPrintJob(options.unit, job))
+    .map((job) => ({
+      recordId: job.printJobId,
+      printableUnitId: options.unit.printableUnitId,
+      operationType: job.operationType || (job.status === 'REPRINTED' ? 'REPRINT' : 'FIRST_PRINT'),
+      ticketIds: job.ticketRecordIds || [],
+      operator: job.printedBy,
+      operatedAt: job.printedAt,
+      reason: job.reason || '',
+      printerName: job.printerName || '待补打印机',
+      templateName: job.templateName || '裁片菲票标准模板',
+      fromTicketId: job.fromTicketId || '',
+      toTicketId: job.toTicketId || '',
+      remark: job.remark || job.note || '',
+      printableUnitNo: job.printableUnitNo || options.unit.printableUnitNo,
+      relatedTicketCount: job.ticketRecordIds?.length || job.totalTicketCount || 0,
+    }))
+    .sort((left, right) => comparePrintedAtDesc(left.operatedAt, right.operatedAt))
+}
+
+export function buildPrintableUnitDetailViewModel(options: {
+  unit: PrintableUnit
+  originalRows: OriginalCutOrderRow[]
+  materialPrepRows: MaterialPrepRow[]
+  mergeBatches: MergeBatchRecord[]
+  markerStore: MarkerSpreadingStore
+  ticketRecords: FeiTicketLabelRecord[]
+  printJobs: FeiTicketPrintJob[]
+}): PrintableUnitDetailViewModel {
+  const splitDetails = buildTicketSplitDetails(options)
+  const ticketCards = buildTicketCards({
+    unit: options.unit,
+    splitDetails,
+    ticketRecords: options.ticketRecords,
+  })
+  const printRecords = buildTicketPrintRecords({
+    unit: options.unit,
+    printJobs: options.printJobs,
+  })
+
+  return {
+    unit: options.unit,
+    statusMeta: getPrintableUnitStatusMeta(options.unit.printableUnitStatus),
+    splitDetails,
+    ticketCards,
+    printRecords,
+    missingSplitDetails: splitDetails.filter((detail) => detail.gapCount > 0),
+  }
+}
+
+function buildTicketRecordId(originalCutOrderId: string, sequenceNo: number, version: number): string {
+  return `ticket-${originalCutOrderId}-${String(sequenceNo).padStart(3, '0')}-v${version}`
+}
+
+function buildVersionedTicketNo(originalCutOrderNo: string, sequenceNo: number, version: number): string {
+  const baseNo = buildFeiTicketNo(originalCutOrderNo, sequenceNo)
+  return version <= 1 ? baseNo : `${baseNo}-V${version}`
+}
+
+function nextPrintJobNo(existingJobs: FeiTicketPrintJob[], nowText: string): string {
+  return buildPrintJobNo(existingJobs, nowText)
+}
+
+function selectVoidSourceRecord(
+  detail: TicketSplitDetail,
+  ticketRecords: FeiTicketLabelRecord[],
+  explicitFromTicketId?: string,
+): FeiTicketLabelRecord | null {
+  if (explicitFromTicketId) {
+    return (
+      ticketRecords.find(
+        (record) =>
+          record.ticketRecordId === explicitFromTicketId &&
+          record.originalCutOrderId === detail.sourceCutOrderId,
+      ) || null
+    )
+  }
+
+  return (
+    findDetailSourceRecord(detail, ticketRecords).find(
+      (record) => isFeiTicketRecordVoided(record) && !record.replacementTicketId,
+    ) || null
+  )
+}
+
+function operationTypeToStatus(operationType: FeiTicketOperationType): FeiTicketPrintJobStatus {
+  if (operationType === 'VOID') return 'CANCELLED'
+  if (operationType === 'REPRINT') return 'REPRINTED'
+  return 'PRINTED'
+}
+
+export function executePrintableUnitPrint(options: {
+  unit: PrintableUnit
+  splitDetails: TicketSplitDetail[]
+  originalRows: OriginalCutOrderRow[]
+  materialPrepRows: MaterialPrepRow[]
+  mergeBatches: MergeBatchRecord[]
+  markerStore: MarkerSpreadingStore
+  ticketRecords: FeiTicketLabelRecord[]
+  printJobs: FeiTicketPrintJob[]
+  operationType: Extract<FeiTicketOperationType, 'FIRST_PRINT' | 'CONTINUE_PRINT' | 'REPRINT'>
+  operator: string
+  operatedAt: string
+  printerName: string
+  templateName: string
+  reason: string
+  remark: string
+  fromTicketId?: string
+}): ExecutePrintableUnitPrintResult {
+  const { ownersByCutOrderId } = buildOwnerMaps(options)
+  const nextRecordsMap = new Map(options.ticketRecords.map((record) => [record.ticketRecordId, record]))
+  const targetDetails =
+    options.operationType === 'REPRINT'
+      ? options.splitDetails.filter((detail) => detail.gapCount > 0)
+      : options.splitDetails.filter((detail) => detail.gapCount > 0)
+
+  const printJobId = `print-job-${Date.now()}`
+  const createdRecords: FeiTicketLabelRecord[] = []
+
+  targetDetails.forEach((detail) => {
+    const owner = ownersByCutOrderId[detail.sourceCutOrderId]
+    if (!owner) return
+
+    const relatedRecords = findDetailSourceRecord(detail, Array.from(nextRecordsMap.values()))
+    const currentVersion = Math.max(0, ...relatedRecords.map((record) => record.version ?? record.reprintCount + 1))
+    const nextVersion = currentVersion + 1
+    const ticketRecordId = buildTicketRecordId(detail.sourceCutOrderId, detail.sequenceNo, nextVersion)
+    const fromRecord = selectVoidSourceRecord(detail, Array.from(nextRecordsMap.values()), options.fromTicketId)
+    const nextRecord = attachQrSnapshotToRecord(
+      {
+        ...createEmptyPreviewRecord(
+          owner,
+          detail.sequenceNo,
+          options.unit.printableUnitType === 'BATCH' ? 'merge-batch' : 'original-order',
+          options.unit.batchId,
+          options.unit.batchNo,
+        ),
+        ticketRecordId,
+        ticketNo: buildVersionedTicketNo(detail.sourceCutOrderNo, detail.sequenceNo, nextVersion),
+        printableUnitId: options.unit.printableUnitId,
+        printableUnitNo: options.unit.printableUnitNo,
+        printableUnitType: options.unit.printableUnitType,
+        quantity: detail.quantity,
+        partName: detail.partName,
+        size: detail.size,
+        processTags: [],
+        version: nextVersion,
+        createdAt: options.operatedAt,
+        printedAt: options.operatedAt,
+        printedBy: options.operator,
+        reprintCount: Math.max(nextVersion - 1, 0),
+        sourcePrintJobId: printJobId,
+        status: 'PRINTED',
+        splitDetailId: detail.detailId,
+        sourceProductionOrderId: detail.sourceProductionOrderId,
+      },
+      owner,
+      {
+        printJobId,
+        printJobNo: '',
+      },
+    )
+    createdRecords.push(nextRecord)
+    nextRecordsMap.set(ticketRecordId, nextRecord)
+
+    if (fromRecord && fromRecord.ticketRecordId !== ticketRecordId) {
+      nextRecordsMap.set(fromRecord.ticketRecordId, {
+        ...fromRecord,
+        replacementTicketId: ticketRecordId,
+        replacementTicketNo: nextRecord.ticketNo,
+      })
+    }
+  })
+
+  const printJobNo = nextPrintJobNo(options.printJobs, options.operatedAt)
+  const printJob: FeiTicketPrintJob = {
+    printJobId,
+    printJobNo,
+    ownerType: 'original-cut-order',
+    originalCutOrderIds: uniqueStrings(targetDetails.map((detail) => detail.sourceCutOrderId)),
+    originalCutOrderNos: uniqueStrings(targetDetails.map((detail) => detail.sourceCutOrderNo)),
+    sourceContextType: options.unit.printableUnitType === 'BATCH' ? 'merge-batch' : 'original-order',
+    sourceMergeBatchId: options.unit.batchId,
+    sourceMergeBatchNo: options.unit.batchNo,
+    totalTicketCount: createdRecords.length,
+    status: operationTypeToStatus(options.operationType),
+    printedBy: options.operator,
+    printedAt: options.operatedAt,
+    note: options.remark || options.reason || '',
+    printableUnitId: options.unit.printableUnitId,
+    printableUnitNo: options.unit.printableUnitNo,
+    printableUnitType: options.unit.printableUnitType,
+    operationType: options.operationType,
+    reason: options.reason,
+    printerName: options.printerName,
+    templateName: options.templateName,
+    ticketRecordIds: createdRecords.map((record) => record.ticketRecordId),
+    fromTicketId: options.fromTicketId || '',
+    toTicketId: createdRecords.length === 1 ? createdRecords[0].ticketRecordId : '',
+    remark: options.remark,
+  }
+
+  createdRecords.forEach((record) => {
+    nextRecordsMap.set(
+      record.ticketRecordId,
+      attachQrSnapshotToRecord(
+        {
+          ...record,
+          sourcePrintJobId: printJob.printJobId,
+        },
+        ownersByCutOrderId[record.originalCutOrderId],
+        printJob,
+      ),
+    )
+  })
+
+  return {
+    printJob,
+    nextRecords: Array.from(nextRecordsMap.values()).sort((left, right) => {
+      const byOrder = left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+      if (byOrder !== 0) return byOrder
+      if (left.sequenceNo !== right.sequenceNo) return left.sequenceNo - right.sequenceNo
+      const leftVersion = left.version ?? left.reprintCount + 1
+      const rightVersion = right.version ?? right.reprintCount + 1
+      return leftVersion - rightVersion
+    }),
+    nextJobs: [printJob, ...options.printJobs].sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt)),
+  }
+}
+
+export function canVoidTicketCard(record: FeiTicketLabelRecord | null): {
+  allowed: boolean
+  reason: string
+} {
+  if (!record) return { allowed: false, reason: '未找到目标菲票。' }
+  if (isFeiTicketRecordVoided(record)) return { allowed: false, reason: '该菲票已作废，不能重复作废。' }
+  if (record.downstreamLocked) return { allowed: false, reason: record.downstreamLockedReason || '该菲票已被下游引用，当前禁止作废。' }
+  return { allowed: true, reason: '' }
+}
+
+export function voidTicketCard(options: {
+  recordId: string
+  ticketRecords: FeiTicketLabelRecord[]
+  printJobs: FeiTicketPrintJob[]
+  operator: string
+  operatedAt: string
+  reason: string
+  remark: string
+  printableUnit?: PrintableUnit | null
+}): VoidTicketCardResult | null {
+  const target = options.ticketRecords.find((record) => record.ticketRecordId === options.recordId) || null
+  const validation = canVoidTicketCard(target)
+  if (!target || !validation.allowed) return null
+
+  const nextRecords = options.ticketRecords.map((record) =>
+    record.ticketRecordId === options.recordId
+      ? {
+          ...record,
+          status: 'VOIDED' as const,
+          voidedAt: options.operatedAt,
+          voidedBy: options.operator,
+          voidReason: options.reason,
+        }
+      : record,
+  )
+
+  const voidJob: FeiTicketPrintJob = {
+    printJobId: `print-job-${Date.now()}`,
+    printJobNo: nextPrintJobNo(options.printJobs, options.operatedAt),
+    ownerType: 'original-cut-order',
+    originalCutOrderIds: [target.originalCutOrderId],
+    originalCutOrderNos: [target.originalCutOrderNo],
+    sourceContextType: target.sourceContextType,
+    sourceMergeBatchId: target.sourceMergeBatchId,
+    sourceMergeBatchNo: target.sourceMergeBatchNo,
+    totalTicketCount: 1,
+    status: 'CANCELLED',
+    printedBy: options.operator,
+    printedAt: options.operatedAt,
+    note: options.remark || options.reason,
+    printableUnitId: options.printableUnit?.printableUnitId,
+    printableUnitNo: options.printableUnit?.printableUnitNo,
+    printableUnitType: options.printableUnit?.printableUnitType,
+    operationType: 'VOID',
+    reason: options.reason,
+    printerName: '',
+    templateName: '',
+    ticketRecordIds: [target.ticketRecordId],
+    fromTicketId: target.ticketRecordId,
+    toTicketId: '',
+    remark: options.remark,
+  }
+
+  return {
+    voidJob,
+    nextRecords,
+    nextJobs: [voidJob, ...options.printJobs].sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt)),
   }
 }

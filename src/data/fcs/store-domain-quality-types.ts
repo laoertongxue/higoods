@@ -235,6 +235,9 @@ export interface QualityInspection {
   inspector: string
   inspectedAt: string
   result: QcResult
+  inspectedQty?: number
+  qualifiedQty?: number
+  unqualifiedQty?: number
   defectItems: DefectItem[]
   remark?: string
   status: QcStatus

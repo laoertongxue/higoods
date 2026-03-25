@@ -1,6 +1,7 @@
 import { handlePdaNotifyEvent } from '../pages/pda-notify'
 import { handlePdaNotifyDueSoonEvent } from '../pages/pda-notify-due-soon'
 import { handlePdaNotifyDetailEvent } from '../pages/pda-notify-detail'
+import { handlePdaQualityEvent } from '../pages/pda-quality'
 import { handlePdaTaskReceiveEvent } from '../pages/pda-task-receive'
 import { handlePdaTaskReceiveDetailEvent } from '../pages/pda-task-receive-detail'
 import { handlePdaExecEvent } from '../pages/pda-exec'
@@ -20,6 +21,7 @@ export function dispatchPdaPageEvent(target: HTMLElement): boolean {
     handlePdaNotifyEvent(target) ||
     handlePdaNotifyDueSoonEvent(target) ||
     handlePdaNotifyDetailEvent(target) ||
+    handlePdaQualityEvent(target) ||
     handlePdaTaskReceiveEvent(target) ||
     handlePdaTaskReceiveDetailEvent(target) ||
     handlePdaExecEvent(target) ||

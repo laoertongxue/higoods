@@ -32,8 +32,8 @@ export const configReceiveMeta = {
   RECEIVED: { label: '领料成功', className: 'bg-emerald-100 text-emerald-700' },
   NOT_PRINTED: { label: '未打印', className: 'bg-slate-100 text-slate-700' },
   PRINTED: { label: '已打印', className: 'bg-blue-100 text-blue-700' },
-  NOT_GENERATED: { label: '未生成二维码', className: 'bg-slate-100 text-slate-700' },
-  GENERATED: { label: '已生成二维码', className: 'bg-violet-100 text-violet-700' },
+  NOT_GENERATED: { label: '未生成裁片单主码', className: 'bg-slate-100 text-slate-700' },
+  GENERATED: { label: '已生成裁片单主码', className: 'bg-violet-100 text-violet-700' },
 } as const
 
 export const markerStatusMeta = {
@@ -189,6 +189,6 @@ export function buildMarkerMixSummary(markerInfo: CutPieceMarkerInfo): string {
 }
 
 export function buildEmptyStateText(filters: CutPieceOrderFilters): string {
-  if (filters.replenishmentRisk === 'RISK_ONLY') return '当前筛选条件下暂无待补料裁片单。'
-  return '当前筛选条件下暂无匹配的裁片单。'
+  if (filters.replenishmentRisk === 'RISK_ONLY') return '暂无待补料裁片单'
+  return '暂无匹配结果'
 }
