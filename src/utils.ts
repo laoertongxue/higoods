@@ -1,5 +1,6 @@
-export function escapeHtml(value: string): string {
-  return value
+export function escapeHtml(value: unknown): string {
+  const text = value == null ? '' : String(value)
+  return text
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')

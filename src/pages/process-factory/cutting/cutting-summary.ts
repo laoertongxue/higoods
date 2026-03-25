@@ -958,7 +958,7 @@ function renderBlockerList(detail: CuttingSummaryDetailPanelData): string {
                             <td class="px-3 py-3 text-xs text-blue-700">${escapeHtml(item.nextActionLabel)}</td>
                             <td class="px-3 py-3 text-right">
                               <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-summary-action="navigate-blocker" data-row-id="${detail.row.rowId}" data-blocker-id="${item.blockerId}">
-                                ${escapeHtml(getCuttingNavigationActionLabel(blocker.navigationTarget as CuttingNavigationTarget))}
+                                ${escapeHtml(getCuttingNavigationActionLabel(item.navigationTarget as CuttingNavigationTarget))}
                               </button>
                             </td>
                           </tr>
@@ -1021,7 +1021,7 @@ function renderSourceObjects(detail: CuttingSummaryDetailPanelData): string {
                                     }
                                     <div class="mt-2">
                                       <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-summary-action="navigate-source-object" data-row-id="${detail.row.rowId}" data-source-type="${item.sourceType}" data-source-id="${item.sourceId}">
-                                        ${escapeHtml(getCuttingNavigationActionLabel(sourceObject.navigationTarget as CuttingNavigationTarget))}
+                                        ${escapeHtml(getCuttingNavigationActionLabel(item.navigationTarget as CuttingNavigationTarget))}
                                       </button>
                                     </div>
                                   </div>
