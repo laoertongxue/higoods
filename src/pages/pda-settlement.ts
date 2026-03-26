@@ -592,6 +592,10 @@ function getCurrentFactoryIdentity() {
   }
 }
 
+function getCurrentSettlementPartyId(): string {
+  return getCurrentFactoryIdentity().current?.id ?? CURRENT_FACTORY_ID
+}
+
 function getCurrentQualityFactoryId(): string {
   return getCurrentFactoryIdentity().current?.id ?? CURRENT_FACTORY_ID
 }
