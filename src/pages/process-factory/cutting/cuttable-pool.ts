@@ -428,7 +428,7 @@ function renderOriginalOrderRows(order: CuttableStyleGroup['orders'][number], cu
               data-cuttable-pool-action="toggle-item"
               data-item-id="${item.id}"
               ${state.selectedIds.includes(item.id) ? 'checked' : ''}
-              ${disabled ? 'disabled' : ''}
+              ${disabled ? 'aria-disabled="true"' : ''}
             />
           </td>
           <td class="px-3 py-3 font-medium">${escapeHtml(item.originalCutOrderNo)}</td>

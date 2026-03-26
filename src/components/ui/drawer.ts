@@ -2,6 +2,7 @@
 
 import { escapeHtml } from '../../utils'
 import { renderButton, renderPrimaryButton, renderSecondaryButton } from './button'
+import { toActionAttr } from './types'
 import type { DrawerConfig, DrawerFooterConfig, DrawerWidth, ActionConfig } from './types'
 
 // 抽屉宽度映射
@@ -17,7 +18,7 @@ const WIDTH_CLASSES: Record<DrawerWidth, string> = {
  */
 function renderDrawerHeader(config: DrawerConfig): string {
   const { title, subtitle, closeAction } = config
-  const closeAttr = `data-${closeAction.prefix}-action="${closeAction.action}"`
+  const closeAttr = toActionAttr(closeAction)
   
   return `
     <div class="sticky top-0 bg-background border-b px-6 py-4 z-10 flex items-center justify-between">
@@ -71,7 +72,7 @@ export function renderDrawerFooter(config: DrawerFooterConfig): string {
  */
 export function renderDrawer(config: DrawerConfig, content: string, footer?: DrawerFooterConfig): string {
   const { closeAction, width = 'sm', animate = true } = config
-  const backdropAttr = `data-${closeAction.prefix}-action="${closeAction.action}"`
+  const backdropAttr = toActionAttr(closeAction)
   const widthClass = WIDTH_CLASSES[width]
   const animateClass = animate ? 'animate-in slide-in-from-right duration-200' : ''
   

@@ -54,7 +54,7 @@ function renderTaskSnapshot(taskId: string): string {
 function renderHandoverHistory(taskId: string): string {
   const detail = getPdaCuttingTaskDetail(taskId)
   if (!detail || !detail.handoverRecords.length) {
-    return renderPdaCuttingEmptyState('暂无交接扫码记录', '后续扫码交接完成后，这里会展示交接对象、去向和最近一次交接结果。')
+    return renderPdaCuttingEmptyState('暂无交接记录', '后续完成交接确认后，这里会展示交接对象、去向和最近一次交接结果。')
   }
 
   return `
@@ -104,7 +104,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '交接扫码',
+      title: '交接确认',
       subtitle: '',
       activeTab: 'handover',
       body: '',
@@ -124,8 +124,8 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   const handoverSection = `
     <div class="space-y-3 text-xs">
       <div class="rounded-xl border border-dashed px-3 py-4 text-center">
-        <div class="text-sm font-medium text-foreground">扫码入口区</div>
-        <p class="mt-1 text-muted-foreground">真实扫码交接能力后续补齐，这里先承接交接对象摘要、去向确认和交接结果回写。</p>
+        <div class="text-sm font-medium text-foreground">交接确认入口</div>
+        <p class="mt-1 text-muted-foreground">这里先承接交接对象摘要、去向确认和交接结果回写。</p>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div class="rounded-xl border px-3 py-3">
@@ -160,7 +160,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
         <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-handover-field="note" placeholder="填写交接提醒、后续去向和异常说明">${escapeHtml(form.note)}</textarea>
       </label>
       <div class="rounded-xl bg-amber-50 px-3 py-3 text-xs text-amber-800">
-        交接扫码页只承接裁片专项交接确认，不在这里展开完整后道交接流程。
+        当前页面只承接裁片专项交接确认，不在这里展开完整后道交接流程。
       </div>
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">本次交接预览</div>
@@ -190,7 +190,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '交接扫码',
+    title: '交接确认',
     subtitle: '',
     activeTab: 'handover',
     body,

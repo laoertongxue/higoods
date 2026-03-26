@@ -3281,8 +3281,8 @@ function renderSpreadingEditPage(): string {
   const headerActions = renderHeaderActions(([
     '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="cancel-spreading-edit">取消</button>',
     draft.importedFromMarker
-      ? '<button type="button" class="rounded-md border px-3 py-2 text-sm text-muted-foreground opacity-70" disabled>当前草稿已承接唛架导入</button>'
-      : '<button type="button" class="rounded-md border px-3 py-2 text-sm text-muted-foreground opacity-70" disabled>从唛架导入（需从唛架页发起）</button>',
+      ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="show-marker-import-status">查看导入来源</button>'
+      : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="guide-marker-import">从唛架导入</button>',
     getSearchParams().get('sessionId')
       ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(draft.spreadingSessionId)}">去补料管理</button>`
       : '',
@@ -4745,6 +4745,24 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       }
     }
     appStore.navigate(buildListRoute('SPREADINGS'))
+    return true
+  }
+
+  if (action === 'show-marker-import-status') {
+    state.feedback = {
+      tone: 'success',
+      message: state.spreadingDraft?.linkedMarkerNo
+        ? `当前铺布草稿已承接唛架 ${state.spreadingDraft.linkedMarkerNo} 的导入内容。`
+        : '当前铺布草稿已承接唛架导入内容。',
+    }
+    return true
+  }
+
+  if (action === 'guide-marker-import') {
+    state.feedback = {
+      tone: 'warning',
+      message: '当前页面不能直接发起导入，请先在唛架列表或唛架详情中点击“从唛架导入铺布”。',
+    }
     return true
   }
 

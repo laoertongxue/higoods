@@ -193,16 +193,16 @@ export function renderPdaNotifyDetailPage(notificationId: string): string {
                   相关凭证
                 </div>
                 <div class="flex gap-2">
-                  <button class="flex h-8 flex-1 items-center justify-center rounded-md border px-2 text-xs text-muted-foreground opacity-70" disabled>
+                  <button class="flex h-8 flex-1 items-center justify-center rounded-md border px-2 text-xs text-muted-foreground hover:bg-muted" data-pda-notify-detail-action="open-evidence">
                     <i data-lucide="camera" class="mr-1 h-3.5 w-3.5"></i>
                     查看凭证
                   </button>
-                  <button class="flex h-8 flex-1 items-center justify-center rounded-md border px-2 text-xs text-muted-foreground opacity-70" disabled>
+                  <button class="flex h-8 flex-1 items-center justify-center rounded-md border px-2 text-xs text-muted-foreground hover:bg-muted" data-pda-notify-detail-action="upload-evidence">
                     <i data-lucide="upload" class="mr-1 h-3.5 w-3.5"></i>
                     去上传凭证
                   </button>
                 </div>
-                <p class="mt-2 text-[10px] text-muted-foreground">凭证上传功能即将开放</p>
+                <p class="mt-2 text-[10px] text-muted-foreground">当前通知页只保留凭证入口，预览与上传请到对应业务页面处理。</p>
               </article>
             `
             : ''
@@ -247,6 +247,16 @@ export function handlePdaNotifyDetailEvent(target: HTMLElement): boolean {
     if (href) {
       appStore.navigate(href)
     }
+    return true
+  }
+
+  if (action === 'open-evidence') {
+    window.alert('当前通知详情页还未接入凭证预览，请到对应业务页面查看。')
+    return true
+  }
+
+  if (action === 'upload-evidence') {
+    window.alert('当前通知详情页还未接入凭证上传，请先到对应业务页面处理。')
     return true
   }
 

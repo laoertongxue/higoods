@@ -55,7 +55,7 @@ function renderTaskSnapshot(taskId: string): string {
 function renderInboundHistory(taskId: string): string {
   const detail = getPdaCuttingTaskDetail(taskId)
   if (!detail || !detail.inboundRecords.length) {
-    return renderPdaCuttingEmptyState('暂无入仓记录', '后续扫码入仓后，这里会展示最近一次入仓时间、区域和操作人。')
+    return renderPdaCuttingEmptyState('暂无入仓记录', '后续完成入仓确认后，这里会展示最近一次入仓时间、区域和操作人。')
   }
 
   return `
@@ -104,7 +104,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '入仓扫码',
+      title: '入仓确认',
       subtitle: '',
       activeTab: 'exec',
       body: '',
@@ -124,8 +124,8 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   const scanSection = `
     <div class="space-y-3 text-xs">
       <div class="rounded-xl border border-dashed px-3 py-4 text-center">
-        <div class="text-sm font-medium text-foreground">扫码入口区</div>
-        <p class="mt-1 text-muted-foreground">真实扫码能力后续补齐，本步先承接入仓对象、区域提示和库位确认。</p>
+        <div class="text-sm font-medium text-foreground">入仓确认入口</div>
+        <p class="mt-1 text-muted-foreground">当前先承接入仓对象、区域提示和库位确认。</p>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div class="rounded-xl border px-3 py-3">
@@ -197,7 +197,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
     ${renderPdaCuttingTaskHero(detail)}
     ${summary}
     ${renderPdaCuttingSection('当前任务 / 裁片单摘要', '先确认当前入仓对象、裁片单和面料，再决定区域与位置。', renderTaskSnapshot(taskId))}
-    ${renderPdaCuttingSection('扫码入口与对象摘要', '展示当前裁片入仓对象、区域提示和库位说明的承接关系。', scanSection)}
+    ${renderPdaCuttingSection('入仓对象摘要', '展示当前裁片入仓对象、区域提示和库位说明的承接关系。', scanSection)}
     ${renderPdaCuttingSection('区域提示与入仓确认', '现场操作员可在此完成轻量入仓确认并回写区域与位置。', confirmSection)}
     ${renderPdaCuttingSection('入仓状态摘要', '这里集中展示最近一次入仓记录号、区域和库位说明。', renderInboundStatus(taskId))}
     ${renderPdaCuttingSection('最近入仓记录', '用于查看最近一次入仓动作、区域和操作人。', renderInboundHistory(taskId))}
@@ -205,7 +205,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '入仓扫码',
+    title: '入仓确认',
     subtitle: '',
     activeTab: 'exec',
     body,

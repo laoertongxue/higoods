@@ -1177,7 +1177,7 @@ function renderWorkbenchSection(): string {
                 : '<div class="px-3 py-8 text-center text-sm text-muted-foreground">当前使用周期暂无已绑定菲票。</div>'}
             </div>
           `
-          : '<div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">当前尚未选中 usage。请先创建或从发出台账中选择一个 usage。</div>'}
+          : '<div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">当前尚未选中使用周期。请先创建或从发出台账中选择一个使用周期。</div>'}
       </article>
     </section>
   `

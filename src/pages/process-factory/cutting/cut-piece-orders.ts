@@ -114,6 +114,7 @@ interface OriginalOrdersPageState {
   querySignature: string
   prefilter: OriginalCutOrderPrefilter | null
   drillContext: CuttingDrillContext | null
+  feedback: { tone: 'warning' | 'success'; message: string } | null
 }
 
 const state: OriginalOrdersPageState = {
@@ -124,6 +125,7 @@ const state: OriginalOrdersPageState = {
   querySignature: '',
   prefilter: null,
   drillContext: null,
+  feedback: null,
 }
 
 function getCurrentQueryString(): string {
@@ -349,6 +351,28 @@ function buildStatsCards(rows: OriginalCutOrderRow[]): string {
       ${renderCompactKpiCard('已入批次数', stats.inBatchCount, '已进入执行层批次', 'text-violet-600')}
       ${renderCompactKpiCard('配料异常数', stats.prepExceptionCount, '审核或配料未齐', 'text-amber-600')}
       ${renderCompactKpiCard('领料异常数', stats.claimExceptionCount, '待领料或领料差异', 'text-rose-600')}
+    </section>
+  `
+}
+
+function setFeedback(tone: 'warning' | 'success', message: string): void {
+  state.feedback = { tone, message }
+}
+
+function clearFeedback(): void {
+  state.feedback = null
+}
+
+function renderFeedbackBar(): string {
+  if (!state.feedback) return ''
+  const className =
+    state.feedback.tone === 'success'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : 'border-amber-200 bg-amber-50 text-amber-700'
+  return `
+    <section class="flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${className}">
+      <span>${escapeHtml(state.feedback.message)}</span>
+      <button type="button" class="rounded-md px-2 py-1 text-xs hover:bg-black/5" data-cutting-piece-action="clear-feedback">关闭</button>
     </section>
   `
 }
@@ -819,7 +843,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
                 : ''
             }
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted ${row.batchParticipationCount ? '' : 'pointer-events-none opacity-50'}" data-cutting-piece-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}">
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}">
                 查看批次
               </button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-same-production-orders" data-record-id="${escapeHtml(row.id)}">
@@ -835,7 +859,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         `
           <div class="space-y-3">
             ${renderInfoGrid([
-              { label: '最新 ticketNo', value: qrSummary.latestTicketNo, tone: 'strong' },
+              { label: '最新菲票号', value: qrSummary.latestTicketNo, tone: 'strong' },
               { label: '主码版本', value: qrSummary.schemaVersion },
               { label: '归属对象', value: qrSummary.ownerType },
               { label: '主码值', value: qrSummary.qrBaseValue },
@@ -1002,6 +1026,7 @@ function renderPage(): string {
         showCompatibilityBadge: isCuttingAliasPath(pathname),
         actionsHtml: renderHeaderActions(),
       })}
+      ${renderFeedbackBar()}
       ${buildStatsCards(rows)}
       ${renderPrefilterBar()}
       ${renderFilterArea()}
@@ -1127,7 +1152,17 @@ export function handleCraftCuttingPieceOrdersEvent(target: Element): boolean {
   }
 
   if (action === 'go-merge-batches') {
+    const row = actionNode.dataset.recordId ? getViewModel().rowsById[actionNode.dataset.recordId] : null
+    if (!row?.batchParticipationCount) {
+      setFeedback('warning', '当前没有关联的合并裁剪批次，无法跳转。')
+      return true
+    }
     return navigateToRecordTarget(actionNode.dataset.recordId, 'mergeBatches')
+  }
+
+  if (action === 'clear-feedback') {
+    clearFeedback()
+    return true
   }
 
   if (action === 'go-same-production-orders') {

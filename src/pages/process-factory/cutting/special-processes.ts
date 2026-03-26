@@ -376,7 +376,7 @@ function renderStats(): string {
       ${renderCompactKpiCard('捆条工艺单数', stats.bindingStripCount, '已接入执行链', 'text-blue-600')}
       ${renderCompactKpiCard('待执行数', stats.pendingExecutionCount, '已准备待开工', 'text-amber-600')}
       ${renderCompactKpiCard('执行中数', stats.inProgressCount, '当前厂内处理中', 'text-violet-600')}
-      ${renderCompactKpiCard('已完成数', stats.doneCount, '执行完成待收口', 'text-emerald-600')}
+      ${renderCompactKpiCard('已完成数', stats.doneCount, '执行已完成，待看后续动作', 'text-emerald-600')}
       ${renderCompactKpiCard('预留类型数', stats.reservedCount, '暂未接入执行链', 'text-slate-600')}
     </section>
   `
@@ -774,8 +774,8 @@ function renderFollowupSection(row: SpecialProcessRow): string {
                   <td class="px-3 py-2">
                     <div class="flex flex-wrap gap-2">
                       <button type="button" class="rounded-md border px-2 py-1 hover:bg-muted" data-special-process-action="go-followup" data-action-id="${escapeHtml(action.actionId)}">${escapeHtml(getCuttingNavigationActionLabel(action.targetPageKey as CuttingNavigationTarget))}</button>
-                      ${action.status !== 'DONE' ? `<button type="button" class="rounded-md border px-2 py-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-special-process-action="complete-followup" data-action-id="${escapeHtml(action.actionId)}" ${canProcessActions ? '' : 'disabled'}>标记完成</button>` : ''}
-                      ${action.status === 'PENDING' ? `<button type="button" class="rounded-md border px-2 py-1 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-special-process-action="skip-followup" data-action-id="${escapeHtml(action.actionId)}" ${canProcessActions || row.status === 'CANCELLED' ? '' : 'disabled'}>跳过</button>` : ''}
+                      ${action.status !== 'DONE' ? `<button type="button" class="rounded-md border px-2 py-1 hover:bg-muted" data-special-process-action="complete-followup" data-action-id="${escapeHtml(action.actionId)}">标记完成</button>` : ''}
+                      ${action.status === 'PENDING' ? `<button type="button" class="rounded-md border px-2 py-1 hover:bg-muted" data-special-process-action="skip-followup" data-action-id="${escapeHtml(action.actionId)}">跳过</button>` : ''}
                     </div>
                   </td>
                 </tr>

@@ -23,6 +23,15 @@ import type {
 import { appStore } from '../state/store'
 import { escapeHtml, formatDateTime } from '../utils'
 
+function getCuttingRouteActionLabel(route: string): string {
+  if (route.includes('/material-prep')) return '去仓库配料领料'
+  if (route.includes('/replenishment')) return '去补料管理'
+  if (route.includes('/cut-piece-orders')) return '去原始裁片单'
+  if (route.includes('/warehouse-management')) return '去仓务处理'
+  if (route.includes('/order-progress')) return '去生产单进度'
+  return '打开关联页面'
+}
+
 interface CuttingExceptionProcessDraft {
   exceptionNo: string
   targetStatus: Exclude<CuttingExceptionStatus, 'OPEN'>
@@ -141,7 +150,7 @@ function getQuickRoutes(row: CuttingException) {
     { label: '去裁片单', route: '/fcs/craft/cutting/cut-piece-orders' },
     { label: '去补料管理', route: '/fcs/craft/cutting/replenishment' },
     { label: '去仓库管理', route: '/fcs/craft/cutting/warehouse-management' },
-    { label: '去建议页面', route: row.suggestedRoute },
+    { label: getCuttingRouteActionLabel(row.suggestedRoute), route: row.suggestedRoute },
   ]
 }
 
@@ -259,8 +268,8 @@ function renderSummaryCards(): string {
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         ${buildSummaryCard('未关闭异常总数', summary.openCount, '平台当前仍需继续跟进', 'text-slate-900')}
         ${buildSummaryCard('高风险异常数', summary.highRiskCount, '优先处理差异、补料和仓务阻断', 'text-rose-600')}
-        ${buildSummaryCard('领料差异异常数', summary.receiveDiscrepancyCount, '需核对扫码结果和配置差异', 'text-amber-600')}
-        ${buildSummaryCard('补料待审核异常数', summary.replenishmentPendingCount, '待平台推动补料链路收口', 'text-fuchsia-600')}
+        ${buildSummaryCard('领料差异异常数', summary.receiveDiscrepancyCount, '需核对领料结果和配置差异', 'text-amber-600')}
+        ${buildSummaryCard('补料待审核异常数', summary.replenishmentPendingCount, '待平台继续跟进补料链路', 'text-fuchsia-600')}
         ${buildSummaryCard('未入仓 / 未分区异常数', summary.warehouseRiskCount, '仓内节奏和查找效率待补齐', 'text-violet-600')}
         ${buildSummaryCard('样衣超期异常数', summary.sampleOverdueCount, '样衣归还和可调用状态待核对', 'text-sky-600')}
       </div>
@@ -298,7 +307,7 @@ function renderFocusColumn(
                       <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.triggerSummary)}</p>
                       <div class="mt-3 flex flex-wrap gap-2">
                         <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="open-process" data-target-status="IN_PROGRESS" data-exception-no="${row.exceptionNo}">标记处理中</button>
-                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-route" data-route="${row.suggestedRoute}">去处理</button>
+                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-route" data-route="${row.suggestedRoute}">${escapeHtml(getCuttingRouteActionLabel(row.suggestedRoute))}</button>
                       </div>
                     </div>
                   `,
@@ -324,9 +333,9 @@ function renderFocusSection(): string {
         <span class="text-sm text-muted-foreground">当前重点 ${topRows.length} 项</span>
       </div>
       <div class="mt-4 grid gap-4 xl:grid-cols-4">
-        ${renderFocusColumn('高风险领料 / 凭证异常', '优先核对差异、扫码结果与照片凭证。', buckets.receiveRiskRows, '当前无高风险领料或凭证异常。')}
+        ${renderFocusColumn('高风险领料 / 凭证异常', '优先核对差异、领料结果与照片凭证。', buckets.receiveRiskRows, '当前无高风险领料或凭证异常。')}
         ${renderFocusColumn('补料待审核', '优先推动补料建议完成审核或补充说明。', buckets.replenishmentRows, '当前无待补料审核异常。')}
-        ${renderFocusColumn('仓务待收口', '关注未入仓、未分区和待交接等仓务阻断。', buckets.warehouseRows, '当前无仓务待收口异常。')}
+        ${renderFocusColumn('仓务待处理', '关注未入仓、未分区和待交接等仓务阻断。', buckets.warehouseRows, '当前无仓务待处理异常。')}
         ${renderFocusColumn('样衣风险', '关注样衣待归还、超期和可调用风险。', buckets.sampleRows, '当前无样衣风险异常。')}
       </div>
     </section>

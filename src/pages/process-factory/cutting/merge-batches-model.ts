@@ -450,7 +450,7 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
     return {
       label: '已完成',
       className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-      helperText: '批次执行已收口，后续菲票与追溯仍回落原始裁片单。',
+      helperText: '批次执行已完成，后续打印菲票与追溯仍回落原始裁片单。',
     }
   }
 

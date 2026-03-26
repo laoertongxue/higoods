@@ -291,7 +291,7 @@ function renderStats(): string {
   const { stats } = buildViewModel()
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-      ${renderCompactKpiCard('补料上下文数', stats.totalCount, '按原始单 / 合批收口', 'text-slate-900')}
+      ${renderCompactKpiCard('补料上下文数', stats.totalCount, '按原始单 / 合批汇总', 'text-slate-900')}
       ${renderCompactKpiCard('待审核', stats.pendingReviewCount, '尚未给出审核结论', 'text-amber-600')}
       ${renderCompactKpiCard('待补录', stats.pendingSupplementCount, '差异依据仍需补齐', 'text-orange-600')}
       ${renderCompactKpiCard('待动作', stats.approvedPendingActionCount, '审核已通过但未开始', 'text-blue-600')}

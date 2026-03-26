@@ -107,7 +107,7 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
 
 export function renderPdaCuttingRiskList(riskTips: string[]): string {
   if (!riskTips.length) {
-    return renderPdaCuttingEmptyState('当前无专项风险提示', '裁片专项页会在这里展示扫码、铺布、入仓和交接过程中的重点风险。')
+    return renderPdaCuttingEmptyState('当前无专项风险提示', '裁片专项页会在这里展示领料、铺布、入仓和交接过程中的重点风险。')
   }
 
   return `
@@ -136,7 +136,7 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
           <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(backHref)}">
             返回
           </button>
-          ${renderPdaCuttingEmptyState('未找到裁片任务', '当前任务不存在或不属于裁片专项任务，请返回工厂端任务流重新进入。')}
+          ${renderPdaCuttingEmptyState('未找到裁片任务', '当前任务不存在或不属于裁片专项任务，请返回工厂端任务列表重新进入。')}
         </section>
       `,
       options.activeTab,
@@ -171,10 +171,10 @@ export function renderPdaCuttingQuickLinks(taskId: string, options?: { includeTa
     options?.includeTaskDetail !== false
       ? { label: '返回裁片任务详情', href: buildPdaCuttingRoute(taskId, 'task') }
       : null,
-    { label: '扫裁片单主码领料', href: buildPdaCuttingRoute(taskId, 'pickup') },
+    { label: '裁片单主码领料', href: buildPdaCuttingRoute(taskId, 'pickup') },
     { label: '铺布录入', href: buildPdaCuttingRoute(taskId, 'spreading') },
-    { label: '入仓扫码', href: buildPdaCuttingRoute(taskId, 'inbound') },
-    { label: '交接扫码', href: buildPdaCuttingRoute(taskId, 'handover') },
+    { label: '入仓确认', href: buildPdaCuttingRoute(taskId, 'inbound') },
+    { label: '交接确认', href: buildPdaCuttingRoute(taskId, 'handover') },
     { label: '补料反馈', href: buildPdaCuttingRoute(taskId, 'replenishment-feedback') },
   ].filter(Boolean) as Array<{ label: string; href: string }>
 

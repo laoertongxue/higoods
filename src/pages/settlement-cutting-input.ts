@@ -666,12 +666,12 @@ function renderDetailDrawer(): string {
               </div>
             </div>
             <div class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">领料与扫码摘要</p>
+              <p class="text-xs text-muted-foreground">领料与回写摘要</p>
               <p class="mt-1 font-medium text-foreground">${escapeHtml(row.settlementInput.pickupSummary.summaryText)}</p>
               <p class="mt-2 text-xs text-muted-foreground">领料单号：${escapeHtml(row.settlementInput.pickupSummary.pickupSlipNo)}</p>
               <p class="mt-1 text-xs text-muted-foreground">打印版本 / 回执：${escapeHtml(row.settlementInput.pickupSummary.latestPrintVersionNo)} / ${escapeHtml(row.settlementInput.pickupSummary.receiptStatusLabel)}</p>
               <p class="mt-1 text-xs text-muted-foreground">裁片单主码 / 凭证：${escapeHtml(row.settlementInput.pickupSummary.qrCodeValue)} / ${row.settlementInput.pickupSummary.photoProofCount} 张</p>
-              <p class="mt-1 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.settlementInput.pickupSummary.latestScannedAt)} · ${escapeHtml(row.settlementInput.pickupSummary.latestScannedBy)}</p>
+              <p class="mt-1 text-xs text-muted-foreground">最近确认：${escapeHtml(row.settlementInput.pickupSummary.latestScannedAt)} · ${escapeHtml(row.settlementInput.pickupSummary.latestScannedBy)}</p>
             </div>
             <div class="rounded-lg border bg-muted/20 p-4">
               <p class="text-xs text-muted-foreground">铺布 / 入仓 / 交接摘要</p>
@@ -691,7 +691,7 @@ function renderDetailDrawer(): string {
             </div>
             <div>
               <p class="text-xs text-muted-foreground">人工复核</p>
-              <div class="mt-1">${row.settlementInput.needsManualReview ? renderBadge('需要人工复核', 'bg-amber-50 text-amber-700') : renderBadge('可常规收口', 'bg-emerald-50 text-emerald-700')}</div>
+              <div class="mt-1">${row.settlementInput.needsManualReview ? renderBadge('需要人工复核', 'bg-amber-50 text-amber-700') : renderBadge('可直接确认', 'bg-emerald-50 text-emerald-700')}</div>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">当前复核状态</p>
@@ -849,7 +849,7 @@ function renderProcessDrawer(): string {
           <textarea
             class="min-h-[100px] w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             data-cutting-settlement-process-field="confirmNote"
-            placeholder="输入本次确认快照或待补充说明的收口结论"
+            placeholder="输入本次确认快照或待补充说明的处理结论"
           >${escapeHtml(draft.confirmNote)}</textarea>
         </label>
       </div>

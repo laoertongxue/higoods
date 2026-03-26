@@ -941,7 +941,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary" data-record-id="${escapeHtml(row.id)}">去裁剪总表</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}" ${row.latestMergeBatchNo ? '' : 'disabled'}>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}">
               查看合并裁剪批次
             </button>
           </div>
@@ -1619,6 +1619,11 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
   }
 
   if (action === 'go-merge-batches') {
+    const row = getRecordById(actionNode.dataset.recordId || state.activeOrderId || undefined)
+    if (!row?.latestMergeBatchNo) {
+      setFeedback('warning', '当前没有关联的合并裁剪批次，无法跳转。')
+      return true
+    }
     return navigateToRowTarget(actionNode.dataset.recordId || state.activeOrderId || undefined, 'mergeBatches')
   }
 

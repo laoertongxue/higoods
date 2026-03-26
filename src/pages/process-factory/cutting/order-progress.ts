@@ -264,7 +264,7 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
       ${renderCompactKpiCard('配料异常单', summary.prepExceptionCount, '审核或配料未齐', 'text-amber-600')}
       ${renderCompactKpiCard('领料异常单', summary.claimExceptionCount, '待领取或现场差异', 'text-orange-600')}
       ${renderCompactKpiCard('裁剪中单数', summary.cuttingCount, '含待入仓', 'text-violet-600')}
-      ${renderCompactKpiCard('已完成单数', summary.doneCount, '已收口', 'text-emerald-600')}
+      ${renderCompactKpiCard('已完成单数', summary.doneCount, '已完成', 'text-emerald-600')}
     </section>
   `
 }
@@ -809,7 +809,7 @@ function renderDetailDrawer(): string {
           </div>
           <dl class="mt-4 space-y-3 text-sm">
             <div class="flex items-start justify-between gap-3">
-              <dt class="text-muted-foreground">最近扫码时间</dt>
+              <dt class="text-muted-foreground">最近领料确认时间</dt>
               <dd class="text-right">${escapeHtml(row.latestPickupScanAt ? formatDateTime(row.latestPickupScanAt) : '-')}</dd>
             </div>
             <div class="flex items-start justify-between gap-3">

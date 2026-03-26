@@ -17,13 +17,13 @@ export const urgencyMeta: Record<CuttingUrgencyLevel, { label: string; className
 }
 
 export const summaryStatusMeta: Record<CuttingSummaryStatus, { label: string; className: string }> = {
-  PENDING_PREP_CLOSURE: { label: '待配料收口', className: 'bg-slate-100 text-slate-700' },
-  PENDING_EXECUTION_CLOSURE: { label: '待执行收口', className: 'bg-sky-50 text-sky-700' },
+  PENDING_PREP_CLOSURE: { label: '待配料领料', className: 'bg-slate-100 text-slate-700' },
+  PENDING_EXECUTION_CLOSURE: { label: '待执行确认', className: 'bg-sky-50 text-sky-700' },
   PENDING_REPLENISHMENT: { label: '待补料处理', className: 'bg-rose-50 text-rose-700' },
   PENDING_WAREHOUSE_HANDOVER: { label: '待入仓交接', className: 'bg-violet-50 text-violet-700' },
   PENDING_SAMPLE_RETURN: { label: '待样衣归还', className: 'bg-amber-50 text-amber-700' },
   DONE_PENDING_REVIEW: { label: '已完成待核查', className: 'bg-emerald-50 text-emerald-700' },
-  CLOSED: { label: '已收口', className: 'bg-emerald-50 text-emerald-700' },
+  CLOSED: { label: '已完成', className: 'bg-emerald-50 text-emerald-700' },
 }
 
 export const riskLevelMeta: Record<CuttingSummaryRiskLevel, { label: string; className: string }> = {

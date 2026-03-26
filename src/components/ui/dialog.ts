@@ -2,6 +2,7 @@
 
 import { escapeHtml } from '../../utils'
 import { renderButton, renderPrimaryButton, renderSecondaryButton, renderDangerButton } from './button'
+import { toActionAttr } from './types'
 import type { DialogConfig, ConfirmDialogConfig, AlertDialogConfig, DialogWidth, ActionConfig } from './types'
 
 // 对话框宽度映射
@@ -20,7 +21,7 @@ const WIDTH_CLASSES: Record<DialogWidth, string> = {
  */
 export function renderDialog(config: DialogConfig, content: string, footer?: string): string {
   const { title, description, closeAction, width = 'md' } = config
-  const backdropAttr = `data-${closeAction.prefix}-action="${closeAction.action}"`
+  const backdropAttr = toActionAttr(closeAction)
   const widthClass = WIDTH_CLASSES[width]
   
   return `

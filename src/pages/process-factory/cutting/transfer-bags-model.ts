@@ -1253,7 +1253,7 @@ export function buildSystemSeedTransferBagStore(options: {
       {
         auditTrailId: 'seed-return-audit-003',
         usageId: usage.usageId,
-        action: '关闭 usage',
+        action: '关闭使用周期',
         actionAt: '2026-03-24 09:50',
         actionBy: '仓管-吴洁',
         payloadSummary: '使用周期已关闭，口袋释放为可复用',

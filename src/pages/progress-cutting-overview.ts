@@ -21,6 +21,15 @@ import {
 import { appStore } from '../state/store'
 import { escapeHtml, formatDateTime } from '../utils'
 
+function getCuttingRouteActionLabel(route: string): string {
+  if (route.includes('/material-prep')) return '去仓库配料领料'
+  if (route.includes('/replenishment')) return '去补料管理'
+  if (route.includes('/cut-piece-orders')) return '去原始裁片单'
+  if (route.includes('/warehouse-management')) return '去仓务处理'
+  if (route.includes('/order-progress')) return '去生产单进度'
+  return '打开关联页面'
+}
+
 interface PlatformCuttingOverviewState {
   rows: PlatformCuttingOverviewRow[]
   filters: PlatformCuttingOverviewFilters
@@ -124,11 +133,11 @@ function renderSummaryCards(): string {
   const summary = buildPlatformOverviewStats(getFilteredRows())
   return `
     <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-      ${buildSummaryCard('进行中的裁片任务数', summary.inProgressCount, '仍处于现场执行或收口阶段', 'text-slate-900')}
+      ${buildSummaryCard('进行中的裁片任务数', summary.inProgressCount, '仍处于现场执行或待确认阶段', 'text-slate-900')}
       ${buildSummaryCard('高风险裁片任务数', summary.highRiskCount, '优先关注差异、补料和交期问题', 'text-rose-600')}
-      ${buildSummaryCard('待领料任务数', summary.pendingPickupCount, '扫裁片单主码领料仍未完成', 'text-sky-600')}
+      ${buildSummaryCard('待领料任务数', summary.pendingPickupCount, '裁片单主码领料仍未完成', 'text-sky-600')}
       ${buildSummaryCard('待补料处理任务数', summary.pendingReplenishmentCount, '补料建议仍需平台跟进', 'text-violet-600')}
-      ${buildSummaryCard('待入仓 / 待交接任务数', summary.pendingWarehouseOrHandoverCount, '仓务收口仍未完成', 'text-amber-600')}
+      ${buildSummaryCard('待入仓 / 待交接任务数', summary.pendingWarehouseOrHandoverCount, '仓务处理仍未完成', 'text-amber-600')}
       ${buildSummaryCard('需复核 / 有照片凭证任务数', summary.recheckOrPhotoCount, '需要核对差异和凭证', 'text-fuchsia-600')}
     </section>
   `
@@ -173,7 +182,7 @@ function renderFocusSection(): string {
                       <div class="mt-4 flex flex-wrap gap-2">
                         <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-platform-cutting-action="go-detail" data-record-id="${row.id}">查看详情</button>
                         <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-platform-cutting-action="open-summary" data-record-id="${row.id}">查看跟进摘要</button>
-                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-platform-cutting-action="go-route" data-route="${row.suggestedRoute}">去处理</button>
+                        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-platform-cutting-action="go-route" data-route="${row.suggestedRoute}">${escapeHtml(getCuttingRouteActionLabel(row.suggestedRoute))}</button>
                       </div>
                     </article>
                   `,
@@ -307,7 +316,7 @@ function renderMainTable(): string {
                           <td class="px-3 py-4">
                             <div class="text-sm text-foreground">${escapeHtml(buildPlatformPickupText(row))}</div>
                             <div class="mt-1 text-xs text-muted-foreground">
-                              打印 ${row.pickupAggregate.printedSlipCount} · 二维码 ${row.pickupAggregate.qrGeneratedCount} · 成功 ${row.pickupAggregate.receiveSuccessCount}
+                              打印 ${row.pickupAggregate.printedSlipCount} · 主码 ${row.pickupAggregate.qrGeneratedCount} · 成功 ${row.pickupAggregate.receiveSuccessCount}
                             </div>
                             <div class="mt-1 flex flex-wrap gap-1">
                               ${row.pickupSummary.needsRecheck ? renderBadge('需复核', 'bg-amber-50 text-amber-700') : ''}
@@ -323,7 +332,7 @@ function renderMainTable(): string {
                           <td class="px-3 py-4">
                             <div class="text-sm text-foreground">${escapeHtml(buildPlatformReplenishmentText(row))}</div>
                             <div class="mt-1 flex flex-wrap gap-1">
-                              ${row.hasPendingReplenishment ? renderBadge('待处理', 'bg-rose-50 text-rose-700') : renderBadge('已收口', 'bg-emerald-50 text-emerald-700')}
+                              ${row.hasPendingReplenishment ? renderBadge('待处理', 'bg-rose-50 text-rose-700') : renderBadge('已完成', 'bg-emerald-50 text-emerald-700')}
                             </div>
                           </td>
                           <td class="px-3 py-4">
@@ -417,7 +426,7 @@ function renderSummaryDrawer(): string {
             <div class="rounded-lg border bg-muted/20 p-4">
               <p class="text-xs text-muted-foreground">裁片单主码 / 扫描结果</p>
               <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.qrStatus)} · ${escapeHtml(row.pickupSummary.latestResultLabel)}</p>
-              <p class="mt-2 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.pickupSummary.latestScannedAt)} · ${escapeHtml(row.pickupSummary.latestScannedBy)}</p>
+              <p class="mt-2 text-xs text-muted-foreground">最近确认：${escapeHtml(row.pickupSummary.latestScannedAt)} · ${escapeHtml(row.pickupSummary.latestScannedBy)}</p>
               <div class="mt-2 flex flex-wrap gap-2">
                 ${row.pickupSummary.needsRecheck ? renderBadge('需复核', 'bg-amber-50 text-amber-700') : ''}
                 ${row.pickupSummary.hasPhotoEvidence ? renderBadge('有照片凭证', 'bg-blue-50 text-blue-700') : ''}

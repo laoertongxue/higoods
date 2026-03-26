@@ -1738,10 +1738,9 @@ function renderNewUrgeDrawer(): string {
               'inline-flex h-9 items-center rounded-md px-4 text-sm',
               canSend
                 ? 'border bg-primary text-primary-foreground hover:opacity-90'
-                : 'cursor-not-allowed border border-muted-foreground/20 bg-muted text-muted-foreground',
+                : 'border border-muted-foreground/20 bg-muted text-muted-foreground hover:bg-muted/80',
             )}"
             data-urge-action="send-urge"
-            ${canSend ? '' : 'disabled'}
           >
             <i data-lucide="send" class="mr-1.5 h-4 w-4"></i>发送催办
           </button>

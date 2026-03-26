@@ -152,7 +152,7 @@ function renderRecentActions(taskId: string, state: PdaCuttingTaskDetailPageStat
   if (!detail) return ''
 
   if (!detail.recentActions.length) {
-    return renderPdaCuttingEmptyState('暂无现场动作摘要', '后续扫码领取、铺布录入、入仓扫码、交接扫码和补料反馈都会在这里按时间倒序汇总。')
+    return renderPdaCuttingEmptyState('暂无现场动作摘要', '后续领料确认、铺布录入、入仓确认、交接确认和补料反馈都会在这里按时间倒序汇总。')
   }
 
   const visibleActions = state.actionsExpanded ? detail.recentActions : detail.recentActions.slice(0, 3)
@@ -194,7 +194,7 @@ function renderSpecialEntryCards(taskId: string): string {
 
   const entries = [
     {
-      title: '扫裁片单主码领料',
+      title: '裁片单主码领料',
       summary: detail.currentReceiveStatus,
       description: '',
       href: buildPdaCuttingRoute(taskId, 'pickup'),
@@ -206,13 +206,13 @@ function renderSpecialEntryCards(taskId: string): string {
       href: buildPdaCuttingRoute(taskId, 'spreading'),
     },
     {
-      title: '入仓扫码',
+      title: '入仓确认',
       summary: detail.currentInboundStatus,
       description: '',
       href: buildPdaCuttingRoute(taskId, 'inbound'),
     },
     {
-      title: '交接扫码',
+      title: '交接确认',
       summary: detail.currentHandoverStatus,
       description: '',
       href: buildPdaCuttingRoute(taskId, 'handover'),
@@ -253,7 +253,7 @@ function renderSpecialEntryCards(taskId: string): string {
 function renderClaimDisputeSummary(taskId: string): string {
   const dispute = getLatestClaimDisputeByTaskId(taskId)
   if (!dispute) {
-    return renderPdaCuttingEmptyState('暂无领料数量异议', '当前任务尚未发起领料数量异议；若现场实领数量与默认应领数量不一致，需要到扫码领料页提交异议并上传图片或视频证据。')
+    return renderPdaCuttingEmptyState('暂无领料数量异议', '当前任务尚未发起领料数量异议；若现场实领数量与默认应领数量不一致，需要到领料确认页提交异议并上传图片或视频证据。')
   }
 
   const meta = getClaimDisputeStatusMeta(dispute.status)

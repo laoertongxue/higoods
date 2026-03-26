@@ -1,7 +1,7 @@
 // ============ 分页组件 ============
 
 import type { PaginationConfig, ActionConfig } from './types'
-import { toActionAttr } from './types'
+import { toActionAttr, toDataPrefix } from './types'
 
 /**
  * HTML 转义
@@ -174,12 +174,13 @@ function generatePageNumbers(current: number, totalPages: number): (number | '..
  * 渲染页码跳转输入框
  */
 export function renderPageJumper(prefix: string, totalPages: number): string {
+  const dataPrefix = toDataPrefix(prefix)
   return `
     <div class="flex items-center gap-2 text-sm">
       <span class="text-muted-foreground">跳转至</span>
       <input type="number" min="1" max="${totalPages}" 
         class="h-9 w-16 rounded-md border border-input bg-background px-2 text-center text-sm"
-        data-${prefix}-field="goto-page"
+        data-${dataPrefix}-field="goto-page"
         onkeydown="if(event.key==='Enter'){this.dispatchEvent(new Event('change'))}"
       >
       <span class="text-muted-foreground">页</span>
@@ -197,6 +198,7 @@ export function renderPageSizeSelect(
   current: number,
   options = [10, 20, 50, 100]
 ): string {
+  const dataPrefix = toDataPrefix(prefix)
   const optionsHtml = options
     .map(size => {
       const selected = size === current ? 'selected' : ''
@@ -206,7 +208,7 @@ export function renderPageSizeSelect(
 
   return `
     <select class="h-9 rounded-md border border-input bg-background px-2 text-sm" 
-      data-${prefix}-filter="page-size">
+      data-${dataPrefix}-filter="page-size">
       ${optionsHtml}
     </select>
   `
@@ -282,26 +284,28 @@ export function renderTablePagination(config: TablePaginationConfig): string {
   const prevDisabled = currentPage <= 1
   const nextDisabled = currentPage >= totalPages
   const rangeText = total > 0 ? `，当前 ${from}-${to}` : ''
+  const actionDataPrefix = toDataPrefix(actionPrefix)
+  const fieldDataPrefix = toDataPrefix(fieldPrefix)
 
   return `
     <footer class="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-3">
       <p class="text-xs text-muted-foreground">共 ${total} 条${rangeText}</p>
       <div class="flex flex-wrap items-center gap-2">
-        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-${fieldPrefix}-field="pageSize">
+        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-${fieldDataPrefix}-field="pageSize">
           ${pageSizeOptions
             .map((size) => `<option value="${size}" ${size === pageSize ? 'selected' : ''}>${size} 条/页</option>`)
             .join('')}
         </select>
         <button
           class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${prevDisabled ? 'cursor-not-allowed opacity-60' : ''}"
-          data-${actionPrefix}-action="prev-page"
+          data-${actionDataPrefix}-action="prev-page"
           ${prevDisabled ? 'disabled' : ''}>
           上一页
         </button>
         <span class="text-xs text-muted-foreground">${currentPage} / ${totalPages}</span>
         <button
           class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${nextDisabled ? 'cursor-not-allowed opacity-60' : ''}"
-          data-${actionPrefix}-action="next-page"
+          data-${actionDataPrefix}-action="next-page"
           ${nextDisabled ? 'disabled' : ''}>
           下一页
         </button>

@@ -11,6 +11,15 @@ import {
 import { appStore } from '../state/store'
 import { escapeHtml, formatDateTime } from '../utils'
 
+function getCuttingRouteActionLabel(route: string): string {
+  if (route.includes('/material-prep')) return '去仓库配料领料'
+  if (route.includes('/replenishment')) return '去补料管理'
+  if (route.includes('/cut-piece-orders')) return '去原始裁片单'
+  if (route.includes('/warehouse-management')) return '去仓务处理'
+  if (route.includes('/order-progress')) return '去生产单进度'
+  return '打开关联页面'
+}
+
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
@@ -26,9 +35,7 @@ function renderIssueCard(issue: PlatformCuttingDetailIssueItem): string {
       <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(issue.description)}</p>
       <p class="mt-3 text-xs text-muted-foreground">建议动作：${escapeHtml(issue.suggestedAction)}</p>
       <div class="mt-4">
-        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-platform-cutting-detail-action="go-route" data-route="${issue.suggestedRoute}">
-          去对应页面
-        </button>
+        <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-platform-cutting-detail-action="go-route" data-route="${issue.suggestedRoute}">${escapeHtml(getCuttingRouteActionLabel(issue.suggestedRoute))}</button>
       </div>
     </article>
   `
@@ -180,10 +187,10 @@ function renderPickupSection(recordId: string): string {
           <p class="mt-1 text-xs text-muted-foreground">已打印次数：${row.pickupSummary.printCopyCount}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 p-4">
-          <p class="text-xs text-muted-foreground">裁片单主码 / 扫描结果</p>
+          <p class="text-xs text-muted-foreground">裁片单主码 / 当前结果</p>
           <p class="mt-1 font-medium text-foreground">${escapeHtml(row.pickupSummary.qrStatus)} · ${escapeHtml(row.pickupSummary.latestResultLabel)}</p>
-          <p class="mt-2 text-xs text-muted-foreground">最近扫码：${escapeHtml(row.pickupSummary.latestScannedAt)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">扫码人：${escapeHtml(row.pickupSummary.latestScannedBy)}</p>
+          <p class="mt-2 text-xs text-muted-foreground">最近确认：${escapeHtml(row.pickupSummary.latestScannedAt)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">确认人：${escapeHtml(row.pickupSummary.latestScannedBy)}</p>
           <p class="mt-1 text-xs text-muted-foreground">回执状态：${escapeHtml(row.pickupSummary.receiptStatusLabel)}</p>
         </article>
         <article class="rounded-lg border bg-muted/20 p-4">
@@ -310,7 +317,7 @@ function renderIssueSection(recordId: string): string {
         ${
           detail.issues.length
             ? detail.issues.map((issue) => renderIssueCard(issue)).join('')
-            : '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-muted-foreground">当前没有待跟进的问题项，裁片任务已接近收口。</div>'
+            : '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-muted-foreground">当前没有待跟进的问题项，裁片任务已接近完成。</div>'
         }
       </div>
     </section>

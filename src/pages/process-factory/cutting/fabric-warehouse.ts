@@ -398,7 +398,7 @@ function renderDetailDrawer(): string {
           <div class="flex items-center justify-between gap-3">
             <div>
               <h3 class="text-sm font-semibold text-foreground">关注与后续链路</h3>
-              <p class="mt-1 text-xs text-muted-foreground">当前只承接裁床仓库存视角，不在此页做真实出入库或扫码。</p>
+              <p class="mt-1 text-xs text-muted-foreground">当前只承接裁床仓库存视角，不在此页做真实出入库确认。</p>
             </div>
             <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-white" data-fabric-warehouse-action="toggle-focus" data-stock-id="${escapeHtml(item.stockItemId)}">${state.focusedStockIds.includes(item.stockItemId) ? '取消重点关注' : '标记低余量关注'}</button>
           </div>

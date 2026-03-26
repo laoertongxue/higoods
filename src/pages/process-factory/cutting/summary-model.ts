@@ -1132,7 +1132,7 @@ export function buildSummaryDashboardCards(
       key: 'production-orders',
       label: '生产单总数',
       value: dashboard.productionOrderCount,
-      hint: '默认生产单视角收口行',
+      hint: '默认按生产单汇总',
       accentClass: 'text-slate-900',
     },
     {
@@ -1205,7 +1205,7 @@ export function buildSummaryDashboardCards(
       key: 'high-risk',
       label: '高风险问题数',
       value: dashboard.highRiskCount,
-      hint: '需优先核查的收口行',
+      hint: '需优先核查的生产单',
       accentClass: 'text-rose-600',
       filterType: 'risk',
       filterValue: 'HIGH',

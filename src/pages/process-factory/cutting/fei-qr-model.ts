@@ -178,7 +178,7 @@ export function getDefaultReservedTracePayload(existing?: Partial<FeiQrReservedT
       enabled: existing?.reservedScanCheckpoint?.enabled ?? false,
       payloadVersion: existing?.reservedScanCheckpoint?.payloadVersion ?? null,
       checkpoints: existing?.reservedScanCheckpoint?.checkpoints ?? null,
-      note: existing?.reservedScanCheckpoint?.note ?? '后续扫码校验节点将消费该保留结构。',
+      note: existing?.reservedScanCheckpoint?.note ?? '后续主码校验节点将消费该保留结构。',
     },
     reservedFutureFields: existing?.reservedFutureFields ?? {},
   }
@@ -259,10 +259,10 @@ export function validateFeiQrPayload(payload: FeiQrPayload): FeiQrValidationResu
   const allowedTopLevelKeys = ['schemaName', 'schemaVersion', 'ownerType', 'ownerId', 'ticket', 'sourceContext', 'baseBiz', 'reservedProcess', 'reservedTrace']
   const warnings: string[] = []
 
-  if (payload.ownerType !== 'original-cut-order') warnings.push('二维码 ownerType 非 original-cut-order。')
-  if (!payload.ticket.ticketNo) warnings.push('当前二维码缺少 ticketNo。')
-  if (!payload.baseBiz.productionOrderNo) warnings.push('当前二维码缺少生产单号。')
-  if (!payload.baseBiz.sameCodeValue) warnings.push('当前二维码缺少同一码摘要。')
+  if (payload.ownerType !== 'original-cut-order') warnings.push('裁片单主码归属对象不是 original-cut-order。')
+  if (!payload.ticket.ticketNo) warnings.push('当前主码缺少菲票号。')
+  if (!payload.baseBiz.productionOrderNo) warnings.push('当前主码缺少生产单号。')
+  if (!payload.baseBiz.sameCodeValue) warnings.push('当前主码缺少裁片单主码摘要。')
 
   return {
     isValid:
@@ -321,7 +321,7 @@ export function buildFeiQrCompatibilityMeta(record: Partial<FeiTicketLabelRecord
   return {
     isLegacy,
     schemaVersion: record.schemaVersion || FEI_QR_SCHEMA_VERSION,
-    compatibilityNote: isLegacy ? '旧版 payload 已按默认结构兼容展示。' : '当前票据已使用版本化二维码结构。',
+    compatibilityNote: isLegacy ? '旧版数据已按默认结构兼容展示。' : '当前票据已使用版本化主码结构。',
     usedDefaultReservedProcess,
     usedDefaultReservedTrace,
   }
@@ -345,4 +345,3 @@ export function buildQrNavigationPayload(payload: FeiQrPayload): Record<string, 
     ticketNo: payload.ticket.ticketNo || undefined,
   }
 }
-

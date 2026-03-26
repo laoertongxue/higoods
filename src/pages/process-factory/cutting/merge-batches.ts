@@ -233,8 +233,7 @@ function renderActionButton(label: string, attrs: string, variant: 'primary' | '
     <button
       type="button"
       ${attrs}
-      class="${baseClass} ${disabled ? 'pointer-events-none opacity-50' : ''}"
-      ${disabled ? 'disabled' : ''}
+      class="${baseClass} ${disabled ? 'opacity-60' : ''}"
     >
       ${escapeHtml(label)}
     </button>

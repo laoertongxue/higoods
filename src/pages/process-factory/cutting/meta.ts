@@ -297,7 +297,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '裁剪总表',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看裁片域总收口。',
+    shortDescription: '查看裁片域总表。',
   },
 }
 

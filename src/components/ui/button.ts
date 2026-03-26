@@ -1,6 +1,7 @@
 // ============ 按钮组件 ============
 
 import { escapeHtml } from '../../utils'
+import { toActionAttr } from './types'
 import type { ButtonConfig, ButtonVariant, ButtonSize, ActionConfig } from './types'
 
 // 按钮变体样式映射
@@ -49,7 +50,7 @@ export function renderButton(config: ButtonConfig): string {
   const sizeClasses = isIconOnly ? '' : SIZE_CLASSES[size]
   const iconClasses = ICON_SIZE_CLASSES[size]
   
-  const actionAttr = action ? `data-${action.prefix}-action="${action.action}"` : ''
+  const actionAttr = action ? toActionAttr(action) : ''
   const disabledAttr = disabled ? 'disabled' : ''
   
   const iconHtml = icon ? `<i data-lucide="${icon}" class="${iconClasses}"></i>` : ''
@@ -92,7 +93,7 @@ export function renderDangerButton(label: string, action?: ActionConfig, icon?: 
  * 渲染图标按钮
  */
 export function renderIconButton(icon: string, action?: ActionConfig, title?: string): string {
-  const actionAttr = action ? `data-${action.prefix}-action="${action.action}"` : ''
+  const actionAttr = action ? toActionAttr(action) : ''
   const titleAttr = title ? `title="${escapeHtml(title)}"` : ''
   
   return `

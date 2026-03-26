@@ -1,7 +1,7 @@
 // ============ 表格组件 ============
 
 import type { TableColumn, TableOptions, ActionConfig } from './types'
-import { toActionAttr } from './types'
+import { toActionAttr, toDataPrefix } from './types'
 
 /**
  * HTML 转义
@@ -126,7 +126,7 @@ export function renderTableRow<T>(
   let rowAttrs = ''
   if (rowAction) {
     const dataValue = (row as any)[rowAction.dataKey]
-    rowAttrs = `${toActionAttr(rowAction)} data-${rowAction.prefix}-id="${dataValue}" class="${TABLE_ROW_CLASSES} cursor-pointer`
+    rowAttrs = `${toActionAttr(rowAction)} data-${toDataPrefix(rowAction.prefix)}-id="${dataValue}" class="${TABLE_ROW_CLASSES} cursor-pointer`
   } else {
     rowAttrs = `class="${TABLE_ROW_CLASSES}`
   }
@@ -180,7 +180,7 @@ export function renderTableActions(
   const actionButtons = buttons
     .map(btn => {
       const actionAttr = toActionAttr(btn.action)
-      const idAttr = rowIdAttr ? ` data-${btn.action.prefix}-id="${rowIdAttr}"` : ''
+      const idAttr = rowIdAttr ? ` data-${toDataPrefix(btn.action.prefix)}-id="${rowIdAttr}"` : ''
       const variantClass = btn.variant === 'danger' ? 'text-rose-600 hover:text-rose-700' : ''
       const iconHtml = btn.icon
         ? `<i data-lucide="${btn.icon}" class="h-4 w-4 ${btn.label ? 'mr-1' : ''}"></i>`
@@ -207,7 +207,7 @@ export function renderTableIconActions(
   const iconButtons = buttons
     .map(btn => {
       const actionAttr = toActionAttr(btn.action)
-      const idAttr = rowIdAttr ? ` data-${btn.action.prefix}-id="${rowIdAttr}"` : ''
+      const idAttr = rowIdAttr ? ` data-${toDataPrefix(btn.action.prefix)}-id="${rowIdAttr}"` : ''
       const variantClass = btn.variant === 'danger' ? 'hover:text-rose-600' : 'hover:bg-muted'
       const title = btn.title ? `title="${escapeHtml(btn.title)}"` : ''
       
@@ -228,9 +228,10 @@ export function renderTableIconActions(
  * 渲染表格选择框头部
  */
 export function renderTableSelectHeader(prefix: string): string {
+  const dataPrefix = toDataPrefix(prefix)
   return `
     <th class="w-[40px] px-4">
-      <input type="checkbox" class="h-4 w-4 rounded border-gray-300" data-${prefix}-action="toggle-select-all">
+      <input type="checkbox" class="h-4 w-4 rounded border-gray-300" data-${dataPrefix}-action="toggle-select-all">
     </th>
   `
 }
@@ -239,11 +240,12 @@ export function renderTableSelectHeader(prefix: string): string {
  * 渲染表格选择框单元格
  */
 export function renderTableSelectCell(prefix: string, id: string, checked = false): string {
+  const dataPrefix = toDataPrefix(prefix)
   return `
     <td class="w-[40px] px-4">
       <input type="checkbox" class="h-4 w-4 rounded border-gray-300" 
-        data-${prefix}-action="toggle-select" 
-        data-${prefix}-id="${escapeHtml(id)}"
+        data-${dataPrefix}-action="toggle-select" 
+        data-${dataPrefix}-id="${escapeHtml(id)}"
         ${checked ? 'checked' : ''}>
     </td>
   `
@@ -276,8 +278,9 @@ export function renderExpandableRow(
  */
 export function renderExpandButton(prefix: string, id: string, expanded = false): string {
   const icon = expanded ? 'chevron-up' : 'chevron-down'
+  const dataPrefix = toDataPrefix(prefix)
   return `
-    <button class="p-1 hover:bg-muted rounded" data-${prefix}-action="toggle-expand" data-${prefix}-id="${escapeHtml(id)}">
+    <button class="p-1 hover:bg-muted rounded" data-${dataPrefix}-action="toggle-expand" data-${dataPrefix}-id="${escapeHtml(id)}">
       <i data-lucide="${icon}" class="h-4 w-4"></i>
     </button>
   `

@@ -10,25 +10,32 @@ export interface ActionConfig {
   action: string   // 动作名，如 'close-drawer', 'submit'
 }
 
+export function toDataPrefix(prefix: string): string {
+  return prefix
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/_/g, '-')
+    .toLowerCase()
+}
+
 /**
  * 生成 data-action 属性字符串
  */
 export function toActionAttr(config: ActionConfig): string {
-  return `data-${config.prefix}-action="${config.action}"`
+  return `data-${toDataPrefix(config.prefix)}-action="${config.action}"`
 }
 
 /**
  * 生成 data-field 属性字符串
  */
 export function toFieldAttr(prefix: string, field: string): string {
-  return `data-${prefix}-field="${field}"`
+  return `data-${toDataPrefix(prefix)}-field="${field}"`
 }
 
 /**
  * 生成 data-filter 属性字符串
  */
 export function toFilterAttr(prefix: string, filter: string): string {
-  return `data-${prefix}-filter="${filter}"`
+  return `data-${toDataPrefix(prefix)}-filter="${filter}"`
 }
 
 // ============ 按钮类型 ============
