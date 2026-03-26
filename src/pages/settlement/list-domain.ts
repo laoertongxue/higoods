@@ -18,6 +18,7 @@ import {
   type CycleType,
   type SettlementStatus,
 } from './context'
+import { getSettlementPageBoundary } from '../../data/fcs/settlement-flow-boundaries'
 import { renderInitFactoryPickerDialog } from './init-domain'
 import { renderSettlementRequestDetailDialog, renderSettlementRequestPrintDialog } from './request-domain'
 
@@ -93,6 +94,7 @@ function renderRequestStats(requests: SettlementChangeRequest[]): string {
 
 
 export function renderSettlementListPage(): string {
+  const pageBoundary = getSettlementPageBoundary('settlement-master-data')
   syncSettlementRequestState()
   const filteredSummaries = getFilteredSummaries()
   const pagedSummaries = getPagedSummaries(filteredSummaries)
@@ -104,7 +106,7 @@ export function renderSettlementListPage(): string {
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-semibold">结算信息</h1>
-          <p class="mt-1 text-sm text-muted-foreground">管理工厂结算配置、收款账户和扣款规则</p>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(pageBoundary.pageIntro)}</p>
         </div>
         ${
           state.listView === 'effective'
@@ -355,4 +357,3 @@ export function renderSettlementListPage(): string {
     </div>
   `
 }
-

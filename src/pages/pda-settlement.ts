@@ -17,6 +17,14 @@ import { listQualityDeductionCaseFacts } from '../data/fcs/quality-deduction-rep
 import {
   buildDeductionEntryHrefByBasisId,
 } from '../data/fcs/quality-chain-adapter'
+import {
+  getStatementDraftById,
+  listSettlementBatchesByParty,
+  listSettlementBatchesByStatement,
+  listSettlementStatementsByParty,
+  submitStatementFactoryAppeal,
+  submitStatementFactoryConfirmation,
+} from '../data/fcs/store-domain-settlement-seeds'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 import {
   createSettlementChangeRequest,
@@ -31,6 +39,8 @@ import {
   type SettlementEffectiveInfoSnapshot,
   type SettlementVersionRecord,
 } from '../data/fcs/settlement-change-requests'
+import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
+import type { SettlementBatch, StatementDraft } from '../data/fcs/store-domain-settlement-types'
 
 type SettlementPageMode = 'cycles' | 'cycle-detail'
 type DetailTab = 'overview' | 'quality' | 'tasks' | 'deductions'
@@ -183,6 +193,12 @@ interface SettlementCycle {
   payments: PaymentRecord[]
 }
 
+interface StatementAppealForm {
+  reason: string
+  description: string
+  evidenceSummary: string
+}
+
 interface PdaSettlementState {
   lastRouteSyncKey: string
   pageMode: SettlementPageMode
@@ -206,6 +222,10 @@ interface PdaSettlementState {
   settlementRequestErrors: Partial<Record<'accountHolderName' | 'idNumber' | 'bankName' | 'bankAccountNo', string>>
   settlementRequestErrorText: string
   settlementRequestForm: SettlementEffectiveInfoSnapshot & { submitRemark: string }
+  statementDrawerMode: 'detail' | 'appeal' | 'payment' | null
+  statementDetailId: string | null
+  statementErrorText: string
+  statementAppealForm: StatementAppealForm
 }
 
 interface PlatformQcWritebackItem {
@@ -324,6 +344,14 @@ const state: PdaSettlementState = {
     bankAccountNo: '',
     bankBranch: '',
     submitRemark: '',
+  },
+  statementDrawerMode: null,
+  statementDetailId: null,
+  statementErrorText: '',
+  statementAppealForm: {
+    reason: '',
+    description: '',
+    evidenceSummary: '',
   },
 }
 
@@ -446,7 +474,7 @@ function getChangedSettlementFields(request: SettlementChangeRequest): string {
 
 function getRequestNextStepText(request: SettlementChangeRequest): string {
   if (request.status === 'PENDING_REVIEW') return '平台正在审核申请，待上传签字证明后完成通过处理'
-  if (request.status === 'APPROVED') return '申请已通过，当前结算资料已更新为新版本'
+  if (request.status === 'APPROVED') return '申请已通过，新版本会用于后续新生成的结算单据，已生成单据继续保留原版本快照'
   return request.rejectReason || '申请未通过，可重新发起申请'
 }
 
@@ -631,6 +659,345 @@ function syncSettlementStateFromRoute(): void {
   }
 
   state.lastRouteSyncKey = routeKey
+}
+
+function getStatementFactoryFeedbackLabel(status: StatementDraft['factoryFeedbackStatus']): string {
+  if (status === 'NOT_SENT') return '未下发'
+  if (status === 'PENDING_FACTORY_CONFIRM') return '待工厂反馈'
+  if (status === 'FACTORY_CONFIRMED') return '工厂已确认'
+  if (status === 'FACTORY_APPEALED') return '工厂已申诉'
+  if (status === 'PLATFORM_HANDLING') return '平台处理中'
+  return '已处理完成'
+}
+
+function getStatementFactoryFeedbackVariant(status: StatementDraft['factoryFeedbackStatus']): BadgeVariant {
+  if (status === 'PENDING_FACTORY_CONFIRM') return 'amber'
+  if (status === 'FACTORY_CONFIRMED') return 'green'
+  if (status === 'FACTORY_APPEALED') return 'red'
+  if (status === 'PLATFORM_HANDLING') return 'blue'
+  if (status === 'RESOLVED') return 'gray'
+  return 'gray'
+}
+
+function isDateInSettlementCycle(dateText: string | undefined, cycle: SettlementCycle): boolean {
+  if (!dateText) return false
+  const date = dateText.slice(0, 10)
+  return date >= cycle.periodStart && date <= cycle.periodEnd
+}
+
+function getCycleSettlementStatements(cycle: SettlementCycle): StatementDraft[] {
+  const statements = listSettlementStatementsByParty(getCurrentSettlementPartyId())
+  const exactMatched = statements.filter((item) => isDateInSettlementCycle(item.createdAt, cycle))
+  if (exactMatched.length > 0) return exactMatched.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  if (cycle.isCurrentWeek) {
+    return statements
+      .filter((item) => item.status === 'CONFIRMED' || item.status === 'DRAFT')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 1)
+  }
+  return []
+}
+
+function getPrimaryCycleStatement(cycle: SettlementCycle): StatementDraft | null {
+  return getCycleSettlementStatements(cycle)[0] ?? null
+}
+
+function getStatementLinkedLatestBatch(statementId: string): SettlementBatch | null {
+  return (
+    listSettlementBatchesByStatement(statementId)
+      .slice()
+      .sort((a, b) => (b.paymentUpdatedAt ?? b.updatedAt ?? b.createdAt).localeCompare(a.paymentUpdatedAt ?? a.updatedAt ?? a.createdAt))
+      [0] ?? null
+  )
+}
+
+function getStatementAmountComposition(statement: StatementDraft): {
+  totalAmount: number
+  sourceTotalAmount: number
+  qualitySourceAmount: number
+  otherSourceAmount: number
+} {
+  const qualitySourceAmount = statement.items
+    .filter((item) => item.sourceItemType === 'QUALITY_BASIS')
+    .reduce((sum, item) => sum + item.deductionAmount, 0)
+  const sourceTotalAmount = statement.items.reduce((sum, item) => sum + item.deductionAmount, 0)
+
+  return {
+    totalAmount: statement.totalAmount,
+    sourceTotalAmount,
+    qualitySourceAmount,
+    otherSourceAmount: Math.max(0, sourceTotalAmount - qualitySourceAmount),
+  }
+}
+
+function getLatestFactoryBatch(): SettlementBatch | null {
+  return (
+    listSettlementBatchesByParty(getCurrentSettlementPartyId())
+      .slice()
+      .sort((a, b) => (b.paymentUpdatedAt ?? b.updatedAt ?? b.createdAt).localeCompare(a.paymentUpdatedAt ?? a.updatedAt ?? a.createdAt))
+      [0] ?? null
+  )
+}
+
+function resetStatementAppealForm(): void {
+  state.statementAppealForm = {
+    reason: '',
+    description: '',
+    evidenceSummary: '',
+  }
+}
+
+function renderStatementEntryCard(cycle: SettlementCycle): string {
+  const statement = getPrimaryCycleStatement(cycle)
+  if (!statement) {
+    return `
+      <div class="rounded-lg border border-dashed bg-background px-3 py-3">
+        <div class="text-xs font-medium text-foreground">当前周期对账单</div>
+        <p class="mt-1 text-[10px] leading-5 text-muted-foreground">当前周期尚未生成工厂可查看的对账单，后续生成后会在这里显示并承接确认或申诉。</p>
+      </div>
+    `
+  }
+
+  return `
+    <div class="rounded-lg border bg-background px-3 py-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold">${escapeHtml(statement.statementId)}</span>
+            ${renderStatusBadge(statement.status === 'DRAFT' ? '草稿中' : statement.status === 'CONFIRMED' ? '已确认' : '已关闭', statement.status === 'CONFIRMED' ? 'blue' : statement.status === 'DRAFT' ? 'amber' : 'gray')}
+            ${renderStatusBadge(getStatementFactoryFeedbackLabel(statement.factoryFeedbackStatus), getStatementFactoryFeedbackVariant(statement.factoryFeedbackStatus))}
+          </div>
+          <p class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`结算对象 ${statement.statementPartyView || statement.settlementPartyId} · 总金额 ${fmtIDR(statement.totalAmount)}`)}</p>
+          <p class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`结算资料版本 ${statement.settlementProfileVersionNo} · ${statement.settlementProfileSnapshot.receivingAccountSnapshot.bankName} · 尾号 ${statement.settlementProfileSnapshot.receivingAccountSnapshot.bankAccountNo.slice(-4)}`)}</p>
+        </div>
+        <button
+          class="rounded-md border px-2.5 py-1 text-[10px] hover:bg-muted"
+          data-pda-sett-action="open-statement-detail"
+          data-statement-id="${escapeHtml(statement.statementId)}"
+        >
+          查看对账单
+        </button>
+      </div>
+      ${
+        statement.status === 'CONFIRMED' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
+          ? `
+            <div class="mt-3 flex gap-2">
+              <button
+                class="flex-1 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700"
+                data-pda-sett-action="confirm-statement"
+                data-statement-id="${escapeHtml(statement.statementId)}"
+              >
+                确认对账
+              </button>
+              <button
+                class="flex-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700"
+                data-pda-sett-action="open-statement-appeal"
+                data-statement-id="${escapeHtml(statement.statementId)}"
+              >
+                发起申诉
+              </button>
+            </div>
+          `
+          : ''
+      }
+    </div>
+  `
+}
+
+function renderBatchWritebackEntryCard(cycle: SettlementCycle): string {
+  const batch = getLatestFactoryBatch()
+  const primaryStatement = getPrimaryCycleStatement(cycle)
+  if (!batch) {
+    return `
+      <div class="rounded-lg border border-dashed bg-background px-3 py-3">
+        <div class="text-xs font-medium text-foreground">打款结果</div>
+        <p class="mt-1 text-[10px] leading-5 text-muted-foreground">当前尚未看到平台回写的打款结果，后续完成打款回写后会在这里显示。</p>
+      </div>
+    `
+  }
+
+  return `
+    <div class="rounded-lg border bg-background px-3 py-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold">${escapeHtml(batch.batchId)}</span>
+            ${renderStatusBadge(batch.status === 'COMPLETED' ? '已完成' : batch.status === 'PROCESSING' ? '待打款/待回写' : '进行中', batch.status === 'COMPLETED' ? 'green' : batch.status === 'PROCESSING' ? 'blue' : 'amber')}
+          </div>
+          <p class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`当前周期已打款 ${fmtIDR(cycle.paidAmount)} · 最近打款 ${batch.paymentAt || cycle.lastPaymentDate || '未登记'}`)}</p>
+          <p class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`回写状态 ${batch.paymentSyncStatus || '未回写'} · 参考号 ${batch.paymentReferenceNo || '未填写'}`)}</p>
+        </div>
+        <button
+          class="rounded-md border px-2.5 py-1 text-[10px] hover:bg-muted"
+          data-pda-sett-action="open-statement-payment"
+          data-batch-id="${escapeHtml(batch.batchId)}"
+          data-statement-id="${escapeHtml(primaryStatement?.statementId || batch.statementIds?.[0] || '')}"
+        >
+          查看打款结果
+        </button>
+      </div>
+    </div>
+  `
+}
+
+function renderStatementDrawer(): string {
+  if (!state.statementDrawerMode || !state.statementDetailId) return ''
+  const statement = getStatementDraftById(state.statementDetailId)
+  if (!statement) return ''
+
+  const linkedBatches = listSettlementBatchesByStatement(statement.statementId)
+  const latestBatch = getStatementLinkedLatestBatch(statement.statementId)
+  const amountComposition = getStatementAmountComposition(statement)
+
+  if (state.statementDrawerMode === 'payment') {
+    return renderDrawer(
+      `打款结果 · ${statement.statementId}`,
+      `
+        ${renderSCard(
+          '打款结果',
+          `${renderRow('批次号', latestBatch?.batchId || '当前未入批')}
+           ${renderRow('打款时间', latestBatch?.paymentAt || '当前未登记')}
+           ${renderRow('打款金额', latestBatch?.paymentAmount ? fmtIDR(latestBatch.paymentAmount) : '当前未登记', {
+             green: Boolean(latestBatch?.paymentAmount),
+           })}
+           ${renderRow('参考流水号', latestBatch?.paymentReferenceNo || '当前未填写')}
+           ${renderRow('回写状态', latestBatch?.paymentSyncStatus || '当前未回写')}
+           ${renderRow('关联对账单', statement.statementId)}`,
+        )}
+      `,
+      'close-statement-drawer',
+    )
+  }
+
+  if (state.statementDrawerMode === 'appeal') {
+    return renderDrawer(
+      `发起对账单申诉 · ${statement.statementId}`,
+      `
+        <div class="space-y-3">
+          <div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] leading-5 text-muted-foreground">
+            当前申诉会回写到对账单对象本身，平台端可直接看到工厂申诉状态、提交时间和申诉说明。若结算资料新增版本通过，只影响未来新单据，当前对账单继续保留生成时快照。
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-foreground">申诉原因</label>
+            <input class="h-9 w-full rounded-md border bg-background px-3 text-xs" value="${escapeHtml(state.statementAppealForm.reason)}" data-pda-sett-field="statement-appeal-reason" placeholder="请填写申诉原因" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-foreground">申诉说明</label>
+            <textarea class="min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-xs" data-pda-sett-field="statement-appeal-description" placeholder="请补充申诉说明">${escapeHtml(state.statementAppealForm.description)}</textarea>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-foreground">证据说明（选填）</label>
+            <input class="h-9 w-full rounded-md border bg-background px-3 text-xs" value="${escapeHtml(state.statementAppealForm.evidenceSummary)}" data-pda-sett-field="statement-appeal-evidence" placeholder="可填写附件或证据简述" />
+          </div>
+          ${state.statementErrorText ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[10px] text-red-700">${escapeHtml(state.statementErrorText)}</div>` : ''}
+          <div class="grid grid-cols-2 gap-2">
+            <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-pda-sett-action="close-statement-drawer">取消</button>
+            <button class="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground" data-pda-sett-action="submit-statement-appeal" data-statement-id="${escapeHtml(statement.statementId)}">提交申诉</button>
+          </div>
+        </div>
+      `,
+      'close-statement-drawer',
+    )
+  }
+
+  return renderDrawer(
+    `对账单 · ${statement.statementId}`,
+    `
+      ${renderSCard(
+        '对账单基本信息',
+        `${renderRow('对账单号', statement.statementId)}
+         ${renderRow('平台状态', statement.status === 'DRAFT' ? '草稿中' : statement.status === 'CONFIRMED' ? '已确认' : '已关闭')}
+         ${renderRow('工厂反馈状态', getStatementFactoryFeedbackLabel(statement.factoryFeedbackStatus))}
+         ${renderRow('结算对象', statement.statementPartyView || statement.settlementPartyId)}
+         ${renderRow('总金额', fmtIDR(statement.totalAmount), { bold: true })}
+         ${renderRow('创建时间', statement.createdAt)}`,
+      )}
+      ${renderSCard(
+        '结算资料快照',
+        `${renderRow('版本号', statement.settlementProfileVersionNo)}
+         ${renderRow('结算币种', statement.settlementProfileSnapshot.settlementConfigSnapshot.currency)}
+         ${renderRow('结算周期规则', statement.settlementProfileSnapshot.settlementConfigSnapshot.settlementDayRule)}
+         ${renderRow('收款银行', statement.settlementProfileSnapshot.receivingAccountSnapshot.bankName)}
+         ${renderRow('账号尾号', maskBankAccountNo(statement.settlementProfileSnapshot.receivingAccountSnapshot.bankAccountNo))}
+         <p class="pt-1 text-[10px] leading-5 text-muted-foreground">当前对账单已冻结生成时使用的结算资料版本；后续主数据新增版本只影响未来新单据。</p>`,
+      )}
+      ${renderSCard(
+        '金额构成',
+        `${renderRow('本单总金额', fmtIDR(amountComposition.totalAmount), { bold: true })}
+         ${renderRow('来源项总金额', fmtIDR(amountComposition.sourceTotalAmount))}
+         ${renderRow('质量来源金额', amountComposition.qualitySourceAmount > 0 ? fmtIDR(amountComposition.qualitySourceAmount) : '—')}
+         ${renderRow('其它来源金额', amountComposition.otherSourceAmount > 0 ? fmtIDR(amountComposition.otherSourceAmount) : '—')}
+         <p class="pt-1 text-[10px] leading-5 text-muted-foreground">这里按来源项口径查看本单金额构成，便于工厂确认当前对账单由哪些来源结果组成。</p>`,
+      )}
+      ${renderSCard(
+        '来源项清单',
+        statement.items
+          .map(
+            (item) => `
+              <div class="rounded-md border bg-muted/20 px-3 py-2">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-medium">${escapeHtml(item.sourceRefLabel || item.sourceItemId)}</span>
+                      ${renderStatusBadge(item.sourceLabelZh || '来源项', 'blue')}
+                    </div>
+                    <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`${item.productionOrderId || '未绑定生产单'} · ${item.taskId || '未绑定任务'}`)}</div>
+                  </div>
+                  <div class="shrink-0 text-right">
+                    <div class="text-xs font-semibold">${escapeHtml(fmtIDR(item.deductionAmount))}</div>
+                  </div>
+                </div>
+              </div>
+            `,
+          )
+          .join(''),
+      )}
+      ${renderSCard(
+        '工厂反馈与申诉',
+        `${renderRow('反馈状态', getStatementFactoryFeedbackLabel(statement.factoryFeedbackStatus))}
+         ${renderRow('反馈时间', statement.factoryFeedbackAt || '当前未反馈')}
+         ${renderRow('反馈人', statement.factoryFeedbackBy || '当前未反馈')}
+         ${renderRow('反馈说明', statement.factoryFeedbackRemark || '当前无反馈说明')}
+         ${
+           statement.factoryAppealRecord
+             ? `
+               ${renderRow('申诉原因', statement.factoryAppealRecord.reason)}
+               ${renderRow('申诉时间', statement.factoryAppealRecord.submittedAt)}
+               ${renderRow('证据说明', statement.factoryAppealRecord.evidenceSummary || '当前未补充')}
+             `
+             : ''
+         }`,
+      )}
+      ${
+        latestBatch
+          ? renderSCard(
+              '打款结果',
+              `${renderRow('批次号', latestBatch.batchId)}
+               ${renderRow('打款时间', latestBatch.paymentAt || '当前未登记')}
+               ${renderRow('打款金额', latestBatch.paymentAmount ? fmtIDR(latestBatch.paymentAmount) : '当前未登记', {
+                 green: Boolean(latestBatch.paymentAmount),
+               })}
+               ${renderRow('回写状态', latestBatch.paymentSyncStatus || '当前未回写')}
+               ${renderRow('参考流水号', latestBatch.paymentReferenceNo || '当前未填写')}`,
+            )
+          : ''
+      }
+      <div class="grid grid-cols-2 gap-2">
+        ${
+          statement.status === 'CONFIRMED' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
+            ? `
+              <button class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700" data-pda-sett-action="confirm-statement" data-statement-id="${escapeHtml(statement.statementId)}">确认对账</button>
+              <button class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700" data-pda-sett-action="open-statement-appeal" data-statement-id="${escapeHtml(statement.statementId)}">发起申诉</button>
+            `
+            : `
+              <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-pda-sett-action="open-statement-payment" data-statement-id="${escapeHtml(statement.statementId)}">查看打款结果</button>
+              <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-pda-sett-action="close-statement-drawer">关闭</button>
+            `
+        }
+      </div>
+    `,
+    'close-statement-drawer',
+  )
 }
 
 function buildPdaQualityDetailHref(qcId: string): string {
@@ -2697,7 +3064,7 @@ function renderSettlementRequestDrawer(): string {
       '历史申请',
       `
         <div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">
-          工厂端只能查看与发起变更申请，当前生效资料仍以平台审核通过后的版本为准。
+          工厂端只能查看与发起变更申请，当前生效资料仍以平台审核通过后的版本为准；新版本只会影响未来新生成的结算单据。
         </div>
         ${renderSettlementRequestHistoryList(requestHistory)}
         <button
@@ -2734,7 +3101,7 @@ function renderSettlementRequestDrawer(): string {
     return renderDrawer(
       '申请修改结算资料',
       `
-        <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">提交后进入待审核，当前生效信息不会立即变更。</div>
+        <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">提交后进入待审核，当前生效信息不会立即变更；新版本仅影响后续新生成的结算单据，已生成单据继续保留原版本快照。</div>
         ${
           state.settlementRequestErrorText
             ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(state.settlementRequestErrorText)}</div>`
@@ -3055,6 +3422,14 @@ function renderOverviewContent(cycle: SettlementCycle, qualityFactoryId: string)
             <div class="mt-0.5 text-sm font-bold">${escapeHtml(CW.cycleId)}</div>
             <div class="mt-0.5 text-[10px] text-muted-foreground">已付 ${escapeHtml(fmtIDR(CW.paidAmount))} · 未付 ${escapeHtml(fmtIDR(CW.unpaidAmount))}</div>
           </button>
+        </div>
+      </section>
+
+      <section class="space-y-2.5">
+        <h3 class="text-xs font-semibold text-muted-foreground">对账单与打款结果</h3>
+        <div class="grid gap-2.5 md:grid-cols-2">
+          ${renderStatementEntryCard(cycle)}
+          ${renderBatchWritebackEntryCard(cycle)}
         </div>
       </section>
 
@@ -3420,6 +3795,7 @@ function renderCyclesContent(visibleCycles: SettlementCycle[]): string {
 
 function renderPageContent(): string {
   syncSettlementStateFromRoute()
+  const pageBoundary = getSettlementPageBoundary('pda-settlement')
 
   const selectedCycle = getSelectedSettlementCycle()
 
@@ -3467,7 +3843,9 @@ function renderPageContent(): string {
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <h1 class="text-base font-bold">结算周期</h1>
-                  <p class="mt-0.5 text-xs text-muted-foreground">先选择一个结算周期，再进入周期内查看总览、质检扣款、任务收入和扣款台账。</p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">先选择一个结算周期，再进入周期内查看总览、质检扣款、任务收入和扣款台账。${escapeHtml(
+                    pageBoundary.pageIntro,
+                  )}</p>
                 </div>
                 <div class="shrink-0">${settlementMaterialEntry}</div>
               </div>
@@ -3547,6 +3925,7 @@ function renderPageContent(): string {
         return renderCycleDrawer(cycle)
       })()}
 
+      ${renderStatementDrawer()}
       ${renderSettlementRequestDrawer()}
     </div>
   `
@@ -3617,6 +3996,21 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
     }
     if (field === 'request.submitRemark') {
       state.settlementRequestForm.submitRemark = fieldNode.value
+      return true
+    }
+    if (field === 'statement-appeal-reason') {
+      state.statementAppealForm.reason = fieldNode.value
+      state.statementErrorText = ''
+      return true
+    }
+    if (field === 'statement-appeal-description') {
+      state.statementAppealForm.description = fieldNode.value
+      state.statementErrorText = ''
+      return true
+    }
+    if (field === 'statement-appeal-evidence') {
+      state.statementAppealForm.evidenceSummary = fieldNode.value
+      state.statementErrorText = ''
       return true
     }
   }
@@ -3868,6 +4262,81 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
       state.dedDrawerId = null
       state.taskDrawerTaskId = taskId
       appStore.navigate(buildSettlementDetailHref('tasks', cycleId))
+    }
+    return true
+  }
+
+  if (action === 'open-statement-detail') {
+    const statementId = actionNode.dataset.statementId
+    if (!statementId) return true
+    state.statementDrawerMode = 'detail'
+    state.statementDetailId = statementId
+    state.statementErrorText = ''
+    return true
+  }
+
+  if (action === 'open-statement-payment') {
+    const statementId = actionNode.dataset.statementId || state.statementDetailId
+    if (!statementId) return true
+    state.statementDrawerMode = 'payment'
+    state.statementDetailId = statementId
+    state.statementErrorText = ''
+    return true
+  }
+
+  if (action === 'open-statement-appeal') {
+    const statementId = actionNode.dataset.statementId || state.statementDetailId
+    if (!statementId) return true
+    resetStatementAppealForm()
+    state.statementDrawerMode = 'appeal'
+    state.statementDetailId = statementId
+    state.statementErrorText = ''
+    return true
+  }
+
+  if (action === 'close-statement-drawer') {
+    state.statementDrawerMode = null
+    state.statementDetailId = null
+    state.statementErrorText = ''
+    resetStatementAppealForm()
+    return true
+  }
+
+  if (action === 'confirm-statement') {
+    const statementId = actionNode.dataset.statementId || state.statementDetailId
+    if (!statementId) return true
+    const result = submitStatementFactoryConfirmation({
+      statementId,
+      by: CURRENT_FACTORY_OPERATOR,
+      remark: '工厂已确认对账口径',
+    })
+    state.statementErrorText = result.message
+    if (result.ok) {
+      state.statementDrawerMode = 'detail'
+      state.statementDetailId = statementId
+    }
+    return true
+  }
+
+  if (action === 'submit-statement-appeal') {
+    const statementId = actionNode.dataset.statementId || state.statementDetailId
+    if (!statementId) return true
+    if (!state.statementAppealForm.reason.trim() || !state.statementAppealForm.description.trim()) {
+      state.statementErrorText = '请先补全申诉原因和申诉说明'
+      return true
+    }
+    const result = submitStatementFactoryAppeal({
+      statementId,
+      by: CURRENT_FACTORY_OPERATOR,
+      reason: state.statementAppealForm.reason.trim(),
+      description: state.statementAppealForm.description.trim(),
+      evidenceSummary: state.statementAppealForm.evidenceSummary.trim(),
+    })
+    state.statementErrorText = result.message
+    if (result.ok) {
+      state.statementDrawerMode = 'detail'
+      state.statementDetailId = statementId
+      resetStatementAppealForm()
     }
     return true
   }

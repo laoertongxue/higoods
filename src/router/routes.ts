@@ -254,13 +254,16 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/quality/arbitration': () =>
     renderRouteRedirect('/fcs/quality/qc-records?view=WAIT_PLATFORM_REVIEW', '正在跳转到质检记录'),
   '/fcs/quality/penalty-output': () => renderDeductionAnalysisPage(),
+  // 对账与结算只固定 4 个主对象路由：对账单、应付调整、车缝领料对账、结算批次。
+  // payment-sync 和 history 仅是结算批次的生命周期视图；cutting-input 属于专项输入页。
   '/fcs/settlement/statements': () => renderStatementsPage(),
   '/fcs/settlement/adjustments': () => renderAdjustmentsPage(),
   '/fcs/settlement/batches': () => renderBatchesPage(),
   '/fcs/settlement/material-statements': () => renderMaterialStatementsPage(),
   '/fcs/settlement/payment-sync': () => renderPaymentSyncPage(),
   '/fcs/settlement/history': () => renderHistoryPage(),
-  '/fcs/settlement/cutting-input': () => renderCuttingSettlementInputPage(),
+  '/fcs/settlement/cutting-input': () =>
+    renderRouteRedirect('/fcs/craft/cutting/settlement-scoring', '正在跳转到裁片结算评分'),
   '/fcs/dispatch/board': () => renderDispatchBoardPage(),
   '/fcs/dispatch/tenders': () => renderDispatchTendersPage(),
   '/fcs/dispatch/exceptions': () => renderProgressExceptionsPage(),
@@ -283,6 +286,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/cutting/merge-batches': () => renderCraftCuttingMergeBatchesPage(),
   '/fcs/craft/cutting/original-orders': () => renderCraftCuttingPieceOrdersPage(),
   '/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage(),
+  '/fcs/craft/cutting/settlement-scoring': () => renderCuttingSettlementInputPage(),
   '/fcs/craft/cutting/marker-detail': () => renderCraftCuttingMarkerDetailPage(),
   '/fcs/craft/cutting/marker-edit': () => renderCraftCuttingMarkerEditPage(),
   '/fcs/craft/cutting/spreading-detail': () => renderCraftCuttingSpreadingDetailPage(),

@@ -16,8 +16,17 @@ import {
   isCuttingSpecialTask,
   listPdaTaskFlowTasks,
   resolvePdaTaskExecPath,
+  type PdaTaskFlowMock,
 } from '../data/fcs/pda-cutting-special'
 import { renderPdaFrame } from './pda-shell'
+import {
+  buildPdaCuttingDirectExecEntryHref,
+  buildPdaCuttingTaskDetailNavHref,
+} from './pda-cutting-nav-context'
+import {
+  buildPdaCuttingTaskEntryAction,
+  getPdaCuttingTaskStateBadgeClass,
+} from './pda-cutting-task-rollup'
 
 interface TaskReceiveDetailState {
   rejectDialogOpen: boolean
@@ -26,9 +35,7 @@ interface TaskReceiveDetailState {
 
 type ReceiveDetailTabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
 
-type PdaReceiveTask = ProcessTask & {
-  cutPieceOrderNo?: string
-}
+type PdaReceiveTask = PdaTaskFlowMock
 
 const state: TaskReceiveDetailState = {
   rejectDialogOpen: false,
@@ -303,6 +310,98 @@ function renderField(label: string, value: string): string {
   `
 }
 
+function renderCuttingTaskRollupCard(task: PdaReceiveTask): string {
+  return `
+    <article class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="flex items-center gap-2 text-base font-semibold">
+            <i data-lucide="clipboard-list" class="h-4 w-4"></i>
+            ${escapeHtml(getTaskDisplayNo(task))}
+          </h2>
+          <span class="inline-flex items-center rounded border px-2 py-0.5 text-xs ${escapeHtml(getPdaCuttingTaskStateBadgeClass(task.taskStateLabel))}">${escapeHtml(task.taskStateLabel || '待开始')}</span>
+        </div>
+      </header>
+
+      <div class="space-y-3 p-4">
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          ${renderField('生产单号', task.productionOrderId)}
+          ${renderField('工序名称', getTaskProcessDisplayName(task))}
+          ${renderField('裁片单数量', `${task.cutPieceOrderCount || 0} 张`)}
+          ${renderField('当前状态', task.taskStateLabel || '待开始')}
+          ${renderField('已完成', `${task.completedCutPieceOrderCount || 0} 张`)}
+          ${renderField('未完成', `${task.pendingCutPieceOrderCount || 0} 张`)}
+          ${
+            task.exceptionCutPieceOrderCount
+              ? renderField('异常裁片单', `${task.exceptionCutPieceOrderCount} 张`)
+              : renderField('异常裁片单', '0 张')
+          }
+          ${renderField('下一步', task.taskNextActionLabel || '查看任务')}
+        </div>
+
+        ${
+          task.taskProgressLabel
+            ? `<div class="rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">${escapeHtml(task.taskProgressLabel)}</div>`
+            : ''
+        }
+      </div>
+    </article>
+  `
+}
+
+function renderCuttingTaskActionCard(task: PdaReceiveTask): string {
+  const taskDetailHref = buildPdaCuttingTaskDetailNavHref(task.taskId, {
+    sourcePageKey: 'task-receive-detail',
+    returnTo: appStore.getState().pathname,
+    focusTaskId: task.taskId,
+    cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    taskNo: task.taskNo,
+    productionOrderNo: task.productionOrderId,
+  })
+  const execHref = buildPdaCuttingDirectExecEntryHref(task.taskId, {
+    sourcePageKey: 'task-receive-detail',
+    returnTo: taskDetailHref,
+    focusTaskId: task.taskId,
+    cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    focusCutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    taskNo: task.taskNo,
+    productionOrderNo: task.productionOrderId,
+  })
+  const entryAction = buildPdaCuttingTaskEntryAction(task, {
+    returnTo: appStore.getState().pathname,
+    detailHref: taskDetailHref,
+    execHref,
+  })
+
+  return renderSectionCard(
+    '进入处理',
+    'arrow-right-circle',
+    `
+      <div class="grid grid-cols-2 gap-3">
+        ${renderField('当前任务状态', task.taskStateLabel || '待开始')}
+        ${renderField('下一步建议', task.taskNextActionLabel || '查看任务')}
+      </div>
+      ${
+        entryAction.helperText
+          ? `<div class="rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">${escapeHtml(entryAction.helperText)}</div>`
+          : ''
+      }
+      ${
+        entryAction.directExec
+          ? `
+              <div class="flex gap-2">
+                <button class="inline-flex h-9 flex-1 items-center justify-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(taskDetailHref)}">查看裁片任务</button>
+                <button class="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90" data-nav="${escapeHtml(entryAction.href)}">${escapeHtml(entryAction.label)}</button>
+              </div>
+            `
+          : `
+              <button class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90" data-nav="${escapeHtml(taskDetailHref)}">${escapeHtml(entryAction.label)}</button>
+            `
+      }
+    `,
+  )
+}
+
 function renderRejectDialog(taskId: string): string {
   if (!state.rejectDialogOpen) return ''
 
@@ -541,11 +640,11 @@ function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
   const factory = task.assignedFactoryId
     ? indonesiaFactories.find((item) => item.id === task.assignedFactoryId)
     : undefined
-  const displayProcessName = getTaskProcessDisplayName(task)
-  const stageLabel = getTaskStageDisplayName(task)
   const tab = getReceiveDetailTab(task)
   const canOperate =
     (!task.acceptanceStatus || task.acceptanceStatus === 'PENDING') && tab === 'pending-accept'
+  const pricing = getTaskPricing(task)
+  const styleSnapshot = getTaskStyleSnapshot(task)
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
@@ -559,35 +658,36 @@ function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
       </header>
 
       <div class="flex-1 space-y-4 p-4 pb-28">
+        ${renderCuttingTaskRollupCard(task)}
+
         <article class="rounded-lg border bg-card">
           <header class="border-b px-4 py-3">
             <h2 class="flex items-center gap-2 text-base font-semibold">
-              <i data-lucide="clipboard-list" class="h-4 w-4"></i>
-              ${escapeHtml(getTaskDisplayNo(task))}
+              <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+              接单情况
             </h2>
           </header>
-
           <div class="space-y-3 p-4">
             <div class="grid grid-cols-2 gap-3 text-sm">
               ${renderField('原始任务', getRootTaskDisplayNo(task))}
-              ${renderField('生产单号', task.productionOrderId)}
-              ${renderField('工序序号', String(task.seq))}
-              ${renderField('工序名称', displayProcessName)}
-              ${renderField('工序编码', task.processBusinessCode || task.processCode)}
-              ${renderField('阶段', stageLabel)}
+              ${renderField('当前工厂', factory?.name || task.assignedFactoryName || task.assignedFactoryId || '-')}
+              ${renderField('指派方式', getAssignmentModeLabel(task.assignmentMode))}
+              ${renderField('接单状态', task.acceptanceStatus === 'ACCEPTED' ? '已接单' : task.acceptanceStatus === 'REJECTED' ? '已拒单' : '待接单')}
               ${renderField('数量', `${task.qty} ${task.qtyUnit}`)}
-              ${renderField('裁片单号', task.cutPieceOrderNo || '-')}
+              ${renderField('任务截止', task.taskDeadline || '-')}
+              ${
+                pricing.directPrice != null
+                  ? renderField('当前价格', `${pricing.directPrice.toLocaleString()} ${pricing.currency}/${pricing.unit}`)
+                  : renderField('当前价格', '-')
+              }
+              ${renderField('价格说明', pricing.priceStatus || '按当前派单执行')}
             </div>
-
-            <div class="h-px bg-border"></div>
             ${renderTaskStyleCard(task)}
-
-            <div class="h-px bg-border"></div>
             ${renderReceiveStatusChips(task, tab)}
           </div>
         </article>
 
-        ${renderReceiveSpecificSection(task, tab)}
+        ${renderCuttingTaskActionCard(task)}
 
         <article class="rounded-lg border bg-card">
           <header class="border-b px-4 py-3">

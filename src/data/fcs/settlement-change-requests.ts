@@ -7,6 +7,10 @@ import type {
   SettlementStatus as RuleStatus,
 } from './settlement-types'
 
+// 工厂结算资料修改申请仍然围绕主数据版本运作：
+// 工厂端只能提交申请，平台审核通过后才会形成新的生效版本，
+// 不会直接改写周期内的对账单、结算批次或工厂端周期页数据。
+
 export type SettlementChangeRequestStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
 
 export interface SettlementEffectiveInfoSnapshot {
@@ -1142,7 +1146,11 @@ export function createSettlementChangeRequest(payload: {
     `工厂提交结算资料修改申请（变更项：${summarizeChangedFields(request.before, request.after)}）`,
   )
   settlementChangeRequests.unshift(request)
-  return { ok: true, message: '修改申请已提交，等待平台审核', data: request }
+  return {
+    ok: true,
+    message: '修改申请已提交，等待平台审核。新版本仅影响后续新生成的结算单据，已生成单据继续保留原版本快照。',
+    data: request,
+  }
 }
 
 export function verifySettlementRequest(

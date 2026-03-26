@@ -14,11 +14,24 @@ import {
 } from '../data/fcs/pda-mobile-mock'
 import {
   getPdaTaskFlowTaskById,
+  isCuttingSpecialTask,
   listPdaTaskFlowTasks,
   resolvePdaTaskDetailPath,
   resolvePdaTaskExecPath,
+  type PdaTaskFlowMock,
 } from '../data/fcs/pda-cutting-special'
 import { renderPdaFrame } from './pda-shell'
+import {
+  buildPdaCuttingDirectExecEntryHref,
+  buildPdaCuttingTaskDetailNavHref,
+  buildPdaTaskListFocusHref,
+  buildPdaTaskReceiveDetailNavHref,
+  readPdaCuttingNavContext,
+} from './pda-cutting-nav-context'
+import {
+  buildPdaCuttingTaskEntryAction,
+  getPdaCuttingTaskStateBadgeClass,
+} from './pda-cutting-task-rollup'
 
 type TabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
 
@@ -133,6 +146,8 @@ const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
     },
   ]),
 )
+
+let lastFocusedTaskToken = ''
 
 function listTaskFacts(): ProcessTask[] {
   return listPdaTaskFlowTasks()
@@ -505,7 +520,152 @@ function renderEmptyState(label: string): string {
   `
 }
 
+function getFocusedTaskId(): string | null {
+  const navContext = readPdaCuttingNavContext()
+  if (!navContext.highlightTask) return null
+  return navContext.focusTaskId || navContext.taskId || null
+}
+
+function shouldHighlightTask(taskId: string): boolean {
+  return getFocusedTaskId() === taskId
+}
+
+function scheduleTaskFocus(taskId: string | null): void {
+  if (!taskId || typeof document === 'undefined' || typeof window === 'undefined') return
+  const focusToken = `${appStore.getState().pathname}::${taskId}`
+  if (lastFocusedTaskToken === focusToken) return
+  lastFocusedTaskToken = focusToken
+  window.requestAnimationFrame(() => {
+    const card = document.querySelector<HTMLElement>(`[data-pda-cutting-task-card-id="${taskId}"]`)
+    card?.scrollIntoView({ block: 'center' })
+  })
+}
+
+function buildCuttingTaskListReturnTo(taskId: string): string {
+  return buildPdaTaskListFocusHref(appStore.getState().pathname, {
+    sourcePageKey: 'task-list',
+    taskId,
+    focusTaskId: taskId,
+    highlightTask: true,
+    autoFocus: true,
+  })
+}
+
+function buildCuttingTaskReceiveDetailHref(task: PdaTaskFlowMock): string {
+  return buildPdaTaskReceiveDetailNavHref(task.taskId, {
+    sourcePageKey: 'task-list',
+    taskNo: task.taskNo,
+    productionOrderNo: task.productionOrderId,
+    focusTaskId: task.taskId,
+    returnTo: appStore.getState().pathname,
+    highlightTask: true,
+    autoFocus: true,
+  })
+}
+
+function buildCuttingTaskDetailEntryHref(task: PdaTaskFlowMock): string {
+  return buildPdaCuttingTaskDetailNavHref(task.taskId, {
+    sourcePageKey: 'task-list',
+    taskNo: task.taskNo,
+    productionOrderNo: task.productionOrderId,
+    focusTaskId: task.taskId,
+    cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    returnTo: buildCuttingTaskListReturnTo(task.taskId),
+    highlightTask: true,
+    autoFocus: true,
+  })
+}
+
+function buildCuttingTaskExecHref(task: PdaTaskFlowMock): string {
+  return buildPdaCuttingDirectExecEntryHref(task.taskId, {
+    sourcePageKey: 'task-list',
+    taskNo: task.taskNo,
+    productionOrderNo: task.productionOrderId,
+    focusTaskId: task.taskId,
+    cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    focusCutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    returnTo: buildCuttingTaskDetailEntryHref(task),
+    highlightTask: true,
+    autoFocus: true,
+  })
+}
+
+function renderCuttingTaskOrderSummary(task: PdaTaskFlowMock): string {
+  return `
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+      ${renderFieldRow('生产单号', task.productionOrderId)}
+      ${renderFieldRow('当前状态', task.taskStateLabel || '待开始')}
+      ${renderFieldRow('裁片单数量', `${task.cutPieceOrderCount || 0} 张`)}
+      ${renderFieldRow('已完成', `${task.completedCutPieceOrderCount || 0} 张`)}
+      ${renderFieldRow('未完成', `${task.pendingCutPieceOrderCount || 0} 张`)}
+      ${renderFieldRow('下一步', task.taskNextActionLabel || '查看任务', true)}
+      ${
+        task.exceptionCutPieceOrderCount
+          ? renderFieldRow('异常裁片单', `${task.exceptionCutPieceOrderCount} 张`)
+          : ''
+      }
+      ${task.taskProgressLabel ? renderFieldRow('进度', task.taskProgressLabel) : ''}
+    </div>
+  `
+}
+
+function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: string): string {
+  const deadlineStatus = getDeadlineStatus(task.acceptDeadline || '')
+  const entryAction = buildPdaCuttingTaskEntryAction(task, appStore.getState().pathname)
+  const focused = shouldHighlightTask(task.taskId)
+  const detailHref = buildCuttingTaskReceiveDetailHref(task)
+
+  return `
+    <article class="overflow-hidden rounded-lg border bg-card ${focused ? 'border-blue-300 ring-2 ring-blue-100' : ''}" data-pda-cutting-task-card-id="${escapeHtml(task.taskId)}">
+      <div class="space-y-3 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
+          <div class="flex items-center gap-1.5">
+            ${focused ? '<span class="inline-flex shrink-0 items-center rounded border border-blue-200 bg-blue-50 px-1.5 text-[10px] text-blue-700">当前任务</span>' : ''}
+            <span class="inline-flex shrink-0 items-center rounded border px-1.5 text-[10px] ${toClassName(getDeadlineBadgeClass(deadlineStatus.variant))}">${escapeHtml(deadlineStatus.label)}</span>
+            <span class="inline-flex shrink-0 items-center rounded border px-1.5 text-[10px] ${escapeHtml(getPdaCuttingTaskStateBadgeClass(task.taskStateLabel))}">${escapeHtml(task.taskStateLabel || '待开始')}</span>
+          </div>
+        </div>
+
+        ${renderCuttingTaskOrderSummary(task)}
+
+        ${
+          entryAction.helperText
+            ? `<p class="rounded bg-muted/50 px-2 py-1 text-xs text-muted-foreground">${escapeHtml(entryAction.helperText)}</p>`
+            : ''
+        }
+      </div>
+
+      <div class="border-t px-3 py-2">
+        <div class="flex items-center gap-2">
+          <button
+            class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+            data-nav="${escapeHtml(detailHref)}"
+          >接单详情</button>
+
+          <button
+            class="inline-flex h-8 items-center rounded-md border border-destructive/20 bg-destructive px-3 text-xs text-destructive-foreground hover:opacity-90"
+            data-pda-tr-action="open-reject"
+            data-task-id="${escapeHtml(task.taskId)}"
+          >拒单</button>
+
+          <button
+            class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            data-pda-tr-action="accept-task"
+            data-task-id="${escapeHtml(task.taskId)}"
+            data-factory-name="${escapeHtml(factoryName)}"
+          >接单</button>
+        </div>
+      </div>
+    </article>
+  `
+}
+
 function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string {
+  if (isCuttingSpecialTask(task)) {
+    return renderPendingAcceptCuttingTask(task as PdaTaskFlowMock, factoryName)
+  }
+
   const displayProcessName = getTaskProcessDisplayName(task)
   const deadlineStatus = getDeadlineStatus(task.acceptDeadline || '')
   const pricing = getTaskPricing(task)
@@ -654,8 +814,74 @@ function renderQuotedItem(tender: QuotedTender): string {
   `
 }
 
+function renderAwardedCuttingTask(task: PdaTaskFlowMock, item: AwardedTender): string {
+  const entryAction = buildPdaCuttingTaskEntryAction(task, appStore.getState().pathname)
+  const focused = shouldHighlightTask(task.taskId)
+  const detailHref = buildCuttingTaskReceiveDetailHref(task)
+  const execHref = buildCuttingTaskExecHref(task)
+
+  return `
+    <article class="overflow-hidden rounded-lg border border-green-200 bg-card ${focused ? 'border-blue-300 ring-2 ring-blue-100' : ''}" data-pda-cutting-task-card-id="${escapeHtml(task.taskId)}">
+      <div class="space-y-3 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
+          <div class="flex items-center gap-1.5">
+            ${focused ? '<span class="inline-flex shrink-0 items-center rounded border border-blue-200 bg-blue-50 px-1.5 text-[10px] text-blue-700">当前任务</span>' : ''}
+            <span class="inline-flex shrink-0 items-center rounded border px-1.5 text-[10px] ${escapeHtml(getPdaCuttingTaskStateBadgeClass(task.taskStateLabel))}">${escapeHtml(task.taskStateLabel || '待开始')}</span>
+          </div>
+        </div>
+
+        ${renderCuttingTaskOrderSummary(task)}
+
+        ${renderFieldRow('任务截止', item.taskDeadline || '-')}
+
+        ${
+          entryAction.helperText
+            ? `<p class="rounded bg-muted/50 px-2 py-1 text-xs text-muted-foreground">${escapeHtml(entryAction.helperText)}</p>`
+            : ''
+        }
+      </div>
+
+      <div class="border-t px-3 py-2">
+        ${
+          entryAction.directExec
+            ? `
+                <div class="flex items-center gap-2">
+                  <button
+                    class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+                    data-nav="${escapeHtml(detailHref)}"
+                  >接单详情</button>
+
+                  <button
+                    class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                    data-nav="${escapeHtml(execHref)}"
+                  >
+                    ${escapeHtml(entryAction.label)}
+                    <i data-lucide="chevron-right" class="ml-0.5 h-3.5 w-3.5"></i>
+                  </button>
+                </div>
+              `
+            : `
+                <button
+                  class="inline-flex h-8 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  data-nav="${escapeHtml(detailHref)}"
+                >
+                  ${escapeHtml(entryAction.label)}
+                  <i data-lucide="chevron-right" class="ml-0.5 h-3.5 w-3.5"></i>
+                </button>
+              `
+        }
+      </div>
+    </article>
+  `
+}
+
 function renderAwardedItem(item: AwardedTender): string {
   const task = getTaskFactById(item.taskId)
+  if (task && isCuttingSpecialTask(task)) {
+    return renderAwardedCuttingTask(task as PdaTaskFlowMock, item)
+  }
+
   const processName = task ? getTaskProcessDisplayName(task) : item.processName
   return `
     <article class="overflow-hidden rounded-lg border border-green-200 bg-card">
@@ -826,6 +1052,7 @@ export function renderPdaTaskReceivePage(): string {
 
   const selectedFactoryId = getCurrentFactoryId()
   const factoryName = getFactoryName(selectedFactoryId)
+  scheduleTaskFocus(getFocusedTaskId())
 
   const pendingAcceptTasks = getPendingAcceptTasks(selectedFactoryId)
   const processOptions = Array.from(new Set(pendingAcceptTasks.map((task) => getTaskProcessDisplayName(task))))
@@ -1061,7 +1288,12 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
   if (action === 'open-detail') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(resolvePdaTaskDetailPath(taskId, appStore.getState().pathname))
+      const task = getPdaTaskFlowTaskById(taskId)
+      if (isCuttingSpecialTask(task)) {
+        appStore.navigate(buildCuttingTaskReceiveDetailHref(task as PdaTaskFlowMock))
+      } else {
+        appStore.navigate(resolvePdaTaskDetailPath(taskId, appStore.getState().pathname))
+      }
     }
     return true
   }
@@ -1069,7 +1301,12 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
   if (action === 'open-exec') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(resolvePdaTaskExecPath(taskId, appStore.getState().pathname))
+      const task = getPdaTaskFlowTaskById(taskId)
+      if (isCuttingSpecialTask(task)) {
+        appStore.navigate(buildCuttingTaskExecHref(task as PdaTaskFlowMock))
+      } else {
+        appStore.navigate(resolvePdaTaskExecPath(taskId, appStore.getState().pathname))
+      }
     }
     return true
   }

@@ -1,21 +1,36 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { buildPdaCuttingRoute, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
-import { buildPdaCuttingTaskPickupView } from '../domain/pickup/page-adapters/pda-cutting-task-detail'
+import {
+  getPdaCuttingTaskDetail,
+  type PdaCuttingTaskDetailData,
+  type PdaCuttingTaskOrderLine,
+} from '../data/fcs/pda-cutting-special'
 import { getClaimDisputeStatusMeta } from '../helpers/fcs-claim-dispute'
 import { getLatestClaimDisputeByTaskId } from '../state/fcs-claim-dispute-store'
+import { readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import {
+  buildPdaCuttingTaskDetailFocusHref,
+  getPdaCuttingCompletedActionLabel,
+  readPdaCuttingNavContext,
+  resolvePdaCuttingBackHref,
+  type PdaCuttingNavContext,
+} from './pda-cutting-nav-context'
+import {
+  buildPdaCuttingTaskOrderActions,
+  resolvePdaCuttingTaskOrderPrimaryRouteKey,
+  resolvePdaCuttingTaskOverviewStatusLabel,
+} from './pda-cutting-task-detail-helpers'
 import {
   renderPdaCuttingEmptyState,
   renderPdaCuttingPageLayout,
-  renderPdaCuttingRiskList,
   renderPdaCuttingSection,
-  renderPdaCuttingSummaryGrid,
-  renderPdaCuttingTaskHero,
 } from './pda-cutting-shared'
 
 interface PdaCuttingTaskDetailPageState {
   qrExpanded: boolean
-  actionsExpanded: boolean
+  expandedCutPieceOrderNos: string[]
+  hasMultipleCutPieceOrders: boolean
+  lastFocusToken: string
 }
 
 interface PdaCuttingTaskDetailRenderOptions {
@@ -23,6 +38,7 @@ interface PdaCuttingTaskDetailRenderOptions {
 }
 
 const pageStateStore = new Map<string, PdaCuttingTaskDetailPageState>()
+let lastFocusedOrderToken = ''
 
 function getPageState(taskId: string): PdaCuttingTaskDetailPageState {
   const existing = pageStateStore.get(taskId)
@@ -30,7 +46,9 @@ function getPageState(taskId: string): PdaCuttingTaskDetailPageState {
 
   const initial: PdaCuttingTaskDetailPageState = {
     qrExpanded: false,
-    actionsExpanded: false,
+    expandedCutPieceOrderNos: [],
+    hasMultipleCutPieceOrders: false,
+    lastFocusToken: '',
   }
   pageStateStore.set(taskId, initial)
   return initial
@@ -38,20 +56,40 @@ function getPageState(taskId: string): PdaCuttingTaskDetailPageState {
 
 function resolveSafeBackHref(explicitBackHref?: string): string {
   if (explicitBackHref) return explicitBackHref
+  return resolvePdaCuttingBackHref(readPdaCuttingNavContext(), '/fcs/pda/task-receive')
+}
 
-  const pathname = appStore.getState().pathname
-  const [, queryString = ''] = pathname.split('?')
-  const returnTo = new URLSearchParams(queryString).get('returnTo')
+function resolveCurrentTaskDetailHref(): string {
+  return appStore.getState().pathname
+}
 
-  if (!returnTo || !returnTo.startsWith('/fcs/pda/')) {
-    return '/fcs/pda/exec'
+function scheduleOrderFocus(cutPieceOrderNo: string | null, autoFocus: boolean): void {
+  if (!cutPieceOrderNo || !autoFocus || typeof document === 'undefined' || typeof window === 'undefined') return
+  const focusToken = `${appStore.getState().pathname}::${cutPieceOrderNo}`
+  if (lastFocusedOrderToken === focusToken) return
+  lastFocusedOrderToken = focusToken
+  window.requestAnimationFrame(() => {
+    const card = document.querySelector<HTMLElement>(`[data-pda-cutting-order-card-id="${cutPieceOrderNo}"]`)
+    card?.scrollIntoView({ block: 'center' })
+  })
+}
+
+function syncFocusDrivenState(
+  state: PdaCuttingTaskDetailPageState,
+  navContext: PdaCuttingNavContext,
+  focusCutPieceOrderNo: string | null,
+): void {
+  const focusToken = `${focusCutPieceOrderNo || ''}|${navContext.autoExpandActions ? '1' : '0'}|${navContext.justCompletedAction || ''}|${navContext.justSaved ? '1' : '0'}`
+  if (state.lastFocusToken === focusToken) return
+  state.lastFocusToken = focusToken
+
+  if (
+    navContext.autoExpandActions &&
+    focusCutPieceOrderNo &&
+    !state.expandedCutPieceOrderNos.includes(focusCutPieceOrderNo)
+  ) {
+    state.expandedCutPieceOrderNos = [...state.expandedCutPieceOrderNos, focusCutPieceOrderNo]
   }
-
-  if (returnTo.startsWith('/fcs/pda/cutting/')) {
-    return '/fcs/pda/exec'
-  }
-
-  return returnTo
 }
 
 function renderStatusChip(label: string, tone: 'slate' | 'green' | 'amber' | 'red' | 'blue'): string {
@@ -87,28 +125,218 @@ function renderInfoGrid(items: Array<{ label: string; value: string; hint?: stri
   `
 }
 
-function renderRiskFlags(flags: string[]): string {
-  if (!flags.length) {
-    return `<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs text-emerald-700">当前无明显风险，可按下一步建议继续执行。</div>`
-  }
+function includesAny(value: string | undefined, keywords: string[]): boolean {
+  if (!value) return false
+  return keywords.some((keyword) => value.includes(keyword))
+}
+
+function hasMeaningfulReplenishmentRisk(label: string): boolean {
+  return !includesAny(label, ['当前无', '暂无', '无需'])
+}
+
+function resolveStatusTone(label: string): 'slate' | 'green' | 'amber' | 'red' | 'blue' {
+  if (includesAny(label, ['异常', '驳回', '风险', '待补料'])) return 'red'
+  if (includesAny(label, ['已完成', '已交接', '已入仓', '领取成功', '已领取', '已回执'])) return 'green'
+  if (includesAny(label, ['处理中', '执行中', '当前查看'])) return 'blue'
+  if (includesAny(label, ['待', '未'])) return 'amber'
+  return 'slate'
+}
+
+function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
+  const overallStatus = resolvePdaCuttingTaskOverviewStatusLabel({
+    cutPieceOrderCount: detail.cutPieceOrderCount,
+    completedCutPieceOrderCount: detail.completedCutPieceOrderCount,
+    pendingCutPieceOrderCount: detail.pendingCutPieceOrderCount,
+    exceptionCutPieceOrderCount: detail.exceptionCutPieceOrderCount,
+  })
 
   return `
-    <div class="flex flex-wrap gap-2">
-      ${flags.map((flag) => renderStatusChip(flag, flag.includes('风险') || flag.includes('待') ? 'amber' : 'slate')).join('')}
+    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div class="space-y-1">
+          <div class="text-xs text-muted-foreground">裁片任务号</div>
+          <div class="text-lg font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
+          <div class="text-xs text-muted-foreground">生产单 ${escapeHtml(detail.productionOrderNo)}</div>
+        </div>
+        ${renderStatusChip(overallStatus, resolveStatusTone(overallStatus))}
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">关联裁片单</div>
+          <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.cutPieceOrderCount))}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">已完成</div>
+          <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.completedCutPieceOrderCount))}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">未完成</div>
+          <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.pendingCutPieceOrderCount))}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">异常裁片单</div>
+          <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.exceptionCutPieceOrderCount))}</div>
+        </article>
+      </div>
+      <div class="mt-4 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
+        <div class="text-muted-foreground">当前建议动作</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNextActionLabel || '查看关联裁片单')}</div>
+        <div class="mt-1 text-muted-foreground">${escapeHtml(detail.taskProgressLabel)}</div>
+        <div class="mt-1 text-muted-foreground">分配工厂：${escapeHtml(detail.assigneeFactoryName)}</div>
+      </div>
+      ${
+        detail.exceptionCutPieceOrderCount > 0
+          ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">当前有 ${escapeHtml(String(detail.exceptionCutPieceOrderCount))} 张裁片单需要优先处理异常或补料问题。</div>`
+          : ''
+      }
+      ${
+        detail.cutPieceOrderCount > 1
+          ? `<div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">当前任务下有多张裁片单，请先在下面选择具体裁片单，再进入执行。</div>`
+          : ''
+      }
+    </section>
+  `
+}
+
+function renderTaskOrderCard(
+  taskId: string,
+  line: PdaCuttingTaskOrderLine,
+  detail: PdaCuttingTaskDetailData,
+  state: PdaCuttingTaskDetailPageState,
+  returnTo: string,
+  focusCutPieceOrderNo: string | null,
+  completedActionLabel: string | null,
+): string {
+  const actions = buildPdaCuttingTaskOrderActions(taskId, line, returnTo)
+  const primaryRouteKey = resolvePdaCuttingTaskOrderPrimaryRouteKey(line)
+  const routedPrimaryAction = actions.find((item) => item.key === primaryRouteKey) ?? actions[0]
+  const expanded = state.expandedCutPieceOrderNos.includes(line.cutPieceOrderNo)
+  const isCurrentSelected = detail.currentSelectedCutPieceOrderNo === line.cutPieceOrderNo
+  const isFocusTarget = focusCutPieceOrderNo === line.cutPieceOrderNo
+  const isStableDone = line.isDone && !line.hasException && !hasMeaningfulReplenishmentRisk(line.replenishmentRiskLabel)
+  const navContext = readPdaCuttingNavContext()
+  const primaryActionHref = isStableDone
+    ? buildPdaCuttingTaskDetailFocusHref(taskId, {
+        cutPieceOrderNo: line.cutPieceOrderNo,
+        returnTo: navContext.returnTo,
+        focusTaskId: taskId,
+        focusCutPieceOrderNo: line.cutPieceOrderNo,
+        highlightCutPieceOrder: true,
+        autoFocus: true,
+      })
+    : routedPrimaryAction.href
+  const nextActionLabel = isStableDone ? '查看当前情况' : line.nextActionLabel || routedPrimaryAction.label
+  const replenishmentNote = hasMeaningfulReplenishmentRisk(line.replenishmentRiskLabel)
+    ? `<div class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-[11px] text-amber-800">补料情况：${escapeHtml(line.replenishmentRiskLabel)}</div>`
+    : ''
+  const completionNotice =
+    isFocusTarget && completedActionLabel
+      ? `<div class="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-[11px] text-emerald-800">${escapeHtml(completedActionLabel)}</div>`
+      : ''
+
+  return `
+    <article class="rounded-2xl border px-4 py-4 shadow-sm ${isFocusTarget ? 'border-blue-300 bg-blue-50/40 ring-2 ring-blue-100' : isCurrentSelected ? 'border-blue-200 bg-blue-50/30' : 'bg-card'}" data-pda-cutting-order-card-id="${escapeHtml(line.cutPieceOrderNo)}">
+      <div class="flex items-start justify-between gap-3">
+        <div class="space-y-1">
+          <div class="text-xs text-muted-foreground">裁片单号</div>
+          <div class="text-base font-semibold text-foreground">${escapeHtml(line.cutPieceOrderNo)}</div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div>
+        </div>
+        <div class="flex flex-wrap justify-end gap-2">
+          ${renderStatusChip(line.currentStateLabel, resolveStatusTone(line.currentStateLabel))}
+          ${line.isDone ? renderStatusChip('已完成', 'green') : ''}
+          ${line.hasException ? renderStatusChip('有异常', 'red') : ''}
+          ${isCurrentSelected ? renderStatusChip('当前查看', 'blue') : ''}
+          ${isFocusTarget && !isCurrentSelected ? renderStatusChip('刚处理', 'blue') : ''}
+        </div>
+      </div>
+      ${completionNotice}
+      <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">面料类型</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.materialTypeLabel)}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">颜色</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.colorLabel || '待补')}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">领料状态</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.currentReceiveStatus)}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">执行状态</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.currentExecutionStatus)}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">入仓状态</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.currentInboundStatus)}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">交接状态</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.currentHandoverStatus)}</div>
+        </article>
+      </div>
+      <div class="mt-3 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
+        <div class="text-muted-foreground">下一步建议动作</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(nextActionLabel)}</div>
+        <div class="mt-1 text-muted-foreground">计划数量：${escapeHtml(String(line.plannedQty))} 件</div>
+      </div>
+      ${replenishmentNote}
+      <div class="mt-3 flex gap-2">
+        <button class="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90" data-nav="${escapeHtml(primaryActionHref)}">
+          继续处理
+        </button>
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted" data-pda-cut-task-action="toggle-order-actions" data-task-id="${escapeHtml(taskId)}" data-cut-piece-order-no="${escapeHtml(line.cutPieceOrderNo)}">
+          ${expanded ? '收起操作' : '更多操作'}
+        </button>
+      </div>
+      ${
+        expanded
+          ? `
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                ${actions
+                  .map(
+                    (action) => `
+                      <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium text-foreground hover:bg-muted" data-nav="${escapeHtml(action.href)}">
+                        ${escapeHtml(action.label)}
+                      </button>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            `
+          : ''
+      }
+    </article>
+  `
+}
+
+function renderTaskOrderList(taskId: string, detail: PdaCuttingTaskDetailData, state: PdaCuttingTaskDetailPageState): string {
+  if (!detail.cutPieceOrders.length) {
+    return renderPdaCuttingEmptyState('当前任务还没有关联裁片单', '')
+  }
+
+  const returnTo = resolveCurrentTaskDetailHref()
+  const navContext = readPdaCuttingNavContext()
+  const focusCutPieceOrderNo = navContext.focusCutPieceOrderNo || detail.currentSelectedCutPieceOrderNo || null
+  const completedActionLabel = navContext.justSaved ? getPdaCuttingCompletedActionLabel(navContext.justCompletedAction) : null
+
+  return `
+    <div class="space-y-3">
+      ${detail.cutPieceOrders
+        .map((line) => renderTaskOrderCard(taskId, line, detail, state, returnTo, focusCutPieceOrderNo, completedActionLabel))
+        .join('')}
     </div>
   `
 }
 
-function renderQrSummary(taskId: string, state: PdaCuttingTaskDetailPageState): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  const pickupView = buildPdaCuttingTaskPickupView(taskId)
-  if (!detail) return ''
-
+function renderFocusedQrSummary(detail: PdaCuttingTaskDetailData, state: PdaCuttingTaskDetailPageState): string {
   const explainBlock = state.qrExpanded
     ? `
         <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs leading-5 text-muted-foreground">
-          当前裁片单主码对应裁片单号 <span class="font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</span>，
-          后续领料、铺布、入仓和交接都沿用同一个主码对象。
+          当前裁片单主码对应裁片单 <span class="font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</span>，
+          后续领料、铺布、入仓和交接都继续使用这张裁片单的主码。
         </div>
       `
     : ''
@@ -118,48 +346,43 @@ function renderQrSummary(taskId: string, state: PdaCuttingTaskDetailPageState): 
       <div class="rounded-xl border bg-muted/20 px-3 py-3">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <div class="text-muted-foreground">裁片单主码状态</div>
-            <div class="mt-1 text-sm font-medium text-foreground">${pickupView?.qrStatusLabel || '未生成主码'}</div>
+            <div class="text-muted-foreground">当前裁片单</div>
+            <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</div>
           </div>
-          ${renderStatusChip(pickupView?.qrStatusLabel || '未生成主码', pickupView?.qrStatus === 'GENERATED' ? 'green' : 'amber')}
+          ${renderStatusChip(detail.hasQrCode ? '已生成主码' : '未生成主码', detail.hasQrCode ? 'green' : 'amber')}
         </div>
         <div class="mt-3 rounded-xl border border-dashed bg-background px-3 py-4 text-center">
-          <div class="text-[11px] text-muted-foreground">裁片单主码值</div>
-          <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(pickupView?.qrCodeValue || detail.qrCodeValue)}</div>
+          <div class="text-[11px] text-muted-foreground">裁片单主码</div>
+          <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(detail.qrCodeValue)}</div>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-3">
           <div>
             <div class="text-muted-foreground">领料单号</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.pickupSlipNo || detail.pickupSlipNo)}</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.pickupSlipNo)}</div>
           </div>
           <div>
-            <div class="text-muted-foreground">最新打印版本</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(pickupView?.latestPrintVersionNo || '暂无打印版本')}</div>
+            <div class="text-muted-foreground">当前主码说明</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.qrVersionNote)}</div>
           </div>
         </div>
-        <div class="mt-3 text-xs text-muted-foreground">${escapeHtml(pickupView?.qrBindingSummaryText || detail.qrVersionNote)}</div>
       </div>
       ${explainBlock}
-      <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-pda-cut-task-action="toggle-qr-detail" data-task-id="${escapeHtml(taskId)}">
+      <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-pda-cut-task-action="toggle-qr-detail" data-task-id="${escapeHtml(detail.taskId)}">
         ${state.qrExpanded ? '收起主码说明' : '查看主码说明'}
       </button>
     </div>
   `
 }
 
-function renderRecentActions(taskId: string, state: PdaCuttingTaskDetailPageState): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
+function renderRecentActions(detail: PdaCuttingTaskDetailData): string {
   if (!detail.recentActions.length) {
-    return renderPdaCuttingEmptyState('暂无现场动作摘要', '后续领料确认、铺布录入、入仓确认、交接确认和补料反馈都会在这里按时间倒序汇总。')
+    return renderPdaCuttingEmptyState('暂无最近动作', '')
   }
-
-  const visibleActions = state.actionsExpanded ? detail.recentActions : detail.recentActions.slice(0, 3)
 
   return `
     <div class="space-y-2">
-      ${visibleActions
+      ${detail.recentActions
+        .slice(0, 4)
         .map(
           (action) => `
             <article class="rounded-xl border px-3 py-3 text-xs">
@@ -175,77 +398,6 @@ function renderRecentActions(taskId: string, state: PdaCuttingTaskDetailPageStat
           `,
         )
         .join('')}
-      ${
-        detail.recentActions.length > 3
-          ? `
-              <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-pda-cut-task-action="toggle-actions" data-task-id="${escapeHtml(taskId)}">
-                ${state.actionsExpanded ? '收起最近动作' : `展开全部 ${detail.recentActions.length} 条动作`}
-              </button>
-            `
-          : ''
-      }
-    </div>
-  `
-}
-
-function renderSpecialEntryCards(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  const entries = [
-    {
-      title: '裁片单主码领料',
-      summary: detail.currentReceiveStatus,
-      description: '',
-      href: buildPdaCuttingRoute(taskId, 'pickup'),
-    },
-    {
-      title: '铺布录入',
-      summary: detail.currentExecutionStatus,
-      description: '',
-      href: buildPdaCuttingRoute(taskId, 'spreading'),
-    },
-    {
-      title: '入仓确认',
-      summary: detail.currentInboundStatus,
-      description: '',
-      href: buildPdaCuttingRoute(taskId, 'inbound'),
-    },
-    {
-      title: '交接确认',
-      summary: detail.currentHandoverStatus,
-      description: '',
-      href: buildPdaCuttingRoute(taskId, 'handover'),
-    },
-    {
-      title: '补料反馈',
-      summary: detail.replenishmentRiskSummary,
-      description: '',
-      href: buildPdaCuttingRoute(taskId, 'replenishment-feedback'),
-    },
-  ]
-
-  return `
-    <div class="grid grid-cols-1 gap-3">
-      ${entries
-        .map(
-          (entry) => `
-            <article class="rounded-xl border bg-muted/20 px-3 py-3">
-              <div class="flex items-start justify-between gap-3">
-                <div class="space-y-1">
-                  <div class="text-sm font-semibold text-foreground">${escapeHtml(entry.title)}</div>
-                  ${entry.description ? `<div class="text-xs text-muted-foreground">${escapeHtml(entry.description)}</div>` : ''}
-                </div>
-                ${renderStatusChip(entry.summary, entry.summary.includes('成功') || entry.summary.includes('已') ? 'green' : 'amber')}
-              </div>
-              <div class="mt-3 text-xs text-muted-foreground">当前状态：${escapeHtml(entry.summary)}</div>
-              <button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-nav="${escapeHtml(entry.href)}">
-                进入${escapeHtml(entry.title)}
-              </button>
-            </article>
-          `,
-        )
-        .join('')}
     </div>
   `
 }
@@ -253,7 +405,7 @@ function renderSpecialEntryCards(taskId: string): string {
 function renderClaimDisputeSummary(taskId: string): string {
   const dispute = getLatestClaimDisputeByTaskId(taskId)
   if (!dispute) {
-    return renderPdaCuttingEmptyState('暂无领料数量异议', '当前任务尚未发起领料数量异议；若现场实领数量与默认应领数量不一致，需要到领料确认页提交异议并上传图片或视频证据。')
+    return renderPdaCuttingEmptyState('当前无领料数量异议', '')
   }
 
   const meta = getClaimDisputeStatusMeta(dispute.status)
@@ -272,7 +424,7 @@ function renderClaimDisputeSummary(taskId: string): string {
         { label: '默认应领数量', value: `${dispute.defaultClaimQty} 米` },
         { label: '实际领取数量', value: `${dispute.actualClaimQty} 米`, hint: `差异 ${dispute.discrepancyQty} 米` },
         { label: '异议原因', value: dispute.disputeReason },
-        { label: '证据数量', value: `${dispute.evidenceCount} 个`, hint: dispute.hasEvidence ? '已上传图片 / 视频' : '待补录' },
+        { label: '证据数量', value: `${dispute.evidenceCount} 个`, hint: dispute.hasEvidence ? '已上传图片或视频' : '待补录' },
         { label: '提交时间', value: dispute.submittedAt, hint: `提交人：${dispute.submittedBy}` },
         { label: '平台处理结论', value: dispute.handleConclusion || '待平台处理', hint: dispute.handleNote || '当前暂无处理说明' },
       ])}
@@ -295,14 +447,15 @@ function renderClaimDisputeSummary(taskId: string): string {
 }
 
 export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCuttingTaskDetailRenderOptions): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  const pickupView = buildPdaCuttingTaskPickupView(taskId)
+  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+  const navContext = readPdaCuttingNavContext()
+  const detail = getPdaCuttingTaskDetail(taskId, selectedCutPieceOrderNo ?? undefined)
   const backHref = resolveSafeBackHref(options?.backHref)
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '裁片任务详情',
+      title: '裁片任务',
       subtitle: '',
       activeTab: 'exec',
       body: '',
@@ -311,128 +464,33 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
   }
 
   const state = getPageState(taskId)
+  state.hasMultipleCutPieceOrders = detail.cutPieceOrderCount > 1
 
-  const summaryGrid = renderPdaCuttingSummaryGrid([
-    { label: '当前状态', value: detail.taskStatusLabel, hint: detail.currentStage },
-    { label: '下一步建议', value: detail.nextRecommendedAction, hint: detail.currentActionHint },
-    { label: '领料摘要', value: pickupView?.latestResultLabel || detail.receiveSummary, hint: pickupView?.receiptStatusLabel || detail.currentReceiveStatus },
-    { label: '交接摘要', value: detail.handoverSummary, hint: detail.currentHandoverStatus },
-  ])
-
-  const basicInfoSection = renderInfoGrid([
-    { label: '任务编号', value: detail.taskNo },
-    { label: '任务类型', value: detail.taskTypeLabel },
-    { label: '生产单号', value: detail.productionOrderNo },
-    { label: '裁片单号', value: detail.cutPieceOrderNo },
-    { label: '分配工厂', value: detail.assigneeFactoryName },
-    { label: '下单数量', value: `${detail.orderQty} 件` },
-    { label: '当前状态', value: detail.taskStatusLabel },
-    { label: '当前执行人', value: detail.currentOwnerName || '待指派' },
-  ])
-
-  const materialSection = `
-    ${renderInfoGrid([
-      { label: '面料 SKU', value: detail.materialSku },
-      { label: '面料类型', value: detail.materialTypeLabel },
-      { label: '领料单号', value: pickupView?.pickupSlipNo || detail.pickupSlipNo },
-      { label: '领料状态', value: pickupView?.receiptStatusLabel || detail.currentReceiveStatus },
-      { label: '配置摘要', value: pickupView?.slip.configuredQtySummary.summaryText || detail.configuredQtyText, hint: pickupView?.slip.plannedQtySummary.summaryText },
-      { label: '领取摘要', value: pickupView?.slip.receivedQtySummary.summaryText || detail.actualReceivedQtyText, hint: pickupView?.resultSummaryText },
-      {
-        label: '最新打印版本',
-        value: pickupView?.latestPrintVersionNo || '暂无打印版本',
-        hint: pickupView?.printVersionSummaryText,
-      },
-      {
-        label: '回执状态',
-        value: pickupView?.receiptStatusLabel || '未回执',
-        hint: pickupView?.hasPhotoEvidence ? '含照片凭证' : '当前无照片凭证',
-      },
-      {
-        label: '裁片单主码状态',
-        value: pickupView?.qrStatusLabel || '未生成主码',
-        hint: pickupView?.qrCodeValue || detail.qrCodeValue,
-      },
-      {
-        label: '最近一次领料',
-        value: pickupView?.latestScannedAt || detail.latestReceiveAt,
-        hint: `操作人：${pickupView?.latestScannedBy || detail.latestReceiveBy}`,
-      },
-    ])}
-  `
-
-  const executionSection = `
-    ${renderInfoGrid([
-      {
-        label: '铺布状态',
-        value: detail.spreadingRecords.length ? '已开始铺布' : '待开始铺布',
-        hint: `${detail.spreadingRecords.length} 条记录`,
-      },
-      {
-        label: '最近一次铺布',
-        value: detail.latestSpreadingAt,
-        hint: `操作人：${detail.latestSpreadingBy}`,
-      },
-      {
-        label: '入仓状态',
-        value: detail.currentInboundStatus,
-        hint: detail.inboundZoneLabel,
-      },
-      {
-        label: '最近一次入仓',
-        value: detail.latestInboundAt,
-        hint: `操作人：${detail.latestInboundBy}`,
-      },
-      {
-        label: '交接状态',
-        value: detail.currentHandoverStatus,
-        hint: detail.handoverTargetLabel,
-      },
-      {
-        label: '最近一次交接',
-        value: detail.latestHandoverAt,
-        hint: `操作人：${detail.latestHandoverBy}`,
-      },
-      {
-        label: '补料风险',
-        value: detail.replenishmentRiskSummary,
-        hint: detail.latestFeedbackReason,
-      },
-      {
-        label: '最近一次补料反馈',
-        value: detail.latestReplenishmentFeedbackAt,
-        hint: `操作人：${detail.latestReplenishmentFeedbackBy}`,
-      },
-    ])}
-  `
+  const focusedCutPieceOrderNo =
+    navContext.focusCutPieceOrderNo ||
+    detail.currentSelectedCutPieceOrderNo ||
+    (detail.cutPieceOrderCount === 1 ? detail.defaultCutPieceOrderNo : null)
+  syncFocusDrivenState(state, navContext, focusedCutPieceOrderNo)
+  scheduleOrderFocus(focusedCutPieceOrderNo, Boolean(navContext.autoFocus))
+  const focusedOrderDetail = focusedCutPieceOrderNo
+    ? getPdaCuttingTaskDetail(taskId, focusedCutPieceOrderNo) ?? detail
+    : null
 
   const body = `
-    ${renderPdaCuttingTaskHero(detail)}
-    <section class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4">
-      <div class="text-xs text-blue-700">当前阶段提示</div>
-      <div class="mt-1 text-sm font-semibold text-blue-900">${escapeHtml(detail.currentActionHint)}</div>
-      <div class="mt-2 text-xs text-blue-800">建议下一步：${escapeHtml(detail.nextRecommendedAction)}</div>
-    </section>
-    ${summaryGrid}
-    ${renderPdaCuttingSection('任务基础信息', '', basicInfoSection)}
-    ${renderPdaCuttingSection('面料与领料摘要', '', materialSection)}
+    ${renderTaskOverviewCard(detail)}
+    ${renderPdaCuttingSection('关联裁片单', '', renderTaskOrderList(taskId, detail, state))}
+    ${
+      focusedOrderDetail
+        ? renderPdaCuttingSection('当前裁片单主码', '', renderFocusedQrSummary(focusedOrderDetail, state))
+        : ''
+    }
     ${renderPdaCuttingSection('领料数量异议', '', renderClaimDisputeSummary(taskId))}
-    ${renderPdaCuttingSection('执行进度摘要', '', executionSection)}
-    ${renderPdaCuttingSection('风险提示', '', `
-      <div class="space-y-3">
-        ${pickupView && pickupView.needsRecheck ? `<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-700">当前领料回执标记为“${escapeHtml(pickupView.latestResultLabel)}”，请先处理复核或照片凭证。</div>` : ''}
-        ${renderRiskFlags(detail.riskFlags)}
-        ${renderPdaCuttingRiskList(detail.riskTips)}
-      </div>
-    `)}
-    ${renderPdaCuttingSection('裁片单主码摘要', '', renderQrSummary(taskId, state))}
-    ${renderPdaCuttingSection('最近动作', '', renderRecentActions(taskId, state))}
-    ${renderPdaCuttingSection('专项操作入口', '', renderSpecialEntryCards(taskId))}
+    ${renderPdaCuttingSection('最近动作', '', renderRecentActions(detail))}
   `
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '裁片任务详情',
+    title: '裁片任务',
     subtitle: '',
     activeTab: 'exec',
     body,
@@ -455,8 +513,12 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'toggle-actions') {
-    state.actionsExpanded = !state.actionsExpanded
+  if (action === 'toggle-order-actions') {
+    const cutPieceOrderNo = actionNode.dataset.cutPieceOrderNo
+    if (!cutPieceOrderNo) return false
+    state.expandedCutPieceOrderNos = state.expandedCutPieceOrderNos.includes(cutPieceOrderNo)
+      ? state.expandedCutPieceOrderNos.filter((item) => item !== cutPieceOrderNo)
+      : [...state.expandedCutPieceOrderNos, cutPieceOrderNo]
     return true
   }
 

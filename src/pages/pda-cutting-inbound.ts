@@ -1,61 +1,48 @@
 import { escapeHtml } from '../utils'
-import { buildPdaCuttingRoute, confirmCuttingInbound, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
+import { confirmCuttingInbound, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
 import {
+  buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
+  renderPdaCuttingExecutionHero,
+  renderPdaCuttingFeedbackNotice,
+  renderPdaCuttingOrderSelectionPrompt,
   renderPdaCuttingPageLayout,
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
-  renderPdaCuttingTaskHero,
 } from './pda-cutting-shared'
+import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface InboundFormState {
   operatorName: string
   zoneCode: 'A' | 'B' | 'C'
   locationLabel: string
   note: string
+  feedbackMessage: string
+  backHrefOverride: string
 }
 
 const inboundState = new Map<string, InboundFormState>()
 
-function getState(taskId: string): InboundFormState {
-  const existing = inboundState.get(taskId)
+function getState(taskId: string, cutPieceOrderNo?: string | null): InboundFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+  const existing = inboundState.get(stateKey)
   if (existing) return existing
   const initial: InboundFormState = {
     operatorName: '仓务操作员',
     zoneCode: 'B',
     locationLabel: 'B-02 临时位',
     note: '',
+    feedbackMessage: '',
+    backHrefOverride: '',
   }
-  inboundState.set(taskId, initial)
+  inboundState.set(stateKey, initial)
   return initial
 }
 
-function renderTaskSnapshot(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  return `
-    <div class="grid grid-cols-2 gap-3 text-xs">
-      <article class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">当前任务 / 裁片单</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
-        <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(detail.productionOrderNo)}</div>
-        <div class="mt-1 text-muted-foreground">裁片单：${escapeHtml(detail.cutPieceOrderNo)}</div>
-      </article>
-      <article class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">入仓对象</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
-        <div class="mt-1 text-muted-foreground">当前阶段：${escapeHtml(detail.currentStage)}</div>
-      </article>
-    </div>
-  `
-}
-
-function renderInboundHistory(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
+function renderInboundHistory(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
   if (!detail || !detail.inboundRecords.length) {
-    return renderPdaCuttingEmptyState('暂无入仓记录', '后续完成入仓确认后，这里会展示最近一次入仓时间、区域和操作人。')
+    return renderPdaCuttingEmptyState('当前裁片单暂无入仓记录', '')
   }
 
   return `
@@ -78,81 +65,43 @@ function renderInboundHistory(taskId: string): string {
   `
 }
 
-function renderInboundStatus(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  return `
-    <div class="grid grid-cols-2 gap-3 text-xs">
-      <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">当前入仓状态</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.currentInboundStatus)}</div>
-        <div class="mt-1 text-muted-foreground">记录号：${escapeHtml(detail.latestInboundRecordNo)}</div>
-      </article>
-      <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">当前区域 / 库位</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.inboundZoneLabel)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(detail.inboundLocationLabel)}</div>
-      </article>
-    </div>
-  `
+function renderInboundStatus(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+  return renderPdaCuttingSummaryGrid([
+    { label: '当前入仓状态', value: detail.currentInboundStatus },
+    { label: '建议区域', value: detail.inboundZoneLabel },
+    { label: '当前库位', value: detail.inboundLocationLabel },
+    { label: '最近入仓记录', value: detail.latestInboundRecordNo || '暂无记录', hint: detail.latestInboundAt },
+  ])
 }
 
 export function renderPdaCuttingInboundPage(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
+  const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
+  const detail = context.detail
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '入仓确认',
+      title: '入仓扫码',
       subtitle: '',
       activeTab: 'exec',
       body: '',
-      backHref: buildPdaCuttingRoute(taskId, 'task'),
+      backHref: context.backHref,
     })
   }
 
-  const form = getState(taskId)
+  if (context.requiresCutPieceOrderSelection) {
+    return renderPdaCuttingPageLayout({
+      taskId,
+      title: '入仓扫码',
+      subtitle: '',
+      activeTab: 'exec',
+      body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
+      backHref: context.backHref,
+    })
+  }
 
-  const summary = renderPdaCuttingSummaryGrid([
-    { label: '当前入仓状态', value: detail.currentInboundStatus },
-    { label: '建议区域', value: detail.inboundZoneLabel },
-    { label: '当前库位说明', value: detail.inboundLocationLabel },
-    { label: '最近入仓记录', value: detail.latestInboundAt, hint: detail.latestInboundBy },
-  ])
-
-  const scanSection = `
-    <div class="space-y-3 text-xs">
-      <div class="rounded-xl border border-dashed px-3 py-4 text-center">
-        <div class="text-sm font-medium text-foreground">入仓确认入口</div>
-        <p class="mt-1 text-muted-foreground">当前先承接入仓对象、区域提示和库位确认。</p>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div class="rounded-xl border px-3 py-3">
-          <div class="text-muted-foreground">裁片入仓对象</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</div>
-          <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialSku)} / ${escapeHtml(detail.materialTypeLabel)}</div>
-        </div>
-        <div class="rounded-xl border px-3 py-3">
-          <div class="text-muted-foreground">区域提示</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.inboundZoneLabel)}</div>
-          <div class="mt-1 text-muted-foreground">${escapeHtml(detail.handoverSummary)}</div>
-        </div>
-      </div>
-      <div class="grid grid-cols-3 gap-2">
-        ${['A', 'B', 'C']
-          .map(
-            (zone) => `
-              <div class="rounded-xl border px-3 py-3 text-center text-xs ${detail.inboundZoneLabel.startsWith(zone) ? 'border-blue-200 bg-blue-50 text-blue-700' : 'bg-background text-muted-foreground'}">
-                <div class="font-medium">${zone} 区</div>
-                <div class="mt-1 text-[11px]">${zone === 'A' ? '优先短期交接' : zone === 'B' ? '常规待交接区' : '待复核 / 临时区'}</div>
-              </div>
-            `,
-          )
-          .join('')}
-      </div>
-    </div>
-  `
+  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const pageBackHref = form.backHrefOverride || context.backHref
 
   const confirmSection = `
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
@@ -174,17 +123,15 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
         <span class="text-muted-foreground">入仓备注</span>
         <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-inbound-field="note" placeholder="补充当前区域说明、待交接提示或查找提醒">${escapeHtml(form.note)}</textarea>
       </label>
-      <div class="rounded-xl bg-amber-50 px-3 py-3 text-xs text-amber-800">
-        本页只做裁片专厂仓务确认演示，不展开复杂库位、货架和托盘方案。
-      </div>
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">本次入仓预览</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.zoneCode)} 区 / ${escapeHtml(form.locationLabel || '待填写位置')}</div>
         <div class="mt-1 text-muted-foreground">交接摘要：${escapeHtml(detail.handoverSummary)}</div>
       </div>
+      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
       <div class="grid grid-cols-2 gap-2">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(buildPdaCuttingRoute(taskId, 'task'))}">
-          返回任务详情
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
+          返回裁片任务
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-inbound-action="confirm" data-task-id="${escapeHtml(taskId)}">
           确认入仓
@@ -194,22 +141,19 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   `
 
   const body = `
-    ${renderPdaCuttingTaskHero(detail)}
-    ${summary}
-    ${renderPdaCuttingSection('当前任务 / 裁片单摘要', '先确认当前入仓对象、裁片单和面料，再决定区域与位置。', renderTaskSnapshot(taskId))}
-    ${renderPdaCuttingSection('入仓对象摘要', '展示当前裁片入仓对象、区域提示和库位说明的承接关系。', scanSection)}
-    ${renderPdaCuttingSection('区域提示与入仓确认', '现场操作员可在此完成轻量入仓确认并回写区域与位置。', confirmSection)}
-    ${renderPdaCuttingSection('入仓状态摘要', '这里集中展示最近一次入仓记录号、区域和库位说明。', renderInboundStatus(taskId))}
-    ${renderPdaCuttingSection('最近入仓记录', '用于查看最近一次入仓动作、区域和操作人。', renderInboundHistory(taskId))}
+    ${renderPdaCuttingExecutionHero('入仓扫码', detail)}
+    ${renderPdaCuttingSection('当前情况', '', renderInboundStatus(detail))}
+    ${renderPdaCuttingSection('入仓扫码', '', confirmSection)}
+    ${renderPdaCuttingSection('最近入仓记录', '', renderInboundHistory(detail))}
   `
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '入仓确认',
+    title: '入仓扫码',
     subtitle: '',
     activeTab: 'exec',
     body,
-    backHref: buildPdaCuttingRoute(taskId, 'task'),
+    backHref: pageBackHref,
   })
 }
 
@@ -222,7 +166,8 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const form = getState(taskId)
+    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+    const form = getState(taskId, selectedCutPieceOrderNo)
     const field = fieldNode.dataset.pdaCutInboundField
     if (!field) return true
 
@@ -238,15 +183,24 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaCutInboundAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
+  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
 
   if (action === 'confirm') {
-    const form = getState(taskId)
+    const form = getState(taskId, selectedCutPieceOrderNo)
+    const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
     confirmCuttingInbound(taskId, {
       operatorName: form.operatorName.trim() || '仓务操作员',
       zoneCode: form.zoneCode,
       locationLabel: form.locationLabel.trim() || `${form.zoneCode}-01 临时位`,
       note: form.note.trim(),
-    })
+    }, selectedCutPieceOrderNo ?? undefined)
+    form.feedbackMessage = '入仓已确认。'
+    form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
+      taskId,
+      selectedCutPieceOrderNo,
+      context.navContext,
+      'inbound',
+    )
     return true
   }
 

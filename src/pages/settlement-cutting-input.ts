@@ -1,4 +1,5 @@
 import { renderDrawer as uiDrawer } from '../components/ui'
+import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
 import {
   buildCuttingSettlementFocusBuckets,
   buildCuttingSettlementInputEmptyStateText,
@@ -349,11 +350,13 @@ function renderEmptyState(text: string): string {
 }
 
 function renderPageHeader(): string {
+  const pageBoundary = getSettlementPageBoundary('settlement-cutting-input')
   return `
     <header class="flex flex-col gap-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-bold">裁片结算与评分输入</h1>
+          <h1 class="text-2xl font-bold">裁片结算评分</h1>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(pageBoundary.pageIntro)}</p>
         </div>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-overview">返回裁片任务总览</button>
       </div>
@@ -505,7 +508,7 @@ function renderMainTable(): string {
     <section class="rounded-lg border bg-card p-5">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-base font-semibold text-foreground">裁片结算与评分输入列表</h2>
+          <h2 class="text-base font-semibold text-foreground">裁片结算评分列表</h2>
         </div>
         <span class="text-sm text-muted-foreground">共 ${rows.length} 项</span>
       </div>
@@ -615,7 +618,7 @@ function renderDetailDrawer(): string {
 
   return uiDrawer(
     {
-      title: '裁片结算与评分输入详情',
+      title: '裁片结算评分详情',
       closeAction: { prefix: 'cutting-settlement', action: 'close-overlay' },
       width: 'lg',
     },

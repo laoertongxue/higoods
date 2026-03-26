@@ -1,62 +1,49 @@
 import { escapeHtml } from '../utils'
-import { buildPdaCuttingRoute, getPdaCuttingTaskDetail, submitCuttingReplenishmentFeedback } from '../data/fcs/pda-cutting-special'
+import { getPdaCuttingTaskDetail, submitCuttingReplenishmentFeedback } from '../data/fcs/pda-cutting-special'
 import {
+  buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
+  renderPdaCuttingExecutionHero,
+  renderPdaCuttingFeedbackNotice,
+  renderPdaCuttingOrderSelectionPrompt,
   renderPdaCuttingPageLayout,
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
-  renderPdaCuttingTaskHero,
 } from './pda-cutting-shared'
+import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface ReplenishmentFormState {
   operatorName: string
   reasonLabel: string
   note: string
   photoProofCount: string
+  feedbackMessage: string
+  backHrefOverride: string
 }
 
 const feedbackState = new Map<string, ReplenishmentFormState>()
 
-function getState(taskId: string): ReplenishmentFormState {
-  const existing = feedbackState.get(taskId)
+function getState(taskId: string, cutPieceOrderNo?: string | null): ReplenishmentFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+  const existing = feedbackState.get(stateKey)
   if (existing) return existing
-  const detail = getPdaCuttingTaskDetail(taskId)
+  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
   const initial: ReplenishmentFormState = {
     operatorName: detail?.latestFeedbackBy && detail.latestFeedbackBy !== '-' ? detail.latestFeedbackBy : '现场反馈人',
     reasonLabel: detail?.latestFeedbackReason && detail.latestFeedbackReason !== '-' ? detail.latestFeedbackReason : '铺布余量不足预警',
     note: detail?.latestFeedbackNote && detail.latestFeedbackNote !== '-' ? detail.latestFeedbackNote : '',
     photoProofCount: String(detail?.photoProofCount ?? 0),
+    feedbackMessage: '',
+    backHrefOverride: '',
   }
-  feedbackState.set(taskId, initial)
+  feedbackState.set(stateKey, initial)
   return initial
 }
 
-function renderTaskSnapshot(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  return `
-    <div class="grid grid-cols-2 gap-3 text-xs">
-      <article class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">当前任务 / 裁片单</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
-        <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(detail.productionOrderNo)}</div>
-        <div class="mt-1 text-muted-foreground">裁片单：${escapeHtml(detail.cutPieceOrderNo)}</div>
-      </article>
-      <article class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">风险对象</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
-        <div class="mt-1 text-muted-foreground">当前阶段：${escapeHtml(detail.currentStage)}</div>
-      </article>
-    </div>
-  `
-}
-
-function renderFeedbackHistory(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
+function renderFeedbackHistory(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
   if (!detail || !detail.replenishmentFeedbacks.length) {
-    return renderPdaCuttingEmptyState('暂无补料反馈记录', '后续如果现场判断存在补料风险，这里会展示最近一次反馈时间、原因和凭证数量。')
+    return renderPdaCuttingEmptyState('当前裁片单暂无补料反馈记录', '')
   }
 
   return `
@@ -80,28 +67,18 @@ function renderFeedbackHistory(taskId: string): string {
   `
 }
 
-function renderFeedbackStatus(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  return `
-    <div class="grid grid-cols-2 gap-3 text-xs">
-      <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">最近一次反馈</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.latestFeedbackAt)}</div>
-        <div class="mt-1 text-muted-foreground">反馈人：${escapeHtml(detail.latestFeedbackBy)}</div>
-      </article>
-      <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">回执 / 凭证摘要</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.latestReplenishmentFeedbackRecordNo)}</div>
-        <div class="mt-1 text-muted-foreground">照片 / 凭证：${escapeHtml(String(detail.photoProofCount))} 个</div>
-      </article>
-    </div>
-  `
+function renderFeedbackStatus(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+  return renderPdaCuttingSummaryGrid([
+    { label: '当前风险情况', value: detail.replenishmentRiskSummary },
+    { label: '最近反馈时间', value: detail.latestFeedbackAt, hint: detail.latestFeedbackBy },
+    { label: '最近反馈原因', value: detail.latestFeedbackReason || '暂无反馈' },
+    { label: '凭证数量', value: `${detail.photoProofCount} 个` },
+  ])
 }
 
 export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
+  const context = buildPdaCuttingExecutionContext(taskId, 'replenishment-feedback')
+  const detail = context.detail
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
@@ -110,18 +87,23 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
       subtitle: '',
       activeTab: 'exec',
       body: '',
-      backHref: buildPdaCuttingRoute(taskId, 'task'),
+      backHref: context.backHref,
     })
   }
 
-  const form = getState(taskId)
+  if (context.requiresCutPieceOrderSelection) {
+    return renderPdaCuttingPageLayout({
+      taskId,
+      title: '补料反馈',
+      subtitle: '',
+      activeTab: 'exec',
+      body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
+      backHref: context.backHref,
+    })
+  }
 
-  const summary = renderPdaCuttingSummaryGrid([
-    { label: '当前补料风险', value: detail.replenishmentRiskSummary },
-    { label: '最近反馈时间', value: detail.latestFeedbackAt, hint: detail.latestFeedbackBy },
-    { label: '最近反馈原因', value: detail.latestFeedbackReason },
-    { label: '照片 / 凭证', value: `${detail.photoProofCount} 个` },
-  ])
+  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const pageBackHref = form.backHrefOverride || context.backHref
 
   const formSection = `
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
@@ -153,12 +135,10 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
         <div class="mt-1 text-muted-foreground">说明：${escapeHtml(form.note || '待填写')}</div>
         <div class="mt-1 text-muted-foreground">照片 / 凭证：${escapeHtml(form.photoProofCount || '0')} 个</div>
       </div>
-      <div class="rounded-xl bg-amber-50 px-3 py-3 text-xs text-amber-800">
-        这里只承接补料风险反馈和凭证位，不会在工厂端新建补料审核或补料配置流程。
-      </div>
+      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
       <div class="grid grid-cols-2 gap-2">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(buildPdaCuttingRoute(taskId, 'task'))}">
-          返回任务详情
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
+          返回裁片任务
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-replenishment-action="submit" data-task-id="${escapeHtml(taskId)}">
           提交补料反馈
@@ -168,12 +148,10 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
   `
 
   const body = `
-    ${renderPdaCuttingTaskHero(detail)}
-    ${summary}
-    ${renderPdaCuttingSection('当前任务 / 裁片单摘要', '先确认当前裁片单、面料对象和执行阶段，再填写现场补料风险反馈。', renderTaskSnapshot(taskId))}
-    ${renderPdaCuttingSection('补料风险与反馈录入', '围绕裁片现场缺口、差异和照片凭证位建立补料反馈骨架。', formSection)}
-    ${renderPdaCuttingSection('最近一次反馈摘要', '这里集中展示最近一次补料反馈时间、记录号和凭证数量。', renderFeedbackStatus(taskId))}
-    ${renderPdaCuttingSection('最近反馈记录', '用于查看最近一次补料风险反馈、原因与凭证数量。', renderFeedbackHistory(taskId))}
+    ${renderPdaCuttingExecutionHero('补料反馈', detail)}
+    ${renderPdaCuttingSection('当前情况', '', renderFeedbackStatus(detail))}
+    ${renderPdaCuttingSection('补料反馈', '', formSection)}
+    ${renderPdaCuttingSection('最近反馈记录', '', renderFeedbackHistory(detail))}
   `
 
   return renderPdaCuttingPageLayout({
@@ -182,7 +160,7 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
     subtitle: '',
     activeTab: 'exec',
     body,
-    backHref: buildPdaCuttingRoute(taskId, 'task'),
+    backHref: pageBackHref,
   })
 }
 
@@ -195,7 +173,8 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const form = getState(taskId)
+    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+    const form = getState(taskId, selectedCutPieceOrderNo)
     const field = fieldNode.dataset.pdaCutReplenishmentField
     if (!field) return true
 
@@ -211,15 +190,24 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
   const action = actionNode.dataset.pdaCutReplenishmentAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
+  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
 
   if (action === 'submit') {
-    const form = getState(taskId)
+    const form = getState(taskId, selectedCutPieceOrderNo)
+    const context = buildPdaCuttingExecutionContext(taskId, 'replenishment-feedback')
     submitCuttingReplenishmentFeedback(taskId, {
       operatorName: form.operatorName.trim() || '现场反馈人',
       reasonLabel: form.reasonLabel,
       note: form.note.trim() || '现场已记录补料风险，待 PCS 跟进',
       photoProofCount: Number(form.photoProofCount || '0') || 0,
-    })
+    }, selectedCutPieceOrderNo ?? undefined)
+    form.feedbackMessage = '补料反馈已提交。'
+    form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
+      taskId,
+      selectedCutPieceOrderNo,
+      context.navContext,
+      'replenishment-feedback',
+    )
     return true
   }
 

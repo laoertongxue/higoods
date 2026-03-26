@@ -11,8 +11,8 @@ function findLatestPrintVersion(pickupSlipNo: string): PickupPrintVersion | null
   )
 }
 
-export function buildPdaCuttingTaskPickupView(taskId: string) {
-  const detail = getPdaCuttingTaskDetail(taskId)
+export function buildPdaCuttingTaskPickupView(taskId: string, cutPieceOrderNo?: string | null) {
+  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
   if (!detail) return null
 
   const latestPrintVersion = findLatestPrintVersion(detail.pickupSlipNo)
@@ -32,4 +32,3 @@ export function buildPdaCuttingTaskPickupView(taskId: string) {
 
   return buildCuttingPickupViewFromPdaDetail(detail, latestPrintVersion, qrBinding)
 }
-

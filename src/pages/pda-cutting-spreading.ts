@@ -1,12 +1,17 @@
 import { escapeHtml } from '../utils'
-import { addCuttingSpreadingRecord, buildPdaCuttingRoute, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
+import { addCuttingSpreadingRecord, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
 import {
+  buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
+  renderPdaCuttingExecutionHero,
+  renderPdaCuttingFeedbackNotice,
+  renderPdaCuttingOrderSelectionPrompt,
   renderPdaCuttingPageLayout,
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
-  renderPdaCuttingTaskHero,
 } from './pda-cutting-shared'
+import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface SpreadingFormState {
   fabricRollNo: string
@@ -16,12 +21,15 @@ interface SpreadingFormState {
   tailLength: string
   enteredBy: string
   note: string
+  feedbackMessage: string
+  backHrefOverride: string
 }
 
 const spreadingState = new Map<string, SpreadingFormState>()
 
-function getState(taskId: string): SpreadingFormState {
-  const existing = spreadingState.get(taskId)
+function getState(taskId: string, cutPieceOrderNo?: string | null): SpreadingFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+  const existing = spreadingState.get(stateKey)
   if (existing) return existing
   const initial: SpreadingFormState = {
     fabricRollNo: '',
@@ -31,31 +39,11 @@ function getState(taskId: string): SpreadingFormState {
     tailLength: '0.5',
     enteredBy: '现场铺布员',
     note: '',
+    feedbackMessage: '',
+    backHrefOverride: '',
   }
-  spreadingState.set(taskId, initial)
+  spreadingState.set(stateKey, initial)
   return initial
-}
-
-function renderTaskSnapshot(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  return `
-    <div class="grid grid-cols-2 gap-3 text-xs">
-      <article class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">当前任务 / 裁片单</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
-        <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(detail.productionOrderNo)}</div>
-        <div class="mt-1 text-muted-foreground">裁片单：${escapeHtml(detail.cutPieceOrderNo)}</div>
-      </article>
-      <article class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">当前执行对象</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
-        <div class="mt-1 text-muted-foreground">阶段：${escapeHtml(detail.currentStage)}</div>
-      </article>
-    </div>
-  `
 }
 
 function getCalculatedLength(form: SpreadingFormState): string {
@@ -65,10 +53,9 @@ function getCalculatedLength(form: SpreadingFormState): string {
   return `${(actual + head + tail).toFixed(1)} 米`
 }
 
-function renderRecords(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
+function renderRecords(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
   if (!detail || !detail.spreadingRecords.length) {
-    return renderPdaCuttingEmptyState('暂无铺布记录', '真实业务建议由工厂端现场录入，这里用于运营查看和补录演示。')
+    return renderPdaCuttingEmptyState('当前裁片单暂无铺布记录', '')
   }
 
   const totalLength = detail.spreadingRecords.reduce((sum, item) => sum + item.calculatedLength, 0)
@@ -104,28 +91,18 @@ function renderRecords(taskId: string): string {
   `
 }
 
-function renderLatestSummary(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  return `
-    <div class="grid grid-cols-2 gap-3 text-xs">
-      <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">最近一次铺布录入</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.latestSpreadingAt)}</div>
-        <div class="mt-1 text-muted-foreground">录入人：${escapeHtml(detail.latestSpreadingBy)}</div>
-      </article>
-      <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">最近记录号 / 当前提示</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.latestSpreadingRecordNo)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(detail.currentActionHint)}</div>
-      </article>
-    </div>
-  `
+function renderLatestSummary(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+  return renderPdaCuttingSummaryGrid([
+    { label: '当前铺布状态', value: detail.currentExecutionStatus },
+    { label: '最近记录号', value: detail.latestSpreadingRecordNo || '暂无记录' },
+    { label: '最近录入时间', value: detail.latestSpreadingAt, hint: detail.latestSpreadingBy },
+    { label: '当前建议动作', value: detail.nextRecommendedAction },
+  ])
 }
 
 export function renderPdaCuttingSpreadingPage(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
+  const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
+  const detail = context.detail
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
@@ -134,18 +111,23 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
       subtitle: '',
       activeTab: 'exec',
       body: '',
-      backHref: buildPdaCuttingRoute(taskId, 'task'),
+      backHref: context.backHref,
     })
   }
 
-  const form = getState(taskId)
+  if (context.requiresCutPieceOrderSelection) {
+    return renderPdaCuttingPageLayout({
+      taskId,
+      title: '铺布录入',
+      subtitle: '',
+      activeTab: 'exec',
+      body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
+      backHref: context.backHref,
+    })
+  }
 
-  const summary = renderPdaCuttingSummaryGrid([
-    { label: '裁片单', value: detail.cutPieceOrderNo },
-    { label: '面料 SKU', value: detail.materialSku },
-    { label: '当前执行摘要', value: detail.executionSummary },
-    { label: '最近铺布录入', value: detail.latestSpreadingAt, hint: detail.latestSpreadingBy },
-  ])
+  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const pageBackHref = form.backHrefOverride || context.backHref
 
   const formSection = `
     <div class="space-y-3" data-task-id="${escapeHtml(taskId)}">
@@ -180,8 +162,9 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
         <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-spreading-field="note" placeholder="填写当前铺布情况、异常或补录说明">${escapeHtml(form.note)}</textarea>
       </label>
       <div class="rounded-xl bg-blue-50 px-3 py-3 text-xs text-blue-800">
-        自动计算长度：${escapeHtml(getCalculatedLength(form))}。真实业务建议由工厂端 / PDA 现场录入，这里为裁片专项页的补录演示。
+        自动计算长度：${escapeHtml(getCalculatedLength(form))}。
       </div>
+      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">当前录入预览</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.fabricRollNo || '待填写卷号')}</div>
@@ -189,23 +172,21 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
         <div class="mt-1 text-muted-foreground">布头 / 布尾：${escapeHtml(form.headLength || '0')} 米 / ${escapeHtml(form.tailLength || '0')} 米</div>
       </div>
       <div class="grid grid-cols-2 gap-2">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(buildPdaCuttingRoute(taskId, 'task'))}">
-          返回任务详情
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
+          返回裁片任务
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-spreading-action="submit" data-task-id="${escapeHtml(taskId)}">
-          新增铺布记录
+          保存铺布记录
         </button>
       </div>
     </div>
   `
 
   const body = `
-    ${renderPdaCuttingTaskHero(detail)}
-    ${summary}
-    ${renderPdaCuttingSection('当前任务 / 裁片单摘要', '先确认当前裁片单、面料对象和执行阶段，再开始补录铺布数据。', renderTaskSnapshot(taskId))}
-    ${renderPdaCuttingSection('铺布录入表单', '围绕裁片单补录或查看多卷布铺布记录。', formSection)}
-    ${renderPdaCuttingSection('最近一次铺布摘要', '这里承接最近一次铺布时间、录入人和当前动作提示。', renderLatestSummary(taskId))}
-    ${renderPdaCuttingSection('多卷布记录', '记录卷号、层数、实际长度、布头布尾，并自动计算单卷长度。', renderRecords(taskId))}
+    ${renderPdaCuttingExecutionHero('铺布录入', detail)}
+    ${renderPdaCuttingSection('当前情况', '', renderLatestSummary(detail))}
+    ${renderPdaCuttingSection('铺布录入', '', formSection)}
+    ${renderPdaCuttingSection('最近铺布记录', '', renderRecords(detail))}
   `
 
   return renderPdaCuttingPageLayout({
@@ -214,7 +195,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
     subtitle: '',
     activeTab: 'exec',
     body,
-    backHref: buildPdaCuttingRoute(taskId, 'task'),
+    backHref: pageBackHref,
   })
 }
 
@@ -226,7 +207,8 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const form = getState(taskId)
+    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+    const form = getState(taskId, selectedCutPieceOrderNo)
     const field = fieldNode.dataset.pdaCutSpreadingField
     if (!field) return true
 
@@ -245,9 +227,11 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaCutSpreadingAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
+  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
 
   if (action === 'submit') {
-    const form = getState(taskId)
+    const form = getState(taskId, selectedCutPieceOrderNo)
+    const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
     addCuttingSpreadingRecord(taskId, {
       fabricRollNo: form.fabricRollNo.trim() || `ROLL-${Date.now()}`,
       layerCount: Number(form.layerCount || '0') || 0,
@@ -256,9 +240,16 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       tailLength: Number(form.tailLength || '0') || 0,
       note: form.note.trim(),
       enteredBy: form.enteredBy.trim() || '现场铺布员',
-    })
+    }, selectedCutPieceOrderNo ?? undefined)
     form.fabricRollNo = ''
     form.note = ''
+    form.feedbackMessage = '铺布记录已保存。'
+    form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
+      taskId,
+      selectedCutPieceOrderNo,
+      context.navContext,
+      'spreading',
+    )
     return true
   }
 

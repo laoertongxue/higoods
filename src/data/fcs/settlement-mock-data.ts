@@ -6,6 +6,9 @@ import type {
 } from './settlement-types'
 import { indonesiaFactories, indonesiaBanks } from './indonesia-factories'
 
+// 这里的 mock 数据属于工厂档案结算信息主数据，供平台端主数据页和工厂端资料查看读取。
+// 周期内的对账单、应付调整和结算批次只能消费这些生效快照，不能把这里当作执行对象本身。
+
 // 结算配置数据
 export const settlementProfiles: FactorySettlementProfile[] = [
   {

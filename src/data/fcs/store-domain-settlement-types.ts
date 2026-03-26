@@ -1,18 +1,69 @@
+import type {
+  SettlementConfigSnapshot,
+  SettlementDefaultDeductionRuleSnapshot,
+  SettlementEffectiveInfoSnapshot,
+} from './settlement-change-requests'
+
 export type AdjustmentStatus = 'DRAFT' | 'EFFECTIVE' | 'VOID'
 export type AdjustmentType = 'DEDUCTION_SUPPLEMENT' | 'COMPENSATION' | 'REVERSAL'
+export type StatementStatus = 'DRAFT' | 'CONFIRMED' | 'CLOSED'
+export type FactoryFeedbackStatus =
+  | 'NOT_SENT'
+  | 'PENDING_FACTORY_CONFIRM'
+  | 'FACTORY_CONFIRMED'
+  | 'FACTORY_APPEALED'
+  | 'PLATFORM_HANDLING'
+  | 'RESOLVED'
+export type StatementSourceItemType =
+  | 'QUALITY_BASIS'
+  | 'PAYABLE_ADJUSTMENT'
+  | 'MATERIAL_STATEMENT'
 
-export interface StatementAdjustment {
+export interface SettlementProfileSnapshot {
+  versionNo: string
+  effectiveAt: string
+  sourceFactoryId: string
+  sourceFactoryName: string
+  settlementConfigSnapshot: SettlementConfigSnapshot
+  receivingAccountSnapshot: SettlementEffectiveInfoSnapshot
+  defaultDeductionRulesSnapshot: SettlementDefaultDeductionRuleSnapshot[]
+}
+
+export interface StatementFactoryAppealRecord {
+  appealId: string
+  status: 'SUBMITTED' | 'PLATFORM_HANDLING' | 'RESOLVED'
+  reason: string
+  description: string
+  evidenceSummary?: string
+  submittedAt: string
+  submittedBy: string
+  platformRemark?: string
+  handledAt?: string
+  handledBy?: string
+}
+
+export interface PayableAdjustment {
   adjustmentId: string
-  statementId: string
   adjustmentType: AdjustmentType
+  settlementPartyType: string
+  settlementPartyId: string
+  productionOrderId?: string
+  taskId?: string
   amount: number
+  currency: string
   remark: string
   relatedBasisId?: string
   status: AdjustmentStatus
+  linkedStatementId?: string
+  linkedStatementStatus?: StatementStatus
   createdAt: string
   createdBy: string
   updatedAt?: string
   updatedBy?: string
+}
+
+export interface StatementAdjustment extends PayableAdjustment {
+  statementId?: string
 }
 
 export type SettlementBatchStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED'
@@ -47,6 +98,9 @@ export interface SettlementBatchItem {
   settlementPartyType: string
   settlementPartyId: string
   totalAmount: number
+  settlementProfileVersionNo?: string
+  settlementProfileSnapshot?: SettlementProfileSnapshot
+  factoryFeedbackStatus?: FactoryFeedbackStatus
 }
 
 export interface SettlementBatch {
@@ -60,6 +114,8 @@ export interface SettlementBatch {
   remark?: string
   createdAt: string
   createdBy: string
+  completedAt?: string
+  archivedAt?: string
   updatedAt?: string
   updatedBy?: string
   paymentSyncStatus?: 'UNSYNCED' | 'SUCCESS' | 'FAILED' | 'PARTIAL'
@@ -69,18 +125,28 @@ export interface SettlementBatch {
   paymentRemark?: string
   paymentUpdatedAt?: string
   paymentUpdatedBy?: string
+  settlementProfileVersionSummary?: string
+  settlementProfileSnapshotRefs?: SettlementProfileSnapshot[]
 }
 
-export type StatementStatus = 'DRAFT' | 'CONFIRMED' | 'CLOSED'
-
 export interface StatementDraftItem {
+  sourceItemId: string
+  sourceItemType: StatementSourceItemType
+  sourceLabelZh?: string
+  sourceRefLabel?: string
+  routeToSource?: string
+  settlementPartyType?: string
+  settlementPartyId?: string
   basisId: string
   deductionQty: number
   deductionAmount: number
+  currency?: string
+  remark?: string
   sourceProcessType?: string
   sourceType?: string
   productionOrderId?: string
   sourceOrderId?: string
+  taskId?: string
 }
 
 export interface StatementDraft {
@@ -93,8 +159,17 @@ export interface StatementDraft {
   totalAmount: number
   status: StatementStatus
   itemBasisIds: string[]
+  itemSourceIds?: string[]
   items: StatementDraftItem[]
   remark?: string
+  settlementProfileSnapshot: SettlementProfileSnapshot
+  settlementProfileVersionNo: string
+  statementPartyView?: string
+  factoryFeedbackStatus: FactoryFeedbackStatus
+  factoryFeedbackAt?: string
+  factoryFeedbackBy?: string
+  factoryFeedbackRemark?: string
+  factoryAppealRecord?: StatementFactoryAppealRecord
   createdAt: string
   createdBy: string
   updatedAt?: string

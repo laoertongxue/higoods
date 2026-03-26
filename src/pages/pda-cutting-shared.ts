@@ -6,6 +6,7 @@ import {
   type PdaCuttingTaskDetailData,
   type PdaTaskFlowMock,
 } from '../data/fcs/pda-cutting-special'
+import { readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
 import { renderPdaFrame, type PdaTabKey } from './pda-shell'
 
 interface CuttingSummaryItem {
@@ -28,13 +29,17 @@ export interface PdaCuttingPageContext {
   detail: PdaCuttingTaskDetailData
 }
 
+export function buildPdaCuttingExecutionStateKey(taskId: string, cutPieceOrderNo?: string | null): string {
+  return `${taskId}::${cutPieceOrderNo || 'default'}`
+}
+
 function renderChip(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
 export function getPdaCuttingPageContext(taskId: string): PdaCuttingPageContext | null {
   const task = getPdaTaskFlowTaskById(taskId)
-  const detail = getPdaCuttingTaskDetail(taskId)
+  const detail = getPdaCuttingTaskDetail(taskId, readSelectedCutPieceOrderNoFromLocation())
 
   if (!task || !detail) return null
 
@@ -70,6 +75,20 @@ export function renderPdaCuttingSection(title: string, _description: string, con
   `
 }
 
+export function renderPdaCuttingFeedbackNotice(
+  message: string,
+  tone: 'success' | 'warning' | 'default' = 'success',
+): string {
+  const className =
+    tone === 'success'
+      ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+      : tone === 'warning'
+        ? 'border border-amber-200 bg-amber-50 text-amber-800'
+        : 'border border-slate-200 bg-slate-50 text-slate-700'
+
+  return `<div class="rounded-xl px-3 py-3 text-xs ${className}">${escapeHtml(message)}</div>`
+}
+
 export function renderPdaCuttingEmptyState(title: string, _description: string): string {
   return `
     <section class="rounded-2xl border border-dashed bg-muted/20 px-4 py-8 text-center">
@@ -86,6 +105,7 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
           <div class="text-xs text-muted-foreground">裁片任务</div>
           <div class="text-lg font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
           <div class="text-xs text-muted-foreground">生产单 ${escapeHtml(detail.productionOrderNo)} / 裁片单 ${escapeHtml(detail.cutPieceOrderNo)}</div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(detail.taskProgressLabel)}</div>
         </div>
         ${renderChip(detail.currentStage, 'border-blue-200 bg-blue-50 text-blue-700')}
       </div>
@@ -100,6 +120,39 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
           <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.qrCodeValue)}</div>
           <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrVersionNote)}</div>
         </div>
+      </div>
+    </section>
+  `
+}
+
+export function renderPdaCuttingExecutionHero(stepTitle: string, detail: PdaCuttingTaskDetailData): string {
+  return `
+    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div class="space-y-1">
+          <div class="text-xs text-muted-foreground">当前步骤</div>
+          <div class="text-base font-semibold text-foreground">${escapeHtml(stepTitle)}</div>
+          <div class="text-xs text-muted-foreground">裁片任务 ${escapeHtml(detail.taskNo)}</div>
+        </div>
+        ${renderChip(detail.taskStatusLabel, 'border-blue-200 bg-blue-50 text-blue-700')}
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">当前生产单</div>
+          <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.productionOrderNo)}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">当前裁片单</div>
+          <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">面料 SKU</div>
+          <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div>
+        </article>
+        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+          <div class="text-muted-foreground">面料类型</div>
+          <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
+        </article>
       </div>
     </section>
   `
@@ -166,16 +219,39 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
   )
 }
 
-export function renderPdaCuttingQuickLinks(taskId: string, options?: { includeTaskDetail?: boolean }): string {
+export function renderPdaCuttingOrderSelectionPrompt(detail: PdaCuttingTaskDetailData, backHref: string, notice?: string): string {
+  return `
+    <section class="space-y-4">
+      <div class="rounded-2xl border border-dashed bg-muted/20 px-4 py-6 text-center">
+        <div class="text-sm font-medium text-foreground">${escapeHtml(notice || '请先在裁片任务中选择要处理的裁片单')}</div>
+        <div class="mt-2 text-xs text-muted-foreground">当前任务下共有 ${escapeHtml(String(detail.cutPieceOrderCount))} 张关联裁片单，执行页必须带着当前裁片单进入。</div>
+      </div>
+      <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(backHref)}">
+        返回裁片任务
+      </button>
+    </section>
+  `
+}
+
+export function renderPdaCuttingQuickLinks(
+  taskId: string,
+  options?: { includeTaskDetail?: boolean; cutPieceOrderNo?: string; returnTo?: string },
+): string {
   const links = [
     options?.includeTaskDetail !== false
-      ? { label: '返回裁片任务详情', href: buildPdaCuttingRoute(taskId, 'task') }
+      ? {
+          label: '返回裁片任务详情',
+          href: buildPdaCuttingRoute(taskId, 'task', {
+            cutPieceOrderNo: options?.cutPieceOrderNo,
+            returnTo: options?.returnTo,
+          }),
+        }
       : null,
-    { label: '裁片单主码领料', href: buildPdaCuttingRoute(taskId, 'pickup') },
-    { label: '铺布录入', href: buildPdaCuttingRoute(taskId, 'spreading') },
-    { label: '入仓确认', href: buildPdaCuttingRoute(taskId, 'inbound') },
-    { label: '交接确认', href: buildPdaCuttingRoute(taskId, 'handover') },
-    { label: '补料反馈', href: buildPdaCuttingRoute(taskId, 'replenishment-feedback') },
+    { label: '扫码领料', href: buildPdaCuttingRoute(taskId, 'pickup', options) },
+    { label: '铺布录入', href: buildPdaCuttingRoute(taskId, 'spreading', options) },
+    { label: '入仓扫码', href: buildPdaCuttingRoute(taskId, 'inbound', options) },
+    { label: '交接扫码', href: buildPdaCuttingRoute(taskId, 'handover', options) },
+    { label: '补料反馈', href: buildPdaCuttingRoute(taskId, 'replenishment-feedback', options) },
   ].filter(Boolean) as Array<{ label: string; href: string }>
 
   return `

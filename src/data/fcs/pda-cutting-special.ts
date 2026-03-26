@@ -28,10 +28,47 @@ export interface PdaTaskFlowMock extends ProcessTask {
   supportsCuttingSpecialActions: boolean
   entryMode: PdaTaskEntryMode
   cutPieceOrderNo?: string
+  cutPieceOrderCount?: number
+  completedCutPieceOrderCount?: number
+  pendingCutPieceOrderCount?: number
+  exceptionCutPieceOrderCount?: number
+  taskProgressLabel?: string
+  taskStateLabel?: string
+  taskNextActionLabel?: string
+  hasMultipleCutPieceOrders?: boolean
+  defaultExecCutPieceOrderNo?: string
+  taskReadyForDirectExec?: boolean
   summary: PdaTaskSummary
 }
 
+export interface PdaCuttingTaskOrderLine {
+  cutPieceOrderId: string
+  cutPieceOrderNo: string
+  materialSku: string
+  materialTypeLabel: string
+  colorLabel?: string
+  plannedQty: number
+  currentReceiveStatus: string
+  currentExecutionStatus: string
+  currentInboundStatus: string
+  currentHandoverStatus: string
+  replenishmentRiskLabel: string
+  currentStateLabel: string
+  nextActionLabel: string
+  qrCodeValue: string
+  pickupSlipNo: string
+  isDone: boolean
+  hasException: boolean
+  sortOrder: number
+}
+
+export interface PdaCuttingRouteOptions {
+  cutPieceOrderNo?: string
+  returnTo?: string
+}
+
 export interface PdaCuttingPickupLog {
+  cutPieceOrderNo?: string
   id: string
   scannedAt: string
   operatorName: string
@@ -41,6 +78,7 @@ export interface PdaCuttingPickupLog {
 }
 
 export interface PdaCuttingSpreadingRecord {
+  cutPieceOrderNo?: string
   id: string
   fabricRollNo: string
   layerCount: number
@@ -55,6 +93,7 @@ export interface PdaCuttingSpreadingRecord {
 }
 
 export interface PdaCuttingInboundRecord {
+  cutPieceOrderNo?: string
   id: string
   scannedAt: string
   operatorName: string
@@ -64,6 +103,7 @@ export interface PdaCuttingInboundRecord {
 }
 
 export interface PdaCuttingHandoverRecord {
+  cutPieceOrderNo?: string
   id: string
   handoverAt: string
   operatorName: string
@@ -73,6 +113,7 @@ export interface PdaCuttingHandoverRecord {
 }
 
 export interface PdaCuttingReplenishmentFeedbackRecord {
+  cutPieceOrderNo?: string
   id: string
   feedbackAt: string
   operatorName: string
@@ -94,6 +135,15 @@ export interface PdaCuttingTaskDetailData {
   taskNo: string
   productionOrderNo: string
   cutPieceOrderNo: string
+  cutPieceOrders: PdaCuttingTaskOrderLine[]
+  cutPieceOrderCount: number
+  completedCutPieceOrderCount: number
+  pendingCutPieceOrderCount: number
+  exceptionCutPieceOrderCount: number
+  defaultCutPieceOrderNo: string
+  currentSelectedCutPieceOrderNo: string | null
+  taskProgressLabel: string
+  taskNextActionLabel: string
   taskTypeLabel: string
   factoryTypeLabel: string
   assigneeFactoryName: string
@@ -160,6 +210,32 @@ export interface PdaCuttingTaskDetailData {
   handoverRecords: PdaCuttingHandoverRecord[]
   replenishmentFeedbacks: PdaCuttingReplenishmentFeedbackRecord[]
 }
+
+export interface PdaCuttingTaskRollup {
+  cutPieceOrderCount: number
+  completedCutPieceOrderCount: number
+  pendingCutPieceOrderCount: number
+  exceptionCutPieceOrderCount: number
+  taskProgressLabel: string
+  taskStateLabel: string
+  taskNextActionLabel: string
+  hasMultipleCutPieceOrders: boolean
+  defaultExecCutPieceOrderNo: string
+  taskReadyForDirectExec: boolean
+}
+
+type PdaCuttingTaskDetailSeed = Omit<
+  PdaCuttingTaskDetailData,
+  | 'cutPieceOrders'
+  | 'cutPieceOrderCount'
+  | 'completedCutPieceOrderCount'
+  | 'pendingCutPieceOrderCount'
+  | 'exceptionCutPieceOrderCount'
+  | 'defaultCutPieceOrderNo'
+  | 'currentSelectedCutPieceOrderNo'
+  | 'taskProgressLabel'
+  | 'taskNextActionLabel'
+>
 
 const cuttingOwnerSuggestion: OwnerSuggestion = { kind: 'MAIN_FACTORY' }
 const DEFAULT_FACTORY_ID = 'ID-F001'
@@ -1491,7 +1567,7 @@ const cuttingTaskStore: PdaTaskFlowMock[] = [
 ]
 
 const CUTTING_DETAIL_SHARED: Pick<
-  PdaCuttingTaskDetailData,
+  PdaCuttingTaskDetailSeed,
   | 'taskTypeLabel'
   | 'factoryTypeLabel'
   | 'assigneeFactoryName'
@@ -1511,7 +1587,7 @@ const CUTTING_DETAIL_SHARED: Pick<
   qrVersionNote: '裁片单级二维码，后续重复领料与执行均复用此码',
 }
 
-const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
+const cuttingDetailStore: Record<string, PdaCuttingTaskDetailSeed> = {
   'TASK-CUT-000087': {
     ...CUTTING_DETAIL_SHARED,
     taskId: 'TASK-CUT-000087',
@@ -2657,6 +2733,405 @@ const cuttingDetailStore: Record<string, PdaCuttingTaskDetailData> = {
   },
 }
 
+function detectOrderLineException(detail: Pick<
+  PdaCuttingTaskDetailSeed,
+  | 'taskStatusLabel'
+  | 'currentReceiveStatus'
+  | 'currentExecutionStatus'
+  | 'currentInboundStatus'
+  | 'currentHandoverStatus'
+  | 'replenishmentRiskSummary'
+  | 'riskFlags'
+>): boolean {
+  return (
+    detail.taskStatusLabel.includes('风险') ||
+    detail.taskStatusLabel.includes('暂停') ||
+    detail.taskStatusLabel.includes('复核') ||
+    detail.currentReceiveStatus.includes('复核') ||
+    detail.currentExecutionStatus.includes('暂停') ||
+    detail.currentExecutionStatus.includes('复核') ||
+    detail.currentInboundStatus.includes('异常') ||
+    detail.currentHandoverStatus.includes('异常') ||
+    detail.replenishmentRiskSummary.includes('风险') ||
+    detail.riskFlags.some((flag) => flag.includes('风险') || flag.includes('异常') || flag.includes('复核'))
+  )
+}
+
+function buildTaskOrderLineFromDetail(
+  detail: PdaCuttingTaskDetailSeed,
+  overrides: Partial<PdaCuttingTaskOrderLine> = {},
+): PdaCuttingTaskOrderLine {
+  return {
+    cutPieceOrderId: overrides.cutPieceOrderId ?? detail.cutPieceOrderNo,
+    cutPieceOrderNo: overrides.cutPieceOrderNo ?? detail.cutPieceOrderNo,
+    materialSku: overrides.materialSku ?? detail.materialSku,
+    materialTypeLabel: overrides.materialTypeLabel ?? detail.materialTypeLabel,
+    colorLabel: overrides.colorLabel,
+    plannedQty: overrides.plannedQty ?? detail.orderQty,
+    currentReceiveStatus: overrides.currentReceiveStatus ?? detail.currentReceiveStatus,
+    currentExecutionStatus: overrides.currentExecutionStatus ?? detail.currentExecutionStatus,
+    currentInboundStatus: overrides.currentInboundStatus ?? detail.currentInboundStatus,
+    currentHandoverStatus: overrides.currentHandoverStatus ?? detail.currentHandoverStatus,
+    replenishmentRiskLabel: overrides.replenishmentRiskLabel ?? detail.replenishmentRiskSummary,
+    currentStateLabel: overrides.currentStateLabel ?? detail.taskStatusLabel,
+    nextActionLabel: overrides.nextActionLabel ?? detail.nextRecommendedAction,
+    qrCodeValue: overrides.qrCodeValue ?? detail.qrCodeValue,
+    pickupSlipNo: overrides.pickupSlipNo ?? detail.pickupSlipNo,
+    isDone:
+      overrides.isDone ??
+      (detail.taskStatusLabel === '已完成' || detail.currentHandoverStatus.includes('已交接')),
+    hasException: overrides.hasException ?? detectOrderLineException(detail),
+    sortOrder: overrides.sortOrder ?? 1,
+  }
+}
+
+function cloneTaskOrderLine(line: PdaCuttingTaskOrderLine): PdaCuttingTaskOrderLine {
+  return { ...line }
+}
+
+function getSortedTaskOrderLines(lines: PdaCuttingTaskOrderLine[]): PdaCuttingTaskOrderLine[] {
+  return [...lines].sort((left, right) => left.sortOrder - right.sortOrder).map(cloneTaskOrderLine)
+}
+
+function includesAny(value: string | undefined, keywords: string[]): boolean {
+  if (!value) return false
+  return keywords.some((keyword) => value.includes(keyword))
+}
+
+function hasPendingReplenishment(line: PdaCuttingTaskOrderLine): boolean {
+  return (
+    Boolean(line.replenishmentRiskLabel)
+    && !includesAny(line.replenishmentRiskLabel, ['当前无', '无补料', '暂无补料', '无需补料'])
+  )
+}
+
+function hasTaskOrderLineStarted(line: PdaCuttingTaskOrderLine): boolean {
+  if (line.isDone) return true
+  if (line.hasException) return true
+  if (includesAny(line.currentReceiveStatus, ['领取成功', '领料成功', '已领取', '已回执'])) return true
+  if (includesAny(line.currentExecutionStatus, ['铺布', '已有'])) return true
+  if (includesAny(line.currentInboundStatus, ['已入仓', '待交接'])) return true
+  if (includesAny(line.currentHandoverStatus, ['待交接', '已交接'])) return true
+  return false
+}
+
+function resolveTaskOrderPrimaryExecRouteKey(line: PdaCuttingTaskOrderLine): PdaCuttingRouteKey | null {
+  if (!includesAny(line.currentReceiveStatus, ['领取成功', '领料成功', '已领取', '已回执'])) {
+    return 'pickup'
+  }
+
+  if (includesAny(line.currentExecutionStatus, ['待铺布', '未开始铺布', '未开始', '待开始'])) {
+    return 'spreading'
+  }
+
+  if (!includesAny(line.currentInboundStatus, ['已入仓'])) {
+    return 'inbound'
+  }
+
+  if (!includesAny(line.currentHandoverStatus, ['已交接'])) {
+    return 'handover'
+  }
+
+  if (hasPendingReplenishment(line)) {
+    return 'replenishment-feedback'
+  }
+
+  if (includesAny(line.nextActionLabel, ['领料'])) return 'pickup'
+  if (includesAny(line.nextActionLabel, ['铺布'])) return 'spreading'
+  if (includesAny(line.nextActionLabel, ['入仓'])) return 'inbound'
+  if (includesAny(line.nextActionLabel, ['交接'])) return 'handover'
+  if (includesAny(line.nextActionLabel, ['补料'])) return 'replenishment-feedback'
+  return null
+}
+
+function buildTaskProgressLabel(lines: PdaCuttingTaskOrderLine[]): string {
+  const totalCount = lines.length
+  const completedCount = lines.filter((item) => item.isDone).length
+  if (!totalCount) return '暂无裁片单'
+  if (completedCount === totalCount) return `全部完成 ${completedCount} / ${totalCount}`
+  return `已完成 ${completedCount} / ${totalCount}`
+}
+
+function buildTaskNextActionLabel(lines: PdaCuttingTaskOrderLine[]): string {
+  const prioritizedLine =
+    lines.find((item) => item.hasException) ??
+    lines.find((item) => !item.isDone) ??
+    lines[0]
+  return prioritizedLine?.nextActionLabel || '查看任务'
+}
+
+function buildTaskStateLabel(lines: PdaCuttingTaskOrderLine[]): string {
+  if (!lines.length) return '待开始'
+  if (lines.some((item) => item.hasException)) return '有异常'
+
+  const completedCount = lines.filter((item) => item.isDone).length
+  if (completedCount === lines.length) return '已完成'
+  if (completedCount > 0) return '部分完成'
+  if (lines.some((item) => hasTaskOrderLineStarted(item))) return '进行中'
+  return '待开始'
+}
+
+export function buildPdaCuttingTaskRollup(lines: PdaCuttingTaskOrderLine[]): PdaCuttingTaskRollup {
+  const cutPieceOrderCount = lines.length
+  const completedCutPieceOrderCount = lines.filter((item) => item.isDone).length
+  const pendingCutPieceOrderCount = cutPieceOrderCount - completedCutPieceOrderCount
+  const exceptionCutPieceOrderCount = lines.filter((item) => item.hasException).length
+  const prioritizedLine = resolvePrioritizedTaskOrderLine(lines)
+  const defaultExecRouteKey = prioritizedLine ? resolveTaskOrderPrimaryExecRouteKey(prioritizedLine) : null
+
+  return {
+    cutPieceOrderCount,
+    completedCutPieceOrderCount,
+    pendingCutPieceOrderCount,
+    exceptionCutPieceOrderCount,
+    taskProgressLabel: buildTaskProgressLabel(lines),
+    taskStateLabel: buildTaskStateLabel(lines),
+    taskNextActionLabel: buildTaskNextActionLabel(lines),
+    hasMultipleCutPieceOrders: cutPieceOrderCount > 1,
+    defaultExecCutPieceOrderNo: prioritizedLine?.cutPieceOrderNo || '',
+    taskReadyForDirectExec:
+      cutPieceOrderCount === 1
+      && Boolean(prioritizedLine)
+      && Boolean(defaultExecRouteKey)
+      && !Boolean(prioritizedLine?.isDone),
+  }
+}
+
+function applySelectedTaskOrderLine(
+  detail: PdaCuttingTaskDetailSeed,
+  orderLine: PdaCuttingTaskOrderLine,
+): PdaCuttingTaskDetailSeed {
+  return {
+    ...detail,
+    cutPieceOrderNo: orderLine.cutPieceOrderNo,
+    orderQty: orderLine.plannedQty,
+    materialSku: orderLine.materialSku,
+    materialTypeLabel: orderLine.materialTypeLabel,
+    pickupSlipNo: orderLine.pickupSlipNo,
+    qrCodeValue: orderLine.qrCodeValue,
+    taskStatusLabel: orderLine.currentStateLabel,
+    currentReceiveStatus: orderLine.currentReceiveStatus,
+    currentExecutionStatus: orderLine.currentExecutionStatus,
+    currentInboundStatus: orderLine.currentInboundStatus,
+    currentHandoverStatus: orderLine.currentHandoverStatus,
+    replenishmentRiskSummary: orderLine.replenishmentRiskLabel,
+    nextRecommendedAction: orderLine.nextActionLabel,
+    currentActionHint: `当前裁片单 ${orderLine.cutPieceOrderNo} 下一步：${orderLine.nextActionLabel}`,
+  }
+}
+
+const cuttingTaskOrderLineStore: Record<string, PdaCuttingTaskOrderLine[]> = Object.fromEntries(
+  Object.entries(cuttingDetailStore).map(([taskId, detail]) => [
+    taskId,
+    [buildTaskOrderLineFromDetail(detail)],
+  ]),
+)
+
+cuttingTaskOrderLineStore['TASK-CUT-000087'] = getSortedTaskOrderLines([
+  buildTaskOrderLineFromDetail(cuttingDetailStore['TASK-CUT-000087'], {
+    colorLabel: '黑色',
+    plannedQty: 220,
+    sortOrder: 1,
+  }),
+  buildTaskOrderLineFromDetail(cuttingDetailStore['TASK-CUT-000087'], {
+    cutPieceOrderId: 'CPO-20260319-A-02',
+    cutPieceOrderNo: 'CPO-20260319-A-02',
+    materialSku: 'FAB-SKU-PRINT-001-B',
+    materialTypeLabel: '印花面料',
+    colorLabel: '白色',
+    plannedQty: 180,
+    currentReceiveStatus: '领料成功',
+    currentExecutionStatus: '待铺布录入',
+    currentInboundStatus: '未入仓',
+    currentHandoverStatus: '未交接',
+    replenishmentRiskLabel: '当前无补料反馈',
+    currentStateLabel: '待铺布',
+    nextActionLabel: '铺布录入',
+    qrCodeValue: 'QR-CPO-20260319-A-02',
+    pickupSlipNo: 'PS-20260319-009-02',
+    hasException: false,
+    isDone: false,
+    sortOrder: 2,
+  }),
+  buildTaskOrderLineFromDetail(cuttingDetailStore['TASK-CUT-000087'], {
+    cutPieceOrderId: 'CPO-20260319-A-03',
+    cutPieceOrderNo: 'CPO-20260319-A-03',
+    materialSku: 'FAB-SKU-LINING-001',
+    materialTypeLabel: '里布',
+    colorLabel: '红色',
+    plannedQty: 120,
+    currentReceiveStatus: '待扫码领料',
+    currentExecutionStatus: '未开始铺布',
+    currentInboundStatus: '未入仓',
+    currentHandoverStatus: '未交接',
+    replenishmentRiskLabel: '当前无补料反馈',
+    currentStateLabel: '待领料',
+    nextActionLabel: '扫码领料',
+    qrCodeValue: 'QR-CPO-20260319-A-03',
+    pickupSlipNo: 'PS-20260319-009-03',
+    hasException: false,
+    isDone: false,
+    sortOrder: 3,
+  }),
+])
+
+cuttingTaskOrderLineStore['TASK-CUT-000088'] = getSortedTaskOrderLines([
+  buildTaskOrderLineFromDetail(cuttingDetailStore['TASK-CUT-000088'], {
+    colorLabel: '军绿',
+    plannedQty: 200,
+    sortOrder: 1,
+  }),
+  buildTaskOrderLineFromDetail(cuttingDetailStore['TASK-CUT-000088'], {
+    cutPieceOrderId: 'CPO-20260319-B-02',
+    cutPieceOrderNo: 'CPO-20260319-B-02',
+    materialSku: 'FAB-SKU-SOLID-014-B',
+    materialTypeLabel: '净色面料',
+    colorLabel: '深灰',
+    plannedQty: 160,
+    currentReceiveStatus: '领料成功',
+    currentExecutionStatus: '铺布完成待判断',
+    currentInboundStatus: '未入仓',
+    currentHandoverStatus: '未交接',
+    replenishmentRiskLabel: '待提交补料反馈',
+    currentStateLabel: '待补料反馈',
+    nextActionLabel: '补料反馈',
+    qrCodeValue: 'QR-CPO-20260319-B-02',
+    pickupSlipNo: 'PS-20260319-010-02',
+    hasException: true,
+    isDone: false,
+    sortOrder: 2,
+  }),
+])
+
+cuttingTaskOrderLineStore['TASK-CUT-000092'] = getSortedTaskOrderLines([
+  buildTaskOrderLineFromDetail(cuttingDetailStore['TASK-CUT-000092'], {
+    colorLabel: '藏青',
+    plannedQty: 230,
+    sortOrder: 1,
+  }),
+  buildTaskOrderLineFromDetail(cuttingDetailStore['TASK-CUT-000092'], {
+    cutPieceOrderId: 'CPO-20260319-F-02',
+    cutPieceOrderNo: 'CPO-20260319-F-02',
+    materialSku: 'FAB-SKU-SOLID-021-B',
+    materialTypeLabel: '净色面料',
+    colorLabel: '卡其',
+    plannedQty: 180,
+    currentReceiveStatus: '领料成功',
+    currentExecutionStatus: '待铺布录入',
+    currentInboundStatus: '未入仓',
+    currentHandoverStatus: '未交接',
+    replenishmentRiskLabel: '当前无补料反馈',
+    currentStateLabel: '待铺布',
+    nextActionLabel: '铺布录入',
+    qrCodeValue: 'QR-CPO-20260319-F-02',
+    pickupSlipNo: 'PS-20260319-014-02',
+    hasException: false,
+    isDone: false,
+    sortOrder: 2,
+  }),
+])
+
+function getTaskOrderLines(taskId: string): PdaCuttingTaskOrderLine[] {
+  return getSortedTaskOrderLines(cuttingTaskOrderLineStore[taskId] ?? [])
+}
+
+function touchTaskOrderLine(
+  taskId: string,
+  cutPieceOrderNo: string,
+  patch: Partial<PdaCuttingTaskOrderLine>,
+): void {
+  const lines = cuttingTaskOrderLineStore[taskId]
+  if (!lines?.length) return
+  const targetLine = lines.find((item) => item.cutPieceOrderNo === cutPieceOrderNo)
+  if (!targetLine) return
+  Object.assign(targetLine, patch)
+}
+
+function resolvePrioritizedTaskOrderLine(lines: PdaCuttingTaskOrderLine[], preferredCutPieceOrderNo?: string): PdaCuttingTaskOrderLine | null {
+  return (
+    (preferredCutPieceOrderNo ? lines.find((item) => item.cutPieceOrderNo === preferredCutPieceOrderNo) : null) ??
+    lines.find((item) => item.hasException) ??
+    lines.find((item) => !item.isDone) ??
+    lines[0] ??
+    null
+  )
+}
+
+function filterRecordsByCutPieceOrderNo<T extends { cutPieceOrderNo?: string }>(
+  records: T[],
+  fallbackCutPieceOrderNo: string,
+  selectedCutPieceOrderNo?: string | null,
+): T[] {
+  const normalized = records.map((record) => ({
+    ...record,
+    cutPieceOrderNo: record.cutPieceOrderNo || fallbackCutPieceOrderNo,
+  }))
+
+  if (!selectedCutPieceOrderNo) {
+    return normalized
+  }
+
+  return normalized.filter((record) => record.cutPieceOrderNo === selectedCutPieceOrderNo)
+}
+
+function normalizeRecordCutPieceOrderNo<T extends { cutPieceOrderNo?: string }>(record: T | undefined, fallbackCutPieceOrderNo: string): (T & { cutPieceOrderNo: string }) | null {
+  if (!record) return null
+  return {
+    ...record,
+    cutPieceOrderNo: record.cutPieceOrderNo || fallbackCutPieceOrderNo,
+  }
+}
+
+function deriveTaskOverallStage(lines: PdaCuttingTaskOrderLine[]): string {
+  if (!lines.length) return '暂无裁片单'
+  if (lines.some((item) => item.hasException)) return '异常待处理'
+  if (lines.every((item) => item.isDone)) return '已全部完成'
+  if (lines.some((item) => !item.isDone)) return '处理中'
+  return '待确认'
+}
+
+function syncCuttingTaskAggregate(taskId: string, preferredCutPieceOrderNo?: string): void {
+  const detail = cuttingDetailStore[taskId]
+  const task = cuttingTaskStore.find((item) => item.taskId === taskId)
+  if (!detail || !task) return
+
+  const lines = getTaskOrderLines(taskId)
+  if (!lines.length) return
+
+  const rollup = buildPdaCuttingTaskRollup(lines)
+  const activeLine = resolvePrioritizedTaskOrderLine(lines, preferredCutPieceOrderNo)
+  if (!activeLine) return
+
+  Object.assign(detail, applySelectedTaskOrderLine(detail, activeLine), {
+    cutPieceOrderCount: rollup.cutPieceOrderCount,
+    completedCutPieceOrderCount: rollup.completedCutPieceOrderCount,
+    pendingCutPieceOrderCount: rollup.pendingCutPieceOrderCount,
+    exceptionCutPieceOrderCount: rollup.exceptionCutPieceOrderCount,
+    taskProgressLabel: rollup.taskProgressLabel,
+    taskNextActionLabel: rollup.taskNextActionLabel,
+    currentStage: rollup.taskStateLabel,
+    currentActionHint: `当前裁片单 ${activeLine.cutPieceOrderNo} 下一步：${activeLine.nextActionLabel}`,
+    nextRecommendedAction: activeLine.nextActionLabel,
+  })
+
+  Object.assign(task, {
+    cutPieceOrderNo: rollup.defaultExecCutPieceOrderNo || task.cutPieceOrderNo,
+    ...rollup,
+  })
+
+  task.summary = {
+    ...task.summary,
+    currentStage: rollup.taskStateLabel,
+    materialSku: activeLine.materialSku,
+    materialTypeLabel: activeLine.materialTypeLabel,
+    pickupSlipNo: activeLine.pickupSlipNo,
+    qrCodeValue: activeLine.qrCodeValue,
+    receiveSummary: activeLine.currentReceiveStatus,
+    executionSummary: activeLine.currentExecutionStatus,
+    handoverSummary: activeLine.currentHandoverStatus,
+  }
+}
+
 function compareTask(left: ProcessTask, right: ProcessTask): number {
   const leftTime = new Date((left.updatedAt || left.createdAt).replace(' ', 'T')).getTime()
   const rightTime = new Date((right.updatedAt || right.createdAt).replace(' ', 'T')).getTime()
@@ -2664,7 +3139,7 @@ function compareTask(left: ProcessTask, right: ProcessTask): number {
 }
 
 function getLatestCuttingClaimDispute(taskId: string, cutPieceOrderNo?: string) {
-  return getLatestClaimDisputeByTaskId(taskId) || (cutPieceOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(cutPieceOrderNo) : null)
+  return (cutPieceOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(cutPieceOrderNo) : null) || getLatestClaimDisputeByTaskId(taskId)
 }
 
 function withClaimDisputeTaskSummary(task: PdaTaskFlowMock): PdaTaskFlowMock {
@@ -2682,16 +3157,30 @@ function withClaimDisputeTaskSummary(task: PdaTaskFlowMock): PdaTaskFlowMock {
   }
 }
 
+function withCuttingTaskOrderMeta(task: PdaTaskFlowMock): PdaTaskFlowMock {
+  if (!isCuttingSpecialTask(task)) return task
+  const lines = getTaskOrderLines(task.taskId)
+  const rollup = buildPdaCuttingTaskRollup(lines)
+
+  return {
+    ...task,
+    cutPieceOrderNo: rollup.defaultExecCutPieceOrderNo || task.cutPieceOrderNo,
+    ...rollup,
+  }
+}
+
 export function listPdaTaskFlowTasks(): PdaTaskFlowMock[] {
   const baseTasks = listTaskChainTasks() as PdaTaskFlowMock[]
-  return [...ordinaryTaskStore, ...cuttingTaskStore, ...baseTasks].map((task) => withClaimDisputeTaskSummary(task)).sort(compareTask)
+  return [...ordinaryTaskStore, ...cuttingTaskStore, ...baseTasks]
+    .map((task) => withCuttingTaskOrderMeta(withClaimDisputeTaskSummary(task)))
+    .sort(compareTask)
 }
 
 export function getPdaTaskFlowTaskById(taskId: string): PdaTaskFlowMock | null {
   const localTask = [...ordinaryTaskStore, ...cuttingTaskStore].find((task) => task.taskId === taskId)
-  if (localTask) return withClaimDisputeTaskSummary(localTask)
+  if (localTask) return withCuttingTaskOrderMeta(withClaimDisputeTaskSummary(localTask))
   const runtimeTask = (getTaskChainTaskById(taskId) as PdaTaskFlowMock | undefined) ?? null
-  return runtimeTask ? withClaimDisputeTaskSummary(runtimeTask) : null
+  return runtimeTask ? withCuttingTaskOrderMeta(withClaimDisputeTaskSummary(runtimeTask)) : null
 }
 
 export function listPdaOrdinaryTaskMocks(): PdaTaskFlowMock[] {
@@ -2699,7 +3188,7 @@ export function listPdaOrdinaryTaskMocks(): PdaTaskFlowMock[] {
 }
 
 export function listPdaCuttingTaskMocks(): PdaTaskFlowMock[] {
-  return cuttingTaskStore
+  return cuttingTaskStore.map((task) => withCuttingTaskOrderMeta(task))
 }
 
 export function isCuttingSpecialTask(task: Partial<PdaTaskFlowMock> | null | undefined): boolean {
@@ -2707,12 +3196,82 @@ export function isCuttingSpecialTask(task: Partial<PdaTaskFlowMock> | null | und
   return task.taskType === 'CUTTING' || task.supportsCuttingSpecialActions === true || task.entryMode === 'CUTTING_SPECIAL'
 }
 
-export function getPdaCuttingTaskDetail(taskId: string): PdaCuttingTaskDetailData | null {
-  const detail = cuttingDetailStore[taskId] ?? null
-  if (!detail) return null
+export function getPdaCuttingTaskDetail(taskId: string, selectedCutPieceOrderNo?: string): PdaCuttingTaskDetailData | null {
+  const seed = cuttingDetailStore[taskId] ?? null
+  if (!seed) return null
 
-  const latestDispute = getLatestCuttingClaimDispute(taskId, detail.cutPieceOrderNo)
-  if (!latestDispute) return detail
+  const lines = getTaskOrderLines(taskId)
+  const defaultCutPieceOrderNo = seed.cutPieceOrderNo || lines[0]?.cutPieceOrderNo || ''
+  const resolvedSelectedLine =
+    selectedCutPieceOrderNo && lines.find((item) => item.cutPieceOrderNo === selectedCutPieceOrderNo)
+      ? lines.find((item) => item.cutPieceOrderNo === selectedCutPieceOrderNo) ?? null
+      : !selectedCutPieceOrderNo && lines.length === 1
+        ? lines[0]
+        : null
+  const rollup = buildPdaCuttingTaskRollup(lines)
+  const selectedDetailSeed = resolvedSelectedLine ? applySelectedTaskOrderLine(seed, resolvedSelectedLine) : seed
+  const latestDispute = getLatestCuttingClaimDispute(taskId, resolvedSelectedLine?.cutPieceOrderNo || selectedDetailSeed.cutPieceOrderNo)
+  const resolvedCutPieceOrderNo = resolvedSelectedLine?.cutPieceOrderNo ?? null
+  const pickupLogs = filterRecordsByCutPieceOrderNo(selectedDetailSeed.pickupLogs, seed.cutPieceOrderNo, resolvedCutPieceOrderNo)
+  const spreadingRecords = filterRecordsByCutPieceOrderNo(selectedDetailSeed.spreadingRecords, seed.cutPieceOrderNo, resolvedCutPieceOrderNo)
+  const inboundRecords = filterRecordsByCutPieceOrderNo(selectedDetailSeed.inboundRecords, seed.cutPieceOrderNo, resolvedCutPieceOrderNo)
+  const handoverRecords = filterRecordsByCutPieceOrderNo(selectedDetailSeed.handoverRecords, seed.cutPieceOrderNo, resolvedCutPieceOrderNo)
+  const replenishmentFeedbacks = filterRecordsByCutPieceOrderNo(
+    selectedDetailSeed.replenishmentFeedbacks,
+    seed.cutPieceOrderNo,
+    resolvedCutPieceOrderNo,
+  )
+  const latestPickupLog = normalizeRecordCutPieceOrderNo(pickupLogs[0], seed.cutPieceOrderNo)
+  const latestSpreadingRecord = normalizeRecordCutPieceOrderNo(spreadingRecords[0], seed.cutPieceOrderNo)
+  const latestInboundRecord = normalizeRecordCutPieceOrderNo(inboundRecords[0], seed.cutPieceOrderNo)
+  const latestHandoverRecord = normalizeRecordCutPieceOrderNo(handoverRecords[0], seed.cutPieceOrderNo)
+  const latestFeedbackRecord = normalizeRecordCutPieceOrderNo(replenishmentFeedbacks[0], seed.cutPieceOrderNo)
+  const normalizedDetail: PdaCuttingTaskDetailData = {
+    ...selectedDetailSeed,
+    cutPieceOrderNo: selectedDetailSeed.cutPieceOrderNo || defaultCutPieceOrderNo,
+    cutPieceOrders: lines,
+    defaultCutPieceOrderNo,
+    currentSelectedCutPieceOrderNo: resolvedCutPieceOrderNo,
+    cutPieceOrderCount: rollup.cutPieceOrderCount,
+    completedCutPieceOrderCount: rollup.completedCutPieceOrderCount,
+    pendingCutPieceOrderCount: rollup.pendingCutPieceOrderCount,
+    exceptionCutPieceOrderCount: rollup.exceptionCutPieceOrderCount,
+    taskProgressLabel: rollup.taskProgressLabel,
+    taskNextActionLabel: rollup.taskNextActionLabel,
+    pickupLogs,
+    spreadingRecords,
+    inboundRecords,
+    handoverRecords,
+    replenishmentFeedbacks,
+    latestPickupRecordNo: latestPickupLog?.id || selectedDetailSeed.latestPickupRecordNo,
+    latestReceiveAt: latestPickupLog?.scannedAt || selectedDetailSeed.latestReceiveAt,
+    latestReceiveBy: latestPickupLog?.operatorName || selectedDetailSeed.latestReceiveBy,
+    latestPickupScanAt: latestPickupLog?.scannedAt || selectedDetailSeed.latestPickupScanAt,
+    latestPickupOperatorName: latestPickupLog?.operatorName || selectedDetailSeed.latestPickupOperatorName,
+    scanResultLabel: latestPickupLog?.resultLabel || selectedDetailSeed.scanResultLabel,
+    latestSpreadingRecordNo: latestSpreadingRecord?.id || selectedDetailSeed.latestSpreadingRecordNo,
+    latestSpreadingAt: latestSpreadingRecord?.enteredAt || selectedDetailSeed.latestSpreadingAt,
+    latestSpreadingBy: latestSpreadingRecord?.enteredBy || selectedDetailSeed.latestSpreadingBy,
+    latestInboundRecordNo: latestInboundRecord?.id || selectedDetailSeed.latestInboundRecordNo,
+    latestInboundAt: latestInboundRecord?.scannedAt || selectedDetailSeed.latestInboundAt,
+    latestInboundBy: latestInboundRecord?.operatorName || selectedDetailSeed.latestInboundBy,
+    inboundZoneLabel: latestInboundRecord ? `${latestInboundRecord.zoneCode} 区` : selectedDetailSeed.inboundZoneLabel,
+    inboundLocationLabel: latestInboundRecord?.locationLabel || selectedDetailSeed.inboundLocationLabel,
+    latestHandoverRecordNo: latestHandoverRecord?.id || selectedDetailSeed.latestHandoverRecordNo,
+    latestHandoverAt: latestHandoverRecord?.handoverAt || selectedDetailSeed.latestHandoverAt,
+    latestHandoverBy: latestHandoverRecord?.operatorName || selectedDetailSeed.latestHandoverBy,
+    handoverTargetLabel: latestHandoverRecord?.targetLabel || selectedDetailSeed.handoverTargetLabel,
+    latestReplenishmentFeedbackRecordNo: latestFeedbackRecord?.id || selectedDetailSeed.latestReplenishmentFeedbackRecordNo,
+    latestReplenishmentFeedbackAt: latestFeedbackRecord?.feedbackAt || selectedDetailSeed.latestReplenishmentFeedbackAt,
+    latestReplenishmentFeedbackBy: latestFeedbackRecord?.operatorName || selectedDetailSeed.latestReplenishmentFeedbackBy,
+    latestFeedbackAt: latestFeedbackRecord?.feedbackAt || selectedDetailSeed.latestFeedbackAt,
+    latestFeedbackBy: latestFeedbackRecord?.operatorName || selectedDetailSeed.latestFeedbackBy,
+    latestFeedbackReason: latestFeedbackRecord?.reasonLabel || selectedDetailSeed.latestFeedbackReason,
+    latestFeedbackNote: latestFeedbackRecord?.note || selectedDetailSeed.latestFeedbackNote,
+    photoProofCount: latestFeedbackRecord?.photoProofCount ?? selectedDetailSeed.photoProofCount,
+  }
+
+  if (!latestDispute) return normalizedDetail
 
   const handledSummary =
     latestDispute.status === 'COMPLETED' || latestDispute.status === 'REJECTED'
@@ -2720,7 +3279,7 @@ export function getPdaCuttingTaskDetail(taskId: string): PdaCuttingTaskDetailDat
       : `${getClaimDisputeStatusLabel(latestDispute.status)} · 待平台处理`
 
   return {
-    ...detail,
+    ...normalizedDetail,
     currentReceiveStatus: handledSummary,
     receiveSummary: buildClaimDisputeWritebackSummary(latestDispute),
     actualReceivedQtyText: `长度 ${formatClaimQty(latestDispute.actualClaimQty)}`,
@@ -2737,27 +3296,42 @@ export function getPdaCuttingTaskDetail(taskId: string): PdaCuttingTaskDetailDat
       latestDispute.status === 'COMPLETED' || latestDispute.status === 'REJECTED'
         ? '查看处理结果'
         : '等待平台处理',
-    riskFlags: Array.from(new Set([...detail.riskFlags, '领料异议'])),
+    riskFlags: Array.from(new Set([...normalizedDetail.riskFlags, '领料异议'])),
   }
 }
 
-export function buildPdaCuttingRoute(taskId: string, routeKey: PdaCuttingRouteKey): string {
-  if (routeKey === 'task') return `/fcs/pda/cutting/task/${taskId}`
-  if (routeKey === 'pickup') return `/fcs/pda/cutting/pickup/${taskId}`
-  if (routeKey === 'spreading') return `/fcs/pda/cutting/spreading/${taskId}`
-  if (routeKey === 'inbound') return `/fcs/pda/cutting/inbound/${taskId}`
-  if (routeKey === 'handover') return `/fcs/pda/cutting/handover/${taskId}`
-  return `/fcs/pda/cutting/replenishment-feedback/${taskId}`
+export function buildPdaCuttingRoute(
+  taskId: string,
+  routeKey: PdaCuttingRouteKey,
+  options: PdaCuttingRouteOptions = {},
+): string {
+  const basePath =
+    routeKey === 'task'
+      ? `/fcs/pda/cutting/task/${taskId}`
+      : routeKey === 'pickup'
+        ? `/fcs/pda/cutting/pickup/${taskId}`
+        : routeKey === 'spreading'
+          ? `/fcs/pda/cutting/spreading/${taskId}`
+          : routeKey === 'inbound'
+            ? `/fcs/pda/cutting/inbound/${taskId}`
+            : routeKey === 'handover'
+              ? `/fcs/pda/cutting/handover/${taskId}`
+              : `/fcs/pda/cutting/replenishment-feedback/${taskId}`
+
+  const params = new URLSearchParams()
+  if (options.returnTo?.trim()) {
+    params.set('returnTo', options.returnTo.trim())
+  }
+  if (options.cutPieceOrderNo?.trim()) {
+    params.set('cutPieceOrderNo', options.cutPieceOrderNo.trim())
+  }
+
+  const queryString = params.toString()
+  return queryString ? `${basePath}?${queryString}` : basePath
 }
 
 function buildPdaCuttingTaskDetailPath(taskId: string, returnTo?: string): string {
-  if (!returnTo) {
-    return buildPdaCuttingRoute(taskId, 'task')
-  }
-
-  const params = new URLSearchParams()
-  params.set('returnTo', returnTo)
-  return `${buildPdaCuttingRoute(taskId, 'task')}?${params.toString()}`
+  return buildPdaCuttingRoute(taskId, 'task', { returnTo })
 }
 
 function resolvePdaTaskDetailEntryPath(taskId: string, fallbackPath: string, returnTo?: string): string {
@@ -2768,7 +3342,7 @@ function resolvePdaTaskDetailEntryPath(taskId: string, fallbackPath: string, ret
   return fallbackPath
 }
 
-export function resolvePdaTaskDetailPath(taskId: string, returnTo?: string): string {
+function buildPdaTaskReceiveDetailPath(taskId: string, returnTo?: string): string {
   if (!returnTo) {
     return `/fcs/pda/task-receive/${taskId}`
   }
@@ -2778,8 +3352,35 @@ export function resolvePdaTaskDetailPath(taskId: string, returnTo?: string): str
   return `/fcs/pda/task-receive/${taskId}?${params.toString()}`
 }
 
+function resolvePdaCuttingExecPath(taskId: string, returnTo?: string): string {
+  const lines = getTaskOrderLines(taskId)
+  const rollup = buildPdaCuttingTaskRollup(lines)
+  if (!rollup.taskReadyForDirectExec || !rollup.defaultExecCutPieceOrderNo) {
+    return buildPdaCuttingTaskDetailPath(taskId, returnTo)
+  }
+
+  const activeLine = lines.find((item) => item.cutPieceOrderNo === rollup.defaultExecCutPieceOrderNo) ?? null
+  const routeKey = activeLine ? resolveTaskOrderPrimaryExecRouteKey(activeLine) : null
+  if (!routeKey || routeKey === 'task') {
+    return buildPdaCuttingTaskDetailPath(taskId, returnTo)
+  }
+
+  return buildPdaCuttingRoute(taskId, routeKey, {
+    cutPieceOrderNo: rollup.defaultExecCutPieceOrderNo,
+    returnTo,
+  })
+}
+
+export function resolvePdaTaskDetailPath(taskId: string, returnTo?: string): string {
+  return resolvePdaTaskDetailEntryPath(taskId, buildPdaTaskReceiveDetailPath(taskId, returnTo), returnTo)
+}
+
 export function resolvePdaTaskExecPath(taskId: string, returnTo?: string): string {
-  return resolvePdaTaskDetailEntryPath(taskId, `/fcs/pda/exec/${taskId}`, returnTo)
+  const task = getPdaTaskFlowTaskById(taskId)
+  if (isCuttingSpecialTask(task)) {
+    return resolvePdaCuttingExecPath(taskId, returnTo)
+  }
+  return `/fcs/pda/exec/${taskId}`
 }
 
 export function resolvePdaHandoverDetailPath(handoverId: string, returnTo?: string): string {
@@ -2790,7 +3391,7 @@ export function resolvePdaHandoverDetailPath(handoverId: string, returnTo?: stri
   return resolvePdaTaskDetailEntryPath(head.taskId, `/fcs/pda/handover/${handoverId}`, returnTo)
 }
 
-function touchCuttingTask(taskId: string, patch: Partial<PdaCuttingTaskDetailData>, logPatch?: Partial<PdaTaskSummary>): void {
+function touchCuttingTask(taskId: string, patch: Partial<PdaCuttingTaskDetailSeed>, logPatch?: Partial<PdaTaskSummary>): void {
   const detail = cuttingDetailStore[taskId]
   const task = cuttingTaskStore.find((item) => item.taskId === taskId)
   if (!detail || !task) return
@@ -2821,17 +3422,19 @@ export function submitCuttingPickupResult(taskId: string, payload: {
   actualReceivedQtyText: string
   discrepancyNote: string
   photoProofCount: number
-}): void {
+}, cutPieceOrderNo?: string): void {
   const detail = cuttingDetailStore[taskId]
   const task = cuttingTaskStore.find((item) => item.taskId === taskId)
   if (!detail || !task) return
+  const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
 
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.pickupLogs.unshift({
+    cutPieceOrderNo: targetCutPieceOrderNo,
     id: createStableCuttingActionId(
       'PK',
       {
-        cutPieceOrderNo: detail.cutPieceOrderNo,
+        cutPieceOrderNo: targetCutPieceOrderNo,
         taskNo: detail.taskNo,
         productionOrderNo: detail.productionOrderNo,
       },
@@ -2846,6 +3449,14 @@ export function submitCuttingPickupResult(taskId: string, payload: {
   const latestRecord = detail.pickupLogs[0]
 
   const isSuccess = payload.resultLabel.includes('成功')
+  touchTaskOrderLine(taskId, targetCutPieceOrderNo, {
+    currentReceiveStatus: payload.resultLabel,
+    currentStateLabel: isSuccess ? '待铺布' : '领料差异待处理',
+    currentExecutionStatus: isSuccess ? '待铺布录入' : '待复核',
+    nextActionLabel: isSuccess ? '铺布录入' : '查看领料差异',
+    hasException: !isSuccess,
+    isDone: false,
+  })
   touchCuttingTask(
     taskId,
     {
@@ -2871,11 +3482,10 @@ export function submitCuttingPickupResult(taskId: string, payload: {
   if (isSuccess) {
     task.status = 'IN_PROGRESS'
     task.summary.executionSummary = '待开始铺布'
-    detail.taskStatusLabel = '待铺布'
-    detail.currentActionHint = '领料完成，下一步请录入铺布信息。'
-    detail.nextRecommendedAction = '铺布录入'
     detail.riskFlags = ['待铺布', '待入仓']
   }
+
+  syncCuttingTaskAggregate(taskId, targetCutPieceOrderNo)
 
   pushRecentAction(taskId, {
     actionType: 'PICKUP',
@@ -2894,17 +3504,19 @@ export function addCuttingSpreadingRecord(taskId: string, payload: {
   tailLength: number
   note: string
   enteredBy: string
-}): void {
+}, cutPieceOrderNo?: string): void {
   const detail = cuttingDetailStore[taskId]
   if (!detail) return
+  const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
 
   const calculatedLength = Number((payload.actualLength + payload.headLength + payload.tailLength).toFixed(1))
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.spreadingRecords.unshift({
+    cutPieceOrderNo: targetCutPieceOrderNo,
     id: createStableCuttingActionId(
       'SPR',
       {
-        cutPieceOrderNo: detail.cutPieceOrderNo,
+        cutPieceOrderNo: targetCutPieceOrderNo,
         taskNo: detail.taskNo,
         productionOrderNo: detail.productionOrderNo,
       },
@@ -2922,6 +3534,13 @@ export function addCuttingSpreadingRecord(taskId: string, payload: {
     note: payload.note,
   })
 
+  touchTaskOrderLine(taskId, targetCutPieceOrderNo, {
+    currentExecutionStatus: `已有 ${detail.spreadingRecords.length} 条铺布记录`,
+    currentStateLabel: '铺布执行中',
+    nextActionLabel: '入仓扫码',
+    hasException: false,
+    isDone: false,
+  })
   touchCuttingTask(
     taskId,
     {
@@ -2938,10 +3557,9 @@ export function addCuttingSpreadingRecord(taskId: string, payload: {
     },
   )
 
-  detail.taskStatusLabel = '铺布执行中'
-  detail.currentActionHint = '铺布已开始，确认入仓区域后可继续入仓扫码。'
-  detail.nextRecommendedAction = '入仓扫码'
   detail.riskFlags = ['待入仓']
+
+  syncCuttingTaskAggregate(taskId, targetCutPieceOrderNo)
 
   pushRecentAction(taskId, {
     actionType: 'SPREADING',
@@ -2957,15 +3575,17 @@ export function confirmCuttingInbound(taskId: string, payload: {
   zoneCode: 'A' | 'B' | 'C'
   locationLabel: string
   note: string
-}): void {
+}, cutPieceOrderNo?: string): void {
   const detail = cuttingDetailStore[taskId]
   if (!detail) return
+  const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.inboundRecords.unshift({
+    cutPieceOrderNo: targetCutPieceOrderNo,
     id: createStableCuttingActionId(
       'INB',
       {
-        cutPieceOrderNo: detail.cutPieceOrderNo,
+        cutPieceOrderNo: targetCutPieceOrderNo,
         taskNo: detail.taskNo,
         productionOrderNo: detail.productionOrderNo,
       },
@@ -2978,6 +3598,13 @@ export function confirmCuttingInbound(taskId: string, payload: {
     note: payload.note,
   })
 
+  touchTaskOrderLine(taskId, targetCutPieceOrderNo, {
+    currentInboundStatus: '已入仓',
+    currentStateLabel: '待交接',
+    nextActionLabel: '交接扫码',
+    hasException: false,
+    isDone: false,
+  })
   touchCuttingTask(
     taskId,
     {
@@ -2996,10 +3623,9 @@ export function confirmCuttingInbound(taskId: string, payload: {
     },
   )
 
-  detail.taskStatusLabel = '待交接'
-  detail.currentActionHint = '已完成入仓，请确认交接去向并执行交接扫码。'
-  detail.nextRecommendedAction = '交接扫码'
   detail.riskFlags = ['待交接']
+
+  syncCuttingTaskAggregate(taskId, targetCutPieceOrderNo)
 
   pushRecentAction(taskId, {
     actionType: 'INBOUND',
@@ -3014,15 +3640,17 @@ export function confirmCuttingHandover(taskId: string, payload: {
   operatorName: string
   targetLabel: string
   note: string
-}): void {
+}, cutPieceOrderNo?: string): void {
   const detail = cuttingDetailStore[taskId]
   if (!detail) return
+  const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.handoverRecords.unshift({
+    cutPieceOrderNo: targetCutPieceOrderNo,
     id: createStableCuttingActionId(
       'HO',
       {
-        cutPieceOrderNo: detail.cutPieceOrderNo,
+        cutPieceOrderNo: targetCutPieceOrderNo,
         taskNo: detail.taskNo,
         productionOrderNo: detail.productionOrderNo,
       },
@@ -3035,6 +3663,13 @@ export function confirmCuttingHandover(taskId: string, payload: {
     note: payload.note,
   })
 
+  touchTaskOrderLine(taskId, targetCutPieceOrderNo, {
+    currentHandoverStatus: '已交接',
+    currentStateLabel: '已完成',
+    nextActionLabel: '查看历史摘要',
+    hasException: false,
+    isDone: true,
+  })
   touchCuttingTask(
     taskId,
     {
@@ -3052,10 +3687,9 @@ export function confirmCuttingHandover(taskId: string, payload: {
     },
   )
 
-  detail.taskStatusLabel = '待后续确认'
-  detail.currentActionHint = '交接已完成，如发现缺口可继续反馈补料风险。'
-  detail.nextRecommendedAction = '补料反馈'
   detail.riskFlags = detail.replenishmentFeedbacks.length ? ['补料风险'] : []
+
+  syncCuttingTaskAggregate(taskId, targetCutPieceOrderNo)
 
   pushRecentAction(taskId, {
     actionType: 'HANDOVER',
@@ -3071,15 +3705,17 @@ export function submitCuttingReplenishmentFeedback(taskId: string, payload: {
   reasonLabel: string
   note: string
   photoProofCount: number
-}): void {
+}, cutPieceOrderNo?: string): void {
   const detail = cuttingDetailStore[taskId]
   if (!detail) return
+  const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.replenishmentFeedbacks.unshift({
+    cutPieceOrderNo: targetCutPieceOrderNo,
     id: createStableCuttingActionId(
       'FB',
       {
-        cutPieceOrderNo: detail.cutPieceOrderNo,
+        cutPieceOrderNo: targetCutPieceOrderNo,
         taskNo: detail.taskNo,
         productionOrderNo: detail.productionOrderNo,
       },
@@ -3092,6 +3728,13 @@ export function submitCuttingReplenishmentFeedback(taskId: string, payload: {
     photoProofCount: payload.photoProofCount,
   })
 
+  touchTaskOrderLine(taskId, targetCutPieceOrderNo, {
+    replenishmentRiskLabel: `${payload.reasonLabel}，待 PCS 跟进`,
+    currentStateLabel: '补料风险待关注',
+    nextActionLabel: '补料反馈',
+    hasException: true,
+    isDone: false,
+  })
   touchCuttingTask(
     taskId,
     {
@@ -3106,10 +3749,9 @@ export function submitCuttingReplenishmentFeedback(taskId: string, payload: {
     },
   )
 
-  detail.taskStatusLabel = '补料风险待关注'
-  detail.currentActionHint = '补料风险已反馈，等待 PCS 侧跟进并返回专项页继续处理。'
-  detail.nextRecommendedAction = '补料反馈'
   detail.riskFlags = ['补料风险', '待 PCS 跟进']
+
+  syncCuttingTaskAggregate(taskId, targetCutPieceOrderNo)
 
   pushRecentAction(taskId, {
     actionType: 'REPLENISHMENT',

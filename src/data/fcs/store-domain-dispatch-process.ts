@@ -120,6 +120,70 @@ export function listMaterialStatementDraftsFromRuntime(): MaterialStatementDraft
     .sort((left, right) => left.materialStatementId.localeCompare(right.materialStatementId))
 }
 
+const localMaterialStatementAdditions: MaterialStatementDraft[] = []
+const localMaterialStatementOverrides = new Map<string, MaterialStatementDraft>()
+
+function cloneMaterialStatementDraft(draft: MaterialStatementDraft): MaterialStatementDraft {
+  return {
+    ...draft,
+    issueIds: [...draft.issueIds],
+    items: draft.items.map((item) => ({ ...item })),
+  }
+}
+
+export function listMaterialStatementDraftsForSettlement(): MaterialStatementDraft[] {
+  const baseDrafts = listMaterialStatementDraftsFromRuntime().map(cloneMaterialStatementDraft)
+  const merged = baseDrafts.map(
+    (draft) => localMaterialStatementOverrides.get(draft.materialStatementId) ?? draft,
+  )
+  const existingIds = new Set(merged.map((draft) => draft.materialStatementId))
+  for (const draft of localMaterialStatementAdditions) {
+    if (!existingIds.has(draft.materialStatementId)) {
+      merged.push(cloneMaterialStatementDraft(draft))
+    }
+  }
+  return merged
+}
+
+export function appendMaterialStatementDraftForSettlement(draft: MaterialStatementDraft): void {
+  localMaterialStatementAdditions.push(cloneMaterialStatementDraft(draft))
+}
+
+export function getMutableMaterialStatementDraftForSettlement(
+  materialStatementId: string,
+): MaterialStatementDraft | null {
+  const localAddition = localMaterialStatementAdditions.find(
+    (item) => item.materialStatementId === materialStatementId,
+  )
+  if (localAddition) return localAddition
+
+  const localOverride = localMaterialStatementOverrides.get(materialStatementId)
+  if (localOverride) return localOverride
+
+  const baseDraft = listProgressMaterialStatementDrafts().find(
+    (item) => item.materialStatementId === materialStatementId,
+  )
+  if (!baseDraft) return null
+
+  const cloned = cloneMaterialStatementDraft({
+    materialStatementId: baseDraft.materialStatementId,
+    productionOrderId: baseDraft.productionOrderId,
+    itemCount: baseDraft.itemCount,
+    totalRequestedQty: baseDraft.totalRequestedQty,
+    totalIssuedQty: baseDraft.totalIssuedQty,
+    status: baseDraft.status,
+    issueIds: [...baseDraft.issueIds],
+    items: baseDraft.items.map((item) => ({ ...item })),
+    remark: baseDraft.remark,
+    createdAt: baseDraft.createdAt,
+    createdBy: baseDraft.createdBy,
+    updatedAt: baseDraft.updatedAt,
+    updatedBy: baseDraft.updatedBy,
+  })
+  localMaterialStatementOverrides.set(materialStatementId, cloned)
+  return cloned
+}
+
 // ─── 质检点 / 验收标准单 ──────────────────────
 export type QcStandardStatus = 'DRAFT' | 'TO_RELEASE' | 'RELEASED' | 'VOID'
 

@@ -24,6 +24,7 @@ import {
   type SettlementEffectiveInfo,
   type SettlementDefaultDeductionRuleSnapshot,
 } from './context'
+import { getSettlementVersionUsageStats } from '../../data/fcs/store-domain-settlement-seeds'
 
 function renderSettlementVersionViewDialog(): string {
   if (state.dialog.type !== 'version-view') return ''
@@ -593,7 +594,11 @@ function renderSettleConfirmDialog(): string {
   )
 }
 
-function renderDetailProfileTab(currentProfile: FactorySettlementProfile | undefined): string {
+function renderDetailProfileTab(
+  factoryId: string,
+  currentProfile: FactorySettlementProfile | undefined,
+  currentVersionNo?: string,
+): string {
   if (!currentProfile) {
     return `
       <div class="rounded-lg border bg-card p-6 text-center text-muted-foreground">
@@ -602,36 +607,60 @@ function renderDetailProfileTab(currentProfile: FactorySettlementProfile | undef
     `
   }
 
+  const usageStats = getSettlementVersionUsageStats(factoryId)
+
   return `
-    <div class="rounded-lg border bg-card p-6">
-      <h3 class="mb-4 font-semibold">当前有效版本</h3>
-      <div class="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+    <div class="space-y-4">
+      <div class="rounded-lg border bg-card p-6">
+        <h3 class="mb-4 font-semibold">当前有效版本</h3>
+        <div class="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
         当前页仅展示生效版本，结算配置与扣款规则修改请通过“新增版本”完成。
+        </div>
+        <div class="grid grid-cols-2 gap-6 md:grid-cols-3">
+          <div>
+            <p class="text-sm text-muted-foreground">当前版本</p>
+            <p class="font-medium">${escapeHtml(currentVersionNo || '—')}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">结算周期</p>
+            <p class="font-medium">${escapeHtml(cycleTypeConfig[currentProfile.cycleType].label)}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">结算日规则</p>
+            <p class="font-medium">${escapeHtml(currentProfile.settlementDayRule || '-')}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">计价方式</p>
+            <p class="font-medium">${escapeHtml(pricingModeConfig[currentProfile.pricingMode].label)}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">默认币种</p>
+            <p class="font-medium">${escapeHtml(currentProfile.currency)}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">生效日期</p>
+            <p class="font-medium">${escapeHtml(currentProfile.effectiveFrom)}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">最近更新</p>
+            <p class="font-medium">${escapeHtml(currentProfile.updatedAt)}</p>
+          </div>
+        </div>
       </div>
-      <div class="grid grid-cols-2 gap-6 md:grid-cols-3">
-        <div>
-          <p class="text-sm text-muted-foreground">结算周期</p>
-          <p class="font-medium">${escapeHtml(cycleTypeConfig[currentProfile.cycleType].label)}</p>
+      <div class="rounded-lg border bg-card p-6">
+        <h3 class="mb-4 font-semibold">使用范围说明</h3>
+        <div class="grid gap-3 md:grid-cols-2">
+          <div class="rounded-md border bg-muted/20 px-4 py-3">
+            <p class="text-xs text-muted-foreground">当前版本正在使用的未关闭对账单</p>
+            <p class="mt-1 text-lg font-semibold">${usageStats.openStatementCount}</p>
+          </div>
+          <div class="rounded-md border bg-muted/20 px-4 py-3">
+            <p class="text-xs text-muted-foreground">当前版本正在使用的未完成结算批次</p>
+            <p class="mt-1 text-lg font-semibold">${usageStats.activeBatchCount}</p>
+          </div>
         </div>
-        <div>
-          <p class="text-sm text-muted-foreground">结算日规则</p>
-          <p class="font-medium">${escapeHtml(currentProfile.settlementDayRule || '-')}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted-foreground">计价方式</p>
-          <p class="font-medium">${escapeHtml(pricingModeConfig[currentProfile.pricingMode].label)}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted-foreground">默认币种</p>
-          <p class="font-medium">${escapeHtml(currentProfile.currency)}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted-foreground">生效日期</p>
-          <p class="font-medium">${escapeHtml(currentProfile.effectiveFrom)}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted-foreground">最近更新</p>
-          <p class="font-medium">${escapeHtml(currentProfile.updatedAt)}</p>
+        <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+          新版本审批通过后，只会影响未来新生成的结算单据。已生成的对账单、已入批结算批次和已完成批次会继续保留生成时的版本快照，不会被新版本自动覆盖。
         </div>
       </div>
     </div>
@@ -863,7 +892,7 @@ export function renderSettlementDetailPage(factoryId: string): string {
 
       ${
         state.detailActiveTab === 'profile'
-          ? renderDetailProfileTab(currentProfile)
+          ? renderDetailProfileTab(factoryId, currentProfile, effectiveInfo?.versionNo)
           : state.detailActiveTab === 'accounts'
             ? renderDetailAccountsTab(effectiveInfo)
             : state.detailActiveTab === 'rules'

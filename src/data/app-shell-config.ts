@@ -201,13 +201,10 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '对账与结算',
           icon: 'FileText',
           children: [
-            { key: 'settlement-statements', title: '对账单生成', icon: 'FileText', href: '/fcs/settlement/statements' },
-            { key: 'settlement-adjustments', title: '扣款补差管理', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
-            { key: 'settlement-batches', title: '结算批次进度', icon: 'Layers', href: '/fcs/settlement/batches' },
-            { key: 'settlement-material-statements', title: '领料对账单生成', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
-            { key: 'settlement-payment-sync', title: '打款结果同步更新', icon: 'ArrowLeftRight', href: '/fcs/settlement/payment-sync' },
-            { key: 'settlement-history', title: '历史对账与核算', icon: 'History', href: '/fcs/settlement/history' },
-            { key: 'settlement-cutting-input', title: '裁片结算与评分输入', icon: 'ClipboardCheck', href: '/fcs/settlement/cutting-input' },
+            { key: 'settlement-statements', title: '对账单', icon: 'FileText', href: '/fcs/settlement/statements' },
+            { key: 'settlement-adjustments', title: '应付调整', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
+            { key: 'settlement-material-statements', title: '车缝领料对账', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
+            { key: 'settlement-batches', title: '结算批次', icon: 'Layers', href: '/fcs/settlement/batches' },
           ],
         },
         {
@@ -291,6 +288,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'craft-cutting-replenishment', title: '补料管理', icon: 'ClipboardSignature', href: '/fcs/craft/cutting/replenishment' },
             { key: 'craft-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
+            { key: 'craft-cutting-settlement-scoring', title: '裁片结算评分', icon: 'ClipboardCheck', href: '/fcs/craft/cutting/settlement-scoring' },
             { key: 'craft-cutting-summary', title: '裁剪总表', icon: 'BarChart3', href: '/fcs/craft/cutting/summary' },
           ],
         },

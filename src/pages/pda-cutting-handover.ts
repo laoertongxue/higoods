@@ -1,60 +1,47 @@
 import { escapeHtml } from '../utils'
-import { buildPdaCuttingRoute, confirmCuttingHandover, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
+import { confirmCuttingHandover, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
 import {
+  buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
+  renderPdaCuttingExecutionHero,
+  renderPdaCuttingFeedbackNotice,
+  renderPdaCuttingOrderSelectionPrompt,
   renderPdaCuttingPageLayout,
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
-  renderPdaCuttingTaskHero,
 } from './pda-cutting-shared'
+import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface HandoverFormState {
   operatorName: string
   targetLabel: string
   note: string
+  feedbackMessage: string
+  backHrefOverride: string
 }
 
 const handoverState = new Map<string, HandoverFormState>()
 
-function getState(taskId: string): HandoverFormState {
-  const existing = handoverState.get(taskId)
+function getState(taskId: string, cutPieceOrderNo?: string | null): HandoverFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+  const existing = handoverState.get(stateKey)
   if (existing) return existing
-  const detail = getPdaCuttingTaskDetail(taskId)
+  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
   const initial: HandoverFormState = {
     operatorName: '交接操作员',
     targetLabel: detail?.handoverTargetLabel && detail.handoverTargetLabel !== '待确定后道去向' ? detail.handoverTargetLabel : '裁片仓交接位',
     note: '',
+    feedbackMessage: '',
+    backHrefOverride: '',
   }
-  handoverState.set(taskId, initial)
+  handoverState.set(stateKey, initial)
   return initial
 }
 
-function renderTaskSnapshot(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  return `
-    <div class="grid grid-cols-2 gap-3 text-xs">
-      <article class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">当前任务 / 裁片单</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
-        <div class="mt-1 text-muted-foreground">生产单：${escapeHtml(detail.productionOrderNo)}</div>
-        <div class="mt-1 text-muted-foreground">裁片单：${escapeHtml(detail.cutPieceOrderNo)}</div>
-      </article>
-      <article class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">交接对象摘要</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div>
-        <div class="mt-1 text-muted-foreground">当前所在：${escapeHtml(detail.inboundZoneLabel)} / ${escapeHtml(detail.inboundLocationLabel)}</div>
-        <div class="mt-1 text-muted-foreground">交接去向：${escapeHtml(detail.handoverTargetLabel)}</div>
-      </article>
-    </div>
-  `
-}
-
-function renderHandoverHistory(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
+function renderHandoverHistory(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
   if (!detail || !detail.handoverRecords.length) {
-    return renderPdaCuttingEmptyState('暂无交接记录', '后续完成交接确认后，这里会展示交接对象、去向和最近一次交接结果。')
+    return renderPdaCuttingEmptyState('当前裁片单暂无交接记录', '')
   }
 
   return `
@@ -78,72 +65,43 @@ function renderHandoverHistory(taskId: string): string {
   `
 }
 
-function renderHandoverStatus(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) return ''
-
-  return `
-    <div class="grid grid-cols-2 gap-3 text-xs">
-      <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">当前交接状态</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.currentHandoverStatus)}</div>
-        <div class="mt-1 text-muted-foreground">记录号：${escapeHtml(detail.latestHandoverRecordNo)}</div>
-      </article>
-      <article class="rounded-xl border px-3 py-3">
-        <div class="text-muted-foreground">最近一次交接</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.latestHandoverAt)}</div>
-        <div class="mt-1 text-muted-foreground">操作人：${escapeHtml(detail.latestHandoverBy)}</div>
-      </article>
-    </div>
-  `
+function renderHandoverStatus(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+  return renderPdaCuttingSummaryGrid([
+    { label: '当前交接状态', value: detail.currentHandoverStatus },
+    { label: '当前交接去向', value: detail.handoverTargetLabel },
+    { label: '最近交接记录', value: detail.latestHandoverRecordNo || '暂无记录' },
+    { label: '最近交接时间', value: detail.latestHandoverAt, hint: detail.latestHandoverBy },
+  ])
 }
 
 export function renderPdaCuttingHandoverPage(taskId: string): string {
-  const detail = getPdaCuttingTaskDetail(taskId)
+  const context = buildPdaCuttingExecutionContext(taskId, 'handover')
+  const detail = context.detail
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '交接确认',
+      title: '交接扫码',
       subtitle: '',
       activeTab: 'handover',
       body: '',
-      backHref: buildPdaCuttingRoute(taskId, 'task'),
+      backHref: context.backHref,
     })
   }
 
-  const form = getState(taskId)
+  if (context.requiresCutPieceOrderSelection) {
+    return renderPdaCuttingPageLayout({
+      taskId,
+      title: '交接扫码',
+      subtitle: '',
+      activeTab: 'handover',
+      body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
+      backHref: context.backHref,
+    })
+  }
 
-  const summary = renderPdaCuttingSummaryGrid([
-    { label: '当前交接摘要', value: detail.handoverSummary, hint: detail.currentHandoverStatus },
-    { label: '当前交接去向', value: detail.handoverTargetLabel },
-    { label: '最近交接时间', value: detail.latestHandoverAt, hint: detail.latestHandoverBy },
-    { label: '当前入仓位置', value: `${detail.inboundZoneLabel} / ${detail.inboundLocationLabel}` },
-  ])
-
-  const handoverSection = `
-    <div class="space-y-3 text-xs">
-      <div class="rounded-xl border border-dashed px-3 py-4 text-center">
-        <div class="text-sm font-medium text-foreground">交接确认入口</div>
-        <p class="mt-1 text-muted-foreground">这里先承接交接对象摘要、去向确认和交接结果回写。</p>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div class="rounded-xl border px-3 py-3">
-          <div class="text-muted-foreground">当前交接对象摘要</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</div>
-          <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialSku)}</div>
-        </div>
-        <div class="rounded-xl border px-3 py-3">
-          <div class="text-muted-foreground">当前交接去向</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.handoverTargetLabel)}</div>
-          <div class="mt-1 text-muted-foreground">${escapeHtml(detail.handoverSummary)}</div>
-        </div>
-      </div>
-      <div class="rounded-xl bg-blue-50 px-3 py-3 text-xs text-blue-800">
-        当前交接页只处理“确认交接去向”和“记录最近一次交接”，不会在这里展开完整后道接收流程。
-      </div>
-    </div>
-  `
+  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const pageBackHref = form.backHrefOverride || context.backHref
 
   const confirmSection = `
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
@@ -159,17 +117,15 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
         <span class="text-muted-foreground">交接备注</span>
         <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-handover-field="note" placeholder="填写交接提醒、后续去向和异常说明">${escapeHtml(form.note)}</textarea>
       </label>
-      <div class="rounded-xl bg-amber-50 px-3 py-3 text-xs text-amber-800">
-        当前页面只承接裁片专项交接确认，不在这里展开完整后道交接流程。
-      </div>
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">本次交接预览</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.targetLabel || '待填写交接去向')}</div>
         <div class="mt-1 text-muted-foreground">当前位置：${escapeHtml(detail.inboundZoneLabel)} / ${escapeHtml(detail.inboundLocationLabel)}</div>
       </div>
+      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
       <div class="grid grid-cols-2 gap-2">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(buildPdaCuttingRoute(taskId, 'task'))}">
-          返回任务详情
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
+          返回裁片任务
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-handover-action="confirm" data-task-id="${escapeHtml(taskId)}">
           确认交接
@@ -179,22 +135,19 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   `
 
   const body = `
-    ${renderPdaCuttingTaskHero(detail)}
-    ${summary}
-    ${renderPdaCuttingSection('当前任务 / 裁片单摘要', '先确认交接对象、所在区域和当前交接去向，再执行交接确认。', renderTaskSnapshot(taskId))}
-    ${renderPdaCuttingSection('交接对象与去向摘要', '展示当前裁片交接对象、去向和最近一次交接状态。', handoverSection)}
-    ${renderPdaCuttingSection('交接确认', '现场操作员可在此确认交接去向，并回写交接结果。', confirmSection)}
-    ${renderPdaCuttingSection('交接状态摘要', '这里集中展示最近一次交接记录号、时间和当前交接状态。', renderHandoverStatus(taskId))}
-    ${renderPdaCuttingSection('最近交接记录', '用于查看最近一次交接摘要和历史结果。', renderHandoverHistory(taskId))}
+    ${renderPdaCuttingExecutionHero('交接扫码', detail)}
+    ${renderPdaCuttingSection('当前情况', '', renderHandoverStatus(detail))}
+    ${renderPdaCuttingSection('交接扫码', '', confirmSection)}
+    ${renderPdaCuttingSection('最近交接记录', '', renderHandoverHistory(detail))}
   `
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '交接确认',
+    title: '交接扫码',
     subtitle: '',
     activeTab: 'handover',
     body,
-    backHref: buildPdaCuttingRoute(taskId, 'task'),
+    backHref: pageBackHref,
   })
 }
 
@@ -206,7 +159,8 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const form = getState(taskId)
+    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+    const form = getState(taskId, selectedCutPieceOrderNo)
     const field = fieldNode.dataset.pdaCutHandoverField
     if (!field) return true
 
@@ -221,14 +175,23 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaCutHandoverAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
+  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
 
   if (action === 'confirm') {
-    const form = getState(taskId)
+    const form = getState(taskId, selectedCutPieceOrderNo)
+    const context = buildPdaCuttingExecutionContext(taskId, 'handover')
     confirmCuttingHandover(taskId, {
       operatorName: form.operatorName.trim() || '交接操作员',
       targetLabel: form.targetLabel.trim() || '裁片仓交接位',
       note: form.note.trim(),
-    })
+    }, selectedCutPieceOrderNo ?? undefined)
+    form.feedbackMessage = '交接已确认。'
+    form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
+      taskId,
+      selectedCutPieceOrderNo,
+      context.navContext,
+      'handover',
+    )
     return true
   }
 
