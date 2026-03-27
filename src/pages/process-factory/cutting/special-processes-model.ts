@@ -156,8 +156,11 @@ export interface SpecialProcessStatusMeta {
 }
 
 export interface SpecialProcessPrefilter {
+  productionOrderId?: string
   productionOrderNo?: string
+  originalCutOrderId?: string
   originalCutOrderNo?: string
+  mergeBatchId?: string
   mergeBatchNo?: string
   processOrderId?: string
   processOrderNo?: string
@@ -509,46 +512,78 @@ export function buildReservedSpecialProcessPayload(processOrderId: string, proce
 }
 
 export function buildSpecialProcessNavigationPayload(
-  order: Pick<SpecialProcessOrder, 'originalCutOrderNos' | 'mergeBatchNo' | 'productionOrderNos' | 'styleCode' | 'materialSku'>,
+  order: Pick<
+    SpecialProcessOrder,
+    | 'originalCutOrderIds'
+    | 'originalCutOrderNos'
+    | 'mergeBatchId'
+    | 'mergeBatchNo'
+    | 'productionOrderIds'
+    | 'productionOrderNos'
+    | 'styleCode'
+    | 'materialSku'
+  >,
 ): SpecialProcessNavigationPayload {
+  const originalCutOrderId = order.originalCutOrderIds[0] || undefined
+  const productionOrderId = order.productionOrderIds[0] || undefined
   return {
     originalOrders: {
+      originalCutOrderId,
       originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+      productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
+      mergeBatchId: order.mergeBatchId || undefined,
       mergeBatchNo: order.mergeBatchNo || undefined,
       styleCode: order.styleCode || undefined,
       materialSku: order.materialSku || undefined,
     },
     mergeBatches: {
+      mergeBatchId: order.mergeBatchId || undefined,
       mergeBatchNo: order.mergeBatchNo || undefined,
+      originalCutOrderId,
       originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
     },
     replenishment: {
+      originalCutOrderId,
       originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+      productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
+      mergeBatchId: order.mergeBatchId || undefined,
       mergeBatchNo: order.mergeBatchNo || undefined,
       materialSku: order.materialSku || undefined,
     },
     summary: {
+      mergeBatchId: order.mergeBatchId || undefined,
       mergeBatchNo: order.mergeBatchNo || undefined,
+      originalCutOrderId,
       originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+      productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
       styleCode: order.styleCode || undefined,
       materialSku: order.materialSku || undefined,
     },
     productionProgress: {
+      productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
       styleCode: order.styleCode || undefined,
     },
     cutPieceWarehouse: {
+      productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
+      originalCutOrderId,
       originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+      mergeBatchId: order.mergeBatchId || undefined,
       mergeBatchNo: order.mergeBatchNo || undefined,
+      materialSku: order.materialSku || undefined,
     },
     transferBags: {
+      productionOrderId,
       productionOrderNo: order.productionOrderNos[0] || undefined,
+      originalCutOrderId,
       originalCutOrderNo: order.originalCutOrderNos[0] || undefined,
+      mergeBatchId: order.mergeBatchId || undefined,
       mergeBatchNo: order.mergeBatchNo || undefined,
+      materialSku: order.materialSku || undefined,
     },
   }
 }
@@ -581,7 +616,6 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
   audits: SpecialProcessAuditTrail[]
 } {
   const original = originalRows[0]
-  const batch = mergeBatches[0]
   const orders: SpecialProcessOrder[] = []
   const payloads: BindingStripProcessPayload[] = []
   const scopeLines: SpecialProcessScopeLine[] = []
@@ -687,42 +721,6 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
         actionAt: '2026-03-24 10:00',
         payloadSummary: `${order.processOrderNo} 已开工`,
         note: '已记录首轮捆条。',
-      }),
-    )
-  }
-
-  if (batch) {
-    const order: SpecialProcessOrder = {
-      processOrderId: 'sp-seed-wash-placeholder',
-      processOrderNo: 'SP-20260324-002',
-      processType: 'WASH',
-      sourceType: 'merge-batch',
-      originalCutOrderIds: batch.items.map((item) => item.originalCutOrderId),
-      originalCutOrderNos: batch.items.map((item) => item.originalCutOrderNo),
-      mergeBatchId: batch.mergeBatchId,
-      mergeBatchNo: batch.mergeBatchNo,
-      productionOrderIds: uniqueStrings(batch.items.map((item) => item.productionOrderId)),
-      productionOrderNos: uniqueStrings(batch.items.map((item) => item.productionOrderNo)),
-      styleCode: batch.styleCode,
-      spuCode: batch.spuCode,
-      styleName: batch.styleName,
-      materialSku: batch.materialSkuSummary,
-      status: 'DRAFT',
-      createdAt: '2026-03-24 09:40',
-      createdBy: '工艺专员 叶晓青',
-      note: '洗水工艺当前仅做执行层预留。',
-    }
-    const seedScopes = buildDefaultSpecialProcessScopeLines({ order, originalRows, mergeBatches })
-    orders.push(order)
-    scopeLines.push(...seedScopes)
-    audits.push(
-      buildSpecialProcessAuditTrail({
-        processOrderId: order.processOrderId,
-        action: 'CREATED',
-        actionBy: order.createdBy,
-        actionAt: order.createdAt,
-        payloadSummary: `创建预留工艺单 ${order.processOrderNo}`,
-        note: order.note,
       }),
     )
   }
@@ -1014,8 +1012,11 @@ export function filterSpecialProcessRows(
   const keyword = filters.keyword.trim().toLowerCase()
 
   return rows.filter((row) => {
+    if (prefilter?.productionOrderId && !row.productionOrderIds.includes(prefilter.productionOrderId)) return false
     if (prefilter?.productionOrderNo && !row.productionOrderNos.includes(prefilter.productionOrderNo)) return false
+    if (prefilter?.originalCutOrderId && !row.originalCutOrderIds.includes(prefilter.originalCutOrderId)) return false
     if (prefilter?.originalCutOrderNo && !row.originalCutOrderNos.includes(prefilter.originalCutOrderNo)) return false
+    if (prefilter?.mergeBatchId && row.mergeBatchId !== prefilter.mergeBatchId) return false
     if (prefilter?.mergeBatchNo && row.mergeBatchNo !== prefilter.mergeBatchNo) return false
     if (prefilter?.processOrderId && row.processOrderId !== prefilter.processOrderId) return false
     if (prefilter?.processOrderNo && row.processOrderNo !== prefilter.processOrderNo) return false
@@ -1040,8 +1041,11 @@ export function findSpecialProcessByPrefilter(
     rows.find((row) => {
       if (prefilter.processOrderId && row.processOrderId === prefilter.processOrderId) return true
       if (prefilter.processOrderNo && row.processOrderNo === prefilter.processOrderNo) return true
+      if (prefilter.productionOrderId && row.productionOrderIds.includes(prefilter.productionOrderId)) return true
       if (prefilter.productionOrderNo && row.productionOrderNos.includes(prefilter.productionOrderNo)) return true
+      if (prefilter.originalCutOrderId && row.originalCutOrderIds.includes(prefilter.originalCutOrderId)) return true
       if (prefilter.originalCutOrderNo && row.originalCutOrderNos.includes(prefilter.originalCutOrderNo)) return true
+      if (prefilter.mergeBatchId && row.mergeBatchId === prefilter.mergeBatchId) return true
       if (prefilter.mergeBatchNo && row.mergeBatchNo === prefilter.mergeBatchNo) return true
       if (prefilter.processType && row.processType === prefilter.processType) return true
       return false

@@ -8,6 +8,9 @@ import {
   type FeiTicketsContext,
   type OriginalCutOrderTicketOwner,
 } from './fei-tickets-model'
+import {
+  buildCuttingTraceabilityId,
+} from '../../../data/fcs/cutting/qr-codes.ts'
 
 export const CUTTING_FEI_BATCH_PRINT_SESSIONS_STORAGE_KEY = 'cuttingFeiBatchPrintSessions'
 
@@ -161,8 +164,9 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
-function buildSessionId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+function buildSessionId(prefix: string, issuedAt = new Date()): string {
+  const nowText = issuedAt.toISOString().slice(0, 16).replace('T', ' ')
+  return buildCuttingTraceabilityId(prefix, nowText, 'batch-print')
 }
 
 function buildIssue(group: FeiBatchOwnerGroup, reason: string): FeiBatchSessionIssue {

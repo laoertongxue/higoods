@@ -1,4 +1,3 @@
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import type {
   CuttingConfigStatus,
   CuttingReceiveStatus,
@@ -9,7 +8,6 @@ import { escapeHtml } from '../../../utils'
 import {
   areOriginalCutOrdersCompatibleForBatching,
   buildCuttablePoolStats,
-  buildCuttablePoolViewModel,
   cuttableStateMeta,
   filterCuttablePoolGroups,
   type CoverageStatusKey,
@@ -23,6 +21,7 @@ import {
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import type { ProductionProgressUrgencyKey } from './production-progress-model'
 import { urgencyMeta } from './production-progress-model'
+import { buildCuttablePoolProjection } from './cuttable-pool-projection'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -120,7 +119,7 @@ function syncStateFromPath(): void {
 }
 
 function getViewModel() {
-  return buildCuttablePoolViewModel(cuttingOrderProgressRecords)
+  return buildCuttablePoolProjection().viewModel
 }
 
 function getVisibleGroups(viewModel = getViewModel()): CuttableStyleGroup[] {
@@ -431,7 +430,11 @@ function renderOriginalOrderRows(order: CuttableStyleGroup['orders'][number], cu
               ${disabled ? 'aria-disabled="true"' : ''}
             />
           </td>
-          <td class="px-3 py-3 font-medium">${escapeHtml(item.originalCutOrderNo)}</td>
+          <td class="px-3 py-3">
+            <button class="font-medium text-blue-600 hover:underline" data-cuttable-pool-action="go-original-order-detail" data-item-id="${item.id}">
+              ${escapeHtml(item.originalCutOrderNo)}
+            </button>
+          </td>
           <td class="px-3 py-3 text-sm text-muted-foreground">${escapeHtml(item.productionOrderNo)}</td>
           <td class="px-3 py-3">
             <div class="font-medium">${escapeHtml(item.materialSku)}</div>
@@ -776,6 +779,19 @@ function navigateToOriginalOrdersForSelection(): boolean {
     return true
   }
 
+  if (selectedItems.length === 1) {
+    const [selectedItem] = selectedItems
+    appStore.navigate(
+      buildRouteWithQuery(getCanonicalCuttingPath('original-orders'), {
+        originalCutOrderId: selectedItem.originalCutOrderId,
+        originalCutOrderNo: selectedItem.originalCutOrderNo,
+        productionOrderId: selectedItem.productionOrderId,
+        productionOrderNo: selectedItem.productionOrderNo,
+      }),
+    )
+    return true
+  }
+
   const firstItem = selectedItems[0]
   appStore.navigate(
     buildRouteWithQuery(getCanonicalCuttingPath('original-orders'), {
@@ -906,6 +922,22 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
 
   if (action === 'go-selected-original-orders') {
     return navigateToOriginalOrdersForSelection()
+  }
+
+  if (action === 'go-original-order-detail') {
+    const viewModel = getViewModel()
+    const itemId = actionNode.dataset.itemId
+    const item = itemId ? viewModel.itemsById[itemId] : null
+    if (!item) return false
+    appStore.navigate(
+      buildRouteWithQuery(getCanonicalCuttingPath('original-orders'), {
+        originalCutOrderId: item.originalCutOrderId,
+        originalCutOrderNo: item.originalCutOrderNo,
+        productionOrderId: item.productionOrderId,
+        productionOrderNo: item.productionOrderNo,
+      }),
+    )
+    return true
   }
 
   if (action === 'go-original-orders') {

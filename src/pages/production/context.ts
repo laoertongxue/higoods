@@ -772,19 +772,8 @@ function getTechPackSnapshotForDemand(demand: ProductionDemand): {
   versionLabel: string
   missingChecklist: string[]
 } {
-  const forceReleased =
-    demand.demandStatus === 'CONVERTED' || demand.hasProductionOrder || demand.productionOrderId !== null
-  const demandStatus: ProductionDemand['techPackStatus'] = forceReleased ? 'RELEASED' : demand.techPackStatus
+  const demandStatus: ProductionDemand['techPackStatus'] = demand.techPackStatus
   const demandVersionLabel = normalizeTechPackVersionLabel(demandStatus, demand.techPackVersionLabel)
-
-  // 已转单或已绑定生产单的需求在该业务线视为“已发布快照”，避免出现“待完善但已转单”口径冲突。
-  if (forceReleased) {
-    return {
-      status: 'RELEASED',
-      versionLabel: demandVersionLabel === '-' ? 'v1.0' : demandVersionLabel,
-      missingChecklist: [],
-    }
-  }
 
   const techPack = getTechPackBySpuCode(demand.spuCode)
   if (!techPack) {

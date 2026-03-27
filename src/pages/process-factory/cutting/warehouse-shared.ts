@@ -1,16 +1,4 @@
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import { appStore } from '../../../state/store'
-import {
-  buildCuttablePoolViewModel,
-  type CuttableOriginalOrderItem,
-} from './cuttable-pool-model'
-import {
-  buildSystemSeedMergeBatches,
-  CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
-  deserializeMergeBatchStorage,
-  type MergeBatchRecord,
-} from './merge-batches-model'
-import { buildOriginalCutOrderViewModel, type OriginalCutOrderRow } from './original-orders-model'
 
 export interface WarehouseNavigationPayload {
   originalOrders: Record<string, string | undefined>
@@ -23,8 +11,16 @@ export function buildWarehouseQueryPayload(options: {
   originalCutOrderNo?: string
   originalCutOrderId?: string
   productionOrderNo?: string
+  productionOrderId?: string
   materialSku?: string
   mergeBatchNo?: string
+  mergeBatchId?: string
+  ticketId?: string
+  ticketNo?: string
+  bagId?: string
+  bagCode?: string
+  usageId?: string
+  usageNo?: string
   cuttingGroup?: string
   zoneCode?: string
   warehouseStatus?: string
@@ -37,7 +33,9 @@ export function buildWarehouseQueryPayload(options: {
       originalCutOrderNo: options.originalCutOrderNo,
       originalCutOrderId: options.originalCutOrderId,
       productionOrderNo: options.productionOrderNo,
+      productionOrderId: options.productionOrderId,
       mergeBatchNo: options.mergeBatchNo,
+      mergeBatchId: options.mergeBatchId,
       styleCode: options.styleCode,
       materialSku: options.materialSku,
     },
@@ -45,20 +43,36 @@ export function buildWarehouseQueryPayload(options: {
       originalCutOrderNo: options.originalCutOrderNo,
       originalCutOrderId: options.originalCutOrderId,
       productionOrderNo: options.productionOrderNo,
+      productionOrderId: options.productionOrderId,
       materialSku: options.materialSku,
+      mergeBatchNo: options.mergeBatchNo,
+      mergeBatchId: options.mergeBatchId,
     },
     summary: {
       originalCutOrderNo: options.originalCutOrderNo,
+      originalCutOrderId: options.originalCutOrderId,
       productionOrderNo: options.productionOrderNo,
+      productionOrderId: options.productionOrderId,
       mergeBatchNo: options.mergeBatchNo,
+      mergeBatchId: options.mergeBatchId,
       materialSku: options.materialSku,
       styleCode: options.styleCode,
       sampleNo: options.sampleNo,
     },
     transferBags: {
       originalCutOrderNo: options.originalCutOrderNo,
+      originalCutOrderId: options.originalCutOrderId,
       productionOrderNo: options.productionOrderNo,
+      productionOrderId: options.productionOrderId,
       mergeBatchNo: options.mergeBatchNo,
+      mergeBatchId: options.mergeBatchId,
+      materialSku: options.materialSku,
+      ticketId: options.ticketId,
+      ticketNo: options.ticketNo,
+      bagId: options.bagId,
+      bagCode: options.bagCode,
+      usageId: options.usageId,
+      usageNo: options.usageNo,
       cuttingGroup: options.cuttingGroup,
       zoneCode: options.zoneCode,
       warehouseStatus: options.warehouseStatus,
@@ -69,7 +83,10 @@ export function buildWarehouseQueryPayload(options: {
   }
 }
 
-export function buildWarehouseRouteWithQuery(pathname: string, payload?: Record<string, string | undefined>): string {
+export function buildWarehouseRouteWithQuery(
+  pathname: string,
+  payload?: Record<string, string | undefined>,
+): string {
   if (!payload) return pathname
 
   const params = new URLSearchParams()
@@ -84,22 +101,4 @@ export function getWarehouseSearchParams(): URLSearchParams {
   const pathname = appStore.getState().pathname
   const [, query] = pathname.split('?')
   return new URLSearchParams(query || '')
-}
-
-export function readWarehouseMergeBatchLedger(): MergeBatchRecord[] {
-  try {
-    const stored = deserializeMergeBatchStorage(localStorage.getItem(CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY))
-    const cuttableItemsById = buildCuttablePoolViewModel(cuttingOrderProgressRecords).itemsById as Record<string, CuttableOriginalOrderItem>
-    const systemSeed = buildSystemSeedMergeBatches(Object.values(cuttableItemsById))
-    const merged = new Map<string, MergeBatchRecord>()
-    systemSeed.forEach((batch) => merged.set(batch.mergeBatchId, batch))
-    stored.forEach((batch) => merged.set(batch.mergeBatchId, batch))
-    return Array.from(merged.values())
-  } catch {
-    return []
-  }
-}
-
-export function buildWarehouseOriginalRows(): OriginalCutOrderRow[] {
-  return buildOriginalCutOrderViewModel(cuttingOrderProgressRecords, readWarehouseMergeBatchLedger()).rows
 }

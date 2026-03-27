@@ -688,11 +688,11 @@ function renderMainTable(): string {
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="open-process" data-record-id="${row.id}">输入处理</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-platform-detail" data-route="${row.routes.platformDetail}">去平台详情</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-platform-exception" data-route="${row.routes.platformExceptionCenter}">去异常中心</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-order-progress" data-route="${row.routes.orderProgress}">去订单进度</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-material-prep" data-route="${row.routes.materialPrep}">去仓库配料</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-cut-piece-orders" data-route="${row.routes.cutPieceOrders}">去裁片单</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-production-progress" data-route="${row.routes.productionProgress}">去生产单进度</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-material-prep" data-route="${row.routes.materialPrep}">去仓库配料领料</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-original-orders" data-route="${row.routes.originalOrders}">去原始裁片单</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-replenishment" data-route="${row.routes.replenishment}">去补料管理</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-warehouse-management" data-route="${row.routes.warehouseManagement}">去仓库管理</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-settlement-action="go-fabric-warehouse" data-route="${row.routes.fabricWarehouse}">去裁床仓</button>
                             </div>
                           </td>
                         </tr>
@@ -860,11 +860,11 @@ function renderDetailDrawer(): string {
           <div class="mt-4 flex flex-wrap gap-2">
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-platform-detail" data-route="${row.routes.platformDetail}">去平台裁片任务详情</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-platform-exception" data-route="${row.routes.platformExceptionCenter}">去裁片专项异常中心</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-order-progress" data-route="${row.routes.orderProgress}">去订单进度</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-material-prep" data-route="${row.routes.materialPrep}">去仓库配料</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-cut-piece-orders" data-route="${row.routes.cutPieceOrders}">去裁片单</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-production-progress" data-route="${row.routes.productionProgress}">去生产单进度</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-material-prep" data-route="${row.routes.materialPrep}">去仓库配料领料</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-original-orders" data-route="${row.routes.originalOrders}">去原始裁片单</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-replenishment" data-route="${row.routes.replenishment}">去补料管理</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-warehouse-management" data-route="${row.routes.warehouseManagement}">去仓库管理</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-settlement-action="go-fabric-warehouse" data-route="${row.routes.fabricWarehouse}">去裁床仓</button>
           </div>
         </section>
       </div>
@@ -1051,7 +1051,18 @@ export function handleCuttingSettlementInputEvent(target: Element): boolean {
     return true
   }
 
-  if ((action === 'go-platform-detail' || action === 'go-platform-exception' || action === 'go-order-progress' || action === 'go-material-prep' || action === 'go-cut-piece-orders' || action === 'go-replenishment' || action === 'go-warehouse-management') && route) {
+  if (
+    (
+      action === 'go-platform-detail' ||
+      action === 'go-platform-exception' ||
+      action === 'go-production-progress' ||
+      action === 'go-material-prep' ||
+      action === 'go-original-orders' ||
+      action === 'go-replenishment' ||
+      action === 'go-fabric-warehouse'
+    ) &&
+    route
+  ) {
     appStore.navigate(route)
     return true
   }

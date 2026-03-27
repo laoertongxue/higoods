@@ -1,4 +1,4 @@
-import { getPdaCuttingTaskDetail } from '../../../data/fcs/pda-cutting-special'
+import { getPdaCuttingTaskDetail } from '../../../data/fcs/pda-cutting-execution-source.ts'
 import { cuttingPickupPrintVersions } from '../mock'
 import type { PickupPrintVersion, PickupQrBinding } from '../types'
 import { buildCuttingPickupViewFromPdaDetail } from './cutting-shared'
@@ -11,8 +11,8 @@ function findLatestPrintVersion(pickupSlipNo: string): PickupPrintVersion | null
   )
 }
 
-export function buildPdaCuttingTaskPickupView(taskId: string, cutPieceOrderNo?: string | null) {
-  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
+export function buildPdaCuttingTaskPickupView(taskId: string, executionKey?: string | null) {
+  const detail = getPdaCuttingTaskDetail(taskId, executionKey ?? undefined)
   if (!detail) return null
 
   const latestPrintVersion = findLatestPrintVersion(detail.pickupSlipNo)
@@ -20,7 +20,7 @@ export function buildPdaCuttingTaskPickupView(taskId: string, cutPieceOrderNo?: 
     ? {
         qrCodeValue: detail.qrCodeValue,
         boundObjectType: 'CUT_PIECE_ORDER',
-        boundObjectNo: detail.cutPieceOrderNo,
+        boundObjectNo: detail.originalCutOrderNo,
         scenarioType: 'CUTTING',
         reusePolicy: 'REUSE_BY_BOUND_OBJECT',
         generatedAt: latestPrintVersion?.printedAt || detail.latestReceiveAt || '',

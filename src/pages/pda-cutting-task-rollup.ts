@@ -2,7 +2,7 @@ import {
   resolvePdaTaskDetailPath,
   resolvePdaTaskExecPath,
   type PdaTaskFlowMock,
-} from '../data/fcs/pda-cutting-special'
+} from '../data/fcs/pda-cutting-execution-source.ts'
 
 export interface PdaCuttingTaskEntryAction {
   label: string
@@ -24,7 +24,7 @@ export function buildPdaCuttingTaskEntryAction(
   const normalizedOptions: PdaCuttingTaskEntryActionOptions =
     typeof options === 'string' ? { returnTo: options } : options
 
-  if (task.taskReadyForDirectExec && task.defaultExecCutPieceOrderNo) {
+  if (task.taskReadyForDirectExec && (task.defaultExecutionOrderId || task.defaultExecutionOrderNo)) {
     return {
       label: '继续处理',
       href: normalizedOptions.execHref || resolvePdaTaskExecPath(task.taskId, normalizedOptions.returnTo),
@@ -36,7 +36,7 @@ export function buildPdaCuttingTaskEntryAction(
   return {
     label: '查看任务',
     href: normalizedOptions.detailHref || resolvePdaTaskDetailPath(task.taskId, normalizedOptions.returnTo),
-    helperText: task.hasMultipleCutPieceOrders ? '需先选择裁片单' : '',
+    helperText: task.hasMultipleCutPieceOrders ? '需先选择执行单' : '',
     directExec: false,
   }
 }

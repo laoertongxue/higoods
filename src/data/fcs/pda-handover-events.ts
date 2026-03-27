@@ -4,17 +4,17 @@ import {
   listWarehouseReturnOrders,
   type WarehouseIssueOrder,
   type WarehouseReturnOrder,
-} from './warehouse-material-execution'
+} from './warehouse-material-execution.ts'
 import {
   PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
   type ProcessAssignmentGranularity,
-} from './process-craft-dict'
+} from './process-craft-dict.ts'
 import {
   getRuntimeTaskById,
   type RuntimeExecutorKind,
   type RuntimeProcessTask,
   type RuntimeTaskScopeType,
-} from './runtime-process-tasks'
+} from './runtime-process-tasks.ts'
 
 export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'

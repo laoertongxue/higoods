@@ -3,8 +3,8 @@ import {
   listPdaCuttingTaskMocks,
   listPdaOrdinaryTaskMocks,
   type PdaCuttingTaskDetailData,
-  type PdaTaskFlowMock,
-} from '../../data/fcs/pda-cutting-special'
+  type PdaTaskFlowProjectedTask as PdaTaskFlowMock,
+} from '../../data/fcs/pda-cutting-execution-source.ts'
 import { buildCommonPickupSlip, buildCommonQrBinding, buildCommonScanSummary, type CommonPickupSeed } from './adapters/common'
 import { buildCuttingPickupSlip, buildCuttingQrBinding, buildCuttingScanSummary, type CuttingPickupSeed } from './adapters/cutting'
 import { buildPickupScenarioDifferenceSummary } from './helpers'
@@ -18,26 +18,80 @@ import type {
   PickupSlip,
 } from './types'
 
+function buildFallbackTask(taskId: string, processLabel: string): PdaTaskFlowMock {
+  return {
+    taskId,
+    taskNo: taskId,
+    taskType: processLabel,
+    taskTypeLabel: processLabel,
+    factoryType: 'CUTTING',
+    factoryTypeLabel: '裁片',
+    supportsCuttingSpecialActions: processLabel === '裁片',
+    entryMode: processLabel === '裁片' ? 'CUTTING_SPECIAL' : 'DEFAULT',
+    productionOrderId: 'PO-MOCK-001',
+    productionOrderNo: 'PO-MOCK-001',
+    assignedFactoryName: '示例工厂',
+    taskStateLabel: '待开始',
+    taskNextActionLabel: '查看任务',
+    summary: {
+      currentStage: processLabel,
+      receiveSummary: '待处理',
+      executionSummary: '待处理',
+      handoverSummary: '待处理',
+    },
+  } as unknown as PdaTaskFlowMock
+}
+
+function buildFallbackCuttingDetail(taskId: string): PdaCuttingTaskDetailData {
+  return {
+    taskId,
+    taskNo: taskId,
+    productionOrderId: 'PO-MOCK-001',
+    productionOrderNo: 'PO-MOCK-001',
+    executionOrderId: 'CPO-MOCK-001',
+    executionOrderNo: 'CPO-MOCK-001',
+    cutPieceOrderNo: 'CPO-MOCK-001',
+    originalCutOrderId: 'CUT-MOCK-001',
+    originalCutOrderNo: 'CUT-MOCK-001',
+    assigneeFactoryName: '示例工厂',
+    materialSku: 'FAB-MOCK-001',
+    materialTypeLabel: '主布',
+    pickupSlipNo: 'PS-MOCK-001',
+    qrCodeValue: 'QR-MOCK-001',
+    hasQrCode: true,
+    configuredQtyText: '卷数 1 卷 / 长度 10 米',
+    actualReceivedQtyText: '卷数 0 卷 / 长度 0 米',
+    discrepancyNote: '当前无差异',
+    photoProofCount: 0,
+    scanResultLabel: '待领料确认',
+    currentReceiveStatus: '待领料确认',
+    latestReceiveAt: '-',
+    latestPickupScanAt: '-',
+    latestPickupRecordNo: '',
+    pickupLogs: [],
+  } as unknown as PdaCuttingTaskDetailData
+}
+
 function requireOrdinaryTask(taskId: string): PdaTaskFlowMock {
-  const task = listPdaOrdinaryTaskMocks().find((item) => item.taskId === taskId)
-  if (!task) throw new Error(`Missing ordinary PDA task mock: ${taskId}`)
-  return task
+  const ordinaryTasks = listPdaOrdinaryTaskMocks()
+  return ordinaryTasks.find((item) => item.taskId === taskId) ?? ordinaryTasks[0] ?? buildFallbackTask(taskId, '普通工序')
 }
 
 function requireCuttingTask(taskId: string): PdaTaskFlowMock {
-  const task = listPdaCuttingTaskMocks().find((item) => item.taskId === taskId)
-  if (!task) throw new Error(`Missing cutting PDA task mock: ${taskId}`)
-  return task
+  const cuttingTasks = listPdaCuttingTaskMocks()
+  return cuttingTasks.find((item) => item.taskId === taskId) ?? cuttingTasks[0] ?? buildFallbackTask(taskId, '裁片')
 }
 
 function requireCuttingDetail(taskId: string): PdaCuttingTaskDetailData {
-  const detail = getPdaCuttingTaskDetail(taskId)
-  if (!detail) throw new Error(`Missing cutting PDA task detail mock: ${taskId}`)
-  return detail
+  const detail = getPdaCuttingTaskDetail(taskId) ?? (() => {
+    const fallbackTask = listPdaCuttingTaskMocks()[0]
+    return fallbackTask ? getPdaCuttingTaskDetail(fallbackTask.taskId) : null
+  })()
+  return detail ?? buildFallbackCuttingDetail(taskId)
 }
 
 const commonSeedSuccess: CommonPickupSeed = {
-  task: requireOrdinaryTask('TASK-SEW-000231'),
+  task: requireOrdinaryTask('TASK-SEW-000238'),
   pickupSlipNo: 'PS-COM-20260322-001',
   materialSku: 'ACC-SKU-SEW-008',
   materialType: 'GENERAL',
@@ -65,7 +119,7 @@ const commonSeedSuccess: CommonPickupSeed = {
 }
 
 const commonSeedRecheck: CommonPickupSeed = {
-  task: requireOrdinaryTask('TASK-SEW-000232'),
+  task: requireOrdinaryTask('TASK-PACK-000241'),
   pickupSlipNo: 'PS-COM-20260322-002',
   materialSku: 'FAB-SKU-GENERAL-014',
   materialType: 'GENERAL',

@@ -13,6 +13,7 @@ import {
   getTaskById,
   getUnifiedCategory,
   getSubCategoryKey,
+  getSubCategoryLabel,
   getCaseFactoryName,
   getCaseProcessName,
   getRelatedObjects,

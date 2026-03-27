@@ -256,5 +256,10 @@ document.addEventListener('keydown', (event) => {
   }
 })
 
+window.addEventListener('popstate', () => {
+  const pathname = `${window.location.pathname}${window.location.search}` || '/'
+  appStore.syncFromBrowser(pathname)
+})
+
 appStore.subscribe(render)
 render()

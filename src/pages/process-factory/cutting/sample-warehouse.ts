@@ -1,10 +1,9 @@
 import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
-import type { SampleWarehouseRecord, SampleLocationStage } from '../../../data/fcs/cutting/warehouse-management'
-import { sampleWarehouseRecords } from '../../../data/fcs/cutting/warehouse-management'
+import { normalizeSampleWarehouseWritebackInput } from '../../../data/fcs/cutting/warehouse-writeback-inputs'
+import { submitSampleWarehouseWriteback } from '../../../domain/cutting-warehouse-writeback/bridge'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
-  buildSampleWarehouseViewModel,
   filterSampleWarehouseItems,
   findSampleWarehouseByPrefilter,
   sampleLocationTypeLabel,
@@ -15,6 +14,7 @@ import {
   type SampleWarehousePrefilter,
   type SampleWarehouseStatusKey,
 } from './sample-warehouse-model'
+import { buildSampleWarehouseProjection } from './sample-warehouse-projection'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -24,7 +24,6 @@ import {
 } from './layout.helpers'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
-  buildWarehouseOriginalRows,
   buildWarehouseRouteWithQuery,
   getWarehouseSearchParams,
 } from './warehouse-shared'
@@ -33,7 +32,6 @@ type FilterField = 'keyword' | 'status' | 'locationType' | 'holder'
 type DetailField = 'locationType' | 'holder' | 'note'
 
 interface SampleWarehousePageState {
-  records: SampleWarehouseRecord[]
   filters: SampleWarehouseFilters
   activeItemId: string | null
   prefilter: SampleWarehousePrefilter | null
@@ -60,10 +58,6 @@ const FIELD_TO_FILTER_KEY: Record<FilterField, keyof SampleWarehouseFilters> = {
 }
 
 const state: SampleWarehousePageState = {
-  records: sampleWarehouseRecords.map((item) => ({
-    ...item,
-    flowHistory: item.flowHistory.map((history) => ({ ...history })),
-  })),
   filters: { ...initialFilters },
   activeItemId: null,
   prefilter: null,
@@ -75,27 +69,12 @@ const state: SampleWarehousePageState = {
   },
 }
 
-function nowText(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = `${now.getMonth() + 1}`.padStart(2, '0')
-  const day = `${now.getDate()}`.padStart(2, '0')
-  const hours = `${now.getHours()}`.padStart(2, '0')
-  const minutes = `${now.getMinutes()}`.padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
-}
-
-function stageFromLocationType(locationType: SampleLocationType, action: 'borrow' | 'return' | 'transfer' | 'inspection'): SampleLocationStage {
-  if (action === 'return') return 'BACK_TO_PMC'
-  if (action === 'inspection') return 'RETURN_CHECK'
-  if (locationType === 'cutting-room') return 'CUTTING'
-  if (locationType === 'factory') return 'FACTORY_CHECK'
-  if (locationType === 'inspection') return 'RETURN_CHECK'
-  return 'PMC_WAREHOUSE'
+function getProjection() {
+  return buildSampleWarehouseProjection()
 }
 
 function getViewModel() {
-  return buildSampleWarehouseViewModel(buildWarehouseOriginalRows(), state.records)
+  return getProjection().viewModel
 }
 
 function getFilteredItems() {
@@ -105,6 +84,9 @@ function getFilteredItems() {
 function getPrefilterFromQuery(): SampleWarehousePrefilter | null {
   const params = getWarehouseSearchParams()
   const prefilter: SampleWarehousePrefilter = {
+    originalCutOrderId: params.get('originalCutOrderId') || undefined,
+    productionOrderId: params.get('productionOrderId') || undefined,
+    materialSku: params.get('materialSku') || undefined,
     styleCode: params.get('styleCode') || undefined,
     sampleNo: params.get('sampleNo') || undefined,
     holder: params.get('holder') || undefined,
@@ -127,11 +109,6 @@ function syncPrefilterFromQuery(): void {
 function getActiveItem(): SampleWarehouseItem | null {
   if (!state.activeItemId) return null
   return getViewModel().itemsById[state.activeItemId] ?? null
-}
-
-function getSourceRecord(itemId: string | null): SampleWarehouseRecord | null {
-  if (!itemId) return null
-  return state.records.find((record) => record.id === itemId) ?? null
 }
 
 function syncDetailDraft(): void {
@@ -276,7 +253,7 @@ function renderTable(items: SampleWarehouseItem[]): string {
       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
         <tr>
           <th class="px-4 py-3 text-left">sampleNo</th>
-          <th class="px-4 py-3 text-left">款号 / SPU</th>
+          <th class="px-4 py-3 text-left">面料 SKU / 款号</th>
           <th class="px-4 py-3 text-left">颜色 / 尺码</th>
           <th class="px-4 py-3 text-left">当前状态</th>
           <th class="px-4 py-3 text-left">当前位置</th>
@@ -295,7 +272,8 @@ function renderTable(items: SampleWarehouseItem[]): string {
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sampleName)}</div>
                 </td>
                 <td class="px-4 py-3">
-                  <div class="font-medium text-foreground">${escapeHtml(item.styleCode || item.spuCode || '待补款号')}</div>
+                  <div class="font-medium text-foreground">${escapeHtml(item.materialSku || '待补面料')}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.styleCode || item.spuCode || '待补款号')}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.relatedProductionOrderNo)}</div>
                 </td>
                 <td class="px-4 py-3">${escapeHtml(`${item.color} / ${item.size}`)}</td>
@@ -321,8 +299,7 @@ function renderTable(items: SampleWarehouseItem[]): string {
 
 function renderDetailDrawer(): string {
   const item = getActiveItem()
-  const sourceRecord = getSourceRecord(state.activeItemId)
-  if (!item || !sourceRecord) return ''
+  if (!item) return ''
 
   return uiDetailDrawer(
     {
@@ -337,6 +314,10 @@ function renderDetailDrawer(): string {
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">相关原始裁片单</div>
             <div class="mt-1 font-medium text-foreground">${escapeHtml(item.relatedOriginalCutOrderNo)}</div>
+          </div>
+          <div class="rounded-lg border bg-muted/20 p-3">
+            <div class="text-xs text-muted-foreground">面料 SKU</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(item.materialSku || '待补面料')}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">来源生产单号</div>
@@ -432,7 +413,7 @@ function renderDetailDrawer(): string {
             </div>
             <div>
               <div class="text-xs text-muted-foreground">最近动作人</div>
-              <div class="mt-1 font-medium text-foreground">${escapeHtml(sourceRecord.latestActionBy)}</div>
+              <div class="mt-1 font-medium text-foreground">${escapeHtml(item.latestActionBy)}</div>
             </div>
           </div>
           <div class="mt-4 flex flex-wrap gap-2">
@@ -483,66 +464,37 @@ function navigateByPayload(itemId: string | undefined, target: keyof SampleWareh
   return true
 }
 
-function updateSampleRecord(
+function submitWarehouseAction(
   itemId: string | undefined,
-  action: 'borrow' | 'return' | 'transfer' | 'inspection',
+  actionType:
+    | 'SAMPLE_WAREHOUSE_BORROW'
+    | 'SAMPLE_WAREHOUSE_RETURN'
+    | 'SAMPLE_WAREHOUSE_TRANSFER'
+    | 'SAMPLE_WAREHOUSE_MARK_INSPECTION',
 ): boolean {
   if (!itemId) return false
-  const record = state.records.find((item) => item.id === itemId)
-  if (!record) return false
+  const item = getViewModel().itemsById[itemId]
+  if (!item) return false
 
-  const locationType = state.detailDraft.locationType
-  const holder = state.detailDraft.holder.trim() || (action === 'return' ? 'PMC 样衣仓' : record.currentHolder)
-  const note = state.detailDraft.note.trim() || record.nextSuggestedAction
-  const operatedAt = nowText()
-
-  if (action === 'borrow') {
-    record.currentLocationStage = stageFromLocationType(locationType, 'borrow')
-    record.currentHolder = holder
-    record.currentStatus = 'IN_USE'
-    record.nextSuggestedAction = '当前为借出中样衣，使用完成后需归还样衣仓。'
-  } else if (action === 'return') {
-    record.currentLocationStage = 'BACK_TO_PMC'
-    record.currentHolder = 'PMC 样衣仓'
-    record.currentStatus = 'AVAILABLE'
-    record.nextSuggestedAction = '样衣已归还，可再次调用。'
-  } else if (action === 'inspection') {
-    record.currentLocationStage = 'RETURN_CHECK'
-    record.currentHolder = holder || '抽检组'
-    record.currentStatus = 'CHECKING'
-    record.nextSuggestedAction = '抽检完成后归还样衣仓。'
-  } else {
-    record.currentLocationStage = stageFromLocationType(locationType, 'transfer')
-    record.currentHolder = holder
-    if (locationType === 'factory') {
-      record.currentStatus = 'WAITING_RETURN'
-      record.nextSuggestedAction = '工厂使用完成后需归还样衣仓。'
-    } else if (locationType === 'inspection') {
-      record.currentStatus = 'CHECKING'
-      record.nextSuggestedAction = '当前样衣在抽检流程中。'
-    } else {
-      record.currentStatus = 'AVAILABLE'
-      record.nextSuggestedAction = '当前样衣位置已调拨，可继续调用。'
-    }
-  }
-
-  record.latestActionAt = operatedAt
-  record.latestActionBy = '仓务原型操作'
-  record.flowHistory.push({
-    stage: record.currentLocationStage,
-    actionText:
-      action === 'borrow'
-        ? '样衣借出'
-        : action === 'return'
-          ? '样衣归还'
-          : action === 'inspection'
-            ? '样衣进入抽检'
-            : '样衣调拨位置',
-    operatedBy: '仓务原型操作',
-    operatedAt,
-    note,
+  const payload = normalizeSampleWarehouseWritebackInput({
+    actionType,
+    identity: {
+      sampleRecordId: item.sampleItemId,
+      originalCutOrderId: item.relatedOriginalCutOrderId,
+      originalCutOrderNo: item.relatedOriginalCutOrderNo,
+      productionOrderId: item.relatedProductionOrderId,
+      productionOrderNo: item.relatedProductionOrderNo,
+      materialSku: item.materialSku,
+    },
+    locationType: state.detailDraft.locationType,
+    holder:
+      actionType === 'SAMPLE_WAREHOUSE_RETURN'
+        ? 'PMC 样衣仓'
+        : state.detailDraft.holder.trim() || item.currentHolder,
+    note: state.detailDraft.note.trim() || item.note,
   })
-
+  const result = submitSampleWarehouseWriteback(payload)
+  if (!result.success) return false
   state.activeItemId = itemId
   syncDetailDraft()
   return true
@@ -606,10 +558,10 @@ export function handleCraftCuttingSampleWarehouseEvent(target: Element): boolean
     return true
   }
 
-  if (action === 'borrow') return updateSampleRecord(actionNode.dataset.itemId || state.activeItemId || undefined, 'borrow')
-  if (action === 'return') return updateSampleRecord(actionNode.dataset.itemId || state.activeItemId || undefined, 'return')
-  if (action === 'transfer') return updateSampleRecord(actionNode.dataset.itemId || state.activeItemId || undefined, 'transfer')
-  if (action === 'mark-inspection') return updateSampleRecord(actionNode.dataset.itemId || state.activeItemId || undefined, 'inspection')
+  if (action === 'borrow') return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'SAMPLE_WAREHOUSE_BORROW')
+  if (action === 'return') return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'SAMPLE_WAREHOUSE_RETURN')
+  if (action === 'transfer') return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'SAMPLE_WAREHOUSE_TRANSFER')
+  if (action === 'mark-inspection') return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'SAMPLE_WAREHOUSE_MARK_INSPECTION')
 
   if (action === 'go-original-orders') return navigateByPayload(actionNode.dataset.itemId || state.activeItemId || undefined, 'originalOrders')
   if (action === 'go-summary') return navigateByPayload(actionNode.dataset.itemId || state.activeItemId || undefined, 'summary')

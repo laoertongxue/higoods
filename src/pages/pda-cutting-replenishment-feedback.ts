@@ -1,5 +1,11 @@
 import { escapeHtml } from '../utils'
-import { getPdaCuttingTaskDetail, submitCuttingReplenishmentFeedback } from '../data/fcs/pda-cutting-special'
+import { buildPdaCuttingReplenishmentProjection } from './pda-cutting-replenishment-projection'
+import {
+  buildPdaCuttingWritebackSource,
+  resolvePdaCuttingWritebackIdentity,
+  resolvePdaCuttingWritebackOperator,
+} from '../data/fcs/pda-cutting-writeback-inputs.ts'
+import { writePdaReplenishmentFeedbackToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
 import {
   buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
@@ -10,7 +16,11 @@ import {
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
 } from './pda-cutting-shared'
-import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import {
+  buildPdaCuttingExecutionContext,
+  readSelectedExecutionOrderIdFromLocation,
+  readSelectedExecutionOrderNoFromLocation,
+} from './pda-cutting-context'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface ReplenishmentFormState {
@@ -24,11 +34,15 @@ interface ReplenishmentFormState {
 
 const feedbackState = new Map<string, ReplenishmentFormState>()
 
-function getState(taskId: string, cutPieceOrderNo?: string | null): ReplenishmentFormState {
-  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+function getReplenishmentDetail(taskId: string, executionKey?: string | null) {
+  return buildPdaCuttingReplenishmentProjection(taskId, executionKey ?? undefined)
+}
+
+function getState(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): ReplenishmentFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
   const existing = feedbackState.get(stateKey)
   if (existing) return existing
-  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
+  const detail = getReplenishmentDetail(taskId, executionOrderId ?? executionOrderNo ?? undefined)
   const initial: ReplenishmentFormState = {
     operatorName: detail?.latestFeedbackBy && detail.latestFeedbackBy !== '-' ? detail.latestFeedbackBy : '现场反馈人',
     reasonLabel: detail?.latestFeedbackReason && detail.latestFeedbackReason !== '-' ? detail.latestFeedbackReason : '铺布余量不足预警',
@@ -41,7 +55,7 @@ function getState(taskId: string, cutPieceOrderNo?: string | null): Replenishmen
   return initial
 }
 
-function renderFeedbackHistory(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+function renderFeedbackHistory(detail: NonNullable<ReturnType<typeof getReplenishmentDetail>>): string {
   if (!detail || !detail.replenishmentFeedbacks.length) {
     return renderPdaCuttingEmptyState('当前裁片单暂无补料反馈记录', '')
   }
@@ -67,7 +81,7 @@ function renderFeedbackHistory(detail: NonNullable<ReturnType<typeof getPdaCutti
   `
 }
 
-function renderFeedbackStatus(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+function renderFeedbackStatus(detail: NonNullable<ReturnType<typeof getReplenishmentDetail>>): string {
   return renderPdaCuttingSummaryGrid([
     { label: '当前风险情况', value: detail.replenishmentRiskSummary },
     { label: '最近反馈时间', value: detail.latestFeedbackAt, hint: detail.latestFeedbackBy },
@@ -102,7 +116,7 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
     })
   }
 
-  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
 
   const formSection = `
@@ -173,8 +187,9 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+    const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const field = fieldNode.dataset.pdaCutReplenishmentField
     if (!field) return true
 
@@ -190,17 +205,34 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
   const action = actionNode.dataset.pdaCutReplenishmentAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
-  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
 
   if (action === 'submit') {
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'replenishment-feedback')
-    const result = submitCuttingReplenishmentFeedback(taskId, {
-      operatorName: form.operatorName.trim() || '现场反馈人',
+    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+      executionOrderId: context.selectedExecutionOrderId || undefined,
+      executionOrderNo: context.selectedExecutionOrderNo || undefined,
+      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
+      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
+      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
+      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      materialSku: context.selectedExecutionOrder?.materialSku || undefined,
+    })
+    const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '现场反馈人')
+    if (!identity || !operator) {
+      form.feedbackMessage = '当前执行对象或操作人无法识别，不能提交补料反馈。'
+      return true
+    }
+    const result = writePdaReplenishmentFeedbackToFcs({
+      identity,
+      operator,
+      source: buildPdaCuttingWritebackSource('replenishment-feedback', identity.executionOrderId),
       reasonLabel: form.reasonLabel,
       note: form.note.trim() || '现场已记录补料风险，待 PCS 跟进',
       photoProofCount: Number(form.photoProofCount || '0') || 0,
-    }, selectedCutPieceOrderNo ?? undefined)
+    })
     if (!result.success) {
       form.feedbackMessage = result.issues.join('；')
       return true
@@ -208,7 +240,8 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
     form.feedbackMessage = '补料反馈已提交。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,
-      selectedCutPieceOrderNo,
+      context.selectedExecutionOrderId,
+      context.selectedExecutionOrderNo,
       context.navContext,
       'replenishment-feedback',
     )

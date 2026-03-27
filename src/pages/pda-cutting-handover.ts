@@ -1,5 +1,11 @@
 import { escapeHtml } from '../utils'
-import { confirmCuttingHandover, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
+import { buildPdaCuttingHandoverProjection } from './pda-cutting-handover-projection'
+import {
+  buildPdaCuttingWritebackSource,
+  resolvePdaCuttingWritebackIdentity,
+  resolvePdaCuttingWritebackOperator,
+} from '../data/fcs/pda-cutting-writeback-inputs.ts'
+import { writePdaHandoverToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
 import {
   buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
@@ -10,7 +16,11 @@ import {
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
 } from './pda-cutting-shared'
-import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import {
+  buildPdaCuttingExecutionContext,
+  readSelectedExecutionOrderIdFromLocation,
+  readSelectedExecutionOrderNoFromLocation,
+} from './pda-cutting-context'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface HandoverFormState {
@@ -23,11 +33,15 @@ interface HandoverFormState {
 
 const handoverState = new Map<string, HandoverFormState>()
 
-function getState(taskId: string, cutPieceOrderNo?: string | null): HandoverFormState {
-  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+function getHandoverDetail(taskId: string, executionKey?: string | null) {
+  return buildPdaCuttingHandoverProjection(taskId, executionKey ?? undefined)
+}
+
+function getState(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): HandoverFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
   const existing = handoverState.get(stateKey)
   if (existing) return existing
-  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
+  const detail = getHandoverDetail(taskId, executionOrderId ?? executionOrderNo ?? undefined)
   const initial: HandoverFormState = {
     operatorName: '交接操作员',
     targetLabel: detail?.handoverTargetLabel && detail.handoverTargetLabel !== '待确定后道去向' ? detail.handoverTargetLabel : '裁片仓交接位',
@@ -39,7 +53,7 @@ function getState(taskId: string, cutPieceOrderNo?: string | null): HandoverForm
   return initial
 }
 
-function renderHandoverHistory(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+function renderHandoverHistory(detail: NonNullable<ReturnType<typeof getHandoverDetail>>): string {
   if (!detail || !detail.handoverRecords.length) {
     return renderPdaCuttingEmptyState('当前裁片单暂无交接记录', '')
   }
@@ -65,7 +79,7 @@ function renderHandoverHistory(detail: NonNullable<ReturnType<typeof getPdaCutti
   `
 }
 
-function renderHandoverStatus(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+function renderHandoverStatus(detail: NonNullable<ReturnType<typeof getHandoverDetail>>): string {
   return renderPdaCuttingSummaryGrid([
     { label: '当前交接状态', value: detail.currentHandoverStatus },
     { label: '当前交接去向', value: detail.handoverTargetLabel },
@@ -100,7 +114,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
     })
   }
 
-  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
 
   const confirmSection = `
@@ -159,8 +173,9 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+    const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const field = fieldNode.dataset.pdaCutHandoverField
     if (!field) return true
 
@@ -175,16 +190,33 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaCutHandoverAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
-  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
 
   if (action === 'confirm') {
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'handover')
-    const result = confirmCuttingHandover(taskId, {
-      operatorName: form.operatorName.trim() || '交接操作员',
+    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+      executionOrderId: context.selectedExecutionOrderId || undefined,
+      executionOrderNo: context.selectedExecutionOrderNo || undefined,
+      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
+      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
+      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
+      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      materialSku: context.selectedExecutionOrder?.materialSku || undefined,
+    })
+    const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '交接操作员')
+    if (!identity || !operator) {
+      form.feedbackMessage = '当前执行对象或操作人无法识别，不能确认交接。'
+      return true
+    }
+    const result = writePdaHandoverToFcs({
+      identity,
+      operator,
+      source: buildPdaCuttingWritebackSource('handover', identity.executionOrderId),
       targetLabel: form.targetLabel.trim() || '裁片仓交接位',
       note: form.note.trim(),
-    }, selectedCutPieceOrderNo ?? undefined)
+    })
     if (!result.success) {
       form.feedbackMessage = result.issues.join('；')
       return true
@@ -192,7 +224,8 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
     form.feedbackMessage = '交接已确认。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,
-      selectedCutPieceOrderNo,
+      context.selectedExecutionOrderId,
+      context.selectedExecutionOrderNo,
       context.navContext,
       'handover',
     )

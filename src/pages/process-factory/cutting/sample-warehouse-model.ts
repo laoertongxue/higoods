@@ -1,11 +1,18 @@
 import {
-  sampleWarehouseRecords,
+  listFormalSampleWarehouseRecords,
   type SampleFlowHistoryItem,
   type SampleLocationStage,
   type SampleWarehouseRecord,
-} from '../../../data/fcs/cutting/warehouse-management'
+} from '../../../data/fcs/cutting/warehouse-runtime'
+import {
+  listSampleWarehouseWritebacks,
+  type SampleWarehouseActionType,
+  type SampleWarehouseWritebackLocationType,
+  type SampleWarehouseWritebackRecord,
+} from '../../../data/fcs/cutting/warehouse-writeback-ledger.ts'
 import type { OriginalCutOrderRow } from './original-orders-model'
 import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared'
+import { getBrowserLocalStorage } from '../../../data/browser-storage'
 
 export type SampleWarehouseStatusKey = 'AVAILABLE' | 'BORROWED' | 'IN_FACTORY' | 'INSPECTION' | 'PENDING_RETURN'
 export type SampleLocationType = 'cutting-room' | 'production-center' | 'factory' | 'inspection'
@@ -35,6 +42,7 @@ export interface SampleWarehouseItem {
   sampleNo: string
   styleCode: string
   spuCode: string
+  materialSku: string
   color: string
   size: string
   currentLocationType: SampleLocationType
@@ -42,8 +50,11 @@ export interface SampleWarehouseItem {
   currentHolder: string
   status: SampleWarehouseStatusMeta<SampleWarehouseStatusKey>
   lastMovedAt: string
+  latestActionBy: string
   note: string
+  relatedProductionOrderId: string
   relatedProductionOrderNo: string
+  relatedOriginalCutOrderId: string
   relatedOriginalCutOrderNo: string
   sampleName: string
   flowRecords: SampleFlowRecord[]
@@ -67,6 +78,9 @@ export interface SampleWarehouseFilters {
 }
 
 export interface SampleWarehousePrefilter {
+  originalCutOrderId?: string
+  productionOrderId?: string
+  materialSku?: string
   styleCode?: string
   sampleNo?: string
   holder?: string
@@ -105,6 +119,48 @@ function deriveLocationType(stage: SampleLocationStage): SampleLocationType {
   return 'production-center'
 }
 
+function deriveStageFromWriteback(
+  locationType: SampleWarehouseWritebackLocationType,
+  actionType: SampleWarehouseActionType,
+): SampleLocationStage {
+  if (actionType === 'SAMPLE_WAREHOUSE_RETURN') return 'BACK_TO_PMC'
+  if (actionType === 'SAMPLE_WAREHOUSE_MARK_INSPECTION') return 'RETURN_CHECK'
+  if (locationType === 'cutting-room') return 'CUTTING'
+  if (locationType === 'factory') return 'FACTORY_CHECK'
+  if (locationType === 'inspection') return 'RETURN_CHECK'
+  return 'PMC_WAREHOUSE'
+}
+
+function deriveActionText(actionType: SampleWarehouseActionType): string {
+  if (actionType === 'SAMPLE_WAREHOUSE_BORROW') return '样衣借出'
+  if (actionType === 'SAMPLE_WAREHOUSE_RETURN') return '样衣归还'
+  if (actionType === 'SAMPLE_WAREHOUSE_MARK_INSPECTION') return '样衣进入抽检'
+  return '样衣调拨位置'
+}
+
+function buildOverlaySampleRecord(writeback: SampleWarehouseWritebackRecord): SampleWarehouseRecord {
+  return {
+    id: writeback.sampleRecordId,
+    warehouseType: 'SAMPLE',
+    bindingState: writeback.originalCutOrderId ? 'BOUND_FORMAL_SAMPLE_RECORD' : 'UNBOUND_FORMAL_SAMPLE_RECORD',
+    originalCutOrderId: writeback.originalCutOrderId,
+    originalCutOrderNo: writeback.originalCutOrderNo,
+    productionOrderId: writeback.productionOrderId,
+    productionOrderNo: writeback.productionOrderNo,
+    sampleNo: writeback.sampleRecordId,
+    sampleName: '待补样衣',
+    relatedProductionOrderNo: writeback.productionOrderNo,
+    relatedCutPieceOrderNo: writeback.originalCutOrderNo,
+    currentLocationStage: deriveStageFromWriteback(writeback.locationType, writeback.actionType),
+    currentHolder: writeback.holder || 'PMC 样衣仓',
+    currentStatus: 'AVAILABLE',
+    latestActionAt: writeback.submittedAt,
+    latestActionBy: writeback.operatorName,
+    nextSuggestedAction: writeback.note || '待补正式流转建议。',
+    flowHistory: [],
+  }
+}
+
 export function deriveSampleWarehouseStatus(record: SampleWarehouseRecord): SampleWarehouseStatusMeta<SampleWarehouseStatusKey> {
   if (record.currentLocationStage === 'FACTORY_CHECK') return createSummaryMeta('IN_FACTORY', sampleWarehouseStatusMeta.IN_FACTORY.label, sampleWarehouseStatusMeta.IN_FACTORY.className, sampleWarehouseStatusMeta.IN_FACTORY.detailText)
   if (record.currentLocationStage === 'RETURN_CHECK' || record.currentStatus === 'CHECKING') return createSummaryMeta('INSPECTION', sampleWarehouseStatusMeta.INSPECTION.label, sampleWarehouseStatusMeta.INSPECTION.className, sampleWarehouseStatusMeta.INSPECTION.detailText)
@@ -139,10 +195,105 @@ export function buildSampleFlowTimeline(record: SampleWarehouseRecord): SampleFl
   return record.flowHistory.map((item, index) => mapFlowRecord(record.id, item, index, index > 0 ? record.flowHistory[index - 1] : null))
 }
 
-export function buildSampleWarehouseNavigationPayload(item: Pick<SampleWarehouseItem, 'relatedOriginalCutOrderNo' | 'relatedProductionOrderNo' | 'styleCode' | 'sampleNo' | 'currentHolder' | 'status'>): WarehouseNavigationPayload {
+function applySampleWarehouseWritebackOverlay(
+  records: SampleWarehouseRecord[],
+  options: {
+    sampleWritebacks?: SampleWarehouseWritebackRecord[]
+  } = {},
+): SampleWarehouseRecord[] {
+  const storage = getBrowserLocalStorage() || undefined
+  const sampleWritebacks = [...(options.sampleWritebacks ?? listSampleWarehouseWritebacks(storage))]
+    .sort((left, right) => left.submittedAt.localeCompare(right.submittedAt, 'zh-CN'))
+  const runtimeMap = new Map<string, SampleWarehouseRecord>(
+    records.map((record) => [
+      record.id,
+      {
+        ...record,
+        flowHistory: record.flowHistory.map((item) => ({ ...item })),
+      },
+    ]),
+  )
+
+  sampleWritebacks.forEach((writeback) => {
+    const current = runtimeMap.get(writeback.sampleRecordId) || buildOverlaySampleRecord(writeback)
+    const next: SampleWarehouseRecord = {
+      ...current,
+      id: writeback.sampleRecordId,
+      bindingState: writeback.originalCutOrderId ? 'BOUND_FORMAL_SAMPLE_RECORD' : 'UNBOUND_FORMAL_SAMPLE_RECORD',
+      originalCutOrderId: writeback.originalCutOrderId,
+      originalCutOrderNo: writeback.originalCutOrderNo,
+      productionOrderId: writeback.productionOrderId,
+      productionOrderNo: writeback.productionOrderNo,
+      relatedProductionOrderNo: writeback.productionOrderNo,
+      relatedCutPieceOrderNo: writeback.originalCutOrderNo,
+      latestActionAt: writeback.submittedAt,
+      latestActionBy: writeback.operatorName,
+      flowHistory: current.flowHistory.map((item) => ({ ...item })),
+    }
+
+    if (writeback.actionType === 'SAMPLE_WAREHOUSE_BORROW') {
+      next.currentLocationStage = deriveStageFromWriteback(writeback.locationType, writeback.actionType)
+      next.currentHolder = writeback.holder || current.currentHolder
+      next.currentStatus = 'IN_USE'
+      next.nextSuggestedAction = '当前为借出中样衣，使用完成后需归还样衣仓。'
+    } else if (writeback.actionType === 'SAMPLE_WAREHOUSE_RETURN') {
+      next.currentLocationStage = 'BACK_TO_PMC'
+      next.currentHolder = writeback.holder || 'PMC 样衣仓'
+      next.currentStatus = 'AVAILABLE'
+      next.nextSuggestedAction = '样衣已归还，可再次调用。'
+    } else if (writeback.actionType === 'SAMPLE_WAREHOUSE_MARK_INSPECTION') {
+      next.currentLocationStage = 'RETURN_CHECK'
+      next.currentHolder = writeback.holder || '抽检组'
+      next.currentStatus = 'CHECKING'
+      next.nextSuggestedAction = '抽检完成后归还样衣仓。'
+    } else {
+      next.currentLocationStage = deriveStageFromWriteback(writeback.locationType, writeback.actionType)
+      next.currentHolder = writeback.holder || current.currentHolder
+      if (writeback.locationType === 'factory') {
+        next.currentStatus = 'WAITING_RETURN'
+        next.nextSuggestedAction = '工厂使用完成后需归还样衣仓。'
+      } else if (writeback.locationType === 'inspection') {
+        next.currentStatus = 'CHECKING'
+        next.nextSuggestedAction = '当前样衣在抽检流程中。'
+      } else {
+        next.currentStatus = 'AVAILABLE'
+        next.nextSuggestedAction = '当前样衣位置已调拨，可继续调用。'
+      }
+    }
+
+    next.flowHistory.push({
+      stage: next.currentLocationStage,
+      actionText: deriveActionText(writeback.actionType),
+      operatedBy: writeback.operatorName,
+      operatedAt: writeback.submittedAt,
+      note: writeback.note,
+    })
+    runtimeMap.set(writeback.sampleRecordId, next)
+  })
+
+  return Array.from(runtimeMap.values())
+}
+
+export function buildSampleWarehouseNavigationPayload(
+  item: Pick<
+    SampleWarehouseItem,
+    | 'relatedOriginalCutOrderId'
+    | 'relatedOriginalCutOrderNo'
+    | 'relatedProductionOrderId'
+    | 'relatedProductionOrderNo'
+    | 'materialSku'
+    | 'styleCode'
+    | 'sampleNo'
+    | 'currentHolder'
+    | 'status'
+  >,
+): WarehouseNavigationPayload {
   return buildWarehouseQueryPayload({
+    originalCutOrderId: item.relatedOriginalCutOrderId,
     originalCutOrderNo: item.relatedOriginalCutOrderNo,
+    productionOrderId: item.relatedProductionOrderId,
     productionOrderNo: item.relatedProductionOrderNo,
+    materialSku: item.materialSku || undefined,
     styleCode: item.styleCode,
     sampleNo: item.sampleNo,
     holder: item.currentHolder,
@@ -150,17 +301,29 @@ export function buildSampleWarehouseNavigationPayload(item: Pick<SampleWarehouse
   })
 }
 
-export function buildSampleWarehouseViewModel(originalRows: OriginalCutOrderRow[], records = sampleWarehouseRecords): SampleWarehouseViewModel {
+export function buildSampleWarehouseViewModel(
+  originalRows: OriginalCutOrderRow[],
+  records = listFormalSampleWarehouseRecords(),
+  options: {
+    sampleWritebacks?: SampleWarehouseWritebackRecord[]
+  } = {},
+): SampleWarehouseViewModel {
+  const runtimeRecords = applySampleWarehouseWritebackOverlay(records, options)
+  const rowById = Object.fromEntries(originalRows.map((row) => [row.originalCutOrderId, row]))
   const rowByOrderNo = Object.fromEntries(originalRows.map((row) => [row.originalCutOrderNo, row]))
-  const items = records
+  const findBoundOriginalRow = (record: SampleWarehouseRecord): OriginalCutOrderRow | undefined =>
+    rowById[record.originalCutOrderId] ||
+    rowByOrderNo[record.originalCutOrderNo]
+  const items = runtimeRecords
     .map((record) => {
-      const row = rowByOrderNo[record.relatedCutPieceOrderNo]
+      const row = findBoundOriginalRow(record)
       const status = deriveSampleWarehouseStatus(record)
       const item: SampleWarehouseItem = {
         sampleItemId: record.id,
         sampleNo: record.sampleNo,
         styleCode: row?.styleCode || '',
         spuCode: row?.spuCode || '',
+        materialSku: row?.materialSku || '',
         color: row?.color || '待补颜色',
         size: '均码',
         currentLocationType: deriveLocationType(record.currentLocationStage),
@@ -168,20 +331,39 @@ export function buildSampleWarehouseViewModel(originalRows: OriginalCutOrderRow[
         currentHolder: record.currentHolder,
         status,
         lastMovedAt: record.latestActionAt,
+        latestActionBy: record.latestActionBy,
         note: record.nextSuggestedAction,
-        relatedProductionOrderNo: record.relatedProductionOrderNo,
-        relatedOriginalCutOrderNo: record.relatedCutPieceOrderNo,
+        relatedProductionOrderId: record.productionOrderId,
+        relatedProductionOrderNo: record.productionOrderNo,
+        relatedOriginalCutOrderId: record.originalCutOrderId,
+        relatedOriginalCutOrderNo: record.originalCutOrderNo,
         sampleName: record.sampleName,
         flowRecords: buildSampleFlowTimeline(record),
         navigationPayload: buildSampleWarehouseNavigationPayload({
-          relatedOriginalCutOrderNo: record.relatedCutPieceOrderNo,
-          relatedProductionOrderNo: record.relatedProductionOrderNo,
+          relatedOriginalCutOrderId: record.originalCutOrderId,
+          relatedOriginalCutOrderNo: record.originalCutOrderNo,
+          relatedProductionOrderId: record.productionOrderId,
+          relatedProductionOrderNo: record.productionOrderNo,
+          materialSku: row?.materialSku || '',
           styleCode: row?.styleCode || '',
           sampleNo: record.sampleNo,
           currentHolder: record.currentHolder,
           status,
         }),
-        keywordIndex: [record.sampleNo, row?.styleCode, row?.spuCode, record.currentHolder, record.relatedProductionOrderNo, record.sampleName].filter(Boolean).map((value) => String(value).toLowerCase()),
+        keywordIndex: [
+          record.sampleNo,
+          row?.styleCode,
+          row?.spuCode,
+          row?.materialSku,
+          row?.originalCutOrderId,
+          row?.originalCutOrderNo,
+          row?.productionOrderId || record.productionOrderId,
+          row?.productionOrderNo || record.productionOrderNo,
+          record.currentHolder,
+          record.sampleName,
+        ]
+          .filter(Boolean)
+          .map((value) => String(value).toLowerCase()),
       }
       return item
     })
@@ -207,6 +389,9 @@ export function filterSampleWarehouseItems(
 ): SampleWarehouseItem[] {
   const keyword = filters.keyword.trim().toLowerCase()
   return items.filter((item) => {
+    if (prefilter?.originalCutOrderId && item.relatedOriginalCutOrderId !== prefilter.originalCutOrderId) return false
+    if (prefilter?.productionOrderId && item.relatedProductionOrderId !== prefilter.productionOrderId) return false
+    if (prefilter?.materialSku && item.materialSku !== prefilter.materialSku) return false
     if (prefilter?.styleCode && item.styleCode !== prefilter.styleCode) return false
     if (prefilter?.sampleNo && item.sampleNo !== prefilter.sampleNo) return false
     if (prefilter?.holder && !item.currentHolder.includes(prefilter.holder)) return false
@@ -222,6 +407,9 @@ export function filterSampleWarehouseItems(
 export function findSampleWarehouseByPrefilter(items: SampleWarehouseItem[], prefilter: SampleWarehousePrefilter | null): SampleWarehouseItem | null {
   if (!prefilter) return null
   return (
+    (prefilter.originalCutOrderId && items.find((item) => item.relatedOriginalCutOrderId === prefilter.originalCutOrderId)) ||
+    (prefilter.productionOrderId && items.find((item) => item.relatedProductionOrderId === prefilter.productionOrderId)) ||
+    (prefilter.materialSku && items.find((item) => item.materialSku === prefilter.materialSku)) ||
     (prefilter.sampleNo && items.find((item) => item.sampleNo === prefilter.sampleNo)) ||
     (prefilter.styleCode && items.find((item) => item.styleCode === prefilter.styleCode)) ||
     null

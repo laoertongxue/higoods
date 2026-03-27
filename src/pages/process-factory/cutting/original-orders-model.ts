@@ -7,6 +7,10 @@ import type {
   CuttingReviewStatus,
 } from '../../../data/fcs/cutting/types'
 import {
+  listGeneratedOriginalCutOrderSourceRecords,
+  type GeneratedOriginalCutOrderSourceRecord,
+} from '../../../data/fcs/cutting/generated-original-cut-orders'
+import {
   buildProductionProgressRows,
   configMeta,
   receiveMeta,
@@ -222,6 +226,34 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
+function buildProgressLineFallback(source: GeneratedOriginalCutOrderSourceRecord): CuttingMaterialLine {
+  return {
+    originalCutOrderId: source.originalCutOrderId,
+    originalCutOrderNo: source.originalCutOrderNo,
+    cutPieceOrderNo: source.originalCutOrderNo,
+    mergeBatchId: source.mergeBatchId,
+    mergeBatchNo: source.mergeBatchNo,
+    materialSku: source.materialSku,
+    materialType: source.materialType,
+    materialLabel: source.materialLabel,
+    color: source.colorScope[0] || '待补',
+    materialCategory: source.materialCategory,
+    reviewStatus: 'PENDING',
+    configStatus: 'NOT_CONFIGURED',
+    receiveStatus: 'NOT_RECEIVED',
+    configuredRollCount: 0,
+    configuredLength: 0,
+    receivedRollCount: 0,
+    receivedLength: 0,
+    printSlipStatus: 'NOT_PRINTED',
+    qrStatus: 'NOT_GENERATED',
+    batchOccupancyStatus: source.mergeBatchNo ? 'IN_BATCH' : 'AVAILABLE',
+    skuScopeLines: source.skuScopeLines.map((line) => ({ ...line })),
+    issueFlags: [],
+    latestActionText: `原始裁片单 ${source.originalCutOrderNo} 已从生产单生成，待进入执行准备。`,
+  }
+}
+
 function createSummaryMeta<Key extends string>(
   key: Key,
   label: string,
@@ -299,7 +331,7 @@ export function deriveOriginalCutOrderCuttableState(
   selectable: boolean
   reasonText: string
 } {
-  const participation = summarizeMergeBatchParticipation(line.cutPieceOrderNo, ledger)
+  const participation = summarizeMergeBatchParticipation(line.originalCutOrderId || line.originalCutOrderNo || line.cutPieceOrderNo, ledger)
   if (participation.activeBatchNo || line.batchOccupancyStatus === 'IN_BATCH') {
     return {
       ...createSummaryMeta('IN_BATCH', originalOrderCuttableMeta.IN_BATCH.label, originalOrderCuttableMeta.IN_BATCH.className, `当前原始裁片单已进入批次 ${participation.activeBatchNo || line.mergeBatchNo || '当前批次'}。`),
@@ -395,6 +427,7 @@ export function buildOriginalOrderNavigationPayload(row: {
   styleCode: string
   spuCode: string
   materialSku: string
+  activeMergeBatchId: string
   latestMergeBatchNo: string
 }): OriginalCutOrderNavigationPayload {
   return {
@@ -425,6 +458,7 @@ export function buildOriginalOrderNavigationPayload(row: {
       productionOrderNo: row.productionOrderNo,
     },
     mergeBatches: {
+      mergeBatchId: row.activeMergeBatchId || undefined,
       mergeBatchNo: row.latestMergeBatchNo || undefined,
       originalCutOrderId: row.originalCutOrderId,
       originalCutOrderNo: row.originalCutOrderNo,
@@ -481,12 +515,13 @@ function buildClaimSummary(line: CuttingMaterialLine): OriginalCutOrderSummaryMe
 }
 
 function createRow(
+  source: GeneratedOriginalCutOrderSourceRecord,
   record: CuttingOrderProgressRecord,
   line: CuttingMaterialLine,
   progressRow: ProductionProgressRow | undefined,
   ledger: MergeBatchRecord[],
 ): OriginalCutOrderRow {
-  const batchSummary = summarizeMergeBatchParticipation(line.cutPieceOrderNo, ledger)
+  const batchSummary = summarizeMergeBatchParticipation(source.originalCutOrderId, ledger)
   const cuttableState = deriveOriginalCutOrderCuttableState(record, line, ledger)
   const currentStage = deriveOriginalCutOrderStage(record, line)
   const materialAuditStatus = buildAuditSummary(line)
@@ -497,21 +532,21 @@ function createRow(
   const urgency = urgencyMeta[urgencyKey]
 
   const row: OriginalCutOrderRow = {
-    id: line.cutPieceOrderNo,
-    originalCutOrderId: line.cutPieceOrderNo,
-    originalCutOrderNo: line.cutPieceOrderNo,
-    productionOrderId: record.productionOrderId,
-    productionOrderNo: record.productionOrderNo,
+    id: source.originalCutOrderId,
+    originalCutOrderId: source.originalCutOrderId,
+    originalCutOrderNo: source.originalCutOrderNo,
+    productionOrderId: source.productionOrderId,
+    productionOrderNo: source.productionOrderNo,
     styleCode: record.styleCode,
     spuCode: record.spuCode,
     styleName: record.styleName,
-    color: line.color || '待补',
-    materialSku: line.materialSku,
-    materialType: line.materialType,
-    materialCategory: line.materialCategory || materialCategoryLabel(line.materialType),
-    materialLabel: line.materialLabel,
+    color: line.color || source.colorScope[0] || '待补',
+    materialSku: source.materialSku,
+    materialType: source.materialType,
+    materialCategory: source.materialCategory || materialCategoryLabel(source.materialType),
+    materialLabel: source.materialLabel,
     orderQty: record.orderQty,
-    plannedQty: line.configuredLength,
+    plannedQty: source.requiredQty,
     receivedQty: line.receivedLength,
     purchaseDate: record.purchaseDate,
     actualOrderDate: record.actualOrderDate,
@@ -534,30 +569,31 @@ function createRow(
     riskTags,
     statusSummary: [currentStage.label, cuttableState.label, materialPrepStatus.label, materialClaimStatus.label].join(' / '),
     relationSummary: batchSummary.batchParticipationCount
-      ? `来源 ${record.productionOrderNo}，已参与 ${batchSummary.batchParticipationCount} 个批次`
-      : `来源 ${record.productionOrderNo}，当前尚未进入批次`,
+      ? `来源 ${source.productionOrderNo}，已参与 ${batchSummary.batchParticipationCount} 个批次`
+      : `来源 ${source.productionOrderNo}，当前尚未进入批次`,
     latestActionText: line.latestActionText || record.lastFieldUpdateAt || '暂无最近执行痕迹。',
     navigationPayload: buildOriginalOrderNavigationPayload({
-      originalCutOrderId: line.cutPieceOrderNo,
-      originalCutOrderNo: line.cutPieceOrderNo,
-      productionOrderId: record.productionOrderId,
-      productionOrderNo: record.productionOrderNo,
+      originalCutOrderId: source.originalCutOrderId,
+      originalCutOrderNo: source.originalCutOrderNo,
+      productionOrderId: source.productionOrderId,
+      productionOrderNo: source.productionOrderNo,
       styleCode: record.styleCode,
       spuCode: record.spuCode,
-      materialSku: line.materialSku,
+      materialSku: source.materialSku,
+      activeMergeBatchId: batchSummary.activeBatchId,
       latestMergeBatchNo: batchSummary.latestMergeBatchNo,
     }),
     keywordIndex: buildKeywordIndex([
-      line.cutPieceOrderNo,
-      record.productionOrderId,
-      record.productionOrderNo,
+      source.originalCutOrderNo,
+      source.productionOrderId,
+      source.productionOrderNo,
       record.styleCode,
       record.spuCode,
       record.styleName,
-      line.materialSku,
-      line.materialLabel,
-      line.materialType,
-      line.materialCategory,
+      source.materialSku,
+      source.materialLabel,
+      source.materialType,
+      source.materialCategory,
       line.color,
       batchSummary.latestMergeBatchNo,
     ]),
@@ -569,13 +605,30 @@ function createRow(
 export function buildOriginalCutOrderViewModel(
   records: CuttingOrderProgressRecord[],
   ledger: MergeBatchRecord[] = [],
+  options: {
+    progressRows?: ProductionProgressRow[]
+  } = {},
 ): OriginalCutOrderViewModel {
   const progressRowMap = new Map(
-    buildProductionProgressRows(records).map((row) => [row.productionOrderId, row] as const),
+    (options.progressRows ?? buildProductionProgressRows(records)).map((row) => [row.productionOrderId, row] as const),
   )
+  const recordMap = new Map(records.map((record) => [record.productionOrderId, record] as const))
+  const lineMap = new Map<string, CuttingMaterialLine>()
+  records.forEach((record) => {
+    record.materialLines.forEach((line) => {
+      const key = line.originalCutOrderId || line.originalCutOrderNo || line.cutPieceOrderNo
+      if (key) lineMap.set(key, line)
+    })
+  })
 
-  const rows = records
-    .flatMap((record) => record.materialLines.map((line) => createRow(record, line, progressRowMap.get(record.productionOrderId), ledger)))
+  const rows = listGeneratedOriginalCutOrderSourceRecords()
+    .map((source) => {
+      const record = recordMap.get(source.productionOrderId)
+      if (!record) return null
+      const line = lineMap.get(source.originalCutOrderId) || buildProgressLineFallback(source)
+      return createRow(source, record, line, progressRowMap.get(source.productionOrderId), ledger)
+    })
+    .filter((row): row is OriginalCutOrderRow => row !== null)
     .sort((left, right) => {
       const leftWeight = urgencyMeta[left.urgencyKey].sortWeight
       const rightWeight = urgencyMeta[right.urgencyKey].sortWeight

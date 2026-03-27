@@ -336,10 +336,9 @@ function getOriginalCutOrderIdentity(materialLine: CuttingMaterialLine): {
   originalCutOrderId: string
   originalCutOrderNo: string
 } {
-  const originalCutOrderNo = normalizeText(materialLine.cutPieceOrderNo)
   return {
-    originalCutOrderId: normalizeText(materialLine.originalCutOrderId) || originalCutOrderNo,
-    originalCutOrderNo,
+    originalCutOrderId: normalizeText(materialLine.originalCutOrderId),
+    originalCutOrderNo: normalizeText(materialLine.originalCutOrderNo),
   }
 }
 
@@ -1302,8 +1301,7 @@ export function buildProductionPieceTruth(
     const overlayExists = overlaySignals.some(
       (signal) =>
         signal.originalCutOrderNo === row.originalCutOrderNo &&
-        signal.materialSku === row.materialSku &&
-        (!signal.cutPieceOrderNo || signal.cutPieceOrderNo === row.originalCutOrderNo),
+        signal.materialSku === row.materialSku,
     )
     if (!actualRowKeys.has(actualKey) && (record.hasSpreadingRecord || record.hasInboundRecord || overlayExists)) {
       pushIssue(dataIssues, {

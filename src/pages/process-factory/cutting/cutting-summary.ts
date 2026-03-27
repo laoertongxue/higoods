@@ -1,23 +1,8 @@
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import {
   type ProductionPieceTruthCompletionKey,
 } from '../../../domain/fcs-cutting-piece-truth'
-import { buildCutPieceWarehouseViewModel } from './cut-piece-warehouse-model'
-import { buildFabricWarehouseViewModel } from './fabric-warehouse-model'
-import {
-  buildFeiTicketsViewModel,
-  buildSystemSeedFeiTicketLedger,
-  CUTTING_FEI_TICKET_DRAFTS_STORAGE_KEY,
-  CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
-  CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
-  deserializeFeiTicketDraftsStorage,
-  deserializeFeiTicketPrintJobsStorage,
-  deserializeFeiTicketRecordsStorage,
-  type FeiTicketLabelRecord,
-  type FeiTicketPrintJob,
-} from './fei-tickets-model'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -26,40 +11,10 @@ import {
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
 } from './layout.helpers'
-import {
-  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
-  deserializeMarkerSpreadingStorage,
-} from './marker-spreading-model'
-import { buildMaterialPrepViewModel } from './material-prep-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
-import { buildProductionProgressRows, type ProductionProgressStageKey } from './production-progress-model'
-import {
-  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
-  buildReplenishmentViewModel,
-  deserializeReplenishmentActionsStorage,
-  CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
-  deserializeReplenishmentImpactPlansStorage,
-  deserializeReplenishmentReviewsStorage,
-} from './replenishment-model'
-import { buildSampleWarehouseViewModel } from './sample-warehouse-model'
-import {
-  buildSpecialProcessViewModel,
-  CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY,
-  CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY,
-  deserializeBindingStripPayloadsStorage,
-  deserializeSpecialProcessExecutionLogsStorage,
-  deserializeSpecialProcessFollowupActionsStorage,
-  deserializeSpecialProcessOrdersStorage,
-  deserializeSpecialProcessScopeLinesStorage,
-} from './special-processes-model'
+import type { ProductionProgressStageKey } from './production-progress-model'
 import {
   buildCuttingSummaryIssues,
-  buildCuttingSummaryViewModel,
-  buildSummaryDetailPanelData,
   cuttingSummaryIssueMetaMap,
   cuttingSummaryRiskMetaMap,
   filterSummaryByIssueType,
@@ -74,19 +29,7 @@ import {
   type CuttingSummaryTraceNode,
   type CuttingSummaryViewModel,
 } from './summary-model'
-import {
-  buildSystemSeedTransferBagStore,
-  buildTransferBagViewModel,
-  CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
-  deserializeTransferBagStorage,
-  mergeTransferBagStores,
-} from './transfer-bags-model'
-import { buildTransferBagReturnViewModel } from './transfer-bag-return-model'
-import {
-  buildWarehouseOriginalRows,
-  getWarehouseSearchParams,
-  readWarehouseMergeBatchLedger,
-} from './warehouse-shared'
+import { getWarehouseSearchParams } from './warehouse-shared'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -105,7 +48,11 @@ import {
   type CuttingCheckSectionState,
   type CuttingCheckSourceObjectType,
 } from './cutting-summary-checks'
-import { buildFcsCuttingRuntimeSources } from '../../../domain/fcs-cutting-runtime/sources'
+import {
+  buildFcsCuttingSummaryDetailProjection,
+  buildFcsCuttingSummaryProjection,
+  type FcsCuttingSummaryProjection,
+} from './runtime-projections'
 
 type SummaryFilterField =
   | 'keyword'
@@ -240,18 +187,22 @@ function mergeByKey<T extends Record<string, unknown>>(seed: T[], stored: T[], k
 }
 
 function buildSources(): CuttingSummaryBuildOptions {
-  return buildFcsCuttingRuntimeSources()
+  return buildProjection().sources
 }
 
 function buildPageData(): {
   sources: CuttingSummaryBuildOptions
   viewModel: CuttingSummaryViewModel
 } {
-  const sources = buildSources()
+  const projection = buildProjection()
   return {
-    sources,
-    viewModel: buildCuttingSummaryViewModel(sources),
+    sources: projection.sources,
+    viewModel: projection.viewModel,
   }
+}
+
+function buildProjection(): FcsCuttingSummaryProjection {
+  return buildFcsCuttingSummaryProjection()
 }
 
 function getPrefilterFromQuery(): CuttingDrillContext | null {
@@ -1268,13 +1219,14 @@ function renderActionQueue(detail: CuttingSummaryDetailPanelData | null): string
 }
 
 function renderPage(): string {
-  const { sources, viewModel } = buildPageData()
+  const projection = buildProjection()
+  const { sources, viewModel } = projection
   syncStateWithQuery(viewModel)
   const issueRows = getFilteredRows(viewModel, { ignoreIssueType: true })
   const issues = buildCuttingSummaryIssues(issueRows)
   const filteredRows = getFilteredRows(viewModel)
   const activeRowId = getActiveRowId(filteredRows, issues)
-  const detail = activeRowId ? buildSummaryDetailPanelData(activeRowId, { ...sources, rows: viewModel.rows }) : null
+  const detail = activeRowId ? buildFcsCuttingSummaryDetailProjection(activeRowId, projection) : null
   const pathname = appStore.getState().pathname
   const meta = getCanonicalCuttingMeta(pathname, 'summary')
 
@@ -1307,8 +1259,7 @@ function getRowById(rowId: string | undefined): CuttingSummaryRow | null {
 
 function getDetailByRowId(rowId: string | undefined): CuttingSummaryDetailPanelData | null {
   if (!rowId) return null
-  const { sources, viewModel } = buildPageData()
-  return buildSummaryDetailPanelData(rowId, { ...sources, rows: viewModel.rows })
+  return buildFcsCuttingSummaryDetailProjection(rowId, buildProjection())
 }
 
 function getRowAction(rowId: string | undefined, actionId: string | undefined): CuttingCheckNextAction | null {

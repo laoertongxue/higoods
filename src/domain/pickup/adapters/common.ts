@@ -1,4 +1,4 @@
-import type { PdaTaskFlowMock } from '../../../data/fcs/pda-cutting-special'
+import type { PdaTaskFlowProjectedTask as PdaTaskFlowMock } from '../../../data/fcs/pda-cutting-execution-source.ts'
 import { buildPickupEvidenceSummary, buildPickupReceiptSummary } from '../helpers'
 import type {
   PickupEvidence,

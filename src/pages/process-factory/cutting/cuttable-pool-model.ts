@@ -7,6 +7,10 @@ import type {
   CuttingReviewStatus,
 } from '../../../data/fcs/cutting/types'
 import {
+  listGeneratedOriginalCutOrderSourceRecords,
+  type GeneratedOriginalCutOrderSourceRecord,
+} from '../../../data/fcs/cutting/generated-original-cut-orders'
+import {
   buildProductionProgressRows,
   type ProductionProgressRiskTag,
   type ProductionProgressRow,
@@ -183,6 +187,34 @@ function buildKeywordIndex(values: Array<string | undefined>): string[] {
     .map((value) => String(value).toLowerCase())
 }
 
+function buildProgressLineFallback(source: GeneratedOriginalCutOrderSourceRecord): CuttingMaterialLine {
+  return {
+    originalCutOrderId: source.originalCutOrderId,
+    originalCutOrderNo: source.originalCutOrderNo,
+    cutPieceOrderNo: source.originalCutOrderNo,
+    mergeBatchId: source.mergeBatchId,
+    mergeBatchNo: source.mergeBatchNo,
+    materialSku: source.materialSku,
+    materialType: source.materialType,
+    materialLabel: source.materialLabel,
+    color: source.colorScope[0] || '待补',
+    materialCategory: source.materialCategory,
+    reviewStatus: 'PENDING',
+    configStatus: 'NOT_CONFIGURED',
+    receiveStatus: 'NOT_RECEIVED',
+    configuredRollCount: 0,
+    configuredLength: 0,
+    receivedRollCount: 0,
+    receivedLength: 0,
+    printSlipStatus: 'NOT_PRINTED',
+    qrStatus: 'NOT_GENERATED',
+    batchOccupancyStatus: source.mergeBatchNo ? 'IN_BATCH' : 'AVAILABLE',
+    skuScopeLines: source.skuScopeLines.map((line) => ({ ...line })),
+    issueFlags: [],
+    latestActionText: `原始裁片单 ${source.originalCutOrderNo} 已从生产单生成，待进入可裁判断。`,
+  }
+}
+
 function createCuttableState(
   key: CuttableStateKey,
   detailText: string,
@@ -305,20 +337,25 @@ function buildCompatibilityBuckets(items: CuttableOriginalOrderItem[]): Cuttable
     .sort((left, right) => right.cuttableCount - left.cuttableCount || left.materialSku.localeCompare(right.materialSku, 'zh-CN'))
 }
 
-function buildOriginalOrderItem(record: CuttingOrderProgressRecord, line: CuttingMaterialLine, progressRow: ProductionProgressRow): CuttableOriginalOrderItem {
+function buildOriginalOrderItem(
+  source: GeneratedOriginalCutOrderSourceRecord,
+  record: CuttingOrderProgressRecord,
+  line: CuttingMaterialLine,
+  progressRow: ProductionProgressRow,
+): CuttableOriginalOrderItem {
   const cuttableState = deriveOriginalCutOrderCuttableState(line, record)
   const compatibilityKey = buildCompatibilityKey({
     styleCode: record.styleCode,
     spuCode: record.spuCode,
-    materialSku: line.materialSku,
+    materialSku: source.materialSku,
   })
 
   return {
-    id: line.cutPieceOrderNo,
-    originalCutOrderId: line.cutPieceOrderNo,
-    originalCutOrderNo: line.cutPieceOrderNo,
-    productionOrderId: record.productionOrderId,
-    productionOrderNo: record.productionOrderNo,
+    id: source.originalCutOrderId,
+    originalCutOrderId: source.originalCutOrderId,
+    originalCutOrderNo: source.originalCutOrderNo,
+    productionOrderId: source.productionOrderId,
+    productionOrderNo: source.productionOrderNo,
     styleCode: record.styleCode,
     spuCode: record.spuCode,
     styleName: record.styleName,
@@ -327,10 +364,10 @@ function buildOriginalOrderItem(record: CuttingOrderProgressRecord, line: Cuttin
     plannedShipDateDisplay: record.plannedShipDate || '待补日期',
     urgencyKey: progressRow.urgency.key,
     urgencyLabel: progressRow.urgency.label,
-    materialSku: line.materialSku,
-    materialType: line.materialType,
-    materialLabel: line.materialLabel,
-    materialCategory: materialTypeLabel(line.materialType),
+    materialSku: source.materialSku,
+    materialType: source.materialType,
+    materialLabel: source.materialLabel,
+    materialCategory: source.materialCategory || materialTypeLabel(source.materialType),
     materialAuditStatus: line.reviewStatus,
     materialPrepStatus: line.configStatus,
     materialClaimStatus: line.receiveStatus,
@@ -341,15 +378,15 @@ function buildOriginalOrderItem(record: CuttingOrderProgressRecord, line: Cuttin
     mergeBatchNo: line.mergeBatchNo ?? '',
     latestActionText: line.latestActionText,
     keywordIndex: buildKeywordIndex([
-      record.productionOrderNo,
-      record.productionOrderId,
+      source.productionOrderNo,
+      source.productionOrderId,
       record.styleCode,
       record.spuCode,
       record.styleName,
-      line.cutPieceOrderNo,
-      line.materialSku,
-      line.materialLabel,
-      line.materialType,
+      source.originalCutOrderNo,
+      source.materialSku,
+      source.materialLabel,
+      source.materialType,
     ]),
   }
 }
@@ -362,17 +399,39 @@ function sortOrders(left: CuttableProductionOrderSummary, right: CuttableProduct
   )
 }
 
-export function buildCuttablePoolViewModel(records: CuttingOrderProgressRecord[]): CuttablePoolViewModel {
-  const progressRows = buildProductionProgressRows(records)
+export function buildCuttablePoolViewModel(
+  records: CuttingOrderProgressRecord[],
+  options: {
+    progressRows?: ProductionProgressRow[]
+  } = {},
+): CuttablePoolViewModel {
+  const progressRows = options.progressRows ?? buildProductionProgressRows(records)
   const progressRowMap = new Map(progressRows.map((row) => [row.id, row]))
+  const recordMap = new Map(records.map((record) => [record.productionOrderId, record] as const))
+  const generatedRowsByOrder = new Map<string, GeneratedOriginalCutOrderSourceRecord[]>()
+  const lineMap = new Map<string, CuttingMaterialLine>()
+  listGeneratedOriginalCutOrderSourceRecords().forEach((row) => {
+    const current = generatedRowsByOrder.get(row.productionOrderId) ?? []
+    current.push(row)
+    generatedRowsByOrder.set(row.productionOrderId, current)
+  })
+  records.forEach((record) => {
+    record.materialLines.forEach((line) => {
+      const key = line.originalCutOrderId || line.originalCutOrderNo || line.cutPieceOrderNo
+      if (key) lineMap.set(key, line)
+    })
+  })
   const itemsById: Record<string, CuttableOriginalOrderItem> = {}
 
-  const orders = records
-    .map((record) => {
-      const progressRow = progressRowMap.get(record.id)
+  const orders = progressRows
+    .map((progressRow) => {
+      const record = recordMap.get(progressRow.productionOrderId)
       if (!progressRow) return null
+      if (!record) return null
 
-      const items = record.materialLines.map((line) => buildOriginalOrderItem(record, line, progressRow))
+      const items = (generatedRowsByOrder.get(record.productionOrderId) ?? []).map((source) =>
+        buildOriginalOrderItem(source, record, lineMap.get(source.originalCutOrderId) || buildProgressLineFallback(source), progressRow),
+      )
       for (const item of items) {
         itemsById[item.id] = item
       }

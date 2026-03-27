@@ -1,4 +1,4 @@
-import type { PdaCuttingTaskDetailData, PdaTaskFlowMock } from '../../../data/fcs/pda-cutting-special'
+import type { PdaCuttingTaskDetailData, PdaTaskFlowProjectedTask } from '../../../data/fcs/pda-cutting-execution-source.ts'
 import { buildPickupEvidenceSummary, buildPickupReceiptSummary } from '../helpers'
 import type {
   PickupEvidence,
@@ -12,7 +12,7 @@ import type {
 } from '../types'
 
 export interface CuttingPickupSeed {
-  task: PdaTaskFlowMock
+  task: PdaTaskFlowProjectedTask
   detail: PdaCuttingTaskDetailData
   plannedQtySummary: PickupQtySummary
   configuredQtySummary: PickupQtySummary
@@ -36,7 +36,7 @@ export function buildCuttingPickupSlip(
     sourceTaskNo: seed.task.taskNo,
     productionOrderNo: seed.detail.productionOrderNo,
     boundObjectType: 'CUT_PIECE_ORDER',
-    boundObjectNo: seed.detail.cutPieceOrderNo,
+    boundObjectNo: seed.detail.originalCutOrderNo,
     factoryType: seed.task.factoryType,
     factoryName: seed.detail.assigneeFactoryName,
     materialSku: seed.detail.materialSku,
@@ -65,7 +65,7 @@ export function buildCuttingQrBinding(seed: CuttingPickupSeed, generatedBy: stri
   return {
     qrCodeValue: seed.detail.qrCodeValue,
     boundObjectType: 'CUT_PIECE_ORDER',
-    boundObjectNo: seed.detail.cutPieceOrderNo,
+    boundObjectNo: seed.detail.originalCutOrderNo,
     scenarioType: 'CUTTING',
     reusePolicy: 'REUSE_BY_BOUND_OBJECT',
     generatedAt: seed.createdAt,

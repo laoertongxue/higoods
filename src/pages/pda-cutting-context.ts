@@ -1,24 +1,29 @@
 import { appStore } from '../state/store'
 import {
-  getPdaCuttingTaskDetail,
+  getPdaCuttingTaskSnapshot,
   getPdaTaskFlowTaskById,
   type PdaCuttingRouteKey,
   type PdaCuttingTaskDetailData,
   type PdaCuttingTaskOrderLine,
   type PdaTaskFlowMock,
-} from '../data/fcs/pda-cutting-special'
+} from '../data/fcs/pda-cutting-execution-source.ts'
 import {
   buildPdaCuttingTaskDetailFocusHref,
   readPdaCuttingNavContext,
   type PdaCuttingNavContext,
 } from './pda-cutting-nav-context'
+import {
+  readLegacyCutPieceOrderNo,
+  resolvePdaExecutionOrderNoWithLegacy,
+} from '../data/fcs/pda-cutting-legacy-compat.ts'
 
 export interface PdaCuttingExecutionContext {
   task: PdaTaskFlowMock | null
   detail: PdaCuttingTaskDetailData | null
-  selectedCutPieceOrderNo: string | null
-  selectedCutPieceOrder: PdaCuttingTaskOrderLine | null
-  selectedCutPieceOrderLine: PdaCuttingTaskOrderLine | null
+  selectedExecutionOrderId: string | null
+  selectedExecutionOrderNo: string | null
+  selectedExecutionOrder: PdaCuttingTaskOrderLine | null
+  selectedExecutionOrderLine: PdaCuttingTaskOrderLine | null
   hasMultipleCutPieceOrders: boolean
   canAutoFallbackToSingleCutPieceOrder: boolean
   selectionRequired: boolean
@@ -42,9 +47,22 @@ function getLocationSearchParams(pathname?: string): URLSearchParams {
   return new URLSearchParams(queryString)
 }
 
-export function readSelectedCutPieceOrderNoFromLocation(pathname?: string): string | null {
-  const value = getLocationSearchParams(pathname).get('cutPieceOrderNo')?.trim()
+function readSelectedExecutionOrderNoCompatFromLocation(pathname?: string): string | null {
+  const params = getLocationSearchParams(pathname)
+  const value = resolvePdaExecutionOrderNoWithLegacy({
+    executionOrderNo: params.get('executionOrderNo'),
+    cutPieceOrderNo: readLegacyCutPieceOrderNo(params),
+  })
   return value ? value : null
+}
+
+export function readSelectedExecutionOrderIdFromLocation(pathname?: string): string | null {
+  const value = getLocationSearchParams(pathname).get('executionOrderId')?.trim()
+  return value ? value : null
+}
+
+export function readSelectedExecutionOrderNoFromLocation(pathname?: string): string | null {
+  return readSelectedExecutionOrderNoCompatFromLocation(pathname)
 }
 
 export function readPdaCuttingReturnToFromLocation(pathname?: string): string | null {
@@ -52,13 +70,19 @@ export function readPdaCuttingReturnToFromLocation(pathname?: string): string | 
   return value ? value : null
 }
 
-export function resolveSelectedCutPieceOrderLine(
+export function resolveSelectedExecutionOrderLine(
   detail: PdaCuttingTaskDetailData,
-  selectedCutPieceOrderNo?: string | null,
+  selectedExecutionOrderId?: string | null,
+  selectedExecutionOrderNo?: string | null,
 ): PdaCuttingTaskOrderLine | null {
-  const requestedOrderNo = selectedCutPieceOrderNo?.trim() || ''
+  const requestedExecutionId = selectedExecutionOrderId?.trim() || ''
+  if (requestedExecutionId) {
+    return detail.cutPieceOrders.find((item) => item.executionOrderId === requestedExecutionId) ?? null
+  }
+
+  const requestedOrderNo = selectedExecutionOrderNo?.trim() || ''
   if (requestedOrderNo) {
-    return detail.cutPieceOrders.find((item) => item.cutPieceOrderNo === requestedOrderNo) ?? null
+    return detail.cutPieceOrders.find((item) => item.executionOrderNo === requestedOrderNo) ?? null
   }
 
   if (detail.cutPieceOrders.length === 1) {
@@ -75,17 +99,19 @@ export function buildPdaCuttingExecutionContext(
 ): PdaCuttingExecutionContext {
   const navContext = readPdaCuttingNavContext(pathname)
   const returnTo = navContext.returnTo || readPdaCuttingReturnToFromLocation(pathname)
-  const requestedOrderNo = readSelectedCutPieceOrderNoFromLocation(pathname)
+  const requestedExecutionOrderId = readSelectedExecutionOrderIdFromLocation(pathname)
+  const requestedOrderNo = readSelectedExecutionOrderNoFromLocation(pathname)
   const task = getPdaTaskFlowTaskById(taskId)
-  const baseDetail = getPdaCuttingTaskDetail(taskId)
+  const baseDetail = getPdaCuttingTaskSnapshot(taskId)
 
   if (!baseDetail) {
     return {
       task,
       detail: null,
-      selectedCutPieceOrderNo: null,
-      selectedCutPieceOrder: null,
-      selectedCutPieceOrderLine: null,
+      selectedExecutionOrderId: null,
+      selectedExecutionOrderNo: null,
+      selectedExecutionOrder: null,
+      selectedExecutionOrderLine: null,
       hasMultipleCutPieceOrders: false,
       canAutoFallbackToSingleCutPieceOrder: false,
       selectionRequired: false,
@@ -93,42 +119,48 @@ export function buildPdaCuttingExecutionContext(
       selectionNotice: null,
       returnTo,
       backHref: buildPdaCuttingTaskDetailFocusHref(taskId, {
-        cutPieceOrderNo: requestedOrderNo ?? undefined,
+        executionOrderId: requestedExecutionOrderId ?? undefined,
+        executionOrderNo: requestedOrderNo ?? undefined,
         returnTo,
         focusTaskId: navContext.focusTaskId ?? taskId,
-        focusCutPieceOrderNo: requestedOrderNo ?? undefined,
+        focusExecutionOrderId: requestedExecutionOrderId ?? undefined,
+        focusExecutionOrderNo: requestedOrderNo ?? undefined,
       }),
       navContext,
     }
   }
 
-  const selectedLine = resolveSelectedCutPieceOrderLine(baseDetail, requestedOrderNo)
+  const selectedLine = resolveSelectedExecutionOrderLine(baseDetail, requestedExecutionOrderId, requestedOrderNo)
   const hasMultipleCutPieceOrders = baseDetail.cutPieceOrders.length > 1
   const canAutoFallbackToSingleCutPieceOrder = baseDetail.cutPieceOrders.length === 1
-  const requestedButMissing = Boolean(requestedOrderNo) && !selectedLine
+  const requestedButMissing = Boolean(requestedExecutionOrderId || requestedOrderNo) && !selectedLine
   const requiresCutPieceOrderSelection = !selectedLine && hasMultipleCutPieceOrders
   const selectionNotice = requestedButMissing
     ? '当前裁片单不存在，请先返回裁片任务重新选择。'
     : requiresCutPieceOrderSelection
       ? '请先在裁片任务中选择要处理的裁片单。'
       : null
-  const selectedCutPieceOrderNo = selectedLine?.cutPieceOrderNo ?? null
-  const detail = getPdaCuttingTaskDetail(taskId, selectedCutPieceOrderNo ?? undefined)
+  const selectedExecutionOrderId = selectedLine?.executionOrderId ?? null
+  const selectedExecutionOrderNo = selectedLine?.executionOrderNo ?? null
+  const detail = getPdaCuttingTaskSnapshot(taskId, selectedExecutionOrderId ?? selectedExecutionOrderNo ?? undefined)
   const taskDetailBackHref = buildPdaCuttingTaskDetailFocusHref(taskId, {
-    cutPieceOrderNo: selectedCutPieceOrderNo ?? undefined,
+    executionOrderId: selectedExecutionOrderId ?? undefined,
+    executionOrderNo: selectedExecutionOrderNo ?? undefined,
     returnTo,
     focusTaskId: navContext.focusTaskId ?? taskId,
-    focusCutPieceOrderNo: selectedCutPieceOrderNo ?? undefined,
-    highlightCutPieceOrder: Boolean(selectedCutPieceOrderNo),
-    autoFocus: Boolean(selectedCutPieceOrderNo),
+    focusExecutionOrderId: selectedExecutionOrderId ?? undefined,
+    focusExecutionOrderNo: selectedExecutionOrderNo ?? undefined,
+    highlightCutPieceOrder: Boolean(selectedExecutionOrderId || selectedExecutionOrderNo),
+    autoFocus: Boolean(selectedExecutionOrderId || selectedExecutionOrderNo),
   })
 
   return {
     task,
     detail,
-    selectedCutPieceOrderNo,
-    selectedCutPieceOrder: selectedLine,
-    selectedCutPieceOrderLine: selectedLine,
+    selectedExecutionOrderId,
+    selectedExecutionOrderNo,
+    selectedExecutionOrder: selectedLine,
+    selectedExecutionOrderLine: selectedLine,
     hasMultipleCutPieceOrders,
     canAutoFallbackToSingleCutPieceOrder,
     selectionRequired: requiresCutPieceOrderSelection,

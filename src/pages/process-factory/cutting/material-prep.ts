@@ -1,21 +1,13 @@
 // 本文件继续复用旧导出名承接 canonical 页面“仓库配料领料”。
 // 页面主对象冻结为原始裁片单；同一码回落原始裁片单，配料 / 领料只表达仓库到裁床的准备衔接。
 import { renderDetailDrawer as uiDetailDrawer, renderDialog as uiDialog, renderFormDialog as uiFormDialog } from '../../../components/ui'
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
-import {
-  buildSystemSeedMergeBatches,
-  CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
-  deserializeMergeBatchStorage,
-  type MergeBatchRecord,
-} from './merge-batches-model'
 import { getPrepQrHiddenText } from './material-prep.helpers'
 import {
   buildIssueListPrintPayload,
   buildMaterialPrepNavigationPayload,
   buildMaterialPrepStats,
-  buildMaterialPrepViewModel,
   buildSameCodeValue,
   deriveMaterialClaimStatus,
   deriveMaterialPrepStatus,
@@ -37,6 +29,7 @@ import {
   type MaterialPrepRow,
   type MaterialPrepSchedulingKey,
 } from './material-prep-model'
+import { buildMaterialPrepProjection } from './material-prep-projection'
 import { urgencyMeta } from './production-progress-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
@@ -75,9 +68,7 @@ type DialogType = 'CONFIG' | 'CLAIM' | 'SCHEDULE' | 'RECORDS'
 type FeedbackTone = 'success' | 'warning'
 type ClaimDraftResult = MaterialClaimRecord['result']
 
-const sourceRecordMap = new Map(
-  cuttingOrderProgressRecords.flatMap((record) => record.materialLines.map((line) => [line.cutPieceOrderNo, record] as const)),
-)
+let sourceRecordMap = new Map<string, import('../../../data/fcs/cutting/types.ts').CuttingOrderProgressRecord>()
 
 const initialFilters: MaterialPrepFilters = {
   keyword: '',
@@ -180,7 +171,19 @@ function nowText(): string {
 
 function ensureRowsInitialized(): void {
   if (state.rows.length) return
-  state.rows = buildMaterialPrepViewModel(cuttingOrderProgressRecords, getMergeBatchLedger()).rows
+  const projection = buildMaterialPrepProjection()
+  state.rows = projection.rows.map((row) => ({
+    ...row,
+    materialLineItems: row.materialLineItems.map((item) => ({ ...item })),
+    claimRecords: row.claimRecords.map((record) => ({ ...record })),
+    claimDisputes: row.claimDisputes.map((record) => ({ ...record })),
+    riskTags: row.riskTags.map((tag) => ({ ...tag })),
+  }))
+  sourceRecordMap = new Map(
+    Object.entries(projection.progressRecordMapByOriginalCutOrder).flatMap(([key, record]) =>
+      key ? [[key, record] as const] : [],
+    ),
+  )
 }
 
 function syncRowsWithLatestClaimDisputes(): void {
@@ -192,65 +195,6 @@ function syncRowsWithLatestClaimDisputes(): void {
 
 function resetPagination(): void {
   state.page = 1
-}
-
-function readStoredLedger(): MergeBatchRecord[] {
-  try {
-    return deserializeMergeBatchStorage(localStorage.getItem(CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY))
-  } catch {
-    return []
-  }
-}
-
-function getMergeBatchLedger(): MergeBatchRecord[] {
-  const seedView = buildMaterialPrepViewModel(cuttingOrderProgressRecords, [])
-  const systemSeed = buildSystemSeedMergeBatches(
-    seedView.rows.map((row) => ({
-      id: row.id,
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
-      productionOrderId: row.productionOrderId,
-      productionOrderNo: row.productionOrderNo,
-      styleCode: row.styleCode,
-      spuCode: row.spuCode,
-      styleName: row.styleName,
-      orderQty: 0,
-      plannedShipDate: row.plannedShipDate,
-      plannedShipDateDisplay: row.plannedShipDate,
-      urgencyKey: row.urgencyKey,
-      urgencyLabel: row.urgencyLabel,
-      materialSku: row.materialLineItems[0]?.materialSku || row.materialSkuSummary,
-      materialType: '',
-      materialLabel: row.materialLineItems[0]?.materialName || row.materialSkuSummary,
-      materialCategory: row.materialLineItems[0]?.materialCategory || '',
-      materialAuditStatus: row.materialAuditStatus.key,
-      materialPrepStatus: row.materialPrepStatus.key,
-      materialClaimStatus: row.materialClaimStatus.key === 'EXCEPTION' ? 'PARTIAL' : row.materialClaimStatus.key,
-      currentStage: row.currentStage.label,
-      cuttableState: {
-        key: row.materialClaimStatus.key === 'RECEIVED' ? 'CUTTABLE' : 'NOT_READY',
-        label: row.materialClaimStatus.key === 'RECEIVED' ? '可裁' : '暂不可裁',
-        className: '',
-        detailText: '',
-        selectable: row.materialClaimStatus.key === 'RECEIVED',
-        reasonText: '',
-      },
-      compatibilityKey: `${row.styleCode || row.spuCode}__${row.materialLineItems[0]?.materialSku || row.materialSkuSummary}`,
-      batchOccupancyStatus: row.latestMergeBatchNo ? 'IN_BATCH' : 'AVAILABLE',
-      mergeBatchNo: row.latestMergeBatchNo,
-      latestActionText: row.latestClaimRecordSummary,
-      keywordIndex: [],
-    })),
-  )
-
-  const merged = new Map(systemSeed.map((batch) => [batch.mergeBatchId, batch]))
-  for (const batch of readStoredLedger()) merged.set(batch.mergeBatchId, batch)
-  return Array.from(merged.values()).sort(
-    (left, right) =>
-      right.updatedAt.localeCompare(left.updatedAt, 'zh-CN') ||
-      right.createdAt.localeCompare(left.createdAt, 'zh-CN') ||
-      right.mergeBatchNo.localeCompare(left.mergeBatchNo, 'zh-CN'),
-  )
 }
 
 function getViewModel() {
@@ -760,7 +704,7 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
       <table class="w-full min-w-[980px] text-sm">
         <thead class="border-b bg-muted/60 text-muted-foreground">
           <tr>
-            <th class="px-3 py-2 text-left font-medium">materialSku</th>
+            <th class="px-3 py-2 text-left font-medium">面料 SKU</th>
             <th class="px-3 py-2 text-left font-medium">面料类别 / 属性</th>
             <th class="px-3 py-2 text-left font-medium">需求量</th>
             <th class="px-3 py-2 text-left font-medium">已配置量</th>
@@ -1402,7 +1346,7 @@ function printIssueList(recordId: string | undefined): boolean {
         <table>
           <thead>
             <tr>
-              <th>materialSku</th>
+              <th>面料 SKU</th>
               <th>面料类别</th>
               <th>需求量</th>
               <th>已配置量</th>

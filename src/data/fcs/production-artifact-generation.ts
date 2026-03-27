@@ -1,4 +1,5 @@
 import { productionOrders } from './production-orders.ts'
+import { resolveReleasedTechPackForProductionOrder } from './production-upstream-chain.ts'
 import {
   getProcessCraftByCode,
   getProcessDefinitionByCode,
@@ -12,7 +13,6 @@ import {
   type TaskTypeMode,
 } from './process-craft-dict.ts'
 import {
-  getTechPackBySpuCode,
   listTechPackProcessEntries,
   type TechPackProcessEntry,
   type TechPackProcessEntryType,
@@ -59,6 +59,8 @@ export interface GeneratedTaskArtifact extends GeneratedProductionArtifactBase {
 }
 
 export type GeneratedProductionArtifact = GeneratedDemandArtifact | GeneratedTaskArtifact
+export type ProductionDemandArtifact = GeneratedDemandArtifact
+export type ProductionTaskArtifact = GeneratedTaskArtifact
 
 interface ResolvedEntryContext {
   orderId: string
@@ -242,16 +244,13 @@ function shouldGenerateTask(entry: TechPackProcessEntry, context: ResolvedEntryC
 }
 
 function resolveTechPackIdByOrder(orderId: string): string | null {
-  const order = productionOrders.find((item) => item.productionOrderId === orderId)
-  if (!order) return null
-  const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
-  return techPack?.spuCode ?? null
+  return resolveReleasedTechPackForProductionOrder(orderId)?.spuCode ?? null
 }
 
 function resolveTechPackEntriesByOrder(orderId: string): TechPackProcessEntry[] {
-  const order = productionOrders.find((item) => item.productionOrderId === orderId)
-  if (!order) return []
-  return listTechPackProcessEntries(order.demandSnapshot.spuCode)
+  const techPack = resolveReleasedTechPackForProductionOrder(orderId)
+  if (!techPack) return []
+  return listTechPackProcessEntries(techPack.spuCode)
 }
 
 export function generateProductionArtifactsForOrder(orderId: string): GeneratedProductionArtifact[] {
@@ -307,8 +306,16 @@ export function generateDemandArtifactsForAllOrders(): GeneratedDemandArtifact[]
   )
 }
 
+export function listGeneratedProductionDemandArtifacts(): GeneratedDemandArtifact[] {
+  return generateDemandArtifactsForAllOrders()
+}
+
 export function generateTaskArtifactsForAllOrders(): GeneratedTaskArtifact[] {
   return generateProductionArtifactsForAllOrders().filter((item): item is GeneratedTaskArtifact => item.artifactType === 'TASK')
+}
+
+export function listGeneratedProductionTaskArtifacts(): GeneratedTaskArtifact[] {
+  return generateTaskArtifactsForAllOrders()
 }
 
 export const artifactGenerationScenarioOrderIds = {

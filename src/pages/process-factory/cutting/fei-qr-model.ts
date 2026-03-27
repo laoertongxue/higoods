@@ -1,11 +1,22 @@
+import {
+  getFeiTicketById,
+  getFeiTicketByNo,
+} from '../../../data/fcs/cutting/generated-fei-tickets.ts'
+import {
+  CUTTING_QR_VERSION,
+  deserializeCuttingQrPayload,
+  serializeCuttingQrPayload,
+  type FeiTicketQrPayload as CanonicalFeiTicketQrPayload,
+} from '../../../data/fcs/cutting/qr-payload.ts'
+import { validateFeiCraftSequence } from '../../../data/fcs/cutting/qr-codes.ts'
 import type {
   FeiTicketLabelRecord,
   FeiTicketPrintJob,
   OriginalCutOrderTicketOwner,
 } from './fei-tickets-model'
 
-export const FEI_QR_SCHEMA_NAME = 'fcs-fei-ticket'
-export const FEI_QR_SCHEMA_VERSION = '1.0.0'
+export const FEI_QR_SCHEMA_NAME = 'FEI_TICKET'
+export const FEI_QR_SCHEMA_VERSION = CUTTING_QR_VERSION
 
 export type FeiQrProcessKey = 'embroidery' | 'template' | 'strip' | 'dyeMark'
 
@@ -32,36 +43,20 @@ export interface FeiQrReservedTrace {
   reservedFutureFields: Record<string, unknown>
 }
 
-export interface FeiQrPayload {
+export interface FeiQrPayload extends CanonicalFeiTicketQrPayload {
   schemaName: string
   schemaVersion: string
   ownerType: 'original-cut-order'
   ownerId: string
-  ticket: {
-    ticketRecordId: string
-    ticketNo: string
-    originalCutOrderId: string
-    originalCutOrderNo: string
-    sequenceNo: number
-    qrBaseValue: string
-    createdAt: string
-  }
-  sourceContext: {
-    sourceContextType: 'original-order' | 'merge-batch'
-    sourceMergeBatchId: string
-    sourceMergeBatchNo: string
-    sourcePrintJobId: string
-    sourcePrintJobNo: string
-  }
-  baseBiz: {
-    productionOrderId: string
-    productionOrderNo: string
-    styleCode: string
-    spuCode: string
-    color: string
-    materialSku: string
-    sameCodeValue: string
-  }
+  sourceContextType: 'original-order' | 'merge-batch'
+  sourceMergeBatchId: string
+  sourceMergeBatchNo: string
+  sourcePrintJobId: string
+  sourcePrintJobNo: string
+  styleCode: string
+  spuCode: string
+  sameCodeValue: string
+  qrBaseValue: string
   reservedProcess: Record<FeiQrProcessKey, FeiQrReservedProcessSlot>
   reservedTrace: FeiQrReservedTrace
 }
@@ -131,6 +126,14 @@ const processLabels: Record<FeiQrProcessKey, string> = {
   dyeMark: '打染标扩展',
 }
 
+function normalizeText(value: string | null | undefined): string {
+  return String(value || '').trim()
+}
+
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
 function createReservedProcessSlot(processKey: FeiQrProcessKey): FeiQrReservedProcessSlot {
   return {
     processKey,
@@ -170,17 +173,76 @@ export function getDefaultReservedProcessPayload(
 export function getDefaultReservedTracePayload(existing?: Partial<FeiQrReservedTrace> | null): FeiQrReservedTrace {
   return {
     reservedTransferBagBinding: {
-      enabled: existing?.reservedTransferBagBinding?.enabled ?? false,
+      enabled: existing?.reservedTransferBagBinding?.enabled ?? true,
       bridgeKey: existing?.reservedTransferBagBinding?.bridgeKey ?? null,
-      note: existing?.reservedTransferBagBinding?.note ?? '后续周转口袋父子码绑定将消费该桥接字段。',
+      note: existing?.reservedTransferBagBinding?.note ?? '周转口袋父子码绑定消费正式载具周期与菲票子码。',
     },
     reservedScanCheckpoint: {
-      enabled: existing?.reservedScanCheckpoint?.enabled ?? false,
-      payloadVersion: existing?.reservedScanCheckpoint?.payloadVersion ?? null,
+      enabled: existing?.reservedScanCheckpoint?.enabled ?? true,
+      payloadVersion: existing?.reservedScanCheckpoint?.payloadVersion ?? CUTTING_QR_VERSION,
       checkpoints: existing?.reservedScanCheckpoint?.checkpoints ?? null,
-      note: existing?.reservedScanCheckpoint?.note ?? '后续主码校验节点将消费该保留结构。',
+      note: existing?.reservedScanCheckpoint?.note ?? '工艺扫码依据正式菲票子码做顺序校验。',
     },
     reservedFutureFields: existing?.reservedFutureFields ?? {},
+  }
+}
+
+function inferReservedProcess(payload: CanonicalFeiTicketQrPayload): Record<FeiQrProcessKey, FeiQrReservedProcessSlot> {
+  const secondaryCrafts = payload.secondaryCrafts.map((item) => item.toLowerCase())
+  return getDefaultReservedProcessPayload({
+    embroidery: secondaryCrafts.some((item) => item.includes('绣'))
+      ? { enabled: true, payloadVersion: payload.craftSequenceVersion, note: '当前菲票含绣花顺序信息。' }
+      : null,
+    template: secondaryCrafts.some((item) => item.includes('模板'))
+      ? { enabled: true, payloadVersion: payload.craftSequenceVersion, note: '当前菲票含模板工艺顺序信息。' }
+      : null,
+    strip: secondaryCrafts.some((item) => item.includes('条') || item.includes('包边'))
+      ? { enabled: true, payloadVersion: payload.craftSequenceVersion, note: '当前菲票含条带 / 包边工艺顺序信息。' }
+      : null,
+    dyeMark: secondaryCrafts.some((item) => item.includes('染') || item.includes('洗'))
+      ? { enabled: true, payloadVersion: payload.craftSequenceVersion, note: '当前菲票含染整 / 洗水工艺顺序信息。' }
+      : null,
+  })
+}
+
+function normalizeBasePayload(input: {
+  ticketRecord: FeiTicketLabelRecord
+  owner: Pick<
+    OriginalCutOrderTicketOwner,
+    | 'originalCutOrderId'
+    | 'originalCutOrderNo'
+    | 'productionOrderId'
+    | 'productionOrderNo'
+    | 'styleCode'
+    | 'spuCode'
+    | 'color'
+    | 'materialSku'
+    | 'sameCodeValue'
+    | 'qrBaseValue'
+  >
+}): CanonicalFeiTicketQrPayload {
+  const generated = getFeiTicketById(input.ticketRecord.ticketRecordId) || getFeiTicketByNo(input.ticketRecord.ticketNo)
+  return {
+    codeType: 'FEI_TICKET',
+    version: input.ticketRecord.schemaVersion || generated?.qrPayload.version || CUTTING_QR_VERSION,
+    issuedAt: input.ticketRecord.createdAt || input.ticketRecord.printedAt || generated?.issuedAt || '',
+    feiTicketId: generated?.feiTicketId || input.ticketRecord.ticketRecordId,
+    feiTicketNo: generated?.feiTicketNo || input.ticketRecord.ticketNo,
+    originalCutOrderId: input.owner.originalCutOrderId,
+    originalCutOrderNo: input.owner.originalCutOrderNo,
+    productionOrderId: input.owner.productionOrderId,
+    productionOrderNo: input.owner.productionOrderNo,
+    materialSku: input.owner.materialSku,
+    pieceScope: generated?.pieceScope || unique([normalizeText(input.ticketRecord.partName), normalizeText(input.ticketRecord.size)].filter(Boolean)),
+    pieceGroup: generated?.pieceGroup || normalizeText(input.ticketRecord.partName) || '整单裁片',
+    bundleScope: generated?.bundleScope || `BUNDLE-${String(input.ticketRecord.sequenceNo || 1).padStart(3, '0')}`,
+    skuColor: generated?.skuColor || normalizeText(input.ticketRecord.color) || normalizeText(input.owner.color) || '待补颜色',
+    skuSize: generated?.skuSize || normalizeText(input.ticketRecord.size) || '均码',
+    partName: generated?.partName || normalizeText(input.ticketRecord.partName) || '整单裁片',
+    qty: Math.max(generated?.qty || input.ticketRecord.quantity || 1, 1),
+    secondaryCrafts: generated?.secondaryCrafts || unique((input.ticketRecord.processTags || []).map((item) => normalizeText(item))),
+    craftSequenceVersion: generated?.craftSequenceVersion || `${input.ticketRecord.schemaVersion || CUTTING_QR_VERSION}:compat`,
+    currentCraftStage: generated?.currentCraftStage || '',
   }
 }
 
@@ -201,38 +263,25 @@ export function buildFeiQrPayload(options: {
   >
   printJob?: Pick<FeiTicketPrintJob, 'printJobId' | 'printJobNo'> | null
 }): FeiQrPayload {
+  const payload = normalizeBasePayload(options)
   return {
-    schemaName: options.ticketRecord.schemaName || FEI_QR_SCHEMA_NAME,
-    schemaVersion: options.ticketRecord.schemaVersion || FEI_QR_SCHEMA_VERSION,
+    ...payload,
+    schemaName: FEI_QR_SCHEMA_NAME,
+    schemaVersion: payload.version,
     ownerType: 'original-cut-order',
     ownerId: options.owner.originalCutOrderId,
-    ticket: {
-      ticketRecordId: options.ticketRecord.ticketRecordId,
-      ticketNo: options.ticketRecord.ticketNo,
-      originalCutOrderId: options.ticketRecord.originalCutOrderId,
-      originalCutOrderNo: options.ticketRecord.originalCutOrderNo,
-      sequenceNo: options.ticketRecord.sequenceNo,
-      qrBaseValue: options.ticketRecord.legacyQrBaseValue || options.owner.qrBaseValue || options.ticketRecord.qrValue,
-      createdAt: options.ticketRecord.createdAt || '',
-    },
-    sourceContext: {
-      sourceContextType: options.ticketRecord.sourceContextType,
-      sourceMergeBatchId: options.ticketRecord.sourceMergeBatchId || '',
-      sourceMergeBatchNo: options.ticketRecord.sourceMergeBatchNo || '',
-      sourcePrintJobId: options.ticketRecord.sourcePrintJobId || options.printJob?.printJobId || '',
-      sourcePrintJobNo: options.printJob?.printJobNo || '',
-    },
-    baseBiz: {
-      productionOrderId: options.owner.productionOrderId,
-      productionOrderNo: options.owner.productionOrderNo,
-      styleCode: options.owner.styleCode,
-      spuCode: options.owner.spuCode,
-      color: options.owner.color,
-      materialSku: options.owner.materialSku,
-      sameCodeValue: options.owner.sameCodeValue,
-    },
+    sourceContextType: options.ticketRecord.sourceContextType,
+    sourceMergeBatchId: options.ticketRecord.sourceMergeBatchId || '',
+    sourceMergeBatchNo: options.ticketRecord.sourceMergeBatchNo || '',
+    sourcePrintJobId: options.ticketRecord.sourcePrintJobId || options.printJob?.printJobId || '',
+    sourcePrintJobNo: options.printJob?.printJobNo || '',
+    styleCode: options.owner.styleCode,
+    spuCode: options.owner.spuCode,
+    sameCodeValue: options.owner.sameCodeValue,
+    qrBaseValue: options.owner.qrBaseValue || options.owner.originalCutOrderNo,
     reservedProcess: getDefaultReservedProcessPayload(
-      (options.ticketRecord.reservedProcess as Partial<Record<FeiQrProcessKey, Partial<FeiQrReservedProcessSlot> | null>> | null) || null,
+      (options.ticketRecord.reservedProcess as Partial<Record<FeiQrProcessKey, Partial<FeiQrReservedProcessSlot> | null>> | null)
+      || inferReservedProcess(payload),
     ),
     reservedTrace: getDefaultReservedTracePayload((options.ticketRecord.reservedTrace as Partial<FeiQrReservedTrace> | null) || null),
   }
@@ -240,60 +289,91 @@ export function buildFeiQrPayload(options: {
 
 export function buildFeiQrPayloadSummary(payload: FeiQrPayload): FeiQrPayloadSummary {
   return {
-    qrBaseValue: payload.ticket.qrBaseValue,
+    qrBaseValue: payload.qrBaseValue,
     schemaVersion: payload.schemaVersion,
     ownerType: payload.ownerType,
-    originalCutOrderNo: payload.ticket.originalCutOrderNo,
-    productionOrderNo: payload.baseBiz.productionOrderNo,
-    styleCode: payload.baseBiz.styleCode,
-    spuCode: payload.baseBiz.spuCode,
-    materialSku: payload.baseBiz.materialSku,
-    sourceContextType: payload.sourceContext.sourceContextType,
-    hasReservedProcess: Object.values(payload.reservedProcess).length > 0,
-    hasReservedTrace: Boolean(payload.reservedTrace),
+    originalCutOrderNo: payload.originalCutOrderNo,
+    productionOrderNo: payload.productionOrderNo,
+    styleCode: payload.styleCode,
+    spuCode: payload.spuCode,
+    materialSku: payload.materialSku,
+    sourceContextType: payload.sourceContextType,
+    hasReservedProcess: Object.values(payload.reservedProcess).some((item) => item.enabled),
+    hasReservedTrace: Boolean(payload.reservedTrace.reservedTransferBagBinding.enabled || payload.reservedTrace.reservedScanCheckpoint.enabled),
   }
 }
 
 export function validateFeiQrPayload(payload: FeiQrPayload): FeiQrValidationResult {
-  const topLevelKeys = Object.keys(payload)
-  const allowedTopLevelKeys = ['schemaName', 'schemaVersion', 'ownerType', 'ownerId', 'ticket', 'sourceContext', 'baseBiz', 'reservedProcess', 'reservedTrace']
   const warnings: string[] = []
-
-  if (payload.ownerType !== 'original-cut-order') warnings.push('裁片单主码归属对象不是 original-cut-order。')
-  if (!payload.ticket.ticketNo) warnings.push('当前主码缺少菲票号。')
-  if (!payload.baseBiz.productionOrderNo) warnings.push('当前主码缺少生产单号。')
-  if (!payload.baseBiz.sameCodeValue) warnings.push('当前主码缺少裁片单主码摘要。')
-
+  if (!payload.originalCutOrderId || !payload.originalCutOrderNo) warnings.push('当前菲票缺少原始裁片单主码引用。')
+  if (!payload.productionOrderNo) warnings.push('当前菲票缺少生产单号。')
+  if (!payload.materialSku) warnings.push('当前菲票缺少面料 SKU。')
+  if (!payload.feiTicketNo) warnings.push('当前菲票缺少菲票号。')
+  const craftValidation = payload.secondaryCrafts.length
+    ? validateFeiCraftSequence(payload, payload.currentCraftStage || payload.secondaryCrafts[0], [])
+    : null
+  if (craftValidation && !craftValidation.allowed) warnings.push(craftValidation.reason)
   return {
-    isValid:
-      payload.schemaName === FEI_QR_SCHEMA_NAME &&
-      Boolean(payload.ownerId) &&
-      Boolean(payload.sourceContext.sourceContextType) &&
-      Boolean(payload.baseBiz.productionOrderNo),
+    isValid: payload.codeType === 'FEI_TICKET' && Boolean(payload.feiTicketId && payload.originalCutOrderId && payload.materialSku),
     schemaName: payload.schemaName,
     schemaVersion: payload.schemaVersion,
-    hasOwner: Boolean(payload.ownerId && payload.ownerType === 'original-cut-order'),
-    hasSourceContext: Boolean(payload.sourceContext.sourceContextType),
-    hasBaseBiz: Boolean(payload.baseBiz.productionOrderNo && payload.baseBiz.materialSku),
-    unknownFields: topLevelKeys.filter((key) => !allowedTopLevelKeys.includes(key)),
+    hasOwner: Boolean(payload.ownerId),
+    hasSourceContext: Boolean(payload.sourceContextType),
+    hasBaseBiz: Boolean(payload.productionOrderNo && payload.materialSku),
+    unknownFields: [],
     warnings,
   }
 }
 
+function toCanonicalPayload(payload: FeiQrPayload): CanonicalFeiTicketQrPayload {
+  return {
+    codeType: 'FEI_TICKET',
+    version: payload.version,
+    issuedAt: payload.issuedAt,
+    feiTicketId: payload.feiTicketId,
+    feiTicketNo: payload.feiTicketNo,
+    originalCutOrderId: payload.originalCutOrderId,
+    originalCutOrderNo: payload.originalCutOrderNo,
+    productionOrderId: payload.productionOrderId,
+    productionOrderNo: payload.productionOrderNo,
+    materialSku: payload.materialSku,
+    pieceScope: [...payload.pieceScope],
+    pieceGroup: payload.pieceGroup,
+    bundleScope: payload.bundleScope,
+    skuColor: payload.skuColor,
+    skuSize: payload.skuSize,
+    partName: payload.partName,
+    qty: payload.qty,
+    secondaryCrafts: [...payload.secondaryCrafts],
+    craftSequenceVersion: payload.craftSequenceVersion,
+    currentCraftStage: payload.currentCraftStage || '',
+  }
+}
+
 export function serializeFeiQrPayload(payload: FeiQrPayload): string {
-  return `FCSQR:${encodeURIComponent(JSON.stringify(payload))}`
+  return serializeCuttingQrPayload(toCanonicalPayload(payload))
 }
 
 export function deserializeFeiQrPayload(value: string): FeiQrPayload | null {
-  if (!value) return null
-
-  const raw = value.startsWith('FCSQR:') ? decodeURIComponent(value.slice(6)) : value
-  try {
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') return null
-    return parsed as FeiQrPayload
-  } catch {
-    return null
+  const payload = deserializeCuttingQrPayload(value)
+  if (!payload || payload.codeType !== 'FEI_TICKET') return null
+  return {
+    ...payload,
+    schemaName: FEI_QR_SCHEMA_NAME,
+    schemaVersion: payload.version,
+    ownerType: 'original-cut-order',
+    ownerId: payload.originalCutOrderId,
+    sourceContextType: 'original-order',
+    sourceMergeBatchId: '',
+    sourceMergeBatchNo: '',
+    sourcePrintJobId: '',
+    sourcePrintJobNo: '',
+    styleCode: '',
+    spuCode: '',
+    sameCodeValue: payload.originalCutOrderNo,
+    qrBaseValue: payload.originalCutOrderNo,
+    reservedProcess: inferReservedProcess(payload),
+    reservedTrace: getDefaultReservedTracePayload(),
   }
 }
 
@@ -307,8 +387,8 @@ export function buildReservedProcessBadges(payload: FeiQrPayload): FeiQrReserved
         ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
         : 'bg-slate-100 text-slate-700 border border-slate-200',
       detailText: slot.enabled
-        ? `${processLabels[key]}已启用，当前 payloadVersion ${slot.payloadVersion || '待补'}。`
-        : `${processLabels[key]}尚未启用，当前仅保留扩展槽位。`,
+        ? `${processLabels[key]}已纳入正式菲票子码顺序版本 ${slot.payloadVersion || payload.craftSequenceVersion}。`
+        : `${processLabels[key]}当前未命中工艺顺序，仅保留扩展槽位。`,
     }
   })
 }
@@ -316,12 +396,11 @@ export function buildReservedProcessBadges(payload: FeiQrPayload): FeiQrReserved
 export function buildFeiQrCompatibilityMeta(record: Partial<FeiTicketLabelRecord>): FeiQrCompatibilityMeta {
   const usedDefaultReservedProcess = !record.reservedProcess
   const usedDefaultReservedTrace = !record.reservedTrace
-  const isLegacy = !record.schemaName || !record.schemaVersion || usedDefaultReservedProcess || usedDefaultReservedTrace
-
+  const isLegacy = !record.schemaName || !record.schemaVersion || record.schemaVersion !== FEI_QR_SCHEMA_VERSION
   return {
     isLegacy,
     schemaVersion: record.schemaVersion || FEI_QR_SCHEMA_VERSION,
-    compatibilityNote: isLegacy ? '旧版数据已按默认结构兼容展示。' : '当前票据已使用版本化主码结构。',
+    compatibilityNote: isLegacy ? '旧票据已按正式菲票子码结构兼容展示。' : '当前票据已使用正式菲票子码结构。',
     usedDefaultReservedProcess,
     usedDefaultReservedTrace,
   }
@@ -329,19 +408,22 @@ export function buildFeiQrCompatibilityMeta(record: Partial<FeiTicketLabelRecord
 
 export function buildTransferBagReservedBridge(payload: FeiQrPayload): TransferBagReservedBridge {
   return {
-    ticketNo: payload.ticket.ticketNo,
-    originalCutOrderNo: payload.ticket.originalCutOrderNo,
+    ticketNo: payload.feiTicketNo,
+    originalCutOrderNo: payload.originalCutOrderNo,
     ownerType: payload.ownerType,
     qrSchemaVersion: payload.schemaVersion,
-    qrBaseValue: payload.ticket.qrBaseValue,
+    qrBaseValue: payload.qrBaseValue,
   }
 }
 
 export function buildQrNavigationPayload(payload: FeiQrPayload): Record<string, string | undefined> {
   return {
-    originalCutOrderNo: payload.ticket.originalCutOrderNo,
-    mergeBatchNo: payload.sourceContext.sourceMergeBatchNo || undefined,
-    productionOrderNo: payload.baseBiz.productionOrderNo || undefined,
-    ticketNo: payload.ticket.ticketNo || undefined,
+    originalCutOrderId: payload.originalCutOrderId,
+    originalCutOrderNo: payload.originalCutOrderNo,
+    mergeBatchId: payload.sourceMergeBatchId || undefined,
+    mergeBatchNo: payload.sourceMergeBatchNo || undefined,
+    productionOrderNo: payload.productionOrderNo || undefined,
+    ticketNo: payload.feiTicketNo || undefined,
+    materialSku: payload.materialSku || undefined,
   }
 }

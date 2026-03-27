@@ -11,6 +11,7 @@ export interface AppState {
 }
 
 type Listener = () => void
+type NavigationHistoryMode = 'push' | 'replace'
 
 const TABS_STORAGE_KEY = 'higood-tabs'
 const SIDEBAR_STORAGE_KEY = 'sidebar-collapsed'
@@ -19,30 +20,27 @@ const LEGACY_DISPATCH_EXCEPTIONS_PATH = '/fcs/dispatch/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_KEY = 'progress-exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_PATH = '/fcs/progress/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_TITLE = '异常定位与处理'
+const CUTTING_TAB_REDIRECTS: Record<string, { href: string; title: string }> = {
+  '/fcs/craft/cutting': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
+  '/fcs/craft/cutting/order-progress': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
+  '/fcs/craft/cutting/tasks': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
+  '/fcs/craft/cutting/orders': { href: '/fcs/craft/cutting/original-orders', title: '原始裁片单' },
+  '/fcs/craft/cutting/cut-piece-orders': { href: '/fcs/craft/cutting/original-orders', title: '原始裁片单' },
+  '/fcs/craft/cutting/warehouse': { href: '/fcs/craft/cutting/fabric-warehouse', title: '裁床仓' },
+  '/fcs/craft/cutting/warehouse-management': { href: '/fcs/craft/cutting/fabric-warehouse', title: '裁床仓' },
+  '/fcs/craft/cutting/fei-ticket': { href: '/fcs/craft/cutting/fei-tickets', title: '打印菲票' },
+  '/fcs/craft/cutting/fei-list': { href: '/fcs/craft/cutting/fei-tickets', title: '打印菲票' },
+}
+const REMOVED_CUTTING_TAB_PATHS = new Set([
+  '/fcs/craft/cutting/settlement-scoring',
+  '/fcs/settlement/cutting-input',
+  '/fcs/craft/cutting/summary',
+  '/fcs/craft/cutting/stats',
+  '/fcs/craft/cutting/bed-stats',
+  '/fcs/craft/cutting/cutting-summary',
+])
 const REMOVED_FCS_TAB_KEYS = new Set(['workbench-risks', 'process-dependencies', 'process-qc-standards'])
 const REMOVED_FCS_TAB_PATHS = new Set(['/fcs/workbench/risks', '/fcs/process/dependencies', '/fcs/process/qc-standards'])
-// 这里只保留旧标题到新标题的过渡映射，避免历史标签页失效；旧词不再作为当前页面主语义输出。
-const FCS_TAB_TITLE_MIGRATIONS: Record<string, string> = {
-  '裁片单（原始单）': '原始裁片单',
-  '仓库配料 / 领料': '仓库配料领料',
-  '唛架 / 铺布': '唛架铺布',
-  '周转口袋 / 车缝交接': '周转口袋车缝交接',
-  '对账单生成': '对账单',
-  应付调整: '预结算流水',
-  '扣款/补差管理': '预结算流水',
-  '扣款补差管理': '预结算流水',
-  '结算批次进度': '预付款批次',
-  '领料对账单生成': '车缝领料对账',
-  '打款结果同步更新': '预付款批次',
-  '历史对账与核算': '预付款批次',
-  结算批次: '预付款批次',
-  '裁片结算与评分输入': '裁片结算评分',
-  '扎包/周转包父码管理': '扎包周转包父码管理',
-  '调度策略（限额/优先级）': '调度策略',
-  '裁片异常收口': '裁片后续管理',
-  '裁剪总结': '裁剪总表',
-  菲票打印记录: '打印菲票记录',
-}
 
 function createEmptyTabs(): AllSystemTabs {
   const tabs: AllSystemTabs = {}
@@ -70,7 +68,9 @@ function getStoredTabs(): AllSystemTabs {
       }
     }
 
-    const migrated = pruneRemovedFcsTabs(migrateFcsTabTitles(migrateLegacyDispatchExceptionsTabs(parsed)))
+    const migrated = pruneRemovedFcsTabs(
+      migrateFcsTabTitles(migrateCuttingTabs(migrateLegacyDispatchExceptionsTabs(parsed))),
+    )
     localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(migrated))
     return migrated
   } catch {
@@ -154,13 +154,83 @@ function migrateLegacyDispatchExceptionsTabs(allTabs: AllSystemTabs): AllSystemT
   }
 }
 
+function migrateCuttingTabs(allTabs: AllSystemTabs): AllSystemTabs {
+  const fcsTabs = allTabs.fcs
+  if (!fcsTabs) return allTabs
+
+  let changed = false
+  const nextTabs: Tab[] = []
+  const seenKeys = new Set<string>()
+
+  const normalizeTab = (tab: Tab): Tab | null => {
+    const normalizedHref = normalizePathname(tab.href)
+    if (REMOVED_CUTTING_TAB_PATHS.has(normalizedHref)) {
+      changed = true
+      return null
+    }
+
+    const migration = CUTTING_TAB_REDIRECTS[normalizedHref]
+    if (!migration) return tab
+
+    const canonicalItem = findMenuItemByPath(migration.href)
+    const nextTab: Tab = {
+      ...tab,
+      key: canonicalItem?.key ?? tab.key,
+      title: migration.title,
+      href: migration.href,
+    }
+    if (
+      nextTab.key !== tab.key ||
+      nextTab.title !== tab.title ||
+      nextTab.href !== tab.href
+    ) {
+      changed = true
+    }
+    return nextTab
+  }
+
+  for (const tab of fcsTabs.tabs) {
+    const nextTab = normalizeTab(tab)
+    if (!nextTab) continue
+    if (seenKeys.has(nextTab.key)) {
+      changed = true
+      continue
+    }
+    seenKeys.add(nextTab.key)
+    nextTabs.push(nextTab)
+  }
+
+  const activeTab = fcsTabs.tabs.find((tab) => tab.key === fcsTabs.activeKey)
+  const normalizedActiveTab = activeTab ? normalizeTab(activeTab) : null
+  let nextActiveKey = normalizedActiveTab?.key ?? ''
+  if (nextActiveKey && !nextTabs.some((tab) => tab.key === nextActiveKey)) {
+    nextActiveKey = ''
+  }
+  if (!nextActiveKey && nextTabs.length > 0) {
+    nextActiveKey = nextTabs[0].key
+  }
+  if (nextActiveKey !== fcsTabs.activeKey) changed = true
+
+  if (!changed) return allTabs
+
+  return {
+    ...allTabs,
+    fcs: {
+      ...fcsTabs,
+      tabs: nextTabs,
+      activeKey: nextActiveKey,
+    },
+  }
+}
+
 function migrateFcsTabTitles(allTabs: AllSystemTabs): AllSystemTabs {
   const fcsTabs = allTabs.fcs
   if (!fcsTabs) return allTabs
 
   let changed = false
   const nextTabs = fcsTabs.tabs.map((tab) => {
-    const nextTitle = FCS_TAB_TITLE_MIGRATIONS[tab.title]
+    const canonicalItem = findMenuItemByPath(tab.href)
+    const nextTitle = canonicalItem?.title?.trim()
     if (!nextTitle || nextTitle === tab.title) return tab
     changed = true
     return {
@@ -275,6 +345,16 @@ class AppStore {
     }
   }
 
+  private syncBrowserHistory(pathname: string, historyMode: NavigationHistoryMode = 'push'): void {
+    if (typeof window === 'undefined') return
+
+    const nextPath = pathname || defaultPath
+    const currentPath = `${window.location.pathname}${window.location.search}` || defaultPath
+    if (currentPath === nextPath) return
+
+    window.history[historyMode === 'replace' ? 'replaceState' : 'pushState']({}, '', nextPath)
+  }
+
   private patch(next: Partial<AppState>): void {
     this.state = { ...this.state, ...next }
     this.emit()
@@ -311,12 +391,22 @@ class AppStore {
     saveTabs(nextAllTabs)
   }
 
-  navigate(pathname: string): void {
+  navigate(pathname: string, options: { historyMode?: NavigationHistoryMode } = {}): void {
     if (this.state.pathname === pathname) return
 
     this.state.pathname = pathname
     this.syncTabWithPath(pathname)
+    this.syncBrowserHistory(pathname, options.historyMode ?? 'push')
     this.patch({ pathname })
+  }
+
+  syncFromBrowser(pathname: string): void {
+    const nextPath = pathname || defaultPath
+    if (this.state.pathname === nextPath) return
+
+    this.state.pathname = nextPath
+    this.syncTabWithPath(nextPath)
+    this.patch({ pathname: nextPath })
   }
 
   switchSystem(systemId: string): void {
@@ -347,6 +437,7 @@ class AppStore {
 
     this.state.allTabs = nextAllTabs
     saveTabs(nextAllTabs)
+    this.syncBrowserHistory(tab.href, 'push')
     this.patch({ allTabs: nextAllTabs, pathname: tab.href })
   }
 
@@ -368,6 +459,7 @@ class AppStore {
 
     this.state.allTabs = nextAllTabs
     saveTabs(nextAllTabs)
+    this.syncBrowserHistory(tab.href, 'push')
     this.patch({ allTabs: nextAllTabs, pathname: tab.href })
   }
 
@@ -407,6 +499,7 @@ class AppStore {
 
     this.state.allTabs = nextAllTabs
     saveTabs(nextAllTabs)
+    this.syncBrowserHistory(nextPath, 'replace')
     this.patch({ allTabs: nextAllTabs, pathname: nextPath })
   }
 
@@ -454,6 +547,7 @@ class AppStore {
 
     this.state.allTabs = nextAllTabs
     saveTabs(nextAllTabs)
+    this.syncBrowserHistory(nextPath, 'replace')
     this.patch({ allTabs: nextAllTabs, pathname: nextPath })
   }
 

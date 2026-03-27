@@ -17,7 +17,7 @@ import {
   listPdaTaskFlowTasks,
   resolvePdaTaskExecPath,
   type PdaTaskFlowMock,
-} from '../data/fcs/pda-cutting-special'
+} from '../data/fcs/pda-cutting-execution-source.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildPdaCuttingDirectExecEntryHref,
@@ -358,7 +358,8 @@ function renderCuttingTaskActionCard(task: PdaReceiveTask): string {
     sourcePageKey: 'task-receive-detail',
     returnTo: appStore.getState().pathname,
     focusTaskId: task.taskId,
-    cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    executionOrderId: task.defaultExecutionOrderId,
+    executionOrderNo: task.defaultExecutionOrderNo,
     taskNo: task.taskNo,
     productionOrderNo: getTaskProductionOrderNo(task),
   })
@@ -366,8 +367,10 @@ function renderCuttingTaskActionCard(task: PdaReceiveTask): string {
     sourcePageKey: 'task-receive-detail',
     returnTo: taskDetailHref,
     focusTaskId: task.taskId,
-    cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
-    focusCutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    executionOrderId: task.defaultExecutionOrderId,
+    executionOrderNo: task.defaultExecutionOrderNo,
+    focusExecutionOrderId: task.defaultExecutionOrderId,
+    focusExecutionOrderNo: task.defaultExecutionOrderNo,
     taskNo: task.taskNo,
     productionOrderNo: getTaskProductionOrderNo(task),
   })

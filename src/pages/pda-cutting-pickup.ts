@@ -1,6 +1,6 @@
 import { escapeHtml } from '../utils'
-import { getPdaCuttingTaskDetail, submitCuttingPickupResult } from '../data/fcs/pda-cutting-special'
 import { buildPdaCuttingPickupActionView } from '../domain/pickup/page-adapters/pda-cutting-pickup'
+import { buildPdaCuttingPickupProjection } from './pda-cutting-pickup-projection'
 import {
   buildClaimDisputeEvidenceFiles,
   computeClaimDisputeQty,
@@ -8,6 +8,12 @@ import {
   getClaimDisputeStatusMeta,
   parseLengthQtyFromText,
 } from '../helpers/fcs-claim-dispute'
+import {
+  buildPdaCuttingWritebackSource,
+  resolvePdaCuttingWritebackIdentity,
+  resolvePdaCuttingWritebackOperator,
+} from '../data/fcs/pda-cutting-writeback-inputs.ts'
+import { writePdaPickupToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
 import {
   createClaimDispute,
   getLatestClaimDisputeByOriginalCutOrderNo,
@@ -23,7 +29,11 @@ import {
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
 } from './pda-cutting-shared'
-import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import {
+  buildPdaCuttingExecutionContext,
+  readSelectedExecutionOrderIdFromLocation,
+  readSelectedExecutionOrderNoFromLocation,
+} from './pda-cutting-context'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface PickupFormState {
@@ -43,12 +53,16 @@ interface PickupFormState {
 
 const pickupState = new Map<string, PickupFormState>()
 
-function getState(taskId: string, cutPieceOrderNo?: string | null): PickupFormState {
-  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+function getPickupDetail(taskId: string, executionKey?: string | null) {
+  return buildPdaCuttingPickupProjection(taskId, executionKey ?? undefined)?.detail ?? null
+}
+
+function getState(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): PickupFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
   const existing = pickupState.get(stateKey)
   if (existing) return existing
 
-  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
+  const detail = getPickupDetail(taskId, executionOrderId ?? executionOrderNo ?? undefined)
   const initial: PickupFormState = {
     operatorName: detail?.latestPickupOperatorName && detail.latestPickupOperatorName !== '-' ? detail.latestPickupOperatorName : '现场领料员',
     actualClaimQtyText: detail ? String(parseLengthQtyFromText(detail.actualReceivedQtyText || detail.configuredQtyText || '')) : '',
@@ -79,25 +93,25 @@ function formatQty(value: number): string {
   return `${Number.isFinite(value) ? value : 0} 米`
 }
 
-function getExpectedClaimQty(taskId: string, cutPieceOrderNo?: string | null): number {
-  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
+function getExpectedClaimQty(taskId: string, executionKey?: string | null): number {
+  const detail = getPickupDetail(taskId, executionKey)
   return detail ? parseLengthQtyFromText(detail.configuredQtyText) : 0
 }
 
-function getActualClaimQty(taskId: string, cutPieceOrderNo?: string | null): number {
-  const form = getState(taskId, cutPieceOrderNo)
+function getActualClaimQty(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): number {
+  const form = getState(taskId, executionOrderId, executionOrderNo)
   return Number(form.actualClaimQtyText || '0') || 0
 }
 
-function hasDisputeMismatch(taskId: string, cutPieceOrderNo?: string | null): boolean {
-  return getActualClaimQty(taskId, cutPieceOrderNo) !== getExpectedClaimQty(taskId, cutPieceOrderNo)
+function hasDisputeMismatch(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): boolean {
+  return getActualClaimQty(taskId, executionOrderId, executionOrderNo) !== getExpectedClaimQty(taskId, executionOrderId ?? executionOrderNo)
 }
 
-function syncActualSummaryText(taskId: string, cutPieceOrderNo?: string | null): void {
-  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
-  const form = getState(taskId, cutPieceOrderNo)
+function syncActualSummaryText(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): void {
+  const detail = getPickupDetail(taskId, executionOrderId ?? executionOrderNo ?? undefined)
+  const form = getState(taskId, executionOrderId, executionOrderNo)
   const rollCount = detail ? detail.configuredQtyText.match(/卷数\\s*([0-9]+\\s*卷)/)?.[1] || '卷数待补' : '卷数待补'
-  const actualClaimQty = getActualClaimQty(taskId, cutPieceOrderNo)
+  const actualClaimQty = getActualClaimQty(taskId, executionOrderId, executionOrderNo)
   form.actualReceivedQtyText = `${rollCount} / 长度 ${actualClaimQty || 0} 米`
   form.photoProofCount = String(form.imageProofNames.length + form.videoProofNames.length)
 }
@@ -111,11 +125,11 @@ function getPickupResultLabel(value: string): string {
   return value
 }
 
-function renderDisputeStatus(taskId: string, cutPieceOrderNo?: string | null): string {
-  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
+function renderDisputeStatus(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): string {
+  const detail = getPickupDetail(taskId, executionOrderId ?? executionOrderNo ?? undefined)
   const originalCutOrderNo =
-    detail?.cutPieceOrders.find((item) => item.cutPieceOrderNo === (cutPieceOrderNo || detail.cutPieceOrderNo))
-      ?.originalCutOrderNo || cutPieceOrderNo
+    detail?.cutPieceOrders.find((item) => item.executionOrderId === executionOrderId || item.executionOrderNo === executionOrderNo)
+      ?.originalCutOrderNo || detail?.originalCutOrderNo || executionOrderNo
   const latestDispute =
     (originalCutOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(originalCutOrderNo) : null) ||
     getLatestClaimDisputeByTaskId(taskId)
@@ -139,10 +153,10 @@ function renderDisputeStatus(taskId: string, cutPieceOrderNo?: string | null): s
 
 function renderPickupCurrentStatus(
   taskId: string,
-  detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>,
-  cutPieceOrderNo?: string | null,
+  detail: NonNullable<ReturnType<typeof getPickupDetail>>,
+  executionKey?: string | null,
 ): string {
-  const pickupView = buildPdaCuttingPickupActionView(taskId, cutPieceOrderNo)
+  const pickupView = buildPdaCuttingPickupActionView(taskId, executionKey ?? detail.executionOrderId)
   if (!detail) return ''
 
   return renderPdaCuttingSummaryGrid([
@@ -155,10 +169,10 @@ function renderPickupCurrentStatus(
 
 function renderPickupLogs(
   taskId: string,
-  detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>,
-  cutPieceOrderNo?: string | null,
+  detail: NonNullable<ReturnType<typeof getPickupDetail>>,
+  executionKey?: string | null,
 ): string {
-  const pickupView = buildPdaCuttingPickupActionView(taskId, cutPieceOrderNo)
+  const pickupView = buildPdaCuttingPickupActionView(taskId, executionKey ?? detail.executionOrderId)
   if (!detail || !pickupView || !pickupView.scanRecords.length) {
     return renderPdaCuttingEmptyState('当前裁片单暂无领料记录', '')
   }
@@ -188,7 +202,7 @@ function renderPickupLogs(
 export function renderPdaCuttingPickupPage(taskId: string): string {
   const context = buildPdaCuttingExecutionContext(taskId, 'pickup')
   const detail = context.detail
-  const pickupView = buildPdaCuttingPickupActionView(taskId, context.selectedCutPieceOrderNo)
+  const pickupView = buildPdaCuttingPickupActionView(taskId, context.selectedExecutionOrderId ?? context.selectedExecutionOrderNo ?? undefined)
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
@@ -212,12 +226,12 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
     })
   }
 
-  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
-  const expectedClaimQty = getExpectedClaimQty(taskId, context.selectedCutPieceOrderNo)
-  const actualClaimQty = getActualClaimQty(taskId, context.selectedCutPieceOrderNo)
+  const expectedClaimQty = getExpectedClaimQty(taskId, context.selectedExecutionOrderId ?? context.selectedExecutionOrderNo)
+  const actualClaimQty = getActualClaimQty(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const discrepancyQty = computeClaimDisputeQty(actualClaimQty, expectedClaimQty)
-  const mismatch = hasDisputeMismatch(taskId, context.selectedCutPieceOrderNo)
+  const mismatch = hasDisputeMismatch(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
 
   const formSection = `
     <div class="space-y-3 text-xs">
@@ -305,7 +319,7 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
           ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, form.feedbackTone === 'warning' ? 'warning' : form.feedbackTone === 'success' ? 'success' : 'default')
           : ''
       }
-      ${renderDisputeStatus(taskId, context.selectedCutPieceOrderNo)}
+      ${renderDisputeStatus(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)}
       <div class="grid grid-cols-2 gap-2">
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
           返回裁片任务
@@ -322,9 +336,9 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
 
   const body = `
     ${renderPdaCuttingExecutionHero('扫码领料', detail)}
-    ${renderPdaCuttingSection('当前情况', '', renderPickupCurrentStatus(taskId, detail, context.selectedCutPieceOrderNo))}
+    ${renderPdaCuttingSection('当前情况', '', renderPickupCurrentStatus(taskId, detail, context.selectedExecutionOrderId ?? context.selectedExecutionOrderNo))}
     ${renderPdaCuttingSection('领料确认', '', formSection)}
-    ${renderPdaCuttingSection('最近领料记录', '', renderPickupLogs(taskId, detail, context.selectedCutPieceOrderNo))}
+    ${renderPdaCuttingSection('最近领料记录', '', renderPickupLogs(taskId, detail, context.selectedExecutionOrderId ?? context.selectedExecutionOrderNo))}
   `
 
   return renderPdaCuttingPageLayout({
@@ -346,15 +360,16 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+    const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const field = fieldNode.dataset.pdaCutPickupField
     if (!field) return true
 
     if (field === 'operatorName') form.operatorName = fieldNode.value
     if (field === 'actualClaimQtyText') {
       form.actualClaimQtyText = fieldNode.value
-      syncActualSummaryText(taskId, selectedCutPieceOrderNo)
+      syncActualSummaryText(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     }
     if (field === 'actualReceivedQtyText') form.actualReceivedQtyText = fieldNode.value
     if (field === 'resultLabel') form.resultLabel = fieldNode.value
@@ -369,25 +384,43 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaCutPickupAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
-  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
 
   if (action === 'submit') {
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'pickup')
-    const expectedClaimQty = getExpectedClaimQty(taskId, selectedCutPieceOrderNo)
-    const actualClaimQty = getActualClaimQty(taskId, selectedCutPieceOrderNo)
-    if (hasDisputeMismatch(taskId, selectedCutPieceOrderNo)) {
+    const expectedClaimQty = getExpectedClaimQty(taskId, selectedExecutionOrderId ?? selectedExecutionOrderNo)
+    const actualClaimQty = getActualClaimQty(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    if (hasDisputeMismatch(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)) {
       form.feedbackMessage = '当前实领数量与默认应领数量不一致，请走“提交数量异议”路径。'
       form.feedbackTone = 'warning'
       return true
     }
-    const result = submitCuttingPickupResult(taskId, {
-      operatorName: form.operatorName.trim() || '现场领料员',
+    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+      executionOrderId: context.selectedExecutionOrderId || undefined,
+      executionOrderNo: context.selectedExecutionOrderNo || undefined,
+      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
+      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
+      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
+      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      materialSku: context.selectedExecutionOrder?.materialSku || undefined,
+    })
+    const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '现场领料员')
+    if (!identity || !operator) {
+      form.feedbackMessage = '当前执行对象或操作人无法识别，不能提交领料结果。'
+      form.feedbackTone = 'warning'
+      return true
+    }
+    const result = writePdaPickupToFcs({
+      identity,
+      operator,
+      source: buildPdaCuttingWritebackSource('pickup', identity.executionOrderId),
       resultLabel: '领取成功',
       actualReceivedQtyText: form.actualReceivedQtyText.trim() || `长度 ${expectedClaimQty || actualClaimQty} 米`,
       discrepancyNote: form.discrepancyNote.trim() || '当前无差异',
       photoProofCount: Number(form.photoProofCount || '0') || 0,
-    }, selectedCutPieceOrderNo ?? undefined)
+    })
     if (!result.success) {
       form.feedbackMessage = result.issues.join('；')
       form.feedbackTone = 'warning'
@@ -397,7 +430,8 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
     form.feedbackTone = 'success'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,
-      selectedCutPieceOrderNo,
+      context.selectedExecutionOrderId,
+      context.selectedExecutionOrderNo,
       context.navContext,
       'pickup',
     )
@@ -405,20 +439,20 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'add-image-proof' || action === 'add-video-proof') {
-    const form = getState(taskId, selectedCutPieceOrderNo)
-    const nowSuffix = `${Date.now()}`.slice(-4)
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+    const nowSuffix = new Date().toISOString().replace(/[^0-9]/g, '').slice(-6)
     if (action === 'add-image-proof') {
       form.imageProofNames = [...form.imageProofNames, `领料异议图片-${nowSuffix}.jpg`]
     } else {
       form.videoProofNames = [...form.videoProofNames, `领料异议视频-${nowSuffix}.mp4`]
     }
-    syncActualSummaryText(taskId, selectedCutPieceOrderNo)
+    syncActualSummaryText(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     form.feedbackMessage = ''
     return true
   }
 
   if (action === 'remove-proof') {
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const fileType = actionNode.dataset.fileType
     const fileName = actionNode.dataset.fileName
     if (fileType === 'IMAGE') {
@@ -427,16 +461,16 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
     if (fileType === 'VIDEO') {
       form.videoProofNames = form.videoProofNames.filter((item) => item !== fileName)
     }
-    syncActualSummaryText(taskId, selectedCutPieceOrderNo)
+    syncActualSummaryText(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     return true
   }
 
   if (action === 'submit-dispute') {
-    const detail = getPdaCuttingTaskDetail(taskId, selectedCutPieceOrderNo ?? undefined)
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const detail = getPickupDetail(taskId, selectedExecutionOrderId ?? selectedExecutionOrderNo ?? undefined)
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'pickup')
     if (!detail) return true
-    if (!hasDisputeMismatch(taskId, selectedCutPieceOrderNo)) {
+    if (!hasDisputeMismatch(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)) {
       form.feedbackTone = 'warning'
       form.feedbackMessage = '当前没有数量差异，无需提交数量异议。'
       return true
@@ -448,14 +482,14 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
     const result = createClaimDispute({
       sourceTaskId: taskId,
       sourceTaskNo: detail.taskNo,
-      originalCutOrderNo: context.selectedCutPieceOrder?.originalCutOrderNo || detail.cutPieceOrderNo,
+      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || detail.originalCutOrderNo,
       productionOrderNo: detail.productionOrderNo,
       relatedClaimRecordNo: detail.latestPickupRecordNo || detail.pickupSlipNo,
       materialSku: detail.materialSku,
       materialCategory: detail.materialTypeLabel,
       materialAttr: detail.qrObjectLabel,
-      configuredQty: getExpectedClaimQty(taskId, selectedCutPieceOrderNo),
-      actualClaimQty: getActualClaimQty(taskId, selectedCutPieceOrderNo),
+      configuredQty: getExpectedClaimQty(taskId, selectedExecutionOrderId ?? selectedExecutionOrderNo),
+      actualClaimQty: getActualClaimQty(taskId, selectedExecutionOrderId, selectedExecutionOrderNo),
       disputeReason: form.disputeReason.trim(),
       disputeNote: form.discrepancyNote.trim(),
       submittedBy: form.operatorName.trim() || '现场领料员',
@@ -471,15 +505,32 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
       return true
     }
 
-    const submitResult = submitCuttingPickupResult(taskId, {
-      operatorName: form.operatorName.trim() || '现场领料员',
+    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+      executionOrderId: context.selectedExecutionOrderId || undefined,
+      executionOrderNo: context.selectedExecutionOrderNo || undefined,
+      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
+      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
+      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
+      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      materialSku: context.selectedExecutionOrder?.materialSku || undefined,
+    })
+    const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '现场领料员')
+    if (!identity || !operator) {
+      form.feedbackMessage = '当前执行对象或操作人无法识别，不能提交数量异议。'
+      form.feedbackTone = 'warning'
+      return true
+    }
+    const submitResult = writePdaPickupToFcs({
+      identity,
+      operator,
+      source: buildPdaCuttingWritebackSource('pickup', identity.executionOrderId),
       resultLabel: '已发起数量异议',
-      actualReceivedQtyText: form.actualReceivedQtyText.trim() || `长度 ${getActualClaimQty(taskId, selectedCutPieceOrderNo)} 米`,
+      actualReceivedQtyText: form.actualReceivedQtyText.trim() || `长度 ${getActualClaimQty(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)} 米`,
       discrepancyNote: form.discrepancyNote.trim() || form.disputeReason.trim(),
       photoProofCount: result.record.evidenceCount,
       claimDisputeId: result.record.disputeId,
       claimDisputeNo: result.record.disputeNo,
-    }, selectedCutPieceOrderNo ?? undefined)
+    })
     if (!submitResult.success) {
       form.feedbackMessage = submitResult.issues.join('；')
       form.feedbackTone = 'warning'
@@ -492,7 +543,8 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
     form.feedbackTone = 'success'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,
-      selectedCutPieceOrderNo,
+      context.selectedExecutionOrderId,
+      context.selectedExecutionOrderNo,
       context.navContext,
       'pickup',
     )

@@ -1,6 +1,5 @@
 import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
 import type { CuttingFabricStockRecord } from '../../../data/fcs/cutting/warehouse-management'
-import { cuttingFabricStockRecords } from '../../../data/fcs/cutting/warehouse-management'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
@@ -15,6 +14,7 @@ import {
   type FabricWarehouseRiskKey,
   type FabricWarehouseStockItem,
 } from './fabric-warehouse-model'
+import { buildFabricWarehouseProjection } from './fabric-warehouse-projection'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -23,10 +23,7 @@ import {
   renderWorkbenchStateBar,
 } from './layout.helpers'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
-import {
-  buildWarehouseOriginalRows,
-  getWarehouseSearchParams,
-} from './warehouse-shared'
+import { getWarehouseSearchParams } from './warehouse-shared'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -67,7 +64,7 @@ const FIELD_TO_FILTER_KEY: Record<FilterField, keyof FabricWarehouseFilters> = {
 }
 
 const state: FabricWarehousePageState = {
-  records: cuttingFabricStockRecords.map((item) => ({ ...item })),
+  records: buildFabricWarehouseProjection().records.map((item) => ({ ...item })),
   filters: { ...initialFilters },
   activeStockId: null,
   prefilter: null,
@@ -77,7 +74,7 @@ const state: FabricWarehousePageState = {
 }
 
 function getViewModel() {
-  return buildFabricWarehouseViewModel(buildWarehouseOriginalRows(), state.records)
+  return buildFabricWarehouseProjection({ records: state.records }).viewModel
 }
 
 function getFilteredItems() {
@@ -89,7 +86,9 @@ function getPrefilterFromQuery(): FabricWarehousePrefilter | null {
   const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: FabricWarehousePrefilter = {
     materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
+    originalCutOrderId: drillContext?.originalCutOrderId || params.get('originalCutOrderId') || undefined,
     originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
+    productionOrderId: drillContext?.productionOrderId || params.get('productionOrderId') || undefined,
     productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
     rollNo: params.get('rollNo') || undefined,
   }
@@ -220,7 +219,7 @@ function renderFilterArea(): string {
           <input
             type="text"
             value="${escapeHtml(state.filters.keyword)}"
-            placeholder="支持 materialSku / 原始裁片单号 / 生产单号 / 卷号"
+            placeholder="支持面料 SKU / 原始裁片单号 / 生产单号 / 卷号"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             data-fabric-warehouse-field="keyword"
           />
@@ -258,7 +257,7 @@ function renderTable(items: FabricWarehouseStockItem[]): string {
     <table class="min-w-full text-sm">
       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
         <tr>
-          <th class="px-4 py-3 text-left">materialSku</th>
+          <th class="px-4 py-3 text-left">面料 SKU</th>
           <th class="px-4 py-3 text-left">面料类别</th>
           <th class="px-4 py-3 text-right">卷数</th>
           <th class="px-4 py-3 text-right">配置长度</th>
@@ -440,8 +439,12 @@ function navigateByPayload(stockId: string | undefined, target: keyof FabricWare
   if (!item) return false
   const context = normalizeLegacyCuttingPayload(item.navigationPayload[target], 'fabric-warehouse', {
     materialSku: item.materialSku,
-    productionOrderNo: item.productionOrderNos[0] || undefined,
-    originalCutOrderNo: item.originalCutOrderNos[0] || undefined,
+    productionOrderId: item.productionOrderId || undefined,
+    productionOrderNo: item.productionOrderNo || undefined,
+    originalCutOrderId: item.originalCutOrderId || undefined,
+    originalCutOrderNo: item.originalCutOrderNo || undefined,
+    mergeBatchId: item.mergeBatchId || undefined,
+    mergeBatchNo: item.mergeBatchNo || undefined,
     warehouseRecordId: item.stockItemId,
     autoOpenDetail: true,
   })

@@ -128,9 +128,9 @@ import {
   isProgressMilestoneConfigDialogOpen,
 } from '../pages/progress-milestone-config'
 import {
-  handleCraftCuttingOrderProgressEvent,
-  isCraftCuttingOrderProgressDialogOpen,
-} from '../pages/process-factory/cutting/order-progress'
+  handleCraftCuttingProductionProgressEvent,
+  isCraftCuttingProductionProgressDialogOpen,
+} from '../pages/process-factory/cutting/production-progress'
 import { handleCraftCuttingCuttablePoolEvent } from '../pages/process-factory/cutting/cuttable-pool'
 import { handleCraftCuttingMergeBatchesEvent } from '../pages/process-factory/cutting/merge-batches'
 import {
@@ -151,9 +151,9 @@ import {
   isCraftCuttingCutPieceWarehouseDialogOpen,
 } from '../pages/process-factory/cutting/cut-piece-warehouse'
 import {
-  handleCraftCuttingPieceOrdersEvent,
-  isCraftCuttingPieceOrdersDialogOpen,
-} from '../pages/process-factory/cutting/cut-piece-orders'
+  handleCraftCuttingOriginalOrdersEvent,
+  isCraftCuttingOriginalOrdersDialogOpen,
+} from '../pages/process-factory/cutting/original-orders'
 import {
   handleCraftCuttingReplenishmentEvent,
   isCraftCuttingReplenishmentDialogOpen,
@@ -167,10 +167,6 @@ import {
   isCraftCuttingSampleWarehouseDialogOpen,
 } from '../pages/process-factory/cutting/sample-warehouse'
 import { handleCraftCuttingTransferBagsEvent } from '../pages/process-factory/cutting/transfer-bags'
-import {
-  handleCraftCuttingWarehouseManagementEvent,
-  isCraftCuttingWarehouseManagementDialogOpen,
-} from '../pages/process-factory/cutting/warehouse-management'
 import {
   handleCraftCuttingSummaryEvent,
   isCraftCuttingSummaryDialogOpen,
@@ -212,7 +208,7 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleProgressCuttingDetailEvent(target) ||
     handleProgressCuttingExceptionCenterEvent(target) ||
     handleCuttingSettlementInputEvent(target) ||
-    handleCraftCuttingOrderProgressEvent(target) ||
+    handleCraftCuttingProductionProgressEvent(target) ||
     handleCraftCuttingCuttablePoolEvent(target) ||
     handleCraftCuttingMergeBatchesEvent(target) ||
     handleCraftCuttingMaterialPrepEvent(target) ||
@@ -222,10 +218,9 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleCraftCuttingCutPieceWarehouseEvent(target) ||
     handleCraftCuttingSampleWarehouseEvent(target) ||
     handleCraftCuttingTransferBagsEvent(target) ||
-    handleCraftCuttingPieceOrdersEvent(target) ||
+    handleCraftCuttingOriginalOrdersEvent(target) ||
     handleCraftCuttingReplenishmentEvent(target) ||
     handleCraftCuttingSpecialProcessesEvent(target) ||
-    handleCraftCuttingWarehouseManagementEvent(target) ||
     handleCraftCuttingSummaryEvent(target) ||
     handleDeductionAnalysisEvent(target) ||
     handleDyePrintOrdersEvent(target) ||
@@ -463,10 +458,10 @@ export function closeFcsDialogsOnEscape(): boolean {
     return true
   }
 
-  if (isCraftCuttingOrderProgressDialogOpen()) {
+  if (isCraftCuttingProductionProgressDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cuttingProgressAction = 'close-detail'
-    handleCraftCuttingOrderProgressEvent(fakeButton)
+    handleCraftCuttingProductionProgressEvent(fakeButton)
     return true
   }
 
@@ -484,10 +479,10 @@ export function closeFcsDialogsOnEscape(): boolean {
     return true
   }
 
-  if (isCraftCuttingPieceOrdersDialogOpen()) {
+  if (isCraftCuttingOriginalOrdersDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cuttingPieceAction = 'close-overlay'
-    handleCraftCuttingPieceOrdersEvent(fakeButton)
+    handleCraftCuttingOriginalOrdersEvent(fakeButton)
     return true
   }
 
@@ -523,13 +518,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.specialProcessAction = 'close-overlay'
     handleCraftCuttingSpecialProcessesEvent(fakeButton)
-    return true
-  }
-
-  if (isCraftCuttingWarehouseManagementDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.cuttingWarehouseAction = 'close-overlay'
-    handleCraftCuttingWarehouseManagementEvent(fakeButton)
     return true
   }
 

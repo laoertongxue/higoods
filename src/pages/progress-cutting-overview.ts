@@ -21,14 +21,26 @@ import {
   type PlatformCuttingOverviewFilters,
 } from '../domain/cutting-platform/overview.helpers'
 import { appStore } from '../state/store'
+import { getCanonicalCuttingPath } from './process-factory/cutting/meta'
 import { escapeHtml, formatDateTime } from '../utils'
 
+const productionProgressPath = getCanonicalCuttingPath('production-progress')
+const materialPrepPath = getCanonicalCuttingPath('material-prep')
+const originalOrdersPath = getCanonicalCuttingPath('original-orders')
+const replenishmentPath = getCanonicalCuttingPath('replenishment')
+const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
+
+function normalizeRoute(route: string): string {
+  return route.split('#')[0].split('?')[0] || route
+}
+
 function getCuttingRouteActionLabel(route: string): string {
-  if (route.includes('/material-prep')) return '去仓库配料领料'
-  if (route.includes('/replenishment')) return '去补料管理'
-  if (route.includes('/cut-piece-orders')) return '去原始裁片单'
-  if (route.includes('/warehouse-management')) return '去仓务处理'
-  if (route.includes('/order-progress')) return '去生产单进度'
+  const normalizedRoute = normalizeRoute(route)
+  if (normalizedRoute === materialPrepPath) return '去仓库配料领料'
+  if (normalizedRoute === replenishmentPath) return '去补料管理'
+  if (normalizedRoute === originalOrdersPath) return '去原始裁片单'
+  if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
+  if (normalizedRoute === productionProgressPath) return '去生产单进度'
   return '打开关联页面'
 }
 
@@ -364,11 +376,11 @@ function renderMainTable(): string {
                             <div class="flex min-w-[220px] flex-wrap gap-2">
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-detail" data-record-id="${row.id}">查看详情</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="open-summary" data-record-id="${row.id}">查看跟进摘要</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-order-progress">去订单进度</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-material-prep">去仓库配料</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-cut-piece-orders">去裁片单</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-production-progress">去生产单进度</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-material-prep">去仓库配料领料</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-original-orders">去原始裁片单</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-replenishment">去补料管理</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-warehouse-management">去仓库管理</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-platform-cutting-action="go-fabric-warehouse">去裁床仓</button>
                             </div>
                           </td>
                         </tr>
@@ -497,11 +509,11 @@ function renderSummaryDrawer(): string {
           <h3 class="font-semibold text-foreground">快捷跳转区</h3>
           <div class="mt-4 flex flex-wrap gap-2">
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-detail" data-record-id="${row.id}">去详情页</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-order-progress">去订单进度</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-material-prep">去仓库配料</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-cut-piece-orders">去裁片单</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-production-progress">去生产单进度</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-material-prep">去仓库配料领料</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-original-orders">去原始裁片单</button>
             <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-replenishment">去补料管理</button>
-            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-warehouse-management">去仓库管理</button>
+            <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-action="go-fabric-warehouse">去裁床仓</button>
           </div>
         </section>
       </div>
@@ -566,28 +578,28 @@ export function handleProgressCuttingOverviewEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'go-order-progress') {
-    navigateTo('/fcs/craft/cutting/order-progress')
+  if (action === 'go-production-progress') {
+    navigateTo(productionProgressPath)
     return true
   }
 
   if (action === 'go-material-prep') {
-    navigateTo('/fcs/craft/cutting/material-prep')
+    navigateTo(materialPrepPath)
     return true
   }
 
-  if (action === 'go-cut-piece-orders') {
-    navigateTo('/fcs/craft/cutting/cut-piece-orders')
+  if (action === 'go-original-orders') {
+    navigateTo(originalOrdersPath)
     return true
   }
 
   if (action === 'go-replenishment') {
-    navigateTo('/fcs/craft/cutting/replenishment')
+    navigateTo(replenishmentPath)
     return true
   }
 
-  if (action === 'go-warehouse-management') {
-    navigateTo('/fcs/craft/cutting/warehouse-management')
+  if (action === 'go-fabric-warehouse') {
+    navigateTo(fabricWarehousePath)
     return true
   }
 

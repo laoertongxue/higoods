@@ -3,7 +3,11 @@ import {
   buildPdaCuttingRoute,
   resolvePdaTaskExecPath,
   type PdaCuttingRouteKey,
-} from '../data/fcs/pda-cutting-special'
+} from '../data/fcs/pda-cutting-execution-source.ts'
+import {
+  readLegacyCutPieceOrderNo,
+  resolvePdaExecutionOrderNoWithLegacy,
+} from '../data/fcs/pda-cutting-legacy-compat.ts'
 
 export type PdaCuttingNavPageKey =
   | 'task-list'
@@ -25,8 +29,19 @@ export interface PdaCuttingNavContext {
   taskId?: string
   taskNo?: string
   productionOrderNo?: string
+  executionOrderId?: string
+  executionOrderNo?: string
+  originalCutOrderId?: string
+  originalCutOrderNo?: string
+  mergeBatchId?: string
+  mergeBatchNo?: string
+  materialSku?: string
+  // Read-only legacy query compat. Formal navigation no longer writes this field.
   cutPieceOrderNo?: string
   focusTaskId?: string
+  focusExecutionOrderId?: string
+  focusExecutionOrderNo?: string
+  // Read-only legacy query compat. Formal navigation no longer writes this field.
   focusCutPieceOrderNo?: string
   focusActionKey?: PdaCuttingActionKey
   returnTo?: string
@@ -81,9 +96,24 @@ export function readPdaCuttingNavContext(pathname?: string): PdaCuttingNavContex
     taskId: params.get('taskId') ?? undefined,
     taskNo: params.get('taskNo') ?? undefined,
     productionOrderNo: params.get('productionOrderNo') ?? undefined,
-    cutPieceOrderNo: params.get('cutPieceOrderNo') ?? undefined,
+    executionOrderId: params.get('executionOrderId') ?? undefined,
+    executionOrderNo: resolvePdaExecutionOrderNoWithLegacy({
+      executionOrderNo: params.get('executionOrderNo'),
+      cutPieceOrderNo: readLegacyCutPieceOrderNo(params),
+    }),
+    originalCutOrderId: params.get('originalCutOrderId') ?? undefined,
+    originalCutOrderNo: params.get('originalCutOrderNo') ?? undefined,
+    mergeBatchId: params.get('mergeBatchId') ?? undefined,
+    mergeBatchNo: params.get('mergeBatchNo') ?? undefined,
+    materialSku: params.get('materialSku') ?? undefined,
+    cutPieceOrderNo: readLegacyCutPieceOrderNo(params),
     focusTaskId: params.get('focusTaskId') ?? undefined,
-    focusCutPieceOrderNo: params.get('focusCutPieceOrderNo') ?? undefined,
+    focusExecutionOrderId: params.get('focusExecutionOrderId') ?? undefined,
+    focusExecutionOrderNo: resolvePdaExecutionOrderNoWithLegacy({
+      executionOrderNo: params.get('focusExecutionOrderNo'),
+      focusCutPieceOrderNo: params.get('focusCutPieceOrderNo'),
+    }),
+    focusCutPieceOrderNo: readLegacyCutPieceOrderNo(params, 'focusCutPieceOrderNo'),
     focusActionKey: (params.get('focusActionKey') as PdaCuttingActionKey | null) ?? undefined,
     returnTo: params.get('returnTo') ?? undefined,
     backMode: (params.get('backMode') as PdaCuttingBackMode | null) ?? undefined,
@@ -103,9 +133,16 @@ export function appendPdaCuttingNavContext(href: string, context: PdaCuttingNavC
     if (context.taskId) params.set('taskId', context.taskId)
     if (context.taskNo) params.set('taskNo', context.taskNo)
     if (context.productionOrderNo) params.set('productionOrderNo', context.productionOrderNo)
-    if (context.cutPieceOrderNo) params.set('cutPieceOrderNo', context.cutPieceOrderNo)
+    if (context.executionOrderId) params.set('executionOrderId', context.executionOrderId)
+    if (context.executionOrderNo) params.set('executionOrderNo', context.executionOrderNo)
+    if (context.originalCutOrderId) params.set('originalCutOrderId', context.originalCutOrderId)
+    if (context.originalCutOrderNo) params.set('originalCutOrderNo', context.originalCutOrderNo)
+    if (context.mergeBatchId) params.set('mergeBatchId', context.mergeBatchId)
+    if (context.mergeBatchNo) params.set('mergeBatchNo', context.mergeBatchNo)
+    if (context.materialSku) params.set('materialSku', context.materialSku)
     if (context.focusTaskId) params.set('focusTaskId', context.focusTaskId)
-    if (context.focusCutPieceOrderNo) params.set('focusCutPieceOrderNo', context.focusCutPieceOrderNo)
+    if (context.focusExecutionOrderId) params.set('focusExecutionOrderId', context.focusExecutionOrderId)
+    if (context.focusExecutionOrderNo) params.set('focusExecutionOrderNo', context.focusExecutionOrderNo)
     if (context.focusActionKey) params.set('focusActionKey', context.focusActionKey)
     if (context.returnTo) params.set('returnTo', context.returnTo)
     if (context.backMode) params.set('backMode', context.backMode)
@@ -166,7 +203,13 @@ export function buildPdaCuttingTaskDetailNavHref(
   context: Omit<PdaCuttingNavContext, 'taskId'> = {},
 ): string {
   const baseHref = buildPdaCuttingRoute(taskId, 'task', {
-    cutPieceOrderNo: context.cutPieceOrderNo,
+    executionOrderId: context.executionOrderId,
+    executionOrderNo: resolvePdaExecutionOrderNoWithLegacy(context),
+    originalCutOrderId: context.originalCutOrderId,
+    originalCutOrderNo: context.originalCutOrderNo,
+    mergeBatchId: context.mergeBatchId,
+    mergeBatchNo: context.mergeBatchNo,
+    materialSku: context.materialSku,
     returnTo: context.returnTo,
   })
 
@@ -184,7 +227,13 @@ export function buildPdaCuttingExecutionNavHref(
   context: Omit<PdaCuttingNavContext, 'taskId' | 'focusActionKey'> = {},
 ): string {
   const baseHref = buildPdaCuttingRoute(taskId, routeKey, {
-    cutPieceOrderNo: context.cutPieceOrderNo,
+    executionOrderId: context.executionOrderId,
+    executionOrderNo: resolvePdaExecutionOrderNoWithLegacy(context),
+    originalCutOrderId: context.originalCutOrderId,
+    originalCutOrderNo: context.originalCutOrderNo,
+    mergeBatchId: context.mergeBatchId,
+    mergeBatchNo: context.mergeBatchNo,
+    materialSku: context.materialSku,
     returnTo: context.returnTo,
   })
 
@@ -193,7 +242,8 @@ export function buildPdaCuttingExecutionNavHref(
     sourcePageKey: context.sourcePageKey ?? 'cutting-task-detail',
     taskId,
     focusTaskId: context.focusTaskId ?? taskId,
-    focusCutPieceOrderNo: context.focusCutPieceOrderNo ?? context.cutPieceOrderNo,
+    focusExecutionOrderId: context.focusExecutionOrderId ?? context.executionOrderId,
+    focusExecutionOrderNo: context.focusExecutionOrderNo ?? context.executionOrderNo,
     focusActionKey: routeKey,
   })
 }
@@ -207,7 +257,8 @@ export function buildPdaCuttingDirectExecEntryHref(
     ...context,
     taskId,
     focusTaskId: context.focusTaskId ?? taskId,
-    focusCutPieceOrderNo: context.focusCutPieceOrderNo ?? context.cutPieceOrderNo,
+    focusExecutionOrderId: context.focusExecutionOrderId ?? context.executionOrderId,
+    focusExecutionOrderNo: context.focusExecutionOrderNo ?? context.executionOrderNo,
   })
 }
 
@@ -219,7 +270,13 @@ export function buildPdaCuttingTaskDetailFocusHref(
     context.returnTo && context.returnTo.startsWith('/fcs/pda/cutting/task/')
       ? context.returnTo
       : buildPdaCuttingRoute(taskId, 'task', {
-          cutPieceOrderNo: context.cutPieceOrderNo,
+          executionOrderId: context.executionOrderId,
+          executionOrderNo: context.executionOrderNo,
+          originalCutOrderId: context.originalCutOrderId,
+          originalCutOrderNo: context.originalCutOrderNo,
+          mergeBatchId: context.mergeBatchId,
+          mergeBatchNo: context.mergeBatchNo,
+          materialSku: context.materialSku,
           returnTo: context.returnTo,
         })
 
@@ -228,7 +285,8 @@ export function buildPdaCuttingTaskDetailFocusHref(
     sourcePageKey: 'cutting-task-detail',
     taskId,
     focusTaskId: context.focusTaskId ?? taskId,
-    focusCutPieceOrderNo: context.focusCutPieceOrderNo ?? context.cutPieceOrderNo,
+    focusExecutionOrderId: context.focusExecutionOrderId ?? context.executionOrderId,
+    focusExecutionOrderNo: context.focusExecutionOrderNo ?? context.executionOrderNo,
     highlightCutPieceOrder: context.highlightCutPieceOrder ?? true,
     autoFocus: context.autoFocus ?? true,
   })
@@ -236,15 +294,18 @@ export function buildPdaCuttingTaskDetailFocusHref(
 
 export function buildPdaCuttingCompletedReturnHref(
   taskId: string,
-  cutPieceOrderNo: string | null | undefined,
+  executionOrderId: string | null | undefined,
+  executionOrderNo: string | null | undefined,
   context: PdaCuttingNavContext,
   actionKey: PdaCuttingActionKey,
 ): string {
   return buildPdaCuttingTaskDetailFocusHref(taskId, {
-    cutPieceOrderNo: cutPieceOrderNo ?? undefined,
+    executionOrderId: executionOrderId ?? undefined,
+    executionOrderNo: executionOrderNo ?? undefined,
     returnTo: context.returnTo,
     focusTaskId: context.focusTaskId ?? taskId,
-    focusCutPieceOrderNo: cutPieceOrderNo ?? undefined,
+    focusExecutionOrderId: executionOrderId ?? undefined,
+    focusExecutionOrderNo: executionOrderNo ?? undefined,
     focusActionKey: actionKey,
     justCompletedAction: actionKey,
     justSaved: true,

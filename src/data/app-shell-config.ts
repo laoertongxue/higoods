@@ -243,7 +243,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'craft-workbench-overview', title: '总览', icon: 'LayoutDashboard', href: '/fcs/craft/workbench/overview' },
           ],
         },
-        // 裁片域菜单按“主对象 + 主责任”拆成 4 个并列域，而不是继续用单一“裁片管理”平铺页面。
+        // 裁片域菜单按“主对象 + 主责任”先收口成 3 组主入口，而不是继续用单一“裁片管理”平铺页面。
         // 这样做是为了把生产单、原始裁片单、合并裁剪批次、仓交接载具等对象边界固定下来，
         // 避免后续实现再次把仓库管理、菲票、合批和生产单视图混成一个菜单域。
         // 本组菜单标题必须直接使用 canonical 名称，不能再把旧页面名当作主名称继续外露。
@@ -279,17 +279,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'craft-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
             { key: 'craft-cutting-sample-warehouse', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/sample-warehouse' },
             { key: 'craft-cutting-transfer-bags', title: '周转口袋车缝交接', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
-          ],
-        },
-        {
-          key: 'craft-cutting-closure',
-          title: '裁片后续管理',
-          icon: 'AlertTriangle',
-          children: [
-            { key: 'craft-cutting-replenishment', title: '补料管理', icon: 'ClipboardSignature', href: '/fcs/craft/cutting/replenishment' },
-            { key: 'craft-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
-            { key: 'craft-cutting-settlement-scoring', title: '裁片结算评分', icon: 'ClipboardCheck', href: '/fcs/craft/cutting/settlement-scoring' },
-            { key: 'craft-cutting-summary', title: '裁剪总表', icon: 'BarChart3', href: '/fcs/craft/cutting/summary' },
           ],
         },
         {

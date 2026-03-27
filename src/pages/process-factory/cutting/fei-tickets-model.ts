@@ -3,13 +3,27 @@ import type { MaterialPrepRow } from './material-prep-model'
 import type { MarkerSpreadingStore } from './marker-spreading-model'
 import type { MergeBatchRecord } from './merge-batches-model'
 import {
+  buildCuttingTraceabilityId,
+} from '../../../data/fcs/cutting/qr-codes.ts'
+import {
+  getGeneratedFeiTicketMapByOriginalCutOrderId,
+  getFeiTicketById as getGeneratedFeiTicketById,
+  listGeneratedFeiTickets,
+  listGeneratedFeiTicketsByOriginalCutOrderId,
+  type GeneratedFeiTicketSourceRecord,
+} from '../../../data/fcs/cutting/generated-fei-tickets.ts'
+import {
   FEI_QR_SCHEMA_NAME,
   FEI_QR_SCHEMA_VERSION,
   buildFeiQrPayload,
   serializeFeiQrPayload,
-} from './fei-qr-model'
+} from './fei-qr-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
+
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)))
+}
 
 export const CUTTING_FEI_TICKET_DRAFTS_STORAGE_KEY = 'cuttingFeiTicketDrafts'
 export const CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY = 'cuttingFeiTicketRecords'
@@ -339,6 +353,21 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
+function getGeneratedFeiRecordsByOriginalCutOrderId(originalCutOrderId: string): GeneratedFeiTicketSourceRecord[] {
+  return listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId)
+}
+
+function getGeneratedFeiRecordBySequence(
+  originalCutOrderId: string,
+  sequenceNo: number,
+): GeneratedFeiTicketSourceRecord | null {
+  return getGeneratedFeiRecordsByOriginalCutOrderId(originalCutOrderId)[sequenceNo - 1] || null
+}
+
+function buildFeiPrintJobId(nowText: string, originalCutOrderId: string, actionType: string): string {
+  return buildCuttingTraceabilityId('print-job', nowText, originalCutOrderId, actionType)
+}
+
 function formatQty(value: number): string {
   return numberFormatter.format(Math.max(value, 0))
 }
@@ -350,19 +379,20 @@ function createEmptyPreviewRecord(
   sourceMergeBatchId: string,
   sourceMergeBatchNo: string,
 ): FeiTicketLabelRecord {
+  const generated = getGeneratedFeiRecordBySequence(owner.originalCutOrderId, sequenceNo)
   return {
-    ticketRecordId: `${owner.originalCutOrderId}-${sequenceNo}`,
-    ticketNo: buildFeiTicketNo(owner.originalCutOrderNo, sequenceNo),
+    ticketRecordId: generated?.feiTicketId || `${owner.originalCutOrderId}-${sequenceNo}`,
+    ticketNo: generated?.feiTicketNo || buildFeiTicketNo(owner.originalCutOrderNo, sequenceNo),
     originalCutOrderId: owner.originalCutOrderId,
     originalCutOrderNo: owner.originalCutOrderNo,
     productionOrderNo: owner.productionOrderNo,
     styleCode: owner.styleCode,
     spuCode: owner.spuCode,
     materialSku: owner.materialSku,
-    color: owner.color,
+    color: generated?.skuColor || owner.color,
     sequenceNo,
     status: 'PRINTED',
-    qrValue: `${owner.qrBaseValue}-${String(sequenceNo).padStart(3, '0')}`,
+    qrValue: generated?.qrValue || `${owner.qrBaseValue}-${String(sequenceNo).padStart(3, '0')}`,
     createdAt: '',
     printedAt: '',
     printedBy: '',
@@ -371,6 +401,10 @@ function createEmptyPreviewRecord(
     sourceContextType,
     sourceMergeBatchId,
     sourceMergeBatchNo,
+    partName: generated?.partName || '',
+    size: generated?.skuSize || '',
+    quantity: generated?.qty ?? 1,
+    processTags: generated?.secondaryCrafts || [],
   }
 }
 
@@ -455,6 +489,7 @@ function createSeedTicketRecord(options: {
   size?: string
   processTags?: string[]
 }): FeiTicketLabelRecord {
+  const generated = getGeneratedFeiRecordBySequence(options.owner.originalCutOrderId, options.sequenceNo)
   return attachQrSnapshotToRecord(
     {
       ...createEmptyPreviewRecord(
@@ -464,8 +499,14 @@ function createSeedTicketRecord(options: {
         options.sourceMergeBatchId,
         options.sourceMergeBatchNo,
       ),
-      ticketRecordId: buildTicketRecordId(options.owner.originalCutOrderId, options.sequenceNo, options.version),
-      ticketNo: buildVersionedTicketNo(options.owner.originalCutOrderNo, options.sequenceNo, options.version),
+      ticketRecordId:
+        options.version <= 1
+          ? generated?.feiTicketId || buildTicketRecordId(options.owner.originalCutOrderId, options.sequenceNo, options.version)
+          : buildTicketRecordId(options.owner.originalCutOrderId, options.sequenceNo, options.version),
+      ticketNo:
+        options.version <= 1
+          ? generated?.feiTicketNo || buildVersionedTicketNo(options.owner.originalCutOrderNo, options.sequenceNo, options.version)
+          : buildVersionedTicketNo(options.owner.originalCutOrderNo, options.sequenceNo, options.version),
       printableUnitId: options.printableUnitId,
       printableUnitNo: options.printableUnitNo,
       printableUnitType: options.printableUnitType,
@@ -477,10 +518,10 @@ function createSeedTicketRecord(options: {
       reprintCount: Math.max(options.version - 1, 0),
       sourcePrintJobId: options.printJobId,
       status: 'PRINTED',
-      partName: options.partName || printablePartCycle[(options.sequenceNo - 1) % printablePartCycle.length],
-      size: options.size || printableSizeCycle[(options.sequenceNo - 1) % printableSizeCycle.length],
-      quantity: options.quantity ?? 1,
-      processTags: options.processTags || [],
+      partName: options.partName || generated?.partName || printablePartCycle[(options.sequenceNo - 1) % printablePartCycle.length],
+      size: options.size || generated?.skuSize || printableSizeCycle[(options.sequenceNo - 1) % printableSizeCycle.length],
+      quantity: options.quantity ?? generated?.qty ?? 1,
+      processTags: options.processTags || generated?.secondaryCrafts || [],
       version: options.version,
     },
     options.owner,
@@ -886,7 +927,7 @@ export function createFeiTicketPrintJob(options: {
       .map((record) => [record.sequenceNo, record] as const),
   )
   const hasReprint = options.draft.previewLabelRecords.some((preview) => existingBySequence.has(preview.sequenceNo))
-  const printJobId = `print-job-${Date.now()}`
+  const printJobId = buildFeiPrintJobId(options.nowText, options.owner.originalCutOrderId, hasReprint ? 'reprint' : 'first')
   const printJobNo = buildPrintJobNo(options.existingJobs, options.nowText)
   const printJob: FeiTicketPrintJob = {
     printJobId,
@@ -1026,11 +1067,13 @@ export function buildFeiTicketsViewModel(options: {
   prefilter: FeiTicketsPrefilter | null
 }): FeiTicketsViewModel {
   const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.originalCutOrderId, row]))
+  const generatedTicketMap = getGeneratedFeiTicketMapByOriginalCutOrderId()
 
   const owners = options.originalRows.map((row) => {
     const mergeBatchIds = Array.isArray(row.mergeBatchIds) ? row.mergeBatchIds : []
     const mergeBatchNos = Array.isArray(row.mergeBatchNos) ? row.mergeBatchNos : []
     const materialRow = materialRowsById[row.originalCutOrderId]
+    const generatedTickets = generatedTicketMap[row.originalCutOrderId] || []
     const ticketCountBasis = resolveTicketCountBasis(
       {
         originalCutOrderId: row.originalCutOrderId,
@@ -1041,6 +1084,7 @@ export function buildFeiTicketsViewModel(options: {
       options.markerStore,
       null,
     )
+    const plannedTicketQty = generatedTickets.length || ticketCountBasis.ticketCount
     const ownerRecords = options.ticketRecords.filter((record) => record.originalCutOrderId === row.originalCutOrderId)
     const latestPrintJob = options.printJobs
       .filter((job) => job.originalCutOrderIds.includes(row.originalCutOrderId))
@@ -1049,7 +1093,7 @@ export function buildFeiTicketsViewModel(options: {
     const reprintCount = ownerRecords.reduce((sum, record) => sum + record.reprintCount, 0)
     const hasDraft = Boolean(options.drafts[row.originalCutOrderId])
     const statusMeta = deriveFeiTicketStatus({
-      plannedTicketQty: ticketCountBasis.ticketCount,
+      plannedTicketQty,
       printedTicketQty,
       hasDraft,
       reprintCount,
@@ -1068,7 +1112,7 @@ export function buildFeiTicketsViewModel(options: {
       styleName: row.styleName,
       color: row.color,
       materialSku: row.materialSku,
-      plannedTicketQty: ticketCountBasis.ticketCount,
+      plannedTicketQty,
       printedTicketQty,
       latestPrintJobNo: latestPrintJob?.printJobNo || '',
       ticketStatus: statusMeta.key,
@@ -1077,8 +1121,10 @@ export function buildFeiTicketsViewModel(options: {
       relatedMergeBatchIds: mergeBatchIds,
       relatedMergeBatchNos: mergeBatchNos,
       sourceContextLabel: '原始裁片单上下文',
-      ticketCountBasisLabel: ticketCountBasis.basisLabel,
-      ticketCountBasisDetail: ticketCountBasis.detailText,
+      ticketCountBasisLabel: generatedTickets.length ? '正式菲票拆分' : ticketCountBasis.basisLabel,
+      ticketCountBasisDetail: generatedTickets.length
+        ? `当前建议票数来自正式菲票拆分 ${formatQty(generatedTickets.length)} 张，已绑定原始裁片单 / 部位 / 尺码 / 二级工艺。`
+        : ticketCountBasis.detailText,
       currentStageLabel: row.currentStage.label,
       cuttableStateLabel: row.cuttableState.label,
       riskLabels: row.riskTags.map((tag) => tag.label),
@@ -1246,277 +1292,295 @@ export function buildSystemSeedFeiTicketLedger(options: {
   mergeBatches: MergeBatchRecord[]
   markerStore: MarkerSpreadingStore
 }): FeiTicketSeedLedger {
+  void options.markerStore
+  void options.mergeBatches
   const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.originalCutOrderId, row]))
+  const generatedTicketMap = getGeneratedFeiTicketMapByOriginalCutOrderId()
+  const owners = options.originalRows
+    .map((row) => {
+      const generated = generatedTicketMap[row.originalCutOrderId] || []
+      if (!generated.length) return null
+      return createSeedOwnerFromRow({
+        row,
+        materialRow: materialRowsById[row.originalCutOrderId],
+        plannedTicketQty: generated.length,
+      })
+    })
+    .filter((owner): owner is OriginalCutOrderTicketOwner => Boolean(owner))
+    .sort((left, right) => left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN'))
+
   const ticketRecords: FeiTicketLabelRecord[] = []
   const printJobs: FeiTicketPrintJob[] = []
 
-  const rowsById = Object.fromEntries(options.originalRows.map((row) => [row.originalCutOrderId, row]))
-  const caseAOwner = rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_A.printableUnitNo]
-    ? createSeedOwnerFromRow({
-        row: rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_A.printableUnitNo],
-        materialRow: materialRowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_A.printableUnitNo],
-        plannedTicketQty: 2,
-      })
-    : null
-  const caseCOwner = rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo]
-    ? createSeedOwnerFromRow({
-        row: rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo],
-        materialRow: materialRowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo],
-        plannedTicketQty: 3,
-      })
-    : null
-  const caseDOwner = rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo]
-    ? createSeedOwnerFromRow({
-        row: rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo],
-        materialRow: materialRowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo],
-        plannedTicketQty: 2,
-      })
-    : null
-  const caseEOwner = rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo]
-    ? createSeedOwnerFromRow({
-        row: rowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo],
-        materialRow: materialRowsById[FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo],
-        plannedTicketQty: 2,
-      })
-    : null
+  const resolveScope = (owner: OriginalCutOrderTicketOwner) => {
+    const mergeBatchId = owner.relatedMergeBatchIds[0] || ''
+    const mergeBatchNo = owner.relatedMergeBatchNos[0] || ''
+    const sourceContextType: FeiTicketsContextType = mergeBatchId || mergeBatchNo ? 'merge-batch' : 'original-order'
+    return {
+      sourceContextType,
+      sourceMergeBatchId: sourceContextType === 'merge-batch' ? mergeBatchId : '',
+      sourceMergeBatchNo: sourceContextType === 'merge-batch' ? mergeBatchNo : '',
+      printableUnitId: sourceContextType === 'merge-batch' ? `batch:${mergeBatchId}` : `cut-order:${owner.originalCutOrderId}`,
+      printableUnitNo: sourceContextType === 'merge-batch' ? mergeBatchNo : owner.originalCutOrderNo,
+      printableUnitType: sourceContextType === 'merge-batch' ? 'BATCH' as const : 'CUT_ORDER' as const,
+    }
+  }
 
-  if (caseCOwner) {
+  const firstOwner = owners[0]
+  const secondOwner = owners[1]
+  const thirdOwner = owners[2]
+  const fourthOwner = owners[3]
+
+  if (firstOwner) {
+    const scope = resolveScope(firstOwner)
+    const printedAt = '2026-03-23 10:15'
+    const ticketSeeds = getGeneratedFeiRecordsByOriginalCutOrderId(firstOwner.originalCutOrderId).slice(0, 2)
     const printJob = createSeedPrintJob({
-      printJobId: 'seed-job-case-c-first',
-      printJobNo: 'FEI-PJ-DEMO-C-001',
-      owner: caseCOwner,
-      printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitId,
-      printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_C.printableUnitNo,
-      printableUnitType: 'CUT_ORDER',
-      sourceContextType: 'original-order',
-      sourceMergeBatchId: '',
-      sourceMergeBatchNo: '',
+      printJobId: buildFeiPrintJobId(printedAt, firstOwner.originalCutOrderId, 'first'),
+      printJobNo: 'FEI-PJ-DEMO-A-001',
+      owner: firstOwner,
+      ...scope,
       operationType: 'FIRST_PRINT',
       status: 'PRINTED',
       printedBy: '打票员-陈耀',
-      printedAt: '2026-03-23 10:15',
-      ticketRecordIds: [FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketId],
-      note: 'Case C：仅完成部分打印，用于验证 PARTIAL_PRINTED。',
+      printedAt,
+      ticketRecordIds: ticketSeeds.map((item) => item.feiTicketId),
+      note: '正式菲票主源首打演示。',
     })
-    ticketRecords.push(
-      createSeedTicketRecord({
-        owner: caseCOwner,
-        sequenceNo: 1,
-        version: 1,
-        printedAt: printJob.printedAt,
-        printedBy: printJob.printedBy,
-        printJobId: printJob.printJobId,
-        printableUnitId: printJob.printableUnitId || '',
-        printableUnitNo: printJob.printableUnitNo || '',
-        printableUnitType: 'CUT_ORDER',
-        sourceContextType: 'original-order',
-        sourceMergeBatchId: '',
-        sourceMergeBatchNo: '',
-      }),
-    )
+    ticketSeeds.forEach((seed, index) => {
+      ticketRecords.push(
+        createSeedTicketRecord({
+          owner: firstOwner,
+          sequenceNo: index + 1,
+          version: 1,
+          printedAt,
+          printedBy: printJob.printedBy,
+          printJobId: printJob.printJobId,
+          ...scope,
+          quantity: seed.qty,
+          partName: seed.partName,
+          size: seed.skuSize,
+          processTags: seed.secondaryCrafts,
+        }),
+      )
+    })
     printJobs.push(printJob)
   }
 
-  if (caseDOwner) {
-    const firstPrintJob = createSeedPrintJob({
-      printJobId: 'seed-job-case-d-first',
-      printJobNo: 'FEI-PJ-DEMO-D-001',
-      owner: caseDOwner,
-      printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitId,
-      printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo,
-      printableUnitType: 'CUT_ORDER',
-      sourceContextType: 'original-order',
-      sourceMergeBatchId: '',
-      sourceMergeBatchNo: '',
-      operationType: 'FIRST_PRINT',
-      status: 'PRINTED',
-      printedBy: '打票员-周莉',
-      printedAt: '2026-03-23 11:20',
-      ticketRecordIds: [
-        FEI_TICKET_DEMO_CASE_IDS.CASE_D.voidedTicketId,
-        buildTicketRecordId(caseDOwner.originalCutOrderId, 2, 1),
-      ],
-      note: 'Case D：首打完成后，后续作废其中一张。',
-    })
-    const voidedRecordBase = createSeedTicketRecord({
-      owner: caseDOwner,
-      sequenceNo: 1,
-      version: 1,
-      printedAt: firstPrintJob.printedAt,
-      printedBy: firstPrintJob.printedBy,
-      printJobId: firstPrintJob.printJobId,
-      printableUnitId: firstPrintJob.printableUnitId || '',
-      printableUnitNo: firstPrintJob.printableUnitNo || '',
-      printableUnitType: 'CUT_ORDER',
-      sourceContextType: 'original-order',
-      sourceMergeBatchId: '',
-      sourceMergeBatchNo: '',
-    })
-    ticketRecords.push(
-      {
-        ...voidedRecordBase,
-        status: 'VOIDED',
-        voidedAt: '2026-03-24 08:45',
-        voidedBy: '打票员-周莉',
-        voidReason: 'Case D：条码污损，尚未补打。',
-      },
-      createSeedTicketRecord({
-        owner: caseDOwner,
-        sequenceNo: 2,
-        version: 1,
-        printedAt: firstPrintJob.printedAt,
-        printedBy: firstPrintJob.printedBy,
-        printJobId: firstPrintJob.printJobId,
-        printableUnitId: firstPrintJob.printableUnitId || '',
-        printableUnitNo: firstPrintJob.printableUnitNo || '',
-        printableUnitType: 'CUT_ORDER',
-        sourceContextType: 'original-order',
-        sourceMergeBatchId: '',
-        sourceMergeBatchNo: '',
-      }),
-    )
-    printJobs.push(
-      firstPrintJob,
-      createSeedPrintJob({
-        printJobId: 'seed-job-case-d-void',
-        printJobNo: 'FEI-PJ-DEMO-D-002',
-        owner: caseDOwner,
-        printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitId,
-        printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_D.printableUnitNo,
-        printableUnitType: 'CUT_ORDER',
-        sourceContextType: 'original-order',
-        sourceMergeBatchId: '',
-        sourceMergeBatchNo: '',
-        operationType: 'VOID',
-        status: 'CANCELLED',
+  if (secondOwner) {
+    const scope = resolveScope(secondOwner)
+    const printedAt = '2026-03-23 11:20'
+    const seed = getGeneratedFeiRecordBySequence(secondOwner.originalCutOrderId, 1)
+    if (seed) {
+      const printJob = createSeedPrintJob({
+        printJobId: buildFeiPrintJobId(printedAt, secondOwner.originalCutOrderId, 'partial'),
+        printJobNo: 'FEI-PJ-DEMO-B-001',
+        owner: secondOwner,
+        ...scope,
+        operationType: 'FIRST_PRINT',
+        status: 'PRINTED',
         printedBy: '打票员-周莉',
-        printedAt: '2026-03-24 08:45',
-        ticketRecordIds: [FEI_TICKET_DEMO_CASE_IDS.CASE_D.voidedTicketId],
-        fromTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_D.voidedTicketId,
-        reason: 'Case D：条码污损，待补打。',
-        note: 'Case D：作废后应转 NEED_REPRINT。',
-      }),
-    )
+        printedAt,
+        ticketRecordIds: [seed.feiTicketId],
+        note: '正式菲票主源部分打印演示。',
+      })
+      ticketRecords.push(
+        createSeedTicketRecord({
+          owner: secondOwner,
+          sequenceNo: 1,
+          version: 1,
+          printedAt,
+          printedBy: printJob.printedBy,
+          printJobId: printJob.printJobId,
+          ...scope,
+          quantity: seed.qty,
+          partName: seed.partName,
+          size: seed.skuSize,
+          processTags: seed.secondaryCrafts,
+        }),
+      )
+      printJobs.push(printJob)
+    }
   }
 
-  if (caseEOwner) {
-    const firstPrintJob = createSeedPrintJob({
-      printJobId: 'seed-job-case-e-first',
-      printJobNo: 'FEI-PJ-DEMO-E-001',
-      owner: caseEOwner,
-      printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitId,
-      printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo,
-      printableUnitType: 'CUT_ORDER',
-      sourceContextType: 'original-order',
-      sourceMergeBatchId: '',
-      sourceMergeBatchNo: '',
-      operationType: 'FIRST_PRINT',
-      status: 'PRINTED',
-      printedBy: '打票员-赵宁',
-      printedAt: '2026-03-23 14:10',
-      ticketRecordIds: [
-        FEI_TICKET_DEMO_CASE_IDS.CASE_E.originalTicketId,
-        buildTicketRecordId(caseEOwner.originalCutOrderId, 2, 1),
-      ],
-      note: 'Case E：首打后又发生补打替代。',
-    })
-    const originalRecord = createSeedTicketRecord({
-      owner: caseEOwner,
-      sequenceNo: 1,
-      version: 1,
-      printedAt: firstPrintJob.printedAt,
-      printedBy: firstPrintJob.printedBy,
-      printJobId: firstPrintJob.printJobId,
-      printableUnitId: firstPrintJob.printableUnitId || '',
-      printableUnitNo: firstPrintJob.printableUnitNo || '',
-      printableUnitType: 'CUT_ORDER',
-      sourceContextType: 'original-order',
-      sourceMergeBatchId: '',
-      sourceMergeBatchNo: '',
-    })
-    const replacementRecord = createSeedTicketRecord({
-      owner: caseEOwner,
-      sequenceNo: 1,
-      version: 2,
-      printedAt: '2026-03-24 09:25',
-      printedBy: '打票员-赵宁',
-      printJobId: 'seed-job-case-e-reprint',
-      printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitId,
-      printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo,
-      printableUnitType: 'CUT_ORDER',
-      sourceContextType: 'original-order',
-      sourceMergeBatchId: '',
-      sourceMergeBatchNo: '',
-      processTags: ['替代票'],
-    })
-    ticketRecords.push(
-      {
-        ...originalRecord,
-        status: 'VOIDED',
-        voidedAt: '2026-03-24 09:10',
-        voidedBy: '打票员-赵宁',
-        voidReason: 'Case E：首票条码偏移，已补打替代。',
-        replacementTicketId: replacementRecord.ticketRecordId,
-        replacementTicketNo: replacementRecord.ticketNo,
-      },
-      createSeedTicketRecord({
-        owner: caseEOwner,
-        sequenceNo: 2,
+  if (thirdOwner) {
+    const scope = resolveScope(thirdOwner)
+    const printedAt = '2026-03-23 14:10'
+    const seedRecords = getGeneratedFeiRecordsByOriginalCutOrderId(thirdOwner.originalCutOrderId).slice(0, 2)
+    if (seedRecords.length) {
+      const printJob = createSeedPrintJob({
+        printJobId: buildFeiPrintJobId(printedAt, thirdOwner.originalCutOrderId, 'void-base'),
+        printJobNo: 'FEI-PJ-DEMO-C-001',
+        owner: thirdOwner,
+        ...scope,
+        operationType: 'FIRST_PRINT',
+        status: 'PRINTED',
+        printedBy: '打票员-赵宁',
+        printedAt,
+        ticketRecordIds: seedRecords.map((item) => item.feiTicketId),
+        note: '正式菲票主源作废演示。',
+      })
+      const firstRecord = createSeedTicketRecord({
+        owner: thirdOwner,
+        sequenceNo: 1,
         version: 1,
-        printedAt: firstPrintJob.printedAt,
+        printedAt,
+        printedBy: printJob.printedBy,
+        printJobId: printJob.printJobId,
+        ...scope,
+        quantity: seedRecords[0].qty,
+        partName: seedRecords[0].partName,
+        size: seedRecords[0].skuSize,
+        processTags: seedRecords[0].secondaryCrafts,
+      })
+      ticketRecords.push(
+        {
+          ...firstRecord,
+          status: 'VOIDED',
+          voidedAt: '2026-03-24 08:45',
+          voidedBy: '打票员-赵宁',
+          voidReason: '二维码污损，待补打。',
+        },
+        ...seedRecords.slice(1).map((seed, index) =>
+          createSeedTicketRecord({
+            owner: thirdOwner,
+            sequenceNo: index + 2,
+            version: 1,
+            printedAt,
+            printedBy: printJob.printedBy,
+            printJobId: printJob.printJobId,
+            ...scope,
+            quantity: seed.qty,
+            partName: seed.partName,
+            size: seed.skuSize,
+            processTags: seed.secondaryCrafts,
+          }),
+        ),
+      )
+      printJobs.push(
+        printJob,
+        createSeedPrintJob({
+          printJobId: buildFeiPrintJobId('2026-03-24 08:45', thirdOwner.originalCutOrderId, 'void'),
+          printJobNo: 'FEI-PJ-DEMO-C-002',
+          owner: thirdOwner,
+          ...scope,
+          operationType: 'VOID',
+          status: 'CANCELLED',
+          printedBy: '打票员-赵宁',
+          printedAt: '2026-03-24 08:45',
+          ticketRecordIds: [seedRecords[0].feiTicketId],
+          fromTicketId: seedRecords[0].feiTicketId,
+          reason: '二维码污损，待补打。',
+          note: '正式菲票对象作废后仍保留主归属。',
+        }),
+      )
+    }
+  }
+
+  if (fourthOwner) {
+    const scope = resolveScope(fourthOwner)
+    const firstPrintedAt = '2026-03-24 09:10'
+    const replacementAt = '2026-03-24 09:25'
+    const seedRecords = getGeneratedFeiRecordsByOriginalCutOrderId(fourthOwner.originalCutOrderId).slice(0, 2)
+    if (seedRecords.length) {
+      const firstPrintJob = createSeedPrintJob({
+        printJobId: buildFeiPrintJobId(firstPrintedAt, fourthOwner.originalCutOrderId, 'replace-base'),
+        printJobNo: 'FEI-PJ-DEMO-D-001',
+        owner: fourthOwner,
+        ...scope,
+        operationType: 'FIRST_PRINT',
+        status: 'PRINTED',
+        printedBy: '打票员-刘芸',
+        printedAt: firstPrintedAt,
+        ticketRecordIds: seedRecords.map((item) => item.feiTicketId),
+        note: '正式菲票补打替代演示。',
+      })
+      const originalRecord = createSeedTicketRecord({
+        owner: fourthOwner,
+        sequenceNo: 1,
+        version: 1,
+        printedAt: firstPrintedAt,
         printedBy: firstPrintJob.printedBy,
         printJobId: firstPrintJob.printJobId,
-        printableUnitId: firstPrintJob.printableUnitId || '',
-        printableUnitNo: firstPrintJob.printableUnitNo || '',
-        printableUnitType: 'CUT_ORDER',
-        sourceContextType: 'original-order',
-        sourceMergeBatchId: '',
-        sourceMergeBatchNo: '',
-      }),
-      replacementRecord,
-    )
-    printJobs.push(
-      firstPrintJob,
-      createSeedPrintJob({
-        printJobId: 'seed-job-case-e-void',
-        printJobNo: 'FEI-PJ-DEMO-E-002',
-        owner: caseEOwner,
-        printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitId,
-        printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo,
-        printableUnitType: 'CUT_ORDER',
-        sourceContextType: 'original-order',
-        sourceMergeBatchId: '',
-        sourceMergeBatchNo: '',
-        operationType: 'VOID',
-        status: 'CANCELLED',
-        printedBy: '打票员-赵宁',
-        printedAt: '2026-03-24 09:10',
-        ticketRecordIds: [FEI_TICKET_DEMO_CASE_IDS.CASE_E.originalTicketId],
-        fromTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.originalTicketId,
-        reason: 'Case E：旧票作废，为替代票让位。',
-        note: 'Case E：补打前先作废旧票。',
-      }),
-      createSeedPrintJob({
-        printJobId: 'seed-job-case-e-reprint',
-        printJobNo: 'FEI-PJ-DEMO-E-003',
-        owner: caseEOwner,
-        printableUnitId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitId,
-        printableUnitNo: FEI_TICKET_DEMO_CASE_IDS.CASE_E.printableUnitNo,
-        printableUnitType: 'CUT_ORDER',
-        sourceContextType: 'original-order',
-        sourceMergeBatchId: '',
-        sourceMergeBatchNo: '',
-        operationType: 'REPRINT',
-        status: 'REPRINTED',
-        printedBy: '打票员-赵宁',
-        printedAt: '2026-03-24 09:25',
-        ticketRecordIds: [replacementRecord.ticketRecordId],
-        fromTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_E.originalTicketId,
-        toTicketId: replacementRecord.ticketRecordId,
-        reason: 'Case E：补打一张替代票。',
-        note: 'Case E：原票 -> 新票替代关系。',
-      }),
-    )
+        ...scope,
+        quantity: seedRecords[0].qty,
+        partName: seedRecords[0].partName,
+        size: seedRecords[0].skuSize,
+        processTags: seedRecords[0].secondaryCrafts,
+      })
+      const replacementRecord = createSeedTicketRecord({
+        owner: fourthOwner,
+        sequenceNo: 1,
+        version: 2,
+        printedAt: replacementAt,
+        printedBy: '打票员-刘芸',
+        printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.originalCutOrderId, 'replace'),
+        ...scope,
+        quantity: seedRecords[0].qty,
+        partName: seedRecords[0].partName,
+        size: seedRecords[0].skuSize,
+        processTags: unique([...seedRecords[0].secondaryCrafts, '替代票']),
+      })
+      ticketRecords.push(
+        {
+          ...originalRecord,
+          status: 'VOIDED',
+          voidedAt: replacementAt,
+          voidedBy: '打票员-刘芸',
+          voidReason: '原票污损，已补打替代。',
+          replacementTicketId: replacementRecord.ticketRecordId,
+          replacementTicketNo: replacementRecord.ticketNo,
+        },
+        ...seedRecords.slice(1).map((seed, index) =>
+          createSeedTicketRecord({
+            owner: fourthOwner,
+            sequenceNo: index + 2,
+            version: 1,
+            printedAt: firstPrintedAt,
+            printedBy: firstPrintJob.printedBy,
+            printJobId: firstPrintJob.printJobId,
+            ...scope,
+            quantity: seed.qty,
+            partName: seed.partName,
+            size: seed.skuSize,
+            processTags: seed.secondaryCrafts,
+          }),
+        ),
+        replacementRecord,
+      )
+      printJobs.push(
+        firstPrintJob,
+        createSeedPrintJob({
+          printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.originalCutOrderId, 'replace-void'),
+          printJobNo: 'FEI-PJ-DEMO-D-002',
+          owner: fourthOwner,
+          ...scope,
+          operationType: 'VOID',
+          status: 'CANCELLED',
+          printedBy: '打票员-刘芸',
+          printedAt: replacementAt,
+          ticketRecordIds: [originalRecord.ticketRecordId],
+          fromTicketId: originalRecord.ticketRecordId,
+          reason: '原票污损，为替代票让位。',
+          note: '正式菲票对象作废动作。',
+        }),
+        createSeedPrintJob({
+          printJobId: buildFeiPrintJobId(replacementAt, fourthOwner.originalCutOrderId, 'replace-reprint'),
+          printJobNo: 'FEI-PJ-DEMO-D-003',
+          owner: fourthOwner,
+          ...scope,
+          operationType: 'REPRINT',
+          status: 'REPRINTED',
+          printedBy: '打票员-刘芸',
+          printedAt: replacementAt,
+          ticketRecordIds: [replacementRecord.ticketRecordId],
+          fromTicketId: originalRecord.ticketRecordId,
+          toTicketId: replacementRecord.ticketRecordId,
+          reason: '补打一张替代票。',
+          note: '正式菲票对象替代关系。',
+        }),
+      )
+    }
   }
 
   return {
@@ -2141,12 +2205,29 @@ function buildSplitDetailsFromOwner(
   source: PrintableUnitSourceOwner,
   ticketRecords: FeiTicketLabelRecord[],
 ): TicketSplitDetail[] {
-  return Array.from({ length: Math.max(source.owner.plannedTicketQty, 0) }, (_, index) => {
-    const sequenceNo = index + 1
-    const detailId = `${source.owner.originalCutOrderId}-${sequenceNo}`
+  const generatedFeiRecords = getGeneratedFeiRecordsByOriginalCutOrderId(source.owner.originalCutOrderId)
+  const detailSeeds = generatedFeiRecords.length
+    ? generatedFeiRecords.map((record, index) => ({
+        sequenceNo: index + 1,
+        detailId: `${source.owner.originalCutOrderId}-${index + 1}`,
+        color: record.skuColor || source.owner.color,
+        size: record.skuSize || printableSizeCycle[index % printableSizeCycle.length],
+        partName: record.partName || printablePartCycle[index % printablePartCycle.length],
+        quantity: Math.max(record.qty, 1),
+      }))
+    : Array.from({ length: Math.max(source.owner.plannedTicketQty, 0) }, (_, index) => ({
+        sequenceNo: index + 1,
+        detailId: `${source.owner.originalCutOrderId}-${index + 1}`,
+        color: source.owner.color,
+        size: printableSizeCycle[index % printableSizeCycle.length],
+        partName: printablePartCycle[index % printablePartCycle.length],
+        quantity: 1,
+      }))
+
+  return detailSeeds.map((seed) => {
     const relatedRecords = findDetailSourceRecord(
       {
-        detailId,
+        detailId: seed.detailId,
         printableUnitId: unit.printableUnitId,
         sourceCutOrderId: source.owner.originalCutOrderId,
         sourceCutOrderNo: source.owner.originalCutOrderNo,
@@ -2154,20 +2235,20 @@ function buildSplitDetailsFromOwner(
         sourceProductionOrderNo: source.owner.productionOrderNo,
         batchNo: unit.batchNo || source.owner.relatedMergeBatchNos[0] || '',
         styleCode: source.owner.styleCode,
-        color: source.owner.color,
-        size: printableSizeCycle[index % printableSizeCycle.length],
-        partName: printablePartCycle[index % printablePartCycle.length],
-        quantity: 1,
+        color: seed.color,
+        size: seed.size,
+        partName: seed.partName,
+        quantity: seed.quantity,
         requiredTicketCount: 1,
         validPrintedTicketCount: 0,
         gapCount: 0,
-        sequenceNo,
+        sequenceNo: seed.sequenceNo,
       },
       ticketRecords,
     ).filter((record) => !isFeiTicketRecordVoided(record))
     const validPrintedTicketCount = relatedRecords.length
     return {
-      detailId,
+      detailId: seed.detailId,
       printableUnitId: unit.printableUnitId,
       sourceCutOrderId: source.owner.originalCutOrderId,
       sourceCutOrderNo: source.owner.originalCutOrderNo,
@@ -2175,14 +2256,14 @@ function buildSplitDetailsFromOwner(
       sourceProductionOrderNo: source.owner.productionOrderNo,
       batchNo: unit.batchNo || source.owner.relatedMergeBatchNos[0] || '',
       styleCode: source.owner.styleCode,
-      color: source.owner.color,
-      size: printableSizeCycle[index % printableSizeCycle.length],
-      partName: printablePartCycle[index % printablePartCycle.length],
-      quantity: 1,
+      color: seed.color,
+      size: seed.size,
+      partName: seed.partName,
+      quantity: seed.quantity,
       requiredTicketCount: 1,
       validPrintedTicketCount,
       gapCount: Math.max(1 - validPrintedTicketCount, 0),
-      sequenceNo,
+      sequenceNo: seed.sequenceNo,
     }
   })
 }
@@ -2372,7 +2453,11 @@ export function executePrintableUnitPrint(options: {
       ? options.splitDetails.filter((detail) => detail.gapCount > 0)
       : options.splitDetails.filter((detail) => detail.gapCount > 0)
 
-  const printJobId = `print-job-${Date.now()}`
+  const printJobId = buildFeiPrintJobId(
+    options.operatedAt,
+    uniqueStrings(options.splitDetails.map((detail) => detail.sourceCutOrderId))[0] || options.unit.printableUnitId,
+    options.operationType.toLowerCase(),
+  )
   const createdRecords: FeiTicketLabelRecord[] = []
 
   targetDetails.forEach((detail) => {
@@ -2523,7 +2608,7 @@ export function voidTicketCard(options: {
   )
 
   const voidJob: FeiTicketPrintJob = {
-    printJobId: `print-job-${Date.now()}`,
+    printJobId: buildFeiPrintJobId(options.operatedAt, target.originalCutOrderId, 'void'),
     printJobNo: nextPrintJobNo(options.printJobs, options.operatedAt),
     ownerType: 'original-cut-order',
     originalCutOrderIds: [target.originalCutOrderId],

@@ -1,5 +1,4 @@
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
-import { buildMaterialPrepViewModel, type MaterialPrepRow } from './material-prep-model'
+import type { MaterialPrepRow } from './material-prep-model'
 import type { MergeBatchRecord } from './merge-batches-model'
 import {
   buildMarkerSeedDraft,
@@ -55,7 +54,7 @@ import {
   type SpreadingRollHandoverSummary,
   type SpreadingSession,
 } from './marker-spreading-model'
-import { readWarehouseMergeBatchLedger } from './warehouse-shared'
+import { buildMarkerSpreadingProjection } from './marker-spreading-projection'
 import {
   buildMarkerAllocationSourceRows,
   buildMarkerPieceExplosionViewModel,
@@ -512,16 +511,17 @@ export function buildMarkerSpreadingPrototypeStore(options: {
 }
 
 export function readMarkerSpreadingPrototypeData(): MarkerSpreadingPrototypeData {
-  const mergeBatches = readWarehouseMergeBatchLedger()
-  const rows = buildMaterialPrepViewModel(cuttingOrderProgressRecords, mergeBatches).rows
-  const rowsById = Object.fromEntries(rows.map((row) => [row.originalCutOrderId, row]))
-  const stored = deserializeMarkerSpreadingStorage(localStorage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY))
-  const store = buildMarkerSpreadingPrototypeStore({ rows, mergeBatches, stored })
+  const projection = buildMarkerSpreadingProjection()
+  const store = buildMarkerSpreadingPrototypeStore({
+    rows: projection.rows,
+    mergeBatches: projection.mergeBatches,
+    stored: projection.store,
+  })
 
   return {
-    rows,
-    rowsById,
-    mergeBatches,
+    rows: projection.rows,
+    rowsById: projection.rowsById,
+    mergeBatches: projection.mergeBatches,
     store,
   }
 }

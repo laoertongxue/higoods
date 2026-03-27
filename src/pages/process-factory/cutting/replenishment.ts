@@ -1,11 +1,8 @@
 import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
-import { buildMaterialPrepViewModel } from './material-prep-model'
 import {
   buildReplenishmentAuditTrail,
-  buildReplenishmentViewModel,
   CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
   CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY,
   CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
@@ -36,10 +33,7 @@ import {
   type ReplenishmentReviewStatus,
   type ReplenishmentSuggestionRow,
 } from './replenishment-model'
-import {
-  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
-  deserializeMarkerSpreadingStorage,
-} from './marker-spreading-model'
+import { buildReplenishmentProjection } from './replenishment-projection'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -48,11 +42,7 @@ import {
   renderWorkbenchStateBar,
 } from './layout.helpers'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
-import {
-  buildWarehouseOriginalRows,
-  getWarehouseSearchParams,
-  readWarehouseMergeBatchLedger,
-} from './warehouse-shared'
+import { getWarehouseSearchParams } from './warehouse-shared'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -133,20 +123,11 @@ function formatQty(value: number): string {
 }
 
 function buildViewModel() {
-  const mergeBatches = readWarehouseMergeBatchLedger()
-  const originalRows = buildWarehouseOriginalRows()
-  const markerStore = deserializeMarkerSpreadingStorage(localStorage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY))
-  const materialPrepRows = buildMaterialPrepViewModel(cuttingOrderProgressRecords, mergeBatches).rows
-
-  return buildReplenishmentViewModel({
-    materialPrepRows,
-    originalRows,
-    mergeBatches,
-    markerStore,
+  return buildReplenishmentProjection({
     reviews: state.reviews,
     impactPlans: state.impactPlans,
     actions: state.actions,
-  })
+  }).viewModel
 }
 
 function refreshDerivedImpactPlans(): void {

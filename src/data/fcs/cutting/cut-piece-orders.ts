@@ -5,7 +5,7 @@ import type {
   CuttingQrStatus,
   CuttingReceiveStatus,
 } from './types'
-import { resolveProductionOrderRef } from '../../../domain/cutting-identity'
+import { buildCuttingCoreRegistry, resolveProductionOrderRef } from '../../../domain/cutting-core/index.ts'
 
 export type MarkerImageStatus = 'NOT_UPLOADED' | 'UPLOADED'
 export type LinkedDocType = 'PICKUP_SLIP' | 'CONFIG_BATCH' | 'PICKUP_RECORD' | 'REPLENISHMENT' | 'INBOUND'
@@ -55,6 +55,9 @@ export interface CutPieceOrderRecord {
   cutPieceOrderNo: string
   originalCutOrderId: string
   originalCutOrderNo: string
+  bindingState: 'BOUND' | 'UNBOUND_LEGACY'
+  boundOriginalCutOrderId: string
+  boundOriginalCutOrderNo: string
   productionOrderNo: string
   purchaseDate: string
   orderQty: number
@@ -86,6 +89,8 @@ export interface CutPieceOrderRecord {
   linkedDocuments: CutPieceLinkedDocument[]
   mergeBatchId: string
   mergeBatchNo: string
+  boundMergeBatchId: string
+  boundMergeBatchNo: string
 }
 
 export interface CutPieceOrderFilters {
@@ -104,14 +109,28 @@ type CutPieceOrderSeed = Omit<
 
 function normalizeCutPieceOrderRecord(record: CutPieceOrderSeed): CutPieceOrderRecord {
   const productionRef = resolveProductionOrderRef({ productionOrderNo: record.productionOrderNo })
+  const cuttingCoreRegistry = buildCuttingCoreRegistry()
+  const matchedOriginalCutOrders = Object.values(cuttingCoreRegistry.originalCutOrdersById).filter(
+    (item) =>
+      item.productionOrderNo === (productionRef?.productionOrderNo || record.productionOrderNo)
+      && item.materialSku === record.materialSku,
+  )
+  const boundOriginalCutOrder = matchedOriginalCutOrders.length === 1 ? matchedOriginalCutOrders[0] : null
+  const bindingState = boundOriginalCutOrder ? 'BOUND' : 'UNBOUND_LEGACY'
+
   return {
     ...record,
     productionOrderId: productionRef?.productionOrderId || '',
     productionOrderNo: productionRef?.productionOrderNo || record.productionOrderNo,
-    originalCutOrderId: record.cutPieceOrderNo,
-    originalCutOrderNo: record.cutPieceOrderNo,
-    mergeBatchId: '',
-    mergeBatchNo: '',
+    originalCutOrderId: boundOriginalCutOrder?.originalCutOrderId || '',
+    originalCutOrderNo: boundOriginalCutOrder?.originalCutOrderNo || '',
+    bindingState,
+    boundOriginalCutOrderId: boundOriginalCutOrder?.originalCutOrderId || '',
+    boundOriginalCutOrderNo: boundOriginalCutOrder?.originalCutOrderNo || '',
+    mergeBatchId: boundOriginalCutOrder?.activeMergeBatchId || '',
+    mergeBatchNo: boundOriginalCutOrder?.activeMergeBatchNo || '',
+    boundMergeBatchId: boundOriginalCutOrder?.activeMergeBatchId || '',
+    boundMergeBatchNo: boundOriginalCutOrder?.activeMergeBatchNo || '',
   }
 }
 

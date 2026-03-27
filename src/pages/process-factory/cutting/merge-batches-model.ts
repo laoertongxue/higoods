@@ -1,5 +1,3 @@
-import type { CuttableOriginalOrderItem } from './cuttable-pool-model'
-
 export const CUTTING_SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedOriginalOrderIds'
 export const CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY = 'cuttingSelectedCompatibilityKey'
 export const CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY = 'cuttingMergeBatchLedger'
@@ -64,8 +62,34 @@ export interface MergeBatchSummary {
   riskSummary: string
 }
 
+export interface MergeBatchSourceOriginalOrderItem {
+  id: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  styleCode: string
+  spuCode: string
+  styleName: string
+  urgencyLabel: string
+  plannedShipDate: string
+  plannedShipDateDisplay: string
+  materialSku: string
+  materialCategory: string
+  materialLabel: string
+  currentStage: string
+  batchOccupancyStatus: string
+  cuttableState: {
+    label: string
+    selectable: boolean
+    key?: string
+  }
+  compatibilityKey: string
+  mergeBatchNo: string
+}
+
 export interface HydratedIncomingBatchSelection {
-  items: CuttableOriginalOrderItem[]
+  items: MergeBatchSourceOriginalOrderItem[]
   requestedIds: string[]
   missingIds: string[]
   compatibilityKey: string | null
@@ -124,7 +148,7 @@ function batchRecordFromItems(options: {
   mergeBatchNo: string
   status: MergeBatchStatus
   compatibilityKey: string
-  items: CuttableOriginalOrderItem[]
+  items: MergeBatchSourceOriginalOrderItem[]
   plannedCuttingGroup: string
   plannedCuttingDate: string
   note: string
@@ -175,7 +199,7 @@ function batchRecordFromItems(options: {
   }
 }
 
-function inferSystemBatchStatus(items: CuttableOriginalOrderItem[]): MergeBatchStatus {
+function inferSystemBatchStatus(items: MergeBatchSourceOriginalOrderItem[]): MergeBatchStatus {
   if (items.some((item) => /已完成/.test(item.currentStage))) return 'DONE'
   if (items.some((item) => /裁片中|裁剪中|待入仓/.test(item.currentStage))) return 'CUTTING'
   return 'READY'
@@ -187,8 +211,8 @@ function parseBatchDateFromNo(mergeBatchNo: string): string {
   return `20${match[1]}-${match[2]}-${match[3]}`
 }
 
-export function buildSystemSeedMergeBatches(items: CuttableOriginalOrderItem[]): MergeBatchRecord[] {
-  const bucket = new Map<string, CuttableOriginalOrderItem[]>()
+export function buildSystemSeedMergeBatches(items: MergeBatchSourceOriginalOrderItem[]): MergeBatchRecord[] {
+  const bucket = new Map<string, MergeBatchSourceOriginalOrderItem[]>()
 
   for (const item of items) {
     if (!item.mergeBatchNo) continue
@@ -220,7 +244,7 @@ export function buildSystemSeedMergeBatches(items: CuttableOriginalOrderItem[]):
 }
 
 export function hydrateIncomingSelectedOriginalCutOrders(
-  itemsById: Record<string, CuttableOriginalOrderItem>,
+  itemsById: Record<string, MergeBatchSourceOriginalOrderItem>,
   storage: Pick<Storage, 'getItem'>,
 ): HydratedIncomingBatchSelection {
   let requestedIds: string[] = []
@@ -238,7 +262,7 @@ export function hydrateIncomingSelectedOriginalCutOrders(
     }
   }
 
-  const items: CuttableOriginalOrderItem[] = []
+  const items: MergeBatchSourceOriginalOrderItem[] = []
   const missingIds: string[] = []
 
   for (const id of requestedIds) {
@@ -318,7 +342,7 @@ export function validateIncomingBatchSelection(
   }
 }
 
-export function summarizeIncomingBatchSelection(items: CuttableOriginalOrderItem[]): MergeBatchSummary {
+export function summarizeIncomingBatchSelection(items: MergeBatchSourceOriginalOrderItem[]): MergeBatchSummary {
   const productionOrderIds = uniqueStrings(items.map((item) => item.productionOrderId))
   const styleCodes = uniqueStrings(items.map((item) => item.styleCode))
   const spuCodes = uniqueStrings(items.map((item) => item.spuCode))
@@ -354,7 +378,7 @@ export function buildMergeBatchNo(existingBatches: MergeBatchRecord[], now = new
 }
 
 export function createMergeBatchDraft(options: {
-  items: CuttableOriginalOrderItem[]
+  items: MergeBatchSourceOriginalOrderItem[]
   form: MergeBatchDraftForm
   status: MergeBatchStatus
   existingBatches: MergeBatchRecord[]

@@ -30,15 +30,13 @@ import {
   toTimestamp,
   nextLocalEntityId,
   nextProductionOrderId,
-  toOrderTechPackStatus,
-  normalizeTechPackVersionLabel,
-  deriveLifecycleStatus,
   openAppRoute,
-  productionOrders,
   renderStatCard,
   demandPriorityConfig,
   demandStatusConfig,
+  getTechPackBySpuCode,
 } from './context'
+import { buildProductionOrderFromDemand } from '../../data/fcs/production-orders'
 
 function renderDemandDetailDrawer(): string {
   const demand = getDemandById(state.demandDetailId)
@@ -792,41 +790,19 @@ function performDemandGenerate(): void {
       },
     ]
 
-    const order: ProductionOrder = {
+    const releasedTechPack = getTechPackBySpuCode(demand.spuCode)
+    if (!releasedTechPack || releasedTechPack.status !== 'RELEASED') {
+      continue
+    }
+
+    const order = buildProductionOrderFromDemand({
       productionOrderId: orderId,
       demandId: demand.demandId,
-      legacyOrderNo: demand.legacyOrderNo,
       status: initialStatus,
-      lockedLegacy: false,
       mainFactoryId: factory.id,
-      mainFactorySnapshot: {
-        id: factory.id,
-        code: factory.code,
-        name: factory.name,
-        tier: factory.tier,
-        type: factory.type,
-        status: factory.status,
-        province: factory.province,
-        city: factory.city,
-        tags: [...factory.tags],
-      },
       ownerPartyType,
       ownerPartyId: ownerPartyId || factory.id,
       ownerReason: state.demandOwnerReason.trim() || undefined,
-      techPackSnapshot: {
-        status: toOrderTechPackStatus(techPack.status),
-        versionLabel: normalizeTechPackVersionLabel(techPack.status, techPack.versionLabel),
-        snapshotAt: now,
-      },
-      demandSnapshot: {
-        demandId: demand.demandId,
-        spuCode: demand.spuCode,
-        spuName: demand.spuName,
-        priority: demand.priority,
-        requiredDeliveryDate: demand.requiredDeliveryDate,
-        constraintsNote: demand.constraintsNote,
-        skuLines: demand.skuLines.map((sku) => ({ ...sku })),
-      },
       assignmentSummary: {
         directCount: 0,
         biddingCount: 0,
@@ -855,17 +831,14 @@ function performDemandGenerate(): void {
       riskFlags,
       planStatus: 'UNPLANNED',
       deliveryWarehouseStatus: 'UNSET',
-      lifecycleStatus: deriveLifecycleStatus({
-        ...productionOrders[0],
-        status: initialStatus,
-        lifecycleStatus: undefined,
-      }),
+      lifecycleStatus: 'PLANNED',
       lifecycleUpdatedAt: now,
       lifecycleUpdatedBy: currentUser.name,
       auditLogs,
       createdAt: now,
       updatedAt: now,
-    }
+      snapshotAt: now,
+    }, demand, releasedTechPack)
 
     newOrders.push(order)
   }
@@ -935,40 +908,18 @@ function performOrdersFromDemandGenerate(): void {
 
     const orderId = nextProductionOrderId([...state.orders, ...newOrders])
 
-    const order: ProductionOrder = {
+    const releasedTechPack = getTechPackBySpuCode(demand.spuCode)
+    if (!releasedTechPack || releasedTechPack.status !== 'RELEASED') {
+      continue
+    }
+
+    const order = buildProductionOrderFromDemand({
       productionOrderId: orderId,
       demandId: demand.demandId,
-      legacyOrderNo: demand.legacyOrderNo,
       status: 'READY_FOR_BREAKDOWN',
-      lockedLegacy: false,
       mainFactoryId: factory.id,
-      mainFactorySnapshot: {
-        id: factory.id,
-        code: factory.code,
-        name: factory.name,
-        tier: factory.tier,
-        type: factory.type,
-        status: factory.status,
-        province: factory.province,
-        city: factory.city,
-        tags: [...factory.tags],
-      },
       ownerPartyType: 'FACTORY',
       ownerPartyId: factory.id,
-      techPackSnapshot: {
-        status: toOrderTechPackStatus(techPack.status),
-        versionLabel: normalizeTechPackVersionLabel(techPack.status, techPack.versionLabel),
-        snapshotAt: now,
-      },
-      demandSnapshot: {
-        demandId: demand.demandId,
-        spuCode: demand.spuCode,
-        spuName: demand.spuName,
-        priority: demand.priority,
-        requiredDeliveryDate: demand.requiredDeliveryDate,
-        constraintsNote: demand.constraintsNote,
-        skuLines: demand.skuLines.map((sku) => ({ ...sku })),
-      },
       assignmentSummary: {
         directCount: 0,
         biddingCount: 0,
@@ -997,11 +948,7 @@ function performOrdersFromDemandGenerate(): void {
       riskFlags: [],
       planStatus: 'UNPLANNED',
       deliveryWarehouseStatus: 'UNSET',
-      lifecycleStatus: deriveLifecycleStatus({
-        ...productionOrders[0],
-        status: 'READY_FOR_BREAKDOWN',
-        lifecycleStatus: undefined,
-      }),
+      lifecycleStatus: 'PLANNED',
       lifecycleUpdatedAt: now,
       lifecycleUpdatedBy: currentUser.name,
       auditLogs: [
@@ -1015,7 +962,8 @@ function performOrdersFromDemandGenerate(): void {
       ],
       createdAt: now,
       updatedAt: now,
-    }
+      snapshotAt: now,
+    }, demand, releasedTechPack)
 
     newOrders.push(order)
   }

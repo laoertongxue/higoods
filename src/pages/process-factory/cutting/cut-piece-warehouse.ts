@@ -1,10 +1,10 @@
 import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
-import type { CutPieceWarehouseRecord, CutPieceZoneCode } from '../../../data/fcs/cutting/warehouse-management'
-import { cutPieceWarehouseRecords } from '../../../data/fcs/cutting/warehouse-management'
+import type { CutPieceZoneCode } from '../../../data/fcs/cutting/warehouse-runtime'
+import { normalizeCutPieceWarehouseWritebackInput } from '../../../data/fcs/cutting/warehouse-writeback-inputs'
+import { submitCutPieceWarehouseWriteback } from '../../../domain/cutting-warehouse-writeback/bridge'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
-  buildCutPieceWarehouseViewModel,
   buildCutPieceWarehouseNavigationPayload,
   cutPieceHandoverStatusMeta,
   cutPieceWarehouseStatusMeta,
@@ -17,6 +17,7 @@ import {
   type CutPieceWarehousePrefilter,
   type CutPieceWarehouseRiskKey,
 } from './cut-piece-warehouse-model'
+import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -26,7 +27,6 @@ import {
 } from './layout.helpers'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
-  buildWarehouseOriginalRows,
   getWarehouseSearchParams,
 } from './warehouse-shared'
 import {
@@ -46,7 +46,6 @@ type DetailField = 'zoneCode' | 'locationCode' | 'note'
 type WarehouseStatusFilter = 'ALL' | 'PENDING_INBOUND' | 'INBOUNDED' | 'WAITING_HANDOVER' | 'HANDED_OVER'
 
 interface CutPieceWarehousePageState {
-  records: CutPieceWarehouseRecord[]
   filters: CutPieceWarehouseFilters
   activeItemId: string | null
   prefilter: CutPieceWarehousePrefilter | null
@@ -77,7 +76,6 @@ const FIELD_TO_FILTER_KEY: Record<FilterField, keyof CutPieceWarehouseFilters> =
 }
 
 const state: CutPieceWarehousePageState = {
-  records: cutPieceWarehouseRecords.map((item) => ({ ...item })),
   filters: { ...initialFilters },
   activeItemId: null,
   prefilter: null,
@@ -90,18 +88,12 @@ const state: CutPieceWarehousePageState = {
   },
 }
 
-function nowText(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = `${now.getMonth() + 1}`.padStart(2, '0')
-  const day = `${now.getDate()}`.padStart(2, '0')
-  const hours = `${now.getHours()}`.padStart(2, '0')
-  const minutes = `${now.getMinutes()}`.padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
+function getProjection() {
+  return buildCutPieceWarehouseProjection()
 }
 
 function getViewModel() {
-  return buildCutPieceWarehouseViewModel(buildWarehouseOriginalRows(), state.records)
+  return getProjection().viewModel
 }
 
 function getFilteredItems() {
@@ -112,9 +104,13 @@ function getPrefilterFromQuery(): CutPieceWarehousePrefilter | null {
   const params = getWarehouseSearchParams()
   const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: CutPieceWarehousePrefilter = {
+    originalCutOrderId: drillContext?.originalCutOrderId || params.get('originalCutOrderId') || undefined,
     originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
+    productionOrderId: drillContext?.productionOrderId || params.get('productionOrderId') || undefined,
     productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
+    mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
     mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
+    materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
     cuttingGroup: params.get('cuttingGroup') || undefined,
     zoneCode: (params.get('zoneCode') as CutPieceZoneCode | null) || undefined,
     warehouseStatus: (params.get('warehouseStatus') as WarehouseStatusFilter | null) || undefined,
@@ -137,11 +133,6 @@ function syncPrefilterFromQuery(): void {
 function getActiveItem(): CutPieceWarehouseItem | null {
   if (!state.activeItemId) return null
   return getViewModel().itemsById[state.activeItemId] ?? null
-}
-
-function getSourceRecord(itemId: string | null): CutPieceWarehouseRecord | null {
-  if (!itemId) return null
-  return state.records.find((record) => record.id === itemId) ?? null
 }
 
 function syncDetailDraft(): void {
@@ -367,6 +358,7 @@ function renderTable(items: CutPieceWarehouseItem[]): string {
               <tr class="border-b align-top ${state.activeItemId === item.warehouseItemId ? 'bg-blue-50/60' : 'bg-card'}">
                 <td class="px-4 py-3">
                   <button type="button" class="font-medium text-blue-700 hover:underline" data-cut-piece-warehouse-action="open-detail" data-item-id="${escapeHtml(item.warehouseItemId)}">${escapeHtml(item.originalCutOrderNo)}</button>
+                  <div class="mt-1 text-xs text-foreground">${escapeHtml(item.materialSku || '待补面料')}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.styleCode || item.spuCode || '待补款号')}</div>
                 </td>
                 <td class="px-4 py-3">${escapeHtml(item.productionOrderNo)}</td>
@@ -407,8 +399,7 @@ function renderTable(items: CutPieceWarehouseItem[]): string {
 
 function renderDetailDrawer(): string {
   const item = getActiveItem()
-  const sourceRecord = getSourceRecord(state.activeItemId)
-  if (!item || !sourceRecord) return ''
+  if (!item) return ''
 
   return uiDetailDrawer(
     {
@@ -420,6 +411,10 @@ function renderDetailDrawer(): string {
     `
       <div class="space-y-6 text-sm">
         <section class="grid gap-3 md:grid-cols-2">
+          <div class="rounded-lg border bg-muted/20 p-3">
+            <div class="text-xs text-muted-foreground">面料 SKU</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(item.materialSku || '待补面料')}</div>
+          </div>
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">来源生产单号</div>
             <div class="mt-1 font-medium text-foreground">${escapeHtml(item.productionOrderNo)}</div>
@@ -443,11 +438,11 @@ function renderDetailDrawer(): string {
           <dl class="mt-3 grid gap-3 md:grid-cols-2">
             <div>
               <dt class="text-xs text-muted-foreground">入仓时间</dt>
-              <dd class="mt-1 font-medium text-foreground">${escapeHtml(formatDateTime(sourceRecord.inboundAt))}</dd>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(formatDateTime(item.inWarehouseAt))}</dd>
             </div>
             <div>
               <dt class="text-xs text-muted-foreground">入仓人</dt>
-              <dd class="mt-1 font-medium text-foreground">${escapeHtml(sourceRecord.inboundBy || '待补录')}</dd>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.inWarehouseBy || '待补录')}</dd>
             </div>
             <div>
               <dt class="text-xs text-muted-foreground">仓状态</dt>
@@ -541,8 +536,11 @@ function navigateByPayload(itemId: string | undefined, target: keyof ReturnType<
   const item = getViewModel().itemsById[itemId]
   if (!item) return false
   const context = normalizeLegacyCuttingPayload(item.navigationPayload[target], 'cut-piece-warehouse', {
-    productionOrderNo: item.productionOrderNos[0] || undefined,
+    productionOrderId: item.productionOrderId || undefined,
+    productionOrderNo: item.productionOrderNo || undefined,
+    originalCutOrderId: item.originalCutOrderId || undefined,
     originalCutOrderNo: item.originalCutOrderNo,
+    mergeBatchId: item.mergeBatchId || undefined,
     mergeBatchNo: item.mergeBatchNo || undefined,
     materialSku: item.materialSku || undefined,
     warehouseRecordId: item.warehouseItemId,
@@ -552,10 +550,39 @@ function navigateByPayload(itemId: string | undefined, target: keyof ReturnType<
   return true
 }
 
-function updateSourceRecord(itemId: string | undefined, updater: (record: CutPieceWarehouseRecord) => void): boolean {
-  const sourceRecord = getSourceRecord(itemId || null)
-  if (!sourceRecord) return false
-  updater(sourceRecord)
+function submitWarehouseAction(
+  itemId: string | undefined,
+  actionType:
+    | 'CUT_PIECE_WAREHOUSE_SAVE_LOCATION'
+    | 'CUT_PIECE_WAREHOUSE_MARK_INBOUND'
+    | 'CUT_PIECE_WAREHOUSE_MARK_WAITING_HANDOFF'
+    | 'CUT_PIECE_WAREHOUSE_MARK_HANDED_OVER',
+): boolean {
+  if (!itemId) return false
+  const item = getViewModel().itemsById[itemId]
+  if (!item) return false
+
+  const payload = normalizeCutPieceWarehouseWritebackInput({
+    actionType,
+    identity: {
+      warehouseRecordId: item.warehouseItemId,
+      originalCutOrderId: item.originalCutOrderId,
+      originalCutOrderNo: item.originalCutOrderNo,
+      productionOrderId: item.productionOrderId,
+      productionOrderNo: item.productionOrderNo,
+      mergeBatchId: item.mergeBatchId,
+      mergeBatchNo: item.mergeBatchNo,
+      materialSku: item.materialSku,
+    },
+    zoneCode: state.detailDraft.zoneCode,
+    locationCode: state.detailDraft.locationCode.trim() || item.locationCode || '待补库位',
+    handoverTarget: actionType === 'CUT_PIECE_WAREHOUSE_MARK_HANDED_OVER' ? '已交接至后道 / 周转口袋后续' : item.handoffTarget,
+    note: state.detailDraft.note.trim() || item.note,
+  })
+  const result = submitCutPieceWarehouseWriteback(payload)
+  if (!result.success) return false
+  state.activeItemId = itemId
+  syncDetailDraft()
   return true
 }
 
@@ -631,34 +658,19 @@ export function handleCraftCuttingCutPieceWarehouseEvent(target: Element): boole
   }
 
   if (action === 'save-location') {
-    return updateSourceRecord(actionNode.dataset.itemId || state.activeItemId || undefined, (record) => {
-      record.zoneCode = state.detailDraft.zoneCode
-      record.locationLabel = state.detailDraft.locationCode.trim() || '待补库位'
-      record.note = state.detailDraft.note.trim() || record.note
-    })
+    return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'CUT_PIECE_WAREHOUSE_SAVE_LOCATION')
   }
 
   if (action === 'mark-inbound') {
-    return updateSourceRecord(actionNode.dataset.itemId || state.activeItemId || undefined, (record) => {
-      record.inboundStatus = 'INBOUNDED'
-      record.inboundAt = nowText()
-      record.inboundBy = '裁片仓页面补录'
-    })
+    return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'CUT_PIECE_WAREHOUSE_MARK_INBOUND')
   }
 
   if (action === 'mark-waiting-handoff') {
-    return updateSourceRecord(actionNode.dataset.itemId || state.activeItemId || undefined, (record) => {
-      record.inboundStatus = 'WAITING_HANDOVER'
-      record.handoverStatus = 'WAITING_HANDOVER'
-    })
+    return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'CUT_PIECE_WAREHOUSE_MARK_WAITING_HANDOFF')
   }
 
   if (action === 'mark-handed-over') {
-    return updateSourceRecord(actionNode.dataset.itemId || state.activeItemId || undefined, (record) => {
-      record.inboundStatus = 'HANDED_OVER'
-      record.handoverStatus = 'HANDED_OVER'
-      record.handoverTarget = '已交接至后道 / 周转口袋后续'
-    })
+    return submitWarehouseAction(actionNode.dataset.itemId || state.activeItemId || undefined, 'CUT_PIECE_WAREHOUSE_MARK_HANDED_OVER')
   }
 
   if (action === 'go-original-orders') return navigateByPayload(actionNode.dataset.itemId || state.activeItemId || undefined, 'originalOrders')

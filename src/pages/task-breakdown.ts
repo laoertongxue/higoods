@@ -5,7 +5,7 @@ import {
   listRuntimeTaskSplitGroupsByOrder,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks'
-import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-demands'
+import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-artifact-generation'
 import { getTaskTypeDisplayName } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
   formatTaskDetailDimensionsText,

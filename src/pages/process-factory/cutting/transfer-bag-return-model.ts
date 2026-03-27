@@ -20,6 +20,9 @@ import {
   type TransferBagValidationResult,
   type TransferBagViewModel,
 } from './transfer-bags-model'
+import {
+  buildCuttingTraceabilityId,
+} from '../../../data/fcs/cutting/qr-codes.ts'
 
 interface ReturnDecisionMeta {
   reusableDecision: TransferBagReusableDecision
@@ -104,10 +107,10 @@ function sortByLatest<T extends { [key: string]: unknown }>(items: T[], key: key
   return items.slice().sort((left, right) => String(right[key] || '').localeCompare(String(left[key] || ''), 'zh-CN'))
 }
 
-function buildEmptyCollectionMap<T extends { usageId: string }>(items: T[]): Record<string, T[]> {
+function buildEmptyCollectionMap<T extends { cycleId: string }>(items: T[]): Record<string, T[]> {
   return items.reduce<Record<string, T[]>>((result, item) => {
-    if (!result[item.usageId]) result[item.usageId] = []
-    result[item.usageId].push(item)
+    if (!result[item.cycleId]) result[item.cycleId] = []
+    result[item.cycleId].push(item)
     return result
   }, {})
 }
@@ -133,11 +136,15 @@ export function createReturnReceiptDraft(options: {
   nowText: string
 }): TransferBagReturnReceipt {
   return {
-    returnReceiptId: `return-draft-${options.usage.usageId}`,
-    usageId: options.usage.usageId,
-    usageNo: options.usage.usageNo,
-    bagId: options.usage.bagId,
-    bagCode: options.usage.bagCode,
+    returnReceiptId: `return-draft-${options.usage.cycleId}`,
+    cycleId: options.usage.cycleId,
+    cycleNo: options.usage.cycleNo,
+    carrierId: options.usage.carrierId,
+    carrierCode: options.usage.carrierCode,
+    usageId: options.usage.cycleId,
+    usageNo: options.usage.cycleNo,
+    bagId: options.usage.carrierId,
+    bagCode: options.usage.carrierCode,
     sewingTaskId: options.usage.sewingTaskId,
     sewingTaskNo: options.usage.sewingTaskNo,
     returnWarehouseName: '裁片仓返仓口',
@@ -247,9 +254,11 @@ export function closeTransferBagUsageCycle(options: {
     warningMessages.push(`当前 bag 关闭后进入“${decision.label}”状态。`)
   }
   return {
-    closureId: `closure-${Date.now()}`,
-    usageId: options.usage.usageId,
-    usageNo: options.usage.usageNo,
+    closureId: buildCuttingTraceabilityId('closure', options.nowText, options.usage.cycleId),
+    cycleId: options.usage.cycleId,
+    cycleNo: options.usage.cycleNo,
+    usageId: options.usage.cycleId,
+    usageNo: options.usage.cycleNo,
     closedAt: options.nowText,
     closedBy: options.closedBy,
     closureStatus: warningMessages.length ? 'EXCEPTION_CLOSED' : 'CLOSED',
@@ -265,21 +274,28 @@ export function buildReuseCycleSummary(options: {
   returnReceipts: TransferBagReturnReceipt[]
   closureResults: TransferBagUsageClosureResult[]
 }): TransferBagReuseCycleSummary {
-  const relatedUsages = sortByLatest(options.usages.filter((item) => item.bagId === options.bag.bagId), 'usageNo')
-  const relatedReceipts = sortByLatest(options.returnReceipts.filter((item) => item.bagId === options.bag.bagId), 'returnAt')
+  const relatedUsages = sortByLatest(options.usages.filter((item) => item.carrierId === options.bag.carrierId), 'cycleNo')
+  const relatedReceipts = sortByLatest(options.returnReceipts.filter((item) => item.carrierId === options.bag.carrierId), 'returnAt')
   const relatedClosures = sortByLatest(
-    options.closureResults.filter((item) => relatedUsages.some((usage) => usage.usageId === item.usageId)),
+    options.closureResults.filter((item) => relatedUsages.some((usage) => usage.cycleId === item.cycleId)),
     'closedAt',
   )
   const latestUsage = relatedUsages[0]
   const latestClosure = relatedClosures[0]
   const openUsage = relatedUsages.find((item) => !['CLOSED', 'EXCEPTION_CLOSED'].includes(item.usageStatus))
+  const latestCycleId = latestUsage?.cycleId ? latestUsage.cycleId : options.bag.latestCycleId
+  const latestCycleNo = latestUsage?.cycleNo ? latestUsage.cycleNo : options.bag.latestCycleNo
+  const currentOpenCycleId = openUsage?.cycleId ? openUsage.cycleId : ''
   return {
-    cycleSummaryId: `cycle-${options.bag.bagId}`,
-    bagId: options.bag.bagId,
-    bagCode: options.bag.bagCode,
-    latestUsageId: latestUsage?.usageId || options.bag.latestUsageId,
-    latestUsageNo: latestUsage?.usageNo || options.bag.latestUsageNo,
+    cycleSummaryId: `cycle-${options.bag.carrierId}`,
+    carrierId: options.bag.carrierId,
+    carrierCode: options.bag.carrierCode,
+    latestCycleId,
+    latestCycleNo,
+    bagId: options.bag.carrierId,
+    bagCode: options.bag.carrierCode,
+    latestUsageId: latestCycleId,
+    latestUsageNo: latestCycleNo,
     totalUsageCount: relatedUsages.length,
     totalDispatchCount: relatedUsages.filter((item) => Boolean(item.dispatchAt)).length,
     totalReturnCount: relatedReceipts.length,
@@ -287,7 +303,8 @@ export function buildReuseCycleSummary(options: {
     lastReturnedAt: relatedReceipts[0]?.returnAt || '',
     currentReusableStatus: latestClosure?.nextBagStatus || options.bag.currentStatus,
     currentLocation: options.bag.currentLocation,
-    currentOpenUsageId: openUsage?.usageId || '',
+    currentOpenCycleId,
+    currentOpenUsageId: currentOpenCycleId,
     note: latestClosure ? latestClosure.reason : '当前 bag 尚未形成完整回货闭环。',
   }
 }
@@ -316,7 +333,8 @@ export function buildReturnNavigationPayload(options: {
 }
 
 export function buildBagReturnAuditTrail(options: {
-  usageId: string
+  cycleId: string
+  cycleNo?: string
   action: string
   actionAt: string
   actionBy: string
@@ -324,12 +342,13 @@ export function buildBagReturnAuditTrail(options: {
   note: string
 }): TransferBagReturnAuditTrail {
   return {
-    auditTrailId: `return-audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    usageId: options.usageId,
+    auditTrailId: buildCuttingTraceabilityId('return-audit', options.actionAt, options.cycleId, options.action),
+    cycleId: options.cycleId,
+    usageId: options.cycleId,
     action: options.action,
     actionAt: options.actionAt,
     actionBy: options.actionBy,
-    payloadSummary: options.payloadSummary,
+    payloadSummary: options.payloadSummary || `${options.cycleNo || options.cycleId} ${options.action}`,
     note: options.note,
   }
 }
@@ -345,9 +364,9 @@ export function buildTransferBagReturnViewModel(options: {
 
   const waitingReturnUsages = options.baseViewModel.usages
     .map((usage) => {
-      const latestReturnReceipt = sortByLatest(returnReceiptsByUsageId[usage.usageId] || [], 'returnAt')[0] || null
-      const latestConditionRecord = sortByLatest(conditionRecordsByUsageId[usage.usageId] || [], 'inspectedAt')[0] || null
-      const latestClosureResult = sortByLatest(closureResultsByUsageId[usage.usageId] || [], 'closedAt')[0] || null
+      const latestReturnReceipt = sortByLatest(returnReceiptsByUsageId[usage.cycleId] || [], 'returnAt')[0] || null
+      const latestConditionRecord = sortByLatest(conditionRecordsByUsageId[usage.cycleId] || [], 'inspectedAt')[0] || null
+      const latestClosureResult = sortByLatest(closureResultsByUsageId[usage.cycleId] || [], 'closedAt')[0] || null
       return {
         ...usage,
         bagStatusMeta: usage.bagMaster ? deriveTransferBagMasterStatus(usage.bagMaster.currentStatus) : null,
@@ -362,7 +381,7 @@ export function buildTransferBagReturnViewModel(options: {
         returnExceptionMeta: buildReturnExceptionMeta(latestReturnReceipt?.discrepancyType || 'NONE'),
       }
     })
-    .sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
+    .sort((left, right) => right.cycleNo.localeCompare(left.cycleNo, 'zh-CN'))
 
   const reuseCycles = options.store.masters
     .map((bag) => {
@@ -372,9 +391,9 @@ export function buildTransferBagReturnViewModel(options: {
         returnReceipts: options.store.returnReceipts,
         closureResults: options.store.closureResults,
       })
-      const latestUsage = options.store.usages.find((item) => item.usageId === cycle.latestUsageId) || null
-      const latestReturnReceipt = sortByLatest(options.store.returnReceipts.filter((item) => item.bagId === bag.bagId), 'returnAt')[0] || null
-      const latestConditionRecord = sortByLatest(options.store.conditionRecords.filter((item) => item.bagId === bag.bagId), 'inspectedAt')[0] || null
+      const latestUsage = options.store.usages.find((item) => item.cycleId === cycle.latestCycleId) || null
+      const latestReturnReceipt = sortByLatest(options.store.returnReceipts.filter((item) => item.carrierId === bag.carrierId), 'returnAt')[0] || null
+      const latestConditionRecord = sortByLatest(options.store.conditionRecords.filter((item) => item.carrierId === bag.carrierId), 'inspectedAt')[0] || null
       return {
         ...cycle,
         latestUsage,
@@ -383,13 +402,13 @@ export function buildTransferBagReturnViewModel(options: {
         bagStatusMeta: deriveTransferBagMasterStatus(cycle.currentReusableStatus),
       }
     })
-    .sort((left, right) => left.bagCode.localeCompare(right.bagCode, 'zh-CN'))
+    .sort((left, right) => left.carrierCode.localeCompare(right.carrierCode, 'zh-CN'))
 
   const conditionItems = sortByLatest(options.store.conditionRecords, 'inspectedAt')
     .map((record) => ({
       ...record,
-      latestUsage: options.store.usages.find((item) => item.usageId === record.usageId) || null,
-      bagMaster: options.store.masters.find((item) => item.bagId === record.bagId) || null,
+      latestUsage: options.store.usages.find((item) => item.cycleId === record.cycleId) || null,
+      bagMaster: options.store.masters.find((item) => item.carrierId === record.carrierId) || null,
       decisionMeta: deriveBagConditionDecision({
         conditionStatus: record.conditionStatus,
         cleanlinessStatus: record.cleanlinessStatus,
@@ -397,7 +416,7 @@ export function buildTransferBagReturnViewModel(options: {
         repairNeeded: record.repairNeeded,
       }),
       returnExceptionMeta: buildReturnExceptionMeta(
-        sortByLatest(returnReceiptsByUsageId[record.usageId] || [], 'returnAt')[0]?.discrepancyType || 'NONE',
+        sortByLatest(returnReceiptsByUsageId[record.cycleId] || [], 'returnAt')[0]?.discrepancyType || 'NONE',
       ),
     }))
 

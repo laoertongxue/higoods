@@ -128,7 +128,7 @@ import { renderPdaCuttingHandoverPage } from '../pages/pda-cutting-handover'
 import { renderPdaCuttingReplenishmentFeedbackPage } from '../pages/pda-cutting-replenishment-feedback'
 import {
   renderCraftWorkbenchOverviewPage,
-  renderCraftCuttingOrderProgressPage,
+  renderCraftCuttingProductionProgressPage,
   renderCraftCuttingCuttablePoolPage,
   renderCraftCuttingMergeBatchesPage,
   renderCraftCuttingMarkerSpreadingPage,
@@ -145,12 +145,11 @@ import {
   renderCraftCuttingFeiTicketReprintPage,
   renderCraftCuttingFeiTicketVoidPage,
   renderCraftCuttingMaterialPrepPage,
-  renderCraftCuttingPieceOrdersPage,
+  renderCraftCuttingOriginalOrdersPage,
   renderCraftCuttingFabricWarehousePage,
   renderCraftCuttingCutPieceWarehousePage,
   renderCraftCuttingSampleWarehousePage,
   renderCraftCuttingTransferBagsPage,
-  renderCraftCuttingWarehouseManagementPage,
   renderCraftCuttingReplenishmentPage,
   renderCraftCuttingSpecialProcessesPage,
   renderCraftCuttingSummaryPage,
@@ -172,7 +171,7 @@ function renderRouteRedirect(targetPath: string, title: string): string {
   if (currentPath !== targetPath) {
     queueMicrotask(() => {
       if (appStore.getState().pathname !== targetPath) {
-        appStore.navigate(targetPath)
+        appStore.navigate(targetPath, { historyMode: 'replace' })
       }
     })
   }
@@ -280,11 +279,12 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/workbench/risks': () => renderCraftWorkbenchOverviewPage(),
   // 下面这组 canonical 路由是裁片域后续实现和内部跳转的主入口。
   // 旧路由仍保留，但只承担兼容职责，后续功能不得再优先依赖旧路径命名。
-  '/fcs/craft/cutting': () => renderCraftCuttingOrderProgressPage(),
-  '/fcs/craft/cutting/production-progress': () => renderCraftCuttingOrderProgressPage(),
+  '/fcs/craft/cutting': () =>
+    renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到生产单进度'),
+  '/fcs/craft/cutting/production-progress': () => renderCraftCuttingProductionProgressPage(),
   '/fcs/craft/cutting/cuttable-pool': () => renderCraftCuttingCuttablePoolPage(),
   '/fcs/craft/cutting/merge-batches': () => renderCraftCuttingMergeBatchesPage(),
-  '/fcs/craft/cutting/original-orders': () => renderCraftCuttingPieceOrdersPage(),
+  '/fcs/craft/cutting/original-orders': () => renderCraftCuttingOriginalOrdersPage(),
   '/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage(),
   '/fcs/craft/cutting/settlement-scoring': () => renderCuttingSettlementInputPage(),
   '/fcs/craft/cutting/marker-detail': () => renderCraftCuttingMarkerDetailPage(),
@@ -305,21 +305,32 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/cutting/transfer-bags': () => renderCraftCuttingTransferBagsPage(),
   '/fcs/craft/cutting/special-processes': () => renderCraftCuttingSpecialProcessesPage(),
   '/fcs/craft/cutting/summary': () => renderCraftCuttingSummaryPage(),
-  // 旧裁片路由 alias 只用于承接历史入口；页面打开后必须展示 canonical 标题和 breadcrumb。
-  // 兼容存在的目的仅是防止 404 和死链，不能反向定义未来对象模型。
-  '/fcs/craft/cutting/order-progress': () => renderCraftCuttingOrderProgressPage(),
-  '/fcs/craft/cutting/tasks': () => renderCraftCuttingOrderProgressPage(),
+  // 裁片 alias 只用于承接历史入口；页面打开后必须展示 canonical 标题和 breadcrumb。
+  // 兼容存在的目的仅是防止 404 和死链，不能继续把旧语义带回正式对象模型。
+  '/fcs/craft/cutting/order-progress': () =>
+    renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到生产单进度'),
+  '/fcs/craft/cutting/tasks': () =>
+    renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到生产单进度'),
   '/fcs/craft/cutting/material-prep': () => renderCraftCuttingMaterialPrepPage(),
-  '/fcs/craft/cutting/orders': () => renderCraftCuttingPieceOrdersPage(),
-  '/fcs/craft/cutting/cut-piece-orders': () => renderCraftCuttingPieceOrdersPage(),
-  '/fcs/craft/cutting/fei-ticket': () => renderCraftCuttingFeiTicketsPage(),
-  '/fcs/craft/cutting/fei-list': () => renderCraftCuttingFeiTicketsPage(),
-  '/fcs/craft/cutting/warehouse': () => renderCraftCuttingWarehouseManagementPage(),
-  '/fcs/craft/cutting/warehouse-management': () => renderCraftCuttingWarehouseManagementPage(),
+  '/fcs/craft/cutting/orders': () =>
+    renderRouteRedirect('/fcs/craft/cutting/original-orders', '正在跳转到原始裁片单'),
+  '/fcs/craft/cutting/cut-piece-orders': () =>
+    renderRouteRedirect('/fcs/craft/cutting/original-orders', '正在跳转到原始裁片单'),
+  '/fcs/craft/cutting/fei-ticket': () =>
+    renderRouteRedirect('/fcs/craft/cutting/fei-tickets', '正在跳转到打印菲票'),
+  '/fcs/craft/cutting/fei-list': () =>
+    renderRouteRedirect('/fcs/craft/cutting/fei-tickets', '正在跳转到打印菲票'),
+  '/fcs/craft/cutting/warehouse': () =>
+    renderRouteRedirect('/fcs/craft/cutting/fabric-warehouse', '正在跳转到裁床仓'),
+  '/fcs/craft/cutting/warehouse-management': () =>
+    renderRouteRedirect('/fcs/craft/cutting/fabric-warehouse', '正在跳转到裁床仓'),
   '/fcs/craft/cutting/replenishment': () => renderCraftCuttingReplenishmentPage(),
-  '/fcs/craft/cutting/stats': () => renderCraftCuttingSummaryPage(),
-  '/fcs/craft/cutting/bed-stats': () => renderCraftCuttingSummaryPage(),
-  '/fcs/craft/cutting/cutting-summary': () => renderCraftCuttingSummaryPage(),
+  '/fcs/craft/cutting/stats': () =>
+    renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总表'),
+  '/fcs/craft/cutting/bed-stats': () =>
+    renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总表'),
+  '/fcs/craft/cutting/cutting-summary': () =>
+    renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总表'),
   '/fcs/craft/printing': () => renderCraftPrintingWorkOrdersPage(),
   '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
   '/fcs/craft/printing/tasks': () => renderCraftPrintingWorkOrdersPage(),

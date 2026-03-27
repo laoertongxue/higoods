@@ -1,20 +1,15 @@
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
-import { buildCuttablePoolViewModel } from './cuttable-pool-model'
 import {
   buildPrintableUnitDetailViewModel,
-  buildPrintableUnitViewModel,
-  buildSystemSeedFeiTicketLedger,
   canVoidTicketCard,
   CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
-  deserializeFeiTicketPrintJobsStorage,
-  deserializeFeiTicketRecordsStorage,
   executePrintableUnitPrint,
-  FEI_TICKET_DEMO_CASE_IDS,
   filterPrintableUnits,
   getPrintableUnitStatusMeta,
+  serializeFeiTicketPrintJobsStorage,
+  serializeFeiTicketRecordsStorage,
   type FeiTicketLabelRecord,
   type FeiTicketPrintJob,
   type PrintableUnit,
@@ -28,28 +23,6 @@ import {
   type TicketSplitDetail,
   voidTicketCard,
 } from './fei-tickets-model'
-import {
-  buildSystemSeedMergeBatches,
-  CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
-  deserializeMergeBatchStorage,
-  type MergeBatchRecord,
-} from './merge-batches-model'
-import {
-  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
-  createEmptyStore as createEmptyMarkerStore,
-  deserializeMarkerSpreadingStorage,
-  type MarkerSpreadingStore,
-} from './marker-spreading-model'
-import { buildMaterialPrepViewModel, type MaterialPrepRow } from './material-prep-model'
-import { buildOriginalCutOrderViewModel, type OriginalCutOrderRow } from './original-orders-model'
-import {
-  applyPocketBindingLocksToTicketRecords,
-  buildSystemSeedTransferBagStore,
-  CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
-  deserializeTransferBagStorage,
-  mergeTransferBagStores,
-  type TransferBagStore,
-} from './transfer-bags-model'
 import {
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
@@ -66,6 +39,15 @@ import {
   readCuttingDrillContextFromLocation,
   serializeCuttingDrillContext,
 } from './navigation-context'
+import {
+  buildFeiTicketPrintProjection,
+} from './fei-ticket-print-projection'
+import type { OriginalCutOrderRow } from './original-orders-model'
+import type { MaterialPrepRow } from './material-prep-model'
+import type { MergeBatchRecord } from './merge-batches-model'
+import type { MarkerSpreadingStore } from './marker-spreading-model'
+import type { TransferBagStore } from './transfer-bags-model'
+import type { CraftTraceProjection, CraftTraceProjectionItem } from './craft-trace-projection'
 
 interface FeiTicketsPageState {
   filters: PrintableUnitFilters
@@ -89,7 +71,9 @@ interface FeiTicketsDataBundle {
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
+  transferBagStore: TransferBagStore
   printableViewModel: PrintableUnitViewModel
+  craftTraceProjection: CraftTraceProjection
   filteredUnits: PrintableUnit[]
 }
 
@@ -139,8 +123,6 @@ const initialFilters: PrintableUnitFilters = {
   printedFrom: '',
   printedTo: '',
 }
-
-const showDemoFixtures = import.meta.env.DEV
 
 const state: FeiTicketsPageState = {
   filters: { ...initialFilters },
@@ -232,78 +214,12 @@ function formatOperationTypeLabel(value: TicketPrintRecord['operationType']): st
   return operationTypeMeta[value]
 }
 
-function mergeTicketRecords(seed: FeiTicketLabelRecord[], stored: FeiTicketLabelRecord[]): FeiTicketLabelRecord[] {
-  const merged = new Map(seed.map((record) => [record.ticketRecordId, record]))
-  stored.forEach((record) => merged.set(record.ticketRecordId, record))
-  return Array.from(merged.values()).sort((left, right) => {
-    if (left.originalCutOrderNo !== right.originalCutOrderNo) {
-      return left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
-    }
-    if (left.sequenceNo !== right.sequenceNo) return left.sequenceNo - right.sequenceNo
-    const leftVersion = left.version ?? left.reprintCount + 1
-    const rightVersion = right.version ?? right.reprintCount + 1
-    return leftVersion - rightVersion
-  })
-}
-
-function mergePrintJobs(seed: FeiTicketPrintJob[], stored: FeiTicketPrintJob[]): FeiTicketPrintJob[] {
-  const merged = new Map(seed.map((job) => [job.printJobId, job]))
-  stored.forEach((job) => merged.set(job.printJobId, job))
-  return Array.from(merged.values()).sort((left, right) => right.printedAt.localeCompare(left.printedAt, 'zh-CN'))
-}
-
-function readStoredTicketRecords(): FeiTicketLabelRecord[] {
-  try {
-    return deserializeFeiTicketRecordsStorage(localStorage.getItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY))
-  } catch {
-    return []
-  }
-}
-
-function readStoredPrintJobs(): FeiTicketPrintJob[] {
-  try {
-    return deserializeFeiTicketPrintJobsStorage(localStorage.getItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY))
-  } catch {
-    return []
-  }
-}
-
 function persistTicketRecords(records: FeiTicketLabelRecord[]): void {
-  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, JSON.stringify(records))
+  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, serializeFeiTicketRecordsStorage(records))
 }
 
 function persistPrintJobs(printJobs: FeiTicketPrintJob[]): void {
-  localStorage.setItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY, JSON.stringify(printJobs))
-}
-
-function readMergeBatches(): MergeBatchRecord[] {
-  const systemSeed = buildSystemSeedMergeBatches(buildCuttablePoolViewModel(cuttingOrderProgressRecords).orders.flatMap((order) => order.items))
-  const stored = deserializeMergeBatchStorage(localStorage.getItem(CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY))
-  const merged = new Map(systemSeed.map((batch) => [batch.mergeBatchNo, batch]))
-  stored.forEach((batch) => merged.set(batch.mergeBatchNo, batch))
-  return Array.from(merged.values()).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
-}
-
-function readMarkerStore(): MarkerSpreadingStore {
-  try {
-    return deserializeMarkerSpreadingStorage(localStorage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY))
-  } catch {
-    return createEmptyMarkerStore()
-  }
-}
-
-function readTransferBagStore(options: {
-  originalRows: OriginalCutOrderRow[]
-  ticketRecords: FeiTicketLabelRecord[]
-  mergeBatches: MergeBatchRecord[]
-}): TransferBagStore {
-  const seedStore = buildSystemSeedTransferBagStore({
-    originalRows: options.originalRows,
-    ticketRecords: options.ticketRecords,
-    mergeBatches: options.mergeBatches,
-  })
-  const stored = deserializeTransferBagStorage(localStorage.getItem(CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY))
-  return mergeTransferBagStores(seedStore, stored)
+  localStorage.setItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY, serializeFeiTicketPrintJobsStorage(printJobs))
 }
 
 function mapLegacyStatus(value: string | null): 'ALL' | PrintableUnitStatus {
@@ -396,149 +312,19 @@ function hydrateOperationDraftFromRoute(): void {
 function getDataBundle(): FeiTicketsDataBundle {
   hydrateFilterStateFromRoute()
   hydrateOperationDraftFromRoute()
-
-  const mergeBatches = readMergeBatches()
-  const markerStore = readMarkerStore()
-  const originalRows = buildOriginalCutOrderViewModel(cuttingOrderProgressRecords, mergeBatches).rows
-  const materialPrepRows = buildMaterialPrepViewModel(cuttingOrderProgressRecords, mergeBatches).rows
-  const demoContext = applyFeiTicketDemoFixtures({
-    originalRows,
-    materialPrepRows,
-    mergeBatches,
-  })
-  const seedLedger = buildSystemSeedFeiTicketLedger({
-    originalRows: demoContext.originalRows,
-    materialPrepRows: demoContext.materialPrepRows,
-    mergeBatches: demoContext.mergeBatches,
-    markerStore,
-  })
-  const rawTicketRecords = mergeTicketRecords(seedLedger.ticketRecords, readStoredTicketRecords())
-  const transferBagStore = readTransferBagStore({
-    originalRows: demoContext.originalRows,
-    ticketRecords: rawTicketRecords,
-    mergeBatches: demoContext.mergeBatches,
-  })
-  const ticketRecords = applyPocketBindingLocksToTicketRecords(rawTicketRecords, transferBagStore)
-  const printJobs = mergePrintJobs(seedLedger.printJobs, readStoredPrintJobs())
-  const printableViewModel = buildPrintableUnitViewModel({
-    originalRows: demoContext.originalRows,
-    materialPrepRows: demoContext.materialPrepRows,
-    mergeBatches: demoContext.mergeBatches,
-    markerStore,
-    ticketRecords,
-    printJobs,
-    prefilter: null,
-  })
+  const projection = buildFeiTicketPrintProjection()
 
   return {
-    originalRows: demoContext.originalRows,
-    materialPrepRows: demoContext.materialPrepRows,
-    mergeBatches: demoContext.mergeBatches,
-    markerStore,
-    ticketRecords,
-    printJobs,
-    printableViewModel,
-    filteredUnits: filterPrintableUnits(printableViewModel.units, state.filters),
-  }
-}
-
-function applyFeiTicketDemoFixtures(options: {
-  originalRows: OriginalCutOrderRow[]
-  materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
-}): {
-  originalRows: OriginalCutOrderRow[]
-  materialPrepRows: MaterialPrepRow[]
-  mergeBatches: MergeBatchRecord[]
-} {
-  if (!showDemoFixtures) return options
-
-  const demoSourceRows = FEI_TICKET_DEMO_CASE_IDS.CASE_B.sourceCutOrderIds
-    .map((id) => options.originalRows.find((row) => row.originalCutOrderId === id) || null)
-    .filter((row): row is OriginalCutOrderRow => Boolean(row))
-
-  if (demoSourceRows.length !== FEI_TICKET_DEMO_CASE_IDS.CASE_B.sourceCutOrderIds.length) return options
-
-  const demoBatch = {
-    mergeBatchId: FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchId,
-    mergeBatchNo: FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchNo,
-    status: 'DONE' as const,
-    compatibilityKey: 'demo-print-case-b',
-    styleCode: demoSourceRows[0]?.styleCode || 'ST-081',
-    spuCode: demoSourceRows[0]?.spuCode || 'SPU-TSHIRT-081',
-    styleName: demoSourceRows[0]?.styleName || '打印模块验收多来源批次',
-    materialSkuSummary: uniqueStrings(demoSourceRows.map((row) => row.materialSku)).join(' / '),
-    sourceProductionOrderCount: uniqueStrings(demoSourceRows.map((row) => row.productionOrderId)).length,
-    sourceOriginalCutOrderCount: demoSourceRows.length,
-    plannedCuttingGroup: '打印验收专用批次',
-    plannedCuttingDate: '2026-03-25',
-    note: '开发环境验收用：同款多来源裁片批次，用于验证 printableUnit 回落来源归属。',
-    createdFrom: 'system-seed' as const,
-    createdAt: '2026-03-25 09:00',
-    updatedAt: '2026-03-25 09:00',
-    items: demoSourceRows.map((row) => ({
-      mergeBatchId: FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchId,
-      originalCutOrderId: row.originalCutOrderId,
-      originalCutOrderNo: row.originalCutOrderNo,
-      productionOrderId: row.productionOrderId,
-      productionOrderNo: row.productionOrderNo,
-      styleCode: row.styleCode,
-      spuCode: row.spuCode,
-      styleName: row.styleName,
-      urgencyLabel: row.urgencyLabel,
-      plannedShipDate: row.plannedShipDate,
-      plannedShipDateDisplay: row.plannedShipDate,
-      materialSku: row.materialSku,
-      materialCategory: row.materialCategory,
-      materialLabel: row.materialLabel,
-      currentStage: row.currentStage.label,
-      cuttableStateLabel: row.cuttableState.label,
-      sourceCompatibilityKey: `demo-print-case-b__${row.styleCode}__${row.materialSku}`,
-    })),
-  }
-
-  const nextRows = options.originalRows.map((row) => {
-    if (!FEI_TICKET_DEMO_CASE_IDS.CASE_B.sourceCutOrderIds.includes(row.originalCutOrderId)) return row
-    const mergeBatchIds = uniqueStrings([...(row.mergeBatchIds || []), FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchId])
-    const mergeBatchNos = uniqueStrings([...(row.mergeBatchNos || []), FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchNo])
-    return {
-      ...row,
-      currentStage: {
-        key: 'DONE',
-        label: '已完成',
-        className: 'bg-emerald-100 text-emerald-700',
-        detailText: '开发环境验收数据：当前原始裁片单已完成裁片，可进入打印菲票。',
-      },
-      cuttableState: {
-        key: 'INBOUND',
-        label: '已入仓',
-        className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-        detailText: '开发环境验收数据：用于验证裁片批次维度 printableUnit 的来源归属。',
-        selectable: false,
-        reasonText: '开发环境验收数据：当前批次已具备打印资格。',
-      },
-      mergeBatchIds,
-      mergeBatchNos,
-      latestMergeBatchNo: FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchNo,
-      batchParticipationCount: mergeBatchNos.length,
-      activeBatchId: FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchId,
-      activeBatchNo: FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchNo,
-      relationSummary: `开发环境验收批次：${FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchNo}（同款多来源）`,
-      latestActionText: '开发环境验收数据：用于验证裁片批次下来源生产单 / 裁片单归属不丢失。',
-      keywordIndex: uniqueStrings([
-        ...row.keywordIndex,
-        FEI_TICKET_DEMO_CASE_IDS.CASE_B.batchNo.toLowerCase(),
-      ]),
-    }
-  })
-
-  return {
-    originalRows: nextRows,
-    materialPrepRows: options.materialPrepRows,
-    mergeBatches: [
-      demoBatch,
-      ...options.mergeBatches.filter((batch) => batch.mergeBatchId !== demoBatch.mergeBatchId),
-    ],
+    originalRows: projection.originalRows,
+    materialPrepRows: projection.materialPrepRows,
+    mergeBatches: projection.mergeBatches,
+    markerStore: projection.markerStore,
+    ticketRecords: projection.ticketRecords,
+    printJobs: projection.printJobs,
+    transferBagStore: projection.transferBagStore,
+    printableViewModel: projection.printableViewModel,
+    craftTraceProjection: projection.craftTraceProjection,
+    filteredUnits: filterPrintableUnits(projection.printableViewModel.units, state.filters),
   }
 }
 
@@ -549,10 +335,15 @@ function buildPrintableUnitQuery(unit: PrintableUnit): Record<string, string | u
     printableUnitType: unit.printableUnitType,
     batchId: unit.batchId || undefined,
     batchNo: unit.batchNo || undefined,
+    originalCutOrderId: unit.cutOrderId || undefined,
+    originalCutOrderNo: unit.cutOrderNo || undefined,
     cutOrderId: unit.cutOrderId || undefined,
     cutOrderNo: unit.cutOrderNo || undefined,
+    productionOrderId: unit.sourceProductionOrderIds[0] || undefined,
     sourceProductionOrderNo: unit.sourceProductionOrderNos[0] || undefined,
+    productionOrderNo: unit.sourceProductionOrderNos[0] || undefined,
     styleCode: unit.styleCode || undefined,
+    materialSku: unit.fabricSku || undefined,
     fabricSku: unit.fabricSku || undefined,
   }
 }
@@ -1134,13 +925,21 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
 
 function buildTicketPanelHref(unit: PrintableUnit, ticket: TicketCard, panel: 'qr' | 'preview' | 'void-info'): string {
   return buildActionHref('fei-ticket-printed', unit, {
+    ticketId: ticket.ticketId,
     ticketRecordId: ticket.ticketId,
     panel,
   })
 }
 
+function findCraftTraceItem(bundle: FeiTicketsDataBundle, ticket: TicketCard | null): CraftTraceProjectionItem | null {
+  if (!ticket) return null
+  return bundle.craftTraceProjection.itemsByTicketId[ticket.ticketId] || bundle.craftTraceProjection.itemsByTicketNo[ticket.ticketNo] || null
+}
+
 function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null): string {
   if (!ticket) return ''
+  const bundle = getDataBundle()
+  const craftTrace = findCraftTraceItem(bundle, ticket)
   const panel = getCurrentSearchParams().get('panel') || 'qr'
   const title = panel === 'void-info' ? '作废与替代信息' : panel === 'preview' ? '打印预览' : '菲票码预览'
   const body =
@@ -1167,12 +966,27 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                 <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.ticketNo)}</p>
               </div>
               <div>
-                <p class="text-sm text-slate-500">SKU</p>
-                <p class="text-lg font-semibold text-slate-900">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</p>
+                <p class="text-sm text-slate-500">面料 SKU</p>
+                <p class="text-lg font-semibold text-slate-900">${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</p>
+                <p class="mt-1 text-xs text-slate-500">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</p>
               </div>
               <div>
                 <p class="text-sm text-slate-500">裁片部位</p>
                 <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.partName)}</p>
+              </div>
+              <div>
+                <p class="text-sm text-slate-500">原始裁片单 / 生产单</p>
+                <p class="text-sm font-semibold text-slate-900">${escapeHtml(`${craftTrace?.originalCutOrderNo || ticket.sourceCutOrderNo} / ${craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补生产单'}`)}</p>
+              </div>
+              <div>
+                <p class="text-sm text-slate-500">工艺顺序</p>
+                <p class="text-sm font-semibold text-slate-900">${escapeHtml(craftTrace?.secondaryCrafts.join(' → ') || '未配置')}</p>
+                <p class="mt-1 text-xs text-slate-500">${escapeHtml(`版本 ${craftTrace?.craftSequenceVersion || '待补'} / 当前 ${craftTrace?.currentCraftStage || '未开始'}`)}</p>
+              </div>
+              <div class="md:col-span-2">
+                <p class="text-sm text-slate-500">顺序校验 / 载具绑定</p>
+                <p class="text-sm font-semibold ${craftTrace?.validation.allowed ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(craftTrace?.validation.reason || '待补校验结果')}</p>
+                <p class="mt-1 text-xs text-slate-500">${escapeHtml(craftTrace?.carrierCode ? `已装入 ${craftTrace.carrierCode} / 周期 ${craftTrace.usageNo || '待补'}` : '当前未装袋')}</p>
               </div>
               <div>
                 <p class="text-sm text-slate-500">数量</p>
@@ -1185,6 +999,12 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
           <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <p class="text-xs text-blue-600">菲票码值</p>
             <p class="mt-2 break-all text-sm font-medium text-blue-900">${escapeHtml(ticket.qrPayload)}</p>
+            <div class="mt-3 grid gap-2 text-xs text-blue-900/80 md:grid-cols-2">
+              <div>原始裁片单：${escapeHtml(craftTrace?.originalCutOrderNo || ticket.sourceCutOrderNo)}</div>
+              <div>生产单：${escapeHtml(craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补')}</div>
+              <div>面料 SKU：${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</div>
+              <div>工艺版本：${escapeHtml(craftTrace?.craftSequenceVersion || '待补')}</div>
+            </div>
           </div>
         `
 
@@ -1192,6 +1012,7 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
 }
 
 function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitDetailViewModel): string {
+  const craftTraceProjection = getDataBundle().craftTraceProjection
   const selectedTicket = findTicketCard(detailView)
   const tableHtml = `
     <table class="min-w-full text-sm">
@@ -1199,7 +1020,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
         <tr>
           <th class="px-3 py-3 text-left font-medium">菲票号</th>
           <th class="px-3 py-3 text-left font-medium">款号</th>
-          <th class="px-3 py-3 text-left font-medium">SKU（颜色 + 尺码）</th>
+          <th class="px-3 py-3 text-left font-medium">面料 SKU</th>
           <th class="px-3 py-3 text-left font-medium">裁片部位</th>
           <th class="px-3 py-3 text-left font-medium">数量</th>
           <th class="px-3 py-3 text-left font-medium">来源原始裁片单号</th>
@@ -1247,7 +1068,10 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
               <tr>
                 <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(ticket.ticketNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.styleCode)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</td>
+                <td class="px-3 py-3 text-slate-700">
+                  <div class="font-medium text-slate-900">${escapeHtml(craftTraceProjection.itemsByTicketId[ticket.ticketId]?.materialSku || craftTraceProjection.itemsByTicketNo[ticket.ticketNo]?.materialSku || unit.fabricSku || '待补')}</div>
+                  <div class="text-xs text-slate-500">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</div>
+                </td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.partName)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(ticket.quantity)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.sourceCutOrderNo)}</td>
@@ -1530,7 +1354,7 @@ function renderOperationPage(pageKey: OperationPageKey): string {
       ? `
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">菲票号</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(ticket.ticketNo)}</p></div>
-          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">SKU</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</p></div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">面料 SKU</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(findCraftTraceItem(bundle, ticket)?.materialSku || unit.fabricSku || '待补')}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</p></div>
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">裁片部位</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(ticket.partName)}</p></div>
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">是否存在替代票</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(ticket.replacementTicketNo || '暂无')}</p></div>
         </div>

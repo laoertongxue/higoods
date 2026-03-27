@@ -46,6 +46,7 @@ export interface CuttingPieceProgressLine {
 
 export interface CuttingMaterialLine {
   originalCutOrderId?: string
+  originalCutOrderNo?: string
   cutPieceOrderNo: string
   mergeBatchId?: string
   materialSku: string

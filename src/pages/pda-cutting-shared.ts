@@ -1,12 +1,15 @@
 import { escapeHtml } from '../utils'
 import {
   buildPdaCuttingRoute,
-  getPdaCuttingTaskDetail,
+  getPdaCuttingTaskSnapshot,
   getPdaTaskFlowTaskById,
   type PdaCuttingTaskDetailData,
   type PdaTaskFlowMock,
-} from '../data/fcs/pda-cutting-special'
-import { readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+} from '../data/fcs/pda-cutting-execution-source.ts'
+import {
+  readSelectedExecutionOrderIdFromLocation,
+  readSelectedExecutionOrderNoFromLocation,
+} from './pda-cutting-context'
 import { renderPdaFrame, type PdaTabKey } from './pda-shell'
 
 interface CuttingSummaryItem {
@@ -29,8 +32,12 @@ export interface PdaCuttingPageContext {
   detail: PdaCuttingTaskDetailData
 }
 
-export function buildPdaCuttingExecutionStateKey(taskId: string, cutPieceOrderNo?: string | null): string {
-  return `${taskId}::${cutPieceOrderNo || 'default'}`
+export function buildPdaCuttingExecutionStateKey(
+  taskId: string,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+): string {
+  return `${taskId}::${executionOrderId || executionOrderNo || 'default'}`
 }
 
 function renderChip(label: string, className: string): string {
@@ -39,7 +46,10 @@ function renderChip(label: string, className: string): string {
 
 export function getPdaCuttingPageContext(taskId: string): PdaCuttingPageContext | null {
   const task = getPdaTaskFlowTaskById(taskId)
-  const detail = getPdaCuttingTaskDetail(taskId, readSelectedCutPieceOrderNoFromLocation())
+  const detail = getPdaCuttingTaskSnapshot(
+    taskId,
+    readSelectedExecutionOrderIdFromLocation() || readSelectedExecutionOrderNoFromLocation(),
+  )
 
   if (!task || !detail) return null
 
@@ -104,7 +114,7 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
         <div class="space-y-1">
           <div class="text-xs text-muted-foreground">裁片任务</div>
           <div class="text-lg font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
-          <div class="text-xs text-muted-foreground">生产单 ${escapeHtml(detail.productionOrderNo)} / 裁片单 ${escapeHtml(detail.cutPieceOrderNo)}</div>
+          <div class="text-xs text-muted-foreground">生产单 ${escapeHtml(detail.productionOrderNo)} / 执行单 ${escapeHtml(detail.executionOrderNo)}</div>
           <div class="text-xs text-muted-foreground">${escapeHtml(detail.taskProgressLabel)}</div>
         </div>
         ${renderChip(detail.currentStage, 'border-blue-200 bg-blue-50 text-blue-700')}
@@ -142,8 +152,9 @@ export function renderPdaCuttingExecutionHero(stepTitle: string, detail: PdaCutt
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.productionOrderNo)}</div>
         </article>
         <article class="rounded-xl border bg-muted/20 px-3 py-3">
-          <div class="text-muted-foreground">当前裁片单</div>
-          <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</div>
+          <div class="text-muted-foreground">当前执行单</div>
+          <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div>
+          <div class="mt-1 text-[11px] text-muted-foreground">绑定原始裁片单 ${escapeHtml(detail.originalCutOrderNo)}</div>
         </article>
         <article class="rounded-xl border bg-muted/20 px-3 py-3">
           <div class="text-muted-foreground">面料 SKU</div>
@@ -235,14 +246,30 @@ export function renderPdaCuttingOrderSelectionPrompt(detail: PdaCuttingTaskDetai
 
 export function renderPdaCuttingQuickLinks(
   taskId: string,
-  options?: { includeTaskDetail?: boolean; cutPieceOrderNo?: string; returnTo?: string },
+  options?: {
+    includeTaskDetail?: boolean
+    executionOrderId?: string
+    executionOrderNo?: string
+    originalCutOrderId?: string
+    originalCutOrderNo?: string
+    mergeBatchId?: string
+    mergeBatchNo?: string
+    materialSku?: string
+    returnTo?: string
+  },
 ): string {
   const links = [
     options?.includeTaskDetail !== false
       ? {
           label: '返回裁片任务详情',
           href: buildPdaCuttingRoute(taskId, 'task', {
-            cutPieceOrderNo: options?.cutPieceOrderNo,
+            executionOrderId: options?.executionOrderId,
+            executionOrderNo: options?.executionOrderNo,
+            originalCutOrderId: options?.originalCutOrderId,
+            originalCutOrderNo: options?.originalCutOrderNo,
+            mergeBatchId: options?.mergeBatchId,
+            mergeBatchNo: options?.mergeBatchNo,
+            materialSku: options?.materialSku,
             returnTo: options?.returnTo,
           }),
         }

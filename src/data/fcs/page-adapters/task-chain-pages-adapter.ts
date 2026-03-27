@@ -1,15 +1,15 @@
-import type { ProcessTask } from '../process-tasks'
+import type { ProcessTask } from '../process-tasks.ts'
 import {
   isRuntimeTaskExecutionTask,
   listRuntimeExecutionTasks,
   listRuntimeProcessTasks,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
-} from '../runtime-process-tasks'
+} from '../runtime-process-tasks.ts'
 import {
   getTaskTypeDisplayName,
   listExecutionTaskFacts,
-} from './task-execution-adapter'
+} from './task-execution-adapter.ts'
 
 export type TaskChainTenderStatus = 'OPEN' | 'OVERDUE' | 'AWARDED' | 'CLOSED' | 'CANCELLED'
 

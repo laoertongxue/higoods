@@ -1,13 +1,16 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
-  getPdaCuttingTaskDetail,
+  getPdaCuttingTaskSnapshot,
   type PdaCuttingTaskDetailData,
   type PdaCuttingTaskOrderLine,
-} from '../data/fcs/pda-cutting-special'
+} from '../data/fcs/pda-cutting-execution-source.ts'
 import { getClaimDisputeStatusMeta } from '../helpers/fcs-claim-dispute'
 import { getLatestClaimDisputeByTaskId } from '../state/fcs-claim-dispute-store'
-import { readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import {
+  readSelectedExecutionOrderIdFromLocation,
+  readSelectedExecutionOrderNoFromLocation,
+} from './pda-cutting-context'
 import {
   buildPdaCuttingTaskDetailFocusHref,
   getPdaCuttingCompletedActionLabel,
@@ -28,7 +31,7 @@ import {
 
 interface PdaCuttingTaskDetailPageState {
   qrExpanded: boolean
-  expandedCutPieceOrderNos: string[]
+  expandedExecutionOrderIds: string[]
   hasMultipleCutPieceOrders: boolean
   lastFocusToken: string
 }
@@ -46,7 +49,7 @@ function getPageState(taskId: string): PdaCuttingTaskDetailPageState {
 
   const initial: PdaCuttingTaskDetailPageState = {
     qrExpanded: false,
-    expandedCutPieceOrderNos: [],
+    expandedExecutionOrderIds: [],
     hasMultipleCutPieceOrders: false,
     lastFocusToken: '',
   }
@@ -63,13 +66,13 @@ function resolveCurrentTaskDetailHref(): string {
   return appStore.getState().pathname
 }
 
-function scheduleOrderFocus(cutPieceOrderNo: string | null, autoFocus: boolean): void {
-  if (!cutPieceOrderNo || !autoFocus || typeof document === 'undefined' || typeof window === 'undefined') return
-  const focusToken = `${appStore.getState().pathname}::${cutPieceOrderNo}`
+function scheduleOrderFocus(executionOrderId: string | null, autoFocus: boolean): void {
+  if (!executionOrderId || !autoFocus || typeof document === 'undefined' || typeof window === 'undefined') return
+  const focusToken = `${appStore.getState().pathname}::${executionOrderId}`
   if (lastFocusedOrderToken === focusToken) return
   lastFocusedOrderToken = focusToken
   window.requestAnimationFrame(() => {
-    const card = document.querySelector<HTMLElement>(`[data-pda-cutting-order-card-id="${cutPieceOrderNo}"]`)
+    const card = document.querySelector<HTMLElement>(`[data-pda-cutting-order-card-id="${executionOrderId}"]`)
     card?.scrollIntoView({ block: 'center' })
   })
 }
@@ -77,18 +80,18 @@ function scheduleOrderFocus(cutPieceOrderNo: string | null, autoFocus: boolean):
 function syncFocusDrivenState(
   state: PdaCuttingTaskDetailPageState,
   navContext: PdaCuttingNavContext,
-  focusCutPieceOrderNo: string | null,
+  focusExecutionOrderId: string | null,
 ): void {
-  const focusToken = `${focusCutPieceOrderNo || ''}|${navContext.autoExpandActions ? '1' : '0'}|${navContext.justCompletedAction || ''}|${navContext.justSaved ? '1' : '0'}`
+  const focusToken = `${focusExecutionOrderId || ''}|${navContext.autoExpandActions ? '1' : '0'}|${navContext.justCompletedAction || ''}|${navContext.justSaved ? '1' : '0'}`
   if (state.lastFocusToken === focusToken) return
   state.lastFocusToken = focusToken
 
   if (
     navContext.autoExpandActions &&
-    focusCutPieceOrderNo &&
-    !state.expandedCutPieceOrderNos.includes(focusCutPieceOrderNo)
+    focusExecutionOrderId &&
+    !state.expandedExecutionOrderIds.includes(focusExecutionOrderId)
   ) {
-    state.expandedCutPieceOrderNos = [...state.expandedCutPieceOrderNos, focusCutPieceOrderNo]
+    state.expandedExecutionOrderIds = [...state.expandedExecutionOrderIds, focusExecutionOrderId]
   }
 }
 
@@ -162,7 +165,7 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
       </div>
       <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
         <article class="rounded-xl border bg-muted/20 px-3 py-3">
-          <div class="text-muted-foreground">关联裁片单</div>
+          <div class="text-muted-foreground">关联执行单</div>
           <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.cutPieceOrderCount))}</div>
         </article>
         <article class="rounded-xl border bg-muted/20 px-3 py-3">
@@ -174,7 +177,7 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
           <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.pendingCutPieceOrderCount))}</div>
         </article>
         <article class="rounded-xl border bg-muted/20 px-3 py-3">
-          <div class="text-muted-foreground">异常裁片单</div>
+          <div class="text-muted-foreground">异常执行单</div>
           <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.exceptionCutPieceOrderCount))}</div>
         </article>
       </div>
@@ -204,23 +207,30 @@ function renderTaskOrderCard(
   detail: PdaCuttingTaskDetailData,
   state: PdaCuttingTaskDetailPageState,
   returnTo: string,
-  focusCutPieceOrderNo: string | null,
+  focusExecutionOrderNo: string | null,
   completedActionLabel: string | null,
 ): string {
   const actions = buildPdaCuttingTaskOrderActions(taskId, line, returnTo)
   const primaryRouteKey = resolvePdaCuttingTaskOrderPrimaryRouteKey(line)
   const routedPrimaryAction = actions.find((item) => item.key === primaryRouteKey) ?? actions[0]
-  const expanded = state.expandedCutPieceOrderNos.includes(line.cutPieceOrderNo)
-  const isCurrentSelected = detail.currentSelectedCutPieceOrderNo === line.cutPieceOrderNo
-  const isFocusTarget = focusCutPieceOrderNo === line.cutPieceOrderNo
+  const expanded = state.expandedExecutionOrderIds.includes(line.executionOrderId)
+  const isCurrentSelected = detail.currentSelectedExecutionOrderId === line.executionOrderId
+  const isFocusTarget = focusExecutionOrderNo === line.executionOrderNo
   const isStableDone = line.isDone && !line.hasException && !hasMeaningfulReplenishmentRisk(line.replenishmentRiskLabel)
   const navContext = readPdaCuttingNavContext()
   const primaryActionHref = isStableDone
     ? buildPdaCuttingTaskDetailFocusHref(taskId, {
-        cutPieceOrderNo: line.cutPieceOrderNo,
+        executionOrderId: line.executionOrderId,
+        executionOrderNo: line.executionOrderNo,
+        originalCutOrderId: line.originalCutOrderId,
+        originalCutOrderNo: line.originalCutOrderNo,
+        mergeBatchId: line.mergeBatchId,
+        mergeBatchNo: line.mergeBatchNo,
+        materialSku: line.materialSku,
         returnTo: navContext.returnTo,
         focusTaskId: taskId,
-        focusCutPieceOrderNo: line.cutPieceOrderNo,
+        focusExecutionOrderId: line.executionOrderId,
+        focusExecutionOrderNo: line.executionOrderNo,
         highlightCutPieceOrder: true,
         autoFocus: true,
       })
@@ -235,11 +245,12 @@ function renderTaskOrderCard(
       : ''
 
   return `
-    <article class="rounded-2xl border px-4 py-4 shadow-sm ${isFocusTarget ? 'border-blue-300 bg-blue-50/40 ring-2 ring-blue-100' : isCurrentSelected ? 'border-blue-200 bg-blue-50/30' : 'bg-card'}" data-pda-cutting-order-card-id="${escapeHtml(line.cutPieceOrderNo)}">
+    <article class="rounded-2xl border px-4 py-4 shadow-sm ${isFocusTarget ? 'border-blue-300 bg-blue-50/40 ring-2 ring-blue-100' : isCurrentSelected ? 'border-blue-200 bg-blue-50/30' : 'bg-card'}" data-pda-cutting-order-card-id="${escapeHtml(line.executionOrderId)}">
       <div class="flex items-start justify-between gap-3">
         <div class="space-y-1">
-          <div class="text-xs text-muted-foreground">裁片单号</div>
-          <div class="text-base font-semibold text-foreground">${escapeHtml(line.cutPieceOrderNo)}</div>
+          <div class="text-xs text-muted-foreground">执行单号</div>
+          <div class="text-base font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div>
+          <div class="text-[11px] text-muted-foreground">绑定原始裁片单 ${escapeHtml(line.originalCutOrderNo)}</div>
           <div class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div>
         </div>
         <div class="flex flex-wrap justify-end gap-2">
@@ -287,7 +298,7 @@ function renderTaskOrderCard(
         <button class="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90" data-nav="${escapeHtml(primaryActionHref)}">
           继续处理
         </button>
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted" data-pda-cut-task-action="toggle-order-actions" data-task-id="${escapeHtml(taskId)}" data-cut-piece-order-no="${escapeHtml(line.cutPieceOrderNo)}">
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted" data-pda-cut-task-action="toggle-order-actions" data-task-id="${escapeHtml(taskId)}" data-execution-order-id="${escapeHtml(line.executionOrderId)}">
           ${expanded ? '收起操作' : '更多操作'}
         </button>
       </div>
@@ -319,13 +330,13 @@ function renderTaskOrderList(taskId: string, detail: PdaCuttingTaskDetailData, s
 
   const returnTo = resolveCurrentTaskDetailHref()
   const navContext = readPdaCuttingNavContext()
-  const focusCutPieceOrderNo = navContext.focusCutPieceOrderNo || detail.currentSelectedCutPieceOrderNo || null
+  const focusExecutionOrderNo = navContext.focusExecutionOrderNo || detail.executionOrderNo || null
   const completedActionLabel = navContext.justSaved ? getPdaCuttingCompletedActionLabel(navContext.justCompletedAction) : null
 
   return `
     <div class="space-y-3">
       ${detail.cutPieceOrders
-        .map((line) => renderTaskOrderCard(taskId, line, detail, state, returnTo, focusCutPieceOrderNo, completedActionLabel))
+        .map((line) => renderTaskOrderCard(taskId, line, detail, state, returnTo, focusExecutionOrderNo, completedActionLabel))
         .join('')}
     </div>
   `
@@ -335,8 +346,8 @@ function renderFocusedQrSummary(detail: PdaCuttingTaskDetailData, state: PdaCutt
   const explainBlock = state.qrExpanded
     ? `
         <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs leading-5 text-muted-foreground">
-          当前裁片单主码对应裁片单 <span class="font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</span>，
-          后续领料、铺布、入仓和交接都继续使用这张裁片单的主码。
+          当前执行单 <span class="font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</span> 已绑定原始裁片单
+          <span class="font-medium text-foreground">${escapeHtml(detail.originalCutOrderNo)}</span>，后续领料、铺布、入仓和交接都沿正式对象链回写。
         </div>
       `
     : ''
@@ -346,13 +357,14 @@ function renderFocusedQrSummary(detail: PdaCuttingTaskDetailData, state: PdaCutt
       <div class="rounded-xl border bg-muted/20 px-3 py-3">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <div class="text-muted-foreground">当前裁片单</div>
-            <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(detail.cutPieceOrderNo)}</div>
+            <div class="text-muted-foreground">当前执行单</div>
+            <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</div>
+            <div class="mt-1 text-[11px] text-muted-foreground">原始裁片单 ${escapeHtml(detail.originalCutOrderNo)}</div>
           </div>
           ${renderStatusChip(detail.hasQrCode ? '已生成主码' : '未生成主码', detail.hasQrCode ? 'green' : 'amber')}
         </div>
         <div class="mt-3 rounded-xl border border-dashed bg-background px-3 py-4 text-center">
-          <div class="text-[11px] text-muted-foreground">裁片单主码</div>
+          <div class="text-[11px] text-muted-foreground">原始裁片单主码</div>
           <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(detail.qrCodeValue)}</div>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-3">
@@ -447,9 +459,10 @@ function renderClaimDisputeSummary(taskId: string): string {
 }
 
 export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCuttingTaskDetailRenderOptions): string {
-  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
   const navContext = readPdaCuttingNavContext()
-  const detail = getPdaCuttingTaskDetail(taskId, selectedCutPieceOrderNo ?? undefined)
+  const detail = getPdaCuttingTaskSnapshot(taskId, selectedExecutionOrderId ?? selectedExecutionOrderNo ?? undefined)
   const backHref = resolveSafeBackHref(options?.backHref)
 
   if (!detail) {
@@ -466,22 +479,22 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
   const state = getPageState(taskId)
   state.hasMultipleCutPieceOrders = detail.cutPieceOrderCount > 1
 
-  const focusedCutPieceOrderNo =
-    navContext.focusCutPieceOrderNo ||
-    detail.currentSelectedCutPieceOrderNo ||
-    (detail.cutPieceOrderCount === 1 ? detail.defaultCutPieceOrderNo : null)
-  syncFocusDrivenState(state, navContext, focusedCutPieceOrderNo)
-  scheduleOrderFocus(focusedCutPieceOrderNo, Boolean(navContext.autoFocus))
-  const focusedOrderDetail = focusedCutPieceOrderNo
-    ? getPdaCuttingTaskDetail(taskId, focusedCutPieceOrderNo) ?? detail
+  const focusedExecutionOrderId =
+    navContext.focusExecutionOrderId ||
+    detail.currentSelectedExecutionOrderId ||
+    (detail.cutPieceOrderCount === 1 ? detail.defaultExecutionOrderId : null)
+  syncFocusDrivenState(state, navContext, focusedExecutionOrderId)
+  scheduleOrderFocus(focusedExecutionOrderId, Boolean(navContext.autoFocus))
+  const focusedOrderDetail = focusedExecutionOrderId
+    ? getPdaCuttingTaskSnapshot(taskId, focusedExecutionOrderId) ?? detail
     : null
 
   const body = `
     ${renderTaskOverviewCard(detail)}
-    ${renderPdaCuttingSection('关联裁片单', '', renderTaskOrderList(taskId, detail, state))}
+    ${renderPdaCuttingSection('关联执行单', '', renderTaskOrderList(taskId, detail, state))}
     ${
       focusedOrderDetail
-        ? renderPdaCuttingSection('当前裁片单主码', '', renderFocusedQrSummary(focusedOrderDetail, state))
+        ? renderPdaCuttingSection('当前原始裁片单主码', '', renderFocusedQrSummary(focusedOrderDetail, state))
         : ''
     }
     ${renderPdaCuttingSection('领料数量异议', '', renderClaimDisputeSummary(taskId))}
@@ -514,11 +527,11 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'toggle-order-actions') {
-    const cutPieceOrderNo = actionNode.dataset.cutPieceOrderNo
-    if (!cutPieceOrderNo) return false
-    state.expandedCutPieceOrderNos = state.expandedCutPieceOrderNos.includes(cutPieceOrderNo)
-      ? state.expandedCutPieceOrderNos.filter((item) => item !== cutPieceOrderNo)
-      : [...state.expandedCutPieceOrderNos, cutPieceOrderNo]
+    const executionOrderId = actionNode.dataset.executionOrderId
+    if (!executionOrderId) return false
+    state.expandedExecutionOrderIds = state.expandedExecutionOrderIds.includes(executionOrderId)
+      ? state.expandedExecutionOrderIds.filter((item) => item !== executionOrderId)
+      : [...state.expandedExecutionOrderIds, executionOrderId]
     return true
   }
 

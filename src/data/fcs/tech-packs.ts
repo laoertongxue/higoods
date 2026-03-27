@@ -1644,6 +1644,814 @@ export const techPacks: TechPack[] = [
   },
 ]
 
+type SupplementalCuttingMaterialType = 'PRINT' | 'DYE' | 'SOLID' | 'LINING'
+
+interface SupplementalPieceRowConfig {
+  id: string
+  name: string
+  count: number
+}
+
+interface SupplementalMaterialMappingConfig {
+  id: string
+  materialCode: string
+  materialName: string
+  materialType: SupplementalCuttingMaterialType
+  applicableSkuCodes: string[]
+  pieceId: string
+  pieceName: string
+  pieceCountPerUnit: number
+}
+
+interface SupplementalReleasedTechPackConfig {
+  spuCode: string
+  spuName: string
+  versionLabel: string
+  lastUpdatedAt: string
+  skuCatalog: TechPackSkuLine[]
+  pieceRows: SupplementalPieceRowConfig[]
+  materialMappings: SupplementalMaterialMappingConfig[]
+}
+
+function toSupplementalBomType(materialType: SupplementalCuttingMaterialType): string {
+  return materialType === 'LINING' ? '辅料' : '面料'
+}
+
+function toSupplementalColorCode(colorName: string): string {
+  const alnum = colorName.replace(/[^A-Za-z0-9\u4e00-\u9fa5]/g, '')
+  if (!alnum) return 'MIX'
+  return alnum.slice(0, 6).toUpperCase()
+}
+
+function createSupplementalProcessEntries(
+  config: SupplementalReleasedTechPackConfig,
+): TechPackProcessEntry[] {
+  const entries: TechPackProcessEntry[] = []
+  const materialTypes = new Set(config.materialMappings.map((item) => item.materialType))
+
+  if (materialTypes.has('PRINT')) {
+    entries.push({
+      id: `${config.spuCode}-prep-print`,
+      entryType: 'PROCESS_BASELINE',
+      stageCode: 'PREP',
+      stageName: '准备阶段',
+      processCode: 'PRINT',
+      processName: '印花',
+      assignmentGranularity: 'COLOR',
+      defaultDocType: 'DEMAND',
+      taskTypeMode: 'PROCESS',
+      isSpecialCraft: false,
+      triggerSource: 'BOM上存在印花面料',
+      standardTimeMinutes: 8,
+      timeUnit: '分钟/件',
+      difficulty: 'MEDIUM',
+    })
+  }
+
+  if (materialTypes.has('DYE')) {
+    entries.push({
+      id: `${config.spuCode}-prep-dye`,
+      entryType: 'PROCESS_BASELINE',
+      stageCode: 'PREP',
+      stageName: '准备阶段',
+      processCode: 'DYE',
+      processName: '染色',
+      assignmentGranularity: 'COLOR',
+      defaultDocType: 'DEMAND',
+      taskTypeMode: 'PROCESS',
+      isSpecialCraft: false,
+      triggerSource: 'BOM上存在染色面料',
+      standardTimeMinutes: 6,
+      timeUnit: '分钟/件',
+      difficulty: 'LOW',
+    })
+  }
+
+  entries.push({
+    id: `${config.spuCode}-prod-sew`,
+    entryType: 'CRAFT',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processCode: 'SEW',
+    processName: '车缝',
+    craftCode: 'CRAFT_262144',
+    craftName: '曲牙',
+    assignmentGranularity: 'SKU',
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    standardTimeMinutes: 12,
+    timeUnit: '分钟/件',
+    difficulty: 'MEDIUM',
+  })
+
+  return entries
+}
+
+function createSupplementalReleasedTechPack(config: SupplementalReleasedTechPackConfig): TechPack {
+  const patternId = `${config.spuCode}-pattern-main`
+  const patternName = `${config.spuName} 结构纸样`
+  const bomItems = config.materialMappings.map((mapping, index) => ({
+    id: `${config.spuCode}-bom-${index + 1}`,
+    type: toSupplementalBomType(mapping.materialType),
+    name: mapping.materialName,
+    spec: mapping.materialType === 'LINING' ? '里辅料标准' : '主布标准',
+    colorLabel: '按 SKU 适配',
+    unitConsumption: Number((mapping.pieceCountPerUnit * 0.28).toFixed(2)),
+    lossRate: 4,
+    supplier: 'HiGood Mock Supplier',
+    printRequirement: mapping.materialType === 'PRINT' ? '按技术包印花要求' : '无',
+    dyeRequirement: mapping.materialType === 'DYE' ? '按技术包染色要求' : '无',
+    applicableSkuCodes: [...mapping.applicableSkuCodes],
+    linkedPatternIds: [patternId],
+    usageProcessCodes:
+      mapping.materialType === 'PRINT'
+        ? ['PROC_PRINT', 'PROC_CUT']
+        : mapping.materialType === 'DYE'
+          ? ['PROC_DYE', 'PROC_CUT']
+          : ['PROC_CUT'],
+  }))
+
+  const colorGroups = new Map<string, SupplementalMaterialMappingConfig[]>()
+  config.skuCatalog.forEach((sku) => {
+    const mappings = config.materialMappings.filter((item) => item.applicableSkuCodes.includes(sku.skuCode))
+    if (!mappings.length) return
+    const current = colorGroups.get(sku.color) ?? []
+    mappings.forEach((mapping) => {
+      if (!current.includes(mapping)) current.push(mapping)
+    })
+    colorGroups.set(sku.color, current)
+  })
+
+  const colorMaterialMappings: TechPackColorMaterialMapping[] = Array.from(colorGroups.entries()).map(
+    ([colorName, mappings]) => ({
+      id: `${config.spuCode}-${toSupplementalColorCode(colorName)}`,
+      spuCode: config.spuCode,
+      colorCode: toSupplementalColorCode(colorName),
+      colorName,
+      status: 'CONFIRMED',
+      generatedMode: 'MANUAL',
+      confirmedBy: 'System',
+      confirmedAt: config.lastUpdatedAt,
+      remark: '为打通生产需求 → 技术包 → 生产单 → 原始裁片单链路补齐的结构化技术包映射。',
+      lines: mappings.map((mapping, index) => ({
+        id: `${config.spuCode}-${toSupplementalColorCode(colorName)}-line-${index + 1}`,
+        bomItemId: bomItems.find((item) => item.name === mapping.materialName && item.linkedPatternIds?.[0] === patternId)?.id,
+        materialCode: mapping.materialCode,
+        materialName: mapping.materialName,
+        materialType: mapping.materialType === 'LINING' ? '辅料' : '面料',
+        patternId,
+        patternName,
+        pieceId: mapping.pieceId,
+        pieceName: mapping.pieceName,
+        pieceCountPerUnit: mapping.pieceCountPerUnit,
+        unit: '片',
+        applicableSkuCodes: config.skuCatalog
+          .filter((sku) => sku.color === colorName && mapping.applicableSkuCodes.includes(sku.skuCode))
+          .map((sku) => sku.skuCode),
+        sourceMode: 'MANUAL',
+        note: '上游链补齐生成',
+      })),
+    }),
+  )
+
+  return {
+    spuCode: config.spuCode,
+    spuName: config.spuName,
+    status: 'RELEASED',
+    versionLabel: config.versionLabel,
+    completenessScore: 100,
+    missingChecklist: [],
+    lastUpdatedAt: config.lastUpdatedAt,
+    lastUpdatedBy: 'System',
+    patternFiles: [
+      {
+        id: patternId,
+        fileName: `${config.spuCode}-pattern.pdf`,
+        fileUrl: '#',
+        uploadedAt: config.lastUpdatedAt,
+        uploadedBy: 'System',
+        linkedBomItemId: bomItems[0]?.id,
+        widthCm: 160,
+        markerLengthM: 8.4,
+        totalPieceCount: config.pieceRows.reduce((sum, row) => sum + row.count, 0),
+        pieceRows: config.pieceRows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          count: row.count,
+        })),
+      },
+    ],
+    patternDesc: `${config.spuName} 结构化裁片与物料映射补齐版本`,
+    processes: [],
+    processEntries: createSupplementalProcessEntries(config),
+    sizeTable: [
+      { id: `${config.spuCode}-size-1`, part: '胸围', S: 94, M: 98, L: 102, XL: 106, tolerance: 2 },
+      { id: `${config.spuCode}-size-2`, part: '衣长', S: 66, M: 68, L: 70, XL: 72, tolerance: 2 },
+    ],
+    bomItems,
+    skuCatalog: [...config.skuCatalog],
+    materialCostItems: bomItems.map((item, index) => ({
+      id: `${config.spuCode}-mc-${index + 1}`,
+      bomItemId: item.id,
+      price: 18 + index * 2,
+      currency: '人民币',
+      unit: '人民币/米',
+    })),
+    processCostItems: [],
+    customCostItems: [],
+    colorMaterialMappings,
+    patternDesigns: [],
+    attachments: [],
+  }
+}
+
+const supplementalReleasedTechPackConfigs: SupplementalReleasedTechPackConfig[] = [
+  {
+    spuCode: 'SPU-2024-004',
+    spuName: 'Kaos Polos Premium',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-02 16:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-004-S-WHT', color: 'White', size: 'S' },
+      { skuCode: 'SKU-004-M-WHT', color: 'White', size: 'M' },
+      { skuCode: 'SKU-004-L-WHT', color: 'White', size: 'L' },
+      { skuCode: 'SKU-004-XL-WHT', color: 'White', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'front', name: '前片', count: 1 },
+      { id: 'back', name: '后片', count: 1 },
+      { id: 'sleeve-left', name: '左袖', count: 1 },
+      { id: 'sleeve-right', name: '右袖', count: 1 },
+    ],
+    materialMappings: [
+      {
+        id: 'main',
+        materialCode: 'FAB-SKU-004-BASE',
+        materialName: '高支平纹主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-004-S-WHT', 'SKU-004-M-WHT', 'SKU-004-L-WHT', 'SKU-004-XL-WHT'],
+        pieceId: 'front',
+        pieceName: '前后片套裁',
+        pieceCountPerUnit: 4,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-008',
+    spuName: 'Kemeja Flanel Pria',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-04 11:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-008-S-PLB', color: 'Plaid Blue', size: 'S' },
+      { skuCode: 'SKU-008-M-PLB', color: 'Plaid Blue', size: 'M' },
+      { skuCode: 'SKU-008-L-PLB', color: 'Plaid Blue', size: 'L' },
+      { skuCode: 'SKU-008-XL-PLB', color: 'Plaid Blue', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'shirt-front', name: '前片', count: 2 },
+      { id: 'shirt-back', name: '后片', count: 1 },
+      { id: 'shirt-collar', name: '领片', count: 2 },
+    ],
+    materialMappings: [
+      {
+        id: 'plaid-main',
+        materialCode: 'FAB-SKU-008-PLAID',
+        materialName: '法兰绒格纹主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-008-S-PLB', 'SKU-008-M-PLB', 'SKU-008-L-PLB', 'SKU-008-XL-PLB'],
+        pieceId: 'shirt-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-009',
+    spuName: 'Polo Shirt Pique',
+    versionLabel: 'v1.2',
+    lastUpdatedAt: '2026-03-01 10:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-009-S-WHT', color: 'White', size: 'S' },
+      { skuCode: 'SKU-009-M-WHT', color: 'White', size: 'M' },
+      { skuCode: 'SKU-009-L-WHT', color: 'White', size: 'L' },
+      { skuCode: 'SKU-009-XL-WHT', color: 'White', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'polo-front', name: '前片', count: 1 },
+      { id: 'polo-back', name: '后片', count: 1 },
+    ],
+    materialMappings: [
+      {
+        id: 'polo-main',
+        materialCode: 'FAB-SKU-009-PIQUE',
+        materialName: '珠地网眼主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-009-S-WHT', 'SKU-009-M-WHT', 'SKU-009-L-WHT', 'SKU-009-XL-WHT'],
+        pieceId: 'polo-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 2,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-010',
+    spuName: 'Celana Jogger Pria',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-02 16:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-010-S-BLK', color: 'Black', size: 'S' },
+      { skuCode: 'SKU-010-M-BLK', color: 'Black', size: 'M' },
+      { skuCode: 'SKU-010-L-BLK', color: 'Black', size: 'L' },
+      { skuCode: 'SKU-010-XL-BLK', color: 'Black', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'pants-left', name: '左裤片', count: 1 },
+      { id: 'pants-right', name: '右裤片', count: 1 },
+    ],
+    materialMappings: [
+      {
+        id: 'pants-main',
+        materialCode: 'FAB-SKU-010-JOGGER',
+        materialName: '针织卫裤主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-010-S-BLK', 'SKU-010-M-BLK', 'SKU-010-L-BLK', 'SKU-010-XL-BLK'],
+        pieceId: 'pants-left',
+        pieceName: '裤身片',
+        pieceCountPerUnit: 2,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-011',
+    spuName: 'Sweater Rajut Wanita',
+    versionLabel: 'v1.1',
+    lastUpdatedAt: '2026-03-01 14:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-011-S-CRM', color: 'Cream', size: 'S' },
+      { skuCode: 'SKU-011-M-CRM', color: 'Cream', size: 'M' },
+      { skuCode: 'SKU-011-L-CRM', color: 'Cream', size: 'L' },
+      { skuCode: 'SKU-011-XL-CRM', color: 'Cream', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'knit-front', name: '前片', count: 1 },
+      { id: 'knit-back', name: '后片', count: 1 },
+      { id: 'knit-sleeve', name: '袖片', count: 2 },
+    ],
+    materialMappings: [
+      {
+        id: 'knit-main',
+        materialCode: 'FAB-SKU-011-KNIT',
+        materialName: '羊毛混纺主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-011-S-CRM', 'SKU-011-M-CRM', 'SKU-011-L-CRM', 'SKU-011-XL-CRM'],
+        pieceId: 'knit-front',
+        pieceName: '前后袖片',
+        pieceCountPerUnit: 4,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-012',
+    spuName: 'Cardigan Wanita',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-02 15:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-012-S-BEG', color: 'Beige', size: 'S' },
+      { skuCode: 'SKU-012-M-BEG', color: 'Beige', size: 'M' },
+      { skuCode: 'SKU-012-L-BEG', color: 'Beige', size: 'L' },
+      { skuCode: 'SKU-012-XL-BEG', color: 'Beige', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'cardigan-front', name: '前片', count: 2 },
+      { id: 'cardigan-back', name: '后片', count: 1 },
+    ],
+    materialMappings: [
+      {
+        id: 'cardigan-main',
+        materialCode: 'FAB-SKU-012-KNIT',
+        materialName: '开衫针织主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-012-S-BEG', 'SKU-012-M-BEG', 'SKU-012-L-BEG', 'SKU-012-XL-BEG'],
+        pieceId: 'cardigan-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-013',
+    spuName: 'Jas Pria Formal',
+    versionLabel: 'v1.5',
+    lastUpdatedAt: '2026-03-03 11:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-013-S-NVY', color: 'Navy', size: 'S' },
+      { skuCode: 'SKU-013-M-NVY', color: 'Navy', size: 'M' },
+      { skuCode: 'SKU-013-L-NVY', color: 'Navy', size: 'L' },
+      { skuCode: 'SKU-013-XL-NVY', color: 'Navy', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'blazer-front-left', name: '左前片', count: 1 },
+      { id: 'blazer-front-right', name: '右前片', count: 1 },
+      { id: 'blazer-back', name: '后片', count: 1 },
+    ],
+    materialMappings: [
+      {
+        id: 'blazer-main',
+        materialCode: 'FAB-SKU-013-SUIT',
+        materialName: '西装精纺主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-013-S-NVY', 'SKU-013-M-NVY', 'SKU-013-L-NVY', 'SKU-013-XL-NVY'],
+        pieceId: 'blazer-front-left',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-014',
+    spuName: 'Rompi Pria Casual',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-04 09:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-014-S-GRN', color: 'Green', size: 'S' },
+      { skuCode: 'SKU-014-M-GRN', color: 'Green', size: 'M' },
+      { skuCode: 'SKU-014-L-GRN', color: 'Green', size: 'L' },
+      { skuCode: 'SKU-014-XL-GRN', color: 'Green', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'vest-front', name: '前片', count: 2 },
+      { id: 'vest-back', name: '后片', count: 1 },
+    ],
+    materialMappings: [
+      {
+        id: 'vest-main',
+        materialCode: 'FAB-SKU-014-VEST',
+        materialName: '轻量背心主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-014-S-GRN', 'SKU-014-M-GRN', 'SKU-014-L-GRN', 'SKU-014-XL-GRN'],
+        pieceId: 'vest-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-015',
+    spuName: 'Kemeja Linen Pria',
+    versionLabel: 'v1.3',
+    lastUpdatedAt: '2026-03-04 14:30:00',
+    skuCatalog: [
+      { skuCode: 'SKU-015-S-WHT', color: 'White', size: 'S' },
+      { skuCode: 'SKU-015-M-WHT', color: 'White', size: 'M' },
+      { skuCode: 'SKU-015-L-WHT', color: 'White', size: 'L' },
+      { skuCode: 'SKU-015-XL-WHT', color: 'White', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'linen-front', name: '前片', count: 2 },
+      { id: 'linen-back', name: '后片', count: 1 },
+      { id: 'linen-collar', name: '领片', count: 2 },
+    ],
+    materialMappings: [
+      {
+        id: 'linen-main',
+        materialCode: 'FAB-SKU-015-LINEN',
+        materialName: '亚麻主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-015-S-WHT', 'SKU-015-M-WHT', 'SKU-015-L-WHT', 'SKU-015-XL-WHT'],
+        pieceId: 'linen-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-2024-016',
+    spuName: 'Blus Wanita Satin',
+    versionLabel: 'v1.1',
+    lastUpdatedAt: '2026-03-01 16:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-016-S-CHP', color: 'Champagne', size: 'S' },
+      { skuCode: 'SKU-016-M-CHP', color: 'Champagne', size: 'M' },
+      { skuCode: 'SKU-016-L-CHP', color: 'Champagne', size: 'L' },
+      { skuCode: 'SKU-016-XL-CHP', color: 'Champagne', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'blouse-front', name: '前片', count: 1 },
+      { id: 'blouse-back', name: '后片', count: 1 },
+      { id: 'blouse-sleeve', name: '袖片', count: 2 },
+    ],
+    materialMappings: [
+      {
+        id: 'blouse-main',
+        materialCode: 'FAB-SKU-016-SATIN',
+        materialName: '缎面主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-016-S-CHP', 'SKU-016-M-CHP', 'SKU-016-L-CHP', 'SKU-016-XL-CHP'],
+        pieceId: 'blouse-front',
+        pieceName: '前后袖片',
+        pieceCountPerUnit: 4,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-TSHIRT-081',
+    spuName: '春季休闲印花短袖 T 恤',
+    versionLabel: 'v2.0',
+    lastUpdatedAt: '2026-03-15 09:10:00',
+    skuCatalog: [
+      { skuCode: 'SKU-001-M-WHT', color: 'White', size: 'M' },
+      { skuCode: 'SKU-001-L-WHT', color: 'White', size: 'L' },
+      { skuCode: 'SKU-001-M-BLK', color: 'Black', size: 'M' },
+      { skuCode: 'SKU-001-L-BLK', color: 'Black', size: 'L' },
+      { skuCode: 'SKU-081-M-RSE', color: '玫瑰红', size: 'M' },
+      { skuCode: 'SKU-081-L-RSE', color: '玫瑰红', size: 'L' },
+      { skuCode: 'SKU-081-M-RSE-2', color: '玫瑰红补单', size: 'M' },
+      { skuCode: 'SKU-081-L-RSE-2', color: '玫瑰红补单', size: 'L' },
+    ],
+    pieceRows: [
+      { id: 'tee-front', name: '前片', count: 1 },
+      { id: 'tee-back', name: '后片', count: 1 },
+      { id: 'tee-neck', name: '领口拼接片', count: 1 },
+    ],
+    materialMappings: [
+      {
+        id: 'tee-white-main',
+        materialCode: 'FAB-SKU-PRINT-001',
+        materialName: '白色印花主布',
+        materialType: 'PRINT',
+        applicableSkuCodes: ['SKU-001-M-WHT', 'SKU-001-L-WHT'],
+        pieceId: 'tee-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 2,
+      },
+      {
+        id: 'tee-black-main',
+        materialCode: 'FAB-SKU-PRINT-001-B',
+        materialName: '黑色印花主布',
+        materialType: 'PRINT',
+        applicableSkuCodes: ['SKU-001-M-BLK', 'SKU-001-L-BLK'],
+        pieceId: 'tee-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 2,
+      },
+      {
+        id: 'tee-white-lining',
+        materialCode: 'FAB-SKU-LINING-001',
+        materialName: '白色里辅料',
+        materialType: 'LINING',
+        applicableSkuCodes: ['SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-M-BLK', 'SKU-001-L-BLK'],
+        pieceId: 'tee-neck',
+        pieceName: '领口拼接片',
+        pieceCountPerUnit: 1,
+      },
+      {
+        id: 'tee-rose-main',
+        materialCode: 'FAB-SKU-SOLID-033',
+        materialName: '玫瑰红主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-081-M-RSE', 'SKU-081-L-RSE'],
+        pieceId: 'tee-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 2,
+      },
+      {
+        id: 'tee-rose-lining',
+        materialCode: 'FAB-SKU-LINING-007',
+        materialName: '玫瑰红配套里布',
+        materialType: 'LINING',
+        applicableSkuCodes: ['SKU-081-M-RSE', 'SKU-081-L-RSE'],
+        pieceId: 'tee-neck',
+        pieceName: '领口拼接片',
+        pieceCountPerUnit: 1,
+      },
+      {
+        id: 'tee-rose-replenish-main',
+        materialCode: 'FAB-SKU-PRINT-031',
+        materialName: '玫瑰红补单印花主布',
+        materialType: 'PRINT',
+        applicableSkuCodes: ['SKU-081-M-RSE-2', 'SKU-081-L-RSE-2'],
+        pieceId: 'tee-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 2,
+      },
+      {
+        id: 'tee-rose-replenish-contrast',
+        materialCode: 'FAB-SKU-PRINT-033',
+        materialName: '玫瑰红补单拼接布',
+        materialType: 'PRINT',
+        applicableSkuCodes: ['SKU-081-M-RSE-2', 'SKU-081-L-RSE-2'],
+        pieceId: 'tee-neck',
+        pieceName: '领口拼接片',
+        pieceCountPerUnit: 1,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-HOODIE-082',
+    spuName: '连帽拉链卫衣套装',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-09 09:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-082-S-GRY', color: '雾霾灰', size: 'S' },
+      { skuCode: 'SKU-082-M-GRY', color: '雾霾灰', size: 'M' },
+      { skuCode: 'SKU-082-L-GRY', color: '雾霾灰', size: 'L' },
+      { skuCode: 'SKU-082-XL-GRY', color: '雾霾灰', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'hoodie-front', name: '前片', count: 2 },
+      { id: 'hoodie-back', name: '后片', count: 1 },
+    ],
+    materialMappings: [
+      {
+        id: 'hoodie-main-a',
+        materialCode: 'FAB-SKU-SOLID-014',
+        materialName: '雾霾灰主布 A',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-082-S-GRY', 'SKU-082-M-GRY'],
+        pieceId: 'hoodie-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+      {
+        id: 'hoodie-main-b',
+        materialCode: 'FAB-SKU-SOLID-014-B',
+        materialName: '雾霾灰主布 B',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-082-L-GRY', 'SKU-082-XL-GRY'],
+        pieceId: 'hoodie-front',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-DRESS-083',
+    spuName: '春季定位印花连衣裙',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-10 09:10:00',
+    skuCatalog: [
+      { skuCode: 'SKU-083-S-RED', color: 'Red', size: 'S' },
+      { skuCode: 'SKU-083-M-RED', color: 'Red', size: 'M' },
+      { skuCode: 'SKU-083-L-RED', color: 'Red', size: 'L' },
+    ],
+    pieceRows: [
+      { id: 'dress-body', name: '裙身主片', count: 4 },
+      { id: 'dress-placket', name: '门襟片', count: 2 },
+    ],
+    materialMappings: [
+      {
+        id: 'dress-main',
+        materialCode: 'FAB-SKU-DYE-022',
+        materialName: '定位印染色主布',
+        materialType: 'DYE',
+        applicableSkuCodes: ['SKU-083-S-RED', 'SKU-083-M-RED', 'SKU-083-L-RED'],
+        pieceId: 'dress-body',
+        pieceName: '裙身主片',
+        pieceCountPerUnit: 4,
+      },
+      {
+        id: 'dress-placket',
+        materialCode: 'FAB-SKU-PRINT-008',
+        materialName: '门襟拼色布',
+        materialType: 'PRINT',
+        applicableSkuCodes: ['SKU-083-S-RED', 'SKU-083-M-RED', 'SKU-083-L-RED'],
+        pieceId: 'dress-placket',
+        pieceName: '门襟片',
+        pieceCountPerUnit: 2,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-TEE-084',
+    spuName: '针织撞色短袖上衣',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-11 09:00:00',
+    skuCatalog: [
+      { skuCode: 'SKU-084-S-CRL', color: '珊瑚粉', size: 'S' },
+      { skuCode: 'SKU-084-M-CRL', color: '珊瑚粉', size: 'M' },
+      { skuCode: 'SKU-084-L-CRL', color: '珊瑚粉', size: 'L' },
+      { skuCode: 'SKU-084-XL-CRL', color: '珊瑚粉', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'tee84-body', name: '衣身片', count: 2 },
+      { id: 'tee84-lining', name: '里料片', count: 2 },
+    ],
+    materialMappings: [
+      {
+        id: 'tee84-lining',
+        materialCode: 'FAB-SKU-LINING-003',
+        materialName: '弹力网布里料',
+        materialType: 'LINING',
+        applicableSkuCodes: ['SKU-084-S-CRL', 'SKU-084-M-CRL', 'SKU-084-L-CRL', 'SKU-084-XL-CRL'],
+        pieceId: 'tee84-lining',
+        pieceName: '里料片',
+        pieceCountPerUnit: 2,
+      },
+      {
+        id: 'tee84-print',
+        materialCode: 'FAB-SKU-PRINT-017',
+        materialName: '撞色主布',
+        materialType: 'PRINT',
+        applicableSkuCodes: ['SKU-084-S-CRL', 'SKU-084-M-CRL', 'SKU-084-L-CRL', 'SKU-084-XL-CRL'],
+        pieceId: 'tee84-body',
+        pieceName: '衣身片',
+        pieceCountPerUnit: 2,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-JACKET-085',
+    spuName: '户外轻量夹克',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-12 08:50:00',
+    skuCatalog: [
+      { skuCode: 'SKU-085-S-OLV', color: '军绿', size: 'S' },
+      { skuCode: 'SKU-085-M-OLV', color: '军绿', size: 'M' },
+      { skuCode: 'SKU-085-L-OLV', color: '军绿', size: 'L' },
+      { skuCode: 'SKU-085-XL-OLV', color: '军绿', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'jacket-body', name: '前后片', count: 3 },
+      { id: 'jacket-pocket', name: '口袋片', count: 2 },
+    ],
+    materialMappings: [
+      {
+        id: 'jacket-main',
+        materialCode: 'FAB-SKU-SOLID-021',
+        materialName: '夹克主布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-085-S-OLV', 'SKU-085-M-OLV', 'SKU-085-L-OLV', 'SKU-085-XL-OLV'],
+        pieceId: 'jacket-body',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+      {
+        id: 'jacket-pocket',
+        materialCode: 'FAB-SKU-SOLID-021-B',
+        materialName: '口袋辅布',
+        materialType: 'SOLID',
+        applicableSkuCodes: ['SKU-085-S-OLV', 'SKU-085-M-OLV', 'SKU-085-L-OLV', 'SKU-085-XL-OLV'],
+        pieceId: 'jacket-pocket',
+        pieceName: '口袋片',
+        pieceCountPerUnit: 2,
+      },
+    ],
+  },
+  {
+    spuCode: 'SPU-SHIRT-086',
+    spuName: '商务修身长袖衬衫',
+    versionLabel: 'v1.0',
+    lastUpdatedAt: '2026-03-13 08:35:00',
+    skuCatalog: [
+      { skuCode: 'SKU-086-S-BLU', color: '蓝白印花', size: 'S' },
+      { skuCode: 'SKU-086-M-BLU', color: '蓝白印花', size: 'M' },
+      { skuCode: 'SKU-086-L-BLU', color: '蓝白印花', size: 'L' },
+      { skuCode: 'SKU-086-XL-BLU', color: '蓝白印花', size: 'XL' },
+    ],
+    pieceRows: [
+      { id: 'shirt86-body', name: '前后片', count: 3 },
+      { id: 'shirt86-hem', name: '下摆辅布片', count: 2 },
+    ],
+    materialMappings: [
+      {
+        id: 'shirt86-main',
+        materialCode: 'FAB-SKU-DYE-009',
+        materialName: '蓝白印花主布',
+        materialType: 'DYE',
+        applicableSkuCodes: ['SKU-086-S-BLU', 'SKU-086-M-BLU', 'SKU-086-L-BLU', 'SKU-086-XL-BLU'],
+        pieceId: 'shirt86-body',
+        pieceName: '前后片',
+        pieceCountPerUnit: 3,
+      },
+      {
+        id: 'shirt86-hem',
+        materialCode: 'FAB-SKU-PRINT-021',
+        materialName: '下摆辅布',
+        materialType: 'PRINT',
+        applicableSkuCodes: ['SKU-086-S-BLU', 'SKU-086-M-BLU', 'SKU-086-L-BLU', 'SKU-086-XL-BLU'],
+        pieceId: 'shirt86-hem',
+        pieceName: '下摆辅布片',
+        pieceCountPerUnit: 2,
+      },
+    ],
+  },
+]
+
+function applySupplementalReleasedTechPacks(): void {
+  supplementalReleasedTechPackConfigs.forEach((config) => {
+    const existing = getTechPackBySpuCode(config.spuCode)
+    const nextPack = createSupplementalReleasedTechPack(config)
+    if (existing) {
+      updateTechPack(config.spuCode, nextPack)
+      return
+    }
+    techPacks.push(nextPack)
+  })
+}
+
+applySupplementalReleasedTechPacks()
+
 // 根据SPU获取技术包
 export function getTechPackBySpuCode(spuCode: string): TechPack | undefined {
   return techPacks.find(tp => tp.spuCode === spuCode)

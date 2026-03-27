@@ -1,9 +1,16 @@
-import { cutPieceOrderRecords } from './cut-piece-orders'
-import { cuttingMaterialPrepGroups } from './material-prep'
-import { replenishmentSuggestionRecords } from './replenishment'
-import { cutPieceWarehouseRecords, cuttingFabricStockRecords, sampleWarehouseRecords } from './warehouse-management'
-import { buildCuttingIdentityRegistry } from '../../../domain/cutting-identity'
+import { buildCuttingCoreRegistry } from '../../../domain/cutting-core/index.ts'
+import { productionOrders, type ProductionOrder } from '../production-orders.ts'
+import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
+import { cuttingOrderProgressRecords, type CuttingOrderProgressRecord } from './order-progress.ts'
 import type { CuttingUrgencyLevel } from './types'
+import {
+  listFormalCutPieceWarehouseRecords,
+  listFormalFabricWarehouseRecords,
+  listFormalSampleWarehouseRecords,
+  type CutPieceWarehouseRecord,
+  type CuttingFabricStockRecord,
+  type SampleWarehouseRecord,
+} from './warehouse-runtime.ts'
 
 export type CuttingSummaryStatus =
   | 'PENDING_PREP_CLOSURE'
@@ -146,102 +153,33 @@ export interface CuttingSummaryFilters {
   pendingOnly: 'ALL' | 'PENDING_ONLY'
 }
 
-const platformOrderMeta: Record<
-  string,
-  {
-    purchaseDate: string
-    orderQty: number
-    plannedShipDate: string
-    urgencyLevel: CuttingUrgencyLevel
-    cuttingTaskNo: string
-    assignedFactoryName: string
-    platformStageSummary: string
-    note: string
-  }
-> = {
-  'PO-202603-018': {
-    purchaseDate: '2026-03-08',
-    orderQty: 6800,
-    plannedShipDate: '2026-03-29',
-    urgencyLevel: 'AA',
-    cuttingTaskNo: 'CP-TASK-202603-018',
-    assignedFactoryName: '晋江盛鸿裁片厂',
-    platformStageSummary: '主布领料差异待核对，交期紧急。',
-    note: '该生产单当前最关键的问题是补料建议待审核与主布领料差异未收口。',
-  },
-  'PO-202603-024': {
-    purchaseDate: '2026-03-10',
-    orderQty: 4200,
-    plannedShipDate: '2026-04-03',
-    urgencyLevel: 'A',
-    cuttingTaskNo: 'CP-TASK-202603-024',
-    assignedFactoryName: '石狮恒泰裁片厂',
-    platformStageSummary: '染色主布已执行完成，当前主要关注样衣归还与后道交接。',
-    note: '该生产单主体执行已完成，但样衣回收和后道交接仍需核查。',
-  },
-  'PO-202603-031': {
-    purchaseDate: '2026-03-12',
-    orderQty: 5100,
-    plannedShipDate: '2026-04-08',
-    urgencyLevel: 'B',
-    cuttingTaskNo: 'CP-TASK-202603-031',
-    assignedFactoryName: '泉州嘉盛裁片厂',
-    platformStageSummary: '补料建议已通过，当前主要卡在待发后道与追加配料确认。',
-    note: '该生产单已进入收口阶段，重点核查补料已通过后的仓内节奏是否跟上。',
-  },
-  'PO-202603-027': {
-    purchaseDate: '2026-03-07',
-    orderQty: 2500,
-    plannedShipDate: '2026-03-26',
-    urgencyLevel: 'C',
-    cuttingTaskNo: 'CP-TASK-202603-027',
-    assignedFactoryName: '泉州协同裁片组',
-    platformStageSummary: '裁片已交接后道，当前仅保留收口复核。',
-    note: '作为收口样本，当前没有阻断性问题，可作为已收口对照记录。',
-  },
-}
+const cuttingIdentityRegistry = buildCuttingCoreRegistry()
+const progressRecordMap = new Map(cuttingOrderProgressRecords.map((record) => [record.productionOrderId, record] as const))
+const originalSourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+const formalFabricWarehouseRecords = listFormalFabricWarehouseRecords()
+const formalCutPieceWarehouseRecords = listFormalCutPieceWarehouseRecords()
+const formalSampleWarehouseRecords = listFormalSampleWarehouseRecords()
 
-const fallbackByOrderNo = {
-  'PO-202603-027': {
-    materialSummary: {
-      configuredCount: 1,
-      partiallyConfiguredCount: 0,
-      fullyConfiguredCount: 1,
-      printedSlipCount: 1,
-      qrGeneratedCount: 1,
-    },
-    receiveSummary: {
-      receivedSuccessCount: 1,
-      receivedPartialCount: 0,
-      notReceivedCount: 0,
-      receiveDiscrepancyCount: 0,
-      latestReceiveAt: '2026-03-20 11:20',
-      latestReceiveBy: '李秀兰',
-      photoProofCount: 0,
-    },
-    markerSummary: {
-      markerMaintainedCount: 1,
-      markerImageUploadedCount: 1,
-      pendingMarkerCount: 0,
-    },
-    spreadingSummary: {
-      spreadingRecordCount: 2,
-      totalSpreadLength: 198,
-      latestSpreadingAt: '2026-03-20 14:10',
-      latestSpreadingBy: '黄秋月',
-      pendingSpreadingCount: 0,
-    },
-  },
+function unique<T>(values: T[]): T[] {
+  return Array.from(new Set(values.filter(Boolean)))
 }
-
-const cuttingIdentityRegistry = buildCuttingIdentityRegistry()
 
 function maxDateTime(values: Array<string | undefined>): string {
   return values.filter(Boolean).sort().at(-1) ?? ''
 }
 
-function unique<T>(values: T[]): T[] {
-  return Array.from(new Set(values))
+function sumSkuQty(order: ProductionOrder): number {
+  return order.demandSnapshot.skuLines.reduce((sum, line) => sum + Number(line.qty || 0), 0)
+}
+
+function deriveUrgencyLevel(order: ProductionOrder, progressRecord: CuttingOrderProgressRecord | null): CuttingUrgencyLevel {
+  if (progressRecord) return progressRecord.urgencyLevel
+  const requiredDeliveryDate = order.demandSnapshot.requiredDeliveryDate
+  if (!requiredDeliveryDate) return 'C'
+  if (requiredDeliveryDate <= '2026-03-24') return 'AA'
+  if (requiredDeliveryDate <= '2026-03-28') return 'A'
+  if (requiredDeliveryDate <= '2026-04-05') return 'B'
+  return 'C'
 }
 
 function buildIssueFlags(issues: CuttingSummaryIssue[]): string[] {
@@ -260,331 +198,437 @@ function issueSourceMatches(
   return issue.sourcePage === 'SAMPLE'
 }
 
-function buildRecord(productionOrderNo: string): CuttingSummaryRecord {
-  const platform = platformOrderMeta[productionOrderNo]
-  const productionRef = cuttingIdentityRegistry.productionOrdersByNo[productionOrderNo] || null
-  const canonicalProductionOrderNo = productionRef?.productionOrderNo || productionOrderNo
-  const sourceProductionOrderNos = unique([productionOrderNo, canonicalProductionOrderNo])
-  const prepGroup = cuttingMaterialPrepGroups.find((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
-  const prepLines = prepGroup?.materialLines ?? []
-  const cutPieceRecords = cutPieceOrderRecords.filter((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
-  const replenishmentRecords = replenishmentSuggestionRecords.filter((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
-  const fabricStocks = cuttingFabricStockRecords.filter((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
-  const warehouseRecords = cutPieceWarehouseRecords.filter((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
-  const sampleRecords = sampleWarehouseRecords.filter((item) => sourceProductionOrderNos.includes(item.relatedProductionOrderNo))
-  const originalCutOrderRefs = unique([
-    ...cutPieceRecords.map((item) => item.originalCutOrderId),
-    ...prepLines.map((item) => item.cutPieceOrderNo),
-    ...warehouseRecords.map((item) => item.cutPieceOrderNo),
-  ])
-    .map((originalCutOrderId) => cuttingIdentityRegistry.originalCutOrdersById[originalCutOrderId])
-    .filter(Boolean)
-  const mergeBatchIds = unique(
-    originalCutOrderRefs.flatMap((ref) => [ref.activeMergeBatchId, ...ref.mergeBatchIds]).filter(Boolean),
-  )
-  const mergeBatchNos = unique(
-    mergeBatchIds.map((mergeBatchId) => cuttingIdentityRegistry.mergeBatchesById[mergeBatchId]?.mergeBatchNo).filter(Boolean),
-  )
-  const fallback = fallbackByOrderNo[productionOrderNo as keyof typeof fallbackByOrderNo] ?? {
-    materialSummary: {
-      configuredCount: 0,
-      partiallyConfiguredCount: 0,
-      fullyConfiguredCount: 0,
-      printedSlipCount: 0,
-      qrGeneratedCount: 0,
-    },
-    receiveSummary: {
-      receivedSuccessCount: 0,
-      receivedPartialCount: 0,
-      notReceivedCount: 0,
-      receiveDiscrepancyCount: 0,
-      latestReceiveAt: '',
-      latestReceiveBy: '',
-      photoProofCount: 0,
-    },
-    markerSummary: {
-      markerMaintainedCount: 0,
-      markerImageUploadedCount: 0,
-      pendingMarkerCount: 0,
-    },
-    spreadingSummary: {
-      spreadingRecordCount: 0,
-      totalSpreadLength: 0,
-      latestSpreadingAt: '',
-      latestSpreadingBy: '',
-      pendingSpreadingCount: 0,
-    },
+function getProductionOriginalSources(productionOrderId: string) {
+  return originalSourceRecords.filter((item) => item.productionOrderId === productionOrderId)
+}
+
+function getProductionFabricWarehouseRecords(productionOrderId: string): CuttingFabricStockRecord[] {
+  return formalFabricWarehouseRecords.filter((item) => item.productionOrderId === productionOrderId)
+}
+
+function getProductionCutPieceWarehouseRecords(productionOrderId: string): CutPieceWarehouseRecord[] {
+  return formalCutPieceWarehouseRecords.filter((item) => item.productionOrderId === productionOrderId)
+}
+
+function getProductionSampleWarehouseRecords(productionOrderId: string): SampleWarehouseRecord[] {
+  return formalSampleWarehouseRecords.filter((item) => item.productionOrderId === productionOrderId)
+}
+
+function buildMaterialSummary(progressRecord: CuttingOrderProgressRecord): CuttingSummaryMaterialSummary {
+  const materialLines = progressRecord.materialLines
+  return {
+    configuredCount: materialLines.filter((item) => item.configStatus !== 'NOT_CONFIGURED').length,
+    partiallyConfiguredCount: materialLines.filter((item) => item.configStatus === 'PARTIAL').length,
+    fullyConfiguredCount: materialLines.filter((item) => item.configStatus === 'CONFIGURED').length,
+    printedSlipCount: materialLines.filter((item) => item.printSlipStatus === 'PRINTED').length,
+    qrGeneratedCount: materialLines.filter((item) => item.qrStatus === 'GENERATED').length,
   }
+}
 
-  const materialSummary: CuttingSummaryMaterialSummary = prepLines.length
-    ? {
-        configuredCount: prepLines.filter((item) => item.configStatus !== 'NOT_CONFIGURED').length,
-        partiallyConfiguredCount: prepLines.filter((item) => item.configStatus === 'PARTIAL').length,
-        fullyConfiguredCount: prepLines.filter((item) => item.configStatus === 'CONFIGURED').length,
-        printedSlipCount: prepLines.filter((item) => item.printSlipStatus === 'PRINTED').length,
-        qrGeneratedCount: prepLines.filter((item) => item.qrStatus === 'GENERATED').length,
-      }
-    : fallback.materialSummary
-
-  const receiveSummary: CuttingSummaryReceiveSummary = prepLines.length
-    ? {
-        receivedSuccessCount: prepLines.filter((item) => item.receiveStatus === 'RECEIVED').length,
-        receivedPartialCount: prepLines.filter((item) => item.receiveStatus === 'PARTIAL').length,
-        notReceivedCount: prepLines.filter((item) => item.receiveStatus === 'NOT_RECEIVED').length,
-        receiveDiscrepancyCount: prepLines.filter((item) => item.discrepancyStatus !== 'NONE').length,
-        latestReceiveAt: maxDateTime(prepLines.map((item) => item.latestReceiveScanAt)),
-        latestReceiveBy:
-          prepLines
-            .filter((item) => item.latestReceiveScanAt)
-            .sort((a, b) => a.latestReceiveScanAt.localeCompare(b.latestReceiveScanAt))
-            .at(-1)?.latestReceiverName ?? '',
-        photoProofCount: prepLines.reduce((sum, item) => sum + item.photoProofCount, 0),
-      }
-    : fallback.receiveSummary
-
-  const markerSummary: CuttingSummaryMarkerSummary = cutPieceRecords.length
-    ? {
-        markerMaintainedCount: cutPieceRecords.filter((item) => item.markerInfo.totalPieces > 0).length,
-        markerImageUploadedCount: cutPieceRecords.filter((item) => item.hasMarkerImage).length,
-        pendingMarkerCount: cutPieceRecords.filter((item) => item.markerInfo.totalPieces === 0).length,
-      }
-    : fallback.markerSummary
-
-  const spreadingSummary: CuttingSummarySpreadingSummary = cutPieceRecords.length
-    ? {
-        spreadingRecordCount: cutPieceRecords.reduce((sum, item) => sum + item.spreadingRecords.length, 0),
-        totalSpreadLength: cutPieceRecords.reduce(
-          (sum, item) => sum + item.spreadingRecords.reduce((lineSum, record) => lineSum + record.calculatedRollLength, 0),
-          0,
-        ),
-        latestSpreadingAt: maxDateTime(cutPieceRecords.map((item) => item.latestSpreadingAt)),
-        latestSpreadingBy:
-          cutPieceRecords
-            .filter((item) => item.latestSpreadingAt)
-            .sort((a, b) => a.latestSpreadingAt.localeCompare(b.latestSpreadingAt))
-            .at(-1)?.latestSpreadingBy ?? '',
-        pendingSpreadingCount: cutPieceRecords.filter((item) => item.spreadingRecordCount === 0).length,
-      }
-    : fallback.spreadingSummary
-
-  const replenishmentSummary: CuttingSummaryReplenishmentSummary = {
-    suggestionCount: replenishmentRecords.length,
-    pendingReviewCount: replenishmentRecords.filter((item) => item.reviewStatus === 'PENDING').length,
-    approvedCount: replenishmentRecords.filter((item) => item.reviewStatus === 'APPROVED').length,
-    rejectedCount: replenishmentRecords.filter((item) => item.reviewStatus === 'REJECTED').length,
-    needMoreInfoCount: replenishmentRecords.filter((item) => item.reviewStatus === 'NEED_MORE_INFO').length,
-    highRiskCount: replenishmentRecords.filter((item) => item.riskLevel === 'HIGH').length,
-    mayAffectPrintingCount: replenishmentRecords.filter((item) => item.impactFlags.includes('PRINTING_AFFECTED')).length,
-    mayAffectDyeingCount: replenishmentRecords.filter((item) => item.impactFlags.includes('DYEING_AFFECTED')).length,
+function buildReceiveSummary(progressRecord: CuttingOrderProgressRecord): CuttingSummaryReceiveSummary {
+  const materialLines = progressRecord.materialLines
+  const latestReceiveLine = materialLines
+    .filter((item) => item.receiveStatus !== 'NOT_RECEIVED' && progressRecord.lastPickupScanAt)
+    .at(-1)
+  return {
+    receivedSuccessCount: materialLines.filter((item) => item.receiveStatus === 'RECEIVED').length,
+    receivedPartialCount: materialLines.filter((item) => item.receiveStatus === 'PARTIAL').length,
+    notReceivedCount: materialLines.filter((item) => item.receiveStatus === 'NOT_RECEIVED').length,
+    receiveDiscrepancyCount: materialLines.filter((item) => item.issueFlags.includes('RECEIVE_DIFF')).length,
+    latestReceiveAt: progressRecord.lastPickupScanAt || '',
+    latestReceiveBy: latestReceiveLine ? progressRecord.lastOperatorName : '',
+    photoProofCount: materialLines.filter((item) => item.issueFlags.includes('PHOTO_SUBMITTED')).length,
   }
+}
 
-  const warehouseSummary: CuttingSummaryWarehouseSummary = {
-    cuttingFabricStockNeedRecheckCount: fabricStocks.filter((item) => item.stockStatus === 'NEED_RECHECK').length,
-    cutPiecePendingInboundCount: warehouseRecords.filter((item) => item.inboundStatus === 'PENDING_INBOUND').length,
-    cutPieceInboundedCount: warehouseRecords.filter((item) => item.inboundStatus !== 'PENDING_INBOUND').length,
-    waitingHandoverCount: warehouseRecords.filter((item) => item.handoverStatus === 'WAITING_HANDOVER').length,
-    handedOverCount: warehouseRecords.filter((item) => item.handoverStatus === 'HANDED_OVER').length,
-    unassignedZoneCount: warehouseRecords.filter((item) => item.zoneCode === 'UNASSIGNED').length,
-    latestInboundAt: maxDateTime(warehouseRecords.map((item) => item.inboundAt)),
-    latestInboundBy:
-      warehouseRecords
-        .filter((item) => item.inboundAt)
-        .sort((a, b) => a.inboundAt.localeCompare(b.inboundAt))
-        .at(-1)?.inboundBy ?? '',
+function buildMarkerSummary(progressRecord: CuttingOrderProgressRecord): CuttingSummaryMarkerSummary {
+  const markerMaintainedCount = progressRecord.materialLines.filter((item) => (item.pieceProgressLines || []).length > 0).length
+  const markerImageUploadedCount = progressRecord.hasSpreadingRecord ? markerMaintainedCount : 0
+  return {
+    markerMaintainedCount,
+    markerImageUploadedCount,
+    pendingMarkerCount: Math.max(progressRecord.materialLines.length - markerMaintainedCount, 0),
   }
+}
 
-  const sampleSummary: CuttingSummarySampleSummary = {
-    sampleInUseCount: sampleRecords.filter((item) => item.currentStatus === 'IN_USE').length,
-    sampleWaitingReturnCount: sampleRecords.filter((item) => item.currentStatus === 'WAITING_RETURN').length,
-    sampleAvailableCount: sampleRecords.filter((item) => item.currentStatus === 'AVAILABLE').length,
-    sampleCheckingCount: sampleRecords.filter((item) => item.currentStatus === 'CHECKING').length,
-    overdueReturnCount: sampleRecords.filter(
-      (item) => item.currentStatus === 'WAITING_RETURN' && item.currentLocationStage === 'FACTORY_CHECK',
-    ).length,
-    latestSampleActionAt: maxDateTime(sampleRecords.map((item) => item.latestActionAt)),
-    latestSampleActionBy:
-      sampleRecords
-        .filter((item) => item.latestActionAt)
-        .sort((a, b) => a.latestActionAt.localeCompare(b.latestActionAt))
-        .at(-1)?.latestActionBy ?? '',
+function buildSpreadingSummary(progressRecord: CuttingOrderProgressRecord): CuttingSummarySpreadingSummary {
+  const spreadingRecordCount = progressRecord.hasSpreadingRecord ? progressRecord.materialLines.length : 0
+  return {
+    spreadingRecordCount,
+    totalSpreadLength: progressRecord.materialLines.reduce((sum, item) => sum + Number(item.configuredLength || 0), 0),
+    latestSpreadingAt: progressRecord.hasSpreadingRecord ? progressRecord.lastFieldUpdateAt : '',
+    latestSpreadingBy: progressRecord.hasSpreadingRecord ? progressRecord.lastOperatorName : '',
+    pendingSpreadingCount: progressRecord.hasSpreadingRecord ? 0 : progressRecord.materialLines.length,
   }
+}
 
+function buildReplenishmentSummary(progressRecord: CuttingOrderProgressRecord): CuttingSummaryReplenishmentSummary {
+  const pendingLines = progressRecord.materialLines.filter((item) => item.issueFlags.includes('REPLENISH_PENDING'))
+  return {
+    suggestionCount: pendingLines.length,
+    pendingReviewCount: pendingLines.length,
+    approvedCount: 0,
+    rejectedCount: 0,
+    needMoreInfoCount: 0,
+    highRiskCount: pendingLines.filter((item) => item.receiveStatus === 'PARTIAL' || item.materialType === 'PRINT').length,
+    mayAffectPrintingCount: pendingLines.filter((item) => item.materialType === 'PRINT').length,
+    mayAffectDyeingCount: pendingLines.filter((item) => item.materialType === 'DYE').length,
+  }
+}
+
+function buildWarehouseSummary(records: CutPieceWarehouseRecord[]): CuttingSummaryWarehouseSummary {
+  return {
+    cuttingFabricStockNeedRecheckCount: 0,
+    cutPiecePendingInboundCount: records.filter((item) => item.inboundStatus === 'PENDING_INBOUND').length,
+    cutPieceInboundedCount: records.filter((item) => item.inboundStatus !== 'PENDING_INBOUND').length,
+    waitingHandoverCount: records.filter((item) => item.handoverStatus === 'WAITING_HANDOVER').length,
+    handedOverCount: records.filter((item) => item.handoverStatus === 'HANDED_OVER').length,
+    unassignedZoneCount: records.filter((item) => item.zoneCode === 'UNASSIGNED').length,
+    latestInboundAt: maxDateTime(records.map((item) => item.inboundAt)),
+    latestInboundBy: records.filter((item) => item.inboundAt).sort((a, b) => a.inboundAt.localeCompare(b.inboundAt)).at(-1)?.inboundBy ?? '',
+  }
+}
+
+function buildSampleSummary(records: SampleWarehouseRecord[]): CuttingSummarySampleSummary {
+  return {
+    sampleInUseCount: records.filter((item) => item.currentStatus === 'IN_USE').length,
+    sampleWaitingReturnCount: records.filter((item) => item.currentStatus === 'WAITING_RETURN').length,
+    sampleAvailableCount: records.filter((item) => item.currentStatus === 'AVAILABLE').length,
+    sampleCheckingCount: records.filter((item) => item.currentStatus === 'CHECKING').length,
+    overdueReturnCount: records.filter((item) => item.currentStatus === 'WAITING_RETURN' && item.currentLocationStage === 'FACTORY_CHECK').length,
+    latestSampleActionAt: maxDateTime(records.map((item) => item.latestActionAt)),
+    latestSampleActionBy: records.filter((item) => item.latestActionAt).sort((a, b) => a.latestActionAt.localeCompare(b.latestActionAt)).at(-1)?.latestActionBy ?? '',
+  }
+}
+
+function buildPlatformStageSummary(args: {
+  receiveSummary: CuttingSummaryReceiveSummary
+  replenishmentSummary: CuttingSummaryReplenishmentSummary
+  warehouseSummary: CuttingSummaryWarehouseSummary
+  sampleSummary: CuttingSummarySampleSummary
+  spreadingSummary: CuttingSummarySpreadingSummary
+}): string {
+  if (args.replenishmentSummary.pendingReviewCount > 0) return '补料建议待审核，需先收口执行缺口。'
+  if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0) return '裁片仓入仓 / 分区仍待收口。'
+  if (args.sampleSummary.sampleWaitingReturnCount > 0) return '样衣流转尚未收口，需继续回仓。'
+  if (args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return '仓库配料领料仍在执行中。'
+  if (args.spreadingSummary.pendingSpreadingCount > 0) return '铺布执行记录尚未完全回流。'
+  return '正式裁片主链已进入稳定执行或收口阶段。'
+}
+
+function buildIssues(args: {
+  productionOrderNo: string
+  materialSummary: CuttingSummaryMaterialSummary
+  receiveSummary: CuttingSummaryReceiveSummary
+  markerSummary: CuttingSummaryMarkerSummary
+  spreadingSummary: CuttingSummarySpreadingSummary
+  replenishmentSummary: CuttingSummaryReplenishmentSummary
+  warehouseSummary: CuttingSummaryWarehouseSummary
+  sampleSummary: CuttingSummarySampleSummary
+}): CuttingSummaryIssue[] {
   const issues: CuttingSummaryIssue[] = []
 
-  if (receiveSummary.receiveDiscrepancyCount > 0) {
+  if (args.receiveSummary.receiveDiscrepancyCount > 0) {
     issues.push({
       issueType: 'RECEIVE_DIFF',
       level: 'HIGH',
       title: '领料差异未收口',
-      description: `当前共有 ${receiveSummary.receiveDiscrepancyCount} 条领料差异记录待核对，可能直接影响裁片收口和交期判断。`,
+      description: `当前共有 ${args.receiveSummary.receiveDiscrepancyCount} 条领料差异待核对。`,
       sourcePage: 'MATERIAL_PREP',
-      suggestedAction: '回仓库配料页核对差异、照片凭证和补配状态。',
+      suggestedAction: '返回仓库配料领料页核对差异与举证。',
       suggestedRoute: '/fcs/craft/cutting/material-prep',
     })
   }
 
-  if (materialSummary.partiallyConfiguredCount > 0 || materialSummary.configuredCount < cutPieceRecords.length) {
+  if (args.materialSummary.partiallyConfiguredCount > 0 || args.receiveSummary.notReceivedCount > 0) {
     issues.push({
       issueType: 'PREP_PENDING',
-      level: productionOrderNo === 'PO-202603-018' ? 'HIGH' : 'MEDIUM',
-      title: '配料仍未完全收口',
-      description: '仍有裁片单处于未配置或部分配置状态，当前不适合判定为已完成收口。',
+      level: args.productionOrderNo.endsWith('081') ? 'HIGH' : 'MEDIUM',
+      title: '配料领料仍待收口',
+      description: '当前仍有配料未齐套或领料未完成的原始裁片单。',
       sourcePage: 'MATERIAL_PREP',
-      suggestedAction: '返回仓库配料页继续补齐配料和打印状态。',
+      suggestedAction: '优先补齐正式配料与领料记录。',
       suggestedRoute: '/fcs/craft/cutting/material-prep',
     })
   }
 
-  if (markerSummary.pendingMarkerCount > 0) {
+  if (args.markerSummary.pendingMarkerCount > 0) {
     issues.push({
       issueType: 'MARKER_PENDING',
       level: 'MEDIUM',
-      title: '唛架信息仍待维护',
-      description: `当前仍有 ${markerSummary.pendingMarkerCount} 张裁片单未维护唛架或未形成有效总件数。`,
+      title: '唛架信息待补齐',
+      description: `当前仍有 ${args.markerSummary.pendingMarkerCount} 张原始裁片单缺少唛架或部位进度信息。`,
       sourcePage: 'CUT_PIECE_ORDER',
-      suggestedAction: '返回裁片单页补齐唛架配比、净长度和单件用量。',
-      suggestedRoute: '/fcs/craft/cutting/cut-piece-orders',
+      suggestedAction: '返回原始裁片单页补齐唛架与部位进度。',
+      suggestedRoute: '/fcs/craft/cutting/original-orders',
     })
   }
 
-  if (spreadingSummary.pendingSpreadingCount > 0) {
+  if (args.spreadingSummary.pendingSpreadingCount > 0) {
     issues.push({
       issueType: 'SPREAD_PENDING',
       level: 'MEDIUM',
-      title: '铺布记录仍不完整',
-      description: `仍有 ${spreadingSummary.pendingSpreadingCount} 张裁片单没有铺布回写，无法完全判断裁片执行收口。`,
+      title: '铺布回写仍待补齐',
+      description: `当前仍有 ${args.spreadingSummary.pendingSpreadingCount} 个原始裁片单未形成正式铺布回写。`,
       sourcePage: 'CUT_PIECE_ORDER',
-      suggestedAction: '核查裁片单页中的铺布记录，并确认现场回写是否缺失。',
-      suggestedRoute: '/fcs/craft/cutting/cut-piece-orders',
+      suggestedAction: '回原始裁片单或铺布页核查正式回写。',
+      suggestedRoute: '/fcs/craft/cutting/original-orders',
     })
   }
 
-  if (replenishmentSummary.pendingReviewCount > 0 || replenishmentSummary.needMoreInfoCount > 0) {
+  if (args.replenishmentSummary.pendingReviewCount > 0) {
     issues.push({
       issueType: 'REPLENISH_PENDING',
-      level: replenishmentSummary.highRiskCount > 0 ? 'HIGH' : 'MEDIUM',
-      title: '补料建议仍待审核',
-      description: `当前仍有 ${replenishmentSummary.pendingReviewCount + replenishmentSummary.needMoreInfoCount} 条补料建议未最终收口。`,
+      level: args.replenishmentSummary.highRiskCount > 0 ? 'HIGH' : 'MEDIUM',
+      title: '补料建议待处理',
+      description: `当前仍有 ${args.replenishmentSummary.pendingReviewCount} 条补料提示待收口。`,
       sourcePage: 'REPLENISHMENT',
-      suggestedAction: '回补料管理页优先处理高风险和待补充说明的建议。',
+      suggestedAction: '返回补料页处理当前执行缺口。',
       suggestedRoute: '/fcs/craft/cutting/replenishment',
     })
   }
 
-  if (warehouseSummary.cutPiecePendingInboundCount > 0 || warehouseSummary.unassignedZoneCount > 0) {
+  if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0) {
     issues.push({
       issueType: 'WAREHOUSE_PENDING',
-      level: warehouseSummary.unassignedZoneCount > 0 ? 'HIGH' : 'MEDIUM',
-      title: '裁片仓入仓与区域提示未收口',
-      description: '当前仍有裁片待入仓或未分配区域，后续查找与交接效率存在风险。',
+      level: args.warehouseSummary.unassignedZoneCount > 0 ? 'HIGH' : 'MEDIUM',
+      title: '裁片仓待入仓 / 待分区',
+      description: '当前仍存在待入仓或未完成区域分配的裁片仓记录。',
       sourcePage: 'WAREHOUSE',
-      suggestedAction: '回仓库管理页确认入仓区域与位置说明。',
-      suggestedRoute: '/fcs/craft/cutting/warehouse-management',
+      suggestedAction: '返回裁片仓页完成正式入仓和分区。',
+      suggestedRoute: '/fcs/craft/cutting/cut-piece-warehouse',
     })
-  } else if (warehouseSummary.waitingHandoverCount > 0) {
+  } else if (args.warehouseSummary.waitingHandoverCount > 0) {
     issues.push({
       issueType: 'HANDOVER_PENDING',
       level: 'LOW',
       title: '后道交接待确认',
-      description: `当前仍有 ${warehouseSummary.waitingHandoverCount} 条裁片记录待发后道。`,
+      description: `当前仍有 ${args.warehouseSummary.waitingHandoverCount} 条裁片仓记录待交接。`,
       sourcePage: 'WAREHOUSE',
-      suggestedAction: '回仓库管理页查看交接摘要并确认后道领取节奏。',
-      suggestedRoute: '/fcs/craft/cutting/warehouse-management',
+      suggestedAction: '返回裁片仓页确认待交接对象。',
+      suggestedRoute: '/fcs/craft/cutting/cut-piece-warehouse',
     })
   }
 
-  if (sampleSummary.sampleWaitingReturnCount > 0 || sampleSummary.overdueReturnCount > 0) {
+  if (args.sampleSummary.sampleWaitingReturnCount > 0 || args.sampleSummary.overdueReturnCount > 0) {
     issues.push({
       issueType: 'SAMPLE_PENDING',
-      level: sampleSummary.overdueReturnCount > 0 ? 'HIGH' : 'MEDIUM',
-      title: '样衣归还存在风险',
-      description: `当前待归还样衣 ${sampleSummary.sampleWaitingReturnCount} 件，其中超期 ${sampleSummary.overdueReturnCount} 件。`,
+      level: args.sampleSummary.overdueReturnCount > 0 ? 'HIGH' : 'MEDIUM',
+      title: '样衣流转存在风险',
+      description: `当前待归还样衣 ${args.sampleSummary.sampleWaitingReturnCount} 件，其中超期 ${args.sampleSummary.overdueReturnCount} 件。`,
       sourcePage: 'SAMPLE',
-      suggestedAction: '回仓库管理页核对样衣流转并完成归还登记。',
-      suggestedRoute: '/fcs/craft/cutting/warehouse-management',
+      suggestedAction: '返回样衣仓页继续完成归还与抽检。',
+      suggestedRoute: '/fcs/craft/cutting/sample-warehouse',
     })
   }
 
-  const overallRiskLevel: CuttingSummaryRiskLevel =
-    issues.some((item) => item.level === 'HIGH') ? 'HIGH' : issues.some((item) => item.level === 'MEDIUM') ? 'MEDIUM' : 'LOW'
+  return issues
+}
 
-  const overallSummaryStatus: CuttingSummaryStatus = (() => {
-    if (replenishmentSummary.pendingReviewCount > 0 || replenishmentSummary.needMoreInfoCount > 0) return 'PENDING_REPLENISHMENT'
-    if (sampleSummary.sampleWaitingReturnCount > 0 || sampleSummary.overdueReturnCount > 0) return 'PENDING_SAMPLE_RETURN'
-    if (warehouseSummary.cutPiecePendingInboundCount > 0 || warehouseSummary.unassignedZoneCount > 0 || warehouseSummary.waitingHandoverCount > 0) return 'PENDING_WAREHOUSE_HANDOVER'
-    if (markerSummary.pendingMarkerCount > 0 || spreadingSummary.pendingSpreadingCount > 0) return 'PENDING_EXECUTION_CLOSURE'
-    if (materialSummary.configuredCount < cutPieceRecords.length || receiveSummary.receivedPartialCount > 0 || receiveSummary.notReceivedCount > 0) return 'PENDING_PREP_CLOSURE'
-    if (issues.length > 0) return 'DONE_PENDING_REVIEW'
-    return 'CLOSED'
-  })()
+function buildOverallSummaryStatus(args: {
+  materialSummary: CuttingSummaryMaterialSummary
+  receiveSummary: CuttingSummaryReceiveSummary
+  markerSummary: CuttingSummaryMarkerSummary
+  spreadingSummary: CuttingSummarySpreadingSummary
+  replenishmentSummary: CuttingSummaryReplenishmentSummary
+  warehouseSummary: CuttingSummaryWarehouseSummary
+  sampleSummary: CuttingSummarySampleSummary
+  issues: CuttingSummaryIssue[]
+}): CuttingSummaryStatus {
+  if (args.replenishmentSummary.pendingReviewCount > 0 || args.replenishmentSummary.needMoreInfoCount > 0) return 'PENDING_REPLENISHMENT'
+  if (args.sampleSummary.sampleWaitingReturnCount > 0 || args.sampleSummary.overdueReturnCount > 0) return 'PENDING_SAMPLE_RETURN'
+  if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0 || args.warehouseSummary.waitingHandoverCount > 0) return 'PENDING_WAREHOUSE_HANDOVER'
+  if (args.markerSummary.pendingMarkerCount > 0 || args.spreadingSummary.pendingSpreadingCount > 0) return 'PENDING_EXECUTION_CLOSURE'
+  if (args.materialSummary.partiallyConfiguredCount > 0 || args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return 'PENDING_PREP_CLOSURE'
+  if (args.issues.length > 0) return 'DONE_PENDING_REVIEW'
+  return 'CLOSED'
+}
 
-  const lastUpdatedCandidates: Array<{ value: string; source: CuttingSummaryUpdatedSource }> = [
-    { value: receiveSummary.latestReceiveAt, source: 'FACTORY_APP' },
-    { value: spreadingSummary.latestSpreadingAt, source: 'FACTORY_APP' },
-    { value: warehouseSummary.latestInboundAt, source: 'FACTORY_APP' },
-    { value: sampleSummary.latestSampleActionAt, source: 'PCS' },
-    { value: maxDateTime(replenishmentRecords.map((item) => item.reviewedAt || item.suggestionCreatedAt)), source: 'PCS' },
-  ].filter((item) => item.value)
-
-  const lastUpdated = lastUpdatedCandidates.sort((a, b) => a.value.localeCompare(b.value)).at(-1)
-
-  const linkedPageSummary: CuttingSummaryLinkedPageSummary[] = [
+function buildLinkedPageSummary(args: {
+  progressRecord: CuttingOrderProgressRecord
+  materialSummary: CuttingSummaryMaterialSummary
+  receiveSummary: CuttingSummaryReceiveSummary
+  markerSummary: CuttingSummaryMarkerSummary
+  spreadingSummary: CuttingSummarySpreadingSummary
+  replenishmentSummary: CuttingSummaryReplenishmentSummary
+  warehouseSummary: CuttingSummaryWarehouseSummary
+}): CuttingSummaryLinkedPageSummary[] {
+  return [
     {
       pageKey: 'ORDER_PROGRESS',
-      pageLabel: '订单进度',
-      route: '/fcs/craft/cutting/order-progress',
-      summaryText: `${platform.urgencyLevel} 紧急 · ${platform.platformStageSummary}`,
+      pageLabel: '生产单进度',
+      route: '/fcs/craft/cutting/production-progress',
+      summaryText: `${args.progressRecord.urgencyLevel} 紧急 · ${args.progressRecord.cuttingStage}`,
     },
     {
       pageKey: 'MATERIAL_PREP',
       pageLabel: '仓库配料',
       route: '/fcs/craft/cutting/material-prep',
-      summaryText: `已配置 ${materialSummary.fullyConfiguredCount} / ${cutPieceRecords.length || materialSummary.configuredCount}，领料成功 ${receiveSummary.receivedSuccessCount}`,
+      summaryText: `已配置 ${args.materialSummary.fullyConfiguredCount}，领料完成 ${args.receiveSummary.receivedSuccessCount}`,
     },
     {
       pageKey: 'CUT_PIECE_ORDER',
-      pageLabel: '裁片单',
-      route: '/fcs/craft/cutting/cut-piece-orders',
-      summaryText: `唛架已维护 ${markerSummary.markerMaintainedCount}，铺布记录 ${spreadingSummary.spreadingRecordCount} 条`,
+      pageLabel: '原始裁片单',
+      route: '/fcs/craft/cutting/original-orders',
+      summaryText: `唛架已维护 ${args.markerSummary.markerMaintainedCount}，铺布回写 ${args.spreadingSummary.spreadingRecordCount} 条`,
     },
     {
       pageKey: 'REPLENISHMENT',
       pageLabel: '补料管理',
       route: '/fcs/craft/cutting/replenishment',
-      summaryText: `补料建议 ${replenishmentSummary.suggestionCount}，待审核 ${replenishmentSummary.pendingReviewCount}`,
+      summaryText: `补料提示 ${args.replenishmentSummary.suggestionCount}，待处理 ${args.replenishmentSummary.pendingReviewCount}`,
     },
     {
       pageKey: 'WAREHOUSE',
-      pageLabel: '仓库管理',
-      route: '/fcs/craft/cutting/warehouse-management',
-      summaryText: `待入仓 ${warehouseSummary.cutPiecePendingInboundCount}，待发后道 ${warehouseSummary.waitingHandoverCount}`,
+      pageLabel: '裁片仓',
+      route: '/fcs/craft/cutting/cut-piece-warehouse',
+      summaryText: `待入仓 ${args.warehouseSummary.cutPiecePendingInboundCount}，待交接 ${args.warehouseSummary.waitingHandoverCount}`,
     },
   ]
+}
+
+function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
+  const progressRecord = progressRecordMap.get(order.productionOrderId) || null
+  const originalSources = getProductionOriginalSources(order.productionOrderId)
+  if (!progressRecord && originalSources.length === 0) return null
+
+  const originalRefs = unique(originalSources.map((item) => item.originalCutOrderId))
+    .map((originalCutOrderId) => cuttingIdentityRegistry.originalCutOrdersById[originalCutOrderId])
+    .filter(Boolean)
+  const mergeBatchIds = unique(originalRefs.flatMap((ref) => [ref.activeMergeBatchId, ...ref.mergeBatchIds]).filter(Boolean))
+  const mergeBatchNos = unique(originalRefs.flatMap((ref) => [ref.activeMergeBatchNo, ...ref.mergeBatchNos]).filter(Boolean))
+  const fabricWarehouseRecords = getProductionFabricWarehouseRecords(order.productionOrderId)
+  const cutPieceWarehouseRecords = getProductionCutPieceWarehouseRecords(order.productionOrderId)
+  const sampleWarehouseRecords = getProductionSampleWarehouseRecords(order.productionOrderId)
+
+  const materialSummary = progressRecord
+    ? buildMaterialSummary(progressRecord)
+    : {
+        configuredCount: 0,
+        partiallyConfiguredCount: 0,
+        fullyConfiguredCount: 0,
+        printedSlipCount: 0,
+        qrGeneratedCount: 0,
+      }
+  const receiveSummary = progressRecord
+    ? buildReceiveSummary(progressRecord)
+    : {
+        receivedSuccessCount: 0,
+        receivedPartialCount: 0,
+        notReceivedCount: 0,
+        receiveDiscrepancyCount: 0,
+        latestReceiveAt: '',
+        latestReceiveBy: '',
+        photoProofCount: 0,
+      }
+  const markerSummary = progressRecord
+    ? buildMarkerSummary(progressRecord)
+    : {
+        markerMaintainedCount: originalSources.filter((item) => item.pieceRows.length > 0).length,
+        markerImageUploadedCount: 0,
+        pendingMarkerCount: originalSources.filter((item) => item.pieceRows.length === 0).length,
+      }
+  const spreadingSummary = progressRecord
+    ? buildSpreadingSummary(progressRecord)
+    : {
+        spreadingRecordCount: 0,
+        totalSpreadLength: 0,
+        latestSpreadingAt: '',
+        latestSpreadingBy: '',
+        pendingSpreadingCount: originalSources.length,
+      }
+  const replenishmentSummary = progressRecord
+    ? buildReplenishmentSummary(progressRecord)
+    : {
+        suggestionCount: 0,
+        pendingReviewCount: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        needMoreInfoCount: 0,
+        highRiskCount: 0,
+        mayAffectPrintingCount: 0,
+        mayAffectDyeingCount: 0,
+      }
+  const warehouseSummary = buildWarehouseSummary(cutPieceWarehouseRecords)
+  warehouseSummary.cuttingFabricStockNeedRecheckCount = fabricWarehouseRecords.filter((item) => item.stockStatus === 'NEED_RECHECK').length
+  const sampleSummary = buildSampleSummary(sampleWarehouseRecords)
+  const issues = buildIssues({
+    productionOrderNo: order.productionOrderNo,
+    materialSummary,
+    receiveSummary,
+    markerSummary,
+    spreadingSummary,
+    replenishmentSummary,
+    warehouseSummary,
+    sampleSummary,
+  })
+
+  const overallRiskLevel: CuttingSummaryRiskLevel = issues.some((item) => item.level === 'HIGH')
+    ? 'HIGH'
+    : issues.some((item) => item.level === 'MEDIUM')
+      ? 'MEDIUM'
+      : 'LOW'
+  const overallSummaryStatus = buildOverallSummaryStatus({
+    materialSummary,
+    receiveSummary,
+    markerSummary,
+    spreadingSummary,
+    replenishmentSummary,
+    warehouseSummary,
+    sampleSummary,
+    issues,
+  })
+  const linkedPageSummary = progressRecord
+    ? buildLinkedPageSummary({
+        progressRecord,
+        materialSummary,
+        receiveSummary,
+        markerSummary,
+        spreadingSummary,
+        replenishmentSummary,
+        warehouseSummary,
+      })
+    : []
+
+  const latestCandidates: Array<{ value: string; source: CuttingSummaryUpdatedSource }> = [
+    { value: order.updatedAt, source: 'PLATFORM' },
+    { value: progressRecord?.lastFieldUpdateAt || '', source: 'FACTORY_APP' },
+    { value: receiveSummary.latestReceiveAt, source: 'FACTORY_APP' },
+    { value: spreadingSummary.latestSpreadingAt, source: 'FACTORY_APP' },
+    { value: warehouseSummary.latestInboundAt, source: 'FACTORY_APP' },
+    { value: sampleSummary.latestSampleActionAt, source: 'PCS' },
+  ].filter((item) => item.value)
+  const lastUpdated = latestCandidates.sort((a, b) => a.value.localeCompare(b.value)).at(-1)
 
   return {
-    id: `cutting-summary-${productionRef?.productionOrderId || canonicalProductionOrderNo}`,
-    productionOrderId: productionRef?.productionOrderId || '',
-    productionOrderNo: canonicalProductionOrderNo,
-    originalCutOrderIds: originalCutOrderRefs.map((ref) => ref.originalCutOrderId),
-    originalCutOrderNos: originalCutOrderRefs.map((ref) => ref.originalCutOrderNo),
+    id: `cutting-summary-${order.productionOrderId}`,
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderNo,
+    originalCutOrderIds: originalRefs.map((ref) => ref.originalCutOrderId),
+    originalCutOrderNos: originalRefs.map((ref) => ref.originalCutOrderNo),
     mergeBatchIds,
     mergeBatchNos,
-    purchaseDate: platform.purchaseDate,
-    orderQty: platform.orderQty,
-    plannedShipDate: platform.plannedShipDate,
-    urgencyLevel: platform.urgencyLevel,
-    cuttingTaskNo: platform.cuttingTaskNo,
-    assignedFactoryName: platform.assignedFactoryName,
-    platformStageSummary: platform.platformStageSummary,
-    cutPieceOrderCount: cutPieceRecords.length || materialSummary.configuredCount || warehouseRecords.length || 1,
-    materialTypeCount:
-      unique((prepLines.length ? prepLines : cutPieceRecords.length ? cutPieceRecords : fabricStocks).map((item) => item.materialType)).length || 1,
+    purchaseDate: (progressRecord?.purchaseDate || order.createdAt).slice(0, 10),
+    orderQty: progressRecord?.orderQty || sumSkuQty(order),
+    plannedShipDate: progressRecord?.plannedShipDate || order.demandSnapshot.requiredDeliveryDate || '',
+    urgencyLevel: deriveUrgencyLevel(order, progressRecord),
+    cuttingTaskNo: progressRecord?.cuttingTaskNo || `CUT-TASK-${order.productionOrderId.replace(/\D/g, '').slice(-6)}`,
+    assignedFactoryName: progressRecord?.assignedFactoryName || order.mainFactorySnapshot.name,
+    platformStageSummary: buildPlatformStageSummary({
+      receiveSummary,
+      replenishmentSummary,
+      warehouseSummary,
+      sampleSummary,
+      spreadingSummary,
+    }),
+    cutPieceOrderCount: originalSources.length,
+    materialTypeCount: unique(originalSources.map((item) => item.materialType)).length || 1,
     overallSummaryStatus,
     overallRiskLevel,
     pendingIssueCount: issues.length,
     highRiskIssueCount: issues.filter((item) => item.level === 'HIGH').length,
-    lastUpdatedAt: lastUpdated?.value ?? platform.purchaseDate,
-    lastUpdatedSource: lastUpdated?.source ?? 'PLATFORM',
+    lastUpdatedAt: lastUpdated?.value || order.updatedAt,
+    lastUpdatedSource: lastUpdated?.source || 'PLATFORM',
     materialSummary,
     receiveSummary,
     markerSummary,
@@ -596,25 +640,32 @@ function buildRecord(productionOrderNo: string): CuttingSummaryRecord {
     nextActionSuggestions: unique(issues.map((item) => item.suggestedAction)).slice(0, 4),
     linkedPageSummary,
     searchKeywords: unique([
-      productionOrderNo,
-      platform.cuttingTaskNo,
-      ...prepLines.map((item) => item.cutPieceOrderNo),
-      ...prepLines.map((item) => item.materialSku),
-      ...cutPieceRecords.map((item) => item.cutPieceOrderNo),
-      ...cutPieceRecords.map((item) => item.materialSku),
-      ...warehouseRecords.map((item) => item.cutPieceOrderNo),
-      ...warehouseRecords.map((item) => item.materialSku),
+      order.productionOrderId,
+      order.productionOrderNo,
+      progressRecord?.cuttingTaskNo || '',
+      ...originalSources.map((item) => item.originalCutOrderId),
+      ...originalSources.map((item) => item.originalCutOrderNo),
+      ...originalSources.map((item) => item.materialSku),
+      ...mergeBatchNos,
+      order.demandSnapshot.spuCode,
+      order.demandSnapshot.spuName,
     ]),
     issues,
-    note: platform.note,
+    note: order.demandSnapshot.constraintsNote || '当前裁片总览已切换到正式主链汇总。',
   }
 }
 
-export const cuttingSummaryRecords: CuttingSummaryRecord[] = ['PO-202603-018', 'PO-202603-024', 'PO-202603-031', 'PO-202603-027'].map(buildRecord)
+export const cuttingSummaryRecords: CuttingSummaryRecord[] = productionOrders
+  .map((order) => buildRecord(order))
+  .filter((record): record is CuttingSummaryRecord => record !== null)
 
 export function cloneCuttingSummaryRecords(): CuttingSummaryRecord[] {
   return cuttingSummaryRecords.map((record) => ({
     ...record,
+    originalCutOrderIds: [...record.originalCutOrderIds],
+    originalCutOrderNos: [...record.originalCutOrderNos],
+    mergeBatchIds: [...record.mergeBatchIds],
+    mergeBatchNos: [...record.mergeBatchNos],
     materialSummary: { ...record.materialSummary },
     receiveSummary: { ...record.receiveSummary },
     markerSummary: { ...record.markerSummary },

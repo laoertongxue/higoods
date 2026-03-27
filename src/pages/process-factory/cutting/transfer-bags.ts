@@ -1,18 +1,9 @@
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
-  buildSystemSeedFeiTicketLedger,
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
-  deserializeFeiTicketRecordsStorage,
-  FEI_TICKET_DEMO_CASE_IDS,
-  type FeiTicketLabelRecord,
+  serializeFeiTicketRecordsStorage,
 } from './fei-tickets-model'
-import {
-  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
-  deserializeMarkerSpreadingStorage,
-} from './marker-spreading-model'
-import { buildMaterialPrepViewModel } from './material-prep-model'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -23,10 +14,11 @@ import {
 } from './layout.helpers'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
 import {
-  buildWarehouseOriginalRows,
   getWarehouseSearchParams,
-  readWarehouseMergeBatchLedger,
 } from './warehouse-shared'
+import {
+  buildCuttingTraceabilityId,
+} from '../../../data/fcs/cutting/qr-codes.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -39,12 +31,15 @@ import {
   type CuttingNavigationTarget,
 } from './navigation-context'
 import {
-  applyPocketBindingLocksToTicketRecords,
+  buildTransferBagsProjection,
+} from './transfer-bags-projection'
+import {
+  resolveCarrierScanInput,
+  resolveFeiTicketScanInput,
+} from './traceability-projection-helpers'
+import {
   buildBagUsageAuditTrail,
-  buildSystemSeedTransferBagStore,
-  buildTransferBagNavigationPayload,
   buildTransferBagParentChildSummary,
-  buildTransferBagViewModel,
   createTransferBagDispatchManifest,
   createTransferBagUsageDraft,
   CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
@@ -53,9 +48,6 @@ import {
   deriveTransferBagMasterStatus,
   deriveTransferBagUsageStatus,
   deserializeTransferBagSelectedTicketIds,
-  deserializeTransferBagStorage,
-  mergeTransferBagStores,
-  TRANSFER_BAG_DEMO_CASE_IDS,
   serializeTransferBagSelectedTicketIds,
   serializeTransferBagStorage,
   validateBagToSewingTaskBinding,
@@ -89,8 +81,6 @@ import {
   type TransferBagReusableDecision,
   type TransferBagReturnReceipt,
 } from './transfer-bag-return-model'
-
-const showDemoFixtures = false
 
 type MasterStatusFilter = 'ALL' | PocketCarrierStatusKey
 
@@ -178,35 +168,12 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
-function loadTicketRecords(): FeiTicketLabelRecord[] {
-  const 裁剪批次es = readWarehouseMergeBatchLedger()
-  const originalRows = buildWarehouseOriginalRows()
-  const markerStore = deserializeMarkerSpreadingStorage(localStorage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY))
-  const materialRows = buildMaterialPrepViewModel(cuttingOrderProgressRecords, 裁剪批次es).rows
-  const seed = buildSystemSeedFeiTicketLedger({
-    originalRows,
-    materialPrepRows: materialRows,
-    markerStore,
-    裁剪批次es,
-  }).ticketRecords
-  const stored = deserializeFeiTicketRecordsStorage(localStorage.getItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY))
-  const merged = new Map<string, FeiTicketLabelRecord>()
-  seed.forEach((record) => merged.set(record.ticketRecordId, record))
-  stored.forEach((record) => merged.set(record.ticketRecordId, record))
-  return Array.from(merged.values()).sort((left, right) => left.ticketNo.localeCompare(right.ticketNo, 'zh-CN'))
+function getProjection() {
+  return buildTransferBagsProjection(undefined, state.store)
 }
 
 function hydrateStore(): TransferBagStore {
-  const originalRows = buildWarehouseOriginalRows()
-  const 裁剪批次es = readWarehouseMergeBatchLedger()
-  const ticketRecords = loadTicketRecords()
-  const seed = buildSystemSeedTransferBagStore({
-    originalRows,
-    ticketRecords,
-    mergeBatches: 裁剪批次es,
-  })
-  const stored = deserializeTransferBagStorage(localStorage.getItem(CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY))
-  return mergeTransferBagStores(seed, stored)
+  return buildTransferBagsProjection().store
 }
 
 const state: TransferBagsPageState = {
@@ -257,25 +224,17 @@ const state: TransferBagsPageState = {
 }
 
 function getViewModel() {
-  return buildTransferBagViewModel({
-    originalRows: buildWarehouseOriginalRows(),
-    ticketRecords: loadTicketRecords(),
-    裁剪批次es: readWarehouseMergeBatchLedger(),
-    store: state.store,
-  })
+  return getProjection().viewModel
 }
 
 function getReturnViewModel() {
-  return buildTransferBagReturnViewModel({
-    store: state.store,
-    baseViewModel: getViewModel(),
-  })
+  return getProjection().returnViewModel
 }
 
 function persistStore(): void {
   localStorage.setItem(CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY, serializeTransferBagStorage(state.store))
-  const nextTicketRecords = applyPocketBindingLocksToTicketRecords(loadTicketRecords(), state.store)
-  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, JSON.stringify(nextTicketRecords))
+  const nextTicketRecords = getProjection().ticketRecords
+  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, serializeFeiTicketRecordsStorage(nextTicketRecords))
 }
 
 function persistSelectedTicketIds(): void {
@@ -322,9 +281,15 @@ function matchesMasterPrefilter(item: TransferBagMasterItem): boolean {
 function matchesUsagePrefilter(item: TransferBagUsageItem): boolean {
   if (!state.prefilter) return true
   return (
+    matchPrefilter([item.usageId], state.prefilter.usageId) &&
+    matchPrefilter([item.bagId], state.prefilter.bagId) &&
     matchPrefilter(item.originalCutOrderNos, state.prefilter.originalCutOrderNo) &&
+    matchPrefilter([item.navigationPayload.originalOrders.originalCutOrderId], state.prefilter.originalCutOrderId) &&
     matchPrefilter(item.productionOrderNos, state.prefilter.productionOrderNo) &&
-    matchPrefilter(item.裁剪批次Nos, state.prefilter.mergeBatchNo || state.prefilter.裁剪批次No) &&
+    matchPrefilter([item.navigationPayload.originalOrders.productionOrderId], state.prefilter.productionOrderId) &&
+    matchPrefilter(item.mergeBatchNos, state.prefilter.mergeBatchNo || state.prefilter.裁剪批次No) &&
+    matchPrefilter([item.navigationPayload.originalOrders.mergeBatchId], state.prefilter.mergeBatchId) &&
+    matchPrefilter([item.navigationPayload.originalOrders.materialSku], state.prefilter.materialSku) &&
     matchPrefilter([item.sewingTaskNo], state.prefilter.sewingTaskNo) &&
     matchPrefilter([item.bagCode], state.prefilter.bagCode) &&
     matchPrefilter([item.usageNo], state.prefilter.usageNo)
@@ -334,11 +299,18 @@ function matchesUsagePrefilter(item: TransferBagUsageItem): boolean {
 function matchesBindingPrefilter(item: TransferBagBindingItem): boolean {
   if (!state.prefilter) return true
   return (
+    matchPrefilter([item.ticket?.feiTicketId || item.ticketRecordId], state.prefilter.ticketId) &&
     matchPrefilter([item.ticketNo], state.prefilter.ticketNo) &&
+    matchPrefilter([item.originalCutOrderId], state.prefilter.originalCutOrderId) &&
     matchPrefilter([item.originalCutOrderNo], state.prefilter.originalCutOrderNo) &&
+    matchPrefilter([item.navigationPayload.originalOrders.productionOrderId], state.prefilter.productionOrderId) &&
     matchPrefilter([item.productionOrderNo], state.prefilter.productionOrderNo) &&
-    matchPrefilter([item.裁剪批次No], state.prefilter.mergeBatchNo || state.prefilter.裁剪批次No) &&
+    matchPrefilter([item.navigationPayload.originalOrders.mergeBatchId], state.prefilter.mergeBatchId) &&
+    matchPrefilter([item.mergeBatchNo || item.裁剪批次No], state.prefilter.mergeBatchNo || state.prefilter.裁剪批次No) &&
+    matchPrefilter([item.ticket?.materialSku], state.prefilter.materialSku) &&
+    matchPrefilter([item.bagId], state.prefilter.bagId) &&
     matchPrefilter([item.bagCode], state.prefilter.bagCode) &&
+    matchPrefilter([item.usageId], state.prefilter.usageId) &&
     matchPrefilter([item.usage?.usageNo], state.prefilter.usageNo)
   )
 }
@@ -391,7 +363,7 @@ function getFilteredBindings() {
         item.ticketNo,
         item.originalCutOrderNo,
         item.productionOrderNo,
-        item.裁剪批次No,
+        item.mergeBatchNo || item.裁剪批次No,
         item.usage?.usageNo,
       ]
         .join(' ')
@@ -406,16 +378,23 @@ function getPrefilterFromQuery(): TransferBagPrefilter | null {
   const params = getWarehouseSearchParams()
   const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: TransferBagPrefilter = {
+    originalCutOrderId: drillContext?.originalCutOrderId || params.get('originalCutOrderId') || undefined,
     originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
+    mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
     裁剪批次No: drillContext?.mergeBatchNo || params.get('裁剪批次No') || undefined,
     mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
+    materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
+    ticketId: drillContext?.ticketId || params.get('ticketId') || params.get('ticketRecordId') || undefined,
     cuttingGroup: params.get('cuttingGroup') || undefined,
     warehouseStatus: params.get('warehouseStatus') || undefined,
     ticketNo: drillContext?.ticketNo || params.get('ticketNo') || undefined,
     sewingTaskNo: params.get('sewingTaskNo') || undefined,
+    bagId: drillContext?.bagId || params.get('bagId') || undefined,
     bagCode: drillContext?.bagCode || params.get('bagCode') || undefined,
+    usageId: drillContext?.usageId || params.get('usageId') || undefined,
     usageNo: drillContext?.usageNo || params.get('usageNo') || undefined,
     returnStatus: params.get('returnStatus') || undefined,
+    productionOrderId: drillContext?.productionOrderId || params.get('productionOrderId') || undefined,
     productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
   }
 
@@ -445,9 +424,7 @@ function getSourceUsage(usageId: string | null): TransferBagUsage | null {
 function getSelectedBag(): TransferBagMaster | null {
   const bagId = state.draft.bagId || getActiveUsage()?.bagId || getActiveMaster()?.bagId || ''
   if (bagId) return getSourceMaster(bagId)
-  const code = state.draft.bagCodeInput.trim()
-  if (!code) return null
-  return state.store.masters.find((item) => item.bagCode === code) ?? null
+  return resolveCarrierScanInput(state.draft.bagCodeInput, state.store)
 }
 
 function getSelectedSewingTask(): SewingTaskRef | null {
@@ -467,12 +444,23 @@ function getCandidateTickets(): TransferBagTicketCandidate[] {
   if (!state.prefilter) return []
 
   return viewModel.ticketCandidates.filter((ticket) => {
+    if (state.prefilter.ticketId && ticket.feiTicketId !== state.prefilter.ticketId) return false
+    if (state.prefilter.originalCutOrderId && ticket.originalCutOrderId !== state.prefilter.originalCutOrderId) return false
     if (state.prefilter.ticketNo && ticket.ticketNo !== state.prefilter.ticketNo) return false
     if (state.prefilter.originalCutOrderNo && ticket.originalCutOrderNo !== state.prefilter.originalCutOrderNo) return false
+    if (state.prefilter.productionOrderId && ticket.productionOrderId !== state.prefilter.productionOrderId) return false
     if (state.prefilter.productionOrderNo && ticket.productionOrderNo !== state.prefilter.productionOrderNo) return false
-    if (state.prefilter.裁剪批次No && ticket.裁剪批次No !== state.prefilter.裁剪批次No) return false
+    if (state.prefilter.mergeBatchId && ticket.mergeBatchId !== state.prefilter.mergeBatchId) return false
+    if (state.prefilter.裁剪批次No && ticket.mergeBatchNo !== state.prefilter.裁剪批次No) return false
+    if (state.prefilter.materialSku && ticket.materialSku !== state.prefilter.materialSku) return false
     return true
   })
+}
+
+function getSelectedTicketRecord(): TransferBagTicketCandidate | null {
+  const record = resolveFeiTicketScanInput(state.draft.ticketInput, getProjection().ticketRecords)
+  if (!record) return null
+  return getViewModel().ticketCandidatesById[record.ticketRecordId] ?? null
 }
 
 function refreshDerivedState(): void {
@@ -571,15 +559,15 @@ function syncPrefilterFromQuery(): void {
   )
   const viewModel = getViewModel()
 
-  if (state.prefilter?.bagCode) {
-    const matchedMaster = viewModel.masters.find((item) => item.bagCode === state.prefilter?.bagCode)
+  if (state.prefilter?.bagId || state.prefilter?.bagCode) {
+    const matchedMaster = viewModel.masters.find((item) => item.bagId === state.prefilter?.bagId || item.bagCode === state.prefilter?.bagCode)
     state.activeMasterId = matchedMaster?.bagId ?? null
-    state.draft.bagCodeInput = state.prefilter.bagCode
+    state.draft.bagCodeInput = matchedMaster?.bagCode || state.prefilter?.bagCode || ''
     state.draft.bagId = matchedMaster?.bagId ?? ''
   }
 
-  if (state.prefilter?.usageNo) {
-    const matchedUsage = viewModel.usages.find((item) => item.usageNo === state.prefilter?.usageNo)
+  if (state.prefilter?.usageId || state.prefilter?.usageNo) {
+    const matchedUsage = viewModel.usages.find((item) => item.usageId === state.prefilter?.usageId || item.usageNo === state.prefilter?.usageNo)
     if (matchedUsage) {
       syncUsageSelection(matchedUsage.usageId)
     } else {
@@ -596,8 +584,12 @@ function syncPrefilterFromQuery(): void {
     state.returnStatus = state.prefilter.returnStatus as ReturnStatusFilter
   }
 
-  if (state.prefilter?.ticketNo) {
-    state.draft.ticketInput = state.prefilter.ticketNo
+  if (state.prefilter?.ticketId || state.prefilter?.ticketNo) {
+    const matchedTicket =
+      (state.prefilter.ticketId ? viewModel.ticketCandidatesById[state.prefilter.ticketId] : null) ||
+      (state.prefilter.ticketNo ? viewModel.ticketCandidatesByNo[state.prefilter.ticketNo] : null) ||
+      null
+    state.draft.ticketInput = matchedTicket?.ticketNo || state.prefilter.ticketNo || ''
   }
 }
 
@@ -909,7 +901,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
             <div><span class="text-muted-foreground">当前款号：</span><span class="font-medium text-foreground">${escapeHtml(item.currentStyleCode || '待锁定')}</span></div>
             <div><span class="text-muted-foreground">来源生产单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.productionOrderNos.join(' / ') || '暂无')}</span></div>
             <div><span class="text-muted-foreground">来源原始裁片单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
-            <div><span class="text-muted-foreground">来源裁片批次集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.裁剪批次Nos.join(' / ') || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源裁片批次集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.mergeBatchNos.join(' / ') || '暂无')}</span></div>
           </div>
           <div class="flex flex-wrap gap-2">
             ${item.pocketStatusKey === 'IDLE' ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">开始装袋</button>` : ''}
@@ -931,7 +923,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                         <tr>
                           <th class="px-3 py-2 text-left">菲票码</th>
                           <th class="px-3 py-2 text-left">款号</th>
-                          <th class="px-3 py-2 text-left">SKU</th>
+                          <th class="px-3 py-2 text-left">面料 SKU</th>
                           <th class="px-3 py-2 text-left">部位</th>
                           <th class="px-3 py-2 text-right">数量</th>
                           <th class="px-3 py-2 text-left">来源生产单号</th>
@@ -948,12 +940,15 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                               <tr class="border-b bg-card">
                                 <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(binding.ticketNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || currentUsage?.styleCode || '待补')}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.ticket ? `${binding.ticket.color || '待补颜色'} / ${binding.ticket.size || '待补尺码'}` : '待补')}</td>
+                                <td class="px-3 py-2">
+                                  <div class="font-medium text-foreground">${escapeHtml(binding.ticket?.materialSku || '待补')}</div>
+                                  <div class="text-xs text-muted-foreground">${escapeHtml(binding.ticket ? `${binding.ticket.color || '待补颜色'} / ${binding.ticket.size || '待补尺码'}` : '待补')}</div>
+                                </td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补部位')}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.裁剪批次No || '—')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.mergeBatchNo || binding.裁剪批次No || '—')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -1117,7 +1112,7 @@ function renderWorkbenchSection(): string {
                 <div><span class="text-muted-foreground">当前总件数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.quantityTotal || 0))}</span></div>
                 <div><span class="text-muted-foreground">原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.originalCutOrderCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.productionOrderCount || 0))}</span></div>
-                <div><span class="text-muted-foreground">裁剪批次摘要：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.裁剪批次Nos.join(' / ') || '无')}</span></div>
+                <div><span class="text-muted-foreground">裁剪批次摘要：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.mergeBatchNos.join(' / ') || '无')}</span></div>
                 <div><span class="text-muted-foreground">容量状态：</span><span class="font-medium ${capacityExceeded ? 'text-amber-700' : 'text-foreground'}">${capacityExceeded ? '已超容量' : '未超容量'}</span></div>
               </div>
             </div>
@@ -1136,7 +1131,7 @@ function renderWorkbenchSection(): string {
                         <tr>
                           <th class="px-3 py-2 text-left">菲票码</th>
                           <th class="px-3 py-2 text-left">款号</th>
-                          <th class="px-3 py-2 text-left">SKU</th>
+                          <th class="px-3 py-2 text-left">面料 SKU</th>
                           <th class="px-3 py-2 text-left">部位</th>
                           <th class="px-3 py-2 text-right">数量</th>
                           <th class="px-3 py-2 text-left">原始裁片单</th>
@@ -1153,12 +1148,15 @@ function renderWorkbenchSection(): string {
                               <tr class="border-b bg-card">
                                 <td class="px-3 py-2">${escapeHtml(binding.ticketNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || activeUsage.styleCode || '待补')}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.ticket ? `${binding.ticket.color || '待补颜色'} / ${binding.ticket.size || '待补尺码'}` : '待补')}</td>
+                                <td class="px-3 py-2">
+                                  <div class="font-medium text-foreground">${escapeHtml(binding.ticket?.materialSku || '待补')}</div>
+                                  <div class="text-xs text-muted-foreground">${escapeHtml(binding.ticket ? `${binding.ticket.color || '待补颜色'} / ${binding.ticket.size || '待补尺码'}` : '待补')}</div>
+                                </td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补部位')}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.裁剪批次No || '无')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.mergeBatchNo || binding.裁剪批次No || '无')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -1738,7 +1736,7 @@ function renderBindingSection(): string {
                         <td class="px-4 py-3">${escapeHtml(item.ticketNo)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.originalCutOrderNo)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.productionOrderNo)}</td>
-                        <td class="px-4 py-3">${escapeHtml(item.裁剪批次No || '无')}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.mergeBatchNo || item.裁剪批次No || '无')}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatDateTime(item.boundAt))}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.boundBy)}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.note || '无')}</td>
@@ -2088,7 +2086,7 @@ function createUsage(): boolean {
 function bindTicketByInput(): boolean {
   const usage = getSourceUsage(state.activeUsageId)
   if (!usage) {
-    setFeedback('warning', '请先创建或选中一个使用周期。')
+    setFeedback('warning', '必须先扫口袋码，再扫菲票子码。请先创建或选中一个使用周期。')
     return true
   }
   if (usage.usageStatus === 'DISPATCHED' || usage.usageStatus === 'PENDING_SIGNOFF') {
@@ -2096,12 +2094,11 @@ function bindTicketByInput(): boolean {
     return true
   }
   const sewingTask = getViewModel().sewingTasksById[usage.sewingTaskId] ?? null
-  const ticketNo = state.draft.ticketInput.trim()
-  if (!ticketNo) {
-    setFeedback('warning', '请输入或扫描菲票码。')
+  if (!state.draft.ticketInput.trim()) {
+    setFeedback('warning', '请先扫描菲票子码。')
     return true
   }
-  const ticket = getViewModel().ticketCandidatesByNo[ticketNo] ?? null
+  const ticket = getSelectedTicketRecord()
   const validation = validateTicketBindingEligibility({
     ticket,
     usage,
@@ -2115,21 +2112,28 @@ function bindTicketByInput(): boolean {
   }
 
   state.store.bindings.push({
-    bindingId: `binding-${Date.now()}`,
+    bindingId: buildCuttingTraceabilityId('carrier-bind', nowText(), usage.usageId, ticket.ticketRecordId),
     usageId: usage.usageId,
     usageNo: usage.usageNo,
+    cycleId: usage.cycleId,
     bagId: usage.bagId,
     bagCode: usage.bagCode,
+    carrierId: usage.carrierId || usage.bagId,
+    carrierCode: usage.carrierCode || usage.bagCode,
+    feiTicketId: ticket.feiTicketId || ticket.ticketRecordId,
     ticketRecordId: ticket.ticketRecordId,
     ticketNo: ticket.ticketNo,
     originalCutOrderId: ticket.originalCutOrderId,
     originalCutOrderNo: ticket.originalCutOrderNo,
+    mergeBatchNo: ticket.mergeBatchNo,
     productionOrderNo: ticket.productionOrderNo,
-    裁剪批次No: ticket.裁剪批次No,
+    裁剪批次No: ticket.mergeBatchNo,
     qty: ticket.qty,
     boundAt: nowText(),
     boundBy: '周转口袋工作台',
-      note: '通过装袋工作台补录父子码绑定。',
+    operator: '周转口袋工作台',
+    status: 'BOUND',
+    note: '先扫周转口袋父码，再扫菲票子码，已建立正式父子映射。',
   })
   state.store.auditTrail.push(
     buildBagUsageAuditTrail({
@@ -2150,7 +2154,7 @@ function bindTicketByInput(): boolean {
 function importCandidateTickets(targetUsageId?: string): boolean {
   const usage = getSourceUsage(targetUsageId || state.activeUsageId)
   if (!usage) {
-    setFeedback('warning', '请先创建或选中一个使用周期，再导入候选菲票。')
+    setFeedback('warning', '必须先扫口袋码，再扫菲票子码。请先创建或选中一个使用周期，再导入候选菲票。')
     return true
   }
   const sewingTask = getViewModel().sewingTasksById[usage.sewingTaskId] ?? null
@@ -2179,21 +2183,28 @@ function importCandidateTickets(targetUsageId?: string): boolean {
     }
 
     state.store.bindings.push({
-      bindingId: `binding-${Date.now()}-${successCount}`,
+      bindingId: buildCuttingTraceabilityId('carrier-bind', nowText(), usage.usageId, ticket.ticketRecordId, String(successCount + 1)),
       usageId: usage.usageId,
       usageNo: usage.usageNo,
+      cycleId: usage.cycleId,
       bagId: usage.bagId,
       bagCode: usage.bagCode,
+      carrierId: usage.carrierId || usage.bagId,
+      carrierCode: usage.carrierCode || usage.bagCode,
+      feiTicketId: ticket.feiTicketId || ticket.ticketRecordId,
       ticketRecordId: ticket.ticketRecordId,
       ticketNo: ticket.ticketNo,
       originalCutOrderId: ticket.originalCutOrderId,
       originalCutOrderNo: ticket.originalCutOrderNo,
+      mergeBatchNo: ticket.mergeBatchNo,
       productionOrderNo: ticket.productionOrderNo,
-      裁剪批次No: ticket.裁剪批次No,
+      裁剪批次No: ticket.mergeBatchNo,
       qty: ticket.qty,
       boundAt: nowText(),
       boundBy: '周转口袋工作台',
-      note: '通过候选导入批量绑定父子码。',
+      operator: '周转口袋工作台',
+      status: 'BOUND',
+      note: '通过候选菲票批量建立正式父子映射。',
     })
     successCount += 1
   })
@@ -2286,6 +2297,7 @@ function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferB
             <tr>
               <th>周转口袋码</th>
               <th>菲票码</th>
+              <th>面料 SKU</th>
               <th>原始裁片单</th>
               <th>生产单</th>
               <th>裁剪批次</th>
@@ -2298,9 +2310,10 @@ function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferB
                   <tr>
                     <td>${escapeHtml(binding.bagCode)}</td>
                     <td>${escapeHtml(binding.ticketNo)}</td>
+                    <td>${escapeHtml(binding.ticket?.materialSku || '待补')}</td>
                     <td>${escapeHtml(binding.originalCutOrderNo)}</td>
                     <td>${escapeHtml(binding.productionOrderNo)}</td>
-                    <td>${escapeHtml(binding.裁剪批次No || '无')}</td>
+                    <td>${escapeHtml(binding.mergeBatchNo || binding.裁剪批次No || '无')}</td>
                   </tr>
                 `,
               )

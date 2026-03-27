@@ -1,2 +1,7 @@
 .vercel
 dist/
+.DS_Store
+__MACOSX/
+*.zip
+playwright-report/
+test-results/

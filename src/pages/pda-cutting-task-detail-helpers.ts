@@ -1,7 +1,7 @@
 import {
   type PdaCuttingRouteKey,
   type PdaCuttingTaskOrderLine,
-} from '../data/fcs/pda-cutting-special'
+} from '../data/fcs/pda-cutting-execution-source.ts'
 import { buildPdaCuttingExecutionNavHref } from './pda-cutting-nav-context'
 
 export type PdaCuttingExecutionRouteKey = Exclude<PdaCuttingRouteKey, 'task'>
@@ -84,11 +84,18 @@ export function buildPdaCuttingTaskOrderActions(
     key: routeKey,
     label: resolveRouteLabel(routeKey),
     href: buildPdaCuttingExecutionNavHref(taskId, routeKey, {
-      cutPieceOrderNo: line.cutPieceOrderNo,
+      executionOrderId: line.executionOrderId,
+      executionOrderNo: line.executionOrderNo,
+      originalCutOrderId: line.originalCutOrderId,
+      originalCutOrderNo: line.originalCutOrderNo,
+      mergeBatchId: line.mergeBatchId,
+      mergeBatchNo: line.mergeBatchNo,
+      materialSku: line.materialSku,
       returnTo,
       sourcePageKey: 'cutting-task-detail',
       focusTaskId: taskId,
-      focusCutPieceOrderNo: line.cutPieceOrderNo,
+      focusExecutionOrderId: line.executionOrderId,
+      focusExecutionOrderNo: line.executionOrderNo,
       highlightCutPieceOrder: true,
     }),
   }))

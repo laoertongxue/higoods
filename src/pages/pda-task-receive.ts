@@ -19,7 +19,7 @@ import {
   resolvePdaTaskDetailPath,
   resolvePdaTaskExecPath,
   type PdaTaskFlowMock,
-} from '../data/fcs/pda-cutting-special'
+} from '../data/fcs/pda-cutting-execution-source.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildPdaCuttingDirectExecEntryHref,
@@ -575,7 +575,8 @@ function buildCuttingTaskDetailEntryHref(task: PdaTaskFlowMock): string {
     taskNo: task.taskNo,
     productionOrderNo: getTaskProductionOrderNo(task),
     focusTaskId: task.taskId,
-    cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    executionOrderId: task.defaultExecutionOrderId,
+    executionOrderNo: task.defaultExecutionOrderNo,
     returnTo: buildCuttingTaskListReturnTo(task.taskId),
     highlightTask: true,
     autoFocus: true,
@@ -588,8 +589,10 @@ function buildCuttingTaskExecHref(task: PdaTaskFlowMock): string {
     taskNo: task.taskNo,
     productionOrderNo: getTaskProductionOrderNo(task),
     focusTaskId: task.taskId,
-    cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
-    focusCutPieceOrderNo: task.defaultExecCutPieceOrderNo,
+    executionOrderId: task.defaultExecutionOrderId,
+    executionOrderNo: task.defaultExecutionOrderNo,
+    focusExecutionOrderId: task.defaultExecutionOrderId,
+    focusExecutionOrderNo: task.defaultExecutionOrderNo,
     returnTo: buildCuttingTaskDetailEntryHref(task),
     highlightTask: true,
     autoFocus: true,

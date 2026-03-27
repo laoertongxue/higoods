@@ -7,7 +7,7 @@ import {
   type PdaCutPieceInboundWritebackRecord,
   type PdaPickupWritebackRecord,
   type PdaReplenishmentFeedbackWritebackRecord,
-} from '../../pages/process-factory/cutting/pda-execution-writeback-model'
+} from '../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
 import {
   applyWritebackToSpreadingSession,
   hydrateIncomingPdaWritebacks,
@@ -15,38 +15,36 @@ import {
   serializePdaWritebackStorage,
   type PdaSpreadingWriteback,
   type PdaWritebackAuditTrail,
-} from '../../pages/process-factory/cutting/pda-writeback-model'
+} from '../../data/fcs/cutting/pda-spreading-writeback.ts'
 import {
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   createEmptyStore as createEmptyMarkerSpreadingStore,
   deserializeMarkerSpreadingStorage,
   serializeMarkerSpreadingStorage,
-} from '../../pages/process-factory/cutting/marker-spreading-model'
+} from '../../data/fcs/cutting/marker-spreading-ledger.ts'
 import {
   getLatestClaimDisputeByOriginalCutOrderNo,
   markClaimDisputeCraftWrittenBack,
 } from '../../state/fcs-claim-dispute-store'
 import {
+  getPdaCuttingWritebackStorage,
+  type CuttingPdaActionType,
+  type CuttingPdaWritebackIdentityInput,
+  type CuttingPdaWritebackOperatorInput,
+  type CuttingPdaWritebackSourceInput,
+  buildPdaCuttingWritebackId,
+} from '../../data/fcs/pda-cutting-writeback-inputs.ts'
+import {
   resolveMergeBatchRef,
   resolveOriginalCutOrderRef,
+  resolvePdaExecutionRef,
   resolveProductionOrderRef,
-} from '../cutting-identity'
-import { CUTTING_PDA_WRITEBACK_STORAGE_KEY } from '../../pages/process-factory/cutting/pda-writeback-model'
+} from '../cutting-core/index.ts'
+import { CUTTING_PDA_WRITEBACK_STORAGE_KEY } from '../../data/fcs/cutting/pda-spreading-writeback.ts'
 
-export interface CuttingPdaWritebackIdentity {
-  taskId: string
-  taskNo: string
-  productionOrderId: string
-  productionOrderNo: string
-  originalCutOrderId: string
-  originalCutOrderNo: string
-  mergeBatchId?: string
-  mergeBatchNo?: string
-  cutPieceOrderNo: string
-  materialSku: string
-  styleCode?: string
-  spuCode?: string
-}
+export type CuttingPdaWritebackIdentity = CuttingPdaWritebackIdentityInput
+export type CuttingPdaWritebackOperator = CuttingPdaWritebackOperatorInput
+export type CuttingPdaWritebackSource = CuttingPdaWritebackSourceInput
 
 export interface CuttingPdaWritebackBridgeResult {
   success: boolean
@@ -55,27 +53,16 @@ export interface CuttingPdaWritebackBridgeResult {
   writebackId: string
 }
 
-interface BridgeStorage {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
-}
-
-function getStorage(): BridgeStorage | null {
-  return typeof localStorage === 'undefined' ? null : localStorage
-}
-
 function nowText(date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
-function createWritebackId(prefix: string, identity: CuttingPdaWritebackIdentity): string {
-  return [
-    prefix,
-    identity.taskId,
-    identity.originalCutOrderId || identity.originalCutOrderNo,
-    identity.cutPieceOrderNo,
-    `${Date.now()}`,
-  ].join('-')
+function buildWritebackId(actionType: CuttingPdaActionType, identity: CuttingPdaWritebackIdentity, actionAt: string): string {
+  return buildPdaCuttingWritebackId(actionType, {
+    taskId: identity.taskId,
+    executionOrderId: identity.executionOrderId,
+    originalCutOrderId: identity.originalCutOrderId,
+  }, actionAt)
 }
 
 function buildFailure(issues: string[], writebackId = ''): CuttingPdaWritebackBridgeResult {
@@ -107,7 +94,9 @@ function validateIdentity(identity: CuttingPdaWritebackIdentity): string[] {
   if (!identity.originalCutOrderId.trim() || !identity.originalCutOrderNo.trim()) {
     issues.push('缺少原始裁片单标识。')
   }
-  if (!identity.cutPieceOrderNo.trim()) issues.push('缺少 PDA 裁片单执行对象标识。')
+  if (!identity.executionOrderId.trim() || !identity.executionOrderNo.trim()) {
+    issues.push('缺少 PDA 执行对象标识。')
+  }
   if (!identity.materialSku.trim()) issues.push('缺少面料编码。')
 
   const productionRef = resolveProductionOrderRef({
@@ -127,6 +116,28 @@ function validateIdentity(identity: CuttingPdaWritebackIdentity): string[] {
   } else {
     if (productionRef && originalRef.productionOrderId !== productionRef.productionOrderId) {
       issues.push('原始裁片单与生产单引用不一致。')
+    }
+  }
+
+  const executionRef = resolvePdaExecutionRef({
+    taskId: identity.taskId,
+    taskNo: identity.taskNo,
+    executionOrderId: identity.executionOrderId,
+    executionOrderNo: identity.executionOrderNo,
+    legacyCutPieceOrderNo: identity.legacyCutPieceOrderNo,
+    cutPieceOrderNo: identity.cutPieceOrderNo,
+  })
+  if (!executionRef) {
+    issues.push('当前 PDA 执行对象未能对齐到工艺工厂主来源。')
+  } else {
+    if (executionRef.originalCutOrderId !== identity.originalCutOrderId) {
+      issues.push('执行对象与原始裁片单引用不一致。')
+    }
+    if (executionRef.productionOrderId !== identity.productionOrderId) {
+      issues.push('执行对象与生产单引用不一致。')
+    }
+    if ((identity.mergeBatchId || executionRef.mergeBatchId) && executionRef.mergeBatchId !== (identity.mergeBatchId || '')) {
+      issues.push('执行对象与合并批次引用不一致。')
     }
   }
 
@@ -157,19 +168,25 @@ function buildSpreadingAuditTrail(writeback: PdaSpreadingWriteback, sessionId: s
 
 export function writePdaPickupToFcs(options: {
   identity: CuttingPdaWritebackIdentity
-  operatorName: string
+  operator: CuttingPdaWritebackOperator
+  actionAt?: string
+  source: CuttingPdaWritebackSource
   resultLabel: string
   actualReceivedQtyText: string
   discrepancyNote: string
   photoProofCount: number
   claimDisputeId?: string
   claimDisputeNo?: string
-  sourceRecordId?: string
 }): CuttingPdaWritebackBridgeResult {
   const issues = validateIdentity(options.identity)
-  const writebackId = createWritebackId('pickup', options.identity)
+  const actionAt = options.actionAt || nowText()
+  const writebackId = buildWritebackId(
+    options.resultLabel.includes('异议') ? 'PICKUP_DISPUTE' : 'PICKUP_CONFIRM',
+    options.identity,
+    actionAt,
+  )
   if (issues.length) return buildFailure(issues, writebackId)
-  const storage = getStorage()
+  const storage = getPdaCuttingWritebackStorage()
   if (!storage) return buildFailure(['当前环境不支持持久化工艺工厂领料写回结果。'], writebackId)
 
   const needsDispute = !options.resultLabel.includes('成功')
@@ -199,17 +216,27 @@ export function writePdaPickupToFcs(options: {
     originalCutOrderNo: options.identity.originalCutOrderNo,
     mergeBatchId: options.identity.mergeBatchId || '',
     mergeBatchNo: options.identity.mergeBatchNo || '',
+    actionType: options.resultLabel.includes('异议') ? 'PICKUP_DISPUTE' : 'PICKUP_CONFIRM',
+    actionAt,
+    executionOrderId: options.identity.executionOrderId,
+    executionOrderNo: options.identity.executionOrderNo,
+    legacyCutPieceOrderNo: options.identity.legacyCutPieceOrderNo,
     cutPieceOrderNo: options.identity.cutPieceOrderNo,
     materialSku: options.identity.materialSku,
     resultLabel: options.resultLabel,
     actualReceivedQtyText: options.actualReceivedQtyText,
     discrepancyNote: options.discrepancyNote,
     photoProofCount: options.photoProofCount,
-    operatorName: options.operatorName,
-    submittedAt: nowText(),
-    sourceChannel: 'PDA',
+    operatorAccountId: options.operator.operatorAccountId,
+    operatorName: options.operator.operatorName,
+    operatorRole: options.operator.operatorRole,
+    operatorFactoryId: options.operator.operatorFactoryId,
+    operatorFactoryName: options.operator.operatorFactoryName,
+    submittedAt: actionAt,
+    sourceDeviceId: options.source.sourceDeviceId,
+    sourceChannel: options.source.sourceChannel,
     sourceWritebackId: writebackId,
-    sourceRecordId: options.sourceRecordId || '',
+    sourceRecordId: options.source.sourceRecordId || options.source.sourcePageKey,
     claimDisputeId,
     claimDisputeNo,
   }
@@ -220,7 +247,9 @@ export function writePdaPickupToFcs(options: {
 
 export function writePdaSpreadingToFcs(options: {
   identity: CuttingPdaWritebackIdentity
-  operatorName: string
+  operator: CuttingPdaWritebackOperator
+  actionAt?: string
+  source: CuttingPdaWritebackSource
   fabricRollNo: string
   layerCount: number
   actualLength: number
@@ -229,19 +258,21 @@ export function writePdaSpreadingToFcs(options: {
   note: string
 }): CuttingPdaWritebackBridgeResult {
   const issues = validateIdentity(options.identity)
-  const writebackId = createWritebackId('spreading', options.identity)
+  const actionAt = options.actionAt || nowText()
+  const writebackId = buildWritebackId('SPREADING_RECORD', options.identity, actionAt)
   if (issues.length) return buildFailure(issues, writebackId)
 
-  const storage = getStorage()
+  const storage = getPdaCuttingWritebackStorage()
   if (!storage) return buildFailure(['当前环境不支持写入工艺工厂铺布 ledger。'], writebackId)
 
-  const submittedAt = nowText()
+  const submittedAt = actionAt
+  const compactTimestamp = submittedAt.replace(/[^0-9]/g, '').slice(0, 14)
   const writeback = normalizePdaWritebackPayload({
     writebackId,
-    writebackNo: `PDA-WB-${options.identity.taskNo}-${Date.now()}`,
-    sourceAccountId: options.operatorName,
-    sourceAccountName: options.operatorName,
-    sourceDeviceId: 'PDA-CUTTING',
+    writebackNo: `PDA-WB-${options.identity.taskNo}-${compactTimestamp}`,
+    sourceAccountId: options.operator.operatorAccountId,
+    sourceAccountName: options.operator.operatorName,
+    sourceDeviceId: options.source.sourceDeviceId,
     submittedAt,
     contextType: options.identity.mergeBatchId || options.identity.mergeBatchNo ? 'merge-batch' : 'original-order',
     originalCutOrderIds: [options.identity.originalCutOrderId],
@@ -272,8 +303,8 @@ export function writePdaSpreadingToFcs(options: {
       {
         operatorWritebackItemId: `${writebackId}-operator-1`,
         writebackId,
-        operatorAccountId: options.operatorName,
-        operatorName: options.operatorName,
+        operatorAccountId: options.operator.operatorAccountId,
+        operatorName: options.operator.operatorName,
         startAt: submittedAt,
         endAt: submittedAt,
         actionType: '铺布录入',
@@ -287,7 +318,7 @@ export function writePdaSpreadingToFcs(options: {
   const applyResult = applyWritebackToSpreadingSession({
     writeback,
     store: markerStore.sessions.length || markerStore.markers.length ? markerStore : createEmptyMarkerSpreadingStore(),
-    appliedBy: options.operatorName,
+    appliedBy: options.operator.operatorName,
   })
   if (!applyResult.applied) {
     return {
@@ -306,12 +337,12 @@ export function writePdaSpreadingToFcs(options: {
     status: 'APPLIED',
     appliedSessionId: applyResult.updatedSessionId || applyResult.createdSessionId,
     appliedAt: submittedAt,
-    appliedBy: options.operatorName,
+    appliedBy: options.operator.operatorName,
     warningMessages: applyResult.warningMessages,
   })
   const nextInbox = {
     writebacks: [appliedWriteback, ...inbox.writebacks.filter((item) => item.writebackId !== writeback.writebackId)],
-    auditTrails: [buildSpreadingAuditTrail(appliedWriteback, appliedWriteback.appliedSessionId, options.operatorName), ...inbox.auditTrails],
+    auditTrails: [buildSpreadingAuditTrail(appliedWriteback, appliedWriteback.appliedSessionId, options.operator.operatorName), ...inbox.auditTrails],
   }
   storage.setItem(CUTTING_PDA_WRITEBACK_STORAGE_KEY, serializePdaWritebackStorage(nextInbox))
 
@@ -320,22 +351,29 @@ export function writePdaSpreadingToFcs(options: {
 
 export function writePdaInboundToFcs(options: {
   identity: CuttingPdaWritebackIdentity
-  operatorName: string
+  operator: CuttingPdaWritebackOperator
+  actionAt?: string
+  source: CuttingPdaWritebackSource
   zoneCode: 'A' | 'B' | 'C'
   locationLabel: string
   note: string
-  sourceRecordId?: string
 }): CuttingPdaWritebackBridgeResult {
   const issues = validateIdentity(options.identity)
-  const writebackId = createWritebackId('inbound', options.identity)
+  const actionAt = options.actionAt || nowText()
+  const writebackId = buildWritebackId('INBOUND_CONFIRM', options.identity, actionAt)
   if (issues.length) return buildFailure(issues, writebackId)
-  const storage = getStorage()
+  const storage = getPdaCuttingWritebackStorage()
   if (!storage) return buildFailure(['当前环境不支持持久化工艺工厂入仓写回结果。'], writebackId)
 
   const record: PdaCutPieceInboundWritebackRecord = {
     writebackId,
+    actionType: 'INBOUND_CONFIRM',
+    actionAt,
     taskId: options.identity.taskId,
     taskNo: options.identity.taskNo,
+    executionOrderId: options.identity.executionOrderId,
+    executionOrderNo: options.identity.executionOrderNo,
+    legacyCutPieceOrderNo: options.identity.legacyCutPieceOrderNo,
     productionOrderId: options.identity.productionOrderId,
     productionOrderNo: options.identity.productionOrderNo,
     originalCutOrderId: options.identity.originalCutOrderId,
@@ -346,12 +384,17 @@ export function writePdaInboundToFcs(options: {
     materialSku: options.identity.materialSku,
     zoneCode: options.zoneCode,
     locationLabel: options.locationLabel,
-    operatorName: options.operatorName,
+    operatorAccountId: options.operator.operatorAccountId,
+    operatorName: options.operator.operatorName,
+    operatorRole: options.operator.operatorRole,
+    operatorFactoryId: options.operator.operatorFactoryId,
+    operatorFactoryName: options.operator.operatorFactoryName,
     note: options.note,
-    submittedAt: nowText(),
-    sourceChannel: 'PDA',
+    submittedAt: actionAt,
+    sourceDeviceId: options.source.sourceDeviceId,
+    sourceChannel: options.source.sourceChannel,
     sourceWritebackId: writebackId,
-    sourceRecordId: options.sourceRecordId || '',
+    sourceRecordId: options.source.sourceRecordId || options.source.sourcePageKey,
   }
 
   appendInboundWritebackRecord(record, storage)
@@ -360,21 +403,28 @@ export function writePdaInboundToFcs(options: {
 
 export function writePdaHandoverToFcs(options: {
   identity: CuttingPdaWritebackIdentity
-  operatorName: string
+  operator: CuttingPdaWritebackOperator
+  actionAt?: string
+  source: CuttingPdaWritebackSource
   targetLabel: string
   note: string
-  sourceRecordId?: string
 }): CuttingPdaWritebackBridgeResult {
   const issues = validateIdentity(options.identity)
-  const writebackId = createWritebackId('handover', options.identity)
+  const actionAt = options.actionAt || nowText()
+  const writebackId = buildWritebackId('HANDOVER_CONFIRM', options.identity, actionAt)
   if (issues.length) return buildFailure(issues, writebackId)
-  const storage = getStorage()
+  const storage = getPdaCuttingWritebackStorage()
   if (!storage) return buildFailure(['当前环境不支持持久化工艺工厂交接写回结果。'], writebackId)
 
   const record: PdaCutPieceHandoverWritebackRecord = {
     writebackId,
+    actionType: 'HANDOVER_CONFIRM',
+    actionAt,
     taskId: options.identity.taskId,
     taskNo: options.identity.taskNo,
+    executionOrderId: options.identity.executionOrderId,
+    executionOrderNo: options.identity.executionOrderNo,
+    legacyCutPieceOrderNo: options.identity.legacyCutPieceOrderNo,
     productionOrderId: options.identity.productionOrderId,
     productionOrderNo: options.identity.productionOrderNo,
     originalCutOrderId: options.identity.originalCutOrderId,
@@ -384,12 +434,17 @@ export function writePdaHandoverToFcs(options: {
     cutPieceOrderNo: options.identity.cutPieceOrderNo,
     materialSku: options.identity.materialSku,
     targetLabel: options.targetLabel,
-    operatorName: options.operatorName,
+    operatorAccountId: options.operator.operatorAccountId,
+    operatorName: options.operator.operatorName,
+    operatorRole: options.operator.operatorRole,
+    operatorFactoryId: options.operator.operatorFactoryId,
+    operatorFactoryName: options.operator.operatorFactoryName,
     note: options.note,
-    submittedAt: nowText(),
-    sourceChannel: 'PDA',
+    submittedAt: actionAt,
+    sourceDeviceId: options.source.sourceDeviceId,
+    sourceChannel: options.source.sourceChannel,
     sourceWritebackId: writebackId,
-    sourceRecordId: options.sourceRecordId || '',
+    sourceRecordId: options.source.sourceRecordId || options.source.sourcePageKey,
   }
 
   appendHandoverWritebackRecord(record, storage)
@@ -398,22 +453,29 @@ export function writePdaHandoverToFcs(options: {
 
 export function writePdaReplenishmentFeedbackToFcs(options: {
   identity: CuttingPdaWritebackIdentity
-  operatorName: string
+  operator: CuttingPdaWritebackOperator
+  actionAt?: string
+  source: CuttingPdaWritebackSource
   reasonLabel: string
   note: string
   photoProofCount: number
-  sourceRecordId?: string
 }): CuttingPdaWritebackBridgeResult {
   const issues = validateIdentity(options.identity)
-  const writebackId = createWritebackId('replenishment', options.identity)
+  const actionAt = options.actionAt || nowText()
+  const writebackId = buildWritebackId('REPLENISHMENT_FEEDBACK', options.identity, actionAt)
   if (issues.length) return buildFailure(issues, writebackId)
-  const storage = getStorage()
+  const storage = getPdaCuttingWritebackStorage()
   if (!storage) return buildFailure(['当前环境不支持持久化工艺工厂补料反馈写回结果。'], writebackId)
 
   const record: PdaReplenishmentFeedbackWritebackRecord = {
     writebackId,
+    actionType: 'REPLENISHMENT_FEEDBACK',
+    actionAt,
     taskId: options.identity.taskId,
     taskNo: options.identity.taskNo,
+    executionOrderId: options.identity.executionOrderId,
+    executionOrderNo: options.identity.executionOrderNo,
+    legacyCutPieceOrderNo: options.identity.legacyCutPieceOrderNo,
     productionOrderId: options.identity.productionOrderId,
     productionOrderNo: options.identity.productionOrderNo,
     originalCutOrderId: options.identity.originalCutOrderId,
@@ -425,11 +487,16 @@ export function writePdaReplenishmentFeedbackToFcs(options: {
     reasonLabel: options.reasonLabel,
     note: options.note,
     photoProofCount: options.photoProofCount,
-    operatorName: options.operatorName,
-    submittedAt: nowText(),
-    sourceChannel: 'PDA',
+    operatorAccountId: options.operator.operatorAccountId,
+    operatorName: options.operator.operatorName,
+    operatorRole: options.operator.operatorRole,
+    operatorFactoryId: options.operator.operatorFactoryId,
+    operatorFactoryName: options.operator.operatorFactoryName,
+    submittedAt: actionAt,
+    sourceDeviceId: options.source.sourceDeviceId,
+    sourceChannel: options.source.sourceChannel,
     sourceWritebackId: writebackId,
-    sourceRecordId: options.sourceRecordId || '',
+    sourceRecordId: options.source.sourceRecordId || options.source.sourcePageKey,
   }
 
   appendReplenishmentFeedbackWritebackRecord(record, storage)

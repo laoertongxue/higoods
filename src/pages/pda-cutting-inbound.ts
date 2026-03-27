@@ -1,5 +1,11 @@
 import { escapeHtml } from '../utils'
-import { confirmCuttingInbound, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
+import { buildPdaCuttingInboundProjection } from './pda-cutting-inbound-projection'
+import {
+  buildPdaCuttingWritebackSource,
+  resolvePdaCuttingWritebackIdentity,
+  resolvePdaCuttingWritebackOperator,
+} from '../data/fcs/pda-cutting-writeback-inputs.ts'
+import { writePdaInboundToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
 import {
   buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
@@ -10,7 +16,11 @@ import {
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
 } from './pda-cutting-shared'
-import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import {
+  buildPdaCuttingExecutionContext,
+  readSelectedExecutionOrderIdFromLocation,
+  readSelectedExecutionOrderNoFromLocation,
+} from './pda-cutting-context'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface InboundFormState {
@@ -24,8 +34,12 @@ interface InboundFormState {
 
 const inboundState = new Map<string, InboundFormState>()
 
-function getState(taskId: string, cutPieceOrderNo?: string | null): InboundFormState {
-  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+function getInboundDetail(taskId: string, executionKey?: string | null) {
+  return buildPdaCuttingInboundProjection(taskId, executionKey ?? undefined)
+}
+
+function getState(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): InboundFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
   const existing = inboundState.get(stateKey)
   if (existing) return existing
   const initial: InboundFormState = {
@@ -40,7 +54,7 @@ function getState(taskId: string, cutPieceOrderNo?: string | null): InboundFormS
   return initial
 }
 
-function renderInboundHistory(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+function renderInboundHistory(detail: NonNullable<ReturnType<typeof getInboundDetail>>): string {
   if (!detail || !detail.inboundRecords.length) {
     return renderPdaCuttingEmptyState('当前裁片单暂无入仓记录', '')
   }
@@ -65,7 +79,7 @@ function renderInboundHistory(detail: NonNullable<ReturnType<typeof getPdaCuttin
   `
 }
 
-function renderInboundStatus(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+function renderInboundStatus(detail: NonNullable<ReturnType<typeof getInboundDetail>>): string {
   return renderPdaCuttingSummaryGrid([
     { label: '当前入仓状态', value: detail.currentInboundStatus },
     { label: '建议区域', value: detail.inboundZoneLabel },
@@ -100,7 +114,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
     })
   }
 
-  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
 
   const confirmSection = `
@@ -166,8 +180,9 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+    const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const field = fieldNode.dataset.pdaCutInboundField
     if (!field) return true
 
@@ -183,17 +198,34 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaCutInboundAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
-  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
 
   if (action === 'confirm') {
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
-    const result = confirmCuttingInbound(taskId, {
-      operatorName: form.operatorName.trim() || '仓务操作员',
+    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+      executionOrderId: context.selectedExecutionOrderId || undefined,
+      executionOrderNo: context.selectedExecutionOrderNo || undefined,
+      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
+      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
+      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
+      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      materialSku: context.selectedExecutionOrder?.materialSku || undefined,
+    })
+    const operator = resolvePdaCuttingWritebackOperator(taskId, form.operatorName.trim() || '仓务操作员')
+    if (!identity || !operator) {
+      form.feedbackMessage = '当前执行对象或操作人无法识别，不能确认入仓。'
+      return true
+    }
+    const result = writePdaInboundToFcs({
+      identity,
+      operator,
+      source: buildPdaCuttingWritebackSource('inbound', identity.executionOrderId),
       zoneCode: form.zoneCode,
       locationLabel: form.locationLabel.trim() || `${form.zoneCode}-01 临时位`,
       note: form.note.trim(),
-    }, selectedCutPieceOrderNo ?? undefined)
+    })
     if (!result.success) {
       form.feedbackMessage = result.issues.join('；')
       return true
@@ -201,7 +233,8 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
     form.feedbackMessage = '入仓已确认。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,
-      selectedCutPieceOrderNo,
+      context.selectedExecutionOrderId,
+      context.selectedExecutionOrderNo,
       context.navContext,
       'inbound',
     )

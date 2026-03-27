@@ -1,7 +1,7 @@
 import {
   listGeneratedProductionDemandArtifacts,
   type ProductionDemandArtifact,
-} from '../production-demands'
+} from '../production-artifact-generation'
 import { productionOrders } from '../production-orders'
 
 type PrepProcessCode = 'PRINT' | 'DYE'

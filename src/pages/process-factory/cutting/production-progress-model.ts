@@ -23,7 +23,12 @@ import {
   listPdaInboundWritebacks,
   listPdaHandoverWritebacks,
   listPdaReplenishmentFeedbackWritebacks,
-} from './pda-execution-writeback-model'
+  type PdaCutPieceHandoverWritebackRecord,
+  type PdaCutPieceInboundWritebackRecord,
+  type PdaPickupWritebackRecord,
+  type PdaReplenishmentFeedbackWritebackRecord,
+} from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
+import { getBrowserLocalStorage } from '../../../data/browser-storage'
 
 const PRODUCTION_PROGRESS_REFERENCE_DATE = '2026-03-24'
 const DAY_IN_MS = 24 * 60 * 60 * 1000
@@ -395,7 +400,10 @@ function buildCurrentStage(
   }
 }
 
-function buildPieceTruthOverlaySignals(record: CuttingOrderProgressRecord): PieceTruthOverlaySignal[] {
+function buildPieceTruthOverlaySignals(
+  record: CuttingOrderProgressRecord,
+  options: ProductionProgressRuntimeOptions = {},
+): PieceTruthOverlaySignal[] {
   const productionOrderMatches = (value: { productionOrderId: string; productionOrderNo: string }) =>
     value.productionOrderId === record.productionOrderId || value.productionOrderNo === record.productionOrderNo
 
@@ -429,17 +437,24 @@ function buildPieceTruthOverlaySignals(record: CuttingOrderProgressRecord): Piec
     note: item.note,
   })
 
+  const storage = getBrowserLocalStorage() || undefined
+  const pickupWritebacks = options.pickupWritebacks ?? listPdaPickupWritebacks(storage)
+  const inboundWritebacks = options.inboundWritebacks ?? listPdaInboundWritebacks(storage)
+  const handoverWritebacks = options.handoverWritebacks ?? listPdaHandoverWritebacks(storage)
+  const replenishmentFeedbackWritebacks =
+    options.replenishmentFeedbackWritebacks ?? listPdaReplenishmentFeedbackWritebacks(storage)
+
   return [
-    ...listPdaPickupWritebacks()
+    ...pickupWritebacks
       .filter(productionOrderMatches)
       .map((item) => toSignal('PICKUP', item)),
-    ...listPdaInboundWritebacks()
+    ...inboundWritebacks
       .filter(productionOrderMatches)
       .map((item) => toSignal('INBOUND', item)),
-    ...listPdaHandoverWritebacks()
+    ...handoverWritebacks
       .filter(productionOrderMatches)
       .map((item) => toSignal('HANDOVER', item)),
-    ...listPdaReplenishmentFeedbackWritebacks()
+    ...replenishmentFeedbackWritebacks
       .filter(productionOrderMatches)
       .map((item) => toSignal('REPLENISHMENT', item)),
   ]
@@ -563,16 +578,30 @@ function buildKeywordIndex(
     .map((value) => value.toLowerCase())
 }
 
-export function buildProductionProgressRows(records: CuttingOrderProgressRecord[]): ProductionProgressRow[] {
+export interface ProductionProgressRuntimeOptions {
+  pickupWritebacks?: PdaPickupWritebackRecord[]
+  inboundWritebacks?: PdaCutPieceInboundWritebackRecord[]
+  handoverWritebacks?: PdaCutPieceHandoverWritebackRecord[]
+  replenishmentFeedbackWritebacks?: PdaReplenishmentFeedbackWritebackRecord[]
+}
+
+export function buildProductionProgressRows(
+  records: CuttingOrderProgressRecord[],
+  options: ProductionProgressRuntimeOptions = {},
+): ProductionProgressRow[] {
   return records.map((record) => {
-    const originalCutOrderNos = Array.from(new Set(record.materialLines.map((line) => line.cutPieceOrderNo)))
-    const originalCutOrderIds = [...originalCutOrderNos]
+    const originalCutOrderNos = Array.from(
+      new Set(record.materialLines.map((line) => line.originalCutOrderNo || line.originalCutOrderId).filter(Boolean)),
+    )
+    const originalCutOrderIds = Array.from(
+      new Set(record.materialLines.map((line) => line.originalCutOrderId || line.originalCutOrderNo).filter(Boolean)),
+    )
     const auditSummary = buildAuditSummary(record.materialLines)
     const prepSummary = buildConfigSummary(record.materialLines)
     const claimSummary = buildReceiveSummary(record.materialLines)
     const urgency = buildUrgencyView(record.plannedShipDate, record.orderQty)
     const currentStage = buildCurrentStage(record, prepSummary, claimSummary)
-    const overlaySignals = buildPieceTruthOverlaySignals(record)
+    const overlaySignals = buildPieceTruthOverlaySignals(record, options)
     const pieceTruth = buildProductionPieceTruth(record, { overlaySignals })
     const pieceProgress = buildProductionPieceProgressViewModelFromTruth(pieceTruth)
     const pieceCompletionSummary = buildProductionCompletionSummary(pieceTruth, {

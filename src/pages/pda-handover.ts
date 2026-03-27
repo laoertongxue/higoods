@@ -7,7 +7,7 @@ import {
   getPdaPickupHeads,
   type PdaHandoverHead,
 } from '../data/fcs/pda-handover-events'
-import { resolvePdaHandoverDetailPath } from '../data/fcs/pda-cutting-special'
+import { resolvePdaHandoverDetailPath } from '../data/fcs/pda-cutting-execution-source.ts'
 
 type HandoverTab = 'pickup' | 'handout' | 'done'
 

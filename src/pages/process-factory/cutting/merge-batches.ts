@@ -1,9 +1,6 @@
-import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
-import { buildCuttablePoolViewModel } from './cuttable-pool-model'
 import {
-  buildSystemSeedMergeBatches,
   createMergeBatchDraft,
   CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
   CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY,
@@ -23,23 +20,12 @@ import {
 } from './merge-batches-model'
 import {
   buildPrintableUnitViewModel,
-  CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
-  CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
-  deserializeFeiTicketRecordsStorage,
-  deserializeFeiTicketPrintJobsStorage,
   getPrintableUnitStatusMeta,
-  type FeiTicketLabelRecord,
 } from './fei-tickets-model'
 import { FEI_QR_SCHEMA_VERSION } from './fei-qr-model'
-import {
-  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
-  createEmptyStore as createEmptyMarkerStore,
-  deserializeMarkerSpreadingStorage,
-} from './marker-spreading-model'
-import { buildMaterialPrepViewModel } from './material-prep-model'
-import { buildOriginalCutOrderViewModel } from './original-orders-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import { renderCompactKpiCard, renderStickyFilterShell } from './layout.helpers'
+import { buildMergeBatchesProjection } from './merge-batches-projection'
 
 type MergeBatchFilterField = 'keyword' | 'status' | 'cuttingGroup'
 type MergeBatchDraftField = keyof MergeBatchDraftForm
@@ -80,7 +66,7 @@ const state: MergeBatchPageState = {
 }
 
 function getViewModel() {
-  return buildCuttablePoolViewModel(cuttingOrderProgressRecords)
+  return buildMergeBatchesProjection().cuttableViewModel
 }
 
 function nowText(): string {
@@ -121,58 +107,26 @@ function clearIncomingSelection(): void {
   }
 }
 
-function readStoredFeiTicketRecords(): FeiTicketLabelRecord[] {
-  try {
-    return deserializeFeiTicketRecordsStorage(localStorage.getItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY))
-  } catch {
-    return []
-  }
-}
-
-function readStoredFeiTicketPrintJobs() {
-  try {
-    return deserializeFeiTicketPrintJobsStorage(localStorage.getItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY))
-  } catch {
-    return []
-  }
-}
-
-function readMarkerStore() {
-  try {
-    return deserializeMarkerSpreadingStorage(localStorage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY))
-  } catch {
-    return createEmptyMarkerStore()
-  }
+function getProjection() {
+  return buildMergeBatchesProjection()
 }
 
 function buildPrintableUnitSummaryByBatch(mergeBatchId: string) {
-  const mergeBatches = getMergedLedger()
-  const originalRows = buildOriginalCutOrderViewModel(cuttingOrderProgressRecords, mergeBatches).rows
+  const projection = getProjection()
   const printableView = buildPrintableUnitViewModel({
-    originalRows,
-    materialPrepRows: buildMaterialPrepViewModel(cuttingOrderProgressRecords, mergeBatches).rows,
-    mergeBatches,
-    markerStore: readMarkerStore(),
-    ticketRecords: readStoredFeiTicketRecords(),
-    printJobs: readStoredFeiTicketPrintJobs(),
+    originalRows: projection.sources.originalRows,
+    materialPrepRows: projection.sources.materialPrepRows,
+    mergeBatches: projection.sources.mergeBatches,
+    markerStore: projection.sources.markerStore,
+    ticketRecords: projection.sources.feiViewModel.ticketRecords,
+    printJobs: projection.sources.feiViewModel.printJobs,
     prefilter: null,
   })
   return printableView.units.find((unit) => unit.printableUnitType === 'BATCH' && unit.batchId === mergeBatchId) || null
 }
 
 function getMergedLedger(): MergeBatchRecord[] {
-  const systemSeed = buildSystemSeedMergeBatches(Object.values(getViewModel().itemsById))
-  const merged = new Map(systemSeed.map((batch) => [batch.mergeBatchId, batch]))
-
-  for (const batch of readStoredLedger()) {
-    merged.set(batch.mergeBatchId, batch)
-  }
-
-  return Array.from(merged.values()).sort(
-    (left, right) =>
-      right.createdAt.localeCompare(left.createdAt, 'zh-CN') ||
-      right.mergeBatchNo.localeCompare(left.mergeBatchNo, 'zh-CN'),
-  )
+  return getProjection().sources.mergeBatches
 }
 
 function upsertBatch(batch: MergeBatchRecord): void {
@@ -656,7 +610,9 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
   const transitions = getStatusTransitions(batch)
   const statusMeta = getMergeBatchStatusMeta(batch.status)
   const relatedOrderIds = Array.from(new Set(batch.items.map((item) => item.originalCutOrderId)))
-  const qrRecords = readStoredFeiTicketRecords().filter((record) => relatedOrderIds.includes(record.originalCutOrderId))
+  const qrRecords = getProjection().sources.feiViewModel.ticketRecords.filter((record) =>
+    relatedOrderIds.includes(record.originalCutOrderId),
+  )
   const printedOwnerGroupCount = new Set(qrRecords.map((record) => record.originalCutOrderId)).size
   const qrSchemaVersion = qrRecords[0]?.schemaVersion || FEI_QR_SCHEMA_VERSION
   const printableUnit = buildPrintableUnitSummaryByBatch(batch.mergeBatchId)
@@ -724,7 +680,7 @@ function renderBatchDetail(batch: MergeBatchRecord | null): string {
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="text-xs text-muted-foreground">原始裁片单 ${group.itemCount} 条</span>
-                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-original-orders-production" data-batch-id="${escapeHtml(batch.mergeBatchId)}" data-production-order-no="${escapeHtml(group.productionOrderNo)}">查看原始裁片单</button>
+                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-original-orders-production" data-batch-id="${escapeHtml(batch.mergeBatchId)}" data-production-order-id="${escapeHtml(group.productionOrderId)}" data-production-order-no="${escapeHtml(group.productionOrderNo)}">查看原始裁片单</button>
                       </div>
                     </div>
                   </div>
@@ -1030,6 +986,7 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
     appStore.navigate(
       buildRouteWithQuery(getCanonicalCuttingPath('original-orders'), {
         mergeBatchId: actionNode.dataset.batchId,
+        productionOrderId: actionNode.dataset.productionOrderId,
         productionOrderNo: actionNode.dataset.productionOrderNo,
       }),
     )

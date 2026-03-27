@@ -1,9 +1,19 @@
-import type { CuttingOrderProgressRecord } from './types'
+import { productionOrders } from '../production-orders.ts'
+import {
+  listGeneratedOriginalCutOrderSourceRecords,
+  type GeneratedOriginalCutOrderSourceRecord,
+} from './generated-original-cut-orders.ts'
+import type {
+  CuttingMaterialLine,
+  CuttingOrderProgressRecord,
+  CuttingSkuRequirementLine,
+  CuttingUrgencyLevel,
+} from './types'
 
-export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
+const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
   {
     id: 'cutting-op-001',
-    productionOrderId: 'prod-order-081',
+    productionOrderId: 'PO-202603-081',
     productionOrderNo: 'PO-202603-081',
     actualOrderDate: '2026-03-09',
     purchaseDate: '2026-03-08',
@@ -221,7 +231,7 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
   },
   {
     id: 'cutting-op-002',
-    productionOrderId: 'prod-order-082',
+    productionOrderId: 'PO-202603-082',
     productionOrderNo: 'PO-202603-082',
     actualOrderDate: '2026-03-10',
     purchaseDate: '2026-03-09',
@@ -282,7 +292,7 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
   },
   {
     id: 'cutting-op-003',
-    productionOrderId: 'prod-order-083',
+    productionOrderId: 'PO-202603-083',
     productionOrderNo: 'PO-202603-083',
     actualOrderDate: '2026-03-11',
     purchaseDate: '2026-03-10',
@@ -391,7 +401,7 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
   },
   {
     id: 'cutting-op-004',
-    productionOrderId: 'prod-order-084',
+    productionOrderId: 'PO-202603-084',
     productionOrderNo: 'PO-202603-084',
     actualOrderDate: '2026-03-12',
     purchaseDate: '2026-03-11',
@@ -452,7 +462,7 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
   },
   {
     id: 'cutting-op-005',
-    productionOrderId: 'prod-order-085',
+    productionOrderId: 'PO-202603-085',
     productionOrderNo: 'PO-202603-085',
     actualOrderDate: '2026-03-13',
     purchaseDate: '2026-03-12',
@@ -513,7 +523,7 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
   },
   {
     id: 'cutting-op-006',
-    productionOrderId: 'prod-order-086',
+    productionOrderId: 'PO-202603-086',
     productionOrderNo: 'PO-202603-086',
     actualOrderDate: '2026-03-14',
     purchaseDate: '2026-03-13',
@@ -574,7 +584,7 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
   },
   {
     id: 'cutting-op-007',
-    productionOrderId: 'prod-order-087',
+    productionOrderId: 'PO-202603-087',
     productionOrderNo: 'PO-202603-087',
     actualOrderDate: '2026-03-15',
     purchaseDate: '2026-03-14',
@@ -645,7 +655,7 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
   },
   {
     id: 'cutting-op-008',
-    productionOrderId: 'prod-order-088',
+    productionOrderId: 'PO-202603-088',
     productionOrderNo: 'PO-202603-088',
     actualOrderDate: '2026-03-16',
     purchaseDate: '2026-03-15',
@@ -707,3 +717,141 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
     ],
   },
 ]
+
+function unique<T>(values: T[]): T[] {
+  return Array.from(new Set(values))
+}
+
+function normalizeLegacyText(value: string | null | undefined): string {
+  return String(value || '').trim().toLowerCase()
+}
+
+function makeLegacyMaterialKey(input: {
+  materialSku?: string
+  materialType?: string
+  materialLabel?: string
+}): string {
+  return [
+    normalizeLegacyText(input.materialSku),
+    normalizeLegacyText(input.materialType),
+    normalizeLegacyText(input.materialLabel),
+  ].join('::')
+}
+
+function buildSkuRequirementLines(order: (typeof productionOrders)[number]): CuttingSkuRequirementLine[] {
+  return order.demandSnapshot.skuLines.map((line) => ({
+    skuCode: line.skuCode,
+    color: line.color,
+    size: line.size,
+    plannedQty: line.qty,
+  }))
+}
+
+function deriveUrgencyLevel(requiredDeliveryDate: string | null): CuttingUrgencyLevel {
+  if (!requiredDeliveryDate) return 'C'
+  if (requiredDeliveryDate <= '2026-03-24') return 'AA'
+  if (requiredDeliveryDate <= '2026-03-28') return 'A'
+  if (requiredDeliveryDate <= '2026-04-05') return 'B'
+  return 'C'
+}
+
+function buildProjectedMaterialLine(
+  generated: GeneratedOriginalCutOrderSourceRecord,
+  legacyLine: CuttingMaterialLine | undefined,
+): CuttingMaterialLine {
+  return {
+    originalCutOrderId: generated.originalCutOrderId,
+    originalCutOrderNo: generated.originalCutOrderNo,
+    cutPieceOrderNo: generated.originalCutOrderNo,
+    mergeBatchId: generated.mergeBatchId || legacyLine?.mergeBatchId,
+    mergeBatchNo: generated.mergeBatchNo || legacyLine?.mergeBatchNo,
+    materialSku: generated.materialSku,
+    materialType: generated.materialType,
+    materialLabel: generated.materialLabel,
+    color: legacyLine?.color || generated.colorScope[0] || '待补',
+    materialCategory: generated.materialCategory,
+    reviewStatus: legacyLine?.reviewStatus || 'PENDING',
+    configStatus: legacyLine?.configStatus || 'NOT_CONFIGURED',
+    receiveStatus: legacyLine?.receiveStatus || 'NOT_RECEIVED',
+    configuredRollCount: legacyLine?.configuredRollCount || 0,
+    configuredLength: legacyLine?.configuredLength || 0,
+    receivedRollCount: legacyLine?.receivedRollCount || 0,
+    receivedLength: legacyLine?.receivedLength || 0,
+    printSlipStatus: legacyLine?.printSlipStatus || 'NOT_PRINTED',
+    qrStatus: legacyLine?.qrStatus || 'NOT_GENERATED',
+    batchOccupancyStatus: legacyLine?.batchOccupancyStatus || (generated.mergeBatchNo ? 'IN_BATCH' : 'AVAILABLE'),
+    skuScopeLines: generated.skuScopeLines.map((line) => ({ ...line })),
+    pieceProgressLines: legacyLine?.pieceProgressLines ? legacyLine.pieceProgressLines.map((line) => ({ ...line })) : undefined,
+    issueFlags: [...(legacyLine?.issueFlags || [])],
+    latestActionText: legacyLine?.latestActionText || `原始裁片单 ${generated.originalCutOrderNo} 已从上游链生成，待进入裁片准备。`,
+  }
+}
+
+function buildProjectedRecord(
+  order: (typeof productionOrders)[number],
+  generatedOriginals: GeneratedOriginalCutOrderSourceRecord[],
+): CuttingOrderProgressRecord {
+  const legacyRecord = legacyCuttingOrderProgressSeedRecords.find((record) => record.productionOrderNo === order.productionOrderId)
+  const legacyLineMap = new Map(
+    (legacyRecord?.materialLines || []).map((line) => [
+      makeLegacyMaterialKey({
+        materialSku: line.materialSku,
+        materialType: line.materialType,
+        materialLabel: line.materialLabel,
+      }),
+      line,
+    ] as const),
+  )
+  const skuRequirementLines = buildSkuRequirementLines(order)
+  const materialLines = generatedOriginals.map((generated) =>
+    buildProjectedMaterialLine(
+      generated,
+      legacyLineMap.get(
+        makeLegacyMaterialKey({
+          materialSku: generated.materialSku,
+          materialType: generated.materialType,
+          materialLabel: generated.materialLabel,
+        }),
+      ),
+    ),
+  )
+
+  return {
+    id: legacyRecord?.id || `cutting-op:${order.productionOrderId}`,
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderId,
+    actualOrderDate: legacyRecord?.actualOrderDate || order.createdAt.slice(0, 10),
+    purchaseDate: legacyRecord?.purchaseDate || order.createdAt.slice(0, 10),
+    orderQty: skuRequirementLines.reduce((sum, line) => sum + line.plannedQty, 0),
+    plannedShipDate: order.demandSnapshot.requiredDeliveryDate || legacyRecord?.plannedShipDate || '',
+    spuCode: order.demandSnapshot.spuCode,
+    techPackSpuCode: order.demandSnapshot.spuCode,
+    styleCode: legacyRecord?.styleCode || order.demandSnapshot.spuCode,
+    styleName: legacyRecord?.styleName || order.demandSnapshot.spuName,
+    sellingPrice: legacyRecord?.sellingPrice,
+    urgencyLevel: legacyRecord?.urgencyLevel || deriveUrgencyLevel(order.demandSnapshot.requiredDeliveryDate),
+    cuttingTaskNo: legacyRecord?.cuttingTaskNo || `CUT-TASK-${order.productionOrderId.replace(/\\D/g, '').slice(-6)}`,
+    assignedFactoryName: legacyRecord?.assignedFactoryName || order.mainFactorySnapshot.name,
+    cuttingStage: legacyRecord?.cuttingStage || '待审核',
+    riskFlags: unique([...(legacyRecord?.riskFlags || [])]),
+    lastPickupScanAt: legacyRecord?.lastPickupScanAt || order.updatedAt,
+    lastFieldUpdateAt: legacyRecord?.lastFieldUpdateAt || order.updatedAt,
+    lastOperatorName: legacyRecord?.lastOperatorName || order.mainFactorySnapshot.name,
+    hasSpreadingRecord: legacyRecord?.hasSpreadingRecord || false,
+    hasInboundRecord: legacyRecord?.hasInboundRecord || false,
+    skuRequirementLines,
+    materialLines,
+  }
+}
+
+const generatedOriginalCutOrders = listGeneratedOriginalCutOrderSourceRecords()
+
+export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = productionOrders
+  .map((order) => {
+    const generatedOriginals = generatedOriginalCutOrders.filter(
+      (item) => item.productionOrderId === order.productionOrderId,
+    )
+    if (generatedOriginals.length === 0) return null
+    return buildProjectedRecord(order, generatedOriginals)
+  })
+  .filter((record): record is CuttingOrderProgressRecord => record !== null)

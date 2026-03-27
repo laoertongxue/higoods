@@ -16,7 +16,8 @@ import { getLatestClaimDisputeByOriginalCutOrderNo, listClaimDisputesByOriginalC
 import {
   listPdaPickupWritebacks,
   type PdaPickupWritebackRecord,
-} from './pda-execution-writeback-model'
+} from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
+import { getBrowserLocalStorage } from '../../../data/browser-storage'
 import {
   canViewPrepQr,
   getPrepQrHiddenText,
@@ -148,6 +149,7 @@ export interface MaterialPrepRow {
   claimDisputeHandleSummary: string
   printedAt: string
   printedBy: string
+  latestMergeBatchId: string
   latestMergeBatchNo: string
   mergeBatchNos: string[]
   mergeBatchIds: string[]
@@ -495,6 +497,8 @@ function applyPdaPickupWritebacksToRow(
 }
 
 function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterialLine): MaterialPrepLineItem {
+  const originalCutOrderId = line.originalCutOrderId || line.originalCutOrderNo || line.cutPieceOrderNo
+  const materialLineId = `${originalCutOrderId}::${line.materialSku || line.materialLabel || 'material'}`
   const requiredQty = inferRequiredQty(line)
   const configuredQty = line.configuredLength
   const claimedQty = line.receivedLength
@@ -502,7 +506,7 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
 
   const linePrepStatus = deriveMaterialPrepStatus([
     {
-      materialLineId: line.cutPieceOrderNo,
+      materialLineId,
       materialSku: line.materialSku,
       materialName: line.materialLabel,
       materialCategory: materialCategoryLabel(line),
@@ -524,7 +528,7 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
 
   const lineClaimStatus = deriveMaterialClaimStatus([
     {
-      materialLineId: line.cutPieceOrderNo,
+      materialLineId,
       materialSku: line.materialSku,
       materialName: line.materialLabel,
       materialCategory: materialCategoryLabel(line),
@@ -545,7 +549,7 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
   ])
 
   return {
-    materialLineId: line.cutPieceOrderNo,
+    materialLineId,
     materialSku: line.materialSku,
     materialName: line.materialLabel,
     materialCategory: materialCategoryLabel(line),
@@ -588,6 +592,7 @@ export function buildMaterialPrepNavigationPayload(row: Pick<
   | 'styleCode'
   | 'spuCode'
   | 'materialSkuSummary'
+  | 'latestMergeBatchId'
   | 'latestMergeBatchNo'
 >): MaterialPrepNavigationPayload {
   return {
@@ -599,20 +604,27 @@ export function buildMaterialPrepNavigationPayload(row: Pick<
     markerSpreading: {
       originalCutOrderId: row.originalCutOrderId,
       originalCutOrderNo: row.originalCutOrderNo,
+      mergeBatchId: row.latestMergeBatchId || undefined,
       mergeBatchNo: row.latestMergeBatchNo || undefined,
       productionOrderNo: row.productionOrderNo,
+      materialSku: row.materialSkuSummary || undefined,
       tab: 'spreadings',
     },
     summary: {
       productionOrderId: row.productionOrderId,
       productionOrderNo: row.productionOrderNo,
+      originalCutOrderId: row.originalCutOrderId,
       originalCutOrderNo: row.originalCutOrderNo,
+      mergeBatchId: row.latestMergeBatchId || undefined,
+      mergeBatchNo: row.latestMergeBatchNo || undefined,
+      materialSku: row.materialSkuSummary || undefined,
     },
     productionProgress: {
       productionOrderId: row.productionOrderId,
       productionOrderNo: row.productionOrderNo,
     },
     mergeBatches: {
+      mergeBatchId: row.latestMergeBatchId || undefined,
       mergeBatchNo: row.latestMergeBatchNo || undefined,
       originalCutOrderNo: row.originalCutOrderNo,
       originalCutOrderId: row.originalCutOrderId,
@@ -659,11 +671,13 @@ function createRow(
   line: CuttingMaterialLine,
   ledger: MergeBatchRecord[],
 ): MaterialPrepRow {
+  const originalCutOrderId = line.originalCutOrderId || line.originalCutOrderNo || line.cutPieceOrderNo
+  const originalCutOrderNo = line.originalCutOrderNo || line.originalCutOrderId || line.cutPieceOrderNo
   const progressRows = buildProductionProgressRows([record])
   const urgency = urgencyMeta[progressRows[0]?.urgency.key ?? 'UNKNOWN']
   const lineItems = [buildLineItem(record, line)]
-  const batchSummary = summarizeMergeBatchParticipation(line.cutPieceOrderNo, ledger)
-  const claimRecords = buildInitialClaimRecords(record, lineItems[0], line.cutPieceOrderNo)
+  const batchSummary = summarizeMergeBatchParticipation(originalCutOrderId, ledger)
+  const claimRecords = buildInitialClaimRecords(record, lineItems[0], originalCutOrderId)
   const materialAuditStatus = summarizeAuditStatus(lineItems)
   const materialPrepStatus = deriveMaterialPrepStatus(lineItems)
   const materialClaimStatus = deriveMaterialClaimStatus(lineItems)
@@ -671,9 +685,9 @@ function createRow(
   const schedulingStatus = deriveSchedulingStatus(assignedCuttingGroup)
 
   const baseRow: MaterialPrepRow = {
-    id: line.cutPieceOrderNo,
-    originalCutOrderId: line.cutPieceOrderNo,
-    originalCutOrderNo: line.cutPieceOrderNo,
+    id: originalCutOrderId,
+    originalCutOrderId,
+    originalCutOrderNo,
     productionOrderId: record.productionOrderId,
     productionOrderNo: record.productionOrderNo,
     styleCode: record.styleCode,
@@ -686,8 +700,8 @@ function createRow(
     urgencyKey: progressRows[0]?.urgency.key ?? 'UNKNOWN',
     urgencyLabel: urgency.label,
     urgencyClassName: urgency.className,
-    sameCodeValue: buildSameCodeValue(line.cutPieceOrderNo),
-    qrCodeValue: buildQrCodeValue(line.cutPieceOrderNo),
+    sameCodeValue: buildSameCodeValue(originalCutOrderNo),
+    qrCodeValue: buildQrCodeValue(originalCutOrderNo),
     qrCodeLabel: '裁片单主码',
     shouldDisplayQr: false,
     shouldDisplayQrLabel: false,
@@ -717,13 +731,14 @@ function createRow(
     claimDisputeHandleSummary: '待平台处理结果',
     printedAt: line.printSlipStatus === 'PRINTED' ? record.lastFieldUpdateAt || record.lastPickupScanAt || '' : '',
     printedBy: line.printSlipStatus === 'PRINTED' ? `${record.lastOperatorName || '系统'} / 打印回写` : '',
+    latestMergeBatchId: batchSummary.activeBatchId || '',
     latestMergeBatchNo: batchSummary.latestMergeBatchNo || line.mergeBatchNo || '',
     mergeBatchNos: batchSummary.mergeBatchNos,
     mergeBatchIds: batchSummary.mergeBatchIds,
     currentStageText: record.cuttingStage || '待补',
     navigationPayload: buildMaterialPrepNavigationPayload({
-      originalCutOrderId: line.cutPieceOrderNo,
-      originalCutOrderNo: line.cutPieceOrderNo,
+      originalCutOrderId,
+      originalCutOrderNo,
       productionOrderId: record.productionOrderId,
       productionOrderNo: record.productionOrderNo,
       styleCode: record.styleCode,
@@ -732,7 +747,8 @@ function createRow(
       latestMergeBatchNo: batchSummary.latestMergeBatchNo || line.mergeBatchNo || '',
     }),
     keywordIndex: buildKeywordIndex([
-      line.cutPieceOrderNo,
+      originalCutOrderId,
+      originalCutOrderNo,
       record.productionOrderId,
       record.productionOrderNo,
       record.styleCode,
@@ -836,8 +852,11 @@ export function recalculateMaterialPrepRow(
 export function buildMaterialPrepViewModel(
   records: CuttingOrderProgressRecord[],
   ledger: MergeBatchRecord[] = [],
+  options: {
+    pickupWritebacks?: PdaPickupWritebackRecord[]
+  } = {},
 ): MaterialPrepViewModel {
-  const pickupWritebacks = listPdaPickupWritebacks(typeof localStorage === 'undefined' ? undefined : localStorage)
+  const pickupWritebacks = options.pickupWritebacks ?? listPdaPickupWritebacks(getBrowserLocalStorage() || undefined)
   const pickupWritebacksByOriginalCutOrderNo = pickupWritebacks.reduce<Record<string, PdaPickupWritebackRecord[]>>((accumulator, item) => {
     accumulator[item.originalCutOrderNo] = accumulator[item.originalCutOrderNo] || []
     accumulator[item.originalCutOrderNo].push(item)

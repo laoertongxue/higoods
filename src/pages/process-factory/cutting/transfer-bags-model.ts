@@ -1,3 +1,30 @@
+import {
+  buildCuttingTraceabilityId,
+  encodeCarrierQr,
+} from '../../../data/fcs/cutting/qr-codes.ts'
+import {
+  normalizeCarrierCycleItemBinding,
+  normalizeTransferBagDispatchManifest,
+  normalizeTransferCarrierCycleRecord,
+  normalizeTransferCarrierRecord,
+} from '../../../data/fcs/cutting/transfer-bag-legacy-normalizer.ts'
+import {
+  buildSystemSeedTransferBagRuntime,
+  createCarrierCycleRecord,
+  createCarrierDispatchManifest,
+  deserializeTransferBagRuntimeStorage,
+  mergeTransferBagRuntimeStores,
+  serializeTransferBagRuntimeStorage,
+  type CarrierCycleItemBinding,
+  type SewingTaskRefRecord,
+  type TransferBagDispatchManifestRecord,
+  type TransferBagRuntimeStore,
+  type TransferBagSeedMergeBatchLike,
+  type TransferBagSeedOriginalRowLike,
+  type TransferBagSeedTicketLike,
+  type TransferCarrierCycleRecord,
+  type TransferCarrierRecord,
+} from '../../../data/fcs/cutting/transfer-bag-runtime.ts'
 import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model'
 import type { MergeBatchRecord } from './merge-batches-model'
 import type { OriginalCutOrderRow } from './original-orders-model'
@@ -56,6 +83,12 @@ export interface TransferBagSummaryMeta<Key extends string> {
 }
 
 export interface TransferBagMaster {
+  carrierId: string
+  carrierCode: string
+  carrierType: 'bag' | 'box'
+  latestCycleId: string
+  latestCycleNo: string
+  // Legacy page-shell aliases. Do not use as formal identity.
   bagId: string
   bagCode: string
   bagType: string
@@ -63,12 +96,24 @@ export interface TransferBagMaster {
   reusable: boolean
   currentStatus: TransferBagMasterStatusKey
   currentLocation: string
+  // Legacy page-shell aliases. Do not use as formal identity.
   latestUsageId: string
   latestUsageNo: string
+  currentCycleId: string
+  currentOwnerTaskId: string
+  qrValue?: string
+  qrPayload?: Record<string, unknown>
   note: string
 }
 
 export interface TransferBagUsage {
+  cycleId: string
+  cycleNo: string
+  carrierId: string
+  carrierCode: string
+  carrierType: 'bag' | 'box'
+  cycleStatus: TransferBagUsageStatusKey
+  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
   bagId: string
@@ -82,6 +127,7 @@ export interface TransferBagUsage {
   skuSummary: string
   colorSummary: string
   sizeSummary: string
+  // Legacy page-shell alias. Do not use as formal status identity.
   usageStatus: TransferBagUsageStatusKey
   packedTicketCount: number
   packedOriginalCutOrderCount: number
@@ -92,11 +138,19 @@ export interface TransferBagUsage {
   signoffStatus: TransferBagSignoffStatus
   signedAt?: string
   returnedAt?: string
+  status?: string
   note: string
 }
 
 export interface TransferBagItemBinding {
   bindingId: string
+  cycleId: string
+  cycleNo: string
+  carrierId: string
+  carrierCode: string
+  feiTicketId: string
+  feiTicketNo: string
+  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
   bagId: string
@@ -107,9 +161,12 @@ export interface TransferBagItemBinding {
   originalCutOrderNo: string
   productionOrderNo: string
   mergeBatchNo: string
+  裁剪批次No?: string
   qty: number
   boundAt: string
   boundBy: string
+  operator?: string
+  status?: 'BOUND' | 'REMOVED'
   note: string
 }
 
@@ -134,6 +191,9 @@ export interface SewingTaskRef {
 
 export interface TransferBagDispatchManifest {
   manifestId: string
+  cycleId: string
+  carrierCode: string
+  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   bagCode: string
   sewingTaskNo: string
@@ -148,6 +208,8 @@ export interface TransferBagDispatchManifest {
 
 export interface TransferBagUsageAuditTrail {
   auditTrailId: string
+  cycleId: string
+  // Legacy page-shell alias. Do not use as formal identity.
   usageId: string
   action: string
   actionAt: string
@@ -157,6 +219,11 @@ export interface TransferBagUsageAuditTrail {
 
 export interface TransferBagReturnReceipt {
   returnReceiptId: string
+  cycleId: string
+  cycleNo: string
+  carrierId: string
+  carrierCode: string
+  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
   bagId: string
@@ -177,6 +244,10 @@ export interface TransferBagReturnReceipt {
 
 export interface TransferBagConditionRecord {
   conditionRecordId: string
+  cycleId: string
+  carrierId: string
+  carrierCode: string
+  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   bagId: string
   bagCode: string
@@ -192,6 +263,12 @@ export interface TransferBagConditionRecord {
 
 export interface TransferBagReuseCycleSummary {
   cycleSummaryId: string
+  carrierId: string
+  carrierCode: string
+  latestCycleId: string
+  latestCycleNo: string
+  currentOpenCycleId: string
+  // Legacy page-shell aliases. Do not use as formal identity.
   bagId: string
   bagCode: string
   latestUsageId: string
@@ -209,6 +286,9 @@ export interface TransferBagReuseCycleSummary {
 
 export interface TransferBagUsageClosureResult {
   closureId: string
+  cycleId: string
+  cycleNo: string
+  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
   closedAt: string
@@ -244,15 +324,22 @@ export interface TransferBagStore {
 }
 
 export interface TransferBagPrefilter {
+  originalCutOrderId?: string
   originalCutOrderNo?: string
+  mergeBatchId?: string
   mergeBatchNo?: string
   裁剪批次No?: string
+  productionOrderId?: string
   productionOrderNo?: string
+  materialSku?: string
+  ticketId?: string
   cuttingGroup?: string
   warehouseStatus?: string
   ticketNo?: string
   sewingTaskNo?: string
+  bagId?: string
   bagCode?: string
+  usageId?: string
   usageNo?: string
   returnStatus?: string
 }
@@ -274,10 +361,13 @@ export interface TransferBagParentChildSummary {
 
 export interface TransferBagTicketCandidate {
   ticketRecordId: string
+  feiTicketId: string
   ticketNo: string
   originalCutOrderId: string
   originalCutOrderNo: string
+  productionOrderId: string
   productionOrderNo: string
+  mergeBatchId: string
   mergeBatchNo: string
   styleCode: string
   spuCode: string
@@ -531,6 +621,345 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
+function buildBagAuditId(nowText: string, usageId: string, action: string): string {
+  return buildCuttingTraceabilityId('bag-audit', nowText, usageId, action)
+}
+
+function toCarrierType(bagCode: string, explicit?: string): 'bag' | 'box' {
+  if (explicit === 'box' || explicit === 'bag') return explicit
+  return bagCode.startsWith('BOX') ? 'box' : 'bag'
+}
+
+function toLegacyMasterStatus(status: string | undefined): TransferBagMasterStatusKey {
+  const normalized = String(status || 'IDLE').toUpperCase()
+  if (
+    normalized === 'IDLE' ||
+    normalized === 'IN_USE' ||
+    normalized === 'DISPATCHED' ||
+    normalized === 'WAITING_SIGNOFF' ||
+    normalized === 'WAITING_RETURN' ||
+    normalized === 'RETURN_INSPECTING' ||
+    normalized === 'REUSABLE' ||
+    normalized === 'WAITING_CLEANING' ||
+    normalized === 'WAITING_REPAIR' ||
+    normalized === 'DISABLED'
+  ) {
+    return normalized
+  }
+  return 'IDLE'
+}
+
+function toLegacyUsageStatus(status: string | undefined): TransferBagUsageStatusKey {
+  const normalized = String(status || 'DRAFT').toUpperCase()
+  if (
+    normalized === 'DRAFT' ||
+    normalized === 'PACKING' ||
+    normalized === 'READY_TO_DISPATCH' ||
+    normalized === 'DISPATCHED' ||
+    normalized === 'PENDING_SIGNOFF' ||
+    normalized === 'WAITING_RETURN' ||
+    normalized === 'RETURN_INSPECTING' ||
+    normalized === 'CLOSED' ||
+    normalized === 'EXCEPTION_CLOSED'
+  ) {
+    return normalized
+  }
+  return 'DRAFT'
+}
+
+function toRuntimeCarrierRecord(master: TransferBagMaster): TransferCarrierRecord {
+  const normalized = normalizeTransferCarrierRecord(master as unknown as Record<string, unknown>)
+  const carrierId = normalized.carrierId
+  const carrierCode = normalized.carrierCode
+  const carrierType = toCarrierType(carrierCode, master.carrierType)
+  const encoded = encodeCarrierQr({
+    carrierId,
+    carrierCode,
+    carrierType,
+    cycleId: master.currentCycleId || 'idle-cycle',
+    issuedAt: '2026-03-24 08:00',
+  })
+
+  return {
+    carrierId,
+    carrierCode,
+    carrierType,
+    bagType: master.bagType,
+    capacity: master.capacity,
+    reusable: master.reusable,
+    currentStatus: master.currentStatus,
+    currentLocation: master.currentLocation,
+    latestCycleId: normalized.latestCycleId,
+    latestCycleNo: normalized.latestCycleNo,
+    currentCycleId: normalized.currentCycleId,
+    currentOwnerTaskId: normalized.currentOwnerTaskId,
+    note: master.note,
+    qrPayload: (master.qrPayload as ReturnType<typeof encodeCarrierQr>['payload']) || encoded.payload,
+    qrValue: master.qrValue || encoded.qrValue,
+  }
+}
+
+function toLegacyMaster(master: TransferCarrierRecord): TransferBagMaster {
+  return {
+    carrierId: master.carrierId,
+    carrierCode: master.carrierCode,
+    carrierType: master.carrierType,
+    latestCycleId: master.latestCycleId || '',
+    latestCycleNo: master.latestCycleNo || '',
+    bagId: master.carrierId,
+    bagCode: master.carrierCode,
+    bagType: master.bagType,
+    capacity: master.capacity,
+    reusable: master.reusable,
+    currentStatus: toLegacyMasterStatus(master.currentStatus),
+    currentLocation: master.currentLocation,
+    latestUsageId: master.latestCycleId || '',
+    latestUsageNo: master.latestCycleNo || '',
+    currentCycleId: master.currentCycleId || '',
+    currentOwnerTaskId: master.currentOwnerTaskId || '',
+    qrValue: master.qrValue,
+    qrPayload: master.qrPayload as unknown as Record<string, unknown>,
+    note: master.note,
+  }
+}
+
+function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
+  const normalized = normalizeTransferCarrierCycleRecord(usage as unknown as Record<string, unknown>)
+  return {
+    cycleId: normalized.cycleId,
+    cycleNo: normalized.cycleNo,
+    carrierId: normalized.carrierId,
+    carrierCode: normalized.carrierCode,
+    carrierType: normalized.carrierType,
+    sewingTaskId: usage.sewingTaskId,
+    sewingTaskNo: usage.sewingTaskNo,
+    sewingFactoryId: usage.sewingFactoryId,
+    sewingFactoryName: usage.sewingFactoryName,
+    styleCode: usage.styleCode,
+    spuCode: usage.spuCode,
+    skuSummary: usage.skuSummary,
+    colorSummary: usage.colorSummary,
+    sizeSummary: usage.sizeSummary,
+    cycleStatus: normalized.cycleStatus as TransferBagUsageStatusKey,
+    status: String(usage.status || ''),
+    packedTicketCount: usage.packedTicketCount,
+    packedOriginalCutOrderCount: usage.packedOriginalCutOrderCount,
+    startedAt: usage.startedAt || '',
+    finishedPackingAt: usage.finishedPackingAt || '',
+    dispatchAt: usage.dispatchAt,
+    dispatchBy: usage.dispatchBy,
+    signoffStatus: usage.signoffStatus,
+    signedAt: usage.signedAt || '',
+    returnedAt: usage.returnedAt || '',
+    note: usage.note,
+  }
+}
+
+function toLegacyUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
+  return {
+    cycleId: usage.cycleId,
+    cycleNo: usage.cycleNo,
+    carrierId: usage.carrierId,
+    carrierCode: usage.carrierCode,
+    carrierType: usage.carrierType,
+    usageId: usage.cycleId,
+    usageNo: usage.cycleNo,
+    bagId: usage.carrierId,
+    bagCode: usage.carrierCode,
+    sewingTaskId: usage.sewingTaskId,
+    sewingTaskNo: usage.sewingTaskNo,
+    sewingFactoryId: usage.sewingFactoryId,
+    sewingFactoryName: usage.sewingFactoryName,
+    styleCode: usage.styleCode,
+    spuCode: usage.spuCode,
+    skuSummary: usage.skuSummary,
+    colorSummary: usage.colorSummary,
+    sizeSummary: usage.sizeSummary,
+    cycleStatus: toLegacyUsageStatus(usage.cycleStatus),
+    usageStatus: toLegacyUsageStatus(usage.cycleStatus),
+    packedTicketCount: usage.packedTicketCount || 0,
+    packedOriginalCutOrderCount: usage.packedOriginalCutOrderCount || 0,
+    startedAt: usage.startedAt || '',
+    finishedPackingAt: usage.finishedPackingAt || '',
+    dispatchAt: usage.dispatchAt || '',
+    dispatchBy: usage.dispatchBy || '',
+    signoffStatus: usage.signoffStatus || 'PENDING',
+    signedAt: usage.signedAt || '',
+    returnedAt: usage.returnedAt || '',
+    status: usage.status,
+    note: usage.note,
+  }
+}
+
+function toRuntimeBinding(binding: TransferBagItemBinding): CarrierCycleItemBinding {
+  const cycleKey = binding.cycleId
+  const normalized = normalizeCarrierCycleItemBinding(binding as unknown as Record<string, unknown>, {
+    [cycleKey]: binding as unknown as Record<string, unknown>,
+  })
+  return {
+    bindingId: binding.bindingId,
+    cycleId: normalized.cycleId,
+    cycleNo: normalized.cycleNo,
+    carrierId: normalized.carrierId,
+    carrierCode: normalized.carrierCode,
+    feiTicketId: normalized.feiTicketId,
+    feiTicketNo: normalized.feiTicketNo,
+    originalCutOrderId: binding.originalCutOrderId,
+    originalCutOrderNo: binding.originalCutOrderNo,
+    productionOrderNo: binding.productionOrderNo,
+    mergeBatchNo: binding.mergeBatchNo,
+    qty: binding.qty,
+    boundAt: binding.boundAt,
+    boundBy: binding.boundBy,
+    operator: normalized.operator,
+    status: normalized.status as 'BOUND' | 'REMOVED',
+    note: binding.note,
+  }
+}
+
+function toLegacyBinding(binding: CarrierCycleItemBinding): TransferBagItemBinding {
+  return {
+    bindingId: binding.bindingId,
+    cycleId: binding.cycleId,
+    cycleNo: binding.cycleNo,
+    carrierId: binding.carrierId,
+    carrierCode: binding.carrierCode,
+    feiTicketId: binding.feiTicketId,
+    feiTicketNo: binding.feiTicketNo,
+    usageId: binding.cycleId,
+    usageNo: binding.cycleNo,
+    bagId: binding.carrierId,
+    bagCode: binding.carrierCode,
+    ticketRecordId: binding.feiTicketId,
+    ticketNo: binding.feiTicketNo,
+    originalCutOrderId: binding.originalCutOrderId,
+    originalCutOrderNo: binding.originalCutOrderNo,
+    productionOrderNo: binding.productionOrderNo,
+    mergeBatchNo: binding.mergeBatchNo,
+    裁剪批次No: binding.mergeBatchNo,
+    qty: binding.qty,
+    boundAt: binding.boundAt,
+    boundBy: binding.boundBy,
+    operator: binding.operator || binding.boundBy,
+    status: binding.status || 'BOUND',
+    note: binding.note,
+  }
+}
+
+function toRuntimeManifest(manifest: TransferBagDispatchManifest): TransferBagDispatchManifestRecord {
+  const normalized = normalizeTransferBagDispatchManifest(manifest as unknown as Record<string, unknown>)
+  return {
+    manifestId: manifest.manifestId,
+    cycleId: normalized.cycleId,
+    carrierCode: normalized.carrierCode,
+    sewingTaskNo: manifest.sewingTaskNo,
+    sewingFactoryName: manifest.sewingFactoryName,
+    ticketCount: manifest.ticketCount,
+    originalCutOrderCount: manifest.originalCutOrderCount,
+    createdAt: manifest.createdAt,
+    createdBy: manifest.createdBy,
+    printStatus: manifest.printStatus,
+    note: manifest.note,
+  }
+}
+
+function toLegacyManifest(manifest: TransferBagDispatchManifestRecord): TransferBagDispatchManifest {
+  return {
+    manifestId: manifest.manifestId,
+    cycleId: manifest.cycleId,
+    carrierCode: manifest.carrierCode,
+    usageId: manifest.cycleId,
+    bagCode: manifest.carrierCode,
+    sewingTaskNo: manifest.sewingTaskNo,
+    sewingFactoryName: manifest.sewingFactoryName,
+    ticketCount: manifest.ticketCount,
+    originalCutOrderCount: manifest.originalCutOrderCount,
+    createdAt: manifest.createdAt,
+    createdBy: manifest.createdBy,
+    printStatus: manifest.printStatus,
+    note: manifest.note,
+  }
+}
+
+function toRuntimeStore(store: TransferBagStore): TransferBagRuntimeStore {
+  return {
+    masters: store.masters.map((item) => toRuntimeCarrierRecord(item)),
+    usages: store.usages.map((item) => toRuntimeUsage(item)),
+    bindings: store.bindings.map((item) => toRuntimeBinding(item)),
+    manifests: store.manifests.map((item) => toRuntimeManifest(item)),
+    sewingTasks: store.sewingTasks.map((item) => ({ ...item })) as SewingTaskRefRecord[],
+    auditTrail: store.auditTrail.map((item) => ({ ...item })),
+    returnReceipts: store.returnReceipts.map((item) => ({ ...item })),
+    conditionRecords: store.conditionRecords.map((item) => ({ ...item })),
+    reuseCycles: store.reuseCycles.map((item) => ({ ...item })),
+    closureResults: store.closureResults.map((item) => ({ ...item })),
+    returnAuditTrail: store.returnAuditTrail.map((item) => ({ ...item })),
+  }
+}
+
+function toLegacyStore(store: TransferBagRuntimeStore): TransferBagStore {
+  return {
+    masters: store.masters.map((item) => toLegacyMaster(item)),
+    usages: store.usages.map((item) => toLegacyUsage(item)),
+    bindings: store.bindings.map((item) => toLegacyBinding(item)),
+    manifests: store.manifests.map((item) => toLegacyManifest(item)),
+    sewingTasks: store.sewingTasks.map((item) => ({ ...item })),
+    auditTrail: store.auditTrail as TransferBagUsageAuditTrail[],
+    returnReceipts: store.returnReceipts as TransferBagReturnReceipt[],
+    conditionRecords: store.conditionRecords as TransferBagConditionRecord[],
+    reuseCycles: store.reuseCycles as TransferBagReuseCycleSummary[],
+    closureResults: store.closureResults as TransferBagUsageClosureResult[],
+    returnAuditTrail: store.returnAuditTrail as TransferBagReturnAuditTrail[],
+  }
+}
+
+function toRuntimeSeedOriginalRows(rows: OriginalCutOrderRow[]): TransferBagSeedOriginalRowLike[] {
+  return rows.map((row) => ({
+    originalCutOrderId: row.originalCutOrderId,
+    originalCutOrderNo: row.originalCutOrderNo,
+    productionOrderNo: row.productionOrderNo,
+    styleCode: row.styleCode,
+    spuCode: row.spuCode,
+    color: row.color,
+    materialSku: row.materialSku,
+    plannedQty: row.plannedQty,
+    orderQty: row.orderQty,
+  }))
+}
+
+function toRuntimeSeedMergeBatches(batches: MergeBatchRecord[]): TransferBagSeedMergeBatchLike[] {
+  return batches.map((batch) => ({
+    mergeBatchId: batch.mergeBatchId,
+    mergeBatchNo: batch.mergeBatchNo,
+    styleCode: batch.styleCode,
+    spuCode: batch.spuCode,
+    materialSkuSummary: batch.materialSkuSummary,
+    items: batch.items.map((item) => ({
+      originalCutOrderId: item.originalCutOrderId,
+    })),
+  }))
+}
+
+function toRuntimeSeedTickets(ticketRecords: FeiTicketLabelRecord[]): TransferBagSeedTicketLike[] {
+  return ticketRecords.map((record) => ({
+    feiTicketId: record.ticketRecordId,
+    feiTicketNo: record.ticketNo,
+    originalCutOrderId: record.originalCutOrderId,
+    originalCutOrderNo: record.originalCutOrderNo,
+    productionOrderNo: record.productionOrderNo,
+    mergeBatchNo: record.sourceMergeBatchNo,
+    styleCode: record.styleCode,
+    spuCode: record.spuCode,
+    color: record.color,
+    size: record.size,
+    partName: record.partName,
+    qty: record.quantity,
+    materialSku: record.materialSku,
+    sourceContextType: record.sourceContextType,
+    status: record.status,
+  }))
+}
+
 function sanitizeId(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
@@ -572,43 +1001,82 @@ export function mapUsageStatusToPocketCarrierStatus(options: {
 }
 
 export function buildWarehouseQueryPayload(options: {
+  originalCutOrderId?: string
   originalCutOrderNo?: string
+  productionOrderId?: string
   productionOrderNo?: string
+  mergeBatchId?: string
   mergeBatchNo?: string
+  materialSku?: string
+  ticketId?: string
+  ticketNo?: string
+  bagId?: string
   bagCode?: string
+  usageId?: string
   usageNo?: string
   sewingTaskNo?: string
 }): TransferBagNavigationPayload {
   return {
     cutPieceWarehouse: {
+      originalCutOrderId: options.originalCutOrderId,
       originalCutOrderNo: options.originalCutOrderNo,
+      productionOrderId: options.productionOrderId,
       productionOrderNo: options.productionOrderNo,
+      mergeBatchId: options.mergeBatchId,
       mergeBatchNo: options.mergeBatchNo,
+      materialSku: options.materialSku,
     },
     feiTickets: {
+      originalCutOrderId: options.originalCutOrderId,
       originalCutOrderNo: options.originalCutOrderNo,
+      productionOrderId: options.productionOrderId,
+      ticketId: options.ticketId,
+      ticketNo: options.ticketNo,
+      materialSku: options.materialSku,
+      mergeBatchId: options.mergeBatchId,
       mergeBatchNo: options.mergeBatchNo,
     },
     originalOrders: {
+      originalCutOrderId: options.originalCutOrderId,
       originalCutOrderNo: options.originalCutOrderNo,
+      productionOrderId: options.productionOrderId,
       productionOrderNo: options.productionOrderNo,
+      mergeBatchId: options.mergeBatchId,
       mergeBatchNo: options.mergeBatchNo,
+      materialSku: options.materialSku,
     },
     summary: {
+      originalCutOrderId: options.originalCutOrderId,
       originalCutOrderNo: options.originalCutOrderNo,
+      productionOrderId: options.productionOrderId,
+      productionOrderNo: options.productionOrderNo,
+      mergeBatchId: options.mergeBatchId,
       bagCode: options.bagCode,
+      bagId: options.bagId,
       sewingTaskNo: options.sewingTaskNo,
       mergeBatchNo: options.mergeBatchNo,
+      materialSku: options.materialSku,
+      ticketId: options.ticketId,
+      ticketNo: options.ticketNo,
+      usageId: options.usageId,
       usageNo: options.usageNo,
     },
   }
 }
 
 export function buildTransferBagNavigationPayload(options: {
+  originalCutOrderId?: string
   originalCutOrderNo?: string
+  productionOrderId?: string
   productionOrderNo?: string
+  mergeBatchId?: string
   mergeBatchNo?: string
+  materialSku?: string
+  ticketId?: string
+  ticketNo?: string
+  bagId?: string
   bagCode?: string
+  usageId?: string
   usageNo?: string
   sewingTaskNo?: string
 }): TransferBagNavigationPayload {
@@ -633,7 +1101,7 @@ export function buildBagUsageAuditTrail(options: {
   note: string
 }): TransferBagUsageAuditTrail {
   return {
-    auditTrailId: `bag-audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    auditTrailId: buildBagAuditId(options.actionAt, options.usageId, options.action),
     usageId: options.usageId,
     action: options.action,
     actionAt: options.actionAt,
@@ -649,40 +1117,14 @@ export function createTransferBagUsageDraft(options: {
   existingUsages: TransferBagUsage[]
   nowText: string
 }): TransferBagUsage {
-  const dateKey = options.nowText.slice(0, 10).replaceAll('-', '')
-  const sameDay = options.existingUsages
-    .map((item) => item.usageNo)
-    .filter((item) => item.startsWith(`TBU-${dateKey}`))
-    .map((item) => Number.parseInt(item.split('-').pop() || '0', 10))
-    .filter((item) => Number.isFinite(item))
-  const nextSerial = Math.max(0, ...sameDay) + 1
-
-  return {
-    usageId: `usage-${Date.now()}`,
-    usageNo: `TBU-${dateKey}-${String(nextSerial).padStart(3, '0')}`,
-    bagId: options.bag.bagId,
-    bagCode: options.bag.bagCode,
-    sewingTaskId: options.sewingTask.sewingTaskId,
-    sewingTaskNo: options.sewingTask.sewingTaskNo,
-    sewingFactoryId: options.sewingTask.sewingFactoryId,
-    sewingFactoryName: options.sewingTask.sewingFactoryName,
-    styleCode: options.sewingTask.styleCode,
-    spuCode: options.sewingTask.spuCode,
-    skuSummary: options.sewingTask.skuSummary,
-    colorSummary: options.sewingTask.colorSummary,
-    sizeSummary: options.sewingTask.sizeSummary,
-    usageStatus: 'DRAFT',
-    packedTicketCount: 0,
-    packedOriginalCutOrderCount: 0,
-    startedAt: options.nowText,
-    finishedPackingAt: '',
-    dispatchAt: '',
-    dispatchBy: '',
-    signoffStatus: 'PENDING',
-    signedAt: '',
-    returnedAt: '',
-    note: options.note?.trim() || '周转口袋使用周期草稿已创建，等待装袋与交接。',
-  }
+  const runtimeUsage = createCarrierCycleRecord({
+    carrier: toRuntimeCarrierRecord(options.bag),
+    sewingTask: { ...options.sewingTask },
+    nowText: options.nowText,
+    existingUsages: options.existingUsages.map((item) => toRuntimeUsage(item)),
+    note: options.note?.trim() || '正式载具周期草稿已创建，等待先扫口袋码再扫菲票子码。',
+  })
+  return toLegacyUsage(runtimeUsage)
 }
 
 export function validateBagToSewingTaskBinding(usage: TransferBagUsage | null, sewingTaskId: string): TransferBagValidationResult {
@@ -744,18 +1186,17 @@ export function createTransferBagDispatchManifest(options: {
   createdBy: string
   note?: string
 }): TransferBagDispatchManifest {
+  const runtimeManifest = createCarrierDispatchManifest({
+    cycle: toRuntimeUsage(options.usage),
+    bindings: [],
+    nowText: options.nowText,
+    createdBy: options.createdBy,
+    note: options.note?.trim() || '当前交接清单来自正式载具周期映射。',
+  })
   return {
-    manifestId: `dispatch-manifest-${Date.now()}`,
-    usageId: options.usage.usageId,
-    bagCode: options.usage.bagCode,
-    sewingTaskNo: options.usage.sewingTaskNo,
-    sewingFactoryName: options.usage.sewingFactoryName,
+    ...toLegacyManifest(runtimeManifest),
     ticketCount: options.summary.ticketCount,
     originalCutOrderCount: options.summary.originalCutOrderCount,
-    createdAt: options.nowText,
-    createdBy: options.createdBy,
-    printStatus: 'PRINTED',
-    note: options.note?.trim() || '当前交接清单用于发出前的袋码 / 菲票码核对。',
   }
 }
 
@@ -800,10 +1241,13 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
   return ticketRecords
     .map((record) => ({
       ticketRecordId: record.ticketRecordId,
+      feiTicketId: record.ticketRecordId,
       ticketNo: record.ticketNo,
       originalCutOrderId: record.originalCutOrderId,
       originalCutOrderNo: record.originalCutOrderNo,
+      productionOrderId: record.sourceProductionOrderId || '',
       productionOrderNo: record.productionOrderNo,
+      mergeBatchId: record.sourceMergeBatchId || '',
       mergeBatchNo: record.sourceMergeBatchNo,
       styleCode: record.styleCode,
       spuCode: record.spuCode,
@@ -872,600 +1316,21 @@ export function buildSystemSeedTransferBagStore(options: {
   裁剪批次es?: MergeBatchRecord[]
 }): TransferBagStore {
   const mergeBatches = options.mergeBatches ?? options.裁剪批次es ?? []
-  const sewingTasks = buildSewingTaskSeeds(options.originalRows, mergeBatches)
-  const ticketCandidates = buildTicketCandidates(options.ticketRecords)
-
-  const masters: TransferBagMaster[] = [
-    {
-      bagId: 'bag-master-001',
-      bagCode: 'BAG-A-001',
-      bagType: '周转口袋',
-      capacity: 24,
-      reusable: true,
-      currentStatus: 'IDLE',
-      currentLocation: '裁片仓 A 区待命位',
-      latestUsageId: '',
-      latestUsageNo: '',
-      note: '常用车缝交接口袋。',
-    },
-    {
-      bagId: 'bag-master-002',
-      bagCode: 'BAG-A-002',
-      bagType: '周转口袋',
-      capacity: 20,
-      reusable: true,
-      currentStatus: 'IDLE',
-      currentLocation: '裁片仓 A 区待命位',
-      latestUsageId: '',
-      latestUsageNo: '',
-      note: '适合中等票数交接。',
-    },
-    {
-      bagId: 'bag-master-003',
-      bagCode: 'BAG-B-001',
-      bagType: '周转口袋',
-      capacity: 18,
-      reusable: true,
-      currentStatus: 'IDLE',
-      currentLocation: '车缝交接待发区',
-      latestUsageId: '',
-      latestUsageNo: '',
-      note: '常用于返修与补片任务。',
-    },
-    {
-      bagId: 'bag-master-004',
-      bagCode: 'BOX-C-001',
-      bagType: '周转箱',
-      capacity: 32,
-      reusable: true,
-      currentStatus: 'IDLE',
-      currentLocation: '裁片仓 C 区',
-      latestUsageId: '',
-      latestUsageNo: '',
-      note: '大批量交接使用。',
-    },
-    {
-      bagId: 'bag-master-005',
-      bagCode: 'BAG-C-002',
-      bagType: '周转口袋',
-      capacity: 16,
-      reusable: true,
-      currentStatus: 'IDLE',
-      currentLocation: '样衣仓旁临时交接位',
-      latestUsageId: '',
-      latestUsageNo: '',
-      note: '预留给特殊工艺或返工批次。',
-    },
-  ]
-
-  const usages: TransferBagUsage[] = []
-  const bindings: TransferBagItemBinding[] = []
-  const manifests: TransferBagDispatchManifest[] = []
-  const auditTrail: TransferBagUsageAuditTrail[] = []
-  const returnReceipts: TransferBagReturnReceipt[] = []
-  const conditionRecords: TransferBagConditionRecord[] = []
-  const reuseCycles: TransferBagReuseCycleSummary[] = []
-  const closureResults: TransferBagUsageClosureResult[] = []
-  const returnAuditTrail: TransferBagReturnAuditTrail[] = []
-
-  const firstTask = sewingTasks[0]
-  const secondTask = sewingTasks[1] || sewingTasks[0]
-  const thirdTask = sewingTasks[2] || sewingTasks[0]
-  const reservedTicketNos = new Set([
-    TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.lockedTicketNo,
-    TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.mismatchTicketNo,
-  ])
-  const genericTicketCandidates = ticketCandidates.filter((ticket) => !reservedTicketNos.has(ticket.ticketNo))
-  const firstChunk = genericTicketCandidates.slice(0, 2)
-  const secondChunk = genericTicketCandidates.slice(2, 4)
-  const thirdChunk = genericTicketCandidates.slice(4, 6)
-
-  if (firstTask && firstChunk.length) {
-    const usage: TransferBagUsage = {
-      usageId: 'seed-usage-001',
-      usageNo: 'TBU-20260324-001',
-      bagId: masters[0].bagId,
-      bagCode: masters[0].bagCode,
-      sewingTaskId: firstTask.sewingTaskId,
-      sewingTaskNo: firstTask.sewingTaskNo,
-      sewingFactoryId: firstTask.sewingFactoryId,
-      sewingFactoryName: firstTask.sewingFactoryName,
-      styleCode: firstTask.styleCode,
-      spuCode: firstTask.spuCode,
-      skuSummary: firstTask.skuSummary,
-      colorSummary: firstTask.colorSummary,
-      sizeSummary: firstTask.sizeSummary,
-      usageStatus: 'READY_TO_DISPATCH',
-      packedTicketCount: firstChunk.length,
-      packedOriginalCutOrderCount: uniqueStrings(firstChunk.map((item) => item.originalCutOrderNo)).length,
-      startedAt: '2026-03-24 08:35',
-      finishedPackingAt: '2026-03-24 08:50',
-      dispatchAt: '',
-      dispatchBy: '',
-      signoffStatus: 'PENDING',
-      note: '已完成装袋，等待打印交接清单。',
-    }
-    usages.push(usage)
-    masters[0].currentStatus = 'IN_USE'
-    masters[0].latestUsageId = usage.usageId
-    masters[0].latestUsageNo = usage.usageNo
-    masters[0].currentLocation = '车缝交接待发区'
-
-    firstChunk.forEach((ticket, index) => {
-      bindings.push({
-        bindingId: `seed-binding-a-${index + 1}`,
-        usageId: usage.usageId,
-        usageNo: usage.usageNo,
-        bagId: usage.bagId,
-        bagCode: usage.bagCode,
-        ticketRecordId: ticket.ticketRecordId,
-        ticketNo: ticket.ticketNo,
-        originalCutOrderId: ticket.originalCutOrderId,
-        originalCutOrderNo: ticket.originalCutOrderNo,
-        productionOrderNo: ticket.productionOrderNo,
-        mergeBatchNo: ticket.mergeBatchNo,
-        qty: ticket.qty,
-        boundAt: '2026-03-24 08:40',
-        boundBy: '交接员-陈红',
-        note: index === 0 ? '首袋装入主票。' : '同 task 补充票据。',
-      })
-    })
-    manifests.push({
-      manifestId: 'seed-manifest-001',
-      usageId: usage.usageId,
-      bagCode: usage.bagCode,
-      sewingTaskNo: usage.sewingTaskNo,
-      sewingFactoryName: usage.sewingFactoryName,
-      ticketCount: firstChunk.length,
-      originalCutOrderCount: uniqueStrings(firstChunk.map((item) => item.originalCutOrderNo)).length,
-      createdAt: '2026-03-24 08:55',
-      createdBy: '交接员-陈红',
-      printStatus: 'PRINTED',
-      note: '首轮发出前已打印交接清单。',
-    })
-    auditTrail.push(
-      buildBagUsageAuditTrail({
-        usageId: usage.usageId,
-        action: '创建使用周期',
-        actionAt: '2026-03-24 08:35',
-        actionBy: '交接员-陈红',
-        note: `${usage.bagCode} 已绑定 ${usage.sewingTaskNo}。`,
-      }),
-      buildBagUsageAuditTrail({
-        usageId: usage.usageId,
-        action: '装袋完成',
-        actionAt: '2026-03-24 08:50',
-        actionBy: '交接员-陈红',
-        note: `已绑定 ${formatNumber(firstChunk.length)} 张菲票。`,
-      }),
-    )
-  }
-
-  if (secondTask && secondChunk.length) {
-    const usage: TransferBagUsage = {
-      usageId: 'seed-usage-002',
-      usageNo: 'TBU-20260324-002',
-      bagId: masters[2].bagId,
-      bagCode: masters[2].bagCode,
-      sewingTaskId: secondTask.sewingTaskId,
-      sewingTaskNo: secondTask.sewingTaskNo,
-      sewingFactoryId: secondTask.sewingFactoryId,
-      sewingFactoryName: secondTask.sewingFactoryName,
-      styleCode: secondTask.styleCode,
-      spuCode: secondTask.spuCode,
-      skuSummary: secondTask.skuSummary,
-      colorSummary: secondTask.colorSummary,
-      sizeSummary: secondTask.sizeSummary,
-      usageStatus: 'DISPATCHED',
-      packedTicketCount: secondChunk.length,
-      packedOriginalCutOrderCount: uniqueStrings(secondChunk.map((item) => item.originalCutOrderNo)).length,
-      startedAt: '2026-03-24 09:00',
-      finishedPackingAt: '2026-03-24 09:10',
-      dispatchAt: '2026-03-24 09:20',
-      dispatchBy: '交接员-张敏',
-      signoffStatus: 'WAITING',
-      note: '已发出，等待后道签收。',
-    }
-    usages.push(usage)
-    masters[2].currentStatus = 'DISPATCHED'
-    masters[2].latestUsageId = usage.usageId
-    masters[2].latestUsageNo = usage.usageNo
-    masters[2].currentLocation = secondTask.sewingFactoryName
-
-    secondChunk.forEach((ticket, index) => {
-      bindings.push({
-        bindingId: `seed-binding-b-${index + 1}`,
-        usageId: usage.usageId,
-        usageNo: usage.usageNo,
-        bagId: usage.bagId,
-        bagCode: usage.bagCode,
-        ticketRecordId: ticket.ticketRecordId,
-        ticketNo: ticket.ticketNo,
-        originalCutOrderId: ticket.originalCutOrderId,
-        originalCutOrderNo: ticket.originalCutOrderNo,
-        productionOrderNo: ticket.productionOrderNo,
-        mergeBatchNo: ticket.mergeBatchNo,
-        qty: ticket.qty,
-        boundAt: '2026-03-24 09:05',
-        boundBy: '交接员-张敏',
-        note: index === 0 ? '按批次下发前校对。' : '补装同款余票。',
-      })
-    })
-    manifests.push({
-      manifestId: 'seed-manifest-002',
-      usageId: usage.usageId,
-      bagCode: usage.bagCode,
-      sewingTaskNo: usage.sewingTaskNo,
-      sewingFactoryName: usage.sewingFactoryName,
-      ticketCount: secondChunk.length,
-      originalCutOrderCount: uniqueStrings(secondChunk.map((item) => item.originalCutOrderNo)).length,
-      createdAt: '2026-03-24 09:10',
-      createdBy: '交接员-张敏',
-      printStatus: 'PRINTED',
-      note: '已随车缝交接一并发出。',
-    })
-    auditTrail.push(
-      buildBagUsageAuditTrail({
-        usageId: usage.usageId,
-        action: '创建使用周期',
-        actionAt: '2026-03-24 09:00',
-        actionBy: '交接员-张敏',
-        note: `${usage.bagCode} 已绑定 ${usage.sewingTaskNo}。`,
-      }),
-      buildBagUsageAuditTrail({
-        usageId: usage.usageId,
-        action: '标记已发出',
-        actionAt: '2026-03-24 09:20',
-        actionBy: '交接员-张敏',
-        note: `已发往 ${usage.sewingFactoryName}。`,
-      }),
-    )
-  }
-
-  if (thirdTask && thirdChunk.length) {
-    const usage: TransferBagUsage = {
-      usageId: 'seed-usage-003',
-      usageNo: 'TBU-20260323-001',
-      bagId: masters[1].bagId,
-      bagCode: masters[1].bagCode,
-      sewingTaskId: thirdTask.sewingTaskId,
-      sewingTaskNo: thirdTask.sewingTaskNo,
-      sewingFactoryId: thirdTask.sewingFactoryId,
-      sewingFactoryName: thirdTask.sewingFactoryName,
-      styleCode: thirdTask.styleCode,
-      spuCode: thirdTask.spuCode,
-      skuSummary: thirdTask.skuSummary,
-      colorSummary: thirdTask.colorSummary,
-      sizeSummary: thirdTask.sizeSummary,
-      usageStatus: 'CLOSED',
-      packedTicketCount: thirdChunk.length,
-      packedOriginalCutOrderCount: uniqueStrings(thirdChunk.map((item) => item.originalCutOrderNo)).length,
-      startedAt: '2026-03-23 15:00',
-      finishedPackingAt: '2026-03-23 15:15',
-      dispatchAt: '2026-03-23 15:40',
-      dispatchBy: '交接员-周婷',
-      signoffStatus: 'SIGNED',
-      signedAt: '2026-03-23 17:10',
-      returnedAt: '2026-03-24 09:35',
-      note: '本轮使用周期已完成回货验收并释放口袋。',
-    }
-    usages.push(usage)
-    masters[1].currentStatus = 'REUSABLE'
-    masters[1].latestUsageId = usage.usageId
-    masters[1].latestUsageNo = usage.usageNo
-    masters[1].currentLocation = '裁片仓复用位'
-
-    thirdChunk.forEach((ticket, index) => {
-      bindings.push({
-        bindingId: `seed-binding-c-${index + 1}`,
-        usageId: usage.usageId,
-        usageNo: usage.usageNo,
-        bagId: usage.bagId,
-        bagCode: usage.bagCode,
-        ticketRecordId: ticket.ticketRecordId,
-        ticketNo: ticket.ticketNo,
-        originalCutOrderId: ticket.originalCutOrderId,
-        originalCutOrderNo: ticket.originalCutOrderNo,
-        productionOrderNo: ticket.productionOrderNo,
-        mergeBatchNo: ticket.mergeBatchNo,
-        qty: ticket.qty,
-        boundAt: '2026-03-23 15:10',
-        boundBy: '交接员-周婷',
-        note: '历史闭环使用周期的装袋记录。',
-      })
-    })
-    manifests.push({
-      manifestId: 'seed-manifest-003',
-      usageId: usage.usageId,
-      bagCode: usage.bagCode,
-      sewingTaskNo: usage.sewingTaskNo,
-      sewingFactoryName: usage.sewingFactoryName,
-      ticketCount: thirdChunk.length,
-      originalCutOrderCount: uniqueStrings(thirdChunk.map((item) => item.originalCutOrderNo)).length,
-      createdAt: '2026-03-23 15:20',
-      createdBy: '交接员-周婷',
-      printStatus: 'PRINTED',
-      note: '历史闭环使用周期的发出清单。',
-    })
-    returnReceipts.push({
-      returnReceiptId: 'seed-return-001',
-      usageId: usage.usageId,
-      usageNo: usage.usageNo,
-      bagId: usage.bagId,
-      bagCode: usage.bagCode,
-      sewingTaskId: usage.sewingTaskId,
-      sewingTaskNo: usage.sewingTaskNo,
-      returnWarehouseName: '裁片仓返仓口',
-      returnAt: '2026-03-24 09:35',
-      returnedBy: '车缝厂-李梅',
-      receivedBy: '仓管-吴洁',
-      returnedFinishedQty: 24,
-      returnedTicketCountSummary: thirdChunk.length,
-      returnedOriginalCutOrderCount: uniqueStrings(thirdChunk.map((item) => item.originalCutOrderNo)).length,
-      discrepancyType: 'NONE',
-      discrepancyNote: '',
-      note: '回货数量与交接清单一致。',
-    })
-    conditionRecords.push({
-      conditionRecordId: 'seed-condition-001',
-      usageId: usage.usageId,
-      bagId: usage.bagId,
-      bagCode: usage.bagCode,
-      conditionStatus: 'GOOD',
-      cleanlinessStatus: 'CLEAN',
-      damageType: '',
-      repairNeeded: false,
-      reusableDecision: 'REUSABLE',
-      inspectedAt: '2026-03-24 09:45',
-      inspectedBy: '仓管-吴洁',
-      note: '袋况完好，可直接复用。',
-    })
-    closureResults.push({
-      closureId: 'seed-closure-001',
-      usageId: usage.usageId,
-      usageNo: usage.usageNo,
-      closedAt: '2026-03-24 09:50',
-      closedBy: '仓管-吴洁',
-      closureStatus: 'CLOSED',
-      nextBagStatus: 'REUSABLE',
-      reason: '回货验收完成，口袋可继续复用。',
-      warningMessages: [],
-    })
-    returnAuditTrail.push(
-      {
-        auditTrailId: 'seed-return-audit-001',
-        usageId: usage.usageId,
-        action: '创建回货草稿',
-        actionAt: '2026-03-24 09:30',
-        actionBy: '仓管-吴洁',
-        payloadSummary: `${usage.usageNo} 已进入回货入仓流程`,
-        note: '从发出台账进入回货工作台。',
-      },
-      {
-        auditTrailId: 'seed-return-audit-002',
-        usageId: usage.usageId,
-        action: '完成验收',
-        actionAt: '2026-03-24 09:45',
-        actionBy: '仓管-吴洁',
-        payloadSummary: '回货数量一致，袋况完好',
-        note: '已写入回货验收记录与袋况记录。',
-      },
-      {
-        auditTrailId: 'seed-return-audit-003',
-        usageId: usage.usageId,
-        action: '关闭使用周期',
-        actionAt: '2026-03-24 09:50',
-        actionBy: '仓管-吴洁',
-        payloadSummary: '使用周期已关闭，口袋释放为可复用',
-        note: '当前 bag 已回到裁片仓复用位。',
-      },
-    )
-    reuseCycles.push({
-      cycleSummaryId: 'seed-cycle-001',
-      bagId: usage.bagId,
-      bagCode: usage.bagCode,
-      latestUsageId: usage.usageId,
-      latestUsageNo: usage.usageNo,
-      totalUsageCount: 1,
-      totalDispatchCount: 1,
-      totalReturnCount: 1,
-      lastDispatchedAt: usage.dispatchAt,
-      lastReturnedAt: '2026-03-24 09:35',
-      currentReusableStatus: 'REUSABLE',
-      currentLocation: '裁片仓复用位',
-      currentOpenUsageId: '',
-      note: '当前 bag 已完成一轮完整发出 -> 回货 -> 复用闭环。',
-    })
-    auditTrail.push(
-      buildBagUsageAuditTrail({
-        usageId: usage.usageId,
-        action: '创建使用周期',
-        actionAt: '2026-03-23 15:00',
-        actionBy: '交接员-周婷',
-        note: `${usage.bagCode} 已绑定 ${usage.sewingTaskNo}。`,
-      }),
-      buildBagUsageAuditTrail({
-        usageId: usage.usageId,
-        action: '标记已发出',
-        actionAt: '2026-03-23 15:40',
-        actionBy: '交接员-周婷',
-        note: `已发往 ${usage.sewingFactoryName}。`,
-      }),
-    )
-  }
-
-  const caseFLockedTicket =
-    ticketCandidates.find(
-      (ticket) =>
-        ticket.ticketRecordId === TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.lockedTicketId &&
-        ticket.ticketStatus !== 'VOIDED',
-    ) || null
-
-  if (caseFLockedTicket) {
-    let demoTask =
-      sewingTasks.find((task) => task.styleCode === caseFLockedTicket.styleCode) ||
-      sewingTasks.find((task) => task.spuCode === caseFLockedTicket.spuCode) ||
-      null
-
-    if (!demoTask) {
-      demoTask = {
-        sewingTaskId: 'sewing-task-demo-case-f',
-        sewingTaskNo: 'CF-DEMO-F-001',
-        sewingFactoryId: 'factory-demo-f',
-        sewingFactoryName: '打印验收演示车缝组',
-        styleCode: caseFLockedTicket.styleCode,
-        spuCode: caseFLockedTicket.spuCode,
-        skuSummary: caseFLockedTicket.materialSku,
-        colorSummary: caseFLockedTicket.color || '待补颜色',
-        sizeSummary: caseFLockedTicket.size || '待补尺码',
-        plannedQty: caseFLockedTicket.qty,
-        status: '装袋中',
-        note: '用于验证活跃使用周期锁定与混装拦截。',
-      }
-      sewingTasks.push(demoTask)
-    }
-
-    const demoUsage: TransferBagUsage = {
-      usageId: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.usageId,
-      usageNo: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.usageNo,
-      bagId: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.pocketId,
-      bagCode: TRANSFER_BAG_DEMO_CASE_IDS.CASE_F.pocketNo,
-      sewingTaskId: demoTask.sewingTaskId,
-      sewingTaskNo: demoTask.sewingTaskNo,
-      sewingFactoryId: demoTask.sewingFactoryId,
-      sewingFactoryName: demoTask.sewingFactoryName,
-      styleCode: demoTask.styleCode,
-      spuCode: demoTask.spuCode,
-      skuSummary: demoTask.skuSummary,
-      colorSummary: demoTask.colorSummary,
-      sizeSummary: demoTask.sizeSummary,
-      usageStatus: 'PACKING',
-      packedTicketCount: 1,
-      packedOriginalCutOrderCount: 1,
-      startedAt: '2026-03-25 10:20',
-      finishedPackingAt: '',
-      dispatchAt: '',
-      dispatchBy: '',
-      signoffStatus: 'PENDING',
-      note: '当前使用周期仍处于装袋中，用于验证活跃使用周期锁定与同款混装拦截。',
-    }
-    usages.push(demoUsage)
-    masters[4].currentStatus = 'IN_USE'
-    masters[4].latestUsageId = demoUsage.usageId
-    masters[4].latestUsageNo = demoUsage.usageNo
-    masters[4].currentLocation = '打印验收装袋工作台'
-    bindings.push({
-      bindingId: 'seed-binding-case-f-001',
-      usageId: demoUsage.usageId,
-      usageNo: demoUsage.usageNo,
-      bagId: demoUsage.bagId,
-      bagCode: demoUsage.bagCode,
-      ticketRecordId: caseFLockedTicket.ticketRecordId,
-      ticketNo: caseFLockedTicket.ticketNo,
-      originalCutOrderId: caseFLockedTicket.originalCutOrderId,
-      originalCutOrderNo: caseFLockedTicket.originalCutOrderNo,
-      productionOrderNo: caseFLockedTicket.productionOrderNo,
-      mergeBatchNo: caseFLockedTicket.mergeBatchNo,
-      qty: caseFLockedTicket.qty,
-      boundAt: '2026-03-25 10:25',
-      boundBy: '交接员-演示',
-      note: '当前已绑定活跃使用周期，打印模块中应显示不可作废。',
-    })
-    auditTrail.push(
-      buildBagUsageAuditTrail({
-        usageId: demoUsage.usageId,
-        action: '创建使用周期',
-        actionAt: '2026-03-25 10:20',
-        actionBy: '交接员-演示',
-        note: `${demoUsage.bagCode} 已进入装袋中，用于验证活跃使用周期锁定。`,
-      }),
-      buildBagUsageAuditTrail({
-        usageId: demoUsage.usageId,
-        action: '绑定菲票',
-        actionAt: '2026-03-25 10:25',
-        actionBy: '交接员-演示',
-        note: `${caseFLockedTicket.ticketNo} 已装入 ${demoUsage.bagCode}，当前不可作废。`,
-      }),
-    )
-  }
-
-  return {
-    masters,
-    usages,
-    bindings,
-    manifests,
-    sewingTasks,
-    auditTrail,
-    returnReceipts,
-    conditionRecords,
-    reuseCycles,
-    closureResults,
-    returnAuditTrail,
-  }
+  return toLegacyStore(
+    buildSystemSeedTransferBagRuntime({
+      originalRows: toRuntimeSeedOriginalRows(options.originalRows),
+      ticketRecords: toRuntimeSeedTickets(options.ticketRecords),
+      mergeBatches: toRuntimeSeedMergeBatches(mergeBatches),
+    }),
+  )
 }
 
 export function serializeTransferBagStorage(store: TransferBagStore): string {
-  return JSON.stringify(store)
+  return serializeTransferBagRuntimeStorage(toRuntimeStore(store))
 }
 
 export function deserializeTransferBagStorage(raw: string | null): TransferBagStore {
-  if (!raw) {
-    return {
-      masters: [],
-      usages: [],
-      bindings: [],
-      manifests: [],
-      sewingTasks: [],
-      auditTrail: [],
-      returnReceipts: [],
-      conditionRecords: [],
-      reuseCycles: [],
-      closureResults: [],
-      returnAuditTrail: [],
-    }
-  }
-
-  try {
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') {
-      throw new Error('invalid transfer bag ledger')
-    }
-    const usages = Array.isArray(parsed.usages) ? parsed.usages : []
-    const usagesById = Object.fromEntries(usages.map((item) => [item.usageId, item]))
-    const bindings = Array.isArray(parsed.bindings)
-      ? parsed.bindings.map((binding) => ({
-          ...binding,
-          usageNo: binding.usageNo || usagesById[binding.usageId]?.usageNo || '',
-        }))
-      : []
-    return {
-      masters: Array.isArray(parsed.masters) ? parsed.masters : [],
-      usages,
-      bindings,
-      manifests: Array.isArray(parsed.manifests) ? parsed.manifests : [],
-      sewingTasks: Array.isArray(parsed.sewingTasks) ? parsed.sewingTasks : [],
-      auditTrail: Array.isArray(parsed.auditTrail) ? parsed.auditTrail : [],
-      returnReceipts: Array.isArray(parsed.returnReceipts) ? parsed.returnReceipts : [],
-      conditionRecords: Array.isArray(parsed.conditionRecords) ? parsed.conditionRecords : [],
-      reuseCycles: Array.isArray(parsed.reuseCycles) ? parsed.reuseCycles : [],
-      closureResults: Array.isArray(parsed.closureResults) ? parsed.closureResults : [],
-      returnAuditTrail: Array.isArray(parsed.returnAuditTrail) ? parsed.returnAuditTrail : [],
-    }
-  } catch {
-    return {
-      masters: [],
-      usages: [],
-      bindings: [],
-      manifests: [],
-      sewingTasks: [],
-      auditTrail: [],
-      returnReceipts: [],
-      conditionRecords: [],
-      reuseCycles: [],
-      closureResults: [],
-      returnAuditTrail: [],
-    }
-  }
+  return toLegacyStore(deserializeTransferBagRuntimeStorage(raw))
 }
 
 export function deserializeTransferBagSelectedTicketIds(raw: string | null): string[] {
@@ -1483,26 +1348,9 @@ export function serializeTransferBagSelectedTicketIds(ids: string[]): string {
 }
 
 export function mergeTransferBagStores(seed: TransferBagStore, stored: TransferBagStore): TransferBagStore {
-  const mergeById = <T extends Record<string, unknown>>(seedItems: T[], storedItems: T[], idKey: keyof T): T[] => {
-    const merged = new Map<string, T>()
-    seedItems.forEach((item) => merged.set(String(item[idKey]), item))
-    storedItems.forEach((item) => merged.set(String(item[idKey]), item))
-    return Array.from(merged.values())
-  }
-
-  return {
-    masters: mergeById(seed.masters, stored.masters, 'bagId'),
-    usages: mergeById(seed.usages, stored.usages, 'usageId'),
-    bindings: mergeById(seed.bindings, stored.bindings, 'bindingId'),
-    manifests: mergeById(seed.manifests, stored.manifests, 'manifestId'),
-    sewingTasks: mergeById(seed.sewingTasks, stored.sewingTasks, 'sewingTaskId'),
-    auditTrail: mergeById(seed.auditTrail, stored.auditTrail, 'auditTrailId'),
-    returnReceipts: mergeById(seed.returnReceipts, stored.returnReceipts, 'returnReceiptId'),
-    conditionRecords: mergeById(seed.conditionRecords, stored.conditionRecords, 'conditionRecordId'),
-    reuseCycles: mergeById(seed.reuseCycles, stored.reuseCycles, 'cycleSummaryId'),
-    closureResults: mergeById(seed.closureResults, stored.closureResults, 'closureId'),
-    returnAuditTrail: mergeById(seed.returnAuditTrail, stored.returnAuditTrail, 'auditTrailId'),
-  }
+  return toLegacyStore(
+    mergeTransferBagRuntimeStores(toRuntimeStore(seed), toRuntimeStore(stored)),
+  )
 }
 
 export function buildTransferBagViewModel(options: {
@@ -1563,10 +1411,16 @@ export function buildTransferBagViewModel(options: {
         mergeBatchNos: uniqueStrings(bindings.map((item) => item.mergeBatchNo)),
         latestManifest: manifests[0] ?? null,
         navigationPayload: buildTransferBagNavigationPayload({
+          originalCutOrderId: bindings[0]?.originalCutOrderId,
           originalCutOrderNo: bindings[0]?.originalCutOrderNo,
+          productionOrderId: bindings[0]?.ticket?.productionOrderId || '',
           productionOrderNo: bindings[0]?.productionOrderNo,
+          mergeBatchId: bindings[0]?.ticket?.mergeBatchId || '',
           mergeBatchNo: bindings[0]?.mergeBatchNo || undefined,
+          materialSku: bindings[0]?.ticket?.materialSku || '',
+          bagId: usage.bagId,
           bagCode: usage.bagCode,
+          usageId: usage.usageId,
           usageNo: usage.usageNo,
           sewingTaskNo: usage.sewingTaskNo,
         }),
@@ -1621,10 +1475,18 @@ export function buildTransferBagViewModel(options: {
       }),
       removable: ['DRAFT', 'PACKING'].includes(usagesByIdRaw[binding.usageId]?.usageStatus || ''),
       navigationPayload: buildTransferBagNavigationPayload({
+        originalCutOrderId: binding.originalCutOrderId,
         originalCutOrderNo: binding.originalCutOrderNo,
+        productionOrderId: ticketCandidatesById[binding.ticketRecordId]?.productionOrderId || '',
         productionOrderNo: binding.productionOrderNo,
+        mergeBatchId: ticketCandidatesById[binding.ticketRecordId]?.mergeBatchId || '',
         mergeBatchNo: binding.mergeBatchNo || undefined,
+        materialSku: ticketCandidatesById[binding.ticketRecordId]?.materialSku || '',
+        ticketId: binding.feiTicketId,
+        ticketNo: binding.ticketNo,
+        bagId: binding.bagId,
         bagCode: binding.bagCode,
+        usageId: binding.usageId,
         usageNo: usageItemsById[binding.usageId]?.usageNo,
         sewingTaskNo: usageItemsById[binding.usageId]?.sewingTaskNo,
       }),

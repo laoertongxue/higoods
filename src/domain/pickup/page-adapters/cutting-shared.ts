@@ -1,6 +1,6 @@
 import { cuttingMaterialPrepGroups, type CuttingMaterialPrepGroup, type CuttingMaterialPrepLine, type CuttingMaterialReceiveRecord } from '../../../data/fcs/cutting/material-prep'
 import type { CutPieceOrderRecord } from '../../../data/fcs/cutting/cut-piece-orders'
-import type { PdaCuttingTaskDetailData } from '../../../data/fcs/pda-cutting-special'
+import type { PdaCuttingTaskDetailData } from '../../../data/fcs/pda-cutting-execution-source.ts'
 import {
   buildPickupEvidenceSummary,
   buildPickupPrintVersionSummary,

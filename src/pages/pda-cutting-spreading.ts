@@ -1,5 +1,12 @@
 import { escapeHtml } from '../utils'
-import { addCuttingSpreadingRecord, getPdaCuttingTaskDetail } from '../data/fcs/pda-cutting-special'
+import { buildPdaCuttingSpreadingProjection } from './pda-cutting-spreading-projection'
+import {
+  buildDefaultPdaRollNo,
+  buildPdaCuttingWritebackSource,
+  resolvePdaCuttingWritebackIdentity,
+  resolvePdaCuttingWritebackOperator,
+} from '../data/fcs/pda-cutting-writeback-inputs.ts'
+import { writePdaSpreadingToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
 import {
   buildPdaCuttingExecutionStateKey,
   renderPdaCuttingEmptyState,
@@ -10,10 +17,15 @@ import {
   renderPdaCuttingSection,
   renderPdaCuttingSummaryGrid,
 } from './pda-cutting-shared'
-import { buildPdaCuttingExecutionContext, readSelectedCutPieceOrderNoFromLocation } from './pda-cutting-context'
+import {
+  buildPdaCuttingExecutionContext,
+  readSelectedExecutionOrderIdFromLocation,
+  readSelectedExecutionOrderNoFromLocation,
+} from './pda-cutting-context'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface SpreadingFormState {
+  spreadingMode: 'NORMAL' | 'HIGH_LOW' | 'FOLD'
   fabricRollNo: string
   layerCount: string
   actualLength: string
@@ -27,11 +39,16 @@ interface SpreadingFormState {
 
 const spreadingState = new Map<string, SpreadingFormState>()
 
-function getState(taskId: string, cutPieceOrderNo?: string | null): SpreadingFormState {
-  const stateKey = buildPdaCuttingExecutionStateKey(taskId, cutPieceOrderNo)
+function getSpreadingDetail(taskId: string, executionKey?: string | null) {
+  return buildPdaCuttingSpreadingProjection(taskId, executionKey ?? undefined)
+}
+
+function getState(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): SpreadingFormState {
+  const stateKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
   const existing = spreadingState.get(stateKey)
   if (existing) return existing
   const initial: SpreadingFormState = {
+    spreadingMode: 'NORMAL',
     fabricRollNo: '',
     layerCount: '12',
     actualLength: '48',
@@ -46,6 +63,12 @@ function getState(taskId: string, cutPieceOrderNo?: string | null): SpreadingFor
   return initial
 }
 
+function getSpreadingModeLabel(mode: SpreadingFormState['spreadingMode']): string {
+  if (mode === 'HIGH_LOW') return '高低层模式'
+  if (mode === 'FOLD') return '对折模式'
+  return '正常模式'
+}
+
 function getCalculatedLength(form: SpreadingFormState): string {
   const actual = Number(form.actualLength || '0')
   const head = Number(form.headLength || '0')
@@ -53,7 +76,7 @@ function getCalculatedLength(form: SpreadingFormState): string {
   return `${(actual + head + tail).toFixed(1)} 米`
 }
 
-function renderRecords(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+function renderRecords(detail: NonNullable<ReturnType<typeof getSpreadingDetail>>): string {
   if (!detail || !detail.spreadingRecords.length) {
     return renderPdaCuttingEmptyState('当前裁片单暂无铺布记录', '')
   }
@@ -91,7 +114,7 @@ function renderRecords(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDe
   `
 }
 
-function renderLatestSummary(detail: NonNullable<ReturnType<typeof getPdaCuttingTaskDetail>>): string {
+function renderLatestSummary(detail: NonNullable<ReturnType<typeof getSpreadingDetail>>): string {
   return renderPdaCuttingSummaryGrid([
     { label: '当前铺布状态', value: detail.currentExecutionStatus },
     { label: '最近记录号', value: detail.latestSpreadingRecordNo || '暂无记录' },
@@ -126,12 +149,20 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
     })
   }
 
-  const form = getState(taskId, context.selectedCutPieceOrderNo)
+  const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
 
   const formSection = `
     <div class="space-y-3" data-task-id="${escapeHtml(taskId)}">
       <div class="grid grid-cols-2 gap-3 text-xs">
+        <label class="block space-y-1">
+          <span class="text-muted-foreground">铺布模式</span>
+          <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="spreadingMode">
+            <option value="NORMAL" ${form.spreadingMode === 'NORMAL' ? 'selected' : ''}>正常模式</option>
+            <option value="HIGH_LOW" ${form.spreadingMode === 'HIGH_LOW' ? 'selected' : ''}>高低层模式</option>
+            <option value="FOLD" ${form.spreadingMode === 'FOLD' ? 'selected' : ''}>对折模式</option>
+          </select>
+        </label>
         <label class="block space-y-1">
           <span class="text-muted-foreground">布料卷号</span>
           <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="fabricRollNo" value="${escapeHtml(form.fabricRollNo)}" />
@@ -168,6 +199,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">当前录入预览</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.fabricRollNo || '待填写卷号')}</div>
+        <div class="mt-1 text-muted-foreground">模式：${escapeHtml(getSpreadingModeLabel(form.spreadingMode))}</div>
         <div class="mt-1 text-muted-foreground">层数：${escapeHtml(form.layerCount || '0')} / 实际长度：${escapeHtml(form.actualLength || '0')} 米</div>
         <div class="mt-1 text-muted-foreground">布头 / 布尾：${escapeHtml(form.headLength || '0')} 米 / ${escapeHtml(form.tailLength || '0')} 米</div>
       </div>
@@ -207,11 +239,13 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+    const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const field = fieldNode.dataset.pdaCutSpreadingField
     if (!field) return true
 
+    if (field === 'spreadingMode' && fieldNode instanceof HTMLSelectElement) form.spreadingMode = fieldNode.value as SpreadingFormState['spreadingMode']
     if (field === 'fabricRollNo') form.fabricRollNo = fieldNode.value
     if (field === 'layerCount') form.layerCount = fieldNode.value
     if (field === 'actualLength') form.actualLength = fieldNode.value
@@ -227,20 +261,37 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pdaCutSpreadingAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
-  const selectedCutPieceOrderNo = readSelectedCutPieceOrderNoFromLocation()
+  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
 
   if (action === 'submit') {
-    const form = getState(taskId, selectedCutPieceOrderNo)
+    const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
-    const result = addCuttingSpreadingRecord(taskId, {
-      fabricRollNo: form.fabricRollNo.trim() || `ROLL-${Date.now()}`,
+    const identity = resolvePdaCuttingWritebackIdentity(taskId, {
+      executionOrderId: context.selectedExecutionOrderId || undefined,
+      executionOrderNo: context.selectedExecutionOrderNo || undefined,
+      originalCutOrderId: context.selectedExecutionOrder?.originalCutOrderId || undefined,
+      originalCutOrderNo: context.selectedExecutionOrder?.originalCutOrderNo || undefined,
+      mergeBatchId: context.selectedExecutionOrder?.mergeBatchId || undefined,
+      mergeBatchNo: context.selectedExecutionOrder?.mergeBatchNo || undefined,
+      materialSku: context.selectedExecutionOrder?.materialSku || undefined,
+    })
+    const operator = resolvePdaCuttingWritebackOperator(taskId, form.enteredBy.trim() || '现场铺布员')
+    if (!identity || !operator) {
+      form.feedbackMessage = '当前执行对象或操作人无法识别，不能提交铺布记录。'
+      return true
+    }
+    const result = writePdaSpreadingToFcs({
+      identity,
+      operator,
+      source: buildPdaCuttingWritebackSource('spreading', identity.executionOrderId),
+      fabricRollNo: form.fabricRollNo.trim() || buildDefaultPdaRollNo(identity),
       layerCount: Number(form.layerCount || '0') || 0,
       actualLength: Number(form.actualLength || '0') || 0,
       headLength: Number(form.headLength || '0') || 0,
       tailLength: Number(form.tailLength || '0') || 0,
-      note: form.note.trim(),
-      enteredBy: form.enteredBy.trim() || '现场铺布员',
-    }, selectedCutPieceOrderNo ?? undefined)
+      note: [`铺布模式：${getSpreadingModeLabel(form.spreadingMode)}`, form.note.trim()].filter(Boolean).join('；'),
+    })
     if (!result.success) {
       form.feedbackMessage = result.issues.join('；')
       return true
@@ -250,7 +301,8 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     form.feedbackMessage = '铺布记录已保存。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,
-      selectedCutPieceOrderNo,
+      context.selectedExecutionOrderId,
+      context.selectedExecutionOrderNo,
       context.navContext,
       'spreading',
     )

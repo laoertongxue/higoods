@@ -273,7 +273,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'replenishment',
     canonicalPath: '/fcs/craft/cutting/replenishment',
     aliases: [],
-    menuGroupTitle: '裁片后续管理',
+    menuGroupTitle: '裁片执行闭环',
     pageTitle: '补料管理',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -283,7 +283,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'special-processes',
     canonicalPath: '/fcs/craft/cutting/special-processes',
     aliases: [],
-    menuGroupTitle: '裁片后续管理',
+    menuGroupTitle: '裁片执行闭环',
     pageTitle: '特殊工艺',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -293,7 +293,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'summary',
     canonicalPath: '/fcs/craft/cutting/summary',
     aliases: ['/fcs/craft/cutting/stats', '/fcs/craft/cutting/bed-stats', '/fcs/craft/cutting/cutting-summary'],
-    menuGroupTitle: '裁片后续管理',
+    menuGroupTitle: '裁片执行闭环',
     pageTitle: '裁剪总表',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -301,7 +301,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   },
 }
 
-// 旧“仓库管理”仍保留兼容入口，但页面语义已经收口到“裁片仓交接”。
+// 仓务兼容入口只保留跳转，当前正式语义统一收口到“裁片仓交接”。
 const CUTTING_WAREHOUSE_COMPAT_META: CuttingPageMeta = {
   key: 'warehouse-compat',
   canonicalPath: '/fcs/craft/cutting/fabric-warehouse',
@@ -310,7 +310,7 @@ const CUTTING_WAREHOUSE_COMPAT_META: CuttingPageMeta = {
   pageTitle: '裁片仓交接',
   pageSubtitle: '',
   isPlaceholder: false,
-  shortDescription: '旧仓库入口兼容页。',
+  shortDescription: '兼容入口跳转页。',
 }
 
 const CUTTING_META_LIST = [...Object.values(CUTTING_PAGE_META), CUTTING_WAREHOUSE_COMPAT_META]

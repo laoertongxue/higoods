@@ -13,7 +13,8 @@ import type { MarkerSpreadingStore } from './marker-spreading-model'
 import {
   listPdaReplenishmentFeedbackWritebacks,
   type PdaReplenishmentFeedbackWritebackRecord,
-} from './pda-execution-writeback-model'
+} from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
+import { getBrowserLocalStorage } from '../../../data/browser-storage'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -569,22 +570,34 @@ export function validateReplenishmentReviewAction(options: {
 }
 
 function buildReplenishmentNavigationPayload(
-  suggestion: Pick<ReplenishmentSuggestion, 'originalCutOrderNos' | 'mergeBatchNo' | 'productionOrderNos' | 'materialSku'>,
+  suggestion: Pick<
+    ReplenishmentSuggestion,
+    | 'originalCutOrderIds'
+    | 'originalCutOrderNos'
+    | 'mergeBatchId'
+    | 'mergeBatchNo'
+    | 'productionOrderIds'
+    | 'productionOrderNos'
+    | 'materialSku'
+  >,
 ): ReplenishmentNavigationPayload {
+  const originalCutOrderId = suggestion.originalCutOrderIds[0] || undefined
   const originalCutOrderNo = suggestion.originalCutOrderNos[0] || undefined
+  const productionOrderId = suggestion.productionOrderIds[0] || undefined
   const productionOrderNo = suggestion.productionOrderNos[0] || undefined
+  const mergeBatchId = suggestion.mergeBatchId || undefined
   const mergeBatchNo = suggestion.mergeBatchNo || undefined
   const materialSku = suggestion.materialSku.split(' / ')[0] || undefined
 
   return {
-    markerSpreading: { originalCutOrderNo, mergeBatchNo, productionOrderNo, materialSku },
-    materialPrep: { originalCutOrderNo, productionOrderNo, materialSku },
-    originalOrders: { originalCutOrderNo, productionOrderNo, mergeBatchNo, materialSku },
-    mergeBatches: { mergeBatchNo, originalCutOrderNo },
-    summary: { originalCutOrderNo, mergeBatchNo, productionOrderNo, materialSku },
-    printing: { originalCutOrderNo, mergeBatchNo, materialSku },
-    dyeing: { originalCutOrderNo, mergeBatchNo, materialSku },
-    specialProcesses: { originalCutOrderNo, mergeBatchNo, materialSku },
+    markerSpreading: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, productionOrderId, productionOrderNo, materialSku },
+    materialPrep: { originalCutOrderId, originalCutOrderNo, productionOrderId, productionOrderNo, materialSku },
+    originalOrders: { originalCutOrderId, originalCutOrderNo, productionOrderId, productionOrderNo, mergeBatchId, mergeBatchNo, materialSku },
+    mergeBatches: { mergeBatchId, mergeBatchNo, originalCutOrderId, originalCutOrderNo, productionOrderId, productionOrderNo, materialSku },
+    summary: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, productionOrderId, productionOrderNo, materialSku },
+    printing: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, materialSku },
+    dyeing: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, materialSku },
+    specialProcesses: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, productionOrderId, productionOrderNo, materialSku },
   }
 }
 
@@ -937,12 +950,21 @@ function matchesPdaFeedbackWithSuggestion(
 function buildPdaFeedbackNavigationPayload(
   feedback: Pick<
     PdaReplenishmentFeedbackWritebackRecord,
-    'originalCutOrderNo' | 'mergeBatchNo' | 'productionOrderNo' | 'materialSku'
+    | 'originalCutOrderId'
+    | 'originalCutOrderNo'
+    | 'mergeBatchId'
+    | 'mergeBatchNo'
+    | 'productionOrderId'
+    | 'productionOrderNo'
+    | 'materialSku'
   >,
 ): ReplenishmentNavigationPayload {
   return buildReplenishmentNavigationPayload({
+    originalCutOrderIds: [feedback.originalCutOrderId],
     originalCutOrderNos: [feedback.originalCutOrderNo],
+    mergeBatchId: feedback.mergeBatchId,
     mergeBatchNo: feedback.mergeBatchNo,
+    productionOrderIds: [feedback.productionOrderId],
     productionOrderNos: [feedback.productionOrderNo],
     materialSku: feedback.materialSku,
   })
@@ -980,7 +1002,7 @@ function buildSyntheticFeedbackRow(
   const statusMeta = replenishmentStatusMetaMap.PENDING_REVIEW
   const row = {
     suggestionId: `rep-pda-feedback-${feedback.writebackId}`,
-    suggestionNo: `PDA-${formatDateToken(feedback.submittedAt)}-${feedback.cutPieceOrderNo.slice(-2) || '01'}`,
+    suggestionNo: `PDA-${formatDateToken(feedback.submittedAt)}-${feedback.originalCutOrderNo.slice(-2) || '01'}`,
     contextId: `ctx-${feedback.writebackId}`,
     sourceType: 'pda-feedback' as const,
     originalCutOrderIds: [feedback.originalCutOrderId],
@@ -1056,7 +1078,6 @@ function buildSyntheticFeedbackRow(
       feedback.productionOrderNo,
       feedback.originalCutOrderNo,
       feedback.mergeBatchNo,
-      feedback.cutPieceOrderNo,
       feedback.materialSku,
       feedback.reasonLabel,
       feedback.note,
@@ -1168,6 +1189,7 @@ export function buildReplenishmentViewModel(options: {
   reviews: ReplenishmentReview[]
   impactPlans: ReplenishmentImpactPlan[]
   actions: ReplenishmentFollowupAction[]
+  pdaFeedbackWritebacks?: PdaReplenishmentFeedbackWritebackRecord[]
 }): ReplenishmentViewModel {
   const originalRowsById = Object.fromEntries(options.originalRows.map((row) => [row.originalCutOrderId, row]))
   const reviewsBySuggestionId = Object.fromEntries(options.reviews.map((review) => [review.suggestionId, review]))
@@ -1178,7 +1200,7 @@ export function buildReplenishmentViewModel(options: {
     return accumulator
   }, {})
   const pdaFeedbackWritebacks =
-    typeof localStorage === 'undefined' ? [] : listPdaReplenishmentFeedbackWritebacks(localStorage)
+    options.pdaFeedbackWritebacks ?? listPdaReplenishmentFeedbackWritebacks(getBrowserLocalStorage() || undefined)
   const contexts = buildReplenishmentContextRecords({
     materialPrepRows: options.materialPrepRows,
     originalRows: options.originalRows,

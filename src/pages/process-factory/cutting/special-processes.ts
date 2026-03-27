@@ -9,10 +9,8 @@ import {
   validateSpecialProcessExecutionTransition,
 } from './special-processes-domain'
 import {
-  buildSystemSeedSpecialProcessLedger,
   buildSpecialProcessAuditTrail,
   buildSpecialProcessNavigationPayload,
-  buildSpecialProcessViewModel,
   createBindingStripProcessDraft,
   CUTTING_SPECIAL_PROCESS_AUDIT_STORAGE_KEY,
   CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY,
@@ -52,6 +50,8 @@ import {
   type SpecialProcessStatusKey,
   type SpecialProcessType,
 } from './special-processes-model'
+import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers'
+import { buildSpecialProcessesProjection } from './special-processes-projection'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -60,11 +60,7 @@ import {
   renderWorkbenchStateBar,
 } from './layout.helpers'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
-import {
-  buildWarehouseOriginalRows,
-  getWarehouseSearchParams,
-  readWarehouseMergeBatchLedger,
-} from './warehouse-shared'
+import { getWarehouseSearchParams } from './warehouse-shared'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -166,7 +162,13 @@ function parseProcessType(value: string | null): SpecialProcessType | undefined 
 }
 
 function buildSeedLedger() {
-  return buildSystemSeedSpecialProcessLedger(buildWarehouseOriginalRows(), readWarehouseMergeBatchLedger())
+  return buildSpecialProcessesProjection({
+    orders: state.orders,
+    bindingPayloads: state.bindingPayloads,
+    scopeLines: state.scopeLines,
+    executionLogs: state.executionLogs,
+    followupActions: state.followupActions,
+  }).seedAudits
 }
 
 function nowText(date = new Date()): string {
@@ -179,19 +181,25 @@ function nowText(date = new Date()): string {
 }
 
 function buildViewModel() {
-  return buildSpecialProcessViewModel({
-    originalRows: buildWarehouseOriginalRows(),
-    mergeBatches: readWarehouseMergeBatchLedger(),
+  return buildSpecialProcessesProjection({
     orders: state.orders,
     bindingPayloads: state.bindingPayloads,
     scopeLines: state.scopeLines,
     executionLogs: state.executionLogs,
     followupActions: state.followupActions,
-  })
+  }).viewModel
 }
 
 function getAllAudits(): SpecialProcessAuditTrail[] {
-  return [...buildSeedLedger().audits, ...state.audits].sort((left, right) => right.actionAt.localeCompare(left.actionAt, 'zh-CN'))
+  return [...buildSeedLedger(), ...state.audits].sort((left, right) => right.actionAt.localeCompare(left.actionAt, 'zh-CN'))
+}
+
+function getSpecialProcessSourceContext() {
+  const context = buildExecutionPrepProjectionContext()
+  return {
+    originalRows: context.sources.originalRows,
+    mergeBatches: context.sources.mergeBatches,
+  }
 }
 
 function persistStore(): void {
@@ -245,8 +253,11 @@ function getPrefilterFromQuery(): SpecialProcessPrefilter | null {
   const params = getWarehouseSearchParams()
   const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: SpecialProcessPrefilter = {
+    productionOrderId: drillContext?.productionOrderId || params.get('productionOrderId') || undefined,
     productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
+    originalCutOrderId: drillContext?.originalCutOrderId || params.get('originalCutOrderId') || undefined,
     originalCutOrderNo: drillContext?.originalCutOrderNo || params.get('originalCutOrderNo') || undefined,
+    mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
     mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
     processOrderId: drillContext?.processOrderId || params.get('processOrderId') || undefined,
     processOrderNo: drillContext?.processOrderNo || params.get('processOrderNo') || undefined,
@@ -288,8 +299,7 @@ function createDraftFromPrefilterIfNeeded(): void {
   }
 
   const created = createBindingStripProcessDraft({
-    originalRows: buildWarehouseOriginalRows(),
-    mergeBatches: readWarehouseMergeBatchLedger(),
+    ...getSpecialProcessSourceContext(),
     prefilter: state.prefilter,
     existingCount: buildViewModel().rows.length,
   })
@@ -901,8 +911,11 @@ function navigateByProcessOrder(
   const row = buildViewModel().rowsById[processOrderId]
   if (!row) return false
   const context = normalizeLegacyCuttingPayload(row.navigationPayload[target], 'special-processes', {
+    productionOrderId: row.productionOrderIds[0] || undefined,
     productionOrderNo: row.productionOrderNos[0] || undefined,
+    originalCutOrderId: row.originalCutOrderIds[0] || undefined,
     originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
+    mergeBatchId: row.mergeBatchId || undefined,
     mergeBatchNo: row.mergeBatchNo || undefined,
     materialSku: row.materialSku || undefined,
     processOrderId: row.processOrderId,
@@ -1214,8 +1227,7 @@ export function handleCraftCuttingSpecialProcessesEvent(target: Element): boolea
 
   if (action === 'create-binding-strip') {
     const created = createBindingStripProcessDraft({
-      originalRows: buildWarehouseOriginalRows(),
-      mergeBatches: readWarehouseMergeBatchLedger(),
+      ...getSpecialProcessSourceContext(),
       prefilter: state.prefilter,
       existingCount: buildViewModel().rows.length,
     })
@@ -1321,8 +1333,11 @@ export function handleCraftCuttingSpecialProcessesEvent(target: Element): boolea
     const followup = row.followupActions.find((item) => item.actionId === actionId)
     if (!followup) return false
     const context = normalizeLegacyCuttingPayload(followup.targetQuery, 'special-processes', {
+      productionOrderId: row.productionOrderIds[0] || undefined,
       productionOrderNo: row.productionOrderNos[0] || undefined,
+      originalCutOrderId: row.originalCutOrderIds[0] || undefined,
       originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
+      mergeBatchId: row.mergeBatchId || undefined,
       mergeBatchNo: row.mergeBatchNo || undefined,
       materialSku: row.materialSku || undefined,
       processOrderId: row.processOrderId,
