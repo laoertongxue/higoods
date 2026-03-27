@@ -320,99 +320,98 @@ function renderTraceRow(label: string, value: string): string {
 }
 
 function renderLedgerDetail(trace: PreSettlementLedgerSourceTrace | null): string {
-  if (!trace) {
-    return `
-      <section class="rounded-lg border border-dashed bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        选择一条正式预结算流水后，可在这里查看来源追溯和当前入单状态。
-      </section>
-    `
-  }
+  if (!trace) return ''
 
   const { ledger, settlementProfile, statement, batch, task, productionOrder, qcRecord, pendingDeductionRecord, disputeCase } = trace
   const isTaskLedger = ledger.ledgerType === 'TASK_EARNING'
 
   return `
-    <section class="rounded-lg border bg-card">
-      <div class="flex items-start justify-between gap-4 border-b px-4 py-4">
-        <div>
-          <h2 class="text-sm font-semibold">流水详情</h2>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(ledger.ledgerNo)} · ${escapeHtml(LEDGER_TYPE_LABEL[ledger.ledgerType])}</p>
-        </div>
-        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-adj-action="close-detail">收起</button>
-      </div>
-
-      <div class="grid gap-4 px-4 py-4 lg:grid-cols-[1.2fr_1fr]">
-        <section class="rounded-lg border bg-muted/10 p-4">
-          <h3 class="text-sm font-semibold">基本信息</h3>
-          <dl class="mt-3 space-y-1 text-sm">
-            ${renderTraceRow('流水号', escapeHtml(ledger.ledgerNo))}
-            ${renderTraceRow('流水类型', escapeHtml(LEDGER_TYPE_LABEL[ledger.ledgerType]))}
-            ${renderTraceRow('工厂', escapeHtml(ledger.factoryName))}
-            ${renderTraceRow('结算周期', escapeHtml(ledger.settlementCycleLabel))}
-            ${renderTraceRow('当前状态', escapeHtml(LEDGER_STATUS_LABEL[ledger.status]))}
-            ${renderTraceRow('已入对账单', statement ? escapeHtml(statement.statementId) : '未入对账单')}
-            ${renderTraceRow('已入预付款批次', batch ? escapeHtml(batch.batchId) : '未入预付款批次')}
-          </dl>
-        </section>
-
-        <section class="rounded-lg border bg-muted/10 p-4">
-          <h3 class="text-sm font-semibold">金额快照</h3>
-          <dl class="mt-3 space-y-1 text-sm">
-            ${renderTraceRow('原始金额', escapeHtml(formatAmount(ledger.originalAmount, ledger.originalCurrency)))}
-            ${renderTraceRow('预结算金额', escapeHtml(formatAmount(ledger.settlementAmount, ledger.settlementCurrency)))}
-            ${renderTraceRow('汇率快照', escapeHtml(String(ledger.fxRate ?? 1)))}
-            ${renderTraceRow('汇率应用时间', escapeHtml(ledger.fxAppliedAt ?? '—'))}
-            ${renderTraceRow('结算资料版本', escapeHtml(ledger.settlementProfileVersionNo ?? settlementProfile?.versionNo ?? '—'))}
-          </dl>
-        </section>
-      </div>
-
-      <div class="grid gap-4 border-t px-4 py-4 lg:grid-cols-[1.2fr_1fr]">
-        <section class="rounded-lg border bg-background p-4">
-          <h3 class="text-sm font-semibold">来源追溯</h3>
-          <dl class="mt-3 space-y-1 text-sm">
-            ${
-              isTaskLedger
-                ? [
-                    renderTraceRow('任务号', escapeHtml(task?.taskNo ?? ledger.taskNo ?? '—')),
-                    renderTraceRow('生产单号', escapeHtml(productionOrder?.legacyOrderNo ?? ledger.productionOrderNo ?? '—')),
-                    renderTraceRow('回货批次号', escapeHtml(ledger.returnInboundBatchNo ?? '—')),
-                    renderTraceRow('价格来源', escapeHtml(PRICE_SOURCE_LABEL[ledger.priceSourceType] ?? '兼容快照')),
-                    renderTraceRow('单价', escapeHtml(ledger.unitPrice != null ? formatAmount(ledger.unitPrice, ledger.originalCurrency) : '—')),
-                    renderTraceRow('数量', escapeHtml(String(ledger.qty))),
-                  ].join('')
-                : [
-                    renderTraceRow('质检记录', escapeHtml(qcRecord?.qcNo ?? ledger.qcRecordId ?? '—')),
-                    renderTraceRow('待确认质量扣款记录', escapeHtml(pendingDeductionRecord?.pendingRecordId ?? ledger.pendingDeductionRecordId ?? '—')),
-                    renderTraceRow('质量异议单', escapeHtml(disputeCase?.disputeId ?? ledger.disputeId ?? '—')),
-                    renderTraceRow('裁决结果', escapeHtml(disputeCase?.adjudicationResult ?? ledger.sourceReason ?? '—')),
-                    renderTraceRow('责任数量', escapeHtml(String(ledger.qty))),
-                    renderTraceRow('来源说明', escapeHtml(ledger.sourceReason ?? '正式质量扣款流水')),
-                  ].join('')
-            }
-          </dl>
-
-          <div class="mt-4 flex flex-wrap gap-2">
-            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(isTaskLedger ? `/fcs/pda/task-receive/${ledger.taskId ?? ledger.returnInboundBatchId ?? ''}` : (pendingDeductionRecord?.basisId ? `/fcs/quality/qc-records/${encodeURIComponent(qcRecord?.qcId ?? ledger.qcRecordId ?? '')}` : `/fcs/quality/qc-records/${encodeURIComponent(qcRecord?.qcId ?? ledger.qcRecordId ?? '')}`))}">
-              查看来源对象
-            </button>
-            ${statement ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="/fcs/settlement/statements">查看对账单</button>` : ''}
-            ${batch ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="/fcs/settlement/batches">查看预付款批次</button>` : ''}
+    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
+      <button class="absolute inset-0 bg-black/45" data-adj-action="close-detail" aria-label="关闭流水详情"></button>
+      <div class="absolute inset-y-0 right-0 flex w-full max-w-[880px] flex-col bg-background shadow-2xl">
+        <div class="flex items-start justify-between gap-4 border-b px-4 py-4">
+          <div>
+            <h2 class="text-sm font-semibold">流水详情</h2>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(ledger.ledgerNo)} · ${escapeHtml(LEDGER_TYPE_LABEL[ledger.ledgerType])}</p>
           </div>
-        </section>
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-adj-action="close-detail">关闭</button>
+        </div>
 
-        <section class="rounded-lg border bg-background p-4">
-          <h3 class="text-sm font-semibold">流转说明</h3>
-          <dl class="mt-3 space-y-1 text-sm">
-            ${renderTraceRow('发生时间', escapeHtml(ledger.occurredAt))}
-            ${renderTraceRow('当前说明', escapeHtml(ledger.remark ?? '—'))}
-            ${renderTraceRow('入对账单状态', statement ? '已进入对账单' : '待进入对账单')}
-            ${renderTraceRow('预付款批次状态', batch ? '已进入预付款批次' : '尚未进入预付款批次')}
-            ${renderTraceRow('最终去向', escapeHtml(LEDGER_STATUS_LABEL[ledger.status]))}
-          </dl>
-        </section>
+        <div class="flex-1 overflow-y-auto">
+          <div class="grid gap-4 px-4 py-4 lg:grid-cols-[1.2fr_1fr]">
+            <section class="rounded-lg border bg-muted/10 p-4">
+              <h3 class="text-sm font-semibold">基本信息</h3>
+              <dl class="mt-3 space-y-1 text-sm">
+                ${renderTraceRow('流水号', escapeHtml(ledger.ledgerNo))}
+                ${renderTraceRow('流水类型', escapeHtml(LEDGER_TYPE_LABEL[ledger.ledgerType]))}
+                ${renderTraceRow('工厂', escapeHtml(ledger.factoryName))}
+                ${renderTraceRow('结算周期', escapeHtml(ledger.settlementCycleLabel))}
+                ${renderTraceRow('当前状态', escapeHtml(LEDGER_STATUS_LABEL[ledger.status]))}
+                ${renderTraceRow('已入对账单', statement ? escapeHtml(statement.statementId) : '未入对账单')}
+                ${renderTraceRow('已入预付款批次', batch ? escapeHtml(batch.batchId) : '未入预付款批次')}
+              </dl>
+            </section>
+
+            <section class="rounded-lg border bg-muted/10 p-4">
+              <h3 class="text-sm font-semibold">金额快照</h3>
+              <dl class="mt-3 space-y-1 text-sm">
+                ${renderTraceRow('原始金额', escapeHtml(formatAmount(ledger.originalAmount, ledger.originalCurrency)))}
+                ${renderTraceRow('预结算金额', escapeHtml(formatAmount(ledger.settlementAmount, ledger.settlementCurrency)))}
+                ${renderTraceRow('汇率快照', escapeHtml(String(ledger.fxRate ?? 1)))}
+                ${renderTraceRow('汇率应用时间', escapeHtml(ledger.fxAppliedAt ?? '—'))}
+                ${renderTraceRow('结算资料版本', escapeHtml(ledger.settlementProfileVersionNo ?? settlementProfile?.versionNo ?? '—'))}
+              </dl>
+            </section>
+          </div>
+
+          <div class="grid gap-4 border-t px-4 py-4 lg:grid-cols-[1.2fr_1fr]">
+            <section class="rounded-lg border bg-background p-4">
+              <h3 class="text-sm font-semibold">来源追溯</h3>
+              <dl class="mt-3 space-y-1 text-sm">
+                ${
+                  isTaskLedger
+                    ? [
+                        renderTraceRow('任务号', escapeHtml(task?.taskNo ?? ledger.taskNo ?? '—')),
+                        renderTraceRow('生产单号', escapeHtml(productionOrder?.legacyOrderNo ?? ledger.productionOrderNo ?? '—')),
+                        renderTraceRow('回货批次号', escapeHtml(ledger.returnInboundBatchNo ?? '—')),
+                        renderTraceRow('价格来源', escapeHtml(PRICE_SOURCE_LABEL[ledger.priceSourceType] ?? '兼容快照')),
+                        renderTraceRow('单价', escapeHtml(ledger.unitPrice != null ? formatAmount(ledger.unitPrice, ledger.originalCurrency) : '—')),
+                        renderTraceRow('数量', escapeHtml(String(ledger.qty))),
+                      ].join('')
+                    : [
+                        renderTraceRow('质检记录', escapeHtml(qcRecord?.qcNo ?? ledger.qcRecordId ?? '—')),
+                        renderTraceRow('待确认质量扣款记录', escapeHtml(pendingDeductionRecord?.pendingRecordId ?? ledger.pendingDeductionRecordId ?? '—')),
+                        renderTraceRow('质量异议单', escapeHtml(disputeCase?.disputeId ?? ledger.disputeId ?? '—')),
+                        renderTraceRow('裁决结果', escapeHtml(disputeCase?.adjudicationResult ?? ledger.sourceReason ?? '—')),
+                        renderTraceRow('责任数量', escapeHtml(String(ledger.qty))),
+                        renderTraceRow('来源说明', escapeHtml(ledger.sourceReason ?? '正式质量扣款流水')),
+                      ].join('')
+                }
+              </dl>
+
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="${escapeHtml(isTaskLedger ? `/fcs/pda/task-receive/${ledger.taskId ?? ledger.returnInboundBatchId ?? ''}` : `/fcs/quality/qc-records/${encodeURIComponent(qcRecord?.qcId ?? ledger.qcRecordId ?? '')}`)}">
+                  查看来源对象
+                </button>
+                ${statement ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="/fcs/settlement/statements">查看对账单</button>` : ''}
+                ${batch ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="/fcs/settlement/batches">查看预付款批次</button>` : ''}
+              </div>
+            </section>
+
+            <section class="rounded-lg border bg-background p-4">
+              <h3 class="text-sm font-semibold">流转说明</h3>
+              <dl class="mt-3 space-y-1 text-sm">
+                ${renderTraceRow('发生时间', escapeHtml(ledger.occurredAt))}
+                ${renderTraceRow('当前说明', escapeHtml(ledger.remark ?? '—'))}
+                ${renderTraceRow('入对账单状态', statement ? '已进入对账单' : '待进入对账单')}
+                ${renderTraceRow('预付款批次状态', batch ? '已进入预付款批次' : '尚未进入预付款批次')}
+                ${renderTraceRow('最终去向', escapeHtml(LEDGER_STATUS_LABEL[ledger.status]))}
+              </dl>
+            </section>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   `
 }
 
@@ -538,5 +537,5 @@ export function handleAdjustmentsEvent(target: HTMLElement): boolean {
 }
 
 export function isAdjustmentsDialogOpen(): boolean {
-  return false
+  return Boolean(state.detailLedgerId)
 }
