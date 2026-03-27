@@ -127,16 +127,31 @@ function getCurrentFactoryOperatorName(factoryId: string): string {
 function getBackPath(): string {
   const params = getCurrentSearchParams()
   const view = params.get('view')
+  const cycleId = params.get('cycleId')
   const search = new URLSearchParams()
   search.set('tab', 'quality')
   if (view && ['pending', 'soon', 'disputing', 'processed', 'history'].includes(view)) {
     search.set('view', view)
   }
+  if (cycleId) {
+    search.set('cycleId', cycleId)
+  }
   return `/fcs/pda/settlement?${search.toString()}`
 }
 
 function buildPdaQualityDetailHref(qcId: string): string {
-  return `/fcs/pda/quality/${encodeURIComponent(qcId)}`
+  const params = getCurrentSearchParams()
+  const search = new URLSearchParams()
+  const view = params.get('view')
+  const cycleId = params.get('cycleId')
+  if (view && ['pending', 'soon', 'disputing', 'processed', 'history'].includes(view)) {
+    search.set('view', view)
+  }
+  if (cycleId) {
+    search.set('cycleId', cycleId)
+  }
+  const query = search.toString()
+  return `/fcs/pda/quality/${encodeURIComponent(qcId)}${query ? `?${query}` : ''}`
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -193,7 +208,7 @@ function getResultBadgeClass(label: string): string {
 }
 
 function getResponseBadgeClass(label: string): string {
-  if (label.includes('待工厂响应')) return getBadgeClass('amber')
+  if (label.includes('待工厂处理')) return getBadgeClass('amber')
   if (label.includes('自动确认')) return getBadgeClass('purple')
   if (label.includes('已确认')) return getBadgeClass('green')
   if (label.includes('异议')) return getBadgeClass('red')
@@ -202,18 +217,18 @@ function getResponseBadgeClass(label: string): string {
 
 function getDisputeBadgeClass(label: string): string {
   if (label === '无异议') return getBadgeClass('gray')
-  if (label === '待平台审核' || label === '平台处理中') return getBadgeClass('amber')
-  if (label === '部分调整') return getBadgeClass('blue')
-  if (label === '改判冲回') return getBadgeClass('purple')
-  if (label === '维持原判') return getBadgeClass('red')
+  if (label === '待平台处理' || label === '平台处理中') return getBadgeClass('amber')
+  if (label === '最终部分工厂责任') return getBadgeClass('blue')
+  if (label === '最终非工厂责任') return getBadgeClass('purple')
+  if (label === '最终维持工厂责任') return getBadgeClass('red')
   return getBadgeClass('gray')
 }
 
 function getSettlementBadgeClass(label: string): string {
-  if (label.includes('冻结')) return getBadgeClass('amber')
-  if (label.includes('可结算')) return getBadgeClass('green')
-  if (label.includes('已结算')) return getBadgeClass('blue')
-  if (label.includes('下周期')) return getBadgeClass('purple')
+  if (label.includes('待确认') || label.includes('待平台处理')) return getBadgeClass('amber')
+  if (label.includes('正式质量扣款流水')) return getBadgeClass('green')
+  if (label.includes('预结算单')) return getBadgeClass('blue')
+  if (label.includes('预付款批次')) return getBadgeClass('purple')
   return getBadgeClass('gray')
 }
 
@@ -668,16 +683,24 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
         { label: '冻结数量', value: formatQty(detail.blockedSettlementQty) },
         { label: '冻结加工费金额', value: formatCny(detail.blockedProcessingFeeAmount) },
         { label: '生效质量扣款金额', value: formatCny(detail.effectiveQualityDeductionAmount) },
-        { label: '可结算批次', value: escapeHtml(detail.candidateSettlementCycleId ?? '—') },
+        { label: '正式流水编号', value: escapeHtml(detail.formalLedgerNo ?? '—') },
         { label: '结算单号', value: escapeHtml(detail.includedSettlementStatementId ?? '—') },
-        { label: '结算批次号', value: escapeHtml(detail.includedSettlementBatchId ?? '—') },
-        { label: '下周期调整说明', value: escapeHtml(detail.settlementAdjustmentSummary ?? '当前无下周期调整项') },
+        { label: '预付款批次号', value: escapeHtml(detail.includedSettlementBatchId ?? '—') },
+        {
+          label: '正式质量扣款流水说明',
+          value: escapeHtml(
+            detail.formalLedgerStatusLabel ??
+              detail.pendingRecordStatusLabel ??
+              detail.settlementAdjustmentSummary ??
+              '当前尚未形成正式质量扣款流水',
+          ),
+        },
       ]),
       (detail.responseComment
         ? `<div class="mt-3 rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(detail.responseComment)}</div>`
         : '') +
         '',
-      '先看当前是否需要处理、还剩多久，再看这件事对冻结金额和质量扣款的影响。',
+      '先看当前是否需要处理、还剩多久，再看这件事对待确认质量扣款记录和正式质量扣款流水的影响。',
     ),
     renderSectionCard(
       '异议与平台处理结果',
@@ -756,7 +779,7 @@ function renderConfirmDialog(detail: FutureMobileFactoryQcDetail): string {
       <section class="absolute bottom-[72px] left-0 right-0 rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
         <div class="text-base font-semibold text-foreground">确认处理</div>
         <div class="mt-2 text-sm leading-6 text-muted-foreground">
-          确认后，将把当前质检记录写回为“工厂已确认”，平台端同步看到响应时间与响应人；对应结算影响会从冻结转为可结算。
+          确认后，将把当前质检记录写回为“工厂已确认”，平台端同步看到响应时间与响应人；对应待确认质量扣款记录会生成正式质量扣款流水。
         </div>
         <div class="mt-4 rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5">
           <div>工厂责任数量：${formatQty(detail.factoryLiabilityQty)}</div>

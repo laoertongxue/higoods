@@ -188,12 +188,16 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
   if (action === 'confirm') {
     const form = getState(taskId, selectedCutPieceOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
-    confirmCuttingInbound(taskId, {
+    const result = confirmCuttingInbound(taskId, {
       operatorName: form.operatorName.trim() || '仓务操作员',
       zoneCode: form.zoneCode,
       locationLabel: form.locationLabel.trim() || `${form.zoneCode}-01 临时位`,
       note: form.note.trim(),
     }, selectedCutPieceOrderNo ?? undefined)
+    if (!result.success) {
+      form.feedbackMessage = result.issues.join('；')
+      return true
+    }
     form.feedbackMessage = '入仓已确认。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,

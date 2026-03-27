@@ -1,15 +1,15 @@
-import { penaltyRules, settlementProfiles } from './settlement-mock-data'
+import { penaltyRules, settlementProfiles } from './settlement-mock-data.ts'
 import type {
   CycleType,
   PricingMode,
   RuleMode,
   RuleType,
   SettlementStatus as RuleStatus,
-} from './settlement-types'
+} from './settlement-types.ts'
 
 // 工厂结算资料修改申请仍然围绕主数据版本运作：
 // 工厂端只能提交申请，平台审核通过后才会形成新的生效版本，
-// 不会直接改写周期内的对账单、结算批次或工厂端周期页数据。
+// 不会直接改写周期内的对账单、预付款批次或工厂端周期页数据。
 
 export type SettlementChangeRequestStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
 
@@ -928,6 +928,49 @@ export function getSettlementStatusClass(status: SettlementChangeRequestStatus):
 
 export function getSettlementEffectiveInfoByFactory(factoryId: string): SettlementEffectiveInfo | null {
   return getEffectiveInfoByFactoryOrNull(factoryId)
+}
+
+function parseDateTimeForCompare(value?: string): number {
+  if (!value) return Number.NEGATIVE_INFINITY
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const timestamp = new Date(normalized).getTime()
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY
+}
+
+export function getSettlementEffectiveInfoByFactoryAt(
+  factoryId: string,
+  referenceAt?: string,
+): SettlementEffectiveInfo | null {
+  const current = getSettlementEffectiveInfoByFactory(factoryId)
+  if (!referenceAt) return current
+
+  const versions = getSettlementVersionHistory(factoryId)
+    .slice()
+    .sort((left, right) => parseDateTimeForCompare(left.effectiveAt) - parseDateTimeForCompare(right.effectiveAt))
+  if (!versions.length) return current
+
+  const referenceTime = parseDateTimeForCompare(referenceAt)
+  const matchedVersion =
+    versions
+      .filter((item) => parseDateTimeForCompare(item.effectiveAt) <= referenceTime)
+      .slice(-1)[0] ?? versions[0]
+
+  return {
+    factoryId: matchedVersion.factoryId,
+    factoryName: matchedVersion.factoryName,
+    versionNo: matchedVersion.versionNo,
+    effectiveAt: matchedVersion.effectiveAt,
+    effectiveBy: matchedVersion.effectiveBy,
+    updatedBy: matchedVersion.effectiveBy,
+    accountHolderName: matchedVersion.accountHolderName,
+    idNumber: matchedVersion.idNumber,
+    bankName: matchedVersion.bankName,
+    bankAccountNo: matchedVersion.bankAccountNo,
+    bankBranch: matchedVersion.bankBranch,
+    settlementConfigSnapshot: cloneConfigSnapshot(matchedVersion.settlementConfigSnapshot),
+    receivingAccountSnapshot: cloneAccountSnapshot(matchedVersion.receivingAccountSnapshot),
+    defaultDeductionRulesSnapshot: cloneDeductionRuleSnapshots(matchedVersion.defaultDeductionRulesSnapshot),
+  }
 }
 
 export function getSettlementRequestById(requestId: string): SettlementChangeRequest | null {

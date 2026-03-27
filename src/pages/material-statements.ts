@@ -312,7 +312,7 @@ function renderDetailDialog(detailDraft: MaterialStatementDraft | null): string 
 
         <header class="mb-4">
           <h3 class="text-lg font-semibold">车缝领料对账对象 — ${escapeHtml(detailDraft.materialStatementId)}</h3>
-          <p class="mt-1 text-xs text-muted-foreground">这里查看正式领料对账来源对象，确认后可继续进入对账单。</p>
+          <p class="mt-1 text-xs text-muted-foreground">这里查看正式领料对账对象，当前用于领料事实与对账对象管理，暂不计入本期应付结算生成。</p>
         </header>
 
         <div class="grid gap-4 md:grid-cols-4">
@@ -452,7 +452,7 @@ export function renderMaterialStatementsPage(): string {
       </div>
 
       <section class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
-        领料事实发生在仓交接和执行链路，这里只沉淀正式对账来源对象，并向对账单输出材料应收或抵扣结果。
+        领料事实发生在仓交接和执行链路，这里只沉淀正式对账对象和材料应收口径；当前阶段暂不进入对账单待生成来源项。
       </section>
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-4">

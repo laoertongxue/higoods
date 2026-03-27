@@ -4,6 +4,16 @@ import { getTaskChainTaskById, listTaskChainTasks } from './page-adapters/task-c
 import { findPdaHandoverHead } from './pda-handover-events'
 import { buildClaimDisputeWritebackSummary, formatClaimQty, getClaimDisputeStatusLabel } from '../../helpers/fcs-claim-dispute'
 import { getLatestClaimDisputeByOriginalCutOrderNo, getLatestClaimDisputeByTaskId } from '../../state/fcs-claim-dispute-store'
+import { resolveCuttingTaskRef, resolvePdaExecutionRef } from '../../domain/cutting-identity'
+import {
+  writePdaHandoverToFcs,
+  writePdaInboundToFcs,
+  writePdaPickupToFcs,
+  writePdaReplenishmentFeedbackToFcs,
+  writePdaSpreadingToFcs,
+  type CuttingPdaWritebackBridgeResult,
+  type CuttingPdaWritebackIdentity,
+} from '../../domain/cutting-pda-writeback/bridge'
 
 export type PdaTaskEntryMode = 'DEFAULT' | 'CUTTING_SPECIAL'
 export type CuttingMaterialType = 'PRINT' | 'DYE' | 'SOLID' | 'LINING'
@@ -27,6 +37,11 @@ export interface PdaTaskFlowMock extends ProcessTask {
   factoryTypeLabel: string
   supportsCuttingSpecialActions: boolean
   entryMode: PdaTaskEntryMode
+  productionOrderNo?: string
+  originalCutOrderIds?: string[]
+  originalCutOrderNos?: string[]
+  mergeBatchIds?: string[]
+  mergeBatchNos?: string[]
   cutPieceOrderNo?: string
   cutPieceOrderCount?: number
   completedCutPieceOrderCount?: number
@@ -44,6 +59,12 @@ export interface PdaTaskFlowMock extends ProcessTask {
 export interface PdaCuttingTaskOrderLine {
   cutPieceOrderId: string
   cutPieceOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
+  mergeBatchId: string
+  mergeBatchNo: string
   materialSku: string
   materialTypeLabel: string
   colorLabel?: string
@@ -65,6 +86,13 @@ export interface PdaCuttingTaskOrderLine {
 export interface PdaCuttingRouteOptions {
   cutPieceOrderNo?: string
   returnTo?: string
+}
+
+export interface PdaCuttingSubmitResult {
+  success: boolean
+  issues: string[]
+  warningMessages: string[]
+  writebackId: string
 }
 
 export interface PdaCuttingPickupLog {
@@ -133,7 +161,12 @@ export interface PdaCuttingRecentAction {
 export interface PdaCuttingTaskDetailData {
   taskId: string
   taskNo: string
+  productionOrderId: string
   productionOrderNo: string
+  originalCutOrderIds: string[]
+  originalCutOrderNos: string[]
+  mergeBatchIds: string[]
+  mergeBatchNos: string[]
   cutPieceOrderNo: string
   cutPieceOrders: PdaCuttingTaskOrderLine[]
   cutPieceOrderCount: number
@@ -226,6 +259,11 @@ export interface PdaCuttingTaskRollup {
 
 type PdaCuttingTaskDetailSeed = Omit<
   PdaCuttingTaskDetailData,
+  | 'productionOrderId'
+  | 'originalCutOrderIds'
+  | 'originalCutOrderNos'
+  | 'mergeBatchIds'
+  | 'mergeBatchNos'
   | 'cutPieceOrders'
   | 'cutPieceOrderCount'
   | 'completedCutPieceOrderCount'
@@ -401,6 +439,11 @@ function createMockTask(input: {
     factoryTypeLabel: input.factoryTypeLabel,
     supportsCuttingSpecialActions: input.supportsCuttingSpecialActions,
     entryMode: input.entryMode,
+    productionOrderNo: input.productionOrderId,
+    originalCutOrderIds: [],
+    originalCutOrderNos: [],
+    mergeBatchIds: [],
+    mergeBatchNos: [],
     cutPieceOrderNo: input.cutPieceOrderNo,
     summary: input.summary,
     ...(CUTTING_STYLE_SNAPSHOT_BY_ORDER[input.productionOrderId] ?? {}),
@@ -2764,6 +2807,12 @@ function buildTaskOrderLineFromDetail(
   return {
     cutPieceOrderId: overrides.cutPieceOrderId ?? detail.cutPieceOrderNo,
     cutPieceOrderNo: overrides.cutPieceOrderNo ?? detail.cutPieceOrderNo,
+    productionOrderId: overrides.productionOrderId ?? '',
+    productionOrderNo: overrides.productionOrderNo ?? detail.productionOrderNo,
+    originalCutOrderId: overrides.originalCutOrderId ?? detail.cutPieceOrderNo,
+    originalCutOrderNo: overrides.originalCutOrderNo ?? detail.cutPieceOrderNo,
+    mergeBatchId: overrides.mergeBatchId ?? '',
+    mergeBatchNo: overrides.mergeBatchNo ?? '',
     materialSku: overrides.materialSku ?? detail.materialSku,
     materialTypeLabel: overrides.materialTypeLabel ?? detail.materialTypeLabel,
     colorLabel: overrides.colorLabel,
@@ -3031,8 +3080,64 @@ cuttingTaskOrderLineStore['TASK-CUT-000092'] = getSortedTaskOrderLines([
   }),
 ])
 
+function withCuttingTaskIdentity(task: PdaTaskFlowMock): PdaTaskFlowMock {
+  if (!isCuttingSpecialTask(task)) return task
+
+  const taskRef = resolveCuttingTaskRef({ taskId: task.taskId, taskNo: task.taskNo })
+  if (!taskRef) {
+    return {
+      ...task,
+      productionOrderNo: task.productionOrderNo || task.productionOrderId,
+      originalCutOrderIds: [...(task.originalCutOrderIds ?? [])],
+      originalCutOrderNos: [...(task.originalCutOrderNos ?? [])],
+      mergeBatchIds: [...(task.mergeBatchIds ?? [])],
+      mergeBatchNos: [...(task.mergeBatchNos ?? [])],
+    }
+  }
+
+  return {
+    ...task,
+    productionOrderId: taskRef.productionOrderId,
+    productionOrderNo: taskRef.productionOrderNo,
+    originalCutOrderIds: [...taskRef.originalCutOrderIds],
+    originalCutOrderNos: [...taskRef.originalCutOrderNos],
+    mergeBatchIds: [...taskRef.mergeBatchIds],
+    mergeBatchNos: [...taskRef.mergeBatchNos],
+  }
+}
+
+function withTaskOrderLineIdentity(taskId: string, line: PdaCuttingTaskOrderLine): PdaCuttingTaskOrderLine {
+  const executionRef = resolvePdaExecutionRef({
+    taskId,
+    cutPieceOrderNo: line.cutPieceOrderNo,
+  })
+
+  if (!executionRef) {
+    return {
+      ...line,
+      productionOrderNo: line.productionOrderNo || '',
+      originalCutOrderId: line.originalCutOrderId || line.cutPieceOrderNo,
+      originalCutOrderNo: line.originalCutOrderNo || line.cutPieceOrderNo,
+      mergeBatchId: line.mergeBatchId || '',
+      mergeBatchNo: line.mergeBatchNo || '',
+    }
+  }
+
+  return {
+    ...line,
+    productionOrderId: executionRef.productionOrderId,
+    productionOrderNo: executionRef.productionOrderNo,
+    originalCutOrderId: executionRef.originalCutOrderId,
+    originalCutOrderNo: executionRef.originalCutOrderNo,
+    mergeBatchId: executionRef.mergeBatchId,
+    mergeBatchNo: executionRef.mergeBatchNo,
+  }
+}
+
 function getTaskOrderLines(taskId: string): PdaCuttingTaskOrderLine[] {
-  return getSortedTaskOrderLines(cuttingTaskOrderLineStore[taskId] ?? [])
+  return getSortedTaskOrderLines(cuttingTaskOrderLineStore[taskId] ?? []).map((line) =>
+    withTaskOrderLineIdentity(taskId, line),
+  )
 }
 
 function touchTaskOrderLine(
@@ -3139,7 +3244,9 @@ function compareTask(left: ProcessTask, right: ProcessTask): number {
 }
 
 function getLatestCuttingClaimDispute(taskId: string, cutPieceOrderNo?: string) {
-  return (cutPieceOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(cutPieceOrderNo) : null) || getLatestClaimDisputeByTaskId(taskId)
+  const executionRef = cutPieceOrderNo ? resolvePdaExecutionRef({ taskId, cutPieceOrderNo }) : null
+  const originalCutOrderNo = executionRef?.originalCutOrderNo || cutPieceOrderNo
+  return (originalCutOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(originalCutOrderNo) : null) || getLatestClaimDisputeByTaskId(taskId)
 }
 
 function withClaimDisputeTaskSummary(task: PdaTaskFlowMock): PdaTaskFlowMock {
@@ -3159,12 +3266,13 @@ function withClaimDisputeTaskSummary(task: PdaTaskFlowMock): PdaTaskFlowMock {
 
 function withCuttingTaskOrderMeta(task: PdaTaskFlowMock): PdaTaskFlowMock {
   if (!isCuttingSpecialTask(task)) return task
+  const taskWithIdentity = withCuttingTaskIdentity(task)
   const lines = getTaskOrderLines(task.taskId)
   const rollup = buildPdaCuttingTaskRollup(lines)
 
   return {
-    ...task,
-    cutPieceOrderNo: rollup.defaultExecCutPieceOrderNo || task.cutPieceOrderNo,
+    ...taskWithIdentity,
+    cutPieceOrderNo: rollup.defaultExecCutPieceOrderNo || taskWithIdentity.cutPieceOrderNo,
     ...rollup,
   }
 }
@@ -3200,6 +3308,7 @@ export function getPdaCuttingTaskDetail(taskId: string, selectedCutPieceOrderNo?
   const seed = cuttingDetailStore[taskId] ?? null
   if (!seed) return null
 
+  const task = getPdaTaskFlowTaskById(taskId)
   const lines = getTaskOrderLines(taskId)
   const defaultCutPieceOrderNo = seed.cutPieceOrderNo || lines[0]?.cutPieceOrderNo || ''
   const resolvedSelectedLine =
@@ -3226,8 +3335,32 @@ export function getPdaCuttingTaskDetail(taskId: string, selectedCutPieceOrderNo?
   const latestInboundRecord = normalizeRecordCutPieceOrderNo(inboundRecords[0], seed.cutPieceOrderNo)
   const latestHandoverRecord = normalizeRecordCutPieceOrderNo(handoverRecords[0], seed.cutPieceOrderNo)
   const latestFeedbackRecord = normalizeRecordCutPieceOrderNo(replenishmentFeedbacks[0], seed.cutPieceOrderNo)
+  const activeLine =
+    lines.find((item) => item.cutPieceOrderNo === (resolvedCutPieceOrderNo || selectedDetailSeed.cutPieceOrderNo)) ??
+    lines[0] ??
+    null
+  const productionOrderId = activeLine?.productionOrderId || task?.productionOrderId || ''
+  const productionOrderNo = activeLine?.productionOrderNo || task?.productionOrderNo || selectedDetailSeed.productionOrderNo
+  const originalCutOrderIds = Array.from(
+    new Set(lines.map((item) => item.originalCutOrderId).filter((value) => value && value.trim().length > 0)),
+  )
+  const originalCutOrderNos = Array.from(
+    new Set(lines.map((item) => item.originalCutOrderNo).filter((value) => value && value.trim().length > 0)),
+  )
+  const mergeBatchIds = Array.from(
+    new Set(lines.map((item) => item.mergeBatchId).filter((value) => value && value.trim().length > 0)),
+  )
+  const mergeBatchNos = Array.from(
+    new Set(lines.map((item) => item.mergeBatchNo).filter((value) => value && value.trim().length > 0)),
+  )
   const normalizedDetail: PdaCuttingTaskDetailData = {
     ...selectedDetailSeed,
+    productionOrderId,
+    productionOrderNo,
+    originalCutOrderIds,
+    originalCutOrderNos,
+    mergeBatchIds,
+    mergeBatchNos,
     cutPieceOrderNo: selectedDetailSeed.cutPieceOrderNo || defaultCutPieceOrderNo,
     cutPieceOrders: lines,
     defaultCutPieceOrderNo,
@@ -3416,17 +3549,75 @@ function pushRecentAction(
   detail.recentActions = [action, ...detail.recentActions].slice(0, 6)
 }
 
+function buildSubmitFailure(issues: string[]): PdaCuttingSubmitResult {
+  return {
+    success: false,
+    issues,
+    warningMessages: [],
+    writebackId: '',
+  }
+}
+
+function toSubmitResult(result: CuttingPdaWritebackBridgeResult): PdaCuttingSubmitResult {
+  return {
+    success: result.success,
+    issues: result.issues,
+    warningMessages: result.warningMessages,
+    writebackId: result.writebackId,
+  }
+}
+
+function resolveCuttingWritebackIdentity(
+  taskId: string,
+  cutPieceOrderNo?: string,
+): CuttingPdaWritebackIdentity | null {
+  const task = getPdaTaskFlowTaskById(taskId)
+  const detail = cuttingDetailStore[taskId]
+  const lines = getTaskOrderLines(taskId)
+  const targetCutPieceOrderNo = cutPieceOrderNo || detail?.cutPieceOrderNo || lines[0]?.cutPieceOrderNo || ''
+  const targetLine = lines.find((item) => item.cutPieceOrderNo === targetCutPieceOrderNo) ?? null
+  if (!task || !detail || !targetLine) return null
+
+  return {
+    taskId,
+    taskNo: detail.taskNo || task.taskNo,
+    productionOrderId: targetLine.productionOrderId || task.productionOrderId,
+    productionOrderNo: targetLine.productionOrderNo || task.productionOrderNo || detail.productionOrderNo,
+    originalCutOrderId: targetLine.originalCutOrderId,
+    originalCutOrderNo: targetLine.originalCutOrderNo,
+    mergeBatchId: targetLine.mergeBatchId || task.mergeBatchIds?.[0] || '',
+    mergeBatchNo: targetLine.mergeBatchNo || task.mergeBatchNos?.[0] || '',
+    cutPieceOrderNo: targetLine.cutPieceOrderNo,
+    materialSku: targetLine.materialSku || detail.materialSku,
+  }
+}
+
 export function submitCuttingPickupResult(taskId: string, payload: {
   operatorName: string
   resultLabel: string
   actualReceivedQtyText: string
   discrepancyNote: string
   photoProofCount: number
-}, cutPieceOrderNo?: string): void {
+  claimDisputeId?: string
+  claimDisputeNo?: string
+}, cutPieceOrderNo?: string): PdaCuttingSubmitResult {
   const detail = cuttingDetailStore[taskId]
   const task = cuttingTaskStore.find((item) => item.taskId === taskId)
-  if (!detail || !task) return
+  if (!detail || !task) return buildSubmitFailure(['当前裁片任务不存在，无法提交领料结果。'])
   const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
+  const identity = resolveCuttingWritebackIdentity(taskId, targetCutPieceOrderNo)
+  if (!identity) return buildSubmitFailure(['当前裁片单对象未对齐，无法写入工艺工厂领料结果。'])
+  const bridgeResult = writePdaPickupToFcs({
+    identity,
+    operatorName: payload.operatorName,
+    resultLabel: payload.resultLabel,
+    actualReceivedQtyText: payload.actualReceivedQtyText,
+    discrepancyNote: payload.discrepancyNote,
+    photoProofCount: payload.photoProofCount,
+    claimDisputeId: payload.claimDisputeId,
+    claimDisputeNo: payload.claimDisputeNo,
+  })
+  if (!bridgeResult.success) return toSubmitResult(bridgeResult)
 
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.pickupLogs.unshift({
@@ -3492,8 +3683,10 @@ export function submitCuttingPickupResult(taskId: string, payload: {
     actionTypeLabel: '扫码领取',
     operatedBy: payload.operatorName,
     operatedAt: now,
-    summary: payload.resultLabel === '扫码领取成功' ? payload.actualReceivedQtyText : `${payload.resultLabel}：${payload.discrepancyNote}`,
+    summary: payload.resultLabel.includes('成功') ? payload.actualReceivedQtyText : `${payload.resultLabel}：${payload.discrepancyNote}`,
   })
+
+  return toSubmitResult(bridgeResult)
 }
 
 export function addCuttingSpreadingRecord(taskId: string, payload: {
@@ -3504,10 +3697,23 @@ export function addCuttingSpreadingRecord(taskId: string, payload: {
   tailLength: number
   note: string
   enteredBy: string
-}, cutPieceOrderNo?: string): void {
+}, cutPieceOrderNo?: string): PdaCuttingSubmitResult {
   const detail = cuttingDetailStore[taskId]
-  if (!detail) return
+  if (!detail) return buildSubmitFailure(['当前裁片任务不存在，无法保存铺布记录。'])
   const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
+  const identity = resolveCuttingWritebackIdentity(taskId, targetCutPieceOrderNo)
+  if (!identity) return buildSubmitFailure(['当前裁片单对象未对齐，无法写入工艺工厂铺布结果。'])
+  const bridgeResult = writePdaSpreadingToFcs({
+    identity,
+    operatorName: payload.enteredBy,
+    fabricRollNo: payload.fabricRollNo,
+    layerCount: payload.layerCount,
+    actualLength: payload.actualLength,
+    headLength: payload.headLength,
+    tailLength: payload.tailLength,
+    note: payload.note,
+  })
+  if (!bridgeResult.success) return toSubmitResult(bridgeResult)
 
   const calculatedLength = Number((payload.actualLength + payload.headLength + payload.tailLength).toFixed(1))
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
@@ -3530,7 +3736,7 @@ export function addCuttingSpreadingRecord(taskId: string, payload: {
     calculatedLength,
     enteredBy: payload.enteredBy,
     enteredAt: now,
-    sourceType: 'PCS',
+    sourceType: 'PDA',
     note: payload.note,
   })
 
@@ -3568,6 +3774,8 @@ export function addCuttingSpreadingRecord(taskId: string, payload: {
     operatedAt: now,
     summary: `新增卷号 ${payload.fabricRollNo}，累计 ${detail.spreadingRecords.length} 条铺布记录。`,
   })
+
+  return toSubmitResult(bridgeResult)
 }
 
 export function confirmCuttingInbound(taskId: string, payload: {
@@ -3575,10 +3783,20 @@ export function confirmCuttingInbound(taskId: string, payload: {
   zoneCode: 'A' | 'B' | 'C'
   locationLabel: string
   note: string
-}, cutPieceOrderNo?: string): void {
+}, cutPieceOrderNo?: string): PdaCuttingSubmitResult {
   const detail = cuttingDetailStore[taskId]
-  if (!detail) return
+  if (!detail) return buildSubmitFailure(['当前裁片任务不存在，无法确认入仓。'])
   const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
+  const identity = resolveCuttingWritebackIdentity(taskId, targetCutPieceOrderNo)
+  if (!identity) return buildSubmitFailure(['当前裁片单对象未对齐，无法写入工艺工厂入仓结果。'])
+  const bridgeResult = writePdaInboundToFcs({
+    identity,
+    operatorName: payload.operatorName,
+    zoneCode: payload.zoneCode,
+    locationLabel: payload.locationLabel,
+    note: payload.note,
+  })
+  if (!bridgeResult.success) return toSubmitResult(bridgeResult)
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.inboundRecords.unshift({
     cutPieceOrderNo: targetCutPieceOrderNo,
@@ -3634,16 +3852,27 @@ export function confirmCuttingInbound(taskId: string, payload: {
     operatedAt: now,
     summary: `已入 ${payload.zoneCode} 区，位置 ${payload.locationLabel}。`,
   })
+
+  return toSubmitResult(bridgeResult)
 }
 
 export function confirmCuttingHandover(taskId: string, payload: {
   operatorName: string
   targetLabel: string
   note: string
-}, cutPieceOrderNo?: string): void {
+}, cutPieceOrderNo?: string): PdaCuttingSubmitResult {
   const detail = cuttingDetailStore[taskId]
-  if (!detail) return
+  if (!detail) return buildSubmitFailure(['当前裁片任务不存在，无法确认交接。'])
   const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
+  const identity = resolveCuttingWritebackIdentity(taskId, targetCutPieceOrderNo)
+  if (!identity) return buildSubmitFailure(['当前裁片单对象未对齐，无法写入工艺工厂交接结果。'])
+  const bridgeResult = writePdaHandoverToFcs({
+    identity,
+    operatorName: payload.operatorName,
+    targetLabel: payload.targetLabel,
+    note: payload.note,
+  })
+  if (!bridgeResult.success) return toSubmitResult(bridgeResult)
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.handoverRecords.unshift({
     cutPieceOrderNo: targetCutPieceOrderNo,
@@ -3698,6 +3927,8 @@ export function confirmCuttingHandover(taskId: string, payload: {
     operatedAt: now,
     summary: `已交接至 ${payload.targetLabel}。`,
   })
+
+  return toSubmitResult(bridgeResult)
 }
 
 export function submitCuttingReplenishmentFeedback(taskId: string, payload: {
@@ -3705,10 +3936,20 @@ export function submitCuttingReplenishmentFeedback(taskId: string, payload: {
   reasonLabel: string
   note: string
   photoProofCount: number
-}, cutPieceOrderNo?: string): void {
+}, cutPieceOrderNo?: string): PdaCuttingSubmitResult {
   const detail = cuttingDetailStore[taskId]
-  if (!detail) return
+  if (!detail) return buildSubmitFailure(['当前裁片任务不存在，无法提交补料反馈。'])
   const targetCutPieceOrderNo = cutPieceOrderNo || detail.cutPieceOrderNo
+  const identity = resolveCuttingWritebackIdentity(taskId, targetCutPieceOrderNo)
+  if (!identity) return buildSubmitFailure(['当前裁片单对象未对齐，无法写入工艺工厂补料反馈。'])
+  const bridgeResult = writePdaReplenishmentFeedbackToFcs({
+    identity,
+    operatorName: payload.operatorName,
+    reasonLabel: payload.reasonLabel,
+    note: payload.note,
+    photoProofCount: payload.photoProofCount,
+  })
+  if (!bridgeResult.success) return toSubmitResult(bridgeResult)
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
   detail.replenishmentFeedbacks.unshift({
     cutPieceOrderNo: targetCutPieceOrderNo,
@@ -3760,4 +4001,6 @@ export function submitCuttingReplenishmentFeedback(taskId: string, payload: {
     operatedAt: now,
     summary: `${payload.reasonLabel}，${payload.note}`,
   })
+
+  return toSubmitResult(bridgeResult)
 }

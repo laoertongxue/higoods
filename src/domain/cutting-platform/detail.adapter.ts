@@ -1,4 +1,4 @@
-import { clonePlatformCuttingOverviewRows } from './overview.mock'
+import { buildFcsCuttingRuntimeDetailData } from '../fcs-cutting-runtime/sources'
 import {
   buildPlatformAttentionItems,
   buildPlatformChainSections,
@@ -6,7 +6,36 @@ import {
   type PlatformCuttingAttentionItem,
   type PlatformCuttingChainSection,
 } from './detail.helpers'
-import type { PlatformCuttingOverviewRow } from './overview.adapter'
+import {
+  buildPlatformCuttingRuntimeOverviewData,
+  type PlatformCuttingOverviewRow,
+} from './overview.adapter'
+
+const blockerRouteMap: Record<string, string> = {
+  productionProgress: '/fcs/craft/cutting/order-progress',
+  cuttablePool: '/fcs/craft/cutting/cuttable-pool',
+  mergeBatches: '/fcs/craft/cutting/merge-batches',
+  originalOrders: '/fcs/craft/cutting/cut-piece-orders',
+  materialPrep: '/fcs/craft/cutting/material-prep',
+  markerSpreading: '/fcs/craft/cutting/marker-spreading',
+  feiTickets: '/fcs/craft/cutting/fei-tickets',
+  fabricWarehouse: '/fcs/craft/cutting/fabric-warehouse',
+  cutPieceWarehouse: '/fcs/craft/cutting/cut-piece-warehouse',
+  sampleWarehouse: '/fcs/craft/cutting/sample-warehouse',
+  transferBags: '/fcs/craft/cutting/transfer-bags',
+  replenishment: '/fcs/craft/cutting/replenishment',
+  specialProcesses: '/fcs/craft/cutting/special-processes',
+  summary: '/fcs/craft/cutting/summary',
+}
+
+function buildRouteWithPayload(route: string, payload?: Record<string, string | undefined>): string {
+  const params = new URLSearchParams()
+  Object.entries(payload || {}).forEach(([key, value]) => {
+    if (value) params.set(key, value)
+  })
+  const query = params.toString()
+  return query ? `${route}?${query}` : route
+}
 
 export interface PlatformCuttingDetailIssueItem {
   title: string
@@ -31,26 +60,41 @@ export interface PlatformCuttingDetailView {
 }
 
 export function buildPlatformCuttingDetailView(recordId: string): PlatformCuttingDetailView | null {
-  const row = clonePlatformCuttingOverviewRows().find((item) => item.id === recordId)
+  const overview = buildPlatformCuttingRuntimeOverviewData()
+  const row = overview.rows.find((item) => item.id === recordId)
   if (!row) return null
 
-  const issues: PlatformCuttingDetailIssueItem[] = row.issues.map((issue) => ({
-    title: issue.title,
-    level: issue.level,
-    sourceLabel:
-      issue.sourcePage === 'MATERIAL_PREP'
-        ? '仓库配料'
-        : issue.sourcePage === 'CUT_PIECE_ORDER'
-          ? '裁片执行'
-          : issue.sourcePage === 'REPLENISHMENT'
-            ? '补料管理'
-            : issue.sourcePage === 'WAREHOUSE'
-              ? '仓库管理'
-              : '样衣流转',
-    description: issue.description,
-    suggestedAction: issue.suggestedAction,
-    suggestedRoute: issue.suggestedRoute,
-  }))
+  const detailData = buildFcsCuttingRuntimeDetailData(row.sourceRowId, overview.runtime)
+
+  const issues: PlatformCuttingDetailIssueItem[] = detailData
+    ? detailData.blockerItems.map((item) => ({
+        title: item.title,
+        level: item.severity,
+        sourceLabel: item.sourceLabel,
+        description: item.blockerReason,
+        suggestedAction: item.nextActionLabel,
+        suggestedRoute: buildRouteWithPayload(
+          blockerRouteMap[item.navigationTarget] || row.suggestedRoute,
+          item.navigationPayload,
+        ),
+      }))
+    : row.issues.map((issue) => ({
+        title: issue.title,
+        level: issue.level,
+        sourceLabel:
+          issue.sourcePage === 'MATERIAL_PREP'
+            ? '仓库配料'
+            : issue.sourcePage === 'CUT_PIECE_ORDER'
+              ? '裁片执行'
+              : issue.sourcePage === 'REPLENISHMENT'
+                ? '补料管理'
+                : issue.sourcePage === 'WAREHOUSE'
+                  ? '仓库管理'
+                  : '样衣流转',
+        description: issue.description,
+        suggestedAction: issue.suggestedAction,
+        suggestedRoute: issue.suggestedRoute,
+      }))
 
   const latestFactoryActionText =
     row.recentFactoryActionAt !== '-'

@@ -9,9 +9,14 @@ import {
   buildCraftClaimDisputeSummary,
   formatClaimQty as formatDisputeQty,
   getClaimDisputeStatusLabel,
+  parseLengthQtyFromText,
 } from '../../../helpers/fcs-claim-dispute'
 import type { ClaimDisputeRecord } from '../../../models/fcs-claim-dispute'
 import { getLatestClaimDisputeByOriginalCutOrderNo, listClaimDisputesByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store'
+import {
+  listPdaPickupWritebacks,
+  type PdaPickupWritebackRecord,
+} from './pda-execution-writeback-model'
 import {
   canViewPrepQr,
   getPrepQrHiddenText,
@@ -432,6 +437,63 @@ function buildInitialClaimRecords(
   ].filter((item) => item.claimedAt)
 }
 
+function isPickupWritebackSuccess(resultLabel: string): boolean {
+  return resultLabel.includes('成功')
+}
+
+function mapPickupWritebackResult(resultLabel: string): MaterialClaimRecord['result'] {
+  if (!isPickupWritebackSuccess(resultLabel)) return 'EXCEPTION'
+  return 'SUCCESS'
+}
+
+function buildPdaPickupClaimSummary(record: PdaPickupWritebackRecord): string {
+  if (!isPickupWritebackSuccess(record.resultLabel)) {
+    return `${record.resultLabel}：${record.discrepancyNote || '待仓库复核'}`
+  }
+  return `PDA 已回写 ${record.actualReceivedQtyText || '领料结果'}。`
+}
+
+function applyPdaPickupWritebacksToRow(
+  row: MaterialPrepRow,
+  pickupWritebacks: PdaPickupWritebackRecord[],
+  sourceRecord?: CuttingOrderProgressRecord,
+): MaterialPrepRow {
+  if (!pickupWritebacks.length) return row
+
+  const latestWriteback = pickupWritebacks[0]
+  const parsedQty = parseLengthQtyFromText(latestWriteback.actualReceivedQtyText)
+  const matchedIndexes = row.materialLineItems.reduce<number[]>((accumulator, item, index) => {
+    if (item.materialSku === latestWriteback.materialSku) accumulator.push(index)
+    return accumulator
+  }, [])
+  const targetIndexes = matchedIndexes.length ? matchedIndexes : row.materialLineItems.length === 1 ? [0] : []
+
+  row.materialLineItems = row.materialLineItems.map((item, index) => {
+    if (!targetIndexes.includes(index)) return item
+    const nextClaimedQty = parsedQty > 0 ? parsedQty : isPickupWritebackSuccess(latestWriteback.resultLabel) ? Math.max(item.requiredQty, item.claimedQty) : item.claimedQty
+    return {
+      ...item,
+      claimedQty: nextClaimedQty,
+      hasClaimException: !isPickupWritebackSuccess(latestWriteback.resultLabel),
+      latestActionText: buildPdaPickupClaimSummary(latestWriteback),
+    }
+  })
+
+  const overlayClaimRecords = pickupWritebacks.map<MaterialClaimRecord>((record) => ({
+    claimRecordId: record.writebackId,
+    originalCutOrderId: row.originalCutOrderId,
+    claimedAt: record.submittedAt,
+    claimedBy: record.operatorName,
+    result: mapPickupWritebackResult(record.resultLabel),
+    summary: buildPdaPickupClaimSummary(record),
+    note: record.discrepancyNote,
+  }))
+  const existingClaimRecords = row.claimRecords.filter((record) => !overlayClaimRecords.some((item) => item.claimRecordId === record.claimRecordId))
+  row.claimRecords = [...overlayClaimRecords, ...existingClaimRecords].sort((left, right) => right.claimedAt.localeCompare(left.claimedAt, 'zh-CN'))
+
+  return recalculateMaterialPrepRow(row, sourceRecord)
+}
+
 function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterialLine): MaterialPrepLineItem {
   const requiredQty = inferRequiredQty(line)
   const configuredQty = line.configuredLength
@@ -775,8 +837,19 @@ export function buildMaterialPrepViewModel(
   records: CuttingOrderProgressRecord[],
   ledger: MergeBatchRecord[] = [],
 ): MaterialPrepViewModel {
+  const pickupWritebacks = listPdaPickupWritebacks(typeof localStorage === 'undefined' ? undefined : localStorage)
+  const pickupWritebacksByOriginalCutOrderNo = pickupWritebacks.reduce<Record<string, PdaPickupWritebackRecord[]>>((accumulator, item) => {
+    accumulator[item.originalCutOrderNo] = accumulator[item.originalCutOrderNo] || []
+    accumulator[item.originalCutOrderNo].push(item)
+    return accumulator
+  }, {})
   const rows = records
-    .flatMap((record) => record.materialLines.map((line) => createRow(record, line, ledger)))
+    .flatMap((record) =>
+      record.materialLines.map((line) => {
+        const row = createRow(record, line, ledger)
+        return applyPdaPickupWritebacksToRow(row, pickupWritebacksByOriginalCutOrderNo[row.originalCutOrderNo] || [], record)
+      }),
+    )
     .sort((left, right) => {
       const leftWeight = urgencyMeta[left.urgencyKey].sortWeight
       const rightWeight = urgencyMeta[right.urgencyKey].sortWeight

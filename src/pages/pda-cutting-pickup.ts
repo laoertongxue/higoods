@@ -112,8 +112,12 @@ function getPickupResultLabel(value: string): string {
 }
 
 function renderDisputeStatus(taskId: string, cutPieceOrderNo?: string | null): string {
+  const detail = getPdaCuttingTaskDetail(taskId, cutPieceOrderNo ?? undefined)
+  const originalCutOrderNo =
+    detail?.cutPieceOrders.find((item) => item.cutPieceOrderNo === (cutPieceOrderNo || detail.cutPieceOrderNo))
+      ?.originalCutOrderNo || cutPieceOrderNo
   const latestDispute =
-    (cutPieceOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(cutPieceOrderNo) : null) ||
+    (originalCutOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(originalCutOrderNo) : null) ||
     getLatestClaimDisputeByTaskId(taskId)
   if (!latestDispute) return ''
   const meta = getClaimDisputeStatusMeta(latestDispute.status)
@@ -377,13 +381,18 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
       form.feedbackTone = 'warning'
       return true
     }
-    submitCuttingPickupResult(taskId, {
+    const result = submitCuttingPickupResult(taskId, {
       operatorName: form.operatorName.trim() || '现场领料员',
       resultLabel: '领取成功',
       actualReceivedQtyText: form.actualReceivedQtyText.trim() || `长度 ${expectedClaimQty || actualClaimQty} 米`,
       discrepancyNote: form.discrepancyNote.trim() || '当前无差异',
       photoProofCount: Number(form.photoProofCount || '0') || 0,
     }, selectedCutPieceOrderNo ?? undefined)
+    if (!result.success) {
+      form.feedbackMessage = result.issues.join('；')
+      form.feedbackTone = 'warning'
+      return true
+    }
     form.feedbackMessage = '领料结果已按一致数量回写。'
     form.feedbackTone = 'success'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
@@ -439,7 +448,7 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
     const result = createClaimDispute({
       sourceTaskId: taskId,
       sourceTaskNo: detail.taskNo,
-      originalCutOrderNo: detail.cutPieceOrderNo,
+      originalCutOrderNo: context.selectedCutPieceOrder?.originalCutOrderNo || detail.cutPieceOrderNo,
       productionOrderNo: detail.productionOrderNo,
       relatedClaimRecordNo: detail.latestPickupRecordNo || detail.pickupSlipNo,
       materialSku: detail.materialSku,
@@ -462,13 +471,20 @@ export function handlePdaCuttingPickupEvent(target: HTMLElement): boolean {
       return true
     }
 
-    submitCuttingPickupResult(taskId, {
+    const submitResult = submitCuttingPickupResult(taskId, {
       operatorName: form.operatorName.trim() || '现场领料员',
       resultLabel: '已发起数量异议',
       actualReceivedQtyText: form.actualReceivedQtyText.trim() || `长度 ${getActualClaimQty(taskId, selectedCutPieceOrderNo)} 米`,
       discrepancyNote: form.discrepancyNote.trim() || form.disputeReason.trim(),
       photoProofCount: result.record.evidenceCount,
+      claimDisputeId: result.record.disputeId,
+      claimDisputeNo: result.record.disputeNo,
     }, selectedCutPieceOrderNo ?? undefined)
+    if (!submitResult.success) {
+      form.feedbackMessage = submitResult.issues.join('；')
+      form.feedbackTone = 'warning'
+      return true
+    }
 
     form.resultLabel = '已发起数量异议'
     form.photoProofCount = String(result.record.evidenceCount)

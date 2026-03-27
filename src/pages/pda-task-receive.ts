@@ -162,6 +162,11 @@ function getTaskDisplayNo(task: ProcessTask | null): string {
   return task.taskNo || task.taskId
 }
 
+function getTaskProductionOrderNo(task: ProcessTask | null): string {
+  if (!task) return '-'
+  return (task as ProcessTask & { productionOrderNo?: string }).productionOrderNo || task.productionOrderId
+}
+
 function getTaskRootNo(task: ProcessTask | null): string {
   if (!task) return '-'
   return task.rootTaskNo || task.taskNo || task.taskId
@@ -488,6 +493,7 @@ function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask
       keyword &&
       !task.taskId.includes(keyword) &&
       !(task.taskNo || '').includes(keyword) &&
+      !getTaskProductionOrderNo(task).includes(keyword) &&
       !task.productionOrderId.includes(keyword) &&
       !displayProcessName.includes(keyword)
     ) {
@@ -555,7 +561,7 @@ function buildCuttingTaskReceiveDetailHref(task: PdaTaskFlowMock): string {
   return buildPdaTaskReceiveDetailNavHref(task.taskId, {
     sourcePageKey: 'task-list',
     taskNo: task.taskNo,
-    productionOrderNo: task.productionOrderId,
+    productionOrderNo: getTaskProductionOrderNo(task),
     focusTaskId: task.taskId,
     returnTo: appStore.getState().pathname,
     highlightTask: true,
@@ -567,7 +573,7 @@ function buildCuttingTaskDetailEntryHref(task: PdaTaskFlowMock): string {
   return buildPdaCuttingTaskDetailNavHref(task.taskId, {
     sourcePageKey: 'task-list',
     taskNo: task.taskNo,
-    productionOrderNo: task.productionOrderId,
+    productionOrderNo: getTaskProductionOrderNo(task),
     focusTaskId: task.taskId,
     cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
     returnTo: buildCuttingTaskListReturnTo(task.taskId),
@@ -580,7 +586,7 @@ function buildCuttingTaskExecHref(task: PdaTaskFlowMock): string {
   return buildPdaCuttingDirectExecEntryHref(task.taskId, {
     sourcePageKey: 'task-list',
     taskNo: task.taskNo,
-    productionOrderNo: task.productionOrderId,
+    productionOrderNo: getTaskProductionOrderNo(task),
     focusTaskId: task.taskId,
     cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
     focusCutPieceOrderNo: task.defaultExecCutPieceOrderNo,
@@ -593,7 +599,7 @@ function buildCuttingTaskExecHref(task: PdaTaskFlowMock): string {
 function renderCuttingTaskOrderSummary(task: PdaTaskFlowMock): string {
   return `
     <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-      ${renderFieldRow('生产单号', task.productionOrderId)}
+      ${renderFieldRow('生产单号', getTaskProductionOrderNo(task))}
       ${renderFieldRow('当前状态', task.taskStateLabel || '待开始')}
       ${renderFieldRow('裁片单数量', `${task.cutPieceOrderCount || 0} 张`)}
       ${renderFieldRow('已完成', `${task.completedCutPieceOrderCount || 0} 张`)}
@@ -684,7 +690,7 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           ${renderFieldRow('原始任务', getTaskRootNo(task))}
-          ${renderFieldRow('生产单号', task.productionOrderId)}
+          ${renderFieldRow('生产单号', getTaskProductionOrderNo(task))}
           ${renderFieldRow('工序', displayProcessName)}
           ${renderFieldRow('数量', `${task.qty} ${pricing.unit}`)}
           ${renderFieldRow('拆分组', task.splitGroupId || '未拆分')}

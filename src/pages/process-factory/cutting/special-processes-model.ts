@@ -62,6 +62,7 @@ export interface SpecialProcessOrder {
   originalCutOrderNos: string[]
   mergeBatchId: string
   mergeBatchNo: string
+  productionOrderIds: string[]
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
@@ -285,6 +286,7 @@ function normalizeSpecialProcessOrder(record: unknown): SpecialProcessOrder | nu
     originalCutOrderNos: normalizeStringArray(raw.originalCutOrderNos),
     mergeBatchId: typeof raw.mergeBatchId === 'string' ? raw.mergeBatchId : '',
     mergeBatchNo: typeof raw.mergeBatchNo === 'string' ? raw.mergeBatchNo : '',
+    productionOrderIds: normalizeStringArray(raw.productionOrderIds),
     productionOrderNos: normalizeStringArray(raw.productionOrderNos),
     styleCode: typeof raw.styleCode === 'string' ? raw.styleCode : '',
     spuCode: typeof raw.spuCode === 'string' ? raw.spuCode : '',
@@ -430,6 +432,7 @@ export function createBindingStripProcessDraft(options: {
     originalCutOrderNos: matchedOriginals.map((row) => row.originalCutOrderNo),
     mergeBatchId: mergeBatch?.mergeBatchId || '',
     mergeBatchNo: mergeBatch?.mergeBatchNo || '',
+    productionOrderIds: uniqueStrings(matchedOriginals.map((row) => row.productionOrderId)),
     productionOrderNos: uniqueStrings(matchedOriginals.map((row) => row.productionOrderNo)),
     styleCode: seed?.styleCode || options.prefilter?.styleCode || '',
     spuCode: seed?.spuCode || '',
@@ -596,6 +599,7 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
       originalCutOrderNos: [original.originalCutOrderNo],
       mergeBatchId: '',
       mergeBatchNo: original.latestMergeBatchNo || '',
+      productionOrderIds: [original.productionOrderId],
       productionOrderNos: [original.productionOrderNo],
       styleCode: original.styleCode,
       spuCode: original.spuCode,
@@ -697,6 +701,7 @@ function buildSystemSeedOrders(originalRows: OriginalCutOrderRow[], mergeBatches
       originalCutOrderNos: batch.items.map((item) => item.originalCutOrderNo),
       mergeBatchId: batch.mergeBatchId,
       mergeBatchNo: batch.mergeBatchNo,
+      productionOrderIds: uniqueStrings(batch.items.map((item) => item.productionOrderId)),
       productionOrderNos: uniqueStrings(batch.items.map((item) => item.productionOrderNo)),
       styleCode: batch.styleCode,
       spuCode: batch.spuCode,

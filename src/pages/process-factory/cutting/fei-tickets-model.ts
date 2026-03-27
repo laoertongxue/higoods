@@ -67,6 +67,7 @@ export interface FeiTicketsContext {
   originalCutOrderNos: string[]
   mergeBatchId: string
   mergeBatchNo: string
+  productionOrderIds: string[]
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
@@ -668,6 +669,7 @@ function buildContext(
       originalCutOrderNos: batchOwners.map((owner) => owner.originalCutOrderNo),
       mergeBatchId: batch.mergeBatchId,
       mergeBatchNo: batch.mergeBatchNo,
+      productionOrderIds: uniqueStrings(batchOwners.map((owner) => owner.productionOrderId)),
       productionOrderNos: uniqueStrings(batchOwners.map((owner) => owner.productionOrderNo)),
       styleCode: batch.styleCode || batchOwners[0]?.styleCode || '',
       spuCode: batch.spuCode || batchOwners[0]?.spuCode || '',
@@ -691,6 +693,7 @@ function buildContext(
     originalCutOrderNos: [owner.originalCutOrderNo],
     mergeBatchId: mergeBatchIds[0] || '',
     mergeBatchNo: mergeBatchNos[0] || '',
+    productionOrderIds: [owner.productionOrderId],
     productionOrderNos: [owner.productionOrderNo],
     styleCode: owner.styleCode,
     spuCode: owner.spuCode,

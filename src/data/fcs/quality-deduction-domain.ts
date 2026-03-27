@@ -53,8 +53,10 @@ export type QualityDeductionSettlementImpactStatus =
   | 'ELIGIBLE'
   | 'INCLUDED_IN_STATEMENT'
   | 'SETTLED'
+  // 仅为历史兼容保留；当前主链不再按“下周期调整”驱动页面与对账。
   | 'NEXT_CYCLE_ADJUSTMENT_PENDING'
 
+// 仅为历史兼容保留；当前主链不再把这类字段当作正式质量扣款结果。
 export type QualityDeductionSettlementAdjustmentType =
   | 'INCREASE_DEDUCTION'
   | 'DECREASE_DEDUCTION'
@@ -65,6 +67,33 @@ export type QualityDeductionSettlementAdjustmentWritebackStatus =
   | 'PENDING_WRITEBACK'
   | 'WRITTEN'
 
+export type PendingQualityDeductionRecordStatus =
+  | 'PENDING_FACTORY_CONFIRM'
+  | 'FACTORY_CONFIRMED'
+  | 'SYSTEM_AUTO_CONFIRMED'
+  | 'DISPUTED'
+  | 'CLOSED_WITHOUT_LEDGER'
+
+export type QualityDeductionDisputeTicketStatus =
+  | 'PENDING_PLATFORM_PROCESS'
+  | 'PLATFORM_HANDLING'
+  | 'FINAL_FACTORY_LIABILITY'
+  | 'FINAL_PARTIAL_FACTORY_LIABILITY'
+  | 'FINAL_NON_FACTORY_LIABILITY'
+
+export type QualityDeductionLedgerStatus =
+  | 'GENERATED_PENDING_STATEMENT'
+  | 'INCLUDED_IN_STATEMENT'
+  | 'INCLUDED_IN_PREPAYMENT_BATCH'
+  | 'PREPAID'
+  | 'WAIT_FINAL_SETTLEMENT'
+
+export type QualityDeductionLedgerGenerationTrigger =
+  | 'FACTORY_CONFIRM'
+  | 'AUTO_CONFIRM'
+  | 'ADJUDICATION_FACTORY_LIABILITY'
+  | 'ADJUDICATION_PARTIAL_LIABILITY'
+
 export type QualityDeductionCaseStatus =
   | 'NO_ACTION'
   | 'WAIT_FACTORY_RESPONSE'
@@ -73,6 +102,7 @@ export type QualityDeductionCaseStatus =
   | 'ADJUDICATED_PENDING_SETTLEMENT'
   | 'READY_FOR_SETTLEMENT'
   | 'SETTLED'
+  // 仅为历史兼容保留；当前主链已改为“已关闭且不生成流水”。
   | 'ADJUSTMENT_PENDING'
   | 'CLOSED'
 
@@ -161,6 +191,34 @@ export interface FactoryResponseFact {
   isOverdue: boolean
 }
 
+export interface PendingQualityDeductionRecord {
+  pendingRecordId: string
+  qcId: string
+  basisId?: string
+  factoryId?: string
+  factoryName?: string
+  settlementPartyType?: SettlementPartyType
+  settlementPartyId?: string
+  returnInboundBatchNo?: string
+  productionOrderNo?: string
+  taskId?: string
+  status: PendingQualityDeductionRecordStatus
+  pendingReasonSummary: string
+  responseDeadlineAt?: string
+  handledAt?: string
+  handledBy?: string
+  handledComment?: string
+  isOverdue: boolean
+  originalCurrency: string
+  originalAmount: number
+  settlementCurrency: string
+  settlementAmount: number
+  fxRate?: number
+  fxAppliedAt?: string
+  generatedAt: string
+  updatedAt: string
+}
+
 export interface QualityDeductionFactoryConfirmInput {
   qcId: string
   responderUserName: string
@@ -226,6 +284,37 @@ export interface DisputeCaseFact {
   adjustedEffectiveQualityDeductionAmount?: number
   adjustmentReasonSummary?: string
   resultWrittenBackAt?: string
+}
+
+export interface FormalQualityDeductionLedgerFact {
+  ledgerId: string
+  ledgerNo: string
+  qcId: string
+  pendingRecordId: string
+  basisId?: string
+  disputeId?: string
+  factoryId?: string
+  factoryName?: string
+  settlementPartyType?: SettlementPartyType
+  settlementPartyId?: string
+  productionOrderNo?: string
+  returnInboundBatchNo?: string
+  taskId?: string
+  status: QualityDeductionLedgerStatus
+  triggerSource: QualityDeductionLedgerGenerationTrigger
+  originalCurrency: string
+  originalAmount: number
+  settlementCurrency: string
+  settlementAmount: number
+  fxRate?: number
+  fxAppliedAt?: string
+  generatedAt: string
+  generatedBy: string
+  includedStatementId?: string
+  includedPrepaymentBatchId?: string
+  prepaidAt?: string
+  finalSettlementAt?: string
+  comment?: string
 }
 
 export interface QualityDeductionDisputeSubmissionInput {
@@ -296,64 +385,47 @@ export interface QualityDeductionCaseFact {
   factoryResponse: FactoryResponseFact | null
   deductionBasis: DeductionBasisFact | null
   disputeCase: DisputeCaseFact | null
+  pendingDeductionRecord: PendingQualityDeductionRecord | null
+  formalLedger: FormalQualityDeductionLedgerFact | null
   settlementImpact: SettlementImpactFact
   settlementAdjustment: SettlementAdjustmentFact | null
 }
 
 export function deriveQualityDeductionCaseStatus(
-  input: Pick<QualityDeductionCaseFact, 'qcRecord' | 'factoryResponse' | 'disputeCase' | 'settlementImpact'>,
+  input: Pick<
+    QualityDeductionCaseFact,
+    'qcRecord' | 'factoryResponse' | 'disputeCase' | 'pendingDeductionRecord' | 'formalLedger' | 'settlementImpact'
+  >,
 ): QualityDeductionCaseStatus {
-  const { qcRecord, factoryResponse, disputeCase, settlementImpact } = input
+  const { qcRecord, factoryResponse, disputeCase, pendingDeductionRecord, formalLedger, settlementImpact } = input
 
-  if (settlementImpact.status === 'SETTLED') {
+  if (formalLedger?.status === 'PREPAID' || formalLedger?.status === 'WAIT_FINAL_SETTLEMENT' || settlementImpact.status === 'SETTLED') {
     return 'SETTLED'
   }
 
-  if (settlementImpact.status === 'NEXT_CYCLE_ADJUSTMENT_PENDING') {
-    return 'ADJUSTMENT_PENDING'
-  }
-
-  if (
-    factoryResponse &&
-    (factoryResponse.factoryResponseStatus === 'PENDING_RESPONSE' ||
-      (factoryResponse.factoryResponseStatus === 'DISPUTED' &&
-        (disputeCase?.status === 'NONE' || !disputeCase)))
-  ) {
-    return 'WAIT_FACTORY_RESPONSE'
-  }
-
-  if (
-    disputeCase &&
-    (disputeCase.status === 'PENDING_REVIEW' || disputeCase.status === 'IN_REVIEW')
-  ) {
+  if (pendingDeductionRecord?.status === 'DISPUTED' || disputeCase?.status === 'PENDING_REVIEW' || disputeCase?.status === 'IN_REVIEW') {
     return 'WAIT_PLATFORM_REVIEW'
   }
 
-  if (
-    factoryResponse?.factoryResponseStatus === 'AUTO_CONFIRMED' &&
-    (settlementImpact.status === 'ELIGIBLE' || settlementImpact.status === 'INCLUDED_IN_STATEMENT')
-  ) {
-    return 'AUTO_CONFIRMED_PENDING_SETTLEMENT'
+  if (pendingDeductionRecord?.status === 'PENDING_FACTORY_CONFIRM') {
+    return 'WAIT_FACTORY_RESPONSE'
   }
 
-  if (
-    disputeCase?.adjudicationResult &&
-    (settlementImpact.status === 'ELIGIBLE' || settlementImpact.status === 'INCLUDED_IN_STATEMENT')
-  ) {
-    return 'ADJUDICATED_PENDING_SETTLEMENT'
-  }
-
-  if (
-    settlementImpact.status === 'ELIGIBLE' ||
-    settlementImpact.status === 'INCLUDED_IN_STATEMENT'
-  ) {
+  if (formalLedger && (formalLedger.status === 'GENERATED_PENDING_STATEMENT' || formalLedger.status === 'INCLUDED_IN_STATEMENT' || formalLedger.status === 'INCLUDED_IN_PREPAYMENT_BATCH')) {
+    if (factoryResponse?.factoryResponseStatus === 'AUTO_CONFIRMED') {
+      return 'AUTO_CONFIRMED_PENDING_SETTLEMENT'
+    }
+    if (disputeCase?.adjudicationResult) {
+      return 'ADJUDICATED_PENDING_SETTLEMENT'
+    }
     return 'READY_FOR_SETTLEMENT'
   }
 
-  if (
-    qcRecord.qcStatus === 'CLOSED' &&
-    (settlementImpact.status === 'NO_IMPACT' || settlementImpact.status === 'BLOCKED')
-  ) {
+  if (pendingDeductionRecord?.status === 'CLOSED_WITHOUT_LEDGER') {
+    return 'CLOSED'
+  }
+
+  if (qcRecord.qcStatus === 'CLOSED' && (settlementImpact.status === 'NO_IMPACT' || settlementImpact.status === 'BLOCKED')) {
     return 'CLOSED'
   }
 

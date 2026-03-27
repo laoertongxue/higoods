@@ -10,6 +10,10 @@ import {
   type ReplenishmentCraftImpactDecision,
 } from './replenishment-context'
 import type { MarkerSpreadingStore } from './marker-spreading-model'
+import {
+  listPdaReplenishmentFeedbackWritebacks,
+  type PdaReplenishmentFeedbackWritebackRecord,
+} from './pda-execution-writeback-model'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -18,7 +22,7 @@ export const CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY = 'cuttingReplenishmentIm
 export const CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY = 'cuttingReplenishmentAuditTrail'
 export const CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY = 'cuttingReplenishmentFollowupActions'
 
-export type ReplenishmentSourceType = ReplenishmentContextSourceType
+export type ReplenishmentSourceType = ReplenishmentContextSourceType | 'pda-feedback'
 export type ReplenishmentRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export type ReplenishmentStatusKey =
   | 'NO_ACTION'
@@ -59,6 +63,7 @@ export interface ReplenishmentSuggestion {
   originalCutOrderNos: string[]
   mergeBatchId: string
   mergeBatchNo: string
+  productionOrderIds: string[]
   productionOrderNos: string[]
   styleCode: string
   spuCode: string
@@ -181,6 +186,10 @@ export interface ReplenishmentSuggestionRow extends ReplenishmentSuggestion {
   completedActionCount: number
   skippedActionCount: number
   followupProgressText: string
+  pdaFeedbacks: PdaReplenishmentFeedbackWritebackRecord[]
+  pendingPdaFeedbackCount: number
+  latestPdaFeedback: PdaReplenishmentFeedbackWritebackRecord | null
+  latestPdaFeedbackSummary: string
   blockingSummary: string
   statusMeta: ReplenishmentStatusMeta
   riskMeta: ReplenishmentRiskMeta
@@ -243,6 +252,7 @@ export const replenishmentSourceMeta: Record<ReplenishmentSourceType, { label: s
   'original-order': { label: '原始裁片单', className: 'bg-slate-100 text-slate-700' },
   'merge-batch': { label: '合并裁剪批次', className: 'bg-violet-100 text-violet-700' },
   'spreading-session': { label: '铺布记录', className: 'bg-sky-100 text-sky-700' },
+  'pda-feedback': { label: 'PDA 补料反馈', className: 'bg-amber-100 text-amber-700' },
 }
 
 export const replenishmentStatusMetaMap: Record<ReplenishmentStatusKey, ReplenishmentStatusMeta> = {
@@ -518,6 +528,7 @@ export function buildReplenishmentSuggestionFromContext(options: {
     originalCutOrderNos: options.context.originalCutOrderNos,
     mergeBatchId: options.context.mergeBatchId,
     mergeBatchNo: options.context.mergeBatchNo,
+    productionOrderIds: uniqueStrings(options.context.materialRows.map((row) => row.productionOrderId)),
     productionOrderNos: options.context.productionOrderNos,
     styleCode: options.context.styleCode,
     spuCode: options.context.spuCode,
@@ -880,7 +891,9 @@ function buildReviewSummary(review: ReplenishmentReview | null): string {
 function buildBlockingSummary(row: {
   statusMeta: ReplenishmentStatusMeta
   pendingActionCount: number
+  latestPdaFeedbackSummary?: string
 }): string {
+  if (row.latestPdaFeedbackSummary) return row.latestPdaFeedbackSummary
   if (row.statusMeta.key === 'NO_ACTION') return '当前不阻塞后续'
   if (row.statusMeta.key === 'REJECTED') return '已驳回，不进入后续动作'
   if (row.statusMeta.key === 'COMPLETED') return '纠偏动作已闭环'
@@ -888,6 +901,172 @@ function buildBlockingSummary(row: {
   if (row.statusMeta.key === 'PENDING_REVIEW') return '待审核，仍阻塞下游'
   if (row.pendingActionCount > 0) return `仍有 ${row.pendingActionCount} 项动作未完成`
   return '待继续处理'
+}
+
+function buildPdaFeedbackSummary(record: PdaReplenishmentFeedbackWritebackRecord | null): string {
+  if (!record) return ''
+  return `PDA 反馈：${record.reasonLabel}，由 ${record.operatorName} 于 ${record.submittedAt} 提交`
+}
+
+function matchesPdaFeedbackWithSuggestion(
+  feedback: PdaReplenishmentFeedbackWritebackRecord,
+  suggestion: Pick<
+    ReplenishmentSuggestion,
+    'originalCutOrderIds' | 'originalCutOrderNos' | 'productionOrderIds' | 'productionOrderNos' | 'materialSkus' | 'mergeBatchId' | 'mergeBatchNo'
+  >,
+): boolean {
+  const matchesOriginal =
+    suggestion.originalCutOrderIds.includes(feedback.originalCutOrderId) ||
+    suggestion.originalCutOrderNos.includes(feedback.originalCutOrderNo)
+  if (!matchesOriginal) return false
+
+  const matchesProduction =
+    suggestion.productionOrderIds.includes(feedback.productionOrderId) ||
+    suggestion.productionOrderNos.includes(feedback.productionOrderNo)
+  if (!matchesProduction) return false
+
+  if (!suggestion.materialSkus.includes(feedback.materialSku)) return false
+
+  if (feedback.mergeBatchId || feedback.mergeBatchNo) {
+    return suggestion.mergeBatchId === feedback.mergeBatchId || suggestion.mergeBatchNo === feedback.mergeBatchNo
+  }
+
+  return !suggestion.mergeBatchId && !suggestion.mergeBatchNo
+}
+
+function buildPdaFeedbackNavigationPayload(
+  feedback: Pick<
+    PdaReplenishmentFeedbackWritebackRecord,
+    'originalCutOrderNo' | 'mergeBatchNo' | 'productionOrderNo' | 'materialSku'
+  >,
+): ReplenishmentNavigationPayload {
+  return buildReplenishmentNavigationPayload({
+    originalCutOrderNos: [feedback.originalCutOrderNo],
+    mergeBatchNo: feedback.mergeBatchNo,
+    productionOrderNos: [feedback.productionOrderNo],
+    materialSku: feedback.materialSku,
+  })
+}
+
+function buildSyntheticFeedbackContext(feedback: PdaReplenishmentFeedbackWritebackRecord): ReplenishmentContextRecord {
+  return {
+    contextId: `ctx-${feedback.writebackId}`,
+    sourceType: 'original-order',
+    baseSourceType: 'original-order',
+    mergeBatchId: feedback.mergeBatchId,
+    mergeBatchNo: feedback.mergeBatchNo,
+    originalCutOrderIds: [feedback.originalCutOrderId],
+    originalCutOrderNos: [feedback.originalCutOrderNo],
+    productionOrderNos: [feedback.productionOrderNo],
+    styleCode: '',
+    spuCode: '',
+    styleName: '',
+    materialRows: [],
+    marker: null,
+    session: null,
+    totalRequiredQty: 0,
+    totalConfiguredLength: 0,
+    totalClaimedLength: 0,
+    totalUsableLength: 0,
+    totalShortageLength: 0,
+    varianceSummary: null,
+  }
+}
+
+function buildSyntheticFeedbackRow(
+  feedback: PdaReplenishmentFeedbackWritebackRecord,
+): ReplenishmentSuggestionRow {
+  const navigationPayload = buildPdaFeedbackNavigationPayload(feedback)
+  const statusMeta = replenishmentStatusMetaMap.PENDING_REVIEW
+  const row = {
+    suggestionId: `rep-pda-feedback-${feedback.writebackId}`,
+    suggestionNo: `PDA-${formatDateToken(feedback.submittedAt)}-${feedback.cutPieceOrderNo.slice(-2) || '01'}`,
+    contextId: `ctx-${feedback.writebackId}`,
+    sourceType: 'pda-feedback' as const,
+    originalCutOrderIds: [feedback.originalCutOrderId],
+    originalCutOrderNos: [feedback.originalCutOrderNo],
+    mergeBatchId: feedback.mergeBatchId,
+    mergeBatchNo: feedback.mergeBatchNo,
+    productionOrderIds: [feedback.productionOrderId],
+    productionOrderNos: [feedback.productionOrderNo],
+    styleCode: '',
+    spuCode: '',
+    styleName: '',
+    materialSku: feedback.materialSku,
+    materialSkus: [feedback.materialSku],
+    materialCategory: '待跟进',
+    materialAttr: '待跟进',
+    requiredQty: 0,
+    estimatedCapacityQty: 0,
+    shortageQty: 0,
+    configuredLengthTotal: 0,
+    claimedLengthTotal: 0,
+    usableLengthTotal: 0,
+    shortageLengthTotal: 0,
+    varianceLength: 0,
+    suggestedAction: '请先确认这条 PDA 补料反馈，并补齐正式补料建议。',
+    riskLevel: 'MEDIUM' as const,
+    createdAt: feedback.submittedAt,
+    status: 'PENDING_REVIEW' as const,
+    note: feedback.note,
+    context: buildSyntheticFeedbackContext(feedback),
+    sourceLabel: replenishmentSourceMeta['pda-feedback'].label,
+    sourceSummary: `PDA 反馈 · ${feedback.originalCutOrderNo}`,
+    sourceProductionSummary: feedback.productionOrderNo,
+    sourceOrderSummary: feedback.originalCutOrderNo,
+    differenceSummary: `原因 ${feedback.reasonLabel} / 凭证 ${feedback.photoProofCount} 个`,
+    majorGapSummary: '待人工确认补料影响',
+    review: null,
+    reviewSummary: '待审核',
+    reviewStatusLabel: '待审核',
+    impactPlan: {
+      impactPlanId: `impact-${feedback.writebackId}`,
+      suggestionId: `rep-pda-feedback-${feedback.writebackId}`,
+      needReconfigureMaterial: false,
+      needReclaimMaterial: false,
+      affectPrintingOrder: false,
+      affectDyeingOrder: false,
+      affectSpecialProcess: false,
+      impactSummary: '待根据 PDA 反馈确认影响范围。',
+      applied: false,
+      appliedAt: '',
+      appliedBy: '',
+      pendingActionCount: 0,
+      completedActionCount: 0,
+      manualConfirmCount: 0,
+      blocking: true,
+    },
+    followupActions: [],
+    followupActionCount: 0,
+    pendingActionCount: 0,
+    completedActionCount: 0,
+    skippedActionCount: 0,
+    followupProgressText: '待补料人员跟进',
+    pdaFeedbacks: [feedback],
+    pendingPdaFeedbackCount: 1,
+    latestPdaFeedback: feedback,
+    latestPdaFeedbackSummary: buildPdaFeedbackSummary(feedback),
+    blockingSummary: '',
+    statusMeta,
+    riskMeta: replenishmentRiskMetaMap.MEDIUM,
+    navigationPayload,
+    keywordIndex: lowerKeywordIndex([
+      feedback.writebackId,
+      feedback.taskNo,
+      feedback.productionOrderNo,
+      feedback.originalCutOrderNo,
+      feedback.mergeBatchNo,
+      feedback.cutPieceOrderNo,
+      feedback.materialSku,
+      feedback.reasonLabel,
+      feedback.note,
+    ]),
+  }
+
+  return {
+    ...row,
+    blockingSummary: buildBlockingSummary(row),
+  }
 }
 
 function buildFollowupProgressText(actions: ReplenishmentFollowupAction[]): string {
@@ -998,6 +1177,8 @@ export function buildReplenishmentViewModel(options: {
     accumulator[action.suggestionId].push(action)
     return accumulator
   }, {})
+  const pdaFeedbackWritebacks =
+    typeof localStorage === 'undefined' ? [] : listPdaReplenishmentFeedbackWritebacks(localStorage)
   const contexts = buildReplenishmentContextRecords({
     materialPrepRows: options.materialPrepRows,
     originalRows: options.originalRows,
@@ -1037,6 +1218,14 @@ export function buildReplenishmentViewModel(options: {
     const pendingActionCount = followupActions.filter((item) => !['DONE', 'SKIPPED'].includes(item.status)).length
     const completedActionCount = followupActions.filter((item) => item.status === 'DONE').length
     const skippedActionCount = followupActions.filter((item) => item.status === 'SKIPPED').length
+    const matchedPdaFeedbacks = pdaFeedbackWritebacks.filter((feedback) => matchesPdaFeedbackWithSuggestion(feedback, suggestion))
+    const latestPdaFeedback = matchedPdaFeedbacks[0] ?? null
+    const latestPdaFeedbackSummary = buildPdaFeedbackSummary(latestPdaFeedback)
+    const effectiveStatusMeta =
+      latestPdaFeedback &&
+      ['NO_ACTION', 'COMPLETED', 'REJECTED'].includes(statusMeta.key)
+        ? replenishmentStatusMetaMap.PENDING_REVIEW
+        : statusMeta
     const row = {
       ...suggestion,
       context,
@@ -1059,7 +1248,11 @@ export function buildReplenishmentViewModel(options: {
       completedActionCount,
       skippedActionCount,
       followupProgressText: buildFollowupProgressText(followupActions),
-      statusMeta,
+      pdaFeedbacks: matchedPdaFeedbacks,
+      pendingPdaFeedbackCount: matchedPdaFeedbacks.length,
+      latestPdaFeedback,
+      latestPdaFeedbackSummary,
+      statusMeta: effectiveStatusMeta,
       riskMeta,
       navigationPayload,
       blockingSummary: '',
@@ -1081,20 +1274,29 @@ export function buildReplenishmentViewModel(options: {
     }
   })
 
-  const rowsBySuggestionId = Object.fromEntries(rows.map((row) => [row.suggestionId, row]))
+  const matchedFeedbackIds = new Set(rows.flatMap((row) => row.pdaFeedbacks.map((item) => item.writebackId)))
+  const unmatchedFeedbackRows = pdaFeedbackWritebacks
+    .filter((feedback) => !matchedFeedbackIds.has(feedback.writebackId))
+    .map((feedback) => buildSyntheticFeedbackRow(feedback))
+
+  const allRows = [...rows, ...unmatchedFeedbackRows].sort((left, right) =>
+    right.createdAt.localeCompare(left.createdAt, 'zh-CN'),
+  )
+
+  const rowsBySuggestionId = Object.fromEntries(allRows.map((row) => [row.suggestionId, row]))
 
   return {
-    rows,
+    rows: allRows,
     rowsById: rowsBySuggestionId,
     stats: {
-      totalCount: rows.length,
-      pendingReviewCount: rows.filter((row) => row.statusMeta.key === 'PENDING_REVIEW').length,
-      pendingSupplementCount: rows.filter((row) => row.statusMeta.key === 'PENDING_SUPPLEMENT').length,
-      approvedPendingActionCount: rows.filter((row) => row.statusMeta.key === 'APPROVED_PENDING_ACTION').length,
-      inActionCount: rows.filter((row) => row.statusMeta.key === 'IN_ACTION').length,
-      rejectedCount: rows.filter((row) => row.statusMeta.key === 'REJECTED').length,
-      completedCount: rows.filter((row) => row.statusMeta.key === 'COMPLETED').length,
-      highRiskCount: rows.filter((row) => row.riskLevel === 'HIGH').length,
+      totalCount: allRows.length,
+      pendingReviewCount: allRows.filter((row) => row.statusMeta.key === 'PENDING_REVIEW').length,
+      pendingSupplementCount: allRows.filter((row) => row.statusMeta.key === 'PENDING_SUPPLEMENT').length,
+      approvedPendingActionCount: allRows.filter((row) => row.statusMeta.key === 'APPROVED_PENDING_ACTION').length,
+      inActionCount: allRows.filter((row) => row.statusMeta.key === 'IN_ACTION').length,
+      rejectedCount: allRows.filter((row) => row.statusMeta.key === 'REJECTED').length,
+      completedCount: allRows.filter((row) => row.statusMeta.key === 'COMPLETED').length,
+      highRiskCount: allRows.filter((row) => row.riskLevel === 'HIGH').length,
     },
   }
 }

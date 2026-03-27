@@ -763,8 +763,8 @@ function deriveLifecycleStatus(order: ProductionOrder): LifecycleStatus {
 function buildSettlementSummary(statementCount: number, batchCount: number): string {
   if (statementCount === 0 && batchCount === 0) return '无结算影响'
   if (statementCount > 0 && batchCount === 0) return `对账单 ${statementCount} 条`
-  if (statementCount === 0 && batchCount > 0) return `结算批次 ${batchCount} 条`
-  return `对账单 ${statementCount} 条 / 结算批次 ${batchCount} 条`
+  if (statementCount === 0 && batchCount > 0) return `预付款批次 ${batchCount} 条`
+  return `对账单 ${statementCount} 条 / 预付款批次 ${batchCount} 条`
 }
 
 function getTechPackSnapshotForDemand(demand: ProductionDemand): {

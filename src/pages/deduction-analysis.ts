@@ -129,9 +129,9 @@ function renderTrendSection(): string {
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-sm font-semibold text-foreground">趋势分析</h3>
-          <p class="mt-1 text-xs text-muted-foreground">按${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL[state.query.timeBasis])}汇总冻结加工费、生效质量扣款、总财务影响和下周期调整金额。</p>
+          <p class="mt-1 text-xs text-muted-foreground">按${escapeHtml(QUALITY_DEDUCTION_ANALYSIS_TIME_BASIS_LABEL[state.query.timeBasis])}汇总待确认金额、正式质量扣款流水金额、总财务影响和兼容占位金额。</p>
         </div>
-        <span class="text-xs text-muted-foreground">减扣 / 冲回在调整金额中按负值展示</span>
+        <span class="text-xs text-muted-foreground">当前版本中兼容占位金额仅用于保留历史阅读体验，正式对账只汇总已成立的质量扣款流水。</span>
       </div>
       <div class="overflow-x-auto rounded-md border">
         <table class="w-full min-w-[760px] text-sm">
@@ -139,10 +139,10 @@ function renderTrendSection(): string {
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-4 py-2 font-medium">时间归属</th>
               <th class="px-4 py-2 text-right font-medium">记录数</th>
-              <th class="px-4 py-2 text-right font-medium">冻结加工费</th>
+              <th class="px-4 py-2 text-right font-medium">待确认金额</th>
               <th class="px-4 py-2 text-right font-medium">生效质量扣款</th>
               <th class="px-4 py-2 text-right font-medium">总财务影响</th>
-              <th class="px-4 py-2 text-right font-medium">下周期调整</th>
+              <th class="px-4 py-2 text-right font-medium">兼容占位</th>
               <th class="px-4 py-2 font-medium">影响分布</th>
             </tr>
           </thead>
@@ -204,10 +204,10 @@ function renderBreakdownSection(): string {
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-4 py-2 font-medium">分组项</th>
               <th class="px-4 py-2 text-right font-medium">记录数</th>
-              <th class="px-4 py-2 text-right font-medium">冻结加工费</th>
+              <th class="px-4 py-2 text-right font-medium">待确认金额</th>
               <th class="px-4 py-2 text-right font-medium">生效质量扣款</th>
               <th class="px-4 py-2 text-right font-medium">总财务影响</th>
-              <th class="px-4 py-2 text-right font-medium">下周期调整</th>
+              <th class="px-4 py-2 text-right font-medium">兼容占位</th>
               <th class="px-4 py-2 text-right font-medium">占比</th>
               <th class="px-4 py-2 font-medium">钻取</th>
             </tr>
@@ -348,13 +348,13 @@ export function renderDeductionAnalysisPage(): string {
             </select>
           </label>
           <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">是否存在 adjustment</span>
+            <span class="text-muted-foreground">是否存在兼容占位记录</span>
             <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="hasAdjustment">
               ${renderSelectOptions(
                 [
                   { value: 'ALL', label: '全部' },
-                  { value: 'YES', label: '存在 adjustment' },
-                  { value: 'NO', label: '无 adjustment' },
+                  { value: 'YES', label: '存在兼容占位记录' },
+                  { value: 'NO', label: '无兼容占位记录' },
                 ],
                 state.query.hasAdjustment,
               )}
@@ -374,13 +374,13 @@ export function renderDeductionAnalysisPage(): string {
             </select>
           </label>
           <label class="flex flex-col gap-1 text-sm">
-            <span class="text-muted-foreground">是否已结算</span>
+            <span class="text-muted-foreground">是否已进入预付款批次</span>
             <select class="h-10 rounded-md border bg-background px-3" data-danalysis-filter="settled">
               ${renderSelectOptions(
                 [
                   { value: 'ALL', label: '全部' },
-                  { value: 'YES', label: '已结算' },
-                  { value: 'NO', label: '未结算' },
+                  { value: 'YES', label: '已进入' },
+                  { value: 'NO', label: '未进入' },
                 ],
                 state.query.settled,
               )}
@@ -404,7 +404,7 @@ export function renderDeductionAnalysisPage(): string {
           <p class="mt-2 text-2xl font-semibold tabular-nums">${kpis.factoryCount}</p>
         </article>
         <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">冻结加工费金额</p>
+          <p class="text-xs text-muted-foreground">待确认金额</p>
           <p class="mt-2 text-2xl font-semibold tabular-nums">${formatAmount(kpis.blockedProcessingFeeAmount)}</p>
         </article>
         <article class="rounded-xl border bg-card p-4">
@@ -414,12 +414,12 @@ export function renderDeductionAnalysisPage(): string {
         <article class="rounded-xl border bg-card p-4">
           <p class="text-xs text-muted-foreground">总财务影响金额</p>
           <p class="mt-2 text-2xl font-semibold tabular-nums">${formatAmount(kpis.totalFinancialImpactAmount)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">= 冻结加工费 + 生效质量扣款</p>
+          <p class="mt-1 text-xs text-muted-foreground">= 待确认金额 + 正式质量扣款流水金额</p>
         </article>
         <article class="rounded-xl border bg-card p-4">
-          <p class="text-xs text-muted-foreground">待下周期调整金额</p>
+          <p class="text-xs text-muted-foreground">兼容占位金额</p>
           <p class="mt-2 text-2xl font-semibold tabular-nums ${kpis.nextCycleAdjustmentAmount < 0 ? 'text-emerald-700' : kpis.nextCycleAdjustmentAmount > 0 ? 'text-amber-700' : ''}">${formatSignedAmount(kpis.nextCycleAdjustmentAmount)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">减扣 / 冲回按负值展示</p>
+          <p class="mt-1 text-xs text-muted-foreground">当前版本中兼容占位金额仅作过渡展示。</p>
         </article>
       </section>
 
@@ -430,7 +430,7 @@ export function renderDeductionAnalysisPage(): string {
         <article class="rounded-xl border bg-card p-5">
           <div class="mb-4 flex flex-col gap-1">
             <h3 class="text-sm font-semibold text-foreground">状态补充指标</h3>
-            <p class="text-xs text-muted-foreground">用于区分异议中金额、已纳入对账金额和已结算金额，不与下周期调整金额重复计入。</p>
+            <p class="text-xs text-muted-foreground">用于区分异议中金额、已纳入对账金额和已进入预付款批次金额，不与兼容占位金额重复计入。</p>
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div class="rounded-lg border bg-muted/20 p-4">
@@ -442,7 +442,7 @@ export function renderDeductionAnalysisPage(): string {
               <p class="mt-2 text-xl font-semibold tabular-nums">${formatAmount(kpis.includedAmount)}</p>
             </div>
             <div class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">已结算金额</p>
+              <p class="text-xs text-muted-foreground">已进入预付款批次金额</p>
               <p class="mt-2 text-xl font-semibold tabular-nums">${formatAmount(kpis.settledAmount)}</p>
             </div>
           </div>
@@ -497,10 +497,10 @@ export function renderDeductionAnalysisPage(): string {
                       <th class="px-4 py-2 font-medium">工厂响应状态</th>
                       <th class="px-4 py-2 font-medium">异议状态</th>
                       <th class="px-4 py-2 font-medium">结算影响状态</th>
-                      <th class="px-4 py-2 text-right font-medium">冻结加工费</th>
+                      <th class="px-4 py-2 text-right font-medium">待确认金额</th>
                       <th class="px-4 py-2 text-right font-medium">生效质量扣款</th>
                       <th class="px-4 py-2 text-right font-medium">总财务影响</th>
-                      <th class="px-4 py-2 font-medium">adjustment</th>
+                      <th class="px-4 py-2 font-medium">兼容占位</th>
                       <th class="px-4 py-2 font-medium">${escapeHtml(
                         state.query.timeBasis === 'SETTLEMENT_CYCLE' ? '结算周期 / 归属时间' : '财务影响生效时间',
                       )}</th>

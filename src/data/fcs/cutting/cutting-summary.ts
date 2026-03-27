@@ -2,6 +2,7 @@ import { cutPieceOrderRecords } from './cut-piece-orders'
 import { cuttingMaterialPrepGroups } from './material-prep'
 import { replenishmentSuggestionRecords } from './replenishment'
 import { cutPieceWarehouseRecords, cuttingFabricStockRecords, sampleWarehouseRecords } from './warehouse-management'
+import { buildCuttingIdentityRegistry } from '../../../domain/cutting-identity'
 import type { CuttingUrgencyLevel } from './types'
 
 export type CuttingSummaryStatus =
@@ -100,7 +101,12 @@ export interface CuttingSummaryLinkedPageSummary {
 
 export interface CuttingSummaryRecord {
   id: string
+  productionOrderId: string
   productionOrderNo: string
+  originalCutOrderIds: string[]
+  originalCutOrderNos: string[]
+  mergeBatchIds: string[]
+  mergeBatchNos: string[]
   purchaseDate: string
   orderQty: number
   plannedShipDate: string
@@ -228,6 +234,8 @@ const fallbackByOrderNo = {
   },
 }
 
+const cuttingIdentityRegistry = buildCuttingIdentityRegistry()
+
 function maxDateTime(values: Array<string | undefined>): string {
   return values.filter(Boolean).sort().at(-1) ?? ''
 }
@@ -254,13 +262,29 @@ function issueSourceMatches(
 
 function buildRecord(productionOrderNo: string): CuttingSummaryRecord {
   const platform = platformOrderMeta[productionOrderNo]
-  const prepGroup = cuttingMaterialPrepGroups.find((item) => item.productionOrderNo === productionOrderNo)
+  const productionRef = cuttingIdentityRegistry.productionOrdersByNo[productionOrderNo] || null
+  const canonicalProductionOrderNo = productionRef?.productionOrderNo || productionOrderNo
+  const sourceProductionOrderNos = unique([productionOrderNo, canonicalProductionOrderNo])
+  const prepGroup = cuttingMaterialPrepGroups.find((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
   const prepLines = prepGroup?.materialLines ?? []
-  const cutPieceRecords = cutPieceOrderRecords.filter((item) => item.productionOrderNo === productionOrderNo)
-  const replenishmentRecords = replenishmentSuggestionRecords.filter((item) => item.productionOrderNo === productionOrderNo)
-  const fabricStocks = cuttingFabricStockRecords.filter((item) => item.productionOrderNo === productionOrderNo)
-  const warehouseRecords = cutPieceWarehouseRecords.filter((item) => item.productionOrderNo === productionOrderNo)
-  const sampleRecords = sampleWarehouseRecords.filter((item) => item.relatedProductionOrderNo === productionOrderNo)
+  const cutPieceRecords = cutPieceOrderRecords.filter((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
+  const replenishmentRecords = replenishmentSuggestionRecords.filter((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
+  const fabricStocks = cuttingFabricStockRecords.filter((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
+  const warehouseRecords = cutPieceWarehouseRecords.filter((item) => sourceProductionOrderNos.includes(item.productionOrderNo))
+  const sampleRecords = sampleWarehouseRecords.filter((item) => sourceProductionOrderNos.includes(item.relatedProductionOrderNo))
+  const originalCutOrderRefs = unique([
+    ...cutPieceRecords.map((item) => item.originalCutOrderId),
+    ...prepLines.map((item) => item.cutPieceOrderNo),
+    ...warehouseRecords.map((item) => item.cutPieceOrderNo),
+  ])
+    .map((originalCutOrderId) => cuttingIdentityRegistry.originalCutOrdersById[originalCutOrderId])
+    .filter(Boolean)
+  const mergeBatchIds = unique(
+    originalCutOrderRefs.flatMap((ref) => [ref.activeMergeBatchId, ...ref.mergeBatchIds]).filter(Boolean),
+  )
+  const mergeBatchNos = unique(
+    mergeBatchIds.map((mergeBatchId) => cuttingIdentityRegistry.mergeBatchesById[mergeBatchId]?.mergeBatchNo).filter(Boolean),
+  )
   const fallback = fallbackByOrderNo[productionOrderNo as keyof typeof fallbackByOrderNo] ?? {
     materialSummary: {
       configuredCount: 0,
@@ -538,8 +562,13 @@ function buildRecord(productionOrderNo: string): CuttingSummaryRecord {
   ]
 
   return {
-    id: `cutting-summary-${productionOrderNo}`,
-    productionOrderNo,
+    id: `cutting-summary-${productionRef?.productionOrderId || canonicalProductionOrderNo}`,
+    productionOrderId: productionRef?.productionOrderId || '',
+    productionOrderNo: canonicalProductionOrderNo,
+    originalCutOrderIds: originalCutOrderRefs.map((ref) => ref.originalCutOrderId),
+    originalCutOrderNos: originalCutOrderRefs.map((ref) => ref.originalCutOrderNo),
+    mergeBatchIds,
+    mergeBatchNos,
     purchaseDate: platform.purchaseDate,
     orderQty: platform.orderQty,
     plannedShipDate: platform.plannedShipDate,

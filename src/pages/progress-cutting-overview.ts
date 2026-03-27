@@ -1,7 +1,9 @@
 import { renderDrawer as uiDrawer } from '../components/ui'
-import type { PlatformCuttingOverviewRow } from '../domain/cutting-platform/overview.adapter'
+import {
+  buildPlatformCuttingOverviewRows,
+  type PlatformCuttingOverviewRow,
+} from '../domain/cutting-platform/overview.adapter'
 import { buildPlatformCuttingDetailRoute } from '../domain/cutting-platform/detail.helpers'
-import { clonePlatformCuttingOverviewRows } from '../domain/cutting-platform/overview.mock'
 import {
   buildPlatformEmptyStateText,
   buildPlatformExecutionText,
@@ -37,7 +39,7 @@ interface PlatformCuttingOverviewState {
 }
 
 const state: PlatformCuttingOverviewState = {
-  rows: clonePlatformCuttingOverviewRows(),
+  rows: [],
   filters: {
     keyword: '',
     urgencyLevel: 'ALL',
@@ -47,6 +49,13 @@ const state: PlatformCuttingOverviewState = {
     pendingOnly: 'ALL',
   },
   activeRecordId: null,
+}
+
+function refreshRuntimeRows(): void {
+  state.rows = buildPlatformCuttingOverviewRows()
+  if (state.activeRecordId && !state.rows.some((row) => row.id === state.activeRecordId)) {
+    state.activeRecordId = null
+  }
 }
 
 function renderBadge(label: string, className: string): string {
@@ -504,6 +513,7 @@ function renderSummaryDrawer(): string {
 }
 
 export function renderProgressCuttingOverviewPage(): string {
+  refreshRuntimeRows()
   return `
     <div class="space-y-6 p-6">
       ${renderPageHeader()}

@@ -3,11 +3,11 @@ import type {
   FactoryBankAccount,
   DefaultPenaltyRule,
   FactorySettlementSummary,
-} from './settlement-types'
-import { indonesiaFactories, indonesiaBanks } from './indonesia-factories'
+} from './settlement-types.ts'
+import { indonesiaFactories, indonesiaBanks } from './indonesia-factories.ts'
 
 // 这里的 mock 数据属于工厂档案结算信息主数据，供平台端主数据页和工厂端资料查看读取。
-// 周期内的对账单、应付调整和结算批次只能消费这些生效快照，不能把这里当作执行对象本身。
+// 周期内的预结算流水、对账单和预付款批次只能消费这些生效快照，不能把这里当作执行对象本身。
 
 // 结算配置数据
 export const settlementProfiles: FactorySettlementProfile[] = [
@@ -15,8 +15,8 @@ export const settlementProfiles: FactorySettlementProfile[] = [
     id: 'sp-001',
     factoryId: 'ID-FAC-0001',
     factoryName: 'PT Sinar Garment Indonesia',
-    cycleType: 'MONTHLY',
-    settlementDayRule: 'Tanggal 25 setiap bulan',
+    cycleType: 'BIWEEKLY',
+    settlementDayRule: 'Setiap tanggal 1-14 dan 15-akhir bulan',
     pricingMode: 'BY_PIECE',
     currency: 'IDR',
     isActive: true,
@@ -41,7 +41,7 @@ export const settlementProfiles: FactorySettlementProfile[] = [
     factoryId: 'ID-FAC-0002',
     factoryName: 'CV Maju Jaya Textile',
     cycleType: 'BIWEEKLY',
-    settlementDayRule: 'Jumat dua mingguan',
+    settlementDayRule: 'Setiap tanggal 1-14 dan 15-akhir bulan',
     pricingMode: 'BY_PROCESS',
     currency: 'IDR',
     isActive: true,
@@ -52,8 +52,8 @@ export const settlementProfiles: FactorySettlementProfile[] = [
     id: 'sp-004',
     factoryId: 'ID-FAC-0004',
     factoryName: 'PT Mulia Fashion Industry',
-    cycleType: 'MONTHLY',
-    settlementDayRule: 'Akhir bulan',
+    cycleType: 'BIWEEKLY',
+    settlementDayRule: 'Setiap tanggal 1-14 dan 15-akhir bulan',
     pricingMode: 'BY_ORDER',
     currency: 'IDR',
     isActive: true,
@@ -62,9 +62,10 @@ export const settlementProfiles: FactorySettlementProfile[] = [
   },
   {
     id: 'sp-005',
-    factoryId: 'ID-FAC-0006',
-    factoryName: 'PT Prima Tekstil Nusantara',
-    cycleType: 'PER_BATCH',
+    factoryId: 'ID-FAC-0005',
+    factoryName: 'PT Java Garment Solutions',
+    cycleType: 'BIWEEKLY',
+    settlementDayRule: 'Setiap tanggal 1-14 dan 15-akhir bulan',
     pricingMode: 'BY_PIECE',
     currency: 'IDR',
     isActive: true,
@@ -73,15 +74,38 @@ export const settlementProfiles: FactorySettlementProfile[] = [
   },
   {
     id: 'sp-006',
-    factoryId: 'ID-FAC-0009',
-    factoryName: 'PT Gemilang Textile',
-    cycleType: 'MONTHLY',
-    settlementDayRule: 'Tanggal 20 setiap bulan',
+    factoryId: 'ID-FAC-0003',
+    factoryName: 'PT Bandung Apparel Works',
+    cycleType: 'BIWEEKLY',
+    settlementDayRule: 'Setiap tanggal 1-14 dan 15-akhir bulan',
     pricingMode: 'BY_PIECE',
     currency: 'IDR',
     isActive: true,
     effectiveFrom: '2024-01-01',
     updatedAt: '2024-01-01',
+  },
+  {
+    id: 'sp-007',
+    factoryId: 'ID-FAC-0005',
+    factoryName: 'PT Java Garment Solutions',
+    cycleType: 'MONTHLY',
+    settlementDayRule: 'Tanggal 20 setiap bulan',
+    pricingMode: 'BY_PIECE',
+    currency: 'IDR',
+    isActive: false,
+    effectiveFrom: '2024-01-01',
+    updatedAt: '2024-01-01',
+  },
+  {
+    id: 'sp-008',
+    factoryId: 'ID-FAC-0006',
+    factoryName: 'PT Prima Tekstil Nusantara',
+    cycleType: 'PER_BATCH',
+    pricingMode: 'BY_PIECE',
+    currency: 'IDR',
+    isActive: true,
+    effectiveFrom: '2024-03-01',
+    updatedAt: '2024-03-01',
   },
 ]
 

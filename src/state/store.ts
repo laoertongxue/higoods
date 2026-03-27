@@ -1,5 +1,5 @@
-import { menusBySystem, systems } from '../data/app-shell-config'
-import type { AllSystemTabs, MenuGroup, MenuItem, Tab } from '../data/app-shell-types'
+import { menusBySystem, systems } from '../data/app-shell-config.ts'
+import type { AllSystemTabs, MenuGroup, MenuItem, Tab } from '../data/app-shell-types.ts'
 
 export interface AppState {
   pathname: string
@@ -21,18 +21,21 @@ const UNIFIED_PROGRESS_EXCEPTIONS_PATH = '/fcs/progress/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_TITLE = '异常定位与处理'
 const REMOVED_FCS_TAB_KEYS = new Set(['workbench-risks', 'process-dependencies', 'process-qc-standards'])
 const REMOVED_FCS_TAB_PATHS = new Set(['/fcs/workbench/risks', '/fcs/process/dependencies', '/fcs/process/qc-standards'])
+// 这里只保留旧标题到新标题的过渡映射，避免历史标签页失效；旧词不再作为当前页面主语义输出。
 const FCS_TAB_TITLE_MIGRATIONS: Record<string, string> = {
   '裁片单（原始单）': '原始裁片单',
   '仓库配料 / 领料': '仓库配料领料',
   '唛架 / 铺布': '唛架铺布',
   '周转口袋 / 车缝交接': '周转口袋车缝交接',
   '对账单生成': '对账单',
-  '扣款/补差管理': '应付调整',
-  '扣款补差管理': '应付调整',
-  '结算批次进度': '结算批次',
+  应付调整: '预结算流水',
+  '扣款/补差管理': '预结算流水',
+  '扣款补差管理': '预结算流水',
+  '结算批次进度': '预付款批次',
   '领料对账单生成': '车缝领料对账',
-  '打款结果同步更新': '结算批次',
-  '历史对账与核算': '结算批次',
+  '打款结果同步更新': '预付款批次',
+  '历史对账与核算': '预付款批次',
+  结算批次: '预付款批次',
   '裁片结算与评分输入': '裁片结算评分',
   '扎包/周转包父码管理': '扎包周转包父码管理',
   '调度策略（限额/优先级）': '调度策略',
@@ -216,9 +219,17 @@ function readSidebarCollapsed(): boolean {
 
 const defaultPath = '/fcs/workbench/overview'
 
+function readInitialPathname(): string {
+  if (typeof window === 'undefined') return defaultPath
+
+  const pathname = window.location.pathname || '/'
+  const search = window.location.search || ''
+  return `${pathname}${search}` || defaultPath
+}
+
 class AppStore {
   private state: AppState = {
-    pathname: defaultPath,
+    pathname: readInitialPathname(),
     sidebarOpen: false,
     sidebarCollapsed: false,
     allTabs: createEmptyTabs(),
@@ -234,11 +245,12 @@ class AppStore {
 
     const systemId = getCurrentSystemId(this.state.pathname)
     const systemTabs = this.state.allTabs[systemId]
+    const hasDirectLocationPath = normalizePathname(this.state.pathname) !== normalizePathname(defaultPath)
     const hasValidActiveTab =
       !!systemTabs?.activeKey &&
       systemTabs.tabs.some((tab) => tab.key === systemTabs.activeKey)
 
-    if (!hasValidActiveTab) {
+    if (!hasValidActiveTab && !hasDirectLocationPath) {
       const fallback = systems.find((item) => item.id === systemId)?.defaultPage ?? defaultPath
       this.state.pathname = fallback
     }

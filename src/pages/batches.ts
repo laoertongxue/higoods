@@ -1,11 +1,22 @@
 import {
+  applyPrepaymentBatchForPayment,
+  canStatementEnterPrepayment,
+  closePrepaymentBatch,
+  createPaymentWriteback,
+  createPrepaymentBatch,
+  getFeishuPaymentApprovalById,
+  getOpenStatementAppeal,
+  getPaymentWritebackById,
+  getStatementSettlementProgressView,
   initialSettlementBatches,
   initialStatementDrafts,
+  syncFeishuPaymentApprovalStatus,
 } from '../data/fcs/store-domain-settlement-seeds'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
 import type {
+  FeishuPaymentApproval,
+  PaymentWriteback,
   SettlementBatch,
-  SettlementBatchItem,
   StatementDraft,
   StatementStatus,
 } from '../data/fcs/store-domain-settlement-types'
@@ -14,15 +25,12 @@ import { escapeHtml, toClassName } from '../utils'
 
 type PoolPartyFilter = '__all__' | string
 type BatchWorkbenchView = 'IN_PROGRESS' | 'PAYMENT' | 'COMPLETED' | 'HISTORY'
-type PaymentSyncStatus = 'UNSYNCED' | 'SUCCESS' | 'FAILED' | 'PARTIAL'
-
-interface PaymentForm {
-  paymentSyncStatus: 'SUCCESS' | 'FAILED' | 'PARTIAL' | ''
-  paymentAmount: string
-  paymentAt: string
-  paymentReferenceNo: string
-  paymentRemark: string
-}
+type WritebackDisplayStatus =
+  | 'WAITING_PAYMENT'
+  | 'PAID_PENDING_WRITEBACK'
+  | 'WRITTEN_BACK'
+  | 'APPROVAL_REJECTED'
+  | 'APPROVAL_CANCELED'
 
 interface BatchWorkbenchCounts {
   candidateCount: number
@@ -41,11 +49,12 @@ interface BatchLifecycleRecord {
 
 interface BatchDetailViewModel {
   batch: SettlementBatch
+  approval: FeishuPaymentApproval | null
+  writeback: PaymentWriteback | null
   statementCount: number
-  settlementPartyCount: number
   paidAmount: number
   pendingAmount: number
-  paymentStatus: PaymentSyncStatus
+  writebackStatus: WritebackDisplayStatus
   lifecycleRecords: BatchLifecycleRecord[]
   profileVersionSummary: string
 }
@@ -60,84 +69,86 @@ interface BatchesState {
   batchName: string
   remark: string
   detailBatchId: string | null
-  paymentDialogBatchId: string | null
-  paymentForm: PaymentForm
-  paymentFormError: string
-  paymentSaving: boolean
-}
-
-const PARTY_LABEL: Record<string, string> = {
-  FACTORY: '工厂',
-  PROCESSOR: '加工方',
-  SUPPLIER: '供应商',
-  GROUP_INTERNAL: '内部主体',
-  INTERNAL: '内部主体',
-  OTHER: '其他',
 }
 
 const VIEW_LABEL: Record<BatchWorkbenchView, string> = {
-  IN_PROGRESS: '进行中',
-  PAYMENT: '待打款/待回写',
-  COMPLETED: '已完成',
+  IN_PROGRESS: '待申请/审批中',
+  PAYMENT: '已付款待回写',
+  COMPLETED: '已预付',
   HISTORY: '历史',
 }
 
 const VIEW_NOTE: Record<BatchWorkbenchView, string> = {
-  IN_PROGRESS: '查看已入批、尚未进入打款处理阶段的批次，并继续从已确认对账单装配新批次。',
-  PAYMENT: '查看待打款与待回写批次，统一承接原打款结果更新页的执行动作。',
-  COMPLETED: '查看近期已完成打款与回写的批次，快速回看批次结果。',
-  HISTORY: '查看归档批次，统一承接原历史页的批次归档视图。',
+  IN_PROGRESS: '查看待申请付款、已创建飞书付款审批或审批处理中批次，并继续从已满足入批条件的对账单装配新批次。',
+  PAYMENT: '查看飞书已付款但尚未完成打款回写的预付款批次，统一承接回执和银行流水登记。',
+  COMPLETED: '查看已完成打款回写、已完成预付的批次结果。',
+  HISTORY: '查看已关闭归档的预付款批次。',
 }
 
-function maskBankAccountNo(accountNo: string): string {
-  const raw = accountNo.replace(/\s+/g, '')
-  if (raw.length <= 8) return raw
-  return `${raw.slice(0, 4)} **** **** ${raw.slice(-4)}`
+const STATEMENT_STATUS_LABEL: Record<StatementStatus, string> = {
+  DRAFT: '草稿',
+  PENDING_FACTORY_CONFIRM: '待工厂反馈',
+  FACTORY_CONFIRMED: '工厂已确认',
+  READY_FOR_PREPAYMENT: '待入预付款',
+  IN_PREPAYMENT_BATCH: '已入预付款批次',
+  PREPAID: '已预付',
+  CLOSED: '已关闭',
 }
 
-function getFactoryFeedbackLabel(
-  status: StatementDraft['factoryFeedbackStatus'],
-): string {
-  if (status === 'NOT_SENT') return '未下发'
-  if (status === 'PENDING_FACTORY_CONFIRM') return '待工厂反馈'
-  if (status === 'FACTORY_CONFIRMED') return '工厂已确认'
-  if (status === 'FACTORY_APPEALED') return '工厂已申诉'
-  if (status === 'PLATFORM_HANDLING') return '平台处理中'
-  return '已处理完成'
+const BATCH_STATUS_LABEL: Record<SettlementBatch['status'], string> = {
+  DRAFT: '草稿',
+  READY_TO_APPLY_PAYMENT: '待申请付款',
+  FEISHU_APPROVAL_CREATED: '飞书审批中',
+  FEISHU_PAID_PENDING_WRITEBACK: '已付款待回写',
+  PREPAID: '已预付',
+  CLOSED: '已关闭',
+  FEISHU_APPROVAL_REJECTED: '审批已驳回',
+  FEISHU_APPROVAL_CANCELED: '审批已取消',
 }
 
-const BATCH_STATUS_LABEL: Record<string, string> = {
-  PENDING: '进行中',
-  PROCESSING: '待打款/待回写',
-  COMPLETED: '已完成',
+const BATCH_STATUS_BADGE: Record<SettlementBatch['status'], string> = {
+  DRAFT: 'border border-slate-200 bg-slate-50 text-slate-700',
+  READY_TO_APPLY_PAYMENT: 'border border-blue-200 bg-blue-50 text-blue-700',
+  FEISHU_APPROVAL_CREATED: 'border border-amber-200 bg-amber-50 text-amber-700',
+  FEISHU_PAID_PENDING_WRITEBACK: 'border border-orange-200 bg-orange-50 text-orange-700',
+  PREPAID: 'border border-green-200 bg-green-50 text-green-700',
+  CLOSED: 'border border-slate-200 bg-slate-100 text-slate-700',
+  FEISHU_APPROVAL_REJECTED: 'border border-red-200 bg-red-50 text-red-700',
+  FEISHU_APPROVAL_CANCELED: 'border border-slate-200 bg-slate-50 text-slate-600',
 }
 
-const BATCH_STATUS_BADGE: Record<string, string> = {
-  PENDING: 'border border-slate-200 bg-slate-50 text-slate-700',
-  PROCESSING: 'border border-amber-200 bg-amber-50 text-amber-700',
-  COMPLETED: 'border border-green-200 bg-green-50 text-green-700',
+const APPROVAL_STATUS_LABEL: Record<FeishuPaymentApproval['status'], string> = {
+  CREATED: '已创建',
+  APPROVING: '审批中',
+  APPROVED_PENDING_PAYMENT: '已审批待付款',
+  PAID: '已付款',
+  REJECTED: '已驳回',
+  CANCELED: '已取消',
 }
 
-const SYNC_STATUS_LABEL: Record<PaymentSyncStatus, string> = {
-  UNSYNCED: '待回写',
-  SUCCESS: '已回写',
-  FAILED: '回写失败',
-  PARTIAL: '部分回写',
+const APPROVAL_STATUS_BADGE: Record<FeishuPaymentApproval['status'], string> = {
+  CREATED: 'border border-blue-200 bg-blue-50 text-blue-700',
+  APPROVING: 'border border-amber-200 bg-amber-50 text-amber-700',
+  APPROVED_PENDING_PAYMENT: 'border border-violet-200 bg-violet-50 text-violet-700',
+  PAID: 'border border-green-200 bg-green-50 text-green-700',
+  REJECTED: 'border border-red-200 bg-red-50 text-red-700',
+  CANCELED: 'border border-slate-200 bg-slate-50 text-slate-600',
 }
 
-const SYNC_STATUS_BADGE: Record<PaymentSyncStatus, string> = {
-  UNSYNCED: 'border bg-muted text-muted-foreground',
-  SUCCESS: 'border border-green-200 bg-green-50 text-green-700',
-  FAILED: 'border border-red-200 bg-red-50 text-red-700',
-  PARTIAL: 'border border-blue-200 bg-blue-50 text-blue-700',
+const WRITEBACK_STATUS_LABEL: Record<WritebackDisplayStatus, string> = {
+  WAITING_PAYMENT: '待付款',
+  PAID_PENDING_WRITEBACK: '待创建回写',
+  WRITTEN_BACK: '已完成回写',
+  APPROVAL_REJECTED: '审批已驳回',
+  APPROVAL_CANCELED: '审批已取消',
 }
 
-const EMPTY_PAYMENT_FORM: PaymentForm = {
-  paymentSyncStatus: '',
-  paymentAmount: '',
-  paymentAt: '',
-  paymentReferenceNo: '',
-  paymentRemark: '',
+const WRITEBACK_STATUS_BADGE: Record<WritebackDisplayStatus, string> = {
+  WAITING_PAYMENT: 'border border-slate-200 bg-slate-50 text-slate-700',
+  PAID_PENDING_WRITEBACK: 'border border-orange-200 bg-orange-50 text-orange-700',
+  WRITTEN_BACK: 'border border-green-200 bg-green-50 text-green-700',
+  APPROVAL_REJECTED: 'border border-red-200 bg-red-50 text-red-700',
+  APPROVAL_CANCELED: 'border border-slate-200 bg-slate-50 text-slate-600',
 }
 
 const state: BatchesState = {
@@ -150,28 +161,13 @@ const state: BatchesState = {
   batchName: '',
   remark: '',
   detailBatchId: null,
-  paymentDialogBatchId: null,
-  paymentForm: { ...EMPTY_PAYMENT_FORM },
-  paymentFormError: '',
-  paymentSaving: false,
 }
 
-function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
-}
-
-function randomSuffix(length = 4): string {
-  return Math.random().toString(36).slice(2, 2 + length).toUpperCase()
-}
-
-function formatAmount(value: number): string {
-  return `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function getCurrentBatchSearchParams(): URLSearchParams {
-  const pathname = appStore.getState().pathname
-  const [, query] = pathname.split('?')
-  return new URLSearchParams(query || '')
+function formatAmount(value: number, currency = 'IDR'): string {
+  return `${currency} ${value.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
 }
 
 function buildBatchesHref(view: BatchWorkbenchView = state.activeView): string {
@@ -182,6 +178,12 @@ function buildBatchesHref(view: BatchWorkbenchView = state.activeView): string {
     view === 'PAYMENT' ? 'payment' : view === 'COMPLETED' ? 'completed' : 'history',
   )
   return `/fcs/settlement/batches?${params.toString()}`
+}
+
+function getCurrentBatchSearchParams(): URLSearchParams {
+  const pathname = appStore.getState().pathname
+  const [, query] = pathname.split('?')
+  return new URLSearchParams(query || '')
 }
 
 function syncBatchesStateFromRoute(): void {
@@ -205,7 +207,8 @@ function showBatchesToast(message: string, tone: 'success' | 'error' = 'success'
   if (!root) {
     root = document.createElement('div')
     root.id = rootId
-    root.className = 'pointer-events-none fixed right-6 top-20 z-[120] flex max-w-sm flex-col gap-2'
+    root.className =
+      'pointer-events-none fixed right-6 top-20 z-[120] flex max-w-sm flex-col gap-2'
     document.body.appendChild(root)
   }
 
@@ -234,57 +237,130 @@ function showBatchesToast(message: string, tone: 'success' | 'error' = 'success'
   }, 2200)
 }
 
-function partyLabel(type: string, id: string): string {
-  return `${PARTY_LABEL[type] ?? type} / ${id}`
+function getResolutionResultLabel(result?: StatementDraft['resolutionResult']): string {
+  if (result === 'UPHELD') return '维持当前口径'
+  if (result === 'REOPEN_REQUIRED') return '退回重算'
+  return '当前未处理'
 }
 
-function getEffectivePaymentSyncStatus(batch: SettlementBatch): PaymentSyncStatus {
-  return batch.paymentSyncStatus ?? 'UNSYNCED'
+function getFactoryFeedbackLabel(status: StatementDraft['factoryFeedbackStatus']): string {
+  if (status === 'NOT_SENT') return '未下发'
+  if (status === 'PENDING_FACTORY_CONFIRM') return '待工厂反馈'
+  if (status === 'FACTORY_CONFIRMED') return '工厂已确认'
+  if (status === 'FACTORY_APPEALED') return '工厂已申诉'
+  if (status === 'PLATFORM_HANDLING') return '平台处理中'
+  return '已处理完成'
 }
 
-function getPaidAmount(batch: SettlementBatch): number {
-  const status = getEffectivePaymentSyncStatus(batch)
-  if (status === 'SUCCESS') return batch.paymentAmount ?? batch.totalAmount
-  if (status === 'PARTIAL') return batch.paymentAmount ?? 0
-  return 0
+function getAppealStatusLabel(
+  status: NonNullable<ReturnType<typeof getOpenStatementAppeal>>['status'] | 'RESOLVED',
+): string {
+  if (status === 'SUBMITTED') return '已申诉'
+  if (status === 'PLATFORM_HANDLING') return '平台处理中'
+  return '已处理'
 }
 
-function getPendingAmount(batch: SettlementBatch): number {
-  return Math.max(0, batch.totalAmount - getPaidAmount(batch))
+function maskBankAccountNo(accountNo: string): string {
+  const raw = accountNo.replace(/\s+/g, '')
+  if (raw.length <= 8) return raw
+  return `${raw.slice(0, 4)} **** **** ${raw.slice(-4)}`
+}
+
+function getStatementCurrency(statement: StatementDraft): string {
+  return statement.settlementCurrency ?? statement.settlementProfileSnapshot.settlementConfigSnapshot.currency
+}
+
+function getBatchApproval(batch: SettlementBatch): FeishuPaymentApproval | null {
+  return batch.feishuApprovalId ? getFeishuPaymentApprovalById(batch.feishuApprovalId) : null
+}
+
+function getBatchWriteback(batch: SettlementBatch): PaymentWriteback | null {
+  return batch.paymentWritebackId ? getPaymentWritebackById(batch.paymentWritebackId) : null
+}
+
+function getWritebackStatus(
+  batch: SettlementBatch,
+  approval: FeishuPaymentApproval | null,
+  writeback: PaymentWriteback | null,
+): WritebackDisplayStatus {
+  if (writeback) return 'WRITTEN_BACK'
+  if (approval?.status === 'PAID') return 'PAID_PENDING_WRITEBACK'
+  if (approval?.status === 'REJECTED') return 'APPROVAL_REJECTED'
+  if (approval?.status === 'CANCELED') return 'APPROVAL_CANCELED'
+  return 'WAITING_PAYMENT'
+}
+
+function getPaidAmount(
+  batch: SettlementBatch,
+  approval: FeishuPaymentApproval | null,
+  writeback: PaymentWriteback | null,
+): number {
+  if (writeback) return writeback.amount
+  if (approval?.status === 'PAID') return approval.amount
+  return batch.paymentAmount ?? 0
+}
+
+function getPendingAmount(
+  batch: SettlementBatch,
+  approval: FeishuPaymentApproval | null,
+  writeback: PaymentWriteback | null,
+): number {
+  return Math.max(0, batch.totalPayableAmount - getPaidAmount(batch, approval, writeback))
+}
+
+function getPrimarySnapshot(batch: SettlementBatch) {
+  return batch.settlementProfileSnapshotRefs?.[0]
 }
 
 function isHistoryBatch(batch: SettlementBatch): boolean {
-  if (batch.archivedAt) return true
-  const anchor = batch.completedAt ?? batch.updatedAt ?? batch.createdAt
-  return batch.status === 'COMPLETED' && anchor.slice(0, 7) < nowTimestamp().slice(0, 7)
+  return batch.status === 'CLOSED'
 }
 
 function isPaymentViewBatch(batch: SettlementBatch): boolean {
-  if (batch.status === 'PROCESSING') return true
-  if (batch.status !== 'COMPLETED') return false
-  return getEffectivePaymentSyncStatus(batch) !== 'SUCCESS'
+  return batch.status === 'FEISHU_PAID_PENDING_WRITEBACK'
 }
 
 function isCompletedViewBatch(batch: SettlementBatch): boolean {
-  return (
-    batch.status === 'COMPLETED' &&
-    getEffectivePaymentSyncStatus(batch) === 'SUCCESS' &&
-    !isHistoryBatch(batch)
-  )
+  return batch.status === 'PREPAID'
 }
 
 function isInProgressBatch(batch: SettlementBatch): boolean {
-  return batch.status === 'PENDING'
+  return !isPaymentViewBatch(batch) && !isCompletedViewBatch(batch) && !isHistoryBatch(batch)
 }
 
-function isStatementEligibleForBatch(statement: StatementDraft): boolean {
-  return statement.status === 'CONFIRMED'
+function canApplyPayment(batch: SettlementBatch, approval: FeishuPaymentApproval | null): boolean {
+  if (approval && approval.status !== 'REJECTED' && approval.status !== 'CANCELED') return false
+  return batch.status === 'READY_TO_APPLY_PAYMENT' || batch.status === 'DRAFT'
+}
+
+function canSyncApproval(
+  approval: FeishuPaymentApproval | null,
+  writeback: PaymentWriteback | null,
+): boolean {
+  if (!approval || writeback) return false
+  return (
+    approval.status === 'CREATED' ||
+    approval.status === 'APPROVING' ||
+    approval.status === 'APPROVED_PENDING_PAYMENT'
+  )
+}
+
+function canCreateWriteback(
+  batch: SettlementBatch,
+  approval: FeishuPaymentApproval | null,
+  writeback: PaymentWriteback | null,
+): boolean {
+  return Boolean(batch.feishuApprovalId && approval?.status === 'PAID' && !writeback)
+}
+
+function canCloseBatch(batch: SettlementBatch, writeback: PaymentWriteback | null): boolean {
+  return batch.status === 'PREPAID' && Boolean(writeback)
 }
 
 function getOccupiedStatementIds(): Set<string> {
   return new Set(
     initialSettlementBatches
-      .filter((item) => item.status !== 'COMPLETED')
+      .filter((item) => item.status !== 'CLOSED')
       .flatMap((item) => item.statementIds),
   )
 }
@@ -292,18 +368,15 @@ function getOccupiedStatementIds(): Set<string> {
 function getCandidateStatements(): StatementDraft[] {
   const occupiedIds = getOccupiedStatementIds()
   return initialStatementDrafts.filter(
-    (item) => isStatementEligibleForBatch(item) && !occupiedIds.has(item.statementId),
+    (item) => canStatementEnterPrepayment(item) && !occupiedIds.has(item.statementId),
   )
 }
 
-function getPartyOptions(
-  candidates: StatementDraft[],
-): Array<{ key: string; label: string }> {
+function getPartyOptions(candidates: StatementDraft[]): Array<{ key: string; label: string }> {
   const seen = new Map<string, string>()
   for (const item of candidates) {
-    const key = `${item.settlementPartyType}|${item.settlementPartyId}`
-    if (!seen.has(key)) {
-      seen.set(key, partyLabel(item.settlementPartyType, item.settlementPartyId))
+    if (!seen.has(item.settlementPartyId)) {
+      seen.set(item.settlementPartyId, item.factoryName ?? item.statementPartyView ?? item.settlementPartyId)
     }
   }
   return Array.from(seen.entries()).map(([key, label]) => ({ key, label }))
@@ -313,61 +386,62 @@ function getFilteredPool(candidates: StatementDraft[]): StatementDraft[] {
   const keyword = state.poolKeyword.trim().toLowerCase()
 
   return candidates.filter((item) => {
-    if (keyword) {
-      const matched =
-        item.statementId.toLowerCase().includes(keyword) ||
-        item.settlementPartyId.toLowerCase().includes(keyword) ||
-        (item.remark ?? '').toLowerCase().includes(keyword)
-      if (!matched) return false
-    }
+    if (state.poolParty !== '__all__' && item.settlementPartyId !== state.poolParty) return false
 
-    if (state.poolParty !== '__all__') {
-      const key = `${item.settlementPartyType}|${item.settlementPartyId}`
-      if (key !== state.poolParty) return false
-    }
+    if (!keyword) return true
+    const haystack = [
+      item.statementId,
+      item.statementNo ?? '',
+      item.factoryName ?? '',
+      item.settlementCycleLabel ?? '',
+      item.remark ?? '',
+    ]
+      .join(' ')
+      .toLowerCase()
 
-    return true
+    return haystack.includes(keyword)
   })
 }
 
 function matchesBatchKeyword(batch: SettlementBatch): boolean {
   const keyword = state.batchKeyword.trim().toLowerCase()
   if (!keyword) return true
+  const approval = getBatchApproval(batch)
+  const writeback = getBatchWriteback(batch)
   return [
     batch.batchId,
+    batch.batchNo,
     batch.batchName ?? '',
+    batch.factoryName,
     batch.remark ?? '',
-    batch.paymentReferenceNo ?? '',
-    batch.paymentRemark ?? '',
+    approval?.approvalNo ?? '',
+    writeback?.bankSerialNo ?? '',
   ]
     .join(' ')
     .toLowerCase()
     .includes(keyword)
 }
 
-function sortBatches(items: SettlementBatch[], anchor: 'created' | 'updated' | 'completed'): SettlementBatch[] {
+function sortBatches(items: SettlementBatch[], anchor: 'created' | 'updated' | 'closed'): SettlementBatch[] {
   const getAnchor = (item: SettlementBatch) => {
-    if (anchor === 'completed') return item.archivedAt ?? item.completedAt ?? item.updatedAt ?? item.createdAt
-    if (anchor === 'updated') return item.paymentUpdatedAt ?? item.updatedAt ?? item.createdAt
+    const approval = getBatchApproval(item)
+    const writeback = getBatchWriteback(item)
+    if (anchor === 'closed') return item.closedAt ?? item.prepaidAt ?? writeback?.writtenBackAt ?? item.updatedAt ?? item.createdAt
+    if (anchor === 'updated') return approval?.latestSyncedAt ?? writeback?.writtenBackAt ?? item.updatedAt ?? item.createdAt
     return item.createdAt
   }
-  return [...items].sort((a, b) => getAnchor(b).localeCompare(getAnchor(a)))
+  return [...items].sort((left, right) => getAnchor(right).localeCompare(getAnchor(left)))
 }
 
 function getBatchesByView(view: BatchWorkbenchView, includeKeyword = true): SettlementBatch[] {
   const all = includeKeyword
     ? initialSettlementBatches.filter((item) => matchesBatchKeyword(item))
     : [...initialSettlementBatches]
-  if (view === 'IN_PROGRESS') {
-    return sortBatches(all.filter((item) => isInProgressBatch(item)), 'created')
-  }
-  if (view === 'PAYMENT') {
-    return sortBatches(all.filter((item) => isPaymentViewBatch(item)), 'updated')
-  }
-  if (view === 'COMPLETED') {
-    return sortBatches(all.filter((item) => isCompletedViewBatch(item)), 'completed')
-  }
-  return sortBatches(all.filter((item) => isHistoryBatch(item)), 'completed')
+
+  if (view === 'IN_PROGRESS') return sortBatches(all.filter((item) => isInProgressBatch(item)), 'updated')
+  if (view === 'PAYMENT') return sortBatches(all.filter((item) => isPaymentViewBatch(item)), 'updated')
+  if (view === 'COMPLETED') return sortBatches(all.filter((item) => isCompletedViewBatch(item)), 'updated')
+  return sortBatches(all.filter((item) => isHistoryBatch(item)), 'closed')
 }
 
 function getWorkbenchCounts(candidates: StatementDraft[]): BatchWorkbenchCounts {
@@ -377,210 +451,69 @@ function getWorkbenchCounts(candidates: StatementDraft[]): BatchWorkbenchCounts 
     paymentCount: getBatchesByView('PAYMENT', false).length,
     completedCount: getBatchesByView('COMPLETED', false).length,
     historyCount: getBatchesByView('HISTORY', false).length,
-    candidateAmount: candidates.reduce((sum, item) => sum + item.totalAmount, 0),
+    candidateAmount: candidates.reduce((sum, item) => sum + item.netPayableAmount, 0),
   }
 }
 
 function getSelectedAmount(candidates: StatementDraft[]): number {
   return Array.from(state.selected).reduce((sum, statementId) => {
     const statement = candidates.find((item) => item.statementId === statementId)
-    return sum + (statement?.totalAmount ?? 0)
+    return sum + (statement?.netPayableAmount ?? 0)
   }, 0)
 }
 
-function createSettlementBatch(
-  input: { statementIds: string[]; remark?: string; batchName?: string },
-  by: string,
-): { ok: boolean; batchId?: string; message?: string } {
-  const { statementIds, remark, batchName } = input
-  if (!statementIds.length) return { ok: false, message: '请至少选择一张对账单' }
-
-  for (const statementId of statementIds) {
-    const statement = initialStatementDrafts.find((item) => item.statementId === statementId)
-    if (!statement) return { ok: false, message: `对账单 ${statementId} 不存在` }
-    if (statement.status !== 'CONFIRMED') {
-      return { ok: false, message: `对账单 ${statementId} 当前不可纳入结算批次` }
-    }
-  }
-
-  const occupiedIds = getOccupiedStatementIds()
-  if (statementIds.some((statementId) => occupiedIds.has(statementId))) {
-    return { ok: false, message: '存在已纳入未完成结算批次的对账单' }
-  }
-
-  const timestamp = nowTimestamp()
-  const month = timestamp.slice(0, 7).replace('-', '')
-  let batchId = `SB-${month}-${String(Math.floor(Math.random() * 9000) + 1000)}`
-  while (initialSettlementBatches.some((item) => item.batchId === batchId)) {
-    batchId = `SB-${month}-${randomSuffix(4)}`
-  }
-
-  const items: SettlementBatchItem[] = statementIds.map((statementId) => {
-    const statement = initialStatementDrafts.find((item) => item.statementId === statementId)!
-    return {
-      statementId,
-      settlementPartyType: statement.settlementPartyType,
-      settlementPartyId: statement.settlementPartyId,
-      totalAmount: statement.totalAmount,
-      settlementProfileVersionNo: statement.settlementProfileVersionNo,
-      settlementProfileSnapshot: statement.settlementProfileSnapshot,
-      factoryFeedbackStatus: statement.factoryFeedbackStatus,
-    }
-  })
-
-  const settlementProfileSnapshotRefs = Array.from(
-    new Map(
-      items
-        .filter((item) => item.settlementProfileSnapshot)
-        .map((item) => [item.settlementProfileSnapshot!.versionNo, item.settlementProfileSnapshot!]),
-    ).values(),
-  )
-
-  const batch: SettlementBatch = {
-    batchId,
-    batchName,
-    itemCount: items.length,
-    totalAmount: items.reduce((sum, item) => sum + item.totalAmount, 0),
-    status: 'PENDING',
-    statementIds,
-    items,
-    remark,
-    createdAt: timestamp,
-    createdBy: by,
-    settlementProfileSnapshotRefs,
-    settlementProfileVersionSummary:
-      settlementProfileSnapshotRefs.length === 0
-        ? '未绑定结算资料版本'
-        : settlementProfileSnapshotRefs.length === 1
-          ? settlementProfileSnapshotRefs[0].versionNo
-          : `${settlementProfileSnapshotRefs.length} 个版本快照`,
-  }
-
-  initialSettlementBatches.push(batch)
-  return { ok: true, batchId }
-}
-
-function startSettlementBatch(batchId: string, by: string): { ok: boolean; message?: string } {
-  const batch = initialSettlementBatches.find((item) => item.batchId === batchId)
-  if (!batch) return { ok: false, message: `结算批次 ${batchId} 不存在` }
-  if (batch.status === 'PROCESSING') return { ok: true }
-  if (batch.status === 'COMPLETED') return { ok: false, message: '已完成的结算批次不可重新开始' }
-
-  batch.status = 'PROCESSING'
-  batch.updatedAt = nowTimestamp()
-  batch.updatedBy = by
-  return { ok: true }
-}
-
-function completeSettlementBatch(batchId: string, by: string): { ok: boolean; message?: string } {
-  const batch = initialSettlementBatches.find((item) => item.batchId === batchId)
-  if (!batch) return { ok: false, message: `结算批次 ${batchId} 不存在` }
-  if (batch.status === 'COMPLETED') return { ok: true }
-
-  const timestamp = nowTimestamp()
-  batch.status = 'COMPLETED'
-  batch.completedAt = timestamp
-  batch.updatedAt = timestamp
-  batch.updatedBy = by
-
-  for (const statementId of batch.statementIds) {
-    const statement = initialStatementDrafts.find((item) => item.statementId === statementId)
-    if (!statement) continue
-    statement.status = 'CLOSED' as StatementStatus
-    statement.updatedAt = timestamp
-    statement.updatedBy = by
-  }
-
-  return { ok: true }
-}
-
-function syncSettlementPaymentResult(
-  input: {
-    batchId: string
-    paymentSyncStatus: 'SUCCESS' | 'FAILED' | 'PARTIAL'
-    paymentAmount?: number
-    paymentAt?: string
-    paymentReferenceNo?: string
-    paymentRemark?: string
-  },
-  by: string,
-): { ok: boolean; message?: string } {
-  const batch = initialSettlementBatches.find((item) => item.batchId === input.batchId)
-  if (!batch) return { ok: false, message: `结算批次 ${input.batchId} 不存在` }
-  if (batch.status !== 'COMPLETED') {
-    return { ok: false, message: '仅已完成批次允许更新打款结果' }
-  }
-
-  if (input.paymentAmount !== undefined && input.paymentAmount < 0) {
-    return { ok: false, message: '打款金额不能为负数' }
-  }
-  if (input.paymentSyncStatus === 'PARTIAL' && (!input.paymentAmount || input.paymentAmount <= 0)) {
-    return { ok: false, message: '部分打款必须填写大于 0 的打款金额' }
-  }
-
-  const timestamp = nowTimestamp()
-  batch.paymentSyncStatus = input.paymentSyncStatus
-  batch.paymentAmount = input.paymentAmount
-  batch.paymentAt = input.paymentAt
-  batch.paymentReferenceNo = input.paymentReferenceNo
-  batch.paymentRemark = input.paymentRemark
-  batch.paymentUpdatedAt = timestamp
-  batch.paymentUpdatedBy = by
-  batch.updatedAt = timestamp
-  batch.updatedBy = by
-  return { ok: true }
-}
-
-function getSettlementPartyCount(batch: SettlementBatch): number {
-  return new Set(batch.items.map((item) => `${item.settlementPartyType}|${item.settlementPartyId}`)).size
-}
-
-function getBatchLifecycleRecords(batch: SettlementBatch): BatchLifecycleRecord[] {
+function getBatchLifecycleRecords(
+  batch: SettlementBatch,
+  approval: FeishuPaymentApproval | null,
+  writeback: PaymentWriteback | null,
+): BatchLifecycleRecord[] {
   const records: BatchLifecycleRecord[] = [
     {
-      title: '创建批次',
+      title: '创建预付款批次',
       time: batch.createdAt,
-      detail: `${batch.createdBy} 创建批次，并装配 ${batch.statementIds.length} 张已确认对账单。`,
+      detail: `${batch.createdBy} 以 ${batch.totalStatementCount} 张已确认对账单创建预付款批次。`,
     },
   ]
 
-  if (batch.status === 'PENDING') {
+  if (batch.appliedForPaymentAt) {
     records.push({
-      title: '进行中',
-      time: batch.updatedAt ?? batch.createdAt,
-      detail: '当前批次仍在平台执行中心处理中，尚未进入打款阶段。',
+      title: '已申请付款',
+      time: batch.appliedForPaymentAt,
+      detail: approval
+        ? `已创建飞书付款审批 ${approval.approvalNo}，等待审批与付款进度同步。`
+        : '已发起申请付款，等待生成飞书付款审批信息。',
     })
   }
 
-  if (batch.status === 'PROCESSING') {
+  if (approval) {
     records.push({
-      title: '待打款/待回写',
-      time: batch.updatedAt ?? batch.createdAt,
-      detail: '批次已进入打款结果处理阶段，待补录回写信息。',
+      title: '飞书付款审批',
+      time: approval.latestSyncedAt ?? approval.createdAt,
+      detail: `${APPROVAL_STATUS_LABEL[approval.status]}，审批编号 ${approval.approvalNo}`,
     })
   }
 
-  if (batch.completedAt) {
+  if (approval?.paidAt) {
     records.push({
-      title: '已完成',
-      time: batch.completedAt,
-      detail: '批次已完成结算执行，可继续登记打款与回写结果。',
+      title: '飞书已付款',
+      time: approval.paidAt,
+      detail: `飞书付款审批已显示已付款，金额 ${formatAmount(approval.amount, approval.currency)}。`,
     })
   }
 
-  if (batch.paymentAt || batch.paymentUpdatedAt || batch.paymentSyncStatus) {
+  if (writeback) {
     records.push({
-      title: '打款与回写',
-      time: batch.paymentUpdatedAt ?? batch.paymentAt ?? batch.completedAt ?? batch.updatedAt ?? batch.createdAt,
-      detail: `${SYNC_STATUS_LABEL[getEffectivePaymentSyncStatus(batch)]}，${batch.paymentReferenceNo ? `参考号 ${batch.paymentReferenceNo}` : '当前未填写参考号'}`,
+      title: '已完成打款回写',
+      time: writeback.writtenBackAt,
+      detail: `已登记银行回执 ${writeback.bankReceiptName} 与银行流水 ${writeback.bankSerialNo}。`,
     })
   }
 
-  if (isHistoryBatch(batch)) {
+  if (batch.closedAt) {
     records.push({
-      title: '历史归档',
-      time: batch.archivedAt ?? batch.updatedAt ?? batch.completedAt ?? batch.createdAt,
-      detail: '该批次已转入历史视图，保留归档查看。',
+      title: '批次关闭',
+      time: batch.closedAt,
+      detail: '预付款批次已关闭归档，保留历史查看。',
     })
   }
 
@@ -588,14 +521,17 @@ function getBatchLifecycleRecords(batch: SettlementBatch): BatchLifecycleRecord[
 }
 
 function getBatchDetailViewModel(batch: SettlementBatch): BatchDetailViewModel {
+  const approval = getBatchApproval(batch)
+  const writeback = getBatchWriteback(batch)
   return {
     batch,
+    approval,
+    writeback,
     statementCount: batch.statementIds.length,
-    settlementPartyCount: getSettlementPartyCount(batch),
-    paidAmount: getPaidAmount(batch),
-    pendingAmount: getPendingAmount(batch),
-    paymentStatus: getEffectivePaymentSyncStatus(batch),
-    lifecycleRecords: getBatchLifecycleRecords(batch),
+    paidAmount: getPaidAmount(batch, approval, writeback),
+    pendingAmount: getPendingAmount(batch, approval, writeback),
+    writebackStatus: getWritebackStatus(batch, approval, writeback),
+    lifecycleRecords: getBatchLifecycleRecords(batch, approval, writeback),
     profileVersionSummary: batch.settlementProfileVersionSummary ?? '未绑定结算资料版本',
   }
 }
@@ -607,48 +543,19 @@ function getDetailBatch(): BatchDetailViewModel | null {
   return getBatchDetailViewModel(batch)
 }
 
-function openPaymentDialog(batchId: string): void {
-  const batch = initialSettlementBatches.find((item) => item.batchId === batchId)
-  if (!batch) return
-
-  state.paymentDialogBatchId = batchId
-  state.paymentForm = {
-    paymentSyncStatus:
-      getEffectivePaymentSyncStatus(batch) === 'UNSYNCED'
-        ? ''
-        : (getEffectivePaymentSyncStatus(batch) as PaymentForm['paymentSyncStatus']),
-    paymentAmount: batch.paymentAmount !== undefined ? String(batch.paymentAmount) : '',
-    paymentAt: batch.paymentAt ?? '',
-    paymentReferenceNo: batch.paymentReferenceNo ?? '',
-    paymentRemark: batch.paymentRemark ?? '',
-  }
-  state.paymentFormError = ''
-  state.paymentSaving = false
-}
-
-function closePaymentDialog(): void {
-  state.paymentDialogBatchId = null
-  state.paymentForm = { ...EMPTY_PAYMENT_FORM }
-  state.paymentFormError = ''
-  state.paymentSaving = false
-}
-
 function renderWorkbenchCard(
   label: string,
   value: string,
   note: string,
   active: boolean,
-  action?: string,
+  action: string,
 ): string {
   return `
     <article class="${toClassName(
       'rounded-lg border bg-card transition-colors',
       active ? 'border-blue-300 shadow-sm' : '',
     )}">
-      <button
-        class="flex w-full flex-col gap-1 px-4 py-4 text-left"
-        ${action ? `data-batch-action="${escapeHtml(action)}"` : ''}
-      >
+      <button class="flex w-full flex-col gap-1 px-4 py-4 text-left" data-batch-action="${escapeHtml(action)}">
         <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
         <p class="text-2xl font-semibold tabular-nums">${escapeHtml(value)}</p>
         <p class="text-xs text-muted-foreground">${escapeHtml(note)}</p>
@@ -660,41 +567,11 @@ function renderWorkbenchCard(
 function renderStatsSection(counts: BatchWorkbenchCounts): string {
   return `
     <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-      ${renderWorkbenchCard(
-        '待入批对账单',
-        String(counts.candidateCount),
-        `候选金额 ${formatAmount(counts.candidateAmount)}`,
-        state.activeView === 'IN_PROGRESS',
-        'switch-view-in-progress',
-      )}
-      ${renderWorkbenchCard(
-        '进行中批次',
-        String(counts.inProgressCount),
-        '已装配对账单，待进入打款处理。',
-        state.activeView === 'IN_PROGRESS',
-        'switch-view-in-progress',
-      )}
-      ${renderWorkbenchCard(
-        '待打款/待回写',
-        String(counts.paymentCount),
-        '承接打款结果更新与回写登记。',
-        state.activeView === 'PAYMENT',
-        'switch-view-payment',
-      )}
-      ${renderWorkbenchCard(
-        '已完成',
-        String(counts.completedCount),
-        '查看近期已完成批次。',
-        state.activeView === 'COMPLETED',
-        'switch-view-completed',
-      )}
-      ${renderWorkbenchCard(
-        '历史',
-        String(counts.historyCount),
-        '查看归档批次记录。',
-        state.activeView === 'HISTORY',
-        'switch-view-history',
-      )}
+      ${renderWorkbenchCard('待入预付款对账单', String(counts.candidateCount), `候选金额 ${formatAmount(counts.candidateAmount)}`, state.activeView === 'IN_PROGRESS', 'switch-view-in-progress')}
+      ${renderWorkbenchCard('待申请/审批中', String(counts.inProgressCount), '已组批，等待申请付款或同步飞书状态。', state.activeView === 'IN_PROGRESS', 'switch-view-in-progress')}
+      ${renderWorkbenchCard('已付款待回写', String(counts.paymentCount), '飞书已付款，等待登记银行回执与流水。', state.activeView === 'PAYMENT', 'switch-view-payment')}
+      ${renderWorkbenchCard('已预付', String(counts.completedCount), '已完成打款回写，待关闭归档。', state.activeView === 'COMPLETED', 'switch-view-completed')}
+      ${renderWorkbenchCard('历史', String(counts.historyCount), '已关闭的预付款批次。', state.activeView === 'HISTORY', 'switch-view-history')}
     </section>
   `
 }
@@ -724,9 +601,7 @@ function renderViewSwitcher(counts: BatchWorkbenchCounts): string {
                 data-view="${entry.view}"
               >
                 ${escapeHtml(VIEW_LABEL[entry.view])}
-                <span class="ml-2 inline-flex rounded-md bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
-                  ${entry.count}
-                </span>
+                <span class="ml-2 inline-flex rounded-md bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">${entry.count}</span>
               </button>
             `,
           )
@@ -741,6 +616,12 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
   const partyOptions = getPartyOptions(candidates)
   const filteredPool = getFilteredPool(candidates)
   const selectedAmount = getSelectedAmount(candidates)
+  const selectedFactoryIds = new Set(
+    Array.from(state.selected)
+      .map((statementId) => candidates.find((item) => item.statementId === statementId)?.settlementPartyId)
+      .filter(Boolean) as string[],
+  )
+  const hasCrossFactorySelection = selectedFactoryIds.size > 1
   const allSelected =
     filteredPool.length > 0 && filteredPool.every((item) => state.selected.has(item.statementId))
 
@@ -748,8 +629,8 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
     <section class="space-y-3 rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-base font-medium">待入批对账单</h2>
-          <p class="mt-1 text-sm text-muted-foreground">从已确认对账单中选择同一结算对象，创建新的结算批次。</p>
+          <h2 class="text-base font-medium">待入预付款对账单</h2>
+          <p class="mt-1 text-sm text-muted-foreground">这里只展示已确认、已准备进入预付款的正式对账单。创建批次时会强校验同一工厂、同一币种和同一收款资料快照版本。</p>
         </div>
       </div>
 
@@ -757,11 +638,11 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
         <input
           class="h-9 w-56 rounded-md border bg-background px-3 text-sm"
           data-batch-field="poolKeyword"
-          placeholder="搜索对账单号/结算对象/备注"
+          placeholder="搜索对账单号/工厂/周期"
           value="${escapeHtml(state.poolKeyword)}"
         />
         <select class="h-9 w-56 rounded-md border bg-background px-3 text-sm" data-batch-field="poolParty">
-          <option value="__all__" ${state.poolParty === '__all__' ? 'selected' : ''}>全部结算对象</option>
+          <option value="__all__" ${state.poolParty === '__all__' ? 'selected' : ''}>全部工厂</option>
           ${partyOptions
             .map(
               (item) =>
@@ -779,6 +660,11 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                 已选 <span class="font-medium text-foreground">${state.selected.size}</span> 张对账单，
                 合计 <span class="font-medium text-foreground">${formatAmount(selectedAmount)}</span>
               </div>
+              ${
+                hasCrossFactorySelection
+                  ? `<p class="mb-3 text-xs text-red-600">当前选择跨工厂，对账单创建预付款批次时会被拦截。</p>`
+                  : ''
+              }
               <div class="flex flex-wrap items-end gap-3">
                 <div class="space-y-1">
                   <label class="text-xs text-muted-foreground">批次名称</label>
@@ -798,7 +684,7 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                     value="${escapeHtml(state.remark)}"
                   />
                 </div>
-                <button class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-batch-action="create-batch">生成结算批次</button>
+                <button class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-batch-action="create-batch">创建预付款批次</button>
               </div>
             </div>
           `
@@ -807,7 +693,7 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
 
       ${
         filteredPool.length === 0
-          ? `<p class="py-8 text-center text-sm text-muted-foreground">暂无可纳入批次的对账单</p>`
+          ? `<p class="py-8 text-center text-sm text-muted-foreground">暂无可纳入预付款批次的对账单</p>`
           : `
             <div class="overflow-x-auto rounded-md border">
               <table class="w-full min-w-[1180px] text-sm">
@@ -822,18 +708,28 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                       />
                     </th>
                     <th class="px-4 py-2 font-medium">对账单号</th>
-                    <th class="px-4 py-2 font-medium">结算对象</th>
+                    <th class="px-4 py-2 font-medium">工厂</th>
+                    <th class="px-4 py-2 font-medium">结算周期</th>
+                    <th class="px-4 py-2 font-medium">平台状态</th>
+                    <th class="px-4 py-2 font-medium">工厂反馈</th>
+                    <th class="px-4 py-2 font-medium">申诉</th>
+                    <th class="px-4 py-2 font-medium">预付款说明</th>
                     <th class="px-4 py-2 text-right font-medium">条目数</th>
-                    <th class="px-4 py-2 text-right font-medium">总数量</th>
-                    <th class="px-4 py-2 text-right font-medium">总金额</th>
-                    <th class="px-4 py-2 font-medium">更新时间</th>
+                    <th class="px-4 py-2 text-right font-medium">净额</th>
                     <th class="px-4 py-2 font-medium">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${filteredPool
-                    .map(
-                      (item) => `
+                    .map((item) => {
+                      const openAppeal = getOpenStatementAppeal(item)
+                      const progressView = getStatementSettlementProgressView(item)
+                      const appealSummary = openAppeal
+                        ? `${openAppeal.reasonName} · ${getAppealStatusLabel(openAppeal.status)}`
+                        : item.appealRecords?.length
+                          ? '已有历史申诉'
+                          : '无申诉'
+                      return `
                         <tr class="border-b last:border-b-0">
                           <td class="px-4 py-3">
                             <input
@@ -844,20 +740,21 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
                               ${state.selected.has(item.statementId) ? 'checked' : ''}
                             />
                           </td>
-                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.statementId)}</td>
-                          <td class="px-4 py-3">${escapeHtml(
-                            partyLabel(item.settlementPartyType, item.settlementPartyId),
-                          )}</td>
+                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.statementNo ?? item.statementId)}</td>
+                          <td class="px-4 py-3">${escapeHtml(item.factoryName ?? item.statementPartyView ?? item.settlementPartyId)}</td>
+                          <td class="px-4 py-3 text-xs">${escapeHtml(item.settlementCycleLabel ?? '-')}</td>
+                          <td class="px-4 py-3 text-xs">${escapeHtml(STATEMENT_STATUS_LABEL[item.status])}</td>
+                          <td class="px-4 py-3 text-xs">${escapeHtml(getFactoryFeedbackLabel(item.factoryFeedbackStatus))}</td>
+                          <td class="px-4 py-3 text-xs">${escapeHtml(appealSummary)}</td>
+                          <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(progressView.summary)}</td>
                           <td class="px-4 py-3 text-right tabular-nums">${item.itemCount}</td>
-                          <td class="px-4 py-3 text-right tabular-nums">${item.totalQty}</td>
-                          <td class="px-4 py-3 text-right tabular-nums">${formatAmount(item.totalAmount)}</td>
-                          <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.updatedAt ?? item.createdAt)}</td>
+                          <td class="px-4 py-3 text-right tabular-nums">${formatAmount(item.netPayableAmount, getStatementCurrency(item))}</td>
                           <td class="px-4 py-3">
                             <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/settlement/statements">前往对账单</button>
                           </td>
                         </tr>
-                      `,
-                    )
+                      `
+                    })
                     .join('')}
                 </tbody>
               </table>
@@ -868,128 +765,119 @@ function renderCandidatePool(candidates: StatementDraft[]): string {
   `
 }
 
-function renderBatchRows(view: BatchWorkbenchView, items: SettlementBatch[]): string {
-  if (items.length === 0) {
-    return `<p class="py-10 text-center text-sm text-muted-foreground">${
-      view === 'IN_PROGRESS'
-        ? '暂无进行中的结算批次'
-        : view === 'PAYMENT'
-          ? '暂无待打款或待回写的结算批次'
-          : view === 'COMPLETED'
-            ? '暂无近期已完成批次'
-            : '暂无历史批次'
-    }</p>`
+function renderBatchActions(batch: SettlementBatch, approval: FeishuPaymentApproval | null, writeback: PaymentWriteback | null): string {
+  const actions = [
+    `<button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-batch-action="open-detail" data-batch-id="${escapeHtml(batch.batchId)}">查看详情</button>`,
+  ]
+
+  if (canApplyPayment(batch, approval)) {
+    actions.push(
+      `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-batch-action="apply-payment" data-batch-id="${escapeHtml(batch.batchId)}">申请付款</button>`,
+    )
+  } else if (canSyncApproval(approval, writeback)) {
+    actions.push(
+      `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-batch-action="sync-approval" data-batch-id="${escapeHtml(batch.batchId)}">同步飞书状态</button>`,
+    )
+  } else if (canCreateWriteback(batch, approval, writeback)) {
+    actions.push(
+      `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-batch-action="create-writeback" data-batch-id="${escapeHtml(batch.batchId)}">创建打款回写</button>`,
+    )
+  } else if (canCloseBatch(batch, writeback)) {
+    actions.push(
+      `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-batch-action="close-batch" data-batch-id="${escapeHtml(batch.batchId)}">关闭批次</button>`,
+    )
   }
 
-  const header =
-    view === 'PAYMENT'
-      ? `
-        <tr class="border-b bg-muted/40 text-left">
-          <th class="px-4 py-2 font-medium">批次号</th>
-          <th class="px-4 py-2 font-medium">批次名称</th>
-          <th class="px-4 py-2 text-center font-medium">对账单数</th>
-          <th class="px-4 py-2 font-medium">批次状态</th>
-          <th class="px-4 py-2 font-medium">总金额</th>
-          <th class="px-4 py-2 font-medium">已打款金额</th>
-          <th class="px-4 py-2 font-medium">回写状态</th>
-          <th class="px-4 py-2 font-medium">回写时间</th>
-          <th class="px-4 py-2 font-medium">操作</th>
-        </tr>
-      `
-      : `
-        <tr class="border-b bg-muted/40 text-left">
-          <th class="px-4 py-2 font-medium">批次号</th>
-          <th class="px-4 py-2 font-medium">批次名称</th>
-          <th class="px-4 py-2 text-center font-medium">对账单数</th>
-          <th class="px-4 py-2 text-center font-medium">结算对象数</th>
-          <th class="px-4 py-2 font-medium">总金额</th>
-          <th class="px-4 py-2 font-medium">批次状态</th>
-          <th class="px-4 py-2 font-medium">${
-            view === 'HISTORY' ? '归档时间' : view === 'COMPLETED' ? '完成时间' : '创建时间'
-          }</th>
-          <th class="px-4 py-2 font-medium">操作</th>
-        </tr>
-      `
+  return `<div class="flex flex-wrap gap-1">${actions.join('')}</div>`
+}
 
-  const rows = items
-    .map((item) => {
-      const statementCount = item.statementIds.length
-      const paymentStatus = getEffectivePaymentSyncStatus(item)
-      const primaryTime =
-        view === 'HISTORY'
-          ? item.archivedAt ?? item.updatedAt ?? item.completedAt ?? item.createdAt
+function renderBatchRows(view: BatchWorkbenchView, items: SettlementBatch[]): string {
+  if (items.length === 0) {
+    const emptyText =
+      view === 'IN_PROGRESS'
+        ? '暂无待申请或审批中的预付款批次'
+        : view === 'PAYMENT'
+          ? '暂无已付款待回写的预付款批次'
           : view === 'COMPLETED'
-            ? item.completedAt ?? item.updatedAt ?? item.createdAt
-            : view === 'PAYMENT'
-              ? item.paymentUpdatedAt ?? item.updatedAt ?? item.createdAt
-              : item.createdAt
+            ? '暂无已预付批次'
+            : '暂无历史预付款批次'
+    return `<p class="py-10 text-center text-sm text-muted-foreground">${emptyText}</p>`
+  }
 
-      if (view === 'PAYMENT') {
-        return `
-          <tr class="border-b last:border-b-0">
-            <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.batchId)}</td>
-            <td class="px-4 py-3">${escapeHtml(item.batchName ?? '未命名批次')}</td>
-            <td class="px-4 py-3 text-center">${statementCount}</td>
-            <td class="px-4 py-3">
-              <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${BATCH_STATUS_BADGE[item.status]}">
-                ${escapeHtml(BATCH_STATUS_LABEL[item.status])}
-              </span>
-            </td>
-            <td class="px-4 py-3">${formatAmount(item.totalAmount)}</td>
-            <td class="px-4 py-3">${formatAmount(getPaidAmount(item))}</td>
-            <td class="px-4 py-3">
-              <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${SYNC_STATUS_BADGE[paymentStatus]}">
-                ${escapeHtml(SYNC_STATUS_LABEL[paymentStatus])}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(primaryTime)}</td>
-            <td class="px-4 py-3">
-              <div class="flex flex-wrap gap-1">
-                <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-batch-action="open-detail" data-batch-id="${escapeHtml(item.batchId)}">查看详情</button>
-                ${
-                  item.status === 'PROCESSING'
-                    ? `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-batch-action="complete-batch" data-batch-id="${escapeHtml(item.batchId)}">完成批次</button>`
-                    : `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-batch-action="open-payment-dialog" data-batch-id="${escapeHtml(item.batchId)}">更新打款结果</button>`
-                }
-              </div>
-            </td>
-          </tr>
-        `
-      }
-
-      return `
-        <tr class="border-b last:border-b-0">
-          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.batchId)}</td>
-          <td class="px-4 py-3">${escapeHtml(item.batchName ?? '未命名批次')}</td>
-          <td class="px-4 py-3 text-center">${statementCount}</td>
-          <td class="px-4 py-3 text-center">${getSettlementPartyCount(item)}</td>
-          <td class="px-4 py-3">${formatAmount(item.totalAmount)}</td>
-          <td class="px-4 py-3">
-            <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${BATCH_STATUS_BADGE[item.status]}">
-              ${escapeHtml(BATCH_STATUS_LABEL[item.status])}
-            </span>
-          </td>
-          <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(primaryTime)}</td>
-          <td class="px-4 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-batch-action="open-detail" data-batch-id="${escapeHtml(item.batchId)}">查看详情</button>
-              ${
-                view === 'IN_PROGRESS'
-                  ? `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-batch-action="start-batch" data-batch-id="${escapeHtml(item.batchId)}">进入待打款</button>`
-                  : ''
-              }
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
+  const timeLabel =
+    view === 'PAYMENT' ? '最近同步' : view === 'COMPLETED' ? '预付时间' : view === 'HISTORY' ? '关闭时间' : '创建时间'
 
   return `
     <div class="overflow-x-auto rounded-md border">
-      <table class="w-full min-w-[1100px] text-sm">
-        <thead>${header}</thead>
-        <tbody>${rows}</tbody>
+      <table class="w-full min-w-[1180px] text-sm">
+        <thead>
+          <tr class="border-b bg-muted/40 text-left">
+            <th class="px-4 py-2 font-medium">批次号</th>
+            <th class="px-4 py-2 font-medium">工厂</th>
+            <th class="px-4 py-2 text-center font-medium">对账单数</th>
+            <th class="px-4 py-2 font-medium">批次金额</th>
+            <th class="px-4 py-2 font-medium">批次状态</th>
+            <th class="px-4 py-2 font-medium">飞书付款审批</th>
+            <th class="px-4 py-2 font-medium">打款回写</th>
+            <th class="px-4 py-2 font-medium">${timeLabel}</th>
+            <th class="px-4 py-2 font-medium">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items
+            .map((item) => {
+              const approval = getBatchApproval(item)
+              const writeback = getBatchWriteback(item)
+              const writebackStatus = getWritebackStatus(item, approval, writeback)
+              const primaryTime =
+                view === 'PAYMENT'
+                  ? approval?.latestSyncedAt ?? approval?.createdAt ?? item.updatedAt ?? item.createdAt
+                  : view === 'COMPLETED'
+                    ? item.prepaidAt ?? writeback?.writtenBackAt ?? item.updatedAt ?? item.createdAt
+                    : view === 'HISTORY'
+                      ? item.closedAt ?? item.updatedAt ?? item.createdAt
+                      : item.createdAt
+
+              return `
+                <tr class="border-b last:border-b-0">
+                  <td class="px-4 py-3">
+                    <div class="font-mono text-xs">${escapeHtml(item.batchNo)}</div>
+                    <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(item.batchName ?? item.batchNo)}</div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div>${escapeHtml(item.factoryName)}</div>
+                    <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(item.settlementCurrency)} · 版本 ${escapeHtml(item.payeeAccountSnapshotVersion)}</div>
+                  </td>
+                  <td class="px-4 py-3 text-center">${item.totalStatementCount}</td>
+                  <td class="px-4 py-3 tabular-nums">${formatAmount(item.totalPayableAmount, item.settlementCurrency)}</td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex rounded-md px-2 py-0.5 text-xs ${BATCH_STATUS_BADGE[item.status]}">${escapeHtml(BATCH_STATUS_LABEL[item.status])}</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    ${
+                      approval
+                        ? `
+                          <div class="flex flex-col gap-1">
+                            <span class="inline-flex w-fit rounded-md px-2 py-0.5 text-xs ${APPROVAL_STATUS_BADGE[approval.status]}">${escapeHtml(APPROVAL_STATUS_LABEL[approval.status])}</span>
+                            <div class="text-[10px] text-muted-foreground">${escapeHtml(approval.approvalNo)}</div>
+                          </div>
+                        `
+                        : '<span class="text-xs text-muted-foreground">当前未申请</span>'
+                    }
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex flex-col gap-1">
+                      <span class="inline-flex w-fit rounded-md px-2 py-0.5 text-xs ${WRITEBACK_STATUS_BADGE[writebackStatus]}">${escapeHtml(WRITEBACK_STATUS_LABEL[writebackStatus])}</span>
+                      <div class="text-[10px] text-muted-foreground">${escapeHtml(writeback?.bankSerialNo ?? item.paymentReferenceNo ?? '当前未登记银行流水')}</div>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(primaryTime)}</td>
+                  <td class="px-4 py-3">${renderBatchActions(item, approval, writeback)}</td>
+                </tr>
+              `
+            })
+            .join('')}
+        </tbody>
       </table>
     </div>
   `
@@ -1005,14 +893,14 @@ function renderCurrentViewList(): string {
         ${renderCandidatePool(candidates)}
         <section class="space-y-3 rounded-lg border bg-card p-4">
           <div>
-            <h2 class="text-base font-medium">进行中批次</h2>
-            <p class="mt-1 text-sm text-muted-foreground">查看已组批、仍在平台执行中的结算批次。</p>
+            <h2 class="text-base font-medium">待申请/审批中批次</h2>
+            <p class="mt-1 text-sm text-muted-foreground">查看已组批、待申请付款或飞书付款审批尚未完成的预付款批次。</p>
           </div>
           <div class="flex flex-wrap gap-2">
             <input
               class="h-9 w-56 rounded-md border bg-background px-3 text-sm"
               data-batch-field="batchKeyword"
-              placeholder="搜索批次号/名称/备注"
+              placeholder="搜索批次号/工厂/审批编号"
               value="${escapeHtml(state.batchKeyword)}"
             />
           </div>
@@ -1032,7 +920,7 @@ function renderCurrentViewList(): string {
         <input
           class="h-9 w-56 rounded-md border bg-background px-3 text-sm"
           data-batch-field="batchKeyword"
-          placeholder="搜索批次号/名称/备注"
+          placeholder="搜索批次号/工厂/审批编号"
           value="${escapeHtml(state.batchKeyword)}"
         />
       </div>
@@ -1041,136 +929,80 @@ function renderCurrentViewList(): string {
   `
 }
 
-function renderPaymentDialog(): string {
-  if (!state.paymentDialogBatchId) return ''
-  const batch = initialSettlementBatches.find((item) => item.batchId === state.paymentDialogBatchId)
-  if (!batch) return ''
-
-  return `
-    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-batch-action="close-payment-dialog" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
-        <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-batch-action="close-payment-dialog" aria-label="关闭">
-          <i data-lucide="x" class="h-4 w-4"></i>
-        </button>
-        <header class="mb-3">
-          <h3 class="text-lg font-semibold">更新打款结果</h3>
-          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(batch.batchId)} · ${escapeHtml(batch.batchName ?? '未命名批次')}</p>
-        </header>
-
-        <div class="flex flex-col gap-4 py-2">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">回写状态 <span class="text-red-600">*</span></label>
-            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-batch-field="paymentSyncStatus">
-              <option value="" ${state.paymentForm.paymentSyncStatus === '' ? 'selected' : ''}>请选择回写状态</option>
-              <option value="SUCCESS" ${state.paymentForm.paymentSyncStatus === 'SUCCESS' ? 'selected' : ''}>已回写</option>
-              <option value="FAILED" ${state.paymentForm.paymentSyncStatus === 'FAILED' ? 'selected' : ''}>回写失败</option>
-              <option value="PARTIAL" ${state.paymentForm.paymentSyncStatus === 'PARTIAL' ? 'selected' : ''}>部分回写</option>
-            </select>
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">打款金额</label>
-            <input
-              class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              type="number"
-              min="0"
-              data-batch-field="paymentAmount"
-              placeholder="请输入打款金额"
-              value="${escapeHtml(state.paymentForm.paymentAmount)}"
-            />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">打款时间</label>
-            <input
-              class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              data-batch-field="paymentAt"
-              placeholder="例：2026-03-26 10:30:00"
-              value="${escapeHtml(state.paymentForm.paymentAt)}"
-            />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">打款参考号</label>
-            <input
-              class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              data-batch-field="paymentReferenceNo"
-              placeholder="银行流水号或参考号"
-              value="${escapeHtml(state.paymentForm.paymentReferenceNo)}"
-            />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">说明</label>
-            <textarea
-              rows="2"
-              class="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              data-batch-field="paymentRemark"
-              placeholder="可选说明"
-            >${escapeHtml(state.paymentForm.paymentRemark)}</textarea>
-          </div>
-          ${
-            state.paymentFormError
-              ? `<p class="text-sm text-red-600">${escapeHtml(state.paymentFormError)}</p>`
-              : ''
-          }
-        </div>
-
-        <footer class="mt-2 flex justify-end gap-2">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="close-payment-dialog">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            state.paymentSaving ? 'pointer-events-none opacity-50' : ''
-          }" data-batch-action="save-payment-dialog">保存</button>
-        </footer>
-      </section>
-    </div>
-  `
-}
-
 function renderDetailDialog(detail: BatchDetailViewModel | null): string {
   if (!detail) return ''
 
+  const primarySnapshot = getPrimarySnapshot(detail.batch)
   const statementRows = detail.batch.statementIds
     .map((statementId) => initialStatementDrafts.find((item) => item.statementId === statementId))
     .filter(Boolean) as StatementDraft[]
 
+  const detailActions = [
+    canApplyPayment(detail.batch, detail.approval)
+      ? `<button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="apply-payment" data-batch-id="${escapeHtml(detail.batch.batchId)}">申请付款</button>`
+      : '',
+    canSyncApproval(detail.approval, detail.writeback)
+      ? `<button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="sync-approval" data-batch-id="${escapeHtml(detail.batch.batchId)}">同步飞书状态</button>`
+      : '',
+    canCreateWriteback(detail.batch, detail.approval, detail.writeback)
+      ? `<button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="create-writeback" data-batch-id="${escapeHtml(detail.batch.batchId)}">创建打款回写</button>`
+      : '',
+    canCloseBatch(detail.batch, detail.writeback)
+      ? `<button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="close-batch" data-batch-id="${escapeHtml(detail.batch.batchId)}">关闭批次</button>`
+      : '',
+    `<button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="close-detail">关闭</button>`,
+  ]
+    .filter(Boolean)
+    .join('')
+
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-batch-action="close-detail" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 flex max-h-[90vh] w-full max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
+      <section class="absolute left-1/2 top-1/2 flex max-h-[90vh] w-full max-w-6xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
         <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-batch-action="close-detail" aria-label="关闭">
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
 
         <header class="mb-4">
-          <h3 class="text-lg font-semibold">${escapeHtml(detail.batch.batchId)}${detail.batch.batchName ? ` · ${escapeHtml(detail.batch.batchName)}` : ''}</h3>
-          <p class="mt-1 text-sm text-muted-foreground">结算批次负责装配已确认对账单，并统一承接打款、回写和历史归档。</p>
+          <h3 class="text-lg font-semibold">${escapeHtml(detail.batch.batchNo)}${detail.batch.batchName ? ` · ${escapeHtml(detail.batch.batchName)}` : ''}</h3>
+          <p class="mt-1 text-sm text-muted-foreground">预付款批次负责装配同一工厂已确认对账单，并承接申请付款、飞书付款审批、打款回写和关闭归档。</p>
         </header>
 
         <div class="grid grid-cols-1 gap-4 overflow-y-auto md:grid-cols-2">
           <section class="rounded-lg border bg-card p-4">
-            <h4 class="text-sm font-medium">基本信息</h4>
+            <h4 class="text-sm font-medium">基本信息 / 概况</h4>
             <dl class="mt-3 space-y-2 text-sm">
               <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">批次号</dt>
-                <dd class="font-mono text-xs">${escapeHtml(detail.batch.batchId)}</dd>
+                <dd class="font-mono text-xs">${escapeHtml(detail.batch.batchNo)}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">工厂</dt>
+                <dd>${escapeHtml(detail.batch.factoryName)}</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">批次状态</dt>
                 <dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${BATCH_STATUS_BADGE[detail.batch.status]}">${escapeHtml(BATCH_STATUS_LABEL[detail.batch.status])}</span></dd>
               </div>
               <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">创建时间</dt>
-                <dd>${escapeHtml(detail.batch.createdAt)}</dd>
-              </div>
-              <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">完成时间</dt>
-                <dd>${escapeHtml(detail.batch.completedAt ?? '当前未完成')}</dd>
-              </div>
-              <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">对账单数</dt>
                 <dd>${detail.statementCount}</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">结算对象数</dt>
-                <dd>${detail.settlementPartyCount}</dd>
+                <dt class="text-muted-foreground">创建时间</dt>
+                <dd>${escapeHtml(detail.batch.createdAt)}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">申请付款时间</dt>
+                <dd>${escapeHtml(detail.batch.appliedForPaymentAt ?? '当前未申请')}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">预付时间</dt>
+                <dd>${escapeHtml(detail.batch.prepaidAt ?? '当前未完成预付')}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">关闭时间</dt>
+                <dd>${escapeHtml(detail.batch.closedAt ?? '当前未关闭')}</dd>
               </div>
               ${
                 detail.batch.remark
@@ -1186,96 +1018,157 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
           </section>
 
           <section class="rounded-lg border bg-card p-4">
-            <h4 class="text-sm font-medium">金额信息</h4>
+            <h4 class="text-sm font-medium">金额构成</h4>
             <dl class="mt-3 space-y-2 text-sm">
               <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">批次总金额</dt>
-                <dd class="font-medium">${formatAmount(detail.batch.totalAmount)}</dd>
+                <dt class="text-muted-foreground">预付总额</dt>
+                <dd class="font-medium">${formatAmount(detail.batch.totalPayableAmount, detail.batch.settlementCurrency)}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">任务收入合计</dt>
+                <dd>${formatAmount(detail.batch.totalEarningAmount, detail.batch.settlementCurrency)}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">质量扣款合计</dt>
+                <dd>${formatAmount(detail.batch.totalDeductionAmount, detail.batch.settlementCurrency)}</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">已打款金额</dt>
-                <dd>${formatAmount(detail.paidAmount)}</dd>
+                <dd>${formatAmount(detail.paidAmount, detail.batch.settlementCurrency)}</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">待打款/待回写金额</dt>
-                <dd>${formatAmount(detail.pendingAmount)}</dd>
+                <dt class="text-muted-foreground">待完成回写金额</dt>
+                <dd>${formatAmount(detail.pendingAmount, detail.batch.settlementCurrency)}</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">回写状态</dt>
-                <dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${SYNC_STATUS_BADGE[detail.paymentStatus]}">${escapeHtml(SYNC_STATUS_LABEL[detail.paymentStatus])}</span></dd>
-              </div>
-              <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">打款时间</dt>
-                <dd>${escapeHtml(detail.batch.paymentAt ?? '当前未登记')}</dd>
-              </div>
-              <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">参考号</dt>
-                <dd>${escapeHtml(detail.batch.paymentReferenceNo ?? '当前未填写')}</dd>
+                <dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${WRITEBACK_STATUS_BADGE[detail.writebackStatus]}">${escapeHtml(WRITEBACK_STATUS_LABEL[detail.writebackStatus])}</span></dd>
               </div>
             </dl>
           </section>
 
           <section class="rounded-lg border bg-card p-4">
-            <h4 class="text-sm font-medium">结算资料快照</h4>
-            <p class="mt-1 text-xs text-muted-foreground">结算批次沿用关联对账单生成时冻结的结算资料版本，不会被后续主数据新版本直接覆盖。</p>
+            <h4 class="text-sm font-medium">收款账户快照</h4>
+            <p class="mt-1 text-xs text-muted-foreground">预付款批次沿用对账单冻结时的收款资料快照，不会因主数据后续版本变化而漂移。</p>
             <dl class="mt-3 space-y-2 text-sm">
               <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">版本概况</dt>
                 <dd>${escapeHtml(detail.profileVersionSummary)}</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">快照版本</dt>
+                <dd>${escapeHtml(detail.batch.payeeAccountSnapshotVersion)}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <dt class="text-muted-foreground">收款账户快照 ID</dt>
+                <dd class="text-right text-xs">${escapeHtml(detail.batch.payeeAccountSnapshotId)}</dd>
+              </div>
+              <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">默认币种</dt>
-                <dd>${escapeHtml(detail.batch.settlementProfileSnapshotRefs?.[0]?.settlementConfigSnapshot.currency ?? 'IDR')}</dd>
+                <dd>${escapeHtml(detail.batch.settlementCurrency)}</dd>
               </div>
               <div class="flex items-start justify-between gap-3">
                 <dt class="text-muted-foreground">收款账户</dt>
                 <dd class="text-right text-xs">${escapeHtml(
-                  detail.batch.settlementProfileSnapshotRefs?.[0]
-                    ? `${detail.batch.settlementProfileSnapshotRefs[0].receivingAccountSnapshot.bankName} · ${maskBankAccountNo(
-                        detail.batch.settlementProfileSnapshotRefs[0].receivingAccountSnapshot.bankAccountNo,
+                  primarySnapshot
+                    ? `${primarySnapshot.receivingAccountSnapshot.bankName} · ${maskBankAccountNo(
+                        primarySnapshot.receivingAccountSnapshot.bankAccountNo,
                       )}`
                     : '当前未绑定',
                 )}</dd>
               </div>
-              <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">生效说明</dt>
-                <dd class="max-w-[70%] text-right text-xs text-muted-foreground">后续主数据新增版本只影响未来新对账单与新批次，当前批次继续保留生成时快照。</dd>
-              </div>
             </dl>
           </section>
 
+          <section class="rounded-lg border bg-card p-4">
+            <h4 class="text-sm font-medium">飞书付款审批信息</h4>
+            ${
+              detail.approval
+                ? `
+                  <dl class="mt-3 space-y-2 text-sm">
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">审批编号</dt>
+                      <dd class="font-mono text-xs">${escapeHtml(detail.approval.approvalNo)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">审批状态</dt>
+                      <dd><span class="inline-flex rounded-md px-2 py-0.5 text-xs ${APPROVAL_STATUS_BADGE[detail.approval.status]}">${escapeHtml(APPROVAL_STATUS_LABEL[detail.approval.status])}</span></dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">创建时间</dt>
+                      <dd>${escapeHtml(detail.approval.createdAt)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">最近同步</dt>
+                      <dd>${escapeHtml(detail.approval.latestSyncedAt ?? detail.approval.createdAt)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">审批金额</dt>
+                      <dd>${formatAmount(detail.approval.amount, detail.approval.currency)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">已付款时间</dt>
+                      <dd>${escapeHtml(detail.approval.paidAt ?? '当前未付款')}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">付款回执</dt>
+                      <dd class="text-right text-xs">${escapeHtml(detail.approval.bankReceiptName ?? '当前未返回')}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">银行流水</dt>
+                      <dd class="text-right text-xs">${escapeHtml(detail.approval.bankSerialNo ?? '当前未返回')}</dd>
+                    </div>
+                  </dl>
+                `
+                : `<p class="mt-3 text-sm text-muted-foreground">当前未创建飞书付款审批。申请付款后会在这里显示审批编号、审批状态与最近同步时间。</p>`
+            }
+          </section>
+
           <section class="rounded-lg border bg-card p-4 md:col-span-2">
-            <h4 class="text-sm font-medium">关联对账单</h4>
+            <h4 class="text-sm font-medium">已选对账单列表</h4>
             <div class="mt-3 overflow-x-auto rounded-md border">
-              <table class="w-full min-w-[860px] text-sm">
+              <table class="w-full min-w-[980px] text-sm">
                 <thead>
                   <tr class="border-b bg-muted/40 text-left">
                     <th class="px-4 py-2 font-medium">对账单号</th>
-                    <th class="px-4 py-2 font-medium">结算对象</th>
-                    <th class="px-4 py-2 font-medium">版本号</th>
-                    <th class="px-4 py-2 font-medium">状态</th>
+                    <th class="px-4 py-2 font-medium">工厂</th>
+                    <th class="px-4 py-2 font-medium">结算周期</th>
+                    <th class="px-4 py-2 font-medium">平台状态</th>
                     <th class="px-4 py-2 font-medium">工厂反馈</th>
+                    <th class="px-4 py-2 font-medium">申诉</th>
+                    <th class="px-4 py-2 font-medium">处理结果</th>
+                    <th class="px-4 py-2 font-medium">预付款说明</th>
                     <th class="px-4 py-2 font-medium">金额</th>
                     <th class="px-4 py-2 font-medium">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${statementRows
-                    .map(
-                      (statement) => `
+                    .map((statement) => {
+                      const openAppeal = getOpenStatementAppeal(statement)
+                      const appealLabel = openAppeal
+                        ? getAppealStatusLabel(openAppeal.status)
+                        : statement.appealRecords?.length
+                          ? '已有历史申诉'
+                          : '无申诉'
+                      const progressView = getStatementSettlementProgressView(statement)
+                      return `
                         <tr class="border-b last:border-b-0">
-                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(statement.statementId)}</td>
-                          <td class="px-4 py-3">${escapeHtml(partyLabel(statement.settlementPartyType, statement.settlementPartyId))}</td>
-                          <td class="px-4 py-3 text-xs">${escapeHtml(statement.settlementProfileVersionNo)}</td>
-                          <td class="px-4 py-3">${escapeHtml(statement.status === 'CONFIRMED' ? '已确认' : statement.status === 'CLOSED' ? '已关闭' : '草稿中')}</td>
+                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(statement.statementNo ?? statement.statementId)}</td>
+                          <td class="px-4 py-3">${escapeHtml(statement.factoryName ?? statement.statementPartyView ?? statement.settlementPartyId)}</td>
+                          <td class="px-4 py-3 text-xs">${escapeHtml(statement.settlementCycleLabel ?? '-')}</td>
+                          <td class="px-4 py-3 text-xs">${escapeHtml(STATEMENT_STATUS_LABEL[statement.status])}</td>
                           <td class="px-4 py-3 text-xs">${escapeHtml(getFactoryFeedbackLabel(statement.factoryFeedbackStatus))}</td>
-                          <td class="px-4 py-3">${formatAmount(statement.totalAmount)}</td>
+                          <td class="px-4 py-3 text-xs">${escapeHtml(appealLabel)}</td>
+                          <td class="px-4 py-3 text-xs">${escapeHtml(getResolutionResultLabel(statement.resolutionResult))}</td>
+                          <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(statement.prepaymentBatchNo ?? progressView.summary)}</td>
+                          <td class="px-4 py-3 tabular-nums">${formatAmount(statement.netPayableAmount, getStatementCurrency(statement))}</td>
                           <td class="px-4 py-3">
                             <button class="inline-flex h-7 items-center rounded-md px-2 text-xs hover:bg-muted" data-nav="/fcs/settlement/statements">前往对账单</button>
                           </td>
                         </tr>
-                      `,
-                    )
+                      `
+                    })
                     .join('')}
                 </tbody>
               </table>
@@ -1283,29 +1176,55 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
           </section>
 
           <section class="rounded-lg border bg-card p-4">
-            <h4 class="text-sm font-medium">打款与回写</h4>
-            <dl class="mt-3 space-y-2 text-sm">
-              <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">回写状态</dt>
-                <dd>${escapeHtml(SYNC_STATUS_LABEL[detail.paymentStatus])}</dd>
-              </div>
-              <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">回写时间</dt>
-                <dd>${escapeHtml(detail.batch.paymentUpdatedAt ?? '当前未回写')}</dd>
-              </div>
-              <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">回写人</dt>
-                <dd>${escapeHtml(detail.batch.paymentUpdatedBy ?? '当前未填写')}</dd>
-              </div>
-              <div class="flex items-start justify-between gap-3">
-                <dt class="text-muted-foreground">打款说明</dt>
-                <dd class="max-w-[70%] text-right">${escapeHtml(detail.batch.paymentRemark ?? '当前未填写')}</dd>
-              </div>
-            </dl>
+            <h4 class="text-sm font-medium">打款回写信息</h4>
+            ${
+              detail.writeback
+                ? `
+                  <dl class="mt-3 space-y-2 text-sm">
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">回写单号</dt>
+                      <dd class="font-mono text-xs">${escapeHtml(detail.writeback.writebackId)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">关联审批编号</dt>
+                      <dd class="text-right text-xs">${escapeHtml(detail.writeback.approvalNo)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">打款金额</dt>
+                      <dd>${formatAmount(detail.writeback.amount, detail.writeback.currency)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">打款时间</dt>
+                      <dd>${escapeHtml(detail.writeback.paidAt)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">银行回执</dt>
+                      <dd class="text-right text-xs">${escapeHtml(detail.writeback.bankReceiptName)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">银行流水号</dt>
+                      <dd class="text-right text-xs">${escapeHtml(detail.writeback.bankSerialNo)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">回写时间</dt>
+                      <dd>${escapeHtml(detail.writeback.writtenBackAt)}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-3">
+                      <dt class="text-muted-foreground">回写人</dt>
+                      <dd>${escapeHtml(detail.writeback.writtenBackBy)}</dd>
+                    </div>
+                  </dl>
+                `
+                : `<p class="mt-3 text-sm text-muted-foreground">${
+                    detail.approval?.status === 'PAID'
+                      ? '飞书付款审批已到已付款状态，当前待创建正式打款回写。'
+                      : '当前尚未生成打款回写。'
+                  }</p>`
+            }
           </section>
 
           <section class="rounded-lg border bg-card p-4">
-            <h4 class="text-sm font-medium">生命周期记录</h4>
+            <h4 class="text-sm font-medium">状态流转区</h4>
             <ol class="mt-3 space-y-3 text-sm">
               ${detail.lifecycleRecords
                 .map(
@@ -1325,22 +1244,7 @@ function renderDetailDialog(detail: BatchDetailViewModel | null): string {
         </div>
 
         <footer class="mt-4 flex flex-wrap justify-end gap-2">
-          ${
-            detail.batch.status === 'PENDING'
-              ? `<button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="start-batch" data-batch-id="${escapeHtml(detail.batch.batchId)}">进入待打款</button>`
-              : ''
-          }
-          ${
-            detail.batch.status === 'PROCESSING'
-              ? `<button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="complete-batch" data-batch-id="${escapeHtml(detail.batch.batchId)}">完成批次</button>`
-              : ''
-          }
-          ${
-            detail.batch.status === 'COMPLETED' && detail.paymentStatus !== 'SUCCESS'
-              ? `<button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="open-payment-dialog" data-batch-id="${escapeHtml(detail.batch.batchId)}">更新打款结果</button>`
-              : ''
-          }
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-batch-action="close-detail">关闭</button>
+          ${detailActions}
         </footer>
       </section>
     </div>
@@ -1358,7 +1262,7 @@ export function renderBatchesPage(): string {
   return `
     <div class="flex flex-col gap-6 p-6">
       <section>
-        <h1 class="text-xl font-semibold">结算批次</h1>
+        <h1 class="text-xl font-semibold">预付款批次</h1>
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(pageBoundary.pageIntro)}</p>
       </section>
 
@@ -1366,7 +1270,6 @@ export function renderBatchesPage(): string {
       ${renderViewSwitcher(counts)}
       ${renderCurrentViewList()}
       ${renderDetailDialog(detailBatch)}
-      ${renderPaymentDialog()}
     </div>
   `
 }
@@ -1399,26 +1302,6 @@ export function handleBatchesEvent(target: HTMLElement): boolean {
     }
     if (field === 'remark') {
       state.remark = fieldNode.value
-      return true
-    }
-    if (field === 'paymentSyncStatus') {
-      state.paymentForm.paymentSyncStatus = fieldNode.value as PaymentForm['paymentSyncStatus']
-      return true
-    }
-    if (field === 'paymentAmount') {
-      state.paymentForm.paymentAmount = fieldNode.value
-      return true
-    }
-    if (field === 'paymentAt') {
-      state.paymentForm.paymentAt = fieldNode.value
-      return true
-    }
-    if (field === 'paymentReferenceNo') {
-      state.paymentForm.paymentReferenceNo = fieldNode.value
-      return true
-    }
-    if (field === 'paymentRemark') {
-      state.paymentForm.paymentRemark = fieldNode.value
       return true
     }
     return true
@@ -1475,52 +1358,96 @@ export function handleBatchesEvent(target: HTMLElement): boolean {
       return true
     }
 
-    const result = createSettlementBatch(
-      {
-        statementIds: Array.from(state.selected),
-        batchName: state.batchName.trim() || undefined,
-        remark: state.remark.trim() || undefined,
-      },
-      'Admin',
-    )
+    const result = createPrepaymentBatch({
+      statementIds: Array.from(state.selected),
+      batchName: state.batchName.trim() || undefined,
+      remark: state.remark.trim() || undefined,
+      by: '财务A',
+    })
 
-    if (!result.ok) {
-      showBatchesToast(result.message ?? '生成失败', 'error')
+    if (!result.ok || !result.data) {
+      showBatchesToast(result.message ?? '创建预付款批次失败', 'error')
       return true
     }
 
-    showBatchesToast('已生成结算批次')
+    showBatchesToast(`已创建预付款批次 ${result.data.batchNo}`)
     state.selected = new Set<string>()
     state.batchName = ''
     state.remark = ''
-    state.detailBatchId = result.batchId ?? null
+    state.detailBatchId = result.data.batchId
     appStore.navigate(buildBatchesHref('IN_PROGRESS'))
     return true
   }
 
-  if (action === 'start-batch') {
+  if (action === 'apply-payment') {
     const batchId = actionNode.dataset.batchId
     if (!batchId) return true
-    const result = startSettlementBatch(batchId, 'Admin')
-    if (!result.ok) {
-      showBatchesToast(result.message ?? '操作失败', 'error')
+    const result = applyPrepaymentBatchForPayment({ batchId, by: '财务A' })
+    if (!result.ok || !result.data) {
+      showBatchesToast(result.message ?? '申请付款失败', 'error')
       return true
     }
-    showBatchesToast('批次已进入待打款/待回写')
-    appStore.navigate(buildBatchesHref('PAYMENT'))
+    showBatchesToast(`已创建飞书付款审批 ${result.data.approvalNo}`)
+    state.detailBatchId = batchId
+    appStore.navigate(buildBatchesHref('IN_PROGRESS'))
     return true
   }
 
-  if (action === 'complete-batch') {
+  if (action === 'sync-approval') {
     const batchId = actionNode.dataset.batchId
     if (!batchId) return true
-    const result = completeSettlementBatch(batchId, 'Admin')
-    if (!result.ok) {
-      showBatchesToast(result.message ?? '操作失败', 'error')
+    const batch = initialSettlementBatches.find((item) => item.batchId === batchId)
+    if (!batch?.feishuApprovalId) {
+      showBatchesToast('当前批次尚未创建飞书付款审批', 'error')
       return true
     }
-    showBatchesToast('批次已完成，待更新打款结果')
-    appStore.navigate(buildBatchesHref('PAYMENT'))
+    const result = syncFeishuPaymentApprovalStatus({
+      approvalId: batch.feishuApprovalId,
+      by: '财务共享',
+    })
+    if (!result.ok || !result.data) {
+      showBatchesToast(result.message ?? '同步飞书状态失败', 'error')
+      return true
+    }
+    showBatchesToast(`飞书付款审批已同步为${APPROVAL_STATUS_LABEL[result.data.status]}`)
+    state.detailBatchId = batchId
+    const updatedBatch = initialSettlementBatches.find((item) => item.batchId === batchId)
+    if (updatedBatch?.status === 'FEISHU_PAID_PENDING_WRITEBACK') {
+      appStore.navigate(buildBatchesHref('PAYMENT'))
+    } else {
+      appStore.navigate(buildBatchesHref('IN_PROGRESS'))
+    }
+    return true
+  }
+
+  if (action === 'create-writeback') {
+    const batchId = actionNode.dataset.batchId
+    if (!batchId) return true
+    const result = createPaymentWriteback({
+      batchId,
+      by: '财务A',
+    })
+    if (!result.ok || !result.data) {
+      showBatchesToast(result.message ?? '创建打款回写失败', 'error')
+      return true
+    }
+    showBatchesToast(`已完成打款回写，银行流水 ${result.data.bankSerialNo}`)
+    state.detailBatchId = batchId
+    appStore.navigate(buildBatchesHref('COMPLETED'))
+    return true
+  }
+
+  if (action === 'close-batch') {
+    const batchId = actionNode.dataset.batchId
+    if (!batchId) return true
+    const result = closePrepaymentBatch({ batchId, by: '财务A' })
+    if (!result.ok) {
+      showBatchesToast(result.message ?? '关闭批次失败', 'error')
+      return true
+    }
+    showBatchesToast('预付款批次已关闭')
+    state.detailBatchId = batchId
+    appStore.navigate(buildBatchesHref('HISTORY'))
     return true
   }
 
@@ -1535,69 +1462,9 @@ export function handleBatchesEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-payment-dialog') {
-    const batchId = actionNode.dataset.batchId
-    if (batchId) openPaymentDialog(batchId)
-    return true
-  }
-
-  if (action === 'close-payment-dialog') {
-    closePaymentDialog()
-    return true
-  }
-
-  if (action === 'save-payment-dialog') {
-    if (!state.paymentDialogBatchId) return true
-    if (!state.paymentForm.paymentSyncStatus) {
-      state.paymentFormError = '请选择回写状态'
-      return true
-    }
-    if (
-      state.paymentForm.paymentSyncStatus === 'PARTIAL' &&
-      (!state.paymentForm.paymentAmount || Number(state.paymentForm.paymentAmount) <= 0)
-    ) {
-      state.paymentFormError = '部分回写必须填写大于 0 的打款金额'
-      return true
-    }
-    if (state.paymentForm.paymentAmount && Number(state.paymentForm.paymentAmount) < 0) {
-      state.paymentFormError = '打款金额不能为负数'
-      return true
-    }
-
-    state.paymentSaving = true
-    const result = syncSettlementPaymentResult(
-      {
-        batchId: state.paymentDialogBatchId,
-        paymentSyncStatus: state.paymentForm.paymentSyncStatus,
-        paymentAmount: state.paymentForm.paymentAmount ? Number(state.paymentForm.paymentAmount) : undefined,
-        paymentAt: state.paymentForm.paymentAt || undefined,
-        paymentReferenceNo: state.paymentForm.paymentReferenceNo || undefined,
-        paymentRemark: state.paymentForm.paymentRemark || undefined,
-      },
-      '财务A',
-    )
-    state.paymentSaving = false
-
-    if (!result.ok) {
-      state.paymentFormError = result.message ?? '保存失败'
-      return true
-    }
-
-    const currentBatch = initialSettlementBatches.find((item) => item.batchId === state.paymentDialogBatchId)
-    closePaymentDialog()
-    showBatchesToast('打款结果已更新')
-    if (currentBatch && isHistoryBatch(currentBatch)) appStore.navigate(buildBatchesHref('HISTORY'))
-    else if (currentBatch && getEffectivePaymentSyncStatus(currentBatch) === 'SUCCESS') {
-      appStore.navigate(buildBatchesHref('COMPLETED'))
-    } else {
-      appStore.navigate(buildBatchesHref('PAYMENT'))
-    }
-    return true
-  }
-
   return true
 }
 
 export function isBatchesDialogOpen(): boolean {
-  return state.detailBatchId !== null || state.paymentDialogBatchId !== null
+  return state.detailBatchId !== null
 }

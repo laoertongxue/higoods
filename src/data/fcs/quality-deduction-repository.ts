@@ -4,6 +4,8 @@ import {
   qualityDeductionSharedDeductionBases,
   qualityDeductionSharedDisputeCases,
   qualityDeductionSharedFactoryResponses,
+  qualityDeductionSharedFormalLedgers,
+  qualityDeductionSharedPendingDeductionRecords,
   qualityDeductionSharedQcRecords,
   qualityDeductionSharedSettlementAdjustments,
   qualityDeductionSharedSettlementImpacts,
@@ -14,6 +16,8 @@ import type {
   DeductionBasisFact,
   DisputeCaseFact,
   FactoryResponseFact,
+  FormalQualityDeductionLedgerFact,
+  PendingQualityDeductionRecord,
   QualityDeductionDisputeSubmissionInput,
   QualityDeductionFactoryConfirmInput,
   QualityDeductionCaseFact,
@@ -170,6 +174,22 @@ export function listQualityDeductionDeductionBases(options: {
     .filter((item): item is DeductionBasisFact => item !== null)
 }
 
+export function listPendingQualityDeductionRecords(options: {
+  includeLegacy?: boolean
+} = {}): PendingQualityDeductionRecord[] {
+  return listQualityDeductionCaseFacts(options)
+    .map((item) => item.pendingDeductionRecord)
+    .filter((item): item is PendingQualityDeductionRecord => item !== null)
+}
+
+export function listFormalQualityDeductionLedgers(options: {
+  includeLegacy?: boolean
+} = {}): FormalQualityDeductionLedgerFact[] {
+  return listQualityDeductionCaseFacts(options)
+    .map((item) => item.formalLedger)
+    .filter((item): item is FormalQualityDeductionLedgerFact => item !== null)
+}
+
 export function listQualityDeductionDisputeCases(options: {
   includeLegacy?: boolean
 } = {}): DisputeCaseFact[] {
@@ -241,6 +261,37 @@ export function getQualityDeductionSettlementAdjustmentByQcId(qcId: string): Set
   return getQualityDeductionCaseFactByQcId(qcId)?.settlementAdjustment ?? null
 }
 
+export function getPendingQualityDeductionRecordByQcId(qcId: string): PendingQualityDeductionRecord | null {
+  return getQualityDeductionCaseFactByQcId(qcId)?.pendingDeductionRecord ?? null
+}
+
+export function getFormalQualityDeductionLedgerByQcId(qcId: string): FormalQualityDeductionLedgerFact | null {
+  return getQualityDeductionCaseFactByQcId(qcId)?.formalLedger ?? null
+}
+
+export function getFormalQualityDeductionLedgerById(ledgerId: string): FormalQualityDeductionLedgerFact | null {
+  syncQualityDeductionLifecycle()
+  return qualityDeductionSharedFormalLedgers.find((item) => item.ledgerId === ledgerId || item.ledgerNo === ledgerId) ?? null
+}
+
+export function traceQualityDeductionLedgerSource(ledgerId: string): {
+  ledger: FormalQualityDeductionLedgerFact
+  caseFact: QualityDeductionCaseFact
+  pendingRecord: PendingQualityDeductionRecord | null
+  disputeCase: DisputeCaseFact | null
+} | null {
+  const ledger = getFormalQualityDeductionLedgerById(ledgerId)
+  if (!ledger) return null
+  const caseFact = getQualityDeductionCaseFactByQcId(ledger.qcId)
+  if (!caseFact) return null
+  return {
+    ledger,
+    caseFact,
+    pendingRecord: caseFact.pendingDeductionRecord,
+    disputeCase: caseFact.disputeCase,
+  }
+}
+
 export function getQualityDeductionCaseStatusByQcId(qcId: string): QualityDeductionCaseStatus | null {
   syncQualityDeductionLifecycle()
   const caseFact = getQualityDeductionCaseFactByQcId(qcId)
@@ -258,13 +309,24 @@ export function confirmQualityDeductionFactoryResponse(
 
   const { qcRecord } = caseFact
   if (!caseFact.factoryResponse || caseFact.factoryResponse.factoryResponseStatus !== 'PENDING_RESPONSE') {
-    return { ok: false, message: '当前记录不处于待工厂响应状态' }
+    return { ok: false, message: '当前记录不处于待工厂处理状态' }
   }
   if (qcRecord.factoryLiabilityQty <= 0) {
     return { ok: false, message: '当前记录不需要工厂确认处理' }
   }
 
   const respondedAt = input.respondedAt ?? nowTimestamp()
+  if (caseFact.pendingDeductionRecord) {
+    caseFact.pendingDeductionRecord.status = 'FACTORY_CONFIRMED'
+    caseFact.pendingDeductionRecord.handledAt = respondedAt
+    caseFact.pendingDeductionRecord.handledBy = input.responderUserName
+    caseFact.pendingDeductionRecord.handledComment = input.responseComment ?? '工厂已确认当前责任与处理结果'
+    caseFact.pendingDeductionRecord.updatedAt = respondedAt
+    caseFact.pendingDeductionRecord.isOverdue = isPastDeadline(
+      caseFact.pendingDeductionRecord.responseDeadlineAt,
+      new Date(respondedAt.replace(' ', 'T')),
+    )
+  }
   caseFact.factoryResponse.factoryResponseStatus = 'CONFIRMED'
   caseFact.factoryResponse.respondedAt = respondedAt
   caseFact.factoryResponse.autoConfirmedAt = undefined
@@ -288,7 +350,7 @@ export function confirmQualityDeductionFactoryResponse(
   }
 
   qcRecord.updatedAt = respondedAt
-  appendQcAuditLog(caseFact, '工厂确认处理，记录转入可结算链路', input.responderUserName, respondedAt, 'FACTORY_CONFIRM_RESPONSE')
+  appendQcAuditLog(caseFact, '工厂确认处理后，正式质量扣款流水已生成', input.responderUserName, respondedAt, 'FACTORY_CONFIRM_RESPONSE')
 
   return { ok: true, caseFact }
 }
@@ -339,6 +401,14 @@ export function submitQualityDeductionDispute(
   caseFact.factoryResponse.responseComment = input.disputeDescription
   caseFact.factoryResponse.isOverdue = false
   ensureFactoryResponseArrayEntry(caseFact.factoryResponse)
+  if (caseFact.pendingDeductionRecord) {
+    caseFact.pendingDeductionRecord.status = 'DISPUTED'
+    caseFact.pendingDeductionRecord.handledAt = submittedAt
+    caseFact.pendingDeductionRecord.handledBy = input.submittedByUserName
+    caseFact.pendingDeductionRecord.handledComment = input.disputeDescription
+    caseFact.pendingDeductionRecord.updatedAt = submittedAt
+    caseFact.pendingDeductionRecord.isOverdue = false
+  }
 
   const disputeId =
     caseFact.disputeCase?.disputeId ?? `QCD-${sanitizeIdPart(caseFact.qcRecord.qcId)}`
@@ -368,17 +438,6 @@ export function submitQualityDeductionDispute(
   ensureDisputeArrayEntry(disputeCase)
   caseByDisputeId.set(disputeId, caseFact)
 
-  caseFact.settlementImpact.status = 'BLOCKED'
-  caseFact.settlementImpact.blockedSettlementQty =
-    caseFact.settlementImpact.blockedSettlementQty || caseFact.qcRecord.factoryLiabilityQty
-  caseFact.settlementImpact.blockedProcessingFeeAmount =
-    caseFact.deductionBasis.blockedProcessingFeeAmount
-  caseFact.settlementImpact.effectiveQualityDeductionAmount =
-    caseFact.deductionBasis.effectiveQualityDeductionAmount
-  caseFact.settlementImpact.summary = '工厂已发起异议，结算保持冻结，待平台处理'
-  caseFact.settlementImpact.eligibleAt = undefined
-  updateSettlementImpactTotals(caseFact)
-
   if (caseFact.deductionBasis.status === 'EFFECTIVE') {
     caseFact.deductionBasis.status = 'GENERATED'
   }
@@ -393,6 +452,7 @@ export function submitQualityDeductionDispute(
 }
 
 export function validateQualityDeductionRepository(): QualityDeductionValidationIssue[] {
+  syncQualityDeductionLifecycle()
   return validateQualityDeductionSharedFacts()
 }
 
@@ -401,6 +461,8 @@ export {
   qualityDeductionSharedDeductionBases,
   qualityDeductionSharedDisputeCases,
   qualityDeductionSharedFactoryResponses,
+  qualityDeductionSharedFormalLedgers,
+  qualityDeductionSharedPendingDeductionRecords,
   qualityDeductionSharedQcRecords,
   qualityDeductionSharedSettlementAdjustments,
   qualityDeductionSharedSettlementImpacts,

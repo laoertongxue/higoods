@@ -1,9 +1,8 @@
-import { cloneCuttingExceptionRecords } from '../cutting-exception/mock'
+import { buildPlatformCuttingExceptionViews } from '../cutting-exception/platform.adapter'
 import type { CuttingException } from '../cutting-exception/types'
 import { buildPlatformCuttingDetailView } from '../cutting-platform/detail.adapter'
 import { buildPlatformCuttingDetailRoute } from '../cutting-platform/detail.helpers'
-import type { PlatformCuttingOverviewRow } from '../cutting-platform/overview.adapter'
-import { clonePlatformCuttingOverviewRows } from '../cutting-platform/overview.mock'
+import { buildPlatformCuttingRuntimeOverviewData, type PlatformCuttingOverviewRow } from '../cutting-platform/overview.adapter'
 import type {
   CuttingExceptionImpactSummary,
   CuttingExecutionInputSummary,
@@ -147,10 +146,10 @@ function buildExceptionImpactSummary(row: PlatformCuttingOverviewRow, exceptions
 function buildOperatorSummary(row: PlatformCuttingOverviewRow): OperatorContributionSummary[] {
   const seeds = [
     {
-      operatorName: row.record.receiveSummary.latestReceiveBy,
-      latestActionAt: row.record.receiveSummary.latestReceiveAt,
+      operatorName: row.pickupSummary.latestScannedBy,
+      latestActionAt: row.pickupSummary.latestScannedAt,
       key: 'pickup' as const,
-      latestActionSummary: row.record.receiveSummary.latestReceiveAt ? '最近负责领料回写' : '',
+      latestActionSummary: row.pickupSummary.latestScannedAt ? '最近负责领料回写' : '',
     },
     {
       operatorName: row.record.spreadingSummary.latestSpreadingBy,
@@ -253,8 +252,8 @@ function buildReviewStatus(
 }
 
 export function buildPlatformCuttingSettlementInputViews(
-  rows: PlatformCuttingOverviewRow[] = clonePlatformCuttingOverviewRows(),
-  allExceptions: CuttingException[] = cloneCuttingExceptionRecords(),
+  rows: PlatformCuttingOverviewRow[] = buildPlatformCuttingRuntimeOverviewData().rows,
+  allExceptions: CuttingException[] = buildPlatformCuttingExceptionViews(rows),
 ): CuttingSettlementInputView[] {
   return rows.map((row) => {
     const detail = buildPlatformCuttingDetailView(row.id)

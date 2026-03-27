@@ -45,8 +45,6 @@ import {
 } from '../../data/fcs/quality-chain-adapter'
 import {
   getPlatformQcDetailViewModelByRouteKey,
-  QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_TYPE_LABEL,
-  QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_WRITEBACK_STATUS_LABEL,
   type PlatformQcDetailViewModel,
 } from '../../data/fcs/quality-deduction-selectors'
 import { renderPdaFrame } from '../pda-shell'
@@ -389,8 +387,8 @@ const FACTORY_RESPONSE_ACTION_LABEL: Record<'CONFIRM' | 'DISPUTE' | 'AUTO_CONFIR
 }
 
 const PLATFORM_ADJUDICATION_RESULT_LABEL = {
-  UPHELD: '维持原判',
-  PARTIALLY_ADJUSTED: '部分调整',
+  UPHELD: '维持当前工厂责任',
+  PARTIALLY_ADJUSTED: '调整为部分工厂责任',
   REVERSED: '改判为非工厂责任',
 } as const
 
@@ -544,8 +542,8 @@ function renderAdjudicationPanel(
   const isPartial = detail.adjudication.result === 'PARTIALLY_ADJUSTED'
   const settlementLocked = Boolean(detailVm.settlementImpact.statementLockedAt || detailVm.settlementImpact.settledAt)
   const settlementStageHint = settlementLocked
-    ? '当前记录已纳入锁账/已结算周期。若裁决改变金额，本次不会反改历史批次，而会生成下周期结算调整项。'
-    : '当前记录尚未锁账。维持原判或部分调整后，可直接回写当前结算影响。'
+    ? '当前记录已纳入锁账或预付款批次。若裁决改变金额，本次不会反改历史批次，仅回写正式质量扣款流水的最终结果。'
+    : '当前记录尚未锁账。维持当前工厂责任或调整为部分工厂责任后，可直接生成正式质量扣款流水。'
 
   return `
     <div class="rounded-md border border-amber-200 bg-amber-50/60 px-4 py-4">
@@ -579,7 +577,7 @@ function renderAdjudicationPanel(
         <textarea
           class="min-h-24 w-full rounded-md border bg-white px-3 py-2 text-sm"
           data-qcd-adjudication-field="comment"
-          placeholder="请说明维持原判、部分调整或改判为非工厂责任的依据。"
+          placeholder="请说明最终维持工厂责任、最终部分工厂责任或最终非工厂责任的依据。"
         >${escapeHtml(detail.adjudication.comment)}</textarea>
       </div>
 
@@ -612,7 +610,7 @@ function renderAdjudicationPanel(
           : detail.adjudication.result === 'REVERSED'
             ? `
               <div class="mt-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                改判为非工厂责任后，将取消当前工厂责任、冻结加工费金额和质量扣款金额；若当前批次已锁账/已结算，则自动生成下周期冲回调整项。
+                改判为非工厂责任后，将关闭当前待确认质量扣款记录，并且不生成正式质量扣款流水。
               </div>
             `
             : ''
@@ -635,7 +633,7 @@ function renderAdjudicationPanel(
 
 function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: QcRecordDetailState): string {
   const focusSection = getCurrentSearchParams().get('focus')
-  const { qcRecord, factoryResponse, deductionBasis, disputeCase, settlementImpact, settlementAdjustment } = detailVm
+  const { qcRecord, factoryResponse, deductionBasis, disputeCase, formalLedger, settlementImpact, settlementAdjustment } = detailVm
   const resultLabel = RESULT_LABEL[detailVm.qcResultDisplay]
   const resultClass = RESULT_CLASS[detailVm.qcResultDisplay]
   const statusClass = STATUS_CLASS[qcRecord.qcStatus as QcStatus]
@@ -1004,7 +1002,7 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
 
       ${renderPcSection(
         '扣款与结算',
-        '这里统一查看扣款依据、金额口径、结算影响和下周期调整，不再拆成两个重复区块。',
+        '这里统一查看扣款依据、正式质量扣款流水与预结算衔接，不再混入旧的调整主链口径。',
         `
           <div class="space-y-5">
             <div class="space-y-4 rounded-md border bg-background px-4 py-4">
@@ -1045,56 +1043,34 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
             </div>
             <div class="space-y-4 rounded-md border bg-background px-4 py-4">
               <div class="flex flex-wrap items-center justify-between gap-3">
-                <h3 class="text-sm font-semibold text-foreground">结算影响</h3>
+                <h3 class="text-sm font-semibold text-foreground">正式质量扣款流水与预结算衔接</h3>
                 ${renderBadge(detailVm.settlementImpactStatusLabel, getSettlementBadgeClass(settlementImpact.status))}
               </div>
               ${renderPcFieldGrid(
                 [
                   { label: '结算影响状态', value: renderBadge(detailVm.settlementImpactStatusLabel, getSettlementBadgeClass(settlementImpact.status)) },
-                  { label: '冻结加工费金额', value: formatMoney(settlementImpact.blockedProcessingFeeAmount) },
-                  { label: '初始质量扣款金额', value: formatMoney(deductionBasis?.proposedQualityDeductionAmount ?? 0) },
-                  { label: '生效质量扣款金额', value: formatMoney(settlementImpact.effectiveQualityDeductionAmount) },
-                  { label: '当前是否可结算', value: detailVm.settlementReady ? '是' : '否' },
-                  { label: '是否已纳入结算单', value: settlementImpact.includedSettlementStatementId ? '是' : '否' },
-                  { label: '是否已结算', value: settlementImpact.status === 'SETTLED' ? '是' : '否' },
-                  { label: '是否待下周期调整', value: settlementImpact.status === 'NEXT_CYCLE_ADJUSTMENT_PENDING' ? '是' : '否' },
-                  { label: '结算周期', value: formatDetailValue(settlementImpact.candidateSettlementCycleId) },
-                  { label: '结算单号', value: formatDetailValue(settlementImpact.includedSettlementStatementId) },
-                  { label: '结算批次号', value: formatDetailValue(settlementImpact.includedSettlementBatchId) },
-                  { label: '纳入结算时间', value: settlementImpact.includedAt ? escapeHtml(formatDateTime(settlementImpact.includedAt)) : '—' },
-                  { label: '锁账时间', value: settlementImpact.statementLockedAt ? escapeHtml(formatDateTime(settlementImpact.statementLockedAt)) : '—' },
-                  { label: '结算完成时间', value: settlementImpact.settledAt ? escapeHtml(formatDateTime(settlementImpact.settledAt)) : '—' },
+                  { label: '是否已形成正式流水', value: formalLedger ? '是' : '否' },
+                  { label: '正式流水编号', value: formalLedger ? `<span class="font-mono">${escapeHtml(formalLedger.ledgerNo)}</span>` : '—' },
+                  { label: '原币金额', value: formalLedger ? `${formalLedger.originalAmount} ${escapeHtml(formalLedger.originalCurrency)}` : '—' },
+                  { label: '预结算币种', value: formalLedger ? escapeHtml(formalLedger.settlementCurrency) : '—' },
+                  { label: '预结算金额', value: formalLedger ? `${formalLedger.settlementAmount} ${escapeHtml(formalLedger.settlementCurrency)}` : '—' },
+                  { label: '汇率快照', value: formalLedger ? String(formalLedger.fxRate) : '—' },
+                  { label: '生成时间', value: formalLedger?.generatedAt ? escapeHtml(formatDateTime(formalLedger.generatedAt)) : '—' },
+                  { label: '是否已进入预结算单', value: formalLedger?.includedStatementId ? '是' : '否' },
+                  { label: '预结算单号', value: formatDetailValue(formalLedger?.includedStatementId ?? settlementImpact.includedSettlementStatementId) },
+                  { label: '预付款批次号', value: formatDetailValue(formalLedger?.includedPrepaymentBatchId ?? settlementImpact.includedSettlementBatchId) },
+                  { label: '预付完成时间', value: formalLedger?.prepaidAt ? escapeHtml(formatDateTime(formalLedger.prepaidAt)) : '—' },
                   { label: '最近回写时间', value: settlementImpact.lastWrittenBackAt ? escapeHtml(formatDateTime(settlementImpact.lastWrittenBackAt)) : '—' },
                 ],
               )}
               <div class="rounded-md border bg-card px-4 py-3 text-sm text-muted-foreground">${escapeHtml(settlementImpact.summary)}</div>
               ${
-                settlementAdjustment
+                !formalLedger && settlementAdjustment
                   ? `
-                    <div class="rounded-md border bg-card px-4 py-4">
-                      <div class="flex items-center justify-between gap-3">
-                        <div>
-                          <p class="text-sm font-semibold text-foreground">下周期调整项</p>
-                          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(settlementAdjustment.summary)}</p>
-                        </div>
-                        ${renderBadge(
-                          QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_TYPE_LABEL[settlementAdjustment.adjustmentType],
-                          settlementAdjustment.adjustmentType === 'REVERSAL'
-                            ? 'border-red-200 bg-red-50 text-red-700'
-                            : 'border-blue-200 bg-blue-50 text-blue-700',
-                        )}
-                      </div>
-                      <div class="mt-4">
-                        ${renderPcFieldGrid(
-                          [
-                            { label: '调整数量', value: String(settlementAdjustment.adjustmentQty) },
-                            { label: '调整金额', value: formatMoney(settlementAdjustment.adjustmentAmount) },
-                            { label: '目标结算周期', value: escapeHtml(settlementAdjustment.targetSettlementCycleId) },
-                            { label: '写回状态', value: escapeHtml(QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_WRITEBACK_STATUS_LABEL[settlementAdjustment.writebackStatus]) },
-                          ],
-                          'md:grid-cols-2 xl:grid-cols-4',
-                        )}
-                      </div>
+                    <div class="rounded-md border border-dashed bg-card px-4 py-4 text-sm text-muted-foreground">
+                      兼容说明：当前仍保留旧兼容映射字段以保证历史页面可读，但新主链只认正式质量扣款流水；本条记录当前${escapeHtml(
+                        settlementAdjustment.summary,
+                      )}。
                     </div>
                   `
                   : ''

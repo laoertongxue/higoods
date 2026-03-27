@@ -217,6 +217,22 @@ export function getLatestClaimDisputeByTaskId(taskId: string): ClaimDisputeRecor
   return listClaimDisputesByTaskId(taskId)[0] ?? null
 }
 
+export function markClaimDisputeCraftWrittenBack(disputeId: string): ClaimDisputeRecord | null {
+  const records = ensureLedger()
+  const index = records.findIndex((item) => item.disputeId === disputeId)
+  if (index < 0) return null
+  const current = records[index]
+  if (current.writtenBackToCraft) return current
+  const updated: ClaimDisputeRecord = {
+    ...current,
+    writtenBackToCraft: true,
+  }
+  const nextRecords = [...records]
+  nextRecords[index] = updated
+  save(nextRecords)
+  return updated
+}
+
 export function createClaimDispute(input: ClaimDisputeCreateInput): { record: ClaimDisputeRecord | null; issues: string[] } {
   const issues = validateClaimDisputeInput(input)
   if (issues.length) return { record: null, issues }

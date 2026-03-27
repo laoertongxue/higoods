@@ -2,6 +2,14 @@ import type {
   ProductionProgressRow,
   ProductionProgressStageKey,
 } from './production-progress-model'
+import type {
+  ProductionPieceTruthCompletionKey,
+  ProductionPieceTruthResult,
+} from '../../../domain/fcs-cutting-piece-truth'
+import {
+  buildProductionPieceTruthCompletion,
+  productionPieceTruthCompletionMetaMap,
+} from '../../../domain/fcs-cutting-piece-truth'
 import type { OriginalCutOrderRow } from './original-orders-model'
 import type { MaterialPrepRow } from './material-prep-model'
 import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model'
@@ -49,10 +57,8 @@ import type {
 } from './special-processes-model'
 import {
   buildCuttingCheckResult,
-  cuttingCheckCompletionMetaMap,
   cuttingCheckSectionLabelMap,
   type CuttingCheckBlockerItem,
-  type CuttingCheckCompletionKey,
   type CuttingCheckNextAction,
   type CuttingCheckSectionKey,
   type CuttingCheckSectionState,
@@ -120,10 +126,20 @@ export interface CuttingSummaryRow {
   warehouseSummary: string
   bagUsageSummary: string
   specialProcessSummary: string
-  completionState: CuttingCheckCompletionKey
+  completionState: ProductionPieceTruthCompletionKey
   completionLabel: string
   completionClassName: string
   completionDetailText: string
+  pieceTruth: ProductionPieceTruthResult
+  skuProgressSummary: string
+  skuTotalCount: number
+  completedSkuCount: number
+  incompleteSkuCount: number
+  incompletePartCount: number
+  dataStateLabel: string
+  primaryGapObjectLabel: string
+  primaryGapMaterialSku: string
+  mainNextActionLabel: string
   checkSections: CuttingCheckSectionState[]
   blockerItems: CuttingCheckBlockerItem[]
   nextActions: CuttingCheckNextAction[]
@@ -137,7 +153,9 @@ export interface CuttingSummaryRow {
   overallRiskLevel: CuttingSummaryRiskLevel
   riskTags: string[]
   issueTypes: CuttingSummaryIssueType[]
+  relatedOriginalCutOrderIds: string[]
   relatedOriginalCutOrderNos: string[]
+  relatedMergeBatchIds: string[]
   relatedMergeBatchNos: string[]
   relatedTicketNos: string[]
   relatedBagCodes: string[]
@@ -230,7 +248,7 @@ export interface CuttingSummaryDashboardCard {
 export interface CuttingSummaryDetailPanelData {
   row: CuttingSummaryRow
   completionMeta: {
-    key: CuttingCheckCompletionKey
+    key: ProductionPieceTruthCompletionKey
     label: string
     className: string
     detailText: string
@@ -240,6 +258,7 @@ export interface CuttingSummaryDetailPanelData {
   sectionStates: CuttingCheckSectionState[]
   nextActions: CuttingCheckNextAction[]
   sourceObjects: CuttingSummarySourceObjectItem[]
+  pieceTruth: ProductionPieceTruthResult
   productionRow: ProductionProgressRow | null
   originalRows: OriginalCutOrderRow[]
   mergeBatches: MergeBatchRecord[]
@@ -510,11 +529,11 @@ const feiPrintJobStatusLabelMap: Record<FeiTicketPrintJob['status'], string> = {
 }
 
 function deriveOverallRiskLevel(options: {
-  completionState: CuttingCheckCompletionKey
+  completionState: ProductionPieceTruthCompletionKey
   blockerItems: CuttingCheckBlockerItem[]
   productionRiskTags: ProductionProgressRow['riskTags']
 }): CuttingSummaryRiskLevel {
-  if (options.blockerItems.some((item) => item.severity === 'HIGH')) return 'HIGH'
+  if (options.completionState === 'HAS_EXCEPTION' || options.blockerItems.some((item) => item.severity === 'HIGH')) return 'HIGH'
   if (options.blockerItems.length || options.completionState === 'DATA_PENDING') return 'MEDIUM'
   if (options.productionRiskTags.length) return 'MEDIUM'
   return 'LOW'
@@ -775,6 +794,12 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
     const specialProcesses = options.specialProcessView.rows.filter((item) => item.productionOrderNos.includes(productionRow.productionOrderNo))
 
     const relatedOriginalCutOrderNos = uniqueStrings(originalRows.map((row) => row.originalCutOrderNo))
+    const relatedOriginalCutOrderIds = uniqueStrings(originalRows.map((row) => row.originalCutOrderId))
+    const relatedMergeBatchIds = uniqueStrings([
+      ...mergeBatches.map((batch) => batch.mergeBatchId),
+      ...originalRows.flatMap((row) => row.mergeBatchIds),
+      ...bagBindings.map((binding) => binding.mergeBatchId),
+    ])
     const relatedMergeBatchNos = uniqueStrings([
       ...Array.from(mergeBatchNoSet),
       ...originalRows.flatMap((row) => row.mergeBatchNos),
@@ -822,9 +847,21 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       specialProcesses,
       navigationPayload,
     })
+    const pieceTruth = productionRow.pieceTruth
+    const completionMeta = buildProductionPieceTruthCompletion(pieceTruth, {
+      hasObjectDataPending: checkResult.sectionStates.some((section) => section.stateKey === 'DATA_PENDING'),
+      hasObjectException: checkResult.blockerItems.some((item) => item.severity === 'HIGH'),
+      hasObjectPending:
+        checkResult.blockerItems.length > 0 ||
+        checkResult.nextActions.length > 0 ||
+        checkResult.sectionStates.some((section) => section.stateKey === 'NOT_STARTED' || section.stateKey === 'IN_PROGRESS'),
+      objectDataPendingReason: checkResult.sectionStates.find((section) => section.stateKey === 'DATA_PENDING')?.reason,
+      objectExceptionReason: checkResult.blockerItems.find((item) => item.severity === 'HIGH')?.blockerReason,
+      objectPendingReason: checkResult.primaryBlocker?.blockerReason || checkResult.nextActions[0]?.reason,
+    })
     const issueTypes = summarizeCheckSections(checkResult.sectionStates)
     const overallRiskLevel = deriveOverallRiskLevel({
-      completionState: checkResult.completionMeta.key,
+      completionState: completionMeta.key,
       blockerItems: checkResult.blockerItems,
       productionRiskTags: productionRow.riskTags,
     })
@@ -846,6 +883,7 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       originalCutOrderCount: relatedOriginalCutOrderNos.length,
       mergeBatchCount: relatedMergeBatchNos.length,
       progressSummary: `${productionRow.currentStage.label} · ${productionRow.cuttingCompletionSummary.label}`,
+      skuProgressSummary: `已完成 ${productionRow.completedSkuCount} / ${productionRow.skuTotalCount}`,
       materialPrepSummary: summarizeMaterialPrep(materialPrepRows),
       spreadingSummary: summarizeSpreading(spreadingSessions, replenishments),
       replenishmentSummary: summarizeReplenishment(replenishments),
@@ -853,26 +891,39 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
       warehouseSummary: summarizeWarehouseStatus({ fabricStocks, cutPieceItems, sampleItems }),
       bagUsageSummary: summarizeBagUsageStatus(bagUsages, returnUsages),
       specialProcessSummary: summarizeSpecialProcess(specialProcesses),
-      completionState: checkResult.completionMeta.key,
-      completionLabel: checkResult.completionMeta.label,
-      completionClassName: checkResult.completionMeta.className,
-      completionDetailText: checkResult.completionMeta.detailText,
+      completionState: completionMeta.key,
+      completionLabel: completionMeta.label,
+      completionClassName: completionMeta.className,
+      completionDetailText: completionMeta.detailText,
+      pieceTruth,
+      skuTotalCount: productionRow.skuTotalCount,
+      completedSkuCount: productionRow.completedSkuCount,
+      incompleteSkuCount: productionRow.incompleteSkuCount,
+      incompletePartCount: productionRow.incompletePartCount,
+      dataStateLabel: productionRow.dataStateLabel,
+      primaryGapObjectLabel: productionRow.primaryGapObjectLabel,
+      primaryGapMaterialSku: productionRow.primaryGapMaterialSku,
+      mainNextActionLabel: checkResult.nextActions[0]?.label || productionRow.mainNextActionLabel,
       checkSections: checkResult.sectionStates,
       blockerItems: checkResult.blockerItems,
       nextActions: checkResult.nextActions,
       primaryBlockerSectionKey: checkResult.primaryBlocker?.sectionKey || '',
       primaryBlockerSectionLabel: checkResult.primaryBlocker
         ? cuttingCheckSectionLabelMap[checkResult.primaryBlocker.sectionKey]
-        : '',
-      primaryBlockerTitle: checkResult.primaryBlocker?.title || '',
-      primaryBlockerReason: checkResult.primaryBlocker?.blockerReason || '',
+        : productionRow.incompletePartCount > 0 || productionRow.incompleteSkuCount > 0
+          ? 'SKU / 部位差异'
+          : '',
+      primaryBlockerTitle: checkResult.primaryBlocker?.title || productionRow.primaryGapPartName || '',
+      primaryBlockerReason: checkResult.primaryBlocker?.blockerReason || productionRow.pieceCompletionSummary.detailText,
       blockingCount: checkResult.blockerCount,
       pendingActionCount: checkResult.pendingActionCount,
       keySourceObjects: checkResult.keySourceObjects,
       overallRiskLevel,
       riskTags,
       issueTypes,
+      relatedOriginalCutOrderIds,
       relatedOriginalCutOrderNos,
+      relatedMergeBatchIds,
       relatedMergeBatchNos,
       relatedTicketNos: uniqueStrings(ticketRecords.map((record) => record.ticketNo)),
       relatedBagCodes,
@@ -908,6 +959,9 @@ export function buildCuttingSummaryRows(options: CuttingSummaryBuildOptions): Cu
         ...checkResult.blockerItems.map((item) => item.sourceNo),
         ...checkResult.blockerItems.map((item) => item.materialSku),
         ...checkResult.keySourceObjects,
+        ...pieceTruth.gapRows.map((item) => item.partName),
+        ...pieceTruth.mappingIssues.map((item) => item.message),
+        ...pieceTruth.dataIssues.map((item) => item.message),
       ]),
       navigationPayload,
     }
@@ -1091,12 +1145,23 @@ export function buildSummaryDetailPanelData(
 
   const base = {
     row,
-    completionMeta: cuttingCheckCompletionMetaMap[row.completionState],
+    completionMeta: productionPieceTruthCompletionMetaMap[row.completionState]
+      ? {
+          key: row.completionState,
+          ...productionPieceTruthCompletionMetaMap[row.completionState],
+          detailText: row.completionDetailText,
+        }
+      : {
+          key: 'DATA_PENDING' as const,
+          ...productionPieceTruthCompletionMetaMap.DATA_PENDING,
+          detailText: row.completionDetailText,
+        },
     primaryBlocker: row.primaryBlockerSectionKey ? row.blockerItems[0] || null : null,
     blockerItems: row.blockerItems,
     sectionStates: row.checkSections,
     nextActions: row.nextActions,
     sourceObjects,
+    pieceTruth: row.pieceTruth,
     productionRow,
     originalRows,
     mergeBatches,

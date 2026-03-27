@@ -373,7 +373,7 @@ function createBasis(scenario: ReturnInboundQcChainScenario): DeductionBasisItem
   }
 }
 
-export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] = [
+const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] = [
   {
     qcId: 'QC-RIB-202603-0001',
     batchId: 'RIB-202603-0001',
@@ -483,7 +483,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       factoryId: 'ID-F001',
       batchId: 'RIB-202603-0002',
       status: 'PENDING_ARBITRATION',
-      summary: '待仲裁，当前冻结对应结算批次',
+      summary: '待仲裁，当前冻结对应后续预付款链路',
     },
   },
   {
@@ -538,7 +538,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       deductionAmount: 1680,
       settlementReady: true,
       deductionAmountEditable: true,
-      summary: '车缝回货入仓最终判定完成，扣款已计入结算批次',
+      summary: '车缝回货入仓最终判定完成，扣款已计入预付款批次',
       evidenceRefs: [
         { name: '入仓抽检照片 8 张', type: '图片' },
         { name: '锁边缺陷明细表', type: '文档' },
@@ -646,7 +646,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       deductionQty: 31,
       deductionAmount: 980,
       settlementReady: false,
-      settlementFreezeReason: '部分冻结，结算批次待处理',
+      settlementFreezeReason: '部分冻结，预付款链路待处理',
       deductionAmountEditable: false,
       summary: '车缝回货已判责，扣款依据已生成，当前仍有部分冻结',
       evidenceRefs: [
@@ -662,7 +662,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       factoryId: 'ID-F001',
       batchId: 'RIB-202603-0005',
       status: 'FROZEN',
-      summary: '部分冻结，等待当前结算批次复核',
+      summary: '部分冻结，等待当前预付款链路复核',
     },
   },
   {
@@ -781,7 +781,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       deductionQty: 18,
       deductionAmount: 540,
       settlementReady: false,
-      settlementFreezeReason: '争议驳回后待下一结算批次',
+      settlementFreezeReason: '争议驳回后待后续预付款链路',
       deductionAmountEditable: false,
       summary: '印花偏位接受扣款，争议已驳回，保留扣款结论',
       evidenceRefs: [
@@ -813,7 +813,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       factoryId: 'ID-F002',
       batchId: 'RIB-202603-0007',
       status: 'FROZEN',
-      summary: '争议驳回后待下一结算批次执行',
+      summary: '争议驳回后待后续预付款链路执行',
     },
   },
   {
@@ -923,7 +923,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     qualifiedQty: 0,
     unqualifiedQty: 56,
     status: 'CLOSED',
-    remark: '裁片边缘破损已判责，扣款依据待当前结算批次处理',
+    remark: '裁片边缘破损已判责，扣款依据待当前预付款链路处理',
     disposition: 'SCRAP',
     affectedQty: 56,
     defectItems: [{ defectCode: 'CUT-001', defectName: '裁片边缘破损', qty: 56 }],
@@ -936,7 +936,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     responsiblePartyName: 'PT Mulia Cutting Center',
     deductionDecision: 'DEDUCT',
     deductionAmount: 920,
-    deductionDecisionRemark: '按裁片边缘破损损失扣款 920 CNY，待当前结算批次处理。',
+    deductionDecisionRemark: '按裁片边缘破损损失扣款 920 CNY，待当前预付款链路处理。',
     liabilityDecidedAt: '2026-03-13 09:40:00',
     liabilityDecidedBy: '质检主管',
     dispositionRemark: '破损裁片报废并转异常库存',
@@ -947,9 +947,9 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       deductionQty: 56,
       deductionAmount: 920,
       settlementReady: false,
-      settlementFreezeReason: '结算批次待处理',
+      settlementFreezeReason: '预付款链路待处理',
       deductionAmountEditable: false,
-      summary: '裁片回货已判责，扣款依据待纳入当前结算批次',
+      summary: '裁片回货已判责，扣款依据待纳入当前预付款链路',
       evidenceRefs: [
         { name: '裁片边缘破损照片 6 张', type: '图片' },
         { name: '裁片抽检报告', type: '文档' },
@@ -963,7 +963,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       factoryId: 'ID-F004',
       batchId: 'RIB-202603-0009',
       status: 'FROZEN',
-      summary: '扣款依据已生成，等待当前结算批次处理',
+      summary: '扣款依据已生成，等待当前预付款链路处理',
     },
   },
   {
@@ -997,7 +997,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     responsiblePartyName: 'PT Mulia Cutting Center',
     deductionDecision: 'DEDUCT',
     deductionAmount: 760,
-    deductionDecisionRemark: '争议驳回后维持扣款 760 CNY，待下一结算批次执行。',
+    deductionDecisionRemark: '争议驳回后维持扣款 760 CNY，待后续预付款链路执行。',
     liabilityDecidedAt: '2026-03-13 14:05:00',
     liabilityDecidedBy: '质检主管',
     dispositionRemark: '瑕疵裁片单独入库等待后续处理',
@@ -1008,9 +1008,9 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       deductionQty: 22,
       deductionAmount: 760,
       settlementReady: false,
-      settlementFreezeReason: '争议驳回后待下一结算批次',
+      settlementFreezeReason: '争议驳回后待后续预付款链路',
       deductionAmountEditable: false,
-      summary: '裁片缺口扣款维持，等待下一结算批次纳入',
+      summary: '裁片缺口扣款维持，等待后续预付款链路纳入',
       evidenceRefs: [
         { name: '首检缺口照片 3 张', type: '图片' },
         { name: '申诉驳回通知', type: '文档' },
@@ -1040,7 +1040,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       factoryId: 'ID-F004',
       batchId: 'RIB-202603-0010',
       status: 'FROZEN',
-      summary: '争议驳回后待下一结算批次执行',
+      summary: '争议驳回后待后续预付款链路执行',
     },
   },
   {
@@ -1168,7 +1168,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     inspectedAt: '2026-03-15 09:00:00',
     result: 'FAIL',
     status: 'CLOSED',
-    remark: '染色不均已判责，扣款依据已确认，但结算批次待处理',
+    remark: '染色不均已判责，扣款依据已确认，但预付款链路待处理',
     disposition: 'ACCEPT_AS_DEFECT',
     affectedQty: 23,
     defectItems: [{ defectCode: 'DYE-001', defectName: '染色不均', qty: 23 }],
@@ -1193,9 +1193,9 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       deductionQty: 23,
       deductionAmount: 690,
       settlementReady: false,
-      settlementFreezeReason: '结算批次待处理',
+      settlementFreezeReason: '预付款链路待处理',
       deductionAmountEditable: false,
-      summary: '染色回货已判责，等待结算批次纳入',
+      summary: '染色回货已判责，等待预付款链路纳入',
       evidenceRefs: [
         { name: '染色不均照片 4 张', type: '图片' },
         { name: '色差判定报告', type: '文档' },
@@ -1209,7 +1209,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       factoryId: 'ID-F003',
       batchId: 'RIB-202603-0013',
       status: 'FROZEN',
-      summary: '结算批次待处理，暂未放开结算',
+      summary: '预付款链路待处理，暂未放开结算',
     },
   },
   {
@@ -1304,7 +1304,7 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     responsiblePartyName: 'PT Sinar Garment Indonesia',
     deductionDecision: 'DEDUCT',
     deductionAmount: 1320,
-    deductionDecisionRemark: '扣款依据已确认并在本周结算批次扣回。',
+    deductionDecisionRemark: '扣款依据已确认并在本周预付款批次扣回。',
     liabilityDecidedAt: '2026-03-16 09:30:00',
     liabilityDecidedBy: '平台质检经理',
     dispositionRemark: '次品入二级库存',
@@ -1343,6 +1343,10 @@ export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       settledAt: '2026-03-20 17:00:00',
     },
   },
+]
+
+export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] = [
+  ...LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS,
 ]
 
 export const returnInboundChainQualityInspections: QualityInspection[] = RETURN_INBOUND_QC_CHAIN_SCENARIOS.map(createInspection)

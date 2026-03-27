@@ -195,12 +195,16 @@ export function handlePdaCuttingReplenishmentFeedbackEvent(target: HTMLElement):
   if (action === 'submit') {
     const form = getState(taskId, selectedCutPieceOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'replenishment-feedback')
-    submitCuttingReplenishmentFeedback(taskId, {
+    const result = submitCuttingReplenishmentFeedback(taskId, {
       operatorName: form.operatorName.trim() || '现场反馈人',
       reasonLabel: form.reasonLabel,
       note: form.note.trim() || '现场已记录补料风险，待 PCS 跟进',
       photoProofCount: Number(form.photoProofCount || '0') || 0,
     }, selectedCutPieceOrderNo ?? undefined)
+    if (!result.success) {
+      form.feedbackMessage = result.issues.join('；')
+      return true
+    }
     form.feedbackMessage = '补料反馈已提交。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,

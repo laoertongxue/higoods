@@ -11,31 +11,34 @@ import type {
   SettlementPartyType,
 } from './store-domain-quality-types.ts'
 import {
+  getFormalQualityDeductionLedgerById,
   getQualityDeductionCaseFactByBasisId,
   getQualityDeductionCaseFactByQcId,
   getQualityDeductionCaseFactByRouteKey,
-  getQualityDeductionCaseStatusByQcId,
+  listFormalQualityDeductionLedgers,
   listQualityDeductionCaseFacts,
-  listQualityDeductionDeductionBases,
-  listQualityDeductionSettlementAdjustments,
 } from './quality-deduction-repository.ts'
 import { syncQualityDeductionLifecycle } from './quality-deduction-lifecycle.ts'
-import type {
-  DeductionBasisFact,
-  DisputeCaseFact,
-  FactoryResponseFact,
-  QualityDeductionBasisStatus,
-  QualityDeductionCaseFact,
-  QualityDeductionCaseStatus,
-  QualityDeductionDisputeStatus,
-  QualityDeductionFactoryResponseStatus,
-  QualityDeductionLiabilityStatus,
-  QualityDeductionQcResult,
-  QualityDeductionSettlementAdjustmentWritebackStatus,
-  QualityDeductionSettlementAdjustmentType,
-  QualityDeductionSettlementImpactStatus,
-  QcRecordFact,
-  SettlementAdjustmentFact,
+import {
+  deriveQualityDeductionCaseStatus,
+  type DeductionBasisFact,
+  type DisputeCaseFact,
+  type FactoryResponseFact,
+  type FormalQualityDeductionLedgerFact,
+  type PendingQualityDeductionRecord,
+  type QualityDeductionBasisStatus,
+  type QualityDeductionCaseFact,
+  type QualityDeductionCaseStatus,
+  type QualityDeductionDisputeStatus,
+  type QualityDeductionFactoryResponseStatus,
+  type QualityDeductionLiabilityStatus,
+  type QualityDeductionQcResult,
+  type QualityDeductionSettlementAdjustmentType,
+  type QualityDeductionSettlementAdjustmentWritebackStatus,
+  type QualityDeductionSettlementImpactStatus,
+  type QcRecordFact,
+  type SettlementAdjustmentFact,
+  type SettlementImpactFact,
 } from './quality-deduction-domain.ts'
 
 export const QUALITY_DEDUCTION_QC_RESULT_LABEL: Record<QualityDeductionQcResult, string> = {
@@ -48,26 +51,29 @@ export const QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL: Record<
   QualityDeductionFactoryResponseStatus,
   string
 > = {
-  NOT_REQUIRED: '无需工厂响应',
-  PENDING_RESPONSE: '待工厂响应',
+  NOT_REQUIRED: '无需工厂处理',
+  PENDING_RESPONSE: '待工厂处理',
   CONFIRMED: '工厂已确认',
-  AUTO_CONFIRMED: '超时自动确认',
-  DISPUTED: '工厂已发起异议',
+  AUTO_CONFIRMED: '系统自动确认',
+  DISPUTED: '已发起质量异议',
 }
 
-export const QUALITY_DEDUCTION_FACTORY_RESPONSE_ACTION_LABEL: Record<'CONFIRM' | 'DISPUTE' | 'AUTO_CONFIRM', string> = {
+export const QUALITY_DEDUCTION_FACTORY_RESPONSE_ACTION_LABEL: Record<
+  'CONFIRM' | 'DISPUTE' | 'AUTO_CONFIRM',
+  string
+> = {
   CONFIRM: '确认处理',
   DISPUTE: '发起异议',
   AUTO_CONFIRM: '系统自动确认',
 }
 
 export const QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL: Record<QualityDeductionDisputeStatus, string> = {
-  NONE: '无异议',
-  PENDING_REVIEW: '待平台审核',
+  NONE: '未发起异议',
+  PENDING_REVIEW: '待平台处理',
   IN_REVIEW: '平台处理中',
-  UPHELD: '维持原判',
-  PARTIALLY_ADJUSTED: '部分调整',
-  REVERSED: '改判冲回',
+  UPHELD: '最终维持工厂责任',
+  PARTIALLY_ADJUSTED: '最终部分工厂责任',
+  REVERSED: '最终非工厂责任',
   CLOSED: '已关闭',
 }
 
@@ -80,43 +86,44 @@ export const QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL: Record<QualityDeductionLi
 
 export const QUALITY_DEDUCTION_BASIS_STATUS_LABEL: Record<QualityDeductionBasisStatus, string> = {
   NOT_GENERATED: '未生成',
-  GENERATED: '已生成',
-  EFFECTIVE: '已生效',
-  ADJUSTED: '已调整',
-  CANCELLED: '已取消',
+  GENERATED: '已生成待确认记录',
+  EFFECTIVE: '已形成正式质量扣款流水',
+  ADJUSTED: '已按裁决更新',
+  CANCELLED: '已关闭且不生成流水',
 }
 
 export const QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL: Record<
   QualityDeductionSettlementImpactStatus,
   string
 > = {
-  NO_IMPACT: '不影响',
-  BLOCKED: '冻结中',
-  ELIGIBLE: '可结算',
-  INCLUDED_IN_STATEMENT: '已纳入结算单',
-  SETTLED: '已结算',
-  NEXT_CYCLE_ADJUSTMENT_PENDING: '待下周期调整',
+  NO_IMPACT: '未形成正式质量扣款流水',
+  BLOCKED: '待确认或待平台处理',
+  ELIGIBLE: '已生成正式质量扣款流水',
+  INCLUDED_IN_STATEMENT: '已进入预结算单',
+  SETTLED: '已进入预付款批次',
+  NEXT_CYCLE_ADJUSTMENT_PENDING: '已关闭且不生成流水',
 }
 
 export const QUALITY_DEDUCTION_CASE_STATUS_LABEL: Record<QualityDeductionCaseStatus, string> = {
   NO_ACTION: '无后续动作',
-  WAIT_FACTORY_RESPONSE: '待工厂响应',
+  WAIT_FACTORY_RESPONSE: '待工厂处理',
   WAIT_PLATFORM_REVIEW: '待平台处理',
-  AUTO_CONFIRMED_PENDING_SETTLEMENT: '自动确认待结算',
-  ADJUDICATED_PENDING_SETTLEMENT: '裁决回写待结算',
-  READY_FOR_SETTLEMENT: '待进入结算',
-  SETTLED: '已结算',
-  ADJUSTMENT_PENDING: '待下周期调整',
+  AUTO_CONFIRMED_PENDING_SETTLEMENT: '系统自动确认，已形成正式流水',
+  ADJUDICATED_PENDING_SETTLEMENT: '平台裁决后已形成正式流水',
+  READY_FOR_SETTLEMENT: '已形成正式质量扣款流水',
+  SETTLED: '已进入预付款批次',
+  ADJUSTMENT_PENDING: '已关闭且不生成流水',
   CLOSED: '已关闭',
 }
 
+// 以下标签仅为历史兼容详情保留，不再驱动当前正式质量扣款主链。
 export const QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_TYPE_LABEL: Record<
   QualityDeductionSettlementAdjustmentType,
   string
 > = {
-  INCREASE_DEDUCTION: '增加扣款',
-  DECREASE_DEDUCTION: '减少扣款',
-  REVERSAL: '冲回',
+  INCREASE_DEDUCTION: '补记扣款',
+  DECREASE_DEDUCTION: '差额重算',
+  REVERSAL: '取消扣款',
 }
 
 export const QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_WRITEBACK_STATUS_LABEL: Record<
@@ -139,11 +146,11 @@ export type PlatformQcWorkbenchViewKey =
 
 export const PLATFORM_QC_WORKBENCH_VIEW_LABEL: Record<PlatformQcWorkbenchViewKey, string> = {
   ALL: '全部',
-  WAIT_FACTORY_RESPONSE: '待工厂响应',
+  WAIT_FACTORY_RESPONSE: '待工厂处理',
   AUTO_CONFIRMED: '已自动确认',
   DISPUTING: '异议中',
   WAIT_PLATFORM_REVIEW: '待平台处理',
-  CLOSED: '已结案',
+  CLOSED: '已关闭 / 已完成',
 }
 
 export interface PlatformQcListItem {
@@ -237,9 +244,11 @@ export interface PlatformQcDetailViewModel {
   sourceTypeLabel: string
   qcRecord: QcRecordFact
   factoryResponse: FactoryResponseFact | null
+  pendingDeductionRecord: PendingQualityDeductionRecord | null
   deductionBasis: DeductionBasisFact | null
   disputeCase: DisputeCaseFact | null
-  settlementImpact: QualityDeductionCaseFact['settlementImpact']
+  formalLedger: FormalQualityDeductionLedgerFact | null
+  settlementImpact: SettlementImpactFact
   settlementAdjustment: SettlementAdjustmentFact | null
   caseStatus: QualityDeductionCaseStatus
   caseStatusLabel: string
@@ -370,6 +379,9 @@ export interface FutureMobileFactoryQcDetail {
   adjudicationResultLabel?: string
   resultWrittenBackAt?: string
   platformAdjudicationSummary: string
+  pendingRecordStatusLabel?: string
+  formalLedgerNo?: string
+  formalLedgerStatusLabel?: string
 }
 
 export interface FutureMobileFactoryQcSummary {
@@ -402,8 +414,95 @@ export interface FutureSettlementAdjustmentListItem {
   summary: string
 }
 
+export interface PdaSettlementWritebackItem {
+  basisId: string
+  qcId: string
+  productionOrderId: string
+  taskId?: string
+  batchId?: string
+  processLabel: string
+  warehouseName: string
+  returnFactoryName: string
+  summary: string
+  liabilityStatusText: string
+  settlementStatusText: string
+  deductionQty: number
+  deductionAmountCny: number
+  blockedProcessingFeeAmount: number
+  inspectedAt: string
+  originalCurrency: string
+  originalAmount: number
+  settlementCurrency: string
+  settlementAmount: number
+  fxRate: number
+  fxAppliedAt?: string
+}
+
+export interface CompatChainDispute {
+  disputeId: string
+  qcId: string
+  basisId: string
+  factoryId?: string
+  status: 'OPEN' | 'REJECTED' | 'ADJUSTED' | 'ARCHIVED'
+  summary: string
+  submittedAt?: string
+  submittedBy?: string
+  resolvedAt?: string
+  resolvedBy?: string
+  requestedAmount?: number
+  finalAmount?: number
+}
+
+export interface CompatChainSettlementImpact {
+  qcId: string
+  basisId?: string
+  factoryId?: string
+  batchId: string
+  status: 'NO_IMPACT' | 'FROZEN' | 'READY' | 'SETTLED' | 'PENDING_ARBITRATION'
+  summary: string
+  settlementBatchId?: string
+  settledAt?: string
+}
+
+export interface CompatQcChainFact {
+  qc: QualityInspection
+  basisItems: DeductionBasisItem[]
+  dispute: CompatChainDispute | null
+  settlementImpact: CompatChainSettlementImpact
+  evidenceCount: number
+  deductionAmountCny: number
+  factoryResponse: FactoryResponseFact | null
+  pendingDeductionRecord: PendingQualityDeductionRecord | null
+  deductionBasis: DeductionBasisFact | null
+  disputeCase: DisputeCaseFact | null
+  formalLedger: FormalQualityDeductionLedgerFact | null
+  settlementAdjustment: SettlementAdjustmentFact | null
+  caseStatus: QualityDeductionCaseStatus
+}
+
 function ensureQualityDeductionLifecycle(): void {
   syncQualityDeductionLifecycle()
+}
+
+function parseDateMs(value?: string): number | null {
+  if (!value) return null
+  const timestamp = new Date(value.replace(' ', 'T')).getTime()
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+function isOpenDisputeStatus(status?: QualityDeductionDisputeStatus | null): boolean {
+  return status === 'PENDING_REVIEW' || status === 'IN_REVIEW'
+}
+
+function isSoonOverdue(deadline?: string): boolean {
+  const deadlineMs = parseDateMs(deadline)
+  if (deadlineMs === null) return false
+  const diff = deadlineMs - Date.now()
+  return diff > 0 && diff <= 24 * 60 * 60 * 1000
+}
+
+function getCaseStatus(caseFact: QualityDeductionCaseFact): QualityDeductionCaseStatus {
+  return caseFact.caseStatus ?? deriveQualityDeductionCaseStatus(caseFact)
 }
 
 function mapQcResultToDisplayResult(result: QualityDeductionQcResult): PlatformQcDisplayResult {
@@ -475,9 +574,112 @@ function sumRates(qualifiedQty: number, unqualifiedQty: number): { qualifiedRate
   }
 }
 
-export function toCompatibilityQualityInspection(caseFact: QualityDeductionCaseFact): QualityInspection {
-  const { qcRecord, deductionBasis, disputeCase, settlementImpact } = caseFact
+function getQcPolicyLabel(policy: ReturnInboundQcPolicy): string {
+  if (policy === 'REQUIRED') return '必检'
+  if (policy === 'OPTIONAL') return '抽检'
+  return '免检'
+}
 
+function getQcStatusLabel(status: QcStatus): string {
+  if (status === 'DRAFT') return '草稿'
+  if (status === 'SUBMITTED') return '已提交'
+  return '已关闭'
+}
+
+function getResponsibilitySummary(caseFact: QualityDeductionCaseFact): string {
+  const { qcRecord, pendingDeductionRecord, disputeCase, formalLedger } = caseFact
+  if (qcRecord.liabilityStatus === 'NON_FACTORY') return '当前批次判定为非工厂责任，不生成正式质量扣款流水。'
+  if (qcRecord.liabilityStatus === 'FACTORY' || qcRecord.liabilityStatus === 'MIXED') {
+    if (disputeCase && isOpenDisputeStatus(disputeCase.status)) {
+      return '当前已生成质量异议单，待平台处理后再决定是否形成正式质量扣款流水。'
+    }
+    if (formalLedger) {
+      return '当前批次已形成正式质量扣款流水，可继续进入预结算。'
+    }
+    if (pendingDeductionRecord) {
+      return '当前批次已生成待确认质量扣款记录，等待工厂处理。'
+    }
+  }
+  return '当前记录仅用于质检判断，尚未形成后续质量扣款对象。'
+}
+
+function getDisputeAdjudicationLabel(disputeCase: DisputeCaseFact | null): string | undefined {
+  if (!disputeCase) return undefined
+  if (disputeCase.adjudicationResult === 'UPHELD') return '最终维持工厂责任'
+  if (disputeCase.adjudicationResult === 'PARTIALLY_ADJUSTED') return '最终部分工厂责任'
+  if (disputeCase.adjudicationResult === 'REVERSED') return '最终非工厂责任'
+  return undefined
+}
+
+function getLedgerStatusLabel(ledger: FormalQualityDeductionLedgerFact | null): string | undefined {
+  if (!ledger) return undefined
+  switch (ledger.status) {
+    case 'GENERATED_PENDING_STATEMENT':
+      return '已生成正式质量扣款流水'
+    case 'INCLUDED_IN_STATEMENT':
+      return '已进入预结算单'
+    case 'INCLUDED_IN_PREPAYMENT_BATCH':
+      return '已进入预付款批次'
+    case 'PREPAID':
+      return '已预付'
+    case 'WAIT_FINAL_SETTLEMENT':
+      return '待后续最终分账'
+  }
+}
+
+function getPendingRecordStatusLabel(pending: PendingQualityDeductionRecord | null): string | undefined {
+  if (!pending) return undefined
+  switch (pending.status) {
+    case 'PENDING_FACTORY_CONFIRM':
+      return '待工厂处理'
+    case 'FACTORY_CONFIRMED':
+      return '工厂已确认'
+    case 'SYSTEM_AUTO_CONFIRMED':
+      return '系统自动确认'
+    case 'DISPUTED':
+      return '已发起质量异议'
+    case 'CLOSED_WITHOUT_LEDGER':
+      return '已关闭且不生成流水'
+  }
+}
+
+function resolveSettlementSummary(caseFact: QualityDeductionCaseFact): string {
+  const pending = caseFact.pendingDeductionRecord
+  const dispute = caseFact.disputeCase
+  const ledger = caseFact.formalLedger
+  if (ledger) {
+    return getLedgerStatusLabel(ledger) ?? '已形成正式质量扣款流水'
+  }
+  if (dispute && isOpenDisputeStatus(dispute.status)) {
+    return '质量异议单待处理，当前不生成正式质量扣款流水。'
+  }
+  if (pending?.status === 'PENDING_FACTORY_CONFIRM') {
+    return '已生成待确认质量扣款记录，等待工厂在 48 小时内处理。'
+  }
+  if (pending?.status === 'CLOSED_WITHOUT_LEDGER' || dispute?.adjudicationResult === 'REVERSED') {
+    return '平台已判定不生成正式质量扣款流水。'
+  }
+  return caseFact.settlementImpact.summary
+}
+
+function resolveRequiresFactoryResponse(caseFact: QualityDeductionCaseFact): boolean {
+  return Boolean(
+    caseFact.pendingDeductionRecord ||
+      (caseFact.factoryResponse && caseFact.factoryResponse.factoryResponseStatus !== 'NOT_REQUIRED'),
+  )
+}
+
+function getFutureMobileAvailableActions(caseFact: QualityDeductionCaseFact): Array<'CONFIRM' | 'DISPUTE'> {
+  const pending = caseFact.pendingDeductionRecord
+  if (!pending) return []
+  if (pending.status !== 'PENDING_FACTORY_CONFIRM') return []
+  if (caseFact.formalLedger) return []
+  if (caseFact.disputeCase && isOpenDisputeStatus(caseFact.disputeCase.status)) return []
+  return ['CONFIRM', 'DISPUTE']
+}
+
+export function toCompatibilityQualityInspection(caseFact: QualityDeductionCaseFact): QualityInspection {
+  const { qcRecord, deductionBasis, disputeCase, settlementImpact, formalLedger } = caseFact
   return {
     qcId: qcRecord.qcId,
     refType: qcRecord.refType,
@@ -503,18 +705,18 @@ export function toCompatibilityQualityInspection(caseFact: QualityDeductionCaseF
     liabilityDecisionStage: qcRecord.processType === 'SEW' ? 'SEW_RETURN_INBOUND_FINAL' : 'GENERAL',
     liabilityDecisionRequired: qcRecord.processType === 'SEW' && qcRecord.qcResult !== 'QUALIFIED',
     deductionDecision: qcRecord.deductionDecision,
-    deductionAmount: deductionBasis?.effectiveQualityDeductionAmount,
-    deductionCurrency: qcRecord.deductionDecision === 'DEDUCT' ? 'CNY' : undefined,
+    deductionAmount: formalLedger?.originalAmount ?? deductionBasis?.effectiveQualityDeductionAmount,
+    deductionCurrency: 'CNY',
     deductionDecisionRemark: qcRecord.deductionDecisionRemark,
     liabilityDecidedAt: qcRecord.liabilityDecidedAt,
     liabilityDecidedBy: qcRecord.liabilityDecidedBy,
     disputeRemark: disputeCase?.disputeDescription,
     arbitrationResult:
-      disputeCase?.status === 'PARTIALLY_ADJUSTED'
+      disputeCase?.adjudicationResult === 'PARTIALLY_ADJUSTED'
         ? 'REASSIGN'
-        : disputeCase?.status === 'REVERSED'
+        : disputeCase?.adjudicationResult === 'REVERSED'
           ? 'VOID_DEDUCTION'
-          : disputeCase?.status === 'UPHELD'
+          : disputeCase?.adjudicationResult === 'UPHELD'
             ? 'UPHOLD'
             : undefined,
     arbitrationRemark: disputeCase?.adjudicationComment,
@@ -546,22 +748,19 @@ export function toCompatibilityQualityInspection(caseFact: QualityDeductionCaseF
     settlementFreezeReason:
       settlementImpact.status === 'NO_IMPACT' || settlementImpact.status === 'ELIGIBLE' || settlementImpact.status === 'SETTLED'
         ? ''
-        : settlementImpact.summary,
+        : resolveSettlementSummary(caseFact),
     auditLogs: qcRecord.auditLogs,
     createdAt: qcRecord.createdAt,
     updatedAt: qcRecord.updatedAt,
   }
 }
 
-export function toCompatibilityDeductionBasisItem(
-  caseFact: QualityDeductionCaseFact,
-): DeductionBasisItem | null {
-  const { qcRecord, deductionBasis, disputeCase } = caseFact
+export function toCompatibilityDeductionBasisItem(caseFact: QualityDeductionCaseFact): DeductionBasisItem | null {
+  const { qcRecord, deductionBasis, disputeCase, formalLedger } = caseFact
   if (!deductionBasis) return null
-
   return {
     basisId: deductionBasis.basisId,
-    sourceType: deductionBasis.sourceType,
+    sourceType: deductionBasis.sourceType as DeductionBasisSourceType,
     sourceRefId: qcRecord.qcId,
     sourceId: qcRecord.qcId,
     productionOrderId: deductionBasis.productionOrderNo,
@@ -599,31 +798,23 @@ export function toCompatibilityDeductionBasisItem(
     responsiblePartyNameSnapshot: qcRecord.responsiblePartyName,
     dispositionSnapshot: deductionBasis.unqualifiedDisposition,
     deductionDecisionSnapshot: qcRecord.deductionDecision,
-    deductionAmountSnapshot: deductionBasis.effectiveQualityDeductionAmount,
-    settlementReady:
-      caseFact.settlementImpact.status === 'ELIGIBLE' ||
-      caseFact.settlementImpact.status === 'INCLUDED_IN_STATEMENT' ||
-      caseFact.settlementImpact.status === 'SETTLED',
-    settlementFreezeReason:
-      caseFact.settlementImpact.status === 'BLOCKED' ||
-      caseFact.settlementImpact.status === 'NEXT_CYCLE_ADJUSTMENT_PENDING'
-        ? caseFact.settlementImpact.summary
-        : '',
+    deductionAmountSnapshot: formalLedger?.originalAmount ?? deductionBasis.effectiveQualityDeductionAmount,
+    settlementReady: Boolean(formalLedger),
+    settlementFreezeReason: formalLedger ? '' : resolveSettlementSummary(caseFact),
     qcStatusSnapshot: qcRecord.qcStatus,
     liabilityStatusSnapshot:
-      qcRecord.liabilityStatus === 'PENDING'
-        ? 'PENDING'
-        : disputeCase &&
-            (disputeCase.status === 'PENDING_REVIEW' || disputeCase.status === 'IN_REVIEW')
-          ? 'DISPUTED'
-          : 'CONFIRMED',
+      caseFact.disputeCase && isOpenDisputeStatus(caseFact.disputeCase.status)
+        ? 'DISPUTED'
+        : formalLedger
+          ? 'CONFIRMED'
+          : 'PENDING',
     deductionAmountEditable: deductionBasis.status === 'EFFECTIVE' || deductionBasis.status === 'ADJUSTED',
     arbitrationResult:
-      disputeCase?.status === 'PARTIALLY_ADJUSTED'
+      disputeCase?.adjudicationResult === 'PARTIALLY_ADJUSTED'
         ? 'REASSIGN'
-        : disputeCase?.status === 'REVERSED'
+        : disputeCase?.adjudicationResult === 'REVERSED'
           ? 'VOID_DEDUCTION'
-          : disputeCase?.status === 'UPHELD'
+          : disputeCase?.adjudicationResult === 'UPHELD'
             ? 'UPHOLD'
             : undefined,
     arbitrationRemark: disputeCase?.adjudicationComment,
@@ -637,239 +828,167 @@ export function toCompatibilityDeductionBasisItem(
   }
 }
 
-function getCaseStatus(caseFact: QualityDeductionCaseFact): QualityDeductionCaseStatus {
-  return getQualityDeductionCaseStatusByQcId(caseFact.qcRecord.qcId) ?? 'NO_ACTION'
-}
-
-function getFactoryResponseStatus(caseFact: QualityDeductionCaseFact): QualityDeductionFactoryResponseStatus {
-  return caseFact.factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED'
-}
-
-function getDisputeStatus(caseFact: QualityDeductionCaseFact): QualityDeductionDisputeStatus {
-  return caseFact.disputeCase?.status ?? 'NONE'
-}
-
-function getDeductionBasisStatus(caseFact: QualityDeductionCaseFact): QualityDeductionBasisStatus {
-  return caseFact.deductionBasis?.status ?? 'NOT_GENERATED'
-}
-
-function isSettlementReady(status: QualityDeductionSettlementImpactStatus): boolean {
-  return status === 'ELIGIBLE' || status === 'INCLUDED_IN_STATEMENT' || status === 'SETTLED'
-}
-
-function getQcPolicyLabel(policy: ReturnInboundQcPolicy): string {
-  return policy === 'REQUIRED' ? '必检' : policy === 'OPTIONAL' ? '可选抽检' : policy
-}
-
-function getDisputeAdjudicationLabel(disputeCase: DisputeCaseFact | null): string | undefined {
-  if (!disputeCase) return undefined
-  switch (disputeCase.adjudicationResult ?? disputeCase.status) {
-    case 'UPHELD':
-      return '维持原判'
-    case 'PARTIALLY_ADJUSTED':
-      return '部分调整'
-    case 'REVERSED':
-      return '改判冲回'
-    case 'CLOSED':
-      return '已关闭'
-    case 'PENDING_REVIEW':
-    case 'IN_REVIEW':
-      return '待平台处理'
-    default:
-      return undefined
+function toPlatformListItem(caseFact: QualityDeductionCaseFact): PlatformQcListItem {
+  const { qcRecord, factoryResponse, pendingDeductionRecord, deductionBasis, disputeCase, settlementImpact, formalLedger } =
+    caseFact
+  const rates = sumRates(qcRecord.qualifiedQty, qcRecord.unqualifiedQty)
+  const factoryResponseStatus = factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED'
+  const disputeStatus = disputeCase?.status ?? 'NONE'
+  const caseStatus = getCaseStatus(caseFact)
+  return {
+    qc: toCompatibilityQualityInspection(caseFact),
+    qcId: qcRecord.qcId,
+    qcNo: qcRecord.qcNo,
+    isReturnInbound: qcRecord.refType === 'RETURN_BATCH',
+    isLegacy: qcRecord.isLegacy,
+    batchId: qcRecord.returnInboundBatchNo,
+    productionOrderId: qcRecord.productionOrderNo,
+    sourceTaskId: qcRecord.taskId ?? '',
+    processType: qcRecord.processType,
+    processLabel: qcRecord.processLabel,
+    qcPolicy: qcRecord.qcPolicy,
+    returnFactoryId: qcRecord.returnFactoryId ?? '',
+    returnFactoryName: qcRecord.returnFactoryName ?? '—',
+    warehouseId: qcRecord.warehouseId ?? '',
+    warehouseName: qcRecord.warehouseName ?? '—',
+    inboundAt: qcRecord.inboundAt ?? '',
+    inboundBy: qcRecord.inboundBy ?? '',
+    sewPostProcessMode: qcRecord.sewPostProcessMode,
+    sourceBusinessType: qcRecord.sourceBusinessType ?? '',
+    sourceBusinessId: qcRecord.sourceBusinessId ?? '',
+    inspector: qcRecord.inspectorUserName,
+    qcResult: qcRecord.qcResult,
+    qcResultLabel: QUALITY_DEDUCTION_QC_RESULT_LABEL[qcRecord.qcResult],
+    result: mapQcResultToDisplayResult(qcRecord.qcResult),
+    status: qcRecord.qcStatus,
+    liabilityStatus: qcRecord.liabilityStatus,
+    liabilityStatusLabel: QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL[qcRecord.liabilityStatus],
+    factoryLiabilityQty: qcRecord.factoryLiabilityQty,
+    nonFactoryLiabilityQty: qcRecord.nonFactoryLiabilityQty,
+    disposition: qcRecord.unqualifiedDisposition,
+    affectedQty: qcRecord.unqualifiedQty || undefined,
+    inspectedQty: qcRecord.inspectedQty,
+    qualifiedQty: qcRecord.qualifiedQty,
+    unqualifiedQty: qcRecord.unqualifiedQty,
+    qualifiedRate: rates.qualifiedRate,
+    unqualifiedRate: rates.unqualifiedRate,
+    inspectedAt: qcRecord.inspectedAt,
+    factoryResponseStatus,
+    factoryResponseStatusLabel: QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL[factoryResponseStatus],
+    responseDeadlineAt: factoryResponse?.responseDeadlineAt,
+    respondedAt: factoryResponse?.respondedAt,
+    autoConfirmedAt: factoryResponse?.autoConfirmedAt,
+    responderUserName: factoryResponse?.responderUserName,
+    responseComment: factoryResponse?.responseComment,
+    isResponseOverdue: factoryResponse?.isOverdue ?? pendingDeductionRecord?.isOverdue ?? false,
+    requiresFactoryResponse: resolveRequiresFactoryResponse(caseFact),
+    disputeStatus,
+    disputeStatusLabel: QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL[disputeStatus],
+    disputeId: disputeCase?.disputeId,
+    caseStatus,
+    caseStatusLabel: QUALITY_DEDUCTION_CASE_STATUS_LABEL[caseStatus],
+    basisId: deductionBasis?.basisId,
+    deductionBasisStatus: deductionBasis?.status ?? 'NOT_GENERATED',
+    deductionBasisStatusLabel: QUALITY_DEDUCTION_BASIS_STATUS_LABEL[deductionBasis?.status ?? 'NOT_GENERATED'],
+    blockedProcessingFeeAmount: settlementImpact.blockedProcessingFeeAmount,
+    proposedQualityDeductionAmount: pendingDeductionRecord?.originalAmount ?? deductionBasis?.proposedQualityDeductionAmount ?? 0,
+    effectiveQualityDeductionAmount: formalLedger?.originalAmount ?? settlementImpact.effectiveQualityDeductionAmount,
+    evidenceCount: qcRecord.evidenceAssets.length,
+    canViewDeduction: Boolean(deductionBasis || formalLedger),
+    canHandleDispute: Boolean(disputeCase && isOpenDisputeStatus(disputeStatus)),
+    hasDispute: Boolean(disputeCase),
+    settlementImpactStatus: settlementImpact.status,
+    settlementImpactStatusLabel: QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL[settlementImpact.status],
+    settlementImpactSummary: resolveSettlementSummary(caseFact),
+    candidateSettlementCycleId: settlementImpact.candidateSettlementCycleId,
+    includedSettlementStatementId: settlementImpact.includedSettlementStatementId,
+    includedSettlementBatchId: settlementImpact.includedSettlementBatchId ?? formalLedger?.includedPrepaymentBatchId,
+    settlementReady: Boolean(formalLedger),
   }
 }
 
-function getResponsibilitySummary(caseFact: QualityDeductionCaseFact): string {
-  const { qcRecord } = caseFact
-  if (qcRecord.liabilityStatus === 'NON_FACTORY') {
-    return `当前不计入工厂责任，非工厂责任数量 ${qcRecord.nonFactoryLiabilityQty} 件。`
-  }
-  if (qcRecord.liabilityStatus === 'MIXED') {
-    return `当前判定混合责任，工厂责任 ${qcRecord.factoryLiabilityQty} 件，非工厂责任 ${qcRecord.nonFactoryLiabilityQty} 件。`
-  }
-  if (qcRecord.liabilityStatus === 'FACTORY') {
-    return `当前判定工厂责任 ${qcRecord.factoryLiabilityQty} 件。`
-  }
-  return '当前责任判定尚未完成。'
-}
-
-function getFutureMobileAvailableActions(caseFact: QualityDeductionCaseFact): Array<'CONFIRM' | 'DISPUTE'> {
-  const factoryResponseStatus = caseFact.factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED'
-  if (factoryResponseStatus !== 'PENDING_RESPONSE') return []
-  if (caseFact.qcRecord.factoryLiabilityQty <= 0) return []
-  return ['CONFIRM', 'DISPUTE']
-}
-
-function isSoonOverdue(deadline?: string, now: Date = new Date()): boolean {
-  if (!deadline) return false
-  const deadlineMs = new Date(deadline.replace(' ', 'T')).getTime()
-  if (!Number.isFinite(deadlineMs)) return false
-  const diff = deadlineMs - now.getTime()
-  return diff >= 0 && diff <= 48 * 3600 * 1000
+function sortPlatformRows<T extends { inspectedAt: string }>(items: T[]): T[] {
+  return [...items].sort((left, right) => {
+    const leftTime = parseDateMs(left.inspectedAt) ?? 0
+    const rightTime = parseDateMs(right.inspectedAt) ?? 0
+    return rightTime - leftTime
+  })
 }
 
 export function listPlatformQcListItems(options: { includeLegacy?: boolean } = {}): PlatformQcListItem[] {
   ensureQualityDeductionLifecycle()
-  return listQualityDeductionCaseFacts(options)
-    .map((caseFact) => {
-      const qc = toCompatibilityQualityInspection(caseFact)
-      const { qcRecord, settlementImpact, deductionBasis, factoryResponse, disputeCase } = caseFact
-      const { qualifiedRate, unqualifiedRate } = sumRates(qcRecord.qualifiedQty, qcRecord.unqualifiedQty)
-      const caseStatus = getCaseStatus(caseFact)
-      const factoryResponseStatus = getFactoryResponseStatus(caseFact)
-      const disputeStatus = getDisputeStatus(caseFact)
-      const deductionBasisStatus = getDeductionBasisStatus(caseFact)
-
-      return {
-        qc,
-        qcId: qcRecord.qcId,
-        qcNo: qcRecord.qcNo,
-        isReturnInbound: true,
-        isLegacy: qcRecord.isLegacy,
-        batchId: qcRecord.returnInboundBatchNo,
-        productionOrderId: qcRecord.productionOrderNo,
-        sourceTaskId: qcRecord.taskId ?? '',
-        processType: qcRecord.processType,
-        processLabel: qcRecord.processLabel,
-        qcPolicy: qcRecord.qcPolicy,
-        returnFactoryId: qcRecord.returnFactoryId ?? '',
-        returnFactoryName: qcRecord.returnFactoryName ?? '-',
-        warehouseId: qcRecord.warehouseId ?? '',
-        warehouseName: qcRecord.warehouseName ?? '-',
-        inboundAt: qcRecord.inboundAt ?? '-',
-        inboundBy: qcRecord.inboundBy ?? '-',
-        sewPostProcessMode: qcRecord.sewPostProcessMode,
-        sourceBusinessType: qcRecord.sourceBusinessType ?? 'OTHER',
-        sourceBusinessId: qcRecord.sourceBusinessId ?? '',
-        inspector: qcRecord.inspectorUserName,
-        qcResult: qcRecord.qcResult,
-        qcResultLabel: QUALITY_DEDUCTION_QC_RESULT_LABEL[qcRecord.qcResult],
-        result: mapQcResultToDisplayResult(qcRecord.qcResult),
-        status: qcRecord.qcStatus,
-        liabilityStatus: qcRecord.liabilityStatus,
-        liabilityStatusLabel: QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL[qcRecord.liabilityStatus],
-        factoryLiabilityQty: qcRecord.factoryLiabilityQty,
-        nonFactoryLiabilityQty: qcRecord.nonFactoryLiabilityQty,
-        disposition: qcRecord.unqualifiedDisposition,
-        affectedQty: qcRecord.unqualifiedQty || undefined,
-        inspectedQty: qcRecord.inspectedQty,
-        qualifiedQty: qcRecord.qualifiedQty,
-        unqualifiedQty: qcRecord.unqualifiedQty,
-        qualifiedRate,
-        unqualifiedRate,
-        inspectedAt: qcRecord.inspectedAt,
-        factoryResponseStatus,
-        factoryResponseStatusLabel: QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL[factoryResponseStatus],
-        responseDeadlineAt: factoryResponse?.responseDeadlineAt,
-        respondedAt: factoryResponse?.respondedAt,
-        autoConfirmedAt: factoryResponse?.autoConfirmedAt,
-        responderUserName: factoryResponse?.responderUserName,
-        responseComment: factoryResponse?.responseComment,
-        isResponseOverdue: factoryResponse?.isOverdue ?? false,
-        requiresFactoryResponse: factoryResponseStatus !== 'NOT_REQUIRED',
-        disputeStatus,
-        disputeStatusLabel: QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL[disputeStatus],
-        disputeId: disputeCase?.disputeId,
-        caseStatus,
-        caseStatusLabel: QUALITY_DEDUCTION_CASE_STATUS_LABEL[caseStatus],
-        basisId: deductionBasis?.basisId,
-        deductionBasisStatus,
-        deductionBasisStatusLabel: QUALITY_DEDUCTION_BASIS_STATUS_LABEL[deductionBasisStatus],
-        blockedProcessingFeeAmount: settlementImpact.blockedProcessingFeeAmount,
-        proposedQualityDeductionAmount: deductionBasis?.proposedQualityDeductionAmount ?? 0,
-        effectiveQualityDeductionAmount: deductionBasis?.effectiveQualityDeductionAmount ?? settlementImpact.effectiveQualityDeductionAmount,
-        evidenceCount: qcRecord.evidenceAssets.length,
-        canViewDeduction: Boolean(deductionBasis?.basisId),
-        canHandleDispute: disputeStatus === 'PENDING_REVIEW' || disputeStatus === 'IN_REVIEW',
-        hasDispute: disputeStatus !== 'NONE',
-        settlementImpactStatus: settlementImpact.status,
-        settlementImpactStatusLabel: QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL[settlementImpact.status],
-        settlementImpactSummary: settlementImpact.summary,
-        candidateSettlementCycleId: settlementImpact.candidateSettlementCycleId,
-        includedSettlementStatementId: settlementImpact.includedSettlementStatementId,
-        includedSettlementBatchId: settlementImpact.includedSettlementBatchId,
-        settlementReady: isSettlementReady(settlementImpact.status),
-      }
-    })
-    .sort((left, right) => {
-      return new Date(right.inspectedAt.replace(' ', 'T')).getTime() - new Date(left.inspectedAt.replace(' ', 'T')).getTime()
-    })
+  return sortPlatformRows(
+    listQualityDeductionCaseFacts(options).map((caseFact) => toPlatformListItem(caseFact)),
+  )
 }
 
 export function matchesPlatformQcWorkbenchView(
-  item: PlatformQcListItem,
+  row: PlatformQcListItem,
   view: PlatformQcWorkbenchViewKey,
 ): boolean {
-  switch (view) {
-    case 'WAIT_FACTORY_RESPONSE':
-      return item.factoryResponseStatus === 'PENDING_RESPONSE'
-    case 'AUTO_CONFIRMED':
-      return item.factoryResponseStatus === 'AUTO_CONFIRMED'
-    case 'DISPUTING':
-      return item.disputeStatus !== 'NONE' && item.disputeStatus !== 'CLOSED'
-    case 'WAIT_PLATFORM_REVIEW':
-      return item.caseStatus === 'WAIT_PLATFORM_REVIEW'
-    case 'CLOSED':
-      return item.caseStatus === 'CLOSED' || item.caseStatus === 'SETTLED' || item.status === 'CLOSED'
-    default:
-      return true
-  }
+  if (view === 'ALL') return true
+  if (view === 'WAIT_FACTORY_RESPONSE') return row.factoryResponseStatus === 'PENDING_RESPONSE'
+  if (view === 'AUTO_CONFIRMED') return row.factoryResponseStatus === 'AUTO_CONFIRMED'
+  if (view === 'DISPUTING') return row.disputeStatus === 'PENDING_REVIEW' || row.disputeStatus === 'IN_REVIEW'
+  if (view === 'WAIT_PLATFORM_REVIEW') return row.disputeStatus === 'PENDING_REVIEW'
+  return (
+    row.caseStatus === 'CLOSED' ||
+    row.caseStatus === 'SETTLED' ||
+    row.factoryResponseStatus === 'CONFIRMED' ||
+    row.factoryResponseStatus === 'AUTO_CONFIRMED'
+  )
 }
 
 export function getPlatformQcWorkbenchStats(options: { includeLegacy?: boolean } = {}): PlatformQcWorkbenchStats {
-  ensureQualityDeductionLifecycle()
   const rows = listPlatformQcListItems(options)
-  const blockedCount = rows.filter((item) => item.settlementImpactStatus === 'BLOCKED').length
-  const readyForSettlementCount = rows.filter((item) =>
-    item.settlementImpactStatus === 'ELIGIBLE' || item.settlementImpactStatus === 'INCLUDED_IN_STATEMENT',
-  ).length
-
+  const waitFactoryResponseCount = rows.filter((row) => row.factoryResponseStatus === 'PENDING_RESPONSE').length
+  const autoConfirmedCount = rows.filter((row) => row.factoryResponseStatus === 'AUTO_CONFIRMED').length
+  const disputingCount = rows.filter((row) => row.disputeStatus === 'PENDING_REVIEW' || row.disputeStatus === 'IN_REVIEW').length
+  const waitPlatformReviewCount = rows.filter((row) => row.disputeStatus === 'PENDING_REVIEW').length
+  const blockedCount = rows.filter((row) => row.settlementImpactStatus === 'BLOCKED').length
+  const readyForSettlementCount = rows.filter((row) => row.settlementReady).length
+  const closedCount = rows.filter((row) => row.caseStatus === 'CLOSED' || row.caseStatus === 'SETTLED').length
   return {
     totalCount: rows.length,
-    waitFactoryResponseCount: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'WAIT_FACTORY_RESPONSE')).length,
-    autoConfirmedCount: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'AUTO_CONFIRMED')).length,
-    disputingCount: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'DISPUTING')).length,
-    waitPlatformReviewCount: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'WAIT_PLATFORM_REVIEW')).length,
+    waitFactoryResponseCount,
+    autoConfirmedCount,
+    disputingCount,
+    waitPlatformReviewCount,
     blockedCount,
     readyForSettlementCount,
     blockedOrReadyCount: blockedCount + readyForSettlementCount,
-    closedCount: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'CLOSED')).length,
+    closedCount,
   }
 }
 
 export function getPlatformQcWorkbenchTabCounts(
   options: { includeLegacy?: boolean } = {},
 ): Record<PlatformQcWorkbenchViewKey, number> {
-  ensureQualityDeductionLifecycle()
   const rows = listPlatformQcListItems(options)
   return {
     ALL: rows.length,
-    WAIT_FACTORY_RESPONSE: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'WAIT_FACTORY_RESPONSE')).length,
-    AUTO_CONFIRMED: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'AUTO_CONFIRMED')).length,
-    DISPUTING: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'DISPUTING')).length,
-    WAIT_PLATFORM_REVIEW: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'WAIT_PLATFORM_REVIEW')).length,
-    CLOSED: rows.filter((item) => matchesPlatformQcWorkbenchView(item, 'CLOSED')).length,
+    WAIT_FACTORY_RESPONSE: rows.filter((row) => matchesPlatformQcWorkbenchView(row, 'WAIT_FACTORY_RESPONSE')).length,
+    AUTO_CONFIRMED: rows.filter((row) => matchesPlatformQcWorkbenchView(row, 'AUTO_CONFIRMED')).length,
+    DISPUTING: rows.filter((row) => matchesPlatformQcWorkbenchView(row, 'DISPUTING')).length,
+    WAIT_PLATFORM_REVIEW: rows.filter((row) => matchesPlatformQcWorkbenchView(row, 'WAIT_PLATFORM_REVIEW')).length,
+    CLOSED: rows.filter((row) => matchesPlatformQcWorkbenchView(row, 'CLOSED')).length,
   }
 }
 
 export function getPlatformQcListItemByQcId(qcId: string): PlatformQcListItem | null {
   ensureQualityDeductionLifecycle()
-  return listPlatformQcListItems({ includeLegacy: true }).find((item) => item.qcId === qcId) ?? null
+  const caseFact = getQualityDeductionCaseFactByQcId(qcId)
+  return caseFact ? toPlatformListItem(caseFact) : null
 }
 
 export function getPlatformQcDetailViewModelByRouteKey(routeKey: string): PlatformQcDetailViewModel | null {
   ensureQualityDeductionLifecycle()
   const caseFact = getQualityDeductionCaseFactByRouteKey(routeKey)
   if (!caseFact) return null
-
-  const { qcRecord, factoryResponse, deductionBasis, disputeCase, settlementImpact, settlementAdjustment } = caseFact
-  const { qualifiedRate, unqualifiedRate } = sumRates(qcRecord.qualifiedQty, qcRecord.unqualifiedQty)
+  const { qcRecord, factoryResponse, pendingDeductionRecord, deductionBasis, disputeCase, formalLedger, settlementImpact } =
+    caseFact
+  const rates = sumRates(qcRecord.qualifiedQty, qcRecord.unqualifiedQty)
   const caseStatus = getCaseStatus(caseFact)
-  const factoryResponseStatus = getFactoryResponseStatus(caseFact)
-  const disputeStatus = getDisputeStatus(caseFact)
-  const deductionBasisStatus = getDeductionBasisStatus(caseFact)
-
   return {
     qcId: qcRecord.qcId,
     qcNo: qcRecord.qcNo,
@@ -878,41 +997,38 @@ export function getPlatformQcDetailViewModelByRouteKey(routeKey: string): Platfo
     sourceTypeLabel: qcRecord.sourceTypeLabel,
     qcRecord,
     factoryResponse,
+    pendingDeductionRecord,
     deductionBasis,
     disputeCase,
+    formalLedger,
     settlementImpact,
-    settlementAdjustment,
+    settlementAdjustment: null,
     caseStatus,
     caseStatusLabel: QUALITY_DEDUCTION_CASE_STATUS_LABEL[caseStatus],
     qcResultDisplay: mapQcResultToDisplayResult(qcRecord.qcResult),
     qcResultLabel: QUALITY_DEDUCTION_QC_RESULT_LABEL[qcRecord.qcResult],
-    qcStatusLabel: qcRecord.qcStatus === 'DRAFT' ? '草稿' : qcRecord.qcStatus === 'SUBMITTED' ? '已提交' : '已结案',
+    qcStatusLabel: getQcStatusLabel(qcRecord.qcStatus),
     liabilityStatusLabel: QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL[qcRecord.liabilityStatus],
-    factoryResponseStatusLabel: QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL[factoryResponseStatus],
-    disputeStatusLabel: QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL[disputeStatus],
-    deductionBasisStatusLabel: QUALITY_DEDUCTION_BASIS_STATUS_LABEL[deductionBasisStatus],
+    factoryResponseStatusLabel:
+      QUALITY_DEDUCTION_FACTORY_RESPONSE_STATUS_LABEL[factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED'],
+    disputeStatusLabel: QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL[disputeCase?.status ?? 'NONE'],
+    deductionBasisStatusLabel: QUALITY_DEDUCTION_BASIS_STATUS_LABEL[deductionBasis?.status ?? 'NOT_GENERATED'],
     settlementImpactStatusLabel: QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL[settlementImpact.status],
-    qcPolicyLabel:
-      qcRecord.qcPolicy === 'REQUIRED'
-        ? '必检'
-        : qcRecord.qcPolicy === 'OPTIONAL'
-          ? '可选抽检'
-          : qcRecord.qcPolicy,
-    qualifiedRate,
-    unqualifiedRate,
+    qcPolicyLabel: getQcPolicyLabel(qcRecord.qcPolicy),
+    qualifiedRate: rates.qualifiedRate,
+    unqualifiedRate: rates.unqualifiedRate,
     warehouseEvidenceCount: qcRecord.evidenceAssets.length,
     disputeEvidenceCount: disputeCase?.disputeEvidenceAssets.length ?? 0,
     basisEvidenceCount: deductionBasis?.evidenceAssets.length ?? 0,
-    canViewDeduction: Boolean(deductionBasis?.basisId),
-    canHandleDispute: disputeStatus === 'PENDING_REVIEW' || disputeStatus === 'IN_REVIEW',
-    requiresFactoryResponse: factoryResponseStatus !== 'NOT_REQUIRED',
+    canViewDeduction: Boolean(deductionBasis || formalLedger),
+    canHandleDispute: Boolean(disputeCase && isOpenDisputeStatus(disputeCase.status)),
+    requiresFactoryResponse: resolveRequiresFactoryResponse(caseFact),
     showUnqualifiedHandling: qcRecord.qcResult !== 'QUALIFIED',
-    settlementReady: isSettlementReady(settlementImpact.status),
+    settlementReady: Boolean(formalLedger),
   }
 }
 
 export function getPlatformQcDetailViewModelByQcId(qcId: string): PlatformQcDetailViewModel | null {
-  ensureQualityDeductionLifecycle()
   const caseFact = getQualityDeductionCaseFactByQcId(qcId)
   return caseFact ? getPlatformQcDetailViewModelByRouteKey(caseFact.qcRecord.qcId) : null
 }
@@ -947,65 +1063,45 @@ export function getDeductionBasisCompatItemById(basisId: string): DeductionBasis
   return caseFact ? toCompatibilityDeductionBasisItem(caseFact) : null
 }
 
-export interface PdaSettlementWritebackItem {
-  basisId: string
-  qcId: string
-  productionOrderId: string
-  taskId?: string
-  batchId?: string
-  processLabel: string
-  warehouseName: string
-  returnFactoryName: string
-  summary: string
-  liabilityStatusText: string
-  settlementStatusText: string
-  deductionQty: number
-  deductionAmountCny: number
-  blockedProcessingFeeAmount: number
-  inspectedAt: string
-}
-
 export function listPdaSettlementWritebackItems(factoryKeys: Set<string>): PdaSettlementWritebackItem[] {
   ensureQualityDeductionLifecycle()
   return listQualityDeductionCaseFacts({ includeLegacy: false })
-    .filter((caseFact) => caseFact.deductionBasis)
     .filter((caseFact) => {
-      const qc = caseFact.qcRecord
-      return Boolean(qc.returnFactoryId && factoryKeys.has(qc.returnFactoryId))
+      const factoryId = caseFact.qcRecord.returnFactoryId ?? caseFact.formalLedger?.factoryId
+      return Boolean(caseFact.formalLedger && factoryId && factoryKeys.has(factoryId))
     })
     .map((caseFact) => {
-      const { qcRecord, deductionBasis, settlementImpact, disputeCase } = caseFact
-      const settlementStatusText =
-        settlementImpact.status === 'SETTLED'
-          ? `已结算 · ${settlementImpact.includedSettlementBatchId ?? ''}`.trim()
-          : QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL[settlementImpact.status]
-
+      const ledger = caseFact.formalLedger!
+      const basis = caseFact.deductionBasis
       return {
-        basisId: deductionBasis!.basisId,
-        qcId: qcRecord.qcId,
-        productionOrderId: qcRecord.productionOrderNo,
-        taskId: qcRecord.taskId,
-        batchId: qcRecord.returnInboundBatchNo,
-        processLabel: qcRecord.processLabel,
-        warehouseName: qcRecord.warehouseName ?? '-',
-        returnFactoryName: qcRecord.returnFactoryName ?? '-',
-        summary: deductionBasis!.summary,
-        liabilityStatusText:
-          disputeCase?.status === 'PARTIALLY_ADJUSTED'
-            ? '改判生效'
-            : disputeCase?.status === 'UPHELD'
-              ? '争议驳回'
-              : disputeCase?.status === 'PENDING_REVIEW' || disputeCase?.status === 'IN_REVIEW'
-                ? '争议中'
-                : QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL[qcRecord.liabilityStatus],
-        settlementStatusText,
-        deductionQty: deductionBasis!.deductionQty,
-        deductionAmountCny: settlementImpact.effectiveQualityDeductionAmount,
-        blockedProcessingFeeAmount: settlementImpact.blockedProcessingFeeAmount,
-        inspectedAt: qcRecord.inspectedAt,
+        basisId: basis?.basisId ?? ledger.ledgerId,
+        qcId: caseFact.qcRecord.qcId,
+        productionOrderId: caseFact.qcRecord.productionOrderNo,
+        taskId: caseFact.qcRecord.taskId,
+        batchId: caseFact.qcRecord.returnInboundBatchNo,
+        processLabel: caseFact.qcRecord.processLabel,
+        warehouseName: caseFact.qcRecord.warehouseName ?? '-',
+        returnFactoryName: caseFact.qcRecord.returnFactoryName ?? '-',
+        summary: ledger.comment ?? resolveSettlementSummary(caseFact),
+        liabilityStatusText: caseFact.disputeCase?.adjudicationResult === 'PARTIALLY_ADJUSTED'
+          ? '部分工厂责任'
+          : caseFact.disputeCase?.adjudicationResult === 'UPHELD'
+            ? '维持工厂责任'
+            : QUALITY_DEDUCTION_LIABILITY_STATUS_LABEL[caseFact.qcRecord.liabilityStatus],
+        settlementStatusText: getLedgerStatusLabel(ledger) ?? '已形成正式质量扣款流水',
+        deductionQty: basis?.deductionQty ?? caseFact.qcRecord.factoryLiabilityQty,
+        deductionAmountCny: ledger.originalAmount,
+        blockedProcessingFeeAmount: caseFact.settlementImpact.blockedProcessingFeeAmount,
+        inspectedAt: caseFact.qcRecord.inspectedAt,
+        originalCurrency: ledger.originalCurrency,
+        originalAmount: ledger.originalAmount,
+        settlementCurrency: ledger.settlementCurrency,
+        settlementAmount: ledger.settlementAmount,
+        fxRate: ledger.fxRate ?? 1,
+        fxAppliedAt: ledger.fxAppliedAt,
       }
     })
-    .sort((left, right) => new Date(right.inspectedAt.replace(' ', 'T')).getTime() - new Date(left.inspectedAt.replace(' ', 'T')).getTime())
+    .sort((left, right) => (parseDateMs(right.inspectedAt) ?? 0) - (parseDateMs(left.inspectedAt) ?? 0))
 }
 
 function toFutureMobileListItem(caseFact: QualityDeductionCaseFact): FutureMobileFactoryQcListItem {
@@ -1028,7 +1124,7 @@ function toFutureMobileListItem(caseFact: QualityDeductionCaseFact): FutureMobil
     factoryLiabilityQty: qcRecord.factoryLiabilityQty,
     inspectedAt: qcRecord.inspectedAt,
     blockedProcessingFeeAmount: settlementImpact.blockedProcessingFeeAmount,
-    effectiveQualityDeductionAmount: settlementImpact.effectiveQualityDeductionAmount,
+    effectiveQualityDeductionAmount: caseFact.formalLedger?.originalAmount ?? settlementImpact.effectiveQualityDeductionAmount,
     settlementImpactStatus: settlementImpact.status,
     settlementImpactStatusLabel: QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL[settlementImpact.status],
     responseDeadlineAt: factoryResponse?.responseDeadlineAt,
@@ -1041,7 +1137,7 @@ function toFutureMobileListItem(caseFact: QualityDeductionCaseFact): FutureMobil
     disputeStatusLabel: QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL[disputeCase?.status ?? 'NONE'],
     submittedAt: disputeCase?.submittedAt,
     adjudicatedAt: disputeCase?.adjudicatedAt,
-    resultWrittenBackAt: disputeCase?.resultWrittenBackAt,
+    resultWrittenBackAt: disputeCase?.resultWrittenBackAt ?? caseFact.formalLedger?.generatedAt,
     caseStatus,
     caseStatusLabel: QUALITY_DEDUCTION_CASE_STATUS_LABEL[caseStatus],
     isOverdue: factoryResponse?.isOverdue ?? false,
@@ -1054,25 +1150,22 @@ export function listFutureMobileFactoryQcBuckets(factoryId: string): FutureMobil
   ensureQualityDeductionLifecycle()
   const base = listQualityDeductionCaseFacts({ includeLegacy: true }).filter((item) => item.qcRecord.returnFactoryId === factoryId)
   const buckets: FutureMobileFactoryQcBuckets = { pending: [], disputing: [], processed: [], history: [] }
-
   for (const caseFact of base) {
     const item = toFutureMobileListItem(caseFact)
-    const caseStatus = getCaseStatus(caseFact)
-    if (caseStatus === 'WAIT_FACTORY_RESPONSE') {
+    if (caseFact.pendingDeductionRecord?.status === 'PENDING_FACTORY_CONFIRM') {
       buckets.pending.push(item)
       continue
     }
-    if (caseStatus === 'WAIT_PLATFORM_REVIEW') {
+    if (caseFact.disputeCase && isOpenDisputeStatus(caseFact.disputeCase.status)) {
       buckets.disputing.push(item)
       continue
     }
-    if (caseFact.qcRecord.isLegacy || caseStatus === 'SETTLED' || caseStatus === 'CLOSED') {
+    if (caseFact.qcRecord.isLegacy || caseFact.formalLedger?.status === 'PREPAID' || caseFact.qcRecord.qcStatus === 'CLOSED') {
       buckets.history.push(item)
       continue
     }
     buckets.processed.push(item)
   }
-
   return buckets
 }
 
@@ -1080,12 +1173,7 @@ export function listFutureMobileFactorySoonOverdueQcItems(factoryId: string): Fu
   ensureQualityDeductionLifecycle()
   return listFutureMobileFactoryQcBuckets(factoryId)
     .pending.filter((item) => isSoonOverdue(item.responseDeadlineAt) && !item.isOverdue)
-    .slice()
-    .sort((left, right) => {
-      const leftTime = left.responseDeadlineAt ? new Date(left.responseDeadlineAt.replace(' ', 'T')).getTime() : Number.MAX_SAFE_INTEGER
-      const rightTime = right.responseDeadlineAt ? new Date(right.responseDeadlineAt.replace(' ', 'T')).getTime() : Number.MAX_SAFE_INTEGER
-      return leftTime - rightTime
-    })
+    .sort((left, right) => (parseDateMs(left.responseDeadlineAt) ?? Number.MAX_SAFE_INTEGER) - (parseDateMs(right.responseDeadlineAt) ?? Number.MAX_SAFE_INTEGER))
 }
 
 export function getFutureMobileFactoryQcSummary(factoryId: string): FutureMobileFactoryQcSummary {
@@ -1095,7 +1183,6 @@ export function getFutureMobileFactoryQcSummary(factoryId: string): FutureMobile
   const pendingDeadlines = buckets.pending
     .map((item) => item.responseDeadlineAt)
     .filter((item): item is string => Boolean(item))
-    .slice()
     .sort()
   return {
     pendingCount: buckets.pending.length,
@@ -1108,18 +1195,14 @@ export function getFutureMobileFactoryQcSummary(factoryId: string): FutureMobile
   }
 }
 
-export function getFutureMobileFactoryQcDetail(
-  qcId: string,
-  factoryId?: string,
-): FutureMobileFactoryQcDetail | null {
+export function getFutureMobileFactoryQcDetail(qcId: string, factoryId?: string): FutureMobileFactoryQcDetail | null {
   ensureQualityDeductionLifecycle()
   const caseFact = getQualityDeductionCaseFactByQcId(qcId)
   if (!caseFact) return null
   if (factoryId && caseFact.qcRecord.returnFactoryId !== factoryId) return null
 
-  const { qcRecord, factoryResponse, disputeCase, settlementImpact } = caseFact
+  const { qcRecord, factoryResponse, pendingDeductionRecord, deductionBasis, disputeCase, formalLedger, settlementImpact } = caseFact
   const availableActions = getFutureMobileAvailableActions(caseFact)
-
   return {
     qcId: qcRecord.qcId,
     qcNo: qcRecord.qcNo,
@@ -1148,15 +1231,19 @@ export function getFutureMobileFactoryQcDetail(
     nonFactoryLiabilityQty: qcRecord.nonFactoryLiabilityQty,
     responsibilitySummary: getResponsibilitySummary(caseFact),
     blockedProcessingFeeAmount: settlementImpact.blockedProcessingFeeAmount,
-    effectiveQualityDeductionAmount: settlementImpact.effectiveQualityDeductionAmount,
+    effectiveQualityDeductionAmount: formalLedger?.originalAmount ?? settlementImpact.effectiveQualityDeductionAmount,
     settlementImpactStatus: settlementImpact.status,
     settlementImpactStatusLabel: QUALITY_DEDUCTION_SETTLEMENT_IMPACT_STATUS_LABEL[settlementImpact.status],
-    settlementSummary: settlementImpact.summary,
+    settlementSummary: resolveSettlementSummary(caseFact),
     blockedSettlementQty: settlementImpact.blockedSettlementQty,
     candidateSettlementCycleId: settlementImpact.candidateSettlementCycleId,
-    includedSettlementStatementId: settlementImpact.includedSettlementStatementId,
-    includedSettlementBatchId: settlementImpact.includedSettlementBatchId,
-    settlementAdjustmentSummary: caseFact.settlementAdjustment?.summary,
+    includedSettlementStatementId: settlementImpact.includedSettlementStatementId ?? formalLedger?.includedStatementId,
+    includedSettlementBatchId: settlementImpact.includedSettlementBatchId ?? formalLedger?.includedPrepaymentBatchId,
+    settlementAdjustmentSummary: formalLedger
+      ? `正式质量扣款流水 ${formalLedger.ledgerNo} · ${getLedgerStatusLabel(formalLedger) ?? '已生成'}`
+      : pendingDeductionRecord?.status === 'CLOSED_WITHOUT_LEDGER'
+        ? '平台已判定当前记录不生成正式质量扣款流水。'
+        : undefined,
     responseDeadlineAt: factoryResponse?.responseDeadlineAt,
     factoryResponseStatus: factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED',
     factoryResponseStatusLabel:
@@ -1169,8 +1256,8 @@ export function getFutureMobileFactoryQcDetail(
       ? QUALITY_DEDUCTION_FACTORY_RESPONSE_ACTION_LABEL[factoryResponse.responseAction]
       : undefined,
     responseComment: factoryResponse?.responseComment,
-    isOverdue: factoryResponse?.isOverdue ?? false,
-    requiresFactoryResponse: (factoryResponse?.factoryResponseStatus ?? 'NOT_REQUIRED') !== 'NOT_REQUIRED',
+    isOverdue: factoryResponse?.isOverdue ?? pendingDeductionRecord?.isOverdue ?? false,
+    requiresFactoryResponse: resolveRequiresFactoryResponse(caseFact),
     disputeStatus: disputeCase?.status ?? 'NONE',
     disputeStatusLabel: QUALITY_DEDUCTION_DISPUTE_STATUS_LABEL[disputeCase?.status ?? 'NONE'],
     disputeId: disputeCase?.disputeId,
@@ -1184,85 +1271,20 @@ export function getFutureMobileFactoryQcDetail(
     adjudicatedAt: disputeCase?.adjudicatedAt,
     adjudicationComment: disputeCase?.adjudicationComment,
     adjudicationResultLabel: getDisputeAdjudicationLabel(disputeCase ?? null),
-    resultWrittenBackAt: disputeCase?.resultWrittenBackAt ?? caseFact.settlementAdjustment?.writtenBackAt,
+    resultWrittenBackAt: disputeCase?.resultWrittenBackAt ?? formalLedger?.generatedAt,
     platformAdjudicationSummary:
       disputeCase?.adjustmentReasonSummary ??
       disputeCase?.adjudicationComment ??
-      disputeCase?.disputeDescription ??
-      settlementImpact.summary,
+      resolveSettlementSummary(caseFact),
+    pendingRecordStatusLabel: getPendingRecordStatusLabel(pendingDeductionRecord),
+    formalLedgerNo: formalLedger?.ledgerNo,
+    formalLedgerStatusLabel: getLedgerStatusLabel(formalLedger),
   }
 }
 
-export function listFutureSettlementAdjustmentItems(options: {
-  includeLegacy?: boolean
-} = {}): FutureSettlementAdjustmentListItem[] {
+export function listFutureSettlementAdjustmentItems(_options: { includeLegacy?: boolean } = {}): FutureSettlementAdjustmentListItem[] {
   ensureQualityDeductionLifecycle()
-  return listQualityDeductionSettlementAdjustments(options)
-    .map((adjustment) => {
-      const caseFact = getQualityDeductionCaseFactByQcId(adjustment.qcId)
-      if (!caseFact) return null
-      return {
-        adjustmentId: adjustment.adjustmentId,
-        adjustmentNo: adjustment.adjustmentNo,
-        qcId: adjustment.qcId,
-        qcNo: caseFact.qcRecord.qcNo,
-        productionOrderNo: caseFact.qcRecord.productionOrderNo,
-        basisId: adjustment.basisId,
-        disputeId: adjustment.disputeId,
-        adjustmentType: adjustment.adjustmentType,
-        adjustmentTypeLabel: QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_TYPE_LABEL[adjustment.adjustmentType],
-        adjustmentQty: adjustment.adjustmentQty,
-        adjustmentAmount: adjustment.adjustmentAmount,
-        targetSettlementCycleId: adjustment.targetSettlementCycleId,
-        writebackStatus: adjustment.writebackStatus,
-        writebackStatusLabel:
-          QUALITY_DEDUCTION_SETTLEMENT_ADJUSTMENT_WRITEBACK_STATUS_LABEL[adjustment.writebackStatus],
-        generatedAt: adjustment.generatedAt,
-        writtenBackAt: adjustment.writtenBackAt,
-        summary: adjustment.summary,
-      }
-    })
-    .filter((item): item is FutureSettlementAdjustmentListItem => item !== null)
-}
-
-export interface CompatChainDispute {
-  disputeId: string
-  qcId: string
-  basisId: string
-  factoryId?: string
-  status: 'OPEN' | 'REJECTED' | 'ADJUSTED' | 'ARCHIVED'
-  summary: string
-  submittedAt?: string
-  submittedBy?: string
-  resolvedAt?: string
-  resolvedBy?: string
-  requestedAmount?: number
-  finalAmount?: number
-}
-
-export interface CompatChainSettlementImpact {
-  qcId: string
-  basisId?: string
-  factoryId?: string
-  batchId: string
-  status: 'NO_IMPACT' | 'FROZEN' | 'READY' | 'SETTLED' | 'PENDING_ARBITRATION'
-  summary: string
-  settlementBatchId?: string
-  settledAt?: string
-}
-
-export interface CompatQcChainFact {
-  qc: QualityInspection
-  basisItems: DeductionBasisItem[]
-  dispute: CompatChainDispute | null
-  settlementImpact: CompatChainSettlementImpact
-  evidenceCount: number
-  deductionAmountCny: number
-  factoryResponse: FactoryResponseFact | null
-  deductionBasis: DeductionBasisFact | null
-  disputeCase: DisputeCaseFact | null
-  settlementAdjustment: SettlementAdjustmentFact | null
-  caseStatus: QualityDeductionCaseStatus
+  return []
 }
 
 export function toCompatQcChainFact(caseFact: QualityDeductionCaseFact): CompatQcChainFact {
@@ -1275,10 +1297,7 @@ export function toCompatQcChainFact(caseFact: QualityDeductionCaseFact): CompatQ
         basisId: caseFact.disputeCase.basisId,
         factoryId: caseFact.qcRecord.returnFactoryId,
         status: mapDisputeStatusToLegacy(caseFact.disputeCase.status),
-        summary:
-          caseFact.disputeCase.status === 'PARTIALLY_ADJUSTED'
-            ? `争议成立，扣款金额改判为 ${caseFact.disputeCase.adjudicatedAmount ?? 0} CNY`
-            : caseFact.disputeCase.disputeDescription,
+        summary: caseFact.disputeCase.disputeDescription,
         submittedAt: caseFact.disputeCase.submittedAt,
         submittedBy: caseFact.disputeCase.submittedByUserName,
         resolvedAt: caseFact.disputeCase.adjudicatedAt,
@@ -1298,17 +1317,31 @@ export function toCompatQcChainFact(caseFact: QualityDeductionCaseFact): CompatQ
       factoryId: caseFact.qcRecord.returnFactoryId,
       batchId: caseFact.qcRecord.returnInboundBatchNo,
       status: mapSettlementImpactStatusToLegacy(caseFact.settlementImpact.status),
-      summary: caseFact.settlementImpact.summary,
+      summary: resolveSettlementSummary(caseFact),
       settlementBatchId:
-        caseFact.settlementImpact.includedSettlementBatchId ?? caseFact.settlementImpact.candidateSettlementCycleId,
+        caseFact.settlementImpact.includedSettlementBatchId ??
+        caseFact.formalLedger?.includedPrepaymentBatchId ??
+        caseFact.settlementImpact.candidateSettlementCycleId,
       settledAt: caseFact.settlementImpact.settledAt,
     },
     evidenceCount: caseFact.qcRecord.evidenceAssets.length,
-    deductionAmountCny: caseFact.deductionBasis?.effectiveQualityDeductionAmount ?? 0,
+    deductionAmountCny: caseFact.formalLedger?.originalAmount ?? caseFact.deductionBasis?.effectiveQualityDeductionAmount ?? 0,
     factoryResponse: caseFact.factoryResponse,
+    pendingDeductionRecord: caseFact.pendingDeductionRecord,
     deductionBasis: caseFact.deductionBasis,
     disputeCase: caseFact.disputeCase,
-    settlementAdjustment: caseFact.settlementAdjustment,
+    formalLedger: caseFact.formalLedger,
+    settlementAdjustment: null,
     caseStatus: getCaseStatus(caseFact),
   }
+}
+
+export function getFormalLedgerCompatItem(ledgerId: string): PdaSettlementWritebackItem | null {
+  ensureQualityDeductionLifecycle()
+  const ledger = getFormalQualityDeductionLedgerById(ledgerId)
+  if (!ledger) return null
+  const caseFact = getQualityDeductionCaseFactByQcId(ledger.qcId)
+  if (!caseFact) return null
+  return listPdaSettlementWritebackItems(new Set([caseFact.qcRecord.returnFactoryId ?? ledger.factoryId ?? '']))
+    .find((item) => item.qcId === ledger.qcId) ?? null
 }

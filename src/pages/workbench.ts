@@ -280,7 +280,7 @@ export function renderOverviewPage(): string {
       return `
         <tr class="border-b last:border-0 hover:bg-muted/30">
           <td class="px-4 py-3 font-mono text-xs">${escapeHtml(item.id)}</td>
-          <td class="px-4 py-3 text-xs">${item.type === 'statement' ? '对账单' : '结算批次'}</td>
+          <td class="px-4 py-3 text-xs">${item.type === 'statement' ? '对账单' : '预付款批次'}</td>
           <td class="px-4 py-3 tabular-nums">¥${item.amount.toLocaleString()}</td>
           <td class="px-4 py-3"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.statusZh)}</span></td>
           <td class="px-4 py-3 text-right">
@@ -305,7 +305,7 @@ export function renderOverviewPage(): string {
           ${statCard('可进入结算依据数', readyBasis.length, 'text-green-600')}
           ${statCard('冻结中依据数', frozenBasis.length, frozenBasis.length > 0 ? 'text-amber-600' : 'text-foreground')}
           ${statCard('对账单草稿数', draftStatements.length, draftStatements.length > 0 ? 'text-blue-600' : 'text-foreground')}
-          ${statCard('处理中结算批次数', processingBatches.length, processingBatches.length > 0 ? 'text-blue-600' : 'text-foreground')}
+          ${statCard('处理中预付款批次数', processingBatches.length, processingBatches.length > 0 ? 'text-blue-600' : 'text-foreground')}
         </div>
       </section>
 

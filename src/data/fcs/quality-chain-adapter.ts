@@ -103,22 +103,27 @@ function createFallbackSettlementImpact(
 
   if (basisItems.some((item) => item.status === 'DISPUTED')) {
     status = 'PENDING_ARBITRATION'
-    summary = '争议中，当前冻结'
+    summary = '已发起质量异议，待平台处理后再决定是否形成正式质量扣款流水'
   } else if (basisItems.some((item) => item.status === 'VOID' || item.arbitrationResult === 'VOID_DEDUCTION')) {
     status = 'NO_IMPACT'
     summary =
       basisItems.find((item) => item.summary?.includes('归档'))?.summary ||
-      '扣款已作废，不再影响结算'
+      '当前记录已关闭且不生成正式质量扣款流水'
   } else if (basisItems.some((item) => item.settlementReady === true)) {
-    const settled = basisItems.some((item) => /已结算|已扣回|扣回/.test(item.summary ?? ''))
+    const settled = basisItems.some((item) => /已进入预付款批次|已预付/.test(item.summary ?? ''))
     status = settled ? 'SETTLED' : 'READY'
-    summary = settled ? '已计入历史结算' : qc.status === 'CLOSED' ? '已结案，可进入结算' : '已回写，可进入结算'
+    summary =
+      settled
+        ? '正式质量扣款流水已进入预付款批次'
+        : qc.status === 'CLOSED'
+          ? '当前记录已完成处理，正式质量扣款流水可进入预结算'
+          : '正式质量扣款流水已生成，待进入预结算'
   } else if (basisItems.length > 0) {
     status = 'FROZEN'
-    summary = basisItems.find((item) => item.settlementFreezeReason)?.settlementFreezeReason || '等待上游处理'
+    summary = basisItems.find((item) => item.settlementFreezeReason)?.settlementFreezeReason || '当前存在待确认质量扣款记录，待工厂处理'
   } else if (qc.result === 'PASS' && qc.status === 'CLOSED') {
     status = 'READY'
-    summary = '质检结案，可进入结算'
+    summary = '当前记录已关闭且不形成正式质量扣款流水'
   }
 
   return {
@@ -301,14 +306,14 @@ export function listQcChainFacts(): QcChainFact[] {
 export function getSettlementImpactLabel(status: CompatChainSettlementImpact['status']): string {
   switch (status) {
     case 'READY':
-      return '可结算'
+      return '已生成正式质量扣款流水'
     case 'SETTLED':
-      return '已结算'
+      return '已进入预付款批次'
     case 'PENDING_ARBITRATION':
-      return '待仲裁'
+      return '待平台处理'
     case 'FROZEN':
-      return '冻结中'
+      return '待确认或待平台处理'
     default:
-      return '不影响'
+      return '未形成正式质量扣款流水'
   }
 }

@@ -19,7 +19,7 @@ function renderBatchCompatPage(targetPath: string, title: string, note: string):
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(note)}</p>
       </section>
       <section class="rounded-lg border bg-card p-4">
-        <p class="text-sm text-muted-foreground">当前入口仅保留兼容跳转能力，系统正在带你进入结算批次的历史视图。</p>
+        <p class="text-sm text-muted-foreground">当前入口仅保留兼容跳转能力，系统正在带你进入预付款批次的历史视图。</p>
       </section>
     </div>
   `
@@ -29,7 +29,7 @@ export function renderHistoryPage(): string {
   const pageBoundary = getSettlementPageBoundary('history')
   return renderBatchCompatPage(
     '/fcs/settlement/batches?view=history',
-    '结算批次',
+    '预付款批次',
     pageBoundary.pageIntro,
   )
 }

@@ -655,12 +655,12 @@ function renderDetailProfileTab(
             <p class="mt-1 text-lg font-semibold">${usageStats.openStatementCount}</p>
           </div>
           <div class="rounded-md border bg-muted/20 px-4 py-3">
-            <p class="text-xs text-muted-foreground">当前版本正在使用的未完成结算批次</p>
+            <p class="text-xs text-muted-foreground">当前版本正在使用的未完成预付款批次</p>
             <p class="mt-1 text-lg font-semibold">${usageStats.activeBatchCount}</p>
           </div>
         </div>
         <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
-          新版本审批通过后，只会影响未来新生成的结算单据。已生成的对账单、已入批结算批次和已完成批次会继续保留生成时的版本快照，不会被新版本自动覆盖。
+          新版本审批通过后，只会影响未来新生成的结算单据。已生成的对账单、已入批预付款批次和已完成批次会继续保留生成时的版本快照，不会被新版本自动覆盖。
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import type { PlatformCuttingOverviewRow } from '../cutting-platform/overview.adapter'
-import { clonePlatformCuttingOverviewRows } from '../cutting-platform/overview.mock'
+import { buildPlatformCuttingRuntimeOverviewData } from '../cutting-platform/overview.adapter'
 import {
   cuttingExceptionClosureConditionTexts,
   cuttingExceptionTriggerConditionTexts,
@@ -284,7 +284,7 @@ function buildExceptionsForRow(row: PlatformCuttingOverviewRow): CuttingExceptio
 }
 
 export function buildPlatformCuttingExceptionViews(
-  rows: PlatformCuttingOverviewRow[] = clonePlatformCuttingOverviewRows(),
+  rows: PlatformCuttingOverviewRow[] = buildPlatformCuttingRuntimeOverviewData().rows,
 ): CuttingException[] {
   return rows.flatMap((row) => buildExceptionsForRow(row))
 }

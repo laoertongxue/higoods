@@ -14,7 +14,7 @@ import {
   hasCuttingExceptionFilters,
   type CuttingExceptionFilters,
 } from '../domain/cutting-exception/helpers'
-import { cloneCuttingExceptionRecords } from '../domain/cutting-exception/mock'
+import { buildPlatformCuttingExceptionViews } from '../domain/cutting-exception/platform.adapter'
 import type {
   CuttingException,
   CuttingExceptionOwnerRole,
@@ -46,10 +46,11 @@ interface CuttingExceptionPageState {
   filters: CuttingExceptionFilters
   activeExceptionNo: string | null
   processDraft: CuttingExceptionProcessDraft | null
+  rowOverridesByExceptionNo: Record<string, Partial<CuttingException>>
 }
 
 const state: CuttingExceptionPageState = {
-  rows: cloneCuttingExceptionRecords(),
+  rows: [],
   filters: {
     keyword: '',
     exceptionType: 'ALL',
@@ -61,6 +62,23 @@ const state: CuttingExceptionPageState = {
   },
   activeExceptionNo: null,
   processDraft: null,
+  rowOverridesByExceptionNo: {},
+}
+
+function refreshRuntimeRows(): void {
+  const runtimeRows = buildPlatformCuttingExceptionViews()
+  state.rows = runtimeRows.map((row) => ({
+    ...row,
+    ...(state.rowOverridesByExceptionNo[row.exceptionNo] || {}),
+  }))
+
+  if (state.activeExceptionNo && !state.rows.some((row) => row.exceptionNo === state.activeExceptionNo)) {
+    state.activeExceptionNo = null
+  }
+
+  if (state.processDraft && !state.rows.some((row) => row.exceptionNo === state.processDraft?.exceptionNo)) {
+    state.processDraft = null
+  }
 }
 
 function renderBadge(label: string, className: string): string {
@@ -234,6 +252,18 @@ function saveProcessDraft(): void {
     row.closedAt = ''
     row.closedBy = ''
     row.closeNote = ''
+  }
+
+  state.rowOverridesByExceptionNo[row.exceptionNo] = {
+    status: row.status,
+    ownerRole: row.ownerRole,
+    ownerName: row.ownerName,
+    latestActionSummary: row.latestActionSummary,
+    latestActionAt: row.latestActionAt,
+    latestActionBy: row.latestActionBy,
+    closedAt: row.closedAt,
+    closedBy: row.closedBy,
+    closeNote: row.closeNote,
   }
 
   state.processDraft = null
@@ -737,6 +767,7 @@ function renderProcessDrawer(): string {
 }
 
 export function renderProgressCuttingExceptionCenterPage(): string {
+  refreshRuntimeRows()
   return `
     <div class="space-y-6 p-6">
       ${renderPageHeader()}

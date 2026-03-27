@@ -6,6 +6,10 @@ import {
   type CutPieceZoneCode,
 } from '../../../data/fcs/cutting/warehouse-management'
 import type { OriginalCutOrderRow } from './original-orders-model'
+import {
+  listPdaHandoverWritebacks,
+  listPdaInboundWritebacks,
+} from './pda-execution-writeback-model'
 import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
@@ -135,6 +139,86 @@ function deriveCutPieceRiskTags(record: CutPieceWarehouseRecord): CutPieceWareho
   return tags
 }
 
+function buildWarehouseOverlayRecord(options: {
+  baseRecord?: CutPieceWarehouseRecord
+  originalCutOrderNo: string
+  productionOrderNo: string
+  materialSku: string
+}): CutPieceWarehouseRecord {
+  return options.baseRecord || {
+    id: `cpw-pda-${options.originalCutOrderNo}`,
+    warehouseType: 'CUT_PIECE',
+    productionOrderNo: options.productionOrderNo,
+    cutPieceOrderNo: options.originalCutOrderNo,
+    materialSku: options.materialSku,
+    groupNo: 'PDA回写',
+    zoneCode: 'UNASSIGNED',
+    locationLabel: '待补位',
+    inboundStatus: 'PENDING_INBOUND',
+    inboundAt: '',
+    inboundBy: '',
+    pieceSummary: 'PDA 回写生成的裁片仓记录。',
+    handoverStatus: 'WAITING_HANDOVER',
+    handoverTarget: '待交接',
+    note: '',
+  }
+}
+
+function applyExecutionWritebackOverlay(records: CutPieceWarehouseRecord[]): CutPieceWarehouseRecord[] {
+  const inboundWritebacks = listPdaInboundWritebacks(typeof localStorage === 'undefined' ? undefined : localStorage)
+  const handoverWritebacks = listPdaHandoverWritebacks(typeof localStorage === 'undefined' ? undefined : localStorage)
+  const runtimeMap = new Map<string, CutPieceWarehouseRecord>(records.map((record) => [record.cutPieceOrderNo, { ...record }]))
+
+  inboundWritebacks.forEach((writeback) => {
+    const current = runtimeMap.get(writeback.originalCutOrderNo)
+    const next = buildWarehouseOverlayRecord({
+      baseRecord: current,
+      originalCutOrderNo: writeback.originalCutOrderNo,
+      productionOrderNo: writeback.productionOrderNo,
+      materialSku: writeback.materialSku,
+    })
+    runtimeMap.set(writeback.originalCutOrderNo, {
+      ...next,
+      id: current?.id || `cpw-pda-${writeback.originalCutOrderNo}`,
+      productionOrderNo: writeback.productionOrderNo,
+      cutPieceOrderNo: writeback.originalCutOrderNo,
+      materialSku: writeback.materialSku,
+      zoneCode: writeback.zoneCode,
+      locationLabel: writeback.locationLabel,
+      inboundStatus: 'WAITING_HANDOVER',
+      inboundAt: writeback.submittedAt,
+      inboundBy: writeback.operatorName,
+      handoverStatus: current?.handoverStatus || 'WAITING_HANDOVER',
+      note: writeback.note || next.note,
+    })
+  })
+
+  handoverWritebacks.forEach((writeback) => {
+    const current = runtimeMap.get(writeback.originalCutOrderNo)
+    const next = buildWarehouseOverlayRecord({
+      baseRecord: current,
+      originalCutOrderNo: writeback.originalCutOrderNo,
+      productionOrderNo: writeback.productionOrderNo,
+      materialSku: writeback.materialSku,
+    })
+    runtimeMap.set(writeback.originalCutOrderNo, {
+      ...next,
+      id: current?.id || `cpw-pda-${writeback.originalCutOrderNo}`,
+      productionOrderNo: writeback.productionOrderNo,
+      cutPieceOrderNo: writeback.originalCutOrderNo,
+      materialSku: writeback.materialSku,
+      inboundStatus: 'HANDED_OVER',
+      inboundAt: current?.inboundAt || writeback.submittedAt,
+      inboundBy: current?.inboundBy || writeback.operatorName,
+      handoverStatus: 'HANDED_OVER',
+      handoverTarget: writeback.targetLabel,
+      note: writeback.note || next.note,
+    })
+  })
+
+  return Array.from(runtimeMap.values())
+}
+
 export function buildCutPieceWarehouseNavigationPayload(item: Pick<CutPieceWarehouseItem, 'originalCutOrderNo' | 'productionOrderNo' | 'mergeBatchNo' | 'cuttingGroup' | 'zoneCode' | 'warehouseStatus' | 'styleCode'>): WarehouseNavigationPayload {
   return buildWarehouseQueryPayload({
     originalCutOrderNo: item.originalCutOrderNo,
@@ -148,8 +232,9 @@ export function buildCutPieceWarehouseNavigationPayload(item: Pick<CutPieceWareh
 }
 
 export function buildCutPieceWarehouseViewModel(originalRows: OriginalCutOrderRow[], records = cutPieceWarehouseRecords): CutPieceWarehouseViewModel {
+  const runtimeRecords = applyExecutionWritebackOverlay(records)
   const rowByOrderNo = Object.fromEntries(originalRows.map((row) => [row.originalCutOrderNo, row]))
-  const items = records
+  const items = runtimeRecords
     .map((record) => {
       const row = rowByOrderNo[record.cutPieceOrderNo]
       const item: CutPieceWarehouseItem = {

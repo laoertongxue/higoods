@@ -2,6 +2,8 @@
 
 import process from 'node:process'
 import { readFileSync } from 'node:fs'
+import { listFeishuPaymentApprovals, listPaymentWritebacks, listSettlementBatchesByParty, listSettlementStatementsByParty } from '../src/data/fcs/store-domain-settlement-seeds.ts'
+import { indonesiaFactories } from '../src/data/fcs/indonesia-factories.ts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {
@@ -11,37 +13,45 @@ function assert(condition: unknown, message: string): void {
 
 function main(): void {
   const source = readFileSync(new URL('../src/pages/pda-settlement.ts', import.meta.url), 'utf8')
+  const qualitySource = readFileSync(new URL('../src/pages/pda-quality.ts', import.meta.url), 'utf8')
 
-  assert(source.includes('function getTaskIncomeListItems('), '缺少任务收入列表 view model selector')
-  assert(source.includes('function getTaskIncomeDetailViewModel('), '缺少任务收入详情 view model selector')
-  assert(source.includes('function listTaskLinkedDeductionItems('), '缺少任务关联扣款项 selector')
-  assert(source.includes('function listTaskLinkedQualityCases('), '缺少任务关联质检记录 selector')
-  assert(source.includes('function getTaskSettlementImpactViewModel('), '缺少任务结算影响 selector')
+  assert(source.includes('function buildPdaQualityDetailHref(qcId: string, cycleId?: string, qualityView?: QualityView): string'), '结算页缺少跳转 pda-quality 的详情路由 helper')
+  assert(source.includes('data-pda-sett-action="open-quality-workbench"'), '结算页缺少去处理质检扣款入口')
+  assert(source.includes('data-nav="${escapeHtml(detailHref)}"'), '质检扣款卡片未复用共享详情跳转')
+  assert(source.includes('飞书付款审批编号'), '结算页未展示飞书付款审批编号')
+  assert(source.includes('银行回执'), '结算页未展示银行回执')
+  assert(source.includes('银行流水号'), '结算页未展示银行流水号')
+  assert(source.includes('当前生效：'), '结算页未展示资料快照版本差异说明')
+  assert(source.includes('工厂端不能在这里创建预付款批次、申请付款或创建打款回写'), '结算页未明确消费端动作边界')
 
-  assert(source.includes('扣款来源与结算影响'), '任务抽屉未合并扣款构成与结算影响区块')
-  assert(source.includes('关联扣款项'), '任务抽屉未新增关联扣款项区块')
-  assert(source.includes('关联质检记录'), '任务抽屉未新增关联质检记录区块')
-  assert(source.includes('付款记录'), '任务抽屉未保留付款记录区块')
+  assert(!source.includes('data-batch-action="create-batch"'), '工厂端结算页不应出现创建预付款批次动作')
+  assert(!source.includes('data-batch-action="apply-payment"'), '工厂端结算页不应出现申请付款动作')
+  assert(!source.includes('data-batch-action="create-writeback"'), '工厂端结算页不应出现创建打款回写动作')
 
-  assert(source.includes('有关联质检'), '任务收入列表未补任务级质量扣款轻提示')
-  assert(source.includes('含下周期调整'), '任务收入列表未补下周期调整轻提示')
+  assert(qualitySource.includes("const cycleId = params.get('cycleId')"), 'pda-quality 未读取 cycleId 以保留回跳上下文')
+  assert(qualitySource.includes("search.set('cycleId', cycleId)"), 'pda-quality 返回结算页时未保留 cycleId')
 
-  assert(source.includes('data-pda-sett-action="open-ded-drawer"'), '任务抽屉未接查看扣款项动作')
-  assert(source.includes('data-pda-sett-action="goto-deductions-from-task"'), '任务抽屉未接去扣款台账动作')
-  assert(source.includes('data-pda-sett-action="goto-quality-from-task"'), '任务抽屉未接去质检扣款动作')
-  assert(source.includes('buildPdaQualityDetailHref('), '任务抽屉未复用 PDA 质检详情路由')
-
-  assert(source.includes('linkedQualityQcIds'), '任务收入 mock 未补显式关联质检记录字段')
-  assert(source.includes('linkedQcIds'), '扣款项 mock 未补显式关联质检记录字段')
-  assert(source.includes('function matchesLedgerKeyword('), '扣款台账搜索未切到统一 ledger keyword 过滤')
-  assert(source.includes('搜索台账单/任务/质检/扣款原因'), '扣款台账搜索提示未补任务/质检维度')
+  const factoryWithBatch = indonesiaFactories.find((factory) => listSettlementBatchesByParty(factory.id).length > 0)
+  assert(Boolean(factoryWithBatch), '缺少可用于工厂端查看预付款结果的工厂样例')
+  const statements = factoryWithBatch ? listSettlementStatementsByParty(factoryWithBatch.id) : []
+  const batches = factoryWithBatch ? listSettlementBatchesByParty(factoryWithBatch.id) : []
+  const approvals = listFeishuPaymentApprovals()
+  const writebacks = listPaymentWritebacks()
+  const linkedBatch = batches.find((batch) => batch.statementIds.some((statementId) => statements.some((statement) => statement.statementId === statementId)))
+  assert(Boolean(linkedBatch), '缺少关联对账单的预付款批次样例')
+  const linkedApproval = linkedBatch ? approvals.find((approval) => approval.batchId === linkedBatch.batchId) : null
+  const linkedWriteback = linkedBatch ? writebacks.find((writeback) => writeback.batchId === linkedBatch.batchId) : null
+  assert(Boolean(linkedApproval), '缺少飞书付款审批样例')
+  assert(Boolean(linkedWriteback), '缺少打款回写样例')
 
   console.log(
     JSON.stringify(
       {
-        taskDrawerSections: ['金额情况', '扣款来源与结算影响', '数量与基础信息', '关联扣款项', '关联质检记录', '付款记录'],
-        drillDownActions: ['open-ded-drawer', 'goto-deductions-from-task', 'goto-quality-from-task'],
-        listHints: ['有关联质检', '含下周期调整'],
+        linkedFactory: factoryWithBatch?.id ?? null,
+        batchNo: linkedBatch?.batchNo ?? null,
+        approvalNo: linkedApproval?.approvalNo ?? null,
+        writebackSerialNo: linkedWriteback?.bankSerialNo ?? null,
+        qualityDrillDown: '结算页通过 pda-quality 详情承接质检扣款处理，不在 settlement 页重复堆表单',
       },
       null,
       2,

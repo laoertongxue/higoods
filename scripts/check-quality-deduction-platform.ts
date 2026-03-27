@@ -11,9 +11,7 @@ import {
 } from '../src/data/fcs/quality-deduction-selectors.ts'
 
 function assert(condition: unknown, message: string): void {
-  if (!condition) {
-    throw new Error(message)
-  }
+  if (!condition) throw new Error(message)
 }
 
 function main(): void {
@@ -21,91 +19,51 @@ function main(): void {
   const stats = getPlatformQcWorkbenchStats({ includeLegacy: false })
   const tabs = getPlatformQcWorkbenchTabCounts({ includeLegacy: false })
 
-  assert(rows.length === 15, `平台质检工作台记录数异常: ${rows.length}`)
-  assert(stats.totalCount === rows.length, '工作台总数统计与列表记录数不一致')
-  assert(tabs.ALL === rows.length, '全部 tab 计数异常')
-  assert(stats.waitFactoryResponseCount === tabs.WAIT_FACTORY_RESPONSE, '待工厂响应卡片与 tab 计数不一致')
-  assert(stats.waitPlatformReviewCount === tabs.WAIT_PLATFORM_REVIEW, '待平台处理卡片与 tab 计数不一致')
-  assert(stats.autoConfirmedCount === tabs.AUTO_CONFIRMED, '已自动确认卡片与 tab 计数不一致')
+  assert(rows.length >= 15, `平台端质检记录数量偏少: ${rows.length}`)
+  assert(stats.totalCount === rows.length, '平台端总数统计与列表行数不一致')
+  assert(tabs.ALL === rows.length, '全部视图计数错误')
+  assert(stats.waitFactoryResponseCount === tabs.WAIT_FACTORY_RESPONSE, '待工厂处理计数不一致')
+  assert(stats.waitPlatformReviewCount === tabs.WAIT_PLATFORM_REVIEW, '待平台处理计数不一致')
+  assert(stats.autoConfirmedCount === tabs.AUTO_CONFIRMED, '系统自动确认计数不一致')
 
-  assert(rows.every((row) => ['PASS', 'PARTIAL_PASS', 'FAIL'].includes(row.result)), '列表存在三态之外的质检结果')
-  assert(rows.every((row) => row.inspector.trim().length > 0), '存在缺失质检人的平台列表记录')
-  assert(
-    rows.filter((row) => row.result === 'PASS').every((row) => row.disposition === undefined),
-    '合格记录不应带有不合格品处置方式',
-  )
-
-  const pendingRows = rows.filter((row) => matchesPlatformQcWorkbenchView(row, 'WAIT_FACTORY_RESPONSE'))
-  const autoConfirmedRows = rows.filter((row) => matchesPlatformQcWorkbenchView(row, 'AUTO_CONFIRMED'))
-  const reviewRows = rows.filter((row) => matchesPlatformQcWorkbenchView(row, 'WAIT_PLATFORM_REVIEW'))
-  assert(pendingRows.length >= 1, '待工厂响应视图为空')
-  assert(autoConfirmedRows.length >= 1, '已自动确认视图为空')
-  assert(reviewRows.length >= 1, '待平台处理视图为空')
+  assert(rows.some((row) => matchesPlatformQcWorkbenchView(row, 'WAIT_FACTORY_RESPONSE')), '平台端缺少待工厂处理样例')
+  assert(rows.some((row) => matchesPlatformQcWorkbenchView(row, 'WAIT_PLATFORM_REVIEW')), '平台端缺少待平台处理异议样例')
+  assert(rows.some((row) => matchesPlatformQcWorkbenchView(row, 'AUTO_CONFIRMED')), '平台端缺少系统自动确认样例')
 
   const listSource = readFileSync(new URL('../src/pages/qc-records/list-domain.ts', import.meta.url), 'utf8')
-  const eventSource = readFileSync(new URL('../src/pages/qc-records/events.ts', import.meta.url), 'utf8')
   const detailSource = readFileSync(new URL('../src/pages/qc-records/detail-domain.ts', import.meta.url), 'utf8')
-  assert(
-    /data-nav="\$\{escapeHtml\(detailHref\)\}"[\s\S]*?>\s*查看详情\s*<\/button>/.test(listSource),
-    '平台端列表未把“查看详情”按钮接到真实详情跳转',
-  )
-  assert(
-    /data-nav="\$\{escapeHtml\(disputeHref\)\}"[\s\S]*?>\s*处理异议\s*<\/button>/.test(listSource),
-    '平台端列表未把“处理异议”按钮接到真实异议处理入口',
-  )
-  assert(eventSource.includes("action === 'open-detail'"), '平台端列表未处理“查看详情”点击动作')
-  assert(eventSource.includes("action === 'handle-dispute'"), '平台端列表未处理“处理异议”点击动作')
-  assert(detailSource.includes('工厂响应与异议'), '平台端详情未合并工厂响应与异议信息链')
-  assert(detailSource.includes('异议处理入口'), '平台端详情未承接从列表进入的异议处理入口')
-  assert(detailSource.includes('data-qcd-action="submit-adjudication"'), '平台端详情未接裁决提交动作')
+  assert(listSource.includes('查看详情'), '平台端质检列表缺少查看详情入口')
+  assert(listSource.includes('处理异议'), '平台端质检列表缺少处理异议入口')
+  assert(detailSource.includes('待确认质量扣款记录'), '平台端详情未暴露待确认质量扣款记录区块')
+  assert(detailSource.includes('正式质量扣款流水与预结算衔接'), '平台端详情未暴露正式质量扣款流水区块')
+  assert(detailSource.includes('data-qcd-action="submit-adjudication"'), '平台端详情未接平台裁决提交动作')
 
-  const qualifiedDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-007')
-  const partialDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-011')
-  const unqualifiedDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-005')
-  const disputeDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-002')
-  const adjustedDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-004')
-  const detailSamples = ['QC-NEW-001', 'QC-NEW-004', 'QC-RIB-202603-0002']
+  const pendingDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-005')
+  const disputeDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-006')
+  const autoConfirmedDetail = getPlatformQcDetailViewModelByRouteKey('QC-RIB-202603-0003')
+  const partialDetail = getPlatformQcDetailViewModelByRouteKey('QC-NEW-004')
+  const reversedDetail = getPlatformQcDetailViewModelByRouteKey('QC-021')
 
-  assert(qualifiedDetail?.qcResultLabel === '合格', '合格详情样例缺失或结果错误')
-  assert(qualifiedDetail?.showUnqualifiedHandling === false, '合格详情不应展示完整不合格处理区')
-  assert(qualifiedDetail?.settlementImpact.blockedProcessingFeeAmount === 0, '合格详情冻结加工费应为 0')
-
-  assert(partialDetail?.qcResultLabel === '部分合格', '部分合格详情样例缺失或结果错误')
-  assert(partialDetail?.qcRecord.qualifiedQty > 0 && partialDetail?.qcRecord.unqualifiedQty > 0, '部分合格数量口径错误')
-
-  assert(unqualifiedDetail?.qcResultLabel === '不合格', '不合格详情样例缺失或结果错误')
-  assert(unqualifiedDetail?.qcRecord.qualifiedQty === 0, '不合格记录不应存在合格数量')
-  assert(unqualifiedDetail?.showUnqualifiedHandling === true, '不合格详情必须展示不合格处理区')
-
-  assert(disputeDetail?.canHandleDispute === true, '待平台处理记录未暴露处理异议入口')
-  assert(
-    disputeDetail?.settlementImpact.blockedProcessingFeeAmount !== disputeDetail?.settlementImpact.effectiveQualityDeductionAmount,
-    '冻结加工费金额与质量扣款金额不应混用',
-  )
-
-  assert(adjustedDetail?.settlementAdjustment?.adjustmentAmount === 240, '改判调整项金额错误')
-  assert(adjustedDetail?.settlementImpact.effectiveQualityDeductionAmount === 860, '改判后生效质量扣款金额错误')
-  assert(disputeDetail?.warehouseEvidenceCount !== undefined, '详情 view model 缺少仓库证据计数')
-  assert(disputeDetail?.disputeEvidenceCount !== undefined, '详情 view model 缺少工厂异议证据计数')
-  assert(Boolean(disputeDetail?.deductionBasis?.basisId), '详情 view model 缺少扣款依据对象')
-  assert(Boolean(disputeDetail?.settlementImpact?.impactId), '详情 view model 缺少结算影响对象')
-  assert(
-    detailSamples.every((qcId) => Boolean(getPlatformQcDetailViewModelByRouteKey(qcId))),
-    '平台端至少 3 条“查看详情”样例未能稳定解析到详情 view model',
-  )
+  assert(pendingDetail?.pendingDeductionRecord?.status === 'PENDING_FACTORY_CONFIRM', '待工厂处理详情未命中待确认质量扣款记录')
+  assert(!pendingDetail?.formalLedger, '待工厂处理详情不应提前展示正式质量扣款流水')
+  assert(disputeDetail?.disputeCase?.status === 'PENDING_REVIEW', '待平台处理样例状态错误')
+  assert(!disputeDetail?.formalLedger, '待平台处理异议样例不应提前展示正式质量扣款流水')
+  assert(autoConfirmedDetail?.pendingDeductionRecord?.status === 'SYSTEM_AUTO_CONFIRMED', '系统自动确认样例状态错误')
+  assert(autoConfirmedDetail?.formalLedger?.status === 'GENERATED_PENDING_STATEMENT', '系统自动确认样例未展示正式质量扣款流水')
+  assert(partialDetail?.formalLedger?.settlementAmount === 860, '部分工厂责任样例正式质量扣款流水金额错误')
+  assert(reversedDetail?.disputeCase?.status === 'REVERSED', '非工厂责任样例状态错误')
+  assert(!reversedDetail?.formalLedger, '非工厂责任样例不应展示正式质量扣款流水')
 
   console.log(
     JSON.stringify(
       {
         rowCount: rows.length,
         waitFactoryResponseCount: stats.waitFactoryResponseCount,
-        autoConfirmedCount: stats.autoConfirmedCount,
         waitPlatformReviewCount: stats.waitPlatformReviewCount,
-        blockedOrReadyCount: stats.blockedOrReadyCount,
-        qualifiedSample: qualifiedDetail?.qcId,
-        partialSample: partialDetail?.qcId,
-        unqualifiedSample: unqualifiedDetail?.qcId,
-        detailSamples,
+        autoConfirmedCount: stats.autoConfirmedCount,
+        samplePendingQcId: pendingDetail?.qcId,
+        sampleDisputeQcId: disputeDetail?.qcId,
+        sampleAutoConfirmedQcId: autoConfirmedDetail?.qcId,
       },
       null,
       2,

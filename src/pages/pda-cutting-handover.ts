@@ -180,11 +180,15 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
   if (action === 'confirm') {
     const form = getState(taskId, selectedCutPieceOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'handover')
-    confirmCuttingHandover(taskId, {
+    const result = confirmCuttingHandover(taskId, {
       operatorName: form.operatorName.trim() || '交接操作员',
       targetLabel: form.targetLabel.trim() || '裁片仓交接位',
       note: form.note.trim(),
     }, selectedCutPieceOrderNo ?? undefined)
+    if (!result.success) {
+      form.feedbackMessage = result.issues.join('；')
+      return true
+    }
     form.feedbackMessage = '交接已确认。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
       taskId,

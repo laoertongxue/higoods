@@ -5,6 +5,7 @@ import type {
   CuttingQrStatus,
   CuttingReceiveStatus,
 } from './types'
+import { resolveProductionOrderRef } from '../../../domain/cutting-identity'
 
 export type MarkerImageStatus = 'NOT_UPLOADED' | 'UPLOADED'
 export type LinkedDocType = 'PICKUP_SLIP' | 'CONFIG_BATCH' | 'PICKUP_RECORD' | 'REPLENISHMENT' | 'INBOUND'
@@ -50,7 +51,10 @@ export interface CutPieceLinkedDocument {
 
 export interface CutPieceOrderRecord {
   id: string
+  productionOrderId: string
   cutPieceOrderNo: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
   productionOrderNo: string
   purchaseDate: string
   orderQty: number
@@ -80,6 +84,8 @@ export interface CutPieceOrderRecord {
   markerInfo: CutPieceMarkerInfo
   spreadingRecords: CutPieceSpreadingRecord[]
   linkedDocuments: CutPieceLinkedDocument[]
+  mergeBatchId: string
+  mergeBatchNo: string
 }
 
 export interface CutPieceOrderFilters {
@@ -91,7 +97,25 @@ export interface CutPieceOrderFilters {
   inboundStatus: 'ALL' | 'NOT_INBOUND' | 'INBOUND'
 }
 
-export const cutPieceOrderRecords: CutPieceOrderRecord[] = [
+type CutPieceOrderSeed = Omit<
+  CutPieceOrderRecord,
+  'productionOrderId' | 'originalCutOrderId' | 'originalCutOrderNo' | 'mergeBatchId' | 'mergeBatchNo'
+>
+
+function normalizeCutPieceOrderRecord(record: CutPieceOrderSeed): CutPieceOrderRecord {
+  const productionRef = resolveProductionOrderRef({ productionOrderNo: record.productionOrderNo })
+  return {
+    ...record,
+    productionOrderId: productionRef?.productionOrderId || '',
+    productionOrderNo: productionRef?.productionOrderNo || record.productionOrderNo,
+    originalCutOrderId: record.cutPieceOrderNo,
+    originalCutOrderNo: record.cutPieceOrderNo,
+    mergeBatchId: '',
+    mergeBatchNo: '',
+  }
+}
+
+const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
   {
     id: 'cpo-001',
     cutPieceOrderNo: 'CP-202603-018-01',
@@ -517,6 +541,8 @@ export const cutPieceOrderRecords: CutPieceOrderRecord[] = [
     ],
   },
 ]
+
+export const cutPieceOrderRecords: CutPieceOrderRecord[] = rawCutPieceOrderRecords.map(normalizeCutPieceOrderRecord)
 
 export function cloneCutPieceOrderRecords(): CutPieceOrderRecord[] {
   return cutPieceOrderRecords.map((record) => ({

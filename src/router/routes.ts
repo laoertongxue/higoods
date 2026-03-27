@@ -254,8 +254,8 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/quality/arbitration': () =>
     renderRouteRedirect('/fcs/quality/qc-records?view=WAIT_PLATFORM_REVIEW', '正在跳转到质检记录'),
   '/fcs/quality/penalty-output': () => renderDeductionAnalysisPage(),
-  // 对账与结算只固定 4 个主对象路由：对账单、应付调整、车缝领料对账、结算批次。
-  // payment-sync 和 history 仅是结算批次的生命周期视图；cutting-input 属于专项输入页。
+  // 对账与结算只固定 4 个主对象路由：对账单、预结算流水、车缝领料对账、预付款批次。
+  // payment-sync 和 history 仅是预付款批次的生命周期视图；cutting-input 属于专项输入页。
   '/fcs/settlement/statements': () => renderStatementsPage(),
   '/fcs/settlement/adjustments': () => renderAdjustmentsPage(),
   '/fcs/settlement/batches': () => renderBatchesPage(),

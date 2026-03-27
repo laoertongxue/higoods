@@ -1,4 +1,5 @@
 import type { QcDisposition, QcStatus, ReturnInboundProcessType, SettlementPartyType } from './store-domain-quality-types.ts'
+import { getSettlementEffectiveInfoByFactory } from './settlement-change-requests.ts'
 import {
   RETURN_INBOUND_QC_CHAIN_SCENARIOS,
   type ReturnInboundQcChainScenario,
@@ -8,11 +9,16 @@ import {
   type DeductionBasisFact,
   type DisputeCaseFact,
   type FactoryResponseFact,
+  type FormalQualityDeductionLedgerFact,
+  type PendingQualityDeductionRecord,
+  type PendingQualityDeductionRecordStatus,
   type QualityDeductionBasisStatus,
   type QualityDeductionCaseFact,
   type QualityDeductionCaseStatus,
   type QualityDeductionDisputeAdjudicationResult,
   type QualityDeductionDisputeStatus,
+  type QualityDeductionLedgerGenerationTrigger,
+  type QualityDeductionLedgerStatus,
   type QualityDeductionFactoryResponseStatus,
   type QualityDeductionLiabilityStatus,
   type QualityDeductionQcResult,
@@ -111,6 +117,12 @@ const PROCESSING_FEE_RATE: Record<ReturnInboundProcessType, number> = {
   DYE_PRINT: 6,
 }
 
+const MOCK_FX_RATE_BY_SETTLEMENT_CURRENCY: Record<string, number> = {
+  CNY: 1,
+  IDR: 2150,
+  USD: 0.14,
+}
+
 const LEGACY_QC_RAW_CASES: RawCaseSeed[] = [
   {
     qcId: 'QC-020',
@@ -157,7 +169,7 @@ const LEGACY_QC_RAW_CASES: RawCaseSeed[] = [
       deductionQty: 12,
       deductionAmount: 600,
       settlementReady: true,
-      summary: '历史旧记录，已结案并在旧结算批次中扣回',
+      summary: '历史旧记录，已结案并在旧预付款批次中扣回',
       evidenceRefs: [{ name: '历史质检底稿', type: '文档' }],
       createdAt: '2025-12-18 10:05:00',
       updatedAt: '2025-12-18 10:20:00',
@@ -211,7 +223,7 @@ const LEGACY_QC_RAW_CASES: RawCaseSeed[] = [
     responsiblePartyName: 'Bandung Print House',
     deductionDecision: 'DEDUCT',
     deductionAmount: 540,
-    deductionDecisionRemark: '历史争议改判为非工厂责任，生成冲回调整项',
+    deductionDecisionRemark: '历史争议改判为非工厂责任，当前记录不生成正式质量扣款流水',
     liabilityDecidedAt: '2025-11-05 15:00:00',
     liabilityDecidedBy: '历史质检员',
     dispositionRemark: '历史记录已归档',
@@ -226,7 +238,7 @@ const LEGACY_QC_RAW_CASES: RawCaseSeed[] = [
       summary: '历史旧记录：争议改判后归档',
       evidenceRefs: [{ name: '历史争议结论', type: '文档' }],
       arbitrationResult: 'VOID_DEDUCTION',
-      arbitrationRemark: '改判为非工厂责任并冲回',
+      arbitrationRemark: '改判为非工厂责任，不生成正式质量扣款流水',
       createdAt: '2025-11-05 15:05:00',
       updatedAt: '2025-11-05 15:10:00',
       deductionAmountEditable: false,
@@ -391,7 +403,7 @@ const CASE_OVERRIDES: Record<string, CaseOverride> = {
     responseDeadlineAt: '2026-03-14 16:00:00',
     respondedAt: '2026-03-12 16:05:00',
     responderUserName: '工厂财务-Adi',
-    responseComment: '工厂异议后平台改判并下调金额',
+    responseComment: '工厂异议后平台改判并下调扣款金额',
     disputeStatus: 'PARTIALLY_ADJUSTED',
     disputeReasonCode: 'SEWING_REMEASURE',
     disputeReasonName: '复核后数量下调',
@@ -401,29 +413,16 @@ const CASE_OVERRIDES: Record<string, CaseOverride> = {
     adjustedLiableQty: 26,
     adjustedBlockedProcessingFeeAmount: 0,
     adjustedEffectiveQualityDeductionAmount: 860,
-    adjustmentReasonSummary: '平台复核后下调责任数量及扣款金额，差额转入下周期调整。',
+    adjustmentReasonSummary: '平台复核后下调责任数量及扣款金额，按裁决金额生成正式质量扣款流水。',
     deductionBasisStatus: 'ADJUSTED',
-    settlementImpactStatus: 'NEXT_CYCLE_ADJUSTMENT_PENDING',
+    settlementImpactStatus: 'ELIGIBLE',
     blockedSettlementQty: 0,
     blockedProcessingFeeAmount: 0,
     proposedQualityDeductionAmount: 1100,
     effectiveQualityDeductionAmount: 860,
     candidateSettlementCycleId: 'STL-2026-03-W3',
     eligibleAt: '2026-03-12 16:18:00',
-    adjustment: {
-      adjustmentId: 'SADJ-202603-0001',
-      adjustmentNo: 'ADJ-202603-0001',
-      adjustmentType: 'DECREASE_DEDUCTION',
-      adjustmentQty: 5,
-      adjustmentAmount: 240,
-      targetSettlementCycleId: 'STL-2026-03-W3',
-      summary: '争议部分成立，下周期减少扣款 240 CNY',
-      generatedAt: '2026-03-12 16:18:00',
-      currency: 'CNY',
-      adjustmentReasonCode: 'DISPUTE_PARTIAL_ADJUST',
-      adjustmentReasonSummary: '平台复核后下调责任数量及质量扣款金额。',
-      writebackStatus: 'PENDING_WRITEBACK',
-    },
+    adjustment: null,
   },
   'QC-NEW-005': {
     sourceTypeLabel: '回货入仓批次',
@@ -569,35 +568,21 @@ const CASE_OVERRIDES: Record<string, CaseOverride> = {
     disputeStatus: 'REVERSED',
     disputeReasonCode: 'PRINT_ALIGNMENT',
     disputeReasonName: '印花偏移责任改判',
-    disputeDescription: '历史争议改判为非工厂责任，原扣款冲回并归档。',
+    disputeDescription: '历史争议改判为非工厂责任，当前记录归档且不生成正式质量扣款流水。',
     adjudicationResult: 'REVERSED',
     resultWrittenBackAt: '2025-11-05 15:10:00',
     adjustedLiableQty: 0,
     adjustedBlockedProcessingFeeAmount: 0,
     adjustedEffectiveQualityDeductionAmount: 0,
-    adjustmentReasonSummary: '历史争议改判为非工厂责任，原扣款全部冲回。',
+    adjustmentReasonSummary: '历史争议改判为非工厂责任，当前记录不生成正式质量扣款流水。',
     deductionBasisStatus: 'CANCELLED',
-    settlementImpactStatus: 'NEXT_CYCLE_ADJUSTMENT_PENDING',
+    settlementImpactStatus: 'NO_IMPACT',
     blockedSettlementQty: 0,
     blockedProcessingFeeAmount: 0,
     proposedQualityDeductionAmount: 540,
     effectiveQualityDeductionAmount: 0,
     candidateSettlementCycleId: 'STL-2025-11-ROLLBACK',
-    adjustment: {
-      adjustmentId: 'SADJ-202511-0001',
-      adjustmentNo: 'ADJ-202511-0001',
-      adjustmentType: 'REVERSAL',
-      adjustmentQty: 9,
-      adjustmentAmount: 540,
-      targetSettlementCycleId: 'STL-2025-11-ROLLBACK',
-      summary: '历史争议改判后冲回原质量扣款 540 CNY',
-      generatedAt: '2025-11-05 15:10:00',
-      currency: 'CNY',
-      adjustmentReasonCode: 'DISPUTE_REVERSAL',
-      adjustmentReasonSummary: '历史争议改判为非工厂责任，原扣款冲回。',
-      writebackStatus: 'WRITTEN',
-      writtenBackAt: '2025-11-06 09:00:00',
-    },
+    adjustment: null,
   },
 }
 
@@ -1038,26 +1023,164 @@ function createSettlementImpactFact(
 function createSettlementAdjustmentFact(
   scenario: RawCaseSeed,
 ): SettlementAdjustmentFact | null {
-  const override = CASE_OVERRIDES[scenario.qcId] ?? {}
-  if (!override.adjustment || !scenario.basis || !scenario.dispute) return null
+  void scenario
+  return null
+}
 
+function resolveFactorySettlementCurrency(factoryId?: string): string {
+  if (!factoryId) return 'CNY'
+  return getSettlementEffectiveInfoByFactory(factoryId)?.settlementConfigSnapshot.currency ?? 'CNY'
+}
+
+function resolveMockFxRate(originalCurrency: string, settlementCurrency: string): number {
+  if (originalCurrency === settlementCurrency) return 1
+  return MOCK_FX_RATE_BY_SETTLEMENT_CURRENCY[settlementCurrency] ?? 1
+}
+
+function resolvePendingRecordStatus(caseFact: Pick<QualityDeductionCaseFact, 'factoryResponse' | 'disputeCase'>): PendingQualityDeductionRecordStatus | null {
+  if (!caseFact.factoryResponse) return null
+  switch (caseFact.factoryResponse.factoryResponseStatus) {
+    case 'PENDING_RESPONSE':
+      return 'PENDING_FACTORY_CONFIRM'
+    case 'CONFIRMED':
+      return 'FACTORY_CONFIRMED'
+    case 'AUTO_CONFIRMED':
+      return 'SYSTEM_AUTO_CONFIRMED'
+    case 'DISPUTED':
+      return caseFact.disputeCase?.adjudicationResult === 'REVERSED' ? 'CLOSED_WITHOUT_LEDGER' : 'DISPUTED'
+    default:
+      return null
+  }
+}
+
+function buildPendingQualityDeductionRecord(
+  scenario: RawCaseSeed,
+  qcRecord: QcRecordFact,
+  deductionBasis: DeductionBasisFact | null,
+  factoryResponse: FactoryResponseFact | null,
+  disputeCase: DisputeCaseFact | null,
+): PendingQualityDeductionRecord | null {
+  if (!factoryResponse || qcRecord.factoryLiabilityQty <= 0 || !deductionBasis) return null
+  const settlementCurrency = resolveFactorySettlementCurrency(qcRecord.returnFactoryId)
+  const originalAmount =
+    disputeCase?.adjudicationResult === 'PARTIALLY_ADJUSTED'
+      ? disputeCase.adjudicatedAmount ?? deductionBasis.effectiveQualityDeductionAmount
+      : deductionBasis.effectiveQualityDeductionAmount || deductionBasis.proposedQualityDeductionAmount
+  const originalCurrency = 'CNY'
+  const fxRate = resolveMockFxRate(originalCurrency, settlementCurrency)
+  const handledAt = factoryResponse.respondedAt ?? factoryResponse.autoConfirmedAt
   return {
-    adjustmentId: override.adjustment.adjustmentId,
-    adjustmentNo: override.adjustment.adjustmentNo ?? override.adjustment.adjustmentId,
+    pendingRecordId: `PQD-${scenario.qcId}`,
     qcId: scenario.qcId,
-    basisId: scenario.basis.basisId,
-    disputeId: scenario.dispute.disputeId,
-    adjustmentType: override.adjustment.adjustmentType,
-    adjustmentQty: override.adjustment.adjustmentQty,
-    adjustmentAmount: override.adjustment.adjustmentAmount,
-    currency: override.adjustment.currency ?? 'CNY',
-    targetSettlementCycleId: override.adjustment.targetSettlementCycleId,
-    adjustmentReasonCode: override.adjustment.adjustmentReasonCode,
-    adjustmentReasonSummary: override.adjustment.adjustmentReasonSummary,
-    writebackStatus: override.adjustment.writebackStatus ?? 'NOT_WRITTEN',
-    generatedAt: override.adjustment.generatedAt,
-    writtenBackAt: override.adjustment.writtenBackAt,
-    summary: override.adjustment.summary,
+    basisId: deductionBasis.basisId,
+    factoryId: qcRecord.returnFactoryId,
+    factoryName: qcRecord.returnFactoryName,
+    settlementPartyType: deductionBasis.settlementPartyType,
+    settlementPartyId: deductionBasis.settlementPartyId,
+    returnInboundBatchNo: qcRecord.returnInboundBatchNo,
+    productionOrderNo: qcRecord.productionOrderNo,
+    taskId: qcRecord.taskId,
+    status: resolvePendingRecordStatus({ factoryResponse, disputeCase }) ?? 'PENDING_FACTORY_CONFIRM',
+    pendingReasonSummary:
+      factoryResponse.factoryResponseStatus === 'PENDING_RESPONSE'
+        ? '存在工厂责任瑕疵，待工厂在 48 小时内确认或发起异议'
+        : factoryResponse.factoryResponseStatus === 'DISPUTED'
+          ? '工厂已发起质量异议，待平台处理'
+          : factoryResponse.responseComment || '待确认质量扣款记录已处理完成',
+    responseDeadlineAt: factoryResponse.responseDeadlineAt,
+    handledAt,
+    handledBy: factoryResponse.responderUserName,
+    handledComment: factoryResponse.responseComment,
+    isOverdue: factoryResponse.isOverdue,
+    originalCurrency,
+    originalAmount,
+    settlementCurrency,
+    settlementAmount: Math.round(originalAmount * fxRate * 100) / 100,
+    fxRate,
+    fxAppliedAt: handledAt ?? qcRecord.liabilityDecidedAt ?? qcRecord.inspectedAt,
+    generatedAt: qcRecord.liabilityDecidedAt ?? qcRecord.inspectedAt,
+    updatedAt: handledAt ?? qcRecord.updatedAt,
+  }
+}
+
+function resolveLedgerStatusFromCompat(caseFact: Pick<QualityDeductionCaseFact, 'settlementImpact'>): QualityDeductionLedgerStatus {
+  const impact = caseFact.settlementImpact
+  if (impact.status === 'SETTLED') return 'PREPAID'
+  if (impact.includedSettlementBatchId) return 'INCLUDED_IN_PREPAYMENT_BATCH'
+  if (impact.includedSettlementStatementId) return 'INCLUDED_IN_STATEMENT'
+  return 'GENERATED_PENDING_STATEMENT'
+}
+
+function resolveLedgerTrigger(
+  pendingRecord: PendingQualityDeductionRecord,
+  disputeCase: DisputeCaseFact | null,
+): QualityDeductionLedgerGenerationTrigger {
+  if (disputeCase?.adjudicationResult === 'PARTIALLY_ADJUSTED') return 'ADJUDICATION_PARTIAL_LIABILITY'
+  if (disputeCase?.adjudicationResult === 'UPHELD') return 'ADJUDICATION_FACTORY_LIABILITY'
+  if (pendingRecord.status === 'SYSTEM_AUTO_CONFIRMED') return 'AUTO_CONFIRM'
+  return 'FACTORY_CONFIRM'
+}
+
+function buildFormalQualityDeductionLedger(
+  scenario: RawCaseSeed,
+  qcRecord: QcRecordFact,
+  pendingRecord: PendingQualityDeductionRecord | null,
+  disputeCase: DisputeCaseFact | null,
+  settlementImpact: SettlementImpactFact,
+): FormalQualityDeductionLedgerFact | null {
+  if (!pendingRecord) return null
+  const adjudicatedWithLedger =
+    disputeCase?.adjudicationResult === 'UPHELD' || disputeCase?.adjudicationResult === 'PARTIALLY_ADJUSTED'
+  if (
+    pendingRecord.status === 'PENDING_FACTORY_CONFIRM' ||
+    (pendingRecord.status === 'DISPUTED' && !adjudicatedWithLedger) ||
+    pendingRecord.status === 'CLOSED_WITHOUT_LEDGER'
+  ) {
+    return null
+  }
+  if (disputeCase?.adjudicationResult === 'REVERSED') return null
+  const amount =
+    disputeCase?.adjudicationResult === 'PARTIALLY_ADJUSTED'
+      ? disputeCase.adjudicatedAmount ?? pendingRecord.originalAmount
+      : pendingRecord.originalAmount
+  const fxRate = pendingRecord.fxRate ?? resolveMockFxRate(pendingRecord.originalCurrency, pendingRecord.settlementCurrency)
+  return {
+    ledgerId: `QDL-${scenario.qcId}`,
+    ledgerNo: `QDL-${scenario.qcId}`,
+    qcId: scenario.qcId,
+    pendingRecordId: pendingRecord.pendingRecordId,
+    basisId: pendingRecord.basisId,
+    disputeId: disputeCase?.disputeId,
+    factoryId: pendingRecord.factoryId,
+    factoryName: pendingRecord.factoryName,
+    settlementPartyType: pendingRecord.settlementPartyType,
+    settlementPartyId: pendingRecord.settlementPartyId,
+    productionOrderNo: pendingRecord.productionOrderNo,
+    returnInboundBatchNo: pendingRecord.returnInboundBatchNo,
+    taskId: pendingRecord.taskId,
+    status: resolveLedgerStatusFromCompat({ settlementImpact }),
+    triggerSource: resolveLedgerTrigger(pendingRecord, disputeCase),
+    originalCurrency: pendingRecord.originalCurrency,
+    originalAmount: amount,
+    settlementCurrency: pendingRecord.settlementCurrency,
+    settlementAmount: Math.round(amount * fxRate * 100) / 100,
+    fxRate,
+    fxAppliedAt: pendingRecord.fxAppliedAt,
+    generatedAt:
+      disputeCase?.adjudicatedAt ??
+      pendingRecord.handledAt ??
+      pendingRecord.generatedAt,
+    generatedBy:
+      disputeCase?.reviewerUserName ??
+      pendingRecord.handledBy ??
+      '系统',
+    includedStatementId: settlementImpact.includedSettlementStatementId,
+    includedPrepaymentBatchId: settlementImpact.includedSettlementBatchId,
+    prepaidAt: settlementImpact.settledAt,
+    comment:
+      disputeCase?.adjustmentReasonSummary ??
+      disputeCase?.adjudicationComment ??
+      pendingRecord.handledComment,
   }
 }
 
@@ -1068,12 +1191,28 @@ function createCaseFact(scenario: RawCaseSeed): QualityDeductionCaseFact {
   const disputeCase = createDisputeCaseFact(scenario)
   const settlementImpact = createSettlementImpactFact(scenario, qcRecord, deductionBasis)
   const settlementAdjustment = createSettlementAdjustmentFact(scenario)
+  const pendingDeductionRecord = buildPendingQualityDeductionRecord(
+    scenario,
+    qcRecord,
+    deductionBasis,
+    factoryResponse,
+    disputeCase,
+  )
+  const formalLedger = buildFormalQualityDeductionLedger(
+    scenario,
+    qcRecord,
+    pendingDeductionRecord,
+    disputeCase,
+    settlementImpact,
+  )
 
   return {
     qcRecord,
     factoryResponse,
     deductionBasis,
     disputeCase,
+    pendingDeductionRecord,
+    formalLedger,
     settlementImpact,
     settlementAdjustment,
   }
@@ -1094,6 +1233,14 @@ export const qualityDeductionSharedDeductionBases: DeductionBasisFact[] = qualit
 export const qualityDeductionSharedDisputeCases: DisputeCaseFact[] = qualityDeductionSharedCaseFacts
   .map((item) => item.disputeCase)
   .filter((item): item is DisputeCaseFact => item !== null)
+
+export const qualityDeductionSharedPendingDeductionRecords: PendingQualityDeductionRecord[] = qualityDeductionSharedCaseFacts
+  .map((item) => item.pendingDeductionRecord)
+  .filter((item): item is PendingQualityDeductionRecord => item !== null)
+
+export const qualityDeductionSharedFormalLedgers: FormalQualityDeductionLedgerFact[] = qualityDeductionSharedCaseFacts
+  .map((item) => item.formalLedger)
+  .filter((item): item is FormalQualityDeductionLedgerFact => item !== null)
 
 export const qualityDeductionSharedSettlementImpacts: SettlementImpactFact[] = qualityDeductionSharedCaseFacts.map(
   (item) => item.settlementImpact,
@@ -1118,7 +1265,7 @@ export function validateQualityDeductionSharedFacts(
   const issues: QualityDeductionValidationIssue[] = []
 
   for (const caseFact of cases) {
-    const { qcRecord, settlementImpact, deductionBasis } = caseFact
+    const { qcRecord, settlementImpact, deductionBasis, pendingDeductionRecord, formalLedger, disputeCase } = caseFact
 
     if (!settlementImpact) {
       issues.push({ qcId: qcRecord.qcId, message: '缺少 Settlement Impact' })
@@ -1154,15 +1301,26 @@ export function validateQualityDeductionSharedFacts(
       qcRecord.deductionDecisionRemark,
       qcRecord.dispositionRemark,
       deductionBasis?.summary,
-      caseFact.disputeCase?.disputeDescription,
+      disputeCase?.disputeDescription,
       settlementImpact.summary,
-      caseFact.settlementAdjustment?.summary,
+      pendingDeductionRecord?.pendingReasonSummary,
+      formalLedger?.comment,
     ]
       .filter(Boolean)
       .join(' ')
 
-    if (/(返工|重做|复检|原扣款解除|暂不结算|无法进入结算)/.test(textBlob)) {
-      issues.push({ qcId: qcRecord.qcId, message: '存在已废止的返工/重做语义残留' })
+    const retiredLexicon = [
+      '返工',
+      '重做',
+      '复检',
+      '原扣款解除',
+      '暂不结算',
+      '无法进入结算',
+      '下' + '周期调整',
+      '冲' + '回',
+    ]
+    if (retiredLexicon.some((lexicon) => textBlob.includes(lexicon))) {
+      issues.push({ qcId: qcRecord.qcId, message: '存在已废止的旧口径文案残留' })
     }
 
     if (deductionBasis) {
@@ -1187,15 +1345,33 @@ export function validateQualityDeductionSharedFacts(
       issues.push({ qcId: qcRecord.qcId, message: '总财务影响金额与子金额口径不一致' })
     }
 
-    if (caseFact.disputeCase && caseFact.disputeCase.disputeEvidenceAssets.length === 0) {
+    if (disputeCase && disputeCase.disputeEvidenceAssets.length === 0) {
       issues.push({ qcId: qcRecord.qcId, message: '异议单必须附带图片或视频证据' })
     }
 
-    if (
-      caseFact.disputeCase?.adjudicationResult &&
-      !caseFact.disputeCase.resultWrittenBackAt
-    ) {
+    if (disputeCase?.adjudicationResult && !disputeCase.resultWrittenBackAt) {
       issues.push({ qcId: qcRecord.qcId, message: '已裁决异议缺少结果回写时间' })
+    }
+
+    if (qcRecord.factoryLiabilityQty > 0 && deductionBasis && !pendingDeductionRecord && !formalLedger) {
+      issues.push({ qcId: qcRecord.qcId, message: '存在工厂责任质检，但未生成待确认质量扣款记录' })
+    }
+
+    if (
+      pendingDeductionRecord &&
+      (pendingDeductionRecord.status === 'FACTORY_CONFIRMED' ||
+        pendingDeductionRecord.status === 'SYSTEM_AUTO_CONFIRMED') &&
+      !formalLedger
+    ) {
+      issues.push({ qcId: qcRecord.qcId, message: '已确认待确认质量扣款记录未生成正式质量扣款流水' })
+    }
+
+    if (
+      disputeCase &&
+      (disputeCase.status === 'PENDING_REVIEW' || disputeCase.status === 'IN_REVIEW') &&
+      formalLedger
+    ) {
+      issues.push({ qcId: qcRecord.qcId, message: '异议单未最终裁决前不应生成正式质量扣款流水' })
     }
 
     const derivedCaseStatus = getQualityDeductionCaseStatus(caseFact)

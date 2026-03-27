@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "check:menu-routes": "node scripts/check-menu-routes.mjs",
     "check:fcs-truth-sources": "node scripts/check-fcs-truth-sources.mjs --write-report",
+    "check:settlement-linked-mock-factory": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-settlement-linked-mock-factory.ts",
     "check:pda-settlement-ia": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-ia.ts",
     "check:pda-settlement-profile": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-profile.ts",
     "check:pda-settlement-ledger": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-settlement-ledger.ts",
@@ -19,12 +20,26 @@
     "check:quality-deduction-final-closure": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-quality-deduction-final-closure.ts",
     "check:quality-deduction-lifecycle": "node --experimental-strip-types scripts/check-quality-deduction-lifecycle.ts",
     "check:quality-deduction-platform": "node --experimental-strip-types scripts/check-quality-deduction-platform.ts",
-    "check:quality-deduction-mobile": "node --experimental-strip-types scripts/check-quality-deduction-mobile.ts"
+    "check:quality-deduction-mobile": "node --experimental-strip-types scripts/check-quality-deduction-mobile.ts",
+    "check:pre-settlement-ledger": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pre-settlement-ledger.ts",
+    "check:statements": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-statements.ts",
+    "check:prepayment-batch": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prepayment-batch.ts",
+    "check:feishu-payment-approval": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-feishu-payment-approval.ts",
+    "check:payment-writeback": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-payment-writeback.ts",
+    "check:fcs-end-to-end": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-end-to-end.ts",
+    "check:legacy-terminology-cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-legacy-terminology-cleanup.ts",
+    "test:quality-deduction-step1:e2e": "playwright test tests/fcs-quality-step1.spec.ts",
+    "test:pre-settlement-ledger-step2:e2e": "playwright test tests/fcs-pre-settlement-ledger-step2.spec.ts",
+    "test:statements-step3:e2e": "playwright test tests/fcs-statements-step3.spec.ts",
+    "test:prepayment-batch-step4:e2e": "playwright test tests/fcs-prepayment-batch-step4.spec.ts",
+    "test:pda-settlement-step5:e2e": "playwright test tests/fcs-pda-settlement-step5.spec.ts",
+    "test:fcs-end-to-end-step6:e2e": "playwright test tests/fcs-end-to-end-step6.spec.ts"
   },
   "dependencies": {
     "lucide": "^0.468.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.53.2",
     "@tailwindcss/postcss": "^4.2.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.3",

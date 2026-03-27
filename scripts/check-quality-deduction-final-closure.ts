@@ -86,7 +86,7 @@ function main(): void {
   assert(
     settlementSource.includes("formatSettlementAwareAmount(totalAmountCny, 'CNY', fxReferenceAt)") &&
       settlementSource.includes("formatSettlementAwareAmount(item.deductionAmountCny, 'CNY', item.inspectedAt)"),
-    '平台回写质量影响摘要仍未统一主币种展示',
+    '平台回写质量影响概况仍未统一主币种展示',
   )
   assert(
     settlementSource.includes("formatSettlementAwareAmount(settlementImpact.blockedProcessingFeeAmount, 'CNY'") &&

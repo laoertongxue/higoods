@@ -16,6 +16,17 @@ import {
   returnInboundChainQualityInspections,
 } from './return-inbound-quality-chain-facts.ts'
 
+function mergeById<T extends { [key: string]: unknown }>(
+  items: T[],
+  key: keyof T,
+): T[] {
+  const map = new Map<unknown, T>()
+  for (const item of items) {
+    map.set(item[key], item)
+  }
+  return Array.from(map.values())
+}
+
 // =============================================
 // Quality seed constants
 // =============================================
@@ -296,7 +307,7 @@ export const BASIS_SEEDS: DeductionBasisItem[] = [
   { basisId: 'DBI-030', sourceType: 'QC_FAIL', sourceRefId: 'QC-NEW-015', sourceId: 'QC-NEW-015', productionOrderId: 'PO-0009', taskId: 'TASK-0009-005', factoryId: 'ID-F004', settlementPartyType: 'SUPPLIER', settlementPartyId: 'SUP-001', rootCauseType: 'MATERIAL', reasonCode: 'QUALITY_FAIL', qty: 44, uom: 'PIECE', disposition: 'SCRAP', summary: '辅料不合格，质量处理44件', evidenceRefs: [], status: 'CONFIRMED', deepLinks: { qcHref: '/fcs/quality/qc-records/QC-NEW-015', taskHref: '/fcs/pda/task-receive/TASK-0009-005' }, createdAt: '2026-03-02 13:00:00', createdBy: 'SYSTEM', auditLogs: [{ id: 'AL-DBI-030-1', action: 'CREATE_BASIS_FROM_QC', detail: '辅料问题', at: '2026-03-02 13:00:00', by: 'SYSTEM' }] },
   { basisId: 'DBI-031', sourceType: 'QC_FAIL', sourceRefId: 'QC-NEW-016', sourceId: 'QC-NEW-016', productionOrderId: 'PO-0005', taskId: 'TASK-0005-003', factoryId: 'ID-F002', settlementPartyType: 'FACTORY', settlementPartyId: 'ID-F002', rootCauseType: 'PROCESS', reasonCode: 'QUALITY_FAIL', qty: 22, uom: 'PIECE', disposition: 'ACCEPT_AS_DEFECT', summary: '裤腿长度偏差，质量处理22件', evidenceRefs: [], status: 'DRAFT', deepLinks: { qcHref: '/fcs/quality/qc-records/QC-NEW-016', taskHref: '/fcs/pda/task-receive/TASK-0005-003' }, createdAt: '2026-03-03 09:00:00', createdBy: 'SYSTEM', auditLogs: [{ id: 'AL-DBI-031-1', action: 'CREATE_BASIS_FROM_QC', detail: '长度偏差', at: '2026-03-03 09:00:00', by: 'SYSTEM' }] },
   { basisId: 'DBI-032', sourceType: 'QC_DEFECT_ACCEPT', sourceRefId: 'QC-NEW-017', sourceId: 'QC-NEW-017', productionOrderId: 'PO-0001', taskId: 'TASK-0001-002', factoryId: 'PROC-DP-001', settlementPartyType: 'PROCESSOR', settlementPartyId: 'PROC-DP-001', rootCauseType: 'DYE_PRINT', reasonCode: 'QUALITY_FAIL', qty: 9, uom: 'PIECE', disposition: 'ACCEPT_AS_DEFECT', summary: '绣花轻微断线，接受扣款9件', evidenceRefs: [], status: 'CONFIRMED', deepLinks: { qcHref: '/fcs/quality/qc-records/QC-NEW-017', taskHref: '/fcs/pda/task-receive/TASK-0001-002' }, createdAt: '2026-03-03 10:00:00', createdBy: 'SYSTEM', auditLogs: [{ id: 'AL-DBI-032-1', action: 'CREATE_BASIS_FROM_QC', detail: '绣花断线接受', at: '2026-03-03 10:00:00', by: 'SYSTEM' }] },
-  { basisId: 'DBI-033', sourceType: 'QC_FAIL', sourceRefId: 'QC-020', sourceId: 'QC-020', productionOrderId: 'PO-LEGACY-020', taskId: 'TASK-LEGACY-020', factoryId: 'ID-F001', settlementPartyType: 'FACTORY', settlementPartyId: 'ID-F001', rootCauseType: 'PROCESS', reasonCode: 'QUALITY_FAIL', qty: 12, deductionQty: 12, uom: 'PIECE', disposition: 'ACCEPT_AS_DEFECT', summary: '历史旧记录，已结案并在旧结算批次中扣回', evidenceRefs: [{ name: '历史质检底稿', type: '文档' }], status: 'CONFIRMED', settlementReady: true, deductionAmountSnapshot: 600, deepLinks: { qcHref: '/fcs/quality/qc-records/QC-020' }, createdAt: '2025-12-18 10:05:00', createdBy: 'SYSTEM', updatedAt: '2025-12-18 10:20:00', updatedBy: 'SYSTEM', auditLogs: [{ id: 'AL-DBI-033-1', action: 'CREATE_BASIS_FROM_QC', detail: '历史旧记录已扣回', at: '2025-12-18 10:05:00', by: 'SYSTEM' }] },
+  { basisId: 'DBI-033', sourceType: 'QC_FAIL', sourceRefId: 'QC-020', sourceId: 'QC-020', productionOrderId: 'PO-LEGACY-020', taskId: 'TASK-LEGACY-020', factoryId: 'ID-F001', settlementPartyType: 'FACTORY', settlementPartyId: 'ID-F001', rootCauseType: 'PROCESS', reasonCode: 'QUALITY_FAIL', qty: 12, deductionQty: 12, uom: 'PIECE', disposition: 'ACCEPT_AS_DEFECT', summary: '历史旧记录，已结案并在旧预付款批次中扣回', evidenceRefs: [{ name: '历史质检底稿', type: '文档' }], status: 'CONFIRMED', settlementReady: true, deductionAmountSnapshot: 600, deepLinks: { qcHref: '/fcs/quality/qc-records/QC-020' }, createdAt: '2025-12-18 10:05:00', createdBy: 'SYSTEM', updatedAt: '2025-12-18 10:20:00', updatedBy: 'SYSTEM', auditLogs: [{ id: 'AL-DBI-033-1', action: 'CREATE_BASIS_FROM_QC', detail: '历史旧记录已扣回', at: '2025-12-18 10:05:00', by: 'SYSTEM' }] },
   { basisId: 'DBI-034', sourceType: 'QC_DEFECT_ACCEPT', sourceRefId: 'QC-021', sourceId: 'QC-021', productionOrderId: 'PO-LEGACY-021', taskId: 'TASK-LEGACY-021', factoryId: 'PROC-DP-001', settlementPartyType: 'PROCESSOR', settlementPartyId: 'PROC-DP-001', rootCauseType: 'DYE_PRINT', reasonCode: 'QUALITY_FAIL', qty: 9, deductionQty: 9, uom: 'PIECE', disposition: 'ACCEPT_AS_DEFECT', summary: '历史旧记录：争议驳回后归档', evidenceRefs: [{ name: '历史争议结论', type: '文档' }], status: 'VOID', settlementReady: false, settlementFreezeReason: '历史记录已归档', deepLinks: { qcHref: '/fcs/quality/qc-records/QC-021' }, createdAt: '2025-11-05 15:05:00', createdBy: 'SYSTEM', updatedAt: '2025-11-05 15:10:00', updatedBy: 'SYSTEM', auditLogs: [{ id: 'AL-DBI-034-1', action: 'ARCHIVE_BASIS', detail: '历史争议驳回并归档', at: '2025-11-05 15:05:00', by: 'SYSTEM' }] },
 ]
 
@@ -321,7 +332,12 @@ export const initialReturnBatches: ReturnBatch[] = []
 
 // ── initialReturnInboundBatches（回货入仓新主模型） ─────────────
 
-export const initialReturnInboundBatches: ReturnInboundBatch[] = [...returnInboundChainBatches]
+export const initialReturnInboundBatches: ReturnInboundBatch[] = mergeById(
+  [
+    ...returnInboundChainBatches,
+  ],
+  'batchId',
+)
 
 // ── legacyDyePrintOrdersSnapshot（兼容快照，非主真相） ─────────────
 

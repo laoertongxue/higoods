@@ -3,7 +3,7 @@
  * FCS 业务数据与业务类型统一来自 src/data/fcs/*。
  */
 
-import type { System, MenuGroup } from './app-shell-types'
+import type { System, MenuGroup } from './app-shell-types.ts'
 
 // 系统列表
 export const systems: System[] = [
@@ -202,9 +202,9 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'FileText',
           children: [
             { key: 'settlement-statements', title: '对账单', icon: 'FileText', href: '/fcs/settlement/statements' },
-            { key: 'settlement-adjustments', title: '应付调整', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
+            { key: 'settlement-adjustments', title: '预结算流水', icon: 'SlidersHorizontal', href: '/fcs/settlement/adjustments' },
             { key: 'settlement-material-statements', title: '车缝领料对账', icon: 'ClipboardSignature', href: '/fcs/settlement/material-statements' },
-            { key: 'settlement-batches', title: '结算批次', icon: 'Layers', href: '/fcs/settlement/batches' },
+            { key: 'settlement-batches', title: '预付款批次', icon: 'Layers', href: '/fcs/settlement/batches' },
           ],
         },
         {

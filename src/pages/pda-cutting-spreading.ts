@@ -232,7 +232,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
   if (action === 'submit') {
     const form = getState(taskId, selectedCutPieceOrderNo)
     const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
-    addCuttingSpreadingRecord(taskId, {
+    const result = addCuttingSpreadingRecord(taskId, {
       fabricRollNo: form.fabricRollNo.trim() || `ROLL-${Date.now()}`,
       layerCount: Number(form.layerCount || '0') || 0,
       actualLength: Number(form.actualLength || '0') || 0,
@@ -241,6 +241,10 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       note: form.note.trim(),
       enteredBy: form.enteredBy.trim() || '现场铺布员',
     }, selectedCutPieceOrderNo ?? undefined)
+    if (!result.success) {
+      form.feedbackMessage = result.issues.join('；')
+      return true
+    }
     form.fabricRollNo = ''
     form.note = ''
     form.feedbackMessage = '铺布记录已保存。'

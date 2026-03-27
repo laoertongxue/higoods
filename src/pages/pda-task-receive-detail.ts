@@ -58,6 +58,10 @@ function getRootTaskDisplayNo(task: ProcessTask): string {
   return task.rootTaskNo || task.taskNo || task.taskId
 }
 
+function getTaskProductionOrderNo(task: ProcessTask): string {
+  return (task as ProcessTask & { productionOrderNo?: string }).productionOrderNo || task.productionOrderId
+}
+
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
@@ -325,7 +329,7 @@ function renderCuttingTaskRollupCard(task: PdaReceiveTask): string {
 
       <div class="space-y-3 p-4">
         <div class="grid grid-cols-2 gap-3 text-sm">
-          ${renderField('生产单号', task.productionOrderId)}
+          ${renderField('生产单号', getTaskProductionOrderNo(task))}
           ${renderField('工序名称', getTaskProcessDisplayName(task))}
           ${renderField('裁片单数量', `${task.cutPieceOrderCount || 0} 张`)}
           ${renderField('当前状态', task.taskStateLabel || '待开始')}
@@ -356,7 +360,7 @@ function renderCuttingTaskActionCard(task: PdaReceiveTask): string {
     focusTaskId: task.taskId,
     cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
     taskNo: task.taskNo,
-    productionOrderNo: task.productionOrderId,
+    productionOrderNo: getTaskProductionOrderNo(task),
   })
   const execHref = buildPdaCuttingDirectExecEntryHref(task.taskId, {
     sourcePageKey: 'task-receive-detail',
@@ -365,7 +369,7 @@ function renderCuttingTaskActionCard(task: PdaReceiveTask): string {
     cutPieceOrderNo: task.defaultExecCutPieceOrderNo,
     focusCutPieceOrderNo: task.defaultExecCutPieceOrderNo,
     taskNo: task.taskNo,
-    productionOrderNo: task.productionOrderId,
+    productionOrderNo: getTaskProductionOrderNo(task),
   })
   const entryAction = buildPdaCuttingTaskEntryAction(task, {
     returnTo: appStore.getState().pathname,
@@ -832,7 +836,7 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
           <div class="space-y-3 p-4">
             <div class="grid grid-cols-2 gap-3 text-sm">
               ${renderField('原始任务', getRootTaskDisplayNo(task))}
-              ${renderField('生产单号', task.productionOrderId)}
+              ${renderField('生产单号', getTaskProductionOrderNo(task))}
               ${renderField('工序序号', String(task.seq))}
               ${renderField('工序名称', displayProcessName)}
               ${renderField('工序编码', task.processBusinessCode || task.processCode)}

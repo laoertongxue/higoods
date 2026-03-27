@@ -15,8 +15,8 @@ import {
   hasCuttingSettlementInputFilters,
   type CuttingSettlementInputFilters,
 } from '../domain/cutting-settlement/helpers'
+import { buildPlatformCuttingSettlementInputViews } from '../domain/cutting-settlement/platform.adapter'
 import { platformCuttingStageMeta } from '../domain/cutting-platform/overview.helpers'
-import { cloneCuttingSettlementInputViews } from '../domain/cutting-settlement/mock'
 import type {
   CuttingInputReviewStatus,
   CuttingRecommendedScoreBand,
@@ -41,12 +41,43 @@ interface CuttingSettlementPageState {
   filters: CuttingSettlementInputFilters
   activeRecordId: string | null
   processDraft: CuttingSettlementProcessDraft | null
+  rowOverridesById: Record<string, CuttingSettlementRowOverride>
+}
+
+interface CuttingSettlementRowOverride {
+  reviewStatus: CuttingSettlementInputView['reviewStatus']
+  latestActionText: string
+  suggestedActionText: string
+  requiresSettlementAttention: boolean
+  requiresScoreAttention: boolean
+  isPending: boolean
+  settlementInput: Pick<
+    CuttingSettlementInputView['settlementInput'],
+    | 'settlementFocusLevel'
+    | 'needsManualReview'
+    | 'reviewStatus'
+    | 'reviewedBy'
+    | 'reviewedAt'
+    | 'reviewNote'
+    | 'snapshotConfirmedAt'
+    | 'snapshotConfirmedBy'
+  >
+  scoreInput: Pick<
+    CuttingSettlementInputView['scoreInput'],
+    | 'scoreFocusLevel'
+    | 'recommendedScoreBand'
+    | 'needsManualReview'
+    | 'reviewStatus'
+    | 'reviewedBy'
+    | 'reviewedAt'
+    | 'reviewNote'
+  >
 }
 
 const REVIEW_ACTOR = '平台结算与绩效岗'
 
 const state: CuttingSettlementPageState = {
-  rows: cloneCuttingSettlementInputViews(),
+  rows: [],
   filters: {
     keyword: '',
     attentionType: 'ALL',
@@ -58,6 +89,7 @@ const state: CuttingSettlementPageState = {
   },
   activeRecordId: null,
   processDraft: null,
+  rowOverridesById: {},
 }
 
 function renderBadge(label: string, className: string): string {
@@ -154,6 +186,69 @@ function buildRecommendedScoreBand(scoreFocusLevel: CuttingScoreFocusLevel): Cut
   return 'EXCELLENT'
 }
 
+function buildRowOverride(row: CuttingSettlementInputView): CuttingSettlementRowOverride {
+  return {
+    reviewStatus: row.reviewStatus,
+    latestActionText: row.latestActionText,
+    suggestedActionText: row.suggestedActionText,
+    requiresSettlementAttention: row.requiresSettlementAttention,
+    requiresScoreAttention: row.requiresScoreAttention,
+    isPending: row.isPending,
+    settlementInput: {
+      settlementFocusLevel: row.settlementInput.settlementFocusLevel,
+      needsManualReview: row.settlementInput.needsManualReview,
+      reviewStatus: row.settlementInput.reviewStatus,
+      reviewedBy: row.settlementInput.reviewedBy,
+      reviewedAt: row.settlementInput.reviewedAt,
+      reviewNote: row.settlementInput.reviewNote,
+      snapshotConfirmedAt: row.settlementInput.snapshotConfirmedAt,
+      snapshotConfirmedBy: row.settlementInput.snapshotConfirmedBy,
+    },
+    scoreInput: {
+      scoreFocusLevel: row.scoreInput.scoreFocusLevel,
+      recommendedScoreBand: row.scoreInput.recommendedScoreBand,
+      needsManualReview: row.scoreInput.needsManualReview,
+      reviewStatus: row.scoreInput.reviewStatus,
+      reviewedBy: row.scoreInput.reviewedBy,
+      reviewedAt: row.scoreInput.reviewedAt,
+      reviewNote: row.scoreInput.reviewNote,
+    },
+  }
+}
+
+function applyRowOverride(row: CuttingSettlementInputView, override: CuttingSettlementRowOverride): CuttingSettlementInputView {
+  return {
+    ...row,
+    reviewStatus: override.reviewStatus,
+    latestActionText: override.latestActionText,
+    suggestedActionText: override.suggestedActionText,
+    requiresSettlementAttention: override.requiresSettlementAttention,
+    requiresScoreAttention: override.requiresScoreAttention,
+    isPending: override.isPending,
+    settlementInput: {
+      ...row.settlementInput,
+      ...override.settlementInput,
+    },
+    scoreInput: {
+      ...row.scoreInput,
+      ...override.scoreInput,
+    },
+  }
+}
+
+function refreshRuntimeRows(): void {
+  state.rows = buildPlatformCuttingSettlementInputViews().map((row) => {
+    const override = state.rowOverridesById[row.id]
+    return override ? applyRowOverride(row, override) : row
+  })
+  if (state.activeRecordId && !state.rows.some((row) => row.id === state.activeRecordId)) {
+    state.activeRecordId = null
+  }
+  if (state.processDraft && !state.rows.some((row) => row.id === state.processDraft?.recordId)) {
+    state.processDraft = null
+  }
+}
+
 function openDetail(recordId: string): void {
   state.activeRecordId = recordId
   state.processDraft = null
@@ -196,6 +291,7 @@ function updateRow(recordId: string, updater: (row: CuttingSettlementInputView) 
   const row = state.rows.find((item) => item.id === recordId)
   if (!row) return
   updater(row)
+  state.rowOverridesById[recordId] = buildRowOverride(row)
 }
 
 function syncReviewFlags(row: CuttingSettlementInputView): void {
@@ -865,6 +961,7 @@ function renderProcessDrawer(): string {
 }
 
 export function renderCuttingSettlementInputPage(): string {
+  refreshRuntimeRows()
   return `
     <div class="space-y-6 p-6">
       ${renderPageHeader()}
