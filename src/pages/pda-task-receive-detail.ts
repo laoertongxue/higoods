@@ -432,7 +432,7 @@ function renderRejectDialog(taskId: string): string {
         <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pda-trd-action="close-reject">取消</button>
           <button
-            class="inline-flex h-8 items-center rounded-md bg-destructive px-3 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex h-8 min-w-[5.5rem] items-center justify-center rounded-md bg-destructive px-3 text-sm font-medium text-white hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-60"
             data-pda-trd-action="confirm-reject"
             data-task-id="${escapeHtml(taskId)}"
             ${!state.rejectReason.trim() ? 'disabled' : ''}
@@ -512,7 +512,7 @@ function renderReceiveStatusChips(task: ProcessTask, tab: ReceiveDetailTabKey): 
               task.acceptanceStatus === 'ACCEPTED'
                 ? 'border-primary/20 bg-primary text-primary-foreground'
                 : task.acceptanceStatus === 'REJECTED'
-                  ? 'border-destructive/20 bg-destructive text-destructive-foreground'
+                  ? 'border-destructive/20 bg-destructive text-white'
                   : 'border-border bg-background text-muted-foreground',
             )
           : ''
@@ -890,7 +890,7 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
                       task.acceptanceStatus === 'ACCEPTED'
                         ? 'border-primary/20 bg-primary text-primary-foreground'
                         : task.acceptanceStatus === 'REJECTED'
-                          ? 'border-destructive/20 bg-destructive text-destructive-foreground'
+                          ? 'border-destructive/20 bg-destructive text-white'
                           : 'border-border bg-background text-muted-foreground',
                     )
                   : ''

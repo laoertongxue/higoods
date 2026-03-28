@@ -70,6 +70,7 @@
     "test:cutting-marker-spreading-editor-actions:e2e": "playwright test tests/cutting-marker-spreading-editor-actions.spec.ts",
     "test:cutting-pda-mock-coverage:e2e": "playwright test tests/cutting-pda-mock-coverage.spec.ts",
     "test:cutting-pda-projection-writeback:e2e": "playwright test tests/cutting-pda-projection-writeback.spec.ts",
+    "test:pda-task-receive-button-visibility:e2e": "playwright test tests/pda-task-receive-button-visibility.spec.ts",
     "test:cutting-traceability-chain:e2e": "playwright test tests/cutting-traceability-chain.spec.ts",
     "test:cutting-final-cleanup:e2e": "playwright test tests/cutting-final-cleanup.spec.ts",
     "test:cutting-release-acceptance:e2e": "playwright test tests/cutting-release-acceptance.spec.ts",

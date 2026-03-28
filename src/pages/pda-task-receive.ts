@@ -255,7 +255,7 @@ function getDeadlineStatus(deadline: string): { label: string; variant: Deadline
 }
 
 function getDeadlineBadgeClass(variant: DeadlineBadgeVariant): string {
-  if (variant === 'destructive') return 'bg-destructive text-destructive-foreground border-destructive/20'
+  if (variant === 'destructive') return 'bg-destructive text-white border-destructive/20'
   if (variant === 'default') return 'bg-primary text-primary-foreground border-primary/20'
   if (variant === 'outline') return 'bg-background text-foreground border-border'
   return 'bg-muted text-muted-foreground border-border'
@@ -668,7 +668,7 @@ function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: stri
           >接单详情</button>
 
           <button
-            class="inline-flex h-8 items-center rounded-md border border-destructive/20 bg-destructive px-3 text-xs text-destructive-foreground hover:opacity-90"
+            class="inline-flex h-8 min-w-[4rem] items-center justify-center rounded-md border border-destructive/20 bg-destructive px-3 text-xs font-medium text-white hover:bg-destructive/90"
             data-pda-tr-action="open-reject"
             data-task-id="${escapeHtml(task.taskId)}"
           >拒单</button>
@@ -742,7 +742,7 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
           >查看详情</button>
 
           <button
-            class="inline-flex h-8 items-center rounded-md border border-destructive/20 bg-destructive px-3 text-xs text-destructive-foreground hover:opacity-90"
+            class="inline-flex h-8 min-w-[4rem] items-center justify-center rounded-md border border-destructive/20 bg-destructive px-3 text-xs font-medium text-white hover:bg-destructive/90"
             data-pda-tr-action="open-reject"
             data-task-id="${escapeHtml(task.taskId)}"
           >拒单</button>
@@ -1066,7 +1066,7 @@ function renderRejectDialog(): string {
         <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pda-tr-action="close-reject">取消</button>
           <button
-            class="inline-flex h-8 items-center rounded-md bg-destructive px-3 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex h-8 min-w-[5.5rem] items-center justify-center rounded-md bg-destructive px-3 text-sm font-medium text-white hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-60"
             data-pda-tr-action="confirm-reject"
             ${!state.rejectReason.trim() ? 'disabled' : ''}
           >确认拒单</button>
