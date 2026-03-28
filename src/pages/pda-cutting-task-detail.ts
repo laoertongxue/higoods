@@ -250,11 +250,21 @@ function renderTaskOrderCard(
         <div class="space-y-1">
           <div class="text-xs text-muted-foreground">执行单号</div>
           <div class="text-base font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div>
-          <div class="text-[11px] text-muted-foreground">绑定原始裁片单 ${escapeHtml(line.originalCutOrderNo)}</div>
+          <div class="text-[11px] text-muted-foreground">${
+            line.bindingState === 'UNBOUND'
+              ? '当前执行对象待绑定原始裁片单'
+              : `绑定原始裁片单 ${escapeHtml(line.originalCutOrderNo)}`
+          }</div>
+          ${
+            line.mergeBatchNo
+              ? `<div class="text-[11px] text-muted-foreground">关联裁剪批次 ${escapeHtml(line.mergeBatchNo)}</div>`
+              : ''
+          }
           <div class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div>
         </div>
         <div class="flex flex-wrap justify-end gap-2">
           ${renderStatusChip(line.currentStateLabel, resolveStatusTone(line.currentStateLabel))}
+          ${line.bindingState === 'UNBOUND' ? renderStatusChip('未绑定', 'red') : ''}
           ${line.isDone ? renderStatusChip('已完成', 'green') : ''}
           ${line.hasException ? renderStatusChip('有异常', 'red') : ''}
           ${isCurrentSelected ? renderStatusChip('当前查看', 'blue') : ''}
@@ -343,11 +353,16 @@ function renderTaskOrderList(taskId: string, detail: PdaCuttingTaskDetailData, s
 }
 
 function renderFocusedQrSummary(detail: PdaCuttingTaskDetailData, state: PdaCuttingTaskDetailPageState): string {
+  const isBound = Boolean(detail.originalCutOrderNo)
   const explainBlock = state.qrExpanded
     ? `
         <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs leading-5 text-muted-foreground">
-          当前执行单 <span class="font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</span> 已绑定原始裁片单
-          <span class="font-medium text-foreground">${escapeHtml(detail.originalCutOrderNo)}</span>，后续领料、铺布、入仓和交接都沿正式对象链回写。
+          ${
+            isBound
+              ? `当前执行单 <span class="font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</span> 已绑定原始裁片单
+          <span class="font-medium text-foreground">${escapeHtml(detail.originalCutOrderNo)}</span>，后续领料、铺布、入仓和交接都沿正式对象链回写。`
+              : `当前执行单 <span class="font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</span> 仍处于待绑定状态，当前仅可查看执行对象与异常说明。`
+          }
         </div>
       `
     : ''
@@ -359,13 +374,15 @@ function renderFocusedQrSummary(detail: PdaCuttingTaskDetailData, state: PdaCutt
           <div>
             <div class="text-muted-foreground">当前执行单</div>
             <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</div>
-            <div class="mt-1 text-[11px] text-muted-foreground">原始裁片单 ${escapeHtml(detail.originalCutOrderNo)}</div>
+            <div class="mt-1 text-[11px] text-muted-foreground">${
+              isBound ? `原始裁片单 ${escapeHtml(detail.originalCutOrderNo)}` : '原始裁片单待绑定'
+            }</div>
           </div>
-          ${renderStatusChip(detail.hasQrCode ? '已生成主码' : '未生成主码', detail.hasQrCode ? 'green' : 'amber')}
+          ${renderStatusChip(detail.hasQrCode && isBound ? '已生成主码' : '待绑定主码', detail.hasQrCode && isBound ? 'green' : 'amber')}
         </div>
         <div class="mt-3 rounded-xl border border-dashed bg-background px-3 py-4 text-center">
-          <div class="text-[11px] text-muted-foreground">原始裁片单主码</div>
-          <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(detail.qrCodeValue)}</div>
+          <div class="text-[11px] text-muted-foreground">${isBound ? '原始裁片单主码' : '当前绑定状态'}</div>
+          <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(isBound ? detail.qrCodeValue : 'UNBOUND')}</div>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-3">
           <div>

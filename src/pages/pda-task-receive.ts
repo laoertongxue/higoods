@@ -471,7 +471,16 @@ function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
       taskDeadline: task.taskDeadline || '',
       notifiedAt: task.awardedAt || task.updatedAt || task.createdAt,
       awardNote: task.priceDiffReason || '',
-      execStatus: task.status === 'NOT_STARTED' ? '待开工' : task.status === 'IN_PROGRESS' ? '进行中' : '已完工',
+      execStatus:
+        task.status === 'NOT_STARTED'
+          ? '待开工'
+          : task.status === 'IN_PROGRESS'
+            ? '进行中'
+            : task.status === 'BLOCKED'
+              ? '生产暂停'
+              : task.status === 'CANCELLED'
+                ? '已中止'
+                : '已完工',
     }))
     .sort((left, right) => right.notifiedAt.localeCompare(left.notifiedAt))
 }
@@ -836,6 +845,11 @@ function renderAwardedCuttingTask(task: PdaTaskFlowMock, item: AwardedTender): s
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
           <div class="flex items-center gap-1.5">
             ${focused ? '<span class="inline-flex shrink-0 items-center rounded border border-blue-200 bg-blue-50 px-1.5 text-[10px] text-blue-700">当前任务</span>' : ''}
+            ${
+              item.execStatus
+                ? `<span class="inline-flex shrink-0 items-center rounded border border-border bg-background px-1.5 text-[10px] text-muted-foreground">${escapeHtml(item.execStatus)}</span>`
+                : ''
+            }
             <span class="inline-flex shrink-0 items-center rounded border px-1.5 text-[10px] ${escapeHtml(getPdaCuttingTaskStateBadgeClass(task.taskStateLabel))}">${escapeHtml(task.taskStateLabel || '待开始')}</span>
           </div>
         </div>

@@ -15,14 +15,13 @@ import {
   matchPdaExecutionRecord,
   toLegacyCutPieceOrderNo,
 } from './pda-cutting-legacy-compat.ts'
+import {
+  getPdaCuttingTaskScenarioByTaskId,
+  listPdaCuttingSpreadingPresetExecutions,
+} from './cutting/pda-cutting-task-scenarios.ts'
 import { findPdaHandoverHead } from './pda-handover-events.ts'
 import { getTaskChainTaskById, listTaskChainTasks } from './page-adapters/task-chain-pages-adapter.ts'
 import type { ProcessTask } from './process-tasks.ts'
-import {
-  PDA_MOCK_AWARDED_TENDER_NOTICES,
-  PDA_MOCK_BIDDING_TENDERS,
-  PDA_MOCK_QUOTED_TENDERS,
-} from './pda-mobile-mock.ts'
 import type {
   PdaCutPieceHandoverWritebackRecord,
   PdaCutPieceInboundWritebackRecord,
@@ -84,6 +83,7 @@ export interface PdaCuttingTaskOrderLine {
   mergeBatchId: string
   mergeBatchNo: string
   materialSku: string
+  bindingState: 'BOUND' | 'UNBOUND'
   materialTypeLabel: string
   colorLabel?: string
   plannedQty: number
@@ -169,8 +169,12 @@ export interface PdaCuttingTaskDetailData {
   taskNo: string
   productionOrderId: string
   productionOrderNo: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
   originalCutOrderIds: string[]
   originalCutOrderNos: string[]
+  mergeBatchId: string
+  mergeBatchNo: string
   mergeBatchIds: string[]
   mergeBatchNos: string[]
   executionOrderId: string
@@ -271,6 +275,7 @@ function unique<T>(values: T[]): T[] {
 
 function mapTaskStatusLabel(status: ProcessTask['status']): string {
   if (status === 'DONE') return '已完成'
+  if (status === 'CANCELLED') return '已中止'
   if (status === 'BLOCKED') return '有异常'
   if (status === 'IN_PROGRESS') return '进行中'
   return '待开始'
@@ -324,20 +329,29 @@ function getSnapshot(snapshot?: CuttingDomainSnapshot): CuttingDomainSnapshot {
   return snapshot ?? buildFcsCuttingDomainSnapshot()
 }
 
+const pdaCuttingScenarioSpreadingPresetByExecutionId = new Map(
+  listPdaCuttingSpreadingPresetExecutions().map((item) => [item.executionOrderId, item.preset] as const),
+)
+
+function mapScenarioAssignmentStatus(origin: string): ProcessTask['assignmentStatus'] {
+  if (origin === 'BIDDING_PENDING' || origin === 'BIDDING_QUOTED') return 'BIDDING'
+  if (origin === 'BIDDING_AWARDED') return 'AWARDED'
+  return 'ASSIGNED'
+}
+
+function mapScenarioAssignmentMode(origin: string): ProcessTask['assignmentMode'] {
+  return origin === 'DIRECT' ? 'DIRECT' : 'BIDDING'
+}
+
 function buildFallbackCuttingTaskFact(record: PdaCuttingTaskSourceRecord): ProcessTask {
+  const scenario = getPdaCuttingTaskScenarioByTaskId(record.taskId)
   const firstExecution = getSourceExecutionsByTaskId(record.taskId)[0] ?? null
   const originalRecord = firstExecution?.originalCutOrderId
     ? getGeneratedOriginalCutOrderSourceRecordById(firstExecution.originalCutOrderId)
     : null
-  const awardedNotice = PDA_MOCK_AWARDED_TENDER_NOTICES.find((item) => item.taskId === record.taskId) ?? null
-  const quotedTender = PDA_MOCK_QUOTED_TENDERS.find((item) => item.taskId === record.taskId) ?? null
-  const biddingTender = PDA_MOCK_BIDDING_TENDERS.find((item) => item.taskId === record.taskId) ?? null
-  const isBiddingTask = record.taskId.includes('-BID-') || Boolean(awardedNotice || quotedTender || biddingTender)
-  const assignmentStatus = awardedNotice ? 'AWARDED' : isBiddingTask ? 'BIDDING' : 'ASSIGNED'
-  const assignmentMode = isBiddingTask ? 'BIDDING' : 'DIRECT'
-  const baseAt = awardedNotice?.notifiedAt || quotedTender?.quotedAt || biddingTender?.biddingDeadline || '2026-03-22 08:00:00'
-  const qty = originalRecord?.requiredQty || quotedTender?.qty || biddingTender?.qty || awardedNotice?.qty || 0
-  const pricing = quotedTender?.quotedPrice || biddingTender?.standardPrice || 6.5
+  const baseAt = scenario?.notifiedAt || scenario?.quotedAt || scenario?.biddingDeadline || scenario?.dispatchedAt || '2026-03-22 08:00:00'
+  const qty = scenario?.qty || originalRecord?.requiredQty || 0
+  const pricing = scenario?.dispatchPrice || scenario?.quotedPrice || scenario?.standardPrice || 6.5
   const task = {
     taskId: record.taskId,
     taskNo: record.taskNo || record.taskId,
@@ -348,30 +362,36 @@ function buildFallbackCuttingTaskFact(record: PdaCuttingTaskSourceRecord): Proce
     stage: 'CUTTING',
     qty,
     qtyUnit: 'PIECE',
-    assignmentMode,
-    assignmentStatus,
+    assignmentMode: mapScenarioAssignmentMode(scenario?.origin || 'DIRECT'),
+    assignmentStatus: mapScenarioAssignmentStatus(scenario?.origin || 'DIRECT'),
     ownerSuggestion: { kind: 'MAIN_FACTORY' },
-    assignedFactoryId: 'ID-F001',
-    assignedFactoryName: 'PT Sinar Garment Indonesia',
+    assignedFactoryId: scenario?.assignedFactoryId || 'ID-F001',
+    assignedFactoryName: scenario?.assignedFactoryName || 'PT Sinar Garment Indonesia',
     qcPoints: [],
     attachments: [],
-    status: awardedNotice ? 'IN_PROGRESS' : 'NOT_STARTED',
-    acceptDeadline: '2026-03-28 10:00:00',
-    taskDeadline: awardedNotice?.notifiedAt ? '2026-03-29 18:00:00' : '2026-03-28 20:00:00',
-    dispatchRemark: 'PDA 裁片执行投影任务',
-    dispatchedAt: baseAt,
-    dispatchedBy: '系统派单',
+    status: scenario?.taskStatus || 'NOT_STARTED',
+    acceptDeadline: scenario?.acceptDeadline || '2026-03-28 10:00:00',
+    taskDeadline: scenario?.taskDeadline || '2026-03-28 20:00:00',
+    dispatchRemark: scenario?.dispatchRemark || scenario?.taskSummaryNote || 'PDA 裁片执行投影任务',
+    dispatchedAt: scenario?.dispatchedAt || baseAt,
+    dispatchedBy: scenario?.dispatchedBy || '系统派单',
     standardPrice: pricing,
-    standardPriceCurrency: quotedTender?.currency || biddingTender?.currency || 'CNY',
-    standardPriceUnit: quotedTender?.unit || quotedTender?.qtyUnit || biddingTender?.qtyUnit || '件',
-    dispatchPrice: awardedNotice ? pricing : undefined,
-    dispatchPriceCurrency: quotedTender?.currency || biddingTender?.currency || 'CNY',
-    dispatchPriceUnit: quotedTender?.unit || quotedTender?.qtyUnit || biddingTender?.qtyUnit || '件',
-    priceDiffReason: isBiddingTask ? 'PDA 裁片投影中标价' : 'PDA 裁片投影派单价',
-    acceptanceStatus: isBiddingTask ? undefined : 'PENDING',
-    acceptedAt: awardedNotice ? awardedNotice.notifiedAt : undefined,
-    awardedAt: awardedNotice?.notifiedAt,
-    acceptedBy: awardedNotice ? '平台自动下发' : undefined,
+    standardPriceCurrency: scenario?.currency || 'CNY',
+    standardPriceUnit: scenario?.unit || scenario?.qtyUnit || '件',
+    dispatchPrice: scenario?.dispatchPrice,
+    dispatchPriceCurrency: scenario?.currency || 'CNY',
+    dispatchPriceUnit: scenario?.unit || scenario?.qtyUnit || '件',
+    priceDiffReason: scenario?.priceDiffReason || (scenario?.origin === 'DIRECT' ? 'PDA 裁片投影派单价' : 'PDA 裁片投影招标价'),
+    acceptanceStatus: scenario?.acceptanceStatus,
+    acceptedAt: scenario?.acceptedAt,
+    awardedAt: scenario?.notifiedAt,
+    acceptedBy: scenario?.acceptedBy,
+    tenderId: scenario?.tenderId,
+    blockReason: scenario?.blockReason,
+    blockRemark: scenario?.blockRemark,
+    blockedAt: scenario?.blockedAt,
+    startedAt: scenario?.startedAt,
+    finishedAt: scenario?.finishedAt,
     rootTaskNo: record.taskNo || record.taskId,
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
@@ -380,12 +400,19 @@ function buildFallbackCuttingTaskFact(record: PdaCuttingTaskSourceRecord): Proce
     auditLogs: [
       {
         id: `AL-${record.taskId}`,
-        action: isBiddingTask ? (awardedNotice ? 'AWARDED' : 'BIDDING_OPEN') : 'DISPATCHED',
-        detail: isBiddingTask
-          ? awardedNotice
+        action:
+          scenario?.origin === 'BIDDING_AWARDED'
+            ? 'AWARDED'
+            : scenario?.origin === 'BIDDING_PENDING' || scenario?.origin === 'BIDDING_QUOTED'
+              ? 'BIDDING_OPEN'
+              : 'DISPATCHED',
+        detail:
+          scenario?.taskSummaryNote
+          || (scenario?.origin === 'BIDDING_AWARDED'
             ? '裁片竞价中标后已同步为 PDA 执行任务'
-            : '裁片竞价任务已同步为 PDA 执行投影'
-          : '裁片直接派单任务已同步为 PDA 执行投影',
+            : scenario?.origin === 'BIDDING_PENDING' || scenario?.origin === 'BIDDING_QUOTED'
+              ? '裁片竞价任务已同步为 PDA 执行投影'
+              : '裁片直接派单任务已同步为 PDA 执行投影'),
         at: baseAt,
         by: 'SYSTEM',
       },
@@ -461,6 +488,21 @@ function listSessionsForExecution(snapshot: CuttingDomainSnapshot, execution: Pd
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
 }
 
+function getScenarioSpreadingPreset(execution: PdaCuttingExecutionSourceRecord): {
+  status: 'STARTED' | 'DONE' | 'BLOCKED'
+  recordId: string
+  fabricRollNo: string
+  layerCount: number
+  actualLength: number
+  headLength: number
+  tailLength: number
+  enteredBy: string
+  enteredAt: string
+  note: string
+} | null {
+  return pdaCuttingScenarioSpreadingPresetByExecutionId.get(execution.executionOrderId) ?? null
+}
+
 function listRollsForExecution(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): Array<{ session: SpreadingSession; roll: SpreadingRollRecord }> {
   return listSessionsForExecution(snapshot, execution).flatMap((session) =>
     session.rolls.map((roll) => ({ session, roll })),
@@ -475,10 +517,15 @@ function listOperatorsForExecution(snapshot: CuttingDomainSnapshot, execution: P
 
 function buildReplenishmentLabel(latestReplenishment: PdaReplenishmentFeedbackRecord | null): string {
   if (!latestReplenishment) return '当前无补料风险'
-  return `${latestReplenishment.reasonLabel}，待工艺工厂跟进`
+  if (latestReplenishment.lifecycleStatus === 'CLOSED') return `${latestReplenishment.reasonLabel}，已关闭`
+  if (latestReplenishment.lifecycleStatus === 'PENDING') return `${latestReplenishment.reasonLabel}，待工艺工厂跟进`
+  return `${latestReplenishment.reasonLabel}，已提交补料反馈`
 }
 
 function resolveNextAction(line: {
+  bindingState: 'BOUND' | 'UNBOUND'
+  taskStatus: ProcessTask['status']
+  currentExecutionStatus: string
   pickupSuccess: boolean
   hasSpreading: boolean
   hasInbound: boolean
@@ -486,16 +533,23 @@ function resolveNextAction(line: {
   replenishmentLabel: string
   hasException: boolean
 }): string {
+  if (line.bindingState === 'UNBOUND') return '查看异常'
+  if (line.taskStatus === 'CANCELLED') return '查看当前情况'
+  if (line.taskStatus === 'BLOCKED' && line.replenishmentLabel !== '当前无补料风险') return '补料反馈'
+  if (line.taskStatus === 'BLOCKED') return '查看异常'
   if (!line.pickupSuccess) return '扫码领料'
-  if (!line.hasSpreading) return '铺布录入'
+  if (!line.hasSpreading || line.currentExecutionStatus.includes('待铺布')) return '铺布录入'
   if (!line.hasInbound) return '入仓扫码'
   if (!line.hasHandover) return '交接扫码'
-  if (line.replenishmentLabel !== '当前无补料风险') return '补料反馈'
+  if (line.replenishmentLabel.includes('待工艺工厂跟进')) return '补料反馈'
   if (line.hasException) return '查看异常'
   return '查看当前情况'
 }
 
 function resolveCurrentState(line: {
+  bindingState: 'BOUND' | 'UNBOUND'
+  taskStatus: ProcessTask['status']
+  currentExecutionStatus: string
   pickupSuccess: boolean
   hasSpreading: boolean
   hasInbound: boolean
@@ -503,12 +557,16 @@ function resolveCurrentState(line: {
   replenishmentLabel: string
   hasException: boolean
 }): string {
+  if (line.bindingState === 'UNBOUND') return '待绑定'
+  if (line.taskStatus === 'CANCELLED') return '已中止'
+  if (line.taskStatus === 'BLOCKED' && line.currentExecutionStatus.includes('暂停')) return '执行暂停'
   if (line.hasException && !line.pickupSuccess) return '领料差异待处理'
   if (!line.pickupSuccess) return '待领料'
-  if (!line.hasSpreading) return '待铺布'
+  if (!line.hasSpreading || line.currentExecutionStatus.includes('待铺布')) return '待铺布'
   if (!line.hasInbound) return '待入仓'
   if (!line.hasHandover) return '待交接'
-  if (line.replenishmentLabel !== '当前无补料风险') return '补料风险待关注'
+  if (line.replenishmentLabel.includes('待工艺工厂跟进')) return '补料风险待关注'
+  if (line.taskStatus === 'DONE' || line.replenishmentLabel.includes('已关闭')) return '已完成'
   return '已完成'
 }
 
@@ -531,6 +589,7 @@ function buildTaskOrderLine(
   sortOrder: number,
   snapshot: CuttingDomainSnapshot,
 ): PdaCuttingTaskOrderLine {
+  const scenario = getPdaCuttingTaskScenarioByTaskId(execution.taskId)
   const progressLine = getProgressLine(snapshot, execution)
   const originalRecord = getOriginalCutOrderRecord(execution)
   const latestPickup = getLatestPickup(snapshot, execution)
@@ -538,21 +597,42 @@ function buildTaskOrderLine(
   const latestHandover = getLatestHandover(snapshot, execution)
   const latestReplenishment = getLatestReplenishment(snapshot, execution)
   const sessions = listSessionsForExecution(snapshot, execution)
+  const preset = getScenarioSpreadingPreset(execution)
   const pickupDispute = execution.originalCutOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(execution.originalCutOrderNo) : null
   const currentReceiveStatus =
     pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
       ? '领料异议处理中'
       : latestPickup?.resultLabel || mapReceiveStatusLabel(progressLine?.receiveStatus)
   const hasPickupSuccess = Boolean(latestPickup?.resultLabel?.includes('成功')) || progressLine?.receiveStatus === 'RECEIVED'
-  const hasSpreading = sessions.length > 0
-  const currentExecutionStatus = hasSpreading ? `已有 ${sessions.length} 条铺布记录` : '待铺布录入'
+  const hasSpreading = sessions.length > 0 || Boolean(preset)
+  const currentExecutionStatus =
+    execution.bindingState === 'UNBOUND'
+      ? '待绑定原始裁片单'
+      : scenario?.taskStatus === 'CANCELLED'
+        ? '执行已中止'
+        : preset?.status === 'BLOCKED' || scenario?.taskStatus === 'BLOCKED'
+          ? '铺布已暂停'
+          : preset?.status === 'DONE' || scenario?.taskStatus === 'DONE'
+            ? '铺布已完成'
+            : hasSpreading
+              ? '铺布进行中'
+              : '待铺布录入'
   const hasInbound = Boolean(latestInbound)
   const currentInboundStatus = latestInbound ? '已入仓' : '待入仓扫码'
   const hasHandover = Boolean(latestHandover)
   const currentHandoverStatus = latestHandover ? '已交接' : '待交接扫码'
   const replenishmentRiskLabel = buildReplenishmentLabel(latestReplenishment)
-  const hasException = currentReceiveStatus.includes('异议') || replenishmentRiskLabel !== '当前无补料风险' || execution.bindingState === 'UNBOUND'
+  const hasException =
+    currentReceiveStatus.includes('异议')
+    || currentReceiveStatus.includes('差异')
+    || replenishmentRiskLabel.includes('待工艺工厂跟进')
+    || execution.bindingState === 'UNBOUND'
+    || currentExecutionStatus.includes('暂停')
+    || currentExecutionStatus.includes('中止')
   const currentStateLabel = resolveCurrentState({
+    bindingState: execution.bindingState,
+    taskStatus: scenario?.taskStatus || 'NOT_STARTED',
+    currentExecutionStatus,
     pickupSuccess: hasPickupSuccess,
     hasSpreading,
     hasInbound,
@@ -570,9 +650,10 @@ function buildTaskOrderLine(
     mergeBatchId: execution.mergeBatchId,
     mergeBatchNo: execution.mergeBatchNo,
     materialSku: execution.materialSku,
+    bindingState: execution.bindingState,
     materialTypeLabel: mapMaterialTypeLabel(originalRecord),
-    colorLabel: originalRecord?.colorScope.join(' / ') || progressLine?.color || '',
-    plannedQty: originalRecord?.requiredQty || 0,
+    colorLabel: originalRecord?.colorScope.join(' / ') || progressLine?.color || (execution.bindingState === 'UNBOUND' ? '待绑定' : ''),
+    plannedQty: originalRecord?.requiredQty || scenario?.qty || 0,
     currentReceiveStatus,
     currentExecutionStatus,
     currentInboundStatus,
@@ -580,6 +661,9 @@ function buildTaskOrderLine(
     replenishmentRiskLabel,
     currentStateLabel,
     nextActionLabel: resolveNextAction({
+      bindingState: execution.bindingState,
+      taskStatus: scenario?.taskStatus || 'NOT_STARTED',
+      currentExecutionStatus,
       pickupSuccess: hasPickupSuccess,
       hasSpreading,
       hasInbound,
@@ -589,7 +673,13 @@ function buildTaskOrderLine(
     }),
     qrCodeValue: buildQrCodeValue(execution.originalCutOrderNo || execution.executionOrderNo),
     pickupSlipNo: buildPickupSlipNo(execution.originalCutOrderNo || execution.executionOrderNo),
-    isDone: hasPickupSuccess && hasSpreading && hasInbound && hasHandover && replenishmentRiskLabel === '当前无补料风险',
+    isDone:
+      scenario?.taskStatus === 'DONE'
+      || (hasPickupSuccess
+        && hasSpreading
+        && hasInbound
+        && hasHandover
+        && (replenishmentRiskLabel === '当前无补料风险' || replenishmentRiskLabel.includes('已关闭'))),
     hasException,
     sortOrder,
   }
@@ -610,7 +700,7 @@ function buildPickupLogs(snapshot: CuttingDomainSnapshot, execution: PdaCuttingE
 }
 
 function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCuttingSpreadingRecord[] {
-  return listRollsForExecution(snapshot, execution).map(({ session, roll }) => ({
+  const actualRecords = listRollsForExecution(snapshot, execution).map(({ session, roll }) => ({
     executionOrderId: execution.executionOrderId,
     id: roll.rollRecordId,
     fabricRollNo: roll.rollNo,
@@ -624,6 +714,27 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
     sourceType: roll.sourceChannel === 'PDA_WRITEBACK' ? 'PDA' : 'PCS',
     note: roll.note,
   }))
+  if (actualRecords.length > 0) return actualRecords
+
+  const preset = getScenarioSpreadingPreset(execution)
+  if (!preset) return []
+
+  return [
+    {
+      executionOrderId: execution.executionOrderId,
+      id: preset.recordId,
+      fabricRollNo: preset.fabricRollNo,
+      layerCount: preset.layerCount,
+      actualLength: preset.actualLength,
+      headLength: preset.headLength,
+      tailLength: preset.tailLength,
+      calculatedLength: preset.actualLength + preset.headLength + preset.tailLength,
+      enteredBy: preset.enteredBy,
+      enteredAt: preset.enteredAt,
+      sourceType: 'PDA',
+      note: preset.note,
+    },
+  ]
 }
 
 function buildInboundRecords(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCuttingInboundRecord[] {
@@ -735,23 +846,43 @@ function buildTaskProgressLabel(completedCount: number, totalCount: number): str
 }
 
 function resolveTaskStateLabel(completedCount: number, totalCount: number, exceptionCount: number, taskStatus: ProcessTask['status']): string {
+  if (taskStatus === 'CANCELLED') return '已中止'
   if (exceptionCount > 0) return '有异常'
   if (totalCount > 0 && completedCount === totalCount) return '已完成'
   if (taskStatus === 'IN_PROGRESS') return '进行中'
+  if (taskStatus === 'BLOCKED') return '有异常'
   return '待开始'
 }
 
 function resolveTaskSummary(executions: PdaCuttingTaskOrderLine[]): PdaTaskSummary {
   const first = executions[0]
   const completedCount = executions.filter((item) => item.isDone).length
+  const blockedCount = executions.filter((item) => item.currentExecutionStatus.includes('暂停')).length
+  const cancelledCount = executions.filter((item) => item.currentExecutionStatus.includes('中止')).length
   return {
-    currentStage: completedCount === executions.length && executions.length > 0 ? '已全部完成' : first?.currentStateLabel || '待开始',
+    currentStage:
+      cancelledCount > 0
+        ? '存在已中止执行'
+        : blockedCount > 0
+          ? '存在暂停执行'
+          : completedCount === executions.length && executions.length > 0
+            ? '已全部完成'
+            : first?.currentStateLabel || '待开始',
     materialSku: executions.length === 1 ? first?.materialSku : `${unique(executions.map((item) => item.materialSku)).length} 种面料`,
     materialTypeLabel: first?.materialTypeLabel || '',
     pickupSlipNo: first?.pickupSlipNo || '',
     qrCodeValue: first?.qrCodeValue || '',
     receiveSummary: executions.some((item) => item.currentReceiveStatus.includes('异议')) ? '存在领料异议' : executions.every((item) => item.currentReceiveStatus.includes('成功')) ? '扫码领料完成' : '待领料确认',
-    executionSummary: executions.some((item) => item.currentExecutionStatus.includes('已有')) ? '已有铺布记录' : '待开始铺布',
+    executionSummary:
+      executions.some((item) => item.currentExecutionStatus.includes('暂停'))
+        ? '存在铺布暂停'
+        : executions.some((item) => item.currentExecutionStatus.includes('完成'))
+          ? '已有铺布完成记录'
+          : executions.some((item) => item.currentExecutionStatus.includes('进行中'))
+            ? '已有铺布进行中记录'
+            : executions.some((item) => item.currentExecutionStatus.includes('待绑定'))
+              ? '存在待绑定执行对象'
+              : '待开始铺布',
     handoverSummary: executions.every((item) => item.currentHandoverStatus === '已交接') && executions.length > 0 ? '交接扫码已完成' : '待交接扫码',
   }
 }
@@ -946,8 +1077,12 @@ export function getPdaCuttingTaskSnapshot(
     taskNo: task.taskNo || task.taskId,
     productionOrderId: selectedExecutionRecord.productionOrderId,
     productionOrderNo: selectedExecutionRecord.productionOrderNo,
+    originalCutOrderId: selectedExecutionRecord.originalCutOrderId,
+    originalCutOrderNo: selectedExecutionRecord.originalCutOrderNo,
     originalCutOrderIds: unique(executionRecords.map((record) => record.originalCutOrderId).filter(Boolean)),
     originalCutOrderNos: unique(executionRecords.map((record) => record.originalCutOrderNo).filter(Boolean)),
+    mergeBatchId: selectedExecutionRecord.mergeBatchId,
+    mergeBatchNo: selectedExecutionRecord.mergeBatchNo,
     mergeBatchIds: unique(executionRecords.map((record) => record.mergeBatchId).filter(Boolean)),
     mergeBatchNos: unique(executionRecords.map((record) => record.mergeBatchNo).filter(Boolean)),
     executionOrderId: selectedExecutionRecord.executionOrderId,
@@ -979,7 +1114,10 @@ export function getPdaCuttingTaskSnapshot(
     qrCodeValue: selectedLine.qrCodeValue,
     qrVersionNote: '二维码主码已绑定原始裁片单',
     currentStage: selectedLine.currentStateLabel,
-    currentActionHint: `当前执行对象 ${selectedLine.executionOrderNo} 绑定原始裁片单 ${selectedLine.originalCutOrderNo}。`,
+    currentActionHint:
+      selectedLine.bindingState === 'UNBOUND'
+        ? `当前执行对象 ${selectedLine.executionOrderNo} 尚未绑定原始裁片单，请先处理绑定异常。`
+        : `当前执行对象 ${selectedLine.executionOrderNo} 绑定原始裁片单 ${selectedLine.originalCutOrderNo}。`,
     nextRecommendedAction: selectedLine.nextActionLabel,
     riskFlags: unique([
       ...(selectedLine.hasException ? ['执行风险'] : []),
@@ -987,7 +1125,7 @@ export function getPdaCuttingTaskSnapshot(
     ]),
     riskTips,
     receiveSummary,
-    executionSummary,
+    executionSummary: selectedLine.currentExecutionStatus || executionSummary,
     handoverSummary,
     currentReceiveStatus: selectedLine.currentReceiveStatus,
     currentExecutionStatus: selectedLine.currentExecutionStatus,

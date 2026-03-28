@@ -1,3 +1,9 @@
+import {
+  listPdaCuttingAwardedTenderNoticeMocks,
+  listPdaCuttingBiddingTenderMocks,
+  listPdaCuttingQuotedTenderMocks,
+} from './cutting/pda-cutting-task-scenarios.ts'
+
 export interface PdaMobileBiddingTenderMock {
   tenderId: string
   taskId: string
@@ -39,20 +45,7 @@ export interface PdaMobileAwardedTenderNoticeMock {
   productionOrderId: string
 }
 
-export const PDA_MOCK_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
-  {
-    tenderId: 'TENDER-PDA-CUT-021',
-    taskId: 'TASK-CUT-BID-201',
-    productionOrderId: 'PO-20260322-031',
-    processName: '裁片',
-    qty: 620,
-    qtyUnit: '件',
-    factoryPoolCount: 4,
-    biddingDeadline: '2026-03-22 18:00:00',
-    taskDeadline: '2026-03-24 12:00:00',
-    standardPrice: 6.5,
-    currency: 'CNY',
-  },
+const NON_CUTTING_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
   {
     tenderId: 'TENDER-PDA-SEW-118',
     taskId: 'TASK-SEW-BID-118',
@@ -81,7 +74,7 @@ export const PDA_MOCK_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
   },
 ]
 
-export const PDA_MOCK_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
+const NON_CUTTING_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
   {
     tenderId: 'TENDER-PDA-SEW-113',
     taskId: 'TASK-SEW-BID-113',
@@ -98,23 +91,6 @@ export const PDA_MOCK_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
     taskDeadline: '2026-03-25 20:00:00',
     tenderStatusLabel: '招标中',
     remark: '可安排双线并行，支持夜班赶货。',
-  },
-  {
-    tenderId: 'TENDER-PDA-CUT-017',
-    taskId: 'TASK-CUT-BID-017',
-    productionOrderId: 'PO-20260321-019',
-    processName: '裁片',
-    qty: 430,
-    qtyUnit: '件',
-    quotedPrice: 6.9,
-    quotedAt: '2026-03-22 08:35:00',
-    deliveryDays: 2,
-    currency: 'CNY',
-    unit: '件',
-    biddingDeadline: '2026-03-22 11:00:00',
-    taskDeadline: '2026-03-24 18:00:00',
-    tenderStatusLabel: '招标中',
-    remark: '已预留印花主布裁床，可优先排版。',
   },
   {
     tenderId: 'TENDER-PDA-PACK-009',
@@ -135,7 +111,7 @@ export const PDA_MOCK_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
   },
 ]
 
-export const PDA_MOCK_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = [
+const NON_CUTTING_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = [
   {
     tenderId: 'TENDER-PDA-SEW-113',
     taskId: 'TASK-SEW-000238',
@@ -145,14 +121,6 @@ export const PDA_MOCK_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[]
     productionOrderId: 'PO-20260318-008',
   },
   {
-    tenderId: 'TENDER-PDA-CUT-017',
-    taskId: 'TASK-CUT-000098',
-    processName: '裁片',
-    qty: 470,
-    notifiedAt: '2026-03-22 08:35:00',
-    productionOrderId: 'PO-20260319-022',
-  },
-  {
     tenderId: 'TENDER-PDA-PACK-011',
     taskId: 'TASK-PACK-000241',
     processName: '包装',
@@ -160,4 +128,19 @@ export const PDA_MOCK_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[]
     notifiedAt: '2026-03-22 09:20:00',
     productionOrderId: 'PO-20260322-034',
   },
+]
+
+export const PDA_MOCK_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
+  ...listPdaCuttingBiddingTenderMocks(),
+  ...NON_CUTTING_BIDDING_TENDERS,
+]
+
+export const PDA_MOCK_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
+  ...listPdaCuttingQuotedTenderMocks(),
+  ...NON_CUTTING_QUOTED_TENDERS,
+]
+
+export const PDA_MOCK_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = [
+  ...listPdaCuttingAwardedTenderNoticeMocks(),
+  ...NON_CUTTING_AWARDED_TENDER_NOTICES,
 ]

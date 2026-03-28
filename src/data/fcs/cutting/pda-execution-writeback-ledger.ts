@@ -1,3 +1,6 @@
+import { getPdaCuttingExecutionSourceRecord } from './pda-cutting-task-source.ts'
+import { getPdaCuttingTaskScenarioByTaskId } from './pda-cutting-task-scenarios.ts'
+
 export const CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY = 'cuttingPdaExecutionWritebackLedger'
 
 export type PdaExecutionWritebackSourceChannel = 'PDA'
@@ -55,6 +58,8 @@ export interface PdaReplenishmentFeedbackWritebackRecord extends PdaExecutionWri
   reasonLabel: string
   note: string
   photoProofCount: number
+  lifecycleStatus?: 'SUBMITTED' | 'PENDING' | 'CLOSED'
+  lifecycleStatusLabel?: string
 }
 
 export interface PdaExecutionWritebackStore {
@@ -176,6 +181,301 @@ function normalizeReplenishmentFeedbackRecord(raw: unknown): PdaReplenishmentFee
     reasonLabel: toString(record.reasonLabel),
     note: toString(record.note),
     photoProofCount: toNumber(record.photoProofCount),
+    lifecycleStatus: (() => {
+      const value = toString(record.lifecycleStatus)
+      return value === 'PENDING' || value === 'CLOSED' || value === 'SUBMITTED' ? value : undefined
+    })(),
+    lifecycleStatusLabel: toString(record.lifecycleStatusLabel),
+  }
+}
+
+function createSeedBase(input: {
+  writebackId: string
+  actionType: string
+  submittedAt: string
+  taskId: string
+  executionOrderNo: string
+  operatorName: string
+  sourceRecordId: string
+}): PdaExecutionWritebackBase {
+  const execution = getPdaCuttingExecutionSourceRecord(input.taskId, input.executionOrderNo)
+  const scenario = getPdaCuttingTaskScenarioByTaskId(input.taskId)
+  if (!execution || !scenario) {
+    throw new Error(`裁片 PDA 写回种子缺少任务执行对象：${input.taskId} / ${input.executionOrderNo}`)
+  }
+
+  return {
+    writebackId: input.writebackId,
+    actionType: input.actionType,
+    actionAt: input.submittedAt,
+    taskId: scenario.taskId,
+    taskNo: scenario.taskNo,
+    executionOrderId: execution.executionOrderId,
+    executionOrderNo: execution.executionOrderNo,
+    legacyCutPieceOrderNo: execution.legacyCutPieceOrderNo,
+    cutPieceOrderNo: execution.legacyCutPieceOrderNo,
+    productionOrderId: execution.productionOrderId,
+    productionOrderNo: execution.productionOrderNo,
+    originalCutOrderId: execution.originalCutOrderId,
+    originalCutOrderNo: execution.originalCutOrderNo,
+    mergeBatchId: execution.mergeBatchId,
+    mergeBatchNo: execution.mergeBatchNo,
+    materialSku: execution.materialSku,
+    operatorAccountId: `seed-${input.operatorName.toLowerCase().replace(/\s+/g, '-')}`,
+    operatorName: input.operatorName,
+    operatorRole: '裁片移动端操作员',
+    operatorFactoryId: scenario.assignedFactoryId,
+    operatorFactoryName: scenario.assignedFactoryName,
+    submittedAt: input.submittedAt,
+    sourceDeviceId: 'PDA-CUTTING-SEED',
+    sourceChannel: 'PDA',
+    sourceWritebackId: input.writebackId,
+    sourceRecordId: input.sourceRecordId,
+  }
+}
+
+function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
+  const pickupWritebacks: PdaPickupWritebackRecord[] = [
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-PICKUP-SEED-000088',
+        actionType: 'PDA_PICKUP_CONFIRM',
+        submittedAt: '2026-03-28 10:12:00',
+        taskId: 'TASK-CUT-000088',
+        executionOrderNo: 'CPO-20260319-B',
+        operatorName: 'Rina Putri',
+        sourceRecordId: 'pickup-seed-000088',
+      }),
+      resultLabel: '领取成功',
+      actualReceivedQtyText: '卷数 3 卷 / 长度 92 米',
+      discrepancyNote: '',
+      photoProofCount: 0,
+      claimDisputeId: '',
+      claimDisputeNo: '',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-PICKUP-SEED-000090',
+        actionType: 'PDA_PICKUP_CONFIRM',
+        submittedAt: '2026-03-28 11:18:00',
+        taskId: 'TASK-CUT-000090',
+        executionOrderNo: 'CPO-20260319-D',
+        operatorName: 'Putra Aji',
+        sourceRecordId: 'pickup-seed-000090',
+      }),
+      resultLabel: '部分领取',
+      actualReceivedQtyText: '卷数 2 卷 / 长度 61 米',
+      discrepancyNote: '主布少 1 卷，已先行铺布确认。',
+      photoProofCount: 1,
+      claimDisputeId: '',
+      claimDisputeNo: '',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-PICKUP-SEED-000095',
+        actionType: 'PDA_PICKUP_CONFIRM',
+        submittedAt: '2026-03-28 12:06:00',
+        taskId: 'TASK-CUT-000095',
+        executionOrderNo: 'CPO-20260319-I',
+        operatorName: '现场领料员',
+        sourceRecordId: 'pickup-seed-000095',
+      }),
+      resultLabel: '差异举证已提交',
+      actualReceivedQtyText: '卷数 4 卷 / 长度 589 米',
+      discrepancyNote: '少 1 卷印花主布，已提交差异举证。',
+      photoProofCount: 3,
+      claimDisputeId: 'CD-202603-0001',
+      claimDisputeNo: 'LYY-202603-0001',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-PICKUP-SEED-000100',
+        actionType: 'PDA_PICKUP_CONFIRM',
+        submittedAt: '2026-03-28 09:42:00',
+        taskId: 'TASK-CUT-000100',
+        executionOrderNo: 'CPO-20260324-B1',
+        operatorName: 'Rina Putri',
+        sourceRecordId: 'pickup-seed-000100',
+      }),
+      resultLabel: '领取成功',
+      actualReceivedQtyText: '卷数 2 卷 / 长度 75 米',
+      discrepancyNote: '',
+      photoProofCount: 0,
+      claimDisputeId: '',
+      claimDisputeNo: '',
+    },
+  ]
+
+  const inboundWritebacks: PdaCutPieceInboundWritebackRecord[] = [
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-INBOUND-SEED-000089',
+        actionType: 'PDA_CUT_PIECE_INBOUND_CONFIRM',
+        submittedAt: '2026-03-28 17:20:00',
+        taskId: 'TASK-CUT-000089',
+        executionOrderNo: 'CPO-20260319-C',
+        operatorName: 'Dewi Kartika',
+        sourceRecordId: 'inbound-seed-000089',
+      }),
+      zoneCode: 'A',
+      locationLabel: 'A-01-03',
+      note: '合批裁片已入裁片仓',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-INBOUND-SEED-000093',
+        actionType: 'PDA_CUT_PIECE_INBOUND_CONFIRM',
+        submittedAt: '2026-03-28 16:45:00',
+        taskId: 'TASK-CUT-000093',
+        executionOrderNo: 'CPO-20260319-G',
+        operatorName: 'Nia Prasetyo',
+        sourceRecordId: 'inbound-seed-000093',
+      }),
+      zoneCode: 'B',
+      locationLabel: 'B-02-01',
+      note: '净色面料裁片已归位',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-INBOUND-SEED-000103',
+        actionType: 'PDA_CUT_PIECE_INBOUND_CONFIRM',
+        submittedAt: '2026-03-28 19:20:00',
+        taskId: 'TASK-CUT-000103',
+        executionOrderNo: 'CPO-20260324-E1',
+        operatorName: 'Factory F004',
+        sourceRecordId: 'inbound-seed-000103',
+      }),
+      zoneCode: 'C',
+      locationLabel: 'C-03-02',
+      note: '异地裁床厂完工后已入仓',
+    },
+  ]
+
+  const handoverWritebacks: PdaCutPieceHandoverWritebackRecord[] = [
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-HANDOVER-SEED-000089',
+        actionType: 'PDA_CUT_PIECE_HANDOVER_CONFIRM',
+        submittedAt: '2026-03-28 18:40:00',
+        taskId: 'TASK-CUT-000089',
+        executionOrderNo: 'CPO-20260319-C',
+        operatorName: 'Dewi Kartika',
+        sourceRecordId: 'handover-seed-000089',
+      }),
+      targetLabel: '车缝前置收料位',
+      note: '合批裁片已交接到车缝前置工位',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-HANDOVER-SEED-000094',
+        actionType: 'PDA_CUT_PIECE_HANDOVER_CONFIRM',
+        submittedAt: '2026-03-28 15:10:00',
+        taskId: 'TASK-CUT-000094',
+        executionOrderNo: 'CPO-20260319-H',
+        operatorName: 'Adi Saputra',
+        sourceRecordId: 'handover-seed-000094',
+      }),
+      targetLabel: '缝制首工序待接驳位',
+      note: '已完成待交接样例',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-HANDOVER-SEED-000103',
+        actionType: 'PDA_CUT_PIECE_HANDOVER_CONFIRM',
+        submittedAt: '2026-03-28 20:32:00',
+        taskId: 'TASK-CUT-000103',
+        executionOrderNo: 'CPO-20260324-E1',
+        operatorName: 'Factory F004',
+        sourceRecordId: 'handover-seed-000103',
+      }),
+      targetLabel: '异地车缝承接位',
+      note: '已完工并已交接',
+    },
+  ]
+
+  const replenishmentFeedbackWritebacks: PdaReplenishmentFeedbackWritebackRecord[] = [
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-REPLENISH-SEED-000092',
+        actionType: 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT',
+        submittedAt: '2026-03-28 14:18:00',
+        taskId: 'TASK-CUT-000092',
+        executionOrderNo: 'CPO-20260319-F',
+        operatorName: 'Putra Aji',
+        sourceRecordId: 'replenishment-seed-000092',
+      }),
+      reasonLabel: '门幅不足需补主布',
+      note: '已反馈补料诉求，待工艺工厂确认。',
+      photoProofCount: 2,
+      lifecycleStatus: 'PENDING',
+      lifecycleStatusLabel: '待处理',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-REPLENISH-SEED-000095',
+        actionType: 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT',
+        submittedAt: '2026-03-28 12:20:00',
+        taskId: 'TASK-CUT-000095',
+        executionOrderNo: 'CPO-20260319-I',
+        operatorName: '现场领料员',
+        sourceRecordId: 'replenishment-seed-000095',
+      }),
+      reasonLabel: '印花主布短缺待补',
+      note: '已提交补料反馈并附差异举证。',
+      photoProofCount: 3,
+      lifecycleStatus: 'SUBMITTED',
+      lifecycleStatusLabel: '已反馈',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-REPLENISH-SEED-000093',
+        actionType: 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT',
+        submittedAt: '2026-03-28 16:00:00',
+        taskId: 'TASK-CUT-000093',
+        executionOrderNo: 'CPO-20260319-G',
+        operatorName: 'Nia Prasetyo',
+        sourceRecordId: 'replenishment-seed-000093',
+      }),
+      reasonLabel: '辅料补齐已关闭',
+      note: '补料闭环完成，仅保留历史记录。',
+      photoProofCount: 1,
+      lifecycleStatus: 'CLOSED',
+      lifecycleStatusLabel: '已关闭',
+    },
+    {
+      ...createSeedBase({
+        writebackId: 'PDA-REPLENISH-SEED-000100',
+        actionType: 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT',
+        submittedAt: '2026-03-28 13:05:00',
+        taskId: 'TASK-CUT-000100',
+        executionOrderNo: 'CPO-20260324-B1',
+        operatorName: 'Rina Putri',
+        sourceRecordId: 'replenishment-seed-000100',
+      }),
+      reasonLabel: '辅布补齐待仓确认',
+      note: '已反馈辅布补料，等待仓库处理。',
+      photoProofCount: 1,
+      lifecycleStatus: 'PENDING',
+      lifecycleStatusLabel: '待处理',
+    },
+  ]
+
+  return {
+    pickupWritebacks: sortBySubmittedAtDesc(uniqueById(pickupWritebacks)),
+    inboundWritebacks: sortBySubmittedAtDesc(uniqueById(inboundWritebacks)),
+    handoverWritebacks: sortBySubmittedAtDesc(uniqueById(handoverWritebacks)),
+    replenishmentFeedbackWritebacks: sortBySubmittedAtDesc(uniqueById(replenishmentFeedbackWritebacks)),
+  }
+}
+
+function mergeStores(primary: PdaExecutionWritebackStore, secondary: PdaExecutionWritebackStore): PdaExecutionWritebackStore {
+  return {
+    pickupWritebacks: sortBySubmittedAtDesc(uniqueById([...primary.pickupWritebacks, ...secondary.pickupWritebacks])),
+    inboundWritebacks: sortBySubmittedAtDesc(uniqueById([...primary.inboundWritebacks, ...secondary.inboundWritebacks])),
+    handoverWritebacks: sortBySubmittedAtDesc(uniqueById([...primary.handoverWritebacks, ...secondary.handoverWritebacks])),
+    replenishmentFeedbackWritebacks: sortBySubmittedAtDesc(
+      uniqueById([...primary.replenishmentFeedbackWritebacks, ...secondary.replenishmentFeedbackWritebacks]),
+    ),
   }
 }
 
@@ -193,10 +493,12 @@ export function serializePdaExecutionWritebackStorage(store: PdaExecutionWriteba
 }
 
 export function deserializePdaExecutionWritebackStorage(raw: string | null): PdaExecutionWritebackStore {
-  if (!raw) return createEmptyPdaExecutionWritebackStore()
+  const seeded = createSeededPdaExecutionWritebackStore()
+  if (!raw) return seeded
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>
-    return {
+    return mergeStores(
+      {
       pickupWritebacks: sortBySubmittedAtDesc(
         uniqueById(toArray(parsed.pickupWritebacks).map((item) => normalizePickupRecord(item)).filter((item): item is PdaPickupWritebackRecord => Boolean(item))),
       ),
@@ -213,14 +515,16 @@ export function deserializePdaExecutionWritebackStorage(raw: string | null): Pda
             .filter((item): item is PdaReplenishmentFeedbackWritebackRecord => Boolean(item)),
         ),
       ),
-    }
+      },
+      seeded,
+    )
   } catch {
-    return createEmptyPdaExecutionWritebackStore()
+    return seeded
   }
 }
 
 export function hydratePdaExecutionWritebackStore(storage?: Pick<Storage, 'getItem'>): PdaExecutionWritebackStore {
-  if (!storage) return createEmptyPdaExecutionWritebackStore()
+  if (!storage) return createSeededPdaExecutionWritebackStore()
   return deserializePdaExecutionWritebackStorage(storage.getItem(CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY))
 }
 

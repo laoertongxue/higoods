@@ -28,7 +28,12 @@ test('唛架铺布页正常打开，详情与编辑入口仍可用', async ({ pa
   const editButton = page.locator('[data-cutting-marker-action="open-spreading-edit"]').first()
   await expect(editButton).toBeVisible()
   await editButton.click()
-  await expect(page.locator('body')).toContainText('铺布编辑')
+  await expect(page.getByRole('heading', { name: '铺布编辑', exact: true })).toBeVisible()
+  await expect(page.locator('[data-cutting-marker-action="save-spreading"]')).toBeVisible()
+  await expect(page.locator('[data-cutting-marker-action="save-spreading-and-view"]')).toBeVisible()
+  await expect(page.locator('[data-cutting-marker-action="cancel-spreading-edit"]')).toBeVisible()
+  await expect(page.locator('[data-cutting-marker-action="guide-marker-import"]')).toHaveCount(0)
+  await expect(page.locator('[data-cutting-marker-action="show-marker-import-status"]')).toHaveCount(0)
 })
 
 test('三类仓页正常打开且不依赖旧仓库总页', async ({ page }) => {

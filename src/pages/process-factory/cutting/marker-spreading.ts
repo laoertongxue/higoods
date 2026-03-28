@@ -81,6 +81,26 @@ import {
   type MarkerExplosionSkuSummaryRow,
 } from './marker-piece-explosion'
 import {
+  addHighLowCuttingRow,
+  addHighLowPatternKey,
+  addHighLowPatternRow,
+  addMarkerAllocationLine,
+  addMarkerLineItem,
+  addMarkerSizeRow,
+  addSpreadingOperator,
+  addSpreadingOperatorForRoll,
+  addSpreadingRoll,
+  removeHighLowCuttingRow,
+  removeHighLowPatternKey,
+  removeHighLowPatternRow,
+  removeMarkerAllocationLine,
+  removeMarkerLineItem,
+  removeMarkerSizeRow,
+  removeSpreadingOperator,
+  removeSpreadingRoll,
+} from './marker-spreading-draft-actions'
+import { handleMarkerSpreadingSubmitAction } from './marker-spreading-submit-actions'
+import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
@@ -132,7 +152,6 @@ type MarkerDraftField =
   | 'note'
   | 'adjustmentRequired'
   | 'adjustmentNote'
-  | 'replacementDraftFlag'
 type MarkerSizeField = 'sizeLabel' | 'quantity'
 type MarkerAllocationField = 'sourceCutOrderId' | 'sizeLabel' | 'plannedGarmentQty' | 'note'
 type MarkerLineField =
@@ -2519,16 +2538,15 @@ function renderMarkerDetailPage(): string {
             <article class="rounded-lg border bg-muted/10 px-3 py-3">
               <p class="text-xs text-muted-foreground">唛架图</p>
               <p class="mt-1 text-sm font-medium">${escapeHtml(row.record.markerImageName || '当前未上传唛架图')}</p>
-              <p class="mt-2 text-xs text-muted-foreground">原型阶段先保留文件名与预览占位，后续再接更完整的图片管理。</p>
+              <p class="mt-2 text-xs text-muted-foreground">当前页只展示图片信息；如需更新，请在编辑弹层里直接修改文件名或预览地址。</p>
             </article>
             <article class="rounded-lg border bg-muted/10 px-3 py-3">
-              <p class="text-xs text-muted-foreground">备注</p>
+              <p class="text-xs text-muted-foreground">备注与调整</p>
               <p class="mt-1 text-sm">${escapeHtml(row.record.note || '暂无备注')}</p>
               <div class="mt-3 rounded-md border border-dashed bg-background px-3 py-2 text-sm text-muted-foreground">
-                <p>调整 / 换一入口占位</p>
+                <p>调整信息</p>
                 <p class="mt-1">是否有调整：${escapeHtml(row.record.adjustmentRequired ? '是' : '否')}</p>
                 <p class="mt-1">调整说明：${escapeHtml(row.record.adjustmentNote || '暂无')}</p>
-                <p class="mt-1">换一功能占位：${escapeHtml(row.record.replacementDraftFlag ? '已预留换一草稿' : '仅保留入口占位')}</p>
               </div>
             </article>
           </div>
@@ -2848,11 +2866,11 @@ function renderMarkerEditPage(): string {
       ${renderMarkerPlanMetricsSection(draft, usageSummary)}
       ${renderMarkerWarningSection(allocationWarningMessages)}
       ${renderSection(
-        '图片上传区',
+        '图片信息区',
         `
           <div class="grid gap-3 md:grid-cols-2">
-            ${renderTextInput('唛架图文件名', draft.markerImageName || '', 'data-cutting-marker-draft-field="markerImageName"', '原型阶段可直接填写文件名')}
-            ${renderTextInput('图片预览地址（可选）', draft.markerImageUrl || '', 'data-cutting-marker-draft-field="markerImageUrl"', '原型阶段可直接填写本地预览地址')}
+            ${renderTextInput('唛架图文件名', draft.markerImageName || '', 'data-cutting-marker-draft-field="markerImageName"', '当前页维护图片文件名')}
+            ${renderTextInput('图片预览地址（可选）', draft.markerImageUrl || '', 'data-cutting-marker-draft-field="markerImageUrl"', '当前页维护预览地址，不提供独立图片管理动作')}
             ${renderTextarea('备注', draft.note || '', 'data-cutting-marker-draft-field="note"')}
           </div>
         `,
@@ -2865,13 +2883,9 @@ function renderMarkerEditPage(): string {
               { value: 'false', label: '否' },
               { value: 'true', label: '是' },
             ])}
-            ${renderSelect('换一功能占位', draft.replacementDraftFlag ? 'true' : 'false', 'data-cutting-marker-draft-field="replacementDraftFlag"', [
-              { value: 'false', label: '未启用' },
-              { value: 'true', label: '预留换一草稿' },
-            ])}
             <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
               <p>当前不做复杂审批和版本系统。</p>
-              <p class="mt-1">本次仅冻结“调整记录 / 换一”入口和字段。</p>
+              <p class="mt-1">本次只维护调整标记与调整说明，不额外挂占位动作。</p>
             </div>
           </div>
           <div class="mt-3">
@@ -3278,11 +3292,12 @@ function renderSpreadingEditPage(): string {
   const handoverListSummary = buildSpreadingHandoverListSummary(draft.rolls, draft.operators, derived.markerTotalPieces)
   const operatorAmountSummary = summarizeSpreadingOperatorAmounts(draft.operators, derived.markerTotalPieces, draft.unitPrice)
   const operatorAmountWarnings = buildOperatorAmountWarnings(draft.operators, derived.markerTotalPieces, draft.unitPrice)
+  const importMarkerAction = linkedMarker
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="create-spreading-from-marker" data-marker-id="${escapeHtml(linkedMarker.markerId)}">从唛架导入铺布</button>`
+    : ''
   const headerActions = renderHeaderActions(([
     '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="cancel-spreading-edit">取消</button>',
-    draft.importedFromMarker
-      ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="show-marker-import-status">查看导入来源</button>'
-      : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="guide-marker-import">从唛架导入</button>',
+    importMarkerAction,
     getSearchParams().get('sessionId')
       ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(draft.spreadingSessionId)}">去补料管理</button>`
       : '',
@@ -3726,6 +3741,7 @@ function renderSpreadingEditPage(): string {
 }
 
 function renderPage(): string {
+  syncStateFromPath()
   const pathname = getCurrentPathname()
 
   if (pathname === getCanonicalCuttingPath('marker-detail')) return renderMarkerDetailPage()
@@ -3848,7 +3864,7 @@ function navigateFromSpreadingSession(sessionId: string | undefined, target: 'or
   return true
 }
 
-function saveCurrentMarker(goDetail: boolean): boolean {
+function saveCurrentMarker(goDetail: boolean, successMessage?: string): boolean {
   const draft = state.markerDraft
   if (!draft) return false
   const templateType = deriveMarkerTemplateByMode(draft.markerMode)
@@ -3987,10 +4003,11 @@ function saveCurrentMarker(goDetail: boolean): boolean {
     data.store,
   )
   persistMarkerSpreadingStore(nextStore)
-  state.feedback = { tone: 'success', message: `${draft.markerNo || '唛架记录'} 已保存。` }
+  const saved = nextStore.markers.find((item) => item.markerId === draft.markerId) || draft
+  state.markerDraft = ensureMarkerDraftShape(cloneMarkerRecord(saved))
+  state.feedback = { tone: 'success', message: successMessage || `${saved.markerNo || '唛架记录'} 已保存。` }
 
   if (goDetail) {
-    const saved = nextStore.markers.find((item) => item.markerId === draft.markerId) || draft
     appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-detail'), buildContextPayloadFromMarker(saved)))
   }
   return true
@@ -4194,17 +4211,22 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
   }
 }
 
-function saveCurrentSpreading(goDetail: boolean): boolean {
+function saveCurrentSpreading(goDetail: boolean, successMessage?: string): boolean {
   const draft = state.spreadingDraft
   if (!draft) return false
   const { normalizedDraft } = buildPersistableSpreadingDraft(draft)
   const data = readMarkerSpreadingPrototypeData()
   const nextStore = upsertSpreadingSession(normalizedDraft, data.store)
   persistMarkerSpreadingStore(nextStore)
-  state.feedback = { tone: 'success', message: `${draft.sessionNo || '铺布 session'} 已保存。` }
+  const saved = nextStore.sessions.find((item) => item.spreadingSessionId === draft.spreadingSessionId) || normalizedDraft
+  state.spreadingDraft = cloneSpreadingSession(saved)
+  state.spreadingCompletionSelection =
+    saved.contextType === 'merge-batch'
+      ? [...(saved.completionLinkage?.linkedOriginalCutOrderIds || [])]
+      : [...saved.originalCutOrderIds]
+  state.feedback = { tone: 'success', message: successMessage || `${saved.sessionNo || '铺布 session'} 已保存。` }
 
   if (goDetail) {
-    const saved = nextStore.sessions.find((item) => item.spreadingSessionId === draft.spreadingSessionId) || normalizedDraft
     appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-detail'), buildContextPayloadFromSession(saved)))
   }
   return true
@@ -4250,6 +4272,40 @@ function completeCurrentSpreading(): boolean {
         : `已完成铺布、联动更新 ${linkedOriginalCutOrderNos.length} 个原始裁片单，并生成补料预警。`,
   }
   appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-detail'), buildContextPayloadFromSession(completedDraft)))
+  return true
+}
+
+function persistCurrentSpreadingStatus(nextStatus: SpreadingStatusKey): boolean {
+  const draft = state.spreadingDraft
+  if (!draft) return false
+  if (nextStatus === 'DONE') return completeCurrentSpreading()
+  state.spreadingDraft = updateSessionStatus(draft, nextStatus)
+  return saveCurrentSpreading(false, `当前铺布 session 已标记为“${deriveSpreadingStatus(nextStatus).label}”。`)
+}
+
+function closeMarkerEditOverlay(): boolean {
+  const markerId = getSearchParams().get('markerId')
+  if (markerId) {
+    const row = getMarkerRow(markerId)
+    if (row) {
+      appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-detail'), buildContextPayloadFromMarker(row.record)))
+      return true
+    }
+  }
+  appStore.navigate(buildListRoute('MARKERS'))
+  return true
+}
+
+function closeSpreadingEditOverlay(): boolean {
+  const sessionId = getSearchParams().get('sessionId')
+  if (sessionId) {
+    const row = getSpreadingRow(sessionId)
+    if (row) {
+      appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-detail'), buildContextPayloadFromSession(row.session)))
+      return true
+    }
+  }
+  appStore.navigate(buildListRoute('SPREADINGS'))
   return true
 }
 
@@ -4330,7 +4386,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       ensureMarkerDraftShape(state.markerDraft)
       return true
     }
-    if (field === 'adjustmentRequired' || field === 'replacementDraftFlag') {
+    if (field === 'adjustmentRequired') {
       ;(state.markerDraft as Record<string, boolean>)[field] = value === 'true'
       return true
     }
@@ -4571,6 +4627,13 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   const action = actionNode?.dataset.cuttingMarkerAction
   if (!action) return false
 
+  if (action === 'close-overlay') {
+    const currentPath = getCurrentPathname()
+    if (currentPath === getCanonicalCuttingPath('marker-edit')) return closeMarkerEditOverlay()
+    if (currentPath === getCanonicalCuttingPath('spreading-edit')) return closeSpreadingEditOverlay()
+    return false
+  }
+
   if (action === 'clear-prefilter') {
     state.prefilter = null
     state.drillContext = null
@@ -4723,47 +4786,11 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'cancel-marker-edit') {
-    const markerId = getSearchParams().get('markerId')
-    if (markerId) {
-      const row = getMarkerRow(markerId)
-      if (row) {
-        appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-detail'), buildContextPayloadFromMarker(row.record)))
-        return true
-      }
-    }
-    appStore.navigate(buildListRoute('MARKERS'))
-    return true
+    return closeMarkerEditOverlay()
   }
 
   if (action === 'cancel-spreading-edit') {
-    const sessionId = getSearchParams().get('sessionId')
-    if (sessionId) {
-      const row = getSpreadingRow(sessionId)
-      if (row) {
-        appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-detail'), buildContextPayloadFromSession(row.session)))
-        return true
-      }
-    }
-    appStore.navigate(buildListRoute('SPREADINGS'))
-    return true
-  }
-
-  if (action === 'show-marker-import-status') {
-    state.feedback = {
-      tone: 'success',
-      message: state.spreadingDraft?.linkedMarkerNo
-        ? `当前铺布草稿已承接唛架 ${state.spreadingDraft.linkedMarkerNo} 的导入内容。`
-        : '当前铺布草稿已承接唛架导入内容。',
-    }
-    return true
-  }
-
-  if (action === 'guide-marker-import') {
-    state.feedback = {
-      tone: 'warning',
-      message: '当前页面不能直接发起导入，请先在唛架列表或唛架详情中点击“从唛架导入铺布”。',
-    }
-    return true
+    return closeSpreadingEditOverlay()
   }
 
   if (action === 'return-summary') {
@@ -4774,177 +4801,118 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'add-size-row' && state.markerDraft) {
-    state.markerDraft.sizeDistribution = [...state.markerDraft.sizeDistribution, { sizeLabel: '', quantity: 0 }]
+    addMarkerSizeRow(state.markerDraft)
     return true
   }
 
   if (action === 'remove-size-row' && state.markerDraft) {
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
-    state.markerDraft.sizeDistribution = state.markerDraft.sizeDistribution.filter((_, itemIndex) => itemIndex !== index)
+    removeMarkerSizeRow(state.markerDraft, index)
     return true
   }
 
   if (action === 'add-allocation-line' && state.markerDraft) {
-    const sourceRows = getMarkerDraftSourceRows(state.markerDraft)
-    state.markerDraft.allocationLines = [
-      ...(state.markerDraft.allocationLines || []),
-      createMarkerAllocationLineFromSource(
-        state.markerDraft,
-        sourceRows.length === 1 ? sourceRows[0] : null,
-        state.markerDraft.allocationLines?.length || 0,
-      ),
-    ]
+    addMarkerAllocationLine(state.markerDraft, getMarkerDraftSourceRows(state.markerDraft), createMarkerAllocationLineFromSource)
     return true
   }
 
   if (action === 'remove-allocation-line' && state.markerDraft) {
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
-    state.markerDraft.allocationLines = (state.markerDraft.allocationLines || []).filter((_, itemIndex) => itemIndex !== index)
+    removeMarkerAllocationLine(state.markerDraft, index)
     return true
   }
 
   if (action === 'add-line-item' && state.markerDraft) {
-    state.markerDraft.lineItems = [
-      ...(state.markerDraft.lineItems || []),
-      createEmptyMarkerLineItem(state.markerDraft.lineItems?.length || 0),
-    ]
+    addMarkerLineItem(state.markerDraft, createEmptyMarkerLineItem)
     return true
   }
 
   if (action === 'remove-line-item' && state.markerDraft) {
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
-    state.markerDraft.lineItems = (state.markerDraft.lineItems || []).filter((_, itemIndex) => itemIndex !== index)
+    removeMarkerLineItem(state.markerDraft, index)
     return true
   }
 
   if (action === 'add-highlow-cutting-row' && state.markerDraft) {
-    const nextIndex = state.markerDraft.highLowCuttingRows?.length || 0
-    state.markerDraft.highLowCuttingRows = [...(state.markerDraft.highLowCuttingRows || []), createEmptyHighLowCuttingRow(state.markerDraft.markerId, nextIndex)]
+    addHighLowCuttingRow(state.markerDraft, createEmptyHighLowCuttingRow)
     return true
   }
 
   if (action === 'remove-highlow-cutting-row' && state.markerDraft) {
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
-    state.markerDraft.highLowCuttingRows = (state.markerDraft.highLowCuttingRows || []).filter((_, itemIndex) => itemIndex !== index)
+    removeHighLowCuttingRow(state.markerDraft, index)
     return true
   }
 
   if (action === 'add-highlow-pattern-key' && state.markerDraft) {
-    const nextKey = `自定义列${(state.markerDraft.highLowPatternKeys?.length || DEFAULT_HIGH_LOW_PATTERN_KEYS.length) + 1}`
-    state.markerDraft.highLowPatternKeys = [...(state.markerDraft.highLowPatternKeys || [...DEFAULT_HIGH_LOW_PATTERN_KEYS]), nextKey]
-    state.markerDraft.highLowPatternRows = (state.markerDraft.highLowPatternRows || []).map((row) => ({
-      ...row,
-      patternValues: {
-        ...row.patternValues,
-        [nextKey]: 0,
-      },
-    }))
+    addHighLowPatternKey(state.markerDraft)
     return true
   }
 
   if (action === 'remove-highlow-pattern-key' && state.markerDraft) {
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
-    const patternKeys = state.markerDraft.highLowPatternKeys || []
-    const removedKey = patternKeys[index]
-    state.markerDraft.highLowPatternKeys = patternKeys.filter((_, itemIndex) => itemIndex !== index)
-    state.markerDraft.highLowPatternRows = (state.markerDraft.highLowPatternRows || []).map((row) => {
-      const nextValues = { ...row.patternValues }
-      delete nextValues[removedKey]
-      return { ...row, patternValues: nextValues }
-    })
+    removeHighLowPatternKey(state.markerDraft, index)
     return true
   }
 
   if (action === 'add-highlow-pattern-row' && state.markerDraft) {
-    const nextIndex = state.markerDraft.highLowPatternRows?.length || 0
-    const patternKeys = state.markerDraft.highLowPatternKeys?.length ? state.markerDraft.highLowPatternKeys : [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
-    state.markerDraft.highLowPatternRows = [
-      ...(state.markerDraft.highLowPatternRows || []),
-      createEmptyHighLowPatternRow(state.markerDraft.markerId, nextIndex, patternKeys),
-    ]
+    addHighLowPatternRow(state.markerDraft, createEmptyHighLowPatternRow)
     return true
   }
 
   if (action === 'remove-highlow-pattern-row' && state.markerDraft) {
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
-    state.markerDraft.highLowPatternRows = (state.markerDraft.highLowPatternRows || []).filter((_, itemIndex) => itemIndex !== index)
+    removeHighLowPatternRow(state.markerDraft, index)
     return true
   }
 
-  if (action === 'save-marker') return saveCurrentMarker(false)
-  if (action === 'save-marker-and-view') return saveCurrentMarker(true)
-
   if (action === 'add-roll' && state.spreadingDraft) {
-    state.spreadingDraft.rolls = [
-      ...state.spreadingDraft.rolls,
-      {
-        ...createRollRecordDraft(
-          state.spreadingDraft.spreadingSessionId,
-          state.spreadingDraft.materialSkuSummary?.split(' / ')[0] || '',
-        ),
-        sortOrder: state.spreadingDraft.rolls.length + 1,
-      },
-    ]
+    addSpreadingRoll(state.spreadingDraft, (draft) => ({
+      ...createRollRecordDraft(draft.spreadingSessionId, draft.materialSkuSummary?.split(' / ')[0] || ''),
+      sortOrder: draft.rolls.length + 1,
+    }))
     return true
   }
 
   if (action === 'remove-roll' && state.spreadingDraft) {
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
-    const targetRoll = state.spreadingDraft.rolls[index]
-    state.spreadingDraft.rolls = state.spreadingDraft.rolls
-      .filter((_, itemIndex) => itemIndex !== index)
-      .map((roll, itemIndex) => ({ ...roll, sortOrder: itemIndex + 1 }))
-    if (targetRoll) {
-      state.spreadingDraft.operators = state.spreadingDraft.operators
-        .filter((operator) => operator.rollRecordId !== targetRoll.rollRecordId)
-        .map((operator, itemIndex) => ({ ...operator, sortOrder: itemIndex + 1 }))
-      state.feedback = { tone: 'success', message: `已删除卷 ${targetRoll.rollNo || index + 1}，并同步移除其下人员记录。` }
+    const feedbackMessage = removeSpreadingRoll(state.spreadingDraft, index)
+    if (feedbackMessage) {
+      state.feedback = { tone: 'success', message: feedbackMessage }
     }
     return true
   }
 
   if (action === 'add-operator' && state.spreadingDraft) {
-    state.spreadingDraft.operators = [
-      ...state.spreadingDraft.operators,
-      {
-        ...createOperatorRecordDraft(state.spreadingDraft.spreadingSessionId),
-        sortOrder: state.spreadingDraft.operators.length + 1,
-        unitPrice: state.spreadingDraft.unitPrice,
-        pricingMode: '按件计价',
-      },
-    ]
+    addSpreadingOperator(state.spreadingDraft, (draft) => ({
+      ...createOperatorRecordDraft(draft.spreadingSessionId),
+      sortOrder: draft.operators.length + 1,
+      unitPrice: draft.unitPrice,
+      pricingMode: '按件计价',
+    }))
     return true
   }
 
   if (action === 'add-operator-for-roll' && state.spreadingDraft) {
     const rollRecordId = actionNode.dataset.rollRecordId
     if (!rollRecordId) return false
-    state.spreadingDraft.operators = [
-      ...state.spreadingDraft.operators,
-      createOperatorDraftForRoll(state.spreadingDraft, rollRecordId),
-    ]
+    addSpreadingOperatorForRoll(state.spreadingDraft, rollRecordId, createOperatorDraftForRoll)
     return true
   }
 
   if (action === 'remove-operator' && state.spreadingDraft) {
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
-    state.spreadingDraft.operators = state.spreadingDraft.operators
-      .filter((_, itemIndex) => itemIndex !== index)
-      .map((operator, itemIndex) => ({ ...operator, sortOrder: itemIndex + 1 }))
+    removeSpreadingOperator(state.spreadingDraft, index)
     return true
   }
-
-  if (action === 'save-spreading') return saveCurrentSpreading(false)
-  if (action === 'save-spreading-and-view') return saveCurrentSpreading(true)
-  if (action === 'complete-spreading') return completeCurrentSpreading()
 
   if (action === 'toggle-spreading-completion-order' && state.spreadingDraft) {
     const originalCutOrderId = actionNode.dataset.originalCutOrderId
@@ -4956,14 +4924,16 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     return true
   }
 
-  if (action === 'set-spreading-status' && state.spreadingDraft) {
-    const nextStatus = actionNode.dataset.status as SpreadingStatusKey | undefined
-    if (!nextStatus) return false
-    if (nextStatus === 'DONE') {
-      return completeCurrentSpreading()
-    }
-    state.spreadingDraft = updateSessionStatus(state.spreadingDraft, nextStatus)
-    state.feedback = { tone: 'success', message: `当前铺布 session 已标记为“${deriveSpreadingStatus(nextStatus).label}”。` }
+  if (
+    handleMarkerSpreadingSubmitAction({
+      action,
+      actionNode,
+      saveMarker: (goDetail) => saveCurrentMarker(goDetail),
+      saveSpreading: (goDetail, successMessage) => saveCurrentSpreading(goDetail, successMessage),
+      completeSpreading: completeCurrentSpreading,
+      persistSpreadingStatus: persistCurrentSpreadingStatus,
+    })
+  ) {
     return true
   }
 
@@ -4971,5 +4941,6 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 }
 
 export function isCraftCuttingMarkerSpreadingDialogOpen(): boolean {
-  return false
+  const pathname = getCurrentPathname()
+  return pathname === getCanonicalCuttingPath('marker-edit') || pathname === getCanonicalCuttingPath('spreading-edit')
 }
