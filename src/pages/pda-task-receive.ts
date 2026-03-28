@@ -9,9 +9,10 @@ import {
   resolveTaskChainTenderId,
 } from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import {
-  PDA_MOCK_QUOTED_TENDERS,
+  listPdaAwardedTenderNoticesByFactoryId,
   listPdaBiddingTendersByFactoryId,
   listPdaQuotedTendersByFactoryId,
+  PDA_MOCK_QUOTED_TENDERS,
 } from '../data/fcs/pda-mobile-mock'
 import {
   getPdaTaskFlowTaskById,
@@ -33,6 +34,13 @@ import {
   buildPdaCuttingTaskEntryAction,
   getPdaCuttingTaskStateBadgeClass,
 } from './pda-cutting-task-rollup'
+import {
+  createInitialPdaReceiveSubmittedTenderIds,
+  filterReceiveActiveBiddingTenders,
+  filterReceiveAwardedTaskFacts,
+  filterReceivePendingAcceptTasks,
+  filterReceiveQuotedTenders,
+} from '../data/fcs/pda-receive-scope.ts'
 
 type TabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
 
@@ -130,7 +138,7 @@ const state: TaskReceiveState = {
   deliveryDays: '',
   quoteRemark: '',
   submittingQuote: false,
-  submittedTenderIds: new Set<string>(PDA_MOCK_QUOTED_TENDERS.map((item) => item.tenderId)),
+  submittedTenderIds: createInitialPdaReceiveSubmittedTenderIds(),
   rejectDialogOpen: false,
   rejectingTaskId: '',
   rejectReason: '',
@@ -149,10 +157,6 @@ const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
 )
 
 let lastFocusedTaskToken = ''
-
-function listTaskFacts(): ProcessTask[] {
-  return listPdaTaskFlowTasks()
-}
 
 function getTaskFactById(taskId: string): ProcessTask | null {
   return getPdaTaskFlowTaskById(taskId) ?? null
@@ -262,14 +266,10 @@ function getDeadlineBadgeClass(variant: DeadlineBadgeVariant): string {
 }
 
 function getTaskPricing(task: ProcessTask): {
-  standardPrice?: number
   directPrice?: number
   currency: string
   unit: string
-  priceStatus: string | null
-  priceStatusColor: string
 } {
-  const standardPrice = task.standardPrice
   const directPrice = (task as ProcessTask & { directPrice?: number }).directPrice ?? task.dispatchPrice
   const currency =
     (task as ProcessTask & { currency?: string }).currency ||
@@ -278,25 +278,7 @@ function getTaskPricing(task: ProcessTask): {
     'IDR'
   const unit = task.dispatchPriceUnit || task.standardPriceUnit || task.qtyUnit || '件'
 
-  let priceStatus: string | null = null
-  if (standardPrice != null && directPrice != null) {
-    if (directPrice === standardPrice) {
-      priceStatus = '按标准价派单'
-    } else if (directPrice > standardPrice) {
-      priceStatus = '高于标准价'
-    } else {
-      priceStatus = '低于标准价'
-    }
-  }
-
-  const priceStatusColor =
-    priceStatus === '按标准价派单'
-      ? 'text-muted-foreground'
-      : priceStatus === '高于标准价'
-        ? 'text-amber-600'
-        : 'text-blue-600'
-
-  return { standardPrice, directPrice, currency, unit, priceStatus, priceStatusColor }
+  return { directPrice, currency, unit }
 }
 
 function mutateAcceptTask(taskId: string, by: string): void {
@@ -397,8 +379,9 @@ function getTabCounts(
 }
 
 function getQuotedTenders(selectedFactoryId: string): QuotedTender[] {
-  return listPdaQuotedTendersByFactoryId(selectedFactoryId)
-    .filter((tender) => state.submittedTenderIds.has(tender.tenderId))
+  const rawTenders = listPdaQuotedTendersByFactoryId(selectedFactoryId)
+
+  return filterReceiveQuotedTenders(rawTenders, state.submittedTenderIds, getTaskFactById)
     .map((tender) => {
       const task = tender.taskId ? getTaskFactById(tender.taskId) : null
       const snapshot = submittedQuotes.get(tender.tenderId)
@@ -428,8 +411,9 @@ function getQuotedTenders(selectedFactoryId: string): QuotedTender[] {
 
 function getActiveBiddingTenders(): BiddingTender[] {
   const selectedFactoryId = getCurrentFactoryId()
-  return listPdaBiddingTendersByFactoryId(selectedFactoryId)
-    .filter((tender) => !state.submittedTenderIds.has(tender.tenderId))
+  const rawTenders = listPdaBiddingTendersByFactoryId(selectedFactoryId)
+
+  return filterReceiveActiveBiddingTenders(rawTenders, state.submittedTenderIds, getTaskFactById)
     .map((tender) => {
       const task = tender.taskId ? getTaskFactById(tender.taskId) : null
       const qtyUnit = task?.qtyUnit || tender.qtyUnit
@@ -453,13 +437,13 @@ function getActiveBiddingTenders(): BiddingTender[] {
 }
 
 function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
-  return listTaskFacts()
-    .filter(
-      (task) =>
-        task.assignmentMode === 'BIDDING'
-        && task.assignmentStatus === 'AWARDED'
-        && task.assignedFactoryId === selectedFactoryId,
-    )
+  const taskFacts = listPdaTaskFlowTasks()
+  const awardedTaskIds = new Set(
+    listPdaAwardedTenderNoticesByFactoryId(selectedFactoryId).map((item) => item.taskId),
+  )
+
+  return filterReceiveAwardedTaskFacts(taskFacts, selectedFactoryId)
+    .filter((task) => awardedTaskIds.has(task.taskId))
     .map((task) => ({
       tenderId: resolveTaskChainTenderId(task) || `TENDER-${task.taskId}`,
       taskId: task.taskId,
@@ -492,12 +476,7 @@ function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
 }
 
 function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
-  return listTaskFacts().filter(
-    (task) =>
-      task.assignedFactoryId === selectedFactoryId &&
-      task.assignmentMode === 'DIRECT' &&
-      (!task.acceptanceStatus || task.acceptanceStatus === 'PENDING'),
-  )
+  return filterReceivePendingAcceptTasks(listPdaTaskFlowTasks(), selectedFactoryId)
 }
 
 function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask[] {
@@ -537,6 +516,30 @@ function renderEmptyState(label: string): string {
     <div class="flex flex-col items-center justify-center py-12 text-muted-foreground">
       <i data-lucide="clipboard-list" class="mb-3 h-12 w-12 opacity-30"></i>
       <p class="text-sm">${escapeHtml(label)}</p>
+    </div>
+  `
+}
+
+function formatPendingAcceptTaskQty(task: ProcessTask): string {
+  return `${task.qty} 件`
+}
+
+function formatPendingAcceptDispatchPrice(task: ProcessTask): string {
+  const pricing = getTaskPricing(task)
+  if (pricing.directPrice == null) return '-'
+  const unit = task.dispatchPriceUnit || pricing.unit || '件'
+  return `${pricing.directPrice.toLocaleString()} ${pricing.currency}/${unit}`
+}
+
+function renderPendingAcceptFieldGrid(task: ProcessTask): string {
+  return `
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+      ${renderFieldRow('生产单号', getTaskProductionOrderNo(task))}
+      ${renderFieldRow('工序', getTaskProcessDisplayName(task))}
+      ${renderFieldRow('任务件数', formatPendingAcceptTaskQty(task))}
+      ${renderFieldRow('接单截止', task.acceptDeadline || '-')}
+      ${renderFieldRow('任务截止', task.taskDeadline || '-')}
+      ${renderFieldRow('派单价', formatPendingAcceptDispatchPrice(task), true)}
     </div>
   `
 }
@@ -635,27 +638,22 @@ function renderCuttingTaskOrderSummary(task: PdaTaskFlowMock): string {
 
 function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: string): string {
   const deadlineStatus = getDeadlineStatus(task.acceptDeadline || '')
-  const entryAction = buildPdaCuttingTaskEntryAction(task, appStore.getState().pathname)
   const focused = shouldHighlightTask(task.taskId)
   const detailHref = buildCuttingTaskReceiveDetailHref(task)
 
   return `
     <article class="overflow-hidden rounded-lg border bg-card ${focused ? 'border-blue-300 ring-2 ring-blue-100' : ''}" data-pda-cutting-task-card-id="${escapeHtml(task.taskId)}">
-      <div class="space-y-3 p-3">
+      <div class="space-y-2 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
-          <div class="flex items-center gap-1.5">
-            ${focused ? '<span class="inline-flex shrink-0 items-center rounded border border-blue-200 bg-blue-50 px-1.5 text-[10px] text-blue-700">当前任务</span>' : ''}
-            <span class="inline-flex shrink-0 items-center rounded border px-1.5 text-[10px] ${toClassName(getDeadlineBadgeClass(deadlineStatus.variant))}">${escapeHtml(deadlineStatus.label)}</span>
-            <span class="inline-flex shrink-0 items-center rounded border px-1.5 text-[10px] ${escapeHtml(getPdaCuttingTaskStateBadgeClass(task.taskStateLabel))}">${escapeHtml(task.taskStateLabel || '待开始')}</span>
-          </div>
+          <span class="inline-flex shrink-0 items-center rounded border px-1.5 text-[10px] ${toClassName(getDeadlineBadgeClass(deadlineStatus.variant))}">${escapeHtml(deadlineStatus.label)}</span>
         </div>
 
-        ${renderCuttingTaskOrderSummary(task)}
+        ${renderPendingAcceptFieldGrid(task)}
 
         ${
-          entryAction.helperText
-            ? `<p class="rounded bg-muted/50 px-2 py-1 text-xs text-muted-foreground">${escapeHtml(entryAction.helperText)}</p>`
+          task.dispatchRemark
+            ? `<p class="rounded bg-muted/50 px-2 py-1 text-xs text-muted-foreground">派单备注：${escapeHtml(task.dispatchRemark)}</p>`
             : ''
         }
       </div>
@@ -690,10 +688,7 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
     return renderPendingAcceptCuttingTask(task as PdaTaskFlowMock, factoryName)
   }
 
-  const displayProcessName = getTaskProcessDisplayName(task)
   const deadlineStatus = getDeadlineStatus(task.acceptDeadline || '')
-  const pricing = getTaskPricing(task)
-  const dispatchedAt = (task as ProcessTask & { dispatchedAt?: string }).dispatchedAt
 
   return `
     <article class="overflow-hidden rounded-lg border bg-card">
@@ -706,25 +701,7 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
           )}">${escapeHtml(deadlineStatus.label)}</span>
         </div>
 
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          ${renderFieldRow('原始任务', getTaskRootNo(task))}
-          ${renderFieldRow('生产单号', getTaskProductionOrderNo(task))}
-          ${renderFieldRow('工序', displayProcessName)}
-          ${renderFieldRow('数量', `${task.qty} ${pricing.unit}`)}
-          ${renderFieldRow('拆分组', task.splitGroupId || '未拆分')}
-          ${dispatchedAt ? renderFieldRow('直接派单时间', dispatchedAt) : ''}
-          ${task.acceptDeadline ? renderFieldRow('接单截止', task.acceptDeadline) : ''}
-          ${(task as ProcessTask & { taskDeadline?: string }).taskDeadline ? renderFieldRow('任务截止', (task as ProcessTask & { taskDeadline?: string }).taskDeadline || '') : ''}
-          ${pricing.standardPrice != null ? renderFieldRow('工序标准价', `${pricing.standardPrice.toLocaleString()} ${pricing.currency}/${pricing.unit}`) : ''}
-          ${pricing.directPrice != null ? renderFieldRow('直接派单价', `${pricing.directPrice.toLocaleString()} ${pricing.currency}/${pricing.unit}`, true) : ''}
-          ${
-            pricing.priceStatus
-              ? `<div class="col-span-2"><span class="text-xs font-medium ${pricing.priceStatusColor}">${escapeHtml(
-                  pricing.priceStatus,
-                )}</span></div>`
-              : ''
-          }
-        </div>
+        ${renderPendingAcceptFieldGrid(task)}
 
         ${
           task.dispatchRemark
@@ -1085,6 +1062,9 @@ export function renderPdaTaskReceivePage(): string {
 
   const pendingAcceptTasks = getPendingAcceptTasks(selectedFactoryId)
   const processOptions = Array.from(new Set(pendingAcceptTasks.map((task) => getTaskProcessDisplayName(task))))
+  if (state.processFilter !== 'ALL' && !processOptions.includes(state.processFilter)) {
+    state.processFilter = 'ALL'
+  }
 
   const activeBiddingTenders = getActiveBiddingTenders()
   syncQuoteDialogWithQuery(activeBiddingTenders)
