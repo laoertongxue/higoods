@@ -15,6 +15,14 @@ import {
   type RuntimeProcessTask,
   type RuntimeTaskScopeType,
 } from './runtime-process-tasks.ts'
+import {
+  getPdaGenericHandoutRecordSeedsByHeadId,
+  getPdaGenericPickupRecordSeedsByHeadId,
+  listPdaGenericHandoverHeadSeeds,
+  type PdaTaskMockHandoutRecordSeed,
+  type PdaTaskMockHandoverHeadSeed,
+  type PdaTaskMockPickupRecordSeed,
+} from './pda-task-mock-factory.ts'
 
 export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'
@@ -198,7 +206,111 @@ const headCompletionOverrides = new Map<
   { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string }
 >()
 
+function buildGenericMockHead(seed: PdaTaskMockHandoverHeadSeed): PdaHandoverHead {
+  return {
+    handoverId: seed.handoverId,
+    headType: seed.headType,
+    taskId: seed.taskId,
+    taskNo: seed.taskNo,
+    productionOrderNo: seed.productionOrderNo,
+    processName: seed.processName,
+    sourceFactoryName: seed.sourceFactoryName,
+    targetName: seed.targetName,
+    targetKind: seed.targetKind,
+    qtyUnit: seed.qtyUnit,
+    factoryId: seed.factoryId,
+    taskStatus: seed.taskStatus,
+    summaryStatus: seed.summaryStatus,
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: seed.completionStatus,
+    completedByWarehouseAt: seed.completedByWarehouseAt,
+    qtyExpectedTotal: seed.qtyExpectedTotal,
+    qtyActualTotal: seed.qtyActualTotal,
+    qtyDiffTotal: seed.qtyDiffTotal,
+    sourceDocNo: seed.sourceDocNo,
+    scopeLabel: seed.scopeLabel,
+    stageCode: seed.stageCode,
+    stageName: seed.stageName,
+    processBusinessCode: seed.processBusinessCode,
+    processBusinessName: seed.processBusinessName,
+    taskTypeCode: seed.taskTypeCode,
+    taskTypeLabel: seed.taskTypeLabel,
+    assignmentGranularityLabel: seed.assignmentGranularityLabel,
+  }
+}
+
+function buildGenericPickupRecord(seed: PdaTaskMockPickupRecordSeed): PdaPickupRecord {
+  return {
+    recordId: seed.recordId,
+    handoverId: seed.handoverId,
+    taskId: seed.taskId,
+    sequenceNo: 1,
+    materialName: seed.materialName,
+    materialSpec: seed.materialSpec,
+    pickupMode: seed.pickupMode,
+    pickupModeLabel: seed.pickupMode === 'FACTORY_PICKUP' ? '工厂到仓自提' : '仓库配送到厂',
+    materialSummary: seed.materialSummary,
+    qtyExpected: seed.qtyExpected,
+    qtyActual: seed.qtyActual,
+    qtyUnit: seed.qtyUnit,
+    submittedAt: seed.submittedAt,
+    status: seed.status,
+    receivedAt: seed.receivedAt,
+    remark: seed.remark,
+  }
+}
+
+function buildGenericHandoutRecord(seed: PdaTaskMockHandoutRecordSeed): PdaHandoverRecord {
+  return {
+    recordId: seed.recordId,
+    handoverId: seed.handoverId,
+    taskId: seed.taskId,
+    sequenceNo: 1,
+    materialName: seed.materialName,
+    materialSpec: seed.materialSpec,
+    plannedQty: seed.plannedQty,
+    qtyUnit: seed.qtyUnit,
+    factorySubmittedAt: seed.factorySubmittedAt,
+    factoryRemark: seed.factoryRemark,
+    factoryProofFiles: [],
+    status: seed.status,
+    warehouseReturnNo: seed.warehouseReturnNo,
+    warehouseWrittenQty: seed.warehouseWrittenQty,
+    warehouseWrittenAt: seed.warehouseWrittenAt,
+    objectionReason: seed.objectionReason,
+    objectionRemark: seed.objectionRemark,
+  }
+}
+
+const PDA_GENERIC_HANDOVER_HEADS = listPdaGenericHandoverHeadSeeds().map((seed) => buildGenericMockHead(seed))
+const PDA_GENERIC_PICKUP_RECORDS = Object.fromEntries(
+  PDA_GENERIC_HANDOVER_HEADS
+    .filter((head) => head.headType === 'PICKUP')
+    .map(
+      (head) =>
+        [
+          head.handoverId,
+          getPdaGenericPickupRecordSeedsByHeadId(head.handoverId).map((seed) => buildGenericPickupRecord(seed)),
+        ] as const,
+    ),
+)
+const PDA_GENERIC_HANDOUT_RECORDS = Object.fromEntries(
+  PDA_GENERIC_HANDOVER_HEADS
+    .filter((head) => head.headType === 'HANDOUT')
+    .map(
+      (head) =>
+        [
+          head.handoverId,
+          getPdaGenericHandoutRecordSeedsByHeadId(head.handoverId).map((seed) => buildGenericHandoutRecord(seed)),
+        ] as const,
+    ),
+)
+
 const PDA_MOCK_FACTORY_ID = 'ID-F001'
+const PDA_MOCK_CUTTING_FACTORY_ID = 'ID-F004'
 
 const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
@@ -312,6 +424,119 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     assignmentGranularityLabel: '整单',
     isSpecialCraft: true,
   },
+  {
+    handoverId: 'PKH-MOCK-CUT-020-F004',
+    headType: 'PICKUP',
+    taskId: 'TASK-CUT-BID-020',
+    taskNo: 'TASK-CUT-BID-020',
+    productionOrderNo: 'PO-202603-0003',
+    processName: '裁片',
+    sourceFactoryName: '五仓裁片仓',
+    targetName: 'PT Mulia Cutting Center',
+    targetKind: 'FACTORY',
+    qtyUnit: '卷',
+    factoryId: PDA_MOCK_CUTTING_FACTORY_ID,
+    taskStatus: 'IN_PROGRESS',
+    summaryStatus: 'PARTIAL_WRITTEN_BACK',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 8,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 8,
+    sourceDocNo: 'ISS-MOCK-CUT-020',
+    scopeLabel: '异地裁床首批领料',
+    executorKind: 'EXTERNAL_FACTORY',
+    transitionFromPrev: 'NOT_APPLICABLE',
+    transitionToNext: 'SAME_FACTORY_CONTINUE',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processBusinessCode: 'PROC_CUT',
+    processBusinessName: '裁片',
+    taskTypeCode: 'CUTTING',
+    taskTypeLabel: '裁片任务',
+    assignmentGranularity: 'ORDER',
+    assignmentGranularityLabel: '整单',
+    isSpecialCraft: true,
+  },
+  {
+    handoverId: 'HOH-MOCK-CUT-103-F004-OPEN',
+    headType: 'HANDOUT',
+    taskId: 'TASK-CUT-000103',
+    taskNo: 'TASK-CUT-000103',
+    productionOrderNo: 'PO-202603-0009',
+    processName: '裁片',
+    sourceFactoryName: 'PT Mulia Cutting Center',
+    targetName: 'PT Sinar Garment Indonesia',
+    targetKind: 'FACTORY',
+    qtyUnit: '件',
+    factoryId: PDA_MOCK_CUTTING_FACTORY_ID,
+    taskStatus: 'DONE',
+    summaryStatus: 'SUBMITTED',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 180,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 180,
+    sourceDocNo: 'RET-MOCK-CUT-103-OPEN',
+    scopeLabel: '尾批交接',
+    executorKind: 'EXTERNAL_FACTORY',
+    transitionFromPrev: 'RETURN_TO_WAREHOUSE',
+    transitionToNext: 'SAME_FACTORY_CONTINUE',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processBusinessCode: 'PROC_CUT',
+    processBusinessName: '裁片',
+    taskTypeCode: 'CUTTING',
+    taskTypeLabel: '裁片任务',
+    assignmentGranularity: 'ORDER',
+    assignmentGranularityLabel: '整单',
+    isSpecialCraft: true,
+  },
+  {
+    handoverId: 'HOH-MOCK-CUT-103-F004-DONE',
+    headType: 'HANDOUT',
+    taskId: 'TASK-CUT-000103',
+    taskNo: 'TASK-CUT-000103',
+    productionOrderNo: 'PO-202603-0009',
+    processName: '裁片',
+    sourceFactoryName: 'PT Mulia Cutting Center',
+    targetName: 'PT Sinar Garment Indonesia',
+    targetKind: 'FACTORY',
+    qtyUnit: '件',
+    factoryId: PDA_MOCK_CUTTING_FACTORY_ID,
+    taskStatus: 'DONE',
+    summaryStatus: 'WRITTEN_BACK',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: 'COMPLETED',
+    completedByWarehouseAt: '2026-03-24 18:20:00',
+    qtyExpectedTotal: 220,
+    qtyActualTotal: 0,
+    qtyDiffTotal: 220,
+    sourceDocNo: 'RET-MOCK-CUT-103-DONE',
+    scopeLabel: '首批交接',
+    executorKind: 'EXTERNAL_FACTORY',
+    transitionFromPrev: 'RETURN_TO_WAREHOUSE',
+    transitionToNext: 'SAME_FACTORY_CONTINUE',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processBusinessCode: 'PROC_CUT',
+    processBusinessName: '裁片',
+    taskTypeCode: 'CUTTING',
+    taskTypeLabel: '裁片任务',
+    assignmentGranularity: 'ORDER',
+    assignmentGranularityLabel: '整单',
+    isSpecialCraft: true,
+  },
+  ...PDA_GENERIC_HANDOVER_HEADS,
 ]
 
 const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
@@ -361,6 +586,53 @@ const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
       remark: '余下 6 卷待工厂到仓自提',
     },
   ],
+  'PKH-MOCK-CUT-020-F004': [
+    {
+      recordId: 'PKR-MOCK-CUT020-001',
+      handoverId: 'PKH-MOCK-CUT-020-F004',
+      taskId: 'TASK-CUT-BID-020',
+      sequenceNo: 1,
+      materialCode: 'FAB-SKU-CUT-020',
+      materialName: '弹力牛仔主布',
+      materialSpec: '150cm / 10oz',
+      skuCode: 'FAB-SKU-CUT-020',
+      skuColor: '深靛蓝',
+      skuSize: '均码',
+      pieceName: '主片',
+      pickupMode: 'WAREHOUSE_DELIVERY',
+      pickupModeLabel: '仓库配送到厂',
+      materialSummary: '主布 / 首批裁床领料',
+      qtyExpected: 5,
+      qtyActual: 3,
+      qtyUnit: '卷',
+      submittedAt: '2026-03-24 08:10:00',
+      status: 'RECEIVED',
+      receivedAt: '2026-03-24 08:45:00',
+      remark: '首批主布已到厂，余量待下一车次配送',
+    },
+    {
+      recordId: 'PKR-MOCK-CUT020-002',
+      handoverId: 'PKH-MOCK-CUT-020-F004',
+      taskId: 'TASK-CUT-BID-020',
+      sequenceNo: 2,
+      materialCode: 'FAB-SKU-CUT-020',
+      materialName: '弹力牛仔主布',
+      materialSpec: '150cm / 10oz',
+      skuCode: 'FAB-SKU-CUT-020',
+      skuColor: '深靛蓝',
+      skuSize: '均码',
+      pieceName: '主片',
+      pickupMode: 'FACTORY_PICKUP',
+      pickupModeLabel: '工厂到仓自提',
+      materialSummary: '主布 / 余量补批',
+      qtyExpected: 3,
+      qtyUnit: '卷',
+      submittedAt: '2026-03-24 10:05:00',
+      status: 'PENDING_FACTORY_PICKUP',
+      remark: '余下 3 卷待裁片专厂自提',
+    },
+  ],
+  ...PDA_GENERIC_PICKUP_RECORDS,
 }
 
 const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
@@ -428,12 +700,70 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       warehouseWrittenAt: '2026-03-22 10:30:00',
     },
   ],
+  'HOH-MOCK-CUT-103-F004-OPEN': [
+    {
+      recordId: 'HOR-MOCK-CUT103-OPEN-001',
+      handoverId: 'HOH-MOCK-CUT-103-F004-OPEN',
+      taskId: 'TASK-CUT-000103',
+      sequenceNo: 1,
+      materialName: '裁片包',
+      materialSpec: '异地裁床尾批',
+      skuCode: 'CPO-20260324-E1',
+      skuColor: '灰蓝拼接',
+      skuSize: '整单',
+      pieceName: '裁片包',
+      plannedQty: 180,
+      qtyUnit: '件',
+      factorySubmittedAt: '2026-03-24 16:10:00',
+      factoryRemark: '尾批已发出，待主厂回写签收',
+      factoryProofFiles: [],
+      status: 'PENDING_WRITEBACK',
+    },
+  ],
+  'HOH-MOCK-CUT-103-F004-DONE': [
+    {
+      recordId: 'HOR-MOCK-CUT103-DONE-001',
+      handoverId: 'HOH-MOCK-CUT-103-F004-DONE',
+      taskId: 'TASK-CUT-000103',
+      sequenceNo: 1,
+      materialName: '裁片包',
+      materialSpec: '异地裁床首批',
+      skuCode: 'CPO-20260324-E1',
+      skuColor: '灰蓝拼接',
+      skuSize: '整单',
+      pieceName: '裁片包',
+      plannedQty: 220,
+      qtyUnit: '件',
+      factorySubmittedAt: '2026-03-24 14:20:00',
+      factoryRemark: '首批已交回主厂',
+      factoryProofFiles: [],
+      status: 'WRITTEN_BACK',
+      warehouseReturnNo: 'RET-MOCK-CUT-103-001',
+      warehouseWrittenQty: 220,
+      warehouseWrittenAt: '2026-03-24 15:00:00',
+    },
+  ],
+  ...PDA_GENERIC_HANDOUT_RECORDS,
 }
 
 headCompletionOverrides.set('HOH-MOCK-CUT-094', {
   completionStatus: 'COMPLETED',
   completedByWarehouseAt: '2026-03-22 10:45:00',
 })
+
+headCompletionOverrides.set('HOH-MOCK-CUT-103-F004-DONE', {
+  completionStatus: 'COMPLETED',
+  completedByWarehouseAt: '2026-03-24 18:20:00',
+})
+
+PDA_GENERIC_HANDOVER_HEADS
+  .filter((head) => head.completionStatus === 'COMPLETED')
+  .forEach((head) => {
+    headCompletionOverrides.set(head.handoverId, {
+      completionStatus: 'COMPLETED',
+      completedByWarehouseAt: head.completedByWarehouseAt,
+    })
+  })
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)

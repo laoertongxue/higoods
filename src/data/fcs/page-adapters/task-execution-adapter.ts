@@ -1,8 +1,8 @@
-import { processTasks, type ProcessTask } from '../process-tasks'
+import { processTasks, type ProcessTask } from '../process-tasks.ts'
 import {
   listRuntimeExecutionTasks,
   type RuntimeProcessTask,
-} from '../runtime-process-tasks'
+} from '../runtime-process-tasks.ts'
 
 export interface ExecutionTaskFact extends ProcessTask {
   displayStageName: string

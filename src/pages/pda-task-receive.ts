@@ -9,8 +9,9 @@ import {
   resolveTaskChainTenderId,
 } from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import {
-  PDA_MOCK_BIDDING_TENDERS,
   PDA_MOCK_QUOTED_TENDERS,
+  listPdaBiddingTendersByFactoryId,
+  listPdaQuotedTendersByFactoryId,
 } from '../data/fcs/pda-mobile-mock'
 import {
   getPdaTaskFlowTaskById,
@@ -395,8 +396,8 @@ function getTabCounts(
   }
 }
 
-function getQuotedTenders(): QuotedTender[] {
-  return PDA_MOCK_QUOTED_TENDERS
+function getQuotedTenders(selectedFactoryId: string): QuotedTender[] {
+  return listPdaQuotedTendersByFactoryId(selectedFactoryId)
     .filter((tender) => state.submittedTenderIds.has(tender.tenderId))
     .map((tender) => {
       const task = tender.taskId ? getTaskFactById(tender.taskId) : null
@@ -426,7 +427,8 @@ function getQuotedTenders(): QuotedTender[] {
 }
 
 function getActiveBiddingTenders(): BiddingTender[] {
-  return PDA_MOCK_BIDDING_TENDERS
+  const selectedFactoryId = getCurrentFactoryId()
+  return listPdaBiddingTendersByFactoryId(selectedFactoryId)
     .filter((tender) => !state.submittedTenderIds.has(tender.tenderId))
     .map((tender) => {
       const task = tender.taskId ? getTaskFactById(tender.taskId) : null
@@ -472,8 +474,12 @@ function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
       notifiedAt: task.awardedAt || task.updatedAt || task.createdAt,
       awardNote: task.priceDiffReason || '',
       execStatus:
-        task.status === 'NOT_STARTED'
-          ? '待开工'
+        task.acceptanceStatus === 'REJECTED'
+          ? '已拒接'
+          : task.acceptanceStatus === 'PENDING'
+            ? '待接单'
+            : task.status === 'NOT_STARTED'
+              ? '待开工'
           : task.status === 'IN_PROGRESS'
             ? '进行中'
             : task.status === 'BLOCKED'
@@ -1082,7 +1088,7 @@ export function renderPdaTaskReceivePage(): string {
 
   const activeBiddingTenders = getActiveBiddingTenders()
   syncQuoteDialogWithQuery(activeBiddingTenders)
-  const allQuotedTenders = getQuotedTenders()
+  const allQuotedTenders = getQuotedTenders(selectedFactoryId)
   const awardedTenders = getAwardedTenders(selectedFactoryId)
   const filteredPendingTasks = getFilteredPendingTasks(pendingAcceptTasks)
   const tabCounts = getTabCounts(

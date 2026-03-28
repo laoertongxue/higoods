@@ -11,6 +11,7 @@ import {
   type PdaCuttingExecutionSourceRecord,
   type PdaCuttingTaskSourceRecord,
 } from './cutting/pda-cutting-task-source.ts'
+import { listPdaGenericProcessTasks } from './pda-task-mock-factory.ts'
 import {
   matchPdaExecutionRecord,
   toLegacyCutPieceOrderNo,
@@ -431,11 +432,13 @@ function getMarkerStore(snapshot: CuttingDomainSnapshot): MarkerSpreadingStore {
 function listTaskFacts(): ProcessTask[] {
   const runtimeTasks = listTaskChainTasks()
   const runtimeTaskIds = new Set(runtimeTasks.map((task) => task.taskId))
+  const genericTasks = listPdaGenericProcessTasks().filter((task) => !runtimeTaskIds.has(task.taskId))
+  const genericTaskIds = new Set(genericTasks.map((task) => task.taskId))
   const fallbackCuttingTasks = listPdaCuttingTaskSourceRecords()
-    .filter((record) => !runtimeTaskIds.has(record.taskId))
+    .filter((record) => !runtimeTaskIds.has(record.taskId) && !genericTaskIds.has(record.taskId))
     .map((record) => buildFallbackCuttingTaskFact(record))
 
-  return [...runtimeTasks, ...fallbackCuttingTasks]
+  return [...runtimeTasks, ...genericTasks, ...fallbackCuttingTasks]
 }
 
 function getRuntimeTask(taskId: string): ProcessTask | null {
@@ -890,18 +893,23 @@ function resolveTaskSummary(executions: PdaCuttingTaskOrderLine[]): PdaTaskSumma
 function buildProjectedTask(task: ProcessTask, snapshot: CuttingDomainSnapshot): PdaTaskFlowProjectedTask {
   const executionRecords = getSourceExecutionsByTaskId(task.taskId)
   if (!executionRecords.length) {
+    const genericTask = task as ProcessTask & {
+      mockReceiveSummary?: string
+      mockExecutionSummary?: string
+      mockHandoverSummary?: string
+    }
     return Object.assign(task, {
       taskType: 'PROCESS',
-      taskTypeLabel: '常规工序任务',
+      taskTypeLabel: task.taskCategoryZh || `${task.processNameZh}任务`,
       factoryType: 'FACTORY',
       factoryTypeLabel: '工厂执行',
       supportsCuttingSpecialActions: false,
       entryMode: 'DEFAULT' as const,
       summary: {
         currentStage: mapTaskStatusLabel(task.status),
-        receiveSummary: '-',
-        executionSummary: '-',
-        handoverSummary: '-',
+        receiveSummary: genericTask.mockReceiveSummary || '-',
+        executionSummary: genericTask.mockExecutionSummary || '-',
+        handoverSummary: genericTask.mockHandoverSummary || '-',
       },
     })
   }

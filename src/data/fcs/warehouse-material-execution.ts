@@ -5,7 +5,7 @@ import {
   type MaterialRequestDraftLine,
   type MaterialRequestProgressStatus,
   type MaterialRequestRecord,
-} from './material-request-drafts'
+} from './material-request-drafts.ts'
 import {
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
@@ -14,7 +14,7 @@ import {
   type RuntimeExecutorKind,
   type RuntimeProcessTask,
   type RuntimeTaskScopeType,
-} from './runtime-process-tasks'
+} from './runtime-process-tasks.ts'
 
 export type WarehouseExecutionDocType = 'ISSUE' | 'RETURN' | 'INTERNAL_TRANSFER'
 export type WarehouseExecutionStatus =

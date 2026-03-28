@@ -1,6 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
-import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress'
+import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress.ts'
 import { renderPdaFrame } from './pda-shell'
 
 const TYPE_LABELS: Record<string, string> = {

@@ -1,13 +1,13 @@
-import { productionOrders, type ProductionOrder } from './production-orders'
-import { processTasks, type ProcessTask } from './process-tasks'
-import { getTechPackBySpuCode, type TechPackBomItem } from './tech-packs'
+import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import { processTasks, type ProcessTask } from './process-tasks.ts'
+import { getTechPackBySpuCode, type TechPackBomItem } from './tech-packs.ts'
 import {
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
   listRuntimeExecutionTasks,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
-} from './runtime-process-tasks'
+} from './runtime-process-tasks.ts'
 
 export type MaterialTaskType = 'PRINT' | 'DYE' | 'CUT' | 'SEW' | 'POST'
 export type MaterialDraftStatus = 'pending' | 'created' | 'not_applicable'

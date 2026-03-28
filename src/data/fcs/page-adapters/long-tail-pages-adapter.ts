@@ -1,13 +1,13 @@
-import { productionOrders } from '../production-orders'
-import { listGeneratedProductionDemandArtifacts } from '../production-artifact-generation'
-import type { ProcessTask } from '../process-tasks'
+import { productionOrders } from '../production-orders.ts'
+import { listGeneratedProductionDemandArtifacts } from '../production-artifact-generation.ts'
+import type { ProcessTask } from '../process-tasks.ts'
 import {
   listProgressExceptions,
   listProgressFacts,
   listProgressMaterialStatementDrafts,
   type ExceptionCase,
-} from '../store-domain-progress'
-import { listExecutionTaskFacts } from './task-execution-adapter'
+} from '../store-domain-progress.ts'
+import { listExecutionTaskFacts } from './task-execution-adapter.ts'
 
 export interface LegacyLikeQualityInspection {
   qcId: string

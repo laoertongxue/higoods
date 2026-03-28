@@ -4,7 +4,7 @@ import {
   listProgressExceptions,
   upsertProgressExceptionCase,
   type ExceptionCase,
-} from './store-domain-progress'
+} from './store-domain-progress.ts'
 import {
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
@@ -67,6 +67,19 @@ function addHours(baseAt: string, hours: number): string {
 }
 
 export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
+  const mockTask = task as ProcessTask & { mockStartPrerequisiteMet?: boolean; mockReceiveSummary?: string }
+  if (mockTask.mockStartPrerequisiteMet === true) {
+    return {
+      met: true,
+      type: 'PICKUP',
+      conditionLabel: '前置资料已满足',
+      summaryLabel: '前置已满足',
+      statusLabel: '已满足开工前置，可开工',
+      blocker: '已满足开工前置',
+      hint: mockTask.mockReceiveSummary || '当前 mock 任务已预置前置条件，可直接开工',
+    }
+  }
+
   const runtimeTasks = listRuntimeTasksByBaseTaskId(task.taskId).filter((runtimeTask) =>
     isRuntimeTaskExecutionTask(runtimeTask),
   )

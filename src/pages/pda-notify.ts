@@ -1,12 +1,12 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress'
+import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress.ts'
 import { getStartPrerequisite, getTaskStartDueInfo, syncPdaStartRiskAndExceptions } from '../data/fcs/pda-start-link'
 import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
 import { isCuttingSpecialTask, listPdaTaskFlowTasks } from '../data/fcs/pda-cutting-execution-source.ts'
 import {
-  PDA_MOCK_AWARDED_TENDER_NOTICES,
-  PDA_MOCK_BIDDING_TENDERS,
+  listPdaAwardedTenderNoticesByFactoryId,
+  listPdaBiddingTendersByFactoryId,
 } from '../data/fcs/pda-mobile-mock'
 import {
   getFutureMobileFactoryQcSummary,
@@ -91,12 +91,6 @@ function isSoon(value: string): boolean {
   const ms = parseDateMs(value) - NOW_DUE.getTime()
   return ms > 0 && ms < SOON_MS
 }
-
-const MOCK_TENDERS_SOON = [
-  { biddingDeadline: formatDueDate(5) },
-  { biddingDeadline: formatDueDate(9) },
-  { biddingDeadline: formatDueDate(15) },
-].filter((item) => isSoon(item.biddingDeadline))
 
 const MOCK_HO_SOON_DEADLINES = [
   formatDueDate(3),
@@ -304,11 +298,14 @@ function getNotifyPageData(): {
   const qualitySummary = getFutureMobileFactoryQcSummary(selectedFactoryId)
   const qualityBuckets = listFutureMobileFactoryQcBuckets(selectedFactoryId)
   const qualitySoonItems = listFutureMobileFactorySoonOverdueQcItems(selectedFactoryId)
+  const biddingTenders = listPdaBiddingTendersByFactoryId(selectedFactoryId)
+  const awardedTenderNotices = listPdaAwardedTenderNoticesByFactoryId(selectedFactoryId)
+  const biddingSoonCount = biddingTenders.filter((item) => isSoon(item.biddingDeadline)).length
   const nearestQualityPendingDeadline = qualitySummary.nearestPendingDeadlineAt ?? qualityBuckets.pending[0]?.responseDeadlineAt
   const nearestQualitySoonDeadline = qualitySummary.nearestSoonOverdueDeadlineAt ?? qualitySoonItems[0]?.responseDeadlineAt
 
   const dueSoonTotalCount =
-    acceptSoonCount + MOCK_TENDERS_SOON.length + MOCK_HO_SOON_DEADLINES.length + execSoonCount + startSoonCount + qualitySummary.soonOverdueCount
+    acceptSoonCount + biddingSoonCount + MOCK_HO_SOON_DEADLINES.length + execSoonCount + startSoonCount + qualitySummary.soonOverdueCount
 
   const allNotifications = initialNotifications
     .filter(
@@ -339,7 +336,7 @@ function getNotifyPageData(): {
     {
       key: 'quote',
       label: '待报价',
-      count: PDA_MOCK_BIDDING_TENDERS.length,
+      count: biddingTenders.length,
       icon: 'package',
       colorClass: 'text-blue-600',
       bgClass: 'bg-blue-50',
@@ -349,7 +346,7 @@ function getNotifyPageData(): {
     {
       key: 'awarded',
       label: '已中标',
-      count: PDA_MOCK_AWARDED_TENDER_NOTICES.length,
+      count: awardedTenderNotices.length,
       icon: 'trophy',
       colorClass: 'text-green-600',
       bgClass: 'bg-green-50',
@@ -444,7 +441,7 @@ function getNotifyPageData(): {
     })
   })
 
-  PDA_MOCK_BIDDING_TENDERS.forEach((item) => {
+  biddingTenders.forEach((item) => {
     todoItems.push({
       id: item.tenderId,
       type: '待报价',
@@ -459,7 +456,7 @@ function getNotifyPageData(): {
     })
   })
 
-  PDA_MOCK_AWARDED_TENDER_NOTICES.forEach((item) => {
+  awardedTenderNotices.forEach((item) => {
     todoItems.push({
       id: item.tenderId,
       type: '已中标',

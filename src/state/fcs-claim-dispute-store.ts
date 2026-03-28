@@ -6,7 +6,7 @@ import {
   type ExceptionAuditLog,
   type ExceptionCase,
   upsertProgressExceptionCase,
-} from '../data/fcs/store-domain-progress'
+} from '../data/fcs/store-domain-progress.ts'
 import {
   applyClaimDisputeHandleResult,
   buildClaimDisputeRecord,
@@ -16,13 +16,13 @@ import {
   parseLengthQtyFromText,
   validateClaimDisputeHandleInput,
   validateClaimDisputeInput,
-} from '../helpers/fcs-claim-dispute'
+} from '../helpers/fcs-claim-dispute.ts'
 import type {
   ClaimDisputeCreateInput,
   ClaimDisputeHandleInput,
   ClaimDisputeRecord,
   ClaimDisputeStatus,
-} from '../models/fcs-claim-dispute'
+} from '../models/fcs-claim-dispute.ts'
 
 export const FCS_CLAIM_DISPUTE_LEDGER_STORAGE_KEY = 'fcsClaimDisputeLedger'
 

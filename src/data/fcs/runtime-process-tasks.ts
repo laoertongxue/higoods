@@ -1,17 +1,17 @@
-import { indonesiaFactories } from './indonesia-factories'
-import { productionOrders } from './production-orders'
+import { indonesiaFactories } from './indonesia-factories.ts'
+import { productionOrders } from './production-orders.ts'
 import {
   getProcessAssignmentGranularity,
   type ProcessAssignmentGranularity,
-} from './process-types'
+} from './process-types.ts'
 import {
   processTasks,
   type AcceptanceStatus,
   type ProcessTask,
   type TaskAssignmentStatus,
   type TaskAuditLog,
-} from './process-tasks'
-import type { TaskDetailRow } from './task-detail-rows'
+} from './process-tasks.ts'
+import type { TaskDetailRow } from './task-detail-rows.ts'
 import {
   listTaskAllocatableGroups,
   resolveTaskSplitDecision,
@@ -19,7 +19,7 @@ import {
   type TaskAllocatableGroup,
   type TaskSplitFactoryBucket,
   type TaskAllocatableGroupAssignment,
-} from './task-split-dispatch'
+} from './task-split-dispatch.ts'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
 export type RuntimeExecutorKind = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'

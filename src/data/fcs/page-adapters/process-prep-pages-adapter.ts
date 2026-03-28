@@ -1,8 +1,8 @@
 import {
   listGeneratedProductionDemandArtifacts,
   type ProductionDemandArtifact,
-} from '../production-artifact-generation'
-import { productionOrders } from '../production-orders'
+} from '../production-artifact-generation.ts'
+import { productionOrders } from '../production-orders.ts'
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = '片' | '米'

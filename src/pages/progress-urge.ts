@@ -18,7 +18,7 @@ import {
   type UrgeLog,
   type UrgeStatus,
   type UrgeType,
-} from '../data/fcs/store-domain-progress'
+} from '../data/fcs/store-domain-progress.ts'
 import {
   buildHandoverOrderDetailLink,
   getHandoverLedgerRows,

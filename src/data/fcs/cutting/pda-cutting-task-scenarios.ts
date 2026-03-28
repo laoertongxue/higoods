@@ -216,6 +216,7 @@ export function listPdaCuttingBiddingTenderMocks(): PdaMobileBiddingTenderMock[]
       taskDeadline: scenario.taskDeadline,
       standardPrice: scenario.standardPrice,
       currency: scenario.currency,
+      factoryId: scenario.assignedFactoryId,
     }))
     .sort((left, right) => left.biddingDeadline.localeCompare(right.biddingDeadline, 'zh-CN'))
 }
@@ -239,6 +240,7 @@ export function listPdaCuttingQuotedTenderMocks(): PdaMobileQuotedTenderMock[] {
       taskDeadline: scenario.taskDeadline,
       tenderStatusLabel: scenario.tenderStatusLabel || '招标中',
       remark: scenario.tenderRemark || scenario.taskSummaryNote,
+      factoryId: scenario.assignedFactoryId,
     }))
     .sort((left, right) => right.quotedAt.localeCompare(left.quotedAt, 'zh-CN'))
 }
@@ -253,6 +255,7 @@ export function listPdaCuttingAwardedTenderNoticeMocks(): PdaMobileAwardedTender
       qty: scenario.qty,
       notifiedAt: scenario.notifiedAt || scenario.dispatchedAt,
       productionOrderId: scenario.productionOrderId,
+      factoryId: scenario.assignedFactoryId,
     }))
     .sort((left, right) => right.notifiedAt.localeCompare(left.notifiedAt, 'zh-CN'))
 }

@@ -3,6 +3,11 @@ import {
   listPdaCuttingBiddingTenderMocks,
   listPdaCuttingQuotedTenderMocks,
 } from './cutting/pda-cutting-task-scenarios.ts'
+import {
+  listPdaGenericAwardedTenderNoticeMocks,
+  listPdaGenericBiddingTenderMocks,
+  listPdaGenericQuotedTenderMocks,
+} from './pda-task-mock-factory.ts'
 
 export interface PdaMobileBiddingTenderMock {
   tenderId: string
@@ -16,6 +21,7 @@ export interface PdaMobileBiddingTenderMock {
   taskDeadline: string
   standardPrice: number
   currency: string
+  factoryId: string
 }
 
 export interface PdaMobileQuotedTenderMock {
@@ -34,6 +40,7 @@ export interface PdaMobileQuotedTenderMock {
   taskDeadline: string
   tenderStatusLabel: string
   remark: string
+  factoryId: string
 }
 
 export interface PdaMobileAwardedTenderNoticeMock {
@@ -43,6 +50,7 @@ export interface PdaMobileAwardedTenderNoticeMock {
   qty: number
   notifiedAt: string
   productionOrderId: string
+  factoryId: string
 }
 
 const NON_CUTTING_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
@@ -58,6 +66,7 @@ const NON_CUTTING_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
     taskDeadline: '2026-03-25 18:00:00',
     standardPrice: 4.3,
     currency: 'CNY',
+    factoryId: 'ID-F001',
   },
   {
     tenderId: 'TENDER-PDA-IRON-071',
@@ -71,6 +80,7 @@ const NON_CUTTING_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
     taskDeadline: '2026-03-25 20:00:00',
     standardPrice: 1.8,
     currency: 'CNY',
+    factoryId: 'ID-F001',
   },
 ]
 
@@ -91,6 +101,7 @@ const NON_CUTTING_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
     taskDeadline: '2026-03-25 20:00:00',
     tenderStatusLabel: '招标中',
     remark: '可安排双线并行，支持夜班赶货。',
+    factoryId: 'ID-F001',
   },
   {
     tenderId: 'TENDER-PDA-PACK-009',
@@ -108,6 +119,7 @@ const NON_CUTTING_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
     taskDeadline: '2026-03-24 16:00:00',
     tenderStatusLabel: '招标中',
     remark: '包装线空档可承接，支持分批交付。',
+    factoryId: 'ID-F001',
   },
 ]
 
@@ -119,6 +131,7 @@ const NON_CUTTING_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = [
     qty: 360,
     notifiedAt: '2026-03-22 07:45:00',
     productionOrderId: 'PO-20260318-008',
+    factoryId: 'ID-F001',
   },
   {
     tenderId: 'TENDER-PDA-PACK-011',
@@ -127,20 +140,36 @@ const NON_CUTTING_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = [
     qty: 680,
     notifiedAt: '2026-03-22 09:20:00',
     productionOrderId: 'PO-20260322-034',
+    factoryId: 'ID-F001',
   },
 ]
 
 export const PDA_MOCK_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
   ...listPdaCuttingBiddingTenderMocks(),
+  ...listPdaGenericBiddingTenderMocks(),
   ...NON_CUTTING_BIDDING_TENDERS,
 ]
 
 export const PDA_MOCK_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
   ...listPdaCuttingQuotedTenderMocks(),
+  ...listPdaGenericQuotedTenderMocks(),
   ...NON_CUTTING_QUOTED_TENDERS,
 ]
 
 export const PDA_MOCK_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = [
   ...listPdaCuttingAwardedTenderNoticeMocks(),
+  ...listPdaGenericAwardedTenderNoticeMocks(),
   ...NON_CUTTING_AWARDED_TENDER_NOTICES,
 ]
+
+export function listPdaBiddingTendersByFactoryId(factoryId: string): PdaMobileBiddingTenderMock[] {
+  return PDA_MOCK_BIDDING_TENDERS.filter((item) => item.factoryId === factoryId).map((item) => ({ ...item }))
+}
+
+export function listPdaQuotedTendersByFactoryId(factoryId: string): PdaMobileQuotedTenderMock[] {
+  return PDA_MOCK_QUOTED_TENDERS.filter((item) => item.factoryId === factoryId).map((item) => ({ ...item }))
+}
+
+export function listPdaAwardedTenderNoticesByFactoryId(factoryId: string): PdaMobileAwardedTenderNoticeMock[] {
+  return PDA_MOCK_AWARDED_TENDER_NOTICES.filter((item) => item.factoryId === factoryId).map((item) => ({ ...item }))
+}

@@ -7,7 +7,7 @@
 import {
   listProgressMaterialIssueRows,
   listProgressMaterialStatementDrafts,
-} from './store-domain-progress'
+} from './store-domain-progress.ts'
 import {
   listRuntimeExecutionTasks,
   upsertRuntimeTaskTender,

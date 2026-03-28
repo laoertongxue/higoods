@@ -26,7 +26,7 @@ import {
   type ExceptionCase,
   type ReasonCode,
   type Severity,
-} from './store-domain-progress'
+} from './store-domain-progress.ts'
 import {
   getDefaultSubCategoryKeyFromReason,
   getUnifiedCategoryFromReason,
@@ -35,6 +35,7 @@ import {
   markCaseResolved,
   maybeAutoCloseResolvedCase,
 } from './progress-exception-lifecycle'
+import { getPdaTaskFlowTaskById } from './pda-cutting-execution-source.ts'
 
 export interface TaskMilestoneState {
   required: boolean
@@ -217,11 +218,15 @@ export function isTaskMilestoneProofSatisfied(task: ProcessTask, proofFiles: Exe
   return proofFiles.some((file) => file.type === 'IMAGE' || file.type === 'VIDEO')
 }
 
+function findWritableTask(taskId: string): ProcessTask | undefined {
+  return processTasks.find((item) => item.taskId === taskId) || (getPdaTaskFlowTaskById(taskId) as ProcessTask | null) || undefined
+}
+
 export function reportTaskMilestone(
   taskId: string,
   payload: { reportedAt: string; proofFiles: ExecProofFile[]; by: string },
 ): { ok: boolean; message: string } {
-  const task = processTasks.find((item) => item.taskId === taskId)
+  const task = findWritableTask(taskId)
   if (!task) return { ok: false, message: '任务不存在' }
   if (task.status !== 'IN_PROGRESS') return { ok: false, message: '仅进行中任务可上报关键节点' }
 
@@ -260,7 +265,7 @@ export function reportTaskMilestone(
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return processTasks.find((item) => item.taskId === taskId)
+  return findWritableTask(taskId)
 }
 
 function getCaseById(caseId: string): ExceptionCase | undefined {
