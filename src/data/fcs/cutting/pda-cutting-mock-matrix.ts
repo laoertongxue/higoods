@@ -425,7 +425,7 @@ export const PDA_CUTTING_TASK_MOCK_MATRIX: PdaCuttingTaskMockMatrixItem[] = [
     standardPrice: 6,
     currency: 'CNY',
     unit: '件',
-    acceptDeadline: '2026-03-29 14:00:00',
+    acceptDeadline: '2026-03-28 20:45:00',
     taskDeadline: '2026-03-30 16:00:00',
     taskSummaryNote: '待接单第二条，保证待接单页不只剩一条裁片任务。',
     dispatchedAt: '2026-03-28 11:10:00',

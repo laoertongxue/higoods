@@ -431,6 +431,10 @@ function createTask(
 
 function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): PdaGenericTaskMock[] {
   const baseOrderNo = orderNo(baseIndex)
+  const pendingAcceptDeadline =
+    profile.key === 'SEWING'
+      ? nowLike(28, '20:30:00')
+      : nowLike(29, '10:00:00')
   return [
     createTask(profile, baseIndex * 10 + 1, 'DIRECT_PENDING', {
       assignmentMode: 'DIRECT',
@@ -439,7 +443,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
       status: 'NOT_STARTED',
       qty: profile.qtyBase,
       taskSummaryNote: `${profile.processNameZh}直接派单待接单`,
-      acceptDeadline: nowLike(29, '10:00:00'),
+      acceptDeadline: pendingAcceptDeadline,
       taskDeadline: nowLike(31, '18:00:00'),
       dispatchedAt: nowLike(28, '08:10:00'),
       dispatchedBy: '移动端 mock 调度',
