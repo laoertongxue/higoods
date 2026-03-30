@@ -363,6 +363,28 @@ function renderMetricChip(label: string, value: string, toneClass = 'text-slate-
   `
 }
 
+const PRODUCTION_PROGRESS_TABLE_HEADERS = [
+  '紧急程度',
+  '生产单号',
+  '款号 / SPU',
+  '下单数量',
+  '计划发货日期',
+  '面料审核',
+  '配料进展',
+  '领料进展',
+  '原始裁片单数',
+  '完成状态',
+  '当前阶段',
+  'SKU 情况',
+  '部位差异',
+  '影响面料',
+  '主要差异对象',
+  '下一步动作',
+  '数据状态',
+  '风险提示',
+  '操作',
+] as const
+
 function renderSkuCompletionSection(row: ProductionProgressRow): string {
   const rows = row.pieceTruth.skuRows
   if (!rows.length) {
@@ -616,6 +638,7 @@ function renderMappingWarningSection(row: ProductionProgressRow): string {
 
 function renderTable(rows: ProductionProgressRow[]): string {
   const pagination = paginateItems(rows, state.page, state.pageSize)
+  const columnCount = PRODUCTION_PROGRESS_TABLE_HEADERS.length
 
   return `
     <section class="rounded-lg border bg-card">
@@ -627,24 +650,12 @@ function renderTable(rows: ProductionProgressRow[]): string {
       </div>
       ${renderStickyTableScroller(
         `
-          <table class="w-full min-w-[1880px] text-sm">
+          <table class="w-full min-w-[1880px] text-sm" data-testid="cutting-production-progress-main-table">
             <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">紧急程度</th>
-                <th class="px-4 py-3 text-left font-medium">生产单号</th>
-                <th class="px-4 py-3 text-left font-medium">款号 / SPU</th>
-                <th class="px-4 py-3 text-left font-medium">下单数量</th>
-                <th class="px-4 py-3 text-left font-medium">计划发货日期</th>
-                <th class="px-4 py-3 text-left font-medium">完成状态</th>
-                <th class="px-4 py-3 text-left font-medium">当前阶段</th>
-                <th class="px-4 py-3 text-left font-medium">SKU 情况</th>
-                <th class="px-4 py-3 text-left font-medium">部位差异</th>
-                <th class="px-4 py-3 text-left font-medium">影响面料</th>
-                <th class="px-4 py-3 text-left font-medium">主要差异对象</th>
-                <th class="px-4 py-3 text-left font-medium">下一步动作</th>
-                <th class="px-4 py-3 text-left font-medium">数据状态</th>
-                <th class="px-4 py-3 text-left font-medium">风险提示</th>
-                <th class="px-4 py-3 text-left font-medium">操作</th>
+                ${PRODUCTION_PROGRESS_TABLE_HEADERS.map(
+                  (header) => `<th class="px-4 py-3 text-left font-medium">${header}</th>`,
+                ).join('')}
               </tr>
             </thead>
             <tbody>
@@ -747,7 +758,7 @@ function renderTable(rows: ProductionProgressRow[]): string {
                         `,
                       )
                       .join('')
-                  : '<tr><td colspan="15" class="px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无匹配生产单。</td></tr>'
+                  : `<tr><td colspan="${columnCount}" class="px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无匹配生产单。</td></tr>`
               }
             </tbody>
           </table>
