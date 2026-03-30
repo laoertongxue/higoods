@@ -81,7 +81,24 @@ function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(getCurrentQueryString())
 }
 
+function getFactoryIdFromSettlementContext(): string | null {
+  const params = getCurrentSearchParams()
+  if (params.get('back') !== 'settlement') return null
+
+  const cycleId = params.get('cycleId')
+  if (!cycleId) return null
+
+  const matched = decodeURIComponent(cycleId).match(/^(ID-F\d{3})-/)
+  return matched?.[1] ?? null
+}
+
 function getCurrentFactoryId(): string {
+  const settlementFactoryId = getFactoryIdFromSettlementContext()
+  if (settlementFactoryId) {
+    state.selectedFactoryId = settlementFactoryId
+    return settlementFactoryId
+  }
+
   if (state.selectedFactoryId) return state.selectedFactoryId
   if (typeof window === 'undefined') {
     state.selectedFactoryId = 'ID-F001'
