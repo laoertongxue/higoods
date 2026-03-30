@@ -22,6 +22,7 @@ export type SubCategoryKey =
   | 'MATERIAL_NOT_READY'
   | 'MATERIAL_PREP_PENDING'
   | 'MATERIAL_QTY_SHORT'
+  | 'MATERIAL_PICKUP_QTY_DIFF'
   | 'MATERIAL_MULTI_OPEN'
   | 'HANDOUT_DIFF'
   | 'HANDOUT_OBJECTION'
@@ -59,6 +60,7 @@ export const SUB_CATEGORY_LABEL: Record<SubCategoryKey, string> = {
   MATERIAL_NOT_READY: '领料未齐套',
   MATERIAL_PREP_PENDING: '配料未完成',
   MATERIAL_QTY_SHORT: '配料数量不足',
+  MATERIAL_PICKUP_QTY_DIFF: '领料数量差异',
   MATERIAL_MULTI_OPEN: '多次领料未闭合',
   HANDOUT_DIFF: '仓库登记数量差异',
   HANDOUT_OBJECTION: '数量异议',
@@ -96,6 +98,7 @@ export const SUB_CATEGORY_OPTIONS: Record<UnifiedCategory, Array<{ key: SubCateg
     { key: 'MATERIAL_NOT_READY', label: '领料未齐套' },
     { key: 'MATERIAL_PREP_PENDING', label: '配料未完成' },
     { key: 'MATERIAL_QTY_SHORT', label: '配料数量不足' },
+    { key: 'MATERIAL_PICKUP_QTY_DIFF', label: '领料数量差异' },
     { key: 'MATERIAL_MULTI_OPEN', label: '多次领料未闭合' },
   ],
   HANDOUT: [

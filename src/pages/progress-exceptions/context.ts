@@ -42,6 +42,7 @@ import {
 } from '../../data/fcs/store-domain-progress'
 import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap'
 import { syncPdaStartRiskAndExceptions } from '../../data/fcs/pda-start-link'
+import { ensurePdaPickupDisputeSeedCases } from '../../helpers/fcs-pda-pickup-dispute'
 import type { ClaimDisputeStatus } from '../../models/fcs-claim-dispute'
 import {
   allowContinueFromPauseException,
@@ -79,6 +80,7 @@ import {
 } from '../../data/fcs/progress-exception-lifecycle'
 
 applyQualitySeedBootstrap()
+ensurePdaPickupDisputeSeedCases()
 
 export type AggregateFilter =
   | { type: 'reason'; value: SubCategoryKey }
@@ -127,6 +129,10 @@ export interface ProgressExceptionsState {
   claimDisputeHandleConclusion: string
   claimDisputeHandleNote: string
 
+  pickupDisputeHandleStatus: 'PROCESSING' | 'RESOLVED'
+  pickupDisputeHandleResolvedQty: string
+  pickupDisputeHandleNote: string
+
   rowActionMenuCaseId: string | null
 }
 
@@ -169,6 +175,10 @@ export const state: ProgressExceptionsState = {
   claimDisputeHandleStatus: 'VIEWED',
   claimDisputeHandleConclusion: '',
   claimDisputeHandleNote: '',
+
+  pickupDisputeHandleStatus: 'PROCESSING',
+  pickupDisputeHandleResolvedQty: '',
+  pickupDisputeHandleNote: '',
 
   rowActionMenuCaseId: null,
 }

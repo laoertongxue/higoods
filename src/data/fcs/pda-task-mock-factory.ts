@@ -84,16 +84,45 @@ export interface PdaTaskMockPickupRecordSeed {
   handoverId: string
   recordId: string
   taskId: string
+  sequenceNo?: number
+  materialCode?: string
   materialSummary: string
   materialName: string
   materialSpec: string
+  skuCode?: string
+  skuColor?: string
+  skuSize?: string
+  pieceName?: string
   qtyExpected: number
   qtyActual?: number
   qtyUnit: string
   submittedAt: string
-  status: 'PENDING_WAREHOUSE_DISPATCH' | 'PENDING_FACTORY_PICKUP' | 'RECEIVED'
+  status:
+    | 'PENDING_WAREHOUSE_DISPATCH'
+    | 'PENDING_FACTORY_PICKUP'
+    | 'PENDING_FACTORY_CONFIRM'
+    | 'RECEIVED'
+    | 'OBJECTION_REPORTED'
+    | 'OBJECTION_PROCESSING'
+    | 'OBJECTION_RESOLVED'
   receivedAt?: string
   pickupMode: 'WAREHOUSE_DELIVERY' | 'FACTORY_PICKUP'
+  qrCodeValue?: string
+  warehouseHandedQty?: number
+  warehouseHandedAt?: string
+  warehouseHandedBy?: string
+  factoryConfirmedQty?: number
+  factoryConfirmedAt?: string
+  factoryReportedQty?: number
+  finalResolvedQty?: number
+  finalResolvedAt?: string
+  exceptionCaseId?: string
+  objectionReason?: string
+  objectionRemark?: string
+  objectionProofFiles?: Array<{ id: string; type: 'IMAGE' | 'VIDEO'; name: string; uploadedAt: string }>
+  objectionStatus?: 'REPORTED' | 'PROCESSING' | 'RESOLVED'
+  followUpRemark?: string
+  resolvedRemark?: string
   remark?: string
 }
 
@@ -969,31 +998,172 @@ function buildHandoverSeeds(
           handoverId: pickupHeadId,
           recordId: `${pickupHeadId}-001`,
           taskId: pickupTask.taskId,
-          materialSummary: `${profile.materialSummary}首批`,
+          sequenceNo: 1,
+          materialCode: `${profile.taskPrefix}-MAT-001`,
+          materialSummary: `${profile.materialSummary}首批待配`,
           materialName: profile.materialSummary,
           materialSpec: `${profile.processNameZh}首批执行用料`,
-          qtyExpected: Math.max(Math.round(pickupTask.qty * 0.18), 36),
-          qtyActual: Math.max(Math.round(pickupTask.qty * 0.18), 36),
+          skuCode: `${profile.taskPrefix}-SKU-001`,
+          skuColor: '标准色',
+          skuSize: '整单',
+          pieceName: '首批用料',
+          qtyExpected: Math.max(Math.round(pickupTask.qty * 0.1), 24),
           qtyUnit: '件',
-          submittedAt: nowLike(28, '09:40:00'),
-          status: 'RECEIVED',
-          receivedAt: nowLike(28, '10:15:00'),
+          submittedAt: nowLike(28, '08:40:00'),
+          status: 'PENDING_WAREHOUSE_DISPATCH',
           pickupMode: 'WAREHOUSE_DELIVERY',
-          remark: '首批已送达工厂',
+          qrCodeValue: `PICKUP-RECORD:${pickupHeadId}-001`,
+          remark: '仓库待发出，尚未完成扫码交付',
         },
         {
           handoverId: pickupHeadId,
           recordId: `${pickupHeadId}-002`,
           taskId: pickupTask.taskId,
+          sequenceNo: 2,
+          materialCode: `${profile.taskPrefix}-MAT-002`,
           materialSummary: `${profile.materialSummary}余料`,
           materialName: profile.materialSummary,
           materialSpec: `${profile.processNameZh}余料补批`,
-          qtyExpected: Math.max(Math.round(pickupTask.qty * 0.22), 44),
+          skuCode: `${profile.taskPrefix}-SKU-002`,
+          skuColor: '标准色',
+          skuSize: '整单',
+          pieceName: '余料补批',
+          qtyExpected: Math.max(Math.round(pickupTask.qty * 0.12), 28),
           qtyUnit: '件',
-          submittedAt: nowLike(28, '11:30:00'),
+          submittedAt: nowLike(28, '09:20:00'),
           status: 'PENDING_FACTORY_PICKUP',
           pickupMode: 'FACTORY_PICKUP',
-          remark: '余量待工厂到仓自提',
+          qrCodeValue: `PICKUP-RECORD:${pickupHeadId}-002`,
+          remark: '仓库已备齐，待工厂到仓自提',
+        },
+        {
+          handoverId: pickupHeadId,
+          recordId: `${pickupHeadId}-003`,
+          taskId: pickupTask.taskId,
+          sequenceNo: 3,
+          materialCode: `${profile.taskPrefix}-MAT-003`,
+          materialSummary: `${profile.materialSummary}二批配送`,
+          materialName: profile.materialSummary,
+          materialSpec: `${profile.processNameZh}二批执行用料`,
+          skuCode: `${profile.taskPrefix}-SKU-003`,
+          skuColor: '标准色',
+          skuSize: '整单',
+          pieceName: '二批用料',
+          qtyExpected: Math.max(Math.round(pickupTask.qty * 0.08), 20),
+          qtyUnit: '件',
+          submittedAt: nowLike(28, '10:10:00'),
+          status: 'PENDING_FACTORY_CONFIRM',
+          pickupMode: 'WAREHOUSE_DELIVERY',
+          qrCodeValue: `PICKUP-RECORD:${pickupHeadId}-003`,
+          warehouseHandedQty: Math.max(Math.round(pickupTask.qty * 0.08), 20),
+          warehouseHandedAt: nowLike(28, '11:00:00'),
+          warehouseHandedBy: '仓库扫码员',
+          remark: '仓库已扫码交付，待工厂确认本次领料',
+        },
+        {
+          handoverId: pickupHeadId,
+          recordId: `${pickupHeadId}-004`,
+          taskId: pickupTask.taskId,
+          sequenceNo: 4,
+          materialCode: `${profile.taskPrefix}-MAT-004`,
+          materialSummary: `${profile.materialSummary}首批已确认`,
+          materialName: profile.materialSummary,
+          materialSpec: `${profile.processNameZh}首批执行用料`,
+          skuCode: `${profile.taskPrefix}-SKU-004`,
+          skuColor: '标准色',
+          skuSize: '整单',
+          pieceName: '首批已确认',
+          qtyExpected: Math.max(Math.round(pickupTask.qty * 0.1), 24),
+          qtyActual: Math.max(Math.round(pickupTask.qty * 0.1), 24),
+          qtyUnit: '件',
+          submittedAt: nowLike(28, '07:50:00'),
+          status: 'RECEIVED',
+          receivedAt: nowLike(28, '09:15:00'),
+          pickupMode: 'WAREHOUSE_DELIVERY',
+          qrCodeValue: `PICKUP-RECORD:${pickupHeadId}-004`,
+          warehouseHandedQty: Math.max(Math.round(pickupTask.qty * 0.1), 24),
+          warehouseHandedAt: nowLike(28, '08:30:00'),
+          warehouseHandedBy: '仓库扫码员',
+          factoryConfirmedQty: Math.max(Math.round(pickupTask.qty * 0.1), 24),
+          factoryConfirmedAt: nowLike(28, '09:15:00'),
+          remark: '工厂已确认本次领料',
+        },
+        {
+          handoverId: pickupHeadId,
+          recordId: `${pickupHeadId}-005`,
+          taskId: pickupTask.taskId,
+          sequenceNo: 5,
+          materialCode: `${profile.taskPrefix}-MAT-005`,
+          materialSummary: `${profile.materialSummary}三批异议`,
+          materialName: profile.materialSummary,
+          materialSpec: `${profile.processNameZh}三批执行用料`,
+          skuCode: `${profile.taskPrefix}-SKU-005`,
+          skuColor: '标准色',
+          skuSize: '整单',
+          pieceName: '三批异议',
+          qtyExpected: Math.max(Math.round(pickupTask.qty * 0.06), 16),
+          qtyUnit: '件',
+          submittedAt: nowLike(28, '11:40:00'),
+          status: 'OBJECTION_REPORTED',
+          pickupMode: 'WAREHOUSE_DELIVERY',
+          qrCodeValue: `PICKUP-RECORD:${pickupHeadId}-005`,
+          warehouseHandedQty: Math.max(Math.round(pickupTask.qty * 0.06), 16),
+          warehouseHandedAt: nowLike(28, '12:10:00'),
+          warehouseHandedBy: '仓库扫码员',
+          factoryReportedQty: Math.max(Math.round(pickupTask.qty * 0.05), 14),
+          exceptionCaseId: `EX-PDA-PICK-${profile.taskPrefix}-001`,
+          objectionReason: '工厂复点少于仓库交付数量',
+          objectionRemark: '现场复点少 2 件，待平台核定。',
+          objectionProofFiles: [
+            {
+              id: `proof-${pickupHeadId}-005-1`,
+              type: 'IMAGE',
+              name: '领料差异照片_01.jpg',
+              uploadedAt: nowLike(28, '12:18:00'),
+            },
+          ],
+          objectionStatus: 'REPORTED',
+          remark: '工厂已发起数量差异',
+        },
+        {
+          handoverId: pickupHeadId,
+          recordId: `${pickupHeadId}-006`,
+          taskId: pickupTask.taskId,
+          sequenceNo: 6,
+          materialCode: `${profile.taskPrefix}-MAT-006`,
+          materialSummary: `${profile.materialSummary}四批已裁定`,
+          materialName: profile.materialSummary,
+          materialSpec: `${profile.processNameZh}四批执行用料`,
+          skuCode: `${profile.taskPrefix}-SKU-006`,
+          skuColor: '标准色',
+          skuSize: '整单',
+          pieceName: '四批已裁定',
+          qtyExpected: Math.max(Math.round(pickupTask.qty * 0.05), 12),
+          qtyUnit: '件',
+          submittedAt: nowLike(28, '12:30:00'),
+          status: 'OBJECTION_RESOLVED',
+          pickupMode: 'WAREHOUSE_DELIVERY',
+          qrCodeValue: `PICKUP-RECORD:${pickupHeadId}-006`,
+          warehouseHandedQty: Math.max(Math.round(pickupTask.qty * 0.05), 12),
+          warehouseHandedAt: nowLike(28, '13:00:00'),
+          warehouseHandedBy: '仓库扫码员',
+          factoryReportedQty: Math.max(Math.round(pickupTask.qty * 0.04), 10),
+          finalResolvedQty: Math.max(Math.round(pickupTask.qty * 0.04), 10),
+          finalResolvedAt: nowLike(28, '15:20:00'),
+          exceptionCaseId: `EX-PDA-PICK-${profile.taskPrefix}-002`,
+          objectionReason: '工厂复点少于仓库交付数量',
+          objectionRemark: '平台已核定以工厂实收为准。',
+          objectionProofFiles: [
+            {
+              id: `proof-${pickupHeadId}-006-1`,
+              type: 'IMAGE',
+              name: '平台复点照片_01.jpg',
+              uploadedAt: nowLike(28, '15:00:00'),
+            },
+          ],
+          objectionStatus: 'RESOLVED',
+          resolvedRemark: '平台复点确认工厂实收 10 件，按最终确认数量回写。',
+          remark: '平台已处理完成',
         },
       ],
     },

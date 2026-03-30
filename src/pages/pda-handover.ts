@@ -92,29 +92,36 @@ function getExecutorLabel(head: PdaHandoverHead): string {
 function getPickupSummaryMeta(head: PdaHandoverHead): { label: string; className: string; hint: string } {
   if (head.summaryStatus === 'NONE') {
     return {
-      label: '暂无领料记录',
+      label: '暂无仓库领料记录',
       className: 'border-border bg-background text-muted-foreground',
-      hint: '可新增首条领料记录，支持后续分批领料',
+      hint: '领料记录由仓库配料回写后生成',
     }
   }
   if (head.summaryStatus === 'SUBMITTED') {
     return {
-      label: '待仓库发出',
+      label: '待仓库/工厂处理',
       className: 'border-amber-200 bg-amber-50 text-amber-700',
-      hint: '当前记录仍在待仓库发出/待自提',
+      hint: '当前仍有记录待仓库发出、待自提或待工厂确认',
+    }
+  }
+  if (head.summaryStatus === 'HAS_OBJECTION') {
+    return {
+      label: '存在数量差异',
+      className: 'border-red-200 bg-red-50 text-red-700',
+      hint: '有领料记录已发起数量差异，等待平台处理',
     }
   }
   if (head.summaryStatus === 'PARTIAL_WRITTEN_BACK') {
     return {
-      label: '部分满足',
+      label: '部分已确认',
       className: 'border-blue-200 bg-blue-50 text-blue-700',
-      hint: '已部分领料，仍有批次未完成',
+      hint: '部分记录已完成确认，仍有记录待处理',
     }
   }
   return {
-    label: '已满足',
+    label: '已完成确认',
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    hint: '领料记录已满足，等待仓库侧发起完成',
+    hint: '领料记录已确认/裁定完成，等待仓库侧发起头单完成',
   }
 }
 
@@ -157,7 +164,7 @@ function getHandoutSummaryMeta(head: PdaHandoverHead): { label: string; classNam
 function renderOpenHeadCard(head: PdaHandoverHead): string {
   const meta = head.headType === 'PICKUP' ? getPickupSummaryMeta(head) : getHandoutSummaryMeta(head)
   const headLabel = head.headType === 'PICKUP' ? '领料头' : '交出头'
-  const actionLabel = head.headType === 'PICKUP' ? '去领料' : head.recordCount > 0 ? '查看交出' : '去交出'
+  const actionLabel = head.headType === 'PICKUP' ? '领料处理' : head.recordCount > 0 ? '查看交出' : '去交出'
 
   return `
     <article
@@ -197,8 +204,8 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
 
         <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
           <div>累计记录：<span class="font-medium">${head.recordCount} 次</span></div>
-          <div>${head.headType === 'PICKUP' ? '待完成记录：' : '待仓库回写：'}<span class="font-medium">${head.pendingWritebackCount} 次</span></div>
-          <div>${head.headType === 'PICKUP' ? '累计实领：' : '累计回写：'}<span class="font-medium">${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</span></div>
+          <div>${head.headType === 'PICKUP' ? '待处理记录：' : '待仓库回写：'}<span class="font-medium">${head.pendingWritebackCount} 次</span></div>
+          <div>${head.headType === 'PICKUP' ? '累计最终确认：' : '累计回写：'}<span class="font-medium">${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</span></div>
           <div>数量差异：<span class="font-medium ${head.qtyDiffTotal !== 0 ? 'text-red-600' : ''}">${head.qtyDiffTotal > 0 ? '-' : head.qtyDiffTotal < 0 ? '+' : ''}${Math.abs(head.qtyDiffTotal)} ${escapeHtml(head.qtyUnit)}</span></div>
         </div>
 
@@ -310,7 +317,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'pickup'
             ? `
-              <p class="text-xs text-muted-foreground">一个任务对应一个领料头，领料记录支持多次分批，工厂不可主动发起完成。</p>
+              <p class="text-xs text-muted-foreground">一个任务对应一个领料头。领料记录由仓库配料回写后生成，工厂查看领料记录与二维码，在仓库扫码交付后确认本次领料或发起数量差异；领料头完成仍由仓库侧发起。</p>
               ${
                 pickupHeads.length === 0
                   ? renderEmptyState('暂无待领料头单')

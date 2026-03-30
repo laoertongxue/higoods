@@ -1,5 +1,5 @@
 import type { CaseStatus, ExceptionCase, ExceptionAction, ExceptionAuditLog } from './store-domain-progress.ts'
-import { getDefaultSubCategoryKeyFromReason, type SubCategoryKey } from './progress-exception-taxonomy'
+import { getDefaultSubCategoryKeyFromReason, type SubCategoryKey } from './progress-exception-taxonomy.ts'
 
 export type CloseReasonCode =
   | 'RESOLVED_DONE'

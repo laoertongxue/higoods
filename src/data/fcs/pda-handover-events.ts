@@ -163,7 +163,11 @@ export interface PdaHandoverRecord {
 export type PdaPickupRecordStatus =
   | 'PENDING_WAREHOUSE_DISPATCH'
   | 'PENDING_FACTORY_PICKUP'
+  | 'PENDING_FACTORY_CONFIRM'
   | 'RECEIVED'
+  | 'OBJECTION_REPORTED'
+  | 'OBJECTION_PROCESSING'
+  | 'OBJECTION_RESOLVED'
 
 export interface PdaPickupRecord {
   recordId: string
@@ -186,6 +190,22 @@ export interface PdaPickupRecord {
   submittedAt: string
   status: PdaPickupRecordStatus
   receivedAt?: string
+  qrCodeValue: string
+  warehouseHandedQty?: number
+  warehouseHandedAt?: string
+  warehouseHandedBy?: string
+  factoryConfirmedQty?: number
+  factoryConfirmedAt?: string
+  factoryReportedQty?: number
+  finalResolvedQty?: number
+  finalResolvedAt?: string
+  exceptionCaseId?: string
+  objectionReason?: string
+  objectionRemark?: string
+  objectionProofFiles?: HandoverProofFile[]
+  objectionStatus?: 'REPORTED' | 'PROCESSING' | 'RESOLVED'
+  followUpRemark?: string
+  resolvedRemark?: string
   remark?: string
 }
 
@@ -247,9 +267,14 @@ function buildGenericPickupRecord(seed: PdaTaskMockPickupRecordSeed): PdaPickupR
     recordId: seed.recordId,
     handoverId: seed.handoverId,
     taskId: seed.taskId,
-    sequenceNo: 1,
+    sequenceNo: seed.sequenceNo ?? 1,
+    materialCode: seed.materialCode,
     materialName: seed.materialName,
     materialSpec: seed.materialSpec,
+    skuCode: seed.skuCode,
+    skuColor: seed.skuColor,
+    skuSize: seed.skuSize,
+    pieceName: seed.pieceName,
     pickupMode: seed.pickupMode,
     pickupModeLabel: seed.pickupMode === 'FACTORY_PICKUP' ? '工厂到仓自提' : '仓库配送到厂',
     materialSummary: seed.materialSummary,
@@ -259,6 +284,22 @@ function buildGenericPickupRecord(seed: PdaTaskMockPickupRecordSeed): PdaPickupR
     submittedAt: seed.submittedAt,
     status: seed.status,
     receivedAt: seed.receivedAt,
+    qrCodeValue: seed.qrCodeValue || `PICKUP-RECORD:${seed.recordId}`,
+    warehouseHandedQty: seed.warehouseHandedQty,
+    warehouseHandedAt: seed.warehouseHandedAt,
+    warehouseHandedBy: seed.warehouseHandedBy,
+    factoryConfirmedQty: seed.factoryConfirmedQty,
+    factoryConfirmedAt: seed.factoryConfirmedAt,
+    factoryReportedQty: seed.factoryReportedQty,
+    finalResolvedQty: seed.finalResolvedQty,
+    finalResolvedAt: seed.finalResolvedAt,
+    exceptionCaseId: seed.exceptionCaseId,
+    objectionReason: seed.objectionReason,
+    objectionRemark: seed.objectionRemark,
+    objectionProofFiles: cloneProofFiles(seed.objectionProofFiles ?? []),
+    objectionStatus: seed.objectionStatus,
+    followUpRemark: seed.followUpRemark,
+    resolvedRemark: seed.resolvedRemark,
     remark: seed.remark,
   }
 }
@@ -557,12 +598,14 @@ const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
       pickupModeLabel: '仓库配送到厂',
       materialSummary: '染色主布 / 主片',
       qtyExpected: 4,
-      qtyActual: 4,
       qtyUnit: '卷',
       submittedAt: '2026-03-22 08:10:00',
-      status: 'RECEIVED',
-      receivedAt: '2026-03-22 08:40:00',
-      remark: '首批已到厂签收',
+      status: 'PENDING_FACTORY_CONFIRM',
+      qrCodeValue: buildPickupQrCodeValue('PKR-MOCK-CUT089-001'),
+      warehouseHandedQty: 4,
+      warehouseHandedAt: '2026-03-22 08:40:00',
+      warehouseHandedBy: '五仓发料员',
+      remark: '首批已扫码交付，待工厂确认',
     },
     {
       recordId: 'PKR-MOCK-CUT089-002',
@@ -583,6 +626,7 @@ const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
       qtyUnit: '卷',
       submittedAt: '2026-03-22 09:15:00',
       status: 'PENDING_FACTORY_PICKUP',
+      qrCodeValue: buildPickupQrCodeValue('PKR-MOCK-CUT089-002'),
       remark: '余下 6 卷待工厂到仓自提',
     },
   ],
@@ -603,12 +647,20 @@ const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
       pickupModeLabel: '仓库配送到厂',
       materialSummary: '主布 / 首批裁床领料',
       qtyExpected: 5,
-      qtyActual: 3,
       qtyUnit: '卷',
       submittedAt: '2026-03-24 08:10:00',
-      status: 'RECEIVED',
-      receivedAt: '2026-03-24 08:45:00',
-      remark: '首批主布已到厂，余量待下一车次配送',
+      status: 'OBJECTION_PROCESSING',
+      qrCodeValue: buildPickupQrCodeValue('PKR-MOCK-CUT020-001'),
+      warehouseHandedQty: 5,
+      warehouseHandedAt: '2026-03-24 08:45:00',
+      warehouseHandedBy: '五仓发料员',
+      factoryReportedQty: 3,
+      exceptionCaseId: 'EX-PDA-PICK-CUT-020',
+      objectionReason: '首批到厂数量少于仓库扫码交付数量',
+      objectionRemark: '工厂复点少 2 卷，待平台核定。',
+      objectionStatus: 'PROCESSING',
+      followUpRemark: '平台已要求仓库复点并补传交付凭证。',
+      remark: '首批主布存在数量差异，处理中',
     },
     {
       recordId: 'PKR-MOCK-CUT020-002',
@@ -629,6 +681,7 @@ const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
       qtyUnit: '卷',
       submittedAt: '2026-03-24 10:05:00',
       status: 'PENDING_FACTORY_PICKUP',
+      qrCodeValue: buildPickupQrCodeValue('PKR-MOCK-CUT020-002'),
       remark: '余下 3 卷待裁片专厂自提',
     },
   ],
@@ -783,7 +836,10 @@ function cloneHead(head: PdaHandoverHead): PdaHandoverHead {
 }
 
 function clonePickupRecord(record: PdaPickupRecord): PdaPickupRecord {
-  return { ...record }
+  return {
+    ...record,
+    objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
+  }
 }
 
 function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
@@ -943,6 +999,20 @@ function isPrepProcessCode(code: string | undefined): boolean {
   return code === 'PRINT' || code === 'DYE' || code === 'PROC_PRINT' || code === 'PROC_DYE'
 }
 
+function buildPickupQrCodeValue(recordId: string): string {
+  return `PICKUP-RECORD:${recordId}`
+}
+
+function isPickupRecordFinalized(record: PdaPickupRecord): boolean {
+  return record.status === 'RECEIVED' || record.status === 'OBJECTION_RESOLVED'
+}
+
+function getPickupRecordFinalQty(record: PdaPickupRecord): number {
+  if (typeof record.finalResolvedQty === 'number') return record.finalResolvedQty
+  if (typeof record.factoryConfirmedQty === 'number') return record.factoryConfirmedQty
+  return 0
+}
+
 function shouldIncludePdaDoc(
   doc: WarehouseIssueOrder | WarehouseReturnOrder,
   runtimeTask: RuntimeProcessTask | null,
@@ -954,7 +1024,12 @@ function shouldIncludePdaDoc(
 }
 
 function mapIssueLineStatus(doc: WarehouseIssueOrder, line: WarehouseIssueOrder['lines'][number]): PdaPickupRecordStatus {
-  if (line.issuedQty >= line.plannedQty && line.plannedQty > 0) return 'RECEIVED'
+  if (
+    (doc.status === 'ISSUED' || doc.status === 'IN_TRANSIT' || doc.status === 'RECEIVED' || doc.status === 'CLOSED') &&
+    line.issuedQty > 0
+  ) {
+    return 'PENDING_FACTORY_CONFIRM'
+  }
   if (line.preparedQty >= line.plannedQty && line.plannedQty > 0) return 'PENDING_FACTORY_PICKUP'
   if (doc.status === 'READY') return 'PENDING_FACTORY_PICKUP'
   return 'PENDING_WAREHOUSE_DISPATCH'
@@ -967,9 +1042,11 @@ function buildPickupLineRecord(
   index: number,
 ): PdaPickupRecord {
   const status = mapIssueLineStatus(doc, line)
-  const qtyActual = status === 'RECEIVED' ? Math.max(line.issuedQty, line.plannedQty) : undefined
+  const recordId = `PKR-${doc.id}-${String(index + 1).padStart(3, '0')}`
+  const warehouseHandedQty =
+    status === 'PENDING_FACTORY_CONFIRM' ? Math.max(line.issuedQty, line.plannedQty > 0 ? line.plannedQty : line.issuedQty) : undefined
   return {
-    recordId: `PKR-${doc.id}-${String(index + 1).padStart(3, '0')}`,
+    recordId,
     handoverId: head.handoverId,
     taskId: head.taskId,
     sequenceNo: index + 1,
@@ -984,11 +1061,13 @@ function buildPickupLineRecord(
     pickupModeLabel: '仓库配送到厂',
     materialSummary: line.pieceName ? `${line.materialName} / ${line.pieceName}` : line.materialName,
     qtyExpected: line.plannedQty,
-    qtyActual,
     qtyUnit: line.unit,
     submittedAt: doc.updatedAt,
     status,
-    receivedAt: status === 'RECEIVED' ? doc.updatedAt : undefined,
+    qrCodeValue: buildPickupQrCodeValue(recordId),
+    warehouseHandedQty,
+    warehouseHandedAt: status === 'PENDING_FACTORY_CONFIRM' ? doc.updatedAt : undefined,
+    warehouseHandedBy: status === 'PENDING_FACTORY_CONFIRM' ? '仓库扫码员' : undefined,
     remark: doc.remark,
   }
 }
@@ -1078,10 +1157,23 @@ function getHandoutRecordsForHeadInternal(head: PdaHandoverHead): PdaHandoverRec
 
 function refreshPickupHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
   const records = getPickupRecordsForHeadInternal(head)
-  const pendingCount = records.filter((record) => record.status !== 'RECEIVED').length
-  const writtenQtyTotal = sumBy(records.filter((record) => record.status === 'RECEIVED'), (record) => record.qtyActual ?? 0)
+  const pendingCount = records.filter((record) => !isPickupRecordFinalized(record)).length
+  const objectionCount = records.filter(
+    (record) =>
+      record.status === 'OBJECTION_REPORTED' ||
+      record.status === 'OBJECTION_PROCESSING' ||
+      record.status === 'OBJECTION_RESOLVED',
+  ).length
+  const writtenQtyTotal = sumBy(records.filter(isPickupRecordFinalized), getPickupRecordFinalQty)
   const latestAt = records
-    .map((record) => record.receivedAt || record.submittedAt)
+    .map(
+      (record) =>
+        record.finalResolvedAt ||
+        record.factoryConfirmedAt ||
+        record.warehouseHandedAt ||
+        record.receivedAt ||
+        record.submittedAt,
+    )
     .filter(Boolean)
     .sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
 
@@ -1092,16 +1184,18 @@ function refreshPickupHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
     writtenBackQtyTotal: writtenQtyTotal,
     qtyActualTotal: writtenQtyTotal,
     qtyDiffTotal: head.qtyExpectedTotal - writtenQtyTotal,
-    objectionCount: 0,
+    objectionCount,
     lastRecordAt: latestAt,
     summaryStatus:
       records.length === 0
         ? 'NONE'
-        : pendingCount === records.length
+        : objectionCount > 0
+          ? 'HAS_OBJECTION'
+          : pendingCount === records.length
           ? 'SUBMITTED'
           : pendingCount > 0
-            ? 'PARTIAL_WRITTEN_BACK'
-            : 'WRITTEN_BACK',
+          ? 'PARTIAL_WRITTEN_BACK'
+          : 'WRITTEN_BACK',
   }
 
   const completionOverride = getHeadCompletionOverride(head.handoverId)
@@ -1112,7 +1206,12 @@ function refreshPickupHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
   }
 
   const doc = head.sourceDocId ? (getWarehouseExecutionDocById(head.sourceDocId) as WarehouseIssueOrder | null) : null
-  const autoCompleted = Boolean(doc && (doc.status === 'RECEIVED' || doc.status === 'CLOSED') && pendingCount === 0)
+  const autoCompleted = Boolean(
+    doc &&
+      (doc.status === 'RECEIVED' || doc.status === 'CLOSED') &&
+      pendingCount === 0 &&
+      objectionCount === 0,
+  )
   updated.completionStatus = autoCompleted ? 'COMPLETED' : 'OPEN'
   updated.completedByWarehouseAt = autoCompleted ? doc?.updatedAt : undefined
   return updated
@@ -1237,7 +1336,7 @@ function findPickupRecord(recordId: string): PdaPickupRecord | undefined {
 }
 
 function savePickupRecord(record: PdaPickupRecord): void {
-  if (record.recordId.startsWith('PKR-')) {
+  if (findPickupRecord(record.recordId)) {
     const existedOverride = pickupRecordOverrides.get(record.recordId) ?? {}
     pickupRecordOverrides.set(record.recordId, { ...existedOverride, ...record })
     return
@@ -1435,57 +1534,126 @@ export function findPdaPickupRecord(recordId: string): PdaPickupRecord | undefin
   return found ? clonePickupRecord(found) : undefined
 }
 
-export function createPdaPickupRecord(
-  handoverId: string,
-  payload: {
-    submittedAt: string
-    pickupMode: 'WAREHOUSE_DELIVERY' | 'FACTORY_PICKUP'
-    materialSummary: string
-    qtyExpected: number
-    remark?: string
-  },
-): PdaPickupRecord | undefined {
-  const head = findHead(handoverId)
-  if (!head || head.headType !== 'PICKUP' || head.completionStatus === 'COMPLETED') return undefined
-
-  const existing = getPdaPickupRecordsByHead(handoverId)
-  const sequenceNo = existing.reduce((max, record) => Math.max(max, record.sequenceNo), 0) + 1
-  const recordId = `HPR-${handoverId.replace(/[^A-Za-z0-9]/g, '')}-${String(sequenceNo).padStart(3, '0')}`
-
-  const created: PdaPickupRecord = {
-    recordId,
-    handoverId,
-    taskId: head.taskId,
-    sequenceNo,
-    pickupMode: payload.pickupMode,
-    pickupModeLabel: payload.pickupMode === 'WAREHOUSE_DELIVERY' ? '仓库配送到厂' : '工厂到仓自提',
-    materialSummary: payload.materialSummary.trim() || '补充领料记录',
-    qtyExpected: payload.qtyExpected,
-    qtyUnit: head.qtyUnit,
-    submittedAt: payload.submittedAt,
-    status: payload.pickupMode === 'WAREHOUSE_DELIVERY' ? 'PENDING_WAREHOUSE_DISPATCH' : 'PENDING_FACTORY_PICKUP',
-    remark: payload.remark?.trim() || undefined,
-  }
-
-  const list = pickupRecordAdditions.get(handoverId) ?? []
-  list.push(clonePickupRecord(created))
-  pickupRecordAdditions.set(handoverId, list)
-  return clonePickupRecord(created)
-}
-
 export function confirmPdaPickupRecordReceived(
   recordId: string,
-  qtyActual: number,
-  receivedAt: string,
+  payload: {
+    factoryConfirmedQty: number
+    factoryConfirmedAt: string
+  },
 ): PdaPickupRecord | undefined {
   const current = findPickupRecord(recordId)
-  if (!current || current.status === 'RECEIVED') return undefined
+  if (!current || current.status !== 'PENDING_FACTORY_CONFIRM') return undefined
 
   const updated: PdaPickupRecord = {
     ...current,
-    qtyActual,
-    receivedAt,
+    qtyActual: payload.factoryConfirmedQty,
+    receivedAt: payload.factoryConfirmedAt,
+    factoryConfirmedQty: payload.factoryConfirmedQty,
+    factoryConfirmedAt: payload.factoryConfirmedAt,
     status: 'RECEIVED',
+    objectionStatus: undefined,
+  }
+  savePickupRecord(updated)
+  return clonePickupRecord(updated)
+}
+
+export function markPdaPickupRecordWarehouseHanded(
+  recordId: string,
+  payload: {
+    warehouseHandedQty: number
+    warehouseHandedAt: string
+    warehouseHandedBy: string
+  },
+): PdaPickupRecord | undefined {
+  const current = findPickupRecord(recordId)
+  if (
+    !current ||
+    (current.status !== 'PENDING_WAREHOUSE_DISPATCH' && current.status !== 'PENDING_FACTORY_PICKUP')
+  ) {
+    return undefined
+  }
+
+  const updated: PdaPickupRecord = {
+    ...current,
+    status: 'PENDING_FACTORY_CONFIRM',
+    warehouseHandedQty: payload.warehouseHandedQty,
+    warehouseHandedAt: payload.warehouseHandedAt,
+    warehouseHandedBy: payload.warehouseHandedBy,
+  }
+  savePickupRecord(updated)
+  return clonePickupRecord(updated)
+}
+
+export function reportPdaPickupQtyObjection(
+  recordId: string,
+  payload: {
+    factoryReportedQty: number
+    objectionReason: string
+    objectionRemark?: string
+    objectionProofFiles: HandoverProofFile[]
+    exceptionCaseId?: string
+  },
+): PdaPickupRecord | undefined {
+  const current = findPickupRecord(recordId)
+  if (!current || current.status !== 'PENDING_FACTORY_CONFIRM') return undefined
+
+  const updated: PdaPickupRecord = {
+    ...current,
+    status: 'OBJECTION_REPORTED',
+    factoryReportedQty: payload.factoryReportedQty,
+    exceptionCaseId: payload.exceptionCaseId || current.exceptionCaseId,
+    objectionReason: payload.objectionReason.trim(),
+    objectionRemark: payload.objectionRemark?.trim() || undefined,
+    objectionProofFiles: cloneProofFiles(payload.objectionProofFiles),
+    objectionStatus: 'REPORTED',
+  }
+  savePickupRecord(updated)
+  return clonePickupRecord(updated)
+}
+
+export function processPdaPickupQtyObjection(
+  recordId: string,
+  payload: {
+    followUpRemark?: string
+    processedAt?: string
+  },
+): PdaPickupRecord | undefined {
+  const current = findPickupRecord(recordId)
+  if (!current || (current.status !== 'OBJECTION_REPORTED' && current.status !== 'OBJECTION_PROCESSING')) {
+    return undefined
+  }
+
+  const updated: PdaPickupRecord = {
+    ...current,
+    status: 'OBJECTION_PROCESSING',
+    objectionStatus: 'PROCESSING',
+    followUpRemark: payload.followUpRemark?.trim() || current.followUpRemark,
+  }
+  savePickupRecord(updated)
+  return clonePickupRecord(updated)
+}
+
+export function resolvePdaPickupQtyObjection(
+  recordId: string,
+  payload: {
+    finalResolvedQty: number
+    finalResolvedAt: string
+    resolvedRemark?: string
+  },
+): PdaPickupRecord | undefined {
+  const current = findPickupRecord(recordId)
+  if (!current || (current.status !== 'OBJECTION_REPORTED' && current.status !== 'OBJECTION_PROCESSING')) {
+    return undefined
+  }
+
+  const updated: PdaPickupRecord = {
+    ...current,
+    status: 'OBJECTION_RESOLVED',
+    qtyActual: payload.finalResolvedQty,
+    finalResolvedQty: payload.finalResolvedQty,
+    finalResolvedAt: payload.finalResolvedAt,
+    resolvedRemark: payload.resolvedRemark?.trim() || undefined,
+    objectionStatus: 'RESOLVED',
   }
   savePickupRecord(updated)
   return clonePickupRecord(updated)

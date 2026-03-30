@@ -20,12 +20,12 @@ import {
   listRuntimeExecutionTasks,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
-} from './runtime-process-tasks'
+} from './runtime-process-tasks.ts'
 import {
   listMaterialRequests,
   listMaterialRequestsByOrder,
   type MaterialRequestRecord,
-} from './material-request-drafts'
+} from './material-request-drafts.ts'
 import {
   listWarehouseExecutionDocsByOrder,
   listWarehouseExecutionDocsByRuntimeTaskId,
@@ -36,13 +36,13 @@ import {
   getWarehouseExecutionSummaryByOrder,
   type WarehouseExecutionDoc,
   type WarehouseExecutionStatus,
-} from './warehouse-material-execution'
+} from './warehouse-material-execution.ts'
 import {
   getPdaHandoutHeads,
   getPdaHandoverRecordsByHead,
   getPdaPickupHeads,
   getPdaPickupRecordsByHead,
-} from './pda-handover-events'
+} from './pda-handover-events.ts'
 
 // =============================================
 // ExceptionCase 相关
@@ -1106,6 +1106,7 @@ export function syncProgressFactsAndExceptions(): ExceptionCase[] {
 
 function isProgressFactBackedCase(item: ExceptionCase): boolean {
   if (item.tags.includes(AUTO_PROGRESS_TAG)) return true
+  if (item.sourceModule === 'PDA_PICKUP_DISPUTE') return true
   if (item.sourceSystem === 'RUNTIME_FLOW') return true
   if (item.relatedTaskIds.some((taskId) => Boolean(getRuntimeTaskById(taskId)))) return true
   return false

@@ -24,6 +24,7 @@ import {
   getResolveJudgeResult,
   getTaskStatusLabel,
   getSpuFromCase,
+  getRelatedObjects,
   normalizeCaseStatus,
   parseTimestampToMs,
   buildHandoverOrderDetailLink,
@@ -35,10 +36,15 @@ import {
   type ExceptionCase,
 } from './context'
 import { getClaimDisputeStatusMeta } from '../../helpers/fcs-claim-dispute'
+import { getPdaPickupDisputeByCaseId } from '../../helpers/fcs-pda-pickup-dispute'
 import { getClaimDisputeByCaseId } from '../../state/fcs-claim-dispute-store'
 
 function isCuttingClaimDisputeCase(detailCase: ExceptionCase): boolean {
   return detailCase.sourceModule === 'CUTTING_CLAIM_DISPUTE'
+}
+
+function isPdaPickupDisputeCase(detailCase: ExceptionCase): boolean {
+  return detailCase.sourceModule === 'PDA_PICKUP_DISPUTE'
 }
 
 function renderClaimDisputeSourcePanel(detailCase: ExceptionCase): string {
@@ -152,6 +158,107 @@ function renderClaimDisputeActionPanel(detailCase: ExceptionCase): string {
         <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-pe-action="submit-claim-dispute-handle" data-case-id="${escapeAttr(detailCase.caseId)}">保存处理结果</button>
         <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="drawer-go-craft-dispute" data-original-cut-order-no="${escapeAttr(dispute.originalCutOrderNo)}">去工艺端查看</button>
         <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="drawer-go-pda-dispute" data-task-id="${escapeAttr(dispute.sourceTaskId)}">去移动端查看</button>
+      </div>
+    </div>
+  `
+}
+
+function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
+  const dispute = getPdaPickupDisputeByCaseId(detailCase.caseId)
+  if (!dispute) {
+    return `
+      <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
+        <p class="text-sm font-medium text-teal-700">通用待领料数量差异来源明细</p>
+        <p class="text-xs text-teal-700">未找到对应领料记录，请回到移动端确认是否仍存在该条待领料记录。</p>
+      </div>
+    `
+  }
+
+  const record = dispute.record
+  const head = dispute.head
+  const renderKv = (label: string, value: string): string => `
+    <div class="rounded-md border bg-background px-3 py-2">
+      <p class="text-[11px] text-muted-foreground">${escapeHtml(label)}</p>
+      <p class="mt-1 text-sm">${escapeHtml(value || '-')}</p>
+    </div>
+  `
+
+  return `
+    <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-medium text-teal-700">通用待领料数量差异来源明细</p>
+        <span class="inline-flex items-center rounded-full border border-teal-200 bg-background px-2.5 py-1 text-xs text-teal-700">${escapeHtml(getSubCategoryLabel(detailCase))}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        ${renderKv('领料头', head.handoverId)}
+        ${renderKv('领料记录', record.recordId)}
+        ${renderKv('生产单号', head.productionOrderNo)}
+        ${renderKv('任务号', head.taskNo)}
+        ${renderKv('当前工序', head.processName)}
+        ${renderKv('领料方式', record.pickupModeLabel)}
+        ${renderKv('物料说明', record.materialSummary)}
+        ${renderKv('二维码值', record.qrCodeValue)}
+        ${renderKv('本次应领', `${record.qtyExpected} ${record.qtyUnit}`)}
+        ${renderKv('仓库交付数量', typeof record.warehouseHandedQty === 'number' ? `${record.warehouseHandedQty} ${record.qtyUnit}` : '待仓库扫码交付')}
+        ${renderKv('工厂异议数量', typeof record.factoryReportedQty === 'number' ? `${record.factoryReportedQty} ${record.qtyUnit}` : '待填写')}
+        ${renderKv('最终确认数量', typeof record.finalResolvedQty === 'number' ? `${record.finalResolvedQty} ${record.qtyUnit}` : '待平台裁定')}
+        ${renderKv('仓库交付时间', record.warehouseHandedAt || '-')}
+        ${renderKv('异常单号', record.exceptionCaseId || '-')}
+      </div>
+      <div class="rounded-md border bg-background p-3 text-sm">
+        <p class="text-xs text-muted-foreground">差异原因</p>
+        <p class="mt-1">${escapeHtml(record.objectionReason || '待填写')}</p>
+        <p class="mt-3 text-xs text-muted-foreground">差异说明</p>
+        <p class="mt-1">${escapeHtml(record.objectionRemark || '无')}</p>
+        <p class="mt-3 text-xs text-muted-foreground">平台处理说明</p>
+        <p class="mt-1">${escapeHtml(record.resolvedRemark || record.followUpRemark || '待处理')}</p>
+      </div>
+      <div class="rounded-md border bg-background p-3 text-xs text-muted-foreground">
+        <p>证据数量：${record.objectionProofFiles?.length || 0}</p>
+        <p class="mt-1">仓库扫码交付与工厂确认已拆分，平台裁定结果会回写到同一条领料记录。</p>
+      </div>
+    </div>
+  `
+}
+
+function renderPdaPickupDisputeActionPanel(detailCase: ExceptionCase): string {
+  const dispute = getPdaPickupDisputeByCaseId(detailCase.caseId)
+  if (!dispute) return ''
+
+  const record = dispute.record
+  return `
+    <div class="rounded-md border border-teal-200 bg-teal-50 p-3">
+      <p class="text-sm font-medium text-teal-700">待领料数量差异处理区</p>
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">处理状态</span>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pe-field="pickupDisputeHandleStatus">
+            <option value="PROCESSING" ${state.pickupDisputeHandleStatus === 'PROCESSING' ? 'selected' : ''}>处理中</option>
+            <option value="RESOLVED" ${state.pickupDisputeHandleStatus === 'RESOLVED' ? 'selected' : ''}>已处理完成</option>
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">最终确认数量</span>
+          <input
+            class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            type="number"
+            value="${escapeAttr(state.pickupDisputeHandleResolvedQty)}"
+            data-pe-field="pickupDisputeHandleResolvedQty"
+            placeholder="仅在已处理完成时填写"
+          />
+        </label>
+        <label class="col-span-2 space-y-1">
+          <span class="text-xs text-muted-foreground">处理说明</span>
+          <textarea class="min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-sm" data-pe-field="pickupDisputeHandleNote" placeholder="填写平台处理说明、复点结果和回写说明">${escapeHtml(state.pickupDisputeHandleNote)}</textarea>
+        </label>
+      </div>
+      <div class="mt-3 rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+        <p>当前异议数量：${typeof record.factoryReportedQty === 'number' ? `${record.factoryReportedQty} ${record.qtyUnit}` : '未填'}</p>
+        <p class="mt-1">仓库交付数量：${typeof record.warehouseHandedQty === 'number' ? `${record.warehouseHandedQty} ${record.qtyUnit}` : '未交付'}</p>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-pe-action="submit-pickup-dispute-handle" data-case-id="${escapeAttr(detailCase.caseId)}">保存处理结果</button>
+        <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-pe-action="drawer-go-pda-pickup-dispute" data-handover-id="${escapeAttr(dispute.head.handoverId)}">去移动端查看</button>
       </div>
     </div>
   `
@@ -441,6 +548,9 @@ export function renderSourceTab(detailCase: ExceptionCase): string {
   }
 
   if (unifiedCategory === 'MATERIAL') {
+    if (isPdaPickupDisputeCase(detailCase)) {
+      return renderPdaPickupDisputeSourcePanel(detailCase)
+    }
     if (isCuttingClaimDisputeCase(detailCase)) {
       return renderClaimDisputeSourcePanel(detailCase)
     }
@@ -506,6 +616,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
   const processingCards: string[] = []
   const linkCards: string[] = []
   const claimDisputeActionPanel = isCuttingClaimDisputeCase(detailCase) ? renderClaimDisputeActionPanel(detailCase) : ''
+  const pickupDisputeActionPanel = isPdaPickupDisputeCase(detailCase) ? renderPdaPickupDisputeActionPanel(detailCase) : ''
 
   if (unifiedCategory === 'ASSIGNMENT') {
     if (['TENDER_OVERDUE', 'TENDER_NEAR_DEADLINE'].includes(detailCase.reasonCode) && detailCase.relatedTenderIds.length > 0) {
@@ -734,7 +845,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
     `)
   }
 
-  if (unifiedCategory === 'MATERIAL') {
+  if (unifiedCategory === 'MATERIAL' && !isPdaPickupDisputeCase(detailCase)) {
     linkCards.push(`
       <button class="rounded-lg border p-4 text-left hover:border-primary" data-pe-action="drawer-view-material" data-order-id="${escapeAttr(firstOrderId)}">
         <div class="flex items-center gap-2">
@@ -761,6 +872,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
 
   return `
     <div class="space-y-4">
+      ${pickupDisputeActionPanel}
       ${claimDisputeActionPanel}
       <div class="rounded-md border p-3">
         <p class="text-sm font-medium">处理动作</p>

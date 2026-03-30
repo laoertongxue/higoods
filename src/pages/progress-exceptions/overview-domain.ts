@@ -18,6 +18,7 @@ import {
   getCaseProcessName,
   getRelatedObjects,
   getSpuFromCase,
+  hasUpstreamFilter,
   renderBadge,
   renderStatusBadge,
   escapeAttr,

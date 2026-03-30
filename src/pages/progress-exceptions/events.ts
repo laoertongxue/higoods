@@ -17,6 +17,10 @@ import {
 } from './context'
 import { getClaimDisputeByCaseId, updateClaimDisputePlatformHandling } from '../../state/fcs-claim-dispute-store'
 import {
+  getPdaPickupDisputeByCaseId,
+  updatePdaPickupDisputePlatformHandling,
+} from '../../helpers/fcs-pda-pickup-dispute'
+import {
   clearFilters,
   assignCaseOwner,
   confirmUnblock,
@@ -50,6 +54,28 @@ function syncClaimDisputeHandleForm(caseId: string | null): void {
   state.claimDisputeHandleStatus = dispute.status
   state.claimDisputeHandleConclusion = dispute.handleConclusion || ''
   state.claimDisputeHandleNote = dispute.handleNote || ''
+}
+
+function syncPickupDisputeHandleForm(caseId: string | null): void {
+  if (!caseId) {
+    state.pickupDisputeHandleStatus = 'PROCESSING'
+    state.pickupDisputeHandleResolvedQty = ''
+    state.pickupDisputeHandleNote = ''
+    return
+  }
+
+  const dispute = getPdaPickupDisputeByCaseId(caseId)
+  if (!dispute) {
+    state.pickupDisputeHandleStatus = 'PROCESSING'
+    state.pickupDisputeHandleResolvedQty = ''
+    state.pickupDisputeHandleNote = ''
+    return
+  }
+
+  state.pickupDisputeHandleStatus = dispute.record.status === 'OBJECTION_RESOLVED' ? 'RESOLVED' : 'PROCESSING'
+  state.pickupDisputeHandleResolvedQty =
+    typeof dispute.record.finalResolvedQty === 'number' ? String(dispute.record.finalResolvedQty) : ''
+  state.pickupDisputeHandleNote = dispute.record.resolvedRemark || dispute.record.followUpRemark || ''
 }
 
 function updateField(field: string, node: HTMLElement): void {
@@ -137,6 +163,21 @@ function updateField(field: string, node: HTMLElement): void {
 
   if (field === 'claimDisputeHandleNote' && node instanceof HTMLTextAreaElement) {
     state.claimDisputeHandleNote = node.value
+    return
+  }
+
+  if (field === 'pickupDisputeHandleStatus' && node instanceof HTMLSelectElement) {
+    state.pickupDisputeHandleStatus = node.value as typeof state.pickupDisputeHandleStatus
+    return
+  }
+
+  if (field === 'pickupDisputeHandleResolvedQty' && node instanceof HTMLInputElement) {
+    state.pickupDisputeHandleResolvedQty = node.value
+    return
+  }
+
+  if (field === 'pickupDisputeHandleNote' && node instanceof HTMLTextAreaElement) {
+    state.pickupDisputeHandleNote = node.value
   }
 }
 
@@ -146,6 +187,7 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
     if (!caseId) return true
     state.detailCaseId = caseId
     syncClaimDisputeHandleForm(caseId)
+    syncPickupDisputeHandleForm(caseId)
     state.rowActionMenuCaseId = null
     return true
   }
@@ -317,6 +359,13 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'drawer-go-pda-pickup-dispute') {
+    const handoverId = actionNode.dataset.handoverId || ''
+    if (!handoverId) return true
+    openLinkedPage('待领料详情', `/fcs/pda/handover/${encodeURIComponent(handoverId)}`)
+    return true
+  }
+
   return false
 }
 
@@ -409,6 +458,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (caseId) {
       state.detailCaseId = caseId
       syncClaimDisputeHandleForm(caseId)
+      syncPickupDisputeHandleForm(caseId)
       state.rowActionMenuCaseId = null
     }
     return true
@@ -417,6 +467,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'close-detail') {
     state.detailCaseId = null
     syncClaimDisputeHandleForm(null)
+    syncPickupDisputeHandleForm(null)
     closeCloseDialog()
     return true
   }
@@ -625,6 +676,35 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
 
     syncClaimDisputeHandleForm(caseId)
     showProgressExceptionsToast(`已更新异议状态：${result.record.handleConclusion || '已处理'}`)
+    return true
+  }
+
+  if (action === 'submit-pickup-dispute-handle') {
+    const caseId = actionNode.dataset.caseId
+    if (!caseId) return true
+
+    const finalResolvedQty =
+      state.pickupDisputeHandleStatus === 'RESOLVED' ? Number(state.pickupDisputeHandleResolvedQty) : undefined
+
+    const result = updatePdaPickupDisputePlatformHandling(caseId, {
+      status: state.pickupDisputeHandleStatus,
+      handledBy: '平台运营',
+      handledAt: nowTimestamp(),
+      finalResolvedQty,
+      handleNote: state.pickupDisputeHandleNote.trim(),
+    })
+
+    if (!result.record) {
+      showProgressExceptionsToast(result.issues.join('；') || '处理失败，请补齐处理结果。', 'error')
+      return true
+    }
+
+    syncPickupDisputeHandleForm(caseId)
+    showProgressExceptionsToast(
+      state.pickupDisputeHandleStatus === 'RESOLVED'
+        ? `已完成数量裁定：${result.record.finalResolvedQty ?? 0} ${result.record.qtyUnit}`
+        : '已更新为处理中',
+    )
     return true
   }
 
