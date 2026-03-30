@@ -164,7 +164,63 @@ function getHandoutSummaryMeta(head: PdaHandoverHead): { label: string; classNam
 function renderOpenHeadCard(head: PdaHandoverHead): string {
   const meta = head.headType === 'PICKUP' ? getPickupSummaryMeta(head) : getHandoutSummaryMeta(head)
   const headLabel = head.headType === 'PICKUP' ? '领料头' : '交出头'
-  const actionLabel = head.headType === 'PICKUP' ? '领料处理' : head.recordCount > 0 ? '查看交出' : '去交出'
+  const actionLabel = head.headType === 'PICKUP' ? '去领料' : head.recordCount > 0 ? '查看交出' : '去交出'
+
+  if (head.headType === 'PICKUP') {
+    const pickupHint =
+      head.objectionCount > 0
+        ? `有 ${head.objectionCount} 条记录在处理差异`
+        : head.pendingWritebackCount > 0
+          ? `还有 ${head.pendingWritebackCount} 条记录待处理`
+          : '当前等待仓库完成头单'
+
+    return `
+      <article
+        class="cursor-pointer rounded-lg border transition-colors hover:border-primary"
+        data-pda-handover-action="open-detail"
+        data-event-id="${escapeHtml(head.handoverId)}"
+      >
+        <div class="space-y-2 p-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex min-w-0 items-center gap-1.5">
+              <span class="truncate font-mono text-xs text-muted-foreground">${escapeHtml(head.handoverId)}</span>
+              <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${headLabel}</span>
+              <span class="inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
+            </div>
+            <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
+          </div>
+
+          <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+            <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
+            <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
+            <div class="col-span-2"><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
+          </div>
+
+          <div class="flex items-center gap-2 py-0.5 text-xs">
+            <span class="shrink-0 text-muted-foreground">来源仓库：</span>
+            ${renderPartyChip('WAREHOUSE', head.sourceFactoryName)}
+            <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
+            <span class="shrink-0 text-muted-foreground">领料工厂：</span>
+            ${renderPartyChip(head.targetKind, head.targetName)}
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
+            <div>累计记录数：<span class="font-medium">${head.recordCount} 次</span></div>
+            <div>待处理记录数：<span class="font-medium">${head.pendingWritebackCount} 次</span></div>
+            <div class="col-span-2">累计最终确认总量：<span class="font-medium">${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</span></div>
+          </div>
+
+          <div class="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] text-blue-700">${escapeHtml(pickupHint)}</div>
+
+          <button
+            class="mt-1 inline-flex h-8 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            data-pda-handover-action="open-detail"
+            data-event-id="${escapeHtml(head.handoverId)}"
+          >${actionLabel}</button>
+        </div>
+      </article>
+    `
+  }
 
   return `
     <article
@@ -317,7 +373,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'pickup'
             ? `
-              <p class="text-xs text-muted-foreground">一个任务对应一个领料头。领料记录由仓库配料回写后生成，工厂查看领料记录与二维码，在仓库扫码交付后确认本次领料或发起数量差异；领料头完成仍由仓库侧发起。</p>
+              <p class="text-xs text-muted-foreground">仓库回写生成领料记录；交付后确认数量或发起差异。</p>
               ${
                 pickupHeads.length === 0
                   ? renderEmptyState('暂无待领料头单')

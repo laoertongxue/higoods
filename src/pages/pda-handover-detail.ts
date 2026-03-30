@@ -34,7 +34,6 @@ interface PdaHandoverDetailState {
   initializedKey: string
   proofFiles: ProofFile[]
   selectedPickupRecordId: string
-  pickupConfirmQty: string
   pickupDisputeRecordId: string
   pickupDisputeQty: string
   pickupDisputeReason: string
@@ -52,7 +51,6 @@ const detailState: PdaHandoverDetailState = {
   initializedKey: '',
   proofFiles: [],
   selectedPickupRecordId: '',
-  pickupConfirmQty: '',
   pickupDisputeRecordId: '',
   pickupDisputeQty: '',
   pickupDisputeReason: '',
@@ -146,7 +144,6 @@ function syncHandoutState(handoverId: string): void {
   detailState.handoverRecordRemark = ''
   detailState.proofFiles = []
   detailState.selectedPickupRecordId = ''
-  detailState.pickupConfirmQty = ''
   detailState.pickupDisputeRecordId = ''
   detailState.pickupDisputeQty = ''
   detailState.pickupDisputeReason = ''
@@ -171,12 +168,6 @@ function syncPickupState(head: PdaHandoverHead): void {
 
   detailState.initializedKey = key
   detailState.selectedPickupRecordId = currentRecord?.recordId || ''
-  detailState.pickupConfirmQty =
-    currentRecord && typeof currentRecord.warehouseHandedQty === 'number'
-      ? String(currentRecord.warehouseHandedQty)
-      : currentRecord && typeof currentRecord.qtyExpected === 'number'
-      ? String(currentRecord.qtyExpected)
-      : ''
   detailState.pickupDisputeRecordId = ''
   detailState.pickupDisputeQty = currentRecord && typeof currentRecord.warehouseHandedQty === 'number' ? String(currentRecord.warehouseHandedQty) : ''
   detailState.pickupDisputeReason = ''
@@ -385,8 +376,198 @@ function getPickupRecordStatusMeta(status: PdaPickupRecord['status']): { label: 
   return { label: '平台已裁定', className: 'border-zinc-200 bg-zinc-100 text-zinc-700' }
 }
 
+function getPickupCurrentGuide(
+  record: PdaPickupRecord,
+): { title: string; hint: string; panelClass: string } {
+  if (record.status === 'PENDING_FACTORY_CONFIRM') {
+    return {
+      title: '当前等待你确认',
+      hint: '请确认本次领料，或发起数量差异。',
+      panelClass: 'border-violet-200 bg-violet-50',
+    }
+  }
+  if (record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING') {
+    return {
+      title: '当前等待平台处理',
+      hint: '查看异常单进度与处理结果。',
+      panelClass: 'border-red-200 bg-red-50',
+    }
+  }
+  if (record.status === 'OBJECTION_RESOLVED') {
+    return {
+      title: '当前结果已确定',
+      hint: '平台已给出最终结果。',
+      panelClass: 'border-zinc-200 bg-zinc-50',
+    }
+  }
+  if (record.status === 'RECEIVED') {
+    return {
+      title: '当前记录已确认',
+      hint: '本次领料已确认完成。',
+      panelClass: 'border-emerald-200 bg-emerald-50',
+    }
+  }
+  return {
+    title: '当前等待仓库交付',
+    hint: '先查看记录与二维码。',
+    panelClass: 'border-blue-200 bg-blue-50',
+  }
+}
+
 function formatPickupQty(qty: number | undefined, unit: string): string {
   return typeof qty === 'number' ? `${qty} ${unit}` : '—'
+}
+
+function renderPickupCurrentMetric(label: string, value: string, emphasis = false): string {
+  return `
+    <div class="min-w-0">
+      <div class="text-[11px] text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 ${emphasis ? 'text-sm' : 'text-xs'} font-semibold leading-5">${escapeHtml(value)}</div>
+    </div>
+  `
+}
+
+function renderPickupCurrentPanel(record: PdaPickupRecord, showPickupDisputeForm: boolean): string {
+  const warehouseQtyValue = formatPickupQty(record.warehouseHandedQty, record.qtyUnit)
+  const expectedQtyValue = formatPickupQty(record.qtyExpected, record.qtyUnit)
+  const confirmedQtyValue = formatPickupQty(record.factoryConfirmedQty, record.qtyUnit)
+  const reportedQtyValue = formatPickupQty(record.factoryReportedQty, record.qtyUnit)
+  const finalQtyValue = formatPickupQty(record.finalResolvedQty, record.qtyUnit)
+  const shouldShowExpectedInPendingConfirm =
+    typeof record.warehouseHandedQty === 'number' && record.warehouseHandedQty !== record.qtyExpected
+
+  if (record.status === 'PENDING_FACTORY_CONFIRM') {
+    return `
+      <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2 ${shouldShowExpectedInPendingConfirm ? 'lg:grid-cols-3' : ''}">
+        ${renderPickupCurrentMetric('仓库交付数量', warehouseQtyValue, true)}
+        ${renderPickupCurrentMetric('仓库交付时间', record.warehouseHandedAt || '待仓库扫码交付')}
+        ${
+          shouldShowExpectedInPendingConfirm
+            ? renderPickupCurrentMetric('本次应领数量', expectedQtyValue)
+            : ''
+        }
+      </div>
+
+      <div class="flex flex-wrap gap-2 pt-1">
+        <button
+          class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          data-pda-handoverd-action="confirm-pickup-record"
+          data-record-id="${escapeHtml(record.recordId)}"
+        >确认本次领料</button>
+        <button
+          class="inline-flex h-9 items-center rounded-md border border-red-200 bg-background px-4 text-sm text-red-700 hover:bg-red-50"
+          data-pda-handoverd-action="open-pickup-record-objection"
+          data-record-id="${escapeHtml(record.recordId)}"
+        >数量有差异</button>
+      </div>
+
+      ${
+        showPickupDisputeForm
+          ? `
+              <div class="space-y-3 border-t border-dashed border-red-200 pt-3">
+                <div class="grid gap-3 md:grid-cols-2">
+                  <label class="space-y-1">
+                    <span class="text-xs font-medium">工厂实际收到数量 *</span>
+                    <input
+                      class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                      type="number"
+                      value="${escapeHtml(detailState.pickupDisputeQty)}"
+                      data-pda-handoverd-field="pickupDisputeQty"
+                    />
+                  </label>
+                  <label class="space-y-1">
+                    <span class="text-xs font-medium">差异原因 *</span>
+                    <input
+                      class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                      value="${escapeHtml(detailState.pickupDisputeReason)}"
+                      data-pda-handoverd-field="pickupDisputeReason"
+                      placeholder="例如：实际到货少于仓库交付数量"
+                    />
+                  </label>
+                </div>
+                <label class="space-y-1">
+                  <span class="text-xs font-medium">差异说明</span>
+                  <textarea
+                    class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    data-pda-handoverd-field="pickupDisputeRemark"
+                    placeholder="补充现场复点结果、包装异常或短少说明"
+                  >${escapeHtml(detailState.pickupDisputeRemark)}</textarea>
+                </label>
+                <div class="space-y-1">
+                  <span class="text-xs font-medium">图片 / 视频证据</span>
+                  ${renderPickupProofFiles(detailState.pickupDisputeProofFiles)}
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    class="inline-flex h-9 items-center rounded-md bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700"
+                    data-pda-handoverd-action="submit-pickup-record-objection"
+                    data-record-id="${escapeHtml(record.recordId)}"
+                  >提交数量差异</button>
+                  <button
+                    class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted"
+                    data-pda-handoverd-action="cancel-pickup-record-objection"
+                  >取消</button>
+                </div>
+              </div>
+            `
+          : ''
+      }
+    `
+  }
+
+  if (record.status === 'RECEIVED') {
+    return `
+      <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
+        ${renderPickupCurrentMetric('已确认数量', confirmedQtyValue, true)}
+        ${renderPickupCurrentMetric('确认时间', record.factoryConfirmedAt || record.receivedAt || '—')}
+      </div>
+      <div class="text-xs text-emerald-700">本次领料已确认完成。</div>
+    `
+  }
+
+  if (record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING') {
+    return `
+      <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2 lg:grid-cols-3">
+        ${renderPickupCurrentMetric('仓库交付数量', warehouseQtyValue, true)}
+        ${renderPickupCurrentMetric('工厂申报数量', reportedQtyValue)}
+        ${renderPickupCurrentMetric('异常单号', record.exceptionCaseId || '待生成')}
+      </div>
+      <div class="space-y-2 pt-1 text-xs text-red-700">
+        ${record.followUpRemark ? `<p>处理进度：${escapeHtml(record.followUpRemark)}</p>` : ''}
+        <div class="flex flex-wrap gap-2">
+          <button
+            class="inline-flex h-9 items-center rounded-md border border-red-200 bg-background px-4 text-sm hover:bg-red-100"
+            data-pda-handoverd-action="goto-pickup-record-exception"
+            data-record-id="${escapeHtml(record.recordId)}"
+          >去异常定位与处理</button>
+        </div>
+      </div>
+    `
+  }
+
+  if (record.status === 'OBJECTION_RESOLVED') {
+    return `
+      <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
+        ${renderPickupCurrentMetric('最终确认数量', finalQtyValue, true)}
+        ${renderPickupCurrentMetric('裁定时间', record.finalResolvedAt || '—')}
+      </div>
+      <div class="space-y-1 pt-1 text-xs text-zinc-700">
+        ${record.resolvedRemark ? `<p>处理说明：${escapeHtml(record.resolvedRemark)}</p>` : ''}
+      </div>
+    `
+  }
+
+  return `
+    <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
+      ${renderPickupCurrentMetric('本次应领数量', expectedQtyValue, true)}
+      ${
+        record.warehouseHandedAt
+          ? renderPickupCurrentMetric('仓库交付时间', record.warehouseHandedAt)
+          : ''
+      }
+    </div>
+    <div class="pt-1 text-xs text-blue-700">当前先查看记录与二维码，待仓库交付后再处理。</div>
+  `
 }
 
 function renderPickupProofFiles(files: ProofFile[]): string {
@@ -436,12 +617,6 @@ function renderPickupProofFiles(files: ProofFile[]): string {
 
 function selectPickupRecord(record: PdaPickupRecord | undefined): void {
   detailState.selectedPickupRecordId = record?.recordId || ''
-  detailState.pickupConfirmQty =
-    record && typeof record.warehouseHandedQty === 'number'
-      ? String(record.warehouseHandedQty)
-      : record
-      ? String(record.qtyExpected)
-      : ''
   detailState.pickupDisputeRecordId = ''
   detailState.pickupDisputeQty =
     record && typeof record.warehouseHandedQty === 'number'
@@ -457,20 +632,38 @@ function selectPickupRecord(record: PdaPickupRecord | undefined): void {
 function renderPickupRecordItem(record: PdaPickupRecord): string {
   const meta = getPickupRecordStatusMeta(record.status)
   const selected = detailState.selectedPickupRecordId === record.recordId
-  const objectionStatusLabel =
-    record.status === 'OBJECTION_REPORTED'
-      ? '已发起'
-      : record.status === 'OBJECTION_PROCESSING'
-        ? '处理中'
-        : record.status === 'OBJECTION_RESOLVED'
-          ? '已处理'
-          : '无'
+  const materialSubject = [record.materialName, record.materialSpec].filter(Boolean).join(' · ')
+  const sceneChips = [
+    record.skuCode ? `SKU ${record.skuCode}` : '',
+    record.skuColor ? `颜色 ${record.skuColor}` : '',
+    record.skuSize ? `尺码 ${record.skuSize}` : '',
+    record.pieceName ? `裁片 ${record.pieceName}` : '',
+  ].filter(Boolean)
+  const sceneRemark = record.remark?.trim() ? record.remark : ''
+  const platformRemark =
+    record.status === 'OBJECTION_PROCESSING' || record.status === 'OBJECTION_RESOLVED'
+      ? (record.resolvedRemark || record.followUpRemark || '').trim()
+      : ''
+  const warehouseQtyValue = formatPickupQty(record.warehouseHandedQty, record.qtyUnit)
+  const factoryQtyValue = typeof record.factoryConfirmedQty === 'number' ? formatPickupQty(record.factoryConfirmedQty, record.qtyUnit) : ''
+  const finalQtyValue = typeof record.finalResolvedQty === 'number' ? formatPickupQty(record.finalResolvedQty, record.qtyUnit) : ''
+  const progressFields = [
+    factoryQtyValue ? renderFieldRow('工厂确认数量', factoryQtyValue, true) : '',
+    finalQtyValue ? renderFieldRow('最终确认数量', finalQtyValue, true) : '',
+    record.warehouseHandedAt ? renderFieldRow('仓库交付时间', record.warehouseHandedAt) : '',
+    record.factoryConfirmedAt || record.receivedAt
+      ? renderFieldRow('工厂确认时间', record.factoryConfirmedAt || record.receivedAt || '')
+      : '',
+    record.exceptionCaseId ? renderFieldRow('异常单号', record.exceptionCaseId, true) : '',
+  ].filter(Boolean)
+  const resultTitle = record.status === 'OBJECTION_RESOLVED' ? '平台处理结果' : '数量差异处理'
+  const shouldShowResultZone = Boolean(record.objectionReason || record.objectionRemark || record.resolvedRemark || record.followUpRemark)
 
   return `
-    <article class="space-y-3 rounded-lg border ${selected ? 'border-primary bg-primary/5' : 'bg-card'} p-3">
+    <article data-testid="pickup-record-card" class="space-y-2.5 rounded-lg border ${selected ? 'border-primary bg-primary/5 ring-1 ring-primary/10 shadow-sm' : 'bg-card shadow-sm'} p-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
-          <span class="font-mono text-xs text-muted-foreground">${escapeHtml(record.recordId)}</span>
+          <span class="font-mono text-sm font-semibold text-foreground">${escapeHtml(record.recordId)}</span>
           <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">第 ${record.sequenceNo} 次领料</span>
           <span class="inline-flex items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
         </div>
@@ -482,45 +675,66 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
         >${selected ? '当前处理中' : '查看本条记录'}</button>
       </div>
 
-      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        <div><span class="text-muted-foreground">领料方式：</span>${escapeHtml(record.pickupModeLabel)}</div>
-        <div><span class="text-muted-foreground">物料说明：</span>${escapeHtml(record.materialSummary)}</div>
-        <div><span class="text-muted-foreground">物料名称：</span>${escapeHtml(record.materialName || '—')}</div>
-        <div><span class="text-muted-foreground">物料规格：</span>${escapeHtml(record.materialSpec || '—')}</div>
-        <div><span class="text-muted-foreground">SKU：</span>${escapeHtml(record.skuCode || '—')}</div>
-        <div><span class="text-muted-foreground">颜色/尺码：</span>${escapeHtml(record.skuColor || '—')} / ${escapeHtml(record.skuSize || '—')}</div>
-        <div><span class="text-muted-foreground">裁片：</span>${escapeHtml(record.pieceName || '—')}</div>
-        <div><span class="text-muted-foreground">本次应领数量：</span>${formatPickupQty(record.qtyExpected, record.qtyUnit)}</div>
-        <div><span class="text-muted-foreground">仓库交付数量：</span>${formatPickupQty(record.warehouseHandedQty, record.qtyUnit)}</div>
-        <div><span class="text-muted-foreground">工厂确认数量：</span>${formatPickupQty(record.factoryConfirmedQty, record.qtyUnit)}</div>
-        <div><span class="text-muted-foreground">最终确认数量：</span>${formatPickupQty(record.finalResolvedQty, record.qtyUnit)}</div>
-        <div><span class="text-muted-foreground">仓库交付时间：</span>${escapeHtml(record.warehouseHandedAt || '待仓库扫码交付')}</div>
-        <div><span class="text-muted-foreground">工厂确认时间：</span>${escapeHtml(record.factoryConfirmedAt || record.receivedAt || '待工厂确认')}</div>
-        <div><span class="text-muted-foreground">数量差异状态：</span>${escapeHtml(objectionStatusLabel)}</div>
-        <div><span class="text-muted-foreground">异常单号：</span>${escapeHtml(record.exceptionCaseId || '—')}</div>
-        <div class="col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(record.remark || '—')}</div>
-        ${
-          record.followUpRemark || record.resolvedRemark
-            ? `<div class="col-span-2"><span class="text-muted-foreground">平台处理说明：</span>${escapeHtml(record.resolvedRemark || record.followUpRemark || '—')}</div>`
-            : ''
-        }
-      </div>
-
-      <div class="rounded-md border bg-muted/30 px-3 py-2">
-        <p class="text-[11px] font-medium text-muted-foreground">领料记录二维码</p>
-        <div class="mt-1 flex items-center gap-2">
-          <i data-lucide="qr-code" class="h-4 w-4 text-primary"></i>
-          <span class="font-mono text-xs">${escapeHtml(record.qrCodeValue)}</span>
-        </div>
-        <p class="mt-1 text-[11px] text-muted-foreground">仓库侧扫码对象固定为领料记录，不是领料头。</p>
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+        ${renderFieldRow('领料方式', record.pickupModeLabel)}
+        ${renderFieldRow('物料说明', record.materialSummary)}
+        ${renderFieldRow('本次应领数量', formatPickupQty(record.qtyExpected, record.qtyUnit), true)}
+        ${renderFieldRow('仓库交付数量', warehouseQtyValue, true)}
       </div>
 
       ${
-        record.objectionReason || record.objectionRemark || record.resolvedRemark
+        progressFields.length > 0
           ? `
+              <div class="h-px bg-border"></div>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                ${progressFields.join('')}
+              </div>
+            `
+          : ''
+      }
+
+      ${
+        materialSubject || sceneChips.length > 0 || sceneRemark
+          ? `
+              <div class="h-px bg-border"></div>
+              <div class="space-y-2 text-xs text-muted-foreground">
+                ${materialSubject ? `<div><span class="font-medium">物料主体：</span>${escapeHtml(materialSubject)}</div>` : ''}
+                ${
+                  sceneChips.length > 0
+                    ? `<div class="flex flex-wrap gap-1.5">${sceneChips
+                        .map(
+                          (chip) =>
+                            `<span class="inline-flex items-center rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-muted-foreground">${escapeHtml(chip)}</span>`,
+                        )
+                        .join('')}</div>`
+                    : ''
+                }
+                ${sceneRemark ? `<div>备注：${escapeHtml(sceneRemark)}</div>` : ''}
+              </div>
+            `
+          : ''
+      }
+
+      <div class="h-px bg-border"></div>
+      <div data-testid="pickup-record-qr" class="flex flex-wrap items-start justify-between gap-2 text-xs">
+        <div class="space-y-1">
+          <p class="text-[11px] font-medium text-muted-foreground">领料记录二维码</p>
+          <div class="flex items-center gap-2">
+            <i data-lucide="qr-code" class="h-4 w-4 text-primary"></i>
+            <span class="font-mono text-xs">${escapeHtml(record.qrCodeValue)}</span>
+          </div>
+        </div>
+        <p class="max-w-[220px] text-[11px] text-muted-foreground">仓库扫码对象固定为领料记录。</p>
+      </div>
+
+      ${
+        shouldShowResultZone
+          ? `
+            <div class="h-px bg-border"></div>
             <div class="rounded-md border ${
               record.status === 'OBJECTION_RESOLVED' ? 'border-zinc-200 bg-zinc-50 text-zinc-700' : 'border-red-200 bg-red-50 text-red-700'
-            } px-2.5 py-2 text-xs">
+            } px-2.5 py-2 text-xs" data-testid="pickup-record-result">
+              <div class="font-medium">${record.status === 'OBJECTION_RESOLVED' ? '平台处理结果' : '数量差异处理'}</div>
               ${record.objectionReason ? `<div>差异原因：${escapeHtml(record.objectionReason)}</div>` : ''}
               ${record.objectionRemark ? `<div class="mt-1">差异说明：${escapeHtml(record.objectionRemark)}</div>` : ''}
               ${
@@ -528,13 +742,37 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
                   ? `<div class="mt-1">证据数量：${record.objectionProofFiles.length}</div>`
                   : ''
               }
-              ${record.followUpRemark ? `<div class="mt-1">平台跟进：${escapeHtml(record.followUpRemark)}</div>` : ''}
-              ${record.resolvedRemark ? `<div class="mt-1">平台裁定：${escapeHtml(record.resolvedRemark)}</div>` : ''}
+              ${record.followUpRemark ? `<div class="mt-1">处理进度：${escapeHtml(record.followUpRemark)}</div>` : ''}
+              ${platformRemark ? `<div class="mt-1">处理说明：${escapeHtml(platformRemark)}</div>` : ''}
             </div>
           `
           : ''
       }
     </article>
+  `
+}
+
+function renderPickupTraceabilitySection(head: PdaHandoverHead, sourceDoc: ReturnType<typeof getPdaHeadSourceExecutionDoc>, runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>): string {
+  return `
+    <details class="rounded-lg border bg-card" data-testid="pickup-traceability">
+      <summary class="cursor-pointer list-none px-3 py-2 text-sm font-medium">
+        <span class="flex items-center justify-between gap-2">
+          <span>来源与追溯信息</span>
+          <i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i>
+        </span>
+      </summary>
+      <div class="space-y-3 border-t px-3 py-3">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
+          ${renderFieldRow('来源执行单', sourceDoc?.docNo || sourceDoc?.id || '—')}
+          ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType || '—')}
+          ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
+          ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+          ${renderFieldRow('拆分组', head.splitGroupId || '未拆分')}
+          ${renderFieldRow('拆分来源', head.splitFromTaskNo || '—')}
+        </div>
+      </div>
+    </details>
   `
 }
 
@@ -547,6 +785,7 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
     ? records.find((record) => record.recordId === detailState.selectedPickupRecordId) ?? records[0]
     : records[0]
   const currentRecordMeta = currentRecord ? getPickupRecordStatusMeta(currentRecord.status) : null
+  const currentGuide = currentRecord ? getPickupCurrentGuide(currentRecord) : null
   const showPickupDisputeForm =
     currentRecord &&
     currentRecord.status === 'PENDING_FACTORY_CONFIRM' &&
@@ -558,23 +797,12 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
       `
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('任务编号', head.taskNo)}
-        ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
         ${renderFieldRow('生产单号', head.productionOrderNo)}
         ${renderFieldRow('当前工序', head.processName)}
-        ${renderFieldRow('任务状态', head.taskStatus === 'DONE' ? '已完工' : '进行中')}
       </div>
       <div class="h-px bg-border"></div>
       ${renderPartyRow('来源仓库', 'WAREHOUSE', head.sourceFactoryName)}
       ${renderPartyRow('领料工厂', 'FACTORY', head.targetName)}
-      <div class="h-px bg-border"></div>
-      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        ${renderFieldRow('来源执行单', sourceDoc?.docNo || sourceDoc?.id || '—')}
-        ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType || '—')}
-        ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
-        ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
-        ${renderFieldRow('拆分组', head.splitGroupId || '未拆分')}
-        ${renderFieldRow('拆分来源', head.splitFromTaskNo || '—')}
-      </div>
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('累计领料记录', `${head.recordCount} 次`)}
@@ -582,22 +810,30 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
         ${renderFieldRow('应领总量', `${head.qtyExpectedTotal} ${head.qtyUnit}`)}
         ${renderFieldRow('累计最终确认总量', `${head.qtyActualTotal} ${head.qtyUnit}`)}
       </div>
-      <div class="rounded-md border ${head.objectionCount > 0 ? 'border-red-200 bg-red-50 text-red-700' : head.qtyDiffTotal !== 0 ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'} px-2.5 py-1.5 text-xs">
+      <div class="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
         ${
-          head.objectionCount > 0
-            ? `当前有 ${head.objectionCount} 条记录进入数量差异处理，最终数量以平台裁定为准`
-            : head.qtyDiffTotal !== 0
-              ? `当前仍有 ${Math.abs(head.qtyDiffTotal)} ${head.qtyUnit} 待确认或待平台裁定`
-              : '当前已无数量差异，等待仓库侧发起头单完成'
+          isCompleted
+            ? `这里只处理领料确认与差异；头单已由仓库发起完成。`
+            : '这里只处理领料确认与差异；头单完成由仓库发起。'
         }
       </div>
-      <div class="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
-        领料记录由仓库配料回写后生成。工厂查看领料记录与二维码，在仓库扫码交付后确认本次领料或发起数量差异；领料头完成仍由仓库侧发起。
-      </div>
-      <div class="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
-        ${isCompleted ? `仓库已发起领料完成：${escapeHtml(head.completedByWarehouseAt || '—')}` : '当前头单待仓库发起完成，工厂不可主动关闭'}
-      </div>
     `,
+    )}
+
+    ${renderSectionCard(
+      '当前记录处理区',
+      !currentRecord
+        ? '<div class="py-4 text-center text-xs text-muted-foreground">当前暂无可处理的领料记录</div>'
+        : `
+            <div data-testid="pickup-current-panel-card" class="space-y-3 rounded-lg border ${currentGuide?.panelClass || 'border-primary/20 bg-primary/5'} px-3 py-3 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="font-mono text-sm font-semibold">${escapeHtml(currentRecord.recordId)}</p>
+                <span class="inline-flex items-center rounded border px-2 py-1 text-xs ${currentRecordMeta?.className || ''}">${escapeHtml(currentRecordMeta?.label || '—')}</span>
+              </div>
+              <p class="text-xs text-muted-foreground">${escapeHtml(currentGuide?.hint || '查看当前记录并继续处理。')}</p>
+              ${renderPickupCurrentPanel(currentRecord, showPickupDisputeForm)}
+            </div>
+          `,
     )}
 
     ${renderSectionCard(
@@ -607,154 +843,7 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
         : `<div class="space-y-2">${records.map((record) => renderPickupRecordItem(record)).join('')}</div>`,
     )}
 
-    ${renderSectionCard(
-      '当前记录处理区',
-      !currentRecord
-        ? '<div class="py-4 text-center text-xs text-muted-foreground">当前暂无可处理的领料记录</div>'
-        : `
-            <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-2">
-              <div>
-                <p class="text-sm font-medium">${escapeHtml(currentRecord.recordId)}</p>
-                <p class="text-xs text-muted-foreground">当前选中第 ${currentRecord.sequenceNo} 次领料记录，可按记录状态进行确认或发起数量差异。</p>
-              </div>
-              <span class="inline-flex items-center rounded border px-2 py-1 text-xs ${currentRecordMeta?.className || ''}">${escapeHtml(currentRecordMeta?.label || '—')}</span>
-            </div>
-
-            ${
-              currentRecord.status === 'PENDING_WAREHOUSE_DISPATCH' || currentRecord.status === 'PENDING_FACTORY_PICKUP'
-                ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">需等仓库扫码交付后，工厂才能确认本次领料或发起数量差异。当前仅可查看记录内容和二维码。</div>`
-                : ''
-            }
-
-            ${
-              currentRecord.status === 'PENDING_FACTORY_CONFIRM'
-                ? `
-                    <div class="space-y-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-3">
-                      <div class="grid gap-3 md:grid-cols-2">
-                        <label class="space-y-1">
-                          <span class="text-xs font-medium">工厂确认数量</span>
-                          <input
-                            class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                            type="number"
-                            value="${escapeHtml(detailState.pickupConfirmQty)}"
-                            data-pda-handoverd-field="pickupConfirmQty"
-                          />
-                        </label>
-                        <div class="rounded-md border bg-background px-3 py-2 text-xs">
-                          <p><span class="text-muted-foreground">仓库交付数量：</span>${formatPickupQty(currentRecord.warehouseHandedQty, currentRecord.qtyUnit)}</p>
-                          <p class="mt-1"><span class="text-muted-foreground">仓库交付时间：</span>${escapeHtml(currentRecord.warehouseHandedAt || '待仓库扫码交付')}</p>
-                        </div>
-                      </div>
-                      <div class="flex flex-wrap gap-2">
-                        <button
-                          class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                          data-pda-handoverd-action="confirm-pickup-record"
-                          data-record-id="${escapeHtml(currentRecord.recordId)}"
-                        >确认本次领料</button>
-                        <button
-                          class="inline-flex h-9 items-center rounded-md border border-red-200 bg-background px-4 text-sm text-red-700 hover:bg-red-50"
-                          data-pda-handoverd-action="open-pickup-record-objection"
-                          data-record-id="${escapeHtml(currentRecord.recordId)}"
-                        >发起数量差异</button>
-                      </div>
-
-                      ${
-                        showPickupDisputeForm
-                          ? `
-                              <div class="space-y-3 rounded-md border border-red-200 bg-background px-3 py-3">
-                                <div class="grid gap-3 md:grid-cols-2">
-                                  <label class="space-y-1">
-                                    <span class="text-xs font-medium">工厂实际收到数量 *</span>
-                                    <input
-                                      class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                                      type="number"
-                                      value="${escapeHtml(detailState.pickupDisputeQty)}"
-                                      data-pda-handoverd-field="pickupDisputeQty"
-                                    />
-                                  </label>
-                                  <label class="space-y-1">
-                                    <span class="text-xs font-medium">差异原因 *</span>
-                                    <input
-                                      class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                                      value="${escapeHtml(detailState.pickupDisputeReason)}"
-                                      data-pda-handoverd-field="pickupDisputeReason"
-                                      placeholder="例如：实际到货少于仓库交付数量"
-                                    />
-                                  </label>
-                                </div>
-                                <label class="space-y-1">
-                                  <span class="text-xs font-medium">差异说明</span>
-                                  <textarea
-                                    class="min-h-[84px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-                                    data-pda-handoverd-field="pickupDisputeRemark"
-                                    placeholder="补充现场复点结果、包装异常或短少说明"
-                                  >${escapeHtml(detailState.pickupDisputeRemark)}</textarea>
-                                </label>
-                                <div class="space-y-1">
-                                  <span class="text-xs font-medium">图片 / 视频证据</span>
-                                  ${renderPickupProofFiles(detailState.pickupDisputeProofFiles)}
-                                </div>
-                                <div class="flex flex-wrap gap-2">
-                                  <button
-                                    class="inline-flex h-9 items-center rounded-md bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700"
-                                    data-pda-handoverd-action="submit-pickup-record-objection"
-                                    data-record-id="${escapeHtml(currentRecord.recordId)}"
-                                  >提交数量差异</button>
-                                  <button
-                                    class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted"
-                                    data-pda-handoverd-action="cancel-pickup-record-objection"
-                                  >取消</button>
-                                </div>
-                              </div>
-                            `
-                          : ''
-                      }
-                    </div>
-                  `
-                : ''
-            }
-
-            ${
-              currentRecord.status === 'RECEIVED'
-                ? `<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">工厂已确认本次领料：${formatPickupQty(currentRecord.factoryConfirmedQty, currentRecord.qtyUnit)}，确认时间 ${escapeHtml(currentRecord.factoryConfirmedAt || currentRecord.receivedAt || '—')}。</div>`
-                : ''
-            }
-
-            ${
-              currentRecord.status === 'OBJECTION_REPORTED' || currentRecord.status === 'OBJECTION_PROCESSING'
-                ? `
-                    <div class="space-y-2 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-xs text-red-700">
-                      <p>异议原因：${escapeHtml(currentRecord.objectionReason || '—')}</p>
-                      <p>异议说明：${escapeHtml(currentRecord.objectionRemark || '—')}</p>
-                      <p>证据数量：${currentRecord.objectionProofFiles?.length || 0}</p>
-                      <p>异常单号：${escapeHtml(currentRecord.exceptionCaseId || '—')}</p>
-                      <p>平台处理进度：${escapeHtml(currentRecord.followUpRemark || '待平台接手处理')}</p>
-                      <div class="flex flex-wrap gap-2 pt-1">
-                        <button
-                          class="inline-flex h-9 items-center rounded-md border border-red-200 bg-background px-4 text-sm hover:bg-red-100"
-                          data-pda-handoverd-action="goto-pickup-record-exception"
-                          data-record-id="${escapeHtml(currentRecord.recordId)}"
-                        >去异常定位与处理</button>
-                      </div>
-                    </div>
-                  `
-                : ''
-            }
-
-            ${
-              currentRecord.status === 'OBJECTION_RESOLVED'
-                ? `
-                    <div class="space-y-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-xs text-zinc-700">
-                      <p>平台最终确认数量：${formatPickupQty(currentRecord.finalResolvedQty, currentRecord.qtyUnit)}</p>
-                      <p>平台处理说明：${escapeHtml(currentRecord.resolvedRemark || '—')}</p>
-                      <p>最终裁定时间：${escapeHtml(currentRecord.finalResolvedAt || '—')}</p>
-                      <p>异常单号：${escapeHtml(currentRecord.exceptionCaseId || '—')}</p>
-                    </div>
-                  `
-                : ''
-            }
-          `,
-    )}
+    ${renderPickupTraceabilitySection(head, sourceDoc, runtimeTask)}
   `
 }
 
@@ -1099,11 +1188,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
-    if (field === 'pickupConfirmQty') {
-      detailState.pickupConfirmQty = fieldNode.value
-      return true
-    }
-
     if (field === 'pickupDisputeQty') {
       detailState.pickupDisputeQty = fieldNode.value
       return true
@@ -1271,13 +1355,12 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       showPdaHandoverDetailToast('当前记录暂不可确认领料')
       return true
     }
-    const factoryConfirmedQty = Number(detailState.pickupConfirmQty)
-    if (!Number.isFinite(factoryConfirmedQty) || factoryConfirmedQty < 0) {
-      showPdaHandoverDetailToast('请先填写正确的工厂确认数量')
+    if (typeof currentRecord.warehouseHandedQty !== 'number' || currentRecord.warehouseHandedQty < 0) {
+      showPdaHandoverDetailToast('当前记录缺少仓库交付数量')
       return true
     }
     const updated = confirmPdaPickupRecordReceived(recordId, {
-      factoryConfirmedQty,
+      factoryConfirmedQty: currentRecord.warehouseHandedQty,
       factoryConfirmedAt: nowTimestamp(),
     })
     if (!updated) {

@@ -56,7 +56,6 @@ export interface Factory {
   status: FactoryStatus
   cooperationMode: CooperationMode
   capabilities: CapabilityTag[]
-  monthlyCapacity: number
   qualityScore: number
   deliveryScore: number
   createdAt: string
@@ -81,7 +80,6 @@ export interface FactoryFormData {
   status: FactoryStatus
   cooperationMode: CooperationMode
   capabilities: string[]
-  monthlyCapacity: number
   // 新增字段
   factoryTier: FactoryTier
   factoryType: FactoryType

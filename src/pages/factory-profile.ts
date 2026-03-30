@@ -84,7 +84,6 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
   status: 'active',
   cooperationMode: 'general',
   capabilities: [],
-  monthlyCapacity: 0,
   factoryTier: 'CENTRAL',
   factoryType: 'CENTRAL_POD',
   parentFactoryId: undefined,
@@ -196,7 +195,6 @@ function createFormData(factory: Factory | null): FactoryFormData {
     status: factory.status,
     cooperationMode: factory.cooperationMode,
     capabilities: factory.capabilities.map((tag) => tag.id),
-    monthlyCapacity: factory.monthlyCapacity,
     factoryTier: factory.factoryTier,
     factoryType: factory.factoryType,
     parentFactoryId: factory.parentFactoryId,
@@ -585,7 +583,7 @@ function renderFactoryTableRows(factories: Factory[]): string {
   if (factories.length === 0) {
     return `
       <tr>
-        <td colspan="13" class="h-24 px-4 text-center text-muted-foreground">暂无工厂数据</td>
+        <td colspan="12" class="h-24 px-4 text-center text-muted-foreground">暂无工厂数据</td>
       </tr>
     `
   }
@@ -606,7 +604,6 @@ function renderFactoryTableRows(factories: Factory[]): string {
           <td class="px-3 py-3 text-sm">${escapeHtml(factory.contact ?? '-')}</td>
           <td class="px-3 py-3 text-xs font-mono whitespace-nowrap">${escapeHtml(factory.phone ?? '-')}</td>
           <td class="max-w-[160px] px-3 py-3 text-sm text-muted-foreground truncate" title="${escapeHtml(factory.address ?? '-')}">${escapeHtml(factory.address ?? '-')}</td>
-          <td class="px-3 py-3 text-right text-sm tabular-nums">${factory.monthlyCapacity ? Math.round(factory.monthlyCapacity).toLocaleString() : '-'}</td>
           <td class="px-3 py-3">
             <span class="inline-flex rounded border px-2 py-0.5 text-xs ${tierConfig.color}">${escapeHtml(tierConfig.label)}</span>
           </td>
@@ -1068,16 +1065,10 @@ function renderFactoryDrawer(): string {
                 </label>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
-                <label class="space-y-1.5">
-                  <span class="text-sm">联系电话 *</span>
-                  <input data-factory-field="phone" value="${escapeHtml(draft.phone)}" class="w-full rounded-md border px-3 py-2 text-sm" placeholder="请输入联系电话" />
-                </label>
-                <label class="space-y-1.5">
-                  <span class="text-sm">月产能（件）</span>
-                  <input data-factory-field="monthlyCapacity" value="${draft.monthlyCapacity}" type="number" min="0" class="w-full rounded-md border px-3 py-2 text-sm" placeholder="请输入月产能" />
-                </label>
-              </div>
+              <label class="space-y-1.5">
+                <span class="text-sm">联系电话 *</span>
+                <input data-factory-field="phone" value="${escapeHtml(draft.phone)}" class="w-full rounded-md border px-3 py-2 text-sm" placeholder="请输入联系电话" />
+              </label>
 
               <label class="space-y-1.5">
                 <span class="text-sm">工厂地址 *</span>
@@ -1378,7 +1369,6 @@ export function renderFactoryProfilePage(): string {
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">联系人</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">联系电话</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">地址</th>
-              <th class="px-3 py-3 text-right text-xs font-medium text-muted-foreground">月产能</th>
               <th class="px-3 py-3 text-left">
                 <button data-factory-action="sort" data-sort-field="tier" class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">工厂层级 ${renderSortIcon('tier')}</button>
               </th>
@@ -1451,7 +1441,6 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
     status: data.status,
     cooperationMode: data.cooperationMode,
     capabilities: allCapabilityTags.filter((item) => data.capabilities.includes(item.id)),
-    monthlyCapacity: data.monthlyCapacity,
     qualityScore: 0,
     deliveryScore: 0,
     createdAt: today,
@@ -1475,12 +1464,6 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
 
     if (field === 'name' || field === 'contact' || field === 'address' || field === 'phone') {
       setDraft((prev) => ({ ...prev, [field]: formField.value }))
-      return true
-    }
-
-    if (field === 'monthlyCapacity') {
-      const nextValue = Number(formField.value || 0)
-      setDraft((prev) => ({ ...prev, monthlyCapacity: Number.isFinite(nextValue) ? nextValue : 0 }))
       return true
     }
 
@@ -1845,7 +1828,6 @@ export function handleFactoryPageSubmit(form: HTMLFormElement): boolean {
   data.phone = data.phone.trim()
   data.address = data.address.trim()
   data.pdaTenantId = (data.pdaTenantId ?? '').trim()
-  data.monthlyCapacity = Number.isFinite(data.monthlyCapacity) ? Math.max(0, data.monthlyCapacity) : 0
 
   if (!data.name || !data.contact || !data.phone || !data.address) {
     state.formError = '请完整填写工厂名称、联系人、联系电话和工厂地址。'

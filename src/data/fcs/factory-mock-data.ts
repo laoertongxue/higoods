@@ -97,7 +97,6 @@ export const mockFactories: Factory[] = indonesiaFactories.map((f, index) => ({
   status: mapStatus(f.status),
   cooperationMode: index % 3 === 0 ? 'exclusive' : index % 3 === 1 ? 'preferred' : 'general',
   capabilities: tagsToCapabilities(f.tags),
-  monthlyCapacity: f.monthlyCapacity,
   qualityScore: f.qualityScore,
   deliveryScore: f.deliveryScore,
   createdAt: f.createdAt,
