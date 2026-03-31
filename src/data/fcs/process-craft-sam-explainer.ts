@@ -1,4 +1,5 @@
 import type { SamCurrentFieldKey } from './process-craft-dict.ts'
+import { getSamBusinessFieldLabel } from './sam-field-display.ts'
 
 export type FactorySupplyFormulaTemplate = 'A' | 'B' | 'C' | 'D'
 
@@ -93,6 +94,18 @@ export const EXPECTED_SAM_CURRENT_FIELD_KEYS_BY_TEMPLATE: Record<FactorySupplyFo
   ],
 }
 
+const DEVICE_COUNT_LABEL = getSamBusinessFieldLabel('deviceCount')
+const DEVICE_SHIFT_MINUTES_LABEL = getSamBusinessFieldLabel('deviceShiftMinutes')
+const DEVICE_EFFICIENCY_VALUE_LABEL = getSamBusinessFieldLabel('deviceEfficiencyValue')
+const STAFF_COUNT_LABEL = getSamBusinessFieldLabel('staffCount')
+const STAFF_SHIFT_MINUTES_LABEL = getSamBusinessFieldLabel('staffShiftMinutes')
+const STAFF_EFFICIENCY_VALUE_LABEL = getSamBusinessFieldLabel('staffEfficiencyValue')
+const BATCH_LOAD_CAPACITY_LABEL = getSamBusinessFieldLabel('batchLoadCapacity')
+const CYCLE_MINUTES_LABEL = getSamBusinessFieldLabel('cycleMinutes')
+const SETUP_MINUTES_LABEL = getSamBusinessFieldLabel('setupMinutes')
+const SWITCH_MINUTES_LABEL = getSamBusinessFieldLabel('switchMinutes')
+const EFFICIENCY_FACTOR_LABEL = getSamBusinessFieldLabel('efficiencyFactor')
+
 function buildTemplateAGuide(craftName: string): FactorySupplyFormulaGuide {
   return {
     template: 'A',
@@ -102,8 +115,8 @@ function buildTemplateAGuide(craftName: string): FactorySupplyFormulaGuide {
     ],
     currentFieldKeys: EXPECTED_SAM_CURRENT_FIELD_KEYS_BY_TEMPLATE.A,
     currentFormulaLines: [
-      '基础日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue',
-      '默认日可供给发布工时 SAM = 基础日能力 × efficiencyFactor',
+      `基础日能力 = ${STAFF_COUNT_LABEL} × ${STAFF_SHIFT_MINUTES_LABEL} × ${STAFF_EFFICIENCY_VALUE_LABEL}`,
+      `默认日可供给发布工时 SAM = 基础日能力 × ${EFFICIENCY_FACTOR_LABEL}`,
     ],
     currentExplanationLines: [
       '理想完整口径会同时保留人员效率单位，用来解释人工效率值的业务口径。',
@@ -112,7 +125,7 @@ function buildTemplateAGuide(craftName: string): FactorySupplyFormulaGuide {
       '工厂效率系数用来修正理论结果值和这家工厂实际可兑现能力之间的偏差。',
     ],
     currentExampleLines: [
-      `某工厂做“${craftName}”，有 8 人，每人默认日有效 420 分钟，人员标准效率值 0.8，工厂效率系数 0.9。`,
+      `某工厂做“${craftName}”，${STAFF_COUNT_LABEL} = 8，${STAFF_SHIFT_MINUTES_LABEL} = 420，${STAFF_EFFICIENCY_VALUE_LABEL} = 0.8，${EFFICIENCY_FACTOR_LABEL} = 0.9。`,
       '基础日能力 = 8 × 420 × 0.8 = 2688',
       '默认日可供给发布工时 SAM = 2688 × 0.9 = 2419.2',
     ],
@@ -132,10 +145,10 @@ function buildTemplateBGuide(craftName: string): FactorySupplyFormulaGuide {
     ],
     currentFieldKeys: EXPECTED_SAM_CURRENT_FIELD_KEYS_BY_TEMPLATE.B,
     currentFormulaLines: [
-      '设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue',
-      '人员侧日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue',
+      `设备侧日能力 = ${DEVICE_COUNT_LABEL} × ${DEVICE_SHIFT_MINUTES_LABEL} × ${DEVICE_EFFICIENCY_VALUE_LABEL}`,
+      `人员侧日能力 = ${STAFF_COUNT_LABEL} × ${STAFF_SHIFT_MINUTES_LABEL} × ${STAFF_EFFICIENCY_VALUE_LABEL}`,
       '基础日能力 = 设备侧日能力 和 人员侧日能力 里较小的那个',
-      '默认日可供给发布工时 SAM = (基础日能力 - setupMinutes - switchMinutes) × efficiencyFactor',
+      `默认日可供给发布工时 SAM = （基础日能力 - ${SETUP_MINUTES_LABEL} - ${SWITCH_MINUTES_LABEL}）× ${EFFICIENCY_FACTOR_LABEL}`,
     ],
     currentExplanationLines: [
       '理想完整口径会同时保留设备效率单位和人员效率单位，用来解释设备节拍与人工效率的业务口径。',
@@ -144,7 +157,7 @@ function buildTemplateBGuide(craftName: string): FactorySupplyFormulaGuide {
       '固定准备分钟和切换准备分钟会占掉当天真实可用能力，工厂效率系数再对结果做兑现修正。',
     ],
     currentExampleLines: [
-      `某工厂做“${craftName}”，有 4 台设备，每台默认日有效 420 分钟，设备标准效率值 0.7；有 6 人，每人默认日有效 420 分钟，人员标准效率值 0.9；固定准备 20 分钟，切换准备 10 分钟，工厂效率系数 0.95。`,
+      `某工厂做“${craftName}”，${DEVICE_COUNT_LABEL} = 4，${DEVICE_SHIFT_MINUTES_LABEL} = 420，${DEVICE_EFFICIENCY_VALUE_LABEL} = 0.7；${STAFF_COUNT_LABEL} = 6，${STAFF_SHIFT_MINUTES_LABEL} = 420，${STAFF_EFFICIENCY_VALUE_LABEL} = 0.9；${SETUP_MINUTES_LABEL} = 20，${SWITCH_MINUTES_LABEL} = 10，${EFFICIENCY_FACTOR_LABEL} = 0.95。`,
       '设备侧日能力 = 4 × 420 × 0.7 = 1176',
       '人员侧日能力 = 6 × 420 × 0.9 = 2268',
       '基础日能力 = 1176',
@@ -166,10 +179,10 @@ function buildTemplateCGuide(craftName: string): FactorySupplyFormulaGuide {
     ],
     currentFieldKeys: EXPECTED_SAM_CURRENT_FIELD_KEYS_BY_TEMPLATE.C,
     currentFormulaLines: [
-      '设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue',
-      '人员侧日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue',
+      `设备侧日能力 = ${DEVICE_COUNT_LABEL} × ${DEVICE_SHIFT_MINUTES_LABEL} × ${DEVICE_EFFICIENCY_VALUE_LABEL}`,
+      `人员侧日能力 = ${STAFF_COUNT_LABEL} × ${STAFF_SHIFT_MINUTES_LABEL} × ${STAFF_EFFICIENCY_VALUE_LABEL}`,
       '基础日能力 = 设备侧日能力 和 人员侧日能力 里较小的那个',
-      '默认日可供给发布工时 SAM = (基础日能力 - setupMinutes - switchMinutes) × efficiencyFactor',
+      `默认日可供给发布工时 SAM = （基础日能力 - ${SETUP_MINUTES_LABEL} - ${SWITCH_MINUTES_LABEL}）× ${EFFICIENCY_FACTOR_LABEL}`,
     ],
     currentExplanationLines: [
       '理想完整口径会保留设备效率单位和人员效率单位，用来解释连续推进速度与人工速度口径。',
@@ -178,7 +191,7 @@ function buildTemplateCGuide(craftName: string): FactorySupplyFormulaGuide {
       '准备分钟与工厂效率系数仍保留，用来修正当天真实能兑现的发布工时 SAM。',
     ],
     currentExampleLines: [
-      `某工厂做“${craftName}”，有 3 台设备，每台默认日有效 420 分钟，设备标准效率值 0.8；有 4 人，每人默认日有效 420 分钟，人员标准效率值 0.85；固定准备 15 分钟，切换准备 10 分钟，工厂效率系数 0.9。`,
+      `某工厂做“${craftName}”，${DEVICE_COUNT_LABEL} = 3，${DEVICE_SHIFT_MINUTES_LABEL} = 420，${DEVICE_EFFICIENCY_VALUE_LABEL} = 0.8；${STAFF_COUNT_LABEL} = 4，${STAFF_SHIFT_MINUTES_LABEL} = 420，${STAFF_EFFICIENCY_VALUE_LABEL} = 0.85；${SETUP_MINUTES_LABEL} = 15，${SWITCH_MINUTES_LABEL} = 10，${EFFICIENCY_FACTOR_LABEL} = 0.9。`,
       '设备侧日能力 = 3 × 420 × 0.8 = 1008',
       '人员侧日能力 = 4 × 420 × 0.85 = 1428',
       '基础日能力 = 1008',
@@ -201,11 +214,11 @@ function buildTemplateDGuide(craftName: string): FactorySupplyFormulaGuide {
     ],
     currentFieldKeys: EXPECTED_SAM_CURRENT_FIELD_KEYS_BY_TEMPLATE.D,
     currentFormulaLines: [
-      '单台默认日可运行批数 = deviceShiftMinutes ÷ cycleMinutes',
-      '设备侧日能力 = 单台默认日可运行批数 × batchLoadCapacity × deviceCount',
-      '人员侧日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue',
+      `单台默认日可运行批数 = ${DEVICE_SHIFT_MINUTES_LABEL} ÷ ${CYCLE_MINUTES_LABEL}`,
+      `设备侧日能力 = 单台默认日可运行批数 × ${BATCH_LOAD_CAPACITY_LABEL} × ${DEVICE_COUNT_LABEL}`,
+      `人员侧日能力 = ${STAFF_COUNT_LABEL} × ${STAFF_SHIFT_MINUTES_LABEL} × ${STAFF_EFFICIENCY_VALUE_LABEL}`,
       '基础日能力 = 设备侧日能力 和 人员侧日能力 里较小的那个',
-      '默认日可供给发布工时 SAM = (基础日能力 - setupMinutes - switchMinutes) × efficiencyFactor',
+      `默认日可供给发布工时 SAM = （基础日能力 - ${SETUP_MINUTES_LABEL} - ${SWITCH_MINUTES_LABEL}）× ${EFFICIENCY_FACTOR_LABEL}`,
     ],
     currentExplanationLines: [
       '理想完整口径会保留装载量单位和人员效率单位，用来解释批次装载量和人工效率的业务口径。',
@@ -214,7 +227,7 @@ function buildTemplateDGuide(craftName: string): FactorySupplyFormulaGuide {
       '固定准备分钟、切换准备分钟和工厂效率系数一起决定当天可兑现的默认日可供给发布工时 SAM。',
     ],
     currentExampleLines: [
-      `某工厂做“${craftName}”，有 2 台设备，每台默认日有效 420 分钟，单次有效装载量 100，单次循环 90 分钟；有 3 人，每人默认日有效 420 分钟，人员标准效率值 0.8；固定准备 20 分钟，切换准备 10 分钟，工厂效率系数 0.9。`,
+      `某工厂做“${craftName}”，${DEVICE_COUNT_LABEL} = 2，${DEVICE_SHIFT_MINUTES_LABEL} = 420，${BATCH_LOAD_CAPACITY_LABEL} = 100，${CYCLE_MINUTES_LABEL} = 90；${STAFF_COUNT_LABEL} = 3，${STAFF_SHIFT_MINUTES_LABEL} = 420，${STAFF_EFFICIENCY_VALUE_LABEL} = 0.8；${SETUP_MINUTES_LABEL} = 20，${SWITCH_MINUTES_LABEL} = 10，${EFFICIENCY_FACTOR_LABEL} = 0.9。`,
       '单台默认日可运行批数 = 420 ÷ 90 = 4.67',
       '设备侧日能力 = 4.67 × 100 × 2 = 934',
       '人员侧日能力 = 3 × 420 × 0.8 = 1008',

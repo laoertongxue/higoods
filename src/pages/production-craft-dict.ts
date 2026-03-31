@@ -10,6 +10,7 @@ import {
   type ProcessCraftDictRow,
 } from '../data/fcs/process-craft-dict'
 import { getFactorySupplyFormulaGuide } from '../data/fcs/process-craft-sam-explainer'
+import { getSamBusinessFieldDescription, getSamBusinessFieldLabel } from '../data/fcs/sam-field-display'
 import { type ProcessAssignmentGranularity } from '../data/fcs/process-types'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
@@ -91,8 +92,8 @@ function renderSamFieldGroups(fieldKeys: ProcessCraftDictRow['samIdealFieldKeys'
                   .map(
                     (field) => `
                       <p class="text-[11px] leading-4 text-slate-700" data-testid="sam-field-item">
-                        <span class="font-medium">${escapeHtml(field.label)}：</span>
-                        <span class="text-muted-foreground">${escapeHtml(field.description)}</span>
+                        <span class="font-medium">${escapeHtml(getSamBusinessFieldLabel(field.key))}：</span>
+                        <span class="text-muted-foreground">${escapeHtml(getSamBusinessFieldDescription(field.key))}</span>
                       </p>
                     `,
                   )

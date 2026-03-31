@@ -18,12 +18,12 @@ import {
 import {
   SAM_CALC_MODE_LABEL,
   getProcessCraftDictRowByCode,
-  getSamFactoryFieldDefinitionByKey,
   listProcessStages,
   listProcessesByStageCode,
   type ProcessCraftDictRow,
   type SamCurrentFieldKey,
 } from '../data/fcs/process-craft-dict'
+import { getSamBusinessFieldDescription, getSamBusinessFieldLabel } from '../data/fcs/sam-field-display'
 import { escapeHtml } from '../utils'
 import { updateFactoryCapacityEntryValue } from '../data/fcs/factory-capacity-profile-mock'
 
@@ -43,16 +43,6 @@ const state: FactoryCapacityProfilePageState = {
   typeFilter: 'all',
   currentPage: 1,
   activeFactoryId: '',
-}
-
-const CURRENT_PHASE_FIELD_LABELS: Partial<Record<SamCurrentFieldKey, string>> = {
-  deviceShiftMinutes: '单台默认日有效分钟',
-  staffShiftMinutes: '单人默认日有效分钟',
-}
-
-const CURRENT_PHASE_FIELD_DESCRIPTIONS: Partial<Record<SamCurrentFieldKey, string>> = {
-  deviceShiftMinutes: '当前阶段按单台设备默认日有效分钟理解，用于自动计算当天设备侧可供给能力。',
-  staffShiftMinutes: '当前阶段按单人默认日有效分钟理解，用于自动计算当天人员侧可供给能力。',
 }
 
 function getVisibleFactories(): Factory[] {
@@ -138,7 +128,7 @@ function renderPagination(total: number): string {
 
 function renderFieldValue(label: string, value: string): string {
   return `
-    <div class="space-y-1 rounded-md border bg-muted/20 px-3 py-2">
+    <div class="space-y-1 rounded-lg bg-muted/20 px-3 py-2">
       <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
       <p class="text-sm font-medium text-foreground">${escapeHtml(value)}</p>
     </div>
@@ -192,7 +182,7 @@ function renderCapacityTableRows(factories: Factory[]): string {
 
 function renderReadonlyProcessAbilities(factory: Factory): string {
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="factory-capacity-readonly-abilities">
+    <section class="space-y-4" data-testid="factory-capacity-readonly-abilities">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h4 class="text-sm font-medium text-foreground">工序工艺能力（来自工厂档案）</h4>
@@ -202,9 +192,9 @@ function renderReadonlyProcessAbilities(factory: Factory): string {
       </div>
       <div class="space-y-4">
         ${listProcessStages()
-          .map((stage) => {
+          .map((stage, stageIndex) => {
             const processHtml = listProcessesByStageCode(stage.stageCode)
-              .map((process) => {
+              .map((process, processIndex) => {
                 const ability = factory.processAbilities.find((item) => item.processCode === process.processCode)
                 if (!ability || !ability.craftCodes.length) return ''
 
@@ -218,7 +208,7 @@ function renderReadonlyProcessAbilities(factory: Factory): string {
                   .join('')
 
                 return `
-                  <div class="space-y-2">
+                  <div class="space-y-2 ${processIndex === 0 ? '' : 'border-t border-slate-200 pt-3'}" data-capacity-readonly-process="${escapeHtml(process.processCode)}">
                     <p class="text-sm font-medium text-foreground">${escapeHtml(process.processName)}</p>
                     <div class="flex flex-wrap gap-2">${craftChips}</div>
                   </div>
@@ -230,8 +220,8 @@ function renderReadonlyProcessAbilities(factory: Factory): string {
             if (!processHtml) return ''
 
             return `
-              <div class="rounded-md border bg-muted/20 p-3">
-                <p class="mb-3 text-sm font-medium text-foreground">${escapeHtml(stage.stageName)}</p>
+              <div class="space-y-3 ${stageIndex === 0 ? '' : 'border-t border-slate-200 pt-4'}" data-capacity-readonly-stage="${escapeHtml(stage.stageCode)}">
+                <p class="text-sm font-semibold text-foreground">${escapeHtml(stage.stageName)}</p>
                 <div class="space-y-3">${processHtml}</div>
               </div>
             `
@@ -245,7 +235,7 @@ function renderReadonlyProcessAbilities(factory: Factory): string {
 
 function renderTopReadonlyInfo(factory: Factory): string {
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4">
+    <section class="space-y-5 border-b border-slate-200 pb-6" data-capacity-detail-top>
       <div>
         <h4 class="text-sm font-medium text-foreground">工厂基础信息</h4>
       </div>
@@ -265,13 +255,11 @@ function formatCapacityValue(value: FactoryCapacityFieldValue | undefined): stri
 }
 
 function getCurrentPhaseFieldLabel(fieldKey: SamCurrentFieldKey): string {
-  const definition = getSamFactoryFieldDefinitionByKey(fieldKey)
-  return CURRENT_PHASE_FIELD_LABELS[fieldKey] ?? definition?.label ?? fieldKey
+  return getSamBusinessFieldLabel(fieldKey)
 }
 
 function getCurrentPhaseFieldDescription(fieldKey: SamCurrentFieldKey): string {
-  const definition = getSamFactoryFieldDefinitionByKey(fieldKey)
-  return CURRENT_PHASE_FIELD_DESCRIPTIONS[fieldKey] ?? definition?.description ?? ''
+  return getSamBusinessFieldDescription(fieldKey)
 }
 
 function renderCurrentFieldInput(
@@ -304,17 +292,17 @@ function renderCurrentFieldInput(
 function renderCalculationLines(row: ProcessCraftDictRow, values: Record<string, FactoryCapacityFieldValue>): string {
   const result = computeFactoryCapacityEntryResult(row, values)
   return `
-    <div class="space-y-2" data-capacity-calculation-lines>
+    <div class="space-y-0 divide-y divide-slate-200" data-capacity-calculation-lines>
       ${result.lines
         .map((line) => {
           if (line.result === null) {
-            return `<p class="text-xs text-red-600">${escapeHtml(`${line.label}：${line.expression}`)}</p>`
+            return `<p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-red-600">${escapeHtml(`${line.label}：${line.expression}`)}</p>`
           }
 
           return `
-            <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm" data-capacity-calculation-line="${escapeHtml(line.label)}">
+            <div class="py-3 text-sm first:pt-0 last:pb-0" data-capacity-calculation-line="${escapeHtml(line.label)}">
               <p class="font-medium text-foreground">${escapeHtml(line.label)}</p>
-              <p class="mt-1 text-muted-foreground">${escapeHtml(`${line.label} = ${line.expression} = ${Number(line.result.toFixed(2)).toString()}`)}</p>
+              <p class="mt-1 leading-6 text-muted-foreground">${escapeHtml(`${line.label} = ${line.expression} = ${Number(line.result.toFixed(2)).toString()}`)}</p>
             </div>
           `
         })
@@ -328,7 +316,7 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
   const resultText = result.resultValue === null ? '待补齐字段' : Number(result.resultValue.toFixed(2)).toString()
 
   return `
-    <article class="rounded-md border bg-background p-4" data-capacity-entry-card="${row.craftCode}">
+    <article class="space-y-4 rounded-xl bg-muted/20 p-5" data-capacity-entry-card="${row.craftCode}">
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="text-sm font-medium text-foreground">${escapeHtml(row.craftName)}</p>
@@ -340,7 +328,7 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
       </div>
 
       <div class="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-        <section class="space-y-3">
+        <section class="space-y-3 rounded-xl bg-slate-50 px-4 py-4" data-capacity-fields-panel="${row.craftCode}">
           <div>
             <p class="text-xs font-medium text-amber-700">当前阶段最小必要字段</p>
             <p class="mt-1 text-xs text-muted-foreground">只维护该工艺当前阶段真正需要的最小数值字段，系统会自动计算默认日可供给发布工时 SAM。</p>
@@ -354,13 +342,13 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
           </div>
         </section>
 
-        <section class="space-y-4">
-          <div class="rounded-md border bg-blue-50 px-4 py-3" data-capacity-result-block="${row.craftCode}">
+        <section class="space-y-4" data-capacity-results-panel="${row.craftCode}">
+          <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4" data-capacity-result-block="${row.craftCode}">
             <p class="text-xs font-medium text-blue-700">默认日可供给发布工时 SAM</p>
             <p class="mt-2 text-2xl font-semibold text-foreground" data-capacity-result-value="${row.craftCode}">${escapeHtml(resultText)}</p>
             <p class="mt-2 text-xs text-muted-foreground">这是系统根据当前阶段字段自动算出来的结果字段，不是人工录入字段。</p>
           </div>
-          <div class="rounded-md border bg-muted/20 px-4 py-3">
+          <div class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-formula-panel="${row.craftCode}">
             <p class="text-xs font-medium text-foreground">当前阶段公式</p>
             <div class="mt-2 space-y-1 text-sm text-muted-foreground">
               ${row.samCurrentFormulaLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
@@ -370,13 +358,13 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
       </div>
 
       <div class="mt-4 grid gap-4 xl:grid-cols-2">
-        <section class="rounded-md border bg-muted/20 px-4 py-3">
+        <section class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-explanation-panel="${row.craftCode}">
           <p class="text-xs font-medium text-foreground">当前阶段说明</p>
           <div class="mt-2 space-y-2 text-sm text-muted-foreground">
             ${row.samCurrentExplanationLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
           </div>
         </section>
-        <section class="rounded-md border bg-muted/20 px-4 py-3">
+        <section class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-calculation-panel="${row.craftCode}">
           <p class="text-xs font-medium text-foreground">当前输入值代入后的计算过程</p>
           <div class="mt-2">${renderCalculationLines(row, values)}</div>
         </section>
@@ -389,9 +377,9 @@ function renderCurrentStageSection(factory: Factory): string {
   const entries = listFactoryCapacityEntries(factory.id)
 
   const stageSections = listProcessStages()
-    .map((stage) => {
+    .map((stage, stageIndex) => {
       const processBlocks = listProcessesByStageCode(stage.stageCode)
-        .map((process) => {
+        .map((process, processIndex) => {
           const craftCards = entries
             .filter((entry) => entry.row.stageCode === stage.stageCode && entry.row.processCode === process.processCode)
             .map(({ row, entry }) => renderCapacityEntryCard(factory.id, row, entry.values))
@@ -400,7 +388,7 @@ function renderCurrentStageSection(factory: Factory): string {
           if (!craftCards) return ''
 
           return `
-            <div class="space-y-3 rounded-md border bg-muted/20 p-4">
+            <div class="space-y-4 ${processIndex === 0 ? '' : 'border-t border-slate-200 pt-5'}" data-capacity-process-section="${escapeHtml(process.processCode)}">
               <div>
                 <p class="text-sm font-medium text-foreground">${escapeHtml(process.processName)}</p>
                 <p class="mt-1 text-xs text-muted-foreground">当前阶段按该工艺最小必要字段维护，系统自动计算默认日可供给发布工时 SAM。</p>
@@ -415,9 +403,9 @@ function renderCurrentStageSection(factory: Factory): string {
       if (!processBlocks) return ''
 
       return `
-        <section class="space-y-4 rounded-lg border bg-card p-4">
+        <section class="space-y-4 ${stageIndex === 0 ? '' : 'border-t border-slate-200 pt-6'}" data-capacity-stage-section="${escapeHtml(stage.stageCode)}">
           <div>
-            <h4 class="text-sm font-medium text-foreground">${escapeHtml(stage.stageName)}</h4>
+            <h4 class="text-sm font-semibold text-foreground">${escapeHtml(stage.stageName)}</h4>
           </div>
           <div class="space-y-4">${processBlocks}</div>
         </section>
@@ -427,12 +415,12 @@ function renderCurrentStageSection(factory: Factory): string {
     .join('')
 
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="factory-capacity-current-stage-section">
-      <div>
+    <section class="space-y-6" data-testid="factory-capacity-current-stage-section">
+      <div class="border-b border-slate-200 pb-4">
         <h4 class="text-sm font-medium text-foreground">当前阶段最小必要字段与自动计算结果</h4>
         <p class="mt-1 text-xs text-muted-foreground">当前阶段只维护字典规定的最小必要字段，系统自动计算默认日可供给发布工时 SAM。</p>
       </div>
-      <div class="space-y-4">${stageSections}</div>
+      <div class="space-y-6">${stageSections}</div>
     </section>
   `
 }
@@ -456,7 +444,7 @@ function renderCapacityDetailDrawer(): string {
           <button type="button" data-capacity-action="close-detail" class="rounded-md border px-2 py-1 text-xs hover:bg-muted">关闭</button>
         </header>
         <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
-          <div class="space-y-4">
+          <div class="space-y-6">
             ${renderTopReadonlyInfo(factory)}
             ${renderCurrentStageSection(factory)}
           </div>

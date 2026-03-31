@@ -16,6 +16,7 @@ import {
   type SamCurrentFieldKey,
   type SamFactoryFieldKey,
 } from '../src/data/fcs/process-craft-dict.ts'
+import { SAM_BUSINESS_FIELD_DISPLAY_DICT } from '../src/data/fcs/sam-field-display.ts'
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -33,6 +34,14 @@ function assertCurrentFieldSubset(craftName: string, keys: readonly SamCurrentFi
     invariant(allowed.has(key), `${craftName}: 当前阶段字段 ${key} 不在允许集合内`)
   }
 }
+
+const INTERNAL_FIELD_KEYS = Object.keys(SAM_BUSINESS_FIELD_DISPLAY_DICT)
+
+invariant(INTERNAL_FIELD_KEYS.length === 14, '业务字段显示映射数量应覆盖全部 14 个产能字段')
+invariant(SAM_BUSINESS_FIELD_DISPLAY_DICT.deviceCount.label === '设备数量', 'deviceCount 业务名称错误')
+invariant(SAM_BUSINESS_FIELD_DISPLAY_DICT.deviceShiftMinutes.label === '单台默认日有效分钟', 'deviceShiftMinutes 业务名称错误')
+invariant(SAM_BUSINESS_FIELD_DISPLAY_DICT.staffShiftMinutes.label === '单人默认日有效分钟', 'staffShiftMinutes 业务名称错误')
+invariant(SAM_BUSINESS_FIELD_DISPLAY_DICT.efficiencyFactor.label === '工厂效率系数', 'efficiencyFactor 业务名称错误')
 
 function assertRow(row: ProcessCraftDictRow): void {
   invariant(row.samEnabled === true, `${row.craftName}: samEnabled 应为 true`)
@@ -95,6 +104,9 @@ function assertRow(row: ProcessCraftDictRow): void {
   ].join(' ')
   for (const phrase of forbiddenTaskPhrases) {
     invariant(!textBundle.includes(phrase), `${row.craftName}: 仍残留任务需求侧表述 ${phrase}`)
+  }
+  for (const fieldKey of INTERNAL_FIELD_KEYS) {
+    invariant(!textBundle.includes(fieldKey), `${row.craftName}: 仍残留内部字段名 ${fieldKey}`)
   }
   invariant(
     row.samCurrentFormulaLines.some((line) => line.includes('默认日可供给发布工时 SAM')),

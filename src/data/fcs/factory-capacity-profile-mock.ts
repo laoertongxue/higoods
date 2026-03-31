@@ -1,6 +1,5 @@
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 import {
-  getSamFactoryFieldDefinitionByKey,
   getProcessCraftDictRowByCode,
   listCraftsByProcessCode,
   listProcessStages,
@@ -9,6 +8,7 @@ import {
   type SamCurrentFieldKey,
 } from './process-craft-dict.ts'
 import { getFactorySupplyFormulaTemplate, type FactorySupplyFormulaTemplate } from './process-craft-sam-explainer.ts'
+import { getSamBusinessFieldLabel } from './sam-field-display.ts'
 import type {
   Factory,
   FactoryCapacityEntry,
@@ -249,6 +249,10 @@ function formatResultNumber(value: number): string {
   return Number(value.toFixed(2)).toString()
 }
 
+function formatNamedNumber(key: SamCurrentFieldKey, value: number): string {
+  return `${getSamBusinessFieldLabel(key)}（${formatResultNumber(value)}）`
+}
+
 export function computeFactoryCapacityEntryResult(
   row: ProcessCraftDictRow,
   values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
@@ -263,7 +267,7 @@ export function computeFactoryCapacityEntryResult(
       lines: [
         {
           label: '待补充字段',
-          expression: `请先补齐：${missingFieldKeys.map((key) => getSamFactoryFieldDefinitionByKey(key).label).join('、')}`,
+          expression: `请先补齐：${missingFieldKeys.map((key) => getSamBusinessFieldLabel(key)).join('、')}`,
           result: null,
         },
       ],
@@ -286,12 +290,12 @@ export function computeFactoryCapacityEntryResult(
       lines: [
         {
           label: '基础日能力',
-          expression: `${formatResultNumber(staffCount)} × ${formatResultNumber(staffShiftMinutes)} × ${formatResultNumber(staffEfficiencyValue)}`,
+          expression: `${formatNamedNumber('staffCount', staffCount)} × ${formatNamedNumber('staffShiftMinutes', staffShiftMinutes)} × ${formatNamedNumber('staffEfficiencyValue', staffEfficiencyValue)}`,
           result: baseCapacity,
         },
         {
           label: '默认日可供给发布工时 SAM',
-          expression: `${formatResultNumber(baseCapacity)} × ${formatResultNumber(efficiencyFactor)}`,
+          expression: `基础日能力（${formatResultNumber(baseCapacity)}）× ${formatNamedNumber('efficiencyFactor', efficiencyFactor)}`,
           result: resultValue,
         },
       ],
@@ -322,27 +326,27 @@ export function computeFactoryCapacityEntryResult(
       lines: [
         {
           label: '单台默认日可运行批数',
-          expression: `${formatResultNumber(deviceShiftMinutes)} ÷ ${formatResultNumber(cycleMinutes)}`,
+          expression: `${formatNamedNumber('deviceShiftMinutes', deviceShiftMinutes)} ÷ ${formatNamedNumber('cycleMinutes', cycleMinutes)}`,
           result: deviceBatchCount,
         },
         {
           label: '设备侧日能力',
-          expression: `${formatResultNumber(deviceBatchCount)} × ${formatResultNumber(batchLoadCapacity)} × ${formatResultNumber(deviceCount)}`,
+          expression: `单台默认日可运行批数（${formatResultNumber(deviceBatchCount)}）× ${formatNamedNumber('batchLoadCapacity', batchLoadCapacity)} × ${formatNamedNumber('deviceCount', deviceCount)}`,
           result: deviceCapacity,
         },
         {
           label: '人员侧日能力',
-          expression: `${formatResultNumber(staffCount)} × ${formatResultNumber(staffShiftMinutes)} × ${formatResultNumber(staffEfficiencyValue)}`,
+          expression: `${formatNamedNumber('staffCount', staffCount)} × ${formatNamedNumber('staffShiftMinutes', staffShiftMinutes)} × ${formatNamedNumber('staffEfficiencyValue', staffEfficiencyValue)}`,
           result: staffCapacity,
         },
         {
           label: '基础日能力',
-          expression: `${formatResultNumber(deviceCapacity)} 和 ${formatResultNumber(staffCapacity)} 里较小的那个`,
+          expression: `设备侧日能力（${formatResultNumber(deviceCapacity)}）和人员侧日能力（${formatResultNumber(staffCapacity)}）里较小的那个`,
           result: baseCapacity,
         },
         {
           label: '默认日可供给发布工时 SAM',
-          expression: `(${formatResultNumber(baseCapacity)} - ${formatResultNumber(setupMinutes)} - ${formatResultNumber(switchMinutes)}) × ${formatResultNumber(efficiencyFactor)}`,
+          expression: `（基础日能力（${formatResultNumber(baseCapacity)}） - ${formatNamedNumber('setupMinutes', setupMinutes)} - ${formatNamedNumber('switchMinutes', switchMinutes)}）× ${formatNamedNumber('efficiencyFactor', efficiencyFactor)}`,
           result: resultValue,
         },
       ],
@@ -370,22 +374,22 @@ export function computeFactoryCapacityEntryResult(
     lines: [
       {
         label: '设备侧日能力',
-        expression: `${formatResultNumber(deviceCount)} × ${formatResultNumber(deviceShiftMinutes)} × ${formatResultNumber(deviceEfficiencyValue)}`,
+        expression: `${formatNamedNumber('deviceCount', deviceCount)} × ${formatNamedNumber('deviceShiftMinutes', deviceShiftMinutes)} × ${formatNamedNumber('deviceEfficiencyValue', deviceEfficiencyValue)}`,
         result: deviceCapacity,
       },
       {
         label: '人员侧日能力',
-        expression: `${formatResultNumber(staffCount)} × ${formatResultNumber(staffShiftMinutes)} × ${formatResultNumber(staffEfficiencyValue)}`,
+        expression: `${formatNamedNumber('staffCount', staffCount)} × ${formatNamedNumber('staffShiftMinutes', staffShiftMinutes)} × ${formatNamedNumber('staffEfficiencyValue', staffEfficiencyValue)}`,
         result: staffCapacity,
       },
       {
         label: '基础日能力',
-        expression: `${formatResultNumber(deviceCapacity)} 和 ${formatResultNumber(staffCapacity)} 里较小的那个`,
+        expression: `设备侧日能力（${formatResultNumber(deviceCapacity)}）和人员侧日能力（${formatResultNumber(staffCapacity)}）里较小的那个`,
         result: baseCapacity,
       },
       {
         label: '默认日可供给发布工时 SAM',
-        expression: `(${formatResultNumber(baseCapacity)} - ${formatResultNumber(setupMinutes)} - ${formatResultNumber(switchMinutes)}) × ${formatResultNumber(efficiencyFactor)}`,
+        expression: `（基础日能力（${formatResultNumber(baseCapacity)}） - ${formatNamedNumber('setupMinutes', setupMinutes)} - ${formatNamedNumber('switchMinutes', switchMinutes)}）× ${formatNamedNumber('efficiencyFactor', efficiencyFactor)}`,
         result: resultValue,
       },
     ],
