@@ -1,6 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-import { listFactoryCapacitySupportedCraftRows } from '../src/data/fcs/factory-capacity-profile-mock.ts'
+import {
+  auditAllFactoryCapacityProfiles,
+  listFactoryCapacityEntries,
+  listFactoryCapacityProfileStoreIds,
+} from '../src/data/fcs/factory-capacity-profile-mock.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { processCraftDictRows } from '../src/data/fcs/process-craft-dict.ts'
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
@@ -24,113 +28,111 @@ async function closeFactoryCapacityDrawer(page: Page): Promise<void> {
   await expect(page.getByTestId('factory-capacity-profile-drawer')).toBeHidden()
 }
 
-async function switchDrawerTab(drawer: Locator, label: string): Promise<void> {
-  await drawer.getByRole('button', { name: label, exact: true }).click()
+function getCraftCard(drawer: Locator, craftName: string): Locator {
+  return drawer.locator('[data-capacity-entry-card]').filter({ hasText: craftName }).first()
 }
 
-test('工厂档案能力结果保持不变，产能档案工厂来源与只读能力引用正确', async ({ page }) => {
-  const errors = collectPageErrors(page)
+async function expectResultToChange(card: Locator, fieldKey: string, nextValue: string): Promise<void> {
+  const resultNode = card.locator('[data-capacity-result-value]').first()
+  const previousResult = (await resultNode.textContent())?.trim()
+  await card.locator(`[data-capacity-field-key="${fieldKey}"]`).fill(nextValue)
+  await expect(resultNode).not.toHaveText(previousResult ?? '')
+}
 
-  await page.goto('/fcs/factories/profile')
-  await expect(page.getByRole('heading', { name: '工厂档案', exact: true })).toBeVisible()
-  await page.locator('[data-factory-id="ID-F001"] [data-factory-action="edit"]').click()
-  const factoryForm = page.locator('form[data-factory-form="true"]')
-  await expect(factoryForm.getByTestId('factory-process-abilities')).toBeVisible()
-  await expect(factoryForm.getByRole('heading', { name: '工序工艺能力', exact: true })).toBeVisible()
-  await factoryForm.getByRole('button', { name: '取消', exact: true }).click()
+test('产能档案已收口为当前阶段最小必要字段维护，工厂与工艺来源仍然来自工厂档案', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const auditIssues = auditAllFactoryCapacityProfiles()
+  expect(auditIssues).toEqual([])
+
+  const coverage = new Map<string, Set<string>>()
+  listFactoryMasterRecords().forEach((factory) => {
+    listFactoryCapacityEntries(factory.id).forEach(({ row }) => {
+      if (!coverage.has(row.craftCode)) coverage.set(row.craftCode, new Set())
+      coverage.get(row.craftCode)?.add(factory.id)
+    })
+  })
+  expect(processCraftDictRows.filter((row) => !coverage.has(row.craftCode))).toEqual([])
+  expect(listFactoryCapacityProfileStoreIds().length).toBe(listFactoryMasterRecords().length)
 
   await page.goto('/fcs/factories/capacity-profile')
   await expect(page.getByRole('heading', { name: '产能档案', exact: true })).toBeVisible()
 
-  const factoryNamesFromMaster = [
-    'PT Prima Printing Center',
-    'PT Cahaya Dyeing Sejahtera',
-    'PT Mulia Cutting Center',
-    'PT Sinar Garment Indonesia',
-    'PT Denim Wash Nusantara',
-    'CV Satellite Cluster Malang A',
-  ]
+  const scenarios = [
+    { factoryName: 'PT Sinar Garment Indonesia', crafts: ['基础连接', '曲牙'] },
+    { factoryName: 'PT Prima Printing Center', crafts: ['丝网印'] },
+    { factoryName: 'PT Cahaya Dyeing Sejahtera', crafts: ['匹染'] },
+    { factoryName: 'PT Mulia Cutting Center', crafts: ['定位裁'] },
+    { factoryName: 'PT Denim Wash Nusantara', crafts: ['洗水'] },
+    { factoryName: 'CV Satellite Cluster Malang A', crafts: ['手缝扣', '包装'] },
+  ] as const
 
-  for (const factoryName of factoryNamesFromMaster) {
-    const drawer = await openFactoryCapacityDrawer(page, factoryName)
+  for (const scenario of scenarios) {
+    const drawer = await openFactoryCapacityDrawer(page, scenario.factoryName)
     const readonlySection = drawer.getByTestId('factory-capacity-readonly-abilities')
-    await expect(readonlySection).toBeVisible()
+    const currentStageSection = drawer.getByTestId('factory-capacity-current-stage-section')
+
     await expect(readonlySection).toContainText('工序工艺能力（来自工厂档案）')
     await expect(readonlySection).toContainText('只读引用')
-    await expect(readonlySection.locator('input')).toHaveCount(0)
+    await expect(currentStageSection).toContainText('当前阶段最小必要字段与自动计算结果')
+    await expect(drawer.getByRole('button', { name: '设备台账', exact: true })).toHaveCount(0)
+    await expect(drawer.getByRole('button', { name: '人员台账', exact: true })).toHaveCount(0)
+    await expect(drawer.getByRole('button', { name: '班次日历', exact: true })).toHaveCount(0)
+    await expect(drawer.getByRole('button', { name: '工厂工时修正', exact: true })).toHaveCount(0)
+    await expect(drawer.getByRole('button', { name: '校准记录', exact: true })).toHaveCount(0)
+    await expect(drawer).not.toContainText('白班时长')
+    await expect(drawer).not.toContainText('夜班时长')
+    await expect(drawer).not.toContainText('当前状态')
+    await expect(drawer).not.toContainText('校准记录')
+
+    for (const craftName of scenario.crafts) {
+      await expect(readonlySection).toContainText(craftName)
+      const card = getCraftCard(drawer, craftName)
+      await expect(card).toBeVisible()
+      await expect(card).toContainText('当前阶段最小必要字段')
+      await expect(card).toContainText('当前阶段公式')
+      await expect(card).toContainText('当前输入值代入后的计算过程')
+      await expect(card.locator('[data-capacity-result-value]')).toBeVisible()
+    }
+
     await closeFactoryCapacityDrawer(page)
   }
 
   await expectNoPageErrors(errors)
 })
 
-test('产能档案字段由 samFactoryFieldKeys 驱动，且 mock 覆盖全部工序工艺并分布在多个工厂', async ({ page }) => {
+test('不同模板工艺会根据当前阶段字段自动计算默认日可供给发布工时 SAM', async ({ page }) => {
   const errors = collectPageErrors(page)
-
-  const craftCoverage = new Map<string, Set<string>>()
-  const coverageSummary = listFactoryMasterRecords().map((factory) => {
-    const supportedRows = listFactoryCapacitySupportedCraftRows(factory.id)
-    supportedRows.forEach((row) => {
-      if (!craftCoverage.has(row.craftCode)) craftCoverage.set(row.craftCode, new Set())
-      craftCoverage.get(row.craftCode)?.add(factory.id)
-    })
-    return { factoryId: factory.id, craftCount: supportedRows.length }
-  })
-
-  const missingCrafts = processCraftDictRows.filter((row) => !craftCoverage.has(row.craftCode))
-  expect(missingCrafts).toEqual([])
-  expect(Math.max(...coverageSummary.map((item) => item.craftCount))).toBeLessThan(processCraftDictRows.length)
-
   await page.goto('/fcs/factories/capacity-profile')
 
+  const sewingDrawer = await openFactoryCapacityDrawer(page, 'PT Sinar Garment Indonesia')
+  const baseConnectCard = getCraftCard(sewingDrawer, '基础连接')
+  await expect(baseConnectCard).toContainText('默认日可供给发布工时 SAM')
+  await expect(baseConnectCard.locator('[data-capacity-result-block] input')).toHaveCount(0)
+  await expect(baseConnectCard).toContainText('基础日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue')
+  await expectResultToChange(baseConnectCard, 'staffCount', '9')
+  await expectResultToChange(baseConnectCard, 'efficiencyFactor', '0.91')
+
+  const quyaCard = getCraftCard(sewingDrawer, '曲牙')
+  await expect(quyaCard).toContainText('设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue')
+  await expect(quyaCard).toContainText('人员侧日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue')
+  await expect(quyaCard).toContainText('固定准备分钟')
+  await expect(quyaCard).toContainText('切换准备分钟')
+  await expectResultToChange(quyaCard, 'staffCount', '7')
+  await closeFactoryCapacityDrawer(page)
+
   const printDrawer = await openFactoryCapacityDrawer(page, 'PT Prima Printing Center')
-  const readonlySection = printDrawer.getByTestId('factory-capacity-readonly-abilities')
-  await expect(readonlySection).toContainText('丝网印')
-  await expect(readonlySection).toContainText('数码印')
-
-  const printDeviceTab = printDrawer.getByTestId('factory-capacity-device-tab')
-  const printCraftCard = printDeviceTab.locator('[data-capacity-craft-card]').filter({ hasText: '丝网印' }).first()
-  await expect(printCraftCard).toBeVisible()
-  await expect(printCraftCard).toContainText('设备数量')
-  await expect(printCraftCard).toContainText('设备标准效率值')
-  await expect(printCraftCard).not.toContainText('人数')
-
-  await switchDrawerTab(printDrawer, '人员台账')
-  const printStaffTab = printDrawer.getByTestId('factory-capacity-staff-tab')
-  const printStaffCard = printStaffTab.locator('[data-capacity-craft-card]').filter({ hasText: '丝网印' }).first()
-  await expect(printStaffCard).toContainText('人数')
-  await expect(printStaffCard).not.toContainText('设备数量')
-
-  await switchDrawerTab(printDrawer, '工厂工时修正')
-  const printAdjustmentTab = printDrawer.getByTestId('factory-capacity-adjustment-tab')
-  const printAdjustmentCard = printAdjustmentTab.locator('[data-capacity-craft-card]').filter({ hasText: '丝网印' }).first()
-  await expect(printAdjustmentCard).toContainText('固定准备分钟')
-  await expect(printAdjustmentCard).toContainText('切换准备分钟')
-  await expect(printAdjustmentCard).toContainText('工厂效率系数')
+  const printCard = getCraftCard(printDrawer, '丝网印')
+  await expect(printCard).toContainText('设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue')
+  await expect(printCard).toContainText('当前输入值代入后的计算过程')
+  await expectResultToChange(printCard, 'deviceEfficiencyValue', '0.92')
   await closeFactoryCapacityDrawer(page)
 
   const dyeDrawer = await openFactoryCapacityDrawer(page, 'PT Cahaya Dyeing Sejahtera')
-  const dyeDeviceTab = dyeDrawer.getByTestId('factory-capacity-device-tab')
-  const dyeCraftCard = dyeDeviceTab.locator('[data-capacity-craft-card]').filter({ hasText: '匹染' }).first()
-  await expect(dyeCraftCard).toBeVisible()
-  await expect(dyeCraftCard).toContainText('单次有效装载量')
-  await expect(dyeCraftCard).toContainText('装载量单位')
-  await expect(dyeCraftCard).toContainText('单次循环分钟')
-  await closeFactoryCapacityDrawer(page)
-
-  const finishingDrawer = await openFactoryCapacityDrawer(page, 'CV Satellite Cluster Malang A')
-  const finishingDeviceTab = finishingDrawer.getByTestId('factory-capacity-device-tab')
-  await expect(finishingDeviceTab.locator('[data-capacity-craft-card]').filter({ hasText: '包装' })).toHaveCount(0)
-  await switchDrawerTab(finishingDrawer, '人员台账')
-  const finishingStaffTab = finishingDrawer.getByTestId('factory-capacity-staff-tab')
-  const packagingCard = finishingStaffTab.locator('[data-capacity-craft-card]').filter({ hasText: '包装' }).first()
-  await expect(packagingCard).toBeVisible()
-  await expect(packagingCard).toContainText('人数')
-  await expect(packagingCard).not.toContainText('设备数量')
-  await switchDrawerTab(finishingDrawer, '工厂工时修正')
-  const finishingAdjustmentTab = finishingDrawer.getByTestId('factory-capacity-adjustment-tab')
-  const packagingAdjustmentCard = finishingAdjustmentTab.locator('[data-capacity-craft-card]').filter({ hasText: '包装' }).first()
-  await expect(packagingAdjustmentCard).toContainText('工厂效率系数')
+  const dyeCard = getCraftCard(dyeDrawer, '匹染')
+  await expect(dyeCard).toContainText('单台默认日可运行批数 = deviceShiftMinutes ÷ cycleMinutes')
+  await expect(dyeCard).toContainText('设备侧日能力 = 单台默认日可运行批数 × batchLoadCapacity × deviceCount')
+  await expectResultToChange(dyeCard, 'staffCount', '6')
+  await expectResultToChange(dyeCard, 'efficiencyFactor', '0.95')
   await closeFactoryCapacityDrawer(page)
 
   await expectNoPageErrors(errors)

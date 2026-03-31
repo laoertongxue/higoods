@@ -1,13 +1,21 @@
 import {
-  processDefinitions,
-  processCraftDefinitions,
-  processCraftDictRows,
+  CURRENT_STAGE_ALLOWED_FIELD_KEYS,
+  FACTORY_SUPPLY_TEMPLATE_BY_CRAFT_NAME,
+  getExpectedSamCurrentFieldKeysByTemplate,
+  getFactorySupplyFormulaGuide,
+  getFactorySupplyFormulaTemplate,
+  type FactorySupplyFormulaTemplate,
+} from '../src/data/fcs/process-craft-sam-explainer.ts'
+import {
   getProcessCraftDictRowByCode,
   listSamFactoryFieldDefinitions,
+  processCraftDefinitions,
+  processCraftDictRows,
+  processDefinitions,
   type ProcessCraftDictRow,
+  type SamCurrentFieldKey,
   type SamFactoryFieldKey,
 } from '../src/data/fcs/process-craft-dict.ts'
-import { getSamFormulaGuide } from '../src/data/fcs/process-craft-sam-explainer.ts'
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -15,44 +23,128 @@ function invariant(condition: unknown, message: string): asserts condition {
   }
 }
 
-function assertFieldKeys(row: ProcessCraftDictRow): void {
+function sameKeys(left: readonly string[], right: readonly string[]): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function assertCurrentFieldSubset(craftName: string, keys: readonly SamCurrentFieldKey[]): void {
+  const allowed = new Set<SamCurrentFieldKey>(CURRENT_STAGE_ALLOWED_FIELD_KEYS)
+  for (const key of keys) {
+    invariant(allowed.has(key), `${craftName}: 当前阶段字段 ${key} 不在允许集合内`)
+  }
+}
+
+function assertRow(row: ProcessCraftDictRow): void {
   invariant(row.samEnabled === true, `${row.craftName}: samEnabled 应为 true`)
   invariant(Boolean(row.samCalcMode), `${row.craftName}: 缺少 samCalcMode`)
   invariant(Boolean(row.samDefaultInputUnit), `${row.craftName}: 缺少 samDefaultInputUnit`)
   invariant(Boolean(row.samConstraintSource), `${row.craftName}: 缺少 samConstraintSource`)
-  invariant(row.samFactoryFieldKeys.length > 0, `${row.craftName}: samFactoryFieldKeys 不能为空`)
-  invariant(Boolean(row.samReason?.trim()), `${row.craftName}: samReason 不能为空`)
 
-  const dictRows = listSamFactoryFieldDefinitions(row.samFactoryFieldKeys)
+  invariant(row.samIdealFieldKeys.length > 0, `${row.craftName}: samIdealFieldKeys 不能为空`)
+  invariant(Boolean(row.samIdealReason.trim()), `${row.craftName}: samIdealReason 不能为空`)
+  invariant(row.samCurrentFieldKeys.length > 0, `${row.craftName}: samCurrentFieldKeys 不能为空`)
+  invariant(Boolean(row.samCurrentReason.trim()), `${row.craftName}: samCurrentReason 不能为空`)
+  invariant(row.samCurrentFormulaLines.length > 0, `${row.craftName}: samCurrentFormulaLines 不能为空`)
+  invariant(row.samCurrentExplanationLines.length > 0, `${row.craftName}: samCurrentExplanationLines 不能为空`)
+  invariant(row.samCurrentExampleLines.length > 0, `${row.craftName}: samCurrentExampleLines 不能为空`)
+
+  const idealDefs = listSamFactoryFieldDefinitions(row.samIdealFieldKeys)
+  const currentDefs = listSamFactoryFieldDefinitions(row.samCurrentFieldKeys as SamFactoryFieldKey[])
+  invariant(idealDefs.length === row.samIdealFieldKeys.length, `${row.craftName}: samIdealFieldKeys 中存在未定义字段`)
+  invariant(currentDefs.length === row.samCurrentFieldKeys.length, `${row.craftName}: samCurrentFieldKeys 中存在未定义字段`)
   invariant(
-    dictRows.length === row.samFactoryFieldKeys.length,
-    `${row.craftName}: samFactoryFieldKeys 中存在未定义字段`,
+    row.samIdealFieldText === idealDefs.map((item) => item.label).join('、'),
+    `${row.craftName}: samIdealFieldText 与字典不一致`,
+  )
+  invariant(
+    row.samCurrentFieldText === currentDefs.map((item) => item.label).join('、'),
+    `${row.craftName}: samCurrentFieldText 与字典不一致`,
   )
 
-  const text = dictRows.map((item) => item.label).join('、')
-  invariant(row.samFactoryFieldText === text, `${row.craftName}: samFactoryFieldText 与字段字典不一致`)
+  assertCurrentFieldSubset(row.craftName, row.samCurrentFieldKeys)
+  invariant(
+    sameKeys(row.samFactoryFieldKeys, row.samCurrentFieldKeys),
+    `${row.craftName}: samFactoryFieldKeys 应仅作为当前阶段字段别名`,
+  )
+  invariant(row.samFactoryFieldText === row.samCurrentFieldText, `${row.craftName}: samFactoryFieldText 应等于 samCurrentFieldText`)
+  invariant(row.samReason === row.samCurrentReason, `${row.craftName}: samReason 应等于 samCurrentReason`)
 
-  const formulaGuide = getSamFormulaGuide(row.samCalcMode)
-  invariant(Boolean(formulaGuide.formulaText.trim()), `${row.craftName}: 缺少公式文本`)
-  invariant(formulaGuide.explanationLines.length > 0, `${row.craftName}: 缺少公式说明`)
-  invariant(Boolean(formulaGuide.exampleIntro.trim()), `${row.craftName}: 缺少公式示例说明`)
-  invariant(Boolean(formulaGuide.exampleResult.trim()), `${row.craftName}: 缺少公式示例结果`)
-  invariant(Boolean(formulaGuide.factoryFieldNote.trim()), `${row.craftName}: 缺少字段维护说明`)
+  const guide = getFactorySupplyFormulaGuide(row.craftName)
+  invariant(sameKeys(guide.currentFieldKeys, row.samCurrentFieldKeys), `${row.craftName}: 当前阶段字段与模板不一致`)
+  invariant(
+    JSON.stringify(guide.currentFormulaLines) === JSON.stringify(row.samCurrentFormulaLines),
+    `${row.craftName}: 当前阶段公式与模板不一致`,
+  )
+  invariant(
+    JSON.stringify(guide.currentExplanationLines) === JSON.stringify(row.samCurrentExplanationLines),
+    `${row.craftName}: 当前阶段说明与模板不一致`,
+  )
+  invariant(
+    JSON.stringify(guide.currentExampleLines) === JSON.stringify(row.samCurrentExampleLines),
+    `${row.craftName}: 当前阶段示例与模板不一致`,
+  )
+  invariant(guide.currentReason === row.samCurrentReason, `${row.craftName}: 当前阶段原因与模板不一致`)
+
+  const forbiddenTaskPhrases = ['这批任务', '总量', '一共多少件', '一共多少米', '这笔任务分几批做', '任务总 SAM']
+  const textBundle = [
+    ...guide.idealFormulaLines,
+    ...row.samCurrentFormulaLines,
+    ...row.samCurrentExplanationLines,
+    ...row.samCurrentExampleLines,
+    row.samCurrentReason,
+  ].join(' ')
+  for (const phrase of forbiddenTaskPhrases) {
+    invariant(!textBundle.includes(phrase), `${row.craftName}: 仍残留任务需求侧表述 ${phrase}`)
+  }
+  invariant(
+    row.samCurrentFormulaLines.some((line) => line.includes('默认日可供给发布工时 SAM')),
+    `${row.craftName}: 当前阶段公式没有导向默认日可供给发布工时 SAM`,
+  )
+  invariant(
+    row.samCurrentExampleLines.some((line) => line.includes('默认日可供给发布工时 SAM')),
+    `${row.craftName}: 当前阶段示例没有导向默认日可供给发布工时 SAM`,
+  )
 }
 
-function assertExactFieldKeys(craftName: string, expected: SamFactoryFieldKey[]): void {
+function rowByName(craftName: string): ProcessCraftDictRow {
   const row = processCraftDictRows.find((item) => item.craftName === craftName)
   invariant(row, `缺少工艺 ${craftName}`)
+  return row
+}
+
+function assertTemplate(craftName: string, expectedTemplate: FactorySupplyFormulaTemplate): void {
+  const row = rowByName(craftName)
+  invariant(getFactorySupplyFormulaTemplate(craftName) === expectedTemplate, `${craftName}: 模板绑定错误`)
   invariant(
-    JSON.stringify(row.samFactoryFieldKeys) === JSON.stringify(expected),
-    `${craftName}: samFactoryFieldKeys 不符合预期`,
+    sameKeys(row.samCurrentFieldKeys, getExpectedSamCurrentFieldKeysByTemplate(expectedTemplate)),
+    `${craftName}: 当前阶段字段不符合模板 ${expectedTemplate}`,
   )
+
+  if (expectedTemplate === 'A') {
+    invariant(row.samCalcMode === 'DISCRETE', `${craftName}: 模板 A 应为离散型`)
+    invariant(row.samConstraintSource === 'STAFF', `${craftName}: 模板 A 应为人员约束`)
+  }
+  if (expectedTemplate === 'B') {
+    invariant(row.samCalcMode === 'DISCRETE', `${craftName}: 模板 B 应为离散型`)
+    invariant(row.samConstraintSource === 'BOTH', `${craftName}: 模板 B 应为设备+人员共同约束`)
+  }
+  if (expectedTemplate === 'C') {
+    invariant(row.samCalcMode === 'CONTINUOUS', `${craftName}: 模板 C 应为连续型`)
+    invariant(row.samConstraintSource === 'BOTH', `${craftName}: 模板 C 应为设备+人员共同约束`)
+  }
+  if (expectedTemplate === 'D') {
+    invariant(row.samCalcMode === 'BATCH', `${craftName}: 模板 D 应为批次型`)
+    invariant(row.samConstraintSource === 'BOTH', `${craftName}: 模板 D 应为设备+人员共同约束`)
+  }
 }
 
 for (const process of processDefinitions) {
   invariant(process.samEnabled === true, `${process.processName}: process samEnabled 应为 true`)
-  invariant(process.samFactoryFieldKeys.length > 0, `${process.processName}: process samFactoryFieldKeys 不能为空`)
-  invariant(Boolean(process.samReason.trim()), `${process.processName}: process samReason 不能为空`)
+  invariant(process.samIdealFieldKeys.length > 0, `${process.processName}: process samIdealFieldKeys 不能为空`)
+  invariant(Boolean(process.samIdealReason.trim()), `${process.processName}: process samIdealReason 不能为空`)
+  invariant(process.samCurrentFieldKeys.length > 0, `${process.processName}: process samCurrentFieldKeys 不能为空`)
+  invariant(Boolean(process.samCurrentReason.trim()), `${process.processName}: process samCurrentReason 不能为空`)
+  invariant(process.samCurrentFormulaLines.length > 0, `${process.processName}: process samCurrentFormulaLines 不能为空`)
 }
 
 for (const craft of processCraftDefinitions) {
@@ -60,64 +152,73 @@ for (const craft of processCraftDefinitions) {
 }
 
 invariant(processCraftDictRows.length === processCraftDefinitions.length, '工艺行数量与定义数量不一致')
-processCraftDictRows.forEach(assertFieldKeys)
+processCraftDictRows.forEach(assertRow)
 
-const rowByName = (craftName: string): ProcessCraftDictRow => {
-  const row = processCraftDictRows.find((item) => item.craftName === craftName)
-  invariant(row, `缺少工艺 ${craftName}`)
-  return row
+const expectedTemplateMap: Record<string, FactorySupplyFormulaTemplate> = {
+  丝网印: 'C',
+  数码印: 'C',
+  匹染: 'D',
+  色织: 'D',
+  定位裁: 'B',
+  定向裁: 'B',
+  绣花: 'B',
+  贝壳绣: 'B',
+  压褶: 'C',
+  基础连接: 'A',
+  曲牙: 'B',
+  打揽: 'B',
+  打条: 'C',
+  激光切: 'C',
+  烫画: 'B',
+  直喷: 'B',
+  捆条: 'C',
+  印花工艺: 'C',
+  染色工艺: 'D',
+  缩水: 'D',
+  洗水: 'D',
+  开扣眼: 'B',
+  手缝扣: 'A',
+  机打扣: 'B',
+  四爪扣: 'B',
+  布包扣: 'B',
+  鸡眼扣: 'B',
+  手工盘扣: 'A',
+  熨烫: 'B',
+  包装: 'A',
 }
 
-invariant(rowByName('丝网印').samCalcMode === 'CONTINUOUS', '丝网印应继承印花连续型规则')
-invariant(rowByName('匹染').samCalcMode === 'BATCH', '匹染应继承染色批次型规则')
-invariant(rowByName('定位裁').samConstraintSource === 'BOTH', '定位裁应继承裁片双约束规则')
-invariant(rowByName('绣花').samDefaultInputUnit === 'PIECE', '绣花应继承按件录入口径')
-invariant(rowByName('基础连接').samCalcMode === 'DISCRETE', '基础连接应继承车缝离散型规则')
-invariant(rowByName('基础连接').samConstraintSource === 'STAFF', '基础连接应继承车缝人员约束规则')
-invariant(rowByName('曲牙').samConstraintSource === 'BOTH', '曲牙应覆盖为设备+人员共同约束')
-invariant(rowByName('打条').samCalcMode === 'CONTINUOUS', '打条应覆盖为连续型')
-invariant(rowByName('洗水').samDefaultInputUnit === 'KG', '洗水应继承按公斤录入口径')
-invariant(rowByName('手缝扣').samConstraintSource === 'STAFF', '手缝扣应保持人员约束')
-invariant(rowByName('机打扣').samConstraintSource === 'BOTH', '机打扣应覆盖为设备+人员共同约束')
-invariant(rowByName('鸡眼扣').samConstraintSource === 'BOTH', '鸡眼扣应继承五金双约束规则')
-invariant(rowByName('包装').samConstraintSource === 'STAFF', '包装应继承人员约束规则')
-invariant(rowByName('印花工艺').samCalcMode === 'CONTINUOUS', '印花工艺应覆盖为连续型')
-invariant(rowByName('染色工艺').samCalcMode === 'BATCH', '染色工艺应覆盖为批次型')
+invariant(
+  processCraftDictRows.every((row) => FACTORY_SUPPLY_TEMPLATE_BY_CRAFT_NAME[row.craftName]),
+  '存在工艺未绑定当前阶段模板',
+)
+invariant(
+  Object.keys(expectedTemplateMap).length === processCraftDictRows.length,
+  '模板映射数量与当前工艺总数不一致',
+)
 
-assertExactFieldKeys('基础连接', [
-  'staffCount',
-  'staffShiftMinutes',
-  'staffEfficiencyValue',
-  'staffEfficiencyUnit',
-  'efficiencyFactor',
-])
-assertExactFieldKeys('打条', [
-  'deviceCount',
-  'deviceShiftMinutes',
-  'deviceEfficiencyValue',
-  'deviceEfficiencyUnit',
-  'staffCount',
-  'staffShiftMinutes',
-  'setupMinutes',
-  'efficiencyFactor',
-])
-assertExactFieldKeys('染色工艺', [
-  'deviceCount',
-  'deviceShiftMinutes',
-  'batchLoadCapacity',
-  'batchLoadUnit',
-  'cycleMinutes',
-  'staffCount',
-  'staffShiftMinutes',
-  'setupMinutes',
-  'switchMinutes',
-  'efficiencyFactor',
-])
-
-const coveredCrafts = ['丝网印', '匹染', '定位裁', '绣花', '基础连接', '曲牙', '打条', '洗水', '手缝扣', '鸡眼扣', '包装']
-for (const craftName of coveredCrafts) {
-  const row = rowByName(craftName)
-  invariant(getProcessCraftDictRowByCode(row.craftCode)?.samReason === row.samReason, `${craftName}: 详情查询口径不一致`)
+for (const [craftName, template] of Object.entries(expectedTemplateMap)) {
+  assertTemplate(craftName, template)
 }
 
-console.log(`已校验 ${processDefinitions.length} 个工序、${processCraftDictRows.length} 个工艺的 SAM 规则元数据。`)
+const baseConnectRow = rowByName('基础连接')
+invariant(baseConnectRow.samCurrentFieldKeys.length === 4, '基础连接当前阶段字段应为模板 A')
+invariant(baseConnectRow.samIdealFieldKeys.includes('staffEfficiencyUnit'), '基础连接理想完整字段应保留人员效率单位')
+
+const quyaRow = rowByName('曲牙')
+invariant(quyaRow.samCurrentFieldKeys.includes('deviceCount'), '曲牙当前阶段字段应包含设备数量')
+invariant(quyaRow.samCurrentFieldKeys.includes('staffEfficiencyValue'), '曲牙当前阶段字段应包含人员标准效率值')
+
+const washingRow = rowByName('洗水')
+invariant(washingRow.samCurrentFieldKeys.includes('batchLoadCapacity'), '洗水当前阶段字段应包含单次有效装载量')
+invariant(washingRow.samIdealFieldKeys.includes('batchLoadUnit'), '洗水理想完整字段应保留装载量单位')
+
+for (const row of processCraftDictRows) {
+  invariant(
+    getProcessCraftDictRowByCode(row.craftCode)?.samCurrentReason === row.samCurrentReason,
+    `${row.craftName}: 详情查询口径不一致`,
+  )
+}
+
+console.log(
+  `已校验 ${processDefinitions.length} 个工序、${processCraftDictRows.length} 个工艺的理想完整口径与当前阶段口径。`,
+)

@@ -36,7 +36,7 @@ export const tierLabels: Record<FactoryTier, string> = {
 
 // type 显示名称
 export const typeLabels: Record<FactoryType, string> = {
-  CENTRAL_FACTORY:    '生产管理中心',
+  CENTRAL_FACTORY:    '成衣厂',
   PRINTING:           '印花厂',
   DYEING:             '染厂',
   CUTTING:            '裁床厂',
@@ -940,6 +940,16 @@ export function generateFactoryCode(): string {
   const num = String(generatedFactoryCodeSeq).padStart(4, '0')
   generatedFactoryCodeSeq += 1
   return `ID-FAC-${num}`
+}
+
+export const FACTORY_POOL_EXCLUDED_TYPES = new Set<FactoryType>([
+  'WAREHOUSE',
+  'DISPATCH_CENTER',
+  'DEV_DESIGN_CENTER',
+])
+
+export function isFactoryPoolOrganization(factory: IndonesiaFactory): boolean {
+  return !FACTORY_POOL_EXCLUDED_TYPES.has(factory.type)
 }
 
 // 检查 tier 是否需要结算

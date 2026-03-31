@@ -1,185 +1,79 @@
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 import {
+  getSamFactoryFieldDefinitionByKey,
   getProcessCraftDictRowByCode,
   listCraftsByProcessCode,
   listProcessStages,
   listProcessesByStageCode,
   type ProcessCraftDictRow,
-  type SamCalcMode,
-  type SamFactoryFieldKey,
-  type SamInputUnit,
+  type SamCurrentFieldKey,
 } from './process-craft-dict.ts'
+import { getFactorySupplyFormulaTemplate, type FactorySupplyFormulaTemplate } from './process-craft-sam-explainer.ts'
 import type {
-  CalibrationRecord,
   Factory,
+  FactoryCapacityEntry,
   FactoryCapacityFieldValue,
   FactoryCapacityProfile,
-  ProcessCraftAdjustmentRecord,
-  ProcessCraftDeviceRecord,
-  ProcessCraftStaffRecord,
-  ShiftCalendarRecord,
 } from './factory-types.ts'
 
-export type CapacityRecordScope = 'device' | 'staff' | 'adjustment'
+export interface FactoryCapacityResolvedEntry {
+  row: ProcessCraftDictRow
+  entry: FactoryCapacityEntry
+}
 
-const DEVICE_FIELD_KEYS: SamFactoryFieldKey[] = [
-  'deviceCount',
-  'deviceShiftMinutes',
-  'deviceEfficiencyValue',
-  'deviceEfficiencyUnit',
-  'batchLoadCapacity',
-  'batchLoadUnit',
-  'cycleMinutes',
-]
+export interface FactoryCapacityComputationLine {
+  label: string
+  expression: string
+  result: number | null
+}
 
-const STAFF_FIELD_KEYS: SamFactoryFieldKey[] = [
-  'staffCount',
-  'staffShiftMinutes',
-  'staffEfficiencyValue',
-  'staffEfficiencyUnit',
-]
+export interface FactoryCapacityComputedResult {
+  template: FactorySupplyFormulaTemplate
+  missingFieldKeys: SamCurrentFieldKey[]
+  resultValue: number | null
+  lines: FactoryCapacityComputationLine[]
+}
 
-const ADJUSTMENT_FIELD_KEYS: SamFactoryFieldKey[] = ['setupMinutes', 'switchMinutes', 'efficiencyFactor']
+export type FactoryCapacityAuditIssueCategory =
+  | 'DECLARED_CRAFT_ROW_MISSING'
+  | 'DECLARED_PROCESS_MISMATCH'
+  | 'MISSING_ENTRY'
+  | 'UNEXPECTED_ENTRY'
+  | 'MISSING_CURRENT_FIELDS'
+  | 'UNEXPECTED_CURRENT_FIELDS'
+  | 'CALCULATION_UNAVAILABLE'
 
-const UNIT_FIELD_KEYS = new Set<SamFactoryFieldKey>([
-  'deviceEfficiencyUnit',
-  'staffEfficiencyUnit',
-  'batchLoadUnit',
-])
+export interface FactoryCapacityAuditIssue {
+  category: FactoryCapacityAuditIssueCategory
+  factoryId: string
+  factoryName: string
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  detail: string
+}
 
-function cloneValues(values: Partial<Record<SamFactoryFieldKey, FactoryCapacityFieldValue>>) {
-  return { ...values }
+function cloneEntry(entry: FactoryCapacityEntry): FactoryCapacityEntry {
+  return {
+    processCode: entry.processCode,
+    craftCode: entry.craftCode,
+    values: { ...entry.values },
+    note: entry.note,
+  }
 }
 
 function cloneProfile(profile: FactoryCapacityProfile): FactoryCapacityProfile {
   return {
     factoryId: profile.factoryId,
-    shiftCalendars: profile.shiftCalendars.map((item) => ({ ...item })),
-    processCraftDeviceRecords: profile.processCraftDeviceRecords.map((item) => ({
-      processCode: item.processCode,
-      craftCode: item.craftCode,
-      values: cloneValues(item.values),
-    })),
-    processCraftStaffRecords: profile.processCraftStaffRecords.map((item) => ({
-      processCode: item.processCode,
-      craftCode: item.craftCode,
-      values: cloneValues(item.values),
-    })),
-    processCraftAdjustmentRecords: profile.processCraftAdjustmentRecords.map((item) => ({
-      processCode: item.processCode,
-      craftCode: item.craftCode,
-      values: cloneValues(item.values),
-    })),
-    calibrationRecords: profile.calibrationRecords.map((item) => ({ ...item })),
+    entries: profile.entries.map((entry) => cloneEntry(entry)),
   }
-}
-
-function filterFieldKeysByScope(
-  keys: SamFactoryFieldKey[],
-  scope: CapacityRecordScope,
-): SamFactoryFieldKey[] {
-  const allowedKeys =
-    scope === 'device' ? DEVICE_FIELD_KEYS : scope === 'staff' ? STAFF_FIELD_KEYS : ADJUSTMENT_FIELD_KEYS
-  return keys.filter((key) => allowedKeys.includes(key))
-}
-
-function getBaseSeed(factoryId: string, craftCode: string): number {
-  return [...`${factoryId}-${craftCode}`].reduce((total, char) => total + char.charCodeAt(0), 0)
-}
-
-function getEfficiencyUnitLabel(
-  inputUnit: SamInputUnit,
-  calcMode: SamCalcMode,
-  scope: 'device' | 'staff',
-): string {
-  if (calcMode === 'BATCH') {
-    return scope === 'device' ? '批/班' : '批/人班'
-  }
-
-  if (inputUnit === 'METER') {
-    return scope === 'device' ? '米/分钟' : '米/小时'
-  }
-
-  if (inputUnit === 'KG') {
-    return scope === 'device' ? '公斤/批' : '公斤/小时'
-  }
-
-  return scope === 'device' ? '件/小时' : '件/小时'
-}
-
-function getBatchLoadUnitLabel(inputUnit: SamInputUnit): string {
-  if (inputUnit === 'METER') return '米/批'
-  if (inputUnit === 'PIECE') return '件/批'
-  if (inputUnit === 'BATCH') return '批/次'
-  return '公斤/批'
-}
-
-function buildDefaultFieldValue(
-  key: SamFactoryFieldKey,
-  row: ProcessCraftDictRow,
-  factoryId: string,
-): FactoryCapacityFieldValue {
-  const seed = getBaseSeed(factoryId, row.craftCode)
-
-  switch (key) {
-    case 'deviceCount':
-      return 2 + (seed % 6)
-    case 'deviceShiftMinutes':
-      return 480 + (seed % 2) * 60
-    case 'deviceEfficiencyValue':
-      if (row.samCalcMode === 'BATCH') return 6 + (seed % 4)
-      if (row.samDefaultInputUnit === 'METER') return 12 + (seed % 10)
-      if (row.samDefaultInputUnit === 'KG') return 120 + (seed % 80)
-      return 55 + (seed % 35)
-    case 'deviceEfficiencyUnit':
-      return getEfficiencyUnitLabel(row.samDefaultInputUnit, row.samCalcMode, 'device')
-    case 'staffCount':
-      return 4 + (seed % 10)
-    case 'staffShiftMinutes':
-      return 480 + (seed % 2) * 60
-    case 'staffEfficiencyValue':
-      if (row.samCalcMode === 'BATCH') return 3 + (seed % 3)
-      if (row.samDefaultInputUnit === 'METER') return 20 + (seed % 12)
-      if (row.samDefaultInputUnit === 'KG') return 45 + (seed % 25)
-      return 18 + (seed % 16)
-    case 'staffEfficiencyUnit':
-      return getEfficiencyUnitLabel(row.samDefaultInputUnit, row.samCalcMode, 'staff')
-    case 'batchLoadCapacity':
-      return row.samDefaultInputUnit === 'KG' ? 240 + (seed % 90) : 120 + (seed % 60)
-    case 'batchLoadUnit':
-      return getBatchLoadUnitLabel(row.samDefaultInputUnit)
-    case 'cycleMinutes':
-      return 90 + (seed % 80)
-    case 'setupMinutes':
-      return 20 + (seed % 35)
-    case 'switchMinutes':
-      return 10 + (seed % 25)
-    case 'efficiencyFactor':
-      return Number((0.82 + (seed % 12) * 0.01).toFixed(2))
-    default:
-      return ''
-  }
-}
-
-function buildDefaultValues(
-  fieldKeys: SamFactoryFieldKey[],
-  row: ProcessCraftDictRow,
-  factoryId: string,
-): Partial<Record<SamFactoryFieldKey, FactoryCapacityFieldValue>> {
-  return fieldKeys.reduce<Partial<Record<SamFactoryFieldKey, FactoryCapacityFieldValue>>>((result, key) => {
-    result[key] = buildDefaultFieldValue(key, row, factoryId)
-    return result
-  }, {})
 }
 
 function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
   return {
     factoryId,
-    shiftCalendars: [],
-    processCraftDeviceRecords: [],
-    processCraftStaffRecords: [],
-    processCraftAdjustmentRecords: [],
-    calibrationRecords: [],
+    entries: [],
   }
 }
 
@@ -197,135 +91,108 @@ function resolveFactorySupportedCraftRows(factory: Factory): ProcessCraftDictRow
   )
 }
 
-function createShiftCalendars(factory: Factory): ShiftCalendarRecord[] {
-  const primaryProcessCode = factory.processAbilities[0]?.processCode ?? ''
-  return [
-    {
-      date: '2026-04-01',
-      scopeType: 'FACTORY',
-      scopeCode: factory.id,
-      dayShiftMinutes: 480,
-      nightShiftMinutes: 0,
-      isStopped: false,
-      isOvertime: false,
-      note: '常规白班',
-    },
-    {
-      date: '2026-04-02',
-      scopeType: primaryProcessCode ? 'PROCESS' : 'FACTORY',
-      scopeCode: primaryProcessCode || factory.id,
-      dayShiftMinutes: 540,
-      nightShiftMinutes: 120,
-      isStopped: false,
-      isOvertime: true,
-      note: primaryProcessCode ? '重点工序加班' : '全厂加班',
-    },
-    {
-      date: '2026-04-05',
-      scopeType: 'FACTORY',
-      scopeCode: factory.id,
-      dayShiftMinutes: 0,
-      nightShiftMinutes: 0,
-      isStopped: true,
-      isOvertime: false,
-      note: '设备保养停工',
-    },
-  ]
+function getBaseSeed(factoryId: string, craftCode: string): number {
+  return [...`${factoryId}-${craftCode}`].reduce((total, char) => total + char.charCodeAt(0), 0)
 }
 
-function createCalibrationRecords(factory: Factory, rows: ProcessCraftDictRow[]): CalibrationRecord[] {
-  return rows.slice(0, Math.min(rows.length, 3)).map((row, index) => ({
+function buildDefaultFieldValue(
+  key: SamCurrentFieldKey,
+  row: ProcessCraftDictRow,
+  factoryId: string,
+): FactoryCapacityFieldValue {
+  const seed = getBaseSeed(factoryId, row.craftCode)
+
+  switch (key) {
+    case 'deviceCount':
+      return 2 + (seed % 6)
+    case 'deviceShiftMinutes':
+      return 480 + (seed % 2) * 60
+    case 'deviceEfficiencyValue':
+      if (row.samCalcMode === 'BATCH') return Number((0.7 + (seed % 4) * 0.05).toFixed(2))
+      if (row.samCalcMode === 'CONTINUOUS') return Number((0.72 + (seed % 6) * 0.03).toFixed(2))
+      return Number((0.68 + (seed % 7) * 0.04).toFixed(2))
+    case 'staffCount':
+      return 4 + (seed % 9)
+    case 'staffShiftMinutes':
+      return 420 + (seed % 2) * 60
+    case 'staffEfficiencyValue':
+      if (row.samCalcMode === 'BATCH') return Number((0.75 + (seed % 5) * 0.03).toFixed(2))
+      if (row.samCalcMode === 'CONTINUOUS') return Number((0.78 + (seed % 4) * 0.03).toFixed(2))
+      return Number((0.8 + (seed % 4) * 0.03).toFixed(2))
+    case 'batchLoadCapacity':
+      return 100 + (seed % 90)
+    case 'cycleMinutes':
+      return 90 + (seed % 70)
+    case 'setupMinutes':
+      return 15 + (seed % 20)
+    case 'switchMinutes':
+      return 10 + (seed % 15)
+    case 'efficiencyFactor':
+      return Number((0.86 + (seed % 8) * 0.02).toFixed(2))
+    default:
+      return ''
+  }
+}
+
+function buildDefaultValues(
+  fieldKeys: SamCurrentFieldKey[],
+  row: ProcessCraftDictRow,
+  factoryId: string,
+): Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>> {
+  return fieldKeys.reduce<Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>>((result, key) => {
+    result[key] = buildDefaultFieldValue(key, row, factoryId)
+    return result
+  }, {})
+}
+
+function normalizeEntry(
+  existingEntry: FactoryCapacityEntry | undefined,
+  row: ProcessCraftDictRow,
+  factoryId: string,
+): FactoryCapacityEntry {
+  const baseValues = buildDefaultValues(row.samCurrentFieldKeys, row, factoryId)
+  const existingValues = existingEntry?.values ?? {}
+  const nextValues = row.samCurrentFieldKeys.reduce<Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>>(
+    (result, key) => {
+      result[key] = hasCapacityFieldValue(existingValues[key]) ? existingValues[key] : baseValues[key]
+      return result
+    },
+    {},
+  )
+
+  return {
     processCode: row.processCode,
     craftCode: row.craftCode,
-    periodLabel: `2026-W${String(index + 11).padStart(2, '0')}`,
-    publishedSam: Number((6 + index * 1.2 + (getBaseSeed(factory.id, row.craftCode) % 3) * 0.2).toFixed(1)),
-    actualNote: `${row.craftName} 近一周期完成节奏稳定，可作为修正参考。`,
-    suggestion: index % 2 === 0 ? '维持当前参数' : '建议微调准备时间与效率系数',
-    adopted: index % 2 === 0,
-  }))
+    values: nextValues,
+    note: existingEntry?.note ?? `${row.craftName} 当前按平台默认口径维护。`,
+  }
 }
 
 const profilesByFactoryId = new Map<string, FactoryCapacityProfile>()
 
-function ensureDeviceRecord(
-  profile: FactoryCapacityProfile,
-  row: ProcessCraftDictRow,
-): void {
-  const fieldKeys = filterFieldKeysByScope(row.samFactoryFieldKeys, 'device')
-  if (!fieldKeys.length) return
-
-  const existing = profile.processCraftDeviceRecords.find(
-    (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-  )
-  if (existing) return
-
-  profile.processCraftDeviceRecords.push({
-    processCode: row.processCode,
-    craftCode: row.craftCode,
-    values: buildDefaultValues(fieldKeys, row, profile.factoryId),
-  })
-}
-
-function ensureStaffRecord(
-  profile: FactoryCapacityProfile,
-  row: ProcessCraftDictRow,
-): void {
-  const fieldKeys = filterFieldKeysByScope(row.samFactoryFieldKeys, 'staff')
-  if (!fieldKeys.length) return
-
-  const existing = profile.processCraftStaffRecords.find(
-    (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-  )
-  if (existing) return
-
-  profile.processCraftStaffRecords.push({
-    processCode: row.processCode,
-    craftCode: row.craftCode,
-    values: buildDefaultValues(fieldKeys, row, profile.factoryId),
-  })
-}
-
-function ensureAdjustmentRecord(
-  profile: FactoryCapacityProfile,
-  row: ProcessCraftDictRow,
-): void {
-  const fieldKeys = filterFieldKeysByScope(row.samFactoryFieldKeys, 'adjustment')
-  if (!fieldKeys.length) return
-
-  const existing = profile.processCraftAdjustmentRecords.find(
-    (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-  )
-  if (existing) return
-
-  profile.processCraftAdjustmentRecords.push({
-    processCode: row.processCode,
-    craftCode: row.craftCode,
-    values: buildDefaultValues(fieldKeys, row, profile.factoryId),
+function pruneOrphanProfiles(): void {
+  const activeFactoryIds = new Set(listFactoryMasterRecords().map((factory) => factory.id))
+  ;[...profilesByFactoryId.keys()].forEach((factoryId) => {
+    if (!activeFactoryIds.has(factoryId)) {
+      profilesByFactoryId.delete(factoryId)
+    }
   })
 }
 
 function ensureProfile(factoryId: string): FactoryCapacityProfile {
+  pruneOrphanProfiles()
   const factory = getFactoryMasterRecordById(factoryId)
   if (!factory) {
     throw new Error(`未找到工厂主数据：${factoryId}`)
   }
 
-  const current = profilesByFactoryId.get(factoryId) ?? createEmptyProfile(factoryId)
-  const next = cloneProfile(current)
   const supportedRows = resolveFactorySupportedCraftRows(factory)
+  const current = profilesByFactoryId.get(factoryId) ?? createEmptyProfile(factoryId)
+  const existingEntryMap = new Map(current.entries.map((entry) => [`${entry.processCode}:${entry.craftCode}`, entry]))
 
-  supportedRows.forEach((row) => {
-    ensureDeviceRecord(next, row)
-    ensureStaffRecord(next, row)
-    ensureAdjustmentRecord(next, row)
-  })
-
-  if (!next.shiftCalendars.length) {
-    next.shiftCalendars = createShiftCalendars(factory)
-  }
-
-  if (!next.calibrationRecords.length) {
-    next.calibrationRecords = createCalibrationRecords(factory, supportedRows)
+  const next: FactoryCapacityProfile = {
+    factoryId,
+    entries: supportedRows.map((row) => normalizeEntry(existingEntryMap.get(`${row.processCode}:${row.craftCode}`), row, factoryId)),
   }
 
   profilesByFactoryId.set(factoryId, cloneProfile(next))
@@ -333,6 +200,7 @@ function ensureProfile(factoryId: string): FactoryCapacityProfile {
 }
 
 export function listFactoryCapacityProfiles(): FactoryCapacityProfile[] {
+  pruneOrphanProfiles()
   return listFactoryMasterRecords().map((factory) => ensureProfile(factory.id))
 }
 
@@ -340,8 +208,9 @@ export function getFactoryCapacityProfileByFactoryId(factoryId: string): Factory
   return ensureProfile(factoryId)
 }
 
-export function upsertFactoryCapacityProfile(profile: FactoryCapacityProfile): void {
-  profilesByFactoryId.set(profile.factoryId, cloneProfile(profile))
+export function listFactoryCapacityProfileStoreIds(): string[] {
+  pruneOrphanProfiles()
+  return [...profilesByFactoryId.keys()].sort((left, right) => left.localeCompare(right))
 }
 
 export function listFactoryCapacitySupportedCraftRows(factoryId: string): ProcessCraftDictRow[] {
@@ -350,74 +219,206 @@ export function listFactoryCapacitySupportedCraftRows(factoryId: string): Proces
   return resolveFactorySupportedCraftRows(factory)
 }
 
-export function listSamFieldKeysByCapacityScope(
-  fieldKeys: SamFactoryFieldKey[],
-  scope: CapacityRecordScope,
-): SamFactoryFieldKey[] {
-  return filterFieldKeysByScope(fieldKeys, scope)
+export function listFactoryCapacityEntries(factoryId: string): FactoryCapacityResolvedEntry[] {
+  const profile = ensureProfile(factoryId)
+  const entryMap = new Map(profile.entries.map((entry) => [`${entry.processCode}:${entry.craftCode}`, entry]))
+
+  return listFactoryCapacitySupportedCraftRows(factoryId)
+    .map((row) => {
+      const entry = entryMap.get(`${row.processCode}:${row.craftCode}`)
+      if (!entry) return null
+      return {
+        row,
+        entry: cloneEntry(entry),
+      }
+    })
+    .filter((item): item is FactoryCapacityResolvedEntry => Boolean(item))
 }
 
-function updateRecordValues(
-  records: Array<ProcessCraftDeviceRecord | ProcessCraftStaffRecord | ProcessCraftAdjustmentRecord>,
+function getNumericValue(
+  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+  key: SamCurrentFieldKey,
+): number | null {
+  const value = values[key]
+  if (value === undefined || value === null || String(value).trim() === '') return null
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
+function formatResultNumber(value: number): string {
+  return Number(value.toFixed(2)).toString()
+}
+
+export function computeFactoryCapacityEntryResult(
+  row: ProcessCraftDictRow,
+  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+): FactoryCapacityComputedResult {
+  const template = getFactorySupplyFormulaTemplate(row.craftName)
+  const missingFieldKeys = row.samCurrentFieldKeys.filter((key) => getNumericValue(values, key) === null)
+  if (missingFieldKeys.length) {
+    return {
+      template,
+      missingFieldKeys,
+      resultValue: null,
+      lines: [
+        {
+          label: '待补充字段',
+          expression: `请先补齐：${missingFieldKeys.map((key) => getSamFactoryFieldDefinitionByKey(key).label).join('、')}`,
+          result: null,
+        },
+      ],
+    }
+  }
+
+  const efficiencyFactor = getNumericValue(values, 'efficiencyFactor') ?? 1
+
+  if (template === 'A') {
+    const staffCount = getNumericValue(values, 'staffCount') ?? 0
+    const staffShiftMinutes = getNumericValue(values, 'staffShiftMinutes') ?? 0
+    const staffEfficiencyValue = getNumericValue(values, 'staffEfficiencyValue') ?? 0
+    const baseCapacity = staffCount * staffShiftMinutes * staffEfficiencyValue
+    const resultValue = baseCapacity * efficiencyFactor
+
+    return {
+      template,
+      missingFieldKeys,
+      resultValue,
+      lines: [
+        {
+          label: '基础日能力',
+          expression: `${formatResultNumber(staffCount)} × ${formatResultNumber(staffShiftMinutes)} × ${formatResultNumber(staffEfficiencyValue)}`,
+          result: baseCapacity,
+        },
+        {
+          label: '默认日可供给发布工时 SAM',
+          expression: `${formatResultNumber(baseCapacity)} × ${formatResultNumber(efficiencyFactor)}`,
+          result: resultValue,
+        },
+      ],
+    }
+  }
+
+  if (template === 'D') {
+    const deviceCount = getNumericValue(values, 'deviceCount') ?? 0
+    const deviceShiftMinutes = getNumericValue(values, 'deviceShiftMinutes') ?? 0
+    const batchLoadCapacity = getNumericValue(values, 'batchLoadCapacity') ?? 0
+    const cycleMinutes = getNumericValue(values, 'cycleMinutes') ?? 0
+    const staffCount = getNumericValue(values, 'staffCount') ?? 0
+    const staffShiftMinutes = getNumericValue(values, 'staffShiftMinutes') ?? 0
+    const staffEfficiencyValue = getNumericValue(values, 'staffEfficiencyValue') ?? 0
+    const setupMinutes = getNumericValue(values, 'setupMinutes') ?? 0
+    const switchMinutes = getNumericValue(values, 'switchMinutes') ?? 0
+
+    const deviceBatchCount = cycleMinutes === 0 ? 0 : deviceShiftMinutes / cycleMinutes
+    const deviceCapacity = deviceBatchCount * batchLoadCapacity * deviceCount
+    const staffCapacity = staffCount * staffShiftMinutes * staffEfficiencyValue
+    const baseCapacity = Math.min(deviceCapacity, staffCapacity)
+    const resultValue = (baseCapacity - setupMinutes - switchMinutes) * efficiencyFactor
+
+    return {
+      template,
+      missingFieldKeys,
+      resultValue,
+      lines: [
+        {
+          label: '单台默认日可运行批数',
+          expression: `${formatResultNumber(deviceShiftMinutes)} ÷ ${formatResultNumber(cycleMinutes)}`,
+          result: deviceBatchCount,
+        },
+        {
+          label: '设备侧日能力',
+          expression: `${formatResultNumber(deviceBatchCount)} × ${formatResultNumber(batchLoadCapacity)} × ${formatResultNumber(deviceCount)}`,
+          result: deviceCapacity,
+        },
+        {
+          label: '人员侧日能力',
+          expression: `${formatResultNumber(staffCount)} × ${formatResultNumber(staffShiftMinutes)} × ${formatResultNumber(staffEfficiencyValue)}`,
+          result: staffCapacity,
+        },
+        {
+          label: '基础日能力',
+          expression: `${formatResultNumber(deviceCapacity)} 和 ${formatResultNumber(staffCapacity)} 里较小的那个`,
+          result: baseCapacity,
+        },
+        {
+          label: '默认日可供给发布工时 SAM',
+          expression: `(${formatResultNumber(baseCapacity)} - ${formatResultNumber(setupMinutes)} - ${formatResultNumber(switchMinutes)}) × ${formatResultNumber(efficiencyFactor)}`,
+          result: resultValue,
+        },
+      ],
+    }
+  }
+
+  const deviceCount = getNumericValue(values, 'deviceCount') ?? 0
+  const deviceShiftMinutes = getNumericValue(values, 'deviceShiftMinutes') ?? 0
+  const deviceEfficiencyValue = getNumericValue(values, 'deviceEfficiencyValue') ?? 0
+  const staffCount = getNumericValue(values, 'staffCount') ?? 0
+  const staffShiftMinutes = getNumericValue(values, 'staffShiftMinutes') ?? 0
+  const staffEfficiencyValue = getNumericValue(values, 'staffEfficiencyValue') ?? 0
+  const setupMinutes = getNumericValue(values, 'setupMinutes') ?? 0
+  const switchMinutes = getNumericValue(values, 'switchMinutes') ?? 0
+
+  const deviceCapacity = deviceCount * deviceShiftMinutes * deviceEfficiencyValue
+  const staffCapacity = staffCount * staffShiftMinutes * staffEfficiencyValue
+  const baseCapacity = Math.min(deviceCapacity, staffCapacity)
+  const resultValue = (baseCapacity - setupMinutes - switchMinutes) * efficiencyFactor
+
+  return {
+    template,
+    missingFieldKeys,
+    resultValue,
+    lines: [
+      {
+        label: '设备侧日能力',
+        expression: `${formatResultNumber(deviceCount)} × ${formatResultNumber(deviceShiftMinutes)} × ${formatResultNumber(deviceEfficiencyValue)}`,
+        result: deviceCapacity,
+      },
+      {
+        label: '人员侧日能力',
+        expression: `${formatResultNumber(staffCount)} × ${formatResultNumber(staffShiftMinutes)} × ${formatResultNumber(staffEfficiencyValue)}`,
+        result: staffCapacity,
+      },
+      {
+        label: '基础日能力',
+        expression: `${formatResultNumber(deviceCapacity)} 和 ${formatResultNumber(staffCapacity)} 里较小的那个`,
+        result: baseCapacity,
+      },
+      {
+        label: '默认日可供给发布工时 SAM',
+        expression: `(${formatResultNumber(baseCapacity)} - ${formatResultNumber(setupMinutes)} - ${formatResultNumber(switchMinutes)}) × ${formatResultNumber(efficiencyFactor)}`,
+        result: resultValue,
+      },
+    ],
+  }
+}
+
+export function updateFactoryCapacityEntryValue(
+  factoryId: string,
   processCode: string,
   craftCode: string,
-  fieldKey: SamFactoryFieldKey,
+  fieldKey: SamCurrentFieldKey,
   value: FactoryCapacityFieldValue,
 ): void {
-  const record = records.find((item) => item.processCode === processCode && item.craftCode === craftCode)
-  if (!record) return
-  record.values[fieldKey] = value
+  const profile = ensureProfile(factoryId)
+  const next = cloneProfile(profile)
+  const entry = next.entries.find((item) => item.processCode === processCode && item.craftCode === craftCode)
+  if (!entry) return
+  entry.values[fieldKey] = value
+  profilesByFactoryId.set(factoryId, cloneProfile(next))
 }
 
-export function updateFactoryCapacityRecordValue(
+export function updateFactoryCapacityEntryNote(
   factoryId: string,
-  scope: CapacityRecordScope,
   processCode: string,
   craftCode: string,
-  fieldKey: SamFactoryFieldKey,
-  value: FactoryCapacityFieldValue,
+  note: string,
 ): void {
   const profile = ensureProfile(factoryId)
-
-  if (scope === 'device') {
-    updateRecordValues(profile.processCraftDeviceRecords, processCode, craftCode, fieldKey, value)
-  } else if (scope === 'staff') {
-    updateRecordValues(profile.processCraftStaffRecords, processCode, craftCode, fieldKey, value)
-  } else {
-    updateRecordValues(profile.processCraftAdjustmentRecords, processCode, craftCode, fieldKey, value)
-  }
-
-  upsertFactoryCapacityProfile(profile)
-}
-
-export function updateFactoryShiftCalendarField(
-  factoryId: string,
-  index: number,
-  field: keyof ShiftCalendarRecord,
-  value: ShiftCalendarRecord[keyof ShiftCalendarRecord],
-): void {
-  const profile = ensureProfile(factoryId)
-  if (!profile.shiftCalendars[index]) return
-  profile.shiftCalendars[index] = {
-    ...profile.shiftCalendars[index],
-    [field]: value,
-  }
-  upsertFactoryCapacityProfile(profile)
-}
-
-export function updateFactoryCalibrationField(
-  factoryId: string,
-  index: number,
-  field: keyof CalibrationRecord,
-  value: CalibrationRecord[keyof CalibrationRecord],
-): void {
-  const profile = ensureProfile(factoryId)
-  if (!profile.calibrationRecords[index]) return
-  profile.calibrationRecords[index] = {
-    ...profile.calibrationRecords[index],
-    [field]: value,
-  }
-  upsertFactoryCapacityProfile(profile)
+  const next = cloneProfile(profile)
+  const entry = next.entries.find((item) => item.processCode === processCode && item.craftCode === craftCode)
+  if (!entry) return
+  entry.note = note
+  profilesByFactoryId.set(factoryId, cloneProfile(next))
 }
 
 export function hasCapacityFieldValue(
@@ -426,4 +427,161 @@ export function hasCapacityFieldValue(
   return value !== undefined && value !== null && String(value).trim() !== ''
 }
 
-export { ADJUSTMENT_FIELD_KEYS, DEVICE_FIELD_KEYS, STAFF_FIELD_KEYS, UNIT_FIELD_KEYS }
+export function calculateFactoryCapacityCompletion(factoryId: string): number {
+  const entries = listFactoryCapacityEntries(factoryId)
+  let totalFields = 0
+  let filledFields = 0
+
+  entries.forEach(({ row, entry }) => {
+    row.samCurrentFieldKeys.forEach((fieldKey) => {
+      totalFields += 1
+      if (hasCapacityFieldValue(entry.values[fieldKey])) {
+        filledFields += 1
+      }
+    })
+  })
+
+  if (!totalFields) return 0
+  return Math.round((filledFields / totalFields) * 100)
+}
+
+export function auditFactoryCapacityProfile(factoryId: string): FactoryCapacityAuditIssue[] {
+  const factory = getFactoryMasterRecordById(factoryId)
+  if (!factory) return []
+
+  const profile = ensureProfile(factoryId)
+  const issues: FactoryCapacityAuditIssue[] = []
+  const supportedRows = resolveFactorySupportedCraftRows(factory)
+  const supportedPairs = new Set(supportedRows.map((row) => `${row.processCode}:${row.craftCode}`))
+  const entryMap = new Map(profile.entries.map((entry) => [`${entry.processCode}:${entry.craftCode}`, entry]))
+
+  factory.processAbilities.forEach((ability) => {
+    ability.craftCodes.forEach((craftCode) => {
+      const row = getProcessCraftDictRowByCode(craftCode)
+      if (!row) {
+        issues.push({
+          category: 'DECLARED_CRAFT_ROW_MISSING',
+          factoryId: factory.id,
+          factoryName: factory.name,
+          processCode: ability.processCode,
+          processName: ability.processCode,
+          craftCode,
+          craftName: craftCode,
+          detail: '工厂档案已声明该工艺，但字典行不存在，页面无法继续渲染。',
+        })
+        return
+      }
+
+      if (row.processCode !== ability.processCode) {
+        issues.push({
+          category: 'DECLARED_PROCESS_MISMATCH',
+          factoryId: factory.id,
+          factoryName: factory.name,
+          processCode: ability.processCode,
+          processName: row.processName,
+          craftCode: row.craftCode,
+          craftName: row.craftName,
+          detail: '工厂档案中的工艺归属工序与字典定义不一致。',
+        })
+      }
+
+      if (!supportedPairs.has(`${row.processCode}:${row.craftCode}`)) {
+        issues.push({
+          category: 'DECLARED_CRAFT_ROW_MISSING',
+          factoryId: factory.id,
+          factoryName: factory.name,
+          processCode: row.processCode,
+          processName: row.processName,
+          craftCode: row.craftCode,
+          craftName: row.craftName,
+          detail: '工厂档案已声明该工艺，但产能档案支持范围未能解析出该工艺。',
+        })
+      }
+    })
+  })
+
+  supportedRows.forEach((row) => {
+    const pair = `${row.processCode}:${row.craftCode}`
+    const entry = entryMap.get(pair)
+    if (!entry) {
+      issues.push({
+        category: 'MISSING_ENTRY',
+        factoryId: factory.id,
+        factoryName: factory.name,
+        processCode: row.processCode,
+        processName: row.processName,
+        craftCode: row.craftCode,
+        craftName: row.craftName,
+        detail: '工厂档案已声明该工艺，但产能档案当前阶段维护记录缺失。',
+      })
+      return
+    }
+
+    const actualKeys = Object.keys(entry.values) as SamCurrentFieldKey[]
+    const missingKeys = row.samCurrentFieldKeys.filter((key) => !actualKeys.includes(key))
+    const unexpectedKeys = actualKeys.filter((key) => !row.samCurrentFieldKeys.includes(key))
+
+    if (missingKeys.length) {
+      issues.push({
+        category: 'MISSING_CURRENT_FIELDS',
+        factoryId: factory.id,
+        factoryName: factory.name,
+        processCode: row.processCode,
+        processName: row.processName,
+        craftCode: row.craftCode,
+        craftName: row.craftName,
+        detail: `当前阶段记录缺少字段：${missingKeys.join(', ')}`,
+      })
+    }
+
+    if (unexpectedKeys.length) {
+      issues.push({
+        category: 'UNEXPECTED_CURRENT_FIELDS',
+        factoryId: factory.id,
+        factoryName: factory.name,
+        processCode: row.processCode,
+        processName: row.processName,
+        craftCode: row.craftCode,
+        craftName: row.craftName,
+        detail: `当前阶段记录出现了不属于该工艺的字段：${unexpectedKeys.join(', ')}`,
+      })
+    }
+
+    const result = computeFactoryCapacityEntryResult(row, entry.values)
+    if (result.resultValue === null) {
+      issues.push({
+        category: 'CALCULATION_UNAVAILABLE',
+        factoryId: factory.id,
+        factoryName: factory.name,
+        processCode: row.processCode,
+        processName: row.processName,
+        craftCode: row.craftCode,
+        craftName: row.craftName,
+        detail: `当前阶段结果无法计算，缺少字段：${result.missingFieldKeys.join(', ')}`,
+      })
+    }
+  })
+
+  profile.entries.forEach((entry) => {
+    const pair = `${entry.processCode}:${entry.craftCode}`
+    if (!supportedPairs.has(pair)) {
+      const row = getProcessCraftDictRowByCode(entry.craftCode)
+      issues.push({
+        category: 'UNEXPECTED_ENTRY',
+        factoryId: factory.id,
+        factoryName: factory.name,
+        processCode: row?.processCode ?? entry.processCode,
+        processName: row?.processName ?? entry.processCode,
+        craftCode: entry.craftCode,
+        craftName: row?.craftName ?? entry.craftCode,
+        detail: '产能档案出现了不在工厂档案能力范围内的工艺记录。',
+      })
+    }
+  })
+
+  return issues
+}
+
+export function auditAllFactoryCapacityProfiles(): FactoryCapacityAuditIssue[] {
+  return listFactoryMasterRecords().flatMap((factory) => auditFactoryCapacityProfile(factory.id))
+}

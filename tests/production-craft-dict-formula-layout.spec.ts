@@ -23,55 +23,59 @@ async function closeCraftDetail(page: Page): Promise<void> {
 }
 
 async function assertSheetContent(sheet: Locator, expectedFormula: string): Promise<void> {
-  await expect(sheet).toContainText('SAM 核算前置要求')
-  await expect(sheet).toContainText('SAM 计算说明')
-  await expect(sheet.getByTestId('sam-prereq-section')).toBeVisible()
+  await expect(sheet).toContainText('基础信息')
+  await expect(sheet).toContainText('标准完整口径')
+  await expect(sheet).toContainText('当前阶段口径')
 
-  const groupCount = await sheet.getByTestId('sam-field-group').count()
-  expect(groupCount).toBeGreaterThan(0)
-  expect(groupCount).toBeLessThanOrEqual(3)
-
-  const prereqMetrics = await sheet.evaluate((node) => ({
+  const panelMetrics = await sheet.evaluate((node) => ({
     width: Math.round(node.getBoundingClientRect().width),
-    clientHeight: node.clientHeight,
-    scrollHeight: node.scrollHeight,
   }))
+  expect(panelMetrics.width).toBeGreaterThanOrEqual(900)
 
-  expect(prereqMetrics.width).toBeGreaterThanOrEqual(900)
-  expect(prereqMetrics.scrollHeight).toBeLessThanOrEqual(prereqMetrics.clientHeight + 2)
+  await sheet.getByRole('button', { name: '标准完整口径', exact: true }).click()
+  const idealSection = sheet.getByTestId('craft-ideal-section')
+  await expect(idealSection).toBeVisible()
+  await expect(idealSection).toContainText('工厂供给侧公式')
+  await expect(idealSection).toContainText('理想完整字段')
+  await expect(idealSection).toContainText('理想完整说明')
+  await expect(idealSection).toContainText('当前阶段口径不是另一套独立规则')
 
-  await sheet.getByRole('button', { name: 'SAM 计算说明', exact: true }).click()
-  const formulaSection = sheet.getByTestId('sam-formula-section')
-  await expect(formulaSection).toBeVisible()
-  await expect(formulaSection).toContainText('公式')
-  await expect(formulaSection).toContainText('说明')
-  await expect(formulaSection).toContainText('示例')
-  await expect(formulaSection).toContainText(expectedFormula)
-  await expect(formulaSection).toContainText('为什么要维护这些字段')
+  await sheet.getByRole('button', { name: '当前阶段口径', exact: true }).click()
+  const currentSection = sheet.getByTestId('craft-current-section')
+  await expect(currentSection).toBeVisible()
+  await expect(currentSection).toContainText('当前阶段最小必要字段')
+  await expect(currentSection).toContainText('当前阶段公式')
+  await expect(currentSection).toContainText('当前阶段说明')
+  await expect(currentSection).toContainText('当前阶段示例')
+  await expect(currentSection).toContainText('默认日可供给发布工时 SAM 是系统根据当前阶段字段自动算出来的结果字段')
+  await expect(currentSection).toContainText(expectedFormula)
+  await expect(currentSection).toContainText('某工厂做')
+  await expect(currentSection).not.toContainText('这批任务')
+  await expect(currentSection).not.toContainText('任务总 SAM')
 
-  const formulaMetrics = await sheet.evaluate((node) => ({
-    clientHeight: node.clientHeight,
-    scrollHeight: node.scrollHeight,
-  }))
-  expect(formulaMetrics.scrollHeight).toBeLessThanOrEqual(formulaMetrics.clientHeight + 2)
+  const currentFieldGroups = await currentSection.getByTestId('sam-field-group').count()
+  expect(currentFieldGroups).toBeGreaterThan(0)
+  expect(currentFieldGroups).toBeLessThanOrEqual(3)
 }
 
-test('工艺详情侧边栏展示 SAM 计算说明，公式按核算方式切换，且桌面视口下无需纵向滚动', async ({ page }) => {
+test('工艺详情侧边栏展示理想完整口径与当前阶段口径，代表工艺覆盖四套当前阶段模板', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.goto('/fcs/production/craft-dict')
   await expect(page.getByRole('heading', { name: '工序工艺字典', exact: true })).toBeVisible()
 
   const craftCases: Array<[string, string]> = [
-    ['丝网印', '总SAM = 总量 ÷ 每分钟速度 + 固定准备分钟 + 切换准备分钟'],
-    ['匹染', '总SAM = 批次数 × 每批循环分钟 + 固定准备分钟 + 切换准备分钟'],
-    ['定位裁', '总SAM = 数量 × 每单位工时 + 固定准备分钟 + 切换准备分钟'],
-    ['绣花', '总SAM = 数量 × 每单位工时 + 固定准备分钟 + 切换准备分钟'],
-    ['曲牙', '总SAM = 数量 × 每单位工时 + 固定准备分钟 + 切换准备分钟'],
-    ['打条', '总SAM = 总量 ÷ 每分钟速度 + 固定准备分钟 + 切换准备分钟'],
-    ['洗水', '总SAM = 批次数 × 每批循环分钟 + 固定准备分钟 + 切换准备分钟'],
-    ['手缝扣', '总SAM = 数量 × 每单位工时 + 固定准备分钟 + 切换准备分钟'],
-    ['鸡眼扣', '总SAM = 数量 × 每单位工时 + 固定准备分钟 + 切换准备分钟'],
-    ['包装', '总SAM = 数量 × 每单位工时 + 固定准备分钟 + 切换准备分钟'],
+    ['基础连接', '基础日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue'],
+    ['曲牙', '设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue'],
+    ['丝网印', '设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue'],
+    ['匹染', '单台默认日可运行批数 = deviceShiftMinutes ÷ cycleMinutes'],
+    ['洗水', '单台默认日可运行批数 = deviceShiftMinutes ÷ cycleMinutes'],
+    ['手缝扣', '基础日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue'],
+    ['包装', '基础日能力 = staffCount × staffShiftMinutes × staffEfficiencyValue'],
+    ['绣花', '设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue'],
+    ['打条', '设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue'],
+    ['捆条', '设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue'],
+    ['鸡眼扣', '设备侧日能力 = deviceCount × deviceShiftMinutes × deviceEfficiencyValue'],
+    ['缩水', '单台默认日可运行批数 = deviceShiftMinutes ÷ cycleMinutes'],
   ]
 
   for (const [craftName, expectedFormula] of craftCases) {

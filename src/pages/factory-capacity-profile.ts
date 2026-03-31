@@ -1,41 +1,33 @@
 import {
+  calculateFactoryCapacityCompletion,
+  computeFactoryCapacityEntryResult,
+  getFactoryCapacityProfileByFactoryId,
+  listFactoryCapacityEntries,
+} from '../data/fcs/factory-capacity-profile-mock'
+import {
   getFactoryMasterRecordById,
   listFactoryMasterRecords,
 } from '../data/fcs/factory-master-store'
 import {
-  UNIT_FIELD_KEYS,
-  getFactoryCapacityProfileByFactoryId,
-  hasCapacityFieldValue,
-  listFactoryCapacitySupportedCraftRows,
-  listSamFieldKeysByCapacityScope,
-  type CapacityRecordScope,
-  updateFactoryCalibrationField,
-  updateFactoryCapacityRecordValue,
-  updateFactoryShiftCalendarField,
-} from '../data/fcs/factory-capacity-profile-mock'
-import {
   factoryStatusConfig,
   factoryTypeConfig,
-  type CalibrationRecord,
   type Factory,
   type FactoryCapacityFieldValue,
-  type FactoryCapacityProfile,
   type FactoryType,
-  type ShiftCalendarRecord,
 } from '../data/fcs/factory-types'
 import {
   SAM_CALC_MODE_LABEL,
+  getProcessCraftDictRowByCode,
   getSamFactoryFieldDefinitionByKey,
   listProcessStages,
   listProcessesByStageCode,
   type ProcessCraftDictRow,
-  type SamFactoryFieldKey,
+  type SamCurrentFieldKey,
 } from '../data/fcs/process-craft-dict'
 import { escapeHtml } from '../utils'
+import { updateFactoryCapacityEntryValue } from '../data/fcs/factory-capacity-profile-mock'
 
 const PAGE_SIZE = 10
-
-type CapacityTab = 'devices' | 'staff' | 'calendar' | 'adjustments' | 'calibration'
 
 interface FactoryCapacityProfilePageState {
   searchKeyword: string
@@ -43,7 +35,6 @@ interface FactoryCapacityProfilePageState {
   typeFilter: string
   currentPage: number
   activeFactoryId: string
-  activeTab: CapacityTab
 }
 
 const state: FactoryCapacityProfilePageState = {
@@ -52,7 +43,16 @@ const state: FactoryCapacityProfilePageState = {
   typeFilter: 'all',
   currentPage: 1,
   activeFactoryId: '',
-  activeTab: 'devices',
+}
+
+const CURRENT_PHASE_FIELD_LABELS: Partial<Record<SamCurrentFieldKey, string>> = {
+  deviceShiftMinutes: '单台默认日有效分钟',
+  staffShiftMinutes: '单人默认日有效分钟',
+}
+
+const CURRENT_PHASE_FIELD_DESCRIPTIONS: Partial<Record<SamCurrentFieldKey, string>> = {
+  deviceShiftMinutes: '当前阶段按单台设备默认日有效分钟理解，用于自动计算当天设备侧可供给能力。',
+  staffShiftMinutes: '当前阶段按单人默认日有效分钟理解，用于自动计算当天人员侧可供给能力。',
 }
 
 function getVisibleFactories(): Factory[] {
@@ -87,54 +87,17 @@ function getFactoryTypeOptions(): FactoryType[] {
   return [...new Set(listFactoryMasterRecords().map((factory) => factory.factoryType))]
 }
 
+function getSelectedFactory(): Factory | null {
+  if (!state.activeFactoryId) return null
+  return getFactoryMasterRecordById(state.activeFactoryId) ?? null
+}
+
 function getSupportedProcessCount(factory: Factory): number {
   return factory.processAbilities.length
 }
 
 function getSupportedCraftCount(factory: Factory): number {
   return factory.processAbilities.reduce((total, item) => total + item.craftCodes.length, 0)
-}
-
-function getSelectedFactory(): Factory | null {
-  if (!state.activeFactoryId) return null
-  return getFactoryMasterRecordById(state.activeFactoryId) ?? null
-}
-
-function calculateCapacityCompletion(factory: Factory): number {
-  const profile = getFactoryCapacityProfileByFactoryId(factory.id)
-  const supportedRows = listFactoryCapacitySupportedCraftRows(factory.id)
-  let totalFields = 0
-  let filledFields = 0
-
-  supportedRows.forEach((row) => {
-    const deviceRecord = profile.processCraftDeviceRecords.find(
-      (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-    )
-    const staffRecord = profile.processCraftStaffRecords.find(
-      (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-    )
-    const adjustmentRecord = profile.processCraftAdjustmentRecords.find(
-      (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-    )
-
-    row.samFactoryFieldKeys.forEach((fieldKey) => {
-      totalFields += 1
-      const fieldGroup = getSamFactoryFieldDefinitionByKey(fieldKey).group
-      const value =
-        fieldGroup === 'DEVICE'
-          ? deviceRecord?.values[fieldKey]
-          : fieldGroup === 'STAFF'
-            ? staffRecord?.values[fieldKey]
-            : adjustmentRecord?.values[fieldKey]
-
-      if (hasCapacityFieldValue(value)) {
-        filledFields += 1
-      }
-    })
-  })
-
-  if (!totalFields) return 0
-  return Math.round((filledFields / totalFields) * 100)
 }
 
 function renderPagination(total: number): string {
@@ -194,7 +157,7 @@ function renderCapacityTableRows(factories: Factory[]): string {
   return factories
     .map((factory) => {
       const statusConfig = factoryStatusConfig[factory.status]
-      const completion = calculateCapacityCompletion(factory)
+      const completion = calculateFactoryCapacityCompletion(factory.id)
 
       return `
         <tr class="border-b last:border-0 hover:bg-muted/30" data-capacity-factory-id="${factory.id}">
@@ -228,14 +191,12 @@ function renderCapacityTableRows(factories: Factory[]): string {
 }
 
 function renderReadonlyProcessAbilities(factory: Factory): string {
-  const supportedRows = listFactoryCapacitySupportedCraftRows(factory.id)
-
   return `
     <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="factory-capacity-readonly-abilities">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h4 class="text-sm font-medium text-foreground">工序工艺能力（来自工厂档案）</h4>
-          <p class="mt-1 text-xs text-muted-foreground">产能档案只读引用工厂档案已声明的能力范围，不在此重复维护。</p>
+          <p class="mt-1 text-xs text-muted-foreground">当前阶段产能档案只读引用工厂档案已声明的能力范围，不在此重复维护。</p>
         </div>
         <span class="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">只读引用</span>
       </div>
@@ -248,7 +209,7 @@ function renderReadonlyProcessAbilities(factory: Factory): string {
                 if (!ability || !ability.craftCodes.length) return ''
 
                 const craftChips = ability.craftCodes
-                  .map((craftCode) => supportedRows.find((row) => row.craftCode === craftCode))
+                  .map((craftCode) => getProcessCraftDictRowByCode(craftCode))
                   .filter((row): row is ProcessCraftDictRow => Boolean(row))
                   .map(
                     (row) =>
@@ -299,87 +260,141 @@ function renderTopReadonlyInfo(factory: Factory): string {
   `
 }
 
-function renderProcessCraftFieldInput(
-  factoryId: string,
-  scope: CapacityRecordScope,
-  row: ProcessCraftDictRow,
-  fieldKey: SamFactoryFieldKey,
+function formatCapacityValue(value: FactoryCapacityFieldValue | undefined): string {
+  return value === undefined || value === null ? '' : String(value)
+}
+
+function getCurrentPhaseFieldLabel(fieldKey: SamCurrentFieldKey): string {
+  const definition = getSamFactoryFieldDefinitionByKey(fieldKey)
+  return CURRENT_PHASE_FIELD_LABELS[fieldKey] ?? definition?.label ?? fieldKey
+}
+
+function getCurrentPhaseFieldDescription(fieldKey: SamCurrentFieldKey): string {
+  const definition = getSamFactoryFieldDefinitionByKey(fieldKey)
+  return CURRENT_PHASE_FIELD_DESCRIPTIONS[fieldKey] ?? definition?.description ?? ''
+}
+
+function renderCurrentFieldInput(
+  processCode: string,
+  craftCode: string,
+  fieldKey: SamCurrentFieldKey,
   value: FactoryCapacityFieldValue | undefined,
 ): string {
-  const field = getSamFactoryFieldDefinitionByKey(fieldKey)
-  const inputType = UNIT_FIELD_KEYS.has(fieldKey) ? 'text' : 'number'
-  const step = fieldKey === 'efficiencyFactor' ? '0.01' : '1'
+  const step = fieldKey === 'efficiencyFactor' || fieldKey === 'deviceEfficiencyValue' || fieldKey === 'staffEfficiencyValue'
+    ? '0.01'
+    : '1'
 
   return `
     <label class="space-y-1.5">
-      <span class="text-xs text-muted-foreground">${escapeHtml(field.label)}</span>
+      <span class="text-xs text-muted-foreground">${escapeHtml(getCurrentPhaseFieldLabel(fieldKey))}</span>
       <input
-        type="${inputType}"
-        ${inputType === 'number' ? `step="${step}"` : ''}
-        data-capacity-record-scope="${scope}"
-        data-capacity-process-code="${row.processCode}"
-        data-capacity-craft-code="${row.craftCode}"
+        type="number"
+        step="${step}"
+        data-capacity-process-code="${processCode}"
+        data-capacity-craft-code="${craftCode}"
         data-capacity-field-key="${fieldKey}"
-        value="${escapeHtml(hasCapacityFieldValue(value) ? String(value) : '')}"
+        value="${escapeHtml(formatCapacityValue(value))}"
         class="w-full rounded-md border px-3 py-2 text-sm"
       />
+      <span class="text-[11px] text-muted-foreground">${escapeHtml(getCurrentPhaseFieldDescription(fieldKey))}</span>
     </label>
   `
 }
 
-function renderProcessCraftEditors(
-  factory: Factory,
-  profile: FactoryCapacityProfile,
-  scope: CapacityRecordScope,
-): string {
-  const scopeLabel = scope === 'device' ? '设备台账' : scope === 'staff' ? '人员台账' : '工厂工时修正'
-  const supportedRows = listFactoryCapacitySupportedCraftRows(factory.id)
+function renderCalculationLines(row: ProcessCraftDictRow, values: Record<string, FactoryCapacityFieldValue>): string {
+  const result = computeFactoryCapacityEntryResult(row, values)
+  return `
+    <div class="space-y-2" data-capacity-calculation-lines>
+      ${result.lines
+        .map((line) => {
+          if (line.result === null) {
+            return `<p class="text-xs text-red-600">${escapeHtml(`${line.label}：${line.expression}`)}</p>`
+          }
+
+          return `
+            <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm" data-capacity-calculation-line="${escapeHtml(line.label)}">
+              <p class="font-medium text-foreground">${escapeHtml(line.label)}</p>
+              <p class="mt-1 text-muted-foreground">${escapeHtml(`${line.label} = ${line.expression} = ${Number(line.result.toFixed(2)).toString()}`)}</p>
+            </div>
+          `
+        })
+        .join('')}
+    </div>
+  `
+}
+
+function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, values: Record<string, FactoryCapacityFieldValue>): string {
+  const result = computeFactoryCapacityEntryResult(row, values)
+  const resultText = result.resultValue === null ? '待补齐字段' : Number(result.resultValue.toFixed(2)).toString()
+
+  return `
+    <article class="rounded-md border bg-background p-4" data-capacity-entry-card="${row.craftCode}">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium text-foreground">${escapeHtml(row.craftName)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.processName)} · ${escapeHtml(
+            SAM_CALC_MODE_LABEL[row.samCalcMode],
+          )}</p>
+        </div>
+        <span class="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">系统自动计算结果</span>
+      </div>
+
+      <div class="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+        <section class="space-y-3">
+          <div>
+            <p class="text-xs font-medium text-amber-700">当前阶段最小必要字段</p>
+            <p class="mt-1 text-xs text-muted-foreground">只维护该工艺当前阶段真正需要的最小数值字段，系统会自动计算默认日可供给发布工时 SAM。</p>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            ${row.samCurrentFieldKeys
+              .map((fieldKey) =>
+                renderCurrentFieldInput(row.processCode, row.craftCode, fieldKey, values[fieldKey]),
+              )
+              .join('')}
+          </div>
+        </section>
+
+        <section class="space-y-4">
+          <div class="rounded-md border bg-blue-50 px-4 py-3" data-capacity-result-block="${row.craftCode}">
+            <p class="text-xs font-medium text-blue-700">默认日可供给发布工时 SAM</p>
+            <p class="mt-2 text-2xl font-semibold text-foreground" data-capacity-result-value="${row.craftCode}">${escapeHtml(resultText)}</p>
+            <p class="mt-2 text-xs text-muted-foreground">这是系统根据当前阶段字段自动算出来的结果字段，不是人工录入字段。</p>
+          </div>
+          <div class="rounded-md border bg-muted/20 px-4 py-3">
+            <p class="text-xs font-medium text-foreground">当前阶段公式</p>
+            <div class="mt-2 space-y-1 text-sm text-muted-foreground">
+              ${row.samCurrentFormulaLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="mt-4 grid gap-4 xl:grid-cols-2">
+        <section class="rounded-md border bg-muted/20 px-4 py-3">
+          <p class="text-xs font-medium text-foreground">当前阶段说明</p>
+          <div class="mt-2 space-y-2 text-sm text-muted-foreground">
+            ${row.samCurrentExplanationLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+          </div>
+        </section>
+        <section class="rounded-md border bg-muted/20 px-4 py-3">
+          <p class="text-xs font-medium text-foreground">当前输入值代入后的计算过程</p>
+          <div class="mt-2">${renderCalculationLines(row, values)}</div>
+        </section>
+      </div>
+    </article>
+  `
+}
+
+function renderCurrentStageSection(factory: Factory): string {
+  const entries = listFactoryCapacityEntries(factory.id)
 
   const stageSections = listProcessStages()
     .map((stage) => {
       const processBlocks = listProcessesByStageCode(stage.stageCode)
         .map((process) => {
-          const craftCards = supportedRows
-            .filter((row) => row.stageCode === stage.stageCode && row.processCode === process.processCode)
-            .map((row) => {
-              const fieldKeys = listSamFieldKeysByCapacityScope(row.samFactoryFieldKeys, scope)
-              if (!fieldKeys.length) return ''
-
-              const record =
-                scope === 'device'
-                  ? profile.processCraftDeviceRecords.find(
-                      (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-                    )
-                  : scope === 'staff'
-                    ? profile.processCraftStaffRecords.find(
-                        (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-                      )
-                    : profile.processCraftAdjustmentRecords.find(
-                        (item) => item.processCode === row.processCode && item.craftCode === row.craftCode,
-                      )
-
-              return `
-                <div class="rounded-md border bg-background p-3" data-capacity-craft-card="${row.craftCode}">
-                  <div class="flex items-start justify-between gap-3">
-                    <div>
-                      <p class="text-sm font-medium text-foreground">${escapeHtml(row.craftName)}</p>
-                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.processName)} · ${escapeHtml(
-                        SAM_CALC_MODE_LABEL[row.samCalcMode],
-                      )}</p>
-                    </div>
-                    <span class="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-muted-foreground">${fieldKeys.length} 项</span>
-                  </div>
-                  <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    ${fieldKeys
-                      .map((fieldKey) =>
-                        renderProcessCraftFieldInput(factory.id, scope, row, fieldKey, record?.values[fieldKey]),
-                      )
-                      .join('')}
-                  </div>
-                </div>
-              `
-            })
-            .filter(Boolean)
+          const craftCards = entries
+            .filter((entry) => entry.row.stageCode === stage.stageCode && entry.row.processCode === process.processCode)
+            .map(({ row, entry }) => renderCapacityEntryCard(factory.id, row, entry.values))
             .join('')
 
           if (!craftCards) return ''
@@ -388,7 +403,7 @@ function renderProcessCraftEditors(
             <div class="space-y-3 rounded-md border bg-muted/20 p-4">
               <div>
                 <p class="text-sm font-medium text-foreground">${escapeHtml(process.processName)}</p>
-                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(scopeLabel)}只展示该工序工艺真正需要维护的字段。</p>
+                <p class="mt-1 text-xs text-muted-foreground">当前阶段按该工艺最小必要字段维护，系统自动计算默认日可供给发布工时 SAM。</p>
               </div>
               <div class="space-y-3">${craftCards}</div>
             </div>
@@ -411,246 +426,27 @@ function renderProcessCraftEditors(
     .filter(Boolean)
     .join('')
 
-  return (
-    stageSections ||
-    `<p class="rounded-md border bg-card px-4 py-5 text-sm text-muted-foreground">当前工厂没有需要维护${escapeHtml(scopeLabel)}的工序工艺。</p>`
-  )
-}
-
-function renderShiftCalendarScopeLabel(factory: Factory, record: ShiftCalendarRecord): string {
-  if (record.scopeType === 'FACTORY') return '全厂'
-
-  const process = listProcessStages()
-    .flatMap((stage) => listProcessesByStageCode(stage.stageCode))
-    .find((item) => item.processCode === record.scopeCode)
-
-  if (process) return process.processName
-  return record.scopeCode === factory.id ? '全厂' : record.scopeCode
-}
-
-function renderShiftCalendars(factory: Factory, profile: FactoryCapacityProfile): string {
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="factory-capacity-calendar-tab">
+    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="factory-capacity-current-stage-section">
       <div>
-        <h4 class="text-sm font-medium text-foreground">班次日历</h4>
+        <h4 class="text-sm font-medium text-foreground">当前阶段最小必要字段与自动计算结果</h4>
+        <p class="mt-1 text-xs text-muted-foreground">当前阶段只维护字典规定的最小必要字段，系统自动计算默认日可供给发布工时 SAM。</p>
       </div>
-      <div class="space-y-3">
-        ${profile.shiftCalendars
-          .map(
-            (record, index) => `
-              <div class="rounded-md border bg-muted/20 p-4">
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <label class="space-y-1.5">
-                    <span class="text-xs text-muted-foreground">日期</span>
-                    <input
-                      type="date"
-                      data-capacity-calendar-index="${index}"
-                      data-capacity-calendar-field="date"
-                      value="${escapeHtml(record.date)}"
-                      class="w-full rounded-md border px-3 py-2 text-sm"
-                    />
-                  </label>
-                  <label class="space-y-1.5">
-                    <span class="text-xs text-muted-foreground">适用范围</span>
-                    <select
-                      data-capacity-calendar-index="${index}"
-                      data-capacity-calendar-field="scopeType"
-                      class="w-full rounded-md border px-3 py-2 text-sm"
-                    >
-                      <option value="FACTORY" ${record.scopeType === 'FACTORY' ? 'selected' : ''}>全厂</option>
-                      <option value="PROCESS" ${record.scopeType === 'PROCESS' ? 'selected' : ''}>某工序</option>
-                    </select>
-                  </label>
-                  <label class="space-y-1.5">
-                    <span class="text-xs text-muted-foreground">适用工序</span>
-                    <select
-                      data-capacity-calendar-index="${index}"
-                      data-capacity-calendar-field="scopeCode"
-                      class="w-full rounded-md border px-3 py-2 text-sm"
-                    >
-                      <option value="${factory.id}" ${record.scopeType === 'FACTORY' ? 'selected' : ''}>全厂</option>
-                      ${factory.processAbilities
-                        .map((ability) => {
-                          const process = listProcessStages()
-                            .flatMap((stage) => listProcessesByStageCode(stage.stageCode))
-                            .find((item) => item.processCode === ability.processCode)
-                          return `<option value="${ability.processCode}" ${record.scopeCode === ability.processCode ? 'selected' : ''}>${escapeHtml(process?.processName ?? ability.processCode)}</option>`
-                        })
-                        .join('')}
-                    </select>
-                  </label>
-                  <div class="rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">
-                    当前显示：${escapeHtml(renderShiftCalendarScopeLabel(factory, record))}
-                  </div>
-                </div>
-                <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <label class="space-y-1.5">
-                    <span class="text-xs text-muted-foreground">白班时长</span>
-                    <input
-                      type="number"
-                      step="1"
-                      data-capacity-calendar-index="${index}"
-                      data-capacity-calendar-field="dayShiftMinutes"
-                      value="${record.dayShiftMinutes}"
-                      class="w-full rounded-md border px-3 py-2 text-sm"
-                    />
-                  </label>
-                  <label class="space-y-1.5">
-                    <span class="text-xs text-muted-foreground">夜班时长</span>
-                    <input
-                      type="number"
-                      step="1"
-                      data-capacity-calendar-index="${index}"
-                      data-capacity-calendar-field="nightShiftMinutes"
-                      value="${record.nightShiftMinutes}"
-                      class="w-full rounded-md border px-3 py-2 text-sm"
-                    />
-                  </label>
-                  <label class="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      data-capacity-calendar-index="${index}"
-                      data-capacity-calendar-field="isStopped"
-                      ${record.isStopped ? 'checked' : ''}
-                      class="h-4 w-4 rounded border"
-                    />
-                    <span>是否停工</span>
-                  </label>
-                  <label class="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      data-capacity-calendar-index="${index}"
-                      data-capacity-calendar-field="isOvertime"
-                      ${record.isOvertime ? 'checked' : ''}
-                      class="h-4 w-4 rounded border"
-                    />
-                    <span>是否加班</span>
-                  </label>
-                </div>
-                <label class="mt-3 block space-y-1.5">
-                  <span class="text-xs text-muted-foreground">备注</span>
-                  <input
-                    data-capacity-calendar-index="${index}"
-                    data-capacity-calendar-field="note"
-                    value="${escapeHtml(record.note)}"
-                    class="w-full rounded-md border px-3 py-2 text-sm"
-                  />
-                </label>
-              </div>
-            `,
-          )
-          .join('')}
-      </div>
+      <div class="space-y-4">${stageSections}</div>
     </section>
   `
-}
-
-function renderCalibrationRecords(factory: Factory, profile: FactoryCapacityProfile): string {
-  const supportedRows = listFactoryCapacitySupportedCraftRows(factory.id)
-
-  return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="factory-capacity-calibration-tab">
-      <div>
-        <h4 class="text-sm font-medium text-foreground">校准记录</h4>
-      </div>
-      <div class="space-y-3">
-        ${profile.calibrationRecords
-          .map((record, index) => {
-            const craftRow = supportedRows.find((row) => row.craftCode === record.craftCode)
-            return `
-              <div class="rounded-md border bg-muted/20 p-4">
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  <label class="space-y-1.5">
-                    <span class="text-xs text-muted-foreground">日期 / 周期</span>
-                    <input
-                      data-capacity-calibration-index="${index}"
-                      data-capacity-calibration-field="periodLabel"
-                      value="${escapeHtml(record.periodLabel)}"
-                      class="w-full rounded-md border px-3 py-2 text-sm"
-                    />
-                  </label>
-                  <div class="rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">工序：${escapeHtml(craftRow?.processName ?? record.processCode)}</div>
-                  <div class="rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">工艺：${escapeHtml(craftRow?.craftName ?? record.craftCode)}</div>
-                  <label class="space-y-1.5">
-                    <span class="text-xs text-muted-foreground">发布工时 SAM 参考值</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      data-capacity-calibration-index="${index}"
-                      data-capacity-calibration-field="publishedSam"
-                      value="${record.publishedSam}"
-                      class="w-full rounded-md border px-3 py-2 text-sm"
-                    />
-                  </label>
-                  <label class="space-y-1.5 sm:col-span-2">
-                    <span class="text-xs text-muted-foreground">实际完成情况说明</span>
-                    <textarea
-                      data-capacity-calibration-index="${index}"
-                      data-capacity-calibration-field="actualNote"
-                      class="min-h-[84px] w-full rounded-md border px-3 py-2 text-sm"
-                    >${escapeHtml(record.actualNote)}</textarea>
-                  </label>
-                  <label class="space-y-1.5 sm:col-span-2">
-                    <span class="text-xs text-muted-foreground">调整建议</span>
-                    <textarea
-                      data-capacity-calibration-index="${index}"
-                      data-capacity-calibration-field="suggestion"
-                      class="min-h-[84px] w-full rounded-md border px-3 py-2 text-sm"
-                    >${escapeHtml(record.suggestion)}</textarea>
-                  </label>
-                  <label class="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      data-capacity-calibration-index="${index}"
-                      data-capacity-calibration-field="adopted"
-                      ${record.adopted ? 'checked' : ''}
-                      class="h-4 w-4 rounded border"
-                    />
-                    <span>是否采纳</span>
-                  </label>
-                </div>
-              </div>
-            `
-          })
-          .join('')}
-      </div>
-    </section>
-  `
-}
-
-function renderDetailTabContent(factory: Factory, profile: FactoryCapacityProfile): string {
-  if (state.activeTab === 'devices') {
-    return `<div data-testid="factory-capacity-device-tab">${renderProcessCraftEditors(factory, profile, 'device')}</div>`
-  }
-  if (state.activeTab === 'staff') {
-    return `<div data-testid="factory-capacity-staff-tab">${renderProcessCraftEditors(factory, profile, 'staff')}</div>`
-  }
-  if (state.activeTab === 'calendar') {
-    return renderShiftCalendars(factory, profile)
-  }
-  if (state.activeTab === 'adjustments') {
-    return `<div data-testid="factory-capacity-adjustment-tab">${renderProcessCraftEditors(factory, profile, 'adjustment')}</div>`
-  }
-  return renderCalibrationRecords(factory, profile)
 }
 
 function renderCapacityDetailDrawer(): string {
   const factory = getSelectedFactory()
   if (!factory) return ''
 
-  const profile = getFactoryCapacityProfileByFactoryId(factory.id)
-  const tabs: Array<{ key: CapacityTab; label: string }> = [
-    { key: 'devices', label: '设备台账' },
-    { key: 'staff', label: '人员台账' },
-    { key: 'calendar', label: '班次日历' },
-    { key: 'adjustments', label: '工厂工时修正' },
-    { key: 'calibration', label: '校准记录' },
-  ]
+  getFactoryCapacityProfileByFactoryId(factory.id)
 
   return `
     <div class="fixed inset-0 z-40">
       <button class="absolute inset-0 bg-black/45" data-capacity-action="close-detail" aria-label="关闭产能档案"></button>
-      <section class="absolute inset-y-0 right-0 flex w-full max-w-5xl flex-col overflow-hidden border-l bg-background shadow-2xl" data-testid="factory-capacity-profile-drawer">
+      <section class="absolute inset-y-0 right-0 flex w-full max-w-6xl flex-col overflow-hidden border-l bg-background shadow-2xl" data-testid="factory-capacity-profile-drawer">
         <header class="flex items-start justify-between gap-4 border-b px-6 py-4">
           <div>
             <p class="text-xs uppercase tracking-wide text-muted-foreground">工厂池管理</p>
@@ -662,27 +458,7 @@ function renderCapacityDetailDrawer(): string {
         <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
           <div class="space-y-4">
             ${renderTopReadonlyInfo(factory)}
-            <section class="space-y-4 rounded-lg border bg-card p-4">
-              <div class="flex items-center gap-2 border-b pb-3">
-                ${tabs
-                  .map(
-                    (tab) => `
-                      <button
-                        type="button"
-                        data-capacity-action="switch-tab"
-                        data-capacity-tab="${tab.key}"
-                        class="rounded px-2 py-1 text-xs ${
-                          state.activeTab === tab.key
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'text-muted-foreground hover:bg-muted'
-                        }"
-                      >${tab.label}</button>
-                    `,
-                  )
-                  .join('')}
-              </div>
-              ${renderDetailTabContent(factory, profile)}
-            </section>
+            ${renderCurrentStageSection(factory)}
           </div>
         </div>
       </section>
@@ -692,47 +468,12 @@ function renderCapacityDetailDrawer(): string {
 
 function closeDetailDrawer(): void {
   state.activeFactoryId = ''
-  state.activeTab = 'devices'
 }
 
-function normalizeCapacityValue(
-  fieldKey: SamFactoryFieldKey,
-  value: string,
-): FactoryCapacityFieldValue {
-  if (UNIT_FIELD_KEYS.has(fieldKey)) return value
+function normalizeCapacityValue(value: string): FactoryCapacityFieldValue {
   if (!value.trim()) return ''
   const numericValue = Number(value)
   return Number.isFinite(numericValue) ? numericValue : value
-}
-
-function normalizeShiftCalendarValue(
-  field: keyof ShiftCalendarRecord,
-  target: HTMLInputElement | HTMLSelectElement,
-): ShiftCalendarRecord[keyof ShiftCalendarRecord] {
-  if (field === 'isStopped' || field === 'isOvertime') {
-    return target instanceof HTMLInputElement ? target.checked : false
-  }
-
-  if (field === 'dayShiftMinutes' || field === 'nightShiftMinutes') {
-    return Number(target.value || '0')
-  }
-
-  return target.value
-}
-
-function normalizeCalibrationValue(
-  field: keyof CalibrationRecord,
-  target: HTMLInputElement | HTMLTextAreaElement,
-): CalibrationRecord[keyof CalibrationRecord] {
-  if (field === 'adopted' && target instanceof HTMLInputElement) {
-    return target.checked
-  }
-
-  if (field === 'publishedSam') {
-    return Number(target.value || '0')
-  }
-
-  return target.value
 }
 
 export function renderFactoryCapacityProfilePage(): string {
@@ -745,7 +486,7 @@ export function renderFactoryCapacityProfilePage(): string {
       <div class="flex items-center justify-between gap-4">
         <div>
           <h1 class="text-2xl font-semibold text-foreground">产能档案</h1>
-          <p class="mt-1 text-sm text-muted-foreground">工厂来源于工厂档案，工序工艺能力只读引用；设备、人员、班次和修正信息在此维护。</p>
+          <p class="mt-1 text-sm text-muted-foreground">工厂来源于工厂档案，工序工艺能力只读引用；当前阶段只维护最小必要字段，由系统自动计算默认日可供给发布工时 SAM。</p>
         </div>
       </div>
 
@@ -793,7 +534,7 @@ export function renderFactoryCapacityProfilePage(): string {
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">联系人</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">已支持工序数</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">已支持工艺数</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">产能档案完成度</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前阶段档案完成度</th>
               <th class="px-3 py-3 text-right text-xs font-medium text-muted-foreground">操作</th>
             </tr>
           </thead>
@@ -810,57 +551,19 @@ export function renderFactoryCapacityProfilePage(): string {
 }
 
 export function handleFactoryCapacityProfileEvent(target: HTMLElement): boolean {
-  const recordField = target.closest<HTMLElement>('[data-capacity-record-scope]')
+  const recordField = target.closest<HTMLElement>('[data-capacity-field-key]')
   if (recordField instanceof HTMLInputElement && state.activeFactoryId) {
-    const scope = recordField.dataset.capacityRecordScope as CapacityRecordScope | undefined
     const processCode = recordField.dataset.capacityProcessCode
     const craftCode = recordField.dataset.capacityCraftCode
-    const fieldKey = recordField.dataset.capacityFieldKey as SamFactoryFieldKey | undefined
-    if (!scope || !processCode || !craftCode || !fieldKey) return true
+    const fieldKey = recordField.dataset.capacityFieldKey as SamCurrentFieldKey | undefined
+    if (!processCode || !craftCode || !fieldKey) return true
 
-    updateFactoryCapacityRecordValue(
+    updateFactoryCapacityEntryValue(
       state.activeFactoryId,
-      scope,
       processCode,
       craftCode,
       fieldKey,
-      normalizeCapacityValue(fieldKey, recordField.value),
-    )
-    return true
-  }
-
-  const calendarField = target.closest<HTMLElement>('[data-capacity-calendar-field]')
-  if (
-    (calendarField instanceof HTMLInputElement || calendarField instanceof HTMLSelectElement) &&
-    state.activeFactoryId
-  ) {
-    const field = calendarField.dataset.capacityCalendarField as keyof ShiftCalendarRecord | undefined
-    const index = Number(calendarField.dataset.capacityCalendarIndex ?? '-1')
-    if (!field || index < 0) return true
-
-    updateFactoryShiftCalendarField(
-      state.activeFactoryId,
-      index,
-      field,
-      normalizeShiftCalendarValue(field, calendarField),
-    )
-    return true
-  }
-
-  const calibrationField = target.closest<HTMLElement>('[data-capacity-calibration-field]')
-  if (
-    (calibrationField instanceof HTMLInputElement || calibrationField instanceof HTMLTextAreaElement) &&
-    state.activeFactoryId
-  ) {
-    const field = calibrationField.dataset.capacityCalibrationField as keyof CalibrationRecord | undefined
-    const index = Number(calibrationField.dataset.capacityCalibrationIndex ?? '-1')
-    if (!field || index < 0) return true
-
-    updateFactoryCalibrationField(
-      state.activeFactoryId,
-      index,
-      field,
-      normalizeCalibrationValue(field, calibrationField),
+      normalizeCapacityValue(recordField.value),
     )
     return true
   }
@@ -885,18 +588,11 @@ export function handleFactoryCapacityProfileEvent(target: HTMLElement): boolean 
     const factoryId = actionNode.dataset.factoryId
     if (!factoryId) return true
     state.activeFactoryId = factoryId
-    state.activeTab = 'devices'
     return true
   }
 
   if (action === 'close-detail') {
     closeDetailDrawer()
-    return true
-  }
-
-  if (action === 'switch-tab') {
-    const nextTab = actionNode.dataset.capacityTab as CapacityTab | undefined
-    if (nextTab) state.activeTab = nextTab
     return true
   }
 

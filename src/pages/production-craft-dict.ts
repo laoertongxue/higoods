@@ -9,7 +9,7 @@ import {
   type CraftStageCode,
   type ProcessCraftDictRow,
 } from '../data/fcs/process-craft-dict'
-import { getSamFormulaGuide } from '../data/fcs/process-craft-sam-explainer'
+import { getFactorySupplyFormulaGuide } from '../data/fcs/process-craft-sam-explainer'
 import { type ProcessAssignmentGranularity } from '../data/fcs/process-types'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
@@ -19,7 +19,7 @@ type CraftDictState = {
   filterStage: 'ALL' | CraftStageCode
   filterGranularity: 'ALL' | ProcessAssignmentGranularity
   viewCraftCode: string
-  detailTab: 'SAM' | 'FORMULA' | 'BASIC'
+  detailTab: 'IDEAL' | 'CURRENT' | 'BASIC'
   page: number
   pageSize: number
 }
@@ -29,7 +29,7 @@ const state: CraftDictState = {
   filterStage: 'ALL',
   filterGranularity: 'ALL',
   viewCraftCode: '',
-  detailTab: 'SAM',
+  detailTab: 'CURRENT',
   page: 1,
   pageSize: 10,
 }
@@ -71,11 +71,11 @@ function renderCompactDetailFields(fields: Array<[string, string]>): string {
   `
 }
 
-function renderSamFieldGroups(row: ProcessCraftDictRow): string {
+function renderSamFieldGroups(fieldKeys: ProcessCraftDictRow['samIdealFieldKeys']): string {
   const groups = ['DEVICE', 'STAFF', 'ADJUSTMENT'].map((group) => ({
     group,
     label: SAM_FACTORY_FIELD_GROUP_LABEL[group as keyof typeof SAM_FACTORY_FIELD_GROUP_LABEL],
-    fields: listSamFactoryFieldDefinitions(row.samFactoryFieldKeys).filter((field) => field.group === group),
+    fields: listSamFactoryFieldDefinitions(fieldKeys).filter((field) => field.group === group),
   }))
 
   return `
@@ -130,10 +130,12 @@ function renderCraftBasicPanel(row: ProcessCraftDictRow): string {
   `
 }
 
-function renderSamPrereqPanel(row: ProcessCraftDictRow): string {
+function renderIdealSamPanel(row: ProcessCraftDictRow): string {
+  const formulaGuide = getFactorySupplyFormulaGuide(row.craftName)
+
   return `
-    <section class="space-y-3" data-testid="sam-prereq-section">
-      <p class="text-sm font-semibold">SAM 核算前置要求</p>
+    <section class="space-y-4" data-testid="craft-ideal-section">
+      <p class="text-sm font-semibold">标准完整口径</p>
       <div class="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
         ${[
           ['是否纳入产能管理', row.samEnabled ? '是' : '否'],
@@ -152,36 +154,64 @@ function renderSamPrereqPanel(row: ProcessCraftDictRow): string {
           .join('')}
       </div>
 
+      <div class="rounded-md bg-slate-50 px-3 py-3">
+        <p class="text-xs font-medium text-muted-foreground">工厂供给侧公式</p>
+        <div class="mt-1 space-y-1 text-sm font-medium leading-6 text-slate-800">
+          ${formulaGuide.idealFormulaLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+        </div>
+      </div>
+
       <div class="space-y-2">
-        <p class="text-xs font-medium text-muted-foreground">工厂产能档案必填字段</p>
-        ${renderSamFieldGroups(row)}
+        <p class="text-xs font-medium text-muted-foreground">理想完整字段</p>
+        ${renderSamFieldGroups(row.samIdealFieldKeys)}
       </div>
 
       <div class="rounded-md bg-muted/20 px-3 py-2">
-        <p class="text-xs font-medium text-muted-foreground">规则说明</p>
-        <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(row.samReason)}</p>
+        <p class="text-xs font-medium text-muted-foreground">理想完整说明</p>
+        <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(row.samIdealReason)}</p>
+        <p class="mt-2 text-xs leading-5 text-slate-600">
+          当前阶段口径不是另一套独立规则，而是从这套完整口径里收敛出来的最小必要字段集合。
+        </p>
       </div>
     </section>
   `
 }
 
-function renderSamFormulaPanel(row: ProcessCraftDictRow): string {
-  const formulaGuide = getSamFormulaGuide(row.samCalcMode)
+function renderCurrentStagePanel(row: ProcessCraftDictRow): string {
+  const formulaGuide = getFactorySupplyFormulaGuide(row.craftName)
 
   return `
-    <section class="space-y-3" data-testid="sam-formula-section">
-      <p class="text-sm font-semibold">SAM 计算说明</p>
+    <section class="space-y-4" data-testid="craft-current-section">
+      <p class="text-sm font-semibold">当前阶段口径</p>
+      <div class="rounded-md bg-amber-50 px-3 py-3">
+        <p class="text-xs font-medium text-amber-700">当前阶段最小必要字段</p>
+        <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(row.samCurrentReason)}</p>
+      </div>
+
+      <div class="space-y-2">
+        <p class="text-xs font-medium text-muted-foreground">当前阶段最小必要字段</p>
+        ${renderSamFieldGroups(row.samCurrentFieldKeys)}
+      </div>
+
       <div class="grid gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <div class="space-y-3">
           <div class="rounded-md bg-slate-50 px-3 py-3">
-            <p class="text-xs font-medium text-muted-foreground">公式</p>
-            <p class="mt-1 text-sm font-medium leading-6 text-slate-800">${escapeHtml(formulaGuide.formulaText)}</p>
+            <p class="text-xs font-medium text-muted-foreground">当前阶段公式</p>
+            <div class="mt-1 space-y-1 text-sm font-medium leading-6 text-slate-800">
+              ${row.samCurrentFormulaLines
+                .map(
+                  (line) => `
+                    <p>${escapeHtml(line)}</p>
+                  `,
+                )
+                .join('')}
+            </div>
           </div>
 
           <div class="space-y-2">
-            <p class="text-xs font-medium text-muted-foreground">说明</p>
+            <p class="text-xs font-medium text-muted-foreground">当前阶段说明</p>
             <div class="grid gap-x-4 gap-y-1 text-xs leading-5 text-slate-700 sm:grid-cols-2">
-              ${formulaGuide.explanationLines
+              ${row.samCurrentExplanationLines
                 .map(
                   (line) => `
                     <p>${escapeHtml(line)}</p>
@@ -194,14 +224,26 @@ function renderSamFormulaPanel(row: ProcessCraftDictRow): string {
 
         <div class="space-y-3">
           <div class="rounded-md bg-blue-50 px-3 py-3">
-            <p class="text-xs font-medium text-blue-700">示例</p>
-            <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(formulaGuide.exampleIntro)}</p>
-            <p class="mt-2 text-sm font-medium leading-6 text-slate-800">${escapeHtml(formulaGuide.exampleResult)}</p>
+            <p class="text-xs font-medium text-blue-700">当前阶段示例</p>
+            <div class="mt-2 space-y-1 text-sm leading-6 text-slate-800">
+              ${row.samCurrentExampleLines
+                .map(
+                  (line) => `
+                    <p>${escapeHtml(line)}</p>
+                  `,
+                )
+                .join('')}
+            </div>
           </div>
 
           <div class="rounded-md bg-amber-50 px-3 py-3">
-            <p class="text-xs font-medium text-amber-700">为什么要维护这些字段</p>
-            <p class="mt-1 text-xs leading-5 text-slate-700">${escapeHtml(formulaGuide.factoryFieldNote)}</p>
+            <p class="text-xs font-medium text-amber-700">结果字段说明</p>
+            <p class="mt-1 text-xs leading-5 text-slate-700">
+              默认日可供给发布工时 SAM 是系统根据当前阶段字段自动算出来的结果字段，不是工厂人工录入字段。
+            </p>
+            <p class="mt-2 text-xs leading-5 text-slate-700">
+              ${escapeHtml(formulaGuide.currentReason)}
+            </p>
           </div>
         </div>
       </div>
@@ -257,9 +299,9 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
         <section class="rounded-md border bg-background" data-testid="craft-dict-detail-panel">
           <div class="flex flex-wrap gap-2 border-b px-4 py-3" data-testid="craft-dict-detail-tabs">
             ${[
-              ['SAM', 'SAM 核算前置要求'],
-              ['FORMULA', 'SAM 计算说明'],
               ['BASIC', '基础信息'],
+              ['IDEAL', '标准完整口径'],
+              ['CURRENT', '当前阶段口径'],
             ]
               .map(
                 ([tab, label]) => `
@@ -281,11 +323,11 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
 
           <div class="p-4" data-testid="craft-dict-detail-grid">
             ${
-              state.detailTab === 'FORMULA'
-                ? renderSamFormulaPanel(row)
-                : state.detailTab === 'BASIC'
-                  ? renderCraftBasicPanel(row)
-                  : renderSamPrereqPanel(row)
+              state.detailTab === 'BASIC'
+                ? renderCraftBasicPanel(row)
+                : state.detailTab === 'IDEAL'
+                  ? renderIdealSamPanel(row)
+                  : renderCurrentStagePanel(row)
             }
           </div>
         </section>
@@ -466,14 +508,14 @@ export function handleProductionCraftDictEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-detail') {
-    const craftCode = actionNode.dataset.craftCode
-    if (craftCode) {
-      state.viewCraftCode = craftCode
-      state.detailTab = 'SAM'
+    if (action === 'open-detail') {
+      const craftCode = actionNode.dataset.craftCode
+      if (craftCode) {
+        state.viewCraftCode = craftCode
+        state.detailTab = 'CURRENT'
+      }
+      return true
     }
-    return true
-  }
 
   if (action === 'switch-detail-tab') {
     const tab = actionNode.dataset.detailTab as CraftDictState['detailTab'] | undefined
@@ -485,7 +527,7 @@ export function handleProductionCraftDictEvent(target: HTMLElement): boolean {
 
   if (action === 'close-sheet') {
     state.viewCraftCode = ''
-    state.detailTab = 'SAM'
+    state.detailTab = 'CURRENT'
     return true
   }
 
@@ -509,6 +551,6 @@ export function isProductionCraftDictDialogOpen(): boolean {
 
 export function closeProductionCraftDictDialog(): void {
   state.viewCraftCode = ''
-  state.detailTab = 'SAM'
+  state.detailTab = 'CURRENT'
   appStore.navigate('/fcs/production/craft-dict')
 }

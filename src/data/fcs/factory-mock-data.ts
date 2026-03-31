@@ -1,5 +1,9 @@
 import type { Factory, FactoryProcessAbility, FactoryTier, FactoryType } from './factory-types.ts'
-import { indonesiaFactories, generateFactoryCode as genCode } from './indonesia-factories.ts'
+import {
+  generateFactoryCode as genCode,
+  indonesiaFactories,
+  isFactoryPoolOrganization,
+} from './indonesia-factories.ts'
 import { listCraftsByProcessCode } from './process-craft-dict.ts'
 
 const POST_PROCESS_CODES = [
@@ -21,6 +25,7 @@ const legacyTagProcessMap: Record<string, string[]> = {
 }
 
 const factoryTypeProcessMap: Partial<Record<FactoryType, string[]>> = {
+  CENTRAL_GARMENT: ['SEW'],
   CENTRAL_PRINT: ['PRINT'],
   CENTRAL_DYE: ['DYE'],
   CENTRAL_CUTTING: ['CUT_PANEL'],
@@ -75,7 +80,7 @@ function mapTier(tier: string): FactoryTier {
 
 function mapType(tier: string, type: string, index: number): FactoryType {
   const typeMap: Record<string, FactoryType> = {
-    CENTRAL_FACTORY: 'CENTRAL_MGT',
+    CENTRAL_FACTORY: 'CENTRAL_GARMENT',
     PRINTING: 'CENTRAL_PRINT',
     DYEING: 'CENTRAL_DYE',
     CUTTING: 'CENTRAL_CUTTING',
@@ -85,15 +90,12 @@ function mapType(tier: string, type: string, index: number): FactoryType {
     KNIT: 'CENTRAL_KNIT',
     DENIM_WASH: 'CENTRAL_DENIM_WASH',
     POD: 'CENTRAL_POD',
-    WAREHOUSE: 'CENTRAL_WAREHOUSE',
-    DISPATCH_CENTER: 'CENTRAL_DISPATCH',
-    DEV_DESIGN_CENTER: 'CENTRAL_DEV',
     SATELLITE_CLUSTER: 'SATELLITE_SEWING',
     MICRO_SEWING: 'THIRD_SEWING',
   }
   if (tier === 'SATELLITE') return index % 2 === 0 ? 'SATELLITE_SEWING' : 'SATELLITE_FINISHING'
   if (tier === 'THIRD_PARTY') return 'THIRD_SEWING'
-  return typeMap[type] || 'CENTRAL_MGT'
+  return typeMap[type] || 'CENTRAL_GARMENT'
 }
 
 function getDefaultParentId(tier: string): string | undefined {
@@ -101,7 +103,9 @@ function getDefaultParentId(tier: string): string | undefined {
   return undefined
 }
 
-export const mockFactories: Factory[] = indonesiaFactories.map((factory, index) => {
+const factoryPoolSourceRecords = indonesiaFactories.filter(isFactoryPoolOrganization)
+
+export const mockFactories: Factory[] = factoryPoolSourceRecords.map((factory, index) => {
   const factoryTier = mapTier(factory.tier)
   const factoryType = mapType(factory.tier, factory.type, index)
 
