@@ -171,6 +171,481 @@ export const mockInternalUsers: InternalUser[] = [
   { id: 'U006', name: '财务', role: 'FINANCE', email: 'finance@higood.com' },
 ]
 
+const MOCK_PROGRESS_SOURCE_SYSTEM = 'MOCK'
+const PROGRESS_EXCEPTION_MOCK_COVERAGE_TAG = '分类覆盖样例'
+
+interface CoverageSeedDefinition {
+  subCategoryKey: SubCategoryKey
+  category: ExceptionCategory
+  unifiedCategory: UnifiedCategory
+  reasonCode: ReasonCode
+  severity: Severity
+  sourceType: 'TASK' | 'ORDER' | 'TENDER'
+  preferTender?: boolean
+  caseStatus?: CaseStatus
+  summary: (context: CoverageSeedContext) => string
+  detail: (context: CoverageSeedContext) => string
+  tags: string[]
+}
+
+interface CoverageSeedContext {
+  orderId: string
+  taskId: string
+  tenderId: string
+  processLabel: string
+  scopeLabel: string
+  factoryName: string
+}
+
+function formatCoverageTimestamp(offsetMinutes: number): string {
+  return new Date(nowDate.getTime() + offsetMinutes * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function getCoverageSeedOwner(index: number): InternalUser {
+  const ownerPool = mockInternalUsers.filter((user) => user.role === 'MERCHANDISER' || user.role === 'OPERATOR')
+  if (ownerPool.length === 0) return mockInternalUsers[0]
+  return ownerPool[index % ownerPool.length]
+}
+
+function getCoverageSeedTask(index: number, preferTender = false): RuntimeProcessTask | null {
+  const tasks = listRuntimeExecutionTasks()
+  if (tasks.length === 0) return null
+
+  if (preferTender) {
+    const tenderTasks = tasks.filter((task) => Boolean(task.tenderId))
+    if (tenderTasks.length > 0) {
+      return tenderTasks[index % tenderTasks.length]
+    }
+  }
+
+  return tasks[index % tasks.length] ?? tasks[0]
+}
+
+function buildCoverageSeedContext(index: number, preferTender = false): CoverageSeedContext {
+  const task = getCoverageSeedTask(index, preferTender)
+  if (!task) {
+    const token = String(index + 1).padStart(3, '0')
+    return {
+      orderId: `PO-MOCK-${token}`,
+      taskId: `TASK-MOCK-${token}`,
+      tenderId: preferTender ? `TD-MOCK-${token}` : '',
+      processLabel: '样例工序',
+      scopeLabel: '整单',
+      factoryName: '样例工厂',
+    }
+  }
+
+  return {
+    orderId: task.productionOrderId,
+    taskId: task.taskId,
+    tenderId: task.tenderId ?? '',
+    processLabel: task.processNameZh || task.processBusinessName || task.processCode,
+    scopeLabel: task.scopeLabel || '整单',
+    factoryName: task.assignedFactoryName || task.assignedFactoryId || '待指派工厂',
+  }
+}
+
+function buildCoverageCaseId(index: number): string {
+  return `EX-MK-${String(index + 1).padStart(3, '0')}`
+}
+
+const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
+  {
+    subCategoryKey: 'ASSIGN_TENDER_OVERDUE',
+    category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    reasonCode: 'TENDER_OVERDUE',
+    severity: 'S1',
+    sourceType: 'TENDER',
+    preferTender: true,
+    summary: (context) => `${context.processLabel}任务竞价已逾期`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）竞价已超过截止时间，当前仍未落实承接工厂。`,
+    tags: ['分配异常', '竞价逾期', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'ASSIGN_TENDER_NEAR_DEADLINE',
+    category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    reasonCode: 'TENDER_NEAR_DEADLINE',
+    severity: 'S2',
+    sourceType: 'TENDER',
+    preferTender: true,
+    caseStatus: 'IN_PROGRESS',
+    summary: (context) => `${context.processLabel}竞价临近截止`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）竞价将在近 2 小时截止，仍缺有效报价，需及时干预。`,
+    tags: ['分配异常', '竞价临近截止', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'ASSIGN_NO_BID',
+    category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    reasonCode: 'NO_BID',
+    severity: 'S1',
+    sourceType: 'TENDER',
+    preferTender: true,
+    summary: (context) => `${context.processLabel}竞价无人报价`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）已发起竞价，但在有效窗口内无人报价。`,
+    tags: ['分配异常', '无人报价', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'ASSIGN_PRICE_ABNORMAL',
+    category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    reasonCode: 'PRICE_ABNORMAL',
+    severity: 'S2',
+    sourceType: 'TENDER',
+    preferTender: true,
+    caseStatus: 'IN_PROGRESS',
+    summary: (context) => `${context.processLabel}报价异常待复核`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）出现明显偏离标准价的报价，需要平台复核是否允许继续定标。`,
+    tags: ['分配异常', '报价异常', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'ASSIGN_DISPATCH_REJECTED',
+    category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    reasonCode: 'DISPATCH_REJECTED',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.factoryName}拒绝承接任务`,
+    detail: (context) => `${context.factoryName} 对生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）执行任务拒单，需重新选择承接工厂。`,
+    tags: ['分配异常', '派单拒单', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'ASSIGN_ACK_TIMEOUT',
+    category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    reasonCode: 'ACK_TIMEOUT',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.factoryName}接单逾期`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）已派至 ${context.factoryName}，但在要求时限内未确认接单。`,
+    tags: ['分配异常', '接单逾期', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'ASSIGN_FACTORY_BLOCKED',
+    category: 'ASSIGNMENT',
+    unifiedCategory: 'ASSIGNMENT',
+    reasonCode: 'FACTORY_BLACKLISTED',
+    severity: 'S1',
+    sourceType: 'TASK',
+    summary: (context) => `${context.factoryName}当前不可分配`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）候选工厂被风控限制，当前不可继续分配。`,
+    tags: ['分配异常', '工厂不可分配', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'EXEC_START_OVERDUE',
+    category: 'EXECUTION',
+    unifiedCategory: 'EXECUTION',
+    reasonCode: 'START_OVERDUE',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}开工逾期`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）已完成分配，但工厂未在约定时间内开工。`,
+    tags: ['执行异常', '开工逾期', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'EXEC_MILESTONE_NOT_REPORTED',
+    category: 'EXECUTION',
+    unifiedCategory: 'EXECUTION',
+    reasonCode: 'MILESTONE_NOT_REPORTED',
+    severity: 'S2',
+    sourceType: 'TASK',
+    caseStatus: 'IN_PROGRESS',
+    summary: (context) => `${context.processLabel}关键节点未上报`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）已开工，但关键节点未按规则完成上报。`,
+    tags: ['执行异常', '关键节点未上报', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'EXEC_BLOCK_MATERIAL',
+    category: 'EXECUTION',
+    unifiedCategory: 'EXECUTION',
+    reasonCode: 'BLOCKED_MATERIAL',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}因物料问题暂停`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）执行中因辅料未到位或主料短缺被迫暂停。`,
+    tags: ['执行异常', '生产暂停', '物料原因', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'EXEC_BLOCK_TECH',
+    category: 'EXECUTION',
+    unifiedCategory: 'EXECUTION',
+    reasonCode: 'BLOCKED_TECH',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}因工艺资料问题暂停`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）执行中发现工艺资料与实物不一致，已暂停等待确认。`,
+    tags: ['执行异常', '生产暂停', '工艺资料原因', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'EXEC_BLOCK_EQUIPMENT',
+    category: 'EXECUTION',
+    unifiedCategory: 'EXECUTION',
+    reasonCode: 'BLOCKED_EQUIPMENT',
+    severity: 'S1',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}因设备故障暂停`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）执行设备发生故障，产线已暂停待维修。`,
+    tags: ['执行异常', '生产暂停', '设备原因', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'EXEC_BLOCK_CAPACITY',
+    category: 'EXECUTION',
+    unifiedCategory: 'EXECUTION',
+    reasonCode: 'BLOCKED_CAPACITY',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}因人员问题暂停`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）执行中出现关键岗位缺人，当前无法继续排产。`,
+    tags: ['执行异常', '生产暂停', '人员原因', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'EXEC_BLOCK_QUALITY',
+    category: 'EXECUTION',
+    unifiedCategory: 'EXECUTION',
+    reasonCode: 'BLOCKED_QUALITY',
+    severity: 'S1',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}因质量问题暂停`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）执行中发现批量质量风险，平台要求暂停复判。`,
+    tags: ['执行异常', '生产暂停', '质量原因', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'EXEC_BLOCK_OTHER',
+    category: 'EXECUTION',
+    unifiedCategory: 'EXECUTION',
+    reasonCode: 'BLOCKED_OTHER',
+    severity: 'S3',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}因其他原因暂停`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）执行中出现临时性异常，当前待平台继续跟进。`,
+    tags: ['执行异常', '生产暂停', '其他原因', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'TECH_PACK_NOT_RELEASED',
+    category: 'TECH_PACK',
+    unifiedCategory: 'TECH_PACK',
+    reasonCode: 'TECH_PACK_NOT_RELEASED',
+    severity: 'S1',
+    sourceType: 'ORDER',
+    summary: (context) => `生产单 ${context.orderId} 技术包未发布`,
+    detail: (context) => `生产单 ${context.orderId} 对应 SPU 的技术包尚未发布，${context.processLabel} 无法正式下发执行。`,
+    tags: ['技术包异常', '技术包未发布', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'TECH_PACK_MISSING',
+    category: 'TECH_PACK',
+    unifiedCategory: 'TECH_PACK',
+    reasonCode: 'TECH_PACK_NOT_RELEASED',
+    severity: 'S2',
+    sourceType: 'ORDER',
+    summary: (context) => `生产单 ${context.orderId} 技术资料缺失`,
+    detail: (context) => `生产单 ${context.orderId} 的技术包存在关键资料缺项，当前无法支持 ${context.processLabel} 正常执行。`,
+    tags: ['技术包异常', '技术包缺失', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'TECH_PACK_PENDING_CONFIRM',
+    category: 'TECH_PACK',
+    unifiedCategory: 'TECH_PACK',
+    reasonCode: 'TECH_PACK_NOT_RELEASED',
+    severity: 'S2',
+    sourceType: 'ORDER',
+    caseStatus: 'IN_PROGRESS',
+    summary: (context) => `生产单 ${context.orderId} 技术资料待确认`,
+    detail: (context) => `生产单 ${context.orderId} 的技术资料已上传，但关键尺寸或工艺说明待确认，当前无法闭环。`,
+    tags: ['技术包异常', '技术资料待确认', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'MATERIAL_NOT_READY',
+    category: 'MATERIAL',
+    unifiedCategory: 'MATERIAL',
+    reasonCode: 'MATERIAL_NOT_READY',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}领料未齐套`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）在开工前仍缺少核心物料，当前不可开工。`,
+    tags: ['领料异常', '领料未齐套', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'MATERIAL_PREP_PENDING',
+    category: 'MATERIAL',
+    unifiedCategory: 'MATERIAL',
+    reasonCode: 'MATERIAL_NOT_READY',
+    severity: 'S3',
+    sourceType: 'TASK',
+    caseStatus: 'IN_PROGRESS',
+    summary: (context) => `${context.processLabel}配料未完成`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）已创建领料需求，但仓库仍处于配料处理中。`,
+    tags: ['领料异常', '配料未完成', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'MATERIAL_QTY_SHORT',
+    category: 'MATERIAL',
+    unifiedCategory: 'MATERIAL',
+    reasonCode: 'MATERIAL_NOT_READY',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}配料数量不足`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在实际发料数量不足，当前需要补料。`,
+    tags: ['领料异常', '配料数量不足', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'MATERIAL_PICKUP_QTY_DIFF',
+    category: 'MATERIAL',
+    unifiedCategory: 'MATERIAL',
+    reasonCode: 'MATERIAL_NOT_READY',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}领料数量差异待处理`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）在领料确认环节出现数量差异，平台需复点裁定。`,
+    tags: ['领料异常', '领料数量差异', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'MATERIAL_MULTI_OPEN',
+    category: 'MATERIAL',
+    unifiedCategory: 'MATERIAL',
+    reasonCode: 'MATERIAL_NOT_READY',
+    severity: 'S3',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}多次领料未闭合`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在多张未闭合领料单据，当前需先收口再继续。`,
+    tags: ['领料异常', '多次领料未闭合', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'HANDOUT_DIFF',
+    category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    reasonCode: 'HANDOVER_DIFF',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}交出数量存在差异`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）交出数量与仓库登记数量不一致，需复核。`,
+    tags: ['交出异常', '数量差异', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'HANDOUT_OBJECTION',
+    category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    reasonCode: 'HANDOVER_DIFF',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}交出存在数量异议`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）在交接确认时发生数量异议，待平台仲裁。`,
+    tags: ['交出异常', '数量异议', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'HANDOUT_MIXED',
+    category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    reasonCode: 'HANDOVER_DIFF',
+    severity: 'S3',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}交出发生混批`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）回货时出现不同批次混放，需要拆分复核。`,
+    tags: ['交出异常', '混批', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'HANDOUT_DAMAGE',
+    category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    reasonCode: 'HANDOVER_DIFF',
+    severity: 'S2',
+    sourceType: 'TASK',
+    summary: (context) => `${context.processLabel}交出存在损耗破损`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）交出物存在破损或异常损耗，需要补充证据并处理。`,
+    tags: ['交出异常', '损耗破损', '覆盖补齐'],
+  },
+  {
+    subCategoryKey: 'HANDOUT_PENDING_CHECK',
+    category: 'HANDOVER',
+    unifiedCategory: 'HANDOUT',
+    reasonCode: 'HANDOVER_DIFF',
+    severity: 'S3',
+    sourceType: 'TASK',
+    caseStatus: 'IN_PROGRESS',
+    summary: (context) => `${context.processLabel}交出差异原因待查`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）已提交交出记录，但仓库尚未完成核查确认。`,
+    tags: ['交出异常', '差异原因待查', '覆盖补齐'],
+  },
+]
+
+function buildCoverageSeedCase(definition: CoverageSeedDefinition, index: number): ExceptionCase {
+  const context = buildCoverageSeedContext(index, definition.preferTender)
+  const owner = getCoverageSeedOwner(index)
+  const createdAt = formatCoverageTimestamp(-(index + 1) * 55)
+  const updatedAt = formatCoverageTimestamp(-(index + 1) * 35)
+  const sourceType =
+    definition.sourceType === 'TENDER' && context.tenderId
+      ? 'TENDER'
+      : definition.sourceType === 'ORDER'
+        ? 'ORDER'
+        : 'TASK'
+  const sourceId =
+    sourceType === 'TENDER'
+      ? context.tenderId || context.taskId
+      : sourceType === 'ORDER'
+        ? context.orderId || context.taskId
+        : context.taskId || context.orderId
+
+  return {
+    caseId: buildCoverageCaseId(index),
+    caseStatus: definition.caseStatus ?? 'OPEN',
+    severity: definition.severity,
+    category: definition.category,
+    unifiedCategory: definition.unifiedCategory,
+    subCategoryKey: definition.subCategoryKey,
+    reasonCode: definition.reasonCode,
+    sourceType,
+    sourceId,
+    sourceSystem: MOCK_PROGRESS_SOURCE_SYSTEM,
+    sourceModule: `MOCK_COVERAGE:${definition.subCategoryKey}`,
+    relatedOrderIds: context.orderId ? [context.orderId] : [],
+    relatedTaskIds: context.taskId ? [context.taskId] : [],
+    relatedTenderIds: context.tenderId ? [context.tenderId] : [],
+    linkedProductionOrderNo: context.orderId || undefined,
+    linkedTaskNo: context.taskId || undefined,
+    ownerUserId: owner.id,
+    ownerUserName: owner.name,
+    summary: definition.summary(context),
+    detail: definition.detail(context),
+    createdAt,
+    updatedAt,
+    linkedFactoryName: context.factoryName || undefined,
+    tags: Array.from(new Set([PROGRESS_EXCEPTION_MOCK_COVERAGE_TAG, ...definition.tags])),
+    actions: [
+      {
+        id: `EA-MOCK-${String(index + 1).padStart(3, '0')}-001`,
+        actionType: 'CREATE_MOCK',
+        actionDetail: '补齐异常一级/二级分类覆盖样例',
+        at: createdAt,
+        by: '系统',
+      },
+    ],
+    auditLogs: [
+      {
+        id: `EAL-MOCK-${String(index + 1).padStart(3, '0')}-001`,
+        action: 'CREATE',
+        detail: '系统补齐异常分类覆盖型 mock 数据',
+        at: createdAt,
+        by: '系统',
+      },
+    ],
+  }
+}
+
+function ensureProgressExceptionCoverageSeeds(): void {
+  COVERAGE_SEED_DEFINITIONS.forEach((definition, index) => {
+    const caseId = buildCoverageCaseId(index)
+    const sourceModule = `MOCK_COVERAGE:${definition.subCategoryKey}`
+    const existed = progressExceptionCases.some(
+      (item) => item.caseId === caseId || item.sourceModule === sourceModule,
+    )
+    if (existed) return
+    progressExceptionCases.push(buildCoverageSeedCase(definition, index))
+  })
+}
+
 // =============================================
 // Notification（通知）
 // =============================================
@@ -1106,6 +1581,8 @@ export function syncProgressFactsAndExceptions(): ExceptionCase[] {
 
 function isProgressFactBackedCase(item: ExceptionCase): boolean {
   if (item.tags.includes(AUTO_PROGRESS_TAG)) return true
+  if (item.sourceSystem === MOCK_PROGRESS_SOURCE_SYSTEM) return true
+  if (item.tags.includes(PROGRESS_EXCEPTION_MOCK_COVERAGE_TAG)) return true
   if (item.sourceModule === 'PDA_PICKUP_DISPUTE') return true
   if (item.sourceSystem === 'RUNTIME_FLOW') return true
   if (item.relatedTaskIds.some((taskId) => Boolean(getRuntimeTaskById(taskId)))) return true
@@ -1113,6 +1590,7 @@ function isProgressFactBackedCase(item: ExceptionCase): boolean {
 }
 
 export function listProgressExceptions(): ExceptionCase[] {
+  ensureProgressExceptionCoverageSeeds()
   return syncProgressFactsAndExceptions()
     .filter(isProgressFactBackedCase)
     .slice()

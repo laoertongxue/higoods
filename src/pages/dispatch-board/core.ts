@@ -13,12 +13,7 @@ import {
   getFactoryOptions,
   escapeHtml,
 } from './context'
-import {
-  getDetailDispatchTask,
-  getDetailDispatchGroups,
-  renderDirectDispatchDialog,
-  renderDetailDispatchDialog,
-} from './dispatch-domain'
+import { renderDirectDispatchDialog } from './dispatch-domain'
 import {
   renderCreateTenderSheet,
   renderViewTenderSheet,
@@ -44,8 +39,6 @@ function renderDispatchBoardInner(): string {
   const createTenderTask = getCreateTenderTask()
   const viewTenderTask = getViewTenderTask()
   const priceSnapshotTask = getPriceSnapshotTask()
-  const detailDispatchTask = getDetailDispatchTask()
-  const detailDispatchGroups = getDetailDispatchGroups(detailDispatchTask)
   const dispatchDialogTasks = getDispatchDialogTasks()
   const factoryOptions = getFactoryOptions()
 
@@ -58,17 +51,17 @@ function renderDispatchBoardInner(): string {
 
       <section class="grid grid-cols-4 gap-2 md:grid-cols-7">
         ${[
-          { label: '未分配', value: stats.unassigned, color: 'text-gray-700' },
-          { label: '已直接派单', value: stats.directAssigned, color: 'text-blue-600' },
-          { label: '招标中', value: stats.bidding, color: 'text-orange-600' },
-          { label: '待定标', value: stats.awaitAward, color: 'text-purple-600' },
-          { label: '已定标', value: stats.awarded, color: 'text-green-600' },
-          { label: '暂不分配', value: stats.hold, color: 'text-slate-600' },
-          { label: '异常', value: stats.exception, color: 'text-red-600' },
+          { key: 'UNASSIGNED', label: '未分配', value: stats.unassigned, color: 'text-gray-700' },
+          { key: 'DIRECT_ASSIGNED', label: '已直接派单', value: stats.directAssigned, color: 'text-blue-600' },
+          { key: 'BIDDING', label: '招标中', value: stats.bidding, color: 'text-orange-600' },
+          { key: 'AWAIT_AWARD', label: '待定标', value: stats.awaitAward, color: 'text-purple-600' },
+          { key: 'AWARDED', label: '已定标', value: stats.awarded, color: 'text-green-600' },
+          { key: 'HOLD', label: '暂不分配', value: stats.hold, color: 'text-slate-600' },
+          { key: 'EXCEPTION', label: '异常', value: stats.exception, color: 'text-red-600' },
         ]
           .map(
             (item) => `
-              <article class="rounded-lg border bg-card">
+              <article class="rounded-lg border bg-card" data-dispatch-stat-card="${item.key}">
                 <div class="p-3 text-center">
                   <p class="text-2xl font-bold ${item.color}">${item.value}</p>
                   <p class="mt-0.5 text-xs leading-tight text-muted-foreground">${item.label}</p>
@@ -134,7 +127,6 @@ function renderDispatchBoardInner(): string {
       </section>
 
       ${renderDirectDispatchDialog(dispatchDialogTasks, factoryOptions)}
-      ${renderDetailDispatchDialog(detailDispatchTask, detailDispatchGroups, factoryOptions)}
       ${renderCreateTenderSheet(createTenderTask)}
       ${renderViewTenderSheet(viewTenderTask)}
       ${renderPriceSnapshotSheet(priceSnapshotTask)}

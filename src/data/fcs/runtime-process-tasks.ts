@@ -102,6 +102,21 @@ interface RuntimeTaskOverride {
   executionEnabled?: boolean
 }
 
+interface RuntimeSplitResultPlan {
+  taskId: string
+  taskNo: string
+  splitSeq: number
+  detailRowKeys: string[]
+  allocatableGroupKeys: string[]
+  scopeQty: number
+  scopeLabel: string
+  assignmentMode: ProcessTask['assignmentMode']
+  assignmentStatus: TaskAssignmentStatus
+  assignedFactoryId?: string
+  assignedFactoryName?: string
+  tenderId?: string
+}
+
 interface RuntimeSplitFactoryPlan extends TaskSplitFactoryBucket {
   taskId: string
 }
@@ -113,7 +128,7 @@ interface RuntimeTaskSplitPlan {
   splitGroupId: string
   createdAt: string
   createdBy: string
-  factories: RuntimeSplitFactoryPlan[]
+  results: RuntimeSplitResultPlan[]
 }
 
 export interface RuntimeFactoryAssignmentValidation {
@@ -195,9 +210,15 @@ export interface RuntimeDetailDispatchInput {
   by: string
 }
 
+export interface RuntimeDetailTenderInput {
+  taskId: string
+  by: string
+}
+
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
 const runtimeTaskSplitPlans = new Map<string, RuntimeTaskSplitPlan>()
 let runtimeAuditSeq = 0
+let dispatchBoardSeedReady = false
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
@@ -345,7 +366,7 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
   const planBySourceTaskId = new Map(runtimeTaskSplitPlans)
   const splitResultTaskIdsBySource = new Map<string, string[]>()
   for (const plan of runtimeTaskSplitPlans.values()) {
-    splitResultTaskIdsBySource.set(plan.sourceTaskId, plan.factories.map((factory) => factory.taskId))
+    splitResultTaskIdsBySource.set(plan.sourceTaskId, plan.results.map((result) => result.taskId))
   }
 
   const expanded: RuntimeProcessTask[] = []
@@ -377,31 +398,32 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
       updatedAt: plan.createdAt,
     })
 
-    for (const factory of plan.factories) {
-      const scopedDetailRows = pickDetailRowsByKeys(sourceDetailRows, factory.detailRowKeys)
+    for (const resultTask of plan.results) {
+      const scopedDetailRows = pickDetailRowsByKeys(sourceDetailRows, resultTask.detailRowKeys)
       const scopeSkuLines = deriveScopeSkuLinesByDetailRows(task.scopeSkuLines, scopedDetailRows)
-      const scopeQty = factory.scopeQty > 0
-        ? factory.scopeQty
+      const scopeQty = resultTask.scopeQty > 0
+        ? resultTask.scopeQty
         : scopedDetailRows.reduce((sum, row) => sum + row.qty, 0)
 
       expanded.push({
         ...task,
-        taskId: factory.taskId,
-        taskNo: factory.taskNo,
+        taskId: resultTask.taskId,
+        taskNo: resultTask.taskNo,
         rootTaskNo: sourceRootNo,
         splitGroupId: plan.splitGroupId,
         splitFromTaskNo: sourceTaskNo,
-        splitSeq: factory.splitSeq,
-        detailRowKeys: [...factory.detailRowKeys],
+        splitSeq: resultTask.splitSeq,
+        detailRowKeys: [...resultTask.detailRowKeys],
         isSplitResult: true,
         isSplitSource: false,
         executionEnabled: true,
-        assignmentMode: 'DIRECT',
-        assignmentStatus: 'ASSIGNED',
-        assignedFactoryId: factory.factoryId,
-        assignedFactoryName: factory.factoryName,
-        scopeKey: factory.taskNo,
-        scopeLabel: factory.scopeLabel,
+        assignmentMode: resultTask.assignmentMode,
+        assignmentStatus: resultTask.assignmentStatus,
+        assignedFactoryId: resultTask.assignedFactoryId,
+        assignedFactoryName: resultTask.assignedFactoryName,
+        tenderId: resultTask.tenderId,
+        scopeKey: resultTask.taskNo,
+        scopeLabel: resultTask.scopeLabel,
         scopeQty,
         qty: scopeQty,
         scopeSkuLines,
@@ -735,12 +757,371 @@ function updateRuntimeTaskWithAudit(
   })
 }
 
+function buildSeedAuditLog(taskId: string, action: string, detail: string, by: string, at: string): TaskAuditLog {
+  return {
+    id: makeRuntimeAuditId(taskId),
+    action,
+    detail,
+    at,
+    by,
+  }
+}
+
+function getSeedBaseAuditLogs(taskId: string): TaskAuditLog[] {
+  const baseTaskId = taskId.replace(/__ORDER$/, '')
+  const baseTask = processTasks.find((task) => task.taskId === baseTaskId)
+  return [...(baseTask?.auditLogs ?? [])]
+}
+
+function seedRuntimeTaskOverride(
+  taskId: string,
+  patch: RuntimeTaskOverride,
+  auditLogs: TaskAuditLog[] = [],
+): void {
+  runtimeTaskOverrides.set(taskId, {
+    ...(runtimeTaskOverrides.get(taskId) ?? {}),
+    ...patch,
+    auditLogs: auditLogs.length > 0 ? auditLogs : patch.auditLogs,
+  })
+}
+
+function ensureDispatchBoardSeedData(): void {
+  if (dispatchBoardSeedReady) return
+  dispatchBoardSeedReady = true
+
+  const directFactorySeeds = {
+    cut: { id: 'ID-F002', name: '泗水裁片厂' },
+    sew: { id: 'ID-F003', name: '万隆车缝厂' },
+    button: { id: 'ID-F005', name: '日惹包装厂' },
+    special: { id: 'ID-F010', name: '雅加达绣花专工厂' },
+    wash: { id: 'ID-F007', name: '玛琅精工车缝' },
+  } as const
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0001-001__ORDER',
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: directFactorySeeds.sew.id,
+      assignedFactoryName: directFactorySeeds.sew.name,
+      acceptDeadline: '2026-03-19 12:00:00',
+      taskDeadline: '2026-04-02 18:00:00',
+      dispatchedAt: '2026-03-18 09:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 15200,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'PENDING',
+      dispatchRemark: '待工厂确认',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0001-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0001-001__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-18 09:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0002-001__ORDER',
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: directFactorySeeds.cut.id,
+      assignedFactoryName: directFactorySeeds.cut.name,
+      acceptDeadline: '2026-04-03 12:00:00',
+      taskDeadline: '2026-04-08 18:00:00',
+      dispatchedAt: '2026-03-19 10:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 8600,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'ACCEPTED',
+      dispatchRemark: '按裁片工序直接派单',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0002-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0002-001__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-19 10:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0002-001__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.cut.name, '2026-03-19 13:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0002-003__ORDER',
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: directFactorySeeds.button.id,
+      assignedFactoryName: directFactorySeeds.button.name,
+      acceptDeadline: '2026-04-03 12:00:00',
+      taskDeadline: '2026-04-09 18:00:00',
+      dispatchedAt: '2026-03-19 11:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 6900,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'ACCEPTED',
+      dispatchRemark: '后道加工直接派单',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0002-003__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0002-003__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-19 11:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0002-003__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.button.name, '2026-03-19 14:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0003-001__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'ASSIGNING',
+      tenderId: 'TENDER-TASKGEN0003001-1001',
+      biddingDeadline: '2026-03-21 12:00:00',
+      taskDeadline: '2026-04-12 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0003-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0003-001__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-19 09:30:00'),
+      buildSeedAuditLog('TASKGEN-202603-0003-001__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0003001-1001', '跟单A', '2026-03-19 09:35:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0004-001__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'AWARDED',
+      tenderId: 'TENDER-TASKGEN0004001-1001',
+      biddingDeadline: '2026-03-18 18:00:00',
+      taskDeadline: '2026-04-10 18:00:00',
+      awardedAt: '2026-03-19 10:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0004-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-18 09:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0004001-1001', '跟单A', '2026-03-18 09:05:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-001__ORDER', 'AWARD', '已完成定标', '运营A', '2026-03-19 10:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0005-001__ORDER',
+    {
+      assignmentStatus: 'UNASSIGNED',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0005-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0005-001__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-19 15:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0006-001__ORDER',
+    {
+      assignmentStatus: 'UNASSIGNED',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0006-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0006-001__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-19 15:30:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0008-001__ORDER',
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: directFactorySeeds.sew.id,
+      assignedFactoryName: directFactorySeeds.sew.name,
+      acceptDeadline: '2026-04-04 12:00:00',
+      taskDeadline: '2026-04-11 18:00:00',
+      dispatchedAt: '2026-03-20 09:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 14600,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'ACCEPTED',
+      dispatchRemark: '常规车缝直派',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0008-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0008-001__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-20 09:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0008-001__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.sew.name, '2026-03-20 11:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0009-001__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'BIDDING',
+      tenderId: 'TENDER-TASKGEN0009001-1001',
+      biddingDeadline: '2026-03-22 18:00:00',
+      taskDeadline: '2026-04-14 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0009-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0009-001__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-20 10:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0009-001__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0009001-1001', '跟单A', '2026-03-20 10:05:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0015-001__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'ASSIGNING',
+      tenderId: 'TENDER-TASKGEN0015001-1001',
+      biddingDeadline: '2026-03-21 10:00:00',
+      taskDeadline: '2026-04-12 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0015-001__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-19 10:30:00'),
+      buildSeedAuditLog('TASKGEN-202603-0015-001__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015001-1001', '跟单A', '2026-03-19 10:35:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0015-002__ORDER',
+    {
+      assignmentStatus: 'UNASSIGNED',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-002__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0015-002__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-20 09:40:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0015-004__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'BIDDING',
+      tenderId: 'TENDER-TASKGEN0015004-1001',
+      biddingDeadline: '2026-03-22 12:00:00',
+      taskDeadline: '2026-04-15 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-004__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0015-004__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015004-1001', '跟单A', '2026-03-20 09:10:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0015-005__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'BIDDING',
+      tenderId: 'TENDER-TASKGEN0015005-1001',
+      biddingDeadline: '2026-03-19 18:00:00',
+      taskDeadline: '2026-04-11 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-005__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0015-005__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015005-1001', '跟单A', '2026-03-18 11:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0015-006__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'BIDDING',
+      tenderId: 'TENDER-TASKGEN0015006-1001',
+      biddingDeadline: '2026-03-21 16:00:00',
+      taskDeadline: '2026-04-13 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-006__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0015-006__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015006-1001', '跟单A', '2026-03-20 09:20:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0015-007__ORDER',
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: directFactorySeeds.wash.id,
+      assignedFactoryName: directFactorySeeds.wash.name,
+      acceptDeadline: '2026-03-18 12:00:00',
+      taskDeadline: '2026-03-19 18:00:00',
+      dispatchedAt: '2026-03-17 09:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 12400,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'ACCEPTED',
+      status: 'IN_PROGRESS',
+      dispatchRemark: '已接单，执行超期',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-007__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0015-007__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-17 09:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0015-007__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.wash.name, '2026-03-17 10:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0015-007__ORDER', 'START', '已开工执行', directFactorySeeds.wash.name, '2026-03-18 09:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0015-008__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'AWARDED',
+      tenderId: 'TENDER-TASKGEN0015008-1001',
+      biddingDeadline: '2026-03-18 20:00:00',
+      taskDeadline: '2026-04-11 18:00:00',
+      awardedAt: '2026-03-19 11:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0015-008__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0015-008__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-18 12:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0015-008__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0015008-1001', '跟单A', '2026-03-18 12:05:00'),
+      buildSeedAuditLog('TASKGEN-202603-0015-008__ORDER', 'AWARD', '已完成定标', '运营A', '2026-03-19 11:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-083-001__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'AWARDED',
+      tenderId: 'TENDER-TASKGEN0083001-1001',
+      biddingDeadline: '2026-03-18 17:00:00',
+      taskDeadline: '2026-04-18 18:00:00',
+      awardedAt: '2026-03-19 16:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-083-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-083-001__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-18 13:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-083-001__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0083001-1001', '跟单A', '2026-03-18 13:05:00'),
+      buildSeedAuditLog('TASKGEN-202603-083-001__ORDER', 'AWARD', '已完成定标', '运营A', '2026-03-19 16:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-084-001__ORDER',
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'ASSIGNING',
+      tenderId: 'TENDER-TASKGEN0084001-1001',
+      biddingDeadline: '2026-03-21 20:00:00',
+      taskDeadline: '2026-04-18 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-084-001__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-084-001__ORDER', 'SET_ASSIGN_MODE', '设为竞价分配', '跟单A', '2026-03-20 10:20:00'),
+      buildSeedAuditLog('TASKGEN-202603-084-001__ORDER', 'BIDDING_START', '发起竞价 TENDER-TASKGEN0084001-1001', '跟单A', '2026-03-20 10:25:00'),
+    ],
+  )
+}
+
 function getOrderIdsFromTaskIds(taskIds: string[]): string[] {
   const tasks = listRuntimeProcessTasks().filter((task) => taskIds.includes(task.taskId))
   return Array.from(new Set(tasks.map((task) => task.productionOrderId)))
 }
 
 export function listRuntimeProcessTasks(): RuntimeProcessTask[] {
+  ensureDispatchBoardSeedData()
   return buildRuntimeProcessTasks()
 }
 
@@ -887,7 +1268,7 @@ function clearRuntimeTaskSplitPlan(sourceTaskId: string): void {
   const plan = runtimeTaskSplitPlans.get(sourceTaskId)
   if (!plan) return
 
-  for (const splitTask of plan.factories) {
+  for (const splitTask of plan.results) {
     runtimeTaskOverrides.delete(splitTask.taskId)
   }
   runtimeTaskSplitPlans.delete(sourceTaskId)
@@ -898,6 +1279,7 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
   mode?: 'SINGLE_FACTORY' | 'MULTI_FACTORY'
   message?: string
   createdTaskIds?: string[]
+  resultAssignments?: Array<{ taskId: string; factoryId: string; factoryName: string }>
 } {
   const task = getRuntimeTaskById(input.taskId)
   if (!task) return { ok: false, message: '任务不存在或已被移除' }
@@ -960,6 +1342,13 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
       ok: true,
       mode: 'SINGLE_FACTORY',
       createdTaskIds: [],
+      resultAssignments: [
+        {
+          taskId: task.taskId,
+          factoryId: splitDecision.factoryId,
+          factoryName: splitDecision.factoryName,
+        },
+      ],
     }
   }
 
@@ -977,7 +1366,19 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     splitGroupId: splitDecision.splitGroupId,
     createdAt: nowTimestamp(),
     createdBy: input.by,
-    factories: splitFactories,
+    results: splitFactories.map((factory) => ({
+      taskId: factory.taskId,
+      taskNo: factory.taskNo,
+      splitSeq: factory.splitSeq,
+      detailRowKeys: [...factory.detailRowKeys],
+      allocatableGroupKeys: [...factory.allocatableGroupKeys],
+      scopeQty: factory.scopeQty,
+      scopeLabel: factory.scopeLabel,
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: factory.factoryId,
+      assignedFactoryName: factory.factoryName,
+    })),
   })
 
   const sourceAuditLogs = appendRuntimeAudit(
@@ -1028,6 +1429,104 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     ok: true,
     mode: 'MULTI_FACTORY',
     createdTaskIds: splitFactories.map((factory) => factory.taskId),
+    resultAssignments: splitFactories.map((factory) => ({
+      taskId: factory.taskId,
+      factoryId: factory.factoryId,
+      factoryName: factory.factoryName,
+    })),
+  }
+}
+
+export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTenderInput): {
+  ok: boolean
+  message?: string
+  createdTaskIds?: string[]
+} {
+  const task = getRuntimeTaskById(input.taskId)
+  if (!task) return { ok: false, message: '任务不存在或已被移除' }
+  if (task.isSplitResult) return { ok: false, message: '拆分结果任务不支持再次按明细创建招标单，请对来源任务操作' }
+
+  const groups = listRuntimeTaskAllocatableGroups(task.taskId)
+  if (groups.length <= 1) {
+    return { ok: false, message: '该任务当前不需要按明细创建招标单，请使用整任务模式' }
+  }
+
+  clearRuntimeTaskSplitPlan(task.taskId)
+
+  const sourceTaskNo = getTaskNo(task)
+  const rootTaskNo = getTaskRootNo(task)
+  const splitGroupId = `SG-${rootTaskNo}-TD-${String(Date.now()).slice(-6)}`
+  const eventAt = nowTimestamp()
+  const sourceDetailRows = task.scopeDetailRows.length > 0 ? task.scopeDetailRows : cloneTaskDetailRows(task.detailRows)
+
+  const resultPlans: RuntimeSplitResultPlan[] = groups.map((group, index) => {
+    const splitSeq = index + 1
+    const taskNo = `${rootTaskNo}-${String(splitSeq).padStart(2, '0')}`
+    return {
+      taskId: taskNo,
+      taskNo,
+      splitSeq,
+      detailRowKeys: [...group.detailRowKeys],
+      allocatableGroupKeys: [group.groupKey],
+      scopeQty: group.qty,
+      scopeLabel: group.groupLabel,
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'BIDDING',
+    }
+  })
+
+  runtimeTaskSplitPlans.set(task.taskId, {
+    sourceTaskId: task.taskId,
+    sourceTaskNo,
+    rootTaskNo,
+    splitGroupId,
+    createdAt: eventAt,
+    createdBy: input.by,
+    results: resultPlans,
+  })
+
+  patchRuntimeTask(task.taskId, {
+    taskNo: sourceTaskNo,
+    rootTaskNo,
+    splitGroupId,
+    splitFromTaskNo: undefined,
+    splitSeq: 0,
+    detailRowKeys: sourceDetailRows.map((row) => row.rowKey),
+    isSplitResult: false,
+    isSplitSource: true,
+    executionEnabled: false,
+    assignmentMode: 'BIDDING',
+    assignmentStatus: 'BIDDING',
+    updatedAt: eventAt,
+    auditLogs: appendRuntimeAudit(
+      task,
+      'DETAIL_TENDER_SPLIT',
+      `按明细创建招标单，生成 ${resultPlans.length} 条平级竞价任务`,
+      input.by,
+    ),
+  })
+
+  for (const result of resultPlans) {
+    runtimeTaskOverrides.set(result.taskId, {
+      taskNo: result.taskNo,
+      rootTaskNo,
+      splitGroupId,
+      splitFromTaskNo: sourceTaskNo,
+      splitSeq: result.splitSeq,
+      detailRowKeys: [...result.detailRowKeys],
+      isSplitResult: true,
+      isSplitSource: false,
+      executionEnabled: true,
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'BIDDING',
+      updatedAt: eventAt,
+    })
+  }
+
+  recomputeRuntimeTransitionsForOrder(task.productionOrderId)
+  return {
+    ok: true,
+    createdTaskIds: resultPlans.map((result) => result.taskId),
   }
 }
 
@@ -1196,31 +1695,20 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
   const now = nowTimestamp()
 
   for (const taskId of input.taskIds) {
-    const task = getRuntimeTaskById(taskId)
-    if (!task) continue
-
-    updateRuntimeTaskWithAudit(
+    applyRuntimeDirectDispatchMeta({
       taskId,
-      {
-        assignmentMode: 'DIRECT',
-        assignmentStatus: 'ASSIGNED',
-        assignedFactoryId: input.factoryId,
-        assignedFactoryName: input.factoryName,
-        acceptDeadline: input.acceptDeadline,
-        taskDeadline: input.taskDeadline,
-        dispatchRemark: input.remark.trim() || undefined,
-        dispatchedAt: now,
-        dispatchedBy: input.by,
-        dispatchPrice: input.dispatchPrice,
-        dispatchPriceCurrency: input.dispatchPriceCurrency,
-        dispatchPriceUnit: input.dispatchPriceUnit,
-        priceDiffReason: input.priceDiffReason.trim() || undefined,
-        acceptanceStatus: 'PENDING',
-      },
-      'DISPATCH',
-      '已发起直接派单，待工厂确认',
-      input.by,
-    )
+      factoryId: input.factoryId,
+      factoryName: input.factoryName,
+      acceptDeadline: input.acceptDeadline,
+      taskDeadline: input.taskDeadline,
+      remark: input.remark,
+      by: input.by,
+      dispatchPrice: input.dispatchPrice,
+      dispatchPriceCurrency: input.dispatchPriceCurrency,
+      dispatchPriceUnit: input.dispatchPriceUnit,
+      priceDiffReason: input.priceDiffReason,
+      dispatchedAt: now,
+    })
   }
 
   const orderIds = getOrderIdsFromTaskIds(input.taskIds)
@@ -1229,6 +1717,44 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
   }
 
   return { ok: true }
+}
+
+export function applyRuntimeDirectDispatchMeta(input: {
+  taskId: string
+  factoryId: string
+  factoryName: string
+  acceptDeadline: string
+  taskDeadline: string
+  remark: string
+  by: string
+  dispatchPrice: number
+  dispatchPriceCurrency: string
+  dispatchPriceUnit: string
+  priceDiffReason: string
+  dispatchedAt?: string
+}): RuntimeProcessTask | null {
+  return updateRuntimeTaskWithAudit(
+    input.taskId,
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: input.factoryId,
+      assignedFactoryName: input.factoryName,
+      acceptDeadline: input.acceptDeadline,
+      taskDeadline: input.taskDeadline,
+      dispatchRemark: input.remark.trim() || undefined,
+      dispatchedAt: input.dispatchedAt ?? nowTimestamp(),
+      dispatchedBy: input.by,
+      dispatchPrice: input.dispatchPrice,
+      dispatchPriceCurrency: input.dispatchPriceCurrency,
+      dispatchPriceUnit: input.dispatchPriceUnit,
+      priceDiffReason: input.priceDiffReason.trim() || undefined,
+      acceptanceStatus: 'PENDING',
+    },
+    'DISPATCH',
+    '已发起直接派单，待工厂确认',
+    input.by,
+  )
 }
 
 export function recomputeRuntimeTransitionsForOrder(productionOrderId: string): RuntimeProcessTask[] {

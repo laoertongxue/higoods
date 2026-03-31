@@ -40,6 +40,7 @@ export function syncExceptionResolvedByBusiness(): void {
   for (const exc of exceptionCases) {
     const uiStatus = normalizeCaseStatus(exc.caseStatus)
     if (uiStatus === 'RESOLVED' || uiStatus === 'CLOSED') continue
+    if (exc.sourceSystem === 'MOCK') continue
 
     const judge = getResolveJudgeResult(exc)
     if (!judge.resolved) continue
@@ -214,6 +215,7 @@ export function clearFilters(): void {
   state.ownerFilter = 'ALL'
   state.factoryFilter = 'ALL'
   state.processFilter = 'ALL'
+  state.currentPage = 1
   state.aggregateFilter = null
   state.showUpstreamHint = false
   state.rowActionMenuCaseId = null

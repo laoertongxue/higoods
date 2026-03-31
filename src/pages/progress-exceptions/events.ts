@@ -4,7 +4,9 @@ import {
   isSubCategoryKey,
   getSubCategoryOptions,
   getCaseById,
+  getExceptionTotalPages,
   getOrderById,
+  filterCases,
   getProductionOrderHandoverSummary,
   buildHandoverOrderDetailLink,
   getTaskById,
@@ -81,11 +83,13 @@ function syncPickupDisputeHandleForm(caseId: string | null): void {
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
     state.keyword = node.value
+    state.currentPage = 1
     return
   }
 
   if (field === 'severityFilter' && node instanceof HTMLSelectElement) {
     state.severityFilter = node.value
+    state.currentPage = 1
     return
   }
 
@@ -98,31 +102,37 @@ function updateField(field: string, node: HTMLElement): void {
     ) {
       state.subCategoryFilter = 'ALL'
     }
+    state.currentPage = 1
     return
   }
 
   if (field === 'subCategoryFilter' && node instanceof HTMLSelectElement) {
     state.subCategoryFilter = node.value as 'ALL' | SubCategoryKey
+    state.currentPage = 1
     return
   }
 
   if (field === 'statusFilter' && node instanceof HTMLSelectElement) {
     state.statusFilter = node.value as 'ALL' | UiCaseStatus
+    state.currentPage = 1
     return
   }
 
   if (field === 'ownerFilter' && node instanceof HTMLSelectElement) {
     state.ownerFilter = node.value
+    state.currentPage = 1
     return
   }
 
   if (field === 'factoryFilter' && node instanceof HTMLSelectElement) {
     state.factoryFilter = node.value
+    state.currentPage = 1
     return
   }
 
   if (field === 'processFilter' && node instanceof HTMLSelectElement) {
     state.processFilter = node.value
+    state.currentPage = 1
     return
   }
 
@@ -392,6 +402,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     state.statusFilter = 'OPEN'
     state.severityFilter = 'ALL'
     state.aggregateFilter = null
+    state.currentPage = 1
     return true
   }
 
@@ -399,6 +410,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     state.statusFilter = 'IN_PROGRESS'
     state.severityFilter = 'ALL'
     state.aggregateFilter = null
+    state.currentPage = 1
     return true
   }
 
@@ -406,6 +418,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     state.severityFilter = 'S1'
     state.statusFilter = 'ALL'
     state.aggregateFilter = null
+    state.currentPage = 1
     return true
   }
 
@@ -421,6 +434,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
       state.subCategoryFilter = 'ALL'
     }
     state.aggregateFilter = null
+    state.currentPage = 1
     return true
   }
 
@@ -429,6 +443,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (value && isSubCategoryKey(value)) {
       state.aggregateFilter = { type: 'reason', value }
     }
+    state.currentPage = 1
     return true
   }
 
@@ -437,6 +452,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (value) {
       state.aggregateFilter = { type: 'factory', value }
     }
+    state.currentPage = 1
     return true
   }
 
@@ -445,11 +461,31 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (value) {
       state.aggregateFilter = { type: 'process', value }
     }
+    state.currentPage = 1
     return true
   }
 
   if (action === 'clear-aggregate') {
     state.aggregateFilter = null
+    state.currentPage = 1
+    return true
+  }
+
+  if (action === 'prev-page') {
+    state.currentPage = Math.max(1, state.currentPage - 1)
+    return true
+  }
+
+  if (action === 'next-page') {
+    const totalPages = getExceptionTotalPages(filterCases().length)
+    state.currentPage = Math.min(totalPages, state.currentPage + 1)
+    return true
+  }
+
+  if (action === 'goto-page') {
+    const page = Number(actionNode.dataset.page ?? '1')
+    const totalPages = getExceptionTotalPages(filterCases().length)
+    state.currentPage = Math.max(1, Math.min(totalPages, Number.isFinite(page) ? page : 1))
     return true
   }
 

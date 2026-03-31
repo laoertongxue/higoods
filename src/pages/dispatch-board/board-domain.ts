@@ -170,7 +170,6 @@ function renderKanbanCard(
 
         <div class="flex flex-wrap gap-1 pt-1">
           <button class="h-6 rounded border px-2 text-[10px] hover:bg-muted" data-dispatch-action="open-direct-dispatch" data-task-id="${escapeHtml(task.taskId)}">直接派单</button>
-          <button class="h-6 rounded border px-2 text-[10px] hover:bg-muted" data-dispatch-action="open-detail-dispatch" data-task-id="${escapeHtml(task.taskId)}">按明细分配</button>
 
           ${
             isBid && alreadyHasTender
@@ -233,7 +232,7 @@ function renderKanbanView(
       ${colOrder
         .map((col) => {
           return `
-            <section class="w-[230px] flex-none rounded-lg border ${colBg[col]}">
+            <section class="w-[230px] flex-none rounded-lg border ${colBg[col]}" data-dispatch-kanban-column="${col}">
               <header class="flex items-center justify-between border-b px-3 py-2">
                 <span class="text-sm font-medium ${colHeaderColor[col]}">${colLabel[col]}</span>
                 <span class="inline-flex rounded bg-secondary px-1.5 py-0.5 text-xs">${cols[col].length}</span>
@@ -436,7 +435,6 @@ function renderListView(
                                 state.actionMenuTaskId === task.taskId
                                   ? `<div class="absolute right-0 z-20 mt-1 min-w-[156px] rounded-md border bg-background p-1 shadow-lg">
                                       <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-dispatch-action="open-direct-dispatch" data-task-id="${escapeHtml(task.taskId)}">直接派单</button>
-                                      <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-dispatch-action="open-detail-dispatch" data-task-id="${escapeHtml(task.taskId)}">按明细分配</button>
                                       ${
                                         isBid && alreadyHasTender
                                           ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-dispatch-action="open-view-tender" data-task-id="${escapeHtml(task.taskId)}"><i data-lucide="file-text" class="mr-1.5 h-3.5 w-3.5"></i>查看招标单</button>`

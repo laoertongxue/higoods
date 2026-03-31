@@ -2,8 +2,10 @@ import {
   state,
   initialAllocationByTaskId,
   validateRuntimeBatchDispatchSelection,
-  listRuntimeTaskAllocatableGroups,
+  getTaskAllocatableGroups,
+  supportsDetailAssignment,
   dispatchRuntimeTaskByDetailGroups,
+  applyRuntimeDirectDispatchMeta,
   setRuntimeTaskAssignMode,
   batchSetRuntimeTaskAssignMode,
   batchDispatchRuntimeTasks,
@@ -18,7 +20,6 @@ import {
   getDispatchDialogValidation,
   getFactoryOptions,
   emptyDispatchForm,
-  emptyDetailDispatchForm,
   fromDateTimeLocal,
   escapeHtml,
   formatScopeLabel,
@@ -26,8 +27,8 @@ import {
   type RuntimeTaskAllocatableGroup,
   type RuntimeTaskAllocatableGroupAssignment,
   type DispatchTask,
-  type DetailDispatchForm,
 } from './context'
+
 function setTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
   setRuntimeTaskAssignMode(taskId, mode, by)
 }
@@ -64,35 +65,21 @@ function batchDispatch(
   })
 }
 
-function openDispatchDialog(taskIds: string[]): void {
-  const filtered = taskIds.filter((taskId) => Boolean(getTaskById(taskId)))
-  if (filtered.length === 0) return
-
-  state.dispatchDialogTaskIds = filtered
-  state.dispatchDialogError = null
-  state.dispatchForm = emptyDispatchForm()
-  state.actionMenuTaskId = null
+function getDispatchSingleTask(): DispatchTask | null {
+  const tasks = getDispatchDialogTasks()
+  return tasks.length === 1 ? tasks[0] : null
 }
 
-function closeDispatchDialog(): void {
-  state.dispatchDialogTaskIds = null
-  state.dispatchDialogError = null
-  state.dispatchForm = emptyDispatchForm()
+function getDirectDispatchGroups(task: DispatchTask | null): RuntimeTaskAllocatableGroup[] {
+  return getTaskAllocatableGroups(task)
 }
 
-function getDetailDispatchTask(): DispatchTask | null {
-  return getTaskById(state.detailDispatchTaskId)
-}
-
-function getDetailDispatchGroups(task: DispatchTask | null): RuntimeTaskAllocatableGroup[] {
-  if (!task) return []
-  return listRuntimeTaskAllocatableGroups(task.taskId)
-}
-
-function getDetailDispatchAssignments(groups: RuntimeTaskAllocatableGroup[]): RuntimeTaskAllocatableGroupAssignment[] {
+function getDirectDispatchAssignments(
+  groups: RuntimeTaskAllocatableGroup[],
+): RuntimeTaskAllocatableGroupAssignment[] {
   return groups
     .map((group) => {
-      const selected = state.detailDispatchForm.factoryByGroupKey[group.groupKey]
+      const selected = state.dispatchForm.factoryByGroupKey[group.groupKey]
       if (!selected?.factoryId || !selected.factoryName) return null
       return {
         groupKey: group.groupKey,
@@ -103,63 +90,43 @@ function getDetailDispatchAssignments(groups: RuntimeTaskAllocatableGroup[]): Ru
     .filter((item): item is RuntimeTaskAllocatableGroupAssignment => Boolean(item))
 }
 
-function openDetailDispatchDialog(taskId: string): void {
-  const task = getTaskById(taskId)
-  if (!task) return
-  if (!isRuntimeTaskExecutionTask(task)) return
+function openDispatchDialog(taskIds: string[]): void {
+  const filtered = taskIds
+    .map((taskId) => getTaskById(taskId))
+    .filter((task): task is DispatchTask => Boolean(task))
 
-  const groups = listRuntimeTaskAllocatableGroups(task.taskId)
-  const factoryByGroupKey: DetailDispatchForm['factoryByGroupKey'] = {}
-  for (const group of groups) {
+  if (filtered.length === 0) return
+
+  const nextForm = emptyDispatchForm()
+  if (filtered.length === 1) {
+    const task = filtered[0]
+    const detailSupported = supportsDetailAssignment(task)
+    nextForm.mode = detailSupported ? 'DETAIL' : 'TASK'
+
     if (task.assignedFactoryId && task.assignedFactoryName) {
-      factoryByGroupKey[group.groupKey] = {
-        factoryId: task.assignedFactoryId,
-        factoryName: task.assignedFactoryName,
+      nextForm.factoryId = task.assignedFactoryId
+      nextForm.factoryName = task.assignedFactoryName
+      for (const group of getDirectDispatchGroups(task)) {
+        nextForm.factoryByGroupKey[group.groupKey] = {
+          factoryId: task.assignedFactoryId,
+          factoryName: task.assignedFactoryName,
+        }
       }
     }
   }
 
-  state.detailDispatchTaskId = task.taskId
-  state.detailDispatchError = null
-  state.detailDispatchForm = {
-    factoryByGroupKey,
-  }
+  state.dispatchDialogTaskIds = filtered.map((task) => task.taskId)
+  state.dispatchDialogError = null
+  state.dispatchForm = nextForm
   state.actionMenuTaskId = null
 }
 
-function closeDetailDispatchDialog(): void {
-  state.detailDispatchTaskId = null
-  state.detailDispatchError = null
-  state.detailDispatchForm = emptyDetailDispatchForm()
+function closeDispatchDialog(): void {
+  state.dispatchDialogTaskIds = null
+  state.dispatchDialogError = null
+  state.dispatchForm = emptyDispatchForm()
 }
 
-function confirmDetailDispatch(): void {
-  const task = getDetailDispatchTask()
-  if (!task) return
-
-  const groups = getDetailDispatchGroups(task)
-  const assignments = getDetailDispatchAssignments(groups)
-  const assignmentGranularity = task.assignmentGranularity ?? 'ORDER'
-  const uniqueFactoryIds = Array.from(new Set(assignments.map((item) => item.factoryId)))
-
-  if (assignmentGranularity === 'ORDER' && uniqueFactoryIds.length > 1) {
-    state.detailDispatchError = '该任务仅支持整任务分配，请选择同一工厂'
-    return
-  }
-
-  const result = dispatchRuntimeTaskByDetailGroups({
-    taskId: task.taskId,
-    assignments,
-    by: '跟单A',
-  })
-  if (!result.ok) {
-    state.detailDispatchError = result.message ?? '按明细分配失败，请检查后重试'
-    return
-  }
-
-  closeDetailDispatchDialog()
-  state.selectedIds = new Set<string>()
-}
 function applyAutoAssign(): void {
   const rows = getVisibleRows()
   const dyePendingTaskIds = getDyePendingTaskIds()
@@ -208,10 +175,59 @@ function confirmDirectDispatch(): void {
   }
 
   const validation = getDispatchDialogValidation(tasks)
-  if (!validation.valid || validation.dispatchPrice == null) return
+  if (!validation.valid || validation.dispatchPrice == null) {
+    state.dispatchDialogError = '请先补齐派单必填信息'
+    return
+  }
 
   const acceptDeadline = fromDateTimeLocal(state.dispatchForm.acceptDeadline)
   const taskDeadline = fromDateTimeLocal(state.dispatchForm.taskDeadline)
+  const singleTask = tasks.length === 1 ? tasks[0] : null
+  const groups = getDirectDispatchGroups(singleTask)
+  const detailMode = Boolean(singleTask && supportsDetailAssignment(singleTask) && state.dispatchForm.mode === 'DETAIL')
+
+  if (detailMode && singleTask) {
+    const assignments = getDirectDispatchAssignments(groups)
+    if (assignments.length !== groups.length) {
+      state.dispatchDialogError = '请为每个明细分配单元选择目标工厂'
+      return
+    }
+
+    const result = dispatchRuntimeTaskByDetailGroups({
+      taskId: singleTask.taskId,
+      assignments,
+      by: '跟单A',
+    })
+    if (!result.ok || !result.resultAssignments) {
+      state.dispatchDialogError = result.message ?? '按明细派单失败，请检查后重试'
+      return
+    }
+
+    for (const assignment of result.resultAssignments) {
+      applyRuntimeDirectDispatchMeta({
+        taskId: assignment.taskId,
+        factoryId: assignment.factoryId,
+        factoryName: assignment.factoryName,
+        acceptDeadline,
+        taskDeadline,
+        remark: state.dispatchForm.remark,
+        by: '跟单A',
+        dispatchPrice: validation.dispatchPrice,
+        dispatchPriceCurrency: validation.stdCurrency,
+        dispatchPriceUnit: validation.stdUnit,
+        priceDiffReason: state.dispatchForm.priceDiffReason,
+      })
+    }
+
+    closeDispatchDialog()
+    state.selectedIds = new Set<string>()
+    return
+  }
+
+  if (state.dispatchForm.factoryId.trim() === '' || state.dispatchForm.factoryName.trim() === '') {
+    state.dispatchDialogError = '请选择承接工厂'
+    return
+  }
 
   const result = batchDispatch(
     tasks.map((task) => task.taskId),
@@ -236,23 +252,100 @@ function confirmDirectDispatch(): void {
   state.selectedIds = new Set<string>()
 }
 
+function renderDetailDispatchMode(
+  task: DispatchTask,
+  groups: RuntimeTaskAllocatableGroup[],
+  factoryOptions: Array<{ id: string; name: string }>,
+): string {
+  const assignmentGranularity = task.assignmentGranularity ?? 'ORDER'
+  const assignmentGranularityLabel: Record<string, string> = {
+    ORDER: '按生产单',
+    COLOR: '按颜色',
+    SKU: '按SKU',
+    DETAIL: '按明细行',
+  }
+  const detailSplitDimensionsText =
+    task.detailSplitDimensions && task.detailSplitDimensions.length > 0
+      ? task.detailSplitDimensions.join(' + ')
+      : 'GARMENT_SKU'
+
+  return `
+    <div class="space-y-3 rounded-md border bg-muted/15 p-3">
+      <div class="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+        <div>最小可分配粒度：${escapeHtml(assignmentGranularityLabel[assignmentGranularity] ?? assignmentGranularity)}</div>
+        <div>明细拆分方式：${escapeHtml(detailSplitDimensionsText)}</div>
+      </div>
+
+      <div class="overflow-x-auto rounded-md border">
+        <table class="w-full min-w-[760px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/40 text-xs">
+              <th class="px-3 py-2 text-left font-medium">分配单元</th>
+              <th class="px-3 py-2 text-left font-medium">数量</th>
+              <th class="px-3 py-2 text-left font-medium">维度说明</th>
+              <th class="px-3 py-2 text-left font-medium">目标工厂</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${groups
+              .map((group) => {
+                const selectedFactory = state.dispatchForm.factoryByGroupKey[group.groupKey]
+                const dimensionsText = Object.entries(group.dimensions)
+                  .map(([key, value]) => `${key}:${value}`)
+                  .join('；')
+
+                return `
+                  <tr class="border-b last:border-b-0" data-dispatch-group="${escapeHtml(group.groupKey)}">
+                    <td class="px-3 py-2">${escapeHtml(group.groupLabel)}</td>
+                    <td class="px-3 py-2 font-mono text-xs">${group.qty} 件</td>
+                    <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(dimensionsText || '-')}</td>
+                    <td class="px-3 py-2">
+                      <select class="h-8 w-full rounded-md border bg-background px-2 text-xs" data-dispatch-field="dispatch.groupFactoryId" data-group-key="${escapeHtml(group.groupKey)}">
+                        <option value="">请选择工厂</option>
+                        ${factoryOptions
+                          .map(
+                            (factory) => `
+                              <option value="${escapeHtml(factory.id)}" ${selectedFactory?.factoryId === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>
+                            `,
+                          )
+                          .join('')}
+                      </select>
+                    </td>
+                  </tr>
+                `
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `
+}
+
 function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array<{ id: string; name: string }>): string {
-  if (!state.dispatchDialogTaskIds) return ''
-  if (tasks.length === 0) return ''
+  if (!state.dispatchDialogTaskIds || tasks.length === 0) return ''
 
   const isBatch = tasks.length > 1
+  const refTask = tasks[0]
   const selectionValidation = validateRuntimeBatchDispatchSelection(tasks.map((task) => task.taskId))
   const validation = getDispatchDialogValidation(tasks)
-  const refTask = tasks[0]
-  const canSubmit = selectionValidation.valid && validation.valid
+  const detailSupported = !isBatch && supportsDetailAssignment(refTask)
+  const detailMode = detailSupported && state.dispatchForm.mode === 'DETAIL'
+  const groups = detailSupported ? getDirectDispatchGroups(refTask) : []
+  const detailAssignments = detailMode ? getDirectDispatchAssignments(groups) : []
   const selectionError =
     state.dispatchDialogError ??
     (!selectionValidation.valid ? selectionValidation.reason ?? '批量派单条件不满足' : '')
 
+  const canSubmit =
+    selectionValidation.valid &&
+    validation.valid &&
+    (detailMode ? groups.length > 0 && detailAssignments.length === groups.length : state.dispatchForm.factoryId.trim() !== '')
+
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-dispatch-action="close-direct-dispatch" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 max-h-[90vh] w-full max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
+      <section class="absolute left-1/2 top-1/2 max-h-[90vh] w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
         <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-dispatch-action="close-direct-dispatch" aria-label="关闭">
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
@@ -262,42 +355,62 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
         <div class="mt-4 space-y-4">
           ${
             isBatch
-              ? `<div class="rounded-md border bg-muted/40 px-3 py-2 text-sm">已选择 <span class="font-semibold">${tasks.length}</span> 个任务</div>`
+              ? `<div class="rounded-md border bg-muted/40 px-3 py-2 text-sm">已选择 <span class="font-semibold">${tasks.length}</span> 个任务，批量场景仅支持整任务派单。</div>`
               : `<div class="rounded-md border bg-muted/40 px-3 py-2 text-sm space-y-1">
-                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">任务编号</span><span class="font-mono text-xs">${escapeHtml(refTask.taskId)}</span></div>
+                  <div class="flex justify-between gap-2"><span class="text-muted-foreground">任务编号</span><span class="font-mono text-xs">${escapeHtml(formatTaskNo(refTask))}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">生产单号</span><span class="font-mono text-xs">${escapeHtml(refTask.productionOrderId)}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(refTask.processNameZh)}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(refTask))}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${refTask.scopeQty} 件</span></div>
                 </div>`
           }
+
+          ${
+            detailSupported
+              ? `<div class="space-y-1.5">
+                  <label class="text-sm font-medium">派单模式</label>
+                  <div class="inline-flex rounded-md bg-muted p-1 text-sm">
+                    <button class="rounded-md px-3 py-1.5 ${state.dispatchForm.mode === 'TASK' ? 'bg-background shadow-sm' : 'text-muted-foreground'}" data-dispatch-action="switch-dispatch-mode" data-mode="TASK" data-dispatch-mode="TASK">整任务派单</button>
+                    <button class="rounded-md px-3 py-1.5 ${state.dispatchForm.mode === 'DETAIL' ? 'bg-background shadow-sm' : 'text-muted-foreground'}" data-dispatch-action="switch-dispatch-mode" data-mode="DETAIL" data-dispatch-mode="DETAIL">按明细派单</button>
+                  </div>
+                </div>`
+              : !isBatch
+                ? '<p class="text-xs text-muted-foreground">当前任务仅支持整任务派单。</p>'
+                : ''
+          }
+
           ${
             selectionError
               ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">${escapeHtml(selectionError)}</div>`
               : ''
           }
 
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium">承接工厂 <span class="text-red-500">*</span></label>
-            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-dispatch-field="dispatch.factoryId">
-              <option value="" ${state.dispatchForm.factoryId === '' ? 'selected' : ''}>请选择承接工厂</option>
-              ${factoryOptions
-                .map(
-                  (factory) =>
-                    `<option value="${escapeHtml(factory.id)}" ${state.dispatchForm.factoryId === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`,
-                )
-                .join('')}
-            </select>
-          </div>
+          ${
+            detailMode
+              ? renderDetailDispatchMode(refTask, groups, factoryOptions)
+              : `<div class="space-y-1.5">
+                  <label class="text-sm font-medium">承接工厂 <span class="text-red-500">*</span></label>
+                  <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-dispatch-field="dispatch.factoryId">
+                    <option value="" ${state.dispatchForm.factoryId === '' ? 'selected' : ''}>请选择承接工厂</option>
+                    ${factoryOptions
+                      .map(
+                        (factory) =>
+                          `<option value="${escapeHtml(factory.id)}" ${state.dispatchForm.factoryId === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`,
+                      )
+                      .join('')}
+                  </select>
+                </div>`
+          }
 
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium">接单截止时间 <span class="text-red-500">*</span></label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="dispatch.acceptDeadline" value="${escapeHtml(state.dispatchForm.acceptDeadline)}" />
-          </div>
-
-          <div class="space-y-1.5">
-            <label class="text-sm font-medium">任务截止时间 <span class="text-red-500">*</span></label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="dispatch.taskDeadline" value="${escapeHtml(state.dispatchForm.taskDeadline)}" />
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-1.5">
+              <label class="text-sm font-medium">接单截止时间 <span class="text-red-500">*</span></label>
+              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="dispatch.acceptDeadline" value="${escapeHtml(state.dispatchForm.acceptDeadline)}" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-sm font-medium">任务截止时间 <span class="text-red-500">*</span></label>
+              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="dispatch.taskDeadline" value="${escapeHtml(state.dispatchForm.taskDeadline)}" />
+            </div>
           </div>
 
           <div class="rounded-md border bg-muted/20 p-3 space-y-3">
@@ -355,125 +468,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
 
         <div class="mt-6 flex justify-end gap-2">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-dispatch-action="close-direct-dispatch">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            canSubmit ? '' : 'pointer-events-none opacity-50'
-          }" data-dispatch-action="confirm-direct-dispatch">确认派单</button>
-        </div>
-      </section>
-    </div>
-  `
-}
-
-function renderDetailDispatchDialog(
-  task: DispatchTask | null,
-  groups: RuntimeTaskAllocatableGroup[],
-  factoryOptions: Array<{ id: string; name: string }>,
-): string {
-  if (!task || !state.detailDispatchTaskId) return ''
-
-  const assignmentGranularity = task.assignmentGranularity ?? 'ORDER'
-  const assignmentGranularityLabel: Record<string, string> = {
-    ORDER: '按生产单',
-    COLOR: '按颜色',
-    SKU: '按SKU',
-    DETAIL: '按明细行',
-  }
-  const detailSplitDimensionsText =
-    task.detailSplitDimensions && task.detailSplitDimensions.length > 0
-      ? task.detailSplitDimensions.join(' + ')
-      : 'GARMENT_SKU'
-  const assignments = getDetailDispatchAssignments(groups)
-  const selectedFactoryIds = Array.from(new Set(assignments.map((item) => item.factoryId)))
-  const isOrderBlocked = assignmentGranularity === 'ORDER' && selectedFactoryIds.length > 1
-  const canSubmit = groups.length > 0 && assignments.length === groups.length && !isOrderBlocked
-
-  return `
-    <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
-      <button class="absolute inset-0 bg-black/45" data-dispatch-action="close-detail-dispatch" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 max-h-[90vh] w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl" data-dialog-panel="true">
-        <button class="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100" data-dispatch-action="close-detail-dispatch" aria-label="关闭">
-          <i data-lucide="x" class="h-4 w-4"></i>
-        </button>
-
-        <h3 class="text-lg font-semibold">按明细分配</h3>
-
-        <div class="mt-4 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-          <div class="grid gap-1 sm:grid-cols-2">
-            <div>任务编号：<span class="font-mono text-xs">${escapeHtml(formatTaskNo(task))}</span></div>
-            <div>生产单号：<span class="font-mono text-xs">${escapeHtml(task.productionOrderId)}</span></div>
-            <div>所属阶段：${escapeHtml(task.stageName ?? '-')}</div>
-            <div>工序/工艺：${escapeHtml(task.processNameZh)} / ${escapeHtml(task.craftName ?? task.processNameZh)}</div>
-            <div>任务类型：${escapeHtml(task.taskCategoryZh ?? task.processNameZh)}</div>
-            <div>最小可分配粒度：${escapeHtml(assignmentGranularityLabel[assignmentGranularity] ?? assignmentGranularity)}</div>
-            <div class="sm:col-span-2">任务明细拆分方式：组合维度（${escapeHtml(detailSplitDimensionsText)}）</div>
-          </div>
-        </div>
-
-        ${
-          assignmentGranularity === 'ORDER'
-            ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">该任务仅支持整任务分配。可查看明细行，但不能将不同分配单元分配给不同工厂。</div>'
-            : ''
-        }
-        ${
-          state.detailDispatchError
-            ? `<div class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(state.detailDispatchError)}</div>`
-            : ''
-        }
-
-        <div class="mt-4 overflow-x-auto rounded-md border">
-          <table class="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr class="border-b bg-muted/40 text-xs">
-                <th class="px-3 py-2 text-left font-medium">分配单元</th>
-                <th class="px-3 py-2 text-left font-medium">数量</th>
-                <th class="px-3 py-2 text-left font-medium">维度说明</th>
-                <th class="px-3 py-2 text-left font-medium">目标工厂</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                groups.length === 0
-                  ? '<tr><td colspan="4" class="py-8 text-center text-sm text-muted-foreground">暂无可分配单元</td></tr>'
-                  : groups
-                      .map((group) => {
-                        const selectedFactory = state.detailDispatchForm.factoryByGroupKey[group.groupKey]
-                        const dimensionsText = Object.entries(group.dimensions)
-                          .map(([key, value]) => `${key}:${value}`)
-                          .join('；')
-                        return `
-                          <tr class="border-b last:border-b-0">
-                            <td class="px-3 py-2">${escapeHtml(group.groupLabel)}</td>
-                            <td class="px-3 py-2 font-mono text-xs">${group.qty} 件</td>
-                            <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(dimensionsText || '-')}</td>
-                            <td class="px-3 py-2">
-                              <select class="h-8 w-full rounded-md border bg-background px-2 text-xs" data-dispatch-field="detail.factoryId" data-group-key="${escapeHtml(group.groupKey)}">
-                                <option value="">请选择工厂</option>
-                                ${factoryOptions
-                                  .map(
-                                    (factory) => `
-                                    <option
-                                      value="${escapeHtml(factory.id)}"
-                                      ${selectedFactory?.factoryId === factory.id ? 'selected' : ''}
-                                    >${escapeHtml(factory.name)}</option>
-                                  `,
-                                  )
-                                  .join('')}
-                              </select>
-                            </td>
-                          </tr>
-                        `
-                      })
-                      .join('')
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <div class="mt-6 flex justify-end gap-2">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-dispatch-action="close-detail-dispatch">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            canSubmit ? '' : 'pointer-events-none opacity-50'
-          }" data-dispatch-action="confirm-detail-dispatch">确认分配</button>
+          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${canSubmit ? '' : 'pointer-events-none opacity-50'}" data-dispatch-action="confirm-direct-dispatch">确认派单</button>
         </div>
       </section>
     </div>
@@ -486,14 +481,7 @@ export {
   batchDispatch,
   openDispatchDialog,
   closeDispatchDialog,
-  getDetailDispatchTask,
-  getDetailDispatchGroups,
-  getDetailDispatchAssignments,
-  openDetailDispatchDialog,
-  closeDetailDispatchDialog,
-  confirmDetailDispatch,
   applyAutoAssign,
   confirmDirectDispatch,
   renderDirectDispatchDialog,
-  renderDetailDispatchDialog,
 }

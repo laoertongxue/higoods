@@ -9,7 +9,9 @@ import {
   getProcessTypeByCode,
   getSubCategoryOptions,
   getExceptionCases,
+  getExceptionTotalPages,
   getCaseFactoryId,
+  getPagedCases,
   getTaskById,
   getUnifiedCategory,
   getSubCategoryKey,
@@ -418,10 +420,16 @@ export function renderTable(cases: ExceptionCase[]): string {
   const emptyText = state.upstreamTaskId
     ? '当前任务暂无异常，可继续在任务页跟进'
     : '暂无数据'
+  const pagedCases = getPagedCases(cases)
+  const totalPages = getExceptionTotalPages(cases.length)
+  const currentPage = state.currentPage
 
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="mb-2 text-sm text-muted-foreground">共 ${cases.length} 条</div>
+      <div class="mb-2 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+        <span>共 ${cases.length} 条</span>
+        <span>第 ${currentPage} / ${totalPages} 页</span>
+      </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[1760px] text-sm">
           <thead>
@@ -444,8 +452,7 @@ export function renderTable(cases: ExceptionCase[]): string {
             ${
               cases.length === 0
                 ? `<tr><td colspan="12" class="px-3 py-10 text-center text-muted-foreground">${emptyText}</td></tr>`
-                : cases
-                    .slice(0, 20)
+                : pagedCases
                     .map((exc) => {
                       const firstOrderId = exc.relatedOrderIds[0] || ''
                       const firstTaskId = exc.relatedTaskIds[0] || ''
@@ -501,6 +508,44 @@ export function renderTable(cases: ExceptionCase[]): string {
           </tbody>
         </table>
       </div>
+      ${
+        cases.length > 0 && totalPages > 1
+          ? `
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+              <p class="text-xs text-muted-foreground">每页 20 条</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  class="inline-flex h-8 items-center rounded-md border px-3 text-sm ${currentPage <= 1 ? 'cursor-not-allowed text-muted-foreground' : 'hover:bg-muted'}"
+                  data-pe-action="prev-page"
+                  ${currentPage <= 1 ? 'disabled' : ''}
+                >
+                  上一页
+                </button>
+                ${Array.from({ length: totalPages }, (_, index) => {
+                  const page = index + 1
+                  const active = page === currentPage
+                  return `
+                    <button
+                      class="inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-sm ${active ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+                      data-pe-action="goto-page"
+                      data-page="${page}"
+                    >
+                      ${page}
+                    </button>
+                  `
+                }).join('')}
+                <button
+                  class="inline-flex h-8 items-center rounded-md border px-3 text-sm ${currentPage >= totalPages ? 'cursor-not-allowed text-muted-foreground' : 'hover:bg-muted'}"
+                  data-pe-action="next-page"
+                  ${currentPage >= totalPages ? 'disabled' : ''}
+                >
+                  下一页
+                </button>
+              </div>
+            </div>
+          `
+          : ''
+      }
     </section>
   `
 }

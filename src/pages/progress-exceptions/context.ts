@@ -88,6 +88,7 @@ export type AggregateFilter =
   | { type: 'process'; value: string }
 
 export type UiCaseStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'
+export const EXCEPTION_PAGE_SIZE = 20
 
 export interface ProgressExceptionsState {
   lastQueryKey: string
@@ -109,6 +110,7 @@ export interface ProgressExceptionsState {
   ownerFilter: string
   factoryFilter: string
   processFilter: string
+  currentPage: number
 
   aggregateFilter: AggregateFilter | null
 
@@ -156,6 +158,7 @@ export const state: ProgressExceptionsState = {
   ownerFilter: 'ALL',
   factoryFilter: 'ALL',
   processFilter: 'ALL',
+  currentPage: 1,
 
   aggregateFilter: null,
 
@@ -567,6 +570,8 @@ export function syncFromQuery(): void {
   if (state.upstreamCaseId) {
     state.detailCaseId = state.upstreamCaseId
   }
+
+  state.currentPage = 1
 }
 
 export function getSpuFromCase(exc: ExceptionCase): string {
@@ -661,6 +666,25 @@ export function filterCases(): ExceptionCase[] {
       const bUpdated = new Date(b.updatedAt.replace(' ', 'T')).getTime()
       return bUpdated - aUpdated
     })
+}
+
+export function getExceptionTotalPages(totalCount: number): number {
+  return Math.max(1, Math.ceil(totalCount / EXCEPTION_PAGE_SIZE))
+}
+
+export function clampExceptionCurrentPage(totalCount: number): number {
+  const totalPages = getExceptionTotalPages(totalCount)
+  const nextPage = Math.min(Math.max(state.currentPage, 1), totalPages)
+  if (state.currentPage !== nextPage) {
+    state.currentPage = nextPage
+  }
+  return nextPage
+}
+
+export function getPagedCases(cases: ExceptionCase[]): ExceptionCase[] {
+  const page = clampExceptionCurrentPage(cases.length)
+  const start = (page - 1) * EXCEPTION_PAGE_SIZE
+  return cases.slice(start, start + EXCEPTION_PAGE_SIZE)
 }
 
 export function getKpis(now: Date): {

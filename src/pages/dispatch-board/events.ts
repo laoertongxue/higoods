@@ -11,9 +11,6 @@ import {
   openDispatchDialog,
   closeDispatchDialog,
   confirmDirectDispatch,
-  openDetailDispatchDialog,
-  closeDetailDispatchDialog,
-  confirmDetailDispatch,
   setTaskAssignMode,
   batchSetTaskAssignMode,
 } from './dispatch-domain'
@@ -63,6 +60,17 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
     return
   }
 
+  if (field === 'dispatch.groupFactoryId') {
+    const groupKey = node.dataset.groupKey
+    if (!groupKey) return
+    const selectedFactory = getFactoryOptions().find((factory) => factory.id === node.value)
+    state.dispatchForm.factoryByGroupKey[groupKey] = {
+      factoryId: node.value,
+      factoryName: selectedFactory?.name ?? '',
+    }
+    return
+  }
+
   if (field === 'dispatch.acceptDeadline') {
     state.dispatchForm.acceptDeadline = node.value
     return
@@ -85,17 +93,6 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
 
   if (field === 'dispatch.remark') {
     state.dispatchForm.remark = node.value
-    return
-  }
-
-  if (field === 'detail.factoryId') {
-    const groupKey = node.dataset.groupKey
-    if (!groupKey) return
-    const selectedFactory = getFactoryOptions().find((factory) => factory.id === node.value)
-    state.detailDispatchForm.factoryByGroupKey[groupKey] = {
-      factoryId: node.value,
-      factoryName: selectedFactory?.name ?? '',
-    }
     return
   }
 
@@ -182,20 +179,8 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-detail-dispatch') {
-    const taskId = actionNode.dataset.taskId
-    if (!taskId) return true
-    openDetailDispatchDialog(taskId)
-    return true
-  }
-
   if (action === 'close-direct-dispatch') {
     closeDispatchDialog()
-    return true
-  }
-
-  if (action === 'close-detail-dispatch') {
-    closeDetailDispatchDialog()
     return true
   }
 
@@ -204,8 +189,20 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'confirm-detail-dispatch') {
-    confirmDetailDispatch()
+  if (action === 'switch-dispatch-mode') {
+    const mode = actionNode.dataset.mode
+    if (mode === 'TASK' || mode === 'DETAIL') {
+      state.dispatchForm.mode = mode
+      state.dispatchDialogError = null
+    }
+    return true
+  }
+
+  if (action === 'switch-tender-mode') {
+    const mode = actionNode.dataset.mode
+    if (mode === 'TASK' || mode === 'DETAIL') {
+      state.createTenderForm.mode = mode
+    }
     return true
   }
 
@@ -328,7 +325,6 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
 
   if (action === 'close-dialog') {
     closeDispatchDialog()
-    closeDetailDispatchDialog()
     closeCreateTender()
     closeViewTender()
     closePriceSnapshot()

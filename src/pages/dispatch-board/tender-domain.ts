@@ -2,6 +2,8 @@ import {
   state,
   candidateFactories,
   getTaskById,
+  getTaskAllocatableGroups,
+  supportsDetailAssignment,
   hasTender,
   getEffectiveTender,
   getStandardPrice,
@@ -9,6 +11,7 @@ import {
   formatTaskNo,
   fromDateTimeLocal,
   nowTimestamp,
+  createRuntimeTaskTenderByDetailGroups,
   upsertRuntimeTaskTender,
   getCreateTenderTask,
   getViewTenderTask,
@@ -25,9 +28,11 @@ function openCreateTender(taskId: string): void {
   if (!task) return
 
   const normalizedTaskId = task.taskId.replace(/[^A-Za-z0-9]/g, '')
+  const detailSupported = supportsDetailAssignment(task)
 
   state.createTenderTaskId = task.taskId
   state.createTenderForm = {
+    mode: detailSupported ? 'DETAIL' : 'TASK',
     tenderId: `TENDER-${normalizedTaskId.slice(-8)}-${String(Date.now()).slice(-4)}`,
     minPrice: '',
     maxPrice: '',
@@ -67,6 +72,9 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
   const std = getStandardPrice(task)
   const minPrice = Number(state.createTenderForm.minPrice)
   const maxPrice = Number(state.createTenderForm.maxPrice)
+  const detailSupported = supportsDetailAssignment(task)
+  const detailGroups = detailSupported ? getTaskAllocatableGroups(task) : []
+  const detailMode = detailSupported && state.createTenderForm.mode === 'DETAIL'
 
   const minValid = state.createTenderForm.minPrice !== '' && Number.isFinite(minPrice) && minPrice > 0
   const maxValid =
@@ -86,12 +94,16 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-dispatch-action="close-create-tender" aria-label="关闭"></button>
-      <section class="absolute inset-y-0 right-0 flex w-full flex-col border-l bg-background shadow-2xl sm:max-w-[560px]">
+      <section class="absolute inset-y-0 right-0 flex w-full flex-col border-l bg-background shadow-2xl sm:max-w-[560px]" data-tender-sheet="true">
         <header class="border-b bg-background px-6 py-4">
           <div class="flex items-center justify-between">
             <div>
               <h3 class="text-lg font-semibold">创建招标单</h3>
-              <p class="text-xs text-muted-foreground">一个竞价任务对应一个招标单</p>
+              <p class="text-xs text-muted-foreground">${
+                detailSupported
+                  ? '支持整任务创建招标单，也支持按明细分配单元拆成多个招标对象。'
+                  : '当前任务仅支持整任务创建招标单。'
+              }</p>
             </div>
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-dispatch-action="close-create-tender">关闭</button>
           </div>
@@ -103,6 +115,18 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
             <div class="rounded-md border bg-muted/40 px-3 py-2 text-sm font-mono text-muted-foreground">${escapeHtml(state.createTenderForm.tenderId)}</div>
           </div>
 
+          ${
+            detailSupported
+              ? `<div class="space-y-1.5">
+                  <label class="text-sm font-medium">创建模式</label>
+                  <div class="inline-flex rounded-md bg-muted p-1 text-sm">
+                    <button class="rounded-md px-3 py-1.5 ${state.createTenderForm.mode === 'TASK' ? 'bg-background shadow-sm' : 'text-muted-foreground'}" data-dispatch-action="switch-tender-mode" data-mode="TASK" data-tender-mode="TASK">整任务创建招标单</button>
+                    <button class="rounded-md px-3 py-1.5 ${state.createTenderForm.mode === 'DETAIL' ? 'bg-background shadow-sm' : 'text-muted-foreground'}" data-dispatch-action="switch-tender-mode" data-mode="DETAIL" data-tender-mode="DETAIL">按明细创建招标单</button>
+                  </div>
+                </div>`
+              : ''
+          }
+
           <div class="rounded-md border bg-muted/20 p-3 space-y-1.5">
             <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">任务基础信息</p>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">任务编号</span><span class="font-mono text-xs">${escapeHtml(formatTaskNo(task))}</span></div>
@@ -112,6 +136,44 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.scopeQty} ${escapeHtml(task.qtyUnit === 'PIECE' ? '件' : task.qtyUnit)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序标准价</span><span class="font-mono text-xs">${std.price.toLocaleString()} ${escapeHtml(std.currency)}/${escapeHtml(std.unit)}</span></div>
           </div>
+
+          ${
+            detailMode
+              ? `<div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <p class="text-sm font-semibold">按明细分配单元</p>
+                    <span class="text-xs text-muted-foreground">将按下列单元拆成多个招标对象</span>
+                  </div>
+                  <div class="overflow-x-auto rounded-md border">
+                    <table class="w-full min-w-[520px] text-sm">
+                      <thead>
+                        <tr class="border-b bg-muted/40 text-xs">
+                          <th class="px-3 py-2 text-left font-medium">分配单元</th>
+                          <th class="px-3 py-2 text-left font-medium">数量</th>
+                          <th class="px-3 py-2 text-left font-medium">维度说明</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${detailGroups
+                          .map((group) => {
+                            const dimensionsText = Object.entries(group.dimensions)
+                              .map(([key, value]) => `${key}:${value}`)
+                              .join('；')
+                            return `
+                              <tr class="border-b last:border-b-0" data-tender-group="${escapeHtml(group.groupKey)}">
+                                <td class="px-3 py-2">${escapeHtml(group.groupLabel)}</td>
+                                <td class="px-3 py-2 font-mono text-xs">${group.qty} 件</td>
+                                <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(dimensionsText || '-')}</td>
+                              </tr>
+                            `
+                          })
+                          .join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>`
+              : ''
+          }
 
           <div class="h-px bg-border"></div>
 
@@ -462,6 +524,50 @@ function confirmCreateTender(): void {
     const factory = candidateFactories.find((item) => item.id === factoryId)
     return factory?.name ?? factoryId
   })
+
+  if (state.createTenderForm.mode === 'DETAIL' && supportsDetailAssignment(task)) {
+    const result = createRuntimeTaskTenderByDetailGroups({
+      taskId: task.taskId,
+      by: '跟单A',
+    })
+    if (!result.ok || !result.createdTaskIds) return
+
+    result.createdTaskIds.forEach((childTaskId, index) => {
+      const childTenderId = `${state.createTenderForm.tenderId}-${String(index + 1).padStart(2, '0')}`
+      const biddingDeadline = fromDateTimeLocal(state.createTenderForm.biddingDeadline)
+      const taskDeadline = fromDateTimeLocal(state.createTenderForm.taskDeadline)
+
+      state.tenderState[childTaskId] = {
+        tenderId: childTenderId,
+        tenderStatus: 'BIDDING',
+        factoryPool: selectedPoolIds,
+        factoryPoolNames: poolNames,
+        minPrice,
+        maxPrice,
+        currency: std.currency,
+        unit: std.unit,
+        biddingDeadline,
+        taskDeadline,
+        standardPrice: std.price,
+        remark: state.createTenderForm.remark,
+        createdAt: nowTimestamp(),
+        quotedCount: 0,
+      }
+
+      upsertRuntimeTaskTender(
+        childTaskId,
+        {
+          tenderId: childTenderId,
+          biddingDeadline,
+          taskDeadline,
+        },
+        '跟单A',
+      )
+    })
+
+    closeCreateTender()
+    return
+  }
 
   state.tenderState[task.taskId] = {
     tenderId: state.createTenderForm.tenderId,

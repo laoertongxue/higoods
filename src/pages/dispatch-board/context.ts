@@ -1,8 +1,10 @@
 import { appStore } from '../../state/store'
 import { productionOrders } from '../../data/fcs/production-orders'
 import {
+  applyRuntimeDirectDispatchMeta,
   batchDispatchRuntimeTasks,
   batchSetRuntimeTaskAssignMode,
+  createRuntimeTaskTenderByDetailGroups,
   dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskById as getRuntimeTaskByIdFromStore,
   isRuntimeTaskExecutionTask,
@@ -156,6 +158,7 @@ interface LocalTender {
 }
 
 type TenderState = Record<string, LocalTender>
+type AssignmentOperateMode = 'TASK' | 'DETAIL'
 
 interface CandidateFactory {
   id: string
@@ -235,14 +238,14 @@ const candidateFactories: CandidateFactory[] = [
 
 const mockTenders: MockTender[] = [
   {
-    tenderId: 'TENDER-0002-001',
-    taskId: 'TASK-0002-002',
+    tenderId: 'TENDER-TASKGEN0015004-1001',
+    taskId: 'TASKGEN-202603-0015-004__ORDER',
     status: 'BIDDING',
     factoryPoolCount: 4,
     quotedCount: 2,
     currentMaxPrice: 14200,
     currentMinPrice: 13800,
-    biddingDeadline: '2026-03-20 18:00:00',
+    biddingDeadline: '2026-04-03 18:00:00',
     taskDeadline: '2026-04-10 18:00:00',
     minPrice: 12000,
     maxPrice: 16000,
@@ -250,36 +253,145 @@ const mockTenders: MockTender[] = [
     unit: '件',
   },
   {
-    tenderId: 'TENDER-0003-001',
-    taskId: 'TASK-0003-002',
+    tenderId: 'TENDER-TASKGEN0015006-1001',
+    taskId: 'TASKGEN-202603-0015-006__ORDER',
+    status: 'BIDDING',
+    factoryPoolCount: 5,
+    quotedCount: 1,
+    currentMaxPrice: 14900,
+    currentMinPrice: 13400,
+    biddingDeadline: '2026-04-04 18:00:00',
+    taskDeadline: '2026-04-12 18:00:00',
+    minPrice: 11800,
+    maxPrice: 15500,
+    currency: 'IDR',
+    unit: '件',
+  },
+  {
+    tenderId: 'TENDER-TASKGEN0009001-1001',
+    taskId: 'TASKGEN-202603-0009-001__ORDER',
+    status: 'BIDDING',
+    factoryPoolCount: 3,
+    quotedCount: 2,
+    currentMaxPrice: 15100,
+    currentMinPrice: 14100,
+    biddingDeadline: '2026-04-04 20:00:00',
+    taskDeadline: '2026-04-13 18:00:00',
+    minPrice: 12300,
+    maxPrice: 15800,
+    currency: 'IDR',
+    unit: '件',
+  },
+  {
+    tenderId: 'TENDER-TASKGEN0015005-1001',
+    taskId: 'TASKGEN-202603-0015-005__ORDER',
+    status: 'BIDDING',
+    factoryPoolCount: 4,
+    quotedCount: 3,
+    currentMaxPrice: 15700,
+    currentMinPrice: 14600,
+    biddingDeadline: '2026-03-28 18:00:00',
+    taskDeadline: '2026-04-09 18:00:00',
+    minPrice: 12800,
+    maxPrice: 16200,
+    currency: 'IDR',
+    unit: '件',
+  },
+  {
+    tenderId: 'TENDER-TASKGEN0003001-1001',
+    taskId: 'TASKGEN-202603-0003-001__ORDER',
     status: 'AWAIT_AWARD',
     factoryPoolCount: 5,
     quotedCount: 5,
     currentMaxPrice: 16200,
     currentMinPrice: 10200,
-    biddingDeadline: '2026-03-10 18:00:00',
-    taskDeadline: '2026-04-05 18:00:00',
+    biddingDeadline: '2026-03-21 12:00:00',
+    taskDeadline: '2026-04-12 18:00:00',
     minPrice: 11000,
     maxPrice: 15500,
     currency: 'IDR',
     unit: '件',
   },
   {
-    tenderId: 'TENDER-0004-001',
-    taskId: 'TASK-0004-002',
+    tenderId: 'TENDER-TASKGEN0015001-1001',
+    taskId: 'TASKGEN-202603-0015-001__ORDER',
+    status: 'AWAIT_AWARD',
+    factoryPoolCount: 4,
+    quotedCount: 4,
+    currentMaxPrice: 13900,
+    currentMinPrice: 12800,
+    biddingDeadline: '2026-03-21 18:00:00',
+    taskDeadline: '2026-04-08 18:00:00',
+    minPrice: 11800,
+    maxPrice: 14800,
+    currency: 'IDR',
+    unit: '件',
+  },
+  {
+    tenderId: 'TENDER-TASKGEN0084001-1001',
+    taskId: 'TASKGEN-202603-084-001__ORDER',
+    status: 'AWAIT_AWARD',
+    factoryPoolCount: 4,
+    quotedCount: 4,
+    currentMaxPrice: 14700,
+    currentMinPrice: 13600,
+    biddingDeadline: '2026-03-22 18:00:00',
+    taskDeadline: '2026-04-14 18:00:00',
+    minPrice: 12600,
+    maxPrice: 15100,
+    currency: 'IDR',
+    unit: '件',
+  },
+  {
+    tenderId: 'TENDER-TASKGEN0004001-1001',
+    taskId: 'TASKGEN-202603-0004-001__ORDER',
     status: 'AWARDED',
     factoryPoolCount: 3,
     quotedCount: 3,
     currentMaxPrice: 14100,
     currentMinPrice: 13200,
-    biddingDeadline: '2026-03-08 18:00:00',
-    taskDeadline: '2026-04-01 18:00:00',
+    biddingDeadline: '2026-03-18 18:00:00',
+    taskDeadline: '2026-04-10 18:00:00',
     minPrice: 11500,
     maxPrice: 15000,
     currency: 'IDR',
     unit: '件',
     awardedFactoryName: '万隆车缝厂',
     awardedPrice: 13200,
+  },
+  {
+    tenderId: 'TENDER-TASKGEN0015008-1001',
+    taskId: 'TASKGEN-202603-0015-008__ORDER',
+    status: 'AWARDED',
+    factoryPoolCount: 3,
+    quotedCount: 3,
+    currentMaxPrice: 9800,
+    currentMinPrice: 8800,
+    biddingDeadline: '2026-03-19 18:00:00',
+    taskDeadline: '2026-04-11 18:00:00',
+    minPrice: 8200,
+    maxPrice: 10100,
+    currency: 'IDR',
+    unit: '件',
+    awardedFactoryName: '日惹包装厂',
+    awardedPrice: 8800,
+  },
+  {
+    tenderId: 'TENDER-TASKGEN0083001-1001',
+    taskId: 'TASKGEN-202603-083-001__ORDER',
+    status: 'AWARDED',
+    factoryPoolCount: 4,
+    quotedCount: 4,
+    currentMaxPrice: 15700,
+    currentMinPrice: 14800,
+    biddingDeadline: '2026-03-18 18:00:00',
+    taskDeadline: '2026-04-15 18:00:00',
+    minPrice: 13300,
+    maxPrice: 16000,
+    currency: 'IDR',
+    unit: '件',
+    awardedFactoryName: '雅加达绣花专工厂',
+    awardedPrice: 14800,
   },
 ]
 
@@ -321,6 +433,7 @@ const mockStandardPrices: Record<string, number> = {
 type DispatchView = 'kanban' | 'list'
 
 interface DirectDispatchForm {
+  mode: AssignmentOperateMode
   factoryId: string
   factoryName: string
   acceptDeadline: string
@@ -328,9 +441,11 @@ interface DirectDispatchForm {
   remark: string
   dispatchPrice: string
   priceDiffReason: string
+  factoryByGroupKey: Record<string, { factoryId: string; factoryName: string }>
 }
 
 interface CreateTenderForm {
+  mode: AssignmentOperateMode
   tenderId: string
   minPrice: string
   maxPrice: string
@@ -338,10 +453,6 @@ interface CreateTenderForm {
   taskDeadline: string
   remark: string
   selectedPool: Set<string>
-}
-
-interface DetailDispatchForm {
-  factoryByGroupKey: Record<string, { factoryId: string; factoryName: string }>
 }
 
 interface DispatchBoardState {
@@ -352,9 +463,6 @@ interface DispatchBoardState {
   dispatchDialogTaskIds: string[] | null
   dispatchDialogError: string | null
   dispatchForm: DirectDispatchForm
-  detailDispatchTaskId: string | null
-  detailDispatchError: string | null
-  detailDispatchForm: DetailDispatchForm
   tenderState: TenderState
   createTenderTaskId: string | null
   createTenderForm: CreateTenderForm
@@ -371,9 +479,6 @@ const state: DispatchBoardState = {
   dispatchDialogTaskIds: null,
   dispatchDialogError: null,
   dispatchForm: emptyDispatchForm(),
-  detailDispatchTaskId: null,
-  detailDispatchError: null,
-  detailDispatchForm: emptyDetailDispatchForm(),
   tenderState: {},
   createTenderTaskId: null,
   createTenderForm: emptyCreateTenderForm(),
@@ -384,6 +489,7 @@ const state: DispatchBoardState = {
 
 function emptyDispatchForm(): DirectDispatchForm {
   return {
+    mode: 'TASK',
     factoryId: '',
     factoryName: '',
     acceptDeadline: '',
@@ -391,11 +497,13 @@ function emptyDispatchForm(): DirectDispatchForm {
     remark: '',
     dispatchPrice: '',
     priceDiffReason: '',
+    factoryByGroupKey: {},
   }
 }
 
 function emptyCreateTenderForm(): CreateTenderForm {
   return {
+    mode: 'TASK',
     tenderId: '',
     minPrice: '',
     maxPrice: '',
@@ -403,12 +511,6 @@ function emptyCreateTenderForm(): CreateTenderForm {
     taskDeadline: '',
     remark: '',
     selectedPool: new Set<string>(),
-  }
-}
-
-function emptyDetailDispatchForm(): DetailDispatchForm {
-  return {
-    factoryByGroupKey: {},
   }
 }
 
@@ -485,13 +587,13 @@ function calcRemaining(deadline: string): string {
 }
 
 function deriveAssignPath(task: DispatchTask): AssignPath {
-  if (task.assignmentMode === 'DIRECT') return 'DIRECT'
-  if (task.assignmentMode === 'BIDDING') return 'BIDDING'
-
   const lastLog = task.auditLogs[task.auditLogs.length - 1]
   if (lastLog?.action === 'SET_ASSIGN_MODE' && lastLog.detail === '设为暂不分配') {
     return 'HOLD'
   }
+
+  if (task.assignmentMode === 'DIRECT') return 'DIRECT'
+  if (task.assignmentMode === 'BIDDING') return 'BIDDING'
 
   return 'NONE'
 }
@@ -744,11 +846,19 @@ function getQcPendingOrderIds(): Set<string> {
 }
 
 function getExceptionTaskIds(): Set<string> {
-  const active = new Set<ExceptionCase['caseStatus']>(['OPEN', 'IN_PROGRESS', 'RESOLVED'])
+  const active = new Set<ExceptionCase['caseStatus']>(['OPEN', 'IN_PROGRESS'])
+  const blockingReasons = new Set<ExceptionCase['reasonCode']>([
+    'DISPATCH_REJECTED',
+    'ACK_TIMEOUT',
+    'NO_BID',
+    'FACTORY_BLACKLISTED',
+  ])
   const set = new Set<string>()
 
   for (const item of listProgressExceptions()) {
     if (!active.has(item.caseStatus)) continue
+    if (item.category !== 'ASSIGNMENT') continue
+    if (!blockingReasons.has(item.reasonCode)) continue
 
     const relatedIds = item.relatedTaskIds ?? []
     if (relatedIds.length > 0) {
@@ -760,6 +870,38 @@ function getExceptionTaskIds(): Set<string> {
 
     if (item.sourceType === 'TASK' && item.sourceId) {
       set.add(item.sourceId)
+    }
+  }
+
+  for (const task of listRuntimeProcessTasks()) {
+    if (!isRuntimeTaskExecutionTask(task)) continue
+
+    if (task.assignmentMode === 'DIRECT' && task.assignmentStatus === 'ASSIGNED') {
+      if (task.acceptanceStatus !== 'ACCEPTED' && task.acceptDeadline) {
+        const acceptDeadlineMs = parseDateLike(task.acceptDeadline)
+        if (Number.isFinite(acceptDeadlineMs) && Date.now() > acceptDeadlineMs) {
+          set.add(task.taskId)
+          continue
+        }
+      }
+
+      if ((task.acceptanceStatus === 'ACCEPTED' || task.status === 'IN_PROGRESS') && task.taskDeadline) {
+        const taskDeadlineMs = parseDateLike(task.taskDeadline)
+        if (Number.isFinite(taskDeadlineMs) && Date.now() > taskDeadlineMs) {
+          set.add(task.taskId)
+          continue
+        }
+      }
+    }
+
+    if (task.assignmentMode === 'BIDDING') {
+      const tender = getEffectiveTender(task)
+      const tenderStatus = tender ? ('tenderStatus' in tender ? tender.tenderStatus : tender.status) : undefined
+      const biddingDeadline = tender?.biddingDeadline ?? task.biddingDeadline
+      const deadlineMs = parseDateLike(biddingDeadline ?? '')
+      if (tenderStatus === 'BIDDING' && Number.isFinite(deadlineMs) && Date.now() > deadlineMs) {
+        set.add(task.taskId)
+      }
     }
   }
 
@@ -845,6 +987,17 @@ function getDispatchDialogTasks(): DispatchTask[] {
   return getEffectiveTasks().filter((task) => selected.has(task.taskId))
 }
 
+function getTaskAllocatableGroups(task: DispatchTask | null): RuntimeTaskAllocatableGroup[] {
+  if (!task) return []
+  return listRuntimeTaskAllocatableGroups(task.taskId)
+}
+
+function supportsDetailAssignment(task: DispatchTask | null): boolean {
+  if (!task) return false
+  if ((task.assignmentGranularity ?? 'ORDER') === 'ORDER') return false
+  return getTaskAllocatableGroups(task).length > 1
+}
+
 function getCreateTenderTask(): DispatchTask | null {
   return getTaskById(state.createTenderTaskId)
 }
@@ -882,7 +1035,6 @@ function getDispatchDialogValidation(tasks: DispatchTask[]): {
   const needDiffReason = changed
 
   const valid =
-    state.dispatchForm.factoryId.trim() !== '' &&
     state.dispatchForm.acceptDeadline.trim() !== '' &&
     state.dispatchForm.taskDeadline.trim() !== '' &&
     dispatchPrice != null &&
@@ -903,9 +1055,11 @@ function getDispatchDialogValidation(tasks: DispatchTask[]): {
 
 export {
   appStore,
+  applyRuntimeDirectDispatchMeta,
   productionOrders,
   batchDispatchRuntimeTasks,
   batchSetRuntimeTaskAssignMode,
+  createRuntimeTaskTenderByDetailGroups,
   dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskByIdFromStore,
   isRuntimeTaskExecutionTask,
@@ -936,7 +1090,6 @@ export {
   state,
   emptyDispatchForm,
   emptyCreateTenderForm,
-  emptyDetailDispatchForm,
   nowTimestamp,
   parseDateLike,
   fromDateTimeLocal,
@@ -967,6 +1120,8 @@ export {
   getVisibleRows,
   getTaskById,
   getDispatchDialogTasks,
+  getTaskAllocatableGroups,
+  supportsDetailAssignment,
   getCreateTenderTask,
   getViewTenderTask,
   getPriceSnapshotTask,
@@ -989,8 +1144,8 @@ export type {
   DeadlineStatus,
   PriceStatus,
   DispatchView,
+  AssignmentOperateMode,
   DirectDispatchForm,
   CreateTenderForm,
-  DetailDispatchForm,
   DispatchBoardState,
 }

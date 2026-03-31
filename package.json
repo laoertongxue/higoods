@@ -34,6 +34,7 @@
     "check:process-craft-sam-rules": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-sam-rules.ts",
     "check:production-craft-dict-page": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-craft-dict-page.ts",
     "check:factory-capacity-profile": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-capacity-profile.ts",
+    "check:dispatch-board-assignment": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dispatch-board-assignment.ts",
     "check:cutting-production-progress-columns": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-production-progress-columns.ts",
     "check:cutting-entry-cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-entry-cleanup.ts",
     "check:cutting-core-identity": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-core-identity.ts",
