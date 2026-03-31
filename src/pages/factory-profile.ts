@@ -1,20 +1,26 @@
+import { generateFactoryCode } from '../data/fcs/factory-mock-data'
 import {
-  allCapabilityTags,
-  generateFactoryCode,
-  mockFactories,
-} from '../data/fcs/factory-mock-data'
+  listFactoryMasterRecords,
+  removeFactoryMasterRecord,
+  upsertFactoryMasterRecord,
+} from '../data/fcs/factory-master-store'
 import {
-  capabilityCategories,
   cooperationModeConfig,
   factoryStatusConfig,
   factoryTierConfig,
   factoryTypeConfig,
+  type FactoryProcessAbility,
   typesByTier,
   type Factory,
   type FactoryFormData,
   type FactoryTier,
   type FactoryType,
 } from '../data/fcs/factory-types'
+import {
+  listCraftsByProcessCode,
+  listProcessStages,
+  listProcessesByStageCode,
+} from '../data/fcs/process-craft-dict'
 import {
   type FactoryPdaRole,
   type PermissionKey,
@@ -83,7 +89,7 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
   phone: '',
   status: 'active',
   cooperationMode: 'general',
-  capabilities: [],
+  processAbilities: [],
   factoryTier: 'CENTRAL',
   factoryType: 'CENTRAL_POD',
   parentFactoryId: undefined,
@@ -135,7 +141,7 @@ function mapInitialPdaRolesByFactory(): Record<string, FactoryPdaRole[]> {
 }
 
 const state: FactoryPageState = {
-  factories: [...mockFactories],
+  factories: listFactoryMasterRecords(),
   searchKeyword: '',
   statusFilter: 'all',
   tierFilter: 'all',
@@ -165,7 +171,10 @@ const state: FactoryPageState = {
 function cloneFormDraft(data: FactoryFormData): FactoryFormData {
   return {
     ...data,
-    capabilities: [...data.capabilities],
+    processAbilities: data.processAbilities.map((item) => ({
+      processCode: item.processCode,
+      craftCodes: [...item.craftCodes],
+    })),
     eligibility: { ...data.eligibility },
   }
 }
@@ -194,7 +203,10 @@ function createFormData(factory: Factory | null): FactoryFormData {
     phone: factory.phone,
     status: factory.status,
     cooperationMode: factory.cooperationMode,
-    capabilities: factory.capabilities.map((tag) => tag.id),
+    processAbilities: factory.processAbilities.map((item) => ({
+      processCode: item.processCode,
+      craftCodes: [...item.craftCodes],
+    })),
     factoryTier: factory.factoryTier,
     factoryType: factory.factoryType,
     parentFactoryId: factory.parentFactoryId,
@@ -202,6 +214,33 @@ function createFormData(factory: Factory | null): FactoryFormData {
     pdaTenantId: factory.pdaTenantId ?? '',
     eligibility: { ...factory.eligibility },
   }
+}
+
+function getSelectedCraftCodes(processAbilities: FactoryProcessAbility[], processCode: string): string[] {
+  return processAbilities.find((item) => item.processCode === processCode)?.craftCodes ?? []
+}
+
+function upsertProcessAbility(
+  processAbilities: FactoryProcessAbility[],
+  processCode: string,
+  craftCodes: string[],
+): FactoryProcessAbility[] {
+  const nextCraftCodes = [...new Set(craftCodes)]
+  const nextAbilities = processAbilities
+    .filter((item) => item.processCode !== processCode)
+    .map((item) => ({
+      processCode: item.processCode,
+      craftCodes: [...item.craftCodes],
+    }))
+
+  if (nextCraftCodes.length > 0) {
+    nextAbilities.push({
+      processCode,
+      craftCodes: nextCraftCodes,
+    })
+  }
+
+  return nextAbilities
 }
 
 function openCreateDialog(): void {
@@ -1030,12 +1069,6 @@ function renderFactoryDrawer(): string {
     ? state.factories.find((factory) => factory.id === draft.parentFactoryId)?.name ?? draft.parentFactoryId
     : ''
 
-  const groupedTags = allCapabilityTags.reduce<Record<string, typeof allCapabilityTags>>((acc, tag) => {
-    if (!acc[tag.category]) acc[tag.category] = []
-    acc[tag.category].push(tag)
-    return acc
-  }, {})
-
   const sectionTitleClass = 'border-b pb-1 text-sm font-semibold text-foreground'
 
   return `
@@ -1052,7 +1085,7 @@ function renderFactoryDrawer(): string {
 
         <form class="flex min-h-0 flex-1 flex-col" data-factory-form="true">
           <div class="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-4">
-            <section class="space-y-4">
+            <section class="space-y-4" data-testid="factory-process-abilities">
               <h4 class="${sectionTitleClass}">基本信息</h4>
               <div class="grid grid-cols-2 gap-4">
                 <label class="space-y-1.5">
@@ -1177,30 +1210,62 @@ function renderFactoryDrawer(): string {
             </section>
 
             <section class="space-y-4">
-              <h4 class="${sectionTitleClass}">能力标签</h4>
-              ${Object.entries(groupedTags)
-                .map(([category, tags]) => {
-                  const categoryLabel = capabilityCategories[category as keyof typeof capabilityCategories] ?? category
-                  return `
-                    <div class="space-y-2">
-                      <p class="text-xs text-muted-foreground">${escapeHtml(categoryLabel)}</p>
-                      <div class="flex flex-wrap gap-x-4 gap-y-2">
-                        ${tags
-                          .map((tag) => {
-                            const checked = draft.capabilities.includes(tag.id)
-                            return `
-                              <label class="inline-flex items-center gap-2 text-sm">
-                                <input type="checkbox" data-factory-capability="${tag.id}" ${checked ? 'checked' : ''} class="h-4 w-4 rounded border" />
-                                <span>${escapeHtml(tag.name)}</span>
-                              </label>
-                            `
-                          })
-                          .join('')}
+              <h4 class="${sectionTitleClass}">工序工艺能力</h4>
+              <div class="space-y-4">
+                ${listProcessStages()
+                  .map((stage) => {
+                    const processes = listProcessesByStageCode(stage.stageCode)
+                    return `
+                      <div class="rounded-lg border bg-muted/20 p-4">
+                        <div class="mb-3">
+                          <p class="text-sm font-medium text-foreground">${escapeHtml(stage.stageName)}</p>
+                        </div>
+                        <div class="space-y-3">
+                          ${processes
+                            .map((process) => {
+                              const crafts = listCraftsByProcessCode(process.processCode)
+                              const selectedCraftCodes = getSelectedCraftCodes(draft.processAbilities, process.processCode)
+                              const checked = crafts.length > 0 && selectedCraftCodes.length === crafts.length
+                              return `
+                                <div class="rounded-md border bg-background p-3">
+                                  <label class="flex items-center gap-2 text-sm font-medium text-foreground">
+                                    <input
+                                      type="checkbox"
+                                      data-factory-process-toggle="${process.processCode}"
+                                      ${checked ? 'checked' : ''}
+                                      class="h-4 w-4 rounded border"
+                                    />
+                                    <span>${escapeHtml(process.processName)}</span>
+                                  </label>
+                                  <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 pl-6">
+                                    ${crafts
+                                      .map((craft) => {
+                                        const craftChecked = selectedCraftCodes.includes(craft.craftCode)
+                                        return `
+                                          <label class="inline-flex items-center gap-2 text-sm">
+                                            <input
+                                              type="checkbox"
+                                              data-factory-craft-toggle="${craft.craftCode}"
+                                              data-factory-process-code="${process.processCode}"
+                                              ${craftChecked ? 'checked' : ''}
+                                              class="h-4 w-4 rounded border"
+                                            />
+                                            <span>${escapeHtml(craft.craftName)}</span>
+                                          </label>
+                                        `
+                                      })
+                                      .join('')}
+                                  </div>
+                                </div>
+                              `
+                            })
+                            .join('')}
+                        </div>
                       </div>
-                    </div>
-                  `
-                })
-                .join('')}
+                    `
+                  })
+                  .join('')}
+              </div>
             </section>
 
             <section class="space-y-4">
@@ -1283,6 +1348,7 @@ function renderDeleteDialog(): string {
 }
 
 export function renderFactoryProfilePage(): string {
+  state.factories = listFactoryMasterRecords()
   const filteredFactories = getVisibleFactories()
   const paginated = getPagedFactories(filteredFactories)
 
@@ -1415,16 +1481,18 @@ function updateTypeFilterByTier(): void {
 
 function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): void {
   if (editingFactory) {
-    state.factories = state.factories.map((factory) => {
-      if (factory.id !== editingFactory.id) return factory
+    const nextFactory: Factory = {
+      ...editingFactory,
+      ...data,
+      processAbilities: data.processAbilities.map((item) => ({
+        processCode: item.processCode,
+        craftCodes: [...item.craftCodes],
+      })),
+      updatedAt: new Date().toISOString().split('T')[0],
+    }
 
-      return {
-        ...factory,
-        ...data,
-        capabilities: allCapabilityTags.filter((item) => data.capabilities.includes(item.id)),
-        updatedAt: new Date().toISOString().split('T')[0],
-      }
-    })
+    upsertFactoryMasterRecord(nextFactory)
+    state.factories = listFactoryMasterRecords()
 
     return
   }
@@ -1440,7 +1508,10 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
     phone: data.phone,
     status: data.status,
     cooperationMode: data.cooperationMode,
-    capabilities: allCapabilityTags.filter((item) => data.capabilities.includes(item.id)),
+    processAbilities: data.processAbilities.map((item) => ({
+      processCode: item.processCode,
+      craftCodes: [...item.craftCodes],
+    })),
     qualityScore: 0,
     deliveryScore: 0,
     createdAt: today,
@@ -1453,7 +1524,8 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
     eligibility: data.eligibility,
   }
 
-  state.factories = [newFactory, ...state.factories]
+  upsertFactoryMasterRecord(newFactory)
+  state.factories = listFactoryMasterRecords()
 }
 
 export function handleFactoryPageEvent(target: HTMLElement): boolean {
@@ -1536,18 +1608,38 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     return true
   }
 
-  const capabilityField = target.closest<HTMLElement>('[data-factory-capability]')
-  if (capabilityField instanceof HTMLInputElement && state.formDraft) {
-    const capabilityId = capabilityField.dataset.factoryCapability
-    if (!capabilityId) return true
+  const processToggleField = target.closest<HTMLElement>('[data-factory-process-toggle]')
+  if (processToggleField instanceof HTMLInputElement && state.formDraft) {
+    const processCode = processToggleField.dataset.factoryProcessToggle
+    if (!processCode) return true
+
+    const craftCodes = processToggleField.checked
+      ? listCraftsByProcessCode(processCode).map((item) => item.craftCode)
+      : []
+
+    setDraft((prev) => ({
+      ...prev,
+      processAbilities: upsertProcessAbility(prev.processAbilities, processCode, craftCodes),
+    }))
+
+    return true
+  }
+
+  const craftToggleField = target.closest<HTMLElement>('[data-factory-craft-toggle]')
+  if (craftToggleField instanceof HTMLInputElement && state.formDraft) {
+    const processCode = craftToggleField.dataset.factoryProcessCode
+    const craftCode = craftToggleField.dataset.factoryCraftToggle
+    if (!processCode || !craftCode) return true
 
     setDraft((prev) => {
-      const exists = prev.capabilities.includes(capabilityId)
+      const selectedCraftCodes = getSelectedCraftCodes(prev.processAbilities, processCode)
+      const nextCraftCodes = craftToggleField.checked
+        ? [...selectedCraftCodes, craftCode]
+        : selectedCraftCodes.filter((item) => item !== craftCode)
+
       return {
         ...prev,
-        capabilities: exists
-          ? prev.capabilities.filter((item) => item !== capabilityId)
-          : [...prev.capabilities, capabilityId],
+        processAbilities: upsertProcessAbility(prev.processAbilities, processCode, nextCraftCodes),
       }
     })
 
@@ -1659,7 +1751,8 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
   if (action === 'confirm-delete') {
     const factoryId = actionNode.dataset.factoryId
     if (!factoryId) return true
-    state.factories = state.factories.filter((factory) => factory.id !== factoryId)
+    removeFactoryMasterRecord(factoryId)
+    state.factories = listFactoryMasterRecords()
     closeDialog()
     return true
   }

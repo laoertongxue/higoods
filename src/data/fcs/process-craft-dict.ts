@@ -5,6 +5,32 @@ export type TaskTypeMode = 'PROCESS' | 'CRAFT'
 export type DetailSplitMode = 'COMPOSITE'
 export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' | 'GARMENT_SKU'
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
+export type SamCalcMode = 'DISCRETE' | 'CONTINUOUS' | 'BATCH'
+export type SamInputUnit = 'PIECE' | 'METER' | 'KG' | 'BATCH'
+export type CapacityConstraintSource = 'DEVICE' | 'STAFF' | 'BOTH'
+export type SamFactoryFieldGroup = 'DEVICE' | 'STAFF' | 'ADJUSTMENT'
+export type SamFactoryFieldKey =
+  | 'deviceCount'
+  | 'deviceShiftMinutes'
+  | 'deviceEfficiencyValue'
+  | 'deviceEfficiencyUnit'
+  | 'staffCount'
+  | 'staffShiftMinutes'
+  | 'staffEfficiencyValue'
+  | 'staffEfficiencyUnit'
+  | 'batchLoadCapacity'
+  | 'batchLoadUnit'
+  | 'cycleMinutes'
+  | 'setupMinutes'
+  | 'switchMinutes'
+  | 'efficiencyFactor'
+
+export interface SamFactoryFieldDefinition {
+  key: SamFactoryFieldKey
+  label: string
+  group: SamFactoryFieldGroup
+  description: string
+}
 
 export interface ProcessStageDefinition {
   stageCode: CraftStageCode
@@ -28,6 +54,12 @@ export interface ProcessDefinition {
   description?: string
   triggerSource?: string
   defaultDocLabel: string
+  samEnabled: boolean
+  samCalcMode: SamCalcMode
+  samDefaultInputUnit: SamInputUnit
+  samConstraintSource: CapacityConstraintSource
+  samFactoryFieldKeys: SamFactoryFieldKey[]
+  samReason: string
 }
 
 export interface ProcessCraftDefinition {
@@ -47,6 +79,12 @@ export interface ProcessCraftDefinition {
   isSpecialCraft: boolean
   carrySuggestion: string
   remark?: string
+  samEnabled: boolean
+  samCalcMode?: SamCalcMode
+  samDefaultInputUnit?: SamInputUnit
+  samConstraintSource?: CapacityConstraintSource
+  samFactoryFieldKeys?: SamFactoryFieldKey[]
+  samReason?: string
 }
 
 export interface LegacyCraftMappingDefinition {
@@ -94,6 +132,16 @@ export type ProcessCraftDictRow = {
   remark?: string
   processNote?: string
   triggerSource?: string
+  samEnabled: boolean
+  samCalcMode: SamCalcMode
+  samCalcModeLabel: string
+  samDefaultInputUnit: SamInputUnit
+  samDefaultInputUnitLabel: string
+  samConstraintSource: CapacityConstraintSource
+  samConstraintSourceLabel: string
+  samFactoryFieldKeys: SamFactoryFieldKey[]
+  samFactoryFieldText: string
+  samReason: string
 }
 
 export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranularity, string> = {
@@ -127,6 +175,452 @@ export const PROCESS_DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
 export const TASK_TYPE_MODE_LABEL: Record<TaskTypeMode, string> = {
   PROCESS: '按工序',
   CRAFT: '按工艺',
+}
+
+export const SAM_CALC_MODE_LABEL: Record<SamCalcMode, string> = {
+  DISCRETE: '离散型',
+  CONTINUOUS: '连续型',
+  BATCH: '批次型',
+}
+
+export const SAM_INPUT_UNIT_LABEL: Record<SamInputUnit, string> = {
+  PIECE: '按件录入',
+  METER: '按米录入',
+  KG: '按公斤录入',
+  BATCH: '按批次录入',
+}
+
+export const CAPACITY_CONSTRAINT_SOURCE_LABEL: Record<CapacityConstraintSource, string> = {
+  DEVICE: '设备约束',
+  STAFF: '人员约束',
+  BOTH: '设备+人员共同约束',
+}
+
+export const SAM_FACTORY_FIELD_GROUP_LABEL: Record<SamFactoryFieldGroup, string> = {
+  DEVICE: '设备',
+  STAFF: '人员',
+  ADJUSTMENT: '调整',
+}
+
+export const SAM_FACTORY_FIELD_ORDER: SamFactoryFieldKey[] = [
+  'deviceCount',
+  'deviceShiftMinutes',
+  'batchLoadCapacity',
+  'batchLoadUnit',
+  'cycleMinutes',
+  'deviceEfficiencyValue',
+  'deviceEfficiencyUnit',
+  'staffCount',
+  'staffShiftMinutes',
+  'staffEfficiencyValue',
+  'staffEfficiencyUnit',
+  'setupMinutes',
+  'switchMinutes',
+  'efficiencyFactor',
+]
+
+export const SAM_FACTORY_FIELD_DICT: Record<SamFactoryFieldKey, SamFactoryFieldDefinition> = {
+  deviceCount: {
+    key: 'deviceCount',
+    label: '设备数量',
+    group: 'DEVICE',
+    description: '用于记录该工序/工艺可投入的有效设备台数，是设备供给能力的基础。',
+  },
+  deviceShiftMinutes: {
+    key: 'deviceShiftMinutes',
+    label: '单台单班有效分钟',
+    group: 'DEVICE',
+    description: '用于记录单台设备每班真正可用于生产的分钟数，排除停机与不可用时段。',
+  },
+  deviceEfficiencyValue: {
+    key: 'deviceEfficiencyValue',
+    label: '设备标准效率值',
+    group: 'DEVICE',
+    description: '用于记录设备标准产出速度数值，例如件/小时、米/分钟等。',
+  },
+  deviceEfficiencyUnit: {
+    key: 'deviceEfficiencyUnit',
+    label: '设备效率单位',
+    group: 'DEVICE',
+    description: '用于说明设备标准效率值的单位口径，确保后续换算一致。',
+  },
+  staffCount: {
+    key: 'staffCount',
+    label: '人数',
+    group: 'STAFF',
+    description: '用于记录该工序/工艺可投入的标准人数，是人员供给能力的基础。',
+  },
+  staffShiftMinutes: {
+    key: 'staffShiftMinutes',
+    label: '单人单班有效分钟',
+    group: 'STAFF',
+    description: '用于记录单人单班实际可用于生产的有效分钟数。',
+  },
+  staffEfficiencyValue: {
+    key: 'staffEfficiencyValue',
+    label: '人员标准效率值',
+    group: 'STAFF',
+    description: '用于记录人员在标准状态下的单位时间产出速度数值。',
+  },
+  staffEfficiencyUnit: {
+    key: 'staffEfficiencyUnit',
+    label: '人员效率单位',
+    group: 'STAFF',
+    description: '用于说明人员标准效率值的单位口径，确保不同工艺之间可正确解释。',
+  },
+  batchLoadCapacity: {
+    key: 'batchLoadCapacity',
+    label: '单次有效装载量',
+    group: 'ADJUSTMENT',
+    description: '用于记录批次型工序单次可处理的有效装载量，是批次能力计算的核心参数。',
+  },
+  batchLoadUnit: {
+    key: 'batchLoadUnit',
+    label: '装载量单位',
+    group: 'ADJUSTMENT',
+    description: '用于说明单次有效装载量的单位，例如公斤/批、卷/批。',
+  },
+  cycleMinutes: {
+    key: 'cycleMinutes',
+    label: '单次循环分钟',
+    group: 'ADJUSTMENT',
+    description: '用于记录批次型工序从开始到完成一个循环所需的分钟数。',
+  },
+  setupMinutes: {
+    key: 'setupMinutes',
+    label: '固定准备分钟',
+    group: 'ADJUSTMENT',
+    description: '用于记录开机、开版、上料等固定准备时间，避免把准备损耗漏掉。',
+  },
+  switchMinutes: {
+    key: 'switchMinutes',
+    label: '切换准备分钟',
+    group: 'ADJUSTMENT',
+    description: '用于记录换色、换版、换模具、换物料时的切换准备时间。',
+  },
+  efficiencyFactor: {
+    key: 'efficiencyFactor',
+    label: '工厂效率系数',
+    group: 'ADJUSTMENT',
+    description: '用于修正理论产出与工厂实际供给能力之间的偏差。',
+  },
+}
+
+type ProcessSamRule = {
+  samEnabled: boolean
+  samCalcMode: SamCalcMode
+  samDefaultInputUnit: SamInputUnit
+  samConstraintSource: CapacityConstraintSource
+  samFactoryFieldKeys: SamFactoryFieldKey[]
+  samReason: string
+}
+
+type CraftSamRuleOverride = Partial<ProcessSamRule>
+
+const POST_PROCESS_FIELD_KEYS: SamFactoryFieldKey[] = [
+  'deviceCount',
+  'deviceShiftMinutes',
+  'deviceEfficiencyValue',
+  'deviceEfficiencyUnit',
+  'staffCount',
+  'staffShiftMinutes',
+  'setupMinutes',
+  'switchMinutes',
+  'efficiencyFactor',
+]
+
+const BATCH_PROCESS_FIELD_KEYS: SamFactoryFieldKey[] = [
+  'deviceCount',
+  'deviceShiftMinutes',
+  'batchLoadCapacity',
+  'batchLoadUnit',
+  'cycleMinutes',
+  'staffCount',
+  'staffShiftMinutes',
+  'setupMinutes',
+  'switchMinutes',
+  'efficiencyFactor',
+]
+
+const BATCH_PROCESS_FIELD_KEYS_WITHOUT_SWITCH: SamFactoryFieldKey[] = [
+  'deviceCount',
+  'deviceShiftMinutes',
+  'batchLoadCapacity',
+  'batchLoadUnit',
+  'cycleMinutes',
+  'staffCount',
+  'staffShiftMinutes',
+  'setupMinutes',
+  'efficiencyFactor',
+]
+
+const STAFF_ONLY_FIELD_KEYS: SamFactoryFieldKey[] = [
+  'staffCount',
+  'staffShiftMinutes',
+  'staffEfficiencyValue',
+  'staffEfficiencyUnit',
+  'efficiencyFactor',
+]
+
+const PROCESS_SAM_RULES: Record<string, ProcessSamRule> = {
+  PRINT: {
+    samEnabled: true,
+    samCalcMode: 'CONTINUOUS',
+    samDefaultInputUnit: 'METER',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '印花能力受机台速度、单班有效分钟、操作人数、换版换色准备时间共同影响，工厂供给侧 SAM 不能只看件数。',
+  },
+  DYE: {
+    samEnabled: true,
+    samCalcMode: 'BATCH',
+    samDefaultInputUnit: 'KG',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
+    samReason: '染色是典型批次型能力，核心取决于设备数量、单次有效装载量、循环时长与班次可用分钟，不能按简单件数或米数线性理解。',
+  },
+  CUT_PANEL: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '裁片既受裁床等设备数量影响，也受铺布和裁剪班组人数影响，且排版切换会产生准备与切换时间。',
+  },
+  EMBROIDERY: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '绣花供给能力受绣花设备、单班有效分钟、操作人数以及换线换版准备时间共同影响。',
+  },
+  PLEATING: {
+    samEnabled: true,
+    samCalcMode: 'CONTINUOUS',
+    samDefaultInputUnit: 'METER',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '压褶更接近连续推进型能力，核心取决于设备速度、有效分钟、操作人力和换模调机时间。',
+  },
+  SEW: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'STAFF',
+    samFactoryFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
+    samReason: '普通车缝的基础供给能力主要由可用人力与单位时间产出决定，工序级默认按人员主导。',
+  },
+  SPECIAL_CRAFT: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '特殊工艺工序只是容器；真正的 SAM 核算口径必须在工艺级单独明确，不允许只停留在工序泛化规则。',
+  },
+  SHRINKING: {
+    samEnabled: true,
+    samCalcMode: 'BATCH',
+    samDefaultInputUnit: 'KG',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...BATCH_PROCESS_FIELD_KEYS_WITHOUT_SWITCH],
+    samReason: '缩水属于批次型能力，核心取决于设备批处理能力与循环时长。',
+  },
+  WASHING: {
+    samEnabled: true,
+    samCalcMode: 'BATCH',
+    samDefaultInputUnit: 'KG',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...BATCH_PROCESS_FIELD_KEYS_WITHOUT_SWITCH],
+    samReason: '洗水同样是批次型能力，设备装载量与循环时间是核心前置。',
+  },
+  BUTTONHOLE: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '开扣眼既受设备数量与效率影响，也受操作人与调机时间影响。',
+  },
+  BUTTON_ATTACH: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'STAFF',
+    samFactoryFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
+    samReason: '钉扣工序默认按人工离散作业理解，但不同工艺差异大，必须允许工艺级覆盖。',
+  },
+  HARDWARE: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '五金类工序典型地受设备、模具与人员共同影响。',
+  },
+  FROG_BUTTON: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'STAFF',
+    samFactoryFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
+    samReason: '手工盘扣主要受人工数量与熟练度影响，设备约束不是核心。',
+  },
+  IRONING: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [
+      'deviceCount',
+      'deviceShiftMinutes',
+      'deviceEfficiencyValue',
+      'deviceEfficiencyUnit',
+      'staffCount',
+      'staffShiftMinutes',
+      'efficiencyFactor',
+    ],
+    samReason: '熨烫既需要工位或设备，也需要稳定的人力投入，按两者共同约束更稳妥。',
+  },
+  PACKAGING: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'STAFF',
+    samFactoryFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
+    samReason: '包装在当前阶段按人员主导理解即可，不额外扩展复杂设备模型。',
+  },
+}
+
+const CRAFT_SAM_RULE_OVERRIDES_BY_LEGACY_VALUE: Record<number, CraftSamRuleOverride> = {
+  262144: {
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '曲牙虽然归在车缝工序下，但对专机与调机有明显依赖，不能只按普通车缝人力模型处理。',
+  },
+  8: {
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [
+      'deviceCount',
+      'deviceShiftMinutes',
+      'deviceEfficiencyValue',
+      'deviceEfficiencyUnit',
+      'staffCount',
+      'staffShiftMinutes',
+      'setupMinutes',
+      'efficiencyFactor',
+    ],
+    samReason: '打揽通常依赖专机和操作人配合，需记录机台与人力。',
+  },
+  32: {
+    samCalcMode: 'CONTINUOUS',
+    samDefaultInputUnit: 'METER',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [
+      'deviceCount',
+      'deviceShiftMinutes',
+      'deviceEfficiencyValue',
+      'deviceEfficiencyUnit',
+      'staffCount',
+      'staffShiftMinutes',
+      'setupMinutes',
+      'efficiencyFactor',
+    ],
+    samReason: '打条能力按连续长度推进，必须有速度类效率值。',
+  },
+  64: {
+    samCalcMode: 'CONTINUOUS',
+    samDefaultInputUnit: 'METER',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '激光切能力受设备速度、有效分钟和调版时间影响明显。',
+  },
+  8192: {
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [
+      'deviceCount',
+      'deviceShiftMinutes',
+      'deviceEfficiencyValue',
+      'deviceEfficiencyUnit',
+      'staffCount',
+      'staffShiftMinutes',
+      'setupMinutes',
+      'efficiencyFactor',
+    ],
+    samReason: '烫画多为设备与操作协同，件级核算更合适。',
+  },
+  16384: {
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '直喷供给能力受设备打印效率与校机准备时间影响明显。',
+  },
+  131072: {
+    samCalcMode: 'CONTINUOUS',
+    samDefaultInputUnit: 'METER',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [
+      'deviceCount',
+      'deviceShiftMinutes',
+      'deviceEfficiencyValue',
+      'deviceEfficiencyUnit',
+      'staffCount',
+      'staffShiftMinutes',
+      'setupMinutes',
+      'efficiencyFactor',
+    ],
+    samReason: '捆条按长度推进，不能按纯件数理解。',
+  },
+  2000101: {
+    samCalcMode: 'CONTINUOUS',
+    samDefaultInputUnit: 'METER',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '该工艺本质与印花能力一致，直接沿用印花类规则。',
+  },
+  2000102: {
+    samCalcMode: 'BATCH',
+    samDefaultInputUnit: 'KG',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
+    samReason: '该工艺本质与染色能力一致，直接沿用批次型规则。',
+  },
+  256: {
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'STAFF',
+    samFactoryFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
+    samReason: '手缝扣主要受人工数量与单位时间产出影响。',
+  },
+  512: {
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '机打扣依赖专机与操作人共同产出。',
+  },
+  1024: {
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '四爪扣需要设备模具与人员操作配合。',
+  },
+  32768: {
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samFactoryFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samReason: '布包扣通常不是纯人工简单动作，需保留设备与准备时间字段。',
+  },
 }
 
 const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
@@ -167,6 +661,7 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   65536: 'PROC_PANKOU',
   131072: 'PROC_KUNTIAO',
   262144: 'PROC_QUYA',
+  262145: 'PROC_BASE_CONNECT',
   524288: 'PROC_BUTTONHOLE',
   1048576: 'PROC_SHELL_EMBROIDER',
   2000001: 'PROC_PRINT',
@@ -325,6 +820,12 @@ const processDefinitionSeeds: Array<
     | 'taskTypeMode'
     | 'isSpecialCraftContainer'
     | 'defaultDocLabel'
+    | 'samEnabled'
+    | 'samCalcMode'
+    | 'samDefaultInputUnit'
+    | 'samConstraintSource'
+    | 'samFactoryFieldKeys'
+    | 'samReason'
   > & {
     defaultDocument: string
     isGarmentManufacturing: boolean
@@ -410,10 +911,33 @@ function formatDetailSplitDimensions(dimensions: DetailSplitDimension[]): string
   return dimensions.map((dimension) => DETAIL_SPLIT_DIMENSION_LABEL[dimension]).join(' + ')
 }
 
+function orderSamFactoryFieldKeys(keys: SamFactoryFieldKey[]): SamFactoryFieldKey[] {
+  const keySet = new Set(keys)
+  return SAM_FACTORY_FIELD_ORDER.filter((key) => keySet.has(key))
+}
+
+export function listSamFactoryFieldDefinitions(keys?: SamFactoryFieldKey[]): SamFactoryFieldDefinition[] {
+  const orderedKeys = keys ? orderSamFactoryFieldKeys(keys) : [...SAM_FACTORY_FIELD_ORDER]
+  return orderedKeys.map((key) => SAM_FACTORY_FIELD_DICT[key])
+}
+
+export function getSamFactoryFieldDefinitionByKey(
+  key: SamFactoryFieldKey,
+): SamFactoryFieldDefinition {
+  return SAM_FACTORY_FIELD_DICT[key]
+}
+
+function formatSamFactoryFieldText(keys: SamFactoryFieldKey[]): string {
+  return listSamFactoryFieldDefinitions(keys)
+    .map((item) => item.label)
+    .join('、')
+}
+
 export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.map((seed) => {
   const defaultDocType = toProcessDocType(seed.defaultDocument)
   const isSpecialCraftContainer = seed.processCode === 'SPECIAL_CRAFT'
   const defaultRule = resolveProcessDefaultRule(seed.processCode)
+  const samRule = PROCESS_SAM_RULES[seed.processCode]
   return {
     processCode: seed.processCode,
     systemProcessCode: PROCESS_SYSTEM_CODE_MAP[seed.processCode] ?? `PROC_${seed.processCode}`,
@@ -429,6 +953,12 @@ export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.ma
     description: seed.description,
     triggerSource: seed.triggerSource,
     defaultDocLabel: PROCESS_DOC_TYPE_LABEL[defaultDocType],
+    samEnabled: samRule.samEnabled,
+    samCalcMode: samRule.samCalcMode,
+    samDefaultInputUnit: samRule.samDefaultInputUnit,
+    samConstraintSource: samRule.samConstraintSource,
+    samFactoryFieldKeys: [...samRule.samFactoryFieldKeys],
+    samReason: samRule.samReason,
   }
 })
 
@@ -452,6 +982,7 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 65536, legacyCraftName: '手工盘扣', craftName: '手工盘扣', processCode: 'FROG_BUTTON', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
   { legacyValue: 262144, legacyCraftName: '曲牙', craftName: '曲牙', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按车缝归类' },
+  { legacyValue: 262145, legacyCraftName: '基础连接', craftName: '基础连接', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前按普通车缝基线归类' },
   { legacyValue: 524288, legacyCraftName: '开扣眼', craftName: '开扣眼', processCode: 'BUTTONHOLE', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 1048576, legacyCraftName: '贝壳绣', craftName: '贝壳绣', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按绣花归类' },
 ]
@@ -500,6 +1031,7 @@ export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProce
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
     const process = processDefinitionByCode.get(item.processCode)
+    const samOverride = CRAFT_SAM_RULE_OVERRIDES_BY_LEGACY_VALUE[item.legacyValue]
     const inheritedRule: ProcessDefaultRule = {
       assignmentGranularity: process?.assignmentGranularity ?? 'ORDER',
       detailSplitMode: process?.detailSplitMode ?? 'COMPOSITE',
@@ -539,6 +1071,12 @@ export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProce
       isSpecialCraft: item.isSpecialCraft,
       carrySuggestion: CARRY_SUGGESTION_BY_PROCESS_CODE[item.processCode] ?? '工艺匹配工厂优先',
       remark: item.remark,
+      samEnabled: samOverride?.samEnabled ?? true,
+      samCalcMode: samOverride?.samCalcMode,
+      samDefaultInputUnit: samOverride?.samDefaultInputUnit,
+      samConstraintSource: samOverride?.samConstraintSource,
+      samFactoryFieldKeys: samOverride?.samFactoryFieldKeys ? [...samOverride.samFactoryFieldKeys] : undefined,
+      samReason: samOverride?.samReason,
     }
   })
 
@@ -626,12 +1164,51 @@ export function isSpecialCraftByCraftCode(craftCode: string): boolean {
   return processCraftByCode.get(craftCode)?.isSpecialCraft ?? false
 }
 
+export interface ResolvedProcessCraftSamRule {
+  samEnabled: boolean
+  samCalcMode: SamCalcMode
+  samDefaultInputUnit: SamInputUnit
+  samConstraintSource: CapacityConstraintSource
+  samFactoryFieldKeys: SamFactoryFieldKey[]
+  samReason: string
+}
+
+export function getResolvedProcessCraftSamRuleByCode(
+  craftCode: string,
+): ResolvedProcessCraftSamRule | undefined {
+  const craft = processCraftByCode.get(craftCode)
+  if (!craft) return undefined
+  const process = processDefinitionByCode.get(craft.processCode)
+  if (!process) return undefined
+
+  return {
+    samEnabled: craft.samEnabled ?? process.samEnabled,
+    samCalcMode: craft.samCalcMode ?? process.samCalcMode,
+    samDefaultInputUnit: craft.samDefaultInputUnit ?? process.samDefaultInputUnit,
+    samConstraintSource: craft.samConstraintSource ?? process.samConstraintSource,
+    samFactoryFieldKeys: orderSamFactoryFieldKeys(
+      craft.samFactoryFieldKeys ?? process.samFactoryFieldKeys,
+    ),
+    samReason: craft.samReason ?? process.samReason,
+  }
+}
+
 export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitions.map((item) => {
   const process = processDefinitionByCode.get(item.processCode)
   const stage = stageDefinitionByCode.get(item.stageCode)
   const processAssignmentGranularity = process?.assignmentGranularity ?? 'ORDER'
   const processDetailSplitMode = process?.detailSplitMode ?? 'COMPOSITE'
   const processDetailSplitDimensions = [...(process?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])]
+  const samRule =
+    getResolvedProcessCraftSamRuleByCode(item.craftCode) ??
+    ({
+      samEnabled: true,
+      samCalcMode: 'DISCRETE',
+      samDefaultInputUnit: 'PIECE',
+      samConstraintSource: 'STAFF',
+      samFactoryFieldKeys: ['staffCount', 'staffShiftMinutes', 'efficiencyFactor'],
+      samReason: '',
+    } satisfies ResolvedProcessCraftSamRule)
   return {
     craftCode: item.craftCode,
     craftName: item.craftName,
@@ -664,6 +1241,16 @@ export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitio
     remark: item.remark,
     processNote: process?.description,
     triggerSource: process?.triggerSource,
+    samEnabled: samRule.samEnabled,
+    samCalcMode: samRule.samCalcMode,
+    samCalcModeLabel: SAM_CALC_MODE_LABEL[samRule.samCalcMode],
+    samDefaultInputUnit: samRule.samDefaultInputUnit,
+    samDefaultInputUnitLabel: SAM_INPUT_UNIT_LABEL[samRule.samDefaultInputUnit],
+    samConstraintSource: samRule.samConstraintSource,
+    samConstraintSourceLabel: CAPACITY_CONSTRAINT_SOURCE_LABEL[samRule.samConstraintSource],
+    samFactoryFieldKeys: [...samRule.samFactoryFieldKeys],
+    samFactoryFieldText: formatSamFactoryFieldText(samRule.samFactoryFieldKeys),
+    samReason: samRule.samReason,
   }
 })
 

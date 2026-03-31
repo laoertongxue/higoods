@@ -2,6 +2,7 @@ import { menusBySystem } from '../data/app-shell-config'
 import { appStore } from '../state/store'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import { renderFactoryProfilePage } from '../pages/factory-profile'
+import { renderFactoryCapacityProfilePage } from '../pages/factory-capacity-profile'
 import { renderOverviewPage, renderTodosPage } from '../pages/workbench'
 import { renderPcsOverviewPage } from '../pages/pcs-workspace-overview'
 import { renderPcsTodosPage } from '../pages/pcs-workspace-todos'
@@ -185,6 +186,7 @@ function normalizePathname(pathname: string): string {
 const exactRoutes: Record<string, RouteRenderer> = {
   '/': () => renderOverviewPage(),
   '/fcs/factories/profile': () => renderFactoryProfilePage(),
+  '/fcs/factories/capacity-profile': () => renderFactoryCapacityProfilePage(),
   '/fcs/factories/capability': () => renderCapabilityPage(),
   '/fcs/factories/status': () => renderFactoryStatusPage(),
   '/fcs/factories/performance': () => renderFactoryPerformancePage(),

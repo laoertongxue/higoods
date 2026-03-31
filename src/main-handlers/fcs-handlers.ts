@@ -4,6 +4,10 @@ import {
   isFactoryPageOpenDialog,
 } from '../pages/factory-profile'
 import {
+  handleFactoryCapacityProfileEvent,
+  isFactoryCapacityProfileDialogOpen,
+} from '../pages/factory-capacity-profile'
+import {
   handleCapabilityEvent,
   handleCapabilitySubmit,
   isCapabilityDialogOpen,
@@ -175,6 +179,7 @@ import {
 export function dispatchFcsPageEvent(target: HTMLElement): boolean {
   return (
     handleFactoryPageEvent(target) ||
+    handleFactoryCapacityProfileEvent(target) ||
     handleCapabilityEvent(target) ||
     handleFactoryStatusEvent(target) ||
     handleFactoryPerformanceEvent(target) ||
@@ -238,6 +243,13 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (isFactoryCapacityProfileDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.capacityAction = 'close-detail'
+    handleFactoryCapacityProfileEvent(fakeButton)
+    return true
+  }
+
   if (isCapabilityDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.capAction = 'close-dialog'

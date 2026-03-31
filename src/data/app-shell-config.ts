@@ -131,6 +131,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'Factory',
           children: [
             { key: 'factories-profile', title: '工厂档案', icon: 'Factory', href: '/fcs/factories/profile' },
+            { key: 'factories-capacity-profile', title: '产能档案', icon: 'Gauge', href: '/fcs/factories/capacity-profile' },
             { key: 'factories-capability', title: '能力标签', icon: 'Tags', href: '/fcs/factories/capability' },
             { key: 'factories-settlement', title: '结算信息', icon: 'Receipt', href: '/fcs/factories/settlement' },
             { key: 'factories-status', title: '工厂状态', icon: 'ToggleLeft', href: '/fcs/factories/status' },

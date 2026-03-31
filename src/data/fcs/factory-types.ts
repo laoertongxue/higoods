@@ -1,3 +1,5 @@
+import type { SamFactoryFieldKey } from './process-craft-dict'
+
 // 工厂状态
 export type FactoryStatus = 'active' | 'paused' | 'blacklist' | 'inactive'
 
@@ -38,12 +40,13 @@ export interface FactoryEligibility {
   allowSettle: boolean
 }
 
-// 工厂能力标签
-export interface CapabilityTag {
-  id: string
-  name: string
-  category: 'production' | 'process' | 'material'
+export interface FactoryProcessAbility {
+  processCode: string
+  craftCodes: string[]
 }
+
+export type FactoryCapacityFieldValue = number | string
+export type ShiftCalendarScopeType = 'FACTORY' | 'PROCESS'
 
 // 工厂档案
 export interface Factory {
@@ -55,7 +58,7 @@ export interface Factory {
   phone: string
   status: FactoryStatus
   cooperationMode: CooperationMode
-  capabilities: CapabilityTag[]
+  processAbilities: FactoryProcessAbility[]
   qualityScore: number
   deliveryScore: number
   createdAt: string
@@ -79,7 +82,7 @@ export interface FactoryFormData {
   phone: string
   status: FactoryStatus
   cooperationMode: CooperationMode
-  capabilities: string[]
+  processAbilities: FactoryProcessAbility[]
   // 新增字段
   factoryTier: FactoryTier
   factoryType: FactoryType
@@ -87,6 +90,54 @@ export interface FactoryFormData {
   pdaEnabled: boolean
   pdaTenantId?: string
   eligibility: FactoryEligibility
+}
+
+export interface ProcessCraftDeviceRecord {
+  processCode: string
+  craftCode: string
+  values: Partial<Record<SamFactoryFieldKey, FactoryCapacityFieldValue>>
+}
+
+export interface ProcessCraftStaffRecord {
+  processCode: string
+  craftCode: string
+  values: Partial<Record<SamFactoryFieldKey, FactoryCapacityFieldValue>>
+}
+
+export interface ProcessCraftAdjustmentRecord {
+  processCode: string
+  craftCode: string
+  values: Partial<Record<SamFactoryFieldKey, FactoryCapacityFieldValue>>
+}
+
+export interface ShiftCalendarRecord {
+  date: string
+  scopeType: ShiftCalendarScopeType
+  scopeCode: string
+  dayShiftMinutes: number
+  nightShiftMinutes: number
+  isStopped: boolean
+  isOvertime: boolean
+  note: string
+}
+
+export interface CalibrationRecord {
+  processCode: string
+  craftCode: string
+  periodLabel: string
+  publishedSam: number
+  actualNote: string
+  suggestion: string
+  adopted: boolean
+}
+
+export interface FactoryCapacityProfile {
+  factoryId: string
+  shiftCalendars: ShiftCalendarRecord[]
+  processCraftDeviceRecords: ProcessCraftDeviceRecord[]
+  processCraftStaffRecords: ProcessCraftStaffRecord[]
+  processCraftAdjustmentRecords: ProcessCraftAdjustmentRecord[]
+  calibrationRecords: CalibrationRecord[]
 }
 
 // 状态配置
@@ -142,11 +193,4 @@ export const typesByTier: Record<FactoryTier, FactoryType[]> = {
   ],
   SATELLITE: ['SATELLITE_SEWING', 'SATELLITE_FINISHING'],
   THIRD_PARTY: ['THIRD_SEWING'],
-}
-
-// 能力标签配置
-export const capabilityCategories = {
-  production: '生产类别',
-  process: '工艺能力',
-  material: '材料加工',
 }
