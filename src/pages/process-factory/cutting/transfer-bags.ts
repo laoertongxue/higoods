@@ -6,10 +6,13 @@ import {
   serializeFeiTicketRecordsStorage,
 } from './fei-tickets-model'
 import {
+  paginateItems,
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
+  renderWorkbenchActionCard,
   renderWorkbenchFilterChip,
+  renderWorkbenchPagination,
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
 } from './layout.helpers'
@@ -84,7 +87,7 @@ import {
   type TransferBagReturnReceipt,
 } from './transfer-bag-return-model'
 
-type MasterStatusFilter = 'ALL' | PocketCarrierStatusKey
+type MasterStatusFilter = 'ALL' | 'IN_USE_ACTIVE' | PocketCarrierStatusKey
 
 type UsageStatusFilter = 'ALL' | TransferBagUsageStatusKey
 type ReturnStatusFilter = 'ALL' | 'WAITING_RETURN' | 'RETURN_INSPECTING' | 'CLOSED' | 'EXCEPTION_CLOSED'
@@ -144,6 +147,8 @@ interface TransferBagsPageState {
   store: TransferBagStore
   masterKeyword: string
   masterStatus: MasterStatusFilter
+  masterPage: number
+  masterPageSize: number
   usageKeyword: string
   usageStatus: UsageStatusFilter
   usageSewingTaskId: string
@@ -273,6 +278,8 @@ const state: TransferBagsPageState = {
   store: hydrateStore(),
   masterKeyword: '',
   masterStatus: 'ALL',
+  masterPage: 1,
+  masterPageSize: 10,
   usageKeyword: '',
   usageStatus: 'ALL',
   usageSewingTaskId: 'ALL',
@@ -448,11 +455,18 @@ function findMatchingMasters(prefilter: TransferBagPrefilter | null, viewModel =
   return matchedBagIds.size ? viewModel.masters.filter((item) => matchedBagIds.has(item.bagId)) : []
 }
 
-function getFilteredMasters() {
+function matchesMasterStatusFilter(item: TransferBagMasterItem, filter: MasterStatusFilter): boolean {
+  if (filter === 'ALL') return true
+  if (filter === 'IN_USE_ACTIVE') {
+    return ['PACKING', 'DISPATCHED', 'SIGNED'].includes(item.pocketStatusKey)
+  }
+  return item.pocketStatusKey === filter
+}
+
+function getMasterBaseItems() {
   const keyword = state.masterKeyword.trim().toLowerCase()
   const matchedMasterIds = state.prefilter ? new Set(findMatchingMasters(state.prefilter).map((item) => item.bagId)) : null
   return getViewModel().masters.filter((item) => {
-    if (state.masterStatus !== 'ALL' && item.pocketStatusKey !== state.masterStatus) return false
     if (matchedMasterIds && matchedMasterIds.size && !matchedMasterIds.has(item.bagId)) return false
     if (keyword) {
       const haystack = [item.bagCode, item.bagType, item.currentLocation, item.latestUsageNo, item.note].join(' ').toLowerCase()
@@ -460,6 +474,55 @@ function getFilteredMasters() {
     }
     return true
   })
+}
+
+function getFilteredMasters(baseItems = getMasterBaseItems()) {
+  return baseItems.filter((item) => matchesMasterStatusFilter(item, state.masterStatus))
+}
+
+function getTransferBagListStats(baseItems = getMasterBaseItems()) {
+  return [
+    {
+      label: '周转口袋总数',
+      count: baseItems.length,
+      filter: 'ALL' as MasterStatusFilter,
+      accentClass: 'text-slate-900',
+    },
+    {
+      label: '空闲口袋数',
+      count: baseItems.filter((item) => matchesMasterStatusFilter(item, 'IDLE')).length,
+      filter: 'IDLE' as MasterStatusFilter,
+      accentClass: 'text-emerald-600',
+    },
+    {
+      label: '使用中口袋数',
+      count: baseItems.filter((item) => matchesMasterStatusFilter(item, 'IN_USE_ACTIVE')).length,
+      filter: 'IN_USE_ACTIVE' as MasterStatusFilter,
+      accentClass: 'text-blue-600',
+    },
+    {
+      label: '待发出口袋数',
+      count: baseItems.filter((item) => matchesMasterStatusFilter(item, 'READY_TO_DISPATCH')).length,
+      filter: 'READY_TO_DISPATCH' as MasterStatusFilter,
+      accentClass: 'text-violet-600',
+    },
+  ]
+}
+
+function resetMasterPagination(): void {
+  state.masterPage = 1
+}
+
+function getPagedMasters() {
+  const baseItems = getMasterBaseItems()
+  const filteredItems = getFilteredMasters(baseItems)
+  const pageSlice = paginateItems(filteredItems, state.masterPage, state.masterPageSize)
+  state.masterPage = pageSlice.page
+  return {
+    baseItems,
+    filteredItems,
+    pageSlice,
+  }
 }
 
 function getFilteredUsages() {
@@ -1244,15 +1307,22 @@ function renderHeaderActions(): string {
 }
 
 function renderStatsCards(): string {
-  const summary = getViewModel().summary
+  const cardsHtml = getTransferBagListStats()
+    .map((item) =>
+      renderWorkbenchActionCard({
+        title: item.label,
+        count: item.count,
+        hint: '',
+        attrs: `data-transfer-bags-action="set-master-status" data-status="${item.filter}"`,
+        active: state.masterStatus === item.filter,
+        accentClass: item.accentClass,
+      }),
+    )
+    .join('')
+
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-      ${renderCompactKpiCard('周转口袋总数', summary.bagCount, '', 'text-slate-900')}
-      ${renderCompactKpiCard('空闲口袋数', summary.idleBagCount, '', 'text-emerald-600')}
-      ${renderCompactKpiCard('使用中口袋数', summary.inUseBagCount, '', 'text-blue-600')}
-      ${renderCompactKpiCard('待发出使用周期数', summary.readyDispatchUsageCount, '', 'text-violet-600')}
-      ${renderCompactKpiCard('已发出使用周期数', summary.dispatchedUsageCount, '', 'text-sky-600')}
-      ${renderCompactKpiCard('待签收使用周期数', summary.pendingSignoffCount, '', 'text-amber-600')}
+    <section class="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+      ${cardsHtml}
     </section>
   `
 }
@@ -1318,54 +1388,62 @@ function renderDemoFixturePanel(): string {
 }
 
 function renderMasterSection(): string {
-  const items = getFilteredMasters()
+  const { filteredItems, pageSlice } = getPagedMasters()
+  const items = pageSlice.items
   return `
-    <section class="space-y-3 rounded-lg border bg-card p-3">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold text-foreground">周转口袋列表</h2>
-        </div>
-      </div>
+    <div class="space-y-3">
       ${renderStickyFilterShell(`
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <label class="space-y-2 xl:col-span-3">
-            <span class="text-sm font-medium text-foreground">关键词</span>
-            <input
-              type="text"
-              value="${escapeHtml(state.masterKeyword)}"
-              placeholder="支持周转口袋码 / 口袋类型 / 位置 / 最新使用周期号"
-              class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              data-transfer-bags-master-field="keyword"
-            />
-          </label>
-          <label class="space-y-2">
-            <span class="text-sm font-medium text-foreground">状态筛选</span>
-            <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-master-field="status">
-              <option value="ALL" ${state.masterStatus === 'ALL' ? 'selected' : ''}>全部</option>
-              <option value="IDLE" ${state.masterStatus === 'IDLE' ? 'selected' : ''}>空闲</option>
-              <option value="PACKING" ${state.masterStatus === 'PACKING' ? 'selected' : ''}>装袋中</option>
-              <option value="READY_TO_DISPATCH" ${state.masterStatus === 'READY_TO_DISPATCH' ? 'selected' : ''}>待发出</option>
-              <option value="DISPATCHED" ${state.masterStatus === 'DISPATCHED' ? 'selected' : ''}>已发出</option>
-              <option value="SIGNED" ${state.masterStatus === 'SIGNED' ? 'selected' : ''}>已签收</option>
-              <option value="RETURNED" ${state.masterStatus === 'RETURNED' ? 'selected' : ''}>已回仓</option>
-              <option value="DISABLED" ${state.masterStatus === 'DISABLED' ? 'selected' : ''}>停用 / 报废</option>
-            </select>
-          </label>
+        <div class="space-y-3">
+          <div>
+            <h2 class="text-sm font-semibold text-foreground">筛选条件</h2>
+          </div>
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label class="space-y-2 xl:col-span-3">
+              <span class="text-sm font-medium text-foreground">关键词</span>
+              <input
+                type="text"
+                value="${escapeHtml(state.masterKeyword)}"
+                placeholder="支持周转口袋码 / 口袋类型 / 位置 / 最新使用周期号"
+                class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                data-transfer-bags-master-field="keyword"
+              />
+            </label>
+            <label class="space-y-2">
+              <span class="text-sm font-medium text-foreground">状态筛选</span>
+              <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-master-field="status">
+                <option value="ALL" ${state.masterStatus === 'ALL' ? 'selected' : ''}>全部</option>
+                <option value="IDLE" ${state.masterStatus === 'IDLE' ? 'selected' : ''}>空闲</option>
+                <option value="IN_USE_ACTIVE" ${state.masterStatus === 'IN_USE_ACTIVE' ? 'selected' : ''}>使用中</option>
+                <option value="PACKING" ${state.masterStatus === 'PACKING' ? 'selected' : ''}>装袋中</option>
+                <option value="READY_TO_DISPATCH" ${state.masterStatus === 'READY_TO_DISPATCH' ? 'selected' : ''}>待发出</option>
+                <option value="DISPATCHED" ${state.masterStatus === 'DISPATCHED' ? 'selected' : ''}>已发出</option>
+                <option value="SIGNED" ${state.masterStatus === 'SIGNED' ? 'selected' : ''}>已签收</option>
+                <option value="RETURNED" ${state.masterStatus === 'RETURNED' ? 'selected' : ''}>已回仓</option>
+                <option value="DISABLED" ${state.masterStatus === 'DISABLED' ? 'selected' : ''}>停用 / 报废</option>
+              </select>
+            </label>
+          </div>
         </div>
       `)}
-      ${!items.length
-        ? '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">暂无匹配结果</div>'
-        : renderStickyTableScroller(`
+      <section class="rounded-lg border bg-card">
+        <div class="flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <h2 class="text-sm font-semibold text-foreground">周转口袋列表</h2>
+          </div>
+          <div class="text-xs text-muted-foreground">共 ${filteredItems.length} 条周转口袋</div>
+        </div>
+        ${!items.length
+          ? '<div class="px-6 py-10 text-center text-sm text-muted-foreground">暂无匹配结果</div>'
+          : `${renderStickyTableScroller(`
             <table class="min-w-full text-sm">
               <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th class="px-4 py-3 text-left">周转口袋码</th>
                   <th class="px-4 py-3 text-left">当前状态</th>
-                  <th class="px-4 py-3 text-left">当前 / 最近使用周期</th>
-                  <th class="px-4 py-3 text-left">当前款号</th>
+                  <th class="px-4 py-3 text-left">当前 / 最近周转号</th>
+                  <th class="px-4 py-3 text-left">当前任务</th>
                   <th class="px-4 py-3 text-left">绑定数量</th>
                   <th class="px-4 py-3 text-left">当前位置</th>
-                  <th class="px-4 py-3 text-left">待办动作</th>
                   <th class="px-4 py-3 text-left">操作</th>
                 </tr>
               </thead>
@@ -1387,26 +1465,21 @@ function renderMasterSection(): string {
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.bagType)} / 容量 ${escapeHtml(String(item.capacity))} 张</div>
                         </td>
                         <td class="px-4 py-3">
-                          <div>${renderTag(item.pocketStatusMeta.label, item.pocketStatusMeta.className)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.statusMeta.detailText)}</div>
+                          ${renderTag(item.pocketStatusMeta.label, item.pocketStatusMeta.className)}
                         </td>
                         <td class="px-4 py-3">
                           <div class="font-medium text-foreground">${escapeHtml(item.currentUsage?.usageNo || item.latestUsageNo || '暂无')}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.currentUsage?.startedAt || item.currentReturnedAt || item.currentSignedAt || item.currentDispatchedAt || '暂无时间')}</div>
                         </td>
                         <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(item.currentStyleCode || '待锁定')}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.currentUsage?.productionOrderNos.join(' / ') || '暂无生产单')}</div>
+                          <div class="font-medium text-foreground">${escapeHtml(item.currentUsage?.sewingTaskNo || '待绑定任务')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.currentStyleCode || '款号待锁定')}</div>
                         </td>
                         <td class="px-4 py-3">
                           <div class="font-medium text-foreground">菲票 ${escapeHtml(String(item.packedTicketCount))} 张</div>
                           <div class="mt-1 text-xs text-muted-foreground">总件数 ${escapeHtml(String(item.currentTotalPieceCount))} 件</div>
                         </td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentLocation || '待命位')}</td>
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(todoMeta.label)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.pocketStatusMeta.detailText)}</div>
-                        </td>
                         <td class="px-4 py-3">
                           <div class="flex flex-wrap gap-2">
                             <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(todoMeta.href)}">${escapeHtml(todoMeta.label)}</button>
@@ -1421,7 +1494,17 @@ function renderMasterSection(): string {
               </tbody>
             </table>
           `)}
-    </section>
+          ${renderWorkbenchPagination({
+            page: pageSlice.page,
+            pageSize: pageSlice.pageSize,
+            total: filteredItems.length,
+            actionAttr: 'data-transfer-bags-action',
+            pageAction: 'set-master-page',
+            pageSizeAttr: 'data-transfer-bags-master-page-size',
+            pageSizeOptions: [10, 20, 50],
+          })}`}
+      </section>
+    </div>
   `
 }
 
@@ -2341,10 +2424,9 @@ function renderListPage(): string {
   const meta = getCanonicalCuttingMeta(getCurrentTransferBagPathname(), 'transfer-bags')
   return `
     <div class="space-y-3 p-4">
-      ${renderCuttingPageHeader(meta, { actionsHtml: renderHeaderActions() })}
+      ${renderCuttingPageHeader(meta)}
       ${renderDemoFixturePanel()}
       ${renderStatsCards()}
-      ${renderReturnStatsCards()}
       ${renderPrefilterBar()}
       ${renderLandingBanner()}
       ${renderFeedbackBar()}
@@ -4048,8 +4130,23 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
     const field = masterFieldNode.dataset.transferBagsMasterField as MasterFilterField | undefined
     if (!field) return false
     const input = masterFieldNode as HTMLInputElement | HTMLSelectElement
-    if (field === 'keyword') state.masterKeyword = input.value
-    if (field === 'status') state.masterStatus = input.value as MasterStatusFilter
+    if (field === 'keyword') {
+      state.masterKeyword = input.value
+      resetMasterPagination()
+    }
+    if (field === 'status') {
+      state.masterStatus = input.value as MasterStatusFilter
+      resetMasterPagination()
+    }
+    return true
+  }
+
+  const masterPageSizeNode = target.closest<HTMLElement>('[data-transfer-bags-master-page-size]')
+  if (masterPageSizeNode) {
+    const input = masterPageSizeNode as HTMLSelectElement
+    const nextPageSize = Number.parseInt(input.value || '10', 10)
+    state.masterPageSize = Number.isFinite(nextPageSize) && nextPageSize > 0 ? nextPageSize : 10
+    resetMasterPagination()
     return true
   }
 
@@ -4138,6 +4235,16 @@ export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {
   if (!action) return false
 
   if (action === 'clear-prefill') return clearPrefill()
+  if (action === 'set-master-status') {
+    state.masterStatus = (actionNode.dataset.status as MasterStatusFilter | undefined) || 'ALL'
+    resetMasterPagination()
+    return true
+  }
+  if (action === 'set-master-page') {
+    const nextPage = Number.parseInt(actionNode.dataset.page || '1', 10)
+    state.masterPage = Number.isFinite(nextPage) && nextPage > 0 ? nextPage : 1
+    return true
+  }
   if (action === 'clear-draft') return clearDraft()
   if (action === 'match-bag-code') {
     const matched = getSelectedBag()

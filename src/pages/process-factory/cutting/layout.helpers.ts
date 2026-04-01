@@ -32,12 +32,7 @@ export function renderWorkbenchActionCard(options: {
     variant === 'priority'
       ? 'border-amber-200/80 bg-amber-50/40 hover:border-amber-300 hover:bg-amber-50/70'
       : 'bg-card hover:border-slate-300 hover:bg-muted/20'
-  const typeBadgeClass =
-    variant === 'priority'
-      ? 'bg-amber-100 text-amber-700'
-      : 'bg-slate-100 text-slate-600'
   const activeBadgeClass = variant === 'priority' ? 'bg-amber-600 text-white' : 'bg-blue-600 text-white'
-  const typeLabel = variant === 'priority' ? '重点' : 'KPI'
 
   return `
     <button
@@ -47,10 +42,7 @@ export function renderWorkbenchActionCard(options: {
     >
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <div class="flex items-center gap-1.5">
-            <span class="inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${typeBadgeClass}">${typeLabel}</span>
-            <p class="truncate text-[11px] font-semibold leading-4 text-foreground">${escapeHtml(options.title)}</p>
-          </div>
+          <p class="truncate text-[11px] font-semibold leading-4 text-foreground">${escapeHtml(options.title)}</p>
           ${options.hint ? `<p class="mt-1 text-[10px] leading-4 text-muted-foreground">${escapeHtml(options.hint)}</p>` : ''}
         </div>
         <div class="shrink-0 text-right">
