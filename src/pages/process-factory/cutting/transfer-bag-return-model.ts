@@ -164,26 +164,13 @@ export function validateReturnReceiptPayload(options: {
   usage: TransferBagUsage | null
   bag: TransferBagMaster | null
   receipt: TransferBagReturnReceipt
-  condition: TransferBagConditionRecord
+  condition?: TransferBagConditionRecord | null
 }): TransferBagValidationResult {
   const eligibility = deriveReturnEligibility({ usage: options.usage, bag: options.bag })
   if (!eligibility.ok) return eligibility
   if (!options.receipt.returnWarehouseName.trim()) return { ok: false, reason: '请填写回货入仓点。' }
   if (!options.receipt.returnAt.trim()) return { ok: false, reason: '请填写回货时间。' }
-  if (!options.receipt.returnedBy.trim()) return { ok: false, reason: '请填写回货人。' }
   if (!options.receipt.receivedBy.trim()) return { ok: false, reason: '请填写接收人。' }
-  if (!Number.isFinite(options.receipt.returnedFinishedQty) || options.receipt.returnedFinishedQty < 0) {
-    return { ok: false, reason: '回货成衣数量必须是非负数。' }
-  }
-  if (!Number.isFinite(options.receipt.returnedTicketCountSummary) || options.receipt.returnedTicketCountSummary < 0) {
-    return { ok: false, reason: '回货菲票数必须是非负数。' }
-  }
-  if (options.receipt.discrepancyType !== 'NONE' && !options.receipt.discrepancyNote.trim()) {
-    return { ok: false, reason: '存在差异时请补充差异说明。' }
-  }
-  if (options.condition.reusableDecision === 'DISABLED' && !options.condition.note.trim()) {
-    return { ok: false, reason: '标记停用 / 报废时请填写说明。' }
-  }
   return { ok: true, reason: '' }
 }
 

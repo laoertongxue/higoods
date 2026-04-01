@@ -26,6 +26,8 @@ test('周转口袋流转列表页收简为 4 张联动统计卡并支持分页',
   await expect(body).not.toContainText('回仓验收中')
 
   await expect(page.getByRole('columnheader', { name: '待办动作', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('columnheader', { name: '车缝工厂 / 款号', exact: true })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '当前车缝厂 / 款号摘要', exact: true })).toHaveCount(0)
 
   await page.getByRole('button', { name: /空闲口袋数/ }).click()
   const idleStatuses = await page.locator('table tbody tr td:nth-child(2)').allTextContents()

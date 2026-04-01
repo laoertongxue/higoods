@@ -25,11 +25,32 @@ import {
   type TransferCarrierCycleRecord,
   type TransferCarrierRecord,
 } from '../../../data/fcs/cutting/transfer-bag-runtime.ts'
+import {
+  getFactoryMasterRecordById,
+  listSewingFactoryMasterRecords,
+} from '../../../data/fcs/factory-master-store.ts'
 import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model'
 import type { MergeBatchRecord } from './merge-batches-model'
 import type { OriginalCutOrderRow } from './original-orders-model'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
+
+function resolveTransferBagFactoryName(factoryId: string | undefined, fallbackName: string | undefined): string {
+  if (factoryId) {
+    const factory = getFactoryMasterRecordById(factoryId)
+    if (factory?.name) return factory.name
+  }
+  return fallbackName?.trim() || '工厂档案待补'
+}
+
+function pickTransferBagSewingFactory(index: number): { factoryId: string; factoryName: string } {
+  const factories = listSewingFactoryMasterRecords()
+  const factory = factories[index % factories.length] || factories[0] || null
+  return {
+    factoryId: factory?.id || `factory-sew-${index + 1}`,
+    factoryName: factory?.name || '工厂档案待补',
+  }
+}
 
 export const CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY = 'cuttingTransferBagLedger'
 export const CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY = 'cuttingTransferBagSelectedTicketRecordIds'
@@ -1421,11 +1442,13 @@ function buildSewingTaskSeeds(
   originalRows: OriginalCutOrderRow[] = [],
   mergeBatches: MergeBatchRecord[] = [],
 ): SewingTaskRef[] {
-  const mergeTaskSeeds = mergeBatches.slice(0, 3).map((batch, index) => ({
+  const mergeTaskSeeds = mergeBatches.slice(0, 3).map((batch, index) => {
+    const factory = pickTransferBagSewingFactory(index)
+    return {
     sewingTaskId: `sewing-task-${sanitizeId(batch.mergeBatchNo)}`,
     sewingTaskNo: `CF-${String(index + 1).padStart(3, '0')}`,
-    sewingFactoryId: `factory-${index + 1}`,
-    sewingFactoryName: ['苏州车缝一厂', '嘉兴车缝二厂', '常熟协作车缝点'][index] || `车缝工厂 ${index + 1}`,
+    sewingFactoryId: factory.factoryId,
+    sewingFactoryName: factory.factoryName,
     styleCode: batch.styleCode,
     spuCode: batch.spuCode,
     skuSummary: batch.materialSkuSummary,
@@ -1434,13 +1457,15 @@ function buildSewingTaskSeeds(
     plannedQty: batch.items.length * 24,
     status: index === 0 ? '待接料' : index === 1 ? '排单中' : '待交接',
     note: `来源于 ${batch.mergeBatchNo} 的后道交接任务占位。`,
-  }))
+  }})
 
-  const fallbackRows = originalRows.map((row, index) => ({
+  const fallbackRows = originalRows.map((row, index) => {
+    const factory = pickTransferBagSewingFactory(index + mergeTaskSeeds.length)
+    return {
     sewingTaskId: `sewing-task-fallback-${sanitizeId(row.originalCutOrderId)}`,
     sewingTaskNo: `CF-FB-${String(index + 1).padStart(3, '0')}`,
-    sewingFactoryId: `fallback-factory-${index + 1}`,
-    sewingFactoryName: ['昆山外协车缝点', '无锡返修车缝组'][index] || '后道车缝组',
+    sewingFactoryId: factory.factoryId,
+    sewingFactoryName: factory.factoryName,
     styleCode: row.styleCode,
     spuCode: row.spuCode,
     skuSummary: row.materialSku,
@@ -1449,7 +1474,7 @@ function buildSewingTaskSeeds(
     plannedQty: row.plannedQty || row.orderQty,
     status: '待接料',
     note: '用于无批次场景下的交接任务占位。',
-  }))
+  }})
 
   return [...mergeTaskSeeds, ...fallbackRows]
 }
@@ -1608,12 +1633,18 @@ export function buildTransferBagViewModel(options: {
       const summary = buildTransferBagParentChildSummary(bindings)
       const manifests = (manifestsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.createdAt.localeCompare(left.createdAt, 'zh-CN'))
       const bagMaster = options.store.masters.find((item) => item.bagId === usage.bagId) ?? null
+      const sewingTask = sewingTasksById[usage.sewingTaskId] ?? null
+      const sewingFactoryName = resolveTransferBagFactoryName(
+        usage.sewingFactoryId || sewingTask?.sewingFactoryId,
+        usage.sewingFactoryName || sewingTask?.sewingFactoryName,
+      )
       const pocketStatusKey = mapUsageStatusToPocketCarrierStatus({
         usage,
         masterStatus: bagMaster?.currentStatus || 'IDLE',
       })
       return {
         ...usage,
+        sewingFactoryName,
         statusMeta: deriveTransferBagUsageStatus(usage.usageStatus),
         visibleStatusKey: deriveTransferBagVisibleStatusFromUsage({
           usage,
@@ -1628,7 +1659,12 @@ export function buildTransferBagViewModel(options: {
         pocketStatusKey,
         pocketStatusMeta: derivePocketCarrierStatus(pocketStatusKey),
         bagMaster,
-        sewingTask: sewingTasksById[usage.sewingTaskId] ?? null,
+        sewingTask: sewingTask
+          ? {
+              ...sewingTask,
+              sewingFactoryName: resolveTransferBagFactoryName(sewingTask.sewingFactoryId, sewingTask.sewingFactoryName),
+            }
+          : null,
         summary,
         bindingItems: [],
         boundTicketIds: bindings.map((item) => item.ticketRecordId),

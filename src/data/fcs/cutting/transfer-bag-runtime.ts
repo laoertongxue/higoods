@@ -1,4 +1,5 @@
 import { buildCuttingTraceabilityId, encodeCarrierQr, parseCuttingTraceQr } from './qr-codes.ts'
+import { getFactoryMasterRecordById, listSewingFactoryMasterRecords } from '../factory-master-store.ts'
 import {
   normalizeCarrierCycleItemBinding,
   normalizeTransferBagDispatchManifest,
@@ -99,6 +100,15 @@ export interface TransferCarrierCycleRecord {
   signedAt?: string
   returnedAt?: string
   note: string
+}
+
+function pickTransferBagSewingFactory(index: number): { factoryId: string; factoryName: string } {
+  const sewingFactories = listSewingFactoryMasterRecords()
+  const factory = sewingFactories[index % sewingFactories.length] || sewingFactories[0] || null
+  return {
+    factoryId: factory?.id || `factory-sew-${index + 1}`,
+    factoryName: factory?.name || '工厂档案待补',
+  }
 }
 
 export interface CarrierCycleItemBinding {
@@ -204,6 +214,53 @@ function mergeById<T extends Record<string, unknown>>(seedItems: T[], storedItem
   return Array.from(merged.values())
 }
 
+function normalizeMergedSewingTasks(
+  seedTasks: SewingTaskRefRecord[],
+  storedTasks: SewingTaskRefRecord[],
+): SewingTaskRefRecord[] {
+  const seedTasksById = Object.fromEntries(seedTasks.map((task) => [task.sewingTaskId, task]))
+  return mergeById(seedTasks, storedTasks, 'sewingTaskId').map((task) => {
+    const seedTask = seedTasksById[task.sewingTaskId]
+    const factory = getFactoryMasterRecordById(String(task.sewingFactoryId || seedTask?.sewingFactoryId || ''))
+    return {
+      ...task,
+      sewingFactoryId: String(factory?.id || task.sewingFactoryId || seedTask?.sewingFactoryId || ''),
+      sewingFactoryName: factory?.name || seedTask?.sewingFactoryName || task.sewingFactoryName,
+    }
+  })
+}
+
+function syncCycleFactoryNames(
+  usages: TransferCarrierCycleRecord[],
+  sewingTasks: SewingTaskRefRecord[],
+): TransferCarrierCycleRecord[] {
+  const tasksById = Object.fromEntries(sewingTasks.map((task) => [task.sewingTaskId, task]))
+  return usages.map((usage) => {
+    const sewingTask = tasksById[usage.sewingTaskId]
+    if (!sewingTask) return usage
+    return {
+      ...usage,
+      sewingFactoryId: sewingTask.sewingFactoryId,
+      sewingFactoryName: sewingTask.sewingFactoryName,
+    }
+  })
+}
+
+function syncManifestFactoryNames(
+  manifests: TransferBagDispatchManifestRecord[],
+  usages: TransferCarrierCycleRecord[],
+): TransferBagDispatchManifestRecord[] {
+  const usagesByCycleId = Object.fromEntries(usages.map((usage) => [usage.cycleId, usage]))
+  return manifests.map((manifest) => {
+    const usage = usagesByCycleId[manifest.cycleId]
+    if (!usage) return manifest
+    return {
+      ...manifest,
+      sewingFactoryName: usage.sewingFactoryName,
+    }
+  })
+}
+
 function buildCarrierRecord(input: {
   carrierId: string
   carrierCode: string
@@ -248,11 +305,13 @@ function buildSewingTaskSeeds(
   originalRows: TransferBagSeedOriginalRowLike[] = [],
   mergeBatches: TransferBagSeedMergeBatchLike[] = [],
 ): SewingTaskRefRecord[] {
-  const mergeSeeds = mergeBatches.slice(0, 3).map((batch, index) => ({
+  const mergeSeeds = mergeBatches.slice(0, 3).map((batch, index) => {
+    const factory = pickTransferBagSewingFactory(index)
+    return {
     sewingTaskId: `sewing-task-${sanitizeId(batch.mergeBatchId || batch.mergeBatchNo)}`,
     sewingTaskNo: `CF-${String(index + 1).padStart(3, '0')}`,
-    sewingFactoryId: `factory-${index + 1}`,
-    sewingFactoryName: ['苏州车缝一厂', '嘉兴车缝二厂', '常熟协作车缝点'][index] || `车缝工厂 ${index + 1}`,
+    sewingFactoryId: factory.factoryId,
+    sewingFactoryName: factory.factoryName,
     styleCode: batch.styleCode,
     spuCode: batch.spuCode,
     skuSummary: batch.materialSkuSummary,
@@ -261,13 +320,15 @@ function buildSewingTaskSeeds(
     plannedQty: batch.items.length * 24,
     status: index === 0 ? '待接料' : index === 1 ? '排单中' : '待交接',
     note: `来源于 ${batch.mergeBatchNo} 的正式载具任务引用。`,
-  }))
+  }})
 
-  const fallbackSeeds = originalRows.map((row, index) => ({
+  const fallbackSeeds = originalRows.map((row, index) => {
+    const factory = pickTransferBagSewingFactory(index + mergeSeeds.length)
+    return {
     sewingTaskId: `sewing-task-fallback-${sanitizeId(row.originalCutOrderId)}`,
     sewingTaskNo: `CF-FB-${String(index + 1).padStart(3, '0')}`,
-    sewingFactoryId: `fallback-factory-${index + 1}`,
-    sewingFactoryName: ['昆山外协车缝点', '无锡返修车缝组'][index] || '后道车缝组',
+    sewingFactoryId: factory.factoryId,
+    sewingFactoryName: factory.factoryName,
     styleCode: row.styleCode,
     spuCode: row.spuCode,
     skuSummary: row.materialSku,
@@ -276,7 +337,7 @@ function buildSewingTaskSeeds(
     plannedQty: row.plannedQty || row.orderQty || 0,
     status: '待接料',
     note: '无批次场景下的正式交接任务引用。',
-  }))
+  }})
 
   return [...mergeSeeds, ...fallbackSeeds]
 }
@@ -399,11 +460,12 @@ export function buildSystemSeedTransferBagRuntime(options: {
   const mergeBatches = options.mergeBatches || []
   const sewingTasks = buildSewingTaskSeeds(options.originalRows, mergeBatches)
   if (!sewingTasks.length) {
+    const fallbackFactory = pickTransferBagSewingFactory(0)
     sewingTasks.push({
       sewingTaskId: 'sewing-task-default',
       sewingTaskNo: 'CF-000',
-      sewingFactoryId: 'factory-default',
-      sewingFactoryName: '默认车缝组',
+      sewingFactoryId: fallbackFactory.factoryId,
+      sewingFactoryName: fallbackFactory.factoryName,
       styleCode: 'HG-DEFAULT',
       spuCode: 'SPU-DEFAULT',
       skuSummary: 'MAT-DEFAULT',
@@ -1377,12 +1439,20 @@ export function serializeTransferBagRuntimeStorage(store: TransferBagRuntimeStor
 }
 
 export function mergeTransferBagRuntimeStores(seed: TransferBagRuntimeStore, stored: TransferBagRuntimeStore): TransferBagRuntimeStore {
+  const sewingTasks = normalizeMergedSewingTasks(seed.sewingTasks, stored.sewingTasks)
+  const usages = syncCycleFactoryNames(
+    mergeById(seed.usages, stored.usages, 'cycleId'),
+    sewingTasks,
+  )
   return {
     masters: mergeById(seed.masters, stored.masters, 'carrierId'),
-    usages: mergeById(seed.usages, stored.usages, 'cycleId'),
+    usages,
     bindings: mergeById(seed.bindings, stored.bindings, 'bindingId'),
-    manifests: mergeById(seed.manifests, stored.manifests, 'manifestId'),
-    sewingTasks: mergeById(seed.sewingTasks, stored.sewingTasks, 'sewingTaskId'),
+    manifests: syncManifestFactoryNames(
+      mergeById(seed.manifests, stored.manifests, 'manifestId'),
+      usages,
+    ),
+    sewingTasks,
     auditTrail: mergeById(seed.auditTrail, stored.auditTrail, 'auditTrailId'),
     returnReceipts: mergeById(seed.returnReceipts, stored.returnReceipts, 'returnReceiptId'),
     conditionRecords: mergeById(seed.conditionRecords, stored.conditionRecords, 'conditionRecordId'),
