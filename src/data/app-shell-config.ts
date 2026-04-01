@@ -273,13 +273,13 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           key: 'craft-cutting-handover',
           title: '裁片仓交接',
           icon: 'Warehouse',
-          // 旧“仓库管理”被拆成裁床仓 / 裁片仓 / 样衣仓 / 周转口袋 / 车缝交接，
+          // 旧“仓库管理”被拆成裁床仓 / 裁片仓 / 样衣仓 / 周转口袋流转，
           // 因为这些页面分别对应库存对象、样衣对象和独立载具对象，不能继续用一个仓库总名覆盖。
           children: [
             { key: 'craft-cutting-fabric-warehouse', title: '裁床仓', icon: 'Warehouse', href: '/fcs/craft/cutting/fabric-warehouse' },
             { key: 'craft-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
             { key: 'craft-cutting-sample-warehouse', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/sample-warehouse' },
-            { key: 'craft-cutting-transfer-bags', title: '周转口袋车缝交接', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
+            { key: 'craft-cutting-transfer-bags', title: '周转口袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
           ],
         },
         {

@@ -357,7 +357,7 @@ export function createCarrierDispatchManifest(options: {
     createdAt: options.nowText,
     createdBy: options.createdBy,
     printStatus: 'PRINTED',
-    note: options.note?.trim() || '装袋清单来自正式父子映射，供车缝交接核对。',
+    note: options.note?.trim() || '装袋清单来自正式父子映射，供流转交接核对。',
   }
 }
 
@@ -406,7 +406,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 24,
       currentStatus: 'IDLE',
       currentLocation: '裁片仓 A 区待命位',
-      note: '常用车缝交接口袋。',
+      note: '常用周转口袋。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-002',
@@ -423,7 +423,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 18,
       currentStatus: 'IDLE',
-      currentLocation: '车缝交接待发区',
+      currentLocation: '周转口袋流转待发区',
       note: '常用于返修与补片任务。',
     }),
     buildCarrierRecord({

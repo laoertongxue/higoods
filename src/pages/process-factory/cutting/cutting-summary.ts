@@ -159,7 +159,7 @@ const actionTargetLabelMap: Record<SummaryNavigationTarget, string> = {
   fabricWarehouse: '裁床仓',
   cutPieceWarehouse: '裁片仓',
   sampleWarehouse: '样衣仓',
-  transferBags: '周转口袋车缝交接',
+  transferBags: '周转口袋流转',
   replenishment: '补料管理',
   specialProcesses: '特殊工艺',
   summary: '裁剪总表',

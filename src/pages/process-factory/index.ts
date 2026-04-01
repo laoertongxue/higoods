@@ -23,6 +23,7 @@ export {
   renderCraftCuttingCutPieceWarehousePage,
   renderCraftCuttingSampleWarehousePage,
   renderCraftCuttingTransferBagsPage,
+  renderCraftCuttingTransferBagDetailPage,
   renderCraftCuttingReplenishmentPage,
   renderCraftCuttingSpecialProcessesPage,
   renderCraftCuttingSummaryPage,

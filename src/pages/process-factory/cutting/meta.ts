@@ -30,6 +30,7 @@ export type CuttingCanonicalPageKey =
   | 'cut-piece-warehouse'
   | 'sample-warehouse'
   | 'transfer-bags'
+  | 'transfer-bag-detail'
   | 'replenishment'
   | 'special-processes'
   | 'summary'
@@ -264,10 +265,20 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/transfer-bags',
     aliases: [],
     menuGroupTitle: '裁片仓交接',
-    pageTitle: '周转口袋车缝交接',
+    pageTitle: '周转口袋流转',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看周转口袋、装袋与父子码映射。',
+    shortDescription: '查看周转口袋流转状态、筛选对象并进入详情。',
+  },
+  'transfer-bag-detail': {
+    key: 'transfer-bag-detail',
+    canonicalPath: '/fcs/craft/cutting/transfer-bag-detail',
+    aliases: [],
+    menuGroupTitle: '裁片仓交接',
+    pageTitle: '周转口袋详情',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '查看单个周转口袋的流转详情、二维码与使用周期工作区。',
   },
   replenishment: {
     key: 'replenishment',

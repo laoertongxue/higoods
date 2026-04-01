@@ -151,6 +151,7 @@ import {
   renderCraftCuttingCutPieceWarehousePage,
   renderCraftCuttingSampleWarehousePage,
   renderCraftCuttingTransferBagsPage,
+  renderCraftCuttingTransferBagDetailPage,
   renderCraftCuttingReplenishmentPage,
   renderCraftCuttingSpecialProcessesPage,
   renderCraftCuttingSummaryPage,
@@ -305,6 +306,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/cutting/cut-piece-warehouse': () => renderCraftCuttingCutPieceWarehousePage(),
   '/fcs/craft/cutting/sample-warehouse': () => renderCraftCuttingSampleWarehousePage(),
   '/fcs/craft/cutting/transfer-bags': () => renderCraftCuttingTransferBagsPage(),
+  '/fcs/craft/cutting/transfer-bag-detail': () => renderCraftCuttingTransferBagDetailPage(),
   '/fcs/craft/cutting/special-processes': () => renderCraftCuttingSpecialProcessesPage(),
   '/fcs/craft/cutting/summary': () => renderCraftCuttingSummaryPage(),
   // 裁片 alias 只用于承接历史入口；页面打开后必须展示 canonical 标题和 breadcrumb。

@@ -44,6 +44,8 @@ export interface CuttingDrillContext {
   mergeBatchId?: string
   mergeBatchNo?: string
   materialSku?: string
+  cuttingGroup?: string
+  warehouseStatus?: string
   styleCode?: string
   spuCode?: string
   markerId?: string
@@ -62,6 +64,7 @@ export interface CuttingDrillContext {
   usageNo?: string
   warehouseRecordId?: string
   autoOpenDetail?: boolean
+  detailTab?: string
   focusTab?: string
   focusSection?: string
 }
@@ -77,7 +80,7 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
   'fei-tickets': '打印菲票',
   'original-orders': '原始裁片单',
   'production-progress': '生产单进度',
-  'transfer-bags': '周转口袋车缝交接',
+  'transfer-bags': '周转口袋流转',
   'cut-piece-warehouse': '裁片仓',
   'fabric-warehouse': '裁床仓',
   'merge-batches': '合并裁剪批次',
@@ -93,7 +96,7 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   feiTickets: '去打印菲票',
   originalOrders: '去原始裁片单',
   productionProgress: '去生产单进度',
-  transferBags: '去周转口袋车缝交接',
+  transferBags: '去周转口袋流转',
   cutPieceWarehouse: '去裁片仓',
   fabricWarehouse: '去裁床仓',
   mergeBatches: '去合并裁剪批次',
@@ -117,6 +120,13 @@ const issueTypeLabelMap: Record<string, string> = {
   TICKET_QR: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
   SPECIAL_PROCESS: '特殊工艺',
+}
+
+const warehouseStatusLabelMap: Record<string, string> = {
+  PENDING_INBOUND: '待入仓',
+  INBOUNDED: '已入仓',
+  WAITING_HANDOVER: '待交接',
+  HANDED_OVER: '已交接',
 }
 
 const focusTabLabelMap: Record<string, string> = {
@@ -152,6 +162,8 @@ export function serializeCuttingDrillContext(context: CuttingDrillContext | null
     mergeBatchId: context.mergeBatchId,
     mergeBatchNo: context.mergeBatchNo,
     materialSku: context.materialSku,
+    cuttingGroup: context.cuttingGroup,
+    warehouseStatus: context.warehouseStatus,
     styleCode: context.styleCode,
     spuCode: context.spuCode,
     markerId: context.markerId,
@@ -170,6 +182,7 @@ export function serializeCuttingDrillContext(context: CuttingDrillContext | null
     usageNo: context.usageNo,
     warehouseRecordId: context.warehouseRecordId,
     autoOpenDetail: context.autoOpenDetail ? '1' : undefined,
+    detailTab: context.detailTab,
     focusTab: context.focusTab,
     focusSection: context.focusSection,
   }
@@ -193,6 +206,8 @@ export function readCuttingDrillContextFromLocation(
     mergeBatchId: pickString(params, 'mergeBatchId'),
     mergeBatchNo: pickString(params, 'mergeBatchNo', '裁剪批次No'),
     materialSku: pickString(params, 'materialSku', 'fabricSku'),
+    cuttingGroup: pickString(params, 'cuttingGroup'),
+    warehouseStatus: pickString(params, 'warehouseStatus'),
     styleCode: pickString(params, 'styleCode'),
     spuCode: pickString(params, 'spuCode'),
     markerId: pickString(params, 'markerId'),
@@ -211,6 +226,7 @@ export function readCuttingDrillContextFromLocation(
     usageNo: pickString(params, 'usageNo'),
     warehouseRecordId: pickString(params, 'warehouseRecordId'),
     autoOpenDetail: toBoolean(params.get('autoOpenDetail')),
+    detailTab: pickString(params, 'detailTab'),
     focusTab: pickString(params, 'focusTab', 'tab', 'panel'),
     focusSection: pickString(params, 'focusSection'),
   }
@@ -223,6 +239,7 @@ export function normalizeLegacyCuttingPayload(
   sourcePageKey?: CuttingPageContextKey,
   extra?: Partial<CuttingDrillContext>,
 ): CuttingDrillContext {
+  const payloadAutoOpenDetail = payload?.autoOpenDetail === '1' || payload?.autoOpenDetail === 'true'
   return {
     sourcePageKey,
     productionOrderId: payload?.productionOrderId,
@@ -232,6 +249,8 @@ export function normalizeLegacyCuttingPayload(
     mergeBatchId: payload?.mergeBatchId,
     mergeBatchNo: payload?.mergeBatchNo || payload?.['裁剪批次No'],
     materialSku: payload?.materialSku || payload?.fabricSku,
+    cuttingGroup: payload?.cuttingGroup,
+    warehouseStatus: payload?.warehouseStatus,
     styleCode: payload?.styleCode,
     spuCode: payload?.spuCode,
     markerId: payload?.markerId,
@@ -251,7 +270,8 @@ export function normalizeLegacyCuttingPayload(
     warehouseRecordId: payload?.warehouseRecordId,
     blockerSection: payload?.blockerSection,
     issueType: payload?.issueType,
-    autoOpenDetail: extra?.autoOpenDetail,
+    autoOpenDetail: extra?.autoOpenDetail ?? payloadAutoOpenDetail,
+    detailTab: extra?.detailTab || payload?.detailTab,
     focusTab: extra?.focusTab || payload?.focusTab || payload?.tab || payload?.panel,
     focusSection: extra?.focusSection,
     sourceSection: extra?.sourceSection,
@@ -276,7 +296,12 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'materialPrep') return getCanonicalCuttingPath('material-prep')
   if (target === 'originalOrders') return getCanonicalCuttingPath('original-orders')
   if (target === 'productionProgress') return getCanonicalCuttingPath('production-progress')
-  if (target === 'transferBags') return getCanonicalCuttingPath('transfer-bags')
+  if (target === 'transferBags') {
+    if (context.bagId || context.bagCode || context.usageId || context.usageNo) {
+      return getCanonicalCuttingPath('transfer-bag-detail')
+    }
+    return getCanonicalCuttingPath('transfer-bags')
+  }
   if (target === 'cutPieceWarehouse') return getCanonicalCuttingPath('cut-piece-warehouse')
   if (target === 'fabricWarehouse') return getCanonicalCuttingPath('fabric-warehouse')
   if (target === 'mergeBatches') return getCanonicalCuttingPath('merge-batches')
@@ -323,6 +348,9 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
     context.originalCutOrderNo ? `原始裁片单：${context.originalCutOrderNo}` : '',
     context.mergeBatchNo ? `合并批次：${context.mergeBatchNo}` : '',
     context.materialSku ? `面料 SKU：${context.materialSku}` : '',
+    context.cuttingGroup ? `裁床组：${context.cuttingGroup}` : '',
+    context.warehouseStatus ? `仓状态：${warehouseStatusLabelMap[context.warehouseStatus] || context.warehouseStatus}` : '',
+    context.styleCode ? `款号：${context.styleCode}` : '',
     context.markerNo ? `唛架：${context.markerNo}` : '',
     context.printableUnitNo ? `打印单元：${context.printableUnitNo}` : '',
     context.ticketNo ? `菲票码：${context.ticketNo}` : '',
@@ -361,6 +389,9 @@ export function buildReturnToSummaryContext(context: CuttingDrillContext | null)
     mergeBatchId: context?.mergeBatchId,
     mergeBatchNo: context?.mergeBatchNo,
     materialSku: context?.materialSku,
+    cuttingGroup: context?.cuttingGroup,
+    warehouseStatus: context?.warehouseStatus,
+    styleCode: context?.styleCode,
     suggestionId: context?.suggestionId,
     processOrderId: context?.processOrderId,
     processOrderNo: context?.processOrderNo,

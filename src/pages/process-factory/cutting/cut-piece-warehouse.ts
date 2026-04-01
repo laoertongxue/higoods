@@ -111,9 +111,9 @@ function getPrefilterFromQuery(): CutPieceWarehousePrefilter | null {
     mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
     mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
     materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
-    cuttingGroup: params.get('cuttingGroup') || undefined,
+    cuttingGroup: drillContext?.cuttingGroup || params.get('cuttingGroup') || undefined,
     zoneCode: (params.get('zoneCode') as CutPieceZoneCode | null) || undefined,
-    warehouseStatus: (params.get('warehouseStatus') as WarehouseStatusFilter | null) || undefined,
+    warehouseStatus: (drillContext?.warehouseStatus as WarehouseStatusFilter | undefined) || (params.get('warehouseStatus') as WarehouseStatusFilter | null) || undefined,
   }
 
   return Object.values(prefilter).some(Boolean) ? prefilter : null
@@ -156,7 +156,7 @@ function renderHeaderActions(): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-original-orders-index">查看原始裁片单</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags-index">去周转口袋车缝交接</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags-index">查看周转口袋流转</button>
       ${returnToSummary}
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-summary-index">查看裁剪总表</button>
     </div>
@@ -193,7 +193,7 @@ function renderStatsCards(): string {
       ${renderCompactKpiCard('裁片总数量', formatCutPieceQuantity(summary.totalQuantity), '当前筛选范围汇总', 'text-blue-600')}
       ${renderCompactKpiCard('待入仓数', summary.waitingInWarehouseCount, '仍待仓务确认', 'text-slate-700')}
       ${renderCompactKpiCard('已入仓数', summary.inWarehouseCount, '已进入裁片仓', 'text-emerald-600')}
-      ${renderCompactKpiCard('待交接数', summary.waitingHandoffCount, '待发后道或周转口袋', 'text-amber-600')}
+      ${renderCompactKpiCard('待交接数', summary.waitingHandoffCount, '待发后道或进入周转口袋流转', 'text-amber-600')}
       ${renderCompactKpiCard('区域数', summary.zoneCount, 'A / B / C / 未分配', 'text-violet-600')}
     </section>
   `
@@ -385,7 +385,7 @@ function renderTable(items: CutPieceWarehouseItem[]): string {
                 <td class="px-4 py-3">
                   <div class="flex flex-wrap gap-2">
                     <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cut-piece-warehouse-action="open-detail" data-item-id="${escapeHtml(item.warehouseItemId)}">查看详情</button>
-                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去交接入口</button>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去周转口袋流转</button>
                   </div>
                 </td>
               </tr>
@@ -496,10 +496,40 @@ function renderDetailDrawer(): string {
         </section>
 
         <section class="rounded-lg border border-dashed bg-blue-50/50 p-4">
-          <h3 class="text-sm font-semibold text-foreground">待交接信息</h3>
-          <p class="mt-1 text-xs text-muted-foreground">本步只保留去周转口袋车缝交接入口，不正式进入口袋父子码逻辑。</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去 transfer-bags 入口</button>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold text-foreground">周转口袋流转</h3>
+              <p class="mt-1 text-xs text-muted-foreground">将当前裁片对象带入周转口袋流转页，可继续选择周转口袋、进入详情、执行装袋与后续流转操作。</p>
+            </div>
+          </div>
+          <dl class="mt-4 grid gap-3 md:grid-cols-2">
+            <div class="rounded-lg border bg-white/70 p-3">
+              <dt class="text-xs text-muted-foreground">原始裁片单号</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.originalCutOrderNo)}</dd>
+            </div>
+            <div class="rounded-lg border bg-white/70 p-3">
+              <dt class="text-xs text-muted-foreground">生产单号</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.productionOrderNo)}</dd>
+            </div>
+            <div class="rounded-lg border bg-white/70 p-3">
+              <dt class="text-xs text-muted-foreground">批次号</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.mergeBatchNo || '未关联批次')}</dd>
+            </div>
+            <div class="rounded-lg border bg-white/70 p-3">
+              <dt class="text-xs text-muted-foreground">面料 SKU</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.materialSku || '待补面料')}</dd>
+            </div>
+            <div class="rounded-lg border bg-white/70 p-3">
+              <dt class="text-xs text-muted-foreground">裁床组</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.cuttingGroup)}</dd>
+            </div>
+            <div class="rounded-lg border bg-white/70 p-3">
+              <dt class="text-xs text-muted-foreground">仓状态</dt>
+              <dd class="mt-1">${renderTag(item.warehouseStatus.label, item.warehouseStatus.className)}</dd>
+            </div>
+          </dl>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去周转口袋流转</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-original-orders" data-item-id="${escapeHtml(item.warehouseItemId)}">查看原始裁片单</button>
           </div>
         </section>
@@ -543,8 +573,11 @@ function navigateByPayload(itemId: string | undefined, target: keyof ReturnType<
     mergeBatchId: item.mergeBatchId || undefined,
     mergeBatchNo: item.mergeBatchNo || undefined,
     materialSku: item.materialSku || undefined,
+    cuttingGroup: item.cuttingGroup || undefined,
+    warehouseStatus: item.warehouseStatus.key,
+    styleCode: item.styleCode || undefined,
     warehouseRecordId: item.warehouseItemId,
-    autoOpenDetail: true,
+    autoOpenDetail: target === 'transferBags',
   })
   appStore.navigate(buildCuttingRouteWithContext(target as CuttingNavigationTarget, context))
   return true

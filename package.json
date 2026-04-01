@@ -90,11 +90,16 @@
     "test:cutting:all:e2e": "playwright test tests/cutting-*.spec.ts tests/fcs-upstream-cutting-chain.spec.ts"
   },
   "dependencies": {
-    "lucide": "^0.468.0"
+    "lucide": "^0.468.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.2",
     "@tailwindcss/postcss": "^4.2.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.3",
     "tailwindcss": "^4.1.7",

@@ -332,6 +332,7 @@ export interface TransferBagPrefilter {
   productionOrderId?: string
   productionOrderNo?: string
   materialSku?: string
+  styleCode?: string
   ticketId?: string
   cuttingGroup?: string
   warehouseStatus?: string

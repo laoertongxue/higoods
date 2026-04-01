@@ -1,4 +1,5 @@
 import { appStore } from '../../../state/store'
+import { hydrateRealQRCodes, renderRealQrPlaceholder } from '../../../components/real-qr'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
@@ -24,6 +25,7 @@ import {
   buildCuttingDrillSummary,
   buildCuttingRouteWithContext,
   buildReturnToSummaryContext,
+  getCuttingSourcePageLabel,
   hasSummaryReturnContext,
   normalizeLegacyCuttingPayload,
   readCuttingDrillContextFromLocation,
@@ -86,6 +88,9 @@ type MasterStatusFilter = 'ALL' | PocketCarrierStatusKey
 
 type UsageStatusFilter = 'ALL' | TransferBagUsageStatusKey
 type ReturnStatusFilter = 'ALL' | 'WAITING_RETURN' | 'RETURN_INSPECTING' | 'CLOSED' | 'EXCEPTION_CLOSED'
+type TransferBagDetailTab = 'current' | 'history' | 'recovery' | 'logs'
+type TransferBagBaggingStepId = 'task' | 'binding' | 'review' | 'dispatch' | 'signoff'
+type TransferBagBaggingStepState = 'pending' | 'active' | 'done' | 'locked'
 
 type FeedbackTone = 'success' | 'warning'
 
@@ -110,6 +115,31 @@ type FeedbackState = {
   message: string
 } | null
 
+interface TransferBagLandingResolution {
+  page: 'list' | 'detail'
+  bagId?: string
+  bagCode?: string
+  usageId?: string
+  usageNo?: string
+  reason: string
+  matchedCount?: number
+}
+
+interface TransferBagLandingBanner {
+  summary: string
+  chips: string[]
+}
+
+interface TransferBagBaggingStepView {
+  id: TransferBagBaggingStepId
+  index: number
+  label: string
+  state: TransferBagBaggingStepState
+  summary: string
+  helperText: string
+  open: boolean
+}
+
 interface TransferBagsPageState {
   store: TransferBagStore
   masterKeyword: string
@@ -124,6 +154,7 @@ interface TransferBagsPageState {
   activeUsageId: string | null
   prefilter: TransferBagPrefilter | null
   drillContext: CuttingDrillContext | null
+  landingBanner: TransferBagLandingBanner | null
   querySignature: string
   preselectedTicketRecordIds: string[]
   draft: {
@@ -168,6 +199,68 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
+function hasExplicitUsageContext(prefilter: TransferBagPrefilter | null): boolean {
+  return Boolean(prefilter?.usageId || prefilter?.usageNo)
+}
+
+function hasExplicitBagContext(prefilter: TransferBagPrefilter | null): boolean {
+  return Boolean(prefilter?.bagId || prefilter?.bagCode)
+}
+
+function hasSourceContext(prefilter: TransferBagPrefilter | null): boolean {
+  return Boolean(
+    prefilter?.originalCutOrderId ||
+      prefilter?.originalCutOrderNo ||
+      prefilter?.productionOrderId ||
+      prefilter?.productionOrderNo ||
+      prefilter?.mergeBatchId ||
+      prefilter?.mergeBatchNo ||
+      prefilter?.裁剪批次No ||
+      prefilter?.materialSku ||
+      prefilter?.styleCode ||
+      prefilter?.cuttingGroup ||
+      prefilter?.warehouseStatus,
+  )
+}
+
+function buildSourceOnlyPrefilter(prefilter: TransferBagPrefilter | null): TransferBagPrefilter | null {
+  if (!prefilter) return null
+  return {
+    originalCutOrderId: prefilter.originalCutOrderId,
+    originalCutOrderNo: prefilter.originalCutOrderNo,
+    productionOrderId: prefilter.productionOrderId,
+    productionOrderNo: prefilter.productionOrderNo,
+    mergeBatchId: prefilter.mergeBatchId,
+    mergeBatchNo: prefilter.mergeBatchNo,
+    裁剪批次No: prefilter.裁剪批次No,
+    materialSku: prefilter.materialSku,
+    styleCode: prefilter.styleCode,
+    cuttingGroup: prefilter.cuttingGroup,
+    warehouseStatus: prefilter.warehouseStatus,
+  }
+}
+
+function hasResolverLookupContext(prefilter: TransferBagPrefilter | null): boolean {
+  return Boolean(
+    prefilter?.usageId ||
+      prefilter?.usageNo ||
+      prefilter?.bagId ||
+      prefilter?.bagCode ||
+      prefilter?.ticketId ||
+      prefilter?.ticketNo ||
+      prefilter?.sewingTaskNo ||
+      prefilter?.originalCutOrderId ||
+      prefilter?.originalCutOrderNo ||
+      prefilter?.productionOrderId ||
+      prefilter?.productionOrderNo ||
+      prefilter?.mergeBatchId ||
+      prefilter?.mergeBatchNo ||
+      prefilter?.裁剪批次No ||
+      prefilter?.materialSku ||
+      prefilter?.styleCode,
+  )
+}
+
 function getProjection() {
   return buildTransferBagsProjection(undefined, state.store)
 }
@@ -190,6 +283,7 @@ const state: TransferBagsPageState = {
   activeUsageId: null,
   prefilter: null,
   drillContext: null,
+  landingBanner: null,
   querySignature: '',
   preselectedTicketRecordIds: deserializeTransferBagSelectedTicketIds(
     sessionStorage.getItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY),
@@ -270,56 +364,96 @@ function matchPrefilter(itemValues: Array<string | undefined>, search?: string):
   return itemValues.some((value) => value?.includes(search))
 }
 
-function matchesMasterPrefilter(item: TransferBagMasterItem): boolean {
-  if (!state.prefilter) return true
+function matchesUsagePrefilter(item: TransferBagUsageItem, prefilter: TransferBagPrefilter | null = state.prefilter): boolean {
+  if (!prefilter) return true
+  const bindingItems = item.bindingItems || []
+  const originalCutOrderIds = uniqueStrings([
+    ...bindingItems.map((binding) => binding.originalCutOrderId),
+    item.navigationPayload.originalOrders.originalCutOrderId,
+  ])
+  const productionOrderIds = uniqueStrings([
+    ...bindingItems.map((binding) => binding.ticket?.productionOrderId),
+    item.navigationPayload.originalOrders.productionOrderId,
+  ])
+  const mergeBatchIds = uniqueStrings([
+    ...bindingItems.map((binding) => binding.ticket?.mergeBatchId),
+    item.navigationPayload.originalOrders.mergeBatchId,
+  ])
+  const materialSkus = uniqueStrings(bindingItems.map((binding) => binding.ticket?.materialSku))
+  const styleCodes = uniqueStrings([item.styleCode, ...bindingItems.map((binding) => binding.ticket?.styleCode)])
+
   return (
-    matchPrefilter([item.bagCode, item.latestUsageNo], state.prefilter.bagCode || state.prefilter.usageNo) &&
-    matchPrefilter(item.currentUsage?.productionOrderNos || [], state.prefilter.productionOrderNo)
+    matchPrefilter([item.usageId], prefilter.usageId) &&
+    matchPrefilter([item.usageNo], prefilter.usageNo) &&
+    matchPrefilter([item.bagId], prefilter.bagId) &&
+    matchPrefilter([item.bagCode], prefilter.bagCode) &&
+    matchPrefilter(originalCutOrderIds, prefilter.originalCutOrderId) &&
+    matchPrefilter(item.originalCutOrderNos, prefilter.originalCutOrderNo) &&
+    matchPrefilter(productionOrderIds, prefilter.productionOrderId) &&
+    matchPrefilter(item.productionOrderNos, prefilter.productionOrderNo) &&
+    matchPrefilter(mergeBatchIds, prefilter.mergeBatchId) &&
+    matchPrefilter(item.mergeBatchNos, prefilter.mergeBatchNo || prefilter.裁剪批次No) &&
+    matchPrefilter(materialSkus, prefilter.materialSku) &&
+    matchPrefilter(styleCodes, prefilter.styleCode) &&
+    matchPrefilter([item.sewingTaskNo], prefilter.sewingTaskNo) &&
+    matchPrefilter(bindingItems.map((binding) => binding.ticket?.feiTicketId || binding.ticketRecordId), prefilter.ticketId) &&
+    matchPrefilter(item.ticketNos, prefilter.ticketNo)
   )
 }
 
-function matchesUsagePrefilter(item: TransferBagUsageItem): boolean {
-  if (!state.prefilter) return true
+function matchesBindingPrefilter(item: TransferBagBindingItem, prefilter: TransferBagPrefilter | null = state.prefilter): boolean {
+  if (!prefilter) return true
   return (
-    matchPrefilter([item.usageId], state.prefilter.usageId) &&
-    matchPrefilter([item.bagId], state.prefilter.bagId) &&
-    matchPrefilter(item.originalCutOrderNos, state.prefilter.originalCutOrderNo) &&
-    matchPrefilter([item.navigationPayload.originalOrders.originalCutOrderId], state.prefilter.originalCutOrderId) &&
-    matchPrefilter(item.productionOrderNos, state.prefilter.productionOrderNo) &&
-    matchPrefilter([item.navigationPayload.originalOrders.productionOrderId], state.prefilter.productionOrderId) &&
-    matchPrefilter(item.mergeBatchNos, state.prefilter.mergeBatchNo || state.prefilter.裁剪批次No) &&
-    matchPrefilter([item.navigationPayload.originalOrders.mergeBatchId], state.prefilter.mergeBatchId) &&
-    matchPrefilter([item.navigationPayload.originalOrders.materialSku], state.prefilter.materialSku) &&
-    matchPrefilter([item.sewingTaskNo], state.prefilter.sewingTaskNo) &&
-    matchPrefilter([item.bagCode], state.prefilter.bagCode) &&
-    matchPrefilter([item.usageNo], state.prefilter.usageNo)
+    matchPrefilter([item.ticket?.feiTicketId || item.ticketRecordId], prefilter.ticketId) &&
+    matchPrefilter([item.ticketNo], prefilter.ticketNo) &&
+    matchPrefilter([item.originalCutOrderId], prefilter.originalCutOrderId) &&
+    matchPrefilter([item.originalCutOrderNo], prefilter.originalCutOrderNo) &&
+    matchPrefilter([item.ticket?.productionOrderId || item.navigationPayload.originalOrders.productionOrderId], prefilter.productionOrderId) &&
+    matchPrefilter([item.productionOrderNo], prefilter.productionOrderNo) &&
+    matchPrefilter([item.ticket?.mergeBatchId || item.navigationPayload.originalOrders.mergeBatchId], prefilter.mergeBatchId) &&
+    matchPrefilter([item.mergeBatchNo || item.裁剪批次No], prefilter.mergeBatchNo || prefilter.裁剪批次No) &&
+    matchPrefilter([item.ticket?.materialSku], prefilter.materialSku) &&
+    matchPrefilter([item.ticket?.styleCode], prefilter.styleCode) &&
+    matchPrefilter([item.bagId], prefilter.bagId) &&
+    matchPrefilter([item.bagCode], prefilter.bagCode) &&
+    matchPrefilter([item.usageId], prefilter.usageId) &&
+    matchPrefilter([item.usage?.usageNo], prefilter.usageNo) &&
+    matchPrefilter([item.usage?.sewingTaskNo], prefilter.sewingTaskNo)
   )
 }
 
-function matchesBindingPrefilter(item: TransferBagBindingItem): boolean {
-  if (!state.prefilter) return true
-  return (
-    matchPrefilter([item.ticket?.feiTicketId || item.ticketRecordId], state.prefilter.ticketId) &&
-    matchPrefilter([item.ticketNo], state.prefilter.ticketNo) &&
-    matchPrefilter([item.originalCutOrderId], state.prefilter.originalCutOrderId) &&
-    matchPrefilter([item.originalCutOrderNo], state.prefilter.originalCutOrderNo) &&
-    matchPrefilter([item.navigationPayload.originalOrders.productionOrderId], state.prefilter.productionOrderId) &&
-    matchPrefilter([item.productionOrderNo], state.prefilter.productionOrderNo) &&
-    matchPrefilter([item.navigationPayload.originalOrders.mergeBatchId], state.prefilter.mergeBatchId) &&
-    matchPrefilter([item.mergeBatchNo || item.裁剪批次No], state.prefilter.mergeBatchNo || state.prefilter.裁剪批次No) &&
-    matchPrefilter([item.ticket?.materialSku], state.prefilter.materialSku) &&
-    matchPrefilter([item.bagId], state.prefilter.bagId) &&
-    matchPrefilter([item.bagCode], state.prefilter.bagCode) &&
-    matchPrefilter([item.usageId], state.prefilter.usageId) &&
-    matchPrefilter([item.usage?.usageNo], state.prefilter.usageNo)
-  )
+function findMatchingUsages(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagUsageItem[] {
+  if (!prefilter || !hasResolverLookupContext(prefilter)) return []
+  return viewModel.usages.filter((item) => matchesUsagePrefilter(item, prefilter))
+}
+
+function findMatchingBindings(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagBindingItem[] {
+  if (!prefilter || !hasResolverLookupContext(prefilter)) return []
+  return viewModel.bindings.filter((item) => matchesBindingPrefilter(item, prefilter))
+}
+
+function findMatchingMasters(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagMasterItem[] {
+  if (!prefilter) return []
+  const matchedBagIds = new Set<string>()
+
+  if (prefilter.bagId || prefilter.bagCode) {
+    viewModel.masters
+      .filter((item) => matchPrefilter([item.bagId], prefilter.bagId) && matchPrefilter([item.bagCode], prefilter.bagCode))
+      .forEach((item) => matchedBagIds.add(item.bagId))
+  }
+
+  findMatchingUsages(prefilter, viewModel).forEach((item) => matchedBagIds.add(item.bagId))
+  findMatchingBindings(prefilter, viewModel).forEach((item) => matchedBagIds.add(item.bagId))
+
+  return matchedBagIds.size ? viewModel.masters.filter((item) => matchedBagIds.has(item.bagId)) : []
 }
 
 function getFilteredMasters() {
   const keyword = state.masterKeyword.trim().toLowerCase()
+  const matchedMasterIds = state.prefilter ? new Set(findMatchingMasters(state.prefilter).map((item) => item.bagId)) : null
   return getViewModel().masters.filter((item) => {
     if (state.masterStatus !== 'ALL' && item.pocketStatusKey !== state.masterStatus) return false
-    if (!matchesMasterPrefilter(item)) return false
+    if (matchedMasterIds && matchedMasterIds.size && !matchedMasterIds.has(item.bagId)) return false
     if (keyword) {
       const haystack = [item.bagCode, item.bagType, item.currentLocation, item.latestUsageNo, item.note].join(' ').toLowerCase()
       if (!haystack.includes(keyword)) return false
@@ -384,9 +518,10 @@ function getPrefilterFromQuery(): TransferBagPrefilter | null {
     裁剪批次No: drillContext?.mergeBatchNo || params.get('裁剪批次No') || undefined,
     mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
     materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
+    styleCode: drillContext?.styleCode || params.get('styleCode') || undefined,
     ticketId: drillContext?.ticketId || params.get('ticketId') || params.get('ticketRecordId') || undefined,
-    cuttingGroup: params.get('cuttingGroup') || undefined,
-    warehouseStatus: params.get('warehouseStatus') || undefined,
+    cuttingGroup: drillContext?.cuttingGroup || params.get('cuttingGroup') || undefined,
+    warehouseStatus: drillContext?.warehouseStatus || params.get('warehouseStatus') || undefined,
     ticketNo: drillContext?.ticketNo || params.get('ticketNo') || undefined,
     sewingTaskNo: params.get('sewingTaskNo') || undefined,
     bagId: drillContext?.bagId || params.get('bagId') || undefined,
@@ -453,6 +588,7 @@ function getCandidateTickets(): TransferBagTicketCandidate[] {
     if (state.prefilter.mergeBatchId && ticket.mergeBatchId !== state.prefilter.mergeBatchId) return false
     if (state.prefilter.裁剪批次No && ticket.mergeBatchNo !== state.prefilter.裁剪批次No) return false
     if (state.prefilter.materialSku && ticket.materialSku !== state.prefilter.materialSku) return false
+    if (state.prefilter.styleCode && ticket.styleCode !== state.prefilter.styleCode) return false
     return true
   })
 }
@@ -461,6 +597,158 @@ function getSelectedTicketRecord(): TransferBagTicketCandidate | null {
   const record = resolveFeiTicketScanInput(state.draft.ticketInput, getProjection().ticketRecords)
   if (!record) return null
   return getViewModel().ticketCandidatesById[record.ticketRecordId] ?? null
+}
+
+function resolveTransferBagLandingFromPrefilter(
+  prefilter: TransferBagPrefilter | null,
+  viewModel = getViewModel(),
+): TransferBagLandingResolution | null {
+  if (!prefilter) return null
+
+  if (hasExplicitUsageContext(prefilter)) {
+    const matchedUsages = viewModel.usages.filter(
+      (item) => matchPrefilter([item.usageId], prefilter.usageId) && matchPrefilter([item.usageNo], prefilter.usageNo),
+    )
+    if (matchedUsages.length === 1) {
+      const matchedUsage = matchedUsages[0]
+      return {
+        page: 'detail',
+        reason: 'explicit-usage',
+        bagId: matchedUsage.bagId,
+        bagCode: matchedUsage.bagCode,
+        usageId: matchedUsage.usageId,
+        usageNo: matchedUsage.usageNo,
+      }
+    }
+    return {
+      page: 'list',
+      reason: matchedUsages.length ? 'ambiguous-usage' : 'missing-usage',
+      matchedCount: matchedUsages.length,
+    }
+  }
+
+  if (hasExplicitBagContext(prefilter)) {
+    const matchedMasters = viewModel.masters.filter(
+      (item) => matchPrefilter([item.bagId], prefilter.bagId) && matchPrefilter([item.bagCode], prefilter.bagCode),
+    )
+    if (matchedMasters.length === 1) {
+      const matchedMaster = matchedMasters[0]
+      return {
+        page: 'detail',
+        reason: 'explicit-bag',
+        bagId: matchedMaster.bagId,
+        bagCode: matchedMaster.bagCode,
+        usageId: matchedMaster.currentUsage?.usageId || undefined,
+        usageNo: matchedMaster.currentUsage?.usageNo || undefined,
+      }
+    }
+    return {
+      page: 'list',
+      reason: matchedMasters.length ? 'ambiguous-bag' : 'missing-bag',
+      matchedCount: matchedMasters.length,
+    }
+  }
+
+  if (!hasSourceContext(prefilter)) {
+    return {
+      page: 'list',
+      reason: 'no-source-context',
+      matchedCount: 0,
+    }
+  }
+
+  const sourcePrefilter = buildSourceOnlyPrefilter(prefilter)
+  if (!hasResolverLookupContext(sourcePrefilter)) {
+    return {
+      page: 'list',
+      reason: 'source-context-without-object-signal',
+      matchedCount: 0,
+    }
+  }
+
+  const matchedUsages = findMatchingUsages(sourcePrefilter, viewModel)
+  if (matchedUsages.length === 1) {
+    const matchedUsage = matchedUsages[0]
+    return {
+      page: 'detail',
+      reason: 'source-unique-usage',
+      bagId: matchedUsage.bagId,
+      bagCode: matchedUsage.bagCode,
+      usageId: matchedUsage.usageId,
+      usageNo: matchedUsage.usageNo,
+    }
+  }
+
+  const matchedBindings = findMatchingBindings(sourcePrefilter, viewModel)
+  const matchedBindingUsages = uniqueStrings(matchedBindings.map((item) => item.usageId))
+    .map((usageId) => viewModel.usagesById[usageId])
+    .filter((item): item is TransferBagUsageItem => Boolean(item))
+
+  if (matchedBindingUsages.length === 1) {
+    const matchedUsage = matchedBindingUsages[0]
+    return {
+      page: 'detail',
+      reason: 'source-unique-binding-usage',
+      bagId: matchedUsage.bagId,
+      bagCode: matchedUsage.bagCode,
+      usageId: matchedUsage.usageId,
+      usageNo: matchedUsage.usageNo,
+    }
+  }
+
+  const matchedBagIds = uniqueStrings([
+    ...matchedUsages.map((item) => item.bagId),
+    ...matchedBindings.map((item) => item.bagId),
+  ])
+
+  if (matchedBagIds.length === 1) {
+    const matchedMaster = viewModel.mastersById[matchedBagIds[0]]
+    if (matchedMaster) {
+      return {
+        page: 'detail',
+        reason: 'source-unique-bag',
+        bagId: matchedMaster.bagId,
+        bagCode: matchedMaster.bagCode,
+        usageId: matchedMaster.currentUsage?.usageId || undefined,
+        usageNo: matchedMaster.currentUsage?.usageNo || undefined,
+      }
+    }
+  }
+
+  return {
+    page: 'list',
+    reason: matchedBagIds.length || matchedUsages.length || matchedBindingUsages.length ? 'source-ambiguous' : 'source-not-found',
+    matchedCount: Math.max(matchedBagIds.length, matchedUsages.length, matchedBindingUsages.length),
+  }
+}
+
+function buildTransferBagLandingBanner(
+  prefilter: TransferBagPrefilter | null,
+  drillContext: CuttingDrillContext | null,
+  resolution: TransferBagLandingResolution | null,
+): TransferBagLandingBanner | null {
+  if (!prefilter || !resolution || resolution.page !== 'list' || !hasSourceContext(prefilter)) return null
+
+  const chips = Array.from(
+    new Set(
+      buildCuttingDrillChipLabels(drillContext).filter(
+        (label) => !label.startsWith('周转口袋码：') && !label.startsWith('使用周期：'),
+      ),
+    ),
+  )
+
+  if (!chips.length) return null
+
+  const sourceLabel = getCuttingSourcePageLabel(drillContext?.sourcePageKey)
+  const summary =
+    resolution.matchedCount && resolution.matchedCount > 1
+      ? `已从${sourceLabel}带入上下文，当前未唯一匹配到某个周转口袋，请先选择口袋或进入详情。`
+      : `已从${sourceLabel}带入上下文，当前还未定位到对应周转口袋，请先选择口袋或进入详情。`
+
+  return {
+    summary,
+    chips,
+  }
 }
 
 function refreshDerivedState(): void {
@@ -534,7 +822,7 @@ function refreshDerivedState(): void {
               : '裁片仓复用位'
     } else {
       master.currentStatus = 'IN_USE'
-      master.currentLocation = '车缝交接待发区'
+      master.currentLocation = '车缝流转待发区'
     }
   })
 
@@ -558,21 +846,44 @@ function syncPrefilterFromQuery(): void {
     sessionStorage.getItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY),
   )
   const viewModel = getViewModel()
+  const detailPage = isTransferBagDetailPage()
+  const landing = resolveTransferBagLandingFromPrefilter(state.prefilter, viewModel)
+  state.landingBanner = buildTransferBagLandingBanner(state.prefilter, state.drillContext, landing)
 
-  if (state.prefilter?.bagId || state.prefilter?.bagCode) {
-    const matchedMaster = viewModel.masters.find((item) => item.bagId === state.prefilter?.bagId || item.bagCode === state.prefilter?.bagCode)
+  if (landing?.page === 'detail' && landing.bagId) {
+    const matchedMaster = viewModel.mastersById[landing.bagId] || null
     state.activeMasterId = matchedMaster?.bagId ?? null
-    state.draft.bagCodeInput = matchedMaster?.bagCode || state.prefilter?.bagCode || ''
-    state.draft.bagId = matchedMaster?.bagId ?? ''
-  }
+    state.draft.bagCodeInput = matchedMaster?.bagCode || landing.bagCode || ''
+    state.draft.bagId = matchedMaster?.bagId || landing.bagId
 
-  if (state.prefilter?.usageId || state.prefilter?.usageNo) {
-    const matchedUsage = viewModel.usages.find((item) => item.usageId === state.prefilter?.usageId || item.usageNo === state.prefilter?.usageNo)
-    if (matchedUsage) {
-      syncUsageSelection(matchedUsage.usageId)
+    if (landing.usageId && viewModel.usagesById[landing.usageId]) {
+      syncUsageSelection(landing.usageId)
+    } else if (matchedMaster?.currentUsage) {
+      syncUsageSelection(matchedMaster.currentUsage.usageId)
     } else {
       state.activeUsageId = null
+      state.draft.sewingTaskId = ''
+      resetReturnDraft(null)
     }
+
+    if (!detailPage) {
+      const detailRoute = buildTransferBagDetailRoute({
+        bagId: matchedMaster?.bagId || landing.bagId,
+        bagCode: matchedMaster?.bagCode || landing.bagCode || undefined,
+        usageId: landing.usageId || matchedMaster?.currentUsage?.usageId || undefined,
+        usageNo: landing.usageNo || matchedMaster?.currentUsage?.usageNo || undefined,
+      })
+      if (appStore.getState().pathname !== detailRoute) {
+        appStore.navigate(detailRoute)
+      }
+    }
+  } else {
+    state.activeMasterId = null
+    state.activeUsageId = null
+    state.draft.bagId = ''
+    state.draft.bagCodeInput = ''
+    state.draft.sewingTaskId = ''
+    resetReturnDraft(null)
   }
 
   if (state.prefilter?.sewingTaskNo) {
@@ -680,16 +991,254 @@ function renderTag(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
+function getCurrentTransferBagPathname(): string {
+  return appStore.getState().pathname.split('?')[0] || getCanonicalCuttingPath('transfer-bags')
+}
+
+function isTransferBagDetailPage(): boolean {
+  return getCurrentTransferBagPathname() === getCanonicalCuttingPath('transfer-bag-detail')
+}
+
+function buildTransferBagDetailRoute(options: {
+  bagId?: string | null
+  bagCode?: string | null
+  usageId?: string | null
+  usageNo?: string | null
+  detailTab?: TransferBagDetailTab | null
+  focusSection?: string | null
+}): string {
+  return buildCuttingRouteWithContext('transferBags', {
+    ...(state.drillContext || {}),
+    sourcePageKey: state.drillContext?.sourcePageKey || 'transfer-bags',
+    bagId: options.bagId || undefined,
+    bagCode: options.bagCode || undefined,
+    usageId: options.usageId || undefined,
+    usageNo: options.usageNo || undefined,
+    autoOpenDetail: true,
+    detailTab: options.detailTab || undefined,
+    focusSection: options.focusSection || undefined,
+  })
+}
+
+function buildTransferBagListRoute(): string {
+  if (!state.drillContext) return getCanonicalCuttingPath('transfer-bags')
+  return buildCuttingRouteWithContext('transferBags', {
+    ...state.drillContext,
+    bagId: undefined,
+    bagCode: undefined,
+    usageId: undefined,
+    usageNo: undefined,
+    detailTab: undefined,
+    focusSection: undefined,
+  })
+}
+
+function resolveSourceReturnAction(): { label: string; href: string } | null {
+  const sourcePageKey = state.drillContext?.sourcePageKey
+  if (!sourcePageKey || sourcePageKey === 'transfer-bags') return null
+
+  if (sourcePageKey === 'cutting-summary') {
+    const context = buildReturnToSummaryContext(state.drillContext)
+    return context
+      ? {
+          label: '返回裁剪总表',
+          href: buildCuttingRouteWithContext('summary', context),
+        }
+      : null
+  }
+
+  const sourceTargetMap: Partial<Record<NonNullable<CuttingDrillContext['sourcePageKey']>, CuttingNavigationTarget>> = {
+    replenishment: 'replenishment',
+    'special-processes': 'specialProcesses',
+    'material-prep': 'materialPrep',
+    'marker-spreading': 'markerSpreading',
+    'fei-tickets': 'feiTickets',
+    'original-orders': 'originalOrders',
+    'production-progress': 'productionProgress',
+    'cut-piece-warehouse': 'cutPieceWarehouse',
+    'fabric-warehouse': 'fabricWarehouse',
+    'merge-batches': 'mergeBatches',
+    'cuttable-pool': 'cuttablePool',
+  }
+
+  const target = sourceTargetMap[sourcePageKey]
+  if (!target || !state.drillContext) return null
+
+  return {
+    label: `返回${getCuttingSourcePageLabel(sourcePageKey)}`,
+    href: buildCuttingRouteWithContext(target, {
+      ...state.drillContext,
+      bagId: undefined,
+      bagCode: undefined,
+      usageId: undefined,
+      usageNo: undefined,
+      focusSection: undefined,
+    }),
+  }
+}
+
+function resolveFormalBagQrValue(item: TransferBagMasterItem | null): string {
+  if (!item) return ''
+  return item.qrValue || getSourceMaster(item.bagId)?.qrValue || ''
+}
+
+function resolveUsageBagQrValue(usage: TransferBagUsageItem): string {
+  return usage.bagMaster?.qrValue || getViewModel().mastersById[usage.bagId]?.qrValue || getSourceMaster(usage.bagId)?.qrValue || ''
+}
+
+function summarizeQrValue(value: string): string {
+  const normalized = value.trim()
+  if (!normalized) return '未找到正式二维码值'
+  if (normalized.length <= 32) return normalized
+  return `${normalized.slice(0, 16)}...${normalized.slice(-12)}`
+}
+
+function isTransferBagDetailTab(value: string | null | undefined): value is TransferBagDetailTab {
+  return value === 'current' || value === 'history' || value === 'recovery' || value === 'logs'
+}
+
+function readTransferBagDetailTab(): TransferBagDetailTab {
+  const detailTab = state.drillContext?.detailTab || getWarehouseSearchParams().get('detailTab')
+  return isTransferBagDetailTab(detailTab) ? detailTab : 'current'
+}
+
+function getDetailFocusedUsage(activeMaster: TransferBagMasterItem | null): TransferBagUsageItem | null {
+  if (state.activeUsageId) {
+    const usage = getViewModel().usagesById[state.activeUsageId] ?? null
+    if (usage && (!activeMaster || usage.bagId === activeMaster.bagId)) return usage
+  }
+  return activeMaster?.currentUsage || null
+}
+
+function getDetailBagUsages(activeMaster: TransferBagMasterItem | null): TransferBagUsageItem[] {
+  if (!activeMaster) return []
+  return getViewModel().usages
+    .filter((item) => item.bagId === activeMaster.bagId)
+    .sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
+}
+
+function getDetailReturnUsage(usageId: string | null | undefined) {
+  if (!usageId) return null
+  return getReturnViewModel().waitingReturnUsages.find((item) => item.usageId === usageId) || null
+}
+
+function renderDetailMetric(label: string, value: string, valueClassName = 'text-foreground'): string {
+  return `
+    <div class="rounded-lg border bg-muted/10 px-3 py-2">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 text-sm font-semibold ${valueClassName}">${escapeHtml(value)}</div>
+    </div>
+  `
+}
+
+function getMasterTodoMeta(item: TransferBagMasterItem): { label: string; href: string } {
+  if (item.pocketStatusKey === 'IDLE') {
+    return {
+      label: '开始装袋',
+      href: buildTransferBagDetailRoute({ bagId: item.bagId, bagCode: item.bagCode, focusSection: 'usage-workbench' }),
+    }
+  }
+
+  if (item.pocketStatusKey === 'PACKING') {
+    return {
+      label: '继续装袋',
+      href: buildTransferBagDetailRoute({
+        bagId: item.bagId,
+        bagCode: item.bagCode,
+        usageId: item.currentUsage?.usageId || undefined,
+        usageNo: item.currentUsage?.usageNo || undefined,
+        focusSection: 'usage-workbench',
+      }),
+    }
+  }
+
+  if (item.pocketStatusKey === 'READY_TO_DISPATCH') {
+    return {
+      label: '打印清单',
+      href: buildTransferBagDetailRoute({
+        bagId: item.bagId,
+        bagCode: item.bagCode,
+        usageId: item.currentUsage?.usageId || undefined,
+        usageNo: item.currentUsage?.usageNo || undefined,
+        focusSection: 'usage-workbench',
+      }),
+    }
+  }
+
+  if (item.pocketStatusKey === 'DISPATCHED') {
+    return {
+      label: '签收',
+      href: buildTransferBagDetailRoute({
+        bagId: item.bagId,
+        bagCode: item.bagCode,
+        usageId: item.currentUsage?.usageId || undefined,
+        usageNo: item.currentUsage?.usageNo || undefined,
+        focusSection: 'usage-workbench',
+      }),
+    }
+  }
+
+  if (item.pocketStatusKey === 'SIGNED') {
+    return {
+      label: '回仓',
+      href: buildTransferBagDetailRoute({
+        bagId: item.bagId,
+        bagCode: item.bagCode,
+        usageId: item.currentUsage?.usageId || undefined,
+        usageNo: item.currentUsage?.usageNo || undefined,
+        focusSection: 'return-workbench',
+      }),
+    }
+  }
+
+  if (item.pocketStatusKey === 'RETURNED') {
+    return {
+      label: '关闭周期',
+      href: buildTransferBagDetailRoute({
+        bagId: item.bagId,
+        bagCode: item.bagCode,
+        usageId: item.currentUsage?.usageId || undefined,
+        usageNo: item.currentUsage?.usageNo || undefined,
+        focusSection: 'return-workbench',
+      }),
+    }
+  }
+
+  return {
+    label: '查看详情',
+    href: buildTransferBagDetailRoute({
+      bagId: item.bagId,
+      bagCode: item.bagCode,
+      usageId: item.currentUsage?.usageId || undefined,
+      usageNo: item.currentUsage?.usageNo || undefined,
+    }),
+  }
+}
+
 function renderHeaderActions(): string {
-  const returnToSummary = hasSummaryReturnContext(state.drillContext)
-    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="return-summary">返回裁剪总表</button>`
+  const sourceReturnAction = resolveSourceReturnAction()
+  const sourceReturnButton = sourceReturnAction
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(sourceReturnAction.href)}">${escapeHtml(sourceReturnAction.label)}</button>`
     : ''
+  const fallbackWarehouseButton = sourceReturnAction
+    ? ''
+    : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-cut-piece-warehouse-index">返回裁片仓</button>'
+
+  if (isTransferBagDetailPage()) {
+    return `
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTransferBagListRoute())}">返回周转口袋流转</button>
+        ${sourceReturnButton}
+        ${hasSummaryReturnContext(state.drillContext) ? '' : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总表</button>'}
+      </div>
+    `
+  }
+
   return `
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-cut-piece-warehouse-index">返回裁片仓</button>
+      ${sourceReturnButton || fallbackWarehouseButton}
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-fei-tickets-index">去打印菲票</button>
-      ${returnToSummary}
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总表</button>
+      ${hasSummaryReturnContext(state.drillContext) ? '' : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总表</button>'}
     </div>
   `
 }
@@ -726,10 +1275,7 @@ function renderPrefilterBar(): string {
   const chips = Array.from(
     new Set([
       ...buildCuttingDrillChipLabels(state.drillContext),
-      state.prefilter?.productionOrderNo ? `生产单：${state.prefilter.productionOrderNo}` : '',
       state.prefilter?.sewingTaskNo ? `车缝任务：${state.prefilter.sewingTaskNo}` : '',
-      state.prefilter?.cuttingGroup ? `裁床组：${state.prefilter.cuttingGroup}` : '',
-      state.prefilter?.warehouseStatus ? `仓状态：${state.prefilter.warehouseStatus}` : '',
       state.prefilter?.returnStatus ? `回货状态：${state.prefilter.returnStatus}` : '',
       state.preselectedTicketRecordIds.length ? `预选菲票：${state.preselectedTicketRecordIds.length} 张` : '',
     ].filter(Boolean)),
@@ -737,7 +1283,7 @@ function renderPrefilterBar(): string {
   if (!chips.length) return ''
 
   return renderWorkbenchStateBar({
-    summary: buildCuttingDrillSummary(state.drillContext) || '当前按外部上下文预填周转口袋交接工作台',
+    summary: buildCuttingDrillSummary(state.drillContext) || '当前按外部上下文预填周转口袋流转工作区',
     chips: chips.map((label) => renderWorkbenchFilterChip(label, 'data-transfer-bags-action="clear-prefill"', 'amber')),
     clearAttrs: 'data-transfer-bags-action="clear-prefill"',
   })
@@ -757,13 +1303,22 @@ function renderFeedbackBar(): string {
   `
 }
 
+function renderLandingBanner(): string {
+  if (!state.landingBanner) return ''
+
+  return renderWorkbenchStateBar({
+    summary: state.landingBanner.summary,
+    chips: state.landingBanner.chips.map((label) => renderWorkbenchFilterChip(label, 'data-transfer-bags-action="clear-prefill"', 'amber')),
+    clearAttrs: 'data-transfer-bags-action="clear-prefill"',
+  })
+}
+
 function renderDemoFixturePanel(): string {
   return ''
 }
 
 function renderMasterSection(): string {
   const items = getFilteredMasters()
-  const active = getActiveMaster()
   return `
     <section class="space-y-3 rounded-lg border bg-card p-3">
       <div class="flex flex-wrap items-start justify-between gap-3">
@@ -805,68 +1360,67 @@ function renderMasterSection(): string {
               <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th class="px-4 py-3 text-left">周转口袋码</th>
-                  <th class="px-4 py-3 text-left">口袋状态</th>
-                  <th class="px-4 py-3 text-left">当前使用周期号</th>
+                  <th class="px-4 py-3 text-left">当前状态</th>
+                  <th class="px-4 py-3 text-left">当前 / 最近使用周期</th>
                   <th class="px-4 py-3 text-left">当前款号</th>
-                  <th class="px-4 py-3 text-right">绑定菲票数</th>
-                  <th class="px-4 py-3 text-right">绑定总数量</th>
-                  <th class="px-4 py-3 text-right">来源生产单数</th>
-                  <th class="px-4 py-3 text-right">来源裁片单数</th>
-                  <th class="px-4 py-3 text-left">发出时间</th>
-                  <th class="px-4 py-3 text-left">签收时间</th>
-                  <th class="px-4 py-3 text-left">回仓时间</th>
-                  <th class="px-4 py-3 text-left">最后更新时间</th>
+                  <th class="px-4 py-3 text-left">绑定数量</th>
+                  <th class="px-4 py-3 text-left">当前位置</th>
+                  <th class="px-4 py-3 text-left">待办动作</th>
                   <th class="px-4 py-3 text-left">操作</th>
                 </tr>
               </thead>
               <tbody>
                 ${items
                   .map(
-                    (item) => `
+                    (item) => {
+                      const detailHref = buildTransferBagDetailRoute({
+                        bagId: item.bagId,
+                        bagCode: item.bagCode,
+                        usageId: item.currentUsage?.usageId || undefined,
+                        usageNo: item.currentUsage?.usageNo || undefined,
+                      })
+                      const todoMeta = getMasterTodoMeta(item)
+                      return `
                       <tr class="border-b ${state.activeMasterId === item.bagId ? 'bg-blue-50/60' : 'bg-card'}">
                         <td class="px-4 py-3">
-                          <button type="button" class="font-medium text-blue-700 hover:underline" data-transfer-bags-action="select-master" data-bag-id="${escapeHtml(item.bagId)}">${escapeHtml(item.bagCode)}</button>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.bagType)}</div>
+                          <button type="button" class="font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailHref)}">${escapeHtml(item.bagCode)}</button>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.bagType)} / 容量 ${escapeHtml(String(item.capacity))} 张</div>
                         </td>
-                        <td class="px-4 py-3">${renderTag(item.pocketStatusMeta.label, item.pocketStatusMeta.className)}</td>
-                        <td class="px-4 py-3">${escapeHtml(item.currentUsage?.usageNo || '暂无')}</td>
-                        <td class="px-4 py-3">${escapeHtml(item.currentStyleCode || '待锁定')}</td>
-                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.packedTicketCount))}</td>
-                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.currentTotalPieceCount))}</td>
-                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.currentSourceProductionOrderCount))}</td>
-                        <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.currentSourceCutOrderCount))}</td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentDispatchedAt || '待发出')}</td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentSignedAt || '待签收')}</td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentReturnedAt || '待回仓')}</td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentReturnedAt || item.currentSignedAt || item.currentDispatchedAt || item.latestUsageNo || '暂无')}</td>
+                        <td class="px-4 py-3">
+                          <div>${renderTag(item.pocketStatusMeta.label, item.pocketStatusMeta.className)}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.statusMeta.detailText)}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-foreground">${escapeHtml(item.currentUsage?.usageNo || item.latestUsageNo || '暂无')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.currentUsage?.startedAt || item.currentReturnedAt || item.currentSignedAt || item.currentDispatchedAt || '暂无时间')}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-foreground">${escapeHtml(item.currentStyleCode || '待锁定')}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.currentUsage?.productionOrderNos.join(' / ') || '暂无生产单')}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-foreground">菲票 ${escapeHtml(String(item.packedTicketCount))} 张</div>
+                          <div class="mt-1 text-xs text-muted-foreground">总件数 ${escapeHtml(String(item.currentTotalPieceCount))} 件</div>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.currentLocation || '待命位')}</td>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-foreground">${escapeHtml(todoMeta.label)}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.pocketStatusMeta.detailText)}</div>
+                        </td>
                         <td class="px-4 py-3">
                           <div class="flex flex-wrap gap-2">
-                            ${
-                              item.pocketStatusKey === 'IDLE'
-                                ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">开始装袋</button>`
-                                : item.pocketStatusKey === 'PACKING'
-                                  ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">继续装袋</button>`
-                                  : item.pocketStatusKey === 'READY_TO_DISPATCH'
-                                    ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(item.currentUsage?.usageId || '')}">打印装袋清单</button>`
-                                    : item.pocketStatusKey === 'DISPATCHED'
-                                      ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(item.currentUsage?.usageId || '')}">签收</button>`
-                                      : item.pocketStatusKey === 'SIGNED'
-                                        ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(item.currentUsage?.usageId || '')}">回仓</button>`
-                                        : item.pocketStatusKey === 'RETURNED'
-                                          ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(item.currentUsage?.usageId || '')}">关闭本次使用周期</button>`
-                                          : ''
-                            }
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="select-master" data-bag-id="${escapeHtml(item.bagId)}">查看详情</button>
+                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(todoMeta.href)}">${escapeHtml(todoMeta.label)}</button>
+                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>
                           </div>
                         </td>
                       </tr>
-                    `,
+                    `
+                    },
                   )
                   .join('')}
               </tbody>
             </table>
           `)}
-      ${renderMasterDetail(active)}
     </section>
   `
 }
@@ -875,6 +1429,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
   if (!item) return ''
   const currentUsage = item.currentUsage
   const currentBindings = currentUsage?.bindingItems || []
+  const qrValue = resolveFormalBagQrValue(item)
   const historyUsages = getViewModel().usages
     .filter((usage) => usage.bagId === item.bagId)
     .sort((left, right) => right.usageNo.localeCompare(left.usageNo, 'zh-CN'))
@@ -896,12 +1451,36 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
             <div><span class="text-muted-foreground">当前位置：</span><span class="font-medium text-foreground">${escapeHtml(item.currentLocation || '待命位')}</span></div>
           </div>
           <div class="space-y-3 rounded-lg border bg-muted/15 p-3 text-sm">
-            <div><span class="text-muted-foreground">当前袋内菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.packedTicketCount))}</span></div>
+            <div><span class="text-muted-foreground">容量 / 当前绑定数：</span><span class="font-medium text-foreground">${escapeHtml(`${item.capacity} 张 / ${item.packedTicketCount} 张菲票`)}</span></div>
             <div><span class="text-muted-foreground">当前绑定总数量：</span><span class="font-medium text-foreground">${escapeHtml(String(item.currentTotalPieceCount))}</span></div>
             <div><span class="text-muted-foreground">当前款号：</span><span class="font-medium text-foreground">${escapeHtml(item.currentStyleCode || '待锁定')}</span></div>
             <div><span class="text-muted-foreground">来源生产单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.productionOrderNos.join(' / ') || '暂无')}</span></div>
             <div><span class="text-muted-foreground">来源原始裁片单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
-            <div><span class="text-muted-foreground">来源裁片批次集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.mergeBatchNos.join(' / ') || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源裁剪批次集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.mergeBatchNos.join(' / ') || '暂无')}</span></div>
+          </div>
+          <div class="rounded-lg border bg-card p-4">
+            <div class="text-sm font-semibold text-foreground">正式二维码</div>
+            ${
+              qrValue
+                ? `
+                  <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+                    <div class="inline-flex w-fit rounded-xl border bg-white p-3 shadow-sm">
+                      ${renderRealQrPlaceholder({
+                        value: qrValue,
+                        size: 168,
+                        title: `周转口袋码 ${item.bagCode}`,
+                        label: `周转口袋 ${item.bagCode} 正式二维码`,
+                      })}
+                    </div>
+                    <div class="space-y-2 text-sm">
+                      <div><span class="text-muted-foreground">周转口袋码：</span><span class="font-medium text-foreground">${escapeHtml(item.bagCode)}</span></div>
+                      <div><span class="text-muted-foreground">当前使用周期：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.usageNo || '暂无')}</span></div>
+                      <div><span class="text-muted-foreground">正式二维码值：</span><span class="font-medium break-all text-foreground">${escapeHtml(summarizeQrValue(qrValue))}</span></div>
+                    </div>
+                  </div>
+                `
+                : '<div class="mt-3 rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">当前未找到可展示的正式二维码值。</div>'
+            }
           </div>
           <div class="flex flex-wrap gap-2">
             ${item.pocketStatusKey === 'IDLE' ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">开始装袋</button>` : ''}
@@ -988,7 +1567,12 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                             (usage) => `
                               <tr class="border-b bg-card">
                                 <td class="px-3 py-2">
-                                  <button type="button" class="font-medium text-blue-700 hover:underline" data-transfer-bags-action="select-usage" data-usage-id="${escapeHtml(usage.usageId)}">${escapeHtml(usage.usageNo)}</button>
+                                  <button type="button" class="font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(buildTransferBagDetailRoute({
+                                    bagId: usage.bagId,
+                                    bagCode: usage.bagCode,
+                                    usageId: usage.usageId,
+                                    usageNo: usage.usageNo,
+                                  }))}">${escapeHtml(usage.usageNo)}</button>
                                 </td>
                                 <td class="px-3 py-2">${renderTag(usage.pocketStatusMeta.label, usage.pocketStatusMeta.className)}</td>
                                 <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(usage.startedAt || usage.dispatchAt || '待补')}</td>
@@ -1023,7 +1607,7 @@ function renderWorkbenchSection(): string {
     <section class="grid gap-3 xl:grid-cols-[1.1fr,0.9fr]">
       <article class="space-y-3 rounded-lg border bg-card p-3">
         <div>
-          <h2 class="text-sm font-semibold text-foreground">周转口袋装袋</h2>
+          <h2 class="text-sm font-semibold text-foreground">当前使用周期工作区</h2>
         </div>
         <div class="grid gap-3 md:grid-cols-2">
           <label class="space-y-2">
@@ -1441,7 +2025,7 @@ function renderReturnWorkbenchSection(): string {
     <section class="grid gap-3 xl:grid-cols-[1.15fr,0.85fr]">
       <article class="space-y-3 rounded-lg border bg-card p-3">
         <div>
-          <h2 class="text-sm font-semibold text-foreground">回货入仓工作台</h2>
+          <h2 class="text-sm font-semibold text-foreground">回仓 / 验收工作区</h2>
         </div>
         ${activeUsage
           ? `
@@ -1751,9 +2335,10 @@ function renderBindingSection(): string {
   `
 }
 
-function renderPage(): string {
+function renderListPage(): string {
   syncPrefilterFromQuery()
-  const meta = getCanonicalCuttingMeta(appStore.getState().pathname, 'transfer-bags')
+  if (isTransferBagDetailPage()) return renderDetailPage()
+  const meta = getCanonicalCuttingMeta(getCurrentTransferBagPathname(), 'transfer-bags')
   return `
     <div class="space-y-3 p-4">
       ${renderCuttingPageHeader(meta, { actionsHtml: renderHeaderActions() })}
@@ -1761,15 +2346,942 @@ function renderPage(): string {
       ${renderStatsCards()}
       ${renderReturnStatsCards()}
       ${renderPrefilterBar()}
+      ${renderLandingBanner()}
       ${renderFeedbackBar()}
       ${renderMasterSection()}
-      ${renderWorkbenchSection()}
-      ${renderUsageLedgerSection()}
-      ${renderReturnLedgerSection()}
-      ${renderReturnWorkbenchSection()}
-      ${renderReuseCycleSection()}
-      ${renderReturnAuditSection()}
-      ${renderBindingSection()}
+    </div>
+  `
+}
+
+function renderDetailEmptyState(): string {
+  return `
+    <section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+      未找到对应周转口袋，请返回列表重新选择。
+    </section>
+  `
+}
+
+function renderTransferBagDetailSummaryActions(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  const sourceReturnAction = resolveSourceReturnAction()
+  const navigationButtons = [
+    `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTransferBagListRoute())}">返回周转口袋流转</button>`,
+    sourceReturnAction
+      ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(sourceReturnAction.href)}">${escapeHtml(sourceReturnAction.label)}</button>`
+      : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-cut-piece-warehouse-index">返回裁片仓</button>',
+    hasSummaryReturnContext(state.drillContext)
+      ? ''
+      : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总表</button>',
+  ]
+    .filter(Boolean)
+    .join('')
+
+  const returnUsage = focusedUsage ? getDetailReturnUsage(focusedUsage.usageId) : null
+  const canPrint = Boolean(focusedUsage && focusedUsage.summary.ticketCount)
+  const canDispatch = focusedUsage?.usageStatus === 'READY_TO_DISPATCH'
+  const canSign = Boolean(focusedUsage && ['DISPATCHED', 'PENDING_SIGNOFF'].includes(focusedUsage.usageStatus))
+  const canReturn = Boolean(focusedUsage && ['WAITING_RETURN', 'RETURN_INSPECTING'].includes(focusedUsage.usageStatus))
+  const canClose = Boolean(focusedUsage && !returnUsage?.latestClosureResult && returnUsage?.latestReturnReceipt && returnUsage?.latestConditionRecord)
+
+  return `
+    <div class="flex flex-wrap gap-2">
+      ${navigationButtons}
+      ${canPrint ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">打印装袋清单</button>` : ''}
+      ${canDispatch ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">发出</button>` : ''}
+      ${canSign ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">签收</button>` : ''}
+      ${canReturn ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">回收</button>` : ''}
+      ${canClose ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">关闭本次周转</button>` : ''}
+    </div>
+  `
+}
+
+function renderTransferBagDetailHeader(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  const qrValue = resolveFormalBagQrValue(activeMaster) || (focusedUsage ? resolveUsageBagQrValue(focusedUsage) : '')
+  const summary = focusedUsage ? buildTransferBagParentChildSummary(focusedUsage.bindingItems || []) : null
+  const statusMeta = focusedUsage?.statusMeta || activeMaster.pocketStatusMeta
+
+  return `
+    <section class="sticky top-3 z-10 rounded-xl border bg-card/95 p-4 shadow-sm backdrop-blur">
+      <div class="grid gap-4 xl:grid-cols-[1.25fr,0.75fr]">
+        <div class="space-y-4">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            ${renderDetailMetric('周转口袋码', activeMaster.bagCode)}
+            <div class="rounded-lg border bg-muted/10 px-3 py-2">
+              <div class="text-xs text-muted-foreground">当前状态</div>
+              <div class="mt-1">${renderTag(statusMeta.label, statusMeta.className)}</div>
+            </div>
+            ${renderDetailMetric('本次周转号', focusedUsage?.usageNo || '尚未开始')}
+            ${renderDetailMetric('当前车缝任务', focusedUsage?.sewingTaskNo || '待绑定')}
+            ${renderDetailMetric('当前装袋数量 / 容量', `${summary?.ticketCount || 0} / ${activeMaster.capacity}`)}
+          </div>
+          ${renderTransferBagDetailSummaryActions(activeMaster, focusedUsage)}
+        </div>
+        <div class="rounded-xl border bg-white p-4">
+          <div class="text-sm font-semibold text-foreground">正式二维码</div>
+          ${
+            qrValue
+              ? `
+                <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+                  <div class="inline-flex w-fit rounded-xl border bg-white p-3 shadow-sm">
+                    ${renderRealQrPlaceholder({
+                      value: qrValue,
+                      size: 152,
+                      title: `周转口袋码 ${activeMaster.bagCode}`,
+                      label: `周转口袋 ${activeMaster.bagCode} 正式二维码`,
+                    })}
+                  </div>
+                  <div class="space-y-1 text-sm">
+                    <div><span class="text-muted-foreground">周转口袋码：</span><span class="font-medium text-foreground">${escapeHtml(activeMaster.bagCode)}</span></div>
+                    <div><span class="text-muted-foreground">本次周转号：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage?.usageNo || '尚未开始')}</span></div>
+                    <div><span class="text-muted-foreground">二维码值：</span><span class="font-medium break-all text-foreground">${escapeHtml(summarizeQrValue(qrValue))}</span></div>
+                  </div>
+                </div>
+              `
+              : '<div class="mt-3 rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">当前未找到可展示的正式二维码值。</div>'
+          }
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function renderTransferBagDetailTabs(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+  activeTab: TransferBagDetailTab,
+): string {
+  const tabs: Array<{ key: TransferBagDetailTab; label: string }> = [
+    { key: 'current', label: '本次装袋情况' },
+    { key: 'history', label: '过往周转记录' },
+    { key: 'recovery', label: '周转口袋回收' },
+    { key: 'logs', label: '操作日志' },
+  ]
+
+  return `
+    <nav class="rounded-xl border bg-card p-2" aria-label="周转口袋详情页签">
+      <div class="flex flex-wrap gap-2" role="tablist" aria-label="周转口袋详情页签">
+        ${tabs
+          .map((tab) => {
+            const selected = tab.key === activeTab
+            return `
+              <button
+                type="button"
+                id="transfer-bag-tab-${tab.key}"
+                role="tab"
+                aria-selected="${selected ? 'true' : 'false'}"
+                aria-controls="transfer-bag-tabpanel-${tab.key}"
+                class="rounded-lg px-3 py-2 text-sm font-medium ${selected ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'}"
+                data-nav="${escapeHtml(buildTransferBagDetailRoute({
+                  bagId: activeMaster.bagId,
+                  bagCode: activeMaster.bagCode,
+                  usageId: focusedUsage?.usageId || undefined,
+                  usageNo: focusedUsage?.usageNo || undefined,
+                  detailTab: tab.key,
+                }))}"
+              >${escapeHtml(tab.label)}</button>
+            `
+          })
+          .join('')}
+      </div>
+    </nav>
+  `
+}
+
+const transferBagBaggingStepMeta: Array<{ id: TransferBagBaggingStepId; index: number; label: string }> = [
+  { id: 'task', index: 1, label: '绑定任务' },
+  { id: 'binding', index: 2, label: '装袋绑定' },
+  { id: 'review', index: 3, label: '核对并完成装袋' },
+  { id: 'dispatch', index: 4, label: '发出' },
+  { id: 'signoff', index: 5, label: '签收' },
+]
+
+function getBaggingActiveStepId(
+  focusedUsage: TransferBagUsageItem | null,
+  currentSummary: ReturnType<typeof buildTransferBagParentChildSummary> | null,
+): TransferBagBaggingStepId | null {
+  if (!focusedUsage) return 'task'
+  if (['WAITING_RETURN', 'RETURN_INSPECTING', 'CLOSED', 'EXCEPTION_CLOSED'].includes(focusedUsage.usageStatus)) return null
+  if (['DISPATCHED', 'PENDING_SIGNOFF'].includes(focusedUsage.usageStatus)) return 'signoff'
+  if (focusedUsage.usageStatus === 'READY_TO_DISPATCH') return 'dispatch'
+  if ((currentSummary?.ticketCount || 0) > 0) return 'review'
+  return 'binding'
+}
+
+function getBaggingStepState(
+  stepId: TransferBagBaggingStepId,
+  activeStepId: TransferBagBaggingStepId | null,
+  focusedUsage: TransferBagUsageItem | null,
+): TransferBagBaggingStepState {
+  if (!focusedUsage) return stepId === 'task' ? 'active' : 'locked'
+  if (!activeStepId) return 'done'
+
+  const stepIndex = transferBagBaggingStepMeta.find((item) => item.id === stepId)?.index || 0
+  const activeIndex = transferBagBaggingStepMeta.find((item) => item.id === activeStepId)?.index || 0
+  if (stepIndex < activeIndex) return 'done'
+  if (stepIndex === activeIndex) return 'active'
+  return 'pending'
+}
+
+function buildBaggingStepSummary(
+  stepId: TransferBagBaggingStepId,
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+  currentSummary: ReturnType<typeof buildTransferBagParentChildSummary> | null,
+  capacityExceeded: boolean,
+): string {
+  if (stepId === 'task') {
+    if (!focusedUsage) return `先确认 ${activeMaster.bagCode} 本次对应的车缝任务`
+    return `已绑定 ${focusedUsage.sewingTaskNo} / ${focusedUsage.sewingFactoryName}`
+  }
+
+  if (stepId === 'binding') {
+    if (!focusedUsage) return '请先完成步骤 1，开始本次周转'
+    return `已绑 ${currentSummary?.ticketCount || 0} 张菲票 / ${currentSummary?.quantityTotal || 0} 件`
+  }
+
+  if (stepId === 'review') {
+    if (!focusedUsage) return '开始本次周转后再核对袋内内容'
+    if (!currentSummary?.ticketCount) return '当前还没有菲票，请先装袋绑定'
+    return capacityExceeded ? '当前容量已超出，请先核对后再完成装袋' : '袋内内容待核对，可打印清单后完成装袋'
+  }
+
+  if (stepId === 'dispatch') {
+    if (!focusedUsage) return '完成装袋后才可发出'
+    return focusedUsage.dispatchAt ? `已于 ${focusedUsage.dispatchAt} 发出` : '装袋完成后可发出'
+  }
+
+  if (!focusedUsage) return '发出后才可签收'
+  return focusedUsage.signedAt ? `已于 ${focusedUsage.signedAt} 签收` : '发出后待签收'
+}
+
+function buildBaggingStepHelperText(step: TransferBagBaggingStepView): string {
+  if (step.id === 'task') return '先确认本次周转对应的车缝任务'
+  if (step.id === 'binding') return step.state === 'locked' ? '请先完成步骤 1，开始本次周转' : '扫菲票加入本袋，候选菲票也可以直接导入'
+  if (step.id === 'review') return step.state === 'locked' ? '请先完成装袋绑定，再核对袋内内容' : '核对袋内内容，确认后完成装袋'
+  if (step.id === 'dispatch') return step.state === 'locked' ? '完成装袋后才能发出' : '核对无误后发出本次周转口袋'
+  return step.state === 'locked' ? '发出后才能签收' : '由对应接收方确认已收到'
+}
+
+function getBaggingStepViews(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+  currentSummary: ReturnType<typeof buildTransferBagParentChildSummary> | null,
+  capacityExceeded: boolean,
+): TransferBagBaggingStepView[] {
+  const activeStepId = getBaggingActiveStepId(focusedUsage, currentSummary)
+  return transferBagBaggingStepMeta.map((meta) => {
+    const state = getBaggingStepState(meta.id, activeStepId, focusedUsage)
+    return {
+      ...meta,
+      state,
+      summary: buildBaggingStepSummary(meta.id, activeMaster, focusedUsage, currentSummary, capacityExceeded),
+      helperText: '',
+      open: state === 'active',
+    }
+  }).map((item) => ({
+    ...item,
+    helperText: buildBaggingStepHelperText(item),
+  }))
+}
+
+function getBaggingStepTone(stepState: TransferBagBaggingStepState): {
+  railClass: string
+  badgeClass: string
+  cardClass: string
+  stateLabel: string
+} {
+  if (stepState === 'done') {
+    return {
+      railClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      cardClass: 'border-emerald-200 bg-emerald-50/40',
+      stateLabel: '已完成',
+    }
+  }
+  if (stepState === 'active') {
+    return {
+      railClass: 'border-amber-200 bg-amber-50 text-amber-700',
+      badgeClass: 'border-amber-200 bg-amber-50 text-amber-700',
+      cardClass: 'border-amber-200 bg-amber-50/30 shadow-sm',
+      stateLabel: '进行中',
+    }
+  }
+  if (stepState === 'pending') {
+    return {
+      railClass: 'border-slate-200 bg-slate-50 text-slate-600',
+      badgeClass: 'border-slate-200 bg-slate-50 text-slate-600',
+      cardClass: 'border-slate-200 bg-card',
+      stateLabel: '未开始',
+    }
+  }
+  return {
+    railClass: 'border-dashed border-slate-200 bg-slate-50/70 text-slate-400',
+    badgeClass: 'border-dashed border-slate-200 bg-slate-50 text-slate-400',
+    cardClass: 'border-dashed border-slate-200 bg-slate-50/70',
+    stateLabel: '暂不可操作',
+  }
+}
+
+function renderBaggingStepRail(steps: TransferBagBaggingStepView[]): string {
+  return `
+    <section class="rounded-xl border bg-card p-3">
+      <div class="flex flex-wrap gap-2" aria-label="本次装袋步骤">
+        ${steps
+          .map((step) => {
+            const tone = getBaggingStepTone(step.state)
+            return `
+              <div class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${tone.railClass}">
+                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${tone.badgeClass}">${step.index}</span>
+                <span class="font-medium">${escapeHtml(step.label)}</span>
+              </div>
+            `
+          })
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderCollapsedBaggingStepSummary(step: TransferBagBaggingStepView): string {
+  const tone = getBaggingStepTone(step.state)
+  return `
+    <summary class="cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex min-w-0 items-start gap-3">
+          <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${tone.badgeClass}">${step.index}</span>
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-foreground">${escapeHtml(step.label)}</div>
+            <div class="mt-1 text-sm text-muted-foreground">${escapeHtml(step.summary)}</div>
+          </div>
+        </div>
+        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${tone.badgeClass}">${tone.stateLabel}</span>
+      </div>
+    </summary>
+  `
+}
+
+function renderBaggingStepCard(step: TransferBagBaggingStepView, body: string): string {
+  const tone = getBaggingStepTone(step.state)
+  return `
+    <details data-bagging-step="${step.id}" data-step-state="${step.state}" class="rounded-xl border ${tone.cardClass}" ${step.open ? 'open' : ''}>
+      ${renderCollapsedBaggingStepSummary(step)}
+      <div class="border-t px-4 py-4">
+        <p class="mb-3 text-sm text-muted-foreground">${escapeHtml(step.helperText)}</p>
+        ${body}
+      </div>
+    </details>
+  `
+}
+
+function renderBaggingTaskStepCard(step: TransferBagBaggingStepView, focusedUsage: TransferBagUsageItem | null): string {
+  const editable = step.state === 'active'
+  return renderBaggingStepCard(
+    step,
+    focusedUsage && !editable
+      ? `
+        <div class="grid gap-3 md:grid-cols-2 text-sm">
+          <div><span class="text-muted-foreground">当前车缝任务：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.sewingTaskNo)}</span></div>
+          <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.sewingFactoryName)}</span></div>
+          <div><span class="text-muted-foreground">当前款号：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.styleCode || '待锁定')}</span></div>
+          <div><span class="text-muted-foreground">备注：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.note || '无')}</span></div>
+        </div>
+      `
+      : `
+        <div class="space-y-3">
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="space-y-2">
+              <span class="text-sm font-medium text-foreground">绑定任务</span>
+              <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-workbench-field="sewingTaskId">
+                <option value="">请选择车缝任务</option>
+                ${getViewModel().sewingTasks
+                  .map(
+                    (item) => `<option value="${escapeHtml(item.sewingTaskId)}" ${state.draft.sewingTaskId === item.sewingTaskId ? 'selected' : ''}>${escapeHtml(`${item.sewingTaskNo} / ${item.sewingFactoryName} / ${item.styleCode || item.spuCode}`)}</option>`,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-2">
+              <span class="text-sm font-medium text-foreground">备注</span>
+              <input
+                type="text"
+                value="${escapeHtml(state.draft.note)}"
+                placeholder="可选填写本次说明"
+                class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                data-transfer-bags-workbench-field="note"
+              />
+            </label>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="create-usage">开始本次周转</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="clear-draft">清空输入</button>
+          </div>
+        </div>
+      `,
+  )
+}
+
+function renderBaggingBindingStepCard(
+  step: TransferBagBaggingStepView,
+  focusedUsage: TransferBagUsageItem | null,
+  currentSummary: ReturnType<typeof buildTransferBagParentChildSummary>,
+  candidateTickets: TransferBagTicketCandidate[],
+  capacityExceeded: boolean,
+): string {
+  const canEditBindings = Boolean(
+    focusedUsage &&
+      !['DISPATCHED', 'PENDING_SIGNOFF', 'WAITING_RETURN', 'RETURN_INSPECTING', 'CLOSED', 'EXCEPTION_CLOSED'].includes(focusedUsage.usageStatus),
+  )
+
+  return renderBaggingStepCard(
+    step,
+    !focusedUsage
+      ? '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">请先完成步骤 1，开始本次周转。</div>'
+      : `
+        <div class="space-y-3">
+          <div class="grid gap-3 md:grid-cols-[1fr,auto]">
+            <label class="space-y-2">
+              <span class="text-sm font-medium text-foreground">扫菲票加入本袋</span>
+              <input
+                type="text"
+                value="${escapeHtml(state.draft.ticketInput)}"
+                placeholder="输入或扫描菲票码"
+                class="h-11 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                data-transfer-bags-workbench-field="ticketInput"
+                ${canEditBindings ? '' : 'disabled'}
+              />
+            </label>
+            <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted md:self-end" data-transfer-bags-action="bind-ticket" ${canEditBindings ? '' : 'disabled'}>加入本袋</button>
+          </div>
+          <div class="grid gap-3 md:grid-cols-3">
+            ${renderDetailMetric('已绑菲票数', String(currentSummary.ticketCount))}
+            ${renderDetailMetric('当前总件数', String(currentSummary.quantityTotal))}
+            ${renderDetailMetric('容量状态', capacityExceeded ? '已超容量' : '容量正常', capacityExceeded ? 'text-amber-700' : 'text-foreground')}
+          </div>
+          ${
+            candidateTickets.length
+              ? `
+                <div class="space-y-2 rounded-lg border bg-muted/15 p-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-sm font-medium text-foreground">候选菲票</div>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="import-prefill" ${canEditBindings ? '' : 'disabled'}>导入候选菲票（${candidateTickets.length}）</button>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    ${candidateTickets
+                      .map((item) =>
+                        renderWorkbenchFilterChip(
+                          `${item.ticketNo} / ${item.originalCutOrderNo}`,
+                          `data-transfer-bags-action="set-ticket-input" data-ticket-no="${escapeHtml(item.ticketNo)}"`,
+                          'blue',
+                        ),
+                      )
+                      .join('')}
+                  </div>
+                </div>
+              `
+              : ''
+          }
+          ${capacityExceeded ? '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">当前装袋数量已超容量，请先核对袋内内容再继续操作。</div>' : ''}
+          ${canEditBindings ? '' : '<div class="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">当前状态下不可继续装袋绑定，可在步骤 3 核对结果。</div>'}
+        </div>
+      `,
+  )
+}
+
+function renderBaggingReviewStepCard(
+  step: TransferBagBaggingStepView,
+  focusedUsage: TransferBagUsageItem | null,
+  currentBindings: TransferBagBindingItem[],
+  currentSummary: ReturnType<typeof buildTransferBagParentChildSummary>,
+  capacityExceeded: boolean,
+): string {
+  return renderBaggingStepCard(
+    step,
+    !focusedUsage
+      ? '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">请先开始本次周转，再核对袋内内容。</div>'
+      : `
+        <div class="space-y-3">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            ${renderDetailMetric('已绑菲票数', String(currentSummary.ticketCount))}
+            ${renderDetailMetric('当前总件数', String(currentSummary.quantityTotal))}
+            ${renderDetailMetric('来源原始裁片单数', String(currentSummary.originalCutOrderCount))}
+            ${renderDetailMetric('来源生产单数', String(currentSummary.productionOrderCount))}
+            ${renderDetailMetric('当前款号', focusedUsage.styleCode || '待锁定')}
+            ${renderDetailMetric('容量状态', capacityExceeded ? '已超容量' : '容量正常', capacityExceeded ? 'text-amber-700' : 'text-foreground')}
+          </div>
+          ${
+            currentBindings.length
+              ? renderStickyTableScroller(
+                  `
+                    <table class="min-w-full text-sm">
+                      <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th class="px-3 py-2 text-left">菲票码</th>
+                          <th class="px-3 py-2 text-left">款号</th>
+                          <th class="px-3 py-2 text-left">面料 SKU</th>
+                          <th class="px-3 py-2 text-left">部位</th>
+                          <th class="px-3 py-2 text-right">数量</th>
+                          <th class="px-3 py-2 text-left">原始裁片单</th>
+                          <th class="px-3 py-2 text-left">状态</th>
+                          <th class="px-3 py-2 text-left">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${currentBindings
+                          .map(
+                            (binding) => `
+                              <tr class="border-b bg-card">
+                                <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(binding.ticketNo)}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || focusedUsage.styleCode || '待补')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.materialSku || '待补')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补')}</td>
+                                <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo || '—')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
+                                <td class="px-3 py-2">
+                                  ${
+                                    binding.removable
+                                      ? `<button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-transfer-bags-action="remove-binding" data-binding-id="${escapeHtml(binding.bindingId)}">移除</button>`
+                                      : '<span class="text-xs text-muted-foreground">不可移除</span>'
+                                  }
+                                </td>
+                              </tr>
+                            `,
+                          )
+                          .join('')}
+                      </tbody>
+                    </table>
+                  `,
+                  'max-h-[24vh]',
+                )
+              : '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前还没有菲票，请先完成步骤 2 的装袋绑定。</div>'
+          }
+          <div class="flex flex-wrap gap-2">
+            ${currentBindings.length ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(focusedUsage.usageId)}">打印装袋清单</button>` : ''}
+            ${currentBindings.length && ['DRAFT', 'PACKING'].includes(focusedUsage.usageStatus) ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-ready" data-usage-id="${escapeHtml(focusedUsage.usageId)}">完成装袋</button>` : ''}
+          </div>
+          ${currentBindings.length
+            ? ''
+            : '<div class="text-sm text-muted-foreground">当前还没有装入菲票，暂不能完成装袋。</div>'}
+          ${(focusedUsage.productionOrderNos.length || focusedUsage.originalCutOrderNos.length || focusedUsage.mergeBatchNos.length)
+            ? `
+              <details class="rounded-lg border bg-muted/10 p-3">
+                <summary class="cursor-pointer text-sm font-medium text-foreground">更多来源信息</summary>
+                <div class="mt-3 grid gap-3 md:grid-cols-3 text-sm">
+                  <div><span class="text-muted-foreground">来源生产单：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.productionOrderNos.join(' / ') || '暂无')}</span></div>
+                  <div><span class="text-muted-foreground">来源原始裁片单：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
+                  <div><span class="text-muted-foreground">来源裁剪批次：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.mergeBatchNos.join(' / ') || '暂无')}</span></div>
+                </div>
+              </details>
+            `
+            : ''}
+        </div>
+      `,
+  )
+}
+
+function renderBaggingDispatchStepCard(
+  step: TransferBagBaggingStepView,
+  focusedUsage: TransferBagUsageItem | null,
+  currentSummary: ReturnType<typeof buildTransferBagParentChildSummary>,
+): string {
+  return renderBaggingStepCard(
+    step,
+    !focusedUsage
+      ? '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">完成装袋后，才会进入发出步骤。</div>'
+      : `
+        <div class="space-y-3">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            ${renderDetailMetric('本次周转号', focusedUsage.usageNo)}
+            ${renderDetailMetric('周转口袋码', focusedUsage.bagCode)}
+            ${renderDetailMetric('当前车缝任务', focusedUsage.sewingTaskNo)}
+            ${renderDetailMetric('已绑菲票数 / 总件数', `${currentSummary.ticketCount} / ${currentSummary.quantityTotal}`)}
+            ${renderDetailMetric('当前状态', focusedUsage.statusMeta.label)}
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${focusedUsage.usageStatus === 'READY_TO_DISPATCH' ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(focusedUsage.usageId)}">发出</button>` : ''}
+          </div>
+          ${focusedUsage.usageStatus === 'READY_TO_DISPATCH' ? '<div class="text-sm text-muted-foreground">核对无误后发出即可。</div>' : '<div class="text-sm text-muted-foreground">当前步骤仅保留发出结果摘要。</div>'}
+        </div>
+      `,
+  )
+}
+
+function renderBaggingSignoffStepCard(step: TransferBagBaggingStepView, focusedUsage: TransferBagUsageItem | null): string {
+  return renderBaggingStepCard(
+    step,
+    !focusedUsage
+      ? '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">发出后，才会进入签收步骤。</div>'
+      : `
+        <div class="space-y-3">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            ${renderDetailMetric('本次周转号', focusedUsage.usageNo)}
+            ${renderDetailMetric('周转口袋码', focusedUsage.bagCode)}
+            ${renderDetailMetric('发出时间', focusedUsage.dispatchAt || '待发出')}
+            ${renderDetailMetric('当前状态', focusedUsage.statusMeta.label)}
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${['DISPATCHED', 'PENDING_SIGNOFF'].includes(focusedUsage.usageStatus) ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(focusedUsage.usageId)}">签收</button>` : ''}
+          </div>
+          ${['DISPATCHED', 'PENDING_SIGNOFF'].includes(focusedUsage.usageStatus) ? '<div class="text-sm text-muted-foreground">由对应接收方确认已收到本袋。</div>' : '<div class="text-sm text-muted-foreground">当前步骤仅保留签收结果摘要。</div>'}
+        </div>
+      `,
+  )
+}
+
+function renderTransferBagCurrentTab(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  const currentBindings = focusedUsage ? getViewModel().bindingsByUsageId[focusedUsage.usageId] || [] : []
+  const currentSummary = buildTransferBagParentChildSummary(currentBindings)
+  const candidateTickets = focusedUsage ? getCandidateTickets() : []
+  const capacityExceeded = currentSummary.ticketCount > activeMaster.capacity
+  const steps = getBaggingStepViews(activeMaster, focusedUsage, currentSummary, capacityExceeded)
+  const finishedFlow = Boolean(focusedUsage && ['WAITING_RETURN', 'RETURN_INSPECTING', 'CLOSED', 'EXCEPTION_CLOSED'].includes(focusedUsage.usageStatus))
+
+  return `
+    <section id="transfer-bag-tabpanel-current" role="tabpanel" aria-labelledby="transfer-bag-tab-current" class="space-y-3">
+      ${renderBaggingStepRail(steps)}
+      ${
+        finishedFlow && focusedUsage
+          ? `
+            <article class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+              <div class="text-sm font-semibold text-foreground">本次装袋已完成</div>
+              <p class="mt-1 text-sm text-muted-foreground">当前状态为：${escapeHtml(focusedUsage.statusMeta.label)}。装袋、发出、签收已完成，请到周转口袋回收页签处理后续回收。</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTransferBagDetailRoute({
+                  bagId: activeMaster.bagId,
+                  bagCode: activeMaster.bagCode,
+                  usageId: focusedUsage.usageId,
+                  usageNo: focusedUsage.usageNo,
+                  detailTab: 'recovery',
+                }))}">去周转口袋回收</button>
+              </div>
+            </article>
+          `
+          : ''
+      }
+      ${renderBaggingTaskStepCard(steps[0], focusedUsage)}
+      ${renderBaggingBindingStepCard(steps[1], focusedUsage, currentSummary, candidateTickets, capacityExceeded)}
+      ${renderBaggingReviewStepCard(steps[2], focusedUsage, currentBindings, currentSummary, capacityExceeded)}
+      ${renderBaggingDispatchStepCard(steps[3], focusedUsage, currentSummary)}
+      ${renderBaggingSignoffStepCard(steps[4], focusedUsage)}
+    </section>
+  `
+}
+
+function renderTransferBagHistoryTab(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  const usages = getDetailBagUsages(activeMaster)
+  const selectedUsage = focusedUsage && focusedUsage.bagId === activeMaster.bagId ? focusedUsage : usages[0] || null
+
+  return `
+    <section id="transfer-bag-tabpanel-history" role="tabpanel" aria-labelledby="transfer-bag-tab-history" class="space-y-3 rounded-xl border bg-card p-4">
+      <div>
+        <h2 class="text-sm font-semibold text-foreground">过往周转记录</h2>
+      </div>
+      ${!usages.length
+        ? '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前口袋还没有过往周转记录。</div>'
+        : `
+          ${renderStickyTableScroller(
+            `
+              <table class="min-w-full text-sm">
+                <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 text-left">本次周转号</th>
+                    <th class="px-3 py-2 text-left">状态</th>
+                    <th class="px-3 py-2 text-left">开始时间</th>
+                    <th class="px-3 py-2 text-left">车缝任务</th>
+                    <th class="px-3 py-2 text-left">车缝工厂</th>
+                    <th class="px-3 py-2 text-right">菲票数</th>
+                    <th class="px-3 py-2 text-left">发出 / 签收 / 回收</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${usages
+                    .map(
+                      (item) => `
+                        <tr class="border-b ${selectedUsage?.usageId === item.usageId ? 'bg-orange-50/60' : 'bg-card'}">
+                          <td class="px-3 py-2">
+                            <button
+                              type="button"
+                              class="font-medium text-blue-700 hover:underline"
+                              data-nav="${escapeHtml(buildTransferBagDetailRoute({
+                                bagId: item.bagId,
+                                bagCode: item.bagCode,
+                                usageId: item.usageId,
+                                usageNo: item.usageNo,
+                                detailTab: 'history',
+                              }))}"
+                            >${escapeHtml(item.usageNo)}</button>
+                          </td>
+                          <td class="px-3 py-2">${renderTag(item.statusMeta.label, item.statusMeta.className)}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(item.startedAt || '待补')}</td>
+                          <td class="px-3 py-2">${escapeHtml(item.sewingTaskNo)}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(item.sewingFactoryName || '待补')}</td>
+                          <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(item.summary.ticketCount))}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml([item.dispatchAt || '待发出', item.signedAt || '待签收', item.returnedAt || '待回收'].join(' / '))}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            `,
+            'max-h-[26vh]',
+          )}
+          ${
+            selectedUsage
+              ? `
+                <div class="rounded-xl border bg-muted/15 p-4">
+                  <div class="text-sm font-semibold text-foreground">轻量摘要</div>
+                  <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                    <div><span class="text-muted-foreground">本次周转号：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.usageNo)}</span></div>
+                    <div><span class="text-muted-foreground">开始时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.startedAt || '待补')}</span></div>
+                    <div><span class="text-muted-foreground">车缝任务：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.sewingTaskNo)}</span></div>
+                    <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.sewingFactoryName || '待补')}</span></div>
+                    <div><span class="text-muted-foreground">菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(selectedUsage.summary.ticketCount))}</span></div>
+                    <div><span class="text-muted-foreground">发出时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.dispatchAt || '待发出')}</span></div>
+                    <div><span class="text-muted-foreground">签收时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.signedAt || '待签收')}</span></div>
+                    <div><span class="text-muted-foreground">回收时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.returnedAt || '待回收')}</span></div>
+                  </div>
+                </div>
+              `
+              : ''
+          }
+        `}
+    </section>
+  `
+}
+
+function renderTransferBagRecoveryTab(focusedUsage: TransferBagUsageItem | null): string {
+  if (!focusedUsage) {
+    return `
+      <section id="transfer-bag-tabpanel-recovery" role="tabpanel" aria-labelledby="transfer-bag-tab-recovery" class="space-y-3 rounded-xl border bg-card p-4">
+        <div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前还没有可回收的周转记录。</div>
+      </section>
+    `
+  }
+
+  const returnUsage = getDetailReturnUsage(focusedUsage.usageId)
+  const latestReceipt = returnUsage?.latestReturnReceipt || null
+  const latestCondition = returnUsage?.latestConditionRecord || null
+  const latestClosure = returnUsage?.latestClosureResult || null
+  const canShowForm = Boolean(
+    returnUsage &&
+      (returnUsage.returnEligibility.ok ||
+        latestReceipt ||
+        latestCondition ||
+        latestClosure ||
+        ['WAITING_RETURN', 'RETURN_INSPECTING', 'CLOSED', 'EXCEPTION_CLOSED'].includes(focusedUsage.usageStatus)),
+  )
+
+  return `
+    <section id="transfer-bag-tabpanel-recovery" role="tabpanel" aria-labelledby="transfer-bag-tab-recovery" class="space-y-3 rounded-xl border bg-card p-4">
+      <div>
+        <h2 class="text-sm font-semibold text-foreground">周转口袋回收</h2>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderDetailMetric('本次周转号', focusedUsage.usageNo)}
+        ${renderDetailMetric('周转口袋码', focusedUsage.bagCode)}
+        <div class="rounded-lg border bg-muted/10 px-3 py-2">
+          <div class="text-xs text-muted-foreground">当前状态</div>
+          <div class="mt-1">${renderTag(focusedUsage.statusMeta.label, focusedUsage.statusMeta.className)}</div>
+        </div>
+        ${renderDetailMetric('是否可进入回收流程', returnUsage?.returnEligibility.ok ? '可以' : returnUsage?.returnEligibility.reason || '暂不可进入')}
+      </div>
+      ${
+        !canShowForm
+          ? `<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前尚未进入回收阶段，当前状态为：${escapeHtml(focusedUsage.statusMeta.label)}。</div>`
+          : `
+            <div class="grid gap-3 xl:grid-cols-[1.05fr,0.95fr]">
+              <article class="space-y-3 rounded-xl border bg-muted/15 p-4">
+                <div>
+                  <h3 class="text-sm font-semibold text-foreground">回收表单</h3>
+                </div>
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">回收仓 / 回收点</span>
+                    <input type="text" value="${escapeHtml(state.returnDraft.returnWarehouseName)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnWarehouseName" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">回收时间</span>
+                    <input type="text" value="${escapeHtml(state.returnDraft.returnAt)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnAt" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">交回人</span>
+                    <input type="text" value="${escapeHtml(state.returnDraft.returnedBy)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedBy" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">接收人</span>
+                    <input type="text" value="${escapeHtml(state.returnDraft.receivedBy)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="receivedBy" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">回收菲票数量</span>
+                    <input type="number" value="${escapeHtml(state.returnDraft.returnedTicketCountSummary)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedTicketCountSummary" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">回收成品 / 件数摘要</span>
+                    <input type="number" value="${escapeHtml(state.returnDraft.returnedFinishedQty)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedFinishedQty" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">袋况</span>
+                    <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="conditionStatus">
+                      <option value="GOOD" ${state.conditionDraft.conditionStatus === 'GOOD' ? 'selected' : ''}>完好</option>
+                      <option value="MINOR_DAMAGE" ${state.conditionDraft.conditionStatus === 'MINOR_DAMAGE' ? 'selected' : ''}>轻微损坏</option>
+                      <option value="SEVERE_DAMAGE" ${state.conditionDraft.conditionStatus === 'SEVERE_DAMAGE' ? 'selected' : ''}>严重损坏</option>
+                    </select>
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">清洁情况</span>
+                    <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="cleanlinessStatus">
+                      <option value="CLEAN" ${state.conditionDraft.cleanlinessStatus === 'CLEAN' ? 'selected' : ''}>干净</option>
+                      <option value="DIRTY" ${state.conditionDraft.cleanlinessStatus === 'DIRTY' ? 'selected' : ''}>待清洁</option>
+                    </select>
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">是否可继续使用</span>
+                    <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-condition-field="reusableDecision">
+                      <option value="REUSABLE" ${state.conditionDraft.reusableDecision === 'REUSABLE' ? 'selected' : ''}>可以</option>
+                      <option value="WAITING_CLEANING" ${state.conditionDraft.reusableDecision === 'WAITING_CLEANING' ? 'selected' : ''}>待清洁后再用</option>
+                      <option value="WAITING_REPAIR" ${state.conditionDraft.reusableDecision === 'WAITING_REPAIR' ? 'selected' : ''}>待维修后再用</option>
+                      <option value="DISABLED" ${state.conditionDraft.reusableDecision === 'DISABLED' ? 'selected' : ''}>不能继续使用</option>
+                    </select>
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-foreground">差异类型</span>
+                    <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="discrepancyType">
+                      <option value="NONE" ${state.returnDraft.discrepancyType === 'NONE' ? 'selected' : ''}>无差异</option>
+                      <option value="QTY_MISMATCH" ${state.returnDraft.discrepancyType === 'QTY_MISMATCH' ? 'selected' : ''}>数量异常</option>
+                      <option value="DAMAGED_BAG" ${state.returnDraft.discrepancyType === 'DAMAGED_BAG' ? 'selected' : ''}>口袋损坏</option>
+                      <option value="LATE_RETURN" ${state.returnDraft.discrepancyType === 'LATE_RETURN' ? 'selected' : ''}>迟归还</option>
+                      <option value="MISSING_RECORD" ${state.returnDraft.discrepancyType === 'MISSING_RECORD' ? 'selected' : ''}>缺记录</option>
+                    </select>
+                  </label>
+                  <label class="space-y-2 md:col-span-2 xl:col-span-2">
+                    <span class="text-sm font-medium text-foreground">差异说明</span>
+                    <input type="text" value="${escapeHtml(state.returnDraft.discrepancyNote)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="discrepancyNote" />
+                  </label>
+                  <label class="space-y-2 md:col-span-2 xl:col-span-3">
+                    <span class="text-sm font-medium text-foreground">备注</span>
+                    <input type="text" value="${escapeHtml(state.returnDraft.note)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="note" />
+                  </label>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(focusedUsage.usageId)}">创建回收草稿</button>
+                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="complete-return-inspection" data-usage-id="${escapeHtml(focusedUsage.usageId)}">完成回收</button>
+                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(focusedUsage.usageId)}">关闭本次周转</button>
+                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="clear-return-draft">重置回收草稿</button>
+                </div>
+              </article>
+              <article class="space-y-3 rounded-xl border bg-muted/15 p-4">
+                <div>
+                  <h3 class="text-sm font-semibold text-foreground">回收摘要</h3>
+                </div>
+                <div class="grid gap-3 text-sm">
+                  <div><span class="text-muted-foreground">最近回收时间：</span><span class="font-medium text-foreground">${escapeHtml(latestReceipt?.returnAt || '尚未回收')}</span></div>
+                  <div><span class="text-muted-foreground">交回 / 接收：</span><span class="font-medium text-foreground">${escapeHtml(latestReceipt ? `${latestReceipt.returnedBy || '待补'} / ${latestReceipt.receivedBy || '待补'}` : '待补')}</span></div>
+                  <div><span class="text-muted-foreground">回收菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(latestReceipt ? String(latestReceipt.returnedTicketCountSummary) : '待补')}</span></div>
+                  <div><span class="text-muted-foreground">袋况：</span><span class="font-medium text-foreground">${escapeHtml(latestCondition ? latestCondition.conditionStatus === 'GOOD' ? '完好' : latestCondition.conditionStatus === 'MINOR_DAMAGE' ? '轻微损坏' : '严重损坏' : '待评估')}</span></div>
+                  <div><span class="text-muted-foreground">清洁情况：</span><span class="font-medium text-foreground">${escapeHtml(latestCondition ? latestCondition.cleanlinessStatus === 'CLEAN' ? '干净' : '待清洁' : '待评估')}</span></div>
+                  <div><span class="text-muted-foreground">是否可继续使用：</span><span class="font-medium text-foreground">${escapeHtml(latestCondition ? latestCondition.reusableDecision === 'REUSABLE' ? '可以' : latestCondition.reusableDecision === 'WAITING_CLEANING' ? '待清洁后再用' : latestCondition.reusableDecision === 'WAITING_REPAIR' ? '待维修后再用' : '不能继续使用' : '待评估')}</span></div>
+                  ${
+                    latestClosure
+                      ? `<div><span class="text-muted-foreground">关闭结果：</span><span class="font-medium text-foreground">${escapeHtml(latestClosure.reason)}</span></div>`
+                      : ''
+                  }
+                </div>
+              </article>
+            </div>
+          `
+      }
+    </section>
+  `
+}
+
+function renderTransferBagLogsTab(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  const usageIds = focusedUsage ? [focusedUsage.usageId] : getDetailBagUsages(activeMaster).map((item) => item.usageId)
+  const usageAudits = usageIds.flatMap((usageId) =>
+    (getViewModel().auditTrailByUsageId[usageId] || []).map((audit) => ({
+      actionAt: audit.actionAt,
+      action: audit.action,
+      actor: audit.actionBy,
+      note: audit.note,
+    })),
+  )
+  const returnAudits = usageIds.flatMap((usageId) =>
+    (getReturnViewModel().returnAuditTrailByUsageId[usageId] || []).map((audit) => ({
+      actionAt: audit.actionAt,
+      action: audit.action,
+      actor: audit.actionBy,
+      note: [audit.payloadSummary, audit.note].filter(Boolean).join('；'),
+    })),
+  )
+  const logs = usageAudits
+    .concat(returnAudits)
+    .sort((left, right) => right.actionAt.localeCompare(left.actionAt, 'zh-CN'))
+
+  return `
+    <section id="transfer-bag-tabpanel-logs" role="tabpanel" aria-labelledby="transfer-bag-tab-logs" class="space-y-3 rounded-xl border bg-card p-4">
+      <div>
+        <h2 class="text-sm font-semibold text-foreground">操作日志</h2>
+        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(focusedUsage ? `当前查看 ${focusedUsage.usageNo} 的操作日志。` : `当前查看 ${activeMaster.bagCode} 的操作日志。`)}</p>
+      </div>
+      ${logs.length
+        ? `<div class="space-y-2">${logs
+            .map(
+              (log) => `
+                <article class="rounded-xl border bg-muted/15 px-4 py-3 text-sm">
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="font-medium text-foreground">${escapeHtml(log.action)}</p>
+                    <p class="text-xs text-muted-foreground">${escapeHtml(formatDateTime(log.actionAt))}</p>
+                  </div>
+                  <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(log.actor)}</p>
+                  <p class="mt-2 text-sm text-foreground">${escapeHtml(log.note || '无备注')}</p>
+                </article>
+              `,
+            )
+            .join('')}</div>`
+        : '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前还没有操作日志。</div>'}
+    </section>
+  `
+}
+
+function renderTransferBagDetailTabPanel(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+  activeTab: TransferBagDetailTab,
+): string {
+  if (activeTab === 'history') return renderTransferBagHistoryTab(activeMaster, focusedUsage)
+  if (activeTab === 'recovery') return renderTransferBagRecoveryTab(focusedUsage)
+  if (activeTab === 'logs') return renderTransferBagLogsTab(activeMaster, focusedUsage)
+  return renderTransferBagCurrentTab(activeMaster, focusedUsage)
+}
+
+function renderDetailPage(): string {
+  syncPrefilterFromQuery()
+  const meta = getCanonicalCuttingMeta(getCurrentTransferBagPathname(), 'transfer-bag-detail')
+  const activeMaster = getActiveMaster()
+  const activeTab = readTransferBagDetailTab()
+  const focusedUsage = getDetailFocusedUsage(activeMaster)
+
+  return `
+    <div class="space-y-3 p-4">
+      ${renderCuttingPageHeader(meta)}
+      ${renderFeedbackBar()}
+      ${activeMaster ? renderTransferBagDetailHeader(activeMaster, focusedUsage) : renderDetailEmptyState()}
+      ${activeMaster ? renderTransferBagDetailTabs(activeMaster, focusedUsage, activeTab) : ''}
+      ${activeMaster ? renderTransferBagDetailTabPanel(activeMaster, focusedUsage, activeTab) : ''}
     </div>
   `
 }
@@ -1891,7 +3403,7 @@ function prepareReturnDraft(targetUsageId?: string): boolean {
         actionAt: nowText(),
         actionBy: '周转口袋工作台',
         payloadSummary: `${usage.usageNo} 已进入待回仓流程`,
-        note: '从发出台账进入回货入仓工作台。',
+        note: '从当前使用周期进入回仓 / 验收工作区。',
       }),
     )
     refreshDerivedState()
@@ -2261,16 +3773,23 @@ function removeBinding(bindingId: string | undefined): boolean {
 
 function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferBagBindingItem[]): string {
   const summary = buildTransferBagParentChildSummary(bindings)
+  const qrValue = resolveUsageBagQrValue(usage)
   return `
     <!doctype html>
     <html lang="zh-CN">
       <head>
         <meta charset="utf-8" />
-        <title>周转口袋交接清单 - ${escapeHtml(usage.usageNo)}</title>
+        <title>周转口袋流转清单 - ${escapeHtml(usage.usageNo)}</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 28px; color: #111827; }
           h1 { margin: 0 0 8px; font-size: 24px; }
           .tip { margin-top: 12px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.6; }
+          .hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+          .hero-copy { flex: 1; min-width: 0; }
+          .qr-panel { width: 180px; border: 1px solid #d1d5db; border-radius: 14px; padding: 14px; text-align: center; background: #fff; }
+          .qr-panel [data-real-qr] { display: inline-flex; align-items: center; justify-content: center; min-height: 112px; min-width: 112px; }
+          .qr-title { margin-top: 10px; font-size: 13px; font-weight: 600; }
+          .qr-meta { margin-top: 4px; font-size: 12px; line-height: 1.5; color: #6b7280; word-break: break-all; }
           .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin-top: 18px; }
           .meta-item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; }
           .label { font-size: 12px; color: #6b7280; }
@@ -2281,10 +3800,30 @@ function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferB
         </style>
       </head>
       <body>
-        <h1>周转口袋交接清单</h1>
+        <div class="hero">
+          <div class="hero-copy">
+            <h1>周转口袋流转清单</h1>
+            <div class="tip">打印预览中展示正式 SVG 二维码，用于装袋、发出、签收与回仓追溯。</div>
+          </div>
+          <div class="qr-panel">
+            ${
+              qrValue
+                ? renderRealQrPlaceholder({
+                  value: qrValue,
+                  size: 112,
+                  title: `周转口袋码 ${usage.bagCode}`,
+                  label: `周转口袋 ${usage.bagCode} 打印二维码`,
+                })
+                : '<div class="qr-meta">当前未找到正式二维码值</div>'
+            }
+            <div class="qr-title">${escapeHtml(usage.bagCode)}</div>
+            <div class="qr-meta">本次周转：${escapeHtml(usage.usageNo)}</div>
+            <div class="qr-meta">${escapeHtml(summarizeQrValue(qrValue))}</div>
+          </div>
+        </div>
         <div class="meta">
           <div class="meta-item"><div class="label">周转口袋码</div><div class="value">${escapeHtml(usage.bagCode)}</div></div>
-          <div class="meta-item"><div class="label">使用周期号</div><div class="value">${escapeHtml(usage.usageNo)}</div></div>
+          <div class="meta-item"><div class="label">本次周转号</div><div class="value">${escapeHtml(usage.usageNo)}</div></div>
           <div class="meta-item"><div class="label">车缝任务号</div><div class="value">${escapeHtml(usage.sewingTaskNo)}</div></div>
           <div class="meta-item"><div class="label">车缝工厂</div><div class="value">${escapeHtml(usage.sewingFactoryName)}</div></div>
           <div class="meta-item"><div class="label">菲票数</div><div class="value">${escapeHtml(String(summary.ticketCount))}</div></div>
@@ -2331,7 +3870,7 @@ function printManifest(usageId: string | undefined): boolean {
   if (!usage) return false
   const bindings = getViewModel().bindingsByUsageId[usageId] || []
   if (!bindings.length) {
-    setFeedback('warning', `${usage.usageNo} 还没有装入任何菲票，不能打印交接清单。`)
+    setFeedback('warning', `${usage.usageNo} 还没有装入任何菲票，不能打印流转清单。`)
     return true
   }
 
@@ -2349,10 +3888,10 @@ function printManifest(usageId: string | undefined): boolean {
   state.store.auditTrail.push(
     buildBagUsageAuditTrail({
       usageId,
-      action: '打印交接清单',
+      action: '打印流转清单',
       actionAt: manifest.createdAt,
       actionBy: manifest.createdBy,
-      note: `${usage.bagCode} 当前已打印装袋清单。`,
+      note: `${usage.bagCode} 当前已打印流转清单。`,
     }),
   )
   refreshDerivedState()
@@ -2366,9 +3905,17 @@ function printManifest(usageId: string | undefined): boolean {
   printWindow.document.open()
   printWindow.document.write(buildManifestPrintHtml(getViewModel().usagesById[usageId], getViewModel().bindingsByUsageId[usageId] || []))
   printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
-  setFeedback('success', `${usage.usageNo} 的交接清单已打开打印预览。`)
+  const frame = printWindow.requestAnimationFrame?.bind(printWindow) || window.requestAnimationFrame.bind(window)
+  frame(() => {
+    hydrateRealQRCodes(printWindow.document)
+    frame(() => {
+      printWindow.setTimeout(() => {
+        printWindow.focus()
+        printWindow.print()
+      }, 0)
+    })
+  })
+  setFeedback('success', `${usage.usageNo} 的流转清单已打开打印预览。`)
   return true
 }
 
@@ -2377,7 +3924,7 @@ function updateUsageStatus(usageId: string | undefined, nextStatus: TransferBagU
   const usage = getSourceUsage(usageId)
   if (!usage) return false
   if (!usage.packedTicketCount && nextStatus !== 'DRAFT') {
-    setFeedback('warning', `${usage.usageNo} 尚未装入菲票，不能进入后续交接状态。`)
+    setFeedback('warning', `${usage.usageNo} 尚未装入菲票，不能进入后续流转状态。`)
     return true
   }
   if (nextStatus === 'DISPATCHED' && !['READY_TO_DISPATCH', 'DISPATCHED'].includes(usage.usageStatus)) {
@@ -2453,6 +4000,7 @@ function clearDraft(): boolean {
 function clearPrefill(): boolean {
   state.prefilter = null
   state.drillContext = null
+  state.landingBanner = null
   state.preselectedTicketRecordIds = []
   state.returnStatus = 'ALL'
   persistSelectedTicketIds()
@@ -2487,7 +4035,11 @@ function navigateByPayload(payload: Record<string, string | undefined>, path: st
 }
 
 export function renderCraftCuttingTransferBagsPage(): string {
-  return renderPage()
+  return renderListPage()
+}
+
+export function renderCraftCuttingTransferBagDetailPage(): string {
+  return renderDetailPage()
 }
 
 export function handleCraftCuttingTransferBagsEvent(target: Element): boolean {

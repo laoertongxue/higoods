@@ -807,7 +807,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           blockerReason: `当前周转口袋码 ${usage.bagCode} 仍在${usage.pocketStatusMeta.label}。`,
           navigationTarget: 'transferBags',
           navigationPayload: usage.navigationPayload,
-          nextActionLabel: '去周转口袋车缝交接',
+          nextActionLabel: '去周转口袋流转',
         }),
       )
     }
@@ -831,7 +831,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           blockerReason: usage.returnExceptionMeta?.detailText || usage.latestClosureResult?.reason || '当前回仓链路存在异常。',
           navigationTarget: 'transferBags',
           navigationPayload: usage.navigationPayload,
-          nextActionLabel: '去周转口袋车缝交接',
+          nextActionLabel: '去周转口袋流转',
         }),
       )
     }
@@ -855,7 +855,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
           blockerReason: item.decisionMeta.detailText,
           navigationTarget: 'transferBags',
           navigationPayload: item.latestUsage?.navigationPayload || options.navigationPayload.transferBags,
-          nextActionLabel: '去周转口袋车缝交接',
+          nextActionLabel: '去周转口袋流转',
         }),
       )
     }
@@ -892,7 +892,7 @@ function buildWarehouseSection(options: CuttingCheckBuildOptions): {
       navigationPayload: blockers.some((item) => item.sourceType === 'BAG_USAGE')
         ? options.navigationPayload.transferBags
         : options.navigationPayload.cutPieceWarehouse,
-      defaultActionLabel: blockers.some((item) => item.sourceType === 'BAG_USAGE') ? '去周转口袋车缝交接' : '去裁片仓',
+      defaultActionLabel: blockers.some((item) => item.sourceType === 'BAG_USAGE') ? '去周转口袋流转' : '去裁片仓',
     }),
     blockers,
   }

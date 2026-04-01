@@ -1,4 +1,5 @@
 import './styles.css'
+import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, renderAppShell } from './components/shell'
 import { appStore } from './state/store'
 import {
@@ -42,6 +43,7 @@ function dispatchPageSubmit(form: HTMLFormElement): boolean {
 function render(): void {
   root.innerHTML = renderAppShell(appStore.getState())
   hydrateIcons(root)
+  hydrateRealQRCodes(root)
 }
 
 function closeMobileSidebar(): void {

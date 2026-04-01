@@ -25,7 +25,10 @@ export {
 export { renderCraftCuttingFabricWarehousePage } from './fabric-warehouse'
 export { renderCraftCuttingCutPieceWarehousePage } from './cut-piece-warehouse'
 export { renderCraftCuttingSampleWarehousePage } from './sample-warehouse'
-export { renderCraftCuttingTransferBagsPage } from './transfer-bags'
+export {
+  renderCraftCuttingTransferBagsPage,
+  renderCraftCuttingTransferBagDetailPage,
+} from './transfer-bags'
 export { renderCraftCuttingSpecialProcessesPage } from './special-processes'
 export {
   CUTTING_PAGE_META,

@@ -27,6 +27,7 @@ export function buildWarehouseQueryPayload(options: {
   styleCode?: string
   sampleNo?: string
   holder?: string
+  autoOpenDetail?: boolean
 }): WarehouseNavigationPayload {
   return {
     originalOrders: {
@@ -79,6 +80,7 @@ export function buildWarehouseQueryPayload(options: {
       styleCode: options.styleCode,
       sampleNo: options.sampleNo,
       holder: options.holder,
+      autoOpenDetail: options.autoOpenDetail ? '1' : undefined,
     },
   }
 }

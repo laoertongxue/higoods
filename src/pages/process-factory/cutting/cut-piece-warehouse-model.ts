@@ -378,6 +378,7 @@ export function buildCutPieceWarehouseNavigationPayload(
     zoneCode: item.zoneCode,
     warehouseStatus: item.warehouseStatus.key,
     styleCode: item.styleCode,
+    autoOpenDetail: true,
   })
 }
 

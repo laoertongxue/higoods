@@ -63,7 +63,7 @@ export interface SpecialProcessStatusValidationResult {
 }
 
 const FOLLOWUP_ACTION_LABELS: Record<SpecialProcessFollowupActionType, string> = {
-  GO_TRANSFER_BAG: '去周转口袋车缝交接',
+  GO_TRANSFER_BAG: '去周转口袋流转',
   GO_CUT_PIECE_WAREHOUSE: '去裁片仓',
   GO_ORIGINAL_CUT_ORDER: '去原始裁片单',
   GO_CUTTING_DASHBOARD: '去生产单进度',
