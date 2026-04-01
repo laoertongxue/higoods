@@ -741,8 +741,18 @@ export function buildSystemSeedTransferBagRuntime(options: {
     }
 
     pushUsageAudit(cycle, options.startedAt, '创建本次周转', options.operator, options.note)
+    pushUsageAudit(
+      cycle,
+      options.startedAt,
+      '绑定车缝任务',
+      options.operator,
+      `已绑定 ${cycle.sewingTaskNo} / ${cycle.sewingFactoryName}。`,
+    )
     if (cycleBindings.length) {
       pushUsageAudit(cycle, options.startedAt, '装袋绑定', options.operator, `已绑定 ${cycleBindings.length} 张菲票。`)
+    }
+    if (options.manifestAt) {
+      pushUsageAudit(cycle, options.manifestAt, '打印装袋清单', options.operator, '装袋清单已生成并用于流转交接核对。')
     }
     if (options.finishedPackingAt) {
       pushUsageAudit(cycle, options.finishedPackingAt, '完成装袋', options.operator, '袋内内容已核对完成。')
@@ -852,6 +862,76 @@ export function buildSystemSeedTransferBagRuntime(options: {
 
     return cycle
   }
+
+  addSeedCycle({
+    masterIndex: 0,
+    taskIndex: 1,
+    startedAt: '2026-03-12 08:40',
+    operator: '周转装袋员-赵敏',
+    cycleStatus: 'CLOSED',
+    masterStatus: 'IDLE',
+    currentLocation: '裁片仓 A 区待命位',
+    ticketCount: 2,
+    note: 'BAG-A-001 上一轮周转已完整闭环，可继续复用。',
+    finishedPackingAt: '2026-03-12 09:05',
+    manifestAt: '2026-03-12 09:10',
+    dispatchAt: '2026-03-12 09:28',
+    dispatchBy: '周转装袋员-赵敏',
+    signoffStatus: 'SIGNED',
+    signedAt: '2026-03-12 10:16',
+    returnedAt: '2026-03-12 16:05',
+    returnAt: '2026-03-12 16:10',
+    returnWarehouseName: '裁片仓 A 区回收点',
+    returnedBy: '车缝返还员-李娜',
+    receivedBy: '回收验收员-陈静',
+    returnNote: '上一轮回收登记完成，袋内票据与件数一致。',
+    inspectedAt: '2026-03-12 16:28',
+    inspectedBy: '回收验收员-陈静',
+    reusableDecision: 'REUSABLE',
+    conditionStatus: 'GOOD',
+    cleanlinessStatus: 'CLEAN',
+    conditionNote: '袋况正常，可直接继续使用。',
+    closedAt: '2026-03-12 16:42',
+    closedBy: '周转班长-韩涛',
+    closureStatus: 'CLOSED',
+    nextBagStatus: 'IDLE',
+    closureReason: '上一轮回收验收通过，口袋释放为空闲。',
+  })
+
+  addSeedCycle({
+    masterIndex: 0,
+    taskIndex: 2,
+    startedAt: '2026-03-20 08:55',
+    operator: '周转装袋员-陈亮',
+    cycleStatus: 'CLOSED',
+    masterStatus: 'IDLE',
+    currentLocation: '裁片仓 A 区复用待命位',
+    ticketCount: 2,
+    note: 'BAG-A-001 第二轮历史周转已关闭，形成最近回收记录。',
+    finishedPackingAt: '2026-03-20 09:20',
+    manifestAt: '2026-03-20 09:25',
+    dispatchAt: '2026-03-20 09:42',
+    dispatchBy: '周转装袋员-陈亮',
+    signoffStatus: 'SIGNED',
+    signedAt: '2026-03-20 10:34',
+    returnedAt: '2026-03-20 17:18',
+    returnAt: '2026-03-20 17:22',
+    returnWarehouseName: '裁片仓周转回收台',
+    returnedBy: '车缝返还员-高宁',
+    receivedBy: '回收验收员-张秀',
+    returnNote: '最近一次回收完成，袋体干净，票据数量一致。',
+    inspectedAt: '2026-03-20 17:36',
+    inspectedBy: '回收验收员-张秀',
+    reusableDecision: 'REUSABLE',
+    conditionStatus: 'GOOD',
+    cleanlinessStatus: 'CLEAN',
+    conditionNote: '已核对袋况与清洁状态，可继续投入使用。',
+    closedAt: '2026-03-20 17:50',
+    closedBy: '周转班长-韩涛',
+    closureStatus: 'CLOSED',
+    nextBagStatus: 'IDLE',
+    closureReason: '回收验收通过，已重新回到空闲池。',
+  })
 
   addSeedCycle({
     masterIndex: 0,

@@ -1185,6 +1185,48 @@ function getDetailReturnUsage(usageId: string | null | undefined) {
   return getReturnViewModel().waitingReturnUsages.find((item) => item.usageId === usageId) || null
 }
 
+function getDetailBagRecoveryEntries(activeMaster: TransferBagMasterItem | null) {
+  return getDetailBagUsages(activeMaster)
+    .map((usage) => {
+      const recovery = getDetailReturnUsage(usage.usageId)
+      return {
+        usage,
+        latestReceipt: recovery?.latestReturnReceipt || null,
+        latestCondition: recovery?.latestConditionRecord || null,
+        latestClosure: recovery?.latestClosureResult || null,
+        recovery,
+      }
+    })
+    .filter((item) => item.latestReceipt || item.latestCondition || item.latestClosure)
+}
+
+function formatConditionStatusLabel(status: TransferBagConditionStatus | null | undefined): string {
+  if (status === 'GOOD') return '完好'
+  if (status === 'MINOR_DAMAGE') return '轻微损坏'
+  if (status === 'SEVERE_DAMAGE') return '严重损坏'
+  return '待评估'
+}
+
+function formatCleanlinessStatusLabel(status: 'CLEAN' | 'DIRTY' | null | undefined): string {
+  if (status === 'CLEAN') return '干净'
+  if (status === 'DIRTY') return '待清洁'
+  return '待评估'
+}
+
+function formatReusableDecisionLabel(decision: TransferBagReusableDecision | null | undefined): string {
+  if (decision === 'REUSABLE') return '可以'
+  if (decision === 'WAITING_CLEANING') return '待清洁后再用'
+  if (decision === 'WAITING_REPAIR') return '待维修后再用'
+  if (decision === 'DISABLED') return '不能继续使用'
+  return '待评估'
+}
+
+function formatRecoveryEntryNextStepLabel(entry: ReturnType<typeof getDetailBagRecoveryEntries>[number]): string {
+  if (entry.latestCondition?.reusableDecision) return formatReusableDecisionLabel(entry.latestCondition.reusableDecision)
+  if (entry.latestClosure?.nextBagStatus) return deriveTransferBagMasterStatus(entry.latestClosure.nextBagStatus).label
+  return '待评估'
+}
+
 function renderDetailMetric(label: string, value: string, valueClassName = 'text-foreground'): string {
   return `
     <div class="rounded-lg border bg-muted/10 px-3 py-2">
@@ -2443,89 +2485,68 @@ function renderDetailEmptyState(): string {
   `
 }
 
-function renderTransferBagDetailSummaryActions(
-  activeMaster: TransferBagMasterItem,
-  focusedUsage: TransferBagUsageItem | null,
-): string {
-  const sourceReturnAction = resolveSourceReturnAction()
-  const navigationButtons = [
-    `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTransferBagListRoute())}">返回周转口袋流转</button>`,
-    sourceReturnAction
-      ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(sourceReturnAction.href)}">${escapeHtml(sourceReturnAction.label)}</button>`
-      : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-cut-piece-warehouse-index">返回裁片仓</button>',
-    hasSummaryReturnContext(state.drillContext)
-      ? ''
-      : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总表</button>',
-  ]
-    .filter(Boolean)
-    .join('')
-
-  const returnUsage = focusedUsage ? getDetailReturnUsage(focusedUsage.usageId) : null
-  const canPrint = Boolean(focusedUsage && focusedUsage.summary.ticketCount)
-  const canDispatch = focusedUsage?.usageStatus === 'READY_TO_DISPATCH'
-  const canSign = Boolean(focusedUsage && ['DISPATCHED', 'PENDING_SIGNOFF'].includes(focusedUsage.usageStatus))
-  const canReturn = Boolean(focusedUsage && ['WAITING_RETURN', 'RETURN_INSPECTING'].includes(focusedUsage.usageStatus))
-  const canClose = Boolean(focusedUsage && !returnUsage?.latestClosureResult && returnUsage?.latestReturnReceipt && returnUsage?.latestConditionRecord)
-
-  return `
-    <div class="flex flex-wrap gap-2">
-      ${navigationButtons}
-      ${canPrint ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">打印装袋清单</button>` : ''}
-      ${canDispatch ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">发出</button>` : ''}
-      ${canSign ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">签收</button>` : ''}
-      ${canReturn ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">回收</button>` : ''}
-      ${canClose ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(focusedUsage?.usageId || '')}">关闭本次周转</button>` : ''}
-    </div>
-  `
-}
-
 function renderTransferBagDetailHeader(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
 ): string {
-  const qrValue = resolveFormalBagQrValue(activeMaster) || (focusedUsage ? resolveUsageBagQrValue(focusedUsage) : '')
+  const qrValue = resolveFormalBagQrValue(activeMaster)
   const summary = focusedUsage ? buildTransferBagParentChildSummary(focusedUsage.bindingItems || []) : null
   const statusMeta = focusedUsage?.statusMeta || activeMaster.pocketStatusMeta
+  const summaryItems = [
+    {
+      label: '周转口袋码',
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(activeMaster.bagCode)}</span>`,
+    },
+    {
+      label: '当前状态',
+      valueHtml: renderTag(statusMeta.label, statusMeta.className),
+    },
+    {
+      label: '本次周转号',
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(focusedUsage?.usageNo || '尚未开始')}</span>`,
+    },
+    {
+      label: '当前车缝任务',
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(focusedUsage?.sewingTaskNo || '待绑定')}</span>`,
+    },
+    {
+      label: '当前装袋数量 / 容量',
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(`${summary?.ticketCount || 0} 张 / ${activeMaster.capacity} 张`)}</span>`,
+    },
+  ]
 
   return `
-    <section class="sticky top-3 z-10 rounded-xl border bg-card/95 p-4 shadow-sm backdrop-blur">
-      <div class="grid gap-4 xl:grid-cols-[1.25fr,0.75fr]">
-        <div class="space-y-4">
-          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            ${renderDetailMetric('周转口袋码', activeMaster.bagCode)}
-            <div class="rounded-lg border bg-muted/10 px-3 py-2">
-              <div class="text-xs text-muted-foreground">当前状态</div>
-              <div class="mt-1">${renderTag(statusMeta.label, statusMeta.className)}</div>
-            </div>
-            ${renderDetailMetric('本次周转号', focusedUsage?.usageNo || '尚未开始')}
-            ${renderDetailMetric('当前车缝任务', focusedUsage?.sewingTaskNo || '待绑定')}
-            ${renderDetailMetric('当前装袋数量 / 容量', `${summary?.ticketCount || 0} / ${activeMaster.capacity}`)}
-          </div>
-          ${renderTransferBagDetailSummaryActions(activeMaster, focusedUsage)}
-        </div>
-        <div class="rounded-xl border bg-white p-4">
-          <div class="text-sm font-semibold text-foreground">正式二维码</div>
+    <section data-transfer-bag-summary-strip class="rounded-xl border bg-card px-4 py-3">
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-3 xl:flex-nowrap">
+        ${summaryItems
+          .map(
+            (item) => `
+              <div class="min-w-[128px]">
+                <div class="text-[11px] text-muted-foreground">${escapeHtml(item.label)}</div>
+                <div class="mt-1">${item.valueHtml}</div>
+              </div>
+            `,
+          )
+          .join('')}
+        <div data-transfer-bag-summary-qr class="flex items-center gap-3 xl:ml-auto">
           ${
             qrValue
               ? `
-                <div class="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
-                  <div class="inline-flex w-fit rounded-xl border bg-white p-3 shadow-sm">
-                    ${renderRealQrPlaceholder({
-                      value: qrValue,
-                      size: 152,
-                      title: `周转口袋码 ${activeMaster.bagCode}`,
-                      label: `周转口袋 ${activeMaster.bagCode} 正式二维码`,
-                    })}
-                  </div>
-                  <div class="space-y-1 text-sm">
-                    <div><span class="text-muted-foreground">周转口袋码：</span><span class="font-medium text-foreground">${escapeHtml(activeMaster.bagCode)}</span></div>
-                    <div><span class="text-muted-foreground">本次周转号：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage?.usageNo || '尚未开始')}</span></div>
-                    <div><span class="text-muted-foreground">二维码值：</span><span class="font-medium break-all text-foreground">${escapeHtml(summarizeQrValue(qrValue))}</span></div>
-                  </div>
+                <div class="inline-flex shrink-0 rounded-lg border bg-white p-2">
+                  ${renderRealQrPlaceholder({
+                    value: qrValue,
+                    size: 72,
+                    title: `周转口袋码 ${activeMaster.bagCode}`,
+                    label: `周转口袋二维码 ${activeMaster.bagCode}`,
+                  })}
                 </div>
               `
-              : '<div class="mt-3 rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">当前未找到可展示的正式二维码值。</div>'
+              : '<div class="inline-flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-lg border border-dashed text-[11px] text-muted-foreground">暂无二维码</div>'
           }
+          <div class="min-w-0">
+            <div class="text-[11px] text-muted-foreground">周转口袋二维码</div>
+            <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(activeMaster.bagCode)}</div>
+          </div>
         </div>
       </div>
     </section>
@@ -3143,8 +3164,18 @@ function renderTransferBagHistoryTab(
   `
 }
 
-function renderTransferBagRecoveryTab(focusedUsage: TransferBagUsageItem | null): string {
-  if (!focusedUsage) {
+function renderTransferBagRecoveryTab(
+  activeMaster: TransferBagMasterItem,
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  const recoveryEntries = getDetailBagRecoveryEntries(activeMaster)
+  const selectedRecoveryEntry =
+    recoveryEntries.find((item) => item.usage.usageId === focusedUsage?.usageId) ||
+    recoveryEntries[0] ||
+    null
+  const selectedUsage = focusedUsage || selectedRecoveryEntry?.usage || null
+
+  if (!selectedUsage && !recoveryEntries.length) {
     return `
       <section id="transfer-bag-tabpanel-recovery" role="tabpanel" aria-labelledby="transfer-bag-tab-recovery" class="space-y-3 rounded-xl border bg-card p-4">
         <div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前还没有可回收的周转记录。</div>
@@ -3152,17 +3183,18 @@ function renderTransferBagRecoveryTab(focusedUsage: TransferBagUsageItem | null)
     `
   }
 
-  const returnUsage = getDetailReturnUsage(focusedUsage.usageId)
+  const returnUsage = selectedUsage ? getDetailReturnUsage(selectedUsage.usageId) : null
   const latestReceipt = returnUsage?.latestReturnReceipt || null
   const latestCondition = returnUsage?.latestConditionRecord || null
   const latestClosure = returnUsage?.latestClosureResult || null
   const canShowForm = Boolean(
-    returnUsage &&
+    selectedUsage &&
+      returnUsage &&
       (returnUsage.returnEligibility.ok ||
         latestReceipt ||
         latestCondition ||
         latestClosure ||
-        ['WAITING_RETURN', 'RETURN_INSPECTING', 'CLOSED', 'EXCEPTION_CLOSED'].includes(focusedUsage.usageStatus)),
+        ['WAITING_RETURN', 'RETURN_INSPECTING', 'CLOSED', 'EXCEPTION_CLOSED'].includes(selectedUsage.usageStatus)),
   )
 
   return `
@@ -3171,17 +3203,17 @@ function renderTransferBagRecoveryTab(focusedUsage: TransferBagUsageItem | null)
         <h2 class="text-sm font-semibold text-foreground">周转口袋回收</h2>
       </div>
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${renderDetailMetric('本次周转号', focusedUsage.usageNo)}
-        ${renderDetailMetric('周转口袋码', focusedUsage.bagCode)}
+        ${renderDetailMetric('本次周转号', selectedUsage?.usageNo || activeMaster.latestUsageNo || '尚未开始')}
+        ${renderDetailMetric('周转口袋码', activeMaster.bagCode)}
         <div class="rounded-lg border bg-muted/10 px-3 py-2">
           <div class="text-xs text-muted-foreground">当前状态</div>
-          <div class="mt-1">${renderTag(focusedUsage.statusMeta.label, focusedUsage.statusMeta.className)}</div>
+          <div class="mt-1">${renderTag((selectedUsage || focusedUsage)?.statusMeta.label || activeMaster.pocketStatusMeta.label, (selectedUsage || focusedUsage)?.statusMeta.className || activeMaster.pocketStatusMeta.className)}</div>
         </div>
         ${renderDetailMetric('是否可进入回收流程', returnUsage?.returnEligibility.ok ? '可以' : returnUsage?.returnEligibility.reason || '暂不可进入')}
       </div>
       ${
         !canShowForm
-          ? `<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前尚未进入回收阶段，当前状态为：${escapeHtml(focusedUsage.statusMeta.label)}。</div>`
+          ? `<div class="rounded-lg border border-dashed px-6 py-8 text-sm text-muted-foreground">当前尚未进入回收阶段，当前状态为：${escapeHtml((selectedUsage || focusedUsage)?.statusMeta.label || activeMaster.pocketStatusMeta.label)}。下面保留最近历史回收记录，便于查看上次回收结果。</div>`
           : `
             <div class="grid gap-3 xl:grid-cols-[1.05fr,0.95fr]">
               <article class="space-y-3 rounded-xl border bg-muted/15 p-4">
@@ -3257,9 +3289,9 @@ function renderTransferBagRecoveryTab(focusedUsage: TransferBagUsageItem | null)
                   </label>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(focusedUsage.usageId)}">创建回收草稿</button>
-                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="complete-return-inspection" data-usage-id="${escapeHtml(focusedUsage.usageId)}">完成回收</button>
-                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(focusedUsage.usageId)}">关闭本次周转</button>
+                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(selectedUsage?.usageId || '')}">创建回收草稿</button>
+                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="complete-return-inspection" data-usage-id="${escapeHtml(selectedUsage?.usageId || '')}">完成回收</button>
+                  <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(selectedUsage?.usageId || '')}">关闭本次周转</button>
                   <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="clear-return-draft">重置回收草稿</button>
                 </div>
               </article>
@@ -3271,9 +3303,9 @@ function renderTransferBagRecoveryTab(focusedUsage: TransferBagUsageItem | null)
                   <div><span class="text-muted-foreground">最近回收时间：</span><span class="font-medium text-foreground">${escapeHtml(latestReceipt?.returnAt || '尚未回收')}</span></div>
                   <div><span class="text-muted-foreground">交回 / 接收：</span><span class="font-medium text-foreground">${escapeHtml(latestReceipt ? `${latestReceipt.returnedBy || '待补'} / ${latestReceipt.receivedBy || '待补'}` : '待补')}</span></div>
                   <div><span class="text-muted-foreground">回收菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(latestReceipt ? String(latestReceipt.returnedTicketCountSummary) : '待补')}</span></div>
-                  <div><span class="text-muted-foreground">袋况：</span><span class="font-medium text-foreground">${escapeHtml(latestCondition ? latestCondition.conditionStatus === 'GOOD' ? '完好' : latestCondition.conditionStatus === 'MINOR_DAMAGE' ? '轻微损坏' : '严重损坏' : '待评估')}</span></div>
-                  <div><span class="text-muted-foreground">清洁情况：</span><span class="font-medium text-foreground">${escapeHtml(latestCondition ? latestCondition.cleanlinessStatus === 'CLEAN' ? '干净' : '待清洁' : '待评估')}</span></div>
-                  <div><span class="text-muted-foreground">是否可继续使用：</span><span class="font-medium text-foreground">${escapeHtml(latestCondition ? latestCondition.reusableDecision === 'REUSABLE' ? '可以' : latestCondition.reusableDecision === 'WAITING_CLEANING' ? '待清洁后再用' : latestCondition.reusableDecision === 'WAITING_REPAIR' ? '待维修后再用' : '不能继续使用' : '待评估')}</span></div>
+                  <div><span class="text-muted-foreground">袋况：</span><span class="font-medium text-foreground">${escapeHtml(formatConditionStatusLabel(latestCondition?.conditionStatus))}</span></div>
+                  <div><span class="text-muted-foreground">清洁情况：</span><span class="font-medium text-foreground">${escapeHtml(formatCleanlinessStatusLabel(latestCondition?.cleanlinessStatus))}</span></div>
+                  <div><span class="text-muted-foreground">是否可继续使用：</span><span class="font-medium text-foreground">${escapeHtml(formatReusableDecisionLabel(latestCondition?.reusableDecision))}</span></div>
                   ${
                     latestClosure
                       ? `<div><span class="text-muted-foreground">关闭结果：</span><span class="font-medium text-foreground">${escapeHtml(latestClosure.reason)}</span></div>`
@@ -3284,6 +3316,52 @@ function renderTransferBagRecoveryTab(focusedUsage: TransferBagUsageItem | null)
             </div>
           `
       }
+      ${
+        recoveryEntries.length
+          ? `
+            <article class="space-y-3 rounded-xl border bg-muted/10 p-4">
+              <div>
+                <h3 class="text-sm font-semibold text-foreground">最近回收记录</h3>
+              </div>
+              ${renderStickyTableScroller(
+                `
+                  <table class="min-w-full text-sm">
+                    <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th class="px-3 py-2 text-left">周转号</th>
+                        <th class="px-3 py-2 text-left">回收时间</th>
+                        <th class="px-3 py-2 text-left">回收点</th>
+                        <th class="px-3 py-2 text-left">交回 / 接收</th>
+                        <th class="px-3 py-2 text-left">袋况 / 清洁</th>
+                        <th class="px-3 py-2 text-left">是否可继续使用</th>
+                        <th class="px-3 py-2 text-left">备注</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${recoveryEntries
+                        .map(
+                          (entry) => `
+                            <tr class="border-b ${selectedUsage?.usageId === entry.usage.usageId ? 'bg-orange-50/50' : 'bg-card'}">
+                              <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(entry.usage.usageNo)}</td>
+                              <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(entry.latestReceipt?.returnAt || entry.latestClosure?.closedAt || '待补')}</td>
+                              <td class="px-3 py-2">${escapeHtml(entry.latestReceipt?.returnWarehouseName || '待补')}</td>
+                              <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(entry.latestReceipt ? `${entry.latestReceipt.returnedBy || '待补'} / ${entry.latestReceipt.receivedBy || '待补'}` : '待补')}</td>
+                              <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(`${formatConditionStatusLabel(entry.latestCondition?.conditionStatus)} / ${formatCleanlinessStatusLabel(entry.latestCondition?.cleanlinessStatus)}`)}</td>
+                              <td class="px-3 py-2">${escapeHtml(formatRecoveryEntryNextStepLabel(entry))}</td>
+                              <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(entry.latestClosure?.reason || entry.latestReceipt?.note || entry.latestCondition?.note || '无')}</td>
+                            </tr>
+                          `,
+                        )
+                        .join('')}
+                    </tbody>
+                  </table>
+                `,
+                'max-h-[24vh]',
+              )}
+            </article>
+          `
+          : ''
+      }
     </section>
   `
 }
@@ -3292,7 +3370,7 @@ function renderTransferBagLogsTab(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
 ): string {
-  const usageIds = focusedUsage ? [focusedUsage.usageId] : getDetailBagUsages(activeMaster).map((item) => item.usageId)
+  const usageIds = getDetailBagUsages(activeMaster).map((item) => item.usageId)
   const usageAudits = usageIds.flatMap((usageId) =>
     (getViewModel().auditTrailByUsageId[usageId] || []).map((audit) => ({
       actionAt: audit.actionAt,
@@ -3317,7 +3395,7 @@ function renderTransferBagLogsTab(
     <section id="transfer-bag-tabpanel-logs" role="tabpanel" aria-labelledby="transfer-bag-tab-logs" class="space-y-3 rounded-xl border bg-card p-4">
       <div>
         <h2 class="text-sm font-semibold text-foreground">操作日志</h2>
-        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(focusedUsage ? `当前查看 ${focusedUsage.usageNo} 的操作日志。` : `当前查看 ${activeMaster.bagCode} 的操作日志。`)}</p>
+        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(`当前查看 ${activeMaster.bagCode} 的全部操作日志，已按时间倒序排列。`)}</p>
       </div>
       ${logs.length
         ? `<div class="space-y-2">${logs
@@ -3345,7 +3423,7 @@ function renderTransferBagDetailTabPanel(
   activeTab: TransferBagDetailTab,
 ): string {
   if (activeTab === 'history') return renderTransferBagHistoryTab(activeMaster, focusedUsage)
-  if (activeTab === 'recovery') return renderTransferBagRecoveryTab(focusedUsage)
+  if (activeTab === 'recovery') return renderTransferBagRecoveryTab(activeMaster, focusedUsage)
   if (activeTab === 'logs') return renderTransferBagLogsTab(activeMaster, focusedUsage)
   return renderTransferBagCurrentTab(activeMaster, focusedUsage)
 }
@@ -3359,7 +3437,10 @@ function renderDetailPage(): string {
 
   return `
     <div class="space-y-3 p-4">
-      ${renderCuttingPageHeader(meta)}
+      <header data-transfer-bag-page-header class="flex items-center justify-between gap-3">
+        <h1 class="text-xl font-bold">${escapeHtml(meta.pageTitle)}</h1>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTransferBagListRoute())}">返回周转口袋流转</button>
+      </header>
       ${renderFeedbackBar()}
       ${activeMaster ? renderTransferBagDetailHeader(activeMaster, focusedUsage) : renderDetailEmptyState()}
       ${activeMaster ? renderTransferBagDetailTabs(activeMaster, focusedUsage, activeTab) : ''}
