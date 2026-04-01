@@ -341,27 +341,6 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
 } {
   const blockers = options.materialPrepRows.flatMap((row) => {
     const payload = row.navigationPayload.materialPrep
-    if (row.materialAuditStatus.key !== 'APPROVED') {
-      return [
-        buildBlocker({
-          productionOrderId: options.productionRow.productionOrderId,
-          productionOrderNo: options.productionRow.productionOrderNo,
-          sectionKey: 'MATERIAL_PREP',
-          severity: 'HIGH',
-          title: `${row.originalCutOrderNo} 审核未完成`,
-          sourceType: 'ORIGINAL_CUT_ORDER',
-          sourceId: row.originalCutOrderId,
-          sourceNo: row.originalCutOrderNo,
-          sourceLabel: '原始裁片单',
-          materialSku: row.materialSkuSummary,
-          currentStateLabel: row.materialAuditStatus.label,
-          blockerReason: row.materialAuditStatus.detailText,
-          navigationTarget: 'materialPrep',
-          navigationPayload: payload,
-          nextActionLabel: '去仓库配料领料',
-        }),
-      ]
-    }
     if (row.materialPrepStatus.key !== 'CONFIGURED') {
       return [
         buildBlocker({

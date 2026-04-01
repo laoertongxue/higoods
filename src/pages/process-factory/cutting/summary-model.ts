@@ -338,7 +338,7 @@ export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, Cutting
     key: 'MATERIAL_PREP',
     label: '配料 / 领料问题',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '审核未完成、配料未齐或领料不齐。',
+    detailText: '配料未齐或领料不齐。',
     actionHint: '去仓库配料领料',
   },
   SPREADING_REPLENISH: {
@@ -431,12 +431,10 @@ function summarizeMaterialPrep(rows: MaterialPrepRow[]): string {
   const configured = rows.filter((row) => row.materialPrepStatus.key === 'CONFIGURED').length
   const partial = rows.filter((row) => row.materialPrepStatus.key === 'PARTIAL').length
   const claimException = rows.filter((row) => row.materialClaimStatus.key === 'EXCEPTION').length
-  const auditPending = rows.filter((row) => row.materialAuditStatus.key !== 'APPROVED').length
   return [
     `已配置 ${configured}/${rows.length}`,
     partial ? `部分配置 ${partial}` : '',
     claimException ? `领料异常 ${claimException}` : '',
-    auditPending ? `待审核 ${auditPending}` : '',
   ]
     .filter(Boolean)
     .join(' / ')

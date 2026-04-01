@@ -126,7 +126,107 @@ function makeOriginalCutOrderNo(order: ProductionOrder, index: number): string {
   return `CUT-${normalizedDate}-${orderSuffix}-${String(index + 1).padStart(2, '0')}`
 }
 
+function buildSkuScopeLines(order: ProductionOrder): GeneratedOriginalCutOrderSkuScopeLine[] {
+  return order.demandSnapshot.skuLines.map((line) => ({
+    skuCode: normalizeText(line.skuCode),
+    color: normalizeText(line.color),
+    size: normalizeText(line.size),
+    plannedQty: Number(line.qty || 0),
+  }))
+}
+
+function buildMockSt081OriginalCutOrders(order: ProductionOrder): GeneratedOriginalCutOrderSourceRecord[] | null {
+  if (!['PO-202603-081', 'PO-202603-087', 'PO-202603-088'].includes(order.productionOrderId)) return null
+
+  const skuScopeLines = buildSkuScopeLines(order)
+  const totalQty = skuScopeLines.reduce((sum, item) => sum + item.plannedQty, 0)
+  const colorScope = unique(skuScopeLines.map((line) => line.color).filter(Boolean))
+  const materials: Array<{
+    materialSku: string
+    materialType: CuttingMaterialType
+    materialLabel: string
+    pieceRows: GeneratedOriginalCutOrderPieceRow[]
+  }> = [
+    {
+      materialSku: 'FAB-SKU-PRINT-001',
+      materialType: 'PRINT',
+      materialLabel: '主布印花面料',
+      pieceRows: [
+        {
+          partCode: 'tee-front',
+          partName: '前片',
+          pieceCountPerUnit: 1,
+          patternId: 'tee-front',
+          patternName: 'T 恤前片',
+          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
+        },
+        {
+          partCode: 'tee-back',
+          partName: '后片',
+          pieceCountPerUnit: 1,
+          patternId: 'tee-back',
+          patternName: 'T 恤后片',
+          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
+        },
+      ],
+    },
+    {
+      materialSku: 'FAB-SKU-LINING-001',
+      materialType: 'LINING',
+      materialLabel: '领口里布',
+      pieceRows: [
+        {
+          partCode: 'tee-neck-lining',
+          partName: '领口里布片',
+          pieceCountPerUnit: 1,
+          patternId: 'tee-neck-lining',
+          patternName: '领口里布',
+          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
+        },
+      ],
+    },
+    {
+      materialSku: 'FAB-SKU-SOLID-033',
+      materialType: 'SOLID',
+      materialLabel: '领口拼接布',
+      pieceRows: [
+        {
+          partCode: 'tee-neck-contrast',
+          partName: '领口拼接片',
+          pieceCountPerUnit: 1,
+          patternId: 'tee-neck-contrast',
+          patternName: '领口拼接布',
+          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
+        },
+      ],
+    },
+  ]
+
+  return materials.map((material, index) => ({
+    originalCutOrderId: makeOriginalCutOrderNo(order, index),
+    originalCutOrderNo: makeOriginalCutOrderNo(order, index),
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderNo,
+    materialSku: material.materialSku,
+    materialType: material.materialType,
+    materialLabel: material.materialLabel,
+    materialCategory: toMaterialCategory(material.materialType),
+    mergeBatchId: '',
+    mergeBatchNo: '',
+    requiredQty: totalQty,
+    techPackVersionLabel: order.techPackSnapshot.versionLabel,
+    sourceTechPackSpuCode: order.demandSnapshot.spuCode,
+    colorScope,
+    skuScopeLines: skuScopeLines.map((line) => ({ ...line })),
+    pieceRows: material.pieceRows.map((row) => ({ ...row, applicableSkuCodes: [...row.applicableSkuCodes] })),
+    pieceSummary: material.pieceRows.map((row) => `${row.partName}×${row.pieceCountPerUnit}`).join('、'),
+  }))
+}
+
 function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrderSourceRecord[] {
+  const mockOverrideRows = buildMockSt081OriginalCutOrders(order)
+  if (mockOverrideRows) return mockOverrideRows
+
   const techPack = resolveReleasedTechPackForProductionOrder(order.productionOrderId)
   if (!techPack) return []
 

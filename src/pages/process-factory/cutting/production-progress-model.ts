@@ -2,10 +2,10 @@ import type {
   CuttingConfigStatus,
   CuttingMaterialLine,
   CuttingOrderProgressRecord,
-  CuttingReviewStatus,
   CuttingUrgencyLevel,
   CuttingSkuRequirementLine,
 } from '../../../data/fcs/cutting/types'
+import { listGeneratedOriginalCutOrderSourceRecords } from '../../../data/fcs/cutting/generated-original-cut-orders.ts'
 import {
   buildProductionPieceProgressViewModelFromTruth,
   type ProductionPieceProgressViewModel,
@@ -40,20 +40,26 @@ export const LARGE_ORDER_QTY_THRESHOLD = 4500
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
 export type ProductionProgressUrgencyKey = CuttingUrgencyLevel | 'UNKNOWN'
-export type ProductionProgressAuditKey = CuttingReviewStatus | 'PENDING' | 'PARTIAL'
 export type ProductionProgressReceiveKey = 'NOT_RECEIVED' | 'PARTIAL' | 'RECEIVED' | 'EXCEPTION'
 export type ProductionProgressStageKey = 'WAITING_PREP' | 'PREPPING' | 'WAITING_CLAIM' | 'CUTTING' | 'WAITING_INBOUND' | 'DONE'
 export type ProductionProgressCompletionKey = ProductionPieceTruthCompletionKey
 export type ProductionPieceCompletionKey = ProductionPieceTruthCompletionKey
+export type ProductionProgressShipDeltaDirection = 'BEFORE' | 'OVERDUE' | 'UNKNOWN'
+export type ProductionProgressShipDeltaRangeKey =
+  | 'BEFORE_0_3'
+  | 'BEFORE_4_6'
+  | 'BEFORE_7_9'
+  | 'BEFORE_10_13'
+  | 'BEFORE_14_PLUS'
+  | 'OVERDUE_0_3'
+  | 'OVERDUE_4_6'
+  | 'OVERDUE_7_PLUS'
+  | 'SHIP_DATE_MISSING'
 export type ProductionProgressRiskKey =
   | 'CONFIG_DELAY'
-  | 'RECEIVE_EXCEPTION'
   | 'SHIP_URGENT'
-  | 'DATE_MISSING'
-  | 'STATUS_CONFLICT'
   | 'REPLENISH_PENDING'
   | 'PIECE_GAP'
-  | 'TECH_PACK_MISSING'
 export type ProductionProgressSortKey = 'URGENCY_THEN_SHIP' | 'SHIP_DATE_ASC' | 'ORDER_QTY_DESC'
 
 export interface ProductionProgressSummaryMeta<Key extends string> {
@@ -67,6 +73,43 @@ export interface ProductionProgressRiskTag {
   key: ProductionProgressRiskKey
   label: string
   className: string
+}
+
+export interface ProductionProgressMaterialPrepLine {
+  materialLabel: string
+  materialSku: string
+  preparedQty: number
+  totalQty: number
+}
+
+export interface ProductionProgressMaterialClaimLine {
+  materialLabel: string
+  materialSku: string
+  claimedQty: number
+  preparedQty: number
+}
+
+export interface ProductionProgressSkuProgressLine {
+  skuLabel: string
+  skuDetailLabel: string
+  demandQty: number
+  cutQty: number
+  inboundQty: number
+  completionLabel: string
+  completionClassName: string
+}
+
+export interface ProductionProgressPartDifferenceSummary {
+  completedPieceQty: number
+  incompletePieceQty: number
+}
+
+export interface ProductionProgressSourceOrderProgressLine {
+  originalCutOrderNo: string
+  materialSku: string
+  skuCount: number
+  incompletePieceQty: number
+  currentStateLabel: string
 }
 
 export interface ProductionProgressRow {
@@ -90,9 +133,14 @@ export interface ProductionProgressRow {
     sortWeight: number
     detailText: string
   }
-  materialAuditSummary: ProductionProgressSummaryMeta<ProductionProgressAuditKey>
+  shipDeltaDays: number | null
+  shipDeltaDirection: ProductionProgressShipDeltaDirection
+  shipDeltaRange: ProductionProgressShipDeltaRangeKey
+  shipCountdownText: string
   materialPrepSummary: ProductionProgressSummaryMeta<CuttingConfigStatus>
   materialClaimSummary: ProductionProgressSummaryMeta<ProductionProgressReceiveKey>
+  materialPrepLines: ProductionProgressMaterialPrepLine[]
+  materialClaimLines: ProductionProgressMaterialClaimLine[]
   currentStage: {
     key: ProductionProgressStageKey
     label: string
@@ -101,6 +149,9 @@ export interface ProductionProgressRow {
   cuttingCompletionSummary: ProductionProgressSummaryMeta<ProductionProgressCompletionKey>
   pieceCompletionSummary: ProductionProgressSummaryMeta<ProductionPieceCompletionKey>
   pieceTruth: ProductionPieceTruthResult
+  skuProgressLines: ProductionProgressSkuProgressLine[]
+  sourceOrderProgressLines: ProductionProgressSourceOrderProgressLine[]
+  partDifferenceSummary: ProductionProgressPartDifferenceSummary
   riskTags: ProductionProgressRiskTag[]
   originalCutOrderCount: number
   originalCutOrderIds: string[]
@@ -163,20 +214,11 @@ export interface ProductionProgressFilters {
   keyword: string
   productionOrderNo: string
   urgencyLevel: 'ALL' | ProductionProgressUrgencyKey
+  shipDeltaRange: 'ALL' | ProductionProgressShipDeltaRangeKey
   currentStage: 'ALL' | ProductionProgressStageKey
   completionState: 'ALL' | ProductionPieceTruthCompletionKey
-  auditStatus: 'ALL' | ProductionProgressAuditKey
   configStatus: 'ALL' | CuttingConfigStatus
   receiveStatus: 'ALL' | ProductionProgressReceiveKey
-  skuKeyword: string
-  color: string
-  size: string
-  partKeyword: string
-  originalCutOrderNo: string
-  materialSku: string
-  onlyIncomplete: boolean
-  onlyMappingMissing: boolean
-  onlyDataPending: boolean
   riskFilter: 'ALL' | 'ANY' | ProductionProgressRiskKey
   sortBy: ProductionProgressSortKey
 }
@@ -197,13 +239,6 @@ export const urgencyMeta: Record<ProductionProgressUrgencyKey, { label: string; 
   C: { label: 'C 优先', className: 'bg-sky-100 text-sky-700 border border-sky-200', sortWeight: 2 },
   D: { label: 'D 常规', className: 'bg-slate-100 text-slate-700 border border-slate-200', sortWeight: 1 },
   UNKNOWN: { label: '待补日期', className: 'bg-slate-100 text-slate-600 border border-slate-200', sortWeight: 0 },
-}
-
-export const auditMeta: Record<ProductionProgressAuditKey, { label: string; className: string }> = {
-  NOT_REQUIRED: { label: '无需审核', className: 'bg-slate-100 text-slate-700' },
-  PENDING: { label: '待审核', className: 'bg-amber-100 text-amber-700' },
-  PARTIAL: { label: '部分已审核', className: 'bg-orange-100 text-orange-700' },
-  APPROVED: { label: '全部已审核', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const configMeta: Record<CuttingConfigStatus, { label: string; className: string }> = {
@@ -236,13 +271,21 @@ export const pieceCompletionMeta: Record<ProductionPieceCompletionKey, { label: 
 
 export const riskMeta: Record<ProductionProgressRiskKey, { label: string; className: string }> = {
   CONFIG_DELAY: { label: '配料滞后', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
-  RECEIVE_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
-  DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  STATUS_CONFLICT: { label: '状态不一致', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
   REPLENISH_PENDING: { label: '待补料', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
   PIECE_GAP: { label: '裁片缺口', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
-  TECH_PACK_MISSING: { label: '技术包缺失', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
+}
+
+export const shipDeltaRangeMeta: Record<ProductionProgressShipDeltaRangeKey, { label: string }> = {
+  BEFORE_0_3: { label: '距计划发货 0~3 天' },
+  BEFORE_4_6: { label: '距计划发货 4~6 天' },
+  BEFORE_7_9: { label: '距计划发货 7~9 天' },
+  BEFORE_10_13: { label: '距计划发货 10~13 天' },
+  BEFORE_14_PLUS: { label: '距计划发货 14 天以上' },
+  OVERDUE_0_3: { label: '超计划发货 0~3 天' },
+  OVERDUE_4_6: { label: '超计划发货 4~6 天' },
+  OVERDUE_7_PLUS: { label: '超计划发货 7 天以上' },
+  SHIP_DATE_MISSING: { label: '计划发货日期待补' },
 }
 
 export function formatQty(value: number): string {
@@ -258,6 +301,20 @@ function parseDateOnly(value: string): Date | null {
   const [year, month, day] = value.split('-').map((part) => Number(part))
   if (!year || !month || !day) return null
   return new Date(Date.UTC(year, month - 1, day))
+}
+
+function makeProductionProgressSkuKey(line: { skuCode?: string; color?: string; size?: string }): string {
+  const skuCode = String(line.skuCode || '').trim().toLowerCase()
+  if (skuCode) return `sku:${skuCode}`
+  return `color-size:${String(line.color || '').trim().toLowerCase()}::${String(line.size || '').trim().toLowerCase()}`
+}
+
+function makeProductionProgressOriginalOrderKey(line: {
+  productionOrderId: string
+  originalCutOrderNo: string
+  materialSku: string
+}): string {
+  return [line.productionOrderId, line.originalCutOrderNo, line.materialSku].map((item) => String(item || '').trim().toLowerCase()).join('::')
 }
 
 function getDaysToShip(plannedShipDate: string, referenceDate = PRODUCTION_PROGRESS_REFERENCE_DATE): number | null {
@@ -276,7 +333,7 @@ function buildUrgencyView(plannedShipDate: string, orderQty: number) {
       label: meta.label,
       className: meta.className,
       sortWeight: meta.sortWeight,
-      detailText: '计划发货日期待补齐，当前无法计算紧急程度。',
+      detailText: '计划发货日期待补',
     }
   }
 
@@ -299,31 +356,37 @@ function buildUrgencyView(plannedShipDate: string, orderQty: number) {
     label: meta.label,
     className: meta.className,
     sortWeight: meta.sortWeight,
-    detailText: `距计划发货 ${Math.max(daysToShip, 0)} 天，按试运行规则计算。`,
+    detailText: daysToShip >= 0 ? `距计划发货 ${daysToShip} 天` : `已超计划发货 ${Math.abs(daysToShip)} 天`,
   }
 }
 
-function buildAuditSummary(lines: CuttingMaterialLine[]): ProductionProgressSummaryMeta<ProductionProgressAuditKey> {
-  const reviewRequired = lines.filter((line) => line.reviewStatus !== 'NOT_REQUIRED')
-  if (reviewRequired.length === 0) {
-    const meta = auditMeta.NOT_REQUIRED
-    return { key: 'NOT_REQUIRED', label: meta.label, className: meta.className, detailText: '当前面料无需审核' }
+function buildShipCountdownText(plannedShipDate: string): string {
+  const daysToShip = getDaysToShip(plannedShipDate)
+  if (daysToShip === null) return '计划发货日期待补'
+  if (daysToShip >= 0) return `距计划发货 ${daysToShip} 天`
+  return `已超计划发货 ${Math.abs(daysToShip)} 天`
+}
+
+function buildShipDeltaDirection(daysToShip: number | null): ProductionProgressShipDeltaDirection {
+  if (daysToShip === null) return 'UNKNOWN'
+  if (daysToShip >= 0) return 'BEFORE'
+  return 'OVERDUE'
+}
+
+function buildShipDeltaRange(daysToShip: number | null): ProductionProgressShipDeltaRangeKey {
+  if (daysToShip === null) return 'SHIP_DATE_MISSING'
+  if (daysToShip >= 0) {
+    if (daysToShip <= 3) return 'BEFORE_0_3'
+    if (daysToShip <= 6) return 'BEFORE_4_6'
+    if (daysToShip <= 9) return 'BEFORE_7_9'
+    if (daysToShip <= 13) return 'BEFORE_10_13'
+    return 'BEFORE_14_PLUS'
   }
 
-  const approvedCount = reviewRequired.filter((line) => line.reviewStatus === 'APPROVED').length
-  const total = reviewRequired.length
-
-  if (approvedCount === total) {
-    const meta = auditMeta.APPROVED
-    return { key: 'APPROVED', label: meta.label, className: meta.className, detailText: formatCountSummary(approvedCount, total, '已审核') }
-  }
-  if (approvedCount > 0) {
-    const meta = auditMeta.PARTIAL
-    return { key: 'PARTIAL', label: meta.label, className: meta.className, detailText: formatCountSummary(approvedCount, total, '已审核') }
-  }
-
-  const meta = auditMeta.PENDING
-  return { key: 'PENDING', label: meta.label, className: meta.className, detailText: `待审核 ${total} 项` }
+  const overdueDays = Math.abs(daysToShip)
+  if (overdueDays <= 3) return 'OVERDUE_0_3'
+  if (overdueDays <= 6) return 'OVERDUE_4_6'
+  return 'OVERDUE_7_PLUS'
 }
 
 function buildConfigSummary(lines: CuttingMaterialLine[]): ProductionProgressSummaryMeta<CuttingConfigStatus> {
@@ -463,7 +526,6 @@ function buildPieceTruthOverlaySignals(
 function buildProductionCompletionSummary(
   truth: ProductionPieceTruthResult,
   options: {
-    auditSummary: ProductionProgressSummaryMeta<ProductionProgressAuditKey>
     prepSummary: ProductionProgressSummaryMeta<CuttingConfigStatus>
     claimSummary: ProductionProgressSummaryMeta<ProductionProgressReceiveKey>
     record: CuttingOrderProgressRecord
@@ -472,15 +534,13 @@ function buildProductionCompletionSummary(
   const objectExceptionReason =
     options.claimSummary.key === 'EXCEPTION' ? options.claimSummary.detailText : undefined
   const objectPendingReason =
-    options.auditSummary.key !== 'APPROVED'
-      ? options.auditSummary.detailText
-      : options.prepSummary.key !== 'CONFIGURED'
-        ? options.prepSummary.detailText
-        : options.claimSummary.key !== 'RECEIVED'
-          ? options.claimSummary.detailText
-          : options.record.riskFlags.includes('REPLENISH_PENDING')
-            ? '当前仍有待补料项，需继续处理。'
-            : undefined
+    options.prepSummary.key !== 'CONFIGURED'
+      ? options.prepSummary.detailText
+      : options.claimSummary.key !== 'RECEIVED'
+        ? options.claimSummary.detailText
+        : options.record.riskFlags.includes('REPLENISH_PENDING')
+          ? '当前仍有待补料项，需继续处理。'
+          : undefined
   const completionMeta = buildProductionPieceTruthCompletion(truth, {
     hasObjectException: Boolean(objectExceptionReason),
     hasObjectPending: Boolean(objectPendingReason),
@@ -498,10 +558,7 @@ function buildProductionCompletionSummary(
 
 function buildRiskTags(
   record: CuttingOrderProgressRecord,
-  auditSummary: ProductionProgressSummaryMeta<ProductionProgressAuditKey>,
   prepSummary: ProductionProgressSummaryMeta<CuttingConfigStatus>,
-  claimSummary: ProductionProgressSummaryMeta<ProductionProgressReceiveKey>,
-  currentStageKey: ProductionProgressStageKey,
   urgencyKey: ProductionProgressUrgencyKey,
   pieceTruth: ProductionPieceTruthResult,
 ): ProductionProgressRiskTag[] {
@@ -512,17 +569,11 @@ function buildRiskTags(
     tags.push({ key, label: riskMeta[key].label, className: riskMeta[key].className })
   }
 
-  if (auditSummary.key === 'PENDING' || auditSummary.key === 'PARTIAL' || prepSummary.key !== 'CONFIGURED') {
+  if (prepSummary.key !== 'CONFIGURED') {
     pushRisk('CONFIG_DELAY')
-  }
-  if (claimSummary.key === 'EXCEPTION') {
-    pushRisk('RECEIVE_EXCEPTION')
   }
   if (record.riskFlags.includes('REPLENISH_PENDING')) {
     pushRisk('REPLENISH_PENDING')
-  }
-  if (pieceTruth.mappingIssues.length) {
-    pushRisk('TECH_PACK_MISSING')
   }
   if (pieceTruth.gapRows.some((row) => row.gapCutQty > 0 || row.gapInboundQty > 0)) {
     pushRisk('PIECE_GAP')
@@ -530,20 +581,350 @@ function buildRiskTags(
   if (urgencyKey === 'AA' || urgencyKey === 'A') {
     pushRisk('SHIP_URGENT')
   }
-  if (!record.plannedShipDate) {
-    pushRisk('DATE_MISSING')
-  }
-
-  const hasConflict =
-    (currentStageKey === 'WAITING_PREP' && (record.hasSpreadingRecord || claimSummary.key !== 'NOT_RECEIVED')) ||
-    (currentStageKey === 'DONE' && !record.hasInboundRecord) ||
-    (currentStageKey === 'WAITING_INBOUND' && !record.hasSpreadingRecord)
-
-  if (hasConflict) {
-    pushRisk('STATUS_CONFLICT')
-  }
 
   return tags
+}
+
+function buildMaterialRequirementMap(): Map<string, number> {
+  const requirementMap = new Map<string, number>()
+  listGeneratedOriginalCutOrderSourceRecords().forEach((record) => {
+    const key = `${record.productionOrderId}::${record.materialSku}`.toLowerCase()
+    requirementMap.set(key, (requirementMap.get(key) || 0) + Number(record.requiredQty || 0))
+  })
+  return requirementMap
+}
+
+function buildSkuPieceRequirementMap(): Map<string, number> {
+  const requirementMap = new Map<string, number>()
+  listGeneratedOriginalCutOrderSourceRecords().forEach((record) => {
+    record.skuScopeLines.forEach((scopeLine) => {
+      const pieceCountPerUnit = record.pieceRows
+        .filter((pieceRow) => !pieceRow.applicableSkuCodes.length || pieceRow.applicableSkuCodes.includes(scopeLine.skuCode))
+        .reduce((sum, pieceRow) => sum + Number(pieceRow.pieceCountPerUnit || 0), 0)
+      const key = `${record.productionOrderId.toLowerCase()}::${makeProductionProgressSkuKey(scopeLine)}`
+      requirementMap.set(key, (requirementMap.get(key) || 0) + Number(scopeLine.plannedQty || 0) * pieceCountPerUnit)
+    })
+  })
+  return requirementMap
+}
+
+function buildOriginalOrderRequirementMap(): Map<
+  string,
+  {
+    requiredPieceQty: number
+    skuCodes: Set<string>
+  }
+> {
+  const requirementMap = new Map<
+    string,
+    {
+      requiredPieceQty: number
+      skuCodes: Set<string>
+    }
+  >()
+
+  listGeneratedOriginalCutOrderSourceRecords().forEach((record) => {
+    const key = makeProductionProgressOriginalOrderKey({
+      productionOrderId: record.productionOrderId,
+      originalCutOrderNo: record.originalCutOrderNo,
+      materialSku: record.materialSku,
+    })
+    const current = requirementMap.get(key) || { requiredPieceQty: 0, skuCodes: new Set<string>() }
+    record.skuScopeLines.forEach((scopeLine) => {
+      const pieceCountPerUnit = record.pieceRows
+        .filter((pieceRow) => !pieceRow.applicableSkuCodes.length || pieceRow.applicableSkuCodes.includes(scopeLine.skuCode))
+        .reduce((sum, pieceRow) => sum + Number(pieceRow.pieceCountPerUnit || 0), 0)
+      current.requiredPieceQty += Number(scopeLine.plannedQty || 0) * pieceCountPerUnit
+      if (scopeLine.skuCode) current.skuCodes.add(scopeLine.skuCode)
+    })
+    requirementMap.set(key, current)
+  })
+
+  return requirementMap
+}
+
+function buildMaterialPrepLines(
+  record: CuttingOrderProgressRecord,
+  requirementMap: Map<string, number>,
+): ProductionProgressMaterialPrepLine[] {
+  const grouped = new Map<string, ProductionProgressMaterialPrepLine>()
+  record.materialLines.forEach((line) => {
+    const key = line.materialSku.toLowerCase()
+    const requirementKey = `${record.productionOrderId}::${line.materialSku}`.toLowerCase()
+    const current = grouped.get(key) || {
+      materialLabel: line.materialLabel || line.materialSku,
+      materialSku: line.materialSku,
+      preparedQty: 0,
+      totalQty: 0,
+    }
+    current.preparedQty += Number(line.configuredLength || 0)
+    current.totalQty = Math.max(
+      current.totalQty,
+      Number(requirementMap.get(requirementKey) || 0),
+      current.preparedQty,
+      Number(line.receivedLength || 0),
+    )
+    grouped.set(key, current)
+  })
+
+  return Array.from(grouped.values()).sort((left, right) => left.materialSku.localeCompare(right.materialSku, 'zh-CN'))
+}
+
+function buildMaterialClaimLines(record: CuttingOrderProgressRecord): ProductionProgressMaterialClaimLine[] {
+  const grouped = new Map<string, ProductionProgressMaterialClaimLine>()
+  record.materialLines.forEach((line) => {
+    const key = line.materialSku.toLowerCase()
+    const current = grouped.get(key) || {
+      materialLabel: line.materialLabel || line.materialSku,
+      materialSku: line.materialSku,
+      claimedQty: 0,
+      preparedQty: 0,
+    }
+    current.claimedQty += Number(line.receivedLength || 0)
+    current.preparedQty += Number(line.configuredLength || 0)
+    grouped.set(key, current)
+  })
+
+  return Array.from(grouped.values()).sort((left, right) => left.materialSku.localeCompare(right.materialSku, 'zh-CN'))
+}
+
+function buildProgressStateLabel(options: {
+  requiredPieceQty: number
+  actualCutQty: number
+  inboundQty: number
+  hasConfiguredQty: boolean
+  hasReceivedQty: boolean
+}): string {
+  if (!options.hasConfiguredQty && !options.hasReceivedQty && options.actualCutQty <= 0 && options.inboundQty <= 0) {
+    return '待配料 / 待领料'
+  }
+  if (options.actualCutQty <= 0) {
+    return '待铺布'
+  }
+  if (options.requiredPieceQty > 0 && options.actualCutQty < options.requiredPieceQty) {
+    return '裁片未齐'
+  }
+  if (options.requiredPieceQty > 0 && options.inboundQty < options.requiredPieceQty) {
+    return options.inboundQty > 0 ? '入仓数据待补' : '裁完待入仓'
+  }
+  return '已齐套'
+}
+
+function resolveProgressStateClassName(label: string): string {
+  if (label === '已齐套') return 'text-emerald-700'
+  if (label === '待配料 / 待领料' || label === '待铺布') return 'text-amber-700'
+  return 'text-orange-700'
+}
+
+function resolveSkuProgressClassName(row: ProductionPieceTruthResult['skuRows'][number]): string {
+  if (row.mappingStatus !== 'MATCHED') return 'text-amber-700'
+  if (row.gapCutQty > 0 || row.gapInboundQty > 0) return 'text-orange-700'
+  return 'text-emerald-700'
+}
+
+function buildSkuProgressLines(
+  record: CuttingOrderProgressRecord,
+  truth: ProductionPieceTruthResult,
+  skuPieceRequirementMap: Map<string, number>,
+): ProductionProgressSkuProgressLine[] {
+  const grouped = new Map<
+    string,
+    {
+      skuLabel: string
+      skuDetailLabel: string
+      demandQty: number
+      cutQty: number
+      inboundQty: number
+      hasConfiguredQty: boolean
+      hasReceivedQty: boolean
+      requiredPieceQty: number
+    }
+  >()
+
+  ;(record.skuRequirementLines || []).forEach((line) => {
+    const key = makeProductionProgressSkuKey(line)
+    grouped.set(key, {
+      skuLabel: line.skuCode || '未命名 SKU',
+      skuDetailLabel: [line.color, line.size].filter(Boolean).join(' / '),
+      demandQty: Number(line.plannedQty || 0),
+      cutQty: 0,
+      inboundQty: 0,
+      hasConfiguredQty: false,
+      hasReceivedQty: false,
+      requiredPieceQty: Number(skuPieceRequirementMap.get(`${record.productionOrderId.toLowerCase()}::${key}`) || 0),
+    })
+  })
+
+  record.materialLines.forEach((materialLine) => {
+    ;(materialLine.skuScopeLines || []).forEach((scopeLine) => {
+      const key = makeProductionProgressSkuKey(scopeLine)
+      const current = grouped.get(key)
+      if (current) {
+        current.hasConfiguredQty = current.hasConfiguredQty || Number(materialLine.configuredLength || 0) > 0
+        current.hasReceivedQty = current.hasReceivedQty || Number(materialLine.receivedLength || 0) > 0
+      }
+    })
+
+    ;(materialLine.pieceProgressLines || []).forEach((pieceLine) => {
+      const key = makeProductionProgressSkuKey(pieceLine)
+      const current =
+        grouped.get(key) ||
+        {
+          skuLabel: pieceLine.skuCode || '未命名 SKU',
+          skuDetailLabel: [pieceLine.color, pieceLine.size].filter(Boolean).join(' / '),
+          demandQty: 0,
+          cutQty: 0,
+          inboundQty: 0,
+          hasConfiguredQty: Number(materialLine.configuredLength || 0) > 0,
+          hasReceivedQty: Number(materialLine.receivedLength || 0) > 0,
+          requiredPieceQty: Number(skuPieceRequirementMap.get(`${record.productionOrderId.toLowerCase()}::${key}`) || 0),
+        }
+      current.cutQty += Number(pieceLine.actualCutQty || 0)
+      current.inboundQty += Number(pieceLine.inboundQty || 0)
+      current.hasConfiguredQty = current.hasConfiguredQty || Number(materialLine.configuredLength || 0) > 0
+      current.hasReceivedQty = current.hasReceivedQty || Number(materialLine.receivedLength || 0) > 0
+      grouped.set(key, current)
+    })
+  })
+
+  const lines = Array.from(grouped.values())
+    .map((row) => {
+      const completionLabel = buildProgressStateLabel({
+        requiredPieceQty: row.requiredPieceQty,
+        actualCutQty: row.cutQty,
+        inboundQty: row.inboundQty,
+        hasConfiguredQty: row.hasConfiguredQty,
+        hasReceivedQty: row.hasReceivedQty,
+      })
+
+      return {
+        skuLabel: row.skuLabel,
+        skuDetailLabel: row.skuDetailLabel,
+        demandQty: row.demandQty,
+        cutQty: row.cutQty,
+        inboundQty: row.inboundQty,
+        completionLabel,
+        completionClassName: resolveProgressStateClassName(completionLabel),
+      }
+    })
+    .sort((left, right) => left.skuLabel.localeCompare(right.skuLabel, 'zh-CN'))
+
+  if (lines.length) return lines
+
+  return truth.skuRows.map((row) => {
+    const detailLabel = [row.color, row.size].filter(Boolean).join(' / ')
+    return {
+      skuLabel: row.skuCode || '未命名 SKU',
+      skuDetailLabel: detailLabel,
+      demandQty: row.requiredGarmentQty,
+      cutQty: row.actualCutQty,
+      inboundQty: row.inboundQty,
+      completionLabel: row.currentStateLabel,
+      completionClassName: resolveSkuProgressClassName(row),
+    }
+  })
+}
+
+function buildSourceOrderProgressLines(
+  record: CuttingOrderProgressRecord,
+  originalOrderRequirementMap: Map<string, { requiredPieceQty: number; skuCodes: Set<string> }>,
+  truth: ProductionPieceTruthResult,
+): ProductionProgressSourceOrderProgressLine[] {
+  const grouped = new Map<
+    string,
+    {
+      originalCutOrderNo: string
+      materialSku: string
+      skuCodes: Set<string>
+      cutQty: number
+      inboundQty: number
+      hasConfiguredQty: boolean
+      hasReceivedQty: boolean
+      requiredPieceQty: number
+    }
+  >()
+
+  record.materialLines.forEach((materialLine) => {
+    const key = makeProductionProgressOriginalOrderKey({
+      productionOrderId: record.productionOrderId,
+      originalCutOrderNo: materialLine.originalCutOrderNo,
+      materialSku: materialLine.materialSku,
+    })
+    const requirement = originalOrderRequirementMap.get(key)
+    const current =
+      grouped.get(key) ||
+      {
+        originalCutOrderNo: materialLine.originalCutOrderNo || '',
+        materialSku: materialLine.materialSku,
+        skuCodes: new Set<string>(requirement ? Array.from(requirement.skuCodes) : []),
+        cutQty: 0,
+        inboundQty: 0,
+        hasConfiguredQty: Number(materialLine.configuredLength || 0) > 0,
+        hasReceivedQty: Number(materialLine.receivedLength || 0) > 0,
+        requiredPieceQty: Number(requirement?.requiredPieceQty || 0),
+      }
+    ;(materialLine.skuScopeLines || []).forEach((scopeLine) => {
+      if (scopeLine.skuCode) current.skuCodes.add(scopeLine.skuCode)
+    })
+    ;(materialLine.pieceProgressLines || []).forEach((pieceLine) => {
+      current.cutQty += Number(pieceLine.actualCutQty || 0)
+      current.inboundQty += Number(pieceLine.inboundQty || 0)
+    })
+    current.hasConfiguredQty = current.hasConfiguredQty || Number(materialLine.configuredLength || 0) > 0
+    current.hasReceivedQty = current.hasReceivedQty || Number(materialLine.receivedLength || 0) > 0
+    grouped.set(key, current)
+  })
+
+  const lines = Array.from(grouped.values())
+    .map((row) => {
+      const currentStateLabel = buildProgressStateLabel({
+        requiredPieceQty: row.requiredPieceQty,
+        actualCutQty: row.cutQty,
+        inboundQty: row.inboundQty,
+        hasConfiguredQty: row.hasConfiguredQty,
+        hasReceivedQty: row.hasReceivedQty,
+      })
+      const incompletePieceQty =
+        row.requiredPieceQty > 0
+          ? Math.max(row.requiredPieceQty - Math.max(row.cutQty, row.inboundQty), row.requiredPieceQty - row.inboundQty, 0)
+          : 0
+
+      return {
+        originalCutOrderNo: row.originalCutOrderNo,
+        materialSku: row.materialSku,
+        skuCount: row.skuCodes.size,
+        incompletePieceQty,
+        currentStateLabel,
+      }
+    })
+    .filter((row) => row.originalCutOrderNo)
+    .sort((left, right) => left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN'))
+
+  return lines.length
+    ? lines
+    : truth.originalCutOrderRows.map((row) => ({
+        originalCutOrderNo: row.originalCutOrderNo,
+        materialSku: row.materialSku,
+        skuCount: row.skuCount,
+        incompletePieceQty: Math.max(row.gapCutQty, row.gapInboundQty),
+        currentStateLabel: row.currentStateLabel,
+      }))
+}
+
+function buildPartDifferenceSummary(truth: ProductionPieceTruthResult): ProductionProgressPartDifferenceSummary {
+  return truth.gapRows.reduce<ProductionProgressPartDifferenceSummary>(
+    (summary, row) => {
+      const pieceQty = Number(row.requiredPieceQty || 0)
+      const isCompleted = row.mappingStatus === 'MATCHED' && Number(row.gapCutQty || 0) === 0 && Number(row.gapInboundQty || 0) === 0
+      if (isCompleted) {
+        summary.completedPieceQty += pieceQty
+      } else {
+        summary.incompletePieceQty += pieceQty
+      }
+      return summary
+    },
+    { completedPieceQty: 0, incompletePieceQty: 0 },
+  )
 }
 
 function buildKeywordIndex(
@@ -589,6 +970,9 @@ export function buildProductionProgressRows(
   records: CuttingOrderProgressRecord[],
   options: ProductionProgressRuntimeOptions = {},
 ): ProductionProgressRow[] {
+  const materialRequirementMap = buildMaterialRequirementMap()
+  const skuPieceRequirementMap = buildSkuPieceRequirementMap()
+  const originalOrderRequirementMap = buildOriginalOrderRequirementMap()
   return records.map((record) => {
     const originalCutOrderNos = Array.from(
       new Set(record.materialLines.map((line) => line.originalCutOrderNo || line.originalCutOrderId).filter(Boolean)),
@@ -596,22 +980,31 @@ export function buildProductionProgressRows(
     const originalCutOrderIds = Array.from(
       new Set(record.materialLines.map((line) => line.originalCutOrderId || line.originalCutOrderNo).filter(Boolean)),
     )
-    const auditSummary = buildAuditSummary(record.materialLines)
     const prepSummary = buildConfigSummary(record.materialLines)
     const claimSummary = buildReceiveSummary(record.materialLines)
+    const shipDeltaDays = getDaysToShip(record.plannedShipDate)
+    const shipDeltaDirection = buildShipDeltaDirection(shipDeltaDays)
+    const shipDeltaRange = buildShipDeltaRange(shipDeltaDays)
     const urgency = buildUrgencyView(record.plannedShipDate, record.orderQty)
     const currentStage = buildCurrentStage(record, prepSummary, claimSummary)
     const overlaySignals = buildPieceTruthOverlaySignals(record, options)
     const pieceTruth = buildProductionPieceTruth(record, { overlaySignals })
     const pieceProgress = buildProductionPieceProgressViewModelFromTruth(pieceTruth)
     const pieceCompletionSummary = buildProductionCompletionSummary(pieceTruth, {
-      auditSummary,
       prepSummary,
       claimSummary,
       record,
     })
     const cuttingCompletionSummary = pieceCompletionSummary
-    const riskTags = buildRiskTags(record, auditSummary, prepSummary, claimSummary, currentStage.key, urgency.key, pieceTruth)
+    const riskTags = buildRiskTags(record, prepSummary, urgency.key, pieceTruth)
+    const shipCountdownText = buildShipCountdownText(record.plannedShipDate)
+    const materialPrepLines = buildMaterialPrepLines(record, materialRequirementMap)
+    const materialClaimLines = buildMaterialClaimLines(record)
+    const skuProgressLines = buildSkuProgressLines(record, pieceTruth, skuPieceRequirementMap)
+    const sourceOrderProgressLines = buildSourceOrderProgressLines(record, originalOrderRequirementMap, pieceTruth)
+    const completedSkuCount = skuProgressLines.filter((line) => line.completionLabel === '已齐套').length
+    const incompleteSkuCount = Math.max(skuProgressLines.length - completedSkuCount, 0)
+    const partDifferenceSummary = buildPartDifferenceSummary(pieceTruth)
     const keywordIndex = buildKeywordIndex(record, originalCutOrderNos, pieceTruth)
     const priorityGapRow =
       pieceTruth.gapRows.find((row) => row.mappingStatus !== 'MATCHED') ||
@@ -636,13 +1029,21 @@ export function buildProductionProgressRows(
       cuttingTaskNo: record.cuttingTaskNo,
       assignedFactoryName: record.assignedFactoryName,
       urgency,
-      materialAuditSummary: auditSummary,
+      shipDeltaDays,
+      shipDeltaDirection,
+      shipDeltaRange,
+      shipCountdownText,
       materialPrepSummary: prepSummary,
       materialClaimSummary: claimSummary,
+      materialPrepLines,
+      materialClaimLines,
       currentStage,
       cuttingCompletionSummary,
       pieceCompletionSummary,
       pieceTruth,
+      skuProgressLines,
+      sourceOrderProgressLines,
+      partDifferenceSummary,
       riskTags,
       originalCutOrderCount: originalCutOrderNos.length,
       originalCutOrderIds,
@@ -650,9 +1051,9 @@ export function buildProductionProgressRows(
       techPackSpuCode: record.techPackSpuCode || '',
       skuRequirementLines: record.skuRequirementLines || [],
       pieceProgress,
-      skuTotalCount: pieceTruth.counts.skuTotalCount,
-      completedSkuCount: pieceTruth.counts.completedSkuCount,
-      incompleteSkuCount: pieceTruth.counts.pendingSkuCount,
+      skuTotalCount: skuProgressLines.length,
+      completedSkuCount,
+      incompleteSkuCount,
       incompleteOriginalOrderCount: pieceTruth.originalCutOrderRows.filter((row) => row.gapPartCount > 0 || row.currentStateLabel !== '已齐套').length,
       incompletePartCount: pieceTruth.counts.incompletePartCount,
       affectedMaterialCount: pieceTruth.counts.affectedMaterialCount,
@@ -738,41 +1139,17 @@ export function sortProductionProgressRows(rows: ProductionProgressRow[], sortBy
 export function filterProductionProgressRows(rows: ProductionProgressRow[], filters: ProductionProgressFilters): ProductionProgressRow[] {
   const keyword = filters.keyword.trim().toLowerCase()
   const productionOrderKeyword = filters.productionOrderNo.trim().toLowerCase()
-  const skuKeyword = filters.skuKeyword.trim().toLowerCase()
-  const colorKeyword = filters.color.trim().toLowerCase()
-  const sizeKeyword = filters.size.trim().toLowerCase()
-  const partKeyword = filters.partKeyword.trim().toLowerCase()
-  const originalCutOrderKeyword = filters.originalCutOrderNo.trim().toLowerCase()
-  const materialSkuKeyword = filters.materialSku.trim().toLowerCase()
 
   return rows.filter((row) => {
     const matchesKeyword = keyword.length === 0 || row.keywordIndex.some((value) => value.includes(keyword))
     const matchesProductionOrder =
       productionOrderKeyword.length === 0 || row.productionOrderNo.toLowerCase().includes(productionOrderKeyword)
     const matchesUrgency = filters.urgencyLevel === 'ALL' || row.urgency.key === filters.urgencyLevel
+    const matchesShipDelta = filters.shipDeltaRange === 'ALL' || row.shipDeltaRange === filters.shipDeltaRange
     const matchesStage = filters.currentStage === 'ALL' || row.currentStage.key === filters.currentStage
     const matchesCompletion = filters.completionState === 'ALL' || row.pieceCompletionSummary.key === filters.completionState
-    const matchesAudit = filters.auditStatus === 'ALL' || row.materialAuditSummary.key === filters.auditStatus
     const matchesConfig = filters.configStatus === 'ALL' || row.materialPrepSummary.key === filters.configStatus
     const matchesReceive = filters.receiveStatus === 'ALL' || row.materialClaimSummary.key === filters.receiveStatus
-    const matchesSku =
-      skuKeyword.length === 0 ||
-      row.pieceTruth.skuRows.some((item) => [item.skuCode, item.color, item.size].some((value) => value.toLowerCase().includes(skuKeyword)))
-    const matchesColor = colorKeyword.length === 0 || row.pieceTruth.skuRows.some((item) => item.color.toLowerCase().includes(colorKeyword))
-    const matchesSize = sizeKeyword.length === 0 || row.pieceTruth.skuRows.some((item) => item.size.toLowerCase().includes(sizeKeyword))
-    const matchesPart =
-      partKeyword.length === 0 || row.pieceTruth.gapRows.some((item) => [item.partName, item.patternName].some((value) => value.toLowerCase().includes(partKeyword)))
-    const matchesOriginalCutOrder =
-      originalCutOrderKeyword.length === 0 ||
-      row.originalCutOrderNos.some((value) => value.toLowerCase().includes(originalCutOrderKeyword)) ||
-      row.pieceTruth.originalCutOrderRows.some((value) => value.originalCutOrderNo.toLowerCase().includes(originalCutOrderKeyword))
-    const matchesMaterialSku =
-      materialSkuKeyword.length === 0 ||
-      row.materialLines.some((line) => line.materialSku.toLowerCase().includes(materialSkuKeyword)) ||
-      row.pieceTruth.gapRows.some((line) => line.materialSku.toLowerCase().includes(materialSkuKeyword))
-    const matchesIncomplete = !filters.onlyIncomplete || row.incompleteSkuCount > 0 || row.incompletePartCount > 0
-    const matchesMappingMissing = !filters.onlyMappingMissing || row.hasMappingWarnings
-    const matchesDataPending = !filters.onlyDataPending || row.pieceDataIssueCount > 0
     const matchesRisk =
       filters.riskFilter === 'ALL' ||
       (filters.riskFilter === 'ANY' ? row.riskTags.length > 0 : row.riskTags.some((tag) => tag.key === filters.riskFilter))
@@ -781,20 +1158,11 @@ export function filterProductionProgressRows(rows: ProductionProgressRow[], filt
       matchesKeyword &&
       matchesProductionOrder &&
       matchesUrgency &&
+      matchesShipDelta &&
       matchesStage &&
       matchesCompletion &&
-      matchesAudit &&
       matchesConfig &&
       matchesReceive &&
-      matchesSku &&
-      matchesColor &&
-      matchesSize &&
-      matchesPart &&
-      matchesOriginalCutOrder &&
-      matchesMaterialSku &&
-      matchesIncomplete &&
-      matchesMappingMissing &&
-      matchesDataPending &&
       matchesRisk
     )
   })
@@ -804,7 +1172,7 @@ export function buildProductionProgressSummary(rows: ProductionProgressRow[]): P
   return {
     totalCount: rows.length,
     urgentCount: rows.filter((row) => row.urgency.key === 'AA' || row.urgency.key === 'A').length,
-    prepExceptionCount: rows.filter((row) => row.materialAuditSummary.key !== 'APPROVED' || row.materialPrepSummary.key !== 'CONFIGURED').length,
+    prepExceptionCount: rows.filter((row) => row.materialPrepSummary.key !== 'CONFIGURED').length,
     claimExceptionCount: rows.filter((row) => row.materialClaimSummary.key === 'EXCEPTION' || row.materialClaimSummary.key === 'NOT_RECEIVED').length,
     cuttingCount: rows.filter((row) => row.currentStage.key === 'CUTTING' || row.currentStage.key === 'WAITING_INBOUND').length,
     doneCount: rows.filter((row) => row.pieceCompletionSummary.key === 'COMPLETED').length,

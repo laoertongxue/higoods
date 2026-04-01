@@ -7,6 +7,7 @@ import {
 import {
   calculatePublishedSamTotal,
   processTasks,
+  sumTaskStandardTimeTotals,
   type AcceptanceStatus,
   type ProcessTask,
   type PublishedSamDifficulty,
@@ -84,6 +85,7 @@ interface RuntimeTaskOverride {
   publishedSamDifficulty?: PublishedSamDifficulty
   assignedFactoryId?: string
   assignedFactoryName?: string
+  startDueAt?: string
   acceptDeadline?: string
   taskDeadline?: string
   dispatchRemark?: string
@@ -959,6 +961,18 @@ function ensureDispatchBoardSeedData(): void {
   )
 
   seedRuntimeTaskOverride(
+    'TASKGEN-202603-0002-002__ORDER',
+    {
+      assignmentStatus: 'UNASSIGNED',
+      taskDeadline: '2026-03-20 18:00:00',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0002-002__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0002-002__ORDER', 'SET_ASSIGN_MODE', '保留待分配，等待按产能日历校验后派单', '跟单A', '2026-03-19 09:20:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
     'TASKGEN-202603-0002-003__ORDER',
     {
       assignmentMode: 'DIRECT',
@@ -979,6 +993,31 @@ function ensureDispatchBoardSeedData(): void {
       ...getSeedBaseAuditLogs('TASKGEN-202603-0002-003__ORDER'),
       buildSeedAuditLog('TASKGEN-202603-0002-003__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-19 11:00:00'),
       buildSeedAuditLog('TASKGEN-202603-0002-003__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.button.name, '2026-03-19 14:00:00'),
+    ],
+  )
+
+  seedRuntimeTaskOverride(
+    'TASKGEN-202603-0002-005__ORDER',
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: 'ID-F013',
+      assignedFactoryName: '梭罗辅料专工厂',
+      startDueAt: '2026-03-18 09:00:00',
+      acceptDeadline: '2026-03-18 10:00:00',
+      taskDeadline: '2026-03-18 18:00:00',
+      dispatchedAt: '2026-03-17 15:00:00',
+      dispatchedBy: '跟单A',
+      dispatchPrice: 7350,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'ACCEPTED',
+      dispatchRemark: '辅料线体接近满载，保留一条紧张样例。',
+    },
+    [
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0002-005__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0002-005__ORDER', 'DISPATCH', '已发起直接派单，辅料线体接近满载', '跟单A', '2026-03-17 15:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0002-005__ORDER', 'ACCEPT', '工厂已确认接单', '梭罗辅料专工厂', '2026-03-17 16:00:00'),
     ],
   )
 
@@ -1020,10 +1059,11 @@ function ensureDispatchBoardSeedData(): void {
     'TASKGEN-202603-0005-001__ORDER',
     {
       assignmentStatus: 'UNASSIGNED',
+      taskDeadline: '2026-03-18 18:00:00',
     },
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0005-001__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0005-001__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配', '跟单A', '2026-03-19 15:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0005-001__ORDER', 'SET_ASSIGN_MODE', '设为暂不分配，待按产能日历校验后发起招标', '跟单A', '2026-03-19 15:00:00'),
     ],
   )
 
@@ -1043,8 +1083,8 @@ function ensureDispatchBoardSeedData(): void {
     {
       assignmentMode: 'DIRECT',
       assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: directFactorySeeds.sew.id,
-      assignedFactoryName: directFactorySeeds.sew.name,
+      assignedFactoryId: 'ID-F017',
+      assignedFactoryName: 'CV Satellite Surabaya Selatan',
       acceptDeadline: '2026-04-04 12:00:00',
       taskDeadline: '2026-04-11 18:00:00',
       dispatchedAt: '2026-03-20 09:00:00',
@@ -1058,7 +1098,7 @@ function ensureDispatchBoardSeedData(): void {
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0008-001__ORDER'),
       buildSeedAuditLog('TASKGEN-202603-0008-001__ORDER', 'DISPATCH', '已发起直接派单，待工厂确认', '跟单A', '2026-03-20 09:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0008-001__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.sew.name, '2026-03-20 11:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0008-001__ORDER', 'ACCEPT', '工厂已确认接单', 'CV Satellite Surabaya Selatan', '2026-03-20 11:00:00'),
     ],
   )
 
@@ -1068,6 +1108,8 @@ function ensureDispatchBoardSeedData(): void {
       assignmentMode: 'BIDDING',
       assignmentStatus: 'BIDDING',
       tenderId: 'TENDER-TASKGEN0009001-1001',
+      publishedSamPerUnit: 10,
+      publishedSamTotal: 28000,
       biddingDeadline: '2026-03-22 18:00:00',
       taskDeadline: '2026-04-14 18:00:00',
     },
@@ -1085,7 +1127,7 @@ function ensureDispatchBoardSeedData(): void {
       assignmentStatus: 'ASSIGNING',
       tenderId: 'TENDER-TASKGEN0015001-1001',
       biddingDeadline: '2026-03-21 10:00:00',
-      taskDeadline: '2026-04-12 18:00:00',
+      taskDeadline: '2026-04-01 18:00:00',
     },
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0015-001__ORDER'),
@@ -1241,6 +1283,12 @@ export function listRuntimeProcessTasks(): RuntimeProcessTask[] {
 
 export function listRuntimeTasksByOrder(productionOrderId: string): RuntimeProcessTask[] {
   return listRuntimeProcessTasks().filter((task) => task.productionOrderId === productionOrderId)
+}
+
+export function listRuntimeExecutionTasksByOrder(productionOrderId: string): RuntimeProcessTask[] {
+  return listRuntimeTasksByOrder(productionOrderId).filter(
+    (task) => isRuntimeTaskExecutionTask(task) && task.defaultDocType !== 'DEMAND',
+  )
 }
 
 export function getRuntimeTaskById(taskId: string): RuntimeProcessTask | null {
@@ -1400,6 +1448,9 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     taskId: string
     factoryId: string
     factoryName: string
+    allocationUnitId?: string
+    allocationUnitLabel?: string
+    detailRowKeys?: string[]
     publishedSamPerUnit?: number
     publishedSamUnit?: string
     publishedSamTotal?: number
@@ -1469,14 +1520,18 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
       ok: true,
       mode: 'SINGLE_FACTORY',
       createdTaskIds: [],
-      resultAssignments: [
-        {
-          taskId: task.taskId,
-          factoryId: splitDecision.factoryId,
-          factoryName: splitDecision.factoryName,
-          ...sam,
-        },
-      ],
+      resultAssignments: groups.map((group) => ({
+        taskId: task.taskId,
+        factoryId: splitDecision.factoryId,
+        factoryName: splitDecision.factoryName,
+        allocationUnitId: group.groupKey,
+        allocationUnitLabel: group.groupLabel,
+        detailRowKeys: [...group.detailRowKeys],
+        publishedSamPerUnit: sam.publishedSamPerUnit,
+        publishedSamUnit: sam.publishedSamUnit,
+        publishedSamTotal: resolveRuntimeAllocatableGroupPublishedSam(resolvedTask ?? task, group).publishedSamTotal,
+        publishedSamDifficulty: sam.publishedSamDifficulty,
+      })),
     }
   }
 
@@ -1557,12 +1612,26 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     ok: true,
     mode: 'MULTI_FACTORY',
     createdTaskIds: splitFactories.map((factory) => factory.taskId),
-    resultAssignments: splitFactories.map((factory) => ({
-      taskId: factory.taskId,
-      factoryId: factory.factoryId,
-      factoryName: factory.factoryName,
-      ...resolveRuntimeTaskPublishedSam(getRuntimeTaskById(factory.taskId) ?? task),
-    })),
+    resultAssignments: splitFactories.flatMap((factory) =>
+      groups
+        .filter((group) => factory.allocatableGroupKeys.includes(group.groupKey))
+        .map((group) => {
+          const resolvedTask = getRuntimeTaskById(factory.taskId) ?? task
+          const groupSam = resolveRuntimeAllocatableGroupPublishedSam(resolvedTask, group)
+          return {
+            taskId: factory.taskId,
+            factoryId: factory.factoryId,
+            factoryName: factory.factoryName,
+            allocationUnitId: group.groupKey,
+            allocationUnitLabel: group.groupLabel,
+            detailRowKeys: [...group.detailRowKeys],
+            publishedSamPerUnit: groupSam.publishedSamPerUnit,
+            publishedSamUnit: groupSam.publishedSamUnit,
+            publishedSamTotal: groupSam.publishedSamTotal,
+            publishedSamDifficulty: groupSam.publishedSamDifficulty,
+          }
+        }),
+    ),
   }
 }
 
@@ -1977,6 +2046,10 @@ export function getRuntimeAssignmentSummaryByOrder(productionOrderId: string): R
 
 export function getRuntimeTaskCountByOrder(productionOrderId: string): number {
   return getRuntimeAssignmentSummaryByOrder(productionOrderId).totalTasks
+}
+
+export function getRuntimeOrderStandardTimeTotal(productionOrderId: string): number | undefined {
+  return sumTaskStandardTimeTotals(listRuntimeExecutionTasksByOrder(productionOrderId))
 }
 
 export function getRuntimeTaskSummaryByOrder(productionOrderId: string): RuntimeTaskSummaryByOrder {

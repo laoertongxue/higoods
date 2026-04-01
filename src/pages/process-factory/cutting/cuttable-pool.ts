@@ -1,22 +1,18 @@
-import type {
-  CuttingConfigStatus,
-  CuttingReceiveStatus,
-  CuttingReviewStatus,
-} from '../../../data/fcs/cutting/types'
+import type { CuttingConfigStatus, CuttingReceiveStatus } from '../../../data/fcs/cutting/types'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import {
   areOriginalCutOrdersCompatibleForBatching,
+  buildQuickMergeableBuckets,
   buildCuttablePoolStats,
-  cuttableStateMeta,
+  cuttableVisibleStatusMeta,
   filterCuttablePoolGroups,
-  type CoverageStatusKey,
   type CuttableOriginalOrderItem,
   type CuttablePoolFilters,
   type CuttablePoolPrefilter,
-  type CuttableStateKey,
   type CuttableStyleGroup,
   type CuttableViewMode,
+  type QuickMergeableBucket,
 } from './cuttable-pool-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import type { ProductionProgressUrgencyKey } from './production-progress-model'
@@ -32,20 +28,16 @@ import {
 const SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedOriginalOrderIds'
 const SELECTED_COMPATIBILITY_KEY_STORAGE_KEY = 'cuttingSelectedCompatibilityKey'
 
-type FilterField = 'keyword' | 'urgency' | 'cuttable' | 'coverage' | 'audit' | 'config' | 'claim'
+type FilterField = 'keyword' | 'urgency' | 'cuttable' | 'coverage' | 'config' | 'claim'
 
 const initialFilters: CuttablePoolFilters = {
   keyword: '',
   urgencyLevel: 'ALL',
   cuttableState: 'ALL',
   coverageStatus: 'ALL',
-  auditStatus: 'ALL',
   configStatus: 'ALL',
   receiveStatus: 'ALL',
-  onlySelected: false,
   onlyCuttable: false,
-  onlyPartialOrders: false,
-  viewMode: 'STYLE_GROUP',
 }
 
 interface CuttablePoolPageState {
@@ -54,6 +46,7 @@ interface CuttablePoolPageState {
   querySignature: string
   prefilter: CuttablePoolPrefilter | null
   notice: string
+  viewMode: CuttableViewMode
 }
 
 const state: CuttablePoolPageState = {
@@ -62,13 +55,7 @@ const state: CuttablePoolPageState = {
   querySignature: '',
   prefilter: null,
   notice: '',
-}
-
-const auditStatusLabelMap: Record<CuttingReviewStatus, string> = {
-  NOT_REQUIRED: '无需审核',
-  PENDING: '待审核',
-  PARTIAL: '部分已审核',
-  APPROVED: '已审核',
+  viewMode: 'STYLE_GROUP',
 }
 
 const configStatusLabelMap: Record<CuttingConfigStatus, string> = {
@@ -122,8 +109,16 @@ function getViewModel() {
   return buildCuttablePoolProjection().viewModel
 }
 
-function getVisibleGroups(viewModel = getViewModel()): CuttableStyleGroup[] {
+function getVisibleGroups(viewModel = getViewModel()) {
   return filterCuttablePoolGroups(viewModel, state.filters, state.selectedIds, state.prefilter)
+}
+
+function getVisibleOrders(viewModel = getViewModel()) {
+  return getVisibleGroups(viewModel).flatMap((group) => group.orders)
+}
+
+function getVisibleItems(viewModel = getViewModel()): CuttableOriginalOrderItem[] {
+  return getVisibleOrders(viewModel).flatMap((order) => order.items)
 }
 
 function getSelectedItems(viewModel = getViewModel()): CuttableOriginalOrderItem[] {
@@ -138,12 +133,28 @@ function getSelectedCompatibilityKey(viewModel = getViewModel()): string | null 
   return compatibility.ok ? compatibility.compatibilityKey : selectedItems[0]?.compatibilityKey ?? null
 }
 
+function getContextOrder(viewModel = getViewModel()) {
+  const prefilter = state.prefilter
+  if (!prefilter) return null
+  return (
+    viewModel.orders.find(
+      (order) =>
+        (!!prefilter.productionOrderId && order.productionOrderId === prefilter.productionOrderId) ||
+        (!!prefilter.productionOrderNo && order.productionOrderNo === prefilter.productionOrderNo),
+    ) ?? null
+  )
+}
+
 function setNotice(message: string): void {
   state.notice = message
 }
 
 function clearNotice(): void {
   state.notice = ''
+}
+
+function resetFilterState(): void {
+  state.filters = { ...initialFilters }
 }
 
 function buildRouteWithQuery(pathname: string, params: Record<string, string | undefined>): string {
@@ -185,24 +196,23 @@ function renderActionBar(viewModel = getViewModel()): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-production-progress">返回生产单进度</button>
-      <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cuttable-pool-action="go-merge-batches">
+      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-capacity-overview">查看产能日历</button>
+      <button class="${selectedCount ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700' : 'rounded-md border px-3 py-2 text-sm hover:bg-muted'}" data-cuttable-pool-action="go-merge-batches">
         去合并裁剪批次${selectedCount ? `（${selectedCount}）` : ''}
       </button>
-      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }
 
-function renderStats(groups: CuttableStyleGroup[]): string {
+function renderStats(groups: ReturnType<typeof getVisibleGroups>): string {
   const stats = buildCuttablePoolStats(groups, state.selectedIds)
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-      ${renderCompactKpiCard('可裁原始裁片单数', stats.cuttableOriginalOrderCount, '当前筛选范围', 'text-emerald-600')}
-      ${renderCompactKpiCard('整单可裁生产单数', stats.fullProductionOrderCount, '全部原始裁片单可裁', 'text-blue-600')}
-      ${renderCompactKpiCard('部分料可裁生产单数', stats.partialProductionOrderCount, '仅部分原始裁片单可裁', 'text-amber-600')}
-      ${renderCompactKpiCard('暂不可裁生产单数', stats.blockedProductionOrderCount, '仍需审核 / 配料 / 领料', 'text-slate-700')}
-      ${renderCompactKpiCard('已选原始裁片单数', stats.selectedOriginalOrderCount, '准备进入下一步', 'text-violet-600')}
-      ${renderCompactKpiCard('当前兼容组数', stats.compatibilityBucketCount, '按同款同料轻量聚合', 'text-sky-600')}
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      ${renderCompactKpiCard('生产单数', stats.productionOrderCount, '当前筛选范围', 'text-slate-900')}
+      ${renderCompactKpiCard('原始裁片单总数', stats.originalCutOrderCount, '当前筛选范围', 'text-blue-600')}
+      ${renderCompactKpiCard('当前可裁数', stats.cuttableOriginalOrderCount, '配料 / 领料均已到位', 'text-emerald-600')}
+      ${renderCompactKpiCard('待配料 / 部分配料数', stats.prepPendingOriginalOrderCount, '仍需补齐仓库配料', 'text-amber-600')}
+      ${renderCompactKpiCard('待领料 / 领料差异数', stats.claimPendingOriginalOrderCount, '仍需领料或复核差异', 'text-sky-600')}
     </section>
   `
 }
@@ -221,7 +231,7 @@ function renderViewModeSwitch(): string {
           renderWorkbenchFilterChip(
             option.label,
             `data-cuttable-pool-action="set-view-mode" data-view-mode="${option.key}"`,
-            state.filters.viewMode === option.key ? 'blue' : 'emerald',
+            state.viewMode === option.key ? 'blue' : 'emerald',
           ),
         )
         .join('')}
@@ -237,16 +247,6 @@ function renderQuickFilterRow(): string {
         '只看可裁',
         'data-cuttable-pool-action="toggle-only-cuttable"',
         state.filters.onlyCuttable ? 'emerald' : 'blue',
-      )}
-      ${renderWorkbenchFilterChip(
-        '只看已选',
-        'data-cuttable-pool-action="toggle-only-selected"',
-        state.filters.onlySelected ? 'blue' : 'blue',
-      )}
-      ${renderWorkbenchFilterChip(
-        '只看部分料可裁生产单',
-        'data-cuttable-pool-action="toggle-only-partial-orders"',
-        state.filters.onlyPartialOrders ? 'amber' : 'blue',
       )}
     </div>
   `
@@ -269,44 +269,19 @@ function getFilterLabels(): string[] {
   const labels = getPrefilterLabels()
   if (state.filters.keyword) labels.push(`关键词：${state.filters.keyword}`)
   if (state.filters.urgencyLevel !== 'ALL') labels.push(`紧急程度：${urgencyMeta[state.filters.urgencyLevel].label}`)
-  if (state.filters.cuttableState !== 'ALL') labels.push(`可裁状态：${cuttableStateMeta[state.filters.cuttableState].label}`)
-  if (state.filters.coverageStatus !== 'ALL') {
-    const labelMap: Record<CoverageStatusKey, string> = {
-      FULL: '整单可裁',
-      PARTIAL: '部分料可裁',
-      BLOCKED: '暂不可裁',
-    }
-    labels.push(`覆盖状态：${labelMap[state.filters.coverageStatus]}`)
-  }
-  if (state.filters.auditStatus !== 'ALL') {
-    const labelMap: Record<CuttingReviewStatus, string> = {
-      NOT_REQUIRED: '无需审核',
-      PENDING: '待审核',
-      PARTIAL: '部分已审核',
-      APPROVED: '已审核',
-    }
-    labels.push(`面料审核：${labelMap[state.filters.auditStatus]}`)
-  }
-  if (state.filters.configStatus !== 'ALL') {
-    const labelMap: Record<CuttingConfigStatus, string> = {
-      NOT_CONFIGURED: '未配置',
-      PARTIAL: '部分配置',
-      CONFIGURED: '已配置',
-    }
-    labels.push(`配料状态：${labelMap[state.filters.configStatus]}`)
-  }
+  if (state.filters.cuttableState !== 'ALL') labels.push(`裁片单状态：${cuttableVisibleStatusMeta[state.filters.cuttableState].label}`)
+  if (state.filters.coverageStatus !== 'ALL') labels.push(`生产单状态：${state.filters.coverageStatus === 'FULL' ? '整单可裁' : state.filters.coverageStatus === 'PARTIAL' ? '部分可裁' : '整单不可裁'}`)
+  if (state.filters.configStatus !== 'ALL') labels.push(`配料状态：${configStatusLabelMap[state.filters.configStatus]}`)
   if (state.filters.receiveStatus !== 'ALL') {
-    const labelMap: Record<CuttingReceiveStatus | 'EXCEPTION', string> = {
+    const receiveLabelMap: Record<CuttingReceiveStatus | 'EXCEPTION', string> = {
       NOT_RECEIVED: '待领料',
       PARTIAL: '部分领料',
       RECEIVED: '领料完成',
       EXCEPTION: '领料异常',
     }
-    labels.push(`领料状态：${labelMap[state.filters.receiveStatus]}`)
+    labels.push(`领料状态：${receiveLabelMap[state.filters.receiveStatus]}`)
   }
-  if (state.filters.onlySelected) labels.push('快捷筛选：只看已选')
   if (state.filters.onlyCuttable) labels.push('快捷筛选：只看可裁')
-  if (state.filters.onlyPartialOrders) labels.push('快捷筛选：只看部分料可裁生产单')
   return labels
 }
 
@@ -341,13 +316,13 @@ function renderFilters(): string {
         ${renderViewModeSwitch()}
         ${renderQuickFilterRow()}
       </div>
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         <label class="space-y-2 md:col-span-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词</span>
           <input
             type="text"
             value="${escapeHtml(state.filters.keyword)}"
-            placeholder="支持生产单号 / 裁片单号 / 款号 / 面料 SKU"
+            placeholder="支持生产单号 / 裁片单号 / 款号 / SPU / 面料 SKU"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             data-cuttable-pool-field="keyword"
           />
@@ -361,30 +336,16 @@ function renderFilters(): string {
           { value: 'D', label: 'D 常规' },
           { value: 'UNKNOWN', label: '待补日期' },
         ])}
-        ${renderFilterSelect('可裁状态', 'cuttable', state.filters.cuttableState, [
+        ${renderFilterSelect('裁片单状态', 'cuttable', state.filters.cuttableState, [
           { value: 'ALL', label: '全部' },
           { value: 'CUTTABLE', label: '可裁' },
-          { value: 'WAITING_REVIEW', label: '待审核' },
-          { value: 'WAITING_PREP', label: '待配料' },
-          { value: 'PARTIAL_PREP', label: '部分配料' },
-          { value: 'WAITING_CLAIM', label: '待领料' },
-          { value: 'PARTIAL_CLAIM', label: '部分领料' },
-          { value: 'CLAIM_EXCEPTION', label: '领料异常' },
-          { value: 'IN_BATCH', label: '已入批次' },
-          { value: 'NOT_READY', label: '暂不可裁' },
+          { value: 'NOT_CUTTABLE', label: '不可裁' },
         ])}
-        ${renderFilterSelect('覆盖状态', 'coverage', state.filters.coverageStatus, [
+        ${renderFilterSelect('生产单状态', 'coverage', state.filters.coverageStatus, [
           { value: 'ALL', label: '全部' },
           { value: 'FULL', label: '整单可裁' },
-          { value: 'PARTIAL', label: '部分料可裁' },
-          { value: 'BLOCKED', label: '暂不可裁' },
-        ])}
-        ${renderFilterSelect('面料审核', 'audit', state.filters.auditStatus, [
-          { value: 'ALL', label: '全部' },
-          { value: 'NOT_REQUIRED', label: '无需审核' },
-          { value: 'PENDING', label: '待审核' },
-          { value: 'PARTIAL', label: '部分已审核' },
-          { value: 'APPROVED', label: '已审核' },
+          { value: 'PARTIAL', label: '部分可裁' },
+          { value: 'BLOCKED', label: '整单不可裁' },
         ])}
         ${renderFilterSelect('配料状态', 'config', state.filters.configStatus, [
           { value: 'ALL', label: '全部' },
@@ -408,18 +369,23 @@ function isCompatibilityBlocked(item: CuttableOriginalOrderItem, currentCompatib
   return !!currentCompatibilityKey && item.compatibilityKey !== currentCompatibilityKey
 }
 
-function renderOriginalOrderRows(order: CuttableStyleGroup['orders'][number], currentCompatibilityKey: string | null): string {
+function formatMaterialProgressHint(prefix: '已配' | '已领', rollCount: number, length: number): string {
+  const parts: string[] = []
+  if (rollCount > 0) parts.push(`${prefix} ${rollCount} 卷`)
+  if (length > 0) parts.push(`${length} m`)
+  return parts.join(' / ')
+}
+
+function renderOriginalOrderRows(order: ReturnType<typeof getVisibleOrders>[number], currentCompatibilityKey: string | null): string {
   return order.items
     .map((item) => {
       const disabled = !item.cuttableState.selectable || isCompatibilityBlocked(item, currentCompatibilityKey)
-      const disabledReason = !item.cuttableState.selectable
-        ? item.cuttableState.reasonText
-        : currentCompatibilityKey && item.compatibilityKey !== currentCompatibilityKey
-          ? '当前已选清单仅支持同一兼容组'
-          : ''
+
+      const prepHint = formatMaterialProgressHint('已配', item.configuredRollCount, item.configuredLength)
+      const claimHint = formatMaterialProgressHint('已领', item.receivedRollCount, item.receivedLength)
 
       return `
-        <tr class="border-b last:border-b-0 align-top ${state.selectedIds.includes(item.id) ? 'bg-blue-50/40' : ''}">
+        <tr class="border-b last:border-b-0 align-top ${state.selectedIds.includes(item.id) ? 'bg-blue-50/40' : ''}" data-testid="cutting-cuttable-pool-original-order-row">
           <td class="px-3 py-3">
             <input
               type="checkbox"
@@ -435,25 +401,40 @@ function renderOriginalOrderRows(order: CuttableStyleGroup['orders'][number], cu
               ${escapeHtml(item.originalCutOrderNo)}
             </button>
           </td>
-          <td class="px-3 py-3 text-sm text-muted-foreground">${escapeHtml(item.productionOrderNo)}</td>
           <td class="px-3 py-3">
-            <div class="font-medium">${escapeHtml(item.materialSku)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialLabel)}</div>
+            <div class="font-medium text-foreground">${escapeHtml(item.materialLabel)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialSku)}</div>
+            <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(item.materialCategory)}</div>
           </td>
-          <td class="px-3 py-3 text-sm text-muted-foreground">${escapeHtml(item.materialCategory)}</td>
           <td class="px-3 py-3">
-            ${renderBadge(item.cuttableState.label, item.cuttableState.className)}
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.cuttableState.detailText)}</div>
+            ${renderBadge(
+              configStatusLabelMap[item.materialPrepStatus],
+              item.materialPrepStatus === 'CONFIGURED'
+                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                : item.materialPrepStatus === 'PARTIAL'
+                  ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                  : 'bg-slate-100 text-slate-700 border border-slate-200',
+            )}
+            ${prepHint ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(prepHint)}</div>` : ''}
           </td>
-          <td class="px-3 py-3 text-sm text-muted-foreground">${escapeHtml(item.currentStage || '-')}</td>
           <td class="px-3 py-3">
-            <div class="text-xs text-muted-foreground">审核：${escapeHtml(auditStatusLabelMap[item.materialAuditStatus])}</div>
-            <div class="mt-1 text-xs text-muted-foreground">配料：${escapeHtml(configStatusLabelMap[item.materialPrepStatus])}</div>
-            <div class="mt-1 text-xs text-muted-foreground">领料：${escapeHtml(receiveStatusLabelMap[item.materialClaimStatus])}</div>
+            ${renderBadge(
+              item.cuttableState.key === 'CLAIM_EXCEPTION' ? '领料异常' : receiveStatusLabelMap[item.materialClaimStatus],
+              item.cuttableState.key === 'CLAIM_EXCEPTION'
+                ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                : item.materialClaimStatus === 'RECEIVED'
+                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                  : item.materialClaimStatus === 'PARTIAL'
+                    ? 'bg-sky-100 text-sky-700 border border-sky-200'
+                    : 'bg-blue-100 text-blue-700 border border-blue-200',
+            )}
+            ${claimHint ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(claimHint)}</div>` : ''}
+          </td>
+          <td class="px-3 py-3">
+            ${renderBadge(item.visibleStatus.label, item.visibleStatus.className)}
           </td>
           <td class="px-3 py-3 text-xs text-muted-foreground">
-            ${escapeHtml(disabledReason || item.latestActionText)}
-            ${item.mergeBatchNo ? `<div class="mt-1 font-medium text-violet-700">${escapeHtml(item.mergeBatchNo)}</div>` : ''}
+            ${escapeHtml(item.currentSituationText)}
           </td>
         </tr>
       `
@@ -461,9 +442,46 @@ function renderOriginalOrderRows(order: CuttableStyleGroup['orders'][number], cu
     .join('')
 }
 
-function renderOrderCard(order: CuttableStyleGroup['orders'][number], currentCompatibilityKey: string | null): string {
+function getQuickBucketLabel(bucket: QuickMergeableBucket): string {
+  return `${bucket.styleCode || bucket.spuCode || '同款'} · ${bucket.materialSku}`
+}
+
+function renderOrderQuickSelectActions(order: ReturnType<typeof getVisibleOrders>[number]): string {
+  const buckets = buildQuickMergeableBuckets(order.items)
+  if (!buckets.length) return ''
+
+  if (buckets.length === 1) {
+    return `
+      <button
+        class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
+        data-cuttable-pool-action="select-quick-bucket"
+        data-order-id="${order.id}"
+        data-compatibility-key="${escapeHtml(buckets[0].compatibilityKey)}"
+      >
+        快速选择本单可合并项
+      </button>
+    `
+  }
+
+  return buckets
+    .map(
+      (bucket) => `
+        <button
+          class="rounded-full border px-3 py-1 text-xs hover:bg-muted"
+          data-cuttable-pool-action="select-quick-bucket"
+          data-order-id="${order.id}"
+          data-compatibility-key="${escapeHtml(bucket.compatibilityKey)}"
+        >
+          快速选择 ${escapeHtml(bucket.materialSku)}（${bucket.cuttableCount}）
+        </button>
+      `,
+    )
+    .join('')
+}
+
+function renderOrderCard(order: ReturnType<typeof getVisibleOrders>[number], currentCompatibilityKey: string | null): string {
   return `
-    <article class="rounded-lg border bg-card">
+    <article class="rounded-lg border bg-card" data-testid="cutting-cuttable-pool-order-card">
       <div class="flex flex-col gap-3 border-b px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
@@ -471,39 +489,93 @@ function renderOrderCard(order: CuttableStyleGroup['orders'][number], currentCom
             ${renderBadge(order.urgency.label, order.urgency.className)}
             ${renderBadge(order.coverageStatus.label, order.coverageStatus.className)}
           </div>
-          <div class="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-5">
-            <span>下单数量：${escapeHtml(String(order.orderQty))}</span>
-            <span>计划发货：${escapeHtml(order.plannedShipDateDisplay)}</span>
-            <span>可裁原始单：${order.cuttableOriginalOrderCount}/${order.totalOriginalOrderCount}</span>
+          <div class="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-6">
+            <span>工厂：${escapeHtml(order.factoryName || '—')}</span>
             <span>款号 / SPU：${escapeHtml(order.styleCode || order.spuCode || '-')}</span>
-            <span>风险：${order.riskTags.length ? escapeHtml(order.riskTags.map((tag) => tag.label).join('、')) : '无'}</span>
+            <span>款式名称：${escapeHtml(order.styleName || '-')}</span>
+            <span>下单件数：${escapeHtml(String(order.orderQty))}</span>
+            <span>计划发货：${escapeHtml(order.plannedShipDateDisplay)}</span>
+            <span>${escapeHtml(order.shipCountdownText)}</span>
+            <span>原始裁片单总数：${order.totalOriginalOrderCount}</span>
+            <span>当前可裁数：${order.cuttableOriginalOrderCount}</span>
+            <span>生产单状态：${escapeHtml(order.coverageStatus.label)}</span>
           </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cuttable-pool-action="select-order-cuttable" data-order-id="${order.id}">选中本单可裁项</button>
-          <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cuttable-pool-action="go-original-orders" data-order-id="${order.id}">查看裁片单</button>
-          <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cuttable-pool-action="go-material-prep" data-order-id="${order.id}">查看配料</button>
+        <div class="flex max-w-full flex-col items-start gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cuttable-pool-action="go-original-orders" data-order-id="${order.id}">查看原始裁片单</button>
+            <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cuttable-pool-action="go-material-prep" data-order-id="${order.id}">查看配料 / 领料</button>
+            <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cuttable-pool-action="go-capacity-constraints" data-order-id="${order.productionOrderId}">查看产能约束</button>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">${renderOrderQuickSelectActions(order)}</div>
         </div>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1120px] text-sm">
+      <div class="overflow-x-auto" data-testid="cutting-cuttable-pool-original-order-table">
+        <table class="w-full min-w-[920px] text-sm">
           <thead class="border-b bg-muted/30 text-muted-foreground">
             <tr>
               <th class="px-3 py-2 text-left font-medium">选择</th>
               <th class="px-3 py-2 text-left font-medium">原始裁片单号</th>
-              <th class="px-3 py-2 text-left font-medium">所属生产单</th>
-              <th class="px-3 py-2 text-left font-medium">面料 SKU</th>
-              <th class="px-3 py-2 text-left font-medium">面料属性</th>
-              <th class="px-3 py-2 text-left font-medium">可裁状态</th>
-              <th class="px-3 py-2 text-left font-medium">当前阶段</th>
-              <th class="px-3 py-2 text-left font-medium">审核 / 配料 / 领料</th>
-              <th class="px-3 py-2 text-left font-medium">原因 / 最新动作</th>
+              <th class="px-3 py-2 text-left font-medium">面料</th>
+              <th class="px-3 py-2 text-left font-medium">配料状态</th>
+              <th class="px-3 py-2 text-left font-medium">领料状态</th>
+              <th class="px-3 py-2 text-left font-medium">裁片单状态</th>
+              <th class="px-3 py-2 text-left font-medium">当前情况</th>
             </tr>
           </thead>
           <tbody>${renderOriginalOrderRows(order, currentCompatibilityKey)}</tbody>
         </table>
       </div>
     </article>
+  `
+}
+
+function renderQuickMergeableSidebar(viewModel = getViewModel()): string {
+  const buckets = buildQuickMergeableBuckets(getVisibleItems(viewModel))
+  if (!buckets.length) {
+    return `
+      <section class="space-y-2" data-testid="cutting-cuttable-pool-quick-select-sidebar">
+        <div>
+          <h3 class="text-sm font-semibold text-foreground">快速选择可合并裁剪</h3>
+          <p class="mt-1 text-xs text-muted-foreground">当前筛选范围内暂无可直接快速选择的同款同料可裁项。</p>
+        </div>
+      </section>
+    `
+  }
+
+  return `
+    <section class="space-y-2" data-testid="cutting-cuttable-pool-quick-select-sidebar">
+      <div>
+        <h3 class="text-sm font-semibold text-foreground">快速选择可合并裁剪</h3>
+        <p class="mt-1 text-xs text-muted-foreground">按同款同料快速带出当前可见范围内的可裁原始裁片单。</p>
+      </div>
+      <div class="space-y-2">
+        ${buckets
+          .map(
+            (bucket) => `
+              <div class="rounded-lg border px-3 py-2" data-testid="cutting-cuttable-pool-quick-select-entry">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="font-medium text-foreground">${escapeHtml(getQuickBucketLabel(bucket))}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bucket.styleName || '未命名款式')}</div>
+                    <div class="mt-1 text-[11px] text-muted-foreground">
+                      面料：${escapeHtml(bucket.materialLabel)} / ${escapeHtml(bucket.materialSku)}
+                    </div>
+                    <div class="mt-1 text-[11px] text-muted-foreground">
+                      可裁 ${bucket.cuttableCount} 个 · 生产单 ${bucket.productionOrderCount} 个 · 最早发货 ${escapeHtml(bucket.earliestShipDateDisplay || '待补日期')} · 最高紧急程度 ${escapeHtml(bucket.highestUrgencyLabel)}
+                    </div>
+                  </div>
+                  <div class="flex shrink-0 flex-col items-end gap-1">
+                    <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cuttable-pool-action="select-quick-bucket" data-compatibility-key="${escapeHtml(bucket.compatibilityKey)}">快速选择</button>
+                    <button class="text-xs text-blue-600 hover:underline" data-cuttable-pool-action="go-capacity-constraints" data-order-ids="${escapeHtml(bucket.productionOrderIds.join(','))}">查看产能约束</button>
+                  </div>
+                </div>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
   `
 }
 
@@ -515,7 +587,7 @@ function renderStyleGroups(groups: CuttableStyleGroup[], currentCompatibilityKey
   return groups
     .map(
       (group) => `
-        <section class="rounded-xl border bg-card">
+        <section class="rounded-xl border bg-card" data-testid="cutting-cuttable-pool-style-group">
           <div class="flex flex-col gap-3 border-b px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
@@ -526,9 +598,6 @@ function renderStyleGroups(groups: CuttableStyleGroup[], currentCompatibilityKey
                 <span>生产单 ${group.totalOrderCount} 个</span>
                 <span>原始裁片单 ${group.totalOriginalOrderCount} 个</span>
                 <span>当前可裁 ${group.cuttableOriginalOrderCount} 个</span>
-                <span>整单可裁 ${group.fullOrderCount} 个</span>
-                <span>部分料可裁 ${group.partialOrderCount} 个</span>
-                <span>暂不可裁 ${group.blockedOrderCount} 个</span>
               </div>
               <div class="mt-3 flex flex-wrap gap-2">
                 ${
@@ -543,7 +612,7 @@ function renderStyleGroups(groups: CuttableStyleGroup[], currentCompatibilityKey
                           ),
                         )
                         .join('')
-                    : '<span class="text-xs text-muted-foreground">当前无兼容组摘要</span>'
+                    : '<span class="text-xs text-muted-foreground">当前无同款同料摘要</span>'
                 }
               </div>
             </div>
@@ -567,7 +636,7 @@ function renderProductionOrderFlat(groups: CuttableStyleGroup[], currentCompatib
   }
 
   return `
-    <section class="space-y-3">
+    <section class="space-y-3" data-testid="cutting-cuttable-pool-order-list">
       ${orders
         .map(
           (order) => `
@@ -584,19 +653,20 @@ function renderProductionOrderFlat(groups: CuttableStyleGroup[], currentCompatib
 
 function renderSelectedPanel(viewModel = getViewModel()): string {
   const selectedItems = getSelectedItems(viewModel)
-  const selectedOrderCount = new Set(selectedItems.map((item) => item.productionOrderId)).size
-  const currentCompatibilityKey = getSelectedCompatibilityKey(viewModel)
+  const selectedOrderIds = Array.from(new Set(selectedItems.map((item) => item.productionOrderId)))
   const selectedCompatibilityLabel = selectedItems[0]
-    ? `${selectedItems[0].styleCode || selectedItems[0].spuCode} · ${selectedItems[0].materialSku}`
-    : '未选择兼容组'
+    ? `${selectedItems[0].styleCode || selectedItems[0].spuCode || '同款'} · ${selectedItems[0].materialSku}`
+    : '未选择'
 
   return `
-    <aside class="sticky top-24 rounded-xl border bg-card">
+    <aside class="sticky top-24 rounded-xl border bg-card" data-testid="cutting-cuttable-pool-selected-sidebar">
       <div class="border-b px-4 py-4">
         <h2 class="text-sm font-semibold">已选清单</h2>
-        <p class="mt-1 text-xs text-muted-foreground">仅承接原始裁片单；下一步将把它们作为合并裁剪批次输入。</p>
+        <p class="mt-1 text-xs text-muted-foreground">原始裁片单进入合并裁剪批次前的选择清单。</p>
       </div>
       <div class="space-y-4 p-4">
+        ${renderQuickMergeableSidebar(viewModel)}
+
         <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
           <div class="rounded-lg border bg-muted/10 px-3 py-2">
             <div class="text-xs text-muted-foreground">已选原始裁片单</div>
@@ -604,10 +674,10 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
           </div>
           <div class="rounded-lg border bg-muted/10 px-3 py-2">
             <div class="text-xs text-muted-foreground">涉及生产单</div>
-            <div class="mt-1 text-lg font-semibold tabular-nums">${selectedOrderCount}</div>
+            <div class="mt-1 text-lg font-semibold tabular-nums">${selectedOrderIds.length}</div>
           </div>
           <div class="rounded-lg border bg-muted/10 px-3 py-2">
-            <div class="text-xs text-muted-foreground">当前兼容组</div>
+            <div class="text-xs text-muted-foreground">当前同款同料</div>
             <div class="mt-1 text-sm font-semibold">${escapeHtml(selectedCompatibilityLabel)}</div>
           </div>
         </div>
@@ -623,7 +693,7 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
                         <div class="flex items-start justify-between gap-3">
                           <div class="min-w-0">
                             <div class="font-medium">${escapeHtml(item.originalCutOrderNo)}</div>
-                            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.productionOrderNo)} · ${escapeHtml(item.materialSku)}</div>
+                            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.productionOrderNo)} · ${escapeHtml(item.materialLabel)} / ${escapeHtml(item.materialSku)}</div>
                           </div>
                           <button class="text-xs text-blue-600 hover:underline" data-cuttable-pool-action="toggle-item" data-item-id="${item.id}">移除</button>
                         </div>
@@ -633,7 +703,7 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
                   .join('')}
               </div>
             `
-            : '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前尚未选择原始裁片单。请从同款分组内勾选可裁项，再进入下一步。</div>'
+            : '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前尚未选择原始裁片单。可直接勾选，或先用右侧快速选择推荐组。</div>'
         }
 
         <div class="space-y-2">
@@ -643,39 +713,35 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
           <button class="w-full rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="clear-selection">
             清空选择
           </button>
-          <button class="w-full rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-selected-original-orders">
-            查看原始裁片单
+          <button
+            class="w-full rounded-md border px-4 py-2 text-sm hover:bg-muted ${selectedItems.length ? '' : 'cursor-not-allowed opacity-60'}"
+            data-cuttable-pool-action="go-capacity-constraints"
+            data-order-ids="${escapeHtml(selectedOrderIds.join(','))}"
+            ${selectedItems.length ? '' : 'disabled'}
+          >
+            查看产能约束
+          </button>
+          <button
+            class="w-full rounded-md border px-4 py-2 text-sm hover:bg-muted ${selectedItems.length ? '' : 'cursor-not-allowed opacity-60'}"
+            data-cuttable-pool-action="go-selected-original-orders"
+            ${selectedItems.length ? '' : 'disabled'}
+          >
+            查看已选原始裁片单
           </button>
         </div>
-        ${currentCompatibilityKey ? `<p class="text-xs text-muted-foreground">当前选择将按 ${escapeHtml(selectedCompatibilityLabel)} 这一兼容组带到下一步。</p>` : ''}
+
+        ${selectedItems.length ? `<p class="text-xs text-muted-foreground">当前选择将按 ${escapeHtml(selectedCompatibilityLabel)} 这一同款同料清单进入下一步。</p>` : ''}
       </div>
     </aside>
   `
 }
 
-function renderMainContent(groups: CuttableStyleGroup[], viewModel = getViewModel()): string {
-  const currentCompatibilityKey = getSelectedCompatibilityKey(viewModel)
-
-  return `
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div class="space-y-4">
-        ${
-          state.filters.viewMode === 'PRODUCTION_ORDER'
-            ? renderProductionOrderFlat(groups, currentCompatibilityKey)
-            : renderStyleGroups(groups, currentCompatibilityKey)
-        }
-      </div>
-      ${renderSelectedPanel(viewModel)}
-    </div>
-  `
-}
-
-function renderEmptyStateIfNeeded(groups: CuttableStyleGroup[]): string {
+function renderEmptyStateIfNeeded(groups: ReturnType<typeof getVisibleGroups>): string {
   if (groups.length) return ''
 
   return `
     <section class="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-      当前筛选条件下暂无可裁池数据，可清除筛选或返回生产单进度重新进入。
+      当前筛选条件下暂无可裁准备数据，可清除筛选或返回生产单进度重新进入。
     </section>
   `
 }
@@ -687,9 +753,10 @@ export function renderCraftCuttingCuttablePoolPage(): string {
   const meta = getCanonicalCuttingMeta(pathname, 'cuttable-pool')
   const viewModel = getViewModel()
   const groups = getVisibleGroups(viewModel)
+  const currentCompatibilityKey = getSelectedCompatibilityKey(viewModel)
 
   return `
-    <div class="space-y-4 p-4">
+    <div class="space-y-4 p-4" data-testid="cutting-cuttable-pool-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderActionBar(viewModel),
         showCompatibilityBadge: isCuttingAliasPath(pathname),
@@ -699,7 +766,22 @@ export function renderCraftCuttingCuttablePoolPage(): string {
       ${renderActiveStateBar()}
       ${renderNoticeBar()}
       ${renderEmptyStateIfNeeded(groups)}
-      ${groups.length ? renderMainContent(groups, viewModel) : ''}
+      ${
+        groups.length
+          ? `
+            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+              <div class="space-y-4">
+                ${
+                  state.viewMode === 'PRODUCTION_ORDER'
+                    ? renderProductionOrderFlat(groups, currentCompatibilityKey)
+                    : renderStyleGroups(groups, currentCompatibilityKey)
+                }
+              </div>
+              ${renderSelectedPanel(viewModel)}
+            </div>
+          `
+          : ''
+      }
     </div>
   `
 }
@@ -729,7 +811,7 @@ function toggleItemSelection(itemId: string | undefined): boolean {
 
   const currentCompatibilityKey = getSelectedCompatibilityKey(viewModel)
   if (currentCompatibilityKey && currentCompatibilityKey !== item.compatibilityKey) {
-    setNotice('当前已选清单仅支持同一兼容组的原始裁片单，请清空后重新选择，或在下一次批次中处理。')
+    setNotice('当前已选清单仅支持同一同款同料，请清空后重新选择，或改用上方快速选择。')
     return true
   }
 
@@ -738,37 +820,31 @@ function toggleItemSelection(itemId: string | undefined): boolean {
   return true
 }
 
-function selectOrderCuttable(orderId: string | undefined): boolean {
-  const viewModel = getViewModel()
-  const order = findOrderById(viewModel, orderId)
-  if (!order) return false
+function findQuickMergeableBucket(viewModel: ReturnType<typeof getViewModel>, compatibilityKey: string | undefined, orderId?: string): QuickMergeableBucket | null {
+  if (!compatibilityKey) return null
+  const items = orderId ? findOrderById(viewModel, orderId)?.items ?? [] : getVisibleItems(viewModel)
+  return buildQuickMergeableBuckets(items).find((bucket) => bucket.compatibilityKey === compatibilityKey) ?? null
+}
 
-  const selectableItems = order.items.filter((item) => item.cuttableState.selectable)
-  if (!selectableItems.length) {
-    setNotice('当前生产单下暂无可直接加入排产清单的原始裁片单。')
-    return true
-  }
+function selectQuickMergeableBucket(bucket: QuickMergeableBucket | null): boolean {
+  if (!bucket) return false
+  const currentCompatibilityKey = getSelectedCompatibilityKey()
+  const nextIds = Array.from(new Set(bucket.itemIds))
 
-  const currentCompatibilityKey = getSelectedCompatibilityKey(viewModel)
-  if (currentCompatibilityKey) {
-    const compatibleItems = selectableItems.filter((item) => item.compatibilityKey === currentCompatibilityKey)
-    if (!compatibleItems.length) {
-      setNotice('当前已选清单仅支持同一兼容组，本生产单下没有可并入当前选择的原始裁片单。')
-      return true
-    }
-    state.selectedIds = Array.from(new Set([...state.selectedIds, ...compatibleItems.map((item) => item.id)]))
+  if (!state.selectedIds.length || !currentCompatibilityKey) {
+    state.selectedIds = nextIds
     clearNotice()
     return true
   }
 
-  const compatibilityKeys = Array.from(new Set(selectableItems.map((item) => item.compatibilityKey)))
-  if (compatibilityKeys.length > 1) {
-    setNotice('当前生产单下包含多个兼容组，请直接勾选具体原始裁片单，或先选中同一料项后继续扩选。')
+  if (currentCompatibilityKey === bucket.compatibilityKey) {
+    state.selectedIds = Array.from(new Set([...state.selectedIds, ...nextIds]))
+    clearNotice()
     return true
   }
 
-  state.selectedIds = Array.from(new Set([...state.selectedIds, ...selectableItems.map((item) => item.id)]))
-  clearNotice()
+  state.selectedIds = nextIds
+  setNotice(`已切换到 ${getQuickBucketLabel(bucket)} 的可合并裁剪清单。`)
   return true
 }
 
@@ -802,6 +878,23 @@ function navigateToOriginalOrdersForSelection(): boolean {
   return true
 }
 
+function buildCapacityOverviewPath(): string {
+  const contextOrder = getContextOrder()
+  return buildRouteWithQuery('/fcs/capacity/overview', {
+    source: 'cuttable-pool',
+    keyword: contextOrder?.productionOrderNo || '',
+  })
+}
+
+function buildCapacityConstraintsPath(orderIds: string[]): string {
+  const uniqueIds = Array.from(new Set(orderIds.filter(Boolean)))
+  return buildRouteWithQuery('/fcs/capacity/constraints', {
+    source: 'cuttable-pool',
+    orderId: uniqueIds.length === 1 ? uniqueIds[0] : undefined,
+    orderIds: uniqueIds.length > 1 ? uniqueIds.join(',') : undefined,
+  })
+}
+
 function goToMergeBatches(): boolean {
   const selectedItems = getSelectedItems()
   const compatibility = areOriginalCutOrdersCompatibleForBatching(selectedItems)
@@ -823,6 +916,17 @@ function goToMergeBatches(): boolean {
   return true
 }
 
+function navigateToCapacityOverview(): boolean {
+  appStore.navigate(buildCapacityOverviewPath())
+  return true
+}
+
+function navigateToCapacityConstraints(orderIds: string[]): boolean {
+  if (!orderIds.length) return false
+  appStore.navigate(buildCapacityConstraintsPath(orderIds))
+  return true
+}
+
 export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-cuttable-pool-field]')
   if (fieldNode) {
@@ -834,7 +938,6 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
     if (field === 'urgency') state.filters.urgencyLevel = input.value as CuttablePoolFilters['urgencyLevel']
     if (field === 'cuttable') state.filters.cuttableState = input.value as CuttablePoolFilters['cuttableState']
     if (field === 'coverage') state.filters.coverageStatus = input.value as CuttablePoolFilters['coverageStatus']
-    if (field === 'audit') state.filters.auditStatus = input.value as CuttablePoolFilters['auditStatus']
     if (field === 'config') state.filters.configStatus = input.value as CuttablePoolFilters['configStatus']
     if (field === 'claim') state.filters.receiveStatus = input.value as CuttablePoolFilters['receiveStatus']
     return true
@@ -844,25 +947,15 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
   const action = actionNode?.dataset.cuttablePoolAction
   if (!action) return false
 
-  if (action === 'set-view-mode') {
-    const viewMode = actionNode.dataset.viewMode as CuttableViewMode | undefined
-    if (!viewMode) return false
-    state.filters.viewMode = viewMode
-    return true
-  }
-
-  if (action === 'toggle-only-selected') {
-    state.filters.onlySelected = !state.filters.onlySelected
-    return true
-  }
-
   if (action === 'toggle-only-cuttable') {
     state.filters.onlyCuttable = !state.filters.onlyCuttable
     return true
   }
 
-  if (action === 'toggle-only-partial-orders') {
-    state.filters.onlyPartialOrders = !state.filters.onlyPartialOrders
+  if (action === 'set-view-mode') {
+    const nextMode = actionNode.dataset.viewMode as CuttableViewMode | undefined
+    if (!nextMode) return false
+    state.viewMode = nextMode
     return true
   }
 
@@ -870,8 +963,10 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
     return toggleItemSelection(actionNode.dataset.itemId)
   }
 
-  if (action === 'select-order-cuttable') {
-    return selectOrderCuttable(actionNode.dataset.orderId)
+  if (action === 'select-quick-bucket') {
+    const viewModel = getViewModel()
+    const bucket = findQuickMergeableBucket(viewModel, actionNode.dataset.compatibilityKey, actionNode.dataset.orderId)
+    return selectQuickMergeableBucket(bucket)
   }
 
   if (action === 'clear-selection') {
@@ -880,22 +975,12 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'clear-filters') {
-    state.filters = { ...initialFilters, viewMode: state.filters.viewMode }
-    clearNotice()
-    return true
-  }
-
   if (action === 'clear-all-state') {
-    state.filters = { ...initialFilters, viewMode: state.filters.viewMode }
-    clearNotice()
-    appStore.navigate(getCanonicalCuttingPath('cuttable-pool'))
-    return true
-  }
-
-  if (action === 'clear-prefilter') {
+    resetFilterState()
+    state.viewMode = 'STYLE_GROUP'
     const params = getCurrentSearchParams()
     ;['productionOrderId', 'productionOrderNo', 'styleCode', 'spuCode', 'urgencyLevel', 'riskOnly'].forEach((key) => params.delete(key))
+    clearNotice()
     const query = params.toString()
     appStore.navigate(query ? `${getCanonicalCuttingPath('cuttable-pool')}?${query}` : getCanonicalCuttingPath('cuttable-pool'))
     return true
@@ -911,9 +996,14 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'go-summary-index') {
-    appStore.navigate(getCanonicalCuttingPath('summary'))
-    return true
+  if (action === 'go-capacity-overview') {
+    return navigateToCapacityOverview()
+  }
+
+  if (action === 'go-capacity-constraints') {
+    const directOrderId = actionNode.dataset.orderId
+    const orderIds = directOrderId ? [directOrderId] : (actionNode.dataset.orderIds || '').split(',').filter(Boolean)
+    return navigateToCapacityConstraints(orderIds)
   }
 
   if (action === 'go-merge-batches') {

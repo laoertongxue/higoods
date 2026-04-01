@@ -26,10 +26,13 @@ import {
   getOrderById,
   getOrderTechPackInfo,
   getOrderRuntimeAssignmentSnapshot,
+  getOrderStandardTimeSnapshot,
   getOrderTaskBreakdownSnapshot,
   getOrderMaterialIndicators,
   getMaterialRequestDraftSummaryByOrder,
   getOrderBusinessTechPackStatus,
+  formatStandardTimeMinutes,
+  formatStandardTimePerUnit,
   renderSplitEventList,
   listMaterialRequestDraftsByOrder,
   getTaskTypeLabel,
@@ -304,6 +307,7 @@ function renderOrderMaterialInfoSection(order: ProductionOrder): string {
 function renderOrderDetailTabContent(order: ProductionOrder): string {
   const techPack = getOrderTechPackInfo(order)
   const totalQty = order.demandSnapshot.skuLines.reduce((sum, sku) => sum + sku.qty, 0)
+  const standardTime = getOrderStandardTimeSnapshot(order)
 
   if (state.detailTab === 'overview') {
     const ownerDisplay = (() => {
@@ -386,6 +390,61 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
         </section>
       </div>
       ${renderOrderMaterialInfoSection(order)}
+      <section class="rounded-lg border bg-card p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-base font-semibold">标准工时构成</h3>
+            <p class="mt-1 text-xs text-muted-foreground">生产单总标准工时来自当前生产单下最终执行任务的任务总标准工时聚合结果</p>
+          </div>
+          <div class="rounded-md bg-muted/40 px-3 py-2 text-right">
+            <p class="text-xs text-muted-foreground">生产单总标准工时</p>
+            <p class="text-sm font-semibold">${escapeHtml(formatStandardTimeMinutes(standardTime.totalStandardTime))}</p>
+          </div>
+        </div>
+
+        <div class="mt-3 overflow-x-auto rounded-md border">
+          <table class="w-full text-sm">
+            <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium">任务 / 工序工艺</th>
+                <th class="px-3 py-2 text-right font-medium">数量</th>
+                <th class="px-3 py-2 text-right font-medium">单位标准工时</th>
+                <th class="px-3 py-2 text-left font-medium">工时单位</th>
+                <th class="px-3 py-2 text-right font-medium">小计总标准工时</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                standardTime.breakdownRows.length === 0
+                  ? renderEmptyRow(5, '暂无可用标准工时')
+                  : standardTime.breakdownRows
+                      .map(
+                        (row) => `
+                          <tr class="border-b last:border-0">
+                            <td class="px-3 py-2">
+                              <div class="text-sm">
+                                <div class="font-medium">${escapeHtml(row.taskLabel)}</div>
+                                <div class="text-xs text-muted-foreground">${escapeHtml(row.processLabel)}</div>
+                                <div class="text-[11px] text-muted-foreground">
+                                  ${escapeHtml(row.taskNo)}
+                                  ${row.isSplitResult ? ' · 拆分结果任务' : ''}
+                                  ${row.detailRowCount > 0 ? ` · 明细 ${row.detailRowCount} 行` : ''}
+                                </div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-2 text-right">${row.qty.toLocaleString()}</td>
+                            <td class="px-3 py-2 text-right">${escapeHtml(formatStandardTimePerUnit(row.standardTimePerUnit))}</td>
+                            <td class="px-3 py-2">${escapeHtml(row.standardTimeUnit || '--')}</td>
+                            <td class="px-3 py-2 text-right font-medium">${escapeHtml(formatStandardTimeMinutes(row.totalStandardTime))}</td>
+                          </tr>
+                        `,
+                      )
+                      .join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
       </div>
     `
   }
@@ -641,6 +700,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   const techPack = getOrderTechPackInfo(order)
   const runtime = getOrderRuntimeAssignmentSnapshot(order)
   const breakdown = getOrderTaskBreakdownSnapshot(order)
+  const standardTime = getOrderStandardTimeSnapshot(order)
 
   const canBreakdown =
     getOrderBusinessTechPackStatus(order.techPackSnapshot.status) === 'RELEASED' &&
@@ -742,7 +802,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           : ''
       }
 
-      <section class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <section class="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <article class="rounded-lg border bg-card p-4">
           <h3 class="mb-2 text-sm font-medium text-muted-foreground">主工厂</h3>
           <p class="font-medium">${escapeHtml(order.mainFactorySnapshot.name)}</p>
@@ -783,6 +843,12 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           <p class="text-sm">竞价: ${runtime.assignmentSummary.biddingCount}</p>
           <p class="text-sm">总任务: ${runtime.assignmentSummary.totalTasks}</p>
           <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
+        </article>
+
+        <article class="rounded-lg border bg-card p-4">
+          <h3 class="mb-2 text-sm font-medium text-muted-foreground">总标准工时</h3>
+          <p class="text-lg font-semibold">${escapeHtml(formatStandardTimeMinutes(standardTime.totalStandardTime))}</p>
+          <p class="mt-2 text-xs text-muted-foreground">执行任务 ${standardTime.taskCount} 条</p>
         </article>
 
         <article class="rounded-lg border bg-card p-4">

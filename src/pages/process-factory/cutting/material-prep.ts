@@ -14,7 +14,6 @@ import {
   deriveSchedulingStatus,
   filterMaterialPrepRows,
   findMaterialPrepRowByPrefilter,
-  materialAuditMeta,
   materialClaimMeta,
   materialPrepMeta,
   materialPrepStageMeta,
@@ -59,7 +58,6 @@ type FilterField =
   | 'styleKeyword'
   | 'materialPrepStatus'
   | 'materialClaimStatus'
-  | 'materialAuditStatus'
   | 'schedulingStatus'
   | 'cuttingGroup'
   | 'materialSku'
@@ -76,7 +74,6 @@ const initialFilters: MaterialPrepFilters = {
   styleKeyword: '',
   materialPrepStatus: 'ALL',
   materialClaimStatus: 'ALL',
-  materialAuditStatus: 'ALL',
   schedulingStatus: 'ALL',
   cuttingGroup: '',
   materialSku: '',
@@ -91,7 +88,6 @@ const FIELD_TO_FILTER_KEY: Record<FilterField, keyof MaterialPrepFilters> = {
   styleKeyword: 'styleKeyword',
   materialPrepStatus: 'materialPrepStatus',
   materialClaimStatus: 'materialClaimStatus',
-  materialAuditStatus: 'materialAuditStatus',
   schedulingStatus: 'schedulingStatus',
   cuttingGroup: 'cuttingGroup',
   materialSku: 'materialSku',
@@ -361,7 +357,6 @@ function getFilterLabels(): string[] {
   if (state.filters.materialSku) labels.push(`面料：${state.filters.materialSku}`)
   if (state.filters.materialPrepStatus !== 'ALL') labels.push(`配料：${materialPrepMeta[state.filters.materialPrepStatus].label}`)
   if (state.filters.materialClaimStatus !== 'ALL') labels.push(`领料：${materialClaimMeta[state.filters.materialClaimStatus].label}`)
-  if (state.filters.materialAuditStatus !== 'ALL') labels.push(`审核：${materialAuditMeta[state.filters.materialAuditStatus].label}`)
   if (state.filters.schedulingStatus !== 'ALL') labels.push(`排单：${materialSchedulingMeta[state.filters.schedulingStatus].label}`)
   if (state.filters.cuttingGroup) labels.push(`裁床组：${state.filters.cuttingGroup}`)
   if (state.filters.issuesOnly) labels.push('仅看异常项')
@@ -454,10 +449,6 @@ function renderFilterArea(): string {
           { value: 'ALL', label: '全部领料状态' },
           ...Object.entries(materialClaimMeta).map(([value, meta]) => ({ value, label: meta.label })),
         ])}
-        ${renderFilterSelect('面料审核', 'materialAuditStatus', state.filters.materialAuditStatus, [
-          { value: 'ALL', label: '全部审核状态' },
-          ...Object.entries(materialAuditMeta).map(([value, meta]) => ({ value, label: meta.label })),
-        ])}
         ${renderFilterSelect('排单状态', 'schedulingStatus', state.filters.schedulingStatus, [
           { value: 'ALL', label: '全部排单状态' },
           ...Object.entries(materialSchedulingMeta).map(([value, meta]) => ({ value, label: meta.label })),
@@ -484,15 +475,6 @@ function renderRiskTags(tags: MaterialPrepRow['riskTags']): string {
     <div class="flex flex-wrap gap-1">
       ${tags.slice(0, 3).map((tag) => renderBadge(tag.label, tag.className)).join('')}
       ${tags.length > 3 ? `<span class="text-xs text-muted-foreground">+${tags.length - 3}</span>` : ''}
-    </div>
-  `
-}
-
-function renderMaterialAuditCell(row: MaterialPrepRow): string {
-  return `
-    <div class="space-y-1">
-      ${renderBadge(row.materialAuditStatus.label, row.materialAuditStatus.className)}
-      <p class="text-xs text-muted-foreground">${escapeHtml(row.materialAuditStatus.detailText)}</p>
     </div>
   `
 }
@@ -586,7 +568,6 @@ function renderTable(rows: MaterialPrepRow[]): string {
               <th class="px-4 py-3 text-left font-medium">来源生产单号</th>
               <th class="px-4 py-3 text-left font-medium">款号 / SPU</th>
               <th class="px-4 py-3 text-left font-medium">面料摘要</th>
-              <th class="px-4 py-3 text-left font-medium">面料审核</th>
               <th class="px-4 py-3 text-left font-medium">配料进展</th>
               <th class="px-4 py-3 text-left font-medium">领料进展</th>
               <th class="px-4 py-3 text-left font-medium">领料异议</th>
@@ -627,7 +608,6 @@ function renderTable(rows: MaterialPrepRow[]): string {
                             <div class="font-medium">${escapeHtml(row.materialSkuSummary)}</div>
                             <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(summarizeMaterialLineItems(row.materialLineItems))}</p>
                           </td>
-                          <td class="px-4 py-3 align-top">${renderMaterialAuditCell(row)}</td>
                           <td class="px-4 py-3 align-top">${renderPrepCell(row)}</td>
                           <td class="px-4 py-3 align-top">${renderClaimCell(row)}</td>
                           <td class="px-4 py-3 align-top">${renderClaimDisputeCell(row)}</td>
@@ -710,7 +690,6 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
             <th class="px-3 py-2 text-left font-medium">已配置量</th>
             <th class="px-3 py-2 text-left font-medium">已领取量</th>
             <th class="px-3 py-2 text-left font-medium">缺口量</th>
-            <th class="px-3 py-2 text-left font-medium">审核状态</th>
             <th class="px-3 py-2 text-left font-medium">配料状态</th>
             <th class="px-3 py-2 text-left font-medium">领料状态</th>
             <th class="px-3 py-2 text-left font-medium">备注</th>
@@ -733,7 +712,6 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
                   <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.configuredQty)} 米`)}</td>
                   <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.claimedQty)} 米`)}</td>
                   <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.shortageQty)} 米`)}</td>
-                  <td class="px-3 py-2 align-top">${renderBadge(item.auditStatus.label, item.auditStatus.className)}</td>
                   <td class="px-3 py-2 align-top">${renderBadge(item.linePrepStatus.label, item.linePrepStatus.className)}</td>
                   <td class="px-3 py-2 align-top">${renderBadge(item.lineClaimStatus.label, item.lineClaimStatus.className)}</td>
                   <td class="px-3 py-2 align-top text-xs text-muted-foreground">${escapeHtml(item.note || item.latestActionText || '—')}</td>
@@ -824,7 +802,6 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         `
           <div class="space-y-3">
             <div class="flex flex-wrap gap-2">
-              ${renderBadge(row.materialAuditStatus.label, row.materialAuditStatus.className)}
               ${renderBadge(row.materialPrepStatus.label, row.materialPrepStatus.className)}
               ${renderBadge(row.materialClaimStatus.label, row.materialClaimStatus.className)}
               ${renderBadge(row.schedulingStatus.label, row.schedulingStatus.className)}

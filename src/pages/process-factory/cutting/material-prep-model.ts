@@ -3,7 +3,6 @@ import type {
   CuttingMaterialLine,
   CuttingOrderProgressRecord,
   CuttingReceiveStatus,
-  CuttingReviewStatus,
 } from '../../../data/fcs/cutting/types'
 import {
   buildCraftClaimDisputeSummary,
@@ -34,7 +33,6 @@ const numberFormatter = new Intl.NumberFormat('zh-CN')
 export type MaterialPrepClaimAggregateKey = CuttingReceiveStatus | 'EXCEPTION'
 export type MaterialPrepSchedulingKey = 'UNASSIGNED' | 'ASSIGNED'
 export type MaterialPrepStageKey =
-  | 'WAITING_REVIEW'
   | 'WAITING_PREP'
   | 'WAITING_CLAIM'
   | 'WAITING_SCHEDULING'
@@ -43,7 +41,6 @@ export type MaterialPrepStageKey =
   | 'WAITING_INBOUND'
   | 'DONE'
 export type MaterialPrepRiskKey =
-  | 'PENDING_REVIEW'
   | 'PREP_DELAY'
   | 'CLAIM_EXCEPTION'
   | 'SHIP_URGENT'
@@ -86,7 +83,6 @@ export interface MaterialPrepLineItem {
   shortageQty: number
   configuredRollCount: number
   claimedRollCount: number
-  auditStatus: MaterialPrepSummaryMeta<CuttingReviewStatus>
   linePrepStatus: MaterialPrepSummaryMeta<CuttingConfigStatus>
   lineClaimStatus: MaterialPrepSummaryMeta<MaterialPrepClaimAggregateKey>
   hasClaimException: boolean
@@ -126,7 +122,6 @@ export interface MaterialPrepRow {
   canViewQr: boolean
   shouldPrintQr: boolean
   qrHiddenHint: string
-  materialAuditStatus: MaterialPrepSummaryMeta<CuttingReviewStatus>
   materialPrepStatus: MaterialPrepSummaryMeta<CuttingConfigStatus>
   materialClaimStatus: MaterialPrepSummaryMeta<MaterialPrepClaimAggregateKey>
   schedulingStatus: MaterialPrepSummaryMeta<MaterialPrepSchedulingKey>
@@ -169,7 +164,6 @@ export interface MaterialPrepFilters {
   styleKeyword: string
   materialPrepStatus: 'ALL' | CuttingConfigStatus
   materialClaimStatus: 'ALL' | MaterialPrepClaimAggregateKey
-  materialAuditStatus: 'ALL' | CuttingReviewStatus
   schedulingStatus: 'ALL' | MaterialPrepSchedulingKey
   cuttingGroup: string
   materialSku: string
@@ -225,13 +219,6 @@ export interface IssueListPrintPayload {
   }>
 }
 
-export const materialAuditMeta: Record<CuttingReviewStatus, { label: string; className: string }> = {
-  NOT_REQUIRED: { label: '无需审核', className: 'bg-slate-100 text-slate-700' },
-  PENDING: { label: '待审核', className: 'bg-amber-100 text-amber-700' },
-  PARTIAL: { label: '部分已审核', className: 'bg-orange-100 text-orange-700' },
-  APPROVED: { label: '已审核', className: 'bg-emerald-100 text-emerald-700' },
-}
-
 export const materialPrepMeta: Record<CuttingConfigStatus, { label: string; className: string }> = {
   NOT_CONFIGURED: { label: '未配置', className: 'bg-slate-100 text-slate-700' },
   PARTIAL: { label: '部分配置', className: 'bg-orange-100 text-orange-700' },
@@ -251,7 +238,6 @@ export const materialSchedulingMeta: Record<MaterialPrepSchedulingKey, { label: 
 }
 
 export const materialPrepStageMeta: Record<MaterialPrepStageKey, { label: string; className: string }> = {
-  WAITING_REVIEW: { label: '待审核', className: 'bg-amber-100 text-amber-700' },
   WAITING_PREP: { label: '待配料', className: 'bg-slate-100 text-slate-700' },
   WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700' },
   WAITING_SCHEDULING: { label: '待排单', className: 'bg-sky-100 text-sky-700' },
@@ -262,7 +248,6 @@ export const materialPrepStageMeta: Record<MaterialPrepStageKey, { label: string
 }
 
 export const materialPrepRiskMeta: Record<MaterialPrepRiskKey, { label: string; className: string }> = {
-  PENDING_REVIEW: { label: '审核未完成', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
   PREP_DELAY: { label: '配料滞后', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
   CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
@@ -318,20 +303,6 @@ function buildKeywordIndex(values: Array<string | undefined | null>): string[] {
     .map((value) => value.toLowerCase())
 }
 
-function createReviewSummary(status: CuttingReviewStatus): MaterialPrepSummaryMeta<CuttingReviewStatus> {
-  const meta = materialAuditMeta[status]
-  const detailText =
-    status === 'APPROVED'
-      ? '当前面料审核已完成。'
-      : status === 'PARTIAL'
-        ? '当前面料审核仅部分完成。'
-        : status === 'NOT_REQUIRED'
-          ? '当前面料无需额外审核。'
-          : '当前面料仍待审核。'
-
-  return buildSummaryMeta(status, meta.label, meta.className, detailText)
-}
-
 export function deriveMaterialPrepStatus(lineItems: MaterialPrepLineItem[]): MaterialPrepSummaryMeta<CuttingConfigStatus> {
   const total = lineItems.length
   const configuredCount = lineItems.filter((item) => item.configuredQty >= item.requiredQty && item.requiredQty > 0).length
@@ -385,7 +356,7 @@ function buildQrCodeValue(originalCutOrderNo: string): string {
 
 function deriveCurrentStage(
   record: CuttingOrderProgressRecord,
-  row: Pick<MaterialPrepRow, 'materialAuditStatus' | 'materialPrepStatus' | 'materialClaimStatus' | 'schedulingStatus'>,
+  row: Pick<MaterialPrepRow, 'materialPrepStatus' | 'materialClaimStatus' | 'schedulingStatus'>,
 ): MaterialPrepSummaryMeta<MaterialPrepStageKey> {
   if (record.hasInboundRecord || /已完成|已入仓/.test(record.cuttingStage)) {
     return buildSummaryMeta('DONE', materialPrepStageMeta.DONE.label, materialPrepStageMeta.DONE.className, '当前原始裁片单已进入入仓 / 完成后续。')
@@ -395,9 +366,6 @@ function deriveCurrentStage(
   }
   if (record.hasSpreadingRecord || /裁片中|裁剪中/.test(record.cuttingStage)) {
     return buildSummaryMeta('CUTTING', materialPrepStageMeta.CUTTING.label, materialPrepStageMeta.CUTTING.className, '当前已进入裁剪执行上下文。')
-  }
-  if (row.materialAuditStatus.key === 'PENDING' || row.materialAuditStatus.key === 'PARTIAL') {
-    return buildSummaryMeta('WAITING_REVIEW', materialPrepStageMeta.WAITING_REVIEW.label, materialPrepStageMeta.WAITING_REVIEW.className, '面料审核未齐，当前仍停留在待审核阶段。')
   }
   if (row.materialPrepStatus.key === 'NOT_CONFIGURED' || row.materialPrepStatus.key === 'PARTIAL') {
     return buildSummaryMeta('WAITING_PREP', materialPrepStageMeta.WAITING_PREP.label, materialPrepStageMeta.WAITING_PREP.className, '当前仍处于配料准备阶段。')
@@ -517,7 +485,6 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
       shortageQty: Math.max(requiredQty - claimedQty, 0),
       configuredRollCount: line.configuredRollCount,
       claimedRollCount: line.receivedRollCount,
-      auditStatus: createReviewSummary(line.reviewStatus),
       linePrepStatus: buildSummaryMeta('NOT_CONFIGURED', '', '', ''),
       lineClaimStatus: buildSummaryMeta('NOT_RECEIVED', '', '', ''),
       hasClaimException,
@@ -539,7 +506,6 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
       shortageQty: Math.max(requiredQty - claimedQty, 0),
       configuredRollCount: line.configuredRollCount,
       claimedRollCount: line.receivedRollCount,
-      auditStatus: createReviewSummary(line.reviewStatus),
       linePrepStatus,
       lineClaimStatus: buildSummaryMeta('NOT_RECEIVED', '', '', ''),
       hasClaimException,
@@ -560,7 +526,6 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
     shortageQty: Math.max(requiredQty - claimedQty, 0),
     configuredRollCount: line.configuredRollCount,
     claimedRollCount: line.receivedRollCount,
-    auditStatus: createReviewSummary(line.reviewStatus),
     linePrepStatus,
     lineClaimStatus,
     hasClaimException,
@@ -632,26 +597,12 @@ export function buildMaterialPrepNavigationPayload(row: Pick<
   }
 }
 
-function summarizeAuditStatus(lineItems: MaterialPrepLineItem[]): MaterialPrepSummaryMeta<CuttingReviewStatus> {
-  const total = lineItems.length
-  const approvedCount = lineItems.filter((item) => item.auditStatus.key === 'APPROVED').length
-  const partialExists = lineItems.some((item) => item.auditStatus.key === 'PARTIAL')
-  const pendingExists = lineItems.some((item) => item.auditStatus.key === 'PENDING')
-
-  if (!total) return createReviewSummary('NOT_REQUIRED')
-  if (approvedCount === total) return buildSummaryMeta('APPROVED', materialAuditMeta.APPROVED.label, materialAuditMeta.APPROVED.className, `已审核 ${approvedCount}/${total} 项。`)
-  if (approvedCount > 0 || partialExists) return buildSummaryMeta('PARTIAL', materialAuditMeta.PARTIAL.label, materialAuditMeta.PARTIAL.className, `已审核 ${approvedCount}/${total} 项，仍有待补齐。`)
-  if (pendingExists) return buildSummaryMeta('PENDING', materialAuditMeta.PENDING.label, materialAuditMeta.PENDING.className, `待审核 ${total} 项。`)
-  return createReviewSummary('NOT_REQUIRED')
-}
-
 function buildRiskTags(
   record: CuttingOrderProgressRecord,
-  row: Pick<MaterialPrepRow, 'materialAuditStatus' | 'materialPrepStatus' | 'materialClaimStatus' | 'schedulingStatus' | 'plannedShipDate'>,
+  row: Pick<MaterialPrepRow, 'materialPrepStatus' | 'materialClaimStatus' | 'schedulingStatus' | 'plannedShipDate'>,
 ): MaterialPrepRiskTag[] {
   const keys = new Set<MaterialPrepRiskKey>()
 
-  if (row.materialAuditStatus.key === 'PENDING' || row.materialAuditStatus.key === 'PARTIAL') keys.add('PENDING_REVIEW')
   if (row.materialPrepStatus.key === 'NOT_CONFIGURED' || row.materialPrepStatus.key === 'PARTIAL') keys.add('PREP_DELAY')
   if (row.materialClaimStatus.key === 'PARTIAL' || row.materialClaimStatus.key === 'EXCEPTION') keys.add('CLAIM_EXCEPTION')
   if (!row.plannedShipDate) keys.add('DATE_MISSING')
@@ -678,7 +629,6 @@ function createRow(
   const lineItems = [buildLineItem(record, line)]
   const batchSummary = summarizeMergeBatchParticipation(originalCutOrderId, ledger)
   const claimRecords = buildInitialClaimRecords(record, lineItems[0], originalCutOrderId)
-  const materialAuditStatus = summarizeAuditStatus(lineItems)
   const materialPrepStatus = deriveMaterialPrepStatus(lineItems)
   const materialClaimStatus = deriveMaterialClaimStatus(lineItems)
   const assignedCuttingGroup = inferAssignedCuttingGroup(record, line)
@@ -708,7 +658,6 @@ function createRow(
     canViewQr: false,
     shouldPrintQr: false,
     qrHiddenHint: getPrepQrHiddenText('NOT_CONFIGURED'),
-    materialAuditStatus,
     materialPrepStatus,
     materialClaimStatus,
     schedulingStatus,
@@ -795,7 +744,6 @@ export function recalculateMaterialPrepRow(
   })
 
   row.materialSkuSummary = buildMaterialSkuSummary(row.materialLineItems)
-  row.materialAuditStatus = summarizeAuditStatus(row.materialLineItems)
   row.materialPrepStatus = deriveMaterialPrepStatus(row.materialLineItems)
   row.materialClaimStatus = deriveMaterialClaimStatus(row.materialLineItems)
   row.schedulingStatus = deriveSchedulingStatus(row.assignedCuttingGroup)
@@ -931,7 +879,6 @@ export function filterMaterialPrepRows(
     }
     if (filters.materialPrepStatus !== 'ALL' && row.materialPrepStatus.key !== filters.materialPrepStatus) return false
     if (filters.materialClaimStatus !== 'ALL' && row.materialClaimStatus.key !== filters.materialClaimStatus) return false
-    if (filters.materialAuditStatus !== 'ALL' && row.materialAuditStatus.key !== filters.materialAuditStatus) return false
     if (filters.schedulingStatus !== 'ALL' && row.schedulingStatus.key !== filters.schedulingStatus) return false
     if (filters.cuttingGroup && !row.assignedCuttingGroup.toLowerCase().includes(filters.cuttingGroup.trim().toLowerCase())) return false
     if (filters.issuesOnly && !row.riskTags.length) return false

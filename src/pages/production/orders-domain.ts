@@ -22,7 +22,9 @@ import {
   getTaskDetailRows,
   getOrderDisplayBreakdownSnapshot,
   getOrderDisplayAssignmentSnapshot,
+  getOrderStandardTimeSnapshot,
   getOrderMaterialDisplaySummary,
+  formatStandardTimeMinutes,
   getFilteredOrders,
   getPaginatedOrders,
   getProcessTaskById,
@@ -871,6 +873,7 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">技术包版本</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">任务准备</th>
+                <th class="min-w-[120px] px-3 py-3 text-left font-medium">总标准工时</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">分配概览</th>
                 <th class="min-w-[90px] px-3 py-3 text-left font-medium">分配进度</th>
                 <th class="min-w-[170px] px-3 py-3 text-left font-medium">领料情况</th>
@@ -883,11 +886,12 @@ export function renderProductionOrdersPage(): string {
             <tbody>
               ${
                 pagedOrders.length === 0
-                  ? renderEmptyRow(14, '暂无数据')
+                  ? renderEmptyRow(15, '暂无数据')
                   : pagedOrders
                     .map((order) => {
                         const assignment = getOrderDisplayAssignmentSnapshot(order)
                         const breakdown = getOrderDisplayBreakdownSnapshot(order)
+                        const standardTime = getOrderStandardTimeSnapshot(order)
                         const mergedLogs = getOrderMergedAuditLogs(order)
                         const lastLog = mergedLogs[mergedLogs.length - 1]
 
@@ -924,6 +928,12 @@ export function renderProductionOrdersPage(): string {
                                 <div class="mt-0.5 text-xs text-muted-foreground">
                                   ${escapeHtml(breakdown.detailText)}
                                 </div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-3">
+                              <div class="text-sm">
+                                <div class="font-medium">${escapeHtml(formatStandardTimeMinutes(standardTime.totalStandardTime))}</div>
+                                <div class="mt-0.5 text-xs text-muted-foreground">执行任务 ${standardTime.taskCount} 条</div>
                               </div>
                             </td>
                             <td class="px-3 py-3">${renderOrderAssignmentOverview(order)}</td>

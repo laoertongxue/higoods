@@ -256,7 +256,6 @@ function buildAggregate(groups: PrepGroupProjection[], record: CuttingOrderProgr
     .filter((group) => group.latestScannedAt !== '-')
     .sort((left, right) => compareDateTime(right.latestScannedAt, left.latestScannedAt))[0] || null
   const totalCount = Math.max(groups.length, 1)
-  const reviewedCount = groups.filter((group) => group.lines.every((line) => line.reviewStatus === 'APPROVED')).length
   const configuredCount = groups.filter((group) => group.lines.every((line) => line.configStatus === 'CONFIGURED')).length
   const receiveSuccessCount = groups.filter((group) => group.latestResultStatus === 'MATCHED').length
   const recheckRequiredCount = groups.filter((group) => group.needsRecheck).length
@@ -270,7 +269,7 @@ function buildAggregate(groups: PrepGroupProjection[], record: CuttingOrderProgr
     photoSubmittedCount,
     latestReceiveAt: latestGroup?.latestScannedAt || '-',
     latestReceiveBy: latestGroup?.latestScannedBy || '-',
-    materialReceiveSummaryText: `审核 ${reviewedCount}/${totalCount} · 配料 ${configuredCount}/${totalCount} · 领料成功 ${receiveSuccessCount}/${totalCount}`,
+    materialReceiveSummaryText: `配料 ${configuredCount}/${totalCount} · 领料成功 ${receiveSuccessCount}/${totalCount}`,
     resultSummaryText:
       latestGroup?.resultSummaryText
       || (record.materialLines.length > 0 ? '当前尚未形成正式扫码回执。' : '当前生产单下暂无可汇总的配料行。'),

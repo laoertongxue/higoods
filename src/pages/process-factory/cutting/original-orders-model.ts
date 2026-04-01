@@ -4,7 +4,6 @@ import type {
   CuttingMaterialType,
   CuttingOrderProgressRecord,
   CuttingReceiveStatus,
-  CuttingReviewStatus,
 } from '../../../data/fcs/cutting/types'
 import {
   listGeneratedOriginalCutOrderSourceRecords,
@@ -29,7 +28,6 @@ const currencyFormatter = new Intl.NumberFormat('zh-CN', {
 })
 
 export type OriginalCutOrderStageKey =
-  | 'WAITING_REVIEW'
   | 'WAITING_PREP'
   | 'PREPPING'
   | 'WAITING_CLAIM'
@@ -39,7 +37,6 @@ export type OriginalCutOrderStageKey =
 
 export type OriginalCuttableStateKey =
   | 'CUTTABLE'
-  | 'WAITING_REVIEW'
   | 'WAITING_PREP'
   | 'WAITING_CLAIM'
   | 'CLAIM_EXCEPTION'
@@ -49,7 +46,6 @@ export type OriginalCuttableStateKey =
   | 'BLOCKED'
 
 export type OriginalCutOrderRiskKey =
-  | 'PENDING_REVIEW'
   | 'PREP_DELAY'
   | 'CLAIM_EXCEPTION'
   | 'SHIP_URGENT'
@@ -105,7 +101,6 @@ export interface OriginalCutOrderRow {
   urgencyKey: ProductionProgressUrgencyKey
   urgencyLabel: string
   urgencyClassName: string
-  materialAuditStatus: OriginalCutOrderSummaryMeta<CuttingReviewStatus>
   materialPrepStatus: OriginalCutOrderSummaryMeta<CuttingConfigStatus>
   materialClaimStatus: OriginalCutOrderSummaryMeta<CuttingReceiveStatus>
   currentStage: OriginalCutOrderSummaryMeta<OriginalCutOrderStageKey>
@@ -166,15 +161,7 @@ export interface OriginalCutOrderStats {
   feiPendingCount: number
 }
 
-export const originalOrderReviewMeta: Record<CuttingReviewStatus, { label: string; className: string }> = {
-  NOT_REQUIRED: { label: '无需审核', className: 'bg-slate-100 text-slate-700' },
-  PENDING: { label: '待审核', className: 'bg-amber-100 text-amber-700' },
-  PARTIAL: { label: '部分已审核', className: 'bg-orange-100 text-orange-700' },
-  APPROVED: { label: '已审核', className: 'bg-emerald-100 text-emerald-700' },
-}
-
 export const originalOrderStageMeta: Record<OriginalCutOrderStageKey, { label: string; className: string }> = {
-  WAITING_REVIEW: { label: '待审核', className: 'bg-amber-100 text-amber-700' },
   WAITING_PREP: { label: '待配料', className: 'bg-slate-100 text-slate-700' },
   PREPPING: { label: '配料中', className: 'bg-orange-100 text-orange-700' },
   WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700' },
@@ -185,7 +172,6 @@ export const originalOrderStageMeta: Record<OriginalCutOrderStageKey, { label: s
 
 export const originalOrderCuttableMeta: Record<OriginalCuttableStateKey, { label: string; className: string }> = {
   CUTTABLE: { label: '可裁', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-  WAITING_REVIEW: { label: '待审核', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
   WAITING_PREP: { label: '待配料', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
   WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
   CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
@@ -196,7 +182,6 @@ export const originalOrderCuttableMeta: Record<OriginalCuttableStateKey, { label
 }
 
 export const originalOrderRiskMeta: Record<OriginalCutOrderRiskKey, { label: string; className: string }> = {
-  PENDING_REVIEW: { label: '待审核', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
   PREP_DELAY: { label: '配料异常', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
   CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
@@ -238,7 +223,7 @@ function buildProgressLineFallback(source: GeneratedOriginalCutOrderSourceRecord
     materialLabel: source.materialLabel,
     color: source.colorScope[0] || '待补',
     materialCategory: source.materialCategory,
-    reviewStatus: 'PENDING',
+    reviewStatus: 'NOT_REQUIRED',
     configStatus: 'NOT_CONFIGURED',
     receiveStatus: 'NOT_RECEIVED',
     configuredRollCount: 0,
@@ -304,10 +289,6 @@ export function deriveOriginalCutOrderStage(
     return createSummaryMeta('WAITING_INBOUND', originalOrderStageMeta.WAITING_INBOUND.label, originalOrderStageMeta.WAITING_INBOUND.className, '裁片已完成当前执行，等待入仓确认。')
   }
 
-  if (line.reviewStatus === 'PENDING' || line.reviewStatus === 'PARTIAL') {
-    return createSummaryMeta('WAITING_REVIEW', originalOrderStageMeta.WAITING_REVIEW.label, originalOrderStageMeta.WAITING_REVIEW.className, '面料审核未齐，当前仍停留在待审核阶段。')
-  }
-
   if (line.configStatus === 'NOT_CONFIGURED') {
     return createSummaryMeta('WAITING_PREP', originalOrderStageMeta.WAITING_PREP.label, originalOrderStageMeta.WAITING_PREP.className, '仓库配料未开始，当前仍待进入配料。')
   }
@@ -356,14 +337,6 @@ export function deriveOriginalCutOrderCuttableState(
     }
   }
 
-  if (line.reviewStatus === 'PENDING' || line.reviewStatus === 'PARTIAL') {
-    return {
-      ...createSummaryMeta('WAITING_REVIEW', originalOrderCuttableMeta.WAITING_REVIEW.label, originalOrderCuttableMeta.WAITING_REVIEW.className, '面料审核未齐，暂不可裁。'),
-      selectable: false,
-      reasonText: '面料审核未完成，暂不可裁。',
-    }
-  }
-
   if (line.configStatus === 'NOT_CONFIGURED' || line.configStatus === 'PARTIAL') {
     return {
       ...createSummaryMeta('WAITING_PREP', originalOrderCuttableMeta.WAITING_PREP.label, originalOrderCuttableMeta.WAITING_PREP.className, '配料未齐，需先完成执行准备。'),
@@ -389,7 +362,7 @@ export function deriveOriginalCutOrderCuttableState(
   }
 
   return {
-    ...createSummaryMeta('CUTTABLE', originalOrderCuttableMeta.CUTTABLE.label, originalOrderCuttableMeta.CUTTABLE.className, '审核 / 配料 / 领料已到位，可作为原始裁片单进入后续排产。'),
+    ...createSummaryMeta('CUTTABLE', originalOrderCuttableMeta.CUTTABLE.label, originalOrderCuttableMeta.CUTTABLE.className, '配料 / 领料已到位，可作为原始裁片单进入后续排产。'),
     selectable: true,
     reasonText: '当前原始裁片单满足可裁条件。',
   }
@@ -403,7 +376,6 @@ export function summarizeOriginalCutOrderRisks(
 ): OriginalCutOrderRiskTag[] {
   const keys = new Set<OriginalCutOrderRiskKey>()
 
-  if (line.reviewStatus === 'PENDING' || line.reviewStatus === 'PARTIAL') keys.add('PENDING_REVIEW')
   if (line.configStatus === 'NOT_CONFIGURED' || line.configStatus === 'PARTIAL') keys.add('PREP_DELAY')
   if (line.issueFlags.includes('RECEIVE_DIFF') || cuttableState.key === 'CLAIM_EXCEPTION') keys.add('CLAIM_EXCEPTION')
   if (!record.plannedShipDate) keys.add('DATE_MISSING')
@@ -476,20 +448,6 @@ function buildKeywordIndex(values: Array<string | undefined | number | null>): s
     .map((value) => String(value).toLowerCase())
 }
 
-function buildAuditSummary(line: CuttingMaterialLine): OriginalCutOrderSummaryMeta<CuttingReviewStatus> {
-  const meta = originalOrderReviewMeta[line.reviewStatus]
-  const detailText =
-    line.reviewStatus === 'APPROVED'
-      ? '当前面料审核已完成。'
-      : line.reviewStatus === 'PARTIAL'
-        ? '当前面料审核仅部分完成。'
-        : line.reviewStatus === 'NOT_REQUIRED'
-          ? '当前面料无需额外审核。'
-          : '当前面料仍待审核通过。'
-
-  return createSummaryMeta(line.reviewStatus, meta.label, meta.className, detailText)
-}
-
 function buildPrepSummary(line: CuttingMaterialLine): OriginalCutOrderSummaryMeta<CuttingConfigStatus> {
   const meta = configMeta[line.configStatus]
   const detailText =
@@ -524,7 +482,6 @@ function createRow(
   const batchSummary = summarizeMergeBatchParticipation(source.originalCutOrderId, ledger)
   const cuttableState = deriveOriginalCutOrderCuttableState(record, line, ledger)
   const currentStage = deriveOriginalCutOrderStage(record, line)
-  const materialAuditStatus = buildAuditSummary(line)
   const materialPrepStatus = buildPrepSummary(line)
   const materialClaimStatus = buildClaimSummary(line)
   const riskTags = summarizeOriginalCutOrderRisks(record, line, cuttableState, batchSummary.batchParticipationCount)
@@ -555,7 +512,6 @@ function createRow(
     urgencyKey,
     urgencyLabel: urgency.label,
     urgencyClassName: urgency.className,
-    materialAuditStatus,
     materialPrepStatus,
     materialClaimStatus,
     currentStage,
@@ -701,7 +657,7 @@ export function buildOriginalCutOrderStats(rows: OriginalCutOrderRow[]): Origina
     totalCount: rows.length,
     cuttableCount: rows.filter((row) => row.cuttableState.key === 'CUTTABLE').length,
     inBatchCount: rows.filter((row) => row.batchParticipationCount > 0).length,
-    prepExceptionCount: rows.filter((row) => row.materialPrepStatus.key !== 'CONFIGURED' || row.materialAuditStatus.key !== 'APPROVED').length,
+    prepExceptionCount: rows.filter((row) => row.materialPrepStatus.key !== 'CONFIGURED').length,
     claimExceptionCount: rows.filter((row) => row.materialClaimStatus.key !== 'RECEIVED' || row.cuttableState.key === 'CLAIM_EXCEPTION').length,
     feiPendingCount: rows.filter((row) => row.cuttableState.key !== 'INBOUND' && row.cuttableState.key !== 'CUTTING').length,
   }

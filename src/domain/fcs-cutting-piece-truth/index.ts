@@ -846,7 +846,7 @@ function buildGapStateRow(
   const gapInboundQty = Math.max(row.requiredPieceQty - inboundQty, 0)
 
   if (gapCutQty > 0) {
-    if (materialLine?.reviewStatus !== 'APPROVED' || materialLine?.configStatus !== 'CONFIGURED' || materialLine?.receiveStatus !== 'RECEIVED') {
+    if (materialLine?.configStatus !== 'CONFIGURED' || materialLine?.receiveStatus !== 'RECEIVED') {
       return { currentStateLabel: '待配料 / 待领料', nextActionLabel: '去仓库配料领料' }
     }
     if (materialLine?.issueFlags.includes('REPLENISH_PENDING') || record.riskFlags.includes('REPLENISH_PENDING') || hasReplenishmentSignal) {

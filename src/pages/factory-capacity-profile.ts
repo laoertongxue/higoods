@@ -24,6 +24,7 @@ import {
   type SamCurrentFieldKey,
 } from '../data/fcs/process-craft-dict'
 import { getSamBusinessFieldDescription, getSamBusinessFieldLabel } from '../data/fcs/sam-field-display'
+import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { updateFactoryCapacityEntryValue } from '../data/fcs/factory-capacity-profile-mock'
 
@@ -539,6 +540,9 @@ export function renderFactoryCapacityProfilePage(): string {
 }
 
 export function handleFactoryCapacityProfileEvent(target: HTMLElement): boolean {
+  const pathname = appStore.getState().pathname.split('?')[0]
+  if (pathname !== '/fcs/factories/capacity-profile') return false
+
   const recordField = target.closest<HTMLElement>('[data-capacity-field-key]')
   if (recordField instanceof HTMLInputElement && state.activeFactoryId) {
     const processCode = recordField.dataset.capacityProcessCode

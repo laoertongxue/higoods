@@ -1,4 +1,42 @@
 import { productionOrders } from '../data/fcs/production-orders'
+import { appStore } from '../state/store'
+import {
+  buildCapacityCalendarData,
+  buildCapacityBottleneckData,
+  buildCapacityRiskData,
+  buildFactoryCalendarData,
+  type CapacityBottleneckCraftRow,
+  type CapacityBottleneckDateRow,
+  type CapacityBottleneckTab as CapacityBottleneckViewTab,
+  type CapacityBottleneckUnallocatedTaskRow,
+  type CapacityBottleneckUnscheduledTaskRow,
+  type CapacityCalendarComparisonRow,
+  type CapacityCalendarUnallocatedRow,
+  type CapacityCalendarUnscheduledRow,
+  type CapacityRiskOrderRow,
+  type CapacityRiskTaskRow,
+  type FactoryCalendarData,
+  type FactoryCalendarRow,
+  type FactoryCalendarSourceRow,
+  type FactoryCalendarWindowDays,
+  filterCapacityRiskTaskRows,
+  summarizeProductionOrderRisk,
+} from '../data/fcs/capacity-calendar'
+import {
+  CAPACITY_NO_REPLAY_SAM_NOTE,
+  CAPACITY_RULE_SECTIONS,
+  CAPACITY_THRESHOLD_RULES,
+  type CapacityRuleSection,
+} from '../data/fcs/capacity-rules'
+import {
+  createCapacityCalendarOverride,
+  expireCapacityCalendarOverride,
+  getCapacityCalendarOverrideById,
+  listCapacityCalendarOverrides,
+  removeCapacityCalendarOverride,
+  updateCapacityCalendarOverride,
+  type CapacityCalendarOverrideInput,
+} from '../data/fcs/capacity-calendar-overrides'
 import {
   listLegacyLikeDeductionBasisForTailPages,
   listLegacyLikeDyePrintOrdersForTailPages,
@@ -6,6 +44,9 @@ import {
   listLegacyLikeProcessTasksForTailPages,
   listLegacyLikeQualityInspectionsForTailPages,
 } from '../data/fcs/page-adapters/long-tail-pages-adapter'
+import { listFactoryCapacityEntries } from '../data/fcs/factory-capacity-profile-mock'
+import { listFactoryMasterRecords } from '../data/fcs/factory-master-store'
+import { syncDispatchCapacityUsageLedger } from './dispatch-board/context'
 import { escapeHtml, toClassName } from '../utils'
 
 const processTasks = listLegacyLikeProcessTasksForTailPages()
@@ -18,21 +59,57 @@ type Tone = 'default' | 'secondary' | 'destructive' | 'outline'
 
 type OverviewTab = 'factory' | 'order'
 type RiskTab = 'task' | 'order'
-type BottleneckTab = 'factory' | 'order' | 'task'
+type BottleneckTab = CapacityBottleneckViewTab
 type ConstraintsTab = 'task' | 'factory'
-type PoliciesTab = 'order' | 'task'
+type FactoryCalendarWindowFilter = FactoryCalendarWindowDays
+
+type CapacityPoliciesEditorMode = 'create' | 'edit' | ''
+
+interface CapacityPoliciesFormState {
+  factoryId: string
+  processCode: string
+  craftCode: string
+  startDate: string
+  endDate: string
+  reason: string
+  note: string
+}
 
 interface CapacityState {
   overviewKeyword: string
   overviewTab: OverviewTab
   riskKeyword: string
   riskTab: RiskTab
+  riskProcessCode: string
+  riskCraftCode: string
+  riskConclusion: string
+  riskWindowDays: FactoryCalendarWindowFilter
   bottleneckKeyword: string
   bottleneckTab: BottleneckTab
+  bottleneckWindowDays: FactoryCalendarWindowFilter
+  bottleneckProcessCode: string
+  bottleneckCraftCode: string
+  bottleneckCraftDetailKey: string
+  bottleneckDateDetailKey: string
   constraintsKeyword: string
   constraintsTab: ConstraintsTab
-  policiesKeyword: string
-  policiesTab: PoliciesTab
+  constraintsFactoryId: string
+  constraintsWindowDays: FactoryCalendarWindowFilter
+  constraintsProcessCode: string
+  constraintsCraftCode: string
+  constraintsCurrentPage: number
+  constraintsDetailRowKey: string
+  policiesEditorMode: CapacityPoliciesEditorMode
+  policiesEditingOverrideId: string
+  policiesForm: CapacityPoliciesFormState
+  policiesFormError: string
+  policiesNotice: string
+  querySignature: string
+  routeContext: {
+    source: string
+    keyword: string
+    orderIds: string[]
+  }
 }
 
 const state: CapacityState = {
@@ -40,13 +117,47 @@ const state: CapacityState = {
   overviewTab: 'factory',
   riskKeyword: '',
   riskTab: 'task',
+  riskProcessCode: '',
+  riskCraftCode: '',
+  riskConclusion: '',
+  riskWindowDays: 15,
   bottleneckKeyword: '',
-  bottleneckTab: 'factory',
+  bottleneckTab: 'craft',
+  bottleneckWindowDays: 15,
+  bottleneckProcessCode: '',
+  bottleneckCraftCode: '',
+  bottleneckCraftDetailKey: '',
+  bottleneckDateDetailKey: '',
   constraintsKeyword: '',
   constraintsTab: 'task',
-  policiesKeyword: '',
-  policiesTab: 'order',
+  constraintsFactoryId: '',
+  constraintsWindowDays: 15,
+  constraintsProcessCode: '',
+  constraintsCraftCode: '',
+  constraintsCurrentPage: 1,
+  constraintsDetailRowKey: '',
+  policiesEditorMode: '',
+  policiesEditingOverrideId: '',
+  policiesForm: {
+    factoryId: '',
+    processCode: '',
+    craftCode: '',
+    startDate: '',
+    endDate: '',
+    reason: '',
+    note: '',
+  },
+  policiesFormError: '',
+  policiesNotice: '',
+  querySignature: '',
+  routeContext: {
+    source: '',
+    keyword: '',
+    orderIds: [],
+  },
 }
+
+const FACTORY_CALENDAR_PAGE_SIZE = 12
 
 const TASK_STATUS_ZH: Record<string, string> = {
   NOT_STARTED: '未开始',
@@ -78,8 +189,203 @@ function renderStatCard(label: string, value: number, valueClass = ''): string {
   `
 }
 
+function renderMetricStatCard(label: string, value: string, valueClass = ''): string {
+  return `
+    <article class="rounded-lg border bg-card">
+      <div class="px-4 pb-4 pt-4">
+        <p class="text-xs font-medium leading-snug text-muted-foreground">${escapeHtml(label)}</p>
+        <p class="mt-1 text-2xl font-bold ${valueClass}">${escapeHtml(value)}</p>
+      </div>
+    </article>
+  `
+}
+
 function renderPageHint(text: string): string {
   return `<div class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">${escapeHtml(text)}</div>`
+}
+
+function createEmptyPoliciesForm(): CapacityPoliciesFormState {
+  return {
+    factoryId: '',
+    processCode: '',
+    craftCode: '',
+    startDate: '',
+    endDate: '',
+    reason: '',
+    note: '',
+  }
+}
+
+function buildPoliciesFormFromOverride(overrideId: string): CapacityPoliciesFormState {
+  const record = getCapacityCalendarOverrideById(overrideId)
+  if (!record) return createEmptyPoliciesForm()
+  return {
+    factoryId: record.factoryId,
+    processCode: record.processCode ?? '',
+    craftCode: record.craftCode ?? '',
+    startDate: record.startDate,
+    endDate: record.endDate,
+    reason: record.reason,
+    note: record.note ?? '',
+  }
+}
+
+function getPoliciesFactoryOptions() {
+  return listFactoryMasterRecords()
+    .filter((factory) => factory.status === 'active')
+    .map((factory) => ({
+      value: factory.id,
+      label: `${factory.name}（${factory.code}）`,
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
+}
+
+function getPoliciesProcessOptions(factoryId: string) {
+  const processMap = new Map<string, { value: string; label: string }>()
+  for (const { row } of listFactoryCapacityEntries(factoryId)) {
+    if (!processMap.has(row.processCode)) {
+      processMap.set(row.processCode, {
+        value: row.processCode,
+        label: row.processName,
+      })
+    }
+  }
+  return [...processMap.values()].sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
+}
+
+function getPoliciesCraftOptions(factoryId: string, processCode: string) {
+  return listFactoryCapacityEntries(factoryId)
+    .filter(({ row }) => row.processCode === processCode)
+    .map(({ row }) => ({
+      value: row.craftCode,
+      label: row.craftName,
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
+}
+
+function openPoliciesEditor(mode: CapacityPoliciesEditorMode, overrideId = ''): void {
+  state.policiesEditorMode = mode
+  state.policiesEditingOverrideId = overrideId
+  if (mode === 'edit' && overrideId) {
+    state.policiesForm = buildPoliciesFormFromOverride(overrideId)
+  } else {
+    const nextForm = createEmptyPoliciesForm()
+    nextForm.factoryId = getPoliciesFactoryOptions()[0]?.value ?? ''
+    state.policiesForm = nextForm
+  }
+  state.policiesFormError = ''
+  state.policiesNotice = ''
+}
+
+function closePoliciesEditor(): void {
+  state.policiesEditorMode = ''
+  state.policiesEditingOverrideId = ''
+  state.policiesForm = createEmptyPoliciesForm()
+  state.policiesFormError = ''
+}
+
+function buildPoliciesOverrideInput(): CapacityCalendarOverrideInput {
+  return {
+    factoryId: state.policiesForm.factoryId,
+    processCode: state.policiesForm.processCode || undefined,
+    craftCode: state.policiesForm.craftCode || undefined,
+    startDate: state.policiesForm.startDate,
+    endDate: state.policiesForm.endDate,
+    overrideType: 'PAUSE',
+    reason: state.policiesForm.reason,
+    note: state.policiesForm.note || undefined,
+  }
+}
+
+function resolvePoliciesOverrideStateLabel(startDate: string, endDate: string): { label: string; tone: Tone } {
+  const today = new Date().toISOString().slice(0, 10)
+  if (endDate < today) return { label: '已过期', tone: 'outline' }
+  if (startDate > today) return { label: '未来生效', tone: 'secondary' }
+  return { label: '生效中', tone: 'default' }
+}
+
+function renderCapacityRuleSection(section: CapacityRuleSection): string {
+  return `
+    <article class="space-y-3 rounded-lg bg-muted/30 px-4 py-4">
+      <h3 class="text-sm font-semibold text-foreground">${escapeHtml(section.title)}</h3>
+      <div class="space-y-3">
+        ${section.lines
+          .map(
+            (line) => `
+              <div class="space-y-1 border-t border-slate-200 pt-3 first:border-0 first:pt-0">
+                <div class="text-sm font-medium text-foreground">${escapeHtml(line.label)}</div>
+                <p class="text-sm leading-6 text-muted-foreground">${escapeHtml(line.description)}</p>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </article>
+  `
+}
+
+function getCurrentCapacityQueryString(): string {
+  const pathname = appStore.getState().pathname
+  const [, query = ''] = pathname.split('?')
+  return query
+}
+
+function getCurrentCapacitySearchParams(): URLSearchParams {
+  return new URLSearchParams(getCurrentCapacityQueryString())
+}
+
+function syncCapacityStateFromRoute(): void {
+  const pathname = appStore.getState().pathname
+  if (state.querySignature === pathname) return
+
+  const params = getCurrentCapacitySearchParams()
+  const pathOnly = pathname.split('?')[0]
+  const source = params.get('source') || ''
+  const keyword = params.get('keyword') || ''
+  const orderId = params.get('orderId') || ''
+  const orderIds = (params.get('orderIds') || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const scopedOrderIds = Array.from(new Set([orderId, ...orderIds].filter(Boolean)))
+  const tab = params.get('tab') || ''
+
+  state.routeContext = {
+    source,
+    keyword,
+    orderIds: scopedOrderIds,
+  }
+
+  if (pathOnly === '/fcs/capacity/overview') {
+    state.overviewKeyword = keyword
+    if (tab === 'factory' || tab === 'order') state.overviewTab = tab
+  }
+
+  if (pathOnly === '/fcs/capacity/constraints') {
+    state.constraintsKeyword = keyword
+    if (tab === 'task' || tab === 'factory') state.constraintsTab = tab
+  }
+
+  state.querySignature = pathname
+}
+
+function renderCapacityRouteContextBanner(page: 'overview' | 'constraints'): string {
+  if (state.routeContext.source !== 'cuttable-pool') return ''
+
+  if (page === 'overview') {
+    const summary = state.routeContext.keyword
+      ? `来自可裁排产：已带入关键词 ${state.routeContext.keyword}`
+      : state.routeContext.orderIds.length
+        ? `来自可裁排产：已带入 ${state.routeContext.orderIds.length} 个生产单`
+        : '来自可裁排产'
+    return `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">${escapeHtml(summary)}</div>`
+  }
+
+  const summary = state.routeContext.orderIds.length
+    ? `来自可裁排产：已带入 ${state.routeContext.orderIds.length} 个生产单约束上下文`
+    : '来自可裁排产'
+
+  return `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">${escapeHtml(summary)}</div>`
 }
 
 function renderTabButton(page: string, tab: string, current: string, label: string): string {
@@ -134,6 +440,320 @@ function includesKeyword(value: string, keyword: string): boolean {
 
 function toLower(value: string | undefined | null): string {
   return (value ?? '').toLowerCase()
+}
+
+function formatSamValue(value: number): string {
+  if (!Number.isFinite(value)) return '--'
+  return Number(value).toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  })
+}
+
+function matchesOverviewKeyword(keyword: string, ...parts: Array<string | number | undefined>): boolean {
+  if (!keyword) return true
+  return parts.some((part) => String(part ?? '').toLowerCase().includes(keyword))
+}
+
+function getVisibleComparisonRows(rows: CapacityCalendarComparisonRow[], keyword: string): CapacityCalendarComparisonRow[] {
+  const filtered = rows.filter((row) =>
+    matchesOverviewKeyword(
+      keyword,
+      row.date,
+      row.factoryId,
+      row.factoryName,
+      row.processCode,
+      row.processName,
+      row.craftCode,
+      row.craftName,
+      ...row.taskIds,
+    ),
+  )
+
+  if (keyword) return filtered.slice(0, 120)
+  return filtered.slice(0, 80)
+}
+
+function renderCapacityComparisonTable(rows: CapacityCalendarComparisonRow[], keyword: string): string {
+  const visibleRows = getVisibleComparisonRows(rows, keyword)
+  if (visibleRows.length === 0) {
+    return '<tr><td colspan="8" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工厂供需对比明细</td></tr>'
+  }
+
+  return visibleRows
+    .map((row) => {
+      const balanceClass = row.remainingSam < 0 ? 'text-red-600' : 'text-green-700'
+
+      return `
+        <tr
+          class="border-b last:border-0"
+          data-capacity-comparison-row="${escapeHtml(`${row.date}::${row.factoryId}::${row.craftCode}`)}"
+          data-capacity-overload="${row.overload ? 'true' : 'false'}"
+        >
+          <td class="px-3 py-3 text-sm">${escapeHtml(row.date)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div class="font-medium text-foreground">${escapeHtml(row.factoryName)}</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(row.factoryId)}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">
+            <div>${escapeHtml(row.processName)}</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(row.craftName)}</div>
+          </td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.supplySam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.committedSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenSam))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${balanceClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
+          <td class="px-3 py-3 text-sm">
+            <div>占用 ${row.commitmentCount} / 冻结 ${row.freezeCount}</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(row.taskIds.slice(0, 2).join('、') || '—')}${row.taskIds.length > 2 ? ' 等' : ''}</div>
+          </td>
+        </tr>
+      `
+    })
+    .join('')
+}
+
+function renderUnallocatedRows(rows: CapacityCalendarUnallocatedRow[], keyword: string): string {
+  const filtered = rows
+    .filter((row) =>
+      matchesOverviewKeyword(
+        keyword,
+        row.date,
+        row.processCode,
+        row.processName,
+        row.craftCode,
+        row.craftName,
+        ...row.taskIds,
+        ...row.assignmentStatuses,
+      ),
+    )
+    .slice(0, 50)
+
+  if (filtered.length === 0) {
+    return '<tr><td colspan="5" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无待分配需求</td></tr>'
+  }
+
+  return filtered
+    .map((row) => `
+      <tr class="border-b last:border-0" data-capacity-unallocated-row="${escapeHtml(`${row.date}::${row.craftCode}`)}">
+        <td class="px-3 py-3 text-sm">${escapeHtml(row.date)}</td>
+        <td class="px-3 py-3 text-sm">
+          <div>${escapeHtml(row.processName)}</div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(row.craftName)}</div>
+        </td>
+        <td class="px-3 py-3 text-right text-sm font-medium text-orange-700">${escapeHtml(formatSamValue(row.demandSam))}</td>
+        <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
+        <td class="px-3 py-3 text-sm text-muted-foreground">${escapeHtml(row.assignmentStatuses.join(' / '))}</td>
+      </tr>
+    `)
+    .join('')
+}
+
+function renderUnscheduledRows(rows: CapacityCalendarUnscheduledRow[], keyword: string): string {
+  const filtered = rows
+    .filter((row) =>
+      matchesOverviewKeyword(
+        keyword,
+        row.taskId,
+        row.productionOrderId,
+        row.demandType,
+        row.processCode,
+        row.processName,
+        row.craftCode,
+        row.craftName,
+        row.assignmentStatus,
+        row.assignmentMode,
+        row.factoryName,
+      ),
+    )
+    .slice(0, 50)
+
+  if (filtered.length === 0) {
+    return '<tr><td colspan="7" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无未排期需求</td></tr>'
+  }
+
+  return filtered
+    .map((row) => `
+      <tr class="border-b last:border-0" data-capacity-unscheduled-row="${escapeHtml(row.taskId)}">
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
+        <td class="px-3 py-3">${renderBadge(row.demandType, row.demandType === '待分配需求' ? 'outline' : row.demandType === '已冻结需求' ? 'secondary' : 'default')}</td>
+        <td class="px-3 py-3 text-sm">
+          <div>${escapeHtml(row.processName)}</div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(row.craftName)}</div>
+        </td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(row.factoryName)}</td>
+        <td class="px-3 py-3 text-right text-sm font-medium text-amber-700">${escapeHtml(formatSamValue(row.standardSamTotal))}</td>
+        <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(row.reason)}</td>
+      </tr>
+    `)
+    .join('')
+}
+
+function renderFactoryCalendarPagination(totalRows: number): string {
+  const totalPages = Math.max(1, Math.ceil(totalRows / FACTORY_CALENDAR_PAGE_SIZE))
+  if (totalPages <= 1) return ''
+
+  const start = Math.max(1, state.constraintsCurrentPage - 2)
+  const end = Math.min(totalPages, start + 4)
+  const pages = Array.from({ length: end - start + 1 }, (_, index) => start + index)
+
+  return `
+    <div class="flex items-center justify-between border-t px-4 py-3">
+      <div class="text-xs text-muted-foreground">第 ${state.constraintsCurrentPage} 页，共 ${totalPages} 页</div>
+      <div class="flex items-center gap-1">
+        <button
+          data-capacity-action="factory-calendar-prev-page"
+          class="rounded-md border px-3 py-1 text-sm ${state.constraintsCurrentPage === 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}"
+        >上一页</button>
+        ${pages
+          .map(
+            (page) => `
+              <button
+                data-capacity-action="factory-calendar-goto-page"
+                data-page="${page}"
+                class="rounded-md border px-3 py-1 text-sm ${page === state.constraintsCurrentPage ? 'bg-blue-600 text-white' : 'hover:bg-muted'}"
+              >${page}</button>
+            `,
+          )
+          .join('')}
+        <button
+          data-capacity-action="factory-calendar-next-page"
+          class="rounded-md border px-3 py-1 text-sm ${state.constraintsCurrentPage === totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}"
+        >下一页</button>
+      </div>
+    </div>
+  `
+}
+
+function renderFactoryCalendarMainTable(rows: FactoryCalendarRow[], selectedRowKey: string): string {
+  if (rows.length === 0) {
+    return '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工厂日历明细</td></tr>'
+  }
+
+  const start = (state.constraintsCurrentPage - 1) * FACTORY_CALENDAR_PAGE_SIZE
+  const pagedRows = rows.slice(start, start + FACTORY_CALENDAR_PAGE_SIZE)
+
+  return pagedRows
+    .map((row) => {
+      const isActive = row.rowKey === selectedRowKey
+      const balanceClass = row.remainingSam < 0 ? 'text-red-600' : row.remainingSam === 0 ? 'text-amber-700' : 'text-green-700'
+
+      return `
+        <tr
+          class="border-b last:border-0 ${isActive ? 'bg-blue-50/60' : 'hover:bg-muted/20'} cursor-pointer"
+          data-capacity-action="open-factory-calendar-detail"
+          data-row-key="${escapeHtml(row.rowKey)}"
+        >
+          <td class="px-3 py-3 text-sm">${escapeHtml(row.date)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.supplySam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.committedSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenSam))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${balanceClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.committedTaskCount}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.frozenTaskCount}</td>
+        </tr>
+      `
+    })
+    .join('')
+}
+
+function renderFactoryCalendarSourceTable(sources: FactoryCalendarSourceRow[], emptyText: string): string {
+  if (sources.length === 0) {
+    return `<div class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+  }
+
+  return `
+    <div class="overflow-x-auto rounded-md border">
+      <table class="w-full text-sm">
+        <thead class="border-b bg-muted/40 text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 text-left font-medium">任务编号</th>
+            <th class="px-3 py-2 text-left font-medium">生产单号</th>
+            <th class="px-3 py-2 text-right font-medium">标准工时</th>
+            <th class="px-3 py-2 text-left font-medium">时间窗口</th>
+            <th class="px-3 py-2 text-left font-medium">对象类型</th>
+            <th class="px-3 py-2 text-left font-medium">来源说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sources
+            .map((source) => `
+              <tr class="border-b last:border-0">
+                <td class="px-3 py-3">
+                  <div class="font-mono text-xs text-foreground">${escapeHtml(source.taskId)}</div>
+                  <div class="text-[11px] text-muted-foreground">${escapeHtml(source.sourceTypeLabel)}</div>
+                </td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(source.productionOrderId)}</td>
+                <td class="px-3 py-3 text-right text-sm">
+                  <div class="font-medium text-foreground">${escapeHtml(formatSamValue(source.standardSamTotal))}</div>
+                  <div class="text-[11px] text-muted-foreground">当日计入 ${escapeHtml(formatSamValue(source.dailySam))}</div>
+                </td>
+                <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(source.windowText)}</td>
+                <td class="px-3 py-3 text-sm">
+                  <div>${escapeHtml(source.objectType)}</div>
+                  <div class="text-[11px] text-muted-foreground">${escapeHtml(source.allocationUnitId ?? '整任务')}</div>
+                </td>
+                <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(source.note)}</td>
+              </tr>
+            `)
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function renderFactoryCalendarDetailPanel(
+  calendar: FactoryCalendarData,
+  selectedRow: FactoryCalendarRow | null,
+): string {
+  if (!selectedRow) {
+    return `
+      <aside class="rounded-md border bg-card p-4">
+        <h2 class="text-sm font-semibold text-foreground">来源明细</h2>
+        <p class="mt-4 text-sm text-muted-foreground">请选择左侧某一天某道工艺的记录，查看占用与冻结来源。</p>
+      </aside>
+    `
+  }
+
+  return `
+    <aside class="space-y-4 rounded-md border bg-card p-4" data-factory-calendar-detail="${escapeHtml(selectedRow.rowKey)}">
+      <div class="space-y-1">
+        <h2 class="text-sm font-semibold text-foreground">来源明细</h2>
+        <p class="text-xs text-muted-foreground">${escapeHtml(calendar.selectedFactoryName)} / ${escapeHtml(selectedRow.date)} / ${escapeHtml(selectedRow.processName)} / ${escapeHtml(selectedRow.craftName)}</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="rounded-lg bg-muted/20 px-3 py-2">
+          <p class="text-xs text-muted-foreground">供给标准工时</p>
+          <p class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(formatSamValue(selectedRow.supplySam))}</p>
+        </div>
+        <div class="rounded-lg bg-muted/20 px-3 py-2">
+          <p class="text-xs text-muted-foreground">剩余标准工时</p>
+          <p class="mt-1 text-lg font-semibold ${selectedRow.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(selectedRow.remainingSam))}</p>
+        </div>
+      </div>
+
+      <section class="space-y-2">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-medium text-foreground">已占用来源</h3>
+          ${renderBadge(`对象 ${selectedRow.committedTaskCount}`, selectedRow.committedTaskCount > 0 ? 'default' : 'outline')}
+        </div>
+        ${renderFactoryCalendarSourceTable(selectedRow.committedSources, '当前日期下暂无已占用来源。')}
+      </section>
+
+      <section class="space-y-2">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-medium text-foreground">已冻结来源</h3>
+          ${renderBadge(`对象 ${selectedRow.frozenTaskCount}`, selectedRow.frozenTaskCount > 0 ? 'secondary' : 'outline')}
+        </div>
+        ${renderFactoryCalendarSourceTable(selectedRow.frozenSources, '当前日期下暂无已冻结来源。')}
+      </section>
+    </aside>
+  `
 }
 
 function getOverviewStats() {
@@ -377,350 +997,323 @@ function renderOverviewOrderTable(keyword: string): string {
 }
 
 export function renderCapacityOverviewPage(): string {
-  const stats = getOverviewStats()
+  syncCapacityStateFromRoute()
+  syncDispatchCapacityUsageLedger()
+  const calendar = buildCapacityCalendarData()
   const keyword = state.overviewKeyword.trim().toLowerCase()
+  const visibleComparisonRows = getVisibleComparisonRows(calendar.comparisonRows, keyword)
+  const hiddenComparisonCount = Math.max(calendar.comparisonRows.filter((row) =>
+    matchesOverviewKeyword(
+      keyword,
+      row.date,
+      row.factoryId,
+      row.factoryName,
+      row.processCode,
+      row.processName,
+      row.craftCode,
+      row.craftName,
+      ...row.taskIds,
+    ),
+  ).length - visibleComparisonRows.length, 0)
+  const dateRangeText = calendar.displayDates.length
+    ? `${calendar.displayDates[0]} 至 ${calendar.displayDates[calendar.displayDates.length - 1]}`
+    : '暂无日期窗口'
 
   return `
-    <div class="space-y-6">
+    <div class="space-y-6" data-testid="capacity-calendar-page">
       <header class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 class="text-2xl font-bold tracking-tight">产能汇总看板</h1>
-          <p class="mt-0.5 text-sm text-muted-foreground">共 ${getOverviewFactoryRows().length} 个工厂 / ${productionOrders.length} 张生产单</p>
+          <h1 class="text-2xl font-bold tracking-tight">供需总览</h1>
+          <p class="mt-0.5 text-sm text-muted-foreground">当前供需窗口 ${escapeHtml(dateRangeText)}，覆盖 ${calendar.displayDates.length} 天。</p>
         </div>
       </header>
 
-      ${renderPageHint('产能汇总看板用于从任务占用、生产暂停、染印、质检等维度观察当前生产负载；原型阶段采用轻量聚合口径，不做真实工时测算')}
+      ${renderCapacityRouteContextBanner('overview')}
 
-      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        ${renderStatCard('生产单总数', stats.orders)}
-        ${renderStatCard('任务总数', stats.tasks)}
-        ${renderStatCard('生产暂停任务数', stats.blocked)}
-        ${renderStatCard('染印生产暂停工单数', stats.dyePending)}
-        ${renderStatCard('待质检数', stats.qcPending)}
-        ${renderStatCard('可进入结算扣款依据数', stats.settlementReady)}
+      ${renderPageHint('供给来自工厂产能档案的默认日可供给标准工时；已占用来自占用工时对象，已冻结来自冻结工时对象；待分配与未排期需求单独展示。')}
+
+      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6" data-capacity-supply-demand-summary>
+        ${renderMetricStatCard('供给总量（标准工时）', formatSamValue(calendar.summary.supplyTotal))}
+        ${renderMetricStatCard('已占用总量（标准工时）', formatSamValue(calendar.summary.committedTotal))}
+        ${renderMetricStatCard('已冻结总量（标准工时）', formatSamValue(calendar.summary.frozenTotal), calendar.summary.frozenTotal > 0 ? 'text-amber-700' : '')}
+        ${renderMetricStatCard('剩余总量（标准工时）', formatSamValue(calendar.summary.remainingTotal), calendar.summary.remainingTotal < 0 ? 'text-red-600' : 'text-green-700')}
+        ${renderMetricStatCard('待分配需求总量（标准工时）', formatSamValue(calendar.summary.unallocatedTotal), calendar.summary.unallocatedTotal > 0 ? 'text-orange-700' : '')}
+        ${renderMetricStatCard('未排期需求总量（标准工时）', formatSamValue(calendar.summary.unscheduledTotal), calendar.summary.unscheduledTotal > 0 ? 'text-amber-700' : '')}
       </section>
 
-      <section class="flex max-w-sm items-center gap-2">
+      <section class="rounded-lg border bg-card px-4 py-4 text-sm" data-capacity-calendar-rules>
+        <div class="grid gap-2 lg:grid-cols-2">
+          <div>
+            <p class="font-medium text-foreground">日期落点规则</p>
+            <p class="mt-1 text-muted-foreground">开始/结束窗口：${escapeHtml(calendar.windowPriority.start.join(' > '))} 与 ${escapeHtml(calendar.windowPriority.end.join(' > '))} 配对成功时，任务总标准工时按窗口内每日均摊。</p>
+          </div>
+          <div>
+            <p class="font-medium text-foreground">单日期优先级</p>
+            <p class="mt-1 text-muted-foreground">${escapeHtml(calendar.singleDatePriority.join(' > '))}。只有单日期时，任务总标准工时整笔落到该日；以上字段都缺失时进入“未排期需求”。</p>
+          </div>
+        </div>
+        ${
+          calendar.missingSamRows.length > 0
+            ? `<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">当前仍有 ${calendar.missingSamRows.length} 条任务缺少可用总标准工时字段，未参与供需对比，避免被静默吞掉。</div>`
+            : ''
+        }
+      </section>
+
+      <section class="flex max-w-xl items-center gap-2">
         <input
           data-capacity-filter="overview-keyword"
           value="${escapeHtml(state.overviewKeyword)}"
-          placeholder="关键词（生产单号 / 工厂 / 任务ID）"
+          placeholder="关键词（日期 / 工厂 / 工序 / 工艺 / 任务ID）"
           class="h-9 w-full rounded-md border bg-background px-3 text-sm"
         />
       </section>
 
-      <section class="space-y-4">
-        <div class="inline-flex rounded-md bg-muted p-1">
-          <button
-            data-capacity-action="switch-tab"
-            data-page="overview"
-            data-tab="factory"
-            class="${
-              state.overviewTab === 'factory'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            工厂产能占用
-          </button>
-          <button
-            data-capacity-action="switch-tab"
-            data-page="overview"
-            data-tab="order"
-            class="${
-              state.overviewTab === 'order'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            生产单交付压力
-          </button>
+      <section class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
+        <div class="space-y-4">
+          <div class="rounded-md border" data-capacity-comparison-table>
+            <div class="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
+              <div>
+                <h2 class="text-sm font-semibold text-foreground">工厂日历供需明细</h2>
+                <p class="mt-1 text-xs text-muted-foreground">按 日期 / 工厂 / 工序 / 工艺 聚合。已占用只消费占用工时对象，已冻结只消费冻结工时对象，剩余 = 供给 - 已占用 - 已冻结。</p>
+              </div>
+              ${
+                hiddenComparisonCount > 0
+                  ? `<span class="text-xs text-muted-foreground">当前仅展示前 ${visibleComparisonRows.length} 条，剩余 ${hiddenComparisonCount} 条可用关键词继续筛选</span>`
+                  : ''
+              }
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="border-b bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-medium">日期</th>
+                    <th class="px-3 py-2 text-left font-medium">工厂</th>
+                    <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
+                    <th class="px-3 py-2 text-right font-medium">供给</th>
+                    <th class="px-3 py-2 text-right font-medium">已占用</th>
+                    <th class="px-3 py-2 text-right font-medium">已冻结</th>
+                    <th class="px-3 py-2 text-right font-medium">剩余</th>
+                    <th class="px-3 py-2 text-left font-medium">对象数</th>
+                  </tr>
+                </thead>
+                <tbody>${renderCapacityComparisonTable(calendar.comparisonRows, keyword)}</tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        ${
-          state.overviewTab === 'factory'
-            ? `
-              <div class="rounded-md border">
-                <table class="w-full text-sm">
-                  <thead class="border-b bg-muted/40 text-muted-foreground">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-medium">工厂</th>
-                      <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">生产暂停任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">关联生产单数</th>
-                      <th class="px-3 py-2 text-center font-medium">染印工单数</th>
-                      <th class="px-3 py-2 text-center font-medium">待质检数</th>
-                      <th class="px-3 py-2 text-left font-medium">产能占用状态</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>${renderOverviewFactoryTable(keyword)}</tbody>
-                </table>
-              </div>
-            `
-            : `
-              <div class="rounded-md border">
-                <table class="w-full text-sm">
-                  <thead class="border-b bg-muted/40 text-muted-foreground">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                      <th class="px-3 py-2 text-left font-medium">主工厂</th>
-                      <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">生产暂停任务数</th>
-                      <th class="px-3 py-2 text-left font-medium">染印状态</th>
-                      <th class="px-3 py-2 text-center font-medium">待质检数</th>
-                      <th class="px-3 py-2 text-left font-medium">交付压力情况</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>${renderOverviewOrderTable(keyword)}</tbody>
-                </table>
-              </div>
-            `
-        }
+        <div class="space-y-4">
+          <div class="rounded-md border" data-capacity-unallocated-table>
+            <div class="border-b bg-muted/30 px-4 py-3">
+              <h2 class="text-sm font-semibold text-foreground">待分配需求（未落厂）</h2>
+              <p class="mt-1 text-xs text-muted-foreground">只统计未形成冻结/占用对象、但仍有总标准工时且可落日的任务需求；不会错误扣减任何一家工厂。</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="border-b bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-medium">日期</th>
+                    <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
+                    <th class="px-3 py-2 text-right font-medium">需求</th>
+                    <th class="px-3 py-2 text-center font-medium">任务数</th>
+                    <th class="px-3 py-2 text-left font-medium">当前状态</th>
+                  </tr>
+                </thead>
+                <tbody>${renderUnallocatedRows(calendar.unallocatedRows, keyword)}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="rounded-md border" data-capacity-unscheduled-table>
+            <div class="border-b bg-muted/30 px-4 py-3">
+              <h2 class="text-sm font-semibold text-foreground">未排期需求</h2>
+              <p class="mt-1 text-xs text-muted-foreground">总标准工时已存在，但缺少可用日期 / 窗口，因此当前不会被静默忽略，也不会强行落到今天。</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="border-b bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-medium">任务ID</th>
+                    <th class="px-3 py-2 text-left font-medium">生产单号</th>
+                    <th class="px-3 py-2 text-left font-medium">需求类型</th>
+                    <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
+                    <th class="px-3 py-2 text-left font-medium">当前落厂</th>
+                    <th class="px-3 py-2 text-right font-medium">总需求</th>
+                    <th class="px-3 py-2 text-left font-medium">原因</th>
+                  </tr>
+                </thead>
+                <tbody>${renderUnscheduledRows(calendar.unscheduledRows, keyword)}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   `
 }
 
-function getRiskTaskRows() {
-  return processTasks.map((task) => {
-    const orderDyes = legacyLikeDyePrintOrders.filter((dpo) => dpo.productionOrderId === task.productionOrderId)
-    const orderQcs = legacyLikeQualityInspections.filter((qc) => qc.productionOrderId === task.productionOrderId)
-
-    const dyeRiskZh =
-      orderDyes.length === 0
-        ? '无染印风险'
-        : orderDyes.every((dpo) => dpo.availableQty <= 0)
-          ? '染印生产暂停'
-          : '染印可继续'
-
-    const qcRiskZh = orderQcs.some((qc) => qc.status !== 'CLOSED') ? '待质检' : '无质检风险'
-
-    const deliveryRiskZh =
-      task.status === 'BLOCKED'
-        ? '高风险'
-        : qcRiskZh === '待质检' || dyeRiskZh === '染印生产暂停'
-          ? '中风险'
-          : task.status === 'IN_PROGRESS'
-            ? '可推进'
-            : '低风险'
-
-    return {
-      taskId: task.taskId,
-      productionOrderId: task.productionOrderId,
-      factorySummaryZh: task.assignedFactoryId ?? '—',
-      taskStatusZh: taskStatusText(task.status),
-      blockedFlag: task.status === 'BLOCKED' ? '是' : '否',
-      dyeRiskZh,
-      qcRiskZh,
-      deliveryRiskZh,
-    }
-  })
+function renderRiskConclusionBadge(conclusion: CapacityRiskTaskRow['conclusion'] | CapacityRiskOrderRow['highestRiskConclusion']): string {
+  const tone: Tone =
+    conclusion === 'EXCEEDS_WINDOW'
+      ? 'destructive'
+      : conclusion === 'TIGHT'
+        ? 'default'
+        : conclusion === 'CAPABLE'
+          ? 'secondary'
+          : 'outline'
+  const labelMap = {
+    CAPABLE: '可承载',
+    TIGHT: '紧张',
+    EXCEEDS_WINDOW: '超出窗口',
+    UNALLOCATED: '未落厂',
+    UNSCHEDULED: '未排期',
+  } as const
+  return renderBadge(labelMap[conclusion], tone)
 }
 
-function getRiskOrderRows() {
-  return productionOrders.map((order) => {
-    const tasks = processTasks.filter((task) => task.productionOrderId === order.productionOrderId)
-    const blockedTaskCount = tasks.filter((task) => task.status === 'BLOCKED').length
-    const qcPendingCount = getOrderQcPendingCount(order.productionOrderId)
-    const dyeStatusZh = getOrderDyeStatus(order.productionOrderId)
-
-    const riskSummaryZh =
-      blockedTaskCount > 0
-        ? '高风险'
-        : qcPendingCount > 0
-          ? '待质检风险'
-          : dyeStatusZh === '生产暂停'
-            ? '待进入下一步风险'
-            : tasks.length > 0
-              ? '可推进'
-              : '未启动'
-
-    return {
-      productionOrderId: order.productionOrderId,
-      factorySummaryZh: order.mainFactorySnapshot?.name ?? order.mainFactoryId ?? '—',
-      taskCount: tasks.length,
-      blockedTaskCount,
-      qcPendingCount,
-      dyeStatusZh,
-      riskSummaryZh,
-    }
-  })
+function renderRiskFactoryCell(row: CapacityRiskTaskRow): string {
+  if (!row.factoryName) {
+    return `<div class="text-sm text-muted-foreground">未落厂</div>`
+  }
+  const bindingLabel = row.factoryBindingKind === 'COMMITTED' ? '已占用' : row.factoryBindingKind === 'FROZEN' ? '已冻结' : '未落厂'
+  return `
+    <div class="text-sm font-medium text-foreground">${escapeHtml(row.factoryName)}</div>
+    <div class="text-xs text-muted-foreground">${escapeHtml(bindingLabel)}</div>
+  `
 }
 
-function renderRiskTaskTable(keyword: string): string {
-  const rows = getRiskTaskRows().filter((row) => {
-    if (!keyword) return true
-    return (
-      includesKeyword(toLower(row.taskId), keyword) ||
-      includesKeyword(toLower(row.productionOrderId), keyword) ||
-      includesKeyword(toLower(row.factorySummaryZh), keyword)
-    )
-  })
+function renderRiskWindowText(row: CapacityRiskTaskRow): string {
+  const lines = [`<div class="text-sm">${escapeHtml(row.windowText || '日期不足')}</div>`]
+  if (row.fallbackRuleLabel) {
+    lines.push(`<div class="text-xs text-muted-foreground">${escapeHtml(row.fallbackRuleLabel)}</div>`)
+  }
+  return lines.join('')
+}
 
+function renderRiskTaskTable(rows: CapacityRiskTaskRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无任务占用数据</td></tr>'
+    return '<tr><td colspan="13" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无任务工时风险数据</td></tr>'
   }
 
   return rows
-    .map((row) => {
-      const blockedTone: Tone = row.blockedFlag === '是' ? 'destructive' : 'outline'
-      const dyeTone: Tone = row.dyeRiskZh === '染印生产暂停' ? 'default' : row.dyeRiskZh === '染印可继续' ? 'secondary' : 'outline'
-      const qcTone: Tone = row.qcRiskZh === '待质检' ? 'default' : 'outline'
-      const deliveryTone: Tone =
-        row.deliveryRiskZh === '高风险'
-          ? 'destructive'
-          : row.deliveryRiskZh === '中风险'
-            ? 'default'
-            : row.deliveryRiskZh === '可推进'
-              ? 'secondary'
-              : 'outline'
-
-      return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3">${renderBadge(row.taskStatusZh)}</td>
-          <td class="px-3 py-3">${renderBadge(row.blockedFlag, blockedTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.dyeRiskZh, dyeTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.qcRiskZh, qcTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.deliveryRiskZh, deliveryTone)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-              <button data-nav="/fcs/process/dye-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
+    .map((row) => `
+      <tr class="border-b last:border-0">
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
+        <td class="px-3 py-3">${renderRiskFactoryCell(row)}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
+        <td class="px-3 py-3">${renderRiskWindowText(row)}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowSupplySam ?? 0))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.otherCommittedSam ?? 0))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.otherFrozenSam ?? 0))}</td>
+        <td class="px-3 py-3 text-right text-sm font-medium ${row.remainingAfterCurrentSam != null && row.remainingAfterCurrentSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(row.remainingAfterCurrentSam ?? 0))}</td>
+        <td class="px-3 py-3">${renderRiskConclusionBadge(row.conclusion)}</td>
+        <td class="max-w-[280px] px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(row.reason)}</td>
+      </tr>
+    `)
     .join('')
 }
 
-function renderRiskOrderTable(keyword: string): string {
-  const rows = getRiskOrderRows().filter((row) => {
-    if (!keyword) return true
-    return (
-      includesKeyword(toLower(row.productionOrderId), keyword) ||
-      includesKeyword(toLower(row.factorySummaryZh), keyword)
-    )
-  })
-
+function renderRiskOrderTable(rows: CapacityRiskOrderRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="8" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无生产单交付风险数据</td></tr>'
+    return '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无生产单工时风险数据</td></tr>'
   }
 
   return rows
-    .map((row) => {
-      const dyeTone: Tone = row.dyeStatusZh === '生产暂停' ? 'default' : row.dyeStatusZh === '可继续' ? 'secondary' : 'outline'
-      const riskTone: Tone =
-        row.riskSummaryZh === '高风险'
-          ? 'destructive'
-          : row.riskSummaryZh === '待质检风险' || row.riskSummaryZh === '待进入下一步风险'
-            ? 'default'
-            : row.riskSummaryZh === '可推进'
-              ? 'secondary'
-              : 'outline'
-
-      return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.productionOrderId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
-          <td class="px-3 py-3 text-center text-sm">${
-            row.blockedTaskCount > 0
-              ? renderBadge(String(row.blockedTaskCount), 'destructive')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3 text-center text-sm">${
-            row.qcPendingCount > 0
-              ? renderBadge(String(row.qcPendingCount), 'default')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${renderBadge(row.dyeStatusZh, dyeTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.riskSummaryZh, riskTone)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/quality/qc-records" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看质检</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
+    .map((row) => `
+      <tr class="border-b last:border-0">
+        <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.productionOrderId)}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.allocatedStandardTime))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedStandardTime))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unscheduledStandardTime))}</td>
+        <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(row.mainRiskProcessName && row.mainRiskCraftName ? `${row.mainRiskProcessName} / ${row.mainRiskCraftName}` : '—')}</td>
+        <td class="px-3 py-3">${renderRiskConclusionBadge(row.highestRiskConclusion)}</td>
+        <td class="max-w-[260px] px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(row.reason)}</td>
+      </tr>
+    `)
     .join('')
 }
 
 export function renderCapacityRiskPage(): string {
-  const orderRows = getRiskOrderRows()
+  syncDispatchCapacityUsageLedger()
+  const riskData = buildCapacityRiskData()
+  const filteredTaskRows = filterCapacityRiskTaskRows({
+    rows: riskData.taskRows,
+    keyword: state.riskKeyword,
+    processCode: state.riskProcessCode,
+    craftValue: state.riskCraftCode,
+    conclusion: state.riskConclusion,
+    windowDays: state.riskWindowDays,
+  })
+  const filteredOrderRows = summarizeProductionOrderRisk(filteredTaskRows)
   const stats = {
-    taskTotal: processTasks.length,
-    blocked: processTasks.filter((task) => task.status === 'BLOCKED').length,
-    qcPending: orderRows.filter((row) => row.qcPendingCount > 0).length,
-    dyePending: orderRows.filter((row) => row.dyeStatusZh === '生产暂停').length,
-    highRisk: orderRows.filter((row) => row.riskSummaryZh === '高风险').length,
-    ok: orderRows.filter((row) => row.riskSummaryZh === '可推进').length,
+    capable: filteredTaskRows.filter((row) => row.conclusion === 'CAPABLE').length,
+    tight: filteredTaskRows.filter((row) => row.conclusion === 'TIGHT').length,
+    exceedsWindow: filteredTaskRows.filter((row) => row.conclusion === 'EXCEEDS_WINDOW').length,
+    unallocated: filteredTaskRows.filter((row) => row.conclusion === 'UNALLOCATED').length,
+    unscheduled: filteredTaskRows.filter((row) => row.conclusion === 'UNSCHEDULED').length,
   }
-
-  const keyword = state.riskKeyword.trim().toLowerCase()
+  const craftOptions = riskData.craftOptions.filter((item) =>
+    state.riskProcessCode ? item.processCode === state.riskProcessCode : true,
+  )
 
   return `
     <div class="space-y-6">
-      <header class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold tracking-tight text-balance">任务占用与交付风险</h1>
-        <p class="text-sm text-muted-foreground">共 ${processTasks.length} 条任务 / ${productionOrders.length} 张生产单</p>
+      <header class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight text-balance">任务工时风险</h1>
+          <p class="mt-1 text-sm text-muted-foreground">当前页按任务自身日期窗口评估标准工时承载：已落厂任务看窗口供给、其他已占用和其他已冻结；未落厂和未排期任务单独归类。</p>
+        </div>
+        <p class="text-sm text-muted-foreground">当前筛选下 ${filteredTaskRows.length} 条任务 / ${filteredOrderRows.length} 张生产单</p>
       </header>
 
-      ${renderPageHint('任务占用与交付风险用于识别当前生产暂停任务、染印是否可继续、待质检等交付压力；原型阶段采用轻量聚合口径')}
-
-      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        ${renderStatCard('任务总数', stats.taskTotal)}
-        ${renderStatCard('生产暂停任务数', stats.blocked)}
-        ${renderStatCard('待质检生产单数', stats.qcPending)}
-        ${renderStatCard('染印生产暂停生产单数', stats.dyePending)}
-        ${renderStatCard('高风险生产单数', stats.highRisk)}
-        ${renderStatCard('可推进生产单数', stats.ok)}
+      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        ${renderStatCard('可承载任务数', stats.capable)}
+        ${renderStatCard('紧张任务数', stats.tight)}
+        ${renderStatCard('超出窗口任务数', stats.exceedsWindow)}
+        ${renderStatCard('未落厂任务数', stats.unallocated)}
+        ${renderStatCard('未排期任务数', stats.unscheduled)}
       </section>
 
-      <section class="flex items-center gap-3">
+      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <input
           data-capacity-filter="risk-keyword"
           value="${escapeHtml(state.riskKeyword)}"
-          placeholder="关键词（生产单号 / 任务ID / 工厂）"
-          class="h-9 w-full max-w-xs rounded-md border bg-background px-3 text-sm"
+          placeholder="关键词（任务 / 生产单 / 工厂）"
+          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
         />
+        <select data-capacity-filter="risk-window-days" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+          ${riskData.windowOptions
+            .map((option) => `<option value="${option.value}" ${state.riskWindowDays === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
+        <select data-capacity-filter="risk-process-code" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+          <option value="">全部工序</option>
+          ${riskData.processOptions
+            .map((option) => `<option value="${escapeHtml(option.value)}" ${state.riskProcessCode === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
+        <select data-capacity-filter="risk-craft-code" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+          <option value="">全部工艺</option>
+          ${craftOptions
+            .map((option) => `<option value="${escapeHtml(option.value)}" ${state.riskCraftCode === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
+        <select data-capacity-filter="risk-conclusion" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+          ${riskData.conclusionOptions
+            .map((option) => `<option value="${escapeHtml(option.value)}" ${state.riskConclusion === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
       </section>
 
       <section class="space-y-4">
         <div class="inline-flex rounded-md bg-muted p-1">
-          <button
-            data-capacity-action="switch-tab"
-            data-page="risk"
-            data-tab="task"
-            class="${
-              state.riskTab === 'task'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            任务占用明细
-          </button>
-          <button
-            data-capacity-action="switch-tab"
-            data-page="risk"
-            data-tab="order"
-            class="${
-              state.riskTab === 'order'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            生产单交付风险
-          </button>
+          ${renderTabButton('risk', 'task', state.riskTab, '任务风险')}
+          ${renderTabButton('risk', 'order', state.riskTab, '生产单风险')}
         </div>
 
         ${
@@ -730,18 +1323,22 @@ export function renderCapacityRiskPage(): string {
                 <table class="w-full text-sm">
                   <thead class="border-b bg-muted/40 text-muted-foreground">
                     <tr>
-                      <th class="px-3 py-2 text-left font-medium">任务ID</th>
+                      <th class="px-3 py-2 text-left font-medium">任务编号</th>
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                      <th class="px-3 py-2 text-left font-medium">工厂</th>
-                      <th class="px-3 py-2 text-left font-medium">任务状态</th>
-                      <th class="px-3 py-2 text-left font-medium">是否生产暂停</th>
-                      <th class="px-3 py-2 text-left font-medium">染印风险</th>
-                      <th class="px-3 py-2 text-left font-medium">质检风险</th>
-                      <th class="px-3 py-2 text-left font-medium">交付风险</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
+                      <th class="px-3 py-2 text-left font-medium">工序</th>
+                      <th class="px-3 py-2 text-left font-medium">工艺</th>
+                      <th class="px-3 py-2 text-left font-medium">当前工厂</th>
+                      <th class="px-3 py-2 text-right font-medium">任务总标准工时</th>
+                      <th class="px-3 py-2 text-left font-medium">窗口起止日期</th>
+                      <th class="px-3 py-2 text-right font-medium">窗口供给标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">其他已占用标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">其他已冻结标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">当前任务计入后剩余</th>
+                      <th class="px-3 py-2 text-left font-medium">风险结论</th>
+                      <th class="px-3 py-2 text-left font-medium">风险原因</th>
                     </tr>
                   </thead>
-                  <tbody>${renderRiskTaskTable(keyword)}</tbody>
+                  <tbody>${renderRiskTaskTable(filteredTaskRows)}</tbody>
                 </table>
               </div>
             `
@@ -751,16 +1348,17 @@ export function renderCapacityRiskPage(): string {
                   <thead class="border-b bg-muted/40 text-muted-foreground">
                     <tr>
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                      <th class="px-3 py-2 text-left font-medium">主工厂</th>
-                      <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">生产暂停任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">待质检数</th>
-                      <th class="px-3 py-2 text-left font-medium">染印状态</th>
-                      <th class="px-3 py-2 text-left font-medium">风险情况</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
+                      <th class="px-3 py-2 text-right font-medium">生产单总标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">已落厂标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">未落厂标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">未排期标准工时</th>
+                      <th class="px-3 py-2 text-center font-medium">任务数</th>
+                      <th class="px-3 py-2 text-left font-medium">主要风险工序 / 工艺</th>
+                      <th class="px-3 py-2 text-left font-medium">最高风险结论</th>
+                      <th class="px-3 py-2 text-left font-medium">风险原因</th>
                     </tr>
                   </thead>
-                  <tbody>${renderRiskOrderTable(keyword)}</tbody>
+                  <tbody>${renderRiskOrderTable(filteredOrderRows)}</tbody>
                 </table>
               </div>
             `
@@ -770,192 +1368,110 @@ export function renderCapacityRiskPage(): string {
   `
 }
 
-function getBottleneckFactoryRows() {
-  const map = new Map<
-    string,
-    {
-      factorySummaryZh: string
-      taskIds: Set<string>
-      orderIds: Set<string>
-    }
-  >()
+function filterBottleneckCraftRows(rows: CapacityBottleneckCraftRow[], keyword: string): CapacityBottleneckCraftRow[] {
+  if (!keyword) return rows
+  return rows.filter((row) =>
+    [
+      row.processName,
+      row.craftName,
+      formatSamValue(row.windowSupplySam),
+      formatSamValue(row.windowRemainingSam),
+    ].some((value) => includesKeyword(toLower(value), keyword)),
+  )
+}
 
-  for (const task of processTasks) {
-    const key = task.assignedFactoryId ?? '未识别工厂'
-    if (!map.has(key)) {
-      map.set(key, {
-        factorySummaryZh: key,
-        taskIds: new Set<string>(),
-        orderIds: new Set<string>(),
-      })
-    }
+function filterBottleneckDateRows(rows: CapacityBottleneckDateRow[], keyword: string): CapacityBottleneckDateRow[] {
+  if (!keyword) return rows
+  return rows.filter((row) =>
+    includesKeyword(toLower(row.date), keyword)
+    || row.detailRows.some((detail) =>
+      [detail.factoryName, detail.processName, detail.craftName].some((value) => includesKeyword(toLower(value), keyword)),
+    ),
+  )
+}
 
-    const target = map.get(key)
-    if (!target) continue
-    target.taskIds.add(task.taskId)
-    target.orderIds.add(task.productionOrderId)
+function filterBottleneckUnallocatedRows(
+  rows: CapacityBottleneckUnallocatedTaskRow[],
+  keyword: string,
+): CapacityBottleneckUnallocatedTaskRow[] {
+  if (!keyword) return rows
+  return rows.filter((row) =>
+    [
+      row.taskId,
+      row.productionOrderId,
+      row.processName,
+      row.craftName,
+      row.assignmentStatusLabel,
+      row.note,
+    ].some((value) => includesKeyword(toLower(value), keyword)),
+  )
+}
+
+function filterBottleneckUnscheduledRows(
+  rows: CapacityBottleneckUnscheduledTaskRow[],
+  keyword: string,
+): CapacityBottleneckUnscheduledTaskRow[] {
+  if (!keyword) return rows
+  return rows.filter((row) =>
+    [
+      row.taskId,
+      row.productionOrderId,
+      row.processName,
+      row.craftName,
+      row.assignmentStatusLabel,
+      row.reason,
+      row.note,
+    ].some((value) => includesKeyword(toLower(value), keyword)),
+  )
+}
+
+function summarizeFilteredBottleneckData(input: {
+  craftRows: CapacityBottleneckCraftRow[]
+  dateRows: CapacityBottleneckDateRow[]
+  unallocatedRows: CapacityBottleneckUnallocatedTaskRow[]
+  unscheduledRows: CapacityBottleneckUnscheduledTaskRow[]
+}) {
+  return {
+    bottleneckCraftCount: input.craftRows.filter((row) => row.windowRemainingSam < 0).length,
+    overloadedDateCount: input.dateRows.filter((row) => row.overloadedCraftCount > 0).length,
+    unallocatedTotal: input.unallocatedRows.reduce((sum, row) => sum + row.totalStandardTime, 0),
+    unscheduledTotal: input.unscheduledRows.reduce((sum, row) => sum + row.totalStandardTime, 0),
+    maxDailyGapSam: input.dateRows.reduce((max, row) => Math.max(max, row.maxGapSam), 0),
+    maxCraftGapSam: input.craftRows.reduce((max, row) => Math.max(max, row.maxGapSam), 0),
   }
-
-  return [...map.values()].map((item) => {
-    const tasks = processTasks.filter((task) => item.taskIds.has(task.taskId))
-    const taskCount = tasks.length
-    const blockedTaskCount = tasks.filter((task) => task.status === 'BLOCKED').length
-
-    const qcPendingCount = legacyLikeQualityInspections.filter(
-      (qc) => item.orderIds.has(qc.productionOrderId) && qc.status !== 'CLOSED',
-    ).length
-
-    const dyePendingCount = legacyLikeDyePrintOrders.filter(
-      (dpo) => item.orderIds.has(dpo.productionOrderId) && dpo.availableQty <= 0,
-    ).length
-
-    const bottleneckLevelZh =
-      blockedTaskCount >= 3
-        ? '高'
-        : qcPendingCount >= 2 || dyePendingCount >= 2 || taskCount >= 8
-          ? '中'
-          : '低'
-
-    const bottleneckReasonZh =
-      blockedTaskCount > 0
-        ? '生产暂停任务偏多'
-        : qcPendingCount > 0
-          ? '待质检积压'
-          : dyePendingCount > 0
-            ? '染印生产暂停'
-            : taskCount >= 8
-              ? '任务占用偏高'
-              : '无明显瓶颈'
-
-    return {
-      factorySummaryZh: item.factorySummaryZh,
-      taskCount,
-      blockedTaskCount,
-      qcPendingCount,
-      dyePendingCount,
-      bottleneckLevelZh,
-      bottleneckReasonZh,
-    }
-  })
 }
 
-function getBottleneckOrderRows() {
-  return productionOrders.map((order) => {
-    const tasks = processTasks.filter((task) => task.productionOrderId === order.productionOrderId)
-    const taskCount = tasks.length
-    const blockedTaskCount = tasks.filter((task) => task.status === 'BLOCKED').length
-    const qcPendingCount = getOrderQcPendingCount(order.productionOrderId)
-    const dyeStatusZh = getOrderDyeStatus(order.productionOrderId)
-
-    const bottleneckLevelZh =
-      blockedTaskCount > 0
-        ? '高'
-        : qcPendingCount > 0 || dyeStatusZh === '生产暂停' || taskCount >= 6
-          ? '中'
-          : '低'
-
-    const bottleneckReasonZh =
-      blockedTaskCount > 0
-        ? '生产暂停任务未解除'
-        : qcPendingCount > 0
-          ? '待质检未清'
-          : dyeStatusZh === '生产暂停'
-            ? '染印待进入下一步'
-            : taskCount >= 6
-              ? '任务链较长'
-              : '无明显瓶颈'
-
-    return {
-      productionOrderId: order.productionOrderId,
-      factorySummaryZh: order.mainFactorySnapshot?.name ?? order.mainFactoryId ?? '—',
-      taskCount,
-      blockedTaskCount,
-      qcPendingCount,
-      dyeStatusZh,
-      bottleneckLevelZh,
-      bottleneckReasonZh,
-    }
-  })
-}
-
-function getBottleneckTaskRows() {
-  const orderQcPending = new Map<string, boolean>()
-  const orderDyePending = new Map<string, boolean>()
-
-  for (const order of productionOrders) {
-    orderQcPending.set(order.productionOrderId, getOrderQcPendingCount(order.productionOrderId) > 0)
-    orderDyePending.set(order.productionOrderId, getOrderDyeStatus(order.productionOrderId) === '生产暂停')
-  }
-
-  return processTasks.map((task) => {
-    const hasQcPending = orderQcPending.get(task.productionOrderId) ?? false
-    const hasDyePending = orderDyePending.get(task.productionOrderId) ?? false
-
-    const bottleneckLevelZh =
-      task.status === 'BLOCKED' ? '高' : hasQcPending || hasDyePending ? '中' : '低'
-
-    const bottleneckReasonZh =
-      task.status === 'BLOCKED'
-        ? '任务生产暂停'
-        : hasQcPending
-          ? '所属生产单待质检'
-          : hasDyePending
-            ? '所属生产单染印生产暂停'
-            : task.status === 'IN_PROGRESS'
-              ? '正常推进中'
-              : '无明显瓶颈'
-
-    return {
-      taskId: task.taskId,
-      productionOrderId: task.productionOrderId,
-      factorySummaryZh: task.assignedFactoryId ?? '未识别工厂',
-      taskStatusZh: taskStatusText(task.status),
-      bottleneckLevelZh,
-      bottleneckReasonZh,
-    }
-  })
-}
-
-function renderBottleneckFactoryTable(keyword: string): string {
-  const rows = getBottleneckFactoryRows().filter((row) => {
-    if (!keyword) return true
-    return includesKeyword(toLower(row.factorySummaryZh), keyword)
-  })
-
+function renderBottleneckCraftTable(rows: CapacityBottleneckCraftRow[], selectedRowKey: string): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="8" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无工厂瓶颈数据</td></tr>'
+    return '<tr><td colspan="12" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工艺瓶颈数据</td></tr>'
   }
 
   return rows
     .map((row) => {
-      const levelTone: Tone = row.bottleneckLevelZh === '高' ? 'destructive' : row.bottleneckLevelZh === '中' ? 'default' : 'outline'
-
+      const selected = row.rowKey === selectedRowKey
+      const remainingClass = row.windowRemainingSam < 0 ? 'text-red-600' : 'text-green-700'
+      const gapClass = row.maxGapSam > 0 ? 'text-red-600' : 'text-muted-foreground'
       return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
-          <td class="px-3 py-3 text-center text-sm">${
-            row.blockedTaskCount > 0
-              ? renderBadge(String(row.blockedTaskCount), 'destructive')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3 text-center text-sm">${
-            row.qcPendingCount > 0
-              ? renderBadge(String(row.qcPendingCount), 'default')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3 text-center text-sm">${
-            row.dyePendingCount > 0
-              ? renderBadge(String(row.dyePendingCount), 'default')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${renderBadge(row.bottleneckLevelZh, levelTone)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.bottleneckReasonZh)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/production/orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-            </div>
+        <tr class="border-b last:border-0 ${selected ? 'bg-blue-50/60' : ''}" data-bottleneck-craft-row="${escapeHtml(row.rowKey)}">
+          <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
+          <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.craftName)}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowSupplySam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowCommittedSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowFrozenSam))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${remainingClass}">${escapeHtml(formatSamValue(row.windowRemainingSam))}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.overloadDayCount}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.factoryCount}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unscheduledSam))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${gapClass}">${escapeHtml(formatSamValue(row.maxGapSam))}</td>
+          <td class="px-3 py-3 text-right">
+            <button
+              data-capacity-action="open-bottleneck-craft-detail"
+              data-row-key="${escapeHtml(row.rowKey)}"
+              class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+            >
+              查看明细
+            </button>
           </td>
         </tr>
       `
@@ -963,48 +1479,35 @@ function renderBottleneckFactoryTable(keyword: string): string {
     .join('')
 }
 
-function renderBottleneckOrderTable(keyword: string): string {
-  const rows = getBottleneckOrderRows().filter((row) => {
-    if (!keyword) return true
-    return (
-      includesKeyword(toLower(row.productionOrderId), keyword) ||
-      includesKeyword(toLower(row.factorySummaryZh), keyword)
-    )
-  })
-
+function renderBottleneckDateTable(rows: CapacityBottleneckDateRow[], selectedDate: string): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无生产单瓶颈数据</td></tr>'
+    return '<tr><td colspan="10" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无日期瓶颈数据</td></tr>'
   }
 
   return rows
     .map((row) => {
-      const levelTone: Tone = row.bottleneckLevelZh === '高' ? 'destructive' : row.bottleneckLevelZh === '中' ? 'default' : 'outline'
-      const dyeTone: Tone = row.dyeStatusZh === '生产暂停' ? 'destructive' : row.dyeStatusZh === '可继续' ? 'secondary' : 'outline'
-
+      const selected = row.date === selectedDate
+      const remainingClass = row.remainingSam < 0 ? 'text-red-600' : 'text-green-700'
+      const gapClass = row.maxGapSam > 0 ? 'text-red-600' : 'text-muted-foreground'
       return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.productionOrderId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
-          <td class="px-3 py-3 text-center text-sm">${
-            row.blockedTaskCount > 0
-              ? renderBadge(String(row.blockedTaskCount), 'destructive')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3 text-center text-sm">${
-            row.qcPendingCount > 0
-              ? renderBadge(String(row.qcPendingCount), 'default')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${renderBadge(row.dyeStatusZh, dyeTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.bottleneckLevelZh, levelTone)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.bottleneckReasonZh)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/process/dye-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
-            </div>
+        <tr class="border-b last:border-0 ${selected ? 'bg-blue-50/60' : ''}" data-bottleneck-date-row="${escapeHtml(row.date)}">
+          <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.date)}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.supplySam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.committedSam))}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenSam))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${remainingClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.overloadedFactoryCount}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.overloadedCraftCount}</td>
+          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedSam))}</td>
+          <td class="px-3 py-3 text-right text-sm font-medium ${gapClass}">${escapeHtml(formatSamValue(row.maxGapSam))}</td>
+          <td class="px-3 py-3 text-right">
+            <button
+              data-capacity-action="open-bottleneck-date-detail"
+              data-date="${escapeHtml(row.date)}"
+              class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
+            >
+              查看明细
+            </button>
           </td>
         </tr>
       `
@@ -1012,199 +1515,422 @@ function renderBottleneckOrderTable(keyword: string): string {
     .join('')
 }
 
-function renderBottleneckTaskTable(keyword: string): string {
-  const rows = getBottleneckTaskRows().filter((row) => {
-    if (!keyword) return true
-    return (
-      includesKeyword(toLower(row.taskId), keyword) ||
-      includesKeyword(toLower(row.productionOrderId), keyword) ||
-      includesKeyword(toLower(row.factorySummaryZh), keyword)
-    )
-  })
+function renderBottleneckDemandTableSection(
+  title: string,
+  description: string,
+  tableHtml: string,
+  testId: string,
+): string {
+  return `
+    <section class="rounded-md border" data-testid="${escapeHtml(testId)}">
+      <div class="border-b bg-muted/30 px-4 py-3">
+        <h3 class="text-sm font-semibold text-foreground">${escapeHtml(title)}</h3>
+        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(description)}</p>
+      </div>
+      <div class="overflow-x-auto">
+        ${tableHtml}
+      </div>
+    </section>
+  `
+}
 
+function renderBottleneckUnallocatedTable(rows: CapacityBottleneckUnallocatedTaskRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="7" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无任务瓶颈数据</td></tr>'
+    return `
+      <table class="w-full text-sm">
+        <tbody><tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前窗口内暂无待分配需求</td></tr></tbody>
+      </table>
+    `
   }
 
-  return rows
-    .map((row) => {
-      const statusTone: Tone =
-        row.taskStatusZh === '生产暂停'
-          ? 'destructive'
-          : row.taskStatusZh === '进行中'
-            ? 'default'
-            : row.taskStatusZh === '已完成'
-              ? 'secondary'
-              : 'outline'
-
-      const levelTone: Tone = row.bottleneckLevelZh === '高' ? 'destructive' : row.bottleneckLevelZh === '中' ? 'default' : 'outline'
-
-      return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.productionOrderId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3">${renderBadge(row.taskStatusZh, statusTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.bottleneckLevelZh, levelTone)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.bottleneckReasonZh)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-              <button data-nav="/fcs/quality/qc-records" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看质检</button>
-            </div>
-          </td>
+  return `
+    <table class="w-full text-sm" data-bottleneck-unallocated-table>
+      <thead class="border-b bg-muted/40 text-muted-foreground">
+        <tr>
+          <th class="px-3 py-2 text-left font-medium">任务编号</th>
+          <th class="px-3 py-2 text-left font-medium">生产单号</th>
+          <th class="px-3 py-2 text-left font-medium">工序</th>
+          <th class="px-3 py-2 text-left font-medium">工艺</th>
+          <th class="px-3 py-2 text-right font-medium">任务总标准工时</th>
+          <th class="px-3 py-2 text-left font-medium">日期窗口</th>
+          <th class="px-3 py-2 text-left font-medium">当前分配阶段</th>
+          <th class="px-3 py-2 text-center font-medium">已冻结工厂数</th>
+          <th class="px-3 py-2 text-left font-medium">说明</th>
         </tr>
-      `
-    })
-    .join('')
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (row) => `
+              <tr class="border-b last:border-0" data-bottleneck-unallocated-row="${escapeHtml(row.taskId)}">
+                <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
+                <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.windowText)}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.assignmentStatusLabel)}</td>
+                <td class="px-3 py-3 text-center text-sm">${row.frozenFactoryCount}</td>
+                <td class="max-w-[260px] px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(row.note)}</td>
+              </tr>
+            `,
+          )
+          .join('')}
+      </tbody>
+    </table>
+  `
+}
+
+function renderBottleneckUnscheduledTable(rows: CapacityBottleneckUnscheduledTaskRow[]): string {
+  if (rows.length === 0) {
+    return `
+      <table class="w-full text-sm">
+        <tbody><tr><td colspan="7" class="px-3 py-10 text-center text-sm text-muted-foreground">当前暂无未排期需求</td></tr></tbody>
+      </table>
+    `
+  }
+
+  return `
+    <table class="w-full text-sm" data-bottleneck-unscheduled-table>
+      <thead class="border-b bg-muted/40 text-muted-foreground">
+        <tr>
+          <th class="px-3 py-2 text-left font-medium">任务编号</th>
+          <th class="px-3 py-2 text-left font-medium">生产单号</th>
+          <th class="px-3 py-2 text-left font-medium">工序</th>
+          <th class="px-3 py-2 text-left font-medium">工艺</th>
+          <th class="px-3 py-2 text-right font-medium">任务总标准工时</th>
+          <th class="px-3 py-2 text-left font-medium">缺失日期原因</th>
+          <th class="px-3 py-2 text-left font-medium">说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (row) => `
+              <tr class="border-b last:border-0" data-bottleneck-unscheduled-row="${escapeHtml(row.taskId)}">
+                <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.processName)}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.craftName)}</td>
+                <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
+                <td class="px-3 py-3 text-sm">${escapeHtml(row.reason)}</td>
+                <td class="max-w-[260px] px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(row.note)}</td>
+              </tr>
+            `,
+          )
+          .join('')}
+      </tbody>
+    </table>
+  `
+}
+
+function renderBottleneckCraftDetailPanel(row: CapacityBottleneckCraftRow | null): string {
+  if (!row) {
+    return `
+      <aside class="rounded-md border bg-card p-4">
+        <h3 class="text-sm font-semibold text-foreground">工艺明细</h3>
+        <p class="mt-2 text-sm text-muted-foreground">从左侧工艺瓶颈榜选择一行后，可查看该工艺在当前窗口内的日期分布和工厂分布。</p>
+      </aside>
+    `
+  }
+
+  return `
+    <aside class="rounded-md border bg-card" data-bottleneck-craft-detail>
+      <div class="border-b bg-muted/30 px-4 py-3">
+        <h3 class="text-sm font-semibold text-foreground">${escapeHtml(`${row.processName} / ${row.craftName}`)}</h3>
+        <p class="mt-1 text-xs text-muted-foreground">窗口总供给 ${escapeHtml(formatSamValue(row.windowSupplySam))} / 已占用 ${escapeHtml(formatSamValue(row.windowCommittedSam))} / 已冻结 ${escapeHtml(formatSamValue(row.windowFrozenSam))} / 剩余 ${escapeHtml(formatSamValue(row.windowRemainingSam))}</p>
+      </div>
+      <div class="space-y-4 p-4">
+        <section class="space-y-2">
+          <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">日期分布</h4>
+          <div class="overflow-x-auto rounded-md border">
+            <table class="w-full text-sm">
+              <thead class="border-b bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">日期</th>
+                  <th class="px-3 py-2 text-right font-medium">供给</th>
+                  <th class="px-3 py-2 text-right font-medium">已占用</th>
+                  <th class="px-3 py-2 text-right font-medium">已冻结</th>
+                  <th class="px-3 py-2 text-right font-medium">剩余</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${row.dateRows
+                  .map(
+                    (dateRow) => `
+                      <tr class="border-b last:border-0">
+                        <td class="px-3 py-3 text-sm">${escapeHtml(dateRow.date)}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(dateRow.supplySam))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(dateRow.committedSam))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(dateRow.frozenSam))}</td>
+                        <td class="px-3 py-3 text-right text-sm font-medium ${dateRow.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(dateRow.remainingSam))}</td>
+                      </tr>
+                    `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="space-y-2">
+          <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">工厂分布</h4>
+          <div class="overflow-x-auto rounded-md border">
+            <table class="w-full text-sm">
+              <thead class="border-b bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">工厂</th>
+                  <th class="px-3 py-2 text-right font-medium">供给</th>
+                  <th class="px-3 py-2 text-right font-medium">已占用</th>
+                  <th class="px-3 py-2 text-right font-medium">已冻结</th>
+                  <th class="px-3 py-2 text-right font-medium">剩余</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${row.factoryRows
+                  .map(
+                    (factoryRow) => `
+                      <tr class="border-b last:border-0">
+                        <td class="px-3 py-3 text-sm">${escapeHtml(factoryRow.factoryName)}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(factoryRow.supplySam))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(factoryRow.committedSam))}</td>
+                        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(factoryRow.frozenSam))}</td>
+                        <td class="px-3 py-3 text-right text-sm font-medium ${factoryRow.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(factoryRow.remainingSam))}</td>
+                      </tr>
+                    `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </aside>
+  `
+}
+
+function renderBottleneckDateDetailPanel(row: CapacityBottleneckDateRow | null): string {
+  if (!row) {
+    return `
+      <aside class="rounded-md border bg-card p-4">
+        <h3 class="text-sm font-semibold text-foreground">日期明细</h3>
+        <p class="mt-2 text-sm text-muted-foreground">从左侧日期瓶颈榜选择一行后，可查看当天哪些工厂 / 工艺最紧。</p>
+      </aside>
+    `
+  }
+
+  return `
+    <aside class="rounded-md border bg-card" data-bottleneck-date-detail>
+      <div class="border-b bg-muted/30 px-4 py-3">
+        <h3 class="text-sm font-semibold text-foreground">${escapeHtml(row.date)}</h3>
+        <p class="mt-1 text-xs text-muted-foreground">当日供给 ${escapeHtml(formatSamValue(row.supplySam))} / 已占用 ${escapeHtml(formatSamValue(row.committedSam))} / 已冻结 ${escapeHtml(formatSamValue(row.frozenSam))} / 剩余 ${escapeHtml(formatSamValue(row.remainingSam))}</p>
+      </div>
+      <div class="overflow-x-auto p-4">
+        <table class="w-full text-sm">
+          <thead class="border-b bg-muted/40 text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">工厂</th>
+              <th class="px-3 py-2 text-left font-medium">工序</th>
+              <th class="px-3 py-2 text-left font-medium">工艺</th>
+              <th class="px-3 py-2 text-right font-medium">供给</th>
+              <th class="px-3 py-2 text-right font-medium">已占用</th>
+              <th class="px-3 py-2 text-right font-medium">已冻结</th>
+              <th class="px-3 py-2 text-right font-medium">剩余</th>
+              <th class="px-3 py-2 text-center font-medium">占用任务数</th>
+              <th class="px-3 py-2 text-center font-medium">冻结任务数</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              row.detailRows.length
+                ? row.detailRows
+                    .map(
+                      (detail) => `
+                        <tr class="border-b last:border-0">
+                          <td class="px-3 py-3 text-sm">${escapeHtml(detail.factoryName)}</td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(detail.processName)}</td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(detail.craftName)}</td>
+                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(detail.supplySam))}</td>
+                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(detail.committedSam))}</td>
+                          <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(detail.frozenSam))}</td>
+                          <td class="px-3 py-3 text-right text-sm font-medium ${detail.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(detail.remainingSam))}</td>
+                          <td class="px-3 py-3 text-center text-sm">${detail.committedTaskCount}</td>
+                          <td class="px-3 py-3 text-center text-sm">${detail.frozenTaskCount}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+                : '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前日期下暂无工艺瓶颈明细</td></tr>'
+            }
+          </tbody>
+        </table>
+      </div>
+    </aside>
+  `
 }
 
 export function renderCapacityBottleneckPage(): string {
-  const factoryRows = getBottleneckFactoryRows()
-  const orderRows = getBottleneckOrderRows()
-  const taskRows = getBottleneckTaskRows()
+  syncDispatchCapacityUsageLedger()
+  const bottleneck = buildCapacityBottleneckData({
+    windowDays: state.bottleneckWindowDays,
+    processCode: state.bottleneckProcessCode || undefined,
+    craftCode: state.bottleneckCraftCode || undefined,
+  })
 
-  const stats = {
-    factoryHigh: factoryRows.filter((row) => row.bottleneckLevelZh === '高').length,
-    orderHigh: orderRows.filter((row) => row.bottleneckLevelZh === '高').length,
-    taskHigh: taskRows.filter((row) => row.bottleneckLevelZh === '高').length,
-    blocked: processTasks.filter((task) => task.status === 'BLOCKED').length,
-    qcPending: new Set(
-      legacyLikeQualityInspections
-        .filter((item) => item.status !== 'CLOSED')
-        .map((item) => item.productionOrderId),
-    ).size,
-    dyePending: orderRows.filter((row) => row.dyeStatusZh === '生产暂停').length,
-  }
-
+  state.bottleneckWindowDays = bottleneck.windowDays
   const keyword = state.bottleneckKeyword.trim().toLowerCase()
+  const selectedCraftValue =
+    state.bottleneckCraftCode && state.bottleneckProcessCode
+      ? `${state.bottleneckProcessCode}::${state.bottleneckCraftCode}`
+      : ''
+
+  const filteredCraftRows = filterBottleneckCraftRows(bottleneck.craftRows, keyword)
+  const filteredDateRows = filterBottleneckDateRows(bottleneck.dateRows, keyword)
+  const filteredUnallocatedRows = filterBottleneckUnallocatedRows(bottleneck.unallocatedRows, keyword)
+  const filteredUnscheduledRows = filterBottleneckUnscheduledRows(bottleneck.unscheduledRows, keyword)
+  const summary = summarizeFilteredBottleneckData({
+    craftRows: filteredCraftRows,
+    dateRows: filteredDateRows,
+    unallocatedRows: filteredUnallocatedRows,
+    unscheduledRows: filteredUnscheduledRows,
+  })
+
+  const selectedCraftRow =
+    filteredCraftRows.find((row) => row.rowKey === state.bottleneckCraftDetailKey) ?? filteredCraftRows[0] ?? null
+  const selectedDateRow =
+    filteredDateRows.find((row) => row.date === state.bottleneckDateDetailKey) ?? filteredDateRows[0] ?? null
+  state.bottleneckCraftDetailKey = selectedCraftRow?.rowKey ?? ''
+  state.bottleneckDateDetailKey = selectedDateRow?.date ?? ''
 
   return `
-    <div class="space-y-6">
-      <header class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">瓶颈预警</h1>
-        <span class="text-sm text-muted-foreground">高瓶颈工厂 ${stats.factoryHigh} 个 / 高瓶颈生产单 ${stats.orderHigh} 张</span>
+    <div class="space-y-6" data-capacity-bottleneck-page>
+      <header class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight text-balance">工艺瓶颈与待分配</h1>
+          <p class="mt-1 text-sm text-muted-foreground">当前页只看标准工时主线：工艺瓶颈看供给、已占用、已冻结与剩余；待分配和未排期需求单独留在需求池中，不会错误扣到具体工厂。</p>
+        </div>
       </header>
 
-      ${renderPageHint('瓶颈预警用于识别生产暂停、待质检、染印生产暂停等造成的当前生产瓶颈；原型阶段采用规则型识别，不做预测模型')}
-
-      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        ${renderStatCard('高瓶颈工厂数', stats.factoryHigh)}
-        ${renderStatCard('高瓶颈生产单数', stats.orderHigh)}
-        ${renderStatCard('高瓶颈任务数', stats.taskHigh)}
-        ${renderStatCard('生产暂停任务总数', stats.blocked)}
-        ${renderStatCard('待质检生产单数', stats.qcPending)}
-        ${renderStatCard('染印生产暂停生产单数', stats.dyePending)}
+      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6" data-bottleneck-kpis>
+        ${renderStatCard('瓶颈工艺数', summary.bottleneckCraftCount)}
+        ${renderStatCard('超载日期数', summary.overloadedDateCount)}
+        ${renderMetricStatCard('待分配标准工时总量', formatSamValue(summary.unallocatedTotal), summary.unallocatedTotal > 0 ? 'text-orange-700' : '')}
+        ${renderMetricStatCard('未排期标准工时总量', formatSamValue(summary.unscheduledTotal), summary.unscheduledTotal > 0 ? 'text-amber-700' : '')}
+        ${renderMetricStatCard('最大单日缺口', formatSamValue(summary.maxDailyGapSam), summary.maxDailyGapSam > 0 ? 'text-red-600' : '')}
+        ${renderMetricStatCard('最大工艺缺口', formatSamValue(summary.maxCraftGapSam), summary.maxCraftGapSam > 0 ? 'text-red-600' : '')}
       </section>
 
-      <section class="flex items-center gap-3">
+      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <input
           data-capacity-filter="bottleneck-keyword"
           value="${escapeHtml(state.bottleneckKeyword)}"
-          placeholder="关键词（工厂 / 生产单号 / 任务ID）"
-          class="h-9 w-full max-w-xs rounded-md border bg-background px-3 text-sm"
+          placeholder="关键词（工序 / 工艺 / 日期 / 任务）"
+          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
         />
+        <select data-capacity-filter="bottleneck-window-days" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+          ${bottleneck.windowOptions
+            .map((option) => `<option value="${option.value}" ${option.value === state.bottleneckWindowDays ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
+        <select data-capacity-filter="bottleneck-process-code" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+          <option value="">全部工序</option>
+          ${bottleneck.processOptions
+            .map((option) => `<option value="${escapeHtml(option.value)}" ${state.bottleneckProcessCode === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
+        <select data-capacity-filter="bottleneck-craft-code" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+          <option value="">全部工艺</option>
+          ${bottleneck.craftOptions
+            .map((option) => `<option value="${escapeHtml(option.value)}" ${selectedCraftValue === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
       </section>
 
       <section class="space-y-4">
         <div class="inline-flex rounded-md bg-muted p-1">
-          <button
-            data-capacity-action="switch-tab"
-            data-page="bottleneck"
-            data-tab="factory"
-            class="${
-              state.bottleneckTab === 'factory'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            工厂瓶颈
-          </button>
-          <button
-            data-capacity-action="switch-tab"
-            data-page="bottleneck"
-            data-tab="order"
-            class="${
-              state.bottleneckTab === 'order'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            生产单瓶颈
-          </button>
-          <button
-            data-capacity-action="switch-tab"
-            data-page="bottleneck"
-            data-tab="task"
-            class="${
-              state.bottleneckTab === 'task'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            任务瓶颈
-          </button>
+          ${renderTabButton('bottleneck', 'craft', state.bottleneckTab, '工艺瓶颈榜')}
+          ${renderTabButton('bottleneck', 'date', state.bottleneckTab, '日期瓶颈榜')}
+          ${renderTabButton('bottleneck', 'demand', state.bottleneckTab, '待分配 / 未排期')}
         </div>
 
         ${
-          state.bottleneckTab === 'factory'
+          state.bottleneckTab === 'craft'
             ? `
-              <div class="overflow-x-auto rounded-md border">
-                <table class="w-full text-sm">
-                  <thead class="border-b bg-muted/40 text-muted-foreground">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-medium">工厂</th>
-                      <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">生产暂停任务数</th>
-                      <th class="px-3 py-2 text-center font-medium">待质检数</th>
-                      <th class="px-3 py-2 text-center font-medium">染印生产暂停数</th>
-                      <th class="px-3 py-2 text-left font-medium">瓶颈等级</th>
-                      <th class="px-3 py-2 text-left font-medium">瓶颈原因</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>${renderBottleneckFactoryTable(keyword)}</tbody>
-                </table>
+              <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
+                <div class="rounded-md border">
+                  <div class="border-b bg-muted/30 px-4 py-3">
+                    <h2 class="text-sm font-semibold text-foreground">工艺瓶颈榜</h2>
+                    <p class="mt-1 text-xs text-muted-foreground">按 工序 / 工艺 聚合窗口总供给、已占用、已冻结、剩余、待分配、未排期和最大缺口，默认按最大缺口倒序。</p>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm" data-bottleneck-craft-table>
+                      <thead class="border-b bg-muted/40 text-muted-foreground">
+                        <tr>
+                          <th class="px-3 py-2 text-left font-medium">工序</th>
+                          <th class="px-3 py-2 text-left font-medium">工艺</th>
+                          <th class="px-3 py-2 text-right font-medium">窗口总供给标准工时</th>
+                          <th class="px-3 py-2 text-right font-medium">窗口总已占用标准工时</th>
+                          <th class="px-3 py-2 text-right font-medium">窗口总已冻结标准工时</th>
+                          <th class="px-3 py-2 text-right font-medium">窗口总剩余标准工时</th>
+                          <th class="px-3 py-2 text-center font-medium">超载天数</th>
+                          <th class="px-3 py-2 text-center font-medium">涉及工厂数</th>
+                          <th class="px-3 py-2 text-right font-medium">待分配标准工时</th>
+                          <th class="px-3 py-2 text-right font-medium">未排期标准工时</th>
+                          <th class="px-3 py-2 text-right font-medium">最大缺口</th>
+                          <th class="px-3 py-2 text-right font-medium">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>${renderBottleneckCraftTable(filteredCraftRows, selectedCraftRow?.rowKey ?? '')}</tbody>
+                    </table>
+                  </div>
+                </div>
+                ${renderBottleneckCraftDetailPanel(selectedCraftRow)}
               </div>
             `
-            : state.bottleneckTab === 'order'
+            : state.bottleneckTab === 'date'
               ? `
-                <div class="overflow-x-auto rounded-md border">
-                  <table class="w-full text-sm">
-                    <thead class="border-b bg-muted/40 text-muted-foreground">
-                      <tr>
-                        <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                        <th class="px-3 py-2 text-left font-medium">主工厂</th>
-                        <th class="px-3 py-2 text-center font-medium">关联任务数</th>
-                        <th class="px-3 py-2 text-center font-medium">生产暂停任务数</th>
-                        <th class="px-3 py-2 text-center font-medium">待质检数</th>
-                        <th class="px-3 py-2 text-left font-medium">染印状态</th>
-                        <th class="px-3 py-2 text-left font-medium">瓶颈等级</th>
-                        <th class="px-3 py-2 text-left font-medium">瓶颈原因</th>
-                        <th class="px-3 py-2 text-left font-medium">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>${renderBottleneckOrderTable(keyword)}</tbody>
-                  </table>
+                <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
+                  <div class="rounded-md border">
+                    <div class="border-b bg-muted/30 px-4 py-3">
+                      <h2 class="text-sm font-semibold text-foreground">日期瓶颈榜</h2>
+                      <p class="mt-1 text-xs text-muted-foreground">按 日期 聚合全部工厂、全部工艺的标准工时供给、已占用、已冻结、剩余、待分配与最大缺口。</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-sm" data-bottleneck-date-table>
+                        <thead class="border-b bg-muted/40 text-muted-foreground">
+                          <tr>
+                            <th class="px-3 py-2 text-left font-medium">日期</th>
+                            <th class="px-3 py-2 text-right font-medium">当日总供给标准工时</th>
+                            <th class="px-3 py-2 text-right font-medium">当日总已占用标准工时</th>
+                            <th class="px-3 py-2 text-right font-medium">当日总已冻结标准工时</th>
+                            <th class="px-3 py-2 text-right font-medium">当日总剩余标准工时</th>
+                            <th class="px-3 py-2 text-center font-medium">当日超载工厂数</th>
+                            <th class="px-3 py-2 text-center font-medium">当日超载工艺数</th>
+                            <th class="px-3 py-2 text-right font-medium">当日待分配标准工时</th>
+                            <th class="px-3 py-2 text-right font-medium">当日最大缺口</th>
+                            <th class="px-3 py-2 text-right font-medium">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>${renderBottleneckDateTable(filteredDateRows, selectedDateRow?.date ?? '')}</tbody>
+                      </table>
+                    </div>
+                  </div>
+                  ${renderBottleneckDateDetailPanel(selectedDateRow)}
                 </div>
               `
               : `
-                <div class="overflow-x-auto rounded-md border">
-                  <table class="w-full text-sm">
-                    <thead class="border-b bg-muted/40 text-muted-foreground">
-                      <tr>
-                        <th class="px-3 py-2 text-left font-medium">任务ID</th>
-                        <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                        <th class="px-3 py-2 text-left font-medium">工厂</th>
-                        <th class="px-3 py-2 text-left font-medium">任务状态</th>
-                        <th class="px-3 py-2 text-left font-medium">瓶颈等级</th>
-                        <th class="px-3 py-2 text-left font-medium">瓶颈原因</th>
-                        <th class="px-3 py-2 text-left font-medium">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>${renderBottleneckTaskTable(keyword)}</tbody>
-                  </table>
+                <div class="space-y-4">
+                  ${renderBottleneckDemandTableSection(
+                    '待分配需求',
+                    '业务上仍未最终落厂的任务会继续留在需求池；如果已在多家工厂形成冻结，会同时占用这些工厂能力，但不会从待分配池消失。',
+                    renderBottleneckUnallocatedTable(filteredUnallocatedRows),
+                    'bottleneck-unallocated-section',
+                  )}
+                  ${renderBottleneckDemandTableSection(
+                    '未排期需求',
+                    '已有标准工时但缺少有效日期窗口的任务会单独列出，不会被强行落到某一天。',
+                    renderBottleneckUnscheduledTable(filteredUnscheduledRows),
+                    'bottleneck-unscheduled-section',
+                  )}
                 </div>
               `
         }
@@ -1213,826 +1939,463 @@ export function renderCapacityBottleneckPage(): string {
   `
 }
 
-interface TaskConstraint {
-  taskId: string
-  productionOrderId: string
-  factorySummaryZh: string
-  taskStatusZh: string
-  isBlocked: boolean
-  dyeConstraintZh: string
-  qcConstraintZh: string
-  exceptionConstraintZh: string
-  allocationConstraintZh: string
-  dispatchConstraintLevelZh: string
-  recommendedAssignModeZh: string
-  constraintReasonZh: string
-}
-
-function getTaskConstraints(): TaskConstraint[] {
-  return processTasks.map((task) => {
-    const orderId = task.productionOrderId
-
-    const factorySummaryZh =
-      (task as { factoryName?: string }).factoryName ??
-      (task as { processorFactoryName?: string }).processorFactoryName ??
-      (task as { assigneeFactoryName?: string }).assigneeFactoryName ??
-      task.assignedFactoryId ??
-      '—'
-    const taskStatusZh = taskStatusText(task.status)
-    const isBlocked = task.status === 'BLOCKED'
-
-    const dyeStatus = getOrderDyeStatus(orderId)
-    const dyeConstraintZh =
-      dyeStatus === '无染印' ? '无染印约束' : dyeStatus === '生产暂停' ? '染印生产暂停' : '染印可继续'
-
-    const qcConstraintZh = getOrderQcPendingCount(orderId) > 0 ? '存在待质检' : '无质检约束'
-
-    const taskException = legacyLikeExceptions.find(
-      (item) => item.sourceType === 'TASK' && item.sourceId === task.taskId && item.caseStatus !== 'CLOSED',
-    )
-    const orderException = legacyLikeExceptions.find(
-      (item) => item.relatedOrderIds.includes(orderId) && item.caseStatus !== 'CLOSED',
-    )
-
-    const exceptionConstraintZh = taskException
-      ? '存在派单异常'
-      : orderException
-        ? '存在关联异常'
-        : '无异常约束'
-
-    const allocationConstraintZh = isBlocked ? '开始条件未满足' : '无可用量约束'
-
-    const dispatchConstraintLevelZh =
-      task.status === 'DONE' || task.status === 'CANCELLED'
-        ? '不可分配'
-        : isBlocked || exceptionConstraintZh !== '无异常约束'
-          ? '强约束'
-          : dyeConstraintZh === '染印生产暂停' || qcConstraintZh === '存在待质检'
-            ? '中约束'
-            : '低约束'
-
-    const recommendedAssignModeZh =
-      task.status === 'DONE' || task.status === 'CANCELLED'
-        ? '暂不分配'
-        : dispatchConstraintLevelZh === '强约束'
-          ? '暂不分配'
-          : dispatchConstraintLevelZh === '中约束'
-            ? '竞价'
-            : '直接派单'
-
-    const constraintReasonZh =
-      task.status === 'DONE' || task.status === 'CANCELLED'
-        ? '任务已结束，不再参与分配'
-        : isBlocked
-          ? '任务生产暂停，当前不宜分配'
-          : exceptionConstraintZh !== '无异常约束'
-            ? '存在派单异常，需先处理'
-            : dyeConstraintZh === '染印生产暂停'
-              ? '染印生产暂停，建议先等待回货'
-              : qcConstraintZh === '存在待质检'
-                ? '存在待质检事项，建议谨慎分配'
-                : '当前可进入分配'
-
-    return {
-      taskId: task.taskId,
-      productionOrderId: orderId,
-      factorySummaryZh,
-      taskStatusZh,
-      isBlocked,
-      dyeConstraintZh,
-      qcConstraintZh,
-      exceptionConstraintZh,
-      allocationConstraintZh,
-      dispatchConstraintLevelZh,
-      recommendedAssignModeZh,
-      constraintReasonZh,
-    }
-  })
-}
-
-function getFactoryConstraints(taskConstraints: TaskConstraint[]) {
-  const map = new Map<
-    string,
-    {
-      factorySummaryZh: string
-      taskCount: number
-      strongConstraintCount: number
-      mediumConstraintCount: number
-      lowConstraintCount: number
-      recommendedModeSummaryZh: string
-    }
-  >()
-
-  for (const task of taskConstraints) {
-    const key = task.factorySummaryZh
-    if (!map.has(key)) {
-      map.set(key, {
-        factorySummaryZh: key,
-        taskCount: 0,
-        strongConstraintCount: 0,
-        mediumConstraintCount: 0,
-        lowConstraintCount: 0,
-        recommendedModeSummaryZh: '',
-      })
-    }
-
-    const row = map.get(key)
-    if (!row) continue
-
-    row.taskCount += 1
-    if (task.dispatchConstraintLevelZh === '强约束') row.strongConstraintCount += 1
-    if (task.dispatchConstraintLevelZh === '中约束') row.mediumConstraintCount += 1
-    if (task.dispatchConstraintLevelZh === '低约束') row.lowConstraintCount += 1
-  }
-
-  for (const row of map.values()) {
-    row.recommendedModeSummaryZh =
-      row.strongConstraintCount > 0
-        ? '优先清约束'
-        : row.mediumConstraintCount > row.lowConstraintCount
-          ? '以竞价为主'
-          : '可直接派单为主'
-  }
-
-  return [...map.values()]
-}
-
-function renderConstraintsTaskTable(keyword: string): string {
-  const rows = getTaskConstraints().filter((row) => {
-    if (!keyword) return true
-    return (
-      includesKeyword(toLower(row.taskId), keyword) ||
-      includesKeyword(toLower(row.productionOrderId), keyword) ||
-      includesKeyword(toLower(row.factorySummaryZh), keyword)
-    )
-  })
-
-  if (rows.length === 0) {
-    return '<tr><td colspan="12" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无任务约束数据</td></tr>'
-  }
-
-  return rows
-    .map((row) => {
-      const levelTone: Tone =
-        row.dispatchConstraintLevelZh === '强约束'
-          ? 'destructive'
-          : row.dispatchConstraintLevelZh === '中约束'
-            ? 'default'
-            : row.dispatchConstraintLevelZh === '低约束'
-              ? 'secondary'
-              : 'outline'
-
-      const modeTone: Tone =
-        row.recommendedAssignModeZh === '暂不分配'
-          ? 'destructive'
-          : row.recommendedAssignModeZh === '竞价'
-            ? 'default'
-            : 'secondary'
-
-      return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.productionOrderId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3">${renderBadge(row.taskStatusZh, row.isBlocked ? 'destructive' : 'secondary')}</td>
-          <td class="px-3 py-3">${renderBadge(row.dyeConstraintZh, row.dyeConstraintZh === '染印生产暂停' ? 'destructive' : 'secondary')}</td>
-          <td class="px-3 py-3">${renderBadge(row.qcConstraintZh, row.qcConstraintZh === '存在待质检' ? 'default' : 'secondary')}</td>
-          <td class="px-3 py-3">${renderBadge(row.exceptionConstraintZh, row.exceptionConstraintZh !== '无异常约束' ? 'destructive' : 'secondary')}</td>
-          <td class="px-3 py-3">${renderBadge(row.allocationConstraintZh, row.allocationConstraintZh !== '无可用量约束' ? 'default' : 'secondary')}</td>
-          <td class="px-3 py-3">${renderBadge(row.dispatchConstraintLevelZh, levelTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.recommendedAssignModeZh, modeTone)}</td>
-          <td class="max-w-[200px] px-3 py-3 text-sm text-muted-foreground">${escapeHtml(row.constraintReasonZh)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-              <button data-nav="/fcs/dispatch/board" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看派单</button>
-              <button data-nav="/fcs/progress/exceptions" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看异常</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
-}
-
-function renderConstraintsFactoryTable(keyword: string): string {
-  const rows = getFactoryConstraints(getTaskConstraints()).filter((row) => {
-    if (!keyword) return true
-    return includesKeyword(toLower(row.factorySummaryZh), keyword)
-  })
-
-  if (rows.length === 0) {
-    return '<tr><td colspan="7" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无工厂约束概览数据</td></tr>'
-  }
-
-  return rows
-    .map((row) => {
-      const summaryTone: Tone =
-        row.recommendedModeSummaryZh === '优先清约束'
-          ? 'destructive'
-          : row.recommendedModeSummaryZh === '以竞价为主'
-            ? 'default'
-            : 'secondary'
-
-      return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3 text-sm">${row.taskCount}</td>
-          <td class="px-3 py-3">${
-            row.strongConstraintCount > 0
-              ? renderBadge(String(row.strongConstraintCount), 'destructive')
-              : '<span class="text-sm text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${
-            row.mediumConstraintCount > 0
-              ? renderBadge(String(row.mediumConstraintCount), 'default')
-              : '<span class="text-sm text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${
-            row.lowConstraintCount > 0
-              ? renderBadge(String(row.lowConstraintCount), 'secondary')
-              : '<span class="text-sm text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${renderBadge(row.recommendedModeSummaryZh, summaryTone)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/dispatch/board" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看派单</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
-}
-
 export function renderCapacityConstraintsPage(): string {
-  const taskConstraints = getTaskConstraints()
-  const stats = {
-    total: taskConstraints.length,
-    strong: taskConstraints.filter((item) => item.dispatchConstraintLevelZh === '强约束').length,
-    medium: taskConstraints.filter((item) => item.dispatchConstraintLevelZh === '中约束').length,
-    low: taskConstraints.filter((item) => item.dispatchConstraintLevelZh === '低约束').length,
-    direct: taskConstraints.filter((item) => item.recommendedAssignModeZh === '直接派单').length,
-    bid: taskConstraints.filter((item) => item.recommendedAssignModeZh === '竞价').length,
-    noAssign: taskConstraints.filter((item) => item.recommendedAssignModeZh === '暂不分配').length,
-  }
-
-  const keyword = state.constraintsKeyword.trim().toLowerCase()
-
-  return `
-    <div class="space-y-6">
-      <header class="flex flex-wrap items-center justify-between gap-2">
-        <h1 class="text-2xl font-bold tracking-tight">派单/竞价约束</h1>
-        <div class="flex items-center gap-3 text-sm text-muted-foreground">
-          <span>强约束任务 <strong class="text-destructive">${stats.strong}</strong> 条</span>
-          <span>暂不分配 <strong class="text-destructive">${stats.noAssign}</strong> 条</span>
-        </div>
-      </header>
-
-      ${renderPageHint('派单/竞价约束用于识别任务当前是否适合分配；原型阶段采用规则型判断，不做智能派单与复杂评分')}
-
-      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        ${renderStatCard('任务总数', stats.total)}
-        ${renderStatCard('强约束任务数', stats.strong, 'text-destructive')}
-        ${renderStatCard('中约束任务数', stats.medium, 'text-orange-500')}
-        ${renderStatCard('低约束任务数', stats.low, 'text-green-600')}
-        ${renderStatCard('建议直接派单数', stats.direct)}
-        ${renderStatCard('建议竞价数', stats.bid)}
-      </section>
-
-      <section class="flex flex-wrap items-center gap-3">
-        <input
-          data-capacity-filter="constraints-keyword"
-          value="${escapeHtml(state.constraintsKeyword)}"
-          placeholder="关键词（任务ID / 生产单号 / 工厂）"
-          class="h-9 w-72 rounded-md border bg-background px-3 text-sm"
-        />
-      </section>
-
-      <section class="space-y-4">
-        <div class="inline-flex rounded-md bg-muted p-1">
-          <button
-            data-capacity-action="switch-tab"
-            data-page="constraints"
-            data-tab="task"
-            class="${
-              state.constraintsTab === 'task'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            任务约束明细
-          </button>
-          <button
-            data-capacity-action="switch-tab"
-            data-page="constraints"
-            data-tab="factory"
-            class="${
-              state.constraintsTab === 'factory'
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-            }"
-          >
-            工厂约束概览
-          </button>
-        </div>
-
-        ${
-          state.constraintsTab === 'task'
-            ? `
-              <div class="overflow-x-auto rounded-md border">
-                <table class="w-full text-sm">
-                  <thead class="border-b bg-muted/40 text-muted-foreground">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-medium">任务ID</th>
-                      <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                      <th class="px-3 py-2 text-left font-medium">工厂</th>
-                      <th class="px-3 py-2 text-left font-medium">任务状态</th>
-                      <th class="px-3 py-2 text-left font-medium">染印约束</th>
-                      <th class="px-3 py-2 text-left font-medium">质检约束</th>
-                      <th class="px-3 py-2 text-left font-medium">异常约束</th>
-                      <th class="px-3 py-2 text-left font-medium">可用量约束</th>
-                      <th class="px-3 py-2 text-left font-medium">约束等级</th>
-                      <th class="px-3 py-2 text-left font-medium">建议分配方式</th>
-                      <th class="px-3 py-2 text-left font-medium">主原因</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>${renderConstraintsTaskTable(keyword)}</tbody>
-                </table>
-              </div>
-            `
-            : `
-              <div class="overflow-x-auto rounded-md border">
-                <table class="w-full text-sm">
-                  <thead class="border-b bg-muted/40 text-muted-foreground">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-medium">工厂</th>
-                      <th class="px-3 py-2 text-left font-medium">任务总数</th>
-                      <th class="px-3 py-2 text-left font-medium">强约束任务数</th>
-                      <th class="px-3 py-2 text-left font-medium">中约束任务数</th>
-                      <th class="px-3 py-2 text-left font-medium">低约束任务数</th>
-                      <th class="px-3 py-2 text-left font-medium">分配建议</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>${renderConstraintsFactoryTable(keyword)}</tbody>
-                </table>
-              </div>
-            `
-        }
-      </section>
-    </div>
-  `
-}
-
-function getOrderPolicies() {
-  return productionOrders.map((order) => {
-    const orderId = order.productionOrderId
-    const tasks = processTasks.filter((task) => task.productionOrderId === orderId)
-    const blockedTaskCount = tasks.filter((task) => task.status === 'BLOCKED').length
-    const qcPendingCount = getOrderQcPendingCount(orderId)
-    const dyeStatusZh = getOrderDyeStatus(orderId)
-    const exceptionCount = getOrderOpenExceptionCount(orderId)
-
-    const policyLevelZh =
-      blockedTaskCount > 0 || exceptionCount > 0
-        ? '优先处理'
-        : qcPendingCount > 0
-          ? '尽快处理'
-          : dyeStatusZh === '生产暂停'
-            ? '等待进入下一步'
-            : tasks.length > 0
-              ? '可推进'
-              : '待启动'
-
-    const recommendedPolicyZh =
-      blockedTaskCount > 0
-        ? '优先处理生产暂停'
-        : exceptionCount > 0
-          ? '优先处理异常'
-          : qcPendingCount > 0
-            ? '优先待质检'
-            : dyeStatusZh === '生产暂停'
-              ? '优先等待染印完成'
-              : tasks.length > 0
-                ? '可直接推进'
-                : '等待任务启动'
-
-    const policyReasonZh =
-      blockedTaskCount > 0
-        ? '当前存在生产暂停任务，先完成开始条件或处理异常'
-        : exceptionCount > 0
-          ? '当前存在派单/竞价异常，需先处理'
-          : qcPendingCount > 0
-            ? '当前存在未结案质检事项'
-            : dyeStatusZh === '生产暂停'
-              ? '当前染印尚生产暂停，建议等待回货'
-              : tasks.length > 0
-                ? '当前链路具备继续推进条件'
-                : '当前生产单尚未形成有效任务链'
-
-    return {
-      productionOrderId: orderId,
-      factorySummaryZh: order.mainFactorySnapshot?.name ?? order.mainFactoryId ?? '—',
-      taskCount: tasks.length,
-      blockedTaskCount,
-      qcPendingCount,
-      dyeStatusZh,
-      exceptionCount,
-      policyLevelZh,
-      recommendedPolicyZh,
-      policyReasonZh,
-    }
-  })
-}
-
-function getTaskPolicies() {
-  const orderDyeMap = new Map<string, string>()
-  const orderQcMap = new Map<string, boolean>()
-  const orderExceptionMap = new Map<string, boolean>()
-
-  for (const order of productionOrders) {
-    orderDyeMap.set(order.productionOrderId, getOrderDyeStatus(order.productionOrderId))
-    orderQcMap.set(order.productionOrderId, getOrderQcPendingCount(order.productionOrderId) > 0)
-    orderExceptionMap.set(order.productionOrderId, getOrderOpenExceptionCount(order.productionOrderId) > 0)
-  }
-
-  return processTasks.map((task) => {
-    const orderId = task.productionOrderId
-    const order = productionOrders.find((item) => item.productionOrderId === orderId)
-
-    const factorySummaryZh =
-      task.assignedFactoryId ??
-      order?.mainFactorySnapshot?.name ??
-      order?.mainFactoryId ??
-      '—'
-
-    const taskStatusZh = taskStatusText(task.status)
-    const blockedFlagZh = task.status === 'BLOCKED' ? '是' : '否'
-
-    const dyeStatus = orderDyeMap.get(orderId) ?? '无染印'
-    const dyeConstraintZh =
-      dyeStatus === '无染印' ? '无染印约束' : dyeStatus === '生产暂停' ? '染印生产暂停' : '染印可继续'
-
-    const qcConstraintZh = orderQcMap.get(orderId) ? '存在待质检' : '无质检约束'
-
-    const taskHasException = legacyLikeExceptions.some(
-      (item) => item.sourceType === 'TASK' && item.sourceId === task.taskId && item.caseStatus !== 'CLOSED',
-    )
-    const orderHasException = orderExceptionMap.get(orderId)
-
-    const exceptionConstraintZh = taskHasException
-      ? '存在派单异常'
-      : orderHasException
-        ? '存在关联异常'
-        : '无异常约束'
-
-    const recommendedAssignModeZh =
-      task.status === 'DONE' || task.status === 'CANCELLED'
-        ? '暂不分配'
-        : task.status === 'BLOCKED' || exceptionConstraintZh !== '无异常约束'
-          ? '暂不分配'
-          : dyeConstraintZh === '染印生产暂停' || qcConstraintZh === '存在待质检'
-            ? '竞价'
-            : '直接派单'
-
-    const recommendedPolicyZh =
-      task.status === 'DONE' || task.status === 'CANCELLED'
-        ? '结束归档'
-        : task.status === 'BLOCKED'
-          ? '优先处理生产暂停'
-          : exceptionConstraintZh !== '无异常约束'
-            ? '优先处理异常'
-            : dyeConstraintZh === '染印生产暂停'
-              ? '等待进入下一步'
-              : qcConstraintZh === '存在待质检'
-                ? '关注质检'
-                : task.status === 'IN_PROGRESS'
-                  ? '持续推进'
-                  : '进入分配'
-
-    const policyReasonZh =
-      task.status === 'DONE' || task.status === 'CANCELLED'
-        ? '任务已结束，无需继续调度'
-        : task.status === 'BLOCKED'
-          ? '任务生产暂停，当前不宜推进'
-          : exceptionConstraintZh !== '无异常约束'
-            ? '存在派单/竞价异常，建议先处理'
-            : dyeConstraintZh === '染印生产暂停'
-              ? '染印生产暂停，建议等待后再分配'
-              : qcConstraintZh === '存在待质检'
-                ? '存在待质检事项，建议谨慎推进'
-                : task.status === 'IN_PROGRESS'
-                  ? '任务已进入执行，可持续跟进'
-                  : '当前任务可进入分配或启动'
-
-    return {
-      taskId: task.taskId,
-      productionOrderId: orderId,
-      factorySummaryZh,
-      taskStatusZh,
-      blockedFlagZh,
-      dyeConstraintZh,
-      qcConstraintZh,
-      exceptionConstraintZh,
-      recommendedAssignModeZh,
-      recommendedPolicyZh,
-      policyReasonZh,
-    }
-  })
-}
-
-function renderPoliciesOrderTable(keyword: string): string {
-  const rows = getOrderPolicies().filter((row) => {
-    if (!keyword) return true
-    return (
-      includesKeyword(toLower(row.productionOrderId), keyword) ||
-      includesKeyword(toLower(row.factorySummaryZh), keyword)
-    )
+  syncCapacityStateFromRoute()
+  syncDispatchCapacityUsageLedger()
+  const calendar = buildFactoryCalendarData({
+    factoryId: state.constraintsFactoryId,
+    windowDays: state.constraintsWindowDays,
+    processCode: state.constraintsProcessCode || undefined,
+    craftCode: state.constraintsCraftCode || undefined,
   })
 
-  if (rows.length === 0) {
-    return '<tr><td colspan="11" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无生产单策略数据</td></tr>'
+  state.constraintsFactoryId = calendar.selectedFactoryId
+  state.constraintsWindowDays = calendar.windowDays
+  state.constraintsProcessCode = calendar.selectedProcessCode ?? ''
+  state.constraintsCraftCode = calendar.selectedCraftCode ?? ''
+
+  const scopedRows = state.routeContext.orderIds.length
+    ? calendar.rows.filter((row) =>
+        [...row.committedSources, ...row.frozenSources].some((source) => state.routeContext.orderIds.includes(source.productionOrderId)),
+      )
+    : calendar.rows
+  const scopedTaskIds = new Set(scopedRows.flatMap((row) => [...row.committedSources, ...row.frozenSources].map((source) => source.taskId)))
+  const scopedCraftKeys = new Set(scopedRows.map((row) => `${row.processCode}::${row.craftCode}`))
+  const scopedSummary = state.routeContext.orderIds.length
+    ? {
+        supplyTotal: scopedRows.reduce((sum, row) => sum + row.supplySam, 0),
+        committedTotal: scopedRows.reduce((sum, row) => sum + row.committedSam, 0),
+        frozenTotal: scopedRows.reduce((sum, row) => sum + row.frozenSam, 0),
+        remainingTotal: scopedRows.reduce((sum, row) => sum + row.remainingSam, 0),
+        craftCount: scopedCraftKeys.size,
+        taskCount: scopedTaskIds.size,
+      }
+    : calendar.summary
+
+  const totalPages = Math.max(1, Math.ceil(scopedRows.length / FACTORY_CALENDAR_PAGE_SIZE))
+  if (state.constraintsCurrentPage > totalPages) {
+    state.constraintsCurrentPage = totalPages
+  }
+  if (state.constraintsCurrentPage < 1) {
+    state.constraintsCurrentPage = 1
   }
 
-  return rows
-    .map((row) => {
-      const levelTone: Tone =
-        row.policyLevelZh === '优先处理'
-          ? 'destructive'
-          : row.policyLevelZh === '尽快处理'
-            ? 'default'
-            : row.policyLevelZh === '等待进入下一步'
-              ? 'secondary'
-              : 'outline'
+  const selectedRow =
+    scopedRows.find((row) => row.rowKey === state.constraintsDetailRowKey)
+    ?? scopedRows[0]
+    ?? null
 
-      const policyTone: Tone =
-        row.recommendedPolicyZh === '优先处理生产暂停' || row.recommendedPolicyZh === '优先处理异常'
-          ? 'destructive'
-          : row.recommendedPolicyZh === '优先待质检' ||
-              row.recommendedPolicyZh === '等待进入下一步' ||
-              row.recommendedPolicyZh === '关注质检'
-            ? 'default'
-            : row.recommendedPolicyZh === '可直接推进' ||
-                row.recommendedPolicyZh === '持续推进' ||
-                row.recommendedPolicyZh === '进入分配'
-              ? 'secondary'
-              : row.recommendedPolicyZh === '结束归档'
-                ? 'outline'
-                : 'secondary'
+  state.constraintsDetailRowKey = selectedRow?.rowKey ?? ''
 
-      const dyeTone: Tone = row.dyeStatusZh === '生产暂停' ? 'destructive' : row.dyeStatusZh === '可继续' ? 'secondary' : 'outline'
-
-      return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.productionOrderId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3 text-sm">${row.taskCount}</td>
-          <td class="px-3 py-3">${
-            row.blockedTaskCount > 0
-              ? renderBadge(String(row.blockedTaskCount), 'destructive')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${
-            row.qcPendingCount > 0
-              ? renderBadge(String(row.qcPendingCount), 'default')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${renderBadge(row.dyeStatusZh, dyeTone)}</td>
-          <td class="px-3 py-3">${
-            row.exceptionCount > 0
-              ? renderBadge(String(row.exceptionCount), 'destructive')
-              : '<span class="text-muted-foreground">0</span>'
-          }</td>
-          <td class="px-3 py-3">${renderBadge(row.policyLevelZh, levelTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.recommendedPolicyZh, policyTone)}</td>
-          <td class="max-w-[200px] px-3 py-3 text-xs text-muted-foreground">${escapeHtml(row.policyReasonZh)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/process/dye-orders" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看染印</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
-}
-
-function renderPoliciesTaskTable(keyword: string): string {
-  const rows = getTaskPolicies().filter((row) => {
-    if (!keyword) return true
-    return (
-      includesKeyword(toLower(row.taskId), keyword) ||
-      includesKeyword(toLower(row.productionOrderId), keyword) ||
-      includesKeyword(toLower(row.factorySummaryZh), keyword)
-    )
-  })
-
-  if (rows.length === 0) {
-    return '<tr><td colspan="12" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无任务策略数据</td></tr>'
-  }
-
-  return rows
-    .map((row) => {
-      const statusTone: Tone =
-        row.taskStatusZh === '生产暂停'
-          ? 'destructive'
-          : row.taskStatusZh === '进行中'
-            ? 'default'
-            : row.taskStatusZh === '已完成'
-              ? 'secondary'
-              : 'outline'
-
-      const blockedTone: Tone = row.blockedFlagZh === '是' ? 'destructive' : 'outline'
-      const dyeTone: Tone = row.dyeConstraintZh === '染印生产暂停' ? 'destructive' : row.dyeConstraintZh === '染印可继续' ? 'secondary' : 'outline'
-      const qcTone: Tone = row.qcConstraintZh === '存在待质检' ? 'default' : 'outline'
-      const exTone: Tone =
-        row.exceptionConstraintZh === '存在派单异常'
-          ? 'destructive'
-          : row.exceptionConstraintZh === '存在关联异常'
-            ? 'default'
-            : 'outline'
-
-      const modeTone: Tone =
-        row.recommendedAssignModeZh === '暂不分配'
-          ? 'destructive'
-          : row.recommendedAssignModeZh === '竞价'
-            ? 'default'
-            : 'secondary'
-
-      const policyTone: Tone =
-        row.recommendedPolicyZh === '优先处理生产暂停' || row.recommendedPolicyZh === '优先处理异常'
-          ? 'destructive'
-          : row.recommendedPolicyZh === '等待进入下一步' || row.recommendedPolicyZh === '关注质检'
-            ? 'default'
-            : row.recommendedPolicyZh === '持续推进' || row.recommendedPolicyZh === '进入分配'
-              ? 'secondary'
-              : row.recommendedPolicyZh === '结束归档'
-                ? 'outline'
-                : 'secondary'
-
-      return `
-        <tr class="border-b last:border-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.taskId)}</td>
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.productionOrderId)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(row.factorySummaryZh)}</td>
-          <td class="px-3 py-3">${renderBadge(row.taskStatusZh, statusTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.blockedFlagZh, blockedTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.dyeConstraintZh, dyeTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.qcConstraintZh, qcTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.exceptionConstraintZh, exTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.recommendedAssignModeZh, modeTone)}</td>
-          <td class="px-3 py-3">${renderBadge(row.recommendedPolicyZh, policyTone)}</td>
-          <td class="max-w-[200px] px-3 py-3 text-xs text-muted-foreground">${escapeHtml(row.policyReasonZh)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              <button data-nav="/fcs/process/task-breakdown" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看任务</button>
-              <button data-nav="/fcs/production/orders/${row.productionOrderId}" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看生产单</button>
-              <button data-nav="/fcs/dispatch/board" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看派单</button>
-              <button data-nav="/fcs/progress/exceptions" class="inline-flex h-8 items-center rounded-md px-3 text-xs hover:bg-muted">查看异常</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
-}
-
-export function renderCapacityPoliciesPage(): string {
-  const orderPolicies = getOrderPolicies()
-  const taskPolicies = getTaskPolicies()
-
-  const stats = {
-    orderPriority: orderPolicies.filter((item) => item.policyLevelZh === '优先处理').length,
-    orderSoon: orderPolicies.filter((item) => item.policyLevelZh === '尽快处理').length,
-    orderWait: orderPolicies.filter((item) => item.policyLevelZh === '等待进入下一步').length,
-    taskBlocked: taskPolicies.filter((item) => item.recommendedPolicyZh === '优先处理生产暂停').length,
-    taskException: taskPolicies.filter((item) => item.recommendedPolicyZh === '优先处理异常').length,
-    taskDirect: taskPolicies.filter(
-      (item) => item.recommendedPolicyZh === '持续推进' || item.recommendedPolicyZh === '进入分配',
-    ).length,
-  }
-
-  const keyword = state.policiesKeyword.trim().toLowerCase()
+  const windowText = calendar.dates.length
+    ? `${calendar.dates[0]} 至 ${calendar.dates[calendar.dates.length - 1]}`
+    : '暂无日期窗口'
+  const selectedCraftValue =
+    calendar.selectedCraftCode && calendar.selectedProcessCode
+      ? `${calendar.selectedProcessCode}::${calendar.selectedCraftCode}`
+      : ''
 
   return `
     <div class="space-y-6">
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-semibold text-foreground">调度策略</h1>
-          <p class="mt-1 text-sm text-muted-foreground">调度策略用于基于当前生产暂停、质检、染印、异常等状态给出轻量处理建议；原型阶段采用规则型建议，不自动执行调度</p>
-        </div>
-        <div class="flex gap-3 text-sm text-muted-foreground">
-          <span>优先处理生产单 <strong class="text-foreground">${stats.orderPriority}</strong> 张</span>
-          <span>/</span>
-          <span>优先处理生产暂停任务 <strong class="text-foreground">${stats.taskBlocked}</strong> 条</span>
+          <h1 class="text-2xl font-bold tracking-tight">工厂日历</h1>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(calendar.selectedFactoryName)} / 当前窗口 ${escapeHtml(windowText)}</p>
         </div>
       </header>
 
-      <section class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        ${renderStatCard('优先处理生产单数', stats.orderPriority)}
-        ${renderStatCard('尽快处理生产单数', stats.orderSoon)}
-        ${renderStatCard('等待进入下一步生产单数', stats.orderWait)}
-        ${renderStatCard('优先处理生产暂停任务数', stats.taskBlocked)}
-        ${renderStatCard('优先处理异常任务数', stats.taskException)}
-        ${renderStatCard('可直接推进任务数', stats.taskDirect)}
+      ${renderCapacityRouteContextBanner('constraints')}
+
+      ${renderPageHint('当前页只看选定工厂在未来窗口内的标准工时事实表：供给来自产能档案自动计算结果，已占用来自占用工时对象，已冻结来自冻结工时对象；待分配需求不会混入工厂负载。')}
+
+      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        ${renderMetricStatCard('窗口总供给标准工时', formatSamValue(scopedSummary.supplyTotal))}
+        ${renderMetricStatCard('窗口已占用标准工时', formatSamValue(scopedSummary.committedTotal), scopedSummary.committedTotal > 0 ? 'text-blue-700' : '')}
+        ${renderMetricStatCard('窗口已冻结标准工时', formatSamValue(scopedSummary.frozenTotal), scopedSummary.frozenTotal > 0 ? 'text-amber-700' : '')}
+        ${renderMetricStatCard('窗口剩余标准工时', formatSamValue(scopedSummary.remainingTotal), scopedSummary.remainingTotal < 0 ? 'text-red-600' : 'text-green-700')}
+        ${renderStatCard('覆盖工艺数', scopedSummary.craftCount)}
+        ${renderStatCard('涉及任务数', scopedSummary.taskCount)}
       </section>
 
-      <section class="space-y-4">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <div class="inline-flex rounded-md bg-muted p-1">
-            <button
-              data-capacity-action="switch-tab"
-              data-page="policies"
-              data-tab="order"
-              class="${
-                state.policiesTab === 'order'
-                  ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                  : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-              }"
-            >
-              生产单策略
-            </button>
-            <button
-              data-capacity-action="switch-tab"
-              data-page="policies"
-              data-tab="task"
-              class="${
-                state.policiesTab === 'task'
-                  ? 'rounded-md bg-background px-3 py-1.5 text-sm shadow-sm'
-                  : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground'
-              }"
-            >
-              任务策略
-            </button>
+      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">工厂</span>
+          <select data-capacity-filter="constraints-factory-id" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+            ${calendar.factoryOptions
+              .map(
+                (factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === calendar.selectedFactoryId ? 'selected' : ''}>${escapeHtml(factory.label)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">日期窗口</span>
+          <select data-capacity-filter="constraints-window-days" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+            ${calendar.windowOptions
+              .map(
+                (option) => `<option value="${option.value}" ${option.value === calendar.windowDays ? 'selected' : ''}>${escapeHtml(option.label)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">工序</span>
+          <select data-capacity-filter="constraints-process-code" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+            <option value="">全部工序</option>
+            ${calendar.processOptions
+              .map(
+                (process) => `<option value="${escapeHtml(process.processCode)}" ${process.processCode === calendar.selectedProcessCode ? 'selected' : ''}>${escapeHtml(process.processName)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">工艺</span>
+          <select data-capacity-filter="constraints-craft-code" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+            <option value="">全部工艺</option>
+            ${calendar.craftOptions
+              .map(
+                (craft) => `<option value="${escapeHtml(`${craft.processCode}::${craft.craftCode}`)}" ${`${craft.processCode}::${craft.craftCode}` === selectedCraftValue ? 'selected' : ''}>${escapeHtml(`${craft.processName} / ${craft.craftName}`)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+      </section>
+
+      <section class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
+        <div class="space-y-4">
+          <div class="rounded-md border">
+            <div class="border-b bg-muted/30 px-4 py-3">
+              <h2 class="text-sm font-semibold text-foreground">每日供需主表</h2>
+              <p class="mt-1 text-xs text-muted-foreground">按 日期 / 工序 / 工艺 展示当前选中工厂在窗口内的每日供给、已占用、已冻结与剩余。任务数口径：整任务按任务计 1，按明细按“任务 + 分配单元”计 1。</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm" data-factory-calendar-table>
+                <thead class="border-b bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-medium">日期</th>
+                    <th class="px-3 py-2 text-left font-medium">工序</th>
+                    <th class="px-3 py-2 text-left font-medium">工艺</th>
+                    <th class="px-3 py-2 text-right font-medium">供给标准工时</th>
+                    <th class="px-3 py-2 text-right font-medium">已占用标准工时</th>
+                    <th class="px-3 py-2 text-right font-medium">已冻结标准工时</th>
+                    <th class="px-3 py-2 text-right font-medium">剩余标准工时</th>
+                    <th class="px-3 py-2 text-center font-medium">占用任务数</th>
+                    <th class="px-3 py-2 text-center font-medium">冻结任务数</th>
+                  </tr>
+                </thead>
+                <tbody>${renderFactoryCalendarMainTable(scopedRows, selectedRow?.rowKey ?? '')}</tbody>
+              </table>
+            </div>
+            ${renderFactoryCalendarPagination(scopedRows.length)}
           </div>
-          <input
-            data-capacity-filter="policies-keyword"
-            value="${escapeHtml(state.policiesKeyword)}"
-            placeholder="关键词（生产单号 / 任务ID / 工厂）"
-            class="h-9 w-72 rounded-md border bg-background px-3 text-sm"
-          />
+          <p class="text-xs text-muted-foreground">${escapeHtml(calendar.countRuleNote)}</p>
         </div>
 
-        ${
-          state.policiesTab === 'order'
-            ? `
-              <div class="overflow-x-auto rounded-md border">
-                <table class="w-full text-sm">
-                  <thead class="border-b bg-muted/40 text-muted-foreground">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                      <th class="px-3 py-2 text-left font-medium">主工厂</th>
-                      <th class="px-3 py-2 text-left font-medium">关联任务数</th>
-                      <th class="px-3 py-2 text-left font-medium">生产暂停任务数</th>
-                      <th class="px-3 py-2 text-left font-medium">待质检数</th>
-                      <th class="px-3 py-2 text-left font-medium">染印状态</th>
-                      <th class="px-3 py-2 text-left font-medium">异常数</th>
-                      <th class="px-3 py-2 text-left font-medium">策略等级</th>
-                      <th class="px-3 py-2 text-left font-medium">建议策略</th>
-                      <th class="min-w-[180px] px-3 py-2 text-left font-medium">原因说明</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>${renderPoliciesOrderTable(keyword)}</tbody>
-                </table>
-              </div>
-            `
-            : `
-              <div class="overflow-x-auto rounded-md border">
-                <table class="w-full text-sm">
-                  <thead class="border-b bg-muted/40 text-muted-foreground">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-medium">任务ID</th>
-                      <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                      <th class="px-3 py-2 text-left font-medium">工厂</th>
-                      <th class="px-3 py-2 text-left font-medium">任务状态</th>
-                      <th class="px-3 py-2 text-left font-medium">是否生产暂停</th>
-                      <th class="px-3 py-2 text-left font-medium">染印约束</th>
-                      <th class="px-3 py-2 text-left font-medium">质检约束</th>
-                      <th class="px-3 py-2 text-left font-medium">异常约束</th>
-                      <th class="px-3 py-2 text-left font-medium">建议分配方式</th>
-                      <th class="px-3 py-2 text-left font-medium">建议策略</th>
-                      <th class="min-w-[180px] px-3 py-2 text-left font-medium">原因说明</th>
-                      <th class="px-3 py-2 text-left font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>${renderPoliciesTaskTable(keyword)}</tbody>
-                </table>
-              </div>
-            `
-        }
+        ${renderFactoryCalendarDetailPanel(calendar, selectedRow)}
       </section>
     </div>
   `
 }
 
+function renderCapacityPoliciesOverrideDrawer(): string {
+  if (!state.policiesEditorMode) return ''
+
+  const factoryOptions = getPoliciesFactoryOptions()
+  const selectedFactoryId = state.policiesForm.factoryId || factoryOptions[0]?.value || ''
+  const processOptions = selectedFactoryId ? getPoliciesProcessOptions(selectedFactoryId) : []
+  const selectedProcessCode =
+    state.policiesForm.processCode && processOptions.some((item) => item.value === state.policiesForm.processCode)
+      ? state.policiesForm.processCode
+      : ''
+  const craftOptions = selectedFactoryId && selectedProcessCode ? getPoliciesCraftOptions(selectedFactoryId, selectedProcessCode) : []
+  const title = state.policiesEditorMode === 'edit' ? '编辑暂停例外' : '新增暂停例外'
+
+  return `
+    <div class="fixed inset-0 z-50" data-testid="capacity-policies-override-drawer">
+      <button
+        class="absolute inset-0 bg-black/45"
+        data-capacity-action="close-policies-editor"
+        aria-label="关闭暂停例外抽屉"
+      ></button>
+      <section class="absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col overflow-hidden border-l bg-background shadow-2xl">
+        <header class="flex items-start justify-between border-b px-6 py-5">
+          <div>
+            <h2 class="text-lg font-semibold text-foreground">${title}</h2>
+            <p class="mt-1 text-sm text-muted-foreground">当前阶段仅维护暂停例外，支持整厂、工序、工艺三个层级。</p>
+          </div>
+          <button type="button" data-capacity-action="close-policies-editor" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted">关闭</button>
+        </header>
+        <div class="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          ${
+            state.policiesFormError
+              ? `<div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">${escapeHtml(state.policiesFormError)}</div>`
+              : ''
+          }
+          <div class="grid gap-4 md:grid-cols-2">
+            <label class="space-y-2 text-sm">
+              <span class="font-medium text-foreground">工厂</span>
+              <select
+                data-capacity-policies-field="factoryId"
+                class="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">请选择工厂</option>
+                ${factoryOptions
+                  .map(
+                    (option) => `
+                      <option value="${escapeHtml(option.value)}" ${option.value === selectedFactoryId ? 'selected' : ''}>${escapeHtml(option.label)}</option>
+                    `,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-2 text-sm">
+              <span class="font-medium text-foreground">工序（可选）</span>
+              <select
+                data-capacity-policies-field="processCode"
+                class="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">整厂暂停</option>
+                ${processOptions
+                  .map(
+                    (option) => `
+                      <option value="${escapeHtml(option.value)}" ${option.value === selectedProcessCode ? 'selected' : ''}>${escapeHtml(option.label)}</option>
+                    `,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-2 text-sm">
+              <span class="font-medium text-foreground">工艺（可选）</span>
+              <select
+                data-capacity-policies-field="craftCode"
+                class="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                ${selectedProcessCode ? '' : 'disabled'}
+              >
+                <option value="">${selectedProcessCode ? '整工序暂停' : '请先选择工序'}</option>
+                ${craftOptions
+                  .map(
+                    (option) => `
+                      <option value="${escapeHtml(option.value)}" ${option.value === state.policiesForm.craftCode ? 'selected' : ''}>${escapeHtml(option.label)}</option>
+                    `,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <div class="rounded-lg bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+              <div class="font-medium text-foreground">作用范围规则</div>
+              <div class="mt-1 leading-6">仅选工厂 = 整厂暂停；工厂 + 工序 = 工序暂停；工厂 + 工序 + 工艺 = 工艺暂停。</div>
+            </div>
+            <label class="space-y-2 text-sm">
+              <span class="font-medium text-foreground">起始日期</span>
+              <input
+                type="date"
+                data-capacity-policies-field="startDate"
+                value="${escapeHtml(state.policiesForm.startDate)}"
+                class="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              />
+            </label>
+            <label class="space-y-2 text-sm">
+              <span class="font-medium text-foreground">结束日期</span>
+              <input
+                type="date"
+                data-capacity-policies-field="endDate"
+                value="${escapeHtml(state.policiesForm.endDate)}"
+                class="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              />
+            </label>
+          </div>
+          <label class="space-y-2 text-sm">
+            <span class="font-medium text-foreground">原因</span>
+            <input
+              type="text"
+              data-capacity-policies-field="reason"
+              value="${escapeHtml(state.policiesForm.reason)}"
+              placeholder="例如：整厂盘点、关键工艺设备检修"
+              class="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            />
+          </label>
+          <label class="space-y-2 text-sm">
+            <span class="font-medium text-foreground">说明（可选）</span>
+            <textarea
+              data-capacity-policies-field="note"
+              rows="4"
+              placeholder="补充说明此次暂停例外的背景、范围或恢复条件"
+              class="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >${escapeHtml(state.policiesForm.note)}</textarea>
+          </label>
+        </div>
+        <footer class="flex items-center justify-end gap-3 border-t px-6 py-4">
+          <button type="button" data-capacity-action="close-policies-editor" class="rounded-md border px-4 py-2 text-sm hover:bg-muted">取消</button>
+          <button type="button" data-capacity-action="submit-policies-editor" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">保存</button>
+        </footer>
+      </section>
+    </div>
+  `
+}
+
+export function renderCapacityPoliciesPage(): string {
+  const calendarData = buildCapacityCalendarData()
+  const overrideSourceRows = listCapacityCalendarOverrides()
+  const overrideSourceMap = new Map(overrideSourceRows.map((item) => [item.id, item]))
+  const overrideRows = calendarData.pauseOverrideRows.map((row) => {
+    const source = overrideSourceMap.get(row.id)
+    const stateMeta = resolvePoliciesOverrideStateLabel(row.startDate, row.endDate)
+    return {
+      ...row,
+      reason: source?.reason ?? row.reason,
+      note: source?.note ?? row.note ?? '',
+      stateLabel: stateMeta.label,
+      stateTone: stateMeta.tone,
+    }
+  })
+
+  const thresholds = CAPACITY_THRESHOLD_RULES.map((item) => `
+    <div class="space-y-1 border-t border-slate-200 pt-3 first:border-0 first:pt-0">
+      <div class="text-sm font-medium text-foreground">${escapeHtml(item.label)}</div>
+      <p class="text-sm leading-6 text-muted-foreground">${escapeHtml(item.description)}</p>
+    </div>
+  `).join('')
+
+  const overrideRowsHtml =
+    overrideRows.length === 0
+      ? '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-muted-foreground">当前暂无暂停例外，可按整厂、工序或工艺新增。</td></tr>'
+      : overrideRows
+          .map((row) => {
+            const scopeText = row.craftName
+              ? `${row.processName ?? row.processCode} / ${row.craftName}`
+              : row.processName ?? '整厂暂停'
+            const actionLabel = row.stateLabel === '生效中' ? '失效' : '删除'
+            return `
+              <tr class="border-b last:border-0">
+                <td class="px-4 py-3 text-sm">
+                  <div class="font-medium text-foreground">${escapeHtml(row.factoryName)}</div>
+                  <div class="mt-1">${renderBadge(row.stateLabel, row.stateTone)}</div>
+                </td>
+                <td class="px-4 py-3 text-sm text-muted-foreground">${escapeHtml(scopeText)}</td>
+                <td class="px-4 py-3 text-sm">${escapeHtml(row.startDate)}</td>
+                <td class="px-4 py-3 text-sm">${escapeHtml(row.endDate)}</td>
+                <td class="px-4 py-3 text-sm">${escapeHtml(row.reason)}</td>
+                <td class="px-4 py-3 text-sm text-muted-foreground">${escapeHtml(row.note || '—')}</td>
+                <td class="px-4 py-3 text-sm text-muted-foreground">${escapeHtml(row.scopeLabel)}</td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" data-capacity-action="open-policies-editor" data-override-id="${escapeHtml(row.id)}" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted">编辑</button>
+                    <button type="button" data-capacity-action="remove-policies-override" data-override-id="${escapeHtml(row.id)}" class="rounded-md border px-3 py-1.5 text-xs text-red-700 hover:bg-red-50">${actionLabel}</button>
+                  </div>
+                </td>
+              </tr>
+            `
+          })
+          .join('')
+
+  return `
+    <div class="space-y-6" data-testid="capacity-policies-page">
+      <header>
+        <h1 class="text-2xl font-semibold text-foreground">规则与例外</h1>
+      </header>
+
+      ${
+        state.policiesNotice
+          ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">${escapeHtml(state.policiesNotice)}</div>`
+          : ''
+      }
+
+      <section class="rounded-lg border bg-card px-5 py-5" data-testid="capacity-policies-rules-section">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-foreground">当前生效规则</h2>
+            <p class="mt-1 text-sm text-muted-foreground">规则说明直接消费统一规则源，并与产能日历核心计算口径保持一致。</p>
+          </div>
+          ${renderBadge('当前展示为系统生效规则', 'outline')}
+        </div>
+        <div class="grid gap-4 lg:grid-cols-3">
+          ${CAPACITY_RULE_SECTIONS.map((section) => renderCapacityRuleSection(section)).join('')}
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-card px-5 py-5" data-testid="capacity-policies-overrides-section">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
+          <div>
+            <h2 class="text-lg font-semibold text-foreground">暂停例外</h2>
+            <p class="mt-1 text-sm text-muted-foreground">当前阶段唯一人工维护的动态例外对象。整厂、工序、工艺三级暂停都在这里维护。</p>
+          </div>
+          <button type="button" data-capacity-action="open-policies-editor" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">新增暂停例外</button>
+        </div>
+        <div class="mt-4 overflow-x-auto rounded-md border">
+          <table class="w-full text-sm">
+            <thead class="border-b bg-muted/40 text-muted-foreground">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium">工厂</th>
+                <th class="px-4 py-3 text-left font-medium">工序 / 工艺</th>
+                <th class="px-4 py-3 text-left font-medium">起始日期</th>
+                <th class="px-4 py-3 text-left font-medium">结束日期</th>
+                <th class="px-4 py-3 text-left font-medium">原因</th>
+                <th class="px-4 py-3 text-left font-medium">说明</th>
+                <th class="px-4 py-3 text-left font-medium">作用范围</th>
+                <th class="px-4 py-3 text-left font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>${overrideRowsHtml}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-card px-5 py-5" data-testid="capacity-policies-thresholds-section">
+        <div class="mb-4">
+          <h2 class="text-lg font-semibold text-foreground">阈值说明</h2>
+          <p class="mt-1 text-sm text-muted-foreground">这里统一说明紧张、超载与日期不足的业务口径，避免页面各写各的解释。</p>
+        </div>
+        <div class="grid gap-4 lg:grid-cols-2">
+          <article class="rounded-lg bg-muted/30 px-4 py-4">
+            <div class="space-y-3">${thresholds}</div>
+          </article>
+          <article class="rounded-lg bg-muted/30 px-4 py-4">
+            <div class="space-y-3">
+              <div class="space-y-1">
+                <div class="text-sm font-medium text-foreground">当前阶段声明</div>
+                <p class="text-sm leading-6 text-muted-foreground">${escapeHtml(CAPACITY_NO_REPLAY_SAM_NOTE)}</p>
+              </div>
+              <div class="border-t border-slate-200 pt-3">
+                <div class="text-sm font-medium text-foreground">为什么待分配不扣到工厂</div>
+                <p class="text-sm leading-6 text-muted-foreground">待分配需求还没有稳定落到具体工厂，只在模块里保留需求提醒，不提前扣减任意工厂的可供给标准工时。</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      ${renderCapacityPoliciesOverrideDrawer()}
+    </div>
+  `
+}
+
 export function handleCapacityEvent(target: HTMLElement): boolean {
+  const policiesFieldNode = target.closest<HTMLElement>('[data-capacity-policies-field]')
+  if (
+    policiesFieldNode instanceof HTMLInputElement ||
+    policiesFieldNode instanceof HTMLSelectElement ||
+    policiesFieldNode instanceof HTMLTextAreaElement
+  ) {
+    const field = policiesFieldNode.dataset.capacityPoliciesField as keyof CapacityPoliciesFormState | undefined
+    if (!field) return false
+    const value = policiesFieldNode.value
+
+    if (field === 'factoryId') {
+      state.policiesForm.factoryId = value
+      state.policiesForm.processCode = ''
+      state.policiesForm.craftCode = ''
+    } else if (field === 'processCode') {
+      state.policiesForm.processCode = value
+      state.policiesForm.craftCode = ''
+    } else {
+      state.policiesForm[field] = value
+    }
+    state.policiesFormError = ''
+    state.policiesNotice = ''
+    return true
+  }
+
   const filterNode = target.closest<HTMLElement>('[data-capacity-filter]')
   if (filterNode instanceof HTMLInputElement || filterNode instanceof HTMLSelectElement) {
     const filter = filterNode.dataset.capacityFilter
@@ -2040,9 +2403,77 @@ export function handleCapacityEvent(target: HTMLElement): boolean {
 
     if (filter === 'overview-keyword') state.overviewKeyword = value
     if (filter === 'risk-keyword') state.riskKeyword = value
+    if (filter === 'risk-window-days') {
+      const days = Number(value)
+      state.riskWindowDays = days === 7 || days === 30 ? days : 15
+    }
+    if (filter === 'risk-process-code') {
+      state.riskProcessCode = value
+      state.riskCraftCode = ''
+    }
+    if (filter === 'risk-craft-code') {
+      state.riskCraftCode = value
+      if (value) {
+        const [processCode] = value.split('::')
+        state.riskProcessCode = processCode ?? ''
+      }
+    }
+    if (filter === 'risk-conclusion') state.riskConclusion = value
     if (filter === 'bottleneck-keyword') state.bottleneckKeyword = value
+    if (filter === 'bottleneck-window-days') {
+      const days = Number(value)
+      state.bottleneckWindowDays = days === 7 || days === 30 ? days : 15
+      state.bottleneckCraftDetailKey = ''
+      state.bottleneckDateDetailKey = ''
+    }
+    if (filter === 'bottleneck-process-code') {
+      state.bottleneckProcessCode = value
+      state.bottleneckCraftCode = ''
+      state.bottleneckCraftDetailKey = ''
+      state.bottleneckDateDetailKey = ''
+    }
+    if (filter === 'bottleneck-craft-code') {
+      if (!value) {
+        state.bottleneckCraftCode = ''
+      } else {
+        const [processCode, craftCode] = value.split('::')
+        state.bottleneckProcessCode = processCode ?? ''
+        state.bottleneckCraftCode = craftCode ?? ''
+      }
+      state.bottleneckCraftDetailKey = ''
+      state.bottleneckDateDetailKey = ''
+    }
     if (filter === 'constraints-keyword') state.constraintsKeyword = value
-    if (filter === 'policies-keyword') state.policiesKeyword = value
+    if (filter === 'constraints-factory-id') {
+      state.constraintsFactoryId = value
+      state.constraintsProcessCode = ''
+      state.constraintsCraftCode = ''
+      state.constraintsCurrentPage = 1
+      state.constraintsDetailRowKey = ''
+    }
+    if (filter === 'constraints-window-days') {
+      const days = Number(value)
+      state.constraintsWindowDays = days === 7 || days === 30 ? days : 15
+      state.constraintsCurrentPage = 1
+      state.constraintsDetailRowKey = ''
+    }
+    if (filter === 'constraints-process-code') {
+      state.constraintsProcessCode = value
+      state.constraintsCraftCode = ''
+      state.constraintsCurrentPage = 1
+      state.constraintsDetailRowKey = ''
+    }
+    if (filter === 'constraints-craft-code') {
+      if (!value) {
+        state.constraintsCraftCode = ''
+      } else {
+        const [processCode, craftCode] = value.split('::')
+        state.constraintsProcessCode = processCode ?? ''
+        state.constraintsCraftCode = craftCode ?? ''
+      }
+      state.constraintsCurrentPage = 1
+      state.constraintsDetailRowKey = ''
+    }
 
     return true
   }
@@ -2067,7 +2498,7 @@ export function handleCapacityEvent(target: HTMLElement): boolean {
       return true
     }
 
-    if (page === 'bottleneck' && (tab === 'factory' || tab === 'order' || tab === 'task')) {
+    if (page === 'bottleneck' && (tab === 'craft' || tab === 'date' || tab === 'demand')) {
       state.bottleneckTab = tab
       return true
     }
@@ -2077,11 +2508,94 @@ export function handleCapacityEvent(target: HTMLElement): boolean {
       return true
     }
 
-    if (page === 'policies' && (tab === 'order' || tab === 'task')) {
-      state.policiesTab = tab
+    return true
+  }
+
+  if (action === 'open-policies-editor') {
+    const overrideId = actionNode.dataset.overrideId ?? ''
+    openPoliciesEditor(overrideId ? 'edit' : 'create', overrideId)
+    return true
+  }
+
+  if (action === 'close-policies-editor') {
+    closePoliciesEditor()
+    return true
+  }
+
+  if (action === 'submit-policies-editor') {
+    try {
+      const input = buildPoliciesOverrideInput()
+      if (state.policiesEditorMode === 'edit' && state.policiesEditingOverrideId) {
+        updateCapacityCalendarOverride(state.policiesEditingOverrideId, input)
+        state.policiesNotice = '暂停例外已更新。'
+      } else {
+        createCapacityCalendarOverride(input)
+        state.policiesNotice = '暂停例外已新增。'
+      }
+      closePoliciesEditor()
+      return true
+    } catch (error) {
+      state.policiesFormError = error instanceof Error ? error.message : '暂停例外保存失败'
       return true
     }
+  }
 
+  if (action === 'remove-policies-override') {
+    const overrideId = actionNode.dataset.overrideId ?? ''
+    if (!overrideId) return true
+    const current = getCapacityCalendarOverrideById(overrideId)
+    const today = new Date().toISOString().slice(0, 10)
+    if (current && current.startDate <= today && current.endDate >= today) {
+      if (current.startDate === today) {
+        removeCapacityCalendarOverride(overrideId)
+        state.policiesNotice = '暂停例外已删除。'
+      } else {
+        const yesterday = new Date(`${today}T00:00:00`)
+        yesterday.setDate(yesterday.getDate() - 1)
+        expireCapacityCalendarOverride(overrideId, yesterday.toISOString().slice(0, 10))
+        state.policiesNotice = '暂停例外已失效。'
+      }
+    } else {
+      removeCapacityCalendarOverride(overrideId)
+      state.policiesNotice = '暂停例外已删除。'
+    }
+    if (state.policiesEditingOverrideId === overrideId) {
+      closePoliciesEditor()
+    }
+    return true
+  }
+
+  if (action === 'open-factory-calendar-detail') {
+    const rowKey = actionNode.dataset.rowKey ?? ''
+    state.constraintsDetailRowKey = rowKey
+    return true
+  }
+
+  if (action === 'open-bottleneck-craft-detail') {
+    state.bottleneckCraftDetailKey = actionNode.dataset.rowKey ?? ''
+    return true
+  }
+
+  if (action === 'open-bottleneck-date-detail') {
+    state.bottleneckDateDetailKey = actionNode.dataset.date ?? ''
+    return true
+  }
+
+  if (action === 'factory-calendar-prev-page') {
+    state.constraintsCurrentPage = Math.max(1, state.constraintsCurrentPage - 1)
+    return true
+  }
+
+  if (action === 'factory-calendar-next-page') {
+    state.constraintsCurrentPage += 1
+    return true
+  }
+
+  if (action === 'factory-calendar-goto-page') {
+    const page = Number(actionNode.dataset.page)
+    if (Number.isFinite(page) && page > 0) {
+      state.constraintsCurrentPage = page
+    }
     return true
   }
 

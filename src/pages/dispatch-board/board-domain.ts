@@ -149,8 +149,8 @@ function renderKanbanCard(
         <p class="text-xs text-muted-foreground">${escapeHtml(task.productionOrderId)} · ${task.scopeQty} 件</p>
         <p class="text-xs text-muted-foreground">执行范围：${escapeHtml(formatScopeLabel(task))}</p>
         <div class="space-y-0.5 rounded border bg-background px-2 py-1 text-[10px]" data-dispatch-task-sam="${escapeHtml(task.taskId)}">
-          <p class="text-muted-foreground">单位发布工时 SAM：<span class="font-medium text-foreground">${unitSamText}</span></p>
-          <p class="text-muted-foreground">任务总发布工时 SAM：<span class="font-medium text-blue-700">${totalSamText}</span></p>
+          <p class="text-muted-foreground">单位标准工时：<span class="font-medium text-foreground">${unitSamText}</span></p>
+          <p class="text-muted-foreground">任务总标准工时：<span class="font-medium text-blue-700">${totalSamText}</span></p>
         </div>
 
         <div class="flex flex-wrap items-center gap-1.5">
@@ -296,7 +296,7 @@ function renderListView(
               <th class="w-10 px-3 py-2 text-left"><input type="checkbox" data-dispatch-field="list.selectAll" ${rows.length > 0 && state.selectedIds.size === rows.length ? 'checked' : ''} /></th>
               <th class="px-3 py-2 text-left font-medium">任务ID</th>
               <th class="px-3 py-2 text-left font-medium">任务名称</th>
-              <th class="px-3 py-2 text-left font-medium">任务消耗发布工时 SAM</th>
+              <th class="px-3 py-2 text-left font-medium">任务总标准工时</th>
               <th class="px-3 py-2 text-left font-medium">执行范围</th>
               <th class="px-3 py-2 text-left font-medium">生产单号</th>
               <th class="px-3 py-2 text-left font-medium">分配路径</th>
@@ -373,8 +373,8 @@ function renderListView(
                           <td class="px-3 py-3 text-sm font-medium">${escapeHtml(task.processNameZh)}</td>
                           <td class="px-3 py-3 text-xs" data-dispatch-task-sam="${escapeHtml(task.taskId)}">
                             <div class="space-y-1">
-                              <div><span class="text-muted-foreground">单位发布工时 SAM：</span><span class="font-medium">${unitSamText}</span></div>
-                              <div><span class="text-muted-foreground">任务总发布工时 SAM：</span><span class="font-medium text-blue-700">${totalSamText}</span></div>
+                              <div><span class="text-muted-foreground">单位标准工时：</span><span class="font-medium">${unitSamText}</span></div>
+                              <div><span class="text-muted-foreground">任务总标准工时：</span><span class="font-medium text-blue-700">${totalSamText}</span></div>
                             </div>
                           </td>
                           <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(formatScopeLabel(task))}</td>

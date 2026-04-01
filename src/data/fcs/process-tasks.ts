@@ -33,6 +33,12 @@ export type PauseReasonCode = 'CUTTING_ISSUE' | 'MATERIAL_ISSUE' | 'TECH_DOC_ISS
 export type MilestoneProofRequirement = 'NONE' | 'IMAGE' | 'VIDEO' | 'IMAGE_OR_VIDEO'
 export type MilestoneExceptionSeverity = 'S1' | 'S2' | 'S3'
 
+export interface TaskStandardTimeSnapshot {
+  standardTimePerUnit?: number
+  standardTimeUnit?: string
+  totalStandardTime?: number
+}
+
 export interface TaskAuditLog {
   id: string
   action: string
@@ -196,6 +202,12 @@ function roundPublishedSam(value: number): number {
   return Math.round(value * 1000) / 1000
 }
 
+function normalizeStandardTimeValue(value: number | undefined): number | undefined {
+  const normalized = Number(value)
+  if (!Number.isFinite(normalized) || normalized <= 0) return undefined
+  return roundPublishedSam(normalized)
+}
+
 export function resolvePublishedSamMeasureQty(input: {
   qty: number
   detailRows?: TaskDetailRow[]
@@ -236,6 +248,52 @@ export function calculatePublishedSamTotal(input: {
   if (publishedSamPerUnit <= 0) return 0
   const measureQty = resolvePublishedSamMeasureQty(input)
   return roundPublishedSam(measureQty * publishedSamPerUnit)
+}
+
+export function resolveTaskStandardTimeSnapshot(task: Pick<
+  ProcessTask,
+  'qty' | 'detailRows' | 'stdTimeMinutes' | 'publishedSamPerUnit' | 'publishedSamUnit' | 'publishedSamTotal'
+>): TaskStandardTimeSnapshot {
+  const standardTimePerUnit = normalizeStandardTimeValue(
+    Number.isFinite(task.publishedSamPerUnit) ? Number(task.publishedSamPerUnit) : task.stdTimeMinutes,
+  )
+  const standardTimeUnit = standardTimePerUnit ? task.publishedSamUnit?.trim() || '分钟/件' : undefined
+  const fallbackTotal =
+    standardTimePerUnit && standardTimeUnit
+      ? calculatePublishedSamTotal({
+          qty: Math.max(task.qty, 0),
+          detailRows: task.detailRows,
+          publishedSamPerUnit: standardTimePerUnit,
+          publishedSamUnit: standardTimeUnit,
+        })
+      : undefined
+
+  return {
+    standardTimePerUnit,
+    standardTimeUnit,
+    totalStandardTime: normalizeStandardTimeValue(task.publishedSamTotal) ?? normalizeStandardTimeValue(fallbackTotal),
+  }
+}
+
+export function sumTaskStandardTimeTotals(
+  tasks: Array<
+    Pick<
+      ProcessTask,
+      'qty' | 'detailRows' | 'stdTimeMinutes' | 'publishedSamPerUnit' | 'publishedSamUnit' | 'publishedSamTotal'
+    >
+  >,
+): number | undefined {
+  let total = 0
+  let hasValue = false
+
+  for (const task of tasks) {
+    const snapshot = resolveTaskStandardTimeSnapshot(task)
+    if (snapshot.totalStandardTime === undefined) continue
+    total += snapshot.totalStandardTime
+    hasValue = true
+  }
+
+  return hasValue ? roundPublishedSam(total) : undefined
 }
 
 function mapPublishedSamDifficultyToTaskDifficulty(value: PublishedSamDifficulty): TaskDifficulty {

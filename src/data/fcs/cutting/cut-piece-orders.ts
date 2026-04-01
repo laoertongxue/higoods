@@ -375,7 +375,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     hasInboundRecord: false,
     hasReplenishmentRisk: true,
     currentStage: '待维护唛架',
-    notes: '里布待审核通过后配料，先维护唛架和样衣参考。',
+    notes: '里布待完成配料后再领料，先维护唛架和样衣参考。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 12 },
@@ -396,8 +396,8 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     },
     spreadingRecords: [],
     linkedDocuments: [
-      { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '里布未完成审核，领料单尚未生成。' },
-      { docType: 'CONFIG_BATCH', docNo: '—', status: '待审核', createdAt: '-', summaryText: '等待仓库审核里布卷数。' },
+      { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '里布尚未完成配置，领料单尚未生成。' },
+      { docType: 'CONFIG_BATCH', docNo: '—', status: '待配料', createdAt: '-', summaryText: '等待仓库补齐里布配置卷数。' },
       { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚无扫码领料记录。' },
       { docType: 'REPLENISHMENT', docNo: 'RP-CP-024-02', status: '建议中', createdAt: '2026-03-22 10:30', summaryText: '根据尺码配比和样衣参考，预判需要补里布 1 卷。' },
       { docType: 'INBOUND', docNo: '—', status: '未入仓', createdAt: '-', summaryText: '尚未形成入仓动作。' },

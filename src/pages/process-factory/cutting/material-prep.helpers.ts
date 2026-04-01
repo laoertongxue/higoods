@@ -11,7 +11,6 @@ import type {
   CuttingPrintSlipStatus,
   CuttingQrStatus,
   CuttingReceiveStatus,
-  CuttingReviewStatus,
 } from '../../../data/fcs/cutting/types'
 
 export const materialTypeMeta: Record<CuttingMaterialType, { label: string; className: string }> = {
@@ -19,13 +18,6 @@ export const materialTypeMeta: Record<CuttingMaterialType, { label: string; clas
   DYE: { label: '染色面料', className: 'bg-sky-100 text-sky-700' },
   SOLID: { label: '净色面料', className: 'bg-emerald-100 text-emerald-700' },
   LINING: { label: '里布', className: 'bg-slate-100 text-slate-700' },
-}
-
-export const reviewMeta: Record<CuttingReviewStatus, { label: string; className: string }> = {
-  NOT_REQUIRED: { label: '无需审核', className: 'bg-slate-100 text-slate-700' },
-  PENDING: { label: '待审核', className: 'bg-amber-100 text-amber-700' },
-  PARTIAL: { label: '部分审核', className: 'bg-orange-100 text-orange-700' },
-  APPROVED: { label: '已审核', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const configMeta: Record<CuttingConfigStatus, { label: string; className: string }> = {
@@ -100,11 +92,6 @@ export function formatLength(value: number): string {
   return `${numberFormatter.format(value)} 米`
 }
 
-export function buildReviewSummary(line: CuttingMaterialPrepLine): string {
-  if (line.reviewStatus === 'NOT_REQUIRED') return '当前面料无需仓库审核。'
-  return `已审 ${line.reviewedRollCount}/${line.demandRollCount} 卷 · ${formatLength(line.reviewedLength)}/${formatLength(line.demandLength)}`
-}
-
 export function buildConfigSummary(line: CuttingMaterialPrepLine): string {
   return `已配 ${line.configuredRollCount}/${line.demandRollCount} 卷 · 剩余 ${Math.max(line.demandRollCount - line.configuredRollCount, 0)} 卷`
 }
@@ -116,18 +103,16 @@ export function buildReceiveSummary(line: CuttingMaterialPrepLine): string {
 function matchLineRisk(line: CuttingMaterialPrepLine, riskFilter: CuttingMaterialPrepFilters['riskFilter']): boolean {
   if (riskFilter === 'ALL') return true
   if (riskFilter === 'DIFF_ONLY') return line.discrepancyStatus !== 'NONE'
-  if (riskFilter === 'REVIEW_ONLY') return line.reviewStatus === 'PENDING' || line.reviewStatus === 'PARTIAL'
   if (riskFilter === 'RECEIVE_ONLY') return line.receiveStatus !== 'RECEIVED'
   return true
 }
 
 function matchLineStatus(line: CuttingMaterialPrepLine, filters: CuttingMaterialPrepFilters): boolean {
   const materialTypeOk = filters.materialType === 'ALL' || line.materialType === filters.materialType
-  const reviewOk = filters.reviewStatus === 'ALL' || line.reviewStatus === filters.reviewStatus
   const configOk = filters.configStatus === 'ALL' || line.configStatus === filters.configStatus
   const receiveOk = filters.receiveStatus === 'ALL' || line.receiveStatus === filters.receiveStatus
   const riskOk = matchLineRisk(line, filters.riskFilter)
-  return materialTypeOk && reviewOk && configOk && receiveOk && riskOk
+  return materialTypeOk && configOk && receiveOk && riskOk
 }
 
 export function filterMaterialPrepGroups(
@@ -246,7 +231,6 @@ export function buildGroupReceiveSummary(group: CuttingMaterialPrepGroup): strin
 export function buildGroupRiskFlags(group: CuttingMaterialPrepGroup): string[] {
   const flags = new Set<string>()
   group.materialLines.forEach((line) => {
-    if (line.reviewStatus === 'PENDING' || line.reviewStatus === 'PARTIAL') flags.add('待审核')
     if (line.configStatus === 'PARTIAL') flags.add('部分配置')
     if (line.receiveStatus !== 'RECEIVED') flags.add('待领料')
     if (line.discrepancyStatus === 'RECHECK_REQUIRED') flags.add('待核对')

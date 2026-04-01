@@ -301,9 +301,9 @@ function buildStatsCards(rows: OriginalCutOrderRow[]): string {
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('原始裁片单总数', stats.totalCount, '当前筛选范围', 'text-slate-900')}
-      ${renderCompactKpiCard('当前可裁数', stats.cuttableCount, '满足审核 / 配料 / 领料条件', 'text-emerald-600')}
+      ${renderCompactKpiCard('当前可裁数', stats.cuttableCount, '满足配料 / 领料条件', 'text-emerald-600')}
       ${renderCompactKpiCard('已入批次数', stats.inBatchCount, '已进入执行层批次', 'text-violet-600')}
-      ${renderCompactKpiCard('配料异常数', stats.prepExceptionCount, '审核或配料未齐', 'text-amber-600')}
+      ${renderCompactKpiCard('配料异常数', stats.prepExceptionCount, '配料或领料未齐', 'text-amber-600')}
       ${renderCompactKpiCard('领料异常数', stats.claimExceptionCount, '待领料或领料差异', 'text-rose-600')}
     </section>
   `
@@ -753,7 +753,6 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             <div class="flex flex-wrap gap-2">
               ${renderBadge(row.currentStage.label, row.currentStage.className)}
               ${renderBadge(row.cuttableState.label, row.cuttableState.className)}
-              ${renderBadge(row.materialAuditStatus.label, row.materialAuditStatus.className)}
               ${renderBadge(row.materialPrepStatus.label, row.materialPrepStatus.className)}
               ${renderBadge(row.materialClaimStatus.label, row.materialClaimStatus.className)}
             </div>

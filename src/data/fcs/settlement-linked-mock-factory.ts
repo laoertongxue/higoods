@@ -488,6 +488,7 @@ function createProductionOrders(factories: IndonesiaFactory[]): ProductionOrder[
 function createProcessTasks(orders: ProductionOrder[]): LinkedTaskContext[] {
   const taskContexts: LinkedTaskContext[] = []
   let taskSeq = 1
+  const linkedTaskStandardTimePerUnitBySeq = [0.96, 1.08, 1.18, 1.32, 0.88] as const
 
   for (const [orderIndex, order] of orders.entries()) {
     const factory = mapFactoryByCode(order.mainFactorySnapshot.code)
@@ -499,6 +500,7 @@ function createProcessTasks(orders: ProductionOrder[]): LinkedTaskContext[] {
       const dispatchPrice = assignmentMode === 'DIRECT' ? 2100 + (taskSeq % 5) * 110 : undefined
       const standardPrice = assignmentMode === 'BIDDING' ? 2280 + (taskSeq % 4) * 130 : 1980 + (taskSeq % 3) * 80
       const unitPrice = dispatchPrice ?? standardPrice
+      const standardTimePerUnit = linkedTaskStandardTimePerUnitBySeq[localSeq] ?? 1
 
       const task: ProcessTask = {
         taskId,
@@ -516,6 +518,9 @@ function createProcessTasks(orders: ProductionOrder[]): LinkedTaskContext[] {
         assignedFactoryId: factory.id,
         assignedFactoryName: factory.name,
         qcPoints: [],
+        stdTimeMinutes: standardTimePerUnit,
+        publishedSamPerUnit: standardTimePerUnit,
+        publishedSamUnit: '分钟/件',
         attachments: [],
         status: 'DONE',
         standardPrice,

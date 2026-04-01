@@ -3,7 +3,11 @@ import {
   candidateFactories,
   getVisibleRows,
   getFactoryOptions,
+  getCreateTenderTask,
+  getTaskAllocatableGroups,
+  getSelectableTenderFactoryIds,
   openAppRoute,
+  supportsDetailAssignment,
   type DispatchView,
 } from './context'
 import {
@@ -22,6 +26,17 @@ import {
   closeViewTender,
   closePriceSnapshot,
 } from './tender-domain'
+
+function getTenderSelectableFactoryIds(): Set<string> {
+  const task = getCreateTenderTask()
+  if (!task) return new Set(candidateFactories.map((factory) => factory.id))
+  const detailGroups =
+    state.createTenderForm.mode === 'DETAIL' && supportsDetailAssignment(task)
+      ? getTaskAllocatableGroups(task)
+      : []
+  return new Set(getSelectableTenderFactoryIds(task, detailGroups))
+}
+
 function updateField(field: string, node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
   if (field === 'filter.keyword') {
     state.keyword = node.value
@@ -97,26 +112,31 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
   }
 
   if (field === 'tender.minPrice') {
+    state.createTenderError = null
     state.createTenderForm.minPrice = node.value
     return
   }
 
   if (field === 'tender.maxPrice') {
+    state.createTenderError = null
     state.createTenderForm.maxPrice = node.value
     return
   }
 
   if (field === 'tender.biddingDeadline') {
+    state.createTenderError = null
     state.createTenderForm.biddingDeadline = node.value
     return
   }
 
   if (field === 'tender.taskDeadline') {
+    state.createTenderError = null
     state.createTenderForm.taskDeadline = node.value
     return
   }
 
   if (field === 'tender.remark') {
+    state.createTenderError = null
     state.createTenderForm.remark = node.value
   }
 }
@@ -202,6 +222,7 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
     const mode = actionNode.dataset.mode
     if (mode === 'TASK' || mode === 'DETAIL') {
       state.createTenderForm.mode = mode
+      state.createTenderError = null
     }
     return true
   }
@@ -253,10 +274,12 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
   if (action === 'toggle-pool') {
     const factoryId = actionNode.dataset.factoryId
     if (!factoryId) return true
+    const selectableFactoryIds = getTenderSelectableFactoryIds()
+    state.createTenderError = null
 
     if (state.createTenderForm.selectedPool.has(factoryId)) {
       state.createTenderForm.selectedPool.delete(factoryId)
-    } else {
+    } else if (selectableFactoryIds.has(factoryId)) {
       state.createTenderForm.selectedPool.add(factoryId)
     }
 
@@ -265,11 +288,13 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'select-all-pool') {
-    state.createTenderForm.selectedPool = new Set(candidateFactories.map((factory) => factory.id))
+    state.createTenderError = null
+    state.createTenderForm.selectedPool = getTenderSelectableFactoryIds()
     return true
   }
 
   if (action === 'clear-all-pool') {
+    state.createTenderError = null
     state.createTenderForm.selectedPool = new Set<string>()
     return true
   }

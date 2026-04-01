@@ -28,6 +28,17 @@ import {
   type ProcessTask,
   type ProcessStage,
 } from './context'
+import { resolveTaskStandardTimeSnapshot } from '../../data/fcs/process-tasks'
+
+function formatStandardTimeMinutes(value: number | undefined): string {
+  if (!Number.isFinite(value) || Number(value) <= 0) return '--'
+  return `${Number(value).toLocaleString()} 分钟`
+}
+
+function formatStandardTimePerUnit(value: number | undefined): string {
+  if (!Number.isFinite(value) || Number(value) <= 0) return '--'
+  return Number(value).toLocaleString()
+}
 
 function renderTaskRiskBadges(risks: TaskRiskFlag[]): string {
   if (!risks.length) return '<span class="text-xs text-muted-foreground">—</span>'
@@ -374,6 +385,7 @@ function renderTaskDrawer(): string {
   const tender = taskTenderId ? getTenderById(taskTenderId) : undefined
   const taskRisks = getTaskRisks(task)
   const taskHandoverSummary = getTaskHandoverSummary(task.taskId)
+  const standardTime = resolveTaskStandardTimeSnapshot(task)
   const activeTab = task.status === 'BLOCKED' ? state.taskDetailTab : state.taskDetailTab === 'block' ? 'basic' : state.taskDetailTab
 
   return `
@@ -438,11 +450,18 @@ function renderTaskDrawer(): string {
                     <p class="text-xs text-muted-foreground">分配方式</p>
                     <p>${task.assignmentMode === 'DIRECT' ? '派单' : '竞价'}</p>
                   </div>
-                  ${
-                    task.stdTimeMinutes
-                      ? `<div><p class="text-xs text-muted-foreground">标准工时</p><p>${task.stdTimeMinutes} 分钟</p></div>`
-                      : ''
-                  }
+                  <div>
+                    <p class="text-xs text-muted-foreground">单位标准工时</p>
+                    <p>${escapeHtml(formatStandardTimePerUnit(standardTime.standardTimePerUnit))}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">工时单位</p>
+                    <p>${escapeHtml(standardTime.standardTimeUnit || '--')}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground">任务总标准工时</p>
+                    <p>${escapeHtml(formatStandardTimeMinutes(standardTime.totalStandardTime))}</p>
+                  </div>
                   ${
                     task.difficulty
                       ? `<div><p class="text-xs text-muted-foreground">难度</p><p>${task.difficulty === 'EASY' ? '简单' : task.difficulty === 'MEDIUM' ? '中等' : '困难'}</p></div>`
