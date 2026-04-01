@@ -24,6 +24,7 @@ export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BI
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
 export type QtyUnit = 'PIECE' | 'BUNDLE' | 'METER'
 export type TaskDifficulty = 'EASY' | 'MEDIUM' | 'HARD'
+export type PublishedSamDifficulty = 'LOW' | 'MEDIUM' | 'HIGH'
 export type BlockReason = 'MATERIAL' | 'CAPACITY' | 'QUALITY' | 'TECH' | 'EQUIPMENT' | 'OTHER' | 'ALLOCATION_GATE'
 export type AcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
 export type MilestoneStatus = 'PENDING' | 'REPORTED'
@@ -72,6 +73,11 @@ export interface ProcessTask {
   qcPoints: string[]
   stdTimeMinutes?: number
   difficulty?: TaskDifficulty
+  publishedSamPerUnit?: number
+  publishedSamUnit?: string
+  publishedSamTotal?: number
+  publishedSamDifficulty?: PublishedSamDifficulty
+  publishedSamSource?: 'TECH_PACK_PROCESS_ENTRY'
   attachments: TaskAttachment[]
   status: TaskStatus
   // 直接派单信息
@@ -179,6 +185,97 @@ export interface ProcessTask {
 // 预置工序任务（base task seeds）
 // 说明：这里仍然保持“整单工序任务”语义，运行时按 SKU/COLOR/ORDER 展开由 runtime-process-tasks.ts 负责。
 const GENERATED_TASK_CREATED_AT = '2026-03-01 00:00:00'
+const DEFAULT_PUBLISHED_SAM_UNIT_BY_QTY_UNIT: Record<QtyUnit, string> = {
+  PIECE: '分钟/件',
+  BUNDLE: '分钟/打',
+  METER: '分钟/米',
+}
+
+function roundPublishedSam(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.round(value * 1000) / 1000
+}
+
+export function resolvePublishedSamMeasureQty(input: {
+  qty: number
+  detailRows?: TaskDetailRow[]
+  publishedSamUnit?: string
+}): number {
+  const qty = Math.max(input.qty, 0)
+  const detailRows = input.detailRows ?? []
+  const normalizedUnit = input.publishedSamUnit?.trim() || '分钟/件'
+  const detailQty = roundPublishedSam(
+    detailRows.reduce((sum, row) => sum + (Number.isFinite(row.qty) ? row.qty : 0), 0),
+  )
+
+  if (normalizedUnit === '分钟/打') {
+    return roundPublishedSam(qty / 12)
+  }
+
+  if (normalizedUnit === '分钟/米') {
+    return detailQty > 0 ? detailQty : roundPublishedSam(qty)
+  }
+
+  if (normalizedUnit === '分钟/批') {
+    if (detailRows.length > 0) return detailRows.length
+    return qty > 0 ? 1 : 0
+  }
+
+  return roundPublishedSam(qty)
+}
+
+export function calculatePublishedSamTotal(input: {
+  qty: number
+  detailRows?: TaskDetailRow[]
+  publishedSamPerUnit?: number
+  publishedSamUnit?: string
+}): number {
+  const publishedSamPerUnit = Number.isFinite(input.publishedSamPerUnit)
+    ? Number(input.publishedSamPerUnit)
+    : 0
+  if (publishedSamPerUnit <= 0) return 0
+  const measureQty = resolvePublishedSamMeasureQty(input)
+  return roundPublishedSam(measureQty * publishedSamPerUnit)
+}
+
+function mapPublishedSamDifficultyToTaskDifficulty(value: PublishedSamDifficulty): TaskDifficulty {
+  if (value === 'LOW') return 'EASY'
+  if (value === 'HIGH') return 'HARD'
+  return 'MEDIUM'
+}
+
+function mapTaskDifficultyToPublishedSamDifficulty(value: TaskDifficulty | undefined): PublishedSamDifficulty {
+  if (value === 'EASY') return 'LOW'
+  if (value === 'HARD') return 'HIGH'
+  return 'MEDIUM'
+}
+
+export function ensureProcessTaskPublishedSam(task: ProcessTask): ProcessTask {
+  const publishedSamPerUnit = Number.isFinite(task.publishedSamPerUnit)
+    ? Number(task.publishedSamPerUnit)
+    : Number.isFinite(task.stdTimeMinutes)
+      ? Number(task.stdTimeMinutes)
+      : 0
+  const publishedSamUnit = task.publishedSamUnit?.trim()
+    || DEFAULT_PUBLISHED_SAM_UNIT_BY_QTY_UNIT[task.qtyUnit]
+    || '分钟/件'
+  const publishedSamDifficulty = task.publishedSamDifficulty || mapTaskDifficultyToPublishedSamDifficulty(task.difficulty)
+  const publishedSamTotal = calculatePublishedSamTotal({
+    qty: Math.max(task.qty, 0),
+    detailRows: task.detailRows,
+    publishedSamPerUnit,
+    publishedSamUnit,
+  })
+
+  task.stdTimeMinutes = publishedSamPerUnit
+  task.publishedSamPerUnit = publishedSamPerUnit
+  task.publishedSamUnit = publishedSamUnit
+  task.publishedSamTotal = publishedSamTotal
+  task.publishedSamDifficulty = publishedSamDifficulty
+  task.difficulty = task.difficulty || mapPublishedSamDifficultyToTaskDifficulty(publishedSamDifficulty)
+
+  return task
+}
 
 function mapArtifactToTaskStage(artifact: GeneratedTaskArtifact): ProcessStage {
   const mappedBySystemCode = getProcessTypeByCode(artifact.systemProcessCode)?.stage
@@ -234,6 +331,15 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         taskId,
         artifact,
       })
+      const publishedSamPerUnit = artifact.publishedSamPerUnit
+      const publishedSamUnit = artifact.publishedSamUnit
+      const publishedSamDifficulty = artifact.publishedSamDifficulty
+      const publishedSamTotal = calculatePublishedSamTotal({
+        qty: Math.max(artifact.orderQty, 0),
+        detailRows,
+        publishedSamPerUnit,
+        publishedSamUnit,
+      })
       generatedIds.push(taskId)
       const prevTaskId = generatedIds[index - 1]
       const assignmentMode: AssignmentMode = artifact.isSpecialCraft ? 'BIDDING' : 'DIRECT'
@@ -252,6 +358,13 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         assignmentStatus: 'UNASSIGNED',
         ownerSuggestion: toGeneratedOwnerSuggestion(artifact),
         qcPoints: [],
+        stdTimeMinutes: publishedSamPerUnit,
+        difficulty: mapPublishedSamDifficultyToTaskDifficulty(publishedSamDifficulty),
+        publishedSamPerUnit,
+        publishedSamUnit,
+        publishedSamTotal,
+        publishedSamDifficulty,
+        publishedSamSource: artifact.publishedSamSource,
         attachments: [],
         status: 'NOT_STARTED',
         dependsOnTaskIds: prevTaskId ? [prevTaskId] : [],
@@ -301,7 +414,7 @@ function createInitialProcessTasks(): ProcessTask[] {
   // 第二轮整改：processTasks 仅作为“任务单兼容层”，主来源必须是统一生成引擎的 TASK 产物。
   // 不再将 legacy seed 无感混入主列表，避免页面出现新旧任务事实混杂。
   if (!generatedTasks.length) return []
-  return generatedTasks
+  return generatedTasks.map((task) => ensureProcessTaskPublishedSam(task))
 }
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()
@@ -330,10 +443,10 @@ export function generateTaskId(orderId: string, seq: number): string {
 
 // 添加任务
 export function addTask(task: ProcessTask): void {
-  processTasks.push(task)
+  processTasks.push(ensureProcessTaskPublishedSam(task))
 }
 
 // 批量添加任务
 export function addTasks(tasks: ProcessTask[]): void {
-  processTasks.push(...tasks)
+  processTasks.push(...tasks.map((task) => ensureProcessTaskPublishedSam(task)))
 }

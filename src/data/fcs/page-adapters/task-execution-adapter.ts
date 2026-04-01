@@ -86,8 +86,8 @@ function cloneDetailRows(task: RuntimeProcessTask): ProcessTask['detailRows'] {
   const rows = task.scopeDetailRows.length > 0 ? task.scopeDetailRows : task.detailRows ?? []
   return rows.map((row) => ({
     ...row,
-    dimensions: normalizeRecordLike(row.dimensions),
-    sourceRefs: normalizeRecordLike(row.sourceRefs),
+    dimensions: normalizeRecordLike(row.dimensions) as typeof row.dimensions,
+    sourceRefs: normalizeRecordLike(row.sourceRefs) as unknown as typeof row.sourceRefs,
   }))
 }
 
@@ -107,6 +107,13 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     assignmentStatus: runtimeTask.assignmentStatus,
     ownerSuggestion: { kind: 'MAIN_FACTORY' },
     qcPoints: [],
+    stdTimeMinutes: runtimeTask.publishedSamPerUnit ?? runtimeTask.stdTimeMinutes,
+    difficulty: runtimeTask.difficulty,
+    publishedSamPerUnit: runtimeTask.publishedSamPerUnit,
+    publishedSamUnit: runtimeTask.publishedSamUnit,
+    publishedSamTotal: runtimeTask.publishedSamTotal,
+    publishedSamDifficulty: runtimeTask.publishedSamDifficulty,
+    publishedSamSource: runtimeTask.publishedSamSource,
     attachments: [],
     status: runtimeTask.status,
     dependsOnTaskIds: [...runtimeTask.dependsOnTaskIds],
@@ -151,6 +158,13 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.qty = runtimeTask.scopeQty || runtimeTask.qty
   task.qtyUnit = runtimeTask.qtyUnit
   task.dependsOnTaskIds = [...runtimeTask.dependsOnTaskIds]
+  task.stdTimeMinutes = runtimeTask.publishedSamPerUnit ?? runtimeTask.stdTimeMinutes
+  task.difficulty = runtimeTask.difficulty
+  task.publishedSamPerUnit = runtimeTask.publishedSamPerUnit
+  task.publishedSamUnit = runtimeTask.publishedSamUnit
+  task.publishedSamTotal = runtimeTask.publishedSamTotal
+  task.publishedSamDifficulty = runtimeTask.publishedSamDifficulty
+  task.publishedSamSource = runtimeTask.publishedSamSource
   task.stageCode = runtimeTask.stageCode
   task.stageName = runtimeTask.stageName
   task.processBusinessCode = runtimeTask.processBusinessCode

@@ -192,34 +192,15 @@ export function deriveBagConditionDecision(options: {
   cleanlinessStatus: TransferBagCleanlinessStatus
   damageType?: string
   repairNeeded: boolean
+  reusableDecision?: TransferBagReusableDecision
 }): ReturnDecisionMeta {
-  if (options.conditionStatus === 'SEVERE_DAMAGE' || options.damageType?.includes('报废')) {
+  if (options.reusableDecision === 'DISABLED' || options.conditionStatus === 'SEVERE_DAMAGE' || options.damageType?.includes('报废')) {
     return {
       reusableDecision: 'DISABLED',
       nextBagStatus: 'DISABLED',
       label: '停用 / 报废',
       className: 'bg-slate-200 text-slate-700 border border-slate-300',
       detailText: '袋况严重损坏，当前轮次关闭后不再进入复用链路。',
-    }
-  }
-
-  if (options.repairNeeded || options.conditionStatus === 'MINOR_DAMAGE') {
-    return {
-      reusableDecision: 'WAITING_REPAIR',
-      nextBagStatus: 'WAITING_REPAIR',
-      label: '待维修',
-      className: 'bg-rose-100 text-rose-700 border border-rose-200',
-      detailText: '袋况存在损坏，需维修确认后再决定是否可复用。',
-    }
-  }
-
-  if (options.cleanlinessStatus === 'DIRTY') {
-    return {
-      reusableDecision: 'WAITING_CLEANING',
-      nextBagStatus: 'WAITING_CLEANING',
-      label: '待清洁',
-      className: 'bg-sky-100 text-sky-700 border border-sky-200',
-      detailText: '当前袋况可保留，但需先清洁后才能重新发放。',
     }
   }
 
@@ -245,6 +226,7 @@ export function closeTransferBagUsageCycle(options: {
     cleanlinessStatus: options.condition.cleanlinessStatus,
     damageType: options.condition.damageType,
     repairNeeded: options.condition.repairNeeded,
+    reusableDecision: options.condition.reusableDecision,
   })
   const warningMessages: string[] = []
   if (options.receipt.discrepancyType !== 'NONE') {
@@ -414,6 +396,7 @@ export function buildTransferBagReturnViewModel(options: {
         cleanlinessStatus: record.cleanlinessStatus,
         damageType: record.damageType,
         repairNeeded: record.repairNeeded,
+        reusableDecision: record.reusableDecision,
       }),
       returnExceptionMeta: buildReturnExceptionMeta(
         sortByLatest(returnReceiptsByUsageId[record.cycleId] || [], 'returnAt')[0]?.discrepancyType || 'NONE',

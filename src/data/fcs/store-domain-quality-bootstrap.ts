@@ -1,4 +1,4 @@
-import { processTasks } from './process-tasks.ts'
+import { addTask, processTasks } from './process-tasks.ts'
 import { productionOrders } from './production-orders.ts'
 import {
   initialQualityInspections,
@@ -14,7 +14,7 @@ import { settlementLinkedMockFactoryOutput } from './settlement-linked-mock-fact
 export function applyQualitySeedBootstrap() {
   for (const task of settlementLinkedMockFactoryOutput.processTasks) {
     if (!processTasks.find((item) => item.taskId === task.taskId)) {
-      processTasks.push(task)
+      addTask(task)
     }
   }
 
@@ -25,7 +25,7 @@ export function applyQualitySeedBootstrap() {
   }
 
   if (!processTasks.find(task => task.taskId === seedParentTask.taskId)) {
-    processTasks.push(seedParentTask)
+    addTask(seedParentTask)
   }
 
   if (!productionOrders.find(order => order.productionOrderId === seedProductionOrder.productionOrderId)) {

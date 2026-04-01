@@ -5,6 +5,7 @@ import {
   type ProcessAssignmentGranularity,
 } from './process-types.ts'
 import {
+  calculatePublishedSamTotal,
   processTasks,
   type AcceptanceStatus,
   type ProcessTask,
@@ -68,6 +69,7 @@ export type RuntimeTaskAllocatableGroupAssignment = TaskAllocatableGroupAssignme
 interface RuntimeTaskOverride {
   assignmentMode?: ProcessTask['assignmentMode']
   assignmentStatus?: TaskAssignmentStatus
+  status?: ProcessTask['status']
   assignedFactoryId?: string
   assignedFactoryName?: string
   acceptDeadline?: string
@@ -292,6 +294,19 @@ function getTaskDetailRows(baseTask: ProcessTask): TaskDetailRow[] {
   return cloneTaskDetailRows(baseTask.detailRows).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
 }
 
+function recalculateRuntimeTaskPublishedSamTotal(
+  task: Pick<ProcessTask, 'publishedSamPerUnit' | 'publishedSamUnit'>,
+  scopeQty: number,
+  detailRows: TaskDetailRow[],
+): number {
+  return calculatePublishedSamTotal({
+    qty: scopeQty,
+    detailRows,
+    publishedSamPerUnit: task.publishedSamPerUnit,
+    publishedSamUnit: task.publishedSamUnit,
+  })
+}
+
 function filterDetailRowsByScope(
   rows: TaskDetailRow[],
   scopeType: RuntimeTaskScopeType,
@@ -395,6 +410,7 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
       isSplitSource: true,
       executionEnabled: false,
       assignmentStatus: 'ASSIGNED',
+      publishedSamTotal: recalculateRuntimeTaskPublishedSamTotal(task, task.scopeQty, sourceDetailRows),
       updatedAt: plan.createdAt,
     })
 
@@ -429,6 +445,7 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
         scopeSkuLines,
         scopeDetailRows: scopedDetailRows,
         detailRows: cloneTaskDetailRows(scopedDetailRows),
+        publishedSamTotal: recalculateRuntimeTaskPublishedSamTotal(task, scopeQty, scopedDetailRows),
         updatedAt: plan.createdAt,
       })
     }
@@ -465,6 +482,7 @@ function buildOrderScopeTask(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine
     scopeQty: baseTask.qty,
     scopeSkuLines: skuLines,
     scopeDetailRows: detailRows,
+    publishedSamTotal: recalculateRuntimeTaskPublishedSamTotal(baseTask, baseTask.qty, detailRows),
   }
 }
 
@@ -497,6 +515,7 @@ function buildColorScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLin
       scopeQty: qty,
       scopeSkuLines: lines,
       scopeDetailRows: detailRows,
+      publishedSamTotal: recalculateRuntimeTaskPublishedSamTotal(baseTask, qty, detailRows),
     }
   })
 }
@@ -505,24 +524,28 @@ function buildSkuScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[
   if (!skuLines.length) return [buildOrderScopeTask(baseTask, [])]
   const baseDetailRows = getTaskDetailRows(baseTask)
 
-  return skuLines.map((line) => ({
-    ...baseTask,
-    taskId: `${baseTask.taskId}__SKU__${normalizeScopeToken(line.skuCode)}`,
-    baseTaskId: baseTask.taskId,
-    baseQty: baseTask.qty,
-    baseDependsOnTaskIds: [...(baseTask.dependsOnTaskIds ?? [])],
-    dependsOnTaskIds: [],
-    qty: line.qty,
-    scopeType: 'SKU',
-    scopeKey: line.skuCode,
-    scopeLabel: `${line.skuCode} / ${normalizeColorLabel(line.color)} / ${line.size || '-'}`,
-    scopeQty: line.qty,
-    scopeSkuLines: [line],
-    skuCode: line.skuCode,
-    skuColor: line.color,
-    skuSize: line.size,
-    scopeDetailRows: filterDetailRowsByScope(baseDetailRows, 'SKU', [line]),
-  }))
+  return skuLines.map((line) => {
+    const detailRows = filterDetailRowsByScope(baseDetailRows, 'SKU', [line])
+    return {
+      ...baseTask,
+      taskId: `${baseTask.taskId}__SKU__${normalizeScopeToken(line.skuCode)}`,
+      baseTaskId: baseTask.taskId,
+      baseQty: baseTask.qty,
+      baseDependsOnTaskIds: [...(baseTask.dependsOnTaskIds ?? [])],
+      dependsOnTaskIds: [],
+      qty: line.qty,
+      scopeType: 'SKU',
+      scopeKey: line.skuCode,
+      scopeLabel: `${line.skuCode} / ${normalizeColorLabel(line.color)} / ${line.size || '-'}`,
+      scopeQty: line.qty,
+      scopeSkuLines: [line],
+      skuCode: line.skuCode,
+      skuColor: line.color,
+      skuSize: line.size,
+      scopeDetailRows: detailRows,
+      publishedSamTotal: recalculateRuntimeTaskPublishedSamTotal(baseTask, line.qty, detailRows),
+    }
+  })
 }
 
 function buildRuntimeTasksByGranularity(baseTask: ProcessTask): RuntimeProcessTask[] {

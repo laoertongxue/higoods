@@ -56,6 +56,10 @@ export interface GeneratedTaskArtifact extends GeneratedProductionArtifactBase {
   artifactType: 'TASK'
   taskTypeCode: string
   taskTypeLabel: string
+  publishedSamPerUnit: number
+  publishedSamUnit: string
+  publishedSamDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
+  publishedSamSource: 'TECH_PACK_PROCESS_ENTRY'
 }
 
 export type GeneratedProductionArtifact = GeneratedDemandArtifact | GeneratedTaskArtifact
@@ -84,6 +88,10 @@ interface ResolvedEntryContext {
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
   isSpecialCraft: boolean
+  publishedSamPerUnit: number
+  publishedSamUnit: string
+  publishedSamDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
+  publishedSamSource: 'TECH_PACK_PROCESS_ENTRY'
   entryIndex: number
 }
 
@@ -132,6 +140,11 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
           ? (['GARMENT_COLOR', 'MATERIAL_SKU'] as DetailSplitDimension[])
           : (['PATTERN', 'MATERIAL_SKU'] as DetailSplitDimension[])
   const resolvedRuleSource = entry.ruleSource || craftDefinition?.ruleSource || fallbackRuleSource
+  const publishedSamPerUnit = Number.isFinite(entry.standardTimeMinutes)
+    ? Number(entry.standardTimeMinutes)
+    : 0
+  const publishedSamUnit = entry.timeUnit?.trim() || '分钟/件'
+  const publishedSamDifficulty = entry.difficulty || 'MEDIUM'
 
   return {
     orderId,
@@ -157,6 +170,10 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     defaultDocType: entry.defaultDocType || processDefinition?.defaultDocType || craftDefinition?.defaultDocType || 'TASK',
     taskTypeMode: entry.taskTypeMode || processDefinition?.taskTypeMode || craftDefinition?.taskTypeMode || 'PROCESS',
     isSpecialCraft: entry.isSpecialCraft ?? craftDefinition?.isSpecialCraft ?? false,
+    publishedSamPerUnit,
+    publishedSamUnit,
+    publishedSamDifficulty,
+    publishedSamSource: 'TECH_PACK_PROCESS_ENTRY',
     entryIndex,
   }
 }
@@ -226,6 +243,10 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     docTypeLabel: DOC_TYPE_LABEL.TASK,
     taskTypeCode,
     taskTypeLabel,
+    publishedSamPerUnit: context.publishedSamPerUnit,
+    publishedSamUnit: context.publishedSamUnit,
+    publishedSamDifficulty: context.publishedSamDifficulty,
+    publishedSamSource: context.publishedSamSource,
     sortKey: buildSortKey(context),
   }
 }

@@ -263,7 +263,7 @@ function buildSewingTaskSeeds(
     note: `来源于 ${batch.mergeBatchNo} 的正式载具任务引用。`,
   }))
 
-  const fallbackSeeds = originalRows.slice(0, 2).map((row, index) => ({
+  const fallbackSeeds = originalRows.map((row, index) => ({
     sewingTaskId: `sewing-task-fallback-${sanitizeId(row.originalCutOrderId)}`,
     sewingTaskNo: `CF-FB-${String(index + 1).padStart(3, '0')}`,
     sewingFactoryId: `fallback-factory-${index + 1}`,
@@ -278,7 +278,7 @@ function buildSewingTaskSeeds(
     note: '无批次场景下的正式交接任务引用。',
   }))
 
-  return [...mergeSeeds, ...fallbackSeeds].slice(0, 5)
+  return [...mergeSeeds, ...fallbackSeeds]
 }
 
 function buildCarrierCycleId(carrierId: string, sewingTaskId: string, startedAt: string): string {
@@ -740,28 +740,21 @@ export function buildSystemSeedTransferBagRuntime(options: {
       )
     }
 
-    pushUsageAudit(cycle, options.startedAt, '创建本次周转', options.operator, options.note)
-    pushUsageAudit(
-      cycle,
-      options.startedAt,
-      '绑定车缝任务',
-      options.operator,
-      `已绑定 ${cycle.sewingTaskNo} / ${cycle.sewingFactoryName}。`,
-    )
+    pushUsageAudit(cycle, options.startedAt, '开始本次周转', options.operator, options.note)
     if (cycleBindings.length) {
-      pushUsageAudit(cycle, options.startedAt, '装袋绑定', options.operator, `已绑定 ${cycleBindings.length} 张菲票。`)
+      pushUsageAudit(cycle, options.startedAt, '扫码装袋', options.operator, `已装入 ${cycleBindings.length} 张菲票。`)
     }
     if (options.manifestAt) {
-      pushUsageAudit(cycle, options.manifestAt, '打印装袋清单', options.operator, '装袋清单已生成并用于流转交接核对。')
+      pushUsageAudit(cycle, options.manifestAt, '打印装袋清单', options.operator, '装袋清单已生成并用于交出核对。')
     }
     if (options.finishedPackingAt) {
       pushUsageAudit(cycle, options.finishedPackingAt, '完成装袋', options.operator, '袋内内容已核对完成。')
     }
     if (options.dispatchAt) {
-      pushUsageAudit(cycle, options.dispatchAt, '发出', options.dispatchBy || options.operator, '已发往对应车缝任务。')
+      pushUsageAudit(cycle, options.dispatchAt, '交出', options.dispatchBy || options.operator, '已由裁片仓交给车缝厂领走。')
     }
     if (options.signedAt) {
-      pushUsageAudit(cycle, options.signedAt, '签收', options.operator, '车缝端已完成签收。')
+      pushUsageAudit(cycle, options.signedAt, '领料确认', options.operator, '车缝厂已完成领料确认。')
     }
 
     if (options.returnAt) {
@@ -791,7 +784,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       pushReturnAudit(
         cycle,
         options.returnAt,
-        '创建回收记录',
+        '回收登记',
         options.receivedBy || '回收验收员',
         `回收点：${options.returnWarehouseName || '裁片仓回收点'}`,
         options.returnNote || '已完成回收登记。',
@@ -819,7 +812,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       pushReturnAudit(
         cycle,
         options.inspectedAt,
-        '完成袋况检查',
+        '完成回收',
         options.inspectedBy || '回收验收员',
         `袋况：${options.conditionStatus || 'GOOD'}`,
         options.conditionNote || '袋况检查完成。',

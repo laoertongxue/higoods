@@ -74,12 +74,20 @@ export type TransferBagConditionStatus = 'GOOD' | 'MINOR_DAMAGE' | 'SEVERE_DAMAG
 export type TransferBagCleanlinessStatus = 'CLEAN' | 'DIRTY'
 export type TransferBagReusableDecision = 'REUSABLE' | 'WAITING_CLEANING' | 'WAITING_REPAIR' | 'DISABLED'
 export type PocketCarrierStatusKey = 'IDLE' | 'PACKING' | 'READY_TO_DISPATCH' | 'DISPATCHED' | 'SIGNED' | 'RETURNED' | 'DISABLED'
+export type TransferBagVisibleStatusKey = 'IDLE' | 'IN_PROGRESS' | 'READY_HANDOVER' | 'HANDED_OVER' | 'ARCHIVED'
 
 export interface TransferBagSummaryMeta<Key extends string> {
   key: Key
   label: string
   className: string
   detailText: string
+}
+
+export interface TransferBagCycleContextResolution {
+  ok: boolean
+  reason: string
+  sewingTask: SewingTaskRef | null
+  source: 'merge-batch' | 'original-order' | 'style-spu' | 'usage-locked' | null
 }
 
 export interface TransferBagMaster {
@@ -383,6 +391,8 @@ export interface TransferBagTicketCandidate {
 
 export interface TransferBagMasterItem extends TransferBagMaster {
   statusMeta: TransferBagSummaryMeta<TransferBagMasterStatusKey>
+  visibleStatusKey: TransferBagVisibleStatusKey
+  visibleStatusMeta: TransferBagSummaryMeta<TransferBagVisibleStatusKey>
   latestUsageStatusMeta: TransferBagSummaryMeta<TransferBagUsageStatusKey> | null
   packedTicketCount: number
   packedOriginalCutOrderCount: number
@@ -401,6 +411,8 @@ export interface TransferBagMasterItem extends TransferBagMaster {
 
 export interface TransferBagUsageItem extends TransferBagUsage {
   statusMeta: TransferBagSummaryMeta<TransferBagUsageStatusKey>
+  visibleStatusKey: TransferBagVisibleStatusKey
+  visibleStatusMeta: TransferBagSummaryMeta<TransferBagVisibleStatusKey>
   pocketStatusKey: PocketCarrierStatusKey
   pocketStatusMeta: TransferBagSummaryMeta<PocketCarrierStatusKey>
   bagMaster: TransferBagMaster | null
@@ -441,10 +453,9 @@ export interface TransferBagViewModel {
   summary: {
     bagCount: number
     idleBagCount: number
-    inUseBagCount: number
-    readyDispatchUsageCount: number
-    dispatchedUsageCount: number
-    pendingSignoffCount: number
+    inProgressBagCount: number
+    readyHandoverBagCount: number
+    handedOverBagCount: number
   }
   masters: TransferBagMasterItem[]
   mastersById: Record<string, TransferBagMasterItem>
@@ -603,6 +614,34 @@ const usageStatusMetaMap: Record<TransferBagUsageStatusKey, { label: string; cla
     label: '异常关闭',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
     detailText: '当前使用周期在存在差异或袋况异常时带说明关闭。',
+  },
+}
+
+const visibleStatusMetaMap: Record<TransferBagVisibleStatusKey, { label: string; className: string; detailText: string }> = {
+  IDLE: {
+    label: '空闲',
+    className: 'bg-slate-100 text-slate-700 border border-slate-200',
+    detailText: '当前没有打开中的周转，可继续开始装袋。',
+  },
+  IN_PROGRESS: {
+    label: '使用中',
+    className: 'bg-blue-100 text-blue-700 border border-blue-200',
+    detailText: '当前正在扫码装袋，尚未完成核对。',
+  },
+  READY_HANDOVER: {
+    label: '待交出',
+    className: 'bg-violet-100 text-violet-700 border border-violet-200',
+    detailText: '当前已完成装袋，等待裁片仓交出。',
+  },
+  HANDED_OVER: {
+    label: '已交出',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '当前已从裁片仓交出，等待后续回收。',
+  },
+  ARCHIVED: {
+    label: '归档',
+    className: 'bg-slate-200 text-slate-700 border border-slate-300',
+    detailText: '当前口袋不可继续使用，仅保留追溯记录。',
   },
 }
 
@@ -965,6 +1004,147 @@ function sanitizeId(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
+function buildTaskResolutionResult(
+  source: TransferBagCycleContextResolution['source'],
+  matches: SewingTaskRef[],
+  missingReason: string,
+  ambiguousReason: string,
+): TransferBagCycleContextResolution {
+  if (matches.length === 1) {
+    return {
+      ok: true,
+      reason: '',
+      sewingTask: matches[0],
+      source,
+    }
+  }
+  if (matches.length > 1) {
+    return {
+      ok: false,
+      reason: ambiguousReason,
+      sewingTask: null,
+      source,
+    }
+  }
+  return {
+    ok: false,
+    reason: missingReason,
+    sewingTask: null,
+    source: null,
+  }
+}
+
+export function resolveTransferBagCycleContextFromTicket(options: {
+  ticket: TransferBagTicketCandidate | null
+  sewingTasks: SewingTaskRef[]
+}): TransferBagCycleContextResolution {
+  if (!options.ticket) {
+    return { ok: false, reason: '当前票号不存在，请先确认菲票记录。', sewingTask: null, source: null }
+  }
+
+  if (options.ticket.mergeBatchNo) {
+    const matches = options.sewingTasks.filter((task) => task.sewingTaskId === `sewing-task-${sanitizeId(options.ticket!.mergeBatchNo)}`)
+    const result = buildTaskResolutionResult(
+      'merge-batch',
+      matches,
+      '',
+      `${options.ticket.mergeBatchNo} 对应了多个车缝任务，暂不能自动装袋。`,
+    )
+    if (result.ok || matches.length > 1) return result
+  }
+
+  if (options.ticket.originalCutOrderId) {
+    const matches = options.sewingTasks.filter(
+      (task) => task.sewingTaskId === `sewing-task-fallback-${sanitizeId(options.ticket!.originalCutOrderId)}`,
+    )
+    const result = buildTaskResolutionResult(
+      'original-order',
+      matches,
+      '',
+      `${options.ticket.originalCutOrderNo} 对应了多个车缝任务，暂不能自动装袋。`,
+    )
+    if (result.ok || matches.length > 1) return result
+  }
+
+  const styleMatches = options.sewingTasks.filter(
+    (task) => task.styleCode === options.ticket!.styleCode && task.spuCode === options.ticket!.spuCode,
+  )
+  if (styleMatches.length === 1) {
+    return {
+      ok: true,
+      reason: '',
+      sewingTask: styleMatches[0],
+      source: 'style-spu',
+    }
+  }
+  if (styleMatches.length > 1) {
+    return {
+      ok: false,
+      reason: `${options.ticket.ticketNo} 无法唯一定位车缝厂，请联系班组长确认。`,
+      sewingTask: null,
+      source: 'style-spu',
+    }
+  }
+
+  return {
+    ok: false,
+    reason: `${options.ticket.ticketNo} 无法自动推导当前车缝厂 / 任务，暂不能装袋。`,
+    sewingTask: null,
+    source: null,
+  }
+}
+
+export function ensureUsageContextLockedByTicket(options: {
+  usage: TransferBagUsage | null
+  ticket: TransferBagTicketCandidate | null
+  sewingTasks: SewingTaskRef[]
+  sewingTasksById: Record<string, SewingTaskRef>
+}): TransferBagCycleContextResolution {
+  if (options.usage?.sewingTaskId) {
+    const lockedTask = options.sewingTasksById[options.usage.sewingTaskId] || null
+    if (!lockedTask) {
+      return { ok: false, reason: '当前周转上下文不完整，请重新扫描首张菲票。', sewingTask: null, source: null }
+    }
+    if (options.ticket) {
+      const resolved = resolveTransferBagCycleContextFromTicket({
+        ticket: options.ticket,
+        sewingTasks: options.sewingTasks,
+      })
+      if (resolved.ok && resolved.sewingTask && resolved.sewingTask.sewingTaskId !== lockedTask.sewingTaskId) {
+        return {
+          ok: false,
+          reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，不可混装。`,
+          sewingTask: null,
+          source: 'usage-locked',
+        }
+      }
+    }
+    if (
+      options.ticket &&
+      ((lockedTask.styleCode && options.ticket.styleCode && lockedTask.styleCode !== options.ticket.styleCode) ||
+        (lockedTask.spuCode && options.ticket.spuCode && lockedTask.spuCode !== options.ticket.spuCode))
+    ) {
+      return {
+        ok: false,
+        reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，不可混装。`,
+        sewingTask: null,
+        source: 'usage-locked',
+      }
+    }
+    return {
+      ok: true,
+      reason: '',
+      sewingTask: lockedTask,
+      source: 'usage-locked',
+    }
+  }
+
+  return resolveTransferBagCycleContextFromTicket({
+    ticket: options.ticket,
+    sewingTasks: options.sewingTasks,
+  })
+}
+
 function formatNumber(value: number): string {
   return numberFormatter.format(Math.max(value, 0))
 }
@@ -979,6 +1159,42 @@ export function deriveTransferBagUsageStatus(status: TransferBagUsageStatusKey):
 
 export function derivePocketCarrierStatus(status: PocketCarrierStatusKey): TransferBagSummaryMeta<PocketCarrierStatusKey> {
   return createMeta(status, pocketCarrierStatusMetaMap[status])
+}
+
+export function deriveTransferBagVisibleStatusMeta(status: TransferBagVisibleStatusKey): TransferBagSummaryMeta<TransferBagVisibleStatusKey> {
+  return createMeta(status, visibleStatusMetaMap[status])
+}
+
+export function deriveTransferBagVisibleStatusFromUsage(options: {
+  usage: TransferBagUsage | null
+  masterStatus: TransferBagMasterStatusKey
+}): TransferBagVisibleStatusKey {
+  if (options.masterStatus === 'DISABLED' || options.masterStatus === 'WAITING_CLEANING' || options.masterStatus === 'WAITING_REPAIR') {
+    return 'ARCHIVED'
+  }
+  if (!options.usage) return 'IDLE'
+  if (options.usage.usageStatus === 'READY_TO_DISPATCH') return 'READY_HANDOVER'
+  if (
+    options.usage.usageStatus === 'DISPATCHED' ||
+    options.usage.usageStatus === 'PENDING_SIGNOFF' ||
+    options.usage.usageStatus === 'WAITING_RETURN' ||
+    options.usage.usageStatus === 'RETURN_INSPECTING'
+  ) {
+    return 'HANDED_OVER'
+  }
+  if (options.usage.usageStatus === 'CLOSED') return 'IDLE'
+  if (options.usage.usageStatus === 'EXCEPTION_CLOSED') return 'ARCHIVED'
+  return 'IN_PROGRESS'
+}
+
+export function deriveTransferBagVisibleStatusFromMaster(options: {
+  master: TransferBagMaster
+  usage: TransferBagUsage | null
+}): TransferBagVisibleStatusKey {
+  return deriveTransferBagVisibleStatusFromUsage({
+    usage: options.usage,
+    masterStatus: options.master.currentStatus,
+  })
 }
 
 export function isTransferBagUsageActiveStatus(status: TransferBagUsageStatusKey): boolean {
@@ -1220,7 +1436,7 @@ function buildSewingTaskSeeds(
     note: `来源于 ${batch.mergeBatchNo} 的后道交接任务占位。`,
   }))
 
-  const fallbackRows = originalRows.slice(0, 2).map((row, index) => ({
+  const fallbackRows = originalRows.map((row, index) => ({
     sewingTaskId: `sewing-task-fallback-${sanitizeId(row.originalCutOrderId)}`,
     sewingTaskNo: `CF-FB-${String(index + 1).padStart(3, '0')}`,
     sewingFactoryId: `fallback-factory-${index + 1}`,
@@ -1235,7 +1451,7 @@ function buildSewingTaskSeeds(
     note: '用于无批次场景下的交接任务占位。',
   }))
 
-  return [...mergeTaskSeeds, ...fallbackRows].slice(0, 5)
+  return [...mergeTaskSeeds, ...fallbackRows]
 }
 
 function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferBagTicketCandidate[] {
@@ -1399,6 +1615,16 @@ export function buildTransferBagViewModel(options: {
       return {
         ...usage,
         statusMeta: deriveTransferBagUsageStatus(usage.usageStatus),
+        visibleStatusKey: deriveTransferBagVisibleStatusFromUsage({
+          usage,
+          masterStatus: bagMaster?.currentStatus || 'IDLE',
+        }),
+        visibleStatusMeta: deriveTransferBagVisibleStatusMeta(
+          deriveTransferBagVisibleStatusFromUsage({
+            usage,
+            masterStatus: bagMaster?.currentStatus || 'IDLE',
+          }),
+        ),
         pocketStatusKey,
         pocketStatusMeta: derivePocketCarrierStatus(pocketStatusKey),
         bagMaster,
@@ -1447,6 +1673,16 @@ export function buildTransferBagViewModel(options: {
       return {
         ...master,
         statusMeta: deriveTransferBagMasterStatus(master.currentStatus),
+        visibleStatusKey: deriveTransferBagVisibleStatusFromMaster({
+          master,
+          usage,
+        }),
+        visibleStatusMeta: deriveTransferBagVisibleStatusMeta(
+          deriveTransferBagVisibleStatusFromMaster({
+            master,
+            usage,
+          }),
+        ),
         latestUsageStatusMeta: latestUsage ? latestUsage.statusMeta : null,
         packedTicketCount: summary.ticketCount,
         packedOriginalCutOrderCount: summary.originalCutOrderCount,
@@ -1509,12 +1745,11 @@ export function buildTransferBagViewModel(options: {
 
   return {
     summary: {
-      bagCount: masterItems.length,
-      idleBagCount: masterItems.filter((item) => item.currentStatus === 'IDLE').length,
-      inUseBagCount: masterItems.filter((item) => item.currentStatus === 'IN_USE').length,
-      readyDispatchUsageCount: usageItems.filter((item) => item.usageStatus === 'READY_TO_DISPATCH').length,
-      dispatchedUsageCount: usageItems.filter((item) => item.usageStatus === 'DISPATCHED').length,
-      pendingSignoffCount: usageItems.filter((item) => item.usageStatus === 'PENDING_SIGNOFF').length,
+      bagCount: masterItems.filter((item) => item.visibleStatusKey !== 'ARCHIVED').length,
+      idleBagCount: masterItems.filter((item) => item.visibleStatusKey === 'IDLE').length,
+      inProgressBagCount: masterItems.filter((item) => item.visibleStatusKey === 'IN_PROGRESS').length,
+      readyHandoverBagCount: masterItems.filter((item) => item.visibleStatusKey === 'READY_HANDOVER').length,
+      handedOverBagCount: masterItems.filter((item) => item.visibleStatusKey === 'HANDED_OVER').length,
     },
     masters: masterItems,
     mastersById: Object.fromEntries(masterItems.map((item) => [item.bagId, item])),
