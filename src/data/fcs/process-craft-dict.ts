@@ -3,7 +3,7 @@ import {
   getFactorySupplyFormulaGuideByTemplate,
   getFactorySupplyFormulaTemplate,
   type FactorySupplyFormulaTemplate,
-} from './process-craft-sam-explainer.ts'
+} from './process-craft-sam-explainer'
 
 export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
 export type CraftStageCode = 'PREP' | 'PROD' | 'POST'
@@ -14,6 +14,11 @@ export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' 
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
 export type SamCalcMode = 'DISCRETE' | 'CONTINUOUS' | 'BATCH'
 export type SamInputUnit = 'PIECE' | 'METER' | 'KG' | 'BATCH'
+export type PublishedSamUnit =
+  | 'MINUTE_PER_PIECE'
+  | 'MINUTE_PER_BATCH'
+  | 'MINUTE_PER_METER'
+  | 'MINUTE_PER_DOZEN'
 export type CapacityConstraintSource = 'DEVICE' | 'STAFF' | 'BOTH'
 export type SamFactoryFieldGroup = 'DEVICE' | 'STAFF' | 'ADJUSTMENT'
 export type SamFactoryFieldKey =
@@ -96,6 +101,9 @@ export interface ProcessCraftDefinition {
   detailSplitMode: DetailSplitMode
   detailSplitDimensions: DetailSplitDimension[]
   isSpecialCraft: boolean
+  referencePublishedSamValue: number
+  referencePublishedSamUnit: PublishedSamUnit
+  referencePublishedSamNote: string
   carrySuggestion: string
   remark?: string
   samEnabled: boolean
@@ -149,6 +157,10 @@ export type ProcessCraftDictRow = {
   defaultDocument: string
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
+  referencePublishedSamValue: number
+  referencePublishedSamUnit: PublishedSamUnit
+  referencePublishedSamUnitLabel: string
+  referencePublishedSamNote: string
   processAssignmentGranularity: ProcessAssignmentGranularity
   processAssignmentGranularityLabel: string
   processDetailSplitMode: DetailSplitMode
@@ -223,6 +235,13 @@ export const SAM_INPUT_UNIT_LABEL: Record<SamInputUnit, string> = {
   METER: '按米录入',
   KG: '按公斤录入',
   BATCH: '按批次录入',
+}
+
+export const PUBLISHED_SAM_UNIT_LABEL: Record<PublishedSamUnit, string> = {
+  MINUTE_PER_PIECE: '分钟/件',
+  MINUTE_PER_BATCH: '分钟/批',
+  MINUTE_PER_METER: '分钟/米',
+  MINUTE_PER_DOZEN: '分钟/打',
 }
 
 export const CAPACITY_CONSTRAINT_SOURCE_LABEL: Record<CapacityConstraintSource, string> = {
@@ -628,6 +647,54 @@ const CRAFT_SAM_RULE_OVERRIDES_BY_LEGACY_VALUE: Record<number, CraftSamRuleOverr
     samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
     samIdealReason: '布包扣通常不是纯人工简单动作，完整口径需要保留设备、人员与准备时间字段。',
   },
+}
+
+const REFERENCE_PUBLISHED_SAM_BY_CRAFT_NAME: Record<
+  string,
+  { value: number; unit: PublishedSamUnit }
+> = {
+  丝网印: { value: 1.2, unit: 'MINUTE_PER_METER' },
+  数码印: { value: 1.5, unit: 'MINUTE_PER_METER' },
+  匹染: { value: 80, unit: 'MINUTE_PER_BATCH' },
+  色织: { value: 95, unit: 'MINUTE_PER_BATCH' },
+  定位裁: { value: 0.6, unit: 'MINUTE_PER_PIECE' },
+  定向裁: { value: 0.55, unit: 'MINUTE_PER_PIECE' },
+  绣花: { value: 1.8, unit: 'MINUTE_PER_PIECE' },
+  贝壳绣: { value: 2.4, unit: 'MINUTE_PER_PIECE' },
+  压褶: { value: 0.8, unit: 'MINUTE_PER_METER' },
+  基础连接: { value: 0.9, unit: 'MINUTE_PER_PIECE' },
+  曲牙: { value: 1.4, unit: 'MINUTE_PER_PIECE' },
+  打揽: { value: 1.1, unit: 'MINUTE_PER_PIECE' },
+  打条: { value: 0.75, unit: 'MINUTE_PER_METER' },
+  激光切: { value: 1.0, unit: 'MINUTE_PER_METER' },
+  烫画: { value: 0.7, unit: 'MINUTE_PER_PIECE' },
+  直喷: { value: 0.85, unit: 'MINUTE_PER_PIECE' },
+  捆条: { value: 0.95, unit: 'MINUTE_PER_METER' },
+  印花工艺: { value: 1.3, unit: 'MINUTE_PER_METER' },
+  染色工艺: { value: 88, unit: 'MINUTE_PER_BATCH' },
+  缩水: { value: 65, unit: 'MINUTE_PER_BATCH' },
+  洗水: { value: 75, unit: 'MINUTE_PER_BATCH' },
+  开扣眼: { value: 0.35, unit: 'MINUTE_PER_PIECE' },
+  手缝扣: { value: 0.5, unit: 'MINUTE_PER_PIECE' },
+  机打扣: { value: 0.28, unit: 'MINUTE_PER_PIECE' },
+  四爪扣: { value: 0.32, unit: 'MINUTE_PER_PIECE' },
+  布包扣: { value: 0.45, unit: 'MINUTE_PER_PIECE' },
+  鸡眼扣: { value: 0.26, unit: 'MINUTE_PER_PIECE' },
+  手工盘扣: { value: 1.6, unit: 'MINUTE_PER_PIECE' },
+  熨烫: { value: 0.4, unit: 'MINUTE_PER_PIECE' },
+  包装: { value: 0.3, unit: 'MINUTE_PER_PIECE' },
+}
+
+function getReferencePublishedSamNote(unit: PublishedSamUnit): string {
+  if (unit === 'MINUTE_PER_BATCH') {
+    return '平台理论参考值，适用于普通复杂度与常规批量；技术包可结合设备装载和批量规模调整当前款发布工时 SAM 基线。'
+  }
+
+  if (unit === 'MINUTE_PER_METER') {
+    return '平台理论参考值，适用于普通复杂度；技术包可结合门幅、图案长度和工艺难度调整当前款发布工时 SAM 基线。'
+  }
+
+  return '平台理论参考值，适用于普通复杂度；技术包可结合款式结构和加工难度调整当前款发布工时 SAM 基线。'
 }
 
 const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
@@ -1056,10 +1123,14 @@ export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProce
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
     const process = processDefinitionByCode.get(item.processCode)
+    const referencePublishedSam = REFERENCE_PUBLISHED_SAM_BY_CRAFT_NAME[item.craftName]
     const samOverride = CRAFT_SAM_RULE_OVERRIDES_BY_LEGACY_VALUE[item.legacyValue]
     const processCurrentTemplate = resolveProcessCurrentTemplate(item.processCode)
     const craftCurrentTemplate = getFactorySupplyFormulaTemplate(item.craftName)
     const craftCurrentGuide = getFactorySupplyFormulaGuide(item.craftName)
+    if (!referencePublishedSam) {
+      throw new Error(`缺少工艺理论参考值配置：${item.craftName}`)
+    }
     const inheritedRule: ProcessDefaultRule = {
       assignmentGranularity: process?.assignmentGranularity ?? 'ORDER',
       detailSplitMode: process?.detailSplitMode ?? 'COMPOSITE',
@@ -1097,6 +1168,9 @@ export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProce
       detailSplitMode: resolvedDetailSplitMode,
       detailSplitDimensions: resolvedDetailSplitDimensions,
       isSpecialCraft: item.isSpecialCraft,
+      referencePublishedSamValue: referencePublishedSam.value,
+      referencePublishedSamUnit: referencePublishedSam.unit,
+      referencePublishedSamNote: getReferencePublishedSamNote(referencePublishedSam.unit),
       carrySuggestion: CARRY_SUGGESTION_BY_PROCESS_CODE[item.processCode] ?? '工艺匹配工厂优先',
       remark: item.remark,
       samEnabled: samOverride?.samEnabled ?? true,
@@ -1293,6 +1367,10 @@ export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitio
     defaultDocument: PROCESS_DOC_TYPE_LABEL[item.defaultDocType],
     defaultDocType: item.defaultDocType,
     taskTypeMode: item.taskTypeMode,
+    referencePublishedSamValue: item.referencePublishedSamValue,
+    referencePublishedSamUnit: item.referencePublishedSamUnit,
+    referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[item.referencePublishedSamUnit],
+    referencePublishedSamNote: item.referencePublishedSamNote,
     processAssignmentGranularity,
     processAssignmentGranularityLabel:
       PROCESS_ASSIGNMENT_GRANULARITY_LABEL[processAssignmentGranularity],

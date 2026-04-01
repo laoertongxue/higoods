@@ -4,26 +4,33 @@ import {
   escapeHtml,
   getTechniqueCraftOptions,
   getTechniqueProcessOptions,
+  getTechniqueReferenceMetaByCraftCode,
   getSelectedDraftMeta,
   isBomDrivenPrepTechnique,
   isPrepStage,
   stageCodeToName,
   stageOptions,
   state,
-  timeUnitOptions,
 } from './context'
 import type { TechniqueItem } from './context'
 
 export function renderProcessTechniqueCard(item: TechniqueItem): string {
   const canEdit = canEditTechnique(item)
   const canDelete = !isBomDrivenPrepTechnique(item)
+  const referenceValueText =
+    item.referencePublishedSamValue !== null && item.referencePublishedSamUnitLabel
+      ? `${item.referencePublishedSamValue} ${item.referencePublishedSamUnitLabel}`
+      : '当前为工序级项，需选定具体工艺后才有平台参考值'
   return `
     <article class="space-y-3 rounded-lg border bg-muted/20 p-3">
       <div class="flex items-start justify-between gap-3">
         <div class="space-y-1">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-semibold">${escapeHtml(item.technique)}</span>
+            <span class="rounded border border-slate-200 bg-background px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(item.process)}</span>
+            <span class="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">当前款发布工时 SAM 基线</span>
           </div>
+          <p class="text-xs text-muted-foreground">平台字典给理论参考值与推荐单位，这里维护的是当前这款的覆盖基线，不是平台永久统一口径。</p>
         </div>
         <div class="flex items-center gap-1">
           ${
@@ -42,36 +49,48 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
           }
         </div>
       </div>
-      <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-        <label>
-          <span class="text-xs text-muted-foreground">标准工时</span>
-          <div class="mt-1 flex items-center gap-1">
+      <div class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2">
+        <div class="grid gap-2 text-xs md:grid-cols-3">
+          <div>
+            <span class="text-muted-foreground">平台参考</span>
+            <p class="mt-1 font-medium text-slate-800">${escapeHtml(referenceValueText)}</p>
+          </div>
+          <div>
+            <span class="text-muted-foreground">默认推荐单位</span>
+            <p class="mt-1 font-medium text-slate-800">${escapeHtml(item.referencePublishedSamUnitLabel || item.timeUnit || '-')}</p>
+          </div>
+          <div>
+            <span class="text-muted-foreground">参考说明</span>
+            <p class="mt-1 leading-5 text-slate-700">${escapeHtml(item.referencePublishedSamNote)}</p>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">当前款发布工时 SAM 基线</span>
+          <div class="flex items-center gap-2">
             <input
               type="number"
-              class="h-8 w-20 rounded-md border px-2 text-sm"
+              class="h-8 w-28 rounded-md border px-2 text-sm"
               value="${item.standardTime}"
               data-tech-field="tech-standard-time"
               data-tech-id="${item.id}"
             />
-            <select
-              class="h-8 w-24 rounded-md border px-2 text-sm"
-              data-tech-field="tech-time-unit"
-              data-tech-id="${item.id}"
-            >
-              ${timeUnitOptions
-                .map((option) => `<option value="${option}" ${item.timeUnit === option ? 'selected' : ''}>${option}</option>`)
-                .join('')}
-            </select>
+            <span class="inline-flex h-8 items-center rounded-md border bg-background px-3 text-xs font-medium text-slate-700">
+              ${escapeHtml(item.timeUnit || item.referencePublishedSamUnitLabel || '-')}
+            </span>
           </div>
+          <p class="text-[11px] leading-4 text-muted-foreground">单位默认跟随工艺字典推荐单位，当前阶段不作为自由配置项。</p>
         </label>
-        <label>
-          <span class="text-xs text-muted-foreground">难度</span>
+        <label class="space-y-1">
+          <span class="text-xs text-muted-foreground">难度辅助说明</span>
           <select class="mt-1 h-8 w-full rounded-md border px-2 text-sm" data-tech-field="tech-difficulty" data-tech-id="${item.id}">
             ${difficultyOptions.map((option) => `<option value="${option}" ${item.difficulty === option ? 'selected' : ''}>${option}</option>`).join('')}
           </select>
+          <p class="text-[11px] leading-4 text-muted-foreground">难度仅作为解释项，不替代当前款发布工时 SAM 基线。</p>
         </label>
-        <label>
-          <span class="text-xs text-muted-foreground">备注</span>
+        <label class="md:col-span-2">
+          <span class="text-xs text-muted-foreground">基线备注</span>
           <input
             class="mt-1 h-8 w-full rounded-md border px-2 text-sm"
             value="${escapeHtml(item.remark)}"
@@ -91,6 +110,7 @@ export function renderProcessTab(): string {
       <header class="rounded-lg border bg-card px-4 py-3">
         <h3 class="text-base font-semibold">工序</h3>
         <p class="mt-1 text-sm text-muted-foreground">阶段 → 工序 → 工艺</p>
+        <p class="mt-2 text-xs leading-5 text-slate-600">这里维护的是当前这款技术包下各工序/工艺的发布工时 SAM 基线。工艺字典只提供理论参考值和默认推荐单位，不代表当前款最终发布值。</p>
       </header>
       <div class="space-y-6">
         ${stageOptions
@@ -175,6 +195,11 @@ export function renderAddTechniqueDialog(): string {
     state.newTechnique.stageCode,
     state.newTechnique.processCode,
   )
+  const draftReferenceMeta = getTechniqueReferenceMetaByCraftCode(state.newTechnique.craftCode)
+  const draftReferenceText =
+    draftReferenceMeta.referencePublishedSamValue !== null && draftReferenceMeta.referencePublishedSamUnitLabel
+      ? `${draftReferenceMeta.referencePublishedSamValue} ${draftReferenceMeta.referencePublishedSamUnitLabel}`
+      : '请先选择工艺后查看平台参考值'
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
@@ -216,23 +241,39 @@ export function renderAddTechniqueDialog(): string {
             </select>
           </label>
 
+          <div class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-3">
+            <p class="text-xs font-medium text-blue-700">工艺理论标准（参考）</p>
+            <div class="mt-2 grid gap-2 text-xs md:grid-cols-3">
+              <div>
+                <span class="text-muted-foreground">平台参考</span>
+                <p class="mt-1 font-medium text-slate-800">${escapeHtml(draftReferenceText)}</p>
+              </div>
+              <div>
+                <span class="text-muted-foreground">默认推荐单位</span>
+                <p class="mt-1 font-medium text-slate-800">${escapeHtml(draftReferenceMeta.referencePublishedSamUnitLabel || '-')}</p>
+              </div>
+              <div>
+                <span class="text-muted-foreground">说明</span>
+                <p class="mt-1 leading-5 text-slate-700">${escapeHtml(draftReferenceMeta.referencePublishedSamNote)}</p>
+              </div>
+            </div>
+          </div>
+
           <div class="grid grid-cols-2 gap-4">
             <label class="space-y-1">
-              <span class="text-sm">标准工时</span>
+              <span class="text-sm">当前款发布工时 SAM 基线</span>
               <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-standard-time" value="${escapeHtml(state.newTechnique.standardTime)}" placeholder="0" />
             </label>
             <label class="space-y-1">
-              <span class="text-sm">工时单位</span>
-              <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-time-unit">
-                ${timeUnitOptions
-                  .map((option) => `<option value="${option}" ${state.newTechnique.timeUnit === option ? 'selected' : ''}>${option}</option>`)
-                  .join('')}
-              </select>
+              <span class="text-sm">默认推荐发布工时单位</span>
+              <div class="w-full rounded-md border bg-muted/20 px-3 py-2 text-sm text-slate-700">
+                ${escapeHtml(state.newTechnique.timeUnit || draftReferenceMeta.referencePublishedSamUnitLabel || '-')}
+              </div>
             </label>
           </div>
 
           <label class="space-y-1">
-            <span class="text-sm">难度</span>
+            <span class="text-sm">难度辅助说明</span>
             <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-difficulty">
               ${difficultyOptions
                 .map((option) => `<option value="${option}" ${state.newTechnique.difficulty === option ? 'selected' : ''}>${option}</option>`)
@@ -241,7 +282,7 @@ export function renderAddTechniqueDialog(): string {
           </label>
 
           <label class="space-y-1">
-            <span class="text-sm">备注</span>
+            <span class="text-sm">基线备注</span>
             <textarea rows="2" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-remark" placeholder="备注信息">${escapeHtml(state.newTechnique.remark)}</textarea>
           </label>
         </div>

@@ -20,10 +20,12 @@ import {
 import {
   DETAIL_SPLIT_DIMENSION_LABEL,
   DETAIL_SPLIT_MODE_LABEL,
+  PUBLISHED_SAM_UNIT_LABEL,
   PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
   PROCESS_DOC_TYPE_LABEL,
   RULE_SOURCE_LABEL,
   TASK_TYPE_MODE_LABEL,
+  getProcessCraftByCode,
   getProcessDefinitionByCode,
   listProcessCraftDefinitions,
   listProcessDefinitions,
@@ -69,6 +71,10 @@ type TechniqueItem = {
   triggerSource: string
   standardTime: number
   timeUnit: string
+  referencePublishedSamValue: number | null
+  referencePublishedSamUnit: string
+  referencePublishedSamUnitLabel: string
+  referencePublishedSamNote: string
   difficulty: '简单' | '中等' | '困难'
   remark: string
   source: '字典引用'
@@ -102,6 +108,10 @@ type CraftOption = {
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
+  referencePublishedSamValue: number
+  referencePublishedSamUnit: string
+  referencePublishedSamUnitLabel: string
+  referencePublishedSamNote: string
 }
 
 type BomItemRow = {
@@ -252,7 +262,6 @@ const bomUsageProcessOptions = [
   { code: 'PROC_IRON', label: '后道' },
   { code: 'PROC_PACK', label: '包装' },
 ]
-const timeUnitOptions = ['分钟/件', '分钟/批', '分钟/米', '分钟/打']
 const difficultyOptions: Array<TechniqueItem['difficulty']> = ['简单', '中等', '困难']
 const stageCodeToName = new Map(listProcessStages().map((item) => [item.stageCode, item.stageName]))
 const stageOptions = listProcessStages()
@@ -296,6 +305,10 @@ const craftOptions: CraftOption[] = listProcessCraftDefinitions()
       defaultDocType: item.defaultDocType,
       taskTypeMode: item.taskTypeMode,
       isSpecialCraft: item.isSpecialCraft,
+      referencePublishedSamValue: item.referencePublishedSamValue,
+      referencePublishedSamUnit: item.referencePublishedSamUnit,
+      referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[item.referencePublishedSamUnit],
+      referencePublishedSamNote: item.referencePublishedSamNote,
     }
   })
   .sort((a, b) => a.craftName.localeCompare(b.craftName, 'zh-Hans-CN'))
@@ -407,6 +420,10 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     triggerSource: 'BOM上存在印花要求',
     standardTime: 10,
     timeUnit: '分钟/件',
+    referencePublishedSamValue: null,
+    referencePublishedSamUnit: '',
+    referencePublishedSamUnitLabel: '',
+    referencePublishedSamNote: '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
@@ -430,6 +447,10 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     triggerSource: '',
     standardTime: 6,
     timeUnit: '分钟/件',
+    referencePublishedSamValue: 0.6,
+    referencePublishedSamUnit: 'MINUTE_PER_PIECE',
+    referencePublishedSamUnitLabel: '分钟/件',
+    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术包可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
     difficulty: '简单',
     remark: '',
     source: '字典引用',
@@ -453,6 +474,10 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     triggerSource: '',
     standardTime: 12,
     timeUnit: '分钟/件',
+    referencePublishedSamValue: 1.4,
+    referencePublishedSamUnit: 'MINUTE_PER_PIECE',
+    referencePublishedSamUnitLabel: '分钟/件',
+    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术包可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
@@ -765,6 +790,12 @@ function createBomDrivenPrepTechnique(
     triggerSource: baseline?.triggerSource || '',
     standardTime: existing?.standardTime ?? (processCode === 'DYE' ? 10 : 12),
     timeUnit: existing?.timeUnit || '分钟/件',
+    referencePublishedSamValue: existing?.referencePublishedSamValue ?? null,
+    referencePublishedSamUnit: existing?.referencePublishedSamUnit || '',
+    referencePublishedSamUnitLabel: existing?.referencePublishedSamUnitLabel || '',
+    referencePublishedSamNote:
+      existing?.referencePublishedSamNote ||
+      '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
     difficulty: existing?.difficulty || '中等',
     remark: existing?.remark || '',
     source: '字典引用',
@@ -779,6 +810,7 @@ function syncBomDrivenPrepTechniques(
   const existingByCode = new Map<PrepDemandProcessCode, TechniqueItem>()
   const prepManualItems: TechniqueItem[] = []
   const nonPrepItems: TechniqueItem[] = []
+  const manualPrepProcessCodes = new Set<PrepDemandProcessCode>()
 
   techniques.forEach((item) => {
     const normalizedItem = {
@@ -786,7 +818,7 @@ function syncBomDrivenPrepTechniques(
       detailSplitDimensions: [...item.detailSplitDimensions],
     }
 
-    if (isBomDrivenPrepTechnique(normalizedItem)) {
+    if (isBomDrivenPrepTechnique(normalizedItem) && normalizedItem.entryType === 'PROCESS_BASELINE') {
       if (!existingByCode.has(normalizedItem.processCode)) {
         existingByCode.set(normalizedItem.processCode, normalizedItem)
       }
@@ -795,21 +827,49 @@ function syncBomDrivenPrepTechniques(
 
     if (normalizedItem.stageCode === 'PREP') {
       prepManualItems.push(normalizedItem)
+      if (isPrepDemandProcessCode(normalizedItem.processCode)) {
+        manualPrepProcessCodes.add(normalizedItem.processCode)
+      }
       return
     }
 
     nonPrepItems.push(normalizedItem)
   })
 
-  const prepDemandItems = requiredCodes.map((code) =>
-    createBomDrivenPrepTechnique(code, existingByCode.get(code)),
-  )
+  const prepDemandItems = requiredCodes
+    .filter((code) => !manualPrepProcessCodes.has(code))
+    .map((code) => createBomDrivenPrepTechnique(code, existingByCode.get(code)))
 
   return [...prepManualItems, ...prepDemandItems, ...nonPrepItems]
 }
 
 function getCraftOptionByCode(code: string): CraftOption | null {
   return craftOptions.find((item) => item.craftCode === code) ?? null
+}
+
+function getTechniqueReferenceMetaByCraftCode(craftCode: string): Pick<
+  TechniqueItem,
+  | 'referencePublishedSamValue'
+  | 'referencePublishedSamUnit'
+  | 'referencePublishedSamUnitLabel'
+  | 'referencePublishedSamNote'
+> {
+  const craft = craftCode ? getProcessCraftByCode(craftCode) : undefined
+  if (!craft) {
+    return {
+      referencePublishedSamValue: null,
+      referencePublishedSamUnit: '',
+      referencePublishedSamUnitLabel: '',
+      referencePublishedSamNote: '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
+    }
+  }
+
+  return {
+    referencePublishedSamValue: craft.referencePublishedSamValue,
+    referencePublishedSamUnit: craft.referencePublishedSamUnit,
+    referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[craft.referencePublishedSamUnit],
+    referencePublishedSamNote: craft.referencePublishedSamNote,
+  }
 }
 
 function getSelectedDraftMeta():
@@ -1385,6 +1445,9 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
 
 function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: number): TechniqueItem {
   const normalizedEntry = resolveTechPackProcessEntryRule(entry)
+  const referenceMeta = normalizedEntry.craftCode
+    ? getTechniqueReferenceMetaByCraftCode(normalizedEntry.craftCode)
+    : getTechniqueReferenceMetaByCraftCode('')
   return {
     id: normalizedEntry.id || `tech-${fallbackIndex + 1}`,
     entryType: normalizedEntry.entryType,
@@ -1393,10 +1456,7 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     processCode: normalizedEntry.processCode,
     process: normalizedEntry.processName,
     craftCode: normalizedEntry.craftCode || '',
-    technique:
-      normalizedEntry.entryType === 'PROCESS_BASELINE'
-        ? normalizedEntry.processName
-        : normalizedEntry.craftName || '',
+    technique: normalizedEntry.craftName || normalizedEntry.processName,
     assignmentGranularity: normalizedEntry.assignmentGranularity,
     ruleSource: normalizedEntry.ruleSource ?? 'INHERIT_PROCESS',
     detailSplitMode: normalizedEntry.detailSplitMode ?? 'COMPOSITE',
@@ -1408,7 +1468,19 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     standardTime: Number.isFinite(normalizedEntry.standardTimeMinutes)
       ? Number(normalizedEntry.standardTimeMinutes)
       : 0,
-    timeUnit: normalizedEntry.timeUnit || '分钟/件',
+    timeUnit:
+      normalizedEntry.referencePublishedSamUnitLabel ||
+      normalizedEntry.timeUnit ||
+      '分钟/件',
+    referencePublishedSamValue:
+      normalizedEntry.referencePublishedSamValue ?? referenceMeta.referencePublishedSamValue,
+    referencePublishedSamUnit:
+      normalizedEntry.referencePublishedSamUnit ?? referenceMeta.referencePublishedSamUnit,
+    referencePublishedSamUnitLabel:
+      normalizedEntry.referencePublishedSamUnitLabel ??
+      referenceMeta.referencePublishedSamUnitLabel,
+    referencePublishedSamNote:
+      normalizedEntry.referencePublishedSamNote ?? referenceMeta.referencePublishedSamNote,
     difficulty: mapDifficultyToZh(normalizedEntry.difficulty || 'MEDIUM'),
     remark: normalizedEntry.remark || '',
     source: '字典引用',
@@ -1443,6 +1515,7 @@ function buildTechniquesFromTechPack(
       const craft = listProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
       if (craft) {
         const processDef = getProcessDefinitionByCode(craft.processCode)
+        const referenceMeta = getTechniqueReferenceMetaByCraftCode(craft.craftCode)
         return {
           id: item.id || `tech-${index + 1}`,
           entryType: 'CRAFT',
@@ -1461,7 +1534,11 @@ function buildTechniquesFromTechPack(
           isSpecialCraft: craft.isSpecialCraft,
           triggerSource: '',
           standardTime: item.timeMinutes,
-          timeUnit: '分钟/件',
+          timeUnit: referenceMeta.referencePublishedSamUnitLabel || '分钟/件',
+          referencePublishedSamValue: referenceMeta.referencePublishedSamValue,
+          referencePublishedSamUnit: referenceMeta.referencePublishedSamUnit,
+          referencePublishedSamUnitLabel: referenceMeta.referencePublishedSamUnitLabel,
+          referencePublishedSamNote: referenceMeta.referencePublishedSamNote,
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
@@ -1491,6 +1568,10 @@ function buildTechniquesFromTechPack(
           triggerSource: processDef.triggerSource || '',
           standardTime: item.timeMinutes,
           timeUnit: '分钟/件',
+          referencePublishedSamValue: null,
+          referencePublishedSamUnit: '',
+          referencePublishedSamUnitLabel: '',
+          referencePublishedSamNote: '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
@@ -1516,6 +1597,10 @@ function buildTechniquesFromTechPack(
         triggerSource: '',
         standardTime: item.timeMinutes,
         timeUnit: '分钟/件',
+        referencePublishedSamValue: null,
+        referencePublishedSamUnit: '',
+        referencePublishedSamUnitLabel: '',
+        referencePublishedSamNote: '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
         difficulty: mapDifficultyToZh(item.difficulty),
         remark: '',
         source: '字典引用',
@@ -2011,7 +2096,6 @@ export {
   processUnitOptions,
   customCostUnitOptions,
   bomUsageProcessOptions,
-  timeUnitOptions,
   difficultyOptions,
   stageOptions,
   stageCodeToName,
@@ -2029,6 +2113,7 @@ export {
   getStageName,
   getBaselineProcessByCode,
   getCraftOptionByCode,
+  getTechniqueReferenceMetaByCraftCode,
   getSelectedDraftMeta,
   canEditTechnique,
   dedupeStrings,

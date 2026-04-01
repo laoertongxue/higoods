@@ -10,6 +10,7 @@ import {
   getCraftOptionByCode,
   getPatternById,
   getPatternPieceById,
+  getTechniqueReferenceMetaByCraftCode,
   isBomDrivenPrepTechnique,
   isPrepStage,
   getSelectedDraftMeta,
@@ -32,6 +33,7 @@ import {
   updateColorMappingLine,
 } from './context'
 import type {
+  BomItemRow,
   TechPackAssignmentGranularity,
   TechPackDetailSplitDimension,
   TechPackSizeRow,
@@ -242,9 +244,12 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-technique-craft-code') {
+    const craft = getCraftOptionByCode(value)
     state.newTechnique = {
       ...state.newTechnique,
       craftCode: value,
+      standardTime: craft ? String(craft.referencePublishedSamValue) : state.newTechnique.standardTime,
+      timeUnit: craft ? craft.referencePublishedSamUnitLabel : state.newTechnique.timeUnit,
     }
     return true
   }
@@ -1066,6 +1071,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const effectiveMeta = immutablePrepMeta ?? selectedMeta
 
     const nextItem: TechniqueItem = {
+      ...getTechniqueReferenceMetaByCraftCode(effectiveMeta.craftCode),
       id: state.editTechniqueId || `tech-${Date.now()}`,
       entryType: effectiveMeta.entryType,
       stageCode: effectiveMeta.stageCode,

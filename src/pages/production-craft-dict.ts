@@ -252,6 +252,45 @@ function renderCurrentStagePanel(row: ProcessCraftDictRow): string {
   `
 }
 
+function renderCraftReferenceSamPanel(row: ProcessCraftDictRow): string {
+  return `
+    <section class="rounded-md border bg-blue-50/60 p-4" data-testid="craft-reference-sam-section">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-sm font-semibold text-slate-900">工艺理论标准（参考）</p>
+          <p class="mt-1 text-xs leading-5 text-slate-600">
+            这里给的是平台参考值，用于技术包维护当前款发布工时 SAM 基线，不代表当前款最终值。
+          </p>
+        </div>
+        <span class="rounded-full border border-blue-200 bg-white px-2 py-0.5 text-[11px] font-medium text-blue-700">
+          参考口径
+        </span>
+      </div>
+
+      <div class="mt-4 grid gap-x-4 gap-y-3 sm:grid-cols-3">
+        <div class="min-w-0">
+          <p class="text-[11px] font-medium text-muted-foreground">理论参考发布工时</p>
+          <p class="mt-1 break-words text-sm leading-5 text-slate-700">
+            ${escapeHtml(`${row.referencePublishedSamValue} ${row.referencePublishedSamUnitLabel}`)}
+          </p>
+        </div>
+        <div class="min-w-0">
+          <p class="text-[11px] font-medium text-muted-foreground">默认推荐发布工时单位</p>
+          <p class="mt-1 break-words text-sm leading-5 text-slate-700">
+            ${escapeHtml(row.referencePublishedSamUnitLabel)}
+          </p>
+        </div>
+        <div class="min-w-0">
+          <p class="text-[11px] font-medium text-muted-foreground">参考说明</p>
+          <p class="mt-1 break-words text-sm leading-5 text-slate-700">
+            ${escapeHtml(row.referencePublishedSamNote)}
+          </p>
+        </div>
+      </div>
+    </section>
+  `
+}
+
 function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
   return `
     <div class="fixed inset-0 z-[120] bg-black/35" data-craft-dict-action="close-sheet"></div>
@@ -296,6 +335,8 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
               .join('')}
           </div>
         </section>
+
+        ${renderCraftReferenceSamPanel(row)}
 
         <section class="rounded-md border bg-background" data-testid="craft-dict-detail-panel">
           <div class="flex flex-wrap gap-2 border-b px-4 py-3" data-testid="craft-dict-detail-tabs">
