@@ -20,10 +20,13 @@ import {
   getDispatchDialogValidation,
   getFactoryOptions,
   emptyDispatchForm,
+  formatPublishedSamNumber,
   fromDateTimeLocal,
   escapeHtml,
   formatScopeLabel,
   formatTaskNo,
+  resolveAllocatableGroupPublishedSam,
+  resolveTaskPublishedSam,
   type RuntimeTaskAllocatableGroup,
   type RuntimeTaskAllocatableGroupAssignment,
   type DispatchTask,
@@ -216,6 +219,10 @@ function confirmDirectDispatch(): void {
         dispatchPriceCurrency: validation.stdCurrency,
         dispatchPriceUnit: validation.stdUnit,
         priceDiffReason: state.dispatchForm.priceDiffReason,
+        publishedSamPerUnit: assignment.publishedSamPerUnit,
+        publishedSamUnit: assignment.publishedSamUnit,
+        publishedSamTotal: assignment.publishedSamTotal,
+        publishedSamDifficulty: assignment.publishedSamDifficulty,
       })
     }
 
@@ -277,11 +284,12 @@ function renderDetailDispatchMode(
       </div>
 
       <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[760px] text-sm">
+        <table class="w-full min-w-[980px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-xs">
               <th class="px-3 py-2 text-left font-medium">分配单元</th>
               <th class="px-3 py-2 text-left font-medium">数量</th>
+              <th class="px-3 py-2 text-left font-medium">任务消耗发布工时 SAM</th>
               <th class="px-3 py-2 text-left font-medium">维度说明</th>
               <th class="px-3 py-2 text-left font-medium">目标工厂</th>
             </tr>
@@ -293,11 +301,26 @@ function renderDetailDispatchMode(
                 const dimensionsText = Object.entries(group.dimensions)
                   .map(([key, value]) => `${key}:${value}`)
                   .join('；')
+                const groupSam = resolveAllocatableGroupPublishedSam(task, group)
+                const unitSamText =
+                  groupSam.publishedSamPerUnit && groupSam.publishedSamUnit
+                    ? `${formatPublishedSamNumber(groupSam.publishedSamPerUnit)} ${escapeHtml(groupSam.publishedSamUnit)}`
+                    : '--'
+                const totalSamText =
+                  groupSam.publishedSamTotal != null && groupSam.publishedSamUnit
+                    ? `${formatPublishedSamNumber(groupSam.publishedSamTotal)} ${escapeHtml(groupSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+                    : '--'
 
                 return `
                   <tr class="border-b last:border-b-0" data-dispatch-group="${escapeHtml(group.groupKey)}">
                     <td class="px-3 py-2">${escapeHtml(group.groupLabel)}</td>
                     <td class="px-3 py-2 font-mono text-xs">${group.qty} 件</td>
+                    <td class="px-3 py-2 text-xs" data-dispatch-group-sam="${escapeHtml(group.groupKey)}">
+                      <div class="space-y-1">
+                        <div><span class="text-muted-foreground">单位发布工时 SAM：</span><span class="font-medium">${unitSamText}</span></div>
+                        <div><span class="text-muted-foreground">任务总发布工时 SAM：</span><span class="font-medium text-blue-700">${totalSamText}</span></div>
+                      </div>
+                    </td>
                     <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(dimensionsText || '-')}</td>
                     <td class="px-3 py-2">
                       <select class="h-8 w-full rounded-md border bg-background px-2 text-xs" data-dispatch-field="dispatch.groupFactoryId" data-group-key="${escapeHtml(group.groupKey)}">
@@ -333,6 +356,15 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
   const detailMode = detailSupported && state.dispatchForm.mode === 'DETAIL'
   const groups = detailSupported ? getDirectDispatchGroups(refTask) : []
   const detailAssignments = detailMode ? getDirectDispatchAssignments(groups) : []
+  const taskSam = !isBatch ? resolveTaskPublishedSam(refTask) : {}
+  const unitSamText =
+    taskSam.publishedSamPerUnit && taskSam.publishedSamUnit
+      ? `${formatPublishedSamNumber(taskSam.publishedSamPerUnit)} ${escapeHtml(taskSam.publishedSamUnit)}`
+      : '--'
+  const totalSamText =
+    taskSam.publishedSamTotal != null && taskSam.publishedSamUnit
+      ? `${formatPublishedSamNumber(taskSam.publishedSamTotal)} ${escapeHtml(taskSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+      : '--'
   const selectionError =
     state.dispatchDialogError ??
     (!selectionValidation.valid ? selectionValidation.reason ?? '批量派单条件不满足' : '')
@@ -362,6 +394,8 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(refTask.processNameZh)}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(refTask))}</span></div>
                   <div class="flex justify-between gap-2"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${refTask.scopeQty} 件</span></div>
+                  <div class="flex justify-between gap-2" data-dispatch-task-sam="per-unit"><span class="text-muted-foreground">单位发布工时 SAM</span><span class="font-mono text-xs">${unitSamText}</span></div>
+                  <div class="flex justify-between gap-2" data-dispatch-task-sam="total"><span class="text-muted-foreground">任务总发布工时 SAM</span><span class="font-mono text-xs text-blue-700">${totalSamText}</span></div>
                 </div>`
           }
 

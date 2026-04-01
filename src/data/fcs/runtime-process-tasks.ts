@@ -9,6 +9,7 @@ import {
   processTasks,
   type AcceptanceStatus,
   type ProcessTask,
+  type PublishedSamDifficulty,
   type TaskAssignmentStatus,
   type TaskAuditLog,
 } from './process-tasks.ts'
@@ -63,13 +64,24 @@ export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'depend
   executionEnabled?: boolean
 }
 
-export type RuntimeTaskAllocatableGroup = TaskAllocatableGroup
+export interface ResolvedRuntimePublishedSam {
+  publishedSamPerUnit?: number
+  publishedSamUnit?: string
+  publishedSamTotal?: number
+  publishedSamDifficulty?: PublishedSamDifficulty
+}
+
+export type RuntimeTaskAllocatableGroup = TaskAllocatableGroup & ResolvedRuntimePublishedSam
 export type RuntimeTaskAllocatableGroupAssignment = TaskAllocatableGroupAssignment
 
 interface RuntimeTaskOverride {
   assignmentMode?: ProcessTask['assignmentMode']
   assignmentStatus?: TaskAssignmentStatus
   status?: ProcessTask['status']
+  publishedSamPerUnit?: number
+  publishedSamUnit?: string
+  publishedSamTotal?: number
+  publishedSamDifficulty?: PublishedSamDifficulty
   assignedFactoryId?: string
   assignedFactoryName?: string
   acceptDeadline?: string
@@ -292,6 +304,85 @@ function cloneTaskDetailRows(rows: TaskDetailRow[] | undefined): TaskDetailRow[]
 
 function getTaskDetailRows(baseTask: ProcessTask): TaskDetailRow[] {
   return cloneTaskDetailRows(baseTask.detailRows).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+}
+
+type RuntimePublishedSamTaskLike = Pick<
+  ProcessTask,
+  'qty' | 'detailRows' | 'publishedSamPerUnit' | 'publishedSamUnit' | 'publishedSamTotal' | 'publishedSamDifficulty'
+> &
+  Partial<Pick<RuntimeProcessTask, 'scopeQty' | 'scopeDetailRows'>>
+
+function normalizePublishedSamNumber(value: number | undefined): number | undefined {
+  const normalized = Number(value)
+  if (!Number.isFinite(normalized) || normalized <= 0) return undefined
+  return normalized
+}
+
+function resolveRuntimeTaskSamQty(task: RuntimePublishedSamTaskLike): number {
+  if (Number.isFinite(task.scopeQty)) {
+    return Math.max(Number(task.scopeQty), 0)
+  }
+  return Math.max(Number(task.qty), 0)
+}
+
+function resolveRuntimeTaskSamDetailRows(task: RuntimePublishedSamTaskLike): TaskDetailRow[] {
+  if (task.scopeDetailRows && task.scopeDetailRows.length > 0) {
+    return cloneTaskDetailRows(task.scopeDetailRows)
+  }
+  return cloneTaskDetailRows(task.detailRows)
+}
+
+export function resolveRuntimeTaskPublishedSam(task: RuntimePublishedSamTaskLike): ResolvedRuntimePublishedSam {
+  const publishedSamPerUnit = normalizePublishedSamNumber(task.publishedSamPerUnit)
+  const publishedSamUnit = task.publishedSamUnit?.trim() || undefined
+  const publishedSamDifficulty = task.publishedSamDifficulty
+  const detailRows = resolveRuntimeTaskSamDetailRows(task)
+  const fallbackTotal =
+    publishedSamPerUnit && publishedSamUnit
+      ? calculatePublishedSamTotal({
+          qty: resolveRuntimeTaskSamQty(task),
+          detailRows,
+          publishedSamPerUnit,
+          publishedSamUnit,
+        })
+      : 0
+
+  return {
+    publishedSamPerUnit,
+    publishedSamUnit,
+    publishedSamTotal: normalizePublishedSamNumber(task.publishedSamTotal) ?? normalizePublishedSamNumber(fallbackTotal),
+    publishedSamDifficulty,
+  }
+}
+
+export function resolveRuntimeAllocatableGroupPublishedSam(
+  task: RuntimePublishedSamTaskLike,
+  group: Pick<TaskAllocatableGroup, 'qty' | 'detailRowKeys'>,
+): ResolvedRuntimePublishedSam {
+  const base = resolveRuntimeTaskPublishedSam(task)
+  if (!base.publishedSamPerUnit || !base.publishedSamUnit) {
+    return {
+      ...base,
+      publishedSamTotal: undefined,
+    }
+  }
+
+  const detailRows = resolveRuntimeTaskSamDetailRows(task)
+  const detailRowKeySet = new Set(group.detailRowKeys ?? [])
+  const scopedDetailRows =
+    detailRowKeySet.size > 0 ? detailRows.filter((row) => detailRowKeySet.has(row.rowKey)) : detailRows
+
+  return {
+    ...base,
+    publishedSamTotal: normalizePublishedSamNumber(
+      calculatePublishedSamTotal({
+        qty: Math.max(Number(group.qty), 0),
+        detailRows: scopedDetailRows,
+        publishedSamPerUnit: base.publishedSamPerUnit,
+        publishedSamUnit: base.publishedSamUnit,
+      }),
+    ),
+  }
 }
 
 function recalculateRuntimeTaskPublishedSamTotal(
@@ -1284,7 +1375,10 @@ export function listRuntimeTaskAllocatableGroups(taskId: string): RuntimeTaskAll
     fallbackQty: task.scopeQty,
     fallbackScopeLabel: task.scopeLabel || '整任务',
     scopeSkuLines: task.scopeSkuLines,
-  })
+  }).map((group) => ({
+    ...group,
+    ...resolveRuntimeAllocatableGroupPublishedSam(task, group),
+  }))
 }
 
 function clearRuntimeTaskSplitPlan(sourceTaskId: string): void {
@@ -1302,7 +1396,15 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
   mode?: 'SINGLE_FACTORY' | 'MULTI_FACTORY'
   message?: string
   createdTaskIds?: string[]
-  resultAssignments?: Array<{ taskId: string; factoryId: string; factoryName: string }>
+  resultAssignments?: Array<{
+    taskId: string
+    factoryId: string
+    factoryName: string
+    publishedSamPerUnit?: number
+    publishedSamUnit?: string
+    publishedSamTotal?: number
+    publishedSamDifficulty?: PublishedSamDifficulty
+  }>
 } {
   const task = getRuntimeTaskById(input.taskId)
   if (!task) return { ok: false, message: '任务不存在或已被移除' }
@@ -1361,6 +1463,8 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
     }
 
     recomputeRuntimeTransitionsForOrder(task.productionOrderId)
+    const resolvedTask = getRuntimeTaskById(task.taskId)
+    const sam = resolvedTask ? resolveRuntimeTaskPublishedSam(resolvedTask) : {}
     return {
       ok: true,
       mode: 'SINGLE_FACTORY',
@@ -1370,6 +1474,7 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
           taskId: task.taskId,
           factoryId: splitDecision.factoryId,
           factoryName: splitDecision.factoryName,
+          ...sam,
         },
       ],
     }
@@ -1456,6 +1561,7 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
       taskId: factory.taskId,
       factoryId: factory.factoryId,
       factoryName: factory.factoryName,
+      ...resolveRuntimeTaskPublishedSam(getRuntimeTaskById(factory.taskId) ?? task),
     })),
   }
 }
@@ -1595,6 +1701,10 @@ export function upsertRuntimeTaskTender(
     tenderId: string
     biddingDeadline: string
     taskDeadline: string
+    publishedSamPerUnit?: number
+    publishedSamUnit?: string
+    publishedSamTotal?: number
+    publishedSamDifficulty?: PublishedSamDifficulty
   },
   by: string,
 ): RuntimeProcessTask | null {
@@ -1609,6 +1719,10 @@ export function upsertRuntimeTaskTender(
       tenderId: payload.tenderId,
       biddingDeadline: payload.biddingDeadline,
       taskDeadline: payload.taskDeadline,
+      publishedSamPerUnit: payload.publishedSamPerUnit ?? task.publishedSamPerUnit,
+      publishedSamUnit: payload.publishedSamUnit ?? task.publishedSamUnit,
+      publishedSamTotal: payload.publishedSamTotal ?? task.publishedSamTotal,
+      publishedSamDifficulty: payload.publishedSamDifficulty ?? task.publishedSamDifficulty,
     },
     'BIDDING_START',
     `发起竞价 ${payload.tenderId}`,
@@ -1718,6 +1832,8 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
   const now = nowTimestamp()
 
   for (const taskId of input.taskIds) {
+    const task = getRuntimeTaskById(taskId)
+    const sam = task ? resolveRuntimeTaskPublishedSam(task) : {}
     applyRuntimeDirectDispatchMeta({
       taskId,
       factoryId: input.factoryId,
@@ -1731,6 +1847,7 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
       dispatchPriceUnit: input.dispatchPriceUnit,
       priceDiffReason: input.priceDiffReason,
       dispatchedAt: now,
+      ...sam,
     })
   }
 
@@ -1755,6 +1872,10 @@ export function applyRuntimeDirectDispatchMeta(input: {
   dispatchPriceUnit: string
   priceDiffReason: string
   dispatchedAt?: string
+  publishedSamPerUnit?: number
+  publishedSamUnit?: string
+  publishedSamTotal?: number
+  publishedSamDifficulty?: PublishedSamDifficulty
 }): RuntimeProcessTask | null {
   return updateRuntimeTaskWithAudit(
     input.taskId,
@@ -1773,6 +1894,10 @@ export function applyRuntimeDirectDispatchMeta(input: {
       dispatchPriceUnit: input.dispatchPriceUnit,
       priceDiffReason: input.priceDiffReason.trim() || undefined,
       acceptanceStatus: 'PENDING',
+      publishedSamPerUnit: input.publishedSamPerUnit,
+      publishedSamUnit: input.publishedSamUnit,
+      publishedSamTotal: input.publishedSamTotal,
+      publishedSamDifficulty: input.publishedSamDifficulty,
     },
     'DISPATCH',
     '已发起直接派单，待工厂确认',

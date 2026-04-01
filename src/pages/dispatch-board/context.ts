@@ -10,6 +10,8 @@ import {
   isRuntimeTaskExecutionTask,
   listRuntimeTaskAllocatableGroups,
   listRuntimeProcessTasks,
+  resolveRuntimeAllocatableGroupPublishedSam,
+  resolveRuntimeTaskPublishedSam,
   setRuntimeTaskAssignMode,
   upsertRuntimeTaskTender,
   validateRuntimeBatchDispatchSelection,
@@ -132,6 +134,10 @@ interface MockTender {
   maxPrice: number
   currency: string
   unit: string
+  publishedSamPerUnit?: number
+  publishedSamUnit?: string
+  publishedSamTotal?: number
+  publishedSamDifficulty?: DispatchTask['publishedSamDifficulty']
   awardedFactoryName?: string
   awardedPrice?: number
 }
@@ -150,11 +156,22 @@ interface LocalTender {
   standardPrice: number
   remark: string
   createdAt: string
+  publishedSamPerUnit?: number
+  publishedSamUnit?: string
+  publishedSamTotal?: number
+  publishedSamDifficulty?: DispatchTask['publishedSamDifficulty']
   quotedCount?: number
   currentMaxPrice?: number
   currentMinPrice?: number
   awardedFactoryName?: string
   awardedPrice?: number
+}
+
+interface DispatchPublishedSamSnapshot {
+  publishedSamPerUnit?: number
+  publishedSamUnit?: string
+  publishedSamTotal?: number
+  publishedSamDifficulty?: DispatchTask['publishedSamDifficulty']
 }
 
 type TenderState = Record<string, LocalTender>
@@ -550,18 +567,52 @@ function openAppRoute(pathname: string, key?: string, title?: string): void {
   appStore.navigate(pathname)
 }
 
+function resolveTaskPublishedSam(task: DispatchTask | null): DispatchPublishedSamSnapshot {
+  if (!task) return {}
+  return resolveRuntimeTaskPublishedSam(task)
+}
+
+function resolveAllocatableGroupPublishedSam(
+  task: DispatchTask | null,
+  group: RuntimeTaskAllocatableGroup | null,
+): DispatchPublishedSamSnapshot {
+  if (!task || !group) return {}
+  return resolveRuntimeAllocatableGroupPublishedSam(task, group)
+}
+
+function formatPublishedSamNumber(value: number | undefined): string {
+  if (!Number.isFinite(value) || value == null) return '--'
+  return Number(value).toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  })
+}
+
+function attachTenderPublishedSam<T extends MockTender | LocalTender>(tender: T, task: DispatchTask): T {
+  const sam = resolveTaskPublishedSam(task)
+  if (!sam.publishedSamPerUnit || !sam.publishedSamUnit) return tender
+  return {
+    ...tender,
+    publishedSamPerUnit: tender.publishedSamPerUnit ?? sam.publishedSamPerUnit,
+    publishedSamUnit: tender.publishedSamUnit ?? sam.publishedSamUnit,
+    publishedSamTotal: tender.publishedSamTotal ?? sam.publishedSamTotal,
+    publishedSamDifficulty: tender.publishedSamDifficulty ?? sam.publishedSamDifficulty,
+  }
+}
+
 function getMockTender(task: DispatchTask): MockTender | undefined {
-  return mockTenders.find(
+  const tender = mockTenders.find(
     (item) =>
       item.taskId === task.taskId ||
       item.taskId === task.baseTaskId ||
       (task.tenderId ? item.tenderId === task.tenderId : false),
   )
+  return tender ? attachTenderPublishedSam(tender, task) : undefined
 }
 
 function getEffectiveTender(task: DispatchTask): MockTender | LocalTender | undefined {
   const local = state.tenderState[task.taskId]
-  if (local) return local
+  if (local) return attachTenderPublishedSam(local, task)
   return getMockTender(task)
 }
 
@@ -1098,6 +1149,9 @@ export {
   getMockTender,
   getEffectiveTender,
   hasTender,
+  resolveTaskPublishedSam,
+  resolveAllocatableGroupPublishedSam,
+  formatPublishedSamNumber,
   calcRemaining,
   deriveAssignPath,
   deriveAssignResult,
@@ -1139,6 +1193,7 @@ export type {
   KanbanCol,
   MockTender,
   LocalTender,
+  DispatchPublishedSamSnapshot,
   TenderState,
   CandidateFactory,
   DeadlineStatus,

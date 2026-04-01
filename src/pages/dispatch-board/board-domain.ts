@@ -19,10 +19,12 @@ import {
   isAffectedByTaskSet,
   formatScopeLabel,
   formatTaskNo,
+  formatPublishedSamNumber,
   hasTender,
   getPriceStatus,
   getStandardPrice,
   formatRemainingTime,
+  resolveTaskPublishedSam,
   taskStatusZh,
   calcRemaining,
   escapeHtml,
@@ -51,6 +53,15 @@ function renderKanbanCard(
   const isBid = assignResult === 'BIDDING' || assignResult === 'AWAIT_AWARD' || assignResult === 'AWARDED'
   const alreadyHasTender = hasTender(task)
   const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  const taskSam = resolveTaskPublishedSam(task)
+  const unitSamText =
+    taskSam.publishedSamPerUnit && taskSam.publishedSamUnit
+      ? `${formatPublishedSamNumber(taskSam.publishedSamPerUnit)} ${escapeHtml(taskSam.publishedSamUnit)}`
+      : '--'
+  const totalSamText =
+    taskSam.publishedSamTotal != null && taskSam.publishedSamUnit
+      ? `${formatPublishedSamNumber(taskSam.publishedSamTotal)} ${escapeHtml(taskSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+      : '--'
 
   const tenderSummary = (() => {
     if (!isBid) return ''
@@ -137,6 +148,10 @@ function renderKanbanCard(
         <p class="font-medium leading-tight">${escapeHtml(task.processNameZh)}</p>
         <p class="text-xs text-muted-foreground">${escapeHtml(task.productionOrderId)} · ${task.scopeQty} 件</p>
         <p class="text-xs text-muted-foreground">执行范围：${escapeHtml(formatScopeLabel(task))}</p>
+        <div class="space-y-0.5 rounded border bg-background px-2 py-1 text-[10px]" data-dispatch-task-sam="${escapeHtml(task.taskId)}">
+          <p class="text-muted-foreground">单位发布工时 SAM：<span class="font-medium text-foreground">${unitSamText}</span></p>
+          <p class="text-muted-foreground">任务总发布工时 SAM：<span class="font-medium text-blue-700">${totalSamText}</span></p>
+        </div>
 
         <div class="flex flex-wrap items-center gap-1.5">
           ${
@@ -275,12 +290,13 @@ function renderListView(
       </div>
 
       <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[1880px] text-sm">
+        <table class="w-full min-w-[1980px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-xs">
               <th class="w-10 px-3 py-2 text-left"><input type="checkbox" data-dispatch-field="list.selectAll" ${rows.length > 0 && state.selectedIds.size === rows.length ? 'checked' : ''} /></th>
               <th class="px-3 py-2 text-left font-medium">任务ID</th>
               <th class="px-3 py-2 text-left font-medium">任务名称</th>
+              <th class="px-3 py-2 text-left font-medium">任务消耗发布工时 SAM</th>
               <th class="px-3 py-2 text-left font-medium">执行范围</th>
               <th class="px-3 py-2 text-left font-medium">生产单号</th>
               <th class="px-3 py-2 text-left font-medium">分配路径</th>
@@ -308,7 +324,7 @@ function renderListView(
           <tbody>
             ${
               rows.length === 0
-                ? '<tr><td colspan="24" class="py-8 text-center text-sm text-muted-foreground">暂无任务数据</td></tr>'
+                ? '<tr><td colspan="25" class="py-8 text-center text-sm text-muted-foreground">暂无任务数据</td></tr>'
                 : rows
                     .map((task) => {
                       const hasException = isAffectedByTaskSet(task, exceptionTaskIds)
@@ -330,6 +346,15 @@ function renderListView(
                         assignResult === 'BIDDING' || assignResult === 'AWAIT_AWARD' || assignResult === 'AWARDED'
                       const alreadyHasTender = hasTender(task)
                       const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+                      const taskSam = resolveTaskPublishedSam(task)
+                      const unitSamText =
+                        taskSam.publishedSamPerUnit && taskSam.publishedSamUnit
+                          ? `${formatPublishedSamNumber(taskSam.publishedSamPerUnit)} ${escapeHtml(taskSam.publishedSamUnit)}`
+                          : '--'
+                      const totalSamText =
+                        taskSam.publishedSamTotal != null && taskSam.publishedSamUnit
+                          ? `${formatPublishedSamNumber(taskSam.publishedSamTotal)} ${escapeHtml(taskSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+                          : '--'
 
                       const tenderBiddingDeadline = tender?.biddingDeadline ?? ''
                       const tenderTaskDeadline = tender?.taskDeadline ?? ''
@@ -346,6 +371,12 @@ function renderListView(
                           <td class="px-3 py-3"><input type="checkbox" data-dispatch-field="list.selectTask" data-task-id="${escapeHtml(task.taskId)}" ${state.selectedIds.has(task.taskId) ? 'checked' : ''} /></td>
                           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(formatTaskNo(task))}</td>
                           <td class="px-3 py-3 text-sm font-medium">${escapeHtml(task.processNameZh)}</td>
+                          <td class="px-3 py-3 text-xs" data-dispatch-task-sam="${escapeHtml(task.taskId)}">
+                            <div class="space-y-1">
+                              <div><span class="text-muted-foreground">单位发布工时 SAM：</span><span class="font-medium">${unitSamText}</span></div>
+                              <div><span class="text-muted-foreground">任务总发布工时 SAM：</span><span class="font-medium text-blue-700">${totalSamText}</span></div>
+                            </div>
+                          </td>
                           <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(formatScopeLabel(task))}</td>
                           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(task.productionOrderId)}</td>
 

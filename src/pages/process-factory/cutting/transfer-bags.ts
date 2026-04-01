@@ -1537,7 +1537,6 @@ function renderMasterSection(): string {
                         </td>
                         <td class="px-4 py-3">
                           <div class="font-medium text-foreground">菲票 ${escapeHtml(String(item.packedTicketCount))} 张</div>
-                          <div class="mt-1 text-xs text-muted-foreground">总件数 ${escapeHtml(String(item.currentTotalPieceCount))} 件</div>
                         </td>
                         <td class="px-4 py-3">
                           <div class="flex flex-wrap gap-2">
@@ -2653,7 +2652,7 @@ function buildBaggingStepSummary(
 ): string {
   if (stepId === 'scan') {
     if (!focusedUsage) return `扫描首张菲票后，自动开始 ${activeMaster.bagCode} 本次周转`
-    return `已装 ${currentSummary?.ticketCount || 0} 张菲票 / ${currentSummary?.quantityTotal || 0} 件`
+    return `已装 ${currentSummary?.ticketCount || 0} 张菲票`
   }
   if (stepId === 'review') {
     if (!focusedUsage) return '装袋后再核对袋内内容'
@@ -2787,9 +2786,65 @@ function renderBaggingStepCard(step: TransferBagBaggingStepView, body: string): 
   `
 }
 
+function renderBaggingInlineField(label: string, value: string, valueClassName = 'text-foreground'): string {
+  return `
+    <div class="text-sm">
+      <span class="text-muted-foreground">${escapeHtml(label)}：</span>
+      <span class="font-medium ${valueClassName}">${escapeHtml(value)}</span>
+    </div>
+  `
+}
+
+function renderBaggedTicketCompactList(
+  currentBindings: TransferBagBindingItem[],
+  focusedUsage: TransferBagUsageItem | null,
+): string {
+  if (!currentBindings.length || !focusedUsage) {
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">当前还没有已装袋菲票，请先扫码加入本袋。</div>'
+  }
+
+  return `
+    <div class="rounded-lg border bg-card">
+      <div class="border-b px-3 py-2 text-sm font-medium text-foreground">已装袋菲票</div>
+      ${renderStickyTableScroller(
+        `
+          <table class="min-w-full text-sm">
+            <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 text-left">菲票码</th>
+                <th class="px-3 py-2 text-left">原始裁片单</th>
+                <th class="px-3 py-2 text-left">款号</th>
+                <th class="px-3 py-2 text-left">车缝工厂</th>
+                <th class="px-3 py-2 text-left">任务单号</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${currentBindings
+                .map(
+                  (binding) => `
+                    <tr class="border-b bg-card">
+                      <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(binding.ticketNo)}</td>
+                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(binding.originalCutOrderNo || '—')}</td>
+                      <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || focusedUsage.styleCode || '待补')}</td>
+                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(focusedUsage.sewingFactoryName || '待锁定')}</td>
+                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(focusedUsage.sewingTaskNo || '待锁定')}</td>
+                    </tr>
+                  `,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        `,
+        'max-h-[18vh]',
+      )}
+    </div>
+  `
+}
+
 function renderBaggingScanStepCard(
   step: TransferBagBaggingStepView,
   focusedUsage: TransferBagUsageItem | null,
+  currentBindings: TransferBagBindingItem[],
   currentSummary: ReturnType<typeof buildTransferBagParentChildSummary>,
   candidateTickets: TransferBagTicketCandidate[],
   capacityExceeded: boolean,
@@ -2816,22 +2871,22 @@ function renderBaggingScanStepCard(
           </label>
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted md:self-end" data-transfer-bags-action="bind-ticket" ${canEditBindings ? '' : 'disabled'}>加入本袋</button>
         </div>
-        <div class="grid gap-3 md:grid-cols-3">
-          ${renderDetailMetric('已装菲票数', String(currentSummary.ticketCount))}
-          ${renderDetailMetric('当前总件数', String(currentSummary.quantityTotal))}
-          ${renderDetailMetric('容量状态', capacityExceeded ? '已超容量' : '容量正常', capacityExceeded ? 'text-amber-700' : 'text-foreground')}
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          ${renderBaggingInlineField('已装菲票数', `${currentSummary.ticketCount} 张`)}
+          ${renderBaggingInlineField('容量状态', capacityExceeded ? '已超容量' : '容量正常', capacityExceeded ? 'text-amber-700' : 'text-foreground')}
+          ${
+            focusedUsage
+              ? `
+                ${renderBaggingInlineField('车缝工厂', focusedUsage.sewingFactoryName || '待锁定')}
+                ${renderBaggingInlineField('当前任务', focusedUsage.sewingTaskNo || '待锁定')}
+                ${renderBaggingInlineField('当前款号', focusedUsage.styleCode || '待锁定')}
+              `
+              : ''
+          }
         </div>
-        ${
-          focusedUsage
-            ? `
-              <div class="grid gap-3 md:grid-cols-3 text-sm">
-                <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.sewingFactoryName)}</span></div>
-                <div><span class="text-muted-foreground">当前任务：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.sewingTaskNo)}</span></div>
-                <div><span class="text-muted-foreground">当前款号：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.styleCode || '待锁定')}</span></div>
-              </div>
-            `
-            : '<div class="rounded-lg border border-dashed px-4 py-4 text-sm text-muted-foreground">扫描首张菲票后，会自动开始本次周转并锁定车缝工厂 / 款号上下文。</div>'
-        }
+        ${focusedUsage
+          ? ''
+          : '<div class="rounded-lg border border-dashed px-4 py-4 text-sm text-muted-foreground">扫描首张菲票后，会自动开始本次周转并锁定车缝工厂 / 款号上下文。</div>'}
         ${
           candidateTickets.length
             ? `
@@ -2855,6 +2910,7 @@ function renderBaggingScanStepCard(
             `
             : ''
         }
+        ${renderBaggedTicketCompactList(currentBindings, focusedUsage)}
         ${capacityExceeded ? '<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">当前装袋数量已超容量，请先核对袋内内容再继续操作。</div>' : ''}
         ${canEditBindings ? '' : '<div class="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">当前状态下不可继续扫码装袋，请在回收页签处理后续回收。</div>'}
       </div>
@@ -2877,7 +2933,6 @@ function renderBaggingReviewStepCard(
         <div class="space-y-3">
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             ${renderDetailMetric('已绑菲票数', String(currentSummary.ticketCount))}
-            ${renderDetailMetric('当前总件数', String(currentSummary.quantityTotal))}
             ${renderDetailMetric('来源原始裁片单数', String(currentSummary.originalCutOrderCount))}
             ${renderDetailMetric('来源生产单数', String(currentSummary.productionOrderCount))}
             ${renderDetailMetric('当前款号', focusedUsage.styleCode || '待锁定')}
@@ -2969,7 +3024,7 @@ function renderBaggingHandoverStepCard(
             ${renderDetailMetric('本次周转号', focusedUsage.usageNo)}
             ${renderDetailMetric('周转口袋码', focusedUsage.bagCode)}
             ${renderDetailMetric('车缝工厂', focusedUsage.sewingFactoryName || '待锁定')}
-            ${renderDetailMetric('已装菲票数 / 总件数', `${currentSummary.ticketCount} / ${currentSummary.quantityTotal}`)}
+            ${renderDetailMetric('已装菲票数', `${currentSummary.ticketCount}`)}
             ${renderDetailMetric('当前状态', focusedUsage.visibleStatusMeta.label)}
           </div>
           <div class="flex flex-wrap gap-2">
@@ -3016,7 +3071,7 @@ function renderTransferBagCurrentTab(
           `
           : ''
       }
-      ${renderBaggingScanStepCard(steps[0], focusedUsage, currentSummary, candidateTickets, capacityExceeded)}
+      ${renderBaggingScanStepCard(steps[0], focusedUsage, currentBindings, currentSummary, candidateTickets, capacityExceeded)}
       ${renderBaggingReviewStepCard(steps[1], focusedUsage, currentBindings, currentSummary, capacityExceeded)}
       ${renderBaggingHandoverStepCard(steps[2], focusedUsage, currentSummary)}
     </section>

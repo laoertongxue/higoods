@@ -20,7 +20,10 @@ import {
   priceStatusClass,
   getPriceStatus,
   emptyCreateTenderForm,
+  formatPublishedSamNumber,
   escapeHtml,
+  resolveAllocatableGroupPublishedSam,
+  resolveTaskPublishedSam,
   type DispatchTask,
 } from './context'
 function openCreateTender(taskId: string): void {
@@ -75,6 +78,15 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
   const detailSupported = supportsDetailAssignment(task)
   const detailGroups = detailSupported ? getTaskAllocatableGroups(task) : []
   const detailMode = detailSupported && state.createTenderForm.mode === 'DETAIL'
+  const taskSam = resolveTaskPublishedSam(task)
+  const unitSamText =
+    taskSam.publishedSamPerUnit && taskSam.publishedSamUnit
+      ? `${formatPublishedSamNumber(taskSam.publishedSamPerUnit)} ${escapeHtml(taskSam.publishedSamUnit)}`
+      : '--'
+  const totalSamText =
+    taskSam.publishedSamTotal != null && taskSam.publishedSamUnit
+      ? `${formatPublishedSamNumber(taskSam.publishedSamTotal)} ${escapeHtml(taskSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+      : '--'
 
   const minValid = state.createTenderForm.minPrice !== '' && Number.isFinite(minPrice) && minPrice > 0
   const maxValid =
@@ -134,6 +146,8 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(task.processNameZh)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(task))}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.scopeQty} ${escapeHtml(task.qtyUnit === 'PIECE' ? '件' : task.qtyUnit)}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm" data-tender-task-sam="per-unit"><span class="text-muted-foreground">单位发布工时 SAM</span><span class="font-mono text-xs">${unitSamText}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm" data-tender-task-sam="total"><span class="text-muted-foreground">任务总发布工时 SAM</span><span class="font-mono text-xs text-blue-700">${totalSamText}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序标准价</span><span class="font-mono text-xs">${std.price.toLocaleString()} ${escapeHtml(std.currency)}/${escapeHtml(std.unit)}</span></div>
           </div>
 
@@ -145,11 +159,12 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                     <span class="text-xs text-muted-foreground">将按下列单元拆成多个招标对象</span>
                   </div>
                   <div class="overflow-x-auto rounded-md border">
-                    <table class="w-full min-w-[520px] text-sm">
+                    <table class="w-full min-w-[760px] text-sm">
                       <thead>
                         <tr class="border-b bg-muted/40 text-xs">
                           <th class="px-3 py-2 text-left font-medium">分配单元</th>
                           <th class="px-3 py-2 text-left font-medium">数量</th>
+                          <th class="px-3 py-2 text-left font-medium">任务消耗发布工时 SAM</th>
                           <th class="px-3 py-2 text-left font-medium">维度说明</th>
                         </tr>
                       </thead>
@@ -159,10 +174,25 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                             const dimensionsText = Object.entries(group.dimensions)
                               .map(([key, value]) => `${key}:${value}`)
                               .join('；')
+                            const groupSam = resolveAllocatableGroupPublishedSam(task, group)
+                            const groupUnitSamText =
+                              groupSam.publishedSamPerUnit && groupSam.publishedSamUnit
+                                ? `${formatPublishedSamNumber(groupSam.publishedSamPerUnit)} ${escapeHtml(groupSam.publishedSamUnit)}`
+                                : '--'
+                            const groupTotalSamText =
+                              groupSam.publishedSamTotal != null && groupSam.publishedSamUnit
+                                ? `${formatPublishedSamNumber(groupSam.publishedSamTotal)} ${escapeHtml(groupSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
+                                : '--'
                             return `
                               <tr class="border-b last:border-b-0" data-tender-group="${escapeHtml(group.groupKey)}">
                                 <td class="px-3 py-2">${escapeHtml(group.groupLabel)}</td>
                                 <td class="px-3 py-2 font-mono text-xs">${group.qty} 件</td>
+                                <td class="px-3 py-2 text-xs" data-tender-group-sam="${escapeHtml(group.groupKey)}">
+                                  <div class="space-y-1">
+                                    <div><span class="text-muted-foreground">单位发布工时 SAM：</span><span class="font-medium">${groupUnitSamText}</span></div>
+                                    <div><span class="text-muted-foreground">任务总发布工时 SAM：</span><span class="font-medium text-blue-700">${groupTotalSamText}</span></div>
+                                  </div>
+                                </td>
                                 <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(dimensionsText || '-')}</td>
                               </tr>
                             `
@@ -314,6 +344,22 @@ function renderViewTenderSheet(task: DispatchTask | null): string {
   if (!tender) return ''
 
   const std = getStandardPrice(task)
+  const tenderSam = {
+    publishedSamPerUnit: tender.publishedSamPerUnit,
+    publishedSamUnit: tender.publishedSamUnit,
+    publishedSamTotal: tender.publishedSamTotal,
+  }
+  const taskSam = resolveTaskPublishedSam(task)
+  const viewUnitSamText =
+    (tenderSam.publishedSamPerUnit ?? taskSam.publishedSamPerUnit) &&
+    (tenderSam.publishedSamUnit ?? taskSam.publishedSamUnit)
+      ? `${formatPublishedSamNumber(tenderSam.publishedSamPerUnit ?? taskSam.publishedSamPerUnit)} ${escapeHtml((tenderSam.publishedSamUnit ?? taskSam.publishedSamUnit) as string)}`
+      : '--'
+  const resolvedSamUnit = tenderSam.publishedSamUnit ?? taskSam.publishedSamUnit
+  const viewTotalSamText =
+    (tenderSam.publishedSamTotal ?? taskSam.publishedSamTotal) != null && resolvedSamUnit
+      ? `${formatPublishedSamNumber(tenderSam.publishedSamTotal ?? taskSam.publishedSamTotal)} ${escapeHtml(resolvedSamUnit.replace(/^分钟\//, '分钟'))}`
+      : '--'
 
   const tenderId = tender.tenderId
   const biddingDeadline = tender.biddingDeadline
@@ -365,6 +411,8 @@ function renderViewTenderSheet(task: DispatchTask | null): string {
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">工序</span><span class="font-mono text-xs">${escapeHtml(task.processNameZh)}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">执行范围</span><span class="font-mono text-xs">${escapeHtml(formatScopeLabel(task))}</span></div>
             <div class="flex items-center justify-between gap-2 text-sm"><span class="text-muted-foreground">数量</span><span class="font-mono text-xs">${task.scopeQty} 件</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm" data-view-tender-sam="per-unit"><span class="text-muted-foreground">单位发布工时 SAM</span><span class="font-mono text-xs">${viewUnitSamText}</span></div>
+            <div class="flex items-center justify-between gap-2 text-sm" data-view-tender-sam="total"><span class="text-muted-foreground">任务总发布工时 SAM</span><span class="font-mono text-xs text-blue-700">${viewTotalSamText}</span></div>
           </div>
 
           <div class="space-y-1.5">
@@ -519,6 +567,7 @@ function confirmCreateTender(): void {
   if (!valid) return
 
   const std = getStandardPrice(task)
+  const taskSam = resolveTaskPublishedSam(task)
   const selectedPoolIds = Array.from(state.createTenderForm.selectedPool)
   const poolNames = selectedPoolIds.map((factoryId) => {
     const factory = candidateFactories.find((item) => item.id === factoryId)
@@ -536,6 +585,8 @@ function confirmCreateTender(): void {
       const childTenderId = `${state.createTenderForm.tenderId}-${String(index + 1).padStart(2, '0')}`
       const biddingDeadline = fromDateTimeLocal(state.createTenderForm.biddingDeadline)
       const taskDeadline = fromDateTimeLocal(state.createTenderForm.taskDeadline)
+      const childTask = getTaskById(childTaskId)
+      const childTaskSam = resolveTaskPublishedSam(childTask)
 
       state.tenderState[childTaskId] = {
         tenderId: childTenderId,
@@ -551,6 +602,10 @@ function confirmCreateTender(): void {
         standardPrice: std.price,
         remark: state.createTenderForm.remark,
         createdAt: nowTimestamp(),
+        publishedSamPerUnit: childTaskSam.publishedSamPerUnit,
+        publishedSamUnit: childTaskSam.publishedSamUnit,
+        publishedSamTotal: childTaskSam.publishedSamTotal,
+        publishedSamDifficulty: childTaskSam.publishedSamDifficulty,
         quotedCount: 0,
       }
 
@@ -560,6 +615,10 @@ function confirmCreateTender(): void {
           tenderId: childTenderId,
           biddingDeadline,
           taskDeadline,
+          publishedSamPerUnit: childTaskSam.publishedSamPerUnit,
+          publishedSamUnit: childTaskSam.publishedSamUnit,
+          publishedSamTotal: childTaskSam.publishedSamTotal,
+          publishedSamDifficulty: childTaskSam.publishedSamDifficulty,
         },
         '跟单A',
       )
@@ -583,6 +642,10 @@ function confirmCreateTender(): void {
     standardPrice: std.price,
     remark: state.createTenderForm.remark,
     createdAt: nowTimestamp(),
+    publishedSamPerUnit: taskSam.publishedSamPerUnit,
+    publishedSamUnit: taskSam.publishedSamUnit,
+    publishedSamTotal: taskSam.publishedSamTotal,
+    publishedSamDifficulty: taskSam.publishedSamDifficulty,
     quotedCount: 0,
   }
 
@@ -592,6 +655,10 @@ function confirmCreateTender(): void {
       tenderId: state.createTenderForm.tenderId,
       biddingDeadline: fromDateTimeLocal(state.createTenderForm.biddingDeadline),
       taskDeadline: fromDateTimeLocal(state.createTenderForm.taskDeadline),
+      publishedSamPerUnit: taskSam.publishedSamPerUnit,
+      publishedSamUnit: taskSam.publishedSamUnit,
+      publishedSamTotal: taskSam.publishedSamTotal,
+      publishedSamDifficulty: taskSam.publishedSamDifficulty,
     },
     '跟单A',
   )
