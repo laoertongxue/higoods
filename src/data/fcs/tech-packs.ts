@@ -7,7 +7,7 @@ import {
   type DetailSplitDimension,
   type DetailSplitMode,
   type RuleSource,
-} from './process-craft-dict'
+} from './process-craft-dict.ts'
 
 export type TechPackStatus = 'MISSING' | 'BETA' | 'RELEASED'
 

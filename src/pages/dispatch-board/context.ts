@@ -1,5 +1,5 @@
-import { appStore } from '../../state/store'
-import { productionOrders } from '../../data/fcs/production-orders'
+import { appStore } from '../../state/store.ts'
+import { productionOrders } from '../../data/fcs/production-orders.ts'
 import {
   CAPACITY_CALENDAR_CONSTRAINT_STATUS_LABEL,
   createCapacityCalendarEvaluationContext,
@@ -7,7 +7,7 @@ import {
   type CapacityCalendarConstraintStatus,
   type CapacityCalendarEvaluationContext,
   type CapacityCalendarTaskConstraintResult,
-} from '../../data/fcs/capacity-calendar'
+} from '../../data/fcs/capacity-calendar.ts'
 import {
   aggregateFactorySamUsage,
   CAPACITY_STANDARD_TIME_JUDGEMENT_LABEL,
@@ -25,7 +25,7 @@ import {
   type CapacityStandardTimeEvaluationContext,
   type CapacityStandardTimeJudgement,
   type CapacityTenderParticipationSnapshot,
-} from '../../data/fcs/capacity-usage-ledger'
+} from '../../data/fcs/capacity-usage-ledger.ts'
 import {
   applyRuntimeDirectDispatchMeta,
   batchDispatchRuntimeTasks,
@@ -44,16 +44,16 @@ import {
   type RuntimeTaskAllocatableGroup,
   type RuntimeTaskAllocatableGroupAssignment,
   type RuntimeProcessTask,
-} from '../../data/fcs/runtime-process-tasks'
+} from '../../data/fcs/runtime-process-tasks.ts'
 import {
   initialQualityInspections,
   initialAllocationByTaskId,
-} from '../../data/fcs/store-domain-quality-seeds'
-import { listProgressExceptions, type ExceptionCase } from '../../data/fcs/store-domain-progress'
-import { listLegacyLikeDyePrintOrdersForTailPages } from '../../data/fcs/page-adapters/long-tail-pages-adapter'
-import { indonesiaFactories } from '../../data/fcs/indonesia-factories'
-import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap'
-import { escapeHtml, toClassName } from '../../utils'
+} from '../../data/fcs/store-domain-quality-seeds.ts'
+import { listProgressExceptions, type ExceptionCase } from '../../data/fcs/store-domain-progress.ts'
+import { listLegacyLikeDyePrintOrdersForTailPages } from '../../data/fcs/page-adapters/long-tail-pages-adapter.ts'
+import { indonesiaFactories } from '../../data/fcs/indonesia-factories.ts'
+import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap.ts'
+import { escapeHtml, toClassName } from '../../utils.ts'
 
 applyQualitySeedBootstrap()
 
@@ -220,7 +220,6 @@ interface CandidateFactory {
   id: string
   name: string
   processTags: string[]
-  currentStatus: string
   capacitySummary: string
   performanceSummary: string
   settlementStatus: string
@@ -231,7 +230,6 @@ const candidateFactories: CandidateFactory[] = [
     id: 'ID-F002',
     name: '泗水裁片厂',
     processTags: ['裁片', '裁剪'],
-    currentStatus: '正常',
     capacitySummary: '日产能 800件',
     performanceSummary: '近3月良品率 97%',
     settlementStatus: '结算正常',
@@ -240,7 +238,6 @@ const candidateFactories: CandidateFactory[] = [
     id: 'ID-F003',
     name: '万隆车缝厂',
     processTags: ['车缝', '后整'],
-    currentStatus: '正常',
     capacitySummary: '日产能 1200件',
     performanceSummary: '近3月良品率 96%',
     settlementStatus: '结算正常',
@@ -249,43 +246,38 @@ const candidateFactories: CandidateFactory[] = [
     id: 'ID-F004',
     name: '三宝垄整烫厂',
     processTags: ['后整', '整烫'],
-    currentStatus: '正常',
     capacitySummary: '日产能 600件',
     performanceSummary: '近3月良品率 98%',
     settlementStatus: '结算正常',
   },
   {
-    id: 'ID-F005',
-    name: '日惹包装厂',
-    processTags: ['包装', '成衣'],
-    currentStatus: '产能偏紧',
-    capacitySummary: '日产能 500件（80%占用）',
-    performanceSummary: '近3月良品率 95%',
+    id: 'ID-F024',
+    name: '三宝垄微型车缝厂',
+    processTags: ['车缝', '钉扣'],
+    capacitySummary: '默认日供给 2122.52 标准工时',
+    performanceSummary: '近3月良品率 87%',
     settlementStatus: '结算正常',
   },
   {
     id: 'ID-F017',
     name: 'CV Satellite Surabaya Selatan',
     processTags: ['车缝', '特殊工艺'],
-    currentStatus: '正常',
     capacitySummary: '默认日供给 3290.4 标准工时',
     performanceSummary: '近3月良品率 94%',
     settlementStatus: '结算正常',
   },
   {
-    id: 'ID-F007',
-    name: '玛琅精工车缝',
-    processTags: ['精品车缝'],
-    currentStatus: '正常',
-    capacitySummary: '日产能 400件',
-    performanceSummary: '近3月良品率 99%',
+    id: 'ID-F011',
+    name: '玛琅卫星工厂A',
+    processTags: ['车缝', '后整'],
+    capacitySummary: '默认日供给 726.872 标准工时',
+    performanceSummary: '近3月良品率 87%',
     settlementStatus: '结算正常',
   },
   {
     id: 'ID-F010',
     name: '雅加达绣花专工厂',
     processTags: ['刺绣', '特种工艺'],
-    currentStatus: '正常',
     capacitySummary: '日产能 300件',
     performanceSummary: '近3月良品率 98%',
     settlementStatus: '有待确认结算单',
@@ -355,7 +347,7 @@ const mockTenders: MockTender[] = [
     maxPrice: 16200,
     currency: 'IDR',
     unit: '件',
-    participatingFactoryIds: ['ID-F004', 'ID-F005', 'ID-F006'],
+    participatingFactoryIds: ['ID-F004', 'ID-F024', 'ID-F006'],
   },
   {
     tenderId: 'TENDER-TASKGEN0003001-1001',
@@ -371,7 +363,7 @@ const mockTenders: MockTender[] = [
     maxPrice: 15500,
     currency: 'IDR',
     unit: '件',
-    participatingFactoryIds: ['ID-F003', 'ID-F004', 'ID-F005', 'ID-F006', 'ID-F010'],
+    participatingFactoryIds: ['ID-F003', 'ID-F004', 'ID-F024', 'ID-F006', 'ID-F010'],
   },
   {
     tenderId: 'TENDER-TASKGEN0015001-1001',
@@ -387,7 +379,7 @@ const mockTenders: MockTender[] = [
     maxPrice: 14800,
     currency: 'IDR',
     unit: '件',
-    participatingFactoryIds: ['ID-F003', 'ID-F005', 'ID-F006', 'ID-F007'],
+    participatingFactoryIds: ['ID-F003', 'ID-F024', 'ID-F006', 'ID-F011'],
   },
   {
     tenderId: 'TENDER-TASKGEN0084001-1001',
@@ -419,7 +411,7 @@ const mockTenders: MockTender[] = [
     maxPrice: 15000,
     currency: 'IDR',
     unit: '件',
-    participatingFactoryIds: ['ID-F003', 'ID-F006', 'ID-F007'],
+    participatingFactoryIds: ['ID-F003', 'ID-F006', 'ID-F011'],
     awardedFactoryId: 'ID-F003',
     awardedFactoryName: '万隆车缝厂',
     awardedPrice: 13200,
@@ -438,9 +430,9 @@ const mockTenders: MockTender[] = [
     maxPrice: 10100,
     currency: 'IDR',
     unit: '件',
-    participatingFactoryIds: ['ID-F004', 'ID-F005', 'ID-F006'],
-    awardedFactoryId: 'ID-F005',
-    awardedFactoryName: '日惹包装厂',
+    participatingFactoryIds: ['ID-F004', 'ID-F024', 'ID-F006'],
+    awardedFactoryId: 'ID-F024',
+    awardedFactoryName: '三宝垄微型车缝厂',
     awardedPrice: 8800,
   },
   {
@@ -457,7 +449,7 @@ const mockTenders: MockTender[] = [
     maxPrice: 16000,
     currency: 'IDR',
     unit: '件',
-    participatingFactoryIds: ['ID-F003', 'ID-F006', 'ID-F007', 'ID-F010'],
+    participatingFactoryIds: ['ID-F003', 'ID-F006', 'ID-F011', 'ID-F010'],
     awardedFactoryId: 'ID-F010',
     awardedFactoryName: '雅加达绣花专工厂',
     awardedPrice: 14800,
@@ -649,6 +641,16 @@ function toDispatchCapacityConstraintSnapshot(
     ...result,
     statusLabel: CAPACITY_CALENDAR_CONSTRAINT_STATUS_LABEL[result.status],
   }
+}
+
+function describeDispatchCapacityConstraintDecision(snapshot: DispatchCapacityConstraintSnapshot | null): string {
+  if (!snapshot) return '待校验'
+  if (snapshot.status === 'PAUSED') return '当前窗口暂停，不可选'
+  if (snapshot.status === 'OVERLOADED') return '当前窗口超载，不可选'
+  if (snapshot.status === 'TIGHT') return '当前窗口紧张，可选但需预警'
+  if (snapshot.status === 'DATE_INCOMPLETE') return '日期不足，仅提示无法完全校验'
+  if (snapshot.status === 'SAM_MISSING') return '工时缺失，仅提示无法完全校验'
+  return '当前窗口正常，可正常承接'
 }
 
 function compareDispatchCapacityConstraintPriority(status: CapacityCalendarConstraintStatus): number {
@@ -1300,9 +1302,9 @@ function getFactoryOptions(): Array<{ id: string; name: string }> {
     { id: 'ID-F002', name: '泗水裁片厂' },
     { id: 'ID-F003', name: '万隆车缝厂' },
     { id: 'ID-F004', name: '三宝垄整烫厂' },
-    { id: 'ID-F005', name: '日惹包装厂' },
+    { id: 'ID-F024', name: '三宝垄微型车缝厂' },
     { id: 'ID-F006', name: '棉兰卫星工厂' },
-    { id: 'ID-F007', name: '玛琅精工车缝' },
+    { id: 'ID-F011', name: '玛琅卫星工厂A' },
     { id: 'ID-F010', name: '雅加达绣花专工厂' },
   ]
 }
@@ -1471,6 +1473,7 @@ export {
   getMockTender,
   getEffectiveTender,
   hasTender,
+  describeDispatchCapacityConstraintDecision,
   resolveTaskPublishedSam,
   resolveAllocatableGroupPublishedSam,
   createDispatchCapacityEvaluationContext,

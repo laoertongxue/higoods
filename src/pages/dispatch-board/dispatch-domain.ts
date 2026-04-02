@@ -22,6 +22,7 @@ import {
   getDispatchDialogValidation,
   getFactoryOptions,
   emptyDispatchForm,
+  describeDispatchCapacityConstraintDecision,
   formatPublishedSamNumber,
   fromDateTimeLocal,
   escapeHtml,
@@ -40,7 +41,7 @@ import {
   type DispatchCapacityConstraintSnapshot,
   type DispatchStandardTimeJudgementSnapshot,
   type DispatchTask,
-} from './context'
+} from './context.ts'
 
 function setTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
   setRuntimeTaskAssignMode(taskId, mode, by)
@@ -127,13 +128,7 @@ function renderCapacityConstraintSummary(
     <div class="rounded-md border px-3 py-2 text-xs ${getConstraintTone(snapshot)}" ${testId ? `data-${testId}="${escapeHtml(snapshot.status)}"` : ''}>
       <div class="flex items-center gap-2">
         <span class="inline-flex rounded border px-2 py-0.5 text-[10px] font-medium ${getConstraintTone(snapshot)}">${escapeHtml(snapshot.statusLabel)}</span>
-        ${
-          snapshot.hardBlocked
-            ? '<span class="font-medium">当前工厂不可选</span>'
-            : snapshot.warning
-              ? '<span class="font-medium">当前工厂可选，但需关注风险</span>'
-              : '<span class="font-medium">当前工厂可正常承接</span>'
-        }
+        <span class="font-medium">${escapeHtml(describeDispatchCapacityConstraintDecision(snapshot))}</span>
       </div>
       <p class="mt-1 leading-5">${escapeHtml(snapshot.reason)}</p>
     </div>

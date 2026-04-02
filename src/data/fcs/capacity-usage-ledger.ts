@@ -1,10 +1,10 @@
-import { computeFactoryCapacityEntryResult, listFactoryCapacityEntries } from './factory-capacity-profile-mock'
+import { computeFactoryCapacityEntryResult, listFactoryCapacityEntries } from './factory-capacity-profile-mock.ts'
 import {
   CAPACITY_DATE_INCOMPLETE_NOTE,
   CAPACITY_TIGHT_THRESHOLD_RATIO,
   calculateCapacityRemainingStandardHours,
-} from './capacity-rules'
-import type { AcceptanceStatus, PublishedSamDifficulty, TaskAuditLog } from './process-tasks'
+} from './capacity-rules.ts'
+import type { AcceptanceStatus, PublishedSamDifficulty, TaskAuditLog } from './process-tasks.ts'
 
 export type CapacityUsageSourceType =
   | 'DIRECT_PENDING_ACCEPT'
@@ -627,6 +627,201 @@ function upsertCommitmentRecord(
   capacityCommitments.set(id, next)
   return next
 }
+
+function seedInitialCapacityUsageRecords(): void {
+  const commitmentSeeds: Array<{
+    id: string
+    record: Omit<CapacityCommitment, 'id' | 'createdAt' | 'updatedAt'>
+  }> = [
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F013',
+        taskId: 'TASKGEN-202603-0002-005__ORDER',
+      }),
+      record: {
+        factoryId: 'ID-F013',
+        processCode: 'BUTTON_ATTACH',
+        craftCode: 'CRAFT_032768',
+        taskId: 'TASKGEN-202603-0002-005__ORDER',
+        standardSamTotal: 9000,
+        windowStartDate: '2026-03-18',
+        windowEndDate: '2026-04-10',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '已落厂可承载样例：用于任务工时风险里的可承载任务。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F011',
+        taskId: 'TASKGEN-202603-0015-002__ORDER',
+      }),
+      record: {
+        factoryId: 'ID-F011',
+        processCode: 'SEW',
+        craftCode: 'CRAFT_262145',
+        taskId: 'TASKGEN-202603-0015-002__ORDER',
+        standardSamTotal: 1400,
+        windowStartDate: '2026-04-12',
+        windowEndDate: '2026-04-12',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '已落厂紧张样例：配合背景占用验证窗口余量不足 20%。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'TENDER_AWARDED',
+        factoryId: 'ID-F026',
+        taskId: 'TASKGEN-202603-0004-001__ORDER',
+      }),
+      record: {
+        factoryId: 'ID-F026',
+        processCode: 'SEW',
+        craftCode: 'CRAFT_262144',
+        taskId: 'TASKGEN-202603-0004-001__ORDER',
+        standardSamTotal: 42000,
+        windowStartDate: '2026-04-10',
+        windowEndDate: '2026-04-10',
+        sourceType: 'TENDER_AWARDED',
+        status: 'ACTIVE',
+        note: '已落厂超出窗口样例：用于验证超载状态与硬拦截。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F017',
+        taskId: 'TASKGEN-202603-0008-001__ORDER',
+      }),
+      record: {
+        factoryId: 'ID-F017',
+        processCode: 'SEW',
+        craftCode: 'CRAFT_262144',
+        taskId: 'TASKGEN-202603-0008-001__ORDER',
+        standardSamTotal: 12000,
+        windowStartDate: '2026-04-11',
+        windowEndDate: '2026-04-11',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '已落厂暂停样例：命中暂停例外后优先显示暂停。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F011',
+        taskId: 'CAPACITY-BG-BTNATTACH-TIGHT',
+      }),
+      record: {
+        factoryId: 'ID-F011',
+        processCode: 'BUTTON_ATTACH',
+        craftCode: 'CRAFT_032768',
+        taskId: 'CAPACITY-BG-BTNATTACH-TIGHT',
+        standardSamTotal: 14400,
+        windowStartDate: '2026-03-18',
+        windowEndDate: '2026-04-10',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '背景占用：用于工厂日历与瓶颈页的紧张行样例。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F010',
+        taskId: 'CAPACITY-BG-BTNATTACH-WHOLE-TIGHT',
+      }),
+      record: {
+        factoryId: 'ID-F010',
+        processCode: 'BUTTON_ATTACH',
+        craftCode: 'CRAFT_032768',
+        taskId: 'CAPACITY-BG-BTNATTACH-WHOLE-TIGHT',
+        standardSamTotal: 55200,
+        windowStartDate: '2026-03-18',
+        windowEndDate: '2026-04-10',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '背景占用：用于整任务直接派单/创建招标单的紧张候选样例。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F011',
+        taskId: 'CAPACITY-BG-SEW-RISK-TIGHT',
+      }),
+      record: {
+        factoryId: 'ID-F011',
+        processCode: 'SEW',
+        craftCode: 'CRAFT_262145',
+        taskId: 'CAPACITY-BG-SEW-RISK-TIGHT',
+        standardSamTotal: 500,
+        windowStartDate: '2026-04-12',
+        windowEndDate: '2026-04-12',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '背景占用：用于任务工时风险里的紧张任务样例。',
+      },
+    },
+    {
+      id: buildCommitmentId({
+        sourceType: 'DIRECT_ACCEPTED',
+        factoryId: 'ID-F026',
+        taskId: 'CAPACITY-BG-SEW-DETAIL-TIGHT',
+      }),
+      record: {
+        factoryId: 'ID-F026',
+        processCode: 'SEW',
+        craftCode: 'CRAFT_262145',
+        taskId: 'CAPACITY-BG-SEW-DETAIL-TIGHT',
+        standardSamTotal: 500,
+        windowStartDate: '2026-04-12',
+        windowEndDate: '2026-04-12',
+        sourceType: 'DIRECT_ACCEPTED',
+        status: 'ACTIVE',
+        note: '背景占用：用于按明细模式逐组紧张样例。',
+      },
+    },
+  ]
+
+  const freezeSeeds: Array<{
+    id: string
+    record: Omit<CapacityFreeze, 'id' | 'createdAt' | 'updatedAt'>
+  }> = [
+    {
+      id: buildFreezeId({
+        sourceType: 'TENDER_PARTICIPATING',
+        factoryId: 'ID-F011',
+        taskId: 'TASKGEN-202603-0003-001__ORDER',
+      }),
+      record: {
+        factoryId: 'ID-F011',
+        processCode: 'SEW',
+        craftCode: 'CRAFT_262144',
+        taskId: 'TASKGEN-202603-0003-001__ORDER',
+        standardSamTotal: 72000,
+        windowStartDate: '2026-04-12',
+        windowEndDate: '2026-04-12',
+        sourceType: 'TENDER_PARTICIPATING',
+        status: 'ACTIVE',
+        note: '冻结待确认样例：任务已形成冻结对象，但尚未转成正式占用。',
+      },
+    },
+  ]
+
+  for (const { id, record } of commitmentSeeds) {
+    upsertCommitmentRecord(id, record)
+  }
+
+  for (const { id, record } of freezeSeeds) {
+    upsertFreezeRecord(id, record)
+  }
+}
+
+seedInitialCapacityUsageRecords()
 
 function buildUsageInputFromTask(
   task: CapacityUsageTaskLike,

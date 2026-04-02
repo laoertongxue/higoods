@@ -1,5 +1,5 @@
-import type { ProcessAssignmentGranularity } from './process-craft-dict'
-import type { TaskDetailRow } from './task-detail-rows'
+import type { ProcessAssignmentGranularity } from './process-craft-dict.ts'
+import type { TaskDetailRow } from './task-detail-rows.ts'
 
 interface SkuLineForSplitGrouping {
   skuCode: string

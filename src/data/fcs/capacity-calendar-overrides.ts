@@ -54,6 +54,15 @@ const capacityCalendarOverrides: CapacityCalendarOverrideRecord[] = [
     reason: '历史检修窗口',
     note: '已过期样例，用于验证例外列表的历史记录展示。',
   },
+  {
+    id: 'CAP-OVR-0005',
+    factoryId: 'ID-F017',
+    startDate: '2026-04-10',
+    endDate: '2026-04-12',
+    overrideType: 'PAUSE',
+    reason: '卫星工厂线体检修',
+    note: '用于验证当前窗口内暂停会进入工厂日历、风险页、瓶颈页，并在任务分配里禁用工厂。',
+  },
 ]
 
 export interface CapacityCalendarOverrideInput {

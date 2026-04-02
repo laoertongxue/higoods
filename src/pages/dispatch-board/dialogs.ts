@@ -1,4 +1,4 @@
-import { state } from './context'
+import { state } from './context.ts'
 export function isDispatchBoardDialogOpen(): boolean {
   return Boolean(
     state.dispatchDialogTaskIds ||

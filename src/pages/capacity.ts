@@ -1,6 +1,7 @@
 import { productionOrders } from '../data/fcs/production-orders'
 import { appStore } from '../state/store'
 import {
+  buildCapacityStatusBadge,
   buildCapacityCalendarData,
   buildCapacityBottleneckData,
   buildCapacityRiskData,
@@ -22,12 +23,6 @@ import {
   filterCapacityRiskTaskRows,
   summarizeProductionOrderRisk,
 } from '../data/fcs/capacity-calendar'
-import {
-  CAPACITY_NO_REPLAY_SAM_NOTE,
-  CAPACITY_RULE_SECTIONS,
-  CAPACITY_THRESHOLD_RULES,
-  type CapacityRuleSection,
-} from '../data/fcs/capacity-rules'
 import {
   createCapacityCalendarOverride,
   expireCapacityCalendarOverride,
@@ -57,10 +52,9 @@ const legacyLikeExceptions = listLegacyLikeExceptionsForTailPages()
 
 type Tone = 'default' | 'secondary' | 'destructive' | 'outline'
 
-type OverviewTab = 'factory' | 'order'
+type OverviewTab = 'comparison' | 'unallocated' | 'unscheduled'
 type RiskTab = 'task' | 'order'
 type BottleneckTab = CapacityBottleneckViewTab
-type ConstraintsTab = 'task' | 'factory'
 type FactoryCalendarWindowFilter = FactoryCalendarWindowDays
 
 type CapacityPoliciesEditorMode = 'create' | 'edit' | ''
@@ -91,8 +85,6 @@ interface CapacityState {
   bottleneckCraftCode: string
   bottleneckCraftDetailKey: string
   bottleneckDateDetailKey: string
-  constraintsKeyword: string
-  constraintsTab: ConstraintsTab
   constraintsFactoryId: string
   constraintsWindowDays: FactoryCalendarWindowFilter
   constraintsProcessCode: string
@@ -114,7 +106,7 @@ interface CapacityState {
 
 const state: CapacityState = {
   overviewKeyword: '',
-  overviewTab: 'factory',
+  overviewTab: 'comparison',
   riskKeyword: '',
   riskTab: 'task',
   riskProcessCode: '',
@@ -128,8 +120,6 @@ const state: CapacityState = {
   bottleneckCraftCode: '',
   bottleneckCraftDetailKey: '',
   bottleneckDateDetailKey: '',
-  constraintsKeyword: '',
-  constraintsTab: 'task',
   constraintsFactoryId: '',
   constraintsWindowDays: 15,
   constraintsProcessCode: '',
@@ -202,6 +192,19 @@ function renderMetricStatCard(label: string, value: string, valueClass = ''): st
 
 function renderPageHint(text: string): string {
   return `<div class="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">${escapeHtml(text)}</div>`
+}
+
+function renderCapacityStatusBadge(status: CapacityCalendarComparisonRow['status'] | FactoryCalendarRow['status']): string {
+  const meta = buildCapacityStatusBadge(status)
+  const tone: Tone =
+    meta.tone === 'danger'
+      ? 'destructive'
+      : meta.tone === 'warning'
+        ? 'default'
+        : meta.tone === 'normal'
+          ? 'secondary'
+          : 'outline'
+  return renderBadge(meta.label, tone)
 }
 
 function createEmptyPoliciesForm(): CapacityPoliciesFormState {
@@ -304,26 +307,6 @@ function resolvePoliciesOverrideStateLabel(startDate: string, endDate: string): 
   return { label: '生效中', tone: 'default' }
 }
 
-function renderCapacityRuleSection(section: CapacityRuleSection): string {
-  return `
-    <article class="space-y-3 rounded-lg bg-muted/30 px-4 py-4">
-      <h3 class="text-sm font-semibold text-foreground">${escapeHtml(section.title)}</h3>
-      <div class="space-y-3">
-        ${section.lines
-          .map(
-            (line) => `
-              <div class="space-y-1 border-t border-slate-200 pt-3 first:border-0 first:pt-0">
-                <div class="text-sm font-medium text-foreground">${escapeHtml(line.label)}</div>
-                <p class="text-sm leading-6 text-muted-foreground">${escapeHtml(line.description)}</p>
-              </div>
-            `,
-          )
-          .join('')}
-      </div>
-    </article>
-  `
-}
-
 function getCurrentCapacityQueryString(): string {
   const pathname = appStore.getState().pathname
   const [, query = ''] = pathname.split('?')
@@ -358,12 +341,7 @@ function syncCapacityStateFromRoute(): void {
 
   if (pathOnly === '/fcs/capacity/overview') {
     state.overviewKeyword = keyword
-    if (tab === 'factory' || tab === 'order') state.overviewTab = tab
-  }
-
-  if (pathOnly === '/fcs/capacity/constraints') {
-    state.constraintsKeyword = keyword
-    if (tab === 'task' || tab === 'factory') state.constraintsTab = tab
+    if (tab === 'comparison' || tab === 'unallocated' || tab === 'unscheduled') state.overviewTab = tab
   }
 
   state.querySignature = pathname
@@ -477,7 +455,7 @@ function getVisibleComparisonRows(rows: CapacityCalendarComparisonRow[], keyword
 function renderCapacityComparisonTable(rows: CapacityCalendarComparisonRow[], keyword: string): string {
   const visibleRows = getVisibleComparisonRows(rows, keyword)
   if (visibleRows.length === 0) {
-    return '<tr><td colspan="8" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工厂供需对比明细</td></tr>'
+    return '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工厂供需对比明细</td></tr>'
   }
 
   return visibleRows
@@ -503,6 +481,10 @@ function renderCapacityComparisonTable(rows: CapacityCalendarComparisonRow[], ke
           <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.committedSam))}</td>
           <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenSam))}</td>
           <td class="px-3 py-3 text-right text-sm font-medium ${balanceClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
+          <td class="px-3 py-3 text-sm">
+            <div>${renderCapacityStatusBadge(row.status)}</div>
+            <div class="mt-1 max-w-[220px] text-xs leading-5 text-muted-foreground">${escapeHtml(row.statusReason)}</div>
+          </td>
           <td class="px-3 py-3 text-sm">
             <div>占用 ${row.commitmentCount} / 冻结 ${row.freezeCount}</div>
             <div class="text-xs text-muted-foreground">${escapeHtml(row.taskIds.slice(0, 2).join('、') || '—')}${row.taskIds.length > 2 ? ' 等' : ''}</div>
@@ -628,7 +610,7 @@ function renderFactoryCalendarPagination(totalRows: number): string {
 
 function renderFactoryCalendarMainTable(rows: FactoryCalendarRow[], selectedRowKey: string): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工厂日历明细</td></tr>'
+    return '<tr><td colspan="10" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工厂日历明细</td></tr>'
   }
 
   const start = (state.constraintsCurrentPage - 1) * FACTORY_CALENDAR_PAGE_SIZE
@@ -652,6 +634,10 @@ function renderFactoryCalendarMainTable(rows: FactoryCalendarRow[], selectedRowK
           <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.committedSam))}</td>
           <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenSam))}</td>
           <td class="px-3 py-3 text-right text-sm font-medium ${balanceClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
+          <td class="px-3 py-3 text-sm">
+            <div>${renderCapacityStatusBadge(row.status)}</div>
+            <div class="mt-1 max-w-[220px] text-xs leading-5 text-muted-foreground">${escapeHtml(row.statusReason)}</div>
+          </td>
           <td class="px-3 py-3 text-center text-sm">${row.committedTaskCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.frozenTaskCount}</td>
         </tr>
@@ -662,13 +648,13 @@ function renderFactoryCalendarMainTable(rows: FactoryCalendarRow[], selectedRowK
 
 function renderFactoryCalendarSourceTable(sources: FactoryCalendarSourceRow[], emptyText: string): string {
   if (sources.length === 0) {
-    return `<div class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+    return `<div class="rounded-xl bg-slate-50 px-3 py-5 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
   }
 
   return `
-    <div class="overflow-x-auto rounded-md border">
+    <div class="overflow-x-auto rounded-xl bg-slate-50/90" data-testid="factory-calendar-source-table">
       <table class="w-full text-sm">
-        <thead class="border-b bg-muted/40 text-muted-foreground">
+        <thead class="border-b border-slate-200/80 bg-slate-100/80 text-muted-foreground">
           <tr>
             <th class="px-3 py-2 text-left font-medium">任务编号</th>
             <th class="px-3 py-2 text-left font-medium">生产单号</th>
@@ -681,7 +667,7 @@ function renderFactoryCalendarSourceTable(sources: FactoryCalendarSourceRow[], e
         <tbody>
           ${sources
             .map((source) => `
-              <tr class="border-b last:border-0">
+              <tr class="border-b border-slate-200/80 last:border-0">
                 <td class="px-3 py-3">
                   <div class="font-mono text-xs text-foreground">${escapeHtml(source.taskId)}</div>
                   <div class="text-[11px] text-muted-foreground">${escapeHtml(source.sourceTypeLabel)}</div>
@@ -712,32 +698,44 @@ function renderFactoryCalendarDetailPanel(
 ): string {
   if (!selectedRow) {
     return `
-      <aside class="rounded-md border bg-card p-4">
+      <aside class="border-t border-slate-200 pt-5 text-sm xl:border-l xl:border-t-0 xl:pl-6" data-testid="factory-calendar-detail-panel">
         <h2 class="text-sm font-semibold text-foreground">来源明细</h2>
-        <p class="mt-4 text-sm text-muted-foreground">请选择左侧某一天某道工艺的记录，查看占用与冻结来源。</p>
+        <p class="mt-3 text-sm leading-6 text-muted-foreground" data-testid="factory-calendar-detail-empty">选择左侧一条工厂日历记录后，可在这里查看占用和冻结来源。</p>
       </aside>
     `
   }
 
   return `
-    <aside class="space-y-4 rounded-md border bg-card p-4" data-factory-calendar-detail="${escapeHtml(selectedRow.rowKey)}">
+    <aside
+      class="space-y-4 border-t border-slate-200 pt-5 xl:border-l xl:border-t-0 xl:pl-6"
+      data-factory-calendar-detail="${escapeHtml(selectedRow.rowKey)}"
+      data-testid="factory-calendar-detail-panel"
+    >
       <div class="space-y-1">
         <h2 class="text-sm font-semibold text-foreground">来源明细</h2>
         <p class="text-xs text-muted-foreground">${escapeHtml(calendar.selectedFactoryName)} / ${escapeHtml(selectedRow.date)} / ${escapeHtml(selectedRow.processName)} / ${escapeHtml(selectedRow.craftName)}</p>
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div class="rounded-lg bg-muted/20 px-3 py-2">
+      <div class="grid gap-3 sm:grid-cols-2" data-testid="factory-calendar-detail-summary">
+        <div class="rounded-xl bg-slate-50/90 px-4 py-3">
           <p class="text-xs text-muted-foreground">供给标准工时</p>
           <p class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(formatSamValue(selectedRow.supplySam))}</p>
         </div>
-        <div class="rounded-lg bg-muted/20 px-3 py-2">
+        <div class="rounded-xl bg-slate-50/90 px-4 py-3">
           <p class="text-xs text-muted-foreground">剩余标准工时</p>
           <p class="mt-1 text-lg font-semibold ${selectedRow.remainingSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(selectedRow.remainingSam))}</p>
         </div>
       </div>
 
-      <section class="space-y-2">
+      <div class="space-y-2 rounded-xl bg-slate-50/90 px-4 py-3" data-testid="factory-calendar-detail-status">
+        <div class="flex items-center gap-2">
+          ${renderCapacityStatusBadge(selectedRow.status)}
+          <span class="text-sm font-medium text-foreground">当前状态</span>
+        </div>
+        <p class="text-xs leading-5 text-muted-foreground">${escapeHtml(selectedRow.statusReason)}</p>
+      </div>
+
+      <section class="space-y-2 border-t border-slate-200 pt-4" data-testid="factory-calendar-committed-section">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-medium text-foreground">已占用来源</h3>
           ${renderBadge(`对象 ${selectedRow.committedTaskCount}`, selectedRow.committedTaskCount > 0 ? 'default' : 'outline')}
@@ -745,7 +743,7 @@ function renderFactoryCalendarDetailPanel(
         ${renderFactoryCalendarSourceTable(selectedRow.committedSources, '当前日期下暂无已占用来源。')}
       </section>
 
-      <section class="space-y-2">
+      <section class="space-y-2 border-t border-slate-200 pt-4" data-testid="factory-calendar-frozen-section">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-medium text-foreground">已冻结来源</h3>
           ${renderBadge(`对象 ${selectedRow.frozenTaskCount}`, selectedRow.frozenTaskCount > 0 ? 'secondary' : 'outline')}
@@ -1018,6 +1016,101 @@ export function renderCapacityOverviewPage(): string {
   const dateRangeText = calendar.displayDates.length
     ? `${calendar.displayDates[0]} 至 ${calendar.displayDates[calendar.displayDates.length - 1]}`
     : '暂无日期窗口'
+  const tabSummaryMap: Record<OverviewTab, { title: string; description: string; panel: string }> = {
+    comparison: {
+      title: '工厂供需明细',
+      description:
+        '按 日期 / 工厂 / 工序 / 工艺 聚合。已占用只消费占用工时对象，已冻结只消费冻结工时对象，剩余 = 供给 - 已占用 - 已冻结。',
+      panel: `
+        <div class="rounded-md border" data-capacity-overview-panel="comparison">
+          <div class="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
+            <div>
+              <h2 class="text-sm font-semibold text-foreground">工厂供需明细</h2>
+              <p class="mt-1 text-xs text-muted-foreground">按 日期 / 工厂 / 工序 / 工艺 聚合展示工厂事实，不混入需求池。</p>
+            </div>
+            ${
+              hiddenComparisonCount > 0
+                ? `<span class="text-xs text-muted-foreground">当前仅展示前 ${visibleComparisonRows.length} 条，剩余 ${hiddenComparisonCount} 条可用关键词继续筛选</span>`
+                : ''
+            }
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="border-b bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">日期</th>
+                          <th class="px-3 py-2 text-left font-medium">工厂</th>
+                          <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
+                          <th class="px-3 py-2 text-right font-medium">供给</th>
+                          <th class="px-3 py-2 text-right font-medium">已占用</th>
+                          <th class="px-3 py-2 text-right font-medium">已冻结</th>
+                          <th class="px-3 py-2 text-right font-medium">剩余</th>
+                          <th class="px-3 py-2 text-left font-medium">当前状态</th>
+                          <th class="px-3 py-2 text-left font-medium">对象数</th>
+                        </tr>
+              </thead>
+              <tbody>${renderCapacityComparisonTable(calendar.comparisonRows, keyword)}</tbody>
+            </table>
+          </div>
+        </div>
+      `,
+    },
+    unallocated: {
+      title: '待分配需求',
+      description: '只看尚未稳定落到工厂、但已经具备标准工时和日期窗口的需求池，不会错误扣减具体工厂。',
+      panel: `
+        <div class="rounded-md border" data-capacity-overview-panel="unallocated">
+          <div class="border-b bg-muted/30 px-4 py-3">
+            <h2 class="text-sm font-semibold text-foreground">待分配需求</h2>
+            <p class="mt-1 text-xs text-muted-foreground">只统计未形成冻结/占用对象、但仍有总标准工时且可落日的任务需求。</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="border-b bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">日期</th>
+                  <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
+                  <th class="px-3 py-2 text-right font-medium">需求</th>
+                  <th class="px-3 py-2 text-center font-medium">任务数</th>
+                  <th class="px-3 py-2 text-left font-medium">当前状态</th>
+                </tr>
+              </thead>
+              <tbody>${renderUnallocatedRows(calendar.unallocatedRows, keyword)}</tbody>
+            </table>
+          </div>
+        </div>
+      `,
+    },
+    unscheduled: {
+      title: '未排期需求',
+      description: '只看总标准工时已存在、但还缺少可用日期或窗口的需求池，避免被静默忽略或强行落到今天。',
+      panel: `
+        <div class="rounded-md border" data-capacity-overview-panel="unscheduled">
+          <div class="border-b bg-muted/30 px-4 py-3">
+            <h2 class="text-sm font-semibold text-foreground">未排期需求</h2>
+            <p class="mt-1 text-xs text-muted-foreground">总标准工时已存在，但缺少可用日期 / 窗口，因此当前不会被静默忽略，也不会强行落到今天。</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="border-b bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">任务ID</th>
+                  <th class="px-3 py-2 text-left font-medium">生产单号</th>
+                  <th class="px-3 py-2 text-left font-medium">需求类型</th>
+                  <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
+                  <th class="px-3 py-2 text-left font-medium">当前落厂</th>
+                  <th class="px-3 py-2 text-right font-medium">总需求</th>
+                  <th class="px-3 py-2 text-left font-medium">原因</th>
+                </tr>
+              </thead>
+              <tbody>${renderUnscheduledRows(calendar.unscheduledRows, keyword)}</tbody>
+            </table>
+          </div>
+        </div>
+      `,
+    },
+  }
+  const activeTab = tabSummaryMap[state.overviewTab]
 
   return `
     <div class="space-y-6" data-testid="capacity-calendar-page">
@@ -1030,7 +1123,7 @@ export function renderCapacityOverviewPage(): string {
 
       ${renderCapacityRouteContextBanner('overview')}
 
-      ${renderPageHint('供给来自工厂产能档案的默认日可供给标准工时；已占用来自占用工时对象，已冻结来自冻结工时对象；待分配与未排期需求单独展示。')}
+      ${renderPageHint('当前页把工厂事实、待分配需求、未排期需求拆到独立 Tab 查看；供给仍来自产能档案自动计算结果。')}
 
       <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6" data-capacity-supply-demand-summary>
         ${renderMetricStatCard('供给总量（标准工时）', formatSamValue(calendar.summary.supplyTotal))}
@@ -1042,15 +1135,9 @@ export function renderCapacityOverviewPage(): string {
       </section>
 
       <section class="rounded-lg border bg-card px-4 py-4 text-sm" data-capacity-calendar-rules>
-        <div class="grid gap-2 lg:grid-cols-2">
-          <div>
-            <p class="font-medium text-foreground">日期落点规则</p>
-            <p class="mt-1 text-muted-foreground">开始/结束窗口：${escapeHtml(calendar.windowPriority.start.join(' > '))} 与 ${escapeHtml(calendar.windowPriority.end.join(' > '))} 配对成功时，任务总标准工时按窗口内每日均摊。</p>
-          </div>
-          <div>
-            <p class="font-medium text-foreground">单日期优先级</p>
-            <p class="mt-1 text-muted-foreground">${escapeHtml(calendar.singleDatePriority.join(' > '))}。只有单日期时，任务总标准工时整笔落到该日；以上字段都缺失时进入“未排期需求”。</p>
-          </div>
+        <div class="space-y-1">
+          <p class="font-medium text-foreground">时间窗口口径</p>
+          <p class="text-muted-foreground">开始/结束窗口按 ${escapeHtml(calendar.windowPriority.start.join(' > '))} 和 ${escapeHtml(calendar.windowPriority.end.join(' > '))} 配对成功时均摊到窗口内每日；只有单日期时整笔落到该日，缺日期则进入未排期需求。</p>
         </div>
         ${
           calendar.missingSamRows.length > 0
@@ -1068,84 +1155,20 @@ export function renderCapacityOverviewPage(): string {
         />
       </section>
 
-      <section class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
-        <div class="space-y-4">
-          <div class="rounded-md border" data-capacity-comparison-table>
-            <div class="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
-              <div>
-                <h2 class="text-sm font-semibold text-foreground">工厂日历供需明细</h2>
-                <p class="mt-1 text-xs text-muted-foreground">按 日期 / 工厂 / 工序 / 工艺 聚合。已占用只消费占用工时对象，已冻结只消费冻结工时对象，剩余 = 供给 - 已占用 - 已冻结。</p>
-              </div>
-              ${
-                hiddenComparisonCount > 0
-                  ? `<span class="text-xs text-muted-foreground">当前仅展示前 ${visibleComparisonRows.length} 条，剩余 ${hiddenComparisonCount} 条可用关键词继续筛选</span>`
-                  : ''
-              }
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="border-b bg-muted/40 text-muted-foreground">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-medium">日期</th>
-                    <th class="px-3 py-2 text-left font-medium">工厂</th>
-                    <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
-                    <th class="px-3 py-2 text-right font-medium">供给</th>
-                    <th class="px-3 py-2 text-right font-medium">已占用</th>
-                    <th class="px-3 py-2 text-right font-medium">已冻结</th>
-                    <th class="px-3 py-2 text-right font-medium">剩余</th>
-                    <th class="px-3 py-2 text-left font-medium">对象数</th>
-                  </tr>
-                </thead>
-                <tbody>${renderCapacityComparisonTable(calendar.comparisonRows, keyword)}</tbody>
-              </table>
-            </div>
-          </div>
+      <section class="space-y-4" data-testid="capacity-overview-tabs-section">
+        <div class="flex flex-wrap items-center gap-2" data-capacity-overview-tabs>
+          ${renderTabButton('overview', 'comparison', state.overviewTab, '工厂供需明细')}
+          ${renderTabButton('overview', 'unallocated', state.overviewTab, '待分配需求')}
+          ${renderTabButton('overview', 'unscheduled', state.overviewTab, '未排期需求')}
         </div>
-
-        <div class="space-y-4">
-          <div class="rounded-md border" data-capacity-unallocated-table>
-            <div class="border-b bg-muted/30 px-4 py-3">
-              <h2 class="text-sm font-semibold text-foreground">待分配需求（未落厂）</h2>
-              <p class="mt-1 text-xs text-muted-foreground">只统计未形成冻结/占用对象、但仍有总标准工时且可落日的任务需求；不会错误扣减任何一家工厂。</p>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="border-b bg-muted/40 text-muted-foreground">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-medium">日期</th>
-                    <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
-                    <th class="px-3 py-2 text-right font-medium">需求</th>
-                    <th class="px-3 py-2 text-center font-medium">任务数</th>
-                    <th class="px-3 py-2 text-left font-medium">当前状态</th>
-                  </tr>
-                </thead>
-                <tbody>${renderUnallocatedRows(calendar.unallocatedRows, keyword)}</tbody>
-              </table>
+        <div class="space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base font-semibold text-foreground">${escapeHtml(activeTab.title)}</h2>
+              <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(activeTab.description)}</p>
             </div>
           </div>
-
-          <div class="rounded-md border" data-capacity-unscheduled-table>
-            <div class="border-b bg-muted/30 px-4 py-3">
-              <h2 class="text-sm font-semibold text-foreground">未排期需求</h2>
-              <p class="mt-1 text-xs text-muted-foreground">总标准工时已存在，但缺少可用日期 / 窗口，因此当前不会被静默忽略，也不会强行落到今天。</p>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="border-b bg-muted/40 text-muted-foreground">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-medium">任务ID</th>
-                    <th class="px-3 py-2 text-left font-medium">生产单号</th>
-                    <th class="px-3 py-2 text-left font-medium">需求类型</th>
-                    <th class="px-3 py-2 text-left font-medium">工序 / 工艺</th>
-                    <th class="px-3 py-2 text-left font-medium">当前落厂</th>
-                    <th class="px-3 py-2 text-right font-medium">总需求</th>
-                    <th class="px-3 py-2 text-left font-medium">原因</th>
-                  </tr>
-                </thead>
-                <tbody>${renderUnscheduledRows(calendar.unscheduledRows, keyword)}</tbody>
-              </table>
-            </div>
-          </div>
+          ${activeTab.panel}
         </div>
       </section>
     </div>
@@ -1154,7 +1177,7 @@ export function renderCapacityOverviewPage(): string {
 
 function renderRiskConclusionBadge(conclusion: CapacityRiskTaskRow['conclusion'] | CapacityRiskOrderRow['highestRiskConclusion']): string {
   const tone: Tone =
-    conclusion === 'EXCEEDS_WINDOW'
+    conclusion === 'PAUSED' || conclusion === 'EXCEEDS_WINDOW'
       ? 'destructive'
       : conclusion === 'TIGHT'
         ? 'default'
@@ -1165,25 +1188,44 @@ function renderRiskConclusionBadge(conclusion: CapacityRiskTaskRow['conclusion']
     CAPABLE: '可承载',
     TIGHT: '紧张',
     EXCEEDS_WINDOW: '超出窗口',
+    PAUSED: '暂停',
+    FROZEN_PENDING: '已冻结待确认',
     UNALLOCATED: '未落厂',
     UNSCHEDULED: '未排期',
   } as const
   return renderBadge(labelMap[conclusion], tone)
 }
 
+function renderRiskSamValue(value?: number): string {
+  return value == null ? '—' : formatSamValue(value)
+}
+
 function renderRiskFactoryCell(row: CapacityRiskTaskRow): string {
   if (!row.factoryName) {
     return `<div class="text-sm text-muted-foreground">未落厂</div>`
   }
-  const bindingLabel = row.factoryBindingKind === 'COMMITTED' ? '已占用' : row.factoryBindingKind === 'FROZEN' ? '已冻结' : '未落厂'
+  const bindingLabel =
+    row.factoryBindingKind === 'COMMITTED'
+      ? '已落厂占用'
+      : row.factoryBindingKind === 'FROZEN_PENDING'
+        ? '已冻结待确认'
+        : '未落厂'
+  const scopeLine =
+    row.factoryBindingKind === 'FROZEN_PENDING' && (row.bindingFactoryCount ?? 0) > 1
+      ? `<div class="text-xs text-muted-foreground">${row.bindingFactoryCount} 家候选工厂</div>`
+      : ''
   return `
     <div class="text-sm font-medium text-foreground">${escapeHtml(row.factoryName)}</div>
     <div class="text-xs text-muted-foreground">${escapeHtml(bindingLabel)}</div>
+    ${scopeLine}
   `
 }
 
 function renderRiskWindowText(row: CapacityRiskTaskRow): string {
   const lines = [`<div class="text-sm">${escapeHtml(row.windowText || '日期不足')}</div>`]
+  if (row.conclusion === 'FROZEN_PENDING' && row.frozenWindowText) {
+    lines.push(`<div class="text-xs text-muted-foreground">冻结窗口：${escapeHtml(row.frozenWindowText)}</div>`)
+  }
   if (row.fallbackRuleLabel) {
     lines.push(`<div class="text-xs text-muted-foreground">${escapeHtml(row.fallbackRuleLabel)}</div>`)
   }
@@ -1205,10 +1247,10 @@ function renderRiskTaskTable(rows: CapacityRiskTaskRow[]): string {
         <td class="px-3 py-3">${renderRiskFactoryCell(row)}</td>
         <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
         <td class="px-3 py-3">${renderRiskWindowText(row)}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowSupplySam ?? 0))}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.otherCommittedSam ?? 0))}</td>
-        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.otherFrozenSam ?? 0))}</td>
-        <td class="px-3 py-3 text-right text-sm font-medium ${row.remainingAfterCurrentSam != null && row.remainingAfterCurrentSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(formatSamValue(row.remainingAfterCurrentSam ?? 0))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskSamValue(row.windowSupplySam))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskSamValue(row.otherCommittedSam))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(renderRiskSamValue(row.otherFrozenSam))}</td>
+        <td class="px-3 py-3 text-right text-sm font-medium ${row.remainingAfterCurrentSam != null && row.remainingAfterCurrentSam < 0 ? 'text-red-600' : 'text-green-700'}">${escapeHtml(renderRiskSamValue(row.remainingAfterCurrentSam))}</td>
         <td class="px-3 py-3">${renderRiskConclusionBadge(row.conclusion)}</td>
         <td class="max-w-[280px] px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(row.reason)}</td>
       </tr>
@@ -1218,7 +1260,7 @@ function renderRiskTaskTable(rows: CapacityRiskTaskRow[]): string {
 
 function renderRiskOrderTable(rows: CapacityRiskOrderRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无生产单工时风险数据</td></tr>'
+    return '<tr><td colspan="10" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无生产单工时风险数据</td></tr>'
   }
 
   return rows
@@ -1227,6 +1269,7 @@ function renderRiskOrderTable(rows: CapacityRiskOrderRow[]): string {
         <td class="px-3 py-3 text-sm font-medium">${escapeHtml(row.productionOrderId)}</td>
         <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.totalStandardTime))}</td>
         <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.allocatedStandardTime))}</td>
+        <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.frozenPendingStandardTime))}</td>
         <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedStandardTime))}</td>
         <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unscheduledStandardTime))}</td>
         <td class="px-3 py-3 text-center text-sm">${row.taskCount}</td>
@@ -1254,6 +1297,8 @@ export function renderCapacityRiskPage(): string {
     capable: filteredTaskRows.filter((row) => row.conclusion === 'CAPABLE').length,
     tight: filteredTaskRows.filter((row) => row.conclusion === 'TIGHT').length,
     exceedsWindow: filteredTaskRows.filter((row) => row.conclusion === 'EXCEEDS_WINDOW').length,
+    paused: filteredTaskRows.filter((row) => row.conclusion === 'PAUSED').length,
+    frozenPending: filteredTaskRows.filter((row) => row.conclusion === 'FROZEN_PENDING').length,
     unallocated: filteredTaskRows.filter((row) => row.conclusion === 'UNALLOCATED').length,
     unscheduled: filteredTaskRows.filter((row) => row.conclusion === 'UNSCHEDULED').length,
   }
@@ -1262,19 +1307,21 @@ export function renderCapacityRiskPage(): string {
   )
 
   return `
-    <div class="space-y-6">
+    <div class="space-y-6" data-capacity-risk-page>
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 class="text-2xl font-semibold tracking-tight text-balance">任务工时风险</h1>
-          <p class="mt-1 text-sm text-muted-foreground">当前页按任务自身日期窗口评估标准工时承载：已落厂任务看窗口供给、其他已占用和其他已冻结；未落厂和未排期任务单独归类。</p>
+          <p class="mt-1 text-sm text-muted-foreground">当前页统一按标准工时窗口判断：已落厂看窗口可承载余量，已冻结待确认、未落厂、未排期分别单独归类。</p>
         </div>
         <p class="text-sm text-muted-foreground">当前筛选下 ${filteredTaskRows.length} 条任务 / ${filteredOrderRows.length} 张生产单</p>
       </header>
 
-      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-7" data-capacity-risk-kpis>
         ${renderStatCard('可承载任务数', stats.capable)}
         ${renderStatCard('紧张任务数', stats.tight)}
         ${renderStatCard('超出窗口任务数', stats.exceedsWindow)}
+        ${renderStatCard('暂停任务数', stats.paused)}
+        ${renderStatCard('已冻结待确认任务数', stats.frozenPending)}
         ${renderStatCard('未落厂任务数', stats.unallocated)}
         ${renderStatCard('未排期任务数', stats.unscheduled)}
       </section>
@@ -1320,20 +1367,20 @@ export function renderCapacityRiskPage(): string {
           state.riskTab === 'task'
             ? `
               <div class="overflow-x-auto rounded-md border">
-                <table class="w-full text-sm">
+                <table class="w-full text-sm" data-capacity-risk-task-table>
                   <thead class="border-b bg-muted/40 text-muted-foreground">
                     <tr>
                       <th class="px-3 py-2 text-left font-medium">任务编号</th>
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
                       <th class="px-3 py-2 text-left font-medium">工序</th>
                       <th class="px-3 py-2 text-left font-medium">工艺</th>
-                      <th class="px-3 py-2 text-left font-medium">当前工厂</th>
+                      <th class="px-3 py-2 text-left font-medium">当前工厂 / 当前承接对象</th>
                       <th class="px-3 py-2 text-right font-medium">任务总标准工时</th>
                       <th class="px-3 py-2 text-left font-medium">窗口起止日期</th>
                       <th class="px-3 py-2 text-right font-medium">窗口供给标准工时</th>
                       <th class="px-3 py-2 text-right font-medium">其他已占用标准工时</th>
                       <th class="px-3 py-2 text-right font-medium">其他已冻结标准工时</th>
-                      <th class="px-3 py-2 text-right font-medium">当前任务计入后剩余</th>
+                      <th class="px-3 py-2 text-right font-medium">当前任务计入后剩余标准工时</th>
                       <th class="px-3 py-2 text-left font-medium">风险结论</th>
                       <th class="px-3 py-2 text-left font-medium">风险原因</th>
                     </tr>
@@ -1344,12 +1391,13 @@ export function renderCapacityRiskPage(): string {
             `
             : `
               <div class="overflow-x-auto rounded-md border">
-                <table class="w-full text-sm">
+                <table class="w-full text-sm" data-capacity-risk-order-table>
                   <thead class="border-b bg-muted/40 text-muted-foreground">
                     <tr>
                       <th class="px-3 py-2 text-left font-medium">生产单号</th>
                       <th class="px-3 py-2 text-right font-medium">生产单总标准工时</th>
                       <th class="px-3 py-2 text-right font-medium">已落厂标准工时</th>
+                      <th class="px-3 py-2 text-right font-medium">已冻结待确认标准工时</th>
                       <th class="px-3 py-2 text-right font-medium">未落厂标准工时</th>
                       <th class="px-3 py-2 text-right font-medium">未排期标准工时</th>
                       <th class="px-3 py-2 text-center font-medium">任务数</th>
@@ -1443,7 +1491,7 @@ function summarizeFilteredBottleneckData(input: {
 
 function renderBottleneckCraftTable(rows: CapacityBottleneckCraftRow[], selectedRowKey: string): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="12" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工艺瓶颈数据</td></tr>'
+    return '<tr><td colspan="14" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无工艺瓶颈数据</td></tr>'
   }
 
   return rows
@@ -1460,6 +1508,8 @@ function renderBottleneckCraftTable(rows: CapacityBottleneckCraftRow[], selected
           <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.windowFrozenSam))}</td>
           <td class="px-3 py-3 text-right text-sm font-medium ${remainingClass}">${escapeHtml(formatSamValue(row.windowRemainingSam))}</td>
           <td class="px-3 py-3 text-center text-sm">${row.overloadDayCount}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.tightDayCount}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.pausedDayCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.factoryCount}</td>
           <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedSam))}</td>
           <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unscheduledSam))}</td>
@@ -1481,7 +1531,7 @@ function renderBottleneckCraftTable(rows: CapacityBottleneckCraftRow[], selected
 
 function renderBottleneckDateTable(rows: CapacityBottleneckDateRow[], selectedDate: string): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="10" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无日期瓶颈数据</td></tr>'
+    return '<tr><td colspan="12" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选条件下暂无日期瓶颈数据</td></tr>'
   }
 
   return rows
@@ -1498,6 +1548,8 @@ function renderBottleneckDateTable(rows: CapacityBottleneckDateRow[], selectedDa
           <td class="px-3 py-3 text-right text-sm font-medium ${remainingClass}">${escapeHtml(formatSamValue(row.remainingSam))}</td>
           <td class="px-3 py-3 text-center text-sm">${row.overloadedFactoryCount}</td>
           <td class="px-3 py-3 text-center text-sm">${row.overloadedCraftCount}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.pausedFactoryCount}</td>
+          <td class="px-3 py-3 text-center text-sm">${row.tightCraftCount}</td>
           <td class="px-3 py-3 text-right text-sm">${escapeHtml(formatSamValue(row.unallocatedSam))}</td>
           <td class="px-3 py-3 text-right text-sm font-medium ${gapClass}">${escapeHtml(formatSamValue(row.maxGapSam))}</td>
           <td class="px-3 py-3 text-right">
@@ -1872,6 +1924,8 @@ export function renderCapacityBottleneckPage(): string {
                           <th class="px-3 py-2 text-right font-medium">窗口总已冻结标准工时</th>
                           <th class="px-3 py-2 text-right font-medium">窗口总剩余标准工时</th>
                           <th class="px-3 py-2 text-center font-medium">超载天数</th>
+                          <th class="px-3 py-2 text-center font-medium">紧张天数</th>
+                          <th class="px-3 py-2 text-center font-medium">暂停天数</th>
                           <th class="px-3 py-2 text-center font-medium">涉及工厂数</th>
                           <th class="px-3 py-2 text-right font-medium">待分配标准工时</th>
                           <th class="px-3 py-2 text-right font-medium">未排期标准工时</th>
@@ -1905,6 +1959,8 @@ export function renderCapacityBottleneckPage(): string {
                             <th class="px-3 py-2 text-right font-medium">当日总剩余标准工时</th>
                             <th class="px-3 py-2 text-center font-medium">当日超载工厂数</th>
                             <th class="px-3 py-2 text-center font-medium">当日超载工艺数</th>
+                            <th class="px-3 py-2 text-center font-medium">当日暂停工厂数</th>
+                            <th class="px-3 py-2 text-center font-medium">当日紧张工艺数</th>
                             <th class="px-3 py-2 text-right font-medium">当日待分配标准工时</th>
                             <th class="px-3 py-2 text-right font-medium">当日最大缺口</th>
                             <th class="px-3 py-2 text-right font-medium">操作</th>
@@ -1969,6 +2025,10 @@ export function renderCapacityConstraintsPage(): string {
         remainingTotal: scopedRows.reduce((sum, row) => sum + row.remainingSam, 0),
         craftCount: scopedCraftKeys.size,
         taskCount: scopedTaskIds.size,
+        normalCount: scopedRows.filter((row) => row.status === 'NORMAL').length,
+        tightCount: scopedRows.filter((row) => row.status === 'TIGHT').length,
+        overloadedCount: scopedRows.filter((row) => row.status === 'OVERLOADED').length,
+        pausedCount: scopedRows.filter((row) => row.status === 'PAUSED').length,
       }
     : calendar.summary
 
@@ -1996,19 +2056,19 @@ export function renderCapacityConstraintsPage(): string {
       : ''
 
   return `
-    <div class="space-y-6">
-      <header class="flex flex-wrap items-center justify-between gap-3">
-        <div>
+    <div class="space-y-5" data-testid="capacity-constraints-page">
+      <header class="space-y-1" data-testid="capacity-constraints-header">
+        <div class="space-y-1">
           <h1 class="text-2xl font-bold tracking-tight">工厂日历</h1>
-          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(calendar.selectedFactoryName)} / 当前窗口 ${escapeHtml(windowText)}</p>
+          <p class="text-sm text-muted-foreground">${escapeHtml(calendar.selectedFactoryName)} / 当前窗口 ${escapeHtml(windowText)}</p>
         </div>
       </header>
 
       ${renderCapacityRouteContextBanner('constraints')}
 
-      ${renderPageHint('当前页只看选定工厂在未来窗口内的标准工时事实表：供给来自产能档案自动计算结果，已占用来自占用工时对象，已冻结来自冻结工时对象；待分配需求不会混入工厂负载。')}
+      <p class="text-sm text-muted-foreground" data-testid="capacity-constraints-hint">当前页展示选定工厂在窗口内各工序 / 工艺的标准工时供需事实，待分配需求不扣到工厂。</p>
 
-      <section class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <section class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6" data-testid="capacity-constraints-kpis">
         ${renderMetricStatCard('窗口总供给标准工时', formatSamValue(scopedSummary.supplyTotal))}
         ${renderMetricStatCard('窗口已占用标准工时', formatSamValue(scopedSummary.committedTotal), scopedSummary.committedTotal > 0 ? 'text-blue-700' : '')}
         ${renderMetricStatCard('窗口已冻结标准工时', formatSamValue(scopedSummary.frozenTotal), scopedSummary.frozenTotal > 0 ? 'text-amber-700' : '')}
@@ -2017,7 +2077,7 @@ export function renderCapacityConstraintsPage(): string {
         ${renderStatCard('涉及任务数', scopedSummary.taskCount)}
       </section>
 
-      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section class="grid gap-3 rounded-xl bg-slate-50/80 p-4 md:grid-cols-2 xl:grid-cols-4" data-testid="capacity-constraints-filters">
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">工厂</span>
           <select data-capacity-filter="constraints-factory-id" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
@@ -2062,12 +2122,12 @@ export function renderCapacityConstraintsPage(): string {
         </label>
       </section>
 
-      <section class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
-        <div class="space-y-4">
-          <div class="rounded-md border">
-            <div class="border-b bg-muted/30 px-4 py-3">
+      <section class="grid gap-6 xl:grid-cols-[minmax(0,1.9fr)_minmax(320px,1fr)]" data-testid="capacity-constraints-main">
+        <div class="space-y-3">
+          <section class="overflow-hidden rounded-xl border bg-card" data-testid="factory-calendar-table-section">
+            <div class="border-b bg-muted/20 px-4 py-3">
               <h2 class="text-sm font-semibold text-foreground">每日供需主表</h2>
-              <p class="mt-1 text-xs text-muted-foreground">按 日期 / 工序 / 工艺 展示当前选中工厂在窗口内的每日供给、已占用、已冻结与剩余。任务数口径：整任务按任务计 1，按明细按“任务 + 分配单元”计 1。</p>
+              <p class="mt-1 text-xs text-muted-foreground">按日期、工序、工艺查看窗口内每日供给、占用、冻结与剩余标准工时。</p>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm" data-factory-calendar-table>
@@ -2080,6 +2140,7 @@ export function renderCapacityConstraintsPage(): string {
                     <th class="px-3 py-2 text-right font-medium">已占用标准工时</th>
                     <th class="px-3 py-2 text-right font-medium">已冻结标准工时</th>
                     <th class="px-3 py-2 text-right font-medium">剩余标准工时</th>
+                    <th class="px-3 py-2 text-left font-medium">当前状态</th>
                     <th class="px-3 py-2 text-center font-medium">占用任务数</th>
                     <th class="px-3 py-2 text-center font-medium">冻结任务数</th>
                   </tr>
@@ -2088,8 +2149,8 @@ export function renderCapacityConstraintsPage(): string {
               </table>
             </div>
             ${renderFactoryCalendarPagination(scopedRows.length)}
-          </div>
-          <p class="text-xs text-muted-foreground">${escapeHtml(calendar.countRuleNote)}</p>
+          </section>
+          <p class="text-xs text-muted-foreground" data-testid="factory-calendar-count-rule-note">${escapeHtml(calendar.countRuleNote)}</p>
         </div>
 
         ${renderFactoryCalendarDetailPanel(calendar, selectedRow)}
@@ -2250,13 +2311,6 @@ export function renderCapacityPoliciesPage(): string {
     }
   })
 
-  const thresholds = CAPACITY_THRESHOLD_RULES.map((item) => `
-    <div class="space-y-1 border-t border-slate-200 pt-3 first:border-0 first:pt-0">
-      <div class="text-sm font-medium text-foreground">${escapeHtml(item.label)}</div>
-      <p class="text-sm leading-6 text-muted-foreground">${escapeHtml(item.description)}</p>
-    </div>
-  `).join('')
-
   const overrideRowsHtml =
     overrideRows.length === 0
       ? '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-muted-foreground">当前暂无暂停例外，可按整厂、工序或工艺新增。</td></tr>'
@@ -2292,7 +2346,7 @@ export function renderCapacityPoliciesPage(): string {
   return `
     <div class="space-y-6" data-testid="capacity-policies-page">
       <header>
-        <h1 class="text-2xl font-semibold text-foreground">规则与例外</h1>
+        <h1 class="text-2xl font-semibold text-foreground">暂停例外</h1>
       </header>
 
       ${
@@ -2301,24 +2355,28 @@ export function renderCapacityPoliciesPage(): string {
           : ''
       }
 
-      <section class="rounded-lg border bg-card px-5 py-5" data-testid="capacity-policies-rules-section">
-        <div class="mb-4 flex items-center justify-between gap-3">
+      <section class="rounded-lg border bg-card px-5 py-5" data-testid="capacity-policies-tips-section">
+        <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 class="text-lg font-semibold text-foreground">当前生效规则</h2>
-            <p class="mt-1 text-sm text-muted-foreground">规则说明直接消费统一规则源，并与产能日历核心计算口径保持一致。</p>
+            <h2 class="text-lg font-semibold text-foreground">当前阶段口径</h2>
+            <p class="mt-1 text-sm text-muted-foreground">这一步先收轻规则提示，人工动态维护入口只有“暂停例外”。</p>
           </div>
-          ${renderBadge('当前展示为系统生效规则', 'outline')}
+          ${renderBadge('当前阶段仅支持暂停', 'outline')}
         </div>
-        <div class="grid gap-4 lg:grid-cols-3">
-          ${CAPACITY_RULE_SECTIONS.map((section) => renderCapacityRuleSection(section)).join('')}
-        </div>
+        <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
+          <li>1. 供给来自产能档案自动计算的默认日可供给标准工时。</li>
+          <li>2. 需求来自任务总标准工时。</li>
+          <li>3. 剩余 = 供给 - 已占用 - 已冻结。</li>
+          <li>4. 待分配需求不会提前扣到具体工厂。</li>
+          <li>5. 当前阶段人工动态例外只支持整厂、工序、工艺三级暂停。</li>
+        </ul>
       </section>
 
       <section class="rounded-lg border bg-card px-5 py-5" data-testid="capacity-policies-overrides-section">
         <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
           <div>
             <h2 class="text-lg font-semibold text-foreground">暂停例外</h2>
-            <p class="mt-1 text-sm text-muted-foreground">当前阶段唯一人工维护的动态例外对象。整厂、工序、工艺三级暂停都在这里维护。</p>
+            <p class="mt-1 text-sm text-muted-foreground">当前阶段唯一人工维护的动态例外入口。整厂、工序、工艺三级暂停都在这里维护。</p>
           </div>
           <button type="button" data-capacity-action="open-policies-editor" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">新增暂停例外</button>
         </div>
@@ -2338,30 +2396,6 @@ export function renderCapacityPoliciesPage(): string {
             </thead>
             <tbody>${overrideRowsHtml}</tbody>
           </table>
-        </div>
-      </section>
-
-      <section class="rounded-lg border bg-card px-5 py-5" data-testid="capacity-policies-thresholds-section">
-        <div class="mb-4">
-          <h2 class="text-lg font-semibold text-foreground">阈值说明</h2>
-          <p class="mt-1 text-sm text-muted-foreground">这里统一说明紧张、超载与日期不足的业务口径，避免页面各写各的解释。</p>
-        </div>
-        <div class="grid gap-4 lg:grid-cols-2">
-          <article class="rounded-lg bg-muted/30 px-4 py-4">
-            <div class="space-y-3">${thresholds}</div>
-          </article>
-          <article class="rounded-lg bg-muted/30 px-4 py-4">
-            <div class="space-y-3">
-              <div class="space-y-1">
-                <div class="text-sm font-medium text-foreground">当前阶段声明</div>
-                <p class="text-sm leading-6 text-muted-foreground">${escapeHtml(CAPACITY_NO_REPLAY_SAM_NOTE)}</p>
-              </div>
-              <div class="border-t border-slate-200 pt-3">
-                <div class="text-sm font-medium text-foreground">为什么待分配不扣到工厂</div>
-                <p class="text-sm leading-6 text-muted-foreground">待分配需求还没有稳定落到具体工厂，只在模块里保留需求提醒，不提前扣减任意工厂的可供给标准工时。</p>
-              </div>
-            </div>
-          </article>
         </div>
       </section>
 
@@ -2443,7 +2477,6 @@ export function handleCapacityEvent(target: HTMLElement): boolean {
       state.bottleneckCraftDetailKey = ''
       state.bottleneckDateDetailKey = ''
     }
-    if (filter === 'constraints-keyword') state.constraintsKeyword = value
     if (filter === 'constraints-factory-id') {
       state.constraintsFactoryId = value
       state.constraintsProcessCode = ''
@@ -2488,7 +2521,7 @@ export function handleCapacityEvent(target: HTMLElement): boolean {
     const page = actionNode.dataset.page
     const tab = actionNode.dataset.tab
 
-    if (page === 'overview' && (tab === 'factory' || tab === 'order')) {
+    if (page === 'overview' && (tab === 'comparison' || tab === 'unallocated' || tab === 'unscheduled')) {
       state.overviewTab = tab
       return true
     }
@@ -2500,11 +2533,6 @@ export function handleCapacityEvent(target: HTMLElement): boolean {
 
     if (page === 'bottleneck' && (tab === 'craft' || tab === 'date' || tab === 'demand')) {
       state.bottleneckTab = tab
-      return true
-    }
-
-    if (page === 'constraints' && (tab === 'task' || tab === 'factory')) {
-      state.constraintsTab = tab
       return true
     }
 

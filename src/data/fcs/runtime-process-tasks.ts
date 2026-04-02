@@ -1005,14 +1005,16 @@ function ensureDispatchBoardSeedData(): void {
       assignedFactoryName: '梭罗辅料专工厂',
       startDueAt: '2026-03-18 09:00:00',
       acceptDeadline: '2026-03-18 10:00:00',
-      taskDeadline: '2026-03-18 18:00:00',
+      taskDeadline: '2026-04-10 18:00:00',
       dispatchedAt: '2026-03-17 15:00:00',
       dispatchedBy: '跟单A',
       dispatchPrice: 7350,
       dispatchPriceCurrency: 'IDR',
       dispatchPriceUnit: '件',
+      publishedSamPerUnit: 3.6,
+      publishedSamTotal: 9000,
       acceptanceStatus: 'ACCEPTED',
-      dispatchRemark: '辅料线体接近满载，保留一条紧张样例。',
+      dispatchRemark: '辅料线体可承接，但窗口余量不足 20%，保留一条紧张样例。',
     },
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0002-005__ORDER'),
@@ -1140,6 +1142,7 @@ function ensureDispatchBoardSeedData(): void {
     'TASKGEN-202603-0015-002__ORDER',
     {
       assignmentStatus: 'UNASSIGNED',
+      taskDeadline: '2026-04-12 18:00:00',
     },
     [
       ...getSeedBaseAuditLogs('TASKGEN-202603-0015-002__ORDER'),

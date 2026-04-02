@@ -3,7 +3,7 @@ import {
   getFactorySupplyFormulaGuideByTemplate,
   getFactorySupplyFormulaTemplate,
   type FactorySupplyFormulaTemplate,
-} from './process-craft-sam-explainer'
+} from './process-craft-sam-explainer.ts'
 
 export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
 export type CraftStageCode = 'PREP' | 'PROD' | 'POST'

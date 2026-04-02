@@ -13,6 +13,7 @@ import {
   formatTaskNo,
   fromDateTimeLocal,
   nowTimestamp,
+  describeDispatchCapacityConstraintDecision,
   createRuntimeTaskTenderByDetailGroups,
   upsertRuntimeTaskTender,
   getCreateTenderTask,
@@ -25,6 +26,7 @@ import {
   formatPublishedSamNumber,
   escapeHtml,
   resolveAllocatableGroupPublishedSam,
+  resolveAllocatableGroupFactoryCapacityConstraint,
   resolveAllocatableGroupFactoryStandardTimeJudgement,
   resolveTaskPublishedSam,
   resolveTaskFactoryStandardTimeJudgement,
@@ -34,7 +36,7 @@ import {
   type DispatchCapacityConstraintSnapshot,
   type DispatchStandardTimeJudgementSnapshot,
   type DispatchTask,
-} from './context'
+} from './context.ts'
 
 function getConstraintTone(snapshot: DispatchCapacityConstraintSnapshot | null): string {
   if (!snapshot) return 'border-slate-200 bg-slate-50 text-slate-600'
@@ -338,6 +340,38 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
 	                  const constraint = candidateFactoryConstraints.get(factory.id) ?? null
                     const samJudgement = candidateFactorySamJudgements.get(factory.id) ?? null
 	                  const disabled = constraint?.hardBlocked ?? false
+                    const detailStatusBlocks = detailMode
+                      ? detailGroups
+                          .map((group) => {
+                            const groupConstraint = resolveAllocatableGroupFactoryCapacityConstraint(
+                              task,
+                              group,
+                              factory.id,
+                              factory.name,
+                              evaluationContext,
+                            )
+                            return `
+                              <div data-tender-factory-group-constraint="${escapeHtml(`${factory.id}:${group.groupKey}`)}">
+                                <div class="mb-1 text-[10px] font-medium text-muted-foreground">${escapeHtml(group.groupLabel)}</div>
+                                ${renderConstraintBadge(groupConstraint)}
+                                <div class="mt-1">
+                                  ${
+                                    groupConstraint
+                                      ? `<div class="rounded border px-2 py-1 text-[10px] ${getConstraintTone(groupConstraint)}" data-tender-factory-group-status="${escapeHtml(`${factory.id}:${group.groupKey}`)}">
+                                          <div class="flex items-center gap-1 flex-wrap">
+                                            <span class="inline-flex rounded border px-1.5 py-0 text-[10px] ${getConstraintTone(groupConstraint)}">${escapeHtml(groupConstraint.statusLabel)}</span>
+                                            <span>${escapeHtml(describeDispatchCapacityConstraintDecision(groupConstraint))}</span>
+                                          </div>
+                                          <p class="mt-1 leading-5">${escapeHtml(groupConstraint.reason)}</p>
+                                        </div>`
+                                      : '<div class="rounded border border-dashed px-2 py-1 text-[10px] text-muted-foreground">待选择后显示分配单元状态判断</div>'
+                                  }
+                                </div>
+                              </div>
+                            `
+                          })
+                          .join('')
+                      : ''
                     const detailSamBlocks = detailMode
                       ? detailGroups
                           .map((group) => {
@@ -375,7 +409,7 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                             .join('')}
 	                        </span>
 	                        <span class="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
-	                          <span>${escapeHtml(factory.currentStatus)}</span>
+	                          <span>${escapeHtml(describeDispatchCapacityConstraintDecision(constraint))}</span>
 	                          <span>${escapeHtml(factory.capacitySummary)}</span>
 	                          <span>${escapeHtml(factory.performanceSummary)}</span>
 	                          <span class="${factory.settlementStatus !== '结算正常' ? 'text-amber-600' : ''}">${escapeHtml(factory.settlementStatus)}</span>
@@ -391,6 +425,11 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                                 testId: `tender-factory-judgement-${factory.id}`,
                               })}
                             </div>
+                            ${
+                              detailStatusBlocks
+                                ? `<div class="mt-2 space-y-2 rounded border border-dashed px-2 py-2">${detailStatusBlocks}</div>`
+                                : ''
+                            }
                             ${
                               detailSamBlocks
                                 ? `<div class="mt-2 space-y-2 rounded border border-dashed px-2 py-2">${detailSamBlocks}</div>`

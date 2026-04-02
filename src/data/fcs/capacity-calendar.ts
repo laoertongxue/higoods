@@ -1,11 +1,12 @@
 import {
   listCapacityCalendarOverrides,
   type CapacityCalendarOverrideRecord,
-} from './capacity-calendar-overrides'
+} from './capacity-calendar-overrides.ts'
 import {
+  CAPACITY_OVERLOAD_REMAINING_THRESHOLD,
   CAPACITY_TIGHT_THRESHOLD_RATIO,
   calculateCapacityRemainingStandardHours,
-} from './capacity-rules'
+} from './capacity-rules.ts'
 import {
   createCapacityStandardTimeEvaluationContext,
   listCapacityCommitments,
@@ -15,23 +16,23 @@ import {
   type CapacityStandardTimeEvaluationContext,
   type CapacityCommitment,
   type CapacityFreeze,
-} from './capacity-usage-ledger'
+} from './capacity-usage-ledger.ts'
 import {
   computeFactoryCapacityEntryResult,
   listFactoryCapacityEntries,
-} from './factory-capacity-profile-mock'
+} from './factory-capacity-profile-mock.ts'
 import {
   getFactoryMasterRecordById,
   listFactoryMasterRecords,
-} from './factory-master-store'
+} from './factory-master-store.ts'
 import {
   listRuntimeExecutionTasks,
   resolveRuntimeAllocatableGroupPublishedSam,
   resolveRuntimeTaskPublishedSam,
   type RuntimeProcessTask,
   type RuntimeTaskAllocatableGroup,
-} from './runtime-process-tasks'
-import { productionOrders } from './production-orders'
+} from './runtime-process-tasks.ts'
+import { productionOrders } from './production-orders.ts'
 
 export type CapacityCalendarStatus = 'NORMAL' | 'TIGHT' | 'OVERLOADED' | 'PAUSED'
 export type CapacityCalendarConstraintStatus = CapacityCalendarStatus | 'DATE_INCOMPLETE' | 'SAM_MISSING'
@@ -47,6 +48,27 @@ export const CAPACITY_CALENDAR_CONSTRAINT_STATUS_LABEL: Record<CapacityCalendarC
   ...CAPACITY_CALENDAR_STATUS_LABEL,
   DATE_INCOMPLETE: '日期不足',
   SAM_MISSING: '工时缺失',
+}
+
+export type CapacityStatusBadgeTone = 'normal' | 'warning' | 'danger' | 'muted'
+
+export interface CapacityStatusBadgeMeta {
+  label: string
+  tone: CapacityStatusBadgeTone
+}
+
+export interface CapacityStatusSnapshot {
+  status: CapacityCalendarStatus
+  statusLabel: string
+  reason: string
+  availableSam: number
+  usedSam: number
+  frozenSam: number
+  remainingSam: number
+  overload: boolean
+  pauseOverrideId?: string
+  pauseOverrideNote?: string
+  pauseScopeLabel?: string
 }
 
 export interface CapacityCalendarSummary {
@@ -164,6 +186,7 @@ export interface CapacityCalendarTaskConstraintAllocation {
   baseSupplySam: number
   supplySam: number
   committedSam: number
+  frozenSam: number
   proposedDemandSam: number
   projectedCommittedSam: number
   projectedRemainingSam: number
@@ -186,6 +209,22 @@ export interface CapacityCalendarTaskConstraintResult {
   dateIncomplete: boolean
   usesParentWindow: boolean
   reason: string
+  allocations: CapacityCalendarTaskConstraintAllocation[]
+}
+
+export interface CapacityFactoryWindowJudgement {
+  status: CapacityCalendarConstraintStatus
+  statusLabel: string
+  reason: string
+  decision: 'ALLOW' | 'WARN' | 'BLOCK'
+  hardBlocked: boolean
+  warning: boolean
+  dateIncomplete: boolean
+  usesParentWindow: boolean
+  availableSam: number
+  usedSam: number
+  frozenSam: number
+  remainingSam: number
   allocations: CapacityCalendarTaskConstraintAllocation[]
 }
 
@@ -248,6 +287,11 @@ export interface FactoryCalendarRow {
   committedSam: number
   frozenSam: number
   remainingSam: number
+  status: CapacityCalendarStatus
+  statusReason: string
+  pauseOverrideId?: string
+  pauseOverrideNote?: string
+  pauseScopeLabel?: string
   committedTaskCount: number
   frozenTaskCount: number
   committedSources: FactoryCalendarSourceRow[]
@@ -261,6 +305,10 @@ export interface FactoryCalendarSummary {
   remainingTotal: number
   craftCount: number
   taskCount: number
+  normalCount: number
+  tightCount: number
+  overloadedCount: number
+  pausedCount: number
 }
 
 export interface FactoryCalendarData {
@@ -279,12 +327,21 @@ export interface FactoryCalendarData {
   countRuleNote: string
 }
 
-export type TaskSamRiskConclusion = 'CAPABLE' | 'TIGHT' | 'EXCEEDS_WINDOW' | 'UNALLOCATED' | 'UNSCHEDULED'
+export type TaskSamRiskConclusion =
+  | 'CAPABLE'
+  | 'TIGHT'
+  | 'EXCEEDS_WINDOW'
+  | 'PAUSED'
+  | 'FROZEN_PENDING'
+  | 'UNALLOCATED'
+  | 'UNSCHEDULED'
 
 export const TASK_SAM_RISK_CONCLUSION_LABEL: Record<TaskSamRiskConclusion, string> = {
   CAPABLE: '可承载',
   TIGHT: '紧张',
   EXCEEDS_WINDOW: '超出窗口',
+  PAUSED: '暂停',
+  FROZEN_PENDING: '已冻结待确认',
   UNALLOCATED: '未落厂',
   UNSCHEDULED: '未排期',
 }
@@ -303,7 +360,8 @@ export interface CapacityRiskTaskRow {
   craftName: string
   factoryId?: string
   factoryName?: string
-  factoryBindingKind: 'COMMITTED' | 'FROZEN' | 'UNALLOCATED'
+  factoryBindingKind: 'COMMITTED' | 'FROZEN_PENDING' | 'UNALLOCATED'
+  bindingFactoryCount?: number
   totalStandardTime: number
   windowStartDate?: string
   windowEndDate?: string
@@ -313,6 +371,10 @@ export interface CapacityRiskTaskRow {
   otherCommittedSam?: number
   otherFrozenSam?: number
   remainingAfterCurrentSam?: number
+  frozenStandardTime?: number
+  frozenWindowStartDate?: string
+  frozenWindowEndDate?: string
+  frozenWindowText?: string
   conclusion: TaskSamRiskConclusion
   conclusionLabel: string
   reason: string
@@ -325,6 +387,7 @@ export interface CapacityRiskOrderRow {
   productionOrderId: string
   totalStandardTime: number
   allocatedStandardTime: number
+  frozenPendingStandardTime: number
   unallocatedStandardTime: number
   unscheduledStandardTime: number
   taskCount: number
@@ -339,6 +402,8 @@ export interface CapacityRiskSummary {
   capableCount: number
   tightCount: number
   exceedsWindowCount: number
+  pausedCount: number
+  frozenPendingCount: number
   unallocatedCount: number
   unscheduledCount: number
 }
@@ -361,6 +426,7 @@ export interface CapacityBottleneckCraftDetailDateRow {
   committedSam: number
   frozenSam: number
   remainingSam: number
+  status: CapacityCalendarStatus
 }
 
 export interface CapacityBottleneckCraftDetailFactoryRow {
@@ -383,6 +449,8 @@ export interface CapacityBottleneckCraftRow {
   windowFrozenSam: number
   windowRemainingSam: number
   overloadDayCount: number
+  tightDayCount: number
+  pausedDayCount: number
   factoryCount: number
   unallocatedSam: number
   unscheduledSam: number
@@ -404,6 +472,7 @@ export interface CapacityBottleneckDateDetailRow {
   committedSam: number
   frozenSam: number
   remainingSam: number
+  status: CapacityCalendarStatus
   committedTaskCount: number
   frozenTaskCount: number
 }
@@ -416,6 +485,8 @@ export interface CapacityBottleneckDateRow {
   remainingSam: number
   overloadedFactoryCount: number
   overloadedCraftCount: number
+  pausedFactoryCount: number
+  tightCraftCount: number
   unallocatedSam: number
   maxGapSam: number
   detailRows: CapacityBottleneckDateDetailRow[]
@@ -527,10 +598,17 @@ interface FactoryCalendarRowSeed {
   frozenObjectKeys: Set<string>
 }
 
-interface TaskRiskFactoryBinding {
-  kind: 'COMMITTED' | 'FROZEN' | 'UNALLOCATED'
+export interface TaskBindingState {
+  kind: 'COMMITTED' | 'FROZEN_PENDING' | 'UNALLOCATED'
   factoryId?: string
   factoryName?: string
+  factoryIds: string[]
+  factoryNames: string[]
+  frozenFactoryCount: number
+  frozenStandardTime: number
+  frozenWindowStartDate?: string
+  frozenWindowEndDate?: string
+  frozenWindowText?: string
   reason?: string
 }
 
@@ -578,6 +656,8 @@ const TASK_RISK_CONCLUSION_OPTIONS: CapacityRiskFilterOption[] = [
   { value: 'CAPABLE', label: TASK_SAM_RISK_CONCLUSION_LABEL.CAPABLE },
   { value: 'TIGHT', label: TASK_SAM_RISK_CONCLUSION_LABEL.TIGHT },
   { value: 'EXCEEDS_WINDOW', label: TASK_SAM_RISK_CONCLUSION_LABEL.EXCEEDS_WINDOW },
+  { value: 'PAUSED', label: TASK_SAM_RISK_CONCLUSION_LABEL.PAUSED },
+  { value: 'FROZEN_PENDING', label: TASK_SAM_RISK_CONCLUSION_LABEL.FROZEN_PENDING },
   { value: 'UNALLOCATED', label: TASK_SAM_RISK_CONCLUSION_LABEL.UNALLOCATED },
   { value: 'UNSCHEDULED', label: TASK_SAM_RISK_CONCLUSION_LABEL.UNSCHEDULED },
 ]
@@ -971,42 +1051,66 @@ function resolvePauseOverride(
   }
 }
 
-function resolveCalendarRowStatus(input: {
-  baseSupplySam: number
-  supplySam: number
-  committedSam: number
-  pauseHit: PauseOverrideHit | null
-}): Pick<CapacityCalendarComparisonRow, 'status' | 'statusReason' | 'remainingSam' | 'overload' | 'pauseOverrideId' | 'pauseOverrideNote' | 'pauseScopeLabel'> {
+export function buildCapacityStatusBadge(status: CapacityCalendarStatus): CapacityStatusBadgeMeta {
+  if (status === 'PAUSED') return { label: CAPACITY_CALENDAR_STATUS_LABEL[status], tone: 'danger' }
+  if (status === 'OVERLOADED') return { label: CAPACITY_CALENDAR_STATUS_LABEL[status], tone: 'danger' }
+  if (status === 'TIGHT') return { label: CAPACITY_CALENDAR_STATUS_LABEL[status], tone: 'warning' }
+  return { label: CAPACITY_CALENDAR_STATUS_LABEL[status], tone: 'normal' }
+}
+
+export function computeCapacityStatus(input: {
+  baseSupplySam?: number
+  availableSam: number
+  usedSam: number
+  frozenSam: number
+  pauseHit?: PauseOverrideHit | null
+}): CapacityStatusSnapshot {
+  const availableSam = roundSam(Math.max(input.availableSam, 0))
+  const usedSam = roundSam(Math.max(input.usedSam, 0))
+  const frozenSam = roundSam(Math.max(input.frozenSam, 0))
   const remainingSam = calculateCapacityRemainingStandardHours({
-    supplyStandardHours: input.supplySam,
-    committedStandardHours: input.committedSam,
-    frozenStandardHours: 0,
+    supplyStandardHours: availableSam,
+    committedStandardHours: usedSam,
+    frozenStandardHours: frozenSam,
   })
+
   if (input.pauseHit) {
     return {
       status: 'PAUSED',
-      statusReason: `命中暂停例外：${input.pauseHit.scopeLabel}，${input.pauseHit.note}`,
+      statusLabel: CAPACITY_CALENDAR_STATUS_LABEL.PAUSED,
+      reason: `命中暂停例外：${input.pauseHit.scopeLabel}，${input.pauseHit.note}`,
+      availableSam,
+      usedSam,
+      frozenSam,
       remainingSam,
-      overload: remainingSam < 0,
+      overload: remainingSam < CAPACITY_OVERLOAD_REMAINING_THRESHOLD,
       pauseOverrideId: input.pauseHit.id,
       pauseOverrideNote: input.pauseHit.note,
       pauseScopeLabel: input.pauseHit.scopeLabel,
     }
   }
 
-  if (input.committedSam > input.supplySam) {
+  if (remainingSam < CAPACITY_OVERLOAD_REMAINING_THRESHOLD) {
     return {
       status: 'OVERLOADED',
-      statusReason: `已占用 ${roundSam(input.committedSam)} SAM，高于可供给 ${roundSam(input.supplySam)} SAM`,
+      statusLabel: CAPACITY_CALENDAR_STATUS_LABEL.OVERLOADED,
+      reason: `剩余 ${roundSam(remainingSam)} 标准工时，当前供给已不足以覆盖已占用 ${usedSam} 和已冻结 ${frozenSam}。`,
+      availableSam,
+      usedSam,
+      frozenSam,
       remainingSam,
       overload: true,
     }
   }
 
-  if (input.supplySam > 0 && remainingSam >= 0 && remainingSam / input.supplySam < CAPACITY_TIGHT_THRESHOLD_RATIO) {
+  if (availableSam > 0 && remainingSam / availableSam < CAPACITY_TIGHT_THRESHOLD_RATIO) {
     return {
       status: 'TIGHT',
-      statusReason: `剩余 ${roundSam(remainingSam)} SAM，占可供给 ${roundSam((remainingSam / input.supplySam) * 100)}%`,
+      statusLabel: CAPACITY_CALENDAR_STATUS_LABEL.TIGHT,
+      reason: `剩余 ${roundSam(remainingSam)} 标准工时，占当前供给 ${roundSam((remainingSam / availableSam) * 100)}%，已进入紧张区间。`,
+      availableSam,
+      usedSam,
+      frozenSam,
       remainingSam,
       overload: false,
     }
@@ -1014,12 +1118,97 @@ function resolveCalendarRowStatus(input: {
 
   return {
     status: 'NORMAL',
-    statusReason:
-      input.baseSupplySam > 0
-        ? `剩余 ${roundSam(remainingSam)} SAM，可继续承接`
-        : '当前暂无已占用需求',
+    statusLabel: CAPACITY_CALENDAR_STATUS_LABEL.NORMAL,
+    reason:
+      (input.baseSupplySam ?? availableSam) > 0
+        ? `当前供给 ${availableSam} 标准工时，扣除已占用 ${usedSam} 和已冻结 ${frozenSam} 后，仍有 ${roundSam(remainingSam)} 标准工时可继续承接。`
+        : '当前窗口暂无供给，也没有命中暂停例外。',
+    availableSam,
+    usedSam,
+    frozenSam,
     remainingSam,
     overload: false,
+  }
+}
+
+export function isCapacityPaused(
+  input: {
+    date: string
+    factoryId: string
+    processCode: string
+    craftCode: string
+  },
+  overrides: CapacityCalendarOverrideRecord[] = listCapacityCalendarOverrides(),
+  overrideLabels: Map<string, { processName?: string; craftName?: string }> = resolveOverrideDisplayLabels(),
+): boolean {
+  return Boolean(resolvePauseOverride(overrides, overrideLabels, input))
+}
+
+export function resolveFactoryWindowStatus(
+  input: {
+    date: string
+    factoryId: string
+    processCode: string
+    craftCode: string
+    baseSupplySam?: number
+    supplySam: number
+    committedSam: number
+    frozenSam: number
+  },
+  options?: {
+    overrides?: CapacityCalendarOverrideRecord[]
+    overrideLabels?: Map<string, { processName?: string; craftName?: string }>
+  },
+): CapacityStatusSnapshot {
+  const overrides = options?.overrides ?? listCapacityCalendarOverrides()
+  const overrideLabels = options?.overrideLabels ?? resolveOverrideDisplayLabels()
+  const pauseHit = resolvePauseOverride(overrides, overrideLabels, input)
+  return computeCapacityStatus({
+    baseSupplySam: input.baseSupplySam ?? input.supplySam,
+    availableSam: pauseHit ? 0 : input.supplySam,
+    usedSam: input.committedSam,
+    frozenSam: input.frozenSam,
+    pauseHit,
+  })
+}
+
+function resolveCalendarRowStatus(input: {
+  date: string
+  factoryId: string
+  processCode: string
+  craftCode: string
+  baseSupplySam: number
+  supplySam: number
+  committedSam: number
+  frozenSam: number
+  overrides?: CapacityCalendarOverrideRecord[]
+  overrideLabels?: Map<string, { processName?: string; craftName?: string }>
+}): Pick<CapacityCalendarComparisonRow, 'status' | 'statusReason' | 'remainingSam' | 'overload' | 'pauseOverrideId' | 'pauseOverrideNote' | 'pauseScopeLabel'> {
+  const resolved = resolveFactoryWindowStatus(
+    {
+      date: input.date,
+      factoryId: input.factoryId,
+      processCode: input.processCode,
+      craftCode: input.craftCode,
+      baseSupplySam: input.baseSupplySam,
+      supplySam: input.supplySam,
+      committedSam: input.committedSam,
+      frozenSam: input.frozenSam,
+    },
+    {
+      overrides: input.overrides,
+      overrideLabels: input.overrideLabels,
+    },
+  )
+
+  return {
+    status: resolved.status,
+    statusReason: resolved.reason,
+    remainingSam: resolved.remainingSam,
+    overload: resolved.overload,
+    pauseOverrideId: resolved.pauseOverrideId,
+    pauseOverrideNote: resolved.pauseOverrideNote,
+    pauseScopeLabel: resolved.pauseScopeLabel,
   }
 }
 
@@ -1141,20 +1330,25 @@ export function evaluateRuntimeTaskCapacityConstraint(input: {
       processCode: identity.processCode,
       craftCode: identity.craftCode,
     })
-    const currentTaskAlreadyCommitted =
-      input.task.assignedFactoryId === input.factoryId &&
-      row?.taskIds.includes(input.task.taskId)
+    const currentTaskAlreadyCommitted = row?.committedTaskIds.includes(input.task.taskId) ?? false
     const baseSupplySam = row?.baseSupplySam ?? row?.supplySam ?? 0
     const supplySam = pauseHit ? 0 : (row?.supplySam ?? 0)
     const baselineCommitted = roundSam(
       Math.max((row?.committedSam ?? 0) - (currentTaskAlreadyCommitted ? allocation.demandSam : 0), 0),
     )
+    const baselineFrozen = roundSam(row?.frozenSam ?? 0)
     const projectedCommittedSam = roundSam(baselineCommitted + allocation.demandSam)
     const resolved = resolveCalendarRowStatus({
+      date: allocation.date,
+      factoryId: input.factoryId,
+      processCode: identity.processCode,
+      craftCode: identity.craftCode,
       baseSupplySam,
       supplySam,
       committedSam: projectedCommittedSam,
-      pauseHit,
+      frozenSam: baselineFrozen,
+      overrides,
+      overrideLabels,
     })
 
     return {
@@ -1162,6 +1356,7 @@ export function evaluateRuntimeTaskCapacityConstraint(input: {
       baseSupplySam,
       supplySam,
       committedSam: baselineCommitted,
+      frozenSam: baselineFrozen,
       proposedDemandSam: allocation.demandSam,
       projectedCommittedSam,
       projectedRemainingSam: resolved.remainingSam,
@@ -1224,6 +1419,31 @@ export function evaluateRuntimeTaskCapacityConstraint(input: {
   }
 }
 
+export function resolveFactoryTaskWindowJudgement(input: {
+  task: RuntimeProcessTask
+  factoryId: string
+  factoryName?: string
+  allocatableGroup?: Pick<RuntimeTaskAllocatableGroup, 'qty' | 'detailRowKeys' | 'groupKey' | 'groupLabel'>
+  evaluationContext?: CapacityCalendarEvaluationContext
+}): CapacityFactoryWindowJudgement {
+  const result = evaluateRuntimeTaskCapacityConstraint(input)
+  return {
+    status: result.status,
+    statusLabel: CAPACITY_CALENDAR_CONSTRAINT_STATUS_LABEL[result.status],
+    reason: result.reason,
+    decision: result.decision,
+    hardBlocked: result.hardBlocked,
+    warning: result.warning,
+    dateIncomplete: result.dateIncomplete,
+    usesParentWindow: result.usesParentWindow,
+    availableSam: roundSam(result.allocations.reduce((sum, item) => sum + item.supplySam, 0)),
+    usedSam: roundSam(result.allocations.reduce((sum, item) => sum + item.committedSam, 0)),
+    frozenSam: roundSam(result.allocations.reduce((sum, item) => sum + item.frozenSam, 0)),
+    remainingSam: roundSam(result.allocations.reduce((sum, item) => sum + item.projectedRemainingSam, 0)),
+    allocations: result.allocations,
+  }
+}
+
 export function buildCapacityCalendarData(): CapacityCalendarData {
   const comparisonMap = new Map<string, UsageDailyRowSeed>()
   const unallocatedMap = new Map<string, CapacityCalendarUnallocatedRow>()
@@ -1232,6 +1452,7 @@ export function buildCapacityCalendarData(): CapacityCalendarData {
   const scheduledDateSet = new Set<string>()
   const relevantCraftKeys = new Set<string>()
   const overrideLabels = resolveOverrideDisplayLabels()
+  const overrides = listCapacityCalendarOverrides()
   const tasks = listRuntimeExecutionTasks().filter((task) => shouldTrackDemand(task))
   const taskMap = new Map(tasks.map((task) => [task.taskId, task] as const))
   const activeCommitments = listCapacityCommitments({ status: 'ACTIVE' })
@@ -1493,17 +1714,17 @@ export function buildCapacityCalendarData(): CapacityCalendarData {
 
   const comparisonRows = [...comparisonMap.values()]
     .map((row) => {
-      const totalReservedSam = roundSam(row.committedSam + row.frozenSam)
       const resolved = resolveCalendarRowStatus({
+        date: row.date,
+        factoryId: row.factoryId,
+        processCode: row.processCode,
+        craftCode: row.craftCode,
         baseSupplySam: row.baseSupplySam,
         supplySam: row.supplySam,
-        committedSam: totalReservedSam,
-        pauseHit: null,
-      })
-      const remainingSam = calculateCapacityRemainingStandardHours({
-        supplyStandardHours: row.supplySam,
-        committedStandardHours: row.committedSam,
-        frozenStandardHours: row.frozenSam,
+        committedSam: row.committedSam,
+        frozenSam: row.frozenSam,
+        overrides,
+        overrideLabels,
       })
       const committedTaskIds = Array.from(new Set(row.committedTaskIds))
       const frozenTaskIds = Array.from(new Set(row.frozenTaskIds))
@@ -1511,19 +1732,20 @@ export function buildCapacityCalendarData(): CapacityCalendarData {
 
       return {
         ...row,
+        supplySam: resolved.status === 'PAUSED' ? 0 : row.supplySam,
         committedTaskIds,
         frozenTaskIds,
         taskIds,
         commitmentCount: committedTaskIds.length,
         freezeCount: frozenTaskIds.length,
         taskCount: taskIds.length,
-        remainingSam,
-        overload: remainingSam < 0,
+        remainingSam: resolved.remainingSam,
+        overload: resolved.overload,
         status: resolved.status,
-        statusReason: `已占用 ${roundSam(row.committedSam)} / 已冻结 ${roundSam(row.frozenSam)} / 剩余 ${roundSam(remainingSam)}`,
-        pauseOverrideId: undefined,
-        pauseOverrideNote: undefined,
-        pauseScopeLabel: undefined,
+        statusReason: resolved.statusReason,
+        pauseOverrideId: resolved.pauseOverrideId,
+        pauseOverrideNote: resolved.pauseOverrideNote,
+        pauseScopeLabel: resolved.pauseScopeLabel,
       } satisfies CapacityCalendarComparisonRow
     })
     .sort((left, right) => {
@@ -1649,6 +1871,10 @@ function buildFactoryCalendarEmptySummary(): FactoryCalendarSummary {
     remainingTotal: 0,
     craftCount: 0,
     taskCount: 0,
+    normalCount: 0,
+    tightCount: 0,
+    overloadedCount: 0,
+    pausedCount: 0,
   }
 }
 
@@ -1670,6 +1896,10 @@ function buildFactoryCalendarSummary(rows: FactoryCalendarRow[]): FactoryCalenda
     remainingTotal: roundSam(rows.reduce((sum, row) => sum + row.remainingSam, 0)),
     craftCount: craftKeys.size,
     taskCount: taskIds.size,
+    normalCount: rows.filter((row) => row.status === 'NORMAL').length,
+    tightCount: rows.filter((row) => row.status === 'TIGHT').length,
+    overloadedCount: rows.filter((row) => row.status === 'OVERLOADED').length,
+    pausedCount: rows.filter((row) => row.status === 'PAUSED').length,
   }
 }
 
@@ -1699,6 +1929,7 @@ export function buildFactoryCalendarData(input?: {
   const dateSet = new Set(dates)
   const taskMap = new Map(listRuntimeExecutionTasks().map((task) => [task.taskId, task] as const))
   const displayLabels = resolveOverrideDisplayLabels()
+  const overrides = listCapacityCalendarOverrides()
   const rowSeedMap = new Map<string, FactoryCalendarRowSeed>()
   const processOptionMap = new Map<string, FactoryCalendarProcessOption>()
   const craftOptionMap = new Map<string, FactoryCalendarCraftOption>()
@@ -1860,34 +2091,54 @@ export function buildFactoryCalendarData(input?: {
       if (selectedProcessCode) return row.processCode === selectedProcessCode
       return true
     })
-    .map((row) => ({
-      rowKey: row.rowKey,
-      date: row.date,
-      factoryId: row.factoryId,
-      factoryName: row.factoryName,
-      processCode: row.processCode,
-      processName: row.processName,
-      craftCode: row.craftCode,
-      craftName: row.craftName,
-      supplySam: row.supplySam,
-      committedSam: row.committedSam,
-      frozenSam: row.frozenSam,
-      remainingSam: calculateCapacityRemainingStandardHours({
-        supplyStandardHours: row.supplySam,
-        committedStandardHours: row.committedSam,
-        frozenStandardHours: row.frozenSam,
-      }),
-      committedTaskCount: row.committedObjectKeys.size,
-      frozenTaskCount: row.frozenObjectKeys.size,
-      committedSources: [...row.committedSources].sort((left, right) => {
-        if (right.dailySam !== left.dailySam) return right.dailySam - left.dailySam
-        return left.taskId.localeCompare(right.taskId)
-      }),
-      frozenSources: [...row.frozenSources].sort((left, right) => {
-        if (right.dailySam !== left.dailySam) return right.dailySam - left.dailySam
-        return left.taskId.localeCompare(right.taskId)
-      }),
-    }))
+    .map((row) => {
+      const status = resolveFactoryWindowStatus(
+        {
+          date: row.date,
+          factoryId: row.factoryId,
+          processCode: row.processCode,
+          craftCode: row.craftCode,
+          baseSupplySam: row.supplySam,
+          supplySam: row.supplySam,
+          committedSam: row.committedSam,
+          frozenSam: row.frozenSam,
+        },
+        {
+          overrides,
+          overrideLabels: displayLabels,
+        },
+      )
+
+      return {
+        rowKey: row.rowKey,
+        date: row.date,
+        factoryId: row.factoryId,
+        factoryName: row.factoryName,
+        processCode: row.processCode,
+        processName: row.processName,
+        craftCode: row.craftCode,
+        craftName: row.craftName,
+        supplySam: status.availableSam,
+        committedSam: row.committedSam,
+        frozenSam: row.frozenSam,
+        remainingSam: status.remainingSam,
+        status: status.status,
+        statusReason: status.reason,
+        pauseOverrideId: status.pauseOverrideId,
+        pauseOverrideNote: status.pauseOverrideNote,
+        pauseScopeLabel: status.pauseScopeLabel,
+        committedTaskCount: row.committedObjectKeys.size,
+        frozenTaskCount: row.frozenObjectKeys.size,
+        committedSources: [...row.committedSources].sort((left, right) => {
+          if (right.dailySam !== left.dailySam) return right.dailySam - left.dailySam
+          return left.taskId.localeCompare(right.taskId)
+        }),
+        frozenSources: [...row.frozenSources].sort((left, right) => {
+          if (right.dailySam !== left.dailySam) return right.dailySam - left.dailySam
+          return left.taskId.localeCompare(right.taskId)
+        }),
+      }
+    })
     .sort(sortFactoryCalendarRows)
 
   return {
@@ -1981,11 +2232,15 @@ function aggregateCraftBottlenecks(
       committedSam: 0,
       frozenSam: 0,
       remainingSam: 0,
+      status: row.status,
     }
     dateRow.supplySam = roundSam(dateRow.supplySam + row.supplySam)
     dateRow.committedSam = roundSam(dateRow.committedSam + row.committedSam)
     dateRow.frozenSam = roundSam(dateRow.frozenSam + row.frozenSam)
     dateRow.remainingSam = roundSam(dateRow.remainingSam + row.remainingSam)
+    if (row.status === 'PAUSED') dateRow.status = 'PAUSED'
+    else if (row.status === 'OVERLOADED' && dateRow.status !== 'PAUSED') dateRow.status = 'OVERLOADED'
+    else if (row.status === 'TIGHT' && dateRow.status === 'NORMAL') dateRow.status = 'TIGHT'
     current.dateMap.set(row.date, dateRow)
 
     const factoryRow = current.factoryMap.get(row.factoryId) ?? {
@@ -2013,6 +2268,8 @@ function aggregateCraftBottlenecks(
         return left.factoryName.localeCompare(right.factoryName)
       })
       const overloadDayCount = dateRows.filter((item) => item.remainingSam < 0).length
+      const tightDayCount = dateRows.filter((item) => item.status === 'TIGHT').length
+      const pausedDayCount = dateRows.filter((item) => item.status === 'PAUSED').length
       const maxGapSam = roundSam(
         dateRows.reduce((max, item) => (item.remainingSam < 0 ? Math.max(max, Math.abs(item.remainingSam)) : max), 0),
       )
@@ -2031,6 +2288,8 @@ function aggregateCraftBottlenecks(
         windowFrozenSam: row.windowFrozenSam,
         windowRemainingSam: row.windowRemainingSam,
         overloadDayCount,
+        tightDayCount,
+        pausedDayCount,
         factoryCount: row.factories.size,
         unallocatedSam: roundSam(unallocatedSamByCraft.get(rowKey) ?? 0),
         unscheduledSam: roundSam(unscheduledSamByCraft.get(rowKey) ?? 0),
@@ -2061,7 +2320,9 @@ function aggregateDateBottlenecks(
       frozenSam: number
       remainingSam: number
       overloadedFactories: Set<string>
+      pausedFactories: Set<string>
       craftRemaining: Map<string, number>
+      tightCrafts: Set<string>
       maxGapSam: number
       detailRows: CapacityBottleneckDateDetailRow[]
     }
@@ -2075,7 +2336,9 @@ function aggregateDateBottlenecks(
       frozenSam: 0,
       remainingSam: 0,
       overloadedFactories: new Set<string>(),
+      pausedFactories: new Set<string>(),
       craftRemaining: new Map<string, number>(),
+      tightCrafts: new Set<string>(),
       maxGapSam: 0,
       detailRows: [],
     }
@@ -2087,11 +2350,17 @@ function aggregateDateBottlenecks(
       current.overloadedFactories.add(row.factoryId)
       current.maxGapSam = Math.max(current.maxGapSam, Math.abs(row.remainingSam))
     }
+    if (row.status === 'PAUSED') {
+      current.pausedFactories.add(row.factoryId)
+    }
     const craftKey = buildBottleneckCraftRowKey({
       processCode: row.processCode,
       craftCode: row.craftCode,
     })
     current.craftRemaining.set(craftKey, roundSam((current.craftRemaining.get(craftKey) ?? 0) + row.remainingSam))
+    if (row.status === 'TIGHT') {
+      current.tightCrafts.add(craftKey)
+    }
     current.detailRows.push(row)
     dateMap.set(row.date, current)
   }
@@ -2105,6 +2374,8 @@ function aggregateDateBottlenecks(
       remainingSam: row.remainingSam,
       overloadedFactoryCount: row.overloadedFactories.size,
       overloadedCraftCount: [...row.craftRemaining.values()].filter((value) => value < 0).length,
+      pausedFactoryCount: row.pausedFactories.size,
+      tightCraftCount: row.tightCrafts.size,
       unallocatedSam: roundSam(unallocatedSamByDate.get(row.date) ?? 0),
       maxGapSam: roundSam(row.maxGapSam),
       detailRows: [...row.detailRows].sort((left, right) => {
@@ -2168,15 +2439,9 @@ export function buildCapacityBottleneckData(input?: {
   const factories = listFactoryMasterRecords()
   const taskMap = new Map(listRuntimeExecutionTasks().map((task) => [task.taskId, task] as const))
   const displayLabels = resolveOverrideDisplayLabels()
+  const overrides = listCapacityCalendarOverrides()
   const activeCommitments = listCapacityCommitments({ status: 'ACTIVE' })
   const activeFreezes = listCapacityFreezes({ status: 'ACTIVE' })
-  const commitmentTaskIds = new Set(activeCommitments.map((item) => item.taskId))
-  const freezeFactoryMap = new Map<string, Set<string>>()
-  for (const freeze of activeFreezes) {
-    const current = freezeFactoryMap.get(freeze.taskId) ?? new Set<string>()
-    current.add(freeze.factoryId)
-    freezeFactoryMap.set(freeze.taskId, current)
-  }
 
   const processOptionMap = new Map<string, string>()
   const craftOptionMap = new Map<string, { label: string; processCode: string }>()
@@ -2298,8 +2563,13 @@ export function buildCapacityBottleneckData(input?: {
     const identity = buildDemandIdentity(task)
     registerIdentity(identity)
     const schedule = buildTaskSchedule(task, totalStandardTime)
-    const frozenFactoryCount = freezeFactoryMap.get(task.taskId)?.size ?? 0
-    const hasCommitment = commitmentTaskIds.has(task.taskId)
+    const binding = resolveTaskBindingState(task, activeCommitments, activeFreezes)
+    const frozenFactoryCount = binding.frozenFactoryCount
+    const hasCommitment = binding.kind === 'COMMITTED'
+    const unallocatedStageLabel =
+      binding.kind === 'FROZEN_PENDING'
+        ? TASK_SAM_RISK_CONCLUSION_LABEL.FROZEN_PENDING
+        : resolveAssignmentStatusLabel(task.assignmentStatus)
 
     if (schedule.kind === 'UNSCHEDULED') {
       unscheduledRows.push({
@@ -2311,11 +2581,11 @@ export function buildCapacityBottleneckData(input?: {
         craftName: identity.craftName,
         totalStandardTime,
         assignmentStatus: task.assignmentStatus,
-        assignmentStatusLabel: resolveAssignmentStatusLabel(task.assignmentStatus),
+        assignmentStatusLabel: unallocatedStageLabel,
         reason: schedule.reason ?? '缺少有效日期窗口',
         note: hasCommitment
           ? '当前任务已有正式承接对象，但缺少有效日期窗口。'
-          : frozenFactoryCount > 0
+          : binding.kind === 'FROZEN_PENDING'
             ? `当前任务已在 ${frozenFactoryCount} 家工厂形成冻结，但业务上仍未最终落厂。`
             : '当前任务尚未形成承接工厂，且缺少有效日期窗口。',
       })
@@ -2327,7 +2597,7 @@ export function buildCapacityBottleneckData(input?: {
       continue
     }
 
-    if (!shouldTrackUnallocatedDemand(task) || hasCommitment) continue
+    if (hasCommitment) continue
 
     const visibleAllocations = schedule.allocations.filter((allocation) => dateSet.has(allocation.date))
     if (visibleAllocations.length === 0) continue
@@ -2344,10 +2614,10 @@ export function buildCapacityBottleneckData(input?: {
       windowEndDate: visibleAllocations.at(-1)?.date,
       windowText: buildTaskWindowText(task, totalStandardTime),
       assignmentStatus: task.assignmentStatus,
-      assignmentStatusLabel: resolveAssignmentStatusLabel(task.assignmentStatus),
+      assignmentStatusLabel: unallocatedStageLabel,
       frozenFactoryCount,
       note:
-        frozenFactoryCount > 0
+        binding.kind === 'FROZEN_PENDING'
           ? `已在 ${frozenFactoryCount} 家工厂形成冻结，能力已预留，但业务仍未最终落厂。`
           : '当前尚未形成冻结或占用对象，仍在待分配需求池中。',
     })
@@ -2363,26 +2633,41 @@ export function buildCapacityBottleneckData(input?: {
   }
 
   const dailyRows = [...dailyRowMap.values()]
-    .map((row) => ({
-      rowKey: row.rowKey,
-      date: row.date,
-      factoryId: row.factoryId,
-      factoryName: row.factoryName,
-      processCode: row.processCode,
-      processName: row.processName,
-      craftCode: row.craftCode,
-      craftName: row.craftName,
-      supplySam: row.supplySam,
-      committedSam: row.committedSam,
-      frozenSam: row.frozenSam,
-      remainingSam: calculateCapacityRemainingStandardHours({
-        supplyStandardHours: row.supplySam,
-        committedStandardHours: row.committedSam,
-        frozenStandardHours: row.frozenSam,
-      }),
-      committedTaskCount: row.committedTaskIds.size,
-      frozenTaskCount: row.frozenTaskIds.size,
-    }))
+    .map((row) => {
+      const status = resolveFactoryWindowStatus(
+        {
+          date: row.date,
+          factoryId: row.factoryId,
+          processCode: row.processCode,
+          craftCode: row.craftCode,
+          baseSupplySam: row.supplySam,
+          supplySam: row.supplySam,
+          committedSam: row.committedSam,
+          frozenSam: row.frozenSam,
+        },
+        {
+          overrides,
+          overrideLabels: displayLabels,
+        },
+      )
+      return {
+        rowKey: row.rowKey,
+        date: row.date,
+        factoryId: row.factoryId,
+        factoryName: row.factoryName,
+        processCode: row.processCode,
+        processName: row.processName,
+        craftCode: row.craftCode,
+        craftName: row.craftName,
+        supplySam: status.availableSam,
+        committedSam: row.committedSam,
+        frozenSam: row.frozenSam,
+        remainingSam: status.remainingSam,
+        status: status.status,
+        committedTaskCount: row.committedTaskIds.size,
+        frozenTaskCount: row.frozenTaskIds.size,
+      }
+    })
     .sort((left, right) => {
       if (left.date !== right.date) return left.date.localeCompare(right.date)
       if (left.remainingSam !== right.remainingSam) return left.remainingSam - right.remainingSam
@@ -2428,6 +2713,8 @@ export function buildCapacityBottleneckData(input?: {
       })
       const craftRemaining = new Map<string, number>()
       const overloadedFactories = new Set<string>()
+      const pausedFactories = new Set<string>()
+      const tightCrafts = new Set<string>()
       let supplySam = 0
       let committedSam = 0
       let frozenSam = 0
@@ -2442,11 +2729,17 @@ export function buildCapacityBottleneckData(input?: {
           overloadedFactories.add(detail.factoryId)
           maxGapSam = Math.max(maxGapSam, Math.abs(detail.remainingSam))
         }
+        if (detail.status === 'PAUSED') {
+          pausedFactories.add(detail.factoryId)
+        }
         const craftKey = buildBottleneckCraftRowKey({
           processCode: detail.processCode,
           craftCode: detail.craftCode,
         })
         craftRemaining.set(craftKey, roundSam((craftRemaining.get(craftKey) ?? 0) + detail.remainingSam))
+        if (detail.status === 'TIGHT') {
+          tightCrafts.add(craftKey)
+        }
       }
       return {
         ...row,
@@ -2456,6 +2749,8 @@ export function buildCapacityBottleneckData(input?: {
         remainingSam,
         overloadedFactoryCount: overloadedFactories.size,
         overloadedCraftCount: [...craftRemaining.values()].filter((value) => value < 0).length,
+        pausedFactoryCount: pausedFactories.size,
+        tightCraftCount: tightCrafts.size,
         maxGapSam: roundSam(maxGapSam),
         detailRows,
       }
@@ -2505,8 +2800,10 @@ export function buildCapacityBottleneckData(input?: {
 
 function getTaskRiskSeverity(conclusion: TaskSamRiskConclusion): number {
   const order: Record<TaskSamRiskConclusion, number> = {
-    EXCEEDS_WINDOW: 5,
-    TIGHT: 4,
+    PAUSED: 7,
+    EXCEEDS_WINDOW: 6,
+    TIGHT: 5,
+    FROZEN_PENDING: 4,
     UNALLOCATED: 3,
     UNSCHEDULED: 2,
     CAPABLE: 1,
@@ -2536,15 +2833,40 @@ function doesWindowOverlapRange(
   return end.getTime() >= range.start.getTime() && start.getTime() <= range.end.getTime()
 }
 
-export function resolveTaskRiskWindow(task: RuntimeProcessTask) {
+function summarizeUsageWindow(
+  items: Array<Pick<CapacityFreeze | CapacityCommitment, 'windowStartDate' | 'windowEndDate'>>,
+): {
+  startDate?: string
+  endDate?: string
+  windowText?: string
+} {
+  const points = items.flatMap((item) => [normalizeDateKey(item.windowStartDate), normalizeDateKey(item.windowEndDate)])
+    .filter((value): value is string => Boolean(value))
+    .sort((left, right) => left.localeCompare(right))
+
+  if (points.length === 0) return {}
+  const startDate = points[0]
+  const endDate = points[points.length - 1]
+  return {
+    startDate,
+    endDate,
+    windowText: buildFactoryCalendarWindowText(startDate, endDate),
+  }
+}
+
+export function resolveTaskWindow(task: RuntimeProcessTask) {
   return resolveCapacityStandardTimeWindow(task)
 }
 
-export function resolveTaskFactoryBinding(
+export function resolveTaskRiskWindow(task: RuntimeProcessTask) {
+  return resolveTaskWindow(task)
+}
+
+export function resolveTaskBindingState(
   task: RuntimeProcessTask,
   activeCommitments: CapacityCommitment[],
   activeFreezes: CapacityFreeze[],
-): TaskRiskFactoryBinding {
+): TaskBindingState {
   const commitments = activeCommitments.filter((item) => item.taskId === task.taskId)
   const freezes = activeFreezes.filter((item) => item.taskId === task.taskId)
 
@@ -2556,6 +2878,10 @@ export function resolveTaskFactoryBinding(
       kind: 'COMMITTED',
       factoryId,
       factoryName: factory?.name ?? task.assignedFactoryName ?? factoryId,
+      factoryIds: commitmentFactoryIds,
+      factoryNames: commitmentFactoryIds.map((id) => getFactoryMasterRecordById(id)?.name ?? id),
+      frozenFactoryCount: 0,
+      frozenStandardTime: 0,
       reason:
         commitmentFactoryIds.length > 1
           ? `当前存在 ${commitmentFactoryIds.length} 条已占用承接记录，风险页按首个承接工厂展示。`
@@ -2564,26 +2890,38 @@ export function resolveTaskFactoryBinding(
   }
 
   const freezeFactoryIds = Array.from(new Set(freezes.map((item) => item.factoryId)))
-  if (freezeFactoryIds.length === 1) {
-    const factoryId = freezeFactoryIds[0]
-    const factory = getFactoryMasterRecordById(factoryId)
+  const freezeFactoryNames = freezeFactoryIds.map((id) => getFactoryMasterRecordById(id)?.name ?? id)
+  const freezeWindow = summarizeUsageWindow(freezes)
+  const frozenStandardTime = roundSam(freezes.reduce((sum, item) => sum + item.standardSamTotal, 0))
+  if (freezeFactoryIds.length > 0) {
+    const frozenLabel = freezeWindow.windowText ? `，冻结窗口 ${freezeWindow.windowText}` : ''
     return {
-      kind: 'FROZEN',
-      factoryId,
-      factoryName: factory?.name ?? task.assignedFactoryName ?? factoryId,
-      reason: '当前任务已形成单工厂冻结对象。',
-    }
-  }
-
-  if (freezeFactoryIds.length > 1) {
-    return {
-      kind: 'UNALLOCATED',
-      reason: `当前已有 ${freezeFactoryIds.length} 家工厂参与冻结，但尚未形成单一承接工厂。`,
+      kind: 'FROZEN_PENDING',
+      factoryId: freezeFactoryIds.length === 1 ? freezeFactoryIds[0] : undefined,
+      factoryName:
+        freezeFactoryIds.length === 1
+          ? freezeFactoryNames[0]
+          : `${freezeFactoryIds.length} 家候选工厂`,
+      factoryIds: freezeFactoryIds,
+      factoryNames: freezeFactoryNames,
+      frozenFactoryCount: freezeFactoryIds.length,
+      frozenStandardTime,
+      frozenWindowStartDate: freezeWindow.startDate,
+      frozenWindowEndDate: freezeWindow.endDate,
+      frozenWindowText: freezeWindow.windowText,
+      reason:
+        freezeFactoryIds.length === 1
+          ? `当前任务已在 ${freezeFactoryNames[0]} 形成冻结，已预留 ${frozenStandardTime} 标准工时${frozenLabel}，但尚未转成正式占用对象。`
+          : `当前任务已在 ${freezeFactoryIds.length} 家候选工厂形成冻结，合计预留 ${frozenStandardTime} 标准工时${frozenLabel}，但尚未形成最终落厂。`,
     }
   }
 
   return {
     kind: 'UNALLOCATED',
+    factoryIds: [],
+    factoryNames: [],
+    frozenFactoryCount: 0,
+    frozenStandardTime: 0,
     reason: '当前尚未形成冻结或占用对象，仍属于未落厂需求。',
   }
 }
@@ -2599,14 +2937,15 @@ export function resolveTaskSamRisk(input: {
   const identity = buildDemandIdentity(task)
   const totalStandardTime = roundSam(Math.max(sam.publishedSamTotal ?? 0, 0))
   const evaluationContext = input.evaluationContext ?? createCapacityStandardTimeEvaluationContext()
+  const calendarEvaluationContext = createCapacityCalendarEvaluationContext()
   const activeCommitments = input.activeCommitments ?? listCapacityCommitments({ status: 'ACTIVE' })
   const activeFreezes = input.activeFreezes ?? listCapacityFreezes({ status: 'ACTIVE' })
-  const window = resolveTaskRiskWindow(task)
+  const window = resolveTaskWindow(task)
   const windowText =
     window.windowDays <= 0 && window.windowEndDate
       ? `${window.windowEndDate}（窗口已结束）`
       : buildFactoryCalendarWindowText(window.windowStartDate, window.windowEndDate)
-  const binding = resolveTaskFactoryBinding(task, activeCommitments, activeFreezes)
+  const binding = resolveTaskBindingState(task, activeCommitments, activeFreezes)
 
   if (!totalStandardTime) {
     return {
@@ -2619,6 +2958,7 @@ export function resolveTaskSamRisk(input: {
       factoryId: binding.factoryId,
       factoryName: binding.factoryName,
       factoryBindingKind: binding.kind,
+      bindingFactoryCount: binding.factoryIds.length || undefined,
       totalStandardTime: 0,
       windowStartDate: window.windowStartDate,
       windowEndDate: window.windowEndDate,
@@ -2644,6 +2984,7 @@ export function resolveTaskSamRisk(input: {
       factoryId: binding.factoryId,
       factoryName: binding.factoryName,
       factoryBindingKind: binding.kind,
+      bindingFactoryCount: binding.factoryIds.length || undefined,
       totalStandardTime,
       windowStartDate: window.windowStartDate,
       windowEndDate: window.windowEndDate,
@@ -2658,7 +2999,7 @@ export function resolveTaskSamRisk(input: {
     }
   }
 
-  if (!binding.factoryId || binding.kind === 'UNALLOCATED') {
+  if (binding.kind === 'UNALLOCATED') {
     return {
       taskId: task.taskId,
       productionOrderId: task.productionOrderId,
@@ -2667,6 +3008,7 @@ export function resolveTaskSamRisk(input: {
       craftCode: identity.craftCode,
       craftName: identity.craftName,
       factoryBindingKind: 'UNALLOCATED',
+      bindingFactoryCount: 0,
       totalStandardTime,
       windowStartDate: window.windowStartDate,
       windowEndDate: window.windowEndDate,
@@ -2681,30 +3023,68 @@ export function resolveTaskSamRisk(input: {
     }
   }
 
-  const judgement = resolveFactoryTaskStandardTimeJudgement({
+  if (binding.kind === 'FROZEN_PENDING') {
+    return {
+      taskId: task.taskId,
+      productionOrderId: task.productionOrderId,
+      processCode: identity.processCode,
+      processName: identity.processName,
+      craftCode: identity.craftCode,
+      craftName: identity.craftName,
+      factoryId: binding.factoryId,
+      factoryName: binding.factoryName,
+      factoryBindingKind: 'FROZEN_PENDING',
+      bindingFactoryCount: binding.factoryIds.length || undefined,
+      totalStandardTime,
+      windowStartDate: window.windowStartDate,
+      windowEndDate: window.windowEndDate,
+      windowText,
+      windowDays: window.windowDays,
+      frozenStandardTime: binding.frozenStandardTime,
+      frozenWindowStartDate: binding.frozenWindowStartDate,
+      frozenWindowEndDate: binding.frozenWindowEndDate,
+      frozenWindowText: binding.frozenWindowText,
+      conclusion: 'FROZEN_PENDING',
+      conclusionLabel: TASK_SAM_RISK_CONCLUSION_LABEL.FROZEN_PENDING,
+      reason: binding.reason ?? '当前任务已形成冻结对象，但尚未转成正式占用。',
+      usesFallbackRule: window.usesFallbackRule,
+      fallbackRuleLabel: window.fallbackRuleLabel,
+      taskStatus: task.status,
+    }
+  }
+
+  const standardTimeJudgement = resolveFactoryTaskStandardTimeJudgement({
     task,
-    factoryId: binding.factoryId,
+    factoryId: binding.factoryId as string,
     evaluationContext,
+  })
+  const windowJudgement = resolveFactoryTaskWindowJudgement({
+    task,
+    factoryId: binding.factoryId as string,
+    factoryName: binding.factoryName,
+    evaluationContext: calendarEvaluationContext,
   })
 
   let conclusion: TaskSamRiskConclusion = 'CAPABLE'
-  if (judgement.status === 'RISK') conclusion = 'TIGHT'
-  if (judgement.status === 'EXCEEDS_WINDOW') conclusion = 'EXCEEDS_WINDOW'
-  if (judgement.status === 'DATE_INCOMPLETE' || judgement.status === 'SAM_MISSING') conclusion = 'UNSCHEDULED'
+  if (windowJudgement.dateIncomplete || windowJudgement.status === 'SAM_MISSING') conclusion = 'UNSCHEDULED'
+  else if (windowJudgement.status === 'PAUSED') conclusion = 'PAUSED'
+  else if (windowJudgement.status === 'OVERLOADED') conclusion = 'EXCEEDS_WINDOW'
+  else if (windowJudgement.status === 'TIGHT') conclusion = 'TIGHT'
 
-  const remainingAfterCurrentSam =
-    Number.isFinite(judgement.windowRemainingSam) && Number.isFinite(judgement.taskDemandSam)
-      ? roundSam((judgement.windowRemainingSam ?? 0) - (judgement.taskDemandSam ?? 0))
-      : undefined
+  const remainingAfterCurrentSam = Number.isFinite(windowJudgement.remainingSam)
+    ? roundSam(windowJudgement.remainingSam)
+    : undefined
 
   const baseReason =
-    conclusion === 'CAPABLE'
-      ? `当前窗口供给 ${roundSam(judgement.windowSupplySam ?? 0)} 标准工时，扣除其他已占用 ${roundSam(judgement.windowCommittedSam ?? 0)} 和其他已冻结 ${roundSam(judgement.windowFrozenSam ?? 0)} 后，仍可承载当前任务。`
+    conclusion === 'PAUSED'
+      ? windowJudgement.reason
+      : conclusion === 'CAPABLE'
+      ? `当前窗口供给 ${roundSam(windowJudgement.availableSam ?? 0)} 标准工时，扣除其他已占用 ${roundSam(windowJudgement.usedSam ?? 0)} 和其他已冻结 ${roundSam(windowJudgement.frozenSam ?? 0)} 后，仍可承载当前任务。`
       : conclusion === 'TIGHT'
-        ? `当前任务落入后，窗口仅剩 ${roundSam(remainingAfterCurrentSam ?? 0)} 标准工时，已进入紧张区间。`
+        ? `当前任务计入后，窗口仅剩 ${roundSam(remainingAfterCurrentSam ?? 0)} 标准工时，已进入紧张区间。`
         : conclusion === 'EXCEEDS_WINDOW'
-          ? `窗口可承载余量仅 ${roundSam(judgement.windowRemainingSam ?? 0)} 标准工时，小于当前任务需要的 ${totalStandardTime} 标准工时。`
-          : judgement.reason
+          ? `窗口可承载余量仅 ${roundSam(windowJudgement.remainingSam ?? 0)} 标准工时，小于当前任务需要的 ${totalStandardTime} 标准工时。`
+          : standardTimeJudgement.reason
 
   return {
     taskId: task.taskId,
@@ -2716,20 +3096,21 @@ export function resolveTaskSamRisk(input: {
     factoryId: binding.factoryId,
     factoryName: binding.factoryName,
     factoryBindingKind: binding.kind,
+    bindingFactoryCount: binding.factoryIds.length || undefined,
     totalStandardTime,
     windowStartDate: window.windowStartDate,
     windowEndDate: window.windowEndDate,
     windowText,
     windowDays: window.windowDays,
-    windowSupplySam: roundSam(judgement.windowSupplySam ?? 0),
-    otherCommittedSam: roundSam(judgement.windowCommittedSam ?? 0),
-    otherFrozenSam: roundSam(judgement.windowFrozenSam ?? 0),
+    windowSupplySam: roundSam(windowJudgement.availableSam ?? 0),
+    otherCommittedSam: roundSam(windowJudgement.usedSam ?? 0),
+    otherFrozenSam: roundSam(windowJudgement.frozenSam ?? 0),
     remainingAfterCurrentSam,
     conclusion,
     conclusionLabel: TASK_SAM_RISK_CONCLUSION_LABEL[conclusion],
     reason: [baseReason, binding.reason].filter(Boolean).join(' '),
-    usesFallbackRule: judgement.usesFallbackRule,
-    fallbackRuleLabel: judgement.fallbackRuleLabel,
+    usesFallbackRule: standardTimeJudgement.usesFallbackRule,
+    fallbackRuleLabel: standardTimeJudgement.fallbackRuleLabel,
     taskStatus: task.status,
   }
 }
@@ -2762,7 +3143,17 @@ export function summarizeProductionOrderRisk(taskRows: CapacityRiskTaskRow[]): C
         productionOrderId,
         totalStandardTime: roundSam(rows.reduce((sum, row) => sum + row.totalStandardTime, 0)),
         allocatedStandardTime: roundSam(
-          rows.reduce((sum, row) => sum + (row.conclusion === 'CAPABLE' || row.conclusion === 'TIGHT' || row.conclusion === 'EXCEEDS_WINDOW' ? row.totalStandardTime : 0), 0),
+          rows.reduce(
+            (sum, row) =>
+              sum
+              + (row.conclusion === 'CAPABLE' || row.conclusion === 'TIGHT' || row.conclusion === 'EXCEEDS_WINDOW' || row.conclusion === 'PAUSED'
+                ? row.totalStandardTime
+                : 0),
+            0,
+          ),
+        ),
+        frozenPendingStandardTime: roundSam(
+          rows.reduce((sum, row) => sum + (row.conclusion === 'FROZEN_PENDING' ? row.totalStandardTime : 0), 0),
         ),
         unallocatedStandardTime: roundSam(
           rows.reduce((sum, row) => sum + (row.conclusion === 'UNALLOCATED' ? row.totalStandardTime : 0), 0),
@@ -2787,6 +3178,10 @@ export function summarizeProductionOrderRisk(taskRows: CapacityRiskTaskRow[]): C
       if (leftIndex !== rightIndex) return leftIndex - rightIndex
       return left.productionOrderId.localeCompare(right.productionOrderId)
     })
+}
+
+export function resolveProductionOrderRisk(taskRows: CapacityRiskTaskRow[]): CapacityRiskOrderRow[] {
+  return summarizeProductionOrderRisk(taskRows)
 }
 
 function buildRiskProcessOptions(taskRows: CapacityRiskTaskRow[]): CapacityRiskFilterOption[] {
@@ -2824,9 +3219,20 @@ function summarizeTaskRiskRows(rows: CapacityRiskTaskRow[]): CapacityRiskSummary
     capableCount: rows.filter((row) => row.conclusion === 'CAPABLE').length,
     tightCount: rows.filter((row) => row.conclusion === 'TIGHT').length,
     exceedsWindowCount: rows.filter((row) => row.conclusion === 'EXCEEDS_WINDOW').length,
+    pausedCount: rows.filter((row) => row.conclusion === 'PAUSED').length,
+    frozenPendingCount: rows.filter((row) => row.conclusion === 'FROZEN_PENDING').length,
     unallocatedCount: rows.filter((row) => row.conclusion === 'UNALLOCATED').length,
     unscheduledCount: rows.filter((row) => row.conclusion === 'UNSCHEDULED').length,
   }
+}
+
+export function resolveTaskRisk(input: {
+  task: RuntimeProcessTask
+  evaluationContext?: CapacityStandardTimeEvaluationContext
+  activeCommitments?: CapacityCommitment[]
+  activeFreezes?: CapacityFreeze[]
+}): CapacityRiskTaskRow {
+  return resolveTaskSamRisk(input)
 }
 
 export function buildCapacityRiskData(): CapacityRiskData {
@@ -2837,7 +3243,7 @@ export function buildCapacityRiskData(): CapacityRiskData {
 
   const taskRows = tasks
     .map((task) =>
-      resolveTaskSamRisk({
+      resolveTaskRisk({
         task,
         evaluationContext,
         activeCommitments,
@@ -2856,7 +3262,7 @@ export function buildCapacityRiskData(): CapacityRiskData {
 
   return {
     taskRows,
-    orderRows: summarizeProductionOrderRisk(taskRows),
+    orderRows: resolveProductionOrderRisk(taskRows),
     processOptions: buildRiskProcessOptions(taskRows),
     craftOptions: buildRiskCraftOptions(taskRows),
     conclusionOptions: TASK_RISK_CONCLUSION_OPTIONS,

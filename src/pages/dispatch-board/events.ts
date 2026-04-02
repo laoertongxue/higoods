@@ -9,7 +9,7 @@ import {
   openAppRoute,
   supportsDetailAssignment,
   type DispatchView,
-} from './context'
+} from './context.ts'
 import {
   applyAutoAssign,
   openDispatchDialog,
@@ -17,7 +17,7 @@ import {
   confirmDirectDispatch,
   setTaskAssignMode,
   batchSetTaskAssignMode,
-} from './dispatch-domain'
+} from './dispatch-domain.ts'
 import {
   openCreateTender,
   closeCreateTender,
@@ -25,7 +25,7 @@ import {
   openViewTender,
   closeViewTender,
   closePriceSnapshot,
-} from './tender-domain'
+} from './tender-domain.ts'
 
 function getTenderSelectableFactoryIds(): Set<string> {
   const task = getCreateTenderTask()

@@ -30,7 +30,7 @@ import {
   escapeHtml,
   type DispatchTask,
   type KanbanCol,
-} from './context'
+} from './context.ts'
 function renderKanbanCard(
   task: DispatchTask,
   dyePendingTaskIds: Set<string>,

@@ -12,14 +12,14 @@ import {
   getPriceSnapshotTask,
   getFactoryOptions,
   escapeHtml,
-} from './context'
-import { renderDirectDispatchDialog } from './dispatch-domain'
+} from './context.ts'
+import { renderDirectDispatchDialog } from './dispatch-domain.ts'
 import {
   renderCreateTenderSheet,
   renderViewTenderSheet,
   renderPriceSnapshotSheet,
-} from './tender-domain'
-import { renderKanbanView, renderListView } from './board-domain'
+} from './tender-domain.ts'
+import { renderKanbanView, renderListView } from './board-domain.ts'
 function renderDispatchBoardInner(): string {
   const allRows = getVisibleRows()
   const dyePendingTaskIds = getDyePendingTaskIds()
