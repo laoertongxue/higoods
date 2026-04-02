@@ -1203,7 +1203,7 @@ function renderDetailOrChildPage(pageKey: 'fei-ticket-detail' | 'fei-ticket-prin
         actionsHtml: renderReturnToSummaryButton() ? `<div class="flex flex-wrap gap-2">${renderReturnToSummaryButton()}</div>` : '',
       })}
       ${renderSectionCard('未找到打印单元', '', `<div class="space-y-3"><p class="text-sm text-slate-600">请先从打印菲票进入。</p>${renderBackToList(null)}</div>`)}
-    `, { showLocateBar: pageKey !== 'fei-ticket-detail' })
+    `, { showLocateBar: false })
   }
 
   const detailView = buildPrintableUnitDetailViewModel({
@@ -1225,7 +1225,7 @@ function renderDetailOrChildPage(pageKey: 'fei-ticket-detail' | 'fei-ticket-prin
     ${renderDetailSummary(detailView)}
     ${renderDetailTabs(unit, activeTab)}
     ${content}
-  `, { showLocateBar: pageKey !== 'fei-ticket-detail' })
+  `, { showLocateBar: false })
 }
 
 function buildOperationPreviewRows(rows: TicketSplitDetail[]): string {
