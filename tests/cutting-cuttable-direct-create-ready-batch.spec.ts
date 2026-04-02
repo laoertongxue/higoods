@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
-test('可裁排产可直接创建裁剪批次并自动打开对应详情', async ({ page }) => {
+test('可裁排产可直接创建待裁批次并自动打开对应详情', async ({ page }) => {
   const errors = collectPageErrors(page)
 
   await page.goto('/fcs/craft/cutting/cuttable-pool')
@@ -16,12 +16,14 @@ test('可裁排产可直接创建裁剪批次并自动打开对应详情', async
   await expect(page.getByRole('heading', { name: '合并裁剪批次' })).toBeVisible()
   await expect(page.getByText('待建批次输入区')).toHaveCount(0)
   await expect(page.getByText('创建待裁批次')).toHaveCount(0)
+  await expect(page.getByText('保存为草稿')).toHaveCount(0)
 
   const drawer = page.getByTestId('cutting-merge-batches-detail-drawer')
   await expect(drawer).toBeVisible()
   await expect(drawer.getByText('批次基础信息')).toBeVisible()
-  await expect(drawer.getByText('批次计划信息')).toBeVisible()
   await expect(drawer.getByText(/CUT-MB-/)).toBeVisible()
+  await expect(drawer.getByText('待裁', { exact: true })).toBeVisible()
+  await expect(drawer.getByText('草稿', { exact: true })).toHaveCount(0)
 
   await expectNoPageErrors(errors)
 })

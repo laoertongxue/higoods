@@ -45,6 +45,8 @@ export type OriginalCuttableStateKey =
   | 'CUTTING'
   | 'BLOCKED'
 
+export type OriginalCuttableVisibleStateKey = 'CUTTABLE' | 'NOT_CUTTABLE'
+
 export type OriginalCutOrderRiskKey =
   | 'PREP_DELAY'
   | 'CLAIM_EXCEPTION'
@@ -92,11 +94,13 @@ export interface OriginalCutOrderRow {
   materialCategory: string
   materialLabel: string
   orderQty: number
+  pieceCountText: string
   plannedQty: number
   receivedQty: number
   purchaseDate: string
   actualOrderDate: string
   plannedShipDate: string
+  dateInfoLines: Array<{ label: '需求' | '下单' | '回货'; value: string }>
   sellingPrice: number | null
   urgencyKey: ProductionProgressUrgencyKey
   urgencyLabel: string
@@ -104,9 +108,15 @@ export interface OriginalCutOrderRow {
   materialPrepStatus: OriginalCutOrderSummaryMeta<CuttingConfigStatus>
   materialClaimStatus: OriginalCutOrderSummaryMeta<CuttingReceiveStatus>
   currentStage: OriginalCutOrderSummaryMeta<OriginalCutOrderStageKey>
+  currentStageLabel: string
   cuttableState: OriginalCutOrderSummaryMeta<OriginalCuttableStateKey> & {
     selectable: boolean
     reasonText: string
+  }
+  visibleCuttableStatus: {
+    key: OriginalCuttableVisibleStateKey
+    label: string
+    className: string
   }
   mergeBatchIds: string[]
   mergeBatchNos: string[]
@@ -133,7 +143,7 @@ export interface OriginalCutOrderFilters {
   styleKeyword: string
   materialSku: string
   currentStage: 'ALL' | OriginalCutOrderStageKey
-  cuttableState: 'ALL' | OriginalCuttableStateKey
+  cuttableState: 'ALL' | OriginalCuttableVisibleStateKey
   prepStatus: 'ALL' | CuttingConfigStatus
   claimStatus: 'ALL' | CuttingReceiveStatus
   inBatch: 'ALL' | 'IN_BATCH' | 'NOT_IN_BATCH'
@@ -181,6 +191,11 @@ export const originalOrderCuttableMeta: Record<OriginalCuttableStateKey, { label
   BLOCKED: { label: '暂不可裁', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
 }
 
+export const originalOrderVisibleCuttableMeta: Record<OriginalCuttableVisibleStateKey, { label: string; className: string }> = {
+  CUTTABLE: { label: '可裁', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+  NOT_CUTTABLE: { label: '不可裁', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
+}
+
 export const originalOrderRiskMeta: Record<OriginalCutOrderRiskKey, { label: string; className: string }> = {
   PREP_DELAY: { label: '配料异常', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
   CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
@@ -200,6 +215,10 @@ function materialCategoryLabel(materialType: CuttingMaterialType): string {
 
 function formatQty(value: number): string {
   return numberFormatter.format(value)
+}
+
+function formatDisplayDate(value: string): string {
+  return value || '—'
 }
 
 export function formatOriginalOrderCurrency(value: number | null): string {
@@ -472,6 +491,26 @@ function buildClaimSummary(line: CuttingMaterialLine): OriginalCutOrderSummaryMe
   return createSummaryMeta(line.receiveStatus, meta.label, meta.className, detailText)
 }
 
+function buildDateInfoLines(record: CuttingOrderProgressRecord): Array<{ label: '需求' | '下单' | '回货'; value: string }> {
+  return [
+    { label: '需求', value: formatDisplayDate(record.purchaseDate) },
+    { label: '下单', value: formatDisplayDate(record.actualOrderDate) },
+    { label: '回货', value: formatDisplayDate(record.plannedShipDate) },
+  ]
+}
+
+function deriveVisibleCuttableStatus(
+  cuttableState: OriginalCutOrderRow['cuttableState'],
+): OriginalCutOrderRow['visibleCuttableStatus'] {
+  const key: OriginalCuttableVisibleStateKey = cuttableState.key === 'CUTTABLE' ? 'CUTTABLE' : 'NOT_CUTTABLE'
+  const meta = originalOrderVisibleCuttableMeta[key]
+  return {
+    key,
+    label: meta.label,
+    className: meta.className,
+  }
+}
+
 function createRow(
   source: GeneratedOriginalCutOrderSourceRecord,
   record: CuttingOrderProgressRecord,
@@ -487,6 +526,8 @@ function createRow(
   const riskTags = summarizeOriginalCutOrderRisks(record, line, cuttableState, batchSummary.batchParticipationCount)
   const urgencyKey = progressRow?.urgency.key ?? 'UNKNOWN'
   const urgency = urgencyMeta[urgencyKey]
+  const currentStageLabel = currentStage.label
+  const visibleCuttableStatus = deriveVisibleCuttableStatus(cuttableState)
 
   const row: OriginalCutOrderRow = {
     id: source.originalCutOrderId,
@@ -503,11 +544,13 @@ function createRow(
     materialCategory: source.materialCategory || materialCategoryLabel(source.materialType),
     materialLabel: source.materialLabel,
     orderQty: record.orderQty,
+    pieceCountText: formatQty(record.orderQty),
     plannedQty: source.requiredQty,
     receivedQty: line.receivedLength,
     purchaseDate: record.purchaseDate,
     actualOrderDate: record.actualOrderDate,
     plannedShipDate: record.plannedShipDate,
+    dateInfoLines: buildDateInfoLines(record),
     sellingPrice: record.sellingPrice ?? null,
     urgencyKey,
     urgencyLabel: urgency.label,
@@ -515,7 +558,9 @@ function createRow(
     materialPrepStatus,
     materialClaimStatus,
     currentStage,
+    currentStageLabel,
     cuttableState,
+    visibleCuttableStatus,
     mergeBatchIds: batchSummary.mergeBatchIds,
     mergeBatchNos: batchSummary.mergeBatchNos,
     latestMergeBatchNo: batchSummary.latestMergeBatchNo,
@@ -642,7 +687,7 @@ export function filterOriginalCutOrderRows(
       if (![row.materialSku, row.materialCategory, row.materialLabel].some((value) => value.toLowerCase().includes(materialNeedle))) return false
     }
     if (filters.currentStage !== 'ALL' && row.currentStage.key !== filters.currentStage) return false
-    if (filters.cuttableState !== 'ALL' && row.cuttableState.key !== filters.cuttableState) return false
+    if (filters.cuttableState !== 'ALL' && row.visibleCuttableStatus.key !== filters.cuttableState) return false
     if (filters.prepStatus !== 'ALL' && row.materialPrepStatus.key !== filters.prepStatus) return false
     if (filters.claimStatus !== 'ALL' && row.materialClaimStatus.key !== filters.claimStatus) return false
     if (filters.inBatch === 'IN_BATCH' && row.batchParticipationCount === 0) return false

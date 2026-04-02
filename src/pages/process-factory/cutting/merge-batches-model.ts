@@ -5,6 +5,7 @@ export const CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY = 'cuttingSelectedCo
 export const CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY = 'cuttingMergeBatchLedger'
 
 export type MergeBatchStatus = 'DRAFT' | 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
+export type MergeBatchVisibleStatus = 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
 
 export interface MergeBatchDraftForm {
   plannedCuttingGroup: string
@@ -437,7 +438,7 @@ export function mapCuttableItemsToMergeBatchSourceItems(
   }))
 }
 
-export function createDraftMergeBatchFromCuttableSelection(options: {
+export function createReadyMergeBatchFromCuttableSelection(options: {
   items: CuttableOriginalOrderItem[]
   existingBatches: MergeBatchRecord[]
   now?: Date
@@ -449,11 +450,18 @@ export function createDraftMergeBatchFromCuttableSelection(options: {
       plannedCuttingDate: '',
       note: '',
     },
-    status: 'DRAFT',
+    status: 'READY',
     existingBatches: options.existingBatches,
     createdFrom: 'cuttable-pool',
     now: options.now,
   })
+}
+
+export function normalizeMergeBatchStatus(status: MergeBatchStatus): MergeBatchVisibleStatus {
+  if (status === 'DRAFT') {
+    return 'READY'
+  }
+  return status
 }
 
 export function serializeMergeBatchStorage(records: MergeBatchRecord[]): string {
@@ -505,7 +513,9 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
   className: string
   helperText: string
 } {
-  if (status === 'READY') {
+  const visibleStatus = normalizeMergeBatchStatus(status)
+
+  if (visibleStatus === 'READY') {
     return {
       label: '待裁',
       className: 'bg-blue-100 text-blue-700 border border-blue-200',
@@ -513,7 +523,7 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
     }
   }
 
-  if (status === 'CUTTING') {
+  if (visibleStatus === 'CUTTING') {
     return {
       label: '裁剪中',
       className: 'bg-amber-100 text-amber-700 border border-amber-200',
@@ -521,7 +531,7 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
     }
   }
 
-  if (status === 'DONE') {
+  if (visibleStatus === 'DONE') {
     return {
       label: '已完成',
       className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
@@ -529,7 +539,7 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
     }
   }
 
-  if (status === 'CANCELLED') {
+  if (visibleStatus === 'CANCELLED') {
     return {
       label: '已取消',
       className: 'bg-rose-100 text-rose-700 border border-rose-200',
@@ -538,8 +548,8 @@ export function getMergeBatchStatusMeta(status: MergeBatchStatus): {
   }
 
   return {
-    label: '草稿',
-    className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '仅完成批次草稿建档，尚未进入正式待裁状态。',
+    label: '待裁',
+    className: 'bg-blue-100 text-blue-700 border border-blue-200',
+    helperText: '已完成批次建档，等待裁床正式执行。',
   }
 }

@@ -19,8 +19,8 @@ import {
   filterOriginalCutOrderRows,
   findOriginalCutOrderByPrefilter,
   formatOriginalOrderCurrency,
-  originalOrderCuttableMeta,
   originalOrderStageMeta,
+  originalOrderVisibleCuttableMeta,
   type OriginalCutOrderFilters,
   type OriginalCutOrderPrefilter,
   type OriginalCutOrderRow,
@@ -390,7 +390,7 @@ function getFilterLabels(): string[] {
   if (state.filters.styleKeyword) labels.push(`款号 / SPU：${state.filters.styleKeyword}`)
   if (state.filters.materialSku) labels.push(`面料：${state.filters.materialSku}`)
   if (state.filters.currentStage !== 'ALL') labels.push(`当前阶段：${originalOrderStageMeta[state.filters.currentStage].label}`)
-  if (state.filters.cuttableState !== 'ALL') labels.push(`可裁状态：${originalOrderCuttableMeta[state.filters.cuttableState].label}`)
+  if (state.filters.cuttableState !== 'ALL') labels.push(`可裁状态：${originalOrderVisibleCuttableMeta[state.filters.cuttableState].label}`)
   if (state.filters.prepStatus !== 'ALL') labels.push(`配料状态：${configMeta[state.filters.prepStatus].label}`)
   if (state.filters.claimStatus !== 'ALL') labels.push(`领料状态：${receiveMeta[state.filters.claimStatus].label}`)
   if (state.filters.inBatch === 'IN_BATCH') labels.push('仅看已入批次')
@@ -484,8 +484,9 @@ function renderFilterArea(): string {
           ...Object.entries(originalOrderStageMeta).map(([value, meta]) => ({ value, label: meta.label })),
         ])}
         ${renderFilterSelect('可裁状态', 'cuttableState', state.filters.cuttableState, [
-          { value: 'ALL', label: '全部可裁状态' },
-          ...Object.entries(originalOrderCuttableMeta).map(([value, meta]) => ({ value, label: meta.label })),
+          { value: 'ALL', label: '全部' },
+          { value: 'CUTTABLE', label: originalOrderVisibleCuttableMeta.CUTTABLE.label },
+          { value: 'NOT_CUTTABLE', label: originalOrderVisibleCuttableMeta.NOT_CUTTABLE.label },
         ])}
         ${renderFilterSelect('配料状态', 'prepStatus', state.filters.prepStatus, [
           { value: 'ALL', label: '全部配料状态' },
@@ -552,7 +553,7 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
   const pagination = paginateItems(rows, state.page, state.pageSize)
 
   return `
-    <section class="rounded-lg border bg-card">
+    <section class="rounded-lg border bg-card" data-testid="cutting-original-orders-main-table">
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">原始裁片单主表</h2>
@@ -571,7 +572,7 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                 <th class="px-4 py-3 text-left font-medium">颜色</th>
                 <th class="px-4 py-3 text-left font-medium">面料 SKU</th>
                 <th class="px-4 py-3 text-left font-medium">面料类别 / 属性</th>
-                <th class="px-4 py-3 text-left font-medium">数量 / 卖价</th>
+                <th class="px-4 py-3 text-left font-medium">件数</th>
                 <th class="px-4 py-3 text-left font-medium">日期信息</th>
                 <th class="px-4 py-3 text-left font-medium">当前阶段</th>
                 <th class="px-4 py-3 text-left font-medium">可裁状态</th>
@@ -614,23 +615,20 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                               <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.materialType)}</p>
                             </td>
                             <td class="px-4 py-3 align-top">
-                              <div>下单 ${escapeHtml(formatCount(row.orderQty))}</div>
-                              <p class="mt-1 text-xs text-muted-foreground">卖价 ${escapeHtml(formatOriginalOrderCurrency(row.sellingPrice))}</p>
+                              <div class="font-medium">${escapeHtml(row.pieceCountText)}</div>
                             </td>
                             <td class="px-4 py-3 align-top">
                               <div class="space-y-1 text-xs text-muted-foreground">
-                                <p>采购：${escapeHtml(formatDate(row.purchaseDate))}</p>
-                                <p>下单：${escapeHtml(formatDate(row.actualOrderDate))}</p>
-                                <p>发货：${escapeHtml(formatDate(row.plannedShipDate))}</p>
+                                ${row.dateInfoLines
+                                  .map((line) => `<p>${escapeHtml(line.label)}：${escapeHtml(line.value)}</p>`)
+                                  .join('')}
                               </div>
                             </td>
                             <td class="px-4 py-3 align-top">
-                              ${renderBadge(row.currentStage.label, row.currentStage.className)}
-                              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.statusSummary)}</p>
+                              ${renderBadge(row.currentStageLabel, row.currentStage.className)}
                             </td>
                             <td class="px-4 py-3 align-top">
-                              ${renderBadge(row.cuttableState.label, row.cuttableState.className)}
-                              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.cuttableState.reasonText)}</p>
+                              ${renderBadge(row.visibleCuttableStatus.label, row.visibleCuttableStatus.className)}
                             </td>
                             <td class="px-4 py-3 align-top">
                               ${renderBatchSummary(row)}
@@ -737,7 +735,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
           { label: '颜色', value: row.color },
           { label: '面料 SKU', value: row.materialSku },
           { label: '面料类别 / 属性', value: row.materialCategory, hint: row.materialLabel },
-          { label: '下单数量', value: `${formatCount(row.orderQty)} 件` },
+          { label: '件数', value: `${formatCount(row.orderQty)} 件` },
           { label: '采购日期', value: formatDate(row.purchaseDate) },
           { label: '实际下单日期', value: formatDate(row.actualOrderDate) },
           { label: '计划发货日期', value: formatDate(row.plannedShipDate) },
@@ -974,7 +972,7 @@ function renderPage(): string {
   const meta = getCanonicalCuttingMeta(pathname, 'original-orders')
 
   return `
-    <div class="space-y-3 p-4">
+    <div class="space-y-3 p-4" data-testid="cutting-original-orders-page">
       ${renderCuttingPageHeader(meta, {
         showCompatibilityBadge: isCuttingAliasPath(pathname),
         actionsHtml: renderHeaderActions(),

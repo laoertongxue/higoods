@@ -6,8 +6,8 @@ import {
   deserializeMergeBatchStorage,
   getMergeBatchStatusMeta,
   groupMergeBatchItemsByProductionOrder,
+  normalizeMergeBatchStatus,
   serializeMergeBatchStorage,
-  type MergeBatchDraftForm,
   type MergeBatchRecord,
   type MergeBatchStatus,
 } from './merge-batches-model'
@@ -15,13 +15,11 @@ import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, r
 import { renderCompactKpiCard, renderStickyFilterShell } from './layout.helpers'
 import { buildMergeBatchesProjection } from './merge-batches-projection'
 
-type MergeBatchFilterField = 'keyword' | 'status' | 'cuttingGroup'
-type MergeBatchDetailField = keyof MergeBatchDraftForm
+type MergeBatchFilterField = 'keyword' | 'status'
 
 interface MergeBatchLedgerFilters {
   keyword: string
   status: 'ALL' | MergeBatchStatus
-  cuttingGroup: string
 }
 
 interface MergeBatchFeedback {
@@ -30,25 +28,16 @@ interface MergeBatchFeedback {
 }
 
 interface MergeBatchPageState {
-  detailForm: MergeBatchDraftForm
   ledgerFilters: MergeBatchLedgerFilters
   activeBatchId: string
   feedback: MergeBatchFeedback | null
   querySignature: string
 }
 
-const initialDetailForm: MergeBatchDraftForm = {
-  plannedCuttingGroup: '',
-  plannedCuttingDate: '',
-  note: '',
-}
-
 const state: MergeBatchPageState = {
-  detailForm: { ...initialDetailForm },
   ledgerFilters: {
     keyword: '',
     status: 'ALL',
-    cuttingGroup: 'ALL',
   },
   activeBatchId: '',
   feedback: null,
@@ -109,7 +98,6 @@ function getActiveBatch(ledger = getMergedLedger()): MergeBatchRecord | null {
   const matched = ledger.find((batch) => batch.mergeBatchId === state.activeBatchId) ?? null
   if (!matched) {
     state.activeBatchId = ''
-    state.detailForm = { ...initialDetailForm }
   }
   return matched
 }
@@ -128,28 +116,16 @@ function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(query || '')
 }
 
-function syncDetailForm(batch: MergeBatchRecord | null): void {
-  state.detailForm = batch
-    ? {
-        plannedCuttingGroup: batch.plannedCuttingGroup,
-        plannedCuttingDate: batch.plannedCuttingDate,
-        note: batch.note,
-      }
-    : { ...initialDetailForm }
-}
-
 function openBatchDetail(batchId: string | undefined, ledger = getMergedLedger()): boolean {
   if (!batchId) return false
   const batch = ledger.find((item) => item.mergeBatchId === batchId) ?? null
   if (!batch) return false
   state.activeBatchId = batch.mergeBatchId
-  syncDetailForm(batch)
   return true
 }
 
 function closeBatchDetail(): boolean {
   state.activeBatchId = ''
-  syncDetailForm(null)
 
   const params = getCurrentSearchParams()
   if (!params.has('focusBatchId') && !params.has('createdBatchNo')) return true
@@ -172,10 +148,8 @@ function syncStateFromPath(ledger = getMergedLedger()): void {
   if (focusBatchId) {
     const matched = ledger.find((batch) => batch.mergeBatchId === focusBatchId) ?? null
     state.activeBatchId = matched?.mergeBatchId || ''
-    syncDetailForm(matched)
   } else {
     state.activeBatchId = ''
-    syncDetailForm(null)
   }
 
   if (createdBatchNo) {
@@ -229,10 +203,10 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
 function buildStats(ledger: MergeBatchRecord[]) {
   return {
     total: ledger.length,
-    draft: ledger.filter((batch) => batch.status === 'DRAFT').length,
-    ready: ledger.filter((batch) => batch.status === 'READY').length,
-    cutting: ledger.filter((batch) => batch.status === 'CUTTING').length,
-    done: ledger.filter((batch) => batch.status === 'DONE').length,
+    ready: ledger.filter((batch) => normalizeMergeBatchStatus(batch.status) === 'READY').length,
+    cutting: ledger.filter((batch) => normalizeMergeBatchStatus(batch.status) === 'CUTTING').length,
+    done: ledger.filter((batch) => normalizeMergeBatchStatus(batch.status) === 'DONE').length,
+    cancelled: ledger.filter((batch) => normalizeMergeBatchStatus(batch.status) === 'CANCELLED').length,
   }
 }
 
@@ -241,10 +215,10 @@ function renderStatsCards(ledger: MergeBatchRecord[]): string {
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('批次总数', stats.total, '执行层批次台账', 'text-slate-900')}
-      ${renderCompactKpiCard('草稿批次数', stats.draft, '已创建，可继续补计划信息', 'text-slate-700')}
-      ${renderCompactKpiCard('待裁批次数', stats.ready, '计划已就绪，待进入裁床', 'text-blue-600')}
+      ${renderCompactKpiCard('待裁批次数', stats.ready, '已创建，待进入裁床', 'text-blue-600')}
       ${renderCompactKpiCard('裁剪中批次数', stats.cutting, '当前已进入裁床执行', 'text-amber-600')}
       ${renderCompactKpiCard('已完成批次数', stats.done, '批次执行已结束', 'text-emerald-600')}
+      ${renderCompactKpiCard('已取消批次数', stats.cancelled, '当前已取消的批次', 'text-rose-600')}
     </section>
   `
 }
@@ -288,17 +262,9 @@ function renderFilterSelect(
   `
 }
 
-function getLedgerCuttingGroups(ledger: MergeBatchRecord[]): string[] {
-  return Array.from(new Set(ledger.map((batch) => batch.plannedCuttingGroup).filter(Boolean))).sort((left, right) =>
-    left.localeCompare(right, 'zh-CN'),
-  )
-}
-
 function renderLedgerFilters(ledger: MergeBatchRecord[]): string {
-  const groupOptions = getLedgerCuttingGroups(ledger)
-
   return renderStickyFilterShell(`
-    <div class="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_repeat(2,minmax(0,0.7fr))]">
+    <div class="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)]">
       <label class="space-y-2">
         <span class="text-sm font-medium text-foreground">关键字</span>
         <input
@@ -311,18 +277,11 @@ function renderLedgerFilters(ledger: MergeBatchRecord[]): string {
       </label>
       ${renderFilterSelect('批次状态', 'status', state.ledgerFilters.status, [
         { value: 'ALL', label: '全部状态' },
-        { value: 'DRAFT', label: '草稿' },
         { value: 'READY', label: '待裁' },
         { value: 'CUTTING', label: '裁剪中' },
         { value: 'DONE', label: '已完成' },
         { value: 'CANCELLED', label: '已取消' },
       ])}
-      ${renderFilterSelect(
-        '裁床组',
-        'cuttingGroup',
-        state.ledgerFilters.cuttingGroup,
-        [{ value: 'ALL', label: '全部裁床组' }, ...groupOptions.map((group) => ({ value: group, label: group }))],
-      )}
     </div>
   `)
 }
@@ -331,8 +290,7 @@ function filterLedger(ledger: MergeBatchRecord[]): MergeBatchRecord[] {
   const keyword = state.ledgerFilters.keyword.trim().toLowerCase()
 
   return ledger.filter((batch) => {
-    if (state.ledgerFilters.status !== 'ALL' && batch.status !== state.ledgerFilters.status) return false
-    if (state.ledgerFilters.cuttingGroup !== 'ALL' && batch.plannedCuttingGroup !== state.ledgerFilters.cuttingGroup) return false
+    if (state.ledgerFilters.status !== 'ALL' && normalizeMergeBatchStatus(batch.status) !== state.ledgerFilters.status) return false
     if (!keyword) return true
 
     const keywordValues = [
@@ -341,7 +299,6 @@ function filterLedger(ledger: MergeBatchRecord[]): MergeBatchRecord[] {
       batch.spuCode,
       batch.styleName,
       batch.compatibilityKey,
-      batch.plannedCuttingGroup,
       ...batch.items.map((item) => item.productionOrderNo),
       ...batch.items.map((item) => item.originalCutOrderNo),
       ...batch.items.map((item) => item.materialSku),
@@ -354,21 +311,16 @@ function filterLedger(ledger: MergeBatchRecord[]): MergeBatchRecord[] {
 }
 
 function getStatusTransitions(batch: MergeBatchRecord): Array<{ status: MergeBatchStatus; label: string }> {
-  if (batch.status === 'DRAFT') {
-    return [
-      { status: 'READY', label: '标记待裁' },
-      { status: 'CANCELLED', label: '作废 / 取消' },
-    ]
-  }
+  const visibleStatus = normalizeMergeBatchStatus(batch.status)
 
-  if (batch.status === 'READY') {
+  if (visibleStatus === 'READY') {
     return [
       { status: 'CUTTING', label: '标记裁剪中' },
       { status: 'CANCELLED', label: '作废 / 取消' },
     ]
   }
 
-  if (batch.status === 'CUTTING') {
+  if (visibleStatus === 'CUTTING') {
     return [
       { status: 'DONE', label: '标记已完成' },
       { status: 'CANCELLED', label: '作废 / 取消' },
@@ -391,7 +343,7 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
     <section class="rounded-lg border bg-card" data-testid="cutting-merge-batches-ledger">
       <div class="border-b px-4 py-3">
         <h2 class="text-sm font-semibold">批次列表</h2>
-        <p class="mt-1 text-xs text-muted-foreground">默认只看列表，点击某条批次后从右侧查看与编辑详情。</p>
+        <p class="mt-1 text-xs text-muted-foreground">默认只看列表，点击某条批次后从右侧查看详情与状态。</p>
       </div>
       <div class="overflow-auto">
         <table class="min-w-full text-left text-sm">
@@ -401,8 +353,6 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
               <th class="px-3 py-2 font-medium">状态</th>
               <th class="px-3 py-2 font-medium">同款 / SPU</th>
               <th class="px-3 py-2 font-medium">面料 SKU</th>
-              <th class="px-3 py-2 font-medium">计划裁床组</th>
-              <th class="px-3 py-2 font-medium">计划裁剪日期</th>
               <th class="px-3 py-2 font-medium">来源摘要</th>
               <th class="px-3 py-2 font-medium">创建时间</th>
               <th class="px-3 py-2 font-medium">操作</th>
@@ -414,7 +364,6 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
                 <tr class="border-t align-top ${state.activeBatchId === batch.mergeBatchId ? 'bg-blue-50/30' : ''}">
                   <td class="px-3 py-3">
                     <div class="font-medium">${escapeHtml(batch.mergeBatchNo)}</div>
-                    ${batch.note ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.note)}</div>` : ''}
                   </td>
                   <td class="px-3 py-3">${renderStatusBadge(batch.status)}</td>
                   <td class="px-3 py-3">
@@ -422,8 +371,6 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.styleName || '-')}</div>
                   </td>
                   <td class="px-3 py-3">${escapeHtml(batch.materialSkuSummary || '-')}</td>
-                  <td class="px-3 py-3">${escapeHtml(batch.plannedCuttingGroup || '-')}</td>
-                  <td class="px-3 py-3">${escapeHtml(batch.plannedCuttingDate || '-')}</td>
                   <td class="px-3 py-3">${batch.sourceProductionOrderCount} 个生产单 / ${batch.sourceOriginalCutOrderCount} 个原始裁片单</td>
                   <td class="px-3 py-3">${escapeHtml(batch.createdAt || '-')}</td>
                   <td class="px-3 py-3">
@@ -450,6 +397,7 @@ function renderFieldCard(label: string, value: string): string {
 
 function renderBatchBasicInfo(batch: MergeBatchRecord): string {
   const statusMeta = getMergeBatchStatusMeta(batch.status)
+  const transitions = getStatusTransitions(batch)
   return `
     <section class="space-y-3 rounded-lg border bg-muted/10 p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
@@ -467,57 +415,22 @@ function renderBatchBasicInfo(batch: MergeBatchRecord): string {
         ${renderFieldCard('来源生产单数', String(batch.sourceProductionOrderCount))}
         ${renderFieldCard('来源原始裁片单数', String(batch.sourceOriginalCutOrderCount))}
       </div>
-    </section>
-  `
-}
-
-function renderBatchPlanningSection(batch: MergeBatchRecord): string {
-  return `
-    <section class="space-y-3 rounded-lg border bg-muted/10 p-4">
-      <div>
-        <h3 class="text-sm font-semibold">批次计划信息</h3>
-        <p class="mt-1 text-xs text-muted-foreground">先创建真实批次，再在这里补充裁床组、日期和备注。</p>
-      </div>
-      <div class="space-y-3">
-        <label class="block space-y-2">
-          <span class="text-sm font-medium">计划裁床组</span>
-          <input
-            type="text"
-            value="${escapeHtml(state.detailForm.plannedCuttingGroup)}"
-            placeholder="如：一号裁床 / 夜班组"
-            data-merge-batches-detail-field="plannedCuttingGroup"
-            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </label>
-        <label class="block space-y-2">
-          <span class="text-sm font-medium">计划裁剪日期</span>
-          <input
-            type="date"
-            value="${escapeHtml(state.detailForm.plannedCuttingDate)}"
-            data-merge-batches-detail-field="plannedCuttingDate"
-            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </label>
-        <label class="block space-y-2">
-          <span class="text-sm font-medium">备注</span>
-          <textarea
-            rows="4"
-            placeholder="记录裁床排期、交接说明或执行备注。"
-            data-merge-batches-detail-field="note"
-            class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-          >${escapeHtml(state.detailForm.note)}</textarea>
-        </label>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        ${getStatusTransitions(batch)
-          .map((item) =>
-            renderActionButton(
-              item.label,
-              `data-merge-batches-action="set-status" data-batch-id="${escapeHtml(batch.mergeBatchId)}" data-next-status="${item.status}"`,
-            ),
-          )
-          .join('')}
-      </div>
+      ${
+        transitions.length
+          ? `
+            <div class="flex flex-wrap gap-2">
+              ${transitions
+                .map((item) =>
+                  renderActionButton(
+                    item.label,
+                    `data-merge-batches-action="set-status" data-batch-id="${escapeHtml(batch.mergeBatchId)}" data-next-status="${item.status}"`,
+                  ),
+                )
+                .join('')}
+            </div>
+          `
+          : ''
+      }
     </section>
   `
 }
@@ -609,7 +522,6 @@ function renderBatchDetailDrawer(batch: MergeBatchRecord | null): string {
   const content = `
     <div class="space-y-4" data-testid="cutting-merge-batches-detail-drawer">
       ${renderBatchBasicInfo(batch)}
-      ${renderBatchPlanningSection(batch)}
       ${renderSourceProductionOrders(batch)}
       ${renderSourceOriginalOrders(batch)}
     </div>
@@ -625,29 +537,8 @@ function renderBatchDetailDrawer(batch: MergeBatchRecord | null): string {
     content,
     {
       cancel: { prefix: 'merge-batches', action: 'close-detail-drawer', label: '关闭' },
-      confirm: { prefix: 'merge-batches', action: 'save-detail', label: '保存', variant: 'primary' },
     },
   )
-}
-
-function saveBatchDetail(batchId: string | undefined): boolean {
-  if (!batchId) return false
-  const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
-  if (!batch) return false
-
-  const nextBatch: MergeBatchRecord = {
-    ...batch,
-    plannedCuttingGroup: state.detailForm.plannedCuttingGroup.trim(),
-    plannedCuttingDate: state.detailForm.plannedCuttingDate,
-    note: state.detailForm.note.trim(),
-    updatedAt: nowText(),
-  }
-
-  upsertBatch(nextBatch)
-  state.activeBatchId = nextBatch.mergeBatchId
-  syncDetailForm(nextBatch)
-  setFeedback('success', `${nextBatch.mergeBatchNo} 的批次信息已更新。`)
-  return true
 }
 
 function updateBatchStatus(batchId: string | undefined, nextStatus: MergeBatchStatus | undefined): boolean {
@@ -663,7 +554,6 @@ function updateBatchStatus(batchId: string | undefined, nextStatus: MergeBatchSt
   }
   upsertBatch(nextBatch)
   state.activeBatchId = batchId
-  syncDetailForm(nextBatch)
   setFeedback('success', `${batch.mergeBatchNo} 已更新为“${getMergeBatchStatusMeta(nextStatus).label}”。`)
   return true
 }
@@ -726,15 +616,6 @@ export function renderCraftCuttingMergeBatchesPage(): string {
 }
 
 export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
-  const detailFieldNode = target.closest<HTMLElement>('[data-merge-batches-detail-field]')
-  if (detailFieldNode) {
-    const field = detailFieldNode.dataset.mergeBatchesDetailField as MergeBatchDetailField | undefined
-    if (!field) return false
-    const input = detailFieldNode as HTMLInputElement | HTMLTextAreaElement
-    state.detailForm[field] = input.value
-    return true
-  }
-
   const filterFieldNode = target.closest<HTMLElement>('[data-merge-batches-filter-field]')
   if (filterFieldNode) {
     const field = filterFieldNode.dataset.mergeBatchesFilterField as MergeBatchFilterField | undefined
@@ -742,7 +623,6 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
     const input = filterFieldNode as HTMLInputElement | HTMLSelectElement
     if (field === 'keyword') state.ledgerFilters.keyword = input.value
     if (field === 'status') state.ledgerFilters.status = input.value as MergeBatchLedgerFilters['status']
-    if (field === 'cuttingGroup') state.ledgerFilters.cuttingGroup = input.value
     return true
   }
 
@@ -790,10 +670,6 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
 
   if (action === 'open-detail') {
     return openBatchDetail(actionNode.dataset.batchId)
-  }
-
-  if (action === 'save-detail') {
-    return saveBatchDetail(state.activeBatchId)
   }
 
   if (action === 'set-status') {

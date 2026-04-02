@@ -16,7 +16,7 @@ import {
 } from './cuttable-pool-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
-  createDraftMergeBatchFromCuttableSelection,
+  createReadyMergeBatchFromCuttableSelection,
   CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
   deserializeMergeBatchStorage,
   serializeMergeBatchStorage,
@@ -936,7 +936,7 @@ function createMergeBatchAndGo(): boolean {
     return true
   }
 
-  const batch = createDraftMergeBatchFromCuttableSelection({
+  const batch = createReadyMergeBatchFromCuttableSelection({
     items: selectedItems,
     existingBatches: buildMergeBatchesProjection().sources.mergeBatches,
   })
