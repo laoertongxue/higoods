@@ -645,9 +645,10 @@ function renderTruncatedText(value: string, fallback = '—', maxWidthClass = 'm
   return `<span class="block ${maxWidthClass} truncate whitespace-nowrap" title="${escapeHtml(text)}">${escapeHtml(text)}</span>`
 }
 
-function renderPrintablePageShell(content: string): string {
+function renderPrintablePageShell(content: string, options?: { showLocateBar?: boolean }): string {
   const drillContext = getCurrentDrillContext()
   const locateBar =
+    options?.showLocateBar !== false &&
     drillContext &&
     renderWorkbenchStateBar({
       summary: buildCuttingDrillSummary(drillContext),
@@ -1202,7 +1203,7 @@ function renderDetailOrChildPage(pageKey: 'fei-ticket-detail' | 'fei-ticket-prin
         actionsHtml: renderReturnToSummaryButton() ? `<div class="flex flex-wrap gap-2">${renderReturnToSummaryButton()}</div>` : '',
       })}
       ${renderSectionCard('未找到打印单元', '', `<div class="space-y-3"><p class="text-sm text-slate-600">请先从打印菲票进入。</p>${renderBackToList(null)}</div>`)}
-    `)
+    `, { showLocateBar: pageKey !== 'fei-ticket-detail' })
   }
 
   const detailView = buildPrintableUnitDetailViewModel({
@@ -1224,7 +1225,7 @@ function renderDetailOrChildPage(pageKey: 'fei-ticket-detail' | 'fei-ticket-prin
     ${renderDetailSummary(detailView)}
     ${renderDetailTabs(unit, activeTab)}
     ${content}
-  `)
+  `, { showLocateBar: pageKey !== 'fei-ticket-detail' })
 }
 
 function buildOperationPreviewRows(rows: TicketSplitDetail[]): string {
@@ -1292,7 +1293,7 @@ function renderOperationValidation(message: string, unit: PrintableUnit | null, 
       actionsHtml: `<div class="flex flex-wrap gap-2">${renderBackToList(unit)}${renderReturnToSummaryButton()}</div>`,
     })}
     ${renderSectionCard('当前操作不可执行', '', `<p class="text-sm text-slate-600">${escapeHtml(message)}</p>`)}
-  `)
+  `, { showLocateBar: pageKey !== 'fei-ticket-print' })
 }
 
 function getOperationButtonMeta(pageKey: OperationPageKey): { label: string; action: string } {
@@ -1384,7 +1385,7 @@ function renderOperationPage(pageKey: OperationPageKey): string {
       '',
       `<div class="flex flex-wrap gap-2"><button type="button" data-cutting-fei-action="${buttonMeta.action}" class="inline-flex min-h-10 items-center rounded-md border border-blue-600 bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700">${escapeHtml(buttonMeta.label)}</button><button type="button" data-nav="${escapeHtml(buildActionHref('fei-ticket-detail', unit))}" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">取消</button></div>`,
     )}
-  `)
+  `, { showLocateBar: pageKey !== 'fei-ticket-print' })
 }
 
 function renderPrintableUnitPage(pageKey: PrintableActionPageKey): string {
