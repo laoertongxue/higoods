@@ -1,3 +1,5 @@
+import type { CuttableOriginalOrderItem } from './cuttable-pool-model'
+
 export const CUTTING_SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedOriginalOrderIds'
 export const CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY = 'cuttingSelectedCompatibilityKey'
 export const CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY = 'cuttingMergeBatchLedger'
@@ -402,6 +404,55 @@ export function createMergeBatchDraft(options: {
     createdFrom: options.createdFrom ?? 'cuttable-pool',
     createdAt: toDateTimeString(now),
     updatedAt: toDateTimeString(now),
+  })
+}
+
+export function mapCuttableItemsToMergeBatchSourceItems(
+  items: CuttableOriginalOrderItem[],
+): MergeBatchSourceOriginalOrderItem[] {
+  return items.map((item) => ({
+    id: item.id,
+    originalCutOrderId: item.originalCutOrderId,
+    originalCutOrderNo: item.originalCutOrderNo,
+    productionOrderId: item.productionOrderId,
+    productionOrderNo: item.productionOrderNo,
+    styleCode: item.styleCode,
+    spuCode: item.spuCode,
+    styleName: item.styleName,
+    urgencyLabel: item.urgencyLabel,
+    plannedShipDate: item.plannedShipDate,
+    plannedShipDateDisplay: item.plannedShipDateDisplay,
+    materialSku: item.materialSku,
+    materialCategory: item.materialCategory,
+    materialLabel: item.materialLabel,
+    currentStage: item.currentStage.label,
+    batchOccupancyStatus: item.batchOccupancyStatus,
+    cuttableState: {
+      key: item.cuttableState.key,
+      label: item.cuttableState.label,
+      selectable: item.cuttableState.selectable,
+    },
+    compatibilityKey: item.compatibilityKey,
+    mergeBatchNo: item.mergeBatchNo,
+  }))
+}
+
+export function createDraftMergeBatchFromCuttableSelection(options: {
+  items: CuttableOriginalOrderItem[]
+  existingBatches: MergeBatchRecord[]
+  now?: Date
+}): MergeBatchRecord {
+  return createMergeBatchDraft({
+    items: mapCuttableItemsToMergeBatchSourceItems(options.items),
+    form: {
+      plannedCuttingGroup: '',
+      plannedCuttingDate: '',
+      note: '',
+    },
+    status: 'DRAFT',
+    existingBatches: options.existingBatches,
+    createdFrom: 'cuttable-pool',
+    now: options.now,
   })
 }
 

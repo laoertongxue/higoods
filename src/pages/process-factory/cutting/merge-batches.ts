@@ -1,34 +1,22 @@
+import { renderDrawer as uiDrawer } from '../../../components/ui'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import {
-  createMergeBatchDraft,
   CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
-  CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY,
-  CUTTING_SELECTED_IDS_STORAGE_KEY,
   deserializeMergeBatchStorage,
   getMergeBatchStatusMeta,
   groupMergeBatchItemsByProductionOrder,
-  hydrateIncomingSelectedOriginalCutOrders,
   serializeMergeBatchStorage,
-  summarizeIncomingBatchSelection,
   type MergeBatchDraftForm,
   type MergeBatchRecord,
   type MergeBatchStatus,
-  type MergeBatchSummary,
-  type MergeBatchValidationResult,
-  validateIncomingBatchSelection,
 } from './merge-batches-model'
-import {
-  buildPrintableUnitViewModel,
-  getPrintableUnitStatusMeta,
-} from './fei-tickets-model'
-import { FEI_QR_SCHEMA_VERSION } from './fei-qr-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import { renderCompactKpiCard, renderStickyFilterShell } from './layout.helpers'
 import { buildMergeBatchesProjection } from './merge-batches-projection'
 
 type MergeBatchFilterField = 'keyword' | 'status' | 'cuttingGroup'
-type MergeBatchDraftField = keyof MergeBatchDraftForm
+type MergeBatchDetailField = keyof MergeBatchDraftForm
 
 interface MergeBatchLedgerFilters {
   keyword: string
@@ -42,20 +30,21 @@ interface MergeBatchFeedback {
 }
 
 interface MergeBatchPageState {
-  draftForm: MergeBatchDraftForm
+  detailForm: MergeBatchDraftForm
   ledgerFilters: MergeBatchLedgerFilters
   activeBatchId: string
   feedback: MergeBatchFeedback | null
+  querySignature: string
 }
 
-const initialDraftForm: MergeBatchDraftForm = {
+const initialDetailForm: MergeBatchDraftForm = {
   plannedCuttingGroup: '',
   plannedCuttingDate: '',
   note: '',
 }
 
 const state: MergeBatchPageState = {
-  draftForm: { ...initialDraftForm },
+  detailForm: { ...initialDetailForm },
   ledgerFilters: {
     keyword: '',
     status: 'ALL',
@@ -63,10 +52,7 @@ const state: MergeBatchPageState = {
   },
   activeBatchId: '',
   feedback: null,
-}
-
-function getViewModel() {
-  return buildMergeBatchesProjection().cuttableViewModel
+  querySignature: '',
 }
 
 function nowText(): string {
@@ -98,31 +84,8 @@ function writeStoredLedger(records: MergeBatchRecord[]): void {
   }
 }
 
-function clearIncomingSelection(): void {
-  try {
-    sessionStorage.removeItem(CUTTING_SELECTED_IDS_STORAGE_KEY)
-    sessionStorage.removeItem(CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY)
-  } catch {
-    // 原型页允许静默失败，页面会继续以当前内存态显示。
-  }
-}
-
 function getProjection() {
   return buildMergeBatchesProjection()
-}
-
-function buildPrintableUnitSummaryByBatch(mergeBatchId: string) {
-  const projection = getProjection()
-  const printableView = buildPrintableUnitViewModel({
-    originalRows: projection.sources.originalRows,
-    materialPrepRows: projection.sources.materialPrepRows,
-    mergeBatches: projection.sources.mergeBatches,
-    markerStore: projection.sources.markerStore,
-    ticketRecords: projection.sources.feiViewModel.ticketRecords,
-    printJobs: projection.sources.feiViewModel.printJobs,
-    prefilter: null,
-  })
-  return printableView.units.find((unit) => unit.printableUnitType === 'BATCH' && unit.batchId === mergeBatchId) || null
 }
 
 function getMergedLedger(): MergeBatchRecord[] {
@@ -141,28 +104,14 @@ function upsertBatch(batch: MergeBatchRecord): void {
   writeStoredLedger(next)
 }
 
-function getIncomingSelection(ledger = getMergedLedger()): {
-  summary: MergeBatchSummary | null
-  validation: MergeBatchValidationResult
-  incoming: ReturnType<typeof hydrateIncomingSelectedOriginalCutOrders>
-} {
-  const incoming = hydrateIncomingSelectedOriginalCutOrders(getViewModel().itemsById, sessionStorage)
-  const validation = validateIncomingBatchSelection(incoming, ledger)
-  return {
-    summary: incoming.items.length ? summarizeIncomingBatchSelection(incoming.items) : null,
-    validation,
-    incoming,
-  }
-}
-
 function getActiveBatch(ledger = getMergedLedger()): MergeBatchRecord | null {
+  if (!state.activeBatchId) return null
   const matched = ledger.find((batch) => batch.mergeBatchId === state.activeBatchId) ?? null
-  const fallback = matched ?? ledger[0] ?? null
-  if (fallback && state.activeBatchId !== fallback.mergeBatchId) {
-    state.activeBatchId = fallback.mergeBatchId
+  if (!matched) {
+    state.activeBatchId = ''
+    state.detailForm = { ...initialDetailForm }
   }
-  if (!fallback && state.activeBatchId) state.activeBatchId = ''
-  return fallback
+  return matched
 }
 
 function setFeedback(tone: MergeBatchFeedback['tone'], message: string): void {
@@ -173,21 +122,89 @@ function clearFeedback(): void {
   state.feedback = null
 }
 
+function getCurrentSearchParams(): URLSearchParams {
+  const pathname = appStore.getState().pathname
+  const [, query] = pathname.split('?')
+  return new URLSearchParams(query || '')
+}
+
+function syncDetailForm(batch: MergeBatchRecord | null): void {
+  state.detailForm = batch
+    ? {
+        plannedCuttingGroup: batch.plannedCuttingGroup,
+        plannedCuttingDate: batch.plannedCuttingDate,
+        note: batch.note,
+      }
+    : { ...initialDetailForm }
+}
+
+function openBatchDetail(batchId: string | undefined, ledger = getMergedLedger()): boolean {
+  if (!batchId) return false
+  const batch = ledger.find((item) => item.mergeBatchId === batchId) ?? null
+  if (!batch) return false
+  state.activeBatchId = batch.mergeBatchId
+  syncDetailForm(batch)
+  return true
+}
+
+function closeBatchDetail(): boolean {
+  state.activeBatchId = ''
+  syncDetailForm(null)
+
+  const params = getCurrentSearchParams()
+  if (!params.has('focusBatchId') && !params.has('createdBatchNo')) return true
+  params.delete('focusBatchId')
+  params.delete('createdBatchNo')
+  const query = params.toString()
+  appStore.navigate(query ? `${getCanonicalCuttingPath('merge-batches')}?${query}` : getCanonicalCuttingPath('merge-batches'))
+  return true
+}
+
+function syncStateFromPath(ledger = getMergedLedger()): void {
+  const pathname = appStore.getState().pathname
+  if (state.querySignature === pathname) return
+  state.querySignature = pathname
+
+  const params = getCurrentSearchParams()
+  const focusBatchId = params.get('focusBatchId') || ''
+  const createdBatchNo = params.get('createdBatchNo') || ''
+
+  if (focusBatchId) {
+    const matched = ledger.find((batch) => batch.mergeBatchId === focusBatchId) ?? null
+    state.activeBatchId = matched?.mergeBatchId || ''
+    syncDetailForm(matched)
+  } else {
+    state.activeBatchId = ''
+    syncDetailForm(null)
+  }
+
+  if (createdBatchNo) {
+    setFeedback('success', `已创建裁剪批次 ${createdBatchNo}。`)
+  }
+}
+
 function renderStatusBadge(status: MergeBatchStatus): string {
   const meta = getMergeBatchStatusMeta(status)
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${meta.className}">${escapeHtml(meta.label)}</span>`
 }
 
-function renderActionButton(label: string, attrs: string, variant: 'primary' | 'secondary' = 'secondary', disabled = false): string {
+function renderActionButton(
+  label: string,
+  attrs: string,
+  variant: 'primary' | 'secondary' = 'secondary',
+  disabled = false,
+): string {
   const baseClass =
     variant === 'primary'
       ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700'
       : 'rounded-md border px-3 py-2 text-sm hover:bg-muted'
+
   return `
     <button
       type="button"
       ${attrs}
-      class="${baseClass} ${disabled ? 'opacity-60' : ''}"
+      ${disabled ? 'disabled' : ''}
+      class="${baseClass} ${disabled ? 'cursor-not-allowed opacity-60' : ''}"
     >
       ${escapeHtml(label)}
     </button>
@@ -199,12 +216,6 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
     <div class="flex flex-wrap items-center gap-2">
       ${renderActionButton('返回可裁排产', 'data-merge-batches-action="go-cuttable-pool"')}
       ${renderActionButton(
-        '去打印菲票',
-        `data-merge-batches-action="go-fei-tickets"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
-        'secondary',
-        !activeBatch,
-      )}
-      ${renderActionButton(
         '去唛架铺布',
         `data-merge-batches-action="go-marker-spreading"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
         'primary',
@@ -215,27 +226,25 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
   `
 }
 
-function buildStats(ledger: MergeBatchRecord[], incomingCount: number) {
+function buildStats(ledger: MergeBatchRecord[]) {
   return {
     total: ledger.length,
     draft: ledger.filter((batch) => batch.status === 'DRAFT').length,
     ready: ledger.filter((batch) => batch.status === 'READY').length,
     cutting: ledger.filter((batch) => batch.status === 'CUTTING').length,
     done: ledger.filter((batch) => batch.status === 'DONE').length,
-    incoming: incomingCount,
   }
 }
 
-function renderStatsCards(ledger: MergeBatchRecord[], incomingCount: number): string {
-  const stats = buildStats(ledger, incomingCount)
+function renderStatsCards(ledger: MergeBatchRecord[]): string {
+  const stats = buildStats(ledger)
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('批次总数', stats.total, '执行层批次台账', 'text-slate-900')}
-      ${renderCompactKpiCard('草稿批次数', stats.draft, '待继续补充计划', 'text-slate-700')}
-      ${renderCompactKpiCard('待裁批次数', stats.ready, '已建档待进入裁床', 'text-blue-600')}
-      ${renderCompactKpiCard('裁剪中批次数', stats.cutting, '批次已进入执行上下文', 'text-amber-600')}
-      ${renderCompactKpiCard('已完成批次数', stats.done, '仅表示批次执行完成', 'text-emerald-600')}
-      ${renderCompactKpiCard('当前待建原始裁片单数', stats.incoming, '来自可裁排产输入', 'text-violet-600')}
+      ${renderCompactKpiCard('草稿批次数', stats.draft, '已创建，可继续补计划信息', 'text-slate-700')}
+      ${renderCompactKpiCard('待裁批次数', stats.ready, '计划已就绪，待进入裁床', 'text-blue-600')}
+      ${renderCompactKpiCard('裁剪中批次数', stats.cutting, '当前已进入裁床执行', 'text-amber-600')}
+      ${renderCompactKpiCard('已完成批次数', stats.done, '批次执行已结束', 'text-emerald-600')}
     </section>
   `
 }
@@ -253,156 +262,6 @@ function renderFeedbackBar(): string {
       <div class="flex items-start justify-between gap-3">
         <p class="text-sm">${escapeHtml(state.feedback.message)}</p>
         <button type="button" class="shrink-0 text-xs hover:underline" data-merge-batches-action="clear-feedback">知道了</button>
-      </div>
-    </section>
-  `
-}
-
-function renderIncomingSummaryCard(label: string, value: string | number, hint: string): string {
-  return `
-    <article class="rounded-lg border bg-muted/10 px-3 py-2">
-      <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
-      <p class="mt-1 text-base font-semibold">${escapeHtml(String(value))}</p>
-      <p class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(hint)}</p>
-    </article>
-  `
-}
-
-function renderIncomingEmptyState(): string {
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-4 py-3">
-        <h2 class="text-sm font-semibold">待建批次输入区</h2>
-        <p class="mt-1 text-xs text-muted-foreground">当前没有收到来自可裁排产页的原始裁片单选择结果。</p>
-      </div>
-      <div class="px-4 py-10 text-center">
-        <p class="text-sm text-muted-foreground">请先去可裁排产选择可裁原始裁片单，再回到本页创建合并裁剪批次。</p>
-        <div class="mt-4 flex justify-center">
-          ${renderActionButton('前往可裁排产', 'data-merge-batches-action="go-cuttable-pool"', 'primary')}
-        </div>
-      </div>
-    </section>
-  `
-}
-
-function renderIncomingValidation(validation: MergeBatchValidationResult): string {
-  if (validation.ok) {
-    return `
-      <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-        当前选择已通过兼容性校验，可创建为草稿批次或待裁批次。
-      </div>
-    `
-  }
-
-  return `
-    <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-      <p class="font-medium">当前输入暂不能创建批次：</p>
-      <ul class="mt-2 list-disc space-y-1 pl-5">
-        ${validation.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}
-      </ul>
-    </div>
-  `
-}
-
-function renderIncomingDraftZone(ledger: MergeBatchRecord[]): string {
-  const { incoming, summary, validation } = getIncomingSelection(ledger)
-  if (!incoming.requestedIds.length) return renderIncomingEmptyState()
-
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-4 py-3">
-        <h2 class="text-sm font-semibold">待建批次输入区</h2>
-        <p class="mt-1 text-xs text-muted-foreground">本区只承接来自可裁排产页的原始裁片单选择结果，用于生成执行层批次草稿。</p>
-      </div>
-      <div class="space-y-4 px-4 py-4">
-        ${
-          summary
-            ? `
-              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                ${renderIncomingSummaryCard('来源生产单数', summary.sourceProductionOrderCount, '同一批次允许来自多个生产单')}
-                ${renderIncomingSummaryCard('来源原始裁片单数', summary.sourceOriginalCutOrderCount, '批次 item 只允许原始裁片单')}
-                ${renderIncomingSummaryCard('同款 / SPU', `${summary.styleCode || summary.spuCode}`, summary.styleName || '当前批次主款')}
-                ${renderIncomingSummaryCard('compatibilityKey', summary.compatibilityKey, '执行层兼容分组')}
-                ${renderIncomingSummaryCard('面料摘要', summary.materialSkuSummary || '-', summary.riskSummary || '兼容校验结果')}
-              </div>
-            `
-            : ''
-        }
-
-        ${renderIncomingValidation(validation)}
-
-        <div class="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)]">
-          <div class="rounded-lg border bg-muted/10 p-3">
-            <h3 class="text-sm font-semibold">来源原始裁片单</h3>
-            <div class="mt-3 overflow-hidden rounded-lg border">
-              <table class="min-w-full text-left text-sm">
-                <thead class="bg-muted/50 text-xs text-muted-foreground">
-                  <tr>
-                    <th class="px-3 py-2 font-medium">原始裁片单号</th>
-                    <th class="px-3 py-2 font-medium">生产单号</th>
-                    <th class="px-3 py-2 font-medium">面料 SKU</th>
-                    <th class="px-3 py-2 font-medium">当前状态</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${incoming.items
-                    .map(
-                      (item) => `
-                        <tr class="border-t">
-                          <td class="px-3 py-2 font-medium">${escapeHtml(item.originalCutOrderNo)}</td>
-                          <td class="px-3 py-2">${escapeHtml(item.productionOrderNo)}</td>
-                          <td class="px-3 py-2">${escapeHtml(item.materialSku)}</td>
-                          <td class="px-3 py-2">${escapeHtml(item.cuttableState.label)}</td>
-                        </tr>
-                      `,
-                    )
-                    .join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="rounded-lg border bg-muted/10 p-3">
-            <h3 class="text-sm font-semibold">批次基础信息</h3>
-            <div class="mt-3 space-y-3">
-              <label class="block space-y-2">
-                <span class="text-sm font-medium">计划裁床组</span>
-                <input
-                  type="text"
-                  value="${escapeHtml(state.draftForm.plannedCuttingGroup)}"
-                  placeholder="如：一号裁床 / 夜班组"
-                  data-merge-batches-draft-field="plannedCuttingGroup"
-                  class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </label>
-              <label class="block space-y-2">
-                <span class="text-sm font-medium">计划裁剪日期</span>
-                <input
-                  type="date"
-                  value="${escapeHtml(state.draftForm.plannedCuttingDate)}"
-                  data-merge-batches-draft-field="plannedCuttingDate"
-                  class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </label>
-              <label class="block space-y-2">
-                <span class="text-sm font-medium">备注</span>
-                <textarea
-                  rows="4"
-                  placeholder="可记录裁床组排期、加急说明、预计并行执行约束。"
-                  data-merge-batches-draft-field="note"
-                  class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                >${escapeHtml(state.draftForm.note)}</textarea>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2">
-          ${renderActionButton('保存为草稿', 'data-merge-batches-action="save-draft"', 'secondary', !validation.ok)}
-          ${renderActionButton('创建待裁批次', 'data-merge-batches-action="create-ready"', 'primary', !validation.ok)}
-          ${renderActionButton('清空本次输入', 'data-merge-batches-action="clear-incoming"')}
-          ${renderActionButton('返回可裁排产重新选择', 'data-merge-batches-action="go-cuttable-pool"')}
-        </div>
       </div>
     </section>
   `
@@ -474,7 +333,6 @@ function filterLedger(ledger: MergeBatchRecord[]): MergeBatchRecord[] {
   return ledger.filter((batch) => {
     if (state.ledgerFilters.status !== 'ALL' && batch.status !== state.ledgerFilters.status) return false
     if (state.ledgerFilters.cuttingGroup !== 'ALL' && batch.plannedCuttingGroup !== state.ledgerFilters.cuttingGroup) return false
-
     if (!keyword) return true
 
     const keywordValues = [
@@ -523,17 +381,17 @@ function getStatusTransitions(batch: MergeBatchRecord): Array<{ status: MergeBat
 function renderLedgerTable(ledger: MergeBatchRecord[]): string {
   if (!ledger.length) {
     return `
-      <section class="rounded-lg border bg-card px-6 py-10 text-center text-sm text-muted-foreground">
-        当前还没有批次台账。可先从可裁排产页选择原始裁片单，或在上方待建批次输入区保存第一条草稿。
+      <section class="rounded-lg border bg-card px-6 py-10 text-center text-sm text-muted-foreground" data-testid="cutting-merge-batches-ledger">
+        当前还没有批次台账，可先去可裁排产选择原始裁片单并创建裁剪批次。
       </section>
     `
   }
 
   return `
-    <section class="rounded-lg border bg-card">
+    <section class="rounded-lg border bg-card" data-testid="cutting-merge-batches-ledger">
       <div class="border-b px-4 py-3">
-        <h2 class="text-sm font-semibold">批次台账列表</h2>
-        <p class="mt-1 text-xs text-muted-foreground">批次只是执行层对象，不会改变生产单与原始裁片单身份。</p>
+        <h2 class="text-sm font-semibold">批次列表</h2>
+        <p class="mt-1 text-xs text-muted-foreground">默认只看列表，点击某条批次后从右侧查看与编辑详情。</p>
       </div>
       <div class="overflow-auto">
         <table class="min-w-full text-left text-sm">
@@ -541,54 +399,38 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
             <tr>
               <th class="px-3 py-2 font-medium">批次号</th>
               <th class="px-3 py-2 font-medium">状态</th>
-              <th class="px-3 py-2 font-medium">同款 / compatibilityKey</th>
-              <th class="px-3 py-2 font-medium">来源生产单数</th>
-              <th class="px-3 py-2 font-medium">来源原始裁片单数</th>
+              <th class="px-3 py-2 font-medium">同款 / SPU</th>
+              <th class="px-3 py-2 font-medium">面料 SKU</th>
               <th class="px-3 py-2 font-medium">计划裁床组</th>
               <th class="px-3 py-2 font-medium">计划裁剪日期</th>
+              <th class="px-3 py-2 font-medium">来源摘要</th>
               <th class="px-3 py-2 font-medium">创建时间</th>
               <th class="px-3 py-2 font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
             ${ledger
-              .map((batch) => {
-                const statusMeta = getMergeBatchStatusMeta(batch.status)
-                return `
-                  <tr class="border-t align-top ${state.activeBatchId === batch.mergeBatchId ? 'bg-blue-50/30' : ''}">
-                    <td class="px-3 py-3">
-                      <div class="font-medium">${escapeHtml(batch.mergeBatchNo)}</div>
-                      ${batch.note ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.note)}</div>` : ''}
-                    </td>
-                    <td class="px-3 py-3">
-                      ${renderStatusBadge(batch.status)}
-                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(statusMeta.helperText)}</div>
-                    </td>
-                    <td class="px-3 py-3">
-                      <div class="font-medium">${escapeHtml(batch.styleCode || batch.spuCode)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.compatibilityKey)}</div>
-                    </td>
-                    <td class="px-3 py-3">${batch.sourceProductionOrderCount}</td>
-                    <td class="px-3 py-3">${batch.sourceOriginalCutOrderCount}</td>
-                    <td class="px-3 py-3">${escapeHtml(batch.plannedCuttingGroup || '-')}</td>
-                    <td class="px-3 py-3">${escapeHtml(batch.plannedCuttingDate || '-')}</td>
-                    <td class="px-3 py-3">${escapeHtml(batch.createdAt || '-')}</td>
-                    <td class="px-3 py-3">
-                      <div class="flex flex-wrap gap-2">
-                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="open-detail" data-batch-id="${escapeHtml(batch.mergeBatchId)}">查看详情</button>
-                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去打印菲票</button>
-                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-marker-spreading" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去唛架铺布</button>
-                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-original-orders-batch" data-batch-id="${escapeHtml(batch.mergeBatchId)}">查看原始裁片单</button>
-                        ${
-                          batch.status !== 'DONE' && batch.status !== 'CANCELLED'
-                            ? `<button class="rounded-md border px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50" data-merge-batches-action="set-status" data-batch-id="${escapeHtml(batch.mergeBatchId)}" data-next-status="CANCELLED">作废 / 取消</button>`
-                            : ''
-                        }
-                      </div>
-                    </td>
-                  </tr>
-                `
-              })
+              .map((batch) => `
+                <tr class="border-t align-top ${state.activeBatchId === batch.mergeBatchId ? 'bg-blue-50/30' : ''}">
+                  <td class="px-3 py-3">
+                    <div class="font-medium">${escapeHtml(batch.mergeBatchNo)}</div>
+                    ${batch.note ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.note)}</div>` : ''}
+                  </td>
+                  <td class="px-3 py-3">${renderStatusBadge(batch.status)}</td>
+                  <td class="px-3 py-3">
+                    <div class="font-medium">${escapeHtml(batch.styleCode || batch.spuCode)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(batch.styleName || '-')}</div>
+                  </td>
+                  <td class="px-3 py-3">${escapeHtml(batch.materialSkuSummary || '-')}</td>
+                  <td class="px-3 py-3">${escapeHtml(batch.plannedCuttingGroup || '-')}</td>
+                  <td class="px-3 py-3">${escapeHtml(batch.plannedCuttingDate || '-')}</td>
+                  <td class="px-3 py-3">${batch.sourceProductionOrderCount} 个生产单 / ${batch.sourceOriginalCutOrderCount} 个原始裁片单</td>
+                  <td class="px-3 py-3">${escapeHtml(batch.createdAt || '-')}</td>
+                  <td class="px-3 py-3">
+                    ${renderActionButton('查看详情', `data-merge-batches-action="open-detail" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`)}
+                  </td>
+                </tr>
+              `)
               .join('')}
           </tbody>
         </table>
@@ -597,249 +439,214 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
   `
 }
 
-function renderBatchDetail(batch: MergeBatchRecord | null): string {
-  if (!batch) {
-    return `
-      <aside class="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        当前尚未选中批次，可从左侧台账列表查看某个批次的来源构成。
-      </aside>
-    `
-  }
-
-  const sourceGroups = groupMergeBatchItemsByProductionOrder(batch.items)
-  const transitions = getStatusTransitions(batch)
-  const statusMeta = getMergeBatchStatusMeta(batch.status)
-  const relatedOrderIds = Array.from(new Set(batch.items.map((item) => item.originalCutOrderId)))
-  const qrRecords = getProjection().sources.feiViewModel.ticketRecords.filter((record) =>
-    relatedOrderIds.includes(record.originalCutOrderId),
-  )
-  const printedOwnerGroupCount = new Set(qrRecords.map((record) => record.originalCutOrderId)).size
-  const qrSchemaVersion = qrRecords[0]?.schemaVersion || FEI_QR_SCHEMA_VERSION
-  const printableUnit = buildPrintableUnitSummaryByBatch(batch.mergeBatchId)
-  const printableStatusMeta = printableUnit ? getPrintableUnitStatusMeta(printableUnit.printableUnitStatus) : null
-
+function renderFieldCard(label: string, value: string): string {
   return `
-    <aside class="rounded-lg border bg-card">
-      <div class="border-b px-4 py-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 class="text-sm font-semibold">${escapeHtml(batch.mergeBatchNo)}</h2>
-            <p class="mt-1 text-xs text-muted-foreground">批次仅作为执行层上下文，不改变生产单与原始裁片单归属。</p>
-          </div>
-          ${renderStatusBadge(batch.status)}
-        </div>
-      </div>
-
-      <div class="space-y-4 px-4 py-4">
-        <section class="rounded-lg border bg-muted/10 p-3">
-          <h3 class="text-sm font-semibold">批次主信息</h3>
-          <div class="mt-3 grid gap-3 md:grid-cols-2">
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">同款 / SPU</p>
-              <p class="mt-1 font-medium">${escapeHtml(batch.styleCode || batch.spuCode)}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">compatibilityKey</p>
-              <p class="mt-1 font-medium">${escapeHtml(batch.compatibilityKey)}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">计划裁床组</p>
-              <p class="mt-1 font-medium">${escapeHtml(batch.plannedCuttingGroup || '-')}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">计划裁剪日期</p>
-              <p class="mt-1 font-medium">${escapeHtml(batch.plannedCuttingDate || '-')}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">创建时间</p>
-              <p class="mt-1 font-medium">${escapeHtml(batch.createdAt || '-')}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">来源摘要</p>
-              <p class="mt-1 font-medium">${batch.sourceProductionOrderCount} 个生产单 / ${batch.sourceOriginalCutOrderCount} 个原始裁片单</p>
-            </div>
-          </div>
-          ${batch.note ? `<p class="mt-3 text-sm text-muted-foreground">备注：${escapeHtml(batch.note)}</p>` : ''}
-          <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(statusMeta.helperText)}</p>
-        </section>
-
-        <section class="rounded-lg border bg-muted/10 p-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h3 class="text-sm font-semibold">来源生产单摘要</h3>
-            <span class="text-xs text-muted-foreground">同一生产单下不同原始裁片单可进入不同批次</span>
-          </div>
-          <div class="mt-3 space-y-3">
-            ${sourceGroups
-              .map(
-                (group) => `
-                  <div class="rounded-lg border bg-background px-3 py-3">
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div class="font-medium">${escapeHtml(group.productionOrderNo)}</div>
-                        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(group.styleCode)} · ${escapeHtml(group.styleName)} · ${escapeHtml(group.urgencyLabel)} · 发货 ${escapeHtml(group.plannedShipDateDisplay)}</div>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-muted-foreground">原始裁片单 ${group.itemCount} 条</span>
-                        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-original-orders-production" data-batch-id="${escapeHtml(batch.mergeBatchId)}" data-production-order-id="${escapeHtml(group.productionOrderId)}" data-production-order-no="${escapeHtml(group.productionOrderNo)}">查看原始裁片单</button>
-                      </div>
-                    </div>
-                  </div>
-                `,
-              )
-              .join('')}
-          </div>
-        </section>
-
-        <section class="rounded-lg border bg-muted/10 p-3">
-          <h3 class="text-sm font-semibold">原始裁片单明细</h3>
-          <div class="mt-3 overflow-hidden rounded-lg border">
-            <table class="min-w-full text-left text-sm">
-              <thead class="bg-muted/50 text-xs text-muted-foreground">
-                <tr>
-                  <th class="px-3 py-2 font-medium">原始裁片单号</th>
-                  <th class="px-3 py-2 font-medium">生产单号</th>
-                  <th class="px-3 py-2 font-medium">面料 SKU</th>
-                  <th class="px-3 py-2 font-medium">面料类别</th>
-                  <th class="px-3 py-2 font-medium">当前阶段</th>
-                  <th class="px-3 py-2 font-medium">来源 compatibilityKey</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${batch.items
-                  .map(
-                    (item) => `
-                      <tr class="border-t">
-                        <td class="px-3 py-2 font-medium">${escapeHtml(item.originalCutOrderNo)}</td>
-                        <td class="px-3 py-2">${escapeHtml(item.productionOrderNo)}</td>
-                        <td class="px-3 py-2">${escapeHtml(item.materialSku)}</td>
-                        <td class="px-3 py-2">${escapeHtml(item.materialCategory)}</td>
-                        <td class="px-3 py-2">${escapeHtml(item.currentStage)}</td>
-                        <td class="px-3 py-2">${escapeHtml(item.sourceCompatibilityKey)}</td>
-                      </tr>
-                    `,
-                  )
-                  .join('')}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="rounded-lg border bg-muted/10 p-3">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 class="text-sm font-semibold">打印菲票摘要</h3>
-            </div>
-            <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}">去打印菲票</button>
-          </div>
-          <div class="mt-3 grid gap-3 md:grid-cols-4 xl:grid-cols-7">
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">打印状态</p>
-              <p class="mt-1 font-medium">${escapeHtml(printableStatusMeta?.label || '暂无可打印对象')}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">应打菲票数</p>
-              <p class="mt-1 font-medium">${escapeHtml(String(printableUnit?.requiredTicketCount || 0))}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">有效已打印数</p>
-              <p class="mt-1 font-medium">${escapeHtml(String(printableUnit?.validPrintedTicketCount || 0))}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">已作废数</p>
-              <p class="mt-1 font-medium">${escapeHtml(String(printableUnit?.voidedTicketCount || 0))}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">需补打数</p>
-              <p class="mt-1 font-medium">${escapeHtml(String(printableUnit?.missingTicketCount || 0))}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">最近打印时间</p>
-              <p class="mt-1 font-medium">${escapeHtml(printableUnit?.lastPrintedAt || '未打印')}</p>
-            </div>
-            <div class="rounded-md border bg-background px-3 py-2">
-              <p class="text-xs text-muted-foreground">最近打印人</p>
-              <p class="mt-1 font-medium">${escapeHtml(printableUnit?.lastPrintedBy || '未打印')}</p>
-            </div>
-          </div>
-          <div class="mt-3 rounded-md border border-dashed bg-background px-3 py-2 text-xs text-muted-foreground">
-            来源原始裁片单 ${escapeHtml(String(relatedOrderIds.length))} 个；已打票归属组 ${escapeHtml(String(printedOwnerGroupCount))} 个；菲票码版本 ${escapeHtml(qrSchemaVersion)}
-          </div>
-          ${
-            printableUnit
-              ? `
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${getCanonicalCuttingPath('fei-ticket-printed')}?printableUnitId=${encodeURIComponent(printableUnit.printableUnitId)}&printableUnitNo=${encodeURIComponent(printableUnit.printableUnitNo)}&printableUnitType=${encodeURIComponent(printableUnit.printableUnitType)}&batchId=${encodeURIComponent(printableUnit.batchId)}&batchNo=${encodeURIComponent(printableUnit.batchNo)}`)}">查看已打印菲票</button>
-                  <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${getCanonicalCuttingPath('fei-ticket-records')}?printableUnitId=${encodeURIComponent(printableUnit.printableUnitId)}&printableUnitNo=${encodeURIComponent(printableUnit.printableUnitNo)}&printableUnitType=${encodeURIComponent(printableUnit.printableUnitType)}&batchId=${encodeURIComponent(printableUnit.batchId)}&batchNo=${encodeURIComponent(printableUnit.batchNo)}`)}">查看打印记录</button>
-                </div>
-              `
-              : ''
-          }
-        </section>
-
-        <div class="flex flex-wrap items-center gap-2">
-          ${transitions
-            .map((item) =>
-              renderActionButton(
-                item.label,
-                `data-merge-batches-action="set-status" data-batch-id="${escapeHtml(batch.mergeBatchId)}" data-next-status="${item.status}"`,
-              ),
-            )
-            .join('')}
-          ${renderActionButton(
-            '去打印菲票',
-            `data-merge-batches-action="go-fei-tickets" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`,
-          )}
-          ${renderActionButton(
-            '去唛架铺布',
-            `data-merge-batches-action="go-marker-spreading" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`,
-            'primary',
-          )}
-          ${renderActionButton(
-            '查看原始裁片单',
-            `data-merge-batches-action="go-original-orders-batch" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`,
-          )}
-          ${renderActionButton('返回可裁排产', 'data-merge-batches-action="go-cuttable-pool"')}
-        </div>
-      </div>
-    </aside>
+    <div class="rounded-md border bg-background px-3 py-2">
+      <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
+      <p class="mt-1 text-sm font-medium">${escapeHtml(value || '-')}</p>
+    </div>
   `
 }
 
-function renderBatchWorkbench(ledger: MergeBatchRecord[]): string {
-  const filteredLedger = filterLedger(ledger)
-  const activeBatch = getActiveBatch(filteredLedger.length ? filteredLedger : ledger)
-
+function renderBatchBasicInfo(batch: MergeBatchRecord): string {
+  const statusMeta = getMergeBatchStatusMeta(batch.status)
   return `
-    <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-      <div class="space-y-4">
-        ${renderLedgerFilters(ledger)}
-        ${renderLedgerTable(filteredLedger)}
+    <section class="space-y-3 rounded-lg border bg-muted/10 p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold">批次基础信息</h3>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(statusMeta.helperText)}</p>
+        </div>
+        ${renderStatusBadge(batch.status)}
       </div>
-      ${renderBatchDetail(activeBatch)}
+      <div class="grid gap-3 sm:grid-cols-2">
+        ${renderFieldCard('批次号', batch.mergeBatchNo)}
+        ${renderFieldCard('同款 / SPU', batch.styleCode || batch.spuCode)}
+        ${renderFieldCard('compatibilityKey', batch.compatibilityKey)}
+        ${renderFieldCard('创建时间', batch.createdAt || '-')}
+        ${renderFieldCard('来源生产单数', String(batch.sourceProductionOrderCount))}
+        ${renderFieldCard('来源原始裁片单数', String(batch.sourceOriginalCutOrderCount))}
+      </div>
     </section>
   `
 }
 
-function createBatch(status: MergeBatchStatus): boolean {
-  const ledger = getMergedLedger()
-  const { incoming, validation } = getIncomingSelection(ledger)
-  if (!validation.ok) {
-    setFeedback('warning', validation.reasons[0] || '当前输入暂不能创建合并裁剪批次。')
-    return true
+function renderBatchPlanningSection(batch: MergeBatchRecord): string {
+  return `
+    <section class="space-y-3 rounded-lg border bg-muted/10 p-4">
+      <div>
+        <h3 class="text-sm font-semibold">批次计划信息</h3>
+        <p class="mt-1 text-xs text-muted-foreground">先创建真实批次，再在这里补充裁床组、日期和备注。</p>
+      </div>
+      <div class="space-y-3">
+        <label class="block space-y-2">
+          <span class="text-sm font-medium">计划裁床组</span>
+          <input
+            type="text"
+            value="${escapeHtml(state.detailForm.plannedCuttingGroup)}"
+            placeholder="如：一号裁床 / 夜班组"
+            data-merge-batches-detail-field="plannedCuttingGroup"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </label>
+        <label class="block space-y-2">
+          <span class="text-sm font-medium">计划裁剪日期</span>
+          <input
+            type="date"
+            value="${escapeHtml(state.detailForm.plannedCuttingDate)}"
+            data-merge-batches-detail-field="plannedCuttingDate"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </label>
+        <label class="block space-y-2">
+          <span class="text-sm font-medium">备注</span>
+          <textarea
+            rows="4"
+            placeholder="记录裁床排期、交接说明或执行备注。"
+            data-merge-batches-detail-field="note"
+            class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          >${escapeHtml(state.detailForm.note)}</textarea>
+        </label>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        ${getStatusTransitions(batch)
+          .map((item) =>
+            renderActionButton(
+              item.label,
+              `data-merge-batches-action="set-status" data-batch-id="${escapeHtml(batch.mergeBatchId)}" data-next-status="${item.status}"`,
+            ),
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderSourceProductionOrders(batch: MergeBatchRecord): string {
+  const sourceGroups = groupMergeBatchItemsByProductionOrder(batch.items)
+  const productionRowMap = new Map(getProjection().sources.productionRows.map((row) => [row.productionOrderId, row]))
+
+  return `
+    <section class="space-y-3 rounded-lg border bg-muted/10 p-4">
+      <div>
+        <h3 class="text-sm font-semibold">来源生产单</h3>
+        <p class="mt-1 text-xs text-muted-foreground">同一批次可来自多个生产单，但只承接兼容的原始裁片单。</p>
+      </div>
+      <div class="space-y-3">
+        ${sourceGroups
+          .map((group) => {
+            const row = productionRowMap.get(group.productionOrderId)
+            return `
+              <div class="rounded-lg border bg-background px-3 py-3">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="space-y-1">
+                    <div class="font-medium">${escapeHtml(group.productionOrderNo)}</div>
+                    <div class="text-xs text-muted-foreground">${escapeHtml(group.styleCode)} · ${escapeHtml(group.styleName)}</div>
+                    <div class="text-xs text-muted-foreground">工厂：${escapeHtml(row?.assignedFactoryName || '-')} · 发货：${escapeHtml(group.plannedShipDateDisplay || '-')}</div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-muted-foreground">原始裁片单 ${group.itemCount} 条</span>
+                    <button
+                      class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
+                      data-merge-batches-action="go-original-orders-production"
+                      data-batch-id="${escapeHtml(batch.mergeBatchId)}"
+                      data-production-order-id="${escapeHtml(group.productionOrderId)}"
+                      data-production-order-no="${escapeHtml(group.productionOrderNo)}"
+                    >
+                      查看原始裁片单
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `
+          })
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderSourceOriginalOrders(batch: MergeBatchRecord): string {
+  return `
+    <section class="space-y-3 rounded-lg border bg-muted/10 p-4">
+      <div>
+        <h3 class="text-sm font-semibold">原始裁片单明细</h3>
+        <p class="mt-1 text-xs text-muted-foreground">在这里继续核对批次来源，不再整页铺开默认详情。</p>
+      </div>
+      <div class="overflow-hidden rounded-lg border bg-background">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-muted/50 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 font-medium">原始裁片单号</th>
+              <th class="px-3 py-2 font-medium">生产单号</th>
+              <th class="px-3 py-2 font-medium">面料 SKU</th>
+              <th class="px-3 py-2 font-medium">当前状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${batch.items
+              .map(
+                (item) => `
+                  <tr class="border-t">
+                    <td class="px-3 py-2 font-medium">${escapeHtml(item.originalCutOrderNo)}</td>
+                    <td class="px-3 py-2">${escapeHtml(item.productionOrderNo)}</td>
+                    <td class="px-3 py-2">${escapeHtml(item.materialSku)}</td>
+                    <td class="px-3 py-2">${escapeHtml(item.currentStage || item.cuttableStateLabel || '-')}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderBatchDetailDrawer(batch: MergeBatchRecord | null): string {
+  if (!batch) return ''
+
+  const content = `
+    <div class="space-y-4" data-testid="cutting-merge-batches-detail-drawer">
+      ${renderBatchBasicInfo(batch)}
+      ${renderBatchPlanningSection(batch)}
+      ${renderSourceProductionOrders(batch)}
+      ${renderSourceOriginalOrders(batch)}
+    </div>
+  `
+
+  return uiDrawer(
+    {
+      title: '批次详情',
+      subtitle: batch.mergeBatchNo,
+      closeAction: { prefix: 'merge-batches', action: 'close-detail-drawer' },
+      width: 'lg',
+    },
+    content,
+    {
+      cancel: { prefix: 'merge-batches', action: 'close-detail-drawer', label: '关闭' },
+      confirm: { prefix: 'merge-batches', action: 'save-detail', label: '保存', variant: 'primary' },
+    },
+  )
+}
+
+function saveBatchDetail(batchId: string | undefined): boolean {
+  if (!batchId) return false
+  const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
+  if (!batch) return false
+
+  const nextBatch: MergeBatchRecord = {
+    ...batch,
+    plannedCuttingGroup: state.detailForm.plannedCuttingGroup.trim(),
+    plannedCuttingDate: state.detailForm.plannedCuttingDate,
+    note: state.detailForm.note.trim(),
+    updatedAt: nowText(),
   }
 
-  const batch = createMergeBatchDraft({
-    items: incoming.items,
-    form: state.draftForm,
-    status,
-    existingBatches: ledger,
-  })
-
-  upsertBatch(batch)
-  clearIncomingSelection()
-  state.draftForm = { ...initialDraftForm }
-  state.activeBatchId = batch.mergeBatchId
-  setFeedback('success', `${batch.mergeBatchNo} 已${status === 'DRAFT' ? '保存为草稿' : '创建为待裁批次'}。`)
+  upsertBatch(nextBatch)
+  state.activeBatchId = nextBatch.mergeBatchId
+  syncDetailForm(nextBatch)
+  setFeedback('success', `${nextBatch.mergeBatchNo} 的批次信息已更新。`)
   return true
 }
 
@@ -856,6 +663,7 @@ function updateBatchStatus(batchId: string | undefined, nextStatus: MergeBatchSt
   }
   upsertBatch(nextBatch)
   state.activeBatchId = batchId
+  syncDetailForm(nextBatch)
   setFeedback('success', `${batch.mergeBatchNo} 已更新为“${getMergeBatchStatusMeta(nextStatus).label}”。`)
   return true
 }
@@ -885,21 +693,6 @@ function goMarkerSpreading(batchId: string | undefined): boolean {
   return true
 }
 
-function goFeiTickets(batchId: string | undefined): boolean {
-  if (!batchId) {
-    setFeedback('warning', '请先选择一个批次，再进入打印菲票。')
-    return true
-  }
-  const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
-  appStore.navigate(
-    buildRouteWithQuery(getCanonicalCuttingPath('fei-tickets'), {
-      mergeBatchId: batchId,
-      mergeBatchNo: batch?.mergeBatchNo,
-    }),
-  )
-  return true
-}
-
 function goOriginalOrdersByBatch(batchId: string | undefined): boolean {
   if (!batchId) {
     setFeedback('warning', '请先选择一个批次，再查看来源原始裁片单。')
@@ -913,30 +706,32 @@ export function renderCraftCuttingMergeBatchesPage(): string {
   const pathname = appStore.getState().pathname
   const meta = getCanonicalCuttingMeta(pathname, 'merge-batches')
   const ledger = getMergedLedger()
-  const incoming = getIncomingSelection(ledger)
+  syncStateFromPath(ledger)
   const activeBatch = getActiveBatch(ledger)
+  const filteredLedger = filterLedger(ledger)
 
   return `
-    <div class="space-y-4 p-4">
+    <div class="space-y-4 p-4" data-testid="cutting-merge-batches-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(activeBatch),
         showCompatibilityBadge: isCuttingAliasPath(pathname),
       })}
-      ${renderStatsCards(ledger, incoming.incoming.items.length)}
+      ${renderStatsCards(ledger)}
       ${renderFeedbackBar()}
-      ${renderIncomingDraftZone(ledger)}
-      ${renderBatchWorkbench(ledger)}
+      ${renderLedgerFilters(ledger)}
+      ${renderLedgerTable(filteredLedger)}
+      ${renderBatchDetailDrawer(activeBatch)}
     </div>
   `
 }
 
 export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
-  const draftFieldNode = target.closest<HTMLElement>('[data-merge-batches-draft-field]')
-  if (draftFieldNode) {
-    const field = draftFieldNode.dataset.mergeBatchesDraftField as MergeBatchDraftField | undefined
+  const detailFieldNode = target.closest<HTMLElement>('[data-merge-batches-detail-field]')
+  if (detailFieldNode) {
+    const field = detailFieldNode.dataset.mergeBatchesDetailField as MergeBatchDetailField | undefined
     if (!field) return false
-    const input = draftFieldNode as HTMLInputElement | HTMLTextAreaElement
-    state.draftForm[field] = input.value
+    const input = detailFieldNode as HTMLInputElement | HTMLTextAreaElement
+    state.detailForm[field] = input.value
     return true
   }
 
@@ -960,6 +755,10 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
     return true
   }
 
+  if (action === 'close-detail-drawer') {
+    return closeBatchDetail()
+  }
+
   if (action === 'go-cuttable-pool') {
     appStore.navigate(getCanonicalCuttingPath('cuttable-pool'))
     return true
@@ -971,15 +770,11 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
   }
 
   if (action === 'go-marker-spreading') {
-    return goMarkerSpreading(actionNode.dataset.batchId)
-  }
-
-  if (action === 'go-fei-tickets') {
-    return goFeiTickets(actionNode.dataset.batchId)
+    return goMarkerSpreading(actionNode.dataset.batchId || state.activeBatchId)
   }
 
   if (action === 'go-original-orders-batch') {
-    return goOriginalOrdersByBatch(actionNode.dataset.batchId)
+    return goOriginalOrdersByBatch(actionNode.dataset.batchId || state.activeBatchId)
   }
 
   if (action === 'go-original-orders-production') {
@@ -993,34 +788,21 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'save-draft') {
-    return createBatch('DRAFT')
-  }
-
-  if (action === 'create-ready') {
-    return createBatch('READY')
-  }
-
-  if (action === 'clear-incoming') {
-    clearIncomingSelection()
-    state.draftForm = { ...initialDraftForm }
-    clearFeedback()
-    return true
-  }
-
   if (action === 'open-detail') {
-    if (!actionNode.dataset.batchId) return false
-    state.activeBatchId = actionNode.dataset.batchId
-    return true
+    return openBatchDetail(actionNode.dataset.batchId)
+  }
+
+  if (action === 'save-detail') {
+    return saveBatchDetail(state.activeBatchId)
   }
 
   if (action === 'set-status') {
-    return updateBatchStatus(actionNode.dataset.batchId, actionNode.dataset.nextStatus as MergeBatchStatus | undefined)
+    return updateBatchStatus(actionNode.dataset.batchId || state.activeBatchId, actionNode.dataset.nextStatus as MergeBatchStatus | undefined)
   }
 
   return false
 }
 
 export function isCraftCuttingMergeBatchesDialogOpen(): boolean {
-  return false
+  return Boolean(state.activeBatchId)
 }

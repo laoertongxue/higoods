@@ -15,6 +15,14 @@ import {
   type QuickMergeableBucket,
 } from './cuttable-pool-model'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+import {
+  createDraftMergeBatchFromCuttableSelection,
+  CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
+  deserializeMergeBatchStorage,
+  serializeMergeBatchStorage,
+  type MergeBatchRecord,
+} from './merge-batches-model'
+import { buildMergeBatchesProjection } from './merge-batches-projection'
 import type { ProductionProgressUrgencyKey } from './production-progress-model'
 import { urgencyMeta } from './production-progress-model'
 import { buildCuttablePoolProjection } from './cuttable-pool-projection'
@@ -24,9 +32,6 @@ import {
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
 } from './layout.helpers'
-
-const SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedOriginalOrderIds'
-const SELECTED_COMPATIBILITY_KEY_STORAGE_KEY = 'cuttingSelectedCompatibilityKey'
 
 type FilterField = 'keyword' | 'urgency' | 'cuttable' | 'coverage' | 'config' | 'claim'
 
@@ -107,6 +112,34 @@ function syncStateFromPath(): void {
 
 function getViewModel() {
   return buildCuttablePoolProjection().viewModel
+}
+
+function readStoredMergeBatchLedger(): MergeBatchRecord[] {
+  try {
+    return deserializeMergeBatchStorage(localStorage.getItem(CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY))
+  } catch {
+    return []
+  }
+}
+
+function writeStoredMergeBatchLedger(records: MergeBatchRecord[]): void {
+  try {
+    localStorage.setItem(CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY, serializeMergeBatchStorage(records))
+  } catch {
+    setNotice('当前浏览器未能保存裁剪批次，请稍后重试。')
+  }
+}
+
+function upsertMergeBatchRecord(batch: MergeBatchRecord): void {
+  const stored = readStoredMergeBatchLedger()
+  const next = stored.filter((item) => item.mergeBatchId !== batch.mergeBatchId)
+  next.push(batch)
+  next.sort(
+    (left, right) =>
+      right.createdAt.localeCompare(left.createdAt, 'zh-CN') ||
+      right.mergeBatchNo.localeCompare(left.mergeBatchNo, 'zh-CN'),
+  )
+  writeStoredMergeBatchLedger(next)
 }
 
 function getVisibleGroups(viewModel = getViewModel()) {
@@ -197,8 +230,8 @@ function renderActionBar(viewModel = getViewModel()): string {
     <div class="flex flex-wrap items-center gap-2">
       <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-production-progress">返回生产单进度</button>
       <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-capacity-overview">查看产能日历</button>
-      <button class="${selectedCount ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700' : 'rounded-md border px-3 py-2 text-sm hover:bg-muted'}" data-cuttable-pool-action="go-merge-batches">
-        去合并裁剪批次${selectedCount ? `（${selectedCount}）` : ''}
+      <button class="${selectedCount ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700' : 'rounded-md border px-3 py-2 text-sm hover:bg-muted'}" data-cuttable-pool-action="create-merge-batch">
+        创建裁剪批次${selectedCount ? `（${selectedCount}）` : ''}
       </button>
     </div>
   `
@@ -707,8 +740,8 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
         }
 
         <div class="space-y-2">
-          <button class="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cuttable-pool-action="go-merge-batches">
-            去合并裁剪批次
+          <button class="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cuttable-pool-action="create-merge-batch">
+            创建裁剪批次
           </button>
           <button class="w-full rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="clear-selection">
             清空选择
@@ -895,7 +928,7 @@ function buildCapacityConstraintsPath(orderIds: string[]): string {
   })
 }
 
-function goToMergeBatches(): boolean {
+function createMergeBatchAndGo(): boolean {
   const selectedItems = getSelectedItems()
   const compatibility = areOriginalCutOrdersCompatibleForBatching(selectedItems)
   if (!compatibility.ok) {
@@ -903,16 +936,20 @@ function goToMergeBatches(): boolean {
     return true
   }
 
-  try {
-    sessionStorage.setItem(SELECTED_IDS_STORAGE_KEY, JSON.stringify(selectedItems.map((item) => item.originalCutOrderId)))
-    sessionStorage.setItem(SELECTED_COMPATIBILITY_KEY_STORAGE_KEY, compatibility.compatibilityKey || '')
-  } catch {
-    setNotice('当前浏览器未能保存已选清单，请重试。')
-    return true
-  }
+  const batch = createDraftMergeBatchFromCuttableSelection({
+    items: selectedItems,
+    existingBatches: buildMergeBatchesProjection().sources.mergeBatches,
+  })
 
+  upsertMergeBatchRecord(batch)
+  state.selectedIds = []
   clearNotice()
-  appStore.navigate(getCanonicalCuttingPath('merge-batches'))
+  appStore.navigate(
+    buildRouteWithQuery(getCanonicalCuttingPath('merge-batches'), {
+      focusBatchId: batch.mergeBatchId,
+      createdBatchNo: batch.mergeBatchNo,
+    }),
+  )
   return true
 }
 
@@ -1006,8 +1043,8 @@ export function handleCraftCuttingCuttablePoolEvent(target: Element): boolean {
     return navigateToCapacityConstraints(orderIds)
   }
 
-  if (action === 'go-merge-batches') {
-    return goToMergeBatches()
+  if (action === 'create-merge-batch') {
+    return createMergeBatchAndGo()
   }
 
   if (action === 'go-selected-original-orders') {
