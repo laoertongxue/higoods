@@ -1,6 +1,6 @@
-import { getTechPackBySpuCode, type TechPack } from '../../../data/fcs/tech-packs'
-import type { MaterialPrepRow } from './material-prep-model'
-import type { MarkerAllocationLine, MarkerRecord } from './marker-spreading-model'
+import { getTechPackBySpuCode, type TechPack } from '../../../data/fcs/tech-packs.ts'
+import type { MaterialPrepRow } from './material-prep-model.ts'
+import type { MarkerAllocationLine, MarkerRecord } from './marker-spreading-model.ts'
 
 export type MarkerPieceMappingStatus =
   | 'MATCHED'
@@ -223,7 +223,7 @@ function buildPieceRowsFromPatternFallback(
   skuCode: string,
 ) {
   if (!line.patternId) return []
-  const pattern = techPack.patternFiles.find((item) => item.id === line.patternId) || null
+  const pattern = (techPack.patternFiles || []).find((item) => item.id === line.patternId) || null
   if (!pattern?.pieceRows?.length) return []
   return pattern.pieceRows
     .filter((pieceRow) => !(pieceRow.applicableSkuCodes || []).length || pieceRow.applicableSkuCodes?.includes(skuCode))

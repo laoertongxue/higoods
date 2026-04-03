@@ -265,7 +265,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'craft-cutting-original-orders', title: '原始裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
             { key: 'craft-cutting-material-prep', title: '仓库配料领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
-            { key: 'craft-cutting-marker-spreading', title: '唛架铺布', icon: 'Ruler', href: '/fcs/craft/cutting/marker-spreading' },
+            { key: 'craft-cutting-marker-list', title: '唛架列表', icon: 'Ruler', href: '/fcs/craft/cutting/marker-list' },
             { key: 'craft-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
           ],
         },

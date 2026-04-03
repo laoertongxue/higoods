@@ -8,7 +8,7 @@ import type {
 import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderSourceRecord,
-} from '../../../data/fcs/cutting/generated-original-cut-orders'
+} from '../../../data/fcs/cutting/generated-original-cut-orders.ts'
 import {
   buildProductionProgressRows,
   configMeta,
@@ -16,7 +16,7 @@ import {
   type ProductionProgressRow,
   type ProductionProgressUrgencyKey,
   urgencyMeta,
-} from './production-progress-model'
+} from './production-progress-model.ts'
 import type { MergeBatchRecord } from './merge-batches-model'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')

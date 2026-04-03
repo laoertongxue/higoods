@@ -83,6 +83,107 @@ function buildSystemMergeBatchSourceRecords(): MergeBatchSourceRecord[] {
     })
   })
 
+  const seedRecords: MergeBatchSourceRecord[] = [
+    {
+      mergeBatchId: normalizeMergeBatchId('MB-260403-081-LINING'),
+      mergeBatchNo: 'MB-260403-081-LINING',
+      sourceOriginalCutOrderIds: [
+        'CUT-260308-081-02',
+        'CUT-260314-087-02',
+        'CUT-260315-088-02',
+      ],
+      sourceOriginalCutOrderNos: [
+        'CUT-260308-081-02',
+        'CUT-260314-087-02',
+        'CUT-260315-088-02',
+      ],
+      sourceProductionOrderIds: [
+        'PO-202603-081',
+        'PO-202603-087',
+        'PO-202603-088',
+      ],
+      sourceProductionOrderNos: [
+        'PO-202603-081',
+        'PO-202603-087',
+        'PO-202603-088',
+      ],
+    },
+    {
+      mergeBatchId: normalizeMergeBatchId('MB-260403-081-PRINT'),
+      mergeBatchNo: 'MB-260403-081-PRINT',
+      sourceOriginalCutOrderIds: [
+        'CUT-260308-081-01',
+        'CUT-260314-087-01',
+        'CUT-260315-088-01',
+      ],
+      sourceOriginalCutOrderNos: [
+        'CUT-260308-081-01',
+        'CUT-260314-087-01',
+        'CUT-260315-088-01',
+      ],
+      sourceProductionOrderIds: [
+        'PO-202603-081',
+        'PO-202603-087',
+        'PO-202603-088',
+      ],
+      sourceProductionOrderNos: [
+        'PO-202603-081',
+        'PO-202603-087',
+        'PO-202603-088',
+      ],
+    },
+    {
+      mergeBatchId: normalizeMergeBatchId('MB-260403-081-SOLID'),
+      mergeBatchNo: 'MB-260403-081-SOLID',
+      sourceOriginalCutOrderIds: [
+        'CUT-260308-081-03',
+        'CUT-260314-087-03',
+        'CUT-260315-088-03',
+      ],
+      sourceOriginalCutOrderNos: [
+        'CUT-260308-081-03',
+        'CUT-260314-087-03',
+        'CUT-260315-088-03',
+      ],
+      sourceProductionOrderIds: [
+        'PO-202603-081',
+        'PO-202603-087',
+        'PO-202603-088',
+      ],
+      sourceProductionOrderNos: [
+        'PO-202603-081',
+        'PO-202603-087',
+        'PO-202603-088',
+      ],
+    },
+    {
+      mergeBatchId: normalizeMergeBatchId('MB-260403-083-PRINT'),
+      mergeBatchNo: 'MB-260403-083-PRINT',
+      sourceOriginalCutOrderIds: [
+        'CUT-260310-083-02',
+      ],
+      sourceOriginalCutOrderNos: [
+        'CUT-260310-083-02',
+      ],
+      sourceProductionOrderIds: [
+        'PO-202603-083',
+      ],
+      sourceProductionOrderNos: [
+        'PO-202603-083',
+      ],
+    },
+  ]
+
+  seedRecords.forEach((record) => {
+    grouped.set(record.mergeBatchId, {
+      ...record,
+      sourceOriginalCutOrderIds: unique(record.sourceOriginalCutOrderIds),
+      sourceOriginalCutOrderNos: unique(record.sourceOriginalCutOrderNos),
+      sourceProductionOrderIds: unique(record.sourceProductionOrderIds),
+      sourceProductionOrderNos: unique(record.sourceProductionOrderNos),
+    })
+  })
+
   return Array.from(grouped.values())
 }
 

@@ -1,5 +1,5 @@
-import type { MaterialPrepRow } from './material-prep-model'
-import type { MergeBatchRecord } from './merge-batches-model'
+import type { MaterialPrepRow } from './material-prep-model.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
 import {
   buildMarkerSeedDraft,
   buildMarkerSpreadingNavigationPayload,
@@ -53,8 +53,8 @@ import {
   type SpreadingOperatorRecord,
   type SpreadingRollHandoverSummary,
   type SpreadingSession,
-} from './marker-spreading-model'
-import { buildMarkerSpreadingProjection } from './marker-spreading-projection'
+} from './marker-spreading-model.ts'
+import { buildMarkerSpreadingProjection } from './marker-spreading-projection.ts'
 import {
   buildMarkerAllocationSourceRows,
   buildMarkerPieceExplosionViewModel,
@@ -65,7 +65,7 @@ import {
   type MarkerExplosionPieceDetailRow,
   type MarkerExplosionSkuSummaryRow,
   type MarkerPieceExplosionTotals,
-} from './marker-piece-explosion'
+} from './marker-piece-explosion.ts'
 
 export {
   buildMarkerSpreadingNavigationPayload,

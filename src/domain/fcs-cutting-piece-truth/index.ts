@@ -1,10 +1,10 @@
-import { getTechPackBySpuCode, type TechPack } from '../../data/fcs/tech-packs'
+import { getTechPackBySpuCode, type TechPack } from '../../data/fcs/tech-packs.ts'
 import type {
   CuttingCutOrderSkuScopeLine,
   CuttingMaterialLine,
   CuttingOrderProgressRecord,
   CuttingSkuRequirementLine,
-} from '../../data/fcs/cutting/types'
+} from '../../data/fcs/cutting/types.ts'
 
 export type PieceTruthMappingStatus =
   | 'MATCHED'

@@ -2,9 +2,9 @@ import type { CuttingDomainSnapshot } from '../../../domain/fcs-cutting-runtime/
 import type {
   MarkerSpreadingPrefilter,
   MarkerSpreadingStore,
-} from './marker-spreading-model'
-import { buildMarkerSpreadingViewModel } from './marker-spreading-model'
-import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers'
+} from './marker-spreading-model.ts'
+import { buildMarkerSpreadingViewModel } from './marker-spreading-model.ts'
+import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers.ts'
 
 export interface MarkerSpreadingProjection {
   snapshot: CuttingDomainSnapshot
@@ -42,4 +42,3 @@ export function buildMarkerSpreadingProjection(options: {
     viewModel,
   }
 }
-

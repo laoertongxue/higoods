@@ -1,12 +1,19 @@
 import { escapeHtml } from '../../../utils'
 
-export function renderCompactKpiCard(label: string, value: number | string, hint: string, accentClass: string): string {
+export function renderCompactKpiCard(
+  label: string,
+  value: number | string,
+  hint: string,
+  accentClass: string,
+  formula = '',
+): string {
   return `
     <article class="rounded-lg border bg-card px-3 py-2">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
           <p class="mt-0.5 text-lg font-semibold leading-none tabular-nums ${accentClass}">${escapeHtml(String(value))}</p>
+          ${formula ? `<p class="mt-1 font-mono text-[11px] leading-4 text-muted-foreground">${escapeHtml(formula)}</p>` : ''}
         </div>
         ${hint ? `<p class="max-w-[9rem] text-right text-[10px] leading-4 text-muted-foreground">${escapeHtml(hint)}</p>` : ''}
       </div>

@@ -6,6 +6,12 @@ export { renderCraftCuttingSummaryPage } from './cutting-summary'
 export { renderCraftCuttingCuttablePoolPage } from './cuttable-pool'
 export { renderCraftCuttingMergeBatchesPage } from './merge-batches'
 export {
+  renderCraftCuttingMarkerListPage,
+  renderCraftCuttingMarkerCreatePage,
+  renderCraftCuttingMarkerPlanEditPage,
+  renderCraftCuttingMarkerPlanDetailPage,
+} from './marker-plan'
+export {
   renderCraftCuttingMarkerSpreadingPage,
   renderCraftCuttingMarkerDetailPage,
   renderCraftCuttingMarkerEditPage,

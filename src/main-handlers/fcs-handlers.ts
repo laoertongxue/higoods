@@ -138,6 +138,10 @@ import {
 import { handleCraftCuttingCuttablePoolEvent } from '../pages/process-factory/cutting/cuttable-pool'
 import { handleCraftCuttingMergeBatchesEvent } from '../pages/process-factory/cutting/merge-batches'
 import {
+  handleCraftCuttingMarkerPlanEvent,
+  isCraftCuttingMarkerPlanDialogOpen,
+} from '../pages/process-factory/cutting/marker-plan'
+import {
   handleCraftCuttingMaterialPrepEvent,
   isCraftCuttingMaterialPrepDialogOpen,
 } from '../pages/process-factory/cutting/material-prep'
@@ -216,6 +220,7 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleCraftCuttingProductionProgressEvent(target) ||
     handleCraftCuttingCuttablePoolEvent(target) ||
     handleCraftCuttingMergeBatchesEvent(target) ||
+    handleCraftCuttingMarkerPlanEvent(target) ||
     handleCraftCuttingMaterialPrepEvent(target) ||
     handleCraftCuttingMarkerSpreadingEvent(target) ||
     handleCraftCuttingFeiTicketsEvent(target) ||
@@ -481,6 +486,13 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cuttingPrepAction = 'close-overlay'
     handleCraftCuttingMaterialPrepEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingMarkerPlanDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.markerPlanAction = 'close-context-drawer'
+    handleCraftCuttingMarkerPlanEvent(fakeButton)
     return true
   }
 

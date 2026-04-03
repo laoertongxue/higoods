@@ -4,12 +4,12 @@ import type {
   CuttingOrderProgressRecord,
   CuttingUrgencyLevel,
   CuttingSkuRequirementLine,
-} from '../../../data/fcs/cutting/types'
+} from '../../../data/fcs/cutting/types.ts'
 import { listGeneratedOriginalCutOrderSourceRecords } from '../../../data/fcs/cutting/generated-original-cut-orders.ts'
 import {
   buildProductionPieceProgressViewModelFromTruth,
   type ProductionPieceProgressViewModel,
-} from './production-piece-progress'
+} from './production-piece-progress.ts'
 import {
   buildProductionPieceTruth,
   buildProductionPieceTruthCompletion,
@@ -17,7 +17,7 @@ import {
   type PieceTruthOverlaySignal,
   type ProductionPieceTruthCompletionKey,
   type ProductionPieceTruthResult,
-} from '../../../domain/fcs-cutting-piece-truth'
+} from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import {
   listPdaPickupWritebacks,
   listPdaInboundWritebacks,
@@ -28,7 +28,7 @@ import {
   type PdaPickupWritebackRecord,
   type PdaReplenishmentFeedbackWritebackRecord,
 } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
-import { getBrowserLocalStorage } from '../../../data/browser-storage'
+import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 
 const PRODUCTION_PROGRESS_REFERENCE_DATE = '2026-03-24'
 const DAY_IN_MS = 24 * 60 * 60 * 1000

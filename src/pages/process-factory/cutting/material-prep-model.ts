@@ -9,24 +9,24 @@ import {
   formatClaimQty as formatDisputeQty,
   getClaimDisputeStatusLabel,
   parseLengthQtyFromText,
-} from '../../../helpers/fcs-claim-dispute'
-import type { ClaimDisputeRecord } from '../../../models/fcs-claim-dispute'
-import { getLatestClaimDisputeByOriginalCutOrderNo, listClaimDisputesByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store'
+} from '../../../helpers/fcs-claim-dispute.ts'
+import type { ClaimDisputeRecord } from '../../../models/fcs-claim-dispute.ts'
+import { getLatestClaimDisputeByOriginalCutOrderNo, listClaimDisputesByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store.ts'
 import {
   listPdaPickupWritebacks,
   type PdaPickupWritebackRecord,
 } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
-import { getBrowserLocalStorage } from '../../../data/browser-storage'
+import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 import {
   canViewPrepQr,
   getPrepQrHiddenText,
   shouldDisplayQrByPrepStatus,
   shouldDisplayQrLabelByPrepStatus,
   shouldPrintPrepQr,
-} from './material-prep.helpers'
-import { summarizeMergeBatchParticipation } from './original-orders-model'
-import type { MergeBatchRecord } from './merge-batches-model'
-import { buildProductionProgressRows, type ProductionProgressUrgencyKey, urgencyMeta } from './production-progress-model'
+} from './material-prep.helpers.ts'
+import { summarizeMergeBatchParticipation } from './original-orders-model.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
+import { buildProductionProgressRows, type ProductionProgressUrgencyKey, urgencyMeta } from './production-progress-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 

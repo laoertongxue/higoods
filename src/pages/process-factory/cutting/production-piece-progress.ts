@@ -7,7 +7,7 @@ import {
   type PieceTruthOverlaySignal,
   type ProductionPieceTruthResult,
   type ProductionResolvedTechPackLink,
-} from '../../../domain/fcs-cutting-piece-truth'
+} from '../../../domain/fcs-cutting-piece-truth/index.ts'
 
 export type ProductionPieceMappingStatus = PieceTruthMappingStatus
 export type { ProductionResolvedTechPackLink }

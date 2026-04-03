@@ -132,6 +132,10 @@ import {
   renderCraftCuttingProductionProgressPage,
   renderCraftCuttingCuttablePoolPage,
   renderCraftCuttingMergeBatchesPage,
+  renderCraftCuttingMarkerListPage,
+  renderCraftCuttingMarkerCreatePage,
+  renderCraftCuttingMarkerPlanEditPage,
+  renderCraftCuttingMarkerPlanDetailPage,
   renderCraftCuttingMarkerSpreadingPage,
   renderCraftCuttingMarkerDetailPage,
   renderCraftCuttingMarkerEditPage,
@@ -288,6 +292,8 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/cutting/cuttable-pool': () => renderCraftCuttingCuttablePoolPage(),
   '/fcs/craft/cutting/merge-batches': () => renderCraftCuttingMergeBatchesPage(),
   '/fcs/craft/cutting/original-orders': () => renderCraftCuttingOriginalOrdersPage(),
+  '/fcs/craft/cutting/marker-list': () => renderCraftCuttingMarkerListPage(),
+  '/fcs/craft/cutting/marker-create': () => renderCraftCuttingMarkerCreatePage(),
   '/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage(),
   '/fcs/craft/cutting/settlement-scoring': () => renderCuttingSettlementInputPage(),
   '/fcs/craft/cutting/marker-detail': () => renderCraftCuttingMarkerDetailPage(),
@@ -378,6 +384,14 @@ const exactRoutes: Record<string, RouteRenderer> = {
 }
 
 const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) => string }> = [
+  {
+    pattern: /^\/fcs\/craft\/cutting\/marker-edit\/([^/]+)$/,
+    render: (match) => renderCraftCuttingMarkerPlanEditPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/craft\/cutting\/marker-detail\/([^/]+)$/,
+    render: (match) => renderCraftCuttingMarkerPlanDetailPage(match[1]),
+  },
   {
     pattern: /^\/pcs\/templates\/([^/]+)\/edit$/,
     render: (match) => renderPcsTemplateEditPage(match[1]),
