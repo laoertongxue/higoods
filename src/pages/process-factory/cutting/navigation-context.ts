@@ -20,6 +20,7 @@ export type CuttingNavigationTarget =
   | 'replenishment'
   | 'specialProcesses'
   | 'materialPrep'
+  | 'markerPlan'
   | 'markerSpreading'
   | 'feiTickets'
   | 'originalOrders'
@@ -76,7 +77,7 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
   replenishment: '补料管理',
   'special-processes': '特殊工艺',
   'material-prep': '仓库配料领料',
-  'marker-spreading': '唛架铺布',
+  'marker-spreading': '铺布记录',
   'fei-tickets': '打印菲票',
   'original-orders': '原始裁片单',
   'production-progress': '生产单进度',
@@ -92,7 +93,8 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   replenishment: '去补料管理',
   specialProcesses: '去特殊工艺',
   materialPrep: '去仓库配料领料',
-  markerSpreading: '去唛架铺布',
+  markerPlan: '去唛架',
+  markerSpreading: '去铺布',
   feiTickets: '去打印菲票',
   originalOrders: '去原始裁片单',
   productionProgress: '去生产单进度',
@@ -107,7 +109,7 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
 
 const blockerSectionLabelMap: Record<string, string> = {
   MATERIAL_PREP: '配料领料',
-  SPREADING: '唛架铺布',
+  SPREADING: '铺布',
   REPLENISHMENT: '补料',
   FEI_TICKETS: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
@@ -294,6 +296,12 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'replenishment') return getCanonicalCuttingPath('replenishment')
   if (target === 'specialProcesses') return getCanonicalCuttingPath('special-processes')
   if (target === 'materialPrep') return getCanonicalCuttingPath('material-prep')
+  if (target === 'markerPlan') {
+    if (context.autoOpenDetail && context.markerId) {
+      return `${getCanonicalCuttingPath('marker-detail')}/${encodeURIComponent(context.markerId)}`
+    }
+    return getCanonicalCuttingPath('marker-list')
+  }
   if (target === 'originalOrders') return getCanonicalCuttingPath('original-orders')
   if (target === 'productionProgress') return getCanonicalCuttingPath('production-progress')
   if (target === 'transferBags') {
@@ -310,9 +318,6 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'dyeing') return '/fcs/craft/dyeing/work-orders'
 
   if (target === 'markerSpreading') {
-    if (context.autoOpenDetail && (context.markerId || context.markerNo)) {
-      return getCanonicalCuttingPath('marker-detail')
-    }
     return getCanonicalCuttingPath('marker-spreading')
   }
 

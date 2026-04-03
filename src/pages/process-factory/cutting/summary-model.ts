@@ -346,7 +346,7 @@ export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, Cutting
     label: '铺布 / 补料问题',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
     detailText: '铺布差异、补料待审核或待执行动作。',
-    actionHint: '去唛架铺布或补料管理',
+    actionHint: '去唛架、去铺布或补料管理',
   },
   TICKET_QR: {
     key: 'TICKET_QR',

@@ -14,7 +14,7 @@ import {
 import {
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   deserializeMarkerSpreadingStorage,
-  type MarkerSpreadingStore,
+  type MarkerSpreadingLedgerSummary,
 } from './marker-spreading-model.ts'
 import {
   DEFAULT_SINGLE_SPREAD_FIXED_LOSS,
@@ -30,7 +30,9 @@ import {
   type MarkerMappingStatusKey,
   type MarkerModeDetailLine,
   type MarkerPlan,
+  type MarkerPlanAllocationLike,
   type MarkerPlanContextType,
+  type MarkerPlanLike,
   type MarkerPlanModeKey,
   type MarkerPlanStatusKey,
   type MarkerPlanTabKey,
@@ -122,7 +124,9 @@ function listReferencedOriginalCutOrderIdsFromSpreadingStorage(
 ): string[] {
   if (!storage) return []
   try {
-    const store = deserializeMarkerSpreadingStorage(storage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY))
+    const store = deserializeMarkerSpreadingStorage(
+      storage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY),
+    ) as MarkerSpreadingLedgerSummary
     return uniqueStrings(
       store.sessions.flatMap((session) => [
         ...(session.originalCutOrderIds || []),
@@ -135,7 +139,7 @@ function listReferencedOriginalCutOrderIdsFromSpreadingStorage(
 }
 
 function listReferencedOriginalCutOrderIdsFromMarkerStore(
-  store: Pick<MarkerSpreadingStore, 'sessions'> | null | undefined,
+  store: MarkerSpreadingLedgerSummary | null | undefined,
 ): string[] {
   if (!store?.sessions?.length) return []
   return uniqueStrings(
@@ -665,46 +669,40 @@ function buildAutoAllocationRows(context: MarkerPlanContextCandidate, sizeRatioR
   return rows
 }
 
-function adaptPlanToLegacyMarkerShape(plan: MarkerPlan) {
+function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
+  const allocationLines: MarkerPlanAllocationLike[] = plan.allocationRows.map((row) => ({
+    allocationId: row.id,
+    sourceCutOrderId: row.sourceCutOrderId,
+    sourceCutOrderNo: row.sourceCutOrderId,
+    sourceProductionOrderId: row.sourceProductionOrderId,
+    sourceProductionOrderNo: row.sourceProductionOrderId,
+    styleCode: row.styleCode,
+    spuCode: row.spuCode,
+    techPackSpuCode: row.techPackSpu,
+    color: row.colorCode,
+    materialSku: row.materialSku,
+    sizeLabel: row.sizeCode,
+    plannedGarmentQty: row.garmentQty,
+    note: row.note,
+  }))
+
   return {
-    markerId: plan.id,
     originalCutOrderIds: plan.originalCutOrderIds,
     techPackSpuCode: plan.techPackSpu,
     spuCode: plan.spuCode,
-    materialSkuSummary: plan.materialSkuSummary,
-    colorSummary: plan.colorSummary,
     sizeDistribution: plan.sizeRatioRows.map((row) => ({
       sizeLabel: row.sizeCode,
       quantity: row.qty,
     })),
-    allocationLines: plan.allocationRows.map((row) => ({
-      allocationId: row.id,
-      markerId: plan.id,
-      sourceCutOrderId: row.sourceCutOrderId,
-      sourceCutOrderNo: row.sourceCutOrderId,
-      sourceProductionOrderId: row.sourceProductionOrderId,
-      sourceProductionOrderNo: row.sourceProductionOrderId,
-      styleCode: row.styleCode,
-      spuCode: row.spuCode,
-      techPackSpuCode: row.techPackSpu,
-      color: row.colorCode,
-      materialSku: row.materialSku,
-      sizeLabel: row.sizeCode,
-      plannedGarmentQty: row.garmentQty,
-      note: row.note,
-    })),
+    allocationLines,
   }
 }
 
 function buildPieceExplosionRows(plan: MarkerPlan, context: MarkerPlanContextCandidate): MarkerPieceExplosionRow[] {
   const rowsById = Object.fromEntries(context.sourceMaterialPrepRows.map((row) => [row.originalCutOrderId, row]))
-  const sourceRows = buildMarkerAllocationSourceRows(adaptPlanToLegacyMarkerShape(plan) as never, rowsById)
-  const legacyMarker = {
-    ...adaptPlanToLegacyMarkerShape(plan),
-    techPackSpuCode: plan.techPackSpu,
-    spuCode: plan.spuCode,
-  } as never
-  const explosion = buildMarkerPieceExplosionViewModel({ marker: legacyMarker, sourceRows })
+  const markerExplosionInput = adaptPlanToMarkerExplosionInput(plan)
+  const sourceRows = buildMarkerAllocationSourceRows(markerExplosionInput, rowsById)
+  const explosion = buildMarkerPieceExplosionViewModel({ marker: markerExplosionInput, sourceRows })
   const sourceRowMap = Object.fromEntries(context.sourceGeneratedRows.map((row) => [row.originalCutOrderNo, row]))
   const previousOverrides = Object.fromEntries(
     (plan.pieceExplosionRows || [])

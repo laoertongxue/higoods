@@ -190,8 +190,8 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
     <div class="flex flex-wrap items-center gap-2">
       ${renderActionButton('返回可裁排产', 'data-merge-batches-action="go-cuttable-pool"')}
       ${renderActionButton(
-        '去唛架铺布',
-        `data-merge-batches-action="go-marker-spreading"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
+        '去唛架',
+        `data-merge-batches-action="go-marker-plan"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
         'primary',
         !activeBatch,
       )}
@@ -567,17 +567,16 @@ function buildRouteWithQuery(path: string, params: Record<string, string | undef
   return query ? `${path}?${query}` : path
 }
 
-function goMarkerSpreading(batchId: string | undefined): boolean {
+function goMarkerPlan(batchId: string | undefined): boolean {
   if (!batchId) {
-    setFeedback('warning', '请先选择一个批次，再进入唛架铺布。')
+    setFeedback('warning', '请先选择一个批次，再进入唛架。')
     return true
   }
   const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
   appStore.navigate(
-    buildRouteWithQuery(getCanonicalCuttingPath('marker-spreading'), {
+    buildRouteWithQuery(getCanonicalCuttingPath('marker-list'), {
       mergeBatchId: batchId,
       mergeBatchNo: batch?.mergeBatchNo,
-      tab: 'spreadings',
     }),
   )
   return true
@@ -649,8 +648,8 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'go-marker-spreading') {
-    return goMarkerSpreading(actionNode.dataset.batchId || state.activeBatchId)
+  if (action === 'go-marker-plan' || action === 'go-marker-spreading') {
+    return goMarkerPlan(actionNode.dataset.batchId || state.activeBatchId)
   }
 
   if (action === 'go-original-orders-batch') {

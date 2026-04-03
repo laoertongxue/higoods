@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
+async function clickMarkerPlanTab(page: import('@playwright/test').Page, tabKey: string) {
+  await page.locator(`[data-marker-plan-tab-trigger="${tabKey}"]`).evaluate((node: HTMLElement) => node.click())
+}
+
 async function openCreateFromOriginalContext(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/fcs/craft/cutting/marker-list')
   await page.getByRole('button', { name: '从原始裁片单新建' }).click()
@@ -26,7 +30,7 @@ test('唛架新增页字段控件类型准确，详情页保持只读呈现', as
   await expect(basicTab.locator('input[data-marker-plan-basic-field="manualUnitUsage"][type="number"]')).toBeVisible()
   await expect(basicTab.locator('label:has-text("备注") textarea')).toBeVisible()
 
-  await page.locator('[data-marker-plan-tab-trigger="allocation"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'allocation')
   const allocationTab = page.getByTestId('marker-plan-allocation-tab')
   const allocationRow = allocationTab.locator('tbody tr').nth(0)
   await expect(allocationRow.locator('select[data-marker-plan-allocation-field="sourceCutOrderId"]')).toBeVisible()
@@ -35,7 +39,7 @@ test('唛架新增页字段控件类型准确，详情页保持只读呈现', as
   await expect(allocationRow.locator('select[data-marker-plan-allocation-field="specialFlags"]')).toBeVisible()
   await expect(allocationRow.locator('input[data-marker-plan-allocation-field="note"][type="text"]')).toBeVisible()
 
-  await page.locator('[data-marker-plan-tab-trigger="layout"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'layout')
   await expect(createPage.locator('input[data-marker-plan-layout-field="markerLength"][type="number"]').first()).toBeVisible()
   await expect(createPage.locator('input[data-marker-plan-layout-field="layoutCode"][type="text"]').first()).toBeVisible()
 

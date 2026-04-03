@@ -121,7 +121,7 @@ import {
   type CuttingNavigationTarget,
 } from './navigation-context'
 
-type ListTabKey = 'MARKERS' | 'SPREADINGS'
+type ListTabKey = 'SPREADINGS'
 type FeedbackTone = 'success' | 'warning'
 type MarkerModeFilter = 'ALL' | MarkerModeKey
 type ContextTypeFilter = 'ALL' | 'original-order' | 'merge-batch'
@@ -243,7 +243,7 @@ const state: MarkerSpreadingPageState = {
   querySignature: '',
   prefilter: null,
   drillContext: null,
-  activeTab: 'MARKERS',
+  activeTab: 'SPREADINGS',
   keyword: '',
   markerModeFilter: 'ALL',
   contextTypeFilter: 'ALL',
@@ -1110,7 +1110,7 @@ function parsePrefilterFromPath(): MarkerSpreadingPrefilter | null {
 }
 
 function parseListTabFromPath(): ListTabKey {
-  return getSearchParams().get('tab') === 'spreadings' ? 'SPREADINGS' : 'MARKERS'
+  return 'SPREADINGS'
 }
 
 function syncStateFromPath(): void {
@@ -1556,32 +1556,21 @@ function renderFilterBar(): string {
 }
 
 function renderListTabs(): string {
-  const tabClass = (active: boolean) =>
-    active
-      ? 'border-blue-500 bg-blue-50 text-blue-700'
-      : 'border-transparent bg-muted/30 text-muted-foreground hover:border-slate-200 hover:bg-muted'
-
-  return `
-    <section class="flex flex-wrap gap-2">
-      <button type="button" class="rounded-full border px-4 py-2 text-sm font-medium ${tabClass(state.activeTab === 'MARKERS')}" data-cutting-marker-action="set-tab" data-tab="markers">唛架记录</button>
-      <button type="button" class="rounded-full border px-4 py-2 text-sm font-medium ${tabClass(state.activeTab === 'SPREADINGS')}" data-cutting-marker-action="set-tab" data-tab="spreadings">铺布记录</button>
-    </section>
-  `
+  return ''
 }
 
 function renderListStats(): string {
-  const { markerRows, spreadingRows } = getPageData()
-  const mergeBatchMarkerCount = markerRows.filter((row) => row.contextType === 'merge-batch').length
-  const originalMarkerCount = markerRows.filter((row) => row.contextType === 'original-order').length
+  const { spreadingRows } = getPageData()
   const inProgressCount = spreadingRows.filter((row) => row.statusLabel === '进行中').length
   const doneCount = spreadingRows.filter((row) => row.statusLabel === '已完成').length
+  const mergeBatchSpreadingCount = spreadingRows.filter((row) => row.contextType === 'merge-batch').length
+  const originalSpreadingCount = spreadingRows.filter((row) => row.contextType === 'original-order').length
 
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-      ${renderCompactKpiCard('唛架记录数', markerRows.length, '当前列表视图', 'text-slate-900')}
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('铺布记录数', spreadingRows.length, '包含草稿 / 进行中 / 已完成', 'text-blue-600')}
-      ${renderCompactKpiCard('原始单上下文唛架', originalMarkerCount, '按原始裁片单查看', 'text-emerald-600')}
-      ${renderCompactKpiCard('批次上下文唛架', mergeBatchMarkerCount, '按执行批次查看', 'text-violet-600')}
+      ${renderCompactKpiCard('原始单上下文铺布', originalSpreadingCount, '按原始裁片单查看', 'text-emerald-600')}
+      ${renderCompactKpiCard('批次上下文铺布', mergeBatchSpreadingCount, '按执行批次查看', 'text-violet-600')}
       ${renderCompactKpiCard('进行中铺布', inProgressCount, '仍可继续补录卷和人员', 'text-amber-600')}
       ${renderCompactKpiCard('已完成铺布', doneCount, '已形成执行记录', 'text-sky-600')}
     </section>
@@ -1600,7 +1589,7 @@ function renderContextCell(contextLabel: string, originalCutOrderNos: string[], 
 
 function renderMarkerTable(rows: MarkerListRow[]): string {
   if (!rows.length) {
-    return '<section class="rounded-lg border border-dashed bg-card px-6 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无唛架记录，可先新建唛架或从原始裁片单 / 批次上下文进入。</section>'
+    return '<section class="rounded-lg border border-dashed bg-card px-6 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无计划记录。</section>'
   }
 
   return renderStickyTableScroller(`
@@ -1644,7 +1633,7 @@ function renderMarkerTable(rows: MarkerListRow[]): string {
                   <div class="flex flex-wrap gap-2">
                     <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="open-marker-detail" data-marker-id="${escapeHtml(row.markerId)}">查看详情</button>
                     <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="open-marker-edit" data-marker-id="${escapeHtml(row.markerId)}">编辑</button>
-                    <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="create-marker-from-context" data-marker-id="${escapeHtml(row.markerId)}">新建唛架</button>
+                    <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="create-marker-from-context" data-marker-id="${escapeHtml(row.markerId)}">复制为新计划</button>
                     <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="create-spreading-from-marker" data-marker-id="${escapeHtml(row.markerId)}">从唛架导入铺布</button>
                   </div>
                 </td>
@@ -1755,13 +1744,12 @@ function renderSpreadingTable(rows: SpreadingListRow[]): string {
 function renderListPage(): string {
   const pathname = getCurrentPathname()
   const meta = getCanonicalCuttingMeta(pathname, 'marker-spreading')
-  const { markerRows, spreadingRows } = getPageData()
+  const { spreadingRows } = getPageData()
 
   return `
     <div class="space-y-3 p-4">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
-          '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="create-marker">新建唛架</button>',
           '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="create-spreading">新建铺布</button>',
         ])),
       })}
@@ -1770,8 +1758,7 @@ function renderListPage(): string {
       ${renderImportDecisionPanel()}
       ${renderPrefilterBar()}
       ${renderFilterBar()}
-      ${renderListTabs()}
-      ${state.activeTab === 'MARKERS' ? renderMarkerTable(markerRows) : renderSpreadingTable(spreadingRows)}
+      ${renderSpreadingTable(spreadingRows)}
     </div>
   `
 }
@@ -2359,7 +2346,7 @@ function renderMarkerDetailPage(): string {
             '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="markers">返回列表</button>',
           ])),
         })}
-        <section class="rounded-lg border border-dashed bg-card px-6 py-10 text-center text-sm text-muted-foreground">未找到对应唛架记录，请返回列表重新选择。</section>
+        <section class="rounded-lg border border-dashed bg-card px-6 py-10 text-center text-sm text-muted-foreground">未找到对应计划记录，请返回列表重新选择。</section>
       </div>
     `
   }
@@ -3744,14 +3731,12 @@ function renderPage(): string {
   syncStateFromPath()
   const pathname = getCurrentPathname()
 
-  if (pathname === getCanonicalCuttingPath('marker-detail')) return renderMarkerDetailPage()
-  if (pathname === getCanonicalCuttingPath('marker-edit')) return renderMarkerEditPage()
   if (pathname === getCanonicalCuttingPath('spreading-detail')) return renderSpreadingDetailPage()
   if (pathname === getCanonicalCuttingPath('spreading-edit')) return renderSpreadingEditPage()
   return renderListPage()
 }
 
-function buildListRoute(tab: ListTabKey = state.activeTab): string {
+function buildListRoute(): string {
   return buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-spreading'), {
     originalCutOrderId: state.prefilter?.originalCutOrderId,
     originalCutOrderNo: state.prefilter?.originalCutOrderNo,
@@ -3760,7 +3745,6 @@ function buildListRoute(tab: ListTabKey = state.activeTab): string {
     productionOrderNo: state.prefilter?.productionOrderNo,
     styleCode: state.prefilter?.styleCode,
     materialSku: state.prefilter?.materialSku,
-    tab: tab === 'SPREADINGS' ? 'spreadings' : 'markers',
   })
 }
 
@@ -3823,7 +3807,10 @@ function navigateToMarkerPage(target: 'detail' | 'edit', markerId: string | unde
   if (!markerId) return false
   const row = getMarkerRow(markerId)
   if (!row) return false
-  const path = target === 'detail' ? getCanonicalCuttingPath('marker-detail') : getCanonicalCuttingPath('marker-edit')
+  const path =
+    target === 'detail'
+      ? `${getCanonicalCuttingPath('marker-detail')}/${encodeURIComponent(row.markerId)}`
+      : `${getCanonicalCuttingPath('marker-edit')}/${encodeURIComponent(row.markerId)}`
   appStore.navigate(buildMarkerRouteWithContext(path, buildContextPayloadFromMarker(row.record)))
   return true
 }
@@ -4005,7 +3992,7 @@ function saveCurrentMarker(goDetail: boolean, successMessage?: string): boolean 
   persistMarkerSpreadingStore(nextStore)
   const saved = nextStore.markers.find((item) => item.markerId === draft.markerId) || draft
   state.markerDraft = ensureMarkerDraftShape(cloneMarkerRecord(saved))
-  state.feedback = { tone: 'success', message: successMessage || `${saved.markerNo || '唛架记录'} 已保存。` }
+  state.feedback = { tone: 'success', message: successMessage || `${saved.markerNo || '计划记录'} 已保存。` }
 
   if (goDetail) {
     appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-detail'), buildContextPayloadFromMarker(saved)))
@@ -4288,11 +4275,16 @@ function closeMarkerEditOverlay(): boolean {
   if (markerId) {
     const row = getMarkerRow(markerId)
     if (row) {
-      appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-detail'), buildContextPayloadFromMarker(row.record)))
+      appStore.navigate(
+        buildMarkerRouteWithContext(
+          `${getCanonicalCuttingPath('marker-detail')}/${encodeURIComponent(row.markerId)}`,
+          buildContextPayloadFromMarker(row.record),
+        ),
+      )
       return true
     }
   }
-  appStore.navigate(buildListRoute('MARKERS'))
+  appStore.navigate(getCanonicalCuttingPath('marker-list'))
   return true
 }
 
@@ -4305,7 +4297,7 @@ function closeSpreadingEditOverlay(): boolean {
       return true
     }
   }
-  appStore.navigate(buildListRoute('SPREADINGS'))
+  appStore.navigate(buildListRoute())
   return true
 }
 
@@ -4659,18 +4651,18 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'set-tab') {
-    state.activeTab = actionNode.dataset.tab === 'spreadings' ? 'SPREADINGS' : 'MARKERS'
+    state.activeTab = 'SPREADINGS'
     return true
   }
 
   if (action === 'go-list') {
-    appStore.navigate(buildListRoute(actionNode.dataset.tab === 'spreadings' ? 'SPREADINGS' : 'MARKERS'))
+    appStore.navigate(buildListRoute())
     return true
   }
 
   if (action === 'create-marker') {
     appStore.navigate(
-      buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-edit'), {
+      buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-create'), {
         originalCutOrderId: state.prefilter?.originalCutOrderId,
         originalCutOrderNo: state.prefilter?.originalCutOrderNo,
         mergeBatchId: state.prefilter?.mergeBatchId,
@@ -4704,7 +4696,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     if (!markerId) return false
     const row = getMarkerRow(markerId)
     if (!row) return false
-    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-edit'), buildMarkerNavigationPayload(row)))
+    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-create'), buildMarkerNavigationPayload(row)))
     return true
   }
 

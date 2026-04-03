@@ -360,7 +360,7 @@ function renderHeaderActions(): string {
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress-index">返回生产单进度</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep-index">去仓库配料领料</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading-index">去唛架铺布</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan-index">去唛架</button>
       ${returnToSummary}
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-summary-index">查看裁剪总表</button>
     </div>
@@ -640,7 +640,7 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                               <div class="flex flex-wrap gap-2">
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">查看配料</button>
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
+                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
                               </div>
                             </td>
@@ -719,7 +719,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   const extraButtons = `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去配料</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
     </div>
   `
@@ -888,7 +888,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               <p class="mt-1">当前已可查看铺布记录数、卷记录数、人员记录数、最近铺布记录与补料预警摘要，并继续跳转到铺布页或补料页处理。</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
             </div>
           </div>
@@ -926,7 +926,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         `
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去唛架铺布</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
@@ -990,12 +990,13 @@ function renderPage(): string {
 
 function navigateToRecordTarget(
   recordId: string | undefined,
-  target: keyof OriginalCutOrderRow['navigationPayload'],
+  target: keyof OriginalCutOrderRow['navigationPayload'] | 'markerPlan',
 ): boolean {
   if (!recordId) return false
   const row = getViewModel().rowsById[recordId]
   if (!row) return false
-  const context = normalizeLegacyCuttingPayload(row.navigationPayload[target], 'original-orders', {
+  const payload = target === 'markerPlan' ? row.navigationPayload.markerSpreading : row.navigationPayload[target]
+  const context = normalizeLegacyCuttingPayload(payload, 'original-orders', {
     productionOrderId: row.productionOrderId,
     productionOrderNo: row.productionOrderNo,
     originalCutOrderId: row.originalCutOrderId,
@@ -1007,7 +1008,16 @@ function navigateToRecordTarget(
     autoOpenDetail: true,
     focusTab: target === 'markerSpreading' ? 'spreadings' : undefined,
   })
-  appStore.navigate(buildCuttingRouteWithContext(target === 'sameProductionOrders' ? 'originalOrders' : (target as CuttingNavigationTarget), context))
+  appStore.navigate(
+    buildCuttingRouteWithContext(
+      target === 'sameProductionOrders'
+        ? 'originalOrders'
+        : target === 'markerPlan'
+          ? 'markerPlan'
+          : (target as CuttingNavigationTarget),
+      context,
+    ),
+  )
   return true
 }
 
@@ -1090,7 +1100,11 @@ export function handleCraftCuttingOriginalOrdersEvent(target: Element): boolean 
     return navigateToRecordTarget(actionNode.dataset.recordId, 'materialPrep')
   }
 
-  if (action === 'go-marker-spreading') {
+  if (action === 'go-marker-plan' || action === 'go-marker-spreading') {
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'markerPlan')
+  }
+
+  if (action === 'go-spreading') {
     return navigateToRecordTarget(actionNode.dataset.recordId, 'markerSpreading')
   }
 
@@ -1131,8 +1145,8 @@ export function handleCraftCuttingOriginalOrdersEvent(target: Element): boolean 
     return true
   }
 
-  if (action === 'go-marker-spreading-index') {
-    appStore.navigate(buildRouteWithQuery(getCanonicalCuttingPath('marker-spreading'), { tab: 'spreadings' }))
+  if (action === 'go-marker-plan-index') {
+    appStore.navigate(getCanonicalCuttingPath('marker-list'))
     return true
   }
 

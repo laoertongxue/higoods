@@ -6,7 +6,11 @@ import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-pro
 import { listMergeBatchSourceRecords } from '../../../data/fcs/cutting/merge-batch-source.ts'
 import type { CuttingOrderProgressRecord } from '../../../data/fcs/cutting/types.ts'
 import type { CuttingSummaryBuildOptions } from './summary-model.ts'
-import { createEmptyStore, type MarkerSpreadingStore } from './marker-spreading-model.ts'
+import {
+  createEmptyStore,
+  type MarkerSpreadingLedgerSummary,
+  type MarkerSpreadingStore,
+} from './marker-spreading-model.ts'
 import { buildMaterialPrepViewModel } from './material-prep-model.ts'
 import {
   buildSystemSeedMergeBatches,
@@ -104,7 +108,7 @@ function buildMarkerPlanSeedMarkerStore(options: {
 
   return {
     ...store,
-    sessions: sessions as unknown as MarkerSpreadingStore['sessions'],
+    sessions: sessions as MarkerSpreadingLedgerSummary['sessions'] as unknown as MarkerSpreadingStore['sessions'],
   }
 }
 

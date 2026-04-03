@@ -172,6 +172,10 @@ const LIST_PATH = '/fcs/craft/cutting/marker-list'
 const CREATE_PATH = '/fcs/craft/cutting/marker-create'
 const EDIT_BASE_PATH = '/fcs/craft/cutting/marker-edit'
 const DETAIL_BASE_PATH = '/fcs/craft/cutting/marker-detail'
+const MARKER_PLAN_TOP_INFO_OFFSET_VAR = '--marker-plan-top-info-offset'
+
+let markerPlanTopInfoResizeObserver: ResizeObserver | null = null
+let markerPlanStickyResizeBound = false
 
 function getCurrentPathname(): string {
   return appStore.getState().pathname
@@ -214,6 +218,55 @@ function buildExportTimestamp(date = new Date()): string {
   const minutes = `${date.getMinutes()}`.padStart(2, '0')
   const seconds = `${date.getSeconds()}`.padStart(2, '0')
   return `${year}${month}${day}-${hours}${minutes}${seconds}`
+}
+
+function updateMarkerPlanStickyOffsetFromDom(): void {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  const shell = document.querySelector<HTMLElement>('[data-marker-plan-top-shell]')
+
+  if (!shell) {
+    root.style.removeProperty(MARKER_PLAN_TOP_INFO_OFFSET_VAR)
+    markerPlanTopInfoResizeObserver?.disconnect()
+    markerPlanTopInfoResizeObserver = null
+    return
+  }
+
+  const topOffset = 8
+  const gapOffset = 8
+  const shellHeight = Math.ceil(shell.getBoundingClientRect().height)
+  root.style.setProperty(MARKER_PLAN_TOP_INFO_OFFSET_VAR, `${shellHeight + topOffset + gapOffset}px`)
+}
+
+function syncMarkerPlanStickyOffset(): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+
+  window.requestAnimationFrame(() => {
+    updateMarkerPlanStickyOffsetFromDom()
+
+    const shell = document.querySelector<HTMLElement>('[data-marker-plan-top-shell]')
+    markerPlanTopInfoResizeObserver?.disconnect()
+    markerPlanTopInfoResizeObserver = null
+
+    if (shell && typeof ResizeObserver !== 'undefined') {
+      markerPlanTopInfoResizeObserver = new ResizeObserver(() => updateMarkerPlanStickyOffsetFromDom())
+      markerPlanTopInfoResizeObserver.observe(shell)
+    }
+
+    if (!markerPlanStickyResizeBound) {
+      window.addEventListener('resize', () => window.requestAnimationFrame(updateMarkerPlanStickyOffsetFromDom), {
+        passive: true,
+      })
+      markerPlanStickyResizeBound = true
+    }
+  })
+}
+
+function clearMarkerPlanStickyOffset(): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.style.removeProperty(MARKER_PLAN_TOP_INFO_OFFSET_VAR)
+  markerPlanTopInfoResizeObserver?.disconnect()
+  markerPlanTopInfoResizeObserver = null
 }
 
 function formatNumber(value: number, digits = 2): string {
@@ -961,6 +1014,7 @@ function renderPlanTopInfo(
   context: MarkerPlanContextCandidate | null,
   options: { showActionRow?: boolean } = {},
 ): string {
+  syncMarkerPlanStickyOffset()
   const { showActionRow = true } = options
   const totalPiecesFormula = 'totalPiecesFormula' in plan ? plan.totalPiecesFormula : buildMarkerTotalPiecesFormula(plan.sizeRatioRows)
   const systemUnitUsageFormula =
@@ -1071,6 +1125,7 @@ function renderPlanTopInfo(
       </div>
     `,
     'top-2 z-20 pointer-events-none',
+    'data-marker-plan-top-shell',
   )
 }
 
@@ -1107,7 +1162,8 @@ function renderTabNav(activeTab: MarkerPlanTabKey): string {
           .join('')}
       </div>
     `,
-    'top-[32rem] xl:top-[28rem] 2xl:top-[24rem] z-30',
+    'z-30',
+    `data-marker-plan-tab-shell style="top: var(${MARKER_PLAN_TOP_INFO_OFFSET_VAR}, 28rem);"`,
   )
 }
 
@@ -2844,6 +2900,7 @@ function renderContextDrawer(viewModel = getViewModel()): string {
 }
 
 function renderListPage(viewModel = getViewModel()): string {
+  clearMarkerPlanStickyOffset()
   const meta = getCanonicalCuttingMeta(getCurrentBasePath(), 'marker-list')
   const filteredPlans = filterPlans(viewModel.plans, state.listTab)
   const filteredPending = filterContexts(viewModel.pendingContexts)
@@ -2924,7 +2981,7 @@ function renderCreatePage(viewModel = getViewModel()): string {
 }
 
 function renderEditPage(viewModel = getViewModel(), id = parseRoute().id): string {
-  const meta = getCanonicalCuttingMeta(getCurrentBasePath(), 'marker-plan-edit')
+  const meta = getCanonicalCuttingMeta(getCurrentBasePath(), 'marker-edit')
   const sourcePlan = viewModel.plansById[id] ?? null
   return `
     <div class="space-y-4 p-4" data-testid="cutting-marker-plan-edit-page">
@@ -2939,7 +2996,7 @@ function renderEditPage(viewModel = getViewModel(), id = parseRoute().id): strin
 }
 
 function renderDetailPage(viewModel = getViewModel(), id = parseRoute().id): string {
-  const meta = getCanonicalCuttingMeta(getCurrentBasePath(), 'marker-plan-detail')
+  const meta = getCanonicalCuttingMeta(getCurrentBasePath(), 'marker-detail')
   const plan = viewModel.plansById[id] ?? null
   const context = plan ? findMarkerPlanContextForPlan(viewModel.contexts, plan) : null
   return `

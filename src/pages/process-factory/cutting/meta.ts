@@ -15,8 +15,6 @@ export type CuttingCanonicalPageKey =
   | 'material-prep'
   | 'marker-list'
   | 'marker-create'
-  | 'marker-plan-detail'
-  | 'marker-plan-edit'
   | 'marker-spreading'
   | 'marker-detail'
   | 'marker-edit'
@@ -124,35 +122,15 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     isPlaceholder: false,
     shortDescription: '从原始裁片单或合并裁剪批次新建唛架计划。',
   },
-  'marker-plan-detail': {
-    key: 'marker-plan-detail',
-    canonicalPath: '/fcs/craft/cutting/marker-detail/:id',
-    aliases: [],
-    menuGroupTitle: '裁片执行准备',
-    pageTitle: '唛架详情',
-    pageSubtitle: '',
-    isPlaceholder: false,
-    shortDescription: '查看唛架计划详情。',
-  },
-  'marker-plan-edit': {
-    key: 'marker-plan-edit',
-    canonicalPath: '/fcs/craft/cutting/marker-edit/:id',
-    aliases: [],
-    menuGroupTitle: '裁片执行准备',
-    pageTitle: '编辑唛架',
-    pageSubtitle: '',
-    isPlaceholder: false,
-    shortDescription: '编辑唛架计划。',
-  },
   'marker-spreading': {
     key: 'marker-spreading',
     canonicalPath: '/fcs/craft/cutting/marker-spreading',
     aliases: [],
     menuGroupTitle: '裁片执行准备',
-    pageTitle: '唛架铺布',
+    pageTitle: '铺布记录',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看唛架与铺布记录。',
+    shortDescription: '查看铺布记录与执行状态。',
   },
   'marker-detail': {
     key: 'marker-detail',
@@ -162,17 +140,17 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '唛架详情',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看唛架明细。',
+    shortDescription: '查看唛架计划详情。',
   },
   'marker-edit': {
     key: 'marker-edit',
     canonicalPath: '/fcs/craft/cutting/marker-edit',
     aliases: [],
     menuGroupTitle: '裁片执行准备',
-    pageTitle: '唛架编辑',
+    pageTitle: '编辑唛架',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '编辑唛架。',
+    shortDescription: '编辑唛架计划。',
   },
   'spreading-detail': {
     key: 'spreading-detail',

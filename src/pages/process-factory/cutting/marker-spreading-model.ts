@@ -467,6 +467,17 @@ export interface MarkerSpreadingStore {
   sessions: SpreadingSession[]
 }
 
+export interface MarkerSpreadingSessionReferenceSummary {
+  originalCutOrderIds?: string[]
+  completionLinkage?: {
+    linkedOriginalCutOrderIds?: string[]
+  } | null
+}
+
+export interface MarkerSpreadingLedgerSummary {
+  sessions: MarkerSpreadingSessionReferenceSummary[]
+}
+
 export interface MarkerSpreadingStats {
   markerCount: number
   sessionCount: number

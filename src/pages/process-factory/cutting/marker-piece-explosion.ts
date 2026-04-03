@@ -1,6 +1,10 @@
 import { getTechPackBySpuCode, type TechPack } from '../../../data/fcs/tech-packs.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
-import type { MarkerAllocationLine, MarkerRecord } from './marker-spreading-model.ts'
+import type {
+  MarkerPlanAllocationLike,
+  MarkerPlanExplosionInput,
+  MarkerPlanLike,
+} from './marker-plan-domain.ts'
 
 export type MarkerPieceMappingStatus =
   | 'MATCHED'
@@ -113,6 +117,19 @@ export interface MarkerPieceExplosionViewModel {
   totals: MarkerPieceExplosionTotals
 }
 
+type MarkerPieceExplosionSourceRow = Pick<
+  MaterialPrepRow,
+  | 'originalCutOrderId'
+  | 'originalCutOrderNo'
+  | 'productionOrderId'
+  | 'productionOrderNo'
+  | 'styleCode'
+  | 'spuCode'
+  | 'techPackSpuCode'
+  | 'color'
+  | 'materialSkuSummary'
+>
+
 function normalizeText(value: string | undefined | null): string {
   return String(value || '').trim()
 }
@@ -140,7 +157,7 @@ function getMappingStatusLabel(status: MarkerPieceMappingStatus): string {
   return mappingStatusLabels[status]
 }
 
-function buildAllocationSummaryText(lines: MarkerAllocationLine[]): string {
+function buildAllocationSummaryText(lines: MarkerPlanAllocationLike[]): string {
   if (!lines.length) return '待补分配'
   return lines
     .filter((line) => line.plannedGarmentQty > 0)
@@ -149,7 +166,7 @@ function buildAllocationSummaryText(lines: MarkerAllocationLine[]): string {
 }
 
 export function resolveMarkerTechPackLink(options: {
-  marker: Pick<MarkerRecord, 'techPackSpuCode' | 'spuCode'>
+  marker: Pick<MarkerPlanLike, 'techPackSpuCode' | 'spuCode'>
   sourceRow?: Pick<MaterialPrepRow, 'techPackSpuCode' | 'spuCode'> | null
 }): MarkerResolvedTechPackLink {
   const candidates: Array<{ value: string; sourceKey: MarkerResolvedTechPackLink['sourceKey'] }> = [
@@ -181,12 +198,12 @@ export function resolveMarkerTechPackLink(options: {
 }
 
 export function buildMarkerAllocationSourceRows(
-  marker: Pick<MarkerRecord, 'originalCutOrderIds' | 'allocationLines'>,
-  rowsById: Record<string, MaterialPrepRow>,
-): MaterialPrepRow[] {
+  marker: Pick<MarkerPlanLike, 'originalCutOrderIds' | 'allocationLines'>,
+  rowsById: Record<string, MarkerPieceExplosionSourceRow>,
+): MarkerPieceExplosionSourceRow[] {
   return marker.originalCutOrderIds
     .map((id) => rowsById[id])
-    .filter((row): row is MaterialPrepRow => Boolean(row))
+    .filter((row): row is MarkerPieceExplosionSourceRow => Boolean(row))
 }
 
 function resolveSkuCode(techPack: TechPack, color: string, sizeLabel: string): string {
@@ -235,10 +252,11 @@ function buildPieceRowsFromPatternFallback(
     .filter((item) => item.pieceName && item.pieceCountPerUnit > 0)
 }
 
-export function buildMarkerPieceExplosionViewModel(options: {
-  marker: MarkerRecord
-  sourceRows: MaterialPrepRow[]
-}): MarkerPieceExplosionViewModel {
+export function buildMarkerPieceExplosionViewModel(
+  options: MarkerPlanExplosionInput & {
+    sourceRows: MarkerPieceExplosionSourceRow[]
+  },
+): MarkerPieceExplosionViewModel {
   const sourceRowsById = Object.fromEntries(options.sourceRows.map((row) => [row.originalCutOrderId, row]))
   const allocationLines = options.marker.allocationLines || []
   const allocationSizeMap = new Map<string, number>()

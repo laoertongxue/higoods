@@ -39,6 +39,12 @@ test('唛架详情页使用只读信息块，不再展示 disabled input 大表�
   await expect(detailPage.getByRole('button', { name: '复制为新唛架' })).toBeVisible()
   await expect(detailPage.getByRole('button', { name: '去原始裁片单' })).toBeVisible()
 
+  await detailPage.locator('[data-marker-plan-tab-trigger="explosion"]').evaluate((node: HTMLElement) => node.click())
+  await expect(detailPage.locator('input')).toHaveCount(0)
+  await expect(detailPage.locator('textarea')).toHaveCount(0)
+  await expect(detailPage.locator('select')).toHaveCount(0)
+  await expect(detailPage.getByText('部位明细表')).toBeVisible()
+
   await detailPage.getByRole('button', { name: '返回列表' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/marker-list/)
 

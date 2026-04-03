@@ -137,8 +137,6 @@ import {
   renderCraftCuttingMarkerPlanEditPage,
   renderCraftCuttingMarkerPlanDetailPage,
   renderCraftCuttingMarkerSpreadingPage,
-  renderCraftCuttingMarkerDetailPage,
-  renderCraftCuttingMarkerEditPage,
   renderCraftCuttingSpreadingDetailPage,
   renderCraftCuttingSpreadingEditPage,
   renderCraftCuttingFeiTicketsPage,
@@ -296,8 +294,10 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/cutting/marker-create': () => renderCraftCuttingMarkerCreatePage(),
   '/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage(),
   '/fcs/craft/cutting/settlement-scoring': () => renderCuttingSettlementInputPage(),
-  '/fcs/craft/cutting/marker-detail': () => renderCraftCuttingMarkerDetailPage(),
-  '/fcs/craft/cutting/marker-edit': () => renderCraftCuttingMarkerEditPage(),
+  '/fcs/craft/cutting/marker-detail': () =>
+    renderRouteRedirect('/fcs/craft/cutting/marker-list', '正在跳转到唛架列表'),
+  '/fcs/craft/cutting/marker-edit': () =>
+    renderRouteRedirect('/fcs/craft/cutting/marker-list', '正在跳转到唛架列表'),
   '/fcs/craft/cutting/spreading-detail': () => renderCraftCuttingSpreadingDetailPage(),
   '/fcs/craft/cutting/spreading-edit': () => renderCraftCuttingSpreadingEditPage(),
   '/fcs/craft/cutting/fei-tickets': () => renderCraftCuttingFeiTicketsPage(),

@@ -2,6 +2,10 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
+async function clickMarkerPlanTab(page: Page, tabKey: string): Promise<void> {
+  await page.locator(`[data-marker-plan-tab-trigger="${tabKey}"]`).evaluate((node: HTMLElement) => node.click())
+}
+
 async function openPlanDetailByMode(page: Page, modeLabel: string): Promise<void> {
   await page.goto('/fcs/craft/cutting/marker-list')
   await page.getByRole('button', { name: '已建唛架' }).click()
@@ -20,7 +24,7 @@ async function openPlanDetailByMode(page: Page, modeLabel: string): Promise<void
   await expect(row).toBeVisible()
   await row.getByRole('button', { name: '查看' }).click()
   await expect(page.getByTestId('cutting-marker-plan-detail-page')).toBeVisible()
-  await page.locator('[data-marker-plan-tab-trigger="layout"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'layout')
 }
 
 test('四种唛架模式在排版计划页签中展示不同结构', async ({ page }) => {

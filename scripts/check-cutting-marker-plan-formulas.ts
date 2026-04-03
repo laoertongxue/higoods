@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import {
   buildMarkerAllocationDiffFormula,
   buildMarkerAllocationSumFormula,
@@ -44,6 +47,15 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 function main(): void {
+  const pieceExplosionSource = readFileSync(
+    fileURLToPath(new URL('../src/pages/process-factory/cutting/marker-piece-explosion.ts', import.meta.url)),
+    'utf-8',
+  )
+  assert(
+    !/marker-spreading-model(?:\.ts)?['"]/.test(pieceExplosionSource),
+    'marker-piece-explosion.ts 仍然直接依赖 marker-spreading-model.ts',
+  )
+
   const sizeRatioRows = createEmptySizeRatioRows().map((row) => {
     if (row.sizeCode === 'S') return { ...row, qty: 3 }
     if (row.sizeCode === 'M') return { ...row, qty: 5 }

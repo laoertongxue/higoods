@@ -16,6 +16,10 @@ async function fillSizeRatio(page: Page, sizeCode: string, qty: number): Promise
   await page.locator(`[data-marker-plan-action="change-size-ratio"][data-size-code="${sizeCode}"]`).fill(String(qty))
 }
 
+async function clickMarkerPlanTab(page: Page, tabKey: string): Promise<void> {
+  await page.locator(`[data-marker-plan-tab-trigger="${tabKey}"]`).evaluate((node: HTMLElement) => node.click())
+}
+
 test('新增唛架页支持上下文新建、公式联动、修正映射、模式切换、图片操作与完成计划', async ({ page }) => {
   const errors = collectPageErrors(page)
 
@@ -42,12 +46,12 @@ test('新增唛架页支持上下文新建、公式联动、修正映射、模�
     await fillSizeRatio(page, sizeCode, qty)
   }
 
-  await page.locator('[data-marker-plan-tab-trigger="allocation"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'allocation')
   const allocationTab = page.getByTestId('marker-plan-allocation-tab')
   await page.getByRole('button', { name: '一键按尺码配比生成' }).click()
   await expect(allocationTab.getByText('已配平', { exact: true }).first()).toBeVisible()
 
-  await page.locator('[data-marker-plan-tab-trigger="images"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'images')
   await page.getByRole('button', { name: '上传图片' }).click()
   await page.getByRole('button', { name: '上传图片' }).click()
   const imageCards = page.getByTestId('marker-plan-images-tab').locator('article')
@@ -71,7 +75,7 @@ test('新增唛架页支持上下文新建、公式联动、修正映射、模�
   await openCreatePageFromContext(page, '从合并批次新建')
   await expect(page.getByTestId('marker-plan-top-info')).toContainText('合并裁剪批次')
 
-  await page.locator('[data-marker-plan-tab-trigger="explosion"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'explosion')
   const explosionTab = page.getByTestId('marker-plan-explosion-tab')
   const repairButton = explosionTab.getByRole('button', { name: '修正映射' }).first()
   await expect(repairButton).toBeVisible()
@@ -85,10 +89,10 @@ test('新增唛架页支持上下文新建、公式联动、修正映射、模�
   await page.getByRole('button', { name: '保存映射' }).click()
   await expect(mappingDrawer).not.toBeVisible()
 
-  await page.locator('[data-marker-plan-tab-trigger="basic"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'basic')
   page.once('dialog', (dialog) => dialog.accept())
   await page.locator('[data-marker-plan-basic-field="markerMode"]').selectOption('fold_high_low')
-  await page.locator('[data-marker-plan-tab-trigger="layout"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'layout')
   await expect(page.getByTestId('marker-plan-fold-config')).toBeVisible()
   await expect(page.getByTestId('marker-plan-high-low-matrix')).toBeVisible()
   await expect(page.getByTestId('marker-plan-mode-detail-lines')).toBeVisible()

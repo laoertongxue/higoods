@@ -132,9 +132,9 @@ export function renderWorkbenchStateBar(options: {
   `
 }
 
-export function renderStickyFilterShell(content: string, extraClass = ''): string {
+export function renderStickyFilterShell(content: string, extraClass = '', extraAttrs = ''): string {
   return `
-    <section class="sticky top-2 z-20 rounded-lg border bg-card/95 p-2.5 shadow-sm backdrop-blur ${extraClass}">
+    <section ${extraAttrs} class="sticky top-2 z-20 rounded-lg border bg-card/95 p-2.5 shadow-sm backdrop-blur ${extraClass}">
       ${content}
     </section>
   `

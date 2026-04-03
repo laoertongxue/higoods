@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
+async function clickMarkerPlanTab(page: import('@playwright/test').Page, tabKey: string) {
+  await page.locator(`[data-marker-plan-tab-trigger="${tabKey}"]`).evaluate((node: HTMLElement) => node.click())
+}
+
 async function openBuiltPlanDetail(
   page: import('@playwright/test').Page,
   rowText?: string,
@@ -31,33 +35,35 @@ test('唛架页关键系统计算字段都展示公式字符串', async ({ page 
   await expect(detailPage.getByText(/m\/件 = .*m ÷ .*件/).first()).toBeVisible()
   await expect(detailPage.getByText(/m = .*m/).first()).toBeVisible()
 
-  await page.locator('[data-marker-plan-tab-trigger="allocation"]').click()
+  await clickMarkerPlanTab(page, 'allocation')
   await expect(detailPage.getByText(/件 = .*件 - .*件/).first()).toBeVisible()
 
-  await page.locator('[data-marker-plan-tab-trigger="explosion"]').click()
+  await clickMarkerPlanTab(page, 'explosion')
   await expect(detailPage.getByText(/片 = .*片\/件 × .*件/).first()).toBeVisible()
+  await expect(detailPage.getByText('SKU 汇总表')).toBeVisible()
+  await expect(detailPage.getByText('部位明细表')).toBeVisible()
 
   await openBuiltPlanDetail(page, '普通模式', '对折-普通模式')
-  await page.locator('[data-marker-plan-tab-trigger="layout"]').click()
+  await clickMarkerPlanTab(page, 'layout')
   await expect(page.getByTestId('marker-plan-layout-tab-normal')).toBeVisible()
   await expect(page.getByText(/m\/件 = .*m ÷ .*件/).first()).toBeVisible()
   await expect(page.getByText(/m = \(.+m \+ .+m\) × .+/).first()).toBeVisible()
 
   await openBuiltPlanDetail(page, '对折-普通模式')
-  await page.locator('[data-marker-plan-tab-trigger="layout"]').click()
+  await clickMarkerPlanTab(page, 'layout')
   await expect(page.getByTestId('marker-plan-layout-tab-fold_normal')).toBeVisible()
   await expect(page.getByTestId('marker-plan-fold-config')).toBeVisible()
   await expect(page.getByText(/cm = \(.+cm - .+cm\) ÷ 2/).first()).toBeVisible()
 
   await openBuiltPlanDetail(page, '高低层模式', '对折-高低层模式')
-  await page.locator('[data-marker-plan-tab-trigger="layout"]').click()
+  await clickMarkerPlanTab(page, 'layout')
   await expect(page.getByTestId('marker-plan-layout-tab-high_low')).toBeVisible()
   await expect(page.getByTestId('marker-plan-high-low-matrix')).toBeVisible()
   await expect(page.getByTestId('marker-plan-mode-detail-lines')).toBeVisible()
   await expect(page.getByText(/件 = .*件 \+ .*件/).first()).toBeVisible()
 
   await openBuiltPlanDetail(page, '对折-高低层模式')
-  await page.locator('[data-marker-plan-tab-trigger="layout"]').click()
+  await clickMarkerPlanTab(page, 'layout')
   await expect(page.getByTestId('marker-plan-layout-tab-fold_high_low')).toBeVisible()
   await expect(page.getByTestId('marker-plan-fold-config')).toBeVisible()
   await expect(page.getByTestId('marker-plan-high-low-matrix')).toBeVisible()

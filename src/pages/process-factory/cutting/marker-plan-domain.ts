@@ -42,6 +42,37 @@ export interface MarkerAllocationRow {
   specialFlags: string[]
 }
 
+export interface MarkerPlanAllocationLike {
+  allocationId: string
+  sourceCutOrderId: string
+  sourceCutOrderNo: string
+  sourceProductionOrderId: string
+  sourceProductionOrderNo: string
+  styleCode: string
+  spuCode: string
+  techPackSpuCode?: string
+  color: string
+  materialSku: string
+  sizeLabel: string
+  plannedGarmentQty: number
+  note: string
+}
+
+export interface MarkerPlanLike {
+  originalCutOrderIds: string[]
+  techPackSpuCode?: string
+  spuCode: string
+  sizeDistribution: Array<{
+    sizeLabel: string
+    quantity: number
+  }>
+  allocationLines: MarkerPlanAllocationLike[]
+}
+
+export interface MarkerPlanExplosionInput {
+  marker: MarkerPlanLike
+}
+
 export interface MarkerLayoutLine {
   id: string
   lineNo: number

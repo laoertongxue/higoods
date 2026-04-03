@@ -6,6 +6,10 @@ const UNBALANCED_PLAN_ID = 'seed-marker-plan-original-cut-order-cut-260302-001-0
 const READY_PLAN_ID = 'seed-marker-plan-original-cut-order-cut-260303-002-01-fold_normal-ready-11'
 const REFERENCED_PLAN_ID = 'seed-marker-plan-merge-batch-seed-mb-260403-081-lining-high_low-mapping-3'
 
+async function clickMarkerPlanTab(page: import('@playwright/test').Page, tabKey: string) {
+  await page.locator(`[data-marker-plan-tab-trigger="${tabKey}"]`).evaluate((node: HTMLElement) => node.click())
+}
+
 test('编辑页会默认落到问题 tab，并支持保存草稿、保存并留在当前页、完成计划、返回详情', async ({ page }) => {
   const errors = collectPageErrors(page)
 
@@ -47,15 +51,15 @@ test('已被铺布引用的唛架会显示页内 warning，结构性修改前需
   await expect(page.getByText('当前唛架已被铺布引用。若修改配比、分配、排版结构，建议复制为新唛架。')).toBeVisible()
   await expect(page.getByTestId('marker-plan-explosion-tab')).toBeVisible()
 
-  await page.locator('[data-marker-plan-tab-trigger="basic"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'basic')
   const sizeRatioInput = page.locator('[data-marker-plan-action="change-size-ratio"][data-size-code="S"]')
   const originalSizeRatio = await sizeRatioInput.inputValue()
   await sizeRatioInput.fill(String((Number.parseInt(originalSizeRatio || '0', 10) || 0) + 1))
   await expect.poll(() => dialogs.length).toBeGreaterThan(0)
 
-  await page.locator('[data-marker-plan-tab-trigger="layout"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'layout')
   await page.getByRole('button', { name: '新增模式明细' }).click()
-  await page.locator('[data-marker-plan-tab-trigger="basic"]').click({ force: true })
+  await clickMarkerPlanTab(page, 'basic')
   const markerModeSelect = page.locator('[data-marker-plan-basic-field="markerMode"]')
   await markerModeSelect.selectOption('normal')
   await expect(markerModeSelect).toHaveValue('normal')
