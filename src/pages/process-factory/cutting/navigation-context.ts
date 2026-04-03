@@ -5,6 +5,7 @@ export type CuttingPageContextKey =
   | 'replenishment'
   | 'special-processes'
   | 'material-prep'
+  | 'spreading-list'
   | 'marker-spreading'
   | 'fei-tickets'
   | 'original-orders'
@@ -77,7 +78,8 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
   replenishment: '补料管理',
   'special-processes': '特殊工艺',
   'material-prep': '仓库配料领料',
-  'marker-spreading': '铺布记录',
+  'spreading-list': '铺布列表',
+  'marker-spreading': '铺布列表',
   'fei-tickets': '打印菲票',
   'original-orders': '原始裁片单',
   'production-progress': '生产单进度',
@@ -318,7 +320,7 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'dyeing') return '/fcs/craft/dyeing/work-orders'
 
   if (target === 'markerSpreading') {
-    return getCanonicalCuttingPath('marker-spreading')
+    return getCanonicalCuttingPath('spreading-list')
   }
 
   if (target === 'feiTickets') {

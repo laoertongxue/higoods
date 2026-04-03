@@ -1006,7 +1006,6 @@ function navigateToRecordTarget(
     spuCode: row.spuCode,
     materialSku: row.materialSku,
     autoOpenDetail: true,
-    focusTab: target === 'markerSpreading' ? 'spreadings' : undefined,
   })
   appStore.navigate(
     buildCuttingRouteWithContext(
@@ -1100,8 +1099,12 @@ export function handleCraftCuttingOriginalOrdersEvent(target: Element): boolean 
     return navigateToRecordTarget(actionNode.dataset.recordId, 'materialPrep')
   }
 
-  if (action === 'go-marker-plan' || action === 'go-marker-spreading') {
+  if (action === 'go-marker-plan') {
     return navigateToRecordTarget(actionNode.dataset.recordId, 'markerPlan')
+  }
+
+  if (action === 'go-marker-spreading') {
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'markerSpreading')
   }
 
   if (action === 'go-spreading') {

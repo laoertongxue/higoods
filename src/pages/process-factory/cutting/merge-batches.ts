@@ -582,6 +582,21 @@ function goMarkerPlan(batchId: string | undefined): boolean {
   return true
 }
 
+function goSpreading(batchId: string | undefined): boolean {
+  if (!batchId) {
+    setFeedback('warning', '请先选择一个批次，再进入铺布。')
+    return true
+  }
+  const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
+  appStore.navigate(
+    buildRouteWithQuery(getCanonicalCuttingPath('spreading-list'), {
+      mergeBatchId: batchId,
+      mergeBatchNo: batch?.mergeBatchNo,
+    }),
+  )
+  return true
+}
+
 function goOriginalOrdersByBatch(batchId: string | undefined): boolean {
   if (!batchId) {
     setFeedback('warning', '请先选择一个批次，再查看来源原始裁片单。')
@@ -648,8 +663,12 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'go-marker-plan' || action === 'go-marker-spreading') {
+  if (action === 'go-marker-plan') {
     return goMarkerPlan(actionNode.dataset.batchId || state.activeBatchId)
+  }
+
+  if (action === 'go-marker-spreading') {
+    return goSpreading(actionNode.dataset.batchId || state.activeBatchId)
   }
 
   if (action === 'go-original-orders-batch') {

@@ -985,7 +985,7 @@ function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanoni
   const payload =
     key === 'material-prep'
       ? row.filterPayloadForMaterialPrep
-      : key === 'marker-spreading' || key === 'marker-list'
+      : key === 'spreading-list' || key === 'marker-spreading' || key === 'marker-list'
         ? row.filterPayloadForMarkerSpreading
         : key === 'fei-tickets'
           ? row.filterPayloadForFeiTickets
@@ -1009,7 +1009,7 @@ function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanoni
           ? 'materialPrep'
           : key === 'cuttable-pool'
             ? 'cuttablePool'
-            : key === 'marker-spreading'
+            : key === 'spreading-list' || key === 'marker-spreading'
               ? 'markerSpreading'
               : key === 'marker-list'
                 ? 'markerPlan'
@@ -1102,7 +1102,7 @@ export function handleCraftCuttingProductionProgressEvent(target: Element): bool
   }
 
   if (action === 'go-marker-spreading') {
-    return navigateToRecordTarget(actionNode.dataset.recordId, 'marker-list')
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'spreading-list')
   }
 
   if (action === 'go-fei-tickets') {

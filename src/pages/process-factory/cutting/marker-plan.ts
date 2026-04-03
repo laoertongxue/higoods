@@ -176,6 +176,7 @@ const MARKER_PLAN_TOP_INFO_OFFSET_VAR = '--marker-plan-top-info-offset'
 
 let markerPlanTopInfoResizeObserver: ResizeObserver | null = null
 let markerPlanStickyResizeBound = false
+let markerPlanStickySyncToken = 0
 
 function getCurrentPathname(): string {
   return appStore.getState().pathname
@@ -241,14 +242,28 @@ function updateMarkerPlanStickyOffsetFromDom(): void {
 function syncMarkerPlanStickyOffset(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
 
-  window.requestAnimationFrame(() => {
-    updateMarkerPlanStickyOffsetFromDom()
+  const syncToken = markerPlanStickySyncToken + 1
+  markerPlanStickySyncToken = syncToken
+
+  const bindStickyOffset = (remainingRetries = 8) => {
+    if (markerPlanStickySyncToken !== syncToken) return
 
     const shell = document.querySelector<HTMLElement>('[data-marker-plan-top-shell]')
+    if (!shell) {
+      if (remainingRetries > 0) {
+        window.requestAnimationFrame(() => bindStickyOffset(remainingRetries - 1))
+      } else {
+        clearMarkerPlanStickyOffset()
+      }
+      return
+    }
+
+    updateMarkerPlanStickyOffsetFromDom()
+
     markerPlanTopInfoResizeObserver?.disconnect()
     markerPlanTopInfoResizeObserver = null
 
-    if (shell && typeof ResizeObserver !== 'undefined') {
+    if (typeof ResizeObserver !== 'undefined') {
       markerPlanTopInfoResizeObserver = new ResizeObserver(() => updateMarkerPlanStickyOffsetFromDom())
       markerPlanTopInfoResizeObserver.observe(shell)
     }
@@ -259,11 +274,16 @@ function syncMarkerPlanStickyOffset(): void {
       })
       markerPlanStickyResizeBound = true
     }
+  }
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => bindStickyOffset())
   })
 }
 
 function clearMarkerPlanStickyOffset(): void {
   if (typeof document === 'undefined') return
+  markerPlanStickySyncToken += 1
   document.documentElement.style.removeProperty(MARKER_PLAN_TOP_INFO_OFFSET_VAR)
   markerPlanTopInfoResizeObserver?.disconnect()
   markerPlanTopInfoResizeObserver = null
@@ -1014,7 +1034,6 @@ function renderPlanTopInfo(
   context: MarkerPlanContextCandidate | null,
   options: { showActionRow?: boolean } = {},
 ): string {
-  syncMarkerPlanStickyOffset()
   const { showActionRow = true } = options
   const totalPiecesFormula = 'totalPiecesFormula' in plan ? plan.totalPiecesFormula : buildMarkerTotalPiecesFormula(plan.sizeRatioRows)
   const systemUnitUsageFormula =
@@ -1059,8 +1078,8 @@ function renderPlanTopInfo(
         .join('')
     : '<span class="text-xs text-muted-foreground">—</span>'
 
-  return renderStickyFilterShell(
-    `
+  return `
+    <section data-marker-plan-top-shell class="rounded-lg border bg-card/95 p-2.5 shadow-sm">
       <div class="pointer-events-none space-y-4" data-testid="marker-plan-top-info">
         <div class="grid gap-4 xl:grid-cols-[1.4fr_1fr_0.9fr]">
           <section class="rounded-lg border bg-card p-3">
@@ -1123,10 +1142,8 @@ function renderPlanTopInfo(
             : ''
         }
       </div>
-    `,
-    'top-2 z-20 pointer-events-none',
-    'data-marker-plan-top-shell',
-  )
+    </section>
+  `
 }
 
 function renderTabNav(activeTab: MarkerPlanTabKey): string {
@@ -1138,8 +1155,8 @@ function renderTabNav(activeTab: MarkerPlanTabKey): string {
     { key: 'images', label: '图片与变更' },
   ]
 
-  return renderStickyFilterShell(
-    `
+  return `
+    <section data-marker-plan-tab-shell class="rounded-lg border bg-card/95 p-2.5 shadow-sm">
       <div class="flex flex-wrap gap-2">
         ${tabs
           .map((tab) =>
@@ -1161,10 +1178,8 @@ function renderTabNav(activeTab: MarkerPlanTabKey): string {
           )
           .join('')}
       </div>
-    `,
-    'z-30',
-    `data-marker-plan-tab-shell style="top: var(${MARKER_PLAN_TOP_INFO_OFFSET_VAR}, 28rem);"`,
-  )
+    </section>
+  `
 }
 
 function renderBalanceStatusBadge(status: MarkerPlanBalanceSummaryRow['status']): string {

@@ -74,7 +74,7 @@ test('编辑页支持交给铺布、复制为新唛架和作废', async ({ page 
   await page.goto(`/fcs/craft/cutting/marker-edit/${READY_PLAN_ID}`)
   await expect(page.getByRole('button', { name: '交给铺布' })).toBeVisible()
   await page.getByRole('button', { name: '交给铺布' }).click()
-  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/marker-spreading/)
+  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/spreading-list/)
 
   await page.goto(`/fcs/craft/cutting/marker-edit/${READY_PLAN_ID}`)
   await page.getByRole('button', { name: '复制为新唛架' }).click()

@@ -73,6 +73,12 @@ export interface ReplenishmentSuggestion {
   materialSkus: string[]
   materialCategory: string
   materialAttr: string
+  requiredGarmentQty: number
+  theoreticalCutGarmentQty: number
+  actualCutGarmentQty: number
+  shortageGarmentQty: number
+  actualLengthTotal: number
+  summaryRuleText: string
   requiredQty: number
   estimatedCapacityQty: number
   shortageQty: number
@@ -86,6 +92,24 @@ export interface ReplenishmentSuggestion {
   createdAt: string
   status: ReplenishmentStatusKey
   note: string
+  lines: ReplenishmentSuggestionLine[]
+}
+
+export interface ReplenishmentSuggestionLine {
+  lineId: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
+  materialSku: string
+  color: string
+  requiredGarmentQty: number
+  actualCutGarmentQty: number
+  claimedLengthTotal: number
+  actualLengthTotal: number
+  shortageGarmentQty: number
+  suggestedAction: string
+  actualCutGarmentQtyFormula: string
+  shortageGarmentQtyFormula: string
+  suggestedActionRuleText: string
 }
 
 export interface ReplenishmentReview {
@@ -418,7 +442,7 @@ function buildSuggestionNo(createdAt: string, index: number): string {
 }
 
 function buildStableSuggestionId(context: ReplenishmentContextRecord): string {
-  if (context.session?.sessionId) return `rep-session-${context.session.sessionId}`
+  if (context.session?.spreadingSessionId) return `rep-session-${context.session.spreadingSessionId}`
   if (context.baseSourceType === 'merge-batch' && context.mergeBatchId) return `rep-merge-${context.mergeBatchId}`
   return `rep-original-${context.originalCutOrderIds[0] || context.contextId}`
 }
@@ -485,16 +509,18 @@ export function buildReplenishmentSuggestionFromContext(options: {
   context: ReplenishmentContextRecord
   originalRowsById: Record<string, OriginalCutOrderRow>
 }): ReplenishmentSuggestion {
-  const requiredQty = options.context.marker?.totalPieces || options.context.totalRequiredQty
-  const estimatedCapacityQty = deriveEstimatedCapacityQty({
-    requiredQty,
-    configuredLengthTotal: options.context.totalConfiguredLength,
-    claimedLengthTotal: options.context.totalClaimedLength,
-    shortageLengthTotal: options.context.totalShortageLength,
-    usableLengthTotal: options.context.totalUsableLength,
-    varianceSummary: options.context.varianceSummary,
-  })
-  const shortageQty = Math.max(requiredQty - estimatedCapacityQty, 0)
+  const requiredQty = options.context.varianceSummary?.plannedCutGarmentQty || options.context.marker?.totalPieces || options.context.totalRequiredQty
+  const estimatedCapacityQty = options.context.varianceSummary?.theoreticalCutGarmentQty
+    ?? deriveEstimatedCapacityQty({
+      requiredQty,
+      configuredLengthTotal: options.context.totalConfiguredLength,
+      claimedLengthTotal: options.context.totalClaimedLength,
+      shortageLengthTotal: options.context.totalShortageLength,
+      usableLengthTotal: options.context.totalUsableLength,
+      varianceSummary: options.context.varianceSummary,
+    })
+  const actualCutGarmentQty = options.context.varianceSummary?.actualCutGarmentQty || 0
+  const shortageQty = options.context.varianceSummary?.shortageGarmentQty ?? Math.max(requiredQty - actualCutGarmentQty, 0)
   const varianceLength = options.context.varianceSummary
     ? Number(options.context.varianceSummary.varianceLength.toFixed(2))
     : Number((options.context.totalClaimedLength - options.context.totalConfiguredLength).toFixed(2))
@@ -538,6 +564,12 @@ export function buildReplenishmentSuggestionFromContext(options: {
     materialSkus,
     materialCategory: materialCategories.join(' / ') || '待补',
     materialAttr: materialAttrs.join(' / ') || '待补',
+    requiredGarmentQty: requiredQty,
+    theoreticalCutGarmentQty: estimatedCapacityQty,
+    actualCutGarmentQty,
+    shortageGarmentQty: shortageQty,
+    actualLengthTotal: options.context.varianceSummary?.spreadActualLengthM || 0,
+    summaryRuleText: options.context.varianceSummary?.warningRuleText || '',
     requiredQty,
     estimatedCapacityQty,
     shortageQty,
@@ -551,6 +583,22 @@ export function buildReplenishmentSuggestionFromContext(options: {
     createdAt,
     status: suggested.status,
     note: preview.detailText,
+    lines: options.context.varianceSummary?.replenishmentLines.map((line) => ({
+      lineId: line.lineId,
+      originalCutOrderId: line.originalCutOrderId,
+      originalCutOrderNo: line.originalCutOrderNo,
+      materialSku: line.materialSku,
+      color: line.color,
+      requiredGarmentQty: line.requiredGarmentQty,
+      actualCutGarmentQty: line.actualCutGarmentQty,
+      claimedLengthTotal: line.claimedLengthTotal,
+      actualLengthTotal: line.actualLengthTotal,
+      shortageGarmentQty: line.shortageGarmentQty,
+      suggestedAction: line.suggestedAction,
+      actualCutGarmentQtyFormula: line.actualCutGarmentQtyFormula,
+      shortageGarmentQtyFormula: line.shortageGarmentQtyFormula,
+      suggestedActionRuleText: line.suggestedActionRuleText,
+    })) || [],
   }
 }
 
@@ -877,16 +925,16 @@ function buildSourceSummary(context: ReplenishmentContextRecord): string {
 
 function buildDifferenceSummary(suggestion: ReplenishmentSuggestion): string {
   return [
-    `理论需求 ${formatQty(suggestion.requiredQty)} 件`,
-    `预计可裁 ${formatQty(suggestion.estimatedCapacityQty)} 件`,
-    `缺口 ${formatQty(suggestion.shortageQty)} 件`,
+    `计划裁剪成衣件数 ${formatQty(suggestion.requiredGarmentQty)} 件`,
+    `理论裁剪成衣件数 ${formatQty(suggestion.theoreticalCutGarmentQty)} 件`,
+    `缺口成衣件数 ${formatQty(suggestion.shortageGarmentQty)} 件`,
     `差异长度 ${numberFormatter.format(suggestion.varianceLength)} 米`,
   ].join(' / ')
 }
 
 function buildMajorGapSummary(suggestion: ReplenishmentSuggestion): string {
-  if (suggestion.shortageQty > 0) {
-    return `缺 ${formatQty(suggestion.shortageQty)} 件 / ${numberFormatter.format(suggestion.shortageLengthTotal)} 米`
+  if (suggestion.shortageGarmentQty > 0) {
+    return `缺 ${formatQty(suggestion.shortageGarmentQty)} 件 / ${numberFormatter.format(suggestion.shortageLengthTotal)} 米`
   }
   if (suggestion.varianceLength < 0) {
     return `长度超出 ${numberFormatter.format(Math.abs(suggestion.varianceLength))} 米`
@@ -1018,6 +1066,12 @@ function buildSyntheticFeedbackRow(
     materialSkus: [feedback.materialSku],
     materialCategory: '待跟进',
     materialAttr: '待跟进',
+    requiredGarmentQty: 0,
+    theoreticalCutGarmentQty: 0,
+    actualCutGarmentQty: 0,
+    shortageGarmentQty: 0,
+    actualLengthTotal: 0,
+    summaryRuleText: '待人工确认 PDA 反馈后补齐判定依据',
     requiredQty: 0,
     estimatedCapacityQty: 0,
     shortageQty: 0,
@@ -1031,6 +1085,7 @@ function buildSyntheticFeedbackRow(
     createdAt: feedback.submittedAt,
     status: 'PENDING_REVIEW' as const,
     note: feedback.note,
+    lines: [],
     context: buildSyntheticFeedbackContext(feedback),
     sourceLabel: replenishmentSourceMeta['pda-feedback'].label,
     sourceSummary: `PDA 反馈 · ${feedback.originalCutOrderNo}`,

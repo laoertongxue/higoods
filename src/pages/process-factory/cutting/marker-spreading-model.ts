@@ -337,6 +337,22 @@ export interface SpreadingReplenishmentWarning {
   spuCode: string
   materialSku: string
   materialAttr: string
+  plannedCutGarmentQty: number
+  theoreticalCutGarmentQty: number
+  actualCutGarmentQty: number
+  spreadActualLengthM: number
+  spreadUsableLengthM: number
+  spreadRemainingLengthM: number
+  fabricRollCount: number
+  spreadLayerCount: number
+  plannedCutGarmentQtyFormula: string
+  theoreticalCutGarmentQtyFormula: string
+  actualCutGarmentQtyFormula: string
+  spreadUsableLengthFormula: string
+  varianceLengthFormula: string
+  shortageGarmentQtyFormula: string
+  suggestedActionRuleText: string
+  lines: SpreadingReplenishmentWarningLine[]
   requiredQty: number
   theoreticalCapacityQty: number
   actualCutQty: number
@@ -351,6 +367,23 @@ export interface SpreadingReplenishmentWarning {
   handled: boolean
   createdAt: string
   note: string
+}
+
+export interface SpreadingReplenishmentWarningLine {
+  lineId: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
+  materialSku: string
+  color: string
+  requiredGarmentQty: number
+  actualCutGarmentQty: number
+  claimedLengthTotal: number
+  actualLengthTotal: number
+  shortageGarmentQty: number
+  suggestedAction: SpreadingSuggestedAction
+  actualCutGarmentQtyFormula: string
+  shortageGarmentQtyFormula: string
+  suggestedActionRuleText: string
 }
 
 export interface SpreadingCompletionLinkage {
@@ -427,9 +460,29 @@ export interface SpreadingVarianceSummary {
   usableLengthTotal: number
   remainingLengthTotal: number
   varianceLength: number
+  plannedCutGarmentQty: number
+  theoreticalCutGarmentQty: number
+  actualCutGarmentQty: number
+  spreadActualLengthM: number
+  spreadUsableLengthM: number
+  spreadRemainingLengthM: number
+  fabricRollCount: number
+  spreadLayerCount: number
+  plannedCutGarmentQtyFormula: string
+  theoreticalCutGarmentQtyFormula: string
+  actualCutGarmentQtyFormula: string
+  spreadUsableLengthFormula: string
+  varianceLengthFormula: string
+  shortageGarmentQtyFormula: string
+  warningRuleText: string
+  replenishmentLines: SpreadingReplenishmentWarningLine[]
   estimatedPieceCapacity: number
   requiredPieceQty: number
   actualCutPieceQtyTotal: number
+  requiredGarmentQty: number
+  theoreticalCapacityGarmentQty: number
+  actualCutGarmentQtyTotal: number
+  shortageGarmentQty: number
   shortageIndicator: boolean
   replenishmentHint: string
 }
@@ -899,10 +952,15 @@ export function computeRollActualCutPieceQty(layerCount: number, markerTotalPiec
   return Math.max(Math.round(layerCount * markerTotalPieces), 0)
 }
 
+export function computePlannedCutGarmentQty(plannedLayers: number, markerTotalPieces: number): number {
+  if (plannedLayers <= 0 || markerTotalPieces <= 0) return 0
+  return Math.max(Math.round(plannedLayers * markerTotalPieces), 0)
+}
+
 export function computeTheoreticalCutQty(session: Partial<SpreadingSession>, markerTotalPieces: number): number {
   const rollLayerTotal = summarizeSpreadingRolls(session.rolls || []).totalLayers
   const actualLayerTotal = Number(session.actualLayers || 0)
-  const layerBase = Math.max(rollLayerTotal || actualLayerTotal, 0)
+  const layerBase = Math.max(rollLayerTotal, actualLayerTotal, 0)
   if (layerBase <= 0 || markerTotalPieces <= 0) return 0
   return Math.max(Math.round(layerBase * markerTotalPieces), 0)
 }
@@ -918,6 +976,290 @@ export function computeLengthVariance(claimedLengthTotal: number, actualLengthTo
 
 export function computeShortageQty(requiredQty: number, actualCutQty: number): number {
   return Math.max(Number(requiredQty || 0) - Math.max(Number(actualCutQty || 0), 0), 0)
+}
+
+function splitSummaryValues(value?: string): string[] {
+  return uniqueStrings(
+    (value || '')
+      .split('/')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )
+}
+
+export function deriveSpreadingColorSummary(options: {
+  rolls?: Array<Pick<SpreadingRollRecord, 'color'>>
+  importSourceColorSummary?: string
+  contextColors?: Array<string | undefined>
+  fallbackSummary?: string
+}): {
+  value: string
+  formula: string
+} {
+  const rollColors = uniqueStrings((options.rolls || []).map((roll) => roll.color?.trim()).filter(Boolean))
+  if (rollColors.length) {
+    const value = rollColors.join(' / ')
+    return { value, formula: `${value} = Σ 卷记录颜色去重` }
+  }
+
+  const sourceColors = splitSummaryValues(options.importSourceColorSummary)
+  if (sourceColors.length) {
+    const value = sourceColors.join(' / ')
+    return { value, formula: `${value} = Σ 来源颜色去重` }
+  }
+
+  const contextColors = uniqueStrings((options.contextColors || []).map((item) => item?.trim()).filter(Boolean))
+  if (contextColors.length) {
+    const value = contextColors.join(' / ')
+    return { value, formula: `${value} = Σ 上下文颜色去重` }
+  }
+
+  const fallbackValues = splitSummaryValues(options.fallbackSummary)
+  if (fallbackValues.length) {
+    const value = fallbackValues.join(' / ')
+    return { value, formula: `${value} = Σ 已存颜色去重` }
+  }
+
+  return { value: '待补', formula: '' }
+}
+
+export function buildTheoreticalActualCutQtyFormula(
+  theoreticalActualCutPieceQty: number,
+  plannedLayers: number,
+  markerTotalPieces: number,
+): string {
+  return `${formatQty(theoreticalActualCutPieceQty)} = ${formatQty(plannedLayers)} × ${formatQty(markerTotalPieces)}`
+}
+
+export function buildPlannedCutGarmentQtyFormula(plannedCutGarmentQty: number, plannedLayers: number, markerTotalPieces: number): string {
+  return `${formatQty(plannedCutGarmentQty)} = ${formatQty(plannedLayers)} × ${formatQty(markerTotalPieces)}`
+}
+
+export function buildTheoreticalCutGarmentQtyFormula(
+  theoreticalCutGarmentQty: number,
+  rollLayerTotal: number,
+  actualLayerTotal: number,
+  markerTotalPieces: number,
+): string {
+  return `${formatQty(theoreticalCutGarmentQty)} = max(${formatQty(rollLayerTotal)}, ${formatQty(actualLayerTotal)}) × ${formatQty(markerTotalPieces)}`
+}
+
+function buildQtySumFormula(result: number, values: number[]): string {
+  const left = formatQty(result || 0)
+  const right = values.length ? values.map((value) => formatQty(value || 0)).join(' + ') : '0'
+  return `${left} = ${right}`
+}
+
+function buildSumFormula(result: number, values: number[], digits = 2): string {
+  const left = Number(result || 0).toFixed(digits)
+  const right = values.length ? values.map((value) => Number(value || 0).toFixed(digits)).join(' + ') : Number(0).toFixed(digits)
+  return `${left} = ${right}`
+}
+
+function buildDifferenceFormula(result: number, minuend: number, subtrahend: number, digits = 2): string {
+  return `${Number(result || 0).toFixed(digits)} = ${Number(minuend || 0).toFixed(digits)} - ${Number(subtrahend || 0).toFixed(digits)}`
+}
+
+export function buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength: number): string {
+  return `${Number(theoreticalSpreadTotalLength || 0).toFixed(2)} = 来源唛架铺布总长度`
+}
+
+export function buildRollActualCutQtyFormula(actualCutPieceQty: number, layerCount: number, markerTotalPieces: number): string {
+  return `${formatQty(actualCutPieceQty)} = ${formatQty(layerCount)} × ${formatQty(markerTotalPieces)}`
+}
+
+export function buildShortageQtyFormula(shortageQty: number, requiredQty: number, actualCutQty: number): string {
+  return `${formatQty(shortageQty)} = max(${formatQty(requiredQty)} - ${formatQty(actualCutQty)}, 0)`
+}
+
+function buildWarningRuleText(shortageGarmentQty: number, varianceLength: number, missingData: boolean): string {
+  if (missingData) return '数据不足，待补录 = !需求成衣件数 || !已领取长度 || !总实际铺布长度'
+  if (shortageGarmentQty > 0 || varianceLength < 0) return '建议补料 = 缺口成衣件数 > 0 || 差异长度 < 0'
+  return '无需补料 = 缺口成衣件数 = 0 && 差异长度 ≥ 0'
+}
+
+function buildRoundedDistribution(total: number, weights: number[], digits = 0): number[] {
+  if (!weights.length) return []
+  const scale = 10 ** digits
+  const scaledTotal = Math.round(Math.max(total, 0) * scale)
+  const normalizedWeights = weights.map((weight) => Math.max(weight, 0))
+  const weightSum = normalizedWeights.reduce((sum, weight) => sum + weight, 0)
+  const fallbackWeights = normalizedWeights.map(() => 1)
+  const effectiveWeights = weightSum > 0 ? normalizedWeights : fallbackWeights
+  const effectiveSum = effectiveWeights.reduce((sum, weight) => sum + weight, 0)
+  const raw = effectiveWeights.map((weight) => (scaledTotal * weight) / Math.max(effectiveSum, 1))
+  const base = raw.map((value) => Math.floor(value))
+  let remainder = scaledTotal - base.reduce((sum, value) => sum + value, 0)
+  const order = raw
+    .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((left, right) => right.remainder - left.remainder)
+
+  for (let index = 0; index < order.length && remainder > 0; index += 1, remainder -= 1) {
+    base[order[index].index] += 1
+  }
+
+  return base.map((value) => Number((value / scale).toFixed(digits)))
+}
+
+function buildSpreadingReplenishmentLines(options: {
+  context: MarkerSpreadingContext | null
+  plannedCutGarmentQty: number
+  actualCutGarmentQty: number
+  spreadActualLengthM: number
+}): SpreadingReplenishmentWarningLine[] {
+  if (!options.context) return []
+
+  const grouped = new Map<
+    string,
+    {
+      originalCutOrderId: string
+      originalCutOrderNo: string
+      materialSku: string
+      color: string
+      claimedLengthTotal: number
+      weight: number
+    }
+  >()
+
+  options.context.materialPrepRows.forEach((row) => {
+    row.materialLineItems.forEach((line) => {
+      const key = [row.originalCutOrderId, line.materialSku || row.materialSkuSummary, row.color || '待补'].join('::')
+      const current = grouped.get(key) || {
+        originalCutOrderId: row.originalCutOrderId,
+        originalCutOrderNo: row.originalCutOrderNo,
+        materialSku: line.materialSku || row.materialSkuSummary || '待补',
+        color: row.color || '待补',
+        claimedLengthTotal: 0,
+        weight: 0,
+      }
+      current.claimedLengthTotal = Number((current.claimedLengthTotal + Number(line.claimedQty || 0)).toFixed(2))
+      current.weight = Number(
+        (
+          current.weight + Math.max(Number(line.claimedQty || 0), Number(line.configuredQty || 0), Number(line.requiredQty || 0), 0)
+        ).toFixed(2),
+      )
+      grouped.set(key, current)
+    })
+  })
+
+  const rows = Array.from(grouped.values())
+  if (!rows.length) return []
+
+  const weights = rows.map((row) => row.weight)
+  const requiredGarmentQtyList = buildRoundedDistribution(options.plannedCutGarmentQty, weights, 0)
+  const actualCutGarmentQtyList = buildRoundedDistribution(options.actualCutGarmentQty, weights, 0)
+  const actualLengthList = buildRoundedDistribution(options.spreadActualLengthM, weights, 2)
+
+  return rows.map((row, index) => {
+    const requiredGarmentQty = requiredGarmentQtyList[index] || 0
+    const actualCutGarmentQty = actualCutGarmentQtyList[index] || 0
+    const actualLengthTotal = actualLengthList[index] || 0
+    const shortageGarmentQty = computeShortageQty(requiredGarmentQty, actualCutGarmentQty)
+    const suggestedAction: SpreadingSuggestedAction =
+      shortageGarmentQty > 0 || actualLengthTotal > row.claimedLengthTotal ? '建议补料' : '无需补料'
+
+    return {
+      lineId: `spread-warning-line-${row.originalCutOrderId}-${index + 1}`,
+      originalCutOrderId: row.originalCutOrderId,
+      originalCutOrderNo: row.originalCutOrderNo,
+      materialSku: row.materialSku,
+      color: row.color,
+      requiredGarmentQty,
+      actualCutGarmentQty,
+      claimedLengthTotal: row.claimedLengthTotal,
+      actualLengthTotal,
+      shortageGarmentQty,
+      suggestedAction,
+      actualCutGarmentQtyFormula: `${formatQty(actualCutGarmentQty)} = Σ 当前行卷层换算成衣件数`,
+      shortageGarmentQtyFormula: buildShortageQtyFormula(shortageGarmentQty, requiredGarmentQty, actualCutGarmentQty),
+      suggestedActionRuleText:
+        suggestedAction === '建议补料'
+          ? '建议补料 = 缺口成衣件数 > 0 || 实际铺布长度 > 已领取长度'
+          : '无需补料 = 缺口成衣件数 = 0 && 实际铺布长度 ≤ 已领取长度',
+    }
+  })
+}
+
+export interface SpreadingCoreMetrics {
+  plannedCutGarmentQty: number
+  theoreticalCutGarmentQty: number
+  actualCutGarmentQty: number
+  configuredLengthTotal: number
+  claimedLengthTotal: number
+  spreadActualLengthM: number
+  spreadUsableLengthM: number
+  spreadRemainingLengthM: number
+  fabricRollCount: number
+  spreadLayerCount: number
+  varianceLength: number
+  shortageGarmentQty: number
+  plannedCutGarmentQtyFormula: string
+  theoreticalCutGarmentQtyFormula: string
+  actualCutGarmentQtyFormula: string
+  spreadUsableLengthFormula: string
+  varianceLengthFormula: string
+  shortageGarmentQtyFormula: string
+  warningRuleText: string
+  replenishmentLines: SpreadingReplenishmentWarningLine[]
+}
+
+export function buildSpreadingCoreMetrics(options: {
+  context: MarkerSpreadingContext | null
+  session: Partial<SpreadingSession> | null
+  markerTotalPieces: number
+  configuredLengthTotal: number
+  claimedLengthTotal: number
+}): SpreadingCoreMetrics {
+  const session = options.session || null
+  const rollSummary = summarizeSpreadingRolls(session?.rolls || [])
+  const plannedLayers = Number(session?.plannedLayers || 0)
+  const rollLayerTotal = rollSummary.totalLayers
+  const actualLayerTotal = Number(session?.actualLayers || 0)
+  const plannedCutGarmentQty = computePlannedCutGarmentQty(plannedLayers, options.markerTotalPieces)
+  const theoreticalCutGarmentQty = computeTheoreticalCutQty(session || {}, options.markerTotalPieces)
+  const actualCutGarmentQty = computeActualCutQty(session || {})
+  const spreadActualLengthM = Number(session?.totalActualLength || rollSummary.totalActualLength || 0)
+  const spreadUsableLengthM = Number(session?.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength || 0)
+  const spreadRemainingLengthM = Number(session?.totalRemainingLength ?? rollSummary.totalRemainingLength ?? 0)
+  const varianceLength = computeLengthVariance(options.claimedLengthTotal, spreadActualLengthM)
+  const shortageGarmentQty = computeShortageQty(plannedCutGarmentQty, actualCutGarmentQty)
+  const missingData = !plannedCutGarmentQty || !options.claimedLengthTotal || !spreadActualLengthM
+  return {
+    plannedCutGarmentQty,
+    theoreticalCutGarmentQty,
+    actualCutGarmentQty,
+    configuredLengthTotal: Number(options.configuredLengthTotal.toFixed(2)),
+    claimedLengthTotal: Number(options.claimedLengthTotal.toFixed(2)),
+    spreadActualLengthM,
+    spreadUsableLengthM,
+    spreadRemainingLengthM,
+    fabricRollCount: session?.rolls?.length || 0,
+    spreadLayerCount: Math.max(rollLayerTotal, actualLayerTotal, 0),
+    varianceLength,
+    shortageGarmentQty,
+    plannedCutGarmentQtyFormula: buildPlannedCutGarmentQtyFormula(plannedCutGarmentQty, plannedLayers, options.markerTotalPieces),
+    theoreticalCutGarmentQtyFormula: buildTheoreticalCutGarmentQtyFormula(
+      theoreticalCutGarmentQty,
+      rollLayerTotal,
+      actualLayerTotal,
+      options.markerTotalPieces,
+    ),
+    actualCutGarmentQtyFormula: buildQtySumFormula(actualCutGarmentQty, (session?.rolls || []).map((roll) => roll.actualCutPieceQty || 0)),
+    spreadUsableLengthFormula: buildSumFormula(
+      spreadUsableLengthM,
+      (session?.rolls || []).map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)),
+      2,
+    ),
+    varianceLengthFormula: buildDifferenceFormula(varianceLength, options.claimedLengthTotal, spreadActualLengthM, 2),
+    shortageGarmentQtyFormula: buildShortageQtyFormula(shortageGarmentQty, plannedCutGarmentQty, actualCutGarmentQty),
+    warningRuleText: buildWarningRuleText(shortageGarmentQty, varianceLength, missingData),
+    replenishmentLines: buildSpreadingReplenishmentLines({
+      context: options.context,
+      plannedCutGarmentQty,
+      actualCutGarmentQty,
+      spreadActualLengthM,
+    }),
+  }
 }
 
 export function deriveSpreadingWarningLevel(options: {
@@ -1253,6 +1595,11 @@ export function createSpreadingDraftFromMarker(
       ? Number(marker.spreadTotalLength || marker.actualMaterialMeter || 0)
       : Number(marker.spreadTotalLength || computeNormalMarkerSpreadTotalLength(marker.lineItems || []))
   const theoreticalActualCutPieceQty = Math.max(plannedLayers * Math.max(marker.totalPieces || 0, 0), 0)
+  const colorSummary = deriveSpreadingColorSummary({
+    importSourceColorSummary: marker.colorSummary,
+    contextColors: context.materialPrepRows.map((row) => row.color),
+    fallbackSummary: marker.colorSummary,
+  }).value
   const baseSession = options?.baseSession || null
   const timestamp = now.getTime()
   return {
@@ -1267,7 +1614,7 @@ export function createSpreadingDraftFromMarker(
     styleCode: context.styleCode,
     spuCode: context.spuCode,
     materialSkuSummary: context.materialSkuSummary,
-    colorSummary: marker.colorSummary || uniqueStrings(context.materialPrepRows.map((row) => row.color)).join(' / '),
+    colorSummary: colorSummary === '待补' ? '' : colorSummary,
     spreadingMode: normalizeMarkerMode(marker.markerMode as string | undefined),
     status: (baseSession?.status as SpreadingStatusKey) || 'DRAFT',
     importedFromMarker: true,
@@ -1318,7 +1665,7 @@ export function validateMarkerForSpreadingImport(marker: Partial<MarkerRecord>):
   if (!(marker.originalCutOrderIds || []).length && !marker.mergeBatchId && !marker.mergeBatchNo) {
     messages.push('唛架必须至少关联原始裁片单或合并裁剪批次，才能导入铺布。')
   }
-  if (Number(marker.totalPieces || 0) <= 0) messages.push('唛架总件数必须大于 0，才能导入铺布。')
+  if (Number(marker.totalPieces || 0) <= 0) messages.push('唛架成衣件数必须大于 0，才能导入铺布。')
   if (Number(marker.netLength || 0) <= 0) messages.push('唛架净长度不能为空，才能导入铺布。')
   if (Number(marker.singlePieceUsage || 0) <= 0) messages.push('唛架单件用量不能为空，才能导入铺布。')
 
@@ -1404,6 +1751,7 @@ export function buildSpreadingImportSource(
 }
 
 export function buildSpreadingReplenishmentWarning(options: {
+  context?: MarkerSpreadingContext | null
   session: Partial<SpreadingSession>
   markerTotalPieces: number
   originalCutOrderNos: string[]
@@ -1414,34 +1762,30 @@ export function buildSpreadingReplenishmentWarning(options: {
   warningMessages?: string[]
 }): SpreadingReplenishmentWarning {
   const session = options.session
-  const rollSummary = summarizeSpreadingRolls(session.rolls || [])
   const claimedLengthTotal = Number(session.claimedLengthTotal || 0)
   const configuredLengthTotal = Number(session.configuredLengthTotal || 0)
-  const totalActualLength = Number(session.totalActualLength || rollSummary.totalActualLength || 0)
-  const totalUsableLength = Number(session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength || 0)
-  const requiredQty = Math.max(
-    Number(session.theoreticalActualCutPieceQty || 0),
-    Number(session.plannedLayers || 0) * Math.max(options.markerTotalPieces, 0),
-  )
-  const theoreticalCapacityQty = computeTheoreticalCutQty(session, options.markerTotalPieces)
-  const actualCutQty = computeActualCutQty(session)
-  const varianceLength = computeLengthVariance(claimedLengthTotal, totalActualLength)
-  const shortageQty = computeShortageQty(requiredQty, actualCutQty)
+  const coreMetrics = buildSpreadingCoreMetrics({
+    context: options.context || null,
+    session,
+    markerTotalPieces: options.markerTotalPieces,
+    configuredLengthTotal,
+    claimedLengthTotal,
+  })
   const warningMessages = options.warningMessages || []
   const warningLevel = deriveSpreadingWarningLevel({
-    requiredQty,
-    actualCutQty,
-    varianceLength,
-    claimedLengthTotal,
-    actualLengthTotal: totalActualLength,
+    requiredQty: coreMetrics.plannedCutGarmentQty,
+    actualCutQty: coreMetrics.actualCutGarmentQty,
+    varianceLength: coreMetrics.varianceLength,
+    claimedLengthTotal: coreMetrics.claimedLengthTotal,
+    actualLengthTotal: coreMetrics.spreadActualLengthM,
     warningMessages,
   })
   const suggestedAction = deriveSpreadingSuggestedAction({
-    requiredQty,
-    actualCutQty,
-    varianceLength,
-    claimedLengthTotal,
-    actualLengthTotal: totalActualLength,
+    requiredQty: coreMetrics.plannedCutGarmentQty,
+    actualCutQty: coreMetrics.actualCutGarmentQty,
+    varianceLength: coreMetrics.varianceLength,
+    claimedLengthTotal: coreMetrics.claimedLengthTotal,
+    actualLengthTotal: coreMetrics.spreadActualLengthM,
     warningMessages,
   })
 
@@ -1460,15 +1804,31 @@ export function buildSpreadingReplenishmentWarning(options: {
     spuCode: session.spuCode || '',
     materialSku: session.materialSkuSummary || '',
     materialAttr: options.materialAttr || '',
-    requiredQty,
-    theoreticalCapacityQty,
-    actualCutQty,
+    plannedCutGarmentQty: coreMetrics.plannedCutGarmentQty,
+    theoreticalCutGarmentQty: coreMetrics.theoreticalCutGarmentQty,
+    actualCutGarmentQty: coreMetrics.actualCutGarmentQty,
+    spreadActualLengthM: coreMetrics.spreadActualLengthM,
+    spreadUsableLengthM: coreMetrics.spreadUsableLengthM,
+    spreadRemainingLengthM: coreMetrics.spreadRemainingLengthM,
+    fabricRollCount: coreMetrics.fabricRollCount,
+    spreadLayerCount: coreMetrics.spreadLayerCount,
+    plannedCutGarmentQtyFormula: coreMetrics.plannedCutGarmentQtyFormula,
+    theoreticalCutGarmentQtyFormula: coreMetrics.theoreticalCutGarmentQtyFormula,
+    actualCutGarmentQtyFormula: coreMetrics.actualCutGarmentQtyFormula,
+    spreadUsableLengthFormula: coreMetrics.spreadUsableLengthFormula,
+    varianceLengthFormula: coreMetrics.varianceLengthFormula,
+    shortageGarmentQtyFormula: coreMetrics.shortageGarmentQtyFormula,
+    suggestedActionRuleText: coreMetrics.warningRuleText,
+    lines: coreMetrics.replenishmentLines.map((line) => ({ ...line, suggestedAction })),
+    requiredQty: coreMetrics.plannedCutGarmentQty,
+    theoreticalCapacityQty: coreMetrics.theoreticalCutGarmentQty,
+    actualCutQty: coreMetrics.actualCutGarmentQty,
     configuredLengthTotal,
     claimedLengthTotal,
-    totalActualLength,
-    totalUsableLength,
-    varianceLength,
-    shortageQty,
+    totalActualLength: coreMetrics.spreadActualLengthM,
+    totalUsableLength: coreMetrics.spreadUsableLengthM,
+    varianceLength: coreMetrics.varianceLength,
+    shortageQty: coreMetrics.shortageGarmentQty,
     warningLevel,
     suggestedAction,
     handled: false,
@@ -1495,7 +1855,7 @@ export function validateSpreadingCompletion(options: {
   }
 
   if (markerTotalPieces <= 0) {
-    messages.push('当前缺少唛架总件数，无法准确推导裁剪数量，不能完成铺布。')
+    messages.push('当前缺少唛架成衣件数，无法准确推导裁剪成衣件数，不能完成铺布。')
   }
 
   if (session.contextType === 'merge-batch' && !selectedOriginalCutOrderIds.length) {
@@ -1514,6 +1874,7 @@ export function validateSpreadingCompletion(options: {
 
 export function finalizeSpreadingCompletion(options: {
   session: SpreadingSession
+  context?: MarkerSpreadingContext | null
   linkedOriginalCutOrderIds: string[]
   linkedOriginalCutOrderNos: string[]
   productionOrderNos: string[]
@@ -1525,6 +1886,7 @@ export function finalizeSpreadingCompletion(options: {
 }): SpreadingSession {
   const completedAt = nowText(options.now)
   const replenishmentWarning = buildSpreadingReplenishmentWarning({
+    context: options.context || null,
     session: options.session,
     markerTotalPieces: options.markerTotalPieces,
     originalCutOrderNos: options.linkedOriginalCutOrderNos,
@@ -1828,7 +2190,7 @@ export function buildOperatorAmountWarnings(
       warnings.push(`${operatorLabel} 缺少单价，当前无法形成完整金额。`)
     }
     if (handledPieceQty === null) {
-      warnings.push(`${operatorLabel} 缺少开始层 / 结束层或唛架总件数，当前无法计算负责件数。`)
+      warnings.push(`${operatorLabel} 缺少开始层 / 结束层或唛架成衣件数，当前无法计算负责成衣件数。`)
     }
     if (parseOptionalNumber(operator.handledLength) === null) {
       warnings.push(`${operatorLabel} 缺少负责长度。`)
@@ -1836,7 +2198,7 @@ export function buildOperatorAmountWarnings(
     validateOperatorManualAmountAdjustment(operator).forEach((message) => warnings.push(message))
 
     if (pieceAverage > 0 && (handledPieceQty || 0) > pieceAverage * 2) {
-      warnings.push(`${operatorLabel} 的负责件数明显高于当前平均值，请复核层数区间。`)
+      warnings.push(`${operatorLabel} 的负责成衣件数明显高于当前平均值，请复核层数区间。`)
     }
     if (amountAverage > 0 && (displayAmount || 0) > amountAverage * 2) {
       warnings.push(`${operatorLabel} 的金额明显高于当前平均值，请复核单价或人工调整。`)
@@ -1945,7 +2307,7 @@ export function buildRollHandoverWarnings(
       warnings.push(`${rollLabel} / ${operatorLabel} 缺少有效层数区间。`)
     }
     if (handledPieceQty === null) {
-      warnings.push(`${rollLabel} / ${operatorLabel} 无法计算负责件数，请补录层数或唛架总件数。`)
+      warnings.push(`${rollLabel} / ${operatorLabel} 无法计算负责成衣件数，请补录层数或唛架成衣件数。`)
     }
     if (parseOptionalNumber(operator.handledLength) === null) {
       warnings.push(`${rollLabel} / ${operatorLabel} 缺少负责长度。`)
@@ -2109,31 +2471,54 @@ export function buildSpreadingVarianceSummary(
     context.materialPrepRows.reduce((sum, row) => sum + row.materialLineItems.reduce((lineSum, item) => lineSum + item.claimedQty, 0), 0).toFixed(2),
   )
 
-  const rollSummary = summarizeSpreadingRolls(session?.rolls ?? [])
-  const requiredPieceQty = marker?.totalPieces || 0
-  const estimatedPieceCapacity = marker && marker.singlePieceUsage > 0 ? Math.floor(rollSummary.totalCalculatedUsableLength / marker.singlePieceUsage) : 0
-  const varianceLength = Number((claimedLengthTotal - rollSummary.totalActualLength).toFixed(2))
-  const shortageIndicator = Boolean(marker && marker.singlePieceUsage > 0 && requiredPieceQty > 0 && estimatedPieceCapacity < requiredPieceQty)
+  const coreMetrics = buildSpreadingCoreMetrics({
+    context,
+    session,
+    markerTotalPieces: marker?.totalPieces || 0,
+    configuredLengthTotal,
+    claimedLengthTotal,
+  })
+  const shortageIndicator = coreMetrics.shortageGarmentQty > 0
 
   let replenishmentHint = '当前铺布数据与仓库配料数据基本匹配。'
   if (!session || !session.rolls.length) {
     replenishmentHint = '当前尚未录入铺布卷数据，补料判断仍需补录后确认。'
   } else if (shortageIndicator) {
-    replenishmentHint = '预计承载件数低于唛架总件数，建议进入补料管理进一步确认。'
-  } else if (varianceLength < 0) {
+    replenishmentHint = '预计承载成衣件数低于唛架成衣件数，建议进入补料管理进一步确认。'
+  } else if (coreMetrics.varianceLength < 0) {
     replenishmentHint = '总实际铺布长度超过已领取长度，建议复核差异并关注补料可能性。'
   }
 
   return {
     configuredLengthTotal,
     claimedLengthTotal,
-    actualLengthTotal: rollSummary.totalActualLength,
-    usableLengthTotal: rollSummary.totalCalculatedUsableLength,
-    remainingLengthTotal: rollSummary.totalRemainingLength,
-    varianceLength,
-    estimatedPieceCapacity,
-    requiredPieceQty,
-    actualCutPieceQtyTotal: rollSummary.totalActualCutPieceQty,
+    actualLengthTotal: coreMetrics.spreadActualLengthM,
+    usableLengthTotal: coreMetrics.spreadUsableLengthM,
+    remainingLengthTotal: coreMetrics.spreadRemainingLengthM,
+    varianceLength: coreMetrics.varianceLength,
+    plannedCutGarmentQty: coreMetrics.plannedCutGarmentQty,
+    theoreticalCutGarmentQty: coreMetrics.theoreticalCutGarmentQty,
+    actualCutGarmentQty: coreMetrics.actualCutGarmentQty,
+    spreadActualLengthM: coreMetrics.spreadActualLengthM,
+    spreadUsableLengthM: coreMetrics.spreadUsableLengthM,
+    spreadRemainingLengthM: coreMetrics.spreadRemainingLengthM,
+    fabricRollCount: coreMetrics.fabricRollCount,
+    spreadLayerCount: coreMetrics.spreadLayerCount,
+    plannedCutGarmentQtyFormula: coreMetrics.plannedCutGarmentQtyFormula,
+    theoreticalCutGarmentQtyFormula: coreMetrics.theoreticalCutGarmentQtyFormula,
+    actualCutGarmentQtyFormula: coreMetrics.actualCutGarmentQtyFormula,
+    spreadUsableLengthFormula: coreMetrics.spreadUsableLengthFormula,
+    varianceLengthFormula: coreMetrics.varianceLengthFormula,
+    shortageGarmentQtyFormula: coreMetrics.shortageGarmentQtyFormula,
+    warningRuleText: coreMetrics.warningRuleText,
+    replenishmentLines: coreMetrics.replenishmentLines,
+    estimatedPieceCapacity: coreMetrics.theoreticalCutGarmentQty,
+    requiredPieceQty: coreMetrics.plannedCutGarmentQty,
+    actualCutPieceQtyTotal: coreMetrics.actualCutGarmentQty,
+    requiredGarmentQty: coreMetrics.plannedCutGarmentQty,
+    theoreticalCapacityGarmentQty: coreMetrics.theoreticalCutGarmentQty,
+    actualCutGarmentQtyTotal: coreMetrics.actualCutGarmentQty,
+    shortageGarmentQty: coreMetrics.shortageGarmentQty,
     shortageIndicator,
     replenishmentHint,
   }
@@ -2149,7 +2534,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
     }
   }
 
-  if (summary.requiredPieceQty <= 0 || summary.actualLengthTotal <= 0) {
+  if (summary.plannedCutGarmentQty <= 0 || summary.spreadActualLengthM <= 0) {
     return {
       level: 'MISSING',
       label: '数据待补录',
@@ -2224,7 +2609,7 @@ export function buildSpreadingWarningMessages(options: {
       warnings.push(`${rollLabel} 缺少卷号或时间，铺布记录仍不完整。`)
     }
     if (Number(roll.layerCount || 0) <= 0 || options.markerTotalPieces <= 0) {
-      warnings.push(`${rollLabel} 缺少层数或唛架总件数，实际裁剪件数暂无法准确推导。`)
+      warnings.push(`${rollLabel} 缺少铺布层数或唛架成衣件数，实际裁剪成衣件数暂无法准确推导。`)
     }
     if (!linkedOperators.length) {
       warnings.push(`${rollLabel} 缺少人员记录，无法追溯开始、交接与完成情况。`)

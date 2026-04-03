@@ -122,6 +122,47 @@ function formatQty(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(Math.max(value, 0))
 }
 
+function formatLength(value: number): string {
+  return `${Number(value || 0).toFixed(2)} 米`
+}
+
+function renderFormulaLine(formula?: string): string {
+  return formula ? `<div class="mt-1 font-mono text-[11px] leading-4 text-muted-foreground">${escapeHtml(formula)}</div>` : ''
+}
+
+function renderMetricCard(
+  label: string,
+  value: string,
+  options?: {
+    formula?: string
+    valueClassName?: string
+  },
+): string {
+  return `
+    <article class="rounded-lg border bg-muted/20 p-3">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 ${options?.valueClassName || 'font-medium text-foreground'}">${escapeHtml(value)}</div>
+      ${renderFormulaLine(options?.formula)}
+    </article>
+  `
+}
+
+function buildLengthSumFormula(result: number, values: number[]): string {
+  const left = Number(result || 0).toFixed(2)
+  const right = values.length ? values.map((value) => Number(value || 0).toFixed(2)).join(' + ') : '0'
+  return `${left} = ${right}`
+}
+
+function buildQtySumFormula(result: number, values: number[]): string {
+  const left = formatQty(result || 0)
+  const right = values.length ? values.map((value) => formatQty(value || 0)).join(' + ') : '0'
+  return `${left} = ${right}`
+}
+
+function buildLengthDifferenceFormula(result: number, minuend: number, subtrahend: number): string {
+  return `${Number(result || 0).toFixed(2)} = ${Number(minuend || 0).toFixed(2)} - ${Number(subtrahend || 0).toFixed(2)}`
+}
+
 function buildViewModel() {
   return buildReplenishmentProjection({
     reviews: state.reviews,
@@ -260,7 +301,7 @@ function renderHeaderActions(): string {
     : ''
   return `
     <div class="flex flex-wrap gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker-index">返回唛架铺布</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker-index">返回铺布列表</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-original-index">查看原始裁片单</button>
       ${returnToSummary}
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary-index">查看裁剪总表</button>
@@ -389,7 +430,7 @@ function renderRowActions(row: ReplenishmentSuggestionRow): string {
 
   if (row.statusMeta.key === 'PENDING_SUPPLEMENT') {
     const action = row.sourceType === 'spreading-session' ? 'go-marker' : 'go-material-prep'
-    const label = row.sourceType === 'spreading-session' ? '去唛架铺布' : '去配料领料'
+    const label = row.sourceType === 'spreading-session' ? '去铺布' : '去配料领料'
     return `
       <div class="flex flex-wrap gap-2">
         ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
@@ -449,6 +490,7 @@ function renderTable(rows: ReplenishmentSuggestionRow[]): string {
                 </div>
                 <div class="mt-1 text-xs text-foreground">${escapeHtml(row.sourceSummary)}</div>
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${row.materialSku} · ${row.materialCategory}`)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`颜色：${Array.from(new Set(row.lines.map((line) => line.color).filter(Boolean))).join(' / ') || '待补'}`)}</div>
               </td>
               <td class="px-4 py-3">
                 <div class="text-xs text-foreground">${escapeHtml(row.sourceProductionSummary)}</div>
@@ -535,53 +577,123 @@ function renderDifferenceSection(row: ReplenishmentSuggestionRow): string {
   const latestUpdatedAt = row.context.session?.updatedAt || row.context.marker?.updatedAt || row.createdAt
   const latestOperatorName =
     row.context.session?.completionLinkage?.completedBy || row.context.marker?.updatedBy || '待补'
+  const lineRequiredValues = row.lines.map((line) => line.requiredGarmentQty)
+  const lineActualValues = row.lines.map((line) => line.actualCutGarmentQty)
+  const lineClaimedValues = row.lines.map((line) => line.claimedLengthTotal)
+  const lineActualLengthValues = row.lines.map((line) => line.actualLengthTotal)
+  const lineColorSummary = Array.from(new Set(row.lines.map((line) => line.color).filter(Boolean))).join(' / ') || '待补'
 
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-sm font-semibold text-foreground">差异计算</h3>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">理论需求数量</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatQty(row.requiredQty))} 件</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">预计可裁数量</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatQty(row.estimatedCapacityQty))} 件</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">缺口数量</div>
-          <div class="mt-1 font-medium ${row.shortageQty > 0 ? 'text-rose-600' : 'text-foreground'}">${escapeHtml(formatQty(row.shortageQty))} 件</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">已配置长度</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(String(row.configuredLengthTotal))} 米</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">已领用长度</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(String(row.claimedLengthTotal))} 米</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">可用长度</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(String(row.usableLengthTotal))} 米</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">缺口长度</div>
-          <div class="mt-1 font-medium ${row.shortageLengthTotal > 0 ? 'text-rose-600' : 'text-foreground'}">${escapeHtml(String(row.shortageLengthTotal))} 米</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">差异长度</div>
-          <div class="mt-1 font-medium ${row.varianceLength < 0 ? 'text-rose-600' : 'text-foreground'}">${escapeHtml(String(row.varianceLength))} 米</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">最近更新时间</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatDateTime(latestUpdatedAt))}</div>
-        </article>
-        <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">最近操作人</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(latestOperatorName)}</div>
-        </article>
+        ${renderMetricCard('计划裁剪成衣件数（件）', `${formatQty(row.requiredGarmentQty)} 件`, {
+          formula: buildQtySumFormula(row.requiredGarmentQty, lineRequiredValues),
+        })}
+        ${renderMetricCard('理论裁剪成衣件数（件）', `${formatQty(row.theoreticalCutGarmentQty)} 件`, {
+          formula: row.summaryRuleText || `${formatQty(row.theoreticalCutGarmentQty)} = 铺布理论裁剪成衣件数`,
+        })}
+        ${renderMetricCard('实际裁剪成衣件数（件）', `${formatQty(row.actualCutGarmentQty)} 件`, {
+          formula: buildQtySumFormula(row.actualCutGarmentQty, lineActualValues),
+        })}
+        ${renderMetricCard('缺口成衣件数（件）', `${formatQty(row.shortageGarmentQty)} 件`, {
+          formula: `max(${formatQty(row.requiredGarmentQty)} - ${formatQty(row.actualCutGarmentQty)}, 0) = ${formatQty(row.shortageGarmentQty)}`,
+          valueClassName: row.shortageGarmentQty > 0 ? 'font-medium text-rose-600' : 'font-medium text-foreground',
+        })}
+        ${renderMetricCard('已配置总长度（m）', formatLength(row.configuredLengthTotal))}
+        ${renderMetricCard('已领取总长度（m）', formatLength(row.claimedLengthTotal), {
+          formula: buildLengthSumFormula(row.claimedLengthTotal, lineClaimedValues),
+        })}
+        ${renderMetricCard('总实际铺布长度（m）', formatLength(row.actualLengthTotal), {
+          formula: buildLengthSumFormula(row.actualLengthTotal, lineActualLengthValues),
+        })}
+        ${renderMetricCard('差异长度（m）', formatLength(row.varianceLength), {
+          formula: buildLengthDifferenceFormula(row.varianceLength, row.claimedLengthTotal, row.actualLengthTotal),
+          valueClassName: row.varianceLength < 0 ? 'font-medium text-rose-600' : 'font-medium text-foreground',
+        })}
+        ${renderMetricCard('来源颜色', lineColorSummary)}
+        ${renderMetricCard('最近更新时间', formatDateTime(latestUpdatedAt))}
+        ${renderMetricCard('最近操作人', latestOperatorName)}
+        ${renderMetricCard('判定依据', row.summaryRuleText || row.note)}
       </div>
       <div class="mt-3 rounded-lg border border-dashed bg-amber-50/70 p-3 text-xs text-muted-foreground">${escapeHtml(row.note)}</div>
+    </section>
+  `
+}
+
+function renderSuggestionLineSection(row: ReplenishmentSuggestionRow): string {
+  if (!row.lines.length) {
+    return `
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="text-sm font-semibold text-foreground">补料明细建议</h3>
+        <div class="mt-3 rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">当前上下文尚未拆到原始裁片单 × 面料 SKU × 颜色维度。</div>
+      </section>
+    `
+  }
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-sm font-semibold text-foreground">补料明细建议</h3>
+        <span class="text-xs text-muted-foreground">${escapeHtml(`${formatQty(row.lines.length)} 条建议 = 原始裁片单 × 面料 SKU × 颜色`)}</span>
+      </div>
+      <div class="mt-3 overflow-x-auto">
+        <table class="min-w-[1280px] text-sm">
+          <thead class="bg-muted/60 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left">原始裁片单</th>
+              <th class="px-3 py-2 text-left">面料 SKU</th>
+              <th class="px-3 py-2 text-left">颜色</th>
+              <th class="px-3 py-2 text-left">计划裁剪成衣件数（件）</th>
+              <th class="px-3 py-2 text-left">实际裁剪成衣件数（件）</th>
+              <th class="px-3 py-2 text-left">已领取长度（m）</th>
+              <th class="px-3 py-2 text-left">总实际铺布长度（m）</th>
+              <th class="px-3 py-2 text-left">缺口成衣件数（件）</th>
+              <th class="px-3 py-2 text-left">建议动作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${row.lines
+              .map(
+                (line) => `
+                  <tr class="border-b align-top">
+                    <td class="px-3 py-3">
+                      <div class="font-medium text-foreground">${escapeHtml(line.originalCutOrderNo || line.originalCutOrderId)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.originalCutOrderId)}</div>
+                    </td>
+                    <td class="px-3 py-3">${escapeHtml(line.materialSku)}</td>
+                    <td class="px-3 py-3">${escapeHtml(line.color || '待补')}</td>
+                    <td class="px-3 py-3">
+                      <div class="font-medium text-foreground">${escapeHtml(`${formatQty(line.requiredGarmentQty)} 件`)}</div>
+                      ${renderFormulaLine(`${formatQty(line.requiredGarmentQty)} = 当前补料明细需求成衣件数`)}
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="font-medium text-foreground">${escapeHtml(`${formatQty(line.actualCutGarmentQty)} 件`)}</div>
+                      ${renderFormulaLine(line.actualCutGarmentQtyFormula)}
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="font-medium text-foreground">${escapeHtml(formatLength(line.claimedLengthTotal))}</div>
+                      ${renderFormulaLine(`${Number(line.claimedLengthTotal || 0).toFixed(2)} = 当前补料明细已领取长度`)}
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="font-medium text-foreground">${escapeHtml(formatLength(line.actualLengthTotal))}</div>
+                      ${renderFormulaLine(`${Number(line.actualLengthTotal || 0).toFixed(2)} = 当前补料明细总实际铺布长度`)}
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="${line.shortageGarmentQty > 0 ? 'font-medium text-rose-600' : 'font-medium text-foreground'}">${escapeHtml(`${formatQty(line.shortageGarmentQty)} 件`)}</div>
+                      ${renderFormulaLine(line.shortageGarmentQtyFormula)}
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="font-medium text-foreground">${escapeHtml(line.suggestedAction)}</div>
+                      ${renderFormulaLine(line.suggestedActionRuleText)}
+                    </td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
     </section>
   `
 }
@@ -765,6 +877,7 @@ function renderDetailDrawer(): string {
       <div class="space-y-6 text-sm">
         ${renderEvidenceSection(row)}
         ${renderDifferenceSection(row)}
+        ${renderSuggestionLineSection(row)}
         ${renderReviewSection(row)}
         ${renderActionsSection(row)}
         ${renderAuditSection(row)}
@@ -774,7 +887,7 @@ function renderDetailDrawer(): string {
       <div class="flex flex-wrap gap-2">
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="submit-review">提交审核</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去仓库配料领料</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">返回唛架铺布</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">去铺布</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary" data-suggestion-id="${escapeHtml(row.suggestionId)}">去裁剪总表</button>
       </div>
     `,

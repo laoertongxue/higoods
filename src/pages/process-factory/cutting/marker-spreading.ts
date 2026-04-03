@@ -8,12 +8,18 @@ import {
   buildSpreadingWarningMessages,
   buildRollHandoverViewModel,
   buildOperatorAmountWarnings,
+  buildRollActualCutQtyFormula,
+  buildShortageQtyFormula,
+  buildSpreadingImportedLengthFormula,
+  buildTheoreticalCutGarmentQtyFormula,
+  buildTheoreticalActualCutQtyFormula,
   computeOperatorCalculatedAmount,
   computeOperatorDisplayAmount,
   computeRemainingLength,
   computeOperatorHandledLayerCount,
   computeOperatorHandledPieceQty,
   computeRollActualCutPieceQty,
+  deriveSpreadingColorSummary,
   createOperatorRecordDraft,
   createRollRecordDraft,
   createSpreadingDraftFromMarker,
@@ -264,13 +270,19 @@ const state: MarkerSpreadingPageState = {
 }
 
 function getCurrentPathname(): string {
-  return appStore.getState().pathname.split('?')[0] || getCanonicalCuttingPath('marker-spreading')
+  return appStore.getState().pathname.split('?')[0] || getCanonicalCuttingPath('spreading-list')
 }
 
 function getSearchParams(): URLSearchParams {
   const pathname = appStore.getState().pathname
   const [, query] = pathname.split('?')
   return new URLSearchParams(query || '')
+}
+
+function buildCanonicalSpreadingListPathFromCurrentLocation(): string {
+  const query = getSearchParams().toString()
+  const basePath = getCanonicalCuttingPath('spreading-list')
+  return query ? `${basePath}?${query}` : basePath
 }
 
 function buildRouteWithQuery(pathname: string, payload?: Record<string, string | undefined>): string {
@@ -334,7 +346,45 @@ function renderSection(title: string, body: string): string {
   `
 }
 
-function renderInfoGrid(items: Array<{ label: string; value: string; hint?: string }>): string {
+function renderFormulaLine(formula?: string): string {
+  return formula ? `<p class="mt-1 font-mono text-[11px] leading-4 text-muted-foreground">${escapeHtml(formula)}</p>` : ''
+}
+
+function renderValueWithFormula(value: string, formula?: string, extraClass = ''): string {
+  return `
+    <div class="space-y-1">
+      <p class="${extraClass || 'text-sm font-medium text-foreground'}">${escapeHtml(value || '待补')}</p>
+      ${renderFormulaLine(formula)}
+    </div>
+  `
+}
+
+function buildSumFormula(result: number, values: number[], digits = 2): string {
+  const normalized = values.map((value) => Number(value || 0))
+  const left = Number(result || 0).toFixed(digits)
+  const right = normalized.length ? normalized.map((value) => value.toFixed(digits)).join(' + ') : '0'
+  return `${left} = ${right}`
+}
+
+function buildDifferenceFormula(result: number, minuend: number, subtrahend: number, digits = 2): string {
+  return `${Number(result || 0).toFixed(digits)} = ${Number(minuend || 0).toFixed(digits)} - ${Number(subtrahend || 0).toFixed(digits)}`
+}
+
+function buildRollUsableLengthFormula(actualLength: number, headLength: number, tailLength: number, usableLength: number): string {
+  return `${Number(usableLength || 0).toFixed(2)} = ${Number(actualLength || 0).toFixed(2)} - ${Number(headLength || 0).toFixed(2)} - ${Number(tailLength || 0).toFixed(2)}`
+}
+
+function buildRemainingLengthFormula(labeledLength: number, actualLength: number, remainingLength: number): string {
+  return `${Number(remainingLength || 0).toFixed(2)} = ${Number(labeledLength || 0).toFixed(2)} - ${Number(actualLength || 0).toFixed(2)}`
+}
+
+function buildQtySumFormula(result: number, values: number[]): string {
+  const left = formatQty(result || 0)
+  const right = values.length ? values.map((value) => formatQty(value || 0)).join(' + ') : '0'
+  return `${left} = ${right}`
+}
+
+function renderInfoGrid(items: Array<{ label: string; value: string; hint?: string; formula?: string }>): string {
   return `
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       ${items
@@ -343,6 +393,7 @@ function renderInfoGrid(items: Array<{ label: string; value: string; hint?: stri
             <article class="rounded-lg border bg-muted/10 px-3 py-2">
               <p class="text-xs text-muted-foreground">${escapeHtml(item.label)}</p>
               <p class="mt-1 text-sm font-medium text-foreground">${escapeHtml(item.value || '待补')}</p>
+              ${renderFormulaLine(item.formula)}
               ${item.hint ? `<p class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(item.hint)}</p>` : ''}
             </article>
           `,
@@ -364,6 +415,17 @@ function renderTextInput(label: string, value: string, attrs: string, placeholde
         ${attrs}
       />
     </label>
+  `
+}
+
+function renderReadonlyField(label: string, value: string, options?: { formula?: string; attrs?: string }): string {
+  return `
+    <div class="space-y-2" ${options?.attrs || ''}>
+      <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
+      <div class="min-h-10 rounded-md border bg-muted/10 px-3 py-2">
+        ${renderValueWithFormula(value, options?.formula)}
+      </div>
+    </div>
   `
 }
 
@@ -1122,10 +1184,7 @@ function syncStateFromPath(): void {
   state.prefilter = parsePrefilterFromPath()
   state.activeTab = parseListTabFromPath()
   state.keyword = ''
-  state.markerModeFilter = 'ALL'
   state.contextTypeFilter = 'ALL'
-  state.adjustmentFilter = 'ALL'
-  state.imageFilter = 'ALL'
   state.spreadingModeFilter = 'ALL'
   state.spreadingStatusFilter = 'ALL'
   state.spreadingVarianceFilter = 'ALL'
@@ -1139,14 +1198,6 @@ function syncStateFromPath(): void {
   const currentPath = getCurrentPathname()
   const data = readMarkerSpreadingPrototypeData()
 
-  if (currentPath === getCanonicalCuttingPath('marker-edit')) {
-    const markerId = getSearchParams().get('markerId')
-    const existing = markerId ? data.store.markers.find((item) => item.markerId === markerId) || null : null
-    state.markerDraft = ensureMarkerDraftShape(existing ? cloneMarkerRecord(existing) : buildNewMarkerDraft())
-    state.spreadingDraft = null
-    return
-  }
-
   if (currentPath === getCanonicalCuttingPath('spreading-edit')) {
     const sessionId = getSearchParams().get('sessionId')
     const existing = sessionId ? data.store.sessions.find((item) => item.spreadingSessionId === sessionId) || null : null
@@ -1159,7 +1210,6 @@ function syncStateFromPath(): void {
     return
   }
 
-  state.markerDraft = null
   state.spreadingDraft = null
 }
 
@@ -1177,41 +1227,6 @@ function getPageData() {
     mergeBatches: data.mergeBatches,
     store: data.store,
     prefilter: state.prefilter,
-  })
-
-  const markerRows = buildMarkerListViewModel({
-    markerRecords: viewModel.markerRecords,
-    rowsById: data.rowsById,
-    mergeBatches: data.mergeBatches,
-  }).filter((row) => {
-    if (state.prefilter?.productionOrderNo && !row.keywordIndex.includes(state.prefilter.productionOrderNo)) {
-      return false
-    }
-    if (state.prefilter?.styleCode && row.styleCode !== state.prefilter.styleCode && row.spuCode !== state.prefilter.styleCode) {
-      return false
-    }
-    if (state.prefilter?.materialSku && !row.materialSkuSummary.includes(state.prefilter.materialSku)) {
-      return false
-    }
-    if (state.markerModeFilter !== 'ALL' && row.markerMode !== state.markerModeFilter) {
-      return false
-    }
-    if (state.contextTypeFilter !== 'ALL' && row.contextType !== state.contextTypeFilter) {
-      return false
-    }
-    if (state.adjustmentFilter === 'YES' && !row.hasAdjustment) {
-      return false
-    }
-    if (state.adjustmentFilter === 'NO' && row.hasAdjustment) {
-      return false
-    }
-    if (state.imageFilter === 'YES' && !row.hasImage) {
-      return false
-    }
-    if (state.imageFilter === 'NO' && row.hasImage) {
-      return false
-    }
-    return matchesKeyword(state.keyword, row.keywordIndex)
   })
 
   const spreadingRows = buildSpreadingListViewModel({
@@ -1271,24 +1286,13 @@ function getPageData() {
   return {
     ...data,
     viewModel,
-    markerRows,
     spreadingRows,
   }
-}
-
-function getMarkerRow(markerId: string | null | undefined): MarkerListRow | null {
-  if (!markerId) return null
-  return getPageData().markerRows.find((item) => item.markerId === markerId) || null
 }
 
 function getSpreadingRow(sessionId: string | null | undefined): SpreadingListRow | null {
   if (!sessionId) return null
   return getPageData().spreadingRows.find((item) => item.spreadingSessionId === sessionId) || null
-}
-
-function getStoredMarkerRecord(markerId: string | null | undefined): MarkerRecord | null {
-  if (!markerId) return null
-  return readMarkerSpreadingPrototypeData().store.markers.find((item) => item.markerId === markerId) || null
 }
 
 function getStoredSpreadingSession(sessionId: string | null | undefined): SpreadingSession | null {
@@ -1308,32 +1312,7 @@ function syncImportedFieldsToExistingSession(marker: MarkerRecord, baseSession: 
 }
 
 function renderImportDecisionPanel(): string {
-  if (!state.importDecision) return ''
-  return renderSection(
-    '再次导入提示',
-    `
-      <div class="space-y-3">
-        <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          当前唛架 <span class="font-medium">${escapeHtml(state.importDecision.markerNo)}</span> 已关联铺布草稿
-          <span class="font-medium">${escapeHtml(state.importDecision.targetSessionNo)}</span>，并且该草稿已经录入实际卷记录或人员记录，不能静默覆盖。
-        </div>
-        <div class="grid gap-3 md:grid-cols-3">
-          <button type="button" class="rounded-md border bg-card px-3 py-3 text-left text-sm hover:bg-muted" data-cutting-marker-action="confirm-marker-import-new">
-            <p class="font-medium text-foreground">方案 A：新建一条新的铺布草稿</p>
-            <p class="mt-1 text-xs text-muted-foreground">推荐。保留原实际执行数据不动，另起一条新草稿重新承接唛架模板。</p>
-          </button>
-          <button type="button" class="rounded-md border bg-card px-3 py-3 text-left text-sm hover:bg-muted" data-cutting-marker-action="confirm-marker-import-sync">
-            <p class="font-medium text-foreground">方案 B：仅同步理论字段</p>
-            <p class="mt-1 text-xs text-muted-foreground">只更新导入来源、计划铺布明细和理论字段，不覆盖卷记录与人员记录。</p>
-          </button>
-          <button type="button" class="rounded-md border bg-card px-3 py-3 text-left text-sm hover:bg-muted" data-cutting-marker-action="cancel-marker-import">
-            <p class="font-medium text-foreground">方案 C：取消</p>
-            <p class="mt-1 text-xs text-muted-foreground">不做任何导入操作，继续保留当前记录。</p>
-          </button>
-        </div>
-      </div>
-    `,
-  )
+  return ''
 }
 
 function renderHeaderActions(actions: string[]): string {
@@ -1369,135 +1348,12 @@ function renderPrefilterBar(): string {
 }
 
 function renderFilterBar(): string {
-  if (state.activeTab === 'SPREADINGS') {
-    const chips: string[] = []
-    if (state.keyword) {
-      chips.push(renderWorkbenchFilterChip(`关键词：${state.keyword}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
-    }
-    if (state.spreadingModeFilter !== 'ALL') {
-      chips.push(renderWorkbenchFilterChip(`模式：${deriveSpreadingModeMeta(state.spreadingModeFilter).label}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
-    }
-    if (state.contextTypeFilter !== 'ALL') {
-      chips.push(
-        renderWorkbenchFilterChip(
-          `上下文：${state.contextTypeFilter === 'merge-batch' ? '合并裁剪批次' : '原始裁片单'}`,
-          'data-cutting-marker-action="clear-filters"',
-          'blue',
-        ),
-      )
-    }
-    if (state.spreadingStatusFilter !== 'ALL') {
-      chips.push(renderWorkbenchFilterChip(`状态：${deriveSpreadingStatus(state.spreadingStatusFilter).label}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
-    }
-    if (state.spreadingVarianceFilter !== 'ALL') {
-      chips.push(renderWorkbenchFilterChip(`差异：${state.spreadingVarianceFilter === 'YES' ? '存在差异' : '无明显差异'}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
-    }
-    if (state.spreadingWarningFilter !== 'ALL') {
-      chips.push(
-        renderWorkbenchFilterChip(
-          `提醒：${state.spreadingWarningFilter === 'YES' ? '存在提醒' : '无提醒'}`,
-          'data-cutting-marker-action="clear-filters"',
-          'blue',
-        ),
-      )
-    }
-    if (state.spreadingReplenishmentFilter !== 'ALL') {
-      chips.push(
-        renderWorkbenchFilterChip(
-          `补料预警：${state.spreadingReplenishmentFilter === 'YES' ? '已触发预警' : '无补料预警'}`,
-          'data-cutting-marker-action="clear-filters"',
-          'blue',
-        ),
-      )
-    }
-    if (state.spreadingWarningLevelFilter !== 'ALL') {
-      chips.push(
-        renderWorkbenchFilterChip(
-          `预警等级：${state.spreadingWarningLevelFilter}`,
-          'data-cutting-marker-action="clear-filters"',
-          'blue',
-        ),
-      )
-    }
-    if (state.spreadingPendingReplenishmentFilter !== 'ALL') {
-      chips.push(
-        renderWorkbenchFilterChip(
-          `待补料确认：${state.spreadingPendingReplenishmentFilter === 'YES' ? '是' : '否'}`,
-          'data-cutting-marker-action="clear-filters"',
-          'blue',
-        ),
-      )
-    }
-
-    return [
-      renderStickyFilterShell(`
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-9">
-          ${renderTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布编号 / 原始裁片单号 / 批次号 / 款号 / 面料编码 / 卷号 / 人员')}
-          ${renderSelect('模式', state.spreadingModeFilter, 'data-cutting-spreading-list-field="mode"', [
-            { value: 'ALL', label: '全部模式' },
-            { value: 'normal', label: '正常模式' },
-            { value: 'high-low', label: '高低层模式' },
-            { value: 'folded', label: '对折模式' },
-          ])}
-          ${renderSelect('上下文类型', state.contextTypeFilter, 'data-cutting-spreading-list-field="context"', [
-            { value: 'ALL', label: '全部上下文' },
-            { value: 'original-order', label: '原始裁片单' },
-            { value: 'merge-batch', label: '合并裁剪批次' },
-          ])}
-          ${renderSelect('状态', state.spreadingStatusFilter, 'data-cutting-spreading-list-field="status"', [
-            { value: 'ALL', label: '全部状态' },
-            { value: 'DRAFT', label: '草稿' },
-            { value: 'IN_PROGRESS', label: '进行中' },
-            { value: 'DONE', label: '已完成' },
-            { value: 'TO_FILL', label: '待补录' },
-          ])}
-          ${renderSelect('是否存在差异', state.spreadingVarianceFilter, 'data-cutting-spreading-list-field="variance"', [
-            { value: 'ALL', label: '全部' },
-            { value: 'YES', label: '存在差异' },
-            { value: 'NO', label: '无明显差异' },
-          ])}
-          ${renderSelect('是否存在提醒', state.spreadingWarningFilter, 'data-cutting-spreading-list-field="warning"', [
-            { value: 'ALL', label: '全部' },
-            { value: 'YES', label: '存在提醒' },
-            { value: 'NO', label: '无提醒' },
-          ])}
-          ${renderSelect('是否补料预警', state.spreadingReplenishmentFilter, 'data-cutting-spreading-list-field="replenishment"', [
-            { value: 'ALL', label: '全部' },
-            { value: 'YES', label: '有补料预警' },
-            { value: 'NO', label: '无补料预警' },
-          ])}
-          ${renderSelect('预警等级', state.spreadingWarningLevelFilter, 'data-cutting-spreading-list-field="warning-level"', [
-            { value: 'ALL', label: '全部等级' },
-            { value: '高', label: '高' },
-            { value: '中', label: '中' },
-            { value: '低', label: '低' },
-          ])}
-          ${renderSelect('待补料确认', state.spreadingPendingReplenishmentFilter, 'data-cutting-spreading-list-field="pending-replenishment"', [
-            { value: 'ALL', label: '全部' },
-            { value: 'YES', label: '待确认' },
-            { value: 'NO', label: '无需确认' },
-          ])}
-        </div>
-        <div class="mt-3 flex flex-wrap gap-2 md:justify-end">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="clear-filters">清除页内筛选</button>
-        </div>
-      `),
-      chips.length
-        ? renderWorkbenchStateBar({
-            summary: '当前页内筛选：',
-            chips,
-            clearAttrs: 'data-cutting-marker-action="clear-filters"',
-          })
-        : '',
-    ].join('')
-  }
-
   const chips: string[] = []
   if (state.keyword) {
     chips.push(renderWorkbenchFilterChip(`关键词：${state.keyword}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
   }
-  if (state.markerModeFilter !== 'ALL') {
-    chips.push(renderWorkbenchFilterChip(`模式：${deriveMarkerModeMeta(state.markerModeFilter).label}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
+  if (state.spreadingModeFilter !== 'ALL') {
+    chips.push(renderWorkbenchFilterChip(`模式：${deriveSpreadingModeMeta(state.spreadingModeFilter).label}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
   }
   if (state.contextTypeFilter !== 'ALL') {
     chips.push(
@@ -1508,37 +1364,96 @@ function renderFilterBar(): string {
       ),
     )
   }
-  if (state.adjustmentFilter !== 'ALL') {
-    chips.push(renderWorkbenchFilterChip(`调整：${state.adjustmentFilter === 'YES' ? '有调整' : '无调整'}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
+  if (state.spreadingStatusFilter !== 'ALL') {
+    chips.push(renderWorkbenchFilterChip(`状态：${deriveSpreadingStatus(state.spreadingStatusFilter).label}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
   }
-  if (state.imageFilter !== 'ALL') {
-    chips.push(renderWorkbenchFilterChip(`图片：${state.imageFilter === 'YES' ? '已上传' : '未上传'}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
+  if (state.spreadingVarianceFilter !== 'ALL') {
+    chips.push(renderWorkbenchFilterChip(`差异：${state.spreadingVarianceFilter === 'YES' ? '存在差异' : '无明显差异'}`, 'data-cutting-marker-action="clear-filters"', 'blue'))
+  }
+  if (state.spreadingWarningFilter !== 'ALL') {
+    chips.push(
+      renderWorkbenchFilterChip(
+        `提醒：${state.spreadingWarningFilter === 'YES' ? '存在提醒' : '无提醒'}`,
+        'data-cutting-marker-action="clear-filters"',
+        'blue',
+      ),
+    )
+  }
+  if (state.spreadingReplenishmentFilter !== 'ALL') {
+    chips.push(
+      renderWorkbenchFilterChip(
+        `补料预警：${state.spreadingReplenishmentFilter === 'YES' ? '已触发预警' : '无补料预警'}`,
+        'data-cutting-marker-action="clear-filters"',
+        'blue',
+      ),
+    )
+  }
+  if (state.spreadingWarningLevelFilter !== 'ALL') {
+    chips.push(
+      renderWorkbenchFilterChip(
+        `预警等级：${state.spreadingWarningLevelFilter}`,
+        'data-cutting-marker-action="clear-filters"',
+        'blue',
+      ),
+    )
+  }
+  if (state.spreadingPendingReplenishmentFilter !== 'ALL') {
+    chips.push(
+      renderWorkbenchFilterChip(
+        `待补料确认：${state.spreadingPendingReplenishmentFilter === 'YES' ? '是' : '否'}`,
+        'data-cutting-marker-action="clear-filters"',
+        'blue',
+      ),
+    )
   }
 
   return [
     renderStickyFilterShell(`
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        ${renderTextInput('搜索', state.keyword, 'data-cutting-marker-field="keyword"', '唛架序号 / session 编号 / 原始裁片单 / 批次 / 卷号 / 人员')}
-        ${renderSelect('模式', state.markerModeFilter, 'data-cutting-marker-field="marker-mode-filter"', [
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-9">
+        ${renderTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布编号 / 原始裁片单号 / 批次号 / 款号 / 面料编码 / 卷号 / 人员')}
+        ${renderSelect('模式', state.spreadingModeFilter, 'data-cutting-spreading-list-field="mode"', [
           { value: 'ALL', label: '全部模式' },
           { value: 'normal', label: '正常模式' },
           { value: 'high-low', label: '高低层模式' },
-          { value: 'folded', label: '对折铺布模式' },
+          { value: 'folded', label: '对折模式' },
         ])}
-        ${renderSelect('上下文类型', state.contextTypeFilter, 'data-cutting-marker-field="context-type-filter"', [
+        ${renderSelect('上下文类型', state.contextTypeFilter, 'data-cutting-spreading-list-field="context"', [
           { value: 'ALL', label: '全部上下文' },
           { value: 'original-order', label: '原始裁片单' },
           { value: 'merge-batch', label: '合并裁剪批次' },
         ])}
-        ${renderSelect('是否有调整', state.adjustmentFilter, 'data-cutting-marker-field="adjustment-filter"', [
+        ${renderSelect('状态', state.spreadingStatusFilter, 'data-cutting-spreading-list-field="status"', [
           { value: 'ALL', label: '全部' },
-          { value: 'YES', label: '有调整' },
-          { value: 'NO', label: '无调整' },
+          { value: 'DRAFT', label: '草稿' },
+          { value: 'IN_PROGRESS', label: '进行中' },
+          { value: 'DONE', label: '已完成' },
+          { value: 'TO_FILL', label: '待补录' },
         ])}
-        ${renderSelect('是否有图片', state.imageFilter, 'data-cutting-marker-field="image-filter"', [
+        ${renderSelect('是否存在差异', state.spreadingVarianceFilter, 'data-cutting-spreading-list-field="variance"', [
           { value: 'ALL', label: '全部' },
-          { value: 'YES', label: '已上传图片' },
-          { value: 'NO', label: '未上传图片' },
+          { value: 'YES', label: '存在差异' },
+          { value: 'NO', label: '无明显差异' },
+        ])}
+        ${renderSelect('是否存在提醒', state.spreadingWarningFilter, 'data-cutting-spreading-list-field="warning"', [
+          { value: 'ALL', label: '全部' },
+          { value: 'YES', label: '存在提醒' },
+          { value: 'NO', label: '无提醒' },
+        ])}
+        ${renderSelect('是否补料预警', state.spreadingReplenishmentFilter, 'data-cutting-spreading-list-field="replenishment"', [
+          { value: 'ALL', label: '全部' },
+          { value: 'YES', label: '有补料预警' },
+          { value: 'NO', label: '无补料预警' },
+        ])}
+        ${renderSelect('预警等级', state.spreadingWarningLevelFilter, 'data-cutting-spreading-list-field="warning-level"', [
+          { value: 'ALL', label: '全部等级' },
+          { value: '高', label: '高' },
+          { value: '中', label: '中' },
+          { value: '低', label: '低' },
+        ])}
+        ${renderSelect('待补料确认', state.spreadingPendingReplenishmentFilter, 'data-cutting-spreading-list-field="pending-replenishment"', [
+          { value: 'ALL', label: '全部' },
+          { value: 'YES', label: '待确认' },
+          { value: 'NO', label: '无需确认' },
         ])}
       </div>
       <div class="mt-3 flex flex-wrap gap-2 md:justify-end">
@@ -1565,14 +1480,15 @@ function renderListStats(): string {
   const doneCount = spreadingRows.filter((row) => row.statusLabel === '已完成').length
   const mergeBatchSpreadingCount = spreadingRows.filter((row) => row.contextType === 'merge-batch').length
   const originalSpreadingCount = spreadingRows.filter((row) => row.contextType === 'original-order').length
+  const totalCount = spreadingRows.length
 
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      ${renderCompactKpiCard('铺布记录数', spreadingRows.length, '包含草稿 / 进行中 / 已完成', 'text-blue-600')}
-      ${renderCompactKpiCard('原始单上下文铺布', originalSpreadingCount, '按原始裁片单查看', 'text-emerald-600')}
-      ${renderCompactKpiCard('批次上下文铺布', mergeBatchSpreadingCount, '按执行批次查看', 'text-violet-600')}
-      ${renderCompactKpiCard('进行中铺布', inProgressCount, '仍可继续补录卷和人员', 'text-amber-600')}
-      ${renderCompactKpiCard('已完成铺布', doneCount, '已形成执行记录', 'text-sky-600')}
+      ${renderCompactKpiCard('铺布记录数', totalCount, '包含草稿 / 进行中 / 已完成', 'text-blue-600', `${formatQty(totalCount)} = ${formatQty(originalSpreadingCount)} + ${formatQty(mergeBatchSpreadingCount)}`)}
+      ${renderCompactKpiCard('原始单上下文铺布', originalSpreadingCount, '按原始裁片单查看', 'text-emerald-600', `${formatQty(originalSpreadingCount)} = contextType = 原始裁片单`)}
+      ${renderCompactKpiCard('批次上下文铺布', mergeBatchSpreadingCount, '按执行批次查看', 'text-violet-600', `${formatQty(mergeBatchSpreadingCount)} = contextType = 合并裁剪批次`)}
+      ${renderCompactKpiCard('进行中铺布', inProgressCount, '仍可继续补录卷和人员', 'text-amber-600', `${formatQty(inProgressCount)} = status = 进行中`)}
+      ${renderCompactKpiCard('已完成铺布', doneCount, '已形成执行记录', 'text-sky-600', `${formatQty(doneCount)} = status = 已完成`)}
     </section>
   `
 }
@@ -1588,62 +1504,8 @@ function renderContextCell(contextLabel: string, originalCutOrderNos: string[], 
 }
 
 function renderMarkerTable(rows: MarkerListRow[]): string {
-  if (!rows.length) {
-    return '<section class="rounded-lg border border-dashed bg-card px-6 py-10 text-center text-sm text-muted-foreground">当前筛选范围内暂无计划记录。</section>'
-  }
-
-  return renderStickyTableScroller(`
-    <table class="min-w-full text-sm">
-      <thead class="sticky top-0 bg-muted/70 text-left text-xs text-muted-foreground backdrop-blur">
-        <tr>
-          <th class="px-3 py-2 font-medium">唛架序号</th>
-          <th class="px-3 py-2 font-medium">上下文</th>
-          <th class="px-3 py-2 font-medium">款号 / SPU</th>
-          <th class="px-3 py-2 font-medium">唛架模式</th>
-          <th class="px-3 py-2 font-medium">总件数</th>
-          <th class="px-3 py-2 font-medium">净长度</th>
-          <th class="px-3 py-2 font-medium">单件用量</th>
-          <th class="px-3 py-2 font-medium">唛架图状态</th>
-          <th class="px-3 py-2 font-medium">更新时间</th>
-          <th class="px-3 py-2 font-medium">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows
-          .map((row) => {
-            const modeMeta = deriveMarkerModeMeta(row.record.markerMode)
-            return `
-              <tr class="border-b align-top">
-                <td class="px-3 py-3">
-                  <p class="font-medium text-foreground">${escapeHtml(row.markerNo)}</p>
-                  <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.lineSummary)}</p>
-                </td>
-                <td class="px-3 py-3">${renderContextCell(row.contextLabel, row.originalCutOrderNos, row.mergeBatchNo)}</td>
-                <td class="px-3 py-3">
-                  <p>${escapeHtml(row.styleCode || '款号待补')}</p>
-                  <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.spuCode || 'SPU 待补')}</p>
-                </td>
-                <td class="px-3 py-3">${renderTag(modeMeta.label, modeMeta.className)}</td>
-                <td class="px-3 py-3">${escapeHtml(formatQty(row.totalPieces))} 件</td>
-                <td class="px-3 py-3">${escapeHtml(formatLength(row.netLength))}</td>
-                <td class="px-3 py-3">${escapeHtml(formatLength(row.singlePieceUsage))}</td>
-                <td class="px-3 py-3">${escapeHtml(row.markerImageStatus)}</td>
-                <td class="px-3 py-3">${escapeHtml(formatDateText(row.updatedAt))}</td>
-                <td class="px-3 py-3">
-                  <div class="flex flex-wrap gap-2">
-                    <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="open-marker-detail" data-marker-id="${escapeHtml(row.markerId)}">查看详情</button>
-                    <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="open-marker-edit" data-marker-id="${escapeHtml(row.markerId)}">编辑</button>
-                    <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="create-marker-from-context" data-marker-id="${escapeHtml(row.markerId)}">复制为新计划</button>
-                    <button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="create-spreading-from-marker" data-marker-id="${escapeHtml(row.markerId)}">从唛架导入铺布</button>
-                  </div>
-                </td>
-              </tr>
-            `
-          })
-          .join('')}
-      </tbody>
-    </table>
-  `)
+  void rows
+  return ''
 }
 
 function renderSpreadingTable(rows: SpreadingListRow[]): string {
@@ -1659,12 +1521,12 @@ function renderSpreadingTable(rows: SpreadingListRow[]): string {
           <th class="px-3 py-2 font-medium">上下文</th>
           <th class="px-3 py-2 font-medium">款号 / 款式编码</th>
           <th class="px-3 py-2 font-medium">铺布模式</th>
-          <th class="px-3 py-2 font-medium">卷数 / 人员数</th>
+          <th class="px-3 py-2 font-medium">布卷数 / 人员数</th>
           <th class="px-3 py-2 font-medium">交接摘要</th>
           <th class="px-3 py-2 font-medium">分摊摘要</th>
-          <th class="px-3 py-2 font-medium">实际铺布总长度</th>
-          <th class="px-3 py-2 font-medium">总可用长度</th>
-          <th class="px-3 py-2 font-medium">实际裁剪件数</th>
+          <th class="px-3 py-2 font-medium">实际铺布总长度（m）</th>
+          <th class="px-3 py-2 font-medium">总可用长度（m）</th>
+          <th class="px-3 py-2 font-medium">实际裁剪成衣件数（件）</th>
           <th class="px-3 py-2 font-medium">已联动完成原始裁片单数</th>
           <th class="px-3 py-2 font-medium">差异状态</th>
           <th class="px-3 py-2 font-medium">预警等级 / 建议动作</th>
@@ -1692,7 +1554,7 @@ function renderSpreadingTable(rows: SpreadingListRow[]): string {
                   <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.spuCode || '款式编码待补')}</p>
                 </td>
                 <td class="px-3 py-3">${renderTag(modeMeta.label, modeMeta.className)}</td>
-                <td class="px-3 py-3">${escapeHtml(String(row.rollCount))} 卷 / ${escapeHtml(String(row.operatorCount))} 人</td>
+                <td class="px-3 py-3">${escapeHtml(String(row.fabricRollCount))} 卷 / ${escapeHtml(String(row.operatorCount))} 人</td>
                 <td class="px-3 py-3">
                   <div class="space-y-1">
                     <p class="text-[11px] ${row.hasHandoverWarnings ? 'text-amber-700' : row.hasHandover ? 'text-blue-700' : 'text-muted-foreground'}">${escapeHtml(row.handoverStatusLabel)}</p>
@@ -1706,9 +1568,9 @@ function renderSpreadingTable(rows: SpreadingListRow[]): string {
                     )}</p>
                   </div>
                 </td>
-                <td class="px-3 py-3">${escapeHtml(formatLength(row.totalActualLength))}</td>
-                <td class="px-3 py-3">${escapeHtml(formatLength(row.totalCalculatedUsableLength))}</td>
-                <td class="px-3 py-3">${escapeHtml(formatQty(row.actualCutPieceQty))} 件</td>
+                <td class="px-3 py-3">${renderValueWithFormula(formatLength(row.spreadActualLengthM), buildSumFormula(row.spreadActualLengthM, row.session.rolls.map((roll) => roll.actualLength), 2))}</td>
+                <td class="px-3 py-3">${renderValueWithFormula(formatLength(row.spreadUsableLengthM), buildSumFormula(row.spreadUsableLengthM, row.session.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)), 2))}</td>
+                <td class="px-3 py-3">${renderValueWithFormula(`${formatQty(row.actualCutGarmentQty)} 件`, buildQtySumFormula(row.actualCutGarmentQty, row.session.rolls.map((roll) => roll.actualCutPieceQty || 0)))}</td>
                 <td class="px-3 py-3">${escapeHtml(formatQty(row.completedOriginalOrderCount))} 个</td>
                 <td class="px-3 py-3">
                   <span class="${row.differenceStatusTone === 'warning' ? 'text-amber-700' : 'text-muted-foreground'}">${escapeHtml(row.differenceStatusLabel)}</span>
@@ -1743,7 +1605,7 @@ function renderSpreadingTable(rows: SpreadingListRow[]): string {
 
 function renderListPage(): string {
   const pathname = getCurrentPathname()
-  const meta = getCanonicalCuttingMeta(pathname, 'marker-spreading')
+  const meta = getCanonicalCuttingMeta(pathname, 'spreading-list')
   const { spreadingRows } = getPageData()
 
   return `
@@ -1755,7 +1617,6 @@ function renderListPage(): string {
       })}
       ${renderListStats()}
       ${renderFeedbackBar()}
-      ${renderImportDecisionPanel()}
       ${renderPrefilterBar()}
       ${renderFilterBar()}
       ${renderSpreadingTable(spreadingRows)}
@@ -1820,7 +1681,7 @@ function renderOperatorAllocationSummary(summary: SpreadingOperatorAmountSummary
         { label: '按人分摊人数', value: `${formatQty(summary.rows.length)} 人` },
         { label: '总负责层数', value: `${formatQty(summary.totalHandledLayerCount)} 层` },
         { label: '总负责长度', value: formatHandledLengthValue(summary.totalHandledLength) },
-        { label: '总负责件数', value: `${formatQty(summary.totalHandledPieceQty)} 件` },
+        { label: '总负责成衣件数（件）', value: `${formatQty(summary.totalHandledPieceQty)} 件` },
         { label: '人员金额合计', value: formatCurrency(summary.totalDisplayAmount) },
         { label: '人工调整金额', value: summary.hasManualAdjustedAmount ? '存在人工调整' : '未人工调整' },
       ])}
@@ -1831,7 +1692,7 @@ function renderOperatorAllocationSummary(summary: SpreadingOperatorAmountSummary
               <th class="px-3 py-2">人员姓名</th>
               <th class="px-3 py-2">负责层数合计</th>
               <th class="px-3 py-2">负责长度合计</th>
-              <th class="px-3 py-2">负责件数合计</th>
+              <th class="px-3 py-2">负责成衣件数合计（件）</th>
               <th class="px-3 py-2">金额合计</th>
               <th class="px-3 py-2">人工调整</th>
             </tr>
@@ -1931,17 +1792,34 @@ function buildSpreadingReplenishmentPreview(
 ): SpreadingReplenishmentWarning {
   const data = readMarkerSpreadingPrototypeData()
   const primaryRows = session.originalCutOrderIds.map((id) => data.rowsById[id]).filter(Boolean)
-  return (
-    session.replenishmentWarning ||
-    buildSpreadingReplenishmentWarning({
-      session,
-      markerTotalPieces: derived.markerTotalPieces,
-      originalCutOrderNos: linkedOriginalCutOrderNos,
-      productionOrderNos: Array.from(new Set(primaryRows.map((row) => row.productionOrderNo))),
-      materialAttr: primaryRows[0]?.materialLabel || primaryRows[0]?.materialCategory || '',
-      warningMessages: derived.warningMessages,
-    })
-  )
+  const context =
+    primaryRows.length > 0
+      ? {
+          contextType: session.contextType,
+          originalCutOrderIds: [...session.originalCutOrderIds],
+          originalCutOrderNos: primaryRows.map((row) => row.originalCutOrderNo),
+          mergeBatchId: session.mergeBatchId,
+          mergeBatchNo: session.mergeBatchNo,
+          productionOrderNos: Array.from(new Set(primaryRows.map((row) => row.productionOrderNo))),
+          styleCode: session.styleCode || primaryRows[0].styleCode,
+          spuCode: session.spuCode || primaryRows[0].spuCode,
+          styleName: primaryRows[0].styleName,
+          materialSkuSummary: session.materialSkuSummary || primaryRows[0].materialSkuSummary,
+          materialPrepRows: primaryRows,
+        }
+      : null
+
+  const derivedWarning = buildSpreadingReplenishmentWarning({
+    context,
+    session,
+    markerTotalPieces: derived.markerTotalPieces,
+    originalCutOrderNos: linkedOriginalCutOrderNos,
+    productionOrderNos: Array.from(new Set(primaryRows.map((row) => row.productionOrderNo))),
+    materialAttr: primaryRows[0]?.materialLabel || primaryRows[0]?.materialCategory || '',
+    warningMessages: derived.warningMessages,
+  })
+
+  return session.replenishmentWarning?.handled ? { ...derivedWarning, handled: true } : derivedWarning
 }
 
 function renderSpreadingReplenishmentSection(
@@ -1959,21 +1837,46 @@ function renderSpreadingReplenishmentSection(
   return renderSection(
     '补料预警区',
     `
-      <div class="space-y-3">
-        <div class="rounded-md border px-3 py-2 text-sm ${toneClass}">
-          当前预警等级：${escapeHtml(warning.warningLevel)}，建议动作：${escapeHtml(warning.suggestedAction)}
-        </div>
-        ${renderInfoGrid([
-          { label: '需求数量', value: `${formatQty(warning.requiredQty)} 件`, hint: '按当前铺布计划层数与唛架总件数推导。' },
-          { label: '理论可裁数量', value: `${formatQty(warning.theoreticalCapacityQty)} 件` },
-          { label: '实际裁剪数量', value: `${formatQty(warning.actualCutQty)} 件` },
-          { label: '已配置总长度', value: formatLength(warning.configuredLengthTotal) },
-          { label: '已领取总长度', value: formatLength(warning.claimedLengthTotal) },
-          { label: '总实际铺布长度', value: formatLength(warning.totalActualLength) },
-          { label: '总可用长度', value: formatLength(warning.totalUsableLength) },
-          { label: '差异长度', value: formatLength(warning.varianceLength) },
-          { label: '缺口数量', value: `${formatQty(warning.shortageQty)} 件` },
+        <div class="space-y-3">
+          <div class="rounded-md border px-3 py-2 text-sm ${toneClass}">
+            当前预警等级：${escapeHtml(warning.warningLevel)}，建议动作：${escapeHtml(warning.suggestedAction)}
+          </div>
+          ${renderInfoGrid([
+          {
+            label: '计划裁剪成衣件数（件）',
+            value: `${formatQty(warning.plannedCutGarmentQty)} 件`,
+            formula: warning.plannedCutGarmentQtyFormula,
+          },
+          {
+            label: '理论裁剪成衣件数（件）',
+            value: `${formatQty(warning.theoreticalCutGarmentQty)} 件`,
+            formula: warning.theoreticalCutGarmentQtyFormula,
+          },
+          {
+            label: '实际裁剪成衣件数（件）',
+            value: `${formatQty(warning.actualCutGarmentQty)} 件`,
+            formula: warning.actualCutGarmentQtyFormula,
+          },
+          { label: '已配置总长度（m）', value: formatLength(warning.configuredLengthTotal) },
+          { label: '已领取总长度（m）', value: formatLength(warning.claimedLengthTotal) },
+          { label: '总实际铺布长度（m）', value: formatLength(warning.spreadActualLengthM) },
+          {
+            label: '总可用长度（m）',
+            value: formatLength(warning.spreadUsableLengthM),
+            formula: warning.spreadUsableLengthFormula,
+          },
+          {
+            label: '差异长度（m）',
+            value: formatLength(warning.varianceLength),
+            formula: warning.varianceLengthFormula,
+          },
+          {
+            label: '缺口成衣件数（件）',
+            value: `${formatQty(warning.shortageGarmentQty)} 件`,
+            formula: warning.shortageGarmentQtyFormula,
+          },
           { label: '建议动作', value: warning.suggestedAction },
+          { label: '判定依据', value: warning.suggestedActionRuleText },
         ])}
         <div class="flex flex-wrap gap-2">
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">${escapeHtml(actionLabel)}</button>
@@ -2036,6 +1939,36 @@ function renderSpreadingCompletionLinkageSection(session: SpreadingSession, link
 
 function renderSpreadingImportSourceSection(session: SpreadingSession, linkedOriginalCutOrderNos: string[]): string {
   const source = session.importSource
+  const data = readMarkerSpreadingPrototypeData()
+  const sourceRows = session.originalCutOrderIds.map((id) => data.rowsById[id]).filter(Boolean)
+  const linkedMarker = getLinkedMarkerForSession(session)
+  const importedVarianceSummary = buildSpreadingVarianceSummary(
+    sourceRows.length
+      ? {
+          contextType: session.contextType,
+          originalCutOrderIds: [...session.originalCutOrderIds],
+          originalCutOrderNos: sourceRows.map((row) => row.originalCutOrderNo),
+          mergeBatchId: session.mergeBatchId,
+          mergeBatchNo: session.mergeBatchNo,
+          productionOrderNos: Array.from(new Set(sourceRows.map((row) => row.productionOrderNo))),
+          styleCode: session.styleCode || sourceRows[0].styleCode,
+          spuCode: session.spuCode || sourceRows[0].spuCode,
+          styleName: sourceRows[0].styleName,
+          materialSkuSummary: session.materialSkuSummary || sourceRows[0].materialSkuSummary,
+          materialPrepRows: sourceRows,
+        }
+      : null,
+    linkedMarker,
+    session,
+  )
+  const rollLayerTotal = summarizeSpreadingRolls(session.rolls || []).totalLayers
+  const actualLayerTotal = Number(session.actualLayers || 0)
+  const markerTotalPieces = linkedMarker?.totalPieces || 0
+  const theoreticalCutGarmentQty = importedVarianceSummary?.theoreticalCutGarmentQty || session.theoreticalActualCutPieceQty || 0
+  const theoreticalCutGarmentQtyFormula =
+    importedVarianceSummary?.theoreticalCutGarmentQtyFormula ||
+    buildTheoreticalCutGarmentQtyFormula(theoreticalCutGarmentQty, rollLayerTotal, actualLayerTotal, markerTotalPieces)
+
   return renderSection(
     '导入来源区',
     source
@@ -2048,9 +1981,17 @@ function renderSpreadingImportSourceSection(session: SpreadingSession, linkedOri
           { label: '导入时间', value: formatDateText(source.importedAt) },
           { label: '重新导入', value: source.reimported ? '是' : '否' },
           { label: '导入说明', value: source.importNote || '由唛架模板导入铺布草稿' },
-          { label: '理论铺布总长度', value: formatLength(session.theoreticalSpreadTotalLength || 0), hint: '来源于唛架，默认锁定。' },
-          { label: '理论实际裁剪件数', value: `${formatQty(session.theoreticalActualCutPieceQty || 0)} 件`, hint: '来源于唛架计划层数与总件数的推导值。' },
-          { label: '导入后调整', value: session.importAdjustmentRequired ? '已有导入后调整' : '当前未调整', hint: '调整仅影响铺布页，不反向改写唛架。' },
+          {
+            label: '理论铺布总长度（m）',
+            value: formatLength(session.theoreticalSpreadTotalLength || 0),
+            formula: buildSpreadingImportedLengthFormula(session.theoreticalSpreadTotalLength || 0),
+          },
+          {
+            label: '理论裁剪成衣件数（件）',
+            value: `${formatQty(theoreticalCutGarmentQty)} 件`,
+            formula: theoreticalCutGarmentQtyFormula,
+          },
+          { label: '导入后调整', value: session.importAdjustmentRequired ? '已有导入后调整' : '当前未调整' },
           { label: '调整说明', value: session.importAdjustmentNote || '暂无' },
         ])
       : '<div class="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-sm text-muted-foreground">当前铺布记录未绑定唛架导入来源，仍可手工补录实际卷与人员数据。</div>',
@@ -2334,6 +2275,7 @@ function renderHighLowPatternMatrix(
 }
 
 function renderMarkerDetailPage(): string {
+  return renderListPage()
   const pathname = getCurrentPathname()
   const meta = getCanonicalCuttingMeta(pathname, 'marker-detail')
   const row = getMarkerRow(getSearchParams().get('markerId'))
@@ -2360,12 +2302,10 @@ function renderMarkerDetailPage(): string {
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
           '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="markers">返回列表</button>',
-          `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="open-marker-edit" data-marker-id="${escapeHtml(row.markerId)}">去编辑</button>`,
-          `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="create-spreading-from-marker" data-marker-id="${escapeHtml(row.markerId)}">从唛架导入铺布</button>`,
+          `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-detail" data-marker-id="${escapeHtml(row.markerId)}">查看关联唛架</button>`,
         ])),
       })}
       ${renderPrefilterBar()}
-      ${renderImportDecisionPanel()}
       ${renderSection(
         '基础信息区',
         renderInfoGrid([
@@ -2544,6 +2484,7 @@ function renderMarkerDetailPage(): string {
 }
 
 function renderMarkerEditPage(): string {
+  return renderListPage()
   const pathname = getCurrentPathname()
   const meta = getCanonicalCuttingMeta(pathname, 'marker-edit')
   const draft = ensureMarkerDraftShape(state.markerDraft || buildNewMarkerDraft())
@@ -2576,9 +2517,9 @@ function renderMarkerEditPage(): string {
     <div class="space-y-3 p-4">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
-          '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="cancel-marker-edit">取消</button>',
-          '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="save-marker">保存草稿</button>',
-          '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="save-marker-and-view">保存并返回详情</button>',
+          '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="cancel-spreading-edit">取消</button>',
+          '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="save-spreading">保存草稿</button>',
+          '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="save-spreading-and-view">保存并返回详情</button>',
         ])),
       })}
       ${renderFeedbackBar()}
@@ -2979,9 +2920,20 @@ function renderSpreadingDetailPage(): string {
         renderInfoGrid([
           { label: '关联唛架编号', value: session.markerNo || '待关联' },
           { label: '唛架模式', value: linkedMarker ? deriveSpreadingModeMeta(linkedMarker.markerMode).label : '待补' },
-          { label: '唛架总件数', value: `${formatQty(linkedMarker?.totalPieces || 0)} 件` },
+          {
+            label: '唛架成衣件数（件）',
+            value: `${formatQty(linkedMarker?.totalPieces || 0)} 件`,
+            formula: linkedMarker ? buildQtySumFormula(linkedMarker.totalPieces, linkedMarker.sizeDistribution.map((item) => item.quantity)) : '',
+          },
           { label: '唛架净长度', value: formatLength(linkedMarker?.netLength || 0) },
-          { label: '单件用量', value: formatLength(linkedMarker?.singlePieceUsage || 0) },
+          {
+            label: '系统单件成衣用量（m/件）',
+            value: formatLength(linkedMarker?.singlePieceUsage || 0),
+            formula:
+              linkedMarker && linkedMarker.totalPieces > 0
+                ? `${Number(linkedMarker.singlePieceUsage || 0).toFixed(3)} = ${Number(linkedMarker.netLength || 0).toFixed(3)} ÷ ${formatQty(linkedMarker.totalPieces)}`
+                : '',
+          },
           { label: '价格 / 金额字段', value: session.unitPrice ? `${session.unitPrice.toFixed(2)} 元 / 件` : '待保留' },
           { label: '从唛架导入', value: session.importedFromMarker ? '当前草稿已承接关联唛架' : '本次仍以手工选择唛架为主' },
         ]),
@@ -3005,9 +2957,9 @@ function renderSpreadingDetailPage(): string {
                   <th class="px-3 py-2">布头</th>
                   <th class="px-3 py-2">布尾</th>
                   <th class="px-3 py-2">层数</th>
-                  <th class="px-3 py-2">单卷可用长度</th>
-                  <th class="px-3 py-2">剩余布料长度</th>
-                  <th class="px-3 py-2">实际裁剪件数</th>
+                  <th class="px-3 py-2">单卷可用长度（m）</th>
+                  <th class="px-3 py-2">剩余布料长度（m）</th>
+                  <th class="px-3 py-2">单卷实际裁剪成衣件数（件）</th>
                   <th class="px-3 py-2">时间</th>
                   <th class="px-3 py-2">参与人员链</th>
                   <th class="px-3 py-2">交接说明</th>
@@ -3032,9 +2984,9 @@ function renderSpreadingDetailPage(): string {
                         <td class="px-3 py-2">${escapeHtml(formatLength(roll.headLength))}</td>
                         <td class="px-3 py-2">${escapeHtml(formatLength(roll.tailLength))}</td>
                         <td class="px-3 py-2">${escapeHtml(formatQty(roll.layerCount))}</td>
-                        <td class="px-3 py-2">${escapeHtml(formatLength(usableLength))}</td>
-                        <td class="px-3 py-2">${escapeHtml(formatLength(remainingLength))}</td>
-                        <td class="px-3 py-2">${escapeHtml(formatQty(roll.actualCutPieceQty || 0))}</td>
+                        <td class="px-3 py-2">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, usableLength), 'text-sm text-foreground')}</td>
+                        <td class="px-3 py-2">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, roll.actualLength, remainingLength), 'text-sm text-foreground')}</td>
+                        <td class="px-3 py-2">${renderValueWithFormula(`${formatQty(roll.actualCutPieceQty || 0)} 件`, buildRollActualCutQtyFormula(roll.actualCutPieceQty || 0, roll.layerCount, linkedMarker?.totalPieces || 0), 'text-sm text-foreground')}</td>
                         <td class="px-3 py-2">${escapeHtml(formatDateText(roll.occurredAt || ''))}</td>
                         <td class="px-3 py-2">${escapeHtml(detailView.rollParticipantSummary[roll.rollRecordId] || roll.operatorNames.join(' → ') || '待补')}</td>
                         <td class="px-3 py-2">${escapeHtml(linkedOperators.map((operator) => operator.handoverNotes).filter((value) => value.trim()).join(' / ') || roll.handoverNotes || '—')}</td>
@@ -3091,7 +3043,7 @@ function renderSpreadingDetailPage(): string {
                                 <th class="px-3 py-2">结束层</th>
                                 <th class="px-3 py-2">负责层数</th>
                                 <th class="px-3 py-2">负责长度</th>
-                                <th class="px-3 py-2">负责件数</th>
+                                <th class="px-3 py-2">负责成衣件数（件）</th>
                                 <th class="px-3 py-2">单价</th>
                                 <th class="px-3 py-2">计价方式</th>
                                 <th class="px-3 py-2">计算金额</th>
@@ -3161,7 +3113,7 @@ function renderSpreadingDetailPage(): string {
                                   <th class="px-3 py-2">开始层</th>
                                   <th class="px-3 py-2">结束层</th>
                                   <th class="px-3 py-2">负责长度</th>
-                                  <th class="px-3 py-2">负责件数</th>
+                                  <th class="px-3 py-2">负责成衣件数（件）</th>
                                   <th class="px-3 py-2">单价</th>
                                   <th class="px-3 py-2">计价方式</th>
                                   <th class="px-3 py-2">最终显示金额</th>
@@ -3230,18 +3182,34 @@ function renderSpreadingDetailPage(): string {
       ${renderSection(
         '汇总区',
         renderInfoGrid([
-          { label: '卷数', value: `${formatQty(row.rollCount)} 卷` },
+          { label: '布卷数（卷）', value: `${formatQty(row.fabricRollCount)} 卷` },
           { label: '人员数', value: `${formatQty(row.operatorCount)} 人` },
-          { label: '总实际铺布长度', value: formatLength(rollSummary.totalActualLength) },
+          {
+            label: '总实际铺布长度（m）',
+            value: formatLength(rollSummary.totalActualLength),
+            formula: buildSumFormula(rollSummary.totalActualLength, session.rolls.map((roll) => roll.actualLength), 2),
+          },
           { label: '总布头长度', value: formatLength(rollSummary.totalHeadLength) },
           { label: '总布尾长度', value: formatLength(rollSummary.totalTailLength) },
-          { label: '总可用长度', value: formatLength(rollSummary.totalCalculatedUsableLength) },
-          { label: '总剩余长度', value: formatLength(rollSummary.totalRemainingLength) },
-          { label: '实际裁剪件数合计', value: `${formatQty(row.actualCutPieceQty)} 件` },
+          {
+            label: '总可用长度（m）',
+            value: formatLength(rollSummary.totalCalculatedUsableLength),
+            formula: buildSumFormula(rollSummary.totalCalculatedUsableLength, session.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)), 2),
+          },
+          { label: '总剩余长度（m）', value: formatLength(row.spreadRemainingLengthM) },
+          {
+            label: '实际裁剪成衣件数（件）',
+            value: `${formatQty(row.actualCutGarmentQty)} 件`,
+            formula: varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(row.actualCutGarmentQty, session.rolls.map((roll) => roll.actualCutPieceQty || 0)),
+          },
           { label: '人员金额合计', value: formatCurrency(operatorAmountSummary.totalDisplayAmount) },
           { label: '已配置总长度', value: formatLength(varianceSummary?.configuredLengthTotal || row.configuredLengthTotal) },
           { label: '已领取总长度', value: formatLength(varianceSummary?.claimedLengthTotal || row.claimedLengthTotal) },
-          { label: '差异长度', value: formatLength(varianceSummary?.varianceLength || row.varianceLength) },
+          {
+            label: '差异长度（m）',
+            value: formatLength(varianceSummary?.varianceLength || row.varianceLength),
+            formula: buildDifferenceFormula(varianceSummary?.varianceLength || row.varianceLength, varianceSummary?.claimedLengthTotal || row.claimedLengthTotal, rollSummary.totalActualLength, 2),
+          },
           { label: '差异说明', value: varianceSummary?.replenishmentHint || row.varianceNote || statusMeta.detailText },
         ]),
       )}
@@ -3267,20 +3235,30 @@ function renderSpreadingEditPage(): string {
   const meta = getCanonicalCuttingMeta(pathname, 'spreading-edit')
   const draft = state.spreadingDraft || buildNewSpreadingDraft()
   const data = readMarkerSpreadingPrototypeData()
+  const primaryRows = draft.originalCutOrderIds.map((id) => data.rowsById[id]).filter((row): row is (typeof data.rows)[number] => Boolean(row))
   const linkedOriginalCutOrderNos = draft.originalCutOrderIds
     .map((id) => data.rowsById[id]?.originalCutOrderNo || id)
     .filter(Boolean)
   const derived = resolveSpreadingDerivedState(draft)
   const linkedMarker = derived.markerRecord
+  const markerTotalPieces = derived.markerTotalPieces
   const rollSummary = derived.rollSummary
   const varianceSummary = derived.varianceSummary
+  const colorSummaryDerived = deriveSpreadingColorSummary({
+    rolls: draft.rolls,
+    importSourceColorSummary: draft.importSource?.sourceColorSummary,
+    contextColors: primaryRows.map((row) => row.color),
+    fallbackSummary: draft.colorSummary,
+  })
+  const theoreticalSpreadTotalLength = Number(linkedMarker?.spreadTotalLength ?? draft.theoreticalSpreadTotalLength ?? 0)
+  const theoreticalActualCutPieceQty = varianceSummary?.theoreticalCutGarmentQty ?? (markerTotalPieces > 0 ? Math.max((draft.plannedLayers || 0) * markerTotalPieces, 0) : Number(draft.theoreticalActualCutPieceQty || 0))
   const replenishmentWarning = buildSpreadingReplenishmentPreview(draft, linkedOriginalCutOrderNos, derived)
   const handoverSummaryByRollId = buildRollHandoverSummaryMap(draft, derived.markerTotalPieces)
   const handoverListSummary = buildSpreadingHandoverListSummary(draft.rolls, draft.operators, derived.markerTotalPieces)
   const operatorAmountSummary = summarizeSpreadingOperatorAmounts(draft.operators, derived.markerTotalPieces, draft.unitPrice)
   const operatorAmountWarnings = buildOperatorAmountWarnings(draft.operators, derived.markerTotalPieces, draft.unitPrice)
   const importMarkerAction = linkedMarker
-    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="create-spreading-from-marker" data-marker-id="${escapeHtml(linkedMarker.markerId)}">从唛架导入铺布</button>`
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-detail" data-marker-id="${escapeHtml(linkedMarker.markerId)}">查看关联唛架</button>`
     : ''
   const headerActions = renderHeaderActions(([
     '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="cancel-spreading-edit">取消</button>',
@@ -3320,7 +3298,6 @@ function renderSpreadingEditPage(): string {
             ${renderSelect('状态', draft.status, 'data-cutting-spreading-draft-field="status"', [
               { value: 'DRAFT', label: '草稿' },
               { value: 'IN_PROGRESS', label: '进行中' },
-              { value: 'DONE', label: '已完成' },
               { value: 'TO_FILL', label: '待补录' },
             ])}
             ${renderTextInput('上下文类型', draft.contextType === 'merge-batch' ? '合并裁剪批次上下文' : '原始裁片单上下文', 'disabled')}
@@ -3329,15 +3306,26 @@ function renderSpreadingEditPage(): string {
             ${renderTextInput('关联唛架', draft.markerNo || '', 'disabled', draft.importedFromMarker ? '来源于唛架，当前锁定' : '本次先手选承接，不自动导入')}
             ${renderTextInput('款号 / 款式编码', `${draft.styleCode || ''} / ${draft.spuCode || ''}`, 'disabled')}
             ${renderTextInput('面料摘要', draft.materialSkuSummary || '', 'disabled')}
-            ${renderTextInput('颜色摘要', draft.colorSummary || '', 'data-cutting-spreading-draft-field="colorSummary"')}
+            ${renderReadonlyField('颜色摘要', colorSummaryDerived.value, {
+              formula: colorSummaryDerived.formula,
+              attrs: 'data-cutting-spreading-readonly-field="colorSummary"',
+            })}
             ${renderNumberInput('计划层数', draft.plannedLayers, 'data-cutting-spreading-draft-field="plannedLayers"', '1')}
             ${renderNumberInput('价格 / 金额（保留字段）', draft.unitPrice || 0, 'data-cutting-spreading-draft-field="unitPrice"')}
           </div>
           ${
             draft.importedFromMarker
               ? `<div class="mt-3 grid gap-3 md:grid-cols-3">
-                  ${renderNumberInput('理论铺布总长度（米）', draft.theoreticalSpreadTotalLength || 0, 'data-cutting-spreading-draft-field="theoreticalSpreadTotalLength"', '0.01')}
-                  ${renderNumberInput('理论实际裁剪件数', draft.theoreticalActualCutPieceQty || 0, 'data-cutting-spreading-draft-field="theoreticalActualCutPieceQty"', '1')}
+                  ${renderReadonlyField('理论铺布总长度（m）', formatLength(theoreticalSpreadTotalLength), {
+                    formula: buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength),
+                    attrs: 'data-cutting-spreading-readonly-field="theoreticalSpreadTotalLength"',
+                  })}
+                  ${renderReadonlyField('理论裁剪成衣件数（件）', `${formatQty(theoreticalActualCutPieceQty)} 件`, {
+                    formula:
+                      varianceSummary?.theoreticalCutGarmentQtyFormula ||
+                      buildTheoreticalActualCutQtyFormula(theoreticalActualCutPieceQty, draft.plannedLayers || 0, markerTotalPieces),
+                    attrs: 'data-cutting-spreading-readonly-field="theoreticalActualCutPieceQty"',
+                  })}
                   ${renderSelect('是否有导入后调整', draft.importAdjustmentRequired ? 'true' : 'false', 'data-cutting-spreading-draft-field="importAdjustmentRequired"', [
                     { value: 'false', label: '否' },
                     { value: 'true', label: '是' },
@@ -3354,7 +3342,7 @@ function renderSpreadingEditPage(): string {
         '卷记录编辑区',
         `
           <div class="mb-3 flex items-center justify-between">
-            <p class="text-sm text-muted-foreground">支持新增卷；每卷都独立计算可用长度、剩余长度和实际裁剪件数。</p>
+            <p class="text-sm text-muted-foreground">支持新增卷；每卷都独立计算可用长度、剩余长度和实际裁剪成衣件数。</p>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="add-roll">新增卷</button>
           </div>
           <div class="overflow-auto">
@@ -3369,10 +3357,10 @@ function renderSpreadingEditPage(): string {
                   <th class="px-3 py-2">实际长度</th>
                   <th class="px-3 py-2">布头长度</th>
                   <th class="px-3 py-2">布尾长度</th>
-                  <th class="px-3 py-2">铺布层数</th>
-                  <th class="px-3 py-2">单卷可用长度</th>
-                  <th class="px-3 py-2">单卷剩余长度</th>
-                  <th class="px-3 py-2">单卷实际裁剪件数</th>
+                  <th class="px-3 py-2">铺布层数（层）</th>
+                  <th class="px-3 py-2">单卷可用长度（m）</th>
+                  <th class="px-3 py-2">单卷剩余长度（m）</th>
+                  <th class="px-3 py-2">单卷实际裁剪成衣件数（件）</th>
                   <th class="px-3 py-2">时间</th>
                   <th class="px-3 py-2">参与人员链</th>
                   <th class="px-3 py-2">交接说明</th>
@@ -3399,9 +3387,9 @@ function renderSpreadingEditPage(): string {
                         <td class="px-3 py-2"><input type="number" value="${escapeHtml(String(roll.headLength))}" class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="headLength" /></td>
                         <td class="px-3 py-2"><input type="number" value="${escapeHtml(String(roll.tailLength))}" class="h-9 w-24 rounded-md border px-3 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="tailLength" /></td>
                         <td class="px-3 py-2"><input type="number" value="${escapeHtml(String(roll.layerCount))}" class="h-9 w-20 rounded-md border px-3 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="layerCount" /></td>
-                        <td class="px-3 py-2">${escapeHtml(formatLength(usableLength))}</td>
-                        <td class="px-3 py-2">${escapeHtml(formatLength(remainingLength))}</td>
-                        <td class="px-3 py-2">${escapeHtml(`${formatQty(actualCutPieceQty)} 件`)}</td>
+                        <td class="px-3 py-2">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, usableLength), 'text-sm text-foreground')}</td>
+                        <td class="px-3 py-2">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, roll.actualLength, remainingLength), 'text-sm text-foreground')}</td>
+                        <td class="px-3 py-2">${renderValueWithFormula(`${formatQty(actualCutPieceQty)} 件`, buildRollActualCutQtyFormula(actualCutPieceQty, roll.layerCount, markerTotalPieces), 'text-sm text-foreground')}</td>
                         <td class="px-3 py-2"><input type="text" value="${escapeHtml(roll.occurredAt || '')}" class="h-9 w-36 rounded-md border px-3 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="occurredAt" placeholder="YYYY-MM-DD HH:mm" /></td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(linkedOperators.map((operator) => operator.operatorName).filter(Boolean).join(' → ') || '待补录')}</td>
                         <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(linkedOperators.map((operator) => operator.handoverNotes).filter((value) => value.trim()).join(' / ') || '—')}</td>
@@ -3453,7 +3441,7 @@ function renderSpreadingEditPage(): string {
                                 <th class="px-3 py-2">结束层</th>
                                 <th class="px-3 py-2">负责层数</th>
                                 <th class="px-3 py-2">负责长度</th>
-                                <th class="px-3 py-2">负责件数</th>
+                                <th class="px-3 py-2">负责成衣件数（件）</th>
                                 <th class="px-3 py-2">单价</th>
                                 <th class="px-3 py-2">计价方式</th>
                                 <th class="px-3 py-2">计算金额</th>
@@ -3559,7 +3547,7 @@ function renderSpreadingEditPage(): string {
                                   <th class="px-3 py-2">结束层</th>
                                   <th class="px-3 py-2">负责层数</th>
                                   <th class="px-3 py-2">负责长度</th>
-                                  <th class="px-3 py-2">负责件数</th>
+                                  <th class="px-3 py-2">负责成衣件数（件）</th>
                                   <th class="px-3 py-2">单价</th>
                                   <th class="px-3 py-2">计价方式</th>
                                   <th class="px-3 py-2">计算金额</th>
@@ -3691,19 +3679,51 @@ function renderSpreadingEditPage(): string {
       ${renderSection(
         '汇总区',
         renderInfoGrid([
-          { label: '卷数', value: `${formatQty(draft.rolls.length)} 卷` },
+          { label: '布卷数（卷）', value: `${formatQty(varianceSummary?.fabricRollCount || draft.rolls.length)} 卷` },
           { label: '人员数', value: `${formatQty(draft.operators.length)} 人` },
-          { label: '总实际铺布长度', value: formatLength(rollSummary.totalActualLength) },
+          {
+            label: '总实际铺布长度（m）',
+            value: formatLength(rollSummary.totalActualLength),
+            formula: buildSumFormula(rollSummary.totalActualLength, draft.rolls.map((roll) => roll.actualLength), 2),
+          },
           { label: '总布头长度', value: formatLength(rollSummary.totalHeadLength) },
           { label: '总布尾长度', value: formatLength(rollSummary.totalTailLength) },
-          { label: '总可用长度', value: formatLength(rollSummary.totalCalculatedUsableLength) },
-          { label: '总剩余长度', value: formatLength(rollSummary.totalRemainingLength) },
-          { label: '实际裁剪件数合计', value: `${formatQty(rollSummary.totalActualCutPieceQty)} 件` },
+          {
+            label: '总可用长度（m）',
+            value: formatLength(varianceSummary?.spreadUsableLengthM || rollSummary.totalCalculatedUsableLength),
+            formula:
+              varianceSummary?.spreadUsableLengthFormula ||
+              buildSumFormula(rollSummary.totalCalculatedUsableLength, draft.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)), 2),
+          },
+          { label: '总剩余长度（m）', value: formatLength(rollSummary.totalRemainingLength) },
+          {
+            label: '实际裁剪成衣件数（件）',
+            value: `${formatQty(varianceSummary?.actualCutGarmentQty || rollSummary.totalActualCutPieceQty)} 件`,
+            formula:
+              varianceSummary?.actualCutGarmentQtyFormula ||
+              buildQtySumFormula(rollSummary.totalActualCutPieceQty, draft.rolls.map((roll) => roll.actualCutPieceQty || 0)),
+          },
           { label: '人员金额合计', value: formatCurrency(operatorAmountSummary.totalDisplayAmount) },
-          { label: '已配置长度摘要', value: formatLength(varianceSummary?.configuredLengthTotal || 0) },
-          { label: '已领取长度摘要', value: formatLength(varianceSummary?.claimedLengthTotal || 0) },
-          { label: '差异长度', value: formatLength(varianceSummary?.varianceLength || 0) },
+          { label: '已配置总长度（m）', value: formatLength(varianceSummary?.configuredLengthTotal || 0) },
+          { label: '已领取总长度（m）', value: formatLength(varianceSummary?.claimedLengthTotal || 0) },
+          {
+            label: '差异长度（m）',
+            value: formatLength(varianceSummary?.varianceLength || 0),
+            formula: varianceSummary?.varianceLengthFormula || buildDifferenceFormula(varianceSummary?.varianceLength || 0, varianceSummary?.claimedLengthTotal || 0, rollSummary.totalActualLength, 2),
+          },
+          {
+            label: '缺口成衣件数（件）',
+            value: `${formatQty(varianceSummary?.shortageGarmentQty || 0)} 件`,
+            formula:
+              varianceSummary?.shortageGarmentQtyFormula ||
+              buildShortageQtyFormula(
+                varianceSummary?.shortageGarmentQty || 0,
+                varianceSummary?.plannedCutGarmentQty || 0,
+                varianceSummary?.actualCutGarmentQty || 0,
+              ),
+          },
           { label: '差异说明', value: varianceSummary?.replenishmentHint || '当前尚未识别明显差异' },
+          { label: '判定依据', value: varianceSummary?.warningRuleText || '当前按差异长度和缺口成衣件数自动判定' },
         ]),
       )}
       ${renderSpreadingReplenishmentSection(draft, replenishmentWarning)}
@@ -3712,7 +3732,11 @@ function renderSpreadingEditPage(): string {
         '完成动作区',
         renderInfoGrid([
           { label: '当前状态', value: deriveSpreadingStatus(draft.status).label, hint: '保存草稿后可继续补录卷与人员；标记完成前先复核差异与提醒。' },
-          { label: '关联唛架总件数', value: `${formatQty(linkedMarker?.totalPieces || 0)} 件`, hint: '单卷实际裁剪件数 = 铺布层数 × 唛架总件数。' },
+          {
+            label: '关联唛架成衣件数（件）',
+            value: `${formatQty(linkedMarker?.totalPieces || 0)} 件`,
+            formula: buildQtySumFormula(linkedMarker?.totalPieces || 0, linkedMarker?.sizeDistribution.map((item) => item.quantity) || []),
+          },
           {
             label: '联动更新预览',
             value:
@@ -3737,7 +3761,7 @@ function renderPage(): string {
 }
 
 function buildListRoute(): string {
-  return buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-spreading'), {
+  return buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-list'), {
     originalCutOrderId: state.prefilter?.originalCutOrderId,
     originalCutOrderNo: state.prefilter?.originalCutOrderNo,
     mergeBatchId: state.prefilter?.mergeBatchId,
@@ -3837,7 +3861,7 @@ function navigateFromSpreadingSession(sessionId: string | undefined, target: 'or
           originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
           productionOrderNo: row.productionOrderNos[0] || undefined,
         },
-    'marker-spreading',
+    'spreading-list',
     {
       productionOrderNo: row.productionOrderNos[0] || undefined,
       originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
@@ -4124,6 +4148,12 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
   const operatorAmountSummary = summarizeSpreadingOperatorAmounts(normalizedOperators, markerTotalPieces, draft.unitPrice)
   const data = readMarkerSpreadingPrototypeData()
   const primaryRows = draft.originalCutOrderIds.map((id) => data.rowsById[id]).filter((row): row is (typeof data.rows)[number] => Boolean(row))
+  const colorSummaryDerived = deriveSpreadingColorSummary({
+    rolls: normalizedRolls,
+    importSourceColorSummary: draft.importSource?.sourceColorSummary,
+    contextColors: primaryRows.map((row) => row.color),
+    fallbackSummary: draft.colorSummary,
+  })
   const varianceContext = primaryRows.length
     ? {
         contextType: draft.contextType,
@@ -4161,6 +4191,7 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
 
   const normalizedDraft: SpreadingSession = {
     ...draft,
+    colorSummary: colorSummaryDerived.value === '待补' ? '' : colorSummaryDerived.value,
     rolls: normalizedRolls,
     operators: normalizedOperators,
     actualCutPieceQty,
@@ -4180,9 +4211,8 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
     importSource: draft.importSource || null,
     planLineItems: draft.planLineItems || [],
     highLowPlanSnapshot: draft.highLowPlanSnapshot || null,
-    theoreticalSpreadTotalLength: draft.theoreticalSpreadTotalLength ?? derived.markerRecord?.spreadTotalLength ?? 0,
-    theoreticalActualCutPieceQty:
-      draft.theoreticalActualCutPieceQty ?? Math.max((draft.plannedLayers || 0) * Math.max(derived.markerRecord?.totalPieces || 0, 0), 0),
+    theoreticalSpreadTotalLength: derived.markerRecord?.spreadTotalLength ?? draft.theoreticalSpreadTotalLength ?? 0,
+    theoreticalActualCutPieceQty: markerTotalPieces > 0 ? Math.max((draft.plannedLayers || 0) * markerTotalPieces, 0) : draft.theoreticalActualCutPieceQty ?? 0,
     importAdjustmentRequired: Boolean(draft.importAdjustmentRequired),
     importAdjustmentNote: draft.importAdjustmentNote || '',
     totalAmount:
@@ -4238,8 +4268,25 @@ function completeCurrentSpreading(): boolean {
   const linkedOriginalCutOrderNos = primaryRows
     .filter((row) => linkedOriginalCutOrderIds.includes(row.originalCutOrderId))
     .map((row) => row.originalCutOrderNo)
+  const completionContext =
+    primaryRows.length > 0
+      ? {
+          contextType: normalizedDraft.contextType,
+          originalCutOrderIds: [...normalizedDraft.originalCutOrderIds],
+          originalCutOrderNos: primaryRows.map((row) => row.originalCutOrderNo),
+          mergeBatchId: normalizedDraft.mergeBatchId,
+          mergeBatchNo: normalizedDraft.mergeBatchNo,
+          productionOrderNos: Array.from(new Set(primaryRows.map((row) => row.productionOrderNo))),
+          styleCode: normalizedDraft.styleCode || primaryRows[0].styleCode,
+          spuCode: normalizedDraft.spuCode || primaryRows[0].spuCode,
+          styleName: primaryRows[0].styleName,
+          materialSkuSummary: normalizedDraft.materialSkuSummary || primaryRows[0].materialSkuSummary,
+          materialPrepRows: primaryRows,
+        }
+      : null
   const completedDraft = finalizeSpreadingCompletion({
     session: normalizedDraft,
+    context: completionContext,
     linkedOriginalCutOrderIds,
     linkedOriginalCutOrderNos,
     productionOrderNos: Array.from(new Set(primaryRows.map((row) => row.productionOrderNo))),
@@ -4265,7 +4312,13 @@ function completeCurrentSpreading(): boolean {
 function persistCurrentSpreadingStatus(nextStatus: SpreadingStatusKey): boolean {
   const draft = state.spreadingDraft
   if (!draft) return false
-  if (nextStatus === 'DONE') return completeCurrentSpreading()
+  if (nextStatus === 'DONE') {
+    state.feedback = {
+      tone: 'warning',
+      message: '已完成状态只能通过“完成铺布”主按钮触发。',
+    }
+    return false
+  }
   state.spreadingDraft = updateSessionStatus(draft, nextStatus)
   return saveCurrentSpreading(false, `当前铺布 session 已标记为“${deriveSpreadingStatus(nextStatus).label}”。`)
 }
@@ -4302,6 +4355,20 @@ function closeSpreadingEditOverlay(): boolean {
 }
 
 export function renderCraftCuttingMarkerSpreadingPage(): string {
+  const currentPath = appStore.getState().pathname
+  const canonicalPath = buildCanonicalSpreadingListPathFromCurrentLocation()
+  if (currentPath !== canonicalPath && getCurrentPathname() === getCanonicalCuttingPath('marker-spreading')) {
+    queueMicrotask(() => {
+      if (appStore.getState().pathname === currentPath) {
+        appStore.navigate(canonicalPath)
+      }
+    })
+    return `
+      <div class="space-y-3 p-4">
+        <div class="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground">正在跳转到铺布列表…</div>
+      </div>
+    `
+  }
   return renderPage()
 }
 
@@ -4536,6 +4603,13 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     }
 
     if (field === 'status') {
+      if (value === 'DONE') {
+        state.feedback = {
+          tone: 'warning',
+          message: '已完成状态只能通过“完成铺布”主按钮触发。',
+        }
+        return true
+      }
       state.spreadingDraft.status = value as SpreadingStatusKey
       return true
     }
@@ -4545,9 +4619,9 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       return true
     }
 
-    if (field === 'plannedLayers' || field === 'unitPrice' || field === 'theoreticalSpreadTotalLength' || field === 'theoreticalActualCutPieceQty') {
+    if (field === 'plannedLayers' || field === 'unitPrice') {
       ;(state.spreadingDraft as Record<string, number>)[field] = Number(value)
-      if (field === 'plannedLayers' || field === 'theoreticalSpreadTotalLength' || field === 'theoreticalActualCutPieceQty') {
+      if (field === 'plannedLayers') {
         state.spreadingDraft.importAdjustmentRequired = true
       }
       return true
@@ -4621,7 +4695,6 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 
   if (action === 'close-overlay') {
     const currentPath = getCurrentPathname()
-    if (currentPath === getCanonicalCuttingPath('marker-edit')) return closeMarkerEditOverlay()
     if (currentPath === getCanonicalCuttingPath('spreading-edit')) return closeSpreadingEditOverlay()
     return false
   }
@@ -4630,16 +4703,13 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     state.prefilter = null
     state.drillContext = null
     state.keyword = ''
-    appStore.navigate(getCanonicalCuttingPath('marker-spreading'))
+    appStore.navigate(getCanonicalCuttingPath('spreading-list'))
     return true
   }
 
   if (action === 'clear-filters') {
     state.keyword = ''
-    state.markerModeFilter = 'ALL'
     state.contextTypeFilter = 'ALL'
-    state.adjustmentFilter = 'ALL'
-    state.imageFilter = 'ALL'
     state.spreadingModeFilter = 'ALL'
     state.spreadingStatusFilter = 'ALL'
     state.spreadingVarianceFilter = 'ALL'
@@ -4660,20 +4730,6 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     return true
   }
 
-  if (action === 'create-marker') {
-    appStore.navigate(
-      buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-create'), {
-        originalCutOrderId: state.prefilter?.originalCutOrderId,
-        originalCutOrderNo: state.prefilter?.originalCutOrderNo,
-        mergeBatchId: state.prefilter?.mergeBatchId,
-        mergeBatchNo: state.prefilter?.mergeBatchNo,
-        styleCode: state.prefilter?.styleCode,
-        materialSku: state.prefilter?.materialSku,
-      }),
-    )
-    return true
-  }
-
   if (action === 'create-spreading') {
     appStore.navigate(
       buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-edit'), {
@@ -4688,59 +4744,10 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     return true
   }
 
-  if (action === 'open-marker-detail') return navigateToMarkerPage('detail', actionNode.dataset.markerId)
-  if (action === 'open-marker-edit') return navigateToMarkerPage('edit', actionNode.dataset.markerId)
-
-  if (action === 'create-marker-from-context') {
+  if (action === 'go-linked-marker-detail') {
     const markerId = actionNode.dataset.markerId
     if (!markerId) return false
-    const row = getMarkerRow(markerId)
-    if (!row) return false
-    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('marker-create'), buildMarkerNavigationPayload(row)))
-    return true
-  }
-
-  if (action === 'create-spreading-from-marker') {
-    const markerId = actionNode.dataset.markerId
-    if (!markerId) return false
-    const marker = getStoredMarkerRecord(markerId)
-    if (!marker) return false
-    return startMarkerImport(marker)
-  }
-
-  if (action === 'confirm-marker-import-new') {
-    const decision = state.importDecision
-    if (!decision) return false
-    const marker = getStoredMarkerRecord(decision.markerId)
-    if (!marker) return false
-    const newDraft = createImportedSpreadingDraft(marker, {
-      reimported: true,
-      importNote: '检测到已有实际执行数据，已另起新的铺布草稿承接唛架模板。',
-    })
-    if (!newDraft) {
-      state.feedback = { tone: 'warning', message: '当前唛架上下文不完整，无法新建再次导入草稿。' }
-      return true
-    }
-    return persistImportedDraftAndOpen(newDraft, `${marker.markerNo || '当前唛架'} 已另起新的铺布草稿。`)
-  }
-
-  if (action === 'confirm-marker-import-sync') {
-    const decision = state.importDecision
-    if (!decision) return false
-    const marker = getStoredMarkerRecord(decision.markerId)
-    const targetSession = getStoredSpreadingSession(decision.targetSessionId)
-    if (!marker || !targetSession) return false
-    const syncedDraft = syncImportedFieldsToExistingSession(marker, targetSession)
-    if (!syncedDraft) {
-      state.feedback = { tone: 'warning', message: '当前铺布记录无法同步理论字段，请检查唛架上下文。' }
-      return true
-    }
-    return persistImportedDraftAndOpen(syncedDraft, `${decision.targetSessionNo} 已同步最新唛架理论字段，卷记录和人员记录保持不变。`)
-  }
-
-  if (action === 'cancel-marker-import') {
-    state.importDecision = null
-    state.feedback = { tone: 'success', message: '已取消再次导入，本次不修改现有铺布记录。' }
+    appStore.navigate(`${getCanonicalCuttingPath('marker-detail')}/${encodeURIComponent(markerId)}`)
     return true
   }
 
@@ -4763,7 +4770,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     if (!sessionId) return false
     const row = getSpreadingRow(sessionId)
     if (!row) return false
-    const context = normalizeLegacyCuttingPayload(row.replenishmentPayload, 'marker-spreading', {
+    const context = normalizeLegacyCuttingPayload(row.replenishmentPayload, 'spreading-list', {
       productionOrderNo: row.productionOrderNos[0] || undefined,
       originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
       mergeBatchId: row.mergeBatchId || undefined,
@@ -4775,10 +4782,6 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     })
     appStore.navigate(buildCuttingRouteWithContext('replenishment', context))
     return true
-  }
-
-  if (action === 'cancel-marker-edit') {
-    return closeMarkerEditOverlay()
   }
 
   if (action === 'cancel-spreading-edit') {
@@ -4920,7 +4923,6 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     handleMarkerSpreadingSubmitAction({
       action,
       actionNode,
-      saveMarker: (goDetail) => saveCurrentMarker(goDetail),
       saveSpreading: (goDetail, successMessage) => saveCurrentSpreading(goDetail, successMessage),
       completeSpreading: completeCurrentSpreading,
       persistSpreadingStatus: persistCurrentSpreadingStatus,
@@ -4934,5 +4936,5 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 
 export function isCraftCuttingMarkerSpreadingDialogOpen(): boolean {
   const pathname = getCurrentPathname()
-  return pathname === getCanonicalCuttingPath('marker-edit') || pathname === getCanonicalCuttingPath('spreading-edit')
+  return pathname === getCanonicalCuttingPath('spreading-edit')
 }

@@ -26,12 +26,14 @@ import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
 
 interface SpreadingFormState {
   spreadingMode: 'NORMAL' | 'HIGH_LOW' | 'FOLD'
+  recordType: '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
   fabricRollNo: string
   layerCount: string
   actualLength: string
   headLength: string
   tailLength: string
   enteredBy: string
+  handoverNote: string
   note: string
   feedbackMessage: string
   backHrefOverride: string
@@ -49,12 +51,14 @@ function getState(taskId: string, executionOrderId?: string | null, executionOrd
   if (existing) return existing
   const initial: SpreadingFormState = {
     spreadingMode: 'NORMAL',
+    recordType: '开始铺布',
     fabricRollNo: '',
     layerCount: '12',
     actualLength: '48',
     headLength: '0.5',
     tailLength: '0.5',
     enteredBy: '现场铺布员',
+    handoverNote: '',
     note: '',
     feedbackMessage: '',
     backHrefOverride: '',
@@ -74,6 +78,52 @@ function getCalculatedLength(form: SpreadingFormState): string {
   const head = Number(form.headLength || '0')
   const tail = Number(form.tailLength || '0')
   return `${(actual + head + tail).toFixed(1)} 米`
+}
+
+function renderCalculatedLengthNotice(form: SpreadingFormState): string {
+  return `
+    <div class="rounded-xl bg-blue-50 px-3 py-3 text-xs text-blue-800" data-pda-cut-spreading-calculated>
+      自动计算长度：${escapeHtml(getCalculatedLength(form))}。
+    </div>
+  `
+}
+
+function renderFeedbackBlock(form: SpreadingFormState): string {
+  return `
+    <div data-pda-cut-spreading-feedback>
+      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
+    </div>
+  `
+}
+
+function renderPreviewBlock(form: SpreadingFormState): string {
+  return `
+    <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs" data-pda-cut-spreading-preview>
+      <div class="text-muted-foreground">当前录入预览</div>
+      <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.fabricRollNo || '待填写卷号')}</div>
+      <div class="mt-1 text-muted-foreground">模式：${escapeHtml(getSpreadingModeLabel(form.spreadingMode))}</div>
+      <div class="mt-1 text-muted-foreground">动作：${escapeHtml(form.recordType)}</div>
+      <div class="mt-1 text-muted-foreground">层数：${escapeHtml(form.layerCount || '0')} / 实际长度：${escapeHtml(form.actualLength || '0')} 米</div>
+      <div class="mt-1 text-muted-foreground">布头 / 布尾：${escapeHtml(form.headLength || '0')} 米 / ${escapeHtml(form.tailLength || '0')} 米</div>
+    </div>
+  `
+}
+
+function syncSpreadingFormDom(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): void {
+  if (typeof document === 'undefined') return
+  const root = document.querySelector<HTMLElement>(`[data-pda-cut-spreading-root="${taskId}"]`)
+  if (!root) return
+  const form = getState(taskId, executionOrderId, executionOrderNo)
+  const calculatedNode = root.querySelector<HTMLElement>('[data-pda-cut-spreading-calculated]')
+  if (calculatedNode) calculatedNode.outerHTML = renderCalculatedLengthNotice(form)
+  const feedbackNode = root.querySelector<HTMLElement>('[data-pda-cut-spreading-feedback]')
+  if (feedbackNode) feedbackNode.outerHTML = renderFeedbackBlock(form)
+  const previewNode = root.querySelector<HTMLElement>('[data-pda-cut-spreading-preview]')
+  if (previewNode) previewNode.outerHTML = renderPreviewBlock(form)
+  const backNode = root.querySelector<HTMLElement>('[data-pda-cut-spreading-back]')
+  if (backNode && form.backHrefOverride) {
+    backNode.dataset.nav = form.backHrefOverride
+  }
 }
 
 function renderRecords(detail: NonNullable<ReturnType<typeof getSpreadingDetail>>): string {
@@ -153,7 +203,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   const pageBackHref = form.backHrefOverride || context.backHref
 
   const formSection = `
-    <div class="space-y-3" data-task-id="${escapeHtml(taskId)}">
+    <div class="space-y-3" data-task-id="${escapeHtml(taskId)}" data-pda-cut-spreading-root="${escapeHtml(taskId)}">
       <div class="grid grid-cols-2 gap-3 text-xs">
         <label class="block space-y-1">
           <span class="text-muted-foreground">铺布模式</span>
@@ -161,6 +211,15 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
             <option value="NORMAL" ${form.spreadingMode === 'NORMAL' ? 'selected' : ''}>正常模式</option>
             <option value="HIGH_LOW" ${form.spreadingMode === 'HIGH_LOW' ? 'selected' : ''}>高低层模式</option>
             <option value="FOLD" ${form.spreadingMode === 'FOLD' ? 'selected' : ''}>对折模式</option>
+          </select>
+        </label>
+        <label class="block space-y-1">
+          <span class="text-muted-foreground">记录类型</span>
+          <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="recordType">
+            <option value="开始铺布" ${form.recordType === '开始铺布' ? 'selected' : ''}>开始铺布</option>
+            <option value="中途交接" ${form.recordType === '中途交接' ? 'selected' : ''}>中途交接</option>
+            <option value="接手继续" ${form.recordType === '接手继续' ? 'selected' : ''}>接手继续</option>
+            <option value="完成铺布" ${form.recordType === '完成铺布' ? 'selected' : ''}>完成铺布</option>
           </select>
         </label>
         <label class="block space-y-1">
@@ -189,22 +248,18 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
         </label>
       </div>
       <label class="block space-y-1 text-xs">
+        <span class="text-muted-foreground">交接说明</span>
+        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="handoverNote" value="${escapeHtml(form.handoverNote)}" />
+      </label>
+      <label class="block space-y-1 text-xs">
         <span class="text-muted-foreground">备注</span>
         <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-spreading-field="note" placeholder="填写当前铺布情况、异常或补录说明">${escapeHtml(form.note)}</textarea>
       </label>
-      <div class="rounded-xl bg-blue-50 px-3 py-3 text-xs text-blue-800">
-        自动计算长度：${escapeHtml(getCalculatedLength(form))}。
-      </div>
-      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
-      <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
-        <div class="text-muted-foreground">当前录入预览</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.fabricRollNo || '待填写卷号')}</div>
-        <div class="mt-1 text-muted-foreground">模式：${escapeHtml(getSpreadingModeLabel(form.spreadingMode))}</div>
-        <div class="mt-1 text-muted-foreground">层数：${escapeHtml(form.layerCount || '0')} / 实际长度：${escapeHtml(form.actualLength || '0')} 米</div>
-        <div class="mt-1 text-muted-foreground">布头 / 布尾：${escapeHtml(form.headLength || '0')} 米 / ${escapeHtml(form.tailLength || '0')} 米</div>
-      </div>
+      ${renderCalculatedLengthNotice(form)}
+      ${renderFeedbackBlock(form)}
+      ${renderPreviewBlock(form)}
       <div class="grid grid-cols-2 gap-2">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}" data-pda-cut-spreading-back="true">
           返回裁片任务
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-spreading-action="submit" data-task-id="${escapeHtml(taskId)}">
@@ -235,7 +290,8 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
-    fieldNode instanceof HTMLTextAreaElement
+    fieldNode instanceof HTMLTextAreaElement ||
+    fieldNode instanceof HTMLSelectElement
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
@@ -246,13 +302,16 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     if (!field) return true
 
     if (field === 'spreadingMode' && fieldNode instanceof HTMLSelectElement) form.spreadingMode = fieldNode.value as SpreadingFormState['spreadingMode']
+    if (field === 'recordType' && fieldNode instanceof HTMLSelectElement) form.recordType = fieldNode.value as SpreadingFormState['recordType']
     if (field === 'fabricRollNo') form.fabricRollNo = fieldNode.value
     if (field === 'layerCount') form.layerCount = fieldNode.value
     if (field === 'actualLength') form.actualLength = fieldNode.value
     if (field === 'headLength') form.headLength = fieldNode.value
     if (field === 'tailLength') form.tailLength = fieldNode.value
     if (field === 'enteredBy') form.enteredBy = fieldNode.value
+    if (field === 'handoverNote') form.handoverNote = fieldNode.value
     if (field === 'note') form.note = fieldNode.value
+    syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     return true
   }
 
@@ -279,6 +338,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     const operator = resolvePdaCuttingWritebackOperator(taskId, form.enteredBy.trim() || '现场铺布员')
     if (!identity || !operator) {
       form.feedbackMessage = '当前执行对象或操作人无法识别，不能提交铺布记录。'
+      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
       return true
     }
     const result = writePdaSpreadingToFcs({
@@ -286,6 +346,9 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       operator,
       source: buildPdaCuttingWritebackSource('spreading', identity.executionOrderId),
       fabricRollNo: form.fabricRollNo.trim() || buildDefaultPdaRollNo(identity),
+      operatorActionType: form.recordType,
+      handoverFlag: form.recordType === '中途交接' || form.recordType === '接手继续',
+      handoverNote: form.handoverNote.trim(),
       layerCount: Number(form.layerCount || '0') || 0,
       actualLength: Number(form.actualLength || '0') || 0,
       headLength: Number(form.headLength || '0') || 0,
@@ -294,9 +357,11 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     })
     if (!result.success) {
       form.feedbackMessage = result.issues.join('；')
+      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
       return true
     }
     form.fabricRollNo = ''
+    form.handoverNote = ''
     form.note = ''
     form.feedbackMessage = '铺布记录已保存。'
     form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
@@ -306,6 +371,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       context.navContext,
       'spreading',
     )
+    syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     return true
   }
 

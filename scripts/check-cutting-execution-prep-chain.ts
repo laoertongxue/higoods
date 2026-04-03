@@ -72,7 +72,10 @@ function assertPagesConsumeProjection(): void {
   assertIncludes(sampleWarehousePage, "from './sample-warehouse-projection'", 'sample-warehouse.ts 应消费 sample-warehouse projection')
   assertIncludes(replenishmentPage, "from './replenishment-projection'", 'replenishment.ts 应消费 replenishment projection')
   assertIncludes(specialProcessesPage, "from './special-processes-projection'", 'special-processes.ts 应消费 special-processes projection')
-  assertIncludes(markerUtils, "from './marker-spreading-projection'", 'marker-spreading-utils.ts 应消费 marker-spreading projection')
+  assert(
+    markerUtils.includes("from './marker-spreading-projection'") || markerUtils.includes("from './marker-spreading-projection.ts'"),
+    'marker-spreading-utils.ts 应消费 marker-spreading projection',
+  )
 
   for (const source of [materialPrepPage, cutPieceWarehousePage, sampleWarehousePage, replenishmentPage, specialProcessesPage, markerUtils]) {
     assertNotIncludes(source, 'buildWarehouseOriginalRows', '执行准备链页面不应继续依赖旧 buildWarehouseOriginalRows')

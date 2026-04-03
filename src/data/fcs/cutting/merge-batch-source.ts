@@ -85,6 +85,72 @@ function buildSystemMergeBatchSourceRecords(): MergeBatchSourceRecord[] {
 
   const seedRecords: MergeBatchSourceRecord[] = [
     {
+      mergeBatchId: normalizeMergeBatchId('MB-260323-01'),
+      mergeBatchNo: 'MB-260323-01',
+      sourceOriginalCutOrderIds: [
+        'CUT-260310-083-01',
+      ],
+      sourceOriginalCutOrderNos: [
+        'CUT-260310-083-01',
+      ],
+      sourceProductionOrderIds: [
+        'PO-202603-083',
+      ],
+      sourceProductionOrderNos: [
+        'PO-202603-083',
+      ],
+    },
+    {
+      mergeBatchId: normalizeMergeBatchId('MB-260323-02'),
+      mergeBatchNo: 'MB-260323-02',
+      sourceOriginalCutOrderIds: [
+        'CUT-260305-010-01',
+      ],
+      sourceOriginalCutOrderNos: [
+        'CUT-260305-010-01',
+      ],
+      sourceProductionOrderIds: [
+        'PO-202603-010',
+      ],
+      sourceProductionOrderNos: [
+        'PO-202603-010',
+      ],
+    },
+    {
+      mergeBatchId: normalizeMergeBatchId('MB-260329-03'),
+      mergeBatchNo: 'MB-260329-03',
+      sourceOriginalCutOrderIds: [
+        'CUT-260315-015-01',
+        'CUT-260315-015-02',
+      ],
+      sourceOriginalCutOrderNos: [
+        'CUT-260315-015-01',
+        'CUT-260315-015-02',
+      ],
+      sourceProductionOrderIds: [
+        'PO-202603-015',
+      ],
+      sourceProductionOrderNos: [
+        'PO-202603-015',
+      ],
+    },
+    {
+      mergeBatchId: normalizeMergeBatchId('MB-260329-04'),
+      mergeBatchNo: 'MB-260329-04',
+      sourceOriginalCutOrderIds: [
+        'CUT-260315-015-03',
+      ],
+      sourceOriginalCutOrderNos: [
+        'CUT-260315-015-03',
+      ],
+      sourceProductionOrderIds: [
+        'PO-202603-015',
+      ],
+      sourceProductionOrderNos: [
+        'PO-202603-015',
+      ],
+    },
+    {
       mergeBatchId: normalizeMergeBatchId('MB-260403-081-LINING'),
       mergeBatchNo: 'MB-260403-081-LINING',
       sourceOriginalCutOrderIds: [

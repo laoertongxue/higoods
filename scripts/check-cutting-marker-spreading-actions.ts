@@ -26,60 +26,95 @@ function main(): void {
   const pageFile = 'src/pages/process-factory/cutting/marker-spreading.ts'
   const draftActionsFile = 'src/pages/process-factory/cutting/marker-spreading-draft-actions.ts'
   const submitActionsFile = 'src/pages/process-factory/cutting/marker-spreading-submit-actions.ts'
-  const testFile = 'tests/cutting-marker-spreading-editor-actions.spec.ts'
-  const source = read(pageFile)
+  const pdaPageFile = 'src/pages/pda-cutting-spreading.ts'
+  const spreadingListTest = 'tests/cutting-marker-spreading-list.spec.ts'
+  const spreadingDetailEditTest = 'tests/cutting-marker-spreading-detail-edit.spec.ts'
+  const spreadingEditorActionsTest = 'tests/cutting-marker-spreading-editor-actions.spec.ts'
+  const pdaTest = 'tests/cutting-pda-spreading.spec.ts'
+
+  const pageSource = read(pageFile)
+  const submitSource = read(submitActionsFile)
+  const pdaSource = read(pdaPageFile)
 
   assertFileExists(draftActionsFile)
   assertFileExists(submitActionsFile)
-  assertFileExists(testFile)
-
-  assert(
-    !/export function isCraftCuttingMarkerSpreadingDialogOpen\(\): boolean \{\s*return false\s*\}/m.test(source),
-    `${pageFile} 仍把弹层状态硬编码为 false`,
-  )
+  assertFileExists(spreadingListTest)
+  assertFileExists(spreadingDetailEditTest)
+  assertFileExists(spreadingEditorActionsTest)
+  assertFileExists(pdaTest)
 
   ;[
-    'data-cutting-marker-action="guide-marker-import"',
-    'show-marker-import-status',
-    '换一功能占位',
+    'renderCuttingPageHeader(',
+    'renderStickyFilterShell(',
+    'renderWorkbenchStateBar(',
+    'renderCompactKpiCard(',
+    'renderStickyTableScroller(',
+    "data-cutting-marker-action=\"create-spreading\"",
+    "data-cutting-marker-action=\"open-spreading-detail\"",
+    "data-cutting-marker-action=\"open-spreading-edit\"",
+    "data-cutting-marker-action=\"go-spreading-replenishment\"",
   ].forEach((token) => {
-    assert(!source.includes(token), `${pageFile} 仍残留可见占位动作或占位文案：${token}`)
+    assert(pageSource.includes(token), `${pageFile} 缺少关键铺布页面能力：${token}`)
   })
 
-  assert(source.includes("action === 'close-overlay'"), `${pageFile} 未处理统一 close-overlay 关闭动作`)
-  assert(source.includes("from './marker-spreading-draft-actions'"), `${pageFile} 未接入 draft actions 拆分文件`)
-  assert(source.includes('handleMarkerSpreadingSubmitAction('), `${pageFile} 未接入 submit actions 分发`)
-
-  const combinedSource = [source, read(draftActionsFile), read(submitActionsFile)].join('\n')
   ;[
-    'add-allocation-line',
-    'remove-allocation-line',
-    'add-size-row',
-    'remove-size-row',
-    'add-line-item',
-    'remove-line-item',
-    'add-roll',
-    'remove-roll',
-    'add-operator-for-roll',
-    'remove-operator',
-    'save-marker',
-    'save-marker-and-view',
+    '唛架记录',
+    'data-cutting-marker-action="open-marker-detail"',
+    'data-cutting-marker-action="open-marker-edit"',
+    'data-cutting-marker-action="create-marker"',
+    'data-cutting-marker-action="create-marker-from-context"',
+    'data-cutting-marker-action="create-spreading-from-marker"',
+    'data-cutting-marker-action="confirm-marker-import-new"',
+    'data-cutting-marker-action="confirm-marker-import-sync"',
+    'data-cutting-marker-action="cancel-marker-import"',
+  ].forEach((token) => {
+    assert(!pageSource.includes(token), `${pageFile} 仍残留旧 mixed 唛架入口或再次导入动作：${token}`)
+  })
+
+  const editStatusSelectMatch = pageSource.match(/renderSelect\('状态', draft\.status,[\s\S]*?\]\)/)
+  assert(editStatusSelectMatch, `${pageFile} 缺少铺布编辑页状态下拉`)
+  assert(!editStatusSelectMatch[0].includes("value: 'DONE'"), `${pageFile} 的铺布编辑页状态下拉不应直接提供 DONE`)
+  assert(!pageSource.includes('data-cutting-spreading-draft-field="colorSummary"'), `${pageFile} 的颜色摘要不应继续作为可编辑输入`)
+  assert(!pageSource.includes('data-cutting-spreading-draft-field="theoreticalSpreadTotalLength"'), `${pageFile} 的理论铺布总长度不应继续作为可编辑输入`)
+  assert(!pageSource.includes('data-cutting-spreading-draft-field="theoreticalActualCutPieceQty"'), `${pageFile} 的理论裁剪成衣件数不应继续作为可编辑输入`)
+  assert(pageSource.includes('data-cutting-spreading-readonly-field="colorSummary"'), `${pageFile} 应以只读字段展示颜色摘要`)
+  assert(pageSource.includes('data-cutting-spreading-readonly-field="theoreticalSpreadTotalLength"'), `${pageFile} 应以只读字段展示理论铺布总长度`)
+  assert(pageSource.includes('data-cutting-spreading-readonly-field="theoreticalActualCutPieceQty"'), `${pageFile} 应以只读字段展示理论裁剪成衣件数`)
+
+  ;[
     'save-spreading',
     'save-spreading-and-view',
-    'set-spreading-status',
     'complete-spreading',
+    'set-spreading-status',
   ].forEach((action) => {
-    assert(combinedSource.includes(action), `唛架铺布关键动作缺少明确处理：${action}`)
+    assert(submitSource.includes(action), `${submitActionsFile} 缺少铺布提交动作：${action}`)
+  })
+  ;['save-marker', 'save-marker-and-view'].forEach((action) => {
+    assert(!submitSource.includes(action), `${submitActionsFile} 仍残留旧唛架保存动作：${action}`)
+  })
+  assert(!pageSource.includes("if (nextStatus === 'DONE') return completeCurrentSpreading()"), `${pageFile} 不应允许通过普通状态流转直接完成铺布`)
+
+  ;[
+    'operatorActionType',
+    'handoverFlag',
+    'handoverNote',
+    'recordType',
+    'data-pda-cut-spreading-field="recordType"',
+    'data-pda-cut-spreading-field="spreadingMode"',
+  ].forEach((token) => {
+    assert(pdaSource.includes(token), `${pdaPageFile} 缺少 PDA 铺布录入闭环字段：${token}`)
   })
 
   console.log(
     JSON.stringify(
       {
-        弹层状态收口: '通过',
-        占位按钮退场: '通过',
-        draftActions分发: '通过',
-        submitActions分发: '通过',
-        Playwright覆盖存在: '通过',
+        铺布页唯一入口检查: '通过',
+        旧唛架混合入口退场: '通过',
+        铺布提交动作分发: '通过',
+        PDA交接写回字段: '通过',
+        铺布编辑页危险字段已收只读: '通过',
+        铺布编辑页状态流转已收口: '通过',
+        FocusedPlaywright覆盖文件: '通过',
       },
       null,
       2,

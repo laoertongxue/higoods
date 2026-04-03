@@ -292,6 +292,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/cutting/original-orders': () => renderCraftCuttingOriginalOrdersPage(),
   '/fcs/craft/cutting/marker-list': () => renderCraftCuttingMarkerListPage(),
   '/fcs/craft/cutting/marker-create': () => renderCraftCuttingMarkerCreatePage(),
+  '/fcs/craft/cutting/spreading-list': () => renderCraftCuttingMarkerSpreadingPage(),
   '/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage(),
   '/fcs/craft/cutting/settlement-scoring': () => renderCuttingSettlementInputPage(),
   '/fcs/craft/cutting/marker-detail': () =>

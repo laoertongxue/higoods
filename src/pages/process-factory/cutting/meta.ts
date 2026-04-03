@@ -15,6 +15,7 @@ export type CuttingCanonicalPageKey =
   | 'material-prep'
   | 'marker-list'
   | 'marker-create'
+  | 'spreading-list'
   | 'marker-spreading'
   | 'marker-detail'
   | 'marker-edit'
@@ -121,6 +122,16 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '从原始裁片单或合并裁剪批次新建唛架计划。',
+  },
+  'spreading-list': {
+    key: 'spreading-list',
+    canonicalPath: '/fcs/craft/cutting/spreading-list',
+    aliases: [],
+    menuGroupTitle: '裁片执行准备',
+    pageTitle: '铺布列表',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '查看铺布任务、执行状态与补料预警。',
   },
   'marker-spreading': {
     key: 'marker-spreading',

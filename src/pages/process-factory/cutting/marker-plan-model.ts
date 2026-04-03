@@ -1688,7 +1688,7 @@ export function cloneMarkerPlanModeDetailLine(plan: MarkerPlan, modeDetailId: st
 }
 
 export function buildMarkerPlanGoSpreadingPath(plan: MarkerPlan): string {
-  const basePath = '/fcs/craft/cutting/marker-spreading'
+  const basePath = '/fcs/craft/cutting/spreading-list'
   if (plan.contextType === 'merge-batch' && plan.mergeBatchId) {
     const params = new URLSearchParams({
       mergeBatchId: plan.mergeBatchId,

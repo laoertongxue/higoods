@@ -32,6 +32,7 @@ import {
   DEFAULT_HIGH_LOW_PATTERN_KEYS,
   deriveMarkerTemplateByMode,
   deriveMarkerModeMeta,
+  deriveSpreadingColorSummary,
   deriveSpreadingModeMeta,
   deserializeMarkerSpreadingStorage,
   MARKER_SIZE_KEYS,
@@ -172,6 +173,14 @@ export interface SpreadingListRow {
   totalCalculatedUsableLength: number
   totalRemainingLength: number
   actualCutPieceQty: number
+  plannedCutGarmentQty: number
+  theoreticalCutGarmentQty: number
+  actualCutGarmentQty: number
+  fabricRollCount: number
+  spreadLayerCount: number
+  spreadActualLengthM: number
+  spreadUsableLengthM: number
+  spreadRemainingLengthM: number
   configuredLengthTotal: number
   claimedLengthTotal: number
   varianceLength: number
@@ -613,6 +622,12 @@ export function buildSpreadingListViewModel(options: {
       const batch = session.mergeBatchId ? batchById[session.mergeBatchId] : null
       const markerRecord = session.markerId ? markerById[session.markerId] || null : null
       const context = buildSessionContext(session, originalRows, batch)
+      const colorSummary = deriveSpreadingColorSummary({
+        rolls: session.rolls,
+        importSourceColorSummary: session.importSource?.sourceColorSummary,
+        contextColors: originalRows.map((row) => row.color),
+        fallbackSummary: session.colorSummary,
+      }).value
       const varianceSummary = buildSpreadingVarianceSummary(context, markerRecord, session)
       const handoverSummary = buildSpreadingHandoverListSummary(session.rolls, session.operators, markerRecord?.totalPieces || 0)
       const operatorAmountSummary = summarizeSpreadingOperatorAmounts(
@@ -626,8 +641,8 @@ export function buildSpreadingListViewModel(options: {
         claimedLengthTotal: varianceSummary?.claimedLengthTotal || 0,
       })
       const replenishmentWarning =
-        session.replenishmentWarning ||
         buildSpreadingReplenishmentWarning({
+          context,
           session,
           markerTotalPieces: markerRecord?.totalPieces || 0,
           originalCutOrderNos,
@@ -650,7 +665,7 @@ export function buildSpreadingListViewModel(options: {
         spuCode: session.spuCode || originalRows[0]?.spuCode || '',
         materialSkuSummary:
           session.materialSkuSummary || uniqueStrings(originalRows.map((row) => row.materialSkuSummary)).join(' / '),
-        colorSummary: session.colorSummary || uniqueStrings(originalRows.map((row) => row.color)).join(' / '),
+        colorSummary: colorSummary === '待补' ? '' : colorSummary,
         spreadingMode: session.spreadingMode,
         spreadingModeLabel: modeMeta.label,
         rollCount: session.rollCount || session.rolls.length,
@@ -659,6 +674,14 @@ export function buildSpreadingListViewModel(options: {
         totalCalculatedUsableLength: session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
         totalRemainingLength: session.totalRemainingLength ?? rollSummary.totalRemainingLength,
         actualCutPieceQty: session.actualCutPieceQty || rollSummary.totalActualCutPieceQty,
+        plannedCutGarmentQty: varianceSummary?.plannedCutGarmentQty || replenishmentWarning.plannedCutGarmentQty,
+        theoreticalCutGarmentQty: varianceSummary?.theoreticalCutGarmentQty || replenishmentWarning.theoreticalCutGarmentQty,
+        actualCutGarmentQty: varianceSummary?.actualCutGarmentQty || replenishmentWarning.actualCutGarmentQty,
+        fabricRollCount: varianceSummary?.fabricRollCount || session.rolls.length,
+        spreadLayerCount: varianceSummary?.spreadLayerCount || rollSummary.totalLayers,
+        spreadActualLengthM: varianceSummary?.spreadActualLengthM || session.totalActualLength || rollSummary.totalActualLength,
+        spreadUsableLengthM: varianceSummary?.spreadUsableLengthM || session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
+        spreadRemainingLengthM: varianceSummary?.spreadRemainingLengthM || session.totalRemainingLength || rollSummary.totalRemainingLength,
         configuredLengthTotal: varianceSummary?.configuredLengthTotal || session.configuredLengthTotal || 0,
         claimedLengthTotal: varianceSummary?.claimedLengthTotal || session.claimedLengthTotal || 0,
         varianceLength: varianceSummary?.varianceLength || session.varianceLength || 0,
@@ -750,8 +773,8 @@ export function buildSpreadingDetailViewModel(options: {
     ]),
   )
   const replenishmentWarning =
-    session.replenishmentWarning ||
     buildSpreadingReplenishmentWarning({
+      context,
       session,
       markerTotalPieces: markerRecord?.totalPieces || 0,
       originalCutOrderNos: originalRows.map((item) => item.originalCutOrderNo),

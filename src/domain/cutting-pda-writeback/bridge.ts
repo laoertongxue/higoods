@@ -251,6 +251,9 @@ export function writePdaSpreadingToFcs(options: {
   actionAt?: string
   source: CuttingPdaWritebackSource
   fabricRollNo: string
+  operatorActionType?: string
+  handoverFlag?: boolean
+  handoverNote?: string
   layerCount: number
   actualLength: number
   headLength: number
@@ -307,9 +310,9 @@ export function writePdaSpreadingToFcs(options: {
         operatorName: options.operator.operatorName,
         startAt: submittedAt,
         endAt: submittedAt,
-        actionType: '铺布录入',
-        handoverFlag: false,
-        note: options.note,
+        actionType: options.operatorActionType || '铺布录入',
+        handoverFlag: Boolean(options.handoverFlag),
+        note: [options.note, options.handoverNote].filter(Boolean).join('；'),
       },
     ],
   })
