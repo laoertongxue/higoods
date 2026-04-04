@@ -94,7 +94,7 @@ export function resolveSelectedExecutionOrderLine(
 
 export function buildPdaCuttingExecutionContext(
   taskId: string,
-  routeKey: Exclude<PdaCuttingRouteKey, 'task'>,
+  routeKey: Exclude<PdaCuttingRouteKey, 'task' | 'unit'>,
   pathname?: string,
 ): PdaCuttingExecutionContext {
   const navContext = readPdaCuttingNavContext(pathname)
@@ -165,6 +165,84 @@ export function buildPdaCuttingExecutionContext(
     canAutoFallbackToSingleCutPieceOrder,
     selectionRequired: requiresCutPieceOrderSelection,
     requiresCutPieceOrderSelection,
+    selectionNotice,
+    returnTo,
+    backHref: taskDetailBackHref,
+    navContext,
+  }
+}
+
+export function buildPdaCuttingExecutionUnitContext(
+  taskId: string,
+  executionOrderIdFromPath: string,
+  pathname?: string,
+): PdaCuttingExecutionContext {
+  const navContext = readPdaCuttingNavContext(pathname)
+  const returnTo = navContext.returnTo || readPdaCuttingReturnToFromLocation(pathname)
+  const requestedExecutionOrderId = readSelectedExecutionOrderIdFromLocation(pathname) || executionOrderIdFromPath
+  const requestedOrderNo = readSelectedExecutionOrderNoFromLocation(pathname)
+  const task = getPdaTaskFlowTaskById(taskId)
+  const baseDetail = getPdaCuttingTaskSnapshot(taskId)
+
+  if (!baseDetail) {
+    return {
+      task,
+      detail: null,
+      selectedExecutionOrderId: requestedExecutionOrderId,
+      selectedExecutionOrderNo: requestedOrderNo,
+      selectedExecutionOrder: null,
+      selectedExecutionOrderLine: null,
+      hasMultipleCutPieceOrders: false,
+      canAutoFallbackToSingleCutPieceOrder: false,
+      selectionRequired: false,
+      requiresCutPieceOrderSelection: false,
+      selectionNotice: null,
+      returnTo,
+      backHref: buildPdaCuttingTaskDetailFocusHref(taskId, {
+        executionOrderId: requestedExecutionOrderId || undefined,
+        executionOrderNo: requestedOrderNo ?? undefined,
+        returnTo,
+        focusTaskId: navContext.focusTaskId ?? taskId,
+        focusExecutionOrderId: requestedExecutionOrderId || undefined,
+        focusExecutionOrderNo: requestedOrderNo ?? undefined,
+      }),
+      navContext,
+    }
+  }
+
+  const selectedLine = resolveSelectedExecutionOrderLine(baseDetail, requestedExecutionOrderId, requestedOrderNo)
+  const hasMultipleCutPieceOrders = baseDetail.cutPieceOrders.length > 1
+  const requestedButMissing = Boolean(requestedExecutionOrderId || requestedOrderNo) && !selectedLine
+  const selectionNotice = requestedButMissing
+    ? '当前执行单不存在，请先返回裁片任务重新选择。'
+    : !selectedLine && hasMultipleCutPieceOrders
+      ? '请先在裁片任务中选择要处理的执行单。'
+      : null
+  const selectedExecutionOrderId = selectedLine?.executionOrderId ?? null
+  const selectedExecutionOrderNo = selectedLine?.executionOrderNo ?? null
+  const detail = getPdaCuttingTaskSnapshot(taskId, selectedExecutionOrderId ?? selectedExecutionOrderNo ?? undefined)
+  const taskDetailBackHref = buildPdaCuttingTaskDetailFocusHref(taskId, {
+    executionOrderId: selectedExecutionOrderId ?? undefined,
+    executionOrderNo: selectedExecutionOrderNo ?? undefined,
+    returnTo,
+    focusTaskId: navContext.focusTaskId ?? taskId,
+    focusExecutionOrderId: selectedExecutionOrderId ?? undefined,
+    focusExecutionOrderNo: selectedExecutionOrderNo ?? undefined,
+    highlightCutPieceOrder: true,
+    autoFocus: true,
+  })
+
+  return {
+    task,
+    detail,
+    selectedExecutionOrderId,
+    selectedExecutionOrderNo,
+    selectedExecutionOrder: selectedLine,
+    selectedExecutionOrderLine: selectedLine,
+    hasMultipleCutPieceOrders,
+    canAutoFallbackToSingleCutPieceOrder: baseDetail.cutPieceOrders.length === 1,
+    selectionRequired: !selectedLine && hasMultipleCutPieceOrders,
+    requiresCutPieceOrderSelection: !selectedLine && hasMultipleCutPieceOrders,
     selectionNotice,
     returnTo,
     backHref: taskDetailBackHref,

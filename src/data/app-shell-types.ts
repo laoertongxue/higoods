@@ -23,6 +23,7 @@ export interface MenuItem {
 // 菜单分组类型
 export interface MenuGroup {
   title: string
+  icon?: string
   items: MenuItem[]
 }
 

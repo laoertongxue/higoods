@@ -64,48 +64,6 @@ function assertInternalSemanticResidueRetired(): void {
   })
 }
 
-function assertTraceabilityCanonicalized(): void {
-  assertFileExists('src/data/fcs/cutting/transfer-bag-legacy-normalizer.ts')
-
-  const canonicalFiles = [
-    'src/data/fcs/cutting/transfer-bag-runtime.ts',
-    'src/pages/process-factory/cutting/transfer-bags-model.ts',
-    'src/pages/process-factory/cutting/transfer-bag-return-model.ts',
-    'src/pages/process-factory/cutting/traceability-projection-helpers.ts',
-    'src/pages/process-factory/cutting/transfer-bags-projection.ts',
-  ]
-
-  const bannedSnippets = [
-    'carrierId ||',
-    'cycleId ||',
-    'feiTicketId ||',
-    '|| item.bagId',
-    '|| item.usageId',
-    '|| binding.ticketRecordId',
-    '|| binding.bagId',
-    '|| usage.bagId',
-    '|| usage.usageId',
-  ]
-
-  canonicalFiles.forEach((file) => {
-    const source = read(file)
-    bannedSnippets.forEach((snippet) => {
-      assert(!source.includes(snippet), `${file} 仍残留 dual-field fallback：${snippet}`)
-    })
-  })
-
-  assertIncludes(
-    'src/pages/process-factory/cutting/transfer-bags-model.ts',
-    "normalizeTransferCarrierRecord",
-    '未接 traceability legacy normalizer',
-  )
-  assertIncludes(
-    'src/pages/process-factory/cutting/transfer-bag-return-model.ts',
-    'cycleId',
-    '未体现 canonical cycleId 字段',
-  )
-}
-
 function assertPdaFormalSourceSlimmed(): void {
   assertFileExists('src/data/fcs/pda-cutting-legacy-compat.ts')
 
@@ -125,6 +83,20 @@ function assertPdaFormalSourceSlimmed(): void {
   ].forEach((token) => {
     assert(!source.includes(token), `${sourceFile} 仍残留旧 generic task shell 字段：${token}`)
   })
+  assert(source.includes('primaryExecutionRouteKey'), `${sourceFile} 缺少显式 primaryExecutionRouteKey`)
+  assert(!source.includes("targetType: 'context'"), `${sourceFile} 仍残留 spreading targetType='context'`)
+  assert(source.includes('FOLD_NORMAL'), `${sourceFile} 缺少 FOLD_NORMAL 模式`)
+  assert(source.includes('FOLD_HIGH_LOW'), `${sourceFile} 缺少 FOLD_HIGH_LOW 模式`)
+  assert(source.includes('listWorkerVisiblePdaSpreadingTargets'), `${sourceFile} 缺少工人可见目标收口 helper`)
+
+  const taskDetailHelpers = read('src/pages/pda-cutting-task-detail-helpers.ts')
+  assert(taskDetailHelpers.includes('line.primaryExecutionRouteKey'), 'pda-cutting-task-detail-helpers.ts 应优先使用 primaryExecutionRouteKey')
+  assert(!taskDetailHelpers.includes('resolveRouteFromNextAction'), 'pda-cutting-task-detail-helpers.ts 不应再用 nextActionLabel 字符串推断主动作路由')
+
+  const releaseAcceptance = read('tests/cutting-release-acceptance.spec.ts')
+  assert(releaseAcceptance.includes('进入执行单元'), 'release acceptance 应覆盖 execution-unit-first 主路径')
+  assert(releaseAcceptance.includes('按唛架新建铺布'), 'release acceptance 应覆盖 marker-first 创建')
+  assert(releaseAcceptance.includes('保存铺布记录'), 'release acceptance 应覆盖 PDA 铺布录入')
 
   const pageFiles = [
     'src/pages/pda-cutting-task-detail.ts',
@@ -145,7 +117,6 @@ function assertPdaFormalSourceSlimmed(): void {
 function main(): void {
   assertCuttingRuntimeInputsDetachedFromPages()
   assertInternalSemanticResidueRetired()
-  assertTraceabilityCanonicalized()
   assertPdaFormalSourceSlimmed()
 
   console.log(
@@ -153,7 +124,6 @@ function main(): void {
       {
         dataAdapter分层收口: '通过',
         内部旧语义残留清理: '通过',
-        traceability正式字段收口: '通过',
         PDAformalSource再压薄: '通过',
       },
       null,

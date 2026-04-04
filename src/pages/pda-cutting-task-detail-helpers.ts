@@ -1,10 +1,11 @@
 import {
+  type PdaCuttingCurrentStepCode,
   type PdaCuttingRouteKey,
   type PdaCuttingTaskOrderLine,
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import { buildPdaCuttingExecutionNavHref } from './pda-cutting-nav-context'
 
-export type PdaCuttingExecutionRouteKey = Exclude<PdaCuttingRouteKey, 'task'>
+export type PdaCuttingExecutionRouteKey = Exclude<PdaCuttingRouteKey, 'task' | 'unit'>
 
 export interface PdaCuttingTaskOrderActionEntry {
   key: PdaCuttingExecutionRouteKey
@@ -25,15 +26,6 @@ function resolveRouteLabel(routeKey: PdaCuttingExecutionRouteKey): string {
   return '补料反馈'
 }
 
-function resolveRouteFromNextAction(nextActionLabel: string): PdaCuttingExecutionRouteKey | null {
-  if (includesAny(nextActionLabel, ['领料'])) return 'pickup'
-  if (includesAny(nextActionLabel, ['铺布'])) return 'spreading'
-  if (includesAny(nextActionLabel, ['入仓'])) return 'inbound'
-  if (includesAny(nextActionLabel, ['交接'])) return 'handover'
-  if (includesAny(nextActionLabel, ['补料'])) return 'replenishment-feedback'
-  return null
-}
-
 function hasPendingReplenishment(line: PdaCuttingTaskOrderLine): boolean {
   return (
     Boolean(line.replenishmentRiskLabel) &&
@@ -41,28 +33,60 @@ function hasPendingReplenishment(line: PdaCuttingTaskOrderLine): boolean {
   )
 }
 
+function isReceiveCompleted(status: string): boolean {
+  return includesAny(status, ['领取成功', '已回执', '已领取'])
+}
+
+function isSpreadingCompleted(status: string): boolean {
+  return includesAny(status, ['铺布已完成'])
+}
+
+function isHandoverCompleted(status: string): boolean {
+  return includesAny(status, ['已交接'])
+}
+
+function isInboundCompleted(status: string): boolean {
+  return includesAny(status, ['已入仓'])
+}
+
+function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
+  if (stepCode === 'PICKUP') return '领料'
+  if (stepCode === 'SPREADING') return '铺布'
+  if (stepCode === 'REPLENISHMENT') return '补料反馈'
+  if (stepCode === 'HANDOVER') return '交接'
+  if (stepCode === 'INBOUND') return '入仓'
+  return '已完成'
+}
+
+function mapStepCodeToRouteKey(stepCode: PdaCuttingCurrentStepCode): PdaCuttingExecutionRouteKey | null {
+  if (stepCode === 'PICKUP') return 'pickup'
+  if (stepCode === 'SPREADING') return 'spreading'
+  if (stepCode === 'REPLENISHMENT') return 'replenishment-feedback'
+  if (stepCode === 'HANDOVER') return 'handover'
+  if (stepCode === 'INBOUND') return 'inbound'
+  return null
+}
+
+export function resolvePdaCuttingTaskOrderCurrentStepCode(line: PdaCuttingTaskOrderLine): PdaCuttingCurrentStepCode {
+  if (line.currentStepCode) return line.currentStepCode
+  if (!isReceiveCompleted(line.currentReceiveStatus)) return 'PICKUP'
+  if (!isSpreadingCompleted(line.currentExecutionStatus)) return 'SPREADING'
+  if (hasPendingReplenishment(line)) return 'REPLENISHMENT'
+  if (!isHandoverCompleted(line.currentHandoverStatus)) return 'HANDOVER'
+  if (!isInboundCompleted(line.currentInboundStatus)) return 'INBOUND'
+  return 'DONE'
+}
+
+export function resolvePdaCuttingTaskOrderCurrentStepLabel(line: PdaCuttingTaskOrderLine): string {
+  if (line.currentStepLabel) return line.currentStepLabel
+  return resolveCurrentStepLabel(resolvePdaCuttingTaskOrderCurrentStepCode(line))
+}
+
 export function resolvePdaCuttingTaskOrderPrimaryRouteKey(line: PdaCuttingTaskOrderLine): PdaCuttingExecutionRouteKey {
-  if (!includesAny(line.currentReceiveStatus, ['领取成功', '已回执', '已领取'])) {
-    return 'pickup'
-  }
-
-  if (includesAny(line.currentExecutionStatus, ['待铺布', '未开始铺布', '未开始', '待开始'])) {
-    return 'spreading'
-  }
-
-  if (!includesAny(line.currentInboundStatus, ['已入仓'])) {
-    return 'inbound'
-  }
-
-  if (!includesAny(line.currentHandoverStatus, ['已交接'])) {
-    return 'handover'
-  }
-
-  if (hasPendingReplenishment(line)) {
-    return 'replenishment-feedback'
-  }
-
-  return resolveRouteFromNextAction(line.nextActionLabel) ?? 'handover'
+  // 仅用于兼容“更多操作”动作列表；任务详情主流程统一先进入执行单元。
+  if (line.primaryExecutionRouteKey) return line.primaryExecutionRouteKey
+  const currentStepCode = resolvePdaCuttingTaskOrderCurrentStepCode(line)
+  return mapStepCodeToRouteKey(currentStepCode) || 'handover'
 }
 
 export function resolvePdaCuttingTaskOrderPrimaryActionLabel(line: PdaCuttingTaskOrderLine): string {

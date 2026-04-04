@@ -6,8 +6,16 @@ const numberFormatter = new Intl.NumberFormat('zh-CN')
 
 export const CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY = 'cuttingMarkerSpreadingLedger'
 
-export type MarkerModeKey = 'normal' | 'high-low' | 'folded'
+export type MarkerModeKey = 'normal' | 'high_low' | 'fold_normal' | 'fold_high_low'
 export type SpreadingStatusKey = 'DRAFT' | 'IN_PROGRESS' | 'DONE' | 'TO_FILL'
+export type SpreadingSupervisorStageKey =
+  | 'WAITING_START'
+  | 'IN_PROGRESS'
+  | 'WAITING_REPLENISHMENT'
+  | 'WAITING_FEI_TICKET'
+  | 'WAITING_BAGGING'
+  | 'WAITING_WAREHOUSE'
+  | 'DONE'
 export type SpreadingSourceChannel = 'MANUAL' | 'PDA_WRITEBACK' | 'MIXED'
 export type SpreadingOperatorActionType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
 export type SpreadingPricingMode = '按件计价' | '按长度计价' | '按层计价'
@@ -166,6 +174,7 @@ export interface MarkerRecord {
 export interface SpreadingRollRecord {
   rollRecordId: string
   spreadingSessionId: string
+  planUnitId?: string
   sortOrder: number
   rollNo: string
   materialSku: string
@@ -212,6 +221,7 @@ export interface SpreadingOperatorRecord {
   amountNote?: string
   handoverFlag: boolean
   handoverNotes: string
+  nextOperatorAccountId?: string
   previousOperatorName?: string
   nextOperatorName?: string
   handoverAtLayer?: number
@@ -322,6 +332,19 @@ export interface SpreadingHighLowPlanSnapshot {
   patternTotal: number
 }
 
+export interface SpreadingPlanUnit {
+  planUnitId: string
+  sourceType: 'marker-line' | 'high-low-row' | 'exception'
+  sourceLineId: string
+  color: string
+  materialSku: string
+  garmentQtyPerUnit: number
+  plannedRepeatCount: number
+  lengthPerUnitM: number
+  plannedCutGarmentQty: number
+  plannedSpreadLengthM: number
+}
+
 export interface SpreadingReplenishmentWarning {
   warningId: string
   sourceType: 'original-order' | 'merge-batch' | 'spreading-session'
@@ -401,6 +424,23 @@ export interface SpreadingCompletionValidationResult {
   messages: string[]
 }
 
+export interface SpreadingTraceAnchor {
+  spreadingSessionId: string
+  spreadingSessionNo: string
+  contextType: 'original-order' | 'merge-batch'
+  originalCutOrderIds: string[]
+  originalCutOrderNos: string[]
+  mergeBatchId: string
+  mergeBatchNo: string
+  materialSkuSummary: string
+  colorSummary: string
+  sourceChannel: SpreadingSourceChannel
+  sourceWritebackId: string
+  updatedFromPdaAt: string
+  completedAt: string
+  completedBy: string
+}
+
 export interface SpreadingSession {
   spreadingSessionId: string
   sessionNo?: string
@@ -410,6 +450,8 @@ export interface SpreadingSession {
   mergeBatchNo: string
   markerId?: string
   markerNo?: string
+  sourceMarkerId?: string
+  sourceMarkerNo?: string
   styleCode?: string
   spuCode?: string
   materialSkuSummary?: string
@@ -417,6 +459,10 @@ export interface SpreadingSession {
   spreadingMode: MarkerModeKey
   status: SpreadingStatusKey
   importedFromMarker: boolean
+  isExceptionBackfill?: boolean
+  exceptionReason?: string
+  ownerAccountId?: string
+  ownerName?: string
   plannedLayers: number
   actualLayers: number
   totalActualLength: number
@@ -438,6 +484,7 @@ export interface SpreadingSession {
   updatedAt: string
   warningMessages?: string[]
   importSource?: SpreadingImportSource | null
+  planUnits?: SpreadingPlanUnit[]
   planLineItems?: SpreadingPlanLineItem[]
   highLowPlanSnapshot?: SpreadingHighLowPlanSnapshot | null
   theoreticalSpreadTotalLength?: number
@@ -446,6 +493,12 @@ export interface SpreadingSession {
   importAdjustmentNote?: string
   replenishmentWarning?: SpreadingReplenishmentWarning | null
   completionLinkage?: SpreadingCompletionLinkage | null
+  prototypeLifecycleOverrides?: {
+    replenishmentStatusLabel?: '待补料确认' | '无需补料'
+    feiTicketStatusLabel?: '待打印菲票' | '已打印菲票'
+    baggingStatusLabel?: '待装袋' | '已装袋'
+    warehouseStatusLabel?: '待入仓' | '已入仓'
+  } | null
   sourceChannel: SpreadingSourceChannel
   sourceWritebackId: string
   updatedFromPdaAt: string
@@ -485,6 +538,13 @@ export interface SpreadingVarianceSummary {
   shortageGarmentQty: number
   shortageIndicator: boolean
   replenishmentHint: string
+}
+
+export interface SpreadingTraceAnchorMatchOptions {
+  originalCutOrderIds?: string[]
+  mergeBatchId?: string
+  materialSku?: string
+  color?: string
 }
 
 export interface SpreadingOperatorSummary {
@@ -552,19 +612,24 @@ export interface MarkerSpreadingViewModel {
 
 const markerModeMeta: Record<MarkerModeKey, { label: string; className: string; detailText: string }> = {
   normal: {
-    label: '正常铺布',
+    label: '普通模式',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: 'normal：正常模式铺布，适合常规裁床直接平铺执行。',
+    detailText: 'normal：普通模式铺布，适合常规裁床直接平铺执行。',
   },
-  'high-low': {
+  high_low: {
     label: '高低层模式',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: 'high-low：高低层模式，体现台阶式往上铺布的业务差异。',
+    detailText: 'high_low：高低层模式，体现台阶式往上铺布的业务差异。',
   },
-  folded: {
-    label: '对折铺布模式',
+  fold_normal: {
+    label: '对折-普通模式',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    detailText: 'folded：对折铺布模式，用于对折裁片场景。',
+    detailText: 'fold_normal：对折-普通模式，用于对折裁片场景。',
+  },
+  fold_high_low: {
+    label: '对折-高低层模式',
+    className: 'bg-violet-100 text-violet-700 border border-violet-200',
+    detailText: 'fold_high_low：对折-高低层模式，用于对折且需高低层排布的裁片场景。',
   },
 }
 
@@ -588,6 +653,47 @@ const spreadingStatusMeta: Record<SpreadingStatusKey, { label: string; className
     label: '待补录',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
     detailText: '当前铺布记录不完整，需要补录卷或人员信息。',
+  },
+}
+
+const spreadingSupervisorStageMeta: Record<
+  SpreadingSupervisorStageKey,
+  { label: string; className: string; detailText: string }
+> = {
+  WAITING_START: {
+    label: '待开始',
+    className: 'bg-slate-100 text-slate-700 border border-slate-200',
+    detailText: '当前铺布还未进入正式执行阶段，需先继续铺布或补录执行记录。',
+  },
+  IN_PROGRESS: {
+    label: '铺布中',
+    className: 'bg-amber-100 text-amber-700 border border-amber-200',
+    detailText: '当前铺布正在执行中，卷、层数或人员记录仍在持续录入。',
+  },
+  WAITING_REPLENISHMENT: {
+    label: '待补料确认',
+    className: 'bg-rose-100 text-rose-700 border border-rose-200',
+    detailText: '当前铺布已完成，但补料差异仍待进入补料管理确认。',
+  },
+  WAITING_FEI_TICKET: {
+    label: '待打印菲票',
+    className: 'bg-sky-100 text-sky-700 border border-sky-200',
+    detailText: '当前铺布执行已完成，下一步需打印正式菲票。',
+  },
+  WAITING_BAGGING: {
+    label: '待装袋',
+    className: 'bg-violet-100 text-violet-700 border border-violet-200',
+    detailText: '当前菲票已具备，但尚未形成正式周转口袋装袋记录。',
+  },
+  WAITING_WAREHOUSE: {
+    label: '待入仓',
+    className: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
+    detailText: '当前已完成装袋，但尚未形成正式裁片仓入仓记录。',
+  },
+  DONE: {
+    label: '已完成',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '当前铺布已完成并进入后续闭环链路。',
   },
 }
 
@@ -620,10 +726,21 @@ function createSummaryMeta<Key extends string>(
 
 function normalizeMarkerMode(mode: string | undefined): MarkerModeKey {
   if (mode === 'NORMAL') return 'normal'
-  if (mode === 'HIGH_LOW') return 'high-low'
-  if (mode === 'FOLDED') return 'folded'
-  if (mode === 'high-low' || mode === 'folded' || mode === 'normal') return mode
+  if (mode === 'HIGH_LOW' || mode === 'high-low' || mode === 'high_low') return 'high_low'
+  if (mode === 'FOLD_HIGH_LOW' || mode === 'fold_high_low') return 'fold_high_low'
+  if (mode === 'FOLD_NORMAL' || mode === 'FOLDED' || mode === 'FOLD' || mode === 'folded' || mode === 'fold_normal') return 'fold_normal'
+  if (mode === 'normal') return 'normal'
   return 'normal'
+}
+
+function isHighLowMarkerMode(mode: string | undefined): boolean {
+  const normalized = normalizeMarkerMode(mode)
+  return normalized === 'high_low' || normalized === 'fold_high_low'
+}
+
+function isFoldMarkerMode(mode: string | undefined): boolean {
+  const normalized = normalizeMarkerMode(mode)
+  return normalized === 'fold_normal' || normalized === 'fold_high_low'
 }
 
 function buildPlannedSizeRatioText(sizeDistribution: MarkerSizeDistributionItem[]): string {
@@ -731,7 +848,7 @@ function normalizeMarkerAllocationLine(item: Partial<MarkerAllocationLine>, mark
 }
 
 export function deriveMarkerTemplateByMode(mode: MarkerModeKey | string): MarkerTemplateKey {
-  return normalizeMarkerMode(mode) === 'high-low' ? 'matrix-template' : 'row-template'
+  return isHighLowMarkerMode(mode) ? 'matrix-template' : 'row-template'
 }
 
 export function computeSinglePieceUsage(markerLength: number, markerPieceCount: number): number {
@@ -784,10 +901,9 @@ export function computeUsageSummary(marker: Partial<MarkerRecord>): {
   actualMaterialMeter: number
   actualCutQty: number
 } {
-  const matrixActualCutQty =
-    normalizeMarkerMode(marker.markerMode as string | undefined) === 'high-low'
-      ? computeHighLowCuttingTotals(marker.highLowCuttingRows || []).cuttingTotal
-      : 0
+  const matrixActualCutQty = isHighLowMarkerMode(marker.markerMode as string | undefined)
+    ? computeHighLowCuttingTotals(marker.highLowCuttingRows || []).cuttingTotal
+    : 0
   const actualCutQty = Number(marker.actualCutQty ?? (matrixActualCutQty > 0 ? matrixActualCutQty : marker.totalPieces ?? 0))
   const procurementUnitUsage = Number(marker.procurementUnitUsage ?? marker.singlePieceUsage ?? 0)
   const actualUnitUsage = Number(marker.actualUnitUsage ?? marker.singlePieceUsage ?? 0)
@@ -796,14 +912,14 @@ export function computeUsageSummary(marker: Partial<MarkerRecord>): {
   const mode = normalizeMarkerMode(marker.markerMode as string | undefined)
   const plannedMaterialMeter = Number(
     marker.plannedMaterialMeter ??
-      (mode === 'folded'
+      (isFoldMarkerMode(mode)
         ? Number(((procurementUnitUsage * Math.max(totalPieces, 0)) / 2).toFixed(2))
         : Number((((procurementUnitUsage || 0) + 0.06) * Math.max(layerCount, 0)).toFixed(2))) ??
       0,
   )
   const actualMaterialMeter = Number(
     marker.actualMaterialMeter ??
-      (mode === 'folded'
+      (isFoldMarkerMode(mode)
         ? Number(((actualUnitUsage * Math.max(actualCutQty, 0)) / 2).toFixed(2))
         : Number((((actualUnitUsage || 0) + 0.06) * Math.max(layerCount || actualCutQty, 0)).toFixed(2))) ??
       0,
@@ -853,7 +969,7 @@ export function buildMarkerWarningMessages(marker: Partial<MarkerRecord>): strin
     warnings.push('实际单件用量大于采购单件用量。')
   }
 
-  if (normalizeMarkerMode(marker.markerMode as string | undefined) === 'high-low') {
+  if (isHighLowMarkerMode(marker.markerMode as string | undefined)) {
     const cuttingTotal = computeHighLowCuttingTotals(marker.highLowCuttingRows || []).cuttingTotal
     const patternTotal = computeHighLowPatternTotals(marker.highLowPatternRows || [], marker.highLowPatternKeys || []).patternTotal
     const sizeTotal = computeMarkerTotalPieces(marker.sizeDistribution || [])
@@ -947,9 +1063,22 @@ export function computeRemainingLength(labeledLength: number, actualLength: numb
   return Number((labeledLength - actualLength).toFixed(2))
 }
 
+export function findSpreadingPlanUnitById(
+  planUnits: SpreadingPlanUnit[] | undefined,
+  planUnitId: string | undefined,
+): SpreadingPlanUnit | null {
+  if (!Array.isArray(planUnits) || !planUnits.length) return null
+  if (!planUnitId) return planUnits[0] || null
+  return planUnits.find((item) => item.planUnitId === planUnitId) || null
+}
+
+export function computeRollActualCutGarmentQty(layerCount: number, garmentQtyPerUnit: number): number {
+  if (layerCount <= 0 || garmentQtyPerUnit <= 0) return 0
+  return Math.max(Math.round(layerCount * garmentQtyPerUnit), 0)
+}
+
 export function computeRollActualCutPieceQty(layerCount: number, markerTotalPieces: number): number {
-  if (layerCount <= 0 || markerTotalPieces <= 0) return 0
-  return Math.max(Math.round(layerCount * markerTotalPieces), 0)
+  return computeRollActualCutGarmentQty(layerCount, markerTotalPieces)
 }
 
 export function computePlannedCutGarmentQty(plannedLayers: number, markerTotalPieces: number): number {
@@ -1066,6 +1195,48 @@ export function buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength
 
 export function buildRollActualCutQtyFormula(actualCutPieceQty: number, layerCount: number, markerTotalPieces: number): string {
   return `${formatQty(actualCutPieceQty)} = ${formatQty(layerCount)} × ${formatQty(markerTotalPieces)}`
+}
+
+export function buildRollActualCutGarmentQtyFormula(actualCutGarmentQty: number, layerCount: number, garmentQtyPerUnit: number): string {
+  return `${formatQty(actualCutGarmentQty)} = ${formatQty(layerCount)} × ${formatQty(garmentQtyPerUnit)}`
+}
+
+export function computeOperatorHandledGarmentQty(handledLayerCount: number | null, garmentQtyPerUnit: number): number | null {
+  if (handledLayerCount === null || handledLayerCount <= 0 || garmentQtyPerUnit <= 0) return null
+  return Math.max(Math.round(handledLayerCount * garmentQtyPerUnit), 0)
+}
+
+export function computeOperatorHandledLengthByRoll(
+  handledLayerCount: number | null,
+  actualLength: number,
+  rollLayerCount: number,
+): number | null {
+  if (handledLayerCount === null || handledLayerCount <= 0 || actualLength <= 0 || rollLayerCount <= 0) return null
+  return Number(((actualLength / rollLayerCount) * handledLayerCount).toFixed(2))
+}
+
+export function buildOperatorHandledLayerFormula(handledLayerCount: number | null, startLayer?: number, endLayer?: number): string {
+  if (handledLayerCount === null || startLayer === undefined || endLayer === undefined) return ''
+  return `${formatQty(handledLayerCount)} = ${formatQty(endLayer)} - ${formatQty(startLayer)} + 1`
+}
+
+export function buildOperatorHandledGarmentQtyFormula(
+  handledGarmentQty: number | null,
+  handledLayerCount: number | null,
+  garmentQtyPerUnit: number,
+): string {
+  if (handledGarmentQty === null || handledLayerCount === null) return ''
+  return `${formatQty(handledGarmentQty)} = ${formatQty(handledLayerCount)} × ${formatQty(garmentQtyPerUnit)}`
+}
+
+export function buildOperatorHandledLengthFormula(
+  handledLength: number | null,
+  actualLength: number,
+  rollLayerCount: number,
+  handledLayerCount: number | null,
+): string {
+  if (handledLength === null || handledLayerCount === null) return ''
+  return `${Number(handledLength || 0).toFixed(2)} = ${Number(actualLength || 0).toFixed(2)} ÷ ${formatQty(rollLayerCount)} × ${formatQty(handledLayerCount)}`
 }
 
 export function buildShortageQtyFormula(shortageQty: number, requiredQty: number, actualCutQty: number): string {
@@ -1466,7 +1637,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
   const netLength = Number((configuredLengthTotal > 0 ? configuredLengthTotal : totalPieces * 1.2).toFixed(2))
   const singlePieceUsage = totalPieces > 0 ? Number((netLength / totalPieces).toFixed(3)) : 0
   const markerId = `seed-marker-${context.contextType}-${context.mergeBatchId || context.originalCutOrderIds[0]}`
-  const markerMode: MarkerModeKey = context.contextType === 'merge-batch' ? 'high-low' : 'normal'
+  const markerMode: MarkerModeKey = context.contextType === 'merge-batch' ? 'high_low' : 'normal'
   const highLowPatternKeys = [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
   const colors = uniqueStrings(context.materialPrepRows.map((row) => row.color))
   const allocationLines: MarkerAllocationLine[] =
@@ -1491,7 +1662,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
           }))
       : []
   const lineItems =
-    markerMode === 'high-low'
+    isHighLowMarkerMode(markerMode)
       ? []
       : context.materialPrepRows.map((row, index) => ({
           lineItemId: `seed-line-${context.contextType}-${context.mergeBatchId || row.originalCutOrderId}-${index}`,
@@ -1511,8 +1682,8 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
           widthHint: '默认门幅 160cm',
           note: `${row.materialSkuSummary} · 默认排版明细`,
         }))
-  const highLowCuttingRows = markerMode === 'high-low' ? createDefaultHighLowCuttingRows(markerId, colors, sizeDistribution) : []
-  const highLowPatternRows = markerMode === 'high-low' ? createDefaultHighLowPatternRows(markerId, colors, highLowPatternKeys) : []
+  const highLowCuttingRows = isHighLowMarkerMode(markerMode) ? createDefaultHighLowCuttingRows(markerId, colors, sizeDistribution) : []
+  const highLowPatternRows = isHighLowMarkerMode(markerMode) ? createDefaultHighLowPatternRows(markerId, colors, highLowPatternKeys) : []
 
   return {
     markerId,
@@ -1589,9 +1760,10 @@ export function createSpreadingDraftFromMarker(
   const importSource = buildSpreadingImportSource(marker, context, now, options?.reimported, options?.importNote)
   const planLineItems = buildSpreadingPlanLineItemsFromMarker(marker)
   const highLowPlanSnapshot = buildSpreadingHighLowPlanSnapshotFromMarker(marker)
+  const planUnits = buildSpreadingPlanUnitsFromMarker(marker, context)
   const plannedLayers = Math.max(Number(marker.plannedLayerCount || Math.ceil(marker.totalPieces / 20) || 1), 1)
   const theoreticalSpreadTotalLength =
-    normalizeMarkerMode(marker.markerMode as string | undefined) === 'high-low'
+    isHighLowMarkerMode(marker.markerMode as string | undefined)
       ? Number(marker.spreadTotalLength || marker.actualMaterialMeter || 0)
       : Number(marker.spreadTotalLength || computeNormalMarkerSpreadTotalLength(marker.lineItems || []))
   const theoreticalActualCutPieceQty = Math.max(plannedLayers * Math.max(marker.totalPieces || 0, 0), 0)
@@ -1611,6 +1783,8 @@ export function createSpreadingDraftFromMarker(
     mergeBatchNo: context.mergeBatchNo,
     markerId: marker.markerId,
     markerNo: marker.markerNo || '',
+    sourceMarkerId: marker.markerId,
+    sourceMarkerNo: marker.markerNo || '',
     styleCode: context.styleCode,
     spuCode: context.spuCode,
     materialSkuSummary: context.materialSkuSummary,
@@ -1618,6 +1792,10 @@ export function createSpreadingDraftFromMarker(
     spreadingMode: normalizeMarkerMode(marker.markerMode as string | undefined),
     status: (baseSession?.status as SpreadingStatusKey) || 'DRAFT',
     importedFromMarker: true,
+    isExceptionBackfill: Boolean(baseSession?.isExceptionBackfill),
+    exceptionReason: baseSession?.exceptionReason || '',
+    ownerAccountId: baseSession?.ownerAccountId || '',
+    ownerName: baseSession?.ownerName || '',
     plannedLayers,
     actualLayers: baseSession?.actualLayers || 0,
     totalActualLength: baseSession?.totalActualLength || 0,
@@ -1639,6 +1817,7 @@ export function createSpreadingDraftFromMarker(
     updatedAt: nowText(now),
     warningMessages: baseSession?.warningMessages || [],
     importSource,
+    planUnits,
     planLineItems,
     highLowPlanSnapshot,
     theoreticalSpreadTotalLength,
@@ -1647,12 +1826,80 @@ export function createSpreadingDraftFromMarker(
     importAdjustmentNote: baseSession?.importAdjustmentNote || '',
     replenishmentWarning: baseSession?.replenishmentWarning || null,
     completionLinkage: baseSession?.completionLinkage || null,
-    sourceChannel: 'MANUAL',
-    sourceWritebackId: '',
-    updatedFromPdaAt: '',
+    prototypeLifecycleOverrides: baseSession?.prototypeLifecycleOverrides || null,
+    sourceChannel: baseSession?.sourceChannel || 'MANUAL',
+    sourceWritebackId: baseSession?.sourceWritebackId || '',
+    updatedFromPdaAt: baseSession?.updatedFromPdaAt || '',
     rolls: baseSession?.rolls ? [...baseSession.rolls] : [],
     operators: baseSession?.operators ? [...baseSession.operators] : [],
   }
+}
+
+export function buildSpreadingPlanUnitsFromMarker(
+  marker: MarkerRecord,
+  context: MarkerSpreadingContext,
+): SpreadingPlanUnit[] {
+  const fallbackMaterialSku = context.materialSkuSummary.split(' / ')[0] || marker.materialSkuSummary?.split(' / ')[0] || ''
+  const resolveMaterialSku = (color: string): string => {
+    const matchedRow = context.materialPrepRows.find((row) => row.color === color)
+    return matchedRow?.materialSkuSummary || fallbackMaterialSku
+  }
+
+  if (marker.lineItems?.length) {
+    return marker.lineItems.map((item, index) => {
+      const garmentQtyPerUnit = Math.max(Number(item.markerPieceCount ?? item.pieceCount ?? 0), 0)
+      const plannedRepeatCount = Math.max(Number(item.spreadRepeatCount || 0), 0)
+      const lengthPerUnitM = Number(item.markerLength || 0)
+      const plannedSpreadLengthM =
+        Number(item.spreadTotalLength || item.spreadingTotalLength || 0) ||
+        Number((((lengthPerUnitM + 0.06) * plannedRepeatCount).toFixed(2)))
+      return {
+        planUnitId: `plan-unit-${marker.markerId}-${index + 1}`,
+        sourceType: 'marker-line',
+        sourceLineId: item.lineItemId || item.markerLineItemId || `line-${index + 1}`,
+        color: item.color || context.materialPrepRows[0]?.color || '',
+        materialSku: resolveMaterialSku(item.color || ''),
+        garmentQtyPerUnit,
+        plannedRepeatCount,
+        lengthPerUnitM,
+        plannedCutGarmentQty: garmentQtyPerUnit * plannedRepeatCount,
+        plannedSpreadLengthM,
+      }
+    })
+  }
+
+  const highLowRows = marker.highLowCuttingRows || []
+  if (highLowRows.length) {
+    const rowCount = highLowRows.length
+    const averageLength = rowCount > 0 ? Number((Number(marker.spreadTotalLength || 0) / rowCount).toFixed(2)) : 0
+    return highLowRows.map((row, index) => ({
+      planUnitId: `plan-unit-${marker.markerId}-${index + 1}`,
+      sourceType: 'high-low-row',
+      sourceLineId: row.rowId || `high-low-${index + 1}`,
+      color: row.color || context.materialPrepRows[0]?.color || '',
+      materialSku: resolveMaterialSku(row.color || ''),
+      garmentQtyPerUnit: Math.max(Number(row.total || 0), 0),
+      plannedRepeatCount: 1,
+      lengthPerUnitM: averageLength,
+      plannedCutGarmentQty: Math.max(Number(row.total || 0), 0),
+      plannedSpreadLengthM: averageLength,
+    }))
+  }
+
+  return [
+    {
+      planUnitId: `plan-unit-${marker.markerId}-fallback`,
+      sourceType: 'exception',
+      sourceLineId: marker.markerId,
+      color: context.materialPrepRows[0]?.color || '',
+      materialSku: fallbackMaterialSku,
+      garmentQtyPerUnit: Math.max(Number(marker.totalPieces || 0), 0),
+      plannedRepeatCount: Math.max(Number(marker.plannedLayerCount || 1), 1),
+      lengthPerUnitM: Number(marker.netLength || 0),
+      plannedCutGarmentQty: Math.max(Number(marker.totalPieces || 0), 0),
+      plannedSpreadLengthM: Number(marker.spreadTotalLength || 0),
+    },
+  ]
 }
 
 export function validateMarkerForSpreadingImport(marker: Partial<MarkerRecord>): MarkerImportValidationResult {
@@ -1852,6 +2099,10 @@ export function validateSpreadingCompletion(options: {
 
   if (rolls.some((roll) => !roll.rollNo.trim() || !roll.occurredAt || Number(roll.actualLength || 0) <= 0)) {
     messages.push('存在卷记录缺少卷号、时间或实际长度，当前不能完成铺布。')
+  }
+
+  if (rolls.some((roll) => !String(roll.planUnitId || '').trim())) {
+    messages.push('存在卷记录尚未绑定计划单元，当前不能完成铺布。')
   }
 
   if (markerTotalPieces <= 0) {
@@ -2457,6 +2708,35 @@ export function deriveSpreadingStatus(status: SpreadingStatusKey): MarkerSpreadi
   return createSummaryMeta(status, meta.label, meta.className, meta.detailText)
 }
 
+export function deriveSpreadingSupervisorStage(options: {
+  status: SpreadingStatusKey
+  pendingReplenishmentConfirmation: boolean
+  feiTicketReady: boolean
+  baggingReady: boolean
+  warehouseReady: boolean
+}): MarkerSpreadingSummaryMeta<SpreadingSupervisorStageKey> {
+  let key: SpreadingSupervisorStageKey
+
+  if (options.status === 'DRAFT' || options.status === 'TO_FILL') {
+    key = 'WAITING_START'
+  } else if (options.status === 'IN_PROGRESS') {
+    key = 'IN_PROGRESS'
+  } else if (options.pendingReplenishmentConfirmation) {
+    key = 'WAITING_REPLENISHMENT'
+  } else if (!options.feiTicketReady) {
+    key = 'WAITING_FEI_TICKET'
+  } else if (!options.baggingReady) {
+    key = 'WAITING_BAGGING'
+  } else if (!options.warehouseReady) {
+    key = 'WAITING_WAREHOUSE'
+  } else {
+    key = 'DONE'
+  }
+
+  const meta = spreadingSupervisorStageMeta[key]
+  return createSummaryMeta(key, meta.label, meta.className, meta.detailText)
+}
+
 export function buildSpreadingVarianceSummary(
   context: MarkerSpreadingContext | null,
   marker: MarkerRecord | null,
@@ -2522,6 +2802,68 @@ export function buildSpreadingVarianceSummary(
     shortageIndicator,
     replenishmentHint,
   }
+}
+
+export function buildSpreadingTraceAnchor(session: SpreadingSession): SpreadingTraceAnchor {
+  const rollSourceWritebackId = session.rolls.find((item) => item.sourceWritebackId)?.sourceWritebackId || ''
+  const operatorSourceWritebackId = session.operators.find((item) => item.sourceWritebackId)?.sourceWritebackId || ''
+  const rollUpdatedFromPdaAt = session.rolls.find((item) => item.updatedFromPdaAt)?.updatedFromPdaAt || ''
+  const operatorUpdatedFromPdaAt = session.operators.find((item) => item.updatedFromPdaAt)?.updatedFromPdaAt || ''
+  return {
+    spreadingSessionId: session.spreadingSessionId,
+    spreadingSessionNo: session.sessionNo || session.spreadingSessionId,
+    contextType: session.contextType,
+    originalCutOrderIds: [...(session.originalCutOrderIds || [])],
+    originalCutOrderNos: [...(session.completionLinkage?.linkedOriginalCutOrderNos || [])],
+    mergeBatchId: session.mergeBatchId || '',
+    mergeBatchNo: session.mergeBatchNo || '',
+    materialSkuSummary: session.materialSkuSummary || '',
+    colorSummary: session.colorSummary || '',
+    sourceChannel: session.sourceChannel || 'MANUAL',
+    sourceWritebackId: session.sourceWritebackId || rollSourceWritebackId || operatorSourceWritebackId || '',
+    updatedFromPdaAt: session.updatedFromPdaAt || rollUpdatedFromPdaAt || operatorUpdatedFromPdaAt || '',
+    completedAt: session.completionLinkage?.completedAt || '',
+    completedBy: session.completionLinkage?.completedBy || '',
+  }
+}
+
+export function buildSpreadingTraceAnchors(store: Pick<MarkerSpreadingStore, 'sessions'>): SpreadingTraceAnchor[] {
+  return [...store.sessions]
+    .map((session) => buildSpreadingTraceAnchor(session))
+    .filter((anchor) => anchor.spreadingSessionId)
+    .sort((left, right) => {
+      const rightWeight = right.completedAt || right.updatedFromPdaAt || ''
+      const leftWeight = left.completedAt || left.updatedFromPdaAt || ''
+      return rightWeight.localeCompare(leftWeight, 'zh-CN')
+    })
+}
+
+export function findSpreadingTraceAnchor(
+  anchors: SpreadingTraceAnchor[],
+  options: SpreadingTraceAnchorMatchOptions,
+): SpreadingTraceAnchor | null {
+  const originalCutOrderIds = Array.from(new Set((options.originalCutOrderIds || []).filter(Boolean)))
+  const mergeBatchId = options.mergeBatchId?.trim() || ''
+  const materialSku = options.materialSku?.trim() || ''
+  const color = options.color?.trim() || ''
+
+  const matches = anchors.filter((anchor) => {
+    if (originalCutOrderIds.length && !anchor.originalCutOrderIds.some((item) => originalCutOrderIds.includes(item))) {
+      return false
+    }
+    if (mergeBatchId && anchor.mergeBatchId && anchor.mergeBatchId !== mergeBatchId) {
+      return false
+    }
+    if (materialSku && anchor.materialSkuSummary && !anchor.materialSkuSummary.includes(materialSku)) {
+      return false
+    }
+    if (color && anchor.colorSummary && !anchor.colorSummary.includes(color)) {
+      return false
+    }
+    return Boolean(anchor.spreadingSessionId)
+  })
+
+  return matches[0] || null
 }
 
 export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | null): ReplenishmentPreview {
@@ -2712,18 +3054,30 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
       markers: Array.isArray(parsed?.markers) ? parsed.markers.map((item: MarkerRecord) => normalizeMarkerRecord(item)) : [],
       sessions: Array.isArray(parsed?.sessions)
         ? parsed.sessions.map((session: SpreadingSession) => {
+            const planUnits = Array.isArray(session.planUnits) ? session.planUnits : []
             const rolls = Array.isArray(session.rolls)
-              ? session.rolls.map((roll) => ({
-                  ...roll,
-                  sortOrder: Number(roll.sortOrder ?? 0),
-                  totalLength: Number(((Number(roll.actualLength || 0) + Number(roll.headLength || 0) + Number(roll.tailLength || 0))).toFixed(2)),
-                  remainingLength:
-                    roll.remainingLength ??
-                    computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0)),
-                  usableLength:
-                    roll.usableLength ??
-                    computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0)),
-                }))
+              ? session.rolls.map((roll) => {
+                  const linkedPlanUnit = findSpreadingPlanUnitById(planUnits, roll.planUnitId)
+                  const normalizedPlanUnitId = roll.planUnitId || linkedPlanUnit?.planUnitId || ''
+                  const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || 0
+                  return {
+                    ...roll,
+                    planUnitId: normalizedPlanUnitId,
+                    materialSku: linkedPlanUnit?.materialSku || roll.materialSku,
+                    color: linkedPlanUnit?.color || roll.color,
+                    sortOrder: Number(roll.sortOrder ?? 0),
+                    totalLength: Number(((Number(roll.actualLength || 0) + Number(roll.headLength || 0) + Number(roll.tailLength || 0))).toFixed(2)),
+                    remainingLength:
+                      roll.remainingLength ??
+                      computeRemainingLength(Number(roll.labeledLength || 0), Number(roll.actualLength || 0)),
+                    usableLength:
+                      roll.usableLength ??
+                      computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0)),
+                    actualCutPieceQty:
+                      roll.actualCutPieceQty ??
+                      computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
+                  }
+                })
               : []
             const rollSummary = summarizeSpreadingRolls(rolls)
             return {
@@ -2760,6 +3114,7 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                         : undefined,
                     amountNote: operator.amountNote || '',
                     handoverNotes: operator.handoverNotes || '',
+                    nextOperatorAccountId: operator.nextOperatorAccountId || '',
                     previousOperatorName: operator.previousOperatorName || '',
                     nextOperatorName: operator.nextOperatorName || '',
                     handoverAtLayer:
@@ -2782,20 +3137,49 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
               claimedLengthTotal: session.claimedLengthTotal || 0,
               varianceLength: session.varianceLength || 0,
               varianceNote: session.varianceNote || '',
+              sourceMarkerId: session.sourceMarkerId || session.markerId || '',
+              sourceMarkerNo: session.sourceMarkerNo || session.markerNo || '',
+              isExceptionBackfill: Boolean(session.isExceptionBackfill),
+              exceptionReason: session.exceptionReason || '',
+              ownerAccountId: session.ownerAccountId || '',
+              ownerName: session.ownerName || '',
               warningMessages: session.warningMessages || [],
               importSource: session.importSource || null,
+              planUnits,
               planLineItems: Array.isArray(session.planLineItems) ? session.planLineItems : [],
               highLowPlanSnapshot: session.highLowPlanSnapshot || null,
               theoreticalSpreadTotalLength: session.theoreticalSpreadTotalLength ?? 0,
               theoreticalActualCutPieceQty: session.theoreticalActualCutPieceQty ?? 0,
               importAdjustmentRequired: Boolean(session.importAdjustmentRequired),
               importAdjustmentNote: session.importAdjustmentNote || '',
+              prototypeLifecycleOverrides: session.prototypeLifecycleOverrides || null,
             }
           })
         : [],
     }
   } catch {
     return { markers: [], sessions: [] }
+  }
+}
+
+export function updateSpreadingReplenishmentHandled(
+  store: MarkerSpreadingStore,
+  spreadingSessionId: string,
+  handled: boolean,
+): MarkerSpreadingStore {
+  return {
+    ...store,
+    sessions: store.sessions.map((session) => {
+      if (session.spreadingSessionId !== spreadingSessionId) return session
+      if (!session.replenishmentWarning) return session
+      return {
+        ...session,
+        replenishmentWarning: {
+          ...session.replenishmentWarning,
+          handled,
+        },
+      }
+    }),
   }
 }
 
@@ -2858,10 +3242,15 @@ function createDraftId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-export function createRollRecordDraft(spreadingSessionId: string, materialSku = ''): SpreadingRollRecord {
+export function createRollRecordDraft(
+  spreadingSessionId: string,
+  materialSku = '',
+  planUnitId = '',
+): SpreadingRollRecord {
   return {
     rollRecordId: createDraftId('roll'),
     spreadingSessionId,
+    planUnitId,
     sortOrder: 0,
     rollNo: '',
     materialSku,
@@ -2910,6 +3299,7 @@ export function createOperatorRecordDraft(spreadingSessionId: string): Spreading
     amountNote: '',
     handoverFlag: false,
     handoverNotes: '',
+    nextOperatorAccountId: '',
     previousOperatorName: '',
     nextOperatorName: '',
     handoverAtLayer: undefined,
@@ -2922,10 +3312,19 @@ export function createOperatorRecordDraft(spreadingSessionId: string): Spreading
 }
 
 export function upsertSpreadingSession(session: SpreadingSession, store: MarkerSpreadingStore, now = new Date()): MarkerSpreadingStore {
-  const normalizedRolls = session.rolls.map((roll, index) => ({
-    ...roll,
-    sortOrder: Number(roll.sortOrder ?? index + 1),
-  }))
+  const normalizedRolls = session.rolls.map((roll, index) => {
+    const linkedPlanUnit = findSpreadingPlanUnitById(session.planUnits, roll.planUnitId)
+    const normalizedPlanUnitId = roll.planUnitId || session.planUnits?.[0]?.planUnitId || ''
+    const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || 0
+    return {
+      ...roll,
+      planUnitId: normalizedPlanUnitId,
+      materialSku: linkedPlanUnit?.materialSku || roll.materialSku,
+      color: linkedPlanUnit?.color || roll.color,
+      sortOrder: Number(roll.sortOrder ?? index + 1),
+      actualCutPieceQty: computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
+    }
+  })
   const markerTotalPieces = session.markerId
     ? store.markers.find((item) => item.markerId === session.markerId)?.totalPieces || 0
     : 0
@@ -2943,6 +3342,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
       manualAmountAdjusted: Boolean(operator.manualAmountAdjusted),
       adjustedAmount: operator.adjustedAmount !== undefined && operator.adjustedAmount !== null ? Number(operator.adjustedAmount) : undefined,
       amountNote: operator.amountNote || '',
+      nextOperatorAccountId: operator.nextOperatorAccountId || '',
       handoverAtLayer:
         operator.handoverAtLayer !== undefined && operator.handoverAtLayer !== null ? Number(operator.handoverAtLayer) : undefined,
       handoverAtLength:
@@ -2974,6 +3374,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
         manualAmountAdjusted: Boolean(item.operator.manualAmountAdjusted),
         adjustedAmount: item.operator.adjustedAmount ?? undefined,
         amountNote: item.operator.amountNote || '',
+        nextOperatorAccountId: item.operator.nextOperatorAccountId || '',
         previousOperatorName: item.previousOperatorName,
         nextOperatorName: item.nextOperatorName,
         handoverAtLayer: item.handoverAtLayer ?? undefined,
@@ -3001,6 +3402,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
       manualAmountAdjusted: Boolean(operator.manualAmountAdjusted),
       adjustedAmount: operator.adjustedAmount ?? undefined,
       amountNote: operator.amountNote || '',
+      nextOperatorAccountId: operator.nextOperatorAccountId || '',
       previousOperatorName: operator.previousOperatorName || '',
       nextOperatorName: operator.nextOperatorName || '',
     }
@@ -3039,9 +3441,17 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
           Number((((session.unitPrice ?? 0) * (session.actualCutPieceQty ?? 0))).toFixed(2)),
     updatedAt: nowText(now),
     warningMessages: session.warningMessages || [],
+    sourceMarkerId: session.sourceMarkerId || session.markerId || '',
+    sourceMarkerNo: session.sourceMarkerNo || session.markerNo || '',
+    isExceptionBackfill: Boolean(session.isExceptionBackfill),
+    exceptionReason: session.exceptionReason || '',
+    ownerAccountId: session.ownerAccountId || '',
+    ownerName: session.ownerName || '',
     sourceChannel: session.sourceChannel || 'MANUAL',
     sourceWritebackId: session.sourceWritebackId || '',
     updatedFromPdaAt: session.updatedFromPdaAt || '',
+    planUnits: session.planUnits || [],
+    prototypeLifecycleOverrides: session.prototypeLifecycleOverrides || null,
   }
 
   return {

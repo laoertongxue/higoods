@@ -96,6 +96,38 @@ function assertLegacySourcesRetired(): void {
   }
 }
 
+function assertSpreadingAndPdaFormalCutover(): void {
+  const appShell = read('src/data/app-shell-config.ts')
+  const meta = read('src/pages/process-factory/cutting/meta.ts')
+  const routes = read('src/router/routes.ts')
+  const pdaSource = read('src/data/fcs/pda-cutting-execution-source.ts')
+  const pdaTaskHelpers = read('src/pages/pda-cutting-task-detail-helpers.ts')
+
+  assert(appShell.includes("title: '铺布列表'"), 'app-shell-config.ts 缺少铺布列表菜单')
+  assert(appShell.includes("title: '补料管理'"), 'app-shell-config.ts 缺少补料管理菜单')
+  assert(appShell.includes("title: '裁后处理'"), 'app-shell-config.ts 缺少裁后处理组')
+  assert(meta.includes("canonicalPath: '/fcs/craft/cutting/spreading-list'"), 'meta.ts 缺少 canonical spreading-list')
+  assert(meta.includes("canonicalPath: '/fcs/craft/cutting/spreading-create'"), 'meta.ts 缺少 canonical spreading-create')
+  assert(routes.includes("'/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage()"), 'routes.ts 未接 canonical spreading-list renderer')
+  assert(routes.includes("'/fcs/craft/cutting/spreading-create': () => renderCraftCuttingSpreadingCreatePage()"), 'routes.ts 未接 canonical spreading-create renderer')
+  assert(!pdaSource.includes("targetType: 'context'"), 'pda-cutting-execution-source.ts 不应残留 context 型铺布目标')
+  assert(pdaSource.includes('primaryExecutionRouteKey'), 'pda-cutting-execution-source.ts 缺少 primaryExecutionRouteKey')
+  assert(pdaSource.includes('FOLD_NORMAL') && pdaSource.includes('FOLD_HIGH_LOW'), 'pda-cutting-execution-source.ts 缺少 4 模式铺布 token')
+  assert(!pdaTaskHelpers.includes('resolveRouteFromNextAction'), 'pda-cutting-task-detail-helpers.ts 不应再按 nextActionLabel 猜主动作路由')
+}
+
+function assertReadinessGatesExpanded(): void {
+  const releaseAcceptance = read('tests/cutting-release-acceptance.spec.ts')
+  const releaseReadiness = read('scripts/check-cutting-release-readiness.ts')
+
+  assert(releaseAcceptance.includes('裁后处理'), 'release acceptance 应显式覆盖裁后处理 IA')
+  assert(releaseAcceptance.includes("countViewportRows(page, 'marker-plan-list-table')"), 'release acceptance 应覆盖唛架列表低分辨率')
+  assert(releaseAcceptance.includes("countViewportRows(page, 'cutting-spreading-list-table')"), 'release acceptance 应覆盖铺布列表低分辨率')
+  assert(releaseAcceptance.includes("expectVisibleInViewport(page, page.getByRole('button', { name: '保存铺布记录' }))"), 'release acceptance 应覆盖 PDA 保存按钮首屏')
+  assert(releaseReadiness.includes('scripts/check-cutting-low-res-density.ts'), 'release readiness 总入口未纳入低分辨率检查')
+  assert(releaseReadiness.includes('scripts/check-cutting-flow-matrix.ts'), 'release readiness 总入口未纳入流程矩阵检查')
+}
+
 function assertUnifiedScriptEntrypoints(): void {
   const packageJson = read('package.json')
   assert(packageJson.includes('"check:cutting:cleanup"'), 'package.json 缺少统一最终清理检查入口')
@@ -144,6 +176,8 @@ function main(): void {
   assertDomainBoundary()
   assertLegacyAnchorsRetired()
   assertLegacySourcesRetired()
+  assertSpreadingAndPdaFormalCutover()
+  assertReadinessGatesExpanded()
   assertUnifiedScriptEntrypoints()
 
   const scripts = [
@@ -155,6 +189,8 @@ function main(): void {
     'scripts/check-cutting-execution-prep-chain.ts',
     'scripts/check-cutting-pda-projection-writeback.ts',
     'scripts/check-cutting-traceability-chain.ts',
+    'scripts/check-cutting-low-res-density.ts',
+    'scripts/check-cutting-flow-matrix.ts',
   ]
   scripts.forEach(runScript)
 
@@ -164,6 +200,7 @@ function main(): void {
     domain边界收口: '通过',
     legacy主锚点退场: '通过',
     旧平行宇宙退场: '通过',
+    铺布与PDA正式入口收口: '通过',
     统一脚本入口存在: '通过',
     分步检查脚本联跑: '通过',
   }, null, 2))

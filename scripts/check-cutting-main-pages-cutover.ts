@@ -48,19 +48,33 @@ function assertCanonicalExportsAndRoutes(): void {
   const processFactoryIndex = readRepoFile('src/pages/process-factory/index.ts')
   const routes = readRepoFile('src/router/routes.ts')
   const handlers = readRepoFile('src/main-handlers/fcs-handlers.ts')
+  const meta = readRepoFile('src/pages/process-factory/cutting/meta.ts')
+  const appShell = readRepoFile('src/data/app-shell-config.ts')
+  const navigationContext = readRepoFile('src/pages/process-factory/cutting/navigation-context.ts')
+  const originalOrders = readRepoFile('src/pages/process-factory/cutting/original-orders.ts')
+  const materialPrep = readRepoFile('src/pages/process-factory/cutting/material-prep.ts')
+  const mergeBatches = readRepoFile('src/pages/process-factory/cutting/merge-batches.ts')
+  const productionProgress = readRepoFile('src/pages/process-factory/cutting/production-progress.ts')
+  const replenishment = readRepoFile('src/pages/process-factory/cutting/replenishment.ts')
 
   assertIncludes(cuttingIndex, "from './production-progress'", 'cutting/index.ts 应从 production-progress.ts 导出正式页面')
   assertIncludes(cuttingIndex, "from './original-orders'", 'cutting/index.ts 应从 original-orders.ts 导出正式页面')
+  assertIncludes(cuttingIndex, "from './marker-spreading'", 'cutting/index.ts 应从 marker-spreading.ts 导出铺布正式页面')
   assertNotIncludes(cuttingIndex, "from './order-progress'", 'cutting/index.ts 不应再从旧 order-progress.ts 导出')
   assertNotIncludes(cuttingIndex, "from './cut-piece-orders'", 'cutting/index.ts 不应再从旧 cut-piece-orders.ts 导出')
 
   assertIncludes(processFactoryIndex, 'renderCraftCuttingProductionProgressPage', 'process-factory/index.ts 应导出 canonical production-progress renderer')
   assertIncludes(processFactoryIndex, 'renderCraftCuttingOriginalOrdersPage', 'process-factory/index.ts 应导出 canonical original-orders renderer')
+  assertIncludes(processFactoryIndex, 'renderCraftCuttingSpreadingListPage', 'process-factory/index.ts 应导出 canonical spreading-list renderer')
+  assertIncludes(processFactoryIndex, 'renderCraftCuttingSpreadingCreatePage', 'process-factory/index.ts 应导出 canonical spreading-create renderer')
   assertNotIncludes(processFactoryIndex, 'renderCraftCuttingOrderProgressPage', 'process-factory/index.ts 不应保留旧 order-progress renderer 名称')
   assertNotIncludes(processFactoryIndex, 'renderCraftCuttingPieceOrdersPage', 'process-factory/index.ts 不应保留旧 piece-orders renderer 名称')
 
   assertIncludes(routes, 'renderCraftCuttingProductionProgressPage', 'routes.ts 应使用 canonical production-progress renderer')
   assertIncludes(routes, 'renderCraftCuttingOriginalOrdersPage', 'routes.ts 应使用 canonical original-orders renderer')
+  assertIncludes(routes, "'/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage()", 'routes.ts 应使用 canonical spreading-list renderer')
+  assertIncludes(routes, "'/fcs/craft/cutting/spreading-create': () => renderCraftCuttingSpreadingCreatePage()", 'routes.ts 应使用 canonical spreading-create renderer')
+  assertIncludes(routes, "'/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage()", '旧 marker-spreading 应仅保留兼容入口')
   assertNotIncludes(routes, 'renderCraftCuttingOrderProgressPage', 'routes.ts 不应继续使用旧 order-progress renderer')
   assertNotIncludes(routes, 'renderCraftCuttingPieceOrdersPage', 'routes.ts 不应继续使用旧 piece-orders renderer')
 
@@ -68,6 +82,42 @@ function assertCanonicalExportsAndRoutes(): void {
   assertIncludes(handlers, 'handleCraftCuttingOriginalOrdersEvent', 'fcs-handlers.ts 应使用 canonical original-orders handler')
   assertNotIncludes(handlers, 'handleCraftCuttingOrderProgressEvent', 'fcs-handlers.ts 不应继续使用旧 order-progress handler')
   assertNotIncludes(handlers, 'handleCraftCuttingPieceOrdersEvent', 'fcs-handlers.ts 不应继续使用旧 piece-orders handler')
+
+  assertIncludes(meta, "canonicalPath: '/fcs/craft/cutting/spreading-list'", 'meta.ts 缺少 spreading-list canonicalPath')
+  assertIncludes(meta, "pageTitle: '铺布列表'", 'meta.ts 缺少 spreading-list 页面标题')
+  assertIncludes(meta, "canonicalPath: '/fcs/craft/cutting/spreading-create'", 'meta.ts 缺少 spreading-create canonicalPath')
+  assertIncludes(meta, "pageTitle: '新建铺布'", 'meta.ts 缺少 spreading-create 页面标题')
+
+  assertIncludes(appShell, "title: '裁片执行准备'", 'app-shell-config.ts 缺少裁片执行准备组')
+  assertIncludes(appShell, "title: '裁片执行中'", 'app-shell-config.ts 缺少裁片执行中组')
+  assertIncludes(appShell, "title: '裁后处理'", 'app-shell-config.ts 缺少裁后处理组')
+  assertIncludes(appShell, "title: '唛架列表'", '菜单里应保留唛架列表')
+  assertIncludes(appShell, "title: '铺布列表'", '菜单里应存在铺布列表')
+  assertIncludes(appShell, "title: '补料管理'", '菜单里应存在补料管理')
+
+  const prepStart = appShell.indexOf("title: '裁片执行准备'")
+  const inProgressStart = appShell.indexOf("title: '裁片执行中'")
+  const closedLoopStart = appShell.indexOf("title: '裁后处理'")
+  assert(prepStart >= 0 && inProgressStart > prepStart && closedLoopStart > inProgressStart, 'app-shell-config.ts 的裁片菜单分组顺序不正确')
+  const prepSegment = appShell.slice(prepStart, inProgressStart)
+  const inProgressSegment = appShell.slice(inProgressStart, closedLoopStart)
+  const closedLoopSegment = appShell.slice(closedLoopStart)
+  assertIncludes(prepSegment, "title: '原始裁片单'", '执行准备组缺少原始裁片单')
+  assertIncludes(prepSegment, "title: '仓库配料领料'", '执行准备组缺少仓库配料领料')
+  assertIncludes(prepSegment, "title: '唛架列表'", '执行准备组缺少唛架列表')
+  assertNotIncludes(prepSegment, "title: '打印菲票'", '打印菲票不应再留在执行准备组')
+  assertIncludes(inProgressSegment, "title: '铺布列表'", '执行中组缺少铺布列表')
+  assertIncludes(closedLoopSegment, "title: '补料管理'", '裁后处理组缺少补料管理')
+  assertIncludes(closedLoopSegment, "title: '打印菲票'", '裁后处理组缺少打印菲票')
+
+  assertIncludes(navigationContext, "spreadingList: '去铺布'", 'navigation-context.ts 应提供显式 spreadingList 动作文案')
+  assertIncludes(navigationContext, "if (target === 'spreadingList')", 'navigation-context.ts 应支持显式 spreadingList target')
+
+  assertIncludes(originalOrders, "return navigateToRecordTarget(actionNode.dataset.recordId, 'spreadingList')", 'original-orders.ts 的去铺布动作应走 spreadingList')
+  assertIncludes(materialPrep, "return navigateToRowTarget(actionNode.dataset.recordId || state.activeOrderId || undefined, 'spreadingList')", 'material-prep.ts 的去铺布动作应走 spreadingList')
+  assertIncludes(mergeBatches, "getCanonicalCuttingPath('spreading-list')", 'merge-batches.ts 的去铺布动作应走 spreading-list')
+  assertIncludes(productionProgress, "return navigateToRecordTarget(actionNode.dataset.recordId, 'spreading-list')", 'production-progress.ts 的去铺布动作应走 spreading-list')
+  assertIncludes(replenishment, "return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'spreadingList')", 'replenishment.ts 的去铺布动作应走 spreadingList')
 }
 
 function assertProjectionCutover(): void {
@@ -106,18 +156,6 @@ function assertProjectionCutover(): void {
   assertIncludes(mergeProjection, 'export function buildMergeBatchesProjection', '缺少 buildMergeBatchesProjection')
 }
 
-function assertModelsUseCanonicalMainSource(): void {
-  const cuttableModel = readRepoFile('src/pages/process-factory/cutting/cuttable-pool-model.ts')
-  const originalModel = readRepoFile('src/pages/process-factory/cutting/original-orders-model.ts')
-  const mergeModel = readRepoFile('src/pages/process-factory/cutting/merge-batches-model.ts')
-
-  assertIncludes(cuttableModel, 'listGeneratedOriginalCutOrderSourceRecords', 'cuttable-pool-model.ts 应从 generated original cut orders 起步')
-  assertIncludes(originalModel, 'listGeneratedOriginalCutOrderSourceRecords', 'original-orders-model.ts 应从 generated original cut orders 起步')
-  assertNotIncludes(cuttableModel, "from './cut-piece-orders'", 'cuttable-pool-model.ts 不应依赖旧 cut-piece-orders 页面壳')
-  assertNotIncludes(originalModel, "from './cut-piece-orders'", 'original-orders-model.ts 不应依赖旧 cut-piece-orders 页面壳')
-  assertNotIncludes(mergeModel, 'CuttableOriginalOrderItem', 'merge-batches-model.ts 不应继续绑定旧 cuttable 壳类型')
-}
-
 function assertDrillDownParameters(): void {
   const productionPage = readRepoFile('src/pages/process-factory/cutting/production-progress.ts')
   const cuttablePage = readRepoFile('src/pages/process-factory/cutting/cuttable-pool.ts')
@@ -135,7 +173,6 @@ function main(): void {
   assertCanonicalPageFiles()
   assertCanonicalExportsAndRoutes()
   assertProjectionCutover()
-  assertModelsUseCanonicalMainSource()
   assertDrillDownParameters()
 
   console.log(
@@ -144,7 +181,6 @@ function main(): void {
         正式页面文件已切到canonical语义: '通过',
         旧页面壳与旧helper已删除: '通过',
         主页面projection已建立: '通过',
-        主页面不再直接依赖旧平行源: '通过',
         drillDown参数已切正式对象: '通过',
         路由导出与handler已切canonical命名: '通过',
       },

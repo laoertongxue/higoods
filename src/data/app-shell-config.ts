@@ -115,6 +115,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   fcs: [
     {
       title: '平台运营系统',
+      icon: 'PanelsTopLeft',
       items: [
         {
           key: 'fcs-platform-workbench',
@@ -232,9 +233,10 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           ],
         },
       ],
-    },
+    } as MenuGroup & { icon: string },
     {
       title: '工艺工厂运营系统',
+      icon: 'Factory',
       items: [
         {
           key: 'craft-workbench',
@@ -260,13 +262,33 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         },
         {
           key: 'craft-cutting-prep',
-          title: '裁片执行准备',
+          title: '裁前准备',
           icon: 'PackageSearch',
           children: [
             { key: 'craft-cutting-original-orders', title: '原始裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
             { key: 'craft-cutting-material-prep', title: '仓库配料领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
             { key: 'craft-cutting-marker-list', title: '唛架列表', icon: 'Ruler', href: '/fcs/craft/cutting/marker-list' },
+          ],
+        },
+        {
+          key: 'craft-cutting-execution',
+          title: '铺布执行',
+          icon: 'Rows3',
+          children: [
+            { key: 'craft-cutting-spreading-list', title: '铺布列表', icon: 'Rows3', href: '/fcs/craft/cutting/spreading-list' },
+          ],
+        },
+        {
+          key: 'craft-cutting-closed-loop',
+          title: '裁后处理',
+          icon: 'ArchiveCheck',
+          children: [
+            { key: 'craft-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
             { key: 'craft-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
+            { key: 'craft-cutting-transfer-bags', title: '周转口袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
+            { key: 'craft-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
+            { key: 'craft-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
+            { key: 'craft-cutting-closing-summary', title: '裁剪总结', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
           ],
         },
         {
@@ -277,9 +299,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           // 因为这些页面分别对应库存对象、样衣对象和独立载具对象，不能继续用一个仓库总名覆盖。
           children: [
             { key: 'craft-cutting-fabric-warehouse', title: '裁床仓', icon: 'Warehouse', href: '/fcs/craft/cutting/fabric-warehouse' },
-            { key: 'craft-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
             { key: 'craft-cutting-sample-warehouse', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/sample-warehouse' },
-            { key: 'craft-cutting-transfer-bags', title: '周转口袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
           ],
         },
         {
@@ -305,9 +325,10 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           ],
         },
       ],
-    },
+    } as MenuGroup & { icon: string },
     {
       title: '工厂端移动应用',
+      icon: 'Smartphone',
       items: [
         { key: 'pda-todo', title: '待办', icon: 'Bell', href: '/fcs/pda/notify' },
         { key: 'pda-task-receive', title: '接单', icon: 'ClipboardList', href: '/fcs/pda/task-receive' },
@@ -315,7 +336,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         { key: 'pda-handover', title: '交接', icon: 'ArrowLeftRight', href: '/fcs/pda/handover' },
         { key: 'pda-settlement', title: '结算', icon: 'Wallet', href: '/fcs/pda/settlement' },
       ],
-    },
+    } as MenuGroup & { icon: string },
   ],
   wls: [
     {

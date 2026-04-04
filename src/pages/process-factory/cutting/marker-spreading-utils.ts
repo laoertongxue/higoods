@@ -15,6 +15,7 @@ import {
   computeHighLowPatternTotals,
   computeMarkerTotalPieces,
   computeRemainingLength,
+  computeRollActualCutGarmentQty,
   computeRollActualCutPieceQty,
   computeShortageQty,
   computeSinglePieceUsage,
@@ -30,11 +31,13 @@ import {
   createSpreadingDraftFromMarker,
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   DEFAULT_HIGH_LOW_PATTERN_KEYS,
+  findSpreadingPlanUnitById,
   deriveMarkerTemplateByMode,
   deriveMarkerModeMeta,
   deriveSpreadingColorSummary,
   deriveSpreadingModeMeta,
   deserializeMarkerSpreadingStorage,
+  buildRollActualCutGarmentQtyFormula,
   MARKER_SIZE_KEYS,
   summarizeSpreadingRolls,
   summarizeSpreadingOperatorAmounts,
@@ -46,6 +49,7 @@ import {
   type HighLowCuttingRow,
   type HighLowPatternRow,
   type MarkerLineItem,
+  type MarkerModeKey,
   type MarkerRecord,
   type MarkerSpreadingContext,
   type MarkerSpreadingPrefilter,
@@ -53,6 +57,9 @@ import {
   type SpreadingOperatorAmountSummary,
   type SpreadingOperatorRecord,
   type SpreadingRollHandoverSummary,
+  type SpreadingSourceChannel,
+  type SpreadingStatusKey,
+  type SpreadingSupervisorStageKey,
   type SpreadingSession,
 } from './marker-spreading-model.ts'
 import { buildMarkerSpreadingProjection } from './marker-spreading-projection.ts'
@@ -82,6 +89,7 @@ export {
   computeHighLowPatternTotals,
   computeMarkerTotalPieces,
   computeRemainingLength,
+  computeRollActualCutGarmentQty,
   computeRollActualCutPieceQty,
   computeShortageQty,
   computeSinglePieceUsage,
@@ -90,9 +98,11 @@ export {
   computeUsableLength,
   computeUsageSummary,
   buildRollHandoverViewModel,
+  buildRollActualCutGarmentQtyFormula,
   buildSpreadingHandoverListSummary,
   buildOperatorAmountWarnings,
   DEFAULT_HIGH_LOW_PATTERN_KEYS,
+  findSpreadingPlanUnitById,
   deriveMarkerTemplateByMode,
   deriveMarkerModeMeta,
   deriveSpreadingModeMeta,
@@ -340,53 +350,236 @@ function buildMergeBatchContext(batch: MergeBatchRecord, rowsById: Record<string
   }
 }
 
-function createSeedSession(marker: MarkerRecord, context: MarkerSpreadingContext, index: number): SpreadingSession {
-  const session = createSpreadingDraftFromMarker(marker, context, new Date(`2026-03-${String(10 + index).padStart(2, '0')}T09:00:00`))
+interface SeedSessionProfile {
+  code: string
+  status: SpreadingStatusKey
+  stage: SpreadingSupervisorStageKey
+  sourceChannel?: SpreadingSourceChannel
+  sourceWritebackId?: string
+}
+
+const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
+  [
+    { code: 'waiting-start-a', status: 'DRAFT', stage: 'WAITING_START' },
+    { code: 'in-progress-a', status: 'IN_PROGRESS', stage: 'IN_PROGRESS' },
+    { code: 'waiting-replenishment-a', status: 'DONE', stage: 'WAITING_REPLENISHMENT' },
+    {
+      code: 'waiting-fei-ticket-a',
+      status: 'DONE',
+      stage: 'DONE',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-09',
+    },
+  ],
+  [
+    { code: 'waiting-start-b', status: 'TO_FILL', stage: 'WAITING_START' },
+    { code: 'in-progress-b', status: 'IN_PROGRESS', stage: 'IN_PROGRESS' },
+    { code: 'waiting-bagging-a', status: 'DONE', stage: 'WAITING_BAGGING' },
+    { code: 'waiting-warehouse-a', status: 'DONE', stage: 'WAITING_WAREHOUSE' },
+  ],
+  [
+    {
+      code: 'in-progress-pda',
+      status: 'IN_PROGRESS',
+      stage: 'IN_PROGRESS',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-01',
+    },
+    {
+      code: 'done-pda-a',
+      status: 'DONE',
+      stage: 'DONE',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-02',
+    },
+    {
+      code: 'waiting-replenishment-b',
+      status: 'DONE',
+      stage: 'WAITING_REPLENISHMENT',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-03',
+    },
+    {
+      code: 'waiting-fei-ticket-b',
+      status: 'DONE',
+      stage: 'WAITING_FEI_TICKET',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-07',
+    },
+  ],
+  [
+    { code: 'waiting-bagging-b', status: 'DONE', stage: 'WAITING_BAGGING' },
+    { code: 'waiting-warehouse-b', status: 'DONE', stage: 'WAITING_WAREHOUSE' },
+    { code: 'done-pc-a', status: 'DONE', stage: 'DONE' },
+    { code: 'done-pc-b', status: 'DONE', stage: 'DONE' },
+  ],
+  [
+    { code: 'in-progress-c', status: 'IN_PROGRESS', stage: 'IN_PROGRESS' },
+    { code: 'waiting-fei-ticket-c', status: 'DONE', stage: 'WAITING_FEI_TICKET' },
+    { code: 'waiting-bagging-c', status: 'DONE', stage: 'WAITING_BAGGING' },
+    { code: 'done-pc-c', status: 'DONE', stage: 'DONE' },
+  ],
+  [
+    {
+      code: 'in-progress-pda-b',
+      status: 'IN_PROGRESS',
+      stage: 'IN_PROGRESS',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-04',
+    },
+    {
+      code: 'waiting-replenishment-c',
+      status: 'DONE',
+      stage: 'WAITING_REPLENISHMENT',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-05',
+    },
+    {
+      code: 'waiting-warehouse-c',
+      status: 'DONE',
+      stage: 'WAITING_WAREHOUSE',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-08',
+    },
+    {
+      code: 'done-pda-b',
+      status: 'DONE',
+      stage: 'DONE',
+      sourceChannel: 'PDA_WRITEBACK',
+      sourceWritebackId: 'pda-writeback-seed-06',
+    },
+  ],
+]
+
+function sanitizeSeedKey(value: string): string {
+  return value.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'na'
+}
+
+function buildPrototypeLifecycleOverrides(
+  stage: SpreadingSupervisorStageKey,
+): SpreadingSession['prototypeLifecycleOverrides'] {
+  if (stage === 'WAITING_REPLENISHMENT') {
+    return {
+      replenishmentStatusLabel: '待补料确认',
+      feiTicketStatusLabel: '待打印菲票',
+      baggingStatusLabel: '待装袋',
+      warehouseStatusLabel: '待入仓',
+    }
+  }
+  if (stage === 'WAITING_FEI_TICKET') {
+    return {
+      replenishmentStatusLabel: '无需补料',
+      feiTicketStatusLabel: '待打印菲票',
+      baggingStatusLabel: '待装袋',
+      warehouseStatusLabel: '待入仓',
+    }
+  }
+  if (stage === 'WAITING_BAGGING') {
+    return {
+      replenishmentStatusLabel: '无需补料',
+      feiTicketStatusLabel: '已打印菲票',
+      baggingStatusLabel: '待装袋',
+      warehouseStatusLabel: '待入仓',
+    }
+  }
+  if (stage === 'WAITING_WAREHOUSE') {
+    return {
+      replenishmentStatusLabel: '无需补料',
+      feiTicketStatusLabel: '已打印菲票',
+      baggingStatusLabel: '已装袋',
+      warehouseStatusLabel: '待入仓',
+    }
+  }
+  if (stage === 'DONE') {
+    return {
+      replenishmentStatusLabel: '无需补料',
+      feiTicketStatusLabel: '已打印菲票',
+      baggingStatusLabel: '已装袋',
+      warehouseStatusLabel: '已入仓',
+    }
+  }
+  return null
+}
+
+function createSeedSession(
+  marker: MarkerRecord,
+  context: MarkerSpreadingContext,
+  contextIndex: number,
+  profile: SeedSessionProfile,
+  profileIndex: number,
+): SpreadingSession {
+  const seedDate = new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T${String(9 + profileIndex * 2).padStart(2, '0')}:00:00`)
+  const sessionKeyBase =
+    context.contextType === 'merge-batch' ? context.mergeBatchId || context.mergeBatchNo : context.originalCutOrderIds[0] || context.originalCutOrderNos[0]
+  const sessionId = `spreading-session-${context.contextType}-${sanitizeSeedKey(sessionKeyBase)}-${profile.code}`
+  const session = createSpreadingDraftFromMarker(marker, context, seedDate, {
+    baseSession: {
+      spreadingSessionId: sessionId,
+      sessionNo: `PB-${String(2400 + contextIndex * 10 + profileIndex).padStart(4, '0')}`,
+      status: profile.status,
+      sourceChannel: profile.sourceChannel || 'MANUAL',
+      sourceWritebackId: profile.sourceWritebackId || '',
+      updatedFromPdaAt: profile.sourceChannel === 'PDA_WRITEBACK' ? nowText(seedDate) : '',
+      prototypeLifecycleOverrides: buildPrototypeLifecycleOverrides(profile.stage),
+    },
+  })
   const primaryMaterial = context.materialPrepRows[0]?.materialLineItems[0]
   const colors = uniqueStrings(context.materialPrepRows.map((row) => row.color))
+  const primaryPlanUnit = session.planUnits?.[0] || null
+  const secondaryPlanUnit = session.planUnits?.[1] || primaryPlanUnit
 
   const rollA = createRollRecordDraft(session.spreadingSessionId, primaryMaterial?.materialSku || '')
+  rollA.planUnitId = primaryPlanUnit?.planUnitId || ''
   rollA.sortOrder = 1
-  rollA.rollNo = `ROLL-${String(index + 1).padStart(2, '0')}A`
-  rollA.color = colors[0] || ''
+  rollA.rollNo = `ROLL-${String(contextIndex + 1).padStart(2, '0')}${String(profileIndex + 1).padStart(2, '0')}A`
+  rollA.color = primaryPlanUnit?.color || colors[0] || ''
+  rollA.materialSku = primaryPlanUnit?.materialSku || primaryMaterial?.materialSku || ''
   rollA.width = 160
-  rollA.labeledLength = 28 + index * 2
-  rollA.actualLength = 27 + index * 2
+  rollA.labeledLength = 28 + contextIndex * 2 + profileIndex
+  rollA.actualLength = 27 + contextIndex * 2 + profileIndex
   rollA.headLength = 0.6
   rollA.tailLength = 0.4
-  rollA.layerCount = 18 + index
+  rollA.layerCount = 10 + contextIndex + profileIndex
   rollA.totalLength = Number((rollA.actualLength + rollA.headLength + rollA.tailLength).toFixed(2))
   rollA.remainingLength = Number(Math.max(rollA.labeledLength - rollA.actualLength, 0).toFixed(2))
-  rollA.actualCutPieceQty = Math.max(Math.floor(marker.totalPieces * 0.5), 20)
-  rollA.occurredAt = nowText(new Date(`2026-03-${String(10 + index).padStart(2, '0')}T10:00:00`))
+  rollA.actualCutPieceQty = computeRollActualCutGarmentQty(rollA.layerCount, primaryPlanUnit?.garmentQtyPerUnit || marker.totalPieces || 0)
+  rollA.occurredAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T10:${String(profileIndex).padStart(2, '0')}:00`))
   rollA.operatorNames = ['张师傅']
   rollA.usableLength = computeUsableLength(rollA.actualLength, rollA.headLength, rollA.tailLength)
+  rollA.sourceChannel = profile.sourceChannel || 'MANUAL'
+  rollA.sourceWritebackId = profile.sourceWritebackId || ''
+  rollA.updatedFromPdaAt = profile.sourceChannel === 'PDA_WRITEBACK' ? rollA.occurredAt || nowText(seedDate) : ''
 
   const rollB = createRollRecordDraft(session.spreadingSessionId, primaryMaterial?.materialSku || '')
+  rollB.planUnitId = secondaryPlanUnit?.planUnitId || ''
   rollB.sortOrder = 2
-  rollB.rollNo = `ROLL-${String(index + 1).padStart(2, '0')}B`
-  rollB.color = colors[1] || colors[0] || ''
+  rollB.rollNo = `ROLL-${String(contextIndex + 1).padStart(2, '0')}${String(profileIndex + 1).padStart(2, '0')}B`
+  rollB.color = secondaryPlanUnit?.color || colors[1] || colors[0] || ''
+  rollB.materialSku = secondaryPlanUnit?.materialSku || primaryMaterial?.materialSku || ''
   rollB.width = 160
-  rollB.labeledLength = 16 + index
-  rollB.actualLength = 15 + index
+  rollB.labeledLength = 16 + contextIndex + profileIndex
+  rollB.actualLength = 15 + contextIndex + profileIndex
   rollB.headLength = 0.5
   rollB.tailLength = 0.3
-  rollB.layerCount = 10 + index
+  rollB.layerCount = 6 + contextIndex + profileIndex
   rollB.totalLength = Number((rollB.actualLength + rollB.headLength + rollB.tailLength).toFixed(2))
   rollB.remainingLength = Number(Math.max(rollB.labeledLength - rollB.actualLength, 0).toFixed(2))
-  rollB.actualCutPieceQty = Math.max(marker.totalPieces - (rollA.actualCutPieceQty || 0), 10)
-  rollB.occurredAt = nowText(new Date(`2026-03-${String(10 + index).padStart(2, '0')}T13:30:00`))
+  rollB.actualCutPieceQty = computeRollActualCutGarmentQty(rollB.layerCount, secondaryPlanUnit?.garmentQtyPerUnit || marker.totalPieces || 0)
+  rollB.occurredAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T13:${String(profileIndex).padStart(2, '0')}:00`))
   rollB.operatorNames = ['李师傅', '王师傅']
   rollB.usableLength = computeUsableLength(rollB.actualLength, rollB.headLength, rollB.tailLength)
   rollB.handoverNotes = '同卷未铺完，午后换班继续完成。'
+  rollB.sourceChannel = profile.sourceChannel || 'MANUAL'
+  rollB.sourceWritebackId = profile.sourceWritebackId || ''
+  rollB.updatedFromPdaAt = profile.sourceChannel === 'PDA_WRITEBACK' ? rollB.occurredAt || nowText(seedDate) : ''
 
   const operatorA = createOperatorRecordDraft(session.spreadingSessionId)
   operatorA.sortOrder = 1
   operatorA.rollRecordId = rollA.rollRecordId
   operatorA.operatorName = '张师傅'
   operatorA.operatorAccountId = 'CUT001'
-  operatorA.startAt = `2026-03-${String(10 + index).padStart(2, '0')} 09:00`
-  operatorA.endAt = `2026-03-${String(10 + index).padStart(2, '0')} 12:00`
+  operatorA.startAt = `2026-03-${String(10 + contextIndex).padStart(2, '0')} 09:00`
+  operatorA.endAt = `2026-03-${String(10 + contextIndex).padStart(2, '0')} 12:00`
   operatorA.actionType = '完成铺布'
   operatorA.startLayer = 1
   operatorA.endLayer = rollA.layerCount
@@ -397,8 +590,8 @@ function createSeedSession(marker: MarkerRecord, context: MarkerSpreadingContext
   operatorB.rollRecordId = rollB.rollRecordId
   operatorB.operatorName = '李师傅'
   operatorB.operatorAccountId = 'CUT002'
-  operatorB.startAt = `2026-03-${String(10 + index).padStart(2, '0')} 13:00`
-  operatorB.endAt = `2026-03-${String(10 + index).padStart(2, '0')} 15:00`
+  operatorB.startAt = `2026-03-${String(10 + contextIndex).padStart(2, '0')} 13:00`
+  operatorB.endAt = `2026-03-${String(10 + contextIndex).padStart(2, '0')} 15:00`
   operatorB.actionType = '中途交接'
   operatorB.handoverFlag = true
   operatorB.startLayer = 1
@@ -412,8 +605,8 @@ function createSeedSession(marker: MarkerRecord, context: MarkerSpreadingContext
   operatorC.rollRecordId = rollB.rollRecordId
   operatorC.operatorName = '王师傅'
   operatorC.operatorAccountId = 'CUT003'
-  operatorC.startAt = `2026-03-${String(10 + index).padStart(2, '0')} 15:00`
-  operatorC.endAt = `2026-03-${String(10 + index).padStart(2, '0')} 17:30`
+  operatorC.startAt = `2026-03-${String(10 + contextIndex).padStart(2, '0')} 15:00`
+  operatorC.endAt = `2026-03-${String(10 + contextIndex).padStart(2, '0')} 17:30`
   operatorC.actionType = '完成铺布'
   operatorC.handoverFlag = true
   operatorC.startLayer = operatorB.endLayer + 1
@@ -425,14 +618,72 @@ function createSeedSession(marker: MarkerRecord, context: MarkerSpreadingContext
   operatorC.note = '接手完成本卷剩余铺布。'
   operatorC.handoverNotes = '承接李师傅交接，继续铺至本卷结束。'
 
-  session.sessionNo = session.sessionNo || `PB-${String(2000 + index).padStart(4, '0')}`
-  session.rolls = index % 2 === 0 ? [rollA, rollB] : [rollA]
-  session.operators = index % 2 === 0 ? [operatorA, operatorB, operatorC] : [operatorA]
-  session.status = index % 2 === 0 ? 'IN_PROGRESS' : 'DONE'
+  const hasExecution = profile.stage !== 'WAITING_START'
+  const multiRoll = profile.stage !== 'WAITING_START' && profile.stage !== 'IN_PROGRESS'
+  session.rolls = hasExecution ? (multiRoll ? [rollA, rollB] : [rollA]) : []
+  session.operators = hasExecution ? (multiRoll ? [operatorA, operatorB, operatorC] : [operatorA]) : []
+  session.status = profile.status
   session.actualCutPieceQty = session.rolls.reduce((sum, roll) => sum + Math.max(roll.actualCutPieceQty || 0, 0), 0)
-  session.unitPrice = 0.46 + index * 0.04
-  session.note = index % 2 === 0 ? '当前仍可继续补录剩余卷与人员交接。' : '当前铺布记录已完成，可用于后续补料与打票。'
-  session.updatedAt = nowText(new Date(`2026-03-${String(10 + index).padStart(2, '0')}T18:00:00`))
+  session.actualLayers = session.rolls.reduce((sum, roll) => sum + Math.max(roll.layerCount || 0, 0), 0)
+  session.unitPrice = 0.46 + contextIndex * 0.04 + profileIndex * 0.01
+  session.note =
+    profile.stage === 'WAITING_START'
+      ? '当前待开始，已完成铺布创建但尚未录入卷记录。'
+      : profile.stage === 'IN_PROGRESS'
+        ? '当前仍可继续补录剩余卷与人员交接。'
+        : '当前铺布记录已完成，可用于后续补料与执行闭环。'
+  session.updatedAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T18:${String(profileIndex).padStart(2, '0')}:00`))
+  if (profile.stage === 'WAITING_REPLENISHMENT') {
+    const warning = buildSpreadingReplenishmentWarning({
+      context,
+      session,
+      markerTotalPieces: marker.totalPieces,
+      originalCutOrderNos: context.originalCutOrderNos,
+      productionOrderNos: context.productionOrderNos,
+      materialAttr: context.materialPrepRows[0]?.materialLabel || '',
+      createdAt: session.updatedAt,
+      note: '当前为 prototype 待补料确认样例。',
+    })
+    session.replenishmentWarning = {
+      ...warning,
+      suggestedAction: '建议补料',
+      handled: false,
+      shortageQty: Math.max(warning.shortageQty, 12),
+      note: 'prototype：待补料确认',
+    }
+  } else if (profile.status === 'DONE') {
+    const warning = buildSpreadingReplenishmentWarning({
+      context,
+      session,
+      markerTotalPieces: marker.totalPieces,
+      originalCutOrderNos: context.originalCutOrderNos,
+      productionOrderNos: context.productionOrderNos,
+      materialAttr: context.materialPrepRows[0]?.materialLabel || '',
+      createdAt: session.updatedAt,
+      note: '当前为 prototype 完成样例。',
+    })
+    session.replenishmentWarning = {
+      ...warning,
+      suggestedAction: '无需补料',
+      handled: true,
+      shortageQty: 0,
+      note: 'prototype：无需补料',
+    }
+  }
+  if (profile.status === 'DONE') {
+    session.completionLinkage = {
+      completedAt: session.updatedAt,
+      completedBy: profile.sourceChannel === 'PDA_WRITEBACK' ? 'PDA回写' : 'Supervisor Seed',
+      linkedOriginalCutOrderIds: [...context.originalCutOrderIds],
+      linkedOriginalCutOrderNos: [...context.originalCutOrderNos],
+      generatedWarningId: session.replenishmentWarning?.warningId || `warning-${session.spreadingSessionId}`,
+      generatedWarning: profile.stage === 'WAITING_REPLENISHMENT',
+      note:
+        profile.stage === 'WAITING_REPLENISHMENT'
+          ? '当前铺布已完成，并等待补料管理确认。'
+          : '当前铺布已完成，并进入后续闭环链路。',
+    }
+  }
   return session
 }
 
@@ -445,13 +696,8 @@ function hasMarkerForContext(store: MarkerSpreadingStore, context: MarkerSpreadi
   )
 }
 
-function hasSessionForContext(store: MarkerSpreadingStore, context: MarkerSpreadingContext): boolean {
-  if (context.contextType === 'merge-batch') {
-    return store.sessions.some((item) => item.contextType === 'merge-batch' && item.mergeBatchId === context.mergeBatchId)
-  }
-  return store.sessions.some(
-    (item) => item.contextType === 'original-order' && item.originalCutOrderIds[0] === context.originalCutOrderIds[0],
-  )
+function hasSessionById(store: MarkerSpreadingStore, spreadingSessionId: string): boolean {
+  return store.sessions.some((item) => item.spreadingSessionId === spreadingSessionId)
 }
 
 export function summarizeMarkerLineItems(lineItems: MarkerLineItem[] = []): MarkerLineItemSummary {
@@ -478,17 +724,35 @@ export function buildMarkerSpreadingPrototypeStore(options: {
   const rowsById = Object.fromEntries(options.rows.map((row) => [row.originalCutOrderId, row]))
 
   const seedContexts: MarkerSpreadingContext[] = []
-  if (options.rows[0]) seedContexts.push(buildOriginalContext(options.rows[0]))
-  if (options.rows[1] && options.rows[1].originalCutOrderId !== options.rows[0]?.originalCutOrderId) {
-    seedContexts.push(buildOriginalContext(options.rows[1]))
-  }
-  const firstBatchContext = options.mergeBatches[0] ? buildMergeBatchContext(options.mergeBatches[0], rowsById) : null
-  if (firstBatchContext) seedContexts.push(firstBatchContext)
+  const originalContexts = options.rows
+    .map((row) => buildOriginalContext(row))
+    .filter((context, index, all) => all.findIndex((item) => item.originalCutOrderIds[0] === context.originalCutOrderIds[0]) === index)
+    .slice(0, 3)
+  const mergeBatchContexts = options.mergeBatches
+    .map((batch) => buildMergeBatchContext(batch, rowsById))
+    .filter((context): context is MarkerSpreadingContext => Boolean(context))
+    .filter((context, index, all) => all.findIndex((item) => item.mergeBatchId === context.mergeBatchId) === index)
+    .slice(0, 3)
+
+  seedContexts.push(...originalContexts, ...mergeBatchContexts)
+
+  const preferredSeedModes = new Map<string, MarkerModeKey>()
+  if (originalContexts[0]) preferredSeedModes.set(`original-order:${originalContexts[0].originalCutOrderIds[0]}`, 'normal')
+  if (originalContexts[1]) preferredSeedModes.set(`original-order:${originalContexts[1].originalCutOrderIds[0]}`, 'fold_normal')
+  if (originalContexts[2]) preferredSeedModes.set(`original-order:${originalContexts[2].originalCutOrderIds[0]}`, 'high_low')
+  if (mergeBatchContexts[0]) preferredSeedModes.set(`merge-batch:${mergeBatchContexts[0].mergeBatchId}`, 'fold_high_low')
+  if (mergeBatchContexts[1]) preferredSeedModes.set(`merge-batch:${mergeBatchContexts[1].mergeBatchId}`, 'normal')
+  if (mergeBatchContexts[2]) preferredSeedModes.set(`merge-batch:${mergeBatchContexts[2].mergeBatchId}`, 'high_low')
 
   seedContexts.forEach((context, index) => {
+    const contextKey =
+      context.contextType === 'merge-batch'
+        ? `merge-batch:${context.mergeBatchId}`
+        : `original-order:${context.originalCutOrderIds[0]}`
     if (!hasMarkerForContext(nextStore, context)) {
       const markerDraft = buildMarkerSeedDraft(context, null)
       if (!markerDraft) return
+      markerDraft.markerMode = preferredSeedModes.get(contextKey) || markerDraft.markerMode
       markerDraft.markerNo = markerDraft.markerNo || `MJ-${String(index + 1).padStart(4, '0')}`
       markerDraft.updatedAt = nowText(new Date(`2026-03-${String(10 + index).padStart(2, '0')}T08:30:00`))
       nextStore = {
@@ -497,20 +761,26 @@ export function buildMarkerSpreadingPrototypeStore(options: {
       }
     }
 
-    if (!hasSessionForContext(nextStore, context)) {
-      const marker =
-        nextStore.markers.find((item) =>
-          context.contextType === 'merge-batch'
-            ? item.contextType === 'merge-batch' && item.mergeBatchId === context.mergeBatchId
-            : item.contextType === 'original-order' && item.originalCutOrderIds[0] === context.originalCutOrderIds[0],
-        ) || null
+    const marker =
+      nextStore.markers.find((item) =>
+        context.contextType === 'merge-batch'
+          ? item.contextType === 'merge-batch' && item.mergeBatchId === context.mergeBatchId
+          : item.contextType === 'original-order' && item.originalCutOrderIds[0] === context.originalCutOrderIds[0],
+      ) || null
 
-      if (!marker) return
+    if (!marker) return
+
+    const profiles = SEED_SESSION_MATRIX[index] || SEED_SESSION_MATRIX[SEED_SESSION_MATRIX.length - 1]
+    profiles.forEach((profile, profileIndex) => {
+      const sessionKeyBase =
+        context.contextType === 'merge-batch' ? context.mergeBatchId || context.mergeBatchNo : context.originalCutOrderIds[0] || context.originalCutOrderNos[0]
+      const sessionId = `spreading-session-${context.contextType}-${sanitizeSeedKey(sessionKeyBase)}-${profile.code}`
+      if (hasSessionById(nextStore, sessionId)) return
       nextStore = {
         ...nextStore,
-        sessions: [...nextStore.sessions, createSeedSession(marker, context, index)],
+        sessions: [...nextStore.sessions, createSeedSession(marker, context, index, profile, profileIndex)],
       }
-    }
+    })
   })
 
   return {

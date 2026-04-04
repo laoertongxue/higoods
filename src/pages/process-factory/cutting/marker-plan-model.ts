@@ -1191,6 +1191,16 @@ function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ cont
       variant: 'layout' as const,
     },
     {
+      context: resolveContext(findSeedContextByMergeBatchNo(contexts, 'MB-260403-081-SOLID'), 'merge-batch'),
+      mode: 'normal' as const,
+      variant: 'ready' as const,
+    },
+    {
+      context: resolveContext(findSeedContextByMergeBatchNo(contexts, 'MB-260403-083-PRINT'), 'merge-batch'),
+      mode: 'fold_normal' as const,
+      variant: 'ready' as const,
+    },
+    {
       context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260311-084-01'), 'original-cut-order'),
       mode: 'high_low' as const,
       variant: 'ready' as const,
@@ -1688,9 +1698,11 @@ export function cloneMarkerPlanModeDetailLine(plan: MarkerPlan, modeDetailId: st
 }
 
 export function buildMarkerPlanGoSpreadingPath(plan: MarkerPlan): string {
-  const basePath = '/fcs/craft/cutting/spreading-list'
+  const basePath = '/fcs/craft/cutting/spreading-create'
   if (plan.contextType === 'merge-batch' && plan.mergeBatchId) {
     const params = new URLSearchParams({
+      markerId: plan.id,
+      markerNo: plan.markerNo,
       mergeBatchId: plan.mergeBatchId,
       mergeBatchNo: plan.mergeBatchNo,
     })
@@ -1699,6 +1711,8 @@ export function buildMarkerPlanGoSpreadingPath(plan: MarkerPlan): string {
   const firstOriginalCutOrderId = plan.originalCutOrderIds[0]
   const firstOriginalCutOrderNo = plan.originalCutOrderNos[0] || ''
   const params = new URLSearchParams({
+    markerId: plan.id,
+    markerNo: plan.markerNo,
     originalCutOrderId: firstOriginalCutOrderId,
     originalCutOrderNo: firstOriginalCutOrderNo,
   })

@@ -22,6 +22,7 @@ export type CuttingNavigationTarget =
   | 'specialProcesses'
   | 'materialPrep'
   | 'markerPlan'
+  | 'spreadingList'
   | 'markerSpreading'
   | 'feiTickets'
   | 'originalOrders'
@@ -52,6 +53,8 @@ export interface CuttingDrillContext {
   spuCode?: string
   markerId?: string
   markerNo?: string
+  spreadingSessionId?: string
+  spreadingSessionNo?: string
   suggestionId?: string
   suggestionNo?: string
   processOrderId?: string
@@ -96,6 +99,7 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   specialProcesses: '去特殊工艺',
   materialPrep: '去仓库配料领料',
   markerPlan: '去唛架',
+  spreadingList: '去铺布',
   markerSpreading: '去铺布',
   feiTickets: '去打印菲票',
   originalOrders: '去原始裁片单',
@@ -172,6 +176,8 @@ export function serializeCuttingDrillContext(context: CuttingDrillContext | null
     spuCode: context.spuCode,
     markerId: context.markerId,
     markerNo: context.markerNo,
+    spreadingSessionId: context.spreadingSessionId,
+    spreadingSessionNo: context.spreadingSessionNo,
     suggestionId: context.suggestionId,
     suggestionNo: context.suggestionNo,
     processOrderId: context.processOrderId,
@@ -216,6 +222,8 @@ export function readCuttingDrillContextFromLocation(
     spuCode: pickString(params, 'spuCode'),
     markerId: pickString(params, 'markerId'),
     markerNo: pickString(params, 'markerNo'),
+    spreadingSessionId: pickString(params, 'spreadingSessionId', 'sessionId'),
+    spreadingSessionNo: pickString(params, 'spreadingSessionNo', 'sessionNo'),
     suggestionId: pickString(params, 'suggestionId'),
     suggestionNo: pickString(params, 'suggestionNo'),
     processOrderId: pickString(params, 'processOrderId'),
@@ -259,6 +267,8 @@ export function normalizeLegacyCuttingPayload(
     spuCode: payload?.spuCode,
     markerId: payload?.markerId,
     markerNo: payload?.markerNo,
+    spreadingSessionId: payload?.spreadingSessionId || payload?.sessionId,
+    spreadingSessionNo: payload?.spreadingSessionNo || payload?.sessionNo,
     suggestionId: payload?.suggestionId,
     suggestionNo: payload?.suggestionNo,
     processOrderId: payload?.processOrderId,
@@ -303,6 +313,9 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
       return `${getCanonicalCuttingPath('marker-detail')}/${encodeURIComponent(context.markerId)}`
     }
     return getCanonicalCuttingPath('marker-list')
+  }
+  if (target === 'spreadingList') {
+    return getCanonicalCuttingPath('spreading-list')
   }
   if (target === 'originalOrders') return getCanonicalCuttingPath('original-orders')
   if (target === 'productionProgress') return getCanonicalCuttingPath('production-progress')
@@ -359,6 +372,7 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
     context.warehouseStatus ? `仓状态：${warehouseStatusLabelMap[context.warehouseStatus] || context.warehouseStatus}` : '',
     context.styleCode ? `款号：${context.styleCode}` : '',
     context.markerNo ? `唛架：${context.markerNo}` : '',
+    context.spreadingSessionNo ? `铺布：${context.spreadingSessionNo}` : '',
     context.printableUnitNo ? `打印单元：${context.printableUnitNo}` : '',
     context.ticketNo ? `菲票码：${context.ticketNo}` : '',
     context.suggestionNo ? `补料建议：${context.suggestionNo}` : context.suggestionId ? `补料建议：${context.suggestionId}` : '',
@@ -399,6 +413,8 @@ export function buildReturnToSummaryContext(context: CuttingDrillContext | null)
     cuttingGroup: context?.cuttingGroup,
     warehouseStatus: context?.warehouseStatus,
     styleCode: context?.styleCode,
+    spreadingSessionId: context?.spreadingSessionId,
+    spreadingSessionNo: context?.spreadingSessionNo,
     suggestionId: context?.suggestionId,
     processOrderId: context?.processOrderId,
     processOrderNo: context?.processOrderNo,

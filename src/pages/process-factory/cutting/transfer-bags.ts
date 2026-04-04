@@ -221,6 +221,8 @@ function hasSourceContext(prefilter: TransferBagPrefilter | null): boolean {
       prefilter?.mergeBatchNo ||
       prefilter?.裁剪批次No ||
       prefilter?.materialSku ||
+      prefilter?.spreadingSessionId ||
+      prefilter?.sourceWritebackId ||
       prefilter?.styleCode ||
       prefilter?.cuttingGroup ||
       prefilter?.warehouseStatus,
@@ -238,6 +240,8 @@ function buildSourceOnlyPrefilter(prefilter: TransferBagPrefilter | null): Trans
     mergeBatchNo: prefilter.mergeBatchNo,
     裁剪批次No: prefilter.裁剪批次No,
     materialSku: prefilter.materialSku,
+    spreadingSessionId: prefilter.spreadingSessionId,
+    sourceWritebackId: prefilter.sourceWritebackId,
     styleCode: prefilter.styleCode,
     cuttingGroup: prefilter.cuttingGroup,
     warehouseStatus: prefilter.warehouseStatus,
@@ -261,6 +265,8 @@ function hasResolverLookupContext(prefilter: TransferBagPrefilter | null): boole
       prefilter?.mergeBatchNo ||
       prefilter?.裁剪批次No ||
       prefilter?.materialSku ||
+      prefilter?.spreadingSessionId ||
+      prefilter?.sourceWritebackId ||
       prefilter?.styleCode,
   )
 }
@@ -400,6 +406,8 @@ function matchesUsagePrefilter(item: TransferBagUsageItem, prefilter: TransferBa
     matchPrefilter(mergeBatchIds, prefilter.mergeBatchId) &&
     matchPrefilter(item.mergeBatchNos, prefilter.mergeBatchNo || prefilter.裁剪批次No) &&
     matchPrefilter(materialSkus, prefilter.materialSku) &&
+    matchPrefilter([item.spreadingSessionId], prefilter.spreadingSessionId) &&
+    matchPrefilter([item.spreadingSourceWritebackId], prefilter.sourceWritebackId) &&
     matchPrefilter(styleCodes, prefilter.styleCode) &&
     matchPrefilter([item.sewingTaskNo], prefilter.sewingTaskNo) &&
     matchPrefilter(bindingItems.map((binding) => binding.ticket?.feiTicketId || binding.ticketRecordId), prefilter.ticketId) &&
@@ -419,6 +427,8 @@ function matchesBindingPrefilter(item: TransferBagBindingItem, prefilter: Transf
     matchPrefilter([item.ticket?.mergeBatchId || item.navigationPayload.originalOrders.mergeBatchId], prefilter.mergeBatchId) &&
     matchPrefilter([item.mergeBatchNo || item.裁剪批次No], prefilter.mergeBatchNo || prefilter.裁剪批次No) &&
     matchPrefilter([item.ticket?.materialSku], prefilter.materialSku) &&
+    matchPrefilter([item.spreadingSessionId], prefilter.spreadingSessionId) &&
+    matchPrefilter([item.spreadingSourceWritebackId], prefilter.sourceWritebackId) &&
     matchPrefilter([item.ticket?.styleCode], prefilter.styleCode) &&
     matchPrefilter([item.bagId], prefilter.bagId) &&
     matchPrefilter([item.bagCode], prefilter.bagCode) &&
@@ -578,6 +588,8 @@ function getPrefilterFromQuery(): TransferBagPrefilter | null {
     裁剪批次No: drillContext?.mergeBatchNo || params.get('裁剪批次No') || undefined,
     mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
     materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
+    spreadingSessionId: drillContext?.spreadingSessionId || params.get('spreadingSessionId') || params.get('sessionId') || undefined,
+    sourceWritebackId: params.get('sourceWritebackId') || params.get('holder') || undefined,
     styleCode: drillContext?.styleCode || params.get('styleCode') || undefined,
     ticketId: drillContext?.ticketId || params.get('ticketId') || params.get('ticketRecordId') || undefined,
     cuttingGroup: drillContext?.cuttingGroup || params.get('cuttingGroup') || undefined,
@@ -642,6 +654,7 @@ function getCandidateTickets(): TransferBagTicketCandidate[] {
     if (state.prefilter.mergeBatchId && ticket.mergeBatchId !== state.prefilter.mergeBatchId) return false
     if (state.prefilter.裁剪批次No && ticket.mergeBatchNo !== state.prefilter.裁剪批次No) return false
     if (state.prefilter.materialSku && ticket.materialSku !== state.prefilter.materialSku) return false
+    if (state.prefilter.spreadingSessionId && ticket.sourceSpreadingSessionId !== state.prefilter.spreadingSessionId) return false
     if (state.prefilter.styleCode && ticket.styleCode !== state.prefilter.styleCode) return false
     return true
   })
@@ -1282,6 +1295,27 @@ function renderDetailMetric(label: string, value: string, valueClassName = 'text
       <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
       <div class="mt-1 text-sm font-semibold ${valueClassName}">${escapeHtml(value)}</div>
     </div>
+  `
+}
+
+function renderTransferBagTraceabilityBlock(focusedUsage: TransferBagUsageItem | null): string {
+  if (!focusedUsage) return ''
+  return `
+    <section class="rounded-lg border ${focusedUsage.bagFirstSatisfied ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-200 bg-rose-50/40'} p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-foreground">铺布 / 装袋追溯</h3>
+          <p class="mt-1 text-xs text-muted-foreground">必须先扫口袋码，再扫菲票子码</p>
+        </div>
+        ${renderTag(focusedUsage.bagFirstSatisfied ? 'bag-first 已满足' : 'bag-first 待补', focusedUsage.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderDetailMetric('来源铺布 session', focusedUsage.spreadingSessionNo || focusedUsage.spreadingSessionId || '当前尚未绑定正式铺布 session')}
+        ${renderDetailMetric('PDA回写流水', focusedUsage.spreadingSourceWritebackId || '当前尚无 PDA 回写流水')}
+        ${renderDetailMetric('铺布颜色摘要', focusedUsage.spreadingColorSummary || focusedUsage.colorSummary || '待补')}
+        ${renderDetailMetric('bag-first 规则', focusedUsage.bagFirstRuleLabel, focusedUsage.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700')}
+      </div>
+    </section>
   `
 }
 
@@ -3052,6 +3086,7 @@ function renderTransferBagCurrentTab(
   return `
     <section id="transfer-bag-tabpanel-current" role="tabpanel" aria-labelledby="transfer-bag-tab-current" class="space-y-3">
       ${renderBaggingStepRail(steps)}
+      ${renderTransferBagTraceabilityBlock(focusedUsage)}
       ${
         finishedFlow && focusedUsage
           ? `

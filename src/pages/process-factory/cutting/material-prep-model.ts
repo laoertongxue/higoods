@@ -18,6 +18,11 @@ import {
 } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 import {
+  CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
+  deserializeReplenishmentPendingPrepStorage,
+  type ReplenishmentPendingPrepFollowupRecord,
+} from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
+import {
   canViewPrepQr,
   getPrepQrHiddenText,
   shouldDisplayQrByPrepStatus,
@@ -88,6 +93,11 @@ export interface MaterialPrepLineItem {
   hasClaimException: boolean
   note: string
   latestActionText: string
+  sourceType?: 'NORMAL_PREP' | 'REPLENISHMENT_PENDING_PREP'
+  sourceLabel?: string
+  replenishmentPendingPrepQty?: number
+  sourceReplenishmentRequestId?: string
+  sourceSpreadingSessionId?: string
 }
 
 export interface MaterialPrepNavigationPayload {
@@ -149,6 +159,10 @@ export interface MaterialPrepRow {
   mergeBatchNos: string[]
   mergeBatchIds: string[]
   currentStageText: string
+  replenishmentPendingPrepItems: ReplenishmentPendingPrepFollowupRecord[]
+  replenishmentPendingPrepCount: number
+  replenishmentPendingPrepSummary: string
+  hasReplenishmentPendingPrep: boolean
   navigationPayload: MaterialPrepNavigationPayload
   keywordIndex: string[]
 }
@@ -685,6 +699,10 @@ function createRow(
     mergeBatchNos: batchSummary.mergeBatchNos,
     mergeBatchIds: batchSummary.mergeBatchIds,
     currentStageText: record.cuttingStage || '待补',
+    replenishmentPendingPrepItems: [],
+    replenishmentPendingPrepCount: 0,
+    replenishmentPendingPrepSummary: '当前无补料待配料',
+    hasReplenishmentPendingPrep: false,
     navigationPayload: buildMaterialPrepNavigationPayload({
       originalCutOrderId,
       originalCutOrderNo,
@@ -712,6 +730,62 @@ function createRow(
   }
 
   return recalculateMaterialPrepRow(baseRow, record)
+}
+
+function applyPendingPrepFollowupsToRow(
+  row: MaterialPrepRow,
+  followups: ReplenishmentPendingPrepFollowupRecord[],
+): MaterialPrepRow {
+  const matched = followups.filter(
+    (item) =>
+      item.originalCutOrderId === row.originalCutOrderId ||
+      item.originalCutOrderNo === row.originalCutOrderNo,
+  )
+  if (!matched.length) {
+    row.replenishmentPendingPrepItems = []
+    row.replenishmentPendingPrepCount = 0
+    row.replenishmentPendingPrepSummary = '当前无补料待配料'
+    row.hasReplenishmentPendingPrep = false
+    row.materialLineItems = row.materialLineItems.map((item) => ({
+      ...item,
+      sourceType: item.sourceType === 'REPLENISHMENT_PENDING_PREP' ? 'NORMAL_PREP' : item.sourceType,
+      sourceLabel: item.sourceType === 'REPLENISHMENT_PENDING_PREP' ? '正常配料' : item.sourceLabel || '正常配料',
+      replenishmentPendingPrepQty: 0,
+      sourceReplenishmentRequestId: '',
+      sourceSpreadingSessionId: '',
+    }))
+    return row
+  }
+
+  row.replenishmentPendingPrepItems = matched
+  row.replenishmentPendingPrepCount = matched.length
+  row.replenishmentPendingPrepSummary = matched
+    .map((item) => `${item.materialSku} / ${item.color || row.color} · 缺口 ${formatQty(item.shortageGarmentQty)} 件`)
+    .join('；')
+  row.hasReplenishmentPendingPrep = true
+  row.materialLineItems = row.materialLineItems.map((item) => {
+    const pendingItem = matched.find(
+      (followup) =>
+        followup.materialSku === item.materialSku && (!followup.color || followup.color === row.color),
+    )
+    if (!pendingItem) {
+      return {
+        ...item,
+        sourceType: 'NORMAL_PREP',
+        sourceLabel: '正常配料',
+      }
+    }
+    return {
+      ...item,
+      sourceType: 'REPLENISHMENT_PENDING_PREP',
+      sourceLabel: '补料待配料',
+      replenishmentPendingPrepQty: pendingItem.shortageGarmentQty,
+      sourceReplenishmentRequestId: pendingItem.sourceReplenishmentRequestId,
+      sourceSpreadingSessionId: pendingItem.sourceSpreadingSessionId,
+      latestActionText: pendingItem.note || item.latestActionText,
+    }
+  })
+  return row
 }
 
 export function recalculateMaterialPrepRow(
@@ -802,9 +876,15 @@ export function buildMaterialPrepViewModel(
   ledger: MergeBatchRecord[] = [],
   options: {
     pickupWritebacks?: PdaPickupWritebackRecord[]
+    pendingPrepFollowups?: ReplenishmentPendingPrepFollowupRecord[]
   } = {},
 ): MaterialPrepViewModel {
   const pickupWritebacks = options.pickupWritebacks ?? listPdaPickupWritebacks(getBrowserLocalStorage() || undefined)
+  const pendingPrepFollowups =
+    options.pendingPrepFollowups ??
+    deserializeReplenishmentPendingPrepStorage(
+      getBrowserLocalStorage()?.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY) || null,
+    )
   const pickupWritebacksByOriginalCutOrderNo = pickupWritebacks.reduce<Record<string, PdaPickupWritebackRecord[]>>((accumulator, item) => {
     accumulator[item.originalCutOrderNo] = accumulator[item.originalCutOrderNo] || []
     accumulator[item.originalCutOrderNo].push(item)
@@ -814,7 +894,8 @@ export function buildMaterialPrepViewModel(
     .flatMap((record) =>
       record.materialLines.map((line) => {
         const row = createRow(record, line, ledger)
-        return applyPdaPickupWritebacksToRow(row, pickupWritebacksByOriginalCutOrderNo[row.originalCutOrderNo] || [], record)
+        const hydratedRow = applyPdaPickupWritebacksToRow(row, pickupWritebacksByOriginalCutOrderNo[row.originalCutOrderNo] || [], record)
+        return applyPendingPrepFollowupsToRow(hydratedRow, pendingPrepFollowups)
       }),
     )
     .sort((left, right) => {

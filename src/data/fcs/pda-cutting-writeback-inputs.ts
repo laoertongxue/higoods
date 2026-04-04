@@ -36,6 +36,8 @@ export interface CuttingPdaWritebackIdentityInput {
   legacyCutPieceOrderNo: string
   cutPieceOrderNo: string
   materialSku: string
+  styleCode?: string
+  spuCode?: string
 }
 
 export interface CuttingPdaWritebackOperatorInput {

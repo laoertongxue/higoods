@@ -4,10 +4,8 @@ import type { MaterialPrepRow } from './material-prep-model'
 import type { OriginalCutOrderRow } from './original-orders-model'
 import {
   buildReplenishmentContextRecords,
-  inferReplenishmentCraftImpacts,
   type ReplenishmentContextRecord,
   type ReplenishmentContextSourceType,
-  type ReplenishmentCraftImpactDecision,
 } from './replenishment-context'
 import type { MarkerSpreadingStore } from './marker-spreading-model'
 import {
@@ -15,13 +13,14 @@ import {
   type PdaReplenishmentFeedbackWritebackRecord,
 } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage'
+import {
+  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
+} from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
-
-export const CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY = 'cuttingReplenishmentReviews'
-export const CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY = 'cuttingReplenishmentImpactPlans'
-export const CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY = 'cuttingReplenishmentAuditTrail'
-export const CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY = 'cuttingReplenishmentFollowupActions'
 
 export type ReplenishmentSourceType = ReplenishmentContextSourceType | 'pda-feedback'
 export type ReplenishmentRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
@@ -45,15 +44,10 @@ export type ReplenishmentAuditAction =
   | 'ACTION_SKIPPED'
   | 'ACTION_DONE'
 
-export type ReplenishmentFollowupActionType =
-  | 'RECONFIGURE_MATERIAL'
-  | 'RECLAIM_MATERIAL'
-  | 'SYNC_PRINTING'
-  | 'SYNC_DYEING'
-  | 'SYNC_SPECIAL_PROCESS'
+export type ReplenishmentFollowupActionType = 'CREATE_PENDING_PREP'
 
 export type ReplenishmentFollowupActionStatus = 'PENDING' | 'CONFIRMED' | 'SKIPPED' | 'DONE'
-export type ReplenishmentFollowupTargetPageKey = 'materialPrep' | 'printing' | 'dyeing' | 'specialProcesses'
+export type ReplenishmentFollowupTargetPageKey = 'materialPrep'
 
 export interface ReplenishmentSuggestion {
   suggestionId: string
@@ -244,7 +238,6 @@ export interface ReplenishmentFilters {
   sourceType: 'ALL' | ReplenishmentSourceType
   status: 'ALL' | ReplenishmentStatusKey
   riskLevel: 'ALL' | ReplenishmentRiskLevel
-  craftImpact: 'ALL' | 'PRINTING' | 'DYEING' | 'SPECIAL_PROCESS'
   pendingReviewOnly: boolean
   pendingActionOnly: boolean
 }
@@ -256,6 +249,7 @@ export interface ReplenishmentPrefilter {
   mergeBatchId?: string
   productionOrderNo?: string
   materialSku?: string
+  color?: string
   suggestionId?: string
   suggestionNo?: string
   riskLevel?: ReplenishmentRiskLevel
@@ -268,9 +262,6 @@ export interface ReplenishmentNavigationPayload {
   originalOrders: Record<string, string | undefined>
   mergeBatches: Record<string, string | undefined>
   summary: Record<string, string | undefined>
-  printing: Record<string, string | undefined>
-  dyeing: Record<string, string | undefined>
-  specialProcesses: Record<string, string | undefined>
 }
 
 export const replenishmentSourceMeta: Record<ReplenishmentSourceType, { label: string; className: string }> = {
@@ -360,35 +351,11 @@ export const replenishmentFollowupActionTypeMetaMap: Record<
   ReplenishmentFollowupActionType,
   ReplenishmentFollowupActionTypeMeta
 > = {
-  RECONFIGURE_MATERIAL: {
-    key: 'RECONFIGURE_MATERIAL',
-    label: '重新配料',
-    shortLabel: '重配料',
+  CREATE_PENDING_PREP: {
+    key: 'CREATE_PENDING_PREP',
+    label: '生成补料待配料',
+    shortLabel: '待配料',
     className: 'bg-blue-100 text-blue-700',
-  },
-  RECLAIM_MATERIAL: {
-    key: 'RECLAIM_MATERIAL',
-    label: '重新领料',
-    shortLabel: '重领料',
-    className: 'bg-violet-100 text-violet-700',
-  },
-  SYNC_PRINTING: {
-    key: 'SYNC_PRINTING',
-    label: '同步印花',
-    shortLabel: '印花',
-    className: 'bg-amber-100 text-amber-700',
-  },
-  SYNC_DYEING: {
-    key: 'SYNC_DYEING',
-    label: '同步染色',
-    shortLabel: '染色',
-    className: 'bg-emerald-100 text-emerald-700',
-  },
-  SYNC_SPECIAL_PROCESS: {
-    key: 'SYNC_SPECIAL_PROCESS',
-    label: '同步特殊工艺',
-    shortLabel: '特殊工艺',
-    className: 'bg-rose-100 text-rose-700',
   },
 }
 
@@ -643,25 +610,12 @@ function buildReplenishmentNavigationPayload(
     originalOrders: { originalCutOrderId, originalCutOrderNo, productionOrderId, productionOrderNo, mergeBatchId, mergeBatchNo, materialSku },
     mergeBatches: { mergeBatchId, mergeBatchNo, originalCutOrderId, originalCutOrderNo, productionOrderId, productionOrderNo, materialSku },
     summary: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, productionOrderId, productionOrderNo, materialSku },
-    printing: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, materialSku },
-    dyeing: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, materialSku },
-    specialProcesses: { originalCutOrderId, originalCutOrderNo, mergeBatchId, mergeBatchNo, productionOrderId, productionOrderNo, materialSku },
   }
 }
 
 function buildActionTargetPath(targetPageKey: ReplenishmentFollowupTargetPageKey): string {
-  switch (targetPageKey) {
-    case 'materialPrep':
-      return '/fcs/craft/cutting/material-prep'
-    case 'printing':
-      return '/fcs/craft/printing/work-orders'
-    case 'dyeing':
-      return '/fcs/craft/dyeing/work-orders'
-    case 'specialProcesses':
-      return '/fcs/craft/cutting/special-processes'
-    default:
-      return '/fcs/craft/cutting/replenishment'
-  }
+  if (targetPageKey === 'materialPrep') return '/fcs/craft/cutting/material-prep'
+  return '/fcs/craft/cutting/replenishment'
 }
 
 function buildFollowupAction(options: {
@@ -696,87 +650,19 @@ function buildFollowupAction(options: {
 
 function buildDefaultFollowupActions(
   suggestion: ReplenishmentSuggestion,
-  context: ReplenishmentContextRecord,
   navigationPayload: ReplenishmentNavigationPayload,
 ): ReplenishmentFollowupAction[] {
   if (suggestion.status === 'NO_ACTION') return []
-
-  const actions: ReplenishmentFollowupAction[] = []
-  const craftSignals = inferReplenishmentCraftImpacts(context)
-  const needReconfigureMaterial = suggestion.shortageQty > 0 || suggestion.varianceLength < 0
-  const needReclaimMaterial = suggestion.shortageQty > 0 && suggestion.usableLengthTotal < suggestion.configuredLengthTotal
-
-  if (needReconfigureMaterial) {
-    actions.push(
-      buildFollowupAction({
-        suggestion,
-        navigationPayload,
-        actionType: 'RECONFIGURE_MATERIAL',
-        title: '重新配料',
-        targetPageKey: 'materialPrep',
-        note: '根据补料差异重新核对并调整配料。',
-      }),
-    )
-  }
-
-  if (needReclaimMaterial) {
-    actions.push(
-      buildFollowupAction({
-        suggestion,
-        navigationPayload,
-        actionType: 'RECLAIM_MATERIAL',
-        title: '重新领料',
-        targetPageKey: 'materialPrep',
-        note: '根据可用长度与已领长度差异，重新核对领料。',
-      }),
-    )
-  }
-
-  const signalConfigs: Array<{
-    type: ReplenishmentFollowupActionType
-    targetPageKey: ReplenishmentFollowupTargetPageKey
-    yesTitle: string
-    unknownTitle: string
-    signal: ReplenishmentCraftImpactDecision
-  }> = [
-    {
-      type: 'SYNC_PRINTING',
-      targetPageKey: 'printing',
-      yesTitle: '同步印花',
-      unknownTitle: '确认是否同步印花',
-      signal: craftSignals.printing,
-    },
-    {
-      type: 'SYNC_DYEING',
-      targetPageKey: 'dyeing',
-      yesTitle: '同步染色',
-      unknownTitle: '确认是否同步染色',
-      signal: craftSignals.dyeing,
-    },
-    {
-      type: 'SYNC_SPECIAL_PROCESS',
-      targetPageKey: 'specialProcesses',
-      yesTitle: '同步特殊工艺',
-      unknownTitle: '确认是否同步特殊工艺',
-      signal: craftSignals.specialProcess,
-    },
+  return [
+    buildFollowupAction({
+      suggestion,
+      navigationPayload,
+      actionType: 'CREATE_PENDING_PREP',
+      title: '生成补料待配料',
+      targetPageKey: 'materialPrep',
+      note: '审核通过后，在原裁片任务的仓库配料领料记录下生成补料待配料，由仓库配料领料继续处理。',
+    }),
   ]
-
-  signalConfigs.forEach((config) => {
-    if (config.signal.decision === 'NO') return
-    actions.push(
-      buildFollowupAction({
-        suggestion,
-        navigationPayload,
-        actionType: config.type,
-        title: config.signal.decision === 'YES' ? config.yesTitle : config.unknownTitle,
-        targetPageKey: config.targetPageKey,
-        note: config.signal.note,
-      }),
-    )
-  })
-
-  return actions
 }
 
 function hydrateLegacyActionsFromImpactPlan(options: {
@@ -785,36 +671,31 @@ function hydrateLegacyActionsFromImpactPlan(options: {
   navigationPayload: ReplenishmentNavigationPayload
   legacyImpactPlan: ReplenishmentImpactPlan | null
 }): ReplenishmentFollowupAction[] {
-  const defaults = buildDefaultFollowupActions(options.suggestion, options.context, options.navigationPayload)
+  const defaults = buildDefaultFollowupActions(options.suggestion, options.navigationPayload)
   const legacy = options.legacyImpactPlan
   if (!legacy) return defaults
+  if (
+    !legacy.needReconfigureMaterial &&
+    !legacy.needReclaimMaterial &&
+    !legacy.affectPrintingOrder &&
+    !legacy.affectDyeingOrder &&
+    !legacy.affectSpecialProcess &&
+    !legacy.impactSummary
+  ) {
+    return defaults
+  }
 
-  const byType = new Map(defaults.map((item) => [item.actionType, item]))
-  const actions: ReplenishmentFollowupAction[] = []
-
-  const legacyFlags: Array<[boolean, ReplenishmentFollowupActionType]> = [
-    [legacy.needReconfigureMaterial, 'RECONFIGURE_MATERIAL'],
-    [legacy.needReclaimMaterial, 'RECLAIM_MATERIAL'],
-    [legacy.affectPrintingOrder, 'SYNC_PRINTING'],
-    [legacy.affectDyeingOrder, 'SYNC_DYEING'],
-    [legacy.affectSpecialProcess, 'SYNC_SPECIAL_PROCESS'],
-  ]
-
-  legacyFlags.forEach(([enabled, actionType]) => {
-    if (!enabled) return
-    const matched = byType.get(actionType)
-    if (!matched) return
-    actions.push({
+  const matched = defaults[0]
+  if (!matched) return []
+  return [
+    {
       ...matched,
       status: legacy.applied ? 'DONE' : matched.status,
       completedAt: legacy.applied ? legacy.appliedAt : matched.completedAt,
       completedBy: legacy.applied ? legacy.appliedBy : matched.completedBy,
-      note: matched.note || legacy.impactSummary,
-    })
-  })
-
-  if (!actions.length) return defaults
-  return actions
+      note: legacy.impactSummary || matched.note,
+    },
+  ]
 }
 
 function mergeStoredActions(options: {
@@ -880,11 +761,11 @@ function buildImpactPlanFromActions(options: {
   return {
     impactPlanId: `impact-${options.suggestion.suggestionId}`,
     suggestionId: options.suggestion.suggestionId,
-    needReconfigureMaterial: options.actions.some((item) => item.actionType === 'RECONFIGURE_MATERIAL'),
-    needReclaimMaterial: options.actions.some((item) => item.actionType === 'RECLAIM_MATERIAL'),
-    affectPrintingOrder: options.actions.some((item) => item.actionType === 'SYNC_PRINTING'),
-    affectDyeingOrder: options.actions.some((item) => item.actionType === 'SYNC_DYEING'),
-    affectSpecialProcess: options.actions.some((item) => item.actionType === 'SYNC_SPECIAL_PROCESS'),
+    needReconfigureMaterial: options.actions.some((item) => item.actionType === 'CREATE_PENDING_PREP'),
+    needReclaimMaterial: false,
+    affectPrintingOrder: false,
+    affectDyeingOrder: false,
+    affectSpecialProcess: false,
     impactSummary,
     applied: completed,
     appliedAt: latestCompleted?.completedAt || (completed && !options.actions.length ? reviewAppliedAt : options.legacyImpactPlan?.appliedAt || ''),
@@ -1230,7 +1111,51 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    const normalized = parsed
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item) => {
+        const suggestionId = String(item.suggestionId || '').trim()
+        if (!suggestionId) return null
+        return {
+          actionId: String(item.actionId || `${suggestionId}-CREATE_PENDING_PREP`).trim() || `${suggestionId}-CREATE_PENDING_PREP`,
+          suggestionId,
+          actionType: 'CREATE_PENDING_PREP' as const,
+          title: String(item.title || '生成补料待配料').trim() || '生成补料待配料',
+          status: ['PENDING', 'CONFIRMED', 'SKIPPED', 'DONE'].includes(String(item.status || ''))
+            ? (item.status as ReplenishmentFollowupActionStatus)
+            : 'PENDING',
+          targetPageKey: 'materialPrep' as const,
+          targetPath: buildActionTargetPath('materialPrep'),
+          targetQuery:
+            item.targetQuery && typeof item.targetQuery === 'object'
+              ? (item.targetQuery as Record<string, string | undefined>)
+              : {},
+          note:
+            String(item.note || '').trim() ||
+            '审核通过后，在原裁片任务的仓库配料领料记录下生成补料待配料，由仓库配料领料继续处理。',
+          decidedAt: String(item.decidedAt || '').trim(),
+          decidedBy: String(item.decidedBy || '').trim(),
+          completedAt: String(item.completedAt || '').trim(),
+          completedBy: String(item.completedBy || '').trim(),
+        }
+      })
+      .filter((item): item is ReplenishmentFollowupAction => Boolean(item))
+
+    return Object.values(
+      normalized.reduce<Record<string, ReplenishmentFollowupAction>>((accumulator, item) => {
+        const existing = accumulator[item.suggestionId]
+        if (!existing) {
+          accumulator[item.suggestionId] = item
+          return accumulator
+        }
+        const existingRank =
+          existing.status === 'DONE' ? 4 : existing.status === 'CONFIRMED' ? 3 : existing.status === 'SKIPPED' ? 2 : 1
+        const nextRank = item.status === 'DONE' ? 4 : item.status === 'CONFIRMED' ? 3 : item.status === 'SKIPPED' ? 2 : 1
+        accumulator[item.suggestionId] = nextRank >= existingRank ? item : existing
+        return accumulator
+      }, {}),
+    )
   } catch {
     return []
   }
@@ -1394,6 +1319,7 @@ export function filterReplenishmentRows(
     if (prefilter?.mergeBatchId && row.mergeBatchId !== prefilter.mergeBatchId) return false
     if (prefilter?.productionOrderNo && !row.productionOrderNos.includes(prefilter.productionOrderNo)) return false
     if (prefilter?.materialSku && !row.materialSkus.includes(prefilter.materialSku)) return false
+    if (prefilter?.color && !row.lines.some((line) => line.color === prefilter.color)) return false
     if (prefilter?.riskLevel && row.riskLevel !== prefilter.riskLevel) return false
     if (
       prefilter?.replenishmentStatus &&
@@ -1408,14 +1334,6 @@ export function filterReplenishmentRows(
     if (filters.riskLevel !== 'ALL' && row.riskLevel !== filters.riskLevel) return false
     if (filters.pendingReviewOnly && !['PENDING_REVIEW', 'PENDING_SUPPLEMENT'].includes(row.statusMeta.key)) return false
     if (filters.pendingActionOnly && !['APPROVED_PENDING_ACTION', 'IN_ACTION'].includes(row.statusMeta.key)) return false
-    if (filters.craftImpact === 'PRINTING' && !row.followupActions.some((item) => item.actionType === 'SYNC_PRINTING')) return false
-    if (filters.craftImpact === 'DYEING' && !row.followupActions.some((item) => item.actionType === 'SYNC_DYEING')) return false
-    if (
-      filters.craftImpact === 'SPECIAL_PROCESS' &&
-      !row.followupActions.some((item) => item.actionType === 'SYNC_SPECIAL_PROCESS')
-    ) {
-      return false
-    }
     return true
   })
 }
@@ -1435,6 +1353,7 @@ export function findReplenishmentByPrefilter(
       if (prefilter.mergeBatchId && row.mergeBatchId === prefilter.mergeBatchId) return true
       if (prefilter.productionOrderNo && row.productionOrderNos.includes(prefilter.productionOrderNo)) return true
       if (prefilter.materialSku && row.materialSkus.includes(prefilter.materialSku)) return true
+      if (prefilter.color && row.lines.some((line) => line.color === prefilter.color)) return true
       return false
     }) || null
   )

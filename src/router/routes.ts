@@ -122,6 +122,7 @@ import { renderPdaHandoverPage } from '../pages/pda-handover'
 import { renderPdaHandoverDetailPage } from '../pages/pda-handover-detail'
 import { renderPdaSettlementPage } from '../pages/pda-settlement'
 import { renderPdaCuttingTaskDetailPage } from '../pages/pda-cutting-task-detail'
+import { renderPdaCuttingExecutionUnitPage } from '../pages/pda-cutting-execution-unit'
 import { renderPdaCuttingPickupPage } from '../pages/pda-cutting-pickup'
 import { renderPdaCuttingSpreadingPage } from '../pages/pda-cutting-spreading'
 import { renderPdaCuttingInboundPage } from '../pages/pda-cutting-inbound'
@@ -136,6 +137,8 @@ import {
   renderCraftCuttingMarkerCreatePage,
   renderCraftCuttingMarkerPlanEditPage,
   renderCraftCuttingMarkerPlanDetailPage,
+  renderCraftCuttingSpreadingListPage,
+  renderCraftCuttingSpreadingCreatePage,
   renderCraftCuttingMarkerSpreadingPage,
   renderCraftCuttingSpreadingDetailPage,
   renderCraftCuttingSpreadingEditPage,
@@ -292,7 +295,8 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/fcs/craft/cutting/original-orders': () => renderCraftCuttingOriginalOrdersPage(),
   '/fcs/craft/cutting/marker-list': () => renderCraftCuttingMarkerListPage(),
   '/fcs/craft/cutting/marker-create': () => renderCraftCuttingMarkerCreatePage(),
-  '/fcs/craft/cutting/spreading-list': () => renderCraftCuttingMarkerSpreadingPage(),
+  '/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage(),
+  '/fcs/craft/cutting/spreading-create': () => renderCraftCuttingSpreadingCreatePage(),
   '/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage(),
   '/fcs/craft/cutting/settlement-scoring': () => renderCuttingSettlementInputPage(),
   '/fcs/craft/cutting/marker-detail': () =>
@@ -480,6 +484,10 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/fcs\/pda\/cutting\/task\/([^/]+)$/,
     render: (match) => renderPdaCuttingTaskDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/fcs\/pda\/cutting\/unit\/([^/]+)\/([^/]+)$/,
+    render: (match) => renderPdaCuttingExecutionUnitPage(match[1], match[2]),
   },
   {
     pattern: /^\/fcs\/pda\/cutting\/pickup\/([^/]+)$/,

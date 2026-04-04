@@ -244,6 +244,7 @@ function main(): void {
   const handoverPage = read('src/pages/pda-handover.ts')
   const handoverSource = read('src/data/fcs/pda-handover-events.ts')
   const detailPage = read('src/pages/pda-cutting-task-detail.ts')
+  const spreadingSource = read('src/data/fcs/pda-cutting-execution-source.ts')
 
   ensure(receivePage.includes('listPdaBiddingTendersByFactoryId'), errors, 'pda-task-receive 未按工厂消费待报价 mock')
   ensure(receivePage.includes('listPdaQuotedTendersByFactoryId'), errors, 'pda-task-receive 未按工厂消费已报价 mock')
@@ -256,6 +257,10 @@ function main(): void {
   ensure(handoverPage.includes('getPdaPickupHeads'), errors, 'pda-handover 未消费待领料 mock')
   ensure(handoverPage.includes('getPdaHandoutHeads'), errors, 'pda-handover 未消费待交出 mock')
   ensure(handoverPage.includes('getPdaCompletedHeads'), errors, 'pda-handover 未消费已完成交接 mock')
+  ensure(spreadingSource.includes('spreadingTargets'), errors, 'PDA 裁片执行源缺少铺布对象投影')
+  ensure(spreadingSource.includes('sourceWritebackId'), errors, 'PDA 裁片执行源缺少铺布写回追溯字段')
+  ensure(spreadingSource.includes('handoverFlag'), errors, 'PDA 裁片执行源缺少换班标记字段')
+  ensure(spreadingSource.includes('enteredByAccountId'), errors, 'PDA 裁片执行源缺少录入账号字段')
   CUTTING_STATIC_HANDOVER_HEADS.forEach((head) => {
     ensure(handoverSource.includes(head.handoverId), errors, `交接 mock 缺少静态头：${head.handoverId}`)
   })

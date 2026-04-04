@@ -102,7 +102,7 @@ function renderMenuItem(item: MenuItem, state: AppState, collapsed: boolean): st
         data-tab-title="${escapeHtml(item.title)}"
         data-tab-href="${item.href ?? ''}"
       >
-        ${renderIcon(item.icon)}
+        <span class="flex h-4 w-4 shrink-0 items-center justify-center" data-menu-item-icon="${escapeHtml(item.title)}">${renderIcon(item.icon)}</span>
         ${
           collapsed
             ? ''
@@ -133,7 +133,7 @@ function renderMenuItem(item: MenuItem, state: AppState, collapsed: boolean): st
                       data-tab-title="${escapeHtml(child.title)}"
                       data-tab-href="${child.href ?? ''}"
                     >
-                      ${renderIcon(child.icon)}
+                      <span class="flex h-4 w-4 shrink-0 items-center justify-center" data-menu-item-icon="${escapeHtml(child.title)}">${renderIcon(child.icon)}</span>
                       ${escapeHtml(child.title)}
                     </button>
                   `
@@ -151,6 +151,7 @@ function renderMenuGroup(group: MenuGroup, index: number, state: AppState, colla
   const groupKey = `${index}-${group.title}`
   const expanded = state.expandedGroups[groupKey] ?? true
   const hasActive = group.items.some((item) => item.href === state.pathname || item.children?.some((child) => child.href === state.pathname))
+  const groupIcon = group.icon
 
   if (collapsed) {
     return `
@@ -167,15 +168,17 @@ function renderMenuGroup(group: MenuGroup, index: number, state: AppState, colla
     <div>
       <button
         class="${toClassName(
-          'flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors',
+          'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors',
           'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
           hasActive && 'text-primary',
         )}"
         data-action="toggle-menu-group"
         data-group-key="${groupKey}"
+        data-menu-group-header="${escapeHtml(group.title)}"
       >
-        <span>${escapeHtml(group.title)}</span>
-        ${renderIcon(expanded ? 'ChevronDown' : 'ChevronRight', 'h-3 w-3')}
+        <span class="flex h-5 w-5 items-center justify-center text-muted-foreground" data-menu-group-icon="${escapeHtml(group.title)}">${renderIcon(groupIcon, 'h-4 w-4')}</span>
+        <span class="flex-1 text-left">${escapeHtml(group.title)}</span>
+        ${renderIcon(expanded ? 'ChevronDown' : 'ChevronRight', 'h-4 w-4')}
       </button>
       ${expanded ? `<div class="mt-1 space-y-1">${group.items.map((item) => renderMenuItem(item, state, collapsed)).join('')}</div>` : ''}
     </div>

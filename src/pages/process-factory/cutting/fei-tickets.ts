@@ -230,6 +230,51 @@ function getCurrentDrillContext() {
   return readCuttingDrillContextFromLocation(getCurrentSearchParams())
 }
 
+function filterPrintableUnitsByDrillContext(units: PrintableUnit[], drillContext = getCurrentDrillContext()): PrintableUnit[] {
+  if (!drillContext) return units
+  return units.filter((unit) => {
+    if (drillContext.spreadingSessionId && !unit.sourceSpreadingSessionIds.includes(drillContext.spreadingSessionId)) return false
+    if (drillContext.spreadingSessionNo && !unit.sourceSpreadingSessionNos.includes(drillContext.spreadingSessionNo)) return false
+    if (drillContext.mergeBatchId && unit.batchId && unit.batchId !== drillContext.mergeBatchId) return false
+    if (drillContext.originalCutOrderId && !unit.sourceCutOrderIds.includes(drillContext.originalCutOrderId)) return false
+    return true
+  })
+}
+
+function resolvePreferredSpreadingTrace(unit: PrintableUnit, drillContext = getCurrentDrillContext()): { id: string; no: string } {
+  if (drillContext?.spreadingSessionId) {
+    const matchedIndex = unit.sourceSpreadingSessionIds.indexOf(drillContext.spreadingSessionId)
+    if (matchedIndex >= 0) {
+      return {
+        id: unit.sourceSpreadingSessionIds[matchedIndex] || '',
+        no: unit.sourceSpreadingSessionNos[matchedIndex] || '',
+      }
+    }
+  }
+
+  if (drillContext?.spreadingSessionNo) {
+    const matchedIndex = unit.sourceSpreadingSessionNos.indexOf(drillContext.spreadingSessionNo)
+    if (matchedIndex >= 0) {
+      return {
+        id: unit.sourceSpreadingSessionIds[matchedIndex] || '',
+        no: unit.sourceSpreadingSessionNos[matchedIndex] || '',
+      }
+    }
+  }
+
+  return {
+    id: unit.sourceSpreadingSessionIds[0] || '',
+    no: unit.sourceSpreadingSessionNos[0] || '',
+  }
+}
+
+function buildSpreadingTraceText(unit: PrintableUnit, drillContext = getCurrentDrillContext()): string {
+  const preferred = resolvePreferredSpreadingTrace(unit, drillContext)
+  const orderedNos = uniqueStrings([preferred.no, ...unit.sourceSpreadingSessionNos])
+  const orderedIds = uniqueStrings([preferred.id, ...unit.sourceSpreadingSessionIds])
+  return orderedNos.join(' / ') || orderedIds.join(' / ') || '当前为原始裁片单理论补足'
+}
+
 function renderReturnToSummaryButton(): string {
   if (!hasSummaryReturnContext(getCurrentDrillContext())) return ''
   return `<button type="button" data-cutting-fei-action="return-summary" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">返回裁剪总表</button>`
@@ -299,6 +344,18 @@ function getDataBundle(): FeiTicketsDataBundle {
   hydrateFilterStateFromRoute()
   hydrateOperationDraftFromRoute()
   const projection = buildFeiTicketPrintProjection()
+  const drillContext = getCurrentDrillContext()
+  const contextualUnits = filterPrintableUnitsByDrillContext(projection.printableViewModel.units, drillContext)
+  const contextualViewModel = {
+    units: contextualUnits,
+    unitsById: Object.fromEntries(contextualUnits.map((unit) => [unit.printableUnitId, unit])),
+    statusCounts: {
+      WAITING_PRINT: contextualUnits.filter((unit) => unit.printableUnitStatus === 'WAITING_PRINT').length,
+      PARTIAL_PRINTED: contextualUnits.filter((unit) => unit.printableUnitStatus === 'PARTIAL_PRINTED').length,
+      PRINTED: contextualUnits.filter((unit) => unit.printableUnitStatus === 'PRINTED').length,
+      NEED_REPRINT: contextualUnits.filter((unit) => unit.printableUnitStatus === 'NEED_REPRINT').length,
+    },
+  }
 
   return {
     originalRows: projection.originalRows,
@@ -308,14 +365,17 @@ function getDataBundle(): FeiTicketsDataBundle {
     ticketRecords: projection.ticketRecords,
     printJobs: projection.printJobs,
     transferBagStore: projection.transferBagStore,
-    printableViewModel: projection.printableViewModel,
+    printableViewModel: contextualViewModel,
     craftTraceProjection: projection.craftTraceProjection,
-    filteredUnits: filterPrintableUnits(projection.printableViewModel.units, state.filters),
+    filteredUnits: filterPrintableUnits(contextualUnits, state.filters),
   }
 }
 
 function buildPrintableUnitQuery(unit: PrintableUnit): Record<string, string | undefined> {
+  const preferredTrace = resolvePreferredSpreadingTrace(unit)
   return {
+    spreadingSessionId: preferredTrace.id || undefined,
+    spreadingSessionNo: preferredTrace.no || undefined,
     printableUnitId: unit.printableUnitId,
     printableUnitNo: unit.printableUnitNo,
     printableUnitType: unit.printableUnitType,
@@ -670,12 +730,14 @@ function renderListTable(bundle: FeiTicketsDataBundle): string {
         ${bundle.filteredUnits
           .map((unit) => {
             const statusMeta = getPrintableUnitStatusMeta(unit.printableUnitStatus)
+            const spreadingTraceText = buildSpreadingTraceText(unit)
             return `
               <tr class="hover:bg-slate-50/60">
                 <td class="px-3 py-2.5">
                   <button type="button" data-nav="${escapeHtml(buildActionHref('fei-ticket-detail', unit))}" class="text-left font-semibold text-blue-700 hover:underline" title="${escapeHtml(unit.printableUnitNo)}">
                     ${renderTruncatedText(unit.printableUnitNo, '—', 'max-w-[13rem]')}
                   </button>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(`来源铺布：${spreadingTraceText}`)}</p>
                 </td>
                 <td class="px-3 py-2.5 whitespace-nowrap">${renderUnitTypeBadge(unit.printableUnitType)}</td>
                 <td class="px-3 py-2.5 text-slate-700">${renderTruncatedText(unit.styleCode || '待补款号', '待补款号', 'max-w-[8rem]')}</td>
@@ -811,6 +873,10 @@ function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
           <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs text-slate-500">最近打印人</p>
             <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(unit.lastPrintedBy || '未打印')}</p>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3 md:col-span-2 xl:col-span-4">
+            <p class="text-xs text-slate-500">来源铺布</p>
+            <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(buildSpreadingTraceText(unit))}</p>
           </div>
         </div>
         ${renderDetailHeaderActions(unit)}

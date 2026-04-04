@@ -250,10 +250,31 @@ export function writePdaSpreadingToFcs(options: {
   operator: CuttingPdaWritebackOperator
   actionAt?: string
   source: CuttingPdaWritebackSource
+  spreadingSessionId?: string
+  markerId?: string
+  markerNo?: string
+  planUnitId: string
+  planUnits?: Array<{
+    planUnitId: string
+    sourceType: 'marker-line' | 'high-low-row' | 'exception'
+    sourceLineId: string
+    color: string
+    materialSku: string
+    garmentQtyPerUnit: number
+    plannedRepeatCount: number
+    lengthPerUnitM: number
+    plannedCutGarmentQty: number
+    plannedSpreadLengthM: number
+  }>
+  spreadingMode: 'NORMAL' | 'HIGH_LOW' | 'FOLD_NORMAL' | 'FOLD_HIGH_LOW'
+  recordType: '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
   fabricRollNo: string
+  rollWritebackItemId?: string
   operatorActionType?: string
   handoverFlag?: boolean
   handoverNote?: string
+  handoverToAccountId?: string
+  handoverToName?: string
   layerCount: number
   actualLength: number
   headLength: number
@@ -264,12 +285,15 @@ export function writePdaSpreadingToFcs(options: {
   const actionAt = options.actionAt || nowText()
   const writebackId = buildWritebackId('SPREADING_RECORD', options.identity, actionAt)
   if (issues.length) return buildFailure(issues, writebackId)
+  if (!options.planUnitId.trim()) return buildFailure(['当前铺布记录必须绑定计划单元。'], writebackId)
+  if (!options.fabricRollNo.trim()) return buildFailure(['当前铺布记录必须填写卷号。'], writebackId)
 
   const storage = getPdaCuttingWritebackStorage()
   if (!storage) return buildFailure(['当前环境不支持写入工艺工厂铺布 ledger。'], writebackId)
 
   const submittedAt = actionAt
   const compactTimestamp = submittedAt.replace(/[^0-9]/g, '').slice(0, 14)
+  const rollWritebackItemId = options.rollWritebackItemId || `${writebackId}-roll-1`
   const writeback = normalizePdaWritebackPayload({
     writebackId,
     writebackNo: `PDA-WB-${options.identity.taskNo}-${compactTimestamp}`,
@@ -277,7 +301,13 @@ export function writePdaSpreadingToFcs(options: {
     sourceAccountName: options.operator.operatorName,
     sourceDeviceId: options.source.sourceDeviceId,
     submittedAt,
+    occurredAt: submittedAt,
     contextType: options.identity.mergeBatchId || options.identity.mergeBatchNo ? 'merge-batch' : 'original-order',
+    spreadingSessionId: options.spreadingSessionId || '',
+    markerId: options.markerId || '',
+    markerNo: options.markerNo || '',
+    spreadingMode: options.spreadingMode,
+    recordType: options.recordType,
     originalCutOrderIds: [options.identity.originalCutOrderId],
     originalCutOrderNos: [options.identity.originalCutOrderNo],
     mergeBatchId: options.identity.mergeBatchId || '',
@@ -286,14 +316,21 @@ export function writePdaSpreadingToFcs(options: {
     styleCode: options.identity.styleCode || '',
     spuCode: options.identity.spuCode || '',
     note: options.note,
+    planUnits: Array.isArray(options.planUnits) ? options.planUnits : [],
     rollItems: [
       {
-        rollWritebackItemId: `${writebackId}-roll-1`,
+        rollWritebackItemId,
         writebackId,
+        planUnitId: options.planUnitId,
         rollNo: options.fabricRollNo,
-        materialSku: options.identity.materialSku,
+        materialSku: options.planUnits?.find((item) => item.planUnitId === options.planUnitId)?.materialSku || options.identity.materialSku,
+        color: options.planUnits?.find((item) => item.planUnitId === options.planUnitId)?.color || '',
         width: 0,
         labeledLength: options.actualLength,
+        actualSpreadLengthM: options.actualLength,
+        headLossM: options.headLength,
+        tailLossM: options.tailLength,
+        spreadLayerCount: options.layerCount,
         actualLength: options.actualLength,
         headLength: options.headLength,
         tailLength: options.tailLength,
@@ -306,12 +343,15 @@ export function writePdaSpreadingToFcs(options: {
       {
         operatorWritebackItemId: `${writebackId}-operator-1`,
         writebackId,
+        rollWritebackItemId,
         operatorAccountId: options.operator.operatorAccountId,
         operatorName: options.operator.operatorName,
         startAt: submittedAt,
         endAt: submittedAt,
         actionType: options.operatorActionType || '铺布录入',
         handoverFlag: Boolean(options.handoverFlag),
+        handoverToAccountId: options.handoverToAccountId || '',
+        handoverToName: options.handoverToName || '',
         note: [options.note, options.handoverNote].filter(Boolean).join('；'),
       },
     ],

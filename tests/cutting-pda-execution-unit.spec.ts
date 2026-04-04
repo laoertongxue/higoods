@@ -1,0 +1,65 @@
+import { expect, test } from '@playwright/test'
+
+import { listPdaCuttingTaskSourceRecords } from '../src/data/fcs/cutting/pda-cutting-task-source'
+import { getPdaCuttingTaskSnapshot } from '../src/data/fcs/pda-cutting-execution-source'
+import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
+
+const executionUnitTask = listPdaCuttingTaskSourceRecords()
+  .flatMap((record) =>
+    record.executionOrderIds.map((executionOrderId, index) => ({
+      taskId: record.taskId,
+      executionOrderId,
+      executionOrderNo: record.executionOrderNos[index] || executionOrderId,
+      detail: getPdaCuttingTaskSnapshot(record.taskId, executionOrderId),
+    })),
+  )
+  .find((item) =>
+    item.detail?.cutPieceOrders.some(
+      (line) => line.executionOrderId === item.executionOrderId && line.currentStepCode !== 'DONE',
+    ),
+  )
+
+test.skip(!executionUnitTask, '缺少可进入执行单元的 PDA 任务')
+
+test('PDA 执行单元页渲染 5 张步骤卡，当前步骤高亮且铺布入口显式可见', async ({ page }) => {
+  const errors = collectPageErrors(page)
+  const task = executionUnitTask!
+  await page.setViewportSize({ width: 360, height: 800 })
+
+  await page.goto(`/fcs/pda/cutting/unit/${task.taskId}/${task.executionOrderId}`)
+
+  await expect(page.locator('h1', { hasText: '执行单元' })).toBeVisible()
+  await expect(page.locator('[data-pda-cutting-execution-unit-card="object"]')).toBeVisible()
+  await expect(page.locator('[data-pda-cutting-unit-current-step]')).toBeVisible()
+
+  const stepCodes = ['PICKUP', 'SPREADING', 'REPLENISHMENT', 'HANDOVER', 'INBOUND']
+  await expect(page.locator('[data-pda-cutting-unit-step]')).toHaveCount(5)
+  for (const code of stepCodes) {
+    await expect(page.locator(`[data-pda-cutting-unit-step="${code}"]`)).toBeVisible()
+  }
+
+  const spreadingButton = page.locator('[data-pda-cutting-unit-step="SPREADING"]')
+  const inViewport = await spreadingButton.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return rect.top >= 0 && rect.bottom <= window.innerHeight
+  })
+  expect(inViewport).toBeTruthy()
+  await expect(page.locator('[data-pda-cutting-unit-step="SPREADING"]')).toContainText('铺布')
+  await expect(page.locator('[data-step-status="current"]')).toHaveCount(1)
+  const tripleCardNestCount = await page.locator('[data-pda-cutting-execution-unit-root]').evaluate((root) => {
+    const isCard = (node: Element) => node.classList.contains('border') && node.classList.contains('bg-card')
+    return Array.from(root.querySelectorAll('*')).filter((node) => {
+      if (!isCard(node)) return false
+      const second = Array.from(node.children).find((child) => isCard(child))
+      if (!second) return false
+      return Array.from(second.children).some((child) => isCard(child))
+    }).length
+  })
+  expect(tripleCardNestCount).toBe(0)
+
+  await page.locator('[data-pda-cutting-unit-step="SPREADING"]').click()
+  await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/spreading/${task.taskId}\\?`))
+  await expect(page.locator('h1', { hasText: '铺布录入' })).toBeVisible()
+
+  await expectNoPageErrors(errors)
+})

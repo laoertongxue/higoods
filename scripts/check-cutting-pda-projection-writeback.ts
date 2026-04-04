@@ -80,6 +80,20 @@ function main(): void {
   checkContains('src/pages/pda-cutting-inbound.ts', "from './pda-cutting-inbound-projection'", errors, 'PDA 入仓页缺少正式 projection')
   checkContains('src/pages/pda-cutting-handover.ts', "from './pda-cutting-handover-projection'", errors, 'PDA 交接页缺少正式 projection')
   checkContains('src/pages/pda-cutting-replenishment-feedback.ts', "from './pda-cutting-replenishment-projection'", errors, 'PDA 补料反馈页缺少正式 projection')
+  checkContains('src/pages/pda-cutting-spreading.ts', 'selectedTargetKey', errors, 'PDA 铺布页缺少铺布对象选择步骤')
+  checkContains('src/pages/pda-cutting-spreading.ts', 'data-pda-cut-spreading-field="planUnitId"', errors, 'PDA 铺布页缺少计划单元必选字段')
+  checkContains('src/pages/pda-cutting-spreading.ts', 'reuse-last-layer-count', errors, 'PDA 铺布页缺少沿用上次层数按钮')
+  checkContains('src/pages/pda-cutting-spreading.ts', 'reuse-last-head-tail', errors, 'PDA 铺布页缺少沿用上次头尾按钮')
+  checkAbsent('src/pages/pda-cutting-spreading.ts', 'restore-last-values', errors, 'PDA 铺布页仍保留旧的泛化复用按钮')
+  checkContains('src/pages/pda-cutting-spreading.ts', 'handoverToAccountId', errors, 'PDA 铺布页缺少换班接手人字段')
+  checkAbsent('src/pages/pda-cutting-spreading.ts', 'data-pda-cut-spreading-field="enteredBy"', errors, 'PDA 铺布页仍允许 enteredBy 手填')
+  checkContains('src/pages/pda-cutting-spreading.ts', '继续当前铺布', errors, 'PDA 铺布页缺少普通工人的 session 执行文案')
+  checkContains('src/pages/pda-cutting-spreading.ts', '按唛架开始铺布', errors, 'PDA 铺布页缺少普通工人的 marker 执行文案')
+  checkContains('src/data/fcs/pda-cutting-execution-source.ts', "'manual-entry'", errors, 'PDA 铺布目标缺少异常补录兜底类型')
+  checkContains('src/data/fcs/pda-cutting-execution-source.ts', 'canAccessManualSpreadingEntry', errors, 'PDA 铺布目标缺少异常补录权限收口')
+  checkAbsent('src/data/fcs/pda-cutting-execution-source.ts', "targetType: 'context'", errors, 'PDA 铺布目标仍暴露 context-only 创建')
+  checkContains('src/data/fcs/pda-cutting-execution-source.ts', 'FOLD_NORMAL', errors, 'PDA 铺布模式未补齐 FOLD_NORMAL')
+  checkContains('src/data/fcs/pda-cutting-execution-source.ts', 'FOLD_HIGH_LOW', errors, 'PDA 铺布模式未补齐 FOLD_HIGH_LOW')
 
   const bridgeTargets = [
     ['src/pages/pda-cutting-pickup.ts', 'writePdaPickupToFcs'],
@@ -141,6 +155,27 @@ function main(): void {
   checkContains('src/data/fcs/pda-cutting-writeback-inputs.ts', 'buildPdaCuttingWritebackId', errors, '统一写回 ID 生成器缺失')
   checkContains('src/domain/cutting-pda-writeback/bridge.ts', 'validateIdentity', errors, '写回桥 identity 校验缺失')
   checkContains('src/domain/cutting-pda-writeback/bridge.ts', 'executionOrderId', errors, '写回桥未校验正式执行对象')
+  ;[
+    'spreadingSessionId',
+    'markerId',
+    'markerNo',
+    'planUnitId',
+    'spreadingMode',
+    'recordType',
+    'occurredAt',
+    'rollWritebackItemId',
+    'actualSpreadLengthM',
+    'headLossM',
+    'tailLossM',
+    'spreadLayerCount',
+    'handoverToAccountId',
+    'handoverToName',
+  ].forEach((field) => {
+    checkContains('src/domain/cutting-pda-writeback/bridge.ts', field, errors, `PDA 铺布桥缺少字段：${field}`)
+    checkContains('src/data/fcs/cutting/pda-spreading-writeback.ts', field, errors, `PDA 铺布写回模型缺少字段：${field}`)
+  })
+  checkContains('src/data/fcs/cutting/pda-spreading-writeback.ts', 'findTargetSession', errors, 'PDA 铺布写回缺少 session 优先级匹配函数')
+  checkContains('src/data/fcs/cutting/pda-spreading-writeback.ts', 'rollRecordId', errors, 'PDA 铺布写回未把操作人绑定到具体卷')
 
   if (errors.length) {
     console.error('check-cutting-pda-projection-writeback failed:')

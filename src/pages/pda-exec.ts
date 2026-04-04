@@ -325,7 +325,7 @@ function renderNotStartedCard(task: ProcessTask): string {
         : ''
 
   return `
-    <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
+    <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
@@ -339,8 +339,6 @@ function renderNotStartedCard(task: ProcessTask): string {
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">拆分组</div>
-          <div class="font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
           ${
@@ -439,7 +437,7 @@ function renderInProgressCard(task: ProcessTask): string {
     : ''
 
   return `
-    <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
+    <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
@@ -456,8 +454,6 @@ function renderInProgressCard(task: ProcessTask): string {
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">拆分组</div>
-          <div class="font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
 
@@ -550,7 +546,7 @@ function renderBlockedCard(task: ProcessTask): string {
   const pauseReason = (task as ProcessTask & { pauseReasonLabel?: string | null }).pauseReasonLabel
   const pauseAt = (task as ProcessTask & { pauseReportedAt?: string | null }).pauseReportedAt
   return `
-    <article class="cursor-pointer rounded-lg border border-red-200 transition-colors hover:border-red-400" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
+    <article class="cursor-pointer rounded-lg border border-red-200 transition-colors hover:border-red-400" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
@@ -564,8 +560,6 @@ function renderBlockedCard(task: ProcessTask): string {
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">拆分组</div>
-          <div class="font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</div>
           ${
             (task as ProcessTask & { taskDeadline?: string }).taskDeadline
               ? `
@@ -607,7 +601,7 @@ function renderDoneCard(task: ProcessTask): string {
   const handoutLabel = handoutStatus === 'HANDED_OUT' ? '已交出' : '待交出'
 
   return `
-    <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
+    <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
       <div class="space-y-2.5 p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-mono text-sm font-semibold">${escapeHtml(getTaskDisplayNo(task))}</span>
@@ -621,8 +615,6 @@ function renderDoneCard(task: ProcessTask): string {
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">拆分组</div>
-          <div class="font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</div>
           <div class="text-muted-foreground">数量</div>
           <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
 
@@ -708,7 +700,7 @@ export function renderPdaExecPage(): string {
           : ''
 
   const content = `
-    <div class="flex min-h-[760px] flex-col bg-background">
+    <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
       <header class="sticky top-0 z-30 space-y-4 border-b bg-background p-4">
         <h1 class="text-lg font-semibold">执行</h1>
 
@@ -746,7 +738,7 @@ export function renderPdaExecPage(): string {
         </div>
       </header>
 
-      <div class="sticky top-[182px] z-20 grid grid-cols-4 border-b bg-background">
+      <div class="sticky top-[182px] z-20 grid grid-cols-4 border-b bg-background" data-testid="pda-exec-tabs">
         ${TAB_CONFIG.map((tab) => {
           const active = tab.key === state.activeTab
           return `
@@ -764,7 +756,9 @@ export function renderPdaExecPage(): string {
         }).join('')}
       </div>
 
-      <div class="flex-1 space-y-3 p-4">
+      <div class="h-3 shrink-0 bg-background" data-testid="pda-exec-list-gap"></div>
+
+      <div class="flex-1 space-y-3 px-4 pb-4" data-testid="pda-exec-card-list">
         ${
           filteredTasks.length === 0
             ? `<div class="py-10 text-center text-sm text-muted-foreground">${

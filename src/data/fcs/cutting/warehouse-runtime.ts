@@ -526,3 +526,37 @@ export function cloneWarehouseManagementData() {
     alerts: warehouseAlertRecords.map((item) => ({ ...item })),
   }
 }
+
+export interface WarehouseRuntimeTraceMatrixRow {
+  warehouseRecordId: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
+  mergeBatchId: string
+  mergeBatchNo: string
+  materialSku: string
+  cutPieceOrderNo: string
+  inboundStatus: CutPieceInboundStatus
+  handoverStatus: CutPieceHandoverStatus
+}
+
+export function buildWarehouseRuntimeTraceMatrix(
+  records: CutPieceWarehouseRecord[] = listFormalCutPieceWarehouseRecords(),
+): WarehouseRuntimeTraceMatrixRow[] {
+  return records
+    .map((record) => ({
+      warehouseRecordId: record.id,
+      originalCutOrderId: record.originalCutOrderId,
+      originalCutOrderNo: record.originalCutOrderNo,
+      mergeBatchId: record.mergeBatchId,
+      mergeBatchNo: record.mergeBatchNo,
+      materialSku: record.materialSku,
+      cutPieceOrderNo: record.cutPieceOrderNo,
+      inboundStatus: record.inboundStatus,
+      handoverStatus: record.handoverStatus,
+    }))
+    .sort(
+      (left, right) =>
+        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        || left.warehouseRecordId.localeCompare(right.warehouseRecordId, 'zh-CN'),
+    )
+}

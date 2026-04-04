@@ -40,6 +40,11 @@ export interface TransferBagSeedMergeBatchLike {
 export interface TransferBagSeedTicketLike {
   feiTicketId: string
   feiTicketNo: string
+  sourceSpreadingSessionId?: string
+  sourceSpreadingSessionNo?: string
+  sourceMarkerId?: string
+  sourceMarkerNo?: string
+  sourceWritebackId?: string
   originalCutOrderId: string
   originalCutOrderNo: string
   productionOrderNo: string
@@ -119,6 +124,11 @@ export interface CarrierCycleItemBinding {
   carrierCode: string
   feiTicketId: string
   feiTicketNo: string
+  sourceSpreadingSessionId?: string
+  sourceSpreadingSessionNo?: string
+  sourceMarkerId?: string
+  sourceMarkerNo?: string
+  sourceWritebackId?: string
   originalCutOrderId: string
   originalCutOrderNo: string
   productionOrderNo: string
@@ -439,6 +449,11 @@ export function createCarrierCycleBinding(options: {
     carrierCode: options.carrier.carrierCode,
     feiTicketId: normalizedTicket.feiTicketId,
     feiTicketNo: normalizedTicket.feiTicketNo,
+    sourceSpreadingSessionId: options.ticket.sourceSpreadingSessionId || '',
+    sourceSpreadingSessionNo: options.ticket.sourceSpreadingSessionNo || '',
+    sourceMarkerId: options.ticket.sourceMarkerId || '',
+    sourceMarkerNo: options.ticket.sourceMarkerNo || '',
+    sourceWritebackId: options.ticket.sourceWritebackId || '',
     originalCutOrderId: options.ticket.originalCutOrderId,
     originalCutOrderNo: options.ticket.originalCutOrderNo,
     productionOrderNo: options.ticket.productionOrderNo,
@@ -1474,6 +1489,40 @@ export function deserializeTransferBagSelectedTicketIds(raw: string | null): str
 
 export function serializeTransferBagSelectedTicketIds(ids: string[]): string {
   return JSON.stringify(ids)
+}
+
+export interface TransferBagRuntimeTraceMatrixRow {
+  usageId: string
+  bagId: string
+  feiTicketId: string
+  sourceSpreadingSessionId: string
+  sourceSpreadingSessionNo: string
+  sourceMarkerId: string
+  sourceMarkerNo: string
+  sourceWritebackId: string
+  originalCutOrderId: string
+  mergeBatchNo: string
+}
+
+export function buildTransferBagRuntimeTraceMatrix(store: TransferBagRuntimeStore): TransferBagRuntimeTraceMatrixRow[] {
+  return store.bindings
+    .map((binding) => ({
+      usageId: binding.cycleId || '',
+      bagId: binding.carrierId || '',
+      feiTicketId: binding.feiTicketId,
+      sourceSpreadingSessionId: String(binding.sourceSpreadingSessionId || ''),
+      sourceSpreadingSessionNo: String(binding.sourceSpreadingSessionNo || ''),
+      sourceMarkerId: String(binding.sourceMarkerId || ''),
+      sourceMarkerNo: String(binding.sourceMarkerNo || ''),
+      sourceWritebackId: String(binding.sourceWritebackId || ''),
+      originalCutOrderId: binding.originalCutOrderId,
+      mergeBatchNo: binding.mergeBatchNo,
+    }))
+    .sort(
+      (left, right) =>
+        left.usageId.localeCompare(right.usageId, 'zh-CN')
+        || left.feiTicketId.localeCompare(right.feiTicketId, 'zh-CN'),
+    )
 }
 
 export function parseCarrierQrValue(value: string): {

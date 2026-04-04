@@ -49,3 +49,29 @@ test('周转口袋流转列表页收简为 4 张联动统计卡并支持分页',
 
   await expectNoPageErrors(errors)
 })
+
+test('待装袋铺布 session 可进入装袋页，并按来源铺布 session 预筛', async ({ page }) => {
+  const errors = collectPageErrors(page)
+
+  await page.goto('/fcs/craft/cutting/spreading-list')
+  await page
+    .getByTestId('cutting-spreading-stage-tabs')
+    .getByRole('button', { name: /^待装袋（/ })
+    .click()
+
+  const stageRow = page.getByTestId('cutting-spreading-list-table').locator('tbody tr').first()
+  await expect(stageRow).toBeVisible()
+
+  await stageRow.getByRole('button', { name: '去装袋' }).click()
+  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/transfer-bag/)
+  await expect(page).toHaveURL(/spreadingSessionId=/)
+  const currentUrl = new URL(page.url())
+  const expectedSessionNo = currentUrl.searchParams.get('spreadingSessionNo') || ''
+  const expectedSessionId = currentUrl.searchParams.get('spreadingSessionId') || ''
+  expect(expectedSessionNo || expectedSessionId).not.toBe('')
+  await expect(page.getByRole('heading', { name: '周转口袋流转', exact: true })).toBeVisible()
+  await expect(page.locator('body')).toContainText('铺布：')
+  await expect(page.locator('body')).toContainText(expectedSessionNo || expectedSessionId)
+
+  await expectNoPageErrors(errors)
+})

@@ -3,6 +3,11 @@
 import { renderDrawer as uiDrawer } from '../../../components/ui'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
+import {
+  CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
+  deserializeReplenishmentPendingPrepStorage,
+  type ReplenishmentPendingPrepFollowupRecord,
+} from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
 import type { CuttingCanonicalPageKey } from './meta'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
 import {
@@ -117,6 +122,35 @@ function resetPagination(): void {
 
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
+}
+
+function readPendingPrepFollowups(): ReplenishmentPendingPrepFollowupRecord[] {
+  return deserializeReplenishmentPendingPrepStorage(
+    localStorage.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY),
+  )
+}
+
+function getPendingPrepFollowupsForRow(row: ProductionProgressRow): ReplenishmentPendingPrepFollowupRecord[] {
+  const originalOrderIdSet = new Set(
+    row.sourceOrderProgressLines
+      .map((item) => item.originalCutOrderId)
+      .filter((value): value is string => Boolean(value)),
+  )
+  const originalOrderNoSet = new Set(
+    row.sourceOrderProgressLines
+      .map((item) => item.originalCutOrderNo)
+      .filter((value): value is string => Boolean(value)),
+  )
+
+  return readPendingPrepFollowups().filter(
+    (item) => originalOrderIdSet.has(item.originalCutOrderId) || originalOrderNoSet.has(item.originalCutOrderNo),
+  )
+}
+
+function buildPendingPrepSummaryText(row: ProductionProgressRow): string {
+  const followups = getPendingPrepFollowupsForRow(row)
+  if (!followups.length) return '当前无补料待配料'
+  return `补料待配料 ${followups.length} 条`
 }
 
 function buildRouteWithQuery(key: CuttingCanonicalPageKey, payload?: Record<string, string | undefined>): string {
@@ -403,13 +437,15 @@ function resolveGapRowOriginalCutOrderNo(
 }
 
 function renderRiskCell(row: ProductionProgressRow): string {
-  if (!row.riskTags.length) {
+  const pendingPrepFollowups = getPendingPrepFollowupsForRow(row)
+  if (!row.riskTags.length && !pendingPrepFollowups.length) {
     return '<span class="text-xs text-muted-foreground">无风险</span>'
   }
 
   return `
     <div class="flex flex-wrap gap-1">
       ${row.riskTags.map((riskTag) => renderBadge(riskTag.label, riskTag.className)).join('')}
+      ${pendingPrepFollowups.length ? renderBadge(`补料待配料 ${pendingPrepFollowups.length} 条`, 'bg-amber-100 text-amber-700') : ''}
     </div>
   `
 }
@@ -783,7 +819,10 @@ function renderTable(rows: ProductionProgressRow[]): string {
                             <td class="px-4 py-3">${renderPartDifferenceCell(row)}</td>
                             <td class="px-4 py-3">${renderRiskCell(row)}</td>
                             <td class="px-4 py-3">
-                              <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="open-detail" data-record-id="${row.id}">查看详情</button>
+                              <div class="flex flex-wrap gap-2">
+                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="open-detail" data-record-id="${row.id}">查看详情</button>
+                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="go-marker-spreading" data-record-id="${row.id}">去铺布</button>
+                              </div>
                             </td>
                           </tr>
                         `,
@@ -823,6 +862,7 @@ function renderDetailDrawer(): string {
         ${renderDetailSummaryItem('计划发货日期', row.plannedShipDateDisplay)}
         ${renderDetailSummaryItem('紧急程度', `${row.urgency.label} · ${row.shipCountdownText}`)}
         ${renderDetailSummaryItem('原始裁片单数', formatQty(row.originalCutOrderCount))}
+        ${renderDetailSummaryItem('补料待配料', buildPendingPrepSummaryText(row))}
       </section>
 
       ${renderMaterialProgressSection(row)}

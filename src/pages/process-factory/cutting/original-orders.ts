@@ -4,6 +4,11 @@ import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import {
+  CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
+  deserializeReplenishmentPendingPrepStorage,
+  type ReplenishmentPendingPrepFollowupRecord,
+} from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
+import {
   buildPrintableUnitViewModel,
   getPrintableUnitStatusMeta,
   type FeiTicketLabelRecord,
@@ -208,6 +213,32 @@ function formatDate(value: string): string {
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value)
+}
+
+function readPendingPrepFollowups(): ReplenishmentPendingPrepFollowupRecord[] {
+  return deserializeReplenishmentPendingPrepStorage(
+    localStorage.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY),
+  )
+}
+
+function getPendingPrepFollowupsForOriginalOrder(row: Pick<OriginalCutOrderRow, 'originalCutOrderId' | 'originalCutOrderNo'>) {
+  return readPendingPrepFollowups().filter(
+    (item) =>
+      item.originalCutOrderId === row.originalCutOrderId ||
+      item.originalCutOrderNo === row.originalCutOrderNo,
+  )
+}
+
+function renderPendingPrepBadge(row: Pick<OriginalCutOrderRow, 'originalCutOrderId' | 'originalCutOrderNo'>): string {
+  const pendingPrepItems = getPendingPrepFollowupsForOriginalOrder(row)
+  if (!pendingPrepItems.length) return ''
+  return renderBadge(`补料待配料 ${pendingPrepItems.length} 条`, 'bg-amber-100 text-amber-700')
+}
+
+function buildPendingPrepSummaryText(row: Pick<OriginalCutOrderRow, 'originalCutOrderId' | 'originalCutOrderNo'>): string {
+  const pendingPrepItems = getPendingPrepFollowupsForOriginalOrder(row)
+  if (!pendingPrepItems.length) return '当前无补料待配料'
+  return `补料待配料 ${pendingPrepItems.length} 条，待仓库配料领料继续处理`
 }
 
 function getFeiTicketRecords(): FeiTicketLabelRecord[] {
@@ -634,7 +665,10 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                               ${renderBatchSummary(row)}
                             </td>
                             <td class="px-4 py-3 align-top">
-                              ${renderRiskTags(row.riskTags)}
+                              <div class="space-y-1">
+                                ${renderRiskTags(row.riskTags)}
+                                ${renderPendingPrepBadge(row)}
+                              </div>
                             </td>
                             <td class="px-4 py-3 align-top">
                               <div class="flex flex-wrap gap-2">
@@ -866,7 +900,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       )}
 
       ${renderDetailSection(
-        '唛架铺布摘要',
+        '铺布摘要',
         `
           <div class="space-y-3">
             ${renderInfoGrid([
@@ -882,14 +916,16 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '人工调价', value: markerSpreadingCounts.hasManualAdjustedAmount ? '存在人工调整金额' : '当前未人工调整' },
               { label: '补料预警', value: markerSpreadingCounts.hasReplenishmentWarning ? `有预警（${markerSpreadingCounts.warningLevelLabel}）` : '当前无明显预警' },
               { label: '建议动作', value: markerSpreadingCounts.suggestedAction },
+              { label: '补料待配料', value: buildPendingPrepSummaryText(row) },
             ])}
             <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
-              <p>完成铺布后，原始裁片单会在这里直接看到“铺布完成 / 待补料确认”等联动结果。</p>
-              <p class="mt-1">当前已可查看铺布记录数、卷记录数、人员记录数、最近铺布记录与补料预警摘要，并继续跳转到铺布页或补料页处理。</p>
+              <p>完成铺布后，原始裁片单会在这里直接看到“铺布完成 / 待补料确认 / 补料待配料”等联动结果。</p>
+              <p class="mt-1">当前已可查看铺布记录数、卷记录数、人员记录数、最近铺布记录、补料预警摘要，并继续跳转到铺布页、补料页或仓库配料领料处理。</p>
             </div>
             <div class="flex flex-wrap gap-2">
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
             </div>
           </div>
         `,
@@ -990,12 +1026,15 @@ function renderPage(): string {
 
 function navigateToRecordTarget(
   recordId: string | undefined,
-  target: keyof OriginalCutOrderRow['navigationPayload'] | 'markerPlan',
+  target: keyof OriginalCutOrderRow['navigationPayload'] | 'markerPlan' | 'spreadingList',
 ): boolean {
   if (!recordId) return false
   const row = getViewModel().rowsById[recordId]
   if (!row) return false
-  const payload = target === 'markerPlan' ? row.navigationPayload.markerSpreading : row.navigationPayload[target]
+  const payload =
+    target === 'markerPlan' || target === 'spreadingList'
+      ? row.navigationPayload.markerSpreading
+      : row.navigationPayload[target]
   const context = normalizeLegacyCuttingPayload(payload, 'original-orders', {
     productionOrderId: row.productionOrderId,
     productionOrderNo: row.productionOrderNo,
@@ -1013,6 +1052,8 @@ function navigateToRecordTarget(
         ? 'originalOrders'
         : target === 'markerPlan'
           ? 'markerPlan'
+          : target === 'spreadingList'
+            ? 'spreadingList'
           : (target as CuttingNavigationTarget),
       context,
     ),
@@ -1104,11 +1145,11 @@ export function handleCraftCuttingOriginalOrdersEvent(target: Element): boolean 
   }
 
   if (action === 'go-marker-spreading') {
-    return navigateToRecordTarget(actionNode.dataset.recordId, 'markerSpreading')
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'spreadingList')
   }
 
   if (action === 'go-spreading') {
-    return navigateToRecordTarget(actionNode.dataset.recordId, 'markerSpreading')
+    return navigateToRecordTarget(actionNode.dataset.recordId, 'spreadingList')
   }
 
   if (action === 'go-fei-tickets') {

@@ -13,15 +13,16 @@ export type PdaCuttingNavPageKey =
   | 'task-list'
   | 'task-receive-detail'
   | 'cutting-task-detail'
+  | 'execution-unit'
   | 'pickup'
   | 'spreading'
   | 'inbound'
   | 'handover'
   | 'replenishment-feedback'
 
-export type PdaCuttingBackMode = 'list' | 'receive-detail' | 'task-detail' | 'exec'
+export type PdaCuttingBackMode = 'list' | 'receive-detail' | 'task-detail' | 'execution-unit' | 'exec'
 
-export type PdaCuttingActionKey = Exclude<PdaCuttingRouteKey, 'task'>
+export type PdaCuttingActionKey = Exclude<PdaCuttingRouteKey, 'task' | 'unit'>
 
 export interface PdaCuttingNavContext {
   sourcePageKey?: PdaCuttingNavPageKey
@@ -248,6 +249,33 @@ export function buildPdaCuttingExecutionNavHref(
   })
 }
 
+export function buildPdaCuttingExecutionUnitNavHref(
+  taskId: string,
+  executionOrderId: string,
+  context: Omit<PdaCuttingNavContext, 'taskId'> = {},
+): string {
+  const baseHref = buildPdaCuttingRoute(taskId, 'unit', {
+    executionOrderId,
+    executionOrderNo: resolvePdaExecutionOrderNoWithLegacy(context),
+    originalCutOrderId: context.originalCutOrderId,
+    originalCutOrderNo: context.originalCutOrderNo,
+    mergeBatchId: context.mergeBatchId,
+    mergeBatchNo: context.mergeBatchNo,
+    materialSku: context.materialSku,
+    returnTo: context.returnTo,
+  })
+
+  return appendPdaCuttingNavContext(baseHref, {
+    ...context,
+    sourcePageKey: context.sourcePageKey ?? 'cutting-task-detail',
+    taskId,
+    executionOrderId,
+    focusTaskId: context.focusTaskId ?? taskId,
+    focusExecutionOrderId: context.focusExecutionOrderId ?? executionOrderId,
+    focusExecutionOrderNo: context.focusExecutionOrderNo ?? context.executionOrderNo,
+  })
+}
+
 export function buildPdaCuttingDirectExecEntryHref(
   taskId: string,
   context: Omit<PdaCuttingNavContext, 'taskId'> = {},
@@ -299,6 +327,42 @@ export function buildPdaCuttingCompletedReturnHref(
   context: PdaCuttingNavContext,
   actionKey: PdaCuttingActionKey,
 ): string {
+  const returnTo = context.returnTo?.trim()
+  const shouldReturnToExecutionUnit =
+    context.sourcePageKey === 'execution-unit'
+    || Boolean(returnTo && returnTo.startsWith('/fcs/pda/cutting/unit/'))
+
+  if (shouldReturnToExecutionUnit && executionOrderId) {
+    const baseHref = returnTo && returnTo.startsWith('/fcs/pda/cutting/unit/')
+      ? returnTo
+      : buildPdaCuttingRoute(taskId, 'unit', {
+          executionOrderId,
+          executionOrderNo: executionOrderNo ?? undefined,
+          originalCutOrderId: context.originalCutOrderId,
+          originalCutOrderNo: context.originalCutOrderNo,
+          mergeBatchId: context.mergeBatchId,
+          mergeBatchNo: context.mergeBatchNo,
+          materialSku: context.materialSku,
+          returnTo: context.returnTo,
+        })
+
+    return appendPdaCuttingNavContext(baseHref, {
+      ...context,
+      sourcePageKey: 'execution-unit',
+      taskId,
+      executionOrderId,
+      executionOrderNo: executionOrderNo ?? undefined,
+      focusTaskId: context.focusTaskId ?? taskId,
+      focusExecutionOrderId: executionOrderId,
+      focusExecutionOrderNo: executionOrderNo ?? undefined,
+      focusActionKey: actionKey,
+      justCompletedAction: actionKey,
+      justSaved: true,
+      autoFocus: true,
+      highlightCutPieceOrder: true,
+    })
+  }
+
   return buildPdaCuttingTaskDetailFocusHref(taskId, {
     executionOrderId: executionOrderId ?? undefined,
     executionOrderNo: executionOrderNo ?? undefined,

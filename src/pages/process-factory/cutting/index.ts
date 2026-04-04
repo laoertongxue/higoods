@@ -12,6 +12,8 @@ export {
   renderCraftCuttingMarkerPlanDetailPage,
 } from './marker-plan'
 export {
+  renderCraftCuttingSpreadingListPage,
+  renderCraftCuttingSpreadingCreatePage,
   renderCraftCuttingMarkerSpreadingPage,
   renderCraftCuttingMarkerDetailPage,
   renderCraftCuttingMarkerEditPage,

@@ -95,6 +95,9 @@ function assertCarrierCutover(): void {
   const transferBagsPage = readRepoFile('src/pages/process-factory/cutting/transfer-bags.ts')
   const transferBagsModel = readRepoFile('src/pages/process-factory/cutting/transfer-bags-model.ts')
   const transferBagReturnModel = readRepoFile('src/pages/process-factory/cutting/transfer-bag-return-model.ts')
+  const warehouseModel = readRepoFile('src/pages/process-factory/cutting/cut-piece-warehouse-model.ts')
+  const traceabilityHelpers = readRepoFile('src/pages/process-factory/cutting/traceability-projection-helpers.ts')
+  const spreadingModel = readRepoFile('src/pages/process-factory/cutting/marker-spreading-model.ts')
 
   assertIncludes(transferBagsPage, "from './transfer-bags-projection'", 'transfer-bags.ts 应消费正式载具 projection')
   assertIncludes(transferBagsPage, 'resolveCarrierScanInput', 'transfer-bags.ts 应使用正式父码解析')
@@ -102,6 +105,9 @@ function assertCarrierCutover(): void {
   assertIncludes(transferBagsPage, '步骤 1：扫周转口袋码', '装袋流程必须先扫口袋码')
   assertIncludes(transferBagsPage, '步骤 2：扫菲票码', '装袋流程必须再扫菲票码')
   assertIncludes(transferBagsPage, '必须先扫口袋码，再扫菲票子码', '装袋流程必须明确 bag-first 约束')
+  assertIncludes(transferBagsPage, '来源铺布 session', '装袋详情必须展示来源铺布 session')
+  assertIncludes(transferBagsPage, 'PDA回写流水', '装袋详情必须展示 PDA 回写流水')
+  assertIncludes(transferBagsPage, 'bag-first 规则', '装袋详情必须展示 bag-first 规则')
   assertIncludes(transferBagsPage, 'ticketId', 'transfer-bags.ts 应支持 ticketId 正式锚点')
   assertIncludes(transferBagsPage, 'bagId', 'transfer-bags.ts 应支持 bagId 正式锚点')
   assertIncludes(transferBagsPage, 'usageId', 'transfer-bags.ts 应支持 usageId / cycle 锚点')
@@ -115,7 +121,17 @@ function assertCarrierCutover(): void {
   assertIncludes(transferBagsModel, 'cycleId', 'transfer-bags-model.ts 应显式承接正式 cycleId')
   assertIncludes(transferBagsModel, 'feiTicketId', 'transfer-bags-model.ts 应显式承接正式 feiTicketId')
   assertIncludes(transferBagsModel, 'buildTransferBagNavigationPayload', 'transfer-bags-model.ts 应统一 drill-down payload')
+  assertIncludes(transferBagsModel, 'spreadingSessionId', 'transfer-bags-model.ts 应显式承接正式 spreadingSessionId')
+  assertIncludes(transferBagsModel, 'spreadingSourceWritebackId', 'transfer-bags-model.ts 应显式承接正式 sourceWritebackId')
+  assertIncludes(transferBagsModel, 'bagFirstRuleLabel', 'transfer-bags-model.ts 应显式承接 bag-first 规则')
   assertIncludes(transferBagReturnModel, 'buildCuttingTraceabilityId', 'transfer-bag-return-model.ts 应使用统一 traceability id')
+  assertIncludes(warehouseModel, 'spreadingSessionId', 'cut-piece-warehouse-model.ts 应显式承接正式 spreadingSessionId')
+  assertIncludes(warehouseModel, 'sourceWritebackId', 'cut-piece-warehouse-model.ts 应显式承接正式 sourceWritebackId')
+  assertIncludes(warehouseModel, 'bagUsageId', 'cut-piece-warehouse-model.ts 应显式承接正式 bagUsageId')
+  assertIncludes(warehouseModel, 'bagFirstSatisfied', 'cut-piece-warehouse-model.ts 应显式承接 bag-first 满足状态')
+  assertIncludes(traceabilityHelpers, 'buildSpreadingBagWarehouseTraceProjection', 'traceability helper 必须支持铺布->装袋->入仓投影')
+  assertIncludes(traceabilityHelpers, 'spreadingTraceAnchors', 'traceability helper 必须建立铺布 trace anchors')
+  assertIncludes(spreadingModel, 'buildSpreadingTraceAnchors', 'marker-spreading-model.ts 必须输出铺布正式 trace anchor')
 }
 
 function assertCraftTraceCutover(): void {
@@ -152,10 +168,11 @@ function main(): void {
         菲票正式source已建立: '通过',
         二维码payload已统一: '通过',
         载具周期与父子映射已正式化: '通过',
-        装袋扫码顺序已收口为先父后子: '通过',
-        工艺扫码顺序校验已接入正式payload: '通过',
-        页面主锚点已切正式对象字段: '通过',
-      },
+      装袋扫码顺序已收口为先父后子: '通过',
+        铺布到装袋到入仓主锚点已建立: '通过',
+      工艺扫码顺序校验已接入正式payload: '通过',
+      页面主锚点已切正式对象字段: '通过',
+    },
       null,
       2,
     ),

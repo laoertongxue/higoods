@@ -551,8 +551,6 @@ export function renderPdaExecDetailPage(taskId: string): string {
             <span class="text-xs font-medium">${escapeHtml(displayProcessName)}</span>
             <span class="text-xs text-muted-foreground">工序代码</span>
             <span class="font-mono text-xs">${escapeHtml(task.processBusinessCode || task.processCode)}</span>
-            <span class="text-xs text-muted-foreground">拆分组</span>
-            <span class="text-xs font-medium">${escapeHtml(task.splitGroupId || '未拆分')}</span>
             <span class="text-xs text-muted-foreground">数量</span>
             <span class="text-xs font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</span>
             ${

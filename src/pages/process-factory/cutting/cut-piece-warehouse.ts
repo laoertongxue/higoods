@@ -111,6 +111,8 @@ function getPrefilterFromQuery(): CutPieceWarehousePrefilter | null {
     mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
     mergeBatchNo: drillContext?.mergeBatchNo || params.get('mergeBatchNo') || undefined,
     materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
+    spreadingSessionId: drillContext?.spreadingSessionId || params.get('spreadingSessionId') || params.get('sessionId') || undefined,
+    sourceWritebackId: params.get('sourceWritebackId') || params.get('holder') || undefined,
     cuttingGroup: drillContext?.cuttingGroup || params.get('cuttingGroup') || undefined,
     zoneCode: (params.get('zoneCode') as CutPieceZoneCode | null) || undefined,
     warehouseStatus: (drillContext?.warehouseStatus as WarehouseStatusFilter | undefined) || (params.get('warehouseStatus') as WarehouseStatusFilter | null) || undefined,
@@ -451,6 +453,43 @@ function renderDetailDrawer(): string {
             <div>
               <dt class="text-xs text-muted-foreground">待交接目标</dt>
               <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.handoffTarget || '待确认')}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="rounded-lg border bg-card p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold text-foreground">铺布 / 装袋追溯</h3>
+              <p class="mt-1 text-xs text-muted-foreground">先装袋，再入裁片仓；当前主锚点以铺布 session 与周转口袋使用周期为准。</p>
+            </div>
+            ${renderTag(item.bagFirstSatisfied ? 'bag-first 已满足' : 'bag-first 待补', item.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
+          </div>
+          ${
+            item.bagFirstSatisfied
+              ? ''
+              : '<div class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">当前未找到正式周转口袋装袋绑定，当前入仓链路仍为待补状态。</div>'
+          }
+          <dl class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div class="rounded-lg border bg-muted/10 p-3">
+              <dt class="text-xs text-muted-foreground">来源铺布 session</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.spreadingSessionNo || item.spreadingSessionId || '待补')}</dd>
+            </div>
+            <div class="rounded-lg border bg-muted/10 p-3">
+              <dt class="text-xs text-muted-foreground">PDA回写流水</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.sourceWritebackId || '当前尚无 PDA 回写流水')}</dd>
+            </div>
+            <div class="rounded-lg border bg-muted/10 p-3">
+              <dt class="text-xs text-muted-foreground">周转口袋使用周期</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagUsageNo || item.bagUsageId || '待补')}</dd>
+            </div>
+            <div class="rounded-lg border bg-muted/10 p-3">
+              <dt class="text-xs text-muted-foreground">周转口袋码</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagCode || '待补')}</dd>
+            </div>
+            <div class="rounded-lg border bg-muted/10 p-3 md:col-span-2">
+              <dt class="text-xs text-muted-foreground">bag-first 规则</dt>
+              <dd class="mt-1 font-medium ${item.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtml(item.bagFirstRuleLabel)}</dd>
             </div>
           </dl>
         </section>

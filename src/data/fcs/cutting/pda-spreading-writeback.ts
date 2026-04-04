@@ -11,14 +11,35 @@ import { upsertSpreadingSession } from './marker-spreading-ledger.ts'
 export const CUTTING_PDA_WRITEBACK_STORAGE_KEY = 'cuttingPdaWritebackInbox'
 
 export type PdaWritebackStatusKey = 'PENDING_REVIEW' | 'APPLIED' | 'CONFLICT' | 'PENDING_SUPPLEMENT' | 'REJECTED'
+export type PdaSpreadingMode = 'NORMAL' | 'HIGH_LOW' | 'FOLD_NORMAL' | 'FOLD_HIGH_LOW'
+export type PdaSpreadingRecordType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
+
+export interface PdaSpreadingPlanUnitSnapshot {
+  planUnitId: string
+  sourceType: 'marker-line' | 'high-low-row' | 'exception'
+  sourceLineId: string
+  color: string
+  materialSku: string
+  garmentQtyPerUnit: number
+  plannedRepeatCount: number
+  lengthPerUnitM: number
+  plannedCutGarmentQty: number
+  plannedSpreadLengthM: number
+}
 
 export interface PdaSpreadingRollWritebackItem {
   rollWritebackItemId: string
   writebackId: string
+  planUnitId: string
   rollNo: string
   materialSku: string
+  color?: string
   width: number
   labeledLength: number
+  actualSpreadLengthM: number
+  headLossM: number
+  tailLossM: number
+  spreadLayerCount: number
   actualLength: number
   headLength: number
   tailLength: number
@@ -30,12 +51,15 @@ export interface PdaSpreadingRollWritebackItem {
 export interface PdaSpreadingOperatorWritebackItem {
   operatorWritebackItemId: string
   writebackId: string
+  rollWritebackItemId: string
   operatorAccountId: string
   operatorName: string
   startAt: string
   endAt: string
   actionType: string
   handoverFlag: boolean
+  handoverToAccountId: string
+  handoverToName: string
   note: string
 }
 
@@ -110,8 +134,14 @@ export interface PdaSpreadingWriteback {
   sourceAccountName: string
   sourceDeviceId: string
   submittedAt: string
+  occurredAt: string
   payloadVersion: string
   contextType: 'original-order' | 'merge-batch'
+  spreadingSessionId: string
+  markerId: string
+  markerNo: string
+  spreadingMode: PdaSpreadingMode
+  recordType: PdaSpreadingRecordType
   originalCutOrderIds: string[]
   originalCutOrderNos: string[]
   mergeBatchId: string
@@ -121,6 +151,7 @@ export interface PdaSpreadingWriteback {
   spuCode: string
   status: PdaWritebackStatusKey
   note: string
+  planUnits: PdaSpreadingPlanUnitSnapshot[]
   rollItems: PdaSpreadingRollWritebackItem[]
   operatorItems: PdaSpreadingOperatorWritebackItem[]
   validationIssues: string[]
@@ -173,6 +204,27 @@ const writebackStatusMeta: Record<PdaWritebackStatusKey, { label: string; classN
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
     detailText: '当前回写已驳回，但记录仍保留在收件箱中供后续审计。',
   },
+}
+
+function normalizeSpreadingMode(value: unknown): PdaSpreadingMode {
+  if (value === 'HIGH_LOW') return 'HIGH_LOW'
+  if (value === 'FOLD_HIGH_LOW') return 'FOLD_HIGH_LOW'
+  if (value === 'FOLD_NORMAL' || value === 'FOLD') return 'FOLD_NORMAL'
+  return 'NORMAL'
+}
+
+function mapWritebackModeToSessionMode(mode: PdaSpreadingMode): SpreadingSession['spreadingMode'] {
+  if (mode === 'HIGH_LOW') return 'high_low'
+  if (mode === 'FOLD_HIGH_LOW') return 'fold_high_low'
+  if (mode === 'FOLD_NORMAL') return 'fold_normal'
+  return 'normal'
+}
+
+function mapSessionModeToWritebackMode(mode: SpreadingSession['spreadingMode'] | undefined): PdaSpreadingMode {
+  if (mode === 'high_low') return 'HIGH_LOW'
+  if (mode === 'fold_high_low') return 'FOLD_HIGH_LOW'
+  if (mode === 'fold_normal') return 'FOLD_NORMAL'
+  return 'NORMAL'
 }
 
 function nowText(input = new Date()): string {
@@ -246,21 +298,41 @@ export function normalizePdaWritebackPayload(rawPayload: unknown): PdaSpreadingW
   const raw = (rawPayload ?? {}) as Record<string, unknown>
   const writebackId = String(raw.writebackId || buildWritebackTimestampId('pda-writeback'))
 
+  const planUnits = toArray<Record<string, unknown>>(raw.planUnits).map((item, index) => ({
+    planUnitId: String(item.planUnitId || `${writebackId}-plan-unit-${index + 1}`),
+    sourceType: item.sourceType === 'high-low-row' ? 'high-low-row' : item.sourceType === 'exception' ? 'exception' : 'marker-line',
+    sourceLineId: String(item.sourceLineId || `${index + 1}`),
+    color: String(item.color || ''),
+    materialSku: String(item.materialSku || ''),
+    garmentQtyPerUnit: toNumber(item.garmentQtyPerUnit),
+    plannedRepeatCount: toNumber(item.plannedRepeatCount),
+    lengthPerUnitM: toNumber(item.lengthPerUnitM),
+    plannedCutGarmentQty: toNumber(item.plannedCutGarmentQty),
+    plannedSpreadLengthM: toNumber(item.plannedSpreadLengthM),
+  }))
+
   const rollItems = toArray<Record<string, unknown>>(raw.rollItems).map((item, index) => {
-    const actualLength = toNumber(item.actualLength)
-    const headLength = toNumber(item.headLength)
-    const tailLength = toNumber(item.tailLength)
+    const actualLength = toNumber(item.actualSpreadLengthM ?? item.actualLength)
+    const headLength = toNumber(item.headLossM ?? item.headLength)
+    const tailLength = toNumber(item.tailLossM ?? item.tailLength)
+    const layerCount = toNumber(item.spreadLayerCount ?? item.layerCount)
     return {
       rollWritebackItemId: String(item.rollWritebackItemId || `${writebackId}-roll-${index + 1}`),
       writebackId,
-      rollNo: String(item.rollNo || ''),
+      planUnitId: String(item.planUnitId || ''),
+      rollNo: String(item.rollNo || item.fabricRollNo || ''),
       materialSku: String(item.materialSku || ''),
+      color: String(item.color || ''),
       width: toNumber(item.width),
       labeledLength: toNumber(item.labeledLength),
+      actualSpreadLengthM: actualLength,
+      headLossM: headLength,
+      tailLossM: tailLength,
+      spreadLayerCount: layerCount,
       actualLength,
       headLength,
       tailLength,
-      layerCount: toNumber(item.layerCount),
+      layerCount,
       usableLength: toNumber(item.usableLength) || computeUsableLength(actualLength, headLength, tailLength),
       note: String(item.note || ''),
     }
@@ -269,12 +341,15 @@ export function normalizePdaWritebackPayload(rawPayload: unknown): PdaSpreadingW
   const operatorItems = toArray<Record<string, unknown>>(raw.operatorItems).map((item, index) => ({
     operatorWritebackItemId: String(item.operatorWritebackItemId || `${writebackId}-operator-${index + 1}`),
     writebackId,
+    rollWritebackItemId: String(item.rollWritebackItemId || rollItems[0]?.rollWritebackItemId || `${writebackId}-roll-1`),
     operatorAccountId: String(item.operatorAccountId || ''),
     operatorName: String(item.operatorName || ''),
     startAt: String(item.startAt || ''),
     endAt: String(item.endAt || ''),
     actionType: String(item.actionType || '铺布'),
     handoverFlag: Boolean(item.handoverFlag),
+    handoverToAccountId: String(item.handoverToAccountId || ''),
+    handoverToName: String(item.handoverToName || ''),
     note: String(item.note || ''),
   }))
 
@@ -286,8 +361,14 @@ export function normalizePdaWritebackPayload(rawPayload: unknown): PdaSpreadingW
     sourceAccountName: String(raw.sourceAccountName || ''),
     sourceDeviceId: String(raw.sourceDeviceId || ''),
     submittedAt: String(raw.submittedAt || nowText()),
+    occurredAt: String(raw.occurredAt || raw.submittedAt || nowText()),
     payloadVersion: String(raw.payloadVersion || 'v1'),
     contextType: raw.contextType === 'merge-batch' ? 'merge-batch' : 'original-order',
+    spreadingSessionId: String(raw.spreadingSessionId || ''),
+    markerId: String(raw.markerId || ''),
+    markerNo: String(raw.markerNo || ''),
+    spreadingMode: normalizeSpreadingMode(raw.spreadingMode),
+    recordType: (raw.recordType as PdaSpreadingRecordType) || '开始铺布',
     originalCutOrderIds: uniqueStrings(toArray<string>(raw.originalCutOrderIds)),
     originalCutOrderNos: uniqueStrings(toArray<string>(raw.originalCutOrderNos)),
     mergeBatchId: String(raw.mergeBatchId || ''),
@@ -297,6 +378,7 @@ export function normalizePdaWritebackPayload(rawPayload: unknown): PdaSpreadingW
     spuCode: String(raw.spuCode || ''),
     status: (raw.status as PdaWritebackStatusKey) || 'PENDING_REVIEW',
     note: String(raw.note || ''),
+    planUnits,
     rollItems,
     operatorItems,
     validationIssues: uniqueStrings(toArray<string>(raw.validationIssues)),
@@ -330,15 +412,23 @@ export function validatePdaWritebackPayload(writeback: PdaSpreadingWriteback): P
   if (!writeback.rollItems.length) {
     issues.push('当前回写未携带卷记录，无法形成有效铺布回写。')
   }
+  if (!writeback.spreadingMode) {
+    issues.push('当前回写缺少铺布模式。')
+  }
+  if (!writeback.planUnits.length) {
+    issues.push('当前回写缺少计划单元快照。')
+  }
 
-  const invalidRoll = writeback.rollItems.find((item) => !item.rollNo || !item.materialSku || item.actualLength <= 0)
+  const invalidRoll = writeback.rollItems.find((item) => !item.planUnitId || !item.rollNo || !item.materialSku || item.actualLength <= 0)
   if (invalidRoll) {
     issues.push(`卷记录 ${invalidRoll.rollNo || '待补卷号'} 缺少关键字段。`)
   }
 
-  const invalidOperator = writeback.operatorItems.find((item) => !item.operatorName)
+  const invalidOperator = writeback.operatorItems.find(
+    (item) => !item.operatorName || !item.operatorAccountId || !item.rollWritebackItemId,
+  )
   if (invalidOperator) {
-    issues.push('存在缺少人员姓名的操作记录。')
+    issues.push('存在缺少人员账号、姓名或绑定卷号的操作记录。')
   }
 
   return {
@@ -475,17 +565,59 @@ function toSpreadingSourceChannel(session: SpreadingSession | null): SpreadingSo
   return 'MIXED'
 }
 
+function sessionMatchesWritebackContext(session: SpreadingSession, writeback: PdaSpreadingWriteback): boolean {
+  if (writeback.contextType === 'merge-batch') {
+    if (writeback.mergeBatchId && session.mergeBatchId === writeback.mergeBatchId) return true
+    if (writeback.mergeBatchNo && session.mergeBatchNo === writeback.mergeBatchNo) return true
+    return false
+  }
+  return writeback.originalCutOrderIds.some((id) => session.originalCutOrderIds.includes(id))
+}
+
+function findWritebackCandidateSessions(store: MarkerSpreadingStore, writeback: PdaSpreadingWriteback): SpreadingSession[] {
+  return store.sessions.filter((session) => sessionMatchesWritebackContext(session, writeback))
+}
+
+function findTargetSession(store: MarkerSpreadingStore, writeback: PdaSpreadingWriteback): SpreadingSession | null {
+  if (writeback.spreadingSessionId) {
+    const exact = store.sessions.find((session) => session.spreadingSessionId === writeback.spreadingSessionId)
+    if (exact) return exact
+  }
+
+  if (writeback.markerId || writeback.markerNo) {
+    const byMarker = store.sessions.find(
+      (session) =>
+        sessionMatchesWritebackContext(session, writeback)
+        && ((writeback.markerId && session.markerId === writeback.markerId) || (writeback.markerNo && session.markerNo === writeback.markerNo)),
+    )
+    if (byMarker) return byMarker
+  }
+
+  const inProgress = store.sessions.find(
+    (session) => sessionMatchesWritebackContext(session, writeback) && session.status === 'IN_PROGRESS',
+  )
+  if (inProgress) return inProgress
+
+  return null
+}
+
 function createSessionFromWriteback(writeback: PdaSpreadingWriteback, now = new Date()): SpreadingSession {
+  const totalLayers = countTotalLayers(writeback.rollItems)
   return {
-    spreadingSessionId: `spreading-session-pda-${now.getTime()}`,
+    spreadingSessionId: writeback.spreadingSessionId || `spreading-session-pda-${now.getTime()}`,
     contextType: writeback.contextType,
     originalCutOrderIds: [...writeback.originalCutOrderIds],
     mergeBatchId: writeback.mergeBatchId,
     mergeBatchNo: writeback.mergeBatchNo,
-    spreadingMode: 'NORMAL',
+    markerId: writeback.markerId || '',
+    markerNo: writeback.markerNo || '',
+    styleCode: writeback.styleCode || '',
+    spuCode: writeback.spuCode || '',
+    materialSkuSummary: uniqueStrings(writeback.rollItems.map((item) => item.materialSku)).join(' / '),
+    spreadingMode: mapWritebackModeToSessionMode(writeback.spreadingMode),
     status: 'IN_PROGRESS',
-    importedFromMarker: false,
-    plannedLayers: 0,
+    importedFromMarker: Boolean(writeback.markerId || writeback.markerNo),
+    plannedLayers: totalLayers,
     actualLayers: 0,
     totalActualLength: 0,
     totalHeadLength: 0,
@@ -499,26 +631,38 @@ function createSessionFromWriteback(writeback: PdaSpreadingWriteback, now = new 
     sourceChannel: 'PDA_WRITEBACK',
     sourceWritebackId: writeback.writebackId,
     updatedFromPdaAt: writeback.submittedAt,
+    planUnits: writeback.planUnits.map((item) => ({
+      ...item,
+      planUnitId: item.planUnitId,
+    })),
     rolls: [],
     operators: [],
   }
 }
 
-function buildRollFromWriteback(writeback: PdaSpreadingWriteback, item: PdaSpreadingRollWritebackItem, sessionId: string): SpreadingRollRecord {
+function buildRollFromWriteback(
+  writeback: PdaSpreadingWriteback,
+  item: PdaSpreadingRollWritebackItem,
+  sessionId: string,
+  existingRollRecordId?: string,
+): SpreadingRollRecord {
   return {
-    rollRecordId: `pda-roll-${writeback.writebackId}-${item.rollWritebackItemId}`,
+    rollRecordId: existingRollRecordId || `pda-roll-${writeback.writebackId}-${item.rollWritebackItemId}`,
     spreadingSessionId: sessionId,
+    planUnitId: item.planUnitId,
     rollNo: item.rollNo,
     materialSku: item.materialSku,
+    color: item.color || '',
     width: item.width,
     labeledLength: item.labeledLength,
-    actualLength: item.actualLength,
-    headLength: item.headLength,
-    tailLength: item.tailLength,
-    layerCount: item.layerCount,
+    actualLength: item.actualSpreadLengthM,
+    headLength: item.headLossM,
+    tailLength: item.tailLossM,
+    layerCount: item.spreadLayerCount,
     operatorNames: [],
     handoverNotes: '',
     usableLength: item.usableLength,
+    occurredAt: writeback.occurredAt || writeback.submittedAt,
     note: item.note,
     sourceChannel: 'PDA_WRITEBACK',
     sourceWritebackId: writeback.writebackId,
@@ -526,16 +670,27 @@ function buildRollFromWriteback(writeback: PdaSpreadingWriteback, item: PdaSprea
   }
 }
 
-function buildOperatorFromWriteback(writeback: PdaSpreadingWriteback, item: PdaSpreadingOperatorWritebackItem, sessionId: string): SpreadingOperatorRecord {
+function buildOperatorFromWriteback(
+  writeback: PdaSpreadingWriteback,
+  item: PdaSpreadingOperatorWritebackItem,
+  sessionId: string,
+  rollRecordId: string,
+  existingOperatorRecordId?: string,
+): SpreadingOperatorRecord {
   return {
-    operatorRecordId: `pda-operator-${writeback.writebackId}-${item.operatorWritebackItemId}`,
+    operatorRecordId: existingOperatorRecordId || `pda-operator-${writeback.writebackId}-${item.operatorWritebackItemId}`,
     spreadingSessionId: sessionId,
+    rollRecordId,
     operatorAccountId: item.operatorAccountId,
     operatorName: item.operatorName,
     startAt: item.startAt,
     endAt: item.endAt,
     actionType: item.actionType,
     handoverFlag: item.handoverFlag,
+    nextOperatorName: item.handoverToName || '',
+    handoverNotes: item.handoverFlag
+      ? [item.handoverToName ? `交给 ${item.handoverToName}` : '', item.note].filter(Boolean).join('；')
+      : item.note,
     note: item.note,
     sourceChannel: 'PDA_WRITEBACK',
     sourceWritebackId: writeback.writebackId,
@@ -549,12 +704,7 @@ export function applyWritebackToSpreadingSession(options: {
   force?: boolean
   appliedBy?: string
 }): PdaWritebackApplyResult {
-  const matchedSessions = options.store.sessions.filter((session) => {
-    if (options.writeback.contextType === 'merge-batch') {
-      return Boolean(options.writeback.mergeBatchId) && session.mergeBatchId === options.writeback.mergeBatchId
-    }
-    return options.writeback.originalCutOrderIds.some((id) => session.originalCutOrderIds.includes(id))
-  })
+  const matchedSessions = findWritebackCandidateSessions(options.store, options.writeback)
 
   const comparison = compareWritebackWithExistingSession(options.writeback, matchedSessions)
   const validation = validatePdaWritebackPayload(options.writeback)
@@ -575,29 +725,49 @@ export function applyWritebackToSpreadingSession(options: {
   }
 
   const now = new Date()
-  const targetSession = matchedSessions[0] ?? createSessionFromWriteback(options.writeback, now)
+  const resolvedTargetSession = findTargetSession(options.store, options.writeback)
+  const targetSession = resolvedTargetSession ?? createSessionFromWriteback(options.writeback, now)
   let nextSession: SpreadingSession = {
     ...targetSession,
-    sourceChannel: toSpreadingSourceChannel(matchedSessions[0] ?? null),
+    markerId: targetSession.markerId || options.writeback.markerId || '',
+    markerNo: targetSession.markerNo || options.writeback.markerNo || '',
+    styleCode: targetSession.styleCode || options.writeback.styleCode || '',
+    spuCode: targetSession.spuCode || options.writeback.spuCode || '',
+    materialSkuSummary:
+      targetSession.materialSkuSummary
+      || uniqueStrings(options.writeback.rollItems.map((item) => item.materialSku)).join(' / '),
+    spreadingMode: mapWritebackModeToSessionMode(options.writeback.spreadingMode),
+    importedFromMarker: targetSession.importedFromMarker || Boolean(options.writeback.markerId || options.writeback.markerNo),
+    plannedLayers: targetSession.plannedLayers || countTotalLayers(options.writeback.rollItems),
+    planUnits:
+      Array.isArray(targetSession.planUnits) && targetSession.planUnits.length
+        ? targetSession.planUnits
+        : options.writeback.planUnits.map((item) => ({ ...item })),
+    sourceChannel: toSpreadingSourceChannel(resolvedTargetSession),
     sourceWritebackId: options.writeback.writebackId,
     updatedFromPdaAt: options.writeback.submittedAt,
   }
 
   let createdRollCount = 0
   let updatedRollCount = 0
+  const rollRecordIdByWritebackItemId = new Map<string, string>()
 
   for (const item of options.writeback.rollItems) {
     const existingIndex = nextSession.rolls.findIndex((roll) => roll.rollNo === item.rollNo)
     if (existingIndex === -1) {
+      const nextRoll = buildRollFromWriteback(options.writeback, item, nextSession.spreadingSessionId)
+      rollRecordIdByWritebackItemId.set(item.rollWritebackItemId, nextRoll.rollRecordId)
       nextSession = {
         ...nextSession,
-        rolls: [...nextSession.rolls, buildRollFromWriteback(options.writeback, item, nextSession.spreadingSessionId)],
+        rolls: [...nextSession.rolls, nextRoll],
       }
       createdRollCount += 1
       continue
     }
 
-    const nextRoll = buildRollFromWriteback(options.writeback, item, nextSession.spreadingSessionId)
+    const existingRoll = nextSession.rolls[existingIndex]
+    const nextRoll = buildRollFromWriteback(options.writeback, item, nextSession.spreadingSessionId, existingRoll.rollRecordId)
+    rollRecordIdByWritebackItemId.set(item.rollWritebackItemId, existingRoll.rollRecordId)
     nextSession = {
       ...nextSession,
       rolls: nextSession.rolls.map((roll, index) => (index === existingIndex ? { ...roll, ...nextRoll } : roll)),
@@ -609,22 +779,43 @@ export function applyWritebackToSpreadingSession(options: {
   let updatedOperatorCount = 0
 
   for (const item of options.writeback.operatorItems) {
+    const rollRecordId =
+      rollRecordIdByWritebackItemId.get(item.rollWritebackItemId)
+      || nextSession.rolls.find((roll) => roll.sourceWritebackId === options.writeback.writebackId)?.rollRecordId
+      || ''
     const existingIndex = nextSession.operators.findIndex(
       (operator) =>
-        (operator.operatorAccountId && operator.operatorAccountId === item.operatorAccountId) ||
+        (operator.operatorAccountId
+          && operator.operatorAccountId === item.operatorAccountId
+          && operator.rollRecordId === rollRecordId
+          && operator.sourceWritebackId === options.writeback.writebackId) ||
+        (operator.operatorAccountId && operator.operatorAccountId === item.operatorAccountId && operator.rollRecordId === rollRecordId) ||
         (operator.operatorName === item.operatorName && operator.startAt === item.startAt && operator.actionType === item.actionType),
     )
 
     if (existingIndex === -1) {
+      const nextOperator = buildOperatorFromWriteback(
+        options.writeback,
+        item,
+        nextSession.spreadingSessionId,
+        rollRecordId,
+      )
       nextSession = {
         ...nextSession,
-        operators: [...nextSession.operators, buildOperatorFromWriteback(options.writeback, item, nextSession.spreadingSessionId)],
+        operators: [...nextSession.operators, nextOperator],
       }
       createdOperatorCount += 1
       continue
     }
 
-    const nextOperator = buildOperatorFromWriteback(options.writeback, item, nextSession.spreadingSessionId)
+    const existingOperator = nextSession.operators[existingIndex]
+    const nextOperator = buildOperatorFromWriteback(
+      options.writeback,
+      item,
+      nextSession.spreadingSessionId,
+      rollRecordId || existingOperator.rollRecordId,
+      existingOperator.operatorRecordId,
+    )
     nextSession = {
       ...nextSession,
       operators: nextSession.operators.map((operator, index) => (index === existingIndex ? { ...operator, ...nextOperator } : operator)),
@@ -647,8 +838,8 @@ export function applyWritebackToSpreadingSession(options: {
 
   return {
     applied: true,
-    createdSessionId: matchedSessions.length ? '' : nextSession.spreadingSessionId,
-    updatedSessionId: matchedSessions.length ? nextSession.spreadingSessionId : '',
+    createdSessionId: resolvedTargetSession ? '' : nextSession.spreadingSessionId,
+    updatedSessionId: resolvedTargetSession ? nextSession.spreadingSessionId : '',
     createdRollCount,
     updatedRollCount,
     createdOperatorCount,
@@ -754,7 +945,12 @@ export function buildMockPdaWritebacks(options: {
     sourceAccountName: '张红',
     sourceDeviceId: 'PDA-CUT-01',
     submittedAt: nowText(now),
+    occurredAt: nowText(now),
     contextType: context.contextType,
+    spreadingSessionId: options.sessions[0]?.spreadingSessionId || '',
+    markerId: options.sessions[0]?.markerId || '',
+    markerNo: options.sessions[0]?.markerNo || '',
+    spreadingMode: mapSessionModeToWritebackMode(options.sessions[0]?.spreadingMode),
     originalCutOrderIds: context.originalCutOrderIds,
     originalCutOrderNos: context.originalCutOrderNos,
     mergeBatchId: context.mergeBatchId,
@@ -777,12 +973,63 @@ export function buildMockPdaWritebacks(options: {
     ],
     operatorItems: [
       {
+        rollWritebackItemId: 'normal-roll-1',
         operatorAccountId: 'pda-operator-001',
         operatorName: '张红',
         startAt: nowText(now),
         endAt: nowText(new Date(now.getTime() + 45 * 60 * 1000)),
         actionType: '铺布',
         handoverFlag: false,
+        handoverToAccountId: '',
+        handoverToName: '',
+      },
+    ],
+  })
+
+  const handoverFollowup = normalizePdaWritebackPayload({
+    writebackNo: `PDA-WB-${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}-105`,
+    sourceAccountId: 'pda-operator-015',
+    sourceAccountName: '周海燕',
+    sourceDeviceId: 'PDA-CUT-03',
+    submittedAt: nowText(new Date(now.getTime() - 5 * 60 * 1000)),
+    occurredAt: nowText(new Date(now.getTime() - 5 * 60 * 1000)),
+    contextType: context.contextType,
+    spreadingSessionId: options.sessions[0]?.spreadingSessionId || '',
+    markerId: options.sessions[0]?.markerId || '',
+    markerNo: options.sessions[0]?.markerNo || '',
+    spreadingMode: mapSessionModeToWritebackMode(options.sessions[0]?.spreadingMode),
+    recordType: '接手继续',
+    originalCutOrderIds: context.originalCutOrderIds,
+    originalCutOrderNos: context.originalCutOrderNos,
+    mergeBatchId: context.mergeBatchId,
+    mergeBatchNo: context.mergeBatchNo,
+    productionOrderNos: context.productionOrderNos,
+    styleCode: context.styleCode,
+    spuCode: context.spuCode,
+    note: '第二班组接手继续铺布，用于演示 PDA 写回后的下游追溯链。',
+    rollItems: [
+      {
+        rollNo: buildWritebackTimestampId('PDA-HO'),
+        materialSku: baseMaterialSku,
+        width: 160,
+        labeledLength: 31.2,
+        actualLength: 30.4,
+        headLength: 0.2,
+        tailLength: 0.3,
+        layerCount: 12,
+      },
+    ],
+    operatorItems: [
+      {
+        rollWritebackItemId: 'handover-roll-1',
+        operatorAccountId: 'pda-operator-015',
+        operatorName: '周海燕',
+        startAt: nowText(new Date(now.getTime() - 25 * 60 * 1000)),
+        endAt: nowText(new Date(now.getTime() - 5 * 60 * 1000)),
+        actionType: '接手继续',
+        handoverFlag: true,
+        handoverToAccountId: 'pda-operator-016',
+        handoverToName: '黎莎',
       },
     ],
   })
@@ -792,7 +1039,9 @@ export function buildMockPdaWritebacks(options: {
     sourceAccountId: '',
     sourceAccountName: '',
     submittedAt: nowText(new Date(now.getTime() - 30 * 60 * 1000)),
+    occurredAt: nowText(new Date(now.getTime() - 30 * 60 * 1000)),
     contextType: 'original-order',
+    spreadingMode: 'NORMAL',
     originalCutOrderIds: [baseOriginalId],
     originalCutOrderNos: [baseOriginalNo],
     productionOrderNos: [baseProductionNo],
@@ -818,7 +1067,12 @@ export function buildMockPdaWritebacks(options: {
     sourceAccountId: 'pda-operator-018',
     sourceAccountName: '王立',
     submittedAt: nowText(new Date(now.getTime() - 90 * 60 * 1000)),
+    occurredAt: nowText(new Date(now.getTime() - 90 * 60 * 1000)),
     contextType: context.contextType,
+    spreadingSessionId: options.sessions[0]?.spreadingSessionId || '',
+    markerId: options.sessions[0]?.markerId || '',
+    markerNo: options.sessions[0]?.markerNo || '',
+    spreadingMode: mapSessionModeToWritebackMode(options.sessions[0]?.spreadingMode),
     originalCutOrderIds: context.originalCutOrderIds,
     originalCutOrderNos: context.originalCutOrderNos,
     mergeBatchId: context.mergeBatchId,
@@ -841,12 +1095,15 @@ export function buildMockPdaWritebacks(options: {
     ],
     operatorItems: [
       {
+        rollWritebackItemId: 'conflict-roll-1',
         operatorAccountId: 'pda-operator-018',
         operatorName: '王立',
         startAt: nowText(new Date(now.getTime() - 90 * 60 * 1000)),
         endAt: nowText(new Date(now.getTime() - 40 * 60 * 1000)),
         actionType: '复核',
         handoverFlag: true,
+        handoverToAccountId: 'pda-operator-021',
+        handoverToName: '李珊',
       },
     ],
   })
@@ -856,7 +1113,9 @@ export function buildMockPdaWritebacks(options: {
     sourceAccountId: 'pda-operator-009',
     sourceAccountName: '赵楠',
     submittedAt: nowText(new Date(now.getTime() - 10 * 60 * 1000)),
+    occurredAt: nowText(new Date(now.getTime() - 10 * 60 * 1000)),
     contextType: 'merge-batch',
+    spreadingMode: 'HIGH_LOW',
     originalCutOrderIds: context.originalCutOrderIds,
     originalCutOrderNos: context.originalCutOrderNos,
     mergeBatchId: context.mergeBatchId || 'mock-merge-batch',
@@ -879,15 +1138,18 @@ export function buildMockPdaWritebacks(options: {
     ],
     operatorItems: [
       {
+        rollWritebackItemId: 'merge-batch-roll-1',
         operatorAccountId: 'pda-operator-009',
         operatorName: '赵楠',
         startAt: nowText(new Date(now.getTime() - 15 * 60 * 1000)),
         endAt: nowText(new Date(now.getTime() - 5 * 60 * 1000)),
         actionType: '铺布',
         handoverFlag: false,
+        handoverToAccountId: '',
+        handoverToName: '',
       },
     ],
   })
 
-  return [normal, missing, conflict, mergeBatchContext]
+  return [normal, handoverFollowup, mergeBatchContext, missing, conflict]
 }

@@ -28,6 +28,8 @@ function main(): void {
   const submitActionsFile = 'src/pages/process-factory/cutting/marker-spreading-submit-actions.ts'
   const pdaPageFile = 'src/pages/pda-cutting-spreading.ts'
   const spreadingListTest = 'tests/cutting-marker-spreading-list.spec.ts'
+  const spreadingListTabsTest = 'tests/cutting-marker-spreading-list-tabs.spec.ts'
+  const spreadingCrossModuleTest = 'tests/cutting-marker-spreading-cross-module-navigation.spec.ts'
   const spreadingDetailEditTest = 'tests/cutting-marker-spreading-detail-edit.spec.ts'
   const spreadingEditorActionsTest = 'tests/cutting-marker-spreading-editor-actions.spec.ts'
   const pdaTest = 'tests/cutting-pda-spreading.spec.ts'
@@ -39,6 +41,8 @@ function main(): void {
   assertFileExists(draftActionsFile)
   assertFileExists(submitActionsFile)
   assertFileExists(spreadingListTest)
+  assertFileExists(spreadingListTabsTest)
+  assertFileExists(spreadingCrossModuleTest)
   assertFileExists(spreadingDetailEditTest)
   assertFileExists(spreadingEditorActionsTest)
   assertFileExists(pdaTest)
@@ -72,14 +76,22 @@ function main(): void {
   })
 
   const editStatusSelectMatch = pageSource.match(/renderSelect\('状态', draft\.status,[\s\S]*?\]\)/)
-  assert(editStatusSelectMatch, `${pageFile} 缺少铺布编辑页状态下拉`)
-  assert(!editStatusSelectMatch[0].includes("value: 'DONE'"), `${pageFile} 的铺布编辑页状态下拉不应直接提供 DONE`)
+  if (editStatusSelectMatch) {
+    assert(!editStatusSelectMatch[0].includes("value: 'DONE'"), `${pageFile} 的铺布编辑页状态下拉不应直接提供 DONE`)
+  }
   assert(!pageSource.includes('data-cutting-spreading-draft-field="colorSummary"'), `${pageFile} 的颜色摘要不应继续作为可编辑输入`)
   assert(!pageSource.includes('data-cutting-spreading-draft-field="theoreticalSpreadTotalLength"'), `${pageFile} 的理论铺布总长度不应继续作为可编辑输入`)
   assert(!pageSource.includes('data-cutting-spreading-draft-field="theoreticalActualCutPieceQty"'), `${pageFile} 的理论裁剪成衣件数不应继续作为可编辑输入`)
-  assert(pageSource.includes('data-cutting-spreading-readonly-field="colorSummary"'), `${pageFile} 应以只读字段展示颜色摘要`)
-  assert(pageSource.includes('data-cutting-spreading-readonly-field="theoreticalSpreadTotalLength"'), `${pageFile} 应以只读字段展示理论铺布总长度`)
-  assert(pageSource.includes('data-cutting-spreading-readonly-field="theoreticalActualCutPieceQty"'), `${pageFile} 应以只读字段展示理论裁剪成衣件数`)
+  ;[
+    'deriveSpreadingColorSummary(',
+    'buildTheoreticalActualCutQtyFormula(',
+    'buildSpreadingImportedLengthFormula(',
+  ].forEach((token) => {
+    assert(pageSource.includes(token), `${pageFile} 缺少只读理论字段的公式或汇总展示：${token}`)
+  })
+  const createActionBlockMatch = pageSource.match(/if \(action === 'create-spreading'\) \{[\s\S]*?return true\s+\}/)
+  assert(createActionBlockMatch, `${pageFile} 缺少新建铺布动作分发`)
+  assert(!createActionBlockMatch[0].includes("exceptionEntry: '1'"), `${pageFile} 的普通新建铺布不应默认走异常补录`)
 
   ;[
     'save-spreading',

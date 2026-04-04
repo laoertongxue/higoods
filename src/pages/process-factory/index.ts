@@ -8,6 +8,8 @@ export {
   renderCraftCuttingMarkerCreatePage,
   renderCraftCuttingMarkerPlanEditPage,
   renderCraftCuttingMarkerPlanDetailPage,
+  renderCraftCuttingSpreadingListPage,
+  renderCraftCuttingSpreadingCreatePage,
   renderCraftCuttingMarkerSpreadingPage,
   renderCraftCuttingMarkerDetailPage,
   renderCraftCuttingMarkerEditPage,

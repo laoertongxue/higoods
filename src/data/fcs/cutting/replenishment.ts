@@ -122,7 +122,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       mayAffectPrintingOrder: true,
       mayAffectDyeingOrder: false,
       impactDescription: '当前领料差异与铺布长度缺口叠加，若补料通过，需要仓库重新补配并补打领料单。',
-      nextSuggestedActionText: '优先回到仓库配料页补齐 2 卷，再通知印花排单侧关注花位连续性。',
+      nextSuggestedActionText: '优先回到仓库配料页补齐 2 卷，再由仓库配料领料继续处理。',
     },
     linkedDocumentSummaries: [
       { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-018-01', status: '裁片执行中', createdAt: '2026-03-18 09:10', summaryText: '已维护唛架并有 2 条铺布记录。' },
@@ -130,7 +130,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       { docType: 'PICKUP_RECORD', docNo: 'RCV-018-01', status: '驳回核对', createdAt: '2026-03-20 14:12', summaryText: '现场少领 2 卷，当前存在执行差异。' },
       { docType: 'REPLENISHMENT_REVIEW', docNo: '—', status: '待审核', createdAt: '-', summaryText: '等待运营审核是否生效。' },
     ],
-    note: '花位主片连续性要求高，若补料延迟将直接影响印花排产。',
+    note: '该建议通过后只回到仓库配料领料，不在此处分流其它后续业务对象。',
   },
   {
     id: 'rep-002',
@@ -202,7 +202,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     reviewStatus: 'APPROVED',
     reviewerName: '陆嘉敏',
     reviewedAt: '2026-03-22 13:20',
-    reviewComment: '同意补 1 卷并重新确认花位连续性，需同步提示印花侧关注。',
+    reviewComment: '同意补 1 卷，审批通过后统一回仓库配料领料继续处理。',
     requiredQty: 96,
     theoreticalYieldQty: 96,
     predictedActualQty: 88,
@@ -231,8 +231,8 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       requiresRereceive: true,
       mayAffectPrintingOrder: true,
       mayAffectDyeingOrder: false,
-      impactDescription: '该补料建议已通过，后续需回仓补配并重新领料，印花工单需同步关注追加面料到位时间。',
-      nextSuggestedActionText: '回到仓库配料页新增补配批次，并通知印花工单调整裁片等待窗口。',
+      impactDescription: '该补料建议已通过，后续需回仓补配并重新领料，由仓库配料领料模块继续处理。',
+      nextSuggestedActionText: '回到仓库配料页新增补配批次，并继续仓库待配料处理。',
     },
     linkedDocumentSummaries: [
       { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-031-01', status: '裁片执行中', createdAt: '2026-03-22 08:35', summaryText: '唛架图已上传，现场已有 1 条铺布记录。' },
@@ -240,7 +240,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       { docType: 'PICKUP_RECORD', docNo: 'RCV-031-01', status: '已提交照片', createdAt: '2026-03-22 11:18', summaryText: '现场少领 1 卷，已提交 3 张差异照片。' },
       { docType: 'REPLENISHMENT_REVIEW', docNo: 'RV-202603-031-01', status: '已通过', createdAt: '2026-03-22 13:20', summaryText: '已生效，待回到仓库配料继续处理。' },
     ],
-    note: '该建议已生效，但本步只展示影响说明，不在此页直接重走配料流程。',
+    note: '该建议已生效，唯一 follow-up 是在原裁片任务下生成补料待配料。',
   },
   {
     id: 'rep-004',
@@ -341,16 +341,16 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       requiresRereceive: false,
       mayAffectPrintingOrder: false,
       mayAffectDyeingOrder: true,
-      impactDescription: '若补料建议通过，需要染色侧同步准备追加批次，仓库需回到配料页重新补配。',
-      nextSuggestedActionText: '先审核是否补 1 卷，再通知染色工单关注追加面料到位时间。',
+      impactDescription: '若补料建议通过，仓库需回到配料页重新补配，并生成补料待配料。',
+      nextSuggestedActionText: '先审核是否补 1 卷，再回到仓库配料页继续处理。',
     },
     linkedDocumentSummaries: [
       { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-044-01', status: '待铺布', createdAt: '2026-03-22 09:30', summaryText: '当前只有唛架摘要，尚无铺布记录。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-044-01', status: '部分配置', createdAt: '2026-03-22 10:20', summaryText: '当前仅配置 180 米，低于理论需求。' },
       { docType: 'PICKUP_RECORD', docNo: '—', status: '未领料', createdAt: '-', summaryText: '尚无扫码领取记录。' },
-      { docType: 'REPLENISHMENT_REVIEW', docNo: '—', status: '待审核', createdAt: '-', summaryText: '待确认是否需要同步染色侧准备。' },
+      { docType: 'REPLENISHMENT_REVIEW', docNo: '—', status: '待审核', createdAt: '-', summaryText: '待确认是否生成补料待配料。' },
     ],
-    note: '该建议重点在于提醒可能影响染色准备，不在本步直接联动染色页面。',
+    note: '该建议重点在于提醒补料后需回仓库待配料，不在本步分流其它工艺页面。',
   },
 ]
 

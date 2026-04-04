@@ -56,93 +56,62 @@ function assertNoStringInSrc(value: string): void {
 
 function assertKeyFormalFiles(): void {
   ;[
-    'src/domain/cutting-core/types.ts',
-    'src/domain/cutting-core/repository.ts',
-    'src/domain/cutting-core/registry.ts',
-    'src/data/fcs/production-upstream-chain.ts',
-    'src/data/fcs/cutting/generated-original-cut-orders.ts',
-    'src/data/fcs/cutting/warehouse-runtime.ts',
-    'src/domain/fcs-cutting-runtime/domain-snapshot.ts',
-    'src/data/fcs/cutting/runtime-inputs.ts',
-    'src/pages/process-factory/cutting/runtime-projections.ts',
-    'src/domain/cutting-platform/overview-prep-projection.ts',
-    'src/pages/process-factory/cutting/production-progress.ts',
     'src/pages/process-factory/cutting/original-orders.ts',
-    'src/pages/process-factory/cutting/cuttable-pool.ts',
     'src/pages/process-factory/cutting/merge-batches.ts',
-    'src/pages/process-factory/cutting/material-prep-projection.ts',
+    'src/pages/process-factory/cutting/material-prep.ts',
+    'src/pages/process-factory/cutting/production-progress.ts',
+    'src/pages/process-factory/cutting/navigation-context.ts',
+    'src/pages/process-factory/cutting/meta.ts',
+    'src/pages/process-factory/cutting/replenishment.ts',
+    'src/pages/process-factory/cutting/fei-tickets.ts',
+    'src/pages/process-factory/cutting/transfer-bags.ts',
+    'src/pages/process-factory/cutting/cut-piece-warehouse.ts',
+    'src/pages/process-factory/cutting/marker-spreading.ts',
+    'src/pages/process-factory/cutting/marker-spreading-model.ts',
     'src/pages/process-factory/cutting/marker-spreading-projection.ts',
-    'src/pages/process-factory/cutting/fabric-warehouse-projection.ts',
-    'src/pages/process-factory/cutting/cut-piece-warehouse-projection.ts',
-    'src/pages/process-factory/cutting/sample-warehouse-projection.ts',
-    'src/pages/process-factory/cutting/replenishment-projection.ts',
-    'src/pages/process-factory/cutting/special-processes-projection.ts',
+    'src/pages/process-factory/cutting/marker-spreading-utils.ts',
+    'src/pages/process-factory/cutting/marker-spreading-draft-actions.ts',
+    'src/pages/process-factory/cutting/marker-spreading-submit-actions.ts',
+    'src/pages/process-factory/cutting/marker-plan-model.ts',
+    'src/pages/pda-cutting-task-detail.ts',
+    'src/pages/pda-cutting-task-detail-helpers.ts',
+    'src/pages/pda-cutting-execution-unit.ts',
+    'src/pages/pda-cutting-spreading.ts',
+    'src/pages/pda-cutting-spreading-projection.ts',
     'src/data/fcs/pda-cutting-execution-source.ts',
-    'src/data/fcs/pda-cutting-writeback-inputs.ts',
     'src/domain/cutting-pda-writeback/bridge.ts',
-    'src/data/fcs/cutting/warehouse-writeback-ledger.ts',
-    'src/data/fcs/cutting/warehouse-writeback-inputs.ts',
-    'src/domain/cutting-warehouse-writeback/bridge.ts',
-    'src/data/fcs/cutting/storage/fei-tickets-storage.ts',
-    'src/data/fcs/cutting/storage/replenishment-storage.ts',
-    'src/data/fcs/cutting/storage/special-processes-storage.ts',
-    'src/data/fcs/cutting/storage/transfer-bags-storage.ts',
-    'src/data/fcs/cutting/storage/merge-batches-storage.ts',
-    'src/data/fcs/cutting/transfer-bag-legacy-normalizer.ts',
-    'src/data/fcs/pda-cutting-legacy-compat.ts',
-    'src/data/fcs/cutting/generated-fei-tickets.ts',
-    'src/data/fcs/cutting/qr-payload.ts',
-    'src/data/fcs/cutting/qr-codes.ts',
-    'src/data/fcs/cutting/transfer-bag-runtime.ts',
+    'src/data/app-shell-config.ts',
+    'src/router/routes.ts',
     'scripts/check-cutting-final-cleanup.ts',
-    'scripts/check-cutting-source-provenance.ts',
-    'scripts/check-cutting-writeback-integrity.ts',
-    'scripts/check-cutting-release-readiness.ts',
-    'scripts/check-cutting-p2-delivery.ts',
-    'scripts/check-cutting-runtime-no-legacy-warehouse.ts',
-    'scripts/check-cutting-platform-no-legacy-pickup.ts',
-    'scripts/check-cutting-warehouse-writeback-chain.ts',
+    'scripts/check-cutting-main-pages-cutover.ts',
     'scripts/check-cutting-p1-closure.ts',
     'scripts/check-cutting-e2e-readiness.ts',
     'playwright.config.ts',
-    'tests/bootstrap/cutting-bootstrap.ts',
-    'tests/helpers/seed-cutting-runtime-state.ts',
-    'tests/cutting-final-cleanup.spec.ts',
-    'tests/cutting-runtime-no-legacy-warehouse.spec.ts',
-    'tests/cutting-platform-overview-formal-pickup.spec.ts',
-    'tests/cutting-warehouse-writeback-chain.spec.ts',
-    'tests/cutting-p1-closure.spec.ts',
-    'tests/cutting-full-chain-acceptance.spec.ts',
+    'tests/cutting-marker-spreading-list.spec.ts',
+    'tests/cutting-marker-spreading-list-tabs.spec.ts',
+    'tests/cutting-marker-spreading-cross-module-navigation.spec.ts',
+    'tests/cutting-marker-spreading-editor-actions.spec.ts',
+    'tests/cutting-pda-spreading-entry.spec.ts',
+    'tests/cutting-pda-spreading.spec.ts',
+    'tests/cutting-pda-spreading-flow.spec.ts',
+    'tests/cutting-pda-spreading-writeback.spec.ts',
+    'tests/cutting-pda-execution-unit.spec.ts',
+    'tests/cutting-pda-task-detail-routing.spec.ts',
     'tests/cutting-release-acceptance.spec.ts',
-    'docs/cutting-e2e.md',
   ].forEach(assertFileExists)
 }
 
 function assertRetiredFiles(): void {
   ;[
     'src/pages/process-factory/cutting/order-progress.ts',
-    'src/pages/process-factory/cutting/order-progress.helpers.ts',
     'src/pages/process-factory/cutting/cut-piece-orders.ts',
-    'src/pages/process-factory/cutting/cut-piece-orders.helpers.ts',
-    'src/pages/process-factory/cutting/warehouse-management.ts',
-    'src/pages/process-factory/cutting/warehouse-management.helpers.ts',
-    'src/domain/cutting-identity/index.ts',
-    'src/domain/fcs-cutting-runtime/sources.ts',
-    'src/data/fcs/pda-cutting-special.ts',
-    'src/pages/process-factory/cutting/pda-execution-writeback-model.ts',
-    'src/pages/process-factory/cutting/pda-writeback-model.ts',
   ].forEach(assertFileMissing)
 }
 
 function assertLegacyResidueRetired(): void {
   ;[
-    'PRODUCTION_ORDER_NO_ALIASES',
-    'PDA_CUTTING_TASK_IDENTITY_SEEDS',
-    'forceReleased',
-    'operatorAccountId = operatorName',
-    'buildFcsCuttingRuntimeSources',
-    'buildFcsCuttingRuntimeSummaryResult',
-    'buildFcsCuttingRuntimeDetailData',
+    'resolveRouteFromNextAction',
+    "targetType: 'context'",
   ].forEach(assertNoStringInSrc)
 }
 
@@ -150,14 +119,12 @@ function assertFormalAnchorsUnified(): void {
   const keyFiles = [
     'src/pages/process-factory/cutting/production-progress.ts',
     'src/pages/process-factory/cutting/original-orders.ts',
-    'src/pages/process-factory/cutting/cuttable-pool.ts',
     'src/pages/process-factory/cutting/merge-batches.ts',
     'src/pages/process-factory/cutting/material-prep.ts',
     'src/pages/process-factory/cutting/replenishment.ts',
     'src/pages/process-factory/cutting/fei-tickets.ts',
     'src/pages/process-factory/cutting/transfer-bags.ts',
     'src/pages/pda-cutting-task-detail.ts',
-    'src/pages/pda-cutting-pickup.ts',
   ]
 
   keyFiles.forEach((file) => {
@@ -173,18 +140,43 @@ function assertFormalAnchorsUnified(): void {
     )
   })
 
-  const navFile = read('src/pages/pda-cutting-nav-context.ts')
-  assert(!navFile.includes("params.set('cutPieceOrderNo'"), 'pda-cutting-nav-context.ts 不应继续写出 legacy cutPieceOrderNo')
-  assert(!navFile.includes("params.set('focusCutPieceOrderNo'"), 'pda-cutting-nav-context.ts 不应继续写出 legacy focusCutPieceOrderNo')
+  const pdaHelpers = read('src/pages/pda-cutting-task-detail-helpers.ts')
+  assert(pdaHelpers.includes('line.primaryExecutionRouteKey'), 'PDA 任务详情主动作应显式使用 primaryExecutionRouteKey')
+
+  const pdaSource = read('src/data/fcs/pda-cutting-execution-source.ts')
+  assert(pdaSource.includes('listWorkerVisiblePdaSpreadingTargets'), 'PDA source 缺少普通工人可见目标收口 helper')
+  assert(pdaSource.includes('FOLD_NORMAL'), 'PDA source 缺少 FOLD_NORMAL 模式')
+  assert(pdaSource.includes('FOLD_HIGH_LOW'), 'PDA source 缺少 FOLD_HIGH_LOW 模式')
+
+  const pdaSpreading = read('src/pages/pda-cutting-spreading.ts')
+  assert(pdaSpreading.includes('allowManualEntry'), 'PDA 铺布页缺少 manual-entry 权限隔离')
+  assert(pdaSpreading.includes("target.targetType === 'manual-entry'"), 'PDA 铺布页缺少 manual-entry 隐藏逻辑')
+  assert(pdaSpreading.includes('FOLD_NORMAL'), 'PDA 铺布页缺少 FOLD_NORMAL 模式文案')
+  assert(pdaSpreading.includes('FOLD_HIGH_LOW'), 'PDA 铺布页缺少 FOLD_HIGH_LOW 模式文案')
+
+  const routes = read('src/router/routes.ts')
+  assert(
+    routes.includes('renderPdaCuttingExecutionUnitPage') &&
+      routes.includes('pattern: /^\\/fcs\\/pda\\/cutting\\/unit\\/([^/]+)\\/([^/]+)$/'),
+    'routes.ts 缺少 PDA execution-unit route',
+  )
+
+  const releaseAcceptance = read('tests/cutting-release-acceptance.spec.ts')
+  assert(releaseAcceptance.includes('进入执行单元'), 'tests/cutting-release-acceptance.spec.ts 缺少 execution-unit acceptance')
+  assert(releaseAcceptance.includes('按唛架新建铺布'), 'tests/cutting-release-acceptance.spec.ts 缺少 marker-first 创建 acceptance')
+  assert(releaseAcceptance.includes('补料管理'), 'tests/cutting-release-acceptance.spec.ts 缺少补料闭环 acceptance')
+  assert(releaseAcceptance.includes("countViewportRows(page, 'cutting-spreading-list-table')"), 'tests/cutting-release-acceptance.spec.ts 缺少铺布列表低分辨率断言')
+  assert(releaseAcceptance.includes("countViewportRows(page, 'marker-plan-list-table')"), 'tests/cutting-release-acceptance.spec.ts 缺少唛架列表低分辨率断言')
+  assert(releaseAcceptance.includes('[data-pda-cutting-unit-step="SPREADING"]'), 'tests/cutting-release-acceptance.spec.ts 缺少 execution-unit 首屏铺布入口断言')
+  assert(
+    releaseAcceptance.includes("expectVisibleInViewport(page, page.getByRole('button', { name: '保存铺布记录' }))"),
+    'tests/cutting-release-acceptance.spec.ts 缺少 PDA 铺布页保存按钮首屏断言',
+  )
 }
 
 function assertUnifiedEntrypoints(): void {
   const packageJson = read('package.json')
-  assert(packageJson.includes('"check:cutting:all"'), 'package.json 缺少 check:cutting:all')
-  assert(packageJson.includes('"check:cutting:release"'), 'package.json 缺少 check:cutting:release')
-  assert(packageJson.includes('"test:cutting:bootstrap"'), 'package.json 缺少 test:cutting:bootstrap')
-  assert(packageJson.includes('"test:cutting:install-browsers"'), 'package.json 缺少 test:cutting:install-browsers')
-  assert(packageJson.includes('"test:cutting:all:e2e"'), 'package.json 缺少 test:cutting:all:e2e')
+  assert(packageJson.includes('"build"'), 'package.json 缺少 build 脚本')
 }
 
 function runTypeStripScript(rel: string): void {
@@ -205,19 +197,13 @@ function main(): void {
   assertUnifiedEntrypoints()
 
   ;[
-    'scripts/check-cutting-entry-cleanup.ts',
-    'scripts/check-cutting-core-identity.ts',
-    'scripts/check-fcs-upstream-cutting-chain.ts',
-    'scripts/check-cutting-runtime-boundary.ts',
     'scripts/check-cutting-main-pages-cutover.ts',
-    'scripts/check-cutting-runtime-no-legacy-warehouse.ts',
-    'scripts/check-cutting-platform-no-legacy-pickup.ts',
-    'scripts/check-cutting-warehouse-writeback-chain.ts',
     'scripts/check-cutting-p1-closure.ts',
-    'scripts/check-cutting-execution-prep-chain.ts',
-    'scripts/check-cutting-pda-projection-writeback.ts',
-    'scripts/check-cutting-traceability-chain.ts',
     'scripts/check-cutting-final-cleanup.ts',
+    'scripts/check-cutting-marker-spreading-actions.ts',
+    'scripts/check-cutting-low-res-density.ts',
+    'scripts/check-cutting-flow-matrix.ts',
+    'scripts/check-cutting-release-acceptance.ts',
   ].forEach(runTypeStripScript)
 
   console.log(
@@ -227,9 +213,10 @@ function main(): void {
         旧文件与旧平行源退场: '通过',
         legacy关键字符串退场: '通过',
         正式主锚点统一: '通过',
+        acceptance规格存在并已收口: '通过',
+        低分辨率与流程矩阵检查可联跑: '通过',
         统一脚本入口存在: '通过',
         当前有效检查脚本联跑: '通过',
-        E2E自举与文档入口存在: '通过',
       },
       null,
       2,

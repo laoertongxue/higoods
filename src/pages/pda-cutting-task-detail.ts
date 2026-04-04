@@ -12,6 +12,7 @@ import {
   readSelectedExecutionOrderNoFromLocation,
 } from './pda-cutting-context'
 import {
+  buildPdaCuttingExecutionUnitNavHref,
   buildPdaCuttingTaskDetailFocusHref,
   getPdaCuttingCompletedActionLabel,
   readPdaCuttingNavContext,
@@ -20,7 +21,7 @@ import {
 } from './pda-cutting-nav-context'
 import {
   buildPdaCuttingTaskOrderActions,
-  resolvePdaCuttingTaskOrderPrimaryRouteKey,
+  resolvePdaCuttingTaskOrderCurrentStepLabel,
   resolvePdaCuttingTaskOverviewStatusLabel,
 } from './pda-cutting-task-detail-helpers'
 import {
@@ -183,7 +184,7 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
       </div>
       <div class="mt-4 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">当前建议动作</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNextActionLabel || '查看关联裁片单')}</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">进入执行单元</div>
         <div class="mt-1 text-muted-foreground">${escapeHtml(detail.taskProgressLabel)}</div>
         <div class="mt-1 text-muted-foreground">分配工厂：${escapeHtml(detail.assigneeFactoryName)}</div>
       </div>
@@ -211,31 +212,26 @@ function renderTaskOrderCard(
   completedActionLabel: string | null,
 ): string {
   const actions = buildPdaCuttingTaskOrderActions(taskId, line, returnTo)
-  const primaryRouteKey = resolvePdaCuttingTaskOrderPrimaryRouteKey(line)
-  const routedPrimaryAction = actions.find((item) => item.key === primaryRouteKey) ?? actions[0]
   const expanded = state.expandedExecutionOrderIds.includes(line.executionOrderId)
   const isCurrentSelected = detail.currentSelectedExecutionOrderId === line.executionOrderId
   const isFocusTarget = focusExecutionOrderNo === line.executionOrderNo
   const isStableDone = line.isDone && !line.hasException && !hasMeaningfulReplenishmentRisk(line.replenishmentRiskLabel)
   const navContext = readPdaCuttingNavContext()
-  const primaryActionHref = isStableDone
-    ? buildPdaCuttingTaskDetailFocusHref(taskId, {
-        executionOrderId: line.executionOrderId,
-        executionOrderNo: line.executionOrderNo,
-        originalCutOrderId: line.originalCutOrderId,
-        originalCutOrderNo: line.originalCutOrderNo,
-        mergeBatchId: line.mergeBatchId,
-        mergeBatchNo: line.mergeBatchNo,
-        materialSku: line.materialSku,
-        returnTo: navContext.returnTo,
-        focusTaskId: taskId,
-        focusExecutionOrderId: line.executionOrderId,
-        focusExecutionOrderNo: line.executionOrderNo,
-        highlightCutPieceOrder: true,
-        autoFocus: true,
-      })
-    : routedPrimaryAction.href
-  const nextActionLabel = isStableDone ? '查看当前情况' : line.nextActionLabel || routedPrimaryAction.label
+  const primaryActionHref = buildPdaCuttingExecutionUnitNavHref(taskId, line.executionOrderId, {
+    executionOrderNo: line.executionOrderNo,
+    originalCutOrderId: line.originalCutOrderId,
+    originalCutOrderNo: line.originalCutOrderNo,
+    mergeBatchId: line.mergeBatchId,
+    mergeBatchNo: line.mergeBatchNo,
+    materialSku: line.materialSku,
+    returnTo: navContext.returnTo,
+    focusTaskId: taskId,
+    focusExecutionOrderId: line.executionOrderId,
+    focusExecutionOrderNo: line.executionOrderNo,
+    highlightCutPieceOrder: true,
+    autoFocus: true,
+  })
+  const currentStepLabel = isStableDone ? '已完成' : resolvePdaCuttingTaskOrderCurrentStepLabel(line)
   const replenishmentNote = hasMeaningfulReplenishmentRisk(line.replenishmentRiskLabel)
     ? `<div class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-[11px] text-amber-800">补料情况：${escapeHtml(line.replenishmentRiskLabel)}</div>`
     : ''
@@ -299,14 +295,14 @@ function renderTaskOrderCard(
         </article>
       </div>
       <div class="mt-3 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
-        <div class="text-muted-foreground">下一步建议动作</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(nextActionLabel)}</div>
+        <div class="text-muted-foreground">当前应执行步骤</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(currentStepLabel)}</div>
         <div class="mt-1 text-muted-foreground">计划数量：${escapeHtml(String(line.plannedQty))} 件</div>
       </div>
       ${replenishmentNote}
       <div class="mt-3 flex gap-2">
-        <button class="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90" data-nav="${escapeHtml(primaryActionHref)}">
-          继续处理
+        <button class="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90" data-nav="${escapeHtml(primaryActionHref)}" data-pda-cutting-primary-entry="execution-unit">
+          进入执行单元
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted" data-pda-cut-task-action="toggle-order-actions" data-task-id="${escapeHtml(taskId)}" data-execution-order-id="${escapeHtml(line.executionOrderId)}">
           ${expanded ? '收起操作' : '更多操作'}

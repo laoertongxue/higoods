@@ -195,6 +195,12 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
         'primary',
         !activeBatch,
       )}
+      ${renderActionButton(
+        '去铺布',
+        `data-merge-batches-action="go-marker-spreading"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
+        'secondary',
+        !activeBatch,
+      )}
       ${renderActionButton('去裁剪总表', 'data-merge-batches-action="go-summary"')}
     </div>
   `

@@ -81,7 +81,7 @@ import {
 
 type MarkerPlanRouteKind = 'LIST' | 'CREATE' | 'EDIT' | 'DETAIL' | 'OTHER'
 type MarkerPlanListTab = 'PENDING' | 'PLANS' | 'EXCEPTIONS'
-type MarkerPlanListFilterField = 'keyword' | 'contextType' | 'mode' | 'status' | 'ready'
+type MarkerPlanListFilterField = 'keyword' | 'contextNo' | 'markerNo' | 'contextType' | 'mode' | 'status' | 'ready'
 type MarkerPlanContextField = 'contextKeyword'
 type MarkerPlanBasicField =
   | 'markerNo'
@@ -109,6 +109,8 @@ interface MarkerPlanMappingDraft {
 
 interface MarkerPlanListFilters {
   keyword: string
+  contextNo: string
+  markerNo: string
   contextType: 'ALL' | MarkerPlanContextType
   mode: 'ALL' | MarkerPlanModeKey
   status: 'ALL' | MarkerPlanStatusKey
@@ -142,6 +144,8 @@ const state: MarkerPlanPageState = {
   listTab: 'PENDING',
   filters: {
     keyword: '',
+    contextNo: '',
+    markerNo: '',
     contextType: 'ALL',
     mode: 'ALL',
     status: 'ALL',
@@ -751,10 +755,10 @@ function renderActionButton(
 ): string {
   const className =
     variant === 'primary'
-      ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700'
+      ? 'rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium leading-4 text-white hover:bg-blue-700'
       : variant === 'ghost'
-        ? 'rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted'
-        : 'rounded-md border px-3 py-2 text-sm hover:bg-muted'
+        ? 'rounded-md px-2 py-1 text-[11px] leading-4 text-muted-foreground hover:bg-muted'
+        : 'rounded-md border px-2 py-1 text-[11px] leading-4 hover:bg-muted'
 
   return `
     <button
@@ -774,13 +778,20 @@ function renderStatusBadge(label: string, className: string): string {
 
 function renderFormulaText(formula: string): string {
   if (!formula) return ''
-  return `<div class="mt-1 font-mono text-[11px] leading-4 text-muted-foreground">${escapeHtml(formula)}</div>`
+  return `<div class="mt-0.5 font-mono text-[10px] leading-3.5 text-muted-foreground">${escapeHtml(formula)}</div>`
 }
 
 function renderValueWithFormula(value: string, formula = '', valueClass = 'text-sm font-medium'): string {
   return `
     <div class="${valueClass}">${escapeHtml(value || '—')}</div>
     ${renderFormulaText(formula)}
+  `
+}
+
+function renderCompactListValueWithFormula(value: string, formula = ''): string {
+  return `
+    <div class="text-[11px] font-medium leading-3 text-foreground">${escapeHtml(value || '—')}</div>
+    ${formula ? `<div class="mt-0.5 font-mono text-[8px] leading-2.5 text-muted-foreground">${escapeHtml(formula)}</div>` : ''}
   `
 }
 
@@ -1077,62 +1088,83 @@ function renderPlanTopInfo(
         )
         .join('')
     : '<span class="text-xs text-muted-foreground">—</span>'
+  const summaryItems = [
+    { label: '唛架模式', value: markerPlanModeMeta[plan.markerMode].label },
+    { label: '唛架净长度（m）', value: `${formatNumber(plan.netLength, 2)} m` },
+    { label: '唛架成衣件数（件）', value: `${formatCount(plan.totalPieces)} 件`, formula: totalPiecesFormula },
+    { label: '系统单件成衣用量（m/件）', value: `${formatNumber(plan.systemUnitUsage, 3)} m/件`, formula: systemUnitUsageFormula },
+    { label: '最终单件成衣用量（m/件）', value: `${formatNumber(plan.finalUnitUsage, 3)} m/件`, formula: finalUnitUsageFormula },
+    { label: '计划铺布总长度（m）', value: `${formatNumber(plan.plannedSpreadLength, 2)} m`, formula: plannedSpreadLengthFormula },
+  ]
+  const statusItems = [
+    ['分配状态', renderStatusBadge(markerAllocationStatusMeta[plan.allocationStatus].label, markerAllocationStatusMeta[plan.allocationStatus].className)],
+    ['主状态', renderStatusBadge(markerPlanStatusMeta[plan.status].label, markerPlanStatusMeta[plan.status].className)],
+    ['映射状态', renderStatusBadge(markerMappingStatusMeta[plan.mappingStatus].label, markerMappingStatusMeta[plan.mappingStatus].className)],
+    ['排版状态', renderStatusBadge(markerLayoutStatusMeta[plan.layoutStatus].label, markerLayoutStatusMeta[plan.layoutStatus].className)],
+    ['图片状态', renderStatusBadge(markerImageStatusMeta[plan.imageStatus].label, markerImageStatusMeta[plan.imageStatus].className)],
+    ['可交接铺布', plan.readyForSpreading ? renderStatusBadge('是', 'bg-emerald-100 text-emerald-700 border-emerald-200') : renderStatusBadge('否', 'bg-slate-100 text-slate-700 border-slate-200')],
+  ] as const
 
   return `
-    <section data-marker-plan-top-shell class="rounded-lg border bg-card/95 p-2.5 shadow-sm">
-      <div class="pointer-events-none space-y-4" data-testid="marker-plan-top-info">
-        <div class="grid gap-4 xl:grid-cols-[1.4fr_1fr_0.9fr]">
-          <section class="rounded-lg border bg-card p-3">
-            <h2 class="text-sm font-semibold text-foreground">身份信息</h2>
-            <div class="mt-3 grid gap-3 md:grid-cols-2">
-              ${renderTopInfoValue('唛架编号', plan.markerNo)}
-              ${renderTopInfoValue('上下文类型', context ? context.contextLabel : '待选择')}
-              <article class="rounded-lg border bg-background px-3 py-2 md:col-span-2">
-                <div class="text-xs text-muted-foreground">原始裁片单号</div>
-                <div class="pointer-events-auto mt-2 flex flex-wrap gap-2">${originalChips}</div>
-              </article>
-              <article class="rounded-lg border bg-background px-3 py-2 md:col-span-2">
-                <div class="text-xs text-muted-foreground">合并批次号</div>
-                <div class="pointer-events-auto mt-2 flex flex-wrap gap-2">${mergeChip}</div>
-              </article>
-              <article class="rounded-lg border bg-background px-3 py-2 md:col-span-2">
-                <div class="text-xs text-muted-foreground">来源生产单号</div>
-                <div class="pointer-events-auto mt-2 flex flex-wrap gap-2">${productionChips}</div>
-              </article>
-              ${renderTopInfoValue('款号 / SPU', `${plan.styleCode || '-'} / ${plan.spuCode || '-'}`)}
-              ${renderTopInfoValue('款式名称', plan.styleName || '—')}
-              ${renderTopInfoValue('面料 SKU', plan.materialSkuSummary || '—')}
-              ${renderTopInfoValue('颜色摘要', plan.colorSummary || '—')}
+    <section data-marker-plan-top-shell class="rounded-lg border bg-card px-3 py-3 shadow-sm">
+      <div class="pointer-events-none space-y-3" data-testid="marker-plan-top-info">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <div class="text-[11px] text-muted-foreground">唛架编号</div>
+              <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(plan.markerNo)}</div>
             </div>
-          </section>
-          <section class="rounded-lg border bg-card p-3">
-            <h2 class="text-sm font-semibold text-foreground">计划概况</h2>
-            <div class="mt-3 grid gap-3 md:grid-cols-2">
-              ${renderTopInfoValue('唛架模式', markerPlanModeMeta[plan.markerMode].label)}
-              ${renderTopInfoValue('唛架净长度（m）', `${formatNumber(plan.netLength, 2)} m`)}
-              ${renderTopInfoValue('唛架成衣件数（件）', `${formatCount(plan.totalPieces)} 件`, totalPiecesFormula)}
-              ${renderTopInfoValue('系统单件成衣用量（m/件）', `${formatNumber(plan.systemUnitUsage, 3)} m/件`, systemUnitUsageFormula)}
-              ${renderTopInfoValue('最终单件成衣用量（m/件）', `${formatNumber(plan.finalUnitUsage, 3)} m/件`, finalUnitUsageFormula)}
-              ${renderTopInfoValue('计划铺布总长度（m）', `${formatNumber(plan.plannedSpreadLength, 2)} m`, plannedSpreadLengthFormula)}
+            <div>
+              <div class="text-[11px] text-muted-foreground">上下文类型</div>
+              <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(context ? context.contextLabel : '待选择')}</div>
             </div>
-          </section>
-          <section class="rounded-lg border bg-card p-3">
-            <h2 class="text-sm font-semibold text-foreground">状态信息</h2>
-            <div class="mt-3 grid gap-3">
-              ${renderTopInfoStatus('分配状态', renderStatusBadge(markerAllocationStatusMeta[plan.allocationStatus].label, markerAllocationStatusMeta[plan.allocationStatus].className))}
-              ${renderTopInfoStatus('主状态', renderStatusBadge(markerPlanStatusMeta[plan.status].label, markerPlanStatusMeta[plan.status].className))}
-              ${renderTopInfoStatus('映射状态', renderStatusBadge(markerMappingStatusMeta[plan.mappingStatus].label, markerMappingStatusMeta[plan.mappingStatus].className))}
-              ${renderTopInfoStatus('排版状态', renderStatusBadge(markerLayoutStatusMeta[plan.layoutStatus].label, markerLayoutStatusMeta[plan.layoutStatus].className))}
-              ${renderTopInfoStatus('图片状态', renderStatusBadge(markerImageStatusMeta[plan.imageStatus].label, markerImageStatusMeta[plan.imageStatus].className))}
-              ${renderTopInfoStatus('可交接铺布', plan.readyForSpreading ? renderStatusBadge('是', 'bg-emerald-100 text-emerald-700 border-emerald-200') : renderStatusBadge('否', 'bg-slate-100 text-slate-700 border-slate-200'))}
+            <div>
+              <div class="text-[11px] text-muted-foreground">款号 / SPU</div>
+              <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(`${plan.styleCode || '-'} / ${plan.spuCode || '-'}`)}</div>
             </div>
-            <div class="mt-3 text-xs text-muted-foreground">最近更新：${escapeHtml(plan.updatedAt || plan.createdAt || '—')}</div>
-          </section>
+            <div>
+              <div class="text-[11px] text-muted-foreground">面料 / 颜色</div>
+              <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(`${plan.materialSkuSummary || '—'} / ${plan.colorSummary || '—'}`)}</div>
+            </div>
+          </div>
+          <div class="pointer-events-auto flex flex-wrap gap-2">
+            ${statusItems.map(([label, badgeHtml]) => `<div class="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5"><span class="text-[11px] text-muted-foreground">${escapeHtml(label)}</span>${badgeHtml}</div>`).join('')}
+          </div>
+        </div>
+        <div class="grid gap-3 xl:grid-cols-[1.5fr_1fr]">
+          <div class="space-y-2">
+            <div class="rounded-md border bg-background px-3 py-2">
+              <div class="text-[11px] text-muted-foreground">原始裁片单号</div>
+              <div class="pointer-events-auto mt-1 flex flex-wrap gap-2">${originalChips}</div>
+            </div>
+            <div class="grid gap-2 md:grid-cols-2">
+              <div class="rounded-md border bg-background px-3 py-2">
+                <div class="text-[11px] text-muted-foreground">合并批次号</div>
+                <div class="pointer-events-auto mt-1 flex flex-wrap gap-2">${mergeChip}</div>
+              </div>
+              <div class="rounded-md border bg-background px-3 py-2">
+                <div class="text-[11px] text-muted-foreground">来源生产单号</div>
+                <div class="pointer-events-auto mt-1 flex flex-wrap gap-2">${productionChips}</div>
+              </div>
+            </div>
+          </div>
+          <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            ${summaryItems
+              .map(
+                (item) => `
+                  <div class="rounded-md border bg-background px-3 py-2">
+                    <div class="text-[11px] text-muted-foreground">${escapeHtml(item.label)}</div>
+                    <div class="mt-1">${renderValueWithFormula(item.value, item.formula || '', 'text-sm font-medium text-foreground')}</div>
+                  </div>
+                `,
+              )
+              .join('')}
+          </div>
         </div>
         ${
           showActionRow
             ? `
-              <div class="pointer-events-auto flex flex-wrap items-center gap-2">
+              <div class="pointer-events-auto flex flex-wrap items-center gap-2 border-t pt-3">
                 ${renderActionButton('去原始裁片单', `data-marker-plan-action="go-original-orders"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
                 ${renderActionButton('去配料领料', `data-marker-plan-action="go-material-prep"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
                 ${plan.mergeBatchId ? renderActionButton('去合并批次', `data-marker-plan-action="go-merge-batch"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`) : ''}
@@ -1141,6 +1173,7 @@ function renderPlanTopInfo(
             `
             : ''
         }
+        <div class="text-[11px] text-muted-foreground">最近更新：${escapeHtml(plan.updatedAt || plan.createdAt || '—')}</div>
       </div>
     </section>
   `
@@ -2468,19 +2501,20 @@ function renderDetailTab(plan: MarkerPlanViewRow, activeTab: MarkerPlanTabKey): 
 
 function renderListTabs(listTab: MarkerPlanListTab): string {
   return `
-    <section class="rounded-lg border bg-card px-4 py-3">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 class="text-sm font-semibold text-foreground">列表视图</h2>
-        <div class="text-xs text-muted-foreground">${escapeHtml(getListTabMeta(listTab).label)}</div>
-      </div>
-      <div class="mt-3 flex flex-wrap gap-2">
+    <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-2" data-testid="marker-plan-list-tabs">
+      <div class="flex flex-wrap gap-1">
         ${buildMarkerPlanListTabOptions()
-          .map((tab) =>
-            renderActionButton(
-              tab.label,
-              `data-marker-plan-action="switch-list-tab" data-list-tab="${tab.value}"`,
-              listTab === tab.value ? 'primary' : 'secondary',
-            ),
+          .map(
+            (tab) => `
+              <button
+                type="button"
+                class="rounded-md border px-2 py-1 text-[11px] leading-4 ${listTab === tab.value ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+                data-marker-plan-action="switch-list-tab"
+                data-list-tab="${tab.value}"
+              >
+                ${escapeHtml(tab.label)}
+              </button>
+            `,
           )
           .join('')}
       </div>
@@ -2491,6 +2525,8 @@ function renderListTabs(listTab: MarkerPlanListTab): string {
 function getListFilterLabels(): string[] {
   const labels: string[] = [`视图：${getListTabMeta(state.listTab).label}`]
   if (state.filters.keyword) labels.push(`关键词：${state.filters.keyword}`)
+  if (state.filters.contextNo) labels.push(`原始裁片单 / 合并批次：${state.filters.contextNo}`)
+  if (state.filters.markerNo) labels.push(`唛架编号：${state.filters.markerNo}`)
   if (state.filters.contextType !== 'ALL') {
     const option = buildMarkerPlanContextTypeOptions().find((item) => item.value === state.filters.contextType)
     if (option) labels.push(`上下文类型：${option.label}`)
@@ -2504,26 +2540,40 @@ function getListFilterLabels(): string[] {
 
 function renderListStateBar(): string {
   const labels = getListFilterLabels()
+  if (labels.length <= 1) return ''
 
-  return renderWorkbenchStateBar({
-    summary: '当前视图条件',
-    chips: labels.map((label, index) =>
-      renderWorkbenchFilterChip(
-        label,
-        index === 0
-          ? `data-marker-plan-action="switch-list-tab" data-list-tab="${state.listTab}"`
-          : 'data-marker-plan-action="reset-filters"',
-        index === 0 ? 'amber' : 'blue',
-      ),
-    ),
-    clearAttrs: 'data-marker-plan-action="reset-list-view"',
-  })
+  return `
+    <div data-testid="marker-plan-list-state-bar">
+      ${renderWorkbenchStateBar({
+        summary: '当前视图条件',
+        chips: labels.map((label, index) =>
+          renderWorkbenchFilterChip(
+            label,
+            index === 0
+              ? `data-marker-plan-action="switch-list-tab" data-list-tab="${state.listTab}"`
+              : 'data-marker-plan-action="reset-filters"',
+            index === 0 ? 'amber' : 'blue',
+          ),
+        ),
+        clearAttrs: 'data-marker-plan-action="reset-list-view"',
+      })}
+    </div>
+  `
 }
 
 function filterPlans(rows: MarkerPlanViewRow[], tab: MarkerPlanListTab): MarkerPlanViewRow[] {
   const keyword = state.filters.keyword.trim().toLowerCase()
+  const contextNo = state.filters.contextNo.trim().toLowerCase()
+  const markerNo = state.filters.markerNo.trim().toLowerCase()
   return rows.filter((row) => {
     if (tab === 'EXCEPTIONS' && !hasPlanExceptionIssue(row)) return false
+    if (contextNo) {
+      const contextKeywords = [row.contextNo, row.mergeBatchNo, ...row.originalCutOrderNos]
+        .filter(Boolean)
+        .map((item) => item.toLowerCase())
+      if (!contextKeywords.some((item) => item.includes(contextNo))) return false
+    }
+    if (markerNo && !row.markerNo.toLowerCase().includes(markerNo)) return false
     if (state.filters.contextType !== 'ALL' && row.contextType !== state.filters.contextType) return false
     if (state.filters.mode !== 'ALL' && row.markerMode !== state.filters.mode) return false
     if (state.filters.status !== 'ALL' && row.status !== state.filters.status) return false
@@ -2550,7 +2600,14 @@ function filterPlans(rows: MarkerPlanViewRow[], tab: MarkerPlanListTab): MarkerP
 
 function filterContexts(contexts: MarkerPlanContextCandidate[]): MarkerPlanContextCandidate[] {
   const keyword = state.filters.keyword.trim().toLowerCase()
+  const contextNo = state.filters.contextNo.trim().toLowerCase()
   return contexts.filter((context) => {
+    if (contextNo) {
+      const contextKeywords = [context.contextNo, ...context.originalCutOrderNos]
+        .filter(Boolean)
+        .map((item) => item.toLowerCase())
+      if (!contextKeywords.some((item) => item.includes(contextNo))) return false
+    }
     if (state.filters.contextType !== 'ALL' && context.contextType !== state.filters.contextType) return false
     if (!keyword) return true
     const keywords = [
@@ -2571,70 +2628,107 @@ function filterContexts(contexts: MarkerPlanContextCandidate[]): MarkerPlanConte
 
 function renderListFilters(): string {
   return renderStickyFilterShell(`
-    <div class="space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 class="text-sm font-semibold text-foreground">筛选条件</h2>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-marker-plan-action="reset-filters">重置筛选</button>
-      </div>
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">搜索</span>
+    <div class="space-y-1.5">
+      <div class="grid gap-1.5 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-end">
+        <label class="space-y-1">
+          <span class="text-[11px] font-medium text-foreground">搜索</span>
           <input
             type="text"
             value="${escapeHtml(state.filters.keyword)}"
             data-marker-plan-filter-field="keyword"
-            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            class="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500"
           />
         </label>
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">上下文类型</span>
-          <select data-marker-plan-filter-field="contextType" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="ALL">全部</option>
-            ${buildMarkerPlanContextTypeOptions().map((option) => `<option value="${option.value}" ${option.value === state.filters.contextType ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
-          </select>
-        </label>
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">唛架模式</span>
-          <select data-marker-plan-filter-field="mode" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="ALL">全部</option>
-            ${buildMarkerPlanModeOptions().map((option) => `<option value="${option.value}" ${option.value === state.filters.mode ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
-          </select>
-        </label>
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">主状态</span>
-          <select data-marker-plan-filter-field="status" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+        <label class="space-y-1">
+          <span class="text-[11px] font-medium text-foreground">主状态</span>
+          <select data-marker-plan-filter-field="status" class="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
             <option value="ALL">全部</option>
             ${(Object.keys(markerPlanStatusMeta) as MarkerPlanStatusKey[]).map((key) => `<option value="${key}" ${key === state.filters.status ? 'selected' : ''}>${escapeHtml(markerPlanStatusMeta[key].label)}</option>`).join('')}
           </select>
         </label>
-        <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">可交接铺布</span>
-          <select data-marker-plan-filter-field="ready" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="ALL">全部</option>
-            <option value="YES" ${state.filters.ready === 'YES' ? 'selected' : ''}>是</option>
-            <option value="NO" ${state.filters.ready === 'NO' ? 'selected' : ''}>否</option>
-          </select>
+        <label class="space-y-1">
+          <span class="text-[11px] font-medium text-foreground">原始裁片单 / 合并批次</span>
+          <input
+            type="text"
+            value="${escapeHtml(state.filters.contextNo)}"
+            data-marker-plan-filter-field="contextNo"
+            class="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </label>
+        <label class="space-y-1">
+          <span class="text-[11px] font-medium text-foreground">唛架编号</span>
+          <input
+            type="text"
+            value="${escapeHtml(state.filters.markerNo)}"
+            data-marker-plan-filter-field="markerNo"
+            class="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </label>
+        <button type="button" class="h-8 rounded-md border px-2.5 text-xs hover:bg-muted" data-marker-plan-action="reset-filters">重置筛选</button>
       </div>
+      <details class="rounded-md border bg-background" data-testid="marker-plan-more-filters">
+        <summary class="cursor-pointer list-none px-2.5 py-1.5 text-[11px] font-medium text-foreground">更多筛选</summary>
+        <div class="border-t px-2.5 py-1.5">
+          <div class="grid gap-1.5 md:grid-cols-2 xl:grid-cols-3">
+            <label class="space-y-1">
+              <span class="text-[11px] font-medium text-foreground">上下文类型</span>
+              <select data-marker-plan-filter-field="contextType" class="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">全部</option>
+                ${buildMarkerPlanContextTypeOptions().map((option) => `<option value="${option.value}" ${option.value === state.filters.contextType ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="space-y-1">
+              <span class="text-[11px] font-medium text-foreground">唛架模式</span>
+              <select data-marker-plan-filter-field="mode" class="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">全部</option>
+                ${buildMarkerPlanModeOptions().map((option) => `<option value="${option.value}" ${option.value === state.filters.mode ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="space-y-1">
+              <span class="text-[11px] font-medium text-foreground">可交接铺布</span>
+              <select data-marker-plan-filter-field="ready" class="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">全部</option>
+                <option value="YES" ${state.filters.ready === 'YES' ? 'selected' : ''}>是</option>
+                <option value="NO" ${state.filters.ready === 'NO' ? 'selected' : ''}>否</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </details>
     </div>
-  `)
+  `, '!top-1 !p-1.5', 'data-testid="marker-plan-list-filters"')
 }
 
 function renderStats(stats: MarkerPlanListStats): string {
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      ${renderCompactKpiCard('待建上下文数', stats.pendingContextCount, '', 'text-slate-900', `${stats.pendingContextCount} = ${stats.totalContextCount} - ${stats.builtContextCount}`)}
-      ${renderCompactKpiCard('待配平唛架数', stats.pendingBalanceCount, '', 'text-amber-600', `${stats.pendingBalanceCount} = allocationStatus ≠ balanced 的唛架数`)}
-      ${renderCompactKpiCard('映射异常唛架数', stats.mappingIssueCount, '', 'text-rose-600', `${stats.mappingIssueCount} = mappingStatus = issue 的唛架数`)}
-      ${renderCompactKpiCard('待排版唛架数', stats.waitingLayoutCount, '', 'text-blue-600', `${stats.waitingLayoutCount} = layoutStatus ≠ done 的唛架数`)}
-      ${renderCompactKpiCard('可交接铺布唛架数', stats.readyForSpreadingCount, '', 'text-emerald-600', `${stats.readyForSpreadingCount} = readyForSpreading = true 的唛架数`)}
+    <section class="grid gap-2 md:grid-cols-2 xl:grid-cols-4" data-testid="marker-plan-list-stats">
+      <article class="rounded-lg border bg-card px-2 py-1">
+        <p class="text-[11px] text-muted-foreground">待建上下文数</p>
+        <p class="mt-0.5 text-base font-semibold leading-none text-slate-900">${stats.pendingContextCount}</p>
+        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.pendingContextCount} = ${stats.totalContextCount} - ${stats.builtContextCount}</p>
+      </article>
+      <article class="rounded-lg border bg-card px-2 py-1">
+        <p class="text-[11px] text-muted-foreground">待配平唛架数</p>
+        <p class="mt-0.5 text-base font-semibold leading-none text-amber-600">${stats.pendingBalanceCount}</p>
+        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.pendingBalanceCount} = allocationStatus ≠ balanced 的唛架数</p>
+      </article>
+      <article class="rounded-lg border bg-card px-2 py-1">
+        <p class="text-[11px] text-muted-foreground">待排版唛架数</p>
+        <p class="mt-0.5 text-base font-semibold leading-none text-blue-600">${stats.waitingLayoutCount}</p>
+        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.waitingLayoutCount} = layoutStatus ≠ done 的唛架数</p>
+      </article>
+      <article class="rounded-lg border bg-card px-2 py-1">
+        <p class="text-[11px] text-muted-foreground">可交接铺布唛架数</p>
+        <p class="mt-0.5 text-base font-semibold leading-none text-emerald-600">${stats.readyForSpreadingCount}</p>
+        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.readyForSpreadingCount} = readyForSpreading = true 的唛架数</p>
+      </article>
     </section>
   `
 }
 
 function renderPendingContexts(contexts: MarkerPlanContextCandidate[]): string {
   return `
-    <section class="rounded-lg border bg-card" data-testid="marker-plan-pending-contexts">
+    <section class="rounded-lg border bg-card" data-testid="marker-plan-pending-contexts" data-marker-plan-main-card="true">
       <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">待建上下文</h2>
@@ -2696,34 +2790,36 @@ function renderPendingContexts(contexts: MarkerPlanContextCandidate[]): string {
 }
 
 function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): string {
+  const tableTitle = exceptionOnly ? '异常待处理唛架' : '已建唛架主表'
+  const countText = `共 ${rows.length} 条唛架`
   return `
-    <section class="rounded-lg border bg-card" data-testid="${exceptionOnly ? 'marker-plan-exception-list' : 'marker-plan-list-table'}">
-      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
+    <section class="rounded-lg border bg-card" data-testid="${exceptionOnly ? 'marker-plan-exception-list' : 'marker-plan-list-table'}" data-marker-plan-main-card="true">
+      <div class="flex items-center justify-between gap-3 border-b px-3 py-1.5">
         <div>
-          <h2 class="text-sm font-semibold">${exceptionOnly ? '异常待处理' : '已建唛架'}</h2>
+          <h2 class="text-sm font-semibold">${tableTitle}</h2>
         </div>
-        <div class="text-xs text-muted-foreground">共 ${rows.length} 条唛架</div>
+        <div class="text-xs text-muted-foreground">${countText}</div>
       </div>
       ${renderStickyTableScroller(`
-        <table class="min-w-[2140px] text-left text-sm">
+        <table class="min-w-[2140px] text-left text-xs">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th class="px-3 py-2 font-medium">唛架编号</th>
-              <th class="px-3 py-2 font-medium">上下文</th>
-              <th class="px-3 py-2 font-medium">来源原始裁片单数（张）</th>
-              <th class="px-3 py-2 font-medium">来源生产单数（单）</th>
-              <th class="px-3 py-2 font-medium">款号 / SPU</th>
-              <th class="px-3 py-2 font-medium">面料 / 颜色</th>
-              <th class="px-3 py-2 font-medium">唛架模式</th>
-              <th class="px-3 py-2 font-medium">唛架成衣件数（件）</th>
-              <th class="px-3 py-2 font-medium">最终单件成衣用量（m/件）</th>
-              <th class="px-3 py-2 font-medium">计划铺布总长度（m）</th>
-              <th class="px-3 py-2 font-medium">分配状态</th>
-              <th class="px-3 py-2 font-medium">映射状态</th>
-              <th class="px-3 py-2 font-medium">排版状态</th>
-              <th class="px-3 py-2 font-medium">图片状态</th>
-              <th class="px-3 py-2 font-medium">最近更新</th>
-              <th class="px-3 py-2 font-medium">操作</th>
+              <th class="px-2 py-1 font-medium">唛架编号</th>
+              <th class="px-2 py-1 font-medium">上下文</th>
+              <th class="px-2 py-1 font-medium">来源原始裁片单数（张）</th>
+              <th class="px-2 py-1 font-medium">来源生产单数（单）</th>
+              <th class="px-2 py-1 font-medium">款号 / SPU</th>
+              <th class="px-2 py-1 font-medium">面料 / 颜色</th>
+              <th class="px-2 py-1 font-medium">唛架模式</th>
+              <th class="px-2 py-1 font-medium">唛架成衣件数（件）</th>
+              <th class="px-2 py-1 font-medium">最终单件成衣用量（m/件）</th>
+              <th class="px-2 py-1 font-medium">计划铺布总长度（m）</th>
+              <th class="px-2 py-1 font-medium">分配状态</th>
+              <th class="px-2 py-1 font-medium">映射状态</th>
+              <th class="px-2 py-1 font-medium">排版状态</th>
+              <th class="px-2 py-1 font-medium">图片状态</th>
+              <th class="px-2 py-1 font-medium">最近更新</th>
+              <th class="px-2 py-1 font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -2738,32 +2834,28 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                           ? `data-marker-plan-action="open-problem-detail" data-plan-id="${escapeHtml(row.id)}" data-tab-key="${problemTab}"`
                           : ''
                       }>
-                        <td class="px-3 py-3">
-                          <div class="font-medium">${escapeHtml(row.markerNo)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${renderStatusBadge(row.statusMeta.label, row.statusMeta.className)}</div>
+                        <td class="px-2 py-1">
+                          <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="font-medium">${escapeHtml(row.markerNo)}</span>
+                            ${renderStatusBadge(row.statusMeta.label, row.statusMeta.className)}
+                          </div>
                         </td>
-                        <td class="px-3 py-3">${escapeHtml(`${row.contextLabel} · ${row.contextNo}`)}</td>
-                        <td class="px-3 py-3">${escapeHtml(row.sourceOriginalOrderCountText)}</td>
-                        <td class="px-3 py-3">${escapeHtml(row.sourceProductionOrderCountText)}</td>
-                        <td class="px-3 py-3">
-                          <div class="font-medium">${escapeHtml(`${row.styleCode || '-'} / ${row.spuCode || '-'}`)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.styleName || '—')}</div>
-                        </td>
-                        <td class="px-3 py-3">
-                          <div>${escapeHtml(row.materialSkuSummary)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.colorSummary || '—')}</div>
-                        </td>
-                        <td class="px-3 py-3">${renderStatusBadge(row.modeMeta.label, row.modeMeta.className)}</td>
-                        <td class="px-3 py-3">${renderValueWithFormula(formatCount(row.totalPieces), row.totalPiecesFormula, 'text-sm font-medium')}</td>
-                        <td class="px-3 py-3">${renderValueWithFormula(row.finalUnitUsageText, row.finalUnitUsageFormula, 'text-sm font-medium')}</td>
-                        <td class="px-3 py-3">${renderValueWithFormula(row.plannedSpreadLengthText, row.plannedSpreadLengthFormula, 'text-sm font-medium')}</td>
-                        <td class="px-3 py-3">${renderStatusBadge(row.allocationStatusMeta.label, row.allocationStatusMeta.className)}</td>
-                        <td class="px-3 py-3">${renderStatusBadge(row.mappingStatusMeta.label, row.mappingStatusMeta.className)}</td>
-                        <td class="px-3 py-3">${renderStatusBadge(row.layoutStatusMeta.label, row.layoutStatusMeta.className)}</td>
-                        <td class="px-3 py-3">${renderStatusBadge(row.imageStatusMeta.label, row.imageStatusMeta.className)}</td>
-                        <td class="px-3 py-3">${escapeHtml(row.updatedAt || '—')}</td>
-                        <td class="px-3 py-3">
-                          <div class="flex flex-wrap gap-2">
+                        <td class="px-2 py-1">${escapeHtml(`${row.contextLabel} · ${row.contextNo}`)}</td>
+                        <td class="px-2 py-1">${escapeHtml(row.sourceOriginalOrderCountText)}</td>
+                        <td class="px-2 py-1">${escapeHtml(row.sourceProductionOrderCountText)}</td>
+                        <td class="px-2 py-1 font-medium">${escapeHtml(`${row.styleCode || '-'} / ${row.spuCode || '-'}`)}</td>
+                        <td class="px-2 py-1">${escapeHtml(`${row.materialSkuSummary || '—'} / ${row.colorSummary || '—'}`)}</td>
+                        <td class="px-2 py-1">${renderStatusBadge(row.modeMeta.label, row.modeMeta.className)}</td>
+                        <td class="px-2 py-1">${renderCompactListValueWithFormula(formatCount(row.totalPieces), row.totalPiecesFormula)}</td>
+                        <td class="px-2 py-1">${renderCompactListValueWithFormula(row.finalUnitUsageText, row.finalUnitUsageFormula)}</td>
+                        <td class="px-2 py-1">${renderCompactListValueWithFormula(row.plannedSpreadLengthText, row.plannedSpreadLengthFormula)}</td>
+                        <td class="px-2 py-1">${renderStatusBadge(row.allocationStatusMeta.label, row.allocationStatusMeta.className)}</td>
+                        <td class="px-2 py-1">${renderStatusBadge(row.mappingStatusMeta.label, row.mappingStatusMeta.className)}</td>
+                        <td class="px-2 py-1">${renderStatusBadge(row.layoutStatusMeta.label, row.layoutStatusMeta.className)}</td>
+                        <td class="px-2 py-1">${renderStatusBadge(row.imageStatusMeta.label, row.imageStatusMeta.className)}</td>
+                        <td class="px-2 py-1">${escapeHtml(row.updatedAt || '—')}</td>
+                        <td class="px-2 py-1">
+                          <div class="flex flex-nowrap gap-1.5 overflow-x-auto whitespace-nowrap">
                             ${renderActionButton('查看', `data-marker-plan-action="go-detail" data-plan-id="${escapeHtml(row.id)}"${exceptionOnly ? ` data-tab-key="${problemTab}"` : ''}`)}
                             ${renderActionButton('编辑', `data-marker-plan-action="go-edit" data-plan-id="${escapeHtml(row.id)}"${exceptionOnly ? ` data-tab-key="${problemTab}"` : ''}`)}
                             ${renderActionButton('复制为新唛架', `data-marker-plan-action="copy-plan" data-plan-id="${escapeHtml(row.id)}"`)}
@@ -2919,23 +3011,23 @@ function renderListPage(viewModel = getViewModel()): string {
   const meta = getCanonicalCuttingMeta(getCurrentBasePath(), 'marker-list')
   const filteredPlans = filterPlans(viewModel.plans, state.listTab)
   const filteredPending = filterContexts(viewModel.pendingContexts)
+  const mainContent =
+    state.listTab === 'PENDING'
+      ? renderPendingContexts(filteredPending)
+      : renderPlanRowsTable(filteredPlans, state.listTab === 'EXCEPTIONS')
 
   return `
-    <div class="space-y-4 p-4" data-testid="cutting-marker-plan-list-page">
+    <div class="space-y-1 p-2" data-testid="cutting-marker-plan-list-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderPlanHeaderActions('LIST', null),
         showCompatibilityBadge: isCuttingAliasPath(getCurrentBasePath()),
       })}
       ${renderFeedbackBar()}
       ${renderStats(viewModel.stats)}
+      ${renderListTabs(state.listTab)}
       ${renderListFilters()}
       ${renderListStateBar()}
-      ${renderListTabs(state.listTab)}
-      ${
-        state.listTab === 'PENDING'
-          ? renderPendingContexts(filteredPending)
-          : renderPlanRowsTable(filteredPlans, state.listTab === 'EXCEPTIONS')
-      }
+      ${mainContent}
       ${renderContextDrawer(viewModel)}
     </div>
   `
@@ -3320,12 +3412,12 @@ function handleAction(action: string, node: HTMLElement): boolean {
   }
 
   if (action === 'reset-filters') {
-    state.filters = { keyword: '', contextType: 'ALL', mode: 'ALL', status: 'ALL', ready: 'ALL' }
+    state.filters = { keyword: '', contextNo: '', markerNo: '', contextType: 'ALL', mode: 'ALL', status: 'ALL', ready: 'ALL' }
     return true
   }
 
   if (action === 'reset-list-view') {
-    state.filters = { keyword: '', contextType: 'ALL', mode: 'ALL', status: 'ALL', ready: 'ALL' }
+    state.filters = { keyword: '', contextNo: '', markerNo: '', contextType: 'ALL', mode: 'ALL', status: 'ALL', ready: 'ALL' }
     state.listTab = 'PENDING'
     return true
   }
@@ -3663,6 +3755,8 @@ export function handleCraftCuttingMarkerPlanEvent(target: Element): boolean {
     const field = filterFieldNode.dataset.markerPlanFilterField as MarkerPlanListFilterField | undefined
     const input = filterFieldNode as HTMLInputElement | HTMLSelectElement
     if (field === 'keyword') state.filters.keyword = input.value
+    if (field === 'contextNo') state.filters.contextNo = input.value
+    if (field === 'markerNo') state.filters.markerNo = input.value
     if (field === 'contextType') state.filters.contextType = input.value as MarkerPlanListFilters['contextType']
     if (field === 'mode') state.filters.mode = input.value as MarkerPlanListFilters['mode']
     if (field === 'status') state.filters.status = input.value as MarkerPlanListFilters['status']

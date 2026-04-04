@@ -1,5 +1,6 @@
 export {
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
+  buildSpreadingTraceAnchors,
   buildReplenishmentPreview,
   createEmptyStore,
   deserializeMarkerSpreadingStorage,
@@ -11,4 +12,5 @@ export {
   type SpreadingRollRecord,
   type SpreadingSession,
   type SpreadingSourceChannel,
+  type SpreadingTraceAnchor,
 } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'

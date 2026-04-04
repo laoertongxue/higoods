@@ -482,8 +482,16 @@ function renderRiskTags(tags: MaterialPrepRow['riskTags']): string {
 function renderPrepCell(row: MaterialPrepRow): string {
   return `
     <div class="space-y-1">
-      ${renderBadge(row.materialPrepStatus.label, row.materialPrepStatus.className)}
+      <div class="flex flex-wrap gap-1">
+        ${renderBadge(row.materialPrepStatus.label, row.materialPrepStatus.className)}
+        ${row.hasReplenishmentPendingPrep ? renderBadge('补料待配料', 'bg-amber-100 text-amber-700') : ''}
+      </div>
       <p class="text-xs text-muted-foreground">${escapeHtml(summarizeMaterialLineItems(row.materialLineItems))}</p>
+      ${
+        row.hasReplenishmentPendingPrep
+          ? `<p class="text-xs text-amber-700">${escapeHtml(`补料待配料 ${row.replenishmentPendingPrepCount} 条`)}</p>`
+          : ''
+      }
     </div>
   `
 }
@@ -690,6 +698,7 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
             <th class="px-3 py-2 text-left font-medium">已配置量</th>
             <th class="px-3 py-2 text-left font-medium">已领取量</th>
             <th class="px-3 py-2 text-left font-medium">缺口量</th>
+            <th class="px-3 py-2 text-left font-medium">来源</th>
             <th class="px-3 py-2 text-left font-medium">配料状态</th>
             <th class="px-3 py-2 text-left font-medium">领料状态</th>
             <th class="px-3 py-2 text-left font-medium">备注</th>
@@ -712,6 +721,16 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
                   <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.configuredQty)} 米`)}</td>
                   <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.claimedQty)} 米`)}</td>
                   <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.shortageQty)} 米`)}</td>
+                  <td class="px-3 py-2 align-top">
+                    <div class="flex flex-wrap gap-1">
+                      ${renderBadge(item.sourceLabel || '正常配料', item.sourceType === 'REPLENISHMENT_PENDING_PREP' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700')}
+                    </div>
+                    ${
+                      item.sourceType === 'REPLENISHMENT_PENDING_PREP'
+                        ? `<p class="mt-1 text-xs text-muted-foreground">缺口成衣件数 ${escapeHtml(String(item.replenishmentPendingPrepQty || 0))} 件</p>`
+                        : ''
+                    }
+                  </td>
                   <td class="px-3 py-2 align-top">${renderBadge(item.linePrepStatus.label, item.linePrepStatus.className)}</td>
                   <td class="px-3 py-2 align-top">${renderBadge(item.lineClaimStatus.label, item.lineClaimStatus.className)}</td>
                   <td class="px-3 py-2 align-top text-xs text-muted-foreground">${escapeHtml(item.note || item.latestActionText || '—')}</td>
@@ -723,6 +742,57 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
       </table>
     </div>
   `
+}
+
+function renderReplenishmentPendingPrepSection(row: MaterialPrepRow): string {
+  if (!row.replenishmentPendingPrepItems.length) {
+    return renderDetailSection(
+      '补料待配料',
+      '<div class="text-sm text-muted-foreground">当前没有补料审批通过后生成的待配料记录。</div>',
+    )
+  }
+
+  return renderDetailSection(
+    '补料待配料',
+    `
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[920px] text-sm">
+          <thead class="border-b bg-muted/60 text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">原始裁片单</th>
+              <th class="px-3 py-2 text-left font-medium">面料 SKU</th>
+              <th class="px-3 py-2 text-left font-medium">颜色</th>
+              <th class="px-3 py-2 text-left font-medium">缺口成衣件数（件）</th>
+              <th class="px-3 py-2 text-left font-medium">来源</th>
+              <th class="px-3 py-2 text-left font-medium">状态</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${row.replenishmentPendingPrepItems
+              .map(
+                (item) => `
+                  <tr>
+                    <td class="px-3 py-2 align-top">
+                      <div class="font-medium">${escapeHtml(item.originalCutOrderNo || item.originalCutOrderId)}</div>
+                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.originalCutOrderId)}</p>
+                    </td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(item.materialSku)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(item.color || row.color || '待补')}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.shortageGarmentQty)} 件`)}</td>
+                    <td class="px-3 py-2 align-top">
+                      ${renderBadge('补料待配料', 'bg-amber-100 text-amber-700')}
+                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.note || '来源补料审批通过')}</p>
+                    </td>
+                    <td class="px-3 py-2 align-top">${renderBadge('待配料', 'bg-orange-100 text-orange-700')}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    `,
+  )
 }
 
 function renderClaimRecords(row: MaterialPrepRow): string {
@@ -823,6 +893,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       )}
 
       ${renderDetailSection('面料行项目表', renderMaterialLineTable(row))}
+      ${renderReplenishmentPendingPrepSection(row)}
 
       ${renderDetailSection(
         '发料清单区',
@@ -860,6 +931,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-original-orders" data-record-id="${escapeHtml(row.id)}">去原始裁片单</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary" data-record-id="${escapeHtml(row.id)}">去裁剪总表</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}">
@@ -1179,11 +1251,14 @@ function closeOverlay(): void {
 
 function navigateToRowTarget(
   recordId: string | undefined,
-  target: keyof MaterialPrepRow['navigationPayload'] | 'markerPlan',
+  target: keyof MaterialPrepRow['navigationPayload'] | 'markerPlan' | 'spreadingList',
 ): boolean {
   const row = getRecordById(recordId)
   if (!row) return false
-  const payload = target === 'markerPlan' ? row.navigationPayload.markerSpreading : row.navigationPayload[target]
+  const payload =
+    target === 'markerPlan' || target === 'spreadingList'
+      ? row.navigationPayload.markerSpreading
+      : row.navigationPayload[target]
   const context = normalizeLegacyCuttingPayload(payload, 'material-prep', {
     productionOrderNo: row.productionOrderNo,
     originalCutOrderId: row.originalCutOrderId,
@@ -1193,7 +1268,12 @@ function navigateToRowTarget(
     materialSku: row.materialLineItems[0]?.materialSku || undefined,
     autoOpenDetail: true,
   })
-  appStore.navigate(buildCuttingRouteWithContext(target === 'markerPlan' ? 'markerPlan' : (target as CuttingNavigationTarget), context))
+  appStore.navigate(
+    buildCuttingRouteWithContext(
+      target === 'markerPlan' ? 'markerPlan' : target === 'spreadingList' ? 'spreadingList' : (target as CuttingNavigationTarget),
+      context,
+    ),
+  )
   return true
 }
 
@@ -1532,7 +1612,7 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
   }
 
   if (action === 'go-marker-spreading') {
-    return navigateToRowTarget(actionNode.dataset.recordId || state.activeOrderId || undefined, 'markerSpreading')
+    return navigateToRowTarget(actionNode.dataset.recordId || state.activeOrderId || undefined, 'spreadingList')
   }
 
   if (action === 'go-summary') {

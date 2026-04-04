@@ -139,6 +139,10 @@ export interface OriginalCutOrderTicketOwner {
 export interface FeiTicketLabelRecord {
   ticketRecordId: string
   ticketNo: string
+  sourceSpreadingSessionId?: string
+  sourceSpreadingSessionNo?: string
+  sourceMarkerId?: string
+  sourceMarkerNo?: string
   originalCutOrderId: string
   originalCutOrderNo: string
   productionOrderNo: string
@@ -233,6 +237,8 @@ export interface FeiTicketsPrefilter {
   mergeBatchId?: string
   mergeBatchNo?: string
   productionOrderNo?: string
+  spreadingSessionId?: string
+  spreadingSessionNo?: string
   printJobNo?: string
   ticketStatus?: FeiTicketStatusKey
 }
@@ -383,6 +389,10 @@ function createEmptyPreviewRecord(
   return {
     ticketRecordId: generated?.feiTicketId || `${owner.originalCutOrderId}-${sequenceNo}`,
     ticketNo: generated?.feiTicketNo || buildFeiTicketNo(owner.originalCutOrderNo, sequenceNo),
+    sourceSpreadingSessionId: generated?.sourceSpreadingSessionId || '',
+    sourceSpreadingSessionNo: generated?.sourceSpreadingSessionNo || '',
+    sourceMarkerId: generated?.sourceMarkerId || '',
+    sourceMarkerNo: generated?.sourceMarkerNo || '',
     originalCutOrderId: owner.originalCutOrderId,
     originalCutOrderNo: owner.originalCutOrderNo,
     productionOrderNo: owner.productionOrderNo,
@@ -622,22 +632,30 @@ type PrintableUnitScope = Pick<
 >
 
 function normalizeRecordPrintableUnit(record: FeiTicketLabelRecord): FeiTicketLabelRecord {
-  if (record.printableUnitId && record.printableUnitNo && record.printableUnitType) return record
+  const normalizedRecord: FeiTicketLabelRecord = {
+    ...record,
+    sourceSpreadingSessionId: record.sourceSpreadingSessionId || '',
+    sourceSpreadingSessionNo: record.sourceSpreadingSessionNo || '',
+    sourceMarkerId: record.sourceMarkerId || '',
+    sourceMarkerNo: record.sourceMarkerNo || '',
+  }
 
-  if (record.sourceContextType === 'merge-batch' && record.sourceMergeBatchId) {
+  if (normalizedRecord.printableUnitId && normalizedRecord.printableUnitNo && normalizedRecord.printableUnitType) return normalizedRecord
+
+  if (normalizedRecord.sourceContextType === 'merge-batch' && normalizedRecord.sourceMergeBatchId) {
     return {
-      ...record,
-      printableUnitId: record.printableUnitId || `batch:${record.sourceMergeBatchId}`,
-      printableUnitNo: record.printableUnitNo || record.sourceMergeBatchNo,
-      printableUnitType: record.printableUnitType || 'BATCH',
+      ...normalizedRecord,
+      printableUnitId: normalizedRecord.printableUnitId || `batch:${normalizedRecord.sourceMergeBatchId}`,
+      printableUnitNo: normalizedRecord.printableUnitNo || normalizedRecord.sourceMergeBatchNo,
+      printableUnitType: normalizedRecord.printableUnitType || 'BATCH',
     }
   }
 
   return {
-    ...record,
-    printableUnitId: record.printableUnitId || `cut-order:${record.originalCutOrderId}`,
-    printableUnitNo: record.printableUnitNo || record.originalCutOrderNo,
-    printableUnitType: record.printableUnitType || 'CUT_ORDER',
+    ...normalizedRecord,
+    printableUnitId: normalizedRecord.printableUnitId || `cut-order:${normalizedRecord.originalCutOrderId}`,
+    printableUnitNo: normalizedRecord.printableUnitNo || normalizedRecord.originalCutOrderNo,
+    printableUnitType: normalizedRecord.printableUnitType || 'CUT_ORDER',
   }
 }
 
@@ -1603,6 +1621,8 @@ export interface PrintableUnitNavigationPayload {
   printableUnitId: string
   printableUnitNo: string
   printableUnitType: PrintableUnitType
+  spreadingSessionId?: string
+  spreadingSessionNo?: string
   batchId?: string
   batchNo?: string
   cutOrderId?: string
@@ -1624,6 +1644,10 @@ export interface PrintableUnit {
   sourceProductionOrderNos: string[]
   sourceCutOrderIds: string[]
   sourceCutOrderNos: string[]
+  sourceSpreadingSessionIds: string[]
+  sourceSpreadingSessionNos: string[]
+  sourceMarkerIds: string[]
+  sourceMarkerNos: string[]
   sourceProductionOrderCount: number
   sourceCutOrderCount: number
   requiredTicketCount: number
@@ -1665,6 +1689,8 @@ export type TicketCardStatus = 'VALID' | 'VOIDED'
 export interface TicketSplitDetail {
   detailId: string
   printableUnitId: string
+  sourceSpreadingSessionId: string
+  sourceSpreadingSessionNo: string
   sourceCutOrderId: string
   sourceCutOrderNo: string
   sourceProductionOrderId: string
@@ -1785,6 +1811,7 @@ function isFeiTicketRecordVoided(record: FeiTicketLabelRecord): boolean {
 }
 
 function isPrintableSourceRow(row: OriginalCutOrderRow): boolean {
+  if (getGeneratedFeiRecordsByOriginalCutOrderId(row.originalCutOrderId).length > 0) return true
   if (row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE') return true
   return /待入仓|已完成|已入仓/.test(row.currentStage.label)
 }
@@ -1869,11 +1896,27 @@ export function buildPrintableUnitNavigationPayload(unit: PrintableUnit): Printa
     printableUnitId: unit.printableUnitId,
     printableUnitNo: unit.printableUnitNo,
     printableUnitType: unit.printableUnitType,
+    spreadingSessionId: unit.sourceSpreadingSessionIds[0] || undefined,
+    spreadingSessionNo: unit.sourceSpreadingSessionNos[0] || undefined,
     batchId: unit.batchId || undefined,
     batchNo: unit.batchNo || undefined,
     cutOrderId: unit.cutOrderId || undefined,
     cutOrderNo: unit.cutOrderNo || undefined,
     sourceProductionOrderNo: unit.sourceProductionOrderNos[0] || undefined,
+  }
+}
+
+function collectGeneratedRecordTrace(records: GeneratedFeiTicketSourceRecord[]): {
+  sourceSpreadingSessionIds: string[]
+  sourceSpreadingSessionNos: string[]
+  sourceMarkerIds: string[]
+  sourceMarkerNos: string[]
+} {
+  return {
+    sourceSpreadingSessionIds: uniqueStrings(records.map((record) => record.sourceSpreadingSessionId)),
+    sourceSpreadingSessionNos: uniqueStrings(records.map((record) => record.sourceSpreadingSessionNo)),
+    sourceMarkerIds: uniqueStrings(records.map((record) => record.sourceMarkerId)),
+    sourceMarkerNos: uniqueStrings(records.map((record) => record.sourceMarkerNo)),
   }
 }
 
@@ -1883,6 +1926,8 @@ function buildPrintableUnitFromCutOrder(options: {
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
 }): PrintableUnit {
+  const generatedRecords = getGeneratedFeiRecordsByOriginalCutOrderId(options.owner.originalCutOrderId)
+  const traceMeta = collectGeneratedRecordTrace(generatedRecords)
   const scope: PrintableUnitScope = {
     printableUnitId: `cut-order:${options.owner.originalCutOrderId}`,
     printableUnitNo: options.owner.originalCutOrderNo,
@@ -1893,7 +1938,7 @@ function buildPrintableUnitFromCutOrder(options: {
     sourceCutOrderIds: [options.owner.originalCutOrderId],
   }
   const stats = collectTicketStats(scope, options.ticketRecords, options.printJobs)
-  const requiredTicketCount = Math.max(options.owner.plannedTicketQty, 0)
+  const requiredTicketCount = Math.max(options.owner.plannedTicketQty, generatedRecords.length, 0)
   const missingTicketCount = Math.max(requiredTicketCount - stats.validPrintedTicketCount, 0)
   const printableUnitStatus = derivePrintableUnitStatus({
     requiredTicketCount,
@@ -1916,6 +1961,10 @@ function buildPrintableUnitFromCutOrder(options: {
     sourceProductionOrderNos: [options.owner.productionOrderNo],
     sourceCutOrderIds: [options.owner.originalCutOrderId],
     sourceCutOrderNos: [options.owner.originalCutOrderNo],
+    sourceSpreadingSessionIds: traceMeta.sourceSpreadingSessionIds,
+    sourceSpreadingSessionNos: traceMeta.sourceSpreadingSessionNos,
+    sourceMarkerIds: traceMeta.sourceMarkerIds,
+    sourceMarkerNos: traceMeta.sourceMarkerNos,
     sourceProductionOrderCount: 1,
     sourceCutOrderCount: 1,
     requiredTicketCount,
@@ -1932,6 +1981,8 @@ function buildPrintableUnitFromCutOrder(options: {
       options.owner.spuCode,
       options.owner.materialSku,
       options.row.latestMergeBatchNo,
+      ...traceMeta.sourceSpreadingSessionNos,
+      ...traceMeta.sourceMarkerNos,
     ]),
     navigationPayload: {
       printableUnitId: '',
@@ -1950,6 +2001,8 @@ function buildPrintableUnitFromBatch(options: {
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
 }): PrintableUnit {
+  const generatedRecords = options.owners.flatMap((owner) => getGeneratedFeiRecordsByOriginalCutOrderId(owner.originalCutOrderId))
+  const traceMeta = collectGeneratedRecordTrace(generatedRecords)
   const sourceProductionOrderIds = uniqueStrings(options.batch.items.map((item) => item.productionOrderId))
   const sourceProductionOrderNos = uniqueStrings(options.batch.items.map((item) => item.productionOrderNo))
   const sourceCutOrderIds = uniqueStrings(options.owners.map((owner) => owner.originalCutOrderId))
@@ -1964,7 +2017,10 @@ function buildPrintableUnitFromBatch(options: {
     sourceCutOrderIds,
   }
   const stats = collectTicketStats(scope, options.ticketRecords, options.printJobs)
-  const requiredTicketCount = options.owners.reduce((sum, owner) => sum + Math.max(owner.plannedTicketQty, 0), 0)
+  const requiredTicketCount = Math.max(
+    options.owners.reduce((sum, owner) => sum + Math.max(owner.plannedTicketQty, 0), 0),
+    generatedRecords.length,
+  )
   const missingTicketCount = Math.max(requiredTicketCount - stats.validPrintedTicketCount, 0)
   const printableUnitStatus = derivePrintableUnitStatus({
     requiredTicketCount,
@@ -1987,6 +2043,10 @@ function buildPrintableUnitFromBatch(options: {
     sourceProductionOrderNos,
     sourceCutOrderIds,
     sourceCutOrderNos,
+    sourceSpreadingSessionIds: traceMeta.sourceSpreadingSessionIds,
+    sourceSpreadingSessionNos: traceMeta.sourceSpreadingSessionNos,
+    sourceMarkerIds: traceMeta.sourceMarkerIds,
+    sourceMarkerNos: traceMeta.sourceMarkerNos,
     sourceProductionOrderCount: sourceProductionOrderNos.length,
     sourceCutOrderCount: sourceCutOrderNos.length,
     requiredTicketCount,
@@ -2003,6 +2063,8 @@ function buildPrintableUnitFromBatch(options: {
       options.batch.materialSkuSummary,
       ...sourceProductionOrderNos,
       ...sourceCutOrderNos,
+      ...traceMeta.sourceSpreadingSessionNos,
+      ...traceMeta.sourceMarkerNos,
     ]),
     navigationPayload: {
       printableUnitId: '',
@@ -2021,6 +2083,8 @@ function filterUnitsByContext(
 ): PrintableUnit[] {
   if (!prefilter) return units
   return units.filter((unit) => {
+    if (prefilter.spreadingSessionId && !unit.sourceSpreadingSessionIds.includes(prefilter.spreadingSessionId)) return false
+    if (prefilter.spreadingSessionNo && !unit.sourceSpreadingSessionNos.includes(prefilter.spreadingSessionNo)) return false
     if (prefilter.mergeBatchId && unit.batchId !== prefilter.mergeBatchId) return false
     if (prefilter.mergeBatchNo && unit.batchNo !== prefilter.mergeBatchNo) return false
     if (prefilter.originalCutOrderId && !unit.sourceCutOrderIds.includes(prefilter.originalCutOrderId)) return false
@@ -2102,7 +2166,6 @@ export function buildPrintableUnitViewModel(options: {
     const row = rowsByCutOrderId[owner.originalCutOrderId]
     if (!row || !isPrintableSourceRow(row)) return
     if (coveredCutOrderIds.has(owner.originalCutOrderId)) return
-    if (owner.relatedMergeBatchIds.length || owner.relatedMergeBatchNos.length || row.latestMergeBatchNo) return
     units.push(
       buildPrintableUnitFromCutOrder({
         owner,
@@ -2250,6 +2313,10 @@ function buildSplitDetailsFromOwner(
     return {
       detailId: seed.detailId,
       printableUnitId: unit.printableUnitId,
+      sourceSpreadingSessionId:
+        relatedRecords[0]?.sourceSpreadingSessionId || generatedFeiRecords[seed.sequenceNo - 1]?.sourceSpreadingSessionId || '',
+      sourceSpreadingSessionNo:
+        relatedRecords[0]?.sourceSpreadingSessionNo || generatedFeiRecords[seed.sequenceNo - 1]?.sourceSpreadingSessionNo || '',
       sourceCutOrderId: source.owner.originalCutOrderId,
       sourceCutOrderNo: source.owner.originalCutOrderNo,
       sourceProductionOrderId: source.owner.productionOrderId,

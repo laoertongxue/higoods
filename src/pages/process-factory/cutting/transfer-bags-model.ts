@@ -31,6 +31,12 @@ import {
 } from '../../../data/fcs/factory-master-store.ts'
 import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model'
 import type { MergeBatchRecord } from './merge-batches-model'
+import {
+  buildSpreadingTraceAnchors,
+  findSpreadingTraceAnchor,
+  type MarkerSpreadingStore,
+  type SpreadingTraceAnchor,
+} from './marker-spreading-model'
 import type { OriginalCutOrderRow } from './original-orders-model'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
@@ -55,18 +61,20 @@ function pickTransferBagSewingFactory(index: number): { factoryId: string; facto
 export const CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY = 'cuttingTransferBagLedger'
 export const CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY = 'cuttingTransferBagSelectedTicketRecordIds'
 
-export const TRANSFER_BAG_DEMO_CASE_IDS = {
-  CASE_F: {
-    pocketId: 'bag-master-005',
-    pocketNo: 'BAG-C-002',
-    usageId: 'seed-usage-case-f',
-    usageNo: 'TBU-DEMO-F-001',
-    lockedTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketId,
-    lockedTicketNo: FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketNo,
-    mismatchTicketId: 'ticket-CUT-260313-086-01-002-v1',
-    mismatchTicketNo: 'FT-CUT-260313-086-01-002',
-  },
-} as const
+export function getTransferBagDemoCaseIds() {
+  return {
+    CASE_F: {
+      pocketId: 'bag-master-005',
+      pocketNo: 'BAG-C-002',
+      usageId: 'seed-usage-case-f',
+      usageNo: 'TBU-DEMO-F-001',
+      lockedTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketId,
+      lockedTicketNo: FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketNo,
+      mismatchTicketId: 'ticket-CUT-260313-086-01-002-v1',
+      mismatchTicketNo: 'FT-CUT-260313-086-01-002',
+    },
+  } as const
+}
 
 export type TransferBagMasterStatusKey =
   | 'IDLE'
@@ -179,6 +187,11 @@ export interface TransferBagItemBinding {
   carrierCode: string
   feiTicketId: string
   feiTicketNo: string
+  sourceSpreadingSessionId?: string
+  sourceSpreadingSessionNo?: string
+  sourceMarkerId?: string
+  sourceMarkerNo?: string
+  sourceWritebackId?: string
   // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
@@ -361,6 +374,8 @@ export interface TransferBagPrefilter {
   productionOrderId?: string
   productionOrderNo?: string
   materialSku?: string
+  spreadingSessionId?: string
+  sourceWritebackId?: string
   styleCode?: string
   ticketId?: string
   cuttingGroup?: string
@@ -393,6 +408,10 @@ export interface TransferBagTicketCandidate {
   ticketRecordId: string
   feiTicketId: string
   ticketNo: string
+  sourceSpreadingSessionId: string
+  sourceSpreadingSessionNo: string
+  sourceMarkerId: string
+  sourceMarkerNo: string
   originalCutOrderId: string
   originalCutOrderNo: string
   productionOrderId: string
@@ -446,14 +465,30 @@ export interface TransferBagUsageItem extends TransferBagUsage {
   productionOrderNos: string[]
   mergeBatchNos: string[]
   latestManifest: TransferBagDispatchManifest | null
+  spreadingSessionId: string
+  spreadingSessionNo: string
+  spreadingSourceWritebackId: string
+  spreadingUpdatedFromPdaAt: string
+  spreadingColorSummary: string
+  bagFirstSatisfied: boolean
+  bagFirstRuleLabel: string
   navigationPayload: TransferBagNavigationPayload
 }
 
 export interface TransferBagBindingItem extends TransferBagItemBinding {
-  usage: TransferBagUsage | null
+  usage: TransferBagUsageItem | null
   ticket: TransferBagTicketCandidate | null
   pocketStatusKey: PocketCarrierStatusKey
   removable: boolean
+  sourceSpreadingSessionId?: string
+  sourceSpreadingSessionNo?: string
+  sourceMarkerId?: string
+  sourceMarkerNo?: string
+  sourceWritebackId?: string
+  spreadingSessionId: string
+  spreadingSessionNo: string
+  spreadingSourceWritebackId: string
+  bagFirstRuleLabel: string
   navigationPayload: TransferBagNavigationPayload
 }
 
@@ -1005,6 +1040,11 @@ function toRuntimeSeedTickets(ticketRecords: FeiTicketLabelRecord[]): TransferBa
   return ticketRecords.map((record) => ({
     feiTicketId: record.ticketRecordId,
     feiTicketNo: record.ticketNo,
+    sourceSpreadingSessionId: record.sourceSpreadingSessionId || '',
+    sourceSpreadingSessionNo: record.sourceSpreadingSessionNo || '',
+    sourceMarkerId: record.sourceMarkerId || '',
+    sourceMarkerNo: record.sourceMarkerNo || '',
+    sourceWritebackId: '',
     originalCutOrderId: record.originalCutOrderId,
     originalCutOrderNo: record.originalCutOrderNo,
     productionOrderNo: record.productionOrderNo,
@@ -1246,6 +1286,8 @@ export function buildWarehouseQueryPayload(options: {
   mergeBatchId?: string
   mergeBatchNo?: string
   materialSku?: string
+  spreadingSessionId?: string
+  sourceWritebackId?: string
   ticketId?: string
   ticketNo?: string
   bagId?: string
@@ -1263,6 +1305,8 @@ export function buildWarehouseQueryPayload(options: {
       mergeBatchId: options.mergeBatchId,
       mergeBatchNo: options.mergeBatchNo,
       materialSku: options.materialSku,
+      spreadingSessionId: options.spreadingSessionId,
+      sourceWritebackId: options.sourceWritebackId,
     },
     feiTickets: {
       originalCutOrderId: options.originalCutOrderId,
@@ -1310,6 +1354,8 @@ export function buildTransferBagNavigationPayload(options: {
   mergeBatchId?: string
   mergeBatchNo?: string
   materialSku?: string
+  spreadingSessionId?: string
+  sourceWritebackId?: string
   ticketId?: string
   ticketNo?: string
   bagId?: string
@@ -1485,6 +1531,10 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       ticketRecordId: record.ticketRecordId,
       feiTicketId: record.ticketRecordId,
       ticketNo: record.ticketNo,
+      sourceSpreadingSessionId: record.sourceSpreadingSessionId || '',
+      sourceSpreadingSessionNo: record.sourceSpreadingSessionNo || '',
+      sourceMarkerId: record.sourceMarkerId || '',
+      sourceMarkerNo: record.sourceMarkerNo || '',
       originalCutOrderId: record.originalCutOrderId,
       originalCutOrderNo: record.originalCutOrderNo,
       productionOrderId: record.sourceProductionOrderId || '',
@@ -1600,8 +1650,10 @@ export function buildTransferBagViewModel(options: {
   ticketRecords: FeiTicketLabelRecord[]
   mergeBatches: MergeBatchRecord[]
   store: TransferBagStore
+  spreadingStore?: MarkerSpreadingStore
 }): TransferBagViewModel {
   void options.mergeBatches
+  const spreadingTraceAnchors = options.spreadingStore ? buildSpreadingTraceAnchors(options.spreadingStore) : []
   const ticketCandidates = buildTicketCandidates(options.ticketRecords)
   const ticketCandidatesById = Object.fromEntries(ticketCandidates.map((item) => [item.ticketRecordId, item]))
   const ticketCandidatesByNo = Object.fromEntries(ticketCandidates.map((item) => [item.ticketNo, item]))
@@ -1627,9 +1679,55 @@ export function buildTransferBagViewModel(options: {
     auditTrailByUsageId[audit.usageId].push(audit)
   })
 
+  function resolveBindingTraceAnchor(binding: TransferBagItemBinding, usageItem?: TransferBagUsageItem | null): SpreadingTraceAnchor | null {
+    if (usageItem?.spreadingSessionId) {
+      const inheritedAnchor = spreadingTraceAnchors.find((item) => item.spreadingSessionId === usageItem.spreadingSessionId) || null
+      if (inheritedAnchor) return inheritedAnchor
+    }
+    const ticket = ticketCandidatesById[binding.ticketRecordId]
+    if (ticket?.sourceSpreadingSessionId) {
+      const exactAnchor = spreadingTraceAnchors.find((item) => item.spreadingSessionId === ticket.sourceSpreadingSessionId) || null
+      if (exactAnchor) return exactAnchor
+    }
+    return findSpreadingTraceAnchor(spreadingTraceAnchors, {
+      originalCutOrderIds: binding.originalCutOrderId ? [binding.originalCutOrderId] : [],
+      mergeBatchId: ticket?.mergeBatchId || '',
+      materialSku: ticket?.materialSku || '',
+      color: ticket?.color || '',
+    })
+  }
+
+  function resolveUsageTraceAnchor(usage: TransferBagUsage, bindings: TransferBagItemBinding[]): SpreadingTraceAnchor | null {
+    const explicitSessionIds = uniqueStrings(
+      bindings.map((item) => ticketCandidatesById[item.ticketRecordId]?.sourceSpreadingSessionId).filter(Boolean),
+    )
+    if (explicitSessionIds.length === 1) {
+      const exactAnchor = spreadingTraceAnchors.find((item) => item.spreadingSessionId === explicitSessionIds[0]) || null
+      if (exactAnchor) return exactAnchor
+    }
+    const originalCutOrderIds = uniqueStrings(bindings.map((item) => item.originalCutOrderId))
+    const mergeBatchIds = uniqueStrings(
+      bindings.map((item) => ticketCandidatesById[item.ticketRecordId]?.mergeBatchId).filter(Boolean),
+    )
+    const materialSkus = uniqueStrings(
+      bindings.map((item) => ticketCandidatesById[item.ticketRecordId]?.materialSku).filter(Boolean),
+    )
+    const colors = uniqueStrings(
+      bindings.map((item) => ticketCandidatesById[item.ticketRecordId]?.color).filter(Boolean),
+    )
+
+    return findSpreadingTraceAnchor(spreadingTraceAnchors, {
+      originalCutOrderIds,
+      mergeBatchId: mergeBatchIds[0] || '',
+      materialSku: materialSkus[0] || usage.skuSummary || '',
+      color: colors[0] || usage.colorSummary || '',
+    })
+  }
+
   const usageItems: TransferBagUsageItem[] = options.store.usages
     .map((usage) => {
       const bindings = (bindingsByUsageIdRaw[usage.usageId] || []).slice().sort((left, right) => left.boundAt.localeCompare(right.boundAt, 'zh-CN'))
+      const traceAnchor = resolveUsageTraceAnchor(usage, bindings)
       const summary = buildTransferBagParentChildSummary(bindings)
       const manifests = (manifestsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.createdAt.localeCompare(left.createdAt, 'zh-CN'))
       const bagMaster = options.store.masters.find((item) => item.bagId === usage.bagId) ?? null
@@ -1673,6 +1771,15 @@ export function buildTransferBagViewModel(options: {
         productionOrderNos: uniqueStrings(bindings.map((item) => item.productionOrderNo)),
         mergeBatchNos: uniqueStrings(bindings.map((item) => item.mergeBatchNo)),
         latestManifest: manifests[0] ?? null,
+        spreadingSessionId: traceAnchor?.spreadingSessionId || '',
+        spreadingSessionNo: traceAnchor?.spreadingSessionNo || '',
+        spreadingSourceWritebackId: traceAnchor?.sourceWritebackId || '',
+        spreadingUpdatedFromPdaAt: traceAnchor?.updatedFromPdaAt || '',
+        spreadingColorSummary: traceAnchor?.colorSummary || '',
+        bagFirstSatisfied: bindings.length > 0,
+        bagFirstRuleLabel: bindings.length
+          ? '必须先扫口袋码，再扫菲票子码；当前已形成正式装袋映射。'
+          : '必须先扫口袋码，再扫菲票子码；当前尚未形成正式装袋映射。',
         navigationPayload: buildTransferBagNavigationPayload({
           originalCutOrderId: bindings[0]?.originalCutOrderId,
           originalCutOrderNo: bindings[0]?.originalCutOrderNo,
@@ -1681,6 +1788,8 @@ export function buildTransferBagViewModel(options: {
           mergeBatchId: bindings[0]?.ticket?.mergeBatchId || '',
           mergeBatchNo: bindings[0]?.mergeBatchNo || undefined,
           materialSku: bindings[0]?.ticket?.materialSku || '',
+          spreadingSessionId: traceAnchor?.spreadingSessionId || undefined,
+          sourceWritebackId: traceAnchor?.sourceWritebackId || undefined,
           bagId: usage.bagId,
           bagCode: usage.bagCode,
           usageId: usage.usageId,
@@ -1738,32 +1847,42 @@ export function buildTransferBagViewModel(options: {
     .sort((left, right) => left.bagCode.localeCompare(right.bagCode, 'zh-CN'))
 
   const bindingItems: TransferBagBindingItem[] = options.store.bindings
-    .map((binding) => ({
-      ...binding,
-      usage: usageItemsById[binding.usageId] ?? null,
-      ticket: ticketCandidatesById[binding.ticketRecordId] ?? null,
-      pocketStatusKey: mapUsageStatusToPocketCarrierStatus({
-        usage: usagesByIdRaw[binding.usageId] ?? null,
-        masterStatus: options.store.masters.find((item) => item.bagId === binding.bagId)?.currentStatus || 'IDLE',
-      }),
-      removable: ['DRAFT', 'PACKING'].includes(usagesByIdRaw[binding.usageId]?.usageStatus || ''),
-      navigationPayload: buildTransferBagNavigationPayload({
-        originalCutOrderId: binding.originalCutOrderId,
-        originalCutOrderNo: binding.originalCutOrderNo,
-        productionOrderId: ticketCandidatesById[binding.ticketRecordId]?.productionOrderId || '',
-        productionOrderNo: binding.productionOrderNo,
-        mergeBatchId: ticketCandidatesById[binding.ticketRecordId]?.mergeBatchId || '',
-        mergeBatchNo: binding.mergeBatchNo || undefined,
-        materialSku: ticketCandidatesById[binding.ticketRecordId]?.materialSku || '',
-        ticketId: binding.feiTicketId,
-        ticketNo: binding.ticketNo,
-        bagId: binding.bagId,
-        bagCode: binding.bagCode,
-        usageId: binding.usageId,
-        usageNo: usageItemsById[binding.usageId]?.usageNo,
-        sewingTaskNo: usageItemsById[binding.usageId]?.sewingTaskNo,
-      }),
-    }))
+    .map((binding) => {
+      const usageItem = usageItemsById[binding.usageId] ?? null
+      const traceAnchor = resolveBindingTraceAnchor(binding, usageItem)
+      return {
+        ...binding,
+        usage: usageItem,
+        ticket: ticketCandidatesById[binding.ticketRecordId] ?? null,
+        pocketStatusKey: mapUsageStatusToPocketCarrierStatus({
+          usage: usagesByIdRaw[binding.usageId] ?? null,
+          masterStatus: options.store.masters.find((item) => item.bagId === binding.bagId)?.currentStatus || 'IDLE',
+        }),
+        removable: ['DRAFT', 'PACKING'].includes(usagesByIdRaw[binding.usageId]?.usageStatus || ''),
+        spreadingSessionId: traceAnchor?.spreadingSessionId || '',
+        spreadingSessionNo: traceAnchor?.spreadingSessionNo || '',
+        spreadingSourceWritebackId: traceAnchor?.sourceWritebackId || '',
+        bagFirstRuleLabel: '必须先扫口袋码，再扫菲票子码；当前父子映射已绑定到正式周转口袋周期。',
+        navigationPayload: buildTransferBagNavigationPayload({
+          originalCutOrderId: binding.originalCutOrderId,
+          originalCutOrderNo: binding.originalCutOrderNo,
+          productionOrderId: ticketCandidatesById[binding.ticketRecordId]?.productionOrderId || '',
+          productionOrderNo: binding.productionOrderNo,
+          mergeBatchId: ticketCandidatesById[binding.ticketRecordId]?.mergeBatchId || '',
+          mergeBatchNo: binding.mergeBatchNo || undefined,
+          materialSku: ticketCandidatesById[binding.ticketRecordId]?.materialSku || '',
+          spreadingSessionId: traceAnchor?.spreadingSessionId || undefined,
+          sourceWritebackId: traceAnchor?.sourceWritebackId || undefined,
+          ticketId: binding.feiTicketId,
+          ticketNo: binding.ticketNo,
+          bagId: binding.bagId,
+          bagCode: binding.bagCode,
+          usageId: binding.usageId,
+          usageNo: usageItemsById[binding.usageId]?.usageNo,
+          sewingTaskNo: usageItemsById[binding.usageId]?.sewingTaskNo,
+        }),
+      }
+    })
     .sort((left, right) => right.boundAt.localeCompare(left.boundAt, 'zh-CN'))
 
   const bindingsByUsageId = Object.fromEntries(

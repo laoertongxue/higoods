@@ -3,10 +3,6 @@ import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
   buildReplenishmentAuditTrail,
-  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
-  CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
   deserializeReplenishmentActionsStorage,
   deserializeReplenishmentAuditTrailStorage,
   deserializeReplenishmentImpactPlansStorage,
@@ -35,6 +31,23 @@ import {
 } from './replenishment-model'
 import { buildReplenishmentProjection } from './replenishment-projection'
 import {
+  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
+  deserializeReplenishmentPendingPrepStorage,
+  serializeReplenishmentPendingPrepStorage,
+  type ReplenishmentPendingPrepFollowupRecord,
+} from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
+import {
+  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
+  deserializeMarkerSpreadingStorage,
+  serializeMarkerSpreadingStorage,
+  updateSpreadingReplenishmentHandled,
+} from './marker-spreading-model'
+import { readMarkerSpreadingPrototypeData } from './marker-spreading-utils'
+import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
@@ -56,7 +69,7 @@ import {
   type CuttingNavigationTarget,
 } from './navigation-context'
 
-type FilterField = 'keyword' | 'sourceType' | 'status' | 'riskLevel' | 'craftImpact'
+type FilterField = 'keyword' | 'sourceType' | 'status' | 'riskLevel'
 type ReviewField = 'status' | 'reason' | 'note'
 type FeedbackTone = 'success' | 'warning'
 
@@ -86,7 +99,6 @@ const initialFilters: ReplenishmentFilters = {
   sourceType: 'ALL',
   status: 'ALL',
   riskLevel: 'ALL',
-  craftImpact: 'ALL',
   pendingReviewOnly: false,
   pendingActionOnly: false,
 }
@@ -183,6 +195,76 @@ function persistStore(): void {
   localStorage.setItem(CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY, serializeReplenishmentAuditTrailStorage(state.audits))
 }
 
+function readPendingPrepFollowups(): ReplenishmentPendingPrepFollowupRecord[] {
+  return deserializeReplenishmentPendingPrepStorage(
+    localStorage.getItem(CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY),
+  )
+}
+
+function persistPendingPrepFollowups(records: ReplenishmentPendingPrepFollowupRecord[]): void {
+  localStorage.setItem(
+    CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
+    serializeReplenishmentPendingPrepStorage(records),
+  )
+}
+
+function buildPendingPrepFollowupRecords(row: ReplenishmentSuggestionRow, review: ReplenishmentReview): ReplenishmentPendingPrepFollowupRecord[] {
+  const sourceSpreadingSessionId = row.context.session?.spreadingSessionId || ''
+  const sourceMarkerId = row.context.marker?.markerId || ''
+  const sourceMarkerNo = row.context.marker?.markerNo || ''
+  return row.lines.map((line) => ({
+    followupId: `pending-prep-${row.suggestionId}-${line.lineId}`,
+    suggestionId: row.suggestionId,
+    sourceReplenishmentRequestId: row.suggestionId,
+    sourceSpreadingSessionId,
+    sourceMarkerId,
+    sourceMarkerNo,
+    originalCutOrderId: line.originalCutOrderId,
+    originalCutOrderNo: line.originalCutOrderNo || line.originalCutOrderId,
+    materialSku: line.materialSku,
+    color: line.color,
+    shortageGarmentQty: line.shortageGarmentQty,
+    status: 'PENDING_PREP',
+    createdAt: review.reviewedAt,
+    createdBy: review.reviewedBy,
+    note: `补料审批通过后生成待配料，缺口成衣件数 ${formatQty(line.shortageGarmentQty)} 件。`,
+  }))
+}
+
+function replacePendingPrepFollowups(suggestionId: string, records: ReplenishmentPendingPrepFollowupRecord[]): void {
+  const retained = readPendingPrepFollowups().filter((item) => item.suggestionId !== suggestionId)
+  persistPendingPrepFollowups([...retained, ...records])
+}
+
+function syncSpreadingReplenishmentHandledState(row: ReplenishmentSuggestionRow, handled: boolean): void {
+  const spreadingSessionId = row.context.session?.spreadingSessionId
+  if (!spreadingSessionId) return
+  const rawStore = localStorage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY)
+  const prototypeStore = readMarkerSpreadingPrototypeData().store
+  const baseStore = rawStore ? deserializeMarkerSpreadingStorage(rawStore) : prototypeStore
+  const nextStore = updateSpreadingReplenishmentHandled(baseStore, spreadingSessionId, handled)
+  localStorage.setItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY, serializeMarkerSpreadingStorage(nextStore))
+}
+
+function syncFollowupActionCompletionForReview(
+  row: ReplenishmentSuggestionRow,
+  status: ReplenishmentFollowupActionStatus,
+  actor: string,
+  actionAt: string,
+): void {
+  row.followupActions.forEach((action) => {
+    upsertFollowupAction({
+      ...action,
+      status,
+      decidedAt: status === 'PENDING' ? '' : action.decidedAt || actionAt,
+      decidedBy: status === 'PENDING' ? '' : action.decidedBy || actor,
+      completedAt: status === 'DONE' ? actionAt : '',
+      completedBy: status === 'DONE' ? actor : '',
+      note: action.note,
+    })
+  })
+}
+
 function getPrefilterFromQuery(): ReplenishmentPrefilter | null {
   const params = getWarehouseSearchParams()
   const drillContext = readCuttingDrillContextFromLocation(params)
@@ -193,6 +275,7 @@ function getPrefilterFromQuery(): ReplenishmentPrefilter | null {
     mergeBatchId: drillContext?.mergeBatchId || params.get('mergeBatchId') || undefined,
     productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || undefined,
     materialSku: drillContext?.materialSku || params.get('materialSku') || undefined,
+    color: drillContext?.color || params.get('color') || undefined,
     suggestionId: drillContext?.suggestionId || params.get('suggestionId') || undefined,
     suggestionNo: drillContext?.suggestionNo || params.get('suggestionNo') || undefined,
     riskLevel: (params.get('riskLevel') as ReplenishmentPrefilter['riskLevel']) || undefined,
@@ -338,6 +421,7 @@ function renderPrefilterBar(): string {
   if (!state.prefilter) return ''
   const labels = [
     ...buildCuttingDrillChipLabels(state.drillContext),
+    state.prefilter.color ? `颜色：${state.prefilter.color}` : '',
     state.prefilter.riskLevel ? `风险：${replenishmentRiskMetaMap[state.prefilter.riskLevel].label}` : '',
     state.prefilter.replenishmentStatus ? `状态：${getPrefilterStatusLabel(state.prefilter.replenishmentStatus)}` : '',
   ].filter(Boolean)
@@ -391,14 +475,6 @@ function renderFilterBar(): string {
           { value: 'HIGH', label: '高风险' },
           { value: 'MEDIUM', label: '中风险' },
           { value: 'LOW', label: '低风险' },
-        ])}
-      </div>
-      <div class="grid gap-3 md:grid-cols-3">
-        ${renderFilterSelect('工艺影响', 'craftImpact', state.filters.craftImpact, [
-          { value: 'ALL', label: '全部' },
-          { value: 'PRINTING', label: '影响印花' },
-          { value: 'DYEING', label: '影响染色' },
-          { value: 'SPECIAL_PROCESS', label: '影响特殊工艺' },
         ])}
       </div>
     </div>
@@ -914,12 +990,13 @@ function renderPage(): string {
 
 function navigateBySuggestion(
   suggestionId: string | undefined,
-  target: keyof ReplenishmentSuggestionRow['navigationPayload'],
+  target: keyof ReplenishmentSuggestionRow['navigationPayload'] | 'spreadingList',
 ): boolean {
   if (!suggestionId) return false
   const row = buildViewModel().rowsById[suggestionId]
   if (!row) return false
-  const context = normalizeLegacyCuttingPayload(row.navigationPayload[target], 'replenishment', {
+  const payload = target === 'spreadingList' ? row.navigationPayload.markerSpreading : row.navigationPayload[target]
+  const context = normalizeLegacyCuttingPayload(payload, 'replenishment', {
     productionOrderNo: row.productionOrderNos[0] || undefined,
     originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
     mergeBatchNo: row.mergeBatchNo || undefined,
@@ -928,7 +1005,9 @@ function navigateBySuggestion(
     suggestionNo: row.suggestionNo,
     autoOpenDetail: true,
   })
-  appStore.navigate(buildCuttingRouteWithContext(target as CuttingNavigationTarget, context))
+  appStore.navigate(
+    buildCuttingRouteWithContext(target === 'spreadingList' ? 'spreadingList' : (target as CuttingNavigationTarget), context),
+  )
   return true
 }
 
@@ -1084,7 +1163,16 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
       decisionReason: state.reviewDraft.reason.trim(),
       note: state.reviewDraft.note.trim(),
     }
+    const approved = review.reviewStatus === 'APPROVED'
     upsertReview(review)
+    replacePendingPrepFollowups(row.suggestionId, approved ? buildPendingPrepFollowupRecords(row, review) : [])
+    syncSpreadingReplenishmentHandledState(row, approved)
+    syncFollowupActionCompletionForReview(
+      row,
+      approved ? 'DONE' : 'PENDING',
+      review.reviewedBy,
+      review.reviewedAt,
+    )
     prependAudit(
       buildReplenishmentAuditTrail({
         suggestion: row,
@@ -1100,7 +1188,12 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
       }),
     )
     persistStore()
-    setFeedback('success', `已更新 ${row.suggestionNo} 的审核结果。`)
+    setFeedback(
+      'success',
+      approved
+        ? `已更新 ${row.suggestionNo} 的审核结果，并在仓库配料领料中生成补料待配料。`
+        : `已更新 ${row.suggestionNo} 的审核结果。`,
+    )
     return true
   }
 
@@ -1143,17 +1236,14 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, targetKey)
   }
 
-  if (action === 'go-marker') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'markerSpreading')
+  if (action === 'go-marker') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'spreadingList')
   if (action === 'go-material-prep') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'materialPrep')
   if (action === 'go-original-orders') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'originalOrders')
   if (action === 'go-merge-batches') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'mergeBatches')
   if (action === 'go-summary') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'summary')
-  if (action === 'go-printing') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'printing')
-  if (action === 'go-dyeing') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'dyeing')
-  if (action === 'go-special-processes') return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'specialProcesses')
 
   if (action === 'go-marker-index') {
-    appStore.navigate(getCanonicalCuttingPath('marker-spreading'))
+    appStore.navigate(getCanonicalCuttingPath('spreading-list'))
     return true
   }
 
