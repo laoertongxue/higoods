@@ -281,7 +281,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         {
           key: 'craft-cutting-closed-loop',
           title: '裁后处理',
-          icon: 'ArchiveCheck',
+          icon: 'PackageCheck',
           children: [
             { key: 'craft-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
             { key: 'craft-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },

@@ -34,21 +34,16 @@ async function ensureExecPageHasCards(page: Page): Promise<void> {
 
 async function expectTabsGapAndCardFields(page: Page): Promise<void> {
   const tabs = page.getByTestId('pda-exec-tabs')
-  const gap = page.getByTestId('pda-exec-list-gap')
   const firstCard = page.getByTestId('pda-exec-task-card').first()
 
   await expect(tabs).toBeVisible()
-  await expect(gap).toBeVisible()
   await expect(firstCard).toBeVisible()
 
   const tabsBox = await tabs.boundingBox()
-  const gapBox = await gap.boundingBox()
   const firstCardBox = await firstCard.boundingBox()
   expect(tabsBox).not.toBeNull()
-  expect(gapBox).not.toBeNull()
   expect(firstCardBox).not.toBeNull()
-  expect(gapBox!.height).toBeGreaterThanOrEqual(8)
-  expect(firstCardBox!.y).toBeGreaterThanOrEqual(gapBox!.y + gapBox!.height - 1)
+  expect(firstCardBox!.y - (tabsBox!.y + tabsBox!.height)).toBeGreaterThanOrEqual(8)
 
   const cardText = await firstCard.innerText()
   expect(cardText).toContain('生产单号')

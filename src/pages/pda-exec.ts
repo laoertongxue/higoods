@@ -738,7 +738,7 @@ export function renderPdaExecPage(): string {
         </div>
       </header>
 
-      <div class="sticky top-[182px] z-20 grid grid-cols-4 border-b bg-background" data-testid="pda-exec-tabs">
+      <div class="z-20 grid grid-cols-4 border-b bg-background" data-testid="pda-exec-tabs">
         ${TAB_CONFIG.map((tab) => {
           const active = tab.key === state.activeTab
           return `
@@ -756,9 +756,7 @@ export function renderPdaExecPage(): string {
         }).join('')}
       </div>
 
-      <div class="h-3 shrink-0 bg-background" data-testid="pda-exec-list-gap"></div>
-
-      <div class="flex-1 space-y-3 px-4 pb-4" data-testid="pda-exec-card-list">
+      <div class="flex-1 space-y-3 p-4" data-testid="pda-exec-card-list">
         ${
           filteredTasks.length === 0
             ? `<div class="py-10 text-center text-sm text-muted-foreground">${
