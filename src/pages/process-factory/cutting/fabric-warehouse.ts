@@ -226,9 +226,9 @@ function renderFilterArea(): string {
         </label>
         ${renderFilterSelect('面料类别', 'materialCategory', state.filters.materialCategory, [
           { value: 'ALL', label: '全部' },
-          { value: 'PRINT', label: '印花面料' },
-          { value: 'DYE', label: '染色面料' },
-          { value: 'SOLID', label: '净色面料' },
+          { value: 'PRINT', label: '面料' },
+          { value: 'DYE', label: '面料' },
+          { value: 'SOLID', label: '面料' },
           { value: 'LINING', label: '里布' },
         ])}
         ${renderFilterSelect('状态筛选', 'status', state.filters.status, [

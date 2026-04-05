@@ -53,7 +53,7 @@ test('铺布完成后可追溯到打印菲票、装袋与裁片仓，且 PDA 来
   )
   await expect(page.getByRole('heading', { name: '周转口袋详情', exact: true })).toBeVisible()
   await expect(page.locator('body')).toContainText('必须先扫口袋码，再扫菲票子码')
-  await expect(page.locator('body')).toContainText('来源铺布 session')
+  await expect(page.locator('body')).toContainText('来源铺布')
   await expect(page.locator('body')).toContainText(targetRow.spreadingSessionNo || targetRow.spreadingSessionId)
   if (usage.spreadingSourceWritebackId) {
     await expect(page.locator('body')).toContainText(usage.spreadingSourceWritebackId)
@@ -67,7 +67,7 @@ test('铺布完成后可追溯到打印菲票、装袋与裁片仓，且 PDA 来
   await expect(warehouseRow).toBeVisible()
   await warehouseRow.getByRole('button', { name: '查看详情', exact: true }).click({ force: true })
   await expect(page.locator('body')).toContainText('铺布 / 装袋追溯')
-  await expect(page.locator('body')).toContainText('bag-first 规则')
+  await expect(page.locator('body')).toContainText('先装袋后入仓规则')
   await expect(page.locator('body')).toContainText(targetRow.spreadingSessionNo || targetRow.spreadingSessionId)
   await expect(page.locator('body')).toContainText(targetRow.bagCode)
   if (usage.spreadingSourceWritebackId) {

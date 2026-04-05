@@ -64,6 +64,36 @@ test('PDA mock 至少有 3 条可继续追到 supervisor、菲票、装袋、入
     ),
   )
   expect(pdaWarehouseSessionIds.length).toBeGreaterThanOrEqual(3)
+
+  const downstreamCompleteSessionIds = Array.from(
+    new Set(
+      pdaRows
+        .map((row) => row.spreadingSessionId)
+        .filter(
+          (sessionId): sessionId is string =>
+            Boolean(sessionId) &&
+            feiTraceRows.some((item) => item.sourceSpreadingSessionId === sessionId) &&
+            traceabilityContext.transferBagViewModel.usages.some((item) => item.spreadingSessionId === sessionId) &&
+            warehouseProjection.viewModel.items.some((item) => item.spreadingSessionId === sessionId),
+        ),
+    ),
+  )
+  expect(downstreamCompleteSessionIds.length).toBeGreaterThanOrEqual(3)
+
+  const downstreamCompleteWritebackIds = Array.from(
+    new Set(
+      pdaRows
+        .map((row) => row.session.sourceWritebackId)
+        .filter(
+          (writebackId): writebackId is string =>
+            Boolean(writebackId) &&
+            feiTraceRows.some((item) => item.sourceWritebackId === writebackId) &&
+            traceabilityContext.transferBagViewModel.usages.some((item) => item.spreadingSourceWritebackId === writebackId) &&
+            warehouseProjection.viewModel.items.some((item) => item.sourceWritebackId === writebackId),
+        ),
+    ),
+  )
+  expect(downstreamCompleteWritebackIds.length).toBeGreaterThanOrEqual(1)
 })
 
 test('PDA 铺布写回会绑定 session、marker、roll、operator，并在 PC 端保留回写痕迹', async ({ page }) => {

@@ -77,6 +77,14 @@ function getRootTaskDisplayNo(task: ProcessTask): string {
   return task.rootTaskNo || task.taskNo || task.taskId
 }
 
+function getQtyUnitLabel(unit: string | undefined): string {
+  if (!unit) return '件'
+  if (unit === 'PIECE') return '件'
+  if (unit === 'ROLL') return '卷'
+  if (unit === 'LAYER') return '层'
+  return unit
+}
+
 const MOCK_START_PROOF: Record<string, StartProofFile[]> = {
   'PDA-EXEC-007': [
     { id: 'sp-001', type: 'IMAGE', name: '开工现场_01.jpg', uploadedAt: '2026-03-10 08:05:22' },
@@ -435,7 +443,7 @@ function getTaskPricing(task: ProcessTask): {
     task.standardPriceCurrency ||
     'CNY'
 
-  const unit = task.dispatchPriceUnit || task.standardPriceUnit || task.qtyUnit
+  const unit = getQtyUnitLabel(task.dispatchPriceUnit || task.standardPriceUnit || task.qtyUnit)
   const estimatedIncome = unitPrice != null ? unitPrice * task.qty : undefined
 
   return { unitPrice, currency, unit, estimatedIncome }
@@ -552,7 +560,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
             <span class="text-xs text-muted-foreground">工序代码</span>
             <span class="font-mono text-xs">${escapeHtml(task.processBusinessCode || task.processCode)}</span>
             <span class="text-xs text-muted-foreground">数量</span>
-            <span class="text-xs font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</span>
+            <span class="text-xs font-medium">${task.qty} ${escapeHtml(getQtyUnitLabel(task.qtyUnit))}</span>
             ${
               assignedFactory
                 ? `

@@ -146,7 +146,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     assignedFactoryName: '晋江盛鸿裁片厂',
     materialSku: 'ML-PRINT-240311-01',
     materialType: 'PRINT',
-    materialLabel: '印花面料 · 玫瑰满印布',
+    materialLabel: '面料 · 玫瑰满印布',
     configStatus: 'PARTIAL',
     receiveStatus: 'PARTIAL',
     printSlipStatus: 'PRINTED',
@@ -231,7 +231,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     assignedFactoryName: '晋江盛鸿裁片厂',
     materialSku: 'ML-SOLID-240311-03',
     materialType: 'SOLID',
-    materialLabel: '净色面料 · 象牙白全棉布',
+    materialLabel: '面料 · 象牙白全棉布',
     configStatus: 'NOT_CONFIGURED',
     receiveStatus: 'NOT_RECEIVED',
     printSlipStatus: 'NOT_PRINTED',
@@ -248,7 +248,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     hasInboundRecord: false,
     hasReplenishmentRisk: false,
     currentStage: '待维护唛架',
-    notes: '净色面料尚未进入配料，当前先维护唛架和尺码配比。',
+    notes: '该面料尚未进入配料，当前先维护唛架和尺码配比。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 0 },
@@ -270,7 +270,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     spreadingRecords: [],
     linkedDocuments: [
       { docType: 'PICKUP_SLIP', docNo: '—', status: '未生成', createdAt: '-', summaryText: '尚未配置配料，未生成领料单。' },
-      { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '等待仓库完成净色面料配料。' },
+      { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '等待仓库完成该面料配料。' },
       { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚无扫码领取回写。' },
       { docType: 'REPLENISHMENT', docNo: '—', status: '预留', createdAt: '-', summaryText: '待进入铺布后再评估补料风险。' },
       { docType: 'INBOUND', docNo: '—', status: '未入仓', createdAt: '-', summaryText: '尚未形成裁片入仓。' },
@@ -287,7 +287,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     assignedFactoryName: '石狮恒泰裁片厂',
     materialSku: 'ML-DYE-240320-11',
     materialType: 'DYE',
-    materialLabel: '染色面料 · 深海蓝斜纹布',
+    materialLabel: '面料 · 深海蓝斜纹布',
     configStatus: 'CONFIGURED',
     receiveStatus: 'RECEIVED',
     printSlipStatus: 'PRINTED',
@@ -304,7 +304,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     hasInboundRecord: false,
     hasReplenishmentRisk: false,
     currentStage: '待入仓',
-    notes: '染色面料已完成整单铺布，等待裁片入仓确认。',
+    notes: '该面料已完成整单铺布，等待裁片入仓确认。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 18 },
@@ -414,7 +414,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     assignedFactoryName: '南安协丰裁片厂',
     materialSku: 'ML-PRINT-240327-08',
     materialType: 'PRINT',
-    materialLabel: '印花面料 · 复古花叶提花',
+    materialLabel: '面料 · 复古花叶提花',
     configStatus: 'CONFIGURED',
     receiveStatus: 'PARTIAL',
     printSlipStatus: 'PRINTED',
@@ -485,7 +485,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     assignedFactoryName: '南安协丰裁片厂',
     materialSku: 'ML-SOLID-240327-21',
     materialType: 'SOLID',
-    materialLabel: '净色面料 · 水洗白府绸',
+    materialLabel: '面料 · 水洗白府绸',
     configStatus: 'CONFIGURED',
     receiveStatus: 'RECEIVED',
     printSlipStatus: 'PRINTED',
@@ -502,7 +502,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     hasInboundRecord: true,
     hasReplenishmentRisk: false,
     currentStage: '已入仓',
-    notes: '净色面料裁片已完成并入裁片仓，可直接在总结页汇总。',
+    notes: '该面料裁片已完成并入裁片仓，可直接在总结页汇总。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 16 },
@@ -534,7 +534,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
         enteredBy: '郑海燕',
         enteredAt: '2026-03-22 13:30',
         sourceType: 'PDA',
-        note: '第一卷净色面料铺布。',
+        note: '第一卷主面料铺布。',
       },
       {
         recordNo: 'SPR-031-03',

@@ -1,7 +1,9 @@
 import { buildCuttingCoreRegistry } from '../../../domain/cutting-core/index.ts'
 import { productionOrders } from '../production-orders.ts'
 import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
+import { buildGeneratedFeiTicketTraceMatrix, listGeneratedFeiTickets } from './generated-fei-tickets.ts'
 import { cuttingOrderProgressRecords } from './order-progress.ts'
+import { buildSystemSeedTransferBagRuntime, buildTransferBagRuntimeTraceMatrix } from './transfer-bag-runtime.ts'
 import type { CuttingConfigStatus, CuttingMaterialLine, CuttingMaterialType, CuttingReceiveStatus } from './types.ts'
 
 export type CuttingFabricStockStatus = 'READY' | 'PARTIAL_USED' | 'NEED_RECHECK'
@@ -535,6 +537,14 @@ export interface WarehouseRuntimeTraceMatrixRow {
   mergeBatchNo: string
   materialSku: string
   cutPieceOrderNo: string
+  spreadingSessionId: string
+  spreadingSessionNo: string
+  feiTicketId: string
+  feiTicketNo: string
+  bagId: string
+  bagCode: string
+  transferBatchId: string
+  sourceWritebackId: string
   inboundStatus: CutPieceInboundStatus
   handoverStatus: CutPieceHandoverStatus
 }
@@ -542,8 +552,67 @@ export interface WarehouseRuntimeTraceMatrixRow {
 export function buildWarehouseRuntimeTraceMatrix(
   records: CutPieceWarehouseRecord[] = listFormalCutPieceWarehouseRecords(),
 ): WarehouseRuntimeTraceMatrixRow[] {
+  const originalRows = listGeneratedOriginalCutOrderSourceRecords()
+  const originalRowsById = new Map(originalRows.map((record) => [record.originalCutOrderId, record] as const))
+  const feiTraceById = new Map(buildGeneratedFeiTicketTraceMatrix().map((row) => [row.feiTicketId, row] as const))
+  const transferTraceRows = buildTransferBagRuntimeTraceMatrix(
+    buildSystemSeedTransferBagRuntime({
+      originalRows: originalRows.map((record) => ({
+        originalCutOrderId: record.originalCutOrderId,
+        originalCutOrderNo: record.originalCutOrderNo,
+        productionOrderNo: record.productionOrderNo,
+        styleCode: record.styleCode,
+        spuCode: record.sourceTechPackSpuCode || '',
+        color: record.colorScope[0] || '',
+        materialSku: record.materialSku,
+        plannedQty: record.requiredQty,
+      })),
+      ticketRecords: listGeneratedFeiTickets().map((record) => {
+        const original = originalRowsById.get(record.originalCutOrderId)
+        const trace = feiTraceById.get(record.feiTicketId)
+        return {
+          feiTicketId: record.feiTicketId,
+          feiTicketNo: record.feiTicketNo,
+          sourceSpreadingSessionId: record.sourceSpreadingSessionId,
+          sourceSpreadingSessionNo: record.sourceSpreadingSessionNo,
+          sourceMarkerId: record.sourceMarkerId,
+          sourceMarkerNo: record.sourceMarkerNo,
+          sourceWritebackId: trace?.sourceWritebackId || '',
+          originalCutOrderId: record.originalCutOrderId,
+          originalCutOrderNo: record.originalCutOrderNo,
+          productionOrderNo: record.productionOrderNo,
+          mergeBatchNo: record.sourceMergeBatchNo,
+          styleCode: original?.styleCode || '',
+          spuCode: record.sourceTechPackSpuCode || original?.sourceTechPackSpuCode || '',
+          color: record.skuColor,
+          size: record.skuSize,
+          partName: record.partName,
+          qty: record.qty,
+          materialSku: record.materialSku,
+          sourceContextType: record.sourceMergeBatchId ? 'merge-batch' : 'original-order',
+          status: 'PRINTED' as const,
+        }
+      }),
+    }),
+  )
+
   return records
     .map((record) => ({
+      ...(transferTraceRows.find(
+        (row) =>
+          row.originalCutOrderId === record.originalCutOrderId &&
+          (!record.mergeBatchNo || !row.mergeBatchNo || row.mergeBatchNo === record.mergeBatchNo),
+      ) ||
+        transferTraceRows.find((row) => row.originalCutOrderId === record.originalCutOrderId) || {
+          spreadingSessionId: '',
+          spreadingSessionNo: '',
+          feiTicketId: '',
+          feiTicketNo: '',
+          bagId: '',
+          bagCode: '',
+          transferBatchId: '',
+          sourceWritebackId: '',
+        }),
       warehouseRecordId: record.id,
       originalCutOrderId: record.originalCutOrderId,
       originalCutOrderNo: record.originalCutOrderNo,

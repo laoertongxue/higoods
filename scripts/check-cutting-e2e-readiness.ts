@@ -147,6 +147,7 @@ function assertFormalAnchorsUnified(): void {
   assert(pdaSource.includes('listWorkerVisiblePdaSpreadingTargets'), 'PDA source 缺少普通工人可见目标收口 helper')
   assert(pdaSource.includes('FOLD_NORMAL'), 'PDA source 缺少 FOLD_NORMAL 模式')
   assert(pdaSource.includes('FOLD_HIGH_LOW'), 'PDA source 缺少 FOLD_HIGH_LOW 模式')
+  assert(pdaSource.includes('面料主料'), 'PDA source 缺少中文化面料主料文案')
 
   const pdaSpreading = read('src/pages/pda-cutting-spreading.ts')
   assert(pdaSpreading.includes('allowManualEntry'), 'PDA 铺布页缺少 manual-entry 权限隔离')
@@ -165,6 +166,10 @@ function assertFormalAnchorsUnified(): void {
   assert(releaseAcceptance.includes('进入执行单元'), 'tests/cutting-release-acceptance.spec.ts 缺少 execution-unit acceptance')
   assert(releaseAcceptance.includes('按唛架新建铺布'), 'tests/cutting-release-acceptance.spec.ts 缺少 marker-first 创建 acceptance')
   assert(releaseAcceptance.includes('补料管理'), 'tests/cutting-release-acceptance.spec.ts 缺少补料闭环 acceptance')
+  assert(releaseAcceptance.includes('补料待配料'), 'tests/cutting-release-acceptance.spec.ts 缺少补料回仓库待配料 acceptance')
+  assert(releaseAcceptance.includes('来源铺布：'), 'tests/cutting-release-acceptance.spec.ts 缺少来源铺布链路断言')
+  assert(releaseAcceptance.includes('来源补料：'), 'tests/cutting-release-acceptance.spec.ts 缺少来源补料链路断言')
+  assert(releaseAcceptance.includes('先装袋后入仓'), 'tests/cutting-release-acceptance.spec.ts 缺少先装袋后入仓链路断言')
   assert(releaseAcceptance.includes("countViewportRows(page, 'cutting-spreading-list-table')"), 'tests/cutting-release-acceptance.spec.ts 缺少铺布列表低分辨率断言')
   assert(releaseAcceptance.includes("countViewportRows(page, 'marker-plan-list-table')"), 'tests/cutting-release-acceptance.spec.ts 缺少唛架列表低分辨率断言')
   assert(releaseAcceptance.includes('[data-pda-cutting-unit-step="SPREADING"]'), 'tests/cutting-release-acceptance.spec.ts 缺少 execution-unit 首屏铺布入口断言')
@@ -172,6 +177,31 @@ function assertFormalAnchorsUnified(): void {
     releaseAcceptance.includes("expectVisibleInViewport(page, page.getByRole('button', { name: '保存铺布记录' }))"),
     'tests/cutting-release-acceptance.spec.ts 缺少 PDA 铺布页保存按钮首屏断言',
   )
+
+  const replenishmentStorage = read('src/data/fcs/cutting/storage/replenishment-storage.ts')
+  assert(replenishmentStorage.includes('sourceSpreadingSessionId'), 'replenishment-storage.ts 缺少 sourceSpreadingSessionId')
+  assert(replenishmentStorage.includes('sourceReplenishmentRequestId'), 'replenishment-storage.ts 缺少 sourceReplenishmentRequestId')
+
+  const feiStorage = read('src/data/fcs/cutting/storage/fei-tickets-storage.ts')
+  assert(feiStorage.includes('sourceSpreadingSessionId'), 'fei-tickets-storage.ts 缺少 sourceSpreadingSessionId')
+  assert(feiStorage.includes('sourceWritebackId'), 'fei-tickets-storage.ts 缺少 sourceWritebackId')
+
+  const generatedFeiTickets = read('src/data/fcs/cutting/generated-fei-tickets.ts')
+  assert(generatedFeiTickets.includes('sourceSpreadingSessionId'), 'generated-fei-tickets.ts 缺少来源铺布锚点')
+  assert(generatedFeiTickets.includes('garmentQty'), 'generated-fei-tickets.ts 缺少成衣件数主数据')
+
+  const transferStorage = read('src/data/fcs/cutting/storage/transfer-bags-storage.ts')
+  assert(transferStorage.includes('buildTransferBagRuntimeTraceMatrix'), 'transfer-bags-storage.ts 缺少正式装袋 trace matrix')
+
+  const transferRuntime = read('src/data/fcs/cutting/transfer-bag-runtime.ts')
+  assert(transferRuntime.includes('sourceSpreadingSessionId'), 'transfer-bag-runtime.ts 缺少来源铺布锚点')
+  assert(transferRuntime.includes('feiTicketId'), 'transfer-bag-runtime.ts 缺少来源菲票锚点')
+
+  const warehouseRuntime = read('src/data/fcs/cutting/warehouse-runtime.ts')
+  assert(warehouseRuntime.includes('spreadingSessionId'), 'warehouse-runtime.ts 缺少来源铺布锚点')
+  assert(warehouseRuntime.includes('feiTicketId'), 'warehouse-runtime.ts 缺少来源菲票锚点')
+  assert(warehouseRuntime.includes('bagId'), 'warehouse-runtime.ts 缺少来源周转口袋锚点')
+  assert(warehouseRuntime.includes('transferBatchId'), 'warehouse-runtime.ts 缺少来源装袋批次锚点')
 }
 
 function assertUnifiedEntrypoints(): void {

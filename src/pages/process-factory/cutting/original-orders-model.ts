@@ -207,10 +207,10 @@ export const originalOrderRiskMeta: Record<OriginalCutOrderRiskKey, { label: str
 }
 
 function materialCategoryLabel(materialType: CuttingMaterialType): string {
-  if (materialType === 'PRINT') return '印花主料'
-  if (materialType === 'DYE') return '染色主料'
+  if (materialType === 'PRINT') return '主料'
+  if (materialType === 'DYE') return '主料'
   if (materialType === 'LINING') return '里辅料'
-  return '净色 / 拼接主料'
+  return '主料'
 }
 
 function formatQty(value: number): string {

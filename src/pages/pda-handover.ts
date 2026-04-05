@@ -245,7 +245,6 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
           <div><span class="text-muted-foreground">任务状态：</span>${head.taskStatus === 'DONE' ? '已完工' : '进行中'}</div>
           <div><span class="text-muted-foreground">执行范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
-          <div><span class="text-muted-foreground">拆分组：</span>${escapeHtml(head.splitGroupId || '未拆分')}</div>
           <div><span class="text-muted-foreground">执行方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
           <div class="col-span-2"><span class="text-muted-foreground">来源单号：</span>${escapeHtml(head.sourceDocNo || head.sourceDocId || '—')}</div>
         </div>
@@ -307,7 +306,6 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
           <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(head.completedByWarehouseAt || '—')}</div>
           <div><span class="text-muted-foreground">执行范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
-          <div><span class="text-muted-foreground">拆分组：</span>${escapeHtml(head.splitGroupId || '未拆分')}</div>
           <div><span class="text-muted-foreground">执行方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
           <div class="col-span-2"><span class="text-muted-foreground">来源单号：</span>${escapeHtml(head.sourceDocNo || head.sourceDocId || '—')}</div>
         </div>

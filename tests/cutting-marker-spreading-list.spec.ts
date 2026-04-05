@@ -67,6 +67,8 @@ test('铺布列表页使用 supervisor 视图、主按钮 marker-first、行按�
   await expectVerticalOrder(page.getByTestId('cutting-spreading-list-stats'), page.getByTestId('cutting-spreading-stage-tabs'))
   await expectVerticalOrder(page.getByTestId('cutting-spreading-stage-tabs'), page.getByTestId('cutting-spreading-list-filters'))
   await expectVerticalOrder(page.getByTestId('cutting-spreading-list-filters'), page.locator('[data-cutting-spreading-main-card="true"]'))
+  const statsBox = await page.getByTestId('cutting-spreading-list-stats').boundingBox()
+  expect(statsBox?.height ?? 0).toBeLessThan(220)
   const tabsBox = await page.getByTestId('cutting-spreading-stage-tabs').boundingBox()
   expect(tabsBox?.height ?? 0).toBeLessThan(90)
   await expect(page.getByText('待开始数 = 主状态 = 待开始 的铺布数')).toBeVisible()

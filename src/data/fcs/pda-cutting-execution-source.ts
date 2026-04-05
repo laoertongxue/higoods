@@ -341,10 +341,9 @@ function mapTaskStatusLabel(status: ProcessTask['status']): string {
 function mapMaterialTypeLabel(record: GeneratedOriginalCutOrderSourceRecord | null): string {
   if (!record) return '待补面料类型'
   if (record.materialCategory) return record.materialCategory
-  if (record.materialType === 'PRINT') return '印花主料'
-  if (record.materialType === 'DYE') return '染色主料'
+  if (record.materialType === 'PRINT' || record.materialType === 'DYE' || record.materialType === 'SOLID') return '面料主料'
   if (record.materialType === 'LINING') return '里辅料'
-  return '净色 / 拼接主料'
+  return '面料主料'
 }
 
 function mapReceiveStatusLabel(status: string | undefined): string {
@@ -605,7 +604,7 @@ function buildFallbackCuttingTaskFact(record: PdaCuttingTaskSourceRecord): Proce
     processNameZh: '裁片',
     stage: 'CUTTING',
     qty,
-    qtyUnit: 'PIECE',
+    qtyUnit: '件',
     assignmentMode: mapScenarioAssignmentMode(scenario?.origin || 'DIRECT'),
     assignmentStatus: mapScenarioAssignmentStatus(scenario?.origin || 'DIRECT'),
     ownerSuggestion: { kind: 'MAIN_FACTORY' },
@@ -778,7 +777,7 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
     spreadingSessionId: session.spreadingSessionId,
     markerId: session.markerId || '',
     markerNo: session.markerNo || '',
-    sourceMarkerLabel: session.markerNo || session.sourceMarkerNo || '未绑定唛架',
+    sourceMarkerLabel: session.markerNo || session.sourceMarkerNo || '未绑定参考唛架',
     spreadingMode: mapSpreadingModeKey(session.spreadingMode),
     title: session.sessionNo || `铺布对象 ${session.spreadingSessionId.slice(-6)}`,
     contextLabel: '继续当前铺布',
@@ -854,7 +853,7 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
       spreadingSessionId: '',
       markerId: '',
       markerNo: '',
-      sourceMarkerLabel: '未绑定唛架',
+      sourceMarkerLabel: '未绑定参考唛架',
       spreadingMode: 'NORMAL',
       title: execution.mergeBatchNo ? '异常补录当前批次铺布' : '异常补录当前裁片单铺布',
       contextLabel: '异常补录铺布',

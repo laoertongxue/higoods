@@ -48,6 +48,15 @@ function assertNoStringInSrc(value: string): void {
   }
 }
 
+function assertNoStringInCuttingVisibleSource(value: string): void {
+  const pageFiles = listTsFiles('src/pages').filter((file) => path.basename(file).startsWith('pda-cutting-'))
+  const cuttingFiles = [...listTsFiles('src/pages/process-factory/cutting'), ...listTsFiles('src/data/fcs/cutting'), ...pageFiles]
+  for (const file of cuttingFiles) {
+    const source = fs.readFileSync(file, 'utf8')
+    assert(!source.includes(value), `${path.relative(repoRoot, file)} 仍残留旧可见文案：${value}`)
+  }
+}
+
 function assertDomainBoundary(): void {
   for (const file of listTsFiles('src/domain')) {
     const source = fs.readFileSync(file, 'utf8')
@@ -172,6 +181,25 @@ function main(): void {
     'buildFcsCuttingRuntimeSummaryResult',
     'buildFcsCuttingRuntimeDetailData',
   ].forEach(assertNoStringInSrc)
+
+  ;[
+    '合批',
+    '去印花工单',
+    '去染色工单',
+    '印花补料',
+    '染色补料',
+    '净色补料',
+    '印花面料',
+    '染色面料',
+    '净色面料',
+    '可能影响印花',
+    '可能影响染色',
+    'allocationStatus ≠ balanced',
+    'layoutStatus ≠ done',
+    'readyForSpreading = true',
+    'bag-first',
+    '裁片件数',
+  ].forEach(assertNoStringInCuttingVisibleSource)
 
   assertDomainBoundary()
   assertLegacyAnchorsRetired()

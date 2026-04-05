@@ -845,7 +845,6 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
               ${renderField('工序编码', task.processBusinessCode || task.processCode)}
               ${renderField('阶段', stageLabel)}
               ${renderField('数量', `${task.qty} ${task.qtyUnit}`)}
-              ${renderField('拆分组', task.splitGroupId || '未拆分')}
             </div>
 
             <div class="h-px bg-border"></div>

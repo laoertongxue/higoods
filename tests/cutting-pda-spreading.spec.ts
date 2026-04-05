@@ -74,7 +74,7 @@ test('PDA 裁片任务详情页主流程先进入执行单元，再显式进入�
   await expect(orderCard).toBeVisible()
   await orderCard.getByRole('button', { name: '进入执行单元' }).click()
   await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/unit/${task.taskId}/${task.executionOrderId}\\?`))
-  await expect(page.locator('h1', { hasText: '执行单元' })).toBeVisible()
+  await expect(page.locator('h1', { hasText: '当前任务' })).toBeVisible()
   await page.locator('[data-pda-cutting-unit-step="SPREADING"]').click()
   await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/spreading/${task.taskId}\\?`))
   await expect(page.locator('h1', { hasText: '铺布录入' })).toBeVisible()

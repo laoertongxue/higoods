@@ -14,9 +14,9 @@ import type {
 } from '../../../data/fcs/cutting/types'
 
 export const materialTypeMeta: Record<CuttingMaterialType, { label: string; className: string }> = {
-  PRINT: { label: '印花面料', className: 'bg-fuchsia-100 text-fuchsia-700' },
-  DYE: { label: '染色面料', className: 'bg-sky-100 text-sky-700' },
-  SOLID: { label: '净色面料', className: 'bg-emerald-100 text-emerald-700' },
+  PRINT: { label: '面料', className: 'bg-slate-100 text-slate-700' },
+  DYE: { label: '面料', className: 'bg-slate-100 text-slate-700' },
+  SOLID: { label: '面料', className: 'bg-slate-100 text-slate-700' },
   LINING: { label: '里布', className: 'bg-slate-100 text-slate-700' },
 }
 

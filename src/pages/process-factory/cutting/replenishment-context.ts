@@ -320,17 +320,17 @@ export function inferReplenishmentCraftImpacts(context: ReplenishmentContextReco
     lineItems,
     positiveKeywords: ['印花', 'print'],
     negativeKeywords: ['净色', '里辅料', '辅料', '染色', 'dye'],
-    positiveNote: '当前面料行已显式命中印花主料信号，建议同步印花链路。',
-    negativeNote: '当前面料行未识别印花主料信号，可不必同步印花。',
-    unknownNote: '当前无法明确判断是否影响印花，建议人工确认后再决定是否同步。',
+    positiveNote: '当前面料行已命中主料信号，需同步关注仓库待配料。',
+    negativeNote: '当前面料行未命中主料信号，可不必追加仓库待配料。',
+    unknownNote: '当前无法明确判断是否需要回仓库待配料，建议人工确认。',
   })
   const dyeing = inferExplicitDecision({
     lineItems,
     positiveKeywords: ['染色', 'dye'],
     negativeKeywords: ['净色', '里辅料', '辅料', '印花', 'print'],
-    positiveNote: '当前面料行已显式命中染色主料信号，建议同步染色链路。',
-    negativeNote: '当前面料行未识别染色主料信号，可不必同步染色。',
-    unknownNote: '当前无法明确判断是否影响染色，建议人工确认后再决定是否同步。',
+    positiveNote: '当前面料行已命中主料信号，需同步关注仓库待配料。',
+    negativeNote: '当前面料行未命中主料信号，可不必追加仓库待配料。',
+    unknownNote: '当前无法明确判断是否需要回仓库待配料，建议人工确认。',
   })
 
   if (!lineItems.length) {

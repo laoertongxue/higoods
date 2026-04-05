@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process'
 
 const repoRoot = process.cwd()
 const specRel = 'tests/cutting-release-acceptance.spec.ts'
+const copyCleanupSpecRel = 'tests/cutting-copy-cleanup.spec.ts'
 
 function abs(rel: string): string {
   return path.join(repoRoot, rel)
@@ -45,8 +46,11 @@ function assertSpecCoversAcceptance(): void {
     '去打印菲票',
     '去装袋',
     '去裁片仓',
+    '补料待配料',
+    '来源铺布：',
+    '来源补料：',
     'PDA回写',
-    'bag-first',
+    '先装袋后入仓',
     'sourceWritebackId',
   ].forEach((token) => {
     assert(source.includes(token), `${specRel} 缺少 release acceptance 关键覆盖点：${token}`)
@@ -62,20 +66,44 @@ function assertSpecCoversAcceptance(): void {
   })
 }
 
-function assertSpecIsCollectable(): void {
-  const result = spawnSync('npx', ['playwright', 'test', '--list', specRel], {
+function assertCopyCleanupSpec(): void {
+  assert(fs.existsSync(abs(copyCleanupSpecRel)), `${copyCleanupSpecRel} 缺失，中文文案专项验收未建立`)
+  const source = read(copyCleanupSpecRel)
+
+  ;[
+    '补料管理',
+    '铺布列表',
+    '唛架列表',
+    '合并裁剪批次',
+    'manual-entry',
+    'context',
+    'readyForSpreading = true',
+    'allocationStatus ≠ balanced',
+    'layoutStatus ≠ done',
+    'PIECE',
+    'ROLL',
+    'LAYER',
+  ].forEach((token) => {
+    assert(source.includes(token), `${copyCleanupSpecRel} 缺少中文文案 / 工程词清场覆盖点：${token}`)
+  })
+}
+
+function assertSpecIsCollectable(rel: string): void {
+  const result = spawnSync('npx', ['playwright', 'test', '--list', rel], {
     cwd: repoRoot,
     encoding: 'utf8',
   })
 
   if (result.status !== 0) {
-    throw new Error(`${specRel} 无法被 Playwright 收集\n${result.stdout || ''}${result.stderr || ''}`.trim())
+    throw new Error(`${rel} 无法被 Playwright 收集\n${result.stdout || ''}${result.stderr || ''}`.trim())
   }
 }
 
 function main(): void {
   assertSpecCoversAcceptance()
-  assertSpecIsCollectable()
+  assertCopyCleanupSpec()
+  assertSpecIsCollectable(specRel)
+  assertSpecIsCollectable(copyCleanupSpecRel)
 
   console.log(
     JSON.stringify(
@@ -83,7 +111,10 @@ function main(): void {
         releaseAcceptanceSpec存在: '通过',
         releaseAcceptance业务覆盖: '通过',
         releaseAcceptance低分辨率覆盖: '通过',
+        copyCleanupSpec存在: '通过',
+        copyCleanup文案清场覆盖: '通过',
         releaseAcceptance可被Playwright收集: '通过',
+        copyCleanup可被Playwright收集: '通过',
       },
       null,
       2,

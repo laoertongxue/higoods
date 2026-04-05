@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { buildGeneratedFeiTicketTraceMatrix } from '../src/data/fcs/cutting/generated-fei-tickets.ts'
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
 async function getStageTab(page: Page, label: string) {
@@ -31,6 +32,7 @@ test('待打印菲票的铺布 session 可进入打印菲票，打印单元能�
   const expectedSessionNo = listUrl.searchParams.get('spreadingSessionNo') || ''
   const expectedSessionId = listUrl.searchParams.get('spreadingSessionId') || ''
   expect(expectedSessionNo || expectedSessionId).not.toBe('')
+  expect(buildGeneratedFeiTicketTraceMatrix().some((row) => row.sourceSpreadingSessionId === expectedSessionId)).toBeTruthy()
   await expect(page.getByRole('heading', { level: 1, name: '打印菲票' })).toBeVisible()
   await expect(page.locator('body')).toContainText('来源铺布')
   await expect(page.locator('body')).toContainText(expectedSessionNo || expectedSessionId)

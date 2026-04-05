@@ -40,7 +40,8 @@ function main(): void {
     "modeCount.fold_high_low || 0).toBeGreaterThanOrEqual(2)",
     "row.contextType === 'merge-batch'",
     'sourceWritebackId',
-    'bag-first',
+    '先装袋后入仓',
+    '补料待配料',
   ].forEach((token) => {
     assertIncludes(releaseAcceptance, token, `缺少流程矩阵 acceptance 断言：${token}`)
   })

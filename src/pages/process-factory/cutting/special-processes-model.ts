@@ -874,7 +874,7 @@ function getEffectiveFollowupActions(options: {
 function buildSourceSummary(order: SpecialProcessOrder, scopeLines: SpecialProcessScopeLine[]): string {
   const scopeCutOrders = uniqueStrings(scopeLines.map((item) => item.sourceCutOrderNo))
   if (order.sourceType === 'merge-batch') {
-    return `来自合并批次 ${order.mergeBatchNo || '待补批次号'}，当前覆盖 ${scopeCutOrders.length || order.originalCutOrderNos.length} 个原始裁片单。`
+    return `来自合并裁剪批次 ${order.mergeBatchNo || '待补批次号'}，当前覆盖 ${scopeCutOrders.length || order.originalCutOrderNos.length} 个原始裁片单。`
   }
   return `来源原始裁片单 ${scopeCutOrders[0] || order.originalCutOrderNos[0] || '待补'}。`
 }

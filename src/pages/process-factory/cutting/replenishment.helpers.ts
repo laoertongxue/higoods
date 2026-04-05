@@ -9,9 +9,9 @@ import type {
 import type { CuttingMaterialType } from '../../../data/fcs/cutting/types'
 
 export const materialTypeMeta: Record<CuttingMaterialType, { label: string; className: string }> = {
-  PRINT: { label: '印花面料', className: 'bg-fuchsia-100 text-fuchsia-700' },
-  DYE: { label: '染色面料', className: 'bg-sky-100 text-sky-700' },
-  SOLID: { label: '净色面料', className: 'bg-emerald-100 text-emerald-700' },
+  PRINT: { label: '面料', className: 'bg-slate-100 text-slate-700' },
+  DYE: { label: '面料', className: 'bg-slate-100 text-slate-700' },
+  SOLID: { label: '面料', className: 'bg-slate-100 text-slate-700' },
   LINING: { label: '里布', className: 'bg-slate-100 text-slate-700' },
 }
 
@@ -45,8 +45,7 @@ export const reasonTypeMeta = {
 export const impactFlagMeta: Record<ReplenishmentImpactFlag, { label: string; className: string }> = {
   RECONFIG_REQUIRED: { label: '需重新配料', className: 'bg-blue-100 text-blue-700' },
   RERECEIVE_REQUIRED: { label: '需重新领料', className: 'bg-indigo-100 text-indigo-700' },
-  PRINTING_AFFECTED: { label: '可能影响印花', className: 'bg-fuchsia-100 text-fuchsia-700' },
-  DYEING_AFFECTED: { label: '可能影响染色', className: 'bg-sky-100 text-sky-700' },
+  PENDING_PREP_REQUIRED: { label: '需回仓库待配料', className: 'bg-amber-100 text-amber-700' },
 }
 
 export const riskTagMeta = {
@@ -94,7 +93,7 @@ export interface ReplenishmentSummary {
   rejectedCount: number
   highRiskCount: number
   reconfigCount: number
-  affectedCraftCount: number
+  pendingPrepCount: number
 }
 
 export function buildReplenishmentSummary(records: ReplenishmentSuggestionRecord[]): ReplenishmentSummary {
@@ -104,7 +103,7 @@ export function buildReplenishmentSummary(records: ReplenishmentSuggestionRecord
     rejectedCount: records.filter((item) => item.reviewStatus === 'REJECTED').length,
     highRiskCount: records.filter((item) => item.riskLevel === 'HIGH').length,
     reconfigCount: records.filter((item) => item.impactFlags.includes('RECONFIG_REQUIRED')).length,
-    affectedCraftCount: records.filter((item) => item.impactFlags.includes('PRINTING_AFFECTED') || item.impactFlags.includes('DYEING_AFFECTED')).length,
+    pendingPrepCount: records.filter((item) => item.impactFlags.includes('PENDING_PREP_REQUIRED')).length,
   }
 }
 
@@ -117,7 +116,7 @@ export function buildPriorityRecords(records: ReplenishmentSuggestionRecord[]): 
         if (record.riskLevel === 'HIGH') score += 30
         if (record.reviewStatus === 'PENDING') score += 20
         if (record.reviewStatus === 'NEED_MORE_INFO') score += 10
-        if (record.impactFlags.includes('PRINTING_AFFECTED') || record.impactFlags.includes('DYEING_AFFECTED')) score += 5
+        if (record.impactFlags.includes('PENDING_PREP_REQUIRED')) score += 5
         return score
       }
       return weight(b) - weight(a)
@@ -141,7 +140,7 @@ export function buildRiskTags(record: ReplenishmentSuggestionRecord | Replenishm
 
 export function buildImpactSummary(record: ReplenishmentSuggestionRecord): string {
   if (!record.impactFlags.length) return '当前审核结果不触发额外联动。'
-  return record.impactFlags.map((flag) => impactFlagMeta[flag].label).join(' / ')
+  return Array.from(new Set(record.impactFlags.map((flag) => impactFlagMeta[flag].label))).join(' / ')
 }
 
 export function buildGapSummary(record: ReplenishmentSuggestionRecord): string {
@@ -151,6 +150,6 @@ export function buildGapSummary(record: ReplenishmentSuggestionRecord): string {
 export function buildEmptyStateText(filters: ReplenishmentFilters): string {
   if (filters.reviewStatus === 'PENDING') return '当前筛选条件下暂无待审核补料建议。'
   if (filters.riskLevel === 'HIGH') return '当前筛选条件下暂无高风险补料建议。'
-  if (filters.impactFilter === 'PRINTING_AFFECTED' || filters.impactFilter === 'DYEING_AFFECTED') return '当前筛选条件下暂无影响印花或染色的补料建议。'
+  if (filters.impactFilter === 'PENDING_PREP_REQUIRED') return '当前筛选条件下暂无需回仓库待配料的补料建议。'
   return '当前筛选条件下暂无匹配的补料建议。'
 }

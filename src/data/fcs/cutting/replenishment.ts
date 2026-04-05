@@ -4,7 +4,7 @@ export type ReplenishmentSourceType = 'MARKER' | 'SPREADING' | 'RECEIVE_DISCREPA
 export type ReplenishmentReasonType = 'LENGTH_SHORTAGE' | 'YIELD_RISK' | 'RECEIVE_GAP' | 'MANUAL_REVIEW'
 export type ReplenishmentRiskLevel = 'HIGH' | 'MEDIUM' | 'LOW'
 export type ReplenishmentReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEED_MORE_INFO'
-export type ReplenishmentImpactFlag = 'RECONFIG_REQUIRED' | 'RERECEIVE_REQUIRED' | 'PRINTING_AFFECTED' | 'DYEING_AFFECTED'
+export type ReplenishmentImpactFlag = 'RECONFIG_REQUIRED' | 'RERECEIVE_REQUIRED' | 'PENDING_PREP_REQUIRED'
 
 export interface ReplenishmentDocumentSummary {
   docType: 'CUT_PIECE_ORDER' | 'CONFIG_BATCH' | 'PICKUP_RECORD' | 'REPLENISHMENT_REVIEW'
@@ -17,8 +17,7 @@ export interface ReplenishmentDocumentSummary {
 export interface ReplenishmentImpactPreview {
   requiresReconfig: boolean
   requiresRereceive: boolean
-  mayAffectPrintingOrder: boolean
-  mayAffectDyeingOrder: boolean
+  requiresPendingPrep: boolean
   impactDescription: string
   nextSuggestedActionText: string
 }
@@ -84,7 +83,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     productionOrderNo: 'PO-202603-018',
     materialSku: 'ML-PRINT-240311-01',
     materialType: 'PRINT',
-    materialLabel: '印花面料 · 玫瑰满印布',
+    materialLabel: '面料 · 玫瑰满印布',
     suggestionCreatedAt: '2026-03-22 10:35',
     suggestionSourceTypes: ['SPREADING', 'RECEIVE_DISCREPANCY'],
     shortageReasonType: 'LENGTH_SHORTAGE',
@@ -115,12 +114,11 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     latestSpreadingAt: '2026-03-21 09:45',
     latestSpreadingBy: '郑海燕',
     hasExecutionDiscrepancy: true,
-    impactFlags: ['RECONFIG_REQUIRED', 'RERECEIVE_REQUIRED', 'PRINTING_AFFECTED'],
+    impactFlags: ['RECONFIG_REQUIRED', 'RERECEIVE_REQUIRED', 'PENDING_PREP_REQUIRED'],
     impactPreview: {
       requiresReconfig: true,
       requiresRereceive: true,
-      mayAffectPrintingOrder: true,
-      mayAffectDyeingOrder: false,
+      requiresPendingPrep: true,
       impactDescription: '当前领料差异与铺布长度缺口叠加，若补料通过，需要仓库重新补配并补打领料单。',
       nextSuggestedActionText: '优先回到仓库配料页补齐 2 卷，再由仓库配料领料继续处理。',
     },
@@ -174,8 +172,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     impactPreview: {
       requiresReconfig: true,
       requiresRereceive: false,
-      mayAffectPrintingOrder: false,
-      mayAffectDyeingOrder: false,
+      requiresPendingPrep: true,
       impactDescription: '当前建议主要用于补充里布准备，若审核通过，需要重新回到仓库配料页完成配置。',
       nextSuggestedActionText: '先补齐审核卷数，再决定是否补里布 1 卷。',
     },
@@ -194,7 +191,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     productionOrderNo: 'PO-202603-031',
     materialSku: 'ML-PRINT-240327-08',
     materialType: 'PRINT',
-    materialLabel: '印花面料 · 复古花叶提花',
+    materialLabel: '面料 · 复古花叶提花',
     suggestionCreatedAt: '2026-03-22 12:05',
     suggestionSourceTypes: ['SPREADING', 'EXECUTION_RISK'],
     shortageReasonType: 'LENGTH_SHORTAGE',
@@ -225,12 +222,11 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     latestSpreadingAt: '2026-03-22 10:55',
     latestSpreadingBy: '郑海燕',
     hasExecutionDiscrepancy: true,
-    impactFlags: ['RECONFIG_REQUIRED', 'RERECEIVE_REQUIRED', 'PRINTING_AFFECTED'],
+    impactFlags: ['RECONFIG_REQUIRED', 'RERECEIVE_REQUIRED', 'PENDING_PREP_REQUIRED'],
     impactPreview: {
       requiresReconfig: true,
       requiresRereceive: true,
-      mayAffectPrintingOrder: true,
-      mayAffectDyeingOrder: false,
+      requiresPendingPrep: true,
       impactDescription: '该补料建议已通过，后续需回仓补配并重新领料，由仓库配料领料模块继续处理。',
       nextSuggestedActionText: '回到仓库配料页新增补配批次，并继续仓库待配料处理。',
     },
@@ -249,7 +245,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     productionOrderNo: 'PO-202603-031',
     materialSku: 'ML-SOLID-240327-21',
     materialType: 'SOLID',
-    materialLabel: '净色面料 · 水洗白府绸',
+    materialLabel: '面料 · 水洗白府绸',
     suggestionCreatedAt: '2026-03-22 15:10',
     suggestionSourceTypes: ['RECEIVE_DISCREPANCY'],
     shortageReasonType: 'RECEIVE_GAP',
@@ -284,13 +280,12 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     impactPreview: {
       requiresReconfig: false,
       requiresRereceive: false,
-      mayAffectPrintingOrder: false,
-      mayAffectDyeingOrder: false,
+      requiresPendingPrep: false,
       impactDescription: '该建议已驳回，不需要补料，也不会触发后续配料或领料调整。',
       nextSuggestedActionText: '维持当前入仓与汇总节奏，记录审核意见即可。',
     },
     linkedDocumentSummaries: [
-      { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-031-02', status: '已入仓', createdAt: '2026-03-22 15:20', summaryText: '净色面料裁片单已完成入裁片仓。' },
+      { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-031-02', status: '已入仓', createdAt: '2026-03-22 15:20', summaryText: '该裁片单已完成入裁片仓。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-031-03', status: '已完成', createdAt: '2026-03-22 09:00', summaryText: '整单一次发齐。' },
       { docType: 'PICKUP_RECORD', docNo: 'RCV-031-02', status: '匹配', createdAt: '2026-03-22 13:10', summaryText: '扫码领料与配置一致。' },
       { docType: 'REPLENISHMENT_REVIEW', docNo: 'RV-202603-031-03', status: '已驳回', createdAt: '2026-03-22 15:45', summaryText: '复核确认无需补料。' },
@@ -304,7 +299,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     productionOrderNo: 'PO-202603-044',
     materialSku: 'ML-DYE-240331-06',
     materialType: 'DYE',
-    materialLabel: '染色面料 · 雾蓝细斜布',
+    materialLabel: '面料 · 雾蓝细斜布',
     suggestionCreatedAt: '2026-03-22 16:00',
     suggestionSourceTypes: ['EXECUTION_RISK', 'MARKER'],
     shortageReasonType: 'MANUAL_REVIEW',
@@ -335,12 +330,11 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     latestSpreadingAt: '',
     latestSpreadingBy: '',
     hasExecutionDiscrepancy: false,
-    impactFlags: ['RECONFIG_REQUIRED', 'DYEING_AFFECTED'],
+    impactFlags: ['RECONFIG_REQUIRED', 'PENDING_PREP_REQUIRED'],
     impactPreview: {
       requiresReconfig: true,
       requiresRereceive: false,
-      mayAffectPrintingOrder: false,
-      mayAffectDyeingOrder: true,
+      requiresPendingPrep: true,
       impactDescription: '若补料建议通过，仓库需回到配料页重新补配，并生成补料待配料。',
       nextSuggestedActionText: '先审核是否补 1 卷，再回到仓库配料页继续处理。',
     },

@@ -137,9 +137,7 @@ export interface ReplenishmentImpactPlan {
   suggestionId: string
   needReconfigureMaterial: boolean
   needReclaimMaterial: boolean
-  affectPrintingOrder: boolean
-  affectDyeingOrder: boolean
-  affectSpecialProcess: boolean
+  needPendingPrep: boolean
   impactSummary: string
   applied: boolean
   appliedAt: string
@@ -677,9 +675,7 @@ function hydrateLegacyActionsFromImpactPlan(options: {
   if (
     !legacy.needReconfigureMaterial &&
     !legacy.needReclaimMaterial &&
-    !legacy.affectPrintingOrder &&
-    !legacy.affectDyeingOrder &&
-    !legacy.affectSpecialProcess &&
+    !legacy.needPendingPrep &&
     !legacy.impactSummary
   ) {
     return defaults
@@ -763,9 +759,7 @@ function buildImpactPlanFromActions(options: {
     suggestionId: options.suggestion.suggestionId,
     needReconfigureMaterial: options.actions.some((item) => item.actionType === 'CREATE_PENDING_PREP'),
     needReclaimMaterial: false,
-    affectPrintingOrder: false,
-    affectDyeingOrder: false,
-    affectSpecialProcess: false,
+    needPendingPrep: options.actions.some((item) => item.actionType === 'CREATE_PENDING_PREP'),
     impactSummary,
     applied: completed,
     appliedAt: latestCompleted?.completedAt || (completed && !options.actions.length ? reviewAppliedAt : options.legacyImpactPlan?.appliedAt || ''),
@@ -799,7 +793,7 @@ function deriveStatusMeta(options: {
 
 function buildSourceSummary(context: ReplenishmentContextRecord): string {
   if (context.baseSourceType === 'merge-batch') {
-    return `合批 ${context.mergeBatchNo || '待补批次号'} · ${context.originalCutOrderNos.length} 个原始裁片单`
+    return `合并裁剪批次 ${context.mergeBatchNo || '待补批次号'} · ${context.originalCutOrderNos.length} 个原始裁片单`
   }
   return `原始裁片单 ${context.originalCutOrderNos[0] || '待补'}`
 }
@@ -982,9 +976,7 @@ function buildSyntheticFeedbackRow(
       suggestionId: `rep-pda-feedback-${feedback.writebackId}`,
       needReconfigureMaterial: false,
       needReclaimMaterial: false,
-      affectPrintingOrder: false,
-      affectDyeingOrder: false,
-      affectSpecialProcess: false,
+      needPendingPrep: false,
       impactSummary: '待根据 PDA 反馈确认影响范围。',
       applied: false,
       appliedAt: '',

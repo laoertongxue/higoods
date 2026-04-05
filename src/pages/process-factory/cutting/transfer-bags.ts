@@ -1307,13 +1307,13 @@ function renderTransferBagTraceabilityBlock(focusedUsage: TransferBagUsageItem |
           <h3 class="text-sm font-semibold text-foreground">铺布 / 装袋追溯</h3>
           <p class="mt-1 text-xs text-muted-foreground">必须先扫口袋码，再扫菲票子码</p>
         </div>
-        ${renderTag(focusedUsage.bagFirstSatisfied ? 'bag-first 已满足' : 'bag-first 待补', focusedUsage.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
+        ${renderTag(focusedUsage.bagFirstSatisfied ? '先装袋后入仓已满足' : '先装袋后入仓待补', focusedUsage.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${renderDetailMetric('来源铺布 session', focusedUsage.spreadingSessionNo || focusedUsage.spreadingSessionId || '当前尚未绑定正式铺布 session')}
+        ${renderDetailMetric('来源铺布', focusedUsage.spreadingSessionNo || focusedUsage.spreadingSessionId || '当前尚未绑定正式铺布')}
         ${renderDetailMetric('PDA回写流水', focusedUsage.spreadingSourceWritebackId || '当前尚无 PDA 回写流水')}
         ${renderDetailMetric('铺布颜色摘要', focusedUsage.spreadingColorSummary || focusedUsage.colorSummary || '待补')}
-        ${renderDetailMetric('bag-first 规则', focusedUsage.bagFirstRuleLabel, focusedUsage.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700')}
+        ${renderDetailMetric('先装袋后入仓规则', focusedUsage.bagFirstRuleLabel, focusedUsage.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700')}
       </div>
     </section>
   `

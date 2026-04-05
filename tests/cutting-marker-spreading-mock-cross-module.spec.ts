@@ -128,7 +128,7 @@ test('铺布 mock 覆盖原始裁片单上下文的 PDA -> 装袋 -> 入裁片�
   await page.goto(
     `/fcs/craft/cutting/transfer-bag-detail?bagId=${encodeURIComponent(usage!.bagId)}&usageId=${encodeURIComponent(usage!.usageId)}`,
   )
-  await expect(page.locator('body')).toContainText('来源铺布 session')
+  await expect(page.locator('body')).toContainText('来源铺布')
   await expect(page.locator('body')).toContainText(originalSession!.sessionNo || originalSession!.spreadingSessionId)
 
   await page.goto(`/fcs/craft/cutting/cut-piece-warehouse?originalCutOrderId=${encodeURIComponent(warehouseItem!.originalCutOrderId)}`)
@@ -141,7 +141,7 @@ test('铺布 mock 覆盖原始裁片单上下文的 PDA -> 装袋 -> 入裁片�
   await expectNoPageErrors(errors)
 })
 
-test('铺布 mock 覆盖合并批次上下文的完成 -> 补料 -> 装袋链路', async () => {
+test('铺布 mock 覆盖合并裁剪批次上下文的完成 -> 补料 -> 装袋链路', async () => {
   const spreadingRows = buildSpreadingRows()
   const traceabilityContext = buildCuttingTraceabilityProjectionContext()
 

@@ -518,7 +518,7 @@ function buildCurrentListExportRows(viewModel = getViewModel()): { filename: str
     return {
       filename: buildExportFilename(tabMeta.label),
       rows: [
-        ['来源类型', '原始裁片单号 / 合并批次号', '来源生产单号', '款号 / SPU', '面料 SKU', '颜色', '技术包状态', '当前配料/领料摘要'],
+        ['来源类型', '原始裁片单号 / 合并裁剪批次号', '来源生产单号', '款号 / SPU', '面料 SKU', '颜色', '技术包状态', '当前配料/领料摘要'],
         ...contexts.map((context) => [
           context.contextLabel,
           context.contextNo,
@@ -858,7 +858,7 @@ function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | 
     return `
       <div class="flex flex-wrap items-center gap-2">
         ${renderActionButton('从原始裁片单新建', 'data-marker-plan-action="open-context-drawer" data-context-type="original-cut-order"')}
-        ${renderActionButton('从合并批次新建', 'data-marker-plan-action="open-context-drawer" data-context-type="merge-batch"')}
+        ${renderActionButton('从合并裁剪批次新建', 'data-marker-plan-action="open-context-drawer" data-context-type="merge-batch"')}
         ${renderActionButton('导出', 'data-marker-plan-action="export-list"')}
         ${renderActionButton('重置筛选', 'data-marker-plan-action="reset-filters"')}
       </div>
@@ -898,7 +898,7 @@ function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | 
       ${renderActionButton('复制为新唛架', `data-marker-plan-action="copy-plan"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan)}
       ${renderActionButton('交给铺布', `data-marker-plan-action="go-spreading"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'primary', !plan || !plan.readyForSpreading)}
       ${renderActionButton('去原始裁片单', `data-marker-plan-action="go-original-orders"${plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`, 'secondary', !plan || !plan.originalCutOrderIds.length)}
-      ${plan?.mergeBatchId ? renderActionButton('去合并批次', `data-marker-plan-action="go-merge-batch" data-plan-id="${escapeHtml(plan.id)}"`, 'secondary') : ''}
+      ${plan?.mergeBatchId ? renderActionButton('去合并裁剪批次', `data-marker-plan-action="go-merge-batch" data-plan-id="${escapeHtml(plan.id)}"`, 'secondary') : ''}
     </div>
   `
 }
@@ -1106,55 +1106,55 @@ function renderPlanTopInfo(
   ] as const
 
   return `
-    <section data-marker-plan-top-shell class="rounded-lg border bg-card px-3 py-3 shadow-sm">
-      <div class="pointer-events-none space-y-3" data-testid="marker-plan-top-info">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section data-marker-plan-top-shell class="rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+      <div class="pointer-events-none space-y-2.5" data-testid="marker-plan-top-info">
+        <div class="flex flex-wrap items-start justify-between gap-2.5">
+          <div class="grid flex-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <div>
               <div class="text-[11px] text-muted-foreground">唛架编号</div>
-              <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(plan.markerNo)}</div>
+              <div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(plan.markerNo)}</div>
             </div>
             <div>
               <div class="text-[11px] text-muted-foreground">上下文类型</div>
-              <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(context ? context.contextLabel : '待选择')}</div>
+              <div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(context ? context.contextLabel : '待选择')}</div>
             </div>
             <div>
               <div class="text-[11px] text-muted-foreground">款号 / SPU</div>
-              <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(`${plan.styleCode || '-'} / ${plan.spuCode || '-'}`)}</div>
+              <div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(`${plan.styleCode || '-'} / ${plan.spuCode || '-'}`)}</div>
             </div>
             <div>
               <div class="text-[11px] text-muted-foreground">面料 / 颜色</div>
-              <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(`${plan.materialSkuSummary || '—'} / ${plan.colorSummary || '—'}`)}</div>
+              <div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(`${plan.materialSkuSummary || '—'} / ${plan.colorSummary || '—'}`)}</div>
             </div>
           </div>
-          <div class="pointer-events-auto flex flex-wrap gap-2">
-            ${statusItems.map(([label, badgeHtml]) => `<div class="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5"><span class="text-[11px] text-muted-foreground">${escapeHtml(label)}</span>${badgeHtml}</div>`).join('')}
+          <div class="pointer-events-auto flex flex-wrap gap-1.5">
+            ${statusItems.map(([label, badgeHtml]) => `<div class="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1"><span class="text-[11px] text-muted-foreground">${escapeHtml(label)}</span>${badgeHtml}</div>`).join('')}
           </div>
         </div>
-        <div class="grid gap-3 xl:grid-cols-[1.5fr_1fr]">
-          <div class="space-y-2">
+        <div class="grid gap-2.5 xl:grid-cols-[1.5fr_1fr]">
+          <div class="space-y-1.5">
             <div class="rounded-md border bg-background px-3 py-2">
               <div class="text-[11px] text-muted-foreground">原始裁片单号</div>
-              <div class="pointer-events-auto mt-1 flex flex-wrap gap-2">${originalChips}</div>
+              <div class="pointer-events-auto mt-0.5 flex flex-wrap gap-1.5">${originalChips}</div>
             </div>
-            <div class="grid gap-2 md:grid-cols-2">
+            <div class="grid gap-1.5 md:grid-cols-2">
               <div class="rounded-md border bg-background px-3 py-2">
-                <div class="text-[11px] text-muted-foreground">合并批次号</div>
-                <div class="pointer-events-auto mt-1 flex flex-wrap gap-2">${mergeChip}</div>
+                <div class="text-[11px] text-muted-foreground">合并裁剪批次号</div>
+                <div class="pointer-events-auto mt-0.5 flex flex-wrap gap-1.5">${mergeChip}</div>
               </div>
               <div class="rounded-md border bg-background px-3 py-2">
                 <div class="text-[11px] text-muted-foreground">来源生产单号</div>
-                <div class="pointer-events-auto mt-1 flex flex-wrap gap-2">${productionChips}</div>
+                <div class="pointer-events-auto mt-0.5 flex flex-wrap gap-1.5">${productionChips}</div>
               </div>
             </div>
           </div>
-          <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div class="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
             ${summaryItems
               .map(
                 (item) => `
                   <div class="rounded-md border bg-background px-3 py-2">
                     <div class="text-[11px] text-muted-foreground">${escapeHtml(item.label)}</div>
-                    <div class="mt-1">${renderValueWithFormula(item.value, item.formula || '', 'text-sm font-medium text-foreground')}</div>
+                    <div class="mt-0.5">${renderValueWithFormula(item.value, item.formula || '', 'text-sm font-medium text-foreground')}</div>
                   </div>
                 `,
               )
@@ -1164,10 +1164,10 @@ function renderPlanTopInfo(
         ${
           showActionRow
             ? `
-              <div class="pointer-events-auto flex flex-wrap items-center gap-2 border-t pt-3">
+              <div class="pointer-events-auto flex flex-wrap items-center gap-1.5 border-t pt-2">
                 ${renderActionButton('去原始裁片单', `data-marker-plan-action="go-original-orders"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
                 ${renderActionButton('去配料领料', `data-marker-plan-action="go-material-prep"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
-                ${plan.mergeBatchId ? renderActionButton('去合并批次', `data-marker-plan-action="go-merge-batch"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`) : ''}
+                ${plan.mergeBatchId ? renderActionButton('去合并裁剪批次', `data-marker-plan-action="go-merge-batch"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`) : ''}
                 ${renderActionButton('去生产单进度', `data-marker-plan-action="go-production-progress"${'id' in plan ? ` data-plan-id="${escapeHtml(plan.id)}"` : ''}`)}
               </div>
             `
@@ -1189,14 +1189,14 @@ function renderTabNav(activeTab: MarkerPlanTabKey): string {
   ]
 
   return `
-    <section data-marker-plan-tab-shell class="rounded-lg border bg-card/95 p-2.5 shadow-sm">
-      <div class="flex flex-wrap gap-2">
+    <section data-marker-plan-tab-shell class="rounded-lg border bg-card/95 p-2 shadow-sm">
+      <div class="flex flex-wrap gap-1.5">
         ${tabs
           .map((tab) =>
             `
               <button
                 type="button"
-                class="inline-flex cursor-pointer items-center rounded-md px-3 py-2 text-sm font-medium ${
+                class="inline-flex cursor-pointer items-center rounded-md px-2.5 py-1.5 text-xs font-medium ${
                   activeTab === tab.key
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'border hover:bg-muted'
@@ -1267,7 +1267,7 @@ function renderSizeRatioReadonlyGrid(plan: MarkerPlan | MarkerPlanViewRow): stri
 
 function renderBasicTab(plan: MarkerPlan): string {
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="marker-plan-basic-tab">
+    <section class="space-y-3 rounded-lg border bg-card p-3" data-testid="marker-plan-basic-tab">
       <div class="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
         ${renderInputField('唛架编号', plan.markerNo, 'markerNo')}
         ${renderSelectField('唛架模式', 'markerMode', buildMarkerPlanModeOptions(), plan.markerMode)}
@@ -1540,7 +1540,7 @@ function renderBalanceTable(balanceRows: MarkerPlanBalanceSummaryRow[]): string 
 function renderAllocationTab(plan: MarkerPlan, context: MarkerPlanContextCandidate | null): string {
   const balanceRows = buildMarkerPlanBalanceRows(hydrateDraft(plan, context))
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="marker-plan-allocation-tab">
+    <section class="space-y-3 rounded-lg border bg-card p-3" data-testid="marker-plan-allocation-tab">
       <div class="flex flex-wrap items-center gap-2">
         ${renderActionButton('一键按尺码配比生成', 'data-marker-plan-action="auto-allocation"', 'primary')}
         ${renderActionButton('新增分配行', 'data-marker-plan-action="add-allocation-row"')}
@@ -1649,7 +1649,7 @@ function renderExplosionTab(plan: MarkerPlan | MarkerPlanViewRow, context: Marke
   }
 
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="marker-plan-explosion-tab">
+    <section class="space-y-3 rounded-lg border bg-card p-3" data-testid="marker-plan-explosion-tab">
       ${renderExplosionStatusCards(summary)}
       <div class="space-y-2">
         <h3 class="text-sm font-semibold">SKU 汇总表</h3>
@@ -2211,7 +2211,7 @@ function renderLayoutTab(plan: MarkerPlan, context: MarkerPlanContextCandidate |
   const highLowMode = plan.markerMode === 'high_low' || plan.markerMode === 'fold_high_low'
 
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="marker-plan-layout-tab-${plan.markerMode}">
+    <section class="space-y-3 rounded-lg border bg-card p-3" data-testid="marker-plan-layout-tab-${plan.markerMode}">
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         ${renderInputField('单次铺布固定损耗（m）', String(plan.singleSpreadFixedLoss || 0.06), 'singleSpreadFixedLoss', 'number')}
         ${renderReadonlyField('计划铺布总长度（m）', `${formatNumber(plan.plannedSpreadLength, 2)} m`, buildMarkerPlannedSpreadLengthFormula(plan))}
@@ -2264,7 +2264,7 @@ function renderLayoutReadonlyTab(plan: MarkerPlan | MarkerPlanViewRow): string {
   const highLowMode = plan.markerMode === 'high_low' || plan.markerMode === 'fold_high_low'
 
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="marker-plan-layout-tab-${plan.markerMode}">
+    <section class="space-y-3 rounded-lg border bg-card p-3" data-testid="marker-plan-layout-tab-${plan.markerMode}">
       ${foldMode ? renderFoldConfigReadonly(plan.foldConfig) : ''}
       ${
         normalMode
@@ -2361,7 +2361,7 @@ function renderImagesTab(plan: MarkerPlan, readOnly = false): string {
   ].sort((left, right) => String(right.time || '').localeCompare(String(left.time || ''), 'zh-CN'))
 
   return `
-    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="marker-plan-images-tab">
+    <section class="space-y-3 rounded-lg border bg-card p-3" data-testid="marker-plan-images-tab">
       ${
         !readOnly
           ? `
@@ -2448,8 +2448,8 @@ function renderDetailReadOnlyTable(title: string, tableHtml: string): string {
 function renderDetailTab(plan: MarkerPlanViewRow, activeTab: MarkerPlanTabKey): string {
   if (activeTab === 'basic') {
     return `
-      <div class="space-y-4" data-testid="marker-plan-basic-detail-tab">
-        <section class="space-y-4 rounded-lg border bg-card p-4">
+      <div class="space-y-3" data-testid="marker-plan-basic-detail-tab">
+        <section class="space-y-3 rounded-lg border bg-card p-3">
           <div class="space-y-3">
             <h3 class="text-sm font-semibold">尺码配比</h3>
             ${renderSizeRatioReadonlyGrid(plan)}
@@ -2469,7 +2469,7 @@ function renderDetailTab(plan: MarkerPlanViewRow, activeTab: MarkerPlanTabKey): 
 
   if (activeTab === 'allocation') {
     return `
-      <div class="space-y-4" data-testid="marker-plan-allocation-detail-tab">
+      <div class="space-y-3" data-testid="marker-plan-allocation-detail-tab">
         ${
           plan.allocationStatus !== 'balanced'
             ? `
@@ -2501,7 +2501,7 @@ function renderDetailTab(plan: MarkerPlanViewRow, activeTab: MarkerPlanTabKey): 
 
 function renderListTabs(listTab: MarkerPlanListTab): string {
   return `
-    <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-2" data-testid="marker-plan-list-tabs">
+    <section class="rounded-lg border border-dashed bg-muted/20 px-2.5 py-1.5" data-testid="marker-plan-list-tabs">
       <div class="flex flex-wrap gap-1">
         ${buildMarkerPlanListTabOptions()
           .map(
@@ -2525,7 +2525,7 @@ function renderListTabs(listTab: MarkerPlanListTab): string {
 function getListFilterLabels(): string[] {
   const labels: string[] = [`视图：${getListTabMeta(state.listTab).label}`]
   if (state.filters.keyword) labels.push(`关键词：${state.filters.keyword}`)
-  if (state.filters.contextNo) labels.push(`原始裁片单 / 合并批次：${state.filters.contextNo}`)
+  if (state.filters.contextNo) labels.push(`原始裁片单 / 合并裁剪批次：${state.filters.contextNo}`)
   if (state.filters.markerNo) labels.push(`唛架编号：${state.filters.markerNo}`)
   if (state.filters.contextType !== 'ALL') {
     const option = buildMarkerPlanContextTypeOptions().find((item) => item.value === state.filters.contextType)
@@ -2647,7 +2647,7 @@ function renderListFilters(): string {
           </select>
         </label>
         <label class="space-y-1">
-          <span class="text-[11px] font-medium text-foreground">原始裁片单 / 合并批次</span>
+          <span class="text-[11px] font-medium text-foreground">原始裁片单 / 合并裁剪批次</span>
           <input
             type="text"
             value="${escapeHtml(state.filters.contextNo)}"
@@ -2710,17 +2710,17 @@ function renderStats(stats: MarkerPlanListStats): string {
       <article class="rounded-lg border bg-card px-2 py-1">
         <p class="text-[11px] text-muted-foreground">待配平唛架数</p>
         <p class="mt-0.5 text-base font-semibold leading-none text-amber-600">${stats.pendingBalanceCount}</p>
-        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.pendingBalanceCount} = allocationStatus ≠ balanced 的唛架数</p>
+        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.pendingBalanceCount} = 未配平唛架数</p>
       </article>
       <article class="rounded-lg border bg-card px-2 py-1">
         <p class="text-[11px] text-muted-foreground">待排版唛架数</p>
         <p class="mt-0.5 text-base font-semibold leading-none text-blue-600">${stats.waitingLayoutCount}</p>
-        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.waitingLayoutCount} = layoutStatus ≠ done 的唛架数</p>
+        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.waitingLayoutCount} = 待排版唛架数</p>
       </article>
       <article class="rounded-lg border bg-card px-2 py-1">
         <p class="text-[11px] text-muted-foreground">可交接铺布唛架数</p>
         <p class="mt-0.5 text-base font-semibold leading-none text-emerald-600">${stats.readyForSpreadingCount}</p>
-        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.readyForSpreadingCount} = readyForSpreading = true 的唛架数</p>
+        <p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${stats.readyForSpreadingCount} = 可交接铺布唛架数</p>
       </article>
     </section>
   `
@@ -2729,7 +2729,7 @@ function renderStats(stats: MarkerPlanListStats): string {
 function renderPendingContexts(contexts: MarkerPlanContextCandidate[]): string {
   return `
     <section class="rounded-lg border bg-card" data-testid="marker-plan-pending-contexts" data-marker-plan-main-card="true">
-      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
+      <div class="flex items-center justify-between gap-3 border-b px-3 py-1.5">
         <div>
           <h2 class="text-sm font-semibold">待建上下文</h2>
         </div>
@@ -2740,7 +2740,7 @@ function renderPendingContexts(contexts: MarkerPlanContextCandidate[]): string {
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-2 font-medium">来源类型</th>
-              <th class="px-3 py-2 font-medium">原始裁片单号 / 合并批次号</th>
+              <th class="px-3 py-2 font-medium">原始裁片单号 / 合并裁剪批次号</th>
               <th class="px-3 py-2 font-medium">来源生产单号</th>
               <th class="px-3 py-2 font-medium">款号 / SPU</th>
               <th class="px-3 py-2 font-medium">面料 SKU</th>
@@ -2756,24 +2756,24 @@ function renderPendingContexts(contexts: MarkerPlanContextCandidate[]): string {
                 ? contexts
                     .map((context) => `
                       <tr class="border-t">
-                        <td class="px-3 py-3">${escapeHtml(context.contextLabel)}</td>
-                        <td class="px-3 py-3 font-medium">${escapeHtml(context.contextNo)}</td>
-                        <td class="px-3 py-3">${escapeHtml(context.productionOrderNos.join(' / '))}</td>
-                        <td class="px-3 py-3">
+                        <td class="px-3 py-2">${escapeHtml(context.contextLabel)}</td>
+                        <td class="px-3 py-2 font-medium">${escapeHtml(context.contextNo)}</td>
+                        <td class="px-3 py-2">${escapeHtml(context.productionOrderNos.join(' / '))}</td>
+                        <td class="px-3 py-2">
                           <div class="font-medium">${escapeHtml(`${context.styleCode || '-'} / ${context.spuCode || '-'}`)}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(context.styleName || '—')}</div>
                         </td>
-                        <td class="px-3 py-3">${escapeHtml(context.materialSkuSummary || '—')}</td>
-                        <td class="px-3 py-3">${escapeHtml(context.colorSummary || '—')}</td>
-                        <td class="px-3 py-3">${escapeHtml(context.techPackStatusLabel)}</td>
-                        <td class="px-3 py-3">${escapeHtml(context.prepClaimSummaryText)}</td>
-                        <td class="px-3 py-3">
+                        <td class="px-3 py-2">${escapeHtml(context.materialSkuSummary || '—')}</td>
+                        <td class="px-3 py-2">${escapeHtml(context.colorSummary || '—')}</td>
+                        <td class="px-3 py-2">${escapeHtml(context.techPackStatusLabel)}</td>
+                        <td class="px-3 py-2">${escapeHtml(context.prepClaimSummaryText)}</td>
+                        <td class="px-3 py-2">
                           <div class="flex flex-wrap gap-2">
                             ${renderActionButton('新建唛架', `data-marker-plan-action="create-from-context" data-context-type="${escapeHtml(context.contextType)}" data-context-id="${escapeHtml(context.id)}"`, 'primary')}
                             ${
                               context.contextType === 'original-cut-order'
                                 ? renderActionButton('去原始裁片单', `data-marker-plan-action="go-original-context" data-context-type="${escapeHtml(context.contextType)}" data-context-id="${escapeHtml(context.id)}"`)
-                                : renderActionButton('去合并批次', `data-marker-plan-action="go-merge-context" data-context-type="${escapeHtml(context.contextType)}" data-context-id="${escapeHtml(context.id)}"`)
+                                : renderActionButton('去合并裁剪批次', `data-marker-plan-action="go-merge-context" data-context-type="${escapeHtml(context.contextType)}" data-context-id="${escapeHtml(context.id)}"`)
                             }
                           </div>
                         </td>
@@ -2860,7 +2860,7 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                             ${renderActionButton('编辑', `data-marker-plan-action="go-edit" data-plan-id="${escapeHtml(row.id)}"${exceptionOnly ? ` data-tab-key="${problemTab}"` : ''}`)}
                             ${renderActionButton('复制为新唛架', `data-marker-plan-action="copy-plan" data-plan-id="${escapeHtml(row.id)}"`)}
                             ${renderActionButton('去原始裁片单', `data-marker-plan-action="go-original-orders" data-plan-id="${escapeHtml(row.id)}"`)}
-                            ${row.mergeBatchId ? renderActionButton('去合并批次', `data-marker-plan-action="go-merge-batch" data-plan-id="${escapeHtml(row.id)}"`) : ''}
+                            ${row.mergeBatchId ? renderActionButton('去合并裁剪批次', `data-marker-plan-action="go-merge-batch" data-plan-id="${escapeHtml(row.id)}"`) : ''}
                             ${row.readyForSpreading ? renderActionButton('交给铺布', `data-marker-plan-action="go-spreading" data-plan-id="${escapeHtml(row.id)}"`, 'primary') : ''}
                           </div>
                         </td>
@@ -2945,7 +2945,7 @@ function renderContextDrawer(viewModel = getViewModel()): string {
             <tr>
               <th class="px-3 py-2 font-medium">选择</th>
               <th class="px-3 py-2 font-medium">来源类型</th>
-              <th class="px-3 py-2 font-medium">原始裁片单号 / 合并批次号</th>
+              <th class="px-3 py-2 font-medium">原始裁片单号 / 合并裁剪批次号</th>
               <th class="px-3 py-2 font-medium">生产单号</th>
               <th class="px-3 py-2 font-medium">款号 / SPU</th>
               <th class="px-3 py-2 font-medium">面料 SKU</th>
@@ -3077,7 +3077,7 @@ function renderEditorBody(route: MarkerPlanRouteKind, plan: MarkerPlan | MarkerP
 function renderCreatePage(viewModel = getViewModel()): string {
   const meta = getCanonicalCuttingMeta(getCurrentBasePath(), 'marker-create')
   return `
-    <div class="space-y-4 p-4" data-testid="cutting-marker-plan-create-page">
+    <div class="space-y-3 p-3" data-testid="cutting-marker-plan-create-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderPlanHeaderActions('CREATE', state.draftPlan),
       })}
@@ -3091,7 +3091,7 @@ function renderEditPage(viewModel = getViewModel(), id = parseRoute().id): strin
   const meta = getCanonicalCuttingMeta(getCurrentBasePath(), 'marker-edit')
   const sourcePlan = viewModel.plansById[id] ?? null
   return `
-    <div class="space-y-4 p-4" data-testid="cutting-marker-plan-edit-page">
+    <div class="space-y-3 p-3" data-testid="cutting-marker-plan-edit-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderPlanHeaderActions('EDIT', state.draftPlan),
       })}
@@ -3107,7 +3107,7 @@ function renderDetailPage(viewModel = getViewModel(), id = parseRoute().id): str
   const plan = viewModel.plansById[id] ?? null
   const context = plan ? findMarkerPlanContextForPlan(viewModel.contexts, plan) : null
   return `
-    <div class="space-y-4 p-4" data-testid="cutting-marker-plan-detail-page">
+    <div class="space-y-3 p-3" data-testid="cutting-marker-plan-detail-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderPlanHeaderActions('DETAIL', plan),
       })}

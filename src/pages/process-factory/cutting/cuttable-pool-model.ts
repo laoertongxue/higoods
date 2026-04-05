@@ -200,10 +200,10 @@ const coverageMeta: Record<CoverageStatusKey, { label: string; className: string
 }
 
 function materialTypeLabel(materialType: string): string {
-  if (materialType === 'PRINT') return '印花主料'
-  if (materialType === 'DYE') return '染色主料'
+  if (materialType === 'PRINT') return '主料'
+  if (materialType === 'DYE') return '主料'
   if (materialType === 'LINING') return '里辅料'
-  return '主布 / 拼接料'
+  return '主料'
 }
 
 function buildKeywordIndex(values: Array<string | undefined>): string[] {

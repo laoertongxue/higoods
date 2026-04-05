@@ -59,10 +59,10 @@ function toCuttingMaterialType(materialType: string): CuttingMaterialType {
 }
 
 function toMaterialCategory(materialType: CuttingMaterialType): string {
-  if (materialType === 'PRINT') return '印花主料'
-  if (materialType === 'DYE') return '染色主料'
+  if (materialType === 'PRINT') return '主料'
+  if (materialType === 'DYE') return '主料'
   if (materialType === 'LINING') return '里辅料'
-  return '净色 / 拼接主料'
+  return '主料'
 }
 
 function findBomItem(techPack: TechPack, line: TechPackColorMaterialMappingLine): TechPackBomItem | null {
@@ -150,7 +150,7 @@ function buildMockSt081OriginalCutOrders(order: ProductionOrder): GeneratedOrigi
     {
       materialSku: 'FAB-SKU-PRINT-001',
       materialType: 'PRINT',
-      materialLabel: '主布印花面料',
+      materialLabel: '主布面料',
       pieceRows: [
         {
           partCode: 'tee-front',

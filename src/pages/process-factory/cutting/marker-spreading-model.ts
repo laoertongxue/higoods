@@ -673,7 +673,7 @@ const spreadingSupervisorStageMeta: Record<
   WAITING_REPLENISHMENT: {
     label: '待补料确认',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前铺布已完成，但补料差异仍待进入补料管理确认。',
+    detailText: '当前铺布已完成，但补料差异仍待进入补料管理确认，审核通过后将回仓库待配料。',
   },
   WAITING_FEI_TICKET: {
     label: '待打印菲票',
@@ -2161,7 +2161,7 @@ export function finalizeSpreadingCompletion(options: {
       note:
         replenishmentWarning.suggestedAction === '无需补料'
           ? '当前铺布已完成，未触发明显补料预警。'
-          : `当前铺布已完成，并生成补料预警：${replenishmentWarning.suggestedAction}。`,
+          : `当前铺布已完成，并生成补料预警：${replenishmentWarning.suggestedAction}，建议进入补料管理确认后回仓库待配料。`,
     },
     varianceLength: replenishmentWarning.varianceLength,
     varianceNote:
@@ -2764,9 +2764,9 @@ export function buildSpreadingVarianceSummary(
   if (!session || !session.rolls.length) {
     replenishmentHint = '当前尚未录入铺布卷数据，补料判断仍需补录后确认。'
   } else if (shortageIndicator) {
-    replenishmentHint = '预计承载成衣件数低于唛架成衣件数，建议进入补料管理进一步确认。'
+    replenishmentHint = '预计承载成衣件数低于唛架成衣件数，建议进入补料管理确认后回仓库待配料。'
   } else if (coreMetrics.varianceLength < 0) {
-    replenishmentHint = '总实际铺布长度超过已领取长度，建议复核差异并关注补料可能性。'
+    replenishmentHint = '总实际铺布长度超过已领取长度，建议复核差异并按需进入补料管理回仓库待配料。'
   }
 
   return {

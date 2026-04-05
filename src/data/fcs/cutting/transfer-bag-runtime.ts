@@ -1493,14 +1493,18 @@ export function serializeTransferBagSelectedTicketIds(ids: string[]): string {
 
 export interface TransferBagRuntimeTraceMatrixRow {
   usageId: string
+  transferBatchId: string
   bagId: string
+  bagCode: string
   feiTicketId: string
+  feiTicketNo: string
   sourceSpreadingSessionId: string
   sourceSpreadingSessionNo: string
   sourceMarkerId: string
   sourceMarkerNo: string
   sourceWritebackId: string
   originalCutOrderId: string
+  originalCutOrderNo: string
   mergeBatchNo: string
 }
 
@@ -1508,14 +1512,18 @@ export function buildTransferBagRuntimeTraceMatrix(store: TransferBagRuntimeStor
   return store.bindings
     .map((binding) => ({
       usageId: binding.cycleId || '',
+      transferBatchId: binding.cycleId || '',
       bagId: binding.carrierId || '',
+      bagCode: binding.carrierCode || '',
       feiTicketId: binding.feiTicketId,
+      feiTicketNo: binding.feiTicketNo,
       sourceSpreadingSessionId: String(binding.sourceSpreadingSessionId || ''),
       sourceSpreadingSessionNo: String(binding.sourceSpreadingSessionNo || ''),
       sourceMarkerId: String(binding.sourceMarkerId || ''),
       sourceMarkerNo: String(binding.sourceMarkerNo || ''),
       sourceWritebackId: String(binding.sourceWritebackId || ''),
       originalCutOrderId: binding.originalCutOrderId,
+      originalCutOrderNo: binding.originalCutOrderNo,
       mergeBatchNo: binding.mergeBatchNo,
     }))
     .sort(

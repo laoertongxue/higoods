@@ -150,7 +150,8 @@ function getPendingPrepFollowupsForRow(row: ProductionProgressRow): Replenishmen
 function buildPendingPrepSummaryText(row: ProductionProgressRow): string {
   const followups = getPendingPrepFollowupsForRow(row)
   if (!followups.length) return '当前无补料待配料'
-  return `补料待配料 ${followups.length} 条`
+  const latest = followups[0]
+  return `补料待配料 ${followups.length} 条（来源铺布 ${latest?.sourceSpreadingSessionId || '待补'} / 来源补料 ${latest?.sourceReplenishmentRequestId || '待补'}）`
 }
 
 function buildRouteWithQuery(key: CuttingCanonicalPageKey, payload?: Record<string, string | undefined>): string {

@@ -500,7 +500,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       action: 'TRACEABILITY_AUTOLINK',
       actionAt: nowText,
       actionBy: operatorName,
-      note: '自动补齐 bag-first 主链，确保后续裁片仓与追溯统一基于正式装袋映射。',
+      note: '自动补齐先装袋后入仓主链，确保后续裁片仓与追溯统一基于正式装袋映射。',
     })
 
     const nextUsages = nextStore.usages.filter((item) => item.usageId !== usage.usageId)

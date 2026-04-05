@@ -311,7 +311,7 @@ function renderFilterArea(): string {
           <input
             type="text"
             value="${escapeHtml(state.filters.cuttingGroup)}"
-            placeholder="例如 G-净色前后片-03"
+            placeholder="例如 G-前后片-03"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             data-cut-piece-warehouse-field="cuttingGroup"
           />
@@ -463,7 +463,7 @@ function renderDetailDrawer(): string {
               <h3 class="text-sm font-semibold text-foreground">铺布 / 装袋追溯</h3>
               <p class="mt-1 text-xs text-muted-foreground">先装袋，再入裁片仓；当前主锚点以铺布 session 与周转口袋使用周期为准。</p>
             </div>
-            ${renderTag(item.bagFirstSatisfied ? 'bag-first 已满足' : 'bag-first 待补', item.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
+            ${renderTag(item.bagFirstSatisfied ? '先装袋后入仓已满足' : '先装袋后入仓待补', item.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
           </div>
           ${
             item.bagFirstSatisfied
@@ -472,7 +472,7 @@ function renderDetailDrawer(): string {
           }
           <dl class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <div class="rounded-lg border bg-muted/10 p-3">
-              <dt class="text-xs text-muted-foreground">来源铺布 session</dt>
+              <dt class="text-xs text-muted-foreground">来源铺布</dt>
               <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.spreadingSessionNo || item.spreadingSessionId || '待补')}</dd>
             </div>
             <div class="rounded-lg border bg-muted/10 p-3">
@@ -488,7 +488,7 @@ function renderDetailDrawer(): string {
               <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagCode || '待补')}</dd>
             </div>
             <div class="rounded-lg border bg-muted/10 p-3 md:col-span-2">
-              <dt class="text-xs text-muted-foreground">bag-first 规则</dt>
+              <dt class="text-xs text-muted-foreground">先装袋后入仓规则</dt>
               <dd class="mt-1 font-medium ${item.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtml(item.bagFirstRuleLabel)}</dd>
             </div>
           </dl>

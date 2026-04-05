@@ -91,9 +91,9 @@ export interface FabricWarehouseViewModel {
 }
 
 export const fabricWarehouseMaterialMeta: Record<CuttingMaterialType, { label: string; className: string; widthHint: number }> = {
-  PRINT: { label: '印花面料', className: 'bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200', widthHint: 148 },
-  DYE: { label: '染色面料', className: 'bg-sky-50 text-sky-700 border border-sky-200', widthHint: 152 },
-  SOLID: { label: '净色面料', className: 'bg-emerald-50 text-emerald-700 border border-emerald-200', widthHint: 160 },
+  PRINT: { label: '面料', className: 'bg-slate-50 text-slate-700 border border-slate-200', widthHint: 120 },
+  DYE: { label: '面料', className: 'bg-slate-50 text-slate-700 border border-slate-200', widthHint: 120 },
+  SOLID: { label: '面料', className: 'bg-slate-50 text-slate-700 border border-slate-200', widthHint: 120 },
   LINING: { label: '里布', className: 'bg-amber-50 text-amber-700 border border-amber-200', widthHint: 92 },
 }
 

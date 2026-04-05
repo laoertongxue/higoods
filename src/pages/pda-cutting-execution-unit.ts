@@ -87,18 +87,18 @@ function getLatestHandoverSummary(detail: NonNullable<ReturnType<typeof buildPda
 }
 
 function renderObjectBar(line: PdaCuttingTaskOrderLine, detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): string {
-  const sourceMarker = detail.spreadingTargets[0]?.markerNo || detail.markerSummary || '待绑定来源唛架'
+  const sourceMarker = detail.spreadingTargets[0]?.markerNo || detail.markerSummary || '待绑定参考唛架'
   const currentSpreadingObject = detail.spreadingTargets[0]?.title || detail.latestSpreadingRecordNo || '待选择铺布对象'
 
   return `
-    <section class="rounded-xl border bg-card px-3 py-3" data-pda-cutting-execution-unit-card="object">
-      <div class="grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-6">
-        <div><div class="text-muted-foreground">执行单编号</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div></div>
-        <div><div class="text-muted-foreground">原始裁片单</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.originalCutOrderNo || '—')}</div></div>
-        <div><div class="text-muted-foreground">合并批次</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.mergeBatchNo || '—')}</div></div>
-        <div><div class="text-muted-foreground">当前铺布对象</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(currentSpreadingObject)}</div></div>
-        <div><div class="text-muted-foreground">来源唛架</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(sourceMarker)}</div></div>
-        <div><div class="text-muted-foreground">当前主状态</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(line.currentStateLabel)}</div></div>
+    <section class="rounded-xl border bg-card px-2.5 py-2.5" data-pda-cutting-execution-unit-card="object">
+      <div class="grid gap-2.5 text-xs sm:grid-cols-2 xl:grid-cols-6">
+        <div><div class="text-muted-foreground">执行单编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div></div>
+        <div><div class="text-muted-foreground">原始裁片单</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.originalCutOrderNo || '—')}</div></div>
+        <div><div class="text-muted-foreground">合并裁剪批次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.mergeBatchNo || '—')}</div></div>
+        <div><div class="text-muted-foreground">当前铺布对象</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(currentSpreadingObject)}</div></div>
+        <div><div class="text-muted-foreground">参考唛架</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(sourceMarker)}</div></div>
+        <div><div class="text-muted-foreground">当前状态</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.currentStateLabel)}</div></div>
       </div>
     </section>
   `
@@ -106,11 +106,11 @@ function renderObjectBar(line: PdaCuttingTaskOrderLine, detail: NonNullable<Retu
 
 function renderCurrentStepBar(line: PdaCuttingTaskOrderLine): string {
   return `
-    <section class="rounded-xl border bg-card px-3 py-3">
-      <div class="flex items-center justify-between gap-3">
+    <section class="rounded-xl border bg-card px-2.5 py-2.5">
+      <div class="flex items-center justify-between gap-2.5">
         <div>
-          <div class="text-xs text-muted-foreground">当前应执行步骤</div>
-          <div class="mt-1 text-sm font-semibold text-foreground" data-pda-cutting-unit-current-step>${escapeHtml(resolvePdaCuttingTaskOrderCurrentStepLabel(line))}</div>
+          <div class="text-xs text-muted-foreground">当前步骤</div>
+          <div class="mt-0.5 text-sm font-semibold text-foreground" data-pda-cutting-unit-current-step>${escapeHtml(resolvePdaCuttingTaskOrderCurrentStepLabel(line))}</div>
         </div>
         ${renderPdaCuttingStatusChip(resolvePdaCuttingTaskOrderCurrentStepLabel(line), 'blue')}
       </div>
@@ -121,8 +121,8 @@ function renderCurrentStepBar(line: PdaCuttingTaskOrderLine): string {
 function renderStepList(taskId: string, line: PdaCuttingTaskOrderLine): string {
   const returnTo = appStore.getState().pathname
   return `
-    <section class="rounded-xl border bg-card px-3 py-2">
-      <div class="space-y-2">
+    <section class="rounded-xl border bg-card px-2.5 py-2">
+      <div class="space-y-1.5">
         ${executionUnitSteps
           .map((step) => {
             const status = resolveStepStatus(line, step.code)
@@ -145,14 +145,14 @@ function renderStepList(taskId: string, line: PdaCuttingTaskOrderLine): string {
 
             return `
               <button
-                class="flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left ${resolveStepCardClass(status)}"
+                class="flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left ${resolveStepCardClass(status)}"
                 data-nav="${escapeHtml(href)}"
                 data-pda-cutting-unit-step="${escapeHtml(step.code)}"
                 data-step-status="${escapeHtml(status)}"
               >
                 <div class="min-w-0">
                   <div class="text-sm font-semibold text-foreground">${escapeHtml(step.label)}</div>
-                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(resolveStepStatusLabel(status))}</div>
+                  <div class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(resolveStepStatusLabel(status))}</div>
                 </div>
                 ${resolveStepChip(status)}
               </button>
@@ -167,12 +167,12 @@ function renderStepList(taskId: string, line: PdaCuttingTaskOrderLine): string {
 function renderRecentRecord(detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): string {
   const latestRoll = getLatestRollSummary(detail)
   return `
-    <section class="rounded-xl border bg-card px-3 py-3">
-      <div class="grid gap-3 text-xs sm:grid-cols-2">
-        <div><div class="text-muted-foreground">最近卷号</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(latestRoll.rollNo)}</div></div>
-        <div><div class="text-muted-foreground">最近记录时间</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(latestRoll.recordedAt)}</div></div>
-        <div><div class="text-muted-foreground">最近换班</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(getLatestHandoverSummary(detail))}</div></div>
-        <div><div class="text-muted-foreground">待补料标记</div><div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(detail.replenishmentRiskSummary)}</div></div>
+    <section class="rounded-xl border bg-card px-2.5 py-2.5">
+      <div class="grid gap-2.5 text-xs sm:grid-cols-2">
+        <div><div class="text-muted-foreground">最近卷号</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(latestRoll.rollNo)}</div></div>
+        <div><div class="text-muted-foreground">最近记录时间</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(latestRoll.recordedAt)}</div></div>
+        <div><div class="text-muted-foreground">最近换班</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(getLatestHandoverSummary(detail))}</div></div>
+        <div><div class="text-muted-foreground">待补料标记</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(detail.replenishmentRiskSummary)}</div></div>
       </div>
     </section>
   `
@@ -185,10 +185,10 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
   if (!detail) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '执行单元',
+      title: '当前任务',
       subtitle: '',
       activeTab: 'exec',
-      body: renderPdaCuttingEmptyState('未找到执行单元', ''),
+      body: renderPdaCuttingEmptyState('未找到当前任务', ''),
       backHref: context.backHref,
     })
   }
@@ -196,7 +196,7 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
   if (context.requiresCutPieceOrderSelection) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '执行单元',
+      title: '当前任务',
       subtitle: '',
       activeTab: 'exec',
       body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
@@ -208,7 +208,7 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
   if (!selectedLine) {
     return renderPdaCuttingPageLayout({
       taskId,
-      title: '执行单元',
+      title: '当前任务',
       subtitle: '',
       activeTab: 'exec',
       body: renderPdaCuttingEmptyState('当前执行单不存在', ''),
@@ -217,7 +217,7 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
   }
 
   const body = `
-    <div class="space-y-3" data-pda-cutting-execution-unit-root="${escapeHtml(taskId)}">
+    <div class="space-y-2.5" data-pda-cutting-execution-unit-root="${escapeHtml(taskId)}">
       ${renderObjectBar(selectedLine, detail)}
       ${renderCurrentStepBar(selectedLine)}
       ${renderStepList(taskId, selectedLine)}
@@ -227,7 +227,7 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
 
   return renderPdaCuttingPageLayout({
     taskId,
-    title: '执行单元',
+      title: '当前任务',
     subtitle: '',
     activeTab: 'exec',
     body,

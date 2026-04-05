@@ -19,7 +19,7 @@ function main(): void {
 
   assert(report.pendingContextCount >= 6, `待建上下文不足，期望 >= 6，实际 ${report.pendingContextCount}`)
   assert(report.pendingOriginalContextCount >= 4, `待建原始裁片单上下文不足，期望 >= 4，实际 ${report.pendingOriginalContextCount}`)
-  assert(report.pendingMergeBatchContextCount >= 2, `待建合并批次上下文不足，期望 >= 2，实际 ${report.pendingMergeBatchContextCount}`)
+  assert(report.pendingMergeBatchContextCount >= 2, `待建合并裁剪批次上下文不足，期望 >= 2，实际 ${report.pendingMergeBatchContextCount}`)
   assert(report.builtPlanCount >= 10, `已建唛架不足，期望 >= 10，实际 ${report.builtPlanCount}`)
   assert(report.referencedPlanCount >= 1, `被铺布引用唛架不足，期望 >= 1，实际 ${report.referencedPlanCount}`)
   assert(report.mappingIssueCount >= 1, `映射异常唛架不足，期望 >= 1，实际 ${report.mappingIssueCount}`)
@@ -73,7 +73,7 @@ function main(): void {
         plan.originalCutOrderIds.length > 1 &&
         plan.colorSummary.includes(' / '),
     ),
-    '缺少“合并批次 + 多颜色 + 多来源裁片单”样例',
+    '缺少“合并裁剪批次 + 多颜色 + 多来源裁片单”样例',
   )
   assert(
     hasScenario(
@@ -88,7 +88,7 @@ function main(): void {
   console.log(
     [
       '唛架计划 mock 覆盖检查通过',
-      `待建上下文：${report.pendingContextCount}（原始 ${report.pendingOriginalContextCount} / 合并批次 ${report.pendingMergeBatchContextCount}）`,
+      `待建上下文：${report.pendingContextCount}（原始 ${report.pendingOriginalContextCount} / 合并裁剪批次 ${report.pendingMergeBatchContextCount}）`,
       `已建唛架：${report.builtPlanCount}`,
       `被铺布引用：${report.referencedPlanCount}`,
       `映射异常：${report.mappingIssueCount}`,

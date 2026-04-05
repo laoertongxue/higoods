@@ -285,10 +285,10 @@ function buildSummaryMeta<Key extends string>(
 
 function materialCategoryLabel(line: CuttingMaterialLine): string {
   if (line.materialCategory) return line.materialCategory
-  if (line.materialType === 'PRINT') return '印花主料'
-  if (line.materialType === 'DYE') return '染色主料'
+  if (line.materialType === 'PRINT') return '主料'
+  if (line.materialType === 'DYE') return '主料'
   if (line.materialType === 'LINING') return '里辅料'
-  return '主布 / 拼接料'
+  return '主料'
 }
 
 function inferRequiredQty(line: CuttingMaterialLine): number {
@@ -760,7 +760,10 @@ function applyPendingPrepFollowupsToRow(
   row.replenishmentPendingPrepItems = matched
   row.replenishmentPendingPrepCount = matched.length
   row.replenishmentPendingPrepSummary = matched
-    .map((item) => `${item.materialSku} / ${item.color || row.color} · 缺口 ${formatQty(item.shortageGarmentQty)} 件`)
+    .map(
+      (item) =>
+        `${item.materialSku} / ${item.color || row.color} · 缺口 ${formatQty(item.shortageGarmentQty)} 件 · 来源铺布 ${item.sourceSpreadingSessionId || '待补'} · 来源补料 ${item.sourceReplenishmentRequestId || '待补'}`,
+    )
     .join('；')
   row.hasReplenishmentPendingPrep = true
   row.materialLineItems = row.materialLineItems.map((item) => {

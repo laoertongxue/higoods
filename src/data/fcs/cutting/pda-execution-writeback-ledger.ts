@@ -282,7 +282,7 @@ function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
       }),
       resultLabel: '差异举证已提交',
       actualReceivedQtyText: '卷数 4 卷 / 长度 589 米',
-      discrepancyNote: '少 1 卷印花主布，已提交差异举证。',
+      discrepancyNote: '少 1 卷主布面料，已提交差异举证。',
       photoProofCount: 3,
       claimDisputeId: 'CD-202603-0001',
       claimDisputeNo: 'LYY-202603-0001',
@@ -319,7 +319,7 @@ function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
       }),
       zoneCode: 'A',
       locationLabel: 'A-01-03',
-      note: '合批裁片已入裁片仓',
+      note: '合并裁剪批次裁片已入裁片仓',
     },
     {
       ...createSeedBase({
@@ -333,7 +333,7 @@ function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
       }),
       zoneCode: 'B',
       locationLabel: 'B-02-01',
-      note: '净色面料裁片已归位',
+      note: '该面料裁片已归位',
     },
     {
       ...createSeedBase({
@@ -363,7 +363,7 @@ function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
         sourceRecordId: 'handover-seed-000089',
       }),
       targetLabel: '车缝前置收料位',
-      note: '合批裁片已交接到车缝前置工位',
+      note: '合并裁剪批次裁片已交接到车缝前置工位',
     },
     {
       ...createSeedBase({
@@ -420,7 +420,7 @@ function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
         operatorName: '现场领料员',
         sourceRecordId: 'replenishment-seed-000095',
       }),
-      reasonLabel: '印花主布短缺待补',
+      reasonLabel: '主布面料短缺待补',
       note: '已提交补料反馈并附差异举证。',
       photoProofCount: 3,
       lifecycleStatus: 'SUBMITTED',

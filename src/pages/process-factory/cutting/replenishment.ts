@@ -396,7 +396,7 @@ function renderStats(): string {
   const { stats } = buildViewModel()
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-      ${renderCompactKpiCard('补料上下文数', stats.totalCount, '按原始单 / 合批汇总', 'text-slate-900')}
+      ${renderCompactKpiCard('补料上下文数', stats.totalCount, '按原始裁片单 / 合并裁剪批次汇总', 'text-slate-900')}
       ${renderCompactKpiCard('待审核', stats.pendingReviewCount, '尚未给出审核结论', 'text-amber-600')}
       ${renderCompactKpiCard('待补录', stats.pendingSupplementCount, '差异依据仍需补齐', 'text-orange-600')}
       ${renderCompactKpiCard('待动作', stats.approvedPendingActionCount, '审核已通过但未开始', 'text-blue-600')}
@@ -452,7 +452,7 @@ function renderFilterBar(): string {
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词</span>
-          <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持裁片单号 / 合批号 / 生产单号 / 面料 SKU" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-field="keyword" />
+          <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持裁片单号 / 合并裁剪批次号 / 生产单号 / 面料 SKU" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-replenish-field="keyword" />
         </label>
         ${renderFilterSelect('来源类型', 'sourceType', state.filters.sourceType, [
           { value: 'ALL', label: '全部' },
@@ -617,7 +617,7 @@ function renderEvidenceSection(row: ReplenishmentSuggestionRow): string {
           <div class="mt-1 font-medium text-foreground">${escapeHtml(row.originalCutOrderNos.join(' / ') || '待补')}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">
-          <div class="text-xs text-muted-foreground">来源合批</div>
+          <div class="text-xs text-muted-foreground">来源合并裁剪批次</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(row.mergeBatchNo || '无')}</div>
         </article>
         <article class="rounded-lg border bg-muted/20 p-3">

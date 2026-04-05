@@ -238,7 +238,8 @@ function renderPendingPrepBadge(row: Pick<OriginalCutOrderRow, 'originalCutOrder
 function buildPendingPrepSummaryText(row: Pick<OriginalCutOrderRow, 'originalCutOrderId' | 'originalCutOrderNo'>): string {
   const pendingPrepItems = getPendingPrepFollowupsForOriginalOrder(row)
   if (!pendingPrepItems.length) return '当前无补料待配料'
-  return `补料待配料 ${pendingPrepItems.length} 条，待仓库配料领料继续处理`
+  const latest = pendingPrepItems[0]
+  return `补料待配料 ${pendingPrepItems.length} 条，待仓库配料领料继续处理；来源铺布 ${latest?.sourceSpreadingSessionId || '待补'}，来源补料 ${latest?.sourceReplenishmentRequestId || '待补'}`
 }
 
 function getFeiTicketRecords(): FeiTicketLabelRecord[] {

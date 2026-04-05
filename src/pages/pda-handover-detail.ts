@@ -768,8 +768,6 @@ function renderPickupTraceabilitySection(head: PdaHandoverHead, sourceDoc: Retur
           ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType || '—')}
           ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
           ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
-          ${renderFieldRow('拆分组', head.splitGroupId || '未拆分')}
-          ${renderFieldRow('拆分来源', head.splitFromTaskNo || '—')}
         </div>
       </div>
     </details>
@@ -1045,8 +1043,6 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
         ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType || '—')}
         ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
         ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
-        ${renderFieldRow('拆分组', head.splitGroupId || '未拆分')}
-        ${renderFieldRow('拆分来源', head.splitFromTaskNo || '—')}
       </div>
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">

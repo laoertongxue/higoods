@@ -71,6 +71,14 @@ function getTaskRootNo(task: ProcessTask): string {
   return task.rootTaskNo || task.taskNo || task.taskId
 }
 
+function getQtyUnitLabel(unit: string | undefined): string {
+  if (!unit) return '件'
+  if (unit === 'PIECE') return '件'
+  if (unit === 'ROLL') return '卷'
+  if (unit === 'LAYER') return '层'
+  return unit
+}
+
 const TAB_PARAM_MAP: Record<string, TaskStatusTab> = {
   blocked: 'BLOCKED',
   BLOCKED: 'BLOCKED',
@@ -340,7 +348,7 @@ function renderNotStartedCard(task: ProcessTask): string {
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
           <div class="text-muted-foreground">数量</div>
-          <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
+          <div class="font-medium">${task.qty} ${escapeHtml(getQtyUnitLabel(task.qtyUnit))}</div>
           ${
             (task as ProcessTask & { taskDeadline?: string }).taskDeadline
               ? `
@@ -455,7 +463,7 @@ function renderInProgressCard(task: ProcessTask): string {
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
           <div class="text-muted-foreground">数量</div>
-          <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
+          <div class="font-medium">${task.qty} ${escapeHtml(getQtyUnitLabel(task.qtyUnit))}</div>
 
           ${
             task.startedAt
@@ -616,7 +624,7 @@ function renderDoneCard(task: ProcessTask): string {
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
           <div class="text-muted-foreground">数量</div>
-          <div class="font-medium">${task.qty} ${escapeHtml(task.qtyUnit)}</div>
+          <div class="font-medium">${task.qty} ${escapeHtml(getQtyUnitLabel(task.qtyUnit))}</div>
 
           ${
             task.finishedAt

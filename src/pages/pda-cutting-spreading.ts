@@ -161,6 +161,15 @@ function getTargetEntryLabel(target: PdaCuttingSpreadingTarget | null): string {
   return '异常补录铺布'
 }
 
+function getSpreadingRecordSourceLabel(sourceType: string | undefined): string {
+  if (!sourceType) return '现场录入'
+  if (sourceType === 'PDA_WRITEBACK') return 'PDA录入'
+  if (sourceType === 'MANUAL') return '现场补录'
+  if (sourceType === 'MIXED') return '混合录入'
+  if (sourceType === 'PC') return '主管录入'
+  return '现场录入'
+}
+
 function getActualCutGarmentQty(form: SpreadingFormState, selectedPlanUnit: ReturnType<typeof getSelectedPlanUnit>): number {
   const layerCount = Number(form.layerCount || '0')
   const garmentQtyPerUnit = Number(selectedPlanUnit?.garmentQtyPerUnit || 0)
@@ -173,9 +182,9 @@ function formatLength(value: number): string {
 
 function renderFormulaBlock(value: string, formula: string): string {
   return `
-    <div class="rounded-xl border bg-muted/20 px-3 py-3">
+    <div class="rounded-xl border bg-muted/20 px-2.5 py-2">
       <div class="text-sm font-semibold text-foreground">${escapeHtml(value)}</div>
-      <div class="mt-1 font-mono text-[11px] text-muted-foreground">${escapeHtml(formula)}</div>
+      <div class="mt-0.5 font-mono text-[11px] leading-4 text-muted-foreground">${escapeHtml(formula)}</div>
     </div>
   `
 }
@@ -263,7 +272,7 @@ function renderRecords(detail: NonNullable<ReturnType<typeof getSpreadingDetail>
                 <div>录入人：${escapeHtml(item.enteredBy)} / ${escapeHtml(item.enteredByAccountId || '待补账号')}</div>
                 <div>换班：${item.handoverFlag ? '是' : '否'}</div>
               </div>
-              <div class="mt-2 text-muted-foreground">来源：${escapeHtml(item.sourceType)} / 写回：${escapeHtml(item.sourceWritebackId || '—')}</div>
+              <div class="mt-2 text-muted-foreground">录入来源：${escapeHtml(getSpreadingRecordSourceLabel(item.sourceType))} / 写回：${escapeHtml(item.sourceWritebackId || '—')}</div>
               <div class="mt-1 text-muted-foreground">备注：${escapeHtml(item.note || '无')}</div>
             </article>
           `,
@@ -275,12 +284,12 @@ function renderRecords(detail: NonNullable<ReturnType<typeof getSpreadingDetail>
 
 function renderLatestSummary(detail: NonNullable<ReturnType<typeof getSpreadingDetail>>): string {
   return `
-    <section class="rounded-xl border bg-card px-3 py-3" data-testid="pda-cutting-spreading-latest-summary">
-      <div class="grid gap-3 text-xs sm:grid-cols-2">
-        <div><div class="text-muted-foreground">当前铺布状态</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.currentExecutionStatus)}</div></div>
-        <div><div class="text-muted-foreground">最近记录号</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.latestSpreadingRecordNo || '暂无记录')}</div></div>
-        <div><div class="text-muted-foreground">最近录入时间</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.latestSpreadingAt)}</div><div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(detail.latestSpreadingBy)}</div></div>
-        <div><div class="text-muted-foreground">当前建议动作</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.nextRecommendedAction)}</div></div>
+    <section class="rounded-xl border bg-card px-2.5 py-2.5" data-testid="pda-cutting-spreading-latest-summary">
+      <div class="grid gap-2.5 text-xs sm:grid-cols-2">
+        <div><div class="text-muted-foreground">当前铺布状态</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.currentExecutionStatus)}</div></div>
+        <div><div class="text-muted-foreground">最近记录号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.latestSpreadingRecordNo || '暂无记录')}</div></div>
+        <div><div class="text-muted-foreground">最近录入时间</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.latestSpreadingAt)}</div><div class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(detail.latestSpreadingBy)}</div></div>
+        <div><div class="text-muted-foreground">当前建议动作</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.nextRecommendedAction)}</div></div>
       </div>
     </section>
   `
@@ -292,15 +301,15 @@ function renderTargetSummary(target: PdaCuttingSpreadingTarget | null): string {
   }
 
   return `
-    <div class="grid gap-3 text-xs sm:grid-cols-2">
-      <div><div class="text-muted-foreground">当前对象</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(target.title)}</div></div>
-      <div><div class="text-muted-foreground">状态</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(target.statusLabel)}</div></div>
-      <div><div class="text-muted-foreground">来源唛架</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(target.sourceMarkerLabel)}</div></div>
-      <div data-pda-cut-spreading-field="spreadingMode"><div class="text-muted-foreground">铺布模式</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(getSpreadingModeLabel(target.spreadingMode))}</div></div>
-      <div><div class="text-muted-foreground">原始裁片单</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(target.originalCutOrderNo || '—')}</div></div>
-      <div><div class="text-muted-foreground">合并批次</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(target.mergeBatchNo || '—')}</div></div>
-      <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(target.materialSku || '—')}</div></div>
-      <div><div class="text-muted-foreground">颜色</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(target.colorSummary || '—')}</div></div>
+    <div class="grid gap-2.5 text-xs sm:grid-cols-2">
+      <div><div class="text-muted-foreground">当前对象</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.title)}</div></div>
+      <div><div class="text-muted-foreground">状态</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.statusLabel)}</div></div>
+      <div><div class="text-muted-foreground">参考唛架</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.sourceMarkerLabel)}</div></div>
+      <div data-pda-cut-spreading-field="spreadingMode"><div class="text-muted-foreground">铺布模式</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(getSpreadingModeLabel(target.spreadingMode))}</div></div>
+      <div><div class="text-muted-foreground">原始裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.originalCutOrderNo || '—')}</div></div>
+      <div><div class="text-muted-foreground">合并裁剪批次</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.mergeBatchNo || '—')}</div></div>
+      <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.materialSku || '—')}</div></div>
+      <div><div class="text-muted-foreground">颜色</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.colorSummary || '—')}</div></div>
     </div>
   `
 }
@@ -308,23 +317,23 @@ function renderTargetSummary(target: PdaCuttingSpreadingTarget | null): string {
 function renderOperatorSummary(taskId: string, detail: PdaCuttingTaskDetailData): string {
   const operator = resolveCurrentOperator(taskId, detail)
   return `
-    <div class="grid gap-3 text-xs sm:grid-cols-2">
-      <div><div class="text-muted-foreground">操作账号</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(operator.operatorAccountId)}</div></div>
-      <div><div class="text-muted-foreground">操作人</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(operator.operatorName)}</div></div>
+    <div class="grid gap-2.5 text-xs sm:grid-cols-2">
+      <div><div class="text-muted-foreground">操作账号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(operator.operatorAccountId)}</div></div>
+      <div><div class="text-muted-foreground">操作人</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(operator.operatorName)}</div></div>
     </div>
   `
 }
 
 function renderPlanUnitSummary(planUnit: ReturnType<typeof getSelectedPlanUnit>): string {
   if (!planUnit) {
-    return renderPdaCuttingEmptyState('当前铺布对象暂无排版项', '')
+    return renderPdaCuttingEmptyState('当前铺布对象暂无当前排版项', '')
   }
   return `
-    <div class="grid gap-3 text-xs sm:grid-cols-2">
-      <div><div class="text-muted-foreground">当前排版项</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(planUnit.label)}</div></div>
-      <div><div class="text-muted-foreground">单次成衣件数（件）</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(String(planUnit.garmentQtyPerUnit))}</div></div>
-      <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(planUnit.materialSku || '—')}</div></div>
-      <div><div class="text-muted-foreground">颜色</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(planUnit.color || '—')}</div></div>
+    <div class="grid gap-2.5 text-xs sm:grid-cols-2">
+      <div><div class="text-muted-foreground">当前排版项</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnit.label)}</div></div>
+      <div><div class="text-muted-foreground">单次成衣件数（件）</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(String(planUnit.garmentQtyPerUnit))}</div></div>
+      <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnit.materialSku || '—')}</div></div>
+      <div><div class="text-muted-foreground">颜色</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnit.color || '—')}</div></div>
     </div>
   `
 }
@@ -343,21 +352,21 @@ function renderFormInner(
   const currentOperator = resolveCurrentOperator(taskId, detail)
 
   return `
-    <div class="space-y-3 pb-3 text-xs">
+    <div class="space-y-2.5 pb-2.5 text-xs">
       ${renderFeedbackBlock(form)}
-      <section class="rounded-xl border bg-card px-3 py-3" data-testid="pda-cutting-spreading-object-summary">
-        <div class="grid gap-3 text-xs sm:grid-cols-2">
-          <div><div class="text-muted-foreground">任务号</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div></div>
-          <div><div class="text-muted-foreground">当前执行单</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div></div>
-          <div><div class="text-muted-foreground">原始裁片单</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.originalCutOrderNo)}</div></div>
-          <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div></div>
+      <section class="rounded-xl border bg-card px-2.5 py-2.5" data-testid="pda-cutting-spreading-object-summary">
+        <div class="grid gap-2.5 text-xs sm:grid-cols-2">
+          <div><div class="text-muted-foreground">任务号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div></div>
+          <div><div class="text-muted-foreground">当前执行单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div></div>
+          <div><div class="text-muted-foreground">原始裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.originalCutOrderNo)}</div></div>
+          <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div></div>
         </div>
       </section>
-      <section class="rounded-xl border bg-card px-3 py-3" data-testid="pda-cutting-spreading-form-card">
-        <div class="space-y-3">
+      <section class="rounded-xl border bg-card px-2.5 py-2.5" data-testid="pda-cutting-spreading-form-card">
+        <div class="space-y-2.5">
           <label class="block space-y-1">
             <span class="text-muted-foreground">铺布对象</span>
-            <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="selectedTargetKey">
+            <select class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="selectedTargetKey">
               ${getVisibleTargets(detail)
                 .map(
                   (target) => `
@@ -373,7 +382,7 @@ function renderFormInner(
           <div class="border-t pt-3" data-testid="pda-cutting-spreading-plan-summary">
             <label class="block space-y-1">
               <span class="text-muted-foreground">当前排版项</span>
-              <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="planUnitId">
+              <select class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="planUnitId">
                 <option value="">请选择当前排版项</option>
                 ${(selectedTarget?.planUnits || [])
                   .map(
@@ -386,17 +395,17 @@ function renderFormInner(
                   .join('')}
               </select>
             </label>
-            <div class="mt-3">${renderPlanUnitSummary(selectedPlanUnit)}</div>
+            <div class="mt-2.5">${renderPlanUnitSummary(selectedPlanUnit)}</div>
           </div>
-          <div class="border-t pt-3">
-            <div class="grid grid-cols-2 gap-3">
+          <div class="border-t pt-2.5">
+            <div class="grid grid-cols-2 gap-2.5">
               <label class="col-span-2 block space-y-1">
                 <span class="text-muted-foreground">卷号</span>
-                <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="fabricRollNo" value="${escapeHtml(form.fabricRollNo)}" />
+                <input class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="fabricRollNo" value="${escapeHtml(form.fabricRollNo)}" />
               </label>
               <label class="block space-y-1">
                 <span class="text-muted-foreground">记录类型</span>
-                <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="recordType">
+                <select class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="recordType">
                   ${(['开始铺布', '中途交接', '接手继续', '完成铺布'] as SpreadingRecordType[])
                     .map((item) => `<option value="${escapeHtml(item)}" ${form.recordType === item ? 'selected' : ''}>${escapeHtml(item)}</option>`)
                     .join('')}
@@ -404,23 +413,23 @@ function renderFormInner(
               </label>
               <label class="block space-y-1">
                 <span class="text-muted-foreground">铺布层数（层）</span>
-                <input type="number" min="0" step="1" class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="layerCount" value="${escapeHtml(form.layerCount)}" />
+                <input type="number" min="0" step="1" class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="layerCount" value="${escapeHtml(form.layerCount)}" />
               </label>
               <label class="block space-y-1">
                 <span class="text-muted-foreground">实际铺布长度（m）</span>
-                <input type="number" min="0" step="0.01" class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="actualLength" value="${escapeHtml(form.actualLength)}" />
+                <input type="number" min="0" step="0.01" class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="actualLength" value="${escapeHtml(form.actualLength)}" />
               </label>
               <label class="block space-y-1">
                 <span class="text-muted-foreground">布头长度（m）</span>
-                <input type="number" min="0" step="0.01" class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="headLength" value="${escapeHtml(form.headLength)}" />
+                <input type="number" min="0" step="0.01" class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="headLength" value="${escapeHtml(form.headLength)}" />
               </label>
               <label class="block space-y-1">
                 <span class="text-muted-foreground">布尾长度（m）</span>
-                <input type="number" min="0" step="0.01" class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="tailLength" value="${escapeHtml(form.tailLength)}" />
+                <input type="number" min="0" step="0.01" class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="tailLength" value="${escapeHtml(form.tailLength)}" />
               </label>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-2 gap-2.5">
             <label class="block space-y-1">
               <span class="text-muted-foreground">净可用长度（m）</span>
               ${renderFormulaBlock(
@@ -436,7 +445,7 @@ function renderFormInner(
               )}
             </label>
           </div>
-          <div class="grid gap-3 sm:grid-cols-2">
+          <div class="grid gap-2.5 sm:grid-cols-2">
             <div>
               <div class="text-muted-foreground">整卷占用长度</div>
               ${renderFormulaBlock(
@@ -449,10 +458,10 @@ function renderFormInner(
           ${
             isHandoverRecord(form.recordType)
               ? `
-                <div class="grid gap-3">
+                <div class="grid gap-2.5">
                   <label class="block space-y-1">
                     <span class="text-muted-foreground">接手人账号</span>
-                    <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="handoverToAccountId">
+                    <select class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="handoverToAccountId">
                       <option value="">请选择接手人</option>
                       ${handoverOptions
                         .map(
@@ -467,7 +476,7 @@ function renderFormInner(
                   </label>
                   <label class="block space-y-1">
                     <span class="text-muted-foreground">交接说明</span>
-                    <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="handoverNote" value="${escapeHtml(form.handoverNote)}" />
+                    <input class="h-9 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-spreading-field="handoverNote" value="${escapeHtml(form.handoverNote)}" />
                   </label>
                 </div>
               `
@@ -475,12 +484,12 @@ function renderFormInner(
           }
           <label class="block space-y-1">
             <span class="text-muted-foreground">备注</span>
-            <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-spreading-field="note">${escapeHtml(form.note)}</textarea>
+            <textarea class="min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-spreading-field="note">${escapeHtml(form.note)}</textarea>
           </label>
-          <div class="grid gap-3 text-xs sm:grid-cols-3">
-            <div><div class="text-muted-foreground">操作账号</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(currentOperator.operatorAccountId)}</div></div>
-            <div><div class="text-muted-foreground">操作人</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(currentOperator.operatorName)}</div></div>
-            <div><div class="text-muted-foreground">发生时间</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(new Date().toISOString().replace('T', ' ').slice(0, 19))}</div></div>
+          <div class="grid gap-2.5 text-xs sm:grid-cols-3">
+            <div><div class="text-muted-foreground">操作账号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(currentOperator.operatorAccountId)}</div></div>
+            <div><div class="text-muted-foreground">操作人</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(currentOperator.operatorName)}</div></div>
+            <div><div class="text-muted-foreground">发生时间</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(new Date().toISOString().replace('T', ' ').slice(0, 19))}</div></div>
           </div>
         </div>
       </section>
@@ -490,18 +499,18 @@ function renderFormInner(
 
 function renderSubmitBar(taskId: string, form: SpreadingFormState, pageBackHref: string): string {
   return `
-    <div class="sticky bottom-0 z-10 rounded-xl border bg-background/95 px-3 py-3 backdrop-blur" data-testid="pda-cutting-spreading-submit-bar">
+    <div class="sticky bottom-0 z-10 rounded-xl border bg-background/95 px-2.5 py-2.5 backdrop-blur" data-testid="pda-cutting-spreading-submit-bar">
       <div class="grid grid-cols-4 gap-2">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}" data-pda-cut-spreading-back="true">
+        <button class="inline-flex min-h-9 items-center justify-center rounded-xl border px-2.5 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}" data-pda-cut-spreading-back="true">
           返回裁片任务
         </button>
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted ${form.lastSubmittedSnapshot ? '' : 'opacity-50'}" data-pda-cut-spreading-action="reuse-last-layer-count" data-task-id="${escapeHtml(taskId)}" ${form.lastSubmittedSnapshot ? '' : 'disabled'}>
+        <button class="inline-flex min-h-9 items-center justify-center rounded-xl border px-2.5 py-2 text-xs font-medium hover:bg-muted ${form.lastSubmittedSnapshot ? '' : 'opacity-50'}" data-pda-cut-spreading-action="reuse-last-layer-count" data-task-id="${escapeHtml(taskId)}" ${form.lastSubmittedSnapshot ? '' : 'disabled'}>
           沿用上次层数
         </button>
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted ${form.lastSubmittedSnapshot ? '' : 'opacity-50'}" data-pda-cut-spreading-action="reuse-last-head-tail" data-task-id="${escapeHtml(taskId)}" ${form.lastSubmittedSnapshot ? '' : 'disabled'}>
+        <button class="inline-flex min-h-9 items-center justify-center rounded-xl border px-2.5 py-2 text-xs font-medium hover:bg-muted ${form.lastSubmittedSnapshot ? '' : 'opacity-50'}" data-pda-cut-spreading-action="reuse-last-head-tail" data-task-id="${escapeHtml(taskId)}" ${form.lastSubmittedSnapshot ? '' : 'disabled'}>
           沿用上次头尾
         </button>
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-spreading-action="submit" data-task-id="${escapeHtml(taskId)}">
+        <button class="inline-flex min-h-9 items-center justify-center rounded-xl bg-primary px-2.5 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-spreading-action="submit" data-task-id="${escapeHtml(taskId)}">
           保存铺布记录
         </button>
       </div>
@@ -550,12 +559,12 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   const pageBackHref = form.backHrefOverride || context.backHref
 
   const body = `
-    <div class="space-y-3">
+    <div class="space-y-2.5">
       ${renderLatestSummary(detail)}
       ${renderSubmitBar(taskId, form, pageBackHref)}
       <div data-task-id="${escapeHtml(taskId)}" data-pda-cut-spreading-root="${escapeHtml(taskId)}">${renderFormInner(taskId, detail, form)}</div>
-      <section class="rounded-xl border bg-card px-3 py-3">
-        <div class="mb-3 text-sm font-semibold text-foreground">最近铺布记录</div>
+      <section class="rounded-xl border bg-card px-2.5 py-2.5">
+        <div class="mb-2.5 text-sm font-semibold text-foreground">最近铺布记录</div>
         ${renderRecords(detail)}
       </section>
     </div>
@@ -671,7 +680,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     }
     const selectedPlanUnit = getSelectedPlanUnit(selectedTarget, form.selectedPlanUnitId)
     if (!selectedPlanUnit || !form.selectedPlanUnitId) {
-      form.feedbackMessage = '请先选择计划单元。'
+      form.feedbackMessage = '请先选择当前排版项。'
       form.feedbackTone = 'warning'
       syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
       return true

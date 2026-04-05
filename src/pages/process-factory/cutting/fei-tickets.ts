@@ -272,7 +272,7 @@ function buildSpreadingTraceText(unit: PrintableUnit, drillContext = getCurrentD
   const preferred = resolvePreferredSpreadingTrace(unit, drillContext)
   const orderedNos = uniqueStrings([preferred.no, ...unit.sourceSpreadingSessionNos])
   const orderedIds = uniqueStrings([preferred.id, ...unit.sourceSpreadingSessionIds])
-  return orderedNos.join(' / ') || orderedIds.join(' / ') || '当前为原始裁片单理论补足'
+  return orderedNos.join(' / ') || orderedIds.join(' / ') || '当前按原始裁片单参考补足'
 }
 
 function renderReturnToSummaryButton(): string {

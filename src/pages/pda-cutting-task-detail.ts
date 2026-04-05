@@ -295,7 +295,7 @@ function renderTaskOrderCard(
         </article>
       </div>
       <div class="mt-3 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
-        <div class="text-muted-foreground">当前应执行步骤</div>
+        <div class="text-muted-foreground">当前步骤</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(currentStepLabel)}</div>
         <div class="mt-1 text-muted-foreground">计划数量：${escapeHtml(String(line.plannedQty))} 件</div>
       </div>

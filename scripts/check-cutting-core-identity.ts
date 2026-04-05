@@ -102,7 +102,7 @@ function assertCoreResolve(): void {
   const mergeBatchSeed = listMergeBatchSourceRecords()[0]
   if (mergeBatchSeed) {
     const mergeBatch = resolveMergeBatchRef({ mergeBatchNo: mergeBatchSeed.mergeBatchNo })
-    assert(mergeBatch?.mergeBatchId === mergeBatchSeed.mergeBatchId, `合并批次 core resolve 失败：${mergeBatchSeed.mergeBatchNo}`)
+    assert(mergeBatch?.mergeBatchId === mergeBatchSeed.mergeBatchId, `合并裁剪批次 core resolve 失败：${mergeBatchSeed.mergeBatchNo}`)
   }
 
   const task = resolveCuttingTaskRef({ taskId: 'TASK-CUT-000087' })

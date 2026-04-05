@@ -109,8 +109,8 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   fabricWarehouse: '去裁床仓',
   mergeBatches: '去合并裁剪批次',
   cuttablePool: '去可裁排产',
-  printing: '去印花工单',
-  dyeing: '去染色工单',
+  printing: '去仓库配料领料',
+  dyeing: '去仓库配料领料',
 }
 
 const blockerSectionLabelMap: Record<string, string> = {
@@ -329,8 +329,8 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'fabricWarehouse') return getCanonicalCuttingPath('fabric-warehouse')
   if (target === 'mergeBatches') return getCanonicalCuttingPath('merge-batches')
   if (target === 'cuttablePool') return getCanonicalCuttingPath('cuttable-pool')
-  if (target === 'printing') return '/fcs/craft/printing/work-orders'
-  if (target === 'dyeing') return '/fcs/craft/dyeing/work-orders'
+  if (target === 'printing') return getCanonicalCuttingPath('material-prep')
+  if (target === 'dyeing') return getCanonicalCuttingPath('material-prep')
 
   if (target === 'markerSpreading') {
     return getCanonicalCuttingPath('spreading-list')
@@ -366,7 +366,7 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
   const labels = [
     context.productionOrderNo ? `生产单：${context.productionOrderNo}` : '',
     context.originalCutOrderNo ? `原始裁片单：${context.originalCutOrderNo}` : '',
-    context.mergeBatchNo ? `合并批次：${context.mergeBatchNo}` : '',
+    context.mergeBatchNo ? `合并裁剪批次：${context.mergeBatchNo}` : '',
     context.materialSku ? `面料 SKU：${context.materialSku}` : '',
     context.cuttingGroup ? `裁床组：${context.cuttingGroup}` : '',
     context.warehouseStatus ? `仓状态：${warehouseStatusLabelMap[context.warehouseStatus] || context.warehouseStatus}` : '',
