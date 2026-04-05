@@ -163,12 +163,14 @@ function assertFormalAnchorsUnified(): void {
   )
 
   const releaseAcceptance = read('tests/cutting-release-acceptance.spec.ts')
-  assert(releaseAcceptance.includes('进入执行单元'), 'tests/cutting-release-acceptance.spec.ts 缺少 execution-unit acceptance')
+  assert(releaseAcceptance.includes('进入当前任务'), 'tests/cutting-release-acceptance.spec.ts 缺少 execution-unit acceptance')
   assert(releaseAcceptance.includes('按唛架新建铺布'), 'tests/cutting-release-acceptance.spec.ts 缺少 marker-first 创建 acceptance')
   assert(releaseAcceptance.includes('补料管理'), 'tests/cutting-release-acceptance.spec.ts 缺少补料闭环 acceptance')
   assert(releaseAcceptance.includes('补料待配料'), 'tests/cutting-release-acceptance.spec.ts 缺少补料回仓库待配料 acceptance')
   assert(releaseAcceptance.includes('来源铺布：'), 'tests/cutting-release-acceptance.spec.ts 缺少来源铺布链路断言')
   assert(releaseAcceptance.includes('来源补料：'), 'tests/cutting-release-acceptance.spec.ts 缺少来源补料链路断言')
+  assert(releaseAcceptance.includes('铺布完成结果'), 'tests/cutting-release-acceptance.spec.ts 缺少菲票主真相源断言')
+  assert(releaseAcceptance.includes('实际成衣件数'), 'tests/cutting-release-acceptance.spec.ts 缺少菲票成衣件数断言')
   assert(releaseAcceptance.includes('先装袋后入仓'), 'tests/cutting-release-acceptance.spec.ts 缺少先装袋后入仓链路断言')
   assert(releaseAcceptance.includes("countViewportRows(page, 'cutting-spreading-list-table')"), 'tests/cutting-release-acceptance.spec.ts 缺少铺布列表低分辨率断言')
   assert(releaseAcceptance.includes("countViewportRows(page, 'marker-plan-list-table')"), 'tests/cutting-release-acceptance.spec.ts 缺少唛架列表低分辨率断言')
@@ -189,6 +191,12 @@ function assertFormalAnchorsUnified(): void {
   const generatedFeiTickets = read('src/data/fcs/cutting/generated-fei-tickets.ts')
   assert(generatedFeiTickets.includes('sourceSpreadingSessionId'), 'generated-fei-tickets.ts 缺少来源铺布锚点')
   assert(generatedFeiTickets.includes('garmentQty'), 'generated-fei-tickets.ts 缺少成衣件数主数据')
+
+  const feiTicketsModel = read('src/pages/process-factory/cutting/fei-tickets-model.ts')
+  assert(feiTicketsModel.includes('铺布完成结果'), 'fei-tickets-model.ts 缺少铺布完成结果主 basis 文案')
+  assert(feiTicketsModel.includes('实际成衣件数'), 'fei-tickets-model.ts 缺少实际成衣件数主 basis 文案')
+  assert(!feiTicketsModel.includes('唛架总件数'), 'fei-tickets-model.ts 不应再以唛架总件数作为主 basis')
+  assert(!feiTicketsModel.includes('订单数量折算'), 'fei-tickets-model.ts 不应再以订单数量折算作为主 basis')
 
   const transferStorage = read('src/data/fcs/cutting/storage/transfer-bags-storage.ts')
   assert(transferStorage.includes('buildTransferBagRuntimeTraceMatrix'), 'transfer-bags-storage.ts 缺少正式装袋 trace matrix')

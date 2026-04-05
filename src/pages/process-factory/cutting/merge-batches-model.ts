@@ -350,7 +350,7 @@ export function summarizeIncomingBatchSelection(items: MergeBatchSourceOriginalO
   const styleCodes = uniqueStrings(items.map((item) => item.styleCode))
   const spuCodes = uniqueStrings(items.map((item) => item.spuCode))
   const urgencies = uniqueStrings(items.map((item) => item.urgencyLabel))
-  const riskTokens = uniqueStrings(items.flatMap((item) => (item.batchOccupancyStatus === 'IN_BATCH' ? ['已入批次'] : [])))
+  const riskTokens = uniqueStrings(items.flatMap((item) => (item.batchOccupancyStatus === 'IN_BATCH' ? ['已入合并裁剪批次'] : [])))
 
   return {
     sourceProductionOrderCount: productionOrderIds.length,

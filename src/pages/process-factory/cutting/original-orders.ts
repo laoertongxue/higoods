@@ -293,7 +293,7 @@ function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
       schemaVersion: FEI_QR_SCHEMA_VERSION,
       ownerType: '原始裁片单',
       qrBaseValue: `QR-${row.originalCutOrderNo}`,
-      sourceContextText: row.latestMergeBatchNo ? `最近来自批次 ${row.latestMergeBatchNo}` : '原始单上下文',
+      sourceContextText: row.latestMergeBatchNo ? `最近来自合并裁剪批次 ${row.latestMergeBatchNo}` : '原始单上下文',
       reservedProcessText: '已预留 4 类工艺扩展槽位',
       compatibilityText: '当前尚无历史票据记录，裁片单主码按 1.0.0 结构生成。',
     }
@@ -322,7 +322,7 @@ function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
     schemaVersion: summary.schemaVersion,
     ownerType: summary.ownerType === 'original-cut-order' ? '原始裁片单' : summary.ownerType,
     qrBaseValue: summary.qrBaseValue,
-    sourceContextText: summary.sourceContextType === 'merge-batch' ? `来自批次 ${latestRecord.sourceMergeBatchNo || '待补批次号'}` : '原始单上下文',
+    sourceContextText: summary.sourceContextType === 'merge-batch' ? `来源合并裁剪批次 ${latestRecord.sourceMergeBatchNo || '待补合并裁剪批次号'}` : '原始单上下文',
     reservedProcessText: summary.hasReservedProcess ? '已预留 4 类工艺扩展槽位' : '待补',
     compatibilityText: compatibility.compatibilityNote.replaceAll('二维码', '裁片单主码'),
   }
@@ -334,7 +334,7 @@ function buildStatsCards(rows: OriginalCutOrderRow[]): string {
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('原始裁片单总数', stats.totalCount, '当前筛选范围', 'text-slate-900')}
       ${renderCompactKpiCard('当前可裁数', stats.cuttableCount, '满足配料 / 领料条件', 'text-emerald-600')}
-      ${renderCompactKpiCard('已入批次数', stats.inBatchCount, '已进入执行层批次', 'text-violet-600')}
+      ${renderCompactKpiCard('已入合并裁剪批次数', stats.inBatchCount, '已进入执行层合并裁剪批次', 'text-violet-600')}
       ${renderCompactKpiCard('配料异常数', stats.prepExceptionCount, '配料或领料未齐', 'text-amber-600')}
       ${renderCompactKpiCard('领料异常数', stats.claimExceptionCount, '待领料或领料差异', 'text-rose-600')}
     </section>
@@ -406,7 +406,7 @@ function getPrefilterLabels(): string[] {
 
   if (prefilter.productionOrderNo) labels.push(`预筛：生产单 ${prefilter.productionOrderNo}`)
   if (prefilter.originalCutOrderNo) labels.push(`预筛：原始裁片单 ${prefilter.originalCutOrderNo}`)
-  if (prefilter.mergeBatchNo) labels.push(`预筛：批次 ${prefilter.mergeBatchNo}`)
+  if (prefilter.mergeBatchNo) labels.push(`预筛：合并裁剪批次 ${prefilter.mergeBatchNo}`)
   if (prefilter.styleCode) labels.push(`预筛：款号 ${prefilter.styleCode}`)
   if (prefilter.spuCode) labels.push(`预筛：SPU ${prefilter.spuCode}`)
   if (prefilter.materialSku) labels.push(`预筛：面料 ${prefilter.materialSku}`)
@@ -425,8 +425,8 @@ function getFilterLabels(): string[] {
   if (state.filters.cuttableState !== 'ALL') labels.push(`可裁状态：${originalOrderVisibleCuttableMeta[state.filters.cuttableState].label}`)
   if (state.filters.prepStatus !== 'ALL') labels.push(`配料状态：${configMeta[state.filters.prepStatus].label}`)
   if (state.filters.claimStatus !== 'ALL') labels.push(`领料状态：${receiveMeta[state.filters.claimStatus].label}`)
-  if (state.filters.inBatch === 'IN_BATCH') labels.push('仅看已入批次')
-  if (state.filters.inBatch === 'NOT_IN_BATCH') labels.push('仅看未入批次')
+  if (state.filters.inBatch === 'IN_BATCH') labels.push('仅看已入合并裁剪批次')
+  if (state.filters.inBatch === 'NOT_IN_BATCH') labels.push('仅看未入合并裁剪批次')
   if (state.filters.riskOnly) labels.push('仅看异常项')
 
   return labels
@@ -532,10 +532,10 @@ function renderFilterArea(): string {
           { value: 'PARTIAL', label: receiveMeta.PARTIAL.label },
           { value: 'RECEIVED', label: receiveMeta.RECEIVED.label },
         ])}
-        ${renderFilterSelect('是否已入批次', 'inBatch', state.filters.inBatch, [
+        ${renderFilterSelect('是否已入合并裁剪批次', 'inBatch', state.filters.inBatch, [
           { value: 'ALL', label: '全部' },
-          { value: 'IN_BATCH', label: '仅看已入批次' },
-          { value: 'NOT_IN_BATCH', label: '仅看未入批次' },
+          { value: 'IN_BATCH', label: '仅看已入合并裁剪批次' },
+          { value: 'NOT_IN_BATCH', label: '仅看未入合并裁剪批次' },
         ])}
       </div>
     </div>
@@ -558,15 +558,15 @@ function renderRiskTags(tags: OriginalCutOrderRow['riskTags']): string {
 
 function renderBatchSummary(row: OriginalCutOrderRow): string {
   if (!row.batchParticipationCount) {
-    return '<span class="text-xs text-muted-foreground">未参与批次</span>'
+    return '<span class="text-xs text-muted-foreground">未关联合并裁剪批次</span>'
   }
 
   return `
     <div class="space-y-1">
       <button type="button" class="text-left text-sm font-medium text-blue-600 hover:underline" data-cutting-piece-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}">
-        ${escapeHtml(row.latestMergeBatchNo || row.mergeBatchNos[0] || '查看批次')}
+        ${escapeHtml(row.latestMergeBatchNo || row.mergeBatchNos[0] || '查看合并裁剪批次')}
       </button>
-      <p class="text-xs text-muted-foreground">共参与 ${escapeHtml(String(row.batchParticipationCount))} 个批次</p>
+      <p class="text-xs text-muted-foreground">共参与 ${escapeHtml(String(row.batchParticipationCount))} 个合并裁剪批次</p>
     </div>
   `
 }
@@ -589,7 +589,7 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">原始裁片单主表</h2>
-          <p class="mt-1 text-xs text-muted-foreground">一行一个原始裁片单，生产单仅作为来源关系，批次只作为执行层关联记录。</p>
+          <p class="mt-1 text-xs text-muted-foreground">一行一个原始裁片单，生产单仅作为来源关系，合并裁剪批次只作为执行层关联记录。</p>
         </div>
         <div class="text-xs text-muted-foreground">共 ${pagination.total} 条原始裁片单</div>
       </div>
@@ -604,11 +604,11 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                 <th class="px-4 py-3 text-left font-medium">颜色</th>
                 <th class="px-4 py-3 text-left font-medium">面料 SKU</th>
                 <th class="px-4 py-3 text-left font-medium">面料类别 / 属性</th>
-                <th class="px-4 py-3 text-left font-medium">件数</th>
+                <th class="px-4 py-3 text-left font-medium">需求成衣件数（件）</th>
                 <th class="px-4 py-3 text-left font-medium">日期信息</th>
                 <th class="px-4 py-3 text-left font-medium">当前阶段</th>
                 <th class="px-4 py-3 text-left font-medium">可裁状态</th>
-                <th class="px-4 py-3 text-left font-medium">关联批次</th>
+                <th class="px-4 py-3 text-left font-medium">关联合并裁剪批次</th>
                 <th class="px-4 py-3 text-left font-medium">风险提示</th>
                 <th class="px-4 py-3 text-left font-medium">操作</th>
               </tr>
@@ -748,7 +748,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   )
 
   const batchParticipationText = row.batchParticipationCount
-    ? `已参与 ${row.batchParticipationCount} 个批次，最新批次 ${row.latestMergeBatchNo || '待补'}。`
+    ? `已参与 ${row.batchParticipationCount} 个合并裁剪批次，最新合并裁剪批次 ${row.latestMergeBatchNo || '待补'}。`
     : '当前尚未进入任何合并裁剪批次。'
 
   const extraButtons = `
@@ -770,7 +770,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
           { label: '颜色', value: row.color },
           { label: '面料 SKU', value: row.materialSku },
           { label: '面料类别 / 属性', value: row.materialCategory, hint: row.materialLabel },
-          { label: '件数', value: `${formatCount(row.orderQty)} 件` },
+          { label: '需求成衣件数（件）', value: `${formatCount(row.orderQty)} 件` },
           { label: '采购日期', value: formatDate(row.purchaseDate) },
           { label: '实际下单日期', value: formatDate(row.actualOrderDate) },
           { label: '计划发货日期', value: formatDate(row.plannedShipDate) },
@@ -810,12 +810,12 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       )}
 
       ${renderDetailSection(
-        '批次参与记录',
+        '合并裁剪批次参与记录',
         `
           <div class="space-y-3">
             ${renderInfoGrid([
-              { label: '最新批次号', value: row.latestMergeBatchNo || '未入批次' },
-              { label: '参与批次数', value: `${row.batchParticipationCount} 次` },
+              { label: '最新合并裁剪批次号', value: row.latestMergeBatchNo || '未关联合并裁剪批次' },
+              { label: '参与合并裁剪批次数', value: `${row.batchParticipationCount} 次` },
               { label: '当前占用状态', value: row.activeBatchNo ? `已占用（${row.activeBatchNo}）` : '未占用' },
             ])}
             <p class="text-sm text-muted-foreground">${escapeHtml(batchParticipationText)}</p>
@@ -830,7 +830,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             }
             <div class="flex flex-wrap gap-2">
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}">
-                查看批次
+                查看合并裁剪批次
               </button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-same-production-orders" data-record-id="${escapeHtml(row.id)}">
                 查看同生产单下其他原始裁片单${siblingRows.length ? `（${siblingRows.length}）` : ''}
@@ -939,7 +939,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             ${renderInfoGrid([
               { label: '当前是否存在领料异议', value: latestClaimDispute ? '存在' : '暂无' },
               { label: '异议状态', value: latestClaimDispute ? getClaimDisputeStatusLabel(latestClaimDispute.status) : '暂无异议', tone: 'strong' },
-              { label: '差异数量', value: latestClaimDispute ? `${latestClaimDispute.discrepancyQty} 米` : '0 米' },
+              { label: '差异长度（m）', value: latestClaimDispute ? `${latestClaimDispute.discrepancyQty} 米` : '0 米' },
               { label: '处理结论', value: latestClaimDispute?.handleConclusion || '待平台处理' },
               { label: '提交时间', value: latestClaimDispute?.submittedAt || '待补' },
               { label: '证据数量', value: latestClaimDispute ? `${latestClaimDispute.evidenceCount} 个` : '0 个' },

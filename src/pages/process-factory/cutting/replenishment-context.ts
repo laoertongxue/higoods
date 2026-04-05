@@ -318,16 +318,16 @@ export function inferReplenishmentCraftImpacts(context: ReplenishmentContextReco
   const lineItems = context.materialRows.flatMap((row) => row.materialLineItems)
   const printing = inferExplicitDecision({
     lineItems,
-    positiveKeywords: ['印花', 'print'],
-    negativeKeywords: ['净色', '里辅料', '辅料', '染色', 'dye'],
+    positiveKeywords: ['主料', '面料主料'],
+    negativeKeywords: ['里辅料', '辅料'],
     positiveNote: '当前面料行已命中主料信号，需同步关注仓库待配料。',
     negativeNote: '当前面料行未命中主料信号，可不必追加仓库待配料。',
     unknownNote: '当前无法明确判断是否需要回仓库待配料，建议人工确认。',
   })
   const dyeing = inferExplicitDecision({
     lineItems,
-    positiveKeywords: ['染色', 'dye'],
-    negativeKeywords: ['净色', '里辅料', '辅料', '印花', 'print'],
+    positiveKeywords: ['主料', '面料主料'],
+    negativeKeywords: ['里辅料', '辅料'],
     positiveNote: '当前面料行已命中主料信号，需同步关注仓库待配料。',
     negativeNote: '当前面料行未命中主料信号，可不必追加仓库待配料。',
     unknownNote: '当前无法明确判断是否需要回仓库待配料，建议人工确认。',

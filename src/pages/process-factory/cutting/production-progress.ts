@@ -264,7 +264,7 @@ function getFilterLabels(): string[] {
     const sortLabelMap: Record<ProductionProgressSortKey, string> = {
       URGENCY_THEN_SHIP: '默认排序',
       SHIP_DATE_ASC: '计划发货日期升序',
-      ORDER_QTY_DESC: '下单件数降序',
+      ORDER_QTY_DESC: '本单成衣件数降序',
     }
     labels.push(`排序：${sortLabelMap[state.filters.sortBy]}`)
   }
@@ -525,7 +525,7 @@ const PRODUCTION_PROGRESS_TABLE_HEADERS = [
   '紧急程度',
   '生产单号',
   '款号 / SPU',
-  '下单件数',
+  '本单成衣件数（件）',
   '计划发货日期',
   '配料进展',
   '领料进展',
@@ -564,9 +564,9 @@ function renderSkuCompletionSection(row: ProductionProgressRow): string {
           <thead class="border-b bg-muted/30 text-muted-foreground">
             <tr>
               <th class="px-4 py-3 text-left font-medium">SKU 名称&编码</th>
-              <th class="px-4 py-3 text-left font-medium">需求件数</th>
-              <th class="px-4 py-3 text-left font-medium">已裁片数</th>
-              <th class="px-4 py-3 text-left font-medium">已入仓片数</th>
+              <th class="px-4 py-3 text-left font-medium">需求成衣件数（件）</th>
+              <th class="px-4 py-3 text-left font-medium">已裁裁片片数（片）</th>
+              <th class="px-4 py-3 text-left font-medium">已入仓裁片片数（片）</th>
               <th class="px-4 py-3 text-left font-medium">完成状态</th>
             </tr>
           </thead>
@@ -859,7 +859,7 @@ function renderDetailDrawer(): string {
         ${renderDetailSummaryItem('款号 / SPU', row.styleCode || row.spuCode || '-')}
         ${renderDetailSummaryItem('款式名称', row.styleName || '-')}
         ${renderDetailSummaryItem('工厂', row.assignedFactoryName || '-')}
-        ${renderDetailSummaryItem('下单件数', formatQty(row.orderQty))}
+        ${renderDetailSummaryItem('本单成衣件数（件）', formatQty(row.orderQty))}
         ${renderDetailSummaryItem('计划发货日期', row.plannedShipDateDisplay)}
         ${renderDetailSummaryItem('紧急程度', `${row.urgency.label} · ${row.shipCountdownText}`)}
         ${renderDetailSummaryItem('原始裁片单数', formatQty(row.originalCutOrderCount))}
@@ -1001,7 +1001,7 @@ export function renderCraftCuttingProductionProgressPage(): string {
             ${renderFilterSelect('排序', 'sort', state.filters.sortBy, [
               { value: 'URGENCY_THEN_SHIP', label: '默认：紧急程度 + 发货时间' },
               { value: 'SHIP_DATE_ASC', label: '计划发货日期升序' },
-              { value: 'ORDER_QTY_DESC', label: '下单件数降序' },
+              { value: 'ORDER_QTY_DESC', label: '本单成衣件数降序' },
             ])}
           </div>
         </div>

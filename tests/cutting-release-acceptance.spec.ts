@@ -55,6 +55,12 @@ async function expectVisibleInViewport(page: Page, locator: Locator): Promise<vo
 
 const bannedLegacyBranchCopy = [
   '合批',
+  '关联批次',
+  '查看批次',
+  '未入批次',
+  '已入批次',
+  '裁片批次',
+  '当前 next step',
   '印花面料',
   '染色面料',
   '净色面料',
@@ -218,9 +224,11 @@ test('release acceptance：supervisor IA、铺布列表状态与菜单闭环可�
   await expect(page.getByRole('button', { name: '按唛架新建铺布' })).toBeVisible()
   await expect(page.getByRole('button', { name: '异常补录铺布' })).toBeVisible()
   await expect(page.getByRole('button', { name: '导出当前视图' })).toBeVisible()
+  await expect(page.locator('body')).toContainText('合并裁剪批次')
+  await expect(page.locator('body')).toContainText('录入来源')
   await expect(page.getByTestId('cutting-spreading-list-stats')).toHaveCount(1)
   const spreadingStatsBox = await page.getByTestId('cutting-spreading-list-stats').boundingBox()
-  expect(spreadingStatsBox?.height ?? 0).toBeLessThan(220)
+  expect(spreadingStatsBox?.height ?? 0).toBeLessThan(190)
   await expect(page.locator('[data-cutting-spreading-main-card="true"]')).toHaveCount(1)
   await expect(page.getByTestId('cutting-spreading-more-filters')).not.toHaveAttribute('open', '')
   await expect(page.getByTestId('cutting-spreading-list-table').locator('thead')).toBeVisible()
@@ -255,10 +263,16 @@ test('release acceptance：supervisor IA、铺布列表状态与菜单闭环可�
   await page.getByRole('button', { name: '已建唛架', exact: true }).click()
   await expect(page.getByTestId('marker-plan-list-stats')).toBeVisible()
   const markerStatsBox = await page.getByTestId('marker-plan-list-stats').boundingBox()
-  expect(markerStatsBox?.height ?? 0).toBeLessThan(220)
+  expect(markerStatsBox?.height ?? 0).toBeLessThan(190)
   await expect(page.locator('[data-marker-plan-main-card="true"]')).toHaveCount(1)
   await expect(page.getByTestId('marker-plan-list-table').locator('thead')).toBeVisible()
   expect(await countViewportRows(page, 'marker-plan-list-table')).toBeGreaterThanOrEqual(6)
+  await expect(page.locator('body')).toContainText('唛架成衣件数（件）')
+  await expect(page.locator('body')).toContainText('计划铺布总长度（m）')
+
+  await page.goto('/fcs/craft/cutting/original-orders')
+  await expect(page.getByTestId('cutting-original-orders-main-table')).toContainText('需求成衣件数（件）')
+  await expect(page.getByTestId('cutting-original-orders-main-table')).toContainText('关联合并裁剪批次')
 
   await expectNoPageErrors(errors)
 })
@@ -373,15 +387,21 @@ test('release acceptance：supervisor 详情页 next-step action bar、公式和
     await (await getStageTab(page, expectation.stage)).click()
     const listRow = page.getByTestId('cutting-spreading-list-table').locator('tbody tr').filter({ hasText: caseRow!.session.sessionNo }).first()
     await expect(listRow).toBeVisible()
+    await expect(listRow.locator('button.bg-blue-600')).toHaveCount(1)
     await listRow.getByRole('button', { name: '查看详情' }).click()
     const nextStepBar = page.getByTestId('cutting-spreading-next-step-bar')
     await expect(nextStepBar).toBeVisible()
+    await expect(nextStepBar.locator('button.bg-blue-600')).toHaveCount(1)
     await expect(nextStepBar.getByRole('button', { name: expectation.action })).toBeVisible()
     await expect(page.locator('.font-mono').filter({ hasText: '=' }).first()).toBeVisible()
+    await expect(page.locator('body')).toContainText('当前后续动作')
     await nextStepBar.getByRole('button', { name: expectation.action }).click()
     await expect(page).toHaveURL(expectation.url)
     if (expectation.stage === '待打印菲票') {
       await expect(page.locator('body')).toContainText('来源铺布')
+      await page.getByRole('button', { name: '查看详情' }).first().click()
+      await expect(page.locator('body')).toContainText('铺布完成结果')
+      await expect(page.locator('body')).toContainText('实际成衣件数')
     }
     if (expectation.stage === '待装袋' || expectation.stage === '待入仓') {
       await expect(page).toHaveURL(/spreadingSessionId=/)
@@ -433,19 +453,22 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
     `/fcs/pda/cutting/task/${unitTask.taskId}?executionOrderId=${encodeURIComponent(unitTask.executionOrderId)}&executionOrderNo=${encodeURIComponent(unitTask.executionOrderNo)}`,
   )
   const orderCard = page.locator(`[data-pda-cutting-order-card-id="${unitTask.executionOrderId}"]`)
-  await expect(orderCard.getByRole('button', { name: '进入执行单元' })).toBeVisible()
-  await orderCard.getByRole('button', { name: '进入执行单元' }).click()
+  await expect(orderCard.getByRole('button', { name: '进入当前任务' })).toBeVisible()
+  await orderCard.getByRole('button', { name: '进入当前任务' }).click()
   await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/unit/${unitTask.taskId}/${unitTask.executionOrderId}`))
   await expect(page.getByRole('heading', { level: 1, name: '当前任务' })).toBeVisible()
+  await expect(page.locator('body')).toContainText('当前任务号')
+  await expect(page.locator('body')).toContainText('裁片单')
   await expect(page.locator('body')).toContainText('参考唛架')
   await expect(page.locator('body')).toContainText('当前步骤')
+  await expect(page.locator('body')).not.toContainText('执行单元')
   await expect(page.locator('body')).not.toContainText('来源唛架')
   await expect(page.locator('body')).not.toContainText('当前主状态')
   await expect(page.locator('body')).not.toContainText('当前应执行步骤')
   const spreadingStep = page.locator('[data-pda-cutting-unit-step="SPREADING"]')
   await expectVisibleInViewport(page, spreadingStep)
   const spreadingStepBox = await spreadingStep.boundingBox()
-  expect(spreadingStepBox?.height ?? 0).toBeLessThan(70)
+  expect(spreadingStepBox?.height ?? 0).toBeLessThan(60)
   await spreadingStep.click()
   await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/spreading/${unitTask.taskId}\\?`))
 
@@ -465,10 +488,21 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
     optionLabels.every((label) => label.includes('继续当前铺布') || label.includes('按唛架开始铺布')),
   ).toBeTruthy()
   expect(optionLabels.every((label) => !label.includes('异常补录铺布'))).toBeTruthy()
+  expect(optionLabels.every((label) => !label.includes('manual-entry'))).toBeTruthy()
+  expect(optionLabels.every((label) => !label.includes('context-only'))).toBeTruthy()
   await expect(page.locator('body')).toContainText('参考唛架')
   await expect(page.locator('body')).toContainText('当前排版项')
   await expect(page.locator('body')).not.toContainText('来源唛架')
   await expect(page.locator('body')).not.toContainText('计划单元')
+  await expect(page.locator('body')).not.toContainText('录入来源')
+  await expect(page.locator('body')).not.toContainText('sourceWritebackId')
+  await expect(page.locator('body')).not.toContainText('enteredByAccountId')
+  await expect(page.locator('body')).not.toContainText('operatorAccountId')
+  await expect(page.locator('body')).not.toContainText('manual-entry')
+  await expect(page.locator('body')).not.toContainText('context-only')
+  await expect(page.locator('body')).not.toContainText(/\bPIECE\b/)
+  await expect(page.locator('body')).not.toContainText(/\bROLL\b/)
+  await expect(page.locator('body')).not.toContainText(/\bLAYER\b/)
 
   await page.locator('[data-pda-cut-spreading-field="selectedTargetKey"]').selectOption({ index: 1 })
   await page.locator('[data-pda-cut-spreading-field="planUnitId"]').selectOption('')
@@ -503,7 +537,7 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
 
   await page.goto(`/fcs/craft/cutting/spreading-detail?sessionId=${encodeURIComponent(appliedSessionId)}`)
   await page.getByRole('button', { name: '卷记录' }).click()
-  await expect(page.getByText('PDA回写')).toBeVisible()
+  await expect(page.getByText('移动录入')).toBeVisible()
   await page.getByRole('button', { name: '换班与人员' }).click()
   await expect(page.getByText('ID-F004_prod').first()).toBeVisible()
 
@@ -661,7 +695,7 @@ test('release acceptance：补料审批通过后，仓库配料领料可见补�
   await expectNoLegacyCuttingCopy(page)
   await page.getByRole('button', { name: '提交审核' }).click()
   await expect(
-    page.getByText(`已更新 ${targetSuggestion!.suggestionNo} 的审核结果，并在仓库配料领料中生成补料待配料。`),
+    page.getByText('已生成补料待配料，可继续去仓库配料领料处理。'),
   ).toBeVisible()
   await page.locator('[data-cutting-replenish-action="go-material-prep"]').click()
 

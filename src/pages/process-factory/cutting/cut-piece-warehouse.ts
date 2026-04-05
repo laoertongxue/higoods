@@ -294,7 +294,7 @@ function renderFilterArea(): string {
           <input
             type="text"
             value="${escapeHtml(state.filters.keyword)}"
-            placeholder="支持原始裁片单号 / 生产单号 / 批次号 / 款号"
+            placeholder="支持原始裁片单号 / 生产单号 / 合并裁剪批次号 / 款号"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             data-cut-piece-warehouse-field="keyword"
           />
@@ -365,7 +365,7 @@ function renderTable(items: CutPieceWarehouseItem[]): string {
                 </td>
                 <td class="px-4 py-3">${escapeHtml(item.productionOrderNo)}</td>
                 <td class="px-4 py-3">
-                  <div class="text-foreground">${escapeHtml(item.mergeBatchNo || '未关联批次')}</div>
+                  <div class="text-foreground">${escapeHtml(item.mergeBatchNo || '未关联合并裁剪批次')}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.cuttingGroup)}</div>
                 </td>
                 <td class="px-4 py-3">
@@ -422,8 +422,8 @@ function renderDetailDrawer(): string {
             <div class="mt-1 font-medium text-foreground">${escapeHtml(item.productionOrderNo)}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
-            <div class="text-xs text-muted-foreground">关联批次</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(item.mergeBatchNo || '未关联批次')}</div>
+            <div class="text-xs text-muted-foreground">关联合并裁剪批次</div>
+            <div class="mt-1 font-medium text-foreground">${escapeHtml(item.mergeBatchNo || '未关联合并裁剪批次')}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
             <div class="text-xs text-muted-foreground">裁床组</div>
@@ -551,8 +551,8 @@ function renderDetailDrawer(): string {
               <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.productionOrderNo)}</dd>
             </div>
             <div class="rounded-lg border bg-white/70 p-3">
-              <dt class="text-xs text-muted-foreground">批次号</dt>
-              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.mergeBatchNo || '未关联批次')}</dd>
+              <dt class="text-xs text-muted-foreground">合并裁剪批次号</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.mergeBatchNo || '未关联合并裁剪批次')}</dd>
             </div>
             <div class="rounded-lg border bg-white/70 p-3">
               <dt class="text-xs text-muted-foreground">面料 SKU</dt>

@@ -791,16 +791,16 @@ export function resolveTicketCountBasis(
   if (markerPieces && markerPieces > 0) {
     return {
       ticketCount: markerPieces,
-      basisLabel: '唛架总件数',
-      detailText: `当前建议票数来自唛架总件数 ${formatQty(markerPieces)}。`,
+      basisLabel: '实际成衣件数',
+      detailText: `当前尚未命中正式菲票拆分，先按实际成衣件数 ${formatQty(markerPieces)} 件生成建议票数。`,
     }
   }
 
   const fallback = Math.max(1, Math.min(120, Math.round(Math.max(owner.orderQtyHint, 1) / 100)))
   return {
     ticketCount: fallback,
-    basisLabel: '订单数量折算',
-    detailText: '当前未命中唛架总件数，按试运行折算规则生成建议票数。',
+    basisLabel: '铺布完成结果',
+    detailText: '当前尚未形成完整铺布完成结果，先按参考成衣件数补算建议票数。',
   }
 }
 
@@ -1139,9 +1139,9 @@ export function buildFeiTicketsViewModel(options: {
       relatedMergeBatchIds: mergeBatchIds,
       relatedMergeBatchNos: mergeBatchNos,
       sourceContextLabel: '原始裁片单上下文',
-      ticketCountBasisLabel: generatedTickets.length ? '正式菲票拆分' : ticketCountBasis.basisLabel,
+      ticketCountBasisLabel: generatedTickets.length ? '铺布完成结果' : ticketCountBasis.basisLabel,
       ticketCountBasisDetail: generatedTickets.length
-        ? `当前建议票数来自正式菲票拆分 ${formatQty(generatedTickets.length)} 张，已绑定原始裁片单 / 部位 / 尺码 / 二级工艺。`
+        ? `当前建议票数来自铺布完成结果，按实际成衣件数拆分 ${formatQty(generatedTickets.length)} 张，已绑定原始裁片单 / 部位 / 尺码 / 二级工艺。`
         : ticketCountBasis.detailText,
       currentStageLabel: row.currentStage.label,
       cuttableStateLabel: row.cuttableState.label,
@@ -1170,7 +1170,7 @@ export function buildFeiTicketsViewModel(options: {
   const context = buildContext(owners, options.mergeBatches, options.prefilter)
   const contextualOwners = buildTicketOwnerGroupsFromContext(context, owners).map((owner) => ({
     ...owner,
-    sourceContextLabel: context?.contextType === 'merge-batch' ? `来自批次 ${context.mergeBatchNo || '待补批次号'}` : '原始单上下文',
+    sourceContextLabel: context?.contextType === 'merge-batch' ? `来源合并裁剪批次 ${context.mergeBatchNo || '待补合并裁剪批次号'}` : '原始单上下文',
     navigationPayload: buildFeiNavigationPayload(owner, context),
   }))
 

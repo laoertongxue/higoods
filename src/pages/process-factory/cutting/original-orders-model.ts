@@ -185,7 +185,7 @@ export const originalOrderCuttableMeta: Record<OriginalCuttableStateKey, { label
   WAITING_PREP: { label: '待配料', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
   WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
   CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
-  IN_BATCH: { label: '已入批次', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
+  IN_BATCH: { label: '已入合并裁剪批次', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
   INBOUND: { label: '已入仓', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
   CUTTING: { label: '裁剪中', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
   BLOCKED: { label: '暂不可裁', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
@@ -203,7 +203,7 @@ export const originalOrderRiskMeta: Record<OriginalCutOrderRiskKey, { label: str
   DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
   STATUS_CONFLICT: { label: '状态不一致', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
   REPLENISH_PENDING: { label: '待补料', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
-  IN_BATCH: { label: '已入批次', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
+  IN_BATCH: { label: '已入合并裁剪批次', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
 }
 
 function materialCategoryLabel(materialType: CuttingMaterialType): string {
@@ -334,7 +334,12 @@ export function deriveOriginalCutOrderCuttableState(
   const participation = summarizeMergeBatchParticipation(line.originalCutOrderId || line.originalCutOrderNo || line.cutPieceOrderNo, ledger)
   if (participation.activeBatchNo || line.batchOccupancyStatus === 'IN_BATCH') {
     return {
-      ...createSummaryMeta('IN_BATCH', originalOrderCuttableMeta.IN_BATCH.label, originalOrderCuttableMeta.IN_BATCH.className, `当前原始裁片单已进入批次 ${participation.activeBatchNo || line.mergeBatchNo || '当前批次'}。`),
+      ...createSummaryMeta(
+        'IN_BATCH',
+        originalOrderCuttableMeta.IN_BATCH.label,
+        originalOrderCuttableMeta.IN_BATCH.className,
+        `当前原始裁片单已进入合并裁剪批次 ${participation.activeBatchNo || line.mergeBatchNo || '当前合并裁剪批次'}。`,
+      ),
       selectable: false,
       reasonText: '当前原始裁片单已被合并裁剪批次占用。',
     }
@@ -570,8 +575,8 @@ function createRow(
     riskTags,
     statusSummary: [currentStage.label, cuttableState.label, materialPrepStatus.label, materialClaimStatus.label].join(' / '),
     relationSummary: batchSummary.batchParticipationCount
-      ? `来源 ${source.productionOrderNo}，已参与 ${batchSummary.batchParticipationCount} 个批次`
-      : `来源 ${source.productionOrderNo}，当前尚未进入批次`,
+      ? `来源 ${source.productionOrderNo}，已参与 ${batchSummary.batchParticipationCount} 个合并裁剪批次`
+      : `来源 ${source.productionOrderNo}，当前尚未进入合并裁剪批次`,
     latestActionText: line.latestActionText || record.lastFieldUpdateAt || '暂无最近执行痕迹。',
     navigationPayload: buildOriginalOrderNavigationPayload({
       originalCutOrderId: source.originalCutOrderId,

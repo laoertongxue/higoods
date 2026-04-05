@@ -265,7 +265,7 @@ function main(): void {
     ensure(handoverSource.includes(head.handoverId), errors, `交接 mock 缺少静态头：${head.handoverId}`)
   })
   ensure(detailPage.includes('待绑定原始裁片单'), errors, 'pda-cutting-task-detail 未覆盖 UNBOUND 场景')
-  ensure(detailPage.includes('关联裁剪批次'), errors, 'pda-cutting-task-detail 未覆盖 merge batch 场景')
+  ensure(detailPage.includes('关联合并裁剪批次'), errors, 'pda-cutting-task-detail 未覆盖 merge batch 场景')
 
   if (errors.length > 0) {
     console.error('check-cutting-pda-mock-coverage failed:')

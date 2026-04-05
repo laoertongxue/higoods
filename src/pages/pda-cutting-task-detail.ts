@@ -183,8 +183,8 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
         </article>
       </div>
       <div class="mt-4 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
-        <div class="text-muted-foreground">当前建议动作</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">进入执行单元</div>
+        <div class="text-muted-foreground">下一步</div>
+        <div class="mt-1 text-sm font-semibold text-foreground">进入当前任务</div>
         <div class="mt-1 text-muted-foreground">${escapeHtml(detail.taskProgressLabel)}</div>
         <div class="mt-1 text-muted-foreground">分配工厂：${escapeHtml(detail.assigneeFactoryName)}</div>
       </div>
@@ -195,7 +195,7 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
       }
       ${
         detail.cutPieceOrderCount > 1
-          ? `<div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">当前任务下有多张裁片单，请先在下面选择具体裁片单，再进入执行。</div>`
+          ? `<div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">当前任务下有多张裁片单，请先在下面选择具体裁片单，再进入处理。</div>`
           : ''
       }
     </section>
@@ -244,7 +244,7 @@ function renderTaskOrderCard(
     <article class="rounded-2xl border px-4 py-4 shadow-sm ${isFocusTarget ? 'border-blue-300 bg-blue-50/40 ring-2 ring-blue-100' : isCurrentSelected ? 'border-blue-200 bg-blue-50/30' : 'bg-card'}" data-pda-cutting-order-card-id="${escapeHtml(line.executionOrderId)}">
       <div class="flex items-start justify-between gap-3">
         <div class="space-y-1">
-          <div class="text-xs text-muted-foreground">执行单号</div>
+          <div class="text-xs text-muted-foreground">当前任务号</div>
           <div class="text-base font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div>
           <div class="text-[11px] text-muted-foreground">${
             line.bindingState === 'UNBOUND'
@@ -253,7 +253,7 @@ function renderTaskOrderCard(
           }</div>
           ${
             line.mergeBatchNo
-              ? `<div class="text-[11px] text-muted-foreground">关联裁剪批次 ${escapeHtml(line.mergeBatchNo)}</div>`
+              ? `<div class="text-[11px] text-muted-foreground">关联合并裁剪批次 ${escapeHtml(line.mergeBatchNo)}</div>`
               : ''
           }
           <div class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div>
@@ -297,12 +297,12 @@ function renderTaskOrderCard(
       <div class="mt-3 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">当前步骤</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(currentStepLabel)}</div>
-        <div class="mt-1 text-muted-foreground">计划数量：${escapeHtml(String(line.plannedQty))} 件</div>
+        <div class="mt-1 text-muted-foreground">本单成衣件数（件）：${escapeHtml(String(line.plannedQty))}</div>
       </div>
       ${replenishmentNote}
       <div class="mt-3 flex gap-2">
         <button class="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90" data-nav="${escapeHtml(primaryActionHref)}" data-pda-cutting-primary-entry="execution-unit">
-          进入执行单元
+          进入当前任务
         </button>
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted" data-pda-cut-task-action="toggle-order-actions" data-task-id="${escapeHtml(taskId)}" data-execution-order-id="${escapeHtml(line.executionOrderId)}">
           ${expanded ? '收起操作' : '更多操作'}
@@ -355,9 +355,9 @@ function renderFocusedQrSummary(detail: PdaCuttingTaskDetailData, state: PdaCutt
         <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs leading-5 text-muted-foreground">
           ${
             isBound
-              ? `当前执行单 <span class="font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</span> 已绑定原始裁片单
+              ? `当前任务 <span class="font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</span> 已绑定原始裁片单
           <span class="font-medium text-foreground">${escapeHtml(detail.originalCutOrderNo)}</span>，后续领料、铺布、入仓和交接都沿正式对象链回写。`
-              : `当前执行单 <span class="font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</span> 仍处于待绑定状态，当前仅可查看执行对象与异常说明。`
+              : `当前任务 <span class="font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</span> 仍处于待绑定状态，当前仅可查看执行对象与异常说明。`
           }
         </div>
       `
@@ -368,7 +368,7 @@ function renderFocusedQrSummary(detail: PdaCuttingTaskDetailData, state: PdaCutt
       <div class="rounded-xl border bg-muted/20 px-3 py-3">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <div class="text-muted-foreground">当前执行单</div>
+            <div class="text-muted-foreground">当前任务</div>
             <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(detail.executionOrderNo)}</div>
             <div class="mt-1 text-[11px] text-muted-foreground">${
               isBound ? `原始裁片单 ${escapeHtml(detail.originalCutOrderNo)}` : '原始裁片单待绑定'
@@ -504,7 +504,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
 
   const body = `
     ${renderTaskOverviewCard(detail)}
-    ${renderPdaCuttingSection('关联执行单', '', renderTaskOrderList(taskId, detail, state))}
+    ${renderPdaCuttingSection('当前任务', '', renderTaskOrderList(taskId, detail, state))}
     ${
       focusedOrderDetail
         ? renderPdaCuttingSection('当前原始裁片单主码', '', renderFocusedQrSummary(focusedOrderDetail, state))

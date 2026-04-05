@@ -19,11 +19,11 @@ function includesAny(value: string | undefined, keywords: string[]): boolean {
 }
 
 function resolveRouteLabel(routeKey: PdaCuttingExecutionRouteKey): string {
-  if (routeKey === 'pickup') return '扫码领料'
-  if (routeKey === 'spreading') return '铺布录入'
-  if (routeKey === 'inbound') return '入仓扫码'
-  if (routeKey === 'handover') return '交接扫码'
-  return '补料反馈'
+  if (routeKey === 'pickup') return '去领料'
+  if (routeKey === 'spreading') return '去铺布'
+  if (routeKey === 'inbound') return '去入仓'
+  if (routeKey === 'handover') return '去交接'
+  return '去补料'
 }
 
 function hasPendingReplenishment(line: PdaCuttingTaskOrderLine): boolean {
@@ -50,11 +50,11 @@ function isInboundCompleted(status: string): boolean {
 }
 
 function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
-  if (stepCode === 'PICKUP') return '领料'
-  if (stepCode === 'SPREADING') return '铺布'
-  if (stepCode === 'REPLENISHMENT') return '补料反馈'
-  if (stepCode === 'HANDOVER') return '交接'
-  if (stepCode === 'INBOUND') return '入仓'
+  if (stepCode === 'PICKUP') return '去领料'
+  if (stepCode === 'SPREADING') return '去铺布'
+  if (stepCode === 'REPLENISHMENT') return '去补料'
+  if (stepCode === 'HANDOVER') return '去交接'
+  if (stepCode === 'INBOUND') return '去入仓'
   return '已完成'
 }
 
@@ -78,6 +78,7 @@ export function resolvePdaCuttingTaskOrderCurrentStepCode(line: PdaCuttingTaskOr
 }
 
 export function resolvePdaCuttingTaskOrderCurrentStepLabel(line: PdaCuttingTaskOrderLine): string {
+  if (line.currentStepCode) return resolveCurrentStepLabel(line.currentStepCode)
   if (line.currentStepLabel) return line.currentStepLabel
   return resolveCurrentStepLabel(resolvePdaCuttingTaskOrderCurrentStepCode(line))
 }

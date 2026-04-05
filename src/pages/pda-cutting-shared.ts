@@ -169,7 +169,7 @@ export function renderPdaCuttingExecutionHero(stepTitle: string, detail: PdaCutt
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.productionOrderNo)}</div>
         </article>
         <article class="rounded-xl border bg-muted/20 px-3 py-3">
-          <div class="text-muted-foreground">当前执行单</div>
+          <div class="text-muted-foreground">当前任务</div>
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div>
           <div class="mt-1 text-[11px] text-muted-foreground">绑定原始裁片单 ${escapeHtml(detail.originalCutOrderNo)}</div>
         </article>

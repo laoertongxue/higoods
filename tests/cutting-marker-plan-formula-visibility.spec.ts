@@ -28,9 +28,16 @@ async function openBuiltPlanDetail(
 
 test('唛架页关键系统计算字段都展示公式字符串', async ({ page }) => {
   const errors = collectPageErrors(page)
+  const body = page.locator('body')
 
   await openBuiltPlanDetail(page)
   const detailPage = page.getByTestId('cutting-marker-plan-detail-page')
+  await expect(body).toContainText('唛架成衣件数（件）')
+  await expect(body).toContainText('计划铺布总长度（m）')
+  await expect(body).toContainText('合并裁剪批次')
+  await expect(body).not.toContainText('readyForSpreading = true')
+  await expect(body).not.toContainText('allocationStatus ≠ balanced')
+  await expect(body).not.toContainText('layoutStatus ≠ done')
   await expect(detailPage.getByText(/件 = .*件 \+ .*件/).first()).toBeVisible()
   await expect(detailPage.getByText(/m\/件 = .*m ÷ .*件/).first()).toBeVisible()
   await expect(detailPage.getByText(/m = .*m/).first()).toBeVisible()

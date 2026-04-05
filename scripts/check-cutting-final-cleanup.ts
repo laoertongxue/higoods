@@ -184,6 +184,11 @@ function main(): void {
 
   ;[
     '合批',
+    '关联批次',
+    '查看批次',
+    '未入批次',
+    '已入批次',
+    '裁片批次',
     '去印花工单',
     '去染色工单',
     '印花补料',
@@ -197,6 +202,7 @@ function main(): void {
     'allocationStatus ≠ balanced',
     'layoutStatus ≠ done',
     'readyForSpreading = true',
+    '当前 next step',
     'bag-first',
     '裁片件数',
   ].forEach(assertNoStringInCuttingVisibleSource)

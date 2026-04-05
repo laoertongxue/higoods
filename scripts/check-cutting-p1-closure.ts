@@ -94,7 +94,7 @@ function assertPdaFormalSourceSlimmed(): void {
   assert(!taskDetailHelpers.includes('resolveRouteFromNextAction'), 'pda-cutting-task-detail-helpers.ts 不应再用 nextActionLabel 字符串推断主动作路由')
 
   const releaseAcceptance = read('tests/cutting-release-acceptance.spec.ts')
-  assert(releaseAcceptance.includes('进入执行单元'), 'release acceptance 应覆盖 execution-unit-first 主路径')
+  assert(releaseAcceptance.includes('进入当前任务'), 'release acceptance 应覆盖 execution-unit-first 主路径')
   assert(releaseAcceptance.includes('按唛架新建铺布'), 'release acceptance 应覆盖 marker-first 创建')
   assert(releaseAcceptance.includes('保存铺布记录'), 'release acceptance 应覆盖 PDA 铺布录入')
 

@@ -183,7 +183,6 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
         <div class="space-y-2 p-3">
           <div class="flex items-center justify-between gap-2">
             <div class="flex min-w-0 items-center gap-1.5">
-              <span class="truncate font-mono text-xs text-muted-foreground">${escapeHtml(head.handoverId)}</span>
               <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${headLabel}</span>
               <span class="inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
             </div>
@@ -231,7 +230,6 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
       <div class="space-y-2 p-3">
         <div class="flex items-center justify-between gap-2">
           <div class="flex min-w-0 items-center gap-1.5">
-            <span class="truncate font-mono text-xs text-muted-foreground">${escapeHtml(head.handoverId)}</span>
             <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${headLabel}</span>
             <span class="inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
           </div>
@@ -246,7 +244,7 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">任务状态：</span>${head.taskStatus === 'DONE' ? '已完工' : '进行中'}</div>
           <div><span class="text-muted-foreground">执行范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
           <div><span class="text-muted-foreground">执行方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
-          <div class="col-span-2"><span class="text-muted-foreground">来源单号：</span>${escapeHtml(head.sourceDocNo || head.sourceDocId || '—')}</div>
+          <div class="col-span-2"><span class="text-muted-foreground">来源单号：</span>${escapeHtml(head.sourceDocNo || '—')}</div>
         </div>
 
         <div class="flex items-center gap-2 py-0.5 text-xs">
@@ -292,7 +290,6 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
       <div class="space-y-2 p-3">
         <div class="flex items-center justify-between gap-2">
           <div class="flex min-w-0 items-center gap-1.5">
-            <span class="truncate font-mono text-xs text-muted-foreground">${escapeHtml(head.handoverId)}</span>
             <span class="inline-flex shrink-0 items-center rounded border border-green-200 bg-green-50 px-1.5 py-0 text-[10px] text-green-700">${doneTypeLabel}</span>
             <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">仓库发起完成</span>
           </div>
@@ -307,7 +304,7 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(head.completedByWarehouseAt || '—')}</div>
           <div><span class="text-muted-foreground">执行范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
           <div><span class="text-muted-foreground">执行方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
-          <div class="col-span-2"><span class="text-muted-foreground">来源单号：</span>${escapeHtml(head.sourceDocNo || head.sourceDocId || '—')}</div>
+          <div class="col-span-2"><span class="text-muted-foreground">来源单号：</span>${escapeHtml(head.sourceDocNo || '—')}</div>
         </div>
 
         <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">

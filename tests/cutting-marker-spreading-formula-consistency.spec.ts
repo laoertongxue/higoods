@@ -26,10 +26,16 @@ test('铺布详情与编辑页公式可见，且 4 模式显示正确', async ({
   await page.goto(`/fcs/craft/cutting/spreading-detail?sessionId=${targetRow.spreadingSessionId}`)
 
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/spreading-detail\?/)
+  await expect(page.locator('body')).toContainText('当前后续动作')
+  await expect(page.locator('body')).not.toContainText('当前 next step')
+  await expect(page.locator('body')).not.toContainText('readyForSpreading')
+  await expect(page.locator('body')).not.toContainText('allocationStatus')
+  await expect(page.locator('body')).not.toContainText('layoutStatus')
   await expect(page.getByText('理论裁剪成衣件数（件）').first()).toBeVisible()
   await expect(page.getByText('实际裁剪成衣件数（件）').first()).toBeVisible()
   await expect(page.getByText('缺口成衣件数（件）').first()).toBeVisible()
-  await expect(page.getByText('判定依据').first()).toBeVisible()
+  await expect(page.getByText('总净可用长度（m）').first()).toBeVisible()
+  await expect(page.getByText(/件 = \d+ 层 × \d+ 件/).first()).toBeVisible()
   await expect(page.getByText('裁片件数')).toHaveCount(0)
   expect(await page.locator('.font-mono').filter({ hasText: '=' }).count()).toBeGreaterThan(8)
 
@@ -44,6 +50,8 @@ test('铺布详情与编辑页公式可见，且 4 模式显示正确', async ({
   await tabShell.getByRole('button', { name: '卷记录' }).click()
   await expect(page.getByText('净可用长度（m）').first()).toBeVisible()
   await expect(page.getByText('实际裁剪成衣件数（件）').first()).toBeVisible()
+  await expect(page.locator('body')).toContainText('录入来源')
+  await expect(page.getByText(/米 = .*米 - .*米 - .*米/).first()).toBeVisible()
 
   await tabShell.getByRole('button', { name: '差异与补料' }).click()
   await expect(page.getByText('缺口成衣件数（件）').first()).toBeVisible()

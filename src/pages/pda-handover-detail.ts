@@ -663,7 +663,6 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
     <article data-testid="pickup-record-card" class="space-y-2.5 rounded-lg border ${selected ? 'border-primary bg-primary/5 ring-1 ring-primary/10 shadow-sm' : 'bg-card shadow-sm'} p-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
-          <span class="font-mono text-sm font-semibold text-foreground">${escapeHtml(record.recordId)}</span>
           <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">第 ${record.sequenceNo} 次领料</span>
           <span class="inline-flex items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
         </div>
@@ -764,7 +763,7 @@ function renderPickupTraceabilitySection(head: PdaHandoverHead, sourceDoc: Retur
       <div class="space-y-3 border-t px-3 py-3">
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
-          ${renderFieldRow('来源执行单', sourceDoc?.docNo || sourceDoc?.id || '—')}
+          ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
           ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType || '—')}
           ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
           ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
@@ -825,7 +824,7 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
         : `
             <div data-testid="pickup-current-panel-card" class="space-y-3 rounded-lg border ${currentGuide?.panelClass || 'border-primary/20 bg-primary/5'} px-3 py-3 shadow-sm">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="font-mono text-sm font-semibold">${escapeHtml(currentRecord.recordId)}</p>
+                <p class="text-sm font-semibold">当前处理记录</p>
                 <span class="inline-flex items-center rounded border px-2 py-1 text-xs ${currentRecordMeta?.className || ''}">${escapeHtml(currentRecordMeta?.label || '—')}</span>
               </div>
               <p class="text-xs text-muted-foreground">${escapeHtml(currentGuide?.hint || '查看当前记录并继续处理。')}</p>
@@ -900,7 +899,6 @@ function renderHandoutRecordItem(record: PdaHandoverRecord): string {
     <article class="space-y-2 rounded-lg border bg-card p-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
-          <span class="font-mono text-xs text-muted-foreground">${escapeHtml(record.recordId)}</span>
           <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">第 ${record.sequenceNo} 次交出</span>
           <span class="inline-flex items-center rounded border px-1.5 py-0 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span>
         </div>
@@ -1039,7 +1037,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       ${renderPartyRow(head.targetKind === 'WAREHOUSE' ? '去向仓库' : '去向工厂', head.targetKind, head.targetName)}
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        ${renderFieldRow('来源执行单', sourceDoc?.docNo || sourceDoc?.id || '—')}
+        ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
         ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType || '—')}
         ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
         ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
@@ -1328,14 +1326,14 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     appendTaskAudit(
       created.taskId,
       'HANDOUT_RECORD_CREATE',
-      `新增交出记录 ${created.recordId}，第 ${created.sequenceNo} 次交出，待仓库回写`,
+      `新增第 ${created.sequenceNo} 次交出记录，待仓库回写`,
       'PDA',
     )
 
     detailState.handoverRecordTime = nowDateTimeLocalInput()
     detailState.handoverRecordRemark = ''
     detailState.proofFiles = []
-    showPdaHandoverDetailToast(`交出记录已新增：${created.recordId}`)
+    showPdaHandoverDetailToast('交出记录已新增，待仓库回写')
     return true
   }
 
@@ -1367,7 +1365,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     appendTaskAudit(
       updated.taskId,
       'PICKUP_RECORD_CONFIRM',
-      `确认领料记录 ${updated.recordId}，工厂确认数量 ${updated.factoryConfirmedQty ?? updated.qtyExpected} ${updated.qtyUnit}`,
+      `已确认领料数量 ${updated.factoryConfirmedQty ?? updated.qtyExpected} ${updated.qtyUnit}`,
       'PDA',
     )
     showPdaHandoverDetailToast('本次领料已确认')
@@ -1442,7 +1440,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     appendTaskAudit(
       result.record.taskId,
       'PICKUP_QTY_OBJECTION',
-      `对领料记录 ${result.record.recordId} 发起数量差异，异常单 ${result.exceptionCase.caseId}`,
+      '已发起领料数量差异，请等待处理',
       'PDA',
     )
     selectPickupRecord(result.record)
@@ -1473,7 +1471,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     appendTaskAudit(
       updated.taskId,
       'HANDOUT_QTY_OBJECTION',
-      `对交出记录 ${updated.recordId} 发起数量异议：${updated.objectionReason}`,
+      `已发起交出数量异议：${updated.objectionReason}`,
       'PDA',
     )
 

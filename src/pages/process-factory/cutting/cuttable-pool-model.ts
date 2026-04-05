@@ -184,7 +184,7 @@ export const cuttableStateMeta: Record<CuttableStateKey, { label: string; classN
   WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
   PARTIAL_CLAIM: { label: '部分领料', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
   CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
-  IN_BATCH: { label: '已入批次', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
+  IN_BATCH: { label: '已入合并裁剪批次', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
   NOT_READY: { label: '已进入裁剪后续', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
 }
 

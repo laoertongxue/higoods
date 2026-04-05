@@ -856,7 +856,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '颜色', value: row.color },
               { label: '计划发货日期', value: formatDate(row.plannedShipDate) },
               { label: '紧急程度', value: row.urgencyLabel },
-              { label: '关联批次', value: row.latestMergeBatchNo || '未入批次' },
+              { label: '关联合并裁剪批次', value: row.latestMergeBatchNo || '未关联合并裁剪批次' },
             ])}
             ${
               row.shouldDisplayQr
@@ -989,10 +989,10 @@ function renderClaimDisputeDetail(row: MaterialPrepRow): string {
   return `
     <div class="space-y-4">
       ${renderInfoGrid([
-        { label: '仓库配置数量', value: `${dispute.configuredQty} 米` },
-        { label: '默认应领数量', value: `${dispute.defaultClaimQty} 米` },
-        { label: '实际领取数量', value: `${dispute.actualClaimQty} 米`, tone: 'strong' },
-        { label: '差异数量', value: `${dispute.discrepancyQty} 米`, tone: 'strong' },
+        { label: '仓库配置长度（m）', value: `${dispute.configuredQty} 米` },
+        { label: '默认应领长度（m）', value: `${dispute.defaultClaimQty} 米` },
+        { label: '实际领取长度（m）', value: `${dispute.actualClaimQty} 米`, tone: 'strong' },
+        { label: '差异长度（m）', value: `${dispute.discrepancyQty} 米`, tone: 'strong' },
         { label: '异议状态', value: row.claimDisputeStatusLabel },
         { label: '处理结论', value: dispute.handleConclusion || '待平台处理' },
         { label: '提交人', value: dispute.submittedBy },

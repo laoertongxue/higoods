@@ -19,7 +19,7 @@ const executionUnitTask = listPdaCuttingTaskSourceRecords()
     ),
   )
 
-test.skip(!executionUnitTask, '缺少可进入执行单元的 PDA 任务')
+test.skip(!executionUnitTask, '缺少可进入当前任务的 PDA 任务')
 
 test('PDA 当前任务页渲染 5 张步骤卡，术语已简化且铺布入口显式可见', async ({ page }) => {
   const errors = collectPageErrors(page)
@@ -31,9 +31,12 @@ test('PDA 当前任务页渲染 5 张步骤卡，术语已简化且铺布入口�
   await expect(page.locator('h1', { hasText: '当前任务' })).toBeVisible()
   await expect(page.locator('[data-pda-cutting-execution-unit-card="object"]')).toBeVisible()
   await expect(page.locator('[data-pda-cutting-unit-current-step]')).toBeVisible()
+  await expect(page.locator('body')).toContainText('当前任务号')
+  await expect(page.locator('body')).toContainText('裁片单')
   await expect(page.locator('body')).toContainText('参考唛架')
   await expect(page.locator('body')).toContainText('当前状态')
   await expect(page.locator('body')).toContainText('当前步骤')
+  await expect(page.locator('body')).not.toContainText('执行单元')
   await expect(page.locator('body')).not.toContainText('来源唛架')
   await expect(page.locator('body')).not.toContainText('当前主状态')
   await expect(page.locator('body')).not.toContainText('当前应执行步骤')
@@ -51,9 +54,10 @@ test('PDA 当前任务页渲染 5 张步骤卡，术语已简化且铺布入口�
   })
   expect(inViewport).toBeTruthy()
   const spreadingButtonBox = await spreadingButton.boundingBox()
-  expect(spreadingButtonBox?.height ?? 0).toBeLessThan(70)
+  expect(spreadingButtonBox?.height ?? 0).toBeLessThan(60)
   await expect(page.locator('[data-pda-cutting-unit-step="SPREADING"]')).toContainText('铺布')
   await expect(page.locator('[data-step-status="current"]')).toHaveCount(1)
+  await expect(page.locator('[data-pda-cutting-unit-current-step]')).toContainText(/去领料|去铺布|去补料|去交接|去入仓|已完成/)
   const tripleCardNestCount = await page.locator('[data-pda-cutting-execution-unit-root]').evaluate((root) => {
     const isCard = (node: Element) => node.classList.contains('border') && node.classList.contains('bg-card')
     return Array.from(root.querySelectorAll('*')).filter((node) => {

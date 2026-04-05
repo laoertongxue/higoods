@@ -1157,11 +1157,11 @@ export function buildTheoreticalActualCutQtyFormula(
   plannedLayers: number,
   markerTotalPieces: number,
 ): string {
-  return `${formatQty(theoreticalActualCutPieceQty)} = ${formatQty(plannedLayers)} × ${formatQty(markerTotalPieces)}`
+  return `${formatQty(theoreticalActualCutPieceQty)} 件 = ${formatQty(plannedLayers)} 层 × ${formatQty(markerTotalPieces)} 件`
 }
 
 export function buildPlannedCutGarmentQtyFormula(plannedCutGarmentQty: number, plannedLayers: number, markerTotalPieces: number): string {
-  return `${formatQty(plannedCutGarmentQty)} = ${formatQty(plannedLayers)} × ${formatQty(markerTotalPieces)}`
+  return `${formatQty(plannedCutGarmentQty)} 件 = ${formatQty(plannedLayers)} 层 × ${formatQty(markerTotalPieces)} 件`
 }
 
 export function buildTheoreticalCutGarmentQtyFormula(
@@ -1170,35 +1170,35 @@ export function buildTheoreticalCutGarmentQtyFormula(
   actualLayerTotal: number,
   markerTotalPieces: number,
 ): string {
-  return `${formatQty(theoreticalCutGarmentQty)} = max(${formatQty(rollLayerTotal)}, ${formatQty(actualLayerTotal)}) × ${formatQty(markerTotalPieces)}`
+  return `${formatQty(theoreticalCutGarmentQty)} 件 = max(${formatQty(rollLayerTotal)} 层, ${formatQty(actualLayerTotal)} 层) × ${formatQty(markerTotalPieces)} 件`
 }
 
 function buildQtySumFormula(result: number, values: number[]): string {
   const left = formatQty(result || 0)
   const right = values.length ? values.map((value) => formatQty(value || 0)).join(' + ') : '0'
-  return `${left} = ${right}`
+  return `${left} 件 = ${right} 件`
 }
 
 function buildSumFormula(result: number, values: number[], digits = 2): string {
   const left = Number(result || 0).toFixed(digits)
   const right = values.length ? values.map((value) => Number(value || 0).toFixed(digits)).join(' + ') : Number(0).toFixed(digits)
-  return `${left} = ${right}`
+  return `${left} 米 = ${right} 米`
 }
 
 function buildDifferenceFormula(result: number, minuend: number, subtrahend: number, digits = 2): string {
-  return `${Number(result || 0).toFixed(digits)} = ${Number(minuend || 0).toFixed(digits)} - ${Number(subtrahend || 0).toFixed(digits)}`
+  return `${Number(result || 0).toFixed(digits)} 米 = ${Number(minuend || 0).toFixed(digits)} 米 - ${Number(subtrahend || 0).toFixed(digits)} 米`
 }
 
 export function buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength: number): string {
-  return `${Number(theoreticalSpreadTotalLength || 0).toFixed(2)} = 来源唛架铺布总长度`
+  return `${Number(theoreticalSpreadTotalLength || 0).toFixed(2)} 米 = 来源唛架计划铺布总长度`
 }
 
 export function buildRollActualCutQtyFormula(actualCutPieceQty: number, layerCount: number, markerTotalPieces: number): string {
-  return `${formatQty(actualCutPieceQty)} = ${formatQty(layerCount)} × ${formatQty(markerTotalPieces)}`
+  return `${formatQty(actualCutPieceQty)} 片 = ${formatQty(layerCount)} 层 × ${formatQty(markerTotalPieces)} 片`
 }
 
 export function buildRollActualCutGarmentQtyFormula(actualCutGarmentQty: number, layerCount: number, garmentQtyPerUnit: number): string {
-  return `${formatQty(actualCutGarmentQty)} = ${formatQty(layerCount)} × ${formatQty(garmentQtyPerUnit)}`
+  return `${formatQty(actualCutGarmentQty)} 件 = ${formatQty(layerCount)} 层 × ${formatQty(garmentQtyPerUnit)} 件`
 }
 
 export function computeOperatorHandledGarmentQty(handledLayerCount: number | null, garmentQtyPerUnit: number): number | null {
@@ -1217,7 +1217,7 @@ export function computeOperatorHandledLengthByRoll(
 
 export function buildOperatorHandledLayerFormula(handledLayerCount: number | null, startLayer?: number, endLayer?: number): string {
   if (handledLayerCount === null || startLayer === undefined || endLayer === undefined) return ''
-  return `${formatQty(handledLayerCount)} = ${formatQty(endLayer)} - ${formatQty(startLayer)} + 1`
+  return `${formatQty(handledLayerCount)} 层 = ${formatQty(endLayer)} 层 - ${formatQty(startLayer)} 层 + 1 层`
 }
 
 export function buildOperatorHandledGarmentQtyFormula(
@@ -1226,7 +1226,7 @@ export function buildOperatorHandledGarmentQtyFormula(
   garmentQtyPerUnit: number,
 ): string {
   if (handledGarmentQty === null || handledLayerCount === null) return ''
-  return `${formatQty(handledGarmentQty)} = ${formatQty(handledLayerCount)} × ${formatQty(garmentQtyPerUnit)}`
+  return `${formatQty(handledGarmentQty)} 件 = ${formatQty(handledLayerCount)} 层 × ${formatQty(garmentQtyPerUnit)} 件`
 }
 
 export function buildOperatorHandledLengthFormula(
@@ -1236,17 +1236,17 @@ export function buildOperatorHandledLengthFormula(
   handledLayerCount: number | null,
 ): string {
   if (handledLength === null || handledLayerCount === null) return ''
-  return `${Number(handledLength || 0).toFixed(2)} = ${Number(actualLength || 0).toFixed(2)} ÷ ${formatQty(rollLayerCount)} × ${formatQty(handledLayerCount)}`
+  return `${Number(handledLength || 0).toFixed(2)} 米 = ${Number(actualLength || 0).toFixed(2)} 米 ÷ ${formatQty(rollLayerCount)} 层 × ${formatQty(handledLayerCount)} 层`
 }
 
 export function buildShortageQtyFormula(shortageQty: number, requiredQty: number, actualCutQty: number): string {
-  return `${formatQty(shortageQty)} = max(${formatQty(requiredQty)} - ${formatQty(actualCutQty)}, 0)`
+  return `${formatQty(shortageQty)} 件 = max(${formatQty(requiredQty)} 件 - ${formatQty(actualCutQty)} 件, 0 件)`
 }
 
 function buildWarningRuleText(shortageGarmentQty: number, varianceLength: number, missingData: boolean): string {
-  if (missingData) return '数据不足，待补录 = !需求成衣件数 || !已领取长度 || !总实际铺布长度'
-  if (shortageGarmentQty > 0 || varianceLength < 0) return '建议补料 = 缺口成衣件数 > 0 || 差异长度 < 0'
-  return '无需补料 = 缺口成衣件数 = 0 && 差异长度 ≥ 0'
+  if (missingData) return '待补录 = 需求成衣件数、已领取长度、总实际铺布长度未补齐'
+  if (shortageGarmentQty > 0 || varianceLength < 0) return '建议补料 = 存在缺口成衣件数，或实际铺布长度超出已领取长度'
+  return '无需补料 = 缺口成衣件数为 0，且实际铺布长度未超已领取长度'
 }
 
 function buildRoundedDistribution(total: number, weights: number[], digits = 0): number[] {
@@ -1341,12 +1341,12 @@ function buildSpreadingReplenishmentLines(options: {
       actualLengthTotal,
       shortageGarmentQty,
       suggestedAction,
-      actualCutGarmentQtyFormula: `${formatQty(actualCutGarmentQty)} = Σ 当前行卷层换算成衣件数`,
+      actualCutGarmentQtyFormula: `${formatQty(actualCutGarmentQty)} 件 = 当前行各卷裁剪成衣件数合计`,
       shortageGarmentQtyFormula: buildShortageQtyFormula(shortageGarmentQty, requiredGarmentQty, actualCutGarmentQty),
       suggestedActionRuleText:
         suggestedAction === '建议补料'
-          ? '建议补料 = 缺口成衣件数 > 0 || 实际铺布长度 > 已领取长度'
-          : '无需补料 = 缺口成衣件数 = 0 && 实际铺布长度 ≤ 已领取长度',
+          ? '建议补料 = 存在缺口成衣件数，或实际铺布长度超出已领取长度'
+          : '无需补料 = 缺口成衣件数为 0，且实际铺布长度未超已领取长度',
     }
   })
 }
@@ -2880,7 +2880,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
     return {
       level: 'MISSING',
       label: '数据待补录',
-      detailText: '当前唛架件数或铺布长度不足，需继续补录后再判断补料需求。',
+      detailText: '当前唛架成衣件数（件）或铺布长度不足，需继续补录后再判断补料需求。',
       shortageIndicator: false,
     }
   }
@@ -3229,7 +3229,7 @@ export function formatSpreadingLength(value: number): string {
 export function summarizeContextHint(context: MarkerSpreadingContext | null): string {
   if (!context) return '当前尚未收到原始裁片单或合并裁剪批次上下文，请从上游页面进入。'
   if (context.contextType === 'merge-batch') {
-    return `当前以合并裁剪批次 ${context.mergeBatchNo || '待补批次号'} 作为执行上下文，底层追溯仍回落 ${context.originalCutOrderNos.length} 个原始裁片单。`
+    return `当前以合并裁剪批次 ${context.mergeBatchNo || '待补合并裁剪批次号'} 作为执行上下文，底层追溯仍回落 ${context.originalCutOrderNos.length} 个原始裁片单。`
   }
   return `当前以原始裁片单 ${context.originalCutOrderNos[0]} 作为上下文，后续若进入打印菲票，归属仍回落该原始裁片单。`
 }

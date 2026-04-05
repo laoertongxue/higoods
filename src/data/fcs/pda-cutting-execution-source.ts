@@ -808,7 +808,7 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
         spreadingMode: mapSpreadingModeKey(marker.markerMode),
         title: marker.markerNo || marker.markerId,
         contextLabel: '按唛架开始铺布',
-        statusLabel: mapSpreadingModeLabel(marker.markerMode),
+        statusLabel: '可开始',
         originalCutOrderNo: execution.originalCutOrderNo || '',
         mergeBatchNo: execution.mergeBatchNo || '',
         productionOrderNo: execution.productionOrderNo || '',
@@ -830,7 +830,7 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
       spreadingMode: mapMarkerPlanModeToSpreadingMode(plan.markerMode),
       title: plan.markerNo || plan.id,
       contextLabel: '按唛架开始铺布',
-      statusLabel: plan.statusMeta.label,
+      statusLabel: '可开始',
       originalCutOrderNo: execution.originalCutOrderNo || '',
       mergeBatchNo: execution.mergeBatchNo || '',
       productionOrderNo: execution.productionOrderNo || '',
@@ -964,11 +964,11 @@ function resolveCurrentStepCode(input: {
 }
 
 function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
-  if (stepCode === 'PICKUP') return '领料'
-  if (stepCode === 'SPREADING') return '铺布'
-  if (stepCode === 'REPLENISHMENT') return '补料反馈'
-  if (stepCode === 'HANDOVER') return '交接'
-  if (stepCode === 'INBOUND') return '入仓'
+  if (stepCode === 'PICKUP') return '去领料'
+  if (stepCode === 'SPREADING') return '去铺布'
+  if (stepCode === 'REPLENISHMENT') return '去补料'
+  if (stepCode === 'HANDOVER') return '去交接'
+  if (stepCode === 'INBOUND') return '去入仓'
   return '已完成'
 }
 
@@ -980,11 +980,11 @@ function resolveNextAction(line: {
   if (line.taskStatus === 'CANCELLED') return '查看当前情况'
   if (line.taskStatus === 'BLOCKED') return '查看异常'
   if (line.hasException) return '查看异常'
-  if (line.currentStepCode === 'PICKUP') return '扫码领料'
-  if (line.currentStepCode === 'SPREADING') return '铺布录入'
-  if (line.currentStepCode === 'REPLENISHMENT') return '补料反馈'
-  if (line.currentStepCode === 'HANDOVER') return '交接扫码'
-  if (line.currentStepCode === 'INBOUND') return '入仓扫码'
+  if (line.currentStepCode === 'PICKUP') return '去领料'
+  if (line.currentStepCode === 'SPREADING') return '去铺布'
+  if (line.currentStepCode === 'REPLENISHMENT') return '去补料'
+  if (line.currentStepCode === 'HANDOVER') return '去交接'
+  if (line.currentStepCode === 'INBOUND') return '去入仓'
   return '查看当前情况'
 }
 

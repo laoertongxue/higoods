@@ -793,7 +793,7 @@ function deriveStatusMeta(options: {
 
 function buildSourceSummary(context: ReplenishmentContextRecord): string {
   if (context.baseSourceType === 'merge-batch') {
-    return `合并裁剪批次 ${context.mergeBatchNo || '待补批次号'} · ${context.originalCutOrderNos.length} 个原始裁片单`
+    return `合并裁剪批次 ${context.mergeBatchNo || '待补合并裁剪批次号'} · ${context.originalCutOrderNos.length} 个原始裁片单`
   }
   return `原始裁片单 ${context.originalCutOrderNos[0] || '待补'}`
 }
@@ -1228,7 +1228,7 @@ export function buildReplenishmentViewModel(options: {
       sourceProductionSummary: context.productionOrderNos.join(' / ') || '待补',
       sourceOrderSummary:
         context.baseSourceType === 'merge-batch'
-          ? `${context.mergeBatchNo || '待补批次号'} · ${context.originalCutOrderNos.join(' / ')}`
+          ? `${context.mergeBatchNo || '待补合并裁剪批次号'} · ${context.originalCutOrderNos.join(' / ')}`
           : context.originalCutOrderNos.join(' / ') || '待补',
       differenceSummary: buildDifferenceSummary(suggestion),
       majorGapSummary: buildMajorGapSummary(suggestion),

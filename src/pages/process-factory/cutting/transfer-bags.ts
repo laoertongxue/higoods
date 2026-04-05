@@ -1682,7 +1682,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                           <th class="px-3 py-2 text-right">数量</th>
                           <th class="px-3 py-2 text-left">来源生产单号</th>
                           <th class="px-3 py-2 text-left">来源裁片单号</th>
-                          <th class="px-3 py-2 text-left">所属裁片批次号</th>
+                          <th class="px-3 py-2 text-left">所属合并裁剪批次号</th>
                           <th class="px-3 py-2 text-left">菲票状态</th>
                           <th class="px-3 py-2 text-left">是否允许移除</th>
                         </tr>
@@ -2462,7 +2462,7 @@ function renderBindingSection(): string {
           <input
             type="text"
             value="${escapeHtml(state.bindingKeyword)}"
-            placeholder="支持周转口袋码 / 菲票码 / 原始裁片单号 / 批次号"
+            placeholder="支持周转口袋码 / 菲票码 / 原始裁片单号 / 合并裁剪批次号"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             data-transfer-bags-binding-field="keyword"
           />
@@ -2479,7 +2479,7 @@ function renderBindingSection(): string {
                   <th class="px-4 py-3 text-left">菲票码</th>
                   <th class="px-4 py-3 text-left">原始裁片单号</th>
                   <th class="px-4 py-3 text-left">生产单号</th>
-                  <th class="px-4 py-3 text-left">批次号</th>
+                  <th class="px-4 py-3 text-left">合并裁剪批次号</th>
                   <th class="px-4 py-3 text-left">绑定时间</th>
                   <th class="px-4 py-3 text-left">绑定人</th>
                   <th class="px-4 py-3 text-left">备注</th>

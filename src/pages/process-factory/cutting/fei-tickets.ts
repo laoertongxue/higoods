@@ -87,7 +87,7 @@ type PrintableActionPageKey =
 
 const printableTypeMeta: Record<'ALL' | PrintableUnitType, string> = {
   ALL: '全部',
-  BATCH: '裁片批次',
+  BATCH: '合并裁剪批次',
   CUT_ORDER: '裁片单',
 }
 
@@ -499,7 +499,7 @@ function renderFilterArea(): string {
             type="text"
             value="${escapeHtml(state.filters.keyword)}"
             data-cutting-fei-field="keyword"
-            placeholder="输入裁片批次号 / 原始裁片单号"
+            placeholder="输入合并裁剪批次号 / 原始裁片单号"
             class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
         </label>
@@ -853,6 +853,7 @@ function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
           <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs text-slate-500">应打菲票数</p>
             <p class="mt-1 text-xl font-semibold text-slate-900">${formatCount(unit.requiredTicketCount)}</p>
+            <p class="mt-1 text-xs text-slate-500">当前按铺布完成结果生成，主看实际成衣件数。</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs text-slate-500">有效已打印数</p>
@@ -928,13 +929,13 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
           <th class="px-3 py-3 text-left font-medium">部位名称</th>
           <th class="px-3 py-3 text-left font-medium">颜色</th>
           <th class="px-3 py-3 text-left font-medium">尺码</th>
-          <th class="px-3 py-3 text-left font-medium">数量</th>
+          <th class="px-3 py-3 text-left font-medium">成衣件数（件）</th>
           <th class="px-3 py-3 text-left font-medium">来源原始裁片单号</th>
           <th class="px-3 py-3 text-left font-medium">来源生产单号</th>
-          <th class="px-3 py-3 text-left font-medium">所属裁片批次号</th>
-          <th class="px-3 py-3 text-left font-medium">应生成菲票数量</th>
-          <th class="px-3 py-3 text-left font-medium">已生成有效菲票数量</th>
-          <th class="px-3 py-3 text-left font-medium">缺口数量</th>
+          <th class="px-3 py-3 text-left font-medium">所属合并裁剪批次号</th>
+          <th class="px-3 py-3 text-left font-medium">应生成菲票数（张）</th>
+          <th class="px-3 py-3 text-left font-medium">已生成有效菲票数（张）</th>
+          <th class="px-3 py-3 text-left font-medium">缺口菲票数（张）</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100 bg-white">
@@ -1033,7 +1034,7 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                 <p class="mt-1 text-xs text-slate-500">${escapeHtml(craftTrace?.carrierCode ? `已装入 ${craftTrace.carrierCode} / 周期 ${craftTrace.usageNo || '待补'}` : '当前未装袋')}</p>
               </div>
               <div>
-                <p class="text-sm text-slate-500">数量</p>
+                <p class="text-sm text-slate-500">成衣件数（件）</p>
                 <p class="text-lg font-semibold text-slate-900">${formatCount(ticket.quantity)}</p>
               </div>
             </div>
@@ -1066,10 +1067,10 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           <th class="px-3 py-3 text-left font-medium">款号</th>
           <th class="px-3 py-3 text-left font-medium">面料 SKU</th>
           <th class="px-3 py-3 text-left font-medium">裁片部位</th>
-          <th class="px-3 py-3 text-left font-medium">数量</th>
+          <th class="px-3 py-3 text-left font-medium">打印件数（件）</th>
           <th class="px-3 py-3 text-left font-medium">来源原始裁片单号</th>
           <th class="px-3 py-3 text-left font-medium">来源生产单号</th>
-          <th class="px-3 py-3 text-left font-medium">所属裁片批次号</th>
+          <th class="px-3 py-3 text-left font-medium">所属合并裁剪批次号</th>
           <th class="px-3 py-3 text-left font-medium">二级工艺标签</th>
           <th class="px-3 py-3 text-left font-medium">菲票码</th>
           <th class="px-3 py-3 text-left font-medium">打印版本号</th>
@@ -1405,7 +1406,7 @@ function renderOperationPage(pageKey: OperationPageKey): string {
       `
       : `
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">本次计划打印数量</p><p class="mt-1 text-sm font-semibold text-slate-900">${formatCount(planCount)}</p></div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">本次计划打印件数（件）</p><p class="mt-1 text-sm font-semibold text-slate-900">${formatCount(planCount)}</p></div>
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">当前缺口总数</p><p class="mt-1 text-sm font-semibold text-slate-900">${formatCount(unit.missingTicketCount)}</p></div>
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">最近打印时间</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(formatDateTime(unit.lastPrintedAt))}</p></div>
           <div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-xs text-slate-500">最近打印人</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(unit.lastPrintedBy || '未打印')}</p></div>

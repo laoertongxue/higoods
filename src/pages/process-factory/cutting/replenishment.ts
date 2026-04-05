@@ -1191,7 +1191,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     setFeedback(
       'success',
       approved
-        ? `已更新 ${row.suggestionNo} 的审核结果，并在仓库配料领料中生成补料待配料。`
+        ? '已生成补料待配料，可继续去仓库配料领料处理。'
         : `已更新 ${row.suggestionNo} 的审核结果。`,
     )
     return true

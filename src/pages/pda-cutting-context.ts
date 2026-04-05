@@ -214,7 +214,7 @@ export function buildPdaCuttingExecutionUnitContext(
   const hasMultipleCutPieceOrders = baseDetail.cutPieceOrders.length > 1
   const requestedButMissing = Boolean(requestedExecutionOrderId || requestedOrderNo) && !selectedLine
   const selectionNotice = requestedButMissing
-    ? '当前执行单不存在，请先返回裁片任务重新选择。'
+    ? '当前任务不存在，请先返回裁片任务重新选择。'
     : !selectedLine && hasMultipleCutPieceOrders
       ? '请先在裁片任务中选择要处理的执行单。'
       : null
