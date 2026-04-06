@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
+import { assertPlaywrightPreflight, formatPlaywrightCollectabilityFailure } from './check-playwright-preflight.ts'
 
 const repoRoot = process.cwd()
 const specRel = 'tests/cutting-release-acceptance.spec.ts'
@@ -19,25 +20,6 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function read(rel: string): string {
   return fs.readFileSync(abs(rel), 'utf8')
-}
-
-function assertPlaywrightDependencyResolvable(): void {
-  const result = spawnSync(
-    process.execPath,
-    [
-      '--input-type=module',
-      '-e',
-      "import('@playwright/test').then(()=>console.log('ok')).catch((error)=>{console.error(error instanceof Error ? error.message : String(error));process.exit(1)})",
-    ],
-    {
-      cwd: repoRoot,
-      encoding: 'utf8',
-    },
-  )
-
-  if (result.status !== 0) {
-    throw new Error(`@playwright/test 无法解析\n${result.stdout || ''}${result.stderr || ''}`.trim())
-  }
 }
 
 function assertSpecCoversAcceptance(): void {
@@ -72,6 +54,13 @@ function assertSpecCoversAcceptance(): void {
     '去仓库配料领料',
     '合并裁剪批次',
     '关联合并裁剪批次',
+    '理论成衣件数（件）',
+    '已裁片片数（片）',
+    '已入仓裁片片数（片）',
+    '理论裁片片数（片）',
+    '差异裁片片数（片）',
+    '计划捆条产出数量',
+    '实际捆条产出',
     '需求成衣件数（件）',
     '本单成衣件数（件）',
     '录入来源',
@@ -86,6 +75,9 @@ function assertSpecCoversAcceptance(): void {
     '移动录入',
     '先装袋后入仓',
     'sourceWritebackId',
+    "not.toContainText('sourceWritebackId')",
+    "not.toContainText('enteredByAccountId')",
+    '交接结果',
   ].forEach((token) => {
     assert(source.includes(token), `${specRel} 缺少 release acceptance 关键覆盖点：${token}`)
   })
@@ -132,7 +124,7 @@ function assertSpecIsCollectable(rel: string): void {
   })
 
   if (result.status !== 0) {
-    throw new Error(`${rel} 无法被 Playwright 收集\n${result.stdout || ''}${result.stderr || ''}`.trim())
+    throw new Error(formatPlaywrightCollectabilityFailure(rel, `${result.stdout || ''}${result.stderr || ''}`))
   }
 }
 
@@ -143,7 +135,7 @@ function assertAcceptanceListCoversMainChain(): void {
   })
 
   if (result.status !== 0) {
-    throw new Error(`${specRel} 无法列出测试\n${result.stdout || ''}${result.stderr || ''}`.trim())
+    throw new Error(formatPlaywrightCollectabilityFailure(specRel, `${result.stdout || ''}${result.stderr || ''}`))
   }
 
   const output = `${result.stdout || ''}${result.stderr || ''}`
@@ -160,7 +152,7 @@ function assertAcceptanceListCoversMainChain(): void {
 }
 
 function main(): void {
-  assertPlaywrightDependencyResolvable()
+  assertPlaywrightPreflight()
   assertSpecCoversAcceptance()
   assertCopyCleanupSpec()
   assertSpecIsCollectable(specRel)

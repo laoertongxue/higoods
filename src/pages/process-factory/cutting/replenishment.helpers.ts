@@ -37,7 +37,7 @@ export const sourceTypeMeta: Record<ReplenishmentSourceType, string> = {
 
 export const reasonTypeMeta = {
   LENGTH_SHORTAGE: '铺布总长度不足',
-  YIELD_RISK: '实际裁剪数量存在缺口风险',
+  YIELD_RISK: '实际裁剪成衣件数存在缺口风险',
   RECEIVE_GAP: '领料差异导致预计不足',
   MANUAL_REVIEW: '需要追加面料准备',
 } as const

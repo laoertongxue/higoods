@@ -75,14 +75,14 @@ export function getPdaCuttingPageContext(taskId: string): PdaCuttingPageContext 
 
 export function renderPdaCuttingSummaryGrid(items: CuttingSummaryItem[]): string {
   return `
-    <section class="grid grid-cols-2 gap-3">
+    <section class="grid grid-cols-2 gap-2">
       ${items
         .map(
           (item) => `
-            <article class="rounded-xl border bg-card px-3 py-3 shadow-sm">
+            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">
               <div class="text-xs text-muted-foreground">${escapeHtml(item.label)}</div>
-              <div class="mt-2 text-sm font-semibold text-foreground">${escapeHtml(item.value)}</div>
-              ${item.hint ? `<div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(item.hint)}</div>` : ''}
+              <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(item.value)}</div>
+              ${item.hint ? `<div class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(item.hint)}</div>` : ''}
             </article>
           `,
         )
@@ -94,10 +94,10 @@ export function renderPdaCuttingSummaryGrid(items: CuttingSummaryItem[]): string
 export function renderPdaCuttingSection(title: string, _description: string, content: string): string {
   return `
     <section class="rounded-2xl border bg-card shadow-sm">
-      <header class="border-b px-4 py-3">
+      <header class="border-b px-3 py-2">
         <h3 class="text-sm font-semibold text-foreground">${escapeHtml(title)}</h3>
       </header>
-      <div class="px-4 py-4">${content}</div>
+      <div class="px-3 py-3">${content}</div>
     </section>
   `
 }
@@ -113,12 +113,12 @@ export function renderPdaCuttingFeedbackNotice(
         ? 'border border-amber-200 bg-amber-50 text-amber-800'
         : 'border border-slate-200 bg-slate-50 text-slate-700'
 
-  return `<div class="rounded-xl px-3 py-3 text-xs ${className}">${escapeHtml(message)}</div>`
+  return `<div class="rounded-xl px-2.5 py-2 text-xs ${className}">${escapeHtml(message)}</div>`
 }
 
 export function renderPdaCuttingEmptyState(title: string, _description: string): string {
   return `
-    <section class="rounded-2xl border border-dashed bg-muted/20 px-4 py-8 text-center">
+    <section class="rounded-2xl border border-dashed bg-muted/20 px-3 py-6 text-center">
       <div class="text-sm font-medium text-foreground">${escapeHtml(title)}</div>
     </section>
   `
@@ -126,8 +126,8 @@ export function renderPdaCuttingEmptyState(title: string, _description: string):
 
 export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): string {
   return `
-    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <div class="flex items-start justify-between gap-3">
+    <section class="rounded-2xl border bg-card px-3 py-3 shadow-sm">
+      <div class="flex items-start justify-between gap-2">
         <div class="space-y-1">
           <div class="text-xs text-muted-foreground">裁片任务</div>
           <div class="text-lg font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
@@ -136,13 +136,13 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
         </div>
         ${renderChip(detail.currentStage, 'border-blue-200 bg-blue-50 text-blue-700')}
       </div>
-      <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
-        <div class="rounded-xl bg-muted/40 px-3 py-3">
+      <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div class="rounded-xl bg-muted/40 px-2.5 py-2">
           <div class="text-muted-foreground">面料信息</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.materialSku)}</div>
           <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
         </div>
-        <div class="rounded-xl bg-muted/40 px-3 py-3">
+        <div class="rounded-xl bg-muted/40 px-2.5 py-2">
           <div class="text-muted-foreground">裁片单主码摘要</div>
           <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.qrCodeValue)}</div>
           <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrVersionNote)}</div>
@@ -154,30 +154,30 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
 
 export function renderPdaCuttingExecutionHero(stepTitle: string, detail: PdaCuttingTaskDetailData): string {
   return `
-    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <div class="flex items-start justify-between gap-3">
+    <section class="rounded-2xl border bg-card px-3 py-3 shadow-sm">
+      <div class="flex items-start justify-between gap-2">
         <div class="space-y-1">
           <div class="text-xs text-muted-foreground">当前步骤</div>
           <div class="text-base font-semibold text-foreground">${escapeHtml(stepTitle)}</div>
-          <div class="text-xs text-muted-foreground">裁片任务 ${escapeHtml(detail.taskNo)}</div>
+          <div class="text-xs text-muted-foreground">当前任务 ${escapeHtml(detail.executionOrderNo)}</div>
         </div>
         ${renderChip(detail.taskStatusLabel, 'border-blue-200 bg-blue-50 text-blue-700')}
       </div>
-      <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
-        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+      <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <article class="rounded-xl border bg-muted/20 px-2.5 py-2">
           <div class="text-muted-foreground">当前生产单</div>
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.productionOrderNo)}</div>
         </article>
-        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+        <article class="rounded-xl border bg-muted/20 px-2.5 py-2">
           <div class="text-muted-foreground">当前任务</div>
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div>
           <div class="mt-1 text-[11px] text-muted-foreground">绑定原始裁片单 ${escapeHtml(detail.originalCutOrderNo)}</div>
         </article>
-        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+        <article class="rounded-xl border bg-muted/20 px-2.5 py-2">
           <div class="text-muted-foreground">面料 SKU</div>
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div>
         </article>
-        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+        <article class="rounded-xl border bg-muted/20 px-2.5 py-2">
           <div class="text-muted-foreground">面料类型</div>
           <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
         </article>
@@ -192,11 +192,11 @@ export function renderPdaCuttingRiskList(riskTips: string[]): string {
   }
 
   return `
-    <div class="space-y-2">
+    <div class="space-y-1.5">
       ${riskTips
         .map(
           (tip) => `
-            <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-5 text-amber-800">
               ${escapeHtml(tip)}
             </div>
           `,
@@ -213,8 +213,8 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
   if (!context) {
     return renderPdaFrame(
       `
-        <section class="space-y-4 px-4 py-4">
-          <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(backHref)}">
+        <section class="space-y-3 px-3 py-3">
+          <button class="inline-flex items-center rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(backHref)}">
             返回
           </button>
           ${renderPdaCuttingEmptyState('未找到裁片任务', '当前任务不存在或不属于裁片专项任务，请返回工厂端任务列表重新进入。')}
@@ -228,10 +228,10 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
 
   return renderPdaFrame(
     `
-      <section class="space-y-4 px-4 py-4">
-        <header class="space-y-3">
+      <section class="space-y-3 px-3 py-3">
+        <header class="space-y-2.5">
           <div class="flex items-center justify-between gap-3">
-            <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(backHref)}">
+            <button class="inline-flex items-center rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(backHref)}">
               返回
             </button>
             ${renderChip(detail.taskTypeLabel, 'border-slate-200 bg-slate-50 text-slate-700')}
@@ -247,14 +247,37 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
   )
 }
 
+export function normalizePdaCuttingHandoverResultLabel(label?: string | null): string {
+  const text = String(label || '').trim()
+  if (!text) return '无换班'
+  if (text === '无换班') return text
+  if (text.startsWith('交接给：') || text.startsWith('接手自：')) return text
+
+  const normalized = text.replace(/^换班[:：]\s*/, '').trim()
+  if (normalized === '否' || normalized === '无' || normalized === '无换班') return '无换班'
+  if (normalized === '是') return '交接给：待确认'
+
+  if (text.startsWith('中途交接') || text.startsWith('交接')) {
+    const targetName = text.replace(/^(中途交接|交接)[:：]?\s*/, '').trim()
+    return targetName ? `交接给：${targetName}` : '交接给：待确认'
+  }
+
+  if (text.startsWith('接手继续') || text.startsWith('接手')) {
+    const sourceName = text.replace(/^(接手继续|接手)[:：]?\s*/, '').trim()
+    return sourceName ? `接手自：${sourceName}` : '接手自：待确认'
+  }
+
+  return text
+}
+
 export function renderPdaCuttingOrderSelectionPrompt(detail: PdaCuttingTaskDetailData, backHref: string, notice?: string): string {
   return `
-    <section class="space-y-4">
-      <div class="rounded-2xl border border-dashed bg-muted/20 px-4 py-6 text-center">
-        <div class="text-sm font-medium text-foreground">${escapeHtml(notice || '请先在裁片任务中选择要处理的裁片单')}</div>
-        <div class="mt-2 text-xs text-muted-foreground">当前任务下共有 ${escapeHtml(String(detail.cutPieceOrderCount))} 张关联裁片单，执行页必须带着当前裁片单进入。</div>
+    <section class="space-y-3">
+      <div class="rounded-2xl border border-dashed bg-muted/20 px-3 py-4 text-center">
+        <div class="text-sm font-medium text-foreground">${escapeHtml(notice || '先选裁片单，再继续')}</div>
+        <div class="mt-1 text-xs text-muted-foreground">当前有 ${escapeHtml(String(detail.cutPieceOrderCount))} 张裁片单，选好再进入当前任务。</div>
       </div>
-      <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(backHref)}">
+      <button class="inline-flex min-h-9 w-full items-center justify-center rounded-xl border px-3 py-1.5 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(backHref)}">
         返回裁片任务
       </button>
     </section>
@@ -303,7 +326,7 @@ export function renderPdaCuttingQuickLinks(
       ${links
         .map(
           (link) => `
-            <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium text-foreground hover:bg-muted" data-nav="${escapeHtml(link.href)}">
+            <button class="inline-flex min-h-9 items-center justify-center rounded-xl border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted" data-nav="${escapeHtml(link.href)}">
               ${escapeHtml(link.label)}
             </button>
           `,

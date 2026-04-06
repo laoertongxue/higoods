@@ -58,6 +58,7 @@
     "check:cutting-marker-plan-formulas": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-marker-plan-formulas.ts",
     "check:cutting-marker-plan-mock-coverage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-marker-plan-mock-coverage.ts",
     "check:cutting:cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-final-cleanup.ts",
+    "check:cutting:playwright-preflight": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-playwright-preflight.ts",
     "check:cutting:all": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-release-readiness.ts",
     "check:cutting:release": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-p2-delivery.ts",
     "test:quality-deduction-step1:e2e": "playwright test tests/fcs-quality-step1.spec.ts",

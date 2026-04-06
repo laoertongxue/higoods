@@ -70,6 +70,33 @@ const FOLLOWUP_ACTION_LABELS: Record<SpecialProcessFollowupActionType, string> =
   GO_CUTTING_TOTAL_TABLE: '去裁剪总表',
 }
 
+export interface SpecialProcessOutputLabels {
+  planned: string
+  actual: string
+  plannedQty: string
+  cumulativeActual: string
+  actualColumn: string
+}
+
+export function getSpecialProcessOutputLabels(processType: SpecialProcessType): SpecialProcessOutputLabels {
+  if (processType === 'BINDING_STRIP') {
+    return {
+      planned: '计划捆条产出',
+      actual: '实际捆条产出',
+      plannedQty: '计划捆条产出数量',
+      cumulativeActual: '累计实际捆条产出',
+      actualColumn: '实际捆条产出',
+    }
+  }
+  return {
+    planned: '计划产出',
+    actual: '实际产出',
+    plannedQty: '计划产出数量',
+    cumulativeActual: '累计实际产出',
+    actualColumn: '实际产出',
+  }
+}
+
 export function deriveSpecialProcessTypeExecutionMeta(processType: SpecialProcessType): SpecialProcessTypeExecutionMeta {
   if (processType === 'BINDING_STRIP') {
     return {
@@ -331,7 +358,9 @@ export function validateSpecialProcessExecutionTransition(options: {
 
   if (options.payload.materialLength <= 0) return { ok: false, message: '请填写计划布料长度。' }
   if (options.payload.cutWidth <= 0) return { ok: false, message: '请填写计划裁剪宽度。' }
-  if (options.payload.expectedQty <= 0) return { ok: false, message: '请填写计划产出数量。' }
+  if (options.payload.expectedQty <= 0) {
+    return { ok: false, message: `请填写${getSpecialProcessOutputLabels(options.order.processType).plannedQty}。` }
+  }
 
   if (options.nextStatus === 'PENDING_EXECUTION') {
     return { ok: true, message: '' }
@@ -343,7 +372,9 @@ export function validateSpecialProcessExecutionTransition(options: {
 
   if (options.nextStatus === 'DONE') {
     if (!hasExecutionContent(options.executionLogs)) return { ok: false, message: '请先补录执行记录。' }
-    if ((options.payload.actualQty || 0) <= 0) return { ok: false, message: '请填写实际产出数量后再完成。' }
+    if ((options.payload.actualQty || 0) <= 0) {
+      return { ok: false, message: `请填写${getSpecialProcessOutputLabels(options.order.processType).actual}数量后再完成。` }
+    }
     return { ok: true, message: '' }
   }
 

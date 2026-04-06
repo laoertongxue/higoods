@@ -526,7 +526,7 @@ function renderOrderCard(order: ReturnType<typeof getVisibleOrders>[number], cur
             <span>工厂：${escapeHtml(order.factoryName || '—')}</span>
             <span>款号 / SPU：${escapeHtml(order.styleCode || order.spuCode || '-')}</span>
             <span>款式名称：${escapeHtml(order.styleName || '-')}</span>
-            <span>下单件数：${escapeHtml(String(order.orderQty))}</span>
+            <span>下单成衣件数（件）：${escapeHtml(String(order.orderQty))}</span>
             <span>计划发货：${escapeHtml(order.plannedShipDateDisplay)}</span>
             <span>${escapeHtml(order.shipCountdownText)}</span>
             <span>原始裁片单总数：${order.totalOriginalOrderCount}</span>

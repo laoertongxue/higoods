@@ -787,9 +787,9 @@ function renderPieceTruthSkuSection(detail: CuttingSummaryDetailPanelData): stri
                       <th class="px-3 py-2">SKU</th>
                       <th class="px-3 py-2">颜色</th>
                       <th class="px-3 py-2">尺码</th>
-                      <th class="px-3 py-2">理论件数</th>
-                      <th class="px-3 py-2">已裁片数</th>
-                      <th class="px-3 py-2">已入仓片数</th>
+                      <th class="px-3 py-2">理论成衣件数（件）</th>
+                      <th class="px-3 py-2">已裁片片数（片）</th>
+                      <th class="px-3 py-2">已入仓裁片片数（片）</th>
                       <th class="px-3 py-2">当前状态</th>
                     </tr>
                   </thead>
@@ -842,10 +842,10 @@ function renderPieceTruthGapSection(detail: CuttingSummaryDetailPanelData): stri
                       <th class="px-3 py-2">面料 SKU</th>
                       <th class="px-3 py-2">SKU</th>
                       <th class="px-3 py-2">部位</th>
-                      <th class="px-3 py-2">理论片数</th>
-                      <th class="px-3 py-2">已裁片数</th>
-                      <th class="px-3 py-2">已入仓片数</th>
-                      <th class="px-3 py-2">差异片数</th>
+                      <th class="px-3 py-2">理论裁片片数（片）</th>
+                      <th class="px-3 py-2">已裁片片数（片）</th>
+                      <th class="px-3 py-2">已入仓裁片片数（片）</th>
+                      <th class="px-3 py-2">差异裁片片数（片）</th>
                       <th class="px-3 py-2">当前状态</th>
                       <th class="px-3 py-2">下一步动作</th>
                     </tr>

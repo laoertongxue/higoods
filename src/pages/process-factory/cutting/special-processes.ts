@@ -6,6 +6,7 @@ import {
   buildDefaultSpecialProcessScopeLines,
   buildSpecialProcessExecutionLog,
   deriveSpecialProcessTypeExecutionMeta,
+  getSpecialProcessOutputLabels,
   validateSpecialProcessExecutionTransition,
 } from './special-processes-domain'
 import {
@@ -355,7 +356,7 @@ function renderFilterSelect(
   return `
     <label class="space-y-2">
       <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
-      <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-field="${field}">
+      <select class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-field="${field}">
         ${options
           .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
           .join('')}
@@ -366,14 +367,14 @@ function renderFilterSelect(
 
 function renderHeaderActions(): string {
   const returnToSummary = hasSummaryReturnContext(state.drillContext)
-    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="return-summary">返回裁剪总表</button>`
+    ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="return-summary">返回裁剪总表</button>`
     : ''
   return `
     <div class="flex flex-wrap gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="create-binding-strip">新建捆条工艺单</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="go-original-index">返回原始裁片单</button>
+      <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="create-binding-strip">新建捆条工艺单</button>
+      <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="go-original-index">返回原始裁片单</button>
       ${returnToSummary}
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="go-summary-index">查看裁剪总表</button>
+      <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="go-summary-index">查看裁剪总表</button>
     </div>
   `
 }
@@ -425,7 +426,7 @@ function renderFilterBar(): string {
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <label class="space-y-2 xl:col-span-2">
           <span class="text-sm font-medium text-foreground">关键词</span>
-          <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持工艺单号 / 原始裁片单号 / 批次号 / 款号 / 面料" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-field="keyword" />
+          <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持工艺单号 / 原始裁片单号 / 批次号 / 款号 / 面料" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-field="keyword" />
         </label>
         ${renderFilterSelect('工艺类型', 'processType', state.filters.processType, [
           { value: 'ALL', label: '全部' },
@@ -529,17 +530,17 @@ function renderScopeUnitOptions(value: SpecialProcessScopeUnitType): string {
 
 function renderScopeSection(row: SpecialProcessRow): string {
   return `
-    <section class="rounded-lg border bg-card p-4">
-      <div class="flex items-center justify-between gap-3">
+    <section class="rounded-lg border bg-card p-3">
+      <div class="flex items-center justify-between gap-2">
         <div>
           <h3 class="text-sm font-semibold text-foreground">作用范围</h3>
-          <p class="mt-1 text-xs text-muted-foreground">当前共 ${state.editorDraft.scopeLines.length} 条范围行，计划量合计 ${formatQty(state.editorDraft.scopeLines.reduce((sum, item) => sum + Math.max(item.plannedQty, 0), 0))}</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">当前共 ${state.editorDraft.scopeLines.length} 条范围行，计划量合计 ${formatQty(state.editorDraft.scopeLines.reduce((sum, item) => sum + Math.max(item.plannedQty, 0), 0))}</p>
         </div>
         ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status)
-          ? '<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-special-process-action="add-scope-line">新增范围行</button>'
+          ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-special-process-action="add-scope-line">新增范围行</button>'
           : ''}
       </div>
-      <div class="mt-3 overflow-x-auto">
+      <div class="mt-2 overflow-x-auto">
         <table class="min-w-full text-xs">
           <thead class="bg-muted/60 text-muted-foreground">
             <tr>
@@ -558,7 +559,7 @@ function renderScopeSection(row: SpecialProcessRow): string {
               .map((scope) => `
                 <tr class="border-b">
                   <td class="px-3 py-2">
-                    <select class="h-9 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" data-special-process-scope-field="sourceCutOrderId" data-scope-id="${escapeHtml(scope.scopeId)}" ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status) ? '' : 'disabled'}>
+                    <select class="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" data-special-process-scope-field="sourceCutOrderId" data-scope-id="${escapeHtml(scope.scopeId)}" ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status) ? '' : 'disabled'}>
                       ${row.sourceOptions
                         .map((option) => `<option value="${escapeHtml(option.sourceCutOrderId)}" ${option.sourceCutOrderId === scope.sourceCutOrderId ? 'selected' : ''}>${escapeHtml(option.sourceCutOrderNo)}</option>`)
                         .join('')}
@@ -568,19 +569,19 @@ function renderScopeSection(row: SpecialProcessRow): string {
                   <td class="px-3 py-2 text-muted-foreground">${escapeHtml(scope.color || '待补')}</td>
                   <td class="px-3 py-2 text-muted-foreground">${escapeHtml(scope.materialSku || '待补')}</td>
                   <td class="px-3 py-2">
-                    <input type="number" min="0" step="1" value="${escapeHtml(String(scope.plannedQty))}" class="h-9 w-24 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" data-special-process-scope-field="plannedQty" data-scope-id="${escapeHtml(scope.scopeId)}" ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status) ? '' : 'disabled'} />
+                    <input type="number" min="0" step="1" value="${escapeHtml(String(scope.plannedQty))}" class="h-8 w-24 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" data-special-process-scope-field="plannedQty" data-scope-id="${escapeHtml(scope.scopeId)}" ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status) ? '' : 'disabled'} />
                   </td>
                   <td class="px-3 py-2">
-                    <select class="h-9 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" data-special-process-scope-field="unitType" data-scope-id="${escapeHtml(scope.scopeId)}" ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status) ? '' : 'disabled'}>
+                    <select class="h-8 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" data-special-process-scope-field="unitType" data-scope-id="${escapeHtml(scope.scopeId)}" ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status) ? '' : 'disabled'}>
                       ${renderScopeUnitOptions(scope.unitType)}
                     </select>
                   </td>
                   <td class="px-3 py-2">
-                    <input type="text" value="${escapeHtml(scope.note)}" class="h-9 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" data-special-process-scope-field="note" data-scope-id="${escapeHtml(scope.scopeId)}" ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status) ? '' : 'disabled'} />
+                    <input type="text" value="${escapeHtml(scope.note)}" class="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" data-special-process-scope-field="note" data-scope-id="${escapeHtml(scope.scopeId)}" ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status) ? '' : 'disabled'} />
                   </td>
                   <td class="px-3 py-2">
                     ${row.typeExecutionMeta.enabledForExecution && !['DONE', 'CANCELLED'].includes(row.status)
-                      ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-special-process-action="remove-scope-line" data-scope-id="${escapeHtml(scope.scopeId)}">删除</button>`
+                      ? `<button type="button" class="rounded-md border px-2 py-0.5 text-xs hover:bg-muted" data-special-process-action="remove-scope-line" data-scope-id="${escapeHtml(scope.scopeId)}">删除</button>`
                       : '—'}
                   </td>
                 </tr>
@@ -594,9 +595,10 @@ function renderScopeSection(row: SpecialProcessRow): string {
 }
 
 function renderBindingStripSection(row: SpecialProcessRow): string {
+  const outputLabels = getSpecialProcessOutputLabels(row.processType)
   if (row.processType === 'WASH') {
     return `
-      <section class="rounded-lg border bg-card p-4">
+      <section class="rounded-lg border bg-card p-3">
         <h3 class="text-sm font-semibold text-foreground">工艺参数</h3>
         <div class="mt-3 rounded-lg border border-dashed bg-slate-50 p-4 text-sm text-muted-foreground">
           ${escapeHtml(row.typeExecutionMeta.disabledReason)}
@@ -611,9 +613,9 @@ function renderBindingStripSection(row: SpecialProcessRow): string {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="text-sm font-semibold text-foreground">工艺参数</h3>
-          <div class="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span>计划产出：${escapeHtml(state.editorDraft.expectedQty || '0')}</span>
-            <span>实际产出：${escapeHtml(state.editorDraft.actualQty || '0')}</span>
+          <div class="mt-1.5 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+            <span>${escapeHtml(outputLabels.planned)}：${escapeHtml(state.editorDraft.expectedQty || '0')}</span>
+            <span>${escapeHtml(outputLabels.actual)}：${escapeHtml(state.editorDraft.actualQty || '0')}</span>
             <span>差异：${escapeHtml(String(difference))}</span>
             <span>当前负责人：${escapeHtml(state.editorDraft.operatorName || row.latestOperatorName || '待补')}</span>
             <span>最近更新：${escapeHtml(row.latestExecutionAt ? formatDateTime(row.latestExecutionAt) : '待补')}</span>
@@ -621,95 +623,96 @@ function renderBindingStripSection(row: SpecialProcessRow): string {
         </div>
         ${renderTag(row.typeExecutionMeta.integrationLabel, 'bg-blue-50 text-blue-700')}
       </div>
-      <div class="mt-3 grid gap-3 md:grid-cols-2">
+      <div class="mt-2 grid gap-2 md:grid-cols-2">
         <label class="space-y-2">
           <span class="text-xs text-muted-foreground">计划布料长度（米）</span>
-          <input type="number" min="0" step="0.1" value="${escapeHtml(state.editorDraft.materialLength)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="materialLength" />
+          <input type="number" min="0" step="0.1" value="${escapeHtml(state.editorDraft.materialLength)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="materialLength" />
         </label>
         <label class="space-y-2">
           <span class="text-xs text-muted-foreground">计划裁剪宽度（厘米）</span>
-          <input type="number" min="0" step="0.1" value="${escapeHtml(state.editorDraft.cutWidth)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="cutWidth" />
+          <input type="number" min="0" step="0.1" value="${escapeHtml(state.editorDraft.cutWidth)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="cutWidth" />
         </label>
         <label class="space-y-2">
-          <span class="text-xs text-muted-foreground">计划产出数量</span>
-          <input type="number" min="0" step="1" value="${escapeHtml(state.editorDraft.expectedQty)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="expectedQty" />
+          <span class="text-xs text-muted-foreground">${escapeHtml(outputLabels.plannedQty)}</span>
+          <input type="number" min="0" step="1" value="${escapeHtml(state.editorDraft.expectedQty)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="expectedQty" />
         </label>
         <label class="space-y-2">
-          <span class="text-xs text-muted-foreground">累计实际产出</span>
-          <input type="number" min="0" step="1" value="${escapeHtml(state.editorDraft.actualQty)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="actualQty" />
+          <span class="text-xs text-muted-foreground">${escapeHtml(outputLabels.cumulativeActual)}</span>
+          <input type="number" min="0" step="1" value="${escapeHtml(state.editorDraft.actualQty)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="actualQty" />
         </label>
         <label class="space-y-2">
           <span class="text-xs text-muted-foreground">当前负责人</span>
-          <input type="text" value="${escapeHtml(state.editorDraft.operatorName)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="operatorName" />
+          <input type="text" value="${escapeHtml(state.editorDraft.operatorName)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="operatorName" />
         </label>
         <label class="space-y-2">
           <span class="text-xs text-muted-foreground">工艺备注</span>
-          <input type="text" value="${escapeHtml(state.editorDraft.payloadNote)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="payloadNote" />
+          <input type="text" value="${escapeHtml(state.editorDraft.payloadNote)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="payloadNote" />
         </label>
       </div>
-      <label class="mt-3 block space-y-2">
+      <label class="mt-2 block space-y-1">
         <span class="text-xs text-muted-foreground">工艺单说明</span>
-        <textarea rows="3" class="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="note">${escapeHtml(state.editorDraft.note)}</textarea>
+        <textarea rows="3" class="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-editor="note">${escapeHtml(state.editorDraft.note)}</textarea>
       </label>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="save-editor">保存工艺参数</button>
-        ${row.status === 'DRAFT' ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="submit-pending">提交待执行</button>' : ''}
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="save-editor">保存工艺参数</button>
+        ${row.status === 'DRAFT' ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="submit-pending">提交待执行</button>' : ''}
       </div>
     </section>
   `
 }
 
 function renderExecutionSection(row: SpecialProcessRow): string {
+  const outputLabels = getSpecialProcessOutputLabels(row.processType)
   const actionButtons = !row.typeExecutionMeta.enabledForExecution || ['DONE', 'CANCELLED'].includes(row.status)
     ? ''
     : `
       <div class="mt-3 flex flex-wrap gap-2">
-        ${row.status === 'PENDING_EXECUTION' ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="log-start">记录开工</button>' : ''}
-        ${row.status === 'IN_PROGRESS' ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="log-update">记录进度</button>' : ''}
-        ${row.status === 'IN_PROGRESS' ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="log-pause">记录暂停</button>' : ''}
-        ${row.status === 'IN_PROGRESS' ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="log-resume">恢复执行</button>' : ''}
-        ${row.status !== 'CANCELLED' && row.status !== 'DONE' ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="log-note">记录备注</button>' : ''}
-        ${row.status === 'IN_PROGRESS' ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="log-complete">标记完成</button>' : ''}
-        ${row.status !== 'DONE' && row.status !== 'CANCELLED' ? '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="log-cancel">取消工艺单</button>' : ''}
+        ${row.status === 'PENDING_EXECUTION' ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="log-start">记录开工</button>' : ''}
+        ${row.status === 'IN_PROGRESS' ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="log-update">记录进度</button>' : ''}
+        ${row.status === 'IN_PROGRESS' ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="log-pause">记录暂停</button>' : ''}
+        ${row.status === 'IN_PROGRESS' ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="log-resume">恢复执行</button>' : ''}
+        ${row.status !== 'CANCELLED' && row.status !== 'DONE' ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="log-note">记录备注</button>' : ''}
+        ${row.status === 'IN_PROGRESS' ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="log-complete">标记完成</button>' : ''}
+        ${row.status !== 'DONE' && row.status !== 'CANCELLED' ? '<button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="log-cancel">取消工艺单</button>' : ''}
       </div>
     `
 
   return `
-    <section class="rounded-lg border bg-card p-4">
+    <section class="rounded-lg border bg-card p-3">
       <h3 class="text-sm font-semibold text-foreground">执行记录</h3>
       ${row.typeExecutionMeta.enabledForExecution ? `
-        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div class="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
           <label class="space-y-2">
             <span class="text-xs text-muted-foreground">执行人</span>
-            <input type="text" value="${escapeHtml(state.editorDraft.execution.operatorName)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="operatorName" />
+            <input type="text" value="${escapeHtml(state.editorDraft.execution.operatorName)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="operatorName" />
           </label>
           <label class="space-y-2">
-            <span class="text-xs text-muted-foreground">实际产出</span>
-            <input type="number" min="0" step="1" value="${escapeHtml(state.editorDraft.execution.actualQty)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="actualQty" />
+            <span class="text-xs text-muted-foreground">${escapeHtml(outputLabels.actual)}</span>
+            <input type="number" min="0" step="1" value="${escapeHtml(state.editorDraft.execution.actualQty)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="actualQty" />
           </label>
           <label class="space-y-2">
             <span class="text-xs text-muted-foreground">实际长度（米）</span>
-            <input type="number" min="0" step="0.1" value="${escapeHtml(state.editorDraft.execution.actualLength)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="actualLength" />
+            <input type="number" min="0" step="0.1" value="${escapeHtml(state.editorDraft.execution.actualLength)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="actualLength" />
           </label>
           <label class="space-y-2">
             <span class="text-xs text-muted-foreground">实际宽度（厘米）</span>
-            <input type="number" min="0" step="0.1" value="${escapeHtml(state.editorDraft.execution.actualWidth)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="actualWidth" />
+            <input type="number" min="0" step="0.1" value="${escapeHtml(state.editorDraft.execution.actualWidth)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="actualWidth" />
           </label>
           <label class="space-y-2 xl:col-span-1">
             <span class="text-xs text-muted-foreground">执行备注</span>
-            <input type="text" value="${escapeHtml(state.editorDraft.execution.remark)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="remark" />
+            <input type="text" value="${escapeHtml(state.editorDraft.execution.remark)}" class="h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-special-process-execution-field="remark" />
           </label>
         </div>
         ${actionButtons}
       ` : `<div class="mt-3 rounded-lg border border-dashed bg-slate-50 p-4 text-sm text-muted-foreground">当前仅展示预留状态，不进入执行记录链。</div>`}
-      <div class="mt-4 overflow-x-auto">
+      <div class="mt-3 overflow-x-auto">
         <table class="min-w-full text-xs">
           <thead class="bg-muted/60 text-muted-foreground">
             <tr>
               <th class="px-3 py-2 text-left">动作</th>
               <th class="px-3 py-2 text-left">执行人</th>
               <th class="px-3 py-2 text-left">时间</th>
-              <th class="px-3 py-2 text-left">实际产出</th>
+              <th class="px-3 py-2 text-left">${escapeHtml(outputLabels.actualColumn)}</th>
               <th class="px-3 py-2 text-left">长度/宽度</th>
               <th class="px-3 py-2 text-left">备注</th>
             </tr>
@@ -750,7 +753,7 @@ function canProcessFollowupActions(row: SpecialProcessRow): boolean {
 function renderFollowupSection(row: SpecialProcessRow): string {
   const canProcessActions = canProcessFollowupActions(row)
   return `
-    <section class="rounded-lg border bg-card p-4">
+    <section class="rounded-lg border bg-card p-3">
       <h3 class="text-sm font-semibold text-foreground">下游联动动作</h3>
       ${
         !canProcessActions && row.followupActions.length
@@ -759,7 +762,7 @@ function renderFollowupSection(row: SpecialProcessRow): string {
             }</div>`
           : ''
       }
-      <div class="mt-3 overflow-x-auto">
+      <div class="mt-2 overflow-x-auto">
         <table class="min-w-full text-xs">
           <thead class="bg-muted/60 text-muted-foreground">
             <tr>
@@ -801,13 +804,13 @@ function renderFollowupSection(row: SpecialProcessRow): string {
 function renderAuditSection(row: SpecialProcessRow): string {
   const audits = getAllAudits().filter((item) => item.processOrderId === row.processOrderId)
   return `
-    <section class="rounded-lg border bg-card p-4">
+    <section class="rounded-lg border bg-card p-3">
       <h3 class="text-sm font-semibold text-foreground">审计记录</h3>
-      <div class="mt-3 space-y-2 text-xs text-muted-foreground">
+      <div class="mt-2 space-y-1.5 text-xs text-muted-foreground">
         ${audits
           .map(
             (audit) => `
-              <article class="rounded-lg border bg-muted/20 p-3">
+              <article class="rounded-lg border bg-muted/20 p-2.5">
                 <div class="flex items-center justify-between gap-3">
                   <div class="flex items-center gap-2">
                     ${renderTag(renderAuditActionLabel(audit.action), 'bg-slate-100 text-slate-700')}
@@ -815,7 +818,7 @@ function renderAuditSection(row: SpecialProcessRow): string {
                   </div>
                   <span>${escapeHtml(formatDateTime(audit.actionAt))}</span>
                 </div>
-                <div class="mt-1">${escapeHtml(`${audit.actionBy} · ${audit.note || '无补充说明'}`)}</div>
+                <div class="mt-0.5">${escapeHtml(`${audit.actionBy} · ${audit.note || '无补充说明'}`)}</div>
               </article>
             `,
           )
@@ -827,24 +830,24 @@ function renderAuditSection(row: SpecialProcessRow): string {
 
 function renderBasicInfoSection(row: SpecialProcessRow): string {
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div class="rounded-lg border bg-muted/20 p-3">
+    <section class="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+      <div class="rounded-lg border bg-muted/20 p-2.5">
         <div class="text-xs text-muted-foreground">工艺类型</div>
         <div class="mt-1 flex flex-wrap gap-2">
           ${renderTag(row.processTypeLabel, specialProcessTypeMeta[row.processType].className)}
           ${renderTag(row.statusMeta.label, row.statusMeta.className)}
         </div>
       </div>
-      <div class="rounded-lg border bg-muted/20 p-3">
+      <div class="rounded-lg border bg-muted/20 p-2.5">
         <div class="text-xs text-muted-foreground">来源范围</div>
         <div class="mt-1 font-medium text-foreground">${escapeHtml(row.sourceSummary)}</div>
       </div>
-      <div class="rounded-lg border bg-muted/20 p-3">
+      <div class="rounded-lg border bg-muted/20 p-2.5">
         <div class="text-xs text-muted-foreground">面料 / 款号</div>
         <div class="mt-1 font-medium text-foreground">${escapeHtml(row.materialSku || '待补')}</div>
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.styleCode || row.spuCode || '待补款号')}</div>
       </div>
-      <div class="rounded-lg border bg-muted/20 p-3">
+      <div class="rounded-lg border bg-muted/20 p-2.5">
         <div class="text-xs text-muted-foreground">执行边界</div>
         <div class="mt-1 font-medium text-foreground">${escapeHtml(row.typeExecutionMeta.readinessLabel)}</div>
         <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.typeExecutionMeta.integrationLabel)}</div>
@@ -865,7 +868,7 @@ function renderDetailDrawer(): string {
       width: 'xl',
     },
     `
-      <div class="space-y-6 text-sm">
+      <div class="space-y-4 text-sm">
         ${renderBasicInfoSection(row)}
         ${renderScopeSection(row)}
         ${renderBindingStripSection(row)}
@@ -876,10 +879,10 @@ function renderDetailDrawer(): string {
     `,
     `
       <div class="flex flex-wrap gap-2">
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="go-original-orders" data-process-order-id="${escapeHtml(row.processOrderId)}">去原始裁片单</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="go-merge-batches" data-process-order-id="${escapeHtml(row.processOrderId)}">去合并裁剪批次</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="go-replenishment" data-process-order-id="${escapeHtml(row.processOrderId)}">去补料管理</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-special-process-action="go-summary" data-process-order-id="${escapeHtml(row.processOrderId)}">去裁剪总表</button>
+        <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="go-original-orders" data-process-order-id="${escapeHtml(row.processOrderId)}">去原始裁片单</button>
+        <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="go-merge-batches" data-process-order-id="${escapeHtml(row.processOrderId)}">去合并裁剪批次</button>
+        <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="go-replenishment" data-process-order-id="${escapeHtml(row.processOrderId)}">去补料管理</button>
+        <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-special-process-action="go-summary" data-process-order-id="${escapeHtml(row.processOrderId)}">去裁剪总表</button>
       </div>
     `,
   )
@@ -891,7 +894,7 @@ function renderPage(): string {
   const meta = getCanonicalCuttingMeta(pathname, 'special-processes')
 
   return `
-    <div class="space-y-3 p-4">
+    <div class="space-y-2.5 p-3">
       ${renderCuttingPageHeader(meta, { actionsHtml: renderHeaderActions() })}
       ${renderStats()}
       ${renderFeedbackBar()}

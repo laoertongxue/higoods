@@ -21,7 +21,9 @@ test('铺布完成后可追溯到打印菲票、装袋与裁片仓，且 PDA 来
     feiProjection.printableViewModel.units.find((item) => item.sourceSpreadingSessionIds.length > 0) || null
 
   expect(printableUnit).toBeTruthy()
+  expect(printableUnit!.ticketCountBasisType).toBe('SPREADING_RESULT')
   expect(printableUnit!.sourceSpreadingSessionIds[0]).not.toBe('')
+  expect(feiTraceRows.filter((row) => row.sourceSpreadingSessionId).every((row) => row.sourceTraceCompleteness === 'COMPLETE')).toBeTruthy()
   expect(feiTraceRows.some((row) => row.sourceSpreadingSessionId === printableUnit!.sourceSpreadingSessionIds[0])).toBeTruthy()
   expect(replenishmentTraceRows.filter((row) => row.pendingPrepFollowupId).every((row) => row.sourceSpreadingSessionId)).toBeTruthy()
 

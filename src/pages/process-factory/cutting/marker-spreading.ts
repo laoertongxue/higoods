@@ -538,10 +538,10 @@ function renderTag(label: string, className: string): string {
 function renderSection(title: string, body: string): string {
   return `
     <section class="rounded-lg border bg-card">
-      <div class="border-b px-2 py-1">
+      <div class="border-b px-1.5 py-0.5">
         <h3 class="text-sm font-semibold text-foreground">${escapeHtml(title)}</h3>
       </div>
-      <div class="p-2">
+      <div class="p-1.5">
         ${body}
       </div>
     </section>
@@ -549,13 +549,13 @@ function renderSection(title: string, body: string): string {
 }
 
 function renderFormulaLine(formula?: string): string {
-  return formula ? `<p class="mt-0.5 font-mono text-[9px] leading-3 text-muted-foreground">${escapeHtml(formula)}</p>` : ''
+  return formula ? `<p class="mt-px font-mono text-[8px] leading-2.5 text-muted-foreground">${escapeHtml(formula)}</p>` : ''
 }
 
 function renderValueWithFormula(value: string, formula?: string, extraClass = ''): string {
   return `
-    <div class="space-y-0.5">
-      <p class="${extraClass || 'text-sm font-medium leading-5 text-foreground'}">${escapeHtml(value || '待补')}</p>
+    <div class="space-y-px">
+      <p class="${extraClass || 'text-sm font-medium leading-4 text-foreground'}">${escapeHtml(value || '待补')}</p>
       ${renderFormulaLine(formula)}
     </div>
   `
@@ -616,15 +616,15 @@ function buildQtySumFormula(result: number, values: number[]): string {
 
 function renderInfoGrid(items: Array<{ label: string; value: string; hint?: string; formula?: string }>): string {
   return `
-    <div class="grid gap-1 md:grid-cols-2 xl:grid-cols-3">
+    <div class="grid gap-0.5 md:grid-cols-2 xl:grid-cols-3">
       ${items
         .map(
           (item) => `
-            <article class="rounded-lg border bg-muted/10 px-1.5 py-1">
+            <article class="rounded-lg border bg-muted/10 px-1.5 py-0.5">
               <p class="text-xs text-muted-foreground">${escapeHtml(item.label)}</p>
-              <p class="mt-0.5 text-sm font-medium leading-5 text-foreground">${escapeHtml(item.value || '待补')}</p>
+              <p class="mt-px text-sm font-medium leading-4 text-foreground">${escapeHtml(item.value || '待补')}</p>
               ${renderFormulaLine(item.formula)}
-              ${item.hint ? `<p class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(item.hint)}</p>` : ''}
+              ${item.hint ? `<p class="mt-px text-[11px] text-muted-foreground">${escapeHtml(item.hint)}</p>` : ''}
             </article>
           `,
         )
@@ -647,14 +647,14 @@ function renderSpreadingEditTabNav(activeTab: SpreadingEditTabKey): string {
   ]
 
   return `
-    <section class="rounded-lg border bg-card p-1 shadow-sm" data-cutting-spreading-edit-tab-shell>
+    <section class="rounded-lg border bg-card p-0.5 shadow-sm" data-cutting-spreading-edit-tab-shell>
       <div class="flex flex-wrap gap-0.5">
         ${tabs
           .map(
             (tab) => `
               <button
                 type="button"
-                class="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                class="inline-flex items-center rounded-md px-1.5 py-px text-[11px] font-medium ${
                   activeTab === tab.key ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border hover:bg-muted'
                 }"
                 data-cutting-marker-action="switch-spreading-edit-tab"
@@ -696,9 +696,9 @@ function renderTextInput(label: string, value: string, attrs: string, placeholde
 
 function renderReadonlyField(label: string, value: string, options?: { formula?: string; attrs?: string }): string {
   return `
-    <div class="space-y-1" ${options?.attrs || ''}>
+    <div class="space-y-0.5" ${options?.attrs || ''}>
       <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
-      <div class="min-h-8 rounded-md border bg-muted/10 px-2 py-1">
+      <div class="min-h-7 rounded-md border bg-muted/10 px-1.5 py-0.5">
         ${renderValueWithFormula(value, options?.formula)}
       </div>
     </div>
@@ -707,13 +707,13 @@ function renderReadonlyField(label: string, value: string, options?: { formula?:
 
 function renderNumberInput(label: string, value: number | string, attrs: string, step = '0.01'): string {
   return `
-    <label class="space-y-1">
+    <label class="space-y-0.5">
       <span class="text-[11px] font-medium text-foreground">${escapeHtml(label)}</span>
       <input
         type="number"
         value="${escapeHtml(String(value ?? ''))}"
         step="${escapeHtml(step)}"
-        class="h-7 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+        class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
         ${attrs}
       />
     </label>
@@ -722,11 +722,11 @@ function renderNumberInput(label: string, value: number | string, attrs: string,
 
 function renderTextarea(label: string, value: string, attrs: string, rows = 3): string {
   return `
-    <label class="space-y-1">
+    <label class="space-y-0.5">
       <span class="text-[11px] font-medium text-foreground">${escapeHtml(label)}</span>
       <textarea
         rows="${rows}"
-        class="w-full rounded-md border bg-background px-2.5 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+        class="w-full rounded-md border bg-background px-2 py-0.5 text-xs outline-none focus:ring-2 focus:ring-blue-500"
         ${attrs}
       >${escapeHtml(value)}</textarea>
     </label>
@@ -740,9 +740,9 @@ function renderSelect(
   options: Array<{ value: string; label: string }>,
 ): string {
   return `
-    <label class="space-y-1">
+    <label class="space-y-0.5">
       <span class="text-[11px] font-medium text-foreground">${escapeHtml(label)}</span>
-      <select class="h-7 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500" ${attrs}>
+      <select class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" ${attrs}>
         ${options
           .map(
             (option) =>
@@ -2038,7 +2038,7 @@ function renderListStateBar(): string {
 
 function renderFilterArea(): string {
   return renderStickyFilterShell(`
-      <div class="grid gap-1 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-end">
+      <div class="grid gap-0.5 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-end">
         ${renderTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布编号 / 唛架编号 / 原始裁片单 / 合并裁剪批次 / 生产单 / SPU')}
         ${renderSelect('主状态', state.spreadingStageFilter, 'data-cutting-spreading-list-field="main-stage"', [
           { value: 'ALL', label: '全部' },
@@ -2048,10 +2048,10 @@ function renderFilterArea(): string {
         ${renderTextInput('铺布编号', state.sessionNoFilter, 'data-cutting-spreading-list-field="session-no"', '')}
         <button type="button" class="h-6 rounded-md border px-2 text-xs hover:bg-muted" data-cutting-marker-action="clear-filters">重置筛选</button>
       </div>
-      <details class="mt-0.5 rounded-md border bg-background" data-testid="cutting-spreading-more-filters">
-        <summary class="cursor-pointer list-none px-2 py-0.5 text-[11px] font-medium text-foreground">更多筛选</summary>
-        <div class="border-t px-2 py-0.5">
-          <div class="grid gap-1 md:grid-cols-2 xl:grid-cols-4">
+      <details class="mt-px rounded-md border bg-background" data-testid="cutting-spreading-more-filters">
+        <summary class="cursor-pointer list-none px-1.5 py-0.5 text-[11px] font-medium text-foreground">更多筛选</summary>
+        <div class="border-t px-1.5 py-0.5">
+          <div class="grid gap-0.5 md:grid-cols-2 xl:grid-cols-4">
             ${renderTextInput('原始裁片单', state.originalCutOrderFilter, 'data-cutting-spreading-list-field="original-cut-order"', '')}
             ${renderTextInput('合并裁剪批次', state.mergeBatchFilter, 'data-cutting-spreading-list-field="merge-batch"', '')}
             ${renderTextInput('唛架编号', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '')}
@@ -2105,7 +2105,7 @@ function renderFilterArea(): string {
 function renderListTabs(): string {
   const { stageCounts } = getPageData()
   return `
-    <section class="rounded-lg border border-dashed bg-muted/20 px-2 py-0.5" data-testid="cutting-spreading-stage-tabs">
+    <section class="rounded-lg border border-dashed bg-muted/20 px-1.5 py-0.5" data-testid="cutting-spreading-stage-tabs">
       <div class="flex flex-wrap gap-0.5">
         ${getSpreadingStageOptions()
           .map((tab) => {
@@ -2113,7 +2113,7 @@ function renderListTabs(): string {
             return `
               <button
                 type="button"
-                class="rounded-md border px-1.5 py-0.5 text-[10px] leading-4 ${active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+                class="rounded-md border px-1.5 py-px text-[10px] leading-4 ${active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
                 data-cutting-marker-action="switch-spreading-list-tab"
                 data-list-tab="${tab.value}"
               >
@@ -2131,7 +2131,7 @@ function renderListStats(): string {
   const { stageCounts } = getPageData()
 
   return `
-    <section class="grid gap-1 md:grid-cols-2 xl:grid-cols-4" data-testid="cutting-spreading-list-stats">
+    <section class="grid gap-0.5 md:grid-cols-2 xl:grid-cols-4" data-testid="cutting-spreading-list-stats">
       ${renderCompactKpiCard('待开始数', stageCounts.WAITING_START, '', 'text-slate-900', buildSpreadingStageCountFormula('待开始'))}
       ${renderCompactKpiCard('铺布中数', stageCounts.IN_PROGRESS, '', 'text-amber-600', buildSpreadingStageCountFormula('铺布中'))}
       ${renderCompactKpiCard('待补料数', stageCounts.WAITING_REPLENISHMENT, '', 'text-rose-600', buildSpreadingStageCountFormula('待补料确认'))}
@@ -2168,12 +2168,12 @@ function renderSubStatusTag(label: string): string {
 
 function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
   if (!rows.length) {
-    return '<section class="rounded-lg border border-dashed bg-card px-5 py-8 text-center text-sm text-muted-foreground" data-cutting-spreading-main-card="true">当前筛选范围内暂无铺布记录。</section>'
+    return '<section class="rounded-lg border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground" data-cutting-spreading-main-card="true">当前筛选范围内暂无铺布记录。</section>'
   }
 
   return `
     <section class="rounded-lg border bg-card" data-testid="cutting-spreading-list-table" data-cutting-spreading-main-card="true">
-      <div class="flex items-center justify-between gap-2 border-b px-2 py-0.5">
+      <div class="flex items-center justify-between gap-2 border-b px-1.5 py-0.5">
         <div>
           <h2 class="text-sm font-semibold">铺布主表</h2>
         </div>
@@ -2199,9 +2199,9 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
           <th class="px-2 py-1 font-medium">补料状态</th>
           <th class="px-2 py-1 font-medium">菲票状态</th>
           <th class="px-2 py-1 font-medium">装袋状态</th>
-          <th class="px-2.5 py-1.5 font-medium">入仓状态</th>
-          <th class="px-2.5 py-1.5 font-medium">更新时间</th>
-          <th class="px-2.5 py-1.5 font-medium">操作</th>
+          <th class="px-2 py-1 font-medium">入仓状态</th>
+          <th class="px-2 py-1 font-medium">更新时间</th>
+          <th class="px-2 py-1 font-medium">操作</th>
         </tr>
       </thead>
       <tbody>
@@ -2212,26 +2212,26 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
             const primaryAction = renderSpreadingListPrimaryAction(row.mainStageKey, row.spreadingSessionId)
             return `
               <tr class="border-b align-top">
-                <td class="px-2.5 py-1.5 font-medium text-foreground">${escapeHtml(`${row.sessionNo} / ${getSpreadingDataSourceLabel(row.dataSourceLabel)}`)}</td>
-                <td class="px-2.5 py-1.5">${renderCompactListValueWithFormula(row.mainStageLabel, row.mainStageFormula)}</td>
-                <td class="px-2.5 py-1.5 font-medium">${escapeHtml(row.sourceMarkerLabel)}</td>
-                <td class="px-2.5 py-1.5">${escapeHtml(row.contextSummary)}</td>
-                <td class="px-2.5 py-1.5">${escapeHtml(formatQty(row.originalCutOrderCount))}</td>
-                <td class="px-2.5 py-1.5">${escapeHtml(formatQty(row.productionOrderCount))}</td>
-                <td class="px-2.5 py-1.5">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</td>
-                <td class="px-2.5 py-1.5">${escapeHtml(`${row.materialSkuSummary || '待补'} / ${row.colorSummary || '待补'}`)}</td>
-                <td class="px-2.5 py-1.5">${renderTag(modeMeta.label, modeMeta.className)}</td>
-                <td class="px-2.5 py-1.5">${renderCompactListValueWithFormula(`${formatQty(row.plannedCutGarmentQty)} 件`, row.plannedCutGarmentQtyFormula)}</td>
-                <td class="px-2.5 py-1.5">${renderCompactListValueWithFormula(`${formatQty(row.actualCutGarmentQty)} 件`, row.actualCutGarmentQtyFormula)}</td>
-                <td class="px-2.5 py-1.5">${renderCompactListValueWithFormula(`${formatQty(row.shortageGarmentQty)} 件`, row.shortageGarmentQtyFormula)}</td>
-                <td class="px-2.5 py-1.5">${renderCompactListValueWithFormula(formatLength(row.spreadActualLengthM), row.spreadActualLengthFormula)}</td>
-                <td class="px-2.5 py-1.5">${renderSubStatusTag(row.replenishmentStatusLabel)}</td>
-                <td class="px-2.5 py-1.5">${renderSubStatusTag(row.feiTicketStatusLabel)}</td>
-                <td class="px-2.5 py-1.5">${renderSubStatusTag(row.baggingStatusLabel)}</td>
-                <td class="px-2.5 py-1.5">${renderSubStatusTag(row.warehouseStatusLabel)}</td>
-                <td class="px-2.5 py-1.5">${escapeHtml(formatDateText(row.updatedAt))}</td>
-                <td class="px-2.5 py-1.5">
-                  <div class="flex flex-nowrap gap-1.5 overflow-x-auto whitespace-nowrap">
+                <td class="px-2 py-1 font-medium text-foreground">${escapeHtml(`${row.sessionNo} / ${getSpreadingDataSourceLabel(row.dataSourceLabel)}`)}</td>
+                <td class="px-2 py-1">${renderCompactListValueWithFormula(row.mainStageLabel, row.mainStageFormula)}</td>
+                <td class="px-2 py-1 font-medium">${escapeHtml(row.sourceMarkerLabel)}</td>
+                <td class="px-2 py-1">${escapeHtml(row.contextSummary)}</td>
+                <td class="px-2 py-1">${escapeHtml(formatQty(row.originalCutOrderCount))}</td>
+                <td class="px-2 py-1">${escapeHtml(formatQty(row.productionOrderCount))}</td>
+                <td class="px-2 py-1">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</td>
+                <td class="px-2 py-1">${escapeHtml(`${row.materialSkuSummary || '待补'} / ${row.colorSummary || '待补'}`)}</td>
+                <td class="px-2 py-1">${renderTag(modeMeta.label, modeMeta.className)}</td>
+                <td class="px-2 py-1">${renderCompactListValueWithFormula(`${formatQty(row.plannedCutGarmentQty)} 件`, row.plannedCutGarmentQtyFormula)}</td>
+                <td class="px-2 py-1">${renderCompactListValueWithFormula(`${formatQty(row.actualCutGarmentQty)} 件`, row.actualCutGarmentQtyFormula)}</td>
+                <td class="px-2 py-1">${renderCompactListValueWithFormula(`${formatQty(row.shortageGarmentQty)} 件`, row.shortageGarmentQtyFormula)}</td>
+                <td class="px-2 py-1">${renderCompactListValueWithFormula(formatLength(row.spreadActualLengthM), row.spreadActualLengthFormula)}</td>
+                <td class="px-2 py-1">${renderSubStatusTag(row.replenishmentStatusLabel)}</td>
+                <td class="px-2 py-1">${renderSubStatusTag(row.feiTicketStatusLabel)}</td>
+                <td class="px-2 py-1">${renderSubStatusTag(row.baggingStatusLabel)}</td>
+                <td class="px-2 py-1">${renderSubStatusTag(row.warehouseStatusLabel)}</td>
+                <td class="px-2 py-1">${escapeHtml(formatDateText(row.updatedAt))}</td>
+                <td class="px-2 py-1">
+                  <div class="flex flex-nowrap gap-1 overflow-x-auto whitespace-nowrap">
                     ${primaryAction}
                     <button type="button" class="rounded-md border px-2 py-1 text-[11px] leading-4 hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
                   </div>
@@ -2254,7 +2254,7 @@ function renderSpreadingSupervisorListPage(): string {
   const filteredRows = spreadingRows as SupervisorSpreadingRow[]
 
   return `
-    <div class="space-y-1 p-1.5" data-testid="cutting-spreading-list-page">
+    <div class="space-y-0.5 p-1" data-testid="cutting-spreading-list-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
           '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-100" data-cutting-marker-action="create-spreading">按唛架新建铺布</button>',
@@ -2282,7 +2282,7 @@ function renderMarkerWarningSection(warningMessages: string[]): string {
             ${warningMessages
               .map(
                 (message) => `
-                  <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(message)}</div>
+                  <div class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-sm text-amber-700">${escapeHtml(message)}</div>
                 `,
               )
               .join('')}
@@ -2307,7 +2307,7 @@ function renderSpreadingWarningSection(warningMessages: string[]): string {
               .join('')}
           </div>
         `
-      : '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">当前未识别明显长度异常、交接异常、剩余异常或补料预警。</div>',
+      : '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-sm text-emerald-700">当前未识别明显长度异常、交接异常、剩余异常或补料预警。</div>',
   )
 }
 
@@ -3542,17 +3542,17 @@ function renderSpreadingDetailPage(): string {
   const downstreamWarehouseRecordIds = warehouseRecordIdsBySessionId[session.spreadingSessionId] || []
 
   const renderTopInfo = (): string => `
-    <section class="rounded-lg border bg-card px-2 py-1.5">
-      <div class="space-y-2">
-        <div class="flex flex-wrap items-start justify-between gap-2">
-          <div class="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+    <section class="rounded-lg border bg-card px-1.5 py-1">
+      <div class="space-y-1.5">
+        <div class="flex flex-wrap items-start justify-between gap-1.5">
+          <div class="grid flex-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-5">
             <div><div class="text-[11px] text-muted-foreground">铺布编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(session.sessionNo || '待补')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">来源唛架</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(session.markerNo || '异常补录')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">原始裁片单 / 合并裁剪批次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(linkedOriginalCutOrderNos.join(' / ') || session.mergeBatchNo || '—')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">生产单</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(productionOrderNos.join(' / ') || '—')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">模式</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(deriveSpreadingModeMeta(session.spreadingMode).label)}</div></div>
           </div>
-          <div class="flex flex-wrap gap-1">
+          <div class="flex flex-wrap gap-0.5">
             ${renderStatusBadge(lifecycleState.mainStageLabel, lifecycleState.mainStageClassName)}
             ${renderStatusBadge(lifecycleState.replenishmentStatusLabel, lifecycleState.replenishmentStatusLabel === '待补料确认' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200')}
             ${renderStatusBadge(lifecycleState.feiTicketStatusLabel, lifecycleState.feiTicketStatusLabel === '已打印菲票' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-sky-100 text-sky-700 border-sky-200')}
@@ -3560,12 +3560,12 @@ function renderSpreadingDetailPage(): string {
             ${renderStatusBadge(lifecycleState.warehouseStatusLabel, lifecycleState.warehouseStatusLabel === '已入仓' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-cyan-100 text-cyan-700 border-cyan-200')}
           </div>
         </div>
-        <div class="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-5">
-          <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(varianceSummary?.plannedCutGarmentQty || 0)} 件`, varianceSummary?.plannedCutGarmentQtyFormula || buildTheoreticalActualCutQtyFormula(varianceSummary?.plannedCutGarmentQty || 0, session.plannedLayers || 0, markerTotalPieces))}<div class="mt-0.5 text-[11px] text-muted-foreground">计划裁剪成衣件数（件）</div></div>
-          <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(varianceSummary?.actualCutGarmentQty || 0)} 件`, varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []))}<div class="mt-0.5 text-[11px] text-muted-foreground">实际裁剪成衣件数（件）</div></div>
-          <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(`${formatQty(varianceSummary?.shortageGarmentQty || 0)} 件`, varianceSummary?.shortageGarmentQtyFormula || buildShortageQtyFormula(0, 0, 0))}<div class="mt-0.5 text-[11px] text-muted-foreground">缺口成衣件数（件）</div></div>
-          <div class="rounded-md border bg-background px-2.5 py-1.5">${renderValueWithFormula(formatLength(rollSummary.totalActualLength), buildSumFormula(rollSummary.totalActualLength, session.rolls.map((roll) => roll.actualLength), 2))}<div class="mt-0.5 text-[11px] text-muted-foreground">总实际铺布长度（m）</div></div>
-          <div class="rounded-md border bg-background px-2 py-1"><div class="text-sm font-medium text-foreground">${escapeHtml(lifecycleState.nextStepLabel)}</div><div class="mt-0.5 text-[11px] text-muted-foreground">当前后续动作</div></div>
+        <div class="grid gap-1 sm:grid-cols-2 xl:grid-cols-5">
+          <div class="rounded-md border bg-background px-2 py-1">${renderValueWithFormula(`${formatQty(varianceSummary?.plannedCutGarmentQty || 0)} 件`, varianceSummary?.plannedCutGarmentQtyFormula || buildTheoreticalActualCutQtyFormula(varianceSummary?.plannedCutGarmentQty || 0, session.plannedLayers || 0, markerTotalPieces))}<div class="mt-px text-[11px] text-muted-foreground">计划裁剪成衣件数（件）</div></div>
+          <div class="rounded-md border bg-background px-2 py-1">${renderValueWithFormula(`${formatQty(varianceSummary?.actualCutGarmentQty || 0)} 件`, varianceSummary?.actualCutGarmentQtyFormula || buildQtySumFormula(0, []))}<div class="mt-px text-[11px] text-muted-foreground">实际裁剪成衣件数（件）</div></div>
+          <div class="rounded-md border bg-background px-2 py-1">${renderValueWithFormula(`${formatQty(varianceSummary?.shortageGarmentQty || 0)} 件`, varianceSummary?.shortageGarmentQtyFormula || buildShortageQtyFormula(0, 0, 0))}<div class="mt-px text-[11px] text-muted-foreground">缺口成衣件数（件）</div></div>
+          <div class="rounded-md border bg-background px-2 py-1">${renderValueWithFormula(formatLength(rollSummary.totalActualLength), buildSumFormula(rollSummary.totalActualLength, session.rolls.map((roll) => roll.actualLength), 2))}<div class="mt-px text-[11px] text-muted-foreground">总实际铺布长度（m）</div></div>
+          <div class="rounded-md border bg-background px-1.5 py-0.5"><div class="text-sm font-medium text-foreground">${escapeHtml(lifecycleState.nextStepLabel)}</div><div class="mt-px text-[11px] text-muted-foreground">当前后续动作</div></div>
         </div>
       </div>
     </section>
@@ -3576,16 +3576,16 @@ function renderSpreadingDetailPage(): string {
     const primaryAction = renderSpreadingPrimaryActionButton(lifecycleState.nextStepKey as SpreadingPrimaryActionKey, session.spreadingSessionId, true)
 
     return `
-      <section class="rounded-lg border bg-card p-2" data-testid="cutting-spreading-next-step-bar">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="space-y-1">
-            <div class="flex flex-wrap items-center gap-1">
+      <section class="rounded-lg border bg-card px-1.5 py-1" data-testid="cutting-spreading-next-step-bar">
+        <div class="flex flex-wrap items-center justify-between gap-1.5">
+          <div class="space-y-0.5">
+            <div class="flex flex-wrap items-center gap-0.5">
               ${renderStatusBadge(lifecycleState.mainStageLabel, lifecycleState.mainStageClassName)}
               ${lifecycleState.nextStepKey === 'DONE' ? renderStatusBadge('已完成', 'bg-emerald-100 text-emerald-700 border-emerald-200') : ''}
             </div>
             <div class="text-sm text-muted-foreground">当前后续动作：<span class="font-medium text-foreground">${escapeHtml(lifecycleState.nextStepLabel)}</span></div>
           </div>
-          <div class="flex flex-wrap gap-1">
+          <div class="flex flex-wrap gap-0.5">
             ${primaryAction}
             ${secondaryActionKeys
               .filter((actionKey) => actionKey !== lifecycleState.nextStepKey)
@@ -3729,7 +3729,7 @@ function renderSpreadingDetailPage(): string {
       '换班与人员',
       `
         <details class="rounded-md border bg-background" data-testid="cutting-spreading-detail-operators-fold" data-default-open="collapsed">
-          <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-foreground">换班明细摘要</summary>
+          <summary class="cursor-pointer px-2.5 py-1.5 text-sm font-medium text-foreground">换班明细摘要</summary>
           <div class="border-t overflow-auto">
           <table class="min-w-[1560px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
@@ -3782,18 +3782,18 @@ function renderSpreadingDetailPage(): string {
           </table>
           </div>
         </details>
-        <div class="mt-3 space-y-2.5">
+        <div class="mt-2 space-y-2">
           ${
             Object.values(handoverSummaryByRollId).length
               ? Object.values(handoverSummaryByRollId)
                   .map(
                     (summary) => `
-                      <div class="rounded-lg border bg-muted/10 p-3">
+                      <div class="rounded-lg border bg-muted/10 p-2.5">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                           <div class="text-sm font-medium text-foreground">卷 ${escapeHtml(summary.rollNo || '待补')}</div>
                           ${renderRollHandoverStatus(summary)}
                         </div>
-                        <div class="mt-3">${renderRollHandoverWarnings(summary)}</div>
+                        <div class="mt-2">${renderRollHandoverWarnings(summary)}</div>
                       </div>
                     `,
                   )
@@ -3840,12 +3840,12 @@ function renderSpreadingDetailPage(): string {
             formula: varianceSummary?.varianceLengthFormula || buildDifferenceFormula(0, 0, 0, 2),
           },
         ])}
-        <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
           <h4 class="text-sm font-semibold text-foreground">补料建议行</h4>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">去补料管理</button>
+          <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-cutting-marker-action="go-spreading-replenishment" data-session-id="${escapeHtml(session.spreadingSessionId)}">去补料管理</button>
         </div>
         <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-detail-replenishment-fold" data-default-open="collapsed">
-          <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-foreground">补料建议摘要</summary>
+          <summary class="cursor-pointer px-2.5 py-1.5 text-sm font-medium text-foreground">补料建议摘要</summary>
           <div class="border-t overflow-auto">
           <table class="min-w-[1540px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
@@ -3954,7 +3954,7 @@ function renderSpreadingDetailPage(): string {
             : renderSummaryTab()
 
   return `
-    <div class="space-y-1.5 p-2" data-testid="cutting-spreading-detail-page">
+    <div class="space-y-1 p-1.5" data-testid="cutting-spreading-detail-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
           '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="spreadings">返回列表</button>',
@@ -4537,8 +4537,8 @@ function renderSpreadingEditPage(): string {
           { label: '裁片仓记录号', value: downstreamWarehouseRecordIds.join(' / ') || '—' },
           { label: '完成备注', value: draft.completionLinkage?.note || draft.note || '—' },
         ])}
-        <div class="mt-3 space-y-2.5">
-          <div class="rounded-lg border bg-muted/10 p-2.5">
+        <div class="mt-2 space-y-2">
+          <div class="rounded-lg border bg-muted/10 p-2">
             <h4 class="text-sm font-semibold text-foreground">阻断项列表</h4>
             ${
               completionValidation.messages.length
@@ -4546,8 +4546,8 @@ function renderSpreadingEditPage(): string {
                 : '<div class="mt-2 text-sm text-emerald-700">当前已满足完成铺布的基础条件。</div>'
             }
           </div>
-          <div class="flex flex-wrap gap-1.5">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="complete-spreading">完成铺布</button>
+          <div class="flex flex-wrap gap-1">
+            <button type="button" class="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-cutting-marker-action="complete-spreading">完成铺布</button>
             ${renderSpreadingPrimaryActionButton(lifecycleState.nextStepKey as SpreadingPrimaryActionKey, draft.spreadingSessionId, true)}
           </div>
         </div>
@@ -4572,7 +4572,7 @@ function renderSpreadingEditPage(): string {
   ])
 
   return `
-    <div class="space-y-1.5 p-2" data-testid="cutting-spreading-edit-page">
+    <div class="space-y-1 p-1.5" data-testid="cutting-spreading-edit-page">
       ${renderCuttingPageHeader(meta, { actionsHtml: headerActions })}
       ${renderFeedbackBar()}
       ${renderTopInfo()}
@@ -4590,7 +4590,7 @@ function renderSpreadingCreateStepBar(): string {
   ]
 
   return `
-    <section class="rounded-lg border bg-card px-2 py-1.5" data-testid="cutting-spreading-create-steps">
+    <section class="rounded-lg border bg-card px-1.5 py-1" data-testid="cutting-spreading-create-steps">
       <div class="flex flex-wrap gap-1">
         ${steps
           .map((step, index) => {
@@ -4743,7 +4743,7 @@ function renderSpreadingCreatePage(): string {
   const canProceed = Boolean(selectedSource) || state.createExceptionBackfill
 
   return `
-    <div class="space-y-1.5 p-2" data-testid="cutting-spreading-create-page">
+    <div class="space-y-1 p-1.5" data-testid="cutting-spreading-create-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions([
           '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="go-list">返回列表</button>',

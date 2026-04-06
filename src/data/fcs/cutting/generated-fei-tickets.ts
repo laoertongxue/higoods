@@ -37,6 +37,7 @@ export interface GeneratedFeiTicketSourceRecord {
   partName: string
   qty: number
   garmentQty: number
+  sourceTraceCompleteness: 'COMPLETE' | 'FALLBACK_INCOMPLETE'
   secondaryCrafts: string[]
   craftSequenceVersion: string
   currentCraftStage: string
@@ -63,6 +64,7 @@ export interface GeneratedFeiTicketTraceMatrixRow {
   size: string
   garmentQty: number
   sourceBasisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
+  sourceTraceCompleteness: 'COMPLETE' | 'FALLBACK_INCOMPLETE'
   sourceWritebackId: string
 }
 
@@ -150,6 +152,53 @@ function toIssuedAt(record: GeneratedOriginalCutOrderSourceRecord): string {
 
 function buildSourceRecordKey(record: Pick<GeneratedOriginalCutOrderSourceRecord, 'originalCutOrderId' | 'materialSku'>): string {
   return `${record.originalCutOrderId}::${record.materialSku}`
+}
+
+function buildFallbackSkuCoverageKey(options: {
+  originalCutOrderId: string
+  materialSku: string
+  color: string
+  size: string
+}): string {
+  return [
+    options.originalCutOrderId,
+    normalizeText(options.materialSku),
+    normalizeText(options.color) || '待补颜色',
+    normalizeText(options.size) || '均码',
+  ].join('::')
+}
+
+function buildCoveredFallbackSkuKeySet(spreadingDrivenFeiTickets: GeneratedFeiTicketSourceRecord[]): Set<string> {
+  return new Set(
+    spreadingDrivenFeiTickets
+      .filter((record) => record.sourceBasisType === 'SPREADING_RESULT')
+      .map((record) =>
+        buildFallbackSkuCoverageKey({
+          originalCutOrderId: record.originalCutOrderId,
+          materialSku: record.materialSku,
+          color: record.skuColor,
+          size: record.skuSize,
+        }),
+      ),
+  )
+}
+
+function resolveUncoveredFallbackSkuKeys(
+  record: GeneratedOriginalCutOrderSourceRecord,
+  coveredSkuKeys: Set<string>,
+): Set<string> {
+  return new Set(
+    buildFallbackSkuScope(record)
+      .map((line) =>
+        buildFallbackSkuCoverageKey({
+          originalCutOrderId: record.originalCutOrderId,
+          materialSku: record.materialSku,
+          color: line.color,
+          size: line.size,
+        }),
+      )
+      .filter((key) => !coveredSkuKeys.has(key)),
+  )
 }
 
 function filterFallbackSourceRecordsBySpreadingCoverage(
@@ -432,16 +481,30 @@ function buildFeiRecordsFromSpreadingSessions(
   )
 }
 
-function buildFeiRecordsForOriginalOrder(record: GeneratedOriginalCutOrderSourceRecord): GeneratedFeiTicketSourceRecord[] {
+function buildFeiRecordsForOriginalOrder(
+  record: GeneratedOriginalCutOrderSourceRecord,
+  uncoveredFallbackSkuKeys?: Set<string>,
+): GeneratedFeiTicketSourceRecord[] {
   const skuScopeLines = buildFallbackSkuScope(record)
   const pieceRows = buildFallbackPieceRows(record)
   const { secondaryCrafts, craftSequenceVersion } = resolveSecondaryCrafts(record.sourceTechPackSpuCode)
   const issuedAt = toIssuedAt(record)
   const results: GeneratedFeiTicketSourceRecord[] = []
   let sequenceNo = 1
+  const restrictToUncoveredSkuKeys = Boolean(uncoveredFallbackSkuKeys && uncoveredFallbackSkuKeys.size > 0)
 
   pieceRows.forEach((pieceRow) => {
-    const applicableSkuLines = selectApplicableSkuLines(skuScopeLines, pieceRow)
+    const applicableSkuLines = selectApplicableSkuLines(skuScopeLines, pieceRow).filter((skuLine) => {
+      if (!restrictToUncoveredSkuKeys) return true
+      return uncoveredFallbackSkuKeys!.has(
+        buildFallbackSkuCoverageKey({
+          originalCutOrderId: record.originalCutOrderId,
+          materialSku: record.materialSku,
+          color: skuLine.color,
+          size: skuLine.size,
+        }),
+      )
+    })
     applicableSkuLines.forEach((skuLine) => {
       const feiTicketId = `${record.originalCutOrderId}::${String(sequenceNo).padStart(3, '0')}`
       const feiTicketNo = buildFeiTicketNo(record.originalCutOrderNo, sequenceNo)
@@ -463,8 +526,9 @@ function buildFeiRecordsForOriginalOrder(record: GeneratedOriginalCutOrderSource
         skuColor: normalizeText(skuLine.color) || '待补颜色',
         skuSize: normalizeText(skuLine.size) || '均码',
         partName: normalizeText(pieceRow.partName) || '整单裁片',
-        qty,
-        secondaryCrafts,
+          qty,
+          sourceTraceCompleteness: 'COMPLETE',
+          secondaryCrafts,
         craftSequenceVersion,
         currentCraftStage: secondaryCrafts[0] || '',
         issuedAt,
@@ -494,6 +558,7 @@ function buildFeiRecordsForOriginalOrder(record: GeneratedOriginalCutOrderSource
         partName: normalizeText(pieceRow.partName) || '整单裁片',
         qty,
         garmentQty: qty,
+        sourceTraceCompleteness: 'FALLBACK_INCOMPLETE',
         secondaryCrafts,
         craftSequenceVersion,
         currentCraftStage: secondaryCrafts[0] || '',
@@ -555,9 +620,13 @@ function getGeneratedFeiTicketDataset(): GeneratedFeiTicketDataset {
   computingGeneratedFeiTicketDataset = true
   try {
     const spreadingDrivenFeiTickets = buildFeiRecordsFromSpreadingSessions(sourceRecords)
-    const fallbackFeiTickets = filterFallbackSourceRecordsBySpreadingCoverage(sourceRecords, spreadingDrivenFeiTickets).flatMap((record) =>
-      buildFeiRecordsForOriginalOrder(record),
-    )
+    const coveredFallbackSkuKeys = buildCoveredFallbackSkuKeySet(spreadingDrivenFeiTickets)
+    const fallbackFeiTickets = sourceRecords.flatMap((record) => {
+      const sourceKeyCovered = !filterFallbackSourceRecordsBySpreadingCoverage([record], spreadingDrivenFeiTickets).length
+      const uncoveredFallbackSkuKeys = resolveUncoveredFallbackSkuKeys(record, coveredFallbackSkuKeys)
+      if (sourceKeyCovered && uncoveredFallbackSkuKeys.size === 0) return []
+      return buildFeiRecordsForOriginalOrder(record, sourceKeyCovered ? uncoveredFallbackSkuKeys : undefined)
+    })
     generatedFeiTicketDatasetCache = buildGeneratedFeiTicketDataset([...spreadingDrivenFeiTickets, ...fallbackFeiTickets])
     return generatedFeiTicketDatasetCache
   } finally {
@@ -639,6 +708,7 @@ export function buildGeneratedFeiTicketTraceMatrix(
         size: record.skuSize,
         garmentQty: record.garmentQty,
         sourceBasisType: record.sourceBasisType,
+        sourceTraceCompleteness: record.sourceTraceCompleteness,
         sourceWritebackId: session?.sourceWritebackId || '',
       }
     })

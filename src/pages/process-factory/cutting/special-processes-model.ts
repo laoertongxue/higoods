@@ -8,6 +8,7 @@ import {
   buildSpecialProcessSourceOptions,
   deriveSpecialProcessExecutionSnapshot,
   deriveSpecialProcessTypeExecutionMeta,
+  getSpecialProcessOutputLabels,
   hydrateScopeLineFromSource,
   normalizeFollowupStatus,
   type SpecialProcessExecutionSnapshot,
@@ -497,7 +498,9 @@ export function validateSpecialProcessPayload(options: {
   if (!options.payload) return { ok: false, message: '当前缺少捆条工艺参数。' }
   if (options.payload.materialLength <= 0) return { ok: false, message: '请填写计划布料长度。' }
   if (options.payload.cutWidth <= 0) return { ok: false, message: '请填写计划裁剪宽度。' }
-  if (options.payload.expectedQty <= 0) return { ok: false, message: '请填写计划产出数量。' }
+  if (options.payload.expectedQty <= 0) {
+    return { ok: false, message: `请填写${getSpecialProcessOutputLabels(options.order.processType).plannedQty}。` }
+  }
   return { ok: true, message: '' }
 }
 

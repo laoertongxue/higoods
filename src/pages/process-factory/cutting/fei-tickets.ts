@@ -868,7 +868,11 @@ function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
           <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs text-slate-500">应打菲票数</p>
             <p class="mt-1 text-xl font-semibold text-slate-900">${formatCount(unit.requiredTicketCount)}</p>
-            <p class="mt-1 text-xs text-slate-500">当前优先按铺布完成结果生成，主看实际成衣件数；仅在缺少正式铺布结果时才回退参考理论值。</p>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${unit.ticketCountBasisType === 'SPREADING_RESULT' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">${escapeHtml(unit.ticketCountBasisLabel)}</span>
+              <span class="text-xs text-slate-500">${escapeHtml(unit.ticketCountBasisType === 'SPREADING_RESULT' ? '按实际成衣件数拆分' : '当前尚未形成完整铺布完成结果')}</span>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">${escapeHtml(unit.ticketCountBasisDetail)}</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs text-slate-500">有效已打印数</p>

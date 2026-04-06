@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
+import { assertPlaywrightPreflight, formatPlaywrightCollectabilityFailure } from './check-playwright-preflight.ts'
 
 const repoRoot = process.cwd()
 
@@ -47,25 +48,6 @@ function assertFileMissing(rel: string): void {
   assert(!fs.existsSync(abs(rel)), `${rel} 仍未退场`)
 }
 
-function assertPlaywrightDependencyResolvable(): void {
-  const result = spawnSync(
-    process.execPath,
-    [
-      '--input-type=module',
-      '-e',
-      "import('@playwright/test').then(()=>console.log('ok')).catch((error)=>{console.error(error instanceof Error ? error.message : String(error));process.exit(1)})",
-    ],
-    {
-      cwd: repoRoot,
-      encoding: 'utf8',
-    },
-  )
-
-  if (result.status !== 0) {
-    throw new Error(`@playwright/test 无法解析\n${result.stdout || ''}${result.stderr || ''}`.trim())
-  }
-}
-
 function assertAcceptanceSpecCollectable(): void {
   const result = spawnSync('npx', ['playwright', 'test', '--list', 'tests/cutting-release-acceptance.spec.ts'], {
     cwd: repoRoot,
@@ -73,7 +55,12 @@ function assertAcceptanceSpecCollectable(): void {
   })
 
   if (result.status !== 0) {
-    throw new Error(`cutting-release-acceptance.spec.ts 无法被 Playwright 收集\n${result.stdout || ''}${result.stderr || ''}`.trim())
+    throw new Error(
+      formatPlaywrightCollectabilityFailure(
+        'tests/cutting-release-acceptance.spec.ts',
+        `${result.stdout || ''}${result.stderr || ''}`,
+      ),
+    )
   }
 
   const output = `${result.stdout || ''}${result.stderr || ''}`
@@ -198,6 +185,7 @@ function assertFormalAnchorsUnified(): void {
 
   const routes = read('src/router/routes.ts')
   const releaseAcceptanceCheck = read('scripts/check-cutting-release-acceptance.ts')
+  const playwrightPreflight = read('scripts/check-playwright-preflight.ts')
   assert(
     routes.includes('renderPdaCuttingExecutionUnitPage') &&
       routes.includes('pattern: /^\\/fcs\\/pda\\/cutting\\/unit\\/([^/]+)\\/([^/]+)$/'),
@@ -213,6 +201,11 @@ function assertFormalAnchorsUnified(): void {
   assert(releaseAcceptance.includes('来源补料单：'), 'tests/cutting-release-acceptance.spec.ts 缺少来源补料链路断言')
   assert(releaseAcceptance.includes('铺布完成结果'), 'tests/cutting-release-acceptance.spec.ts 缺少菲票主真相源断言')
   assert(releaseAcceptance.includes('实际成衣件数'), 'tests/cutting-release-acceptance.spec.ts 缺少菲票成衣件数断言')
+  assert(releaseAcceptance.includes('理论成衣件数（件）'), 'tests/cutting-release-acceptance.spec.ts 缺少裁剪总结成衣件数字段断言')
+  assert(releaseAcceptance.includes('已裁片片数（片）'), 'tests/cutting-release-acceptance.spec.ts 缺少裁剪总结裁片片数字段断言')
+  assert(releaseAcceptance.includes('已入仓裁片片数（片）'), 'tests/cutting-release-acceptance.spec.ts 缺少裁剪总结入仓片数字段断言')
+  assert(releaseAcceptance.includes('计划捆条产出数量'), 'tests/cutting-release-acceptance.spec.ts 缺少捆条工艺计划产出字段断言')
+  assert(releaseAcceptance.includes('实际捆条产出'), 'tests/cutting-release-acceptance.spec.ts 缺少捆条工艺实际产出字段断言')
   assert(releaseAcceptance.includes('先装袋后入仓'), 'tests/cutting-release-acceptance.spec.ts 缺少先装袋后入仓链路断言')
   assert(releaseAcceptance.includes("countViewportRows(page, 'cutting-spreading-list-table')"), 'tests/cutting-release-acceptance.spec.ts 缺少铺布列表低分辨率断言')
   assert(releaseAcceptance.includes("countViewportRows(page, 'marker-plan-list-table')"), 'tests/cutting-release-acceptance.spec.ts 缺少唛架列表低分辨率断言')
@@ -223,11 +216,12 @@ function assertFormalAnchorsUnified(): void {
   )
   assert(releaseAcceptance.includes("not.toContainText('manual-entry')"), 'tests/cutting-release-acceptance.spec.ts 缺少 manual-entry 隐藏断言')
   assert(releaseAcceptance.includes("not.toContainText('context-only')"), 'tests/cutting-release-acceptance.spec.ts 缺少 context-only 隐藏断言')
+  assert(releaseAcceptance.includes("not.toContainText('sourceWritebackId')"), 'tests/cutting-release-acceptance.spec.ts 缺少工人端技术 ID 隐藏断言')
+  assert(releaseAcceptance.includes('交接结果'), 'tests/cutting-release-acceptance.spec.ts 缺少工人端交接结果断言')
   assert(releaseAcceptance.includes('补料待配料'), 'tests/cutting-release-acceptance.spec.ts 缺少补料待配料断言')
   assert(releaseAcceptance.includes('去仓库配料领料'), 'tests/cutting-release-acceptance.spec.ts 缺少补料回仓库动作断言')
   assert(releaseAcceptance.includes('参考理论值'), 'tests/cutting-release-acceptance.spec.ts 缺少菲票 fallback basis 断言')
 
-  assert(releaseAcceptanceCheck.includes('@playwright/test'), 'check-cutting-release-acceptance.ts 未纳入 Playwright 依赖解析检查')
   assert(releaseAcceptanceCheck.includes('补料待配料'), 'check-cutting-release-acceptance.ts 未纳入补料待配料规则')
   assert(releaseAcceptanceCheck.includes('铺布完成结果'), 'check-cutting-release-acceptance.ts 未纳入菲票主真相源规则')
   assert(releaseAcceptanceCheck.includes('manual-entry'), 'check-cutting-release-acceptance.ts 未纳入 manual-entry 收口规则')
@@ -235,6 +229,9 @@ function assertFormalAnchorsUnified(): void {
   assert(!releaseAcceptanceCheck.includes('裁片执行闭环'), 'check-cutting-release-acceptance.ts 不应再检查旧菜单名')
   assert(!releaseAcceptanceCheck.includes('订单数量折算'), 'check-cutting-release-acceptance.ts 不应再检查旧菲票 basis 文案')
   assert(!releaseAcceptanceCheck.includes('唛架总件数'), 'check-cutting-release-acceptance.ts 不应再检查旧菲票主 basis 文案')
+  assert(playwrightPreflight.includes('@playwright/test'), 'check-playwright-preflight.ts 未纳入 Playwright 依赖解析检查')
+  assert(playwrightPreflight.includes('npm install'), 'check-playwright-preflight.ts 未给出 npm install preflight 提示')
+  assert(playwrightPreflight.includes('test:cutting:install-browsers'), 'check-playwright-preflight.ts 未给出浏览器安装 preflight 提示')
 
   const replenishmentStorage = read('src/data/fcs/cutting/storage/replenishment-storage.ts')
   assert(replenishmentStorage.includes('sourceSpreadingSessionId'), 'replenishment-storage.ts 缺少 sourceSpreadingSessionId')
@@ -289,6 +286,7 @@ function assertUnifiedEntrypoints(): void {
   assert(packageJson.includes('"build"'), 'package.json 缺少 build 脚本')
   assert(packageJson.includes('"@playwright/test"'), 'package.json 缺少 @playwright/test 依赖')
   assert(packageJson.includes('"test:cutting-release-acceptance:e2e"'), 'package.json 缺少裁片 release acceptance e2e 入口')
+  assert(packageJson.includes('"check:cutting:playwright-preflight"'), 'package.json 缺少 Playwright 预检脚本入口')
 }
 
 function runTypeStripScript(rel: string): void {
@@ -302,7 +300,7 @@ function runTypeStripScript(rel: string): void {
 }
 
 function main(): void {
-  assertPlaywrightDependencyResolvable()
+  assertPlaywrightPreflight()
   assertAcceptanceSpecCollectable()
   assertKeyFormalFiles()
   assertRetiredFiles()

@@ -125,6 +125,7 @@ export interface OriginalCutOrderTicketOwner {
   relatedMergeBatchIds: string[]
   relatedMergeBatchNos: string[]
   sourceContextLabel: string
+  ticketCountBasisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
   ticketCountBasisLabel: string
   ticketCountBasisDetail: string
   currentStageLabel: string
@@ -285,6 +286,7 @@ export interface FeiTicketStatusMeta {
 }
 
 export interface TicketCountBasisResult {
+  basisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
   ticketCount: number
   basisLabel: string
   detailText: string
@@ -447,6 +449,7 @@ function createSeedOwnerFromRow(options: {
     relatedMergeBatchIds: mergeBatchIds,
     relatedMergeBatchNos: mergeBatchNos,
     sourceContextLabel: mergeBatchNos[0] ? `来自批次 ${mergeBatchNos[0]}` : '原始单上下文',
+    ticketCountBasisType: 'THEORETICAL_FALLBACK',
     ticketCountBasisLabel: '演示票数',
     ticketCountBasisDetail: '当前 seed 仅用于打印模块人工验收，不影响其它业务口径。',
     currentStageLabel: options.row.currentStage.label,
@@ -786,10 +789,21 @@ export function resolveTicketCountBasis(
   owner: Pick<OriginalCutOrderTicketOwner, 'originalCutOrderId' | 'relatedMergeBatchIds' | 'relatedMergeBatchNos'> & { orderQtyHint: number },
   markerStore: MarkerSpreadingStore,
   context: FeiTicketsContext | null,
+  spreadingResultTicketCount = 0,
 ): TicketCountBasisResult {
+  if (spreadingResultTicketCount > 0) {
+    return {
+      basisType: 'SPREADING_RESULT',
+      ticketCount: spreadingResultTicketCount,
+      basisLabel: '铺布完成结果',
+      detailText: `当前按铺布完成结果生成，按实际成衣件数拆分 ${formatQty(spreadingResultTicketCount)} 张。`,
+    }
+  }
+
   const markerPieces = findRelevantMarkerPieceCount(owner, markerStore, context)
   if (markerPieces && markerPieces > 0) {
     return {
+      basisType: 'THEORETICAL_FALLBACK',
       ticketCount: markerPieces,
       basisLabel: '参考理论值',
       detailText: `当前尚未命中正式铺布完成结果，先按参考理论值 ${formatQty(markerPieces)} 件估算建议票数。`,
@@ -798,6 +812,7 @@ export function resolveTicketCountBasis(
 
   const fallback = Math.max(1, Math.min(120, Math.round(Math.max(owner.orderQtyHint, 1) / 100)))
   return {
+    basisType: 'THEORETICAL_FALLBACK',
     ticketCount: fallback,
     basisLabel: '参考理论值',
     detailText: '当前尚未形成完整铺布完成结果，先按参考理论值补算建议票数。',
@@ -1092,6 +1107,7 @@ export function buildFeiTicketsViewModel(options: {
     const mergeBatchNos = Array.isArray(row.mergeBatchNos) ? row.mergeBatchNos : []
     const materialRow = materialRowsById[row.originalCutOrderId]
     const generatedTickets = generatedTicketMap[row.originalCutOrderId] || []
+    const spreadingResultTicketCount = generatedTickets.filter((ticket) => ticket.sourceBasisType === 'SPREADING_RESULT').length
     const ticketCountBasis = resolveTicketCountBasis(
       {
         originalCutOrderId: row.originalCutOrderId,
@@ -1101,8 +1117,9 @@ export function buildFeiTicketsViewModel(options: {
       },
       options.markerStore,
       null,
+      spreadingResultTicketCount,
     )
-    const plannedTicketQty = generatedTickets.length || ticketCountBasis.ticketCount
+    const plannedTicketQty = ticketCountBasis.ticketCount
     const ownerRecords = options.ticketRecords.filter((record) => record.originalCutOrderId === row.originalCutOrderId)
     const latestPrintJob = options.printJobs
       .filter((job) => job.originalCutOrderIds.includes(row.originalCutOrderId))
@@ -1139,10 +1156,9 @@ export function buildFeiTicketsViewModel(options: {
       relatedMergeBatchIds: mergeBatchIds,
       relatedMergeBatchNos: mergeBatchNos,
       sourceContextLabel: '原始裁片单上下文',
-      ticketCountBasisLabel: generatedTickets.length ? '铺布完成结果 / 实际成衣件数' : ticketCountBasis.basisLabel,
-      ticketCountBasisDetail: generatedTickets.length
-        ? `当前建议票数来自铺布完成结果，按实际成衣件数拆分 ${formatQty(generatedTickets.length)} 张，已绑定原始裁片单 / 部位 / 尺码 / 二级工艺。`
-        : ticketCountBasis.detailText,
+      ticketCountBasisType: ticketCountBasis.basisType,
+      ticketCountBasisLabel: ticketCountBasis.basisLabel,
+      ticketCountBasisDetail: ticketCountBasis.detailText,
       currentStageLabel: row.currentStage.label,
       cuttableStateLabel: row.cuttableState.label,
       riskLabels: row.riskTags.map((tag) => tag.label),
@@ -1652,6 +1668,9 @@ export interface PrintableUnit {
   sourceCutOrderCount: number
   requiredTicketCount: number
   garmentQtyTotal: number
+  ticketCountBasisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
+  ticketCountBasisLabel: string
+  ticketCountBasisDetail: string
   validPrintedTicketCount: number
   voidedTicketCount: number
   missingTicketCount: number
@@ -1972,6 +1991,9 @@ function buildPrintableUnitFromCutOrder(options: {
     sourceCutOrderCount: 1,
     requiredTicketCount,
     garmentQtyTotal: Math.max(generatedRecords.reduce((sum, record) => sum + Math.max(record.qty || 0, 0), 0), requiredTicketCount),
+    ticketCountBasisType: options.owner.ticketCountBasisType,
+    ticketCountBasisLabel: options.owner.ticketCountBasisLabel,
+    ticketCountBasisDetail: options.owner.ticketCountBasisDetail,
     validPrintedTicketCount: stats.validPrintedTicketCount,
     voidedTicketCount: stats.voidedTicketCount,
     missingTicketCount,
@@ -2025,6 +2047,16 @@ function buildPrintableUnitFromBatch(options: {
     options.owners.reduce((sum, owner) => sum + Math.max(owner.plannedTicketQty, 0), 0),
     generatedRecords.length,
   )
+  const ownerBasisTypes = unique(options.owners.map((owner) => owner.ticketCountBasisType))
+  const ticketCountBasisType =
+    ownerBasisTypes.length === 1 && ownerBasisTypes[0] === 'SPREADING_RESULT'
+      ? 'SPREADING_RESULT'
+      : 'THEORETICAL_FALLBACK'
+  const ticketCountBasisLabel = ticketCountBasisType === 'SPREADING_RESULT' ? '铺布完成结果' : '参考理论值'
+  const ticketCountBasisDetail =
+    ticketCountBasisType === 'SPREADING_RESULT'
+      ? `当前按铺布完成结果汇总，按实际成衣件数拆分 ${formatQty(generatedRecords.length)} 张。`
+      : '当前尚未形成完整铺布完成结果，部分票数仍按参考理论值补足。'
   const missingTicketCount = Math.max(requiredTicketCount - stats.validPrintedTicketCount, 0)
   const printableUnitStatus = derivePrintableUnitStatus({
     requiredTicketCount,
@@ -2055,6 +2087,9 @@ function buildPrintableUnitFromBatch(options: {
     sourceCutOrderCount: sourceCutOrderNos.length,
     requiredTicketCount,
     garmentQtyTotal: Math.max(generatedRecords.reduce((sum, record) => sum + Math.max(record.qty || 0, 0), 0), requiredTicketCount),
+    ticketCountBasisType,
+    ticketCountBasisLabel,
+    ticketCountBasisDetail,
     validPrintedTicketCount: stats.validPrintedTicketCount,
     voidedTicketCount: stats.voidedTicketCount,
     missingTicketCount,

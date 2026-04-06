@@ -165,14 +165,22 @@ const prototypeFeiPrintProjection = buildFeiTicketPrintProjection()
 const prototypeTraceabilityContext = buildCuttingTraceabilityProjectionContext()
 const prototypeWarehouseProjection = buildCutPieceWarehouseProjection({ snapshot: prototypeTraceabilityContext.snapshot })
 
+function findSpreadingResultPrintableUnitForSession(spreadingSessionId: string) {
+  return (
+    prototypeFeiPrintProjection.printableViewModel.units.find(
+      (unit) =>
+        unit.ticketCountBasisType === 'SPREADING_RESULT' &&
+        unit.sourceSpreadingSessionIds.includes(spreadingSessionId),
+    ) || null
+  )
+}
+
 function findPrototypeStageCaseRow(stageKey: 'WAITING_REPLENISHMENT' | 'WAITING_FEI_TICKET' | 'WAITING_BAGGING' | 'WAITING_WAREHOUSE') {
   return (
     prototypeFlowMatrix.find((row) => {
       if (row.stageKey !== stageKey) return false
       if (stageKey === 'WAITING_FEI_TICKET') {
-        return prototypeFeiPrintProjection.printableViewModel.units.some((unit) =>
-          unit.sourceSpreadingSessionIds.includes(row.spreadingSessionId),
-        )
+        return Boolean(findSpreadingResultPrintableUnitForSession(row.spreadingSessionId))
       }
       if (stageKey === 'WAITING_BAGGING') {
         return Boolean(row.feiTicketId || row.availableFeiTicketIds.length > 0)
@@ -227,7 +235,9 @@ test('release acceptance：supervisor IA、铺布列表状态与菜单闭环可�
   await expect(page.locator('body')).toContainText('录入来源')
   await expect(page.getByTestId('cutting-spreading-list-stats')).toHaveCount(1)
   const spreadingStatsBox = await page.getByTestId('cutting-spreading-list-stats').boundingBox()
-  expect(spreadingStatsBox?.height ?? 0).toBeLessThan(170)
+  expect(spreadingStatsBox?.height ?? 0).toBeLessThan(160)
+  const spreadingTabsBox = await page.getByTestId('cutting-spreading-stage-tabs').boundingBox()
+  expect(spreadingTabsBox?.height ?? 0).toBeLessThan(64)
   await expect(page.locator('[data-cutting-spreading-main-card="true"]')).toHaveCount(1)
   await expect(page.getByTestId('cutting-spreading-more-filters')).not.toHaveAttribute('open', '')
   await expect(page.getByTestId('cutting-spreading-list-table').locator('thead')).toBeVisible()
@@ -262,7 +272,9 @@ test('release acceptance：supervisor IA、铺布列表状态与菜单闭环可�
   await page.getByRole('button', { name: '已建唛架', exact: true }).click()
   await expect(page.getByTestId('marker-plan-list-stats')).toBeVisible()
   const markerStatsBox = await page.getByTestId('marker-plan-list-stats').boundingBox()
-  expect(markerStatsBox?.height ?? 0).toBeLessThan(170)
+  expect(markerStatsBox?.height ?? 0).toBeLessThan(160)
+  const markerTabsBox = await page.getByTestId('marker-plan-list-tabs').boundingBox()
+  expect(markerTabsBox?.height ?? 0).toBeLessThan(64)
   await expect(page.locator('[data-marker-plan-main-card="true"]')).toHaveCount(1)
   await expect(page.getByTestId('marker-plan-list-table').locator('thead')).toBeVisible()
   expect(await countViewportRows(page, 'marker-plan-list-table')).toBeGreaterThanOrEqual(6)
@@ -313,9 +325,17 @@ test.skip(!mergeBatchDetailRow || !workerSpreadingTask, '缺少可覆盖文案�
 test('release acceptance：裁片域界面文案全部中文化，旧补料分支和工程变量文案已清场', async ({ page }) => {
   const errors = collectPageErrors(page)
   await page.setViewportSize({ width: 1366, height: 768 })
+  const replenishmentRow =
+    buildReplenishmentProjection().viewModel.rows.find((row) => row.statusMeta.key === 'PENDING_REVIEW') ||
+    buildReplenishmentProjection().viewModel.rows[0]
+  expect(replenishmentRow).toBeTruthy()
 
-  await page.goto('/fcs/craft/cutting/replenishment')
+  await page.goto(`/fcs/craft/cutting/replenishment?keyword=${encodeURIComponent(replenishmentRow!.suggestionNo)}`)
   await expect(page.getByRole('heading', { level: 1, name: '补料管理' })).toBeVisible()
+  await page.getByRole('button', { name: '查看详情' }).first().click()
+  await expect(page.locator('body')).toContainText('补料明细建议')
+  await expect(page.locator('body')).toContainText('实际裁剪成衣件数（件）')
+  await expect(page.locator('body')).toContainText('缺口成衣件数（件）')
   await expectNoLegacyCuttingCopy(page)
 
   await page.goto('/fcs/craft/cutting/spreading-list')
@@ -324,6 +344,25 @@ test('release acceptance：裁片域界面文案全部中文化，旧补料分�
 
   await page.goto('/fcs/craft/cutting/marker-list')
   await expect(page.getByRole('heading', { level: 1, name: '唛架列表' })).toBeVisible()
+  await expectNoLegacyCuttingCopy(page)
+
+  await page.goto('/fcs/craft/cutting/summary')
+  await expect(page.locator('body')).toContainText('理论成衣件数（件）')
+  await expect(page.locator('body')).toContainText('已裁片片数（片）')
+  await expect(page.locator('body')).toContainText('已入仓裁片片数（片）')
+  await expect(page.locator('body')).toContainText('理论裁片片数（片）')
+  await expect(page.locator('body')).toContainText('差异裁片片数（片）')
+  await expectNoLegacyCuttingCopy(page)
+
+  await page.goto('/fcs/craft/cutting/special-processes')
+  await expect(page.locator('body')).toContainText('计划捆条产出')
+  await expect(page.locator('body')).toContainText('实际捆条产出')
+  await expect(page.locator('body')).toContainText('计划捆条产出数量')
+  await expect(page.locator('body')).toContainText('累计实际捆条产出')
+  await expectNoLegacyCuttingCopy(page)
+
+  await page.goto('/fcs/craft/cutting/cuttable-pool')
+  await expect(page.locator('body')).toContainText('下单成衣件数（件）')
   await expectNoLegacyCuttingCopy(page)
 
   await page.goto(`/fcs/craft/cutting/spreading-detail?sessionId=${encodeURIComponent(mergeBatchDetailRow!.spreadingSessionId)}`)
@@ -337,6 +376,8 @@ test('release acceptance：裁片域界面文案全部中文化，旧补料分�
   await page.setViewportSize({ width: 360, height: 800 })
   await page.goto('/fcs/pda/exec')
   await expect(page.getByRole('heading', { level: 1, name: '执行' })).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('当前任务下共有')
+  await expect(page.locator('body')).not.toContainText('执行页必须带着当前裁片单进入')
   await expectNoLegacyCuttingCopy(page)
 
   const pdaTask = workerSpreadingTask!
@@ -346,6 +387,13 @@ test('release acceptance：裁片域界面文案全部中文化，旧补料分�
   await expect(page.getByRole('heading', { level: 1, name: '铺布录入' })).toBeVisible()
   await expect(page.locator('body')).toContainText('铺布层数（层）')
   await expect(page.locator('body')).toContainText('实际裁剪成衣件数（件）')
+  await expect(page.locator('body')).toContainText('卷号：')
+  await expect(page.locator('body')).toContainText('录入人：')
+  await expect(page.locator('body')).toContainText('交接结果：')
+  await expect(page.locator('body')).toContainText(/无换班|交接给：|接手自：/)
+  await expect(page.locator('body')).not.toContainText('sourceWritebackId')
+  await expect(page.locator('body')).not.toContainText('enteredByAccountId')
+  await expect(page.locator('body')).not.toContainText('item.id')
   await expectNoLegacyCuttingCopy(page)
 
   await expectNoPageErrors(errors)
@@ -404,14 +452,16 @@ test('release acceptance：supervisor 详情页 next-step action bar、公式和
     await nextStepBar.getByRole('button', { name: expectation.action }).click()
     await expect(page).toHaveURL(expectation.url)
     if (expectation.stage === '待打印菲票') {
+      const matchedPrintableUnit = findSpreadingResultPrintableUnitForSession(caseRow!.spreadingSessionId)
+      expect(matchedPrintableUnit).toBeTruthy()
       await expect(page.locator('body')).toContainText('来源铺布')
+      await page.goto(`/fcs/craft/cutting/fei-tickets?keyword=${encodeURIComponent(matchedPrintableUnit!.printableUnitNo)}`)
       await page.getByRole('button', { name: '查看详情' }).first().click()
       await expect(page.locator('body')).toContainText('来源唛架')
       await expect(page.locator('body')).toContainText('来源原始裁片单')
       await expect(page.locator('body')).toContainText('来源合并裁剪批次')
       await expect(page.locator('body')).toContainText('铺布完成结果')
-      await expect(page.locator('body')).toContainText('实际成衣件数')
-      await expect(page.locator('body')).toContainText('参考理论值')
+      await expect(page.locator('body')).toContainText('按实际成衣件数拆分')
       await expect(page.locator('body')).not.toContainText('唛架总件数')
       await expect(page.locator('body')).not.toContainText('订单数量折算')
     }
@@ -507,7 +557,7 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
   const spreadingStep = page.locator('[data-pda-cutting-unit-step="SPREADING"]')
   await expectVisibleInViewport(page, spreadingStep)
   const spreadingStepBox = await spreadingStep.boundingBox()
-  expect(spreadingStepBox?.height ?? 0).toBeLessThan(54)
+  expect(spreadingStepBox?.height ?? 0).toBeLessThan(50)
   await spreadingStep.click()
   await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/spreading/${unitTask.taskId}\\?`))
 
@@ -561,6 +611,8 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
   await page.locator('[data-pda-cut-spreading-field="planUnitId"]').selectOption(planUnitId)
   await expect(page.getByText(/米 = 36\.00 米 - 0\.30 米 - 0\.20 米/)).toBeVisible()
   await expect(page.getByText(/件 = 8 层 × \d+ 件/)).toBeVisible()
+  await expect(page.locator('body')).toContainText('卷号：')
+  await expect(page.locator('body')).toContainText('录入人：')
   await expect(page.locator('body')).toContainText('交接结果')
   await expect(page.locator('body')).not.toContainText('换班：')
   await expectVisibleInViewport(page, page.getByRole('button', { name: '保存铺布记录' }))
@@ -780,6 +832,20 @@ test('release acceptance：补料 / 菲票 / 装袋 / 入仓 / PDA 写回数据�
         && (row.warehouseRecordId !== '' || row.availableWarehouseRecordIds.length > 0),
     ),
   ).toBeTruthy()
+})
+
+test('release acceptance：菲票 fallback 路径明确标记为参考理论值', async ({ page }) => {
+  const fallbackUnit = buildFeiTicketPrintProjection().printableViewModel.units.find(
+    (unit) => unit.ticketCountBasisType === 'THEORETICAL_FALLBACK',
+  )
+  expect(fallbackUnit).toBeTruthy()
+
+  await page.goto(`/fcs/craft/cutting/fei-tickets?keyword=${encodeURIComponent(fallbackUnit!.printableUnitNo)}`)
+  await page.getByRole('button', { name: '查看详情' }).first().click()
+  await expect(page.locator('body')).toContainText('来源原始裁片单')
+  await expect(page.locator('body')).toContainText('参考理论值')
+  await expect(page.locator('body')).toContainText('当前尚未形成完整铺布完成结果')
+  await expect(page.locator('body')).not.toContainText('按实际成衣件数拆分')
 })
 
 test('release acceptance：补料审批通过后，仓库配料领料可见补料待配料', async ({ page }) => {

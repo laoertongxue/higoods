@@ -190,12 +190,12 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
       </div>
       ${
         detail.exceptionCutPieceOrderCount > 0
-          ? `<div class="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2.5 text-xs text-amber-800">当前有 ${escapeHtml(String(detail.exceptionCutPieceOrderCount))} 张裁片单需要优先处理异常或补料问题。</div>`
+          ? `<div class="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2.5 text-xs text-amber-800">有 ${escapeHtml(String(detail.exceptionCutPieceOrderCount))} 张裁片单待先处理。</div>`
           : ''
       }
       ${
         detail.cutPieceOrderCount > 1
-          ? `<div class="mt-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2.5 text-xs text-slate-700">当前任务下有多张裁片单，请先在下面选择具体裁片单，再进入处理。</div>`
+          ? `<div class="mt-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2.5 text-xs text-slate-700">先选裁片单，再进入当前任务。</div>`
           : ''
       }
     </section>
@@ -248,15 +248,15 @@ function renderTaskOrderCard(
           <div class="text-base font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div>
           <div class="text-[11px] text-muted-foreground">${
             line.bindingState === 'UNBOUND'
-              ? '当前执行对象待绑定原始裁片单'
-              : `绑定原始裁片单 ${escapeHtml(line.originalCutOrderNo)}`
+              ? '待绑定原始裁片单'
+              : `裁片单 ${escapeHtml(line.originalCutOrderNo)}`
           }</div>
           ${
             line.mergeBatchNo
               ? `<div class="text-[11px] text-muted-foreground">关联合并裁剪批次 ${escapeHtml(line.mergeBatchNo)}</div>`
               : ''
           }
-          <div class="text-xs text-muted-foreground">${escapeHtml(line.materialSku)}</div>
+          <div class="text-xs text-muted-foreground">面料 SKU ${escapeHtml(line.materialSku)}</div>
         </div>
         <div class="flex flex-wrap justify-end gap-2">
           ${renderStatusChip(line.currentStateLabel, resolveStatusTone(line.currentStateLabel))}

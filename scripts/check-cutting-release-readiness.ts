@@ -20,6 +20,7 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 const checks = [
+  { label: 'Playwright 预检', file: 'scripts/check-playwright-preflight.ts' },
   { label: '入口清理', file: 'scripts/check-cutting-entry-cleanup.ts' },
   { label: '主对象身份', file: 'scripts/check-cutting-core-identity.ts' },
   { label: '上游链', file: 'scripts/check-fcs-upstream-cutting-chain.ts' },
@@ -47,6 +48,7 @@ function assertReadinessRulesAligned(): void {
   const acceptanceSpec = read('tests/cutting-release-acceptance.spec.ts')
   const acceptanceCheck = read('scripts/check-cutting-release-acceptance.ts')
   const e2eCheck = read('scripts/check-cutting-e2e-readiness.ts')
+  const playwrightPreflight = read('scripts/check-playwright-preflight.ts')
 
   ;[
     '补料待配料',
@@ -54,6 +56,11 @@ function assertReadinessRulesAligned(): void {
     '铺布完成结果',
     '实际成衣件数',
     '合并裁剪批次',
+    '理论成衣件数（件）',
+    '已裁片片数（片）',
+    '已入仓裁片片数（片）',
+    '计划捆条产出数量',
+    '实际捆条产出',
     'manual-entry',
     'context-only',
     'countViewportRows(page, \'marker-plan-list-table\')',
@@ -67,12 +74,17 @@ function assertReadinessRulesAligned(): void {
     '补料待配料',
     '铺布完成结果',
     '实际成衣件数',
+    '理论成衣件数（件）',
+    '计划捆条产出数量',
     'manual-entry',
     'context-only',
-    '@playwright/test',
   ].forEach((token) => {
     assert(acceptanceCheck.includes(token), `scripts/check-cutting-release-acceptance.ts 未纳入当前正式规则：${token}`)
     assert(e2eCheck.includes(token), `scripts/check-cutting-e2e-readiness.ts 未纳入当前正式规则：${token}`)
+  })
+
+  ;['npm install', 'test:cutting:install-browsers', '@playwright/test', 'playwright.config.ts'].forEach((token) => {
+    assert(playwrightPreflight.includes(token), `scripts/check-playwright-preflight.ts 未纳入 Playwright 预检规则：${token}`)
   })
 }
 
