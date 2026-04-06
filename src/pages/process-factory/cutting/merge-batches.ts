@@ -153,7 +153,7 @@ function syncStateFromPath(ledger = getMergedLedger()): void {
   }
 
   if (createdBatchNo) {
-    setFeedback('success', `已创建裁剪批次 ${createdBatchNo}。`)
+    setFeedback('success', `已创建合并裁剪批次 ${createdBatchNo}。`)
   }
 }
 
@@ -340,7 +340,7 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
   if (!ledger.length) {
     return `
       <section class="rounded-lg border bg-card px-6 py-10 text-center text-sm text-muted-foreground" data-testid="cutting-merge-batches-ledger">
-        当前还没有批次台账，可先去可裁排产选择原始裁片单并创建裁剪批次。
+        当前还没有合并裁剪批次台账，可先去可裁排产选择原始裁片单并创建合并裁剪批次。
       </section>
     `
   }
@@ -408,7 +408,7 @@ function renderBatchBasicInfo(batch: MergeBatchRecord): string {
     <section class="space-y-3 rounded-lg border bg-muted/10 p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 class="text-sm font-semibold">批次基础信息</h3>
+          <h3 class="text-sm font-semibold">合并裁剪批次基础信息</h3>
           <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(statusMeta.helperText)}</p>
         </div>
         ${renderStatusBadge(batch.status)}

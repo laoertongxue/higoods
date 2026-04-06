@@ -419,8 +419,7 @@ function buildReplenishmentSummary(snapshot: CuttingDomainSnapshot, record: Cutt
     rejectedCount: 0,
     needMoreInfoCount: 0,
     highRiskCount,
-    mayAffectPrintingCount: feedbacks.filter((item) => (item.note || '').includes('印花')).length,
-    mayAffectDyeingCount: feedbacks.filter((item) => (item.note || '').includes('染色')).length,
+    pendingPrepCount: suggestionCount,
   }
 }
 

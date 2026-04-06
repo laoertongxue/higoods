@@ -764,9 +764,9 @@ function renderPickupTraceabilitySection(head: PdaHandoverHead, sourceDoc: Retur
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
           ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
-          ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType || '—')}
-          ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
-          ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+          ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType ? '其他单据' : '—')}
+          ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
+          ${renderFieldRow('当前任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
         </div>
       </div>
     </details>
@@ -1038,9 +1038,9 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
-        ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType || '—')}
-        ${renderFieldRow('执行范围', head.scopeLabel || '整单')}
-        ${renderFieldRow('运行时任务', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+        ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType ? '其他单据' : '—')}
+        ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
+        ${renderFieldRow('当前任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
       </div>
       <div class="h-px bg-border"></div>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">

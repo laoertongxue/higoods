@@ -271,9 +271,7 @@ function renderReplenishmentSection(recordId: string): string {
         <article class="rounded-lg border bg-muted/20 p-4">
           <p class="text-xs text-muted-foreground">影响摘要</p>
           <div class="mt-2 flex flex-wrap gap-2">
-            ${row.record.replenishmentSummary.mayAffectPrintingCount > 0 ? renderBadge('可能影响印花', 'bg-fuchsia-50 text-fuchsia-700') : ''}
-            ${row.record.replenishmentSummary.mayAffectDyeingCount > 0 ? renderBadge('可能影响染色', 'bg-sky-50 text-sky-700') : ''}
-            ${row.record.replenishmentSummary.mayAffectPrintingCount === 0 && row.record.replenishmentSummary.mayAffectDyeingCount === 0 ? renderBadge('当前无跨工艺影响', 'bg-emerald-50 text-emerald-700') : ''}
+            ${row.record.replenishmentSummary.pendingPrepCount > 0 ? renderBadge('待仓库配料领料', 'bg-amber-50 text-amber-700') : renderBadge('当前无补料待配料', 'bg-emerald-50 text-emerald-700')}
           </div>
         </article>
       </div>

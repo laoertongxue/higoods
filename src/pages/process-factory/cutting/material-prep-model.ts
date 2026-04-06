@@ -688,7 +688,7 @@ function createRow(
     latestClaimDispute: null,
     hasClaimDispute: false,
     claimDisputeStatusLabel: '暂无异议',
-    claimDisputeSummary: '当前暂无领料数量异议。',
+    claimDisputeSummary: '当前暂无领料长度异议。',
     claimDisputeDiscrepancyText: '差异 0 米',
     claimDisputeEvidenceCount: 0,
     claimDisputeHandleSummary: '待平台处理结果',
@@ -837,7 +837,7 @@ export function recalculateMaterialPrepRow(
   row.latestClaimDispute = getLatestClaimDisputeByOriginalCutOrderNo(row.originalCutOrderNo)
   row.hasClaimDispute = Boolean(row.latestClaimDispute)
   row.claimDisputeStatusLabel = row.latestClaimDispute ? getClaimDisputeStatusLabel(row.latestClaimDispute.status) : '暂无异议'
-  row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无领料数量异议。'
+  row.claimDisputeSummary = row.latestClaimDispute ? buildCraftClaimDisputeSummary(row.latestClaimDispute) : '当前暂无领料长度异议。'
   row.claimDisputeDiscrepancyText = row.latestClaimDispute ? `差异 ${formatDisputeQty(row.latestClaimDispute.discrepancyQty)}` : '差异 0 米'
   row.claimDisputeEvidenceCount = row.latestClaimDispute?.evidenceCount ?? 0
   row.claimDisputeHandleSummary = row.latestClaimDispute

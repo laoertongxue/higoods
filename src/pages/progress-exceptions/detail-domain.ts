@@ -52,7 +52,7 @@ function renderClaimDisputeSourcePanel(detailCase: ExceptionCase): string {
   if (!dispute) {
     return `
       <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
-        <p class="text-sm font-medium text-teal-700">裁片领料数量异议来源明细</p>
+        <p class="text-sm font-medium text-teal-700">裁片领料长度异议来源明细</p>
         <p class="text-xs text-teal-700">未找到共享异议对象，请回到移动端或工艺端检查是否已写入裁片领料异议 ledger。</p>
       </div>
     `
@@ -69,7 +69,7 @@ function renderClaimDisputeSourcePanel(detailCase: ExceptionCase): string {
   return `
     <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
       <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-medium text-teal-700">裁片领料数量异议来源明细</p>
+        <p class="text-sm font-medium text-teal-700">裁片领料长度异议来源明细</p>
         <span class="inline-flex items-center rounded-full border px-2.5 py-1 ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
       </div>
       <div class="grid grid-cols-2 gap-2">
@@ -79,10 +79,10 @@ function renderClaimDisputeSourcePanel(detailCase: ExceptionCase): string {
         ${renderKv('生产单号', dispute.productionOrderNo)}
         ${renderKv('面料编码', dispute.materialSku)}
         ${renderKv('面料属性 / 类别', `${dispute.materialCategory} / ${dispute.materialAttr}`)}
-        ${renderKv('仓库配置数量', `${dispute.configuredQty} 米`)}
-        ${renderKv('默认应领数量', `${dispute.defaultClaimQty} 米`)}
-        ${renderKv('实际领取数量', `${dispute.actualClaimQty} 米`)}
-        ${renderKv('差异数量', `${dispute.discrepancyQty} 米`)}
+        ${renderKv('仓库配置长度（m）', `${dispute.configuredQty} 米`)}
+        ${renderKv('默认应领长度（m）', `${dispute.defaultClaimQty} 米`)}
+        ${renderKv('实际领取长度（m）', `${dispute.actualClaimQty} 米`)}
+        ${renderKv('差异长度（m）', `${dispute.discrepancyQty} 米`)}
         ${renderKv('提交人', dispute.submittedBy)}
         ${renderKv('提交时间', dispute.submittedAt)}
       </div>
@@ -133,7 +133,7 @@ function renderClaimDisputeActionPanel(detailCase: ExceptionCase): string {
 
   return `
     <div class="rounded-md border border-teal-200 bg-teal-50 p-3">
-      <p class="text-sm font-medium text-teal-700">裁片领料数量异议处理区</p>
+      <p class="text-sm font-medium text-teal-700">裁片领料长度异议处理区</p>
       <div class="mt-3 grid grid-cols-2 gap-3">
         <label class="space-y-1">
           <span class="text-xs text-muted-foreground">处理状态</span>
@@ -168,7 +168,7 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
   if (!dispute) {
     return `
       <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
-        <p class="text-sm font-medium text-teal-700">通用待领料数量差异来源明细</p>
+        <p class="text-sm font-medium text-teal-700">通用待领料长度差异来源明细</p>
         <p class="text-xs text-teal-700">未找到对应领料记录，请回到移动端确认是否仍存在该条待领料记录。</p>
       </div>
     `
@@ -186,7 +186,7 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
   return `
     <div class="space-y-3 rounded-lg border border-teal-200 bg-teal-50 p-4">
       <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-medium text-teal-700">通用待领料数量差异来源明细</p>
+        <p class="text-sm font-medium text-teal-700">通用待领料长度差异来源明细</p>
         <span class="inline-flex items-center rounded-full border border-teal-200 bg-background px-2.5 py-1 text-xs text-teal-700">${escapeHtml(getSubCategoryLabel(detailCase))}</span>
       </div>
       <div class="grid grid-cols-2 gap-2">
@@ -214,7 +214,7 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
         <p class="mt-1">${escapeHtml(record.resolvedRemark || record.followUpRemark || '待处理')}</p>
       </div>
       <div class="rounded-md border bg-background p-3 text-xs text-muted-foreground">
-        <p>证据数量：${record.objectionProofFiles?.length || 0}</p>
+        <p>证据份数：${record.objectionProofFiles?.length || 0} 个</p>
         <p class="mt-1">仓库扫码交付与工厂确认已拆分，平台裁定结果会回写到同一条领料记录。</p>
       </div>
     </div>
@@ -228,7 +228,7 @@ function renderPdaPickupDisputeActionPanel(detailCase: ExceptionCase): string {
   const record = dispute.record
   return `
     <div class="rounded-md border border-teal-200 bg-teal-50 p-3">
-      <p class="text-sm font-medium text-teal-700">待领料数量差异处理区</p>
+      <p class="text-sm font-medium text-teal-700">待领料长度差异处理区</p>
       <div class="mt-3 grid grid-cols-2 gap-3">
         <label class="space-y-1">
           <span class="text-xs text-muted-foreground">处理状态</span>
@@ -238,7 +238,7 @@ function renderPdaPickupDisputeActionPanel(detailCase: ExceptionCase): string {
           </select>
         </label>
         <label class="space-y-1">
-          <span class="text-xs text-muted-foreground">最终确认数量</span>
+          <span class="text-xs text-muted-foreground">最终确认长度（m）</span>
           <input
             class="h-9 w-full rounded-md border bg-background px-3 text-sm"
             type="number"
@@ -837,7 +837,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="alert-circle" class="h-5 w-5 text-amber-600"></i>
           <div>
-            <p class="font-medium">查看数量异议</p>
+            <p class="font-medium">查看长度异议</p>
             <p class="text-xs text-muted-foreground">查看异议状态并联动平台处理</p>
           </div>
         </div>

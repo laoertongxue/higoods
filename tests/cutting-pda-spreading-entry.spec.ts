@@ -13,7 +13,20 @@ const taskWithWorkerTargets = listPdaCuttingTaskSourceRecords()
       detail: getPdaCuttingTaskSnapshot(record.taskId, executionOrderId),
     })),
   )
-  .find((item) => item.detail?.spreadingTargets.some((target) => target.targetType === 'session' || target.targetType === 'marker'))
+  .find((item) =>
+    item.detail?.spreadingRecords.length
+    && item.detail.spreadingTargets.some((target) => target.targetType === 'session' || target.targetType === 'marker'),
+  )
+  || listPdaCuttingTaskSourceRecords()
+    .flatMap((record) =>
+      record.executionOrderIds.map((executionOrderId, index) => ({
+        taskId: record.taskId,
+        executionOrderId,
+        executionOrderNo: record.executionOrderNos[index] || executionOrderId,
+        detail: getPdaCuttingTaskSnapshot(record.taskId, executionOrderId),
+      })),
+    )
+    .find((item) => item.detail?.spreadingTargets.some((target) => target.targetType === 'session' || target.targetType === 'marker'))
 
 const allSpreadingModes = new Set(
   listPdaCuttingTaskSourceRecords()
@@ -67,6 +80,7 @@ test('普通工人只看到 session / marker 铺布对象，当前排版项必�
   await expect(page.locator('body')).not.toContainText('sourceWritebackId')
   await expect(page.locator('body')).not.toContainText('enteredByAccountId')
   await expect(page.locator('body')).not.toContainText('operatorAccountId')
+  await expect(page.locator('body')).not.toContainText('拆分组')
 
   await expect(page.locator('[data-pda-cut-spreading-field="planUnitId"]')).toBeVisible()
   await page.locator('[data-pda-cut-spreading-field="planUnitId"]').selectOption('')
@@ -83,7 +97,9 @@ test('普通工人只看到 session / marker 铺布对象，当前排版项必�
   await expect(page.locator('[data-pda-cut-spreading-field="spreadingMode"]')).toBeVisible()
   await expect(page.getByText('23.50 米 = 24.00 米 - 0.30 米 - 0.20 米')).toBeVisible()
   await expect(page.getByText(/件 = 6 层 × \d+ 件/)).toBeVisible()
-  await expect(page.locator('body')).toContainText('下一步')
+  await expect(page.locator('body')).toContainText('当前步骤')
+  await expect(page.locator('body')).toContainText('交接结果')
+  await expect(page.locator('body')).not.toContainText('换班：')
 
   await expectNoPageErrors(errors)
 })

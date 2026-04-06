@@ -33,6 +33,20 @@ export interface MarkerSpreadingSummaryMeta<Key extends string> {
   detailText: string
 }
 
+export type SpreadingPrimaryActionKey =
+  | 'COMPLETE_SPREADING'
+  | 'GO_REPLENISHMENT'
+  | 'GO_FEI_TICKET'
+  | 'GO_BAGGING'
+  | 'GO_WAREHOUSE'
+  | 'DONE'
+
+export interface SpreadingPrimaryActionMeta {
+  key: SpreadingPrimaryActionKey
+  label: string
+  action: 'open-spreading-edit' | 'go-spreading-replenishment' | 'go-spreading-fei-tickets' | 'go-spreading-transfer-bags' | 'go-spreading-warehouse' | ''
+}
+
 export interface MarkerSizeDistributionItem {
   sizeLabel: string
   quantity: number
@@ -139,6 +153,7 @@ export interface MarkerRecord {
   markerMode: MarkerModeKey
   sizeDistribution: MarkerSizeDistributionItem[]
   totalPieces: number
+  markerGarmentQty?: number
   netLength: number
   singlePieceUsage: number
   spreadTotalLength?: number
@@ -188,6 +203,7 @@ export interface SpreadingRollRecord {
   totalLength?: number
   remainingLength?: number
   actualCutPieceQty?: number
+  actualCutGarmentQty?: number
   occurredAt?: string
   operatorNames: string[]
   handoverNotes: string
@@ -213,6 +229,7 @@ export interface SpreadingOperatorRecord {
   handledLayerCount?: number
   handledLength?: number
   handledPieceQty?: number
+  handledGarmentQty?: number
   pricingMode?: SpreadingPricingMode
   unitPrice?: number
   calculatedAmount?: number
@@ -238,6 +255,7 @@ export interface SpreadingOperatorQuantifiedRecord {
   nextOperatorName: string
   handledLayerCount: number | null
   handledPieceQty: number | null
+  handledGarmentQty: number | null
   calculatedAmount: number | null
   displayAmount: number | null
   handoverAtLayer: number | null
@@ -250,6 +268,7 @@ export interface SpreadingOperatorAmountSummaryRow {
   handledLayerCountTotal: number
   handledLengthTotal: number
   handledPieceQtyTotal: number
+  handledGarmentQtyTotal: number
   calculatedAmountTotal: number
   displayAmountTotal: number
   hasManualAdjustedAmount: boolean
@@ -260,6 +279,7 @@ export interface SpreadingOperatorAmountSummary {
   totalHandledLayerCount: number
   totalHandledLength: number
   totalHandledPieceQty: number
+  totalHandledGarmentQty: number
   totalCalculatedAmount: number
   totalDisplayAmount: number
   hasManualAdjustedAmount: boolean
@@ -477,6 +497,7 @@ export interface SpreadingSession {
   varianceLength: number
   varianceNote: string
   actualCutPieceQty?: number
+  actualCutGarmentQty?: number
   unitPrice?: number
   totalAmount?: number
   note: string
@@ -489,6 +510,7 @@ export interface SpreadingSession {
   highLowPlanSnapshot?: SpreadingHighLowPlanSnapshot | null
   theoreticalSpreadTotalLength?: number
   theoreticalActualCutPieceQty?: number
+  theoreticalCutGarmentQty?: number
   importAdjustmentRequired?: boolean
   importAdjustmentNote?: string
   replenishmentWarning?: SpreadingReplenishmentWarning | null
@@ -532,6 +554,7 @@ export interface SpreadingVarianceSummary {
   estimatedPieceCapacity: number
   requiredPieceQty: number
   actualCutPieceQtyTotal: number
+  garmentQtyTotal: number
   requiredGarmentQty: number
   theoreticalCapacityGarmentQty: number
   actualCutGarmentQtyTotal: number
@@ -695,6 +718,34 @@ const spreadingSupervisorStageMeta: Record<
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     detailText: '当前铺布已完成并进入后续闭环链路。',
   },
+}
+
+export function resolveSpreadingPrimaryActionMeta(nextStepKey: SpreadingPrimaryActionKey): SpreadingPrimaryActionMeta | null {
+  if (nextStepKey === 'COMPLETE_SPREADING') {
+    return { key: nextStepKey, label: '去编辑继续铺布', action: 'open-spreading-edit' }
+  }
+  if (nextStepKey === 'GO_REPLENISHMENT') {
+    return { key: nextStepKey, label: '去补料管理', action: 'go-spreading-replenishment' }
+  }
+  if (nextStepKey === 'GO_FEI_TICKET') {
+    return { key: nextStepKey, label: '去打印菲票', action: 'go-spreading-fei-tickets' }
+  }
+  if (nextStepKey === 'GO_BAGGING') {
+    return { key: nextStepKey, label: '去装袋', action: 'go-spreading-transfer-bags' }
+  }
+  if (nextStepKey === 'GO_WAREHOUSE') {
+    return { key: nextStepKey, label: '去裁片仓', action: 'go-spreading-warehouse' }
+  }
+  return null
+}
+
+export function resolveSpreadingPrimaryActionKeyByStage(stageKey: SpreadingSupervisorStageKey): SpreadingPrimaryActionKey | null {
+  if (stageKey === 'WAITING_START' || stageKey === 'IN_PROGRESS') return 'COMPLETE_SPREADING'
+  if (stageKey === 'WAITING_REPLENISHMENT') return 'GO_REPLENISHMENT'
+  if (stageKey === 'WAITING_FEI_TICKET') return 'GO_FEI_TICKET'
+  if (stageKey === 'WAITING_BAGGING') return 'GO_BAGGING'
+  if (stageKey === 'WAITING_WAREHOUSE') return 'GO_WAREHOUSE'
+  return null
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -1017,6 +1068,7 @@ function normalizeMarkerRecord(marker: MarkerRecord): MarkerRecord {
     techPackSpuCode: marker.techPackSpuCode || '',
     markerMode: normalizedMode,
     totalPieces,
+    markerGarmentQty: totalPieces,
     spreadTotalLength,
     allocationLines,
     lineItems,
@@ -1096,7 +1148,16 @@ export function computeTheoreticalCutQty(session: Partial<SpreadingSession>, mar
 
 export function computeActualCutQty(session: Partial<SpreadingSession>): number {
   const rollSummary = summarizeSpreadingRolls(session.rolls || [])
-  return Math.max(Number(session.actualCutPieceQty || rollSummary.totalActualCutPieceQty || 0), 0)
+  return Math.max(
+    Number(
+      session.actualCutGarmentQty ??
+        session.actualCutPieceQty ??
+        rollSummary.totalActualCutGarmentQty ??
+        rollSummary.totalActualCutPieceQty ??
+        0,
+    ),
+    0,
+  )
 }
 
 export function computeLengthVariance(claimedLengthTotal: number, actualLengthTotal: number): number {
@@ -1194,7 +1255,7 @@ export function buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength
 }
 
 export function buildRollActualCutQtyFormula(actualCutPieceQty: number, layerCount: number, markerTotalPieces: number): string {
-  return `${formatQty(actualCutPieceQty)} 片 = ${formatQty(layerCount)} 层 × ${formatQty(markerTotalPieces)} 片`
+  return `${formatQty(actualCutPieceQty)} 件 = ${formatQty(layerCount)} 层 × ${formatQty(markerTotalPieces)} 件`
 }
 
 export function buildRollActualCutGarmentQtyFormula(actualCutGarmentQty: number, layerCount: number, garmentQtyPerUnit: number): string {
@@ -1415,7 +1476,10 @@ export function buildSpreadingCoreMetrics(options: {
       actualLayerTotal,
       options.markerTotalPieces,
     ),
-    actualCutGarmentQtyFormula: buildQtySumFormula(actualCutGarmentQty, (session?.rolls || []).map((roll) => roll.actualCutPieceQty || 0)),
+    actualCutGarmentQtyFormula: buildQtySumFormula(
+      actualCutGarmentQty,
+      (session?.rolls || []).map((roll) => (roll.actualCutGarmentQty ?? roll.actualCutPieceQty) || 0),
+    ),
     spreadUsableLengthFormula: buildSumFormula(
       spreadUsableLengthM,
       (session?.rolls || []).map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength)),
@@ -2183,16 +2247,22 @@ export function summarizeSpreadingRolls(rolls: SpreadingRollRecord[]): {
   totalCalculatedUsableLength: number
   totalRemainingLength: number
   totalActualCutPieceQty: number
+  totalActualCutGarmentQty: number
   rollCount: number
   totalLayers: number
 } {
+  const totalActualCutGarmentQty = rolls.reduce(
+    (sum, roll) => sum + Math.max((roll.actualCutGarmentQty ?? roll.actualCutPieceQty) || 0, 0),
+    0,
+  )
   return {
     totalActualLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.actualLength, 0), 0).toFixed(2)),
     totalHeadLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.headLength, 0), 0).toFixed(2)),
     totalTailLength: Number(rolls.reduce((sum, roll) => sum + Math.max(roll.tailLength, 0), 0).toFixed(2)),
     totalCalculatedUsableLength: Number(rolls.reduce((sum, roll) => sum + computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength), 0).toFixed(2)),
     totalRemainingLength: Number(rolls.reduce((sum, roll) => sum + computeRemainingLength(roll.labeledLength, roll.actualLength), 0).toFixed(2)),
-    totalActualCutPieceQty: rolls.reduce((sum, roll) => sum + Math.max(roll.actualCutPieceQty || 0, 0), 0),
+    totalActualCutPieceQty: totalActualCutGarmentQty,
+    totalActualCutGarmentQty,
     rollCount: rolls.length,
     totalLayers: rolls.reduce((sum, roll) => sum + Math.max(roll.layerCount, 0), 0),
   }
@@ -2291,6 +2361,7 @@ function buildOperatorAmountAggregation(
   let totalHandledLayerCount = 0
   let totalHandledLength = 0
   let totalHandledPieceQty = 0
+  let totalHandledGarmentQty = 0
   let totalCalculatedAmount = 0
   let totalDisplayAmount = 0
   let hasManualAdjustedAmount = false
@@ -2304,7 +2375,7 @@ function buildOperatorAmountAggregation(
       0
     const handledLength = parseOptionalNumber(operator.handledLength) ?? 0
     const handledPieceQty =
-      parseOptionalNumber(operator.handledPieceQty) ??
+      parseOptionalNumber(operator.handledGarmentQty ?? operator.handledPieceQty) ??
       computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces) ??
       0
     const unitPrice = parseOptionalNumber(operator.unitPrice) ?? parseOptionalNumber(defaultUnitPrice)
@@ -2326,6 +2397,7 @@ function buildOperatorAmountAggregation(
       handledLayerCountTotal: 0,
       handledLengthTotal: 0,
       handledPieceQtyTotal: 0,
+      handledGarmentQtyTotal: 0,
       calculatedAmountTotal: 0,
       displayAmountTotal: 0,
       hasManualAdjustedAmount: false,
@@ -2335,6 +2407,7 @@ function buildOperatorAmountAggregation(
     current.handledLayerCountTotal += handledLayerCount
     current.handledLengthTotal = Number((current.handledLengthTotal + handledLength).toFixed(2))
     current.handledPieceQtyTotal += handledPieceQty
+    current.handledGarmentQtyTotal += handledPieceQty
     current.calculatedAmountTotal = Number((current.calculatedAmountTotal + calculatedAmount).toFixed(2))
     current.displayAmountTotal = Number((current.displayAmountTotal + displayAmount).toFixed(2))
     current.hasManualAdjustedAmount = current.hasManualAdjustedAmount || Boolean(operator.manualAmountAdjusted)
@@ -2344,6 +2417,7 @@ function buildOperatorAmountAggregation(
     totalHandledLayerCount += handledLayerCount
     totalHandledLength = Number((totalHandledLength + handledLength).toFixed(2))
     totalHandledPieceQty += handledPieceQty
+    totalHandledGarmentQty += handledPieceQty
     totalCalculatedAmount = Number((totalCalculatedAmount + calculatedAmount).toFixed(2))
     totalDisplayAmount = Number((totalDisplayAmount + displayAmount).toFixed(2))
     hasManualAdjustedAmount = hasManualAdjustedAmount || Boolean(operator.manualAmountAdjusted)
@@ -2357,6 +2431,7 @@ function buildOperatorAmountAggregation(
     totalHandledLayerCount,
     totalHandledLength,
     totalHandledPieceQty,
+    totalHandledGarmentQty,
     totalCalculatedAmount,
     totalDisplayAmount,
     hasManualAdjustedAmount,
@@ -2612,6 +2687,7 @@ export function buildRollHandoverViewModel(
       nextOperatorName: operator.nextOperatorName || nextOperator?.operatorName || '',
       handledLayerCount,
       handledPieceQty,
+      handledGarmentQty: handledPieceQty,
       calculatedAmount,
       displayAmount,
       handoverAtLayer:
@@ -2795,6 +2871,7 @@ export function buildSpreadingVarianceSummary(
     estimatedPieceCapacity: coreMetrics.theoreticalCutGarmentQty,
     requiredPieceQty: coreMetrics.plannedCutGarmentQty,
     actualCutPieceQtyTotal: coreMetrics.actualCutGarmentQty,
+    garmentQtyTotal: coreMetrics.actualCutGarmentQty,
     requiredGarmentQty: coreMetrics.plannedCutGarmentQty,
     theoreticalCapacityGarmentQty: coreMetrics.theoreticalCutGarmentQty,
     actualCutGarmentQtyTotal: coreMetrics.actualCutGarmentQty,
@@ -3074,6 +3151,11 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                       roll.usableLength ??
                       computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0)),
                     actualCutPieceQty:
+                      roll.actualCutGarmentQty ??
+                      roll.actualCutPieceQty ??
+                      computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
+                    actualCutGarmentQty:
+                      roll.actualCutGarmentQty ??
                       roll.actualCutPieceQty ??
                       computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
                   }
@@ -3098,6 +3180,12 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                         : undefined,
                     handledLength: operator.handledLength !== undefined && operator.handledLength !== null ? Number(operator.handledLength) : undefined,
                     handledPieceQty:
+                      operator.handledGarmentQty !== undefined && operator.handledGarmentQty !== null
+                        ? Number(operator.handledGarmentQty)
+                        : operator.handledPieceQty !== undefined && operator.handledPieceQty !== null
+                          ? Number(operator.handledPieceQty)
+                          : undefined,
+                    handledGarmentQty:
                       operator.handledPieceQty !== undefined && operator.handledPieceQty !== null
                         ? Number(operator.handledPieceQty)
                         : undefined,
@@ -3132,7 +3220,8 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
               totalTailLength: session.totalTailLength || rollSummary.totalTailLength,
               totalCalculatedUsableLength: session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
               totalRemainingLength: session.totalRemainingLength ?? rollSummary.totalRemainingLength,
-              actualCutPieceQty: session.actualCutPieceQty ?? rollSummary.totalActualCutPieceQty,
+              actualCutPieceQty: session.actualCutGarmentQty ?? session.actualCutPieceQty ?? rollSummary.totalActualCutGarmentQty,
+              actualCutGarmentQty: session.actualCutGarmentQty ?? session.actualCutPieceQty ?? rollSummary.totalActualCutGarmentQty,
               configuredLengthTotal: session.configuredLengthTotal || 0,
               claimedLengthTotal: session.claimedLengthTotal || 0,
               varianceLength: session.varianceLength || 0,
@@ -3323,6 +3412,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
       color: linkedPlanUnit?.color || roll.color,
       sortOrder: Number(roll.sortOrder ?? index + 1),
       actualCutPieceQty: computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
+      actualCutGarmentQty: computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
     }
   })
   const markerTotalPieces = session.markerId
@@ -3361,6 +3451,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
         ...item.operator,
         handledLayerCount: item.handledLayerCount ?? undefined,
         handledPieceQty: item.handledPieceQty ?? undefined,
+        handledGarmentQty: item.handledGarmentQty ?? undefined,
         unitPrice: item.operator.unitPrice ?? session.unitPrice ?? undefined,
         pricingMode: item.operator.pricingMode || '按件计价',
         calculatedAmount:
@@ -3389,6 +3480,7 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
       ...operator,
       handledLayerCount: computeOperatorHandledLayerCount(operator.startLayer, operator.endLayer) ?? undefined,
       handledPieceQty: computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces) ?? undefined,
+      handledGarmentQty: computeOperatorHandledPieceQty(operator.startLayer, operator.endLayer, markerTotalPieces) ?? undefined,
       pricingMode: operator.pricingMode || '按件计价',
       unitPrice: operator.unitPrice ?? session.unitPrice ?? undefined,
       calculatedAmount:
@@ -3429,7 +3521,11 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     operatorCount: normalizedOperators.length,
     actualLayers: summary.totalLayers,
     actualCutPieceQty:
-      session.actualCutPieceQty ?? summary.totalActualCutPieceQty,
+      session.actualCutGarmentQty ?? session.actualCutPieceQty ?? summary.totalActualCutGarmentQty,
+    actualCutGarmentQty:
+      session.actualCutGarmentQty ?? session.actualCutPieceQty ?? summary.totalActualCutGarmentQty,
+    theoreticalCutGarmentQty:
+      session.theoreticalCutGarmentQty ?? session.theoreticalActualCutPieceQty,
     configuredLengthTotal: session.configuredLengthTotal ?? 0,
     claimedLengthTotal: session.claimedLengthTotal ?? 0,
     varianceLength: session.varianceLength ?? 0,

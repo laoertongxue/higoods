@@ -24,11 +24,11 @@ interface ExecutionUnitStepDefinition {
 }
 
 const executionUnitSteps: ExecutionUnitStepDefinition[] = [
-  { code: 'PICKUP', label: '领料', routeKey: 'pickup' },
-  { code: 'SPREADING', label: '铺布', routeKey: 'spreading' },
-  { code: 'REPLENISHMENT', label: '补料反馈', routeKey: 'replenishment-feedback' },
-  { code: 'HANDOVER', label: '交接', routeKey: 'handover' },
-  { code: 'INBOUND', label: '入仓', routeKey: 'inbound' },
+  { code: 'PICKUP', label: '去领料', routeKey: 'pickup' },
+  { code: 'SPREADING', label: '去铺布', routeKey: 'spreading' },
+  { code: 'REPLENISHMENT', label: '去补料', routeKey: 'replenishment-feedback' },
+  { code: 'HANDOVER', label: '去交接', routeKey: 'handover' },
+  { code: 'INBOUND', label: '去入仓', routeKey: 'inbound' },
 ]
 
 function includesAny(value: string | undefined, keywords: string[]): boolean {
@@ -81,9 +81,19 @@ function getLatestRollSummary(detail: NonNullable<ReturnType<typeof buildPdaCutt
 }
 
 function getLatestHandoverSummary(detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): string {
+  const latestSpreadingRecord = [...detail.spreadingRecords].sort((a, b) => b.enteredAt.localeCompare(a.enteredAt))[0]
+  if (latestSpreadingRecord?.handoverResultLabel) {
+    return latestSpreadingRecord.handoverResultLabel
+  }
   const latest = [...detail.handoverRecords].sort((a, b) => b.handoverAt.localeCompare(a.handoverAt))[0]
-  if (!latest) return '暂无换班记录'
-  return `${latest.operatorName} / ${latest.handoverAt}`
+  if (!latest) return '无换班'
+  if (latest.targetLabel.includes('接手') || latest.resultLabel.includes('接手')) {
+    return `接手自：${latest.operatorName}`
+  }
+  if (latest.targetLabel.trim()) {
+    return `交接给：${latest.targetLabel}`
+  }
+  return `交接给：${latest.operatorName}`
 }
 
 function renderObjectBar(line: PdaCuttingTaskOrderLine, detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): string {
@@ -95,10 +105,11 @@ function renderObjectBar(line: PdaCuttingTaskOrderLine, detail: NonNullable<Retu
       <div class="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-6">
         <div><div class="text-muted-foreground">当前任务号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div></div>
         <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.originalCutOrderNo || '—')}</div></div>
-        <div><div class="text-muted-foreground">合并裁剪批次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.mergeBatchNo || '—')}</div></div>
-        <div><div class="text-muted-foreground">当前铺布</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(currentSpreadingObject)}</div></div>
-        <div><div class="text-muted-foreground">参考唛架</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(sourceMarker)}</div></div>
         <div><div class="text-muted-foreground">当前状态</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.currentStateLabel)}</div></div>
+        <div><div class="text-muted-foreground">当前步骤</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(resolvePdaCuttingTaskOrderCurrentStepLabel(line))}</div></div>
+        <div><div class="text-muted-foreground">合并裁剪批次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.mergeBatchNo || '—')}</div></div>
+        <div><div class="text-muted-foreground">参考唛架</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(sourceMarker)}</div></div>
+        <div><div class="text-muted-foreground">当前铺布</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(currentSpreadingObject)}</div></div>
       </div>
     </section>
   `
@@ -171,7 +182,7 @@ function renderRecentRecord(detail: NonNullable<ReturnType<typeof buildPdaCuttin
       <div class="grid gap-2 text-xs sm:grid-cols-2">
         <div><div class="text-muted-foreground">最近卷号</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(latestRoll.rollNo)}</div></div>
         <div><div class="text-muted-foreground">最近记录时间</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(latestRoll.recordedAt)}</div></div>
-        <div><div class="text-muted-foreground">最近交接</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(getLatestHandoverSummary(detail))}</div></div>
+        <div><div class="text-muted-foreground">最近交接结果</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(getLatestHandoverSummary(detail))}</div></div>
         <div><div class="text-muted-foreground">补料情况</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(detail.replenishmentRiskSummary)}</div></div>
       </div>
     </section>

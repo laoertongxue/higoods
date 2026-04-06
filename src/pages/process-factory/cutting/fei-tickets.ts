@@ -232,9 +232,12 @@ function getCurrentDrillContext() {
 
 function filterPrintableUnitsByDrillContext(units: PrintableUnit[], drillContext = getCurrentDrillContext()): PrintableUnit[] {
   if (!drillContext) return units
+  const hasSpreadingSessionAnchor = Boolean(drillContext.spreadingSessionId || drillContext.spreadingSessionNo)
   return units.filter((unit) => {
     if (drillContext.spreadingSessionId && !unit.sourceSpreadingSessionIds.includes(drillContext.spreadingSessionId)) return false
     if (drillContext.spreadingSessionNo && !unit.sourceSpreadingSessionNos.includes(drillContext.spreadingSessionNo)) return false
+    // 已明确给到铺布 session 时，以铺布结果为主真相源，不再叠加其它上下文条件缩窄到空结果。
+    if (hasSpreadingSessionAnchor) return true
     if (drillContext.mergeBatchId && unit.batchId && unit.batchId !== drillContext.mergeBatchId) return false
     if (drillContext.originalCutOrderId && !unit.sourceCutOrderIds.includes(drillContext.originalCutOrderId)) return false
     return true
@@ -282,19 +285,28 @@ function renderReturnToSummaryButton(): string {
 
 function buildFiltersFromQuery(params: URLSearchParams): PrintableUnitFilters {
   const drillContext = readCuttingDrillContextFromLocation(params)
+  const hasSpreadingSessionAnchor = Boolean(drillContext?.spreadingSessionId || drillContext?.spreadingSessionNo)
   const keyword =
-    params.get('keyword') ||
-    drillContext?.printableUnitNo ||
-    drillContext?.ticketNo ||
-    drillContext?.originalCutOrderNo ||
-    drillContext?.mergeBatchNo ||
-    ''
+    params.get('keyword')
+    || (hasSpreadingSessionAnchor
+      ? ''
+      : drillContext?.printableUnitNo
+        || drillContext?.ticketNo
+        || drillContext?.originalCutOrderNo
+        || drillContext?.mergeBatchNo
+        || '')
   return {
     keyword,
-    printableUnitType: inferPrintableUnitType(params),
-    styleCode: drillContext?.styleCode || params.get('styleCode') || '',
-    fabricSku: params.get('fabricSku') || drillContext?.materialSku || params.get('materialSku') || '',
-    productionOrderNo: drillContext?.productionOrderNo || params.get('productionOrderNo') || '',
+    printableUnitType:
+      hasSpreadingSessionAnchor && !params.get('printableUnitType')
+        ? 'ALL'
+        : inferPrintableUnitType(params),
+    styleCode: params.get('styleCode') || (hasSpreadingSessionAnchor ? '' : drillContext?.styleCode || ''),
+    fabricSku:
+      params.get('fabricSku')
+      || params.get('materialSku')
+      || (hasSpreadingSessionAnchor ? '' : drillContext?.materialSku || ''),
+    productionOrderNo: params.get('productionOrderNo') || (hasSpreadingSessionAnchor ? '' : drillContext?.productionOrderNo || ''),
     printableUnitStatus: mapLegacyStatus(params.get('printableUnitStatus') || params.get('ticketStatus')),
     printedFrom: params.get('printedFrom') || '',
     printedTo: params.get('printedTo') || '',
@@ -822,6 +834,9 @@ function renderDetailHeaderActions(unit: PrintableUnit): string {
 
 function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
   const { unit } = detailView
+  const sourceMarkerText = unit.sourceMarkerNos.join(' / ') || '待补'
+  const sourceCutOrderText = unit.sourceCutOrderNos.join(' / ') || '待补'
+  const sourceMergeBatchText = unit.batchNo || '未关联合并裁剪批次'
   return `
     <section class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
@@ -853,7 +868,7 @@ function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
           <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs text-slate-500">应打菲票数</p>
             <p class="mt-1 text-xl font-semibold text-slate-900">${formatCount(unit.requiredTicketCount)}</p>
-            <p class="mt-1 text-xs text-slate-500">当前按铺布完成结果生成，主看实际成衣件数。</p>
+            <p class="mt-1 text-xs text-slate-500">当前优先按铺布完成结果生成，主看实际成衣件数；仅在缺少正式铺布结果时才回退参考理论值。</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white p-3">
             <p class="text-xs text-slate-500">有效已打印数</p>
@@ -878,6 +893,18 @@ function renderDetailSummary(detailView: PrintableUnitDetailViewModel): string {
           <div class="rounded-lg border border-slate-200 bg-white p-3 md:col-span-2 xl:col-span-4">
             <p class="text-xs text-slate-500">来源铺布</p>
             <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(buildSpreadingTraceText(unit))}</p>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3">
+            <p class="text-xs text-slate-500">来源唛架</p>
+            <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sourceMarkerText)}</p>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3">
+            <p class="text-xs text-slate-500">来源原始裁片单</p>
+            <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sourceCutOrderText)}</p>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-3">
+            <p class="text-xs text-slate-500">来源合并裁剪批次</p>
+            <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sourceMergeBatchText)}</p>
           </div>
         </div>
         ${renderDetailHeaderActions(unit)}

@@ -3,7 +3,7 @@ import { productionOrders } from '../production-orders.ts'
 import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
 import { buildGeneratedFeiTicketTraceMatrix, listGeneratedFeiTickets } from './generated-fei-tickets.ts'
 import { cuttingOrderProgressRecords } from './order-progress.ts'
-import { buildSystemSeedTransferBagRuntime, buildTransferBagRuntimeTraceMatrix } from './transfer-bag-runtime.ts'
+import { buildSpreadingDrivenTransferBagTraceMatrix, buildSystemSeedTransferBagRuntime } from './transfer-bag-runtime.ts'
 import type { CuttingConfigStatus, CuttingMaterialLine, CuttingMaterialType, CuttingReceiveStatus } from './types.ts'
 
 export type CuttingFabricStockStatus = 'READY' | 'PARTIAL_USED' | 'NEED_RECHECK'
@@ -539,6 +539,8 @@ export interface WarehouseRuntimeTraceMatrixRow {
   cutPieceOrderNo: string
   spreadingSessionId: string
   spreadingSessionNo: string
+  sourceMarkerId: string
+  sourceMarkerNo: string
   feiTicketId: string
   feiTicketNo: string
   bagId: string
@@ -555,7 +557,7 @@ export function buildWarehouseRuntimeTraceMatrix(
   const originalRows = listGeneratedOriginalCutOrderSourceRecords()
   const originalRowsById = new Map(originalRows.map((record) => [record.originalCutOrderId, record] as const))
   const feiTraceById = new Map(buildGeneratedFeiTicketTraceMatrix().map((row) => [row.feiTicketId, row] as const))
-  const transferTraceRows = buildTransferBagRuntimeTraceMatrix(
+  const transferTraceRows = buildSpreadingDrivenTransferBagTraceMatrix(
     buildSystemSeedTransferBagRuntime({
       originalRows: originalRows.map((record) => ({
         originalCutOrderId: record.originalCutOrderId,
@@ -567,7 +569,7 @@ export function buildWarehouseRuntimeTraceMatrix(
         materialSku: record.materialSku,
         plannedQty: record.requiredQty,
       })),
-      ticketRecords: listGeneratedFeiTickets().map((record) => {
+      ticketRecords: listGeneratedFeiTickets().filter((record) => Boolean(record.sourceSpreadingSessionId)).map((record) => {
         const original = originalRowsById.get(record.originalCutOrderId)
         const trace = feiTraceById.get(record.feiTicketId)
         return {
@@ -587,7 +589,7 @@ export function buildWarehouseRuntimeTraceMatrix(
           color: record.skuColor,
           size: record.skuSize,
           partName: record.partName,
-          qty: record.qty,
+          qty: record.garmentQty,
           materialSku: record.materialSku,
           sourceContextType: record.sourceMergeBatchId ? 'merge-batch' : 'original-order',
           status: 'PRINTED' as const,
@@ -597,35 +599,47 @@ export function buildWarehouseRuntimeTraceMatrix(
   )
 
   return records
-    .map((record) => ({
-      ...(transferTraceRows.find(
-        (row) =>
-          row.originalCutOrderId === record.originalCutOrderId &&
-          (!record.mergeBatchNo || !row.mergeBatchNo || row.mergeBatchNo === record.mergeBatchNo),
-      ) ||
-        transferTraceRows.find((row) => row.originalCutOrderId === record.originalCutOrderId) || {
-          spreadingSessionId: '',
-          spreadingSessionNo: '',
-          feiTicketId: '',
-          feiTicketNo: '',
-          bagId: '',
-          bagCode: '',
-          transferBatchId: '',
-          sourceWritebackId: '',
-        }),
-      warehouseRecordId: record.id,
-      originalCutOrderId: record.originalCutOrderId,
-      originalCutOrderNo: record.originalCutOrderNo,
-      mergeBatchId: record.mergeBatchId,
-      mergeBatchNo: record.mergeBatchNo,
-      materialSku: record.materialSku,
-      cutPieceOrderNo: record.cutPieceOrderNo,
-      inboundStatus: record.inboundStatus,
-      handoverStatus: record.handoverStatus,
-    }))
+    .map((record) => {
+      const matchedTransferRow =
+        transferTraceRows.find(
+          (row) =>
+            row.originalCutOrderId === record.originalCutOrderId &&
+            (!record.mergeBatchNo || !row.mergeBatchNo || row.mergeBatchNo === record.mergeBatchNo),
+        ) ||
+        transferTraceRows.find((row) => row.originalCutOrderId === record.originalCutOrderId) ||
+        null
+
+      return {
+        warehouseRecordId: record.id,
+        originalCutOrderId: record.originalCutOrderId,
+        originalCutOrderNo: record.originalCutOrderNo,
+        mergeBatchId: record.mergeBatchId,
+        mergeBatchNo: record.mergeBatchNo,
+        materialSku: record.materialSku,
+        cutPieceOrderNo: record.cutPieceOrderNo,
+        spreadingSessionId: matchedTransferRow?.sourceSpreadingSessionId || '',
+        spreadingSessionNo: matchedTransferRow?.sourceSpreadingSessionNo || '',
+        sourceMarkerId: matchedTransferRow?.sourceMarkerId || '',
+        sourceMarkerNo: matchedTransferRow?.sourceMarkerNo || '',
+        feiTicketId: matchedTransferRow?.feiTicketId || '',
+        feiTicketNo: matchedTransferRow?.feiTicketNo || '',
+        bagId: matchedTransferRow?.bagId || '',
+        bagCode: matchedTransferRow?.bagCode || '',
+        transferBatchId: matchedTransferRow?.transferBatchId || '',
+        sourceWritebackId: matchedTransferRow?.sourceWritebackId || '',
+        inboundStatus: record.inboundStatus,
+        handoverStatus: record.handoverStatus,
+      }
+    })
     .sort(
       (left, right) =>
         left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
         || left.warehouseRecordId.localeCompare(right.warehouseRecordId, 'zh-CN'),
     )
+}
+
+export function buildSpreadingDrivenWarehouseTraceMatrix(
+  records: CutPieceWarehouseRecord[] = listFormalCutPieceWarehouseRecords(),
+): WarehouseRuntimeTraceMatrixRow[] {
+  return buildWarehouseRuntimeTraceMatrix(records).filter((record) => Boolean(record.spreadingSessionId))
 }

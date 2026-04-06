@@ -242,9 +242,9 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
           <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
           <div><span class="text-muted-foreground">任务状态：</span>${head.taskStatus === 'DONE' ? '已完工' : '进行中'}</div>
-          <div><span class="text-muted-foreground">执行范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
-          <div><span class="text-muted-foreground">执行方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
-          <div class="col-span-2"><span class="text-muted-foreground">来源单号：</span>${escapeHtml(head.sourceDocNo || '—')}</div>
+          <div><span class="text-muted-foreground">交接范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
+          <div><span class="text-muted-foreground">交接方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
+          <div class="col-span-2"><span class="text-muted-foreground">来源单据：</span>${escapeHtml(head.sourceDocNo || '—')}</div>
         </div>
 
         <div class="flex items-center gap-2 py-0.5 text-xs">
@@ -302,9 +302,9 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
           <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
           <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(head.completedByWarehouseAt || '—')}</div>
-          <div><span class="text-muted-foreground">执行范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
-          <div><span class="text-muted-foreground">执行方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
-          <div class="col-span-2"><span class="text-muted-foreground">来源单号：</span>${escapeHtml(head.sourceDocNo || '—')}</div>
+          <div><span class="text-muted-foreground">交接范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
+          <div><span class="text-muted-foreground">交接方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
+          <div class="col-span-2"><span class="text-muted-foreground">来源单据：</span>${escapeHtml(head.sourceDocNo || '—')}</div>
         </div>
 
         <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">

@@ -1,3 +1,7 @@
+import { readMarkerSpreadingPrototypeData } from '../../../pages/process-factory/cutting/marker-spreading-utils.ts'
+import type { SpreadingSession } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
+import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
+import type { ReplenishmentPendingPrepFollowupRecord } from './storage/replenishment-storage.ts'
 import type { CuttingConfigStatus, CuttingMaterialType, CuttingReceiveStatus } from './types'
 
 export type ReplenishmentSourceType = 'MARKER' | 'SPREADING' | 'RECEIVE_DISCREPANCY' | 'EXECUTION_RISK'
@@ -356,4 +360,234 @@ export function cloneReplenishmentSuggestionRecords(): ReplenishmentSuggestionRe
     impactPreview: { ...record.impactPreview },
     linkedDocumentSummaries: record.linkedDocumentSummaries.map((doc) => ({ ...doc })),
   }))
+}
+
+export interface ReplenishmentFlowTraceMatrixRow {
+  suggestionId: string
+  replenishmentRequestId: string
+  replenishmentNo: string
+  reviewStatus: ReplenishmentReviewStatus
+  originalCutOrderId: string
+  originalCutOrderNo: string
+  materialSku: string
+  color: string
+  shortageGarmentQty: number
+  sourceSpreadingSessionId: string
+  sourceSpreadingSessionNo: string
+  sourceMarkerId: string
+  sourceMarkerNo: string
+  mergeBatchId: string
+  mergeBatchNo: string
+  sourceWritebackId: string
+  pendingPrepFollowupId: string
+}
+
+function resolveReplenishmentSourceOriginal(
+  suggestion: ReplenishmentSuggestionRecord,
+  sourceRecords: ReturnType<typeof listGeneratedOriginalCutOrderSourceRecords>,
+) {
+  const byExactNo =
+    sourceRecords.find((record) => record.originalCutOrderNo === suggestion.cutPieceOrderNo)
+    || sourceRecords.find((record) => record.originalCutOrderNo === suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-'))
+  if (byExactNo) return byExactNo
+
+  const sameProductionOrder = sourceRecords.filter((record) => record.productionOrderNo === suggestion.productionOrderNo)
+  if (!sameProductionOrder.length) return null
+
+  return (
+    sameProductionOrder
+      .slice()
+      .sort((left, right) => {
+        const score = (record: (typeof sameProductionOrder)[number]) => {
+          let value = 0
+          if (record.materialSku === suggestion.materialSku) value += 32
+          if (record.materialType === suggestion.materialType) value += 20
+          if (record.materialLabel === suggestion.materialLabel) value += 12
+          if (record.requiredQty === suggestion.requiredQty) value += 8
+          if (record.mergeBatchId) value += 2
+          return value
+        }
+        return score(right) - score(left) || right.originalCutOrderNo.localeCompare(left.originalCutOrderNo, 'zh-CN')
+      })[0] || null
+  )
+}
+
+function pickReplenishmentSourceSession(
+  suggestion: ReplenishmentSuggestionRecord,
+  sourceOriginalCutOrderId: string,
+  sessions: SpreadingSession[],
+): SpreadingSession | null {
+  const scoreSession = (session: SpreadingSession) => {
+    let value = 0
+    if (sourceOriginalCutOrderId && session.originalCutOrderIds.includes(sourceOriginalCutOrderId)) value += 40
+    if ((session.completionLinkage?.linkedOriginalCutOrderNos || []).includes(suggestion.cutPieceOrderNo)) value += 20
+    if ((session.completionLinkage?.linkedOriginalCutOrderNos || []).includes(suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-'))) value += 18
+    if (session.materialSkuSummary?.includes(suggestion.materialSku)) value += 12
+    if (suggestion.reviewStatus === 'PENDING' && session.prototypeLifecycleOverrides?.replenishmentStatusLabel === '待补料确认') value += 24
+    if (suggestion.reviewStatus === 'APPROVED' && session.replenishmentWarning?.handled) value += 18
+    if (session.status === 'DONE') value += 8
+    if (session.sourceMarkerId || session.markerId) value += 2
+    return value
+  }
+
+  const directMatchedSessions = sessions.filter(
+    (session) =>
+      session.originalCutOrderIds.includes(sourceOriginalCutOrderId)
+      || (session.completionLinkage?.linkedOriginalCutOrderNos || []).includes(suggestion.cutPieceOrderNo)
+      || (session.completionLinkage?.linkedOriginalCutOrderNos || []).includes(suggestion.cutPieceOrderNo.replace(/^CP-/, 'CUT-')),
+  )
+  const rankedSessions = (directMatchedSessions.length ? directMatchedSessions : sessions)
+    .slice()
+    .sort((left, right) => {
+      return scoreSession(right) - scoreSession(left) || right.updatedAt.localeCompare(left.updatedAt, 'zh-CN')
+    })
+
+  const best = rankedSessions[0] || null
+  if (!best) return null
+  const threshold = directMatchedSessions.length ? 18 : 24
+  return scoreSession(best) >= threshold ? best : null
+}
+
+function isPendingReplenishmentSession(session: SpreadingSession): boolean {
+  return session.prototypeLifecycleOverrides?.replenishmentStatusLabel === '待补料确认'
+}
+
+function isHandledReplenishmentSession(session: SpreadingSession): boolean {
+  return Boolean(session.replenishmentWarning?.handled) || session.status === 'DONE'
+}
+
+function buildReplenishmentSourceSessionMap(
+  records: ReplenishmentSuggestionRecord[],
+  sessions: SpreadingSession[],
+): Map<string, SpreadingSession> {
+  const originalSourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+  const usedSessionIds = new Set<string>()
+  const sessionBySuggestionId = new Map<string, SpreadingSession>()
+  const pendingPool = sessions.filter(isPendingReplenishmentSession)
+  const handledPool = sessions.filter(isHandledReplenishmentSession)
+
+  records.forEach((record) => {
+    const sourceOriginal = resolveReplenishmentSourceOriginal(record, originalSourceRecords)
+    const directSession = pickReplenishmentSourceSession(record, sourceOriginal?.originalCutOrderId || '', sessions)
+    if (directSession && !usedSessionIds.has(directSession.spreadingSessionId)) {
+      sessionBySuggestionId.set(record.id, directSession)
+      usedSessionIds.add(directSession.spreadingSessionId)
+      return
+    }
+
+    const pool = record.reviewStatus === 'APPROVED' ? handledPool : pendingPool
+    const fallbackSession =
+      pool.find((session) => !usedSessionIds.has(session.spreadingSessionId) && session.materialSkuSummary?.includes(record.materialSku))
+      || pool.find((session) => !usedSessionIds.has(session.spreadingSessionId))
+      || null
+    if (!fallbackSession) return
+    sessionBySuggestionId.set(record.id, fallbackSession)
+    usedSessionIds.add(fallbackSession.spreadingSessionId)
+  })
+
+  return sessionBySuggestionId
+}
+
+export function buildSeedReplenishmentPendingPrepFollowups(
+  records: ReplenishmentSuggestionRecord[] = cloneReplenishmentSuggestionRecords(),
+): ReplenishmentPendingPrepFollowupRecord[] {
+  const originalSourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+  const { store } = readMarkerSpreadingPrototypeData()
+  const sessionBySuggestionId = buildReplenishmentSourceSessionMap(records, store.sessions)
+
+  return records
+    .filter((record) => record.reviewStatus === 'APPROVED')
+    .map((record, index) => {
+      const sourceOriginal = resolveReplenishmentSourceOriginal(record, originalSourceRecords)
+      const sourceSession =
+        sessionBySuggestionId.get(record.id)
+        || pickReplenishmentSourceSession(record, sourceOriginal?.originalCutOrderId || '', store.sessions)
+      const sourceColor = sourceOriginal?.colorScope[0] || sourceSession?.colorSummary?.split(' / ')[0] || ''
+      return {
+        followupId: `pending-prep-${record.id}`,
+        suggestionId: record.id,
+        sourceReplenishmentRequestId: record.id,
+        sourceSpreadingSessionId: sourceSession?.spreadingSessionId || '',
+        sourceMarkerId: sourceSession?.sourceMarkerId || sourceSession?.markerId || '',
+        sourceMarkerNo: sourceSession?.sourceMarkerNo || sourceSession?.markerNo || '',
+        originalCutOrderId:
+          sourceOriginal?.originalCutOrderId
+          || sourceSession?.originalCutOrderIds?.[0]
+          || `original-${index + 1}`,
+        originalCutOrderNo:
+          sourceOriginal?.originalCutOrderNo
+          || sourceSession?.originalCutOrderNos?.[0]
+          || record.cutPieceOrderNo,
+        materialSku: record.materialSku,
+        color: sourceColor,
+        shortageGarmentQty: Math.max(record.gapQty, 0),
+        status: 'PENDING_PREP',
+        createdAt: record.reviewedAt || record.suggestionCreatedAt,
+        createdBy: record.reviewerName || '补料审核',
+        note: '补料审批通过后，仅回到原裁片任务的仓库配料领料记录下生成待配料。',
+      }
+    })
+    .sort(
+      (left, right) =>
+        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        || left.materialSku.localeCompare(right.materialSku, 'zh-CN'),
+    )
+}
+
+export function buildReplenishmentFlowTraceMatrix(
+  records: ReplenishmentSuggestionRecord[] = cloneReplenishmentSuggestionRecords(),
+  pendingPrepFollowups: ReplenishmentPendingPrepFollowupRecord[] = buildSeedReplenishmentPendingPrepFollowups(records),
+): ReplenishmentFlowTraceMatrixRow[] {
+  const originalSourceRecords = listGeneratedOriginalCutOrderSourceRecords()
+  const pendingPrepBySuggestionId = new Map(pendingPrepFollowups.map((record) => [record.suggestionId, record] as const))
+  const { store } = readMarkerSpreadingPrototypeData()
+  const sessionBySuggestionId = buildReplenishmentSourceSessionMap(records, store.sessions)
+
+  return records
+    .map((record) => {
+      const sourceOriginal = resolveReplenishmentSourceOriginal(record, originalSourceRecords)
+      const sourceSession =
+        sessionBySuggestionId.get(record.id)
+        || pickReplenishmentSourceSession(record, sourceOriginal?.originalCutOrderId || '', store.sessions)
+      const pendingPrep = pendingPrepBySuggestionId.get(record.id) || null
+      const sourceColor =
+        sourceOriginal?.colorScope[0]
+        || pendingPrep?.color
+        || sourceSession?.colorSummary?.split(' / ')[0]
+        || ''
+      return {
+        suggestionId: record.id,
+        replenishmentRequestId: record.id,
+        replenishmentNo: record.replenishmentNo,
+        reviewStatus: record.reviewStatus,
+        originalCutOrderId:
+          sourceOriginal?.originalCutOrderId
+          || pendingPrep?.originalCutOrderId
+          || sourceSession?.originalCutOrderIds?.[0]
+          || '',
+        originalCutOrderNo:
+          sourceOriginal?.originalCutOrderNo
+          || pendingPrep?.originalCutOrderNo
+          || sourceSession?.originalCutOrderNos?.[0]
+          || record.cutPieceOrderNo,
+        materialSku: record.materialSku,
+        color: sourceColor,
+        shortageGarmentQty: Math.max(record.gapQty, 0),
+        sourceSpreadingSessionId: sourceSession?.spreadingSessionId || pendingPrep?.sourceSpreadingSessionId || '',
+        sourceSpreadingSessionNo: sourceSession?.sessionNo || sourceSession?.spreadingSessionId || '',
+        sourceMarkerId: sourceSession?.sourceMarkerId || sourceSession?.markerId || pendingPrep?.sourceMarkerId || '',
+        sourceMarkerNo: sourceSession?.sourceMarkerNo || sourceSession?.markerNo || pendingPrep?.sourceMarkerNo || '',
+        mergeBatchId: sourceSession?.mergeBatchId || sourceOriginal?.mergeBatchId || '',
+        mergeBatchNo: sourceSession?.mergeBatchNo || sourceOriginal?.mergeBatchNo || '',
+        sourceWritebackId: sourceSession?.sourceWritebackId || '',
+        pendingPrepFollowupId: pendingPrep?.followupId || '',
+      }
+    })
+    .sort(
+      (left, right) =>
+        left.originalCutOrderNo.localeCompare(right.originalCutOrderNo, 'zh-CN')
+        || left.materialSku.localeCompare(right.materialSku, 'zh-CN')
+        || left.color.localeCompare(right.color, 'zh-CN')
+        || left.replenishmentNo.localeCompare(right.replenishmentNo, 'zh-CN'),
+    )
 }

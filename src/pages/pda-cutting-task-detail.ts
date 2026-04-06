@@ -155,8 +155,8 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
   })
 
   return `
-    <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-      <div class="flex items-start justify-between gap-3">
+    <section class="rounded-2xl border bg-card px-3 py-3 shadow-sm">
+      <div class="flex items-start justify-between gap-2.5">
         <div class="space-y-1">
           <div class="text-xs text-muted-foreground">裁片任务号</div>
           <div class="text-lg font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div>
@@ -164,38 +164,38 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
         </div>
         ${renderStatusChip(overallStatus, resolveStatusTone(overallStatus))}
       </div>
-      <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
-        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+      <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <article class="rounded-xl border bg-muted/20 px-2.5 py-2.5">
           <div class="text-muted-foreground">关联执行单</div>
           <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.cutPieceOrderCount))}</div>
         </article>
-        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+        <article class="rounded-xl border bg-muted/20 px-2.5 py-2.5">
           <div class="text-muted-foreground">已完成</div>
           <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.completedCutPieceOrderCount))}</div>
         </article>
-        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+        <article class="rounded-xl border bg-muted/20 px-2.5 py-2.5">
           <div class="text-muted-foreground">未完成</div>
           <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.pendingCutPieceOrderCount))}</div>
         </article>
-        <article class="rounded-xl border bg-muted/20 px-3 py-3">
+        <article class="rounded-xl border bg-muted/20 px-2.5 py-2.5">
           <div class="text-muted-foreground">异常执行单</div>
           <div class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(String(detail.exceptionCutPieceOrderCount))}</div>
         </article>
       </div>
-      <div class="mt-4 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
-        <div class="text-muted-foreground">下一步</div>
+      <div class="mt-3 rounded-xl border bg-muted/20 px-2.5 py-2.5 text-xs">
+        <div class="text-muted-foreground">当前步骤</div>
         <div class="mt-1 text-sm font-semibold text-foreground">进入当前任务</div>
         <div class="mt-1 text-muted-foreground">${escapeHtml(detail.taskProgressLabel)}</div>
         <div class="mt-1 text-muted-foreground">分配工厂：${escapeHtml(detail.assigneeFactoryName)}</div>
       </div>
       ${
         detail.exceptionCutPieceOrderCount > 0
-          ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">当前有 ${escapeHtml(String(detail.exceptionCutPieceOrderCount))} 张裁片单需要优先处理异常或补料问题。</div>`
+          ? `<div class="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2.5 text-xs text-amber-800">当前有 ${escapeHtml(String(detail.exceptionCutPieceOrderCount))} 张裁片单需要优先处理异常或补料问题。</div>`
           : ''
       }
       ${
         detail.cutPieceOrderCount > 1
-          ? `<div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">当前任务下有多张裁片单，请先在下面选择具体裁片单，再进入处理。</div>`
+          ? `<div class="mt-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2.5 text-xs text-slate-700">当前任务下有多张裁片单，请先在下面选择具体裁片单，再进入处理。</div>`
           : ''
       }
     </section>
@@ -430,7 +430,7 @@ function renderRecentActions(detail: PdaCuttingTaskDetailData): string {
 function renderClaimDisputeSummary(taskId: string): string {
   const dispute = getLatestClaimDisputeByTaskId(taskId)
   if (!dispute) {
-    return renderPdaCuttingEmptyState('当前无领料数量异议', '')
+    return renderPdaCuttingEmptyState('当前无领料长度异议', '')
   }
 
   const meta = getClaimDisputeStatusMeta(dispute.status)
@@ -446,10 +446,10 @@ function renderClaimDisputeSummary(taskId: string): string {
         </div>
       </div>
       ${renderInfoGrid([
-        { label: '默认应领数量', value: `${dispute.defaultClaimQty} 米` },
-        { label: '实际领取数量', value: `${dispute.actualClaimQty} 米`, hint: `差异 ${dispute.discrepancyQty} 米` },
+        { label: '默认应领长度（m）', value: `${dispute.defaultClaimQty} 米` },
+        { label: '实际领取长度（m）', value: `${dispute.actualClaimQty} 米`, hint: `差异 ${dispute.discrepancyQty} 米` },
         { label: '异议原因', value: dispute.disputeReason },
-        { label: '证据数量', value: `${dispute.evidenceCount} 个`, hint: dispute.hasEvidence ? '已上传图片或视频' : '待补录' },
+        { label: '证据份数（个）', value: `${dispute.evidenceCount} 个`, hint: dispute.hasEvidence ? '已上传图片或视频' : '待补录' },
         { label: '提交时间', value: dispute.submittedAt, hint: `提交人：${dispute.submittedBy}` },
         { label: '平台处理结论', value: dispute.handleConclusion || '待平台处理', hint: dispute.handleNote || '当前暂无处理说明' },
       ])}
@@ -510,7 +510,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
         ? renderPdaCuttingSection('当前原始裁片单主码', '', renderFocusedQrSummary(focusedOrderDetail, state))
         : ''
     }
-    ${renderPdaCuttingSection('领料数量异议', '', renderClaimDisputeSummary(taskId))}
+    ${renderPdaCuttingSection('领料长度异议', '', renderClaimDisputeSummary(taskId))}
     ${renderPdaCuttingSection('最近动作', '', renderRecentActions(detail))}
   `
 

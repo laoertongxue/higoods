@@ -849,16 +849,43 @@ function buildTransferBagLandingBanner(
   prefilter: TransferBagPrefilter | null,
   drillContext: CuttingDrillContext | null,
   resolution: TransferBagLandingResolution | null,
+  viewModel = getViewModel(),
 ): TransferBagLandingBanner | null {
   if (!prefilter || !resolution || resolution.page !== 'list' || !hasSourceContext(prefilter)) return null
 
-  const chips = Array.from(
-    new Set(
-      buildCuttingDrillChipLabels(drillContext).filter(
-        (label) => !label.startsWith('周转口袋码：') && !label.startsWith('使用周期：'),
-      ),
+  const matchedUsages = findMatchingUsages(prefilter, viewModel)
+  const matchedBindings = findMatchingBindings(prefilter, viewModel)
+  const sourceMarkerNos = uniqueStrings([
+    ...matchedUsages.flatMap((item) => item.sourceMarkerNos),
+    ...matchedBindings.map((item) => item.sourceMarkerNo),
+  ])
+  const sourceMergeBatchNos = uniqueStrings([
+    ...matchedUsages.flatMap((item) => item.mergeBatchNos),
+    ...matchedBindings.map((item) => item.mergeBatchNo || item.裁剪批次No),
+  ])
+  const sourceOriginalCutOrderNos = uniqueStrings([
+    ...matchedUsages.flatMap((item) => item.originalCutOrderNos),
+    ...matchedBindings.map((item) => item.originalCutOrderNo),
+  ])
+  const sourceSpreadingNos = uniqueStrings([
+    ...matchedUsages.map((item) => item.spreadingSessionNo || item.spreadingSessionId),
+    ...matchedBindings.map((item) => item.spreadingSessionNo || item.spreadingSessionId),
+  ])
+  const chips = Array.from(new Set([
+    ...buildCuttingDrillChipLabels(drillContext).filter(
+      (label) => !label.startsWith('周转口袋码：') && !label.startsWith('使用周期：'),
     ),
-  )
+    !drillContext?.originalCutOrderNo && sourceOriginalCutOrderNos.length
+      ? `来源原始裁片单：${sourceOriginalCutOrderNos.join(' / ')}`
+      : '',
+    !drillContext?.markerNo && sourceMarkerNos.length ? `来源唛架：${sourceMarkerNos.join(' / ')}` : '',
+    !drillContext?.mergeBatchNo && sourceMergeBatchNos.length
+      ? `来源合并裁剪批次：${sourceMergeBatchNos.join(' / ')}`
+      : '',
+    !drillContext?.spreadingSessionNo && sourceSpreadingNos.length
+      ? `来源铺布：${sourceSpreadingNos.join(' / ')}`
+      : '',
+  ].filter(Boolean)))
 
   if (!chips.length) return null
 
@@ -971,7 +998,7 @@ function syncPrefilterFromQuery(): void {
   const viewModel = getViewModel()
   const detailPage = isTransferBagDetailPage()
   const landing = resolveTransferBagLandingFromPrefilter(state.prefilter, viewModel)
-  state.landingBanner = buildTransferBagLandingBanner(state.prefilter, state.drillContext, landing)
+  state.landingBanner = buildTransferBagLandingBanner(state.prefilter, state.drillContext, landing, viewModel)
 
   if (landing?.page === 'detail' && landing.bagId) {
     const matchedMaster = viewModel.mastersById[landing.bagId] || null
@@ -1300,6 +1327,9 @@ function renderDetailMetric(label: string, value: string, valueClassName = 'text
 
 function renderTransferBagTraceabilityBlock(focusedUsage: TransferBagUsageItem | null): string {
   if (!focusedUsage) return ''
+  const sourceMarkerSummary = focusedUsage.sourceMarkerNos.join(' / ') || '当前尚未绑定正式来源唛架'
+  const sourceOrderSummary = focusedUsage.originalCutOrderNos.join(' / ') || '暂无'
+  const sourceMergeBatchSummary = focusedUsage.mergeBatchNos.join(' / ') || '暂无'
   return `
     <section class="rounded-lg border ${focusedUsage.bagFirstSatisfied ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-200 bg-rose-50/40'} p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
@@ -1311,10 +1341,18 @@ function renderTransferBagTraceabilityBlock(focusedUsage: TransferBagUsageItem |
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderDetailMetric('来源铺布', focusedUsage.spreadingSessionNo || focusedUsage.spreadingSessionId || '当前尚未绑定正式铺布')}
-        ${renderDetailMetric('PDA回写流水', focusedUsage.spreadingSourceWritebackId || '当前尚无 PDA 回写流水')}
-        ${renderDetailMetric('铺布颜色摘要', focusedUsage.spreadingColorSummary || focusedUsage.colorSummary || '待补')}
-        ${renderDetailMetric('先装袋后入仓规则', focusedUsage.bagFirstRuleLabel, focusedUsage.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700')}
+        ${renderDetailMetric('来源唛架', sourceMarkerSummary)}
+        ${renderDetailMetric('来源原始裁片单', sourceOrderSummary)}
+        ${renderDetailMetric('来源合并裁剪批次', sourceMergeBatchSummary)}
       </div>
+      <details class="mt-3 rounded-lg border bg-background/70 p-3" data-testid="transfer-bags-traceability-fold" data-default-open="collapsed">
+        <summary class="cursor-pointer text-sm font-medium text-foreground">追溯信息</summary>
+        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          ${renderDetailMetric('PDA回写流水', focusedUsage.spreadingSourceWritebackId || '当前尚无 PDA 回写流水')}
+          ${renderDetailMetric('铺布颜色摘要', focusedUsage.spreadingColorSummary || focusedUsage.colorSummary || '待补')}
+          ${renderDetailMetric('先装袋后入仓规则', focusedUsage.bagFirstRuleLabel, focusedUsage.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700')}
+        </div>
+      </details>
     </section>
   `
 }
@@ -1537,7 +1575,7 @@ function renderMasterSection(): string {
                   <th class="px-4 py-3 text-left">当前状态</th>
                   <th class="px-4 py-3 text-left">当前 / 最近周转号</th>
                   <th class="px-4 py-3 text-left">车缝工厂 / 款号</th>
-                  <th class="px-4 py-3 text-left">绑定数量</th>
+                  <th class="px-4 py-3 text-left">绑定菲票件数（件）</th>
                   <th class="px-4 py-3 text-left">操作</th>
                 </tr>
               </thead>
@@ -1627,11 +1665,13 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
           </div>
           <div class="space-y-3 rounded-lg border bg-muted/15 p-3 text-sm">
             <div><span class="text-muted-foreground">容量 / 当前绑定数：</span><span class="font-medium text-foreground">${escapeHtml(`${item.capacity} 张 / ${item.packedTicketCount} 张菲票`)}</span></div>
-            <div><span class="text-muted-foreground">当前绑定总数量：</span><span class="font-medium text-foreground">${escapeHtml(String(item.currentTotalPieceCount))}</span></div>
+            <div><span class="text-muted-foreground">当前袋内成衣件数（件）：</span><span class="font-medium text-foreground">${escapeHtml(String(item.currentTotalPieceCount))}</span></div>
             <div><span class="text-muted-foreground">当前款号：</span><span class="font-medium text-foreground">${escapeHtml(item.currentStyleCode || '待锁定')}</span></div>
+            <div><span class="text-muted-foreground">来源铺布：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.spreadingSessionNo || currentUsage?.spreadingSessionId || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源唛架：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.sourceMarkerNos.join(' / ') || '暂无')}</span></div>
             <div><span class="text-muted-foreground">来源生产单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.productionOrderNos.join(' / ') || '暂无')}</span></div>
-            <div><span class="text-muted-foreground">来源原始裁片单集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
-            <div><span class="text-muted-foreground">来源裁剪批次集合：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.mergeBatchNos.join(' / ') || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源原始裁片单：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
+            <div><span class="text-muted-foreground">来源合并裁剪批次：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.mergeBatchNos.join(' / ') || '暂无')}</span></div>
           </div>
           <div class="rounded-lg border bg-card p-4">
             <div class="text-sm font-semibold text-foreground">正式二维码</div>
@@ -1679,7 +1719,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                           <th class="px-3 py-2 text-left">款号</th>
                           <th class="px-3 py-2 text-left">面料 SKU</th>
                           <th class="px-3 py-2 text-left">部位</th>
-                          <th class="px-3 py-2 text-right">数量</th>
+                          <th class="px-3 py-2 text-right">菲票件数（件）</th>
                           <th class="px-3 py-2 text-left">来源生产单号</th>
                           <th class="px-3 py-2 text-left">来源裁片单号</th>
                           <th class="px-3 py-2 text-left">所属合并裁剪批次号</th>
@@ -1868,10 +1908,10 @@ function renderWorkbenchSection(): string {
               </div>
               <div class="space-y-2 rounded-lg border bg-muted/15 p-3 text-sm">
                 <div><span class="text-muted-foreground">已绑定菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.ticketCount || 0))}</span></div>
-                <div><span class="text-muted-foreground">当前总件数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.quantityTotal || 0))}</span></div>
+                <div><span class="text-muted-foreground">当前袋内成衣件数（件）：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.quantityTotal || 0))}</span></div>
                 <div><span class="text-muted-foreground">原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.originalCutOrderCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.productionOrderCount || 0))}</span></div>
-                <div><span class="text-muted-foreground">裁剪批次摘要：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.mergeBatchNos.join(' / ') || '无')}</span></div>
+                <div><span class="text-muted-foreground">合并裁剪批次汇总：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.mergeBatchNos.join(' / ') || '无')}</span></div>
                 <div><span class="text-muted-foreground">容量状态：</span><span class="font-medium ${capacityExceeded ? 'text-amber-700' : 'text-foreground'}">${capacityExceeded ? '已超容量' : '未超容量'}</span></div>
               </div>
             </div>
@@ -1892,10 +1932,10 @@ function renderWorkbenchSection(): string {
                           <th class="px-3 py-2 text-left">款号</th>
                           <th class="px-3 py-2 text-left">面料 SKU</th>
                           <th class="px-3 py-2 text-left">部位</th>
-                          <th class="px-3 py-2 text-right">数量</th>
+                          <th class="px-3 py-2 text-right">成衣件数（件）</th>
                           <th class="px-3 py-2 text-left">原始裁片单</th>
                           <th class="px-3 py-2 text-left">生产单</th>
-                          <th class="px-3 py-2 text-left">裁剪批次</th>
+                          <th class="px-3 py-2 text-left">合并裁剪批次</th>
                           <th class="px-3 py-2 text-left">菲票状态</th>
                           <th class="px-3 py-2 text-left">操作</th>
                         </tr>
@@ -2077,7 +2117,7 @@ function renderUsageDetail(item: TransferBagUsageItem | null): string {
           <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.summary.productionOrderCount))}</span></div>
           <div><span class="text-muted-foreground">最新清单：</span><span class="font-medium text-foreground">${escapeHtml(item.latestManifest?.manifestId || '尚未打印')}</span></div>
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-original-orders" data-usage-id="${escapeHtml(item.usageId)}">查看原始裁片单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-original-orders" data-usage-id="${escapeHtml(item.usageId)}">去来源原始裁片单</button>
             <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-summary" data-usage-id="${escapeHtml(item.usageId)}">去裁剪总表</button>
           </div>
         </div>
@@ -2237,7 +2277,7 @@ function renderReturnWorkbenchSection(): string {
                 <input type="text" value="${escapeHtml(state.returnDraft.receivedBy)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="receivedBy" />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-foreground">回货成衣数量摘要</span>
+                <span class="text-sm font-medium text-foreground">回货成衣件数摘要（件）</span>
                 <input type="number" value="${escapeHtml(state.returnDraft.returnedFinishedQty)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedFinishedQty" />
               </label>
               <label class="space-y-2">
@@ -2248,7 +2288,7 @@ function renderReturnWorkbenchSection(): string {
                 <span class="text-sm font-medium text-foreground">差异类型</span>
                 <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="discrepancyType">
                   <option value="NONE" ${state.returnDraft.discrepancyType === 'NONE' ? 'selected' : ''}>无差异</option>
-                  <option value="QTY_MISMATCH" ${state.returnDraft.discrepancyType === 'QTY_MISMATCH' ? 'selected' : ''}>数量异常</option>
+                  <option value="QTY_MISMATCH" ${state.returnDraft.discrepancyType === 'QTY_MISMATCH' ? 'selected' : ''}>件数异常</option>
                   <option value="DAMAGED_BAG" ${state.returnDraft.discrepancyType === 'DAMAGED_BAG' ? 'selected' : ''}>口袋损坏</option>
                   <option value="LATE_RETURN" ${state.returnDraft.discrepancyType === 'LATE_RETURN' ? 'selected' : ''}>迟归还</option>
                   <option value="MISSING_RECORD" ${state.returnDraft.discrepancyType === 'MISSING_RECORD' ? 'selected' : ''}>缺记录</option>
@@ -2560,7 +2600,7 @@ function renderTransferBagDetailHeader(
       valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(focusedUsage ? `${focusedUsage.sewingFactoryName} / ${focusedUsage.sewingTaskNo}` : '待首张菲票锁定')}</span>`,
     },
     {
-      label: '当前装袋数量 / 容量',
+      label: '当前已装菲票数 / 容量（张）',
       valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(`${summary?.ticketCount || 0} 张 / ${activeMaster.capacity} 张`)}</span>`,
     },
   ]
@@ -2983,7 +3023,7 @@ function renderBaggingReviewStepCard(
                           <th class="px-3 py-2 text-left">款号</th>
                           <th class="px-3 py-2 text-left">面料 SKU</th>
                           <th class="px-3 py-2 text-left">部位</th>
-                          <th class="px-3 py-2 text-right">数量</th>
+                          <th class="px-3 py-2 text-right">成衣件数（件）</th>
                           <th class="px-3 py-2 text-left">原始裁片单</th>
                           <th class="px-3 py-2 text-left">状态</th>
                           <th class="px-3 py-2 text-left">操作</th>
@@ -3028,12 +3068,12 @@ function renderBaggingReviewStepCard(
             : '<div class="text-sm text-muted-foreground">当前还没有装入菲票，暂不能完成装袋。</div>'}
           ${(focusedUsage.productionOrderNos.length || focusedUsage.originalCutOrderNos.length || focusedUsage.mergeBatchNos.length)
             ? `
-              <details class="rounded-lg border bg-muted/10 p-3">
-                <summary class="cursor-pointer text-sm font-medium text-foreground">更多来源信息</summary>
+              <details class="rounded-lg border bg-muted/10 p-3" data-testid="transfer-bags-source-trace-fold" data-default-open="collapsed">
+                <summary class="cursor-pointer text-sm font-medium text-foreground">追溯信息</summary>
                 <div class="mt-3 grid gap-3 md:grid-cols-3 text-sm">
                   <div><span class="text-muted-foreground">来源生产单：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.productionOrderNos.join(' / ') || '暂无')}</span></div>
                   <div><span class="text-muted-foreground">来源原始裁片单：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.originalCutOrderNos.join(' / ') || '暂无')}</span></div>
-                  <div><span class="text-muted-foreground">来源裁剪批次：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.mergeBatchNos.join(' / ') || '暂无')}</span></div>
+                  <div><span class="text-muted-foreground">来源合并裁剪批次：</span><span class="font-medium text-foreground">${escapeHtml(focusedUsage.mergeBatchNos.join(' / ') || '暂无')}</span></div>
                 </div>
               </details>
             `
@@ -3732,6 +3772,7 @@ function bindTicketByInput(): boolean {
     productionOrderNo: ticket.productionOrderNo,
     裁剪批次No: ticket.mergeBatchNo,
     qty: ticket.qty,
+    garmentQty: ticket.qty,
     boundAt: nowText(),
     boundBy: '周转口袋工作台',
     operator: '周转口袋工作台',
@@ -3815,6 +3856,7 @@ function importCandidateTickets(targetUsageId?: string): boolean {
       productionOrderNo: ticket.productionOrderNo,
       裁剪批次No: ticket.mergeBatchNo,
       qty: ticket.qty,
+      garmentQty: ticket.qty,
       boundAt: nowText(),
       boundBy: '周转口袋工作台',
       operator: '周转口袋工作台',
@@ -3945,7 +3987,7 @@ function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferB
               <th>面料 SKU</th>
               <th>原始裁片单</th>
               <th>生产单</th>
-              <th>裁剪批次</th>
+              <th>合并裁剪批次</th>
             </tr>
           </thead>
           <tbody>

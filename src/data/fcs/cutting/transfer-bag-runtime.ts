@@ -1533,6 +1533,12 @@ export function buildTransferBagRuntimeTraceMatrix(store: TransferBagRuntimeStor
     )
 }
 
+export function buildSpreadingDrivenTransferBagTraceMatrix(
+  store: TransferBagRuntimeStore,
+): TransferBagRuntimeTraceMatrixRow[] {
+  return buildTransferBagRuntimeTraceMatrix(store).filter((row) => Boolean(row.sourceSpreadingSessionId))
+}
+
 export function parseCarrierQrValue(value: string): {
   carrierId: string
   carrierCode: string

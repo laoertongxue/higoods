@@ -325,7 +325,7 @@ export const cuttingPickupPrintVersions: PickupPrintVersion[] = [
     printedAt: '2026-03-19 09:25:00',
     printedBy: '仓库主管 陈明秋',
     printCopyCount: 1,
-    snapshotSummary: '净色面料裁片单首次打印领料单。',
+    snapshotSummary: '面料裁片单首次打印领料单。',
     isLatestVersion: false,
   },
   {
@@ -371,7 +371,7 @@ export const cuttingPickupEvidences: PickupEvidence[] = [
     relatedScanRecordNo: 'PICKUP-REC-CUT-001',
     evidenceType: 'RECEIPT_NOTE',
     count: 1,
-    summary: '回执备注：净色面料存在 2 米偏差。',
+    summary: '回执备注：面料存在 2 米偏差。',
     createdAt: '2026-03-19 10:22:00',
     createdBy: 'Rian',
   },

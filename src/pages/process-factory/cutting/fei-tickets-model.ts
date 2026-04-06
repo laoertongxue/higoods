@@ -791,16 +791,16 @@ export function resolveTicketCountBasis(
   if (markerPieces && markerPieces > 0) {
     return {
       ticketCount: markerPieces,
-      basisLabel: '实际成衣件数',
-      detailText: `当前尚未命中正式菲票拆分，先按实际成衣件数 ${formatQty(markerPieces)} 件生成建议票数。`,
+      basisLabel: '参考理论值',
+      detailText: `当前尚未命中正式铺布完成结果，先按参考理论值 ${formatQty(markerPieces)} 件估算建议票数。`,
     }
   }
 
   const fallback = Math.max(1, Math.min(120, Math.round(Math.max(owner.orderQtyHint, 1) / 100)))
   return {
     ticketCount: fallback,
-    basisLabel: '铺布完成结果',
-    detailText: '当前尚未形成完整铺布完成结果，先按参考成衣件数补算建议票数。',
+    basisLabel: '参考理论值',
+    detailText: '当前尚未形成完整铺布完成结果，先按参考理论值补算建议票数。',
   }
 }
 
@@ -1139,7 +1139,7 @@ export function buildFeiTicketsViewModel(options: {
       relatedMergeBatchIds: mergeBatchIds,
       relatedMergeBatchNos: mergeBatchNos,
       sourceContextLabel: '原始裁片单上下文',
-      ticketCountBasisLabel: generatedTickets.length ? '铺布完成结果' : ticketCountBasis.basisLabel,
+      ticketCountBasisLabel: generatedTickets.length ? '铺布完成结果 / 实际成衣件数' : ticketCountBasis.basisLabel,
       ticketCountBasisDetail: generatedTickets.length
         ? `当前建议票数来自铺布完成结果，按实际成衣件数拆分 ${formatQty(generatedTickets.length)} 张，已绑定原始裁片单 / 部位 / 尺码 / 二级工艺。`
         : ticketCountBasis.detailText,
@@ -1651,6 +1651,7 @@ export interface PrintableUnit {
   sourceProductionOrderCount: number
   sourceCutOrderCount: number
   requiredTicketCount: number
+  garmentQtyTotal: number
   validPrintedTicketCount: number
   voidedTicketCount: number
   missingTicketCount: number
@@ -1701,6 +1702,7 @@ export interface TicketSplitDetail {
   size: string
   partName: string
   quantity: number
+  garmentQty: number
   requiredTicketCount: number
   validPrintedTicketCount: number
   gapCount: number
@@ -1723,6 +1725,7 @@ export interface TicketCard {
   size: string
   partName: string
   quantity: number
+  garmentQty: number
   processTags: string[]
   qrPayload: string
   version: number
@@ -1968,6 +1971,7 @@ function buildPrintableUnitFromCutOrder(options: {
     sourceProductionOrderCount: 1,
     sourceCutOrderCount: 1,
     requiredTicketCount,
+    garmentQtyTotal: Math.max(generatedRecords.reduce((sum, record) => sum + Math.max(record.qty || 0, 0), 0), requiredTicketCount),
     validPrintedTicketCount: stats.validPrintedTicketCount,
     voidedTicketCount: stats.voidedTicketCount,
     missingTicketCount,
@@ -2050,6 +2054,7 @@ function buildPrintableUnitFromBatch(options: {
     sourceProductionOrderCount: sourceProductionOrderNos.length,
     sourceCutOrderCount: sourceCutOrderNos.length,
     requiredTicketCount,
+    garmentQtyTotal: Math.max(generatedRecords.reduce((sum, record) => sum + Math.max(record.qty || 0, 0), 0), requiredTicketCount),
     validPrintedTicketCount: stats.validPrintedTicketCount,
     voidedTicketCount: stats.voidedTicketCount,
     missingTicketCount,
@@ -2082,9 +2087,11 @@ function filterUnitsByContext(
   prefilter: FeiTicketsPrefilter | null,
 ): PrintableUnit[] {
   if (!prefilter) return units
+  const hasSpreadingSessionAnchor = Boolean(prefilter.spreadingSessionId || prefilter.spreadingSessionNo)
   return units.filter((unit) => {
     if (prefilter.spreadingSessionId && !unit.sourceSpreadingSessionIds.includes(prefilter.spreadingSessionId)) return false
     if (prefilter.spreadingSessionNo && !unit.sourceSpreadingSessionNos.includes(prefilter.spreadingSessionNo)) return false
+    if (hasSpreadingSessionAnchor) return true
     if (prefilter.mergeBatchId && unit.batchId !== prefilter.mergeBatchId) return false
     if (prefilter.mergeBatchNo && unit.batchNo !== prefilter.mergeBatchNo) return false
     if (prefilter.originalCutOrderId && !unit.sourceCutOrderIds.includes(prefilter.originalCutOrderId)) return false
@@ -2277,6 +2284,7 @@ function buildSplitDetailsFromOwner(
         size: record.skuSize || printableSizeCycle[index % printableSizeCycle.length],
         partName: record.partName || printablePartCycle[index % printablePartCycle.length],
         quantity: Math.max(record.qty, 1),
+        garmentQty: Math.max(record.qty, 1),
       }))
     : Array.from({ length: Math.max(source.owner.plannedTicketQty, 0) }, (_, index) => ({
         sequenceNo: index + 1,
@@ -2285,6 +2293,7 @@ function buildSplitDetailsFromOwner(
         size: printableSizeCycle[index % printableSizeCycle.length],
         partName: printablePartCycle[index % printablePartCycle.length],
         quantity: 1,
+        garmentQty: 1,
       }))
 
   return detailSeeds.map((seed) => {
@@ -2327,6 +2336,7 @@ function buildSplitDetailsFromOwner(
       size: seed.size,
       partName: seed.partName,
       quantity: seed.quantity,
+      garmentQty: seed.garmentQty,
       requiredTicketCount: 1,
       validPrintedTicketCount,
       gapCount: Math.max(1 - validPrintedTicketCount, 0),
@@ -2379,6 +2389,7 @@ export function buildTicketCards(options: {
         size: record.size || detail?.size || '待补尺码',
         partName: record.partName || detail?.partName || '待补部位',
         quantity: record.quantity ?? detail?.quantity ?? 1,
+        garmentQty: record.quantity ?? detail?.garmentQty ?? detail?.quantity ?? 1,
         processTags: record.processTags || [],
         qrPayload: record.qrSerializedValue || record.qrValue,
         version: record.version ?? record.reprintCount + 1,

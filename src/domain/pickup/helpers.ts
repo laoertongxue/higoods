@@ -18,8 +18,8 @@ import type {
 export const pickupScenarioTypeLabels: Record<PickupScenarioType, string> = {
   COMMON: '通用领料',
   CUTTING: '裁片领料',
-  PRINTING: '印花领料',
-  DYEING: '染色领料',
+  PRINTING: '面料领料',
+  DYEING: '面料领料',
 }
 
 export const pickupBoundObjectTypeLabels: Record<PickupBoundObjectType, string> = {
@@ -32,9 +32,9 @@ export const pickupBoundObjectTypeLabels: Record<PickupBoundObjectType, string> 
 
 export const pickupMaterialTypeLabels: Record<PickupMaterialType, string> = {
   GENERAL: '通用物料',
-  PRINT: '印花面料',
-  DYE: '染色面料',
-  SOLID: '净色面料',
+  PRINT: '面料',
+  DYE: '面料',
+  SOLID: '面料',
   LINING: '里布',
 }
 

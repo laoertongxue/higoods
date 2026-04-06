@@ -205,6 +205,7 @@ export interface TransferBagItemBinding {
   mergeBatchNo: string
   裁剪批次No?: string
   qty: number
+  garmentQty: number
   boundAt: string
   boundBy: string
   operator?: string
@@ -402,6 +403,7 @@ export interface TransferBagParentChildSummary {
   productionOrderCount: number
   mergeBatchCount: number
   quantityTotal: number
+  garmentQtyTotal: number
 }
 
 export interface TransferBagTicketCandidate {
@@ -424,6 +426,7 @@ export interface TransferBagTicketCandidate {
   size: string
   partName: string
   qty: number
+  garmentQty: number
   materialSku: string
   sourceContextType: string
   ticketStatus: FeiTicketLabelRecord['status']
@@ -441,6 +444,7 @@ export interface TransferBagMasterItem extends TransferBagMaster {
   currentUsage: TransferBagUsageItem | null
   currentStyleCode: string
   currentTotalPieceCount: number
+  currentGarmentQtyTotal: number
   currentSourceProductionOrderCount: number
   currentSourceCutOrderCount: number
   currentSourceBatchCount: number
@@ -463,6 +467,7 @@ export interface TransferBagUsageItem extends TransferBagUsage {
   ticketNos: string[]
   originalCutOrderNos: string[]
   productionOrderNos: string[]
+  sourceMarkerNos: string[]
   mergeBatchNos: string[]
   latestManifest: TransferBagDispatchManifest | null
   spreadingSessionId: string
@@ -905,6 +910,7 @@ function toRuntimeBinding(binding: TransferBagItemBinding): CarrierCycleItemBind
     productionOrderNo: binding.productionOrderNo,
     mergeBatchNo: binding.mergeBatchNo,
     qty: binding.qty,
+    garmentQty: binding.garmentQty ?? binding.qty,
     boundAt: binding.boundAt,
     boundBy: binding.boundBy,
     operator: normalized.operator,
@@ -934,6 +940,7 @@ function toLegacyBinding(binding: CarrierCycleItemBinding): TransferBagItemBindi
     mergeBatchNo: binding.mergeBatchNo,
     裁剪批次No: binding.mergeBatchNo,
     qty: binding.qty,
+    garmentQty: binding.qty,
     boundAt: binding.boundAt,
     boundBy: binding.boundBy,
     operator: binding.operator || binding.boundBy,
@@ -1055,6 +1062,7 @@ function toRuntimeSeedTickets(ticketRecords: FeiTicketLabelRecord[]): TransferBa
     size: record.size,
     partName: record.partName,
     qty: record.quantity,
+    garmentQty: record.quantity,
     materialSku: record.materialSku,
     sourceContextType: record.sourceContextType,
     status: record.status,
@@ -1374,6 +1382,7 @@ export function buildTransferBagParentChildSummary(bindings: TransferBagItemBind
     productionOrderCount: uniqueStrings(bindings.map((item) => item.productionOrderNo)).length,
     mergeBatchCount: uniqueStrings(bindings.map((item) => item.mergeBatchNo)).length,
     quantityTotal: bindings.reduce((sum, item) => sum + Math.max(item.qty, 0), 0),
+    garmentQtyTotal: bindings.reduce((sum, item) => sum + Math.max(item.garmentQty ?? item.qty, 0), 0),
   }
 }
 
@@ -1547,6 +1556,7 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       size: record.size || '',
       partName: record.partName || '',
       qty: Math.max(record.quantity ?? 1, 1),
+      garmentQty: Math.max(record.quantity ?? 1, 1),
       materialSku: record.materialSku,
       sourceContextType: record.sourceContextType,
       ticketStatus: record.status,
@@ -1769,6 +1779,7 @@ export function buildTransferBagViewModel(options: {
         ticketNos: bindings.map((item) => item.ticketNo),
         originalCutOrderNos: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)),
         productionOrderNos: uniqueStrings(bindings.map((item) => item.productionOrderNo)),
+        sourceMarkerNos: uniqueStrings(bindings.map((item) => item.sourceMarkerNo)),
         mergeBatchNos: uniqueStrings(bindings.map((item) => item.mergeBatchNo)),
         latestManifest: manifests[0] ?? null,
         spreadingSessionId: traceAnchor?.spreadingSessionId || '',
@@ -1836,6 +1847,7 @@ export function buildTransferBagViewModel(options: {
         currentUsage: usage,
         currentStyleCode: usage?.styleCode || '',
         currentTotalPieceCount: summary.quantityTotal,
+        currentGarmentQtyTotal: summary.garmentQtyTotal,
         currentSourceProductionOrderCount: summary.productionOrderCount,
         currentSourceCutOrderCount: summary.originalCutOrderCount,
         currentSourceBatchCount: summary.mergeBatchCount,

@@ -32,8 +32,6 @@ export type CuttingNavigationTarget =
   | 'fabricWarehouse'
   | 'mergeBatches'
   | 'cuttablePool'
-  | 'printing'
-  | 'dyeing'
 
 export interface CuttingDrillContext {
   sourcePageKey?: CuttingPageContextKey
@@ -109,8 +107,6 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   fabricWarehouse: '去裁床仓',
   mergeBatches: '去合并裁剪批次',
   cuttablePool: '去可裁排产',
-  printing: '去仓库配料领料',
-  dyeing: '去仓库配料领料',
 }
 
 const blockerSectionLabelMap: Record<string, string> = {
@@ -329,8 +325,6 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'fabricWarehouse') return getCanonicalCuttingPath('fabric-warehouse')
   if (target === 'mergeBatches') return getCanonicalCuttingPath('merge-batches')
   if (target === 'cuttablePool') return getCanonicalCuttingPath('cuttable-pool')
-  if (target === 'printing') return getCanonicalCuttingPath('material-prep')
-  if (target === 'dyeing') return getCanonicalCuttingPath('material-prep')
 
   if (target === 'markerSpreading') {
     return getCanonicalCuttingPath('spreading-list')
@@ -365,14 +359,14 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
   if (!context) return []
   const labels = [
     context.productionOrderNo ? `生产单：${context.productionOrderNo}` : '',
-    context.originalCutOrderNo ? `原始裁片单：${context.originalCutOrderNo}` : '',
-    context.mergeBatchNo ? `合并裁剪批次：${context.mergeBatchNo}` : '',
+    context.originalCutOrderNo ? `来源原始裁片单：${context.originalCutOrderNo}` : '',
+    context.mergeBatchNo ? `来源合并裁剪批次：${context.mergeBatchNo}` : '',
     context.materialSku ? `面料 SKU：${context.materialSku}` : '',
     context.cuttingGroup ? `裁床组：${context.cuttingGroup}` : '',
     context.warehouseStatus ? `仓状态：${warehouseStatusLabelMap[context.warehouseStatus] || context.warehouseStatus}` : '',
     context.styleCode ? `款号：${context.styleCode}` : '',
-    context.markerNo ? `唛架：${context.markerNo}` : '',
-    context.spreadingSessionNo ? `铺布：${context.spreadingSessionNo}` : '',
+    context.markerNo ? `来源唛架：${context.markerNo}` : '',
+    context.spreadingSessionNo ? `来源铺布：${context.spreadingSessionNo}` : '',
     context.printableUnitNo ? `打印单元：${context.printableUnitNo}` : '',
     context.ticketNo ? `菲票码：${context.ticketNo}` : '',
     context.suggestionNo ? `补料建议：${context.suggestionNo}` : context.suggestionId ? `补料建议：${context.suggestionId}` : '',

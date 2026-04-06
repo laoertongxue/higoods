@@ -7,6 +7,7 @@ import {
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
   getPdaTaskFlowTaskById,
+  isCuttingSpecialTask,
   listPdaTaskFlowTasks,
   resolvePdaTaskExecPath,
 } from '../data/fcs/pda-cutting-execution-source.ts'
@@ -73,10 +74,43 @@ function getTaskRootNo(task: ProcessTask): string {
 
 function getQtyUnitLabel(unit: string | undefined): string {
   if (!unit) return '件'
-  if (unit === 'PIECE') return '件'
-  if (unit === 'ROLL') return '卷'
-  if (unit === 'LAYER') return '层'
+  if (unit === 'PIECE' || unit === '件') return '件'
+  if (unit === '片') return '片'
+  if (unit === 'ROLL' || unit === '卷') return '卷'
+  if (unit === 'LAYER' || unit === '层') return '层'
   return unit
+}
+
+function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): { label: string; valueText: string } {
+  const unitLabel = getQtyUnitLabel(task.qtyUnit)
+  if (unitLabel === '卷') {
+    return {
+      label: '本单布卷数（卷）',
+      valueText: `本单布卷数：${task.qty} 卷`,
+    }
+  }
+  if (unitLabel === '层') {
+    return {
+      label: '本单铺布层数（层）',
+      valueText: `本单铺布层数：${task.qty} 层`,
+    }
+  }
+
+  const shouldUsePieceSemantics =
+    unitLabel === '片'
+    || (unitLabel === '件' && (isCuttingSpecialTask(task) || /裁片|入仓|交接/.test(displayProcessName)))
+
+  if (shouldUsePieceSemantics) {
+    return {
+      label: '本单裁片片数（片）',
+      valueText: `本单裁片片数：${task.qty} 片`,
+    }
+  }
+
+  return {
+    label: '本单成衣件数（件）',
+    valueText: `本单成衣件数：${task.qty} 件`,
+  }
 }
 
 const TAB_PARAM_MAP: Record<string, TaskStatusTab> = {
@@ -302,7 +336,7 @@ function renderSourceBadge(mode: string): string {
     return `
       <span class="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] font-medium text-blue-700">
         <i data-lucide="tag" class="h-2.5 w-2.5"></i>
-        直接派单
+        直接派发
       </span>
     `
   }
@@ -310,13 +344,14 @@ function renderSourceBadge(mode: string): string {
   return `
     <span class="inline-flex items-center gap-0.5 rounded border border-green-200 bg-green-50 px-1.5 py-0 text-[10px] font-medium text-green-700">
       <i data-lucide="tag" class="h-2.5 w-2.5"></i>
-      已中标
+      分配接收
     </span>
   `
 }
 
 function renderNotStartedCard(task: ProcessTask): string {
   const displayProcessName = getTaskProcessDisplayName(task)
+  const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
   const prereq = getStartPrerequisite(task)
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
@@ -347,8 +382,8 @@ function renderNotStartedCard(task: ProcessTask): string {
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">数量</div>
-          <div class="font-medium">${task.qty} ${escapeHtml(getQtyUnitLabel(task.qtyUnit))}</div>
+          <div class="text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</div>
+          <div class="font-medium">${escapeHtml(qtyDisplayMeta.valueText)}</div>
           ${
             (task as ProcessTask & { taskDeadline?: string }).taskDeadline
               ? `
@@ -432,6 +467,7 @@ function renderNotStartedCard(task: ProcessTask): string {
 
 function renderInProgressCard(task: ProcessTask): string {
   const displayProcessName = getTaskProcessDisplayName(task)
+  const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
@@ -462,8 +498,8 @@ function renderInProgressCard(task: ProcessTask): string {
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">数量</div>
-          <div class="font-medium">${task.qty} ${escapeHtml(getQtyUnitLabel(task.qtyUnit))}</div>
+          <div class="text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</div>
+          <div class="font-medium">${escapeHtml(qtyDisplayMeta.valueText)}</div>
 
           ${
             task.startedAt
@@ -604,6 +640,7 @@ function renderBlockedCard(task: ProcessTask): string {
 
 function renderDoneCard(task: ProcessTask): string {
   const displayProcessName = getTaskProcessDisplayName(task)
+  const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
   const handoutStatus =
     (task as ProcessTask & { handoutStatus?: 'PENDING' | 'HANDED_OUT' }).handoutStatus || 'PENDING'
   const handoutLabel = handoutStatus === 'HANDED_OUT' ? '已交出' : '待交出'
@@ -623,8 +660,8 @@ function renderDoneCard(task: ProcessTask): string {
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
-          <div class="text-muted-foreground">数量</div>
-          <div class="font-medium">${task.qty} ${escapeHtml(getQtyUnitLabel(task.qtyUnit))}</div>
+          <div class="text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</div>
+          <div class="font-medium">${escapeHtml(qtyDisplayMeta.valueText)}</div>
 
           ${
             task.finishedAt

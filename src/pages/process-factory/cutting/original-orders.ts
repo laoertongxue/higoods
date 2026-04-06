@@ -239,7 +239,7 @@ function buildPendingPrepSummaryText(row: Pick<OriginalCutOrderRow, 'originalCut
   const pendingPrepItems = getPendingPrepFollowupsForOriginalOrder(row)
   if (!pendingPrepItems.length) return '当前无补料待配料'
   const latest = pendingPrepItems[0]
-  return `补料待配料 ${pendingPrepItems.length} 条，待仓库配料领料继续处理；来源铺布 ${latest?.sourceSpreadingSessionId || '待补'}，来源补料 ${latest?.sourceReplenishmentRequestId || '待补'}`
+  return `补料待配料 ${pendingPrepItems.length} 条，待仓库配料领料继续处理；来源铺布 ${latest?.sourceSpreadingSessionId || '待补'}，来源补料单 ${latest?.sourceReplenishmentRequestId || '待补'}`
 }
 
 function getFeiTicketRecords(): FeiTicketLabelRecord[] {
@@ -942,13 +942,13 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '差异长度（m）', value: latestClaimDispute ? `${latestClaimDispute.discrepancyQty} 米` : '0 米' },
               { label: '处理结论', value: latestClaimDispute?.handleConclusion || '待平台处理' },
               { label: '提交时间', value: latestClaimDispute?.submittedAt || '待补' },
-              { label: '证据数量', value: latestClaimDispute ? `${latestClaimDispute.evidenceCount} 个` : '0 个' },
+              { label: '证据份数（个）', value: latestClaimDispute ? `${latestClaimDispute.evidenceCount} 个` : '0 个' },
             ])}
             <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
               ${
                 latestClaimDispute
-                  ? `当前已存在领料数量异议，提交人 ${escapeHtml(latestClaimDispute.submittedBy)}，原因：${escapeHtml(latestClaimDispute.disputeReason)}。`
-                  : '当前未发现领料数量异议，后续如移动端提交异议，会在这里同步展示摘要。'
+                  ? `当前已存在领料长度异议，提交人 ${escapeHtml(latestClaimDispute.submittedBy)}，原因：${escapeHtml(latestClaimDispute.disputeReason)}。`
+                  : '当前未发现领料长度异议，后续如移动端提交异议，会在这里同步展示摘要。'
               }
             </div>
             <div class="flex flex-wrap gap-2">

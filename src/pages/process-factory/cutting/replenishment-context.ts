@@ -12,7 +12,7 @@ import type { OriginalCutOrderRow } from './original-orders-model'
 
 export type ReplenishmentContextBaseSourceType = 'original-order' | 'merge-batch'
 export type ReplenishmentContextSourceType = ReplenishmentContextBaseSourceType | 'spreading-session'
-export type ReplenishmentCraftImpactDecisionKey = 'YES' | 'NO' | 'UNKNOWN'
+export type ReplenishmentPendingPrepDecisionKey = 'YES' | 'NO' | 'UNKNOWN'
 
 export interface ReplenishmentContextRecord {
   contextId: string
@@ -37,15 +37,13 @@ export interface ReplenishmentContextRecord {
   varianceSummary: SpreadingVarianceSummary | null
 }
 
-export interface ReplenishmentCraftImpactDecision {
-  decision: ReplenishmentCraftImpactDecisionKey
+export interface ReplenishmentPendingPrepDecision {
+  decision: ReplenishmentPendingPrepDecisionKey
   note: string
 }
 
-export interface ReplenishmentCraftImpactSignals {
-  printing: ReplenishmentCraftImpactDecision
-  dyeing: ReplenishmentCraftImpactDecision
-  specialProcess: ReplenishmentCraftImpactDecision
+export interface ReplenishmentPendingPrepSignal {
+  pendingPrep: ReplenishmentPendingPrepDecision
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -298,7 +296,7 @@ function inferExplicitDecision(options: {
   positiveNote: string
   negativeNote: string
   unknownNote: string
-}): ReplenishmentCraftImpactDecision {
+}): ReplenishmentPendingPrepDecision {
   if (!options.lineItems.length) {
     return { decision: 'UNKNOWN', note: options.unknownNote }
   }
@@ -314,9 +312,9 @@ function inferExplicitDecision(options: {
   return { decision: 'UNKNOWN', note: options.unknownNote }
 }
 
-export function inferReplenishmentCraftImpacts(context: ReplenishmentContextRecord): ReplenishmentCraftImpactSignals {
+export function inferReplenishmentPendingPrepDecision(context: ReplenishmentContextRecord): ReplenishmentPendingPrepSignal {
   const lineItems = context.materialRows.flatMap((row) => row.materialLineItems)
-  const printing = inferExplicitDecision({
+  const pendingPrep = inferExplicitDecision({
     lineItems,
     positiveKeywords: ['主料', '面料主料'],
     negativeKeywords: ['里辅料', '辅料'],
@@ -324,43 +322,8 @@ export function inferReplenishmentCraftImpacts(context: ReplenishmentContextReco
     negativeNote: '当前面料行未命中主料信号，可不必追加仓库待配料。',
     unknownNote: '当前无法明确判断是否需要回仓库待配料，建议人工确认。',
   })
-  const dyeing = inferExplicitDecision({
-    lineItems,
-    positiveKeywords: ['主料', '面料主料'],
-    negativeKeywords: ['里辅料', '辅料'],
-    positiveNote: '当前面料行已命中主料信号，需同步关注仓库待配料。',
-    negativeNote: '当前面料行未命中主料信号，可不必追加仓库待配料。',
-    unknownNote: '当前无法明确判断是否需要回仓库待配料，建议人工确认。',
-  })
-
-  if (!lineItems.length) {
-    return {
-      printing,
-      dyeing,
-      specialProcess: {
-        decision: 'UNKNOWN',
-        note: '当前尚未形成可判断的面料行，需人工确认是否影响特殊工艺。',
-      },
-    }
-  }
-
-  if (lineItems.some((item) => lineHasAnyKeyword(item, ['特殊工艺', '捆条', '压褶', '绣', '烫钻', '镭射']))) {
-    return {
-      printing,
-      dyeing,
-      specialProcess: {
-        decision: 'YES',
-        note: '当前面料行已显式命中特殊工艺信号，建议同步特殊工艺链路。',
-      },
-    }
-  }
 
   return {
-    printing,
-    dyeing,
-    specialProcess: {
-      decision: 'UNKNOWN',
-      note: '当前未识别明确的特殊工艺信号，若补料涉及后续工艺请人工确认。',
-    },
+    pendingPrep,
   }
 }

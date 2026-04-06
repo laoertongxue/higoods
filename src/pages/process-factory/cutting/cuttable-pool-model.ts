@@ -290,7 +290,7 @@ export function deriveOriginalCutOrderCuttableState(
   record: CuttingOrderProgressRecord,
 ): CuttableSummaryMeta<CuttableStateKey> & { selectable: boolean; reasonText: string } {
   if (line.batchOccupancyStatus === 'IN_BATCH') {
-    return createCuttableState('IN_BATCH', `已加入裁剪批次 ${line.mergeBatchNo || '当前批次'}`, '已加入裁剪批次')
+    return createCuttableState('IN_BATCH', `已加入合并裁剪批次 ${line.mergeBatchNo || '当前批次'}`, '已加入合并裁剪批次')
   }
 
   if (record.hasSpreadingRecord || record.hasInboundRecord || /裁片中|裁剪中|待入仓|已完成/.test(record.cuttingStage)) {
@@ -330,7 +330,7 @@ function deriveOriginalCutOrderBlockingReason(
   if (cuttableStateKey === 'WAITING_CLAIM') return '还没领料'
   if (cuttableStateKey === 'PARTIAL_CLAIM') return '只领到一部分料'
   if (cuttableStateKey === 'CLAIM_EXCEPTION') return '领料数量不一致，先核对'
-  if (cuttableStateKey === 'IN_BATCH') return `已加入裁剪批次 ${line.mergeBatchNo || record.mergeBatchNo || ''}`.trim()
+  if (cuttableStateKey === 'IN_BATCH') return `已加入合并裁剪批次 ${line.mergeBatchNo || record.mergeBatchNo || ''}`.trim()
   if (cuttableStateKey === 'NOT_READY') return '这张单已经开始裁了，不能重复加入'
   return '料已备齐，可以裁'
 }

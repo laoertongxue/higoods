@@ -41,6 +41,7 @@ export interface GeneratedFeiTicketSourceRecord {
   craftSequenceVersion: string
   currentCraftStage: string
   sourceTechPackSpuCode: string
+  sourceBasisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
   issuedAt: string
   qrPayload: FeiTicketQrPayload
   qrValue: string
@@ -61,6 +62,7 @@ export interface GeneratedFeiTicketTraceMatrixRow {
   color: string
   size: string
   garmentQty: number
+  sourceBasisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
   sourceWritebackId: string
 }
 
@@ -148,6 +150,14 @@ function toIssuedAt(record: GeneratedOriginalCutOrderSourceRecord): string {
 
 function buildSourceRecordKey(record: Pick<GeneratedOriginalCutOrderSourceRecord, 'originalCutOrderId' | 'materialSku'>): string {
   return `${record.originalCutOrderId}::${record.materialSku}`
+}
+
+function filterFallbackSourceRecordsBySpreadingCoverage(
+  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+  spreadingDrivenFeiTickets: GeneratedFeiTicketSourceRecord[],
+): GeneratedOriginalCutOrderSourceRecord[] {
+  const coveredSourceKeys = new Set(spreadingDrivenFeiTickets.map((record) => buildSourceRecordKey(record)))
+  return sourceRecords.filter((record) => !coveredSourceKeys.has(buildSourceRecordKey(record)))
 }
 
 function normalizePositiveInteger(value: number): number {
@@ -413,6 +423,7 @@ function buildFeiRecordsFromSpreadingSessions(
           craftSequenceVersion: seed.craftSequenceVersion,
           currentCraftStage: seed.currentCraftStage,
           sourceTechPackSpuCode: seed.sourceTechPackSpuCode,
+          sourceBasisType: 'SPREADING_RESULT',
           issuedAt: seed.issuedAt,
           qrPayload: encoded.payload,
           qrValue: encoded.qrValue,
@@ -487,6 +498,7 @@ function buildFeiRecordsForOriginalOrder(record: GeneratedOriginalCutOrderSource
         craftSequenceVersion,
         currentCraftStage: secondaryCrafts[0] || '',
         sourceTechPackSpuCode: record.sourceTechPackSpuCode,
+        sourceBasisType: 'THEORETICAL_FALLBACK',
         issuedAt,
         qrPayload: encoded.payload,
         qrValue: encoded.qrValue,
@@ -543,10 +555,9 @@ function getGeneratedFeiTicketDataset(): GeneratedFeiTicketDataset {
   computingGeneratedFeiTicketDataset = true
   try {
     const spreadingDrivenFeiTickets = buildFeiRecordsFromSpreadingSessions(sourceRecords)
-    const coveredSourceKeys = new Set(spreadingDrivenFeiTickets.map((record) => buildSourceRecordKey(record)))
-    const fallbackFeiTickets = sourceRecords
-      .filter((record) => !coveredSourceKeys.has(buildSourceRecordKey(record)))
-      .flatMap((record) => buildFeiRecordsForOriginalOrder(record))
+    const fallbackFeiTickets = filterFallbackSourceRecordsBySpreadingCoverage(sourceRecords, spreadingDrivenFeiTickets).flatMap((record) =>
+      buildFeiRecordsForOriginalOrder(record),
+    )
     generatedFeiTicketDatasetCache = buildGeneratedFeiTicketDataset([...spreadingDrivenFeiTickets, ...fallbackFeiTickets])
     return generatedFeiTicketDatasetCache
   } finally {
@@ -627,6 +638,7 @@ export function buildGeneratedFeiTicketTraceMatrix(
         color: record.skuColor,
         size: record.skuSize,
         garmentQty: record.garmentQty,
+        sourceBasisType: record.sourceBasisType,
         sourceWritebackId: session?.sourceWritebackId || '',
       }
     })
@@ -637,4 +649,12 @@ export function buildGeneratedFeiTicketTraceMatrix(
         || left.color.localeCompare(right.color, 'zh-CN')
         || left.size.localeCompare(right.size, 'zh-CN'),
     )
+}
+
+export function buildSpreadingDrivenFeiTicketTraceMatrix(
+  records: GeneratedFeiTicketSourceRecord[] = listGeneratedFeiTickets(),
+): GeneratedFeiTicketTraceMatrixRow[] {
+  return buildGeneratedFeiTicketTraceMatrix(records).filter(
+    (record) => record.sourceBasisType === 'SPREADING_RESULT' && Boolean(record.sourceSpreadingSessionId),
+  )
 }

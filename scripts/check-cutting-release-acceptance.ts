@@ -21,6 +21,25 @@ function read(rel: string): string {
   return fs.readFileSync(abs(rel), 'utf8')
 }
 
+function assertPlaywrightDependencyResolvable(): void {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "import('@playwright/test').then(()=>console.log('ok')).catch((error)=>{console.error(error instanceof Error ? error.message : String(error));process.exit(1)})",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    },
+  )
+
+  if (result.status !== 0) {
+    throw new Error(`@playwright/test 无法解析\n${result.stdout || ''}${result.stderr || ''}`.trim())
+  }
+}
+
 function assertSpecCoversAcceptance(): void {
   assert(fs.existsSync(abs(specRel)), `${specRel} 缺失，release acceptance 未建立`)
   const source = read(specRel)
@@ -39,6 +58,8 @@ function assertSpecCoversAcceptance(): void {
     '按唛架新建铺布',
     '异常补录铺布必须填写异常补录原因',
     '进入当前任务',
+    'manual-entry',
+    'context-only',
     '继续当前铺布',
     '按唛架开始铺布',
     'planUnitId',
@@ -52,12 +73,16 @@ function assertSpecCoversAcceptance(): void {
     '合并裁剪批次',
     '关联合并裁剪批次',
     '需求成衣件数（件）',
+    '本单成衣件数（件）',
     '录入来源',
     '当前后续动作',
     '来源铺布：',
-    '来源补料：',
+    '来源补料单：',
     '铺布完成结果',
     '实际成衣件数',
+    '参考理论值',
+    '绑定菲票件数（件）',
+    '裁片总片数（片）',
     '移动录入',
     '先装袋后入仓',
     'sourceWritebackId',
@@ -92,6 +117,9 @@ function assertCopyCleanupSpec(): void {
     'PIECE',
     'ROLL',
     'LAYER',
+    '创建裁剪批次',
+    '裁剪批次摘要',
+    '来源裁剪批次',
   ].forEach((token) => {
     assert(source.includes(token), `${copyCleanupSpecRel} 缺少中文文案 / 工程词清场覆盖点：${token}`)
   })
@@ -108,15 +136,41 @@ function assertSpecIsCollectable(rel: string): void {
   }
 }
 
+function assertAcceptanceListCoversMainChain(): void {
+  const result = spawnSync('npx', ['playwright', 'test', '--list', specRel], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  })
+
+  if (result.status !== 0) {
+    throw new Error(`${specRel} 无法列出测试\n${result.stdout || ''}${result.stderr || ''}`.trim())
+  }
+
+  const output = `${result.stdout || ''}${result.stderr || ''}`
+  ;[
+    'release acceptance：supervisor IA、铺布列表状态与菜单闭环可见',
+    'release acceptance：铺布只能 marker-first 创建，异常补录必须填写原因',
+    'release acceptance：supervisor 详情页 next-step action bar、公式和上下游跳转闭环',
+    'release acceptance：PDA 从任务到执行单元到铺布录入，写回后 supervisor 可见',
+    'release acceptance：补料 / 菲票 / 装袋 / 入仓 / PDA 写回数据链保持一致',
+    'release acceptance：补料审批通过后，仓库配料领料可见补料待配料',
+  ].forEach((token) => {
+    assert(output.includes(token), `${specRel} 缺少主链 acceptance 用例：${token}`)
+  })
+}
+
 function main(): void {
+  assertPlaywrightDependencyResolvable()
   assertSpecCoversAcceptance()
   assertCopyCleanupSpec()
   assertSpecIsCollectable(specRel)
   assertSpecIsCollectable(copyCleanupSpecRel)
+  assertAcceptanceListCoversMainChain()
 
   console.log(
     JSON.stringify(
       {
+        playwright依赖可解析: '通过',
         releaseAcceptanceSpec存在: '通过',
         releaseAcceptance业务覆盖: '通过',
         releaseAcceptance低分辨率覆盖: '通过',
@@ -124,6 +178,7 @@ function main(): void {
         copyCleanup文案清场覆盖: '通过',
         releaseAcceptance可被Playwright收集: '通过',
         copyCleanup可被Playwright收集: '通过',
+        releaseAcceptance主链用例可枚举: '通过',
       },
       null,
       2,

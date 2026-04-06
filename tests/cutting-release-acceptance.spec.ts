@@ -3,11 +3,9 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { listPdaCuttingTaskSourceRecords } from '../src/data/fcs/cutting/pda-cutting-task-source'
 import { getPdaCuttingTaskSnapshot } from '../src/data/fcs/pda-cutting-execution-source'
 import { buildFeiTicketPrintProjection } from '../src/pages/process-factory/cutting/fei-ticket-print-projection.ts'
-import { buildGeneratedFeiTicketTraceMatrix } from '../src/data/fcs/cutting/generated-fei-tickets.ts'
-import {
-  buildSpreadingListViewModel,
-  readMarkerSpreadingPrototypeData,
-} from '../src/pages/process-factory/cutting/marker-spreading-utils.ts'
+import { buildSpreadingDrivenFeiTicketTraceMatrix } from '../src/data/fcs/cutting/generated-fei-tickets.ts'
+import { buildCuttingSpreadingFlowMatrix } from '../src/data/fcs/cutting/marker-spreading-ledger.ts'
+import { buildReplenishmentFlowTraceMatrix } from '../src/data/fcs/cutting/replenishment.ts'
 import { buildCuttingTraceabilityProjectionContext } from '../src/pages/process-factory/cutting/traceability-projection-helpers.ts'
 import { buildCutPieceWarehouseProjection } from '../src/pages/process-factory/cutting/cut-piece-warehouse-projection.ts'
 import { buildReplenishmentProjection } from '../src/pages/process-factory/cutting/replenishment-projection.ts'
@@ -76,7 +74,7 @@ const bannedLegacyBranchCopy = [
 
 const bannedEngineeringFormulaCopy = ['readyForSpreading = true', 'allocationStatus ≠ balanced', 'layoutStatus ≠ done'] as const
 
-const bannedEnglishUnitCopy = [/\bPIECE\b/, /\bROLL\b/, /\bLAYER\b/] as const
+const bannedEnglishUnitCopy = [/\bPIECE\b(?!-)/, /\bROLL\b(?!-)/, /\bLAYER\b(?!-)/] as const
 
 async function expectNoLegacyCuttingCopy(page: Page): Promise<void> {
   const body = page.locator('body')
@@ -147,39 +145,40 @@ const workerSpreadingTask = listPdaCuttingTaskSourceRecords()
       detail: getPdaCuttingTaskSnapshot(record.taskId, executionOrderId),
     })),
   )
-  .find((item) => item.detail?.spreadingTargets.some((target) => target.targetType === 'session' || target.targetType === 'marker'))
+  .find((item) =>
+    item.detail?.spreadingRecords.length
+    && item.detail.spreadingTargets.some((target) => target.targetType === 'session' || target.targetType === 'marker'),
+  )
+  || listPdaCuttingTaskSourceRecords()
+    .flatMap((record) =>
+      record.executionOrderIds.map((executionOrderId, index) => ({
+        taskId: record.taskId,
+        executionOrderId,
+        executionOrderNo: record.executionOrderNos[index] || executionOrderId,
+        detail: getPdaCuttingTaskSnapshot(record.taskId, executionOrderId),
+      })),
+    )
+    .find((item) => item.detail?.spreadingTargets.some((target) => target.targetType === 'session' || target.targetType === 'marker'))
 
-const prototypeSpreadingData = readMarkerSpreadingPrototypeData()
-const prototypeSpreadingRows = buildSpreadingListViewModel({
-  spreadingSessions: prototypeSpreadingData.store.sessions,
-  rowsById: prototypeSpreadingData.rowsById,
-  mergeBatches: prototypeSpreadingData.mergeBatches,
-  markerRecords: prototypeSpreadingData.store.markers,
-})
+const prototypeFlowMatrix = buildCuttingSpreadingFlowMatrix()
 const prototypeFeiPrintProjection = buildFeiTicketPrintProjection()
 const prototypeTraceabilityContext = buildCuttingTraceabilityProjectionContext()
 const prototypeWarehouseProjection = buildCutPieceWarehouseProjection({ snapshot: prototypeTraceabilityContext.snapshot })
 
-function resolveSupervisorStageKey(row: (typeof prototypeSpreadingRows)[number]) {
-  const lifecycle = row.session.prototypeLifecycleOverrides
-  if (row.statusKey === 'DRAFT' || row.statusKey === 'TO_FILL') return 'WAITING_START'
-  if (row.statusKey === 'IN_PROGRESS') return 'IN_PROGRESS'
-  if (lifecycle?.replenishmentStatusLabel === '待补料确认') return 'WAITING_REPLENISHMENT'
-  if (lifecycle?.feiTicketStatusLabel === '待打印菲票') return 'WAITING_FEI_TICKET'
-  if (lifecycle?.baggingStatusLabel === '待装袋') return 'WAITING_BAGGING'
-  if (lifecycle?.warehouseStatusLabel === '待入仓') return 'WAITING_WAREHOUSE'
-  return 'DONE'
-}
-
 function findPrototypeStageCaseRow(stageKey: 'WAITING_REPLENISHMENT' | 'WAITING_FEI_TICKET' | 'WAITING_BAGGING' | 'WAITING_WAREHOUSE') {
   return (
-    prototypeSpreadingRows.find((row) => {
-      if (resolveSupervisorStageKey(row) !== stageKey) return false
+    prototypeFlowMatrix.find((row) => {
+      if (row.stageKey !== stageKey) return false
       if (stageKey === 'WAITING_FEI_TICKET') {
-        return prototypeFeiPrintProjection.printableViewModel.units.some((unit) => unit.sourceSpreadingSessionIds.includes(row.spreadingSessionId))
+        return prototypeFeiPrintProjection.printableViewModel.units.some((unit) =>
+          unit.sourceSpreadingSessionIds.includes(row.spreadingSessionId),
+        )
+      }
+      if (stageKey === 'WAITING_BAGGING') {
+        return Boolean(row.feiTicketId || row.availableFeiTicketIds.length > 0)
       }
       if (stageKey === 'WAITING_WAREHOUSE') {
-        return prototypeWarehouseProjection.viewModel.items.some((item) => item.spreadingSessionId === row.spreadingSessionId)
+        return Boolean(row.bagId && row.transferBatchId)
       }
       return true
     }) || null
@@ -187,9 +186,9 @@ function findPrototypeStageCaseRow(stageKey: 'WAITING_REPLENISHMENT' | 'WAITING_
 }
 
 const mergeBatchDetailRow =
-  prototypeSpreadingRows.find((row) => row.contextType === 'merge-batch' && Boolean(row.session.markerId)) || null
+  prototypeFlowMatrix.find((row) => row.contextType === 'merge-batch' && Boolean(row.sourceMarkerId)) || null
 const originalOrderDetailRow =
-  prototypeSpreadingRows.find((row) => row.contextType === 'original-order' && Boolean(row.session.markerId)) || null
+  prototypeFlowMatrix.find((row) => row.contextType === 'original-order' && Boolean(row.sourceMarkerId)) || null
 
 test('release acceptance：supervisor IA、铺布列表状态与菜单闭环可见', async ({ page }) => {
   const errors = collectPageErrors(page)
@@ -228,7 +227,7 @@ test('release acceptance：supervisor IA、铺布列表状态与菜单闭环可�
   await expect(page.locator('body')).toContainText('录入来源')
   await expect(page.getByTestId('cutting-spreading-list-stats')).toHaveCount(1)
   const spreadingStatsBox = await page.getByTestId('cutting-spreading-list-stats').boundingBox()
-  expect(spreadingStatsBox?.height ?? 0).toBeLessThan(190)
+  expect(spreadingStatsBox?.height ?? 0).toBeLessThan(170)
   await expect(page.locator('[data-cutting-spreading-main-card="true"]')).toHaveCount(1)
   await expect(page.getByTestId('cutting-spreading-more-filters')).not.toHaveAttribute('open', '')
   await expect(page.getByTestId('cutting-spreading-list-table').locator('thead')).toBeVisible()
@@ -263,7 +262,7 @@ test('release acceptance：supervisor IA、铺布列表状态与菜单闭环可�
   await page.getByRole('button', { name: '已建唛架', exact: true }).click()
   await expect(page.getByTestId('marker-plan-list-stats')).toBeVisible()
   const markerStatsBox = await page.getByTestId('marker-plan-list-stats').boundingBox()
-  expect(markerStatsBox?.height ?? 0).toBeLessThan(190)
+  expect(markerStatsBox?.height ?? 0).toBeLessThan(170)
   await expect(page.locator('[data-marker-plan-main-card="true"]')).toHaveCount(1)
   await expect(page.getByTestId('marker-plan-list-table').locator('thead')).toBeVisible()
   expect(await countViewportRows(page, 'marker-plan-list-table')).toBeGreaterThanOrEqual(6)
@@ -290,6 +289,9 @@ test('release acceptance：铺布只能 marker-first 创建，异常补录必须
   await expect(page.getByTestId('cutting-spreading-create-confirmation').locator('p.font-mono').first()).toBeVisible()
   await page.getByRole('button', { name: '确认创建并进入编辑' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/spreading-edit\?/)
+  await expect(page.locator('[data-cutting-spreading-edit-tab-shell]')).toBeVisible()
+  await expect(page.locator('body')).toContainText('执行摘要')
+  await expect(page.locator('body')).toContainText('计划裁剪成衣件数（件）')
 
   await page.goto('/fcs/craft/cutting/spreading-list')
   await page.getByRole('button', { name: '异常补录铺布' }).click()
@@ -301,6 +303,8 @@ test('release acceptance：铺布只能 marker-first 创建，异常补录必须
   await page.getByLabel('异常补录原因').fill('acceptance：现场补录换卷。')
   await page.getByRole('button', { name: '确认创建并进入编辑' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/spreading-edit\?/)
+  await expect(page.locator('[data-cutting-spreading-edit-tab-shell]')).toBeVisible()
+  await expect(page.locator('body')).toContainText('执行摘要')
 
   await expectNoPageErrors(errors)
 })
@@ -323,7 +327,7 @@ test('release acceptance：裁片域界面文案全部中文化，旧补料分�
   await expectNoLegacyCuttingCopy(page)
 
   await page.goto(`/fcs/craft/cutting/spreading-detail?sessionId=${encodeURIComponent(mergeBatchDetailRow!.spreadingSessionId)}`)
-  await expect(page.getByRole('button', { name: '去合并裁剪批次' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '去来源合并裁剪批次' })).toBeVisible()
   await expect(page.locator('body')).toContainText('合并裁剪批次')
   await expectNoLegacyCuttingCopy(page)
 
@@ -385,7 +389,7 @@ test('release acceptance：supervisor 详情页 next-step action bar、公式和
     await page.goto('/fcs/craft/cutting/spreading-list')
     expect(await getStageCount(page, expectation.stage)).toBeGreaterThan(0)
     await (await getStageTab(page, expectation.stage)).click()
-    const listRow = page.getByTestId('cutting-spreading-list-table').locator('tbody tr').filter({ hasText: caseRow!.session.sessionNo }).first()
+    const listRow = page.getByTestId('cutting-spreading-list-table').locator('tbody tr').filter({ hasText: caseRow!.sessionNo }).first()
     await expect(listRow).toBeVisible()
     await expect(listRow.locator('button.bg-blue-600')).toHaveCount(1)
     await listRow.getByRole('button', { name: '查看详情' }).click()
@@ -393,6 +397,8 @@ test('release acceptance：supervisor 详情页 next-step action bar、公式和
     await expect(nextStepBar).toBeVisible()
     await expect(nextStepBar.locator('button.bg-blue-600')).toHaveCount(1)
     await expect(nextStepBar.getByRole('button', { name: expectation.action })).toBeVisible()
+    await expect(page.locator('body')).toContainText('执行摘要')
+    await expect(page.locator('body')).toContainText('计划裁剪成衣件数（件）')
     await expect(page.locator('.font-mono').filter({ hasText: '=' }).first()).toBeVisible()
     await expect(page.locator('body')).toContainText('当前后续动作')
     await nextStepBar.getByRole('button', { name: expectation.action }).click()
@@ -400,11 +406,34 @@ test('release acceptance：supervisor 详情页 next-step action bar、公式和
     if (expectation.stage === '待打印菲票') {
       await expect(page.locator('body')).toContainText('来源铺布')
       await page.getByRole('button', { name: '查看详情' }).first().click()
+      await expect(page.locator('body')).toContainText('来源唛架')
+      await expect(page.locator('body')).toContainText('来源原始裁片单')
+      await expect(page.locator('body')).toContainText('来源合并裁剪批次')
       await expect(page.locator('body')).toContainText('铺布完成结果')
       await expect(page.locator('body')).toContainText('实际成衣件数')
+      await expect(page.locator('body')).toContainText('参考理论值')
+      await expect(page.locator('body')).not.toContainText('唛架总件数')
+      await expect(page.locator('body')).not.toContainText('订单数量折算')
     }
-    if (expectation.stage === '待装袋' || expectation.stage === '待入仓') {
+    if (expectation.stage === '待装袋') {
       await expect(page).toHaveURL(/spreadingSessionId=/)
+      await expect(page.locator('body')).toContainText('绑定菲票件数（件）')
+      await expect(page.locator('body')).toContainText('周转口袋列表')
+      await expect(page.locator('body')).toContainText('来源铺布')
+      await expect(page.locator('body')).toContainText('来源唛架')
+      await expect(page.locator('body')).toContainText('来源原始裁片单')
+      await expect(page.locator('body')).toContainText('来源合并裁剪批次')
+      await expect(page.locator('body')).toContainText('已从铺布列表带入上下文')
+    }
+    if (expectation.stage === '待入仓') {
+      await expect(page).toHaveURL(/spreadingSessionId=/)
+      await expect(page.locator('body')).toContainText('裁片总片数（片）')
+      await expect(page.locator('body')).toContainText('来源铺布')
+      await expect(page.locator('body')).toContainText('来源唛架')
+      await expect(page.locator('body')).toContainText('来源原始裁片单')
+      await expect(page.locator('body')).toContainText('来源合并裁剪批次')
+      await expect(page.locator('body')).toContainText('合并裁剪批次 / 裁床组')
+      await expect(page.getByTestId('cut-piece-warehouse-traceability-fold')).not.toHaveAttribute('open', '')
     }
   }
 
@@ -419,6 +448,9 @@ test('release acceptance：supervisor 详情页 next-step action bar、公式和
   await page.goto(
     `/fcs/craft/cutting/spreading-detail?sessionId=${encodeURIComponent(mergeBatchDetailRow!.spreadingSessionId)}`,
   )
+  await page.getByRole('button', { name: '换班与人员' }).click()
+  await expect(page.getByTestId('cutting-spreading-detail-operators-fold')).not.toHaveAttribute('open', '')
+  await expect(page.getByTestId('cutting-spreading-detail-operators-fold')).toHaveAttribute('data-default-open', 'collapsed')
   await expect(page.getByRole('button', { name: '去来源唛架' })).toBeVisible()
   await page.getByRole('button', { name: '去来源唛架' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/marker-detail\//)
@@ -426,16 +458,22 @@ test('release acceptance：supervisor 详情页 next-step action bar、公式和
   await page.goto(
     `/fcs/craft/cutting/spreading-detail?sessionId=${encodeURIComponent(mergeBatchDetailRow!.spreadingSessionId)}`,
   )
-  await expect(page.getByRole('button', { name: '去合并裁剪批次' })).toBeVisible()
-  await page.getByRole('button', { name: '去合并裁剪批次' }).click()
+  await expect(page.getByRole('button', { name: '去来源合并裁剪批次' })).toBeVisible()
+  await page.getByRole('button', { name: '去来源合并裁剪批次' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/merge-batches/)
 
   await page.goto(
     `/fcs/craft/cutting/spreading-detail?sessionId=${encodeURIComponent(originalOrderDetailRow!.spreadingSessionId)}`,
   )
-  await expect(page.getByRole('button', { name: '去原始裁片单' })).toBeVisible()
-  await page.getByRole('button', { name: '去原始裁片单' }).click()
+  await expect(page.getByRole('button', { name: '去来源原始裁片单' })).toBeVisible()
+  await page.getByRole('button', { name: '去来源原始裁片单' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/original-orders/)
+  await page.goto('/fcs/craft/cutting/marker-list')
+  await page.getByRole('button', { name: '已建唛架' }).click()
+  await page.getByTestId('marker-plan-list-table').locator('tbody tr').first().getByRole('button', { name: '查看' }).click()
+  await page.getByTestId('cutting-marker-plan-detail-page').locator('[data-marker-plan-tab-trigger="explosion"]').click()
+  await expect(page.getByTestId('marker-plan-piece-detail-fold')).toHaveAttribute('data-default-open', 'collapsed')
+  await expect(page.getByTestId('marker-plan-piece-detail-fold')).not.toHaveAttribute('open', '')
 
   await expectNoPageErrors(errors)
 })
@@ -459,8 +497,9 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
   await expect(page.getByRole('heading', { level: 1, name: '当前任务' })).toBeVisible()
   await expect(page.locator('body')).toContainText('当前任务号')
   await expect(page.locator('body')).toContainText('裁片单')
-  await expect(page.locator('body')).toContainText('参考唛架')
   await expect(page.locator('body')).toContainText('当前步骤')
+  await expect(page.locator('body')).toContainText('合并裁剪批次')
+  await expect(page.locator('body')).toContainText('参考唛架')
   await expect(page.locator('body')).not.toContainText('执行单元')
   await expect(page.locator('body')).not.toContainText('来源唛架')
   await expect(page.locator('body')).not.toContainText('当前主状态')
@@ -468,7 +507,7 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
   const spreadingStep = page.locator('[data-pda-cutting-unit-step="SPREADING"]')
   await expectVisibleInViewport(page, spreadingStep)
   const spreadingStepBox = await spreadingStep.boundingBox()
-  expect(spreadingStepBox?.height ?? 0).toBeLessThan(60)
+  expect(spreadingStepBox?.height ?? 0).toBeLessThan(54)
   await spreadingStep.click()
   await expect(page).toHaveURL(new RegExp(`/fcs/pda/cutting/spreading/${unitTask.taskId}\\?`))
 
@@ -500,9 +539,10 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
   await expect(page.locator('body')).not.toContainText('operatorAccountId')
   await expect(page.locator('body')).not.toContainText('manual-entry')
   await expect(page.locator('body')).not.toContainText('context-only')
-  await expect(page.locator('body')).not.toContainText(/\bPIECE\b/)
-  await expect(page.locator('body')).not.toContainText(/\bROLL\b/)
-  await expect(page.locator('body')).not.toContainText(/\bLAYER\b/)
+  await expect(page.locator('body')).not.toContainText('拆分组')
+  await expect(page.locator('body')).not.toContainText(/\bPIECE\b(?!-)/)
+  await expect(page.locator('body')).not.toContainText(/\bROLL\b(?!-)/)
+  await expect(page.locator('body')).not.toContainText(/\bLAYER\b(?!-)/)
 
   await page.locator('[data-pda-cut-spreading-field="selectedTargetKey"]').selectOption({ index: 1 })
   await page.locator('[data-pda-cut-spreading-field="planUnitId"]').selectOption('')
@@ -521,6 +561,8 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
   await page.locator('[data-pda-cut-spreading-field="planUnitId"]').selectOption(planUnitId)
   await expect(page.getByText(/米 = 36\.00 米 - 0\.30 米 - 0\.20 米/)).toBeVisible()
   await expect(page.getByText(/件 = 8 层 × \d+ 件/)).toBeVisible()
+  await expect(page.locator('body')).toContainText('交接结果')
+  await expect(page.locator('body')).not.toContainText('换班：')
   await expectVisibleInViewport(page, page.getByRole('button', { name: '保存铺布记录' }))
   await page.getByRole('button', { name: '保存铺布记录' }).click()
   await expect(page.getByText('铺布记录已保存，已清空本次录入值。')).toBeVisible()
@@ -539,7 +581,9 @@ test('release acceptance：PDA 从任务到执行单元到铺布录入，写回�
   await page.getByRole('button', { name: '卷记录' }).click()
   await expect(page.getByText('移动录入')).toBeVisible()
   await page.getByRole('button', { name: '换班与人员' }).click()
-  await expect(page.getByText('ID-F004_prod').first()).toBeVisible()
+  const operatorsFold = page.getByTestId('cutting-spreading-detail-operators-fold')
+  await operatorsFold.locator('summary').click()
+  await expect(operatorsFold).toContainText('ID-F004_prod')
 
   await expectNoPageErrors(errors)
 })
@@ -594,7 +638,13 @@ test('release acceptance：360x800 下执行页首屏不显示拆分组，且 ta
   expect(cardText).toContain('生产单号')
   expect(cardText).toContain('原始任务')
   expect(cardText).toContain('当前工序')
-  expect(cardText).toContain('数量')
+  expect(
+    cardText.includes('本单成衣件数（件）')
+      || cardText.includes('本单裁片片数（片）')
+      || cardText.includes('本单布卷数（卷）')
+      || cardText.includes('本单铺布层数（层）'),
+  ).toBeTruthy()
+  expect(cardText).toMatch(/本单(成衣件数|裁片片数|布卷数|铺布层数)：\s*\d+\s*(件|片|卷|层)/)
   expect(cardText).not.toContain('拆分组')
   await expect(page.getByTestId('pda-exec-page')).not.toContainText('拆分组')
 
@@ -606,10 +656,9 @@ test('release acceptance：补料 / 菲票 / 装袋 / 入仓 / PDA 写回数据�
   expect(releaseTraceabilityTokens).toContain('先装袋后入仓')
   expect(releaseTraceabilityTokens).toContain('sourceWritebackId')
 
-  expect(prototypeSpreadingRows.length).toBeGreaterThanOrEqual(18)
-  const statusCount = prototypeSpreadingRows.reduce<Record<string, number>>((accumulator, row) => {
-    const stageKey = resolveSupervisorStageKey(row)
-    accumulator[stageKey] = (accumulator[stageKey] || 0) + 1
+  expect(prototypeFlowMatrix.length).toBeGreaterThanOrEqual(18)
+  const statusCount = prototypeFlowMatrix.reduce<Record<string, number>>((accumulator, row) => {
+    accumulator[row.stageKey] = (accumulator[row.stageKey] || 0) + 1
     return accumulator
   }, {})
   expect(statusCount.WAITING_REPLENISHMENT || 0).toBeGreaterThanOrEqual(2)
@@ -618,39 +667,82 @@ test('release acceptance：补料 / 菲票 / 装袋 / 入仓 / PDA 写回数据�
   expect(statusCount.WAITING_WAREHOUSE || 0).toBeGreaterThanOrEqual(2)
   expect(statusCount.DONE || 0).toBeGreaterThanOrEqual(3)
 
-  const modeCount = prototypeSpreadingData.store.sessions.reduce<Record<string, number>>((accumulator, session) => {
-    accumulator[session.spreadingMode] = (accumulator[session.spreadingMode] || 0) + 1
+  const modeCount = prototypeFlowMatrix.reduce<Record<string, number>>((accumulator, row) => {
+    accumulator[row.spreadingMode] = (accumulator[row.spreadingMode] || 0) + 1
     return accumulator
   }, {})
   expect(modeCount.normal || 0).toBeGreaterThanOrEqual(2)
   expect(modeCount.high_low || 0).toBeGreaterThanOrEqual(2)
   expect(modeCount.fold_normal || 0).toBeGreaterThanOrEqual(2)
   expect(modeCount.fold_high_low || 0).toBeGreaterThanOrEqual(2)
-  expect(prototypeSpreadingRows.filter((row) => row.contextType === 'merge-batch').length).toBeGreaterThanOrEqual(3)
-  expect(prototypeSpreadingRows.filter((row) => row.session.sourceWritebackId).length).toBeGreaterThanOrEqual(3)
+  expect(prototypeFlowMatrix.filter((row) => row.contextType === 'merge-batch').length).toBeGreaterThanOrEqual(3)
+  expect(prototypeFlowMatrix.filter((row) => row.sourceWritebackId).length).toBeGreaterThanOrEqual(3)
+  expect(
+    prototypeFlowMatrix.filter((row) => row.stageKey === 'WAITING_REPLENISHMENT' && row.replenishmentRequestId).length,
+  ).toBeGreaterThanOrEqual(2)
+  expect(
+    prototypeFlowMatrix.filter((row) => row.stageKey === 'WAITING_FEI_TICKET' && row.availableFeiTicketIds.length > 0).length,
+  ).toBeGreaterThanOrEqual(2)
+  expect(
+    prototypeFlowMatrix.filter((row) => row.stageKey === 'WAITING_BAGGING' && row.feiTicketId).length,
+  ).toBeGreaterThanOrEqual(2)
+  expect(
+    prototypeFlowMatrix.filter((row) => row.stageKey === 'WAITING_WAREHOUSE' && row.bagId && row.transferBatchId).length,
+  ).toBeGreaterThanOrEqual(2)
+  expect(
+    prototypeFlowMatrix.filter((row) => row.stageKey === 'DONE' && row.warehouseRecordId).length,
+  ).toBeGreaterThanOrEqual(3)
 
   const feiProjection = buildFeiTicketPrintProjection()
   const printableUnit = feiProjection.printableViewModel.units.find((item) => item.sourceSpreadingSessionIds.length > 0)
   expect(printableUnit).toBeTruthy()
   expect(printableUnit!.sourceSpreadingSessionIds[0]).not.toBe('')
-  const feiTraceRows = buildGeneratedFeiTicketTraceMatrix()
+  const feiTraceRows = buildSpreadingDrivenFeiTicketTraceMatrix()
   expect(feiTraceRows.filter((item) => item.sourceSpreadingSessionId).length).toBeGreaterThan(0)
   expect(new Set(feiTraceRows.filter((item) => item.sourceWritebackId).map((item) => item.sourceSpreadingSessionId)).size).toBeGreaterThanOrEqual(3)
+  expect(
+    feiTraceRows.every((item) =>
+      prototypeFlowMatrix.some(
+        (row) =>
+          row.spreadingSessionId === item.sourceSpreadingSessionId
+          && row.availableFeiTicketIds.includes(item.feiTicketId),
+      ),
+    ),
+  ).toBeTruthy()
 
   const replenishmentProjection = buildReplenishmentProjection()
+  const replenishmentTraceRows = buildReplenishmentFlowTraceMatrix()
   const pdaRows = replenishmentProjection.viewModel.rows.filter((row) => row.pdaFeedbacks.length > 0)
   expect(replenishmentProjection.viewModel.rows.length).toBeGreaterThan(0)
   expect(pdaRows.length).toBeGreaterThanOrEqual(2)
-
-  const tracedSuggestion = replenishmentProjection.viewModel.rows.find(
-    (row) =>
-      row.pdaFeedbacks.length > 0 &&
-      Boolean(row.lines[0]?.originalCutOrderId) &&
-      Boolean(row.navigationPayload.markerSpreading.originalCutOrderId),
-  )
-  expect(tracedSuggestion).toBeTruthy()
-  expect(tracedSuggestion!.lines[0].materialSku).not.toBe('')
-  expect(tracedSuggestion!.lines[0].color).not.toBe('')
+  const tracedReplenishmentTrace =
+    replenishmentTraceRows.find(
+      (row) =>
+        Boolean(row.sourceWritebackId) &&
+        Boolean(row.sourceSpreadingSessionId) &&
+        Boolean(row.replenishmentRequestId) &&
+        prototypeFlowMatrix.some(
+          (flowRow) =>
+            flowRow.spreadingSessionId === row.sourceSpreadingSessionId &&
+            Boolean(flowRow.replenishmentRequestId),
+        ),
+    )
+    || replenishmentTraceRows.find(
+      (row) =>
+        Boolean(row.pendingPrepFollowupId) &&
+        Boolean(row.sourceSpreadingSessionId) &&
+        Boolean(row.replenishmentRequestId),
+    )
+  expect(tracedReplenishmentTrace).toBeTruthy()
+  expect(tracedReplenishmentTrace!.materialSku).not.toBe('')
+  expect(tracedReplenishmentTrace!.originalCutOrderNo).not.toBe('')
+  expect(
+    prototypeFlowMatrix.some(
+      (row) =>
+        row.spreadingSessionId === tracedReplenishmentTrace!.sourceSpreadingSessionId
+        && Boolean(row.replenishmentRequestId),
+    ),
+  ).toBeTruthy()
 
   const traceabilityContext = buildCuttingTraceabilityProjectionContext()
   const warehouseProjection = buildCutPieceWarehouseProjection({ snapshot: traceabilityContext.snapshot })
@@ -680,6 +772,14 @@ test('release acceptance：补料 / 菲票 / 装袋 / 入仓 / PDA 写回数据�
       warehouseProjection.viewModel.items.filter((item) => item.sourceWritebackId).map((item) => item.spreadingSessionId),
     ).size,
   ).toBeGreaterThanOrEqual(3)
+  expect(
+    prototypeFlowMatrix.some(
+      (row) =>
+        row.spreadingSessionId === warehouseItem!.spreadingSessionId
+        && (row.bagId !== '' || row.availableBagIds.length > 0)
+        && (row.warehouseRecordId !== '' || row.availableWarehouseRecordIds.length > 0),
+    ),
+  ).toBeTruthy()
 })
 
 test('release acceptance：补料审批通过后，仓库配料领料可见补料待配料', async ({ page }) => {
@@ -704,7 +804,7 @@ test('release acceptance：补料审批通过后，仓库配料领料可见补�
   await expect(page.getByText(targetSuggestion!.lines[0].materialSku).first()).toBeVisible()
   await expect(page.locator('body')).toContainText('补料待配料')
   await expect(page.locator('body')).toContainText('来源铺布：')
-  await expect(page.locator('body')).toContainText('来源补料：')
+  await expect(page.locator('body')).toContainText('来源补料单：')
   await expectNoLegacyCuttingCopy(page)
 
   await expectNoPageErrors(errors)

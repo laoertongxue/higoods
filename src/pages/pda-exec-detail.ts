@@ -79,10 +79,49 @@ function getRootTaskDisplayNo(task: ProcessTask): string {
 
 function getQtyUnitLabel(unit: string | undefined): string {
   if (!unit) return '件'
-  if (unit === 'PIECE') return '件'
-  if (unit === 'ROLL') return '卷'
-  if (unit === 'LAYER') return '层'
+  if (unit === 'PIECE' || unit === '件') return '件'
+  if (unit === '片') return '片'
+  if (unit === 'ROLL' || unit === '卷') return '卷'
+  if (unit === 'LAYER' || unit === '层') return '层'
   return unit
+}
+
+function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): { label: string; valueText: string } {
+  const unitLabel = getQtyUnitLabel(task.qtyUnit)
+  if (unitLabel === '卷') {
+    return {
+      label: '本单布卷数（卷）',
+      valueText: `本单布卷数：${task.qty} 卷`,
+    }
+  }
+  if (unitLabel === '层') {
+    return {
+      label: '本单铺布层数（层）',
+      valueText: `本单铺布层数：${task.qty} 层`,
+    }
+  }
+
+  const shouldUsePieceSemantics =
+    unitLabel === '片'
+    || (unitLabel === '件' && (isCuttingSpecialTask(task) || /裁片|入仓|交接/.test(displayProcessName)))
+
+  if (shouldUsePieceSemantics) {
+    return {
+      label: '本单裁片片数（片）',
+      valueText: `本单裁片片数：${task.qty} 片`,
+    }
+  }
+
+  return {
+    label: '本单成衣件数（件）',
+    valueText: `本单成衣件数：${task.qty} 件`,
+  }
+}
+
+function getReportedQtyLabel(unitLabel: string | undefined): string {
+  if (unitLabel === '卷') return '上报布卷数（卷）'
+  if (unitLabel === '层') return '上报铺布层数（层）'
+  return '上报成衣件数（件）'
 }
 
 const MOCK_START_PROOF: Record<string, StartProofFile[]> = {
@@ -528,6 +567,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const pauseReasonLabel = (task as ProcessTask & { pauseReasonLabel?: string | null }).pauseReasonLabel || ''
   const pauseReportedAt = (task as ProcessTask & { pauseReportedAt?: string | null }).pauseReportedAt || ''
   const displayProcessName = getTaskProcessDisplayName(task)
+  const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
 
   const pricing = getTaskPricing(task)
 
@@ -557,10 +597,8 @@ export function renderPdaExecDetailPage(taskId: string): string {
             <span class="text-xs font-medium">${escapeHtml(getRootTaskDisplayNo(task))}</span>
             <span class="text-xs text-muted-foreground">当前工序</span>
             <span class="text-xs font-medium">${escapeHtml(displayProcessName)}</span>
-            <span class="text-xs text-muted-foreground">工序代码</span>
-            <span class="font-mono text-xs">${escapeHtml(task.processBusinessCode || task.processCode)}</span>
-            <span class="text-xs text-muted-foreground">数量</span>
-            <span class="text-xs font-medium">${task.qty} ${escapeHtml(getQtyUnitLabel(task.qtyUnit))}</span>
+            <span class="text-xs text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</span>
+            <span class="text-xs font-medium">${escapeHtml(qtyDisplayMeta.valueText)}</span>
             ${
               assignedFactory
                 ? `
@@ -569,8 +607,8 @@ export function renderPdaExecDetailPage(taskId: string): string {
                   `
                 : ''
             }
-            <span class="text-xs text-muted-foreground">任务来源</span>
-            <span class="text-xs">${task.assignmentMode === 'DIRECT' ? '直接派单' : '已中标'}</span>
+            <span class="text-xs text-muted-foreground">派发方式</span>
+            <span class="text-xs">${task.assignmentMode === 'DIRECT' ? '直接派发' : '分配接收'}</span>
             ${
               (task as ProcessTask & { taskDeadline?: string }).taskDeadline
                 ? `
@@ -616,7 +654,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                     <span class="text-xs font-medium">${escapeHtml(milestone.ruleLabel)}</span>
                     <span class="text-xs text-muted-foreground">当前状态</span>
                     <span class="text-xs font-medium ${milestone.status === 'REPORTED' ? 'text-green-700' : 'text-amber-700'}">${milestone.status === 'REPORTED' ? '已上报' : '待上报'}</span>
-                    <span class="text-xs text-muted-foreground">上报数量</span>
+                    <span class="text-xs text-muted-foreground">${escapeHtml(getReportedQtyLabel(milestone.targetUnitLabel))}</span>
                     <span class="text-xs">${escapeHtml(String(milestone.status === 'REPORTED' ? (milestone.reportedQty ?? milestone.targetQty) : milestone.targetQty))} ${escapeHtml(milestone.targetUnitLabel)}</span>
                     <span class="text-xs text-muted-foreground">上报时间</span>
                     <span class="text-xs">${escapeHtml(milestone.reportedAt || toStoreDateTime(detailState.milestoneTime) || '—')}</span>

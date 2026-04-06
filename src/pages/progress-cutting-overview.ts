@@ -484,8 +484,7 @@ function renderSummaryDrawer(): string {
               <p class="text-xs text-muted-foreground">平台关注</p>
               <div class="mt-1 flex flex-wrap gap-2">
                 ${row.hasPendingReplenishment ? renderBadge('待补料处理', 'bg-rose-50 text-rose-700') : renderBadge('当前无补料阻断', 'bg-emerald-50 text-emerald-700')}
-                ${row.record.replenishmentSummary.mayAffectPrintingCount > 0 ? renderBadge('影响印花', 'bg-fuchsia-50 text-fuchsia-700') : ''}
-                ${row.record.replenishmentSummary.mayAffectDyeingCount > 0 ? renderBadge('影响染色', 'bg-sky-50 text-sky-700') : ''}
+                ${row.record.replenishmentSummary.pendingPrepCount > 0 ? renderBadge('待仓库配料领料', 'bg-amber-50 text-amber-700') : ''}
               </div>
             </div>
           </div>

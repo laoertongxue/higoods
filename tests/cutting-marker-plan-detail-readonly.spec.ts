@@ -44,6 +44,20 @@ test('唛架详情页使用只读信息块，不再展示 disabled input 大表�
   await expect(detailPage.locator('textarea')).toHaveCount(0)
   await expect(detailPage.locator('select')).toHaveCount(0)
   await expect(detailPage.getByText('部位明细表')).toBeVisible()
+  await expect(detailPage.getByTestId('marker-plan-piece-detail-fold')).not.toHaveAttribute('open', '')
+  await expect(detailPage.getByTestId('marker-plan-piece-detail-fold')).toHaveAttribute('data-default-open', 'collapsed')
+  const issueFold = detailPage.getByTestId('marker-plan-issue-detail-fold')
+  if (await issueFold.count()) {
+    await expect(issueFold.first()).not.toHaveAttribute('open', '')
+    await expect(issueFold.first()).toHaveAttribute('data-default-open', 'collapsed')
+  }
+
+  await detailPage.locator('[data-marker-plan-tab-trigger="layout"]').evaluate((node: HTMLElement) => node.click())
+  const highLowFold = detailPage.getByTestId('marker-plan-high-low-matrix-fold')
+  if (await highLowFold.count()) {
+    await expect(highLowFold.first()).not.toHaveAttribute('open', '')
+    await expect(highLowFold.first()).toHaveAttribute('data-default-open', 'collapsed')
+  }
 
   await detailPage.getByRole('button', { name: '返回列表' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/marker-list/)

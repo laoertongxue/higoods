@@ -46,7 +46,7 @@ export function buildCraftClaimDisputeSummary(record: ClaimDisputeRecord): strin
 }
 
 export function buildPlatformClaimDisputeSummary(record: ClaimDisputeRecord): string {
-  return `裁片领料数量异议｜${record.originalCutOrderNo}｜${record.materialSku}｜差异 ${formatClaimQty(record.discrepancyQty)}`
+  return `裁片领料长度异议｜${record.originalCutOrderNo}｜${record.materialSku}｜差异 ${formatClaimQty(record.discrepancyQty)}`
 }
 
 export function buildClaimDisputeWritebackSummary(record: ClaimDisputeRecord): string {
@@ -83,12 +83,12 @@ export function validateClaimDisputeInput(input: ClaimDisputeCreateInput): strin
   if (!input.sourceTaskId.trim()) issues.push('缺少来源任务')
   if (!input.originalCutOrderNo.trim()) issues.push('缺少原始裁片单号')
   if (!input.productionOrderNo.trim()) issues.push('缺少生产单号')
-  if (!Number.isFinite(input.actualClaimQty)) issues.push('请填写实际领取数量')
+  if (!Number.isFinite(input.actualClaimQty)) issues.push('请填写实际领取长度')
   const defaultQty = input.defaultClaimQty ?? input.configuredQty
-  if (!Number.isFinite(defaultQty)) issues.push('缺少默认应领数量')
+  if (!Number.isFinite(defaultQty)) issues.push('缺少默认应领长度')
   if (!input.disputeReason.trim()) issues.push('请填写异议原因')
   if (!hasRequiredClaimDisputeEvidence(input.imageFiles, input.videoFiles)) issues.push('请至少上传一张图片或一个视频')
-  if (!canInitiateClaimDispute(input.actualClaimQty, defaultQty)) issues.push('实际领取数量与默认应领数量一致，无需发起异议')
+  if (!canInitiateClaimDispute(input.actualClaimQty, defaultQty)) issues.push('实际领取长度与默认应领长度一致，无需发起异议')
   return issues
 }
 
@@ -181,4 +181,3 @@ function sanitizeId(value: string): string {
     .replace(/\\s+/g, '-')
     .replace(/[^a-zA-Z0-9-_./]/g, '-')
 }
-

@@ -28,7 +28,7 @@ function main(): void {
   const pdaWritebackSpec = 'tests/cutting-pda-spreading-writeback.spec.ts'
 
   ;[
-    'prototypeSpreadingRows.length).toBeGreaterThanOrEqual(18)',
+    'prototypeFlowMatrix.length).toBeGreaterThanOrEqual(18)',
     'WAITING_REPLENISHMENT || 0).toBeGreaterThanOrEqual(2)',
     'WAITING_FEI_TICKET || 0).toBeGreaterThanOrEqual(2)',
     'WAITING_BAGGING || 0).toBeGreaterThanOrEqual(2)',
@@ -51,7 +51,7 @@ function main(): void {
     'WAITING_FEI_TICKET',
     'WAITING_WAREHOUSE',
     'sourceWritebackId',
-    'buildGeneratedFeiTicketTraceMatrix',
+    'buildSpreadingDrivenFeiTicketTraceMatrix',
   ].forEach((token) => {
     assertIncludes(spreadingCrossModule, token, `缺少跨模块矩阵断言：${token}`)
   })

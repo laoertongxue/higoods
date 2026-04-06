@@ -180,6 +180,8 @@ function main(): void {
     'buildFcsCuttingRuntimeSources',
     'buildFcsCuttingRuntimeSummaryResult',
     'buildFcsCuttingRuntimeDetailData',
+    'mayAffectPrintingCount',
+    'mayAffectDyeingCount',
   ].forEach(assertNoStringInSrc)
 
   ;[
@@ -199,6 +201,8 @@ function main(): void {
     '净色面料',
     '可能影响印花',
     '可能影响染色',
+    '裁剪批次摘要',
+    '来源裁剪批次',
     'allocationStatus ≠ balanced',
     'layoutStatus ≠ done',
     'readyForSpreading = true',

@@ -129,6 +129,9 @@ export interface PdaCuttingSpreadingRecord {
   executionOrderId: string
   id: string
   spreadingSessionId: string
+  planUnitId: string
+  rollRecordId: string
+  operatorRecordId: string
   markerId: string
   markerNo: string
   fabricRollNo: string
@@ -145,6 +148,7 @@ export interface PdaCuttingSpreadingRecord {
   sourceWritebackId: string
   sourceRollWritebackItemId: string
   handoverFlag: boolean
+  handoverResultLabel: string
   note: string
 }
 
@@ -324,6 +328,10 @@ export interface PdaCuttingRouteOptions {
   mergeBatchNo?: string
   materialSku?: string
   returnTo?: string
+}
+
+export function listWorkerVisiblePdaSpreadingTargets(detail: PdaCuttingTaskDetailData): PdaCuttingSpreadingTarget[] {
+  return detail.spreadingTargets.filter((target) => target.targetType === 'session' || target.targetType === 'marker')
 }
 
 function unique<T>(values: T[]): T[] {
@@ -1177,10 +1185,28 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
   const actualRecords = listRollsForExecution(snapshot, execution).map(({ session, roll }) => {
     const linkedOperators = session.operators.filter((operator) => operator.rollRecordId === roll.rollRecordId)
     const latestOperator = [...linkedOperators].sort((left, right) => right.endAt.localeCompare(left.endAt, 'zh-CN'))[0] || linkedOperators[0] || null
+    const latestHandoverOperator =
+      [...linkedOperators]
+        .sort((left, right) => right.endAt.localeCompare(left.endAt, 'zh-CN'))
+        .find((operator) =>
+          operator.actionType === '中途交接'
+          || operator.actionType === '接手继续'
+          || operator.handoverFlag,
+        )
+      || null
+    const handoverResultLabel =
+      latestHandoverOperator?.actionType === '接手继续'
+        ? `接手自：${latestHandoverOperator.previousOperatorName || '上一位铺布员'}`
+        : latestHandoverOperator?.actionType === '中途交接'
+          ? `交接给：${latestHandoverOperator.nextOperatorName || '下一位铺布员'}`
+          : '无换班'
     return {
       executionOrderId: execution.executionOrderId,
       id: roll.rollRecordId,
       spreadingSessionId: session.spreadingSessionId,
+      planUnitId: roll.planUnitId || '',
+      rollRecordId: roll.rollRecordId,
+      operatorRecordId: latestOperator?.operatorRecordId || '',
       markerId: session.markerId || '',
       markerNo: session.markerNo || '',
       fabricRollNo: roll.rollNo,
@@ -1196,7 +1222,8 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
       sourceType: roll.sourceChannel === 'PDA_WRITEBACK' ? 'PDA' : 'PCS',
       sourceWritebackId: roll.sourceWritebackId || '',
       sourceRollWritebackItemId: roll.rollRecordId,
-      handoverFlag: linkedOperators.some((operator) => operator.handoverFlag) || linkedOperators.length > 1,
+      handoverFlag: latestHandoverOperator !== null,
+      handoverResultLabel,
       note: roll.note,
     }
   })
@@ -1210,6 +1237,9 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
       executionOrderId: execution.executionOrderId,
       id: preset.recordId,
       spreadingSessionId: '',
+      planUnitId: '',
+      rollRecordId: '',
+      operatorRecordId: '',
       markerId: '',
       markerNo: '',
       fabricRollNo: preset.fabricRollNo,
@@ -1226,9 +1256,59 @@ function buildSpreadingRecords(snapshot: CuttingDomainSnapshot, execution: PdaCu
       sourceWritebackId: '',
       sourceRollWritebackItemId: '',
       handoverFlag: false,
+      handoverResultLabel: '无换班',
       note: preset.note,
     },
   ]
+}
+
+export interface PdaCuttingSpreadingTraceMatrixRow {
+  taskId: string
+  executionOrderId: string
+  executionOrderNo: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
+  mergeBatchId: string
+  mergeBatchNo: string
+  spreadingSessionId: string
+  markerId: string
+  markerNo: string
+  sourceWritebackId: string
+  planUnitId: string
+  rollRecordId: string
+  operatorRecordId: string
+}
+
+export function buildPdaCuttingSpreadingTraceMatrix(
+  snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
+): PdaCuttingSpreadingTraceMatrixRow[] {
+  return listPdaCuttingExecutionSourceRecords()
+    .flatMap((execution) =>
+      buildSpreadingRecords(snapshot, execution)
+        .filter((record) => Boolean(record.spreadingSessionId))
+        .map((record) => ({
+          taskId: execution.taskId,
+          executionOrderId: execution.executionOrderId,
+          executionOrderNo: execution.executionOrderNo,
+          originalCutOrderId: execution.originalCutOrderId,
+          originalCutOrderNo: execution.originalCutOrderNo,
+          mergeBatchId: execution.mergeBatchId,
+          mergeBatchNo: execution.mergeBatchNo,
+          spreadingSessionId: record.spreadingSessionId,
+          markerId: record.markerId,
+          markerNo: record.markerNo,
+          sourceWritebackId: record.sourceWritebackId || '',
+          planUnitId: record.planUnitId || '',
+          rollRecordId: record.rollRecordId || '',
+          operatorRecordId: record.operatorRecordId || '',
+        })),
+    )
+    .sort(
+      (left, right) =>
+        left.executionOrderNo.localeCompare(right.executionOrderNo, 'zh-CN')
+        || left.spreadingSessionId.localeCompare(right.spreadingSessionId, 'zh-CN')
+        || left.rollRecordId.localeCompare(right.rollRecordId, 'zh-CN'),
+    )
 }
 
 function buildInboundRecords(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord): PdaCuttingInboundRecord[] {
@@ -1677,7 +1757,7 @@ export function getPdaCuttingTaskDetail(taskId: string, executionKey?: string): 
   return getPdaCuttingTaskSnapshot(taskId, executionKey)
 }
 
-export function listWorkerVisiblePdaSpreadingTargets(
+export function listWorkerVisiblePdaSpreadingTargetsByTask(
   taskId: string,
   executionKey?: string,
 ): PdaCuttingSpreadingTarget[] {

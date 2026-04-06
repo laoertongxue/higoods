@@ -729,7 +729,7 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
                       item.sourceType === 'REPLENISHMENT_PENDING_PREP'
                         ? `
                             <p class="mt-1 text-xs text-muted-foreground">缺口成衣件数 ${escapeHtml(String(item.replenishmentPendingPrepQty || 0))} 件</p>
-                            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`来源铺布：${item.sourceSpreadingSessionId || '待补'} / 来源补料：${item.sourceReplenishmentRequestId || '待补'}`)}</p>
+                            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`来源铺布：${item.sourceSpreadingSessionId || '待补'} / 来源补料单：${item.sourceReplenishmentRequestId || '待补'}`)}</p>
                           `
                         : ''
                     }
@@ -785,7 +785,7 @@ function renderReplenishmentPendingPrepSection(row: MaterialPrepRow): string {
                     <td class="px-3 py-2 align-top">
                       ${renderBadge('补料待配料', 'bg-amber-100 text-amber-700')}
                       <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.note || '来源补料审批通过')}</p>
-                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`来源铺布：${item.sourceSpreadingSessionId || '待补'} / 来源补料：${item.sourceReplenishmentRequestId || '待补'}`)}</p>
+                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`来源铺布：${item.sourceSpreadingSessionId || '待补'} / 来源补料单：${item.sourceReplenishmentRequestId || '待补'}`)}</p>
                     </td>
                     <td class="px-3 py-2 align-top">${renderBadge('待配料', 'bg-orange-100 text-orange-700')}</td>
                   </tr>
@@ -933,13 +933,13 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         '关联入口区',
         `
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-original-orders" data-record-id="${escapeHtml(row.id)}">去原始裁片单</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-original-orders" data-record-id="${escapeHtml(row.id)}">去来源原始裁片单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去来源唛架</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去来源铺布</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary" data-record-id="${escapeHtml(row.id)}">去裁剪总表</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}">
-              查看合并裁剪批次
+              去来源合并裁剪批次
             </button>
           </div>
         `,

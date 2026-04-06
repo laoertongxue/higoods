@@ -47,6 +47,46 @@ function assertFileMissing(rel: string): void {
   assert(!fs.existsSync(abs(rel)), `${rel} 仍未退场`)
 }
 
+function assertPlaywrightDependencyResolvable(): void {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "import('@playwright/test').then(()=>console.log('ok')).catch((error)=>{console.error(error instanceof Error ? error.message : String(error));process.exit(1)})",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    },
+  )
+
+  if (result.status !== 0) {
+    throw new Error(`@playwright/test 无法解析\n${result.stdout || ''}${result.stderr || ''}`.trim())
+  }
+}
+
+function assertAcceptanceSpecCollectable(): void {
+  const result = spawnSync('npx', ['playwright', 'test', '--list', 'tests/cutting-release-acceptance.spec.ts'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  })
+
+  if (result.status !== 0) {
+    throw new Error(`cutting-release-acceptance.spec.ts 无法被 Playwright 收集\n${result.stdout || ''}${result.stderr || ''}`.trim())
+  }
+
+  const output = `${result.stdout || ''}${result.stderr || ''}`
+  ;[
+    'release acceptance：supervisor IA、铺布列表状态与菜单闭环可见',
+    'release acceptance：铺布只能 marker-first 创建，异常补录必须填写原因',
+    'release acceptance：PDA 从任务到执行单元到铺布录入，写回后 supervisor 可见',
+    'release acceptance：补料审批通过后，仓库配料领料可见补料待配料',
+  ].forEach((token) => {
+    assert(output.includes(token), `cutting-release-acceptance.spec.ts 缺少关键场景：${token}`)
+  })
+}
+
 function assertNoStringInSrc(value: string): void {
   for (const file of listTsFiles('src')) {
     const source = fs.readFileSync(file, 'utf8')
@@ -150,12 +190,14 @@ function assertFormalAnchorsUnified(): void {
   assert(pdaSource.includes('面料主料'), 'PDA source 缺少中文化面料主料文案')
 
   const pdaSpreading = read('src/pages/pda-cutting-spreading.ts')
-  assert(pdaSpreading.includes('allowManualEntry'), 'PDA 铺布页缺少 manual-entry 权限隔离')
-  assert(pdaSpreading.includes("target.targetType === 'manual-entry'"), 'PDA 铺布页缺少 manual-entry 隐藏逻辑')
+  assert(pdaSpreading.includes('canUseManualSpreadingEntry'), 'PDA 铺布页缺少 manual-entry 权限隔离')
+  assert(pdaSpreading.includes('listWorkerVisiblePdaSpreadingTargets(detail)'), 'PDA 铺布页缺少普通工人目标收口逻辑')
+  assert(pdaSpreading.includes("target.targetType === 'manual-entry'"), 'PDA 铺布页缺少 manual-entry supervisor 可见逻辑')
   assert(pdaSpreading.includes('FOLD_NORMAL'), 'PDA 铺布页缺少 FOLD_NORMAL 模式文案')
   assert(pdaSpreading.includes('FOLD_HIGH_LOW'), 'PDA 铺布页缺少 FOLD_HIGH_LOW 模式文案')
 
   const routes = read('src/router/routes.ts')
+  const releaseAcceptanceCheck = read('scripts/check-cutting-release-acceptance.ts')
   assert(
     routes.includes('renderPdaCuttingExecutionUnitPage') &&
       routes.includes('pattern: /^\\/fcs\\/pda\\/cutting\\/unit\\/([^/]+)\\/([^/]+)$/'),
@@ -168,7 +210,7 @@ function assertFormalAnchorsUnified(): void {
   assert(releaseAcceptance.includes('补料管理'), 'tests/cutting-release-acceptance.spec.ts 缺少补料闭环 acceptance')
   assert(releaseAcceptance.includes('补料待配料'), 'tests/cutting-release-acceptance.spec.ts 缺少补料回仓库待配料 acceptance')
   assert(releaseAcceptance.includes('来源铺布：'), 'tests/cutting-release-acceptance.spec.ts 缺少来源铺布链路断言')
-  assert(releaseAcceptance.includes('来源补料：'), 'tests/cutting-release-acceptance.spec.ts 缺少来源补料链路断言')
+  assert(releaseAcceptance.includes('来源补料单：'), 'tests/cutting-release-acceptance.spec.ts 缺少来源补料链路断言')
   assert(releaseAcceptance.includes('铺布完成结果'), 'tests/cutting-release-acceptance.spec.ts 缺少菲票主真相源断言')
   assert(releaseAcceptance.includes('实际成衣件数'), 'tests/cutting-release-acceptance.spec.ts 缺少菲票成衣件数断言')
   assert(releaseAcceptance.includes('先装袋后入仓'), 'tests/cutting-release-acceptance.spec.ts 缺少先装袋后入仓链路断言')
@@ -179,10 +221,40 @@ function assertFormalAnchorsUnified(): void {
     releaseAcceptance.includes("expectVisibleInViewport(page, page.getByRole('button', { name: '保存铺布记录' }))"),
     'tests/cutting-release-acceptance.spec.ts 缺少 PDA 铺布页保存按钮首屏断言',
   )
+  assert(releaseAcceptance.includes("not.toContainText('manual-entry')"), 'tests/cutting-release-acceptance.spec.ts 缺少 manual-entry 隐藏断言')
+  assert(releaseAcceptance.includes("not.toContainText('context-only')"), 'tests/cutting-release-acceptance.spec.ts 缺少 context-only 隐藏断言')
+  assert(releaseAcceptance.includes('补料待配料'), 'tests/cutting-release-acceptance.spec.ts 缺少补料待配料断言')
+  assert(releaseAcceptance.includes('去仓库配料领料'), 'tests/cutting-release-acceptance.spec.ts 缺少补料回仓库动作断言')
+  assert(releaseAcceptance.includes('参考理论值'), 'tests/cutting-release-acceptance.spec.ts 缺少菲票 fallback basis 断言')
+
+  assert(releaseAcceptanceCheck.includes('@playwright/test'), 'check-cutting-release-acceptance.ts 未纳入 Playwright 依赖解析检查')
+  assert(releaseAcceptanceCheck.includes('补料待配料'), 'check-cutting-release-acceptance.ts 未纳入补料待配料规则')
+  assert(releaseAcceptanceCheck.includes('铺布完成结果'), 'check-cutting-release-acceptance.ts 未纳入菲票主真相源规则')
+  assert(releaseAcceptanceCheck.includes('manual-entry'), 'check-cutting-release-acceptance.ts 未纳入 manual-entry 收口规则')
+  assert(releaseAcceptanceCheck.includes('context-only'), 'check-cutting-release-acceptance.ts 未纳入 context-only 收口规则')
+  assert(!releaseAcceptanceCheck.includes('裁片执行闭环'), 'check-cutting-release-acceptance.ts 不应再检查旧菜单名')
+  assert(!releaseAcceptanceCheck.includes('订单数量折算'), 'check-cutting-release-acceptance.ts 不应再检查旧菲票 basis 文案')
+  assert(!releaseAcceptanceCheck.includes('唛架总件数'), 'check-cutting-release-acceptance.ts 不应再检查旧菲票主 basis 文案')
 
   const replenishmentStorage = read('src/data/fcs/cutting/storage/replenishment-storage.ts')
   assert(replenishmentStorage.includes('sourceSpreadingSessionId'), 'replenishment-storage.ts 缺少 sourceSpreadingSessionId')
   assert(replenishmentStorage.includes('sourceReplenishmentRequestId'), 'replenishment-storage.ts 缺少 sourceReplenishmentRequestId')
+  assert(replenishmentStorage.includes('PENDING_PREP'), 'replenishment-storage.ts 缺少补料待配料状态')
+
+  const cuttingSummary = read('src/data/fcs/cutting/cutting-summary.ts')
+  assert(cuttingSummary.includes('pendingPrepCount'), 'cutting-summary.ts 缺少 pendingPrepCount 统一补料计数')
+  assert(!cuttingSummary.includes('mayAffectPrintingCount'), 'cutting-summary.ts 不应再统计 mayAffectPrintingCount')
+  assert(!cuttingSummary.includes('mayAffectDyeingCount'), 'cutting-summary.ts 不应再统计 mayAffectDyeingCount')
+
+  const platformOverview = read('src/domain/cutting-platform/overview.adapter.ts')
+  assert(platformOverview.includes('pendingPrepCount'), 'overview.adapter.ts 缺少 pendingPrepCount 平台摘要')
+  assert(!platformOverview.includes('mayAffectPrintingCount'), 'overview.adapter.ts 不应再统计 mayAffectPrintingCount')
+  assert(!platformOverview.includes('mayAffectDyeingCount'), 'overview.adapter.ts 不应再统计 mayAffectDyeingCount')
+
+  const platformDetail = read('src/domain/cutting-platform/detail.helpers.ts')
+  assert(platformDetail.includes('待仓库配料领料'), 'detail.helpers.ts 缺少待仓库配料领料提示')
+  assert(!platformDetail.includes('影响印花'), 'detail.helpers.ts 不应再显示影响印花')
+  assert(!platformDetail.includes('影响染色'), 'detail.helpers.ts 不应再显示影响染色')
 
   const feiStorage = read('src/data/fcs/cutting/storage/fei-tickets-storage.ts')
   assert(feiStorage.includes('sourceSpreadingSessionId'), 'fei-tickets-storage.ts 缺少 sourceSpreadingSessionId')
@@ -215,6 +287,8 @@ function assertFormalAnchorsUnified(): void {
 function assertUnifiedEntrypoints(): void {
   const packageJson = read('package.json')
   assert(packageJson.includes('"build"'), 'package.json 缺少 build 脚本')
+  assert(packageJson.includes('"@playwright/test"'), 'package.json 缺少 @playwright/test 依赖')
+  assert(packageJson.includes('"test:cutting-release-acceptance:e2e"'), 'package.json 缺少裁片 release acceptance e2e 入口')
 }
 
 function runTypeStripScript(rel: string): void {
@@ -228,6 +302,8 @@ function runTypeStripScript(rel: string): void {
 }
 
 function main(): void {
+  assertPlaywrightDependencyResolvable()
+  assertAcceptanceSpecCollectable()
   assertKeyFormalFiles()
   assertRetiredFiles()
   assertLegacyResidueRetired()
@@ -247,6 +323,8 @@ function main(): void {
   console.log(
     JSON.stringify(
       {
+        Playwright依赖可解析: '通过',
+        acceptance可被Playwright收集: '通过',
         正式链路文件存在: '通过',
         旧文件与旧平行源退场: '通过',
         legacy关键字符串退场: '通过',

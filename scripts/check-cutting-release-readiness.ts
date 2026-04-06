@@ -1,9 +1,23 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 import process from 'node:process'
 
 const repoRoot = process.cwd()
+
+function abs(rel: string): string {
+  return path.join(repoRoot, rel)
+}
+
+function read(rel: string): string {
+  return fs.readFileSync(abs(rel), 'utf8')
+}
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message)
+}
 
 const checks = [
   { label: '入口清理', file: 'scripts/check-cutting-entry-cleanup.ts' },
@@ -23,11 +37,44 @@ const checks = [
   { label: '低分辨率密度', file: 'scripts/check-cutting-low-res-density.ts' },
   { label: '流程矩阵（含补料回仓库待配料）', file: 'scripts/check-cutting-flow-matrix.ts' },
   { label: 'release acceptance', file: 'scripts/check-cutting-release-acceptance.ts' },
-  { label: '最终清理', file: 'scripts/check-cutting-final-cleanup.ts' },
+  { label: '最终清理（含中文文案 / 正式名词）', file: 'scripts/check-cutting-final-cleanup.ts' },
   { label: '来源 provenance', file: 'scripts/check-cutting-source-provenance.ts' },
   { label: 'writeback 完整性', file: 'scripts/check-cutting-writeback-integrity.ts' },
   { label: 'E2E 环境 readiness', file: 'scripts/check-cutting-e2e-readiness.ts' },
 ] as const
+
+function assertReadinessRulesAligned(): void {
+  const acceptanceSpec = read('tests/cutting-release-acceptance.spec.ts')
+  const acceptanceCheck = read('scripts/check-cutting-release-acceptance.ts')
+  const e2eCheck = read('scripts/check-cutting-e2e-readiness.ts')
+
+  ;[
+    '补料待配料',
+    '去仓库配料领料',
+    '铺布完成结果',
+    '实际成衣件数',
+    '合并裁剪批次',
+    'manual-entry',
+    'context-only',
+    'countViewportRows(page, \'marker-plan-list-table\')',
+    'countViewportRows(page, \'cutting-spreading-list-table\')',
+    "expectVisibleInViewport(page, page.getByRole('button', { name: '保存铺布记录' }))",
+  ].forEach((token) => {
+    assert(acceptanceSpec.includes(token), `tests/cutting-release-acceptance.spec.ts 未覆盖当前正式规则：${token}`)
+  })
+
+  ;[
+    '补料待配料',
+    '铺布完成结果',
+    '实际成衣件数',
+    'manual-entry',
+    'context-only',
+    '@playwright/test',
+  ].forEach((token) => {
+    assert(acceptanceCheck.includes(token), `scripts/check-cutting-release-acceptance.ts 未纳入当前正式规则：${token}`)
+    assert(e2eCheck.includes(token), `scripts/check-cutting-e2e-readiness.ts 未纳入当前正式规则：${token}`)
+  })
+}
 
 function runCheck(file: string): { ok: boolean; output: string } {
   const result = spawnSync(
@@ -47,6 +94,8 @@ function runCheck(file: string): { ok: boolean; output: string } {
 
 function main(): void {
   const failures: string[] = []
+
+  assertReadinessRulesAligned()
 
   console.log('裁片 release readiness 检查开始')
   console.log('='.repeat(40))
@@ -74,6 +123,7 @@ function main(): void {
       {
         releaseReadiness: '通过',
         检查脚本数量: checks.length,
+        正式规则与总闸脚本对齐: '通过',
       },
       null,
       2,

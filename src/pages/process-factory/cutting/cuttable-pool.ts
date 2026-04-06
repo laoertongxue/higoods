@@ -126,7 +126,7 @@ function writeStoredMergeBatchLedger(records: MergeBatchRecord[]): void {
   try {
     localStorage.setItem(CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY, serializeMergeBatchStorage(records))
   } catch {
-    setNotice('当前浏览器未能保存裁剪批次，请稍后重试。')
+    setNotice('当前浏览器未能保存合并裁剪批次，请稍后重试。')
   }
 }
 
@@ -231,7 +231,7 @@ function renderActionBar(viewModel = getViewModel()): string {
       <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-production-progress">返回生产单进度</button>
       <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="go-capacity-overview">查看产能日历</button>
       <button class="${selectedCount ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700' : 'rounded-md border px-3 py-2 text-sm hover:bg-muted'}" data-cuttable-pool-action="create-merge-batch">
-        创建裁剪批次${selectedCount ? `（${selectedCount}）` : ''}
+        创建合并裁剪批次${selectedCount ? `（${selectedCount}）` : ''}
       </button>
     </div>
   `
@@ -741,7 +741,7 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
 
         <div class="space-y-2">
           <button class="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cuttable-pool-action="create-merge-batch">
-            创建裁剪批次
+            创建合并裁剪批次
           </button>
           <button class="w-full rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cuttable-pool-action="clear-selection">
             清空选择

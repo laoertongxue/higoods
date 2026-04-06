@@ -66,10 +66,10 @@ function buildExceptionCase(record: ClaimDisputeRecord): ExceptionCase {
   const existing = record.platformCaseId ? getProgressExceptionById(record.platformCaseId) : undefined
   const createdAt = existing?.createdAt || record.submittedAt
   const actions = existing?.actions ?? [
-    createAction(`ACT-${record.disputeId}-CREATE`, 'SUBMIT_DISPUTE', '移动端已提交裁片领料数量异议。', record.submittedAt, record.submittedBy),
+    createAction(`ACT-${record.disputeId}-CREATE`, 'SUBMIT_DISPUTE', '移动端已提交裁片领料长度异议。', record.submittedAt, record.submittedBy),
   ]
   const auditLogs = existing?.auditLogs ?? [
-    createAudit(`AUD-${record.disputeId}-CREATE`, 'CREATE', '移动端提交裁片领料数量异议', record.submittedAt, record.submittedBy),
+    createAudit(`AUD-${record.disputeId}-CREATE`, 'CREATE', '移动端提交裁片领料长度异议', record.submittedAt, record.submittedBy),
   ]
 
   return {
@@ -80,7 +80,7 @@ function buildExceptionCase(record: ClaimDisputeRecord): ExceptionCase {
     unifiedCategory: 'MATERIAL',
     subCategoryKey: 'MATERIAL_QTY_SHORT',
     reasonCode: 'MATERIAL_NOT_READY',
-    reasonLabel: '裁片领料数量异议',
+    reasonLabel: '裁片领料长度异议',
     sourceType: 'TASK',
     sourceId: record.relatedClaimRecordNo || record.sourceTaskNo || record.sourceTaskId,
     sourceSystem: 'RUNTIME_FLOW',
@@ -97,13 +97,13 @@ function buildExceptionCase(record: ClaimDisputeRecord): ExceptionCase {
       `原始裁片单：${record.originalCutOrderNo}`,
       `生产单：${record.productionOrderNo}`,
       `面料编码：${record.materialSku}`,
-      `仓库配置数量：${record.configuredQty} 米`,
-      `默认应领数量：${record.defaultClaimQty} 米`,
-      `实际领取数量：${record.actualClaimQty} 米`,
-      `差异数量：${record.discrepancyQty} 米`,
+      `仓库配置长度：${record.configuredQty} 米`,
+      `默认应领长度：${record.defaultClaimQty} 米`,
+      `实际领取长度：${record.actualClaimQty} 米`,
+      `差异长度：${record.discrepancyQty} 米`,
       `异议原因：${record.disputeReason}`,
       `异议说明：${record.disputeNote || '无'}`,
-      `证据数量：${record.evidenceCount}`,
+      `证据份数：${record.evidenceCount} 个`,
       `处理结论：${record.handleConclusion || '待平台处理'}`,
     ].join('\n'),
     createdAt,
@@ -163,7 +163,7 @@ function getSeedDisputes(): ClaimDisputeRecord[] {
       configuredQty: 612,
       actualClaimQty: 589,
       disputeReason: '现场实领少 1 卷',
-      disputeNote: '少 1 卷印花面料，已上传现场照片待仓库复核。',
+      disputeNote: '少 1 卷面料，已上传现场照片待仓库复核。',
       submittedBy: '现场领料员',
       submittedAt: '2026-03-22 10:18:00',
       imageFiles: [

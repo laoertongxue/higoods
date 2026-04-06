@@ -84,7 +84,7 @@ export function resolvePdaCuttingTaskOrderCurrentStepLabel(line: PdaCuttingTaskO
 }
 
 export function resolvePdaCuttingTaskOrderPrimaryRouteKey(line: PdaCuttingTaskOrderLine): PdaCuttingExecutionRouteKey {
-  // 仅用于兼容“更多操作”动作列表；任务详情主流程统一先进入执行单元。
+  // 仅用于兼容“更多操作”动作列表；任务详情主流程统一先进入当前任务。
   if (line.primaryExecutionRouteKey) return line.primaryExecutionRouteKey
   const currentStepCode = resolvePdaCuttingTaskOrderCurrentStepCode(line)
   return mapStepCodeToRouteKey(currentStepCode) || 'handover'

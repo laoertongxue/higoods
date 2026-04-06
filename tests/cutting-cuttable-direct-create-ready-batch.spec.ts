@@ -8,19 +8,19 @@ test('可裁排产可直接创建待裁批次并自动打开对应详情', async
   await page.goto('/fcs/craft/cutting/cuttable-pool')
 
   await page.getByTestId('cutting-cuttable-pool-quick-select-entry').first().getByRole('button', { name: '快速选择' }).click()
-  await page.getByTestId('cutting-cuttable-pool-selected-sidebar').getByRole('button', { name: '创建裁剪批次' }).click()
+  await page.getByTestId('cutting-cuttable-pool-selected-sidebar').getByRole('button', { name: '创建合并裁剪批次' }).click()
 
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/merge-batches\?/)
   await expect(page).toHaveURL(/focusBatchId=/)
   await expect(page).toHaveURL(/createdBatchNo=/)
-  await expect(page.getByRole('heading', { name: '合并裁剪批次' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '合并裁剪批次', exact: true })).toBeVisible()
   await expect(page.getByText('待建批次输入区')).toHaveCount(0)
   await expect(page.getByText('创建待裁批次')).toHaveCount(0)
   await expect(page.getByText('保存为草稿')).toHaveCount(0)
 
   const drawer = page.getByTestId('cutting-merge-batches-detail-drawer')
   await expect(drawer).toBeVisible()
-  await expect(drawer.getByText('批次基础信息')).toBeVisible()
+  await expect(drawer.getByText('合并裁剪批次基础信息')).toBeVisible()
   await expect(drawer.getByText(/CUT-MB-/)).toBeVisible()
   await expect(drawer.getByText('待裁', { exact: true })).toBeVisible()
   await expect(drawer.getByText('草稿', { exact: true })).toHaveCount(0)

@@ -31,6 +31,8 @@ test('铺布详情与编辑页公式可见，且 4 模式显示正确', async ({
   await expect(page.locator('body')).not.toContainText('readyForSpreading')
   await expect(page.locator('body')).not.toContainText('allocationStatus')
   await expect(page.locator('body')).not.toContainText('layoutStatus')
+  await expect(page.locator('body')).not.toContainText('actualCutPieceQty')
+  await expect(page.locator('body')).not.toContainText('handledPieceQty')
   await expect(page.getByText('理论裁剪成衣件数（件）').first()).toBeVisible()
   await expect(page.getByText('实际裁剪成衣件数（件）').first()).toBeVisible()
   await expect(page.getByText('缺口成衣件数（件）').first()).toBeVisible()
@@ -50,6 +52,7 @@ test('铺布详情与编辑页公式可见，且 4 模式显示正确', async ({
   await tabShell.getByRole('button', { name: '卷记录' }).click()
   await expect(page.getByText('净可用长度（m）').first()).toBeVisible()
   await expect(page.getByText('实际裁剪成衣件数（件）').first()).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('actualCutPieceQty')
   await expect(page.locator('body')).toContainText('录入来源')
   await expect(page.getByText(/米 = .*米 - .*米 - .*米/).first()).toBeVisible()
 

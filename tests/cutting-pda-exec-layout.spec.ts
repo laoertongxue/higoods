@@ -49,7 +49,11 @@ async function expectTabsGapAndCardFields(page: Page): Promise<void> {
   expect(cardText).toContain('生产单号')
   expect(cardText).toContain('原始任务')
   expect(cardText).toContain('当前工序')
-  expect(cardText).toContain('数量')
+  expect(
+    cardText.includes('本单成衣件数（件）')
+      || cardText.includes('本单布卷数（卷）')
+      || cardText.includes('本单铺布层数（层）'),
+  ).toBeTruthy()
   expect(cardText).not.toContain('拆分组')
 }
 

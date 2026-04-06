@@ -3,43 +3,22 @@ import { expect, test } from '@playwright/test'
 import { buildCuttingTraceabilityProjectionContext } from '../src/pages/process-factory/cutting/traceability-projection-helpers.ts'
 import { buildCutPieceWarehouseProjection } from '../src/pages/process-factory/cutting/cut-piece-warehouse-projection.ts'
 import { buildFeiTicketPrintProjection } from '../src/pages/process-factory/cutting/fei-ticket-print-projection.ts'
-import { buildGeneratedFeiTicketTraceMatrix } from '../src/data/fcs/cutting/generated-fei-tickets.ts'
-import { buildSpreadingListViewModel, readMarkerSpreadingPrototypeData } from '../src/pages/process-factory/cutting/marker-spreading-utils.ts'
+import { buildCuttingSpreadingFlowMatrix, readMarkerSpreadingPrototypeData } from '../src/data/fcs/cutting/marker-spreading-ledger.ts'
+import { buildReplenishmentFlowTraceMatrix } from '../src/data/fcs/cutting/replenishment.ts'
+import { buildSpreadingDrivenFeiTicketTraceMatrix } from '../src/data/fcs/cutting/generated-fei-tickets.ts'
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
-
-function resolveSupervisorStageKey(row: ReturnType<typeof buildSpreadingRows>[number]) {
-  const lifecycle = row.session.prototypeLifecycleOverrides
-  if (row.statusKey === 'DRAFT' || row.statusKey === 'TO_FILL') return 'WAITING_START'
-  if (row.statusKey === 'IN_PROGRESS') return 'IN_PROGRESS'
-  if (lifecycle?.replenishmentStatusLabel === '待补料确认') return 'WAITING_REPLENISHMENT'
-  if (lifecycle?.feiTicketStatusLabel === '待打印菲票') return 'WAITING_FEI_TICKET'
-  if (lifecycle?.baggingStatusLabel === '待装袋') return 'WAITING_BAGGING'
-  if (lifecycle?.warehouseStatusLabel === '待入仓') return 'WAITING_WAREHOUSE'
-  return 'DONE'
-}
-
-function buildSpreadingRows() {
-  const context = buildCuttingTraceabilityProjectionContext()
-  return buildSpreadingListViewModel({
-    spreadingSessions: context.spreadingStore.sessions,
-    rowsById: Object.fromEntries(context.materialPrepRows.map((row) => [row.originalCutOrderId, row])),
-    mergeBatches: context.mergeBatches,
-    markerRecords: context.spreadingStore.markers,
-  })
-}
 
 test('铺布 mock 已扩成完整流程矩阵，关键状态与下游锚点不再是孤儿数据', async () => {
   const prototypeData = readMarkerSpreadingPrototypeData()
-  const spreadingRows = buildSpreadingRows()
-  const feiTraceRows = buildGeneratedFeiTicketTraceMatrix()
+  const flowRows = buildCuttingSpreadingFlowMatrix()
   const feiProjection = buildFeiTicketPrintProjection()
-  const traceabilityContext = buildCuttingTraceabilityProjectionContext()
-  const warehouseProjection = buildCutPieceWarehouseProjection({ snapshot: traceabilityContext.snapshot })
+  const replenishmentTraceRows = buildReplenishmentFlowTraceMatrix()
+  const feiTraceRows = buildSpreadingDrivenFeiTicketTraceMatrix()
 
   expect(prototypeData.store.sessions.length).toBeGreaterThanOrEqual(18)
 
-  const statusCount = spreadingRows.reduce<Record<string, number>>((accumulator, row) => {
-    const stageKey = resolveSupervisorStageKey(row)
+  const statusCount = flowRows.reduce<Record<string, number>>((accumulator, row) => {
+    const stageKey = row.stageKey
     accumulator[stageKey] = (accumulator[stageKey] || 0) + 1
     return accumulator
   }, {})
@@ -58,53 +37,58 @@ test('铺布 mock 已扩成完整流程矩阵，关键状态与下游锚点不�
   expect(modeCount.fold_normal || 0).toBeGreaterThanOrEqual(2)
   expect(modeCount.fold_high_low || 0).toBeGreaterThanOrEqual(2)
 
-  expect(spreadingRows.filter((row) => row.contextType === 'merge-batch').length).toBeGreaterThanOrEqual(3)
-  expect(spreadingRows.filter((row) => row.session.sourceChannel === 'PDA_WRITEBACK' || Boolean(row.session.sourceWritebackId)).length).toBeGreaterThanOrEqual(3)
+  expect(flowRows.filter((row) => row.contextType === 'merge-batch').length).toBeGreaterThanOrEqual(3)
+  expect(flowRows.filter((row) => row.sourceChannel === 'PDA_WRITEBACK' || Boolean(row.sourceWritebackId)).length).toBeGreaterThanOrEqual(3)
 
-  const waitingFeiSessions = spreadingRows.filter((row) => resolveSupervisorStageKey(row) === 'WAITING_FEI_TICKET')
-  waitingFeiSessions.slice(0, 2).forEach((row) => {
-    const relatedFeiRows = feiTraceRows.filter((item) => item.sourceSpreadingSessionId === row.spreadingSessionId)
-    expect(relatedFeiRows.length).toBeGreaterThan(0)
-    expect(relatedFeiRows.every((item) => item.originalCutOrderId && item.color && item.size)).toBeTruthy()
+  const waitingReplenishmentRows = flowRows.filter((row) => row.stageKey === 'WAITING_REPLENISHMENT')
+  waitingReplenishmentRows.slice(0, 2).forEach((row) => {
+    expect(row.replenishmentRequestId).not.toBe('')
+    expect(row.spreadingSessionId).not.toBe('')
+  })
+
+  const pendingPrepRows = replenishmentTraceRows.filter((row) => Boolean(row.pendingPrepFollowupId))
+  expect(pendingPrepRows.length).toBeGreaterThanOrEqual(1)
+  pendingPrepRows.forEach((row) => {
+    expect(row.sourceSpreadingSessionId).not.toBe('')
+    expect(row.sourceMarkerId || row.sourceMarkerNo).not.toBe('')
+  })
+
+  const waitingFeiRows = flowRows.filter((row) => row.stageKey === 'WAITING_FEI_TICKET')
+  waitingFeiRows.slice(0, 2).forEach((row) => {
+    expect(row.availableFeiTicketIds.length).toBeGreaterThan(0)
     expect(feiProjection.printableViewModel.units.some((unit) => unit.sourceSpreadingSessionIds.includes(row.spreadingSessionId))).toBeTruthy()
+    expect(feiTraceRows.some((item) => item.sourceSpreadingSessionId === row.spreadingSessionId)).toBeTruthy()
   })
 
-  const waitingWarehouseSessions = spreadingRows.filter((row) => resolveSupervisorStageKey(row) === 'WAITING_WAREHOUSE')
-  const waitingWarehouseTracedSessions = waitingWarehouseSessions.filter((row) => {
-    const bagUsage = traceabilityContext.transferBagViewModel.usages.find((item) => item.spreadingSessionId === row.spreadingSessionId)
-    const warehouseItem = warehouseProjection.viewModel.items.find((item) => item.spreadingSessionId === row.spreadingSessionId)
-    return Boolean(bagUsage && warehouseItem)
-  })
-  expect(waitingWarehouseTracedSessions.length).toBeGreaterThanOrEqual(1)
+  const waitingWarehouseRows = flowRows.filter((row) => row.stageKey === 'WAITING_WAREHOUSE')
+  expect(waitingWarehouseRows.filter((row) => row.bagId && row.transferBatchId).length).toBeGreaterThanOrEqual(1)
 
-  const doneWithWarehouse = spreadingRows.filter(
-    (row) =>
-      row.statusKey === 'DONE' &&
-      resolveSupervisorStageKey(row) === 'DONE' &&
-      warehouseProjection.viewModel.items.some((item) => item.spreadingSessionId === row.spreadingSessionId),
-  )
+  const doneWithWarehouse = flowRows.filter((row) => row.stageKey === 'DONE' && row.warehouseRecordId)
   expect(doneWithWarehouse.length).toBeGreaterThanOrEqual(3)
+
+  const pdaFlowRows = flowRows.filter((row) => row.sourceWritebackId)
+  expect(pdaFlowRows.filter((row) => row.planUnitId && row.rollRecordId && row.operatorRecordId).length).toBeGreaterThanOrEqual(3)
 })
 
 test('铺布 mock 覆盖原始裁片单上下文的 PDA -> 装袋 -> 入裁片仓链路', async ({ page }) => {
   const errors = collectPageErrors(page)
-  const spreadingRows = buildSpreadingRows()
+  const flowRows = buildCuttingSpreadingFlowMatrix()
   const traceabilityContext = buildCuttingTraceabilityProjectionContext()
   const warehouseProjection = buildCutPieceWarehouseProjection({ snapshot: traceabilityContext.snapshot })
 
   const originalSession =
-    spreadingRows.find(
+    flowRows.find(
       (row) =>
         row.contextType === 'original-order' &&
-        resolveSupervisorStageKey(row) === 'DONE' &&
-        Boolean(row.session.sourceWritebackId) &&
+        row.stageKey === 'DONE' &&
+        Boolean(row.sourceWritebackId) &&
         traceabilityContext.transferBagViewModel.usages.some((item) => item.spreadingSessionId === row.spreadingSessionId) &&
         warehouseProjection.viewModel.items.some((item) => item.spreadingSessionId === row.spreadingSessionId),
     ) ||
-    spreadingRows.find(
+    flowRows.find(
       (row) =>
         row.contextType === 'original-order' &&
-        resolveSupervisorStageKey(row) === 'DONE' &&
+        row.stageKey === 'DONE' &&
         traceabilityContext.transferBagViewModel.usages.some((item) => item.spreadingSessionId === row.spreadingSessionId) &&
         warehouseProjection.viewModel.items.some((item) => item.spreadingSessionId === row.spreadingSessionId),
     )
@@ -142,20 +126,20 @@ test('铺布 mock 覆盖原始裁片单上下文的 PDA -> 装袋 -> 入裁片�
 })
 
 test('铺布 mock 覆盖合并裁剪批次上下文的完成 -> 补料 -> 装袋链路', async () => {
-  const spreadingRows = buildSpreadingRows()
+  const flowRows = buildCuttingSpreadingFlowMatrix()
   const traceabilityContext = buildCuttingTraceabilityProjectionContext()
 
   const mergeBatchSession =
-    spreadingRows.find((row) => {
+    flowRows.find((row) => {
       if (row.contextType !== 'merge-batch') return false
-      if (!['WAITING_BAGGING', 'WAITING_WAREHOUSE', 'DONE'].includes(resolveSupervisorStageKey(row))) return false
+      if (!['WAITING_BAGGING', 'WAITING_WAREHOUSE', 'DONE'].includes(row.stageKey)) return false
       return traceabilityContext.transferBagViewModel.usages.some(
         (item) =>
           item.spreadingSessionId === row.spreadingSessionId &&
           item.mergeBatchNos.includes(row.mergeBatchNo),
       )
     }) ||
-    spreadingRows.find((row) => row.contextType === 'merge-batch' && resolveSupervisorStageKey(row) === 'DONE')
+    flowRows.find((row) => row.contextType === 'merge-batch' && row.stageKey === 'DONE')
 
   expect(mergeBatchSession).toBeTruthy()
   expect(mergeBatchSession!.mergeBatchNo).not.toBe('')

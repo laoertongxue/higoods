@@ -178,6 +178,20 @@ export interface PdaWritebackStats {
   originalCutOrderCount: number
 }
 
+export interface PdaWritebackTraceMatrixRow {
+  writebackId: string
+  spreadingSessionId: string
+  markerId: string
+  markerNo: string
+  originalCutOrderIds: string[]
+  mergeBatchId: string
+  mergeBatchNo: string
+  sourceWritebackId: string
+  planUnitId: string
+  rollRecordId: string
+  operatorRecordId: string
+}
+
 const writebackStatusMeta: Record<PdaWritebackStatusKey, { label: string; className: string; detailText: string }> = {
   PENDING_REVIEW: {
     label: '待审核',
@@ -940,6 +954,7 @@ export function buildMockPdaWritebacks(options: {
   const now = new Date()
 
   const normal = normalizePdaWritebackPayload({
+    writebackId: 'pda-writeback-seed-01',
     writebackNo: `PDA-WB-${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}-101`,
     sourceAccountId: 'pda-operator-001',
     sourceAccountName: '张红',
@@ -987,6 +1002,7 @@ export function buildMockPdaWritebacks(options: {
   })
 
   const handoverFollowup = normalizePdaWritebackPayload({
+    writebackId: 'pda-writeback-seed-02',
     writebackNo: `PDA-WB-${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}-105`,
     sourceAccountId: 'pda-operator-015',
     sourceAccountName: '周海燕',
@@ -1035,6 +1051,7 @@ export function buildMockPdaWritebacks(options: {
   })
 
   const missing = normalizePdaWritebackPayload({
+    writebackId: 'pda-writeback-seed-missing',
     writebackNo: `PDA-WB-${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}-102`,
     sourceAccountId: '',
     sourceAccountName: '',
@@ -1063,6 +1080,7 @@ export function buildMockPdaWritebacks(options: {
   })
 
   const conflict = normalizePdaWritebackPayload({
+    writebackId: 'pda-writeback-seed-conflict',
     writebackNo: `PDA-WB-${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}-103`,
     sourceAccountId: 'pda-operator-018',
     sourceAccountName: '王立',
@@ -1109,6 +1127,7 @@ export function buildMockPdaWritebacks(options: {
   })
 
   const mergeBatchContext = normalizePdaWritebackPayload({
+    writebackId: 'pda-writeback-seed-06',
     writebackNo: `PDA-WB-${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}-104`,
     sourceAccountId: 'pda-operator-009',
     sourceAccountName: '赵楠',
@@ -1152,4 +1171,67 @@ export function buildMockPdaWritebacks(options: {
   })
 
   return [normal, handoverFollowup, mergeBatchContext, missing, conflict]
+}
+
+export function buildPdaWritebackTraceMatrix(options: {
+  writebacks: PdaSpreadingWriteback[]
+  sessions: SpreadingSession[]
+}): PdaWritebackTraceMatrixRow[] {
+  return options.writebacks
+    .flatMap((writeback) => {
+      const matchedSession =
+        options.sessions.find(
+          (session) =>
+            session.spreadingSessionId === writeback.spreadingSessionId
+            || session.sourceWritebackId === writeback.writebackId
+            || session.rolls.some((roll) => roll.sourceWritebackId === writeback.writebackId)
+            || session.operators.some((operator) => operator.sourceWritebackId === writeback.writebackId),
+        ) || null
+
+      return writeback.rollItems.map((rollItem) => {
+        const matchedRoll =
+          matchedSession?.rolls.find(
+            (roll) =>
+              roll.sourceWritebackId === writeback.writebackId
+              && ((roll.planUnitId && roll.planUnitId === rollItem.planUnitId) || roll.rollNo === rollItem.rollNo),
+          )
+          || matchedSession?.rolls.find((roll) => roll.planUnitId === rollItem.planUnitId)
+          || matchedSession?.rolls.find((roll) => roll.rollNo === rollItem.rollNo)
+          || null
+        const matchedOperatorItem =
+          writeback.operatorItems.find((item) => item.rollWritebackItemId === rollItem.rollWritebackItemId) || null
+        const matchedOperator =
+          matchedSession?.operators.find(
+            (operator) =>
+              operator.sourceWritebackId === writeback.writebackId
+              && operator.rollRecordId === (matchedRoll?.rollRecordId || operator.rollRecordId),
+          )
+          || matchedSession?.operators.find(
+            (operator) =>
+              operator.rollRecordId === (matchedRoll?.rollRecordId || '')
+              && (!matchedOperatorItem || operator.operatorAccountId === matchedOperatorItem.operatorAccountId),
+          )
+          || null
+
+        return {
+          writebackId: writeback.writebackId,
+          spreadingSessionId: matchedSession?.spreadingSessionId || writeback.spreadingSessionId || '',
+          markerId: matchedSession?.markerId || writeback.markerId || '',
+          markerNo: matchedSession?.markerNo || writeback.markerNo || '',
+          originalCutOrderIds: [...writeback.originalCutOrderIds],
+          mergeBatchId: writeback.mergeBatchId || matchedSession?.mergeBatchId || '',
+          mergeBatchNo: writeback.mergeBatchNo || matchedSession?.mergeBatchNo || '',
+          sourceWritebackId: writeback.writebackId,
+          planUnitId: rollItem.planUnitId || matchedRoll?.planUnitId || '',
+          rollRecordId: matchedRoll?.rollRecordId || '',
+          operatorRecordId: matchedOperator?.operatorRecordId || '',
+        }
+      })
+    })
+    .sort(
+      (left, right) =>
+        left.writebackId.localeCompare(right.writebackId, 'zh-CN')
+        || left.rollRecordId.localeCompare(right.rollRecordId, 'zh-CN')
+        || left.operatorRecordId.localeCompare(right.operatorRecordId, 'zh-CN'),
+    )
 }

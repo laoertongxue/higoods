@@ -64,8 +64,7 @@ export interface CuttingSummaryReplenishmentSummary {
   rejectedCount: number
   needMoreInfoCount: number
   highRiskCount: number
-  mayAffectPrintingCount: number
-  mayAffectDyeingCount: number
+  pendingPrepCount: number
 }
 
 export interface CuttingSummaryWarehouseSummary {
@@ -271,8 +270,7 @@ function buildReplenishmentSummary(progressRecord: CuttingOrderProgressRecord): 
     rejectedCount: 0,
     needMoreInfoCount: 0,
     highRiskCount: pendingLines.filter((item) => item.receiveStatus === 'PARTIAL' || item.materialType === 'PRINT').length,
-    mayAffectPrintingCount: pendingLines.filter((item) => item.materialType === 'PRINT').length,
-    mayAffectDyeingCount: pendingLines.filter((item) => item.materialType === 'DYE').length,
+    pendingPrepCount: pendingLines.length,
   }
 }
 
@@ -546,8 +544,7 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
         rejectedCount: 0,
         needMoreInfoCount: 0,
         highRiskCount: 0,
-        mayAffectPrintingCount: 0,
-        mayAffectDyeingCount: 0,
+        pendingPrepCount: 0,
       }
   const warehouseSummary = buildWarehouseSummary(cutPieceWarehouseRecords)
   warehouseSummary.cuttingFabricStockNeedRecheckCount = fabricWarehouseRecords.filter((item) => item.stockStatus === 'NEED_RECHECK').length

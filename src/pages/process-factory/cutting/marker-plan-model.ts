@@ -249,6 +249,9 @@ export interface MarkerPlanViewRow extends MarkerPlan {
   contextNo: string
   productionOrderSummary: string
   materialColorSummary: string
+  markerGarmentQty: number
+  markerGarmentQtyText: string
+  markerGarmentQtyFormula: string
   totalPiecesText: string
   totalPiecesFormula: string
   systemUnitUsageFormula: string
@@ -1007,6 +1010,9 @@ function buildPlanViewRow(
     contextNo: context.contextNo,
     productionOrderSummary: hydrated.productionOrderNos.join(' / '),
     materialColorSummary: `${hydrated.materialSkuSummary} / ${hydrated.colorSummary}`,
+    markerGarmentQty: hydrated.totalPieces,
+    markerGarmentQtyText: formatQty(hydrated.totalPieces),
+    markerGarmentQtyFormula: buildMarkerTotalPiecesFormula(hydrated.sizeRatioRows),
     totalPiecesText: formatQty(hydrated.totalPieces),
     totalPiecesFormula: buildMarkerTotalPiecesFormula(hydrated.sizeRatioRows),
     systemUnitUsageFormula: buildMarkerSystemUnitUsageFormula(hydrated.netLength, hydrated.totalPieces),

@@ -472,6 +472,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       mergeBatchNo: ticket.mergeBatchNo || session!.mergeBatchNo || '',
       裁剪批次No: ticket.mergeBatchNo || session!.mergeBatchNo || '',
       qty: Math.max(ticket.qty || 0, 1),
+      garmentQty: Math.max(ticket.qty || 0, 1),
       boundAt: nowText,
       boundBy: operatorName,
       operator: operatorName,
@@ -725,6 +726,7 @@ export function buildSpreadingBagWarehouseTraceProjection(options: {
         primaryAnchorType: 'spreading-session',
       }
     })
+    .filter((row) => Boolean(row.spreadingSessionId))
     .sort((left, right) => {
       const leftScore =
         (left.spreadingSessionId ? 4 : 0) +

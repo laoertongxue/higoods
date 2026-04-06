@@ -50,6 +50,8 @@ export interface CutPieceWarehouseItem {
   productionOrderNo: string
   mergeBatchId: string
   mergeBatchNo: string
+  sourceMarkerId: string
+  sourceMarkerNo: string
   materialSku: string
   styleCode: string
   spuCode: string
@@ -57,6 +59,7 @@ export interface CutPieceWarehouseItem {
   zoneCode: CutPieceZoneCode
   locationCode: string
   quantity: number
+  pieceQty: number
   warehouseStatus: CutPieceWarehouseStatusMeta<'PENDING_INBOUND' | 'INBOUNDED' | 'WAITING_HANDOVER' | 'HANDED_OVER'>
   handoffStatus: CutPieceWarehouseStatusMeta<CutPieceHandoverStatus>
   inWarehouseAt: string
@@ -80,6 +83,7 @@ export interface CutPieceWarehouseZoneSummary {
   zoneCode: CutPieceZoneCode
   itemCount: number
   quantityTotal: number
+  pieceQtyTotal: number
   cuttingGroupSummary: string
   occupancyStatus: string
 }
@@ -87,6 +91,7 @@ export interface CutPieceWarehouseZoneSummary {
 export interface CutPieceWarehouseSummary {
   totalItemCount: number
   totalQuantity: number
+  pieceQtyTotal: number
   waitingInWarehouseCount: number
   inWarehouseCount: number
   waitingHandoffCount: number
@@ -489,6 +494,8 @@ export function buildCutPieceWarehouseViewModel(
         productionOrderNo: record.productionOrderNo,
         mergeBatchId: row?.latestMergeBatchId || record.mergeBatchId,
         mergeBatchNo: row?.latestMergeBatchNo || record.mergeBatchNo,
+        sourceMarkerId: traceAnchor?.sourceMarkerId || '',
+        sourceMarkerNo: traceAnchor?.sourceMarkerNo || '',
         materialSku: record.materialSku,
         styleCode: row?.styleCode || '',
         spuCode: row?.spuCode || '',
@@ -496,6 +503,7 @@ export function buildCutPieceWarehouseViewModel(
         zoneCode: record.zoneCode,
         locationCode: record.locationLabel,
         quantity: parseQuantity(record.pieceSummary),
+        pieceQty: parseQuantity(record.pieceSummary),
         warehouseStatus: deriveCutPieceWarehouseStatus(record),
         handoffStatus: deriveCutPieceHandoverStatus(record),
         inWarehouseAt: record.inboundAt,
@@ -561,6 +569,7 @@ export function buildCutPieceWarehouseViewModel(
     summary: {
       totalItemCount: items.length,
       totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+      pieceQtyTotal: items.reduce((sum, item) => sum + item.pieceQty, 0),
       waitingInWarehouseCount: items.filter((item) => item.warehouseStatus.key === 'PENDING_INBOUND').length,
       inWarehouseCount: items.filter((item) => item.warehouseStatus.key !== 'PENDING_INBOUND').length,
       waitingHandoffCount: items.filter((item) => item.handoffStatus.key === 'WAITING_HANDOVER').length,
@@ -577,6 +586,7 @@ export function summarizeCutPieceWarehouseZones(items: CutPieceWarehouseItem[]):
         zoneCode,
         itemCount: zoneItems.length,
         quantityTotal: zoneItems.reduce((sum, item) => sum + item.quantity, 0),
+        pieceQtyTotal: zoneItems.reduce((sum, item) => sum + item.pieceQty, 0),
         cuttingGroupSummary: Array.from(new Set(zoneItems.map((item) => item.cuttingGroup))).slice(0, 3).join(' / ') || '待补',
         occupancyStatus: zoneItems.length ? (zoneCode === 'UNASSIGNED' ? '待整理' : '已使用') : '空位充足',
       }

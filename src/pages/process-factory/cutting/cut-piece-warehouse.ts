@@ -192,7 +192,7 @@ function renderStatsCards(): string {
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       ${renderCompactKpiCard('裁片仓项目数', summary.totalItemCount, '原始裁片单仓务项目', 'text-slate-900')}
-      ${renderCompactKpiCard('裁片总数量', formatCutPieceQuantity(summary.totalQuantity), '当前筛选范围汇总', 'text-blue-600')}
+      ${renderCompactKpiCard('裁片总片数（片）', formatCutPieceQuantity(summary.totalQuantity), '当前筛选范围汇总', 'text-blue-600')}
       ${renderCompactKpiCard('待入仓数', summary.waitingInWarehouseCount, '仍待仓务确认', 'text-slate-700')}
       ${renderCompactKpiCard('已入仓数', summary.inWarehouseCount, '已进入裁片仓', 'text-emerald-600')}
       ${renderCompactKpiCard('待交接数', summary.waitingHandoffCount, '待发后道或进入周转口袋流转', 'text-amber-600')}
@@ -345,9 +345,9 @@ function renderTable(items: CutPieceWarehouseItem[]): string {
         <tr>
           <th class="px-4 py-3 text-left">原始裁片单号</th>
           <th class="px-4 py-3 text-left">来源生产单号</th>
-          <th class="px-4 py-3 text-left">批次 / 裁床组</th>
+          <th class="px-4 py-3 text-left">合并裁剪批次 / 裁床组</th>
           <th class="px-4 py-3 text-left">区域 / 库位</th>
-          <th class="px-4 py-3 text-right">数量</th>
+          <th class="px-4 py-3 text-right">裁片片数（片）</th>
           <th class="px-4 py-3 text-left">仓状态</th>
           <th class="px-4 py-3 text-left">交接状态</th>
           <th class="px-4 py-3 text-left">操作</th>
@@ -430,7 +430,7 @@ function renderDetailDrawer(): string {
             <div class="mt-1 font-medium text-foreground">${escapeHtml(item.cuttingGroup)}</div>
           </div>
           <div class="rounded-lg border bg-muted/20 p-3">
-            <div class="text-xs text-muted-foreground">当前数量</div>
+            <div class="text-xs text-muted-foreground">当前裁片片数（片）</div>
             <div class="mt-1 font-medium text-foreground">${escapeHtml(formatCutPieceQuantity(item.quantity))}</div>
           </div>
         </section>
@@ -476,22 +476,39 @@ function renderDetailDrawer(): string {
               <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.spreadingSessionNo || item.spreadingSessionId || '待补')}</dd>
             </div>
             <div class="rounded-lg border bg-muted/10 p-3">
-              <dt class="text-xs text-muted-foreground">PDA回写流水</dt>
-              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.sourceWritebackId || '当前尚无 PDA 回写流水')}</dd>
+              <dt class="text-xs text-muted-foreground">来源唛架</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.sourceMarkerNo || '待补')}</dd>
             </div>
             <div class="rounded-lg border bg-muted/10 p-3">
-              <dt class="text-xs text-muted-foreground">周转口袋使用周期</dt>
-              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagUsageNo || item.bagUsageId || '待补')}</dd>
+              <dt class="text-xs text-muted-foreground">来源原始裁片单</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.originalCutOrderNo || '待补')}</dd>
             </div>
             <div class="rounded-lg border bg-muted/10 p-3">
-              <dt class="text-xs text-muted-foreground">周转口袋码</dt>
-              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagCode || '待补')}</dd>
-            </div>
-            <div class="rounded-lg border bg-muted/10 p-3 md:col-span-2">
-              <dt class="text-xs text-muted-foreground">先装袋后入仓规则</dt>
-              <dd class="mt-1 font-medium ${item.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtml(item.bagFirstRuleLabel)}</dd>
+              <dt class="text-xs text-muted-foreground">来源合并裁剪批次</dt>
+              <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.mergeBatchNo || '未关联合并裁剪批次')}</dd>
             </div>
           </dl>
+          <details class="mt-3 rounded-lg border bg-background/70 p-3" data-testid="cut-piece-warehouse-traceability-fold" data-default-open="collapsed">
+            <summary class="cursor-pointer text-sm font-medium text-foreground">追溯信息</summary>
+            <dl class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div class="rounded-lg border bg-muted/10 p-3">
+                <dt class="text-xs text-muted-foreground">PDA回写流水</dt>
+                <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.sourceWritebackId || '当前尚无 PDA 回写流水')}</dd>
+              </div>
+              <div class="rounded-lg border bg-muted/10 p-3">
+                <dt class="text-xs text-muted-foreground">周转口袋使用周期</dt>
+                <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagUsageNo || item.bagUsageId || '待补')}</dd>
+              </div>
+              <div class="rounded-lg border bg-muted/10 p-3">
+                <dt class="text-xs text-muted-foreground">周转口袋码</dt>
+                <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagCode || '待补')}</dd>
+              </div>
+              <div class="rounded-lg border bg-muted/10 p-3 md:col-span-2 xl:col-span-3">
+                <dt class="text-xs text-muted-foreground">先装袋后入仓规则</dt>
+                <dd class="mt-1 font-medium ${item.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtml(item.bagFirstRuleLabel)}</dd>
+              </div>
+            </dl>
+          </details>
         </section>
 
         <section class="rounded-lg border bg-card p-4">
@@ -569,7 +586,7 @@ function renderDetailDrawer(): string {
           </dl>
           <div class="mt-4 flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去周转口袋流转</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-original-orders" data-item-id="${escapeHtml(item.warehouseItemId)}">查看原始裁片单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-original-orders" data-item-id="${escapeHtml(item.warehouseItemId)}">去来源原始裁片单</button>
           </div>
         </section>
       </div>
