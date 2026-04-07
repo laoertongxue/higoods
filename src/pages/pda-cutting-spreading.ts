@@ -322,7 +322,7 @@ function renderPlanUnitSummary(planUnit: ReturnType<typeof getSelectedPlanUnit>)
   if (!planUnit) {
     return renderPdaCuttingEmptyState('当前铺布对象暂无当前排版项', '')
   }
-  const planUnitLabel = `颜色 ${planUnit.color || '待定'} / 面料 ${planUnit.materialSku || '待定'} / 件数 ${planUnit.garmentQtyPerUnit} 件`
+  const planUnitLabel = planUnit.label || `${planUnit.color || '待定'} / ${planUnit.materialSku || '待定'} / ${planUnit.garmentQtyPerUnit}件`
   return `
     <div class="grid gap-1.5 text-xs sm:grid-cols-2">
       <div><div class="text-muted-foreground">当前排版项</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnitLabel)}</div></div>

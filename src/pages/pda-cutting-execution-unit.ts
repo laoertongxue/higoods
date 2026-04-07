@@ -99,7 +99,9 @@ function getLatestHandoverSummary(detail: NonNullable<ReturnType<typeof buildPda
 
 function renderObjectBar(line: PdaCuttingTaskOrderLine, detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): string {
   const sourceMarker = detail.spreadingTargets[0]?.markerNo || detail.markerSummary || '待绑定参考唛架'
-  const currentSpreadingObject = detail.spreadingTargets[0]?.title || detail.latestSpreadingRecordNo || '待选择铺布对象'
+  const currentPlanUnit =
+    detail.spreadingTargets[0]?.planUnits?.[0]?.label
+    || '待选择当前排版项'
 
   return `
     <section class="rounded-xl border bg-card px-1.5 py-1.5" data-pda-cutting-execution-unit-card="object">
@@ -112,7 +114,7 @@ function renderObjectBar(line: PdaCuttingTaskOrderLine, detail: NonNullable<Retu
       <div class="mt-1.5 grid gap-1.5 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
         <div><div class="text-muted-foreground">合并裁剪批次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.mergeBatchNo || '—')}</div></div>
         <div><div class="text-muted-foreground">参考唛架</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(sourceMarker)}</div></div>
-        <div><div class="text-muted-foreground">当前铺布</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(currentSpreadingObject)}</div></div>
+        <div><div class="text-muted-foreground">当前排版项</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(currentPlanUnit)}</div></div>
       </div>
     </section>
   `

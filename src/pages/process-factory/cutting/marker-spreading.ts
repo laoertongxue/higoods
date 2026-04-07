@@ -95,7 +95,11 @@ import { buildGeneratedFeiTicketTraceMatrix } from '../../../data/fcs/cutting/ge
 import { buildFeiTicketPrintProjection } from './fei-ticket-print-projection'
 import { buildTransferBagsProjection } from './transfer-bags-projection'
 import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection'
-import { buildMarkerSpreadingProjection, type SpreadingCreateSourceRow } from './marker-spreading-projection'
+import {
+  buildMarkerSpreadingProjection,
+  buildSpreadingPlanUnitProjectionLabel,
+  type SpreadingCreateSourceRow,
+} from './marker-spreading-projection'
 import {
   buildMarkerAllocationSourceRows,
   buildMarkerPieceExplosionViewModel,
@@ -671,12 +675,7 @@ function renderSpreadingEditTabNav(activeTab: SpreadingEditTabKey): string {
 }
 
 function buildSpreadingPlanUnitLabel(planUnit: SpreadingPlanUnit): string {
-  return [
-    planUnit.sourceType === 'exception' ? '异常单元' : planUnit.sourceType === 'high-low-row' ? '高低层单元' : '排版单元',
-    planUnit.materialSku || '待补面料',
-    planUnit.color || '待补颜色',
-    `${formatQty(planUnit.garmentQtyPerUnit)} 件/次`,
-  ].join(' / ')
+  return buildSpreadingPlanUnitProjectionLabel(planUnit)
 }
 
 function renderTextInput(label: string, value: string, attrs: string, placeholder = '请输入'): string {
@@ -3668,7 +3667,7 @@ function renderSpreadingDetailPage(): string {
           <table class="min-w-[1760px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-2">计划单元</th>
+                <th class="px-3 py-2">排版项</th>
                 <th class="px-3 py-2">卷号</th>
                 <th class="px-3 py-2">面料 SKU</th>
                 <th class="px-3 py-2">颜色</th>
@@ -4240,7 +4239,7 @@ function renderSpreadingEditPage(): string {
           <table class="min-w-[1760px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-2">计划单元</th>
+                <th class="px-3 py-2">排版项</th>
                 <th class="px-3 py-2">卷号</th>
                 <th class="px-3 py-2">面料 SKU</th>
                 <th class="px-3 py-2">颜色</th>
@@ -4272,7 +4271,7 @@ function renderSpreadingEditPage(): string {
                           <tr class="border-b align-top">
                             <td class="px-3 py-2">
                                 <select class="h-8 w-52 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="planUnitId">
-                                <option value="">请选择计划单元</option>
+                                <option value="">请选择排版项</option>
                                 ${(draft.planUnits || [])
                                   .map(
                                     (unit) =>
@@ -4305,7 +4304,7 @@ function renderSpreadingEditPage(): string {
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="16" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录并绑定计划单元。</td></tr>'
+                  : '<tr><td colspan="16" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录并绑定排版项。</td></tr>'
               }
             </tbody>
           </table>

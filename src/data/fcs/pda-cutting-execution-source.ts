@@ -40,6 +40,8 @@ import {
 } from '../../pages/process-factory/cutting/marker-spreading-model.ts'
 import type { MarkerPlanViewRow } from '../../pages/process-factory/cutting/marker-plan-model.ts'
 
+const numberFormatter = new Intl.NumberFormat('zh-CN')
+
 export type PdaTaskEntryMode = 'DEFAULT' | 'CUTTING_SPECIAL'
 export type PdaCuttingRouteKey = 'task' | 'unit' | 'pickup' | 'spreading' | 'inbound' | 'handover' | 'replenishment-feedback'
 export type PdaCuttingCurrentStepCode = 'PICKUP' | 'SPREADING' | 'REPLENISHMENT' | 'HANDOVER' | 'INBOUND' | 'DONE'
@@ -431,8 +433,12 @@ function canAccessManualSpreadingEntry(): boolean {
   return factoryUser.roleIds.includes('ROLE_ADMIN') || factoryUser.roleIds.includes('ROLE_DISPATCH')
 }
 
+function formatQty(value: number): string {
+  return numberFormatter.format(Math.max(Number(value || 0), 0))
+}
+
 function buildSpreadingPlanUnitLabel(unit: SpreadingPlanUnit): string {
-  return `${unit.color || '待补颜色'} / ${unit.materialSku || '待补面料'} / ${unit.garmentQtyPerUnit} 件`
+  return `${unit.color || '待补颜色'} / ${unit.materialSku || '待补面料'} / ${formatQty(unit.garmentQtyPerUnit)}件`
 }
 
 function toSpreadingPlanUnitOption(unit: SpreadingPlanUnit): PdaCuttingSpreadingPlanUnitOption {

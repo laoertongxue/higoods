@@ -9,8 +9,12 @@ import type {
   MarkerSpreadingContext,
   MarkerModeKey,
   MarkerSpreadingStore,
+  SpreadingPlanUnit,
 } from './marker-spreading-model.ts'
-import { buildMarkerSpreadingViewModel } from './marker-spreading-model.ts'
+import {
+  buildMarkerSpreadingViewModel,
+  buildSpreadingPlanUnitDisplayLabel,
+} from './marker-spreading-model.ts'
 import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers.ts'
 import {
   buildMarkerPlanProjection,
@@ -57,6 +61,12 @@ export interface MarkerSpreadingProjection {
   store: MarkerSpreadingStore
   viewModel: ReturnType<typeof buildMarkerSpreadingViewModel>
   createSources: SpreadingCreateSourceRow[]
+}
+
+export function buildSpreadingPlanUnitProjectionLabel(
+  planUnit: Pick<SpreadingPlanUnit, 'color' | 'materialSku' | 'garmentQtyPerUnit'>,
+): string {
+  return buildSpreadingPlanUnitDisplayLabel(planUnit)
 }
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {

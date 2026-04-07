@@ -762,6 +762,12 @@ function formatQty(value: number): string {
   return numberFormatter.format(Math.max(value, 0))
 }
 
+export function buildSpreadingPlanUnitDisplayLabel(
+  planUnit: Pick<SpreadingPlanUnit, 'color' | 'materialSku' | 'garmentQtyPerUnit'>,
+): string {
+  return `${planUnit.color || '待补颜色'} / ${planUnit.materialSku || '待补面料'} / ${formatQty(planUnit.garmentQtyPerUnit)}件`
+}
+
 function formatDateTime(value: string): string {
   return value || '待补'
 }
@@ -2166,7 +2172,7 @@ export function validateSpreadingCompletion(options: {
   }
 
   if (rolls.some((roll) => !String(roll.planUnitId || '').trim())) {
-    messages.push('存在卷记录尚未绑定计划单元，当前不能完成铺布。')
+    messages.push('存在卷记录尚未绑定排版项，当前不能完成铺布。')
   }
 
   if (markerTotalPieces <= 0) {
