@@ -21,7 +21,7 @@ import {
   escapeHtml,
   type PoLifecycle,
   type PoViewRow,
-} from './context'
+} from './context.ts'
 
 function renderOrderActionMenu(row: PoViewRow): string {
   const isOpen = state.orderActionMenuId === row.orderId

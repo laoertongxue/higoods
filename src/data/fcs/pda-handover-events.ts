@@ -799,6 +799,239 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
   ...PDA_GENERIC_HANDOUT_RECORDS,
 }
 
+function buildTaskBoardPickupRecordSeeds(head: PdaHandoverHead): PdaPickupRecord[] {
+  if (head.headType !== 'PICKUP') return []
+
+  if (head.taskId === 'TASKGEN-202603-0003-001__ORDER') {
+    return [
+      {
+        recordId: 'PKR-SEED-TASKGEN0003001-001',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: 1,
+        materialCode: 'FAB-SEW-0003',
+        materialName: '车缝主布',
+        materialSpec: '首批裁片',
+        skuCode: 'SKU-0003-A',
+        skuColor: '雾蓝',
+        skuSize: 'M',
+        pieceName: '主片',
+        pickupMode: 'WAREHOUSE_DELIVERY',
+        pickupModeLabel: '仓库配送到厂',
+        materialSummary: '车缝主布 / 主片',
+        qtyExpected: Math.max(head.qtyExpectedTotal, 120),
+        qtyActual: 0,
+        qtyUnit: head.qtyUnit || '件',
+        submittedAt: '2026-03-20 12:20:00',
+        status: 'PENDING_FACTORY_CONFIRM',
+        qrCodeValue: buildPickupQrCodeValue('PKR-SEED-TASKGEN0003001-001'),
+        warehouseHandedQty: Math.max(head.qtyExpectedTotal, 120),
+        warehouseHandedAt: '2026-03-20 12:15:00',
+        warehouseHandedBy: '一仓发料员',
+        remark: '首批已配送到厂，待工厂确认',
+      },
+    ]
+  }
+
+  if (head.taskId === 'TASKGEN-202603-0004-001__ORDER') {
+    return [
+      {
+        recordId: 'PKR-SEED-TASKGEN0004001-001',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: 1,
+        materialCode: 'FAB-SEW-0004',
+        materialName: '车缝主布',
+        materialSpec: '首批裁片',
+        skuCode: 'SKU-0004-A',
+        skuColor: '砂灰',
+        skuSize: 'L',
+        pieceName: '主片',
+        pickupMode: 'WAREHOUSE_DELIVERY',
+        pickupModeLabel: '仓库配送到厂',
+        materialSummary: '车缝主布 / 主片',
+        qtyExpected: Math.max(head.qtyExpectedTotal, 160),
+        qtyActual: Math.max(head.qtyExpectedTotal, 160),
+        qtyUnit: head.qtyUnit || '件',
+        submittedAt: '2026-03-20 15:40:00',
+        status: 'RECEIVED',
+        receivedAt: '2026-03-20 16:10:00',
+        qrCodeValue: buildPickupQrCodeValue('PKR-SEED-TASKGEN0004001-001'),
+        warehouseHandedQty: Math.max(head.qtyExpectedTotal, 160),
+        warehouseHandedAt: '2026-03-20 15:50:00',
+        warehouseHandedBy: '一仓发料员',
+        factoryConfirmedQty: Math.max(head.qtyExpectedTotal, 160),
+        factoryConfirmedAt: '2026-03-20 16:10:00',
+        remark: '整单已确认领料',
+      },
+    ]
+  }
+
+  if (head.taskId === 'TASKGEN-202603-0005-001__ORDER') {
+    return [
+      {
+        recordId: 'PKR-SEED-TASKGEN0005001-001',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: 1,
+        materialCode: 'FAB-SEW-0005',
+        materialName: '车缝主布',
+        materialSpec: '首批自提',
+        skuCode: 'SKU-0005-A',
+        skuColor: '深蓝',
+        skuSize: 'M',
+        pieceName: '主片',
+        pickupMode: 'FACTORY_PICKUP',
+        pickupModeLabel: '工厂到仓自提',
+        materialSummary: '车缝主布 / 主片',
+        qtyExpected: Math.max(head.qtyExpectedTotal, 140),
+        qtyUnit: head.qtyUnit || '件',
+        submittedAt: '2026-03-20 17:10:00',
+        status: 'OBJECTION_PROCESSING',
+        qrCodeValue: buildPickupQrCodeValue('PKR-SEED-TASKGEN0005001-001'),
+        warehouseHandedQty: Math.max(head.qtyExpectedTotal, 140),
+        warehouseHandedAt: '2026-03-20 17:00:00',
+        warehouseHandedBy: '二仓发料员',
+        factoryReportedQty: Math.max(head.qtyExpectedTotal - 28, 112),
+        exceptionCaseId: 'EX-PICKUP-TASKGEN0005001',
+        objectionReason: '工厂复点数量少于仓库交付数量',
+        objectionRemark: '差异待仓库复核处理',
+        objectionStatus: 'PROCESSING',
+        followUpRemark: '仓库正在复核并补传交付凭证',
+        remark: '数量差异处理中',
+      },
+    ]
+  }
+
+  return []
+}
+
+function buildTaskBoardHandoutRecordSeeds(head: PdaHandoverHead): PdaHandoverRecord[] {
+  if (head.headType !== 'HANDOUT') return []
+
+  if (head.taskId === 'TASKGEN-202603-0001-001__ORDER') {
+    return [
+      {
+        recordId: 'HOR-SEED-TASKGEN0001001-001',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: 1,
+        materialName: '车缝半成品',
+        materialSpec: '整单回货',
+        skuCode: 'SKU-0001-A',
+        skuColor: '黑色',
+        skuSize: 'M',
+        pieceName: '半成品包',
+        plannedQty: Math.max(head.qtyExpectedTotal, 180),
+        qtyUnit: head.qtyUnit || '件',
+        factorySubmittedAt: '2026-03-21 09:10:00',
+        factoryRemark: '仓库复核数量存在差异',
+        factoryProofFiles: [],
+        status: 'OBJECTION_PROCESSING',
+        objectionReason: '仓库回写数量与工厂提交数量不一致',
+        objectionRemark: '待平台核对后处理',
+        objectionStatus: 'PROCESSING',
+        followUpRemark: '仓库与工厂正在共同复核',
+      },
+    ]
+  }
+
+  if (head.taskId === 'TASKGEN-202603-0002-003__ORDER') {
+    return [
+      {
+        recordId: 'HOR-SEED-TASKGEN0002003-001',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: 1,
+        materialName: '特殊工艺半成品',
+        materialSpec: '首批回货',
+        skuCode: 'SKU-0002-C',
+        skuColor: '水洗蓝',
+        skuSize: '整单',
+        pieceName: '半成品包',
+        plannedQty: Math.max(head.qtyExpectedTotal, 120),
+        qtyUnit: head.qtyUnit || '件',
+        factorySubmittedAt: '2026-03-21 10:20:00',
+        factoryRemark: '已发起交出，待仓库回写',
+        factoryProofFiles: [],
+        status: 'PENDING_WRITEBACK',
+      },
+    ]
+  }
+
+  if (head.taskId === 'TASKGEN-202603-0002-005__ORDER') {
+    return [
+      {
+        recordId: 'HOR-SEED-TASKGEN0002005-001',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: 1,
+        materialName: '钉扣半成品',
+        materialSpec: '首批回货',
+        skuCode: 'SKU-0002-E',
+        skuColor: '暗红',
+        skuSize: '整单',
+        pieceName: '半成品包',
+        plannedQty: Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90),
+        qtyUnit: head.qtyUnit || '件',
+        factorySubmittedAt: '2026-03-21 11:00:00',
+        factoryRemark: '首批已回写',
+        factoryProofFiles: [],
+        status: 'WRITTEN_BACK',
+        warehouseReturnNo: 'RET-TASKGEN0002005-001',
+        warehouseWrittenQty: Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90),
+        warehouseWrittenAt: '2026-03-21 11:20:00',
+      },
+      {
+        recordId: 'HOR-SEED-TASKGEN0002005-002',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: 2,
+        materialName: '钉扣半成品',
+        materialSpec: '尾批回货',
+        skuCode: 'SKU-0002-E',
+        skuColor: '暗红',
+        skuSize: '整单',
+        pieceName: '半成品包',
+        plannedQty: Math.max(head.qtyExpectedTotal - Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90), 40),
+        qtyUnit: head.qtyUnit || '件',
+        factorySubmittedAt: '2026-03-21 11:45:00',
+        factoryRemark: '尾批待仓库确认',
+        factoryProofFiles: [],
+        status: 'PENDING_WRITEBACK',
+      },
+    ]
+  }
+
+  if (head.taskId === 'TASKGEN-202603-0008-001__ORDER') {
+    return [
+      {
+        recordId: 'HOR-SEED-TASKGEN0008001-001',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: 1,
+        materialName: '车缝半成品',
+        materialSpec: '整单回货',
+        skuCode: 'SKU-0008-A',
+        skuColor: '卡其',
+        skuSize: '整单',
+        pieceName: '半成品包',
+        plannedQty: Math.max(head.qtyExpectedTotal, 150),
+        qtyUnit: head.qtyUnit || '件',
+        factorySubmittedAt: '2026-03-21 12:10:00',
+        factoryRemark: '整单已回仓完成',
+        factoryProofFiles: [],
+        status: 'WRITTEN_BACK',
+        warehouseReturnNo: 'RET-TASKGEN0008001-001',
+        warehouseWrittenQty: Math.max(head.qtyExpectedTotal, 150),
+        warehouseWrittenAt: '2026-03-21 12:40:00',
+      },
+    ]
+  }
+
+  return []
+}
+
 headCompletionOverrides.set('HOH-MOCK-CUT-094', {
   completionStatus: 'COMPLETED',
   completedByWarehouseAt: '2026-03-22 10:45:00',
@@ -1121,13 +1354,16 @@ function getHeadCompletionOverride(handoverId: string): {
 
 function getPickupRecordsForHeadInternal(head: PdaHandoverHead): PdaPickupRecord[] {
   const mockRecords = PDA_MOCK_PICKUP_RECORDS[head.handoverId]?.map(clonePickupRecord) ?? []
+  const taskBoardSeedRecords = buildTaskBoardPickupRecordSeeds(head)
   const doc = head.sourceDocId ? (getWarehouseExecutionDocById(head.sourceDocId) as WarehouseIssueOrder | null) : null
   const baseRecords =
     mockRecords.length > 0
       ? mockRecords
+      : taskBoardSeedRecords.length > 0
+        ? taskBoardSeedRecords
       : doc && doc.docType === 'ISSUE'
-      ? doc.lines.map((line, index) => buildPickupLineRecord(head, doc, line, index))
-      : []
+        ? doc.lines.map((line, index) => buildPickupLineRecord(head, doc, line, index))
+        : []
 
   const appended = pickupRecordAdditions.get(head.handoverId) ?? []
   const merged = [...baseRecords, ...appended].map((record) => ({ ...record, ...(pickupRecordOverrides.get(record.recordId) ?? {}) }))
@@ -1139,13 +1375,16 @@ function getPickupRecordsForHeadInternal(head: PdaHandoverHead): PdaPickupRecord
 
 function getHandoutRecordsForHeadInternal(head: PdaHandoverHead): PdaHandoverRecord[] {
   const mockRecords = PDA_MOCK_HANDOUT_RECORDS[head.handoverId]?.map(cloneRecord) ?? []
+  const taskBoardSeedRecords = buildTaskBoardHandoutRecordSeeds(head)
   const doc = head.sourceDocId ? (getWarehouseExecutionDocById(head.sourceDocId) as WarehouseReturnOrder | null) : null
   const baseRecords =
     mockRecords.length > 0
       ? mockRecords
+      : taskBoardSeedRecords.length > 0
+        ? taskBoardSeedRecords
       : doc && doc.docType === 'RETURN'
-      ? doc.lines.map((line, index) => buildHandoutLineRecord(head, doc, line, index))
-      : []
+        ? doc.lines.map((line, index) => buildHandoutLineRecord(head, doc, line, index))
+        : []
 
   const appended = handoutRecordAdditions.get(head.handoverId) ?? []
   const merged = [...baseRecords, ...appended].map((record) => ({ ...record, ...(handoutRecordOverrides.get(record.recordId) ?? {}) }))

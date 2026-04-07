@@ -12,7 +12,7 @@ import {
   type TaskTabKey,
   type TaskStatus,
   type UrgeType,
-} from './context'
+} from './context.ts'
 import {
   showProgressBoardToast,
   copyToClipboard,
@@ -29,7 +29,7 @@ import {
   requestTaskStatusChange,
   createUrge,
   confirmTaskBlock,
-} from './actions'
+} from './actions.ts'
 
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
@@ -85,6 +85,18 @@ function updateField(field: string, node: HTMLElement): void {
 function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
   const taskId = actionNode.dataset.taskId
   const poId = actionNode.dataset.poId
+
+  if (action === 'task-open-pickup' && taskId) {
+    openTaskDetail(taskId)
+    state.taskDetailTab = 'pickup'
+    return true
+  }
+
+  if (action === 'task-open-handover' && taskId) {
+    openTaskDetail(taskId)
+    state.taskDetailTab = 'handover'
+    return true
+  }
 
   if (action === 'task-action-update-progress' && taskId) {
     openTaskDetail(taskId)
@@ -174,7 +186,7 @@ function handleOrderAction(action: string, actionNode: HTMLElement): boolean {
 }
 
 function handleAction(action: string, actionNode: HTMLElement): boolean {
-  if (action.startsWith('task-action-') && handleTaskAction(action, actionNode)) {
+  if ((action.startsWith('task-action-') || action.startsWith('task-open-')) && handleTaskAction(action, actionNode)) {
     return true
   }
 

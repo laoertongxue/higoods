@@ -941,6 +941,11 @@ seedCreatedDraft('TASK-202603-0004-002', 'warehouse_delivery', '2026-03-10 10:25
 seedCreatedDraft('TASK-202603-0005-001', 'factory_pickup', '2026-03-11 14:20:00', 'Budi Santoso', '待自提')
 seedCreatedDraft('TASK-202603-0006-001', 'warehouse_delivery', '2026-03-08 09:30:00', 'Mira Handayani', '待配料')
 seedCreatedDraft('TASK-202603-0006-002', 'warehouse_delivery', '2026-03-09 16:00:00', 'Mira Handayani', '已完成')
+seedCreatedDraft('TASKGEN-202603-0002-002__ORDER', 'warehouse_delivery', '2026-03-20 09:10:00', 'Mira Handayani', '待配料')
+seedCreatedDraft('TASKGEN-202603-0002-008__ORDER', 'warehouse_delivery', '2026-03-20 10:20:00', 'Mira Handayani', '待配送')
+seedCreatedDraft('TASKGEN-202603-0003-001__ORDER', 'warehouse_delivery', '2026-03-20 11:40:00', 'Mira Handayani', '待配送')
+seedCreatedDraft('TASKGEN-202603-0004-001__ORDER', 'warehouse_delivery', '2026-03-20 15:10:00', 'Mira Handayani', '已完成')
+seedCreatedDraft('TASKGEN-202603-0005-001__ORDER', 'factory_pickup', '2026-03-20 16:20:00', 'Budi Santoso', '待自提')
 
 const seedEditableDraft = materialRequestDrafts.find((draft) => draft.taskId === 'TASK-202603-0004-001')
 if (seedEditableDraft && seedEditableDraft.lines[0]) {

@@ -1,15 +1,15 @@
-import { appStore } from '../../state/store'
-import { escapeHtml, toClassName } from '../../utils'
+import { appStore } from '../../state/store.ts'
+import { escapeHtml, toClassName } from '../../utils.ts'
 import {
   type BlockReason,
   type ProcessTask,
   type TaskAssignmentStatus,
   type TaskAuditLog,
   type TaskStatus,
-} from '../../data/fcs/process-tasks'
-import { stageLabels, type ProcessStage } from '../../data/fcs/process-types'
-import { productionOrders, type ProductionOrder } from '../../data/fcs/production-orders'
-import { indonesiaFactories } from '../../data/fcs/indonesia-factories'
+} from '../../data/fcs/process-tasks.ts'
+import { stageLabels, type ProcessStage } from '../../data/fcs/process-types.ts'
+import { productionOrders, type ProductionOrder } from '../../data/fcs/production-orders.ts'
+import { indonesiaFactories } from '../../data/fcs/indonesia-factories.ts'
 import {
   generateCaseId,
   generateNotificationId,
@@ -25,20 +25,38 @@ import {
   type Severity,
   type UrgeLog,
   type UrgeType,
-} from '../../data/fcs/store-domain-progress'
-import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap'
-import { syncPdaStartRiskAndExceptions } from '../../data/fcs/pda-start-link'
-import { syncMilestoneOverdueExceptions } from '../../data/fcs/pda-exec-link'
+} from '../../data/fcs/store-domain-progress.ts'
+import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap.ts'
+import { syncPdaStartRiskAndExceptions } from '../../data/fcs/pda-start-link.ts'
+import { syncMilestoneOverdueExceptions } from '../../data/fcs/pda-exec-link.ts'
 import {
   buildHandoverOrderDetailLink,
   getHandoverLedgerRows,
   getProductionOrderHandoverSummary,
   getTaskHandoverSummary,
-} from '../../data/fcs/handover-ledger-view'
+} from '../../data/fcs/handover-ledger-view.ts'
+import {
+  listMaterialRequestDraftsByOrder,
+  type MaterialRequestDraft,
+  type MaterialRequestRecord,
+} from '../../data/fcs/material-request-drafts.ts'
+import {
+  listWarehouseExecutionDocsByRuntimeTaskId,
+  type WarehouseExecutionDoc,
+  type WarehouseIssueOrder,
+} from '../../data/fcs/warehouse-material-execution.ts'
+import {
+  getPdaHandoverRecordsByHead,
+  getPdaPickupRecordsByHead,
+  listPdaHandoverHeads,
+  type PdaHandoverHead,
+  type PdaHandoverRecord,
+  type PdaPickupRecord,
+} from '../../data/fcs/pda-handover-events.ts'
 import {
   getDefaultSubCategoryKeyFromReason,
   getUnifiedCategoryFromReason,
-} from '../../data/fcs/progress-exception-taxonomy'
+} from '../../data/fcs/progress-exception-taxonomy.ts'
 import {
   getTaskChainTaskById,
   getTaskChainTaskDisplayName,
@@ -46,7 +64,8 @@ import {
   listTaskChainTasks,
   type TaskChainTender,
   resolveTaskChainTenderId,
-} from '../../data/fcs/page-adapters/task-chain-pages-adapter'
+} from '../../data/fcs/page-adapters/task-chain-pages-adapter.ts'
+import { listProgressFacts, type ProgressFact } from '../../data/fcs/store-domain-progress.ts'
 
 applyQualitySeedBootstrap()
 
@@ -66,7 +85,70 @@ type PoLifecycle =
   | 'PENDING_SETTLEMENT'
   | 'CLOSED'
 
-type TaskTabKey = 'basic' | 'assignment' | 'progress' | 'block' | 'logs'
+type TaskTabKey = 'basic' | 'assignment' | 'progress' | 'pickup' | 'handover' | 'block' | 'logs'
+
+type TaskPickupStatusKey =
+  | 'NOT_INVOLVED'
+  | 'WAIT_REQUEST'
+  | 'WAIT_PREPARE'
+  | 'READY_TO_ISSUE'
+  | 'WAIT_PICKUP'
+  | 'RECEIVED'
+  | 'DIFFERENCE'
+
+type TaskHandoutStatusKey =
+  | 'NOT_INVOLVED'
+  | 'WAIT_HANDOUT'
+  | 'INITIATED'
+  | 'WAIT_WAREHOUSE_CONFIRM'
+  | 'DISPUTE'
+  | 'DONE'
+
+type TaskSummaryTone = 'slate' | 'amber' | 'blue' | 'green' | 'red'
+
+interface TaskPickupSummary {
+  statusKey: TaskPickupStatusKey
+  statusLabel: string
+  tone: TaskSummaryTone
+  hintText: string
+  latestOccurredAt: string
+  hasException: boolean
+  draftRows: MaterialRequestDraft[]
+  requestRows: MaterialRequestRecord[]
+  executionRows: WarehouseIssueOrder[]
+  pickupHeads: PdaHandoverHead[]
+  pickupRecords: PdaPickupRecord[]
+  canStart: boolean
+  readinessLabel: string
+  readinessReason: string
+}
+
+interface TaskHandoutSummary {
+  statusKey: TaskHandoutStatusKey
+  statusLabel: string
+  tone: TaskSummaryTone
+  hintText: string
+  latestOccurredAt: string
+  hasException: boolean
+  handoutHeads: PdaHandoverHead[]
+  handoutRecords: PdaHandoverRecord[]
+  nextActionLabel: string
+  disputeText?: string
+}
+
+interface TaskBoardSummaryCache {
+  allProgressFacts: ProgressFact[] | null
+  progressFactsByTaskId: Map<string, ProgressFact | undefined>
+  draftRowsByTaskId: Map<string, MaterialRequestDraft[]>
+  executionDocsByTaskId: Map<string, WarehouseExecutionDoc[]>
+  pickupHeadsByTaskId: Map<string, PdaHandoverHead[]>
+  handoutHeadsByTaskId: Map<string, PdaHandoverHead[]>
+  pickupRecordsByHeadId: Map<string, PdaPickupRecord[]>
+  handoutRecordsByHeadId: Map<string, PdaHandoverRecord[]>
+  pickupSummariesByTaskId: Map<string, TaskPickupSummary>
+  handoutSummariesByTaskId: Map<string, TaskHandoutSummary>
+  allHeads: PdaHandoverHead[] | null
+}
 
 interface PoViewRow {
   orderId: string
@@ -164,6 +246,24 @@ const state: ProgressBoardState = {
   taskActionMenuId: null,
   orderActionMenuId: null,
 }
+
+function createTaskBoardSummaryCache(): TaskBoardSummaryCache {
+  return {
+    allProgressFacts: null,
+    progressFactsByTaskId: new Map(),
+    draftRowsByTaskId: new Map(),
+    executionDocsByTaskId: new Map(),
+    pickupHeadsByTaskId: new Map(),
+    handoutHeadsByTaskId: new Map(),
+    pickupRecordsByHeadId: new Map(),
+    handoutRecordsByHeadId: new Map(),
+    pickupSummariesByTaskId: new Map(),
+    handoutSummariesByTaskId: new Map(),
+    allHeads: null,
+  }
+}
+
+let taskBoardSummaryCache = createTaskBoardSummaryCache()
 
 const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   NOT_STARTED: '待开始',
@@ -288,6 +388,455 @@ function getTaskDisplayName(task: ProcessTask): string {
 
 function getTaskById(taskId: string): ProcessTask | undefined {
   return getTaskChainTaskById(taskId)
+}
+
+function toTimestampNumber(value: string | undefined): number {
+  if (!value) return Number.NaN
+  return new Date(value.replace(' ', 'T')).getTime()
+}
+
+function pickLatestTimestamp(values: Array<string | undefined>): string {
+  return (
+    values
+      .filter((item): item is string => Boolean(item))
+      .sort((a, b) => toTimestampNumber(b) - toTimestampNumber(a))[0] ?? ''
+  )
+}
+
+function countBy<T>(rows: T[], matcher: (row: T) => boolean): number {
+  return rows.filter(matcher).length
+}
+
+function getAllHandoverHeads(): PdaHandoverHead[] {
+  if (!taskBoardSummaryCache.allHeads) {
+    taskBoardSummaryCache.allHeads = listPdaHandoverHeads()
+  }
+  return taskBoardSummaryCache.allHeads
+}
+
+function getAllProgressFacts(): ProgressFact[] {
+  if (!taskBoardSummaryCache.allProgressFacts) {
+    taskBoardSummaryCache.allProgressFacts = listProgressFacts()
+  }
+  return taskBoardSummaryCache.allProgressFacts
+}
+
+function getTaskProgressFact(taskId: string): ProgressFact | undefined {
+  if (!taskBoardSummaryCache.progressFactsByTaskId.has(taskId)) {
+    taskBoardSummaryCache.progressFactsByTaskId.set(
+      taskId,
+      getAllProgressFacts().find((fact) => fact.runtimeTaskId === taskId || fact.baseTaskId === taskId),
+    )
+  }
+  return taskBoardSummaryCache.progressFactsByTaskId.get(taskId)
+}
+
+function getTaskDraftRows(task: ProcessTask): MaterialRequestDraft[] {
+  if (!taskBoardSummaryCache.draftRowsByTaskId.has(task.taskId)) {
+    taskBoardSummaryCache.draftRowsByTaskId.set(
+      task.taskId,
+      listMaterialRequestDraftsByOrder(task.productionOrderId).filter((draft) => draft.taskId === task.taskId),
+    )
+  }
+  return taskBoardSummaryCache.draftRowsByTaskId.get(task.taskId) ?? []
+}
+
+function getTaskExecutionDocs(taskId: string): WarehouseExecutionDoc[] {
+  if (!taskBoardSummaryCache.executionDocsByTaskId.has(taskId)) {
+    taskBoardSummaryCache.executionDocsByTaskId.set(taskId, listWarehouseExecutionDocsByRuntimeTaskId(taskId))
+  }
+  return taskBoardSummaryCache.executionDocsByTaskId.get(taskId) ?? []
+}
+
+function getTaskPickupHeads(taskId: string): PdaHandoverHead[] {
+  if (!taskBoardSummaryCache.pickupHeadsByTaskId.has(taskId)) {
+    taskBoardSummaryCache.pickupHeadsByTaskId.set(
+      taskId,
+      getAllHandoverHeads()
+        .filter((head) => head.headType === 'PICKUP' && (head.runtimeTaskId === taskId || head.taskId === taskId))
+        .sort(
+          (a, b) =>
+            toTimestampNumber(b.lastRecordAt || b.completedByWarehouseAt) -
+            toTimestampNumber(a.lastRecordAt || a.completedByWarehouseAt),
+        ),
+    )
+  }
+  return taskBoardSummaryCache.pickupHeadsByTaskId.get(taskId) ?? []
+}
+
+function getTaskHandoutHeads(taskId: string): PdaHandoverHead[] {
+  if (!taskBoardSummaryCache.handoutHeadsByTaskId.has(taskId)) {
+    taskBoardSummaryCache.handoutHeadsByTaskId.set(
+      taskId,
+      getAllHandoverHeads()
+        .filter((head) => head.headType === 'HANDOUT' && (head.runtimeTaskId === taskId || head.taskId === taskId))
+        .sort(
+          (a, b) =>
+            toTimestampNumber(b.lastRecordAt || b.completedByWarehouseAt) -
+            toTimestampNumber(a.lastRecordAt || a.completedByWarehouseAt),
+        ),
+    )
+  }
+  return taskBoardSummaryCache.handoutHeadsByTaskId.get(taskId) ?? []
+}
+
+function getPickupRecordsForHead(headId: string): PdaPickupRecord[] {
+  if (!taskBoardSummaryCache.pickupRecordsByHeadId.has(headId)) {
+    taskBoardSummaryCache.pickupRecordsByHeadId.set(headId, getPdaPickupRecordsByHead(headId))
+  }
+  return taskBoardSummaryCache.pickupRecordsByHeadId.get(headId) ?? []
+}
+
+function getHandoutRecordsForHead(headId: string): PdaHandoverRecord[] {
+  if (!taskBoardSummaryCache.handoutRecordsByHeadId.has(headId)) {
+    taskBoardSummaryCache.handoutRecordsByHeadId.set(headId, getPdaHandoverRecordsByHead(headId))
+  }
+  return taskBoardSummaryCache.handoutRecordsByHeadId.get(headId) ?? []
+}
+
+function getTaskPickupSummary(taskId: string): TaskPickupSummary {
+  const cached = taskBoardSummaryCache.pickupSummariesByTaskId.get(taskId)
+  if (cached) return cached
+
+  const task = getTaskById(taskId)
+  const fact = task ? getTaskProgressFact(task.taskId) : undefined
+  const draftRows = task ? getTaskDraftRows(task) : []
+  const requestRows = fact?.materialRequests ?? []
+  const executionRows = getTaskExecutionDocs(taskId).filter((doc): doc is WarehouseIssueOrder => doc.docType === 'ISSUE')
+  const pickupHeads = getTaskPickupHeads(taskId)
+  const pickupRecords = pickupHeads.flatMap((head) => getPickupRecordsForHead(head.handoverId))
+  const latestOccurredAt = pickLatestTimestamp([
+    ...draftRows.map((row) => row.updatedAt),
+    ...requestRows.map((row) => row.updatedAt),
+    ...executionRows.map((row) => row.updatedAt),
+    ...pickupHeads.map((row) => row.lastRecordAt || row.completedByWarehouseAt),
+    ...pickupRecords.map(
+      (row) =>
+        row.finalResolvedAt ||
+        row.factoryConfirmedAt ||
+        row.receivedAt ||
+        row.warehouseHandedAt ||
+        row.submittedAt,
+    ),
+  ])
+  const hasDifference = pickupRecords.some((record) =>
+    ['OBJECTION_REPORTED', 'OBJECTION_PROCESSING', 'OBJECTION_RESOLVED'].includes(record.status),
+  )
+  const finalReceivedCount = countBy(
+    pickupRecords,
+    (record) => record.status === 'RECEIVED' || record.status === 'OBJECTION_RESOLVED',
+  )
+  const waitingConfirmCount = countBy(pickupRecords, (record) => record.status === 'PENDING_FACTORY_CONFIRM')
+  const waitingPickupCount = countBy(pickupRecords, (record) => record.status === 'PENDING_FACTORY_PICKUP')
+  const preparingCount = countBy(
+    executionRows,
+    (row) => row.status === 'PREPARING' || row.status === 'PARTIALLY_PREPARED',
+  )
+  const readyCount = countBy(
+    executionRows,
+    (row) => ['READY', 'ISSUED', 'IN_TRANSIT', 'RECEIVED', 'CLOSED'].includes(row.status),
+  )
+  const canStart = fact?.startReadiness.canStart ?? false
+  const readinessLabel = canStart ? '可开工' : '暂不可开工'
+  const readinessReason = fact?.startReadiness.reasonText ?? '当前任务暂无开工校验信息'
+
+  if (!task || (!draftRows.length && !requestRows.length && !executionRows.length && !pickupHeads.length && !pickupRecords.length)) {
+    const summary = {
+      statusKey: 'NOT_INVOLVED',
+      statusLabel: '不涉及领料',
+      tone: 'slate',
+      hintText: '当前任务暂无独立领料链路',
+      latestOccurredAt: '',
+      hasException: false,
+      draftRows,
+      requestRows,
+      executionRows,
+      pickupHeads,
+      pickupRecords,
+      canStart,
+      readinessLabel,
+      readinessReason,
+    }
+    taskBoardSummaryCache.pickupSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (hasDifference) {
+    const summary = {
+      statusKey: 'DIFFERENCE',
+      statusLabel: '领料差异',
+      tone: 'red',
+      hintText: '数量不一致，待处理',
+      latestOccurredAt,
+      hasException: true,
+      draftRows,
+      requestRows,
+      executionRows,
+      pickupHeads,
+      pickupRecords,
+      canStart,
+      readinessLabel,
+      readinessReason,
+    }
+    taskBoardSummaryCache.pickupSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (finalReceivedCount > 0 && finalReceivedCount === pickupRecords.length && pickupRecords.length > 0) {
+    const summary = {
+      statusKey: 'RECEIVED',
+      statusLabel: '已领料',
+      tone: 'green',
+      hintText: `已领 ${finalReceivedCount} 张领料单`,
+      latestOccurredAt,
+      hasException: false,
+      draftRows,
+      requestRows,
+      executionRows,
+      pickupHeads,
+      pickupRecords,
+      canStart,
+      readinessLabel,
+      readinessReason,
+    }
+    taskBoardSummaryCache.pickupSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (!requestRows.length && draftRows.length > 0) {
+    const summary = {
+      statusKey: 'WAIT_REQUEST',
+      statusLabel: '待生成发料单',
+      tone: 'amber',
+      hintText: `${draftRows.length} 张需求草稿 / 待跟单确认`,
+      latestOccurredAt,
+      hasException: false,
+      draftRows,
+      requestRows,
+      executionRows,
+      pickupHeads,
+      pickupRecords,
+      canStart,
+      readinessLabel,
+      readinessReason,
+    }
+    taskBoardSummaryCache.pickupSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (preparingCount > 0) {
+    const summary = {
+      statusKey: 'WAIT_PREPARE',
+      statusLabel: '待备料',
+      tone: 'amber',
+      hintText: `${preparingCount} 张发料单 / 仓库备料中`,
+      latestOccurredAt,
+      hasException: false,
+      draftRows,
+      requestRows,
+      executionRows,
+      pickupHeads,
+      pickupRecords,
+      canStart,
+      readinessLabel,
+      readinessReason,
+    }
+    taskBoardSummaryCache.pickupSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (waitingConfirmCount > 0 || (finalReceivedCount > 0 && finalReceivedCount < pickupRecords.length)) {
+    const summary = {
+      statusKey: 'WAIT_PICKUP',
+      statusLabel: '待领料',
+      tone: 'blue',
+      hintText: `${Math.max(waitingConfirmCount, pickupHeads.length || pickupRecords.length)} 张发料单 / 待工厂确认`,
+      latestOccurredAt,
+      hasException: false,
+      draftRows,
+      requestRows,
+      executionRows,
+      pickupHeads,
+      pickupRecords,
+      canStart,
+      readinessLabel,
+      readinessReason,
+    }
+    taskBoardSummaryCache.pickupSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (waitingPickupCount > 0 || readyCount > 0) {
+    const summary = {
+      statusKey: 'READY_TO_ISSUE',
+      statusLabel: '已备齐待出库',
+      tone: 'blue',
+      hintText: '已备齐，待仓库出库',
+      latestOccurredAt,
+      hasException: false,
+      draftRows,
+      requestRows,
+      executionRows,
+      pickupHeads,
+      pickupRecords,
+      canStart,
+      readinessLabel,
+      readinessReason,
+    }
+    taskBoardSummaryCache.pickupSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  const summary = {
+    statusKey: 'WAIT_PREPARE',
+    statusLabel: '待备料',
+    tone: 'amber',
+    hintText: `${Math.max(requestRows.length, 1)} 张发料单 / 待仓库处理`,
+    latestOccurredAt,
+    hasException: false,
+    draftRows,
+    requestRows,
+    executionRows,
+    pickupHeads,
+    pickupRecords,
+    canStart,
+    readinessLabel,
+    readinessReason,
+  }
+  taskBoardSummaryCache.pickupSummariesByTaskId.set(taskId, summary)
+  return summary
+}
+
+function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
+  const cached = taskBoardSummaryCache.handoutSummariesByTaskId.get(taskId)
+  if (cached) return cached
+
+  const task = getTaskById(taskId)
+  const fact = task ? getTaskProgressFact(task.taskId) : undefined
+  const handoutHeads = getTaskHandoutHeads(taskId)
+  const handoutRecords = handoutHeads.flatMap((head) => getHandoutRecordsForHead(head.handoverId))
+  const latestOccurredAt = pickLatestTimestamp([
+    ...handoutHeads.map((row) => row.lastRecordAt || row.completedByWarehouseAt),
+    ...handoutRecords.map((row) => row.warehouseWrittenAt || row.factorySubmittedAt),
+  ])
+  const objectionRows = handoutRecords.filter((record) =>
+    ['OBJECTION_REPORTED', 'OBJECTION_PROCESSING', 'OBJECTION_RESOLVED'].includes(record.status),
+  )
+  const completedRows = handoutRecords.filter((record) => record.status === 'WRITTEN_BACK')
+  const pendingRows = handoutRecords.filter((record) => record.status === 'PENDING_WRITEBACK')
+  const returnDocs = fact?.executionDocs.filter((doc) => doc.docType === 'RETURN') ?? []
+  const allReturnDocsPlanned = returnDocs.length > 0 && returnDocs.every((doc) => doc.status === 'PLANNED')
+  const hasSeededRecord = handoutRecords.some((record) => record.recordId.includes('SEED'))
+  const disputeText =
+    objectionRows[0]?.objectionReason ??
+    objectionRows[0]?.objectionRemark ??
+    objectionRows[0]?.resolvedRemark ??
+    objectionRows[0]?.followUpRemark ??
+    ''
+
+  if (
+    !task ||
+    (!handoutHeads.length &&
+      !handoutRecords.length &&
+      (fact?.transitionToNext === 'SAME_FACTORY_CONTINUE' || fact?.transitionToNext === 'NOT_APPLICABLE'))
+  ) {
+    const summary = {
+      statusKey: 'NOT_INVOLVED',
+      statusLabel: '不涉及交出',
+      tone: 'slate',
+      hintText: '当前任务暂无独立交出动作',
+      latestOccurredAt: '',
+      hasException: false,
+      handoutHeads,
+      handoutRecords,
+      nextActionLabel: '当前任务不涉及交出',
+    }
+    taskBoardSummaryCache.handoutSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (objectionRows.length > 0 || handoutHeads.some((head) => head.summaryStatus === 'HAS_OBJECTION')) {
+    const summary = {
+      statusKey: 'DISPUTE',
+      statusLabel: '交出异议中',
+      tone: 'red',
+      hintText: '数量差异待处理',
+      latestOccurredAt,
+      hasException: true,
+      handoutHeads,
+      handoutRecords,
+      nextActionLabel: '先处理交出异议，再继续回写',
+      disputeText,
+    }
+    taskBoardSummaryCache.handoutSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (completedRows.length > 0 && completedRows.length === handoutRecords.length && handoutRecords.length > 0) {
+    const summary = {
+      statusKey: 'DONE',
+      statusLabel: '已交出完成',
+      tone: 'green',
+      hintText: '已完成交出',
+      latestOccurredAt,
+      hasException: false,
+      handoutHeads,
+      handoutRecords,
+      nextActionLabel: '交出已完成，无需额外处理',
+    }
+    taskBoardSummaryCache.handoutSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (pendingRows.length > 0 && completedRows.length > 0) {
+    const summary = {
+      statusKey: 'WAIT_WAREHOUSE_CONFIRM',
+      statusLabel: '待仓库确认',
+      tone: 'blue',
+      hintText: `${pendingRows.length} 条交出记录 / 待仓库确认`,
+      latestOccurredAt,
+      hasException: false,
+      handoutHeads,
+      handoutRecords,
+      nextActionLabel: '等待仓库完成剩余回写',
+    }
+    taskBoardSummaryCache.handoutSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  if (pendingRows.length > 0 && (hasSeededRecord || !allReturnDocsPlanned)) {
+    const summary = {
+      statusKey: 'INITIATED',
+      statusLabel: '已发起交出',
+      tone: 'amber',
+      hintText: `${handoutHeads.length || pendingRows.length} 张交出单 / 待仓库确认`,
+      latestOccurredAt,
+      hasException: false,
+      handoutHeads,
+      handoutRecords,
+      nextActionLabel: '继续跟踪仓库回写结果',
+    }
+    taskBoardSummaryCache.handoutSummariesByTaskId.set(taskId, summary)
+    return summary
+  }
+
+  const summary = {
+    statusKey: 'WAIT_HANDOUT',
+    statusLabel: '待交出',
+    tone: 'amber',
+    hintText: handoutHeads.length > 0 ? '已生成交出单，待工厂发起交出' : '当前任务尚未发起交出',
+    latestOccurredAt,
+    hasException: false,
+    handoutHeads,
+    handoutRecords,
+    nextActionLabel: '等待工厂发起交出',
+  }
+  taskBoardSummaryCache.handoutSummariesByTaskId.set(taskId, summary)
+  return summary
+}
+
+function resetTaskBoardSummaryCache(): void {
+  taskBoardSummaryCache = createTaskBoardSummaryCache()
 }
 
 function getTaskTenderId(task: ProcessTask): string | undefined {
@@ -692,6 +1241,10 @@ export {
   listBoardTasks,
   getTaskDisplayName,
   getTaskById,
+  resetTaskBoardSummaryCache,
+  getTaskPickupSummary,
+  getTaskHandoutSummary,
+  getTaskProgressFact,
   getTaskTenderId,
   getTaskDependencies,
   getOrderSpuCode,
@@ -726,6 +1279,9 @@ export type {
   TaskTabKey,
   PoViewRow,
   ProgressBoardState,
+  TaskPickupSummary,
+  TaskHandoutSummary,
+  TaskSummaryTone,
   BlockReason,
   ProcessTask,
   TaskAssignmentStatus,

@@ -31,7 +31,7 @@ import {
   type Severity,
   type UrgeLog,
   type UrgeType,
-} from './context'
+} from './context.ts'
 
 function getExceptionsByTaskId(taskId: string): ExceptionCase[] {
   return listProgressExceptions().filter((item) => item.relatedTaskIds.includes(taskId))

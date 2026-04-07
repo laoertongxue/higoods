@@ -3,13 +3,14 @@ import {
   syncPdaStartRiskAndExceptions,
   syncMilestoneOverdueExceptions,
   syncPresetFromQuery,
+  resetTaskBoardSummaryCache,
   getFilteredTasks,
   getPoViewRows,
   renderBadge,
   type ProcessTask,
-} from './context'
-import { renderTaskDimension, renderTaskDrawer, renderBlockDialog, renderBatchConfirmDialog } from './task-domain'
-import { renderOrderDimension, renderOrderDrawer } from './order-domain'
+} from './context.ts'
+import { renderTaskDimension, renderTaskDrawer, renderBlockDialog, renderBatchConfirmDialog } from './task-domain.ts'
+import { renderOrderDimension, renderOrderDrawer } from './order-domain.ts'
 
 function renderHeader(filteredTasks: ProcessTask[]): string {
   const selectedCount = state.selectedTaskIds.length
@@ -72,10 +73,10 @@ export function renderProgressBoardPage(): string {
   syncPdaStartRiskAndExceptions()
   syncMilestoneOverdueExceptions()
   syncPresetFromQuery()
+  resetTaskBoardSummaryCache()
 
   const filteredTasks = getFilteredTasks()
   const poRows = getPoViewRows()
-
   return `
     <div class="space-y-4">
       ${renderHeader(filteredTasks)}
