@@ -133,6 +133,26 @@ import {
   isPatternTaskDialogOpen,
 } from '../pages/pcs-pattern-task'
 import {
+  handlePcsPatternLibraryEvent,
+  handlePcsPatternLibraryInput,
+  isPcsPatternLibraryDialogOpen,
+} from '../pages/pcs-pattern-library'
+import {
+  handlePcsPatternLibraryCreateEvent,
+  handlePcsPatternLibraryCreateInput,
+  isPcsPatternLibraryCreateDialogOpen,
+} from '../pages/pcs-pattern-library-create'
+import {
+  handlePcsPatternLibraryDetailEvent,
+  handlePcsPatternLibraryDetailInput,
+  isPcsPatternLibraryDetailDialogOpen,
+} from '../pages/pcs-pattern-library-detail'
+import {
+  handlePcsPatternLibraryConfigEvent,
+  handlePcsPatternLibraryConfigInput,
+  isPcsPatternLibraryConfigDialogOpen,
+} from '../pages/pcs-pattern-library-config'
+import {
   handleFirstOrderSampleEvent,
   handleFirstOrderSampleInput,
   isFirstOrderSampleDialogOpen,
@@ -204,6 +224,10 @@ export function dispatchPcsPageEvent(target: HTMLElement): boolean {
     handlePlateMakingEvent(target) ||
     handlePcsPartTemplateLibraryEvent(target) ||
     handlePatternTaskEvent(target) ||
+    handlePcsPatternLibraryEvent(target) ||
+    handlePcsPatternLibraryCreateEvent(target) ||
+    handlePcsPatternLibraryDetailEvent(target) ||
+    handlePcsPatternLibraryConfigEvent(target) ||
     handleFirstOrderSampleEvent(target) ||
     handlePreProductionSampleEvent(target) ||
     handleProductSpuEvent(target) ||
@@ -223,6 +247,10 @@ export function dispatchPcsInputEvent(target: Element): boolean {
     handlePlateMakingInput(target) ||
     handlePcsPartTemplateLibraryInput(target) ||
     handlePatternTaskInput(target) ||
+    handlePcsPatternLibraryInput(target) ||
+    handlePcsPatternLibraryCreateInput(target) ||
+    handlePcsPatternLibraryDetailInput(target) ||
+    handlePcsPatternLibraryConfigInput(target) ||
     handleFirstOrderSampleInput(target) ||
     handlePreProductionSampleInput(target) ||
     handleProductSpuInput(target) ||
@@ -274,6 +302,27 @@ export function closePcsDialogsOnEscape(): boolean {
     fakeButton.dataset.pcsTemplateDetailAction = 'close-dialog'
     handlePcsTemplateDetailEvent(fakeButton)
     return true
+  }
+
+  if (isPcsPatternLibraryDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.patternLibraryAction = 'close-preview'
+    handlePcsPatternLibraryEvent(fakeButton)
+    fakeButton.dataset.patternLibraryAction = 'close-batch-drawer'
+    handlePcsPatternLibraryEvent(fakeButton)
+    return true
+  }
+
+  if (isPcsPatternLibraryCreateDialogOpen()) {
+    return false
+  }
+
+  if (isPcsPatternLibraryDetailDialogOpen()) {
+    return false
+  }
+
+  if (isPcsPatternLibraryConfigDialogOpen()) {
+    return false
   }
 
   if (isPcsTemplateEditorDialogOpen()) {

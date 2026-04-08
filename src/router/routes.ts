@@ -45,6 +45,10 @@ import { renderRevisionTaskPage } from '../pages/pcs-revision-task'
 import { renderPlateMakingPage } from '../pages/pcs-plate-making'
 import { renderPcsPartTemplateLibraryPage } from '../pages/pcs-part-template-library'
 import { renderPatternTaskPage } from '../pages/pcs-pattern-task'
+import { renderPcsPatternLibraryPage } from '../pages/pcs-pattern-library'
+import { renderPcsPatternLibraryCreatePage } from '../pages/pcs-pattern-library-create'
+import { renderPcsPatternLibraryDetailPage } from '../pages/pcs-pattern-library-detail'
+import { renderPcsPatternLibraryConfigPage } from '../pages/pcs-pattern-library-config'
 import { renderFirstOrderSamplePage } from '../pages/pcs-first-order-sample'
 import { renderPreProductionSamplePage } from '../pages/pcs-pre-production-sample'
 import { renderCapabilityPage } from '../pages/capability'
@@ -231,6 +235,9 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/patterns/revision': () => renderRevisionTaskPage(),
   '/pcs/patterns/plate-making': () => renderPlateMakingPage(),
   '/pcs/patterns/artwork': () => renderPatternTaskPage(),
+  '/pcs/pattern-library': () => renderPcsPatternLibraryPage(),
+  '/pcs/pattern-library/create': () => renderPcsPatternLibraryCreatePage(),
+  '/pcs/pattern-library/config': () => renderPcsPatternLibraryConfigPage(),
   '/pcs/products/spu': () => renderProductSpuPage(),
   '/pcs/products/sku': () => renderProductSkuPage(),
   '/pcs/products/yarn': () => renderProductYarnPage(),
@@ -414,6 +421,10 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/pcs\/work-items\/([^/]+)$/,
     render: (match) => renderPcsWorkItemDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/pcs\/pattern-library\/([^/]+)$/,
+    render: (match) => renderPcsPatternLibraryDetailPage(match[1]),
   },
   {
     pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,

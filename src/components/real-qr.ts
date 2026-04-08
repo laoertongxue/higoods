@@ -12,6 +12,8 @@ interface RealQrPlaceholderOptions {
 }
 
 const qrRootMap = new WeakMap<Element, Root>()
+const pendingQrNodes = new Set<HTMLElement>()
+let qrHydrationScheduled = false
 
 function normalizeSize(size: number | undefined, fallback: number): number {
   if (!Number.isFinite(size)) return fallback
@@ -59,7 +61,36 @@ function mountRealQr(node: HTMLElement): void {
   node.dataset.realQrHydrated = 'true'
 }
 
+function scheduleFlush(): void {
+  if (qrHydrationScheduled) return
+  qrHydrationScheduled = true
+
+  const run =
+    typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame.bind(window)
+      : (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 16)
+
+  run(() => {
+    const nextNode = pendingQrNodes.values().next().value as HTMLElement | undefined
+    if (nextNode) {
+      pendingQrNodes.delete(nextNode)
+      mountRealQr(nextNode)
+    }
+
+    qrHydrationScheduled = false
+    if (pendingQrNodes.size > 0) {
+      scheduleFlush()
+    }
+  })
+}
+
 export function hydrateRealQRCodes(root: ParentNode | Document = document): void {
   const nodes = Array.from(root.querySelectorAll<HTMLElement>('[data-real-qr]'))
-  nodes.forEach((node) => mountRealQr(node))
+  nodes.forEach((node) => {
+    if (node.dataset.realQrHydrated === 'true') return
+    pendingQrNodes.add(node)
+  })
+  if (pendingQrNodes.size > 0) {
+    scheduleFlush()
+  }
 }

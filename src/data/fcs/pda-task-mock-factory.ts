@@ -132,8 +132,16 @@ export interface PdaTaskMockHandoutRecordSeed {
   taskId: string
   materialName: string
   materialSpec: string
+  materialCode?: string
+  skuCode?: string
+  skuColor?: string
+  skuSize?: string
+  pieceName?: string
   plannedQty: number
   qtyUnit: string
+  handoutObjectType?: 'GARMENT' | 'CUT_PIECE' | 'FABRIC'
+  handoutItemLabel?: string
+  garmentEquivalentQty?: number
   factorySubmittedAt: string
   status:
     | 'PENDING_WRITEBACK'
@@ -166,6 +174,28 @@ interface GenericProcessProfile {
   blockedReason: BlockReason
   blockedRemark: string
   biddingFactoryPoolCount?: number
+}
+
+function getHandoutObjectTypeForProcess(
+  key: GenericProcessProfile['key'],
+): 'GARMENT' | 'CUT_PIECE' | 'FABRIC' {
+  if (key === 'PRINTING') return 'CUT_PIECE'
+  if (key === 'DYEING') return 'FABRIC'
+  return 'GARMENT'
+}
+
+function getHandoutQtyUnitForProcess(key: GenericProcessProfile['key']): string {
+  if (key === 'PRINTING') return '片'
+  if (key === 'DYEING') return '卷'
+  return '件'
+}
+
+function roundQty(value: number): number {
+  return Math.max(0, Math.round(value * 100) / 100)
+}
+
+function getGarmentEquivalentQty(pieceQty: number, pieceCountPerGarment = 2): number {
+  return roundQty(pieceQty / pieceCountPerGarment)
 }
 
 const PROCESS_DEFINITION_BY_KEY = new Map(
@@ -900,6 +930,232 @@ function buildHandoverSeeds(
   const pickupHeadId = `PKH-MOCK-${profile.taskPrefix}-${String(baseIndex).padStart(3, '0')}`
   const openHandoutHeadId = `HOH-MOCK-${profile.taskPrefix}-${String(baseIndex + 1).padStart(3, '0')}`
   const doneHandoutHeadId = `HOH-MOCK-${profile.taskPrefix}-${String(baseIndex + 2).padStart(3, '0')}`
+  const handoutObjectType = getHandoutObjectTypeForProcess(profile.key)
+  const handoutQtyUnit = getHandoutQtyUnitForProcess(profile.key)
+
+  const openHandoutRecords: PdaTaskMockHandoutRecordSeed[] =
+    handoutObjectType === 'CUT_PIECE'
+      ? [
+          {
+            handoverId: openHandoutHeadId,
+            recordId: `${openHandoutHeadId}-001`,
+            taskId: openHandoutTask.taskId,
+            materialCode: `${profile.taskPrefix}-CUT-001`,
+            materialName: '印花裁片',
+            materialSpec: '前片印花首批',
+            skuCode: `${profile.taskPrefix}-SKU-001`,
+            skuColor: '标准色',
+            skuSize: 'M',
+            pieceName: '前片',
+            plannedQty: Math.max(Math.round(openHandoutTask.qty * 0.68), 96),
+            qtyUnit: handoutQtyUnit,
+            handoutObjectType,
+            handoutItemLabel: `标准色 / ${profile.taskPrefix}-SKU-001 / ${Math.max(Math.round(openHandoutTask.qty * 0.68), 96)}片 / 前片`,
+            garmentEquivalentQty: getGarmentEquivalentQty(Math.max(Math.round(openHandoutTask.qty * 0.68), 96)),
+            factorySubmittedAt: nowLike(28, '15:30:00'),
+            status: 'WRITTEN_BACK',
+            warehouseReturnNo: `RET-WB-${profile.taskPrefix}-01`,
+            warehouseWrittenQty: Math.max(Math.round(openHandoutTask.qty * 0.68), 96),
+            warehouseWrittenAt: nowLike(28, '15:55:00'),
+            factoryRemark: '前片已完成仓库回写',
+          },
+          {
+            handoverId: openHandoutHeadId,
+            recordId: `${openHandoutHeadId}-002`,
+            taskId: openHandoutTask.taskId,
+            materialCode: `${profile.taskPrefix}-CUT-002`,
+            materialName: '印花裁片',
+            materialSpec: '后片尾批交出',
+            skuCode: `${profile.taskPrefix}-SKU-002`,
+            skuColor: '标准色',
+            skuSize: 'L',
+            pieceName: '后片',
+            plannedQty: Math.max(Math.round(openHandoutTask.qty * 0.52), 84),
+            qtyUnit: handoutQtyUnit,
+            handoutObjectType,
+            handoutItemLabel: `标准色 / ${profile.taskPrefix}-SKU-002 / ${Math.max(Math.round(openHandoutTask.qty * 0.52), 84)}片 / 后片`,
+            garmentEquivalentQty: getGarmentEquivalentQty(Math.max(Math.round(openHandoutTask.qty * 0.52), 84)),
+            factorySubmittedAt: nowLike(28, '17:00:00'),
+            status: 'PENDING_WRITEBACK',
+            factoryRemark: '后片尾批待仓库回写',
+          },
+        ]
+      : handoutObjectType === 'FABRIC'
+        ? [
+            {
+              handoverId: openHandoutHeadId,
+              recordId: `${openHandoutHeadId}-001`,
+              taskId: openHandoutTask.taskId,
+              materialCode: `${profile.taskPrefix}-FAB-001`,
+              materialName: '染色主布',
+              materialSpec: '主布首批回仓',
+              skuCode: `${profile.taskPrefix}-FABRIC-001`,
+              skuColor: '标准色',
+              skuSize: '整单',
+              plannedQty: Math.max(Math.round(openHandoutTask.qty * 0.008), 4),
+              qtyUnit: handoutQtyUnit,
+              handoutObjectType,
+              handoutItemLabel: `标准色 / ${profile.taskPrefix}-FABRIC-001 / ${Math.max(Math.round(openHandoutTask.qty * 0.008), 4)}卷`,
+              factorySubmittedAt: nowLike(28, '15:30:00'),
+              status: 'WRITTEN_BACK',
+              warehouseReturnNo: `RET-WB-${profile.taskPrefix}-01`,
+              warehouseWrittenQty: Math.max(Math.round(openHandoutTask.qty * 0.008), 4),
+              warehouseWrittenAt: nowLike(28, '15:55:00'),
+              factoryRemark: '主布首批已回仓',
+            },
+            {
+              handoverId: openHandoutHeadId,
+              recordId: `${openHandoutHeadId}-002`,
+              taskId: openHandoutTask.taskId,
+              materialCode: `${profile.taskPrefix}-FAB-002`,
+              materialName: '染色主布',
+              materialSpec: '主布尾批回仓',
+              skuCode: `${profile.taskPrefix}-FABRIC-002`,
+              skuColor: '标准色',
+              skuSize: '整单',
+              plannedQty: Math.max(Math.round(openHandoutTask.qty * 0.006), 3),
+              qtyUnit: handoutQtyUnit,
+              handoutObjectType,
+              handoutItemLabel: `标准色 / ${profile.taskPrefix}-FABRIC-002 / ${Math.max(Math.round(openHandoutTask.qty * 0.006), 3)}卷`,
+              factorySubmittedAt: nowLike(28, '17:00:00'),
+              status: 'PENDING_WRITEBACK',
+              factoryRemark: '主布尾批待仓库回写',
+            },
+          ]
+        : [
+            {
+              handoverId: openHandoutHeadId,
+              recordId: `${openHandoutHeadId}-001`,
+              taskId: openHandoutTask.taskId,
+              materialCode: `${profile.taskPrefix}-GAR-001`,
+              materialName: `${profile.processNameZh}成衣`,
+              materialSpec: `${profile.processNameZh}首批交出`,
+              skuCode: `${profile.taskPrefix}-SKU-001`,
+              skuColor: '标准色',
+              skuSize: '整单',
+              pieceName: '成衣包',
+              plannedQty: Math.max(Math.round(openHandoutTask.qty * 0.34), 60),
+              qtyUnit: handoutQtyUnit,
+              handoutObjectType,
+              handoutItemLabel: `标准色 / ${profile.taskPrefix}-SKU-001 / ${Math.max(Math.round(openHandoutTask.qty * 0.34), 60)}件`,
+              factorySubmittedAt: nowLike(28, '15:30:00'),
+              status: 'WRITTEN_BACK',
+              warehouseReturnNo: `RET-WB-${profile.taskPrefix}-01`,
+              warehouseWrittenQty: Math.max(Math.round(openHandoutTask.qty * 0.34), 60),
+              warehouseWrittenAt: nowLike(28, '15:55:00'),
+              factoryRemark: '首批已完成仓库回写',
+            },
+            {
+              handoverId: openHandoutHeadId,
+              recordId: `${openHandoutHeadId}-002`,
+              taskId: openHandoutTask.taskId,
+              materialCode: `${profile.taskPrefix}-GAR-002`,
+              materialName: `${profile.processNameZh}成衣`,
+              materialSpec: `${profile.processNameZh}尾批交出`,
+              skuCode: `${profile.taskPrefix}-SKU-002`,
+              skuColor: '标准色',
+              skuSize: '整单',
+              pieceName: '成衣包',
+              plannedQty: Math.max(Math.round(openHandoutTask.qty * 0.26), 48),
+              qtyUnit: handoutQtyUnit,
+              handoutObjectType,
+              handoutItemLabel: `标准色 / ${profile.taskPrefix}-SKU-002 / ${Math.max(Math.round(openHandoutTask.qty * 0.26), 48)}件`,
+              factorySubmittedAt: nowLike(28, '17:00:00'),
+              status: profile.key === 'QC' ? 'OBJECTION_REPORTED' : 'PENDING_WRITEBACK',
+              factoryRemark: profile.key === 'QC' ? '数量异议待仓库确认' : '尾批待仓库回写',
+              objectionReason: profile.key === 'QC' ? '抽检不合格数量差异' : undefined,
+              objectionRemark: profile.key === 'QC' ? '待复核差异责任' : undefined,
+            },
+          ]
+
+  const doneHandoutRecords: PdaTaskMockHandoutRecordSeed[] =
+    handoutObjectType === 'CUT_PIECE'
+      ? [
+          {
+            handoverId: doneHandoutHeadId,
+            recordId: `${doneHandoutHeadId}-001`,
+            taskId: completedHandoutTask.taskId,
+            materialCode: `${profile.taskPrefix}-CUT-003`,
+            materialName: '印花裁片',
+            materialSpec: '整单交接完成',
+            skuCode: `${profile.taskPrefix}-SKU-003`,
+            skuColor: '标准色',
+            skuSize: '整单',
+            pieceName: '前后片整单',
+            plannedQty: Math.max(Math.round(completedHandoutTask.qty * 1.1), 180),
+            qtyUnit: handoutQtyUnit,
+            handoutObjectType,
+            handoutItemLabel: `标准色 / ${profile.taskPrefix}-SKU-003 / ${Math.max(Math.round(completedHandoutTask.qty * 1.1), 180)}片 / 前后片整单`,
+            garmentEquivalentQty: getGarmentEquivalentQty(Math.max(Math.round(completedHandoutTask.qty * 1.1), 180)),
+            factorySubmittedAt: nowLike(28, '16:10:00'),
+            status: 'WRITTEN_BACK',
+            warehouseReturnNo: `RET-WB-${profile.taskPrefix}-02`,
+            warehouseWrittenQty: Math.max(Math.round(completedHandoutTask.qty * 1.1), 180),
+            warehouseWrittenAt: nowLike(28, '16:35:00'),
+            factoryRemark: '整单裁片已完成交接',
+          },
+        ]
+      : handoutObjectType === 'FABRIC'
+        ? [
+            {
+              handoverId: doneHandoutHeadId,
+              recordId: `${doneHandoutHeadId}-001`,
+              taskId: completedHandoutTask.taskId,
+              materialCode: `${profile.taskPrefix}-FAB-003`,
+              materialName: '染色主布',
+              materialSpec: '整单回仓完成',
+              skuCode: `${profile.taskPrefix}-FABRIC-003`,
+              skuColor: '标准色',
+              skuSize: '整单',
+              plannedQty: Math.max(Math.round(completedHandoutTask.qty * 0.01), 5),
+              qtyUnit: handoutQtyUnit,
+              handoutObjectType,
+              handoutItemLabel: `标准色 / ${profile.taskPrefix}-FABRIC-003 / ${Math.max(Math.round(completedHandoutTask.qty * 0.01), 5)}卷`,
+              factorySubmittedAt: nowLike(28, '16:10:00'),
+              status: 'WRITTEN_BACK',
+              warehouseReturnNo: `RET-WB-${profile.taskPrefix}-02`,
+              warehouseWrittenQty: Math.max(Math.round(completedHandoutTask.qty * 0.01), 5),
+              warehouseWrittenAt: nowLike(28, '16:35:00'),
+              factoryRemark: '整单面料已完成回仓',
+            },
+          ]
+        : [
+            {
+              handoverId: doneHandoutHeadId,
+              recordId: `${doneHandoutHeadId}-001`,
+              taskId: completedHandoutTask.taskId,
+              materialCode: `${profile.taskPrefix}-GAR-003`,
+              materialName: `${profile.processNameZh}成衣`,
+              materialSpec: `${profile.processNameZh}整单交接`,
+              skuCode: `${profile.taskPrefix}-SKU-003`,
+              skuColor: '标准色',
+              skuSize: '整单',
+              pieceName: '成衣包',
+              plannedQty: Math.max(Math.round(completedHandoutTask.qty * 0.55), 100),
+              qtyUnit: handoutQtyUnit,
+              handoutObjectType,
+              handoutItemLabel: `标准色 / ${profile.taskPrefix}-SKU-003 / ${Math.max(Math.round(completedHandoutTask.qty * 0.55), 100)}件`,
+              factorySubmittedAt: nowLike(28, '16:10:00'),
+              status: 'WRITTEN_BACK',
+              warehouseReturnNo: `RET-WB-${profile.taskPrefix}-02`,
+              warehouseWrittenQty: Math.max(Math.round(completedHandoutTask.qty * 0.55), 100),
+              warehouseWrittenAt: nowLike(28, '16:35:00'),
+              factoryRemark: '整单已完成交接',
+            },
+        ]
+
+  const openHandoutExpectedTotal = roundQty(
+    openHandoutRecords.reduce((sum, record) => sum + record.plannedQty, 0),
+  )
+  const openHandoutWrittenTotal = roundQty(
+    openHandoutRecords.reduce((sum, record) => sum + (record.warehouseWrittenQty ?? 0), 0),
+  )
+  const doneHandoutExpectedTotal = roundQty(
+    doneHandoutRecords.reduce((sum, record) => sum + record.plannedQty, 0),
+  )
+  const doneHandoutWrittenTotal = roundQty(
+    doneHandoutRecords.reduce((sum, record) => sum + (record.warehouseWrittenQty ?? 0), 0),
+  )
 
   return {
     heads: [
@@ -943,14 +1199,14 @@ function buildHandoverSeeds(
         sourceFactoryName: profile.handoverSourceName,
         targetName: profile.handoverTargetName,
         targetKind: profile.handoverTargetKind,
-        qtyUnit: '件',
+        qtyUnit: handoutQtyUnit,
         factoryId: profile.factoryId,
         taskStatus: 'DONE',
         summaryStatus: profile.key === 'QC' ? 'HAS_OBJECTION' : 'PARTIAL_WRITTEN_BACK',
         completionStatus: 'OPEN',
-        qtyExpectedTotal: Math.max(Math.round(openHandoutTask.qty * 0.6), 120),
-        qtyActualTotal: Math.max(Math.round(openHandoutTask.qty * 0.42), 88),
-        qtyDiffTotal: Math.max(Math.round(openHandoutTask.qty * 0.18), 32),
+        qtyExpectedTotal: openHandoutExpectedTotal,
+        qtyActualTotal: openHandoutWrittenTotal,
+        qtyDiffTotal: roundQty(openHandoutExpectedTotal - openHandoutWrittenTotal),
         sourceDocNo: `RET-${profile.taskPrefix}-${String(baseIndex + 1).padStart(3, '0')}`,
         scopeLabel: `${profile.processNameZh}尾批交出`,
         stageCode: 'POST',
@@ -972,15 +1228,15 @@ function buildHandoverSeeds(
         sourceFactoryName: profile.handoverSourceName,
         targetName: profile.handoverTargetName,
         targetKind: profile.handoverTargetKind,
-        qtyUnit: '件',
+        qtyUnit: handoutQtyUnit,
         factoryId: profile.factoryId,
         taskStatus: 'DONE',
         summaryStatus: 'WRITTEN_BACK',
         completionStatus: 'COMPLETED',
         completedByWarehouseAt: nowLike(28, '18:40:00'),
-        qtyExpectedTotal: Math.max(Math.round(completedHandoutTask.qty * 0.55), 100),
-        qtyActualTotal: Math.max(Math.round(completedHandoutTask.qty * 0.55), 100),
-        qtyDiffTotal: 0,
+        qtyExpectedTotal: doneHandoutExpectedTotal,
+        qtyActualTotal: doneHandoutWrittenTotal,
+        qtyDiffTotal: roundQty(doneHandoutExpectedTotal - doneHandoutWrittenTotal),
         sourceDocNo: `RET-${profile.taskPrefix}-${String(baseIndex + 2).padStart(3, '0')}`,
         scopeLabel: `${profile.processNameZh}整单交接完成`,
         stageCode: 'POST',
@@ -1168,54 +1424,8 @@ function buildHandoverSeeds(
       ],
     },
     handoutRecordsByHeadId: {
-      [openHandoutHeadId]: [
-        {
-          handoverId: openHandoutHeadId,
-          recordId: `${openHandoutHeadId}-001`,
-          taskId: openHandoutTask.taskId,
-          materialName: `${profile.processNameZh}批次`,
-          materialSpec: `${profile.processNameZh}首批交出`,
-          plannedQty: Math.max(Math.round(openHandoutTask.qty * 0.34), 60),
-          qtyUnit: '件',
-          factorySubmittedAt: nowLike(28, '15:30:00'),
-          status: 'WRITTEN_BACK',
-          warehouseReturnNo: `RET-WB-${profile.taskPrefix}-01`,
-          warehouseWrittenQty: Math.max(Math.round(openHandoutTask.qty * 0.34), 60),
-          warehouseWrittenAt: nowLike(28, '15:55:00'),
-          factoryRemark: '首批已完成仓库回写',
-        },
-        {
-          handoverId: openHandoutHeadId,
-          recordId: `${openHandoutHeadId}-002`,
-          taskId: openHandoutTask.taskId,
-          materialName: `${profile.processNameZh}尾批`,
-          materialSpec: `${profile.processNameZh}尾批交出`,
-          plannedQty: Math.max(Math.round(openHandoutTask.qty * 0.26), 48),
-          qtyUnit: '件',
-          factorySubmittedAt: nowLike(28, '17:00:00'),
-          status: profile.key === 'QC' ? 'OBJECTION_REPORTED' : 'PENDING_WRITEBACK',
-          factoryRemark: profile.key === 'QC' ? '数量异议待仓库确认' : '尾批待仓库回写',
-          objectionReason: profile.key === 'QC' ? '抽检不合格数量差异' : undefined,
-          objectionRemark: profile.key === 'QC' ? '待复核差异责任' : undefined,
-        },
-      ],
-      [doneHandoutHeadId]: [
-        {
-          handoverId: doneHandoutHeadId,
-          recordId: `${doneHandoutHeadId}-001`,
-          taskId: completedHandoutTask.taskId,
-          materialName: `${profile.processNameZh}完成批`,
-          materialSpec: `${profile.processNameZh}整单交接`,
-          plannedQty: Math.max(Math.round(completedHandoutTask.qty * 0.55), 100),
-          qtyUnit: '件',
-          factorySubmittedAt: nowLike(28, '16:10:00'),
-          status: 'WRITTEN_BACK',
-          warehouseReturnNo: `RET-WB-${profile.taskPrefix}-02`,
-          warehouseWrittenQty: Math.max(Math.round(completedHandoutTask.qty * 0.55), 100),
-          warehouseWrittenAt: nowLike(28, '16:35:00'),
-          factoryRemark: '整单已完成交接',
-        },
-      ],
+      [openHandoutHeadId]: openHandoutRecords,
+      [doneHandoutHeadId]: doneHandoutRecords,
     },
   }
 }

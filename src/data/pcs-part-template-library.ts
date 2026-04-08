@@ -2,6 +2,9 @@ import {
   type ParsedPartInstance,
   suggestStandardPartName,
 } from '../utils/pcs-part-template-parser'
+import type { PartGeometryFeatures } from '../utils/pcs-part-template-geometry'
+import { buildPartShapeDescription, type PartShapeDescription } from '../utils/pcs-part-template-shape-description'
+import { scorePartTemplateRecommendation } from '../utils/pcs-part-template-recommendation'
 import { getBrowserLocalStorage } from './browser-storage'
 
 export interface PartTemplatePackage {
@@ -14,6 +17,7 @@ export interface PartTemplatePackage {
     units?: string
     sampleSize?: string
     sizeList: string[]
+    rawRuleSummary?: unknown
   }
 }
 
@@ -29,6 +33,7 @@ export interface PartTemplateRecord {
   standardPartName: string
   sourcePartName: string
   systemPieceName?: string
+  sourceMarkerText?: string
   candidatePartNames: string[]
   sizeCode?: string
   quantity?: string
@@ -40,7 +45,10 @@ export interface PartTemplateRecord {
   area?: number
   perimeter?: number
   geometryHash?: string
+  normalizedShapeSignature?: string
   previewSvg?: string
+  geometryFeatures: PartGeometryFeatures | null
+  shapeDescription: PartShapeDescription | null
 
   parserStatus: '解析成功' | '待人工矫正' | '解析异常'
   machineReadyStatus: '可模板机处理' | '待评估' | '不适用'
@@ -78,13 +86,6 @@ function getStorage(): Storage | null {
   return storage as Storage
 }
 
-function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[\s_\-./\\()[\]{}，。:：;；、]+/g, '')
-    .trim()
-}
-
 function createId(prefix: string): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${prefix}-${crypto.randomUUID().slice(0, 8)}`
@@ -117,6 +118,58 @@ function getDefaultStore(): PartTemplateStore {
   }
 }
 
+function createFallbackGeometryFeatures(record: Pick<PartTemplateRecord, 'width' | 'height' | 'area' | 'perimeter' | 'normalizedShapeSignature'>): PartGeometryFeatures {
+  const width = record.width ?? 0
+  const height = record.height ?? 0
+  const area = record.area ?? 0
+  const perimeter = record.perimeter ?? 0
+  const normalizedShapeSignature =
+    record.normalizedShapeSignature ??
+    `${width.toFixed(2)},${height.toFixed(2)},${area.toFixed(2)},${perimeter.toFixed(2)}`
+
+  return {
+    bboxWidth: width,
+    bboxHeight: height,
+    area,
+    perimeter,
+    aspectRatio: height > 0 ? width / height : width,
+    symmetryScore: 0.2,
+    taperRatio: 1,
+    headWidth: width * 0.8,
+    midWidth: width,
+    tailWidth: width * 0.8,
+    curveRate: 0.3,
+    straightRate: 0.7,
+    cornerCount: 4,
+    majorArcCount: 1,
+    maxSagitta: 0,
+    avgSagitta: 0,
+    maxEstimatedRadius: null,
+    curvatureLevel: 'slight',
+    outerBoundaryCount: 1,
+    innerBoundaryCount: 0,
+    innerHoleCount: 0,
+    grainLineCount: 0,
+    grainLineAngle: null,
+    notchCountEstimate: 0,
+    pointCount: 0,
+    complexityLevel: 'medium',
+    normalizedShapeSignature,
+  }
+}
+
+function normalizeRecord(record: PartTemplateRecord): PartTemplateRecord {
+  const geometryFeatures = record.geometryFeatures ?? createFallbackGeometryFeatures(record)
+  const shapeDescription = record.shapeDescription ?? buildPartShapeDescription(geometryFeatures)
+
+  return {
+    ...record,
+    normalizedShapeSignature: record.normalizedShapeSignature ?? geometryFeatures.normalizedShapeSignature,
+    geometryFeatures,
+    shapeDescription,
+  }
+}
+
 function loadStore(): PartTemplateStore {
   if (cachedStore) return cachedStore
 
@@ -136,7 +189,7 @@ function loadStore(): PartTemplateStore {
     const parsed = JSON.parse(raw) as PartTemplateStore
     cachedStore = {
       packages: Array.isArray(parsed.packages) ? parsed.packages : [],
-      records: Array.isArray(parsed.records) ? parsed.records : [],
+      records: Array.isArray(parsed.records) ? parsed.records.map((record) => normalizeRecord(record as PartTemplateRecord)) : [],
     }
     return cachedStore
   } catch {
@@ -225,7 +278,7 @@ function buildRecordFromPart(params: {
   const metrics = part.metrics
   const stats = buildStats(seedInput, part.sourcePartName)
 
-  return {
+  return normalizeRecord({
     id: createId('PTR'),
     templatePackageId: packageId,
     templateName,
@@ -235,6 +288,7 @@ function buildRecordFromPart(params: {
     updatedAt: parsedAt,
     standardPartName,
     sourcePartName: part.sourcePartName,
+    sourceMarkerText: part.sourceMarkerText,
     systemPieceName: part.systemPieceName,
     candidatePartNames: part.candidatePartNames,
     sizeCode: part.sizeCode,
@@ -246,7 +300,10 @@ function buildRecordFromPart(params: {
     area: metrics?.area,
     perimeter: metrics?.perimeter,
     geometryHash: part.geometryHash,
+    normalizedShapeSignature: part.normalizedShapeSignature,
     previewSvg: part.previewSvg,
+    geometryFeatures: part.geometryFeatures,
+    shapeDescription: part.shapeDescription,
     parserStatus:
       metrics && standardPartName
         ? '解析成功'
@@ -259,7 +316,7 @@ function buildRecordFromPart(params: {
     cumulativeOrderQty: stats.cumulativeOrderQty,
     lastMatchedAt: stats.lastMatchedAt,
     hotStyleNames: stats.hotStyleNames,
-  }
+  })
 }
 
 export function listPartTemplatePackages(): PartTemplatePackage[] {
@@ -327,12 +384,12 @@ export function updatePartTemplateRecord(
   const target = store.records.find((record) => record.id === recordId)
   if (!target) return null
 
-  const nextRecord: PartTemplateRecord = {
+  const nextRecord: PartTemplateRecord = normalizeRecord({
     ...target,
     ...patch,
     standardPartName: patch.standardPartName?.trim() ?? target.standardPartName,
     updatedAt: formatDateTime(new Date()),
-  }
+  })
 
   const nextStore: PartTemplateStore = {
     ...store,
@@ -343,128 +400,42 @@ export function updatePartTemplateRecord(
   return nextRecord
 }
 
-function calculateNameScore(part: ParsedPartInstance, record: PartTemplateRecord): { score: number; reason?: string } {
-  const sourceNames = [
-    part.sourcePartName,
-    part.systemPieceName ?? '',
-    ...part.candidatePartNames,
-  ]
-    .map(normalizeText)
-    .filter(Boolean)
-
-  const recordNames = [
-    record.standardPartName,
-    record.sourcePartName,
-    record.systemPieceName ?? '',
-    ...record.candidatePartNames,
-  ]
-    .map(normalizeText)
-    .filter(Boolean)
-
-  const standardHit = sourceNames.some((name) => normalizeText(record.standardPartName) === name)
-  if (standardHit) {
-    return {
-      score: 38,
-      reason: `部位名命中：与模板标准部位“${record.standardPartName}”一致`,
-    }
-  }
-
-  const candidateHit = sourceNames.find((name) => recordNames.includes(name))
-  if (candidateHit) {
-    const matchedText =
-      [part.sourcePartName, part.systemPieceName ?? '', ...part.candidatePartNames].find(
-        (value) => normalizeText(value) === candidateHit,
-      ) ?? part.sourcePartName
-
-    return {
-      score: 25,
-      reason: `候选名命中：识别文本“${matchedText}”与模板候选名重合`,
-    }
-  }
-
-  return { score: 0 }
-}
-
-function calculateSizeScore(part: ParsedPartInstance, record: PartTemplateRecord): { score: number; reason?: string } {
-  if (!part.sizeCode || !record.sizeCode) return { score: 0 }
-  if (normalizeText(part.sizeCode) !== normalizeText(record.sizeCode)) return { score: 0 }
-  return {
-    score: 12,
-    reason: `尺码命中：待匹配尺码 ${part.sizeCode} 与模板尺码一致`,
-  }
-}
-
-function calculateGeometryScore(part: ParsedPartInstance, record: PartTemplateRecord): { score: number; reasons: string[] } {
-  if (!part.metrics || !record.width || !record.height || !record.area) {
-    return { score: 0, reasons: [] }
-  }
-
-  const partRatio = part.metrics.width > 0 ? part.metrics.width / Math.max(part.metrics.height, 1) : 0
-  const recordRatio = record.width > 0 ? record.width / Math.max(record.height ?? 1, 1) : 0
-  const ratioGap = recordRatio === 0 ? 1 : Math.abs(partRatio - recordRatio) / recordRatio
-  const areaGap = record.area === 0 ? 1 : Math.abs(part.metrics.area - record.area) / record.area
-  let score = 0
-  const reasons: string[] = []
-
-  if (ratioGap <= 0.03) {
-    score += 12
-    reasons.push(`几何尺寸接近：宽高比偏差 ${(ratioGap * 100).toFixed(1)}%`)
-  } else if (ratioGap <= 0.08) {
-    score += 8
-    reasons.push(`几何尺寸接近：宽高比偏差 ${(ratioGap * 100).toFixed(1)}%`)
-  }
-
-  if (areaGap <= 0.06) {
-    score += 11
-    reasons.push(`面积接近：面积偏差 ${(areaGap * 100).toFixed(1)}%`)
-  } else if (areaGap <= 0.15) {
-    score += 6
-    reasons.push(`面积接近：面积偏差 ${(areaGap * 100).toFixed(1)}%`)
-  }
-
-  if (part.geometryHash && record.geometryHash && part.geometryHash === record.geometryHash) {
-    score += 10
-    reasons.push('几何哈希命中：外轮廓归一化形状一致')
-  }
-
-  return { score, reasons }
-}
-
-function calculateHistoryScore(record: PartTemplateRecord): { score: number; reason: string } {
-  const score = Math.min(
-    18,
-    Math.round(record.reuseHitCount * 0.18 + record.hotStyleCount * 1.5 + record.cumulativeOrderQty / 1600),
-  )
-
-  return {
-    score,
-    reason: `历史复用：命中 ${record.reuseHitCount} 次，爆款 ${record.hotStyleCount} 次，累计下单 ${record.cumulativeOrderQty} 件`,
-  }
-}
-
 export function recommendPartTemplateRecords(
   part: ParsedPartInstance,
   limit = 3,
 ): PartTemplateRecommendation[] {
   return listPartTemplateRecords()
     .map((record) => {
-      const reasons: string[] = []
-      const name = calculateNameScore(part, record)
-      const size = calculateSizeScore(part, record)
-      const geometry = calculateGeometryScore(part, record)
-      const history = calculateHistoryScore(record)
-
-      if (name.reason) reasons.push(name.reason)
-      if (size.reason) reasons.push(size.reason)
-      reasons.push(...geometry.reasons)
-      reasons.push(history.reason)
-
-      const matchScore = Math.max(16, Math.min(99, name.score + size.score + geometry.score + history.score))
+      const recommendation = scorePartTemplateRecommendation(
+        {
+          standardPartName: suggestStandardPartName(part),
+          sourcePartName: part.sourcePartName,
+          systemPieceName: part.systemPieceName,
+          candidatePartNames: part.candidatePartNames,
+          sizeCode: part.sizeCode,
+          geometryFeatures: part.geometryFeatures ?? undefined,
+          normalizedShapeSignature: part.normalizedShapeSignature,
+        },
+        {
+          id: record.id,
+          templateName: record.templateName,
+          standardPartName: record.standardPartName,
+          sourcePartName: record.sourcePartName,
+          systemPieceName: record.systemPieceName,
+          candidatePartNames: record.candidatePartNames,
+          sizeCode: record.sizeCode,
+          geometryFeatures: record.geometryFeatures ?? undefined,
+          normalizedShapeSignature: record.normalizedShapeSignature,
+          reuseHitCount: record.reuseHitCount,
+          hotStyleCount: record.hotStyleCount,
+          cumulativeOrderQty: record.cumulativeOrderQty,
+        },
+      )
 
       return {
         record,
-        matchScore,
-        reasons,
+        matchScore: recommendation.matchScore,
+        reasons: recommendation.reasons,
       }
     })
     .sort((left, right) => {

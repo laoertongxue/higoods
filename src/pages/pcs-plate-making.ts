@@ -1,4 +1,4 @@
-import { escapeHtml } from '../utils'
+import { escapeHtml, formatDateTime } from '../utils'
 import {
   renderDrawer as uiDrawer,
   renderFormDialog as uiFormDialog,
@@ -11,6 +11,7 @@ import {
   type ParsedPartTemplateResult,
   type ParsedPartInstance,
 } from '../utils/pcs-part-template-parser'
+import { getTemplateMachineSuitabilityLabel } from '../utils/pcs-part-template-shape-description'
 
 // ============ 常量定义 ============
 
@@ -328,6 +329,19 @@ function renderRecommendationReasons(reasons: string[]): string {
     .join('')
 }
 
+function renderRecommendationShapeTags(values: string[]): string {
+  if (values.length === 0) return '<span class="text-xs text-gray-400">待补充</span>'
+  return values
+    .slice(0, 3)
+    .map(
+      (value) =>
+        `<span class="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">${escapeHtml(
+          value,
+        )}</span>`,
+    )
+    .join('')
+}
+
 function renderRecommendationList(part: ParsedPartInstance): string {
   const recommendations = recommendPartTemplateRecords(part, 3)
 
@@ -348,10 +362,17 @@ function renderRecommendationList(part: ParsedPartInstance): string {
           </div>
           <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
             <div class="space-y-1 text-xs text-gray-600">
+              <div class="flex flex-wrap gap-1">${renderRecommendationShapeTags(recommendation.record.shapeDescription?.shapeTags ?? [])}</div>
+              <p class="pt-1 text-slate-700">${escapeHtml(recommendation.record.shapeDescription?.autoDescription ?? '待补充')}</p>
               ${renderRecommendationReasons(recommendation.reasons)}
             </div>
             <div class="rounded-lg border bg-white p-3 text-xs text-gray-500">
-              <p>宽高：${formatTemplateMetric(recommendation.record.width)} x ${formatTemplateMetric(recommendation.record.height)}</p>
+              <p>宽高：${formatTemplateMetric(recommendation.record.width)} × ${formatTemplateMetric(recommendation.record.height)}</p>
+              <p class="mt-1">模板机适配：${escapeHtml(
+                recommendation.record.shapeDescription
+                  ? getTemplateMachineSuitabilityLabel(recommendation.record.shapeDescription.templateMachineSuitability)
+                  : recommendation.record.machineReadyStatus,
+              )}</p>
               <p class="mt-1">历史命中：${recommendation.record.reuseHitCount}</p>
               <p class="mt-1">爆款次数：${recommendation.record.hotStyleCount}</p>
               <p class="mt-1">累计下单：${recommendation.record.cumulativeOrderQty}</p>
@@ -377,7 +398,7 @@ function renderRecommendationPartCards(result: ParsedPartTemplateResult): string
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 class="text-base font-semibold">${escapeHtml(part.sourcePartName)}</h3>
-                  <p class="mt-1 text-xs text-gray-500">Piece Name：${escapeHtml(part.systemPieceName ?? '未识别')}</p>
+                  <p class="mt-1 text-xs text-gray-500">${escapeHtml(part.systemPieceName ? `系统 Piece Name：${part.systemPieceName}` : '未识别系统 Piece Name')}</p>
                 </div>
                 <div class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(part.sizeCode ?? '未识别尺码')}</div>
               </div>
@@ -388,19 +409,32 @@ function renderRecommendationPartCards(result: ParsedPartTemplateResult): string
                 </div>
                 <div>
                   <p class="text-xs text-gray-500">宽高</p>
-                  <p class="mt-1">${formatTemplateMetric(part.metrics?.width)} x ${formatTemplateMetric(part.metrics?.height)}</p>
+                  <p class="mt-1">${formatTemplateMetric(part.metrics?.width)} × ${formatTemplateMetric(part.metrics?.height)}</p>
                 </div>
                 <div>
                   <p class="text-xs text-gray-500">面积</p>
                   <p class="mt-1">${formatTemplateMetric(part.metrics?.area)}</p>
                 </div>
                 <div>
-                  <p class="text-xs text-gray-500">geometryHash</p>
+                  <p class="text-xs text-gray-500">几何哈希</p>
                   <p class="mt-1 break-all">${escapeHtml(part.geometryHash ?? '-')}</p>
                 </div>
               </div>
+              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_240px]">
+                <div class="rounded-lg border bg-slate-50 px-3 py-3">
+                  <p class="text-xs text-gray-500">形状判断</p>
+                  <div class="mt-2 flex flex-wrap gap-1">${renderRecommendationShapeTags(part.shapeDescription?.shapeTags ?? [])}</div>
+                  <p class="mt-2 text-xs text-gray-600">${escapeHtml(part.shapeDescription?.autoDescription ?? '待补充')}</p>
+                </div>
+                <div class="rounded-lg border bg-slate-50 px-3 py-3 text-xs text-gray-600">
+                  <p>对称度：${formatTemplateMetric(part.geometryFeatures?.symmetryScore)}</p>
+                  <p class="mt-1">收窄比：${formatTemplateMetric(part.geometryFeatures?.taperRatio)}</p>
+                  <p class="mt-1">主弧段：${part.geometryFeatures?.majorArcCount ?? '-'}</p>
+                  <p class="mt-1">弯曲等级：${escapeHtml(part.geometryFeatures?.curvatureLevel ?? '-')}</p>
+                </div>
+              </div>
               <div class="space-y-2">
-                <h4 class="text-sm font-medium text-gray-900">Top 3 推荐模板</h4>
+                <h4 class="text-sm font-medium text-gray-900">推荐模板（前 3 名）</h4>
                 ${renderRecommendationList(part)}
               </div>
             </div>
@@ -483,20 +517,24 @@ function renderRecommendationDrawer() {
                 </div>
                 <div>
                   <p class="text-xs text-gray-500">尺码列表</p>
-                  <p class="mt-1 text-sm font-medium">${escapeHtml(state.recommendationParseResult.rul.sizeList.join(', ') || '-')}</p>
-                </div>
-                <div>
-                  <p class="text-xs text-gray-500">待匹配部位数</p>
-                  <p class="mt-1 text-sm font-medium">${state.recommendationParseResult.parts.length}</p>
-                </div>
+                <p class="mt-1 text-sm font-medium">${escapeHtml(state.recommendationParseResult.rul.sizeList.join(', ') || '-')}</p>
               </div>
-            </section>
-
-            <section class="space-y-3">
               <div>
-                <h3 class="text-base font-semibold">部位推荐结果</h3>
-                <p class="mt-1 text-xs text-gray-500">推荐结果来源于已保存的部位模板记录，综合部位名、候选名、尺码、几何尺寸和历史热度评分。</p>
+                <p class="text-xs text-gray-500">待匹配部位数</p>
+                <p class="mt-1 text-sm font-medium">${state.recommendationParseResult.parts.length}</p>
               </div>
+              <div>
+                <p class="text-xs text-gray-500">解析时间</p>
+                <p class="mt-1 text-sm font-medium">${escapeHtml(formatDateTime(state.recommendationParseResult.parsedAt))}</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <div>
+              <h3 class="text-base font-semibold">部位推荐结果</h3>
+              <p class="mt-1 text-xs text-gray-500">推荐结果仅来源于已保存的部位模板记录，综合标准部位、候选名、尺码、几何特征与历史价值固定打分。</p>
+            </div>
               <div class="space-y-3">${renderRecommendationPartCards(state.recommendationParseResult)}</div>
             </section>
           `

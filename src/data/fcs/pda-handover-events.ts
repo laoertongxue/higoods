@@ -73,6 +73,37 @@ export type HandoverRecordStatus =
   | 'OBJECTION_PROCESSING'
   | 'OBJECTION_RESOLVED'
 
+export type PdaHandoutObjectType = 'GARMENT' | 'CUT_PIECE' | 'FABRIC'
+
+export interface PdaHandoutObjectProfile {
+  objectType: PdaHandoutObjectType
+  objectTypeLabel: string
+  primaryQtyLabel: string
+  writtenQtyLabel: string
+  pendingQtyLabel: string
+  displayUnit: string
+  objectInfoLines: string[]
+  totalPlannedQty: number
+  totalWrittenQty: number
+  totalPendingQty: number
+  garmentEquivalentQtyTotal?: number
+}
+
+export interface PdaHandoutRecordProfile {
+  objectType: PdaHandoutObjectType
+  objectTypeLabel: string
+  displayUnit: string
+  plannedQtyLabel: string
+  writtenQtyLabel: string
+  pendingQtyLabel: string
+  itemTitle: string
+  infoLines: string[]
+  plannedQtyText: string
+  writtenQtyText: string
+  pendingQtyText: string
+  garmentEquivalentQty?: number
+}
+
 export interface HandoverProofFile {
   id: string
   type: 'IMAGE' | 'VIDEO'
@@ -83,6 +114,7 @@ export interface HandoverProofFile {
 export interface PdaHandoverHead {
   handoverId: string
   headType: PdaHandoverHeadType
+  qrCodeValue: string
   taskId: string
   taskNo: string
   baseTaskId?: string
@@ -136,6 +168,8 @@ export interface PdaHandoverRecord {
   handoverId: string
   taskId: string
   sequenceNo: number
+  handoutObjectType?: PdaHandoutObjectType
+  handoutItemLabel?: string
   materialCode?: string
   materialName?: string
   materialSpec?: string
@@ -143,6 +177,7 @@ export interface PdaHandoverRecord {
   skuColor?: string
   skuSize?: string
   pieceName?: string
+  garmentEquivalentQty?: number
   plannedQty?: number
   qtyUnit?: string
   factorySubmittedAt: string
@@ -225,11 +260,17 @@ const headCompletionOverrides = new Map<
   string,
   { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string }
 >()
+let cachedBuiltHeads: PdaHandoverHead[] | null = null
+
+function invalidatePdaHandoverHeadCache(): void {
+  cachedBuiltHeads = null
+}
 
 function buildGenericMockHead(seed: PdaTaskMockHandoverHeadSeed): PdaHandoverHead {
   return {
     handoverId: seed.handoverId,
     headType: seed.headType,
+    qrCodeValue: seed.headType === 'HANDOUT' ? buildHandoutHeadQrCodeValue(seed.handoverId) : '',
     taskId: seed.taskId,
     taskNo: seed.taskNo,
     productionOrderNo: seed.productionOrderNo,
@@ -310,8 +351,16 @@ function buildGenericHandoutRecord(seed: PdaTaskMockHandoutRecordSeed): PdaHando
     handoverId: seed.handoverId,
     taskId: seed.taskId,
     sequenceNo: 1,
+    handoutObjectType: seed.handoutObjectType,
+    handoutItemLabel: seed.handoutItemLabel,
+    garmentEquivalentQty: seed.garmentEquivalentQty,
+    materialCode: seed.materialCode,
     materialName: seed.materialName,
     materialSpec: seed.materialSpec,
+    skuCode: seed.skuCode,
+    skuColor: seed.skuColor,
+    skuSize: seed.skuSize,
+    pieceName: seed.pieceName,
     plannedQty: seed.plannedQty,
     qtyUnit: seed.qtyUnit,
     factorySubmittedAt: seed.factorySubmittedAt,
@@ -357,6 +406,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
     handoverId: 'PKH-MOCK-CUT-089',
     headType: 'PICKUP',
+    qrCodeValue: '',
     taskId: 'TASK-CUT-000089',
     taskNo: 'TASK-CUT-000089',
     productionOrderNo: 'PO-20260319-013',
@@ -394,6 +444,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
     handoverId: 'HOH-MOCK-SEW-235',
     headType: 'HANDOUT',
+    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-SEW-235'),
     taskId: 'TASK-IRON-000235',
     taskNo: 'TASK-IRON-000235',
     productionOrderNo: 'PO-20260318-005',
@@ -431,6 +482,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
     handoverId: 'HOH-MOCK-CUT-094',
     headType: 'HANDOUT',
+    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-094'),
     taskId: 'TASK-CUT-000094',
     taskNo: 'TASK-CUT-000094',
     productionOrderNo: 'PO-20260319-018',
@@ -438,7 +490,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     sourceFactoryName: '小飞裁片厂',
     targetName: '后道车缝',
     targetKind: 'FACTORY',
-    qtyUnit: '件',
+    qtyUnit: '片',
     factoryId: PDA_MOCK_FACTORY_ID,
     taskStatus: 'DONE',
     summaryStatus: 'WRITTEN_BACK',
@@ -468,6 +520,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
     handoverId: 'PKH-MOCK-CUT-020-F004',
     headType: 'PICKUP',
+    qrCodeValue: '',
     taskId: 'TASK-CUT-BID-020',
     taskNo: 'TASK-CUT-BID-020',
     productionOrderNo: 'PO-202603-0003',
@@ -505,6 +558,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
     handoverId: 'HOH-MOCK-CUT-103-F004-OPEN',
     headType: 'HANDOUT',
+    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-103-F004-OPEN'),
     taskId: 'TASK-CUT-000103',
     taskNo: 'TASK-CUT-000103',
     productionOrderNo: 'PO-202603-0009',
@@ -512,7 +566,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     sourceFactoryName: 'PT Mulia Cutting Center',
     targetName: 'PT Sinar Garment Indonesia',
     targetKind: 'FACTORY',
-    qtyUnit: '件',
+    qtyUnit: '片',
     factoryId: PDA_MOCK_CUTTING_FACTORY_ID,
     taskStatus: 'DONE',
     summaryStatus: 'SUBMITTED',
@@ -542,6 +596,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
     handoverId: 'HOH-MOCK-CUT-103-F004-DONE',
     headType: 'HANDOUT',
+    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-103-F004-DONE'),
     taskId: 'TASK-CUT-000103',
     taskNo: 'TASK-CUT-000103',
     productionOrderNo: 'PO-202603-0009',
@@ -549,7 +604,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     sourceFactoryName: 'PT Mulia Cutting Center',
     targetName: 'PT Sinar Garment Indonesia',
     targetKind: 'FACTORY',
-    qtyUnit: '件',
+    qtyUnit: '片',
     factoryId: PDA_MOCK_CUTTING_FACTORY_ID,
     taskStatus: 'DONE',
     summaryStatus: 'WRITTEN_BACK',
@@ -695,6 +750,8 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       handoverId: 'HOH-MOCK-SEW-235',
       taskId: 'TASK-IRON-000235',
       sequenceNo: 1,
+      handoutObjectType: 'GARMENT',
+      handoutItemLabel: '黑色 / SKU-IRON-235 / 140件',
       materialName: '整烫成衣',
       materialSpec: '男款外套',
       skuCode: 'SKU-IRON-235',
@@ -716,6 +773,8 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       handoverId: 'HOH-MOCK-SEW-235',
       taskId: 'TASK-IRON-000235',
       sequenceNo: 2,
+      handoutObjectType: 'GARMENT',
+      handoutItemLabel: '黑色 / SKU-IRON-235 / 120件',
       materialName: '整烫成衣',
       materialSpec: '男款外套',
       skuCode: 'SKU-IRON-235',
@@ -736,14 +795,18 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       handoverId: 'HOH-MOCK-CUT-094',
       taskId: 'TASK-CUT-000094',
       sequenceNo: 1,
-      materialName: '裁片包',
-      materialSpec: '整单主片',
+      handoutObjectType: 'CUT_PIECE',
+      handoutItemLabel: '石灰蓝 / CPO-20260319-H / 240片 / 前后片整单',
+      garmentEquivalentQty: 120,
+      materialCode: 'CUT-094-PANEL',
+      materialName: '印花裁片',
+      materialSpec: '整单主片交接',
       skuCode: 'CPO-20260319-H',
       skuColor: '石灰蓝',
-      skuSize: '整单',
-      pieceName: '裁片包',
+      skuSize: 'M',
+      pieceName: '前后片整单',
       plannedQty: 240,
-      qtyUnit: '件',
+      qtyUnit: '片',
       factorySubmittedAt: '2026-03-22 10:10:00',
       factoryRemark: '已交接后道车缝',
       factoryProofFiles: [],
@@ -759,14 +822,18 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       handoverId: 'HOH-MOCK-CUT-103-F004-OPEN',
       taskId: 'TASK-CUT-000103',
       sequenceNo: 1,
-      materialName: '裁片包',
-      materialSpec: '异地裁床尾批',
+      handoutObjectType: 'CUT_PIECE',
+      handoutItemLabel: '灰蓝拼接 / CPO-20260324-E1 / 180片 / 前片',
+      garmentEquivalentQty: 90,
+      materialCode: 'CUT-103-FRONT',
+      materialName: '裁片',
+      materialSpec: '异地裁床尾批交接',
       skuCode: 'CPO-20260324-E1',
       skuColor: '灰蓝拼接',
-      skuSize: '整单',
-      pieceName: '裁片包',
+      skuSize: 'M',
+      pieceName: '前片',
       plannedQty: 180,
-      qtyUnit: '件',
+      qtyUnit: '片',
       factorySubmittedAt: '2026-03-24 16:10:00',
       factoryRemark: '尾批已发出，待主厂回写签收',
       factoryProofFiles: [],
@@ -779,14 +846,18 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       handoverId: 'HOH-MOCK-CUT-103-F004-DONE',
       taskId: 'TASK-CUT-000103',
       sequenceNo: 1,
-      materialName: '裁片包',
-      materialSpec: '异地裁床首批',
+      handoutObjectType: 'CUT_PIECE',
+      handoutItemLabel: '灰蓝拼接 / CPO-20260324-E1 / 220片 / 前后片整单',
+      garmentEquivalentQty: 110,
+      materialCode: 'CUT-103-SET',
+      materialName: '裁片',
+      materialSpec: '异地裁床首批交接',
       skuCode: 'CPO-20260324-E1',
       skuColor: '灰蓝拼接',
-      skuSize: '整单',
-      pieceName: '裁片包',
+      skuSize: 'M',
+      pieceName: '前后片整单',
       plannedQty: 220,
-      qtyUnit: '件',
+      qtyUnit: '片',
       factorySubmittedAt: '2026-03-24 14:20:00',
       factoryRemark: '首批已交回主厂',
       factoryProofFiles: [],
@@ -1115,6 +1186,7 @@ function buildPickupHeadFromIssue(doc: WarehouseIssueOrder): PdaHandoverHead {
   return {
     handoverId: makePickupHeadId(doc.id),
     headType: 'PICKUP',
+    qrCodeValue: '',
     taskId: runtimeTask?.taskId ?? doc.runtimeTaskId,
     taskNo: runtimeTask?.taskNo ?? doc.taskNo ?? doc.runtimeTaskId,
     baseTaskId: runtimeTask?.baseTaskId ?? doc.baseTaskId,
@@ -1171,9 +1243,11 @@ function buildPickupHeadFromIssue(doc: WarehouseIssueOrder): PdaHandoverHead {
 function buildHandoutHeadFromReturn(doc: WarehouseReturnOrder): PdaHandoverHead {
   const runtimeTask = getRuntimeTaskById(doc.runtimeTaskId)
   const assignmentGranularity = runtimeTask?.assignmentGranularity
+  const displayUnit = normalizeDisplayUnit(doc.lines[0]?.unit || runtimeTask?.qtyUnit || '件')
   return {
     handoverId: makeHandoutHeadId(doc.id),
     headType: 'HANDOUT',
+    qrCodeValue: buildHandoutHeadQrCodeValue(makeHandoutHeadId(doc.id)),
     taskId: runtimeTask?.taskId ?? doc.runtimeTaskId,
     taskNo: runtimeTask?.taskNo ?? doc.taskNo ?? doc.runtimeTaskId,
     baseTaskId: runtimeTask?.baseTaskId ?? doc.baseTaskId,
@@ -1186,7 +1260,7 @@ function buildHandoutHeadFromReturn(doc: WarehouseReturnOrder): PdaHandoverHead 
     sourceFactoryName: doc.targetFactoryName ?? runtimeTask?.assignedFactoryName ?? '待分配工厂',
     targetName: doc.warehouseName ?? '仓库',
     targetKind: 'WAREHOUSE',
-    qtyUnit: runtimeTask?.qtyUnit ?? '件',
+    qtyUnit: displayUnit,
     factoryId: doc.targetFactoryId ?? runtimeTask?.assignedFactoryId ?? '',
     taskStatus: mapTaskStatus(runtimeTask),
     summaryStatus: 'NONE',
@@ -1232,8 +1306,219 @@ function isPrepProcessCode(code: string | undefined): boolean {
   return code === 'PRINT' || code === 'DYE' || code === 'PROC_PRINT' || code === 'PROC_DYE'
 }
 
+export function buildHandoutHeadQrCodeValue(handoverId: string): string {
+  return `HANDOUT-HEAD:${handoverId}`
+}
+
 function buildPickupQrCodeValue(recordId: string): string {
   return `PICKUP-RECORD:${recordId}`
+}
+
+function normalizeDisplayUnit(unit: string | undefined, fallback = '件'): string {
+  if (!unit) return fallback
+  if (unit === '米') return 'm'
+  return unit
+}
+
+function resolveHandoutProcessKey(
+  processCode: string | undefined,
+):
+  | 'CUTTING'
+  | 'SEWING'
+  | 'PRINTING'
+  | 'DYEING'
+  | 'IRONING'
+  | 'PACKAGING'
+  | 'QC'
+  | 'FINISHING'
+  | null {
+  if (!processCode) return null
+  const normalized = processCode.toUpperCase()
+  if (normalized.includes('PRINT')) return 'PRINTING'
+  if (normalized.includes('DYE')) return 'DYEING'
+  if (normalized.includes('CUT')) return 'CUTTING'
+  if (normalized.includes('IRON')) return 'IRONING'
+  if (normalized.includes('PACK')) return 'PACKAGING'
+  if (normalized.includes('FINISH')) return 'FINISHING'
+  if (normalized.includes('QC')) return 'QC'
+  if (normalized.includes('SEW')) return 'SEWING'
+  return null
+}
+
+function deriveHandoutObjectType(
+  head: PdaHandoverHead,
+  record?: Pick<PdaHandoverRecord, 'handoutObjectType' | 'qtyUnit'>,
+  runtimeTask?: RuntimeProcessTask | null,
+  sourceDoc?: WarehouseReturnOrder | WarehouseIssueOrder,
+): PdaHandoutObjectType {
+  if (record?.handoutObjectType) return record.handoutObjectType
+
+  const processKey =
+    resolveHandoutProcessKey(runtimeTask?.processCode) ||
+    resolveHandoutProcessKey(runtimeTask?.processBusinessCode) ||
+    resolveHandoutProcessKey(head.processBusinessCode) ||
+    resolveHandoutProcessKey(head.taskTypeCode) ||
+    resolveHandoutProcessKey(sourceDoc?.processCode)
+
+  if (processKey === 'PRINTING' || processKey === 'CUTTING') return 'CUT_PIECE'
+  if (processKey === 'DYEING') return 'FABRIC'
+
+  const displayUnit = normalizeDisplayUnit(record?.qtyUnit || head.qtyUnit)
+  if (displayUnit === '片') return 'CUT_PIECE'
+  if (displayUnit === '卷' || displayUnit === 'm') return 'FABRIC'
+  return 'GARMENT'
+}
+
+function getHandoutObjectTypeLabel(objectType: PdaHandoutObjectType): string {
+  if (objectType === 'CUT_PIECE') return '裁片'
+  if (objectType === 'FABRIC') return '面料'
+  return '成衣'
+}
+
+function getHandoutQtyLabels(
+  objectType: PdaHandoutObjectType,
+  unit: string,
+): { primaryQtyLabel: string; writtenQtyLabel: string; pendingQtyLabel: string } {
+  if (objectType === 'CUT_PIECE') {
+    return {
+      primaryQtyLabel: '计划交出裁片片数（片）',
+      writtenQtyLabel: '仓库回写裁片片数（片）',
+      pendingQtyLabel: '待回写裁片片数（片）',
+    }
+  }
+  if (objectType === 'FABRIC') {
+    const normalizedUnit = normalizeDisplayUnit(unit, '卷')
+    const objectLabel = normalizedUnit === '卷' ? '面料卷数（卷）' : '面料长度（m）'
+    return {
+      primaryQtyLabel: `计划交出${objectLabel}`,
+      writtenQtyLabel: `仓库回写${objectLabel}`,
+      pendingQtyLabel: `待回写${objectLabel}`,
+    }
+  }
+  return {
+    primaryQtyLabel: '计划交出成衣件数（件）',
+    writtenQtyLabel: '仓库回写成衣件数（件）',
+    pendingQtyLabel: '待回写成衣件数（件）',
+  }
+}
+
+function formatQtyValue(qty: number | undefined, unit: string): string {
+  if (typeof qty !== 'number') return '待仓库回写'
+  const normalizedUnit = normalizeDisplayUnit(unit)
+  return `${Math.round(qty * 100) / 100} ${normalizedUnit}`
+}
+
+function buildHandoutInfoLines(record: PdaHandoverRecord, objectType: PdaHandoutObjectType): string[] {
+  if (objectType === 'CUT_PIECE') {
+    return [
+      record.skuCode ? `SKU 编码：${record.skuCode}` : '',
+      record.skuColor || record.skuSize ? `颜色 / 尺码：${record.skuColor || '—'} / ${record.skuSize || '—'}` : '',
+      record.pieceName ? `部位名称：${record.pieceName}` : '',
+    ].filter(Boolean)
+  }
+
+  if (objectType === 'FABRIC') {
+    return [
+      record.materialCode || record.skuCode ? `面料 SKU：${record.materialCode || record.skuCode || '—'}` : '',
+      record.skuColor ? `颜色：${record.skuColor}` : '',
+      record.materialSpec ? `面料说明：${record.materialSpec}` : '',
+    ].filter(Boolean)
+  }
+
+  return [
+    record.skuCode ? `SKU 编码：${record.skuCode}` : '',
+    record.skuColor || record.skuSize ? `颜色 / 尺码：${record.skuColor || '—'} / ${record.skuSize || '—'}` : '',
+    record.materialSpec ? `交出说明：${record.materialSpec}` : '',
+  ].filter(Boolean)
+}
+
+function buildHandoutListLine(record: PdaHandoverRecord, objectType: PdaHandoutObjectType): string {
+  if (record.handoutItemLabel) return record.handoutItemLabel
+  if (objectType === 'CUT_PIECE') {
+    return `${record.skuCode || record.materialCode || '未标 SKU'} / ${record.skuColor || '未标颜色'} / ${record.skuSize || '未标尺码'} / ${record.pieceName || '未标部位'}`
+  }
+  if (objectType === 'FABRIC') {
+    return `${record.materialCode || record.skuCode || record.materialName || '面料'} / ${record.skuColor || '未标颜色'} / ${formatQtyValue(record.plannedQty, record.qtyUnit || '卷')}`
+  }
+  return `${record.skuColor || '未标颜色'} / ${record.skuCode || record.materialCode || record.materialName || '成衣'} / ${formatQtyValue(record.plannedQty, record.qtyUnit || '件')}`
+}
+
+export function deriveHandoutRecordProfile(
+  record: PdaHandoverRecord,
+  head: PdaHandoverHead,
+  runtimeTask: RuntimeProcessTask | null = getPdaHeadRuntimeTask(head.handoverId),
+  sourceDoc: WarehouseReturnOrder | WarehouseIssueOrder | undefined = getPdaHeadSourceExecutionDoc(head.handoverId),
+): PdaHandoutRecordProfile {
+  const objectType = deriveHandoutObjectType(head, record, runtimeTask, sourceDoc)
+  const displayUnit = normalizeDisplayUnit(record.qtyUnit || head.qtyUnit, objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件')
+  const labels = getHandoutQtyLabels(objectType, displayUnit)
+  const plannedQty = typeof record.plannedQty === 'number' ? record.plannedQty : 0
+  const writtenQty = typeof record.warehouseWrittenQty === 'number' ? record.warehouseWrittenQty : 0
+  const pendingQty = Math.max(plannedQty - writtenQty, 0)
+
+  return {
+    objectType,
+    objectTypeLabel: getHandoutObjectTypeLabel(objectType),
+    displayUnit,
+    plannedQtyLabel: labels.primaryQtyLabel,
+    writtenQtyLabel: labels.writtenQtyLabel,
+    pendingQtyLabel: labels.pendingQtyLabel,
+    itemTitle:
+      objectType === 'FABRIC'
+        ? record.materialName || record.materialCode || '面料交出物'
+        : objectType === 'CUT_PIECE'
+          ? record.pieceName || record.materialName || '裁片交出物'
+          : record.materialName || '成衣交出物',
+    infoLines: buildHandoutInfoLines(record, objectType),
+    plannedQtyText: `${plannedQty} ${displayUnit}`,
+    writtenQtyText: formatQtyValue(typeof record.warehouseWrittenQty === 'number' ? record.warehouseWrittenQty : undefined, displayUnit),
+    pendingQtyText: `${pendingQty} ${displayUnit}`,
+    garmentEquivalentQty: record.garmentEquivalentQty,
+  }
+}
+
+export function deriveHandoutObjectProfile(
+  head: PdaHandoverHead,
+  records: PdaHandoverRecord[],
+  runtimeTask: RuntimeProcessTask | null = getPdaHeadRuntimeTask(head.handoverId),
+  sourceDoc: WarehouseReturnOrder | WarehouseIssueOrder | undefined = getPdaHeadSourceExecutionDoc(head.handoverId),
+): PdaHandoutObjectProfile {
+  const objectType = deriveHandoutObjectType(head, records[0], runtimeTask, sourceDoc)
+  const displayUnit = normalizeDisplayUnit(
+    records[0]?.qtyUnit || head.qtyUnit,
+    objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件',
+  )
+  const labels = getHandoutQtyLabels(objectType, displayUnit)
+  const totalPlannedQty =
+    records.length > 0
+      ? sumBy(records, (record) => (typeof record.plannedQty === 'number' ? record.plannedQty : 0))
+      : head.qtyExpectedTotal
+  const totalWrittenQty =
+    records.length > 0
+      ? sumBy(records, (record) => (typeof record.warehouseWrittenQty === 'number' ? record.warehouseWrittenQty : 0))
+      : head.writtenBackQtyTotal
+  const totalPendingQty = Math.max(totalPlannedQty - totalWrittenQty, 0)
+  const garmentEquivalentQtyTotal =
+    objectType === 'CUT_PIECE'
+      ? sumBy(records, (record) => (typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0))
+      : undefined
+
+  return {
+    objectType,
+    objectTypeLabel: getHandoutObjectTypeLabel(objectType),
+    primaryQtyLabel: labels.primaryQtyLabel,
+    writtenQtyLabel: labels.writtenQtyLabel,
+    pendingQtyLabel: labels.pendingQtyLabel,
+    displayUnit,
+    objectInfoLines: records.slice(0, 3).map((record) => buildHandoutListLine(record, objectType)),
+    totalPlannedQty,
+    totalWrittenQty,
+    totalPendingQty,
+    garmentEquivalentQtyTotal:
+      typeof garmentEquivalentQtyTotal === 'number' && garmentEquivalentQtyTotal > 0
+        ? garmentEquivalentQtyTotal
+        : undefined,
+  }
 }
 
 function isPickupRecordFinalized(record: PdaPickupRecord): boolean {
@@ -1319,13 +1604,46 @@ function buildHandoutLineRecord(
 ): PdaHandoverRecord {
   const status = mapReturnLineStatus(doc, line)
   const writtenQty = status === 'WRITTEN_BACK' ? Math.max(line.returnedQty, 0) : undefined
+  const objectType = deriveHandoutObjectType(
+    head,
+    { handoutObjectType: undefined, qtyUnit: line.unit },
+    getRuntimeTaskById(doc.runtimeTaskId),
+    doc,
+  )
   const sourceText = line.pieceName ? `${line.materialName} / ${line.pieceName}` : line.materialName
+  const garmentEquivalentQty =
+    objectType === 'CUT_PIECE' && typeof line.pieceCountPerUnit === 'number' && line.pieceCountPerUnit > 0
+      ? Math.round((line.plannedQty / line.pieceCountPerUnit) * 100) / 100
+      : undefined
 
   return {
     recordId: `HOR-${doc.id}-${String(index + 1).padStart(3, '0')}`,
     handoverId: head.handoverId,
     taskId: head.taskId,
     sequenceNo: index + 1,
+    handoutObjectType: objectType,
+    handoutItemLabel: buildHandoutListLine(
+      {
+        recordId: '',
+        handoverId: head.handoverId,
+        taskId: head.taskId,
+        sequenceNo: index + 1,
+        handoutObjectType: objectType,
+        materialCode: line.materialCode,
+        materialName: line.materialName,
+        materialSpec: line.materialSpec,
+        skuCode: line.skuCode,
+        skuColor: line.skuColor,
+        skuSize: line.skuSize,
+        pieceName: line.pieceName,
+        plannedQty: line.plannedQty,
+        qtyUnit: line.unit,
+        factorySubmittedAt: doc.updatedAt,
+        factoryProofFiles: [],
+        status,
+      },
+      objectType,
+    ),
     materialCode: line.materialCode,
     materialName: line.materialName,
     materialSpec: line.materialSpec,
@@ -1333,8 +1651,9 @@ function buildHandoutLineRecord(
     skuColor: line.skuColor,
     skuSize: line.skuSize,
     pieceName: line.pieceName,
+    garmentEquivalentQty,
     plannedQty: line.plannedQty,
-    qtyUnit: line.unit,
+    qtyUnit: normalizeDisplayUnit(line.unit),
     factorySubmittedAt: doc.updatedAt,
     factoryRemark: `回货来源：${sourceText}`,
     factoryProofFiles: [],
@@ -1511,7 +1830,7 @@ function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
   return updated
 }
 
-function buildHeadsInternal(): PdaHandoverHead[] {
+function recomputeHeadsInternal(): PdaHandoverHead[] {
   const pickupHeads = listWarehouseIssueOrders()
     .filter((doc) => doc.targetType === 'EXTERNAL_FACTORY')
     .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
@@ -1528,6 +1847,13 @@ function buildHeadsInternal(): PdaHandoverHead[] {
   )
 
   return [...pickupHeads, ...handoutHeads, ...mockHeads]
+}
+
+function buildHeadsInternal(): PdaHandoverHead[] {
+  if (!cachedBuiltHeads) {
+    cachedBuiltHeads = recomputeHeadsInternal()
+  }
+  return cachedBuiltHeads
 }
 
 function listHeadsSorted(factoryId?: string): PdaHandoverHead[] {
@@ -1578,6 +1904,7 @@ function savePickupRecord(record: PdaPickupRecord): void {
   if (findPickupRecord(record.recordId)) {
     const existedOverride = pickupRecordOverrides.get(record.recordId) ?? {}
     pickupRecordOverrides.set(record.recordId, { ...existedOverride, ...record })
+    invalidatePdaHandoverHeadCache()
     return
   }
 
@@ -1589,12 +1916,14 @@ function savePickupRecord(record: PdaPickupRecord): void {
     list.push(clonePickupRecord(record))
   }
   pickupRecordAdditions.set(record.handoverId, list)
+  invalidatePdaHandoverHeadCache()
 }
 
 function saveHandoutRecord(record: PdaHandoverRecord): void {
   if (record.recordId.startsWith('HOR-')) {
     const existedOverride = handoutRecordOverrides.get(record.recordId) ?? {}
     handoutRecordOverrides.set(record.recordId, { ...existedOverride, ...record })
+    invalidatePdaHandoverHeadCache()
     return
   }
 
@@ -1606,6 +1935,7 @@ function saveHandoutRecord(record: PdaHandoverRecord): void {
     list.push(cloneRecord(record))
   }
   handoutRecordAdditions.set(record.handoverId, list)
+  invalidatePdaHandoverHeadCache()
 }
 
 function listLegacyHandoverEvents(): HandoverEvent[] {
@@ -1927,6 +2257,7 @@ export function createPdaHandoverRecord(
   const list = handoutRecordAdditions.get(handoverId) ?? []
   list.push(cloneRecord(created))
   handoutRecordAdditions.set(handoverId, list)
+  invalidatePdaHandoverHeadCache()
   return cloneRecord(created)
 }
 
@@ -1971,6 +2302,7 @@ export function markPdaPickupHeadCompleted(
     completionStatus: 'COMPLETED',
     completedByWarehouseAt: completedAt,
   })
+  invalidatePdaHandoverHeadCache()
 
   const updated = findHead(handoverId)
   return updated
@@ -1999,6 +2331,7 @@ export function markPdaHandoutHeadCompleted(
     completionStatus: 'COMPLETED',
     completedByWarehouseAt: completedAt,
   })
+  invalidatePdaHandoverHeadCache()
 
   const updated = findHead(handoverId)
   return updated

@@ -1,8 +1,10 @@
+import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
   renderDrawer as uiDrawer,
   renderSecondaryButton,
 } from '../components/ui'
+import { listPatternAssetsForSelect } from '../data/pcs-pattern-library'
 
 // ============ 常量定义 ============
 
@@ -246,6 +248,7 @@ function getKpiStats() {
 // ============ 渲染函数 ============
 
 function renderPatternCreateDrawer() {
+  const patternOptions = listPatternAssetsForSelect()
   if (!state.createDrawerOpen) return ''
 
   const formContent = `
@@ -346,6 +349,14 @@ function renderPatternCreateDrawer() {
       <div class="space-y-4">
         <h3 class="font-medium text-sm text-gray-500">四、参考资料与关联样衣</h3>
         <div class="space-y-2">
+          <label class="block text-sm font-medium">引用花型库</label>
+          <select class="w-full h-9 px-3 border rounded-md text-sm">
+            <option value="">选择花型库记录（可选）</option>
+            ${patternOptions.map((item) => `<option value="${item.id}">${escapeHtml(item.label)}</option>`).join('')}
+          </select>
+          <p class="text-xs text-gray-500">花型任务可以直接引用花型库记录，完成后也可沉淀为花型库新版本。</p>
+        </div>
+        <div class="space-y-2">
           <label class="block text-sm font-medium">关联样衣 (可选，多选)</label>
           <div class="border rounded-lg p-3 bg-gray-50 text-center">
             <p class="text-xs text-gray-500">选择需要参考的样衣</p>
@@ -413,10 +424,9 @@ function renderTaskRow(task: typeof mockTasks[0]) {
       <td class="px-3 py-3 text-sm">${task.downstream_count}</td>
       <td class="px-3 py-3 text-xs text-gray-500">${task.updated_at}</td>
       <td class="px-3 py-3">
-        <div class="relative">
-          <button class="h-8 w-8 flex items-center justify-center hover:bg-gray-100 rounded" data-pattern-action="open-menu" data-task-id="${task.id}">
-            <i data-lucide="more-horizontal" class="h-4 w-4"></i>
-          </button>
+        <div class="flex flex-wrap gap-2">
+          <button class="h-8 px-3 text-xs border rounded-md hover:bg-gray-50" data-pattern-action="deposit-to-library" data-task-id="${task.id}">沉淀花型库</button>
+          <button class="h-8 px-3 text-xs border rounded-md hover:bg-gray-50" data-pattern-action="go-pattern-library">花型库</button>
         </div>
       </td>
     </tr>
@@ -435,10 +445,16 @@ function renderPage(): string {
           <h1 class="text-xl font-semibold">花型任务</h1>
           <p class="mt-1 text-sm text-gray-500">管理花型设计、印花、绣花、烫画等图案资产交付</p>
         </div>
-        <button class="h-9 px-4 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2" data-pattern-action="open-create-drawer">
-          <i data-lucide="plus" class="h-4 w-4"></i>
-          新建花型任务
-        </button>
+        <div class="flex items-center gap-2">
+          <button class="h-9 px-4 text-sm border rounded-md hover:bg-gray-50 flex items-center gap-2" data-pattern-action="go-pattern-library">
+            <i data-lucide="library" class="h-4 w-4"></i>
+            花型库
+          </button>
+          <button class="h-9 px-4 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2" data-pattern-action="open-create-drawer">
+            <i data-lucide="plus" class="h-4 w-4"></i>
+            新建花型任务
+          </button>
+        </div>
       </header>
 
       <!-- Filter Bar -->
@@ -607,6 +623,18 @@ export function handlePatternTaskEvent(target: Element): boolean {
   if (action === 'view-task') {
     const taskId = actionNode?.dataset.taskId
     console.log(`查看任务: ${taskId}`)
+    return true
+  }
+
+  if (action === 'go-pattern-library') {
+    appStore.navigate('/pcs/pattern-library')
+    return true
+  }
+
+  if (action === 'deposit-to-library') {
+    const taskId = actionNode?.dataset.taskId
+    if (!taskId) return false
+    appStore.navigate(`/pcs/pattern-library/create?sourceTaskId=${encodeURIComponent(taskId)}`)
     return true
   }
 

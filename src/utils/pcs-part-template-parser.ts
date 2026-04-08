@@ -1,3 +1,14 @@
+import {
+  buildGeometryHashFromSignature,
+  buildPartGeometryAnalysis,
+  type PartGeometryFeatures,
+  type PartGeometryVisualGuides,
+} from './pcs-part-template-geometry'
+import {
+  buildPartShapeDescription,
+  type PartShapeDescription,
+} from './pcs-part-template-shape-description'
+
 export interface PartTemplatePoint {
   x: number
   y: number
@@ -45,6 +56,7 @@ export interface ParsedPartInstance {
   sourceBlockIndex: number
   sourceBlockName: string
   sourcePartName: string
+  sourceMarkerText?: string
   systemPieceName?: string
   candidatePartNames: string[]
   sizeCode?: string
@@ -57,7 +69,10 @@ export interface ParsedPartInstance {
   pointLayerStats: Record<string, number>
   metrics?: PartTemplateBoundaryMetrics
   geometryHash?: string
+  normalizedShapeSignature?: string
   previewSvg?: string
+  geometryFeatures: PartGeometryFeatures | null
+  shapeDescription: PartShapeDescription | null
   parserStatus: '解析成功' | '待人工矫正' | '解析异常'
   machineReadyStatus: '可模板机处理' | '待评估' | '不适用'
   issues: string[]
@@ -75,6 +90,7 @@ export interface ParsedPartTemplateResult {
   templateName: string
   dxfFileName: string
   rulFileName: string
+  parsedAt: string
   dxfEncoding: string
   rulEncoding: string
   rul: ParsedRulResult
@@ -251,7 +267,7 @@ export function resolveTemplateFilePair(filesLike: File[] | FileList | null | un
   }
 
   if (files.length !== 2) {
-    throw new Error('请一次只选择一对 .dxf + .rul 文件。')
+    throw new Error('必须同时上传 1 个 DXF 和 1 个 RUL 文件')
   }
 
   const dxfFiles = files.filter((file) => getFileExtension(file.name) === 'dxf')
@@ -265,10 +281,10 @@ export function resolveTemplateFilePair(filesLike: File[] | FileList | null | un
   }
 
   if (dxfFiles.length === 2 || rulFiles.length === 2) {
-    throw new Error('解析前必须同时选择一份 .dxf 和一份 .rul，不能选择两个同扩展名文件。')
+    throw new Error('文件类型不正确，必须是 1 个 .dxf + 1 个 .rul 文件')
   }
 
-  throw new Error('当前仅支持上传一对 .dxf + .rul 文件。')
+  throw new Error('文件类型不正确，必须是 1 个 .dxf + 1 个 .rul 文件')
 }
 
 function extractFieldValue(line: string): string {
@@ -389,7 +405,7 @@ function parseNumeric(value: string): number | undefined {
 function buildDxfPairs(text: string): DxfPair[] {
   const lines = text.replace(/\r/g, '').split('\n')
   if (lines.length < 4) {
-    throw new Error('当前原型只支持 ET 当前样本这种文本型 ASCII DXF / AAMA 风格导出。')
+    throw new Error('当前仅支持 ET 样本所使用的文本型 DXF，暂不支持该文件格式')
   }
 
   if (lines.length % 2 !== 0) {
@@ -415,7 +431,7 @@ function buildDxfPairs(text: string): DxfPair[] {
   }
 
   if (pairs.length === 0 || invalidCodeCount > pairs.length / 2) {
-    throw new Error('当前原型只支持 ET 当前样本这种文本型 ASCII DXF / AAMA 风格导出。')
+    throw new Error('当前仅支持 ET 样本所使用的文本型 DXF，暂不支持该文件格式')
   }
 
   const normalized = pairs.map((pair) => `${pair.code}:${pair.value.toUpperCase()}`)
@@ -424,7 +440,7 @@ function buildDxfPairs(text: string): DxfPair[] {
   const hasPolyline = normalized.some((item) => item === '0:POLYLINE')
 
   if (!hasSections || !hasBlocks || !hasPolyline) {
-    throw new Error('当前原型只支持 ET 当前样本这种文本型 ASCII DXF / AAMA 风格导出。')
+    throw new Error('当前仅支持 ET 样本所使用的文本型 DXF，暂不支持该文件格式')
   }
 
   return pairs
@@ -546,6 +562,14 @@ function dedupeClosedPoints(points: PartTemplatePoint[]): PartTemplatePoint[] {
   return points.slice(0, -1)
 }
 
+function isClosedByDistance(points: PartTemplatePoint[]): boolean {
+  if (points.length < 3) return false
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  const maxDimension = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1)
+  return Math.hypot(points[0].x - points[points.length - 1].x, points[0].y - points[points.length - 1].y) <= maxDimension * 0.005
+}
+
 function computePerimeter(points: PartTemplatePoint[], closed = true): number {
   if (points.length < 2) return 0
   let total = 0
@@ -649,7 +673,10 @@ function parsePolylineEntity(pairs: DxfPair[], startIndex: number): { entity: Dx
   }
 
   const cleanedPoints = dedupeClosedPoints(points)
-  const closed = Boolean(flags & 1) || (cleanedPoints.length > 2 && isSamePoint(points[0], points[points.length - 1]))
+  const closed =
+    Boolean(flags & 1) ||
+    (cleanedPoints.length > 2 &&
+      (isSamePoint(points[0], points[points.length - 1]) || isClosedByDistance(points)))
 
   return {
     entity: {
@@ -761,44 +788,57 @@ function toBoundary(polyline: DxfPolylineEntity): PartTemplateBoundary | undefin
   }
 }
 
-function selectBoundary(boundaries: PartTemplateBoundary[], preferredLayer: string): PartTemplateBoundary | undefined {
+function isPointInsideBoundary(point: PartTemplatePoint, boundary: PartTemplateBoundary): boolean {
+  let inside = false
+  for (let index = 0, previousIndex = boundary.points.length - 1; index < boundary.points.length; previousIndex = index, index += 1) {
+    const current = boundary.points[index]
+    const previous = boundary.points[previousIndex]
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) / ((previous.y - current.y) || Number.MIN_VALUE) + current.x
+
+    if (intersects) inside = !inside
+  }
+  return inside
+}
+
+function selectOuterBoundary(boundaries: PartTemplateBoundary[]): PartTemplateBoundary | undefined {
   if (boundaries.length === 0) return undefined
 
   const preferred = boundaries
-    .filter((boundary) => boundary.layer === preferredLayer)
+    .filter((boundary) => boundary.layer === '1')
     .sort((left, right) => right.metrics.area - left.metrics.area)
 
   if (preferred.length > 0) return preferred[0]
-
   return [...boundaries].sort((left, right) => right.metrics.area - left.metrics.area)[0]
 }
 
-function createSimpleHash(value: string): string {
-  let hash = 5381
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 33) ^ value.charCodeAt(index)
-  }
-  return Math.abs(hash >>> 0).toString(36)
-}
+function selectInnerBoundaries(boundaries: PartTemplateBoundary[], outerBoundary?: PartTemplateBoundary): PartTemplateBoundary[] {
+  if (!outerBoundary) return []
 
-export function buildGeometryHash(boundary?: PartTemplateBoundary): string | undefined {
-  if (!boundary || boundary.points.length < 3) return undefined
+  const layerPreferred = boundaries
+    .filter(
+      (boundary) =>
+        boundary !== outerBoundary &&
+        boundary.layer === '14' &&
+        boundary.metrics.area < outerBoundary.metrics.area &&
+        isPointInsideBoundary(boundary.points[0], outerBoundary),
+    )
+    .sort((left, right) => right.metrics.area - left.metrics.area)
 
-  const bbox = bboxFromPoints(boundary.points)
-  const width = Math.max(bbox.maxX - bbox.minX, 1)
-  const height = Math.max(bbox.maxY - bbox.minY, 1)
-  const sampleCount = Math.min(24, boundary.points.length)
-  const step = boundary.points.length / sampleCount
-  const segments: string[] = []
-
-  for (let index = 0; index < sampleCount; index += 1) {
-    const point = boundary.points[Math.min(boundary.points.length - 1, Math.floor(index * step))]
-    const normalizedX = roundMetric((point.x - bbox.minX) / width, 3)
-    const normalizedY = roundMetric((point.y - bbox.minY) / height, 3)
-    segments.push(`${normalizedX},${normalizedY}`)
+  if (layerPreferred.length > 0) {
+    return layerPreferred
   }
 
-  return createSimpleHash(`${roundMetric(width, 3)}|${roundMetric(height, 3)}|${segments.join(';')}`)
+  return boundaries
+    .filter(
+      (boundary) =>
+        boundary !== outerBoundary &&
+        boundary.metrics.area < outerBoundary.metrics.area &&
+        isPointInsideBoundary(boundary.points[0], outerBoundary),
+    )
+    .sort((left, right) => right.metrics.area - left.metrics.area)
 }
 
 function renderBoundaryPath(points: PartTemplatePoint[], transform: (point: PartTemplatePoint) => PartTemplatePoint): string {
@@ -815,6 +855,7 @@ export function buildPartPreviewSvg(
   outerBoundary?: PartTemplateBoundary,
   innerBoundary?: PartTemplateBoundary,
   grainLines: PartTemplateLine[] = [],
+  visualGuides?: PartGeometryVisualGuides | null,
   markerIdSeed = 'part-template',
 ): string | undefined {
   const pointCloud = [
@@ -847,6 +888,23 @@ export function buildPartPreviewSvg(
     })
     .join('')
 
+  const principalAxisSvg = visualGuides?.principalAxis
+    ? (() => {
+        const start = transform(visualGuides.principalAxis.start)
+        const end = transform(visualGuides.principalAxis.end)
+        return `<line x1="${roundMetric(start.x, 2)}" y1="${roundMetric(start.y, 2)}" x2="${roundMetric(end.x, 2)}" y2="${roundMetric(end.y, 2)}" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 4" />`
+      })()
+    : ''
+
+  const majorArcSvg =
+    visualGuides?.majorArcPaths
+      ?.map((points) =>
+        points.length >= 2
+          ? `<path d="${renderBoundaryPath(points, transform).replace(/ Z$/, '')}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" opacity="0.7" />`
+          : '',
+      )
+      .join('') ?? ''
+
   return [
     `<svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="h-full w-full" xmlns="http://www.w3.org/2000/svg">`,
     '<defs>',
@@ -861,6 +919,8 @@ export function buildPartPreviewSvg(
     innerBoundary
       ? `<path d="${renderBoundaryPath(innerBoundary.points, transform)}" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4 4" />`
       : '',
+    majorArcSvg,
+    principalAxisSvg,
     grainLinesSvg,
     '</svg>',
   ].join('')
@@ -868,8 +928,10 @@ export function buildPartPreviewSvg(
 
 function isUsefulCandidateText(text: string): boolean {
   if (!text) return false
-  if (/^#\d+$/i.test(text)) return false
+  if (/^#\s*\d+$/i.test(text)) return false
   if (/^\d+$/.test(text)) return false
+  if (/^[^a-zA-Z\u4E00-\u9FFF]+$/.test(text)) return false
+  if (normalizeWhitespace(text).length < 2) return false
   return !SYSTEM_TEXT_PREFIXES.some((prefix) => text.toLowerCase().startsWith(prefix))
 }
 
@@ -922,6 +984,7 @@ function blockToPartInstance(block: DxfBlock): ParsedPartInstance {
   const issues: string[] = []
 
   let systemPieceName: string | undefined
+  let sourceMarkerText: string | undefined
   let sizeCode: string | undefined
   let annotation: string | undefined
   let quantity: string | undefined
@@ -955,6 +1018,11 @@ function blockToPartInstance(block: DxfBlock): ParsedPartInstance {
       continue
     }
 
+    if (!sourceMarkerText && /^#\s*\d+$/i.test(text)) {
+      sourceMarkerText = text
+      continue
+    }
+
     if (isUsefulCandidateText(text) && !candidateSet.has(text)) {
       candidateSet.add(text)
       candidatePartNames.push(text)
@@ -962,30 +1030,35 @@ function blockToPartInstance(block: DxfBlock): ParsedPartInstance {
   }
 
   const boundaries = polylineEntities.map(toBoundary).filter(Boolean) as PartTemplateBoundary[]
-  const outerBoundary = selectBoundary(boundaries, '1')
-  const innerBoundary = selectBoundary(boundaries, '14')
+  const outerBoundary = selectOuterBoundary(boundaries)
+  const innerBoundaries = selectInnerBoundaries(boundaries, outerBoundary)
+  const innerBoundary = innerBoundaries[0]
   const grainLines = lineEntities.filter((entity) => entity.layer === '7')
   const pointLayerStats = pointEntities.reduce<Record<string, number>>((stats, entity) => {
     stats[entity.layer] = (stats[entity.layer] ?? 0) + 1
     return stats
   }, {})
 
-  if (!outerBoundary) {
-    issues.push('未识别到可用外轮廓')
-  }
-
-  if (!innerBoundary) {
-    issues.push('未识别到优先 layer 14 的内轮廓')
-  }
-
-  if (grainLines.length === 0) {
-    issues.push('未识别到 layer 7 纹向线')
-  }
-
   const sourcePartName = candidatePartNames[0] ?? systemPieceName ?? block.name
+  const geometryAnalysis = buildPartGeometryAnalysis({
+    outerBoundary,
+    innerBoundary,
+    innerBoundaryCount: innerBoundaries.length,
+    grainLines,
+    outerBoundaryCount: outerBoundary ? 1 : 0,
+    pointCount: outerBoundary?.points.length ?? 0,
+  })
   const metrics = outerBoundary?.metrics
-  const geometryHash = buildGeometryHash(outerBoundary)
-  const previewSvg = buildPartPreviewSvg(outerBoundary, innerBoundary, grainLines, geometryHash ?? block.name)
+  const geometryHash =
+    geometryAnalysis?.geometryHash ??
+    (outerBoundary ? buildGeometryHashFromSignature(`${outerBoundary.layer}|${outerBoundary.metrics.width}|${outerBoundary.metrics.height}`) : undefined)
+  const previewSvg = buildPartPreviewSvg(
+    outerBoundary,
+    innerBoundary,
+    grainLines,
+    geometryAnalysis?.visualGuides,
+    geometryHash ?? block.name,
+  )
   const standardPartName = pickStandardPartName([sourcePartName, systemPieceName ?? '', block.name, ...candidatePartNames])
   const parserStatus =
     outerBoundary && standardPartName
@@ -993,17 +1066,31 @@ function blockToPartInstance(block: DxfBlock): ParsedPartInstance {
       : outerBoundary
         ? '待人工矫正'
         : '解析异常'
+  const shapeDescription = geometryAnalysis ? buildPartShapeDescription(geometryAnalysis.features) : null
   const machineReadyStatus =
-    outerBoundary && innerBoundary
-      ? '可模板机处理'
-      : outerBoundary
-        ? '待评估'
-        : '不适用'
+    !outerBoundary || !geometryAnalysis
+      ? '不适用'
+      : shapeDescription?.templateMachineSuitability === 'high'
+        ? '可模板机处理'
+        : shapeDescription?.templateMachineSuitability === 'medium'
+          ? '待评估'
+          : '不适用'
+
+  if (!outerBoundary) {
+    issues.push('未识别到可用外轮廓')
+  }
+  if (innerBoundaries.length > 0 && innerBoundary?.layer !== '14') {
+    issues.push('未识别到 layer 14 的主内轮廓，已按内部闭合轮廓回退')
+  }
+  if (grainLines.length === 0) {
+    issues.push('未识别到布纹线，推荐人工确认纹向')
+  }
 
   return {
     sourceBlockIndex: block.index,
     sourceBlockName: block.name,
     sourcePartName,
+    sourceMarkerText,
     systemPieceName,
     candidatePartNames,
     sizeCode,
@@ -1020,7 +1107,10 @@ function blockToPartInstance(block: DxfBlock): ParsedPartInstance {
     pointLayerStats,
     metrics,
     geometryHash,
+    normalizedShapeSignature: geometryAnalysis?.normalizedShapeSignature,
     previewSvg,
+    geometryFeatures: geometryAnalysis?.features ?? null,
+    shapeDescription,
     parserStatus,
     machineReadyStatus,
     issues,
@@ -1089,6 +1179,7 @@ export async function parsePartTemplateFiles(params: {
   dxfFile: File
   rulFile: File
 }): Promise<ParsedPartTemplateResult> {
+  const parsedAt = new Date().toISOString()
   const templateName = normalizeWhitespace(params.templateName) || stripFileExtension(params.dxfFile.name)
   const [decodedDxf, decodedRul] = await Promise.all([
     decodeTemplateFile(params.dxfFile, 'dxf'),
@@ -1102,6 +1193,7 @@ export async function parsePartTemplateFiles(params: {
     templateName,
     dxfFileName: params.dxfFile.name,
     rulFileName: params.rulFile.name,
+    parsedAt,
     dxfEncoding: decodedDxf.encoding,
     rulEncoding: decodedRul.encoding,
     rul,

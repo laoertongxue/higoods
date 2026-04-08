@@ -1,13 +1,15 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { renderRealQrPlaceholder } from '../components/real-qr'
 import type { ProcessTask } from '../data/fcs/process-tasks'
 import {
   confirmPdaPickupRecordReceived,
+  deriveHandoutObjectProfile,
+  deriveHandoutRecordProfile,
   findPdaHandoverHead,
   getPdaHeadRuntimeTask,
   getPdaHeadSourceExecutionDoc,
   findPdaPickupRecord,
-  createPdaHandoverRecord,
   getPdaPickupRecordsByHead,
   getPdaHandoverRecordsByHead,
   reportPdaHandoverQtyObjection,
@@ -32,15 +34,12 @@ interface ProofFile {
 
 interface PdaHandoverDetailState {
   initializedKey: string
-  proofFiles: ProofFile[]
   selectedPickupRecordId: string
   pickupDisputeRecordId: string
   pickupDisputeQty: string
   pickupDisputeReason: string
   pickupDisputeRemark: string
   pickupDisputeProofFiles: ProofFile[]
-  handoverRecordTime: string
-  handoverRecordRemark: string
   objectionRecordId: string
   objectionReason: string
   objectionRemark: string
@@ -49,15 +48,12 @@ interface PdaHandoverDetailState {
 
 const detailState: PdaHandoverDetailState = {
   initializedKey: '',
-  proofFiles: [],
   selectedPickupRecordId: '',
   pickupDisputeRecordId: '',
   pickupDisputeQty: '',
   pickupDisputeReason: '',
   pickupDisputeRemark: '',
   pickupDisputeProofFiles: [],
-  handoverRecordTime: '',
-  handoverRecordRemark: '',
   objectionRecordId: '',
   objectionReason: '',
   objectionRemark: '',
@@ -66,22 +62,6 @@ const detailState: PdaHandoverDetailState = {
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
-}
-
-function nowDateTimeLocalInput(date: Date = new Date()): string {
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-  return localDate.toISOString().slice(0, 16)
-}
-
-function dateTimeLocalInputToTimestamp(value: string): string {
-  if (!value) return ''
-  return `${value.replace('T', ' ')}:00`
-}
-
-function isFutureLocalDateTime(value: string): boolean {
-  if (!value) return false
-  const parsed = new Date(value).getTime()
-  return Number.isFinite(parsed) && parsed > Date.now()
 }
 
 function nowDisplayTimestamp(date: Date = new Date()): string {
@@ -96,24 +76,6 @@ function nowDisplayTimestamp(date: Date = new Date()): string {
 
 function cloneProofFiles(files: ProofFile[]): ProofFile[] {
   return files.map((file) => ({ ...file }))
-}
-
-function addProofFile(type: 'IMAGE' | 'VIDEO', prefix: string): void {
-  const ext = type === 'IMAGE' ? 'jpg' : 'mp4'
-  const index = detailState.proofFiles.length + 1
-  detailState.proofFiles = [
-    ...detailState.proofFiles,
-    {
-      id: `pf-${Date.now()}`,
-      type,
-      name: `${prefix}_${String(index).padStart(2, '0')}.${ext}`,
-      uploadedAt: nowDisplayTimestamp(),
-    },
-  ]
-}
-
-function removeProofFile(id: string): void {
-  detailState.proofFiles = detailState.proofFiles.filter((file) => file.id !== id)
 }
 
 function addObjectionProofFile(type: 'IMAGE' | 'VIDEO'): void {
@@ -140,9 +102,6 @@ function syncHandoutState(handoverId: string): void {
   if (detailState.initializedKey === key) return
 
   detailState.initializedKey = key
-  detailState.handoverRecordTime = nowDateTimeLocalInput()
-  detailState.handoverRecordRemark = ''
-  detailState.proofFiles = []
   detailState.selectedPickupRecordId = ''
   detailState.pickupDisputeRecordId = ''
   detailState.pickupDisputeQty = ''
@@ -173,9 +132,6 @@ function syncPickupState(head: PdaHandoverHead): void {
   detailState.pickupDisputeReason = ''
   detailState.pickupDisputeRemark = ''
   detailState.pickupDisputeProofFiles = []
-  detailState.proofFiles = []
-  detailState.handoverRecordTime = ''
-  detailState.handoverRecordRemark = ''
   detailState.objectionRecordId = ''
   detailState.objectionReason = ''
   detailState.objectionRemark = ''
@@ -251,71 +207,6 @@ function renderPartyRow(label: string, kind: HandoverPartyKind, name: string): s
         <i data-lucide="${kind === 'WAREHOUSE' ? 'warehouse' : 'factory'}" class="h-3.5 w-3.5 text-muted-foreground"></i>
         <span class="font-medium">${escapeHtml(name)}</span>
       </span>
-    </div>
-  `
-}
-
-function renderProofUploadSection(prefix: string, hint: string, required = false): string {
-  return `
-    <div class="space-y-3">
-      <p class="text-xs leading-relaxed text-muted-foreground">${escapeHtml(hint)}</p>
-      <div class="flex gap-2">
-        <button
-          type="button"
-          class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs hover:bg-muted"
-          data-pda-handoverd-action="add-proof-image"
-          data-name-prefix="${escapeHtml(prefix)}"
-        >
-          <i data-lucide="image" class="h-3.5 w-3.5 text-blue-500"></i>
-          上传图片
-        </button>
-        <button
-          type="button"
-          class="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs hover:bg-muted"
-          data-pda-handoverd-action="add-proof-video"
-          data-name-prefix="${escapeHtml(prefix)}"
-        >
-          <i data-lucide="video" class="h-3.5 w-3.5 text-purple-500"></i>
-          上传视频
-        </button>
-      </div>
-      ${
-        detailState.proofFiles.length > 0
-          ? `
-              <div class="space-y-1.5">
-                <p class="text-xs font-medium text-muted-foreground">已上传材料（${detailState.proofFiles.length} 个文件）</p>
-                ${detailState.proofFiles
-                  .map(
-                    (file) => `
-                      <div class="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
-                        <i data-lucide="${file.type === 'IMAGE' ? 'image' : 'video'}" class="h-4 w-4 shrink-0 ${
-                          file.type === 'IMAGE' ? 'text-blue-500' : 'text-purple-500'
-                        }"></i>
-                        <div class="min-w-0 flex-1">
-                          <p class="truncate text-xs font-medium">${escapeHtml(file.name)}</p>
-                          <p class="text-[10px] text-muted-foreground">${file.type === 'IMAGE' ? '图片' : '视频'} · ${escapeHtml(file.uploadedAt)}</p>
-                        </div>
-                        <button
-                          type="button"
-                          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
-                          data-pda-handoverd-action="remove-proof"
-                          data-proof-id="${escapeHtml(file.id)}"
-                        >
-                          <i data-lucide="trash-2" class="h-3 w-3"></i>
-                        </button>
-                      </div>
-                    `,
-                  )
-                  .join('')}
-              </div>
-            `
-          : `
-              <div class="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground">
-                <i data-lucide="paperclip" class="h-3.5 w-3.5"></i>
-                ${required ? '暂无凭证，确认前需至少上传 1 项（图片或视频）' : '暂无凭证，可直接提交'}
-              </div>
-            `
-      }
     </div>
   `
 }
@@ -891,12 +782,62 @@ function renderObjectionProofSection(): string {
   `
 }
 
-function renderHandoutRecordItem(record: PdaHandoverRecord): string {
-  const meta = getRecordStatusMeta(record.status)
-  const showObjectionForm = detailState.objectionRecordId === record.recordId && record.status === 'WRITTEN_BACK'
+function getHandoutObjectionStatusLabel(record: PdaHandoverRecord): string {
+  if (record.objectionStatus === 'REPORTED') return '已发起异议'
+  if (record.objectionStatus === 'PROCESSING') return '异议处理中'
+  if (record.objectionStatus === 'RESOLVED') return '异议已处理'
+  return '无'
+}
+
+function renderHandoutQrBlock(head: PdaHandoverHead, objectTypeLabel: string): string {
+  if (!head.qrCodeValue) return ''
 
   return `
-    <article class="space-y-2 rounded-lg border bg-card p-3">
+    <div data-testid="handout-head-qr" class="shrink-0 rounded-md border bg-white p-2">
+      ${renderRealQrPlaceholder({
+        value: head.qrCodeValue,
+        size: 132,
+        title: `交出头二维码 ${head.handoverId}`,
+        label: `交出头 ${head.handoverId} 二维码`,
+      })}
+      <div class="mt-2 space-y-1 text-[11px] leading-tight text-muted-foreground">
+        <div>交出头编号：${escapeHtml(head.handoverId)}</div>
+        <div>任务编号：${escapeHtml(head.taskNo)}</div>
+        <div>交出物类型：${escapeHtml(objectTypeLabel)}</div>
+      </div>
+    </div>
+  `
+}
+
+function renderHandoutRecordInfoChips(lines: string[]): string {
+  if (lines.length === 0) {
+    return '<div class="text-xs text-muted-foreground">当前暂无可读的交出物明细</div>'
+  }
+
+  return `
+    <div class="flex flex-wrap gap-1.5">
+      ${lines
+        .map(
+          (line) =>
+            `<span class="inline-flex items-center rounded border border-border bg-muted/30 px-2 py-0.5 text-[11px] text-muted-foreground">${escapeHtml(line)}</span>`,
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function renderHandoutRecordItem(
+  record: PdaHandoverRecord,
+  head: PdaHandoverHead,
+  runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>,
+  sourceDoc: ReturnType<typeof getPdaHeadSourceExecutionDoc>,
+): string {
+  const meta = getRecordStatusMeta(record.status)
+  const showObjectionForm = detailState.objectionRecordId === record.recordId && record.status === 'WRITTEN_BACK'
+  const profile = deriveHandoutRecordProfile(record, head, runtimeTask, sourceDoc)
+
+  return `
+    <article data-testid="handout-record-card" class="space-y-2 rounded-lg border bg-card p-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
           <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">第 ${record.sequenceNo} 次交出</span>
@@ -905,40 +846,28 @@ function renderHandoutRecordItem(record: PdaHandoverRecord): string {
         <span class="text-[11px] text-muted-foreground">发起时间：${escapeHtml(record.factorySubmittedAt)}</span>
       </div>
 
+      <div class="space-y-2 text-xs">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${escapeHtml(profile.objectTypeLabel)}</span>
+          <span class="font-medium">${escapeHtml(profile.itemTitle)}</span>
+          ${
+            typeof profile.garmentEquivalentQty === 'number'
+              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数：${profile.garmentEquivalentQty} 件</span>`
+              : ''
+          }
+        </div>
+        ${renderHandoutRecordInfoChips(profile.infoLines)}
+      </div>
+
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        <div><span class="text-muted-foreground">工厂说明：</span>${escapeHtml(record.factoryRemark || '—')}</div>
-        <div><span class="text-muted-foreground">交出凭证：</span>${record.factoryProofFiles.length} 个</div>
-        <div><span class="text-muted-foreground">物料名称：</span>${escapeHtml(record.materialName || '—')}</div>
-        <div><span class="text-muted-foreground">物料规格：</span>${escapeHtml(record.materialSpec || '—')}</div>
-        <div><span class="text-muted-foreground">SKU：</span>${escapeHtml(record.skuCode || '—')}</div>
-        <div><span class="text-muted-foreground">颜色/尺码：</span>${escapeHtml(record.skuColor || '—')} / ${escapeHtml(record.skuSize || '—')}</div>
-        <div><span class="text-muted-foreground">裁片：</span>${escapeHtml(record.pieceName || '—')}</div>
-        <div><span class="text-muted-foreground">计划交出：</span>${
-          typeof record.plannedQty === 'number'
-            ? `${record.plannedQty} ${escapeHtml(record.qtyUnit || '件')}`
-            : '—'
-        }</div>
+        <div><span class="text-muted-foreground">${escapeHtml(profile.plannedQtyLabel)}：</span>${escapeHtml(profile.plannedQtyText)}</div>
+        <div><span class="text-muted-foreground">${escapeHtml(profile.writtenQtyLabel)}：</span>${escapeHtml(profile.writtenQtyText)}</div>
+        <div><span class="text-muted-foreground">${escapeHtml(profile.pendingQtyLabel)}：</span>${escapeHtml(profile.pendingQtyText)}</div>
         <div><span class="text-muted-foreground">回货单号：</span>${escapeHtml(record.warehouseReturnNo || '待仓库回写')}</div>
-        <div><span class="text-muted-foreground">已交数量：</span>${
-          typeof record.warehouseWrittenQty === 'number'
-            ? `${record.warehouseWrittenQty} ${escapeHtml(record.qtyUnit || '件')}`
-            : '待仓库回写'
-        }</div>
-        <div><span class="text-muted-foreground">剩余数量：</span>${
-          typeof record.plannedQty === 'number' && typeof record.warehouseWrittenQty === 'number'
-            ? `${Math.max(record.plannedQty - record.warehouseWrittenQty, 0)} ${escapeHtml(record.qtyUnit || '件')}`
-            : '待仓库回写'
-        }</div>
         <div><span class="text-muted-foreground">回写时间：</span>${escapeHtml(record.warehouseWrittenAt || '待仓库回写')}</div>
-        <div><span class="text-muted-foreground">异议状态：</span>${escapeHtml(
-          record.objectionStatus === 'REPORTED'
-            ? '已发起异议'
-            : record.objectionStatus === 'PROCESSING'
-              ? '异议处理中'
-              : record.objectionStatus === 'RESOLVED'
-                ? '异议已处理'
-                : '无',
-        )}</div>
+        <div><span class="text-muted-foreground">异议状态：</span>${escapeHtml(getHandoutObjectionStatusLabel(record))}</div>
+        <div><span class="text-muted-foreground">工厂说明：</span>${escapeHtml(record.factoryRemark || '—')}</div>
+        <div><span class="text-muted-foreground">回写记录：</span>${record.factoryProofFiles.length > 0 ? `${record.factoryProofFiles.length} 个工厂凭证` : '由仓库回写生成'}</div>
       </div>
 
       ${
@@ -1020,87 +949,74 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
   const isCompleted = head.completionStatus === 'COMPLETED'
   const sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)
   const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
+  const profile = deriveHandoutObjectProfile(head, records, runtimeTask, sourceDoc)
+  const detailLines = profile.objectInfoLines.length
+    ? profile.objectInfoLines
+        .map((line) => `<div class="truncate">${escapeHtml(line)}</div>`)
+        .join('')
+    : '<div>当前暂无仓库回写记录</div>'
 
   return `
     ${renderSectionCard(
       '交出信息（交出头）',
       `
-      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        ${renderFieldRow('任务编号', head.taskNo)}
-        ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
-        ${renderFieldRow('生产单号', head.productionOrderNo)}
-        ${renderFieldRow('当前工序', head.processName)}
-        ${renderFieldRow('任务状态', head.taskStatus === 'DONE' ? '已完工' : '进行中')}
+      <div class="flex flex-col gap-3 lg:flex-row">
+        <div class="min-w-0 flex-1 space-y-2.5">
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            ${renderFieldRow('任务编号', head.taskNo)}
+            ${renderFieldRow('交出头编号', head.handoverId)}
+            ${renderFieldRow('原始任务', head.rootTaskNo || head.taskNo)}
+            ${renderFieldRow('生产单号', head.productionOrderNo)}
+            ${renderFieldRow('当前工序', head.processName)}
+            ${renderFieldRow('任务状态', head.taskStatus === 'DONE' ? '已完工' : '进行中')}
+          </div>
+          <div class="h-px bg-border"></div>
+          ${renderPartyRow('交出工厂', 'FACTORY', head.sourceFactoryName)}
+          ${renderPartyRow(head.targetKind === 'WAREHOUSE' ? '去向仓库' : '去向工厂', head.targetKind, head.targetName)}
+          <div class="h-px bg-border"></div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
+            ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType ? '其他单据' : '—')}
+            ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
+            ${renderFieldRow('当前任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+          </div>
+        </div>
+        ${renderHandoutQrBlock(head, profile.objectTypeLabel)}
       </div>
       <div class="h-px bg-border"></div>
-      ${renderPartyRow('交出工厂', 'FACTORY', head.sourceFactoryName)}
-      ${renderPartyRow(head.targetKind === 'WAREHOUSE' ? '去向仓库' : '去向工厂', head.targetKind, head.targetName)}
-      <div class="h-px bg-border"></div>
-      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
-        ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType ? '其他单据' : '—')}
-        ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
-        ${renderFieldRow('当前任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
-      </div>
-      <div class="h-px bg-border"></div>
-      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        ${renderFieldRow('累计交出次数', `${head.recordCount} 次`)}
-        ${renderFieldRow('待仓库回写', `${head.pendingWritebackCount} 次`)}
-        ${renderFieldRow('累计已回写数量', `${head.writtenBackQtyTotal} ${head.qtyUnit}`)}
-        ${renderFieldRow('数量异议', `${head.objectionCount} 条`)}
+      <div data-testid="handout-head-object-profile" class="space-y-2 rounded-md border bg-muted/20 px-2.5 py-2 text-xs">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">交出物类型：${escapeHtml(profile.objectTypeLabel)}</span>
+          ${
+            typeof profile.garmentEquivalentQtyTotal === 'number'
+              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数：${profile.garmentEquivalentQtyTotal} 件</span>`
+              : ''
+          }
+        </div>
+        <div class="space-y-0.5 text-muted-foreground">${detailLines}</div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          ${renderFieldRow(profile.primaryQtyLabel, `${profile.totalPlannedQty} ${profile.displayUnit}`, true)}
+          ${renderFieldRow(profile.writtenQtyLabel, `${profile.totalWrittenQty} ${profile.displayUnit}`, true)}
+          ${renderFieldRow(profile.pendingQtyLabel, `${profile.totalPendingQty} ${profile.displayUnit}`, true)}
+          ${renderFieldRow('数量异议', `${head.objectionCount} 条`)}
+          ${renderFieldRow('累计交出次数', `${head.recordCount} 次`)}
+          ${renderFieldRow('待仓库回写', `${head.pendingWritebackCount} 次`)}
+        </div>
       </div>
       <div class="rounded-md border ${head.qtyDiffTotal !== 0 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'} px-2.5 py-1.5 text-xs">
-        ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${head.qtyDiffTotal > 0 ? '-' : '+'}${Math.abs(head.qtyDiffTotal)} ${head.qtyUnit}）` : '数量一致'}
+        ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${head.qtyDiffTotal > 0 ? '-' : '+'}${Math.abs(head.qtyDiffTotal)} ${profile.displayUnit}）` : '数量一致'}
       </div>
       <div class="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
-        ${isCompleted ? `仓库已发起交出完成：${escapeHtml(head.completedByWarehouseAt || '—')}` : '当前交出头待仓库发起完成，工厂不可主动关闭'}
+        ${isCompleted ? `仓库已发起交出完成：${escapeHtml(head.completedByWarehouseAt || '—')}` : '当前由仓库收货后自动回写并发起完成，工厂不可手工补录交出信息'}
       </div>
     `,
     )}
 
-    ${
-      !isCompleted
-        ? renderSectionCard(
-            '新增交出记录',
-            `
-      <div class="space-y-2">
-        <label class="text-xs font-medium">本次交出时间 *</label>
-        <input
-          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-          type="datetime-local"
-          value="${escapeHtml(detailState.handoverRecordTime)}"
-          data-pda-handoverd-field="handoverRecordTime"
-        />
-      </div>
-      <div class="space-y-1.5">
-        <label class="text-xs">本次交出说明</label>
-        <textarea
-          class="min-h-[64px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-          placeholder="例如：第 2 次送货，先送主批次"
-          data-pda-handoverd-field="handoverRecordRemark"
-        >${escapeHtml(detailState.handoverRecordRemark)}</textarea>
-      </div>
-      ${renderProofUploadSection('交出凭证', '可上传打包照片、装车照片或视频，本次交出凭证当前为选填')}
-      <div class="flex justify-end">
-        <button
-          class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          data-pda-handoverd-action="submit-handover-record"
-          data-handover-id="${escapeHtml(head.handoverId)}"
-        >
-          <i data-lucide="plus" class="mr-1.5 h-4 w-4"></i>确认新增交出记录
-        </button>
-      </div>
-      <p class="text-xs text-muted-foreground">工厂仅发起交出记录，最终交出数量以后续仓库回写为准。</p>
-    `,
-          )
-        : ''
-    }
-
     ${renderSectionCard(
       '交出记录列表',
       records.length === 0
-        ? '<div class="py-4 text-center text-xs text-muted-foreground">暂无交出记录，点击上方按钮新增第一条交出记录</div>'
-        : `<div class="space-y-2">${records.map((record) => renderHandoutRecordItem(record)).join('')}</div>`,
+        ? '<div class="py-4 text-center text-xs text-muted-foreground">当前等待仓库收货回写，暂未生成交出记录</div>'
+        : `<div class="space-y-2">${records.map((record) => renderHandoutRecordItem(record, head, runtimeTask, sourceDoc)).join('')}</div>`,
     )}
   `
 }
@@ -1177,11 +1093,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const field = fieldNode.dataset.pdaHandoverdField
     if (!field) return true
 
-    if (field === 'handoverRecordTime') {
-      detailState.handoverRecordTime = fieldNode.value
-      return true
-    }
-
     if (field === 'pickupDisputeQty') {
       detailState.pickupDisputeQty = fieldNode.value
       return true
@@ -1194,11 +1105,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
 
     if (field === 'pickupDisputeRemark') {
       detailState.pickupDisputeRemark = fieldNode.value
-      return true
-    }
-
-    if (field === 'handoverRecordRemark') {
-      detailState.handoverRecordRemark = fieldNode.value
       return true
     }
 
@@ -1221,22 +1127,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
 
   if (action === 'back') {
     appStore.navigate('/fcs/pda/handover')
-    return true
-  }
-
-  if (action === 'add-proof-image' || action === 'add-proof-video') {
-    const prefix = actionNode.dataset.namePrefix || '交接凭证'
-    const type = action === 'add-proof-image' ? 'IMAGE' : 'VIDEO'
-    addProofFile(type, prefix)
-    showPdaHandoverDetailToast(type === 'IMAGE' ? '图片已添加' : '视频已添加')
-    return true
-  }
-
-  if (action === 'remove-proof') {
-    const proofId = actionNode.dataset.proofId
-    if (proofId) {
-      removeProofFile(proofId)
-    }
     return true
   }
 
@@ -1295,45 +1185,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     detailState.objectionReason = ''
     detailState.objectionRemark = ''
     detailState.objectionProofFiles = []
-    return true
-  }
-
-  if (action === 'submit-handover-record') {
-    const handoverId = actionNode.dataset.handoverId
-    if (!handoverId) return true
-
-    if (!detailState.handoverRecordTime) {
-      showPdaHandoverDetailToast('请先填写本次交出时间')
-      return true
-    }
-
-    if (isFutureLocalDateTime(detailState.handoverRecordTime)) {
-      showPdaHandoverDetailToast('本次交出时间不能晚于当前时间')
-      return true
-    }
-
-    const created = createPdaHandoverRecord(handoverId, {
-      factorySubmittedAt: dateTimeLocalInputToTimestamp(detailState.handoverRecordTime),
-      factoryRemark: detailState.handoverRecordRemark,
-      factoryProofFiles: cloneProofFiles(detailState.proofFiles),
-    })
-
-    if (!created) {
-      showPdaHandoverDetailToast('新增交出记录失败，请稍后重试')
-      return true
-    }
-
-    appendTaskAudit(
-      created.taskId,
-      'HANDOUT_RECORD_CREATE',
-      `新增第 ${created.sequenceNo} 次交出记录，待仓库回写`,
-      'PDA',
-    )
-
-    detailState.handoverRecordTime = nowDateTimeLocalInput()
-    detailState.handoverRecordRemark = ''
-    detailState.proofFiles = []
-    showPdaHandoverDetailToast('交出记录已新增，待仓库回写')
     return true
   }
 

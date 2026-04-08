@@ -20,6 +20,7 @@ import {
   type ParsedPartInstance,
   type ParsedPartTemplateResult,
 } from '../utils/pcs-part-template-parser'
+import { getTemplateMachineSuitabilityLabel } from '../utils/pcs-part-template-shape-description'
 
 interface PartTemplateLibraryState {
   search: string
@@ -106,6 +107,18 @@ function getSingleUploadError(file: File | null, expectedExtension: 'dxf' | 'rul
 }
 
 function getCreateUploadError(): string | null {
+  const selectedCount = [state.selectedDxfFile, state.selectedRulFile].filter(Boolean).length
+  if (selectedCount === 1) {
+    return '必须同时上传 1 个 DXF 和 1 个 RUL 文件'
+  }
+
+  const dxfExtension = state.selectedDxfFile ? getFileExtension(state.selectedDxfFile.name) : null
+  const rulExtension = state.selectedRulFile ? getFileExtension(state.selectedRulFile.name) : null
+
+  if (selectedCount === 2 && (dxfExtension !== 'dxf' || rulExtension !== 'rul')) {
+    return '文件类型不正确，必须是 1 个 .dxf + 1 个 .rul 文件'
+  }
+
   return (
     getSingleUploadError(state.selectedDxfFile, 'dxf', 'DXF 文件') ??
     getSingleUploadError(state.selectedRulFile, 'rul', 'RUL 文件')
@@ -127,6 +140,75 @@ function getMachineBadgeClass(status: PartTemplateRecord['machineReadyStatus'] |
 function formatMetric(value?: number, suffix = ''): string {
   if (value === undefined || value === null || Number.isNaN(value)) return '-'
   return `${value}${suffix}`
+}
+
+function formatFileSize(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '-'
+  if (value < 1024) return `${value} B`
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
+  return `${(value / 1024 / 1024).toFixed(2)} MB`
+}
+
+function formatFileModifiedTime(file: File): string {
+  return formatDateTime(new Date(file.lastModified).toISOString())
+}
+
+function getCreateUploadStage(): 'idle' | 'partial' | 'ready' | 'parsing' | 'parsed' {
+  if (state.parsing) return 'parsing'
+  if (state.parseResult) return 'parsed'
+  const count = [state.selectedDxfFile, state.selectedRulFile].filter(Boolean).length
+  if (count === 0) return 'idle'
+  if (count === 1) return 'partial'
+  return 'ready'
+}
+
+function getCreateUploadStageMeta(): { label: string; className: string } {
+  const stage = getCreateUploadStage()
+  if (stage === 'idle') {
+    return { label: '请先成对上传 1 个 DXF 和 1 个 RUL 文件', className: 'border-slate-200 bg-slate-50 text-slate-600' }
+  }
+  if (stage === 'partial') {
+    return { label: '还缺少 1 个配对文件', className: 'border-amber-200 bg-amber-50 text-amber-700' }
+  }
+  if (stage === 'ready') {
+    return { label: '文件已齐，可开始解析', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+  }
+  if (stage === 'parsing') {
+    return { label: '正在解析模板，请稍候…', className: 'border-blue-200 bg-blue-50 text-blue-700' }
+  }
+  return {
+    label: `解析成功，共识别 ${state.parseResult?.parts.length ?? 0} 个部位`,
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  }
+}
+
+function renderShapeTags(values: string[]): string {
+  if (values.length === 0) return '<span class="text-xs text-gray-400">待补充</span>'
+  return values
+    .slice(0, 3)
+    .map(
+      (value) =>
+        `<span class="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">${escapeHtml(
+          value,
+        )}</span>`,
+    )
+    .join('')
+}
+
+function renderSuitabilityBadge(record: Pick<PartTemplateRecord, 'shapeDescription' | 'machineReadyStatus'>): string {
+  const label = record.shapeDescription ? `模板机适配：${getTemplateMachineSuitabilityLabel(record.shapeDescription.templateMachineSuitability)}` : record.machineReadyStatus
+  const className =
+    record.shapeDescription?.templateMachineSuitability === 'high'
+      ? 'bg-emerald-100 text-emerald-700'
+      : record.shapeDescription?.templateMachineSuitability === 'medium'
+        ? 'bg-amber-100 text-amber-700'
+        : 'bg-slate-100 text-slate-700'
+  return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
+}
+
+function renderSourceInfoLine(record: Pick<PartTemplateRecord, 'systemPieceName' | 'sourceMarkerText'>): string {
+  const items = [record.systemPieceName ? `系统 Piece Name：${record.systemPieceName}` : '', record.sourceMarkerText ? `源标记：${record.sourceMarkerText}` : ''].filter(Boolean)
+  return items.length > 0 ? `<p class="mt-1 text-xs text-gray-500">${escapeHtml(items.join(' · '))}</p>` : ''
 }
 
 function renderCandidateTags(values: string[]): string {
@@ -336,7 +418,7 @@ function renderRecordRows(records: PartTemplateRecord[]): string {
   if (records.length === 0) {
     return `
       <tr>
-        <td colspan="11" class="px-4 py-16 text-center text-sm text-gray-500">
+        <td colspan="12" class="px-4 py-16 text-center text-sm text-gray-500">
           <i data-lucide="folder-search-2" class="mx-auto h-10 w-10 text-gray-300"></i>
           <p class="mt-3">当前还没有部位模板记录</p>
           <p class="mt-1 text-xs text-gray-400">上传一对 .dxf + .rul 后，系统会按部位拆分成多条记录进入主表。</p>
@@ -352,6 +434,7 @@ function renderRecordRows(records: PartTemplateRecord[]): string {
           sourceBlockIndex: 0,
           sourceBlockName: record.templateName,
           sourcePartName: record.sourcePartName,
+          sourceMarkerText: record.sourceMarkerText,
           systemPieceName: record.systemPieceName,
           candidatePartNames: record.candidatePartNames,
           sizeCode: record.sizeCode,
@@ -375,7 +458,10 @@ function renderRecordRows(records: PartTemplateRecord[]): string {
                 }
               : undefined,
           geometryHash: record.geometryHash,
+          normalizedShapeSignature: record.normalizedShapeSignature,
           previewSvg: record.previewSvg,
+          geometryFeatures: record.geometryFeatures,
+          shapeDescription: record.shapeDescription,
           parserStatus: record.parserStatus,
           machineReadyStatus: record.machineReadyStatus,
           issues: [],
@@ -396,7 +482,7 @@ function renderRecordRows(records: PartTemplateRecord[]): string {
           <td class="px-3 py-3 align-top">
             <div class="space-y-1">
               <p class="font-medium text-slate-900">${escapeHtml(record.standardPartName || '待补充')}</p>
-              <p class="text-xs text-gray-500">${escapeHtml(record.systemPieceName ?? '未识别系统 Piece Name')}</p>
+              ${renderSourceInfoLine(record)}
             </div>
           </td>
           <td class="px-3 py-3 align-top">
@@ -407,13 +493,19 @@ function renderRecordRows(records: PartTemplateRecord[]): string {
           </td>
           <td class="px-3 py-3 align-top text-sm">${escapeHtml(record.sizeCode ?? '-')}</td>
           <td class="px-3 py-3 align-top text-sm text-gray-600">
-            <p>${formatMetric(record.width)} x ${formatMetric(record.height)}</p>
+            <p>${formatMetric(record.width)} × ${formatMetric(record.height)}</p>
             <p class="mt-1 text-xs text-gray-500">面积 ${formatMetric(record.area)} / 周长 ${formatMetric(record.perimeter)}</p>
           </td>
           <td class="px-3 py-3 align-top">
             <div class="flex flex-wrap gap-1">
               <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getParserBadgeClass(record.parserStatus)}">${record.parserStatus}</span>
               <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getMachineBadgeClass(record.machineReadyStatus)}">${record.machineReadyStatus}</span>
+            </div>
+          </td>
+          <td class="px-3 py-3 align-top">
+            <div class="space-y-2">
+              <div class="flex flex-wrap gap-1">${renderShapeTags(record.shapeDescription?.shapeTags ?? [])}</div>
+              ${renderSuitabilityBadge(record)}
             </div>
           </td>
           <td class="px-3 py-3 align-top text-sm text-gray-600">
@@ -452,6 +544,7 @@ function renderTable(records: PartTemplateRecord[]): string {
               <th class="px-3 py-3 font-medium">尺码</th>
               <th class="px-3 py-3 font-medium">尺寸</th>
               <th class="px-3 py-3 font-medium">状态</th>
+              <th class="px-3 py-3 font-medium">形状摘要</th>
               <th class="px-3 py-3 font-medium">历史统计</th>
               <th class="px-3 py-3 font-medium">更新时间</th>
               <th class="px-3 py-3 font-medium">推荐参考</th>
@@ -482,7 +575,7 @@ function renderParsedSummary(result: ParsedPartTemplateResult): string {
           <p class="mt-1 text-sm font-medium">${escapeHtml(result.rul.sizeList.join(', ') || '-')}</p>
         </div>
         <div>
-          <p class="text-xs text-gray-500">部位实例数</p>
+          <p class="text-xs text-gray-500">解析出的部位数量</p>
           <p class="mt-1 text-sm font-medium">${result.parts.length}</p>
         </div>
         <div>
@@ -501,6 +594,10 @@ function renderParsedSummary(result: ParsedPartTemplateResult): string {
           <p class="text-xs text-gray-500">放码规则</p>
           <p class="mt-1 text-sm font-medium">${result.rul.deltaRules.length} 条 DELTA 规则</p>
         </div>
+        <div>
+          <p class="text-xs text-gray-500">解析时间</p>
+          <p class="mt-1 text-sm font-medium">${escapeHtml(formatDateTime(result.parsedAt))}</p>
+        </div>
       </div>
     </section>
   `
@@ -511,6 +608,8 @@ function renderPartDraftCards(result: ParsedPartTemplateResult): string {
     .map((part) => {
       const partKey = getPartDraftKey(part)
       const standardName = state.draftStandardNames[partKey] ?? suggestStandardPartName(part)
+      const geometry = part.geometryFeatures
+      const shapeDescription = part.shapeDescription
 
       return `
         <article class="rounded-lg border bg-white p-4">
@@ -522,11 +621,12 @@ function renderPartDraftCards(result: ParsedPartTemplateResult): string {
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 class="text-base font-semibold">${escapeHtml(part.sourcePartName)}</h3>
-                  <p class="mt-1 text-xs text-gray-500">Piece Name：${escapeHtml(part.systemPieceName ?? '未识别')}</p>
+                  ${renderSourceInfoLine({ systemPieceName: part.systemPieceName, sourceMarkerText: part.sourceMarkerText })}
                 </div>
                 <div class="flex flex-wrap gap-1">
                   <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getParserBadgeClass(part.parserStatus)}">${part.parserStatus}</span>
                   <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getMachineBadgeClass(part.machineReadyStatus)}">${part.machineReadyStatus}</span>
+                  ${shapeDescription ? renderSuitabilityBadge({ shapeDescription, machineReadyStatus: part.machineReadyStatus }) : ''}
                 </div>
               </div>
 
@@ -584,10 +684,55 @@ function renderPartDraftCards(result: ParsedPartTemplateResult): string {
                   <p class="mt-1 text-sm font-medium">${formatMetric(part.metrics?.perimeter)}</p>
                 </div>
                 <div>
-                  <p class="text-xs text-gray-500">geometryHash</p>
+                  <p class="text-xs text-gray-500">几何哈希</p>
                   <p class="mt-1 break-all text-sm font-medium">${escapeHtml(part.geometryHash ?? '-')}</p>
                 </div>
               </div>
+
+              ${
+                shapeDescription
+                  ? `
+                    <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+                      <div class="rounded-lg border bg-slate-50 px-3 py-3">
+                        <p class="text-xs text-gray-500">自动形状描述</p>
+                        <div class="mt-2 flex flex-wrap gap-1">${renderShapeTags(shapeDescription.shapeTags)}</div>
+                        <p class="mt-2 text-sm text-slate-700">${escapeHtml(shapeDescription.autoDescription)}</p>
+                      </div>
+                      <div class="rounded-lg border bg-slate-50 px-3 py-3">
+                        <p class="text-xs text-gray-500">模板机适配度</p>
+                        <p class="mt-1 text-sm font-medium">${escapeHtml(getTemplateMachineSuitabilityLabel(shapeDescription.templateMachineSuitability))}</p>
+                        <div class="mt-2 space-y-1 text-xs text-gray-500">
+                          ${shapeDescription.suitabilityReason.map((reason) => `<p>${escapeHtml(reason)}</p>`).join('')}
+                        </div>
+                      </div>
+                    </div>
+                  `
+                  : ''
+              }
+
+              ${
+                geometry
+                  ? `
+                    <div class="rounded-lg border bg-slate-50 px-3 py-3">
+                      <p class="text-xs text-gray-500">几何特征</p>
+                      <div class="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-xs text-gray-600">
+                        <p>长宽比：${formatMetric(geometry.aspectRatio)}</p>
+                        <p>对称度：${formatMetric(geometry.symmetryScore)}</p>
+                        <p>头/中/尾宽：${formatMetric(geometry.headWidth)} / ${formatMetric(geometry.midWidth)} / ${formatMetric(geometry.tailWidth)}</p>
+                        <p>收窄比：${formatMetric(geometry.taperRatio)}</p>
+                        <p>曲边/直边：${formatMetric(geometry.curveRate)} / ${formatMetric(geometry.straightRate)}</p>
+                        <p>主弧段：${geometry.majorArcCount}</p>
+                        <p>最大弧高：${formatMetric(geometry.maxSagitta)}</p>
+                        <p>估算半径：${formatMetric(geometry.maxEstimatedRadius ?? undefined)}</p>
+                        <p>弯曲等级：${escapeHtml(geometry.curvatureLevel)}</p>
+                        <p>内轮廓：${geometry.innerBoundaryCount}</p>
+                        <p>布纹线：${geometry.grainLineCount}${geometry.grainLineAngle !== null ? ` / ${formatMetric(geometry.grainLineAngle, '°')}` : ''}</p>
+                        <p>复杂度：${escapeHtml(geometry.complexityLevel)}</p>
+                      </div>
+                    </div>
+                  `
+                  : ''
+              }
 
               ${
                 part.issues.length > 0
@@ -610,19 +755,68 @@ function renderPartDraftCards(result: ParsedPartTemplateResult): string {
     .join('')
 }
 
-function renderFileStatus(): string {
-  const message =
-    state.uploadError ??
-    `DXF：${state.selectedDxfFile?.name ?? '未上传'}；RUL：${state.selectedRulFile?.name ?? '未上传'}`
-  const toneClass = state.uploadError ? 'text-rose-600' : 'text-gray-500'
+function renderSelectedFileMeta(file: File | null): string {
+  if (!file) {
+    return '<div class="space-y-1 text-xs text-gray-500"><p>未选择文件</p><p>选择后会显示文件名、大小和最后修改时间。</p></div>'
+  }
 
-  return `<p class="text-xs ${toneClass}">${escapeHtml(message)}</p>`
+  return `
+    <div class="space-y-1 text-xs text-gray-600">
+      <p class="font-medium text-slate-900">${escapeHtml(file.name)}</p>
+      <p>大小：${escapeHtml(formatFileSize(file.size))}</p>
+      <p>最后修改：${escapeHtml(formatFileModifiedTime(file))}</p>
+    </div>
+  `
+}
+
+function renderUploadCard(kind: 'dxf' | 'rul'): string {
+  const file = kind === 'dxf' ? state.selectedDxfFile : state.selectedRulFile
+  const label = kind === 'dxf' ? 'DXF 文件' : 'RUL 文件'
+  const extensionLabel = kind === 'dxf' ? '.dxf' : '.rul'
+  const pickerAction = kind === 'dxf' ? 'open-dxf-picker' : 'open-rul-picker'
+  const removeAction = kind === 'dxf' ? 'remove-dxf-file' : 'remove-rul-file'
+  const inputId = kind === 'dxf' ? 'pcs-part-template-dxf-input' : 'pcs-part-template-rul-input'
+  const changeAction = kind === 'dxf' ? 'select-dxf-file' : 'select-rul-file'
+  const stateClass = file ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-white'
+
+  return `
+    <div class="rounded-lg border ${stateClass} p-4">
+      <input id="${inputId}" type="file" class="hidden" accept="${extensionLabel}" data-part-template-action="${changeAction}" />
+      <button class="flex min-h-[44px] w-full flex-col items-start gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-left hover:bg-slate-100" data-part-template-action="${pickerAction}">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500">
+            <i data-lucide="file-up" class="h-5 w-5"></i>
+          </span>
+          <div>
+            <p class="text-sm font-medium text-slate-900">${label}</p>
+            <p class="mt-1 text-xs text-gray-500">仅支持 ${extensionLabel}</p>
+          </div>
+        </div>
+        <span class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm text-slate-700">选择 ${label}</span>
+      </button>
+      <div class="mt-3 rounded-lg border bg-white px-3 py-3">${renderSelectedFileMeta(file)}</div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button class="h-9 rounded-md border px-3 text-sm hover:bg-white" data-part-template-action="${pickerAction}">${file ? '重新选择' : '选择文件'}</button>
+        <button class="h-9 rounded-md border px-3 text-sm hover:bg-white ${file ? '' : 'cursor-not-allowed opacity-60'}" data-part-template-action="${removeAction}" ${file ? '' : 'disabled'}>移除</button>
+      </div>
+    </div>
+  `
+}
+
+function renderUploadStageBar(): string {
+  const meta = getCreateUploadStageMeta()
+  return `<div class="rounded-lg border px-3 py-2 text-sm ${meta.className}">${escapeHtml(meta.label)}</div>`
 }
 
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
 
   const parsedCount = state.parseResult?.parts.length ?? 0
+  const uploadStage = getCreateUploadStage()
+  const canParse =
+    !!state.templateName.trim() &&
+    (uploadStage === 'ready' || uploadStage === 'parsed') &&
+    !state.parsing
   const canSave = !!state.parseResult && !state.parsing && state.parseResult.parts.length > 0
 
   const content = `
@@ -640,37 +834,26 @@ function renderCreateDrawer(): string {
         <div>
           <label class="mb-1 block text-sm font-medium text-gray-900">上传纸样包 <span class="text-rose-500">*</span></label>
           <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
-            <div class="grid gap-3 md:grid-cols-2">
-              <div class="rounded-lg border bg-white p-3">
-                <label class="mb-2 block text-sm font-medium text-gray-900">DXF 文件</label>
-                <input
-                  type="file"
-                  class="w-full text-sm"
-                  accept=".dxf"
-                  data-part-template-action="select-dxf-file"
-                />
-                <p class="mt-2 text-xs text-gray-500">${escapeHtml(state.selectedDxfFile?.name ?? '未上传 DXF 文件')}</p>
-              </div>
-              <div class="rounded-lg border bg-white p-3">
-                <label class="mb-2 block text-sm font-medium text-gray-900">RUL 文件</label>
-                <input
-                  type="file"
-                  class="w-full text-sm"
-                  accept=".rul"
-                  data-part-template-action="select-rul-file"
-                />
-                <p class="mt-2 text-xs text-gray-500">${escapeHtml(state.selectedRulFile?.name ?? '未上传 RUL 文件')}</p>
-              </div>
+            <div class="grid gap-4 md:grid-cols-2">
+              ${renderUploadCard('dxf')}
+              ${renderUploadCard('rul')}
             </div>
             <div class="mt-3 space-y-2">
-              ${renderFileStatus()}
-              <p class="text-xs text-gray-400">严格校验：必须同时上传 1 份 DXF 和 1 份 RUL；重复选择会覆盖当前文件。</p>
+              ${renderUploadStageBar()}
+              <p class="text-xs text-gray-400">必须同时上传 1 个 DXF 和 1 个 RUL 文件；重复上传会覆盖旧文件并刷新解析状态。</p>
+              ${state.uploadError ? `<p class="text-sm text-rose-600">${escapeHtml(state.uploadError)}</p>` : ''}
+              ${state.parseError ? `<p class="text-sm text-rose-600">${escapeHtml(state.parseError)}</p>` : ''}
+              ${
+                !state.templateName.trim()
+                  ? '<p class="text-xs text-amber-600">请先填写模板名称</p>'
+                  : ''
+              }
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
-              <button class="h-9 rounded-md border px-3 text-sm hover:bg-white ${state.parsing ? 'cursor-not-allowed opacity-60' : ''}" data-part-template-action="parse-template" ${state.parsing ? 'disabled' : ''}>${state.parsing ? '解析中...' : '解析模板'}</button>
+              <button class="h-9 rounded-md border px-3 text-sm hover:bg-white ${canParse ? '' : 'cursor-not-allowed opacity-60'}" data-part-template-action="parse-template" ${canParse ? '' : 'disabled'}>${state.parsing ? '解析中...' : state.parseResult ? '重新解析' : '解析模板'}</button>
               <button class="h-9 rounded-md border px-3 text-sm hover:bg-white" data-part-template-action="clear-files">清空已上传文件</button>
             </div>
-            ${state.parseError ? `<p class="mt-3 text-sm text-rose-600">${escapeHtml(state.parseError)}</p>` : ''}
+            ${state.parseResult ? `<div class="mt-4">${renderParsedSummary(state.parseResult)}</div>` : ''}
           </div>
         </div>
       </section>
@@ -678,7 +861,6 @@ function renderCreateDrawer(): string {
       ${
         state.parseResult
           ? `
-            ${renderParsedSummary(state.parseResult)}
             <section class="space-y-3">
               <div class="flex items-center justify-between">
                 <div>
@@ -708,7 +890,7 @@ function renderCreateDrawer(): string {
       confirm: {
         prefix: 'part-template',
         action: 'save-template',
-        label: canSave ? `保存并写入 ${parsedCount} 条部位模板` : '等待解析完成',
+        label: canSave ? '保存并拆分为部位模板' : '等待解析完成',
         variant: 'primary',
         disabled: !canSave,
       },
@@ -722,6 +904,7 @@ function renderDetailRecommendations(record: PartTemplateRecord): string {
       sourceBlockIndex: 0,
       sourceBlockName: record.templateName,
       sourcePartName: record.sourcePartName,
+      sourceMarkerText: record.sourceMarkerText,
       systemPieceName: record.systemPieceName,
       candidatePartNames: record.candidatePartNames,
       sizeCode: record.sizeCode,
@@ -745,7 +928,10 @@ function renderDetailRecommendations(record: PartTemplateRecord): string {
             }
           : undefined,
       geometryHash: record.geometryHash,
+      normalizedShapeSignature: record.normalizedShapeSignature,
       previewSvg: record.previewSvg,
+      geometryFeatures: record.geometryFeatures,
+      shapeDescription: record.shapeDescription,
       parserStatus: record.parserStatus,
       machineReadyStatus: record.machineReadyStatus,
       issues: [],
@@ -798,6 +984,7 @@ function renderDetailDrawer(): string {
           <div class="flex flex-wrap gap-2">
             <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getParserBadgeClass(record.parserStatus)}">${record.parserStatus}</span>
             <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getMachineBadgeClass(record.machineReadyStatus)}">${record.machineReadyStatus}</span>
+            ${renderSuitabilityBadge(record)}
           </div>
           <div class="grid gap-4 md:grid-cols-2">
             <div>
@@ -809,7 +996,7 @@ function renderDetailDrawer(): string {
               <p class="text-sm font-medium">${escapeHtml(record.sourcePartName)}</p>
             </div>
             <div>
-              <p class="mb-1 text-xs text-gray-500">Piece Name</p>
+              <p class="mb-1 text-xs text-gray-500">系统 Piece Name</p>
               <p class="text-sm font-medium">${escapeHtml(record.systemPieceName ?? '-')}</p>
             </div>
             <div>
@@ -817,6 +1004,7 @@ function renderDetailDrawer(): string {
               <div class="flex flex-wrap gap-1">${renderCandidateTags(record.candidatePartNames)}</div>
             </div>
           </div>
+          <div class="flex flex-wrap gap-1">${renderShapeTags(record.shapeDescription?.shapeTags ?? [])}</div>
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div>
               <p class="text-xs text-gray-500">尺码</p>
@@ -835,6 +1023,7 @@ function renderDetailDrawer(): string {
               <p class="mt-1 text-sm font-medium">${escapeHtml(record.category ?? '-')}</p>
             </div>
           </div>
+          ${renderSourceInfoLine(record)}
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div>
               <p class="text-xs text-gray-500">宽</p>
@@ -858,7 +1047,7 @@ function renderDetailDrawer(): string {
 
       <section class="rounded-lg border bg-white p-4">
         <h3 class="text-sm font-semibold">所属模板包信息</h3>
-        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div>
             <p class="text-xs text-gray-500">模板包名称</p>
             <p class="mt-1 text-sm font-medium">${escapeHtml(record.templateName)}</p>
@@ -886,6 +1075,59 @@ function renderDetailDrawer(): string {
           <div class="md:col-span-2">
             <p class="text-xs text-gray-500">尺码列表</p>
             <p class="mt-1 text-sm font-medium">${escapeHtml(templatePackage?.rulSummary.sizeList.join(', ') || '-')}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-white p-4">
+        <h3 class="text-sm font-semibold">几何与形状特征</h3>
+        <div class="mt-3 grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3 text-sm text-gray-600">
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">长宽比</p>
+              <p class="mt-1 font-medium">${formatMetric(record.geometryFeatures?.aspectRatio)}</p>
+            </div>
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">对称度</p>
+              <p class="mt-1 font-medium">${formatMetric(record.geometryFeatures?.symmetryScore)}</p>
+            </div>
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">收窄比</p>
+              <p class="mt-1 font-medium">${formatMetric(record.geometryFeatures?.taperRatio)}</p>
+            </div>
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">头 / 中 / 尾宽</p>
+              <p class="mt-1 font-medium">${formatMetric(record.geometryFeatures?.headWidth)} / ${formatMetric(record.geometryFeatures?.midWidth)} / ${formatMetric(record.geometryFeatures?.tailWidth)}</p>
+            </div>
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">曲边 / 直边占比</p>
+              <p class="mt-1 font-medium">${formatMetric(record.geometryFeatures?.curveRate)} / ${formatMetric(record.geometryFeatures?.straightRate)}</p>
+            </div>
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">主弧段 / 弯曲等级</p>
+              <p class="mt-1 font-medium">${record.geometryFeatures?.majorArcCount ?? '-'} / ${escapeHtml(record.geometryFeatures?.curvatureLevel ?? '-')}</p>
+            </div>
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">最大弧高 / 估算半径</p>
+              <p class="mt-1 font-medium">${formatMetric(record.geometryFeatures?.maxSagitta)} / ${formatMetric(record.geometryFeatures?.maxEstimatedRadius ?? undefined)}</p>
+            </div>
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">内轮廓 / 布纹线</p>
+              <p class="mt-1 font-medium">${record.geometryFeatures?.innerBoundaryCount ?? '-'} / ${record.geometryFeatures?.grainLineCount ?? '-'}</p>
+            </div>
+            <div class="rounded-lg border bg-slate-50 px-3 py-3">
+              <p class="text-xs text-gray-500">复杂度 / 几何哈希</p>
+              <p class="mt-1 font-medium">${escapeHtml(record.geometryFeatures?.complexityLevel ?? '-')}</p>
+              <p class="mt-2 break-all text-xs text-gray-500">${escapeHtml(record.geometryHash ?? '-')}</p>
+            </div>
+          </div>
+          <div class="rounded-lg border bg-slate-50 px-3 py-3">
+            <p class="text-xs text-gray-500">自动形状描述</p>
+            <div class="mt-2 flex flex-wrap gap-1">${renderShapeTags(record.shapeDescription?.shapeTags ?? [])}</div>
+            <p class="mt-3 text-sm text-slate-700">${escapeHtml(record.shapeDescription?.autoDescription ?? '待补充')}</p>
+            <div class="mt-3 space-y-1 text-xs text-gray-500">
+              ${(record.shapeDescription?.suitabilityReason ?? []).map((reason) => `<p>${escapeHtml(reason)}</p>`).join('')}
+            </div>
           </div>
         </div>
       </section>
@@ -1000,7 +1242,7 @@ function startParsingTemplate(): void {
   let resolvedFiles
 
   if (!state.templateName.trim()) {
-    state.parseError = '模板名称不能为空。'
+    state.parseError = '请先填写模板名称'
     return
   }
 
@@ -1012,7 +1254,7 @@ function startParsingTemplate(): void {
   }
 
   if (!resolvedFiles) {
-    state.parseError = '请先选择一对 .dxf + .rul 文件。'
+    state.parseError = '必须同时上传 1 个 DXF 和 1 个 RUL 文件'
     return
   }
 
@@ -1069,6 +1311,7 @@ function saveParsedRows(): void {
       units: state.parseResult.rul.units,
       sampleSize: state.parseResult.rul.sampleSize,
       sizeList: state.parseResult.rul.sizeList,
+      rawRuleSummary: state.parseResult.rul.deltaRules,
     },
     rows,
   })
@@ -1093,6 +1336,7 @@ export function handlePcsPartTemplateLibraryEvent(target: Element): boolean {
   if (action === 'open-create-drawer') {
     state.createDrawerOpen = true
     state.notice = null
+    resetCreateDrawerState()
     return true
   }
 
@@ -1128,6 +1372,8 @@ export function handlePcsPartTemplateLibraryEvent(target: Element): boolean {
       state.selectedDxfFile = actionNode.files?.[0] ?? null
       state.parseError = null
       state.uploadError = getCreateUploadError()
+      state.parseResult = null
+      state.draftStandardNames = {}
 
       return true
     }
@@ -1138,8 +1384,42 @@ export function handlePcsPartTemplateLibraryEvent(target: Element): boolean {
       state.selectedRulFile = actionNode.files?.[0] ?? null
       state.parseError = null
       state.uploadError = getCreateUploadError()
+      state.parseResult = null
+      state.draftStandardNames = {}
       return true
     }
+  }
+
+  if (action === 'open-dxf-picker') {
+    document.getElementById('pcs-part-template-dxf-input')?.click()
+    return true
+  }
+
+  if (action === 'open-rul-picker') {
+    document.getElementById('pcs-part-template-rul-input')?.click()
+    return true
+  }
+
+  if (action === 'remove-dxf-file') {
+    state.selectedDxfFile = null
+    state.uploadError = getCreateUploadError()
+    state.parseError = null
+    state.parseResult = null
+    state.draftStandardNames = {}
+    const input = document.getElementById('pcs-part-template-dxf-input')
+    if (input instanceof HTMLInputElement) input.value = ''
+    return true
+  }
+
+  if (action === 'remove-rul-file') {
+    state.selectedRulFile = null
+    state.uploadError = getCreateUploadError()
+    state.parseError = null
+    state.parseResult = null
+    state.draftStandardNames = {}
+    const input = document.getElementById('pcs-part-template-rul-input')
+    if (input instanceof HTMLInputElement) input.value = ''
+    return true
   }
 
   if (action === 'clear-files') {
@@ -1149,6 +1429,10 @@ export function handlePcsPartTemplateLibraryEvent(target: Element): boolean {
     state.parseError = null
     state.parseResult = null
     state.draftStandardNames = {}
+    const dxfInput = document.getElementById('pcs-part-template-dxf-input')
+    const rulInput = document.getElementById('pcs-part-template-rul-input')
+    if (dxfInput instanceof HTMLInputElement) dxfInput.value = ''
+    if (rulInput instanceof HTMLInputElement) rulInput.value = ''
     return true
   }
 

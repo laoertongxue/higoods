@@ -1,0 +1,107 @@
+import assert from 'node:assert/strict'
+import {
+  createPatternAsset,
+  getPatternAssetById,
+  persistPatternParsedFile,
+  resetPatternLibraryStore,
+  submitPatternAssetReview,
+  waitForPatternLibraryPersistence,
+} from '../src/data/pcs-pattern-library.ts'
+import { tokenizePatternFilename } from '../src/utils/pcs-pattern-library-services.ts'
+import type { PatternParsedFileResult } from '../src/data/pcs-pattern-library-types.ts'
+
+function buildParsedFile(parseStatus: PatternParsedFileResult['parseStatus'] = 'success'): PatternParsedFileResult {
+  return {
+    originalFilename: parseStatus === 'success' ? 'flow-pattern.png' : 'broken-pattern.tif',
+    fileExt: parseStatus === 'success' ? 'png' : 'tif',
+    mimeType: parseStatus === 'success' ? 'image/png' : 'image/tiff',
+    fileSize: 4096,
+    imageWidth: 1200,
+    imageHeight: 1600,
+    aspectRatio: 0.75,
+    colorMode: 'RGB',
+    dpiX: 300,
+    dpiY: 300,
+    frameCount: 1,
+    hasAlpha: false,
+    sha256: `sha-${parseStatus}`,
+    phash: parseStatus === 'success' ? '101010101010101010101010101010101010101010101010101010101010101' : undefined,
+    filenameTokens: tokenizePatternFilename(parseStatus === 'success' ? 'flow-pattern.png' : 'broken-pattern.tif'),
+    originalBlob: new Blob(['original']),
+    previewBlob: parseStatus === 'success' ? new Blob(['preview']) : undefined,
+    thumbnailBlob: parseStatus === 'success' ? new Blob(['thumbnail']) : undefined,
+    parseStatus,
+    parseErrorMessage: parseStatus === 'success' ? undefined : 'TIFF 解析失败',
+    parseSummary: parseStatus === 'success' ? 'PNG 文件，1200 x 1600，300 DPI' : 'TIFF 解析失败，请重试',
+    dominantColors: parseStatus === 'success' ? ['蓝色'] : [],
+    parseWarnings: parseStatus === 'success' ? [] : ['TIFF 解析失败'],
+    parseResultJson: {},
+  }
+}
+
+resetPatternLibraryStore()
+
+const persistedParsed = await persistPatternParsedFile(buildParsedFile('success'))
+assert.ok(persistedParsed.originalBlobKey, '应为原文件生成 Blob key')
+assert.ok(persistedParsed.previewBlobKey, '应为预览生成 Blob key')
+
+const asset = createPatternAsset({
+  patternName: '流程测试花型',
+  aliases: [],
+  usageType: '重复花',
+  category: '花卉',
+  styleTags: [],
+  colorTags: ['蓝色'],
+  hotFlag: false,
+  sourceType: '自研',
+  applicableCategories: [],
+  applicableParts: [],
+  relatedPartTemplateIds: [],
+  processDirection: '印花',
+  maintenanceStatus: '待补录',
+  createdBy: '测试用户',
+  submitForReview: false,
+  parsedFile: persistedParsed,
+  license: {
+    license_status: 'authorized',
+    attachment_urls: [],
+  },
+})
+
+await waitForPatternLibraryPersistence()
+assert.equal(asset.review_status, 'draft', '保存草稿后应保持 draft')
+assert.ok(getPatternAssetById(asset.id)?.currentVersion?.preview_blob_key, '版本应保存 preview blob key')
+
+const pending = submitPatternAssetReview(asset.id, '测试审核员')
+assert.equal(pending.review_status, 'pending', '提交审核后应转为 pending')
+
+const failedAsset = createPatternAsset({
+  patternName: '失败花型',
+  aliases: [],
+  usageType: '重复花',
+  category: '花卉',
+  styleTags: [],
+  colorTags: [],
+  hotFlag: false,
+  sourceType: '自研',
+  applicableCategories: [],
+  applicableParts: [],
+  relatedPartTemplateIds: [],
+  processDirection: '印花',
+  maintenanceStatus: '待补录',
+  createdBy: '测试用户',
+  submitForReview: false,
+  parsedFile: await persistPatternParsedFile(buildParsedFile('failed')),
+  license: {
+    license_status: 'authorized',
+    attachment_urls: [],
+  },
+})
+
+assert.throws(
+  () => submitPatternAssetReview(failedAsset.id, '测试审核员'),
+  /解析成功后才允许提交审核/,
+  '解析失败记录不应允许提交审核',
+)
+
+console.log('pattern-library-flow.spec.ts PASS')

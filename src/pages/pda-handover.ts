@@ -1,8 +1,11 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
+import { renderRealQrPlaceholder } from '../components/real-qr'
 import { renderPdaFrame } from './pda-shell'
 import {
+  deriveHandoutObjectProfile,
   getPdaCompletedHeads,
+  getPdaHandoverRecordsByHead,
   getPdaHandoutHeads,
   getPdaPickupHeads,
   type PdaHandoverHead,
@@ -130,7 +133,7 @@ function getHandoutSummaryMeta(head: PdaHandoverHead): { label: string; classNam
     return {
       label: '暂无交出记录',
       className: 'border-border bg-background text-muted-foreground',
-      hint: '可新增第一条交出记录',
+      hint: '当前等待仓库收货后自动回写',
     }
   }
   if (head.summaryStatus === 'SUBMITTED') {
@@ -161,10 +164,62 @@ function getHandoutSummaryMeta(head: PdaHandoverHead): { label: string; classNam
   }
 }
 
+function renderHandoutQrBlock(head: PdaHandoverHead, objectTypeLabel: string, size: number): string {
+  if (!head.qrCodeValue) return ''
+
+  return `
+    <div data-testid="handout-head-qr" class="shrink-0 rounded-md border bg-white p-1.5">
+      ${renderRealQrPlaceholder({
+        value: head.qrCodeValue,
+        size,
+        title: `交出头二维码 ${head.handoverId}`,
+        label: `交出头 ${head.handoverId} 二维码`,
+      })}
+      <div class="mt-1 space-y-0.5 text-[10px] leading-tight text-muted-foreground">
+        <div>交出头编号：${escapeHtml(head.handoverId)}</div>
+        <div>任务编号：${escapeHtml(head.taskNo)}</div>
+        <div>交出物类型：${escapeHtml(objectTypeLabel)}</div>
+      </div>
+    </div>
+  `
+}
+
+function renderHandoutObjectBlock(head: PdaHandoverHead, compact = false): string {
+  const records = getPdaHandoverRecordsByHead(head.handoverId)
+  const profile = deriveHandoutObjectProfile(head, records)
+  const infoLines = profile.objectInfoLines.length
+    ? profile.objectInfoLines
+        .map((line) => `<div class="truncate">${escapeHtml(line)}</div>`)
+        .join('')
+    : '<div>当前暂无仓库回写记录</div>'
+
+  return `
+    <div data-testid="handout-head-object-profile" class="flex items-start justify-between gap-3 rounded border bg-muted/20 px-2.5 py-2 text-xs">
+      <div class="min-w-0 flex-1 space-y-1.5">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">交出物类型：${escapeHtml(profile.objectTypeLabel)}</span>
+          ${
+            typeof profile.garmentEquivalentQtyTotal === 'number'
+              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数：${profile.garmentEquivalentQtyTotal} 件</span>`
+              : ''
+          }
+        </div>
+        <div class="space-y-0.5 text-muted-foreground">${infoLines}</div>
+        <div class="grid ${compact ? 'grid-cols-1 gap-y-1' : 'grid-cols-1 gap-y-1 sm:grid-cols-3 sm:gap-2'}">
+          <div>${escapeHtml(profile.primaryQtyLabel)}：<span class="font-medium text-foreground">${profile.totalPlannedQty} ${escapeHtml(profile.displayUnit)}</span></div>
+          <div>${escapeHtml(profile.writtenQtyLabel)}：<span class="font-medium text-foreground">${profile.totalWrittenQty} ${escapeHtml(profile.displayUnit)}</span></div>
+          <div>${escapeHtml(profile.pendingQtyLabel)}：<span class="font-medium text-foreground">${profile.totalPendingQty} ${escapeHtml(profile.displayUnit)}</span></div>
+        </div>
+      </div>
+      ${renderHandoutQrBlock(head, profile.objectTypeLabel, compact ? 72 : 80)}
+    </div>
+  `
+}
+
 function renderOpenHeadCard(head: PdaHandoverHead): string {
   const meta = head.headType === 'PICKUP' ? getPickupSummaryMeta(head) : getHandoutSummaryMeta(head)
   const headLabel = head.headType === 'PICKUP' ? '领料头' : '交出头'
-  const actionLabel = head.headType === 'PICKUP' ? '去领料' : head.recordCount > 0 ? '查看交出' : '去交出'
+  const actionLabel = head.headType === 'PICKUP' ? '去领料' : '查看交出详情'
 
   if (head.headType === 'PICKUP') {
     const pickupHint =
@@ -224,6 +279,7 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
   return `
     <article
       class="cursor-pointer rounded-lg border transition-colors hover:border-primary"
+      data-testid="handout-head-card"
       data-pda-handover-action="open-detail"
       data-event-id="${escapeHtml(head.handoverId)}"
     >
@@ -238,6 +294,7 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
           <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
+          <div><span class="text-muted-foreground">交出头编号：</span>${escapeHtml(head.handoverId)}</div>
           <div><span class="text-muted-foreground">原始任务：</span>${escapeHtml(head.rootTaskNo || head.taskNo)}</div>
           <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
           <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
@@ -262,6 +319,8 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
           <div>数量差异：<span class="font-medium ${head.qtyDiffTotal !== 0 ? 'text-red-600' : ''}">${head.qtyDiffTotal > 0 ? '-' : head.qtyDiffTotal < 0 ? '+' : ''}${Math.abs(head.qtyDiffTotal)} ${escapeHtml(head.qtyUnit)}</span></div>
         </div>
 
+        ${renderHandoutObjectBlock(head, true)}
+
         <div class="text-[10px] text-muted-foreground">${escapeHtml(meta.hint)}</div>
         <div class="rounded border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] text-blue-700">
           当前头单仅可由仓库侧发起完成，工厂不可主动关闭
@@ -284,6 +343,7 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
   return `
     <article
       class="cursor-pointer rounded-lg border transition-colors hover:border-primary"
+      ${head.headType === 'HANDOUT' ? 'data-testid="handout-head-card"' : ''}
       data-pda-handover-action="open-detail"
       data-event-id="${escapeHtml(head.handoverId)}"
     >
@@ -314,6 +374,8 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
             ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${escapeHtml(diffLabel)}）` : '数量一致'}
           </div>
         </div>
+
+        ${head.headType === 'HANDOUT' ? renderHandoutObjectBlock(head) : ''}
       </div>
     </article>
   `
@@ -381,7 +443,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'handout'
             ? `
-              <p class="text-xs text-muted-foreground">一个任务对应一个交出头，可分多次交出。最终数量以仓库回写为准，工厂不可主动发起完成。</p>
+              <p class="text-xs text-muted-foreground">一个任务对应一个交出头，交出记录由仓库收货后自动回写，工厂只查看交出详情。</p>
               ${
                 handoutHeads.length === 0
                   ? renderEmptyState('暂无待交出头单')
