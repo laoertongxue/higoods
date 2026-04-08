@@ -31,7 +31,7 @@ function assertSpecCoversAcceptance(): void {
     '铺布列表',
     '补料管理',
     '打印菲票',
-    '周转口袋流转',
+    '中转袋流转',
     '裁片仓',
     "countViewportRows(page, 'cutting-spreading-list-table')",
     "countViewportRows(page, 'marker-plan-list-table')",

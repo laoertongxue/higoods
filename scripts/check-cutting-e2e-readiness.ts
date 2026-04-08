@@ -277,7 +277,7 @@ function assertFormalAnchorsUnified(): void {
   const warehouseRuntime = read('src/data/fcs/cutting/warehouse-runtime.ts')
   assert(warehouseRuntime.includes('spreadingSessionId'), 'warehouse-runtime.ts 缺少来源铺布锚点')
   assert(warehouseRuntime.includes('feiTicketId'), 'warehouse-runtime.ts 缺少来源菲票锚点')
-  assert(warehouseRuntime.includes('bagId'), 'warehouse-runtime.ts 缺少来源周转口袋锚点')
+  assert(warehouseRuntime.includes('bagId'), 'warehouse-runtime.ts 缺少来源中转袋锚点')
   assert(warehouseRuntime.includes('transferBatchId'), 'warehouse-runtime.ts 缺少来源装袋批次锚点')
 }
 

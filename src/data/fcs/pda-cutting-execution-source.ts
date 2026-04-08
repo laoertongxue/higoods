@@ -1826,6 +1826,7 @@ export function resolvePdaTaskExecPath(taskId: string, returnTo?: string): strin
 export function resolvePdaHandoverDetailPath(handoverId: string, returnTo?: string): string {
   const head = findPdaHandoverHead(handoverId)
   if (!head) return `/fcs/pda/handover/${handoverId}`
+  if (head.headType === 'HANDOUT') return `/fcs/pda/handover/${handoverId}`
   if (!isCuttingSpecialTask(head.taskId)) return `/fcs/pda/handover/${handoverId}`
   return resolvePdaTaskDetailPath(head.taskId, returnTo)
 }

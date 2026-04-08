@@ -12,10 +12,11 @@ import { tokenizePatternFilename } from '../src/utils/pcs-pattern-library-servic
 import type { PatternParsedFileResult } from '../src/data/pcs-pattern-library-types.ts'
 
 function buildParsedFile(seed: { fileName: string; sha256: string; phash: string }): PatternParsedFileResult {
+  const ext = seed.fileName.split('.').pop()?.toLowerCase() ?? 'tif'
   return {
     originalFilename: seed.fileName,
-    fileExt: 'png',
-    mimeType: 'image/png',
+    fileExt: ext,
+    mimeType: ext === 'tif' || ext === 'tiff' ? 'image/tiff' : 'image/png',
     fileSize: 102400,
     imageWidth: 1800,
     imageHeight: 2400,
@@ -31,10 +32,10 @@ function buildParsedFile(seed: { fileName: string; sha256: string; phash: string
     previewUrl: 'data:image/png;base64,seed',
     thumbnailUrl: 'data:image/png;base64,seed',
     parseStatus: 'success',
-    parseSummary: 'PNG 文件，1800 x 2400，300 DPI',
+    parseSummary: 'TIFF 文件，1800 x 2400，300/300 DPI',
     dominantColors: ['红色', '绿色'],
     parseWarnings: [],
-    parseResultJson: { mock: true },
+    parseResultJson: { decoder: 'worker:tiff', compression: 5, predictor: 2 },
   }
 }
 
@@ -60,7 +61,7 @@ const draft = createPatternAsset({
   createdBy: '测试用户',
   submitForReview: false,
   parsedFile: buildParsedFile({
-    fileName: 'Test-Pattern-A.png',
+    fileName: 'Test-Pattern-A.tif',
     sha256: 'test-sha-001',
     phash: '101010101010101010101010101010101010101010101010101010101010101',
   }),
@@ -77,7 +78,7 @@ assert.equal(draft.review_status, 'draft', '默认保存草稿时应为 draft')
 
 const duplicateHits = listPatternDuplicateCandidates(
   buildParsedFile({
-    fileName: 'Test-Pattern-A-Copy.png',
+    fileName: 'Test-Pattern-A-Copy.tif',
     sha256: 'test-sha-001',
     phash: '101010101010101010101010101010101010101010101010101010101010101',
   }),

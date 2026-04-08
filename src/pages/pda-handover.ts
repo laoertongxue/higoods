@@ -199,8 +199,16 @@ function renderHandoutObjectBlock(head: PdaHandoverHead, compact = false): strin
         <div class="flex flex-wrap items-center gap-1.5">
           <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">交出物类型：${escapeHtml(profile.objectTypeLabel)}</span>
           ${
+            profile.objectType === 'CUT_PIECE' && profile.cutPieceRecordSummary
+              ? `
+                <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">涉及部位：${profile.cutPieceRecordSummary.involvedPartCount} 种</span>
+                <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">涉及 SKU：${profile.cutPieceRecordSummary.involvedSkuCount} 个</span>
+              `
+              : ''
+          }
+          ${
             typeof profile.garmentEquivalentQtyTotal === 'number'
-              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数：${profile.garmentEquivalentQtyTotal} 件</span>`
+              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数（件）：${profile.garmentEquivalentQtyTotal} 件</span>`
               : ''
           }
         </div>

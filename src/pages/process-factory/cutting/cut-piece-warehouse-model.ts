@@ -364,7 +364,7 @@ function applyWarehouseWritebackOverlay(
       inboundAt: next.inboundAt || writeback.submittedAt,
       inboundBy: next.inboundBy || writeback.operatorName,
       handoverStatus: 'HANDED_OVER',
-      handoverTarget: writeback.handoverTarget || '已交接至后道 / 周转口袋后续',
+      handoverTarget: writeback.handoverTarget || '已交接至后道 / 中转袋后续',
     })
   })
 
@@ -517,8 +517,8 @@ export function buildCutPieceWarehouseViewModel(
         bagCode: matchedBinding?.bagCode || '',
         bagFirstSatisfied: Boolean(matchedBinding?.bindingId),
         bagFirstRuleLabel: matchedBinding?.bindingId
-          ? '先装袋，再入裁片仓；当前已找到正式周转口袋装袋绑定。'
-          : '先装袋，再入裁片仓；当前未找到正式周转口袋装袋绑定，仅作为待补链路展示。',
+          ? '先装袋，再入裁片仓；当前已找到正式中转袋装袋绑定。'
+          : '先装袋，再入裁片仓；当前未找到正式中转袋装袋绑定，仅作为待补链路展示。',
         note: record.note,
         riskTags: deriveCutPieceRiskTags(record),
         navigationPayload: buildCutPieceWarehouseNavigationPayload({

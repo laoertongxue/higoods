@@ -158,7 +158,7 @@ function renderHeaderActions(): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-original-orders-index">查看原始裁片单</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags-index">查看周转口袋流转</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags-index">查看中转袋流转</button>
       ${returnToSummary}
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-summary-index">查看裁剪总表</button>
     </div>
@@ -195,7 +195,7 @@ function renderStatsCards(): string {
       ${renderCompactKpiCard('裁片总片数（片）', formatCutPieceQuantity(summary.totalQuantity), '当前筛选范围汇总', 'text-blue-600')}
       ${renderCompactKpiCard('待入仓数', summary.waitingInWarehouseCount, '仍待仓务确认', 'text-slate-700')}
       ${renderCompactKpiCard('已入仓数', summary.inWarehouseCount, '已进入裁片仓', 'text-emerald-600')}
-      ${renderCompactKpiCard('待交接数', summary.waitingHandoffCount, '待发后道或进入周转口袋流转', 'text-amber-600')}
+      ${renderCompactKpiCard('待交接数', summary.waitingHandoffCount, '待发后道或进入中转袋流转', 'text-amber-600')}
       ${renderCompactKpiCard('区域数', summary.zoneCount, 'A / B / C / 未分配', 'text-violet-600')}
     </section>
   `
@@ -387,7 +387,7 @@ function renderTable(items: CutPieceWarehouseItem[]): string {
                 <td class="px-4 py-3">
                   <div class="flex flex-wrap gap-2">
                     <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cut-piece-warehouse-action="open-detail" data-item-id="${escapeHtml(item.warehouseItemId)}">查看详情</button>
-                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去周转口袋流转</button>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去中转袋流转</button>
                   </div>
                 </td>
               </tr>
@@ -461,14 +461,14 @@ function renderDetailDrawer(): string {
           <div class="flex items-start justify-between gap-3">
             <div>
               <h3 class="text-sm font-semibold text-foreground">铺布 / 装袋追溯</h3>
-              <p class="mt-1 text-xs text-muted-foreground">先装袋，再入裁片仓；当前主锚点以铺布 session 与周转口袋使用周期为准。</p>
+              <p class="mt-1 text-xs text-muted-foreground">先装袋，再入裁片仓；当前主锚点以铺布 session 与中转袋使用周期为准。</p>
             </div>
             ${renderTag(item.bagFirstSatisfied ? '先装袋后入仓已满足' : '先装袋后入仓待补', item.bagFirstSatisfied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200')}
           </div>
           ${
             item.bagFirstSatisfied
               ? ''
-              : '<div class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">当前未找到正式周转口袋装袋绑定，当前入仓链路仍为待补状态。</div>'
+              : '<div class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">当前未找到正式中转袋装袋绑定，当前入仓链路仍为待补状态。</div>'
           }
           <dl class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <div class="rounded-lg border bg-muted/10 p-3">
@@ -496,11 +496,11 @@ function renderDetailDrawer(): string {
                 <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.sourceWritebackId || '当前尚无 PDA 回写流水')}</dd>
               </div>
               <div class="rounded-lg border bg-muted/10 p-3">
-                <dt class="text-xs text-muted-foreground">周转口袋使用周期</dt>
+                <dt class="text-xs text-muted-foreground">中转袋使用周期</dt>
                 <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagUsageNo || item.bagUsageId || '待补')}</dd>
               </div>
               <div class="rounded-lg border bg-muted/10 p-3">
-                <dt class="text-xs text-muted-foreground">周转口袋码</dt>
+                <dt class="text-xs text-muted-foreground">中转袋码</dt>
                 <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.bagCode || '待补')}</dd>
               </div>
               <div class="rounded-lg border bg-muted/10 p-3 md:col-span-2 xl:col-span-3">
@@ -554,8 +554,8 @@ function renderDetailDrawer(): string {
         <section class="rounded-lg border border-dashed bg-blue-50/50 p-4">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h3 class="text-sm font-semibold text-foreground">周转口袋流转</h3>
-              <p class="mt-1 text-xs text-muted-foreground">将当前裁片对象带入周转口袋流转页，可继续选择周转口袋、进入详情、执行装袋与后续流转操作。</p>
+              <h3 class="text-sm font-semibold text-foreground">中转袋流转</h3>
+              <p class="mt-1 text-xs text-muted-foreground">将当前裁片对象带入中转袋流转页，可继续选择中转袋、进入详情、执行装袋与后续流转操作。</p>
             </div>
           </div>
           <dl class="mt-4 grid gap-3 md:grid-cols-2">
@@ -585,7 +585,7 @@ function renderDetailDrawer(): string {
             </div>
           </dl>
           <div class="mt-4 flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去周转口袋流转</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-transfer-bags" data-item-id="${escapeHtml(item.warehouseItemId)}">去中转袋流转</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-cut-piece-warehouse-action="go-original-orders" data-item-id="${escapeHtml(item.warehouseItemId)}">去来源原始裁片单</button>
           </div>
         </section>
@@ -665,7 +665,7 @@ function submitWarehouseAction(
     },
     zoneCode: state.detailDraft.zoneCode,
     locationCode: state.detailDraft.locationCode.trim() || item.locationCode || '待补库位',
-    handoverTarget: actionType === 'CUT_PIECE_WAREHOUSE_MARK_HANDED_OVER' ? '已交接至后道 / 周转口袋后续' : item.handoffTarget,
+    handoverTarget: actionType === 'CUT_PIECE_WAREHOUSE_MARK_HANDED_OVER' ? '已交接至后道 / 中转袋后续' : item.handoffTarget,
     note: state.detailDraft.note.trim() || item.note,
   })
   const result = submitCutPieceWarehouseWriteback(payload)

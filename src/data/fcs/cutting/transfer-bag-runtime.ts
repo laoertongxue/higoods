@@ -296,7 +296,7 @@ function buildCarrierRecord(input: {
     carrierId: input.carrierId,
     carrierCode: input.carrierCode,
     carrierType: input.carrierType,
-    bagType: input.carrierType === 'bag' ? '周转口袋' : '周转箱',
+    bagType: input.carrierType === 'bag' ? '中转袋' : '周转箱',
     capacity: input.capacity,
     reusable: true,
     currentStatus: input.currentStatus,
@@ -488,7 +488,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       sizeSummary: '默认尺码组',
       plannedQty: 120,
       status: '待接料',
-      note: '默认周转口袋任务引用。',
+      note: '默认中转袋任务引用。',
     })
   }
   const masters: TransferCarrierRecord[] = [
@@ -499,7 +499,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 24,
       currentStatus: 'IDLE',
       currentLocation: '裁片仓 A 区待命位',
-      note: '常用周转口袋。',
+      note: '常用中转袋。',
     }),
     buildCarrierRecord({
       carrierId: 'carrier-bag-002',
@@ -552,7 +552,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 18,
       currentStatus: 'IDLE',
-      currentLocation: '周转口袋回收验收台',
+      currentLocation: '中转袋回收验收台',
       note: '正在进行回收验收的口袋样例。',
     }),
     buildCarrierRecord({
@@ -570,7 +570,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 20,
       currentStatus: 'WAITING_CLEANING',
-      currentLocation: '周转口袋清洁区',
+      currentLocation: '中转袋清洁区',
       note: '上一轮回收后待清洁。',
     }),
     buildCarrierRecord({
@@ -579,7 +579,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 20,
       currentStatus: 'WAITING_REPAIR',
-      currentLocation: '周转口袋维修区',
+      currentLocation: '中转袋维修区',
       note: '袋体边角破损，待维修确认。',
     }),
     buildCarrierRecord({
@@ -652,7 +652,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       capacity: 26,
       currentStatus: 'IDLE',
       currentLocation: '裁片仓 E 区待命位',
-      note: '大容量周转口袋，可容纳更多菲票。',
+      note: '大容量中转袋，可容纳更多菲票。',
     }),
   ]
 
@@ -856,7 +856,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
         returnedOriginalCutOrderCount: unique(cycleBindings.map((item) => item.originalCutOrderNo)).length,
         discrepancyType: options.discrepancyType || 'NONE',
         discrepancyNote: options.discrepancyNote || '',
-        note: options.returnNote || '已完成周转口袋回收登记。',
+        note: options.returnNote || '已完成中转袋回收登记。',
       })
       pushReturnAudit(
         cycle,
@@ -1101,7 +1101,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '周转装袋员-冯凯',
     cycleStatus: 'RETURN_INSPECTING',
     masterStatus: 'IN_USE',
-    currentLocation: '周转口袋回收验收台',
+    currentLocation: '中转袋回收验收台',
     ticketCount: 2,
     note: '已回收待验收。',
     finishedPackingAt: '2026-03-23 13:35',
@@ -1158,7 +1158,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '周转装袋员-邵伟',
     cycleStatus: 'EXCEPTION_CLOSED',
     masterStatus: 'WAITING_CLEANING',
-    currentLocation: '周转口袋清洁区',
+    currentLocation: '中转袋清洁区',
     ticketCount: 1,
     note: '回收后发现袋体较脏，需先清洁。',
     finishedPackingAt: '2026-03-17 10:38',
@@ -1191,7 +1191,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '周转装袋员-孙杰',
     cycleStatus: 'EXCEPTION_CLOSED',
     masterStatus: 'WAITING_REPAIR',
-    currentLocation: '周转口袋维修区',
+    currentLocation: '中转袋维修区',
     ticketCount: 1,
     note: '袋体边角破损，需要维修确认。',
     finishedPackingAt: '2026-03-16 14:25',

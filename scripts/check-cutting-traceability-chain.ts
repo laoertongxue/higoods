@@ -33,7 +33,7 @@ function assertTraceabilitySources(): void {
 
   assertIncludes(qrPayload, "codeType: 'ORIGINAL_CUT_ORDER'", '应存在原始裁片单主码 payload')
   assertIncludes(qrPayload, "codeType: 'FEI_TICKET'", '应存在菲票子码 payload')
-  assertIncludes(qrPayload, "codeType: 'CARRIER'", '应存在周转口袋/箱父码 payload')
+  assertIncludes(qrPayload, "codeType: 'CARRIER'", '应存在中转袋/箱父码 payload')
   assertIncludes(qrPayload, 'buildOriginalCutOrderQrPayload', '缺少 buildOriginalCutOrderQrPayload')
   assertIncludes(qrPayload, 'buildFeiTicketQrPayload', '缺少 buildFeiTicketQrPayload')
   assertIncludes(qrPayload, 'buildCarrierQrPayload', '缺少 buildCarrierQrPayload')
@@ -102,7 +102,7 @@ function assertCarrierCutover(): void {
   assertIncludes(transferBagsPage, "from './transfer-bags-projection'", 'transfer-bags.ts 应消费正式载具 projection')
   assertIncludes(transferBagsPage, 'resolveCarrierScanInput', 'transfer-bags.ts 应使用正式父码解析')
   assertIncludes(transferBagsPage, 'resolveFeiTicketScanInput', 'transfer-bags.ts 应使用正式菲票子码解析')
-  assertIncludes(transferBagsPage, '步骤 1：扫周转口袋码', '装袋流程必须先扫口袋码')
+  assertIncludes(transferBagsPage, '步骤 1：扫中转袋码', '装袋流程必须先扫口袋码')
   assertIncludes(transferBagsPage, '步骤 2：扫菲票码', '装袋流程必须再扫菲票码')
   assertIncludes(transferBagsPage, '必须先扫口袋码，再扫菲票子码', '装袋流程必须明确先装袋后入仓约束')
   assertIncludes(transferBagsPage, '来源铺布', '装袋详情必须展示来源铺布')

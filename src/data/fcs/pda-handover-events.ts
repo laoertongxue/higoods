@@ -75,6 +75,37 @@ export type HandoverRecordStatus =
 
 export type PdaHandoutObjectType = 'GARMENT' | 'CUT_PIECE' | 'FABRIC'
 
+export interface PdaCutPieceHandoutLine {
+  lineId: string
+  piecePartLabel: string
+  piecePartCode?: string
+  garmentSkuCode: string
+  garmentSkuLabel?: string
+  colorLabel?: string
+  sizeLabel?: string
+  pieceQty: number
+  garmentEquivalentQty: number
+}
+
+export interface PdaCutPiecePartGroup {
+  partLabel: string
+  partCode?: string
+  totalPieceQty: number
+  totalGarmentEquivalentQty: number
+  skuLines: PdaCutPieceHandoutLine[]
+}
+
+export interface PdaCutPieceRecordSummary {
+  involvedPartLabels: string[]
+  involvedPartCount: number
+  involvedSkuCodes: string[]
+  involvedSkuCount: number
+  plannedPieceQtyTotal: number
+  returnedPieceQtyTotal: number
+  pendingPieceQtyTotal: number
+  garmentEquivalentQtyTotal: number
+}
+
 export interface PdaHandoutObjectProfile {
   objectType: PdaHandoutObjectType
   objectTypeLabel: string
@@ -87,6 +118,7 @@ export interface PdaHandoutObjectProfile {
   totalWrittenQty: number
   totalPendingQty: number
   garmentEquivalentQtyTotal?: number
+  cutPieceRecordSummary?: PdaCutPieceRecordSummary
 }
 
 export interface PdaHandoutRecordProfile {
@@ -102,6 +134,8 @@ export interface PdaHandoutRecordProfile {
   writtenQtyText: string
   pendingQtyText: string
   garmentEquivalentQty?: number
+  cutPieceRecordSummary?: PdaCutPieceRecordSummary
+  cutPiecePartGroups?: PdaCutPiecePartGroup[]
 }
 
 export interface HandoverProofFile {
@@ -178,6 +212,7 @@ export interface PdaHandoverRecord {
   skuSize?: string
   pieceName?: string
   garmentEquivalentQty?: number
+  cutPieceLines?: PdaCutPieceHandoutLine[]
   plannedQty?: number
   qtyUnit?: string
   factorySubmittedAt: string
@@ -363,6 +398,7 @@ function buildGenericHandoutRecord(seed: PdaTaskMockHandoutRecordSeed): PdaHando
     pieceName: seed.pieceName,
     plannedQty: seed.plannedQty,
     qtyUnit: seed.qtyUnit,
+    cutPieceLines: seed.cutPieceLines?.map((line) => ({ ...line })),
     factorySubmittedAt: seed.factorySubmittedAt,
     factoryRemark: seed.factoryRemark,
     factoryProofFiles: [],
@@ -480,6 +516,44 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     isSpecialCraft: false,
   },
   {
+    handoverId: 'HOH-MOCK-CUT-093',
+    headType: 'HANDOUT',
+    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-093'),
+    taskId: 'TASK-CUT-000093',
+    taskNo: 'TASK-CUT-000093',
+    productionOrderNo: 'PO-20260319-017',
+    processName: '裁片',
+    sourceFactoryName: '小飞裁片厂',
+    targetName: '后道车缝',
+    targetKind: 'FACTORY',
+    qtyUnit: '片',
+    factoryId: PDA_MOCK_FACTORY_ID,
+    taskStatus: 'DONE',
+    summaryStatus: 'PARTIAL_WRITTEN_BACK',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 320,
+    qtyActualTotal: 240,
+    qtyDiffTotal: 80,
+    sourceDocNo: 'RET-MOCK-CUT-093',
+    scopeLabel: '多部位尾批交接',
+    executorKind: 'EXTERNAL_FACTORY',
+    transitionFromPrev: 'RETURN_TO_WAREHOUSE',
+    transitionToNext: 'SAME_FACTORY_CONTINUE',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processBusinessCode: 'PROC_CUT',
+    processBusinessName: '裁片',
+    taskTypeCode: 'CUTTING',
+    taskTypeLabel: '裁片任务',
+    assignmentGranularity: 'ORDER',
+    assignmentGranularityLabel: '整单',
+    isSpecialCraft: true,
+  },
+  {
     handoverId: 'HOH-MOCK-CUT-094',
     headType: 'HANDOUT',
     qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-CUT-094'),
@@ -499,11 +573,11 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     writtenBackQtyTotal: 0,
     objectionCount: 0,
     completionStatus: 'COMPLETED',
-    qtyExpectedTotal: 240,
-    qtyActualTotal: 0,
-    qtyDiffTotal: 240,
+    qtyExpectedTotal: 320,
+    qtyActualTotal: 320,
+    qtyDiffTotal: 0,
     sourceDocNo: 'RET-MOCK-CUT-094',
-    scopeLabel: '整单',
+    scopeLabel: '整单多部位交接',
     executorKind: 'EXTERNAL_FACTORY',
     transitionFromPrev: 'RETURN_TO_WAREHOUSE',
     transitionToNext: 'SAME_FACTORY_CONTINUE',
@@ -789,6 +863,113 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       status: 'PENDING_WRITEBACK',
     },
   ],
+  'HOH-MOCK-CUT-093': [
+    {
+      recordId: 'HOR-MOCK-CUT093-001',
+      handoverId: 'HOH-MOCK-CUT-093',
+      taskId: 'TASK-CUT-000093',
+      sequenceNo: 1,
+      handoutObjectType: 'CUT_PIECE',
+      handoutItemLabel: '前片、后片（2 种部位） / CPO-20260319-G / CPO-20260319-H（2 个）',
+      garmentEquivalentQty: 120,
+      materialCode: 'CUT-093-PANEL',
+      materialName: '裁片',
+      materialSpec: '前片、后片首批交接',
+      skuCode: 'CPO-20260319-G',
+      skuColor: '石灰蓝',
+      skuSize: 'M / L',
+      pieceName: '前片 / 后片',
+      cutPieceLines: [
+        {
+          lineId: 'CUT093-001-FRONT-G',
+          piecePartLabel: '前片',
+          garmentSkuCode: 'CPO-20260319-G',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'M',
+          pieceQty: 60,
+          garmentEquivalentQty: 30,
+        },
+        {
+          lineId: 'CUT093-001-FRONT-H',
+          piecePartLabel: '前片',
+          garmentSkuCode: 'CPO-20260319-H',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'L',
+          pieceQty: 60,
+          garmentEquivalentQty: 30,
+        },
+        {
+          lineId: 'CUT093-001-BACK-G',
+          piecePartLabel: '后片',
+          garmentSkuCode: 'CPO-20260319-G',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'M',
+          pieceQty: 60,
+          garmentEquivalentQty: 30,
+        },
+        {
+          lineId: 'CUT093-001-BACK-H',
+          piecePartLabel: '后片',
+          garmentSkuCode: 'CPO-20260319-H',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'L',
+          pieceQty: 60,
+          garmentEquivalentQty: 30,
+        },
+      ],
+      plannedQty: 240,
+      qtyUnit: '片',
+      factorySubmittedAt: '2026-03-22 09:40:00',
+      factoryRemark: '前片、后片首批已完成仓库回写',
+      factoryProofFiles: [],
+      status: 'WRITTEN_BACK',
+      warehouseReturnNo: 'RET-MOCK-CUT-093-001',
+      warehouseWrittenQty: 240,
+      warehouseWrittenAt: '2026-03-22 10:05:00',
+    },
+    {
+      recordId: 'HOR-MOCK-CUT093-002',
+      handoverId: 'HOH-MOCK-CUT-093',
+      taskId: 'TASK-CUT-000093',
+      sequenceNo: 2,
+      handoutObjectType: 'CUT_PIECE',
+      handoutItemLabel: '罗纹领口（1 种部位） / CPO-20260319-G / CPO-20260319-H（2 个）',
+      garmentEquivalentQty: 40,
+      materialCode: 'CUT-093-COLLAR',
+      materialName: '裁片',
+      materialSpec: '罗纹领口尾批待回写',
+      skuCode: 'CPO-20260319-G / CPO-20260319-H',
+      skuColor: '石灰蓝',
+      skuSize: 'M / L',
+      pieceName: '罗纹领口',
+      cutPieceLines: [
+        {
+          lineId: 'CUT093-002-COLLAR-G',
+          piecePartLabel: '罗纹领口',
+          garmentSkuCode: 'CPO-20260319-G',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'M',
+          pieceQty: 40,
+          garmentEquivalentQty: 20,
+        },
+        {
+          lineId: 'CUT093-002-COLLAR-H',
+          piecePartLabel: '罗纹领口',
+          garmentSkuCode: 'CPO-20260319-H',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'L',
+          pieceQty: 40,
+          garmentEquivalentQty: 20,
+        },
+      ],
+      plannedQty: 80,
+      qtyUnit: '片',
+      factorySubmittedAt: '2026-03-22 14:10:00',
+      factoryRemark: '罗纹领口待仓库回写',
+      factoryProofFiles: [],
+      status: 'PENDING_WRITEBACK',
+    },
+  ],
   'HOH-MOCK-CUT-094': [
     {
       recordId: 'HOR-MOCK-CUT094-001',
@@ -796,23 +977,79 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       taskId: 'TASK-CUT-000094',
       sequenceNo: 1,
       handoutObjectType: 'CUT_PIECE',
-      handoutItemLabel: '石灰蓝 / CPO-20260319-H / 240片 / 前后片整单',
-      garmentEquivalentQty: 120,
-      materialCode: 'CUT-094-PANEL',
+      handoutItemLabel: '前片、后片、罗纹领口（3 种部位） / CPO-20260319-G / CPO-20260319-H（2 个）',
+      garmentEquivalentQty: 160,
+      materialCode: 'CUT-094-MULTI',
       materialName: '印花裁片',
-      materialSpec: '整单主片交接',
-      skuCode: 'CPO-20260319-H',
+      materialSpec: '整单多部位交接',
+      skuCode: 'CPO-20260319-G / CPO-20260319-H',
       skuColor: '石灰蓝',
-      skuSize: 'M',
-      pieceName: '前后片整单',
-      plannedQty: 240,
+      skuSize: 'M / L',
+      pieceName: '前片 / 后片 / 罗纹领口',
+      cutPieceLines: [
+        {
+          lineId: 'CUT094-001-FRONT-G',
+          piecePartLabel: '前片',
+          garmentSkuCode: 'CPO-20260319-G',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'M',
+          pieceQty: 60,
+          garmentEquivalentQty: 30,
+        },
+        {
+          lineId: 'CUT094-001-FRONT-H',
+          piecePartLabel: '前片',
+          garmentSkuCode: 'CPO-20260319-H',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'L',
+          pieceQty: 60,
+          garmentEquivalentQty: 30,
+        },
+        {
+          lineId: 'CUT094-001-BACK-G',
+          piecePartLabel: '后片',
+          garmentSkuCode: 'CPO-20260319-G',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'M',
+          pieceQty: 60,
+          garmentEquivalentQty: 30,
+        },
+        {
+          lineId: 'CUT094-001-BACK-H',
+          piecePartLabel: '后片',
+          garmentSkuCode: 'CPO-20260319-H',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'L',
+          pieceQty: 60,
+          garmentEquivalentQty: 30,
+        },
+        {
+          lineId: 'CUT094-001-COLLAR-G',
+          piecePartLabel: '罗纹领口',
+          garmentSkuCode: 'CPO-20260319-G',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'M',
+          pieceQty: 40,
+          garmentEquivalentQty: 20,
+        },
+        {
+          lineId: 'CUT094-001-COLLAR-H',
+          piecePartLabel: '罗纹领口',
+          garmentSkuCode: 'CPO-20260319-H',
+          colorLabel: '石灰蓝',
+          sizeLabel: 'L',
+          pieceQty: 40,
+          garmentEquivalentQty: 20,
+        },
+      ],
+      plannedQty: 320,
       qtyUnit: '片',
       factorySubmittedAt: '2026-03-22 10:10:00',
-      factoryRemark: '已交接后道车缝',
+      factoryRemark: '多部位裁片已交接后道车缝',
       factoryProofFiles: [],
       status: 'WRITTEN_BACK',
       warehouseReturnNo: 'RET-MOCK-CUT-094-001',
-      warehouseWrittenQty: 240,
+      warehouseWrittenQty: 320,
       warehouseWrittenAt: '2026-03-22 10:30:00',
     },
   ],
@@ -1135,6 +1372,10 @@ function cloneProofFiles(files: HandoverProofFile[]): HandoverProofFile[] {
   return files.map((file) => ({ ...file }))
 }
 
+function cloneCutPieceLines(lines: PdaCutPieceHandoutLine[] | undefined): PdaCutPieceHandoutLine[] | undefined {
+  return lines?.map((line) => ({ ...line }))
+}
+
 function cloneHead(head: PdaHandoverHead): PdaHandoverHead {
   return { ...head }
 }
@@ -1149,6 +1390,7 @@ function clonePickupRecord(record: PdaPickupRecord): PdaPickupRecord {
 function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
   return {
     ...record,
+    cutPieceLines: cloneCutPieceLines(record.cutPieceLines),
     factoryProofFiles: cloneProofFiles(record.factoryProofFiles),
     objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
   }
@@ -1408,13 +1650,123 @@ function formatQtyValue(qty: number | undefined, unit: string): string {
   return `${Math.round(qty * 100) / 100} ${normalizedUnit}`
 }
 
+function uniqueLabels(values: Array<string | undefined>): string[] {
+  const normalized = values
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+  return Array.from(new Set(normalized))
+}
+
+function formatPartScopeLine(labels: string[]): string {
+  if (labels.length === 0) return '涉及部位裁片：未标部位'
+  if (labels.length <= 3) return `涉及部位裁片：${labels.join('、')}（${labels.length} 种部位）`
+  return `涉及部位裁片：${labels.slice(0, 3).join('、')}等 ${labels.length} 种部位`
+}
+
+function formatSkuScopeLine(codes: string[]): string {
+  if (codes.length === 0) return '涉及 SKU：未标 SKU'
+  if (codes.length <= 2) return `涉及 SKU：${codes.join(' / ')}（${codes.length} 个）`
+  return `涉及 SKU：${codes.slice(0, 2).join(' / ')} 等 ${codes.length} 个`
+}
+
+export function listCutPieceLines(record: PdaHandoverRecord): PdaCutPieceHandoutLine[] {
+  if (record.cutPieceLines && record.cutPieceLines.length > 0) {
+    return cloneCutPieceLines(record.cutPieceLines) ?? []
+  }
+
+  const plannedPieceQty = typeof record.plannedQty === 'number' ? record.plannedQty : 0
+  const garmentEquivalentQty = typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0
+  if (!record.pieceName && !record.skuCode && plannedPieceQty === 0 && garmentEquivalentQty === 0) {
+    return []
+  }
+
+  return [
+    {
+      lineId: `${record.recordId}-line-001`,
+      piecePartLabel: record.pieceName || '未标部位',
+      garmentSkuCode: record.skuCode || '未标 SKU',
+      colorLabel: record.skuColor,
+      sizeLabel: record.skuSize,
+      pieceQty: plannedPieceQty,
+      garmentEquivalentQty,
+    },
+  ]
+}
+
+export function groupCutPieceLinesByPart(record: PdaHandoverRecord): PdaCutPiecePartGroup[] {
+  const groups = new Map<string, PdaCutPiecePartGroup>()
+  listCutPieceLines(record).forEach((line) => {
+    const key = `${line.piecePartLabel}::${line.piecePartCode || ''}`
+    const existed = groups.get(key)
+    if (existed) {
+      existed.totalPieceQty += line.pieceQty
+      existed.totalGarmentEquivalentQty += line.garmentEquivalentQty
+      existed.skuLines.push({ ...line })
+      return
+    }
+
+    groups.set(key, {
+      partLabel: line.piecePartLabel,
+      partCode: line.piecePartCode,
+      totalPieceQty: line.pieceQty,
+      totalGarmentEquivalentQty: line.garmentEquivalentQty,
+      skuLines: [{ ...line }],
+    })
+  })
+  return Array.from(groups.values())
+}
+
+export function deriveCutPieceRecordSummary(record: PdaHandoverRecord): PdaCutPieceRecordSummary {
+  const lines = listCutPieceLines(record)
+  const plannedFromLines = sumBy(lines, (line) => line.pieceQty)
+  const garmentFromLines = sumBy(lines, (line) => line.garmentEquivalentQty)
+  const plannedPieceQtyTotal = plannedFromLines > 0 ? plannedFromLines : typeof record.plannedQty === 'number' ? record.plannedQty : 0
+  const returnedPieceQtyTotal = typeof record.warehouseWrittenQty === 'number' ? record.warehouseWrittenQty : 0
+  const pendingPieceQtyTotal = Math.max(plannedPieceQtyTotal - returnedPieceQtyTotal, 0)
+  const garmentEquivalentQtyTotal =
+    garmentFromLines > 0 ? garmentFromLines : typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0
+
+  return {
+    involvedPartLabels: uniqueLabels(lines.map((line) => line.piecePartLabel)),
+    involvedPartCount: uniqueLabels(lines.map((line) => line.piecePartLabel)).length,
+    involvedSkuCodes: uniqueLabels(lines.map((line) => line.garmentSkuCode)),
+    involvedSkuCount: uniqueLabels(lines.map((line) => line.garmentSkuCode)).length,
+    plannedPieceQtyTotal,
+    returnedPieceQtyTotal,
+    pendingPieceQtyTotal,
+    garmentEquivalentQtyTotal,
+  }
+}
+
+export function buildCutPieceHeadSummary(head: PdaHandoverHead, records: PdaHandoverRecord[]): PdaCutPieceRecordSummary {
+  const lines = records.flatMap((record) => listCutPieceLines(record))
+  const plannedFromLines = sumBy(lines, (line) => line.pieceQty)
+  const plannedFromRecords = sumBy(records, (record) => (typeof record.plannedQty === 'number' ? record.plannedQty : 0))
+  const returnedPieceQtyTotal =
+    records.length > 0
+      ? sumBy(records, (record) => (typeof record.warehouseWrittenQty === 'number' ? record.warehouseWrittenQty : 0))
+      : head.writtenBackQtyTotal
+  const plannedPieceQtyTotal = plannedFromLines > 0 ? plannedFromLines : records.length > 0 ? plannedFromRecords : head.qtyExpectedTotal
+  const pendingPieceQtyTotal = Math.max(plannedPieceQtyTotal - returnedPieceQtyTotal, 0)
+  const garmentFromLines = sumBy(lines, (line) => line.garmentEquivalentQty)
+  const garmentFromRecords = sumBy(records, (record) => (typeof record.garmentEquivalentQty === 'number' ? record.garmentEquivalentQty : 0))
+
+  return {
+    involvedPartLabels: uniqueLabels(lines.map((line) => line.piecePartLabel)),
+    involvedPartCount: uniqueLabels(lines.map((line) => line.piecePartLabel)).length,
+    involvedSkuCodes: uniqueLabels(lines.map((line) => line.garmentSkuCode)),
+    involvedSkuCount: uniqueLabels(lines.map((line) => line.garmentSkuCode)).length,
+    plannedPieceQtyTotal,
+    returnedPieceQtyTotal,
+    pendingPieceQtyTotal,
+    garmentEquivalentQtyTotal: garmentFromLines > 0 ? garmentFromLines : garmentFromRecords,
+  }
+}
+
 function buildHandoutInfoLines(record: PdaHandoverRecord, objectType: PdaHandoutObjectType): string[] {
   if (objectType === 'CUT_PIECE') {
-    return [
-      record.skuCode ? `SKU 编码：${record.skuCode}` : '',
-      record.skuColor || record.skuSize ? `颜色 / 尺码：${record.skuColor || '—'} / ${record.skuSize || '—'}` : '',
-      record.pieceName ? `部位名称：${record.pieceName}` : '',
-    ].filter(Boolean)
+    const cutPieceSummary = deriveCutPieceRecordSummary(record)
+    return [formatPartScopeLine(cutPieceSummary.involvedPartLabels), formatSkuScopeLine(cutPieceSummary.involvedSkuCodes)]
   }
 
   if (objectType === 'FABRIC') {
@@ -1435,7 +1787,8 @@ function buildHandoutInfoLines(record: PdaHandoverRecord, objectType: PdaHandout
 function buildHandoutListLine(record: PdaHandoverRecord, objectType: PdaHandoutObjectType): string {
   if (record.handoutItemLabel) return record.handoutItemLabel
   if (objectType === 'CUT_PIECE') {
-    return `${record.skuCode || record.materialCode || '未标 SKU'} / ${record.skuColor || '未标颜色'} / ${record.skuSize || '未标尺码'} / ${record.pieceName || '未标部位'}`
+    const cutPieceSummary = deriveCutPieceRecordSummary(record)
+    return `${formatPartScopeLine(cutPieceSummary.involvedPartLabels).replace('涉及部位裁片：', '')} / ${formatSkuScopeLine(cutPieceSummary.involvedSkuCodes).replace('涉及 SKU：', '')}`
   }
   if (objectType === 'FABRIC') {
     return `${record.materialCode || record.skuCode || record.materialName || '面料'} / ${record.skuColor || '未标颜色'} / ${formatQtyValue(record.plannedQty, record.qtyUnit || '卷')}`
@@ -1452,6 +1805,38 @@ export function deriveHandoutRecordProfile(
   const objectType = deriveHandoutObjectType(head, record, runtimeTask, sourceDoc)
   const displayUnit = normalizeDisplayUnit(record.qtyUnit || head.qtyUnit, objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件')
   const labels = getHandoutQtyLabels(objectType, displayUnit)
+  if (objectType === 'CUT_PIECE') {
+    const cutPieceRecordSummary = deriveCutPieceRecordSummary(record)
+    const cutPiecePartGroups = groupCutPieceLinesByPart(record)
+    const itemTitle =
+      cutPiecePartGroups.length > 1
+        ? '多部位裁片交出'
+        : cutPiecePartGroups[0]?.partLabel
+          ? `${cutPiecePartGroups[0].partLabel}交出`
+          : record.pieceName || '裁片交出物'
+
+    return {
+      objectType,
+      objectTypeLabel: getHandoutObjectTypeLabel(objectType),
+      displayUnit,
+      plannedQtyLabel: labels.primaryQtyLabel,
+      writtenQtyLabel: labels.writtenQtyLabel,
+      pendingQtyLabel: labels.pendingQtyLabel,
+      itemTitle,
+      infoLines: [formatPartScopeLine(cutPieceRecordSummary.involvedPartLabels), formatSkuScopeLine(cutPieceRecordSummary.involvedSkuCodes)],
+      plannedQtyText: `${cutPieceRecordSummary.plannedPieceQtyTotal} ${displayUnit}`,
+      writtenQtyText: formatQtyValue(
+        typeof record.warehouseWrittenQty === 'number' ? cutPieceRecordSummary.returnedPieceQtyTotal : undefined,
+        displayUnit,
+      ),
+      pendingQtyText: `${cutPieceRecordSummary.pendingPieceQtyTotal} ${displayUnit}`,
+      garmentEquivalentQty:
+        cutPieceRecordSummary.garmentEquivalentQtyTotal > 0 ? cutPieceRecordSummary.garmentEquivalentQtyTotal : undefined,
+      cutPieceRecordSummary,
+      cutPiecePartGroups,
+    }
+  }
+
   const plannedQty = typeof record.plannedQty === 'number' ? record.plannedQty : 0
   const writtenQty = typeof record.warehouseWrittenQty === 'number' ? record.warehouseWrittenQty : 0
   const pendingQty = Math.max(plannedQty - writtenQty, 0)
@@ -1489,6 +1874,28 @@ export function deriveHandoutObjectProfile(
     objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件',
   )
   const labels = getHandoutQtyLabels(objectType, displayUnit)
+  if (objectType === 'CUT_PIECE') {
+    const cutPieceRecordSummary = buildCutPieceHeadSummary(head, records)
+    return {
+      objectType,
+      objectTypeLabel: getHandoutObjectTypeLabel(objectType),
+      primaryQtyLabel: labels.primaryQtyLabel,
+      writtenQtyLabel: labels.writtenQtyLabel,
+      pendingQtyLabel: labels.pendingQtyLabel,
+      displayUnit,
+      objectInfoLines: [
+        formatPartScopeLine(cutPieceRecordSummary.involvedPartLabels),
+        formatSkuScopeLine(cutPieceRecordSummary.involvedSkuCodes),
+      ],
+      totalPlannedQty: cutPieceRecordSummary.plannedPieceQtyTotal,
+      totalWrittenQty: cutPieceRecordSummary.returnedPieceQtyTotal,
+      totalPendingQty: cutPieceRecordSummary.pendingPieceQtyTotal,
+      garmentEquivalentQtyTotal:
+        cutPieceRecordSummary.garmentEquivalentQtyTotal > 0 ? cutPieceRecordSummary.garmentEquivalentQtyTotal : undefined,
+      cutPieceRecordSummary,
+    }
+  }
+
   const totalPlannedQty =
     records.length > 0
       ? sumBy(records, (record) => (typeof record.plannedQty === 'number' ? record.plannedQty : 0))
@@ -1652,6 +2059,20 @@ function buildHandoutLineRecord(
     skuSize: line.skuSize,
     pieceName: line.pieceName,
     garmentEquivalentQty,
+    cutPieceLines:
+      objectType === 'CUT_PIECE'
+        ? [
+            {
+              lineId: `CUTLINE-${doc.id}-${String(index + 1).padStart(3, '0')}`,
+              piecePartLabel: line.pieceName || '未标部位',
+              garmentSkuCode: line.skuCode || '未标 SKU',
+              colorLabel: line.skuColor,
+              sizeLabel: line.skuSize,
+              pieceQty: line.plannedQty,
+              garmentEquivalentQty: garmentEquivalentQty || 0,
+            },
+          ]
+        : undefined,
     plannedQty: line.plannedQty,
     qtyUnit: normalizeDisplayUnit(line.unit),
     factorySubmittedAt: doc.updatedAt,

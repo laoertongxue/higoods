@@ -144,7 +144,7 @@ const sourceObjectTypeLabelMap: Record<CuttingCheckSourceObjectType, string> = {
   REPLENISHMENT: '补料建议',
   FEI_OWNER: '打票主体',
   FEI_PRINT_JOB: '打印作业',
-  BAG_USAGE: '周转口袋使用周期',
+  BAG_USAGE: '中转袋使用周期',
   SPECIAL_PROCESS: '特殊工艺单',
 }
 
@@ -159,7 +159,7 @@ const actionTargetLabelMap: Record<SummaryNavigationTarget, string> = {
   fabricWarehouse: '裁床仓',
   cutPieceWarehouse: '裁片仓',
   sampleWarehouse: '样衣仓',
-  transferBags: '周转口袋流转',
+  transferBags: '中转袋流转',
   replenishment: '补料管理',
   specialProcesses: '特殊工艺',
   summary: '裁剪总表',
@@ -480,7 +480,7 @@ function renderFilterBar(): string {
           <span class="text-sm font-medium text-foreground">跨对象搜索</span>
           <input
             value="${escapeHtml(state.filters.keyword)}"
-            placeholder="生产单 / 原始裁片单 / 批次 / 菲票 / 周转口袋 / 补料 / 工艺单"
+            placeholder="生产单 / 原始裁片单 / 批次 / 菲票 / 中转袋 / 补料 / 工艺单"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             data-cutting-summary-field="keyword"
           />

@@ -72,6 +72,11 @@ export interface PatternBinaryImageMetadata {
   frameCount?: number
   colorMode?: string
   hasAlpha?: boolean
+  compression?: number
+  predictor?: number
+  bitsPerSample?: number[]
+  samplesPerPixel?: number
+  planarConfiguration?: number
 }
 
 export interface PatternDecodedRgbaImage extends PatternBinaryImageMetadata {
@@ -82,6 +87,25 @@ export interface PatternDecodedRgbaImage extends PatternBinaryImageMetadata {
 
 export interface PatternTiffDecodeOptions {
   allowUnsupported?: boolean
+}
+
+export interface PatternTiffSampledDecodeOptions extends PatternTiffDecodeOptions {
+  maxDimension: number
+}
+
+export interface PatternDownsamplePlan {
+  width: number
+  height: number
+  scale: number
+}
+
+export interface PatternSampledRgbaImage extends PatternBinaryImageMetadata {
+  width: number
+  height: number
+  originalWidth: number
+  originalHeight: number
+  rgba: Uint8ClampedArray
+  warnings: string[]
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -442,6 +466,7 @@ interface ParsedTiffIfd {
   height?: number
   bitsPerSample: number[]
   compression: number
+  predictor: number
   photometric: number
   stripOffsets: number[]
   stripByteCounts: number[]
@@ -472,6 +497,7 @@ function parseTiffIfds(buffer: ArrayBuffer): { ifds: ParsedTiffIfd[]; littleEndi
     const parsed: ParsedTiffIfd = {
       bitsPerSample: [],
       compression: 1,
+      predictor: 1,
       photometric: 2,
       stripOffsets: [],
       stripByteCounts: [],
@@ -503,6 +529,7 @@ function parseTiffIfds(buffer: ArrayBuffer): { ifds: ParsedTiffIfd[]; littleEndi
       else if (tag === 282) parsed.dpiX = first
       else if (tag === 283) parsed.dpiY = first
       else if (tag === 284) parsed.planarConfiguration = first ?? 1
+      else if (tag === 317) parsed.predictor = first ?? 1
       else if (tag === 296) resolutionUnit = first ?? 2
       else if (tag === 338) parsed.extraSamples = values
     }
@@ -511,7 +538,13 @@ function parseTiffIfds(buffer: ArrayBuffer): { ifds: ParsedTiffIfd[]; littleEndi
     parsed.dpiX = parsed.dpiX ? Number((parsed.dpiX * resolutionFactor).toFixed(1)) : undefined
     parsed.dpiY = parsed.dpiY ? Number((parsed.dpiY * resolutionFactor).toFixed(1)) : undefined
     parsed.rowsPerStrip = parsed.rowsPerStrip || parsed.height || 0
-    parsed.hasAlpha = parsed.extraSamples.length > 0 || parsed.samplesPerPixel === 4
+    parsed.hasAlpha =
+      parsed.extraSamples.length > 0
+      || (parsed.photometric === 0 || parsed.photometric === 1
+        ? parsed.samplesPerPixel > 1
+        : parsed.photometric === 5
+          ? parsed.samplesPerPixel > 4
+          : parsed.samplesPerPixel > 3)
     parsed.colorMode =
       parsed.photometric === 5
         ? 'CMYK'
@@ -545,6 +578,11 @@ export function parseTiffMetadata(buffer: ArrayBuffer): PatternBinaryImageMetada
       frameCount: ifds.length || 1,
       colorMode: primary.colorMode,
       hasAlpha: primary.hasAlpha,
+      compression: primary.compression,
+      predictor: primary.predictor,
+      bitsPerSample: primary.bitsPerSample,
+      samplesPerPixel: primary.samplesPerPixel,
+      planarConfiguration: primary.planarConfiguration,
     }
   } catch {
     return {}
@@ -581,6 +619,471 @@ function decodePackBits(bytes: Uint8Array, expectedLength: number): Uint8Array {
   return output
 }
 
+interface TiffByteReader {
+  readByte: () => number | null
+}
+
+function createFixedLengthByteSink(expectedLength?: number): {
+  push: (value: number) => void
+  toUint8Array: () => Uint8Array
+} {
+  if (expectedLength && expectedLength > 0) {
+    const output = new Uint8Array(expectedLength)
+    let index = 0
+    return {
+      push(value: number) {
+        if (index >= output.length) return
+        output[index] = value & 0xff
+        index += 1
+      },
+      toUint8Array() {
+        return index >= output.length ? output : output.slice(0, index)
+      },
+    }
+  }
+
+  const values: number[] = []
+  return {
+    push(value: number) {
+      values.push(value & 0xff)
+    },
+    toUint8Array() {
+      return Uint8Array.from(values)
+    },
+  }
+}
+
+function createRawByteReader(bytes: Uint8Array): TiffByteReader {
+  let offset = 0
+  return {
+    readByte() {
+      if (offset >= bytes.length) return null
+      const value = bytes[offset]
+      offset += 1
+      return value
+    },
+  }
+}
+
+function createPackBitsByteReader(bytes: Uint8Array): TiffByteReader {
+  let offset = 0
+  let literalRemaining = 0
+  let repeatRemaining = 0
+  let repeatValue = 0
+
+  return {
+    readByte() {
+      while (true) {
+        if (literalRemaining > 0) {
+          literalRemaining -= 1
+          const value = bytes[offset] ?? 0
+          offset += 1
+          return value
+        }
+        if (repeatRemaining > 0) {
+          repeatRemaining -= 1
+          return repeatValue
+        }
+        if (offset >= bytes.length) return null
+
+        let header = bytes[offset] ?? 0
+        offset += 1
+        if (header > 127) header -= 256
+        if (header >= 0 && header <= 127) {
+          literalRemaining = header + 1
+          continue
+        }
+        if (header >= -127 && header <= -1) {
+          repeatRemaining = 1 - header
+          repeatValue = bytes[offset] ?? 0
+          offset += 1
+          continue
+        }
+      }
+    },
+  }
+}
+
+function createTiffLzwByteReader(bytes: Uint8Array): TiffByteReader {
+  const prefix = new Int32Array(4096)
+  const suffix = new Uint8Array(4096)
+  const stack = new Uint8Array(4096)
+
+  let nextByteOffset = 0
+  let bitBuffer = 0
+  let bitsInBuffer = 0
+  let codeSize = 9
+  let nextCode = 258
+  let previousCode = -1
+  let firstByte = 0
+  let stackLength = 0
+  let finished = false
+
+  const resetDictionary = () => {
+    codeSize = 9
+    nextCode = 258
+    previousCode = -1
+  }
+
+  const readCode = (): number | null => {
+    while (bitsInBuffer < codeSize) {
+      if (nextByteOffset >= bytes.length) return null
+      bitBuffer = (bitBuffer << 8) | bytes[nextByteOffset]
+      nextByteOffset += 1
+      bitsInBuffer += 8
+    }
+
+    const code = (bitBuffer >> (bitsInBuffer - codeSize)) & ((1 << codeSize) - 1)
+    bitsInBuffer -= codeSize
+    bitBuffer = bitsInBuffer > 0 ? bitBuffer & ((1 << bitsInBuffer) - 1) : 0
+    return code
+  }
+
+  return {
+    readByte() {
+      if (stackLength > 0) {
+        stackLength -= 1
+        return stack[stackLength]
+      }
+      if (finished) return null
+
+      while (!finished) {
+        const clearCode = 256
+        const eoiCode = 257
+        const code = readCode()
+        if (code == null) {
+          finished = true
+          return null
+        }
+        if (code === clearCode) {
+          resetDictionary()
+          continue
+        }
+        if (code === eoiCode) {
+          finished = true
+          return null
+        }
+
+        if (previousCode === -1) {
+          firstByte = code & 0xff
+          previousCode = code
+          return firstByte
+        }
+
+        let currentCode = code
+        const inputCode = code
+        if (currentCode > nextCode) {
+          throw new Error('TIFF LZW 数据异常，无法完成解码')
+        }
+        if (currentCode === nextCode) {
+          stack[stackLength] = firstByte
+          stackLength += 1
+          currentCode = previousCode
+        }
+
+        while (currentCode >= 258) {
+          stack[stackLength] = suffix[currentCode]
+          stackLength += 1
+          currentCode = prefix[currentCode]
+        }
+
+        firstByte = currentCode & 0xff
+        stack[stackLength] = firstByte
+        stackLength += 1
+
+        if (nextCode < 4096) {
+          prefix[nextCode] = previousCode
+          suffix[nextCode] = firstByte
+          nextCode += 1
+          if (nextCode === (1 << codeSize) - 1 && codeSize < 12) {
+            codeSize += 1
+          }
+        }
+
+        previousCode = inputCode
+
+        if (stackLength > 0) {
+          stackLength -= 1
+          return stack[stackLength]
+        }
+      }
+
+      return null
+    },
+  }
+}
+
+export function decodeTiffLzw(bytes: Uint8Array, expectedLength?: number): Uint8Array {
+  const reader = createTiffLzwByteReader(bytes)
+  const sink = createFixedLengthByteSink(expectedLength)
+  while (true) {
+    const value = reader.readByte()
+    if (value == null) break
+    sink.push(value)
+  }
+  return sink.toUint8Array()
+}
+
+function getTiffUnsupportedCompressionMessage(compression: number): string {
+  return `当前原型暂仅支持未压缩 / LZW / PackBits TIFF，当前压缩类型为 ${compression}`
+}
+
+function getNormalizedBitsPerSample(primary: ParsedTiffIfd): number[] {
+  if (primary.bitsPerSample.length > 0) return primary.bitsPerSample
+  return new Array(primary.samplesPerPixel).fill(8)
+}
+
+function getTiffBytesPerPixel(primary: ParsedTiffIfd, bitsPerSample: number[]): number {
+  return Math.max(
+    1,
+    Math.round(bitsPerSample.reduce((sum, value) => sum + value, 0) / 8) || primary.samplesPerPixel || 1,
+  )
+}
+
+function validateTiffDecodeInput(primary: ParsedTiffIfd | undefined, options: PatternTiffDecodeOptions = {}): {
+  primary: ParsedTiffIfd
+  bitsPerSample: number[]
+  bytesPerPixel: number
+} {
+  if (!primary?.width || !primary?.height) {
+    throw new Error('TIFF 缺少宽高信息，无法生成预览')
+  }
+  if (!primary.stripOffsets.length || !primary.stripByteCounts.length) {
+    throw new Error('TIFF 缺少图像数据条带信息')
+  }
+  if (primary.planarConfiguration !== 1 && !options.allowUnsupported) {
+    throw new Error('当前原型暂不支持分平面 TIFF（PlanarConfiguration=2）')
+  }
+
+  const bitsPerSample = getNormalizedBitsPerSample(primary)
+  if (!bitsPerSample.every((value) => value === 8) && !options.allowUnsupported) {
+    throw new Error('当前原型仅支持 8-bit TIFF 预览生成')
+  }
+  if (![1, 5, 32773].includes(primary.compression)) {
+    throw new Error(getTiffUnsupportedCompressionMessage(primary.compression))
+  }
+  if (![1, 2].includes(primary.predictor) && !options.allowUnsupported) {
+    throw new Error(`当前原型暂仅支持 Predictor 1/2，当前 Predictor 为 ${primary.predictor}`)
+  }
+
+  return {
+    primary,
+    bitsPerSample,
+    bytesPerPixel: getTiffBytesPerPixel(primary, bitsPerSample),
+  }
+}
+
+function createTiffStripByteReader(source: Uint8Array, compression: number): TiffByteReader {
+  if (compression === 1) return createRawByteReader(source)
+  if (compression === 5) return createTiffLzwByteReader(source)
+  if (compression === 32773) return createPackBitsByteReader(source)
+  throw new Error(getTiffUnsupportedCompressionMessage(compression))
+}
+
+function reverseHorizontalPredictorInPlace(rowBytes: Uint8Array, bytesPerPixel: number): void {
+  for (let offset = bytesPerPixel; offset < rowBytes.length; offset += 1) {
+    rowBytes[offset] = (rowBytes[offset] + rowBytes[offset - bytesPerPixel]) & 0xff
+  }
+}
+
+export function reverseTiffHorizontalPredictor(
+  bytes: Uint8Array,
+  width: number,
+  rows: number,
+  bytesPerPixel: number,
+): Uint8Array {
+  const output = bytes.slice()
+  const rowLength = Math.max(1, width * bytesPerPixel)
+  for (let row = 0; row < rows; row += 1) {
+    const rowOffset = row * rowLength
+    const rowEnd = Math.min(output.length, rowOffset + rowLength)
+    reverseHorizontalPredictorInPlace(output.subarray(rowOffset, rowEnd), bytesPerPixel)
+  }
+  return output
+}
+
+function fillRowFromReader(reader: TiffByteReader, rowBuffer: Uint8Array): void {
+  rowBuffer.fill(0)
+  for (let offset = 0; offset < rowBuffer.length; offset += 1) {
+    const value = reader.readByte()
+    if (value == null) break
+    rowBuffer[offset] = value
+  }
+}
+
+function forEachDecodedTiffRow(
+  buffer: ArrayBuffer,
+  primary: ParsedTiffIfd,
+  bytesPerPixel: number,
+  onRow: (sourceY: number, rowBytes: Uint8Array) => void,
+): void {
+  const bytes = new Uint8Array(buffer)
+  const rowByteLength = Math.max(1, primary.width! * bytesPerPixel)
+  const rowBuffer = new Uint8Array(rowByteLength)
+  let currentRow = 0
+
+  for (let stripIndex = 0; stripIndex < primary.stripOffsets.length && currentRow < primary.height!; stripIndex += 1) {
+    const stripOffset = primary.stripOffsets[stripIndex] ?? 0
+    const stripLength = primary.stripByteCounts[stripIndex] ?? 0
+    if (!stripOffset || !stripLength || stripOffset + stripLength > bytes.length) continue
+
+    const source = bytes.subarray(stripOffset, stripOffset + stripLength)
+    const reader = createTiffStripByteReader(source, primary.compression)
+    const expectedRows = Math.min(primary.rowsPerStrip || primary.height!, primary.height! - currentRow)
+
+    for (let rowIndex = 0; rowIndex < expectedRows && currentRow < primary.height!; rowIndex += 1) {
+      fillRowFromReader(reader, rowBuffer)
+      if (primary.predictor === 2) {
+        reverseHorizontalPredictorInPlace(rowBuffer, bytesPerPixel)
+      }
+      onRow(currentRow, rowBuffer)
+      currentRow += 1
+    }
+  }
+}
+
+function writeTiffPixelToRgba(source: Uint8Array, sourceOffset: number, primary: ParsedTiffIfd, target: Uint8ClampedArray, targetOffset: number): void {
+  if (primary.photometric === 5) {
+    const [red, green, blue] = cmykToRgb(
+      source[sourceOffset] ?? 0,
+      source[sourceOffset + 1] ?? 0,
+      source[sourceOffset + 2] ?? 0,
+      source[sourceOffset + 3] ?? 0,
+    )
+    target[targetOffset] = red
+    target[targetOffset + 1] = green
+    target[targetOffset + 2] = blue
+    target[targetOffset + 3] = 255
+    return
+  }
+
+  if (primary.photometric === 0 || primary.photometric === 1) {
+    const gray = source[sourceOffset] ?? 0
+    const normalizedGray = primary.photometric === 0 ? 255 - gray : gray
+    target[targetOffset] = normalizedGray
+    target[targetOffset + 1] = normalizedGray
+    target[targetOffset + 2] = normalizedGray
+    target[targetOffset + 3] = primary.hasAlpha ? (source[sourceOffset + 1] ?? 255) : 255
+    return
+  }
+
+  target[targetOffset] = source[sourceOffset] ?? 0
+  target[targetOffset + 1] = source[sourceOffset + 1] ?? source[sourceOffset] ?? 0
+  target[targetOffset + 2] = source[sourceOffset + 2] ?? source[sourceOffset] ?? 0
+  target[targetOffset + 3] = primary.hasAlpha ? (source[sourceOffset + 3] ?? 255) : 255
+}
+
+function buildNearestSourceIndexMap(sourceLength: number, targetLength: number): Uint32Array {
+  const safeSource = Math.max(1, sourceLength)
+  const safeTarget = Math.max(1, targetLength)
+  const ratio = safeSource / safeTarget
+  const output = new Uint32Array(safeTarget)
+  for (let index = 0; index < safeTarget; index += 1) {
+    output[index] = Math.min(safeSource - 1, Math.floor((index + 0.5) * ratio))
+  }
+  return output
+}
+
+function buildSourceRowTargets(sourceHeight: number, targetHeight: number): Map<number, number[]> {
+  const sourceRows = buildNearestSourceIndexMap(sourceHeight, targetHeight)
+  const targetsBySource = new Map<number, number[]>()
+  for (let targetY = 0; targetY < sourceRows.length; targetY += 1) {
+    const sourceY = sourceRows[targetY] ?? 0
+    const targets = targetsBySource.get(sourceY) ?? []
+    targets.push(targetY)
+    targetsBySource.set(sourceY, targets)
+  }
+  return targetsBySource
+}
+
+export function buildDownsamplePlan(width: number, height: number, maxDimension: number): PatternDownsamplePlan {
+  const safeWidth = Math.max(1, width)
+  const safeHeight = Math.max(1, height)
+  const safeMaxDimension = Math.max(1, maxDimension)
+  const scale = Math.min(1, safeMaxDimension / Math.max(safeWidth, safeHeight))
+  return {
+    width: Math.max(1, Math.round(safeWidth * scale)),
+    height: Math.max(1, Math.round(safeHeight * scale)),
+    scale,
+  }
+}
+
+export function downsampleRgba(
+  rgba: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+): Uint8ClampedArray {
+  const safeTargetWidth = Math.max(1, targetWidth)
+  const safeTargetHeight = Math.max(1, targetHeight)
+  const xMap = buildNearestSourceIndexMap(sourceWidth, safeTargetWidth)
+  const yMap = buildNearestSourceIndexMap(sourceHeight, safeTargetHeight)
+  const output = new Uint8ClampedArray(safeTargetWidth * safeTargetHeight * 4)
+
+  for (let targetY = 0; targetY < safeTargetHeight; targetY += 1) {
+    const sourceY = yMap[targetY] ?? 0
+    for (let targetX = 0; targetX < safeTargetWidth; targetX += 1) {
+      const sourceX = xMap[targetX] ?? 0
+      const sourceOffset = (sourceY * Math.max(1, sourceWidth) + sourceX) * 4
+      const targetOffset = (targetY * safeTargetWidth + targetX) * 4
+      output[targetOffset] = rgba[sourceOffset] ?? 0
+      output[targetOffset + 1] = rgba[sourceOffset + 1] ?? 0
+      output[targetOffset + 2] = rgba[sourceOffset + 2] ?? 0
+      output[targetOffset + 3] = rgba[sourceOffset + 3] ?? 255
+    }
+  }
+
+  return output
+}
+
+export function decodeTiffToSampledRgba(
+  buffer: ArrayBuffer,
+  options: PatternTiffSampledDecodeOptions,
+): PatternSampledRgbaImage {
+  const { ifds } = parseTiffIfds(buffer)
+  const validated = validateTiffDecodeInput(ifds[0], options)
+  const { primary, bitsPerSample, bytesPerPixel } = validated
+  const plan = buildDownsamplePlan(primary.width!, primary.height!, options.maxDimension)
+  const rgba = new Uint8ClampedArray(plan.width * plan.height * 4)
+  const sourceXMap = buildNearestSourceIndexMap(primary.width!, plan.width)
+  const targetRowsBySource = buildSourceRowTargets(primary.height!, plan.height)
+
+  forEachDecodedTiffRow(buffer, primary, bytesPerPixel, (sourceY, rowBytes) => {
+    const targetRows = targetRowsBySource.get(sourceY)
+    if (!targetRows?.length) return
+
+    for (const targetY of targetRows) {
+      const rowTargetOffset = targetY * plan.width * 4
+      for (let targetX = 0; targetX < plan.width; targetX += 1) {
+        const sourceX = sourceXMap[targetX] ?? 0
+        const sourceOffset = sourceX * bytesPerPixel
+        const targetOffset = rowTargetOffset + targetX * 4
+        writeTiffPixelToRgba(rowBytes, sourceOffset, primary, rgba, targetOffset)
+      }
+    }
+  })
+
+  return {
+    width: plan.width,
+    height: plan.height,
+    originalWidth: primary.width!,
+    originalHeight: primary.height!,
+    rgba,
+    dpiX: primary.dpiX,
+    dpiY: primary.dpiY,
+    frameCount: ifds.length || 1,
+    colorMode: primary.colorMode,
+    hasAlpha: primary.hasAlpha,
+    compression: primary.compression,
+    predictor: primary.predictor,
+    bitsPerSample,
+    samplesPerPixel: primary.samplesPerPixel,
+    planarConfiguration: primary.planarConfiguration,
+    warnings: [],
+  }
+}
+
 function cmykToRgb(cyan: number, magenta: number, yellow: number, key: number): [number, number, number] {
   const c = cyan / 255
   const m = magenta / 255
@@ -595,94 +1098,31 @@ function cmykToRgb(cyan: number, magenta: number, yellow: number, key: number): 
 
 export function decodeTiffToRgba(buffer: ArrayBuffer, options: PatternTiffDecodeOptions = {}): PatternDecodedRgbaImage {
   const { ifds } = parseTiffIfds(buffer)
-  const primary = ifds[0]
-  if (!primary?.width || !primary?.height) {
-    throw new Error('TIFF 缺少宽高信息，无法生成预览')
-  }
-  if (!primary.stripOffsets.length || !primary.stripByteCounts.length) {
-    throw new Error('TIFF 缺少图像数据条带信息')
-  }
-  if (primary.planarConfiguration !== 1 && !options.allowUnsupported) {
-    throw new Error('当前原型暂不支持分平面 TIFF（PlanarConfiguration=2）')
-  }
+  const validated = validateTiffDecodeInput(ifds[0], options)
+  const { primary, bitsPerSample, bytesPerPixel } = validated
+  const rgba = new Uint8ClampedArray(primary.width! * primary.height! * 4)
 
-  const bitsPerSample = primary.bitsPerSample.length > 0
-    ? primary.bitsPerSample
-    : new Array(primary.samplesPerPixel).fill(8)
-  const supportedBitDepth = bitsPerSample.every((value) => value === 8)
-  if (!supportedBitDepth && !options.allowUnsupported) {
-    throw new Error('当前原型仅支持 8-bit TIFF 预览生成')
-  }
-
-  const bytes = new Uint8Array(buffer)
-  const bytesPerPixel = Math.max(
-    1,
-    Math.round(bitsPerSample.reduce((sum, value) => sum + value, 0) / 8) || primary.samplesPerPixel || 1,
-  )
-  const expectedByteLength = primary.width * primary.height * bytesPerPixel
-  const pixelBytes = new Uint8Array(expectedByteLength)
-
-  let writeOffset = 0
-  for (let index = 0; index < primary.stripOffsets.length; index += 1) {
-    const stripOffset = primary.stripOffsets[index] ?? 0
-    const stripLength = primary.stripByteCounts[index] ?? 0
-    if (!stripOffset || !stripLength || stripOffset + stripLength > bytes.length) continue
-    const source = bytes.subarray(stripOffset, stripOffset + stripLength)
-    const expectedRows = Math.min(primary.rowsPerStrip || primary.height, primary.height - Math.floor(writeOffset / (primary.width * bytesPerPixel)))
-    const expectedLength = primary.width * expectedRows * bytesPerPixel
-
-    let decodedStrip: Uint8Array
-    if (primary.compression === 1) decodedStrip = source
-    else if (primary.compression === 32773) decodedStrip = decodePackBits(source, expectedLength)
-    else throw new Error(`当前原型暂只支持未压缩 / PackBits TIFF，当前压缩类型为 ${primary.compression}`)
-
-    pixelBytes.set(decodedStrip.subarray(0, Math.min(decodedStrip.length, pixelBytes.length - writeOffset)), writeOffset)
-    writeOffset += Math.min(decodedStrip.length, pixelBytes.length - writeOffset)
-  }
-
-  const rgba = new Uint8ClampedArray(primary.width * primary.height * 4)
-  let sourceOffset = 0
-  let targetOffset = 0
-  for (let index = 0; index < primary.width * primary.height; index += 1) {
-    if (primary.photometric === 5) {
-      const [red, green, blue] = cmykToRgb(
-        pixelBytes[sourceOffset] ?? 0,
-        pixelBytes[sourceOffset + 1] ?? 0,
-        pixelBytes[sourceOffset + 2] ?? 0,
-        pixelBytes[sourceOffset + 3] ?? 0,
-      )
-      rgba[targetOffset] = red
-      rgba[targetOffset + 1] = green
-      rgba[targetOffset + 2] = blue
-      rgba[targetOffset + 3] = 255
-      sourceOffset += 4
-    } else if (primary.photometric === 0 || primary.photometric === 1) {
-      const gray = pixelBytes[sourceOffset] ?? 0
-      const normalizedGray = primary.photometric === 0 ? 255 - gray : gray
-      rgba[targetOffset] = normalizedGray
-      rgba[targetOffset + 1] = normalizedGray
-      rgba[targetOffset + 2] = normalizedGray
-      rgba[targetOffset + 3] = primary.hasAlpha ? (pixelBytes[sourceOffset + 1] ?? 255) : 255
-      sourceOffset += primary.hasAlpha ? 2 : 1
-    } else {
-      rgba[targetOffset] = pixelBytes[sourceOffset] ?? 0
-      rgba[targetOffset + 1] = pixelBytes[sourceOffset + 1] ?? pixelBytes[sourceOffset] ?? 0
-      rgba[targetOffset + 2] = pixelBytes[sourceOffset + 2] ?? pixelBytes[sourceOffset] ?? 0
-      rgba[targetOffset + 3] = primary.hasAlpha ? (pixelBytes[sourceOffset + 3] ?? 255) : 255
-      sourceOffset += primary.hasAlpha ? 4 : 3
+  forEachDecodedTiffRow(buffer, primary, bytesPerPixel, (sourceY, rowBytes) => {
+    const rowTargetOffset = sourceY * primary.width! * 4
+    for (let sourceX = 0; sourceX < primary.width!; sourceX += 1) {
+      writeTiffPixelToRgba(rowBytes, sourceX * bytesPerPixel, primary, rgba, rowTargetOffset + sourceX * 4)
     }
-    targetOffset += 4
-  }
+  })
 
   return {
-    width: primary.width,
-    height: primary.height,
+    width: primary.width!,
+    height: primary.height!,
     rgba,
     dpiX: primary.dpiX,
     dpiY: primary.dpiY,
     frameCount: ifds.length || 1,
     colorMode: primary.colorMode,
     hasAlpha: primary.hasAlpha,
+    compression: primary.compression,
+    predictor: primary.predictor,
+    bitsPerSample,
+    samplesPerPixel: primary.samplesPerPixel,
+    planarConfiguration: primary.planarConfiguration,
   }
 }
 

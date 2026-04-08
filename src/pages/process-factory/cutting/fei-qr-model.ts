@@ -175,7 +175,7 @@ export function getDefaultReservedTracePayload(existing?: Partial<FeiQrReservedT
     reservedTransferBagBinding: {
       enabled: existing?.reservedTransferBagBinding?.enabled ?? true,
       bridgeKey: existing?.reservedTransferBagBinding?.bridgeKey ?? null,
-      note: existing?.reservedTransferBagBinding?.note ?? '周转口袋父子码绑定消费正式载具周期与菲票子码。',
+      note: existing?.reservedTransferBagBinding?.note ?? '中转袋父子码绑定消费正式载具周期与菲票子码。',
     },
     reservedScanCheckpoint: {
       enabled: existing?.reservedScanCheckpoint?.enabled ?? true,

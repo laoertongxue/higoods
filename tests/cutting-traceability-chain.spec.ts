@@ -63,7 +63,7 @@ test('铺布完成后可追溯到打印菲票、装袋与裁片仓，且 PDA 来
   await page.goto(
     `/fcs/craft/cutting/transfer-bag-detail?bagId=${encodeURIComponent(usage.bagId)}&usageId=${encodeURIComponent(usage.usageId)}`,
   )
-  await expect(page.getByRole('heading', { name: '周转口袋详情', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '中转袋详情', exact: true })).toBeVisible()
   await expect(page.locator('body')).toContainText('必须先扫口袋码，再扫菲票子码')
   await expect(page.locator('body')).toContainText('来源铺布')
   await expect(page.locator('body')).toContainText('来源唛架')

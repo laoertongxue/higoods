@@ -157,6 +157,22 @@ export interface PdaTaskMockHandoutRecordSeed {
   objectionRemark?: string
 }
 
+export interface PdaTaskMockCutPieceHandoutLineSeed {
+  lineId: string
+  piecePartLabel: string
+  piecePartCode?: string
+  garmentSkuCode: string
+  garmentSkuLabel?: string
+  colorLabel?: string
+  sizeLabel?: string
+  pieceQty: number
+  garmentEquivalentQty: number
+}
+
+export interface PdaTaskMockHandoutRecordSeed {
+  cutPieceLines?: PdaTaskMockCutPieceHandoutLineSeed[]
+}
+
 interface GenericProcessProfile {
   key: Exclude<PdaMobileProcessKey, 'CUTTING'>
   taskPrefix: string

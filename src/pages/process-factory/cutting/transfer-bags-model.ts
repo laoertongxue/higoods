@@ -1443,7 +1443,7 @@ export function validateTicketBindingEligibility(options: {
     return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
   }
   if (!options.ticket.originalCutOrderId || !options.ticket.originalCutOrderNo) {
-    return { ok: false, reason: '当前菲票缺少原始裁片单 owner，不能进入周转口袋。' }
+    return { ok: false, reason: '当前菲票缺少原始裁片单 owner，不能进入中转袋。' }
   }
 
   const sameUsageBinding = options.bindings.find(
@@ -1874,7 +1874,7 @@ export function buildTransferBagViewModel(options: {
         spreadingSessionId: traceAnchor?.spreadingSessionId || '',
         spreadingSessionNo: traceAnchor?.spreadingSessionNo || '',
         spreadingSourceWritebackId: traceAnchor?.sourceWritebackId || '',
-        bagFirstRuleLabel: '必须先扫口袋码，再扫菲票子码；当前父子映射已绑定到正式周转口袋周期。',
+        bagFirstRuleLabel: '必须先扫口袋码，再扫菲票子码；当前父子映射已绑定到正式中转袋周期。',
         navigationPayload: buildTransferBagNavigationPayload({
           originalCutOrderId: binding.originalCutOrderId,
           originalCutOrderNo: binding.originalCutOrderNo,

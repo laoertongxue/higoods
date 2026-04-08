@@ -2,14 +2,14 @@ import { expect, test } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
-test('周转口袋流转只展示简化后的主状态与 3 步主流程', async ({ page }) => {
+test('中转袋流转只展示简化后的主状态与 3 步主流程', async ({ page }) => {
   const errors = collectPageErrors(page)
 
   await page.goto('/fcs/craft/cutting/transfer-bags')
-  await expect(page.getByRole('heading', { name: '周转口袋流转', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '中转袋流转', exact: true })).toBeVisible()
 
   const body = page.locator('body')
-  await expect(page.getByRole('button', { name: /周转口袋总数/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /中转袋总数/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /空闲口袋数/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /使用中口袋数/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /待交出口袋数/ })).toBeVisible()
@@ -32,7 +32,7 @@ test('周转口袋流转只展示简化后的主状态与 3 步主流程', async
   await expect(statusSelect).not.toContainText('已签收')
 
   await page.goto('/fcs/craft/cutting/transfer-bag-detail?bagId=carrier-bag-001')
-  await expect(page.getByRole('heading', { name: '周转口袋详情', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '中转袋详情', exact: true })).toBeVisible()
 
   await expect(body).toContainText('扫码装袋')
   await expect(body).toContainText('核对完成')

@@ -826,6 +826,45 @@ function renderHandoutRecordInfoChips(lines: string[]): string {
   `
 }
 
+function renderCutPiecePartGroups(profile: ReturnType<typeof deriveHandoutRecordProfile>): string {
+  const groups = profile.cutPiecePartGroups ?? []
+  if (groups.length === 0) {
+    return renderHandoutRecordInfoChips(profile.infoLines)
+  }
+
+  return `
+    <div class="space-y-2" data-testid="cut-piece-part-groups">
+      ${groups
+        .map(
+          (group) => `
+            <div data-testid="cut-piece-part-group" class="space-y-2 rounded-md border bg-muted/20 px-2.5 py-2">
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">部位：${escapeHtml(group.partLabel)}</span>
+                <span>本次交出裁片片数（片）：<span class="font-medium text-foreground">${group.totalPieceQty} 片</span></span>
+                <span>可折算成衣件数（件）：<span class="font-medium text-foreground">${group.totalGarmentEquivalentQty} 件</span></span>
+              </div>
+              <div class="space-y-1.5">
+                ${group.skuLines
+                  .map(
+                    (line) => `
+                      <div data-testid="cut-piece-sku-line" class="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border bg-background px-2.5 py-2 text-xs">
+                        ${renderFieldRow('SKU 编码', line.garmentSkuCode, true)}
+                        ${renderFieldRow('颜色 / 尺码', `${line.colorLabel || '—'} / ${line.sizeLabel || '—'}`)}
+                        ${renderFieldRow('裁片片数（片）', `${line.pieceQty} 片`, true)}
+                        ${renderFieldRow('可折算成衣件数（件）', `${line.garmentEquivalentQty} 件`, true)}
+                      </div>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            </div>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
 function renderHandoutRecordItem(
   record: PdaHandoverRecord,
   head: PdaHandoverHead,
@@ -851,12 +890,20 @@ function renderHandoutRecordItem(
           <span class="inline-flex items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${escapeHtml(profile.objectTypeLabel)}</span>
           <span class="font-medium">${escapeHtml(profile.itemTitle)}</span>
           ${
+            profile.objectType === 'CUT_PIECE' && profile.cutPieceRecordSummary
+              ? `
+                <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">涉及部位：${profile.cutPieceRecordSummary.involvedPartCount} 种</span>
+                <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">涉及 SKU：${profile.cutPieceRecordSummary.involvedSkuCount} 个</span>
+              `
+              : ''
+          }
+          ${
             typeof profile.garmentEquivalentQty === 'number'
-              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数：${profile.garmentEquivalentQty} 件</span>`
+              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数（件）：${profile.garmentEquivalentQty} 件</span>`
               : ''
           }
         </div>
-        ${renderHandoutRecordInfoChips(profile.infoLines)}
+        ${profile.objectType === 'CUT_PIECE' ? renderCutPiecePartGroups(profile) : renderHandoutRecordInfoChips(profile.infoLines)}
       </div>
 
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -988,8 +1035,16 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
         <div class="flex flex-wrap items-center gap-1.5">
           <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">交出物类型：${escapeHtml(profile.objectTypeLabel)}</span>
           ${
+            profile.objectType === 'CUT_PIECE' && profile.cutPieceRecordSummary
+              ? `
+                <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">涉及部位：${profile.cutPieceRecordSummary.involvedPartCount} 种</span>
+                <span class="inline-flex items-center rounded border border-border bg-background px-1.5 py-0 text-[10px]">涉及 SKU：${profile.cutPieceRecordSummary.involvedSkuCount} 个</span>
+              `
+              : ''
+          }
+          ${
             typeof profile.garmentEquivalentQtyTotal === 'number'
-              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数：${profile.garmentEquivalentQtyTotal} 件</span>`
+              ? `<span class="inline-flex items-center rounded border border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">可折算成衣件数（件）：${profile.garmentEquivalentQtyTotal} 件</span>`
               : ''
           }
         </div>
@@ -1037,7 +1092,7 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
   }
 
   const task = getPdaTaskFlowTaskById(head.taskId)
-  if (isCuttingSpecialTask(task)) {
+  if (head.headType === 'PICKUP' && isCuttingSpecialTask(task)) {
     const backHref = head.headType === 'PICKUP' ? '/fcs/pda/handover?tab=pickup' : '/fcs/pda/handover?tab=handout'
     return renderPdaCuttingTaskDetailPage(head.taskId, { backHref })
   }

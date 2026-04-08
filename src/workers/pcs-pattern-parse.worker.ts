@@ -3,9 +3,11 @@
 import type { PatternParsedFileResult } from '../data/pcs-pattern-library-types.ts'
 import {
   buildParseSummary,
+  buildDownsamplePlan,
   buildPerceptualHashFromRgba,
-  decodeTiffToRgba,
+  decodeTiffToSampledRgba,
   detectHasAlphaFromRgba,
+  downsampleRgba,
   getDominantColors,
   getPatternMimeTypeFromExt,
   guessColorModeFromPixels,
@@ -87,36 +89,64 @@ async function parseTiffBuffer(fileName: string, mimeType: string, buffer: Array
   const warnings: string[] = []
 
   try {
-    let decoded: { width: number; height: number; rgba: Uint8ClampedArray }
-    try {
-      decoded = await decodeBlobToRgba(originalBlob)
-    } catch {
-      const fallback = decodeTiffToRgba(buffer)
-      decoded = { width: fallback.width, height: fallback.height, rgba: fallback.rgba }
+    const previewDecoded = decodeTiffToSampledRgba(buffer, { maxDimension: 1600 })
+    const previewBlob = await buildPreviewBlobFromRgba(
+      previewDecoded.rgba,
+      previewDecoded.width,
+      previewDecoded.height,
+      Math.max(previewDecoded.width, previewDecoded.height),
+    )
+
+    const thumbnailPlan = buildDownsamplePlan(previewDecoded.width, previewDecoded.height, 320)
+    const thumbnailRgba = downsampleRgba(
+      previewDecoded.rgba,
+      previewDecoded.width,
+      previewDecoded.height,
+      thumbnailPlan.width,
+      thumbnailPlan.height,
+    )
+    const thumbnailBlob = await buildPreviewBlobFromRgba(
+      thumbnailRgba,
+      thumbnailPlan.width,
+      thumbnailPlan.height,
+      Math.max(thumbnailPlan.width, thumbnailPlan.height),
+    )
+
+    let analysisDecoded = previewDecoded
+    if (Math.max(previewDecoded.width, previewDecoded.height) > 256) {
+      try {
+        analysisDecoded = decodeTiffToSampledRgba(buffer, { maxDimension: 256 })
+      } catch (error) {
+        warnings.push(error instanceof Error ? error.message : '分析采样生成失败，已回退预览采样结果')
+      }
     }
 
-    const hasAlpha = typeof metadata.hasAlpha === 'boolean' ? metadata.hasAlpha : detectHasAlphaFromRgba(decoded.rgba)
-    const colorMode = metadata.colorMode ?? guessColorModeFromPixels(decoded.rgba, hasAlpha)
-    const previewBlob = await buildPreviewBlobFromRgba(decoded.rgba, decoded.width, decoded.height, 1600)
-    const thumbnailBlob = await buildPreviewBlobFromRgba(decoded.rgba, decoded.width, decoded.height, 320)
+    const hasAlpha = typeof metadata.hasAlpha === 'boolean' ? metadata.hasAlpha : detectHasAlphaFromRgba(previewDecoded.rgba)
+    const colorMode = metadata.colorMode ?? guessColorModeFromPixels(previewDecoded.rgba, hasAlpha)
 
     let phash: string | undefined
     try {
-      phash = buildPerceptualHashFromRgba(decoded.rgba, decoded.width, decoded.height)
+      phash = buildPerceptualHashFromRgba(analysisDecoded.rgba, analysisDecoded.width, analysisDecoded.height)
     } catch {
       warnings.push('视觉相似哈希计算失败，待后续补算')
     }
 
-    const dominantColors = getDominantColors(decoded.rgba)
+    let dominantColors: string[] = []
+    try {
+      dominantColors = getDominantColors(analysisDecoded.rgba)
+    } catch {
+      warnings.push('主色分析失败，待后续补算')
+    }
+
     return {
       ...toResultBase(fileName, ext, mimeType, fileSize),
-      imageWidth: decoded.width,
-      imageHeight: decoded.height,
-      aspectRatio: Number((decoded.width / Math.max(decoded.height, 1)).toFixed(4)),
+      imageWidth: metadata.width ?? previewDecoded.originalWidth,
+      imageHeight: metadata.height ?? previewDecoded.originalHeight,
+      aspectRatio: Number(((metadata.width ?? previewDecoded.originalWidth) / Math.max(metadata.height ?? previewDecoded.originalHeight, 1)).toFixed(4)),
       colorMode,
       dpiX: metadata.dpiX,
       dpiY: metadata.dpiY,
-      frameCount: metadata.frameCount ?? 1,
+      frameCount: metadata.frameCount ?? previewDecoded.frameCount ?? 1,
       hasAlpha,
       sha256,
       phash,
@@ -125,16 +155,32 @@ async function parseTiffBuffer(fileName: string, mimeType: string, buffer: Array
       previewBlob,
       thumbnailBlob,
       parseStatus: 'success',
-      parseSummary: buildParseSummary(ext, decoded.width, decoded.height, metadata.dpiX, metadata.dpiY, metadata.frameCount ?? 1),
+      parseSummary: buildParseSummary(
+        ext,
+        metadata.width ?? previewDecoded.originalWidth,
+        metadata.height ?? previewDecoded.originalHeight,
+        metadata.dpiX,
+        metadata.dpiY,
+        metadata.frameCount ?? previewDecoded.frameCount ?? 1,
+      ),
       dominantColors,
       parseWarnings: warnings,
       parseResultJson: {
         decoder: 'worker:tiff',
-        width: decoded.width,
-        height: decoded.height,
+        compression: metadata.compression ?? previewDecoded.compression,
+        predictor: metadata.predictor ?? previewDecoded.predictor,
+        bitsPerSample: metadata.bitsPerSample ?? previewDecoded.bitsPerSample,
+        samplesPerPixel: metadata.samplesPerPixel ?? previewDecoded.samplesPerPixel,
+        planarConfiguration: metadata.planarConfiguration ?? previewDecoded.planarConfiguration,
+        originalWidth: metadata.width ?? previewDecoded.originalWidth,
+        originalHeight: metadata.height ?? previewDecoded.originalHeight,
+        previewWidth: previewDecoded.width,
+        previewHeight: previewDecoded.height,
+        analysisWidth: analysisDecoded.width,
+        analysisHeight: analysisDecoded.height,
         dpiX: metadata.dpiX,
         dpiY: metadata.dpiY,
-        frameCount: metadata.frameCount ?? 1,
+        frameCount: metadata.frameCount ?? previewDecoded.frameCount ?? 1,
         colorMode,
         parseWarnings: warnings,
       },
@@ -163,9 +209,17 @@ async function parseTiffBuffer(fileName: string, mimeType: string, buffer: Array
       parseResultJson: {
         decoder: 'worker:tiff',
         parseErrorMessage: message,
-        width: metadata.width,
-        height: metadata.height,
+        compression: metadata.compression,
+        predictor: metadata.predictor,
+        bitsPerSample: metadata.bitsPerSample,
+        samplesPerPixel: metadata.samplesPerPixel,
+        planarConfiguration: metadata.planarConfiguration,
+        originalWidth: metadata.width,
+        originalHeight: metadata.height,
         frameCount: metadata.frameCount ?? 1,
+        dpiX: metadata.dpiX,
+        dpiY: metadata.dpiY,
+        parseWarnings: [message],
       },
     }
   }

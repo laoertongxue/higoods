@@ -12,9 +12,9 @@ import type { PatternParsedFileResult } from '../src/data/pcs-pattern-library-ty
 
 function buildParsedFile(parseStatus: PatternParsedFileResult['parseStatus'] = 'success'): PatternParsedFileResult {
   return {
-    originalFilename: parseStatus === 'success' ? 'flow-pattern.png' : 'broken-pattern.tif',
-    fileExt: parseStatus === 'success' ? 'png' : 'tif',
-    mimeType: parseStatus === 'success' ? 'image/png' : 'image/tiff',
+    originalFilename: parseStatus === 'success' ? 'flow-pattern-lzw.tif' : 'broken-pattern.tif',
+    fileExt: 'tif',
+    mimeType: 'image/tiff',
     fileSize: 4096,
     imageWidth: 1200,
     imageHeight: 1600,
@@ -32,10 +32,20 @@ function buildParsedFile(parseStatus: PatternParsedFileResult['parseStatus'] = '
     thumbnailBlob: parseStatus === 'success' ? new Blob(['thumbnail']) : undefined,
     parseStatus,
     parseErrorMessage: parseStatus === 'success' ? undefined : 'TIFF 解析失败',
-    parseSummary: parseStatus === 'success' ? 'PNG 文件，1200 x 1600，300 DPI' : 'TIFF 解析失败，请重试',
+    parseSummary: parseStatus === 'success' ? 'TIF 文件，1200 x 1600，300/300 DPI' : 'TIFF 解析失败，请重试',
     dominantColors: parseStatus === 'success' ? ['蓝色'] : [],
     parseWarnings: parseStatus === 'success' ? [] : ['TIFF 解析失败'],
-    parseResultJson: {},
+    parseResultJson: parseStatus === 'success'
+      ? {
+          decoder: 'worker:tiff',
+          compression: 5,
+          predictor: 2,
+          originalWidth: 1200,
+          originalHeight: 1600,
+          previewWidth: 900,
+          previewHeight: 1200,
+        }
+      : {},
   }
 }
 
@@ -71,6 +81,7 @@ const asset = createPatternAsset({
 await waitForPatternLibraryPersistence()
 assert.equal(asset.review_status, 'draft', '保存草稿后应保持 draft')
 assert.ok(getPatternAssetById(asset.id)?.currentVersion?.preview_blob_key, '版本应保存 preview blob key')
+assert.equal(getPatternAssetById(asset.id)?.currentVersion?.parse_result_json?.compression, 5, 'LZW TIFF 解析结果应随版本一并保存')
 
 const pending = submitPatternAssetReview(asset.id, '测试审核员')
 assert.equal(pending.review_status, 'pending', '提交审核后应转为 pending')

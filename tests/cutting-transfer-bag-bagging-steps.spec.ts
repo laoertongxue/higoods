@@ -2,12 +2,12 @@ import { expect, test } from '@playwright/test'
 
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
-test('周转口袋详情页的本次装袋情况改为 3 步操作卡片', async ({ page }) => {
+test('中转袋详情页的本次装袋情况改为 3 步操作卡片', async ({ page }) => {
   const errors = collectPageErrors(page)
 
   await page.goto('/fcs/craft/cutting/transfer-bag-detail?bagId=carrier-bag-001')
 
-  await expect(page.getByRole('heading', { name: '周转口袋详情', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '中转袋详情', exact: true })).toBeVisible()
 
   const currentTab = page.getByRole('tab', { name: '本次装袋情况', exact: true })
   await expect(currentTab).toBeVisible()
@@ -22,7 +22,7 @@ test('周转口袋详情页的本次装袋情况改为 3 步操作卡片', async
   await expect(body).not.toContainText('请选择口袋')
   await expect(body).not.toContainText('绑定任务')
   await expect(body).not.toContainText('签收')
-  await expect(body).not.toContainText('输入或扫描周转口袋码')
+  await expect(body).not.toContainText('输入或扫描中转袋码')
 
   await expect(page.locator('[data-bagging-step]')).toHaveCount(3)
   await expect(page.locator('[data-bagging-step][open]')).toHaveCount(1)

@@ -287,7 +287,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'craft-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
             { key: 'craft-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
-            { key: 'craft-cutting-transfer-bags', title: '周转口袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
+            { key: 'craft-cutting-transfer-bags', title: '中转袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
             { key: 'craft-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
             { key: 'craft-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
             { key: 'craft-cutting-closing-summary', title: '裁剪总结', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
@@ -297,7 +297,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           key: 'craft-cutting-handover',
           title: '裁片仓交接',
           icon: 'Warehouse',
-          // 旧“仓库管理”被拆成裁床仓 / 裁片仓 / 样衣仓 / 周转口袋流转，
+          // 旧“仓库管理”被拆成裁床仓 / 裁片仓 / 样衣仓 / 中转袋流转，
           // 因为这些页面分别对应库存对象、样衣对象和独立载具对象，不能继续用一个仓库总名覆盖。
           children: [
             { key: 'craft-cutting-fabric-warehouse', title: '裁床仓', icon: 'Warehouse', href: '/fcs/craft/cutting/fabric-warehouse' },

@@ -1106,7 +1106,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           <th class="px-3 py-3 text-left font-medium">菲票码</th>
           <th class="px-3 py-3 text-left font-medium">打印版本号</th>
           <th class="px-3 py-3 text-left font-medium">打印状态</th>
-          <th class="px-3 py-3 text-left font-medium">周转口袋绑定</th>
+          <th class="px-3 py-3 text-left font-medium">中转袋绑定</th>
           <th class="px-3 py-3 text-left font-medium">是否可作废</th>
           <th class="px-3 py-3 text-left font-medium">打印时间</th>
           <th class="px-3 py-3 text-left font-medium">打印人</th>
@@ -1162,7 +1162,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                     ${ticket.downstreamLocked ? `<p class="text-xs text-rose-600">${escapeHtml(ticket.downstreamLockedReason || '下游已锁定')}</p>` : ''}
                   </div>
                 </td>
-                <td class="px-3 py-3 text-slate-700">${ticket.boundPocketNo ? escapeHtml(`${ticket.boundPocketNo} / ${ticket.boundUsageNo || '待补使用周期号'}`) : '未绑定周转口袋'}</td>
+                <td class="px-3 py-3 text-slate-700">${ticket.boundPocketNo ? escapeHtml(`${ticket.boundPocketNo} / ${ticket.boundUsageNo || '待补使用周期号'}`) : '未绑定中转袋'}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.status === 'VALID' ? (ticket.downstreamLocked ? '不可作废' : '可作废') : '不可作废')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(formatDateTime(ticket.printedAt))}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.printedBy || '未打印')}</td>

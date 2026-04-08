@@ -494,7 +494,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       summary,
       nowText,
       createdBy: operatorName,
-      note: '由铺布完成链路自动生成的周转口袋交接清单。',
+      note: '由铺布完成链路自动生成的中转袋交接清单。',
     })
     const audit = buildBagUsageAuditTrail({
       usageId: usage.usageId,
