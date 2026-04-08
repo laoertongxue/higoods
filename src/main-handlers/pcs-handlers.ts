@@ -123,6 +123,11 @@ import {
   isPlateMakingDialogOpen,
 } from '../pages/pcs-plate-making'
 import {
+  handlePcsPartTemplateLibraryEvent,
+  handlePcsPartTemplateLibraryInput,
+  isPcsPartTemplateLibraryDialogOpen,
+} from '../pages/pcs-part-template-library'
+import {
   handlePatternTaskEvent,
   handlePatternTaskInput,
   isPatternTaskDialogOpen,
@@ -197,6 +202,7 @@ export function dispatchPcsPageEvent(target: HTMLElement): boolean {
     handleSampleViewEvent(target) ||
     handleRevisionTaskEvent(target) ||
     handlePlateMakingEvent(target) ||
+    handlePcsPartTemplateLibraryEvent(target) ||
     handlePatternTaskEvent(target) ||
     handleFirstOrderSampleEvent(target) ||
     handlePreProductionSampleEvent(target) ||
@@ -215,6 +221,7 @@ export function dispatchPcsInputEvent(target: Element): boolean {
     handleSampleViewInput(target) ||
     handleRevisionTaskInput(target) ||
     handlePlateMakingInput(target) ||
+    handlePcsPartTemplateLibraryInput(target) ||
     handlePatternTaskInput(target) ||
     handleFirstOrderSampleInput(target) ||
     handlePreProductionSampleInput(target) ||
@@ -435,10 +442,21 @@ export function closePcsDialogsOnEscape(): boolean {
 
   if (isPlateMakingDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.plateAction = 'close-drawer'
+    fakeButton.dataset.plateAction = 'close-create-drawer'
+    handlePlateMakingEvent(fakeButton)
+    fakeButton.dataset.plateAction = 'close-recommendation-drawer'
     handlePlateMakingEvent(fakeButton)
     fakeButton.dataset.plateAction = 'close-downstream-dialog'
     handlePlateMakingEvent(fakeButton)
+    return true
+  }
+
+  if (isPcsPartTemplateLibraryDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.partTemplateAction = 'close-detail-drawer'
+    handlePcsPartTemplateLibraryEvent(fakeButton)
+    fakeButton.dataset.partTemplateAction = 'close-create-drawer'
+    handlePcsPartTemplateLibraryEvent(fakeButton)
     return true
   }
 

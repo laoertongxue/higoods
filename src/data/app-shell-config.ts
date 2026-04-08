@@ -69,11 +69,12 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         },
         {
           key: 'pcs-menu-pattern',
-          title: '制版与生产准备',
+          title: '制版与生产管理',
           icon: 'Scissors',
           children: [
             { key: 'pcs-revision-tasks', title: '改版任务', icon: 'FileText', href: '/pcs/patterns/revision' },
             { key: 'pcs-pattern-tasks', title: '制版任务', icon: 'Scissors', href: '/pcs/patterns' },
+            { key: 'pcs-part-template-library', title: '部位模板库', icon: 'Library', href: '/pcs/patterns/part-templates' },
             { key: 'pcs-color-tasks', title: '花型任务', icon: 'Palette', href: '/pcs/patterns/colors' },
             { key: 'pcs-first-sample', title: '首单样衣打样', icon: 'Droplet', href: '/pcs/samples/first-order' },
             { key: 'pcs-pre-production', title: '产前版样衣', icon: 'CheckSquare', href: '/pcs/production/pre-check' },

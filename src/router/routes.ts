@@ -43,6 +43,7 @@ import { renderSampleApplicationPage } from '../pages/pcs-sample-application'
 import { renderSampleViewPage } from '../pages/pcs-sample-view'
 import { renderRevisionTaskPage } from '../pages/pcs-revision-task'
 import { renderPlateMakingPage } from '../pages/pcs-plate-making'
+import { renderPcsPartTemplateLibraryPage } from '../pages/pcs-part-template-library'
 import { renderPatternTaskPage } from '../pages/pcs-pattern-task'
 import { renderFirstOrderSamplePage } from '../pages/pcs-first-order-sample'
 import { renderPreProductionSamplePage } from '../pages/pcs-pre-production-sample'
@@ -225,6 +226,7 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/samples/pre-production': () => renderPreProductionSamplePage(),
   '/pcs/production/pre-check': () => renderPreProductionSamplePage(),
   '/pcs/patterns': () => renderPlateMakingPage(),
+  '/pcs/patterns/part-templates': () => renderPcsPartTemplateLibraryPage(),
   '/pcs/patterns/colors': () => renderPatternTaskPage(),
   '/pcs/patterns/revision': () => renderRevisionTaskPage(),
   '/pcs/patterns/plate-making': () => renderPlateMakingPage(),

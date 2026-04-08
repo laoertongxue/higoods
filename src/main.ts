@@ -46,6 +46,140 @@ function render(): void {
   hydrateRealQRCodes(root)
 }
 
+interface FocusSnapshot {
+  selector: string | null
+  path: number[]
+  selectionStart: number | null
+  selectionEnd: number | null
+  scrollTop: number | null
+}
+
+function escapeCssValue(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value)
+  }
+  return value.replace(/["\\]/g, '\\$&')
+}
+
+function datasetKeyToAttribute(key: string): string {
+  return `data-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`
+}
+
+function isFocusableField(
+  element: Element | null,
+): element is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
+  return (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement
+  )
+}
+
+function buildFocusSelector(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): string | null {
+  const tagName = element.tagName.toLowerCase()
+
+  if (element.id) {
+    return `${tagName}#${escapeCssValue(element.id)}`
+  }
+
+  const selectorParts: string[] = []
+  const datasetEntries = Object.entries(element.dataset)
+
+  for (const [key, value] of datasetEntries) {
+    selectorParts.push(`[${datasetKeyToAttribute(key)}="${escapeCssValue(value)}"]`)
+  }
+
+  const name = element.getAttribute('name')
+  if (name) {
+    selectorParts.push(`[name="${escapeCssValue(name)}"]`)
+  }
+
+  if (element instanceof HTMLInputElement && element.type) {
+    selectorParts.push(`[type="${escapeCssValue(element.type)}"]`)
+  }
+
+  return selectorParts.length > 0 ? `${tagName}${selectorParts.join('')}` : null
+}
+
+function buildFocusPath(element: Element): number[] {
+  const path: number[] = []
+  let current: Element | null = element
+
+  while (current && current !== root) {
+    const parent = current.parentElement
+    if (!parent) break
+    const index = Array.prototype.indexOf.call(parent.children, current)
+    path.unshift(index)
+    current = parent
+  }
+
+  return path
+}
+
+function captureFocusSnapshot(): FocusSnapshot | null {
+  const activeElement = document.activeElement
+  if (!isFocusableField(activeElement) || !root.contains(activeElement)) return null
+  if (activeElement instanceof HTMLInputElement && activeElement.type === 'file') return null
+
+  return {
+    selector: buildFocusSelector(activeElement),
+    path: buildFocusPath(activeElement),
+    selectionStart:
+      activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement
+        ? activeElement.selectionStart
+        : null,
+    selectionEnd:
+      activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement
+        ? activeElement.selectionEnd
+        : null,
+    scrollTop: activeElement instanceof HTMLTextAreaElement ? activeElement.scrollTop : null,
+  }
+}
+
+function resolveFocusByPath(path: number[]): Element | null {
+  let current: Element = root
+
+  for (const childIndex of path) {
+    const next = current.children.item(childIndex)
+    if (!(next instanceof Element)) return null
+    current = next
+  }
+
+  return current
+}
+
+function restoreFocusSnapshot(snapshot: FocusSnapshot | null): void {
+  if (!snapshot) return
+
+  const candidate =
+    (snapshot.selector ? root.querySelector(snapshot.selector) : null) ?? resolveFocusByPath(snapshot.path)
+
+  if (!isFocusableField(candidate)) return
+
+  candidate.focus()
+
+  if (
+    (candidate instanceof HTMLInputElement || candidate instanceof HTMLTextAreaElement) &&
+    snapshot.selectionStart !== null &&
+    snapshot.selectionEnd !== null
+  ) {
+    try {
+      candidate.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd)
+    } catch {
+      // Ignore unsupported selection restoration.
+    }
+  }
+
+  if (candidate instanceof HTMLTextAreaElement && snapshot.scrollTop !== null) {
+    candidate.scrollTop = snapshot.scrollTop
+  }
+}
+
+function renderWithFocusRestore(snapshot: FocusSnapshot | null): void {
+  render()
+  restoreFocusSnapshot(snapshot)
+}
+
 function closeMobileSidebar(): void {
   const { sidebarOpen } = appStore.getState()
   if (sidebarOpen) {
@@ -77,6 +211,7 @@ function shouldBypassClickDispatch(target: Element): boolean {
 
   if (controlNode instanceof HTMLInputElement) {
     const inputType = (controlNode.type || 'text').toLowerCase()
+    if (inputType === 'file') return true
     const clickDrivenTypes = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'file', 'color'])
     if (!clickDrivenTypes.has(inputType) && !actionBound) return true
   }
@@ -215,14 +350,15 @@ root.addEventListener('click', (event) => {
 root.addEventListener('input', (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  const focusSnapshot = captureFocusSnapshot()
 
   if (dispatchPcsInputEvent(target)) {
-    render()
+    renderWithFocusRestore(focusSnapshot)
     return
   }
 
   if (dispatchPageEvent(target)) {
-    render()
+    renderWithFocusRestore(focusSnapshot)
   }
 })
 
@@ -264,4 +400,7 @@ window.addEventListener('popstate', () => {
 })
 
 appStore.subscribe(render)
+window.addEventListener('higood:request-render', () => {
+  render()
+})
 render()

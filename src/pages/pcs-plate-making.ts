@@ -4,6 +4,13 @@ import {
   renderFormDialog as uiFormDialog,
   renderSecondaryButton,
 } from '../components/ui'
+import { listPartTemplateRecords, recommendPartTemplateRecords } from '../data/pcs-part-template-library'
+import {
+  parsePartTemplateFiles,
+  resolveTemplateFilePair,
+  type ParsedPartTemplateResult,
+  type ParsedPartInstance,
+} from '../utils/pcs-part-template-parser'
 
 // ============ 常量定义 ============
 
@@ -161,6 +168,15 @@ interface PlateMakingState {
   createDrawerOpen: boolean
   downstreamDialogOpen: boolean
   selectedTaskId: string | null
+  recommendationDrawerOpen: boolean
+  recommendationTargetTaskId: string | null
+  recommendationSelectedDxfFile: File | null
+  recommendationSelectedRulFile: File | null
+  recommendationUploadError: string | null
+  recommendationParseError: string | null
+  recommendationParsing: boolean
+  recommendationParseResult: ParsedPartTemplateResult | null
+  recommendationMessage: string | null
 }
 
 let state: PlateMakingState = {
@@ -175,7 +191,19 @@ let state: PlateMakingState = {
   createDrawerOpen: false,
   downstreamDialogOpen: false,
   selectedTaskId: null,
+  recommendationDrawerOpen: false,
+  recommendationTargetTaskId: null,
+  recommendationSelectedDxfFile: null,
+  recommendationSelectedRulFile: null,
+  recommendationUploadError: null,
+  recommendationParseError: null,
+  recommendationParsing: false,
+  recommendationParseResult: null,
+  recommendationMessage: null,
 }
+
+const APP_RENDER_EVENT = 'higood:request-render'
+let recommendationParseRequestId = 0
 
 // ============ 工具函数 ============
 
@@ -229,6 +257,266 @@ function getKpiStats() {
     blocked: mockTasks.filter((t) => t.status === 'BLOCKED').length,
     overdue: 1,
   }
+}
+
+function requestRender(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(APP_RENDER_EVENT))
+  }
+}
+
+function resetRecommendationState(): void {
+  recommendationParseRequestId += 1
+  state.recommendationTargetTaskId = null
+  state.recommendationSelectedDxfFile = null
+  state.recommendationSelectedRulFile = null
+  state.recommendationUploadError = null
+  state.recommendationParseError = null
+  state.recommendationParsing = false
+  state.recommendationParseResult = null
+  state.recommendationMessage = null
+}
+
+function getRecommendationTargetTask() {
+  return mockTasks.find((task) => task.id === state.recommendationTargetTaskId) ?? null
+}
+
+function getFileExtension(fileName: string): string {
+  const match = /\.([^.]+)$/.exec(fileName)
+  return match ? match[1].toLowerCase() : ''
+}
+
+function getSelectedRecommendationFiles(): File[] {
+  return [state.recommendationSelectedDxfFile, state.recommendationSelectedRulFile].filter(
+    (file): file is File => file instanceof File,
+  )
+}
+
+function getSingleRecommendationUploadError(
+  file: File | null,
+  expectedExtension: 'dxf' | 'rul',
+  label: string,
+): string | null {
+  if (!file) return null
+  if (getFileExtension(file.name) !== expectedExtension) {
+    return `${label}必须上传 .${expectedExtension} 文件。`
+  }
+  return null
+}
+
+function getRecommendationUploadError(): string | null {
+  return (
+    getSingleRecommendationUploadError(state.recommendationSelectedDxfFile, 'dxf', 'DXF 文件') ??
+    getSingleRecommendationUploadError(state.recommendationSelectedRulFile, 'rul', 'RUL 文件')
+  )
+}
+
+function getRecommendationFileStatus(): string {
+  if (state.recommendationUploadError) return state.recommendationUploadError
+  return `DXF：${state.recommendationSelectedDxfFile?.name ?? '未上传'}；RUL：${state.recommendationSelectedRulFile?.name ?? '未上传'}`
+}
+
+function formatTemplateMetric(value?: number): string {
+  if (value === undefined || value === null || Number.isNaN(value)) return '-'
+  return String(value)
+}
+
+function renderRecommendationReasons(reasons: string[]): string {
+  return reasons
+    .slice(0, 4)
+    .map((reason) => `<p>${escapeHtml(reason)}</p>`)
+    .join('')
+}
+
+function renderRecommendationList(part: ParsedPartInstance): string {
+  const recommendations = recommendPartTemplateRecords(part, 3)
+
+  if (recommendations.length === 0) {
+    return '<p class="text-sm text-gray-500">当前部位模板库暂无已保存的部位模板，请先去“部位模板库”保存模板后再匹配。</p>'
+  }
+
+  return recommendations
+    .map(
+      (recommendation) => `
+        <article class="rounded-lg border bg-slate-50 p-3">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">${escapeHtml(recommendation.record.templateName)} / ${escapeHtml(recommendation.record.standardPartName)}</p>
+              <p class="mt-1 text-xs text-gray-500">${escapeHtml(recommendation.record.sourcePartName)} · 尺码 ${escapeHtml(recommendation.record.sizeCode ?? '-')}</p>
+            </div>
+            <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${recommendation.matchScore} 分</span>
+          </div>
+          <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div class="space-y-1 text-xs text-gray-600">
+              ${renderRecommendationReasons(recommendation.reasons)}
+            </div>
+            <div class="rounded-lg border bg-white p-3 text-xs text-gray-500">
+              <p>宽高：${formatTemplateMetric(recommendation.record.width)} x ${formatTemplateMetric(recommendation.record.height)}</p>
+              <p class="mt-1">历史命中：${recommendation.record.reuseHitCount}</p>
+              <p class="mt-1">爆款次数：${recommendation.record.hotStyleCount}</p>
+              <p class="mt-1">累计下单：${recommendation.record.cumulativeOrderQty}</p>
+              <button class="mt-3 h-8 rounded-md border px-3 text-xs hover:bg-slate-50" data-plate-action="use-template" data-template-record-id="${escapeHtml(recommendation.record.id)}" data-template-label="${escapeHtml(`${recommendation.record.templateName} / ${recommendation.record.standardPartName}`)}">使用模板</button>
+            </div>
+          </div>
+        </article>
+      `,
+    )
+    .join('')
+}
+
+function renderRecommendationPartCards(result: ParsedPartTemplateResult): string {
+  return result.parts
+    .map(
+      (part) => `
+        <article class="rounded-lg border bg-white p-4">
+          <div class="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
+            <div class="overflow-hidden rounded-lg border bg-slate-50 p-3">
+              <div class="aspect-[11/8]">${part.previewSvg ?? '<div class="flex h-full items-center justify-center text-xs text-gray-400">暂无预览</div>'}</div>
+            </div>
+            <div class="space-y-4">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-base font-semibold">${escapeHtml(part.sourcePartName)}</h3>
+                  <p class="mt-1 text-xs text-gray-500">Piece Name：${escapeHtml(part.systemPieceName ?? '未识别')}</p>
+                </div>
+                <div class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(part.sizeCode ?? '未识别尺码')}</div>
+              </div>
+              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                <div>
+                  <p class="text-xs text-gray-500">候选名称</p>
+                  <p class="mt-1">${escapeHtml(part.candidatePartNames.join(' / ') || '未识别')}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">宽高</p>
+                  <p class="mt-1">${formatTemplateMetric(part.metrics?.width)} x ${formatTemplateMetric(part.metrics?.height)}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">面积</p>
+                  <p class="mt-1">${formatTemplateMetric(part.metrics?.area)}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">geometryHash</p>
+                  <p class="mt-1 break-all">${escapeHtml(part.geometryHash ?? '-')}</p>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <h4 class="text-sm font-medium text-gray-900">Top 3 推荐模板</h4>
+                ${renderRecommendationList(part)}
+              </div>
+            </div>
+          </div>
+        </article>
+      `,
+    )
+    .join('')
+}
+
+function renderRecommendationDrawer() {
+  if (!state.recommendationDrawerOpen) return ''
+
+  const targetTask = getRecommendationTargetTask()
+  const libraryCount = listPartTemplateRecords().length
+  const canParse = !state.recommendationParsing
+
+  const content = `
+    <div class="space-y-6">
+      <section class="rounded-lg border bg-slate-50 p-4">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <p class="text-xs text-gray-500">当前任务</p>
+            <p class="mt-1 text-sm font-medium">${escapeHtml(targetTask?.title ?? '通用模板匹配')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">目标尺码段</p>
+            <p class="mt-1 text-sm font-medium">${escapeHtml(targetTask?.size_range ?? '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">负责人</p>
+            <p class="mt-1 text-sm font-medium">${escapeHtml(targetTask?.owner ?? '-')}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">模板库可用记录</p>
+            <p class="mt-1 text-sm font-medium">${libraryCount} 条部位模板</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-white p-4">
+        <div class="space-y-3">
+          <div>
+            <label class="mb-1 block text-sm font-medium text-gray-900">开发态上传待匹配纸样</label>
+            <div class="grid gap-3 md:grid-cols-2">
+              <div class="rounded-lg border bg-slate-50 p-3">
+                <label class="mb-2 block text-sm font-medium text-gray-900">DXF 文件</label>
+                <input type="file" class="w-full text-sm" accept=".dxf" data-plate-action="select-recommend-dxf-file" />
+                <p class="mt-2 text-xs text-gray-500">${escapeHtml(state.recommendationSelectedDxfFile?.name ?? '未上传 DXF 文件')}</p>
+              </div>
+              <div class="rounded-lg border bg-slate-50 p-3">
+                <label class="mb-2 block text-sm font-medium text-gray-900">RUL 文件</label>
+                <input type="file" class="w-full text-sm" accept=".rul" data-plate-action="select-recommend-rul-file" />
+                <p class="mt-2 text-xs text-gray-500">${escapeHtml(state.recommendationSelectedRulFile?.name ?? '未上传 RUL 文件')}</p>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs ${state.recommendationUploadError ? 'text-rose-600' : 'text-gray-500'}">${escapeHtml(getRecommendationFileStatus())}</p>
+          <div class="flex flex-wrap gap-2">
+            <button class="h-9 rounded-md border px-3 text-sm hover:bg-slate-50 ${canParse ? '' : 'cursor-not-allowed opacity-60'}" data-plate-action="parse-recommendation">${state.recommendationParsing ? '解析中...' : '解析并推荐'}</button>
+            <button class="h-9 rounded-md border px-3 text-sm hover:bg-slate-50" data-plate-action="clear-recommendation-files">清空已上传文件</button>
+          </div>
+          ${state.recommendationParseError ? `<p class="text-sm text-rose-600">${escapeHtml(state.recommendationParseError)}</p>` : ''}
+          ${state.recommendationMessage ? `<p class="text-sm text-emerald-700">${escapeHtml(state.recommendationMessage)}</p>` : ''}
+        </div>
+      </section>
+
+      ${
+        state.recommendationParseResult
+          ? `
+            <section class="rounded-lg border bg-slate-50 p-4">
+              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <p class="text-xs text-gray-500">模板名 / 款式名</p>
+                  <p class="mt-1 text-sm font-medium">${escapeHtml(state.recommendationParseResult.templateName)}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">单位 / 基码</p>
+                  <p class="mt-1 text-sm font-medium">${escapeHtml(state.recommendationParseResult.rul.units ?? '-')} / ${escapeHtml(state.recommendationParseResult.rul.sampleSize ?? '-')}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">尺码列表</p>
+                  <p class="mt-1 text-sm font-medium">${escapeHtml(state.recommendationParseResult.rul.sizeList.join(', ') || '-')}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">待匹配部位数</p>
+                  <p class="mt-1 text-sm font-medium">${state.recommendationParseResult.parts.length}</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="space-y-3">
+              <div>
+                <h3 class="text-base font-semibold">部位推荐结果</h3>
+                <p class="mt-1 text-xs text-gray-500">推荐结果来源于已保存的部位模板记录，综合部位名、候选名、尺码、几何尺寸和历史热度评分。</p>
+              </div>
+              <div class="space-y-3">${renderRecommendationPartCards(state.recommendationParseResult)}</div>
+            </section>
+          `
+          : ''
+      }
+    </div>
+  `
+
+  return uiDrawer(
+    {
+      title: '模板推荐',
+      subtitle: '上传一对待匹配纸样，按部位给出模板推荐列表。',
+      closeAction: { prefix: 'plate', action: 'close-recommendation-drawer' },
+      width: 'xl',
+    },
+    content,
+    {
+      cancel: { prefix: 'plate', action: 'close-recommendation-drawer', label: '关闭' },
+    },
+  )
 }
 
 // ============ 渲染函数 ============
@@ -442,6 +730,9 @@ function renderTaskRow(task: typeof mockTasks[0]) {
           <button class="h-8 w-8 flex items-center justify-center hover:bg-gray-100 rounded" data-plate-action="view-task" data-task-id="${task.id}" title="查看">
             <i data-lucide="eye" class="h-4 w-4"></i>
           </button>
+          <button class="h-8 rounded-md border px-2 text-xs hover:bg-gray-100" data-plate-action="open-recommendation-drawer" data-task-id="${task.id}" title="模板推荐">
+            模板推荐
+          </button>
           ${['NOT_STARTED', 'IN_PROGRESS', 'BLOCKED'].includes(task.status) ? `
             <button class="h-8 w-8 flex items-center justify-center hover:bg-gray-100 rounded" data-plate-action="start-task" data-task-id="${task.id}" title="开始">
               <i data-lucide="play" class="h-4 w-4"></i>
@@ -475,10 +766,16 @@ function renderPage(): string {
           <h1 class="text-xl font-semibold">制版任务</h1>
           <p class="mt-1 text-sm text-gray-500">将设计/改版方案转化为可生产的纸样/版型/规格成果，输出制版包并驱动下游打样/放码/工艺/BOM等工作</p>
         </div>
-        <button class="h-9 px-4 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2" data-plate-action="open-create-drawer">
-          <i data-lucide="plus" class="h-4 w-4"></i>
-          新建制版任务
-        </button>
+        <div class="flex items-center gap-2">
+          <button class="h-9 px-4 text-sm border rounded-md hover:bg-gray-50 flex items-center gap-2" data-plate-action="open-recommendation-drawer">
+            <i data-lucide="scan-search" class="h-4 w-4"></i>
+            匹配部位模板
+          </button>
+          <button class="h-9 px-4 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2" data-plate-action="open-create-drawer">
+            <i data-lucide="plus" class="h-4 w-4"></i>
+            新建制版任务
+          </button>
+        </div>
       </header>
 
       <!-- Filter Bar -->
@@ -605,6 +902,7 @@ function renderPage(): string {
 
     ${renderPlateCreateDrawer()}
     ${renderPlateDownstreamDialog()}
+    ${renderRecommendationDrawer()}
   `
 }
 
@@ -634,6 +932,103 @@ export function handlePlateMakingEvent(target: Element): boolean {
     state.downstreamDialogOpen = true
     state.selectedTaskId = actionNode?.dataset.taskId || null
     return true
+  }
+
+  if (action === 'open-recommendation-drawer') {
+    resetRecommendationState()
+    state.recommendationDrawerOpen = true
+    state.recommendationTargetTaskId = actionNode?.dataset.taskId || null
+    return true
+  }
+
+  if (action === 'close-recommendation-drawer') {
+    state.recommendationDrawerOpen = false
+    resetRecommendationState()
+    return true
+  }
+
+  if (action === 'select-recommend-dxf-file') {
+    if (actionNode instanceof HTMLInputElement) {
+      state.recommendationSelectedDxfFile = actionNode.files?.[0] ?? null
+      state.recommendationParseError = null
+      state.recommendationMessage = null
+      state.recommendationUploadError = getRecommendationUploadError()
+      return true
+    }
+  }
+
+  if (action === 'select-recommend-rul-file') {
+    if (actionNode instanceof HTMLInputElement) {
+      state.recommendationSelectedRulFile = actionNode.files?.[0] ?? null
+      state.recommendationParseError = null
+      state.recommendationMessage = null
+      state.recommendationUploadError = getRecommendationUploadError()
+      return true
+    }
+  }
+
+  if (action === 'clear-recommendation-files') {
+    state.recommendationSelectedDxfFile = null
+    state.recommendationSelectedRulFile = null
+    state.recommendationUploadError = null
+    state.recommendationParseError = null
+    state.recommendationParseResult = null
+    state.recommendationMessage = null
+    return true
+  }
+
+  if (action === 'parse-recommendation') {
+    let resolvedFiles
+
+    try {
+      resolvedFiles = resolveTemplateFilePair(getSelectedRecommendationFiles())
+    } catch (error) {
+      state.recommendationParseError = error instanceof Error ? error.message : '文件校验失败。'
+      return true
+    }
+
+    if (!resolvedFiles) {
+      state.recommendationParseError = '请先选择一对 .dxf + .rul 文件。'
+      return true
+    }
+
+    const targetTask = getRecommendationTargetTask()
+    state.recommendationParsing = true
+    state.recommendationParseError = null
+    state.recommendationParseResult = null
+    state.recommendationMessage = null
+    recommendationParseRequestId += 1
+    const requestId = recommendationParseRequestId
+
+    void parsePartTemplateFiles({
+      templateName: targetTask?.title ?? '待匹配纸样',
+      dxfFile: resolvedFiles.dxfFile,
+      rulFile: resolvedFiles.rulFile,
+    })
+      .then((result) => {
+        if (requestId !== recommendationParseRequestId) return
+        state.recommendationParseResult = result
+      })
+      .catch((error) => {
+        if (requestId !== recommendationParseRequestId) return
+        state.recommendationParseResult = null
+        state.recommendationParseError = error instanceof Error ? error.message : '待匹配纸样解析失败。'
+      })
+      .finally(() => {
+        if (requestId !== recommendationParseRequestId) return
+        state.recommendationParsing = false
+        requestRender()
+      })
+
+    return true
+  }
+
+  if (action === 'use-template') {
+    const templateLabel = actionNode?.dataset.templateLabel
+    if (templateLabel) {
+      state.recommendationMessage = `已选用模板：${templateLabel}。当前为演示态，后续可继续补充回填链路。`
+      return true
+    }
   }
 
   if (action === 'close-downstream-dialog') {
@@ -738,7 +1133,7 @@ export function handlePlateMakingInput(target: Element): boolean {
 }
 
 export function isPlateMakingDialogOpen(): boolean {
-  return state.createDrawerOpen || state.downstreamDialogOpen
+  return state.createDrawerOpen || state.downstreamDialogOpen || state.recommendationDrawerOpen
 }
 
 export function renderPlateMakingPage(): string {

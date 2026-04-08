@@ -22,10 +22,14 @@ import {
   listProcessesByStageCode,
 } from '../data/fcs/process-craft-dict'
 import {
+  DEFAULT_FACTORY_MOBILE_APP_ROLE_ID,
+  createFactoryPdaUsersForFactory,
   type FactoryPdaRole,
+  type FactoryPdaUser,
   type PermissionKey,
+  generatePresetRolesForFactory,
   initialFactoryPdaRoles,
-  initialFactoryUsers,
+  initialFactoryPdaUsers,
   permissionCatalog,
 } from '../data/fcs/store-domain-pda'
 import { escapeHtml } from '../utils'
@@ -106,16 +110,16 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
 function mapInitialPdaUsersByFactory(): Record<string, PdaUserRecord[]> {
   const grouped: Record<string, PdaUserRecord[]> = {}
 
-  for (const user of initialFactoryUsers) {
-    const roleId = user.roleIds[0] ?? 'ROLE_VIEWER'
+  for (const user of initialFactoryPdaUsers) {
     const record: PdaUserRecord = {
       userId: user.userId,
       factoryId: user.factoryId,
       name: user.name,
-      loginId: user.userId,
+      loginId: user.loginId,
       status: user.status,
-      roleId,
-      createdAt: '2024-01-01 00:00:00',
+      roleId: user.roleId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     }
 
     if (!grouped[user.factoryId]) grouped[user.factoryId] = []
@@ -123,6 +127,19 @@ function mapInitialPdaUsersByFactory(): Record<string, PdaUserRecord[]> {
   }
 
   return grouped
+}
+
+function clonePdaUserRecord(user: FactoryPdaUser): PdaUserRecord {
+  return {
+    userId: user.userId,
+    factoryId: user.factoryId,
+    name: user.name,
+    loginId: user.loginId,
+    status: user.status,
+    roleId: user.roleId,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  }
 }
 
 function mapInitialPdaRolesByFactory(): Record<string, FactoryPdaRole[]> {
@@ -159,7 +176,7 @@ const state: FactoryPageState = {
   pdaAddOpen: false,
   pdaNewName: '',
   pdaNewLoginId: '',
-  pdaNewRoleId: 'ROLE_DISPATCH',
+  pdaNewRoleId: DEFAULT_FACTORY_MOBILE_APP_ROLE_ID,
   pdaRoleFormOpen: false,
   pdaEditingRoleId: null,
   pdaRoleFormName: '',
@@ -255,7 +272,7 @@ function openEditDialog(factoryId: string): void {
   const factory = state.factories.find((item) => item.id === factoryId)
   if (!factory) return
 
-  ensurePdaDataForFactory(factoryId)
+  ensurePdaDataForFactory(factory)
   state.dialog = { type: 'edit', factoryId }
   state.formDraft = createFormData(factory)
   state.formError = ''
@@ -273,7 +290,7 @@ function resetPdaEditorState(): void {
   state.pdaAddOpen = false
   state.pdaNewName = ''
   state.pdaNewLoginId = ''
-  state.pdaNewRoleId = 'ROLE_DISPATCH'
+  state.pdaNewRoleId = DEFAULT_FACTORY_MOBILE_APP_ROLE_ID
   state.pdaRoleFormOpen = false
   state.pdaEditingRoleId = null
   state.pdaRoleFormName = ''
@@ -286,12 +303,19 @@ function getCurrentDialogFactoryId(): string | null {
   return state.dialog.type === 'edit' ? state.dialog.factoryId : null
 }
 
-function ensurePdaDataForFactory(factoryId: string): void {
-  if (!state.pdaUsersByFactory[factoryId]) {
-    state.pdaUsersByFactory[factoryId] = []
+function ensurePdaDataForFactory(factory: Factory): void {
+  const isActiveFactory = factory.status === 'active'
+
+  if (!state.pdaUsersByFactory[factory.id] || (isActiveFactory && state.pdaUsersByFactory[factory.id].length === 0)) {
+    state.pdaUsersByFactory[factory.id] = isActiveFactory
+      ? createFactoryPdaUsersForFactory(factory.id, factory.name).map(clonePdaUserRecord)
+      : []
   }
-  if (!state.pdaRolesByFactory[factoryId]) {
-    state.pdaRolesByFactory[factoryId] = []
+
+  if (!state.pdaRolesByFactory[factory.id] || (isActiveFactory && state.pdaRolesByFactory[factory.id].length === 0)) {
+    state.pdaRolesByFactory[factory.id] = isActiveFactory
+      ? generatePresetRolesForFactory(factory.id, new Date().toISOString().slice(0, 19).replace('T', ' '))
+      : []
   }
 }
 
@@ -733,7 +757,7 @@ function renderPagination(total: number): string {
 
 function renderPdaUsersSection(factoryId: string, pdaEnabled: boolean): string {
   if (!factoryId) {
-    return '<p class="py-4 text-sm text-muted-foreground">保存工厂档案后，可在此配置 PDA 账号与角色权限。</p>'
+    return '<p class="py-4 text-sm text-muted-foreground">保存工厂档案后，可在此配置工厂端移动应用账号与权限。</p>'
   }
 
   const users = getFactoryPdaUsers(factoryId)
@@ -745,7 +769,7 @@ function renderPdaUsersSection(factoryId: string, pdaEnabled: boolean): string {
     <div class="space-y-3">
       ${
         users.length === 0
-          ? '<p class="py-4 text-center text-sm text-muted-foreground">暂无 PDA 账号</p>'
+          ? '<p class="py-4 text-center text-sm text-muted-foreground">暂无工厂端移动应用账号</p>'
           : `
             <div class="overflow-x-auto rounded-md border">
               <table class="w-full text-sm">
@@ -811,7 +835,7 @@ function renderPdaUsersSection(factoryId: string, pdaEnabled: boolean): string {
 
       <button type="button" data-factory-action="toggle-add-user" class="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">
         <span>${state.pdaAddOpen ? '▾' : '▸'}</span>
-        <span>新增 PDA 账号</span>
+        <span>新增工厂端移动应用账号</span>
       </button>
 
       ${
@@ -891,7 +915,7 @@ function renderPdaRoleForm(factoryId: string, pdaEnabled: boolean): string {
       </div>
 
       <div class="space-y-2">
-        <p class="text-xs text-muted-foreground">权限配置</p>
+        <p class="text-xs text-muted-foreground">按当前工厂端移动应用真实功能配置权限</p>
         ${Object.entries(groups)
           .map(([group, items]) => {
             return `
@@ -932,7 +956,7 @@ function renderPdaRoleForm(factoryId: string, pdaEnabled: boolean): string {
 
 function renderPdaRolesSection(factoryId: string, pdaEnabled: boolean): string {
   if (!factoryId) {
-    return '<p class="py-4 text-sm text-muted-foreground">保存工厂档案后，可在此管理角色。</p>'
+    return '<p class="py-4 text-sm text-muted-foreground">保存工厂档案后，可在此管理工厂端移动应用角色。</p>'
   }
 
   const roles = getFactoryPdaRoles(factoryId)
@@ -941,7 +965,7 @@ function renderPdaRolesSection(factoryId: string, pdaEnabled: boolean): string {
   return `
     <div class="space-y-3">
       <div class="flex items-center justify-between">
-        <p class="text-xs text-muted-foreground">管理当前工厂 PDA 角色、权限与可用状态</p>
+        <p class="text-xs text-muted-foreground">管理当前工厂端移动应用角色、权限与可用状态</p>
         <button type="button" data-factory-action="open-role-form-create" class="rounded border px-3 py-1.5 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">新建角色</button>
       </div>
 
@@ -1013,7 +1037,7 @@ function renderPdaPermissionsSection(): string {
 
   return `
     <div class="space-y-3">
-      <p class="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">权限字典为只读说明，实际授权请在“角色管理”中配置。</p>
+      <p class="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">权限矩阵按当前工厂端移动应用真实功能整理，实际授权请在“角色管理”中配置。</p>
       ${Object.entries(groups)
         .map(
           ([group, items]) => `
@@ -1269,24 +1293,24 @@ function renderFactoryDrawer(): string {
             </section>
 
             <section class="space-y-4">
-              <h4 class="${sectionTitleClass}">PDA 配置（主数据）</h4>
+              <h4 class="${sectionTitleClass}">工厂端移动应用配置（主数据）</h4>
               <label class="flex items-center gap-3">
                 <input type="checkbox" data-factory-field="pdaEnabled" ${draft.pdaEnabled ? 'checked' : ''} class="h-4 w-4 rounded border" />
-                <span class="text-sm">启用 PDA</span>
+                <span class="text-sm">启用工厂端移动应用</span>
               </label>
 
               <label class="space-y-1.5">
-                <span class="text-sm">PDA Tenant ID ${draft.pdaEnabled ? '<span class="text-red-600">*</span>' : ''}</span>
+                <span class="text-sm">工厂端移动应用 Tenant ID ${draft.pdaEnabled ? '<span class="text-red-600">*</span>' : ''}</span>
                 <input data-factory-field="pdaTenantId" ${draft.pdaEnabled ? '' : 'disabled'} value="${escapeHtml(draft.pdaTenantId ?? '')}" class="w-full rounded-md border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted" placeholder="默认与工厂ID一致，可自定义" />
-                <p class="text-xs text-muted-foreground">账号与权限在 "PDA身份与权限" 模块维护。</p>
+                <p class="text-xs text-muted-foreground">账号与权限在“工厂端移动应用账号与权限”模块维护。</p>
               </label>
             </section>
 
             <section class="space-y-3">
-              <h4 class="${sectionTitleClass}">PDA 账号与权限</h4>
+              <h4 class="${sectionTitleClass}">工厂端移动应用账号与权限</h4>
               ${
                 !draft.pdaEnabled
-                  ? '<p class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">PDA 未启用，无法创建账号；可查看已有账号。</p>'
+                  ? '<p class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">工厂端移动应用未启用，无法创建账号；可查看已有账号。</p>'
                   : ''
               }
 
@@ -1364,7 +1388,7 @@ export function renderFactoryProfilePage(): string {
       <div class="flex items-center justify-between gap-4">
         <div>
           <h1 class="text-2xl font-semibold text-foreground">工厂档案</h1>
-          <p class="mt-1 text-sm text-muted-foreground">管理合作工厂的核心主数据，包括组织层级、PDA配置、生产流程开始条件等。</p>
+          <p class="mt-1 text-sm text-muted-foreground">管理合作工厂的核心主数据，包括组织层级、工厂端移动应用配置、生产流程开始条件等。</p>
         </div>
         <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-factory-action="open-create">
           新增工厂
@@ -1402,7 +1426,7 @@ export function renderFactoryProfilePage(): string {
         </select>
 
         <select data-factory-filter="pda" class="rounded-md border px-3 py-2 text-sm">
-          <option value="all" ${state.pdaFilter === 'all' ? 'selected' : ''}>全部PDA</option>
+          <option value="all" ${state.pdaFilter === 'all' ? 'selected' : ''}>全部工厂端移动应用</option>
           <option value="enabled" ${state.pdaFilter === 'enabled' ? 'selected' : ''}>已启用</option>
           <option value="disabled" ${state.pdaFilter === 'disabled' ? 'selected' : ''}>未启用</option>
         </select>
@@ -1440,7 +1464,7 @@ export function renderFactoryProfilePage(): string {
               </th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">工厂类型</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">上级工厂</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">PDA</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">工厂端移动应用</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">资格开始条件</th>
               <th class="px-3 py-3 text-left">
                 <button data-factory-action="sort" data-sort-field="status" class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">状态 ${renderSortIcon('status')}</button>
@@ -1769,7 +1793,9 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     if (!state.pdaAddOpen) {
       const factoryId = getCurrentDialogFactoryId()
       if (factoryId) {
-        const activeRole = getFactoryPdaRoles(factoryId).find((role) => role.status === 'ACTIVE')
+        const activeRole = getFactoryPdaRoles(factoryId).find(
+          (role) => role.status === 'ACTIVE' && role.roleId === DEFAULT_FACTORY_MOBILE_APP_ROLE_ID,
+        ) || getFactoryPdaRoles(factoryId).find((role) => role.status === 'ACTIVE')
         if (activeRole) {
           state.pdaNewRoleId = activeRole.roleId
         }
@@ -1784,7 +1810,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     state.pdaAddOpen = false
     state.pdaNewName = ''
     state.pdaNewLoginId = ''
-    state.pdaNewRoleId = 'ROLE_DISPATCH'
+    state.pdaNewRoleId = DEFAULT_FACTORY_MOBILE_APP_ROLE_ID
     clearPdaError()
     return true
   }
@@ -1792,7 +1818,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
   if (action === 'create-pda-user') {
     const factoryId = getCurrentDialogFactoryId()
     if (!factoryId) {
-      setPdaError('请先保存工厂档案，再新增 PDA 账号。')
+      setPdaError('请先保存工厂档案，再新增工厂端移动应用账号。')
       return true
     }
 
@@ -1928,7 +1954,7 @@ export function handleFactoryPageSubmit(form: HTMLFormElement): boolean {
   }
 
   if (data.pdaEnabled && !data.pdaTenantId) {
-    state.formError = '启用 PDA 时必须填写 PDA Tenant ID。'
+    state.formError = '启用工厂端移动应用时必须填写工厂端移动应用 Tenant ID。'
     return true
   }
 
