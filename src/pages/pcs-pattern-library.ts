@@ -1,7 +1,7 @@
 import { appStore } from '../state/store'
 import { renderDrawer as uiDrawer } from '../components/ui'
 import { escapeHtml, formatDateTime } from '../utils'
-import { getPatternSimilarityStatusText } from '../utils/pcs-pattern-library-services'
+import { buildPatternCategoryPath, getPatternSimilarityStatusText } from '../utils/pcs-pattern-library-services'
 import {
   PATTERN_DUPLICATE_STATUS_LABELS,
   PATTERN_LICENSE_STATUS_LABELS,
@@ -13,6 +13,7 @@ import {
   disablePatternAsset,
   exportPatternLibraryRows,
   getPatternBlob,
+  getPatternCategorySecondaryList,
   getPatternLibraryConfig,
   getPatternLibraryStats,
   getPatternLibraryTabCounts,
@@ -32,7 +33,8 @@ interface PatternLibraryPageState {
   currentTab: string
   search: string
   usageType: string
-  category: string
+  categoryPrimary: string
+  categorySecondary: string
   styleTag: string
   primaryColor: string
   hotFlag: string
@@ -63,7 +65,8 @@ const state: PatternLibraryPageState = {
   currentTab: '全部',
   search: '',
   usageType: '全部',
-  category: '全部',
+  categoryPrimary: '全部',
+  categorySecondary: '全部',
   styleTag: '全部',
   primaryColor: '全部',
   hotFlag: '全部',
@@ -162,7 +165,8 @@ function getFilteredRecords(): PatternAssetRecord[] {
       .toLowerCase()
     if (keyword && !text.includes(keyword)) return false
     if (state.usageType !== '全部' && record.usage_type !== state.usageType) return false
-    if (state.category !== '全部' && record.category !== state.category) return false
+    if (state.categoryPrimary !== '全部' && (record.category_primary ?? record.category) !== state.categoryPrimary) return false
+    if (state.categorySecondary !== '全部' && (record.category_secondary ?? '') !== state.categorySecondary) return false
     if (state.styleTag !== '全部' && !record.style_tags.includes(state.styleTag)) return false
     if (state.primaryColor !== '全部' && !record.color_tags.includes(state.primaryColor)) return false
     if (state.hotFlag !== '全部' && (record.hot_flag ? '是' : '否') !== state.hotFlag) return false
@@ -187,7 +191,8 @@ function getFilterOptions(records: PatternAssetRecord[]) {
   const config = getPatternLibraryConfig()
   return {
     usageTypes: config.usageTypes,
-    categories: config.categories,
+    categoryPrimary: config.categoryTree.map((item) => item.value),
+    categorySecondary: state.categoryPrimary === '全部' ? [] : getPatternCategorySecondaryList(state.categoryPrimary),
     styleTags: Array.from(new Set(records.flatMap((item) => item.style_tags).concat(config.styleTags))),
     primaryColors: Array.from(new Set(records.flatMap((item) => item.color_tags).concat(config.primaryColors))),
     sourceTypes: config.sourceTypes,
@@ -315,10 +320,17 @@ function renderFilters(records: PatternAssetRecord[]): string {
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-xs text-gray-500">题材分类</label>
-          <select class="h-9 w-full rounded-md border px-3 text-sm" data-pattern-library-field="category">
+          <label class="mb-1 block text-xs text-gray-500">题材一级分类</label>
+          <select class="h-9 w-full rounded-md border px-3 text-sm" data-pattern-library-field="categoryPrimary">
             <option value="全部">全部</option>
-            ${options.categories.map((value) => `<option value="${value}" ${state.category === value ? 'selected' : ''}>${value}</option>`).join('')}
+            ${options.categoryPrimary.map((value) => `<option value="${value}" ${state.categoryPrimary === value ? 'selected' : ''}>${value}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">题材二级分类</label>
+          <select class="h-9 w-full rounded-md border px-3 text-sm" data-pattern-library-field="categorySecondary" ${state.categoryPrimary === '全部' ? 'disabled' : ''}>
+            <option value="全部">${state.categoryPrimary === '全部' ? '请先选择一级分类' : '全部'}</option>
+            ${options.categorySecondary.map((value) => `<option value="${value}" ${state.categorySecondary === value ? 'selected' : ''}>${value}</option>`).join('')}
           </select>
         </div>
         <div>
@@ -610,7 +622,7 @@ function renderRow(record: PatternAssetRecord): string {
       </td>
       <td class="px-3 py-3 text-sm text-gray-600">${escapeHtml(record.original_filename)}</td>
       <td class="px-3 py-3 text-sm">${escapeHtml(record.usage_type)}</td>
-      <td class="px-3 py-3 text-sm">${escapeHtml(record.category)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(buildPatternCategoryPath(record.category_primary ?? record.category, record.category_secondary))}</td>
       <td class="px-3 py-3"><div class="flex flex-wrap gap-1">${record.style_tags.map((tag) => `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs">${escapeHtml(tag)}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></td>
       <td class="px-3 py-3 text-sm">${escapeHtml(record.color_tags.join(' / ') || '-')}</td>
       <td class="px-3 py-3 text-sm">${record.hot_flag ? '是' : '否'}</td>
@@ -690,7 +702,8 @@ function renderPage(): string {
 function resetFilters(): void {
   state.search = ''
   state.usageType = '全部'
-  state.category = '全部'
+  state.categoryPrimary = '全部'
+  state.categorySecondary = '全部'
   state.styleTag = '全部'
   state.primaryColor = '全部'
   state.hotFlag = '全部'
@@ -862,7 +875,11 @@ export function handlePcsPatternLibraryInput(target: Element): boolean {
 
   if (field === 'search') state.search = value
   if (field === 'usageType') state.usageType = value
-  if (field === 'category') state.category = value
+  if (field === 'categoryPrimary') {
+    state.categoryPrimary = value
+    state.categorySecondary = '全部'
+  }
+  if (field === 'categorySecondary') state.categorySecondary = value
   if (field === 'styleTag') state.styleTag = value
   if (field === 'primaryColor') state.primaryColor = value
   if (field === 'hotFlag') state.hotFlag = value

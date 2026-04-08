@@ -229,6 +229,10 @@ function resolveEventElementTarget(eventTarget: EventTarget | null): Element | n
   return null
 }
 
+function isComposingInputEvent(event: Event): boolean {
+  return event instanceof InputEvent && event.isComposing
+}
+
 const SHELL_ACTIONS = new Set([
   'switch-system',
   'set-sidebar-open',
@@ -348,6 +352,22 @@ root.addEventListener('click', (event) => {
 })
 
 root.addEventListener('input', (event) => {
+  const target = resolveEventElementTarget(event.target)
+  if (!target) return
+  if (isComposingInputEvent(event)) return
+  const focusSnapshot = captureFocusSnapshot()
+
+  if (dispatchPcsInputEvent(target)) {
+    renderWithFocusRestore(focusSnapshot)
+    return
+  }
+
+  if (dispatchPageEvent(target)) {
+    renderWithFocusRestore(focusSnapshot)
+  }
+})
+
+root.addEventListener('compositionend', (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   const focusSnapshot = captureFocusSnapshot()

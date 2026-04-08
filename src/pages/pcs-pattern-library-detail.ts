@@ -11,6 +11,8 @@ import {
   disablePatternAsset,
   getPatternBlob,
   getPatternAssetById,
+  getPatternCategorySecondaryList,
+  getPatternLibraryConfig,
   getPatternReferenceAvailability,
   listPatternVersions,
   persistPatternParsedFile,
@@ -20,7 +22,7 @@ import {
   updatePatternAsset,
   waitForPatternLibraryPersistence,
 } from '../data/pcs-pattern-library'
-import { PatternParseService } from '../utils/pcs-pattern-library-services'
+import { buildPatternCategoryPath, PatternParseService } from '../utils/pcs-pattern-library-services'
 import type { PatternAsset, PatternFileVersion, PatternLicenseStatus } from '../data/pcs-pattern-library-types'
 
 const APP_RENDER_EVENT = 'higood:request-render'
@@ -39,7 +41,8 @@ interface PatternLibraryDetailState {
     patternName: string
     aliases: string
     usageType: string
-    category: string
+    categoryPrimary: string
+    categorySecondary: string
     styleTags: string
     colorTags: string
     sourceType: string
@@ -70,7 +73,8 @@ const state: PatternLibraryDetailState = {
     patternName: '',
     aliases: '',
     usageType: '',
-    category: '',
+    categoryPrimary: '',
+    categorySecondary: '',
     styleTags: '',
     colorTags: '',
     sourceType: '',
@@ -161,7 +165,8 @@ function syncState(assetId: string): void {
     patternName: asset.pattern_name,
     aliases: asset.aliases.join(', '),
     usageType: asset.usage_type,
-    category: asset.category,
+    categoryPrimary: asset.category_primary ?? asset.category,
+    categorySecondary: asset.category_secondary ?? '',
     styleTags: asset.style_tags.join(', '),
     colorTags: asset.color_tags.join(', '),
     sourceType: asset.source_type,
@@ -220,6 +225,8 @@ function renderVersionPreview(version: PatternFileVersion | null): string {
 function renderBasicInfoTab(): string {
   const asset = getPatternAssetById(state.assetId)
   if (!asset) return ''
+  const config = getPatternLibraryConfig()
+  const secondaryCategories = getPatternCategorySecondaryList(state.editForm.categoryPrimary)
   return `
     <section class="grid gap-4 xl:grid-cols-12">
       <div class="space-y-4 xl:col-span-5">
@@ -261,8 +268,19 @@ function renderBasicInfoTab(): string {
               <input class="h-10 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.editForm.usageType)}" data-pattern-library-detail-field="usageType" />
             </div>
             <div>
-              <label class="mb-1 block text-sm font-medium">题材分类</label>
-              <input class="h-10 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.editForm.category)}" data-pattern-library-detail-field="category" />
+              <label class="mb-1 block text-sm font-medium">题材一级分类</label>
+              <select class="h-10 w-full rounded-md border px-3 text-sm" data-pattern-library-detail-field="categoryPrimary">
+                <option value="">请选择一级分类</option>
+                ${config.categoryTree.map((item) => `<option value="${item.value}" ${state.editForm.categoryPrimary === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium">题材二级分类</label>
+              <select class="h-10 w-full rounded-md border px-3 text-sm" data-pattern-library-detail-field="categorySecondary" ${state.editForm.categoryPrimary ? '' : 'disabled'}>
+                <option value="">${state.editForm.categoryPrimary ? '请选择二级分类' : '请先选择一级分类'}</option>
+                ${secondaryCategories.map((item) => `<option value="${item}" ${state.editForm.categorySecondary === item ? 'selected' : ''}>${item}</option>`).join('')}
+              </select>
+              <p class="mt-1 text-xs text-gray-500">${escapeHtml(buildPatternCategoryPath(state.editForm.categoryPrimary, state.editForm.categorySecondary))}</p>
             </div>
             <div>
               <label class="mb-1 block text-sm font-medium">风格标签</label>
@@ -564,7 +582,9 @@ export function handlePcsPatternLibraryDetailEvent(target: HTMLElement): boolean
         pattern_name: state.editForm.patternName,
         aliases: parseCsvInput(state.editForm.aliases),
         usage_type: state.editForm.usageType,
-        category: state.editForm.category,
+        category: state.editForm.categoryPrimary,
+        category_primary: state.editForm.categoryPrimary || undefined,
+        category_secondary: state.editForm.categorySecondary || undefined,
         style_tags: parseCsvInput(state.editForm.styleTags),
         color_tags: parseCsvInput(state.editForm.colorTags),
         source_type: state.editForm.sourceType,
@@ -672,7 +692,20 @@ export function handlePcsPatternLibraryDetailEvent(target: HTMLElement): boolean
 export function handlePcsPatternLibraryDetailInput(target: Element): boolean {
   const field = (target as HTMLElement).dataset.patternLibraryDetailField
   if (!field) return false
-  state.editForm[field as keyof typeof state.editForm] = (target as HTMLInputElement | HTMLTextAreaElement).value
+  const value = (target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value
+  if (field === 'categoryPrimary') {
+    state.editForm.categoryPrimary = value
+    const secondaryOptions = getPatternCategorySecondaryList(value)
+    if (!secondaryOptions.includes(state.editForm.categorySecondary)) {
+      state.editForm.categorySecondary = ''
+    }
+    return true
+  }
+  if (field === 'categorySecondary') {
+    state.editForm.categorySecondary = value
+    return true
+  }
+  state.editForm[field as keyof typeof state.editForm] = value
   return true
 }
 

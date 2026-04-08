@@ -2,6 +2,7 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
   createPatternAsset,
+  getPatternCategorySecondaryList,
   persistPatternParsedFile,
   getPatternLibraryConfig,
   getPatternTaskSummary,
@@ -11,8 +12,10 @@ import {
   type PatternDuplicateCandidate,
 } from '../data/pcs-pattern-library'
 import {
+  buildPatternCategoryPath,
   getPatternSimilarityStatusText,
   PatternParseService,
+  PatternTagService,
   validatePatternSubmitEligibility,
 } from '../utils/pcs-pattern-library-services'
 import type { PatternParsedFileResult } from '../data/pcs-pattern-library-types'
@@ -34,7 +37,8 @@ interface PatternLibraryCreateState {
     patternName: string
     aliases: string
     usageType: string
-    category: string
+    categoryPrimary: string
+    categorySecondary: string
     styleTags: string
     primaryColors: string
     secondaryColors: string
@@ -84,7 +88,8 @@ const state: PatternLibraryCreateState = {
     patternName: '',
     aliases: '',
     usageType: '重复花',
-    category: '花卉',
+    categoryPrimary: '',
+    categorySecondary: '',
     styleTags: '',
     primaryColors: '',
     secondaryColors: '',
@@ -217,8 +222,31 @@ function resetSingleUpload(): void {
 }
 
 function getCreateDefaultsFromParsed(parsedFile: PatternParsedFileResult): void {
+  const config = getPatternLibraryConfig()
+  const categorySuggestions = PatternTagService.suggestTags({
+    filename: parsedFile.originalFilename,
+    tokens: parsedFile.filenameTokens,
+    dominantColors: parsedFile.dominantColors,
+    width: parsedFile.imageWidth,
+    height: parsedFile.imageHeight,
+    config,
+  })
+  const primarySuggestion = categorySuggestions.find((item) => item.tag_type === '题材一级分类' && item.confidence >= 0.72)
+  const secondarySuggestion = categorySuggestions.find((item) => item.tag_type === '题材二级分类' && item.confidence >= 0.66)
+
   if (!state.form.patternName) state.form.patternName = parsedFile.originalFilename.replace(/\.[^.]+$/, '')
   if (!state.form.primaryColors) state.form.primaryColors = parsedFile.dominantColors.join(' / ')
+  if (!state.form.categoryPrimary && primarySuggestion) {
+    state.form.categoryPrimary = primarySuggestion.tag_name
+  }
+  if (
+    state.form.categoryPrimary
+    && primarySuggestion?.tag_name === state.form.categoryPrimary
+    && !state.form.categorySecondary
+    && secondarySuggestion
+  ) {
+    state.form.categorySecondary = secondarySuggestion.tag_name
+  }
 }
 
 async function parseSingleFile(file: File): Promise<void> {
@@ -273,7 +301,9 @@ function buildDraftInput(parsedFile: PatternParsedFileResult, submitForReview: b
     patternName: state.form.patternName,
     aliases: parseCsvInput(state.form.aliases),
     usageType: state.form.usageType,
-    category: state.form.category,
+    category: state.form.categoryPrimary,
+    categoryPrimary: state.form.categoryPrimary,
+    categorySecondary: state.form.categorySecondary || undefined,
     styleTags: parseCsvInput(state.form.styleTags),
     colorTags: parseCsvInput(`${state.form.primaryColors}${state.form.secondaryColors ? `,${state.form.secondaryColors}` : ''}`),
     hotFlag: state.form.hotFlag === '是',
@@ -409,7 +439,18 @@ function renderDuplicateCandidates(): string {
     return `
       <section class="rounded-lg border ${state.parsedFile.phash ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'} p-4">
         <p class="text-sm font-medium ${state.parsedFile.phash ? 'text-emerald-800' : 'text-amber-900'}">${escapeHtml(similarityText)}</p>
-        <p class="mt-1 text-xs ${state.parsedFile.phash ? 'text-emerald-700' : 'text-amber-700'}">${state.parsedFile.phash ? '当前文件可直接新建为独立花型主档。' : '当前仅完成基础解析，视觉相似检测待补算。'}</p>
+        <p class="mt-1 text-xs ${state.parsedFile.phash ? 'text-emerald-700' : 'text-amber-700'}">
+          ${
+            state.parsedFile.phash
+              ? '默认建议新建独立花型主档；你仍可通过名称 / Token / 分类手动检索后挂接到已有主档。'
+              : '当前仅完成基础解析，视觉相似检测待补算。'
+          }
+        </p>
+        ${
+          state.parsedFile.phash
+            ? '<p class="mt-2 text-[11px] text-emerald-700">当前仅比对 current version；sha256 判完全重复；pHash 判视觉相似。</p>'
+            : ''
+        }
       </section>
     `
   }
@@ -417,8 +458,8 @@ function renderDuplicateCandidates(): string {
   return `
     <section class="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
       <div>
-        <p class="text-sm font-medium text-amber-900">疑似重复检测</p>
-        <p class="mt-1 text-xs text-amber-700">支持选择“合并到已有主档 / 作为已有主档新版本 / 强制新建”。</p>
+        <p class="text-sm font-medium text-amber-900">疑似重复候选</p>
+        <p class="mt-1 text-xs text-amber-700">当前“合并到已有主档”和“作为已有主档新版本”都会落到已有主档新增版本，差异主要体现在建档意图和日志记录。</p>
       </div>
       <div class="flex flex-wrap gap-2">
         ${[
@@ -569,6 +610,7 @@ function renderUploadControls(): string {
 
 function renderForm(): string {
   const config = getPatternLibraryConfig()
+  const secondaryCategories = getPatternCategorySecondaryList(state.form.categoryPrimary)
   return `
     <div class="space-y-6">
       <section class="space-y-4">
@@ -635,10 +677,19 @@ function renderForm(): string {
                   </select>
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium">题材分类 <span class="text-rose-500">*</span></label>
-                  <select class="h-10 w-full rounded-md border px-3 text-sm" data-pattern-library-create-field="category">
-                    ${config.categories.map((item) => `<option value="${item}" ${state.form.category === item ? 'selected' : ''}>${item}</option>`).join('')}
+                  <label class="mb-1 block text-sm font-medium">题材一级分类 <span class="text-rose-500">*</span></label>
+                  <select class="h-10 w-full rounded-md border px-3 text-sm" data-pattern-library-create-field="categoryPrimary">
+                    <option value="">请选择一级分类</option>
+                    ${config.categoryTree.map((item) => `<option value="${item.value}" ${state.form.categoryPrimary === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
                   </select>
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium">题材二级分类</label>
+                  <select class="h-10 w-full rounded-md border px-3 text-sm" data-pattern-library-create-field="categorySecondary" ${state.form.categoryPrimary ? '' : 'disabled'}>
+                    <option value="">${state.form.categoryPrimary ? '请选择二级分类' : '请先选择一级分类'}</option>
+                    ${secondaryCategories.map((item) => `<option value="${item}" ${state.form.categorySecondary === item ? 'selected' : ''}>${item}</option>`).join('')}
+                  </select>
+                  <p class="mt-1 text-xs text-gray-500">${state.form.categorySecondary ? `当前分类：${escapeHtml(buildPatternCategoryPath(state.form.categoryPrimary, state.form.categorySecondary))}` : '二级分类未确定时可先保存，列表会提示待补录。'}</p>
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium">风格标签</label>
@@ -767,7 +818,16 @@ function renderForm(): string {
           <div class="mt-3 space-y-2">
             ${
               state.duplicateCandidates.length === 0
-                ? `<p class="text-sm text-gray-500">${escapeHtml(getPatternSimilarityStatusText(state.parsedFile?.phash, 0))}</p>`
+                ? `
+                    <div class="space-y-1 text-sm text-gray-500">
+                      <p>${escapeHtml(getPatternSimilarityStatusText(state.parsedFile?.phash, 0))}</p>
+                      ${
+                        state.parsedFile?.phash
+                          ? '<p class="text-xs text-gray-400">当前仅代表技术去重未命中，仍可按名称 / Token / 分类手动挂接已有主档。</p>'
+                          : '<p class="text-xs text-gray-400">当前仅完成基础解析，视觉相似检测待补算。</p>'
+                      }
+                    </div>
+                  `
                 : state.duplicateCandidates.slice(0, 3).map((item) => `
                     <div class="rounded-lg border bg-slate-50 p-3">
                       <p class="text-sm font-medium">${escapeHtml(item.asset.pattern_name)}</p>
@@ -874,7 +934,20 @@ export function handlePcsPatternLibraryCreateInput(target: Element): boolean {
   syncModeFromQuery()
   const field = (target as HTMLElement).dataset.patternLibraryCreateField
   if (!field) return false
-  state.form[field as keyof typeof state.form] = (target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value
+  const value = (target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value
+  if (field === 'categoryPrimary') {
+    state.form.categoryPrimary = value
+    const secondaryOptions = getPatternCategorySecondaryList(value)
+    if (!secondaryOptions.includes(state.form.categorySecondary)) {
+      state.form.categorySecondary = ''
+    }
+    return true
+  }
+  if (field === 'categorySecondary') {
+    state.form.categorySecondary = value
+    return true
+  }
+  state.form[field as keyof typeof state.form] = value
   return true
 }
 

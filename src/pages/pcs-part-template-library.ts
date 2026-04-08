@@ -773,30 +773,30 @@ function renderUploadCard(kind: 'dxf' | 'rul'): string {
   const file = kind === 'dxf' ? state.selectedDxfFile : state.selectedRulFile
   const label = kind === 'dxf' ? 'DXF 文件' : 'RUL 文件'
   const extensionLabel = kind === 'dxf' ? '.dxf' : '.rul'
-  const pickerAction = kind === 'dxf' ? 'open-dxf-picker' : 'open-rul-picker'
   const removeAction = kind === 'dxf' ? 'remove-dxf-file' : 'remove-rul-file'
   const inputId = kind === 'dxf' ? 'pcs-part-template-dxf-input' : 'pcs-part-template-rul-input'
   const changeAction = kind === 'dxf' ? 'select-dxf-file' : 'select-rul-file'
   const stateClass = file ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-white'
+  const pickerLabel = kind === 'dxf' ? '选择DXF文件' : '选择RUL文件'
+  const hintText = file ? '重新选择会覆盖当前文件，并清空已解析结果。' : `点击选择 ${extensionLabel} 文件`
 
   return `
     <div class="rounded-lg border ${stateClass} p-4">
       <input id="${inputId}" type="file" class="hidden" accept="${extensionLabel}" data-part-template-action="${changeAction}" />
-      <button class="flex min-h-[44px] w-full flex-col items-start gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-left hover:bg-slate-100" data-part-template-action="${pickerAction}">
+      <label for="${inputId}" class="flex min-h-[44px] cursor-pointer flex-col items-start gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-left hover:bg-slate-100">
         <div class="flex items-center gap-3">
           <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500">
             <i data-lucide="file-up" class="h-5 w-5"></i>
           </span>
           <div>
             <p class="text-sm font-medium text-slate-900">${label}</p>
-            <p class="mt-1 text-xs text-gray-500">仅支持 ${extensionLabel}</p>
+            <p class="mt-1 text-xs text-gray-500">${escapeHtml(hintText)}</p>
           </div>
         </div>
-        <span class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm text-slate-700">选择 ${label}</span>
-      </button>
+        <span class="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm text-slate-700">${pickerLabel}</span>
+      </label>
       <div class="mt-3 rounded-lg border bg-white px-3 py-3">${renderSelectedFileMeta(file)}</div>
       <div class="mt-3 flex flex-wrap gap-2">
-        <button class="h-9 rounded-md border px-3 text-sm hover:bg-white" data-part-template-action="${pickerAction}">${file ? '重新选择' : '选择文件'}</button>
         <button class="h-9 rounded-md border px-3 text-sm hover:bg-white ${file ? '' : 'cursor-not-allowed opacity-60'}" data-part-template-action="${removeAction}" ${file ? '' : 'disabled'}>移除</button>
       </div>
     </div>

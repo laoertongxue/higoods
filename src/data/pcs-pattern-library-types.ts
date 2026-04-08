@@ -14,12 +14,23 @@ export interface PatternFilenameToken {
   score: number
 }
 
+export interface PatternCategoryLeaf {
+  value: string
+  label: string
+}
+
+export interface PatternCategoryNode {
+  value: string
+  label: string
+  children: PatternCategoryLeaf[]
+}
+
 export interface PatternTagRecord {
   id: string
   pattern_asset_id: string
   pattern_file_version_id?: string
   tag_name: string
-  tag_type: '主色系' | '花型使用方式' | '题材分类' | '风格标签' | '文件名Token'
+  tag_type: '主色系' | '花型使用方式' | '题材分类' | '题材一级分类' | '题材二级分类' | '风格标签' | '文件名Token'
   source: PatternTagSource
   confidence: number
   locked: boolean
@@ -88,6 +99,8 @@ export interface PatternAsset {
   aliases: string[]
   usage_type: string
   category: string
+  category_primary?: string
+  category_secondary?: string
   style_tags: string[]
   color_tags: string[]
   hot_flag: boolean
@@ -129,6 +142,7 @@ export interface PatternAssetLog {
 export interface PatternLibraryConfig {
   usageTypes: string[]
   categories: string[]
+  categoryTree: PatternCategoryNode[]
   styleTags: string[]
   primaryColors: string[]
   sourceTypes: string[]

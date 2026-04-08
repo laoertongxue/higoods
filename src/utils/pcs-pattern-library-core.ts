@@ -1,5 +1,6 @@
 import type {
   PatternAsset,
+  PatternCategoryNode,
   PatternDuplicateStatus,
   PatternFilenameToken,
   PatternLibraryConfig,
@@ -26,17 +27,95 @@ const TOKEN_CATEGORY_RULES: Array<{ pattern: RegExp; category: PatternFilenameTo
   { pattern: /^\d+$/, category: 'number' },
 ]
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  花卉: ['flower', 'floral', 'rose', 'bloom', 'tulip', 'peony', '花', '花卉'],
-  条纹: ['stripe', 'stripes', '条纹'],
-  格纹: ['check', 'plaid', 'grid', 'gingham', '格纹', '格子'],
-  动物: ['animal', 'tiger', 'leopard', 'zebra', 'bird', '动物'],
-  几何: ['geo', 'geometric', 'diamond', 'dot', 'circle', '几何'],
-  字母: ['letter', 'alpha', 'logo', 'text', '字母'],
-  卡通: ['cartoon', 'cute', 'bear', 'bunny', '卡通'],
-  抽象: ['abstract', 'brush', 'watercolor', '抽象'],
-  纯色: ['solid', 'texture', 'plain', '肌理', '纯色'],
-}
+export const DEFAULT_PATTERN_CATEGORY_TREE: PatternCategoryNode[] = [
+  {
+    value: '动物纹理',
+    label: '动物纹理',
+    children: [
+      { value: '写实动物', label: '写实动物' },
+      { value: '动物纹理', label: '动物纹理' },
+      { value: '海洋生物', label: '海洋生物' },
+    ],
+  },
+  {
+    value: '字母与文字',
+    label: '字母与文字',
+    children: [
+      { value: 'LOGO/标语', label: 'LOGO/标语' },
+      { value: '数字与符号', label: '数字与符号' },
+      { value: '几何字符', label: '几何字符' },
+    ],
+  },
+  {
+    value: '植物与花卉',
+    label: '植物与花卉',
+    children: [
+      { value: '写实花卉', label: '写实花卉' },
+      { value: '花卉丛林/满底花', label: '花卉丛林/满底花' },
+      { value: '植物纹理', label: '植物纹理' },
+      { value: '水墨/水彩花卉', label: '水墨/水彩花卉' },
+    ],
+  },
+  {
+    value: '几何与抽象',
+    label: '几何与抽象',
+    children: [
+      { value: '几何图形', label: '几何图形' },
+      { value: '抽象艺术', label: '抽象艺术' },
+      { value: '肌理背景', label: '肌理背景' },
+    ],
+  },
+  {
+    value: '卡通与动漫',
+    label: '卡通与动漫',
+    children: [
+      { value: '经典卡通', label: '经典卡通' },
+      { value: '动漫风格', label: '动漫风格' },
+      { value: '表情包', label: '表情包' },
+    ],
+  },
+  {
+    value: '风景与建筑',
+    label: '风景与建筑',
+    children: [
+      { value: '自然风景', label: '自然风景' },
+      { value: '城市街景', label: '城市街景' },
+      { value: '旅游元素', label: '旅游元素' },
+    ],
+  },
+  {
+    value: '民族与古典',
+    label: '民族与古典',
+    children: [
+      { value: '民族风', label: '民族风' },
+      { value: '古典复古', label: '古典复古' },
+    ],
+  },
+]
+
+const CATEGORY_KEYWORDS: Array<{ primary: string; secondary: string; keywords: string[] }> = [
+  { primary: '动物纹理', secondary: '写实动物', keywords: ['animal', 'tiger', 'leopard', 'zebra', 'bird', 'horse', '动物'] },
+  { primary: '动物纹理', secondary: '动物纹理', keywords: ['fur', 'skin', '纹理', '豹纹', '斑马纹', 'animalprint'] },
+  { primary: '动物纹理', secondary: '海洋生物', keywords: ['ocean', 'sea', 'fish', 'shell', 'starfish', 'coral', '海洋'] },
+  { primary: '字母与文字', secondary: 'LOGO/标语', keywords: ['logo', 'slogan', 'brand', 'text', '字母', '标语'] },
+  { primary: '字母与文字', secondary: '数字与符号', keywords: ['number', 'digit', 'symbol', '符号', '数字'] },
+  { primary: '字母与文字', secondary: '几何字符', keywords: ['glyph', 'letter', 'alphabet', 'monogram', '字符'] },
+  { primary: '植物与花卉', secondary: '写实花卉', keywords: ['flower', 'floral', 'rose', 'bloom', 'tulip', 'peony', '花', '花卉'] },
+  { primary: '植物与花卉', secondary: '花卉丛林/满底花', keywords: ['jungle', 'tropical', 'allover', '满底花', '丛林', '碎花'] },
+  { primary: '植物与花卉', secondary: '植物纹理', keywords: ['leaf', 'botanical', 'palm', 'plant', '叶', '植物'] },
+  { primary: '植物与花卉', secondary: '水墨/水彩花卉', keywords: ['watercolor', 'ink', 'inkwash', '水彩', '水墨'] },
+  { primary: '几何与抽象', secondary: '几何图形', keywords: ['stripe', 'stripes', 'check', 'plaid', 'grid', 'gingham', 'geo', 'geometric', 'diamond', 'dot', 'circle', '条纹', '格纹', '格子', '几何'] },
+  { primary: '几何与抽象', secondary: '抽象艺术', keywords: ['abstract', 'brush', 'splash', '抽象', '涂鸦'] },
+  { primary: '几何与抽象', secondary: '肌理背景', keywords: ['solid', 'texture', 'plain', 'grain', 'wash', '肌理', '纯色', '底纹'] },
+  { primary: '卡通与动漫', secondary: '经典卡通', keywords: ['cartoon', 'cute', 'bear', 'bunny', '卡通'] },
+  { primary: '卡通与动漫', secondary: '动漫风格', keywords: ['anime', 'manga', '动漫'] },
+  { primary: '卡通与动漫', secondary: '表情包', keywords: ['emoji', 'sticker', 'expression', '表情包'] },
+  { primary: '风景与建筑', secondary: '自然风景', keywords: ['landscape', 'forest', 'mountain', 'nature', '风景', '自然'] },
+  { primary: '风景与建筑', secondary: '城市街景', keywords: ['city', 'street', 'building', 'urban', '城市', '街景', '建筑'] },
+  { primary: '风景与建筑', secondary: '旅游元素', keywords: ['travel', 'postcard', 'map', 'tour', '旅游'] },
+  { primary: '民族与古典', secondary: '民族风', keywords: ['ethnic', 'tribal', 'boho', 'paisley', '民族'] },
+  { primary: '民族与古典', secondary: '古典复古', keywords: ['retro', 'vintage', 'classic', 'ornament', '复古', '古典'] },
+]
 
 const STYLE_KEYWORDS: Record<string, string[]> = {
   法式: ['french', 'romance', 'romantic', 'rose'],
@@ -130,6 +209,64 @@ function normalizeToken(token: string): string {
   return token.trim().toLowerCase()
 }
 
+export function clonePatternCategoryTree(tree: PatternCategoryNode[]): PatternCategoryNode[] {
+  return tree.map((node) => ({
+    value: node.value,
+    label: node.label,
+    children: node.children.map((child) => ({
+      value: child.value,
+      label: child.label,
+    })),
+  }))
+}
+
+export function getPatternCategoryPrimaryOptions(tree: PatternCategoryNode[]): string[] {
+  return tree.map((node) => node.value)
+}
+
+export function getPatternCategorySecondaryOptions(tree: PatternCategoryNode[], primary?: string): string[] {
+  if (!primary) return []
+  return tree.find((node) => node.value === primary)?.children.map((child) => child.value) ?? []
+}
+
+export function buildPatternCategoryPath(primary?: string, secondary?: string, missingLabel = '待补录'): string {
+  if (!primary && !secondary) return missingLabel
+  if (!primary) return `${missingLabel} / ${secondary ?? missingLabel}`
+  return `${primary} / ${secondary || missingLabel}`
+}
+
+export function formatPatternCategoryTreeText(tree: PatternCategoryNode[]): string {
+  return tree
+    .map((node) => `${node.value} > ${node.children.map((child) => child.value).join('|')}`)
+    .join('\n')
+}
+
+export function parsePatternCategoryTreeText(text: string, fallback: PatternCategoryNode[] = DEFAULT_PATTERN_CATEGORY_TREE): PatternCategoryNode[] {
+  const rows = text
+    .split('\n')
+    .map((row) => row.trim())
+    .filter(Boolean)
+
+  const parsed = rows
+    .map((row) => {
+      const [left, right = ''] = row.split('>')
+      const primary = left?.trim()
+      const children = right
+        .split('|')
+        .map((item) => item.trim())
+        .filter(Boolean)
+      if (!primary || children.length === 0) return null
+      return {
+        value: primary,
+        label: primary,
+        children: children.map((item) => ({ value: item, label: item })),
+      } satisfies PatternCategoryNode
+    })
+    .filter((item): item is PatternCategoryNode => Boolean(item))
+
+  return parsed.length > 0 ? parsed : clonePatternCategoryTree(fallback)
+}
+
 export function getPatternMimeTypeFromExt(ext: string): string {
   const normalized = ext.toLowerCase()
   if (normalized === 'png') return 'image/png'
@@ -172,6 +309,28 @@ export function tokenizePatternFilename(fileName: string): PatternFilenameToken[
   for (const token of tokens) {
     unique.set(`${token.normalized}-${token.category}`, token)
   }
+  return Array.from(unique.values())
+}
+
+export function getPatternCategorySuggestions(input: { tokens: PatternFilenameToken[] }): Array<{ primary: string; secondary: string; confidence: number }> {
+  const normalizedTokens = input.tokens.map((token) => token.normalized)
+  const suggestions = CATEGORY_KEYWORDS
+    .map((rule) => {
+      const matchedKeywords = rule.keywords.filter((keyword) => normalizedTokens.some((token) => token.includes(keyword)))
+      if (matchedKeywords.length === 0) return null
+      return {
+        primary: rule.primary,
+        secondary: rule.secondary,
+        confidence: Math.min(0.92, 0.62 + matchedKeywords.length * 0.12),
+      }
+    })
+    .filter((item): item is { primary: string; secondary: string; confidence: number } => Boolean(item))
+    .sort((left, right) => right.confidence - left.confidence)
+
+  const unique = new Map<string, { primary: string; secondary: string; confidence: number }>()
+  suggestions.forEach((item) => {
+    unique.set(`${item.primary}/${item.secondary}`, item)
+  })
   return Array.from(unique.values())
 }
 
@@ -1142,8 +1301,8 @@ export function buildParseSummary(
 
 export function getPatternSimilarityStatusText(phash?: string, duplicateCount = 0): string {
   if (!phash) return '视觉相似检测未完成'
-  if (duplicateCount > 0) return `已命中 ${duplicateCount} 条相似结果`
-  return '未命中视觉相似花型'
+  if (duplicateCount > 0) return `已命中 ${duplicateCount} 条疑似重复候选`
+  return '未命中当前库中的完全重复 / 视觉相似候选'
 }
 
 export function validatePatternSubmitEligibility(input: {
@@ -1192,9 +1351,10 @@ export function buildPatternTagSuggestions(input: {
   }
 
   if (input.config.ruleToggles.category) {
-    Object.entries(CATEGORY_KEYWORDS).forEach(([label, keywords]) => {
-      if (keywords.some((keyword) => normalizedTokens.some((token) => token.includes(keyword)))) {
-        pushSuggestion(label, '题材分类', 0.74)
+    getPatternCategorySuggestions({ tokens: input.tokens }).forEach((suggestion) => {
+      pushSuggestion(suggestion.primary, '题材一级分类', suggestion.confidence)
+      if (suggestion.secondary) {
+        pushSuggestion(suggestion.secondary, '题材二级分类', Math.max(0.58, suggestion.confidence - 0.06))
       }
     })
   }

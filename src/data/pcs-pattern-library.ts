@@ -1,6 +1,7 @@
 import type {
   PatternAsset,
   PatternAssetLog,
+  PatternCategoryNode,
   PatternDuplicateStatus,
   PatternFileVersion,
   PatternFilenameToken,
@@ -16,8 +17,13 @@ import type {
 } from './pcs-pattern-library-types.ts'
 
 import {
+  DEFAULT_PATTERN_CATEGORY_TREE,
   PatternTagService,
+  buildPatternCategoryPath,
   canPatternBeReferenced,
+  clonePatternCategoryTree,
+  getPatternCategoryPrimaryOptions,
+  getPatternCategorySecondaryOptions,
   getPatternSimilarityHit,
   inferDuplicateStatus,
   tokenizePatternFilename,
@@ -43,7 +49,9 @@ export interface PatternAssetDraftInput {
   patternName: string
   aliases: string[]
   usageType: string
-  category: string
+  category?: string
+  categoryPrimary?: string
+  categorySecondary?: string
   styleTags: string[]
   colorTags: string[]
   hotFlag: boolean
@@ -76,9 +84,24 @@ export interface PatternAssetBatchUpdate {
 
 const APP_RENDER_EVENT = 'higood:request-render'
 
+const DEFAULT_CATEGORY_TREE = clonePatternCategoryTree(DEFAULT_PATTERN_CATEGORY_TREE)
+
+const LEGACY_CATEGORY_MIGRATION_MAP: Record<string, { primary?: string; secondary?: string }> = {
+  花卉: { primary: '植物与花卉' },
+  条纹: { primary: '几何与抽象', secondary: '几何图形' },
+  格纹: { primary: '几何与抽象', secondary: '几何图形' },
+  动物: { primary: '动物纹理' },
+  几何: { primary: '几何与抽象', secondary: '几何图形' },
+  字母: { primary: '字母与文字' },
+  卡通: { primary: '卡通与动漫' },
+  抽象: { primary: '几何与抽象', secondary: '抽象艺术' },
+  纯色: { primary: '几何与抽象' },
+}
+
 const DEFAULT_CONFIG: PatternLibraryConfig = {
   usageTypes: ['重复花', '定位花', '边条花', '满印', '纯色肌理'],
-  categories: ['花卉', '条纹', '格纹', '动物', '几何', '字母', '卡通', '抽象', '纯色'],
+  categories: getPatternCategoryPrimaryOptions(DEFAULT_CATEGORY_TREE),
+  categoryTree: DEFAULT_CATEGORY_TREE,
   styleTags: ['法式', '复古', '度假', '甜美', '通勤', '民族', '运动', '极简'],
   primaryColors: ['红色', '橙色', '黄色', '绿色', '蓝色', '紫色', '粉色', '黑色', '白色', '灰色', '综合色'],
   sourceTypes: ['自研', '客供', '历史沉淀', '外采'],
@@ -111,6 +134,87 @@ let persistPromise: Promise<void> = Promise.resolve()
 
 function cloneStore<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+function cloneCategoryTree(tree: PatternCategoryNode[]): PatternCategoryNode[] {
+  return clonePatternCategoryTree(tree)
+}
+
+function normalizePatternLibraryConfig(config?: Partial<PatternLibraryConfig>): PatternLibraryConfig {
+  const categoryTree = cloneCategoryTree(config?.categoryTree?.length ? config.categoryTree : DEFAULT_CATEGORY_TREE)
+  return {
+    ...DEFAULT_CONFIG,
+    ...config,
+    categories: getPatternCategoryPrimaryOptions(categoryTree),
+    categoryTree,
+    ruleToggles: {
+      ...DEFAULT_CONFIG.ruleToggles,
+      ...config?.ruleToggles,
+    },
+  }
+}
+
+function inferCategoryFromLegacy(category?: string): { primary?: string; secondary?: string } {
+  if (!category) return {}
+  return LEGACY_CATEGORY_MIGRATION_MAP[category] ?? { primary: category }
+}
+
+function getAssetCategorySelection(asset: Pick<PatternAsset, 'category' | 'category_primary' | 'category_secondary'>): {
+  primary?: string
+  secondary?: string
+} {
+  const migrated = asset.category_primary || asset.category_secondary
+    ? { primary: asset.category_primary, secondary: asset.category_secondary }
+    : inferCategoryFromLegacy(asset.category)
+  return {
+    primary: migrated.primary,
+    secondary: migrated.secondary,
+  }
+}
+
+function migrateStoreSnapshot(store: PatternLibraryStoreSnapshot): { store: PatternLibraryStoreSnapshot; migrated: boolean } {
+  let migrated = false
+  const nextStore = cloneStore(store)
+  nextStore.config = normalizePatternLibraryConfig(nextStore.config)
+  if (
+    nextStore.config.categories.join('|') !== (store.config?.categories ?? []).join('|')
+    || JSON.stringify(nextStore.config.categoryTree) !== JSON.stringify(store.config?.categoryTree ?? [])
+  ) {
+    migrated = true
+  }
+
+  nextStore.assets = nextStore.assets.map((asset) => {
+    const selection = getAssetCategorySelection(asset)
+    const normalizedCategory = selection.primary || asset.category || ''
+    const changed =
+      asset.category !== normalizedCategory
+      || asset.category_primary !== selection.primary
+      || asset.category_secondary !== selection.secondary
+
+    if (!changed) return asset
+    migrated = true
+    return {
+      ...asset,
+      category: normalizedCategory,
+      category_primary: selection.primary,
+      category_secondary: selection.secondary,
+    }
+  })
+
+  return { store: nextStore, migrated }
+}
+
+function resolveDraftCategory(draft: Pick<PatternAssetDraftInput, 'category' | 'categoryPrimary' | 'categorySecondary'>): {
+  primary: string
+  secondary?: string
+} {
+  const migrated = draft.categoryPrimary || draft.categorySecondary
+    ? { primary: draft.categoryPrimary, secondary: draft.categorySecondary }
+    : inferCategoryFromLegacy(draft.category)
+  return {
+    primary: migrated.primary || '',
+    secondary: migrated.secondary || undefined,
+  }
 }
 
 function createSvgDataUrl(svg: string): string {
@@ -226,6 +330,8 @@ function seedStore(): PatternLibraryStoreSnapshot {
       aliases: ['热带大花 A1', 'Bunga Tropis A1'],
       usage_type: '定位花',
       category: '花卉',
+      category_primary: '植物与花卉',
+      category_secondary: '写实花卉',
       style_tags: ['度假', '法式'],
       color_tags: ['红色', '绿色'],
       hot_flag: true,
@@ -261,6 +367,8 @@ function seedStore(): PatternLibraryStoreSnapshot {
       aliases: ['细条纹蓝', '商务条纹'],
       usage_type: '重复花',
       category: '条纹',
+      category_primary: '几何与抽象',
+      category_secondary: '几何图形',
       style_tags: ['通勤', '极简'],
       color_tags: ['蓝色', '白色'],
       hot_flag: false,
@@ -292,6 +400,8 @@ function seedStore(): PatternLibraryStoreSnapshot {
       aliases: ['格纹 C3'],
       usage_type: '重复花',
       category: '格纹',
+      category_primary: '几何与抽象',
+      category_secondary: '几何图形',
       style_tags: ['复古', '通勤'],
       color_tags: ['绿色', '灰色'],
       hot_flag: true,
@@ -323,6 +433,8 @@ function seedStore(): PatternLibraryStoreSnapshot {
       aliases: ['熊头版片', '版片熊 B2'],
       usage_type: '定位花',
       category: '卡通',
+      category_primary: '卡通与动漫',
+      category_secondary: '经典卡通',
       style_tags: ['甜美'],
       color_tags: ['粉色', '白色'],
       hot_flag: false,
@@ -354,6 +466,8 @@ function seedStore(): PatternLibraryStoreSnapshot {
       aliases: ['杏色底纹'],
       usage_type: '纯色肌理',
       category: '纯色',
+      category_primary: '几何与抽象',
+      category_secondary: '肌理背景',
       style_tags: ['极简'],
       color_tags: ['综合色'],
       hot_flag: false,
@@ -579,11 +693,13 @@ function seedStore(): PatternLibraryStoreSnapshot {
   const tags: PatternTagRecord[] = [
     { id: 'pattern_tag_0001', pattern_asset_id: 'pattern_asset_0001', pattern_file_version_id: 'pattern_version_0001', tag_name: '红色', tag_type: '主色系', source: 'rule', confidence: 0.96, locked: false },
     { id: 'pattern_tag_0002', pattern_asset_id: 'pattern_asset_0001', pattern_file_version_id: 'pattern_version_0001', tag_name: '定位花', tag_type: '花型使用方式', source: 'rule', confidence: 0.9, locked: true },
-    { id: 'pattern_tag_0003', pattern_asset_id: 'pattern_asset_0001', pattern_file_version_id: 'pattern_version_0001', tag_name: '花卉', tag_type: '题材分类', source: 'rule', confidence: 0.86, locked: true },
+    { id: 'pattern_tag_0003', pattern_asset_id: 'pattern_asset_0001', pattern_file_version_id: 'pattern_version_0001', tag_name: '植物与花卉', tag_type: '题材一级分类', source: 'rule', confidence: 0.86, locked: true },
+    { id: 'pattern_tag_0010', pattern_asset_id: 'pattern_asset_0001', pattern_file_version_id: 'pattern_version_0001', tag_name: '写实花卉', tag_type: '题材二级分类', source: 'rule', confidence: 0.8, locked: true },
     { id: 'pattern_tag_0004', pattern_asset_id: 'pattern_asset_0001', pattern_file_version_id: 'pattern_version_0001', tag_name: '度假', tag_type: '风格标签', source: 'manual', confidence: 1, locked: true },
     { id: 'pattern_tag_0005', pattern_asset_id: 'pattern_asset_0002', pattern_file_version_id: 'pattern_version_0002', tag_name: '蓝色', tag_type: '主色系', source: 'rule', confidence: 0.84, locked: false },
     { id: 'pattern_tag_0006', pattern_asset_id: 'pattern_asset_0002', pattern_file_version_id: 'pattern_version_0002', tag_name: 'Urban', tag_type: '文件名Token', source: 'rule', confidence: 0.74, locked: false },
-    { id: 'pattern_tag_0007', pattern_asset_id: 'pattern_asset_0003', pattern_file_version_id: 'pattern_version_0003', tag_name: '格纹', tag_type: '题材分类', source: 'rule', confidence: 0.92, locked: true },
+    { id: 'pattern_tag_0007', pattern_asset_id: 'pattern_asset_0003', pattern_file_version_id: 'pattern_version_0003', tag_name: '几何与抽象', tag_type: '题材一级分类', source: 'rule', confidence: 0.92, locked: true },
+    { id: 'pattern_tag_0011', pattern_asset_id: 'pattern_asset_0003', pattern_file_version_id: 'pattern_version_0003', tag_name: '几何图形', tag_type: '题材二级分类', source: 'rule', confidence: 0.86, locked: true },
     { id: 'pattern_tag_0008', pattern_asset_id: 'pattern_asset_0003', pattern_file_version_id: 'pattern_version_0003', tag_name: '复古', tag_type: '风格标签', source: 'manual', confidence: 1, locked: true },
     { id: 'pattern_tag_0009', pattern_asset_id: 'pattern_asset_0005', pattern_file_version_id: 'pattern_version_0005', tag_name: '纯色肌理', tag_type: '花型使用方式', source: 'rule', confidence: 0.88, locked: true },
   ]
@@ -604,7 +720,7 @@ function seedStore(): PatternLibraryStoreSnapshot {
     references,
     tags,
     logs,
-    config: DEFAULT_CONFIG,
+    config: normalizePatternLibraryConfig(DEFAULT_CONFIG),
     sequence: 200,
   }
 }
@@ -615,7 +731,13 @@ function ensureHydration(): void {
   void patternRepo.loadStore()
     .then((stored) => {
       if (stored) {
-        memoryStore = cloneStore(stored)
+        const migrated = migrateStoreSnapshot(stored)
+        memoryStore = cloneStore(migrated.store)
+        if (migrated.migrated) {
+          persistPromise = patternRepo.saveStore(migrated.store).catch(() => {
+            // ignore
+          })
+        }
       } else if (memoryStore) {
         persistPromise = patternRepo.saveStore(memoryStore).catch(() => {
           // ignore
@@ -632,15 +754,16 @@ function ensureHydration(): void {
 
 function readStore(): PatternLibraryStoreSnapshot {
   if (!memoryStore) {
-    memoryStore = seedStore()
+    memoryStore = migrateStoreSnapshot(seedStore()).store
   }
   ensureHydration()
   return cloneStore(memoryStore)
 }
 
 function writeStore(store: PatternLibraryStoreSnapshot): void {
-  memoryStore = cloneStore(store)
-  persistPromise = patternRepo.saveStore(store).catch(() => {
+  const migrated = migrateStoreSnapshot(store).store
+  memoryStore = cloneStore(migrated)
+  persistPromise = patternRepo.saveStore(migrated).catch(() => {
     // ignore
   })
   void persistPromise
@@ -859,6 +982,7 @@ function buildDraftTags(
   versionId: string,
   draft: PatternAssetDraftInput,
 ): PatternTagRecord[] {
+  const categorySelection = resolveDraftCategory(draft)
   const suggestions = PatternTagService.suggestTags({
     filename: draft.parsedFile.originalFilename,
     tokens: draft.parsedFile.filenameTokens,
@@ -889,6 +1013,30 @@ function buildDraftTags(
       confidence: 1,
       locked: true,
     })),
+    ...(categorySelection.primary
+      ? [{
+          id: nextId('pattern_tag', store),
+          pattern_asset_id: assetId,
+          pattern_file_version_id: versionId,
+          tag_name: categorySelection.primary,
+          tag_type: '题材一级分类' as const,
+          source: 'manual' as const,
+          confidence: 1,
+          locked: true,
+        }]
+      : []),
+    ...(categorySelection.secondary
+      ? [{
+          id: nextId('pattern_tag', store),
+          pattern_asset_id: assetId,
+          pattern_file_version_id: versionId,
+          tag_name: categorySelection.secondary,
+          tag_type: '题材二级分类' as const,
+          source: 'manual' as const,
+          confidence: 1,
+          locked: true,
+        }]
+      : []),
   ]
 
   const ruleTags: PatternTagRecord[] = suggestions.map((suggestion) => ({
@@ -902,7 +1050,11 @@ function buildDraftTags(
     locked: suggestion.locked,
   }))
 
-  return [...ruleTags, ...manualTags]
+  const deduped = new Map<string, PatternTagRecord>()
+  ;[...ruleTags, ...manualTags].forEach((tag) => {
+    deduped.set(`${tag.tag_type}:${tag.tag_name}`, tag)
+  })
+  return Array.from(deduped.values())
 }
 
 function getNextVersionNo(store: PatternLibraryStoreSnapshot, assetId: string): string {
@@ -947,19 +1099,27 @@ export const PATTERN_LICENSE_STATUS_LABELS: Record<PatternLicenseStatus, string>
 }
 
 export function getPatternLibraryConfig(): PatternLibraryConfig {
-  return readStore().config
+  return normalizePatternLibraryConfig(readStore().config)
+}
+
+export function getPatternCategoryTree(): PatternCategoryNode[] {
+  return cloneCategoryTree(getPatternLibraryConfig().categoryTree)
+}
+
+export function getPatternCategorySecondaryList(primary?: string): string[] {
+  return getPatternCategorySecondaryOptions(getPatternLibraryConfig().categoryTree, primary)
 }
 
 export function updatePatternLibraryConfig(patch: Partial<PatternLibraryConfig>): PatternLibraryConfig {
   return mutateStore((store) => {
-    store.config = {
+    store.config = normalizePatternLibraryConfig({
       ...store.config,
       ...patch,
       ruleToggles: {
         ...store.config.ruleToggles,
         ...patch.ruleToggles,
       },
-    }
+    })
     return cloneStore(store.config)
   })
 }
@@ -1057,6 +1217,7 @@ export function createPatternAsset(draft: PatternAssetDraftInput): PatternAssetR
   return mutateStore((store) => {
     const duplicateCandidates = computeDuplicateCandidates(store, draft.parsedFile)
     const duplicateStatus = inferDuplicateStatus(duplicateCandidates.map((item) => item.hit))
+    const categorySelection = resolveDraftCategory(draft)
 
     if (
       draft.duplicateTargetAssetId &&
@@ -1085,7 +1246,9 @@ export function createPatternAsset(draft: PatternAssetDraftInput): PatternAssetR
       original_filename: draft.parsedFile.originalFilename,
       aliases: draft.aliases.filter(Boolean),
       usage_type: draft.usageType,
-      category: draft.category,
+      category: categorySelection.primary,
+      category_primary: categorySelection.primary || undefined,
+      category_secondary: categorySelection.secondary,
       style_tags: draft.styleTags.filter(Boolean),
       color_tags: draft.colorTags.filter(Boolean),
       hot_flag: draft.hotFlag,
@@ -1232,6 +1395,8 @@ export function updatePatternAsset(
       | 'aliases'
       | 'usage_type'
       | 'category'
+      | 'category_primary'
+      | 'category_secondary'
       | 'style_tags'
       | 'color_tags'
       | 'hot_flag'
@@ -1253,8 +1418,13 @@ export function updatePatternAsset(
   return mutateStore((store) => {
     const asset = store.assets.find((item) => item.id === assetId)
     if (!asset) throw new Error('花型不存在')
+    const categoryPrimary = input.category_primary ?? asset.category_primary ?? inferCategoryFromLegacy(input.category ?? asset.category).primary
+    const categorySecondary = input.category_secondary ?? asset.category_secondary
     Object.assign(asset, {
       ...input,
+      category: categoryPrimary || input.category || asset.category,
+      category_primary: categoryPrimary,
+      category_secondary: categorySecondary || undefined,
       updated_by: input.updatedBy,
       updated_at: nowIso(),
     })
@@ -1386,7 +1556,10 @@ export function exportPatternLibraryRows(): Array<Record<string, string | number
     花型名称: record.pattern_name,
     原文件名: record.original_filename,
     花型使用方式: record.usage_type,
-    题材分类: record.category,
+    题材一级分类: record.category_primary || record.category || '',
+    题材二级分类: record.category_secondary || '',
+    题材分类路径: buildPatternCategoryPath(record.category_primary || record.category, record.category_secondary),
+    题材分类: record.category_primary || record.category || '',
     风格标签: record.style_tags.join(' / '),
     主色系: record.color_tags.join(' / '),
     是否爆款: record.hot_flag ? '是' : '否',
@@ -1407,7 +1580,7 @@ export function getPatternReferenceAvailability(assetId: string): { allowed: boo
 }
 
 export function resetPatternLibraryStore(): void {
-  memoryStore = seedStore()
+  memoryStore = migrateStoreSnapshot(seedStore()).store
   hydrationStarted = false
   persistPromise = patternRepo.clear()
     .then(() => patternRepo.saveStore(memoryStore!))

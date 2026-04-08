@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict'
 import {
+  DEFAULT_PATTERN_CATEGORY_TREE,
+  formatPatternCategoryTreeText,
   canPatternBeReferenced,
+  getPatternCategoryPrimaryOptions,
+  getPatternCategorySecondaryOptions,
+  getPatternCategorySuggestions,
+  parsePatternCategoryTreeText,
   hammingDistance,
   tokenizePatternFilename,
 } from '../src/utils/pcs-pattern-library-services.ts'
@@ -11,6 +17,27 @@ assert.ok(tokens.some((token) => token.token === 'ASYNK26022803'), '应保留原
 assert.ok(tokens.some((token) => token.token === 'A2'), '应保留组合编码 token')
 
 assert.equal(hammingDistance('1010', '1001'), 2, '应正确计算 hamming distance')
+
+assert.deepEqual(
+  getPatternCategoryPrimaryOptions(DEFAULT_PATTERN_CATEGORY_TREE).slice(0, 2),
+  ['动物纹理', '字母与文字'],
+  '应能拿到一级分类列表',
+)
+
+assert.deepEqual(
+  getPatternCategorySecondaryOptions(DEFAULT_PATTERN_CATEGORY_TREE, '植物与花卉'),
+  ['写实花卉', '花卉丛林/满底花', '植物纹理', '水墨/水彩花卉'],
+  '应能按一级分类拿到二级分类列表',
+)
+
+assert.equal(
+  getPatternCategorySuggestions({ tokens: tokenizePatternFilename('Vintage-Logo-Label.png') })[0]?.primary,
+  '字母与文字',
+  '关键词建议应支持一级分类',
+)
+
+const roundTripTree = parsePatternCategoryTreeText(formatPatternCategoryTreeText(DEFAULT_PATTERN_CATEGORY_TREE))
+assert.equal(roundTripTree[3]?.children[2]?.value, '肌理背景', '分类树辅助方法应可稳定往返')
 
 assert.deepEqual(
   canPatternBeReferenced({

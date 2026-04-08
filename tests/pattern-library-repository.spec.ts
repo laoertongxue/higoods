@@ -45,7 +45,9 @@ const draft = createPatternAsset({
   patternName: '测试花型 A',
   aliases: ['测试别名'],
   usageType: '定位花',
-  category: '花卉',
+  category: '植物与花卉',
+  categoryPrimary: '植物与花卉',
+  categorySecondary: '写实花卉',
   styleTags: ['法式'],
   colorTags: ['红色', '绿色'],
   hotFlag: false,
@@ -75,6 +77,8 @@ const draft = createPatternAsset({
 })
 
 assert.equal(draft.review_status, 'draft', '默认保存草稿时应为 draft')
+assert.equal(draft.category_primary, '植物与花卉', '应保存一级分类')
+assert.equal(draft.category_secondary, '写实花卉', '应保存二级分类')
 
 const duplicateHits = listPatternDuplicateCandidates(
   buildParsedFile({

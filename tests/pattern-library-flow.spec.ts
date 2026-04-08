@@ -59,7 +59,9 @@ const asset = createPatternAsset({
   patternName: '流程测试花型',
   aliases: [],
   usageType: '重复花',
-  category: '花卉',
+  category: '植物与花卉',
+  categoryPrimary: '植物与花卉',
+  categorySecondary: '写实花卉',
   styleTags: [],
   colorTags: ['蓝色'],
   hotFlag: false,
@@ -80,6 +82,8 @@ const asset = createPatternAsset({
 
 await waitForPatternLibraryPersistence()
 assert.equal(asset.review_status, 'draft', '保存草稿后应保持 draft')
+assert.equal(asset.category_primary, '植物与花卉', '新建花型应写入一级分类')
+assert.equal(asset.category_secondary, '写实花卉', '新建花型应写入二级分类')
 assert.ok(getPatternAssetById(asset.id)?.currentVersion?.preview_blob_key, '版本应保存 preview blob key')
 assert.equal(getPatternAssetById(asset.id)?.currentVersion?.parse_result_json?.compression, 5, 'LZW TIFF 解析结果应随版本一并保存')
 
@@ -114,5 +118,31 @@ assert.throws(
   /解析成功后才允许提交审核/,
   '解析失败记录不应允许提交审核',
 )
+
+const legacyAsset = createPatternAsset({
+  patternName: '旧数据兼容花型',
+  aliases: [],
+  usageType: '重复花',
+  category: '条纹',
+  styleTags: [],
+  colorTags: [],
+  hotFlag: false,
+  sourceType: '自研',
+  applicableCategories: [],
+  applicableParts: [],
+  relatedPartTemplateIds: [],
+  processDirection: '印花',
+  maintenanceStatus: '待补录',
+  createdBy: '测试用户',
+  submitForReview: false,
+  parsedFile: await persistPatternParsedFile(buildParsedFile('success')),
+  license: {
+    license_status: 'authorized',
+    attachment_urls: [],
+  },
+})
+
+assert.equal(legacyAsset.category_primary, '几何与抽象', '旧 category 应兼容迁移到一级分类')
+assert.equal(legacyAsset.category_secondary, '几何图形', '旧 category 应兼容迁移到二级分类')
 
 console.log('pattern-library-flow.spec.ts PASS')

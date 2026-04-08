@@ -1,10 +1,11 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { getPatternLibraryConfig, updatePatternLibraryConfig } from '../data/pcs-pattern-library'
+import { formatPatternCategoryTreeText, parsePatternCategoryTreeText } from '../utils/pcs-pattern-library-services'
 
 interface PatternLibraryConfigState {
   usageTypes: string
-  categories: string
+  categoryTreeText: string
   styleTags: string
   primaryColors: string
   sourceTypes: string
@@ -19,7 +20,7 @@ interface PatternLibraryConfigState {
 
 const state: PatternLibraryConfigState = {
   usageTypes: '',
-  categories: '',
+  categoryTreeText: '',
   styleTags: '',
   primaryColors: '',
   sourceTypes: '',
@@ -38,7 +39,7 @@ function syncState(): void {
   if (initialized) return
   const config = getPatternLibraryConfig()
   state.usageTypes = config.usageTypes.join('，')
-  state.categories = config.categories.join('，')
+  state.categoryTreeText = formatPatternCategoryTreeText(config.categoryTree)
   state.styleTags = config.styleTags.join('，')
   state.primaryColors = config.primaryColors.join('，')
   state.sourceTypes = config.sourceTypes.join('，')
@@ -112,8 +113,9 @@ export function renderPcsPatternLibraryConfigPage(): string {
                 <textarea class="min-h-[96px] w-full rounded-md border px-3 py-2 text-sm" data-pattern-library-config-field="usageTypes">${escapeHtml(state.usageTypes)}</textarea>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">题材分类</label>
-                <textarea class="min-h-[96px] w-full rounded-md border px-3 py-2 text-sm" data-pattern-library-config-field="categories">${escapeHtml(state.categories)}</textarea>
+                <label class="mb-1 block text-sm font-medium">题材分类树</label>
+                <textarea class="min-h-[140px] w-full rounded-md border px-3 py-2 text-sm" data-pattern-library-config-field="categoryTreeText">${escapeHtml(state.categoryTreeText)}</textarea>
+                <p class="mt-1 text-xs text-gray-500">按“一级 &gt; 二级1|二级2|二级3”维护，每行一组。</p>
               </div>
               <div>
                 <label class="mb-1 block text-sm font-medium">风格标签</label>
@@ -193,7 +195,7 @@ export function handlePcsPatternLibraryConfigEvent(target: HTMLElement): boolean
   if (action === 'save') {
     updatePatternLibraryConfig({
       usageTypes: parseValues(state.usageTypes),
-      categories: parseValues(state.categories),
+      categoryTree: parsePatternCategoryTreeText(state.categoryTreeText),
       styleTags: parseValues(state.styleTags),
       primaryColors: parseValues(state.primaryColors),
       sourceTypes: parseValues(state.sourceTypes),
@@ -224,4 +226,3 @@ export function handlePcsPatternLibraryConfigInput(target: Element): boolean {
 export function isPcsPatternLibraryConfigDialogOpen(): boolean {
   return false
 }
-

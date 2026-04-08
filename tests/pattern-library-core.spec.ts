@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict'
 import {
   buildDownsamplePlan,
+  DEFAULT_PATTERN_CATEGORY_TREE,
   decodeTiffToRgba,
   decodeTiffToSampledRgba,
+  formatPatternCategoryTreeText,
+  getPatternCategorySuggestions,
   getPatternSimilarityStatusText,
+  parsePatternCategoryTreeText,
   parseJpegMetadata,
   parsePngMetadata,
   parseTiffMetadata,
+  tokenizePatternFilename,
   validatePatternSubmitEligibility,
 } from '../src/utils/pcs-pattern-library-core.ts'
 
@@ -250,6 +255,28 @@ assert.throws(
 )
 
 assert.equal(getPatternSimilarityStatusText(undefined, 0), '视觉相似检测未完成', 'pHash 缺失时文案应真实')
+assert.equal(
+  getPatternSimilarityStatusText('10101010', 0),
+  '未命中当前库中的完全重复 / 视觉相似候选',
+  '未命中候选时文案不应误导为业务唯一',
+)
+assert.equal(
+  getPatternSimilarityStatusText('10101010', 2),
+  '已命中 2 条疑似重复候选',
+  '命中候选时应准确表述为疑似重复候选',
+)
+
+const categorySuggestions = getPatternCategorySuggestions({
+  tokens: tokenizePatternFilename('Tropical-Flower-Stripe.png'),
+})
+assert.equal(categorySuggestions[0]?.primary, '植物与花卉', '应能命中一级分类建议')
+assert.equal(categorySuggestions[0]?.secondary, '写实花卉', '应能命中二级分类建议')
+
+const categoryTreeText = formatPatternCategoryTreeText(DEFAULT_PATTERN_CATEGORY_TREE)
+const parsedTree = parsePatternCategoryTreeText(categoryTreeText)
+assert.equal(parsedTree[0]?.value, '动物纹理', '分类树格式化后应可再解析为一级分类')
+assert.equal(parsedTree[0]?.children[0]?.value, '写实动物', '分类树格式化后应可再解析为二级分类')
+
 assert.equal(
   validatePatternSubmitEligibility({ patternName: '测试花型', parseStatus: 'failed' }).valid,
   false,
