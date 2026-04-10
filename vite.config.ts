@@ -39,8 +39,6 @@ function resolveManualChunk(id: string): string | undefined {
     return 'cutting-domain-pages'
   }
 
-  if (normalized.includes('/src/pages/pcs-')) return 'pcs-pages'
-
   return undefined
 }
 
