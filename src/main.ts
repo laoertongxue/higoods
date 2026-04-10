@@ -2,20 +2,59 @@ import './styles.css'
 import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, renderAppShell } from './components/shell'
 import { appStore } from './state/store'
-import {
-  closeFcsDialogsOnEscape,
-  dispatchFcsPageEvent,
-  dispatchFcsPageSubmit,
-} from './main-handlers/fcs-handlers'
-import {
-  closePcsDialogsOnEscape,
-  dispatchPcsInputEvent,
-  dispatchPcsPageEvent,
-} from './main-handlers/pcs-handlers'
-import {
-  closePdaDialogsOnEscape,
-  dispatchPdaPageEvent,
-} from './main-handlers/pda-handlers'
+
+type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
+type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
+type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
+type RoutesModule = typeof import('./router/routes')
+
+const PLACEHOLDER_PAGE_CONTENT =
+  '<section class="rounded-lg border border-border bg-white p-4 text-sm text-muted-foreground">页面内容加载中…</section>'
+
+let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
+let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
+let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
+let routesModulePromise: Promise<RoutesModule> | null = null
+
+function getFcsHandlersModule(): Promise<FcsHandlersModule> {
+  if (!fcsHandlersModulePromise) {
+    fcsHandlersModulePromise = import('./main-handlers/fcs-handlers').catch((error) => {
+      fcsHandlersModulePromise = null
+      throw error
+    })
+  }
+  return fcsHandlersModulePromise
+}
+
+function getPcsHandlersModule(): Promise<PcsHandlersModule> {
+  if (!pcsHandlersModulePromise) {
+    pcsHandlersModulePromise = import('./main-handlers/pcs-handlers').catch((error) => {
+      pcsHandlersModulePromise = null
+      throw error
+    })
+  }
+  return pcsHandlersModulePromise
+}
+
+function getPdaHandlersModule(): Promise<PdaHandlersModule> {
+  if (!pdaHandlersModulePromise) {
+    pdaHandlersModulePromise = import('./main-handlers/pda-handlers').catch((error) => {
+      pdaHandlersModulePromise = null
+      throw error
+    })
+  }
+  return pdaHandlersModulePromise
+}
+
+function getRoutesModule(): Promise<RoutesModule> {
+  if (!routesModulePromise) {
+    routesModulePromise = import('./router/routes').catch((error) => {
+      routesModulePromise = null
+      throw error
+    })
+  }
+  return routesModulePromise
+}
 
 const rootNode = document.querySelector('#app')
 
@@ -27,21 +66,94 @@ const root = rootNode
 
 appStore.init()
 
-function dispatchPageEvent(target: Element): boolean {
+async function dispatchPageEvent(target: Element): Promise<boolean> {
   const eventTarget = target as HTMLElement
-  return (
-    dispatchFcsPageEvent(eventTarget) ||
-    dispatchPcsPageEvent(eventTarget) ||
-    dispatchPdaPageEvent(eventTarget)
-  )
+  try {
+    const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
+      getFcsHandlersModule(),
+      getPcsHandlersModule(),
+      getPdaHandlersModule(),
+    ])
+
+    return (
+      fcsHandlers.dispatchFcsPageEvent(eventTarget) ||
+      pcsHandlers.dispatchPcsPageEvent(eventTarget) ||
+      pdaHandlers.dispatchPdaPageEvent(eventTarget)
+    )
+  } catch (error) {
+    console.error('页面事件处理器加载失败，已降级为不处理', error)
+    return false
+  }
 }
 
-function dispatchPageSubmit(form: HTMLFormElement): boolean {
-  return dispatchFcsPageSubmit(form)
+async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
+  try {
+    const fcsHandlers = await getFcsHandlersModule()
+    return fcsHandlers.dispatchFcsPageSubmit(form)
+  } catch (error) {
+    console.error('页面提交处理器加载失败，已降级为不提交', error)
+    return false
+  }
 }
 
-function render(): void {
-  root.innerHTML = renderAppShell(appStore.getState())
+async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
+  try {
+    const pcsHandlers = await getPcsHandlersModule()
+    return pcsHandlers.dispatchPcsInputEvent(target)
+  } catch (error) {
+    console.error('输入处理器加载失败，已降级为不处理', error)
+    return false
+  }
+}
+
+async function closeDialogsOnEscape(): Promise<boolean> {
+  try {
+    const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
+      getFcsHandlersModule(),
+      getPcsHandlersModule(),
+      getPdaHandlersModule(),
+    ])
+    return (
+      fcsHandlers.closeFcsDialogsOnEscape() ||
+      pcsHandlers.closePcsDialogsOnEscape() ||
+      pdaHandlers.closePdaDialogsOnEscape()
+    )
+  } catch (error) {
+    console.error('弹窗处理器加载失败', error)
+    return false
+  }
+}
+
+let renderSerial = 0
+
+function renderLoadingContent(): string {
+  return PLACEHOLDER_PAGE_CONTENT
+}
+
+async function renderCurrentPageContent(pathname: string): Promise<string> {
+  try {
+    const { resolvePage } = await getRoutesModule()
+    return resolvePage(pathname)
+  } catch (error) {
+    console.error('路由模块加载失败，进入降级页', error)
+    return '<section class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">页面内容加载失败，请稍后重试。</section>'
+  }
+}
+
+async function render(): Promise<void> {
+  const currentSerial = ++renderSerial
+  const state = appStore.getState()
+
+  root.innerHTML = renderAppShell(state, renderLoadingContent())
+  hydrateIcons(root)
+  hydrateRealQRCodes(root)
+
+  const pageContent = await renderCurrentPageContent(state.pathname)
+  if (currentSerial !== renderSerial) {
+    return
+  }
+
+  root.innerHTML = renderAppShell(state, pageContent)
   hydrateIcons(root)
   hydrateRealQRCodes(root)
 }
@@ -175,8 +287,8 @@ function restoreFocusSnapshot(snapshot: FocusSnapshot | null): void {
   }
 }
 
-function renderWithFocusRestore(snapshot: FocusSnapshot | null): void {
-  render()
+async function renderWithFocusRestore(snapshot: FocusSnapshot | null): Promise<void> {
+  await render()
   restoreFocusSnapshot(snapshot)
 }
 
@@ -317,7 +429,7 @@ function handleShellAction(actionNode: HTMLElement): boolean {
   return false
 }
 
-root.addEventListener('click', (event) => {
+root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
 
@@ -329,9 +441,9 @@ root.addEventListener('click', (event) => {
     return
   }
 
-  if (dispatchPageEvent(target)) {
+  if (await dispatchPageEvent(target)) {
     event.preventDefault()
-    render()
+    await render()
     return
   }
 
@@ -351,61 +463,61 @@ root.addEventListener('click', (event) => {
   }
 })
 
-root.addEventListener('input', (event) => {
+root.addEventListener('input', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   if (isComposingInputEvent(event)) return
   const focusSnapshot = captureFocusSnapshot()
 
-  if (dispatchPcsInputEvent(target)) {
-    renderWithFocusRestore(focusSnapshot)
+  if (await dispatchPcsInputEvent(target)) {
+    await renderWithFocusRestore(focusSnapshot)
     return
   }
 
-  if (dispatchPageEvent(target)) {
-    renderWithFocusRestore(focusSnapshot)
+  if (await dispatchPageEvent(target)) {
+    await renderWithFocusRestore(focusSnapshot)
   }
 })
 
-root.addEventListener('compositionend', (event) => {
+root.addEventListener('compositionend', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   const focusSnapshot = captureFocusSnapshot()
 
-  if (dispatchPcsInputEvent(target)) {
-    renderWithFocusRestore(focusSnapshot)
+  if (await dispatchPcsInputEvent(target)) {
+    await renderWithFocusRestore(focusSnapshot)
     return
   }
 
-  if (dispatchPageEvent(target)) {
-    renderWithFocusRestore(focusSnapshot)
+  if (await dispatchPageEvent(target)) {
+    await renderWithFocusRestore(focusSnapshot)
   }
 })
 
-root.addEventListener('change', (event) => {
+root.addEventListener('change', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
 
-  if (dispatchPageEvent(target)) {
-    render()
+  if (await dispatchPageEvent(target)) {
+    await render()
   }
 })
 
-root.addEventListener('submit', (event) => {
+root.addEventListener('submit', async (event) => {
   const target = event.target
   if (!(target instanceof HTMLFormElement)) return
 
-  if (dispatchPageSubmit(target)) {
+  if (await dispatchPageSubmit(target)) {
     event.preventDefault()
-    render()
+    await render()
   }
 })
 
-document.addEventListener('keydown', (event) => {
+document.addEventListener('keydown', async (event) => {
   if (event.key !== 'Escape') return
 
-  if (closeFcsDialogsOnEscape() || closePcsDialogsOnEscape() || closePdaDialogsOnEscape()) {
-    render()
+  if (await closeDialogsOnEscape()) {
+    await render()
     return
   }
 
@@ -419,8 +531,10 @@ window.addEventListener('popstate', () => {
   appStore.syncFromBrowser(pathname)
 })
 
-appStore.subscribe(render)
-window.addEventListener('higood:request-render', () => {
-  render()
+appStore.subscribe(() => {
+  void render()
 })
-render()
+window.addEventListener('higood:request-render', () => {
+  void render()
+})
+void render()

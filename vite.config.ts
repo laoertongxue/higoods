@@ -13,30 +13,23 @@ function resolveManualChunk(id: string): string | undefined {
   }
 
   if (
-    normalized.includes('/src/router/routes.ts')
-    || normalized.includes('/src/components/shell.ts')
+    normalized.includes('/src/components/shell.ts')
     || normalized.includes('/src/main.ts')
   ) {
     return 'app-shell'
   }
 
-  if (
-    normalized.includes('/src/pages/process-factory/cutting/')
-    || normalized.includes('/src/data/fcs/cutting/')
-    || normalized.includes('/src/domain/fcs-cutting-runtime/')
-    || normalized.includes('/src/domain/fcs-cutting-piece-truth/')
-    || normalized.includes('/src/domain/cutting-core/')
-    || normalized.includes('/src/domain/cutting-warehouse-writeback/')
-    || normalized.includes('/src/domain/cutting-platform/')
-    || normalized.includes('/src/pages/production')
-    || normalized.includes('/src/pages/progress-')
-    || normalized.includes('/src/pages/settlement')
-    || normalized.includes('/src/pages/process-factory/')
-    || normalized.includes('/src/pages/pda-')
-    || normalized.includes('/src/data/fcs/pda-')
-    || normalized.includes('/src/domain/cutting-pda-writeback/')
-  ) {
-    return 'cutting-domain-pages'
+  if (normalized.includes('/src/router/routes.ts')) {
+    return 'app-routes'
+  }
+  if (normalized.includes('/src/router/routes-fcs.ts')) {
+    return 'app-routes-fcs'
+  }
+  if (normalized.includes('/src/router/routes-pcs.ts')) {
+    return 'app-routes-pcs'
+  }
+  if (normalized.includes('/src/router/routes-pda.ts')) {
+    return 'app-routes-pda'
   }
 
   return undefined

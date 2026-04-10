@@ -1,11 +1,11 @@
-import { createIcons, icons } from 'lucide'
-import { resolvePage } from '../router/routes'
+import { createIcons } from 'lucide'
 import {
   getCurrentMenus,
   getCurrentSystem,
   getCurrentTabs,
   type AppState,
 } from '../state/store'
+import { shellIcons } from '../icons/shell-icons'
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 import { systems } from '../data/app-shell-config'
 import { escapeHtml, toClassName } from '../utils'
@@ -302,7 +302,7 @@ function renderTabsBar(state: AppState): string {
   `
 }
 
-export function renderAppShell(state: AppState): string {
+export function renderAppShell(state: AppState, pageContent: string): string {
   return `
     <div class="flex h-screen flex-col overflow-hidden">
       ${renderTopBar(state)}
@@ -314,7 +314,7 @@ export function renderAppShell(state: AppState): string {
           ${renderTabsBar(state)}
           <div class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
             <div class="max-w-full p-4 lg:p-6">
-              ${resolvePage(state.pathname)}
+              ${pageContent}
             </div>
           </div>
         </main>
@@ -325,7 +325,7 @@ export function renderAppShell(state: AppState): string {
 
 export function hydrateIcons(root: ParentNode = document): void {
   createIcons({
-    icons,
+    icons: shellIcons,
     attrs: {
       strokeWidth: '2',
     },
