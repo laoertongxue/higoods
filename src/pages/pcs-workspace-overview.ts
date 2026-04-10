@@ -130,7 +130,7 @@ const EXCEPTIONS: ExceptionGroup[] = [
   { type: '工作项超期', count: 5, description: '制版、花型与上架环节存在逾期任务' },
   { type: '样衣超期未归还', count: 3, description: '样衣借用超时，影响后续测款与拍摄' },
   { type: '店铺授权过期', count: 2, description: '渠道店铺授权到期或失效，影响上架' },
-  { type: '映射异常', count: 4, description: '渠道 SKU 与内部档案映射不完整或冲突' },
+  { type: '映射异常', count: 4, description: '渠道规格与内部档案映射不完整或冲突' },
   { type: '上架失败', count: 3, description: '图片、类目、价格校验失败导致上架异常' },
   { type: '测款待入账', count: 6, description: '直播/短视频测款结果尚未入账' },
 ]
@@ -146,22 +146,22 @@ const TODOS: TodoItem[] = [
 const PROJECT_FUNNEL: Array<{ phase: string; count: number; blocked: number }> = [
   { phase: '测款中', count: 8, blocked: 2 },
   { phase: '制版准备', count: 5, blocked: 1 },
-  { phase: '首单样衣打样', count: 4, blocked: 0 },
+  { phase: '首版样衣打样', count: 4, blocked: 0 },
   { phase: '产前版样衣', count: 3, blocked: 1 },
   { phase: '商品上架', count: 6, blocked: 2 },
   { phase: '在售', count: 12, blocked: 0 },
 ]
 
 const WORK_ITEM_BOARD = {
-  NOT_STARTED: { 改版任务: 3, 制版任务: 2, 花型任务: 1, 首单打样: 2, 产前版: 1, 商品上架: 4 },
-  IN_PROGRESS: { 改版任务: 5, 制版任务: 4, 花型任务: 3, 首单打样: 3, 产前版: 2, 商品上架: 6 },
-  BLOCKED: { 改版任务: 1, 制版任务: 0, 花型任务: 1, 首单打样: 0, 产前版: 1, 商品上架: 2 },
-  COMPLETED: { 改版任务: 12, 制版任务: 15, 花型任务: 10, 首单打样: 8, 产前版: 6, 商品上架: 20 },
+  NOT_STARTED: { 改版任务: 3, 制版任务: 2, 花型任务: 1, 首版样衣打样: 2, 产前版样衣: 1, 商品上架: 4 },
+  IN_PROGRESS: { 改版任务: 5, 制版任务: 4, 花型任务: 3, 首版样衣打样: 3, 产前版样衣: 2, 商品上架: 6 },
+  BLOCKED: { 改版任务: 1, 制版任务: 0, 花型任务: 1, 首版样衣打样: 0, 产前版样衣: 1, 商品上架: 2 },
+  COMPLETED: { 改版任务: 12, 制版任务: 15, 花型任务: 10, 首版样衣打样: 8, 产前版样衣: 6, 商品上架: 20 },
 }
 
 const TOP_RISK_PROJECTS: RiskProject[] = [
   { id: 'PRJ-004', name: '腰围放量短裙', phase: '产前版样衣', owner: '李娜', riskScore: 15, riskTags: ['超期', '缺样衣'] },
-  { id: 'PRJ-002', name: 'Y2K银色亮片短裙', phase: '首单样衣打样', owner: '张丽', riskScore: 12, riskTags: ['生产暂停', '映射异常'] },
+  { id: 'PRJ-002', name: 'Y2K银色亮片短裙', phase: '首版样衣打样', owner: '张丽', riskScore: 12, riskTags: ['生产暂停', '映射异常'] },
   { id: 'PRJ-005', name: '立体花朵上衣', phase: '商品上架', owner: '陈杰', riskScore: 8, riskTags: ['上架失败'] },
 ]
 
@@ -172,12 +172,12 @@ const SAMPLE_DISTRIBUTION = {
 
 const WAREHOUSE_TODOS = {
   pendingReceipt: [
-    { id: 'WH-001', source: '首单打样', trackingNo: 'SF998877', expectedAt: '2026-01-13 14:00', site: '深圳' },
+    { id: 'WH-001', source: '首版样衣打样', trackingNo: 'SF998877', expectedAt: '2026-01-13 14:00', site: '深圳' },
     { id: 'WH-002', source: '产前版', trackingNo: 'JD123456', expectedAt: '2026-01-13 16:00', site: '深圳' },
     { id: 'WH-003', source: '寄回归还', trackingNo: 'YT789012', expectedAt: '2026-01-14 10:00', site: '雅加达' },
   ],
   pendingStockIn: [
-    { id: 'WH-004', source: '首单打样', receivedAt: '2026-01-12 15:30', site: '深圳', sampleCount: 3 },
+    { id: 'WH-004', source: '首版样衣打样', receivedAt: '2026-01-12 15:30', site: '深圳', sampleCount: 3 },
     { id: 'WH-005', source: '产前版', receivedAt: '2026-01-13 09:00', site: '雅加达', sampleCount: 2 },
   ],
 }
@@ -211,9 +211,9 @@ const MAPPING_HEALTH = {
   total: 245,
   abnormal: 8,
   items: [
-    { id: 'MAP-001', platformId: 'TK-12345', store: 'TikTok印尼店', internalBinding: '碎花连衣裙-SPU001', issue: '缺SKU映射' },
-    { id: 'MAP-002', platformId: 'SP-67890', store: 'Shopee主店', internalBinding: '亮片短裙-SPU002', issue: '编码冲突' },
-    { id: 'MAP-003', platformId: 'TK-11111', store: 'TikTok马来店', internalBinding: '针织上衣-SPU003', issue: '未知SKU' },
+    { id: 'MAP-001', platformId: 'TK-12345', store: 'TikTok印尼店', internalBinding: '碎花连衣裙-款式001', issue: '缺规格映射' },
+    { id: 'MAP-002', platformId: 'SP-67890', store: 'Shopee主店', internalBinding: '亮片短裙-款式002', issue: '编码冲突' },
+    { id: 'MAP-003', platformId: 'TK-11111', store: 'TikTok马来店', internalBinding: '针织上衣-款式003', issue: '未知规格' },
   ] as MappingIssueItem[],
 }
 
@@ -335,7 +335,7 @@ function renderFilters(): string {
               <div class="w-[180px]">
                 <label class="mb-1 block text-xs text-muted-foreground">项目阶段</label>
                 <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-overview-field="projectPhase">
-                  ${['全部', '测款中', '制版准备', '首单样衣打样', '产前版样衣', '商品上架', '在售'].map((item) => `<option value="${item}" ${state.projectPhase === item ? 'selected' : ''}>${item}</option>`).join('')}
+                  ${['全部', '测款中', '制版准备', '首版样衣打样', '产前版样衣', '商品上架', '在售'].map((item) => `<option value="${item}" ${state.projectPhase === item ? 'selected' : ''}>${item}</option>`).join('')}
                 </select>
               </div>
             </div>
@@ -353,7 +353,7 @@ function renderExceptionAndTodo(): string {
       <article class="rounded-lg border bg-card p-4">
         <div class="mb-3 flex items-center justify-between">
           <h3 class="text-base font-semibold">异常监控</h3>
-          <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="/pcs/workspace/exceptions">查看异常中心</button>
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-nav="/pcs/workspace/alerts">查看风险提醒</button>
         </div>
         <div class="overflow-x-auto rounded-md border">
           <table class="w-full min-w-[560px] text-sm">
@@ -393,7 +393,7 @@ function renderExceptionAndTodo(): string {
 
 function renderProjectSection(): string {
   const maxFunnel = Math.max(...PROJECT_FUNNEL.map((item) => item.count))
-  const phases = ['改版任务', '制版任务', '花型任务', '首单打样', '产前版', '商品上架'] as const
+  const phases = ['改版任务', '制版任务', '花型任务', '首版样衣打样', '产前版样衣', '商品上架'] as const
   return `
     <section class="grid gap-3 xl:grid-cols-3">
       <article class="rounded-lg border bg-card p-4">

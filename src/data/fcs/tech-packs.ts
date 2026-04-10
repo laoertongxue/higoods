@@ -9,6 +9,7 @@ import {
   type RuleSource,
 } from './process-craft-dict.ts'
 
+// 历史兼容快照：正式技术资料版本主来源已切换到 PCS 技术资料版本仓储。
 export type TechPackStatus = 'MISSING' | 'BETA' | 'RELEASED'
 
 export interface TechPackPatternFile {

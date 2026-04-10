@@ -1,9 +1,9 @@
 // ============ 筛选栏组件 ============
 
-import type { FilterBarConfig, SearchInputConfig, SelectConfig, ButtonConfig, ActionConfig } from './types'
-import { toActionAttr, toFilterAttr } from './types'
-import { renderSelect } from './form'
-import { renderButton } from './button'
+import type { FilterBarConfig, SearchInputConfig, SelectConfig, ButtonConfig, ActionConfig } from './types.ts'
+import { toActionAttr, toFilterAttr } from './types.ts'
+import { renderSelect } from './form.ts'
+import { renderButton } from './button.ts'
 
 /**
  * HTML 转义

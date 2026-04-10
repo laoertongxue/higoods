@@ -1,11 +1,12 @@
 import {
   escapeHtml,
   state,
-} from './context'
+} from './context.ts'
 
 export function renderDesignTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
+  const readonly = state.compatibilityMode
 
   return `
     <section class="rounded-lg border bg-card">
@@ -14,10 +15,10 @@ export function renderDesignTab(): string {
           <h3 class="text-base font-semibold">花型设计</h3>
           <p class="mt-1 text-sm text-muted-foreground">花型图案与设计稿</p>
         </div>
-        <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-design">
+        ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-design">
           <i data-lucide="upload" class="mr-2 h-4 w-4"></i>
           上传设计稿
-        </button>
+        </button>`}
       </header>
       <div class="p-4">
         ${
@@ -34,9 +35,9 @@ export function renderDesignTab(): string {
                         </div>
                         <div class="flex items-center justify-between gap-1">
                           <p class="truncate text-sm font-medium" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</p>
-                          <button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-design" data-design-id="${item.id}">
+                          ${readonly ? '' : `<button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-design" data-design-id="${item.id}">
                             <i data-lucide="trash-2" class="h-3 w-3"></i>
-                          </button>
+                          </button>`}
                         </div>
                       </div>
                     `,
@@ -53,6 +54,7 @@ export function renderDesignTab(): string {
 export function renderAttachmentsTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
+  const readonly = state.compatibilityMode
 
   return `
     <section class="rounded-lg border bg-card">
@@ -61,10 +63,10 @@ export function renderAttachmentsTab(): string {
           <h3 class="text-base font-semibold">附件</h3>
           <p class="mt-1 text-sm text-muted-foreground">其他相关文档和附件</p>
         </div>
-        <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-attachment">
+        ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-attachment">
           <i data-lucide="upload" class="mr-2 h-4 w-4"></i>
           上传附件
-        </button>
+        </button>`}
       </header>
       <div class="p-4">
         ${
@@ -95,9 +97,9 @@ export function renderAttachmentsTab(): string {
                           <td class="px-3 py-2">
                             <div class="flex items-center gap-1">
                               <button class="rounded px-2 py-1 text-xs hover:bg-muted" data-tech-action="download-attachment" data-attachment-id="${item.id}">下载</button>
-                              <button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-attachment" data-attachment-id="${item.id}">
+                              ${readonly ? '' : `<button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-attachment" data-attachment-id="${item.id}">
                                 <i data-lucide="trash-2" class="h-3 w-3"></i>
-                              </button>
+                              </button>`}
                             </div>
                           </td>
                         </tr>
@@ -173,4 +175,3 @@ export function renderAddAttachmentDialog(): string {
     </div>
   `
 }
-

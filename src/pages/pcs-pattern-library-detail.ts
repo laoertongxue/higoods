@@ -36,7 +36,9 @@ interface PatternLibraryDetailState {
   versionParsing: boolean
   versionError: string | null
   previewUrls: Record<string, string>
+  storageUrls: Record<string, string>
   previewLoadingVersionIds: string[]
+  storageLoadingVersionIds: string[]
   editForm: {
     patternName: string
     aliases: string
@@ -68,7 +70,9 @@ const state: PatternLibraryDetailState = {
   versionParsing: false,
   versionError: null,
   previewUrls: {},
+  storageUrls: {},
   previewLoadingVersionIds: [],
+  storageLoadingVersionIds: [],
   editForm: {
     patternName: '',
     aliases: '',
@@ -117,6 +121,21 @@ function revokePreviewUrls(): void {
   state.previewLoadingVersionIds = []
 }
 
+function revokeStorageUrls(): void {
+  Object.values(state.storageUrls).forEach((url) => {
+    if (url.startsWith('blob:')) {
+      URL.revokeObjectURL(url)
+    }
+  })
+  state.storageUrls = {}
+  state.storageLoadingVersionIds = []
+}
+
+function revokeVersionUrls(): void {
+  revokePreviewUrls()
+  revokeStorageUrls()
+}
+
 function ensureVersionPreview(version: PatternFileVersion | null): void {
   if (!version) return
   if (version.preview_url || version.thumbnail_url) return
@@ -137,10 +156,48 @@ function ensureVersionPreview(version: PatternFileVersion | null): void {
     })
 }
 
+function ensureVersionStorageUrl(version: PatternFileVersion | null): void {
+  if (!version) return
+  if (version.file_url) return
+  if (state.storageUrls[version.id]) return
+  if (state.storageLoadingVersionIds.includes(version.id)) return
+
+  const blobKey = version.original_blob_key
+  if (!blobKey) return
+  state.storageLoadingVersionIds.push(version.id)
+  void getPatternBlob(blobKey)
+    .then((blob) => {
+      if (!blob) return
+      state.storageUrls[version.id] = URL.createObjectURL(blob)
+    })
+    .finally(() => {
+      state.storageLoadingVersionIds = state.storageLoadingVersionIds.filter((item) => item !== version.id)
+      requestRender()
+    })
+}
+
 function getVersionPreviewUrl(version: PatternFileVersion | null): string {
   if (!version) return ''
   ensureVersionPreview(version)
   return version.preview_url || version.thumbnail_url || state.previewUrls[version.id] || ''
+}
+
+function getVersionStorageUrl(version: PatternFileVersion | null): string {
+  if (!version) return ''
+  ensureVersionStorageUrl(version)
+  return version.file_url || state.storageUrls[version.id] || ''
+}
+
+function renderPatternVersionStorageLink(version: PatternFileVersion | null): string {
+  if (!version) return '<span class="text-xs text-gray-400">未生成</span>'
+  const storageUrl = getVersionStorageUrl(version)
+  if (!storageUrl) {
+    if (version.original_blob_key && state.storageLoadingVersionIds.includes(version.id)) {
+      return '<span class="text-xs text-gray-500">存储链接生成中</span>'
+    }
+    return '<span class="text-xs text-gray-400">未生成</span>'
+  }
+  return `<a href="${storageUrl}" download="${escapeHtml(version.original_filename)}" class="inline-flex rounded-md border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50">下载</a>`
 }
 
 function parseCsvInput(value: string): string[] {
@@ -152,7 +209,7 @@ function parseCsvInput(value: string): string[] {
 
 function syncState(assetId: string): void {
   if (state.assetId === assetId) return
-  revokePreviewUrls()
+  revokeVersionUrls()
   state.assetId = assetId
   state.activeTab = '基础信息'
   state.selectedVersionId = null
@@ -347,6 +404,7 @@ function renderVersionTab(): string {
                   <div>
                     <p class="text-sm font-medium">${escapeHtml(version.version_no)}${version.is_current ? '｜当前有效' : ''}</p>
                     <p class="mt-1 text-xs text-gray-500">${escapeHtml(version.original_filename)}</p>
+                    <p class="mt-1 text-xs text-gray-500">存储链接：${renderPatternVersionStorageLink(version)}</p>
                     <p class="mt-1 text-xs text-gray-500">${formatDateTime(version.created_at)}｜${escapeHtml((version.file_ext || '-').toUpperCase())}｜${version.image_width ?? '-'} x ${version.image_height ?? '-'}</p>
                   </div>
                   <button class="h-8 rounded-md border px-3 text-xs hover:bg-white" data-pattern-library-detail-action="select-version" data-version-id="${version.id}">查看</button>
@@ -519,6 +577,7 @@ export function renderPcsPatternLibraryDetailPage(assetId: string): string {
     <div class="space-y-4">
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div class="space-y-1">
+          <p class="text-xs text-gray-500">工程开发与打样管理 / 花型库 / ${escapeHtml(asset.pattern_name)}</p>
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-gray-50" data-pattern-library-detail-action="go-list">
             <i data-lucide="arrow-left" class="mr-1 h-3.5 w-3.5"></i>返回花型库
           </button>
@@ -672,7 +731,7 @@ export function handlePcsPatternLibraryDetailEvent(target: HTMLElement): boolean
           updatedBy: '档案管理员',
         })
         await waitForPatternLibraryPersistence()
-        revokePreviewUrls()
+        revokeVersionUrls()
         syncState(asset.id)
         state.notice = `已新增版本 ${asset.currentVersion?.version_no ?? ''}。`
       })

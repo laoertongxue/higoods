@@ -3,6 +3,15 @@ import { escapeHtml } from '../utils'
 import { renderFormDialog } from '../components/ui/dialog'
 import { renderDrawer as uiDrawer } from '../components/ui'
 import { renderTablePagination } from '../components/ui/pagination'
+import { listProjects } from '../data/pcs-project-repository.ts'
+import {
+  getProjectRelationProjectLabel,
+  listProjectRelationsByLiveProductLine,
+  replaceLiveProductLineProjectRelations,
+  unlinkLiveProductLineProjectRelation,
+} from '../data/pcs-project-relation-repository.ts'
+import { listLiveProductLinesBySession } from '../data/pcs-live-testing-repository.ts'
+import type { LiveProductLine } from '../data/pcs-live-testing-types.ts'
 import {
   DEFAULT_PAGE_SIZE_OPTIONS,
   getNextPage,
@@ -55,6 +64,10 @@ interface ListPageState {
   createDrawerOpen: boolean
   closeAccountDialog: DialogState
   testAccountingDialog: DialogState
+  selectedSessionId: string | null
+  lineRelationDialogOpen: boolean
+  relationTargetLineId: string | null
+  relationSelectedProjectIds: string[]
   createForm: CreateFormState
   closeAccountNote: string
   testAccountingNote: string
@@ -75,6 +88,10 @@ const state: ListPageState = {
   createDrawerOpen: false,
   closeAccountDialog: { open: false, sessionId: null },
   testAccountingDialog: { open: false, sessionId: null },
+  selectedSessionId: sessions[0]?.id ?? null,
+  lineRelationDialogOpen: false,
+  relationTargetLineId: null,
+  relationSelectedProjectIds: [],
   createForm: {
     title: '',
     owner: '',
@@ -94,6 +111,26 @@ const state: ListPageState = {
   testAccountingNote: '',
   testAccountingConfirmed: false,
   notice: '已迁移直播场次：列表、新建抽屉、关账弹窗、测款入账弹窗、详情内页。',
+}
+
+function getLiveLineProjectRelations(liveLineId: string) {
+  return listProjectRelationsByLiveProductLine(liveLineId).map((relation) => ({
+    projectId: relation.projectId,
+    projectLabel: getProjectRelationProjectLabel(relation.projectId),
+  }))
+}
+
+function ensureSelectedSessionId(): string | null {
+  if (state.selectedSessionId && sessions.some((item) => item.id === state.selectedSessionId)) {
+    return state.selectedSessionId
+  }
+  state.selectedSessionId = sessions[0]?.id ?? null
+  return state.selectedSessionId
+}
+
+function getSelectedSessionLines(): LiveProductLine[] {
+  const sessionId = ensureSelectedSessionId()
+  return sessionId ? listLiveProductLinesBySession(sessionId) : []
 }
 
 function getPurposeTags(purposes: LivePurpose[]): string {
@@ -354,6 +391,177 @@ function renderTable(): string {
   `
 }
 
+function renderLineProjectTags(line: LiveProductLine): string {
+  const relations = getLiveLineProjectRelations(line.liveLineId)
+  if (relations.length === 0) {
+    return `
+      <div class="space-y-1">
+        <span class="text-sm text-muted-foreground">暂无正式项目关联</span>
+        ${
+          line.legacyProjectRef
+            ? `<p class="text-[11px] text-amber-700">历史项目字段：${escapeHtml(line.legacyProjectRef)}，当前仅保留为迁移痕迹。</p>`
+            : ''
+        }
+      </div>
+    `
+  }
+
+  return `
+    <div class="flex flex-wrap gap-2">
+      ${relations
+        .map(
+          (relation) => `
+            <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">
+              ${escapeHtml(relation.projectLabel)}
+              <button class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-blue-200 text-[10px] hover:bg-blue-100" data-pcs-live-action="unlink-line-project" data-line-id="${escapeHtml(line.liveLineId)}" data-project-id="${escapeHtml(relation.projectId)}">×</button>
+            </span>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function renderLiveLineRows(lines: LiveProductLine[]): string {
+  if (lines.length === 0) {
+    return `
+      <tr>
+        <td colspan="12" class="px-4 py-10 text-center text-sm text-muted-foreground">
+          当前场次暂无直播商品明细。
+        </td>
+      </tr>
+    `
+  }
+
+  return lines
+    .map(
+      (line) => `
+        <tr class="border-b last:border-b-0 hover:bg-muted/40">
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(line.liveSessionCode)}</td>
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(line.liveLineCode)}</td>
+          <td class="px-3 py-3 align-top">
+            <p class="font-medium">${escapeHtml(line.productTitle)}</p>
+            <p class="text-xs text-muted-foreground">${escapeHtml(line.spuCode || '待补充款号')}</p>
+          </td>
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(line.styleCode || '—')}</td>
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(line.colorCode || '—')}</td>
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(line.sizeCode || '—')}</td>
+          <td class="px-3 py-3 text-right align-top">${line.exposureQty.toLocaleString()}</td>
+          <td class="px-3 py-3 text-right align-top">${line.clickQty.toLocaleString()}</td>
+          <td class="px-3 py-3 text-right align-top">${line.orderQty.toLocaleString()}</td>
+          <td class="px-3 py-3 text-right align-top">${line.gmvAmount.toLocaleString()}</td>
+          <td class="px-3 py-3 align-top">${renderLineProjectTags(line)}</td>
+          <td class="px-3 py-3 align-top">
+            <div class="flex flex-wrap gap-1">
+              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-live-action="open-line-relation" data-line-id="${escapeHtml(line.liveLineId)}">关联商品项目</button>
+              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-live-action="open-line-relation" data-line-id="${escapeHtml(line.liveLineId)}">查看已关联项目</button>
+            </div>
+          </td>
+        </tr>
+      `,
+    )
+    .join('')
+}
+
+function renderLiveLineTable(): string {
+  const selectedSessionId = ensureSelectedSessionId()
+  const selectedSession = selectedSessionId ? getSessionById(selectedSessionId) : null
+  const lines = getSelectedSessionLines()
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold">直播商品明细</h2>
+          <p class="mt-1 text-sm text-muted-foreground">直播正式项目关系只允许落到直播商品明细，不再挂到场次头。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${sessions
+            .slice(0, 6)
+            .map(
+              (session) => `
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs ${selectedSessionId === session.id ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'}" data-pcs-live-action="select-session-lines" data-session-id="${escapeHtml(session.id)}">
+                  ${escapeHtml(session.id)}
+                </button>
+              `,
+            )
+            .join('')}
+        </div>
+      </div>
+      <div class="mt-3 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+        当前场次：${escapeHtml(selectedSession?.id || '未选择')} · ${escapeHtml(selectedSession?.title || '暂无场次')}
+      </div>
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[1480px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/30 text-left text-muted-foreground">
+              <th class="px-3 py-2 font-medium">场次编号</th>
+              <th class="px-3 py-2 font-medium">明细编号</th>
+              <th class="px-3 py-2 font-medium">商品标题</th>
+              <th class="px-3 py-2 font-medium">款号 / 款式编码</th>
+              <th class="px-3 py-2 font-medium">颜色</th>
+              <th class="px-3 py-2 font-medium">规格</th>
+              <th class="px-3 py-2 text-right font-medium">曝光量</th>
+              <th class="px-3 py-2 text-right font-medium">点击量</th>
+              <th class="px-3 py-2 text-right font-medium">下单量</th>
+              <th class="px-3 py-2 text-right font-medium">销售额</th>
+              <th class="px-3 py-2 font-medium">已关联项目</th>
+              <th class="px-3 py-2 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>${renderLiveLineRows(lines)}</tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderLineRelationDrawer(): string {
+  if (!state.lineRelationDialogOpen || !state.relationTargetLineId) return ''
+  const line = getSelectedSessionLines().find((item) => item.liveLineId === state.relationTargetLineId) ?? null
+  if (!line) return ''
+
+  const projectOptions = listProjects()
+  const content = `
+    <div class="space-y-4">
+      <div class="rounded-md border bg-muted/20 p-3 text-sm">
+        <p class="font-medium">${escapeHtml(line.productTitle)}</p>
+        <p class="mt-1 text-xs text-muted-foreground">场次 ${escapeHtml(line.liveSessionCode)} · 明细 ${escapeHtml(line.liveLineCode)}</p>
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs text-muted-foreground">选择要关联的商品项目</p>
+        <div class="max-h-[360px] space-y-2 overflow-y-auto rounded-md border bg-background p-2">
+          ${projectOptions
+            .map((project) => {
+              const checked = state.relationSelectedProjectIds.includes(project.projectId)
+              return `
+                <button class="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${checked ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'}" data-pcs-live-action="toggle-line-project" data-project-id="${escapeHtml(project.projectId)}">
+                  <span>${escapeHtml(project.projectCode)} · ${escapeHtml(project.projectName)}</span>
+                  <span class="text-xs">${checked ? '已选中' : '点击选择'}</span>
+                </button>
+              `
+            })
+            .join('')}
+        </div>
+      </div>
+    </div>
+  `
+
+  return uiDrawer(
+    {
+      title: '关联商品项目',
+      subtitle: '保存后将写入正式项目关系记录，并挂到直播测款工作项。',
+      closeAction: { prefix: 'pcs-live', action: 'close-line-relation' },
+      width: 'lg',
+    },
+    content,
+    {
+      cancel: { prefix: 'pcs-live', action: 'close-line-relation', label: '取消' },
+      confirm: { prefix: 'pcs-live', action: 'save-line-relation', label: '保存项目关联', variant: 'primary' },
+    },
+  )
+}
+
 function renderPurposeSelector(): string {
   return `
     <div>
@@ -530,6 +738,9 @@ function closeAllDialogs(): void {
   state.createDrawerOpen = false
   state.closeAccountDialog = { open: false, sessionId: null }
   state.testAccountingDialog = { open: false, sessionId: null }
+  state.lineRelationDialogOpen = false
+  state.relationTargetLineId = null
+  state.relationSelectedProjectIds = []
 }
 
 function createSession(status: SessionStatus): void {
@@ -614,9 +825,11 @@ export function renderPcsLiveSessionsPage(): string {
       ${renderKpiCards()}
       ${renderFilters()}
       ${renderTable()}
+      ${renderLiveLineTable()}
       ${renderCreateDrawer()}
       ${renderCloseAccountDialog()}
       ${renderTestAccountingDialog()}
+      ${renderLineRelationDrawer()}
     </div>
   `
 }
@@ -698,6 +911,13 @@ export function handlePcsLiveSessionsEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'select-session-lines') {
+    const sessionId = actionNode.dataset.sessionId
+    if (!sessionId) return false
+    state.selectedSessionId = sessionId
+    return true
+  }
+
   if (action === 'import') {
     const sessionId = actionNode.dataset.sessionId
     if (!sessionId) return false
@@ -734,6 +954,52 @@ export function handlePcsLiveSessionsEvent(target: HTMLElement): boolean {
 
   if (action === 'save-reconciling') {
     createSession('RECONCILING')
+    return true
+  }
+
+  if (action === 'open-line-relation') {
+    const lineId = actionNode.dataset.lineId
+    if (!lineId) return false
+    state.relationTargetLineId = lineId
+    state.relationSelectedProjectIds = listProjectRelationsByLiveProductLine(lineId).map((relation) => relation.projectId)
+    state.lineRelationDialogOpen = true
+    return true
+  }
+
+  if (action === 'close-line-relation') {
+    state.lineRelationDialogOpen = false
+    state.relationTargetLineId = null
+    state.relationSelectedProjectIds = []
+    return true
+  }
+
+  if (action === 'toggle-line-project') {
+    const projectId = actionNode.dataset.projectId
+    if (!projectId) return false
+    if (state.relationSelectedProjectIds.includes(projectId)) {
+      state.relationSelectedProjectIds = state.relationSelectedProjectIds.filter((item) => item !== projectId)
+    } else {
+      state.relationSelectedProjectIds = [...state.relationSelectedProjectIds, projectId]
+    }
+    return true
+  }
+
+  if (action === 'save-line-relation') {
+    if (!state.relationTargetLineId) return false
+    const result = replaceLiveProductLineProjectRelations(state.relationTargetLineId, state.relationSelectedProjectIds)
+    state.lineRelationDialogOpen = false
+    state.relationTargetLineId = null
+    state.relationSelectedProjectIds = []
+    state.notice = result.errors[0] || '直播商品明细的项目关联已更新，结果已写入正式项目关系记录。'
+    return true
+  }
+
+  if (action === 'unlink-line-project') {
+    const lineId = actionNode.dataset.lineId
+    const projectId = actionNode.dataset.projectId
+    if (!lineId || !projectId) return false
+    unlinkLiveProductLineProjectRelation(lineId, projectId)
+    state.notice = '已解除直播商品明细与商品项目的正式关联。'
     return true
   }
 
@@ -796,5 +1062,5 @@ export function handlePcsLiveSessionsEvent(target: HTMLElement): boolean {
 }
 
 export function isPcsLiveSessionsDialogOpen(): boolean {
-  return state.createDrawerOpen || state.closeAccountDialog.open || state.testAccountingDialog.open
+  return state.createDrawerOpen || state.closeAccountDialog.open || state.testAccountingDialog.open || state.lineRelationDialogOpen
 }

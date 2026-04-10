@@ -1,15 +1,16 @@
-import { appStore } from '../state/store'
-import { escapeHtml } from '../utils'
+import { appStore } from '../state/store.ts'
+import { escapeHtml } from '../utils.ts'
 import {
   renderDrawer as uiDrawer,
   renderDialog as uiDialog,
   renderLabeledSelect,
   renderLabeledInput,
-} from '../components/ui'
+} from '../components/ui/index.ts'
+import { getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
 
 // ============ 类型定义 ============
 
-interface Sku {
+export interface SpecificationArchiveRecord {
   id: string
   sku_code: string
   spu_id: string
@@ -54,7 +55,7 @@ interface SkuState {
 
 // ============ Mock 数据 ============
 
-const mockSKUs: Sku[] = [
+const mockSKUs: SpecificationArchiveRecord[] = [
   {
     id: 'SKU-001',
     sku_code: 'SKU-FD-001-RED-S',
@@ -212,7 +213,7 @@ function getMappingHealthBadge(health: string): string {
   </span>`
 }
 
-function getFilteredSKUs(): Sku[] {
+function getFilteredSKUs(): SpecificationArchiveRecord[] {
   return mockSKUs.filter((sku) => {
     const matchesSearch = !state.search ||
       sku.sku_code.toLowerCase().includes(state.search.toLowerCase()) ||
@@ -236,6 +237,20 @@ function getStats() {
   }
 }
 
+export function listSpecificationRecords(): SpecificationArchiveRecord[] {
+  return [...mockSKUs]
+}
+
+export function listSpecificationRecordsByStyleId(styleId: string): SpecificationArchiveRecord[] {
+  const style = getStyleArchiveById(styleId)
+  if (style && style.specificationCount === 0) return []
+  return mockSKUs.filter((record) => record.spu_id === styleId)
+}
+
+export function getSpecificationRecord(specificationId: string): SpecificationArchiveRecord | null {
+  return mockSKUs.find((record) => record.id === specificationId) ?? null
+}
+
 // ============ 渲染函数 ============
 
 function renderKpiCards(): string {
@@ -244,7 +259,7 @@ function renderKpiCards(): string {
     <div class="grid grid-cols-6 gap-4">
       <div class="bg-white rounded-lg border p-4 cursor-pointer hover:shadow-md transition-shadow" data-sku-action="filter-all">
         <div class="text-2xl font-bold">${stats.total}</div>
-        <div class="text-sm text-gray-500">全部 SKU</div>
+        <div class="text-sm text-gray-500">全部规格</div>
       </div>
       <div class="bg-white rounded-lg border p-4 cursor-pointer hover:shadow-md transition-shadow" data-sku-action="filter-active">
         <div class="text-2xl font-bold text-green-600">${stats.active}</div>
@@ -278,14 +293,14 @@ function renderFilters(): string {
           <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"></i>
           <input
             type="text"
-            placeholder="搜索 SKU 编码/条码/SPU 名称..."
+            placeholder="搜索规格编码/条码/款式名称..."
             value="${escapeHtml(state.search)}"
             data-sku-filter="search"
             class="w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <select data-sku-filter="spu" class="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="all" ${state.spuFilter === 'all' ? 'selected' : ''}>全部 SPU</option>
+          <option value="all" ${state.spuFilter === 'all' ? 'selected' : ''}>全部款式</option>
           <option value="SPU-FD-001" ${state.spuFilter === 'SPU-FD-001' ? 'selected' : ''}>SPU-FD-001</option>
           <option value="SPU-BS-002" ${state.spuFilter === 'SPU-BS-002' ? 'selected' : ''}>SPU-BS-002</option>
           <option value="SPU-TS-003" ${state.spuFilter === 'SPU-TS-003' ? 'selected' : ''}>SPU-TS-003</option>
@@ -320,12 +335,12 @@ function renderTable(): string {
       <table class="w-full">
         <thead class="bg-gray-50 border-b">
           <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU 编码</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属 SPU</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格编码</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属款式</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格组合</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">条码</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">资料版本</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">技术资料版本</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">映射健康</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">渠道映射数</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最近上架</th>
@@ -386,21 +401,21 @@ function renderSkuDrawer(): string {
   
   const formContent = `
     <div class="space-y-6">
-      <!-- 所属 SPU -->
-      ${renderLabeledSelect('所属 SPU', {
+      <!-- 所属款式 -->
+      ${renderLabeledSelect('所属款式', {
         value: state.formData.spu_id,
         options: [
           { value: 'SPU-FD-001', label: 'SPU-FD-001 - 印尼风格碎花连衣裙' },
           { value: 'SPU-BS-002', label: 'SPU-BS-002 - 波西米亚风半裙' },
           { value: 'SPU-TS-003', label: 'SPU-TS-003 - 基础款T恤' },
         ],
-        placeholder: '选择 SPU',
+          placeholder: '选择款式',
         prefix: 'sku',
         field: 'spu_id',
       }, true)}
       
       ${isImport ? `
-        ${renderLabeledInput('老系统 SKU 编码', { placeholder: '输入老系统 SKU 编码', prefix: 'sku', field: 'legacy_code' }, true)}
+        ${renderLabeledInput('历史规格编码', { placeholder: '输入历史规格编码', prefix: 'sku', field: 'legacy_code' }, true)}
         ${renderLabeledSelect('老系统名称', {
           options: [
             { value: 'erp_v1', label: 'ERP V1' },
@@ -414,7 +429,7 @@ function renderSkuDrawer(): string {
           <i data-lucide="alert-triangle" class="h-4 w-4 text-yellow-600 mt-0.5"></i>
           <div class="text-sm text-yellow-800">
             <div class="font-medium">映射规则说明</div>
-            <div class="mt-1">同一老系统 SKU 编码在同一时间段只能映射到一个 SKU，系统将自动检测冲突。</div>
+            <div class="mt-1">同一历史规格编码在同一时间段只能映射到一个规格档案，系统将自动检测冲突。</div>
           </div>
         </div>
       ` : `
@@ -435,7 +450,7 @@ function renderSkuDrawer(): string {
           }, true)}
         </div>
         ${renderLabeledInput('花型/色系（可选）', { value: state.formData.print, placeholder: '如：碎花A、条纹B', prefix: 'sku', field: 'print' })}
-        ${renderLabeledSelect('SKU 编码策略', {
+        ${renderLabeledSelect('规格编码策略', {
           value: state.formData.code_strategy,
           options: [
             { value: 'auto', label: '自动生成（推荐）' },
@@ -444,7 +459,7 @@ function renderSkuDrawer(): string {
           prefix: 'sku',
           field: 'code_strategy',
         })}
-        ${state.formData.code_strategy === 'manual' ? renderLabeledInput('SKU 编码', { value: state.formData.manual_code, placeholder: '输入唯一的 SKU 编码', prefix: 'sku', field: 'manual_code' }, true) : ''}
+        ${state.formData.code_strategy === 'manual' ? renderLabeledInput('规格编码', { value: state.formData.manual_code, placeholder: '输入唯一的规格编码', prefix: 'sku', field: 'manual_code' }, true) : ''}
         ${renderLabeledInput('条码（可选）', { value: state.formData.barcode, placeholder: '商品条形码', prefix: 'sku', field: 'barcode' })}
       `}
     </div>
@@ -452,15 +467,15 @@ function renderSkuDrawer(): string {
 
   return uiDrawer(
     {
-      title: isImport ? '导入/绑定老系统 SKU' : '新建 SKU',
-      subtitle: isImport ? '从老系统导入或绑定已有 SKU 编码' : '创建单个 SKU 并关联到 SPU',
+      title: isImport ? '导入/绑定历史规格档案' : '新建规格档案',
+      subtitle: isImport ? '从历史系统导入或绑定已有规格编码' : '围绕款式创建单个规格档案',
       closeAction: { prefix: 'sku', action: 'close-drawer' },
       width: 'sm',
     },
     formContent,
     {
       cancel: { prefix: 'sku', action: 'close-drawer' },
-      confirm: { prefix: 'sku', action: 'submit-create', label: isImport ? '绑定并创建' : '创建 SKU', variant: 'primary' },
+      confirm: { prefix: 'sku', action: 'submit-create', label: isImport ? '绑定并创建' : '创建规格', variant: 'primary' },
     }
   )
 }
@@ -472,7 +487,7 @@ function renderSkuBatchDialog(): string {
   
   const content = `
     <div class="space-y-6">
-      ${renderLabeledSelect('所属 SPU', {
+      ${renderLabeledSelect('所属款式', {
         value: state.batchConfig.spu_id,
         options: [
           { value: 'SPU-FD-001', label: 'SPU-FD-001 - 印尼风格碎花连衣裙' },
@@ -506,7 +521,7 @@ function renderSkuBatchDialog(): string {
       </div>
       ${count > 0 ? `
         <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-          将生成 <span class="font-bold">${count}</span> 个 SKU （${state.batchConfig.colors.length} 颜色 × ${state.batchConfig.sizes.length} 尺码）
+          将生成 <span class="font-bold">${count}</span> 条规格档案（${state.batchConfig.colors.length} 颜色 × ${state.batchConfig.sizes.length} 尺码）
         </div>
       ` : ''}
     </div>
@@ -514,8 +529,8 @@ function renderSkuBatchDialog(): string {
 
   return uiDialog(
     {
-      title: '批量生成 SKU',
-      description: '选择颜色和尺码组合，系统将自动生成所有 SKU',
+      title: '批量生成规格档案',
+      description: '选择颜色和尺码组合，系统将自动生成当前款式下的全部规格档案',
       closeAction: { prefix: 'sku', action: 'close-batch-dialog' },
       width: 'md',
     },
@@ -581,8 +596,9 @@ export function handleProductSkuEvent(target: Element): boolean {
       return true
     case 'view-detail': {
       const skuId = actionNode.dataset.skuId
-      if (skuId) {
-        appStore.navigate(`/pcs/products/sku/${skuId}`)
+      const specification = mockSKUs.find((item) => item.id === skuId)
+      if (specification) {
+        appStore.navigate(`/pcs/products/styles/${specification.spu_id}?tab=specifications&specId=${encodeURIComponent(specification.id)}`)
       }
       return true
     }
@@ -670,14 +686,15 @@ export function renderProductSkuPage(): string {
       <!-- 页面标题 -->
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold">商品档案 - SKU</h1>
-          <p class="text-gray-500">管理 SKU 主档、规格、映射与上架关联</p>
+          <p class="text-xs text-gray-500">商品档案 / 规格档案</p>
+          <h1 class="mt-2 text-2xl font-bold">规格档案</h1>
+          <p class="text-gray-500">围绕款式维护颜色、尺码、条码、渠道挂接与技术资料版本。</p>
         </div>
         <div class="flex items-center gap-2">
           <div class="relative group">
             <button class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 flex items-center gap-2">
               <i data-lucide="plus" class="h-4 w-4"></i>
-              新建 SKU
+              新建规格
               <i data-lucide="chevron-down" class="h-4 w-4"></i>
             </button>
             <div class="absolute right-0 mt-1 w-56 bg-white rounded-md shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
@@ -692,7 +709,7 @@ export function renderProductSkuPage(): string {
               <div class="border-t my-1"></div>
               <button data-sku-action="open-drawer-import" class="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
                 <i data-lucide="upload" class="h-4 w-4"></i>
-                导入/绑定老系统 SKU
+                导入/绑定历史规格档案
               </button>
             </div>
           </div>

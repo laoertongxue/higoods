@@ -1,6 +1,6 @@
 import { productionOrders, type ProductionOrder } from '../production-orders.ts'
 import { resolveReleasedTechPackForProductionOrder } from '../production-upstream-chain.ts'
-import type { TechPack, TechPackBomItem, TechPackColorMaterialMappingLine } from '../tech-packs.ts'
+import type { TechPack, TechPackBomItem, TechPackColorMaterialMappingLine } from '../../pcs-technical-data-runtime-source.ts'
 import type { CuttingMaterialType } from './types.ts'
 
 export interface GeneratedOriginalCutOrderPieceRow {

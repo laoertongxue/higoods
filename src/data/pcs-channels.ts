@@ -249,7 +249,7 @@ export const GROUP_STATUS_META: Record<GroupStatus, { label: string; color: stri
 
 export const INTERNAL_REF_META: Record<InternalRefType, { label: string; color: string }> = {
   CANDIDATE: { label: '候选商品', color: 'bg-violet-100 text-violet-700' },
-  SPU: { label: 'SPU', color: 'bg-blue-100 text-blue-700' },
+  SPU: { label: '款式档案', color: 'bg-blue-100 text-blue-700' },
 }
 
 export const PRICING_MODE_META: Record<PricingMode, { label: string; color: string }> = {
@@ -286,9 +286,9 @@ export const MAP_STATUS_META: Record<ChannelProductVariant['mapStatus'], { label
 }
 
 export const MAPPING_TYPE_META: Record<MappingType, { label: string; color: string }> = {
-  CANDIDATE_TO_SPU: { label: '候选→SPU', color: 'bg-violet-100 text-violet-700' },
+  CANDIDATE_TO_SPU: { label: '候选→款式档案', color: 'bg-violet-100 text-violet-700' },
   ITEM_TO_INTERNAL: { label: '商品→内部', color: 'bg-blue-100 text-blue-700' },
-  SKU_TO_INTERNAL: { label: 'SKU→内部', color: 'bg-emerald-100 text-emerald-700' },
+  SKU_TO_INTERNAL: { label: '规格→内部', color: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const MAPPING_STATUS_META: Record<MappingStatus, { label: string; color: string }> = {
@@ -606,9 +606,9 @@ export const PRODUCT_ORDER_TRACES: ProductOrderTrace[] = [
 ]
 
 export const PRODUCT_LOGS: ProductLog[] = [
-  { id: 'LOG-001', action: 'SKU映射更新', detail: 'TT-SKU-005 映射到 SKU-005', operator: '系统', time: '2026-01-12 10:00' },
+  { id: 'LOG-001', action: '规格映射更新', detail: 'TT-SKU-005 映射到 SKU-005', operator: '系统', time: '2026-01-12 10:00' },
   { id: 'LOG-002', action: '上架完成', detail: '工作项 WI-LISTING-003 执行成功', operator: '渠道运营-李明', time: '2026-01-05 14:30' },
-  { id: 'LOG-003', action: '创建渠道商品', detail: '绑定SPU SPU-20260110-001', operator: '渠道运营-李明', time: '2026-01-05 10:00' },
+  { id: 'LOG-003', action: '创建渠道商品', detail: '挂接款式档案 SPU-20260110-001', operator: '渠道运营-李明', time: '2026-01-05 10:00' },
 ]
 
 export const MAPPING_RECORDS: MappingRecord[] = [

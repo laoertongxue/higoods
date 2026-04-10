@@ -608,7 +608,7 @@ function renderMaterialDraftDrawer(): string {
                 <div class="truncate text-sm" title="${escapeHtml(order.demandSnapshot.spuName)}">${escapeHtml(order.demandSnapshot.spuName)}</div>
               </div>
               <div>
-                <div class="text-xs text-muted-foreground">技术包</div>
+                <div class="text-xs text-muted-foreground">技术资料</div>
                 <div class="text-sm">${escapeHtml(order.techPackSnapshot.versionLabel)}</div>
               </div>
               <div>
@@ -871,7 +871,7 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[80px] px-3 py-3 text-left font-medium">旧单号</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">SPU</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
-                <th class="min-w-[100px] px-3 py-3 text-left font-medium">技术包版本</th>
+                <th class="min-w-[100px] px-3 py-3 text-left font-medium">技术资料版本</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">任务准备</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">总标准工时</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">分配概览</th>
@@ -972,7 +972,7 @@ export function renderProductionOrdersPage(): string {
                                         <div class="absolute right-0 z-50 mt-1 min-w-[150px] rounded-md border bg-background p-1 shadow-lg">
                                           <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-tech-pack" data-spu-code="${escapeHtml(order.demandSnapshot.spuCode)}">
                                             <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>
-                                            完善技术包
+                                            去商品中心维护
                                           </button>
                                           <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-orders-dispatch-center" data-order-id="${order.productionOrderId}">
                                             <i data-lucide="send" class="mr-2 h-4 w-4"></i>

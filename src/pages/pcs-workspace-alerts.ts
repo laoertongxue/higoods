@@ -94,7 +94,7 @@ const RISK_TYPE_META: Record<RiskType, { label: string; icon: string; textClass:
   LISTING_FAILED: { label: '上架失败', icon: 'shopping-cart', textClass: 'text-red-600', bgClass: 'bg-red-50' },
   LISTING_TIMEOUT: { label: '上架超时', icon: 'shopping-cart', textClass: 'text-amber-600', bgClass: 'bg-amber-50' },
   MAPPING_CONFLICT: { label: '映射冲突', icon: 'link-2', textClass: 'text-red-600', bgClass: 'bg-red-50' },
-  MAPPING_MISSING_SKU: { label: '缺SKU映射', icon: 'link-2', textClass: 'text-amber-600', bgClass: 'bg-amber-50' },
+  MAPPING_MISSING_SKU: { label: '缺规格映射', icon: 'link-2', textClass: 'text-amber-600', bgClass: 'bg-amber-50' },
   TEST_ACCOUNTING_PENDING: { label: '测款待入账', icon: 'video', textClass: 'text-amber-600', bgClass: 'bg-amber-50' },
 }
 
@@ -222,11 +222,11 @@ const RISK_SEEDS: RiskItem[] = [
     riskType: 'MAPPING_CONFLICT',
     severity: 'P1',
     status: 'OPEN',
-    title: 'SKU映射冲突-重复绑定',
-    description: '渠道商品CP-TK-001的SKU映射与CP-TK-003冲突',
+    title: '规格映射冲突-重复绑定',
+    description: '渠道商品 CP-TK-001 的规格映射与 CP-TK-003 冲突',
     sourceType: 'CodeMapping',
     sourceId: 'MAP-20260114-001',
-    sourceName: 'SKU映射#MAP-001',
+    sourceName: '规格映射#MAP-001',
     projectId: null,
     projectName: null,
     owner: '张数据',
@@ -239,7 +239,7 @@ const RISK_SEEDS: RiskItem[] = [
     escalationEta: '8小时',
     site: null,
     channel: 'TikTok',
-    evidenceRefs: [{ type: '冲突详情', content: 'internal_sku=SKU-001 被 CP-TK-001 和 CP-TK-003 同时映射' }],
+    evidenceRefs: [{ type: '冲突详情', content: '内部规格编码 SKU-001 被 CP-TK-001 和 CP-TK-003 同时映射' }],
   },
   {
     id: 'RSK-20260114-006',
@@ -364,8 +364,8 @@ function getProcessPath(risk: RiskItem): string {
   if (risk.riskType === 'SAMPLE_IN_TRANSIT_UNRECEIVED') return '/pcs/samples/transfer'
   if (risk.riskType === 'SAMPLE_STOCK_MISMATCH') return '/pcs/samples/inventory'
   if (risk.riskType === 'STORE_AUTH_EXPIRED' || risk.riskType === 'STORE_AUTH_EXPIRING') return '/pcs/channels/stores'
-  if (risk.riskType === 'LISTING_FAILED' || risk.riskType === 'LISTING_TIMEOUT') return '/pcs/channels/products'
-  if (risk.riskType === 'MAPPING_CONFLICT' || risk.riskType === 'MAPPING_MISSING_SKU') return '/pcs/channels/products'
+  if (risk.riskType === 'LISTING_FAILED' || risk.riskType === 'LISTING_TIMEOUT') return '/pcs/products/channel-products'
+  if (risk.riskType === 'MAPPING_CONFLICT' || risk.riskType === 'MAPPING_MISSING_SKU') return '/pcs/products/channel-products'
   if (risk.riskType === 'TEST_ACCOUNTING_PENDING') {
     return risk.sourceType === 'LiveSession' ? '/pcs/testing/live' : '/pcs/testing/video'
   }

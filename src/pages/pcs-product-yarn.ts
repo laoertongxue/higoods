@@ -570,8 +570,9 @@ export function renderProductYarnPage(): string {
       <!-- 页面标题 -->
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold">原料档案 - 纱线</h1>
-          <p class="text-gray-500">管理纱线原料的基础档案、成分、规格与供应信息</p>
+          <p class="text-xs text-gray-500">物料档案 / 纱线档案</p>
+          <h1 class="mt-2 text-2xl font-bold">纱线档案</h1>
+          <p class="text-gray-500">管理跨款复用的纱线基础档案、成分、规格与供应信息。</p>
         </div>
         <div class="flex gap-2">
           <button data-yarn-action="open-drawer" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 flex items-center gap-2">

@@ -5,7 +5,11 @@ import {
 } from './process-craft-dict.ts'
 import type { GeneratedTaskArtifact } from './production-artifact-generation.ts'
 import { productionOrders } from './production-orders.ts'
-import { getTechPackBySpuCode, type TechPackBomItem, type TechPackPatternFile } from './tech-packs.ts'
+import {
+  getCompatTechPackBySpuCode as getTechPackBySpuCode,
+  type TechPackBomItem,
+  type TechPackPatternFile,
+} from '../pcs-technical-data-runtime-source.ts'
 
 export type TaskDetailRowType = 'COMPOSITE'
 

@@ -1,438 +1,127 @@
-import type { WorkItemTemplateConfig } from './types'
+import type { FieldGroup, WorkItemNature, WorkItemRuntimeType, WorkItemTemplateConfig } from './types.ts'
+import { getProjectPhaseNameByCode } from '../pcs-project-phase-definitions.ts'
+import { getStandardProjectWorkItemIdentityByCode } from './mappings.ts'
 
-export const projectWorkItemConfigs: Record<string, WorkItemTemplateConfig> = {
-"WI-001": {
-    id: "WI-001",
-    code: "PROJECT_INIT",
-    name: "商品项目立项",
-    type: "execute",
-    stage: "项目生命周期",
-    category: "项目生命周期",
-    role: "选品人/买手",
-    description: "定义并创建一个新的商品项目主体，为商品项目的创建起点。该工作项的输出数据将成为商品项目的长期主数据。",
+const BUILTIN_CREATED_AT = '2026-04-10 09:00'
+
+function buildFieldGroup(id: string, title: string, description: string, fields: FieldGroup['fields']): FieldGroup {
+  return { id, title, description, fields }
+}
+
+function buildBuiltinConfig(input: {
+  workItemTypeCode: string
+  workItemNature: WorkItemNature
+  type: WorkItemRuntimeType
+  categoryName: string
+  description: string
+  roleCodes: string[]
+  roleNames: string[]
+  fieldGroups: FieldGroup[]
+  businessRules: string[]
+  systemConstraints: string[]
+  capabilities?: Partial<WorkItemTemplateConfig['capabilities']>
+}): WorkItemTemplateConfig {
+  const identity = getStandardProjectWorkItemIdentityByCode(input.workItemTypeCode)
+  if (!identity) {
+    throw new Error(`未找到标准工作项定义：${input.workItemTypeCode}`)
+  }
+
+  const capabilities = {
+    canReuse: true,
+    canMultiInstance: false,
+    canRollback: false,
+    canParallel: false,
+    ...input.capabilities,
+  }
+
+  return {
+    id: identity.workItemId,
+    workItemId: identity.workItemId,
+    code: identity.workItemTypeCode,
+    workItemTypeCode: identity.workItemTypeCode,
+    name: identity.workItemTypeName,
+    workItemTypeName: identity.workItemTypeName,
+    phaseCode: identity.phaseCode,
+    defaultPhaseName: getProjectPhaseNameByCode(identity.phaseCode),
+    type: input.type,
+    workItemNature: input.workItemNature,
+    stage: getProjectPhaseNameByCode(identity.phaseCode),
+    category: input.categoryName,
+    categoryName: input.categoryName,
+    role: input.roleNames.join(' / '),
+    roleCodes: [...input.roleCodes],
+    roleNames: [...input.roleNames],
+    description: input.description,
     isBuiltin: true,
     isSelectable: true,
-    capabilities: {
-      canReuse: true,
-      canMultiInstance: false,
-      canRollback: false,
-      canParallel: false,
-    },
-    capabilityNotes: "商品项目立项在一个商品项目中只能存在一个有效实例，且一经完成不可回退。",
-    statusOptions: [
-      { value: "not_started", label: "未开始", color: "gray" },
-      { value: "completed", label: "已完成", color: "green" },
-      { value: "cancelled", label: "已作废", color: "red" },
-    ],
-    statusNotes: "一旦完成即生成商品项目主记录，不支持回退或重新执行。",
-    inputFields: [],
-    inputFieldsNotes: "该工作项无上一步输入字段，为商品项目的创建起点。",
-    fieldGroups: [
-      {
-        id: "basic-identity",
-        title: "基础识别信息",
-        fields: [
-          {
-            id: "project-name",
-            label: "项目名称",
-            type: "text",
-            required: true,
-            description: "商品项目的唯一识别名称",
-          },
-          {
-            id: "product-images",
-            label: "商品图片",
-            type: "image",
-            required: true,
-            description: "可多张，用于商品识别和展示",
-          },
-          {
-            id: "style-code",
-            label: "风格编号",
-            type: "text",
-            required: false,
-            description: "非必填，支持后补",
-          },
-        ],
-      },
-      {
-        id: "product-attributes",
-        title: "商品属性定义",
-        fields: [
-          {
-            id: "category",
-            label: "分类",
-            type: "cascade-select",
-            required: true,
-            description: "商品的一级分类",
-          },
-          {
-            id: "sub-category",
-            label: "二级分类",
-            type: "cascade-select",
-            required: true,
-            description: "联动一级分类",
-          },
-          {
-            id: "style-type",
-            label: "款式类型",
-            type: "single-select",
-            required: true,
-            description: "基础款 / 快速复制款 / 设计风格款 / 设计&改版款",
-          },
-          {
-            id: "season",
-            label: "季节",
-            type: "multi-select",
-            required: false,
-            description: "适用季节，可多选",
-          },
-          {
-            id: "year",
-            label: "年份",
-            type: "single-select",
-            required: false,
-            description: "商品年份",
-          },
-        ],
-      },
-      {
-        id: "product-positioning",
-        title: "商品定位信息",
-        fields: [
-          {
-            id: "style-tags",
-            label: "风格",
-            type: "multi-select",
-            required: true,
-            description: "商品风格标签，支持多选",
-          },
-          {
-            id: "target-audience",
-            label: "目标人群",
-            type: "multi-select",
-            required: false,
-            description: "目标消费人群",
-          },
-          {
-            id: "price-range",
-            label: "价格带",
-            type: "single-select",
-            required: true,
-            description: "商品价格定位区间",
-          },
-        ],
-      },
-      {
-        id: "brand-channel",
-        title: "品牌与渠道信息",
-        fields: [
-          {
-            id: "brand",
-            label: "品牌",
-            type: "single-select",
-            required: true,
-            description: "所属品牌",
-          },
-          {
-            id: "target-channels",
-            label: "目标销售渠道",
-            type: "multi-select",
-            required: true,
-            description: "目标投放的销售渠道，可多选",
-          },
-        ],
-      },
-      {
-        id: "sample-strategy",
-        title: "样衣策略定义",
-        fields: [
-          {
-            id: "sample-source",
-            label: "样衣获取方式",
-            type: "single-select",
-            required: true,
-            description: "外采 / 自打样 / 委托打样",
-          },
-          {
-            id: "sample-supplier",
-            label: "外采供应商/平台",
-            type: "text",
-            required: false,
-            conditionalRequired: "样衣获取方式=外采",
-            description: "当样衣获取方式=外采时必填",
-          },
-          {
-            id: "sample-link",
-            label: "外采链接",
-            type: "url",
-            required: false,
-            conditionalRequired: "样衣获取方式=外采",
-            description: "当样衣获取方式=外采时必填",
-          },
-          {
-            id: "sample-price",
-            label: "外采单价",
-            type: "number",
-            required: false,
-            conditionalRequired: "样衣获取方式=外采",
-            description: "当样衣获取方式=外采时必填",
-            unit: "元",
-          },
-        ],
-      },
-      {
-        id: "organization",
-        title: "组织与责任信息",
-        fields: [
-          {
-            id: "owner",
-            label: "负责人",
-            type: "user-select",
-            required: true,
-            description: "项目负责人",
-          },
-          {
-            id: "team",
-            label: "执行团队",
-            type: "team-select",
-            required: true,
-            description: "项目执行团队",
-          },
-          {
-            id: "collaborators",
-            label: "协作人",
-            type: "user-multi-select",
-            required: false,
-            description: "项目协作人员，可多选",
-          },
-        ],
-      },
-      {
-        id: "supplement",
-        title: "补充信息",
-        fields: [
-          {
-            id: "remark",
-            label: "备注",
-            type: "textarea",
-            required: false,
-            description: "项目补充说明",
-          },
-          {
-            id: "attachments",
-            label: "附件",
-            type: "file",
-            required: false,
-            description: "相关附件，支持多个",
-          },
-        ],
-      },
-    ],
+    isSelectableForTemplate: true,
+    enabledFlag: true,
+    capabilities,
+    fieldGroups: input.fieldGroups.map((group) => ({ ...group, fields: group.fields.map((field) => ({ ...field })) })),
+    businessRules: [...input.businessRules],
+    systemConstraints: [...input.systemConstraints],
     attachments: [],
-    businessRules: [
-      "项目名称在系统中必须唯一",
-      "商品图片至少上传1张",
-      "外采信息字段仅当样衣获取方式=外采时必填",
-      "负责人和执行团队为必填项",
-    ],
-    systemConstraints: [
-      "商品项目立项为商品项目的创建起点，执行后将生成商品项目主记录",
-      "该工作项在一个商品项目中只能存在一个有效实例",
-      "一经完成不可回退，不支持重新执行",
-      "输出字段将成为商品项目的长期主数据，部分字段支持后续修改",
-    ],
-    pageConstraints: [
-      "所有字段均在单页内完成填写",
-      "提交前需校验必填字段完整性",
-      "外采相关字段根据样衣获取方式动态显示/隐藏",
-    ],
-    interactionNotes: ["保存草稿后可继续编辑", "提交后自动创建商品项目主记录", "提交成功后跳转至商品项目详情页"],
-  },
-
-"WI-009": {
-    id: "WI-009",
-    code: "FEASIBILITY_REVIEW",
-    name: "初步可行性判断",
-    type: "decision",
-    stage: "立项阶段",
-    category: "商品项目工作项",
-    operationTarget: "商品项目 / 样衣资产",
-    role: "项目经理 / 设计师 / 运营",
-    description: "对商品项目或样衣资产进行早期可行性评估，决定是否继续推进大货。",
-    capabilities: {
-      canReuse: true,
-      canMultiInstance: true,
-      canRollback: true,
-      canParallel: true,
-    },
-    capabilityNotes: "同一商品项目可存在多次可行性判断记录，每条独立，可回退。",
-    fieldGroups: [
-      {
-        id: "basic-info",
-        title: "A. 关联信息",
-        description: "评估对象关联",
-        fields: [
-          {
-            id: "related-project",
-            label: "关联商品项目",
-            type: "reference",
-            required: true,
-            description: "评估所属商品项目",
-          },
-          {
-            id: "related-sample-id",
-            label: "关联样衣编号",
-            type: "text",
-            required: false,
-            description: "可选，针对具体样衣进行评估",
-          },
-        ],
-      },
-      {
-        id: "evaluation",
-        title: "B. 评估内容",
-        description: "可行性判断核心字段",
-        fields: [
-          {
-            id: "evaluation-dimension",
-            label: "判断维度",
-            type: "textarea",
-            required: false,
-            description: "评估内容描述",
-            rows: 3,
-          },
-          {
-            id: "feasibility-conclusion",
-            label: "可行性结论",
-            type: "select",
-            required: true,
-            description: "最终可行性结论",
-            options: [
-              { value: "pass", label: "通过" },
-              { value: "pending", label: "暂缓" },
-              { value: "reject", label: "否决" },
-            ],
-          },
-          {
-            id: "judgment-description",
-            label: "判断说明",
-            type: "textarea",
-            required: true,
-            description: "详细说明评估结果",
-            rows: 4,
-          },
-          {
-            id: "evaluation-participants",
-            label: "参与评估角色",
-            type: "user-reference",
-            required: false,
-            description: "参与判断人员",
-          },
-        ],
-      },
-      {
-        id: "approval",
-        title: "C. 审批信息",
-        description: "条件显示的审批字段",
-        fields: [
-          {
-            id: "approval-status",
-            label: "审批状态",
-            type: "select",
-            required: false,
-            conditionalRequired: "当需要审批流程时必填",
-            description: "审批流程状态",
-            options: [
-              { value: "pending", label: "待审批" },
-              { value: "approved", label: "已通过" },
-              { value: "rejected", label: "已拒绝" },
-            ],
-          },
-          {
-            id: "approver",
-            label: "审批人",
-            type: "user-reference",
-            required: false,
-            conditionalRequired: "当需要审批流程时必填",
-            description: "审批流程中填写",
-          },
-        ],
-      },
-      {
-        id: "audit",
-        title: "D. 审计字段",
-        description: "系统自动维护",
-        isAuditGroup: true,
-        fields: [
-          {
-            id: "created-by",
-            label: "创建人",
-            type: "system",
-            required: false,
-            readonly: true,
-            description: "系统自动记录",
-          },
-          {
-            id: "created-at",
-            label: "创建时间",
-            type: "system",
-            required: false,
-            readonly: true,
-            description: "系统自动记录",
-          },
-          {
-            id: "updated-by",
-            label: "最后修改人",
-            type: "system",
-            required: false,
-            readonly: true,
-            description: "系统自动记录",
-          },
-          {
-            id: "updated-at",
-            label: "最后修改时间",
-            type: "system",
-            required: false,
-            readonly: true,
-            description: "系统自动记录",
-          },
-          {
-            id: "operation-log",
-            label: "操作日志",
-            type: "system",
-            required: false,
-            readonly: true,
-            description: "状态变更记录",
-          },
-        ],
-      },
-    ],
-    statusDefinitions: [
-      { value: "draft", label: "草稿", color: "gray" },
-      { value: "pending-approval", label: "待审批", color: "yellow" },
-      { value: "completed", label: "已完成", color: "green" },
-      { value: "voided", label: "作废", color: "red" },
-    ],
-    statusFlow: [
-      { from: "draft", to: "pending-approval", action: "提交审批" },
-      { from: "pending-approval", to: "completed", action: "审批通过" },
-      { from: "pending-approval", to: "draft", action: "退回修改" },
-      { from: "completed", to: "voided", action: "作废" },
-      { from: "draft", to: "voided", action: "作废" },
-    ],
-    rollbackRules: ["已完成判断可回退为草稿或待审批", "保留审计记录", "任意状态可回退/作废（视权限）"],
-    systemConstraints: [
-      "同一商品项目可存在多条判断记录",
-      "仅最新一次有效判断作为项目推进参考",
-      "可关联样衣资产进行特定评估",
-      "工作项可独立存在或绑定商品项目",
-    ],
-    uiSuggestions: [
-      "项目页面：显示所有可行性判断记录",
-      "样衣资产页面：显示关联判断记录",
-      "条件字段动态显示（如审批字段）",
-      "支持多实例并行操作",
-    ],
+    interactionNotes: [],
+    createdAt: BUILTIN_CREATED_AT,
+    updatedAt: BUILTIN_CREATED_AT,
   }
+}
+
+export const projectWorkItemConfigs: Record<string, WorkItemTemplateConfig> = {
+  'WI-001': buildBuiltinConfig({
+    workItemTypeCode: 'PROJECT_INIT',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '项目启动',
+    description: '沉淀商品项目立项主数据，作为项目主记录的创建来源。',
+    roleCodes: ['project-owner', 'product-manager'],
+    roleNames: ['项目负责人', '商品负责人'],
+    fieldGroups: [
+      buildFieldGroup('project-basic', '项目立项信息', '沉淀立项基础信息。', [
+        { id: 'project-name', label: '项目名称', type: 'text', required: true, description: '商品项目正式名称' },
+        { id: 'template-id', label: '项目模板', type: 'reference', required: true, description: '所选模板' },
+        { id: 'owner', label: '负责人', type: 'user-select', required: true, description: '项目负责人' },
+      ]),
+    ],
+    businessRules: ['一个商品项目只能存在一个有效的商品项目立项节点。'],
+    systemConstraints: ['完成后生成项目主记录。'],
+    capabilities: { canReuse: false },
+  }),
+  'WI-002': buildBuiltinConfig({
+    workItemTypeCode: 'SAMPLE_ACQUIRE',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '样衣来源',
+    description: '登记样衣来源方式、来源方和成本信息。',
+    roleCodes: ['buyer', 'sample-coordinator'],
+    roleNames: ['采购', '样衣专员'],
+    fieldGroups: [
+      buildFieldGroup('sample-source', '样衣获取信息', '记录样衣获取来源。', [
+        { id: 'sample-source-type', label: '样衣来源方式', type: 'single-select', required: true, description: '外采 / 自打样 / 委托打样' },
+        { id: 'supplier', label: '样衣来源方', type: 'reference', required: false, description: '来源供应方' },
+        { id: 'sample-link', label: '外采链接', type: 'url', required: false, description: '外采时填写' },
+      ]),
+    ],
+    businessRules: ['外采场景至少填写外采链接或样衣单价。'],
+    systemConstraints: ['允许在不同项目中重复复用样衣获取记录。'],
+    capabilities: { canMultiInstance: true, canRollback: true, canParallel: true },
+  }),
+  'WI-003': buildBuiltinConfig({
+    workItemTypeCode: 'SAMPLE_INBOUND_CHECK',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '样衣核对',
+    description: '确认到样信息、样衣编号和实物状态。',
+    roleCodes: ['sample-admin', 'warehouse'],
+    roleNames: ['样衣管理员', '仓储'],
+    fieldGroups: [
+      buildFieldGroup('sample-check', '到样核对', '记录样衣入库与核对结果。', [
+        { id: 'sample-code', label: '样衣编号', type: 'text', required: false, readonly: true, description: '系统编号' },
+        { id: 'arrival-time', label: '到样时间', type: 'datetime', required: false, description: '实际到样时间' },
+        { id: 'check-result', label: '核对结果', type: 'textarea', required: false, description: '核对说明' },
+      ]),
+    ],
+    businessRules: ['样衣入库后方可进入样衣评估阶段。'],
+    systemConstraints: ['未完成到样核对前，后续样衣评估节点保持未开始。'],
+  }),
 }

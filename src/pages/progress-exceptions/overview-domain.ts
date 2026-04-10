@@ -84,7 +84,7 @@ export function renderActionMenu(exc: ExceptionCase): string {
 
               ${
                 exc.reasonCode === 'TECH_PACK_NOT_RELEASED'
-                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-tech-pack" data-case-id="${escapeAttr(exc.caseId)}" data-pe-stop="true"><i data-lucide="file-text" class="mr-2 h-4 w-4"></i>进入技术包</button>`
+                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-pe-action="row-tech-pack" data-case-id="${escapeAttr(exc.caseId)}" data-pe-stop="true"><i data-lucide="file-text" class="mr-2 h-4 w-4"></i>查看技术资料</button>`
                   : ''
               }
 
@@ -283,7 +283,7 @@ export function renderCategoryQuickSwitch(): string {
     { key: 'ALL', label: '全部' },
     { key: 'ASSIGNMENT', label: '分配异常' },
     { key: 'EXECUTION', label: '执行异常' },
-    { key: 'TECH_PACK', label: '技术包异常' },
+    { key: 'TECH_PACK', label: '技术资料异常' },
     { key: 'MATERIAL', label: '领料异常' },
     { key: 'HANDOUT', label: '交出异常' },
   ]
@@ -356,7 +356,7 @@ export function renderFilters(): string {
           <option value="ALL" ${state.categoryFilter === 'ALL' ? 'selected' : ''}>全部分类</option>
           <option value="ASSIGNMENT" ${state.categoryFilter === 'ASSIGNMENT' ? 'selected' : ''}>分配异常</option>
           <option value="EXECUTION" ${state.categoryFilter === 'EXECUTION' ? 'selected' : ''}>执行异常</option>
-          <option value="TECH_PACK" ${state.categoryFilter === 'TECH_PACK' ? 'selected' : ''}>技术包异常</option>
+          <option value="TECH_PACK" ${state.categoryFilter === 'TECH_PACK' ? 'selected' : ''}>技术资料异常</option>
           <option value="MATERIAL" ${state.categoryFilter === 'MATERIAL' ? 'selected' : ''}>领料异常</option>
           <option value="HANDOUT" ${state.categoryFilter === 'HANDOUT' ? 'selected' : ''}>交出异常</option>
         </select>

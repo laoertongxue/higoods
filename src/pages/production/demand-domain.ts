@@ -89,7 +89,7 @@ function renderDemandDetailDrawer(): string {
           <div class="h-px bg-border"></div>
 
           <section>
-            <h4 class="mb-3 font-medium">技术包信息</h4>
+            <h4 class="mb-3 font-medium">技术资料快照</h4>
             <div class="space-y-3">
               <div class="flex items-center gap-2">
                 ${renderBadge(
@@ -259,7 +259,7 @@ function renderDemandBatchGenerateDialog(): string {
                   <tr class="border-b">
                     <th class="px-3 py-2 text-left">需求编号</th>
                     <th class="px-3 py-2 text-left">SPU</th>
-                    <th class="px-3 py-2 text-left">技术包</th>
+                    <th class="px-3 py-2 text-left">技术资料</th>
                     <th class="px-3 py-2 text-right">数量</th>
                   </tr>
                 </thead>
@@ -392,7 +392,7 @@ function renderOrdersFromDemandDialog(): string {
       <section class="absolute left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">从需求生成</h3>
-          <p class="mt-1 text-sm text-muted-foreground">仅支持已发布技术包且状态为待转单的需求</p>
+          <p class="mt-1 text-sm text-muted-foreground">仅支持已发布技术资料版本且状态为待转单的需求</p>
         </header>
 
         <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
@@ -406,7 +406,7 @@ function renderOrdersFromDemandDialog(): string {
                     </th>
                     <th class="px-3 py-2 text-left">需求编号</th>
                     <th class="px-3 py-2 text-left">SPU</th>
-                    <th class="px-3 py-2 text-left">技术包</th>
+                    <th class="px-3 py-2 text-left">技术资料</th>
                     <th class="px-3 py-2 text-right">数量</th>
                   </tr>
                 </thead>
@@ -468,7 +468,7 @@ function renderDemandConfirmDialog(): string {
       <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">确认生成</h3>
-          <p class="mt-1 text-sm text-muted-foreground">仅已发布技术包的需求可生成生产单，待完善技术包请先完善并发布。</p>
+          <p class="mt-1 text-sm text-muted-foreground">仅已发布技术资料版本的需求可生成生产单，待补建技术资料请先在商品中心维护并发布。</p>
         </header>
         <footer class="flex items-center justify-end gap-2 px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-demand-generate-confirm">取消</button>
@@ -563,7 +563,7 @@ export function renderProductionDemandInboxPage(): string {
             </select>
           </label>
           <label class="space-y-1">
-            <span class="text-xs text-muted-foreground">技术包状态</span>
+            <span class="text-xs text-muted-foreground">技术资料状态</span>
             <select data-prod-field="demandTechPackFilter" class="mt-1 w-full rounded-md border px-3 py-2 text-sm">
               <option value="ALL" ${state.demandTechPackFilter === 'ALL' ? 'selected' : ''}>全部</option>
               <option value="INCOMPLETE" ${
@@ -614,7 +614,7 @@ export function renderProductionDemandInboxPage(): string {
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">SPU</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">优先级</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
-              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">技术包</th>
+              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">技术资料</th>
               <th class="bg-muted/50 px-3 py-3 text-right text-xs font-medium text-muted-foreground">数量</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">交付日期</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">生产单</th>

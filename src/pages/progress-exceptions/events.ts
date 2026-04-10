@@ -36,6 +36,12 @@ import {
   showProgressExceptionsToast,
   openLinkedPage,
 } from './actions'
+import { resolveTechnicalDataEntryBySpuCode } from '../../data/pcs-technical-data-entry-resolver.ts'
+
+function openTechnicalCompatibilityBySpuCode(spuCode: string): void {
+  const target = resolveTechnicalDataEntryBySpuCode(spuCode)
+  openLinkedPage(target.targetTitle, target.targetPath)
+}
 
 function syncClaimDisputeHandleForm(caseId: string | null): void {
   if (!caseId) {
@@ -251,7 +257,7 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
     if (!exc) return true
     const firstOrder = exc.relatedOrderIds[0] ? getOrderById(exc.relatedOrderIds[0]) : null
     if (firstOrder) {
-      openLinkedPage('技术包', `/fcs/tech-pack/${encodeURIComponent(firstOrder.demandSnapshot.spuCode)}`)
+      openTechnicalCompatibilityBySpuCode(firstOrder.demandSnapshot.spuCode)
     }
     state.rowActionMenuCaseId = null
     return true
@@ -310,7 +316,7 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
     if (!exc) return true
     const firstOrder = exc.relatedOrderIds[0] ? getOrderById(exc.relatedOrderIds[0]) : null
     if (firstOrder) {
-      openLinkedPage('技术包', `/fcs/tech-pack/${encodeURIComponent(firstOrder.demandSnapshot.spuCode)}`)
+      openTechnicalCompatibilityBySpuCode(firstOrder.demandSnapshot.spuCode)
     }
     return true
   }

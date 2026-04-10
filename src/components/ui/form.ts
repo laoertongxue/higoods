@@ -6,8 +6,8 @@ import type {
   TextareaConfig,
   CheckboxConfig,
   FormFieldConfig,
-} from './types'
-import { toFieldAttr, toFilterAttr } from './types'
+} from './types.ts'
+import { toFieldAttr, toFilterAttr } from './types.ts'
 
 /**
  * HTML 转义

@@ -3,19 +3,20 @@ import {
   formatPatternSpec,
   getPatternBySelectionKey,
   state,
-} from './context'
+} from './context.ts'
 
 export function renderPatternTab(): string {
   const bomById = new Map(state.bomItems.map((item) => [item.id, item]))
+  const readonly = state.compatibilityMode
 
   return `
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
-        <h3 class="text-base font-semibold">纸样</h3>
-        <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern">
+        <h3 class="text-base font-semibold">纸样管理</h3>
+        ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
           添加纸样
-        </button>
+        </button>`}
       </header>
       <div class="p-4">
         ${
@@ -75,15 +76,15 @@ export function renderPatternTab(): string {
                           <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(item.remark || '-')}</td>
                           <td class="px-3 py-2">
                             <div class="flex items-center gap-1">
-                              <button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
+                              ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="edit-2" class="h-4 w-4"></i>
-                              </button>
+                              </button>`}
                               <button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">
                                 <i data-lucide="eye" class="h-4 w-4"></i>
                               </button>
-                              <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-pattern" data-pattern-id="${item.id}">
+                              ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="trash-2" class="h-4 w-4"></i>
-                              </button>
+                              </button>`}
                             </div>
                           </td>
                         </tr>
@@ -236,7 +237,7 @@ export function renderPatternFormDialog(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-sm">关联物料（BOM）</span>
+              <span class="text-sm">关联物料（物料清单）</span>
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-linked-bom-item">
                 <option value="">请选择关联物料</option>
                 ${bomOptions
@@ -329,4 +330,3 @@ export function renderPatternFormDialog(): string {
     </div>
   `
 }
-

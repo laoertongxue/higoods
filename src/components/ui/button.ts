@@ -1,8 +1,8 @@
 // ============ 按钮组件 ============
 
-import { escapeHtml } from '../../utils'
-import { toActionAttr } from './types'
-import type { ButtonConfig, ButtonVariant, ButtonSize, ActionConfig } from './types'
+import { escapeHtml } from '../../utils.ts'
+import { toActionAttr } from './types.ts'
+import type { ButtonConfig, ButtonVariant, ButtonSize, ActionConfig } from './types.ts'
 
 // 按钮变体样式映射
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {

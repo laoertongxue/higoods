@@ -88,11 +88,12 @@ function renderHeader(detail: ProductDetail): string {
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="go-list">
             <i data-lucide="arrow-left" class="mr-1 h-3.5 w-3.5"></i>返回列表
           </button>
+          <p class="text-xs text-muted-foreground">商品档案 / 渠道商品</p>
           <div class="flex flex-wrap items-center gap-2">
             <h1 class="text-xl font-semibold">${escapeHtml(detail.platformItemTitle)}</h1>
             <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${statusMeta.color}">${statusMeta.label}</span>
           </div>
-          <p class="text-sm text-muted-foreground">${escapeHtml(detail.channel)} / ${escapeHtml(detail.store)} ｜ 平台ID ${escapeHtml(detail.platformItemId)} ｜ 绑定 ${escapeHtml(detail.internalRefCode)}</p>
+          <p class="text-sm text-muted-foreground">${escapeHtml(detail.channel)} / ${escapeHtml(detail.store)} ｜ 平台ID ${escapeHtml(detail.platformItemId)} ｜ 挂接 ${escapeHtml(detail.internalRefCode)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
           ${
@@ -102,10 +103,10 @@ function renderHeader(detail: ProductDetail): string {
           }
           ${
             detail.internalRefType === 'CANDIDATE'
-              ? '<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="open-switch-spu"><i data-lucide="refresh-cw" class="mr-1 h-3.5 w-3.5"></i>切换绑定到SPU</button>'
+              ? '<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="open-switch-spu"><i data-lucide="refresh-cw" class="mr-1 h-3.5 w-3.5"></i>切换绑定到款式档案</button>'
               : ''
           }
-          <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="go-mapping"><i data-lucide="map" class="mr-1 h-3.5 w-3.5"></i>映射管理</button>
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="go-mapping"><i data-lucide="map" class="mr-1 h-3.5 w-3.5"></i>渠道属性对应</button>
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="go-store-view"><i data-lucide="store" class="mr-1 h-3.5 w-3.5"></i>店铺视图</button>
         </div>
       </div>
@@ -149,7 +150,7 @@ function renderOverview(detail: ProductDetail): string {
         <p class="text-xs text-muted-foreground">链路提醒</p>
         <div class="mt-2 space-y-1 text-muted-foreground">
           <p>渠道商品详情承接：变体映射、上架实例、订单追溯、日志审计。</p>
-          <p>若映射异常，请前往“编码映射管理”修复。</p>
+          <p>若挂接异常，请前往“渠道属性对应”修复。</p>
         </div>
       </article>
     </section>
@@ -163,11 +164,11 @@ function renderVariants(): string {
         <table class="w-full min-w-[980px] text-sm">
           <thead>
             <tr class="border-b bg-muted/30 text-left text-muted-foreground">
-              <th class="px-3 py-2 font-medium">平台SKU</th>
-              <th class="px-3 py-2 font-medium">卖家SKU</th>
+              <th class="px-3 py-2 font-medium">平台规格编码</th>
+              <th class="px-3 py-2 font-medium">卖家规格编码</th>
               <th class="px-3 py-2 font-medium">规格</th>
               <th class="px-3 py-2 text-right font-medium">价格</th>
-              <th class="px-3 py-2 font-medium">内部SKU</th>
+              <th class="px-3 py-2 font-medium">内部规格编码</th>
               <th class="px-3 py-2 font-medium">映射状态</th>
               <th class="px-3 py-2 font-medium">操作</th>
             </tr>
@@ -183,7 +184,7 @@ function renderVariants(): string {
                   <td class="px-3 py-3">${escapeHtml(variant.internalSkuId ?? '-')}</td>
                   <td class="px-3 py-3"><span class="inline-flex rounded-full px-2 py-0.5 text-xs ${MAP_STATUS_META[variant.mapStatus].color}">${MAP_STATUS_META[variant.mapStatus].label}</span></td>
                   <td class="px-3 py-3">
-                    <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="open-bind-sku" data-variant-id="${escapeHtml(variant.id)}">绑定SKU</button>
+                    <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="open-bind-sku" data-variant-id="${escapeHtml(variant.id)}">绑定规格</button>
                   </td>
                 </tr>
               `,
@@ -242,8 +243,8 @@ function renderOrders(): string {
               <th class="px-3 py-2 text-right font-medium">数量</th>
               <th class="px-3 py-2 text-right font-medium">金额</th>
               <th class="px-3 py-2 font-medium">下单时间</th>
-              <th class="px-3 py-2 font-medium">平台SKU</th>
-              <th class="px-3 py-2 font-medium">映射SKU</th>
+              <th class="px-3 py-2 font-medium">平台规格编码</th>
+              <th class="px-3 py-2 font-medium">对应规格编码</th>
             </tr>
           </thead>
           <tbody>
@@ -334,14 +335,14 @@ function renderSwitchSpuDialog(): string {
 
   const formContent = `
     <div>
-      <label class="mb-1 block text-xs text-muted-foreground">目标SPU编码</label>
-      <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：SPU-20260115-001" value="${escapeHtml(state.targetSpu)}" data-pcs-channel-product-detail-field="target-spu" />
+      <label class="mb-1 block text-xs text-muted-foreground">目标款式编码</label>
+      <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：STYLE-20260409-001" value="${escapeHtml(state.targetSpu)}" data-pcs-channel-product-detail-field="target-spu" />
     </div>
   `
 
   return renderFormDialog(
     {
-      title: '切换绑定到SPU',
+      title: '切换绑定到款式档案',
       description: '用于候选商品转档后更新内部绑定。',
       closeAction: { prefix: 'pcs-channel-product-detail', action: 'close-switch-spu' },
       submitAction: { prefix: 'pcs-channel-product-detail', action: 'confirm-switch-spu', label: '确认切换' },
@@ -356,14 +357,14 @@ function renderBindSkuDialog(): string {
 
   const formContent = `
     <div>
-      <label class="mb-1 block text-xs text-muted-foreground">目标SKU编码</label>
-      <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="如：SKU-001" value="${escapeHtml(state.targetSku)}" data-pcs-channel-product-detail-field="target-sku" />
+      <label class="mb-1 block text-xs text-muted-foreground">目标规格编码</label>
+      <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="请输入内部规格编码" value="${escapeHtml(state.targetSku)}" data-pcs-channel-product-detail-field="target-sku" />
     </div>
   `
 
   return renderFormDialog(
     {
-      title: '绑定内部SKU',
+      title: '绑定内部规格',
       description: `变体：${escapeHtml(state.bindSkuDialog.variantId ?? '-')}`,
       closeAction: { prefix: 'pcs-channel-product-detail', action: 'close-bind-sku' },
       submitAction: { prefix: 'pcs-channel-product-detail', action: 'confirm-bind-sku', label: '确认绑定' },
@@ -416,17 +417,17 @@ export function handlePcsChannelProductDetailEvent(target: HTMLElement): boolean
   if (!action) return false
 
   if (action === 'go-list') {
-    appStore.navigate('/pcs/channels/products')
+    appStore.navigate('/pcs/products/channel-products')
     return true
   }
 
   if (action === 'go-mapping') {
-    appStore.navigate('/pcs/channels/products/mapping')
+    appStore.navigate('/pcs/products/channel-attributes')
     return true
   }
 
   if (action === 'go-store-view') {
-    appStore.navigate('/pcs/channels/products/store')
+    appStore.navigate('/pcs/products/channel-products/store')
     return true
   }
 
@@ -476,7 +477,7 @@ export function handlePcsChannelProductDetailEvent(target: HTMLElement): boolean
 
   if (action === 'confirm-switch-spu') {
     if (!state.targetSpu.trim()) {
-      state.notice = '请先填写目标SPU编码。'
+      state.notice = '请先填写目标款式编码。'
       return true
     }
     state.switchSpuDialogOpen = false
@@ -500,7 +501,7 @@ export function handlePcsChannelProductDetailEvent(target: HTMLElement): boolean
 
   if (action === 'confirm-bind-sku') {
     if (!state.targetSku.trim()) {
-      state.notice = '请先填写目标SKU编码。'
+      state.notice = '请先填写目标规格编码。'
       return true
     }
     state.notice = `${state.bindSkuDialog.variantId ?? ''} 已绑定 ${state.targetSku}（演示态）。`

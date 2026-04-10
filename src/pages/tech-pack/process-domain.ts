@@ -11,10 +11,11 @@ import {
   stageCodeToName,
   stageOptions,
   state,
-} from './context'
-import type { TechniqueItem } from './context'
+} from './context.ts'
+import type { TechniqueItem } from './context.ts'
 
 export function renderProcessTechniqueCard(item: TechniqueItem): string {
+  const readonly = state.compatibilityMode
   const canEdit = canEditTechnique(item)
   const canDelete = !isBomDrivenPrepTechnique(item)
   const referenceValueText =
@@ -34,14 +35,14 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
         </div>
         <div class="flex items-center gap-1">
           ${
-            canEdit
+            canEdit && !readonly
               ? `<button class="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-technique" data-tech-id="${item.id}">
                   <i data-lucide="edit-2" class="h-3.5 w-3.5"></i>
                 </button>`
               : ''
           }
           ${
-            canDelete
+            canDelete && !readonly
               ? `<button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${item.id}">
                   <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                 </button>`
@@ -73,6 +74,7 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
               type="number"
               class="h-8 w-28 rounded-md border px-2 text-sm"
               value="${item.standardTime}"
+              ${readonly ? 'disabled' : ''}
               data-tech-field="tech-standard-time"
               data-tech-id="${item.id}"
             />
@@ -84,7 +86,7 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
         </label>
         <label class="space-y-1">
           <span class="text-xs text-muted-foreground">难度辅助说明</span>
-          <select class="mt-1 h-8 w-full rounded-md border px-2 text-sm" data-tech-field="tech-difficulty" data-tech-id="${item.id}">
+          <select class="mt-1 h-8 w-full rounded-md border px-2 text-sm" data-tech-field="tech-difficulty" data-tech-id="${item.id}" ${readonly ? 'disabled' : ''}>
             ${difficultyOptions.map((option) => `<option value="${option}" ${item.difficulty === option ? 'selected' : ''}>${option}</option>`).join('')}
           </select>
           <p class="text-[11px] leading-4 text-muted-foreground">难度仅作为解释项，不替代当前款发布工时 SAM 基线。</p>
@@ -94,6 +96,7 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
           <input
             class="mt-1 h-8 w-full rounded-md border px-2 text-sm"
             value="${escapeHtml(item.remark)}"
+            ${readonly ? 'disabled' : ''}
             data-tech-field="tech-remark"
             data-tech-id="${item.id}"
             placeholder="可填写补充说明"
@@ -105,12 +108,13 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
 }
 
 export function renderProcessTab(): string {
+  const readonly = state.compatibilityMode
   return `
     <section class="space-y-4">
       <header class="rounded-lg border bg-card px-4 py-3">
-        <h3 class="text-base font-semibold">工序</h3>
+        <h3 class="text-base font-semibold">工序工艺</h3>
         <p class="mt-1 text-sm text-muted-foreground">阶段 → 工序 → 工艺</p>
-        <p class="mt-2 text-xs leading-5 text-slate-600">这里维护的是当前这款技术包下各工序/工艺的发布工时 SAM 基线。工艺字典只提供理论参考值和默认推荐单位，不代表当前款最终发布值。</p>
+        <p class="mt-2 text-xs leading-5 text-slate-600">这里维护的是当前这款技术资料版本下各工序/工艺的发布工时 SAM 基线。工艺字典只提供理论参考值和默认推荐单位，不代表当前款最终发布值。</p>
       </header>
       <div class="space-y-6">
         ${stageOptions
@@ -122,7 +126,7 @@ export function renderProcessTab(): string {
                 <header class="flex items-center justify-between px-4 py-3">
                   <h4 class="text-base font-semibold">${escapeHtml(stage)}</h4>
                   ${
-                    allowAddTechnique
+                    allowAddTechnique && !readonly
                       ? `<button
                           class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
                           data-tech-action="open-add-technique"
@@ -141,7 +145,7 @@ export function renderProcessTab(): string {
                         <div class="space-y-2 py-6 text-center text-muted-foreground">
                           <p class="text-sm">暂无工序工艺</p>
                           ${
-                            allowAddTechnique
+                            allowAddTechnique && !readonly
                               ? `<button
                                   class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted"
                                   data-tech-action="open-add-technique"

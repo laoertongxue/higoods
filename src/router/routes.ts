@@ -8,6 +8,7 @@ import { renderPcsOverviewPage } from '../pages/pcs-workspace-overview'
 import { renderPcsTodosPage } from '../pages/pcs-workspace-todos'
 import { renderPcsAlertsPage } from '../pages/pcs-workspace-alerts'
 import { renderPcsProjectsPage } from '../pages/pcs-projects'
+import { renderPcsProjectCreatePage } from '../pages/pcs-project-create'
 import { renderPcsTemplatesPage } from '../pages/pcs-templates'
 import { renderPcsWorkItemsPage } from '../pages/pcs-work-items'
 import {
@@ -22,6 +23,7 @@ import {
 import { renderPcsWorkItemDetailPage } from '../pages/pcs-work-item-detail'
 import { renderPcsProjectDetailPage } from '../pages/pcs-project-detail'
 import { renderPcsProjectWorkItemDetailPage } from '../pages/pcs-project-work-item-detail'
+import { renderPcsProjectArchivePage } from '../pages/pcs-project-archive'
 import { renderPcsLiveSessionsPage } from '../pages/pcs-testing-live'
 import { renderPcsLiveSessionDetailPage } from '../pages/pcs-testing-live-detail'
 import { renderPcsVideoRecordsPage } from '../pages/pcs-testing-video'
@@ -56,7 +58,17 @@ import { renderFactoryStatusPage } from '../pages/factory-status'
 import { renderFactoryPerformancePage } from '../pages/factory-performance'
 import { renderProductSpuPage } from '../pages/pcs-product-spu'
 import { renderProductSkuPage } from '../pages/pcs-product-sku'
-import { renderProductYarnPage } from '../pages/pcs-product-yarn'
+import { renderPcsProductStyleDetailPage } from '../pages/pcs-product-style-detail'
+import {
+  renderPcsCodingRulesPage,
+  renderPcsCostParametersPage,
+} from '../pages/pcs-domain-pages'
+import {
+  renderPcsMaterialArchiveDetailPage,
+  renderPcsMaterialArchiveEditorPage,
+  renderPcsMaterialArchiveListPage,
+} from '../pages/pcs-material-archives'
+import type { MaterialArchiveKind } from '../data/pcs-material-archives'
 import { renderConfigWorkspacePage } from '../pages/pcs-config-workspace'
 import { renderPlatformConfigPage } from '../pages/pcs-platform-config'
 import { renderSettlementDetailPage, renderSettlementInitPage, renderSettlementListPage } from '../pages/settlement'
@@ -196,6 +208,8 @@ function normalizePathname(pathname: string): string {
 
 const exactRoutes: Record<string, RouteRenderer> = {
   '/': () => renderOverviewPage(),
+  '/pcs': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
+  '/pcs/workspace': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
   '/fcs/factories/profile': () => renderFactoryProfilePage(),
   '/fcs/factories/capacity-profile': () => renderFactoryCapacityProfilePage(),
   '/fcs/factories/capability': () => renderCapabilityPage(),
@@ -208,15 +222,19 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/workspace/todos': () => renderPcsTodosPage(),
   '/pcs/workspace/alerts': () => renderPcsAlertsPage(),
   '/pcs/projects': () => renderPcsProjectsPage(),
+  '/pcs/projects/create': () => renderPcsProjectCreatePage(),
   '/pcs/templates': () => renderPcsTemplatesPage(),
   '/pcs/templates/new': () => renderPcsTemplateCreatePage(),
   '/pcs/work-items': () => renderPcsWorkItemsPage(),
   '/pcs/work-items/new': () => renderPcsWorkItemCreatePage(),
   '/pcs/testing/live': () => renderPcsLiveSessionsPage(),
   '/pcs/testing/video': () => renderPcsVideoRecordsPage(),
-  '/pcs/channels/products': () => renderPcsChannelProductsPage(),
-  '/pcs/channels/products/mapping': () => renderPcsChannelProductMappingPage(),
-  '/pcs/channels/products/store': () => renderPcsChannelProductStoreViewPage(),
+  '/pcs/channels/products': () =>
+    renderRouteRedirect('/pcs/products/channel-products', '正在跳转到渠道商品'),
+  '/pcs/channels/products/mapping': () =>
+    renderRouteRedirect('/pcs/products/channel-attributes', '正在跳转到渠道属性对应'),
+  '/pcs/channels/products/store': () =>
+    renderRouteRedirect('/pcs/products/channel-products/store', '正在跳转到渠道商品店铺视图'),
   '/pcs/channels/stores': () => renderPcsChannelStoresPage(),
   '/pcs/channels/stores/sync': () => renderPcsChannelStoreSyncPage(),
   '/pcs/channels/stores/payout-accounts': () => renderPcsChannelStorePayoutAccountsPage(),
@@ -226,9 +244,12 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/samples/return': () => renderSampleReturnPage(),
   '/pcs/samples/application': () => renderSampleApplicationPage(),
   '/pcs/samples/view': () => renderSampleViewPage(),
-  '/pcs/samples/first-order': () => renderFirstOrderSamplePage(),
+  '/pcs/samples/first-sample': () => renderFirstOrderSamplePage(),
+  '/pcs/samples/first-order': () =>
+    renderRouteRedirect('/pcs/samples/first-sample', '正在跳转到首版样衣打样'),
   '/pcs/samples/pre-production': () => renderPreProductionSamplePage(),
-  '/pcs/production/pre-check': () => renderPreProductionSamplePage(),
+  '/pcs/production/pre-check': () =>
+    renderRouteRedirect('/pcs/samples/pre-production', '正在跳转到产前版样衣'),
   '/pcs/patterns': () => renderPlateMakingPage(),
   '/pcs/patterns/part-templates': () => renderPcsPartTemplateLibraryPage(),
   '/pcs/patterns/colors': () => renderPatternTaskPage(),
@@ -238,9 +259,27 @@ const exactRoutes: Record<string, RouteRenderer> = {
   '/pcs/pattern-library': () => renderPcsPatternLibraryPage(),
   '/pcs/pattern-library/create': () => renderPcsPatternLibraryCreatePage(),
   '/pcs/pattern-library/config': () => renderPcsPatternLibraryConfigPage(),
-  '/pcs/products/spu': () => renderProductSpuPage(),
-  '/pcs/products/sku': () => renderProductSkuPage(),
-  '/pcs/products/yarn': () => renderProductYarnPage(),
+  '/pcs/products/styles': () => renderProductSpuPage(),
+  '/pcs/products/specifications': () => renderProductSkuPage(),
+  '/pcs/products/channel-products': () => renderPcsChannelProductsPage(),
+  '/pcs/products/channel-products/store': () => renderPcsChannelProductStoreViewPage(),
+  '/pcs/products/channel-attributes': () => renderPcsChannelProductMappingPage(),
+  '/pcs/products/coding-rules': () => renderPcsCodingRulesPage(),
+  '/pcs/products/spu': () =>
+    renderRouteRedirect('/pcs/products/styles', '正在跳转到款式档案'),
+  '/pcs/products/sku': () =>
+    renderRouteRedirect('/pcs/products/specifications', '正在跳转到规格档案'),
+  '/pcs/products/yarn': () =>
+    renderRouteRedirect('/pcs/materials/yarn', '正在跳转到纱线档案'),
+  '/pcs/materials/fabric': () => renderPcsMaterialArchiveListPage('fabric'),
+  '/pcs/materials/fabric/new': () => renderPcsMaterialArchiveEditorPage('fabric'),
+  '/pcs/materials/accessory': () => renderPcsMaterialArchiveListPage('accessory'),
+  '/pcs/materials/accessory/new': () => renderPcsMaterialArchiveEditorPage('accessory'),
+  '/pcs/materials/yarn': () => renderPcsMaterialArchiveListPage('yarn'),
+  '/pcs/materials/yarn/new': () => renderPcsMaterialArchiveEditorPage('yarn'),
+  '/pcs/materials/consumable': () => renderPcsMaterialArchiveListPage('consumable'),
+  '/pcs/materials/consumable/new': () => renderPcsMaterialArchiveEditorPage('consumable'),
+  '/pcs/settings/cost-parameters': () => renderPcsCostParametersPage(),
   '/pcs/settings/config-workspace': () => renderConfigWorkspacePage(),
   '/pcs/settings/template-center': () => renderPcsTemplatesPage(),
   '/pcs/settings/platforms': () => renderPlatformConfigPage(),
@@ -427,8 +466,48 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
     render: (match) => renderPcsPatternLibraryDetailPage(match[1]),
   },
   {
+    pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable)\/([^/]+)\/edit$/,
+    render: (match) =>
+      renderPcsMaterialArchiveEditorPage(match[1] as MaterialArchiveKind, match[2]),
+  },
+  {
+    pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable)\/([^/]+)$/,
+    render: (match) =>
+      renderPcsMaterialArchiveDetailPage(match[1] as MaterialArchiveKind, match[2]),
+  },
+  {
+    pattern: /^\/pcs\/products\/styles\/([^/]+)$/,
+    render: (match) => renderPcsProductStyleDetailPage(decodeURIComponent(match[1])),
+  },
+  {
+    pattern: /^\/pcs\/products\/spu\/([^/]+)$/,
+    render: (match) =>
+      renderRouteRedirect(`/pcs/products/styles/${match[1]}`, '正在跳转到款式档案详情'),
+  },
+  {
+    pattern: /^\/pcs\/products\/channel-products\/([^/]+)$/,
+    render: (match) => renderPcsChannelProductDetailPage(match[1]),
+  },
+  {
+    pattern: /^\/pcs\/channels\/products\/([^/]+)$/,
+    render: (match) =>
+      renderRouteRedirect(`/pcs/products/channel-products/${match[1]}`, '正在跳转到渠道商品详情'),
+  },
+  {
+    pattern: /^\/pcs\/products\/sku\/([^/]+)$/,
+    render: () =>
+      renderRouteRedirect('/pcs/products/specifications', '正在跳转到规格档案'),
+  },
+  {
     pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,
-    render: (match) => renderPcsProjectWorkItemDetailPage(match[1], match[2]),
+    render: (match) => {
+      const [, projectId, projectNodeId] = match
+      return renderPcsProjectWorkItemDetailPage(projectId, projectNodeId)
+    },
+  },
+  {
+    pattern: /^\/pcs\/projects\/([^/]+)\/archive$/,
+    render: (match) => renderPcsProjectArchivePage(match[1]),
   },
   {
     pattern: /^\/pcs\/projects\/([^/]+)$/,
@@ -441,10 +520,6 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
   {
     pattern: /^\/pcs\/testing\/video\/([^/]+)$/,
     render: (match) => renderPcsVideoRecordDetailPage(match[1]),
-  },
-  {
-    pattern: /^\/pcs\/channels\/products\/([^/]+)$/,
-    render: (match) => renderPcsChannelProductDetailPage(match[1]),
   },
   {
     pattern: /^\/pcs\/channels\/stores\/([^/]+)$/,
@@ -483,8 +558,19 @@ const dynamicRoutes: Array<{ pattern: RegExp; render: (match: RegExpExecArray) =
       ),
   },
   {
+    pattern: /^\/pcs\/products\/styles\/([^/]+)\/technical-data\/([^/]+)$/,
+    render: (match) =>
+      renderTechPackPage(match[2], {
+        styleId: decodeURIComponent(match[1]),
+        technicalVersionId: decodeURIComponent(match[2]),
+      }),
+  },
+  {
     pattern: /^\/fcs\/tech-pack\/([^/]+)$/,
-    render: (match) => renderTechPackPage(match[1]),
+    render: (match) =>
+      renderTechPackPage(match[1], {
+        compatibilityMode: true,
+      }),
   },
   {
     pattern: /^\/fcs\/pda\/notify\/([^/]+)$/,

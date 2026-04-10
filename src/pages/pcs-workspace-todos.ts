@@ -165,7 +165,7 @@ const TODOS: TodoItem[] = [
   {
     id: 'TD-003',
     todoType: 'APPROVAL',
-    title: '审核：首单样衣打样-FS-20260110-001',
+    title: '审核：首版样衣打样-FS-20260110-001',
     sourceType: 'FirstSampleTask',
     sourceId: 'FS-20260110-001',
     sourceCode: 'FS-20260110-001',
@@ -178,7 +178,7 @@ const TODOS: TodoItem[] = [
     projectId: 'PRJ-20251218-002',
     phase: '制版与生产准备',
     site: '深圳',
-    primaryAction: { label: '去审核', url: '/samples/first-order/FS-20260110-001' },
+    primaryAction: { label: '去审核', url: '/samples/first-sample/FS-20260110-001' },
     secondaryActions: [
       { label: '同意', code: 'approve' },
       { label: '驳回', code: 'reject' },
@@ -290,7 +290,7 @@ const TODOS: TodoItem[] = [
     owner: '渠道运营A',
     channel: 'TikTok',
     store: 'Indo Fashion Official',
-    primaryAction: { label: '去授权', url: '/channels/stores/STORE-TK-001' },
+    primaryAction: { label: '去授权', url: '/pcs/channels/stores/STORE-TK-001' },
     secondaryActions: [{ label: '刷新授权', code: 'refresh' }],
     createdAt: '2026-01-10 09:00',
     tags: ['店铺', '授权'],
@@ -309,7 +309,7 @@ const TODOS: TodoItem[] = [
     owner: '渠道运营B',
     channel: 'Shopee',
     store: 'Fashion Hub MY',
-    primaryAction: { label: '去授权', url: '/channels/stores/STORE-SP-002' },
+    primaryAction: { label: '去授权', url: '/pcs/channels/stores/STORE-SP-002' },
     secondaryActions: [],
     createdAt: '2026-01-08 10:00',
     tags: ['店铺', '过期'],
@@ -317,7 +317,7 @@ const TODOS: TodoItem[] = [
   {
     id: 'TD-011',
     todoType: 'MAPPING',
-    title: '映射异常：SKU缺失 - CP-20260110-001',
+    title: '映射异常：规格缺失 - CP-20260110-001',
     sourceType: 'ChannelProduct',
     sourceId: 'CP-20260110-001',
     sourceCode: 'CP-20260110-001',
@@ -328,10 +328,10 @@ const TODOS: TodoItem[] = [
     owner: '渠道运营A',
     channel: 'TikTok',
     store: 'Indo Fashion Official',
-    primaryAction: { label: '去修复', url: '/channels/products/mapping' },
+    primaryAction: { label: '去修复', url: '/pcs/products/channel-attributes' },
     secondaryActions: [],
     createdAt: '2026-01-10 14:00',
-    tags: ['映射', 'SKU'],
+    tags: ['映射', '规格'],
   },
   {
     id: 'TD-012',
@@ -346,7 +346,7 @@ const TODOS: TodoItem[] = [
     overdueDays: 0,
     owner: '渠道运营B',
     channel: 'Shopee',
-    primaryAction: { label: '去修复', url: '/channels/products/mapping' },
+    primaryAction: { label: '去修复', url: '/pcs/products/channel-attributes' },
     secondaryActions: [],
     createdAt: '2026-01-09 11:00',
     tags: ['映射', '冲突'],
@@ -409,7 +409,7 @@ const TODOS: TodoItem[] = [
     owner: '渠道运营A',
     channel: 'TikTok',
     store: 'Indo Fashion Official',
-    primaryAction: { label: '去处理', url: '/channels/products/CP-20260112-001' },
+    primaryAction: { label: '去处理', url: '/pcs/products/channel-products/CP-20260112-001' },
     secondaryActions: [{ label: '重新上架', code: 'retry' }],
     createdAt: '2026-01-12 16:00',
     tags: ['上架', '失败'],
@@ -466,12 +466,12 @@ function resolveDemoPath(url: string): string {
   if (lower.startsWith('/testing/live')) return '/pcs/testing/live'
   if (lower.startsWith('/testing/video')) return '/pcs/testing/video'
   if (lower.startsWith('/channels/stores')) return '/pcs/channels/stores'
-  if (lower.startsWith('/channels/products')) return '/pcs/channels/products'
+  if (lower.startsWith('/channels/products')) return '/pcs/products/channel-products'
   if (lower.startsWith('/samples/inventory')) return '/pcs/samples/inventory'
   if (lower.startsWith('/samples/transfer')) return '/pcs/samples/transfer'
   if (lower.startsWith('/samples/application')) return '/pcs/samples/application'
-  if (lower.startsWith('/samples/first-order')) return '/pcs/samples/first-order'
-  if (lower.startsWith('/production/pre-check')) return '/pcs/production/pre-check'
+  if (lower.startsWith('/samples/first-sample') || lower.startsWith('/samples/first-order')) return '/pcs/samples/first-sample'
+  if (lower.startsWith('/production/pre-check')) return '/pcs/samples/pre-production'
 
   return '/pcs/workspace/overview'
 }
@@ -890,7 +890,7 @@ function renderTodoListSection(): string {
                 <p class="mt-3 text-sm text-muted-foreground">当前没有待办</p>
                 <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
                   <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-todo-action="go-process" data-url="/testing/live">新建直播场次</button>
-                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-todo-action="go-process" data-url="/channels/products">发起上架</button>
+                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-todo-action="go-process" data-url="/pcs/products/channel-products">发起上架</button>
                   <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-todo-action="go-process" data-url="/projects">查看项目</button>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import { getTechPackBySpuCode } from './tech-packs.ts'
+import { getCompatTechPackBySpuCode } from '../pcs-technical-data-runtime-source.ts'
 
 export type LegacyType = 'ID_PURCHASE' | 'GOODS_PURCHASE'
 export type SourceSystem = 'LEGACY' | 'NEW'
@@ -390,7 +390,7 @@ function normalizeReleasedVersionLabel(versionLabel: string): string {
 }
 
 function normalizeDemandSeed(demand: ProductionDemand): ProductionDemand {
-  const techPack = getTechPackBySpuCode(demand.spuCode)
+  const techPack = getCompatTechPackBySpuCode(demand.spuCode)
   const actualTechPackStatus: TechPackStatus = techPack?.status === 'RELEASED' ? 'RELEASED' : 'INCOMPLETE'
 
   if (demand.hasProductionOrder && demand.demandStatus !== 'CONVERTED') {
@@ -402,7 +402,7 @@ function normalizeDemandSeed(demand: ProductionDemand): ProductionDemand {
   }
 
   if (demand.hasProductionOrder && actualTechPackStatus !== 'RELEASED') {
-    throw new Error(`需求 ${demand.demandId} 已绑定生产单，但技术包 ${demand.spuCode} 未发布`)
+    throw new Error(`需求 ${demand.demandId} 已绑定生产单，但技术资料 ${demand.spuCode} 未发布`)
   }
 
   return {

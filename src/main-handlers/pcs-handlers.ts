@@ -12,6 +12,11 @@ import {
   isPcsProjectsDialogOpen,
 } from '../pages/pcs-projects'
 import {
+  handlePcsProjectCreateEvent,
+  handlePcsProjectCreateInput,
+  isPcsProjectCreateDialogOpen,
+} from '../pages/pcs-project-create'
+import {
   handlePcsTemplatesEvent,
   isPcsTemplatesDialogOpen,
 } from '../pages/pcs-templates'
@@ -36,6 +41,11 @@ import {
   handlePcsProjectDetailEvent,
   isPcsProjectDetailDialogOpen,
 } from '../pages/pcs-project-detail'
+import {
+  handlePcsProjectArchiveEvent,
+  handlePcsProjectArchiveInput,
+  isPcsProjectArchiveDialogOpen,
+} from '../pages/pcs-project-archive'
 import {
   handlePcsProjectWorkItemDetailEvent,
   isPcsProjectWorkItemDetailDialogOpen,
@@ -69,6 +79,7 @@ import {
   isPcsChannelProductMappingDialogOpen,
 } from '../pages/pcs-channel-product-mapping'
 import { handlePcsChannelProductStoreViewEvent } from '../pages/pcs-channel-product-store'
+import { handleTechPackEvent, isTechPackDialogOpen } from '../pages/tech-pack'
 import {
   handlePcsChannelStoresEvent,
   isPcsChannelStoresDialogOpen,
@@ -92,6 +103,7 @@ import {
 } from '../pages/pcs-sample-ledger'
 import {
   handleSampleInventoryEvent,
+  handleSampleInventoryInput,
   isSampleInventoryDialogOpen,
 } from '../pages/pcs-sample-inventory'
 import {
@@ -100,6 +112,7 @@ import {
 } from '../pages/pcs-sample-transfer'
 import {
   handleSampleReturnEvent,
+  handleSampleReturnInput,
   isSampleReturnDialogOpen,
 } from '../pages/pcs-sample-return'
 import {
@@ -168,6 +181,10 @@ import {
   isProductSpuDialogOpen,
 } from '../pages/pcs-product-spu'
 import {
+  handlePcsProductStyleDetailEvent,
+  isPcsProductStyleDetailDialogOpen,
+} from '../pages/pcs-product-style-detail'
+import {
   handleProductSkuEvent,
   handleProductSkuInput,
   isProductSkuDialogOpen,
@@ -177,6 +194,10 @@ import {
   handleProductYarnInput,
   isProductYarnDialogOpen,
 } from '../pages/pcs-product-yarn'
+import {
+  handleMaterialArchiveEvent,
+  handleMaterialArchiveInput,
+} from '../pages/pcs-material-archives'
 import {
   handleConfigWorkspaceEvent,
   handleConfigWorkspaceInput,
@@ -194,6 +215,7 @@ export function dispatchPcsPageEvent(target: HTMLElement): boolean {
     handlePcsTodosEvent(target) ||
     handlePcsAlertsEvent(target) ||
     handlePcsProjectsEvent(target) ||
+    handlePcsProjectCreateEvent(target) ||
     handlePcsTemplatesEvent(target) ||
     handlePcsWorkItemsEvent(target) ||
     handlePcsTemplateDetailEvent(target) ||
@@ -201,6 +223,7 @@ export function dispatchPcsPageEvent(target: HTMLElement): boolean {
     handlePcsWorkItemDetailEvent(target) ||
     handlePcsWorkItemEditorEvent(target) ||
     handlePcsProjectDetailEvent(target) ||
+    handlePcsProjectArchiveEvent(target) ||
     handlePcsProjectWorkItemDetailEvent(target) ||
     handlePcsLiveSessionsEvent(target) ||
     handlePcsLiveSessionDetailEvent(target) ||
@@ -231,8 +254,11 @@ export function dispatchPcsPageEvent(target: HTMLElement): boolean {
     handleFirstOrderSampleEvent(target) ||
     handlePreProductionSampleEvent(target) ||
     handleProductSpuEvent(target) ||
+    handlePcsProductStyleDetailEvent(target) ||
     handleProductSkuEvent(target) ||
     handleProductYarnEvent(target) ||
+    handleTechPackEvent(target) ||
+    handleMaterialArchiveEvent(target) ||
     handleConfigWorkspaceEvent(target) ||
     handlePlatformConfigEvent(target)
   )
@@ -240,7 +266,11 @@ export function dispatchPcsPageEvent(target: HTMLElement): boolean {
 
 export function dispatchPcsInputEvent(target: Element): boolean {
   return (
+    handlePcsProjectCreateInput(target) ||
+    handlePcsProjectArchiveInput(target) ||
     handleSampleLedgerInput(target) ||
+    handleSampleInventoryInput(target) ||
+    handleSampleReturnInput(target) ||
     handleSampleApplicationInput(target) ||
     handleSampleViewInput(target) ||
     handleRevisionTaskInput(target) ||
@@ -256,6 +286,8 @@ export function dispatchPcsInputEvent(target: Element): boolean {
     handleProductSpuInput(target) ||
     handleProductSkuInput(target) ||
     handleProductYarnInput(target) ||
+    handleTechPackEvent(target as HTMLElement) ||
+    handleMaterialArchiveInput(target) ||
     handleConfigWorkspaceInput(target) ||
     handlePlatformConfigInput(target)
   )
@@ -281,6 +313,10 @@ export function closePcsDialogsOnEscape(): boolean {
     fakeButton.dataset.pcsProjectAction = 'close-dialog'
     handlePcsProjectsEvent(fakeButton)
     return true
+  }
+
+  if (isPcsProjectCreateDialogOpen()) {
+    return false
   }
 
   if (isPcsTemplatesDialogOpen()) {
@@ -321,6 +357,16 @@ export function closePcsDialogsOnEscape(): boolean {
     return false
   }
 
+  if (isPcsProductStyleDetailDialogOpen()) {
+    if (isTechPackDialogOpen()) {
+      const fakeButton = document.createElement('button')
+      fakeButton.dataset.techAction = 'close-dialog'
+      handleTechPackEvent(fakeButton)
+      return true
+    }
+    return false
+  }
+
   if (isPcsPatternLibraryConfigDialogOpen()) {
     return false
   }
@@ -345,6 +391,13 @@ export function closePcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.pcsProjectDetailAction = 'close-dialog'
     handlePcsProjectDetailEvent(fakeButton)
+    return true
+  }
+
+  if (isPcsProjectArchiveDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.pcsProjectArchiveAction = 'close-upload'
+    handlePcsProjectArchiveEvent(fakeButton)
     return true
   }
 
@@ -434,14 +487,14 @@ export function closePcsDialogsOnEscape(): boolean {
 
   if (isSampleLedgerDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.ledgerAction = 'close-detail-drawer'
+    fakeButton.dataset.sampleLedgerAction = 'close-detail'
     handleSampleLedgerEvent(fakeButton)
     return true
   }
 
   if (isSampleInventoryDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.inventoryAction = 'close-drawer'
+    fakeButton.dataset.sampleInventoryAction = 'close-detail'
     handleSampleInventoryEvent(fakeButton)
     return true
   }
@@ -457,27 +510,25 @@ export function closePcsDialogsOnEscape(): boolean {
 
   if (isSampleReturnDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.returnAction = 'close-drawer'
+    fakeButton.dataset.sampleReturnAction = 'close-detail'
     handleSampleReturnEvent(fakeButton)
-    fakeButton.dataset.returnAction = 'close-new-case-dialog'
-    handleSampleReturnEvent(fakeButton)
-    fakeButton.dataset.returnAction = 'close-approve-dialog'
-    handleSampleReturnEvent(fakeButton)
-    fakeButton.dataset.returnAction = 'close-close-dialog'
+    fakeButton.dataset.sampleReturnAction = 'close-create'
     handleSampleReturnEvent(fakeButton)
     return true
   }
 
   if (isSampleApplicationDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.appAction = 'close-drawer'
+    fakeButton.dataset.sampleApplicationAction = 'close-detail'
+    handleSampleApplicationEvent(fakeButton)
+    fakeButton.dataset.sampleApplicationAction = 'close-create'
     handleSampleApplicationEvent(fakeButton)
     return true
   }
 
   if (isSampleViewDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.viewAction = 'close-drawer'
+    fakeButton.dataset.sampleViewAction = 'close-detail'
     handleSampleViewEvent(fakeButton)
     return true
   }
@@ -518,22 +569,18 @@ export function closePcsDialogsOnEscape(): boolean {
 
   if (isFirstOrderSampleDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.firstOrderAction = 'close-drawer'
+    fakeButton.dataset.firstSampleAction = 'close-detail'
     handleFirstOrderSampleEvent(fakeButton)
-    fakeButton.dataset.firstOrderAction = 'close-sign-dialog'
-    handleFirstOrderSampleEvent(fakeButton)
-    fakeButton.dataset.firstOrderAction = 'close-stock-dialog'
+    fakeButton.dataset.firstSampleAction = 'close-create'
     handleFirstOrderSampleEvent(fakeButton)
     return true
   }
 
   if (isPreProductionSampleDialogOpen()) {
     const fakeButton = document.createElement('button')
-    fakeButton.dataset.preprodAction = 'close-drawer'
+    fakeButton.dataset.preProductionAction = 'close-detail'
     handlePreProductionSampleEvent(fakeButton)
-    fakeButton.dataset.preprodAction = 'close-sign-dialog'
-    handlePreProductionSampleEvent(fakeButton)
-    fakeButton.dataset.preprodAction = 'close-stock-dialog'
+    fakeButton.dataset.preProductionAction = 'close-create'
     handlePreProductionSampleEvent(fakeButton)
     return true
   }

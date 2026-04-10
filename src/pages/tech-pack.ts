@@ -1,3 +1,4 @@
-export { renderTechPackPage } from './tech-pack/core'
-export { handleTechPackEvent } from './tech-pack/events'
-export { isTechPackDialogOpen } from './tech-pack/dialogs'
+export { renderTechPackPage } from './tech-pack/core.ts'
+export { handleTechPackEvent } from './tech-pack/events.ts'
+export { isTechPackDialogOpen } from './tech-pack/dialogs.ts'
+export { renderTechPackPage as renderTechnicalDataVersionPage } from './tech-pack/core.ts'

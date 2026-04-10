@@ -1,0 +1,212 @@
+export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
+
+export interface TechnicalPatternFile {
+  id: string
+  fileName: string
+  fileUrl: string
+  uploadedAt: string
+  uploadedBy: string
+  linkedBomItemId?: string
+  widthCm?: number
+  markerLengthM?: number
+  totalPieceCount?: number
+  pieceRows?: Array<{
+    id: string
+    name: string
+    count: number
+    note?: string
+    applicableSkuCodes?: string[]
+  }>
+}
+
+export interface TechnicalProcessEntry {
+  id: string
+  entryType: 'PROCESS_BASELINE' | 'CRAFT'
+  stageCode: 'PREP' | 'PROD' | 'POST'
+  stageName: string
+  processCode: string
+  processName: string
+  craftCode?: string
+  craftName?: string
+  assignmentGranularity: 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
+  ruleSource?: string
+  detailSplitMode?: string
+  detailSplitDimensions?: string[]
+  defaultDocType: 'DEMAND' | 'TASK'
+  taskTypeMode: 'PROCESS' | 'CRAFT'
+  isSpecialCraft: boolean
+  triggerSource?: string
+  standardTimeMinutes?: number
+  timeUnit?: string
+  referencePublishedSamValue?: number
+  referencePublishedSamUnit?: string
+  referencePublishedSamUnitLabel?: string
+  referencePublishedSamNote?: string
+  difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
+  remark?: string
+}
+
+export interface TechnicalSizeRow {
+  id: string
+  part: string
+  S: number
+  M: number
+  L: number
+  XL: number
+  tolerance: number
+}
+
+export interface TechnicalBomItem {
+  id: string
+  type: string
+  name: string
+  spec: string
+  colorLabel?: string
+  unitConsumption: number
+  lossRate: number
+  supplier: string
+  printRequirement?: string
+  dyeRequirement?: string
+  applicableSkuCodes?: string[]
+  linkedPatternIds?: string[]
+  usageProcessCodes?: string[]
+}
+
+export interface TechnicalColorMaterialMappingLine {
+  id: string
+  bomItemId?: string
+  materialCode?: string
+  materialName: string
+  materialType: '面料' | '辅料' | '半成品' | '包装材料' | '其他'
+  patternId?: string
+  patternName?: string
+  pieceId?: string
+  pieceName?: string
+  pieceCountPerUnit?: number
+  unit: string
+  applicableSkuCodes?: string[]
+  sourceMode: 'AUTO' | 'MANUAL'
+  note?: string
+}
+
+export interface TechnicalColorMaterialMapping {
+  id: string
+  spuCode: string
+  colorCode: string
+  colorName: string
+  status: 'AUTO_CONFIRMED' | 'AUTO_DRAFT' | 'CONFIRMED' | 'MANUAL_ADJUSTED'
+  generatedMode: 'AUTO' | 'MANUAL'
+  confirmedBy?: string
+  confirmedAt?: string
+  remark?: string
+  lines: TechnicalColorMaterialMappingLine[]
+}
+
+export interface TechnicalPatternDesign {
+  id: string
+  name: string
+  imageUrl: string
+}
+
+export interface TechnicalAttachment {
+  id: string
+  fileName: string
+  fileType: string
+  fileSize: string
+  uploadedAt: string
+  uploadedBy: string
+  downloadUrl: string
+}
+
+export interface TechnicalQualityRule {
+  id: string
+  checkItem: string
+  standardText: string
+  samplingRule: string
+  note: string
+}
+
+export interface TechnicalDataVersionRecord {
+  technicalVersionId: string
+  technicalVersionCode: string
+  versionLabel: string
+  versionNo: number
+  styleId: string
+  styleCode: string
+  styleName: string
+  sourceProjectId: string
+  sourceProjectCode: string
+  sourceProjectName: string
+  sourceProjectNodeId: string
+  linkedPatternTaskIds: string[]
+  linkedArtworkTaskIds: string[]
+  linkedPartTemplateIds: string[]
+  linkedPatternLibraryVersionIds: string[]
+  versionStatus: TechnicalVersionStatus
+  effectiveFlag: boolean
+  bomStatus: TechnicalDomainStatus
+  patternStatus: TechnicalDomainStatus
+  processStatus: TechnicalDomainStatus
+  gradingStatus: TechnicalDomainStatus
+  qualityStatus: TechnicalDomainStatus
+  colorMaterialStatus: TechnicalDomainStatus
+  designStatus: TechnicalDomainStatus
+  attachmentStatus: TechnicalDomainStatus
+  bomItemCount: number
+  patternFileCount: number
+  processEntryCount: number
+  gradingRuleCount: number
+  qualityRuleCount: number
+  colorMaterialMappingCount: number
+  designAssetCount: number
+  attachmentCount: number
+  completenessScore: number
+  missingItemCodes: string[]
+  missingItemNames: string[]
+  publishedAt: string
+  publishedBy: string
+  createdAt: string
+  createdBy: string
+  updatedAt: string
+  updatedBy: string
+  note: string
+  legacySpuCode: string
+  legacyVersionLabel: string
+}
+
+export interface TechnicalDataVersionContent {
+  technicalVersionId: string
+  patternFiles: TechnicalPatternFile[]
+  patternDesc: string
+  processEntries: TechnicalProcessEntry[]
+  sizeTable: TechnicalSizeRow[]
+  bomItems: TechnicalBomItem[]
+  qualityRules: TechnicalQualityRule[]
+  colorMaterialMappings: TechnicalColorMaterialMapping[]
+  patternDesigns: TechnicalPatternDesign[]
+  attachments: TechnicalAttachment[]
+  legacyCompatibleCostPayload: Record<string, unknown>
+}
+
+export interface TechnicalDataVersionPendingItem {
+  pendingId: string
+  rawTechnicalCode: string
+  rawStyleField: string
+  rawProjectField: string
+  rawVersionLabel: string
+  reason: string
+  discoveredAt: string
+}
+
+export interface TechnicalDataVersionStoreSnapshot {
+  version: number
+  records: TechnicalDataVersionRecord[]
+  contents: TechnicalDataVersionContent[]
+  pendingItems: TechnicalDataVersionPendingItem[]
+}
+
+export interface TechnicalDataVersionCreateResult {
+  record: TechnicalDataVersionRecord
+  content: TechnicalDataVersionContent
+}

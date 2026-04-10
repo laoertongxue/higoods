@@ -5,9 +5,10 @@ import {
   materialUnitOptions,
   processUnitOptions,
   state,
-} from './context'
+} from './context.ts'
 
 export function renderCostTab(): string {
+  const readonly = state.compatibilityMode
   const materialTotal = state.materialCostRows.reduce(
     (sum, row) => sum + row.usage * (Number.parseFloat(row.price) || 0),
     0,
@@ -24,6 +25,10 @@ export function renderCostTab(): string {
 
   return `
     <div class="space-y-6">
+      <section class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        当前为成本兼容展示，不属于技术资料版本正式范围，不参与完成度计算与发布校验。
+      </section>
+
       <section class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <h3 class="text-base font-semibold">物料标准成本</h3>
@@ -50,17 +55,17 @@ export function renderCostTab(): string {
                       <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(row.spec || '-')}</td>
                       <td class="px-3 py-2 text-right">${row.usage}</td>
                       <td class="px-3 py-2">
-                        <input class="h-8 w-24 rounded border px-2 text-sm" type="number" value="${escapeHtml(row.price)}" placeholder="0.00" data-tech-field="material-price" data-row-id="${row.id}" />
+                        <input class="h-8 w-24 rounded border px-2 text-sm" type="number" value="${escapeHtml(row.price)}" placeholder="0.00" data-tech-field="material-price" data-row-id="${row.id}" ${readonly ? 'disabled' : ''} />
                       </td>
                       <td class="px-3 py-2">
-                        <select class="h-8 w-24 rounded border px-2 text-sm" data-tech-field="material-currency" data-row-id="${row.id}">
+                        <select class="h-8 w-24 rounded border px-2 text-sm" data-tech-field="material-currency" data-row-id="${row.id}" ${readonly ? 'disabled' : ''}>
                           ${currencyOptions
                             .map((option) => `<option value="${option}" ${row.currency === option ? 'selected' : ''}>${option}</option>`)
                             .join('')}
                         </select>
                       </td>
                       <td class="px-3 py-2">
-                        <select class="h-8 w-32 rounded border px-2 text-sm" data-tech-field="material-unit" data-row-id="${row.id}">
+                        <select class="h-8 w-32 rounded border px-2 text-sm" data-tech-field="material-unit" data-row-id="${row.id}" ${readonly ? 'disabled' : ''}>
                           ${materialUnitOptions
                             .map((option) => `<option value="${option}" ${row.unit === option ? 'selected' : ''}>${option}</option>`)
                             .join('')}
@@ -102,17 +107,17 @@ export function renderCostTab(): string {
                       <td class="px-3 py-2">${escapeHtml(row.process)}</td>
                       <td class="px-3 py-2 font-medium">${escapeHtml(row.technique)}</td>
                       <td class="px-3 py-2">
-                        <input class="h-8 w-24 rounded border px-2 text-sm" type="number" value="${escapeHtml(row.price)}" placeholder="0.00" data-tech-field="process-price" data-row-id="${row.id}" />
+                        <input class="h-8 w-24 rounded border px-2 text-sm" type="number" value="${escapeHtml(row.price)}" placeholder="0.00" data-tech-field="process-price" data-row-id="${row.id}" ${readonly ? 'disabled' : ''} />
                       </td>
                       <td class="px-3 py-2">
-                        <select class="h-8 w-24 rounded border px-2 text-sm" data-tech-field="process-currency" data-row-id="${row.id}">
+                        <select class="h-8 w-24 rounded border px-2 text-sm" data-tech-field="process-currency" data-row-id="${row.id}" ${readonly ? 'disabled' : ''}>
                           ${currencyOptions
                             .map((option) => `<option value="${option}" ${row.currency === option ? 'selected' : ''}>${option}</option>`)
                             .join('')}
                         </select>
                       </td>
                       <td class="px-3 py-2">
-                        <select class="h-8 w-32 rounded border px-2 text-sm" data-tech-field="process-unit" data-row-id="${row.id}">
+                        <select class="h-8 w-32 rounded border px-2 text-sm" data-tech-field="process-unit" data-row-id="${row.id}" ${readonly ? 'disabled' : ''}>
                           ${processUnitOptions
                             .map((option) => `<option value="${option}" ${row.unit === option ? 'selected' : ''}>${option}</option>`)
                             .join('')}
@@ -131,10 +136,10 @@ export function renderCostTab(): string {
       <section class="rounded-lg border bg-card">
         <header class="flex items-center justify-between border-b px-4 py-3">
           <h3 class="text-base font-semibold">自定义成本项</h3>
-          <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="add-custom-cost">
+          ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="add-custom-cost">
             <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
             添加成本项
-          </button>
+          </button>`}
         </header>
         <div class="p-4">
           ${
@@ -159,33 +164,33 @@ export function renderCostTab(): string {
                         (row) => `
                           <tr class="border-b last:border-0">
                             <td class="px-3 py-2">
-                              <input class="h-8 w-44 rounded border px-2 text-sm" value="${escapeHtml(row.name)}" placeholder="例如 开版费分摊" data-tech-field="custom-cost-name" data-row-id="${row.id}" />
+                              <input class="h-8 w-44 rounded border px-2 text-sm" value="${escapeHtml(row.name)}" placeholder="例如 开版费分摊" data-tech-field="custom-cost-name" data-row-id="${row.id}" ${readonly ? 'disabled' : ''} />
                             </td>
                             <td class="px-3 py-2">
-                              <input class="h-8 w-24 rounded border px-2 text-sm" type="number" value="${escapeHtml(row.price)}" placeholder="0.00" data-tech-field="custom-cost-price" data-row-id="${row.id}" />
+                              <input class="h-8 w-24 rounded border px-2 text-sm" type="number" value="${escapeHtml(row.price)}" placeholder="0.00" data-tech-field="custom-cost-price" data-row-id="${row.id}" ${readonly ? 'disabled' : ''} />
                             </td>
                             <td class="px-3 py-2">
-                              <select class="h-8 w-24 rounded border px-2 text-sm" data-tech-field="custom-cost-currency" data-row-id="${row.id}">
+                              <select class="h-8 w-24 rounded border px-2 text-sm" data-tech-field="custom-cost-currency" data-row-id="${row.id}" ${readonly ? 'disabled' : ''}>
                                 ${currencyOptions
                                   .map((option) => `<option value="${option}" ${row.currency === option ? 'selected' : ''}>${option}</option>`)
                                   .join('')}
                               </select>
                             </td>
                             <td class="px-3 py-2">
-                              <select class="h-8 w-32 rounded border px-2 text-sm" data-tech-field="custom-cost-unit" data-row-id="${row.id}">
+                              <select class="h-8 w-32 rounded border px-2 text-sm" data-tech-field="custom-cost-unit" data-row-id="${row.id}" ${readonly ? 'disabled' : ''}>
                                 ${customCostUnitOptions
                                   .map((option) => `<option value="${option}" ${row.unit === option ? 'selected' : ''}>${option}</option>`)
                                   .join('')}
                               </select>
                             </td>
                             <td class="px-3 py-2">
-                              <input class="h-8 w-48 rounded border px-2 text-sm" value="${escapeHtml(row.remark || '')}" placeholder="备注（可选）" data-tech-field="custom-cost-remark" data-row-id="${row.id}" />
+                              <input class="h-8 w-48 rounded border px-2 text-sm" value="${escapeHtml(row.remark || '')}" placeholder="备注（可选）" data-tech-field="custom-cost-remark" data-row-id="${row.id}" ${readonly ? 'disabled' : ''} />
                             </td>
                             <td class="px-3 py-2 text-right font-medium">${(Number.parseFloat(row.price) || 0).toFixed(2)}</td>
                             <td class="px-3 py-2">
-                              <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-custom-cost" data-row-id="${row.id}">
+                              ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-custom-cost" data-row-id="${row.id}">
                                 <i data-lucide="trash-2" class="h-4 w-4"></i>
-                              </button>
+                              </button>`}
                             </td>
                           </tr>
                         `,
@@ -227,4 +232,3 @@ export function renderCostTab(): string {
     </div>
   `
 }
-

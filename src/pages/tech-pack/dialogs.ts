@@ -1,4 +1,4 @@
-import { state } from './context'
+import { state } from './context.ts'
 
 export function isTechPackDialogOpen(): boolean {
   return (

@@ -49,6 +49,7 @@ import {
   setMaterialDraftRemark,
   setMaterialDraftLineConfirmedQty,
 } from './context'
+import { resolveTechnicalDataEntryBySpuCode } from '../../data/pcs-technical-data-entry-resolver.ts'
 import {
   openDemandBatchGenerate,
   openDemandSingleGenerate,
@@ -56,6 +57,11 @@ import {
   performDemandGenerate,
   performOrdersFromDemandGenerate,
 } from './demand-domain'
+
+function openTechnicalDataEntry(spuCode: string): void {
+  const target = resolveTechnicalDataEntryBySpuCode(spuCode)
+  openAppRoute(target.targetPath, `technical-${spuCode}`, target.targetTitle)
+}
 
 function updateProductionField(
   field: string,
@@ -425,7 +431,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     if (!spuCode) return true
 
     state.ordersActionMenuId = null
-    openAppRoute(`/fcs/tech-pack/${spuCode}`, `tech-pack-${spuCode}`, `技术包 - ${spuCode}`)
+    openTechnicalDataEntry(spuCode)
     return true
   }
 
@@ -433,7 +439,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const spuCode = actionNode.dataset.spuCode
     if (!spuCode) return true
 
-    openAppRoute(`/fcs/tech-pack/${spuCode}`, `tech-pack-${spuCode}`, `技术包 - ${spuCode}`)
+    openTechnicalDataEntry(spuCode)
     state.demandDetailId = null
     return true
   }

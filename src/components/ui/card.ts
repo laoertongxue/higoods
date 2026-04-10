@@ -1,7 +1,7 @@
 // ============ 卡片组件 ============
 
-import type { KpiCardConfig, InfoCardConfig, ActionConfig } from './types'
-import { toActionAttr } from './types'
+import type { KpiCardConfig, InfoCardConfig, ActionConfig } from './types.ts'
+import { toActionAttr } from './types.ts'
 
 /**
  * HTML 转义

@@ -405,7 +405,7 @@ export function renderRelatedTab(detailCase: ExceptionCase): string {
         <div class="mt-2 flex flex-wrap gap-2">
           ${
             firstOrderId
-              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="drawer-tech-pack" data-case-id="${escapeAttr(detailCase.caseId)}"><i data-lucide="file-text" class="mr-1 h-4 w-4"></i>技术包</button>`
+              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pe-action="drawer-tech-pack" data-case-id="${escapeAttr(detailCase.caseId)}"><i data-lucide="file-text" class="mr-1 h-4 w-4"></i>技术资料</button>`
               : ''
           }
           ${
@@ -533,12 +533,12 @@ export function renderSourceTab(detailCase: ExceptionCase): string {
   if (unifiedCategory === 'TECH_PACK') {
     return `
       <div class="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-4">
-        <p class="text-sm font-medium text-purple-700">技术包异常来源明细</p>
+        <p class="text-sm font-medium text-purple-700">技术资料异常来源明细</p>
         <div class="grid grid-cols-2 gap-2">
           ${renderKv('生产单号', firstOrderId)}
           ${renderKv('任务号', firstTaskId)}
-          ${renderKv('技术包状态', getSubCategoryLabel(detailCase))}
-          ${renderKv('技术包版本', order?.techPackSnapshot?.versionLabel || '-')}
+          ${renderKv('技术资料状态', getSubCategoryLabel(detailCase))}
+          ${renderKv('技术资料版本', order?.techPackSnapshot?.versionLabel || '-')}
           ${renderKv('是否已发布', /未发布|缺失/.test(getSubCategoryLabel(detailCase)) ? '否' : '待确认')}
           ${renderKv('影响 SPU', order?.demandSnapshot.spuCode || '-')}
         </div>
@@ -801,8 +801,8 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="file-text" class="h-5 w-5 text-purple-600"></i>
           <div>
-            <p class="font-medium">查看技术包</p>
-            <p class="text-xs text-muted-foreground">查看技术包状态与版本信息</p>
+            <p class="font-medium">查看技术资料</p>
+            <p class="text-xs text-muted-foreground">查看技术资料状态与版本信息</p>
           </div>
         </div>
       </button>
@@ -812,8 +812,8 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="edit-3" class="h-5 w-5 text-purple-600"></i>
           <div>
-            <p class="font-medium">去技术包处理</p>
-            <p class="text-xs text-muted-foreground">前往技术包页面补充并发布</p>
+            <p class="font-medium">去商品中心维护</p>
+            <p class="text-xs text-muted-foreground">前往商品中心补建并发布技术资料版本</p>
           </div>
         </div>
       </button>

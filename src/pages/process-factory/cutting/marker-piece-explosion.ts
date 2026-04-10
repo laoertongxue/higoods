@@ -1,4 +1,4 @@
-import { getTechPackBySpuCode, type TechPack } from '../../../data/fcs/tech-packs.ts'
+import { getCompatTechPackBySpuCode as getTechPackBySpuCode, type TechPack } from '../../../data/pcs-technical-data-runtime-source.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type {
   MarkerPlanAllocationLike,
@@ -146,7 +146,7 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
 
 const mappingStatusLabels: Record<MarkerPieceMappingStatus, string> = {
   MATCHED: '已匹配',
-  MISSING_TECH_PACK: '未关联技术包',
+  MISSING_TECH_PACK: '未关联技术资料',
   MISSING_SKU: '未匹配 SKU',
   MISSING_COLOR_MAPPING: '未匹配颜色映射',
   MISSING_PIECE_MAPPING: '未匹配裁片映射',
@@ -313,7 +313,7 @@ export function buildMarkerPieceExplosionViewModel(
     }
 
     if (techPackLink.status === 'MISSING' || !techPackLink.techPack) {
-      const reason = `${allocationLine.sourceCutOrderNo} 未关联技术包，无法拆解 SKU / 部位。`
+      const reason = `${allocationLine.sourceCutOrderNo} 未关联技术资料快照，无法拆解 SKU / 部位。`
       allocationRows.push({
         ...baseAllocationRow,
         mappingStatus: 'MISSING_TECH_PACK',
@@ -347,7 +347,7 @@ export function buildMarkerPieceExplosionViewModel(
 
     const skuCode = resolveSkuCode(techPackLink.techPack, allocationLine.color, allocationLine.sizeLabel)
     if (!skuCode) {
-      const reason = `${allocationLine.sourceCutOrderNo} ${allocationLine.color}/${allocationLine.sizeLabel} 未匹配到技术包 SKU。`
+      const reason = `${allocationLine.sourceCutOrderNo} ${allocationLine.color}/${allocationLine.sizeLabel} 未匹配到技术资料 SKU。`
       allocationRows.push({
         ...baseAllocationRow,
         mappingStatus: 'MISSING_SKU',
@@ -381,7 +381,7 @@ export function buildMarkerPieceExplosionViewModel(
 
     const { colorMapping, mappingLines } = resolveMappingLinesForSku(techPackLink.techPack, allocationLine.color, skuCode)
     if (!colorMapping) {
-      const reason = `${allocationLine.sourceCutOrderNo} ${allocationLine.color} 未匹配到技术包颜色映射。`
+      const reason = `${allocationLine.sourceCutOrderNo} ${allocationLine.color} 未匹配到技术资料颜色映射。`
       allocationRows.push({
         ...baseAllocationRow,
         skuCode,
@@ -467,7 +467,7 @@ export function buildMarkerPieceExplosionViewModel(
     const mappingStatus: MarkerPieceMappingStatus = materialMatched ? 'MATCHED' : 'MATERIAL_PENDING_CONFIRM'
     const exceptionText = materialMatched
       ? ''
-      : `${allocationLine.sourceCutOrderNo} ${allocationLine.materialSku || '当前面料'} 与技术包映射行未确认一一对应，请人工确认面料映射。`
+      : `${allocationLine.sourceCutOrderNo} ${allocationLine.materialSku || '当前面料'} 与技术资料映射行未确认一一对应，请人工确认面料映射。`
     const explodedPieceTotal = pieceRows.reduce(
       (sum, pieceRow) => sum + plannedGarmentQty * Math.max(pieceRow.pieceCountPerUnit || 0, 0),
       0,

@@ -80,7 +80,8 @@ export function renderPcsPatternLibraryConfigPage(): string {
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-gray-50" data-pattern-library-config-action="go-list">
             <i data-lucide="arrow-left" class="mr-1 h-3.5 w-3.5"></i>返回花型库
           </button>
-          <h1 class="mt-3 text-xl font-semibold">花型库配置</h1>
+          <p class="mt-3 text-xs text-gray-500">工程开发与打样管理 / 花型库 / 配置</p>
+          <h1 class="mt-2 text-xl font-semibold">花型库配置</h1>
           <p class="mt-1 text-sm text-gray-500">维护花型使用方式、题材分类、风格标签、主色系、来源类型、命名规则模板和相似度阈值。</p>
         </div>
         <button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-pattern-library-config-action="save">保存配置</button>

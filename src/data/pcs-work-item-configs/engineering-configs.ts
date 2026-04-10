@@ -1,597 +1,216 @@
-import type { WorkItemTemplateConfig } from './types'
+import type { FieldGroup, WorkItemNature, WorkItemRuntimeType, WorkItemTemplateConfig } from './types.ts'
+import { getProjectPhaseNameByCode } from '../pcs-project-phase-definitions.ts'
+import { getStandardProjectWorkItemIdentityByCode } from './mappings.ts'
+
+const BUILTIN_CREATED_AT = '2026-04-10 09:00'
+
+function buildFieldGroup(id: string, title: string, description: string, fields: FieldGroup['fields']): FieldGroup {
+  return { id, title, description, fields }
+}
+
+function buildBuiltinConfig(input: {
+  workItemTypeCode: string
+  workItemNature: WorkItemNature
+  type: WorkItemRuntimeType
+  categoryName: string
+  description: string
+  roleCodes: string[]
+  roleNames: string[]
+  fieldGroups: FieldGroup[]
+  businessRules: string[]
+  systemConstraints: string[]
+  capabilities?: Partial<WorkItemTemplateConfig['capabilities']>
+}): WorkItemTemplateConfig {
+  const identity = getStandardProjectWorkItemIdentityByCode(input.workItemTypeCode)
+  if (!identity) {
+    throw new Error(`未找到标准工作项定义：${input.workItemTypeCode}`)
+  }
+
+  const capabilities = {
+    canReuse: true,
+    canMultiInstance: false,
+    canRollback: false,
+    canParallel: false,
+    ...input.capabilities,
+  }
+
+  return {
+    id: identity.workItemId,
+    workItemId: identity.workItemId,
+    code: identity.workItemTypeCode,
+    workItemTypeCode: identity.workItemTypeCode,
+    name: identity.workItemTypeName,
+    workItemTypeName: identity.workItemTypeName,
+    phaseCode: identity.phaseCode,
+    defaultPhaseName: getProjectPhaseNameByCode(identity.phaseCode),
+    type: input.type,
+    workItemNature: input.workItemNature,
+    stage: getProjectPhaseNameByCode(identity.phaseCode),
+    category: input.categoryName,
+    categoryName: input.categoryName,
+    role: input.roleNames.join(' / '),
+    roleCodes: [...input.roleCodes],
+    roleNames: [...input.roleNames],
+    description: input.description,
+    isBuiltin: true,
+    isSelectable: true,
+    isSelectableForTemplate: true,
+    enabledFlag: true,
+    capabilities,
+    fieldGroups: input.fieldGroups.map((group) => ({ ...group, fields: group.fields.map((field) => ({ ...field })) })),
+    businessRules: [...input.businessRules],
+    systemConstraints: [...input.systemConstraints],
+    attachments: [],
+    interactionNotes: [],
+    createdAt: BUILTIN_CREATED_AT,
+    updatedAt: BUILTIN_CREATED_AT,
+  }
+}
 
 export const engineeringWorkItemConfigs: Record<string, WorkItemTemplateConfig> = {
-"WI-018": {
-    id: "WI-018",
-    code: "DESIGN_REVISION",
-    name: "设计修改",
-    type: "execute",
-    stage: "工程阶段",
-    role: "设计师",
-    description: "根据样品评审或市场反馈，对商品设计进行修改。",
+  'WI-013': buildBuiltinConfig({
+    workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    workItemNature: '里程碑类',
+    type: 'milestone',
+    categoryName: '开发推进',
+    description: '将测款通过项目沉淀为款式档案主记录。',
+    roleCodes: ['archive-admin', 'product-manager'],
+    roleNames: ['档案管理员', '商品负责人'],
     fieldGroups: [
-      {
-        id: "revision-request",
-        title: "修改请求",
-        fields: [
-          {
-            id: "revision-reason",
-            label: "修改原因",
-            type: "textarea",
-            required: true,
-            rows: 3,
-            placeholder: "详细说明修改的原因和目标",
-          },
-          {
-            id: "specific-changes",
-            label: "具体修改项",
-            type: "textarea",
-            required: true,
-            rows: 5,
-            placeholder: "列出需要修改的具体设计元素（如：颜色、版型、材质等）",
-          },
-          {
-            id: "request-date",
-            label: "请求日期",
-            type: "date",
-            required: true,
-            readonly: true,
-          },
-        ],
-      },
-      {
-        id: "revision-execution",
-        title: "修改执行",
-        fields: [
-          {
-            id: "new-design-files",
-            label: "新设计文件",
-            type: "file",
-            required: true,
-            description: "上传更新后的设计文件（如AI, PSD, CAD）",
-          },
-          {
-            id: "execution-date",
-            label: "执行日期",
-            type: "date",
-            required: true,
-          },
-          {
-            id: "designer-notes",
-            label: "设计师备注",
-            type: "textarea",
-            required: false,
-            rows: 3,
-            placeholder: "设计师关于修改过程的备注",
-          },
-        ],
-      },
-      {
-        id: "revision-confirmation",
-        title: "修改确认",
-        fields: [
-          {
-            id: "revision-approved",
-            label: "修改是否通过",
-            type: "select",
-            required: true,
-            options: [
-              { value: "yes", label: "是" },
-              { value: "no", label: "否" },
-            ],
-          },
-          {
-            id: "confirmation-notes",
-            label: "确认意见",
-            type: "textarea",
-            required: false,
-            rows: 3,
-            placeholder: "填写确认意见",
-          },
-        ],
-      },
+      buildFieldGroup('style-archive', '款式档案生成', '记录生成款式档案的输出。', [
+        { id: 'style-code', label: '款式编码', type: 'text', required: false, description: '档案生成后的款式编码' },
+      ]),
     ],
-    attachments: [
-      {
-        id: "original-design-files",
-        title: "原始设计文件",
-        description: "修改前的原始设计文件",
-        required: false,
-        maxCount: 5,
-        accept: ".ai,.psd,.cad,.pdf",
-      },
-      {
-        id: "revision-comparison",
-        title: "修改前后对比图",
-        description: "展示修改前后的对比效果",
-        required: false,
-        maxCount: 5,
-        accept: "image/*",
-      },
-    ],
-    businessRules: ["修改原因和具体修改项为必填。", "修改确认通过后，将更新商品的设计信息。"],
-    interactions: ["上传新设计文件后，可自动生成版本历史。", "修改确认通过后，可自动触发“首单样衣打样”工作项。"],
-  },
-
-"WI-020": {
-    id: "WI-020",
-    code: "PRE_PATTERN",
-    name: "预制版",
-    type: "execute",
-    stage: "工程阶段",
-    role: "制版师",
-    description: "根据初步设计，制作商品的基础纸样。",
+    businessRules: ['仅测款结论通过项目允许生成款式档案。'],
+    systemConstraints: ['生成款式档案后，项目可继续进入工程任务。'],
+  }),
+  'WI-014': buildBuiltinConfig({
+    workItemTypeCode: 'PROJECT_TRANSFER_PREP',
+    workItemNature: '里程碑类',
+    type: 'milestone',
+    categoryName: '开发推进',
+    description: '在项目转入商品档案与工程前完成转档准备。',
+    roleCodes: ['archive-admin', 'project-owner'],
+    roleNames: ['档案管理员', '项目负责人'],
     fieldGroups: [
-      {
-        id: "pattern-creation",
-        title: "版型制作",
-        fields: [
-          {
-            id: "pattern-type",
-            label: "纸样类型",
-            type: "select",
-            required: true,
-            options: [
-              { value: "base-pattern", label: "基础版型" },
-              { value: "revised-pattern", label: "修改版型" },
-            ],
-          },
-          {
-            id: "pattern-designer",
-            label: "制版师",
-            type: "text",
-            required: true,
-            placeholder: "请输入制版师姓名",
-          },
-          {
-            id: "pattern-creation-date",
-            label: "制作日期",
-            type: "date",
-            required: true,
-          },
-          {
-            id: "size-range",
-            label: "尺码范围",
-            type: "text",
-            required: true,
-            placeholder: "如：S, M, L, XL",
-          },
-          {
-            id: "pattern-version",
-            label: "版本号",
-            type: "text",
-            required: true,
-            readonly: true,
-            description: "系统自动生成",
-          },
-        ],
-      },
-      {
-        id: "pattern-approval",
-        title: "版型确认",
-        fields: [
-          {
-            id: "approval-status",
-            label: "审批状态",
-            type: "select",
-            required: true,
-            options: [
-              { value: "pending", label: "待确认" },
-              { value: "approved", label: "已确认" },
-              { value: "rejected", label: "未通过" },
-            ],
-          },
-          {
-            id: "approver",
-            label: "确认人",
-            type: "text",
-            required: false,
-            placeholder: "请输入确认人姓名",
-          },
-          {
-            id: "approval-date",
-            label: "确认日期",
-            type: "date",
-            required: false,
-          },
-          {
-            id: "approval-comments",
-            label: "确认意见",
-            type: "textarea",
-            required: false,
-            rows: 3,
-            placeholder: "填写确认意见",
-          },
-        ],
-      },
+      buildFieldGroup('transfer-prep', '转档准备', '记录转档准备说明。', [
+        { id: 'transfer-note', label: '转档说明', type: 'textarea', required: false, description: '转档准备情况' },
+      ]),
     ],
-    attachments: [
-      {
-        id: "pattern-file",
-        title: "纸样文件",
-        description: "CAD/PDF格式的纸样文件",
-        required: true,
-        maxCount: 10,
-        accept: ".cad,.pdf",
-      },
-      {
-        id: "grading-sheet",
-        title: "放码表",
-        description: "包含各尺码数据的放码表",
-        required: false,
-        maxCount: 1,
-        accept: ".xlsx,.xls",
-      },
-    ],
-    businessRules: [
-      "基础版型必须先完成。",
-      "版本号由系统自动生成，不可手动修改。",
-      "当审批状态为“未通过”时，需填写确认意见。",
-    ],
-    interactions: [
-      "上传纸样文件后，系统可进行初步的图档检查。",
-      "确认通过后，可自动更新“制版准备”工作项中的纸样状态。",
-    ],
-  },
-
-"WI-021": {
-    id: "WI-021",
-    code: "PRE_PRINT",
-    name: "预印花",
-    type: "execute",
-    stage: "工程阶段",
-    role: "印花技师",
-    description: "为含有印花图案的商品准备印花文件和色卡。",
+    businessRules: ['转档准备完成后，工程类任务方可正式流转。'],
+    systemConstraints: ['项目转档准备为开发推进阶段的里程碑节点。'],
+  }),
+  'WI-015': buildBuiltinConfig({
+    workItemTypeCode: 'PATTERN_TASK',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '工程任务',
+    description: '发起并承接制版任务。',
+    roleCodes: ['pattern-maker'],
+    roleNames: ['版师'],
     fieldGroups: [
-      {
-        id: "print-preparation",
-        title: "印花准备",
-        fields: [
-          {
-            id: "print-technique",
-            label: "印花工艺",
-            type: "select",
-            required: true,
-            options: [
-              { value: "digital-print", label: "数码印花" },
-              { value: "screen-print", label: "丝网印花" },
-              { value: "heat-transfer", label: "热转印" },
-              { value: "embroidery", label: "绣花" },
-            ],
-          },
-          {
-            id: "print-designer",
-            label: "印花设计师",
-            type: "text",
-            required: true,
-            placeholder: "请输入印花设计师姓名",
-          },
-          {
-            id: "design-file-preparation-date",
-            label: "设计稿准备日期",
-            type: "date",
-            required: true,
-          },
-          {
-            id: "color-palette",
-            label: "颜色潘通色号",
-            type: "textarea",
-            required: true,
-            rows: 3,
-            placeholder: "列出所有使用的潘通色号",
-          },
-          {
-            id: "print-resolution",
-            label: "印花分辨率",
-            type: "text",
-            required: false,
-            placeholder: "如：300 DPI",
-          },
-        ],
-      },
-      {
-        id: "print-approval",
-        title: "印花确认",
-        fields: [
-          {
-            id: "approval-status",
-            label: "审批状态",
-            type: "select",
-            required: true,
-            options: [
-              { value: "pending", label: "待确认" },
-              { value: "approved", label: "已确认" },
-              { value: "rejected", label: "未通过" },
-            ],
-          },
-          {
-            id: "approver",
-            label: "确认人",
-            type: "text",
-            required: false,
-            placeholder: "请输入确认人姓名",
-          },
-          {
-            id: "approval-date",
-            label: "确认日期",
-            type: "date",
-            required: false,
-          },
-          {
-            id: "approval-comments",
-            label: "确认意见",
-            type: "textarea",
-            required: false,
-            rows: 3,
-            placeholder: "填写确认意见",
-          },
-        ],
-      },
+      buildFieldGroup('pattern-task', '制版任务', '记录制版任务发起信息。', [
+        { id: 'pattern-brief', label: '制版说明', type: 'textarea', required: false, description: '制版需求说明' },
+      ]),
     ],
-    attachments: [
-      {
-        id: "print-design-file",
-        title: "印花设计文件",
-        description: "AI/CDR/PDF格式的印花设计文件",
-        required: true,
-        maxCount: 10,
-        accept: ".ai,.cdr,.pdf",
-      },
-      {
-        id: "color-proof",
-        title: "色稿",
-        description: "印花色稿文件",
-        required: true,
-        maxCount: 5,
-        accept: "image/*,.pdf",
-      },
-    ],
-    businessRules: ["颜色潘通色号必须填写。", "当审批状态为“未通过”时，需填写确认意见。"],
-    interactions: [
-      "上传印花设计文件后，系统可进行初步的格式检查。",
-      "确认通过后，可自动更新“制版准备”工作项中的印花状态。",
-    ],
-  },
-
-"WI-022": {
-    id: "WI-022",
-    code: "PRE_SAMPLE_FLOW",
-    name: "预制样流程",
-    type: "execute",
-    stage: "工程阶段",
-    role: "生产协调",
-    description: "协调制版、印花等环节，制作和反馈预制样。",
+    businessRules: ['模板选择该节点时，会在项目创建后生成制版任务节点。'],
+    systemConstraints: ['制版任务节点来源必须是模板节点。'],
+  }),
+  'WI-016': buildBuiltinConfig({
+    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '工程任务',
+    description: '发起并承接花型任务。',
+    roleCodes: ['artwork-designer'],
+    roleNames: ['花型设计师'],
     fieldGroups: [
-      {
-        id: "process-coordination",
-        title: "流程协调",
-        fields: [
-          {
-            id: "pattern-status",
-            label: "版型状态",
-            type: "select",
-            required: true,
-            options: [
-              { value: "completed", label: "已完成" },
-              { value: "pending", label: "待制作" },
-              { value: "in-progress", label: "制作中" },
-            ],
-          },
-          {
-            id: "print-status",
-            label: "印花状态",
-            type: "select",
-            required: true,
-            options: [
-              { value: "completed", label: "已完成" },
-              { value: "pending", label: "待制作" },
-              { value: "in-progress", label: "制作中" },
-            ],
-          },
-          {
-            id: "sample-making-start-date",
-            label: "样衣制作开始日期",
-            type: "date",
-            required: false,
-          },
-          {
-            id: "sample-making-end-date",
-            label: "样衣制作结束日期",
-            type: "date",
-            required: false,
-          },
-          {
-            id: "coordinator-notes",
-            label: "协调人备注",
-            type: "textarea",
-            required: false,
-            rows: 3,
-            placeholder: "记录流程协调过程中的问题和进展",
-          },
-        ],
-      },
-      {
-        id: "sample-feedback",
-        title: "样衣反馈",
-        fields: [
-          {
-            id: "sample-fit-evaluation",
-            label: "样衣合体度",
-            type: "select",
-            required: true,
-            options: [
-              { value: "good", label: "好" },
-              { value: "average", label: "一般" },
-              { value: "poor", label: "差" },
-            ],
-          },
-          {
-            id: "sample-quality-feedback",
-            label: "样衣质量反馈",
-            type: "textarea",
-            required: false,
-            rows: 4,
-            placeholder: "描述样衣的整体质量和细节反馈",
-          },
-          {
-            id: "feedback-date",
-            label: "反馈日期",
-            type: "date",
-            required: true,
-          },
-        ],
-      },
+      buildFieldGroup('artwork-task', '花型任务', '记录花型任务发起信息。', [
+        { id: 'artwork-brief', label: '花型说明', type: 'textarea', required: false, description: '花型任务说明' },
+      ]),
     ],
-    attachments: [
-      {
-        id: "sample-photos",
-        title: "预制样照片",
-        description: "预制样的实拍照片",
-        required: true,
-        maxCount: 10,
-        accept: "image/*",
-      },
-      {
-        id: "feedback-report",
-        title: "反馈报告",
-        description: "详细的样衣反馈报告",
-        required: false,
-        maxCount: 1,
-        accept: ".pdf,.docx",
-      },
-    ],
-    businessRules: ["版型状态和印花状态必须先完成才能开始样衣制作。", "反馈日期必须大于等于样衣制作结束日期。"],
-    interactions: [
-      "当版型或印花状态更新时，自动通知相关人员。",
-      "样衣反馈结果可直接链接至“设计修改”或“首单样衣打样”工作项。",
-    ],
-  },
-
-"WI-023": {
-    id: "WI-023",
-    code: "PRE_PRODUCTION_SAMPLE",
-    name: "量产前样品",
-    type: "execute",
-    stage: "工程阶段",
-    role: "生产",
-    description: "制作用于最终确认的量产前样品。",
+    businessRules: ['花型任务仅在涉及花型时由模板显式配置。'],
+    systemConstraints: ['花型任务节点来源必须是模板节点。'],
+  }),
+  'WI-017': buildBuiltinConfig({
+    workItemTypeCode: 'FIRST_SAMPLE',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '工程任务',
+    description: '发起首版样衣打样任务。',
+    roleCodes: ['sample-room'],
+    roleNames: ['打样团队'],
     fieldGroups: [
-      {
-        id: "sample-production",
-        title: "样品生产",
-        fields: [
-          {
-            id: "factory-name",
-            label: "生产工厂",
-            type: "text",
-            required: true,
-            placeholder: "请输入生产工厂名称",
-          },
-          {
-            id: "production-order-number",
-            label: "生产工单号",
-            type: "text",
-            required: true,
-            readonly: true,
-            description: "系统自动生成",
-          },
-          {
-            id: "material-confirmation",
-            label: "材料确认",
-            type: "select",
-            required: true,
-            options: [
-              { value: "confirmed", label: "已确认" },
-              { value: "needs-review", label: "待审核" },
-            ],
-          },
-          {
-            id: "planned-delivery-date",
-            label: "计划交付日期",
-            type: "date",
-            required: true,
-          },
-          {
-            id: "actual-delivery-date",
-            label: "实际交付日期",
-            type: "date",
-            required: false,
-          },
-          {
-            id: "production-cost",
-            label: "生产成本",
-            type: "number",
-            required: true,
-            unit: "元",
-            validation: { min: 0 },
-          },
-        ],
-      },
-      {
-        id: "quality-inspection",
-        title: "质量检验",
-        fields: [
-          {
-            id: "inspection-date",
-            label: "检验日期",
-            type: "date",
-            required: true,
-          },
-          {
-            id: "inspector-name",
-            label: "检验员",
-            type: "text",
-            required: true,
-            placeholder: "请输入检验员姓名",
-          },
-          {
-            id: "inspection-result",
-            label: "检验结果",
-            type: "select",
-            required: true,
-            options: [
-              { value: "pass", label: "合格" },
-              { value: "fail", label: "不合格" },
-            ],
-          },
-          {
-            id: "inspection-notes",
-            label: "检验备注",
-            type: "textarea",
-            required: false,
-            rows: 4,
-            placeholder: "详细记录检验过程和结果",
-          },
-        ],
-      },
+      buildFieldGroup('first-sample', '首版样衣打样', '记录首版样衣打样要求。', [
+        { id: 'first-sample-note', label: '打样说明', type: 'textarea', required: false, description: '首版样衣打样要求' },
+      ]),
     ],
-    attachments: [
-      {
-        id: "pre-production-sample-photos",
-        title: "量产前样品照片",
-        description: "最终量产前样品的照片",
-        required: true,
-        maxCount: 20,
-        accept: "image/*",
-      },
-      {
-        id: "production-order-document",
-        title: "生产工单",
-        description: "量产前样品的生产工单",
-        required: true,
-        maxCount: 1,
-        accept: ".pdf",
-      },
+    businessRules: ['首版样衣打样节点用于沉淀首版样衣交付。'],
+    systemConstraints: ['若模板选择该节点，则项目节点必须保留来源模板信息。'],
+  }),
+  'WI-018': buildBuiltinConfig({
+    workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '工程任务',
+    description: '发起产前版样衣任务。',
+    roleCodes: ['sample-room'],
+    roleNames: ['打样团队'],
+    fieldGroups: [
+      buildFieldGroup('pre-production', '产前版样衣', '记录产前版样衣要求。', [
+        { id: 'pre-production-note', label: '产前样说明', type: 'textarea', required: false, description: '产前版样衣要求' },
+      ]),
     ],
-    businessRules: [
-      "生产成本必须大于等于0。",
-      "如果检验结果为“不合格”，则检验备注为必填。",
-      "检验日期必须大于等于计划交付日期。",
+    businessRules: ['产前版样衣节点通常位于首版样衣打样之后。'],
+    systemConstraints: ['产前版样衣是开发推进阶段的正式工程节点。'],
+  }),
+  'WI-019': buildBuiltinConfig({
+    workItemTypeCode: 'CHANNEL_PRODUCT_PREP',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '渠道准备',
+    description: '准备渠道商品资料与上架前置资料。',
+    roleCodes: ['channel-operator'],
+    roleNames: ['渠道运营'],
+    fieldGroups: [
+      buildFieldGroup('channel-prep', '渠道商品准备', '记录渠道商品准备信息。', [
+        { id: 'channel-prep-note', label: '准备说明', type: 'textarea', required: false, description: '渠道商品准备说明' },
+      ]),
     ],
-    interactions: [
-      "系统自动生成生产工单号。",
-      "检验结果将决定是否可以进入大货生产。",
-      "若不合格，可触发“设计修改”或“样衣确认”工作项。",
+    businessRules: ['渠道商品准备用于衔接后续渠道商品模块。'],
+    systemConstraints: ['该节点只承载项目级准备，不直接生成渠道商品主档。'],
+  }),
+  'WI-020': buildBuiltinConfig({
+    workItemTypeCode: 'SAMPLE_RETAIN_REVIEW',
+    workItemNature: '决策类',
+    type: 'decision',
+    categoryName: '项目收尾',
+    description: '评估样衣是否留存以及留存方式。',
+    roleCodes: ['sample-admin', 'project-owner'],
+    roleNames: ['样衣管理员', '项目负责人'],
+    fieldGroups: [
+      buildFieldGroup('retain-review', '样衣留存评估', '记录留存评估结论。', [
+        { id: 'retain-result', label: '留存结论', type: 'single-select', required: false, description: '留存 / 不留存' },
+        { id: 'retain-note', label: '评估说明', type: 'textarea', required: false, description: '留存评估说明' },
+      ]),
     ],
-  }
+    businessRules: ['项目收尾时需明确样衣是否留存。'],
+    systemConstraints: ['样衣留存评估不能覆盖项目状态。'],
+  }),
+  'WI-021': buildBuiltinConfig({
+    workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
+    workItemNature: '执行类',
+    type: 'execute',
+    categoryName: '项目收尾',
+    description: '执行样衣退回、报废或其他处理动作。',
+    roleCodes: ['sample-admin', 'warehouse'],
+    roleNames: ['样衣管理员', '仓储'],
+    fieldGroups: [
+      buildFieldGroup('return-handle', '样衣退回处理', '记录样衣退回处理结果。', [
+        { id: 'return-result', label: '处理结果', type: 'textarea', required: false, description: '退回、报废或其他处理说明' },
+      ]),
+    ],
+    businessRules: ['项目收尾时需明确样衣最终处理动作。'],
+    systemConstraints: ['样衣退回处理只表示收尾动作，不改变项目阶段目录。'],
+  }),
 }

@@ -7,10 +7,11 @@ import {
   getPatternPieceById,
   getSkuOptionsForCurrentSpu,
   state,
-} from './context'
+} from './context.ts'
 
 export function renderColorMappingTab(): string {
   if (!state.techPack) return ''
+  const readonly = state.compatibilityMode
 
   const mappings = state.colorMaterialMappings
   const bomOptions = state.bomItems
@@ -49,13 +50,13 @@ export function renderColorMappingTab(): string {
 
       <section class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">款色-物料-纸样-裁片映射</h3>
+          <h3 class="text-base font-semibold">款色用料对应</h3>
           <p class="mt-1 text-sm text-muted-foreground">用于明确 SPU + 颜色下，单件成衣所需物料、纸样与裁片明细。复杂款自动生成后需人工确认。</p>
         </header>
         <div class="space-y-4 p-4">
           ${
             mappings.length === 0
-              ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">当前技术包暂无款色映射，可先完善 BOM / 纸样后由系统生成草稿</div>'
+              ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">当前技术资料版本暂无款色用料对应，可先完善物料清单和纸样管理后由系统生成草稿</div>'
               : mappings
                   .map((mapping) => {
                     const statusLabel = colorMappingStatusLabel[mapping.status]
@@ -70,7 +71,7 @@ export function renderColorMappingTab(): string {
                             <span class="inline-flex rounded border px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(generatedModeLabel[mapping.generatedMode])}</span>
                           </div>
                           <div class="flex flex-wrap items-center gap-2">
-                            <button
+                            ${readonly ? '' : `<button
                               class="inline-flex h-7 items-center rounded border px-2 text-xs hover:bg-muted ${
                                 mapping.status === 'AUTO_DRAFT' || mapping.status === 'MANUAL_ADJUSTED'
                                   ? ''
@@ -80,28 +81,28 @@ export function renderColorMappingTab(): string {
                               data-mapping-id="${mapping.id}"
                             >
                               确认映射
-                            </button>
-                            <button
+                            </button>`}
+                            ${readonly ? '' : `<button
                               class="inline-flex h-7 items-center rounded border px-2 text-xs hover:bg-muted"
                               data-tech-action="copy-system-draft-manual"
                               data-mapping-id="${mapping.id}"
                             >
                               复制系统稿为人工版
-                            </button>
-                            <button
+                            </button>`}
+                            ${readonly ? '' : `<button
                               class="inline-flex h-7 items-center rounded border px-2 text-xs hover:bg-muted"
                               data-tech-action="add-mapping-line"
                               data-mapping-id="${mapping.id}"
                             >
                               新增映射行
-                            </button>
-                            <button
+                            </button>`}
+                            ${readonly ? '' : `<button
                               class="inline-flex h-7 items-center rounded border px-2 text-xs hover:bg-muted"
                               data-tech-action="reset-color-mapping-suggestion"
                               data-mapping-id="${mapping.id}"
                             >
                               重置为系统建议
-                            </button>
+                            </button>`}
                           </div>
                         </header>
                         <div class="space-y-2 p-3">
@@ -118,6 +119,7 @@ export function renderColorMappingTab(): string {
                               placeholder="可记录系统草稿说明、人工修订原因"
                               data-tech-field="mapping-remark"
                               data-mapping-id="${mapping.id}"
+                              ${readonly ? 'disabled' : ''}
                             />
                           </div>
                           <div class="overflow-x-auto rounded border">
@@ -220,6 +222,7 @@ export function renderColorMappingTab(): string {
                                                     data-tech-field="mapping-line-piece-count"
                                                     data-mapping-id="${mapping.id}"
                                                     data-line-id="${line.id}"
+                                                    ${readonly ? 'disabled' : ''}
                                                   />
                                                   <input
                                                     class="h-7 w-12 rounded border px-1 text-center text-[11px]"
@@ -227,6 +230,7 @@ export function renderColorMappingTab(): string {
                                                     data-tech-field="mapping-line-unit"
                                                     data-mapping-id="${mapping.id}"
                                                     data-line-id="${line.id}"
+                                                    ${readonly ? 'disabled' : ''}
                                                   />
                                                 </div>
                                               </td>
@@ -238,6 +242,7 @@ export function renderColorMappingTab(): string {
                                                   data-tech-field="mapping-line-skus"
                                                   data-mapping-id="${mapping.id}"
                                                   data-line-id="${line.id}"
+                                                  ${readonly ? 'disabled' : ''}
                                                 />
                                                 ${
                                                   line.applicableSkuCodes.length > 0
@@ -256,6 +261,7 @@ export function renderColorMappingTab(): string {
                                                   data-tech-field="mapping-line-source-mode"
                                                   data-mapping-id="${mapping.id}"
                                                   data-line-id="${line.id}"
+                                                  ${readonly ? 'disabled' : ''}
                                                 >
                                                   <option value="AUTO" ${line.sourceMode === 'AUTO' ? 'selected' : ''}>系统生成</option>
                                                   <option value="MANUAL" ${line.sourceMode === 'MANUAL' ? 'selected' : ''}>人工维护</option>
@@ -269,17 +275,18 @@ export function renderColorMappingTab(): string {
                                                   data-tech-field="mapping-line-note"
                                                   data-mapping-id="${mapping.id}"
                                                   data-line-id="${line.id}"
+                                                  ${readonly ? 'disabled' : ''}
                                                 />
                                               </td>
                                               <td class="px-2 py-1.5">
-                                                <button
+                                                ${readonly ? '' : `<button
                                                   class="inline-flex h-7 items-center rounded border px-2 text-xs text-red-600 hover:bg-red-50"
                                                   data-tech-action="delete-mapping-line"
                                                   data-mapping-id="${mapping.id}"
                                                   data-line-id="${line.id}"
                                                 >
                                                   删除
-                                                </button>
+                                                </button>`}
                                               </td>
                                             </tr>
                                           `

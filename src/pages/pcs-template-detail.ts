@@ -2,12 +2,15 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
   copyProjectTemplate,
+  countTemplatePendingNodes,
+  countTemplateReferencedWorkItems,
   countTemplateStages,
   countTemplateWorkItems,
   getProjectTemplateById,
   getStatusLabel,
   toggleProjectTemplateStatus,
 } from '../data/pcs-templates'
+import { getPcsWorkItemDefinition } from '../data/pcs-work-items'
 
 type DetailDialogType = 'copy' | 'toggle'
 
@@ -74,10 +77,10 @@ function renderDialog(): string {
   const isCopy = state.dialog.type === 'copy'
   const title = isCopy ? '复制模板' : `${template.status === 'active' ? '停用' : '启用'}模板`
   const description = isCopy
-    ? "将基于当前模板创建副本，名称自动添加“副本”后缀。"
+    ? '将复制当前模板的阶段定义、节点定义和待处理项。'
     : template.status === 'active'
-      ? '停用后，该模板将不能用于新建商品项目，但不影响已引用项目。'
-      : '启用后，该模板将可用于新建商品项目。'
+      ? '停用后将不能用于新建商品项目。'
+      : '启用后模板可用于新建商品项目。'
 
   const confirmText = isCopy ? '确认复制' : template.status === 'active' ? '确认停用' : '确认启用'
 
@@ -106,9 +109,6 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
   const template = getProjectTemplateById(templateId)
   if (!template) return renderNotFound(templateId)
 
-  const stageCount = countTemplateStages(template)
-  const workItemCount = countTemplateWorkItems(template)
-
   return `
     <div class="space-y-4">
       <header class="flex flex-wrap items-start justify-between gap-3">
@@ -117,7 +117,7 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
             <i data-lucide="arrow-left" class="mr-1 h-3.5 w-3.5"></i>返回模板列表
           </button>
           <h1 class="text-xl font-semibold">${escapeHtml(template.name)}</h1>
-          <p class="text-sm text-muted-foreground">模板详情内页，承接基础信息、阶段配置与复制/启停弹窗操作。</p>
+          <p class="text-sm text-muted-foreground">模板详情展示正式阶段定义、模板节点定义以及待补充标准工作项。</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           ${getStatusBadge(template.status)}
@@ -135,87 +135,137 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
 
       ${renderNotice()}
 
-      <section class="grid gap-3 md:grid-cols-3">
+      <section class="grid gap-3 md:grid-cols-4">
         <article class="rounded-lg border bg-card p-3">
           <p class="text-xs text-muted-foreground">模板编码</p>
           <p class="mt-1 font-mono text-sm">${escapeHtml(template.id)}</p>
         </article>
         <article class="rounded-lg border bg-card p-3">
-          <p class="text-xs text-muted-foreground">适用款式类型</p>
-          <div class="mt-1 flex flex-wrap gap-1">
-            ${template.styleType.map((item) => `<span class="inline-flex rounded-md border bg-muted px-2 py-0.5 text-xs">${escapeHtml(item)}</span>`).join('')}
-          </div>
+          <p class="text-xs text-muted-foreground">阶段数</p>
+          <p class="mt-1 text-xl font-semibold">${countTemplateStages(template)}</p>
         </article>
         <article class="rounded-lg border bg-card p-3">
-          <p class="text-xs text-muted-foreground">模板规模</p>
-          <p class="mt-1 text-sm">阶段 ${stageCount} 个 ｜ 工作项 ${workItemCount} 个</p>
-          <p class="mt-1 text-xs text-muted-foreground">创建：${escapeHtml(template.createdAt)} ｜ 更新：${escapeHtml(template.updatedAt)}</p>
+          <p class="text-xs text-muted-foreground">模板节点数</p>
+          <p class="mt-1 text-xl font-semibold">${countTemplateWorkItems(template)}</p>
+        </article>
+        <article class="rounded-lg border bg-card p-3">
+          <p class="text-xs text-muted-foreground">标准工作项数</p>
+          <p class="mt-1 text-xl font-semibold">${countTemplateReferencedWorkItems(template)}</p>
+          <p class="mt-1 text-xs text-muted-foreground">待补充项：${countTemplatePendingNodes(template)}</p>
         </article>
       </section>
 
       <section class="rounded-lg border bg-card p-4">
-        <h2 class="text-sm font-semibold">模板说明</h2>
-        <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(template.description)}</p>
+        <h2 class="text-sm font-semibold">模板主信息</h2>
+        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <article class="rounded-md border bg-background p-3">
+            <p class="text-xs text-muted-foreground">适用款式类型</p>
+            <p class="mt-1 text-sm">${template.styleType.map((item) => escapeHtml(item)).join('、')}</p>
+          </article>
+          <article class="rounded-md border bg-background p-3">
+            <p class="text-xs text-muted-foreground">创建人</p>
+            <p class="mt-1 text-sm">${escapeHtml(template.creator)}</p>
+          </article>
+          <article class="rounded-md border bg-background p-3">
+            <p class="text-xs text-muted-foreground">创建时间</p>
+            <p class="mt-1 text-sm">${escapeHtml(template.createdAt)}</p>
+          </article>
+          <article class="rounded-md border bg-background p-3">
+            <p class="text-xs text-muted-foreground">最近更新时间</p>
+            <p class="mt-1 text-sm">${escapeHtml(template.updatedAt)}</p>
+          </article>
+        </div>
+        <p class="mt-3 text-sm text-muted-foreground">${escapeHtml(template.description)}</p>
       </section>
 
-      <section class="space-y-3 rounded-lg border bg-card p-4">
-        <h2 class="text-sm font-semibold">阶段与工作项配置</h2>
-        <div class="space-y-3">
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="mb-3 text-sm font-semibold">阶段定义</h2>
+        <div class="space-y-2">
           ${template.stages
             .map(
-              (stage, stageIndex) => `
-                <article class="rounded-lg border bg-background p-3">
-                  <div class="flex flex-wrap items-start justify-between gap-2">
+              (stage) => `
+                <article class="rounded-md border bg-background px-3 py-2 text-sm">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <h3 class="text-sm font-medium">${escapeHtml(stage.name)}</h3>
-                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(stage.description || '暂无阶段说明')}</p>
+                      <p class="font-medium">${escapeHtml(stage.phaseName)}</p>
+                      <p class="mt-1 text-xs text-muted-foreground">阶段编码：${escapeHtml(stage.phaseCode)} ｜ 阶段顺序：${stage.phaseOrder}</p>
                     </div>
-                    <span class="inline-flex rounded-full border bg-muted px-2 py-0.5 text-xs">阶段 ${stageIndex + 1}</span>
+                    <span class="inline-flex rounded-full border bg-muted px-2 py-0.5 text-xs">${stage.requiredFlag ? '必经阶段' : '可选阶段'}</span>
                   </div>
-                  <div class="mt-3 overflow-x-auto">
-                    <table class="w-full min-w-[860px] text-xs">
-                      <thead>
-                        <tr class="border-b text-left text-muted-foreground">
-                          <th class="px-2 py-1.5 font-medium">工作项名称</th>
-                          <th class="px-2 py-1.5 font-medium">类型</th>
-                          <th class="px-2 py-1.5 font-medium">必做</th>
-                          <th class="px-2 py-1.5 font-medium">执行角色</th>
-                          <th class="px-2 py-1.5 font-medium">关联字段模板</th>
-                          <th class="px-2 py-1.5 font-medium">备注</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${
-                          stage.workItems.length > 0
-                            ? stage.workItems
-                                .map(
-                                  (item) => `
-                                    <tr class="border-b last:border-b-0">
-                                      <td class="px-2 py-1.5">${escapeHtml(item.name)}</td>
-                                      <td class="px-2 py-1.5">${escapeHtml(item.type)}</td>
-                                      <td class="px-2 py-1.5">${escapeHtml(item.required)}</td>
-                                      <td class="px-2 py-1.5">${escapeHtml(item.roles.join(' / ') || '-')}</td>
-                                      <td class="px-2 py-1.5">${escapeHtml(item.fieldTemplate || '-')}</td>
-                                      <td class="px-2 py-1.5 text-muted-foreground">${escapeHtml(item.note || '-')}</td>
-                                    </tr>
-                                  `,
-                                )
-                                .join('')
-                            : `
-                              <tr>
-                                <td colspan="6" class="px-2 py-4 text-center text-muted-foreground">暂无工作项</td>
-                              </tr>
-                            `
-                        }
-                      </tbody>
-                    </table>
-                  </div>
+                  <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(stage.description || '暂无阶段说明')}</p>
                 </article>
               `,
             )
             .join('')}
         </div>
       </section>
+
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="mb-3 text-sm font-semibold">节点定义</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[1100px] text-xs">
+            <thead>
+              <tr class="border-b text-left text-muted-foreground">
+                <th class="px-2 py-1.5 font-medium">阶段</th>
+                <th class="px-2 py-1.5 font-medium">顺序</th>
+                <th class="px-2 py-1.5 font-medium">标准工作项编号</th>
+                <th class="px-2 py-1.5 font-medium">标准工作项名称</th>
+                <th class="px-2 py-1.5 font-medium">工作项类别</th>
+                <th class="px-2 py-1.5 font-medium">是否必做</th>
+                <th class="px-2 py-1.5 font-medium">是否允许多次执行</th>
+                <th class="px-2 py-1.5 font-medium">角色覆盖</th>
+                <th class="px-2 py-1.5 font-medium">节点备注</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${template.nodes
+                .map((node) => {
+                  const workItem = getPcsWorkItemDefinition(node.workItemId)
+                  return `
+                    <tr class="border-b last:border-b-0">
+                      <td class="px-2 py-1.5">${escapeHtml(node.phaseName)}</td>
+                      <td class="px-2 py-1.5">${node.sequenceNo}</td>
+                      <td class="px-2 py-1.5 font-mono">${escapeHtml(node.workItemId)}</td>
+                      <td class="px-2 py-1.5">
+                        <p class="font-medium">${escapeHtml(node.workItemTypeName)}</p>
+                        <p class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(node.workItemTypeCode)}</p>
+                      </td>
+                      <td class="px-2 py-1.5">${escapeHtml(workItem?.categoryName ?? '-')}</td>
+                      <td class="px-2 py-1.5">${node.requiredFlag ? '必做' : '可选'}</td>
+                      <td class="px-2 py-1.5">${node.multiInstanceFlag ? '允许' : '单次'}</td>
+                      <td class="px-2 py-1.5">${escapeHtml(node.roleOverrideNames.join(' / ') || '沿用默认角色')}</td>
+                      <td class="px-2 py-1.5 text-muted-foreground">${escapeHtml(node.note || '—')}</td>
+                    </tr>
+                  `
+                })
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      ${
+        template.pendingNodes.length > 0
+          ? `
+            <section class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <h2 class="text-sm font-semibold text-amber-800">待补充标准工作项</h2>
+              <div class="mt-3 space-y-2">
+                ${template.pendingNodes
+                  .map(
+                    (node) => `
+                      <article class="rounded-md border border-amber-200 bg-white px-3 py-2 text-xs">
+                        <p class="font-medium text-amber-800">原始旧名称：${escapeHtml(node.legacyWorkItemName)}</p>
+                        <p class="mt-1 text-amber-700">原始旧阶段：${escapeHtml(node.legacyStageName)}</p>
+                        <p class="mt-1 text-amber-700">未映射原因：${escapeHtml(node.unresolvedReason)}</p>
+                      </article>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            </section>
+          `
+          : ''
+      }
 
       ${renderDialog()}
     </div>
@@ -270,19 +320,22 @@ export function handlePcsTemplateDetailEvent(target: HTMLElement): boolean {
     if (!state.templateId) return false
     if (state.dialog.type === 'copy') {
       const copied = copyProjectTemplate(state.templateId)
-      if (copied) {
-        state.notice = `模板已复制：${copied.name}`
-        appStore.navigate(`/pcs/templates/${copied.id}`)
-      }
       closeDialog()
+      if (!copied) {
+        state.notice = '复制模板失败，请重试。'
+        return true
+      }
+      appStore.navigate(`/pcs/templates/${copied.id}`)
       return true
     }
 
-    const changed = toggleProjectTemplateStatus(state.templateId)
-    if (changed) {
-      state.notice = `模板 ${changed.name} 已${getStatusLabel(changed.status)}（演示态）。`
-    }
+    const toggled = toggleProjectTemplateStatus(state.templateId)
     closeDialog()
+    if (!toggled) {
+      state.notice = '模板状态更新失败，请重试。'
+      return true
+    }
+    state.notice = `模板已${toggled.status === 'active' ? '启用' : '停用'}。`
     return true
   }
 

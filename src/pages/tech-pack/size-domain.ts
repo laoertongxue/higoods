@@ -1,23 +1,24 @@
 import {
   escapeHtml,
   state,
-} from './context'
+} from './context.ts'
 
 export function renderSizeTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
+  const readonly = state.compatibilityMode
 
   return `
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <h3 class="text-base font-semibold">尺码表</h3>
-          <p class="mt-1 text-sm text-muted-foreground">各部位尺寸规格定义</p>
+          <h3 class="text-base font-semibold">放码规则</h3>
+          <p class="mt-1 text-sm text-muted-foreground">维护各尺码测量项的尺寸规格与放码规则</p>
         </div>
-        <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-size">
+        ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-size">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-          添加部位
-        </button>
+          添加尺码测量项
+        </button>`}
       </header>
       <div class="p-4">
         ${
@@ -27,7 +28,7 @@ export function renderSizeTab(): string {
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b bg-muted/30">
-                    <th class="px-3 py-2 text-left">部位</th>
+                    <th class="px-3 py-2 text-left">尺码测量项</th>
                     <th class="px-3 py-2 text-right">S</th>
                     <th class="px-3 py-2 text-right">M</th>
                     <th class="px-3 py-2 text-right">L</th>
@@ -48,9 +49,9 @@ export function renderSizeTab(): string {
                           <td class="px-3 py-2 text-right">${row.XL}</td>
                           <td class="px-3 py-2 text-right">${row.tolerance}</td>
                           <td class="px-3 py-2 text-right">
-                            <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-size" data-size-id="${row.id}">
+                            ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-size" data-size-id="${row.id}">
                               <i data-lucide="trash-2" class="h-4 w-4"></i>
-                            </button>
+                            </button>`}
                           </td>
                         </tr>
                       `,
@@ -73,11 +74,11 @@ export function renderAddSizeDialog(): string {
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="w-full max-w-lg rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">添加部位</h3>
+          <h3 class="text-lg font-semibold">添加放码规则</h3>
         </header>
         <div class="space-y-4 px-6 py-4">
           <label class="space-y-1">
-            <span class="text-sm">部位 <span class="text-red-500">*</span></span>
+            <span class="text-sm">尺码测量项 <span class="text-red-500">*</span></span>
             <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-size-part" value="${escapeHtml(state.newSizeRow.part)}" placeholder="例如 胸围" />
           </label>
           <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -98,4 +99,3 @@ export function renderAddSizeDialog(): string {
     </div>
   `
 }
-

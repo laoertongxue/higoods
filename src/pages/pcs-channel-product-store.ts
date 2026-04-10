@@ -103,11 +103,12 @@ function renderHeader(): string {
   return `
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold">店铺渠道商品视图</h1>
-        <p class="mt-1 text-sm text-muted-foreground">按渠道 × 店铺查看商品状态、映射健康和上架执行结果。</p>
+        <p class="text-xs text-muted-foreground">商品档案 / 渠道商品 / 店铺视图</p>
+        <h1 class="mt-2 text-xl font-semibold">店铺渠道商品视图</h1>
+        <p class="mt-1 text-sm text-muted-foreground">按渠道 × 店铺查看商品状态、挂接健康和上架执行结果。</p>
       </div>
       <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-store-view-action="go-group-view">
-        <i data-lucide="layers" class="mr-1 h-3.5 w-3.5"></i>返回商品组视图
+        <i data-lucide="layers" class="mr-1 h-3.5 w-3.5"></i>返回渠道商品
       </button>
     </header>
   `
@@ -325,14 +326,14 @@ export function handlePcsChannelProductStoreViewEvent(target: HTMLElement): bool
   }
 
   if (action === 'go-group-view') {
-    appStore.navigate('/pcs/channels/products')
+    appStore.navigate('/pcs/products/channel-products')
     return true
   }
 
   if (action === 'go-detail') {
     const productId = actionNode.dataset.productId
     if (!productId) return false
-    appStore.navigate(`/pcs/channels/products/${productId}`)
+    appStore.navigate(`/pcs/products/channel-products/${productId}`)
     return true
   }
 

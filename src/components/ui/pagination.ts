@@ -1,7 +1,7 @@
 // ============ 分页组件 ============
 
-import type { PaginationConfig, ActionConfig } from './types'
-import { toActionAttr, toDataPrefix } from './types'
+import type { PaginationConfig, ActionConfig } from './types.ts'
+import { toActionAttr, toDataPrefix } from './types.ts'
 
 /**
  * HTML 转义

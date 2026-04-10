@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { getProjectRelationProjectLabel, listProjectRelationsByVideoRecord } from '../data/pcs-project-relation-repository.ts'
 import {
   ACCOUNTING_STATUS_META,
   SESSION_STATUS_META,
@@ -51,6 +52,31 @@ const TABS: Array<{ key: VideoDetailTab; label: string }> = [
   { key: 'samples', label: '样衣关联' },
   { key: 'logs', label: '日志审计' },
 ]
+
+function renderVideoRecordProjectInfo(item: VideoItem): string {
+  const relations = listProjectRelationsByVideoRecord(state.recordId)
+  if (relations.length === 0) {
+    return `
+      <div class="space-y-1">
+        <p class="font-medium text-foreground">${escapeHtml(item.productName)}</p>
+        <p class="text-[11px] text-muted-foreground">暂无正式项目关联</p>
+        ${item.projectRef ? `<p class="text-[11px] text-amber-700">历史项目字段：${escapeHtml(item.projectRef)}</p>` : ''}
+        <p class="text-muted-foreground">${escapeHtml(item.sku)}</p>
+      </div>
+    `
+  }
+  return `
+    <div class="space-y-1">
+      <div class="flex flex-wrap gap-1">
+        ${relations
+          .map((relation) => `<span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">${escapeHtml(getProjectRelationProjectLabel(relation.projectId))}</span>`)
+          .join('')}
+      </div>
+      <p class="font-medium text-foreground">${escapeHtml(item.productName)}</p>
+      <p class="text-muted-foreground">${escapeHtml(item.sku)}</p>
+    </div>
+  `
+}
 
 function getRecord(): VideoRecord | null {
   return getVideoRecordById(state.recordId)
@@ -186,11 +212,7 @@ function renderItems(items: VideoItem[]): string {
                         <tr class="border-b last:border-b-0">
                           <td class="px-3 py-3">${escapeHtml(item.id)}</td>
                           <td class="px-3 py-3">${escapeHtml(item.evaluationIntent)}</td>
-                          <td class="px-3 py-3 text-xs">
-                            ${escapeHtml(item.projectRef ?? '-')}
-                            <p class="mt-1 font-medium text-foreground">${escapeHtml(item.productName)}</p>
-                            <p class="text-muted-foreground">${escapeHtml(item.sku)}</p>
-                          </td>
+                          <td class="px-3 py-3 text-xs">${renderVideoRecordProjectInfo(item)}</td>
                           <td class="px-3 py-3 text-right">${item.exposure.toLocaleString()}</td>
                           <td class="px-3 py-3 text-right">${item.click.toLocaleString()}</td>
                           <td class="px-3 py-3 text-right">${item.pay.toLocaleString()}</td>

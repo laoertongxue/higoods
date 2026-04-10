@@ -233,7 +233,7 @@ export const REASON_LABEL: Record<ReasonCode, string> = {
   PRICE_ABNORMAL: '报价异常',
   DISPATCH_REJECTED: '派单拒单',
   ACK_TIMEOUT: '接单超时',
-  TECH_PACK_NOT_RELEASED: '技术包未发布',
+  TECH_PACK_NOT_RELEASED: '技术资料未发布',
   FACTORY_BLACKLISTED: '工厂黑名单',
   HANDOVER_DIFF: '交接差异',
   MATERIAL_NOT_READY: '物料未齐套',
@@ -483,11 +483,11 @@ export function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
     const resolved = relatedOrders.length > 0 && relatedOrders.every((order) => order.techPackSnapshot.status === 'RELEASED')
     return {
       resolved,
-      ruleText: '技术包发布并可正常使用后，系统自动判定为已解决。',
+      ruleText: '技术资料发布并可正常使用后，系统自动判定为已解决。',
       currentResultText: resolved
-        ? '当前已满足：技术包已发布，可进入关闭流程。'
-        : '当前未满足：技术包仍未发布或资料未补齐，请先处理技术包。',
-      resolvedDetail: '技术包已发布并可用于生产，系统自动判定为已解决',
+        ? '当前已满足：技术资料已发布，可进入关闭流程。'
+        : '当前未满足：技术资料仍未发布或资料未补齐，请先处理技术资料。',
+      resolvedDetail: '技术资料已发布并可用于生产，系统自动判定为已解决',
       resolvedRuleCode: 'TECH_PACK_RELEASED',
     }
   }

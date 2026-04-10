@@ -1,6 +1,6 @@
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { processTasks, type ProcessTask } from './process-tasks.ts'
-import { getTechPackBySpuCode, type TechPackBomItem } from './tech-packs.ts'
+import { getCompatTechPackBySpuCode as getTechPackBySpuCode, type TechPackBomItem } from '../pcs-technical-data-runtime-source.ts'
 import {
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
@@ -485,7 +485,7 @@ function buildBomCandidates(
         suggestedQty,
         unit: inferMaterialUnit(item, category),
         sourceRef: `${item.id}:${sourceSkuCodes.join('|') || 'ALL'}`,
-        note: `来源技术包BOM：${item.type}`,
+        note: `来源技术资料BOM：${item.type}`,
         sourceBomItemId: item.id,
         sourceBomItemCode: `BOM-${order.demandSnapshot.spuCode}-${item.id}`,
         sourceBomItemName: item.name,
@@ -496,7 +496,7 @@ function buildBomCandidates(
         patternSpecText: patternEvidence.patternSpecText,
         patternTotalPieceCount: patternEvidence.patternTotalPieceCount,
         pieceSummaryText: patternEvidence.pieceSummaryText,
-        sourceRuleLabel: '技术包SKU维度BOM自动建议',
+        sourceRuleLabel: '技术资料SKU维度BOM自动建议',
         sourceReasonText: `来源 SKU：${skuScopeLabel}；${patternHint}；${pieceHint}`,
         requiresPrint,
         requiresDye,

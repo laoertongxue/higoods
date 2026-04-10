@@ -6,10 +6,11 @@ import {
   getSkuOptionsForCurrentSpu,
   printOptions,
   state,
-} from './context'
-import type { BomItemRow } from './context'
+} from './context.ts'
+import type { BomItemRow } from './context.ts'
 
 export function renderBomTab(): string {
+  const readonly = state.compatibilityMode
   const spuLabel = state.techPack?.spuCode || '-'
   const skuOptions = getSkuOptionsForCurrentSpu()
   const skuByCode = new Map(skuOptions.map((item) => [item.skuCode, item]))
@@ -59,13 +60,13 @@ export function renderBomTab(): string {
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <h3 class="text-base font-semibold">BOM</h3>
+          <h3 class="text-base font-semibold">物料清单</h3>
           <p class="mt-1 text-sm text-muted-foreground">按 SKU 分组展示物料清单，便于按颜色/规格查看对应物料</p>
         </div>
-        <button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-bom">
+        ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-bom">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
           添加物料
-        </button>
+        </button>`}
       </header>
       <div class="p-4">
         ${
@@ -136,14 +137,14 @@ export function renderBomTab(): string {
                                 <td class="px-3 py-2 text-right">${item.usage}</td>
                                 <td class="px-3 py-2 text-right">${item.lossRate}%</td>
                                 <td class="px-3 py-2">
-                                  <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-print" data-bom-id="${item.id}">
+                                  <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-print" data-bom-id="${item.id}" ${readonly ? 'disabled' : ''}>
                                     ${printOptions
                                       .map((option) => `<option value="${option}" ${item.printRequirement === option ? 'selected' : ''}>${option}</option>`)
                                       .join('')}
                                   </select>
                                 </td>
                                 <td class="px-3 py-2">
-                                  <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}">
+                                  <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}" ${readonly ? 'disabled' : ''}>
                                     ${dyeOptions
                                       .map((option) => `<option value="${option}" ${item.dyeRequirement === option ? 'selected' : ''}>${option}</option>`)
                                       .join('')}
@@ -151,12 +152,12 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="px-3 py-2">
                                   <div class="flex items-center gap-1">
-                                    <button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-bom" data-bom-id="${item.id}">
+                                    ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-bom" data-bom-id="${item.id}">
                                       <i data-lucide="edit-2" class="h-4 w-4"></i>
-                                    </button>
-                                    <button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-bom" data-bom-id="${item.id}">
+                                    </button>`}
+                                    ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-bom" data-bom-id="${item.id}">
                                       <i data-lucide="trash-2" class="h-4 w-4"></i>
-                                    </button>
+                                    </button>`}
                                   </div>
                                 </td>
                               </tr>

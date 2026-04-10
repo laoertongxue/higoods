@@ -77,7 +77,7 @@ interface DyeRequirementsState {
 const PAGE_SIZE_OPTIONS: PageSize[] = [10, 20, 50]
 
 const RULES = [
-  '自动生成：生产单依据技术包自动生成染色需求单',
+  '自动生成：生产单依据技术资料快照自动生成染色需求单',
   '一单一料：一张需求单只对应一条物料需求',
   '染色回货先进入 WMS 裁片仓',
   '仓配满足：仓库对对应生产单完成配料后需求才满足',
@@ -345,7 +345,7 @@ function renderDemandRow(demand: DyeRequirementDemand): string {
           </div>
           <p class="mt-2 text-sm font-medium">${escapeHtml(demand.spuCode)} · ${escapeHtml(demand.spuName)}</p>
           <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
-            <div><span>技术包版本：</span><span class="font-medium text-foreground">${escapeHtml(demand.techPackVersion)}</span></div>
+            <div><span>技术资料版本：</span><span class="font-medium text-foreground">${escapeHtml(demand.techPackVersion)}</span></div>
             <div><span>物料编码：</span><span class="font-mono text-foreground">${escapeHtml(demand.materialCode)}</span></div>
             <div><span>物料名称：</span><span class="text-foreground">${escapeHtml(demand.materialName)}</span></div>
             <div><span>需求数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(demand.requiredQty, demand.unit))}</span></div>
@@ -481,7 +481,7 @@ function renderDetailDrawer(): string {
               <div><span class="text-muted-foreground">状态：</span>${renderBadge(status, STATUS_CLASS[status])}</div>
               <div><span class="text-muted-foreground">来源生产单号：</span><span class="font-mono">${escapeHtml(demand.sourceProductionOrderId)}</span></div>
               <div><span class="text-muted-foreground">商品/款号：</span>${escapeHtml(demand.spuCode)} · ${escapeHtml(demand.spuName)}</div>
-              <div><span class="text-muted-foreground">技术包版本：</span>${escapeHtml(demand.techPackVersion)}</div>
+              <div><span class="text-muted-foreground">技术资料版本：</span>${escapeHtml(demand.techPackVersion)}</div>
               <div><span class="text-muted-foreground">更新时间：</span>${escapeHtml(demand.updatedAt)}</div>
             </div>
           </section>
@@ -495,7 +495,7 @@ function renderDetailDrawer(): string {
               <div><span class="text-muted-foreground">单位：</span>${escapeHtml(demand.unit)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">染色要求：</span>${escapeHtml(demand.dyeRequirement)}</div>
               <div><span class="text-muted-foreground">来源 BOM 项：</span>${escapeHtml(demand.sourceBomItem)}</div>
-              <div><span class="text-muted-foreground">来源技术包版本：</span>${escapeHtml(demand.sourceTechPackVersion)}</div>
+              <div><span class="text-muted-foreground">来源技术资料版本：</span>${escapeHtml(demand.sourceTechPackVersion)}</div>
             </div>
           </section>
 
@@ -626,7 +626,7 @@ export function renderProcessDyeRequirementsPage(): string {
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div class="space-y-1">
           <h1 class="text-xl font-semibold">染色需求单</h1>
-          <p class="text-sm text-muted-foreground">依据生产单技术包自动生成的染色需求，以仓库针对对应生产单完成配料作为满足标志</p>
+          <p class="text-sm text-muted-foreground">依据生产单技术资料快照自动生成的染色需求，以仓库针对对应生产单完成配料作为满足标志</p>
         </div>
       </header>
 

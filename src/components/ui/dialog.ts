@@ -1,9 +1,9 @@
 // ============ 对话框组件 ============
 
-import { escapeHtml } from '../../utils'
-import { renderButton, renderPrimaryButton, renderSecondaryButton, renderDangerButton } from './button'
-import { toActionAttr } from './types'
-import type { DialogConfig, ConfirmDialogConfig, AlertDialogConfig, DialogWidth, ActionConfig } from './types'
+import { escapeHtml } from '../../utils.ts'
+import { renderButton, renderPrimaryButton, renderSecondaryButton, renderDangerButton } from './button.ts'
+import { toActionAttr } from './types.ts'
+import type { DialogConfig, ConfirmDialogConfig, AlertDialogConfig, DialogWidth, ActionConfig } from './types.ts'
 
 // 对话框宽度映射
 const WIDTH_CLASSES: Record<DialogWidth, string> = {

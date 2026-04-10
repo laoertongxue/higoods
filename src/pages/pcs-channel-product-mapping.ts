@@ -128,11 +128,12 @@ function renderHeader(): string {
   return `
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold">编码映射管理</h1>
-        <p class="mt-1 text-sm text-muted-foreground">迁移旧版映射管理能力，支持新建、结束、替换和冲突处理弹窗。</p>
+        <p class="text-xs text-muted-foreground">商品档案 / 渠道属性对应</p>
+        <h1 class="mt-2 text-xl font-semibold">渠道属性对应</h1>
+        <p class="mt-1 text-sm text-muted-foreground">统一维护渠道侧源键、内部档案目标键与有效期，承接新建、结束、替换和冲突处理。</p>
       </div>
       <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-pcs-channel-mapping-action="open-create">
-        <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>新增映射
+        <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>新增对应关系
       </button>
     </header>
   `
@@ -336,7 +337,7 @@ function renderCreateDialog(): string {
 
   return renderFormDialog(
     {
-      title: '新增编码映射',
+      title: '新增对应关系',
       closeAction: { prefix: 'pcs-channel-mapping', action: 'close-create' },
       submitAction: { prefix: 'pcs-channel-mapping', action: 'confirm-create', label: '确认创建' },
       width: 'md',

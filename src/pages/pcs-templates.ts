@@ -2,6 +2,8 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
   copyProjectTemplate,
+  countTemplatePendingNodes,
+  countTemplateReferencedWorkItems,
   countTemplateStages,
   countTemplateWorkItems,
   getStatusLabel,
@@ -52,7 +54,7 @@ const state: ListPageState = {
   statusFilter: 'all',
   page: 1,
   pageSize: 10,
-  notice: '已恢复“列表 + 弹窗 + 内页”结构：详情、新建、编辑均为独立内页。',
+  notice: '模板定义已收口为正式阶段和正式工作项节点结构。',
   confirmDialog: {
     open: false,
     templateId: null,
@@ -119,7 +121,7 @@ function renderNotice(): string {
 function renderHeader(): string {
   const all = listProjectTemplates()
   const active = all.filter((template) => template.status === 'active').length
-  const inactive = all.length - active
+  const pending = all.filter((template) => countTemplatePendingNodes(template) > 0).length
   const avgStage = all.length
     ? Math.round(all.reduce((sum, template) => sum + countTemplateStages(template), 0) / all.length)
     : 0
@@ -129,7 +131,7 @@ function renderHeader(): string {
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold">项目模板管理</h1>
-          <p class="mt-1 text-sm text-muted-foreground">迁移旧版 PCS 的模板管理结构与 Mock 数据，保留弹窗与内页交互链路。</p>
+          <p class="mt-1 text-sm text-muted-foreground">模板只负责组织正式阶段和模板节点，不再并行维护第二套工作项定义。</p>
         </div>
         <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-pcs-template-action="go-create">
           <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>新增模板
@@ -146,8 +148,8 @@ function renderHeader(): string {
           <p class="mt-1 text-xl font-semibold text-emerald-700">${active}</p>
         </article>
         <article class="rounded-lg border bg-card p-3">
-          <p class="text-xs text-muted-foreground">停用模板</p>
-          <p class="mt-1 text-xl font-semibold text-slate-600">${inactive}</p>
+          <p class="text-xs text-muted-foreground">待补充标准工作项</p>
+          <p class="mt-1 text-xl font-semibold text-amber-700">${pending}</p>
         </article>
         <article class="rounded-lg border bg-card p-3">
           <p class="text-xs text-muted-foreground">平均阶段数</p>
@@ -193,7 +195,7 @@ function renderRows(rows: ProjectTemplate[]): string {
   if (rows.length === 0) {
     return `
       <tr>
-        <td colspan="8" class="px-4 py-14 text-center text-muted-foreground">
+        <td colspan="9" class="px-4 py-14 text-center text-muted-foreground">
           <i data-lucide="file-search-2" class="mx-auto h-10 w-10 text-muted-foreground/60"></i>
           <p class="mt-2">暂无模板数据</p>
         </td>
@@ -203,8 +205,7 @@ function renderRows(rows: ProjectTemplate[]): string {
 
   return rows
     .map((template) => {
-      const stageCount = countTemplateStages(template)
-      const workItemCount = countTemplateWorkItems(template)
+      const pending = countTemplatePendingNodes(template)
       return `
         <tr class="border-b last:border-b-0 hover:bg-muted/40">
           <td class="px-3 py-3 align-top">
@@ -216,9 +217,10 @@ function renderRows(rows: ProjectTemplate[]): string {
               ${template.styleType.map((item) => `<span class="inline-flex rounded-md border bg-muted px-2 py-0.5 text-xs">${escapeHtml(item)}</span>`).join('')}
             </div>
           </td>
-          <td class="px-3 py-3 text-center align-top">${stageCount}</td>
-          <td class="px-3 py-3 text-center align-top">${workItemCount}</td>
-          <td class="px-3 py-3 align-top">${escapeHtml(template.creator)}</td>
+          <td class="px-3 py-3 text-center align-top">${countTemplateStages(template)}</td>
+          <td class="px-3 py-3 text-center align-top">${countTemplateWorkItems(template)}</td>
+          <td class="px-3 py-3 text-center align-top">${countTemplateReferencedWorkItems(template)}</td>
+          <td class="px-3 py-3 text-center align-top">${pending > 0 ? `<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">${pending} 项待处理</span>` : '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">已标准化</span>'}</td>
           <td class="px-3 py-3 align-top text-xs text-muted-foreground">${escapeHtml(template.updatedAt)}</td>
           <td class="px-3 py-3 text-center align-top">${getStatusBadge(template.status)}</td>
           <td class="px-3 py-3 align-top">
@@ -238,20 +240,20 @@ function renderRows(rows: ProjectTemplate[]): string {
 function renderTable(): string {
   const filtered = getFilteredTemplates()
   const paging = getPagination(filtered)
-
   state.page = paging.currentPage
 
   return `
     <section class="overflow-hidden rounded-lg border bg-card">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1000px] text-sm">
+        <table class="w-full min-w-[1120px] text-sm">
           <thead>
             <tr class="border-b bg-muted/30 text-left text-muted-foreground">
               <th class="px-3 py-2 font-medium">模板名称</th>
               <th class="px-3 py-2 font-medium">适用款式类型</th>
-              <th class="px-3 py-2 text-center font-medium">阶段数量</th>
-              <th class="px-3 py-2 text-center font-medium">工作项数量</th>
-              <th class="px-3 py-2 font-medium">创建人</th>
+              <th class="px-3 py-2 text-center font-medium">阶段数</th>
+              <th class="px-3 py-2 text-center font-medium">节点数</th>
+              <th class="px-3 py-2 text-center font-medium">标准工作项数</th>
+              <th class="px-3 py-2 text-center font-medium">标准化状态</th>
               <th class="px-3 py-2 font-medium">最近更新时间</th>
               <th class="px-3 py-2 text-center font-medium">状态</th>
               <th class="px-3 py-2 font-medium">操作</th>
@@ -260,15 +262,15 @@ function renderTable(): string {
           <tbody>${renderRows(paging.rows)}</tbody>
         </table>
       </div>
-      <footer class="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-3">
-        <p class="text-xs text-muted-foreground">共 ${paging.total} 条${paging.total > 0 ? `，当前 ${paging.from}-${paging.to}` : ''}</p>
-        <div class="flex flex-wrap items-center gap-2">
+      <footer class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
+        <p class="text-muted-foreground">当前显示 ${paging.from}-${paging.to} / 共 ${paging.total} 条</p>
+        <div class="flex items-center gap-2">
           <select class="h-8 rounded-md border bg-background px-2 text-xs" data-pcs-template-field="pageSize">
             ${PAGE_SIZE_OPTIONS.map((option) => `<option value="${option}" ${option === state.pageSize ? 'selected' : ''}>${option} 条/页</option>`).join('')}
           </select>
-          <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${paging.currentPage <= 1 ? 'cursor-not-allowed opacity-60' : ''}" data-pcs-template-action="prev-page" ${paging.currentPage <= 1 ? 'disabled' : ''}>上一页</button>
-          <span class="text-xs text-muted-foreground">${paging.currentPage} / ${paging.totalPages}</span>
-          <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted ${paging.currentPage >= paging.totalPages ? 'cursor-not-allowed opacity-60' : ''}" data-pcs-template-action="next-page" ${paging.currentPage >= paging.totalPages ? 'disabled' : ''}>下一页</button>
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted ${paging.currentPage <= 1 ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-template-action="prev-page" ${paging.currentPage <= 1 ? 'disabled' : ''}>上一页</button>
+          <span class="text-xs text-muted-foreground">第 ${paging.currentPage} / ${paging.totalPages} 页</span>
+          <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted ${paging.currentPage >= paging.totalPages ? 'cursor-not-allowed opacity-50' : ''}" data-pcs-template-action="next-page" ${paging.currentPage >= paging.totalPages ? 'disabled' : ''}>下一页</button>
         </div>
       </footer>
     </section>
@@ -284,53 +286,20 @@ function renderConfirmDialog(): string {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
       <section class="w-full max-w-lg rounded-lg border bg-background shadow-2xl">
         <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">${state.confirmDialog.nextStatusLabel}模板</h3>
-          <p class="mt-1 text-xs text-muted-foreground">${state.confirmDialog.nextStatusLabel === '停用' ? '停用后将不能用于新建商品项目。' : '启用后可再次用于新建商品项目。'}</p>
+          <h3 class="text-base font-semibold">确认${state.confirmDialog.nextStatusLabel}</h3>
+          <p class="mt-1 text-xs text-muted-foreground">${state.confirmDialog.nextStatusLabel === '停用' ? '停用后模板将不能用于新建商品项目。' : '启用后模板将重新开放给商品项目使用。'}</p>
         </header>
         <div class="space-y-2 p-4 text-sm">
           <p>模板：<span class="font-medium">${escapeHtml(template.name)}</span></p>
           <p>当前状态：${getStatusLabel(template.status)}</p>
         </div>
         <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-template-action="close-dialog">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-template-action="confirm-toggle">${state.confirmDialog.nextStatusLabel}</button>
+          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-template-action="close-toggle-dialog">取消</button>
+          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-template-action="confirm-toggle-dialog">确认${state.confirmDialog.nextStatusLabel}</button>
         </footer>
       </section>
     </div>
   `
-}
-
-function resetFilters(): void {
-  state.searchQuery = ''
-  state.styleTypeFilter = 'all'
-  state.statusFilter = 'all'
-  state.page = 1
-}
-
-function openToggleDialog(templateId: string): void {
-  const template = listProjectTemplates().find((item) => item.id === templateId)
-  if (!template) return
-
-  state.confirmDialog.open = true
-  state.confirmDialog.templateId = template.id
-  state.confirmDialog.nextStatusLabel = template.status === 'active' ? '停用' : '启用'
-}
-
-function closeDialog(): void {
-  state.confirmDialog = {
-    open: false,
-    templateId: null,
-    nextStatusLabel: '停用',
-  }
-}
-
-function toggleStatus(): void {
-  if (!state.confirmDialog.templateId) return
-  const changed = toggleProjectTemplateStatus(state.confirmDialog.templateId)
-  if (changed) {
-    state.notice = `模板 ${changed.name} 已${getStatusLabel(changed.status)}（演示态）。`
-  }
-  closeDialog()
 }
 
 export function renderPcsTemplatesPage(): string {
@@ -347,10 +316,13 @@ export function renderPcsTemplatesPage(): string {
 
 export function handlePcsTemplatesEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-pcs-template-field]')
-  if (fieldNode instanceof HTMLInputElement && fieldNode.dataset.pcsTemplateField === 'searchQuery') {
-    state.searchQuery = fieldNode.value
-    state.page = 1
-    return true
+  if (fieldNode instanceof HTMLInputElement) {
+    const field = fieldNode.dataset.pcsTemplateField
+    if (field === 'searchQuery') {
+      state.searchQuery = fieldNode.value
+      state.page = 1
+      return true
+    }
   }
 
   if (fieldNode instanceof HTMLSelectElement) {
@@ -374,75 +346,80 @@ export function handlePcsTemplatesEvent(target: HTMLElement): boolean {
 
   const actionNode = target.closest<HTMLElement>('[data-pcs-template-action]')
   if (!actionNode) return false
-
   const action = actionNode.dataset.pcsTemplateAction
   if (!action) return false
-
-  if (action === 'close-notice') {
-    state.notice = null
-    return true
-  }
 
   if (action === 'go-create') {
     appStore.navigate('/pcs/templates/new')
     return true
   }
-
   if (action === 'go-detail') {
     const templateId = actionNode.dataset.templateId
     if (!templateId) return false
     appStore.navigate(`/pcs/templates/${templateId}`)
     return true
   }
-
   if (action === 'go-edit') {
     const templateId = actionNode.dataset.templateId
     if (!templateId) return false
     appStore.navigate(`/pcs/templates/${templateId}/edit`)
     return true
   }
-
-  if (action === 'copy-template') {
-    const templateId = actionNode.dataset.templateId
-    if (!templateId) return false
-    const copied = copyProjectTemplate(templateId)
-    if (copied) {
-      state.notice = `模板 ${copied.name} 已创建（演示态）。`
-      state.page = 1
-    }
-    return true
-  }
-
-  if (action === 'open-toggle-dialog') {
-    const templateId = actionNode.dataset.templateId
-    if (!templateId) return false
-    openToggleDialog(templateId)
-    return true
-  }
-
-  if (action === 'close-dialog') {
-    closeDialog()
-    return true
-  }
-
-  if (action === 'confirm-toggle') {
-    toggleStatus()
-    return true
-  }
-
   if (action === 'reset-filters') {
-    resetFilters()
+    state.searchQuery = ''
+    state.styleTypeFilter = 'all'
+    state.statusFilter = 'all'
+    state.page = 1
     return true
   }
-
   if (action === 'prev-page') {
     state.page = Math.max(1, state.page - 1)
     return true
   }
-
   if (action === 'next-page') {
-    const totalPages = Math.max(1, Math.ceil(getFilteredTemplates().length / state.pageSize))
-    state.page = Math.min(totalPages, state.page + 1)
+    state.page += 1
+    return true
+  }
+  if (action === 'close-notice') {
+    state.notice = null
+    return true
+  }
+  if (action === 'copy-template') {
+    const templateId = actionNode.dataset.templateId
+    if (!templateId) return false
+    const copied = copyProjectTemplate(templateId)
+    if (!copied) {
+      state.notice = '复制模板失败，请重试。'
+      return true
+    }
+    appStore.navigate(`/pcs/templates/${copied.id}`)
+    return true
+  }
+  if (action === 'open-toggle-dialog') {
+    const templateId = actionNode.dataset.templateId
+    if (!templateId) return false
+    const template = listProjectTemplates().find((item) => item.id === templateId)
+    if (!template) return false
+    state.confirmDialog = {
+      open: true,
+      templateId,
+      nextStatusLabel: template.status === 'active' ? '停用' : '启用',
+    }
+    return true
+  }
+  if (action === 'close-toggle-dialog') {
+    state.confirmDialog = { open: false, templateId: null, nextStatusLabel: '停用' }
+    return true
+  }
+  if (action === 'confirm-toggle-dialog') {
+    if (!state.confirmDialog.templateId) return false
+    const updated = toggleProjectTemplateStatus(state.confirmDialog.templateId)
+    state.confirmDialog = { open: false, templateId: null, nextStatusLabel: '停用' }
+    if (!updated) {
+      state.notice = '模板状态更新失败，请重试。'
+      return true
+    }
+    state.notice = `模板已${updated.status === 'active' ? '启用' : '停用'}。`
     return true
   }
 
@@ -452,4 +429,3 @@ export function handlePcsTemplatesEvent(target: HTMLElement): boolean {
 export function isPcsTemplatesDialogOpen(): boolean {
   return state.confirmDialog.open
 }
-

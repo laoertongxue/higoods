@@ -20,6 +20,16 @@ const LEGACY_DISPATCH_EXCEPTIONS_PATH = '/fcs/dispatch/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_KEY = 'progress-exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_PATH = '/fcs/progress/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_TITLE = '异常定位与处理'
+const PCS_TAB_REDIRECTS: Record<string, { href: string; title?: string }> = {
+  '/pcs/channels/products': { href: '/pcs/products/channel-products', title: '渠道商品' },
+  '/pcs/channels/products/mapping': { href: '/pcs/products/channel-attributes', title: '渠道属性对应' },
+  '/pcs/channels/products/store': { href: '/pcs/products/channel-products/store', title: '渠道商品店铺视图' },
+  '/pcs/products/spu': { href: '/pcs/products/styles', title: '款式档案' },
+  '/pcs/products/sku': { href: '/pcs/products/specifications', title: '规格档案' },
+  '/pcs/products/yarn': { href: '/pcs/materials/yarn', title: '纱线档案' },
+  '/pcs/samples/first-order': { href: '/pcs/samples/first-sample', title: '首版样衣打样' },
+  '/pcs/production/pre-check': { href: '/pcs/samples/pre-production', title: '产前版样衣' },
+}
 const CUTTING_TAB_REDIRECTS: Record<string, { href: string; title: string }> = {
   '/fcs/craft/cutting': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
   '/fcs/craft/cutting/order-progress': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
@@ -68,13 +78,66 @@ function getStoredTabs(): AllSystemTabs {
       }
     }
 
-    const migrated = pruneRemovedFcsTabs(
-      migrateFcsTabTitles(migrateCuttingTabs(migrateLegacyDispatchExceptionsTabs(parsed))),
+    const migrated = migratePcsTabs(
+      pruneRemovedFcsTabs(
+        migrateFcsTabTitles(migrateCuttingTabs(migrateLegacyDispatchExceptionsTabs(parsed))),
+      ),
     )
     localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(migrated))
     return migrated
   } catch {
     return emptyTabs
+  }
+}
+
+function migratePcsTabs(allTabs: AllSystemTabs): AllSystemTabs {
+  const pcsTabs = allTabs.pcs
+  if (!pcsTabs) return allTabs
+
+  let changed = false
+  const nextTabs = pcsTabs.tabs.map((tab) => {
+    const normalizedHref = normalizePathname(tab.href)
+    const migration = PCS_TAB_REDIRECTS[normalizedHref]
+    const canonicalHref = migration?.href ?? normalizedHref
+    const canonicalItem = findMenuItemByPath(canonicalHref)
+    const nextTitle = migration?.title ?? canonicalItem?.title ?? tab.title
+    const nextKey = canonicalItem?.key ?? tab.key
+
+    if (canonicalHref === tab.href && nextTitle === tab.title && nextKey === tab.key) {
+      return tab
+    }
+
+    changed = true
+    return {
+      ...tab,
+      key: nextKey,
+      title: nextTitle,
+      href: canonicalHref,
+    }
+  })
+
+  const activeTab = pcsTabs.tabs.find((tab) => tab.key === pcsTabs.activeKey)
+  let nextActiveKey = pcsTabs.activeKey
+  if (activeTab) {
+    const normalizedHref = normalizePathname(activeTab.href)
+    const migration = PCS_TAB_REDIRECTS[normalizedHref]
+    const canonicalHref = migration?.href ?? normalizedHref
+    const canonicalItem = findMenuItemByPath(canonicalHref)
+    if (canonicalItem?.key && canonicalItem.key !== nextActiveKey) {
+      nextActiveKey = canonicalItem.key
+      changed = true
+    }
+  }
+
+  if (!changed) return allTabs
+
+  return {
+    ...allTabs,
+    pcs: {
+      ...pcsTabs,
+      tabs: nextTabs,
+      activeKey: nextActiveKey,
+    },
   }
 }
 

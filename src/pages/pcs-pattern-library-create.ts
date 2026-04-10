@@ -613,6 +613,16 @@ function renderForm(): string {
   const secondaryCategories = getPatternCategorySecondaryList(state.form.categoryPrimary)
   return `
     <div class="space-y-6">
+      <header class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-xs text-gray-500">工程开发与打样管理 / 花型库 / ${state.mode === 'batch' ? '批量上传花型' : '新建花型'}</p>
+            <h1 class="mt-2 text-xl font-semibold">${state.mode === 'batch' ? '批量上传花型' : '新建花型'}</h1>
+            <p class="mt-1 text-sm text-gray-500">围绕花型主档完成上传解析、重复治理、标签确认、审核提交与版本沉淀。</p>
+          </div>
+          <button class="h-9 rounded-md border px-3 text-sm hover:bg-gray-50" data-pattern-library-create-action="go-list">返回花型库</button>
+        </div>
+      </header>
       <section class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-4">
           <div>
@@ -864,6 +874,11 @@ export function handlePcsPatternLibraryCreateEvent(target: HTMLElement): boolean
 
   if (action === 'go-config') {
     appStore.navigate('/pcs/pattern-library/config')
+    return true
+  }
+
+  if (action === 'go-list') {
+    appStore.navigate('/pcs/pattern-library')
     return true
   }
 

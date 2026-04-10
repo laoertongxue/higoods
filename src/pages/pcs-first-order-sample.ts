@@ -1,709 +1,486 @@
-import { escapeHtml } from '../utils'
+import { renderDetailDrawer as uiDetailDrawer, renderDrawer as uiDrawer } from '../components/ui/index.ts'
+import { listProjects } from '../data/pcs-project-repository.ts'
 import {
-  renderDrawer as uiDrawer,
-  renderFormDialog as uiFormDialog,
-  renderSecondaryButton,
-} from '../components/ui'
+  createFirstSampleTaskWithProjectRelation,
+  saveFirstSampleTaskDraft,
+  type FirstSampleTaskCreateInput,
+} from '../data/pcs-task-project-relation-writeback.ts'
+import {
+  getFirstSampleTaskById,
+  listFirstSampleTasks,
+  updateFirstSampleTask,
+} from '../data/pcs-first-sample-repository.ts'
+import { recordSampleLedgerEvent } from '../data/pcs-sample-project-writeback.ts'
+import type { FirstSampleTaskRecord } from '../data/pcs-first-sample-types.ts'
+import { FIRST_SAMPLE_SOURCE_TYPE_LIST } from '../data/pcs-task-source-normalizer.ts'
+import { escapeHtml } from '../utils.ts'
 
-// ============ Mock 数据 ============
-
-const mockTasks = [
-  {
-    id: 'FS-20260109-005',
-    title: '首单打样-碎花连衣裙',
-    status: 'IN_QC',
-    milestone: '验收中',
-    project: { code: 'PRJ-20260105-001', name: '印尼风格碎花连衣裙' },
-    source: { type: '制版', code: 'PT-20260109-002', version: 'P1' },
-    factory: 'JKT-Factory-03',
-    targetSite: '雅加达',
-    expectedArrival: '2026-01-12',
-    trackingNo: 'JNE-884392001',
-    arrivedAt: '2026-01-12 15:20',
-    stockedInAt: '2026-01-12 17:05',
-    sample: { code: 'SY-JKT-00021', name: '碎花连衣裙-P1A1' },
-    acceptanceResult: '需改版',
-    owner: '王版师',
-    isOverdue: false,
-  },
-  {
-    id: 'FS-20260108-003',
-    title: '首单打样-基础白T恤',
-    status: 'ARRIVED',
-    milestone: '已到样待入库',
-    project: { code: 'PRJ-20260103-008', name: '基础款白色T恤' },
-    source: { type: '制版', code: 'PT-20260108-001', version: 'P2' },
-    factory: 'SZ-Factory-01',
-    targetSite: '深圳',
-    expectedArrival: '2026-01-10',
-    trackingNo: 'SF-772819340',
-    arrivedAt: '2026-01-10 09:15',
-    stockedInAt: null,
-    sample: null,
-    acceptanceResult: null,
-    owner: '李版师',
-    isOverdue: false,
-  },
-  {
-    id: 'FS-20260107-001',
-    title: '首单打样-波西米亚半身裙',
-    status: 'IN_PROGRESS',
-    milestone: '在途',
-    project: { code: 'PRJ-20260105-002', name: '波西米亚风格半身裙' },
-    source: { type: '花型', code: 'AT-20260106-005', version: 'A3' },
-    factory: 'JKT-Factory-02',
-    targetSite: '雅加达',
-    expectedArrival: '2026-01-11',
-    trackingNo: 'JNE-991024832',
-    arrivedAt: null,
-    stockedInAt: null,
-    sample: null,
-    acceptanceResult: null,
-    owner: '张花型师',
-    isOverdue: true,
-  },
-  {
-    id: 'FS-20260106-012',
-    title: '首单打样-牛仔夹克',
-    status: 'COMPLETED',
-    milestone: '已完成',
-    project: { code: 'PRJ-20260102-005', name: '复古牛仔夹克' },
-    source: { type: '制版', code: 'PT-20260105-008', version: 'P1' },
-    factory: 'SZ-Factory-02',
-    targetSite: '深圳',
-    expectedArrival: '2026-01-08',
-    trackingNo: 'SF-661728492',
-    arrivedAt: '2026-01-08 14:30',
-    stockedInAt: '2026-01-08 16:20',
-    sample: { code: 'SY-SZ-00157', name: '牛仔夹克-P1' },
-    acceptanceResult: '通过',
-    owner: '赵版师',
-    isOverdue: false,
-  },
-]
-
-// ============ 类型定义 ============
-
-interface FirstOrderSampleState {
-  searchTerm: string
+interface FirstSamplePageState {
+  keyword: string
   statusFilter: string
-  siteFilter: string
-  ownerFilter: string
-  activeKpiFilter: string | null
-  createDrawerOpen: boolean
-  receiptDialogOpen: boolean
-  stockInDialogOpen: boolean
   selectedTaskId: string | null
-}
-
-let state: FirstOrderSampleState = {
-  searchTerm: '',
-  statusFilter: 'all',
-  siteFilter: 'all',
-  ownerFilter: 'all',
-  activeKpiFilter: null,
-  createDrawerOpen: false,
-  receiptDialogOpen: false,
-  stockInDialogOpen: false,
-  selectedTaskId: null,
-}
-
-// ============ 工具函数 ============
-
-function getMilestoneBadge(milestone: string) {
-  const map: Record<string, string> = {
-    '在途': 'bg-blue-100 text-blue-700',
-    '已到样待入库': 'bg-orange-100 text-orange-700',
-    '验收中': 'bg-yellow-100 text-yellow-700',
-    '已完成': 'bg-green-100 text-green-700',
+  detailOpen: boolean
+  createOpen: boolean
+  notice: string | null
+  createForm: {
+    projectId: string
+    sourceType: string
+    upstreamObjectCode: string
+    upstreamObjectId: string
+    targetSite: string
+    factoryName: string
+    ownerName: string
+    priorityLevel: '高' | '中' | '低'
+    expectedArrival: string
   }
-  return map[milestone] || 'bg-gray-100 text-gray-700'
 }
 
-function getKpiStats() {
+function nowText(): string {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+}
+
+function createDefaultForm() {
   return {
-    inTransit: mockTasks.filter((t) => t.milestone === '在途').length,
-    arrivedPending: mockTasks.filter((t) => t.milestone === '已到样待入库').length,
-    inQc: mockTasks.filter((t) => t.milestone === '验收中').length,
-    overdue: mockTasks.filter((t) => t.isOverdue).length,
+    projectId: '',
+    sourceType: '人工创建',
+    upstreamObjectCode: '',
+    upstreamObjectId: '',
+    targetSite: '深圳',
+    factoryName: '深圳工厂01',
+    ownerName: '',
+    priorityLevel: '中' as const,
+    expectedArrival: '',
   }
 }
 
-function getFilteredTasks() {
-  return mockTasks.filter((task) => {
-    if (state.searchTerm && !task.id.includes(state.searchTerm) && !task.title.includes(state.searchTerm)) return false
-    if (state.statusFilter !== 'all' && task.status !== state.statusFilter) return false
-    if (state.siteFilter !== 'all' && task.targetSite !== state.siteFilter) return false
-    if (state.ownerFilter !== 'all' && task.owner !== state.ownerFilter) return false
-    if (state.activeKpiFilter === 'inTransit' && task.milestone !== '在途') return false
-    if (state.activeKpiFilter === 'arrivedPending' && task.milestone !== '已到样待入库') return false
-    if (state.activeKpiFilter === 'inQc' && task.milestone !== '验收中') return false
-    if (state.activeKpiFilter === 'overdue' && !task.isOverdue) return false
+let state: FirstSamplePageState = {
+  keyword: '',
+  statusFilter: 'all',
+  selectedTaskId: null,
+  detailOpen: false,
+  createOpen: false,
+  notice: null,
+  createForm: createDefaultForm(),
+}
+
+function getTasks(): FirstSampleTaskRecord[] {
+  return listFirstSampleTasks().filter((item) => {
+    if (state.keyword) {
+      const keyword = state.keyword.toLowerCase()
+      if (
+        ![
+          item.firstSampleTaskCode,
+          item.projectCode,
+          item.projectName,
+          item.sampleCode,
+          item.title,
+          item.factoryName,
+        ].some((text) => text.toLowerCase().includes(keyword))
+      ) {
+        return false
+      }
+    }
+    if (state.statusFilter !== 'all' && item.status !== state.statusFilter) return false
     return true
   })
 }
 
-function getSelectedTask() {
-  return mockTasks.find((t) => t.id === state.selectedTaskId)
+function getSelectedTask(): FirstSampleTaskRecord | null {
+  if (!state.selectedTaskId) return null
+  return getFirstSampleTaskById(state.selectedTaskId)
 }
 
-// ============ 渲染函数 ============
+function getSampleName(task: FirstSampleTaskRecord): string {
+  return `${task.projectName}-首版样衣`
+}
 
-function renderFirstOrderCreateDrawer() {
-  if (!state.createDrawerOpen) return ''
+function updateTask(taskId: string, patch: Partial<FirstSampleTaskRecord>) {
+  updateFirstSampleTask(taskId, patch)
+}
 
-  const formContent = `
-    <div class="space-y-6">
-      <!-- 基本信息 -->
-      <div class="space-y-4">
-        <h3 class="font-medium text-foreground border-b pb-2">基本信息</h3>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">标题 <span class="text-red-500">*</span></label>
-            <input type="text" class="w-full h-9 px-3 border rounded-md text-sm" placeholder="首单打样-款号/项目名" />
-          </div>
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">负责人 <span class="text-red-500">*</span></label>
-            <select class="w-full h-9 px-3 border rounded-md text-sm">
-              <option value="">选择负责人</option>
-              <option value="wang">王版师</option>
-              <option value="li">李版师</option>
-            </select>
-          </div>
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">优先级</label>
-            <select class="w-full h-9 px-3 border rounded-md text-sm">
-              <option value="high">高</option>
-              <option value="medium" selected>中</option>
-              <option value="low">低</option>
-            </select>
-          </div>
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">预计到样</label>
-            <input type="date" class="w-full h-9 px-3 border rounded-md text-sm" />
-          </div>
-        </div>
-      </div>
+function writeFirstSampleEvent(task: FirstSampleTaskRecord, eventType: 'SHIP_OUT' | 'RECEIVE_ARRIVAL' | 'CHECKIN_VERIFY') {
+  recordSampleLedgerEvent({
+    ledgerEventId: `${task.firstSampleTaskId}::${eventType}`,
+    eventType,
+    sampleCode: task.sampleCode,
+    sampleName: getSampleName(task),
+    sampleType: '首版样衣',
+    responsibleSite: task.targetSite,
+    sourcePage: '首版样衣打样',
+    sourceModule: '首版样衣打样',
+    sourceDocType: '首版样衣打样任务',
+    sourceDocId: task.firstSampleTaskId,
+    sourceDocCode: task.firstSampleTaskCode,
+    projectId: task.projectId,
+    projectCode: task.projectCode,
+    projectName: task.projectName,
+    projectNodeId: task.projectNodeId,
+    workItemTypeCode: task.workItemTypeCode,
+    workItemTypeName: task.workItemTypeName,
+    operatorName: '当前用户',
+    businessDate: nowText(),
+    locationDisplay: eventType === 'SHIP_OUT' ? `${task.factoryName} → ${task.targetSite}` : `${task.targetSite}样衣区`,
+    locationType: eventType === 'SHIP_OUT' ? '在途' : '仓库',
+    locationCode: eventType === 'SHIP_OUT' ? 'TRANSIT' : `${task.targetSite}-SAMPLE`,
+    custodianType: eventType === 'SHIP_OUT' ? '系统' : '仓管',
+    custodianName: eventType === 'SHIP_OUT' ? '物流在途' : `${task.targetSite}仓管`,
+  })
+}
 
-      <!-- 来源与绑定 -->
-      <div class="space-y-4">
-        <h3 class="font-medium text-foreground border-b pb-2">来源与绑定</h3>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">项目 <span class="text-red-500">*</span></label>
-            <select class="w-full h-9 px-3 border rounded-md text-sm">
-              <option value="">选择项目</option>
-              <option value="prj1">PRJ-20260105-001 印尼风格碎花连衣裙</option>
-              <option value="prj2">PRJ-20260103-008 基础款白色T恤</option>
-            </select>
-          </div>
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">来源类型 <span class="text-red-500">*</span></label>
-            <select class="w-full h-9 px-3 border rounded-md text-sm">
-              <option value="">选择来源</option>
-              <option value="pattern">来自制版</option>
-              <option value="artwork">来自花型</option>
-              <option value="revision">来自改版</option>
-              <option value="manual">人工创建</option>
-            </select>
-          </div>
-        </div>
-        <div class="space-y-2">
-          <label class="block text-sm font-medium">上游实例（条件必填）</label>
-          <select class="w-full h-9 px-3 border rounded-md text-sm">
-            <option value="">选择上游实例</option>
-            <option value="pt1">PT-20260109-002 制版-印尼碎花连衣裙(P1)</option>
-            <option value="at1">AT-20260106-005 花型-波西米亚印花(A3)</option>
-          </select>
-        </div>
-      </div>
+export function shipFirstOrderSampleTask(taskId: string): boolean {
+  const task = getFirstSampleTaskById(taskId)
+  if (!task || task.status !== '待发样') return false
+  writeFirstSampleEvent(task, 'SHIP_OUT')
+  updateTask(taskId, { status: '在途', trackingNo: task.trackingNo || `FS-TRACK-${task.firstSampleTaskCode}`, updatedAt: nowText(), updatedBy: '当前用户' })
+  state.notice = `已为 ${task.firstSampleTaskCode} 记录发样事件，并同步回写样衣台账。`
+  return true
+}
 
-      <!-- 打样对象与交期 -->
-      <div class="space-y-4">
-        <h3 class="font-medium text-foreground border-b pb-2">打样对象与交期</h3>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">工厂/外协 <span class="text-red-500">*</span></label>
-            <select class="w-full h-9 px-3 border rounded-md text-sm">
-              <option value="">选择工厂</option>
-              <option value="jkt1">JKT-Factory-01</option>
-              <option value="jkt2">JKT-Factory-02</option>
-              <option value="jkt3">JKT-Factory-03</option>
-              <option value="sz1">SZ-Factory-01</option>
-              <option value="sz2">SZ-Factory-02</option>
-            </select>
-          </div>
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">期望发货时间</label>
-            <input type="date" class="w-full h-9 px-3 border rounded-md text-sm" />
-          </div>
-        </div>
-        <div class="space-y-2">
-          <label class="block text-sm font-medium">打样要求</label>
-          <textarea class="w-full px-3 py-2 border rounded-md text-sm min-h-[60px]" placeholder="面料、工艺、注意事项等"></textarea>
-        </div>
-      </div>
+export function receiveFirstOrderSampleTask(taskId: string): boolean {
+  const task = getFirstSampleTaskById(taskId)
+  if (!task || !['在途', '待发样'].includes(task.status)) return false
+  writeFirstSampleEvent(task, 'RECEIVE_ARRIVAL')
+  updateTask(taskId, { status: '已到样待入库', updatedAt: nowText(), updatedBy: '当前用户' })
+  state.notice = `已为 ${task.firstSampleTaskCode} 记录到样事件，并同步回写项目节点。`
+  return true
+}
 
-      <!-- 输入包 -->
-      <div class="space-y-4">
-        <h3 class="font-medium text-foreground border-b pb-2">输入包（至少一个）</h3>
-        <div class="space-y-3">
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">制版包</label>
-            <div class="flex gap-2">
-              <input type="text" class="flex-1 h-9 px-3 border rounded-md text-sm" placeholder="引用制版包" />
-              <button type="button" class="h-9 px-3 text-sm border rounded-md hover:bg-muted">选择</button>
-            </div>
-          </div>
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">花型包</label>
-            <div class="flex gap-2">
-              <input type="text" class="flex-1 h-9 px-3 border rounded-md text-sm" placeholder="引用花型包" />
-              <button type="button" class="h-9 px-3 text-sm border rounded-md hover:bg-muted">选择</button>
-            </div>
-          </div>
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">其他附件</label>
-            <button type="button" class="h-9 px-3 text-sm border rounded-md hover:bg-muted">上传附件</button>
-          </div>
-        </div>
-      </div>
+export function stockInFirstOrderSampleTask(taskId: string): boolean {
+  const task = getFirstSampleTaskById(taskId)
+  if (!task || task.status !== '已到样待入库') return false
+  writeFirstSampleEvent(task, 'CHECKIN_VERIFY')
+  updateTask(taskId, { status: '验收中', updatedAt: nowText(), updatedBy: '当前用户' })
+  state.notice = `已为 ${task.firstSampleTaskCode} 记录入库事件，并同步生成样衣资产关系。`
+  return true
+}
 
-      <!-- 目标站点与收货信息 -->
-      <div class="space-y-4">
-        <h3 class="font-medium text-foreground border-b pb-2">目标站点与收货信息</h3>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">目标站点 <span class="text-red-500">*</span></label>
-            <select class="w-full h-9 px-3 border rounded-md text-sm">
-              <option value="">选择站点</option>
-              <option value="sz">深圳</option>
-              <option value="jkt">雅加达</option>
-            </select>
-          </div>
-          <div class="space-y-2">
-            <label class="block text-sm font-medium">收货联系人</label>
-            <input type="text" class="w-full h-9 px-3 border rounded-md text-sm" placeholder="默认：站点仓管" />
-          </div>
-        </div>
-      </div>
-    </div>
-  `
+function renderNotice(): string {
+  if (!state.notice) return ''
+  return `<div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">${escapeHtml(state.notice)}</div>`
+}
 
+function renderCreateDrawer(): string {
+  if (!state.createOpen) return ''
+  const projects = listProjects()
   return uiDrawer(
     {
-      title: '新建首单样衣打样',
-      closeAction: { prefix: 'first-order', action: 'close-create-drawer' },
-      width: 'sm',
-    },
-    formContent,
-    {
-      cancel: { prefix: 'first-order', action: 'close-create-drawer', label: '取消' },
-      extra: renderSecondaryButton('保存草稿', { prefix: 'first-order', action: 'save-draft' }),
-      confirm: { prefix: 'first-order', action: 'submit-create', label: '创建并开始', variant: 'primary' },
-    }
-  )
-}
-
-function renderFirstOrderReceiptDialog() {
-  if (!state.receiptDialogOpen) return ''
-  const task = getSelectedTask()
-
-  const formContent = `
-    <div class="space-y-4">
-      <div class="space-y-2">
-        <label class="block text-sm font-medium">签收站点（只读）</label>
-        <input type="text" class="w-full h-9 px-3 border rounded-md text-sm bg-muted" value="${task?.targetSite || ''}" disabled />
-      </div>
-      <div class="space-y-2">
-        <label class="block text-sm font-medium">签收时间 <span class="text-red-500">*</span></label>
-        <input type="datetime-local" class="w-full h-9 px-3 border rounded-md text-sm" />
-      </div>
-      <div class="space-y-2">
-        <label class="block text-sm font-medium">包裹照片/回执附件</label>
-        <button type="button" class="h-9 px-3 text-sm border rounded-md hover:bg-muted">上传附件</button>
-      </div>
-    </div>
-  `
-
-  return uiFormDialog(
-    {
-      title: '到样签收',
-      closeAction: { prefix: 'first-order', action: 'close-receipt-dialog' },
-      submitAction: { prefix: 'first-order', action: 'submit-receipt', label: '确认签收' },
+      title: '新建首版样衣打样',
+      subtitle: '正式创建后会写入任务记录、项目关系，并回写商品项目节点。',
+      closeAction: { prefix: 'first-sample', action: 'close-create' },
       width: 'md',
     },
-    formContent
-  )
-}
-
-function renderFirstOrderStockInDialog() {
-  if (!state.stockInDialogOpen) return ''
-
-  const formContent = `
-    <div class="space-y-4">
-      <div class="space-y-2">
-        <label class="block text-sm font-medium">仓库 <span class="text-red-500">*</span></label>
-        <select class="w-full h-9 px-3 border rounded-md text-sm">
-          <option value="">选择仓库</option>
-          <option value="sz-main">深圳主仓</option>
-          <option value="jkt-main">雅加达主仓</option>
-        </select>
-      </div>
-      <div class="space-y-2">
-        <label class="block text-sm font-medium">库位 <span class="text-red-500">*</span></label>
-        <input type="text" class="w-full h-9 px-3 border rounded-md text-sm" placeholder="输入库位编号" />
-      </div>
-      <div class="space-y-2">
-        <label class="block text-sm font-medium">样衣编号（系统生成）</label>
-        <input type="text" class="w-full h-9 px-3 border rounded-md text-sm bg-muted" value="SY-SZ-00158" disabled />
-      </div>
-      <div class="space-y-2">
-        <label class="block text-sm font-medium">初检结果</label>
-        <select class="w-full h-9 px-3 border rounded-md text-sm">
-          <option value="pass" selected>合格</option>
-          <option value="fail">不合格</option>
-        </select>
-      </div>
-      <div class="space-y-2">
-        <label class="block text-sm font-medium">入库照片</label>
-        <button type="button" class="h-9 px-3 text-sm border rounded-md hover:bg-muted">上传照片</button>
-      </div>
-    </div>
-  `
-
-  return uiFormDialog(
-    {
-      title: '核对入库',
-      closeAction: { prefix: 'first-order', action: 'close-stock-in-dialog' },
-      submitAction: { prefix: 'first-order', action: 'submit-stock-in', label: '提交入库' },
-      width: 'md',
-    },
-    formContent
-  )
-}
-
-function renderTaskRow(task: typeof mockTasks[0]) {
-  const milestoneClass = getMilestoneBadge(task.milestone)
-  return `
-    <tr class="border-b hover:bg-gray-50">
-      <td class="px-4 py-3">
-        <button class="font-medium text-blue-600 hover:underline text-sm" data-first-order-action="view-task" data-task-id="${task.id}">${task.id}</button>
-        <div class="text-xs text-gray-500 mt-0.5">${escapeHtml(task.title)}</div>
-      </td>
-      <td class="px-4 py-3">
-        <span class="inline-flex px-2 py-0.5 text-xs rounded ${milestoneClass}">${task.milestone}</span>
-      </td>
-      <td class="px-4 py-3">
-        <div class="text-sm text-gray-900">${task.project.code}</div>
-        <div class="text-xs text-gray-500">${escapeHtml(task.project.name)}</div>
-      </td>
-      <td class="px-4 py-3">
-        <div class="text-sm text-gray-900">${task.source.type}</div>
-        <div class="text-xs text-blue-600">${task.source.code} (${task.source.version})</div>
-      </td>
-      <td class="px-4 py-3 text-sm text-gray-900">${task.factory}</td>
-      <td class="px-4 py-3 text-sm text-gray-900">${task.targetSite}</td>
-      <td class="px-4 py-3">
-        <div class="text-sm ${task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900'}">${task.expectedArrival}</div>
-        ${task.isOverdue ? '<span class="inline-flex px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded mt-1">超期</span>' : ''}
-      </td>
-      <td class="px-4 py-3">
-        ${task.trackingNo ? `<button class="text-sm text-blue-600 hover:underline font-mono">${task.trackingNo}</button>` : '<span class="text-sm text-gray-400">-</span>'}
-      </td>
-      <td class="px-4 py-3 text-sm text-gray-900">${task.arrivedAt || '-'}</td>
-      <td class="px-4 py-3 text-sm text-gray-900">${task.stockedInAt || '-'}</td>
-      <td class="px-4 py-3">
-        ${task.sample ? `<button class="text-sm text-blue-600 hover:underline">${task.sample.code}</button>` : '<span class="text-sm text-gray-400">-</span>'}
-      </td>
-      <td class="px-4 py-3">
-        ${task.acceptanceResult ? `<span class="inline-flex px-2 py-0.5 text-xs rounded ${task.acceptanceResult === '通过' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${task.acceptanceResult}</span>` : '<span class="text-sm text-gray-400">-</span>'}
-      </td>
-      <td class="px-4 py-3 text-right">
-        <div class="flex items-center justify-end gap-2">
-          <button class="h-8 px-3 text-sm border rounded-md hover:bg-gray-50" data-first-order-action="view-task" data-task-id="${task.id}">查看</button>
-          ${task.milestone === '在途' ? `<button class="h-8 px-3 text-sm border rounded-md hover:bg-gray-50" data-first-order-action="open-receipt-dialog" data-task-id="${task.id}">到样签收</button>` : ''}
-          ${task.milestone === '已到样待入库' ? `<button class="h-8 px-3 text-sm border rounded-md hover:bg-gray-50" data-first-order-action="open-stock-in-dialog" data-task-id="${task.id}">核对入库</button>` : ''}
-          ${task.sample ? `<button class="h-8 w-8 flex items-center justify-center border rounded-md hover:bg-gray-50"><i data-lucide="external-link" class="h-4 w-4"></i></button>` : ''}
-        </div>
-      </td>
-    </tr>
-  `
-}
-
-function renderPage(): string {
-  const filteredTasks = getFilteredTasks()
-  const kpiStats = getKpiStats()
-
-  return `
-    <div class="space-y-4">
-      <!-- Header -->
-      <header class="flex items-center justify-between border-b bg-white px-6 py-4 -mx-6 -mt-6 mb-4">
+    `
+      <div class="space-y-4">
         <div>
-          <h1 class="text-xl font-semibold text-gray-900">首单样衣打样</h1>
-          <p class="text-sm text-gray-500 mt-1">管理首单样衣打样任务，跟踪物流与验收闭环</p>
+          <label class="mb-1 block text-sm font-medium">项目 <span class="text-red-500">*</span></label>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-first-sample-field="project">
+            <option value="">请选择项目</option>
+            ${projects.map((item) => `<option value="${item.projectId}" ${state.createForm.projectId === item.projectId ? 'selected' : ''}>${escapeHtml(`${item.projectCode} · ${item.projectName}`)}</option>`).join('')}
+          </select>
         </div>
-        <button class="h-9 px-4 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2" data-first-order-action="open-create-drawer">
-          <i data-lucide="plus" class="h-4 w-4"></i>
-          新建首单打样
-        </button>
-      </header>
-
-      <!-- Filter Bar -->
-      <section class="bg-white rounded-lg border p-4 space-y-4">
-        <div class="grid grid-cols-5 gap-4">
-          <div class="relative">
-            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"></i>
-            <input
-              type="text"
-              class="w-full h-9 pl-10 pr-3 border rounded-md text-sm"
-              placeholder="搜索任务编号/项目/款号/工厂/运单号..."
-              value="${escapeHtml(state.searchTerm)}"
-              data-first-order-field="search"
-            />
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-medium">来源类型</label>
+            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-first-sample-field="sourceType">
+              ${FIRST_SAMPLE_SOURCE_TYPE_LIST.map((item) => `<option value="${item}" ${state.createForm.sourceType === item ? 'selected' : ''}>${item}</option>`).join('')}
+            </select>
           </div>
-          <select class="h-9 px-3 border rounded-md text-sm" data-first-order-field="status">
-            <option value="all" ${state.statusFilter === 'all' ? 'selected' : ''}>全部状态</option>
-            <option value="IN_PROGRESS" ${state.statusFilter === 'IN_PROGRESS' ? 'selected' : ''}>进行中</option>
-            <option value="ARRIVED" ${state.statusFilter === 'ARRIVED' ? 'selected' : ''}>已到样待入库</option>
-            <option value="IN_QC" ${state.statusFilter === 'IN_QC' ? 'selected' : ''}>验收中</option>
-            <option value="COMPLETED" ${state.statusFilter === 'COMPLETED' ? 'selected' : ''}>已完成</option>
-            <option value="BLOCKED" ${state.statusFilter === 'BLOCKED' ? 'selected' : ''}>阻塞</option>
-          </select>
-          <select class="h-9 px-3 border rounded-md text-sm" data-first-order-field="site">
-            <option value="all" ${state.siteFilter === 'all' ? 'selected' : ''}>全部站点</option>
-            <option value="深圳" ${state.siteFilter === '深圳' ? 'selected' : ''}>深圳</option>
-            <option value="雅加达" ${state.siteFilter === '雅加达' ? 'selected' : ''}>雅加达</option>
-          </select>
-          <select class="h-9 px-3 border rounded-md text-sm" data-first-order-field="owner">
-            <option value="all" ${state.ownerFilter === 'all' ? 'selected' : ''}>全部</option>
-            <option value="王版师" ${state.ownerFilter === '王版师' ? 'selected' : ''}>王版师</option>
-            <option value="李版师" ${state.ownerFilter === '李版师' ? 'selected' : ''}>李版师</option>
-            <option value="张花型师" ${state.ownerFilter === '张花型师' ? 'selected' : ''}>张花型师</option>
-            <option value="赵版师" ${state.ownerFilter === '赵版师' ? 'selected' : ''}>赵版师</option>
-          </select>
-          <div class="flex gap-2">
-            <button class="h-9 px-3 text-sm border rounded-md hover:bg-gray-50" data-first-order-action="reset-filters">重置</button>
-            <button class="h-9 px-3 text-sm border rounded-md hover:bg-gray-50 flex items-center gap-1">
-              <i data-lucide="filter" class="h-4 w-4"></i>
-              高级
-            </button>
+          <div>
+            <label class="mb-1 block text-sm font-medium">优先级</label>
+            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-first-sample-field="priorityLevel">
+              ${['高', '中', '低'].map((item) => `<option value="${item}" ${state.createForm.priorityLevel === item ? 'selected' : ''}>${item}</option>`).join('')}
+            </select>
           </div>
         </div>
-      </section>
-
-      <!-- KPI Quick Filters -->
-      <section class="grid grid-cols-4 gap-4">
-        <button
-          class="bg-white rounded-lg border p-4 text-left hover:shadow-md transition-shadow ${state.activeKpiFilter === 'inTransit' ? 'ring-2 ring-blue-500' : ''}"
-          data-first-order-action="set-kpi-filter"
-          data-kpi="inTransit"
-        >
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-gray-600">在途</span>
-            <i data-lucide="clock" class="h-4 w-4 text-blue-600"></i>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-medium">目标站点</label>
+            <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-first-sample-field="site">
+              <option value="深圳" ${state.createForm.targetSite === '深圳' ? 'selected' : ''}>深圳</option>
+              <option value="雅加达" ${state.createForm.targetSite === '雅加达' ? 'selected' : ''}>雅加达</option>
+            </select>
           </div>
-          <div class="text-2xl font-bold text-gray-900">${kpiStats.inTransit}</div>
-        </button>
-        <button
-          class="bg-white rounded-lg border p-4 text-left hover:shadow-md transition-shadow ${state.activeKpiFilter === 'arrivedPending' ? 'ring-2 ring-blue-500' : ''}"
-          data-first-order-action="set-kpi-filter"
-          data-kpi="arrivedPending"
-        >
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-gray-600">已到样待入库</span>
-            <i data-lucide="package" class="h-4 w-4 text-orange-600"></i>
+          <div>
+            <label class="mb-1 block text-sm font-medium">工厂</label>
+            <input class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.createForm.factoryName)}" data-first-sample-field="factoryName" />
           </div>
-          <div class="text-2xl font-bold text-gray-900">${kpiStats.arrivedPending}</div>
-        </button>
-        <button
-          class="bg-white rounded-lg border p-4 text-left hover:shadow-md transition-shadow ${state.activeKpiFilter === 'inQc' ? 'ring-2 ring-blue-500' : ''}"
-          data-first-order-action="set-kpi-filter"
-          data-kpi="inQc"
-        >
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-gray-600">验收中</span>
-            <i data-lucide="check-circle" class="h-4 w-4 text-green-600"></i>
-          </div>
-          <div class="text-2xl font-bold text-gray-900">${kpiStats.inQc}</div>
-        </button>
-        <button
-          class="bg-white rounded-lg border p-4 text-left hover:shadow-md transition-shadow ${state.activeKpiFilter === 'overdue' ? 'ring-2 ring-blue-500' : ''}"
-          data-first-order-action="set-kpi-filter"
-          data-kpi="overdue"
-        >
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-gray-600">超期</span>
-            <i data-lucide="alert-triangle" class="h-4 w-4 text-red-600"></i>
-          </div>
-          <div class="text-2xl font-bold text-gray-900">${kpiStats.overdue}</div>
-        </button>
-      </section>
-
-      <!-- Table -->
-      <section class="bg-white rounded-lg border overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[1400px]">
-            <thead class="bg-gray-50 border-b">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">任务</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态/里程碑</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">项目</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">来源</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">工厂/外协</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">目标站点</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">预计到样</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">运单</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">到样时间</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">入库时间</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">样衣</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">验收结论</th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              ${filteredTasks.length > 0 ? filteredTasks.map(renderTaskRow).join('') : `
-                <tr>
-                  <td colspan="13" class="px-4 py-12 text-center text-gray-500">暂无数据</td>
-                </tr>
-              `}
-            </tbody>
-          </table>
         </div>
-        <footer class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-          <div class="text-sm text-gray-500">共 ${filteredTasks.length} 条</div>
-          <div class="flex items-center gap-2">
-            <button class="h-8 px-3 text-sm border rounded-md hover:bg-white" disabled>上一页</button>
-            <button class="h-8 px-3 text-sm bg-blue-600 text-white rounded-md">1</button>
-            <button class="h-8 px-3 text-sm border rounded-md hover:bg-white" disabled>下一页</button>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-medium">负责人</label>
+            <input class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.createForm.ownerName)}" data-first-sample-field="ownerName" />
           </div>
-        </footer>
-      </section>
-    </div>
-
-    ${renderFirstOrderCreateDrawer()}
-    ${renderFirstOrderReceiptDialog()}
-    ${renderFirstOrderStockInDialog()}
-  `
+          <div>
+            <label class="mb-1 block text-sm font-medium">预计到样时间</label>
+            <input class="h-9 w-full rounded-md border px-3 text-sm" type="datetime-local" value="${escapeHtml(state.createForm.expectedArrival)}" data-first-sample-field="expectedArrival" />
+          </div>
+        </div>
+        ${state.createForm.sourceType === '人工创建' ? '' : `
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm font-medium">上游对象编号 <span class="text-red-500">*</span></label>
+              <input class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.createForm.upstreamObjectCode)}" data-first-sample-field="upstreamObjectCode" placeholder="请输入正式上游编号" />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium">上游对象主键</label>
+              <input class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.createForm.upstreamObjectId)}" data-first-sample-field="upstreamObjectId" placeholder="可选，用于精确追溯" />
+            </div>
+          </div>
+        `}
+      </div>
+    `,
+    {
+      cancel: { prefix: 'first-sample', action: 'close-create', label: '取消' },
+      extraActions: [
+        { prefix: 'first-sample', action: 'save-draft', label: '保存草稿', variant: 'secondary' },
+      ],
+      confirm: { prefix: 'first-sample', action: 'submit-create', label: '创建并开始', variant: 'primary' },
+    },
+  )
 }
 
-// ============ 事件处理 ============
+function renderDetailDrawer(): string {
+  const task = getSelectedTask()
+  if (!state.detailOpen || !task) return ''
+  const actions = []
+  if (task.status === '待发样') actions.push(`<button class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground" data-first-sample-action="ship-task">发样</button>`)
+  if (task.status === '在途') actions.push(`<button class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground" data-first-sample-action="receive-task">到样签收</button>`)
+  if (task.status === '已到样待入库') actions.push(`<button class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground" data-first-sample-action="stockin-task">核对入库</button>`)
+  return uiDetailDrawer(
+    {
+      title: '首版样衣打样详情',
+      subtitle: task.firstSampleTaskCode,
+      closeAction: { prefix: 'first-sample', action: 'close-detail' },
+      width: 'md',
+    },
+    `
+      <div class="grid gap-3 text-sm md:grid-cols-2">
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">任务标题</div><div class="mt-1 font-medium">${escapeHtml(task.title)}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">当前状态</div><div class="mt-1 font-medium">${escapeHtml(task.status)}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">项目</div><div class="mt-1 font-medium">${escapeHtml(`${task.projectCode} · ${task.projectName}`)}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">来源类型</div><div class="mt-1 font-medium">${escapeHtml(task.sourceType)}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">上游对象编号</div><div class="mt-1 font-medium">${escapeHtml(task.upstreamObjectCode || '—')}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">样衣编号</div><div class="mt-1 font-medium">${escapeHtml(task.sampleCode)}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">工厂</div><div class="mt-1 font-medium">${escapeHtml(task.factoryName || '—')}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">目标站点</div><div class="mt-1 font-medium">${escapeHtml(task.targetSite || '—')}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">预计到样</div><div class="mt-1 font-medium">${escapeHtml(task.expectedArrival || '—')}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">跟踪号</div><div class="mt-1 font-medium">${escapeHtml(task.trackingNo || '—')}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">创建时间</div><div class="mt-1 font-medium">${escapeHtml(task.createdAt)}</div></div>
+        <div class="rounded-lg border bg-muted/20 p-3"><div class="text-xs text-muted-foreground">最近更新时间</div><div class="mt-1 font-medium">${escapeHtml(task.updatedAt)}</div></div>
+      </div>
+    `,
+    actions.join(''),
+  )
+}
+
+function buildCreateInput(): FirstSampleTaskCreateInput {
+  const project = listProjects().find((item) => item.projectId === state.createForm.projectId)
+  const sourceObjectType =
+    state.createForm.sourceType === '制版任务' ||
+    state.createForm.sourceType === '花型任务' ||
+    state.createForm.sourceType === '改版任务'
+      ? state.createForm.sourceType
+      : state.createForm.sourceType === '人工创建'
+        ? ''
+        : '首版样衣打样任务'
+  return {
+    projectId: state.createForm.projectId,
+    title: `首版样衣打样-${project?.projectName || '待定项目'}`,
+    sourceType: state.createForm.sourceType as FirstSampleTaskCreateInput['sourceType'],
+    upstreamModule: state.createForm.sourceType === '人工创建' ? '' : state.createForm.sourceType,
+    upstreamObjectType: sourceObjectType,
+    upstreamObjectId: state.createForm.upstreamObjectId,
+    upstreamObjectCode: state.createForm.upstreamObjectCode,
+    targetSite: state.createForm.targetSite,
+    factoryName: state.createForm.factoryName,
+    ownerName: state.createForm.ownerName,
+    priorityLevel: state.createForm.priorityLevel,
+    expectedArrival: state.createForm.expectedArrival,
+    operatorName: '当前用户',
+  }
+}
 
 export function handleFirstOrderSampleEvent(target: Element): boolean {
-  const actionNode = target.closest<HTMLElement>('[data-first-order-action]')
-  const action = actionNode?.dataset.firstOrderAction
+  const actionNode = target.closest<HTMLElement>('[data-first-sample-action]')
+  const action = actionNode?.dataset.firstSampleAction
+  if (!action) return false
 
-  if (action === 'open-create-drawer') {
-    state.createDrawerOpen = true
+  if (action === 'open-create') {
+    state.createOpen = true
+    state.notice = null
     return true
   }
-
-  if (action === 'close-create-drawer') {
-    state.createDrawerOpen = false
+  if (action === 'close-create') {
+    state.createOpen = false
+    state.createForm = createDefaultForm()
     return true
   }
-
-  if (action === 'save-draft') {
-    state.createDrawerOpen = false
-    console.log('已保存草稿')
-    return true
-  }
-
-  if (action === 'submit-create') {
-    state.createDrawerOpen = false
-    console.log('首单打样任务已创建')
-    return true
-  }
-
-  if (action === 'open-receipt-dialog') {
-    state.selectedTaskId = actionNode?.dataset.taskId || null
-    state.receiptDialogOpen = true
-    return true
-  }
-
-  if (action === 'close-receipt-dialog') {
-    state.receiptDialogOpen = false
-    return true
-  }
-
-  if (action === 'submit-receipt') {
-    state.receiptDialogOpen = false
-    console.log('到样签收成功')
-    return true
-  }
-
-  if (action === 'open-stock-in-dialog') {
-    state.selectedTaskId = actionNode?.dataset.taskId || null
-    state.stockInDialogOpen = true
-    return true
-  }
-
-  if (action === 'close-stock-in-dialog') {
-    state.stockInDialogOpen = false
-    return true
-  }
-
-  if (action === 'submit-stock-in') {
-    state.stockInDialogOpen = false
-    console.log('核对入库成功')
-    return true
-  }
-
-  if (action === 'set-kpi-filter') {
-    const kpi = actionNode?.dataset.kpi || null
-    state.activeKpiFilter = state.activeKpiFilter === kpi ? null : kpi
-    return true
-  }
-
-  if (action === 'reset-filters') {
-    state.searchTerm = ''
-    state.statusFilter = 'all'
-    state.siteFilter = 'all'
-    state.ownerFilter = 'all'
-    state.activeKpiFilter = null
-    return true
-  }
-
-  if (action === 'view-task') {
+  if (action === 'open-detail') {
     const taskId = actionNode?.dataset.taskId
-    console.log(`查看任务: ${taskId}`)
+    if (taskId) {
+      state.selectedTaskId = taskId
+      state.detailOpen = true
+    }
     return true
   }
-
+  if (action === 'close-detail') {
+    state.detailOpen = false
+    return true
+  }
+  if (action === 'ship-task' && state.selectedTaskId) return shipFirstOrderSampleTask(state.selectedTaskId)
+  if (action === 'receive-task' && state.selectedTaskId) return receiveFirstOrderSampleTask(state.selectedTaskId)
+  if (action === 'stockin-task' && state.selectedTaskId) return stockInFirstOrderSampleTask(state.selectedTaskId)
+  if (action === 'save-draft') {
+    const draft = saveFirstSampleTaskDraft(buildCreateInput())
+    state.notice = `已保存首版样衣打样草稿：${draft.firstSampleTaskCode}。草稿不会写入项目关系。`
+    state.createOpen = false
+    state.createForm = createDefaultForm()
+    return true
+  }
+  if (action === 'submit-create') {
+    const result = createFirstSampleTaskWithProjectRelation(buildCreateInput())
+    state.notice = result.message
+    if (result.ok) {
+      state.createOpen = false
+      state.createForm = createDefaultForm()
+      state.selectedTaskId = result.task.firstSampleTaskId
+    }
+    return true
+  }
   return false
 }
 
 export function handleFirstOrderSampleInput(target: Element): boolean {
-  const field = (target as HTMLElement).dataset.firstOrderField
+  const field = (target as HTMLElement).dataset.firstSampleField
   if (!field) return false
-
-  if (field === 'search') {
-    state.searchTerm = (target as HTMLInputElement).value
+  if (field === 'keyword') {
+    state.keyword = (target as HTMLInputElement).value
     return true
   }
-
   if (field === 'status') {
     state.statusFilter = (target as HTMLSelectElement).value
     return true
   }
-
+  if (field === 'project') {
+    state.createForm.projectId = (target as HTMLSelectElement).value
+    return true
+  }
+  if (field === 'sourceType') {
+    state.createForm.sourceType = (target as HTMLSelectElement).value
+    return true
+  }
   if (field === 'site') {
-    state.siteFilter = (target as HTMLSelectElement).value
+    state.createForm.targetSite = (target as HTMLSelectElement).value
+    if (!state.createForm.factoryName) {
+      state.createForm.factoryName = state.createForm.targetSite === '雅加达' ? '雅加达工厂01' : '深圳工厂01'
+    }
     return true
   }
-
-  if (field === 'owner') {
-    state.ownerFilter = (target as HTMLSelectElement).value
+  if (field === 'factoryName') {
+    state.createForm.factoryName = (target as HTMLInputElement).value
     return true
   }
-
+  if (field === 'ownerName') {
+    state.createForm.ownerName = (target as HTMLInputElement).value
+    return true
+  }
+  if (field === 'priorityLevel') {
+    state.createForm.priorityLevel = (target as HTMLSelectElement).value as '高' | '中' | '低'
+    return true
+  }
+  if (field === 'expectedArrival') {
+    state.createForm.expectedArrival = (target as HTMLInputElement).value
+    return true
+  }
+  if (field === 'upstreamObjectCode') {
+    state.createForm.upstreamObjectCode = (target as HTMLInputElement).value
+    return true
+  }
+  if (field === 'upstreamObjectId') {
+    state.createForm.upstreamObjectId = (target as HTMLInputElement).value
+    return true
+  }
   return false
 }
 
 export function isFirstOrderSampleDialogOpen(): boolean {
-  return state.createDrawerOpen || state.receiptDialogOpen || state.stockInDialogOpen
+  return state.detailOpen || state.createOpen
 }
 
 export function renderFirstOrderSamplePage(): string {
-  return renderPage()
+  const tasks = getTasks()
+  return `
+    <div class="space-y-4">
+      <header class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-gray-500">工程开发与打样管理 / 首版样衣打样</p>
+          <h1 class="text-xl font-semibold">首版样衣打样</h1>
+          <p class="mt-1 text-sm text-gray-500">正式创建后会同步写入任务仓储、项目关系和项目节点，发样与到样动作继续通过样衣台账事件回写。</p>
+        </div>
+        <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-first-sample-action="open-create">新建首版样衣打样</button>
+      </header>
+
+      ${renderNotice()}
+
+      <section class="rounded-lg border bg-white p-4">
+        <div class="grid gap-4 md:grid-cols-3">
+          <input class="h-9 rounded-md border px-3 text-sm" placeholder="任务编号 / 项目编号 / 样衣编号" value="${escapeHtml(state.keyword)}" data-first-sample-field="keyword" />
+          <select class="h-9 rounded-md border px-3 text-sm" data-first-sample-field="status">
+            ${['all', '草稿', '待发样', '在途', '已到样待入库', '验收中', '已完成', '已取消'].map((item) => `<option value="${item}" ${state.statusFilter === item ? 'selected' : ''}>${item === 'all' ? '全部状态' : item}</option>`).join('')}
+          </select>
+          <div class="rounded-md border border-dashed px-3 py-2 text-sm text-gray-500">当前共 ${tasks.length} 条正式任务记录</div>
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-white overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b bg-gray-50 text-left text-gray-600">
+              <th class="px-4 py-3 font-medium">任务编号</th>
+              <th class="px-4 py-3 font-medium">项目</th>
+              <th class="px-4 py-3 font-medium">来源类型</th>
+              <th class="px-4 py-3 font-medium">样衣编号</th>
+              <th class="px-4 py-3 font-medium">目标站点</th>
+              <th class="px-4 py-3 font-medium">状态</th>
+              <th class="px-4 py-3 font-medium">负责人</th>
+              <th class="px-4 py-3 font-medium">最近更新</th>
+              <th class="px-4 py-3 font-medium text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tasks.length === 0 ? `
+              <tr><td colspan="9" class="px-4 py-10 text-center text-sm text-gray-500">暂无首版样衣打样任务</td></tr>
+            ` : tasks.map((task) => `
+              <tr class="border-b last:border-b-0 hover:bg-gray-50">
+                <td class="px-4 py-3">
+                  <div class="font-medium">${escapeHtml(task.firstSampleTaskCode)}</div>
+                  <div class="text-xs text-gray-500">${escapeHtml(task.title)}</div>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="font-medium">${escapeHtml(task.projectCode)}</div>
+                  <div class="text-xs text-gray-500">${escapeHtml(task.projectName)}</div>
+                </td>
+                <td class="px-4 py-3">${escapeHtml(task.sourceType)}</td>
+                <td class="px-4 py-3">${escapeHtml(task.sampleCode || '待生成')}</td>
+                <td class="px-4 py-3">${escapeHtml(task.targetSite || '—')}</td>
+                <td class="px-4 py-3">${escapeHtml(task.status)}</td>
+                <td class="px-4 py-3">${escapeHtml(task.ownerName || '—')}</td>
+                <td class="px-4 py-3 text-gray-500">${escapeHtml(task.updatedAt)}</td>
+                <td class="px-4 py-3">
+                  <div class="flex justify-end gap-2">
+                    <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-gray-50" data-first-sample-action="open-detail" data-task-id="${task.firstSampleTaskId}">查看</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </section>
+
+      ${renderCreateDrawer()}
+      ${renderDetailDrawer()}
+    </div>
+  `
 }

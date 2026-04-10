@@ -141,7 +141,7 @@ function renderOrderDetailTabButtons(activeTab: OrderDetailTab): string {
   const tabs: Array<{ key: OrderDetailTab; label: string }> = [
     { key: 'overview', label: '概览' },
     { key: 'demand-snapshot', label: '需求快照' },
-    { key: 'tech-pack', label: '技术包' },
+    { key: 'tech-pack', label: '技术资料快照' },
     { key: 'assignment', label: '分配概览' },
     { key: 'handover', label: '交接链路' },
     { key: 'logs', label: '日志' },
@@ -513,7 +513,7 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
   if (state.detailTab === 'tech-pack') {
     return `
       <section class="rounded-lg border bg-card p-4 space-y-4">
-        <h3 class="text-base font-semibold">技术包信息</h3>
+        <h3 class="text-base font-semibold">技术资料快照</h3>
 
         <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
@@ -554,7 +554,7 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
 
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-tech-pack" data-spu-code="${escapeHtml(
           order.demandSnapshot.spuCode,
-        )}">完善技术包</button>
+        )}">去商品中心维护</button>
       </section>
     `
   }
@@ -711,7 +711,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
 
   const breakdownDisabledReason =
     getOrderBusinessTechPackStatus(order.techPackSnapshot.status) !== 'RELEASED'
-      ? '技术包未发布，无法拆解'
+      ? '技术资料版本未发布，无法拆解'
       : order.status !== 'READY_FOR_BREAKDOWN'
         ? '当前状态不支持拆解'
         : ''
@@ -756,7 +756,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           )}">去分配</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-tech-pack" data-spu-code="${escapeHtml(
             order.demandSnapshot.spuCode,
-          )}">完善技术包</button>
+          )}">去商品中心维护</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="detail-open-logs">查看日志</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/progress/urge?po=${escapeHtml(
             order.productionOrderId,
@@ -768,7 +768,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
       ${
         techPack.isOutOfSync
           ? `<section class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-               <p class="font-medium">技术包快照与当前版本不一致</p>
+               <p class="font-medium">技术资料快照与当前版本不一致</p>
                <p class="mt-1">快照版本：${escapeHtml(techPack.snapshotVersion)} (${escapeHtml(
                  demandTechPackStatusConfig[techPack.snapshotStatus].label,
                )}) | 当前版本：${escapeHtml(techPack.currentVersion)} (${escapeHtml(
@@ -781,8 +781,8 @@ export function renderProductionOrderDetailPage(orderId: string): string {
       ${
         getOrderBusinessTechPackStatus(order.techPackSnapshot.status) !== 'RELEASED'
           ? `<section class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-               <p class="font-medium">技术包未发布，无法拆解</p>
-               <p class="mt-1">当前技术包状态为 ${escapeHtml(
+               <p class="font-medium">技术资料版本未发布，无法拆解</p>
+               <p class="mt-1">当前技术资料状态为 ${escapeHtml(
                  demandTechPackStatusConfig[getOrderBusinessTechPackStatus(order.techPackSnapshot.status)].label,
                )}，请先完善并发布。</p>
              </section>`

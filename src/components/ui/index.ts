@@ -3,26 +3,26 @@
 // 组件采用纯函数渲染模式，返回 HTML 字符串
 
 // ============ 类型定义 ============
-export * from './types'
+export * from './types.ts'
 
 // ============ 基础组件 ============
-export * from './button'
-export * from './badge'
+export * from './button.ts'
+export * from './badge.ts'
 
 // ============ 容器组件 ============
-export * from './drawer'
-export * from './dialog'
-export * from './card'
+export * from './drawer.ts'
+export * from './dialog.ts'
+export * from './card.ts'
 
 // ============ 数据展示组件 ============
-export * from './table'
+export * from './table.ts'
 
 // ============ 表单组件 ============
-export * from './form'
+export * from './form.ts'
 
 // ============ 导航组件 ============
-export * from './pagination'
-export * from './filter-bar'
+export * from './pagination.ts'
+export * from './filter-bar.ts'
 
 // ============ 便捷导入 ============
 // 组件使用示例：

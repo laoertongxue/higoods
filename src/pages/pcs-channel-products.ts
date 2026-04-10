@@ -85,7 +85,7 @@ const state: PageState = {
     step: 1,
     selectedTargetSpu: '',
   },
-  notice: '已迁移渠道商品管理：列表、创建抽屉、转档迁移向导，以及映射/店铺内页入口。',
+  notice: '已接入渠道商品列表、创建抽屉、转档迁移向导，以及渠道属性对应/店铺视图入口。',
 }
 
 function getFilteredGroups(): ChannelProductGroup[] {
@@ -151,18 +151,19 @@ function renderHeader(): string {
   return `
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold">渠道商品管理</h1>
-        <p class="mt-1 text-sm text-muted-foreground">迁移旧版渠道商品组视图，覆盖项目转档、映射健康、多店铺在售状态。</p>
+        <p class="text-xs text-muted-foreground">商品档案 / 渠道商品</p>
+        <h1 class="mt-2 text-xl font-semibold">渠道商品</h1>
+        <p class="mt-1 text-sm text-muted-foreground">围绕内部款式档案维护渠道商品主档、转档迁移、多店铺在售状态与渠道挂接健康。</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-group-action="go-mapping">
-          <i data-lucide="map" class="mr-1 h-3.5 w-3.5"></i>编码映射管理
+          <i data-lucide="map" class="mr-1 h-3.5 w-3.5"></i>渠道属性对应
         </button>
         <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-group-action="go-store-view">
           <i data-lucide="store" class="mr-1 h-3.5 w-3.5"></i>店铺视图
         </button>
         <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-pcs-channel-group-action="open-create">
-          <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>新建渠道商品组
+          <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>新建渠道商品
         </button>
       </div>
     </header>
@@ -173,7 +174,7 @@ function renderStats(): string {
   const stats = getStats()
 
   const cards: Array<{ key: string; title: string; value: number; tone: string }> = [
-    { key: 'all', title: '渠道商品组总数', value: stats.total, tone: 'text-foreground' },
+    { key: 'all', title: '渠道商品总数', value: stats.total, tone: 'text-foreground' },
     { key: 'online', title: '有在售店铺', value: stats.hasOnline, tone: 'text-emerald-700' },
     { key: 'offline', title: '全部下架', value: stats.allOffline, tone: 'text-orange-700' },
     { key: 'blocked', title: '有受限', value: stats.hasBlocked, tone: 'text-rose-700' },
@@ -219,7 +220,7 @@ function renderFilters(): string {
           <label class="mb-1 block text-xs text-muted-foreground">内部绑定类型</label>
           <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-group-field="filterRefType">
             <option value="all" ${state.filterRefType === 'all' ? 'selected' : ''}>全部类型</option>
-            <option value="SPU" ${state.filterRefType === 'SPU' ? 'selected' : ''}>SPU</option>
+            <option value="SPU" ${state.filterRefType === 'SPU' ? 'selected' : ''}>款式档案</option>
             <option value="CANDIDATE" ${state.filterRefType === 'CANDIDATE' ? 'selected' : ''}>候选商品</option>
           </select>
         </div>
@@ -255,7 +256,7 @@ function renderRows(rows: ChannelProductGroup[]): string {
       <tr>
         <td colspan="12" class="px-4 py-12 text-center text-muted-foreground">
           <i data-lucide="folder-search-2" class="mx-auto h-10 w-10 text-muted-foreground/60"></i>
-          <p class="mt-2 text-sm">暂无渠道商品组数据</p>
+          <p class="mt-2 text-sm">暂无渠道商品数据</p>
         </td>
       </tr>
     `
@@ -295,7 +296,7 @@ function renderRows(rows: ChannelProductGroup[]): string {
             <div class="flex flex-wrap gap-1">
               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-channel-group-action="go-detail" data-group-id="${escapeHtml(group.id)}">详情</button>
               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-channel-group-action="go-store-view">店铺视图</button>
-              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-channel-group-action="go-mapping">映射管理</button>
+            <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-channel-group-action="go-mapping">渠道属性对应</button>
               ${group.internalRefType === 'CANDIDATE' ? `<button class="inline-flex h-7 items-center rounded-md border border-violet-300 px-2 text-xs text-violet-700 hover:bg-violet-50" data-pcs-channel-group-action="open-migration" data-group-id="${escapeHtml(group.id)}">转档迁移</button>` : ''}
             </div>
           </td>
@@ -390,7 +391,7 @@ function renderCreateDrawer(): string {
         <header class="sticky top-0 border-b bg-background px-4 py-3">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-base font-semibold">新建渠道商品组</h3>
+              <h3 class="text-base font-semibold">新建渠道商品</h3>
               <p class="mt-1 text-xs text-muted-foreground">支持按项目生成或手动新建，保留旧 PCS 创建逻辑。</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-pcs-channel-group-action="close-create" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
@@ -461,7 +462,7 @@ function renderCreateDrawer(): string {
         </div>
         <footer class="sticky bottom-0 flex items-center justify-end gap-2 border-t bg-background px-4 py-3">
           <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-group-action="close-create">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-group-action="confirm-create">${state.createForm.mode === 'project' ? '生成渠道商品' : '创建渠道商品组'}</button>
+          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-channel-group-action="confirm-create">${state.createForm.mode === 'project' ? '生成渠道商品' : '创建渠道商品'}</button>
         </footer>
       </section>
     </div>
@@ -484,7 +485,7 @@ function renderMigrationDialog(): string {
       <section class="w-full max-w-2xl rounded-lg border bg-background shadow-2xl">
         <header class="border-b px-4 py-3">
           <h3 class="text-base font-semibold">转档迁移向导</h3>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(group.id)} ｜ ${escapeHtml(group.internalRefCode)} → SPU</p>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(group.id)} ｜ ${escapeHtml(group.internalRefCode)} → 款式档案</p>
         </header>
         <div class="space-y-3 p-4 text-sm">
           <div class="rounded-md border bg-muted/30 p-2 text-xs">步骤 ${state.migration.step} / 3</div>
@@ -493,9 +494,9 @@ function renderMigrationDialog(): string {
             state.migration.step === 1
               ? `
                 <article class="space-y-2 rounded-md border bg-background p-3">
-                  <p class="font-medium">1. 选择目标 SPU</p>
+                  <p class="font-medium">1. 选择目标款式档案</p>
                   <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-group-field="migrationTargetSpu">
-                    <option value="">请选择目标SPU</option>
+                    <option value="">请选择目标款式档案</option>
                     <option value="SPU-20260115-001" ${state.migration.selectedTargetSpu === 'SPU-20260115-001' ? 'selected' : ''}>SPU-20260115-001 ｜ 波西米亚风印花半身裙</option>
                     <option value="SPU-20260115-011" ${state.migration.selectedTargetSpu === 'SPU-20260115-011' ? 'selected' : ''}>SPU-20260115-011 ｜ 波西米亚风印花半身裙（新版本）</option>
                   </select>
@@ -509,7 +510,7 @@ function renderMigrationDialog(): string {
               ? `
                 <article class="space-y-2 rounded-md border bg-background p-3">
                   <p class="font-medium">2. 映射与影响预览</p>
-                  <p>将同步更新候选商品到 SPU 的映射关系，并保持现有店铺商品组不下架。</p>
+                  <p>将同步更新候选商品到款式档案的对应关系，并保持现有渠道商品不下架。</p>
                   <ul class="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
                     <li>影响店铺：${group.coverStoreCount} 个</li>
                     <li>当前在售店铺：${group.onlineStoreCount} 个</li>
@@ -525,7 +526,7 @@ function renderMigrationDialog(): string {
               ? `
                 <article class="space-y-2 rounded-md border bg-background p-3">
                   <p class="font-medium">3. 执行确认</p>
-                  <p>目标SPU：<span class="font-medium text-blue-700">${escapeHtml(state.migration.selectedTargetSpu || '-')}</span></p>
+                  <p>目标款式档案：<span class="font-medium text-blue-700">${escapeHtml(state.migration.selectedTargetSpu || '-')}</span></p>
                   <p class="text-xs text-muted-foreground">执行后将记录迁移日志，可在详情页与映射页追溯。</p>
                 </article>
               `
@@ -587,7 +588,7 @@ function createGroup(): boolean {
 
   const source = PROJECT_SOURCES.find((item) => item.id === state.createForm.projectId)
   const refCode = source?.hasSpu ? source.spuId ?? source.id : source?.candidateId ?? source?.id ?? 'CAND-NEW'
-  const refName = source?.name ?? '手动创建商品组'
+  const refName = source?.name ?? '手动创建渠道商品'
   const newGroupId = `CPG-${String(groups.length + 1).padStart(3, '0')}`
 
   const newGroup: ChannelProductGroup = {
@@ -682,17 +683,17 @@ export function handlePcsChannelProductsEvent(target: HTMLElement): boolean {
   if (action === 'go-detail') {
     const groupId = actionNode.dataset.groupId
     if (!groupId) return false
-    appStore.navigate(`/pcs/channels/products/${groupId.replace('CPG', 'CP')}`)
+    appStore.navigate(`/pcs/products/channel-products/${groupId.replace('CPG', 'CP')}`)
     return true
   }
 
   if (action === 'go-mapping') {
-    appStore.navigate('/pcs/channels/products/mapping')
+    appStore.navigate('/pcs/products/channel-attributes')
     return true
   }
 
   if (action === 'go-store-view') {
-    appStore.navigate('/pcs/channels/products/store')
+    appStore.navigate('/pcs/products/channel-products/store')
     return true
   }
 
@@ -759,7 +760,7 @@ export function handlePcsChannelProductsEvent(target: HTMLElement): boolean {
 
   if (action === 'migration-next') {
     if (state.migration.step === 1 && !state.migration.selectedTargetSpu) {
-      state.notice = '请先选择目标SPU。'
+      state.notice = '请先选择目标款式档案。'
       return true
     }
     state.migration.step = Math.min(3, state.migration.step + 1) as 1 | 2 | 3
@@ -768,7 +769,7 @@ export function handlePcsChannelProductsEvent(target: HTMLElement): boolean {
 
   if (action === 'migration-confirm') {
     if (!state.migration.selectedTargetSpu) {
-      state.notice = '请先选择目标SPU。'
+      state.notice = '请先选择目标款式档案。'
       return true
     }
     const group = getMigrationGroup()
@@ -811,7 +812,7 @@ export function handlePcsChannelProductsEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'batch-export') {
-    state.notice = `已导出选中渠道商品组（${state.selectedGroups.length} 项，演示态）。`
+    state.notice = `已导出选中渠道商品（${state.selectedGroups.length} 项，演示态）。`
     return true
   }
 

@@ -1,897 +1,84 @@
-import { appStore } from '../state/store'
-import { escapeHtml } from '../utils'
-
-type ProjectStatus = '进行中' | '已终止' | '已归档'
-export type WorkItemStatus = '未开始' | '进行中' | '待决策' | '已完成' | '未解锁'
-type WorkItemNature = '执行类' | '决策类'
-type DecisionValue = '' | 'pass' | 'revision' | 'reject'
-
-interface ProjectMeta {
-  id: string
-  code: string
-  name: string
-  status: ProjectStatus
-  styleType: string
-  category: string
-  tags: string[]
-  owner: string
-  lastUpdated: string
-  phaseName: string
-}
-
-interface PhaseItem {
-  id: string
-  no: string
-  name: string
-  description: string
-  items: string[]
-}
-
-interface KeyOutputItem {
-  label: string
-  value: string
-}
-
-interface EvidenceCounters {
-  attachments: number
-  links: number
-  records: number
-}
-
-interface LatestRecord {
-  title: string
-  meta: string
-  time: string
-}
-
-interface MultiInstanceKpi {
-  label: string
-  value: string
-}
-
-interface MultiInstanceRecord {
-  id: string
-  title: string
-  sub: string
-  metrics: string
-  time: string
-}
-
-interface WorkItemSummary {
-  keyOutputs: KeyOutputItem[]
-  evidence: EvidenceCounters
-  latestRecords: LatestRecord[]
-}
-
-export interface WorkItem {
-  id: string
-  name: string
-  nature: WorkItemNature
-  status: WorkItemStatus
-  phaseId: string
-  owner: string
-  updatedAt: string
-  summary: WorkItemSummary
-  isMultiInstance?: boolean
-  multiInstance?: {
-    kpis: MultiInstanceKpi[]
-    records: MultiInstanceRecord[]
-  }
-}
-
-interface ProjectLog {
-  time: string
-  type: '状态变更' | '工作项' | '决策'
-  title: string
-  detail: string
-}
-
-export interface ProjectDetailData {
-  projectId: string
-  project: ProjectMeta & { currentPhaseId: string }
-  phases: PhaseItem[]
-  workItems: Record<string, WorkItem>
-  logs: ProjectLog[]
-}
+import { appStore } from '../state/store.ts'
+import { escapeHtml } from '../utils.ts'
+import {
+  createProjectArchive,
+} from '../data/pcs-project-archive-sync.ts'
+import { generateStyleArchiveShellFromProject } from '../data/pcs-project-style-archive-writeback.ts'
+import { createTechnicalDataVersionFromProject } from '../data/pcs-project-technical-data-writeback.ts'
+import {
+  buildProjectDetailViewModel,
+  type ProjectDetailViewModel,
+  type ProjectNodeCardViewModel,
+  type ProjectPhaseSectionViewModel,
+} from '../data/pcs-project-view-model.ts'
 
 interface ProjectDetailPageState {
   projectId: string | null
-  data: ProjectDetailData | null
   selectedWorkItemId: string | null
   expandedPhases: string[]
-  showDecisionDialog: boolean
-  decisionValue: DecisionValue
-  decisionNote: string
   notice: string | null
 }
 
-const PROJECT_INDEX: ProjectMeta[] = [
-  {
-    id: 'prj_20251216_001',
-    code: 'PRJ-20251216-001',
-    name: '印尼风格碎花连衣裙',
-    status: '进行中',
-    styleType: '基础款',
-    category: '裙装 / 连衣裙',
-    tags: ['休闲', '甜美'],
-    owner: '张丽',
-    lastUpdated: '2025-12-15 12:30:30',
-    phaseName: '市场测款',
-  },
-  {
-    id: 'prj_20251216_002',
-    code: 'PRJ-20251216-002',
-    name: '百搭纯色基础T恤',
-    status: '进行中',
-    styleType: '快时尚款',
-    category: '上衣 / T恤',
-    tags: ['极简', '通勤'],
-    owner: '王明',
-    lastUpdated: '2025-12-16 12:00',
-    phaseName: '工程准备',
-  },
-  {
-    id: 'prj_20251216_003',
-    code: 'PRJ-20251216-003',
-    name: '夏日休闲牛仔短裤',
-    status: '进行中',
-    styleType: '设计款',
-    category: '裤装 / 短裤',
-    tags: ['休闲', '运动'],
-    owner: '李娜',
-    lastUpdated: '2025-12-15 18:45',
-    phaseName: '打样阶段',
-  },
-  {
-    id: 'prj_20251216_004',
-    code: 'PRJ-20251216-004',
-    name: '复古皮质机车夹克',
-    status: '进行中',
-    styleType: '改版款',
-    category: '外套 / 夹克',
-    tags: ['复古', '街头'],
-    owner: '赵云',
-    lastUpdated: '2025-12-15 16:20',
-    phaseName: '立项阶段',
-  },
-  {
-    id: 'prj_20251216_005',
-    code: 'PRJ-20251216-005',
-    name: '法式优雅衬衫连衣裙',
-    status: '进行中',
-    styleType: '设计款',
-    category: '裙装 / 连衣裙',
-    tags: ['优雅', '通勤'],
-    owner: '周芳',
-    lastUpdated: '2025-12-15 14:10',
-    phaseName: '市场测款',
-  },
-  {
-    id: 'prj_20251216_006',
-    code: 'PRJ-20251216-006',
-    name: '运动休闲卫衣套装',
-    status: '进行中',
-    styleType: '快时尚款',
-    category: '套装 / 运动套装',
-    tags: ['运动', '休闲'],
-    owner: '陈刚',
-    lastUpdated: '2025-12-14 20:30',
-    phaseName: '工程准备',
-  },
-  {
-    id: 'prj_20251216_007',
-    code: 'PRJ-20251216-007',
-    name: '碎花雪纺半身裙',
-    status: '已归档',
-    styleType: '基础款',
-    category: '裙装 / 半身裙',
-    tags: ['甜美', '清新'],
-    owner: '张丽',
-    lastUpdated: '2025-12-10 10:00',
-    phaseName: '资产处置',
-  },
-  {
-    id: 'prj_20251216_008',
-    code: 'PRJ-20251216-008',
-    name: '商务休闲西装外套',
-    status: '已终止',
-    styleType: '改版款',
-    category: '外套 / 西装',
-    tags: ['商务', '通勤'],
-    owner: '王明',
-    lastUpdated: '2025-12-08 15:00',
-    phaseName: '结论与推进',
-  },
-  {
-    id: 'prj_20251216_009',
-    code: 'PRJ-20251216-009',
-    name: '高腰阔腿牛仔裤',
-    status: '进行中',
-    styleType: '基础款',
-    category: '裤装 / 长裤',
-    tags: ['休闲', '百搭'],
-    owner: '李娜',
-    lastUpdated: '2025-12-14 11:20',
-    phaseName: '打样阶段',
-  },
-  {
-    id: 'prj_20251216_010',
-    code: 'PRJ-20251216-010',
-    name: '波西米亚印花长裙',
-    status: '进行中',
-    styleType: '设计款',
-    category: '裙装 / 长裙',
-    tags: ['度假', '波西米亚'],
-    owner: '周芳',
-    lastUpdated: '2025-12-16 09:00',
-    phaseName: '立项阶段',
-  },
-]
-
-const PHASES: PhaseItem[] = [
-  {
-    id: 'phase_01',
-    no: '01',
-    name: '立项获取',
-    description: '项目立项与样衣获取（含深圳前置打版），确保版型/工艺稳定性。',
-    items: ['wi_01', 'wi_02', 'wi_03'],
-  },
-  {
-    id: 'phase_02',
-    no: '02',
-    name: '评估定价',
-    description: '闭合可行性、成本与定价，避免测款有效但毛利不可做。',
-    items: ['wi_04', 'wi_05', 'wi_06', 'wi_07', 'wi_08'],
-  },
-  {
-    id: 'phase_03',
-    no: '03',
-    name: '市场测款',
-    description: '短视频验证兴趣，直播验证转化；事实记录支持多实例。',
-    items: ['wi_09', 'wi_10', 'wi_11', 'wi_12'],
-  },
-  {
-    id: 'phase_04',
-    no: '04',
-    name: '结论与推进',
-    description: '以测款结论判定为推进条件，通过后解锁转档与制版准备。',
-    items: ['wi_13', 'wi_14', 'wi_15', 'wi_16', 'wi_17', 'wi_18', 'wi_19'],
-  },
-  {
-    id: 'phase_05',
-    no: '05',
-    name: '资产处置',
-    description: '样衣留存/退货处理按项目结论与资产策略执行。',
-    items: ['wi_20', 'wi_21'],
-  },
-]
-
-const WORK_ITEM_SEED: Record<string, WorkItem> = {
-  wi_01: {
-    id: 'wi_01',
-    name: '商品项目立项',
-    nature: '执行类',
-    status: '已完成',
-    phaseId: 'phase_01',
-    owner: '张丽',
-    updatedAt: '2025-12-15 10:02',
-    summary: {
-      keyOutputs: [
-        { label: '目标渠道', value: 'TikTok / Shopee' },
-        { label: '目标价位', value: 'IDR 149k-199k' },
-        { label: '风险提示', value: '面料缩水风险待验证' },
-      ],
-      evidence: { attachments: 2, links: 1, records: 0 },
-      latestRecords: [],
-    },
-  },
-  wi_02: {
-    id: 'wi_02',
-    name: '样衣获取（深圳前置打版）',
-    nature: '执行类',
-    status: '已完成',
-    phaseId: 'phase_01',
-    owner: '王明',
-    updatedAt: '2025-12-15 10:35',
-    summary: {
-      keyOutputs: [
-        { label: '样衣来源', value: '深圳前置打版' },
-        { label: '样衣数量', value: '2 件' },
-        { label: '关键改动', value: '腰线收省、袖口松量调整' },
-      ],
-      evidence: { attachments: 3, links: 0, records: 1 },
-      latestRecords: [{ title: '获取记录', meta: '打版完成并发出', time: '2025-12-15 10:20' }],
-    },
-  },
-  wi_03: {
-    id: 'wi_03',
-    name: '到样入库与核对',
-    nature: '执行类',
-    status: '已完成',
-    phaseId: 'phase_01',
-    owner: '样管-李娜',
-    updatedAt: '2025-12-15 11:10',
-    summary: {
-      keyOutputs: [
-        { label: '入库样衣', value: '2 件（S/M）' },
-        { label: '核对结果', value: '无缺件' },
-        { label: '样衣编号', value: 'SY-INA-001 / SY-INA-002' },
-      ],
-      evidence: { attachments: 1, links: 0, records: 2 },
-      latestRecords: [{ title: '入库记录', meta: '已完成入库与尺码核对', time: '2025-12-15 11:08' }],
-    },
-  },
-  wi_04: {
-    id: 'wi_04',
-    name: '初步可行性判断',
-    nature: '决策类',
-    status: '已完成',
-    phaseId: 'phase_02',
-    owner: '张丽',
-    updatedAt: '2025-12-15 11:25',
-    summary: {
-      keyOutputs: [
-        { label: '结论', value: '通过（进入拍摄与测款）' },
-        { label: '关键风险', value: '面料缩水、腰线位置需试穿确认' },
-        { label: '建议', value: '优先直播测款验证转化' },
-      ],
-      evidence: { attachments: 0, links: 0, records: 1 },
-      latestRecords: [{ title: '决策记录', meta: '通过', time: '2025-12-15 11:24' }],
-    },
-  },
-  wi_05: {
-    id: 'wi_05',
-    name: '样衣拍摄与试穿',
-    nature: '执行类',
-    status: '已完成',
-    phaseId: 'phase_02',
-    owner: '内容-赵云',
-    updatedAt: '2025-12-15 12:00',
-    summary: {
-      keyOutputs: [
-        { label: '素材产出', value: '图 25 张 / 视频 3 条' },
-        { label: '试穿要点', value: '腰线偏高，S码更贴合' },
-        { label: '卖点提炼', value: '显瘦腰线、碎花氛围感' },
-      ],
-      evidence: { attachments: 6, links: 0, records: 1 },
-      latestRecords: [{ title: '试穿反馈', meta: '建议腰线下移 1cm（可选）', time: '2025-12-15 11:58' }],
-    },
-  },
-  wi_06: {
-    id: 'wi_06',
-    name: '样衣确认',
-    nature: '决策类',
-    status: '已完成',
-    phaseId: 'phase_02',
-    owner: '张丽',
-    updatedAt: '2025-12-15 12:05',
-    summary: {
-      keyOutputs: [
-        { label: '确认结论', value: '确认通过' },
-        { label: '需关注点', value: '缩水率入测款观察' },
-        { label: '备注', value: '腰线优化列为后续可选改版点' },
-      ],
-      evidence: { attachments: 1, links: 0, records: 1 },
-      latestRecords: [{ title: '决策记录', meta: '确认通过', time: '2025-12-15 12:04' }],
-    },
-  },
-  wi_07: {
-    id: 'wi_07',
-    name: '样衣核价',
-    nature: '执行类',
-    status: '已完成',
-    phaseId: 'phase_02',
-    owner: '核价-周强',
-    updatedAt: '2025-12-15 12:15',
-    summary: {
-      keyOutputs: [
-        { label: '核价成本', value: 'IDR 78k' },
-        { label: '目标毛利', value: '46.8%' },
-        { label: '结论', value: '可进入定价' },
-      ],
-      evidence: { attachments: 2, links: 0, records: 2 },
-      latestRecords: [{ title: '核价明细', meta: '材料与工费拆分完成', time: '2025-12-15 12:12' }],
-    },
-  },
-  wi_08: {
-    id: 'wi_08',
-    name: '样衣定价',
-    nature: '决策类',
-    status: '已完成',
-    phaseId: 'phase_02',
-    owner: '张丽',
-    updatedAt: '2025-12-15 12:20',
-    summary: {
-      keyOutputs: [
-        { label: '建议售价', value: 'IDR 179k' },
-        { label: '活动价', value: 'IDR 169k' },
-        { label: '结论', value: '通过' },
-      ],
-      evidence: { attachments: 1, links: 0, records: 1 },
-      latestRecords: [{ title: '定价决策', meta: 'IDR 179k / 券后 169k', time: '2025-12-15 12:20' }],
-    },
-  },
-  wi_09: {
-    id: 'wi_09',
-    name: '短视频测款',
-    nature: '执行类',
-    status: '进行中',
-    phaseId: 'phase_03',
-    owner: '短视频运营-小雅',
-    updatedAt: '2025-12-15 12:28',
-    summary: {
-      keyOutputs: [
-        { label: '发布视频', value: '3 条' },
-        { label: '曝光量', value: '126,000' },
-        { label: '点击率', value: '3.9%' },
-      ],
-      evidence: { attachments: 0, links: 3, records: 3 },
-      latestRecords: [
-        { title: '短视频 #3', meta: '完播率 21.3%，评论正向率 89%', time: '2025-12-15 12:28' },
-        { title: '短视频 #2', meta: '完播率 19.7%，收藏率 3.2%', time: '2025-12-15 11:54' },
-      ],
-    },
-    isMultiInstance: true,
-    multiInstance: {
-      kpis: [
-        { label: '累计曝光', value: '126k' },
-        { label: '累计互动', value: '9.8k' },
-        { label: '收藏加购率', value: '5.1%' },
-        { label: '测款结论建议', value: '待汇总' },
-      ],
-      records: [
-        { id: 'sv_01', title: 'SV-20251215-01', sub: '穿搭场景测试', metrics: '曝光 52k ｜ 点击率 4.1% ｜ 收藏率 2.7%', time: '2025-12-15 10:30' },
-        { id: 'sv_02', title: 'SV-20251215-02', sub: '面料与腰线卖点测试', metrics: '曝光 38k ｜ 点击率 3.8% ｜ 收藏率 2.1%', time: '2025-12-15 11:20' },
-        { id: 'sv_03', title: 'SV-20251215-03', sub: '模特试穿反馈向', metrics: '曝光 36k ｜ 点击率 3.7% ｜ 收藏率 2.3%', time: '2025-12-15 12:28' },
-      ],
-    },
-  },
-  wi_10: {
-    id: 'wi_10',
-    name: '直播测款',
-    nature: '执行类',
-    status: '进行中',
-    phaseId: 'phase_03',
-    owner: '直播运营-小美',
-    updatedAt: '2025-12-15 12:30',
-    summary: {
-      keyOutputs: [
-        { label: '直播场次', value: '3 场（进行中）' },
-        { label: '转化率', value: '4.2%' },
-        { label: '退款率', value: '1.8%' },
-      ],
-      evidence: { attachments: 0, links: 2, records: 3 },
-      latestRecords: [
-        { title: 'LS-20251215-03', meta: 'GMV 8.7k，转化 4.3%，互动 1.2k', time: '2025-12-15 12:30' },
-        { title: 'LS-20251215-02', meta: 'GMV 7.9k，转化 4.0%，互动 1.0k', time: '2025-12-15 11:45' },
-      ],
-    },
-    isMultiInstance: true,
-    multiInstance: {
-      kpis: [
-        { label: '总观看', value: '68k' },
-        { label: '总成交', value: 'IDR 24.1M' },
-        { label: '平均转化', value: '4.2%' },
-        { label: '退货预警', value: '低' },
-      ],
-      records: [
-        { id: 'ls_01', title: 'LS-20251215-01', sub: '晚高峰场', metrics: '观看 21k ｜ 转化 3.9% ｜ 退款 2.0%', time: '2025-12-15 10:45' },
-        { id: 'ls_02', title: 'LS-20251215-02', sub: '午间场', metrics: '观看 24k ｜ 转化 4.0% ｜ 退款 1.8%', time: '2025-12-15 11:45' },
-        { id: 'ls_03', title: 'LS-20251215-03', sub: '晚间场', metrics: '观看 23k ｜ 转化 4.3% ｜ 退款 1.6%', time: '2025-12-15 12:30' },
-      ],
-    },
-  },
-  wi_11: {
-    id: 'wi_11',
-    name: '测款数据汇总',
-    nature: '执行类',
-    status: '进行中',
-    phaseId: 'phase_03',
-    owner: '数据分析-小陈',
-    updatedAt: '2025-12-15 12:31',
-    summary: {
-      keyOutputs: [
-        { label: '短视频维度', value: '曝光/点击/收藏/评论' },
-        { label: '直播维度', value: '观看/转化/退款/客诉' },
-        { label: '当前结论', value: '待决策会审' },
-      ],
-      evidence: { attachments: 1, links: 0, records: 2 },
-      latestRecords: [{ title: '汇总看板', meta: '数据已同步至评审板', time: '2025-12-15 12:31' }],
-    },
-  },
-  wi_12: {
-    id: 'wi_12',
-    name: '测款结论判定',
-    nature: '决策类',
-    status: '待决策',
-    phaseId: 'phase_03',
-    owner: '张丽',
-    updatedAt: '2025-12-15 12:32',
-    summary: {
-      keyOutputs: [
-        { label: '待决策结论', value: '通过 / 改版 / 淘汰' },
-        { label: '当前建议', value: '通过后进入工程准备' },
-        { label: '对下一步的影响', value: '决定后续工作项解锁状态' },
-      ],
-      evidence: { attachments: 0, links: 0, records: 1 },
-      latestRecords: [{ title: '待决策提醒', meta: '需在今日内完成结论判定', time: '2025-12-15 12:32' }],
-    },
-  },
-  wi_13: {
-    id: 'wi_13',
-    name: '生成商品档案',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_04',
-    owner: '商品中台-小王',
-    updatedAt: '-',
-    summary: {
-      keyOutputs: [{ label: '提示', value: '等待测款结论通过后解锁' }],
-      evidence: { attachments: 0, links: 0, records: 0 },
-      latestRecords: [],
-    },
-  },
-  wi_14: {
-    id: 'wi_14',
-    name: '转档准备',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_04',
-    owner: '商品中台-小刘',
-    updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待测款结论通过后解锁' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
-  },
-  wi_15: {
-    id: 'wi_15',
-    name: '制版任务',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_04',
-    owner: '版房-王版师',
-    updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
-  },
-  wi_16: {
-    id: 'wi_16',
-    name: '花型任务',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_04',
-    owner: '设计-花型组',
-    updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
-  },
-  wi_17: {
-    id: 'wi_17',
-    name: '首单样衣打样',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_04',
-    owner: '样衣组-小李',
-    updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
-  },
-  wi_18: {
-    id: 'wi_18',
-    name: '产前版样衣',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_04',
-    owner: '样衣组-小刘',
-    updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
-  },
-  wi_19: {
-    id: 'wi_19',
-    name: '商品上架',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_04',
-    owner: '渠道运营-小郑',
-    updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '等待进入下一步条件满足' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
-  },
-  wi_20: {
-    id: 'wi_20',
-    name: '样衣留存评估',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_05',
-    owner: '样衣资产-小赵',
-    updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '待项目推进完成后执行' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
-  },
-  wi_21: {
-    id: 'wi_21',
-    name: '样衣退货处理',
-    nature: '执行类',
-    status: '未解锁',
-    phaseId: 'phase_05',
-    owner: '样衣资产-小赵',
-    updatedAt: '-',
-    summary: { keyOutputs: [{ label: '提示', value: '待项目推进完成后执行' }], evidence: { attachments: 0, links: 0, records: 0 }, latestRecords: [] },
-  },
-}
-
-const LOG_SEED: ProjectLog[] = [
-  {
-    time: '2025-12-15 12:30:30',
-    type: '状态变更',
-    title: '项目状态：测款数据更新',
-    detail: '直播场次 3 进行中，当前转化 4.2%。',
-  },
-  {
-    time: '2025-12-15 12:26:30',
-    type: '工作项',
-    title: '完成工作项：商品上架预检查',
-    detail: '渠道字段与映射规则已校验通过。',
-  },
-  {
-    time: '2025-12-15 12:20:00',
-    type: '决策',
-    title: '决策：样衣定价',
-    detail: '定价 IDR 179k；券后 169k。',
-  },
-  {
-    time: '2025-12-15 12:05:00',
-    type: '决策',
-    title: '决策：样衣确认',
-    detail: '确认通过；腰线优化列为可选改版点。',
-  },
-  {
-    time: '2025-12-15 11:25:00',
-    type: '决策',
-    title: '决策：初步可行性判断',
-    detail: '通过（进入拍摄与测款）。',
-  },
-  {
-    time: '2025-12-15 11:10:10',
-    type: '工作项',
-    title: '完成工作项：到样入库与核对',
-    detail: 'SY-INA-001 / SY-INA-002 入库完成。',
-  },
-]
+const FLASH_NOTICE_KEY = 'pcs_project_flash_notice'
 
 const state: ProjectDetailPageState = {
   projectId: null,
-  data: null,
   selectedWorkItemId: null,
-  expandedPhases: PHASES.map((phase) => phase.id),
-  showDecisionDialog: false,
-  decisionValue: '',
-  decisionNote: '',
+  expandedPhases: [],
   notice: null,
-}
-
-function toClassName(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(' ')
 }
 
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
 }
 
-function cloneDetailData(data: ProjectDetailData): ProjectDetailData {
-  return JSON.parse(JSON.stringify(data)) as ProjectDetailData
+function getProjectStatusClass(status: string): string {
+  if (status === '进行中') return 'border-blue-200 bg-blue-50 text-blue-700'
+  if (status === '已立项') return 'border-violet-200 bg-violet-50 text-violet-700'
+  if (status === '已终止') return 'border-red-200 bg-red-50 text-red-700'
+  return 'border-slate-200 bg-slate-50 text-slate-700'
 }
 
-function getMetaById(projectId: string): ProjectMeta | null {
-  return PROJECT_INDEX.find((project) => project.id === projectId) ?? null
+function getNodeStatusClass(status: string): string {
+  if (status === '已完成') return 'border-green-200 bg-green-50 text-green-700'
+  if (status === '进行中') return 'border-blue-200 bg-blue-50 text-blue-700'
+  if (status === '待确认') return 'border-orange-200 bg-orange-50 text-orange-700'
+  if (status === '已取消') return 'border-red-200 bg-red-50 text-red-700'
+  return 'border-slate-200 bg-slate-50 text-slate-700'
 }
 
-function getPhaseIdByName(phaseName: string): string {
-  if (phaseName.includes('立项')) return 'phase_01'
-  if (phaseName.includes('打样')) return 'phase_02'
-  if (phaseName.includes('测款') || phaseName.includes('市场')) return 'phase_03'
-  if (phaseName.includes('工程') || phaseName.includes('推进')) return 'phase_04'
-  if (phaseName.includes('资产') || phaseName.includes('归档')) return 'phase_05'
-  return 'phase_03'
-}
-
-function buildWorkItemsForMeta(meta: ProjectMeta): Record<string, WorkItem> {
-  const items = cloneDetailData({
-    projectId: 'seed',
-    project: {
-      ...meta,
-      currentPhaseId: 'phase_03',
-    },
-    phases: PHASES,
-    workItems: WORK_ITEM_SEED,
-    logs: LOG_SEED,
-  }).workItems
-
-  const phaseId = getPhaseIdByName(meta.phaseName)
-  const statusRank: Record<string, number> = {
-    phase_01: 1,
-    phase_02: 2,
-    phase_03: 3,
-    phase_04: 4,
-    phase_05: 5,
+function ensureProjectState(projectId: string): ProjectDetailViewModel | null {
+  const data = buildProjectDetailViewModel(projectId)
+  if (state.projectId !== projectId) {
+    state.projectId = projectId
+    state.expandedPhases = data?.phases.map((phase) => phase.projectPhaseId) ?? []
+    state.selectedWorkItemId = data?.phases.flatMap((phase) => phase.nodes.map((node) => node.projectNodeId))[0] ?? null
+    state.notice =
+      typeof window !== 'undefined'
+        ? (() => {
+            const value = window.sessionStorage.getItem(FLASH_NOTICE_KEY)
+            if (value) window.sessionStorage.removeItem(FLASH_NOTICE_KEY)
+            return value
+          })()
+        : null
   }
-
-  const currentRank = statusRank[phaseId]
-
-  Object.values(items).forEach((item) => {
-    const itemRank = statusRank[item.phaseId]
-    if (meta.status === '已归档') {
-      item.status = '已完成'
-      return
-    }
-
-    if (meta.status === '已终止') {
-      if (itemRank <= currentRank) {
-        item.status = item.nature === '决策类' && item.id === 'wi_12' ? '已完成' : '已完成'
-      } else {
-        item.status = '未解锁'
-      }
-      return
-    }
-
-    if (itemRank < currentRank) {
-      item.status = '已完成'
-      return
-    }
-
-    if (itemRank > currentRank) {
-      item.status = '未解锁'
-      return
-    }
-
-    if (phaseId === 'phase_01') {
-      item.status = item.id === 'wi_03' ? '进行中' : item.id === 'wi_01' ? '已完成' : '未开始'
-      return
-    }
-
-    if (phaseId === 'phase_02') {
-      if (item.id === 'wi_08') item.status = '待决策'
-      else if (item.id === 'wi_07') item.status = '进行中'
-      else item.status = '已完成'
-      return
-    }
-
-    if (phaseId === 'phase_03') {
-      if (item.id === 'wi_12') item.status = '待决策'
-      else if (item.id === 'wi_09' || item.id === 'wi_10' || item.id === 'wi_11') item.status = '进行中'
-      else item.status = '已完成'
-      return
-    }
-
-    if (phaseId === 'phase_04') {
-      if (item.id === 'wi_13') item.status = '进行中'
-      else if (item.id === 'wi_14') item.status = '未开始'
-      else if (item.phaseId === 'phase_04') item.status = '未开始'
-      else item.status = '已完成'
-      return
-    }
-
-    if (phaseId === 'phase_05') {
-      if (item.phaseId === 'phase_05') item.status = '进行中'
-      else item.status = '已完成'
-      return
-    }
-  })
-
-  return items
-}
-
-function buildDetailData(projectId: string): ProjectDetailData | null {
-  const meta = getMetaById(projectId)
-  if (!meta) return null
-
-  const phaseId = getPhaseIdByName(meta.phaseName)
-  const workItems = buildWorkItemsForMeta(meta)
-
-  return {
-    projectId,
-    project: {
-      ...meta,
-      currentPhaseId: phaseId,
-    },
-    phases: PHASES,
-    workItems,
-    logs: cloneDetailData({
-      projectId: 'seed',
-      project: { ...meta, currentPhaseId: phaseId },
-      phases: PHASES,
-      workItems,
-      logs: LOG_SEED,
-    }).logs,
-  }
-}
-
-export function getPcsProjectDetailSnapshot(projectId: string): ProjectDetailData | null {
-  const data = buildDetailData(projectId)
-  return data ? cloneDetailData(data) : null
-}
-
-function ensureProjectState(projectId: string): void {
-  if (state.projectId === projectId && state.data) return
-
-  state.projectId = projectId
-  state.data = buildDetailData(projectId)
-  state.expandedPhases = PHASES.map((phase) => phase.id)
-  state.decisionValue = ''
-  state.decisionNote = ''
-  state.showDecisionDialog = false
-  state.notice = null
-
-  if (!state.data) {
+  if (!data) {
     state.selectedWorkItemId = null
-    return
+    return null
   }
-
-  state.selectedWorkItemId = 'wi_01'
+  if (!state.selectedWorkItemId || !data.phases.some((phase) => phase.nodes.some((node) => node.projectNodeId === state.selectedWorkItemId))) {
+    state.selectedWorkItemId = data.phases.flatMap((phase) => phase.nodes.map((node) => node.projectNodeId))[0] ?? null
+  }
+  return data
 }
 
-function getSelectedWorkItem(data: ProjectDetailData): WorkItem | null {
+function getSelectedNode(data: ProjectDetailViewModel): ProjectNodeCardViewModel | null {
   if (!state.selectedWorkItemId) return null
-  return data.workItems[state.selectedWorkItemId] ?? null
-}
-
-function getPhaseStats(data: ProjectDetailData, phase: PhaseItem): {
-  total: number
-  completed: number
-  hasDecision: boolean
-  hasBlocked: boolean
-} {
-  const items = phase.items.map((itemId) => data.workItems[itemId]).filter(Boolean)
-  return {
-    total: items.length,
-    completed: items.filter((item) => item.status === '已完成').length,
-    hasDecision: items.some((item) => item.status === '待决策'),
-    hasBlocked: items.some((item) => item.status === '未解锁'),
+  for (const phase of data.phases) {
+    const matched = phase.nodes.find((node) => node.projectNodeId === state.selectedWorkItemId)
+    if (matched) return matched
   }
-}
-
-function getWorkItemStatusBadge(status: WorkItemStatus): string {
-  if (status === '已完成') return renderBadge(status, 'border-green-200 bg-green-50 text-green-700')
-  if (status === '进行中') return renderBadge(status, 'border-blue-200 bg-blue-50 text-blue-700')
-  if (status === '待决策') return renderBadge(status, 'border-orange-200 bg-orange-50 text-orange-700')
-  if (status === '未开始') return renderBadge(status, 'border-slate-200 bg-slate-50 text-slate-700')
-  return renderBadge(status, 'border-slate-200 bg-slate-100 text-slate-500')
-}
-
-function getStatusIcon(status: WorkItemStatus): string {
-  if (status === '已完成') return '<i data-lucide="check-circle-2" class="h-4 w-4 text-green-600"></i>'
-  if (status === '进行中') return '<i data-lucide="play-circle" class="h-4 w-4 text-blue-600"></i>'
-  if (status === '待决策') return '<i data-lucide="alert-circle" class="h-4 w-4 text-orange-600"></i>'
-  if (status === '未解锁') return '<i data-lucide="lock" class="h-4 w-4 text-slate-400"></i>'
-  return '<i data-lucide="clock-3" class="h-4 w-4 text-slate-400"></i>'
-}
-
-function getProgress(data: ProjectDetailData): { done: number; total: number; percent: number } {
-  const items = Object.values(data.workItems)
-  const total = items.length
-  const done = items.filter((item) => item.status === '已完成').length
-  const percent = Math.round((done / Math.max(total, 1)) * 100)
-  return { done, total, percent }
-}
-
-function hasPendingDecisionInCurrentPhase(data: ProjectDetailData): boolean {
-  const currentPhase = data.phases.find((phase) => phase.id === data.project.currentPhaseId)
-  if (!currentPhase) return false
-  return currentPhase.items.some((itemId) => data.workItems[itemId]?.status === '待决策')
-}
-
-function renderNotFound(projectId: string): string {
-  return `
-    <div class="space-y-4">
-      <header class="flex items-center justify-between">
-        <h1 class="text-xl font-semibold">商品项目详情</h1>
-        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-list">
-          返回项目列表
-        </button>
-      </header>
-      <section class="rounded-lg border bg-card p-8 text-center">
-        <i data-lucide="alert-circle" class="mx-auto h-10 w-10 text-muted-foreground/60"></i>
-        <h2 class="mt-3 text-lg font-semibold">项目未找到</h2>
-        <p class="mt-1 text-sm text-muted-foreground">未匹配到项目 ID：${escapeHtml(projectId)}</p>
-        <button class="mt-4 inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-project-detail-action="go-list">
-          返回项目列表
-        </button>
-      </section>
-    </div>
-  `
+  return null
 }
 
 function renderNotice(): string {
@@ -906,35 +93,71 @@ function renderNotice(): string {
   `
 }
 
-function renderHeader(data: ProjectDetailData): string {
-  const progress = getProgress(data)
+function renderNotFound(projectId: string): string {
+  return `
+    <div class="space-y-4">
+      <header class="flex items-center justify-between">
+        <h1 class="text-xl font-semibold">商品项目详情</h1>
+        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-list">返回项目列表</button>
+      </header>
+      <section class="rounded-lg border bg-card p-8 text-center">
+        <i data-lucide="alert-circle" class="mx-auto h-10 w-10 text-muted-foreground/60"></i>
+        <h2 class="mt-3 text-lg font-semibold">项目未找到</h2>
+        <p class="mt-1 text-sm text-muted-foreground">未匹配到项目 ID：${escapeHtml(projectId)}</p>
+      </section>
+    </div>
+  `
+}
+
+function renderHeader(data: ProjectDetailViewModel): string {
   return `
     <section class="rounded-lg border bg-card p-5">
       <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="space-y-1">
+        <div class="space-y-2">
           <div class="flex flex-wrap items-center gap-2">
-            <h1 class="text-xl font-semibold">${escapeHtml(data.project.name)}</h1>
-            ${renderBadge(data.project.code, 'border-slate-200 bg-slate-50 text-slate-700')}
-            ${renderBadge(data.project.status, data.project.status === '进行中' ? 'border-blue-200 bg-blue-50 text-blue-700' : data.project.status === '已终止' ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-700')}
+            <h1 class="text-xl font-semibold">${escapeHtml(data.projectName)}</h1>
+            ${renderBadge(data.projectCode, 'border-slate-200 bg-slate-50 text-slate-700')}
+            ${renderBadge(data.projectStatus, getProjectStatusClass(data.projectStatus))}
           </div>
-          <p class="text-sm text-muted-foreground">${escapeHtml(data.project.category)} · ${escapeHtml(data.project.styleType)} · ${data.project.tags.map((tag) => escapeHtml(tag)).join('、')}</p>
+          <p class="text-sm text-muted-foreground">${escapeHtml(data.categoryPath)} · ${escapeHtml(data.projectType)} · 模板：${escapeHtml(data.templateName)}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          ${
+            data.linkedStyleId
+              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-style-archive" data-style-id="${escapeHtml(data.linkedStyleId)}">查看款式档案</button>`
+              : `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="generate-style-archive">生成款式档案</button>`
+          }
+          ${
+            data.projectArchiveId
+              ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-project-archive">查看项目资料归档</button>`
+              : `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="create-project-archive">创建项目资料归档</button>`
+          }
           <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-list">返回项目列表</button>
-          <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="more-actions"><i data-lucide="more-horizontal" class="mr-1 h-3.5 w-3.5"></i>更多操作</button>
         </div>
       </div>
-      <div class="mt-4 grid gap-3 sm:grid-cols-4 text-sm">
-        <div><span class="text-muted-foreground">负责人：</span><span class="font-medium">${escapeHtml(data.project.owner)}</span></div>
-        <div><span class="text-muted-foreground">当前阶段：</span><span class="font-medium">${escapeHtml(data.phases.find((phase) => phase.id === data.project.currentPhaseId)?.name ?? '-')}</span></div>
-        <div><span class="text-muted-foreground">项目进度：</span><span class="font-medium">${progress.done}/${progress.total}（${progress.percent}%）</span></div>
-        <div><span class="text-muted-foreground">最后更新：</span><span class="font-medium">${escapeHtml(data.project.lastUpdated)}</span></div>
+      <div class="mt-4 grid gap-3 text-sm sm:grid-cols-3 xl:grid-cols-4">
+        <div><span class="text-muted-foreground">项目编号：</span><span class="font-medium">${escapeHtml(data.projectCode)}</span></div>
+        <div><span class="text-muted-foreground">项目类型：</span><span class="font-medium">${escapeHtml(data.projectType)}</span></div>
+        <div><span class="text-muted-foreground">分类：</span><span class="font-medium">${escapeHtml(data.categoryPath)}</span></div>
+        <div><span class="text-muted-foreground">品牌：</span><span class="font-medium">${escapeHtml(data.brandName || '待补充')}</span></div>
+        <div><span class="text-muted-foreground">风格标签：</span><span class="font-medium">${escapeHtml(data.styleTags.join('、') || '待补充')}</span></div>
+        <div><span class="text-muted-foreground">目标渠道：</span><span class="font-medium">${escapeHtml(data.targetChannelsText || '待补充')}</span></div>
+        <div><span class="text-muted-foreground">负责人：</span><span class="font-medium">${escapeHtml(data.ownerName)}</span></div>
+        <div><span class="text-muted-foreground">执行团队：</span><span class="font-medium">${escapeHtml(data.teamName || '待补充')}</span></div>
+        <div><span class="text-muted-foreground">当前状态：</span><span class="font-medium">${escapeHtml(data.projectStatus)}</span></div>
+        <div><span class="text-muted-foreground">当前阶段：</span><span class="font-medium">${escapeHtml(data.currentPhaseName)}</span></div>
+        <div><span class="text-muted-foreground">模板版本：</span><span class="font-medium">${escapeHtml(data.templateVersion)}</span></div>
+        <div><span class="text-muted-foreground">风格编号：</span><span class="font-medium">${escapeHtml(data.styleNumber || '待补充')}</span></div>
+        <div><span class="text-muted-foreground">创建时间：</span><span class="font-medium">${escapeHtml(data.createdAt)}</span></div>
+        <div><span class="text-muted-foreground">更新时间：</span><span class="font-medium">${escapeHtml(data.updatedAt)}</span></div>
+        <div><span class="text-muted-foreground">项目资料归档：</span><span class="font-medium">${escapeHtml(data.projectArchiveNo || '未建立')}</span></div>
+        <div><span class="text-muted-foreground">归档缺失项：</span><span class="font-medium">${data.projectArchiveMissingItemCount} 项</span></div>
       </div>
     </section>
   `
 }
 
-function renderPhaseNavigator(data: ProjectDetailData): string {
+function renderPhaseNavigator(data: ProjectDetailViewModel): string {
   return `
     <aside class="w-full space-y-3 xl:w-[320px]">
       <section class="rounded-lg border bg-card p-4">
@@ -942,35 +165,22 @@ function renderPhaseNavigator(data: ProjectDetailData): string {
         <div class="space-y-2">
           ${data.phases
             .map((phase) => {
-              const stats = getPhaseStats(data, phase)
-              const expanded = state.expandedPhases.includes(phase.id)
-              const current = data.project.currentPhaseId === phase.id
+              const expanded = state.expandedPhases.includes(phase.projectPhaseId)
+              const completedCount = phase.nodes.filter((node) => node.currentStatus === '已完成').length
               return `
                 <div class="overflow-hidden rounded-lg border">
                   <button
-                    class="${toClassName(
-                      'flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-muted/50',
-                      current && 'bg-blue-50',
-                    )}"
+                    class="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-muted/50 ${phase.isCurrent ? 'bg-blue-50' : ''}"
                     data-pcs-project-detail-action="toggle-phase"
-                    data-phase-id="${escapeHtml(phase.id)}"
+                    data-phase-id="${escapeHtml(phase.projectPhaseId)}"
                   >
                     <div class="flex items-center gap-3">
-                      <span class="${toClassName(
-                        'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
-                        stats.completed === stats.total
-                          ? 'bg-green-600 text-white'
-                          : current
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-muted text-muted-foreground',
-                      )}">${phase.no}</span>
+                      <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${phase.isCurrent ? 'bg-blue-600 text-white' : completedCount === phase.nodes.length ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'}">
+                        ${String(phase.phaseOrder).padStart(2, '0')}
+                      </span>
                       <div>
-                        <p class="text-sm font-medium">${escapeHtml(phase.name)}</p>
-                        <p class="text-xs text-muted-foreground">
-                          ${stats.completed}/${stats.total} 完成
-                          ${stats.hasDecision ? ' · 待决策' : ''}
-                          ${stats.hasBlocked ? ' · 含未解锁' : ''}
-                        </p>
+                        <p class="text-sm font-medium">${escapeHtml(phase.phaseName)}</p>
+                        <p class="text-xs text-muted-foreground">${completedCount}/${phase.nodes.length} 完成 · ${escapeHtml(phase.phaseStatus)}</p>
                       </div>
                     </div>
                     <i data-lucide="${expanded ? 'chevron-down' : 'chevron-right'}" class="h-4 w-4 text-muted-foreground"></i>
@@ -978,30 +188,23 @@ function renderPhaseNavigator(data: ProjectDetailData): string {
                   ${
                     expanded
                       ? `
-                        <div class="border-t bg-muted/30">
-                          ${phase.items
-                            .map((itemId) => {
-                              const item = data.workItems[itemId]
-                              if (!item) return ''
-                              const selected = state.selectedWorkItemId === item.id
-                              return `
+                        <div class="border-t bg-muted/20">
+                          ${phase.nodes
+                            .map(
+                              (node) => `
                                 <button
-                                  class="${toClassName(
-                                    'flex w-full items-center gap-3 px-3 py-2 pl-11 text-left transition-colors hover:bg-muted/50',
-                                    selected && 'bg-blue-50',
-                                  )}"
+                                  class="flex w-full items-center gap-3 px-3 py-2 pl-11 text-left transition-colors hover:bg-muted/40 ${state.selectedWorkItemId === node.projectNodeId ? 'bg-blue-50' : ''}"
                                   data-pcs-project-detail-action="select-work-item"
-                                  data-work-item-id="${escapeHtml(item.id)}"
+                                  data-work-item-id="${escapeHtml(node.projectNodeId)}"
                                 >
-                                  ${getStatusIcon(item.status)}
+                                  <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full text-[11px] font-medium ${getNodeStatusClass(node.currentStatus)}">${node.sequenceNo}</span>
                                   <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-medium">${escapeHtml(item.name)}</p>
-                                    <p class="text-xs text-muted-foreground">${escapeHtml(item.owner)}</p>
+                                    <p class="truncate text-sm font-medium">${escapeHtml(node.workItemTypeName)}</p>
+                                    <p class="text-xs text-muted-foreground">${escapeHtml(node.currentOwnerName || '待分配')}</p>
                                   </div>
-                                  ${item.nature === '决策类' ? '<span class="inline-flex rounded-md border px-1.5 py-0.5 text-[11px]">决策</span>' : ''}
                                 </button>
-                              `
-                            })
+                              `,
+                            )
                             .join('')}
                         </div>
                       `
@@ -1017,271 +220,386 @@ function renderPhaseNavigator(data: ProjectDetailData): string {
   `
 }
 
-function renderWorkItemPanel(data: ProjectDetailData): string {
-  const item = getSelectedWorkItem(data)
-  if (!item) {
+function renderNodeSummaryCard(title: string, value: string, muted = false): string {
+  return `
+    <article class="rounded-lg border bg-muted/20 p-3">
+      <p class="text-xs text-muted-foreground">${escapeHtml(title)}</p>
+      <p class="mt-1 text-sm ${muted ? 'text-muted-foreground' : 'font-medium'}">${escapeHtml(value)}</p>
+    </article>
+  `
+}
+
+function renderRelationTestingDetails(item: ProjectDetailViewModel['relationSection']['groups'][number]['items'][number]): string {
+  if (item.taskRelationDetail) {
     return `
-      <section class="rounded-lg border bg-card p-6 text-center text-muted-foreground">
-        请从左侧选择一个工作项查看详情
+      <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+        <div class="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-5">
+          <div><span class="text-muted-foreground">任务编号：</span><span class="font-medium">${escapeHtml(item.taskRelationDetail.taskCode)}</span></div>
+          <div><span class="text-muted-foreground">任务标题：</span><span class="font-medium">${escapeHtml(item.taskRelationDetail.taskTitle)}</span></div>
+          <div><span class="text-muted-foreground">当前状态：</span><span class="font-medium">${escapeHtml(item.taskRelationDetail.taskStatus || '—')}</span></div>
+          <div><span class="text-muted-foreground">创建时间：</span><span class="font-medium">${escapeHtml(item.taskRelationDetail.createdAt || '—')}</span></div>
+          <div><span class="text-muted-foreground">上游来源：</span><span class="font-medium">${escapeHtml(item.taskRelationDetail.upstreamObjectCode ? `${item.taskRelationDetail.upstreamModule || '上游任务'} / ${item.taskRelationDetail.upstreamObjectCode}` : '—')}</span></div>
+        </div>
+      </div>
+    `
+  }
+
+  if (item.liveTestingDetail) {
+    return `
+      <div class="mt-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+        <div class="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-5">
+          <div><span class="text-muted-foreground">场次编号：</span><span class="font-medium">${escapeHtml(item.liveTestingDetail.liveSessionCode)}</span></div>
+          <div><span class="text-muted-foreground">明细编号：</span><span class="font-medium">${escapeHtml(item.liveTestingDetail.liveLineCode)}</span></div>
+          <div><span class="text-muted-foreground">商品标题：</span><span class="font-medium">${escapeHtml(item.liveTestingDetail.productTitle)}</span></div>
+          <div><span class="text-muted-foreground">颜色：</span><span class="font-medium">${escapeHtml(item.liveTestingDetail.colorCode || '—')}</span></div>
+          <div><span class="text-muted-foreground">规格：</span><span class="font-medium">${escapeHtml(item.liveTestingDetail.sizeCode || '—')}</span></div>
+          <div><span class="text-muted-foreground">曝光量：</span><span class="font-medium">${item.liveTestingDetail.exposureQty.toLocaleString()}</span></div>
+          <div><span class="text-muted-foreground">点击量：</span><span class="font-medium">${item.liveTestingDetail.clickQty.toLocaleString()}</span></div>
+          <div><span class="text-muted-foreground">下单量：</span><span class="font-medium">${item.liveTestingDetail.orderQty.toLocaleString()}</span></div>
+          <div><span class="text-muted-foreground">销售额：</span><span class="font-medium">${item.liveTestingDetail.gmvAmount.toLocaleString()}</span></div>
+          <div><span class="text-muted-foreground">业务时间：</span><span class="font-medium">${escapeHtml(item.liveTestingDetail.businessDate || '—')}</span></div>
+        </div>
+      </div>
+    `
+  }
+
+  if (item.videoTestingDetail) {
+    return `
+      <div class="mt-3 rounded-lg border border-violet-100 bg-violet-50/50 p-3">
+        <div class="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-5">
+          <div><span class="text-muted-foreground">记录编号：</span><span class="font-medium">${escapeHtml(item.videoTestingDetail.videoRecordCode)}</span></div>
+          <div><span class="text-muted-foreground">标题：</span><span class="font-medium">${escapeHtml(item.videoTestingDetail.videoTitle)}</span></div>
+          <div><span class="text-muted-foreground">发布时间：</span><span class="font-medium">${escapeHtml(item.videoTestingDetail.publishedAt || '—')}</span></div>
+          <div><span class="text-muted-foreground">渠道：</span><span class="font-medium">${escapeHtml(item.videoTestingDetail.channelName || '—')}</span></div>
+          <div><span class="text-muted-foreground">业务时间：</span><span class="font-medium">${escapeHtml(item.videoTestingDetail.businessDate || '—')}</span></div>
+          <div><span class="text-muted-foreground">曝光量：</span><span class="font-medium">${item.videoTestingDetail.exposureQty.toLocaleString()}</span></div>
+          <div><span class="text-muted-foreground">点击量：</span><span class="font-medium">${item.videoTestingDetail.clickQty.toLocaleString()}</span></div>
+          <div><span class="text-muted-foreground">下单量：</span><span class="font-medium">${item.videoTestingDetail.orderQty.toLocaleString()}</span></div>
+          <div><span class="text-muted-foreground">销售额：</span><span class="font-medium">${item.videoTestingDetail.gmvAmount.toLocaleString()}</span></div>
+        </div>
+      </div>
+    `
+  }
+
+  if (item.sampleLedgerDetail) {
+    return `
+      <div class="mt-3 rounded-lg border border-amber-100 bg-amber-50/50 p-3">
+        <div class="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-5">
+          <div><span class="text-muted-foreground">事件编号：</span><span class="font-medium">${escapeHtml(item.sampleLedgerDetail.ledgerEventCode)}</span></div>
+          <div><span class="text-muted-foreground">事件类型：</span><span class="font-medium">${escapeHtml(item.sampleLedgerDetail.eventName)}</span></div>
+          <div><span class="text-muted-foreground">样衣编号：</span><span class="font-medium">${escapeHtml(item.sampleLedgerDetail.sampleCode)}</span></div>
+          <div><span class="text-muted-foreground">样衣名称：</span><span class="font-medium">${escapeHtml(item.sampleLedgerDetail.sampleName)}</span></div>
+          <div><span class="text-muted-foreground">来源单据：</span><span class="font-medium">${escapeHtml(`${item.sampleLedgerDetail.sourceDocType} / ${item.sampleLedgerDetail.sourceDocCode}`)}</span></div>
+          <div><span class="text-muted-foreground">事件后状态：</span><span class="font-medium">${escapeHtml(item.sampleLedgerDetail.inventoryStatusAfter || '—')}</span></div>
+          <div><span class="text-muted-foreground">业务时间：</span><span class="font-medium">${escapeHtml(item.sampleLedgerDetail.businessDate || '—')}</span></div>
+        </div>
+      </div>
+    `
+  }
+
+  if (item.sampleAssetDetail) {
+    return `
+      <div class="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+        <div class="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-5">
+          <div><span class="text-muted-foreground">样衣编号：</span><span class="font-medium">${escapeHtml(item.sampleAssetDetail.sampleCode)}</span></div>
+          <div><span class="text-muted-foreground">样衣名称：</span><span class="font-medium">${escapeHtml(item.sampleAssetDetail.sampleName)}</span></div>
+          <div><span class="text-muted-foreground">库存状态：</span><span class="font-medium">${escapeHtml(item.sampleAssetDetail.inventoryStatus || '—')}</span></div>
+          <div><span class="text-muted-foreground">可用状态：</span><span class="font-medium">${escapeHtml(item.sampleAssetDetail.availabilityStatus || '—')}</span></div>
+          <div><span class="text-muted-foreground">当前位置：</span><span class="font-medium">${escapeHtml(item.sampleAssetDetail.locationDisplay || '—')}</span></div>
+          <div><span class="text-muted-foreground">最近事件：</span><span class="font-medium">${escapeHtml(item.sampleAssetDetail.lastEventType || '—')}</span></div>
+          <div><span class="text-muted-foreground">最近事件时间：</span><span class="font-medium">${escapeHtml(item.sampleAssetDetail.lastEventTime || '—')}</span></div>
+        </div>
+      </div>
+    `
+  }
+
+  if (item.styleArchiveDetail) {
+    return `
+      <div class="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+        <div class="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-5">
+          <div><span class="text-muted-foreground">档案编号：</span><span class="font-medium">${escapeHtml(item.styleArchiveDetail.styleCode)}</span></div>
+          <div><span class="text-muted-foreground">档案名称：</span><span class="font-medium">${escapeHtml(item.styleArchiveDetail.styleName)}</span></div>
+          <div><span class="text-muted-foreground">档案状态：</span><span class="font-medium">${escapeHtml(item.styleArchiveDetail.archiveStatus || '—')}</span></div>
+          <div><span class="text-muted-foreground">生成时间：</span><span class="font-medium">${escapeHtml(item.styleArchiveDetail.generatedAt || '—')}</span></div>
+          <div><span class="text-muted-foreground">规格清单状态：</span><span class="font-medium">${escapeHtml(item.styleArchiveDetail.specificationStatus || '—')}</span></div>
+          <div><span class="text-muted-foreground">技术资料状态：</span><span class="font-medium">${escapeHtml(item.styleArchiveDetail.technicalDataStatus || '—')}</span></div>
+          <div><span class="text-muted-foreground">成本核价状态：</span><span class="font-medium">${escapeHtml(item.styleArchiveDetail.costPricingStatus || '—')}</span></div>
+        </div>
+      </div>
+    `
+  }
+
+  if (item.technicalVersionDetail) {
+    return `
+      <div class="mt-3 rounded-lg border border-cyan-100 bg-cyan-50/50 p-3">
+        <div class="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-5">
+          <div><span class="text-muted-foreground">版本编号：</span><span class="font-medium">${escapeHtml(item.technicalVersionDetail.technicalVersionCode)}</span></div>
+          <div><span class="text-muted-foreground">版本标签：</span><span class="font-medium">${escapeHtml(item.technicalVersionDetail.versionLabel)}</span></div>
+          <div><span class="text-muted-foreground">版本状态：</span><span class="font-medium">${escapeHtml(item.technicalVersionDetail.versionStatus)}</span></div>
+          <div><span class="text-muted-foreground">当前生效：</span><span class="font-medium">${item.technicalVersionDetail.effectiveFlag ? '是' : '否'}</span></div>
+          <div><span class="text-muted-foreground">完成度：</span><span class="font-medium">${item.technicalVersionDetail.completenessScore} 分</span></div>
+          <div><span class="text-muted-foreground">关联款式：</span><span class="font-medium">${escapeHtml(item.technicalVersionDetail.styleName || '—')}</span></div>
+          <div><span class="text-muted-foreground">核心缺失项：</span><span class="font-medium">${escapeHtml(item.technicalVersionDetail.missingItemNames.join('、') || '无')}</span></div>
+          <div><span class="text-muted-foreground">创建时间：</span><span class="font-medium">${escapeHtml(item.technicalVersionDetail.createdAt || '—')}</span></div>
+          <div><span class="text-muted-foreground">发布时间：</span><span class="font-medium">${escapeHtml(item.technicalVersionDetail.publishedAt || '—')}</span></div>
+        </div>
+      </div>
+    `
+  }
+
+  if (item.projectArchiveDetail) {
+    return `
+      <div class="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+        <div class="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-5">
+          <div><span class="text-muted-foreground">归档编号：</span><span class="font-medium">${escapeHtml(item.projectArchiveDetail.archiveNo)}</span></div>
+          <div><span class="text-muted-foreground">归档状态：</span><span class="font-medium">${escapeHtml(item.projectArchiveDetail.archiveStatus)}</span></div>
+          <div><span class="text-muted-foreground">资料数量：</span><span class="font-medium">${item.projectArchiveDetail.documentCount}</span></div>
+          <div><span class="text-muted-foreground">文件数量：</span><span class="font-medium">${item.projectArchiveDetail.fileCount}</span></div>
+          <div><span class="text-muted-foreground">缺失项数量：</span><span class="font-medium">${item.projectArchiveDetail.missingItemCount}</span></div>
+          <div><span class="text-muted-foreground">可完成归档：</span><span class="font-medium">${item.projectArchiveDetail.readyForFinalize ? '是' : '否'}</span></div>
+          <div><span class="text-muted-foreground">更新时间：</span><span class="font-medium">${escapeHtml(item.projectArchiveDetail.updatedAt || '—')}</span></div>
+          <div><span class="text-muted-foreground">完成归档时间：</span><span class="font-medium">${escapeHtml(item.projectArchiveDetail.finalizedAt || '—')}</span></div>
+        </div>
+      </div>
+    `
+  }
+
+  return ''
+}
+
+function renderRelationSection(data: ProjectDetailViewModel): string {
+  const section = data.relationSection
+  if (section.totalCount === 0) {
+    return `
+      <section class="rounded-lg border bg-card p-5">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold">关联对象</h2>
+            <p class="mt-1 text-sm text-muted-foreground">当前项目关联的正式模块对象统一来自项目关系记录。</p>
+          </div>
+        </div>
+        <div class="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
+          <p class="text-base font-medium">暂无关联对象</p>
+          <p class="mt-1 text-sm text-muted-foreground">当前项目尚未建立正式模块关联</p>
+        </div>
       </section>
     `
   }
+
+  return `
+    <section class="rounded-lg border bg-card p-5">
+      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold">关联对象</h2>
+          <p class="mt-1 text-sm text-muted-foreground">按来源模块查看当前项目的正式关联对象记录。</p>
+        </div>
+        <div class="text-xs text-muted-foreground">
+          <p>正式关联 ${section.totalCount} 条</p>
+          <p>未挂项目工作项 ${section.unboundRelationCount} 条</p>
+        </div>
+      </div>
+      <div class="space-y-4">
+        ${section.groups
+          .map(
+            (group) => `
+              <section class="rounded-lg border bg-muted/10 p-4">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <h3 class="text-sm font-semibold">${escapeHtml(group.sourceModule)}</h3>
+                  <span class="text-xs text-muted-foreground">${group.items.length} 条</span>
+                </div>
+                <div class="space-y-3">
+                  ${group.items
+                    .map(
+                      (item) => `
+                        <article class="rounded-lg border bg-card p-3">
+                          <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+                            <div><span class="text-muted-foreground">来源模块：</span><span class="font-medium">${escapeHtml(item.sourceModule)}</span></div>
+                            <div><span class="text-muted-foreground">来源对象类型：</span><span class="font-medium">${escapeHtml(item.sourceObjectType)}</span></div>
+                            <div><span class="text-muted-foreground">来源对象编号：</span><span class="font-medium">${escapeHtml(item.sourceObjectCode)}</span></div>
+                            <div><span class="text-muted-foreground">来源对象名称：</span><span class="font-medium">${escapeHtml(item.sourceTitle || '—')}</span></div>
+                            <div><span class="text-muted-foreground">当前状态：</span><span class="font-medium">${escapeHtml(item.sourceStatus || '—')}</span></div>
+                            <div><span class="text-muted-foreground">${item.taskRelationDetail ? '创建时间' : '业务时间'}：</span><span class="font-medium">${escapeHtml((item.taskRelationDetail?.createdAt || item.businessDate) || '—')}</span></div>
+                            <div><span class="text-muted-foreground">关联项目工作项：</span><span class="font-medium">${escapeHtml(item.projectNodeId ? item.workItemTypeName || item.workItemTypeCode : '未挂项目工作项')}</span></div>
+                            <div><span class="text-muted-foreground">关系角色：</span><span class="font-medium">${escapeHtml(item.relationRole)}</span></div>
+                          </div>
+                          ${renderRelationTestingDetails(item)}
+                        </article>
+                      `,
+                    )
+                    .join('')}
+                </div>
+              </section>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderWorkItemPanel(data: ProjectDetailViewModel): string {
+  const node = getSelectedNode(data)
+  if (!node) {
+    return `
+      <section class="rounded-lg border bg-card p-6 text-center text-muted-foreground">
+        请从左侧选择一个工作项查看详情。
+      </section>
+    `
+  }
+
+  const styleArchiveActions =
+    node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE'
+      ? `
+        <section class="rounded-lg border border-dashed bg-muted/20 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">款式档案链路</p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                ${
+                  data.linkedStyleId
+                    ? `已关联款式档案：${escapeHtml(data.linkedStyleCode || data.linkedStyleName)}`
+                    : '当前项目尚未生成正式款式档案壳。'
+                }
+              </p>
+            </div>
+            ${
+              data.linkedStyleId
+                ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-style-archive" data-style-id="${escapeHtml(data.linkedStyleId)}">查看款式档案</button>`
+                : `<button class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs text-white hover:bg-blue-700" data-pcs-project-detail-action="generate-style-archive">生成款式档案</button>`
+            }
+          </div>
+        </section>
+      `
+      : ''
+
+  const technicalDataActions =
+    node.workItemTypeCode === 'PROJECT_TRANSFER_PREP'
+      ? `
+        <section class="rounded-lg border border-dashed bg-muted/20 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">技术资料版本链路</p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                ${
+                  data.linkedTechnicalVersionId
+                    ? `当前关联版本：${escapeHtml(data.linkedTechnicalVersionCode || data.linkedTechnicalVersionLabel || data.linkedTechnicalVersionId)}`
+                    : '当前项目尚未建立正式技术资料版本。'
+                }
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${
+                data.linkedTechnicalVersionId
+                  ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-technical-version" data-technical-version-id="${escapeHtml(data.linkedTechnicalVersionId)}">查看技术资料版本</button>`
+                  : ''
+              }
+              <button class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs text-white hover:bg-blue-700" data-pcs-project-detail-action="create-technical-version">
+                ${data.linkedTechnicalVersionId ? '新建技术资料版本' : '新建技术资料版本'}
+              </button>
+            </div>
+          </div>
+          <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            ${renderNodeSummaryCard('当前关联版本编号', data.linkedTechnicalVersionCode || '暂无正式版本', !data.linkedTechnicalVersionCode)}
+            ${renderNodeSummaryCard('当前关联版本标签', data.linkedTechnicalVersionLabel || '暂无正式版本', !data.linkedTechnicalVersionLabel)}
+            ${renderNodeSummaryCard('当前版本状态', data.linkedTechnicalVersionStatus || '未建立', !data.linkedTechnicalVersionStatus)}
+            ${renderNodeSummaryCard('当前版本发布时间', data.linkedTechnicalVersionPublishedAt || '暂无发布时间', !data.linkedTechnicalVersionPublishedAt)}
+          </div>
+        </section>
+        <section class="rounded-lg border border-dashed bg-muted/20 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">项目资料归档</p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                ${
+                  data.projectArchiveId
+                    ? `已建立项目资料归档：${escapeHtml(data.projectArchiveNo || data.projectArchiveId)}`
+                    : '当前项目尚未建立正式项目资料归档对象。'
+                }
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${
+                data.projectArchiveId
+                  ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-project-archive">查看项目资料归档</button>`
+                  : `<button class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs text-white hover:bg-blue-700" data-pcs-project-detail-action="create-project-archive">创建项目资料归档</button>`
+              }
+            </div>
+          </div>
+          <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            ${renderNodeSummaryCard('归档编号', data.projectArchiveNo || '暂无正式归档', !data.projectArchiveNo)}
+            ${renderNodeSummaryCard('归档状态', data.projectArchiveStatus || '未建立', !data.projectArchiveStatus)}
+            ${renderNodeSummaryCard('资料数量', data.projectArchiveDocumentCount ? `${data.projectArchiveDocumentCount} 条` : '0 条', data.projectArchiveDocumentCount === 0)}
+            ${renderNodeSummaryCard('文件数量', data.projectArchiveFileCount ? `${data.projectArchiveFileCount} 份` : '0 份', data.projectArchiveFileCount === 0)}
+            ${renderNodeSummaryCard('缺失项数量', `${data.projectArchiveMissingItemCount} 项`, data.projectArchiveMissingItemCount === 0)}
+            ${renderNodeSummaryCard('归档更新时间', data.projectArchiveUpdatedAt || '暂无更新时间', !data.projectArchiveUpdatedAt)}
+            ${renderNodeSummaryCard('完成归档时间', data.projectArchiveFinalizedAt || '未完成归档', !data.projectArchiveFinalizedAt)}
+          </div>
+        </section>
+      `
+      : ''
 
   return `
     <section class="space-y-4 rounded-lg border bg-card p-5">
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div class="space-y-2">
           <div class="flex flex-wrap items-center gap-2">
-            <h2 class="text-lg font-semibold">${escapeHtml(item.name)}</h2>
-            ${renderBadge(item.nature, 'border-slate-200 bg-slate-50 text-slate-700')}
-            ${getWorkItemStatusBadge(item.status)}
+            <h2 class="text-lg font-semibold">${escapeHtml(node.workItemTypeName)}</h2>
+            ${renderBadge(node.currentStatus, getNodeStatusClass(node.currentStatus))}
           </div>
-          <p class="text-sm text-muted-foreground">负责人：${escapeHtml(item.owner)} · 更新：${escapeHtml(item.updatedAt)}</p>
+          <p class="text-sm text-muted-foreground">负责人：${escapeHtml(node.currentOwnerName || '待分配')} · 最近更新时间：${escapeHtml(node.updatedAt)}</p>
         </div>
-        <div class="flex items-center gap-2">
-          ${
-            item.status === '未解锁'
-              ? '<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs text-muted-foreground" disabled><i data-lucide="lock" class="mr-1 h-3.5 w-3.5"></i>等待解锁</button>'
-              : '<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-work-item-detail" data-work-item-id="' + escapeHtml(item.id) + '">查看全部<i data-lucide="chevron-right" class="ml-1 h-3.5 w-3.5"></i></button>'
-          }
-        </div>
+        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-work-item-detail" data-work-item-id="${escapeHtml(node.projectNodeId)}">
+          查看节点详情
+        </button>
       </header>
 
-      ${
-        item.status === '未解锁'
-          ? `
-            <section class="rounded-lg border bg-muted/40 p-4">
-              <p class="inline-flex items-center gap-2 text-sm text-muted-foreground"><i data-lucide="lock" class="h-4 w-4"></i>等待测款结论判定通过后解锁</p>
-            </section>
-          `
-          : ''
-      }
+      <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        ${renderNodeSummaryCard('当前状态', node.currentStatus)}
+        ${renderNodeSummaryCard('当前负责人', node.currentOwnerName || '待分配', !node.currentOwnerName)}
+        ${renderNodeSummaryCard('最近更新时间', node.updatedAt)}
+        ${renderNodeSummaryCard('最近结果说明', node.latestResultText || '暂无最近结果', !node.latestResultText)}
+        ${renderNodeSummaryCard('当前问题说明', node.currentIssueText || '暂无当前问题', !node.currentIssueText)}
+        ${renderNodeSummaryCard('待处理事项', node.pendingActionText || '暂无待处理事项', !node.pendingActionText)}
+      </section>
+      ${styleArchiveActions}
+      ${technicalDataActions}
+    </section>
+  `
+}
 
-      ${
-        item.status !== '未解锁'
-          ? `
-            <section>
-              <h3 class="mb-3 text-sm font-semibold text-muted-foreground">关键产出</h3>
-              <div class="grid gap-3 md:grid-cols-3">
-                ${item.summary.keyOutputs
+function renderTimeline(data: ProjectDetailViewModel): string {
+  return `
+    <aside class="w-full xl:w-[320px]">
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="mb-3 text-sm font-semibold">项目动态</h2>
+        ${
+          data.timeline.length > 0
+            ? `
+              <div class="space-y-3">
+                ${data.timeline
                   .map(
-                    (output) => `
-                      <article class="rounded-lg border bg-muted/20 p-3">
-                        <p class="text-xs text-muted-foreground">${escapeHtml(output.label)}</p>
-                        <p class="mt-1 text-sm font-medium">${escapeHtml(output.value)}</p>
+                    (item) => `
+                      <article class="relative border-l pl-4">
+                        <span class="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-blue-500"></span>
+                        <p class="text-xs text-muted-foreground">${escapeHtml(item.time)}</p>
+                        <p class="text-sm font-medium">${escapeHtml(item.title)}</p>
+                        <p class="text-xs text-muted-foreground">${escapeHtml(item.detail)}</p>
                       </article>
                     `,
                   )
                   .join('')}
               </div>
-            </section>
-
-            <section>
-              <h3 class="mb-3 text-sm font-semibold text-muted-foreground">关键证据</h3>
-              <div class="flex flex-wrap items-center gap-4 text-sm">
-                <span class="inline-flex items-center gap-1.5"><i data-lucide="paperclip" class="h-4 w-4 text-muted-foreground"></i>${item.summary.evidence.attachments} 附件</span>
-                <span class="inline-flex items-center gap-1.5"><i data-lucide="link-2" class="h-4 w-4 text-muted-foreground"></i>${item.summary.evidence.links} 链接</span>
-                <span class="inline-flex items-center gap-1.5"><i data-lucide="file-text" class="h-4 w-4 text-muted-foreground"></i>${item.summary.evidence.records} 记录</span>
-              </div>
-            </section>
-
-            ${
-              item.multiInstance
-                ? `
-                  <section>
-                    <h3 class="mb-3 text-sm font-semibold text-muted-foreground">汇总指标</h3>
-                    <div class="grid gap-3 md:grid-cols-4">
-                      ${item.multiInstance.kpis
-                        .map(
-                          (kpi) => `
-                            <article class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
-                              <p class="text-base font-semibold text-blue-700">${escapeHtml(kpi.value)}</p>
-                              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(kpi.label)}</p>
-                            </article>
-                          `,
-                        )
-                        .join('')}
-                    </div>
-                  </section>
-                `
-                : ''
-            }
-
-            ${
-              item.summary.latestRecords.length > 0
-                ? `
-                  <section>
-                    <h3 class="mb-3 text-sm font-semibold text-muted-foreground">最近记录</h3>
-                    <div class="space-y-2">
-                      ${item.summary.latestRecords
-                        .map(
-                          (record) => `
-                            <div class="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2">
-                              <div>
-                                <p class="text-sm font-medium">${escapeHtml(record.title)}</p>
-                                <p class="text-xs text-muted-foreground">${escapeHtml(record.meta)}</p>
-                              </div>
-                              <span class="text-xs text-muted-foreground">${escapeHtml(record.time)}</span>
-                            </div>
-                          `,
-                        )
-                        .join('')}
-                    </div>
-                  </section>
-                `
-                : ''
-            }
-
-            ${
-              item.multiInstance
-                ? `
-                  <section>
-                    <div class="mb-3 flex items-center justify-between">
-                      <h3 class="text-sm font-semibold text-muted-foreground">实例记录</h3>
-                      ${
-                        item.status === '进行中'
-                          ? '<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="add-record">新增记录</button>'
-                          : ''
-                      }
-                    </div>
-                    <div class="space-y-2">
-                      ${item.multiInstance.records
-                        .map(
-                          (record) => `
-                            <article class="rounded-lg border p-3">
-                              <div class="mb-1 flex items-start justify-between gap-2">
-                                <div>
-                                  <p class="text-sm font-medium">${escapeHtml(record.title)}</p>
-                                  <p class="text-xs text-muted-foreground">${escapeHtml(record.sub)}</p>
-                                </div>
-                                <span class="text-xs text-muted-foreground">${escapeHtml(record.time)}</span>
-                              </div>
-                              <p class="text-xs text-muted-foreground">${escapeHtml(record.metrics)}</p>
-                            </article>
-                          `,
-                        )
-                        .join('')}
-                    </div>
-                  </section>
-                `
-                : ''
-            }
-
-            <section class="flex flex-wrap items-center gap-2 border-t pt-3">
-              ${
-                item.status === '待决策'
-                  ? '<button class="inline-flex h-8 items-center rounded-md border border-orange-300 px-3 text-xs text-orange-700 hover:bg-orange-50" data-pcs-project-detail-action="open-decision-dialog"><i data-lucide="alert-circle" class="mr-1 h-3.5 w-3.5"></i>做出决策</button>'
-                  : ''
-              }
-              ${
-                item.status === '进行中'
-                  ? '<button class="inline-flex h-8 items-center rounded-md border border-green-300 px-3 text-xs text-green-700 hover:bg-green-50" data-pcs-project-detail-action="mark-complete" data-work-item-id="' + escapeHtml(item.id) + '"><i data-lucide="check-circle-2" class="mr-1 h-3.5 w-3.5"></i>标记完成</button>'
-                  : ''
-              }
-              <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-detail-action="go-work-item-detail" data-work-item-id="${escapeHtml(item.id)}">查看全部<i data-lucide="chevron-right" class="ml-1 h-3.5 w-3.5"></i></button>
-            </section>
-          `
-          : ''
-      }
-    </section>
-  `
-}
-
-function renderTimeline(data: ProjectDetailData): string {
-  return `
-    <aside class="w-full xl:w-[300px]">
-      <section class="rounded-lg border bg-card p-4">
-        <h2 class="mb-3 text-sm font-semibold">项目日志</h2>
-        <div class="space-y-3">
-          ${data.logs
-            .slice(0, 12)
-            .map((log) => {
-              const dotColor =
-                log.type === '决策' ? 'bg-orange-500' : log.type === '工作项' ? 'bg-green-500' : 'bg-blue-500'
-              return `
-                <article class="relative border-l pl-4">
-                  <span class="absolute -left-[5px] top-1 h-2 w-2 rounded-full ${dotColor}"></span>
-                  <p class="text-xs text-muted-foreground">${escapeHtml(log.time)}</p>
-                  <p class="text-sm font-medium">${escapeHtml(log.title)}</p>
-                  <p class="text-xs text-muted-foreground">${escapeHtml(log.detail)}</p>
-                </article>
-              `
-            })
-            .join('')}
-        </div>
+            `
+            : '<p class="text-sm text-muted-foreground">暂无可展示的项目动态。</p>'
+        }
       </section>
     </aside>
   `
 }
 
-function renderGateBar(data: ProjectDetailData): string {
-  if (!hasPendingDecisionInCurrentPhase(data)) return ''
-  return `
-    <section class="rounded-lg border border-orange-200 bg-orange-50 p-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="inline-flex items-start gap-2">
-          <i data-lucide="alert-circle" class="mt-0.5 h-5 w-5 text-orange-600"></i>
-          <div>
-            <p class="font-semibold text-orange-800">阶段推进待决策</p>
-            <p class="text-sm text-orange-700">“测款结论判定”待决策，通过后将解锁工程准备相关工作项。</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button class="inline-flex h-8 items-center rounded-md border border-orange-300 px-3 text-xs text-orange-700 hover:bg-orange-100" data-pcs-project-detail-action="quick-reject">
-            <i data-lucide="x-circle" class="mr-1 h-3.5 w-3.5"></i>不通过 - 项目终止
-          </button>
-          <button class="inline-flex h-8 items-center rounded-md border border-orange-300 bg-orange-500 px-3 text-xs text-white hover:bg-orange-600" data-pcs-project-detail-action="quick-pass">
-            <i data-lucide="check-circle-2" class="mr-1 h-3.5 w-3.5"></i>通过 - 推进至工程准备
-          </button>
-        </div>
-      </div>
-    </section>
-  `
-}
-
-function renderDecisionDialog(): string {
-  if (!state.showDecisionDialog) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-xl rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">测款结论判定</h3>
-          <p class="mt-1 text-xs text-muted-foreground">请根据测款数据做出决策，结论将影响后续工作项解锁状态。</p>
-        </header>
-        <div class="space-y-3 p-4">
-          <button class="${toClassName('w-full rounded-lg border p-3 text-left hover:bg-muted/40', state.decisionValue === 'pass' && 'border-blue-300 bg-blue-50')}" data-pcs-project-detail-action="set-decision" data-decision-value="pass">
-            <p class="font-medium">通过</p>
-            <p class="text-xs text-muted-foreground">解锁工程准备（转档、制版、打样）</p>
-          </button>
-          <button class="${toClassName('w-full rounded-lg border p-3 text-left hover:bg-muted/40', state.decisionValue === 'revision' && 'border-blue-300 bg-blue-50')}" data-pcs-project-detail-action="set-decision" data-decision-value="revision">
-            <p class="font-medium">改版</p>
-            <p class="text-xs text-muted-foreground">生成改版任务，改版后重新测款</p>
-          </button>
-          <button class="${toClassName('w-full rounded-lg border p-3 text-left hover:bg-muted/40', state.decisionValue === 'reject' && 'border-blue-300 bg-blue-50')}" data-pcs-project-detail-action="set-decision" data-decision-value="reject">
-            <p class="font-medium">淘汰</p>
-            <p class="text-xs text-muted-foreground">终止项目，样衣进入退货处理</p>
-          </button>
-
-          <div>
-            <label class="mb-1 block text-xs text-muted-foreground">决策备注</label>
-            <textarea class="min-h-[90px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请输入决策说明..." data-pcs-project-detail-field="decisionNote">${escapeHtml(state.decisionNote)}</textarea>
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-project-detail-action="close-decision-dialog">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50 ${state.decisionValue ? '' : 'cursor-not-allowed opacity-60'}" data-pcs-project-detail-action="submit-decision" ${state.decisionValue ? '' : 'disabled'}>提交决策</button>
-        </footer>
-      </section>
-    </div>
-  `
-}
-
 export function renderPcsProjectDetailPage(projectId: string): string {
-  ensureProjectState(projectId)
-  const data = state.data
-  if (!data) {
-    return renderNotFound(projectId)
-  }
+  const data = ensureProjectState(projectId)
+  if (!data) return renderNotFound(projectId)
 
   return `
     <div class="space-y-4">
@@ -1292,126 +610,12 @@ export function renderPcsProjectDetailPage(projectId: string): string {
         <div class="min-w-0 flex-1">${renderWorkItemPanel(data)}</div>
         ${renderTimeline(data)}
       </section>
-      ${renderGateBar(data)}
-      ${renderDecisionDialog()}
+      ${renderRelationSection(data)}
     </div>
   `
 }
 
-function nowText(): string {
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mi = String(now.getMinutes()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
-}
-
-function closeAllDialogs(): void {
-  if (state.showDecisionDialog) {
-    state.showDecisionDialog = false
-    return
-  }
-}
-
-function applyDecisionResult(decision: DecisionValue): void {
-  const data = state.data
-  if (!data || !decision) return
-
-  const currentPhase = data.phases.find((phase) => phase.id === data.project.currentPhaseId)
-  if (!currentPhase) return
-
-  const pendingId =
-    state.selectedWorkItemId &&
-    data.workItems[state.selectedWorkItemId]?.status === '待决策'
-      ? state.selectedWorkItemId
-      : currentPhase.items.find((itemId) => data.workItems[itemId]?.status === '待决策') ?? null
-
-  if (!pendingId) return
-
-  const pendingItem = data.workItems[pendingId]
-  pendingItem.updatedAt = nowText()
-
-  if (decision === 'pass') {
-    pendingItem.status = '已完成'
-    pendingItem.summary.keyOutputs = [
-      { label: '决策结果', value: '通过' },
-      { label: '继续范围', value: '工程准备工作项已解锁' },
-      { label: '备注', value: state.decisionNote.trim() || '推进至工程准备' },
-    ]
-
-    ;['wi_13', 'wi_14', 'wi_15', 'wi_16', 'wi_17', 'wi_18', 'wi_19'].forEach((itemId, index) => {
-      const item = data.workItems[itemId]
-      if (!item) return
-      item.status = index === 0 ? '进行中' : '未开始'
-      item.updatedAt = nowText()
-    })
-
-    data.project.currentPhaseId = 'phase_04'
-    data.project.phaseName = '结论与推进'
-    data.project.lastUpdated = nowText()
-    data.logs.unshift({
-      time: nowText(),
-      type: '决策',
-      title: '决策：测款结论判定',
-      detail: '通过，已推进至工程准备并解锁后续工作项。',
-    })
-    state.notice = '决策已提交：通过，后续工程准备工作项已解锁。'
-    return
-  }
-
-  if (decision === 'revision') {
-    pendingItem.status = '进行中'
-    pendingItem.summary.keyOutputs = [
-      { label: '决策结果', value: '改版' },
-      { label: '后续动作', value: '生成改版任务并重新测款' },
-      { label: '备注', value: state.decisionNote.trim() || '进入改版已完成' },
-    ]
-    pendingItem.updatedAt = nowText()
-    data.project.lastUpdated = nowText()
-    data.logs.unshift({
-      time: nowText(),
-      type: '决策',
-      title: '决策：测款结论判定',
-      detail: '改版，已回流改版任务。',
-    })
-    state.notice = '决策已提交：改版，项目进入改版回流。'
-    return
-  }
-
-  pendingItem.status = '已完成'
-  pendingItem.summary.keyOutputs = [
-    { label: '决策结果', value: '淘汰' },
-    { label: '后续动作', value: '项目终止，样衣进入退货处理' },
-    { label: '备注', value: state.decisionNote.trim() || '终止项目' },
-  ]
-  ;['wi_20', 'wi_21'].forEach((itemId) => {
-    const item = data.workItems[itemId]
-    if (!item) return
-    item.status = itemId === 'wi_21' ? '进行中' : '未开始'
-    item.updatedAt = nowText()
-  })
-  data.project.status = '已终止'
-  data.project.currentPhaseId = 'phase_05'
-  data.project.phaseName = '资产处置'
-  data.project.lastUpdated = nowText()
-  data.logs.unshift({
-    time: nowText(),
-    type: '决策',
-    title: '决策：测款结论判定',
-    detail: '淘汰，项目终止并进入资产处置。',
-  })
-  state.notice = '决策已提交：淘汰，项目已终止并进入资产处置。'
-}
-
 export function handlePcsProjectDetailEvent(target: HTMLElement): boolean {
-  const fieldNode = target.closest<HTMLElement>('[data-pcs-project-detail-field]')
-  if (fieldNode instanceof HTMLTextAreaElement && fieldNode.dataset.pcsProjectDetailField === 'decisionNote') {
-    state.decisionNote = fieldNode.value
-    return true
-  }
-
   const actionNode = target.closest<HTMLElement>('[data-pcs-project-detail-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsProjectDetailAction
@@ -1439,67 +643,71 @@ export function handlePcsProjectDetailEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-decision-dialog') {
-    state.showDecisionDialog = true
-    return true
-  }
-
-  if (action === 'close-decision-dialog') {
-    state.showDecisionDialog = false
-    return true
-  }
-
-  if (action === 'set-decision') {
-    const value = actionNode.dataset.decisionValue as DecisionValue | undefined
-    if (value) state.decisionValue = value
-    return true
-  }
-
-  if (action === 'submit-decision') {
-    if (!state.decisionValue) return true
-    applyDecisionResult(state.decisionValue)
-    state.showDecisionDialog = false
-    state.decisionValue = ''
-    state.decisionNote = ''
-    return true
-  }
-
-  if (action === 'quick-pass') {
-    applyDecisionResult('pass')
-    return true
-  }
-
-  if (action === 'quick-reject') {
-    applyDecisionResult('reject')
-    return true
-  }
-
-  if (action === 'mark-complete') {
-    const workItemId = actionNode.dataset.workItemId
-    if (!workItemId || !state.data) return true
-    const item = state.data.workItems[workItemId]
-    if (!item || item.status !== '进行中') return true
-    item.status = '已完成'
-    item.updatedAt = nowText()
-    state.data.project.lastUpdated = nowText()
-    state.notice = `工作项 ${item.name} 已标记完成（演示态）。`
-    return true
-  }
-
   if (action === 'go-work-item-detail') {
     const workItemId = actionNode.dataset.workItemId
-    if (!workItemId || !state.projectId) return true
-    appStore.navigate(`/pcs/projects/${state.projectId}/work-items/${workItemId}`)
+    if (workItemId && state.projectId) {
+      appStore.navigate(`/pcs/projects/${state.projectId}/work-items/${workItemId}`)
+    }
     return true
   }
 
-  if (action === 'add-record') {
-    state.notice = '新增记录入口已触发（演示态）。'
+  if (action === 'generate-style-archive') {
+    if (!state.projectId) return true
+    const result = generateStyleArchiveShellFromProject(state.projectId)
+    state.notice = result.message
+    if (result.ok && result.style) {
+      appStore.navigate(`/pcs/products/styles/${result.style.styleId}`)
+    }
     return true
   }
 
-  if (action === 'more-actions') {
-    state.notice = '更多操作菜单待接入（演示态）。'
+  if (action === 'go-style-archive') {
+    const styleId = actionNode.dataset.styleId
+    if (styleId) {
+      appStore.navigate(`/pcs/products/styles/${styleId}`)
+    }
+    return true
+  }
+
+  if (action === 'create-technical-version') {
+    if (!state.projectId) return true
+    try {
+      const result = createTechnicalDataVersionFromProject(state.projectId, '商品中心')
+      state.notice = `已建立技术资料版本：${result.record.technicalVersionCode}，已写入项目关联并更新项目节点。`
+      appStore.navigate(
+        `/pcs/products/styles/${encodeURIComponent(result.record.styleId)}/technical-data/${encodeURIComponent(result.record.technicalVersionId)}`,
+      )
+    } catch (error) {
+      state.notice = error instanceof Error ? error.message : '建立技术资料版本失败。'
+    }
+    return true
+  }
+
+  if (action === 'go-technical-version') {
+    const technicalVersionId = actionNode.dataset.technicalVersionId
+    const data = state.projectId ? buildProjectDetailViewModel(state.projectId) : null
+    if (technicalVersionId && data?.linkedStyleId) {
+      appStore.navigate(
+        `/pcs/products/styles/${encodeURIComponent(data.linkedStyleId)}/technical-data/${encodeURIComponent(technicalVersionId)}`,
+      )
+    }
+    return true
+  }
+
+  if (action === 'create-project-archive') {
+    if (!state.projectId) return true
+    const result = createProjectArchive(state.projectId, '商品中心')
+    state.notice = result.message
+    if (result.ok && result.archive) {
+      appStore.navigate(`/pcs/projects/${encodeURIComponent(state.projectId)}/archive`)
+    }
+    return true
+  }
+
+  if (action === 'go-project-archive') {
+    if (state.projectId) {
+      appStore.navigate(`/pcs/projects/${encodeURIComponent(state.projectId)}/archive`)
+    }
     return true
   }
 
@@ -1508,14 +716,9 @@ export function handlePcsProjectDetailEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'close-dialog') {
-    closeAllDialogs()
-    return true
-  }
-
   return false
 }
 
 export function isPcsProjectDetailDialogOpen(): boolean {
-  return state.showDecisionDialog
+  return false
 }

@@ -12,6 +12,8 @@ export interface PartTemplatePackage {
   templateName: string
   sourceDxfFileName: string
   sourceRulFileName: string
+  sourceDxfFileDownloadUrl?: string
+  sourceRulFileDownloadUrl?: string
   parsedAt: string
   rulSummary: {
     units?: string
@@ -343,6 +345,8 @@ export function savePartTemplatePackage(params: {
   templateName: string
   sourceDxfFileName: string
   sourceRulFileName: string
+  sourceDxfFileDownloadUrl?: string
+  sourceRulFileDownloadUrl?: string
   rulSummary: PartTemplatePackage['rulSummary']
   rows: PartTemplateDraftSaveRow[]
 }): { templatePackage: PartTemplatePackage; records: PartTemplateRecord[] } {
@@ -353,6 +357,8 @@ export function savePartTemplatePackage(params: {
     templateName: params.templateName.trim(),
     sourceDxfFileName: params.sourceDxfFileName,
     sourceRulFileName: params.sourceRulFileName,
+    sourceDxfFileDownloadUrl: params.sourceDxfFileDownloadUrl,
+    sourceRulFileDownloadUrl: params.sourceRulFileDownloadUrl,
     parsedAt,
     rulSummary: params.rulSummary,
   }

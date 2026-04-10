@@ -41,6 +41,10 @@ interface PartTemplateLibraryState {
   parseResult: ParsedPartTemplateResult | null
   draftStandardNames: Record<string, string>
   notice: string | null
+  previewOpen: boolean
+  previewRecordId: string | null
+  packageDialogOpen: boolean
+  packageDialogRecordId: string | null
 }
 
 const state: PartTemplateLibraryState = {
@@ -62,6 +66,10 @@ const state: PartTemplateLibraryState = {
   parseResult: null,
   draftStandardNames: {},
   notice: null,
+  previewOpen: false,
+  previewRecordId: null,
+  packageDialogOpen: false,
+  packageDialogRecordId: null,
 }
 
 const APP_RENDER_EVENT = 'higood:request-render'
@@ -75,6 +83,18 @@ function requestRender(): void {
 
 function getPartDraftKey(part: ParsedPartInstance): string {
   return `${part.sourceBlockIndex}-${part.sourceBlockName}`
+}
+
+function getPartTemplatePreviewUrl(record: Pick<PartTemplateRecord, 'previewSvg'>): string {
+  if (!record.previewSvg) return ''
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(record.previewSvg)}`
+}
+
+function renderPartTemplateFileLink(fileName: string, fileUrl?: string): string {
+  if (!fileUrl) {
+    return `<span class="text-xs text-gray-400">未生成下载链接</span>`
+  }
+  return `<a href="${fileUrl}" download="${escapeHtml(fileName)}" class="inline-flex rounded-md border px-2 py-1 text-xs hover:bg-slate-100">下载</a>`
 }
 
 function resetCreateDrawerState(): void {
@@ -307,6 +327,7 @@ function renderHeader(records: PartTemplateRecord[]): string {
     <header class="space-y-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <p class="text-xs text-gray-500">工程开发与打样管理 / 部位模板库</p>
           <h1 class="text-xl font-semibold">部位模板库</h1>
           <p class="mt-1 text-sm text-gray-500">上传一对纸样包后，系统按部位拆成多条模板记录沉淀，用于后续制版任务的模板推荐与人工复核。</p>
         </div>
@@ -351,7 +372,7 @@ function renderFilters(records: PartTemplateRecord[]): string {
           <label class="mb-1 block text-xs text-gray-500">搜索</label>
           <input
             class="h-9 w-full rounded-md border px-3 text-sm"
-            placeholder="模板名称 / 标准部位 / 原始部位 / 候选名称"
+            placeholder="纸样名称 / 标准部位 / 原始部位 / 候选名称"
             value="${escapeHtml(state.search)}"
             data-part-template-field="search"
           />
@@ -418,7 +439,7 @@ function renderRecordRows(records: PartTemplateRecord[]): string {
   if (records.length === 0) {
     return `
       <tr>
-        <td colspan="12" class="px-4 py-16 text-center text-sm text-gray-500">
+        <td colspan="13" class="px-4 py-16 text-center text-sm text-gray-500">
           <i data-lucide="folder-search-2" class="mx-auto h-10 w-10 text-gray-300"></i>
           <p class="mt-3">当前还没有部位模板记录</p>
           <p class="mt-1 text-xs text-gray-400">上传一对 .dxf + .rul 后，系统会按部位拆分成多条记录进入主表。</p>
@@ -474,8 +495,26 @@ function renderRecordRows(records: PartTemplateRecord[]): string {
       return `
         <tr class="border-b last:border-b-0 hover:bg-gray-50">
           <td class="px-3 py-3 align-top">
+            <button
+              class="group block h-16 w-16 overflow-hidden rounded-md border bg-slate-50 hover:border-blue-400"
+              data-part-template-action="open-part-template-preview"
+              data-record-id="${escapeHtml(record.id)}"
+              aria-label="查看部位缩略图"
+            >
+              ${
+                record.previewSvg
+                  ? `<img src="${getPartTemplatePreviewUrl(record)}" alt="${escapeHtml(record.templateName)}" class="h-full w-full object-cover" />`
+                  : '<div class="flex h-full items-center justify-center text-xs text-gray-400">暂无</div>'
+              }
+            </button>
+          </td>
+          <td class="px-3 py-3 align-top">
             <div>
-              <p class="font-medium">${escapeHtml(record.templateName)}</p>
+              <button
+                class="text-left text-sm font-medium text-blue-700 hover:underline"
+                data-part-template-action="open-part-template-package-dialog"
+                data-record-id="${escapeHtml(record.id)}"
+              >${escapeHtml(record.templateName)}</button>
               <p class="mt-1 text-xs text-gray-500">包号：${escapeHtml(record.templatePackageId)}</p>
             </div>
           </td>
@@ -537,7 +576,8 @@ function renderTable(records: PartTemplateRecord[]): string {
         <table class="w-full min-w-[1500px] text-sm">
           <thead>
             <tr class="border-b bg-gray-50 text-left text-gray-600">
-              <th class="px-3 py-3 font-medium">模板名称</th>
+              <th class="px-3 py-3 font-medium">缩略图</th>
+              <th class="px-3 py-3 font-medium">纸样名称</th>
               <th class="px-3 py-3 font-medium">标准部位名</th>
               <th class="px-3 py-3 font-medium">原始部位名</th>
               <th class="px-3 py-3 font-medium">候选名称</th>
@@ -558,12 +598,81 @@ function renderTable(records: PartTemplateRecord[]): string {
   `
 }
 
+function renderPartTemplatePreviewDialog(): string {
+  if (!state.previewOpen || !state.previewRecordId) return ''
+  const record = getPartTemplateRecordById(state.previewRecordId)
+  if (!record) return ''
+  const previewUrl = getPartTemplatePreviewUrl(record)
+
+  return `
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-part-template-action="close-part-template-preview" aria-label="关闭预览"></button>
+      <section class="absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="w-full max-w-4xl rounded-lg border bg-white p-4 shadow-xl">
+          <div class="mb-3 flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-semibold">部位缩略图预览</h3>
+              <p class="mt-1 text-xs text-gray-500">${escapeHtml(record.templateName)}｜${escapeHtml(record.sourcePartName)}</p>
+            </div>
+            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-600 hover:bg-slate-100" data-part-template-action="close-part-template-preview" aria-label="关闭">✕</button>
+          </div>
+          <div class="overflow-hidden rounded-md border bg-slate-50">
+            ${previewUrl ? `<img src="${previewUrl}" alt="${escapeHtml(record.templateName)}" class="max-h-[72vh] w-full object-contain" />` : '<div class="h-[320px] flex items-center justify-center text-sm text-gray-500">暂无预览</div>'}
+          </div>
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderPartTemplatePackageDialog(): string {
+  if (!state.packageDialogOpen || !state.packageDialogRecordId) return ''
+
+  const record = getPartTemplateRecordById(state.packageDialogRecordId)
+  if (!record) return ''
+
+  const templatePackage = listPartTemplatePackages().find((item) => item.id === record.templatePackageId)
+  const dxfFileName = templatePackage?.sourceDxfFileName || record.sourceDxfFileName
+  const rulFileName = templatePackage?.sourceRulFileName || record.sourceRulFileName
+
+  return `
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-part-template-action="close-part-template-package-dialog" aria-label="关闭纸样文件"></button>
+      <section class="absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl rounded-lg border bg-white p-4 shadow-xl">
+          <div class="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-base font-semibold">纸样文件</h3>
+              <p class="mt-1 text-xs text-gray-500">标准部位：${escapeHtml(record.standardPartName || record.sourcePartName)}</p>
+            </div>
+            <button class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-600 hover:bg-slate-100" data-part-template-action="close-part-template-package-dialog" aria-label="关闭">✕</button>
+          </div>
+          <div class="rounded-lg border bg-slate-50 p-3 text-sm">
+            <div class="grid gap-3 md:grid-cols-2">
+              <div>
+                <p class="text-xs text-gray-500">DXF 文件</p>
+                <p class="mt-1 text-sm font-medium">${escapeHtml(dxfFileName)}</p>
+                <p class="mt-1">${renderPartTemplateFileLink(dxfFileName, templatePackage?.sourceDxfFileDownloadUrl)}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500">RUL 文件</p>
+                <p class="mt-1 text-sm font-medium">${escapeHtml(rulFileName)}</p>
+                <p class="mt-1">${renderPartTemplateFileLink(rulFileName, templatePackage?.sourceRulFileDownloadUrl)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderParsedSummary(result: ParsedPartTemplateResult): string {
   return `
     <section class="rounded-lg border bg-slate-50 p-4">
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div>
-          <p class="text-xs text-gray-500">模板包名称</p>
+          <p class="text-xs text-gray-500">纸样名称</p>
           <p class="mt-1 text-sm font-medium">${escapeHtml(result.templateName)}</p>
         </div>
         <div>
@@ -823,7 +932,7 @@ function renderCreateDrawer(): string {
     <div class="space-y-6">
       <section class="space-y-4">
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-900">模板名称 <span class="text-rose-500">*</span></label>
+          <label class="mb-1 block text-sm font-medium text-gray-900">纸样名称 <span class="text-rose-500">*</span></label>
           <input
             class="h-10 w-full rounded-md border px-3 text-sm"
             placeholder="例如：领子模板"
@@ -845,7 +954,7 @@ function renderCreateDrawer(): string {
               ${state.parseError ? `<p class="text-sm text-rose-600">${escapeHtml(state.parseError)}</p>` : ''}
               ${
                 !state.templateName.trim()
-                  ? '<p class="text-xs text-amber-600">请先填写模板名称</p>'
+                  ? '<p class="text-xs text-amber-600">请先填写纸样名称</p>'
                   : ''
               }
             </div>
@@ -1045,20 +1154,22 @@ function renderDetailDrawer(): string {
         </div>
       </section>
 
-      <section class="rounded-lg border bg-white p-4">
+        <section class="rounded-lg border bg-white p-4">
         <h3 class="text-sm font-semibold">所属模板包信息</h3>
           <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div>
-            <p class="text-xs text-gray-500">模板包名称</p>
+            <p class="text-xs text-gray-500">纸样名称</p>
             <p class="mt-1 text-sm font-medium">${escapeHtml(record.templateName)}</p>
           </div>
           <div>
             <p class="text-xs text-gray-500">DXF 文件</p>
-            <p class="mt-1 text-sm font-medium">${escapeHtml(record.sourceDxfFileName)}</p>
+            <p class="mt-1 text-sm text-gray-600">${escapeHtml(record.sourceDxfFileName)}</p>
+            <p class="mt-1">${renderPartTemplateFileLink(record.sourceDxfFileName, templatePackage?.sourceDxfFileDownloadUrl)}</p>
           </div>
           <div>
             <p class="text-xs text-gray-500">RUL 文件</p>
-            <p class="mt-1 text-sm font-medium">${escapeHtml(record.sourceRulFileName)}</p>
+            <p class="mt-1 text-sm text-gray-600">${escapeHtml(record.sourceRulFileName)}</p>
+            <p class="mt-1">${renderPartTemplateFileLink(record.sourceRulFileName, templatePackage?.sourceRulFileDownloadUrl)}</p>
           </div>
           <div>
             <p class="text-xs text-gray-500">解析时间</p>
@@ -1200,16 +1311,6 @@ function renderDetailDrawer(): string {
       width: 'xl',
     },
     content,
-    {
-      cancel: { prefix: 'part-template', action: 'close-detail-drawer', label: '关闭' },
-      confirm: {
-        prefix: 'part-template',
-        action: 'save-detail-standard-name',
-        label: '保存矫正结果',
-        variant: 'primary',
-        disabled: state.detailStandardPartName.trim().length === 0,
-      },
-    },
   )
 }
 
@@ -1233,6 +1334,8 @@ function renderPage(): string {
       ${renderTable(filteredRecords)}
       ${renderStandardNameDatalist()}
     </div>
+    ${renderPartTemplatePreviewDialog()}
+    ${renderPartTemplatePackageDialog()}
     ${renderCreateDrawer()}
     ${renderDetailDrawer()}
   `
@@ -1242,7 +1345,7 @@ function startParsingTemplate(): void {
   let resolvedFiles
 
   if (!state.templateName.trim()) {
-    state.parseError = '请先填写模板名称'
+    state.parseError = '请先填写纸样名称'
     return
   }
 
@@ -1307,6 +1410,8 @@ function saveParsedRows(): void {
     templateName: state.parseResult.templateName,
     sourceDxfFileName: state.parseResult.dxfFileName,
     sourceRulFileName: state.parseResult.rulFileName,
+    sourceDxfFileDownloadUrl: state.selectedDxfFile ? URL.createObjectURL(state.selectedDxfFile) : undefined,
+    sourceRulFileDownloadUrl: state.selectedRulFile ? URL.createObjectURL(state.selectedRulFile) : undefined,
     rulSummary: {
       units: state.parseResult.rul.units,
       sampleSize: state.parseResult.rul.sampleSize,
@@ -1335,6 +1440,10 @@ export function handlePcsPartTemplateLibraryEvent(target: Element): boolean {
 
   if (action === 'open-create-drawer') {
     state.createDrawerOpen = true
+    state.previewOpen = false
+    state.previewRecordId = null
+    state.packageDialogOpen = false
+    state.packageDialogRecordId = null
     state.notice = null
     resetCreateDrawerState()
     return true
@@ -1343,6 +1452,10 @@ export function handlePcsPartTemplateLibraryEvent(target: Element): boolean {
   if (action === 'close-create-drawer') {
     state.createDrawerOpen = false
     resetCreateDrawerState()
+    state.previewOpen = false
+    state.previewRecordId = null
+    state.packageDialogOpen = false
+    state.packageDialogRecordId = null
     return true
   }
 
@@ -1350,6 +1463,44 @@ export function handlePcsPartTemplateLibraryEvent(target: Element): boolean {
     state.detailDrawerOpen = false
     state.detailRecordId = null
     state.detailStandardPartName = ''
+    state.previewOpen = false
+    state.previewRecordId = null
+    state.packageDialogOpen = false
+    state.packageDialogRecordId = null
+    return true
+  }
+
+  if (action === 'open-part-template-package-dialog') {
+    const recordId = actionNode?.dataset.recordId
+    if (recordId) {
+      state.packageDialogRecordId = recordId
+      state.packageDialogOpen = true
+      state.previewOpen = false
+      state.previewRecordId = null
+      return true
+    }
+  }
+
+  if (action === 'open-part-template-preview') {
+    const recordId = actionNode?.dataset.recordId
+    if (recordId) {
+      state.previewRecordId = recordId
+      state.previewOpen = true
+      state.packageDialogOpen = false
+      state.packageDialogRecordId = null
+      return true
+    }
+  }
+
+  if (action === 'close-part-template-package-dialog') {
+    state.packageDialogOpen = false
+    state.packageDialogRecordId = null
+    return true
+  }
+
+  if (action === 'close-part-template-preview') {
+    state.previewOpen = false
+    state.previewRecordId = null
     return true
   }
 
@@ -1450,6 +1601,10 @@ export function handlePcsPartTemplateLibraryEvent(target: Element): boolean {
     const recordId = actionNode?.dataset.recordId
     if (recordId) {
       openRecordDetail(recordId)
+      state.previewOpen = false
+      state.previewRecordId = null
+      state.packageDialogOpen = false
+      state.packageDialogRecordId = null
       return true
     }
   }
@@ -1524,7 +1679,7 @@ export function handlePcsPartTemplateLibraryInput(target: Element): boolean {
 }
 
 export function isPcsPartTemplateLibraryDialogOpen(): boolean {
-  return state.createDrawerOpen || state.detailDrawerOpen
+  return state.createDrawerOpen || state.detailDrawerOpen || state.previewOpen || state.packageDialogOpen
 }
 
 export function renderPcsPartTemplateLibraryPage(): string {

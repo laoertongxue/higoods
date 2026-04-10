@@ -137,6 +137,13 @@ export interface VideoLog {
   detail: string
 }
 
+export interface LegacyTestingProjectReference {
+  sourceType: '直播场次头' | '短视频记录'
+  sourceId: string
+  projectRef: string | null
+  note: string
+}
+
 export const SESSION_STATUS_META: Record<SessionStatus, StatusMeta> = {
   DRAFT: { label: '草稿', color: 'bg-slate-100 text-slate-600' },
   RECONCILING: { label: '核对中', color: 'bg-blue-100 text-blue-700' },
@@ -651,6 +658,21 @@ const VIDEO_LOG_SEED: Record<string, VideoLog[]> = {
   ],
 }
 
+const LEGACY_TESTING_PROJECT_REFERENCE_SEED: LegacyTestingProjectReference[] = [
+  {
+    sourceType: '直播场次头',
+    sourceId: 'LS-20260122-001',
+    projectRef: 'PRJ-20251216-001',
+    note: '历史场次头项目字段，仅供迁移判断，不得作为正式项目关系来源。',
+  },
+  {
+    sourceType: '短视频记录',
+    sourceId: 'SV-20260122-008',
+    projectRef: 'PRJ-20251216-001',
+    note: '历史短视频项目字段，仅保留为迁移痕迹。',
+  },
+]
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
@@ -699,4 +721,8 @@ export function getVideoSamples(recordId: string): LiveSample[] {
 
 export function getVideoLogs(recordId: string): VideoLog[] {
   return clone(VIDEO_LOG_SEED[recordId] ?? [])
+}
+
+export function listLegacyTestingProjectReferences(): LegacyTestingProjectReference[] {
+  return clone(LEGACY_TESTING_PROJECT_REFERENCE_SEED)
 }

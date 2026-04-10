@@ -1,5 +1,5 @@
 import { productionDemands, type ProductionDemand } from './production-demands.ts'
-import { getTechPackBySpuCode, type TechPack } from './tech-packs.ts'
+import { getCompatTechPackBySpuCode, type TechPack } from '../pcs-technical-data-runtime-source.ts'
 import type { DemandSnapshot, TechPackSnapshot } from './production-orders.ts'
 
 export interface ProductionUpstreamValidationIssue {
@@ -29,7 +29,7 @@ export function getProductionDemandById(demandId: string): ProductionDemand | nu
 }
 
 export function getReleasedTechPackByDemand(demand: ProductionDemand): TechPack | null {
-  const techPack = getTechPackBySpuCode(demand.spuCode)
+  const techPack = getCompatTechPackBySpuCode(demand.spuCode)
   if (!techPack || techPack.status !== 'RELEASED') return null
   return techPack
 }
@@ -82,16 +82,16 @@ export function validateDemandTechPackOrderLink(input: {
     })
   }
 
-  const techPack = getTechPackBySpuCode(demand.spuCode) ?? null
+  const techPack = getCompatTechPackBySpuCode(demand.spuCode) ?? null
   if (!techPack) {
     issues.push({
       code: 'TECH_PACK_NOT_FOUND',
-      message: `需求 ${demand.demandId} 关联 SPU ${demand.spuCode} 的技术包不存在`,
+      message: `需求 ${demand.demandId} 关联 SPU ${demand.spuCode} 的技术资料不存在`,
     })
   } else if (techPack.status !== 'RELEASED') {
     issues.push({
       code: 'TECH_PACK_NOT_RELEASED',
-      message: `需求 ${demand.demandId} 关联 SPU ${demand.spuCode} 的技术包未发布`,
+      message: `需求 ${demand.demandId} 关联 SPU ${demand.spuCode} 的技术资料未发布`,
     })
   }
 

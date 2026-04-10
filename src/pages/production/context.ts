@@ -21,7 +21,7 @@ import {
   tierLabels,
   typeLabels,
 } from '../../data/fcs/indonesia-factories'
-import { getTechPackBySpuCode } from '../../data/fcs/tech-packs'
+import { getCompatTechPackBySpuCode as getTechPackBySpuCode } from '../../data/pcs-technical-data-runtime-source'
 import { legalEntities } from '../../data/fcs/legal-entities'
 import {
   getRuntimeAssignmentSummaryByOrder,
@@ -871,7 +871,7 @@ function listDemandOperationsByStatus(status: ProductionDemand['demandStatus']):
 }
 
 function getTechPackOperationLabel(status: ProductionDemand['techPackStatus']): string {
-  return status === 'RELEASED' ? '查看技术包' : '完善技术包'
+  return status === 'RELEASED' ? '查看技术资料版本' : '去商品中心维护'
 }
 
 function renderDemandOperations(

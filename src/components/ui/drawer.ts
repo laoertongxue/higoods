@@ -1,9 +1,9 @@
 // ============ 抽屉组件 ============
 
-import { escapeHtml } from '../../utils'
-import { renderButton, renderPrimaryButton, renderSecondaryButton } from './button'
-import { toActionAttr } from './types'
-import type { DrawerConfig, DrawerFooterConfig, DrawerWidth, ActionConfig } from './types'
+import { escapeHtml } from '../../utils.ts'
+import { renderButton, renderPrimaryButton, renderSecondaryButton } from './button.ts'
+import { toActionAttr } from './types.ts'
+import type { DrawerConfig, DrawerFooterConfig, DrawerWidth, ActionConfig } from './types.ts'
 
 // 抽屉宽度映射
 const WIDTH_CLASSES: Record<DrawerWidth, string> = {

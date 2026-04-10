@@ -1,6 +1,6 @@
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories.ts'
 import type { ProductionDemand } from './production-demands.ts'
-import type { TechPack } from './tech-packs.ts'
+import type { TechPack } from '../pcs-technical-data-runtime-source.ts'
 import {
   buildProductionOrderDemandSnapshot,
   buildProductionOrderTechPackSnapshot,
@@ -250,10 +250,10 @@ export function buildProductionOrderFromDemand(seed: ProductionOrderSeed, demand
     throw new Error(`生产单 ${seed.productionOrderId} 与需求 ${demand.demandId} 绑定不一致`)
   }
   if (techPack.status !== 'RELEASED') {
-    throw new Error(`需求 ${demand.demandId} 关联技术包 ${techPack.spuCode} 未发布`)
+    throw new Error(`需求 ${demand.demandId} 关联技术资料 ${techPack.spuCode} 未发布`)
   }
   if (demand.spuCode !== techPack.spuCode) {
-    throw new Error(`需求 ${demand.demandId} 的 SPU ${demand.spuCode} 与技术包 ${techPack.spuCode} 不一致`)
+    throw new Error(`需求 ${demand.demandId} 的 SPU ${demand.spuCode} 与技术资料 ${techPack.spuCode} 不一致`)
   }
 
   return buildProductionOrderFromResolvedUpstream(seed, demand, techPack)
@@ -658,7 +658,7 @@ export const productionOrders: ProductionOrder[] = productionOrderSeeds.map((see
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },
-  WAIT_TECH_PACK_RELEASE: { label: '等待技术包发布', color: 'bg-orange-100 text-orange-700' },
+  WAIT_TECH_PACK_RELEASE: { label: '等待技术资料发布', color: 'bg-orange-100 text-orange-700' },
   READY_FOR_BREAKDOWN: { label: '待分配', color: 'bg-blue-100 text-blue-700' },
   WAIT_ASSIGNMENT: { label: '待分配', color: 'bg-purple-100 text-purple-700' },
   ASSIGNING: { label: '分配中', color: 'bg-indigo-100 text-indigo-700' },
@@ -676,8 +676,8 @@ export const assignmentProgressStatusConfig: Record<AssignmentProgressStatus, { 
 }
 
 export const riskFlagConfig: Record<RiskFlag, { label: string; color: string }> = {
-  TECH_PACK_NOT_RELEASED: { label: '技术包未发布', color: 'bg-orange-100 text-orange-700' },
-  TECH_PACK_MISSING: { label: '技术包缺失', color: 'bg-red-100 text-red-700' },
+  TECH_PACK_NOT_RELEASED: { label: '技术资料未发布', color: 'bg-orange-100 text-orange-700' },
+  TECH_PACK_MISSING: { label: '技术资料缺失', color: 'bg-red-100 text-red-700' },
   MAIN_FACTORY_BLACKLISTED: { label: '主工厂黑名单', color: 'bg-red-100 text-red-700' },
   MAIN_FACTORY_SUSPENDED: { label: '主工厂暂停', color: 'bg-orange-100 text-orange-700' },
   TENDER_OVERDUE: { label: '竞价已过期', color: 'bg-red-100 text-red-700' },

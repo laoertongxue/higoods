@@ -229,6 +229,7 @@ function renderHeader(): string {
     <header class="space-y-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <p class="text-xs text-gray-500">工程开发与打样管理 / 花型库</p>
           <h1 class="text-xl font-semibold">花型库</h1>
           <p class="mt-1 text-sm text-gray-500">面向商品中心的花型资产主档，统一承接上传、解析、标签、重复治理、审核、版本与引用闭环。</p>
         </div>
@@ -607,9 +608,9 @@ function renderRow(record: PatternAssetRecord): string {
     <tr class="border-b last:border-b-0 hover:bg-gray-50 ${isSelected ? 'bg-blue-50/60' : ''}">
       <td class="px-3 py-3"><input type="checkbox" class="h-4 w-4 rounded border" ${isSelected ? 'checked' : ''} data-pattern-library-action="toggle-select" data-asset-id="${record.id}" /></td>
       <td class="px-3 py-3">
-        <div class="h-14 w-14 overflow-hidden rounded-md border bg-slate-50">
+        <button class="block h-14 w-14 overflow-hidden rounded-md border bg-slate-50 text-left" data-pattern-library-action="open-preview" data-asset-id="${record.id}">
           ${thumbnail ? `<img src="${thumbnail}" alt="${escapeHtml(record.pattern_name)}" class="h-full w-full object-cover" />` : '<div class="flex h-full items-center justify-center text-xs text-gray-400">暂无</div>'}
-        </div>
+        </button>
       </td>
       <td class="px-3 py-3">
         <button class="text-left text-sm font-medium text-blue-700 hover:underline" data-pattern-library-action="go-detail" data-asset-id="${record.id}">${escapeHtml(record.pattern_code)}</button>

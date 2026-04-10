@@ -1,7 +1,7 @@
 import {
-  getTechPackBySpuCode,
-  listTechPackProcessEntries,
-} from '../tech-packs.ts'
+  getCompatTechPackBySpuCode as getTechPackBySpuCode,
+  listTechnicalProcessEntriesBySpuCode as listTechPackProcessEntries,
+} from '../../pcs-technical-data-runtime-source.ts'
 import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderPieceRow,

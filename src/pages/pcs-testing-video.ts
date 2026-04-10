@@ -3,6 +3,14 @@ import { escapeHtml } from '../utils'
 import { renderFormDialog } from '../components/ui/dialog'
 import { renderDrawer as uiDrawer } from '../components/ui'
 import { renderTablePagination } from '../components/ui/pagination'
+import { listProjects } from '../data/pcs-project-repository.ts'
+import {
+  getProjectRelationProjectLabel,
+  listProjectRelationsByVideoRecord,
+  replaceVideoRecordProjectRelations,
+  unlinkVideoRecordProjectRelation,
+} from '../data/pcs-project-relation-repository.ts'
+import { getVideoTestRecordById } from '../data/pcs-video-testing-repository.ts'
 import {
   DEFAULT_PAGE_SIZE_OPTIONS,
   getNextPage,
@@ -55,6 +63,9 @@ interface PageState {
   createDrawerOpen: boolean
   closeDialog: DialogState
   accountingDialog: DialogState
+  relationDialogOpen: boolean
+  relationTargetRecordId: string | null
+  relationSelectedProjectIds: string[]
   createForm: CreateFormState
   closeReason: string
   closeNote: string
@@ -77,6 +88,9 @@ const state: PageState = {
   createDrawerOpen: false,
   closeDialog: { open: false, recordId: null },
   accountingDialog: { open: false, recordId: null },
+  relationDialogOpen: false,
+  relationTargetRecordId: null,
+  relationSelectedProjectIds: [],
   createForm: {
     title: '',
     owner: '',
@@ -95,6 +109,13 @@ const state: PageState = {
   accountingNote: '',
   accountingConfirmed: false,
   notice: '已迁移短视频记录：列表、创建抽屉、关账弹窗、测款入账弹窗、详情内页。',
+}
+
+function getVideoRecordProjectRelations(videoRecordId: string) {
+  return listProjectRelationsByVideoRecord(videoRecordId).map((relation) => ({
+    projectId: relation.projectId,
+    projectLabel: getProjectRelationProjectLabel(relation.projectId),
+  }))
 }
 
 function getRecordById(recordId: string | null): VideoRecord | null {
@@ -255,11 +276,38 @@ function renderPurposeTags(purposes: VideoPurpose[]): string {
     .join('')
 }
 
+function renderProjectTags(recordId: string, legacyProjectRef: string | null): string {
+  const relations = getVideoRecordProjectRelations(recordId)
+  if (relations.length === 0) {
+    return `
+      <div class="space-y-1">
+        <span class="text-sm text-muted-foreground">暂无正式项目关联</span>
+        ${legacyProjectRef ? `<p class="text-[11px] text-amber-700">历史项目字段：${escapeHtml(legacyProjectRef)}，当前仅保留为迁移痕迹。</p>` : ''}
+      </div>
+    `
+  }
+
+  return `
+    <div class="flex flex-wrap gap-2">
+      ${relations
+        .map(
+          (relation) => `
+            <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">
+              ${escapeHtml(relation.projectLabel)}
+              <button class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-blue-200 text-[10px] hover:bg-blue-100" data-pcs-video-action="unlink-project" data-record-id="${escapeHtml(recordId)}" data-project-id="${escapeHtml(relation.projectId)}">×</button>
+            </span>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
 function renderRows(rows: VideoRecord[]): string {
   if (!rows.length) {
     return `
       <tr>
-        <td colspan="11" class="px-4 py-12 text-center text-muted-foreground">
+        <td colspan="14" class="px-4 py-12 text-center text-muted-foreground">
           <i data-lucide="video-off" class="mx-auto h-10 w-10 text-muted-foreground/60"></i>
           <p class="mt-2 text-sm">暂无符合条件的短视频记录</p>
         </td>
@@ -272,6 +320,7 @@ function renderRows(rows: VideoRecord[]): string {
       const canClose = row.status === 'RECONCILING'
       const canAccounting =
         (row.status === 'RECONCILING' || row.status === 'COMPLETED') && row.testAccountingStatus === 'PENDING'
+      const testingRecord = getVideoTestRecordById(row.id)
 
       return `
         <tr class="border-b last:border-b-0 hover:bg-muted/40">
@@ -281,16 +330,21 @@ function renderRows(rows: VideoRecord[]): string {
           </td>
           <td class="px-3 py-3 align-top"><span class="inline-flex rounded-full px-2 py-0.5 text-xs ${SESSION_STATUS_META[row.status].color}">${SESSION_STATUS_META[row.status].label}</span></td>
           <td class="px-3 py-3 align-top"><div class="flex flex-wrap gap-1">${renderPurposeTags(row.purposes)}</div></td>
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(testingRecord?.publishedAt || '待发布')}</td>
           <td class="px-3 py-3 align-top"><span class="inline-flex rounded-full px-2 py-0.5 text-xs ${VIDEO_PLATFORM_META[row.platform].color}">${VIDEO_PLATFORM_META[row.platform].label}</span></td>
-          <td class="px-3 py-3 align-top text-xs">${escapeHtml(row.account)}<br/>${escapeHtml(row.creator)}</td>
-          <td class="px-3 py-3 text-right align-top">${row.views.toLocaleString()}</td>
-          <td class="px-3 py-3 text-right align-top">${row.likes.toLocaleString()}</td>
-          <td class="px-3 py-3 text-right align-top">${row.gmv.toLocaleString()}</td>
-          <td class="px-3 py-3 align-top"><span class="inline-flex rounded-full px-2 py-0.5 text-xs ${ACCOUNTING_STATUS_META[row.testAccountingStatus].color}">${ACCOUNTING_STATUS_META[row.testAccountingStatus].label}</span></td>
-          <td class="px-3 py-3 align-top text-xs text-muted-foreground">${escapeHtml(row.updatedAt)}</td>
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(testingRecord?.styleCode || '—')}</td>
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(testingRecord?.colorCode || '—')}</td>
+          <td class="px-3 py-3 align-top text-xs">${escapeHtml(testingRecord?.sizeCode || '—')}</td>
+          <td class="px-3 py-3 text-right align-top">${(testingRecord?.exposureQty ?? row.views).toLocaleString()}</td>
+          <td class="px-3 py-3 text-right align-top">${(testingRecord?.clickQty ?? row.likes).toLocaleString()}</td>
+          <td class="px-3 py-3 text-right align-top">${(testingRecord?.orderQty ?? 0).toLocaleString()}</td>
+          <td class="px-3 py-3 text-right align-top">${(testingRecord?.gmvAmount ?? row.gmv).toLocaleString()}</td>
+          <td class="px-3 py-3 align-top">${renderProjectTags(row.id, testingRecord?.legacyProjectRef ?? null)}</td>
           <td class="px-3 py-3 align-top">
             <div class="flex flex-wrap gap-1">
               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-video-action="go-detail" data-record-id="${escapeHtml(row.id)}">查看</button>
+              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-video-action="open-project-relation" data-record-id="${escapeHtml(row.id)}">关联商品项目</button>
+              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-video-action="open-project-relation" data-record-id="${escapeHtml(row.id)}">查看已关联项目</button>
               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-video-action="import-data" data-record-id="${escapeHtml(row.id)}">导入数据</button>
               ${canClose ? `<button class="inline-flex h-7 items-center rounded-md border border-emerald-300 px-2 text-xs text-emerald-700 hover:bg-emerald-50" data-pcs-video-action="open-close" data-record-id="${escapeHtml(row.id)}">完成关账</button>` : ''}
               ${canAccounting ? `<button class="inline-flex h-7 items-center rounded-md border border-blue-300 px-2 text-xs text-blue-700 hover:bg-blue-50" data-pcs-video-action="open-accounting" data-record-id="${escapeHtml(row.id)}">完成测款入账</button>` : ''}
@@ -316,13 +370,16 @@ function renderTable(): string {
               <th class="px-3 py-2 font-medium">记录ID / 标题</th>
               <th class="px-3 py-2 font-medium">状态</th>
               <th class="px-3 py-2 font-medium">用途</th>
+              <th class="px-3 py-2 font-medium">发布时间</th>
               <th class="px-3 py-2 font-medium">平台</th>
-              <th class="px-3 py-2 font-medium">账号 / 创作者</th>
-              <th class="px-3 py-2 text-right font-medium">播放量</th>
-              <th class="px-3 py-2 text-right font-medium">点赞</th>
-              <th class="px-3 py-2 text-right font-medium">GMV</th>
-              <th class="px-3 py-2 font-medium">测款入账</th>
-              <th class="px-3 py-2 font-medium">更新时间</th>
+              <th class="px-3 py-2 font-medium">款号 / 款式编码</th>
+              <th class="px-3 py-2 font-medium">颜色</th>
+              <th class="px-3 py-2 font-medium">规格</th>
+              <th class="px-3 py-2 text-right font-medium">曝光量</th>
+              <th class="px-3 py-2 text-right font-medium">点击量</th>
+              <th class="px-3 py-2 text-right font-medium">下单量</th>
+              <th class="px-3 py-2 text-right font-medium">销售额</th>
+              <th class="px-3 py-2 font-medium">已关联项目</th>
               <th class="px-3 py-2 font-medium">操作</th>
             </tr>
           </thead>
@@ -341,6 +398,51 @@ function renderTable(): string {
       })}
     </section>
   `
+}
+
+function renderProjectRelationDrawer(): string {
+  if (!state.relationDialogOpen || !state.relationTargetRecordId) return ''
+  const record = getVideoTestRecordById(state.relationTargetRecordId)
+  if (!record) return ''
+
+  const content = `
+    <div class="space-y-4">
+      <div class="rounded-md border bg-muted/20 p-3 text-sm">
+        <p class="font-medium">${escapeHtml(record.videoTitle)}</p>
+        <p class="mt-1 text-xs text-muted-foreground">记录 ${escapeHtml(record.videoRecordCode)} · 渠道 ${escapeHtml(record.channelName || '—')}</p>
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs text-muted-foreground">选择要关联的商品项目</p>
+        <div class="max-h-[360px] space-y-2 overflow-y-auto rounded-md border bg-background p-2">
+          ${listProjects()
+            .map((project) => {
+              const checked = state.relationSelectedProjectIds.includes(project.projectId)
+              return `
+                <button class="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${checked ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'}" data-pcs-video-action="toggle-project" data-project-id="${escapeHtml(project.projectId)}">
+                  <span>${escapeHtml(project.projectCode)} · ${escapeHtml(project.projectName)}</span>
+                  <span class="text-xs">${checked ? '已选中' : '点击选择'}</span>
+                </button>
+              `
+            })
+            .join('')}
+        </div>
+      </div>
+    </div>
+  `
+
+  return uiDrawer(
+    {
+      title: '关联商品项目',
+      subtitle: '保存后将写入正式项目关系记录，并挂到短视频测款工作项。',
+      closeAction: { prefix: 'pcs-video', action: 'close-project-relation' },
+      width: 'lg',
+    },
+    content,
+    {
+      cancel: { prefix: 'pcs-video', action: 'close-project-relation', label: '取消' },
+      confirm: { prefix: 'pcs-video', action: 'save-project-relation', label: '保存项目关联', variant: 'primary' },
+    },
+  )
 }
 
 function renderPurposeSelector(): string {
@@ -543,6 +645,9 @@ function closeAllDialogs(): void {
   state.createDrawerOpen = false
   state.closeDialog = { open: false, recordId: null }
   state.accountingDialog = { open: false, recordId: null }
+  state.relationDialogOpen = false
+  state.relationTargetRecordId = null
+  state.relationSelectedProjectIds = []
 }
 
 export function renderPcsVideoRecordsPage(): string {
@@ -556,6 +661,7 @@ export function renderPcsVideoRecordsPage(): string {
       ${renderCreateDrawer()}
       ${renderCloseDialog()}
       ${renderAccountingDialog()}
+      ${renderProjectRelationDrawer()}
     </div>
   `
 }
@@ -642,6 +748,52 @@ export function handlePcsVideoRecordsEvent(target: HTMLElement): boolean {
     const recordId = actionNode.dataset.recordId
     if (!recordId) return false
     state.notice = `${recordId} 已触发导入数据（演示态）。`
+    return true
+  }
+
+  if (action === 'open-project-relation') {
+    const recordId = actionNode.dataset.recordId
+    if (!recordId) return false
+    state.relationTargetRecordId = recordId
+    state.relationSelectedProjectIds = listProjectRelationsByVideoRecord(recordId).map((relation) => relation.projectId)
+    state.relationDialogOpen = true
+    return true
+  }
+
+  if (action === 'close-project-relation') {
+    state.relationDialogOpen = false
+    state.relationTargetRecordId = null
+    state.relationSelectedProjectIds = []
+    return true
+  }
+
+  if (action === 'toggle-project') {
+    const projectId = actionNode.dataset.projectId
+    if (!projectId) return false
+    if (state.relationSelectedProjectIds.includes(projectId)) {
+      state.relationSelectedProjectIds = state.relationSelectedProjectIds.filter((item) => item !== projectId)
+    } else {
+      state.relationSelectedProjectIds = [...state.relationSelectedProjectIds, projectId]
+    }
+    return true
+  }
+
+  if (action === 'save-project-relation') {
+    if (!state.relationTargetRecordId) return false
+    const result = replaceVideoRecordProjectRelations(state.relationTargetRecordId, state.relationSelectedProjectIds)
+    state.relationDialogOpen = false
+    state.relationTargetRecordId = null
+    state.relationSelectedProjectIds = []
+    state.notice = result.errors[0] || '短视频记录的项目关联已更新，结果已写入正式项目关系记录。'
+    return true
+  }
+
+  if (action === 'unlink-project') {
+    const recordId = actionNode.dataset.recordId
+    const projectId = actionNode.dataset.projectId
+    if (!recordId || !projectId) return false
+    unlinkVideoRecordProjectRelation(recordId, projectId)
+    state.notice = '已解除短视频记录与商品项目的正式关联。'
     return true
   }
 
@@ -760,5 +912,5 @@ export function handlePcsVideoRecordsEvent(target: HTMLElement): boolean {
 }
 
 export function isPcsVideoRecordsDialogOpen(): boolean {
-  return state.createDrawerOpen || state.closeDialog.open || state.accountingDialog.open
+  return state.createDrawerOpen || state.closeDialog.open || state.accountingDialog.open || state.relationDialogOpen
 }

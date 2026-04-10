@@ -13,10 +13,10 @@ import {
   type TaskTypeMode,
 } from './process-craft-dict.ts'
 import {
-  listTechPackProcessEntries,
+  listTechnicalProcessEntriesBySpuCode as listTechPackProcessEntries,
   type TechPackProcessEntry,
   type TechPackProcessEntryType,
-} from './tech-packs.ts'
+} from '../pcs-technical-data-runtime-source.ts'
 
 export type ProductionArtifactType = 'DEMAND' | 'TASK'
 

@@ -1,6 +1,6 @@
 import type { MaterialPrepRow } from './material-prep-model'
 import type { MergeBatchRecord } from './merge-batches-model'
-import { getTechPackBySpuCode } from '../../../data/fcs/tech-packs.ts'
+import { getCompatTechPackBySpuCode as getTechPackBySpuCode } from '../../../data/pcs-technical-data-runtime-source.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 

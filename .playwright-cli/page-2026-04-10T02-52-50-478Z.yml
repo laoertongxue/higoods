@@ -1,0 +1,233 @@
+- generic [ref=e658]:
+  - banner [ref=e659]:
+    - generic [ref=e661]:
+      - generic [ref=e662]: HG
+      - generic [ref=e663]: HiGood
+    - generic [ref=e665]:
+      - button "商品中心系统 (PCS)" [ref=e666]:
+        - generic [ref=e667]: 商品中心系统
+        - generic [ref=e668]: (PCS)
+      - button "采购管理系统 (PMS)" [ref=e670]:
+        - generic [ref=e671]: 采购管理系统
+        - generic [ref=e672]: (PMS)
+      - button "工厂生产协同系统 (FCS)" [ref=e673]:
+        - generic [ref=e674]: 工厂生产协同系统
+        - generic [ref=e675]: (FCS)
+      - button "仓储物流系统 (WLS)" [ref=e676]:
+        - generic [ref=e677]: 仓储物流系统
+        - generic [ref=e678]: (WLS)
+      - button "直播运营系统 (LOS)" [ref=e679]:
+        - generic [ref=e680]: 直播运营系统
+        - generic [ref=e681]: (LOS)
+      - button "订单管理系统 (OMS)" [ref=e682]:
+        - generic [ref=e683]: 订单管理系统
+        - generic [ref=e684]: (OMS)
+      - button "业财一体化系统 (BFIS)" [ref=e685]:
+        - generic [ref=e686]: 业财一体化系统
+        - generic [ref=e687]: (BFIS)
+      - button "数据决策系统 (DDS)" [ref=e688]:
+        - generic [ref=e689]: 数据决策系统
+        - generic [ref=e690]: (DDS)
+    - generic [ref=e691]:
+      - button "通知" [ref=e692]:
+        - img [ref=e693]
+      - button "管理员" [ref=e697]:
+        - img [ref=e699]
+        - generic [ref=e702]: 管理员
+        - img [ref=e703]
+  - generic [ref=e705]:
+    - complementary [ref=e706]:
+      - generic [ref=e707]:
+        - generic [ref=e708]:
+          - generic [ref=e709]:
+            - heading "商品中心系统" [level=2] [ref=e710]
+            - paragraph [ref=e711]: PCS
+          - button "收起菜单" [ref=e712]:
+            - img [ref=e713]
+        - generic [ref=e718]:
+          - button "商品中心系统" [ref=e719]:
+            - generic [ref=e721]: 商品中心系统
+            - img [ref=e722]
+          - generic [ref=e724]:
+            - button "工作台" [ref=e726]:
+              - img [ref=e728]
+              - generic [ref=e733]: 工作台
+              - img [ref=e734]
+            - button "商品项目管理" [ref=e737]:
+              - img [ref=e739]
+              - generic [ref=e741]: 商品项目管理
+              - img [ref=e742]
+            - button "测款与渠道管理" [ref=e745]:
+              - img [ref=e747]
+              - generic [ref=e749]: 测款与渠道管理
+              - img [ref=e750]
+            - button "样衣资产管理" [ref=e753]:
+              - img [ref=e755]
+              - generic [ref=e757]: 样衣资产管理
+              - img [ref=e758]
+            - button "工程开发与打样管理" [ref=e761]:
+              - img [ref=e763]
+              - generic [ref=e769]: 工程开发与打样管理
+              - img [ref=e770]
+            - button "商品档案" [ref=e773]:
+              - img [ref=e775]
+              - generic [ref=e778]: 商品档案
+              - img [ref=e779]
+            - button "物料档案" [ref=e782]:
+              - img [ref=e784]
+              - generic [ref=e788]: 物料档案
+              - img [ref=e789]
+            - button "系统设置" [ref=e792]:
+              - img [ref=e794]
+              - generic [ref=e797]: 系统设置
+              - img [ref=e798]
+    - main [ref=e800]:
+      - generic [ref=e802]:
+        - generic [ref=e804]:
+          - button "辅料档案" [ref=e805]
+          - button [ref=e806]:
+            - img [ref=e807]
+        - button "全部关闭" [ref=e812]
+      - generic [ref=e815]:
+        - generic [ref=e816]:
+          - generic [ref=e817]:
+            - paragraph [ref=e818]: 物料档案 / 辅料档案 / 编辑
+            - heading "编辑辅料档案" [level=1] [ref=e819]
+            - paragraph [ref=e820]: 修改主档表达、规格信息与适用范围。
+          - generic [ref=e821]:
+            - button "返回详情" [ref=e822]
+            - button "保存草稿" [ref=e823]
+            - button "保存修改" [ref=e824]
+        - generic [ref=e826]:
+          - img [ref=e827]
+          - generic [ref=e830]:
+            - paragraph [ref=e831]: 辅料档案只维护可复用主档信息
+            - paragraph [ref=e832]: 供应商、成本价、含运成本价、库存不再进入商品中心主档；这些信息分别由采购、成本与库存域承接。
+        - generic [ref=e833]:
+          - generic [ref=e834]:
+            - article [ref=e835]:
+              - heading "基础识别" [level=2] [ref=e836]
+              - generic [ref=e837]:
+                - generic [ref=e838]:
+                  - generic [ref=e839]: 档案编码*
+                  - textbox "档案编码*" [ref=e840]:
+                    - /placeholder: ACC-260410-006
+                    - text: ACC-260410-015
+                - generic [ref=e841]:
+                  - generic [ref=e842]: 档案名称*
+                  - textbox "档案名称*" [ref=e843]:
+                    - /placeholder: 请输入辅料名称
+                    - text: 6.5cm*8cm蝴蝶绣品
+                - generic [ref=e844]:
+                  - text: 别名 / 英文名
+                  - textbox "别名 / 英文名" [ref=e845]:
+                    - /placeholder: 可选
+                    - text: Butterfly Embroidery Patch
+                - generic [ref=e846]:
+                  - generic [ref=e847]: 分类*
+                  - combobox "分类*" [ref=e848]:
+                    - option "请选择" [disabled]
+                    - option "花边"
+                    - option "绣片" [selected]
+                    - option "绣章"
+                    - option "立体花饰"
+                    - option "拉链"
+                    - option "纽扣"
+                    - option "织带"
+                - generic [ref=e849]:
+                  - generic [ref=e850]: 主材表达*
+                  - textbox "主材表达*" [ref=e851]:
+                    - /placeholder: 如：100%涤纶 / 提花雪纺
+                    - text: 纱面基底 / 蝴蝶电脑绣
+                - generic [ref=e852]:
+                  - generic [ref=e853]: 关键规格*
+                  - textbox "关键规格*" [ref=e854]:
+                    - /placeholder: 如：145cm / 92g / 无弹
+                    - text: 6.5cm × 8cm / 单片
+            - article [ref=e855]:
+              - heading "规格表达" [level=2] [ref=e856]
+              - generic [ref=e857]:
+                - generic [ref=e858]:
+                  - generic [ref=e859]: 主材 / 表面工艺*
+                  - textbox "主材 / 表面工艺*" [ref=e860]:
+                    - /placeholder: 如：涤纶底布 / 蕾丝刺绣
+                    - text: 纱面基底 / 蝴蝶电脑绣
+                - generic [ref=e861]:
+                  - generic [ref=e862]: 尺寸 / 规格*
+                  - textbox "尺寸 / 规格*" [ref=e863]:
+                    - /placeholder: 如：1.8cm宽 / 软挺适中
+                    - text: 6.5cm × 8cm
+                - generic [ref=e864]:
+                  - text: 使用部位
+                  - textbox "使用部位" [ref=e865]:
+                    - /placeholder: 如：领口、袖口、门襟点缀
+                    - text: 肩部、胸前、裙摆点缀
+                - generic [ref=e866]:
+                  - generic [ref=e867]: 计量单位*
+                  - combobox "计量单位*" [ref=e868]:
+                    - option "请选择" [disabled]
+                    - option "片" [selected]
+                    - option "个"
+                    - option "码"
+                    - option "条"
+            - article [ref=e869]:
+              - heading "适用范围" [level=2] [ref=e870]
+              - generic [ref=e871]:
+                - generic [ref=e872]:
+                  - generic [ref=e873]: 适用范围*
+                  - textbox "适用范围*" [ref=e874]:
+                    - /placeholder: 如：连衣裙、上衣、长裙
+                    - text: 女装上衣、连衣裙、童装
+                - generic [ref=e875]:
+                  - generic [ref=e876]: 适用品类*
+                  - textbox "适用品类*" [ref=e877]:
+                    - /placeholder: 多个值请用中文逗号分隔
+                    - text: 上衣，连衣裙，童装
+                - generic [ref=e878]:
+                  - text: 工艺 / 风格标签
+                  - textbox "工艺 / 风格标签" [ref=e879]:
+                    - /placeholder: 多个值请用中文逗号分隔
+                    - text: 刺绣，蝴蝶元素，局部点缀
+                - generic [ref=e880]:
+                  - text: 图片地址
+                  - textbox "图片地址" [ref=e881]:
+                    - /placeholder: 请输入图片 URL
+                    - text: https://file.higood.id/higood_live/proudcts/2026/04/09/008f0974cad1f3a77b49335900d528e9.jpg
+              - generic [ref=e883]:
+                - generic [ref=e884]: 主档摘要*
+                - textbox "主档摘要*" [ref=e885]:
+                  - /placeholder: 描述主档定位和主要使用方向
+                  - text: 小尺寸蝴蝶绣片，适合甜美和年轻系列的局部装饰。
+              - generic [ref=e887]:
+                - text: 补充备注
+                - textbox "补充备注" [ref=e888]:
+                  - /placeholder: 填写迁移说明、限制条件或引用提示
+                  - text: 旧系统以多个颜色 SKU 记录，迁移后归并到变体。
+          - complementary [ref=e889]:
+            - article [ref=e890]:
+              - heading "治理信息" [level=2] [ref=e891]
+              - generic [ref=e892]:
+                - generic [ref=e893]:
+                  - generic [ref=e894]: 来源*
+                  - combobox "来源*" [ref=e895]:
+                    - option "请选择" [disabled]
+                    - option "自建档案"
+                    - option "旧系统迁移" [selected]
+                    - option "开发沉淀"
+                    - option "样衣沉淀"
+                - generic [ref=e896]:
+                  - generic [ref=e897]: 治理状态*
+                  - combobox "治理状态*" [ref=e898]:
+                    - option "请选择" [disabled]
+                    - option "启用" [selected]
+                    - option "草稿"
+                    - option "停用"
+                - generic [ref=e899]:
+                  - generic [ref=e900]: 治理负责人*
+                  - textbox "治理负责人*" [ref=e901]:
+                    - /placeholder: 输入负责人
+                    - text: 辅料治理组
+            - article [ref=e902]:
+              - heading "图片预览" [level=2] [ref=e903]
+              - img "6.5cm*8cm蝴蝶绣品" [ref=e904]
+              - paragraph [ref=e905]: 用于列表缩略图和详情主图。若暂未准备图片，可先保留占位图。

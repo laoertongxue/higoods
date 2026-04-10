@@ -38,7 +38,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '商品项目管理',
           icon: 'FolderKanban',
           children: [
-            { key: 'pcs-project-list', title: '商品项目列表', icon: 'FolderKanban', href: '/pcs/projects' },
+            { key: 'pcs-project-list', title: '商品项目', icon: 'FolderKanban', href: '/pcs/projects' },
             { key: 'pcs-template', title: '项目模板管理', icon: 'FileText', href: '/pcs/templates' },
             { key: 'pcs-work-items', title: '工作项库', icon: 'CheckSquare', href: '/pcs/work-items' },
           ],
@@ -50,7 +50,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pcs-live-testing', title: '直播场次', icon: 'TestTube', href: '/pcs/testing/live' },
             { key: 'pcs-video-testing', title: '短视频记录', icon: 'TestTube', href: '/pcs/testing/video' },
-            { key: 'pcs-channel-products', title: '渠道商品管理', icon: 'ShoppingCart', href: '/pcs/channels/products' },
             { key: 'pcs-channel-stores', title: '渠道店铺管理', icon: 'Store', href: '/pcs/channels/stores' },
           ],
         },
@@ -69,7 +68,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         },
         {
           key: 'pcs-menu-pattern',
-          title: '制版与生产管理',
+          title: '工程开发与打样管理',
           icon: 'Scissors',
           children: [
             { key: 'pcs-revision-tasks', title: '改版任务', icon: 'FileText', href: '/pcs/patterns/revision' },
@@ -77,8 +76,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pcs-part-template-library', title: '部位模板库', icon: 'Library', href: '/pcs/patterns/part-templates' },
             { key: 'pcs-color-tasks', title: '花型任务', icon: 'Palette', href: '/pcs/patterns/colors' },
             { key: 'pcs-pattern-library', title: '花型库', icon: 'Image', href: '/pcs/pattern-library' },
-            { key: 'pcs-first-sample', title: '首单样衣打样', icon: 'Droplet', href: '/pcs/samples/first-order' },
-            { key: 'pcs-pre-production', title: '产前版样衣', icon: 'CheckSquare', href: '/pcs/production/pre-check' },
+            { key: 'pcs-first-sample', title: '首版样衣打样', icon: 'Droplet', href: '/pcs/samples/first-sample' },
+            { key: 'pcs-pre-production', title: '产前版样衣', icon: 'CheckSquare', href: '/pcs/samples/pre-production' },
           ],
         },
         {
@@ -86,9 +85,22 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '商品档案',
           icon: 'Archive',
           children: [
-            { key: 'pcs-spu-list', title: '商品档案 - SPU', icon: 'Archive', href: '/pcs/products/spu' },
-            { key: 'pcs-sku-list', title: '商品档案 - SKU', icon: 'Package', href: '/pcs/products/sku' },
-            { key: 'pcs-yarn-list', title: '原料档案 - 纱线', icon: 'Layers', href: '/pcs/products/yarn' },
+            { key: 'pcs-style-list', title: '款式档案', icon: 'Archive', href: '/pcs/products/styles' },
+            { key: 'pcs-spec-list', title: '规格档案', icon: 'Package', href: '/pcs/products/specifications' },
+            { key: 'pcs-channel-products', title: '渠道商品', icon: 'ShoppingCart', href: '/pcs/products/channel-products' },
+            { key: 'pcs-code-rules', title: '编码规则', icon: 'FileText', href: '/pcs/products/coding-rules' },
+            { key: 'pcs-channel-attributes', title: '渠道属性对应', icon: 'Map', href: '/pcs/products/channel-attributes' },
+          ],
+        },
+        {
+          key: 'pcs-menu-materials',
+          title: '物料档案',
+          icon: 'Layers',
+          children: [
+            { key: 'pcs-fabric-list', title: '面料档案', icon: 'Layers', href: '/pcs/materials/fabric' },
+            { key: 'pcs-accessory-list', title: '辅料档案', icon: 'Paperclip', href: '/pcs/materials/accessory' },
+            { key: 'pcs-yarn-list', title: '纱线档案', icon: 'CircleDot', href: '/pcs/materials/yarn' },
+            { key: 'pcs-consumable-list', title: '耗材档案', icon: 'Package', href: '/pcs/materials/consumable' },
           ],
         },
         {
@@ -96,6 +108,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '系统设置',
           icon: 'Settings',
           children: [
+            { key: 'pcs-cost-parameters', title: '成本参数', icon: 'Calculator', href: '/pcs/settings/cost-parameters' },
             { key: 'pcs-config-workspace', title: '配置工作台', icon: 'Settings', href: '/pcs/settings/config-workspace' },
             { key: 'pcs-template-center', title: '模板中心', icon: 'FileText', href: '/pcs/settings/template-center' },
             { key: 'pcs-platform-config', title: '平台对接配置', icon: 'Settings', href: '/pcs/settings/platforms' },

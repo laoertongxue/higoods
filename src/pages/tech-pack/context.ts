@@ -1,9 +1,8 @@
-import { appStore } from '../../state/store'
-import { escapeHtml } from '../../utils'
+import { appStore } from '../../state/store.ts'
+import { escapeHtml } from '../../utils.ts'
 import {
-  getOrCreateTechPack,
-  updateTechPack,
   type TechPack,
+  type TechPackSkuLine,
   type TechPackAssignmentGranularity,
   type TechPackColorMappingGeneratedMode,
   type TechPackColorMappingStatus,
@@ -16,7 +15,15 @@ import {
   type TechPackDetailSplitDimension,
   type TechPackSizeRow,
   resolveTechPackProcessEntryRule,
-} from '../../data/fcs/tech-packs'
+  getTechnicalMaintenanceTargetBySpuCode,
+  resolveTechnicalSnapshotBySpuCode,
+} from '../../data/pcs-technical-data-runtime-source.ts'
+import { buildLegacyTechPackFromTechnicalVersion, buildTechnicalContentPatchFromLegacyTechPack } from '../../data/pcs-technical-data-fcs-adapter.ts'
+import { saveTechnicalDataVersionContent } from '../../data/pcs-project-technical-data-writeback.ts'
+import {
+  getTechnicalDataVersionById,
+  getTechnicalDataVersionContent,
+} from '../../data/pcs-technical-data-version-repository.ts'
 import {
   DETAIL_SPLIT_DIMENSION_LABEL,
   DETAIL_SPLIT_MODE_LABEL,
@@ -31,25 +38,27 @@ import {
   listProcessDefinitions,
   listProcessesByStageCode,
   listProcessStages,
-} from '../../data/fcs/process-craft-dict'
-import { productionOrders } from '../../data/fcs/production-orders'
+} from '../../data/fcs/process-craft-dict.ts'
+import { productionOrders } from '../../data/fcs/production-orders.ts'
 
 type TechPackTab =
   | 'pattern'
   | 'bom'
   | 'process'
-  | 'cost'
   | 'color-mapping'
   | 'size'
+  | 'quality'
   | 'design'
   | 'attachments'
+  | 'cost'
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 
-type QualityCheckItem = {
+type QualityRuleRow = {
   id: string
-  name: string
-  required: boolean
-  standard: string
+  checkItem: string
+  standardText: string
+  samplingRule: string
+  note: string
 }
 
 type TechniqueItem = {
@@ -233,17 +242,17 @@ const currentUser = {
 
 const techPackStatusConfig: Record<string, { label: string; className: string }> = {
   MISSING: { label: '缺失', className: 'bg-red-100 text-red-700' },
-  BETA: { label: '测试版', className: 'bg-yellow-100 text-yellow-700' },
+  BETA: { label: '草稿中', className: 'bg-yellow-100 text-yellow-700' },
   RELEASED: { label: '已发布', className: 'bg-green-100 text-green-700' },
 }
 
 const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [
-  { key: 'bom', icon: 'clipboard-list', label: 'BOM' },
-  { key: 'pattern', icon: 'file-text', label: '纸样' },
-  { key: 'color-mapping', icon: 'git-merge', label: '款色-物料-纸样-裁片映射' },
-  { key: 'process', icon: 'scissors', label: '工序' },
-  { key: 'cost', icon: 'dollar-sign', label: '核价' },
-  { key: 'size', icon: 'ruler', label: '尺码表' },
+  { key: 'bom', icon: 'clipboard-list', label: '物料清单' },
+  { key: 'pattern', icon: 'file-text', label: '纸样管理' },
+  { key: 'process', icon: 'scissors', label: '工序工艺' },
+  { key: 'size', icon: 'ruler', label: '放码规则' },
+  { key: 'quality', icon: 'shield-check', label: '质检标准' },
+  { key: 'color-mapping', icon: 'git-merge', label: '款色用料对应' },
   { key: 'design', icon: 'image', label: '花型设计' },
   { key: 'attachments', icon: 'paperclip', label: '附件' },
 ]
@@ -450,7 +459,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     referencePublishedSamValue: 0.6,
     referencePublishedSamUnit: 'MINUTE_PER_PIECE',
     referencePublishedSamUnitLabel: '分钟/件',
-    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术包可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
+    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术资料版本可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
     difficulty: '简单',
     remark: '',
     source: '字典引用',
@@ -477,7 +486,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     referencePublishedSamValue: 1.4,
     referencePublishedSamUnit: 'MINUTE_PER_PIECE',
     referencePublishedSamUnitLabel: '分钟/件',
-    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术包可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
+    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术资料版本可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
@@ -486,13 +495,24 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
 
 interface TechPackPageState {
   currentSpuCode: string | null
+  currentStyleId: string | null
+  currentTechnicalVersionId: string | null
+  currentTechnicalVersionCode: string | null
   loading: boolean
   activeTab: TechPackTab
   techPack: TechPack | null
+  compatibilityMode: boolean
+  compatibilityMessage: string
+  compatibilitySourceKind: 'pcs_published' | 'fcs_legacy' | 'missing' | null
+  compatibilityMaintenancePath: string
+  compatibilityMaintenanceTitle: string
+  compatibilitySourceNote: string
+  compatibilitySourceNoteOpen: boolean
 
   patternItems: PatternItem[]
   bomItems: BomItemRow[]
   techniques: TechniqueItem[]
+  qualityRules: QualityRuleRow[]
   materialCostRows: MaterialCostRow[]
   processCostRows: ProcessCostRow[]
   customCostRows: CustomCostRow[]
@@ -503,6 +523,7 @@ interface TechPackPageState {
   addBomDialogOpen: boolean
   addTechniqueDialogOpen: boolean
   addSizeDialogOpen: boolean
+  addQualityDialogOpen: boolean
   addDesignDialogOpen: boolean
   addAttachmentDialogOpen: boolean
   patternDialogOpen: boolean
@@ -551,6 +572,12 @@ interface TechPackPageState {
     XL: string
     tolerance: string
   }
+  newQualityRule: {
+    checkItem: string
+    standardText: string
+    samplingRule: string
+    note: string
+  }
   newDesignName: string
   newAttachment: {
     fileName: string
@@ -561,13 +588,24 @@ interface TechPackPageState {
 
 const state: TechPackPageState = {
   currentSpuCode: null,
+  currentStyleId: null,
+  currentTechnicalVersionId: null,
+  currentTechnicalVersionCode: null,
   loading: true,
   activeTab: 'pattern',
   techPack: null,
+  compatibilityMode: false,
+  compatibilityMessage: '',
+  compatibilitySourceKind: null,
+  compatibilityMaintenancePath: '',
+  compatibilityMaintenanceTitle: '',
+  compatibilitySourceNote: '',
+  compatibilitySourceNoteOpen: false,
 
   patternItems: [],
   bomItems: [],
   techniques: [],
+  qualityRules: [],
   materialCostRows: [],
   processCostRows: [],
   customCostRows: [],
@@ -578,6 +616,7 @@ const state: TechPackPageState = {
   addBomDialogOpen: false,
   addTechniqueDialogOpen: false,
   addSizeDialogOpen: false,
+  addQualityDialogOpen: false,
   addDesignDialogOpen: false,
   addAttachmentDialogOpen: false,
   patternDialogOpen: false,
@@ -637,12 +676,27 @@ const state: TechPackPageState = {
     XL: '',
     tolerance: '',
   },
+  newQualityRule: {
+    checkItem: '',
+    standardText: '',
+    samplingRule: '',
+    note: '',
+  },
   newDesignName: '',
   newAttachment: {
     fileName: '',
     fileType: 'PDF',
     fileSize: '1.0MB',
   },
+}
+
+type TechPackPageInitSeed = {
+  spuName?: string
+  skuCatalog?: TechPackSkuLine[]
+  activeTab?: TechPackTab
+  styleId?: string
+  technicalVersionId?: string
+  compatibilityMode?: boolean
 }
 
 function toTimestamp(date: Date = new Date()): string {
@@ -654,6 +708,19 @@ function decodeSpuCode(rawSpuCode: string): string {
     return decodeURIComponent(rawSpuCode)
   } catch {
     return rawSpuCode
+  }
+}
+
+function cloneQualityRules(rows: QualityRuleRow[]): QualityRuleRow[] {
+  return rows.map((item) => ({ ...item }))
+}
+
+function resetQualityForm(): void {
+  state.newQualityRule = {
+    checkItem: '',
+    standardText: '',
+    samplingRule: '',
+    note: '',
   }
 }
 
@@ -694,6 +761,115 @@ function cloneTechPack(techPack: TechPack): TechPack {
     attachments: techPack.attachments.map((item) => ({ ...item })),
     missingChecklist: [...techPack.missingChecklist],
   }
+}
+
+function applyTechPackState(
+  techPack: TechPack,
+  options: TechPackPageInitSeed & {
+    currentSpuCode: string
+    styleId: string
+    technicalVersionId: string
+    technicalVersionCode: string
+    qualityRules: QualityRuleRow[]
+  },
+): void {
+  const normalizedSeedSkuCatalog = options.skuCatalog
+    ? normalizeSeedSkuCatalog(options.skuCatalog)
+    : undefined
+  const nextTechPack = cloneTechPack({
+    ...techPack,
+    spuName: options.spuName || techPack.spuName,
+    skuCatalog: normalizedSeedSkuCatalog || techPack.skuCatalog || [],
+  })
+
+  state.currentSpuCode = options.currentSpuCode
+  state.currentStyleId = options.styleId
+  state.currentTechnicalVersionId = options.technicalVersionId
+  state.currentTechnicalVersionCode = options.technicalVersionCode
+  state.techPack = nextTechPack
+  state.activeTab = options.activeTab ?? state.activeTab
+  state.compatibilityMode = Boolean(options.compatibilityMode)
+  state.compatibilityMessage = options.compatibilityMode
+    ? '当前为兼容查看入口，请在商品中心维护技术资料版本。'
+    : ''
+  state.compatibilitySourceKind = options.compatibilityMode ? 'pcs_published' : null
+  state.compatibilityMaintenancePath = options.styleId && options.technicalVersionId
+    ? `/pcs/products/styles/${encodeURIComponent(options.styleId)}/technical-data/${encodeURIComponent(options.technicalVersionId)}`
+    : ''
+  state.compatibilityMaintenanceTitle = options.technicalVersionCode
+    ? `技术资料版本 - ${options.technicalVersionCode}`
+    : ''
+  state.compatibilitySourceNote = options.compatibilityMode
+    ? '当前内容来自商品中心当前生效技术资料版本的兼容只读镜像。'
+    : ''
+  state.compatibilitySourceNoteOpen = false
+
+  state.patternItems = buildPatternItemsFromTechPack(nextTechPack)
+  state.bomItems = buildBomItemsFromTechPack(nextTechPack)
+  state.techniques = buildTechniquesFromTechPack(nextTechPack, state.bomItems)
+  state.qualityRules = cloneQualityRules(options.qualityRules)
+  state.materialCostRows = buildMaterialCostRows(state.bomItems, nextTechPack)
+  state.processCostRows = buildProcessCostRows(state.techniques, nextTechPack)
+  state.customCostRows = buildCustomCostRows(nextTechPack)
+  const loadedMappings = buildColorMaterialMappings(nextTechPack)
+  state.colorMaterialMappings =
+    loadedMappings.length > 0 ? loadedMappings : buildSystemSuggestedColorMappings()
+}
+
+function clearTechPackState(spuCode: string, compatibilityMode = false): void {
+  const maintenanceTarget = compatibilityMode
+    ? getTechnicalMaintenanceTargetBySpuCode(spuCode)
+    : null
+  state.currentSpuCode = spuCode
+  state.currentStyleId = null
+  state.currentTechnicalVersionId = null
+  state.currentTechnicalVersionCode = null
+  state.techPack = null
+  state.patternItems = []
+  state.bomItems = []
+  state.techniques = []
+  state.qualityRules = []
+  state.materialCostRows = []
+  state.processCostRows = []
+  state.customCostRows = []
+  state.colorMaterialMappings = []
+  state.compatibilityMode = compatibilityMode
+  state.compatibilityMessage = compatibilityMode
+    ? '当前为兼容查看入口，请在商品中心维护技术资料版本。'
+    : ''
+  state.compatibilitySourceKind = compatibilityMode ? 'missing' : null
+  state.compatibilityMaintenancePath = maintenanceTarget?.targetPath || ''
+  state.compatibilityMaintenanceTitle = maintenanceTarget?.targetTitle || ''
+  state.compatibilitySourceNote = compatibilityMode
+    ? maintenanceTarget?.message || '当前无可用技术资料。'
+    : ''
+  state.compatibilitySourceNoteOpen = false
+}
+
+function normalizeSeedSkuCatalog(skuCatalog: readonly TechPackSkuLine[]): TechPackSkuLine[] {
+  const deduped = new Map<string, TechPackSkuLine>()
+  for (const item of skuCatalog) {
+    const skuCode = item.skuCode?.trim()
+    if (!skuCode) continue
+    deduped.set(skuCode, {
+      skuCode,
+      color: item.color?.trim() || '未识别颜色',
+      size: item.size?.trim() || '-',
+    })
+  }
+  return Array.from(deduped.values())
+}
+
+function shouldReplaceSkuCatalog(
+  current: TechPackSkuLine[] | undefined,
+  next: TechPackSkuLine[],
+): boolean {
+  if ((current?.length ?? 0) !== next.length) return true
+  if (!current) return true
+  const currentMap = new Map(current.map((item) => [item.skuCode, `${item.color || ''}|${item.size || ''}`]))
+  if (currentMap.size !== next.length) return true
+
+  return next.some((item) => currentMap.get(item.skuCode) !== `${item.color || ''}|${item.size || ''}`)
 }
 
 function mapDifficultyToZh(value: DifficultyLevel): TechniqueItem['difficulty'] {
@@ -1707,26 +1883,19 @@ function getChecklist(): ChecklistItem[] {
   const hasDesignRequirement = state.bomItems.some(
     (item) => item.printRequirement && item.printRequirement !== '无',
   )
-  const mappingConfirmed =
-    state.colorMaterialMappings.length > 0 &&
-    state.colorMaterialMappings.every(
-      (item) =>
-        (item.status === 'CONFIRMED' || item.status === 'AUTO_CONFIRMED') &&
-        item.lines.length > 0,
-    )
 
   return [
-    { key: 'bom', label: 'BOM', required: true, done: state.bomItems.length > 0 },
-    { key: 'pattern', label: '纸样', required: true, done: state.patternItems.length > 0 },
+    { key: 'bom', label: '物料清单', required: true, done: state.bomItems.length > 0 },
+    { key: 'pattern', label: '纸样管理', required: true, done: state.patternItems.length > 0 },
+    { key: 'process', label: '工序工艺', required: true, done: state.techniques.length > 0 },
+    { key: 'size', label: '放码规则', required: true, done: state.techPack.sizeTable.length > 0 },
+    { key: 'quality', label: '质检标准', required: true, done: state.qualityRules.length > 0 },
     {
       key: 'color-mapping',
-      label: '款色-物料-纸样-裁片映射',
+      label: '款色用料对应',
       required: true,
-      done: mappingConfirmed,
+      done: state.colorMaterialMappings.length > 0,
     },
-    { key: 'process', label: '工序', required: true, done: state.techniques.length > 0 },
-    { key: 'cost', label: '核价', required: true, done: true },
-    { key: 'size', label: '尺码表', required: true, done: state.techPack.sizeTable.length > 0 },
     {
       key: 'design',
       label: '花型设计',
@@ -1736,7 +1905,7 @@ function getChecklist(): ChecklistItem[] {
   ]
 }
 
-function syncTechPackToStore(options: { touch: boolean } = { touch: true }): void {
+function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): void {
   if (!state.techPack) return
 
   state.techniques = syncBomDrivenPrepTechniques(state.techniques, state.bomItems)
@@ -1899,7 +2068,12 @@ function syncTechPackToStore(options: { touch: boolean } = { touch: true }): voi
   }
 
   state.techPack = next
-  updateTechPack(next.spuCode, next)
+
+  if (options.persist !== false && state.currentTechnicalVersionId && !state.compatibilityMode) {
+    const patch = buildTechnicalContentPatchFromLegacyTechPack(next)
+    patch.qualityRules = state.qualityRules.map((item) => ({ ...item }))
+    saveTechnicalDataVersionContent(state.currentTechnicalVersionId, patch, currentUser.name)
+  }
 }
 
 function closeAllDialogs(): void {
@@ -1908,6 +2082,7 @@ function closeAllDialogs(): void {
   state.addBomDialogOpen = false
   state.addTechniqueDialogOpen = false
   state.addSizeDialogOpen = false
+  state.addQualityDialogOpen = false
   state.addDesignDialogOpen = false
   state.addAttachmentDialogOpen = false
   state.patternDialogOpen = false
@@ -1978,6 +2153,10 @@ function resetSizeForm(): void {
   }
 }
 
+function resetQualityRuleForm(): void {
+  resetQualityForm()
+}
+
 function resetAttachmentForm(): void {
   state.newAttachment = {
     fileName: '',
@@ -1986,42 +2165,98 @@ function resetAttachmentForm(): void {
   }
 }
 
-function ensureTechPackPageState(rawSpuCode: string): void {
+function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed = {}): void {
   const spuCode = decodeSpuCode(rawSpuCode)
+  const nextActiveTab = seed.activeTab ?? state.activeTab
 
-  if (state.currentSpuCode === spuCode && state.techPack) {
+  if (seed.technicalVersionId && state.currentTechnicalVersionId === seed.technicalVersionId && state.techPack) {
+    state.activeTab = nextActiveTab
+    return
+  }
+
+  if (
+    seed.compatibilityMode &&
+    !seed.technicalVersionId &&
+    state.currentSpuCode === spuCode &&
+    state.compatibilityMode &&
+    state.techPack
+  ) {
+    state.activeTab = nextActiveTab
     return
   }
 
   state.loading = true
 
-  const techPack = cloneTechPack(getOrCreateTechPack(spuCode, spuCode))
-  state.currentSpuCode = spuCode
-  state.techPack = techPack
-  state.activeTab = 'pattern'
+  const compatibilitySnapshot =
+    seed.compatibilityMode && !seed.technicalVersionId
+      ? resolveTechnicalSnapshotBySpuCode(spuCode)
+      : null
+  const technicalVersionId = seed.technicalVersionId || compatibilitySnapshot?.technicalVersionId || ''
+  const styleId = seed.styleId || compatibilitySnapshot?.styleId || ''
 
-  state.patternItems = buildPatternItemsFromTechPack(techPack)
-  state.bomItems = buildBomItemsFromTechPack(techPack)
-  state.techniques = buildTechniquesFromTechPack(techPack, state.bomItems)
-  state.materialCostRows = buildMaterialCostRows(state.bomItems, techPack)
-  state.processCostRows = buildProcessCostRows(state.techniques, techPack)
-  state.customCostRows = buildCustomCostRows(techPack)
-  const loadedMappings = buildColorMaterialMappings(techPack)
-  state.colorMaterialMappings =
-    loadedMappings.length > 0 ? loadedMappings : buildSystemSuggestedColorMappings()
+  if (technicalVersionId) {
+    const record = getTechnicalDataVersionById(technicalVersionId)
+    const content = getTechnicalDataVersionContent(technicalVersionId)
+    if (record && content) {
+      const techPack = buildLegacyTechPackFromTechnicalVersion(record, content)
+      applyTechPackState(techPack, {
+        ...seed,
+        activeTab: nextActiveTab,
+        currentSpuCode: record.styleCode || spuCode,
+        styleId: styleId || record.styleId,
+        technicalVersionId: record.technicalVersionId,
+        technicalVersionCode: record.technicalVersionCode,
+        qualityRules: content.qualityRules.map((item) => ({ ...item })),
+        compatibilityMode: Boolean(seed.compatibilityMode),
+      })
+    } else {
+      clearTechPackState(spuCode, Boolean(seed.compatibilityMode))
+    }
+  } else if (compatibilitySnapshot?.sourceKind === 'fcs_legacy' && compatibilitySnapshot.compatTechPack) {
+    const legacyPack = compatibilitySnapshot.compatTechPack
+    applyTechPackState(legacyPack, {
+      ...seed,
+      activeTab: nextActiveTab,
+      currentSpuCode: legacyPack.spuCode || spuCode,
+      styleId: compatibilitySnapshot.styleId,
+      technicalVersionId: '',
+      technicalVersionCode: '',
+      qualityRules: [],
+      compatibilityMode: true,
+    })
+    state.compatibilitySourceKind = 'fcs_legacy'
+    state.compatibilityMessage = '当前为历史兼容快照，请尽快在商品中心建立正式技术资料版本。'
+    state.compatibilityMaintenancePath = compatibilitySnapshot.maintenanceTarget.targetPath
+    state.compatibilityMaintenanceTitle = compatibilitySnapshot.maintenanceTarget.targetTitle
+    state.compatibilitySourceNote =
+      '当前内容来自历史 FCS 技术资料快照，仅用于兼容查看；正式维护请迁移到商品中心。'
+  } else {
+    clearTechPackState(spuCode, Boolean(seed.compatibilityMode))
+    state.activeTab = nextActiveTab
+    if (compatibilitySnapshot) {
+      state.compatibilitySourceKind = compatibilitySnapshot.sourceKind
+      state.compatibilityMessage = compatibilitySnapshot.maintenanceTarget.message
+      state.compatibilityMaintenancePath = compatibilitySnapshot.maintenanceTarget.targetPath
+      state.compatibilityMaintenanceTitle = compatibilitySnapshot.maintenanceTarget.targetTitle
+      state.compatibilitySourceNote = compatibilitySnapshot.maintenanceTarget.message
+    }
+  }
 
   closeAllDialogs()
   resetPatternForm()
   resetBomForm()
   resetTechniqueForm()
   resetSizeForm()
+  resetQualityRuleForm()
   resetAttachmentForm()
   state.newDesignName = ''
 
   state.selectedPattern = null
 
   state.loading = false
-  syncTechPackToStore({ touch: false })
+  if (state.techPack) {
+    syncTechPackToStore({ touch: false, persist: false })
+  }
 }
 
 function renderStatusBadge(status: string): string {
@@ -2077,6 +2312,10 @@ function renderTabHeader(): string {
   `
 }
 
+function isTechPackReadOnly(): boolean {
+  return state.compatibilityMode
+}
+
 export {
   appStore,
   escapeHtml,
@@ -2105,6 +2344,7 @@ export {
   getTechniqueProcessOptions,
   getTechniqueCraftOptions,
   state,
+  isTechPackReadOnly,
   toTimestamp,
   decodeSpuCode,
   cloneTechPack,
@@ -2160,6 +2400,7 @@ export {
   resetBomForm,
   resetTechniqueForm,
   resetSizeForm,
+  resetQualityRuleForm,
   resetAttachmentForm,
   ensureTechPackPageState,
   renderStatusBadge,
@@ -2170,7 +2411,7 @@ export {
 export type {
   TechPackTab,
   DifficultyLevel,
-  QualityCheckItem,
+  QualityRuleRow,
   TechniqueItem,
   BaselineProcessOption,
   CraftOption,

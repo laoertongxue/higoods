@@ -1,15 +1,25 @@
 export type {
   AttachmentConfig,
-  Capability,
   FieldConfig,
   FieldGroup,
+  WorkItemNature,
   WorkItemTemplateConfig,
-} from './pcs-work-item-configs/types'
-export type { WorkItemType } from './pcs-work-item-configs/mappings'
-export { workItemIdMap } from './pcs-work-item-configs/mappings'
+} from './pcs-work-item-configs/types.ts'
+export type { WorkItemType } from './pcs-work-item-configs/mappings.ts'
+export {
+  getStandardProjectWorkItemIdentityByCode,
+  getStandardProjectWorkItemIdentityById,
+  getStandardProjectWorkItemIdentityByName,
+  listStandardProjectWorkItemIdentities,
+  resolveLegacyProjectWorkItemId,
+  resolveLegacyProjectWorkItemIdentity,
+  resolveLegacyProjectWorkItemTypeCode,
+  workItemIdMap,
+} from './pcs-work-item-configs/mappings.ts'
 export {
   getAllWorkItemTemplates,
   getWorkItemConfig,
   getWorkItemFields,
   getWorkItemTemplateConfig,
-} from './pcs-work-item-configs/core'
+  getSelectableWorkItemTemplates,
+} from './pcs-work-item-configs/core.ts'

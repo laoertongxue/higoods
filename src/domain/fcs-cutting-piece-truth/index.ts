@@ -1,4 +1,4 @@
-import { getTechPackBySpuCode, type TechPack } from '../../data/fcs/tech-packs.ts'
+import { getCompatTechPackBySpuCode as getTechPackBySpuCode, type TechPack } from '../../data/pcs-technical-data-runtime-source.ts'
 import type {
   CuttingCutOrderSkuScopeLine,
   CuttingMaterialLine,
@@ -255,7 +255,7 @@ export interface ProductionPieceTruthCompletionOptions {
 
 const mappingStatusLabelMap: Record<PieceTruthMappingStatus, string> = {
   MATCHED: '已匹配',
-  MISSING_TECH_PACK: '未关联技术包',
+  MISSING_TECH_PACK: '未关联技术资料',
   MISSING_SKU: '未匹配 SKU',
   MISSING_COLOR_MAPPING: '缺少颜色映射',
   MISSING_PIECE_MAPPING: '缺少裁片映射',
@@ -1231,7 +1231,7 @@ export function buildProductionPieceTruth(
   if (techPackLink.status === 'MISSING') {
     pushIssue(mappingIssues, {
       issueType: 'MAPPING_MISSING',
-      message: '当前生产单未关联技术包，无法构建部位定义。',
+      message: '当前生产单未关联技术资料快照，无法构建部位定义。',
       productionOrderId: record.productionOrderId,
       productionOrderNo: record.productionOrderNo,
     })

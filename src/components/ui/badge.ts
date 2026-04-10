@@ -1,7 +1,7 @@
 // ============ 徽章组件 ============
 
-import { escapeHtml } from '../../utils'
-import type { BadgeVariant, BadgeConfig, StatusBadgeMap } from './types'
+import { escapeHtml } from '../../utils.ts'
+import type { BadgeVariant, BadgeConfig, StatusBadgeMap } from './types.ts'
 
 // 徽章变体样式映射
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {

@@ -1,4 +1,5 @@
-import { appStore } from '../../state/store'
+import { appStore } from '../../state/store.ts'
+import { publishTechnicalDataVersion } from '../../data/pcs-project-technical-data-writeback.ts'
 import {
   closeAllDialogs,
   canEditTechnique,
@@ -20,6 +21,7 @@ import {
   resetBomForm,
   resetColorMappingToSystemSuggestion,
   resetPatternForm,
+  resetQualityRuleForm,
   resetSizeForm,
   resetTechniqueForm,
   state,
@@ -31,7 +33,7 @@ import {
   touchMappingAsManual,
   updateColorMapping,
   updateColorMappingLine,
-} from './context'
+} from './context.ts'
 import type {
   BomItemRow,
   TechPackAssignmentGranularity,
@@ -39,7 +41,7 @@ import type {
   TechPackSizeRow,
   TechPackTab,
   TechniqueItem,
-} from './context'
+} from './context.ts'
 
 function getTechniqueById(techId: string): TechniqueItem | null {
   return state.techniques.find((item) => item.id === techId) ?? null
@@ -606,6 +608,23 @@ function handleTechPackField(
     return true
   }
 
+  if (field === 'new-quality-check-item') {
+    state.newQualityRule.checkItem = value
+    return true
+  }
+  if (field === 'new-quality-standard-text') {
+    state.newQualityRule.standardText = value
+    return true
+  }
+  if (field === 'new-quality-sampling-rule') {
+    state.newQualityRule.samplingRule = value
+    return true
+  }
+  if (field === 'new-quality-note') {
+    state.newQualityRule.note = value
+    return true
+  }
+
   if (field === 'new-design-name') {
     state.newDesignName = value
     return true
@@ -628,22 +647,14 @@ function handleTechPackField(
 }
 
 function performRelease(): void {
-  if (!state.techPack) return
-
-  const currentVersionNum =
-    state.techPack.versionLabel === 'beta'
-      ? 0
-      : Number.parseInt(state.techPack.versionLabel.replace('v', '').split('.')[0] || '0', 10) || 0
-
-  state.techPack = {
-    ...state.techPack,
-    status: 'RELEASED',
-    versionLabel: `v${currentVersionNum + 1}.0`,
-    lastUpdatedAt: toTimestamp(),
-    lastUpdatedBy: currentUser.name,
-  }
-
-  syncTechPackToStore({ touch: false })
+  if (!state.currentTechnicalVersionId) return
+  const record = publishTechnicalDataVersion(state.currentTechnicalVersionId, currentUser.name)
+  ensureTechPackPageState(record.technicalVersionId, {
+    styleId: record.styleId,
+    technicalVersionId: record.technicalVersionId,
+    activeTab: state.activeTab,
+    compatibilityMode: state.compatibilityMode,
+  })
   state.releaseDialogOpen = false
 }
 
@@ -654,6 +665,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     fieldNode instanceof HTMLSelectElement ||
     fieldNode instanceof HTMLTextAreaElement
   ) {
+    if (state.compatibilityMode) return true
     return handleTechPackField(fieldNode)
   }
 
@@ -663,6 +675,61 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.techAction
   if (!action) return false
 
+  if (state.compatibilityMode) {
+    if (action === 'switch-tab') {
+      const tab = actionNode.dataset.tab as TechPackTab | undefined
+      if (!tab) return true
+      state.activeTab = tab
+      return true
+    }
+
+    if (action === 'tech-back') {
+      const pathname = appStore.getState().pathname
+      const normalizedPath = pathname.split('?')[0].split('#')[0]
+      const styleMatch = normalizedPath.match(/^\/pcs\/products\/styles\/([^/]+)$/)
+      const technicalVersionMatch = normalizedPath.match(/^\/pcs\/products\/styles\/([^/]+)\/technical-data\/([^/]+)$/)
+
+      if (technicalVersionMatch) {
+        const styleId = decodeURIComponent(technicalVersionMatch[1])
+        appStore.navigate(`/pcs/products/styles/${encodeURIComponent(styleId)}`)
+        return true
+      }
+
+      if (styleMatch) {
+        const styleId = decodeURIComponent(styleMatch[1])
+        appStore.navigate(`/pcs/products/styles/${encodeURIComponent(styleId)}`)
+        return true
+      }
+
+      if (state.currentSpuCode) {
+        appStore.closeTab(`tech-pack-${state.currentSpuCode}`)
+        return true
+      }
+
+      appStore.navigate('/fcs/production/demand-inbox')
+      return true
+    }
+
+    if (action === 'go-maintenance-target') {
+      if (state.compatibilityMaintenancePath) {
+        appStore.navigate(state.compatibilityMaintenancePath)
+      }
+      return true
+    }
+
+    if (action === 'toggle-source-note') {
+      state.compatibilitySourceNoteOpen = !state.compatibilitySourceNoteOpen
+      return true
+    }
+
+    if (action === 'close-dialog') {
+      closeAllDialogs()
+      return true
+    }
+
+    return true
+  }
+
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TechPackTab | undefined
     if (!tab) return true
@@ -671,12 +738,52 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'tech-back') {
+    const pathname = appStore.getState().pathname
+    const normalizedPath = pathname.split('?')[0].split('#')[0]
+    const styleMatch = normalizedPath.match(/^\/pcs\/products\/styles\/([^/]+)$/)
+    const technicalVersionMatch = normalizedPath.match(/^\/pcs\/products\/styles\/([^/]+)\/technical-data\/([^/]+)$/)
+
+    if (technicalVersionMatch) {
+      const styleId = decodeURIComponent(technicalVersionMatch[1])
+      appStore.navigate(`/pcs/products/styles/${encodeURIComponent(styleId)}`)
+      return true
+    }
+
+    if (styleMatch) {
+      const styleId = decodeURIComponent(styleMatch[1])
+      appStore.navigate(`/pcs/products/styles/${encodeURIComponent(styleId)}`)
+      return true
+    }
+
     if (state.currentSpuCode) {
       appStore.closeTab(`tech-pack-${state.currentSpuCode}`)
       return true
     }
 
     appStore.navigate('/fcs/production/demand-inbox')
+    return true
+  }
+
+  if (action === 'close-dialog') {
+    if (state.releaseDialogOpen) {
+      state.releaseDialogOpen = false
+    } else if (state.addPatternDialogOpen) {
+      state.addPatternDialogOpen = false
+    } else if (state.addBomDialogOpen) {
+      state.addBomDialogOpen = false
+    } else if (state.addTechniqueDialogOpen) {
+      state.addTechniqueDialogOpen = false
+    } else if (state.addSizeDialogOpen) {
+      state.addSizeDialogOpen = false
+    } else if (state.addDesignDialogOpen) {
+      state.addDesignDialogOpen = false
+    } else if (state.addAttachmentDialogOpen) {
+      state.addAttachmentDialogOpen = false
+    } else if (state.patternDialogOpen) {
+      state.patternDialogOpen = false
+    } else {
+      return false
+    }
     return true
   }
 
@@ -1161,6 +1268,40 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       sizeTable: state.techPack.sizeTable.filter((row) => row.id !== sizeId),
     }
 
+    syncTechPackToStore()
+    return true
+  }
+
+  if (action === 'open-add-quality') {
+    resetQualityRuleForm()
+    state.addQualityDialogOpen = true
+    return true
+  }
+  if (action === 'close-add-quality') {
+    state.addQualityDialogOpen = false
+    return true
+  }
+  if (action === 'save-quality') {
+    if (!state.newQualityRule.checkItem.trim() || !state.newQualityRule.standardText.trim()) return true
+    state.qualityRules = [
+      ...state.qualityRules,
+      {
+        id: `quality-${Date.now()}`,
+        checkItem: state.newQualityRule.checkItem.trim(),
+        standardText: state.newQualityRule.standardText.trim(),
+        samplingRule: state.newQualityRule.samplingRule.trim(),
+        note: state.newQualityRule.note.trim(),
+      },
+    ]
+    syncTechPackToStore()
+    state.addQualityDialogOpen = false
+    resetQualityRuleForm()
+    return true
+  }
+  if (action === 'delete-quality') {
+    const qualityId = actionNode.dataset.qualityId
+    if (!qualityId) return true
+    state.qualityRules = state.qualityRules.filter((item) => item.id !== qualityId)
     syncTechPackToStore()
     return true
   }

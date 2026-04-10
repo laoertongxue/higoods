@@ -1,7 +1,7 @@
 // ============ 表格组件 ============
 
-import type { TableColumn, TableOptions, ActionConfig } from './types'
-import { toActionAttr, toDataPrefix } from './types'
+import type { TableColumn, TableOptions, ActionConfig } from './types.ts'
+import { toActionAttr, toDataPrefix } from './types.ts'
 
 /**
  * HTML 转义
