@@ -8,7 +8,7 @@ import {
 } from './context.ts'
 
 export function renderCostTab(): string {
-  const readonly = state.compatibilityMode
+  const readonly = false
   const materialTotal = state.materialCostRows.reduce(
     (sum, row) => sum + row.usage * (Number.parseFloat(row.price) || 0),
     0,
@@ -26,7 +26,7 @@ export function renderCostTab(): string {
   return `
     <div class="space-y-6">
       <section class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        当前为成本兼容展示，不属于技术资料版本正式范围，不参与完成度计算与发布校验。
+        成本信息仅用于内部测算，不参与完成度计算与发布校验。
       </section>
 
       <section class="rounded-lg border bg-card">

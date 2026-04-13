@@ -1,10 +1,15 @@
 import { getVideoItems, listLegacyTestingProjectReferences } from './pcs-testing.ts'
-import { listLiveProductLinesBySession, listLiveSessionRecords } from './pcs-live-testing-repository.ts'
-import { listVideoTestRecords } from './pcs-video-testing-repository.ts'
+import {
+  getLiveProductLineById,
+  listLiveProductLinesBySession,
+  listLiveSessionRecords,
+} from './pcs-live-testing-repository.ts'
+import { getVideoTestRecordById, listVideoTestRecords } from './pcs-video-testing-repository.ts'
+import { createProjectChannelProductRelationBootstrapSnapshot } from './pcs-channel-product-project-repository.ts'
 import type { ProjectRelationPendingItem, ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import {
-  buildLiveProductLineProjectRelation,
-  buildVideoRecordProjectRelation,
+  buildHistoricalLiveProductLineProjectRelation,
+  buildHistoricalVideoRecordProjectRelation,
   normalizeLegacyLiveSessionHeaderRelation,
 } from './pcs-testing-relation-normalizer.ts'
 
@@ -14,13 +19,14 @@ export interface TestingRelationBootstrapSnapshot {
 }
 
 export function createTestingRelationBootstrapSnapshot(): TestingRelationBootstrapSnapshot {
-  const relations: ProjectRelationRecord[] = []
+  const channelSnapshot = createProjectChannelProductRelationBootstrapSnapshot()
+  const relations: ProjectRelationRecord[] = [...channelSnapshot.relations]
   const pendingItems: ProjectRelationPendingItem[] = []
 
   listLiveSessionRecords().forEach((session) => {
     listLiveProductLinesBySession(session.liveSessionId).forEach((line) => {
       if (!line.legacyProjectRef && !line.legacyProjectId) return
-      const result = buildLiveProductLineProjectRelation(line, line.legacyProjectId || line.legacyProjectRef || '', {
+      const result = buildHistoricalLiveProductLineProjectRelation(line, line.legacyProjectId || line.legacyProjectRef || '', {
         operatorName: '系统初始化',
         note: '',
         legacyRefType: 'liveLine.projectRef',
@@ -42,7 +48,7 @@ export function createTestingRelationBootstrapSnapshot(): TestingRelationBootstr
 
     const fallbackRefs = legacyRefs.length > 0 ? legacyRefs : [record.legacyProjectId || record.legacyProjectRef || ''].filter(Boolean)
     fallbackRefs.forEach((projectRef) => {
-      const result = buildVideoRecordProjectRelation(record, projectRef, {
+      const result = buildHistoricalVideoRecordProjectRelation(record, projectRef, {
         operatorName: '系统初始化',
         legacyRefType: 'videoRecord.projectRef',
         legacyRefValue: projectRef,
@@ -62,9 +68,40 @@ export function createTestingRelationBootstrapSnapshot(): TestingRelationBootstr
         productLines: listLiveProductLinesBySession(session.liveSessionId),
         rawProjectCode: legacy.projectRef,
         operatorName: '系统初始化',
+        skipTestingGate: true,
       })
       relations.push(...result.relations)
       pendingItems.push(...result.pendingItems)
+    }
+  })
+
+  channelSnapshot.records.forEach((record) => {
+    if (record.linkedLiveLineId) {
+      const liveLine = getLiveProductLineById(record.linkedLiveLineId)
+      if (liveLine) {
+        const result = buildHistoricalLiveProductLineProjectRelation(liveLine, record.projectId, {
+          operatorName: '系统初始化',
+          note: '历史渠道商品已挂接直播测款记录，已回放正式直播关系。',
+          legacyRefType: 'channelProduct.linkedLiveLineId',
+          legacyRefValue: record.linkedLiveLineId,
+        })
+        if (result.relation) relations.push(result.relation)
+        if (result.pendingItem) pendingItems.push(result.pendingItem)
+      }
+    }
+
+    if (record.linkedVideoRecordId) {
+      const videoRecord = getVideoTestRecordById(record.linkedVideoRecordId)
+      if (videoRecord) {
+        const result = buildHistoricalVideoRecordProjectRelation(videoRecord, record.projectId, {
+          operatorName: '系统初始化',
+          note: '历史渠道商品已挂接短视频测款记录，已回放正式短视频关系。',
+          legacyRefType: 'channelProduct.linkedVideoRecordId',
+          legacyRefValue: record.linkedVideoRecordId,
+        })
+        if (result.relation) relations.push(result.relation)
+        if (result.pendingItem) pendingItems.push(result.pendingItem)
+      }
     }
   })
 

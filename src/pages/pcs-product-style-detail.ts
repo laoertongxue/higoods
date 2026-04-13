@@ -1,12 +1,18 @@
 import { appStore } from '../state/store.ts'
 import { escapeHtml } from '../utils.ts'
 import { buildProjectArchiveSummaryByProject } from '../data/pcs-project-archive-view-model.ts'
-import {
-  createTechnicalDataVersionFromStyle,
-  publishTechnicalDataVersion,
-} from '../data/pcs-project-technical-data-writeback.ts'
 import { buildStyleArchiveDetailViewModel, getStyleArchiveStatusLabel } from '../data/pcs-style-archive-view-model.ts'
 import { buildTechnicalVersionListByStyle } from '../data/pcs-technical-data-version-view-model.ts'
+import { getTechnicalDataVersionById } from '../data/pcs-technical-data-version-repository.ts'
+import { activateTechPackVersionForStyle } from '../data/pcs-tech-pack-version-activation.ts'
+import {
+  buildProjectChannelProductChainSummary,
+  findProjectChannelProductByStyleId,
+} from '../data/pcs-channel-product-project-repository.ts'
+import {
+  buildTechPackVersionSourceTaskSummary,
+  getCurrentDraftTechPackVersionByStyleId,
+} from '../data/pcs-tech-pack-task-generation.ts'
 import { listSpecificationRecordsByStyleId } from './pcs-product-sku.ts'
 
 type StyleDetailTab = 'base' | 'specifications' | 'technical' | 'cost'
@@ -38,7 +44,7 @@ function ensureState(styleId: string, initialTab?: StyleDetailTab): void {
 
 function renderStatusBadge(label: string): string {
   const className =
-    label === '启用中'
+    label === '可生产'
       ? 'border-green-200 bg-green-50 text-green-700'
       : label === '已归档'
         ? 'border-slate-200 bg-slate-100 text-slate-700'
@@ -50,7 +56,7 @@ function renderTabNav(): string {
   const tabs: Array<{ key: StyleDetailTab; label: string }> = [
     { key: 'base', label: '基础资料' },
     { key: 'specifications', label: '规格清单' },
-    { key: 'technical', label: '技术资料' },
+    { key: 'technical', label: '技术包' },
     { key: 'cost', label: '成本核价' },
   ]
   return `
@@ -89,11 +95,30 @@ function renderEmptyPanel(title: string, description: string): string {
   `
 }
 
+function getCurrentDraftText(styleId: string): string {
+  try {
+    const currentDraft = getCurrentDraftTechPackVersionByStyleId(styleId)
+    return currentDraft
+      ? `${currentDraft.technicalVersionCode} / ${currentDraft.versionLabel}`
+      : '当前无草稿技术包版本'
+  } catch (error) {
+    return error instanceof Error ? error.message : '当前技术包草稿状态异常'
+  }
+}
+
+function getSourceTaskText(technicalVersionId: string): string {
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  if (!record) return '暂无来源任务'
+  return buildTechPackVersionSourceTaskSummary(record).taskChainText
+}
+
 function renderBaseTab(styleId: string): string {
   const detail = buildStyleArchiveDetailViewModel(styleId)
   if (!detail) return ''
   const { style } = detail
   const archiveSummary = style.sourceProjectId ? buildProjectArchiveSummaryByProject(style.sourceProjectId) : null
+  const linkedChannelProduct = findProjectChannelProductByStyleId(styleId)
+  const channelChain = style.sourceProjectId ? buildProjectChannelProductChainSummary(style.sourceProjectId) : null
   return `
     <section class="grid gap-4 xl:grid-cols-3">
       <article class="rounded-lg border bg-white p-4">
@@ -124,11 +149,14 @@ function renderBaseTab(styleId: string): string {
           <div class="flex justify-between gap-4"><span class="text-gray-500">档案状态</span><span>${escapeHtml(getStyleArchiveStatusLabel(style.archiveStatus))}</span></div>
           <div class="flex justify-between gap-4"><span class="text-gray-500">基础资料状态</span><span>${escapeHtml(style.baseInfoStatus)}</span></div>
           <div class="flex justify-between gap-4"><span class="text-gray-500">规格清单状态</span><span>${escapeHtml(style.specificationStatus)}</span></div>
-          <div class="flex justify-between gap-4"><span class="text-gray-500">技术资料状态</span><span>${escapeHtml(style.technicalDataStatus)}</span></div>
+          <div class="flex justify-between gap-4"><span class="text-gray-500">技术包状态</span><span>${escapeHtml(style.techPackStatus)}</span></div>
           <div class="flex justify-between gap-4"><span class="text-gray-500">成本核价状态</span><span>${escapeHtml(style.costPricingStatus)}</span></div>
           <div class="flex justify-between gap-4"><span class="text-gray-500">来源商品项目</span><span>${escapeHtml(detail.sourceProjectText)}</span></div>
           <div class="flex justify-between gap-4"><span class="text-gray-500">生成时间</span><span>${escapeHtml(style.generatedAt)}</span></div>
           <div class="flex justify-between gap-4"><span class="text-gray-500">项目资料归档</span><span>${escapeHtml(archiveSummary ? `${archiveSummary.archiveNo} / ${archiveSummary.archiveStatusLabel}` : '尚未建立')}</span></div>
+        </div>
+        <div class="mt-4 rounded-lg border border-orange-100 bg-orange-50 p-3 text-sm text-orange-700">
+          未启用技术包版本前，款式档案状态保持为技术包待完善；启用后才会切换为可生产。
         </div>
         ${
           archiveSummary && style.sourceProjectId
@@ -141,6 +169,38 @@ function renderBaseTab(styleId: string): string {
             `
             : ''
         }
+      </article>
+      <article class="rounded-lg border bg-white p-4 xl:col-span-3">
+        <h3 class="text-base font-semibold">三码关联与上游更新</h3>
+        <div class="mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
+          <div class="rounded-lg border bg-gray-50 p-3">
+            <p class="text-xs text-gray-500">款式档案编码</p>
+            <p class="mt-1 font-medium">${escapeHtml(style.styleCode)}</p>
+          </div>
+          <div class="rounded-lg border bg-gray-50 p-3">
+            <p class="text-xs text-gray-500">渠道商品编码</p>
+            <p class="mt-1 font-medium">${escapeHtml(linkedChannelProduct?.channelProductCode || '尚未建立')}</p>
+          </div>
+          <div class="rounded-lg border bg-gray-50 p-3">
+            <p class="text-xs text-gray-500">上游渠道商品编码</p>
+            <p class="mt-1 font-medium">${escapeHtml(linkedChannelProduct?.upstreamChannelProductCode || '尚未回填')}</p>
+          </div>
+          <div class="rounded-lg border bg-gray-50 p-3">
+            <p class="text-xs text-gray-500">渠道商品状态</p>
+            <p class="mt-1 font-medium">${escapeHtml(linkedChannelProduct?.channelProductStatus || '暂无渠道商品')}</p>
+          </div>
+          <div class="rounded-lg border bg-gray-50 p-3">
+            <p class="text-xs text-gray-500">上游更新状态</p>
+            <p class="mt-1 font-medium">${escapeHtml(linkedChannelProduct?.upstreamSyncStatus || '无需更新')}</p>
+          </div>
+          <div class="rounded-lg border bg-gray-50 p-3">
+            <p class="text-xs text-gray-500">最后一次上游更新时间</p>
+            <p class="mt-1 font-medium">${escapeHtml(linkedChannelProduct?.lastUpstreamSyncAt || '暂无')}</p>
+          </div>
+        </div>
+        <div class="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">
+          ${escapeHtml(channelChain?.summaryText || '当前款式档案尚未关联正式渠道商品链路。')}
+        </div>
       </article>
     </section>
   `
@@ -164,7 +224,7 @@ function renderSpecificationsTab(styleId: string): string {
               <th class="px-3 py-2 font-medium">规格编号</th>
               <th class="px-3 py-2 font-medium">颜色</th>
               <th class="px-3 py-2 font-medium">尺码</th>
-              <th class="px-3 py-2 font-medium">技术资料版本</th>
+              <th class="px-3 py-2 font-medium">技术包版本</th>
             </tr>
           </thead>
           <tbody class="divide-y">
@@ -192,34 +252,44 @@ function renderTechnicalTab(styleId: string): string {
   if (!detail) return ''
   const versions = buildTechnicalVersionListByStyle(styleId)
   if (versions.length === 0) {
-    return `
-      <div class="space-y-4">
-        ${renderEmptyPanel('暂无技术资料版本', '可从当前款式建立第一版技术资料')}
-        <section class="rounded-lg border bg-white p-4">
-          <div class="flex items-center justify-end">
-            <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-style-detail-action="create-technical-version">
-              新建技术资料版本
-            </button>
-          </div>
-        </section>
-      </div>
-    `
+    return renderEmptyPanel('暂无技术包版本', '请从改版任务、制版任务或花型任务生成技术包版本')
   }
 
   return `
     <section class="rounded-lg border bg-white p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 class="text-base font-semibold">技术资料版本</h3>
+          <h3 class="text-base font-semibold">技术包版本</h3>
           <p class="mt-1 text-sm text-gray-500">
-            当前已建立 ${detail.style.technicalVersionCount} 个正式版本，当前生效版本：${escapeHtml(
-              detail.style.effectiveTechnicalVersionCode || detail.style.effectiveTechnicalVersionLabel || '暂无生效版本',
+            当前已建立 ${detail.style.techPackVersionCount} 个技术包版本，当前草稿状态：${escapeHtml(
+              getCurrentDraftText(styleId),
+            )}，当前生效技术包版本：${escapeHtml(
+              detail.style.currentTechPackVersionCode || detail.style.currentTechPackVersionLabel || '暂无当前生效版本',
             )}
           </p>
         </div>
-        <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-style-detail-action="create-technical-version">
-          新建技术资料版本
-        </button>
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <article class="rounded-lg border bg-gray-50 p-3">
+          <p class="text-xs text-gray-500">当前生效版本编号</p>
+          <p class="mt-1 text-sm font-medium">${escapeHtml(detail.style.currentTechPackVersionCode || '暂无当前生效版本')}</p>
+        </article>
+        <article class="rounded-lg border bg-gray-50 p-3">
+          <p class="text-xs text-gray-500">当前生效版本标签</p>
+          <p class="mt-1 text-sm font-medium">${escapeHtml(detail.style.currentTechPackVersionLabel || '暂无当前生效版本')}</p>
+        </article>
+        <article class="rounded-lg border bg-gray-50 p-3">
+          <p class="text-xs text-gray-500">当前生效版本状态</p>
+          <p class="mt-1 text-sm font-medium">${escapeHtml(detail.style.currentTechPackVersionStatus || '未启用')}</p>
+        </article>
+        <article class="rounded-lg border bg-gray-50 p-3">
+          <p class="text-xs text-gray-500">启用时间</p>
+          <p class="mt-1 text-sm font-medium">${escapeHtml(detail.style.currentTechPackVersionActivatedAt || '暂无启用时间')}</p>
+        </article>
+        <article class="rounded-lg border bg-gray-50 p-3">
+          <p class="text-xs text-gray-500">启用人</p>
+          <p class="mt-1 text-sm font-medium">${escapeHtml(detail.style.currentTechPackVersionActivatedBy || '暂无启用人')}</p>
+        </article>
       </div>
       <div class="mt-4 overflow-x-auto">
         <table class="min-w-full text-sm">
@@ -228,11 +298,10 @@ function renderTechnicalTab(styleId: string): string {
               <th class="px-3 py-2 font-medium">版本编号</th>
               <th class="px-3 py-2 font-medium">版本标签</th>
               <th class="px-3 py-2 font-medium">版本状态</th>
-              <th class="px-3 py-2 font-medium">当前生效</th>
-              <th class="px-3 py-2 font-medium">完成度</th>
-              <th class="px-3 py-2 font-medium">来源项目</th>
+              <th class="px-3 py-2 font-medium">是否当前生效</th>
+              <th class="px-3 py-2 font-medium">来源任务链</th>
               <th class="px-3 py-2 font-medium">创建时间</th>
-              <th class="px-3 py-2 font-medium">更新时间</th>
+              <th class="px-3 py-2 font-medium">发布时间</th>
               <th class="px-3 py-2 text-right font-medium">操作</th>
             </tr>
           </thead>
@@ -244,18 +313,17 @@ function renderTechnicalTab(styleId: string): string {
                     <td class="px-3 py-3 font-medium">${escapeHtml(item.technicalVersionCode)}</td>
                     <td class="px-3 py-3">${escapeHtml(item.versionLabel)}</td>
                     <td class="px-3 py-3">${escapeHtml(item.versionStatusLabel)}</td>
-                    <td class="px-3 py-3">${item.effectiveFlag ? '<span class="inline-flex rounded-full border border-green-200 bg-green-50 px-2 py-1 text-xs text-green-700">当前生效</span>' : '<span class="text-gray-400">—</span>'}</td>
-                    <td class="px-3 py-3">${item.completenessScore} 分${item.missingItemNames.length > 0 ? ` / 缺失：${escapeHtml(item.missingItemNames.join('、'))}` : ''}</td>
-                    <td class="px-3 py-3">${escapeHtml(item.sourceProjectText)}</td>
+                    <td class="px-3 py-3">${item.isCurrentTechPackVersion ? '<span class="inline-flex rounded-full border border-green-200 bg-green-50 px-2 py-1 text-xs text-green-700">当前生效</span>' : '<span class="text-gray-400">否</span>'}</td>
+                    <td class="px-3 py-3">${escapeHtml(item.sourceTaskText || getSourceTaskText(item.technicalVersionId))}</td>
                     <td class="px-3 py-3">${escapeHtml(item.createdAt)}</td>
-                    <td class="px-3 py-3">${escapeHtml(item.updatedAt)}</td>
+                    <td class="px-3 py-3">${escapeHtml(item.publishedAt || '未发布')}</td>
                     <td class="px-3 py-3 text-right">
                       <div class="flex justify-end gap-2">
                         <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-gray-50" data-style-detail-action="view-technical-version" data-technical-version-id="${escapeHtml(item.technicalVersionId)}">查看版本</button>
-                        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-gray-50" data-style-detail-action="copy-technical-version" data-technical-version-id="${escapeHtml(item.technicalVersionId)}">复制为新版本</button>
+                        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-gray-50" data-style-detail-action="view-source-task" data-technical-version-id="${escapeHtml(item.technicalVersionId)}">查看来源任务</button>
                         ${
-                          item.canPublish
-                            ? `<button class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs text-white hover:bg-blue-700" data-style-detail-action="publish-technical-version" data-technical-version-id="${escapeHtml(item.technicalVersionId)}">发布为当前生效版本</button>`
+                          item.canActivate
+                            ? `<button class="inline-flex h-8 items-center rounded-md border border-green-300 px-3 text-xs text-green-700 hover:bg-green-50" data-style-detail-action="activate-tech-pack-version" data-technical-version-id="${escapeHtml(item.technicalVersionId)}">启用为当前生效版本</button>`
                             : ''
                         }
                       </div>
@@ -354,43 +422,6 @@ export function handleProductStyleDetailEvent(target: Element): boolean {
     state.notice = ''
     return true
   }
-  if (action === 'create-technical-version') {
-    if (!state.styleId) return true
-    try {
-      const result = createTechnicalDataVersionFromStyle(state.styleId, '商品中心')
-      appStore.navigate(
-        `/pcs/products/styles/${encodeURIComponent(state.styleId)}/technical-data/${encodeURIComponent(result.record.technicalVersionId)}`,
-      )
-    } catch (error) {
-      state.notice = error instanceof Error ? error.message : '建立技术资料版本失败。'
-    }
-    return true
-  }
-  if (action === 'copy-technical-version') {
-    if (!state.styleId) return true
-    try {
-      const result = createTechnicalDataVersionFromStyle(state.styleId, '商品中心', {
-        copyFromVersionId: actionNode.dataset.technicalVersionId || '',
-      })
-      appStore.navigate(
-        `/pcs/products/styles/${encodeURIComponent(state.styleId)}/technical-data/${encodeURIComponent(result.record.technicalVersionId)}`,
-      )
-    } catch (error) {
-      state.notice = error instanceof Error ? error.message : '复制技术资料版本失败。'
-    }
-    return true
-  }
-  if (action === 'publish-technical-version') {
-    const technicalVersionId = actionNode.dataset.technicalVersionId
-    if (!technicalVersionId) return true
-    try {
-      const record = publishTechnicalDataVersion(technicalVersionId, '商品中心')
-      state.notice = `已发布技术资料版本：${record.technicalVersionCode}。`
-    } catch (error) {
-      state.notice = error instanceof Error ? error.message : '发布技术资料版本失败。'
-    }
-    return true
-  }
   if (action === 'view-technical-version') {
     if (!state.styleId) return true
     const technicalVersionId = actionNode.dataset.technicalVersionId
@@ -398,6 +429,25 @@ export function handleProductStyleDetailEvent(target: Element): boolean {
     appStore.navigate(
       `/pcs/products/styles/${encodeURIComponent(state.styleId)}/technical-data/${encodeURIComponent(technicalVersionId)}`,
     )
+    return true
+  }
+  if (action === 'view-source-task') {
+    const technicalVersionId = actionNode.dataset.technicalVersionId
+    if (!technicalVersionId) return true
+    const record = getTechnicalDataVersionById(technicalVersionId)
+    if (!record) {
+      state.notice = '未找到来源任务'
+      return true
+    }
+    const summary = buildTechPackVersionSourceTaskSummary(record)
+    state.notice = `首次来源：${summary.createdFromTaskText}；来源任务链：${summary.taskChainText}`
+    return true
+  }
+  if (action === 'activate-tech-pack-version') {
+    const technicalVersionId = actionNode.dataset.technicalVersionId
+    if (!state.styleId || !technicalVersionId) return true
+    const result = activateTechPackVersionForStyle(state.styleId, technicalVersionId, '当前用户')
+    state.notice = `已启用技术包版本：${result.record.technicalVersionCode} / ${result.record.versionLabel}`
     return true
   }
   if (action === 'go-project-archive') {

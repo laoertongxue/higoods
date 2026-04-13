@@ -96,7 +96,7 @@ export function createTechnicalDataVersionBootstrapSnapshot(
     const style = styleByCode.get(techPack.spuCode)
     if (!style) {
       pendingItems.push(
-        buildPendingItem(techPack, '历史技术资料未匹配到正式款式档案，仅保留待补齐记录。'),
+        buildPendingItem(techPack, '历史技术包未匹配到正式款式档案，仅保留待补齐记录。'),
       )
       return
     }
@@ -118,12 +118,17 @@ export function createTechnicalDataVersionBootstrapSnapshot(
       sourceProjectCode: style.sourceProjectCode || '',
       sourceProjectName: style.sourceProjectName || '',
       sourceProjectNodeId: '',
+      linkedRevisionTaskIds: [],
       linkedPatternTaskIds: [],
       linkedArtworkTaskIds: [],
+      createdFromTaskType: 'REVISION',
+      createdFromTaskId: '',
+      createdFromTaskCode: '',
+      baseTechnicalVersionId: '',
+      baseTechnicalVersionCode: '',
       linkedPartTemplateIds: [],
       linkedPatternLibraryVersionIds: [],
       versionStatus,
-      effectiveFlag: versionStatus === 'PUBLISHED',
       bomStatus: 'EMPTY',
       patternStatus: 'EMPTY',
       processStatus: 'EMPTY',

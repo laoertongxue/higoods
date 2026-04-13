@@ -1,4 +1,5 @@
-import { getCompatTechPackBySpuCode as getTechPackBySpuCode, type TechPack } from '../../data/pcs-technical-data-runtime-source.ts'
+import { getProductionOrderCompatTechPack } from '../../data/fcs/production-order-tech-pack-runtime.ts'
+import type { TechPack } from '../../data/fcs/tech-packs.ts'
 import type {
   CuttingCutOrderSkuScopeLine,
   CuttingMaterialLine,
@@ -459,29 +460,21 @@ function pushIssue(
 }
 
 export function resolveTechPackForProduction(
-  record: Pick<CuttingOrderProgressRecord, 'techPackSpuCode' | 'spuCode'>,
+  record: Pick<CuttingOrderProgressRecord, 'productionOrderId' | 'techPackSpuCode' | 'spuCode'>,
 ): ProductionResolvedTechPackLink {
-  const candidates: Array<{ value: string; sourceKey: ProductionResolvedTechPackLink['sourceKey'] }> = [
-    { value: normalizeText(record.techPackSpuCode), sourceKey: 'record-tech-pack' },
-    { value: normalizeText(record.spuCode), sourceKey: 'record-spu' },
-  ]
-
-  for (const candidate of candidates) {
-    if (!candidate.value) continue
-    const techPack = getTechPackBySpuCode(candidate.value)
-    if (techPack) {
-      return {
-        status: 'MATCHED',
-        resolvedSpuCode: candidate.value,
-        sourceKey: candidate.sourceKey,
-        techPack,
-      }
+  const techPack = getProductionOrderCompatTechPack(record.productionOrderId)
+  if (techPack) {
+    return {
+      status: 'MATCHED',
+      resolvedSpuCode: normalizeText(record.techPackSpuCode) || normalizeText(record.spuCode) || techPack.spuCode,
+      sourceKey: normalizeText(record.techPackSpuCode) ? 'record-tech-pack' : 'record-spu',
+      techPack,
     }
   }
 
   return {
     status: 'MISSING',
-    resolvedSpuCode: candidates.find((candidate) => candidate.value)?.value || '',
+    resolvedSpuCode: normalizeText(record.techPackSpuCode) || normalizeText(record.spuCode),
     sourceKey: 'missing',
     techPack: null,
   }

@@ -1,6 +1,6 @@
 import type { MaterialPrepRow } from './material-prep-model'
 import type { MergeBatchRecord } from './merge-batches-model'
-import { getCompatTechPackBySpuCode as getTechPackBySpuCode } from '../../../data/pcs-technical-data-runtime-source.ts'
+import { getProductionOrderCompatTechPack } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -1554,7 +1554,9 @@ function defaultSizeDistribution(rowCount: number): MarkerSizeDistributionItem[]
 
 function buildTechPackSeedSizeDistribution(context: MarkerSpreadingContext): MarkerSizeDistributionItem[] | null {
   if (context.contextType !== 'original-order' || context.materialPrepRows.length !== 1 || !context.techPackSpuCode) return null
-  const techPack = getTechPackBySpuCode(context.techPackSpuCode)
+  const techPack = context.materialPrepRows[0]?.productionOrderId
+    ? getProductionOrderCompatTechPack(context.materialPrepRows[0].productionOrderId)
+    : null
   if (!techPack?.skuCatalog?.length) return null
   const targetColor = String(context.materialPrepRows[0].color || '').trim().toLowerCase()
   const matchedSizes = techPack.skuCatalog

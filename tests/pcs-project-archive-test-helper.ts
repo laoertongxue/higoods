@@ -17,23 +17,28 @@ import {
 } from '../src/data/pcs-project-archive-repository.ts'
 import { generateStyleArchiveShellFromProject } from '../src/data/pcs-project-style-archive-writeback.ts'
 import {
-  createTechnicalDataVersionFromProject,
+  generateTechPackVersionFromPlateTask,
   publishTechnicalDataVersion,
   saveTechnicalDataVersionContent,
 } from '../src/data/pcs-project-technical-data-writeback.ts'
+import { activateTechPackVersionForStyle } from '../src/data/pcs-tech-pack-version-activation.ts'
 import { recordSampleLedgerEvent } from '../src/data/pcs-sample-project-writeback.ts'
 import { resetSampleAssetRepository } from '../src/data/pcs-sample-asset-repository.ts'
 import { resetSampleLedgerRepository } from '../src/data/pcs-sample-ledger-repository.ts'
 import { resetRevisionTaskRepository } from '../src/data/pcs-revision-task-repository.ts'
-import { resetPlateMakingTaskRepository } from '../src/data/pcs-plate-making-repository.ts'
+import { createPlateMakingTaskWithProjectRelation, createRevisionTaskWithProjectRelation, createFirstSampleTaskWithProjectRelation } from '../src/data/pcs-task-project-relation-writeback.ts'
+import { getPlateMakingTaskById, resetPlateMakingTaskRepository, updatePlateMakingTask } from '../src/data/pcs-plate-making-repository.ts'
 import { resetPatternTaskRepository } from '../src/data/pcs-pattern-task-repository.ts'
 import { resetFirstSampleTaskRepository } from '../src/data/pcs-first-sample-repository.ts'
 import { resetPreProductionSampleTaskRepository } from '../src/data/pcs-pre-production-sample-repository.ts'
-import { createRevisionTaskWithProjectRelation, createFirstSampleTaskWithProjectRelation } from '../src/data/pcs-task-project-relation-writeback.ts'
 import {
   createProjectArchive,
   uploadProjectArchiveManualDocument,
 } from '../src/data/pcs-project-archive-sync.ts'
+import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
+import { resetLiveTestingRepository } from '../src/data/pcs-live-testing-repository.ts'
+import { resetVideoTestingRepository } from '../src/data/pcs-video-testing-repository.ts'
+import { completeFormalTestingPassForProject } from './pcs-project-formal-chain-helper.ts'
 
 export interface ArchiveTestContext {
   projectId: string
@@ -66,6 +71,9 @@ export function resetArchiveScenarioRepositories(): void {
   resetPatternTaskRepository()
   resetFirstSampleTaskRepository()
   resetPreProductionSampleTaskRepository()
+  resetProjectChannelProductRepository()
+  resetLiveTestingRepository()
+  resetVideoTestingRepository()
 }
 
 export function createArchiveTestProject(suffix: string): ArchiveTestContext {
@@ -77,6 +85,11 @@ export function createArchiveTestProject(suffix: string): ArchiveTestContext {
         getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'PROJECT_TRANSFER_PREP') &&
         getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'SAMPLE_INBOUND_CHECK') &&
         getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'TEST_CONCLUSION') &&
+        getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'CHANNEL_PRODUCT_LISTING') &&
+        getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'LIVE_TEST') &&
+        getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'SAMPLE_CONFIRM') &&
+        getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'SAMPLE_COST_REVIEW') &&
+        getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'SAMPLE_PRICING') &&
         getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'FIRST_SAMPLE'),
     ) ?? null
   assert.ok(baseProject, '应存在可用于项目资料归档测试的基础项目')
@@ -103,11 +116,11 @@ export function createArchiveTestProject(suffix: string): ArchiveTestContext {
         linkedStyleCode: '',
         linkedStyleName: '',
         linkedStyleGeneratedAt: '',
-        linkedTechnicalVersionId: '',
-        linkedTechnicalVersionCode: '',
-        linkedTechnicalVersionLabel: '',
-        linkedTechnicalVersionStatus: '',
-        linkedTechnicalVersionPublishedAt: '',
+        linkedTechPackVersionId: '',
+        linkedTechPackVersionCode: '',
+        linkedTechPackVersionLabel: '',
+        linkedTechPackVersionStatus: '',
+        linkedTechPackVersionPublishedAt: '',
         projectArchiveId: '',
         projectArchiveNo: '',
         projectArchiveStatus: '',
@@ -159,11 +172,11 @@ export function createArchiveTestProject(suffix: string): ArchiveTestContext {
       linkedStyleCode: '',
       linkedStyleName: '',
       linkedStyleGeneratedAt: '',
-      linkedTechnicalVersionId: '',
-      linkedTechnicalVersionCode: '',
-      linkedTechnicalVersionLabel: '',
-      linkedTechnicalVersionStatus: '',
-      linkedTechnicalVersionPublishedAt: '',
+      linkedTechPackVersionId: '',
+      linkedTechPackVersionCode: '',
+      linkedTechPackVersionLabel: '',
+      linkedTechPackVersionStatus: '',
+      linkedTechPackVersionPublishedAt: '',
       projectArchiveId: '',
       projectArchiveNo: '',
       projectArchiveStatus: '',
@@ -208,15 +221,41 @@ export function createArchiveTestProject(suffix: string): ArchiveTestContext {
 }
 
 export function generateStyleShellForArchiveProject(projectId: string) {
+  completeFormalTestingPassForProject(projectId)
   const result = generateStyleArchiveShellFromProject(projectId, '测试用户')
   assert.ok(result.ok && result.style, '测试项目应先生成正式款式档案壳')
   return result.style!
 }
 
+export function createDraftTechnicalVersionForArchiveProject(projectId: string) {
+  const project = getProjectById(projectId)
+  const plateTaskResult = createPlateMakingTaskWithProjectRelation({
+    projectId,
+    title: `制版任务-${projectId}`,
+    sourceType: '项目模板阶段',
+    ownerName: '测试用户',
+    priorityLevel: '中',
+    dueAt: '2026-04-20 18:00:00',
+    productStyleCode: project?.linkedStyleCode || '',
+    spuCode: project?.linkedStyleCode || '',
+    patternType: '连衣裙',
+    sizeRange: 'S-XL',
+    patternVersion: 'P1',
+    operatorName: '测试用户',
+  })
+  assert.ok(plateTaskResult.ok && plateTaskResult.task, '测试项目应能创建正式制版任务')
+  updatePlateMakingTask(plateTaskResult.task.plateTaskId, {
+    status: '已确认',
+    updatedAt: '2026-04-10 10:10',
+    updatedBy: '测试用户',
+  })
+  return generateTechPackVersionFromPlateTask(plateTaskResult.task.plateTaskId, '测试用户').record
+}
+
 export function createPublishedTechnicalVersionForArchiveProject(projectId: string) {
-  const created = createTechnicalDataVersionFromProject(projectId, '测试用户')
+  const created = createDraftTechnicalVersionForArchiveProject(projectId)
   saveTechnicalDataVersionContent(
-    created.record.technicalVersionId,
+    created.technicalVersionId,
     {
       patternFiles: [
         {
@@ -277,7 +316,7 @@ export function createPublishedTechnicalVersionForArchiveProject(projectId: stri
       colorMaterialMappings: [
         {
           id: `mapping_${projectId}`,
-          spuCode: created.record.styleCode,
+          spuCode: created.styleCode,
           colorCode: 'BK',
           colorName: '黑色',
           status: 'CONFIRMED',
@@ -314,7 +353,9 @@ export function createPublishedTechnicalVersionForArchiveProject(projectId: stri
     },
     '测试用户',
   )
-  return publishTechnicalDataVersion(created.record.technicalVersionId, '测试用户')
+  const published = publishTechnicalDataVersion(created.technicalVersionId, '测试用户')
+  activateTechPackVersionForStyle(created.styleId, created.technicalVersionId, '测试用户')
+  return published
 }
 
 export function recordInboundSampleForArchiveProject(projectId: string) {

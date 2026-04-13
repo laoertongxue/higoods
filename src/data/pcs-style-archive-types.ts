@@ -25,15 +25,18 @@ export interface StyleArchiveShellRecord {
   archiveStatus: StyleArchiveStatusCode
   baseInfoStatus: string
   specificationStatus: string
-  technicalDataStatus: string
+  techPackStatus: string
   costPricingStatus: string
   specificationCount: number
-  technicalVersionCount: number
+  techPackVersionCount: number
   costVersionCount: number
   channelProductCount: number
-  effectiveTechnicalVersionId: string
-  effectiveTechnicalVersionCode: string
-  effectiveTechnicalVersionLabel: string
+  currentTechPackVersionId: string
+  currentTechPackVersionCode: string
+  currentTechPackVersionLabel: string
+  currentTechPackVersionStatus: string
+  currentTechPackVersionActivatedAt: string
+  currentTechPackVersionActivatedBy: string
   remark: string
   generatedAt: string
   generatedBy: string

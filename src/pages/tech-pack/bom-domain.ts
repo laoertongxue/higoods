@@ -10,7 +10,7 @@ import {
 import type { BomItemRow } from './context.ts'
 
 export function renderBomTab(): string {
-  const readonly = state.compatibilityMode
+  const readonly = false
   const spuLabel = state.techPack?.spuCode || '-'
   const skuOptions = getSkuOptionsForCurrentSpu()
   const skuByCode = new Map(skuOptions.map((item) => [item.skuCode, item]))

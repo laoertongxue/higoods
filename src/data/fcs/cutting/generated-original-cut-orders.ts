@@ -1,6 +1,9 @@
-import { productionOrders, type ProductionOrder } from '../production-orders.ts'
-import { resolveReleasedTechPackForProductionOrder } from '../production-upstream-chain.ts'
-import type { TechPack, TechPackBomItem, TechPackColorMaterialMappingLine } from '../../pcs-technical-data-runtime-source.ts'
+import {
+  productionOrders,
+  type ProductionOrder,
+} from '../production-orders.ts'
+import { getProductionOrderCompatTechPack } from '../production-order-tech-pack-runtime.ts'
+import type { TechPack, TechPackBomItem, TechPackColorMaterialMappingLine } from '../tech-packs.ts'
 import type { CuttingMaterialType } from './types.ts'
 
 export interface GeneratedOriginalCutOrderPieceRow {
@@ -126,6 +129,10 @@ function makeOriginalCutOrderNo(order: ProductionOrder, index: number): string {
   return `CUT-${normalizedDate}-${orderSuffix}-${String(index + 1).padStart(2, '0')}`
 }
 
+function resolveProductionOrderNo(order: ProductionOrder): string {
+  return normalizeText(order.productionOrderNo) || normalizeText(order.productionOrderId)
+}
+
 function buildSkuScopeLines(order: ProductionOrder): GeneratedOriginalCutOrderSkuScopeLine[] {
   return order.demandSnapshot.skuLines.map((line) => ({
     skuCode: normalizeText(line.skuCode),
@@ -206,7 +213,7 @@ function buildMockSt081OriginalCutOrders(order: ProductionOrder): GeneratedOrigi
     originalCutOrderId: makeOriginalCutOrderNo(order, index),
     originalCutOrderNo: makeOriginalCutOrderNo(order, index),
     productionOrderId: order.productionOrderId,
-    productionOrderNo: order.productionOrderNo,
+    productionOrderNo: resolveProductionOrderNo(order),
     materialSku: material.materialSku,
     materialType: material.materialType,
     materialLabel: material.materialLabel,
@@ -214,7 +221,7 @@ function buildMockSt081OriginalCutOrders(order: ProductionOrder): GeneratedOrigi
     mergeBatchId: '',
     mergeBatchNo: '',
     requiredQty: totalQty,
-    techPackVersionLabel: order.techPackSnapshot.versionLabel,
+    techPackVersionLabel: order.techPackSnapshot?.sourceTechPackVersionLabel || '-',
     sourceTechPackSpuCode: order.demandSnapshot.spuCode,
     colorScope,
     skuScopeLines: skuScopeLines.map((line) => ({ ...line })),
@@ -227,7 +234,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
   const mockOverrideRows = buildMockSt081OriginalCutOrders(order)
   if (mockOverrideRows) return mockOverrideRows
 
-  const techPack = resolveReleasedTechPackForProductionOrder(order.productionOrderId)
+  const techPack = getProductionOrderCompatTechPack(order.productionOrderId)
   if (!techPack) return []
 
   const scopeByMaterialKey = new Map<
@@ -316,7 +323,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
       originalCutOrderId: makeOriginalCutOrderNo(order, index),
       originalCutOrderNo: makeOriginalCutOrderNo(order, index),
       productionOrderId: order.productionOrderId,
-      productionOrderNo: order.productionOrderNo,
+      productionOrderNo: resolveProductionOrderNo(order),
       materialSku: bucket.materialSku,
       materialType: bucket.materialType,
       materialLabel: bucket.materialLabel,
@@ -324,8 +331,8 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
       mergeBatchId: '',
       mergeBatchNo: '',
       requiredQty,
-      techPackVersionLabel: order.techPackSnapshot.versionLabel,
-      sourceTechPackSpuCode: order.demandSnapshot.spuCode,
+      techPackVersionLabel: order.techPackSnapshot?.sourceTechPackVersionLabel || '-',
+      sourceTechPackSpuCode: order.techPackSnapshot?.styleCode || order.demandSnapshot.spuCode,
       colorScope: Array.from(bucket.colors.values()),
       skuScopeLines,
       pieceRows: bucket.pieceRows.map((item) => ({
@@ -348,6 +355,7 @@ export function listGeneratedOriginalCutOrderSourceRecords(): GeneratedOriginalC
   }
   return cachedRecords.map((record) => ({
     ...record,
+    productionOrderNo: normalizeText(record.productionOrderNo) || normalizeText(record.productionOrderId),
     colorScope: [...record.colorScope],
     skuScopeLines: record.skuScopeLines.map((line) => ({ ...line })),
     pieceRows: record.pieceRows.map((row) => ({ ...row, applicableSkuCodes: [...row.applicableSkuCodes] })),

@@ -1,7 +1,7 @@
 import {
-  getCompatTechPackBySpuCode as getTechPackBySpuCode,
-  listTechnicalProcessEntriesBySpuCode as listTechPackProcessEntries,
-} from '../../pcs-technical-data-runtime-source.ts'
+  getProductionOrderProcessEntries,
+  getProductionOrderTechPackSnapshot,
+} from '../production-order-tech-pack-runtime.ts'
 import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderPieceRow,
@@ -84,12 +84,12 @@ function compareFeiRecords(left: GeneratedFeiTicketSourceRecord, right: Generate
   return left.feiTicketNo.localeCompare(right.feiTicketNo, 'zh-CN')
 }
 
-function resolveSecondaryCrafts(spuCode: string): {
+function resolveSecondaryCrafts(productionOrderId: string): {
   secondaryCrafts: string[]
   craftSequenceVersion: string
 } {
-  const techPack = getTechPackBySpuCode(spuCode)
-  const processEntries = listTechPackProcessEntries(spuCode)
+  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  const processEntries = getProductionOrderProcessEntries(productionOrderId)
   const secondaryCrafts = unique(
     processEntries
       .filter((entry) => entry.isSpecialCraft)
@@ -99,7 +99,7 @@ function resolveSecondaryCrafts(spuCode: string): {
 
   return {
     secondaryCrafts,
-    craftSequenceVersion: `${normalizeText(techPack?.versionLabel) || 'v0'}:${secondaryCrafts.length || 0}`,
+    craftSequenceVersion: `${normalizeText(snapshot?.sourceTechPackVersionLabel) || 'v0'}:${secondaryCrafts.length || 0}`,
   }
 }
 
@@ -364,7 +364,7 @@ function buildSpreadingFeiSeeds(
         const sourceRecord = resolveSourceRecordForLine(sourceRecords, line)
         if (!sourceRecord) return
 
-        const { secondaryCrafts, craftSequenceVersion } = resolveSecondaryCrafts(sourceRecord.sourceTechPackSpuCode)
+        const { secondaryCrafts, craftSequenceVersion } = resolveSecondaryCrafts(sourceRecord.productionOrderId)
         splitGarmentQtyBySize(resolveColorScopedSkuLines(sourceRecord, line.color), actualCutGarmentQty).forEach((sizeLine) => {
           seeds.push({
             sourceRecordKey: buildSourceRecordKey(sourceRecord),
@@ -487,7 +487,7 @@ function buildFeiRecordsForOriginalOrder(
 ): GeneratedFeiTicketSourceRecord[] {
   const skuScopeLines = buildFallbackSkuScope(record)
   const pieceRows = buildFallbackPieceRows(record)
-  const { secondaryCrafts, craftSequenceVersion } = resolveSecondaryCrafts(record.sourceTechPackSpuCode)
+  const { secondaryCrafts, craftSequenceVersion } = resolveSecondaryCrafts(record.productionOrderId)
   const issuedAt = toIssuedAt(record)
   const results: GeneratedFeiTicketSourceRecord[] = []
   let sequenceNo = 1

@@ -15,7 +15,6 @@ export const routes: RouteRegistry = {
     '/pcs/templates': () => renderers.renderPcsTemplatesPage(),
     '/pcs/templates/new': () => renderers.renderPcsTemplateCreatePage(),
     '/pcs/work-items': () => renderers.renderPcsWorkItemsPage(),
-    '/pcs/work-items/new': () => renderers.renderPcsWorkItemCreatePage(),
     '/pcs/testing/live': () => renderers.renderPcsLiveSessionsPage(),
     '/pcs/testing/video': () => renderers.renderPcsVideoRecordsPage(),
     '/pcs/channels/products': () =>
@@ -80,10 +79,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/pcs\/templates\/([^/]+)$/,
       render: (match) => renderers.renderPcsTemplateDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/work-items\/([^/]+)\/edit$/,
-      render: (match) => renderers.renderPcsWorkItemEditPage(match[1]),
     },
     {
       pattern: /^\/pcs\/work-items\/([^/]+)$/,

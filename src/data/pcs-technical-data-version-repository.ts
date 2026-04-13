@@ -1,5 +1,7 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
+import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import type {
+  TechPackSourceTaskType,
   TechnicalAttachment,
   TechnicalBomItem,
   TechnicalColorMaterialMapping,
@@ -16,8 +18,8 @@ import type {
   TechnicalVersionStatus,
 } from './pcs-technical-data-version-types.ts'
 
-const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v1'
-const TECHNICAL_VERSION_STORE_VERSION = 1
+const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v2'
+const TECHNICAL_VERSION_STORE_VERSION = 2
 
 let memorySnapshot: TechnicalDataVersionStoreSnapshot | null = null
 
@@ -89,6 +91,7 @@ function cloneAttachments(items: TechnicalAttachment[]): TechnicalAttachment[] {
 function cloneRecord(record: TechnicalDataVersionRecord): TechnicalDataVersionRecord {
   return {
     ...record,
+    linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
     linkedPatternTaskIds: [...record.linkedPatternTaskIds],
     linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
     linkedPartTemplateIds: [...record.linkedPartTemplateIds],
@@ -149,6 +152,17 @@ function normalizeVersionStatus(value: string | null | undefined): TechnicalVers
 function normalizeDomainStatus(value: string | null | undefined): TechnicalDomainStatus {
   if (value === 'DRAFT' || value === 'COMPLETE') return value
   return 'EMPTY'
+}
+
+function normalizeSourceTaskType(
+  value: string | null | undefined,
+  record?: Pick<TechnicalDataVersionRecord, 'linkedRevisionTaskIds' | 'linkedPatternTaskIds' | 'linkedArtworkTaskIds'>,
+): TechPackSourceTaskType {
+  if (value === 'REVISION' || value === 'PLATE' || value === 'ARTWORK') return value
+  if ((record?.linkedRevisionTaskIds?.length ?? 0) > 0) return 'REVISION'
+  if ((record?.linkedPatternTaskIds?.length ?? 0) > 0) return 'PLATE'
+  if ((record?.linkedArtworkTaskIds?.length ?? 0) > 0) return 'ARTWORK'
+  return 'REVISION'
 }
 
 function createEmptyContent(technicalVersionId: string): TechnicalDataVersionContent {
@@ -275,8 +289,15 @@ function applyDerivedFields(
   return {
     ...cloneRecord(record),
     versionStatus,
-    effectiveFlag: versionStatus === 'PUBLISHED' ? Boolean(record.effectiveFlag) : false,
     ...derived,
+    linkedRevisionTaskIds: [...(record.linkedRevisionTaskIds ?? [])],
+    linkedPatternTaskIds: [...(record.linkedPatternTaskIds ?? [])],
+    linkedArtworkTaskIds: [...(record.linkedArtworkTaskIds ?? [])],
+    createdFromTaskType: normalizeSourceTaskType(record.createdFromTaskType, record),
+    createdFromTaskId: record.createdFromTaskId || '',
+    createdFromTaskCode: record.createdFromTaskCode || '',
+    baseTechnicalVersionId: record.baseTechnicalVersionId || '',
+    baseTechnicalVersionCode: record.baseTechnicalVersionCode || '',
     publishedAt: record.publishedAt || '',
     publishedBy: record.publishedBy || '',
     createdAt: record.createdAt || record.updatedAt || nowText(),
@@ -289,34 +310,6 @@ function applyDerivedFields(
   }
 }
 
-function normalizeEffectiveFlags(records: TechnicalDataVersionRecord[]): TechnicalDataVersionRecord[] {
-  const publishedByStyle = new Map<string, TechnicalDataVersionRecord[]>()
-  records.forEach((record) => {
-    if (record.versionStatus !== 'PUBLISHED') return
-    const list = publishedByStyle.get(record.styleId) ?? []
-    list.push(record)
-    publishedByStyle.set(record.styleId, list)
-  })
-
-  const effectiveIds = new Set<string>()
-  publishedByStyle.forEach((list) => {
-    const preferred =
-      [...list]
-        .sort((a, b) => {
-          if (Number(b.effectiveFlag) !== Number(a.effectiveFlag)) {
-            return Number(b.effectiveFlag) - Number(a.effectiveFlag)
-          }
-          return b.publishedAt.localeCompare(a.publishedAt)
-        })[0] ?? null
-    if (preferred) effectiveIds.add(preferred.technicalVersionId)
-  })
-
-  return records.map((record) => ({
-    ...record,
-    effectiveFlag: record.versionStatus === 'PUBLISHED' ? effectiveIds.has(record.technicalVersionId) : false,
-  }))
-}
-
 function normalizeRecord(
   rawRecord: TechnicalDataVersionRecord,
   contentMap: Map<string, TechnicalDataVersionContent>,
@@ -325,6 +318,14 @@ function normalizeRecord(
   return applyDerivedFields(
     {
       ...cloneRecord(rawRecord),
+      linkedRevisionTaskIds: [...(rawRecord.linkedRevisionTaskIds ?? [])],
+      linkedPatternTaskIds: [...(rawRecord.linkedPatternTaskIds ?? [])],
+      linkedArtworkTaskIds: [...(rawRecord.linkedArtworkTaskIds ?? [])],
+      createdFromTaskType: normalizeSourceTaskType(rawRecord.createdFromTaskType, rawRecord),
+      createdFromTaskId: rawRecord.createdFromTaskId || '',
+      createdFromTaskCode: rawRecord.createdFromTaskCode || '',
+      baseTechnicalVersionId: rawRecord.baseTechnicalVersionId || '',
+      baseTechnicalVersionCode: rawRecord.baseTechnicalVersionCode || '',
       versionStatus: normalizeVersionStatus(rawRecord.versionStatus),
       bomStatus: normalizeDomainStatus(rawRecord.bomStatus),
       patternStatus: normalizeDomainStatus(rawRecord.patternStatus),
@@ -358,8 +359,7 @@ function hydrateSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): Technical
     contentMap.set(content.technicalVersionId, content)
   })
 
-  const rawRecords = Array.isArray(snapshot.records) ? snapshot.records.map((item) => normalizeRecord(item, contentMap)) : []
-  const records = normalizeEffectiveFlags(rawRecords)
+  const records = Array.isArray(snapshot.records) ? snapshot.records.map((item) => normalizeRecord(item, contentMap)) : []
 
   records.forEach((record) => {
     if (!contentMap.has(record.technicalVersionId)) {
@@ -501,6 +501,10 @@ export function getTechnicalDataVersionContent(technicalVersionId: string): Tech
   return content ? cloneContent(content) : null
 }
 
+export function getTechnicalDataVersionContentById(technicalVersionId: string): TechnicalDataVersionContent | null {
+  return getTechnicalDataVersionContent(technicalVersionId)
+}
+
 export function listTechnicalDataVersionsByStyleId(styleId: string): TechnicalDataVersionRecord[] {
   return loadSnapshot()
     .records
@@ -517,9 +521,11 @@ export function listTechnicalDataVersionsByProjectId(projectId: string): Technic
     .map(cloneRecord)
 }
 
-export function getEffectiveTechnicalDataVersionByStyleId(styleId: string): TechnicalDataVersionRecord | null {
-  const record = loadSnapshot().records.find((item) => item.styleId === styleId && item.effectiveFlag)
-  return record ? cloneRecord(record) : null
+export function getCurrentTechPackVersionByStyleId(styleId: string): TechnicalDataVersionRecord | null {
+  // 当前生效版本以款式档案主记录为准，FCS 不再按 spuCode 运行时回查。
+  const style = getStyleArchiveById(styleId)
+  if (!style?.currentTechPackVersionId) return null
+  return getTechnicalDataVersionById(style.currentTechPackVersionId)
 }
 
 export function createTechnicalDataVersionDraft(
@@ -605,45 +611,27 @@ export function publishTechnicalDataVersionRecord(
   const snapshot = loadSnapshot()
   const target = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
   if (!target) return null
-  const nextRecords = snapshot.records.map((item) => {
-    if (item.styleId !== target.styleId) return item
-    if (item.technicalVersionId === technicalVersionId) {
-      return normalizeRecord(
-        {
-          ...item,
-          versionStatus: 'PUBLISHED',
-          effectiveFlag: true,
-          publishedAt,
-          publishedBy,
-          updatedAt: publishedAt,
-          updatedBy: publishedBy,
-        },
-        new Map([
-          [
-            item.technicalVersionId,
-            snapshot.contents.find((content) => content.technicalVersionId === item.technicalVersionId) ??
-              createEmptyContent(item.technicalVersionId),
-          ],
-        ]),
-      )
-    }
-    return normalizeRecord(
-      {
-        ...item,
-        effectiveFlag: false,
-      },
-      new Map([
-        [
-          item.technicalVersionId,
-          snapshot.contents.find((content) => content.technicalVersionId === item.technicalVersionId) ??
-            createEmptyContent(item.technicalVersionId),
-        ],
-      ]),
-    )
-  })
+  const content =
+    snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId) ??
+    createEmptyContent(technicalVersionId)
+  const nextRecords = snapshot.records.map((item) =>
+    item.technicalVersionId === technicalVersionId
+      ? normalizeRecord(
+          {
+            ...item,
+            versionStatus: 'PUBLISHED',
+            publishedAt,
+            publishedBy,
+            updatedAt: publishedAt,
+            updatedBy: publishedBy,
+          },
+          new Map([[technicalVersionId, content]]),
+        )
+      : item,
+  )
   persistSnapshot({
     ...snapshot,
-    records: normalizeEffectiveFlags(nextRecords),
+    records: nextRecords,
   })
   return getTechnicalDataVersionById(technicalVersionId)
 }
@@ -655,7 +643,6 @@ export function archiveTechnicalDataVersionRecord(
 ): TechnicalDataVersionRecord | null {
   return updateTechnicalDataVersionRecord(technicalVersionId, {
     versionStatus: 'ARCHIVED',
-    effectiveFlag: false,
     updatedAt,
     updatedBy,
   })

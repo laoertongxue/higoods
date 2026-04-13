@@ -34,10 +34,6 @@ import {
 } from '../pages/pcs-template-editor'
 import { handlePcsWorkItemDetailEvent } from '../pages/pcs-work-item-detail'
 import {
-  handlePcsWorkItemEditorEvent,
-  isPcsWorkItemEditorDialogOpen,
-} from '../pages/pcs-work-item-editor'
-import {
   handlePcsProjectDetailEvent,
   isPcsProjectDetailDialogOpen,
 } from '../pages/pcs-project-detail'
@@ -221,7 +217,6 @@ export function dispatchPcsPageEvent(target: HTMLElement): boolean {
     handlePcsTemplateDetailEvent(target) ||
     handlePcsTemplateEditorEvent(target) ||
     handlePcsWorkItemDetailEvent(target) ||
-    handlePcsWorkItemEditorEvent(target) ||
     handlePcsProjectDetailEvent(target) ||
     handlePcsProjectArchiveEvent(target) ||
     handlePcsProjectWorkItemDetailEvent(target) ||
@@ -377,13 +372,6 @@ export function closePcsDialogsOnEscape(): boolean {
     handlePcsTemplateEditorEvent(fakeButton)
     fakeButton.dataset.pcsTemplateEditorAction = 'close-cancel-dialog'
     handlePcsTemplateEditorEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsWorkItemEditorDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsWorkItemEditorAction = 'close-cancel-dialog'
-    handlePcsWorkItemEditorEvent(fakeButton)
     return true
   }
 

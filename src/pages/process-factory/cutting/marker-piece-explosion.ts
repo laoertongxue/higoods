@@ -1,4 +1,5 @@
-import { getCompatTechPackBySpuCode as getTechPackBySpuCode, type TechPack } from '../../../data/pcs-technical-data-runtime-source.ts'
+import { getProductionOrderCompatTechPack } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
+import type { TechPack } from '../../../data/fcs/tech-packs.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type {
   MarkerPlanAllocationLike,
@@ -166,23 +167,33 @@ function buildAllocationSummaryText(lines: MarkerPlanAllocationLike[]): string {
 }
 
 export function resolveMarkerTechPackLink(options: {
-  marker: Pick<MarkerPlanLike, 'techPackSpuCode' | 'spuCode'>
-  sourceRow?: Pick<MaterialPrepRow, 'techPackSpuCode' | 'spuCode'> | null
+  marker: Pick<MarkerPlanLike, 'techPackSpuCode' | 'spuCode' | 'allocationLines'>
+  sourceRow?: Pick<MaterialPrepRow, 'techPackSpuCode' | 'spuCode' | 'productionOrderId'> | null
 }): MarkerResolvedTechPackLink {
-  const candidates: Array<{ value: string; sourceKey: MarkerResolvedTechPackLink['sourceKey'] }> = [
-    { value: normalizeText(options.sourceRow?.techPackSpuCode), sourceKey: 'source-tech-pack' },
-    { value: normalizeText(options.marker.techPackSpuCode), sourceKey: 'marker-tech-pack' },
-    { value: normalizeText(options.sourceRow?.spuCode), sourceKey: 'source-spu' },
-    { value: normalizeText(options.marker.spuCode), sourceKey: 'marker-spu' },
+  const candidates: Array<{
+    productionOrderId: string
+    resolvedSpuCode: string
+    sourceKey: MarkerResolvedTechPackLink['sourceKey']
+  }> = [
+    {
+      productionOrderId: normalizeText(options.sourceRow?.productionOrderId),
+      resolvedSpuCode: normalizeText(options.sourceRow?.techPackSpuCode) || normalizeText(options.sourceRow?.spuCode),
+      sourceKey: 'source-tech-pack',
+    },
+    {
+      productionOrderId: normalizeText(options.marker.allocationLines[0]?.sourceProductionOrderId),
+      resolvedSpuCode: normalizeText(options.marker.techPackSpuCode) || normalizeText(options.marker.spuCode),
+      sourceKey: 'marker-tech-pack',
+    },
   ]
 
   for (const candidate of candidates) {
-    if (!candidate.value) continue
-    const techPack = getTechPackBySpuCode(candidate.value)
+    if (!candidate.productionOrderId) continue
+    const techPack = getProductionOrderCompatTechPack(candidate.productionOrderId)
     if (techPack) {
       return {
         status: 'MATCHED',
-        resolvedSpuCode: candidate.value,
+        resolvedSpuCode: candidate.resolvedSpuCode || techPack.spuCode,
         sourceKey: candidate.sourceKey,
         techPack,
       }
@@ -191,7 +202,7 @@ export function resolveMarkerTechPackLink(options: {
 
   return {
     status: 'MISSING',
-    resolvedSpuCode: candidates.find((candidate) => candidate.value)?.value || '',
+    resolvedSpuCode: candidates.find((candidate) => candidate.resolvedSpuCode)?.resolvedSpuCode || '',
     sourceKey: 'missing',
     techPack: null,
   }

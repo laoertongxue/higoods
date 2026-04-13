@@ -21,8 +21,11 @@ import {
   tierLabels,
   typeLabels,
 } from '../../data/fcs/indonesia-factories'
-import { getCompatTechPackBySpuCode as getTechPackBySpuCode } from '../../data/pcs-technical-data-runtime-source'
 import { legalEntities } from '../../data/fcs/legal-entities'
+import {
+  cloneProductionOrderTechPackSnapshot,
+  getDemandCurrentTechPackInfo,
+} from '../../data/fcs/production-tech-pack-snapshot-builder'
 import {
   getRuntimeAssignmentSummaryByOrder,
   getRuntimeBiddingSummaryByOrder,
@@ -365,7 +368,7 @@ function cloneOrder(order: ProductionOrder): ProductionOrder {
       ...order.mainFactorySnapshot,
       tags: [...order.mainFactorySnapshot.tags],
     },
-    techPackSnapshot: { ...order.techPackSnapshot },
+    techPackSnapshot: cloneProductionOrderTechPackSnapshot(order.techPackSnapshot),
     demandSnapshot: {
       ...order.demandSnapshot,
       skuLines: order.demandSnapshot.skuLines.map((sku) => ({ ...sku })),
@@ -808,12 +811,37 @@ function normalizeTechPackVersionLabel(
   status: ProductionDemand['techPackStatus'],
   versionLabel: string | null | undefined,
 ): string {
-  if (status === 'INCOMPLETE') return 'beta'
+  if (status === 'INCOMPLETE') return '待启用'
   if (!versionLabel || !versionLabel.trim()) return '-'
   return versionLabel
 }
 
-function getOrderBusinessTechPackStatus(status: 'MISSING' | 'BETA' | 'RELEASED'): ProductionDemand['techPackStatus'] {
+function getDemandTechPackDisplayMeta(input: {
+  styleId: string
+  currentTechPackVersionId: string
+  publishedAt: string
+  canConvertToProductionOrder: boolean
+}): { label: string; className: string } {
+  if (input.canConvertToProductionOrder) {
+    return { label: '已启用', className: 'bg-green-100 text-green-700' }
+  }
+  if (!input.styleId) {
+    return { label: '未建档', className: 'bg-red-100 text-red-700' }
+  }
+  if (!input.currentTechPackVersionId) {
+    return { label: '未启用', className: 'bg-orange-100 text-orange-700' }
+  }
+  if (!input.publishedAt) {
+    return { label: '未发布', className: 'bg-orange-100 text-orange-700' }
+  }
+  return { label: '待补齐', className: 'bg-yellow-100 text-yellow-700' }
+}
+
+function getOrderBusinessTechPackStatus(
+  status: 'MISSING' | 'BETA' | 'RELEASED' | ProductionOrder['techPackSnapshot'] | null,
+): ProductionDemand['techPackStatus'] {
+  if (status && typeof status === 'object') return 'RELEASED'
+  if (!status) return 'INCOMPLETE'
   return toDemandTechPackStatus(status)
 }
 
@@ -837,27 +865,33 @@ function buildSettlementSummary(statementCount: number, batchCount: number): str
 
 function getTechPackSnapshotForDemand(demand: ProductionDemand): {
   status: ProductionDemand['techPackStatus']
+  versionCode: string
   versionLabel: string
-  missingChecklist: string[]
+  displayStatusLabel: string
+  displayStatusClassName: string
+  publishedAt: string
+  canGenerate: boolean
+  blockReason: string
+  completenessScore: number
 } {
-  const demandStatus: ProductionDemand['techPackStatus'] = demand.techPackStatus
-  const demandVersionLabel = normalizeTechPackVersionLabel(demandStatus, demand.techPackVersionLabel)
-
-  const techPack = getTechPackBySpuCode(demand.spuCode)
-  if (!techPack) {
-    return {
-      status: demandStatus,
-      versionLabel: demandVersionLabel,
-      missingChecklist: [],
-    }
-  }
-
-  const mappedStatus = toDemandTechPackStatus(techPack.status)
+  const current = getDemandCurrentTechPackInfo(demand)
+  const mappedStatus: ProductionDemand['techPackStatus'] = current.canConvertToProductionOrder ? 'RELEASED' : 'INCOMPLETE'
+  const display = getDemandTechPackDisplayMeta(current)
 
   return {
     status: mappedStatus,
-    versionLabel: normalizeTechPackVersionLabel(mappedStatus, techPack.versionLabel),
-    missingChecklist: [...techPack.missingChecklist],
+    versionCode: current.currentTechPackVersionCode,
+    versionLabel: current.currentTechPackVersionLabel || '',
+    displayStatusLabel: display.label,
+    displayStatusClassName: display.className,
+    publishedAt: current.publishedAt,
+    canGenerate:
+      current.canConvertToProductionOrder &&
+      !demand.hasProductionOrder &&
+      demand.productionOrderId === null &&
+      demand.demandStatus === 'PENDING_CONVERT',
+    blockReason: current.blockReason,
+    completenessScore: current.completenessScore,
   }
 }
 
@@ -871,7 +905,7 @@ function listDemandOperationsByStatus(status: ProductionDemand['demandStatus']):
 }
 
 function getTechPackOperationLabel(status: ProductionDemand['techPackStatus']): string {
-  return status === 'RELEASED' ? '查看技术资料版本' : '去商品中心维护'
+  return '查看当前生效技术包'
 }
 
 function renderDemandOperations(
@@ -879,11 +913,13 @@ function renderDemandOperations(
   techPackStatus: ProductionDemand['techPackStatus'],
   options?: {
     compact?: boolean
-    techPackAction?: 'open-tech-pack' | 'open-tech-pack-from-demand-detail'
+    techPackAction?: 'open-current-tech-pack' | 'open-current-tech-pack-from-demand-detail'
+    allowGenerate?: boolean
   },
 ): string {
   const compact = options?.compact ?? true
-  const techPackAction = options?.techPackAction ?? 'open-tech-pack'
+  const techPackAction = options?.techPackAction ?? 'open-current-tech-pack'
+  const allowGenerate = options?.allowGenerate ?? techPackStatus === 'RELEASED'
   const baseClass = compact
     ? 'rounded px-2 py-1 text-xs hover:bg-muted'
     : 'inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted'
@@ -901,6 +937,7 @@ function renderDemandOperations(
         return `<button class="${baseClass}" data-prod-action="open-demand-detail" data-demand-id="${demand.demandId}">查看详情</button>`
       }
       if (op === 'GENERATE') {
+        if (!allowGenerate) return ''
         return `<button class="${generateClass}" data-prod-action="open-demand-single" data-demand-id="${demand.demandId}">生成</button>`
       }
       if (op === 'HOLD') {
@@ -1125,30 +1162,82 @@ function getOrderMaterialDisplaySummary(order: ProductionOrder): {
 
 function getOrderTechPackInfo(order: ProductionOrder): {
   snapshotStatus: ProductionDemand['techPackStatus']
+  snapshotVersionCode: string
   snapshotVersion: string
+  snapshotReadyStatus: '已冻结' | '待补齐' | '缺失'
+  snapshotReadyClassName: string
   currentStatus: ProductionDemand['techPackStatus']
+  currentVersionCode: string
   currentVersion: string
+  currentPublishedAt: string
   completenessScore: number
-  missingChecklist: string[]
+  sourceTaskText: string
   isOutOfSync: boolean
 } {
-  const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
-  const snapshotStatus = getOrderBusinessTechPackStatus(order.techPackSnapshot.status)
-  const snapshotVersion = normalizeTechPackVersionLabel(snapshotStatus, order.techPackSnapshot.versionLabel)
-  const currentRawStatus = techPack?.status ?? order.techPackSnapshot.status
-  const currentStatus = getOrderBusinessTechPackStatus(currentRawStatus)
-  const currentVersion = normalizeTechPackVersionLabel(currentStatus, techPack?.versionLabel ?? order.techPackSnapshot.versionLabel)
+  const current = getDemandCurrentTechPackInfo(order.demandSnapshot)
+  const snapshotStatus: ProductionDemand['techPackStatus'] = order.techPackSnapshot ? 'RELEASED' : 'INCOMPLETE'
+  const snapshotVersionCode = order.techPackSnapshot?.sourceTechPackVersionCode || ''
+  const snapshotVersion = normalizeTechPackVersionLabel(
+    snapshotStatus,
+    order.techPackSnapshot?.sourceTechPackVersionLabel || '',
+  )
+  const snapshotReadyStatus: '已冻结' | '待补齐' | '缺失' =
+    !order.techPackSnapshot
+      ? '缺失'
+      : order.techPackSnapshot.completenessScore >= 100
+        ? '已冻结'
+        : '待补齐'
+  const snapshotReadyClassName =
+    snapshotReadyStatus === '已冻结'
+      ? 'bg-green-100 text-green-700'
+      : snapshotReadyStatus === '待补齐'
+        ? 'bg-orange-100 text-orange-700'
+        : 'bg-red-100 text-red-700'
+  const currentStatus: ProductionDemand['techPackStatus'] = current.canConvertToProductionOrder ? 'RELEASED' : 'INCOMPLETE'
+  const currentVersionCode = current.currentTechPackVersionCode
+  const currentVersion = normalizeTechPackVersionLabel(currentStatus, current.currentTechPackVersionLabel)
+  const sourceTaskText = (() => {
+    if (!order.techPackSnapshot) return '暂无来源任务链'
+    const parts: string[] = []
+    if (order.techPackSnapshot.linkedRevisionTaskIds.length > 0) parts.push(`改版任务 ${order.techPackSnapshot.linkedRevisionTaskIds.length}`)
+    if (order.techPackSnapshot.linkedPatternTaskIds.length > 0) parts.push(`制版任务 ${order.techPackSnapshot.linkedPatternTaskIds.length}`)
+    if (order.techPackSnapshot.linkedArtworkTaskIds.length > 0) parts.push(`花型任务 ${order.techPackSnapshot.linkedArtworkTaskIds.length}`)
+    return parts.length > 0 ? parts.join(' / ') : '暂无来源任务链'
+  })()
 
   return {
     snapshotStatus,
+    snapshotVersionCode,
     snapshotVersion,
+    snapshotReadyStatus,
+    snapshotReadyClassName,
     currentStatus,
+    currentVersionCode,
     currentVersion,
-    completenessScore: techPack?.completenessScore ?? 0,
-    missingChecklist: [...(techPack?.missingChecklist ?? [])],
+    currentPublishedAt: current.publishedAt,
+    completenessScore: order.techPackSnapshot?.completenessScore ?? 0,
+    sourceTaskText,
     isOutOfSync:
       currentStatus !== snapshotStatus ||
+      currentVersionCode !== snapshotVersionCode ||
       currentVersion !== snapshotVersion,
+  }
+}
+
+function getOrderTechPackSnapshotDisplay(order: ProductionOrder): {
+  techPackVersionText: string
+  techPackSnapshotAt: string
+  techPackReadyStatus: '已冻结' | '待补齐' | '缺失'
+  techPackReadyClassName: string
+} {
+  const info = getOrderTechPackInfo(order)
+  return {
+    techPackVersionText: order.techPackSnapshot
+      ? `${order.techPackSnapshot.sourceTechPackVersionCode || '-'} / ${order.techPackSnapshot.sourceTechPackVersionLabel || '-'}`
+      : '暂无技术包快照',
+    techPackSnapshotAt: order.techPackSnapshot?.snapshotAt || '-',
+    techPackReadyStatus: info.snapshotReadyStatus,
+    techPackReadyClassName: info.snapshotReadyClassName,
   }
 }
 
@@ -1278,7 +1367,7 @@ function getBatchGeneratableDemandIds(): string[] {
     return (
       demand.demandStatus === 'PENDING_CONVERT' &&
       !demand.hasProductionOrder &&
-      getTechPackSnapshotForDemand(demand).status === 'RELEASED'
+      getTechPackSnapshotForDemand(demand).canGenerate
     )
   })
 }
@@ -1288,7 +1377,7 @@ function listOrdersFromDemandGeneratableDemands(): ProductionDemand[] {
     if (demand.demandStatus !== 'PENDING_CONVERT') return false
     if (demand.hasProductionOrder) return false
     if (demand.productionOrderId !== null) return false
-    return getTechPackSnapshotForDemand(demand).status === 'RELEASED'
+    return getTechPackSnapshotForDemand(demand).canGenerate
   })
 }
 
@@ -1592,7 +1681,6 @@ export {
   typesByTier,
   tierLabels,
   typeLabels,
-  getTechPackBySpuCode,
   legalEntities,
   getRuntimeAssignmentSummaryByOrder,
   getRuntimeBiddingSummaryByOrder,
@@ -1685,6 +1773,7 @@ export {
   getOrderDisplayAssignmentSnapshot,
   getOrderMaterialDisplaySummary,
   getOrderTechPackInfo,
+  getOrderTechPackSnapshotDisplay,
   getDemandById,
   getOrderById,
   getProcessTaskById,

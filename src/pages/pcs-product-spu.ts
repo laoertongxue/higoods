@@ -29,7 +29,7 @@ const state: ProductSpuState = {
 }
 
 function getStatusClass(status: string): string {
-  if (status === '启用中') return 'border-green-200 bg-green-50 text-green-700'
+  if (status === '可生产') return 'border-green-200 bg-green-50 text-green-700'
   if (status === '已归档') return 'border-slate-200 bg-slate-100 text-slate-700'
   return 'border-orange-200 bg-orange-50 text-orange-700'
 }
@@ -72,8 +72,8 @@ function renderToolbar(): string {
         />
         <select class="rounded-md border px-3 py-2 text-sm" data-spu-field="statusFilter">
           <option value="all" ${state.statusFilter === 'all' ? 'selected' : ''}>全部档案状态</option>
-          <option value="DRAFT" ${state.statusFilter === 'DRAFT' ? 'selected' : ''}>待补全</option>
-          <option value="ACTIVE" ${state.statusFilter === 'ACTIVE' ? 'selected' : ''}>启用中</option>
+          <option value="DRAFT" ${state.statusFilter === 'DRAFT' ? 'selected' : ''}>技术包待完善</option>
+          <option value="ACTIVE" ${state.statusFilter === 'ACTIVE' ? 'selected' : ''}>可生产</option>
           <option value="ARCHIVED" ${state.statusFilter === 'ARCHIVED' ? 'selected' : ''}>已归档</option>
         </select>
         <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-gray-50" data-spu-action="open-project-drawer">从项目生成</button>
@@ -98,8 +98,8 @@ function renderTable(): string {
             <th class="px-4 py-3 font-medium">价格带</th>
             <th class="px-4 py-3 font-medium">档案状态</th>
             <th class="px-4 py-3 font-medium">规格清单状态</th>
-            <th class="px-4 py-3 font-medium">技术资料状态</th>
-            <th class="px-4 py-3 font-medium">当前生效技术资料</th>
+            <th class="px-4 py-3 font-medium">技术包状态</th>
+            <th class="px-4 py-3 font-medium">当前生效技术包</th>
             <th class="px-4 py-3 font-medium">成本核价状态</th>
             <th class="px-4 py-3 font-medium">来源项目</th>
             <th class="px-4 py-3 font-medium">更新时间</th>
@@ -118,8 +118,8 @@ function renderTable(): string {
                   <td class="px-4 py-3">${escapeHtml(item.priceRangeLabel)}</td>
                   <td class="px-4 py-3"><span class="inline-flex rounded-full border px-2 py-1 text-xs ${getStatusClass(item.archiveStatusLabel)}">${escapeHtml(item.archiveStatusLabel)}</span></td>
                   <td class="px-4 py-3">${escapeHtml(item.specificationStatus)}</td>
-                  <td class="px-4 py-3">${escapeHtml(item.technicalDataStatus)}</td>
-                  <td class="px-4 py-3">${escapeHtml(item.effectiveTechnicalVersionText)}</td>
+                  <td class="px-4 py-3">${escapeHtml(item.techPackStatus)}</td>
+                  <td class="px-4 py-3">${escapeHtml(item.currentTechPackVersionText)}</td>
                   <td class="px-4 py-3">${escapeHtml(item.costPricingStatus)}</td>
                   <td class="px-4 py-3">${escapeHtml(item.sourceProjectText)}</td>
                   <td class="px-4 py-3">${escapeHtml(item.updatedAt)}</td>
@@ -166,7 +166,7 @@ function renderProjectDrawer(): string {
         </div>
         <div class="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">
           <p class="font-medium">从商品项目生成款式档案初始记录</p>
-          <p class="mt-1">本轮只生成款式档案壳，不自动创建规格、技术资料和成本版本。</p>
+          <p class="mt-1">本轮只生成款式档案壳，不自动创建规格、技术包和成本版本。</p>
         </div>
       </div>
     `

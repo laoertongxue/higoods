@@ -51,14 +51,6 @@ export const renderPcsTemplateDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-template-detail'),
   'renderPcsTemplateDetailPage',
 )
-export const renderPcsWorkItemCreatePage = createAsyncRenderer(
-  () => import('../pages/pcs-work-item-editor'),
-  'renderPcsWorkItemCreatePage',
-)
-export const renderPcsWorkItemEditPage = createAsyncRenderer(
-  () => import('../pages/pcs-work-item-editor'),
-  'renderPcsWorkItemEditPage',
-)
 export const renderPcsWorkItemDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-work-item-detail'),
   'renderPcsWorkItemDetailPage',
@@ -227,7 +219,7 @@ export const renderProductionCraftDictPage = createAsyncRenderer(
   () => import('../pages/production-craft-dict'),
   'renderProductionCraftDictPage',
 )
-export const renderTechPackPage = createAsyncRenderer(() => import('../pages/tech-pack'), 'renderTechPackPage')
+export const renderTechPackPage = createAsyncRenderer(() => import('../pages/tech-pack/core'), 'renderTechPackPage')
 export const renderTaskBreakdownPage = createAsyncRenderer(() => import('../pages/task-breakdown'), 'renderTaskBreakdownPage')
 export const renderProcessDyeRequirementsPage = createAsyncRenderer(
   () => import('../pages/process-dye-requirements'),

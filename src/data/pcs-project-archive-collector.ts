@@ -9,7 +9,7 @@ import { listSampleLedgerEvents } from './pcs-sample-ledger-repository.ts'
 import type { PcsProjectRecord } from './pcs-project-types.ts'
 import type { StyleArchiveShellRecord } from './pcs-style-archive-types.ts'
 import {
-  getEffectiveTechnicalDataVersionByStyleId,
+  getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionContent,
   listTechnicalDataVersionsByStyleId,
 } from './pcs-technical-data-version-repository.ts'
@@ -42,7 +42,7 @@ export const PROJECT_ARCHIVE_STATUS_LABELS: Record<ProjectArchiveStatus, string>
 export const PROJECT_ARCHIVE_GROUP_LABELS: Record<ProjectArchiveDocumentGroup, string> = {
   PROJECT_BASE: '项目基础资料',
   STYLE_ARCHIVE: '款式档案',
-  TECHNICAL_DATA: '技术资料版本',
+  TECHNICAL_DATA: '技术包版本',
   PATTERN_DRAWING: '纸样图纸',
   ARTWORK_ASSET: '花型资料',
   SAMPLE_ASSET: '样衣资料',
@@ -257,11 +257,11 @@ function buildTechnicalDocuments(
   versions.forEach((version) => {
     const documentId = buildDocumentId(
       archive.projectArchiveId,
-      '技术资料',
-      '技术资料版本',
+      '技术包',
+      '技术包版本',
       version.technicalVersionId,
       version.technicalVersionId,
-      '技术资料版本',
+      '技术包版本',
       false,
     )
     documents.push(
@@ -273,16 +273,16 @@ function buildTechnicalDocuments(
         projectNodeId: version.sourceProjectNodeId,
         workItemTypeCode: 'PROJECT_TRANSFER_PREP',
         workItemTypeName: '项目转档准备',
-        sourceModule: '技术资料',
-        sourceObjectType: '技术资料版本',
+        sourceModule: '技术包',
+        sourceObjectType: '技术包版本',
         sourceObjectId: version.technicalVersionId,
         sourceObjectCode: version.technicalVersionCode,
         sourceVersionId: version.technicalVersionId,
         sourceVersionCode: version.technicalVersionCode,
         sourceVersionLabel: version.versionLabel,
         documentGroup: 'TECHNICAL_DATA',
-        documentCategory: '技术资料版本',
-        documentType: '技术资料版本',
+        documentCategory: '技术包版本',
+        documentType: '技术包版本',
         documentTitle: `${version.styleName} ${version.versionLabel}`,
         documentStatus: version.versionStatus,
         manualFlag: false,
@@ -307,7 +307,7 @@ function buildTechnicalDocuments(
     content.patternFiles.forEach((patternFile, index) => {
       const drawingDocumentId = buildDocumentId(
         archive.projectArchiveId,
-        '技术资料',
+        '技术包',
         '纸样文件',
         version.technicalVersionId,
         version.technicalVersionId,
@@ -323,7 +323,7 @@ function buildTechnicalDocuments(
         ),
         projectArchiveId: archive.projectArchiveId,
         archiveDocumentId: drawingDocumentId,
-        sourceModule: '技术资料',
+        sourceModule: '技术包',
         sourceObjectType: '纸样文件',
         sourceObjectId: version.technicalVersionId,
         sourceFileId: patternFile.id || `pattern_${index + 1}`,
@@ -346,7 +346,7 @@ function buildTechnicalDocuments(
           projectNodeId: version.sourceProjectNodeId,
           workItemTypeCode: 'PROJECT_TRANSFER_PREP',
           workItemTypeName: '项目转档准备',
-          sourceModule: '技术资料',
+          sourceModule: '技术包',
           sourceObjectType: '纸样文件',
           sourceObjectId: version.technicalVersionId,
           sourceObjectCode: version.technicalVersionCode,
@@ -379,7 +379,7 @@ function buildTechnicalDocuments(
     content.patternDesigns.forEach((design, index) => {
       const designDocumentId = buildDocumentId(
         archive.projectArchiveId,
-        '技术资料',
+        '技术包',
         '花型设计',
         version.technicalVersionId,
         version.technicalVersionId,
@@ -395,7 +395,7 @@ function buildTechnicalDocuments(
         ),
         projectArchiveId: archive.projectArchiveId,
         archiveDocumentId: designDocumentId,
-        sourceModule: '技术资料',
+        sourceModule: '技术包',
         sourceObjectType: '花型设计',
         sourceObjectId: version.technicalVersionId,
         sourceFileId: design.id || `design_${index + 1}`,
@@ -418,7 +418,7 @@ function buildTechnicalDocuments(
           projectNodeId: version.sourceProjectNodeId,
           workItemTypeCode: 'PROJECT_TRANSFER_PREP',
           workItemTypeName: '项目转档准备',
-          sourceModule: '技术资料',
+          sourceModule: '技术包',
           sourceObjectType: '花型设计',
           sourceObjectId: version.technicalVersionId,
           sourceObjectCode: version.technicalVersionCode,
@@ -451,8 +451,8 @@ function buildTechnicalDocuments(
     content.attachments.forEach((attachment, index) => {
       const attachmentDocumentId = buildDocumentId(
         archive.projectArchiveId,
-        '技术资料',
-        '技术资料附件',
+        '技术包',
+        '技术包附件',
         version.technicalVersionId,
         version.technicalVersionId,
         attachment.id || `attachment_${index + 1}`,
@@ -467,8 +467,8 @@ function buildTechnicalDocuments(
         ),
         projectArchiveId: archive.projectArchiveId,
         archiveDocumentId: attachmentDocumentId,
-        sourceModule: '技术资料',
-        sourceObjectType: '技术资料附件',
+        sourceModule: '技术包',
+        sourceObjectType: '技术包附件',
         sourceObjectId: version.technicalVersionId,
         sourceFileId: attachment.id || `attachment_${index + 1}`,
         fileName: attachment.fileName,
@@ -490,15 +490,15 @@ function buildTechnicalDocuments(
           projectNodeId: version.sourceProjectNodeId,
           workItemTypeCode: 'PROJECT_TRANSFER_PREP',
           workItemTypeName: '项目转档准备',
-          sourceModule: '技术资料',
-          sourceObjectType: '技术资料附件',
+          sourceModule: '技术包',
+          sourceObjectType: '技术包附件',
           sourceObjectId: version.technicalVersionId,
           sourceObjectCode: version.technicalVersionCode,
           sourceVersionId: version.technicalVersionId,
           sourceVersionCode: version.technicalVersionCode,
           sourceVersionLabel: version.versionLabel,
           documentGroup: 'TECHNICAL_DATA',
-          documentCategory: '技术资料附件',
+          documentCategory: '技术包附件',
           documentType: '附件',
           documentTitle: attachment.fileName,
           documentStatus: version.versionStatus,
@@ -521,7 +521,7 @@ function buildTechnicalDocuments(
     })
   })
 
-  return getEffectiveTechnicalDataVersionByStyleId(style.styleId)
+  return getCurrentTechPackVersionByStyleId(style.styleId)
 }
 
 function buildRevisionDocuments(
@@ -911,7 +911,7 @@ function buildMissingItem(
   const labelMap: Record<string, string> = {
     PROJECT_BASE: '项目基础资料',
     STYLE_ARCHIVE: '款式档案',
-    TECHNICAL_VERSION: '当前生效技术资料版本',
+    TECHNICAL_VERSION: '当前生效技术包版本',
     SAMPLE_DATA: '样衣资料',
     INSPECTION_FILE: '检测资料',
     QUOTATION_FILE: '报价资料',
@@ -957,7 +957,7 @@ export function computeProjectArchiveMissingItems(input: {
         archive,
         transferNodeId,
         'TECHNICAL_VERSION',
-        '缺少当前生效技术资料版本，或当前版本尚未发布。',
+        '缺少当前生效技术包版本，或当前版本尚未发布。',
       ),
     )
   }

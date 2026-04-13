@@ -14,7 +14,6 @@ import {
   renderBadge,
   renderEmptyRow,
   safeText,
-  demandTechPackStatusConfig,
   tierLabels,
   typeLabels,
   legalEntities,
@@ -34,8 +33,7 @@ import {
   renderStatCard,
   demandPriorityConfig,
   demandStatusConfig,
-  getTechPackBySpuCode,
-} from './context'
+} from './context.ts'
 import { buildProductionOrderFromDemand } from '../../data/fcs/production-orders'
 
 function renderDemandDetailDrawer(): string {
@@ -45,7 +43,8 @@ function renderDemandDetailDrawer(): string {
   const techPackInfo = getTechPackSnapshotForDemand(demand)
   const detailActions = renderDemandOperations(demand, techPackInfo.status, {
     compact: false,
-    techPackAction: 'open-tech-pack-from-demand-detail',
+    techPackAction: 'open-current-tech-pack-from-demand-detail',
+    allowGenerate: techPackInfo.canGenerate,
   })
 
   return `
@@ -89,32 +88,30 @@ function renderDemandDetailDrawer(): string {
           <div class="h-px bg-border"></div>
 
           <section>
-            <h4 class="mb-3 font-medium">技术资料快照</h4>
+            <h4 class="mb-3 font-medium">当前生效技术包版本</h4>
             <div class="space-y-3">
               <div class="flex items-center gap-2">
                 ${renderBadge(
-                  demandTechPackStatusConfig[techPackInfo.status].label,
-                  demandTechPackStatusConfig[techPackInfo.status].className,
+                  techPackInfo.displayStatusLabel,
+                  techPackInfo.displayStatusClassName,
                 )}
-                <span class="text-sm">版本: ${escapeHtml(techPackInfo.versionLabel || '-')}</span>
+                <span class="text-sm">版本编号：${escapeHtml(techPackInfo.versionCode || '-')}</span>
+                <span class="text-sm">版本标签：${escapeHtml(techPackInfo.versionLabel || '暂无当前生效版本')}</span>
               </div>
-              ${
-                techPackInfo.missingChecklist.length > 0
-                  ? `
-                    <div>
-                      <p class="text-xs text-muted-foreground">缺失项</p>
-                      <div class="mt-1 space-y-1">
-                        ${techPackInfo.missingChecklist
-                          .map(
-                            (item) =>
-                              `<div class="flex items-center gap-2 text-sm text-orange-600"><i data-lucide="alert-triangle" class="h-3 w-3"></i><span>${escapeHtml(item)}</span></div>`,
-                          )
-                          .join('')}
-                      </div>
-                    </div>
-                  `
-                  : ''
-              }
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p class="text-xs text-muted-foreground">发布时间</p>
+                  <p>${escapeHtml(techPackInfo.publishedAt || '-')}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-muted-foreground">是否可转生产单</p>
+                  <p>${escapeHtml(techPackInfo.canGenerate ? '可转单' : '不可转单')}</p>
+                </div>
+                <div class="col-span-2">
+                  <p class="text-xs text-muted-foreground">当前说明</p>
+                  <p>${escapeHtml(techPackInfo.blockReason || '当前技术包版本已满足转单条件')}</p>
+                </div>
+              </div>
               <div class="flex flex-wrap items-center gap-2">
                 ${detailActions}
               </div>
@@ -259,7 +256,7 @@ function renderDemandBatchGenerateDialog(): string {
                   <tr class="border-b">
                     <th class="px-3 py-2 text-left">需求编号</th>
                     <th class="px-3 py-2 text-left">SPU</th>
-                    <th class="px-3 py-2 text-left">技术资料</th>
+                    <th class="px-3 py-2 text-left">当前生效技术包</th>
                     <th class="px-3 py-2 text-right">数量</th>
                   </tr>
                 </thead>
@@ -274,10 +271,20 @@ function renderDemandBatchGenerateDialog(): string {
                               <tr class="border-b last:border-0">
                                 <td class="px-3 py-2 font-mono text-sm">${escapeHtml(demand.demandId)}</td>
                                 <td class="px-3 py-2 font-mono text-sm">${escapeHtml(demand.spuCode)}</td>
-                                <td class="px-3 py-2">${renderBadge(
-                                  demandTechPackStatusConfig[info.status].label,
-                                  demandTechPackStatusConfig[info.status].className,
-                                )}</td>
+                                <td class="px-3 py-2">
+                                  <div class="flex flex-wrap items-center gap-1">
+                                    ${renderBadge(
+                                      info.displayStatusLabel,
+                                      info.displayStatusClassName,
+                                    )}
+                                    <span class="text-xs text-muted-foreground">${escapeHtml(
+                                      info.versionCode || '-',
+                                    )}</span>
+                                    <span class="text-xs text-muted-foreground">${escapeHtml(
+                                      info.versionLabel || '暂无当前生效版本',
+                                    )}</span>
+                                  </div>
+                                </td>
                                 <td class="px-3 py-2 text-right">${demand.requiredQtyTotal.toLocaleString()}</td>
                               </tr>
                             `
@@ -392,7 +399,7 @@ function renderOrdersFromDemandDialog(): string {
       <section class="absolute left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">从需求生成</h3>
-          <p class="mt-1 text-sm text-muted-foreground">仅支持已发布技术资料版本且状态为待转单的需求</p>
+          <p class="mt-1 text-sm text-muted-foreground">仅支持已启用且已发布的当前生效技术包版本生成生产单</p>
         </header>
 
         <div class="max-h-[72vh] space-y-4 overflow-y-auto px-6 py-5">
@@ -406,7 +413,7 @@ function renderOrdersFromDemandDialog(): string {
                     </th>
                     <th class="px-3 py-2 text-left">需求编号</th>
                     <th class="px-3 py-2 text-left">SPU</th>
-                    <th class="px-3 py-2 text-left">技术资料</th>
+                    <th class="px-3 py-2 text-left">当前生效技术包</th>
                     <th class="px-3 py-2 text-right">数量</th>
                   </tr>
                 </thead>
@@ -430,10 +437,20 @@ function renderOrdersFromDemandDialog(): string {
                                   <div class="font-mono text-xs text-muted-foreground">${escapeHtml(demand.spuCode)}</div>
                                   <div class="truncate" title="${escapeHtml(demand.spuName)}">${escapeHtml(demand.spuName)}</div>
                                 </td>
-                                <td class="px-3 py-2">${renderBadge(
-                                  demandTechPackStatusConfig[techPack.status].label,
-                                  demandTechPackStatusConfig[techPack.status].className,
-                                )}</td>
+                                <td class="px-3 py-2">
+                                  <div class="flex flex-wrap items-center gap-1">
+                                    ${renderBadge(
+                                      techPack.displayStatusLabel,
+                                      techPack.displayStatusClassName,
+                                    )}
+                                    <span class="text-xs text-muted-foreground">${escapeHtml(
+                                      techPack.versionCode || '-',
+                                    )}</span>
+                                    <span class="text-xs text-muted-foreground">${escapeHtml(
+                                      techPack.versionLabel || '暂无当前生效版本',
+                                    )}</span>
+                                  </div>
+                                </td>
                                 <td class="px-3 py-2 text-right">${demand.requiredQtyTotal.toLocaleString()}</td>
                               </tr>
                             `
@@ -468,7 +485,7 @@ function renderDemandConfirmDialog(): string {
       <div class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">确认生成</h3>
-          <p class="mt-1 text-sm text-muted-foreground">仅已发布技术资料版本的需求可生成生产单，待补建技术资料请先在商品中心维护并发布。</p>
+          <p class="mt-1 text-sm text-muted-foreground">仅已启用且已发布的当前生效技术包版本可生成生产单，未满足时请先在商品中心完成启用。</p>
         </header>
         <footer class="flex items-center justify-end gap-2 px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-demand-generate-confirm">取消</button>
@@ -563,13 +580,13 @@ export function renderProductionDemandInboxPage(): string {
             </select>
           </label>
           <label class="space-y-1">
-            <span class="text-xs text-muted-foreground">技术资料状态</span>
+            <span class="text-xs text-muted-foreground">当前技术包状态</span>
             <select data-prod-field="demandTechPackFilter" class="mt-1 w-full rounded-md border px-3 py-2 text-sm">
               <option value="ALL" ${state.demandTechPackFilter === 'ALL' ? 'selected' : ''}>全部</option>
               <option value="INCOMPLETE" ${
                 state.demandTechPackFilter === 'INCOMPLETE' ? 'selected' : ''
-              }>待完善</option>
-              <option value="RELEASED" ${state.demandTechPackFilter === 'RELEASED' ? 'selected' : ''}>已发布</option>
+              }>不可转单</option>
+              <option value="RELEASED" ${state.demandTechPackFilter === 'RELEASED' ? 'selected' : ''}>可转单</option>
             </select>
           </label>
           <label class="space-y-1">
@@ -614,7 +631,7 @@ export function renderProductionDemandInboxPage(): string {
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">SPU</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">优先级</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
-              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">技术资料</th>
+              <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前生效技术包</th>
               <th class="bg-muted/50 px-3 py-3 text-right text-xs font-medium text-muted-foreground">数量</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">交付日期</th>
               <th class="bg-muted/50 px-3 py-3 text-left text-xs font-medium text-muted-foreground">生产单</th>
@@ -661,12 +678,19 @@ export function renderProductionDemandInboxPage(): string {
                             demandStatusConfig[demand.demandStatus].className,
                           )}</td>
                           <td class="px-3 py-3">
-                            <div class="flex items-center gap-1">
-                              ${renderBadge(
-                                demandTechPackStatusConfig[techPack.status].label,
-                                demandTechPackStatusConfig[techPack.status].className,
-                              )}
-                              <span class="text-xs text-muted-foreground">(${escapeHtml(techPack.versionLabel || '-')})</span>
+                            <div class="space-y-1">
+                              <div class="flex items-center gap-1">
+                                ${renderBadge(
+                                  techPack.displayStatusLabel,
+                                  techPack.displayStatusClassName,
+                                )}
+                                <span class="text-xs text-muted-foreground">${escapeHtml(
+                                  techPack.versionCode || '-',
+                                )}</span>
+                              </div>
+                              <div class="text-xs text-muted-foreground">${escapeHtml(
+                                techPack.versionLabel || '暂无当前生效版本',
+                              )}</div>
                             </div>
                           </td>
                           <td class="px-3 py-3 text-right font-mono">${demand.requiredQtyTotal.toLocaleString()}</td>
@@ -682,7 +706,7 @@ export function renderProductionDemandInboxPage(): string {
                           </td>
                           <td class="px-3 py-3">
                             <div class="flex flex-wrap items-center gap-1">
-                              ${renderDemandOperations(demand, techPack.status)}
+                              ${renderDemandOperations(demand, techPack.status, { allowGenerate: techPack.canGenerate })}
                             </div>
                           </td>
                         </tr>
@@ -758,7 +782,7 @@ function performDemandGenerate(): void {
     if (
       demand.hasProductionOrder ||
       demand.demandStatus !== 'PENDING_CONVERT' ||
-      techPack.status !== 'RELEASED'
+      !techPack.canGenerate
     ) {
       continue
     }
@@ -790,57 +814,56 @@ function performDemandGenerate(): void {
       },
     ]
 
-    const releasedTechPack = getTechPackBySpuCode(demand.spuCode)
-    if (!releasedTechPack || releasedTechPack.status !== 'RELEASED') {
+    try {
+      const order = buildProductionOrderFromDemand({
+        productionOrderId: orderId,
+        demandId: demand.demandId,
+        status: initialStatus,
+        mainFactoryId: factory.id,
+        ownerPartyType,
+        ownerPartyId: ownerPartyId || factory.id,
+        ownerReason: state.demandOwnerReason.trim() || undefined,
+        assignmentSummary: {
+          directCount: 0,
+          biddingCount: 0,
+          totalTasks: 0,
+          unassignedCount: 0,
+        },
+        assignmentProgress: {
+          status: 'NOT_READY',
+          directAssignedCount: 0,
+          biddingLaunchedCount: 0,
+          biddingAwardedCount: 0,
+        },
+        biddingSummary: {
+          activeTenderCount: 0,
+          overdueTenderCount: 0,
+        },
+        directDispatchSummary: {
+          assignedFactoryCount: 0,
+          rejectedCount: 0,
+          overdueAckCount: 0,
+        },
+        taskBreakdownSummary: {
+          isBrokenDown: false,
+          taskTypesTop3: [],
+        },
+        riskFlags,
+        planStatus: 'UNPLANNED',
+        deliveryWarehouseStatus: 'UNSET',
+        lifecycleStatus: 'PLANNED',
+        lifecycleUpdatedAt: now,
+        lifecycleUpdatedBy: currentUser.name,
+        auditLogs,
+        createdAt: now,
+        updatedAt: now,
+        snapshotAt: now,
+      }, demand, currentUser.name)
+
+      newOrders.push(order)
+    } catch {
       continue
     }
-
-    const order = buildProductionOrderFromDemand({
-      productionOrderId: orderId,
-      demandId: demand.demandId,
-      status: initialStatus,
-      mainFactoryId: factory.id,
-      ownerPartyType,
-      ownerPartyId: ownerPartyId || factory.id,
-      ownerReason: state.demandOwnerReason.trim() || undefined,
-      assignmentSummary: {
-        directCount: 0,
-        biddingCount: 0,
-        totalTasks: 0,
-        unassignedCount: 0,
-      },
-      assignmentProgress: {
-        status: 'NOT_READY',
-        directAssignedCount: 0,
-        biddingLaunchedCount: 0,
-        biddingAwardedCount: 0,
-      },
-      biddingSummary: {
-        activeTenderCount: 0,
-        overdueTenderCount: 0,
-      },
-      directDispatchSummary: {
-        assignedFactoryCount: 0,
-        rejectedCount: 0,
-        overdueAckCount: 0,
-      },
-      taskBreakdownSummary: {
-        isBrokenDown: false,
-        taskTypesTop3: [],
-      },
-      riskFlags,
-      planStatus: 'UNPLANNED',
-      deliveryWarehouseStatus: 'UNSET',
-      lifecycleStatus: 'PLANNED',
-      lifecycleUpdatedAt: now,
-      lifecycleUpdatedBy: currentUser.name,
-      auditLogs,
-      createdAt: now,
-      updatedAt: now,
-      snapshotAt: now,
-    }, demand, releasedTechPack)
-
-    newOrders.push(order)
   }
 
   if (newOrders.length === 0) {
@@ -901,71 +924,70 @@ function performOrdersFromDemandGenerate(): void {
       demand.hasProductionOrder ||
       demand.productionOrderId !== null ||
       demand.demandStatus !== 'PENDING_CONVERT' ||
-      techPack.status !== 'RELEASED'
+      !techPack.canGenerate
     ) {
       continue
     }
 
     const orderId = nextProductionOrderId([...state.orders, ...newOrders])
 
-    const releasedTechPack = getTechPackBySpuCode(demand.spuCode)
-    if (!releasedTechPack || releasedTechPack.status !== 'RELEASED') {
+    try {
+      const order = buildProductionOrderFromDemand({
+        productionOrderId: orderId,
+        demandId: demand.demandId,
+        status: 'READY_FOR_BREAKDOWN',
+        mainFactoryId: factory.id,
+        ownerPartyType: 'FACTORY',
+        ownerPartyId: factory.id,
+        assignmentSummary: {
+          directCount: 0,
+          biddingCount: 0,
+          totalTasks: 0,
+          unassignedCount: 0,
+        },
+        assignmentProgress: {
+          status: 'NOT_READY',
+          directAssignedCount: 0,
+          biddingLaunchedCount: 0,
+          biddingAwardedCount: 0,
+        },
+        biddingSummary: {
+          activeTenderCount: 0,
+          overdueTenderCount: 0,
+        },
+        directDispatchSummary: {
+          assignedFactoryCount: 0,
+          rejectedCount: 0,
+          overdueAckCount: 0,
+        },
+        taskBreakdownSummary: {
+          isBrokenDown: false,
+          taskTypesTop3: [],
+        },
+        riskFlags: [],
+        planStatus: 'UNPLANNED',
+        deliveryWarehouseStatus: 'UNSET',
+        lifecycleStatus: 'PLANNED',
+        lifecycleUpdatedAt: now,
+        lifecycleUpdatedBy: currentUser.name,
+        auditLogs: [
+          {
+            id: nextLocalEntityId('LOG'),
+            action: 'CREATE',
+            detail: `从需求 ${demand.demandId} 生成生产单`,
+            at: now,
+            by: currentUser.name,
+          },
+        ],
+        createdAt: now,
+        updatedAt: now,
+        snapshotAt: now,
+      }, demand, currentUser.name)
+
+      newOrders.push(order)
+    } catch {
       continue
     }
-
-    const order = buildProductionOrderFromDemand({
-      productionOrderId: orderId,
-      demandId: demand.demandId,
-      status: 'READY_FOR_BREAKDOWN',
-      mainFactoryId: factory.id,
-      ownerPartyType: 'FACTORY',
-      ownerPartyId: factory.id,
-      assignmentSummary: {
-        directCount: 0,
-        biddingCount: 0,
-        totalTasks: 0,
-        unassignedCount: 0,
-      },
-      assignmentProgress: {
-        status: 'NOT_READY',
-        directAssignedCount: 0,
-        biddingLaunchedCount: 0,
-        biddingAwardedCount: 0,
-      },
-      biddingSummary: {
-        activeTenderCount: 0,
-        overdueTenderCount: 0,
-      },
-      directDispatchSummary: {
-        assignedFactoryCount: 0,
-        rejectedCount: 0,
-        overdueAckCount: 0,
-      },
-      taskBreakdownSummary: {
-        isBrokenDown: false,
-        taskTypesTop3: [],
-      },
-      riskFlags: [],
-      planStatus: 'UNPLANNED',
-      deliveryWarehouseStatus: 'UNSET',
-      lifecycleStatus: 'PLANNED',
-      lifecycleUpdatedAt: now,
-      lifecycleUpdatedBy: currentUser.name,
-      auditLogs: [
-        {
-          id: nextLocalEntityId('LOG'),
-          action: 'CREATE',
-          detail: `从需求 ${demand.demandId} 生成生产单`,
-          at: now,
-          by: currentUser.name,
-        },
-      ],
-      createdAt: now,
-      updatedAt: now,
-      snapshotAt: now,
-    }, demand, releasedTechPack)
-
-    newOrders.push(order)
   }
 
   if (newOrders.length === 0) {

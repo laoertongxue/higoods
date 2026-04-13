@@ -39,11 +39,11 @@ import {
   currentUser,
   nextLocalEntityId,
   openAppRoute,
-} from './context'
+} from './context.ts'
 import {
   getOrderMergedAuditLogs,
   renderMaterialDraftDrawer,
-} from './orders-domain'
+} from './orders-domain.ts'
 
 function renderDetailLogsDialog(order: ProductionOrder): string {
   if (!state.detailLogsOpen) return ''
@@ -141,7 +141,7 @@ function renderOrderDetailTabButtons(activeTab: OrderDetailTab): string {
   const tabs: Array<{ key: OrderDetailTab; label: string }> = [
     { key: 'overview', label: '概览' },
     { key: 'demand-snapshot', label: '需求快照' },
-    { key: 'tech-pack', label: '技术资料快照' },
+    { key: 'tech-pack', label: '技术包快照' },
     { key: 'assignment', label: '分配概览' },
     { key: 'handover', label: '交接链路' },
     { key: 'logs', label: '日志' },
@@ -511,24 +511,28 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
   }
 
   if (state.detailTab === 'tech-pack') {
+    const snapshot = order.techPackSnapshot
     return `
       <section class="rounded-lg border bg-card p-4 space-y-4">
-        <h3 class="text-base font-semibold">技术资料快照</h3>
+        <h3 class="text-base font-semibold">技术包快照</h3>
 
         <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
             <h4 class="text-sm font-medium">快照信息</h4>
-            <p class="text-xs text-muted-foreground">状态</p>
+            <p class="text-xs text-muted-foreground">冻结状态</p>
             <div>${renderBadge(
-              demandTechPackStatusConfig[techPack.snapshotStatus].label,
-              demandTechPackStatusConfig[techPack.snapshotStatus].className,
+              techPack.snapshotReadyStatus,
+              techPack.snapshotReadyClassName,
             )}</div>
-            <p class="text-xs text-muted-foreground">版本 ${escapeHtml(techPack.snapshotVersion)}</p>
-            <p class="text-xs text-muted-foreground">快照时间 ${escapeHtml(order.techPackSnapshot.snapshotAt)}</p>
+            <p class="text-xs text-muted-foreground">技术包快照编号 ${escapeHtml(snapshot?.snapshotId || '-')}</p>
+            <p class="text-xs text-muted-foreground">来源技术包版本编号 ${escapeHtml(snapshot?.sourceTechPackVersionCode || '-')}</p>
+            <p class="text-xs text-muted-foreground">来源技术包版本标签 ${escapeHtml(snapshot?.sourceTechPackVersionLabel || '-')}</p>
+            <p class="text-xs text-muted-foreground">快照冻结时间 ${escapeHtml(snapshot?.snapshotAt || '-')}</p>
+            <p class="text-xs text-muted-foreground">快照冻结人 ${escapeHtml(snapshot?.snapshotBy || '-')}</p>
           </div>
 
           <div class="space-y-2">
-            <h4 class="text-sm font-medium">当前信息</h4>
+            <h4 class="text-sm font-medium">当前生效版本</h4>
             <p class="text-xs text-muted-foreground">状态</p>
             <div class="flex items-center gap-2">
               ${renderBadge(
@@ -537,24 +541,16 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
               )}
               ${techPack.isOutOfSync ? renderBadge('不一致', 'bg-orange-100 text-orange-700') : ''}
             </div>
-            <p class="text-xs text-muted-foreground">版本 ${escapeHtml(techPack.currentVersion)}</p>
-            <p class="text-xs text-muted-foreground">完整度 ${techPack.completenessScore}%</p>
+            <p class="text-xs text-muted-foreground">版本编号 ${escapeHtml(techPack.currentVersionCode || '-')}</p>
+            <p class="text-xs text-muted-foreground">版本标签 ${escapeHtml(techPack.currentVersion)}</p>
+            <p class="text-xs text-muted-foreground">发布时间 ${escapeHtml(techPack.currentPublishedAt || '-')}</p>
+            <p class="text-xs text-muted-foreground">来源任务链 ${escapeHtml(techPack.sourceTaskText)}</p>
           </div>
         </div>
 
-        ${
-          techPack.missingChecklist.length > 0
-            ? `<div class="space-y-2 border-t pt-3"><p class="text-sm font-medium">缺口清单</p>${techPack.missingChecklist
-                .map(
-                  (item) => `<p class="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">${escapeHtml(item)}</p>`,
-                )
-                .join('')}</div>`
-            : ''
-        }
-
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-tech-pack" data-spu-code="${escapeHtml(
-          order.demandSnapshot.spuCode,
-        )}">去商品中心维护</button>
+        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(
+          order.productionOrderId,
+        )}">查看技术包快照</button>
       </section>
     `
   }
@@ -703,15 +699,15 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   const standardTime = getOrderStandardTimeSnapshot(order)
 
   const canBreakdown =
-    getOrderBusinessTechPackStatus(order.techPackSnapshot.status) === 'RELEASED' &&
+    getOrderBusinessTechPackStatus(order.techPackSnapshot) === 'RELEASED' &&
     order.status === 'READY_FOR_BREAKDOWN'
   const canAssign =
     breakdown.isBrokenDown &&
     (order.status === 'WAIT_ASSIGNMENT' || order.status === 'ASSIGNING')
 
   const breakdownDisabledReason =
-    getOrderBusinessTechPackStatus(order.techPackSnapshot.status) !== 'RELEASED'
-      ? '技术资料版本未发布，无法拆解'
+    getOrderBusinessTechPackStatus(order.techPackSnapshot) !== 'RELEASED'
+      ? '技术包快照缺失，无法拆解'
       : order.status !== 'READY_FOR_BREAKDOWN'
         ? '当前状态不支持拆解'
         : ''
@@ -754,9 +750,9 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           }" title="${escapeHtml(assignDisabledReason)}" data-nav="/fcs/dispatch/board?po=${escapeHtml(
             order.productionOrderId,
           )}">去分配</button>
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-tech-pack" data-spu-code="${escapeHtml(
-            order.demandSnapshot.spuCode,
-          )}">去商品中心维护</button>
+          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(
+            order.productionOrderId,
+          )}">查看技术包快照</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="detail-open-logs">查看日志</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/progress/urge?po=${escapeHtml(
             order.productionOrderId,
@@ -768,7 +764,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
       ${
         techPack.isOutOfSync
           ? `<section class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-               <p class="font-medium">技术资料快照与当前版本不一致</p>
+               <p class="font-medium">技术包快照与当前生效版本不一致</p>
                <p class="mt-1">快照版本：${escapeHtml(techPack.snapshotVersion)} (${escapeHtml(
                  demandTechPackStatusConfig[techPack.snapshotStatus].label,
                )}) | 当前版本：${escapeHtml(techPack.currentVersion)} (${escapeHtml(
@@ -779,12 +775,10 @@ export function renderProductionOrderDetailPage(orderId: string): string {
       }
 
       ${
-        getOrderBusinessTechPackStatus(order.techPackSnapshot.status) !== 'RELEASED'
+        getOrderBusinessTechPackStatus(order.techPackSnapshot) !== 'RELEASED'
           ? `<section class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-               <p class="font-medium">技术资料版本未发布，无法拆解</p>
-               <p class="mt-1">当前技术资料状态为 ${escapeHtml(
-                 demandTechPackStatusConfig[getOrderBusinessTechPackStatus(order.techPackSnapshot.status)].label,
-               )}，请先完善并发布。</p>
+               <p class="font-medium">技术包快照未冻结，无法拆解</p>
+               <p class="mt-1">当前生产单缺少可执行的技术包快照，请先从需求转单时冻结已启用版本。</p>
              </section>`
           : ''
       }

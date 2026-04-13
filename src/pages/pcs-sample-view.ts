@@ -66,6 +66,11 @@ export function handleSampleViewEvent(target: Element): boolean {
   const actionNode = target.closest<HTMLElement>('[data-sample-view-action]')
   const action = actionNode?.dataset.sampleViewAction
   if (!action) return false
+  if (action === 'reset') {
+    state.keyword = ''
+    state.siteFilter = 'all'
+    return true
+  }
   if (action === 'open-detail') {
     const sampleId = actionNode?.dataset.sampleId
     if (sampleId) {
@@ -110,13 +115,14 @@ export function renderSampleViewPage(): string {
         <p class="mt-1 text-sm text-muted-foreground">样衣卡片中的项目与项目节点标签统一回读正式样衣资产记录，不再主展示旧项目字段。</p>
       </header>
 
-      <section class="rounded-lg border bg-card p-4">
-        <div class="grid gap-3 lg:grid-cols-[2fr,1fr]">
-          <input class="h-9 rounded-md border bg-background px-3 text-sm" placeholder="搜索样衣编号/样衣名称/项目/项目节点" value="${escapeHtml(state.keyword)}" data-sample-view-field="keyword" />
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-sample-view-field="site">
+      <section class="rounded-lg border bg-white p-4">
+        <div class="grid gap-4 md:grid-cols-[2fr,1fr,auto]">
+          <input class="h-9 rounded-md border px-3 text-sm" placeholder="搜索样衣编号/样衣名称/项目/项目节点" value="${escapeHtml(state.keyword)}" data-sample-view-field="keyword" />
+          <select class="h-9 rounded-md border px-3 text-sm" data-sample-view-field="site">
             <option value="all" ${state.siteFilter === 'all' ? 'selected' : ''}>全部站点</option>
             ${siteOptions.map((item) => `<option value="${escapeHtml(item)}" ${state.siteFilter === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
+          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-gray-50" data-sample-view-action="reset">重置筛选</button>
         </div>
       </section>
 

@@ -49,7 +49,7 @@ import {
   setMaterialDraftRemark,
   setMaterialDraftLineConfirmedQty,
 } from './context'
-import { resolveTechnicalDataEntryBySpuCode } from '../../data/pcs-technical-data-entry-resolver.ts'
+import { getDemandCurrentTechPackInfo } from '../../data/fcs/production-tech-pack-snapshot-builder.ts'
 import {
   openDemandBatchGenerate,
   openDemandSingleGenerate,
@@ -58,9 +58,41 @@ import {
   performOrdersFromDemandGenerate,
 } from './demand-domain'
 
-function openTechnicalDataEntry(spuCode: string): void {
-  const target = resolveTechnicalDataEntryBySpuCode(spuCode)
-  openAppRoute(target.targetPath, `technical-${spuCode}`, target.targetTitle)
+function openCurrentTechPackEntry(spuCode: string): void {
+  const info = getDemandCurrentTechPackInfo({ spuCode })
+  const deferOpenAppRoute = (pathname: string, key?: string, title?: string): void => {
+    window.setTimeout(() => {
+      openAppRoute(pathname, key, title)
+    }, 0)
+  }
+
+  if (info.styleId && info.currentTechPackVersionId) {
+    deferOpenAppRoute(
+      `/pcs/products/styles/${encodeURIComponent(info.styleId)}/technical-data/${encodeURIComponent(info.currentTechPackVersionId)}`,
+      `pcs-tech-pack-${info.currentTechPackVersionId}`,
+      `技术包版本 ${info.currentTechPackVersionCode || spuCode}`,
+    )
+    return
+  }
+
+  if (info.styleId) {
+    deferOpenAppRoute(
+      `/pcs/products/styles/${encodeURIComponent(info.styleId)}?tab=technical`,
+      `pcs-style-${info.styleId}`,
+      `款式档案 ${info.styleCode || spuCode}`,
+    )
+    return
+  }
+
+  deferOpenAppRoute('/pcs/products/styles', 'pcs-style-archives', '款式档案')
+}
+
+function openOrderTechPackSnapshot(productionOrderId: string): void {
+  openAppRoute(
+    `/fcs/production/orders/${encodeURIComponent(productionOrderId)}/tech-pack`,
+    `order-tech-pack-${productionOrderId}`,
+    `技术包快照 ${productionOrderId}`,
+  )
 }
 
 function updateProductionField(
@@ -426,20 +458,29 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-tech-pack') {
+  if (action === 'open-order-tech-pack-snapshot') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+
+    state.ordersActionMenuId = null
+    openOrderTechPackSnapshot(orderId)
+    return true
+  }
+
+  if (action === 'open-current-tech-pack') {
     const spuCode = actionNode.dataset.spuCode
     if (!spuCode) return true
 
     state.ordersActionMenuId = null
-    openTechnicalDataEntry(spuCode)
+    openCurrentTechPackEntry(spuCode)
     return true
   }
 
-  if (action === 'open-tech-pack-from-demand-detail') {
+  if (action === 'open-current-tech-pack-from-demand-detail') {
     const spuCode = actionNode.dataset.spuCode
     if (!spuCode) return true
 
-    openTechnicalDataEntry(spuCode)
+    openCurrentTechPackEntry(spuCode)
     state.demandDetailId = null
     return true
   }

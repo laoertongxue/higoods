@@ -14,8 +14,9 @@ import type {
   FactorySnapshot,
   ProductionOrder,
   TaskBreakdownSummary,
-  TechPackSnapshot,
 } from './production-orders.ts'
+import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import { buildSeedProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-builder.ts'
 import {
   getSettlementEffectiveInfoByFactory,
   getSettlementEffectiveInfoByFactoryAt,
@@ -312,12 +313,25 @@ function buildDemandSnapshot(factoryIndex: number, orderIndex: number, totalQty:
   }
 }
 
-function buildTechPackSnapshot(createdAt: string): TechPackSnapshot {
-  return {
-    status: 'RELEASED',
-    versionLabel: 'v2026.03',
-    snapshotAt: createdAt,
-  }
+function buildTechPackSnapshot(input: {
+  productionOrderId: string
+  productionOrderNo: string
+  demandSnapshot: DemandSnapshot
+  createdAt: string
+}): ProductionOrderTechPackSnapshot {
+  return buildSeedProductionOrderTechPackSnapshot({
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    demand: {
+      spuCode: input.demandSnapshot.spuCode,
+      spuName: input.demandSnapshot.spuName,
+      skuLines: input.demandSnapshot.skuLines,
+      techPackVersionLabel: 'v2026.03',
+      techPackStatus: 'RELEASED',
+    },
+    snapshotAt: input.createdAt,
+    snapshotBy: '系统',
+  })
 }
 
 function buildAssignmentSummary(): AssignmentSummary {
@@ -455,8 +469,10 @@ function createProductionOrders(factories: IndonesiaFactory[]): ProductionOrder[
       const createdAt = addDays('2026-01-02 09:00:00', orderIndex * 4 + factoryIndex, 9)
       const requiredDeliveryDate = formatDateOnly(addDays(createdAt, 40 + orderSeq * 5))
       const totalQty = 5400 + factoryIndex * 350 + orderSeq * 280
+      const productionOrderId = `PO-LINK-2026-${String(orderIndex + 1).padStart(4, '0')}`
+      const demandSnapshot = buildDemandSnapshot(factoryIndex, orderSeq, totalQty, requiredDeliveryDate)
       orders.push({
-        productionOrderId: `PO-LINK-2026-${String(orderIndex + 1).padStart(4, '0')}`,
+        productionOrderId,
         demandId: `DEM-LINK-2026-${String(orderIndex + 1).padStart(4, '0')}`,
         legacyOrderNo: `26${String(7000 + orderIndex + 1)}`,
         status: 'EXECUTING',
@@ -465,8 +481,13 @@ function createProductionOrders(factories: IndonesiaFactory[]): ProductionOrder[
         mainFactorySnapshot: createFactorySnapshot(factory),
         ownerPartyType: 'LEGAL_ENTITY',
         ownerPartyId: 'LE-001',
-        techPackSnapshot: buildTechPackSnapshot(createdAt),
-        demandSnapshot: buildDemandSnapshot(factoryIndex, orderSeq, totalQty, requiredDeliveryDate),
+        techPackSnapshot: buildTechPackSnapshot({
+          productionOrderId,
+          productionOrderNo: productionOrderId,
+          demandSnapshot,
+          createdAt,
+        }),
+        demandSnapshot,
         assignmentSummary: buildAssignmentSummary(),
         assignmentProgress: buildAssignmentProgress(),
         biddingSummary: buildBiddingSummary(),

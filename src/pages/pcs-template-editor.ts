@@ -11,8 +11,18 @@ import {
   type TemplateStatusCode,
   type TemplateStyleType,
 } from '../data/pcs-templates'
-import { listProjectPhaseDefinitions } from '../data/pcs-project-phase-definitions'
-import { getPcsWorkItemDefinition, listSelectableTemplateWorkItems } from '../data/pcs-work-items'
+import {
+  getProjectPhaseContract,
+  getProjectTemplateSchema,
+  getProjectWorkItemContract,
+  listProjectTemplateSchemas,
+} from '../data/pcs-project-domain-contract'
+import { getPcsWorkItemDefinition } from '../data/pcs-work-items'
+import {
+  buildTemplateBusinessSummary,
+  getTemplateNodeEditRule,
+  validateTemplateBusinessIntegrity,
+} from '../data/pcs-template-domain-view-model'
 
 type EditorMode = 'create' | 'edit'
 
@@ -29,11 +39,6 @@ interface TemplateEditorState {
   pendingNodes: ProjectTemplatePendingNode[]
   notice: string | null
   cancelDialogOpen: boolean
-  libraryDialog: {
-    open: boolean
-    templateStageId: string | null
-    selectedIds: string[]
-  }
 }
 
 const state: TemplateEditorState = {
@@ -49,11 +54,6 @@ const state: TemplateEditorState = {
   pendingNodes: [],
   notice: null,
   cancelDialogOpen: false,
-  libraryDialog: {
-    open: false,
-    templateStageId: null,
-    selectedIds: [],
-  },
 }
 
 function cloneStage(stage: ProjectTemplateStageDefinition): ProjectTemplateStageDefinition {
@@ -72,31 +72,53 @@ function clonePendingNode(node: ProjectTemplatePendingNode): ProjectTemplatePend
   return { ...node }
 }
 
-function createStageDraft(phaseCode: string): ProjectTemplateStageDefinition {
-  const phase = listProjectPhaseDefinitions().find((item) => item.phaseCode === phaseCode)
-  if (!phase) {
-    throw new Error(`未找到标准阶段：${phaseCode}`)
-  }
-  return {
-    templateStageId: `TMP-STAGE-${phase.phaseCode}`,
-    templateId: '',
-    phaseCode: phase.phaseCode,
-    phaseName: phase.phaseName,
-    phaseOrder: phase.phaseOrder,
-    requiredFlag: true,
-    description: phase.description,
-  }
-}
-
 function getNodesByStage(templateStageId: string): ProjectTemplateNodeDefinition[] {
   return state.nodes
     .filter((node) => node.templateStageId === templateStageId)
     .sort((a, b) => a.sequenceNo - b.sequenceNo)
 }
 
-function getAvailablePhaseDefinitions() {
-  const selected = new Set(state.stages.map((item) => item.phaseCode))
-  return listProjectPhaseDefinitions().filter((item) => !selected.has(item.phaseCode))
+function findSchemaByStyleType(styleType: TemplateStyleType) {
+  const schema = listProjectTemplateSchemas().find((item) => item.styleTypes.includes(styleType))
+  if (!schema) {
+    throw new Error(`未找到适用款式类型的正式模板矩阵：${styleType}`)
+  }
+  return getProjectTemplateSchema(schema.templateId)
+}
+
+function applySchemaToState(styleType: TemplateStyleType): void {
+  const schema = findSchemaByStyleType(styleType)
+  const builtinTemplate = getProjectTemplateById(schema.templateId)
+  if (!builtinTemplate) {
+    throw new Error(`未找到正式模板：${schema.templateId}`)
+  }
+  state.stages = builtinTemplate.stages.map(cloneStage)
+  state.nodes = builtinTemplate.nodes.map(cloneNode)
+  state.pendingNodes = []
+  if (state.mode === 'create' && !state.name.trim()) {
+    state.name = schema.templateName
+  }
+  if (!state.description.trim()) {
+    state.description = schema.description
+  }
+}
+
+function buildCurrentTemplateSummary() {
+  if (!state.styleType) return null
+  return buildTemplateBusinessSummary({
+    id: state.templateId ?? 'TMP',
+    name: state.name.trim() || '未命名模板',
+    styleType: [state.styleType],
+    creator: '当前用户',
+    createdAt: '',
+    updatedAt: '',
+    status: state.status,
+    description: state.description,
+    scenario: findSchemaByStyleType(state.styleType).scenario,
+    stages: state.stages.map(cloneStage),
+    nodes: state.nodes.map(cloneNode),
+    pendingNodes: state.pendingNodes.map(clonePendingNode),
+  })
 }
 
 function ensureInitialized(mode: EditorMode, templateId?: string): void {
@@ -108,14 +130,13 @@ function ensureInitialized(mode: EditorMode, templateId?: string): void {
   state.templateId = templateId ?? null
   state.notice = null
   state.cancelDialogOpen = false
-  state.libraryDialog = { open: false, templateStageId: null, selectedIds: [] }
 
   if (mode === 'create') {
     state.name = ''
     state.styleType = ''
     state.description = ''
     state.status = 'active'
-    state.stages = [createStageDraft('PHASE_01')]
+    state.stages = []
     state.nodes = []
     state.pendingNodes = []
     return
@@ -127,7 +148,7 @@ function ensureInitialized(mode: EditorMode, templateId?: string): void {
     state.styleType = ''
     state.description = ''
     state.status = 'active'
-    state.stages = [createStageDraft('PHASE_01')]
+    state.stages = []
     state.nodes = []
     state.pendingNodes = []
     return
@@ -163,7 +184,7 @@ function renderHeader(): string {
           <i data-lucide="arrow-left" class="mr-1 h-3.5 w-3.5"></i>返回模板列表
         </button>
         <h1 class="text-xl font-semibold">${isCreate ? '新增模板' : '编辑模板'}</h1>
-        <p class="text-sm text-muted-foreground">${isCreate ? '通过标准阶段和标准工作项组合模板节点。' : '模板只负责组织阶段和节点，不再维护第二套工作项定义。'}</p>
+        <p class="text-sm text-muted-foreground">${isCreate ? '第一步先选择适用款式类型，系统将加载该类型的正式推荐模板骨架。' : '编辑页只允许调整正式矩阵允许变动的可选节点、节点顺序、多实例和模板说明。'}</p>
       </div>
       ${!isCreate ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-template-editor-action="go-detail">查看详情</button>` : ''}
     </header>
@@ -171,54 +192,104 @@ function renderHeader(): string {
 }
 
 function renderBasicInfo(): string {
+  const basicInfoLocked = state.mode === 'edit'
   return `
     <section class="rounded-lg border bg-card p-4">
       <h2 class="mb-3 text-sm font-semibold">模板基本信息</h2>
       <div class="grid gap-3 md:grid-cols-2">
         <div>
           <label class="mb-1 block text-xs text-muted-foreground">模板名称 <span class="text-red-500">*</span></label>
-          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.name)}" placeholder="如：基础款-完整流程模板" data-pcs-template-editor-field="name" />
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm ${basicInfoLocked ? 'cursor-not-allowed bg-muted/40' : ''}" value="${escapeHtml(state.name)}" placeholder="如：基础款-完整测款转档模板" data-pcs-template-editor-field="name" ${basicInfoLocked ? 'disabled' : ''} />
+          ${basicInfoLocked ? '<p class="mt-1 text-[11px] text-muted-foreground">编辑页不修改模板名称；如需停用请回详情页或列表页操作。</p>' : ''}
         </div>
         <div>
           <label class="mb-1 block text-xs text-muted-foreground">适用款式类型 <span class="text-red-500">*</span></label>
-          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-template-editor-field="styleType">
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm ${basicInfoLocked ? 'cursor-not-allowed bg-muted/40' : ''}" data-pcs-template-editor-field="styleType" ${basicInfoLocked ? 'disabled' : ''}>
             <option value="" ${state.styleType === '' ? 'selected' : ''}>请选择款式类型</option>
             <option value="基础款" ${state.styleType === '基础款' ? 'selected' : ''}>基础款</option>
             <option value="快时尚款" ${state.styleType === '快时尚款' ? 'selected' : ''}>快时尚款</option>
             <option value="改版款" ${state.styleType === '改版款' ? 'selected' : ''}>改版款</option>
             <option value="设计款" ${state.styleType === '设计款' ? 'selected' : ''}>设计款</option>
           </select>
+          <p class="mt-1 text-xs text-muted-foreground">${basicInfoLocked ? '编辑页不切换款式类型，避免脱离正式模板矩阵。' : state.styleType ? '已按所选款式类型载入正式推荐模板骨架。' : '选择款式类型后，系统将自动加载对应阶段和节点骨架。'}</p>
         </div>
         <div>
           <label class="mb-1 block text-xs text-muted-foreground">模板状态</label>
-          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-template-editor-field="status">
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm ${basicInfoLocked ? 'cursor-not-allowed bg-muted/40' : ''}" data-pcs-template-editor-field="status" ${basicInfoLocked ? 'disabled' : ''}>
             <option value="active" ${state.status === 'active' ? 'selected' : ''}>${getStatusLabel('active')}</option>
             <option value="inactive" ${state.status === 'inactive' ? 'selected' : ''}>${getStatusLabel('inactive')}</option>
           </select>
+          ${basicInfoLocked ? '<p class="mt-1 text-[11px] text-muted-foreground">模板启停统一在模板列表和模板详情页处理。</p>' : ''}
         </div>
         <div class="md:col-span-2">
           <label class="mb-1 block text-xs text-muted-foreground">模板说明</label>
-          <textarea class="min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="描述模板适用场景..." data-pcs-template-editor-field="description">${escapeHtml(state.description)}</textarea>
+          <textarea class="min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="请说明模板适用场景、节奏和差异点。" data-pcs-template-editor-field="description">${escapeHtml(state.description)}</textarea>
         </div>
       </div>
     </section>
   `
 }
 
-function renderPendingNodeSection(): string {
-  if (state.pendingNodes.length === 0) return ''
+function renderReasonPanel(): string {
+  if (!state.styleType) {
+    return `
+      <section class="rounded-lg border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+        请先选择适用款式类型，系统会显示正式模板骨架、闭环状态和阶段节点业务理由。
+      </section>
+    `
+  }
+
+  const summary = buildCurrentTemplateSummary()
+  if (!summary) return ''
+
+  const closureClass =
+    summary.closureStatus === '完整闭环'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : summary.closureStatus === '仅测款不转档'
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : 'border-red-200 bg-red-50 text-red-700'
+
   return `
-    <section class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-      <h2 class="text-sm font-semibold text-amber-800">待补充标准工作项</h2>
-      <p class="mt-1 text-xs text-amber-700">以下旧模板行尚未标准化，不能作为正式模板节点生成项目节点。</p>
-      <div class="mt-3 space-y-2">
-        ${state.pendingNodes
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-semibold">阶段与节点业务理由面板</h2>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(summary.scenarioSummary)}</p>
+        </div>
+        <span class="inline-flex rounded-full border px-2 py-1 text-xs ${closureClass}">${escapeHtml(summary.closureStatus)}</span>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <article class="rounded-md border bg-muted/20 p-3">
+          <p class="text-xs text-muted-foreground">闭环说明</p>
+          <p class="mt-1 text-sm">${escapeHtml(summary.closureText)}</p>
+        </article>
+        <article class="rounded-md border bg-muted/20 p-3">
+          <p class="text-xs text-muted-foreground">测款路径说明</p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            ${summary.pathFlags.map((item) => `<span class="inline-flex rounded-md border bg-background px-2 py-1 text-xs">${escapeHtml(item)}</span>`).join('')}
+          </div>
+        </article>
+      </div>
+      ${
+        summary.issues.length > 0
+          ? `
+            <div class="mt-3 rounded-md border border-red-200 bg-red-50 p-3">
+              <p class="text-xs text-red-700">当前模板存在以下校验问题，保存前必须修正：</p>
+              <ul class="mt-2 space-y-1 text-sm text-red-700">
+                ${summary.issues.map((item) => `<li>• ${escapeHtml(item.message)}</li>`).join('')}
+              </ul>
+            </div>
+          `
+          : ''
+      }
+      <div class="mt-3 space-y-3">
+        ${summary.previewPhases
           .map(
-            (item) => `
-              <article class="rounded-md border border-amber-200 bg-white px-3 py-2 text-xs">
-                <p class="font-medium text-amber-800">原始旧名称：${escapeHtml(item.legacyWorkItemName)}</p>
-                <p class="mt-1 text-amber-700">原始旧阶段：${escapeHtml(item.legacyStageName)}</p>
-                <p class="mt-1 text-amber-700">未映射原因：${escapeHtml(item.unresolvedReason)}</p>
+            (phase) => `
+              <article class="rounded-md border bg-background p-3">
+                <p class="text-xs text-muted-foreground">${escapeHtml(phase.phaseCode)}</p>
+                <p class="mt-1 text-sm font-medium">${escapeHtml(phase.phaseName)}</p>
+                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(phase.nodeNames.join('、') || '当前未启用节点')}</p>
               </article>
             `,
           )
@@ -230,14 +301,26 @@ function renderPendingNodeSection(): string {
 
 function renderNodeRow(stage: ProjectTemplateStageDefinition, node: ProjectTemplateNodeDefinition): string {
   const workItem = getPcsWorkItemDefinition(node.workItemId)
-  if (!workItem) return ''
+  if (!workItem || !state.styleType) return ''
 
-  const canMultiInstance = workItem.capabilities.canMultiInstance
+  const contract = getProjectWorkItemContract(node.workItemTypeCode as Parameters<typeof getProjectWorkItemContract>[0])
+  const editRule = getTemplateNodeEditRule(state.styleType, node.workItemTypeCode as Parameters<typeof getTemplateNodeEditRule>[1])
+  const allowMultiInstance = workItem.capabilities.canMultiInstance && node.enabledFlag !== false
 
   return `
-    <tr class="border-b last:border-b-0">
+    <tr class="border-b last:border-b-0 ${node.enabledFlag === false ? 'opacity-60' : ''}">
       <td class="px-2 py-1.5">
-        <input class="h-8 w-16 rounded-md border bg-background px-2 text-xs" value="${node.sequenceNo}" type="number" min="1" data-pcs-template-editor-field="nodeSequenceNo" data-template-stage-id="${escapeHtml(stage.templateStageId)}" data-template-node-id="${escapeHtml(node.templateNodeId)}" />
+        ${
+          editRule.allowDisable
+            ? `<label class="inline-flex items-center gap-1 text-xs">
+                <input type="checkbox" class="h-4 w-4 rounded border" ${node.enabledFlag !== false ? 'checked' : ''} data-pcs-template-editor-field="nodeEnabledFlag" data-template-node-id="${escapeHtml(node.templateNodeId)}" />
+                ${node.enabledFlag === false ? '已停用' : '已启用'}
+              </label>`
+            : '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">正式必留</span>'
+        }
+      </td>
+      <td class="px-2 py-1.5">
+        <input class="h-8 w-16 rounded-md border bg-background px-2 text-xs ${editRule.allowReorder && node.enabledFlag !== false ? '' : 'cursor-not-allowed bg-muted/40'}" value="${node.sequenceNo}" type="number" min="1" ${editRule.allowReorder && node.enabledFlag !== false ? '' : 'disabled'} data-pcs-template-editor-field="nodeSequenceNo" data-template-node-id="${escapeHtml(node.templateNodeId)}" />
       </td>
       <td class="px-2 py-1.5 font-mono text-xs">${escapeHtml(workItem.workItemId)}</td>
       <td class="px-2 py-1.5">
@@ -246,88 +329,116 @@ function renderNodeRow(stage: ProjectTemplateStageDefinition, node: ProjectTempl
       </td>
       <td class="px-2 py-1.5">${escapeHtml(workItem.categoryName)}</td>
       <td class="px-2 py-1.5">
-        <select class="h-8 w-full rounded-md border bg-background px-2 text-xs" data-pcs-template-editor-field="nodeRequiredFlag" data-template-stage-id="${escapeHtml(stage.templateStageId)}" data-template-node-id="${escapeHtml(node.templateNodeId)}">
+        <select class="h-8 w-full rounded-md border bg-background px-2 text-xs ${editRule.allowRequiredSwitch && node.enabledFlag !== false ? '' : 'cursor-not-allowed bg-muted/40'}" data-pcs-template-editor-field="nodeRequiredFlag" data-template-node-id="${escapeHtml(node.templateNodeId)}" ${editRule.allowRequiredSwitch && node.enabledFlag !== false ? '' : 'disabled'}>
           <option value="true" ${node.requiredFlag ? 'selected' : ''}>必做</option>
           <option value="false" ${!node.requiredFlag ? 'selected' : ''}>可选</option>
         </select>
       </td>
       <td class="px-2 py-1.5">
-        <label class="inline-flex items-center gap-1 text-xs ${canMultiInstance ? '' : 'text-muted-foreground'}">
-          <input type="checkbox" class="h-4 w-4 rounded border" ${node.multiInstanceFlag ? 'checked' : ''} ${canMultiInstance ? '' : 'disabled'} data-pcs-template-editor-field="nodeMultiInstanceFlag" data-template-stage-id="${escapeHtml(stage.templateStageId)}" data-template-node-id="${escapeHtml(node.templateNodeId)}" />
-          ${canMultiInstance ? '允许多次执行' : '标准工作项不允许多次执行'}
+        <label class="inline-flex items-center gap-1 text-xs ${allowMultiInstance ? '' : 'text-muted-foreground'}">
+          <input type="checkbox" class="h-4 w-4 rounded border" ${node.multiInstanceFlag ? 'checked' : ''} ${allowMultiInstance ? '' : 'disabled'} data-pcs-template-editor-field="nodeMultiInstanceFlag" data-template-node-id="${escapeHtml(node.templateNodeId)}" />
+          ${allowMultiInstance ? '允许多次执行' : '当前节点固定单次'}
         </label>
       </td>
       <td class="px-2 py-1.5">
-        <input class="h-8 w-full rounded-md border bg-background px-2 text-xs" value="${escapeHtml(node.roleOverrideNames.join(' / '))}" placeholder="如需覆盖角色，请输入" data-pcs-template-editor-field="nodeRoleOverride" data-template-stage-id="${escapeHtml(stage.templateStageId)}" data-template-node-id="${escapeHtml(node.templateNodeId)}" />
+        <span class="text-xs text-muted-foreground">${escapeHtml(node.roleOverrideNames.join(' / ') || '沿用默认角色')}</span>
       </td>
       <td class="px-2 py-1.5">
-        <input class="h-8 w-full rounded-md border bg-background px-2 text-xs" value="${escapeHtml(node.note)}" placeholder="节点备注" data-pcs-template-editor-field="nodeNote" data-template-stage-id="${escapeHtml(stage.templateStageId)}" data-template-node-id="${escapeHtml(node.templateNodeId)}" />
+        <span class="text-xs text-muted-foreground">${escapeHtml(node.note || '沿用正式说明')}</span>
       </td>
-      <td class="px-2 py-1.5 text-right">
-        <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs text-red-700 hover:bg-red-50" data-pcs-template-editor-action="remove-node" data-template-stage-id="${escapeHtml(stage.templateStageId)}" data-template-node-id="${escapeHtml(node.templateNodeId)}">删除</button>
-      </td>
+      <td class="px-2 py-1.5 text-xs text-muted-foreground">${escapeHtml(contract.keepReason)}</td>
     </tr>
   `
 }
 
 function renderStageCard(stage: ProjectTemplateStageDefinition): string {
+  if (!state.styleType) return ''
+  const phaseContract = getProjectPhaseContract(stage.phaseCode as Parameters<typeof getProjectPhaseContract>[0])
+  const schema = findSchemaByStyleType(state.styleType)
+  const phaseSchema = schema.phaseSchemas.find((item) => item.phaseCode === stage.phaseCode)
   const nodes = getNodesByStage(stage.templateStageId)
-  const availableWorkItems = listSelectableTemplateWorkItems(stage.phaseCode)
 
   return `
     <article class="rounded-lg border bg-background p-3">
       <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div class="space-y-1">
-          <p class="text-xs text-muted-foreground">正式阶段</p>
-          <h3 class="text-sm font-medium">${escapeHtml(stage.phaseName)}</h3>
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="text-sm font-medium">${escapeHtml(stage.phaseName)}</p>
+            <span class="inline-flex rounded-full border bg-muted px-2 py-0.5 text-xs">${stage.requiredFlag ? '正式必经阶段' : '可选阶段'}</span>
+          </div>
           <p class="text-xs text-muted-foreground">阶段编码：${escapeHtml(stage.phaseCode)}</p>
-          <textarea class="mt-1 min-h-[56px] w-full rounded-md border bg-background px-2 py-1 text-xs" placeholder="阶段说明" data-pcs-template-editor-field="stageDescription" data-template-stage-id="${escapeHtml(stage.templateStageId)}">${escapeHtml(stage.description)}</textarea>
         </div>
-        <div class="flex items-center gap-2">
-          <label class="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <input type="checkbox" class="h-4 w-4 rounded border" ${stage.requiredFlag ? 'checked' : ''} data-pcs-template-editor-field="stageRequiredFlag" data-template-stage-id="${escapeHtml(stage.templateStageId)}" />
-            必经阶段
-          </label>
-          <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-template-editor-action="open-library" data-template-stage-id="${escapeHtml(stage.templateStageId)}">
-            从工作项库选择
-          </button>
-          <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs text-red-700 hover:bg-red-50 ${state.stages.length <= 1 ? 'cursor-not-allowed opacity-60' : ''}" data-pcs-template-editor-action="remove-stage" data-template-stage-id="${escapeHtml(stage.templateStageId)}" ${state.stages.length <= 1 ? 'disabled' : ''}>
-            删除阶段
-          </button>
+        <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          启用节点：${nodes.filter((item) => item.enabledFlag !== false).map((item) => escapeHtml(item.workItemTypeName)).join('、') || '当前未启用节点'}
         </div>
       </div>
 
-      <div class="mb-3 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        本阶段可选标准工作项：${availableWorkItems.length > 0 ? availableWorkItems.map((item) => escapeHtml(item.workItemTypeName)).join('、') : '暂无可选工作项'}
+      <div class="mb-3 grid gap-3 md:grid-cols-2">
+        <article class="rounded-md border bg-muted/20 p-3">
+          <p class="text-xs text-muted-foreground">阶段业务场景</p>
+          <p class="mt-1 text-sm">${escapeHtml(phaseContract.businessScenario)}</p>
+        </article>
+        <article class="rounded-md border bg-muted/20 p-3">
+          <p class="text-xs text-muted-foreground">为什么需要这个阶段</p>
+          <p class="mt-1 text-sm">${escapeHtml(phaseSchema?.whyExists || phaseContract.whyExists)}</p>
+        </article>
+        <article class="rounded-md border bg-muted/20 p-3">
+          <p class="mb-2 text-xs text-muted-foreground">进入条件</p>
+          <ul class="space-y-1 text-sm text-muted-foreground">
+            ${phaseContract.entryConditions.map((item) => `<li>• ${escapeHtml(item)}</li>`).join('')}
+          </ul>
+        </article>
+        <article class="rounded-md border bg-muted/20 p-3">
+          <p class="mb-2 text-xs text-muted-foreground">退出条件</p>
+          <ul class="space-y-1 text-sm text-muted-foreground">
+            ${phaseContract.exitConditions.map((item) => `<li>• ${escapeHtml(item)}</li>`).join('')}
+          </ul>
+        </article>
       </div>
 
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1100px] text-xs">
+        <table class="w-full min-w-[1240px] text-xs">
           <thead>
             <tr class="border-b text-left text-muted-foreground">
+              <th class="px-2 py-1.5 font-medium">启用状态</th>
               <th class="px-2 py-1.5 font-medium">阶段内顺序</th>
               <th class="px-2 py-1.5 font-medium">标准工作项编号</th>
               <th class="px-2 py-1.5 font-medium">标准工作项名称</th>
               <th class="px-2 py-1.5 font-medium">工作项类别</th>
               <th class="px-2 py-1.5 font-medium">是否必做</th>
-              <th class="px-2 py-1.5 font-medium">是否允许多次执行</th>
+              <th class="px-2 py-1.5 font-medium">多实例</th>
               <th class="px-2 py-1.5 font-medium">角色覆盖</th>
               <th class="px-2 py-1.5 font-medium">节点备注</th>
-              <th class="px-2 py-1.5 text-right font-medium">操作</th>
+              <th class="px-2 py-1.5 font-medium">节点业务理由</th>
             </tr>
           </thead>
           <tbody>
-            ${
-              nodes.length > 0
-                ? nodes.map((node) => renderNodeRow(stage, node)).join('')
-                : `
-                  <tr>
-                    <td colspan="9" class="px-2 py-4 text-center text-muted-foreground">暂无模板节点，请从标准工作项库选择。</td>
-                  </tr>
-                `
-            }
+            ${nodes.map((node) => renderNodeRow(stage, node)).join('')}
           </tbody>
         </table>
+      </div>
+
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        ${nodes
+          .map((node) => {
+            const contract = getProjectWorkItemContract(node.workItemTypeCode as Parameters<typeof getProjectWorkItemContract>[0])
+            const allPreconditions = Array.from(new Set(contract.operationDefinitions.flatMap((item) => item.preconditions)))
+            return `
+              <article class="rounded-md border bg-muted/20 p-3 ${node.enabledFlag === false ? 'opacity-60' : ''}">
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="text-sm font-medium">${escapeHtml(contract.workItemTypeName)}</p>
+                  <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${node.enabledFlag === false ? 'border-slate-200 bg-slate-100 text-slate-600' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}">${node.enabledFlag === false ? '当前停用' : '当前启用'}</span>
+                </div>
+                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(contract.keepReason)}</p>
+                <div class="mt-2 space-y-2 text-xs text-muted-foreground">
+                  <p>前置条件：${escapeHtml(allPreconditions.join('；') || '无固定前置条件')}</p>
+                  <p>上游变动：${escapeHtml(contract.upstreamChanges.join('；') || '无')}</p>
+                  <p>下游变动：${escapeHtml(contract.downstreamChanges.join('；') || '无')}</p>
+                </div>
+              </article>
+            `
+          })
+          .join('')}
       </div>
     </article>
   `
@@ -337,13 +448,19 @@ function renderStageSection(): string {
   return `
     <section class="space-y-3 rounded-lg border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold">阶段与模板节点配置</h2>
-        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-template-editor-action="add-stage">
-          <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>新增阶段
-        </button>
+        <h2 class="text-sm font-semibold">正式阶段与节点配置</h2>
+        <span class="rounded-md border bg-muted/30 px-3 py-1 text-xs text-muted-foreground">正式矩阵锁定，只能在正式矩阵允许的节点上做启用、顺序、必做和多实例调整</span>
       </div>
       <div class="space-y-3">
-        ${state.stages.map((stage) => renderStageCard(stage)).join('')}
+        ${
+          state.stages.length > 0
+            ? state.stages
+                .slice()
+                .sort((a, b) => a.phaseOrder - b.phaseOrder)
+                .map((stage) => renderStageCard(stage))
+                .join('')
+            : '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">请先选择适用款式类型，系统将加载正式模板矩阵。</div>'
+        }
       </div>
     </section>
   `
@@ -378,52 +495,6 @@ function renderCancelDialog(): string {
   `
 }
 
-function renderLibraryDialog(): string {
-  if (!state.libraryDialog.open || !state.libraryDialog.templateStageId) return ''
-  const stage = state.stages.find((item) => item.templateStageId === state.libraryDialog.templateStageId)
-  if (!stage) return ''
-  const selectable = listSelectableTemplateWorkItems(stage.phaseCode)
-
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section class="w-full max-w-2xl rounded-lg border bg-background shadow-2xl">
-        <header class="border-b px-4 py-3">
-          <h3 class="text-base font-semibold">从标准工作项库选择</h3>
-          <p class="mt-1 text-xs text-muted-foreground">目标阶段：${escapeHtml(stage.phaseName)}</p>
-        </header>
-        <div class="max-h-[60vh] overflow-y-auto p-4">
-          <div class="space-y-2">
-            ${
-              selectable.length > 0
-                ? selectable
-                    .map((item) => {
-                      const checked = state.libraryDialog.selectedIds.includes(item.workItemId)
-                      return `
-                        <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-muted/30">
-                          <input type="checkbox" class="mt-0.5 h-4 w-4 rounded border" data-pcs-template-editor-field="librarySelect" data-library-item-id="${escapeHtml(item.workItemId)}" ${checked ? 'checked' : ''} />
-                          <div class="space-y-1">
-                            <p class="text-sm font-medium">${escapeHtml(item.workItemTypeName)}</p>
-                            <p class="text-xs text-muted-foreground">编号：${escapeHtml(item.workItemId)} ｜ 编码：${escapeHtml(item.workItemTypeCode)}</p>
-                            <p class="text-xs text-muted-foreground">类别：${escapeHtml(item.categoryName)} ｜ 默认角色：${escapeHtml(item.roleNames.join(' / '))}</p>
-                            <p class="text-xs text-muted-foreground">允许多次执行：${item.capabilities.canMultiInstance ? '是' : '否'}</p>
-                          </div>
-                        </label>
-                      `
-                    })
-                    .join('')
-                : `<div class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">当前阶段暂无可选标准工作项。</div>`
-            }
-          </div>
-        </div>
-        <footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-template-editor-action="close-library">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border border-blue-300 px-3 text-sm text-blue-700 hover:bg-blue-50" data-pcs-template-editor-action="confirm-library">添加已选工作项</button>
-        </footer>
-      </section>
-    </div>
-  `
-}
-
 function saveTemplate(): boolean {
   const name = state.name.trim()
   if (!name) {
@@ -443,6 +514,16 @@ function saveTemplate(): boolean {
     return false
   }
 
+  const issues = validateTemplateBusinessIntegrity({
+    styleType: state.styleType,
+    stages: state.stages.map(cloneStage),
+    nodes: state.nodes.map(cloneNode),
+  })
+  if (issues.length > 0) {
+    state.notice = issues[0].message
+    return false
+  }
+
   const orderedStages = state.stages
     .map(cloneStage)
     .sort((a, b) => a.phaseOrder - b.phaseOrder)
@@ -453,8 +534,24 @@ function saveTemplate(): boolean {
       return a.phaseCode.localeCompare(b.phaseCode)
     })
 
-  if (state.mode === 'create') {
-    const created = createProjectTemplate({
+  try {
+    if (state.mode === 'create') {
+      const created = createProjectTemplate({
+        name,
+        styleType: [state.styleType],
+        description: state.description.trim(),
+        status: state.status,
+        stages: orderedStages,
+        nodes: orderedNodes,
+        pendingNodes: state.pendingNodes.map(clonePendingNode),
+        creator: '当前用户',
+      })
+      appStore.navigate(`/pcs/templates/${created.id}`)
+      return true
+    }
+
+    if (!state.templateId) return false
+    const updated = updateProjectTemplate(state.templateId, {
       name,
       styleType: [state.styleType],
       description: state.description.trim(),
@@ -462,28 +559,17 @@ function saveTemplate(): boolean {
       stages: orderedStages,
       nodes: orderedNodes,
       pendingNodes: state.pendingNodes.map(clonePendingNode),
-      creator: '当前用户',
     })
-    appStore.navigate(`/pcs/templates/${created.id}`)
+    if (!updated) {
+      state.notice = '模板不存在，保存失败。'
+      return false
+    }
+    appStore.navigate(`/pcs/templates/${updated.id}`)
     return true
-  }
-
-  if (!state.templateId) return false
-  const updated = updateProjectTemplate(state.templateId, {
-    name,
-    styleType: [state.styleType],
-    description: state.description.trim(),
-    status: state.status,
-    stages: orderedStages,
-    nodes: orderedNodes,
-    pendingNodes: state.pendingNodes.map(clonePendingNode),
-  })
-  if (!updated) {
-    state.notice = '模板不存在，保存失败。'
+  } catch (error) {
+    state.notice = error instanceof Error ? error.message : '模板保存失败，请重试。'
     return false
   }
-  appStore.navigate(`/pcs/templates/${updated.id}`)
-  return true
 }
 
 export function renderPcsTemplateCreatePage(): string {
@@ -493,11 +579,10 @@ export function renderPcsTemplateCreatePage(): string {
       ${renderHeader()}
       ${renderNotice()}
       ${renderBasicInfo()}
-      ${renderPendingNodeSection()}
+      ${renderReasonPanel()}
       ${renderStageSection()}
       ${renderActionBar()}
       ${renderCancelDialog()}
-      ${renderLibraryDialog()}
     </div>
   `
 }
@@ -524,28 +609,16 @@ export function renderPcsTemplateEditPage(templateId: string): string {
       ${renderHeader()}
       ${renderNotice()}
       ${renderBasicInfo()}
-      ${renderPendingNodeSection()}
+      ${renderReasonPanel()}
       ${renderStageSection()}
       ${renderActionBar()}
       ${renderCancelDialog()}
-      ${renderLibraryDialog()}
     </div>
   `
 }
 
-function findStage(templateStageId: string): ProjectTemplateStageDefinition | null {
-  return state.stages.find((stage) => stage.templateStageId === templateStageId) ?? null
-}
-
 function findNode(templateNodeId: string): ProjectTemplateNodeDefinition | null {
   return state.nodes.find((node) => node.templateNodeId === templateNodeId) ?? null
-}
-
-function parseRoleOverride(value: string): string[] {
-  return value
-    .split(/[、,/，\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
 }
 
 export function handlePcsTemplateEditorEvent(target: HTMLElement): boolean {
@@ -557,27 +630,27 @@ export function handlePcsTemplateEditorEvent(target: HTMLElement): boolean {
       state.name = fieldNode.value
       return true
     }
-    if (field === 'librarySelect') {
-      const itemId = fieldNode.dataset.libraryItemId
-      if (!itemId) return false
-      state.libraryDialog.selectedIds = fieldNode.checked
-        ? Array.from(new Set([...state.libraryDialog.selectedIds, itemId]))
-        : state.libraryDialog.selectedIds.filter((id) => id !== itemId)
-      return true
-    }
-    if (field === 'stageRequiredFlag') {
-      const templateStageId = fieldNode.dataset.templateStageId
-      if (!templateStageId) return false
-      const stage = findStage(templateStageId)
-      if (!stage) return false
-      stage.requiredFlag = fieldNode.checked
+    if (field === 'nodeEnabledFlag') {
+      const templateNodeId = fieldNode.dataset.templateNodeId
+      if (!templateNodeId || !state.styleType) return false
+      const node = findNode(templateNodeId)
+      if (!node) return false
+      const editRule = getTemplateNodeEditRule(state.styleType, node.workItemTypeCode as Parameters<typeof getTemplateNodeEditRule>[1])
+      if (!editRule.allowDisable) return true
+      node.enabledFlag = fieldNode.checked
+      if (!node.enabledFlag) {
+        node.requiredFlag = false
+        node.multiInstanceFlag = false
+      }
       return true
     }
     if (field === 'nodeSequenceNo') {
       const templateNodeId = fieldNode.dataset.templateNodeId
-      if (!templateNodeId) return false
+      if (!templateNodeId || !state.styleType) return false
       const node = findNode(templateNodeId)
       if (!node) return false
+      const editRule = getTemplateNodeEditRule(state.styleType, node.workItemTypeCode as Parameters<typeof getTemplateNodeEditRule>[1])
+      if (!editRule.allowReorder || node.enabledFlag === false) return true
       node.sequenceNo = Math.max(1, Number(fieldNode.value) || 1)
       return true
     }
@@ -587,25 +660,7 @@ export function handlePcsTemplateEditorEvent(target: HTMLElement): boolean {
       const node = findNode(templateNodeId)
       if (!node) return false
       const workItem = getPcsWorkItemDefinition(node.workItemId)
-      node.multiInstanceFlag = workItem?.capabilities.canMultiInstance ? fieldNode.checked : false
-      return true
-    }
-    if (field === 'nodeRoleOverride') {
-      const templateNodeId = fieldNode.dataset.templateNodeId
-      if (!templateNodeId) return false
-      const node = findNode(templateNodeId)
-      if (!node) return false
-      const roles = parseRoleOverride(fieldNode.value)
-      node.roleOverrideCodes = [...roles]
-      node.roleOverrideNames = [...roles]
-      return true
-    }
-    if (field === 'nodeNote') {
-      const templateNodeId = fieldNode.dataset.templateNodeId
-      if (!templateNodeId) return false
-      const node = findNode(templateNodeId)
-      if (!node) return false
-      node.note = fieldNode.value
+      node.multiInstanceFlag = node.enabledFlag !== false && workItem?.capabilities.canMultiInstance ? fieldNode.checked : false
       return true
     }
   }
@@ -616,20 +671,18 @@ export function handlePcsTemplateEditorEvent(target: HTMLElement): boolean {
       state.description = fieldNode.value
       return true
     }
-    if (field === 'stageDescription') {
-      const templateStageId = fieldNode.dataset.templateStageId
-      if (!templateStageId) return false
-      const stage = findStage(templateStageId)
-      if (!stage) return false
-      stage.description = fieldNode.value
-      return true
-    }
   }
 
   if (fieldNode instanceof HTMLSelectElement) {
     const field = fieldNode.dataset.pcsTemplateEditorField
     if (field === 'styleType') {
       state.styleType = fieldNode.value as '' | TemplateStyleType
+      if (state.styleType) {
+        applySchemaToState(state.styleType)
+      } else {
+        state.stages = []
+        state.nodes = []
+      }
       return true
     }
     if (field === 'status') {
@@ -638,9 +691,11 @@ export function handlePcsTemplateEditorEvent(target: HTMLElement): boolean {
     }
     if (field === 'nodeRequiredFlag') {
       const templateNodeId = fieldNode.dataset.templateNodeId
-      if (!templateNodeId) return false
+      if (!templateNodeId || !state.styleType) return false
       const node = findNode(templateNodeId)
       if (!node) return false
+      const editRule = getTemplateNodeEditRule(state.styleType, node.workItemTypeCode as Parameters<typeof getTemplateNodeEditRule>[1])
+      if (!editRule.allowRequiredSwitch || node.enabledFlag === false) return true
       node.requiredFlag = fieldNode.value === 'true'
       return true
     }
@@ -662,82 +717,6 @@ export function handlePcsTemplateEditorEvent(target: HTMLElement): boolean {
   }
   if (action === 'close-notice') {
     state.notice = null
-    return true
-  }
-  if (action === 'add-stage') {
-    const available = getAvailablePhaseDefinitions()
-    if (available.length === 0) {
-      state.notice = '标准阶段目录只有 5 个，当前模板已全部使用。'
-      return true
-    }
-    state.stages = [...state.stages, createStageDraft(available[0].phaseCode)]
-    return true
-  }
-  if (action === 'remove-stage') {
-    const templateStageId = actionNode.dataset.templateStageId
-    if (!templateStageId || state.stages.length <= 1) return false
-    state.stages = state.stages.filter((stage) => stage.templateStageId !== templateStageId)
-    state.nodes = state.nodes.filter((node) => node.templateStageId !== templateStageId)
-    state.pendingNodes = state.pendingNodes.filter((node) => node.templateStageId !== templateStageId)
-    return true
-  }
-  if (action === 'open-library') {
-    const templateStageId = actionNode.dataset.templateStageId
-    if (!templateStageId) return false
-    state.libraryDialog = {
-      open: true,
-      templateStageId,
-      selectedIds: [],
-    }
-    return true
-  }
-  if (action === 'close-library') {
-    state.libraryDialog = {
-      open: false,
-      templateStageId: null,
-      selectedIds: [],
-    }
-    return true
-  }
-  if (action === 'confirm-library') {
-    const templateStageId = state.libraryDialog.templateStageId
-    if (!templateStageId) return false
-    const stage = findStage(templateStageId)
-    if (!stage) return false
-    const currentNodes = getNodesByStage(templateStageId)
-    const selected = listSelectableTemplateWorkItems(stage.phaseCode).filter((item) =>
-      state.libraryDialog.selectedIds.includes(item.workItemId),
-    )
-    const appended = selected.map((item, index) => ({
-      templateNodeId: `TMP-NODE-${stage.phaseCode}-${Date.now()}-${index + 1}`,
-      templateId: '',
-      templateStageId: stage.templateStageId,
-      phaseCode: stage.phaseCode,
-      phaseName: stage.phaseName,
-      workItemId: item.workItemId,
-      workItemTypeCode: item.workItemTypeCode,
-      workItemTypeName: item.workItemTypeName,
-      sequenceNo: currentNodes.length + index + 1,
-      requiredFlag: true,
-      multiInstanceFlag: item.capabilities.canMultiInstance,
-      roleOverrideCodes: [],
-      roleOverrideNames: [],
-      note: '',
-      sourceWorkItemUpdatedAt: item.updatedAt,
-      templateVersion: '',
-    }))
-    state.nodes = [...state.nodes, ...appended]
-    state.libraryDialog = {
-      open: false,
-      templateStageId: null,
-      selectedIds: [],
-    }
-    return true
-  }
-  if (action === 'remove-node') {
-    const templateNodeId = actionNode.dataset.templateNodeId
-    if (!templateNodeId) return false
-    state.nodes = state.nodes.filter((node) => node.templateNodeId !== templateNodeId)
     return true
   }
   if (action === 'open-cancel-dialog') {
@@ -765,6 +744,5 @@ export function handlePcsTemplateEditorEvent(target: HTMLElement): boolean {
 }
 
 export function isPcsTemplateEditorDialogOpen(): boolean {
-  return state.cancelDialogOpen || state.libraryDialog.open
+  return state.cancelDialogOpen
 }
-

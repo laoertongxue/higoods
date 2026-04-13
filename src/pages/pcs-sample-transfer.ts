@@ -39,10 +39,10 @@ export function renderSampleTransferPage(): string {
         <p class="mt-1 text-sm text-muted-foreground">样衣流转页只从正式样衣台账事件分流展示，不再维护独立流转事件数组。</p>
       </header>
 
-      <section class="rounded-lg border bg-card p-4">
+      <section class="rounded-lg border bg-white p-4">
         <div class="flex flex-wrap gap-2">
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm ${state.activeGroup === 'all' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-sample-transfer-action="switch-group" data-group-key="all">全部流转</button>
-          ${groups.map((group) => `<button class="inline-flex h-9 items-center rounded-md border px-3 text-sm ${state.activeGroup === group.key ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-sample-transfer-action="switch-group" data-group-key="${group.key}">${escapeHtml(group.label)}</button>`).join('')}
+          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm ${state.activeGroup === 'all' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'hover:bg-gray-50'}" data-sample-transfer-action="switch-group" data-group-key="all">全部流转</button>
+          ${groups.map((group) => `<button class="inline-flex h-9 items-center rounded-md border px-4 text-sm ${state.activeGroup === group.key ? 'bg-blue-600 text-white hover:bg-blue-700' : 'hover:bg-gray-50'}" data-sample-transfer-action="switch-group" data-group-key="${group.key}">${escapeHtml(group.label)}</button>`).join('')}
         </div>
       </section>
 

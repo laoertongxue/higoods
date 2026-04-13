@@ -23,6 +23,11 @@ export interface PlateMakingTaskRecord {
   patternType: string
   sizeRange: string
   patternVersion: string
+  linkedTechPackVersionId: string
+  linkedTechPackVersionCode: string
+  linkedTechPackVersionLabel: string
+  linkedTechPackVersionStatus: string
+  linkedTechPackUpdatedAt: string
   status: PlateMakingTaskStatus
   ownerId: string
   ownerName: string

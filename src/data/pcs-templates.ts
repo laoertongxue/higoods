@@ -1,15 +1,20 @@
 import { getProjectPhaseDefinitionByCode, listProjectPhaseDefinitions } from './pcs-project-phase-definitions.ts'
-import {
-  normalizeLegacyProjectTemplateSeed,
-  type LegacyTemplateStageSeed,
-  type ProjectTemplateNodeDefinition,
-  type ProjectTemplatePendingNode,
-  type ProjectTemplateStageDefinition,
+import type {
+  ProjectTemplateNodeDefinition,
+  ProjectTemplatePendingNode,
+  ProjectTemplateStageDefinition,
 } from './pcs-project-definition-normalizer.ts'
 import { getPcsWorkItemDefinition } from './pcs-work-items.ts'
+import {
+  buildBuiltinProjectTemplateMatrix,
+  getProjectTemplateSchema,
+  listProjectTemplateSchemas,
+  type PcsProjectTemplateStyleType,
+} from './pcs-project-domain-contract.ts'
+import { validateTemplateBusinessIntegrity } from './pcs-template-domain-view-model.ts'
 
 export type TemplateStatusCode = 'active' | 'inactive'
-export type TemplateStyleType = '基础款' | '快时尚款' | '改版款' | '设计款'
+export type TemplateStyleType = PcsProjectTemplateStyleType
 
 export interface ProjectTemplate {
   id: string
@@ -20,275 +25,11 @@ export interface ProjectTemplate {
   updatedAt: string
   status: TemplateStatusCode
   description: string
+  scenario: string
   stages: ProjectTemplateStageDefinition[]
   nodes: ProjectTemplateNodeDefinition[]
   pendingNodes: ProjectTemplatePendingNode[]
 }
-
-interface LegacyProjectTemplateSeed {
-  id: string
-  name: string
-  styleType: TemplateStyleType[]
-  creator: string
-  createdAt: string
-  updatedAt: string
-  status: TemplateStatusCode
-  description: string
-  stages: LegacyTemplateStageSeed[]
-}
-
-const LEGACY_TEMPLATE_SEEDS: LegacyProjectTemplateSeed[] = [
-  {
-    id: 'TPL-001',
-    name: '基础款 - 完整流程模板',
-    styleType: ['基础款'],
-    creator: '系统管理员',
-    createdAt: '2025-01-01 09:00',
-    updatedAt: '2026-04-10 09:00',
-    status: 'active',
-    description: '适用于基础款的完整商品项目流程模板。',
-    stages: [
-      {
-        id: 'TPL-001-S1',
-        name: '01 立项获取',
-        description: '立项、样衣获取、到样核对。',
-        required: true,
-        workItems: [
-          { id: 'TPL-001-S1-W1', name: '商品项目立项', required: '必做' },
-          { id: 'TPL-001-S1-W2', name: '样衣获取（深圳前置打版）', required: '必做', multiInstanceFlag: true },
-          { id: 'TPL-001-S1-W3', name: '到样入库与核对', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-001-S2',
-        name: '02 评估定价',
-        description: '样衣评估、核价和定价。',
-        required: true,
-        workItems: [
-          { id: 'TPL-001-S2-W1', name: '初步可行性判断', required: '必做' },
-          { id: 'TPL-001-S2-W2', name: '样衣拍摄与试穿', required: '必做' },
-          { id: 'TPL-001-S2-W3', name: '样衣确认', required: '必做' },
-          { id: 'TPL-001-S2-W4', name: '样衣核价', required: '必做' },
-          { id: 'TPL-001-S2-W5', name: '样衣定价', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-001-S3',
-        name: '03 市场测款',
-        description: '短视频与直播双测款。',
-        required: true,
-        workItems: [
-          { id: 'TPL-001-S3-W1', name: '短视频测款', required: '必做', multiInstanceFlag: true },
-          { id: 'TPL-001-S3-W2', name: '直播测款', required: '必做', multiInstanceFlag: true },
-          { id: 'TPL-001-S3-W3', name: '测款数据汇总', required: '必做' },
-          { id: 'TPL-001-S3-W4', name: '测款结论判定', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-001-S4',
-        name: '04 开发推进',
-        description: '转档与工程推进。',
-        required: true,
-        workItems: [
-          { id: 'TPL-001-S4-W1', name: '生成商品档案', required: '必做' },
-          { id: 'TPL-001-S4-W2', name: '商品项目转档', required: '必做' },
-          { id: 'TPL-001-S4-W3', name: '制版准备·打版任务', required: '可选' },
-          { id: 'TPL-001-S4-W4', name: '首版样衣打样', required: '可选' },
-        ],
-      },
-      {
-        id: 'TPL-001-S5',
-        name: '05 项目收尾',
-        description: '留存与退回处理。',
-        required: true,
-        workItems: [
-          { id: 'TPL-001-S5-W1', name: '样衣留存评估', required: '可选' },
-          { id: 'TPL-001-S5-W2', name: '样衣退货与处理', required: '可选' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'TPL-002',
-    name: '快时尚款 - 快速上新模板',
-    styleType: ['快时尚款'],
-    creator: '系统管理员',
-    createdAt: '2025-01-01 09:00',
-    updatedAt: '2026-04-10 09:00',
-    status: 'active',
-    description: '适用于快反上新的高时效项目模板。',
-    stages: [
-      {
-        id: 'TPL-002-S1',
-        name: '01 立项获取',
-        description: '快速立项与样衣获取。',
-        required: true,
-        workItems: [
-          { id: 'TPL-002-S1-W1', name: '商品项目立项', required: '必做' },
-          { id: 'TPL-002-S1-W2', name: '样衣获取', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-002-S2',
-        name: '02 样衣与评估',
-        description: '快速完成样衣判断和定价。',
-        required: true,
-        workItems: [
-          { id: 'TPL-002-S2-W1', name: '初步可行性判断', required: '必做' },
-          { id: 'TPL-002-S2-W2', name: '样衣确认', required: '必做' },
-          { id: 'TPL-002-S2-W3', name: '样衣核价', required: '必做' },
-          { id: 'TPL-002-S2-W4', name: '样衣定价', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-002-S3',
-        name: '03 市场测款',
-        description: '直播测款为主的验证路径。',
-        required: true,
-        workItems: [
-          { id: 'TPL-002-S3-W1', name: '直播测款', required: '必做', multiInstanceFlag: true },
-          { id: 'TPL-002-S3-W2', name: '测款数据汇总', required: '必做' },
-          { id: 'TPL-002-S3-W3', name: '测款结论判定', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-002-S4',
-        name: '04 开发推进',
-        description: '快速转档与渠道准备。',
-        required: true,
-        workItems: [
-          { id: 'TPL-002-S4-W1', name: '项目转档准备', required: '必做' },
-          { id: 'TPL-002-S4-W2', name: '制版任务', required: '可选' },
-          { id: 'TPL-002-S4-W3', name: '商品上架', required: '可选' },
-        ],
-      },
-      {
-        id: 'TPL-002-S5',
-        name: '05 项目收尾',
-        description: '样衣留存评估。',
-        required: true,
-        workItems: [{ id: 'TPL-002-S5-W1', name: '样衣留存与库存', required: '可选' }],
-      },
-    ],
-  },
-  {
-    id: 'TPL-003',
-    name: '改版款 - 转档推进模板',
-    styleType: ['改版款'],
-    creator: '系统管理员',
-    createdAt: '2025-01-01 09:00',
-    updatedAt: '2026-04-10 09:00',
-    status: 'active',
-    description: '适用于改版开发的商品项目模板。',
-    stages: [
-      {
-        id: 'TPL-003-S1',
-        name: '01 立项阶段',
-        description: '立项与样衣准备。',
-        required: true,
-        workItems: [
-          { id: 'TPL-003-S1-W1', name: '商品项目立项', required: '必做' },
-          { id: 'TPL-003-S1-W2', name: '样衣获取', required: '必做' },
-          { id: 'TPL-003-S1-W3', name: '到样入库与核对', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-003-S2',
-        name: '02 评估定价',
-        description: '评估、确认和定价。',
-        required: true,
-        workItems: [
-          { id: 'TPL-003-S2-W1', name: '初步可行性判断', required: '必做' },
-          { id: 'TPL-003-S2-W2', name: '样衣确认', required: '必做' },
-          { id: 'TPL-003-S2-W3', name: '样衣核价', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-003-S3',
-        name: '03 测款阶段',
-        description: '直播测款与判定。',
-        required: true,
-        workItems: [
-          { id: 'TPL-003-S3-W1', name: '直播测款', required: '必做', multiInstanceFlag: true },
-          { id: 'TPL-003-S3-W2', name: '测款数据汇总', required: '必做' },
-          { id: 'TPL-003-S3-W3', name: '测款结论判定', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-003-S4',
-        name: '04 结论与推进',
-        description: '转档与打样推进。',
-        required: true,
-        workItems: [
-          { id: 'TPL-003-S4-W1', name: '生成商品档案', required: '必做' },
-          { id: 'TPL-003-S4-W2', name: '转档准备', required: '必做' },
-          { id: 'TPL-003-S4-W3', name: '首版样衣打样', required: '可选' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'TPL-004',
-    name: '设计款 - 测款推进模板',
-    styleType: ['设计款'],
-    creator: '系统管理员',
-    createdAt: '2025-01-01 09:00',
-    updatedAt: '2026-04-10 09:00',
-    status: 'active',
-    description: '适用于设计研发款的测款推进模板。',
-    stages: [
-      {
-        id: 'TPL-004-S1',
-        name: '01 立项获取',
-        description: '立项与样衣准备。',
-        required: true,
-        workItems: [
-          { id: 'TPL-004-S1-W1', name: '商品项目立项', required: '必做' },
-          { id: 'TPL-004-S1-W2', name: '样衣获取', required: '必做' },
-          { id: 'TPL-004-S1-W3', name: '到样入库与核对', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-004-S2',
-        name: '02 样衣与评估',
-        description: '样衣评估与定价。',
-        required: true,
-        workItems: [
-          { id: 'TPL-004-S2-W1', name: '样衣拍摄与试穿', required: '必做' },
-          { id: 'TPL-004-S2-W2', name: '样衣确认', required: '必做' },
-          { id: 'TPL-004-S2-W3', name: '样衣核价', required: '必做' },
-          { id: 'TPL-004-S2-W4', name: '样衣定价', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-004-S3',
-        name: '03 市场测款',
-        description: '视频、直播双测款。',
-        required: true,
-        workItems: [
-          { id: 'TPL-004-S3-W1', name: '短视频测款', required: '必做', multiInstanceFlag: true },
-          { id: 'TPL-004-S3-W2', name: '直播测款', required: '必做', multiInstanceFlag: true },
-          { id: 'TPL-004-S3-W3', name: '测款数据汇总', required: '必做' },
-          { id: 'TPL-004-S3-W4', name: '测款结论判定', required: '必做' },
-        ],
-      },
-      {
-        id: 'TPL-004-S4',
-        name: '04 开发推进',
-        description: '档案、花型和样衣推进。',
-        required: true,
-        workItems: [
-          { id: 'TPL-004-S4-W1', name: '生成商品档案', required: '必做' },
-          { id: 'TPL-004-S4-W2', name: '花型任务', required: '可选' },
-          { id: 'TPL-004-S4-W3', name: '首版样衣打样', required: '可选' },
-          { id: 'TPL-004-S4-W4', name: '产前版样衣', required: '可选' },
-        ],
-      },
-    ],
-  },
-]
-
-let templateStore: ProjectTemplate[] = LEGACY_TEMPLATE_SEEDS.map((seed) => normalizeLegacyTemplate(seed))
 
 function nowText(): string {
   const now = new Date()
@@ -334,6 +75,51 @@ function buildTemplateVersion(updatedAt: string): string {
   return updatedAt
 }
 
+function buildContractTemplateStore(): ProjectTemplate[] {
+  return buildBuiltinProjectTemplateMatrix().map((item) => ({
+    id: item.templateId,
+    name: item.templateName,
+    styleType: [...item.styleTypes],
+    creator: item.creator,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    status: item.status,
+    description: item.description,
+    scenario: item.scenario,
+    stages: item.stages.map((stage) => ({
+      templateStageId: stage.templateStageId,
+      templateId: item.templateId,
+      phaseCode: stage.phaseCode,
+      phaseName: stage.phaseName,
+      phaseOrder: stage.phaseOrder,
+      requiredFlag: stage.requiredFlag,
+      description: stage.description,
+    })),
+    nodes: item.nodes.map((node) => ({
+      templateNodeId: node.templateNodeId,
+      templateId: item.templateId,
+      templateStageId: node.templateStageId,
+      phaseCode: node.phaseCode,
+      phaseName: node.phaseName,
+      workItemId: node.workItemId,
+      workItemTypeCode: node.workItemTypeCode,
+      workItemTypeName: node.workItemTypeName,
+      sequenceNo: node.sequenceNo,
+      enabledFlag: true,
+      requiredFlag: node.requiredFlag,
+      multiInstanceFlag: node.multiInstanceFlag,
+      roleOverrideCodes: [],
+      roleOverrideNames: [],
+      note: node.note,
+      sourceWorkItemUpdatedAt: node.sourceWorkItemUpdatedAt,
+      templateVersion: item.updatedAt,
+    })),
+    pendingNodes: [],
+  }))
+}
+
+let templateStore: ProjectTemplate[] = buildContractTemplateStore()
+
 function normalizeStructuredTemplate(template: ProjectTemplate): ProjectTemplate {
   const orderedStages = template.stages
     .slice()
@@ -360,9 +146,8 @@ function normalizeStructuredTemplate(template: ProjectTemplate): ProjectTemplate
         phaseName: getProjectPhaseDefinitionByCode(node.phaseCode)?.phaseName ?? node.phaseName,
         workItemTypeCode: workItem?.workItemTypeCode ?? node.workItemTypeCode,
         workItemTypeName: workItem?.workItemTypeName ?? node.workItemTypeName,
+        enabledFlag: node.enabledFlag !== false,
         multiInstanceFlag: workItem?.capabilities.canMultiInstance === false ? false : node.multiInstanceFlag,
-        roleOverrideCodes: [...node.roleOverrideCodes],
-        roleOverrideNames: [...node.roleOverrideNames],
       }
     })
 
@@ -372,28 +157,6 @@ function normalizeStructuredTemplate(template: ProjectTemplate): ProjectTemplate
     nodes: orderedNodes,
     pendingNodes: template.pendingNodes.map(clonePendingNode),
   }
-}
-
-function normalizeLegacyTemplate(seed: LegacyProjectTemplateSeed): ProjectTemplate {
-  const result = normalizeLegacyProjectTemplateSeed({
-    templateId: seed.id,
-    templateVersion: buildTemplateVersion(seed.updatedAt),
-    stages: seed.stages,
-  })
-
-  return normalizeStructuredTemplate({
-    id: seed.id,
-    name: seed.name,
-    styleType: [...seed.styleType],
-    creator: seed.creator,
-    createdAt: seed.createdAt,
-    updatedAt: seed.updatedAt,
-    status: seed.status,
-    description: seed.description,
-    stages: result.stages,
-    nodes: result.nodes,
-    pendingNodes: result.pendingNodes,
-  })
 }
 
 function buildTemplateStageId(templateId: string, phaseCode: string): string {
@@ -436,9 +199,7 @@ function normalizeTemplateNodesForSave(
   const stageIds = new Map(stages.map((stage) => [stage.templateStageId, stage]))
   return nodes
     .map((node, index) => {
-      const stage =
-        stageIds.get(node.templateStageId) ??
-        stages.find((item) => item.phaseCode === node.phaseCode)
+      const stage = stageIds.get(node.templateStageId) ?? stages.find((item) => item.phaseCode === node.phaseCode)
       if (!stage) {
         throw new Error(`模板节点缺少所属阶段：${node.templateNodeId || index}`)
       }
@@ -458,6 +219,7 @@ function normalizeTemplateNodesForSave(
         workItemTypeCode: workItem.workItemTypeCode,
         workItemTypeName: workItem.workItemTypeName,
         sequenceNo: node.sequenceNo,
+        enabledFlag: node.enabledFlag !== false,
         requiredFlag: node.requiredFlag !== false,
         multiInstanceFlag: workItem.capabilities.canMultiInstance ? node.multiInstanceFlag : false,
         roleOverrideCodes: [...node.roleOverrideCodes],
@@ -475,6 +237,29 @@ function normalizeTemplateNodesForSave(
     })
 }
 
+function getSchemaByStyleType(styleType: TemplateStyleType): ReturnType<typeof getProjectTemplateSchema> {
+  const schema = listProjectTemplateSchemas().find((item) => item.styleTypes.includes(styleType))
+  if (!schema) {
+    throw new Error(`未找到适用款式类型的正式模板矩阵：${styleType}`)
+  }
+  return getProjectTemplateSchema(schema.templateId)
+}
+
+function assertTemplateMatchesSchema(
+  styleType: TemplateStyleType,
+  stages: ProjectTemplateStageDefinition[],
+  nodes: ProjectTemplateNodeDefinition[],
+): void {
+  const issues = validateTemplateBusinessIntegrity({ styleType, stages, nodes })
+  if (issues.length > 0) {
+    throw new Error(issues[0].message)
+  }
+}
+
+function listActiveNodes(template: ProjectTemplate): ProjectTemplateNodeDefinition[] {
+  return template.nodes.filter((node) => node.enabledFlag !== false)
+}
+
 export function listProjectTemplates(): ProjectTemplate[] {
   return templateStore.map(cloneTemplate)
 }
@@ -489,11 +274,11 @@ export function countTemplateStages(template: ProjectTemplate): number {
 }
 
 export function countTemplateWorkItems(template: ProjectTemplate): number {
-  return template.nodes.length
+  return listActiveNodes(template).length
 }
 
 export function countTemplateReferencedWorkItems(template: ProjectTemplate): number {
-  return new Set(template.nodes.map((item) => item.workItemId)).size
+  return new Set(listActiveNodes(template).map((item) => item.workItemId)).size
 }
 
 export function countTemplatePendingNodes(template: ProjectTemplate): number {
@@ -514,21 +299,28 @@ export function createProjectTemplate(input: {
   pendingNodes?: ProjectTemplatePendingNode[]
   creator?: string
 }): ProjectTemplate {
+  const styleType = input.styleType[0]
+  if (!styleType) {
+    throw new Error('请选择适用款式类型。')
+  }
+
   const id = nextTemplateId()
   const now = nowText()
   const templateVersion = buildTemplateVersion(now)
   const stages = normalizeTemplateStagesForSave(id, input.stages)
   const nodes = normalizeTemplateNodesForSave(id, templateVersion, stages, input.nodes)
+  assertTemplateMatchesSchema(styleType, stages, nodes)
 
   const created: ProjectTemplate = {
     id,
     name: input.name.trim(),
-    styleType: [...input.styleType],
+    styleType: [styleType],
     creator: input.creator?.trim() || '当前用户',
     createdAt: now,
     updatedAt: now,
     status: input.status ?? 'active',
     description: input.description.trim() || '商品项目模板说明待补充。',
+    scenario: getSchemaByStyleType(styleType).scenario,
     stages,
     nodes,
     pendingNodes: (input.pendingNodes ?? []).map((item) => ({ ...item, templateId: id, templateVersion })),
@@ -554,16 +346,23 @@ export function updateProjectTemplate(
   const existing = templateStore.find((item) => item.id === templateId)
   if (!existing) return null
 
+  const styleType = input.styleType[0]
+  if (!styleType) {
+    throw new Error('请选择适用款式类型。')
+  }
+
   const updatedAt = nowText()
   const templateVersion = buildTemplateVersion(updatedAt)
   const stages = normalizeTemplateStagesForSave(templateId, input.stages)
   const nodes = normalizeTemplateNodesForSave(templateId, templateVersion, stages, input.nodes)
+  assertTemplateMatchesSchema(styleType, stages, nodes)
 
   const updated: ProjectTemplate = normalizeStructuredTemplate({
     ...existing,
     name: input.name.trim(),
-    styleType: [...input.styleType],
+    styleType: [styleType],
     description: input.description.trim(),
+    scenario: getSchemaByStyleType(styleType).scenario,
     status: input.status ?? existing.status,
     updatedAt,
     stages,
@@ -603,7 +402,7 @@ export function copyProjectTemplate(templateId: string): ProjectTemplate | null 
     templateStageId: '',
   }))
 
-  const copied = createProjectTemplate({
+  return createProjectTemplate({
     name: `${source.name}-副本`,
     styleType: [...source.styleType],
     description: source.description,
@@ -613,8 +412,6 @@ export function copyProjectTemplate(templateId: string): ProjectTemplate | null 
     pendingNodes: source.pendingNodes.map((item) => ({ ...item })),
     creator: '当前用户',
   })
-
-  return copied
 }
 
 export function getStatusLabel(status: TemplateStatusCode): string {

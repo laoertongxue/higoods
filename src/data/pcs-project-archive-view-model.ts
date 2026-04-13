@@ -113,7 +113,7 @@ export function buildProjectArchivePageViewModel(projectArchiveId: string): Proj
     styleLinkText: archive.styleCode ? `${archive.styleCode} · ${archive.styleName}` : '暂无正式款式档案',
     technicalVersionText: archive.currentTechnicalVersionCode
       ? `${archive.currentTechnicalVersionCode} · ${archive.currentTechnicalVersionLabel || '当前生效版本'}`
-      : '暂无当前生效技术资料版本',
+      : '暂无当前生效技术包版本',
     baseDocuments: filterDocumentsByGroups(documents, BASE_GROUPS),
     technicalDocuments: filterDocumentsByGroups(documents, TECH_GROUPS),
     sampleDocuments: filterDocumentsByGroups(documents, SAMPLE_GROUPS),
@@ -121,4 +121,3 @@ export function buildProjectArchivePageViewModel(projectArchiveId: string): Proj
     missingItems: listProjectArchiveMissingItemsByArchiveId(projectArchiveId),
   }
 }
-

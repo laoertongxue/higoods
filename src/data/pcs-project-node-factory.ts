@@ -48,6 +48,7 @@ export function buildProjectNodeRecordsFromTemplate(input: {
 }): PcsProjectNodeRecord[] {
   const templateVersion = getProjectTemplateVersion(input.template)
   const orderedNodes = input.template.nodes
+    .filter((node) => node.enabledFlag !== false)
     .slice()
     .sort((a, b) => {
       if (a.phaseCode === b.phaseCode) return a.sequenceNo - b.sequenceNo
@@ -88,4 +89,3 @@ export function buildProjectNodeRecordsFromTemplate(input: {
     }
   })
 }
-

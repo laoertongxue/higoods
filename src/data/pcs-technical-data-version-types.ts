@@ -1,5 +1,6 @@
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
+export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK'
 
 export interface TechnicalPatternFile {
   id: string
@@ -139,12 +140,17 @@ export interface TechnicalDataVersionRecord {
   sourceProjectCode: string
   sourceProjectName: string
   sourceProjectNodeId: string
+  linkedRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]
   linkedArtworkTaskIds: string[]
+  createdFromTaskType: TechPackSourceTaskType
+  createdFromTaskId: string
+  createdFromTaskCode: string
+  baseTechnicalVersionId: string
+  baseTechnicalVersionCode: string
   linkedPartTemplateIds: string[]
   linkedPatternLibraryVersionIds: string[]
   versionStatus: TechnicalVersionStatus
-  effectiveFlag: boolean
   bomStatus: TechnicalDomainStatus
   patternStatus: TechnicalDomainStatus
   processStatus: TechnicalDomainStatus

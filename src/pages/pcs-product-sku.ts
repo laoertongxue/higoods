@@ -340,7 +340,7 @@ function renderTable(): string {
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格组合</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">条码</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">技术资料版本</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">技术包版本</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">映射健康</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">渠道映射数</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最近上架</th>
@@ -688,7 +688,7 @@ export function renderProductSkuPage(): string {
         <div>
           <p class="text-xs text-gray-500">商品档案 / 规格档案</p>
           <h1 class="mt-2 text-2xl font-bold">规格档案</h1>
-          <p class="text-gray-500">围绕款式维护颜色、尺码、条码、渠道挂接与技术资料版本。</p>
+          <p class="text-gray-500">围绕款式维护颜色、尺码、条码、渠道挂接与技术包版本。</p>
         </div>
         <div class="flex items-center gap-2">
           <div class="relative group">

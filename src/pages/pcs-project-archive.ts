@@ -219,7 +219,7 @@ function renderBaseTab(viewModel: NonNullable<ReturnType<typeof buildProjectArch
         ${renderInfoCard('项目名称', viewModel.archive.projectName)}
         ${renderInfoCard('归档状态', viewModel.archiveStatusLabel)}
         ${renderInfoCard('关联款式档案', viewModel.styleLinkText, !viewModel.archive.styleId)}
-        ${renderInfoCard('当前生效技术资料版本', viewModel.technicalVersionText, !viewModel.archive.currentTechnicalVersionId)}
+        ${renderInfoCard('当前生效技术包版本', viewModel.technicalVersionText, !viewModel.archive.currentTechnicalVersionId)}
         ${renderInfoCard('资料数量', `${viewModel.archive.documentCount} 条`, viewModel.archive.documentCount === 0)}
         ${renderInfoCard('文件数量', `${viewModel.archive.fileCount} 份`, viewModel.archive.fileCount === 0)}
       </section>
@@ -435,7 +435,7 @@ export function renderPcsProjectArchivePage(projectId: string): string {
               <span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">${escapeHtml(viewModel.archiveStatusLabel)}</span>
             </div>
             <p class="text-sm text-muted-foreground">
-              项目编号：${escapeHtml(viewModel.archive.projectCode)} · 关联款式档案：${escapeHtml(viewModel.styleLinkText)} · 当前生效技术资料版本：${escapeHtml(viewModel.technicalVersionText)}
+              项目编号：${escapeHtml(viewModel.archive.projectCode)} · 关联款式档案：${escapeHtml(viewModel.styleLinkText)} · 当前生效技术包版本：${escapeHtml(viewModel.technicalVersionText)}
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2">

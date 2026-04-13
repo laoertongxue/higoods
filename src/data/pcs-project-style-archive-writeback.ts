@@ -7,11 +7,16 @@ import {
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
 import {
+  bindStyleArchiveToProjectChannelProduct,
+  buildProjectChannelProductChainSummary,
+} from './pcs-channel-product-project-repository.ts'
+import {
   createStyleArchiveShell,
   findStyleArchiveByProjectId,
   getStyleArchiveById,
   listStyleArchives,
   pushStyleArchivePendingItem,
+  updateStyleArchive,
 } from './pcs-style-archive-repository.ts'
 import { getStyleArchiveStatusLabel } from './pcs-style-archive-view-model.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
@@ -168,6 +173,25 @@ export function generateStyleArchiveShellFromProject(
     }
   }
 
+  const channelProductChain = buildProjectChannelProductChainSummary(project.projectId)
+  if (!channelProductChain?.currentChannelProductCode) {
+    const reason = '当前项目尚未建立用于测款的渠道商品，不能生成款式档案。'
+    pushStyleArchivePendingItem(buildPendingItem(project.projectCode, reason))
+    return { ok: false, existed: false, message: reason, style: null }
+  }
+
+  if (channelProductChain.currentChannelProductStatus === '已作废') {
+    const reason = '当前渠道商品已作废，不会创建款式档案。'
+    pushStyleArchivePendingItem(buildPendingItem(project.projectCode, reason))
+    return { ok: false, existed: false, message: reason, style: null }
+  }
+
+  if (channelProductChain.currentConclusion !== '通过') {
+    const reason = '当前项目尚未形成通过的测款结论，不能生成款式档案。'
+    pushStyleArchivePendingItem(buildPendingItem(project.projectCode, reason))
+    return { ok: false, existed: false, message: reason, style: null }
+  }
+
   const timestamp = nowText()
   const dateKey = buildDateKey(timestamp)
   const sequence = nextStyleSequence(dateKey)
@@ -196,13 +220,18 @@ export function generateStyleArchiveShellFromProject(
     archiveStatus: 'DRAFT',
     baseInfoStatus: '已继承',
     specificationStatus: '未建立',
-    technicalDataStatus: '未建立',
+    techPackStatus: '未建立',
     costPricingStatus: '未建立',
     specificationCount: 0,
-    technicalVersionCount: 0,
+    techPackVersionCount: 0,
     costVersionCount: 0,
     channelProductCount: 0,
-    effectiveTechnicalVersionCode: '',
+    currentTechPackVersionId: '',
+    currentTechPackVersionCode: '',
+    currentTechPackVersionLabel: '',
+    currentTechPackVersionStatus: '',
+    currentTechPackVersionActivatedAt: '',
+    currentTechPackVersionActivatedBy: '',
     remark: project.remark,
     generatedAt: timestamp,
     generatedBy: operatorName,
@@ -212,18 +241,33 @@ export function generateStyleArchiveShellFromProject(
   }
 
   const createdStyle = createStyleArchiveShell(style)
+  bindStyleArchiveToProjectChannelProduct(
+    project.projectId,
+    {
+      styleId: createdStyle.styleId,
+      styleCode: createdStyle.styleCode,
+      styleName: createdStyle.styleName,
+    },
+    operatorName,
+  )
+  const syncedStyle =
+    updateStyleArchive(createdStyle.styleId, {
+      channelProductCount: 1,
+      updatedAt: createdStyle.generatedAt,
+      updatedBy: operatorName,
+    }) || createdStyle
   upsertProjectRelation(
-    buildRelation(project.projectId, project.projectCode, createdStyle, styleArchiveNode.projectNodeId, operatorName),
+    buildRelation(project.projectId, project.projectCode, syncedStyle, styleArchiveNode.projectNodeId, operatorName),
   )
 
   updateProjectRecord(
     project.projectId,
     {
-      linkedStyleId: createdStyle.styleId,
-      linkedStyleCode: createdStyle.styleCode,
-      linkedStyleName: createdStyle.styleName,
-      linkedStyleGeneratedAt: createdStyle.generatedAt,
-      updatedAt: createdStyle.generatedAt,
+      linkedStyleId: syncedStyle.styleId,
+      linkedStyleCode: syncedStyle.styleCode,
+      linkedStyleName: syncedStyle.styleName,
+      linkedStyleGeneratedAt: syncedStyle.generatedAt,
+      updatedAt: syncedStyle.generatedAt,
     },
     operatorName,
   )
@@ -233,13 +277,13 @@ export function generateStyleArchiveShellFromProject(
     styleArchiveNode.projectNodeId,
     {
       currentStatus: '已完成',
-      latestInstanceId: createdStyle.styleId,
-      latestInstanceCode: createdStyle.styleCode,
+      latestInstanceId: syncedStyle.styleId,
+      latestInstanceCode: syncedStyle.styleCode,
       latestResultType: '已生成款式档案',
-      latestResultText: '已从商品项目生成款式档案初始记录',
-      pendingActionType: '补全款式资料',
-      pendingActionText: '请补全规格清单、技术资料与成本核价',
-      updatedAt: createdStyle.generatedAt,
+      latestResultText: '已生成款式档案，初始状态为技术包待完善',
+      pendingActionType: '推进技术包完善',
+      pendingActionText: '请继续完善技术包内容并准备启用当前生效版本',
+      updatedAt: syncedStyle.generatedAt,
     },
     operatorName,
   )
@@ -252,10 +296,10 @@ export function generateStyleArchiveShellFromProject(
       {
         currentStatus: '进行中',
         latestResultType: '已生成款式档案壳',
-        latestResultText: '款式档案壳已生成，待补全转档资料',
-        pendingActionType: '补全转档资料',
-        pendingActionText: '请补全规格、技术资料和成本核价基础信息',
-        updatedAt: createdStyle.generatedAt,
+        latestResultText: '款式档案已建立，状态为技术包待完善，上游商品待最终更新。',
+        pendingActionType: '启用技术包版本',
+        pendingActionText: '请启用技术包版本并完成上游最终更新。',
+        updatedAt: syncedStyle.generatedAt,
       },
       operatorName,
     )
@@ -266,7 +310,7 @@ export function generateStyleArchiveShellFromProject(
   return {
     ok: true,
     existed: false,
-    message: '已生成款式档案，已写入项目关联，已更新项目节点。',
-    style: createdStyle,
+    message: '已生成款式档案，已建立三码关联，并已更新项目节点。',
+    style: syncedStyle,
   }
 }

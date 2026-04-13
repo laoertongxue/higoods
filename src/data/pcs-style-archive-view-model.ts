@@ -12,8 +12,8 @@ export interface StyleArchiveListItemViewModel {
   archiveStatusCode: StyleArchiveStatusCode
   archiveStatusLabel: string
   specificationStatus: string
-  technicalDataStatus: string
-  effectiveTechnicalVersionText: string
+  techPackStatus: string
+  currentTechPackVersionText: string
   costPricingStatus: string
   sourceProjectText: string
   updatedAt: string
@@ -35,13 +35,26 @@ export interface StyleArchiveProjectOptionViewModel {
 }
 
 export function getStyleArchiveStatusLabel(status: StyleArchiveStatusCode): string {
-  if (status === 'ACTIVE') return '启用中'
+  if (status === 'ACTIVE') return '可生产'
   if (status === 'ARCHIVED') return '已归档'
-  return '待补全'
+  return '技术包待完善'
 }
 
 export function buildStyleArchiveCategoryPath(style: Pick<StyleArchiveShellRecord, 'categoryName' | 'subCategoryName'>): string {
   return [style.categoryName, style.subCategoryName].filter(Boolean).join(' / ') || '待补录'
+}
+
+function buildCurrentTechPackVersionText(style: Pick<
+  StyleArchiveShellRecord,
+  'currentTechPackVersionCode' | 'currentTechPackVersionLabel' | 'techPackVersionCount'
+>): string {
+  if (style.currentTechPackVersionCode && style.currentTechPackVersionLabel) {
+    return `${style.currentTechPackVersionCode} · ${style.currentTechPackVersionLabel}`
+  }
+  if (style.currentTechPackVersionCode) return style.currentTechPackVersionCode
+  if (style.currentTechPackVersionLabel) return style.currentTechPackVersionLabel
+  if (style.techPackVersionCount > 0) return '尚未启用当前生效技术包'
+  return '暂无当前生效技术包版本'
 }
 
 export function buildStyleArchiveListItems(): StyleArchiveListItemViewModel[] {
@@ -55,9 +68,8 @@ export function buildStyleArchiveListItems(): StyleArchiveListItemViewModel[] {
     archiveStatusCode: style.archiveStatus,
     archiveStatusLabel: getStyleArchiveStatusLabel(style.archiveStatus),
     specificationStatus: style.specificationStatus,
-    technicalDataStatus: style.technicalDataStatus,
-    effectiveTechnicalVersionText:
-      style.effectiveTechnicalVersionCode || style.effectiveTechnicalVersionLabel || '暂无生效版本',
+    techPackStatus: style.techPackStatus,
+    currentTechPackVersionText: buildCurrentTechPackVersionText(style),
     costPricingStatus: style.costPricingStatus,
     sourceProjectText: style.sourceProjectCode
       ? `${style.sourceProjectCode} · ${style.sourceProjectName}`
@@ -78,7 +90,7 @@ export function buildStyleArchiveDetailViewModel(styleId: string): StyleArchiveD
       : style.legacyOriginProject || '无来源项目',
     isShell:
       style.specificationCount === 0 &&
-      style.technicalVersionCount === 0 &&
+      style.techPackVersionCount === 0 &&
       style.costVersionCount === 0 &&
       style.archiveStatus === 'DRAFT',
   }

@@ -2,6 +2,219 @@ import type { SampleLedgerWriteInput } from './pcs-sample-types.ts'
 
 export const SAMPLE_BOOTSTRAP_MARKER_KEY = 'higood-pcs-sample-bootstrap-v1'
 
+export interface BootstrapSampleCloseoutSeed {
+  ledgerEventId: string
+  ledgerEventCode: string
+  eventType: 'RETURN_SUPPLIER' | 'DISPOSAL'
+  sampleAssetId: string
+  sampleCode: string
+  sampleName: string
+  responsibleSite: string
+  sourceDocId: string
+  sourceDocCode: string
+  projectCode: string
+  businessDate: string
+  operatorName: string
+  note: string
+  returnRecipient?: string
+  returnDepartment?: string
+  returnAddress?: string
+  returnDate?: string
+  logisticsProvider?: string
+  trackingNumber?: string
+  modificationReason?: string
+}
+
+const SAMPLE_CLOSEOUT_SEEDS: BootstrapSampleCloseoutSeed[] = [
+  {
+    ledgerEventId: 'ledger_seed_009',
+    ledgerEventCode: 'LE-20260115-001',
+    eventType: 'RETURN_SUPPLIER',
+    sampleAssetId: 'sample_asset_closeout_return_001',
+    sampleCode: 'SY-SZ-00991',
+    sampleName: '牛仔短裤样衣',
+    responsibleSite: '深圳',
+    sourceDocId: 'ret_seed_001',
+    sourceDocCode: 'RET-20260115-001',
+    projectCode: 'PRJ-20251216-003',
+    businessDate: '2026-01-15 15:30:00',
+    operatorName: '王华',
+    note: '样衣不符合继续使用要求，已正式退回供应商。',
+    returnRecipient: '供应商收货人',
+    returnDepartment: '样衣管理组',
+    returnAddress: '东莞样衣供应商回寄点',
+    returnDate: '2026-01-15 15:30:00',
+    logisticsProvider: '顺丰',
+    trackingNumber: 'SF-RET-001',
+    modificationReason: '样衣腰臀版型不满足继续改版要求。',
+  },
+  {
+    ledgerEventId: 'ledger_seed_010',
+    ledgerEventCode: 'LE-20260116-001',
+    eventType: 'DISPOSAL',
+    sampleAssetId: 'sample_asset_closeout_retain_001',
+    sampleCode: 'SY-SZ-00992',
+    sampleName: '针织开衫旧样',
+    responsibleSite: '深圳',
+    sourceDocId: 'disp_seed_001',
+    sourceDocCode: 'DSP-20260116-001',
+    projectCode: 'PRJ-20251216-004',
+    businessDate: '2026-01-16 10:20:00',
+    operatorName: '王华',
+    note: '样衣已完成处置评估并进入正式处置。',
+  },
+  {
+    ledgerEventId: 'ledger_seed_012',
+    ledgerEventCode: 'LE-20260118-001',
+    eventType: 'RETURN_SUPPLIER',
+    sampleAssetId: 'sample_asset_closeout_return_002',
+    sampleCode: 'SY-SZ-01001',
+    sampleName: '基础款连衣裙复盘样',
+    responsibleSite: '深圳',
+    sourceDocId: 'ret_seed_002',
+    sourceDocCode: 'RET-20260118-001',
+    projectCode: 'PRJ-20251216-001',
+    businessDate: '2026-01-18 11:20:00',
+    operatorName: '深圳仓管',
+    note: '测款复盘后确认不再留样，已退回供应商。',
+    returnRecipient: '广州供应商回寄组',
+    returnDepartment: '商品企划组',
+    returnAddress: '广州白云区样衣回寄中心',
+    returnDate: '2026-01-18 11:20:00',
+    logisticsProvider: '京东快递',
+    trackingNumber: 'JD-RET-002',
+    modificationReason: '样衣复盘后确认不再进入后续开发链。',
+  },
+  {
+    ledgerEventId: 'ledger_seed_013',
+    ledgerEventCode: 'LE-20260119-001',
+    eventType: 'RETURN_SUPPLIER',
+    sampleAssetId: 'sample_asset_closeout_return_003',
+    sampleCode: 'SY-SZ-01007',
+    sampleName: '基础针织开衫复盘样',
+    responsibleSite: '深圳',
+    sourceDocId: 'ret_seed_003',
+    sourceDocCode: 'RET-20260119-001',
+    projectCode: 'PRJ-20251216-007',
+    businessDate: '2026-01-19 16:10:00',
+    operatorName: '深圳仓管',
+    note: '样衣完成复盘确认后退回供应商。',
+    returnRecipient: '针织供应商收货组',
+    returnDepartment: '快反开发组',
+    returnAddress: '东莞针织工厂退样点',
+    returnDate: '2026-01-19 16:10:00',
+    logisticsProvider: '顺丰',
+    trackingNumber: 'SF-RET-003',
+    modificationReason: '样衣复盘后仅保留纸版，不再保留实物。',
+  },
+  {
+    ledgerEventId: 'ledger_seed_014',
+    ledgerEventCode: 'LE-20260120-001',
+    eventType: 'DISPOSAL',
+    sampleAssetId: 'sample_asset_closeout_retain_002',
+    sampleCode: 'SY-SZ-02002',
+    sampleName: '快反碎花样衣',
+    responsibleSite: '深圳',
+    sourceDocId: 'disp_seed_002',
+    sourceDocCode: 'DSP-20260120-001',
+    projectCode: 'PRJ-20251216-002',
+    businessDate: '2026-01-20 09:40:00',
+    operatorName: '王明',
+    note: '快反样衣已完成处置评估，转入正式处置。',
+  },
+  {
+    ledgerEventId: 'ledger_seed_015',
+    ledgerEventCode: 'LE-20260121-001',
+    eventType: 'DISPOSAL',
+    sampleAssetId: 'sample_asset_closeout_retain_003',
+    sampleCode: 'SY-SZ-02007',
+    sampleName: '基础针织开衫旧样',
+    responsibleSite: '深圳',
+    sourceDocId: 'disp_seed_003',
+    sourceDocCode: 'DSP-20260121-001',
+    projectCode: 'PRJ-20251216-007',
+    businessDate: '2026-01-21 13:30:00',
+    operatorName: '张丽',
+    note: '样衣库存超期，已完成留存评估并执行处置。',
+  },
+  {
+    ledgerEventId: 'ledger_seed_016',
+    ledgerEventCode: 'LE-20260123-001',
+    eventType: 'RETURN_SUPPLIER',
+    sampleAssetId: 'sample_asset_closeout_return_004',
+    sampleCode: 'SY-SZ-01015',
+    sampleName: '中式盘扣上衣复盘样',
+    responsibleSite: '深圳',
+    sourceDocId: 'ret_seed_004',
+    sourceDocCode: 'RET-20260123-001',
+    projectCode: 'PRJ-20251216-015',
+    businessDate: '2026-01-23 10:50:00',
+    operatorName: '李娜',
+    note: '设计验证完成后，仅留图档资料，实物样衣已退回版房。',
+    returnRecipient: '深圳版房甲',
+    returnDepartment: '设计研发组',
+    returnAddress: '深圳南山版房回样点',
+    returnDate: '2026-01-23 10:50:00',
+    logisticsProvider: '内部移交',
+    trackingNumber: 'INT-RET-004',
+    modificationReason: '设计验证完成，不再保留实物样衣。',
+  },
+  {
+    ledgerEventId: 'ledger_seed_017',
+    ledgerEventCode: 'LE-20260124-001',
+    eventType: 'DISPOSAL',
+    sampleAssetId: 'sample_asset_closeout_retain_004',
+    sampleCode: 'SY-SZ-02015',
+    sampleName: '中式盘扣上衣旧版样',
+    responsibleSite: '深圳',
+    sourceDocId: 'disp_seed_004',
+    sourceDocCode: 'DSP-20260124-001',
+    projectCode: 'PRJ-20251216-015',
+    businessDate: '2026-01-24 15:20:00',
+    operatorName: '李娜',
+    note: '旧版样衣已完成留存评估，按处置单正式销毁。',
+  },
+]
+
+export function createBootstrapSampleCloseoutSeeds(): BootstrapSampleCloseoutSeed[] {
+  return SAMPLE_CLOSEOUT_SEEDS.map((item) => ({ ...item }))
+}
+
+function createBootstrapSampleCloseoutInputs(): SampleLedgerWriteInput[] {
+  return createBootstrapSampleCloseoutSeeds().map((seed) => ({
+    ledgerEventId: seed.ledgerEventId,
+    ledgerEventCode: seed.ledgerEventCode,
+    eventType: seed.eventType,
+    sampleAssetId: seed.sampleAssetId,
+    sampleCode: seed.sampleCode,
+    sampleName: seed.sampleName,
+    sampleType: '样衣',
+    responsibleSite: seed.responsibleSite,
+    sourcePage: '样衣退货与处理',
+    sourceModule: '样衣退货与处理',
+    sourceDocType: seed.eventType === 'RETURN_SUPPLIER' ? '样衣退回单' : '样衣处置单',
+    sourceDocId: seed.sourceDocId,
+    sourceDocCode: seed.sourceDocCode,
+    projectCode: seed.projectCode,
+    businessDate: seed.businessDate,
+    operatorName: seed.operatorName,
+    note: seed.note,
+    locationAfter: seed.eventType === 'RETURN_SUPPLIER' ? '供应商退回完成' : '深圳处置区',
+    locationType: seed.eventType === 'RETURN_SUPPLIER' ? '在途' : '处置区',
+    locationCode: seed.eventType === 'RETURN_SUPPLIER' ? 'RETURNED' : 'SZ-DISPOSAL',
+    locationDisplay: seed.eventType === 'RETURN_SUPPLIER' ? '供应商退回完成' : '深圳处置区',
+    custodianType: seed.eventType === 'RETURN_SUPPLIER' ? '系统' : '仓管',
+    custodianName: seed.eventType === 'RETURN_SUPPLIER' ? '退回完成' : '样衣仓管',
+    returnRecipient: seed.returnRecipient,
+    returnDepartment: seed.returnDepartment,
+    returnAddress: seed.returnAddress,
+    returnDate: seed.returnDate,
+    logisticsProvider: seed.logisticsProvider,
+    trackingNumber: seed.trackingNumber,
+    modificationReason: seed.modificationReason,
+  }) as SampleLedgerWriteInput)
+}
+
 export function createBootstrapSampleEventInputs(): SampleLedgerWriteInput[] {
   return [
     {
@@ -191,52 +404,7 @@ export function createBootstrapSampleEventInputs(): SampleLedgerWriteInput[] {
       custodianType: '仓管',
       custodianName: '雅加达仓管',
     },
-    {
-      ledgerEventId: 'ledger_seed_009',
-      ledgerEventCode: 'LE-20260115-001',
-      eventType: 'RETURN_SUPPLIER',
-      sampleCode: 'SY-SZ-00991',
-      sampleName: '牛仔短裤样衣',
-      sampleType: '样衣',
-      responsibleSite: '深圳',
-      sourcePage: '样衣退货与处理',
-      sourceModule: '样衣退货与处理',
-      sourceDocType: '样衣退回单',
-      sourceDocId: 'ret_seed_001',
-      sourceDocCode: 'RET-20260115-001',
-      projectCode: 'PRJ-20251216-003',
-      businessDate: '2026-01-15 15:30:00',
-      operatorName: '王华',
-      locationAfter: '供应商退回完成',
-      locationType: '在途',
-      locationCode: 'RETURNED',
-      locationDisplay: '供应商退回完成',
-      custodianType: '系统',
-      custodianName: '退回完成',
-    },
-    {
-      ledgerEventId: 'ledger_seed_010',
-      ledgerEventCode: 'LE-20260116-001',
-      eventType: 'DISPOSAL',
-      sampleCode: 'SY-SZ-00992',
-      sampleName: '针织开衫旧样',
-      sampleType: '样衣',
-      responsibleSite: '深圳',
-      sourcePage: '样衣退货与处理',
-      sourceModule: '样衣退货与处理',
-      sourceDocType: '样衣处置单',
-      sourceDocId: 'disp_seed_001',
-      sourceDocCode: 'DSP-20260116-001',
-      projectCode: 'PRJ-20251216-004',
-      businessDate: '2026-01-16 10:20:00',
-      operatorName: '王华',
-      locationAfter: '深圳处置区',
-      locationType: '处置区',
-      locationCode: 'SZ-DISPOSAL',
-      locationDisplay: '深圳处置区',
-      custodianType: '仓管',
-      custodianName: '王华',
-    },
+    ...createBootstrapSampleCloseoutInputs(),
     {
       ledgerEventId: 'ledger_seed_011',
       ledgerEventCode: 'LE-20260116-002',

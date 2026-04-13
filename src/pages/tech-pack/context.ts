@@ -15,9 +15,7 @@ import {
   type TechPackDetailSplitDimension,
   type TechPackSizeRow,
   resolveTechPackProcessEntryRule,
-  getTechnicalMaintenanceTargetBySpuCode,
-  resolveTechnicalSnapshotBySpuCode,
-} from '../../data/pcs-technical-data-runtime-source.ts'
+} from '../../data/fcs/tech-packs.ts'
 import { buildLegacyTechPackFromTechnicalVersion, buildTechnicalContentPatchFromLegacyTechPack } from '../../data/pcs-technical-data-fcs-adapter.ts'
 import { saveTechnicalDataVersionContent } from '../../data/pcs-project-technical-data-writeback.ts'
 import {
@@ -459,7 +457,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     referencePublishedSamValue: 0.6,
     referencePublishedSamUnit: 'MINUTE_PER_PIECE',
     referencePublishedSamUnitLabel: '分钟/件',
-    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术资料版本可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
+    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术包版本可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
     difficulty: '简单',
     remark: '',
     source: '字典引用',
@@ -486,7 +484,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     referencePublishedSamValue: 1.4,
     referencePublishedSamUnit: 'MINUTE_PER_PIECE',
     referencePublishedSamUnitLabel: '分钟/件',
-    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术资料版本可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
+    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术包版本可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
@@ -788,20 +786,12 @@ function applyTechPackState(
   state.currentTechnicalVersionCode = options.technicalVersionCode
   state.techPack = nextTechPack
   state.activeTab = options.activeTab ?? state.activeTab
-  state.compatibilityMode = Boolean(options.compatibilityMode)
-  state.compatibilityMessage = options.compatibilityMode
-    ? '当前为兼容查看入口，请在商品中心维护技术资料版本。'
-    : ''
-  state.compatibilitySourceKind = options.compatibilityMode ? 'pcs_published' : null
-  state.compatibilityMaintenancePath = options.styleId && options.technicalVersionId
-    ? `/pcs/products/styles/${encodeURIComponent(options.styleId)}/technical-data/${encodeURIComponent(options.technicalVersionId)}`
-    : ''
-  state.compatibilityMaintenanceTitle = options.technicalVersionCode
-    ? `技术资料版本 - ${options.technicalVersionCode}`
-    : ''
-  state.compatibilitySourceNote = options.compatibilityMode
-    ? '当前内容来自商品中心当前生效技术资料版本的兼容只读镜像。'
-    : ''
+  state.compatibilityMode = false
+  state.compatibilityMessage = ''
+  state.compatibilitySourceKind = null
+  state.compatibilityMaintenancePath = ''
+  state.compatibilityMaintenanceTitle = ''
+  state.compatibilitySourceNote = ''
   state.compatibilitySourceNoteOpen = false
 
   state.patternItems = buildPatternItemsFromTechPack(nextTechPack)
@@ -817,9 +807,6 @@ function applyTechPackState(
 }
 
 function clearTechPackState(spuCode: string, compatibilityMode = false): void {
-  const maintenanceTarget = compatibilityMode
-    ? getTechnicalMaintenanceTargetBySpuCode(spuCode)
-    : null
   state.currentSpuCode = spuCode
   state.currentStyleId = null
   state.currentTechnicalVersionId = null
@@ -833,16 +820,12 @@ function clearTechPackState(spuCode: string, compatibilityMode = false): void {
   state.processCostRows = []
   state.customCostRows = []
   state.colorMaterialMappings = []
-  state.compatibilityMode = compatibilityMode
-  state.compatibilityMessage = compatibilityMode
-    ? '当前为兼容查看入口，请在商品中心维护技术资料版本。'
-    : ''
-  state.compatibilitySourceKind = compatibilityMode ? 'missing' : null
-  state.compatibilityMaintenancePath = maintenanceTarget?.targetPath || ''
-  state.compatibilityMaintenanceTitle = maintenanceTarget?.targetTitle || ''
-  state.compatibilitySourceNote = compatibilityMode
-    ? maintenanceTarget?.message || '当前无可用技术资料。'
-    : ''
+  state.compatibilityMode = false
+  state.compatibilityMessage = ''
+  state.compatibilitySourceKind = null
+  state.compatibilityMaintenancePath = ''
+  state.compatibilityMaintenanceTitle = ''
+  state.compatibilitySourceNote = ''
   state.compatibilitySourceNoteOpen = false
 }
 
@@ -2174,25 +2157,10 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
     return
   }
 
-  if (
-    seed.compatibilityMode &&
-    !seed.technicalVersionId &&
-    state.currentSpuCode === spuCode &&
-    state.compatibilityMode &&
-    state.techPack
-  ) {
-    state.activeTab = nextActiveTab
-    return
-  }
-
   state.loading = true
 
-  const compatibilitySnapshot =
-    seed.compatibilityMode && !seed.technicalVersionId
-      ? resolveTechnicalSnapshotBySpuCode(spuCode)
-      : null
-  const technicalVersionId = seed.technicalVersionId || compatibilitySnapshot?.technicalVersionId || ''
-  const styleId = seed.styleId || compatibilitySnapshot?.styleId || ''
+  const technicalVersionId = seed.technicalVersionId || ''
+  const styleId = seed.styleId || ''
 
   if (technicalVersionId) {
     const record = getTechnicalDataVersionById(technicalVersionId)
@@ -2207,39 +2175,13 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
         technicalVersionId: record.technicalVersionId,
         technicalVersionCode: record.technicalVersionCode,
         qualityRules: content.qualityRules.map((item) => ({ ...item })),
-        compatibilityMode: Boolean(seed.compatibilityMode),
       })
     } else {
-      clearTechPackState(spuCode, Boolean(seed.compatibilityMode))
+      clearTechPackState(spuCode)
     }
-  } else if (compatibilitySnapshot?.sourceKind === 'fcs_legacy' && compatibilitySnapshot.compatTechPack) {
-    const legacyPack = compatibilitySnapshot.compatTechPack
-    applyTechPackState(legacyPack, {
-      ...seed,
-      activeTab: nextActiveTab,
-      currentSpuCode: legacyPack.spuCode || spuCode,
-      styleId: compatibilitySnapshot.styleId,
-      technicalVersionId: '',
-      technicalVersionCode: '',
-      qualityRules: [],
-      compatibilityMode: true,
-    })
-    state.compatibilitySourceKind = 'fcs_legacy'
-    state.compatibilityMessage = '当前为历史兼容快照，请尽快在商品中心建立正式技术资料版本。'
-    state.compatibilityMaintenancePath = compatibilitySnapshot.maintenanceTarget.targetPath
-    state.compatibilityMaintenanceTitle = compatibilitySnapshot.maintenanceTarget.targetTitle
-    state.compatibilitySourceNote =
-      '当前内容来自历史 FCS 技术资料快照，仅用于兼容查看；正式维护请迁移到商品中心。'
   } else {
-    clearTechPackState(spuCode, Boolean(seed.compatibilityMode))
+    clearTechPackState(spuCode)
     state.activeTab = nextActiveTab
-    if (compatibilitySnapshot) {
-      state.compatibilitySourceKind = compatibilitySnapshot.sourceKind
-      state.compatibilityMessage = compatibilitySnapshot.maintenanceTarget.message
-      state.compatibilityMaintenancePath = compatibilitySnapshot.maintenanceTarget.targetPath
-      state.compatibilityMaintenanceTitle = compatibilitySnapshot.maintenanceTarget.targetTitle
-      state.compatibilitySourceNote = compatibilitySnapshot.maintenanceTarget.message
-    }
   }
 
   closeAllDialogs()
@@ -2313,7 +2255,7 @@ function renderTabHeader(): string {
 }
 
 function isTechPackReadOnly(): boolean {
-  return state.compatibilityMode
+  return false
 }
 
 export {

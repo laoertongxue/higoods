@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   buildTechnicalDataDerivedState,
   getTechnicalDataVersionStoreSnapshot,
@@ -6,11 +7,16 @@ import {
   resetTechnicalDataVersionRepository,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 
+resetStyleArchiveRepository()
 resetTechnicalDataVersionRepository()
 
 const snapshot = getTechnicalDataVersionStoreSnapshot()
-assert.equal(snapshot.records.length, 0, '历史技术资料未匹配到正式款式档案时，不应误建正式技术资料版本')
-assert.ok(snapshot.pendingItems.length > 0, '未匹配到正式款式档案的历史技术资料应进入待补齐清单')
+assert.ok(snapshot.records.length > 0, '旧 FCS 技术包种子补齐后，应生成正式技术包版本记录')
+assert.ok(
+  snapshot.records.some((item) => item.styleCode === 'SPU-2024-001' && item.versionStatus === 'PUBLISHED'),
+  '已发布的旧 FCS 技术包应写入正式技术包版本仓储',
+)
+assert.equal(snapshot.pendingItems.length, 0, '已纳入款式档案的旧 FCS 技术包不应继续停留在待补齐清单')
 assert.deepEqual(snapshot.pendingItems, listTechnicalDataVersionPendingItems(), '待补齐清单应可通过正式仓储接口读取')
 
 const derived = buildTechnicalDataDerivedState('DRAFT', {

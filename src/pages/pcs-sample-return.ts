@@ -21,6 +21,11 @@ interface SampleReturnCaseRecord {
   workItemTypeCode: string
   workItemTypeName: string
   reasonText: string
+  returnRecipient: string
+  returnDepartment: string
+  returnAddress: string
+  logisticsProvider: string
+  trackingNumber: string
   createdAt: string
   updatedAt: string
   handledAt: string
@@ -65,6 +70,11 @@ function createSeedCases(): SampleReturnCaseRecord[] {
       workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
       workItemTypeName: returnNode?.workItemTypeName || '样衣退回处理',
       reasonText: '样衣不符合继续使用要求，需要正式退回供应商。',
+      returnRecipient: '供应商收货人',
+      returnDepartment: '样衣管理组',
+      returnAddress: '东莞样衣供应商回寄点',
+      logisticsProvider: '顺丰',
+      trackingNumber: 'SF-RET-001',
       createdAt: '2026-01-15 09:00:00',
       updatedAt: '2026-01-15 11:00:00',
       handledAt: '',
@@ -84,6 +94,11 @@ function createSeedCases(): SampleReturnCaseRecord[] {
       workItemTypeCode: 'SAMPLE_RETAIN_REVIEW',
       workItemTypeName: disposalNode?.workItemTypeName || '样衣留存评估',
       reasonText: '样衣超期未归还，转入正式处置流程。',
+      returnRecipient: '样衣处置管理员',
+      returnDepartment: '样衣管理组',
+      returnAddress: '深圳样衣处置区',
+      logisticsProvider: '内部移交',
+      trackingNumber: 'DSP-001',
       createdAt: '2026-01-16 09:30:00',
       updatedAt: '2026-01-16 10:30:00',
       handledAt: '',
@@ -156,7 +171,14 @@ function writeReturnCaseEvent(record: SampleReturnCaseRecord) {
     locationCode: record.caseType === 'RETURN' ? 'RETURNED' : 'SZ-DISPOSAL',
     custodianType: record.caseType === 'RETURN' ? '系统' : '仓管',
     custodianName: record.caseType === 'RETURN' ? '退回完成' : '样衣仓管',
-  })
+    returnRecipient: record.returnRecipient,
+    returnDepartment: record.returnDepartment,
+    returnAddress: record.returnAddress,
+    returnDate: nowText(),
+    logisticsProvider: record.logisticsProvider,
+    trackingNumber: record.trackingNumber,
+    modificationReason: record.reasonText,
+  } as never)
 }
 
 export function executeSampleReturnCase(caseId: string): boolean {
@@ -278,6 +300,11 @@ export function handleSampleReturnEvent(target: HTMLElement): boolean {
         workItemTypeCode: node.workItemTypeCode,
         workItemTypeName: node.workItemTypeName,
         reasonText: state.newReasonText || '页面新建案件',
+        returnRecipient: state.newCaseType === 'RETURN' ? '供应商收货人' : '样衣处置管理员',
+        returnDepartment: '样衣管理组',
+        returnAddress: state.newCaseType === 'RETURN' ? '东莞样衣供应商回寄点' : '深圳样衣处置区',
+        logisticsProvider: state.newCaseType === 'RETURN' ? '顺丰' : '内部移交',
+        trackingNumber: `${state.newCaseType === 'RETURN' ? 'RET' : 'DSP'}-TRACK-${String(caseStore.length + 1).padStart(3, '0')}`,
         createdAt: nowText(),
         updatedAt: nowText(),
         handledAt: '',
@@ -344,19 +371,19 @@ export function renderSampleReturnPage(): string {
         <button class="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm text-primary-foreground" data-sample-return-action="open-create">新建案件</button>
       </header>
 
-      <section class="rounded-lg border bg-card p-4">
-        <div class="grid gap-3 lg:grid-cols-[2fr,1fr,1fr,auto]">
-          <input class="h-9 rounded-md border bg-background px-3 text-sm" placeholder="搜索案件编号/样衣/项目" value="${escapeHtml(state.keyword)}" data-sample-return-field="keyword" />
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-sample-return-field="type-filter">
+      <section class="rounded-lg border bg-white p-4">
+        <div class="grid gap-4 md:grid-cols-[2fr,1fr,1fr,auto]">
+          <input class="h-9 rounded-md border px-3 text-sm" placeholder="搜索案件编号/样衣/项目" value="${escapeHtml(state.keyword)}" data-sample-return-field="keyword" />
+          <select class="h-9 rounded-md border px-3 text-sm" data-sample-return-field="type-filter">
             <option value="all" ${state.typeFilter === 'all' ? 'selected' : ''}>全部类型</option>
             <option value="RETURN" ${state.typeFilter === 'RETURN' ? 'selected' : ''}>退回</option>
             <option value="DISPOSITION" ${state.typeFilter === 'DISPOSITION' ? 'selected' : ''}>处置</option>
           </select>
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-sample-return-field="status-filter">
+          <select class="h-9 rounded-md border px-3 text-sm" data-sample-return-field="status-filter">
             <option value="all" ${state.statusFilter === 'all' ? 'selected' : ''}>全部状态</option>
             ${['DRAFT', 'SUBMITTED', 'APPROVED', 'EXECUTING', 'CLOSED', 'REJECTED', 'CANCELLED'].map((item) => `<option value="${item}" ${state.statusFilter === item ? 'selected' : ''}>${item}</option>`).join('')}
           </select>
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-sample-return-action="reset">重置</button>
+          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-gray-50" data-sample-return-action="reset">重置筛选</button>
         </div>
       </section>
 

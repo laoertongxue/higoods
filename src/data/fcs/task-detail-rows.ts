@@ -4,12 +4,14 @@ import {
   type DetailSplitMode,
 } from './process-craft-dict.ts'
 import type { GeneratedTaskArtifact } from './production-artifact-generation.ts'
-import { productionOrders } from './production-orders.ts'
 import {
-  getCompatTechPackBySpuCode as getTechPackBySpuCode,
+  productionOrders,
+} from './production-orders.ts'
+import { getProductionOrderCompatTechPack } from './production-order-tech-pack-runtime.ts'
+import {
   type TechPackBomItem,
   type TechPackPatternFile,
-} from '../pcs-technical-data-runtime-source.ts'
+} from './tech-packs.ts'
 
 export type TaskDetailRowType = 'COMPOSITE'
 
@@ -435,7 +437,7 @@ export function generateTaskDetailRowsForArtifact(input: {
   const order = productionOrders.find((item) => item.productionOrderId === artifact.orderId)
   if (!order) return []
 
-  const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
+  const techPack = getProductionOrderCompatTechPack(order.productionOrderId)
   if (!techPack) return []
 
   const orderSkuLines = resolveOrderSkuLines(artifact.orderId)

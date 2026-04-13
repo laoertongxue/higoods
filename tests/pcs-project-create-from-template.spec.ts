@@ -20,8 +20,13 @@ import { getProjectPhaseDefinitionByCode } from '../src/data/pcs-project-phase-d
 function buildValidDraft(templateId: string) {
   const catalog = getProjectCreateCatalog()
   const category = catalog.categories[0]
-  const subCategory = category.children[0]
   const brand = catalog.brands[0]
+  const styleCode = catalog.styleCodes[0]
+  const style = catalog.styles[0]
+  const crowdPositioning = catalog.crowdPositioning[0]
+  const age = catalog.ages[0]
+  const crowd = catalog.crowds[0]
+  const productPositioning = catalog.productPositioning[0]
   const owner = catalog.owners[0]
   const team = catalog.teams[0]
   const collaborator = catalog.collaborators[0]
@@ -34,17 +39,29 @@ function buildValidDraft(templateId: string) {
     templateId,
     categoryId: category.id,
     categoryName: category.name,
-    subCategoryId: subCategory.id,
-    subCategoryName: subCategory.name,
+    subCategoryId: '',
+    subCategoryName: '',
     brandId: brand.id,
     brandName: brand.name,
-    styleNumber: 'STYLE-UNIFY-001',
+    styleNumber: styleCode?.name ?? 'STYLE-UNIFY-001',
+    styleCodeId: styleCode?.id ?? '',
+    styleCodeName: styleCode?.name ?? '',
     styleType: '基础款' as const,
     yearTag: '2026',
     seasonTags: ['夏季'],
-    styleTags: ['通勤'],
-    targetAudienceTags: ['通勤白领'],
-    priceRangeLabel: '两百元主销带',
+    styleTags: style ? [style.name] : [],
+    styleTagIds: style ? [style.id] : [],
+    styleTagNames: style ? [style.name] : [],
+    crowdPositioningIds: crowdPositioning ? [crowdPositioning.id] : [],
+    crowdPositioningNames: crowdPositioning ? [crowdPositioning.name] : [],
+    ageIds: age ? [age.id] : [],
+    ageNames: age ? [age.name] : [],
+    crowdIds: crowd ? [crowd.id] : [],
+    crowdNames: crowd ? [crowd.name] : [],
+    productPositioningIds: productPositioning ? [productPositioning.id] : [],
+    productPositioningNames: productPositioning ? [productPositioning.name] : [],
+    targetAudienceTags: crowd ? [crowd.name] : [],
+    priceRangeLabel: catalog.priceRanges[0] ?? '两百元主销带',
     targetChannelCodes: ['tiktok-shop'],
     sampleSourceType: '外采' as const,
     sampleSupplierId: catalog.sampleSuppliers[0]?.id ?? '',
@@ -65,6 +82,10 @@ resetProjectRepository()
 
 const activeTemplate = listActiveProjectTemplates()[0]
 assert.ok(activeTemplate, '应存在可用模板')
+const catalog = getProjectCreateCatalog()
+const category = catalog.categories[0]
+assert.ok(category, '应存在可用于创建项目的品类')
+assert.deepEqual(category.children ?? [], [], '当前项目创建目录应兼容仅有一级品类的配置工作台口径')
 
 const created = createProject(buildValidDraft(activeTemplate.id), '测试创建人')
 
@@ -97,46 +118,46 @@ if (!phase) {
   throw new Error('缺少 PHASE_01')
 }
 
-const pendingTemplate = createProjectTemplate({
-  name: '待补充模板',
-  styleType: ['基础款'],
-  description: '用于校验待补充节点阻断创建',
-  stages: [
-    {
-      templateStageId: '',
-      templateId: '',
-      phaseCode: phase.phaseCode,
-      phaseName: phase.phaseName,
-      phaseOrder: phase.phaseOrder,
-      requiredFlag: true,
-      description: phase.description,
-    },
-  ],
-  nodes: [],
-  pendingNodes: [
-    {
-      pendingNodeId: 'pending-001',
-      templateId: '',
-      templateStageId: '',
-      phaseCode: phase.phaseCode,
-      phaseName: phase.phaseName,
-      legacyStageName: '立项获取',
-      legacyWorkItemName: '未知旧节点',
-      unresolvedReason: '旧工作项名称未收录到正式映射表。',
-      templateVersion: '',
-    },
-  ],
-})
-
-const blockedErrors = validateProjectCreateDraft(buildValidDraft(pendingTemplate.id))
-assert.ok(
-  blockedErrors.includes('当前模板存在未完成标准化的节点，请先处理模板中的待补充标准工作项。'),
-  '模板存在待补充标准工作项时，项目创建页必须禁止提交',
+assert.throws(
+  () =>
+    createProjectTemplate({
+      name: '待补充模板',
+      styleType: ['基础款'],
+      description: '用于校验正式模板矩阵门禁',
+      stages: [
+        {
+          templateStageId: '',
+          templateId: '',
+          phaseCode: phase.phaseCode,
+          phaseName: phase.phaseName,
+          phaseOrder: phase.phaseOrder,
+          requiredFlag: true,
+          description: phase.description,
+        },
+      ],
+      nodes: [],
+      pendingNodes: [
+        {
+          pendingNodeId: 'pending-001',
+          templateId: '',
+          templateStageId: '',
+          phaseCode: phase.phaseCode,
+          phaseName: phase.phaseName,
+          legacyStageName: '立项获取',
+          legacyWorkItemName: '未知旧节点',
+          unresolvedReason: '旧工作项名称未收录到正式映射表。',
+          templateVersion: '',
+        },
+      ],
+    }),
+  /正式模板矩阵|正式模板矩阵，不允许自由增删阶段/,
+  '正式模板仓储不应再接收脱离模板矩阵的待补充模板',
 )
 
 assert.ok(
   listProjects().some((item) => item.projectId === created.project.projectId),
   '第一期第二步已切换的列表页仍应能读取新生成项目',
 )
+assert.equal(created.project.subCategoryId ?? '', '', '一级品类口径下不应强制要求二级分类')
 
 console.log('pcs-project-create-from-template.spec.ts PASS')

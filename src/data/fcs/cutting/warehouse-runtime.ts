@@ -137,6 +137,15 @@ const numberFormatter = new Intl.NumberFormat('zh-CN')
 const registry = buildCuttingCoreRegistry()
 const productionOrderById = new Map(productionOrders.map((order) => [order.productionOrderId, order] as const))
 
+function resolveSourceProductionOrderNo(source: {
+  productionOrderId: string
+  productionOrderNo?: string
+  originalCutOrderNo: string
+}): string {
+  const rawOrderNo = source.productionOrderNo || productionOrderById.get(source.productionOrderId)?.productionOrderNo
+  return String(rawOrderNo || source.productionOrderId || source.originalCutOrderNo || '').trim()
+}
+
 const progressLineByOriginalId = new Map<string, CuttingMaterialLine>()
 const progressLineByOriginalNo = new Map<string, CuttingMaterialLine>()
 const progressRecordByOriginalId = new Map<string, (typeof cuttingOrderProgressRecords)[number]>()
@@ -293,6 +302,7 @@ function buildSampleFlowHistory(options: {
 function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
   const originalSources = listGeneratedOriginalCutOrderSourceRecords()
   const fabric: CuttingFabricStockRecord[] = originalSources.map((source, index) => {
+    const productionOrderNo = resolveSourceProductionOrderNo(source)
     const progressLine = resolveProgressLine(source.originalCutOrderId, source.originalCutOrderNo)
     const progressRecord = resolveProgressRecord(source.originalCutOrderId, source.originalCutOrderNo)
     const originalRef = registry.originalCutOrdersById[source.originalCutOrderId]
@@ -317,7 +327,7 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       originalCutOrderId: source.originalCutOrderId,
       originalCutOrderNo: source.originalCutOrderNo,
       productionOrderId: source.productionOrderId,
-      productionOrderNo: source.productionOrderNo,
+      productionOrderNo,
       mergeBatchId: originalRef?.activeMergeBatchId || '',
       mergeBatchNo: originalRef?.activeMergeBatchNo || '',
       cutPieceOrderNo: source.originalCutOrderNo,
@@ -339,6 +349,7 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
   })
 
   const cutPiece: CutPieceWarehouseRecord[] = originalSources.map((source, index) => {
+    const productionOrderNo = resolveSourceProductionOrderNo(source)
     const progressLine = resolveProgressLine(source.originalCutOrderId, source.originalCutOrderNo)
     const progressRecord = resolveProgressRecord(source.originalCutOrderId, source.originalCutOrderNo)
     const originalRef = registry.originalCutOrdersById[source.originalCutOrderId]
@@ -360,7 +371,7 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       originalCutOrderId: source.originalCutOrderId,
       originalCutOrderNo: source.originalCutOrderNo,
       productionOrderId: source.productionOrderId,
-      productionOrderNo: source.productionOrderNo,
+      productionOrderNo,
       mergeBatchId: originalRef?.activeMergeBatchId || '',
       mergeBatchNo: originalRef?.activeMergeBatchNo || '',
       cutPieceOrderNo: source.originalCutOrderNo,
@@ -385,6 +396,7 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
     seenProductionOrders.add(source.productionOrderId)
 
     const productionOrder = productionOrderById.get(source.productionOrderId)
+    const productionOrderNo = resolveSourceProductionOrderNo(source)
     const statusPattern = index % 4
     const latestActionAt = productionOrder?.updatedAt || productionOrder?.createdAt || '2026-03-27 09:00'
     const latestActionBy = statusPattern === 0 ? '样衣管理员 陈如意' : statusPattern === 1 ? 'PMC 样衣管理员 林佩琪' : statusPattern === 2 ? '抽检员 周雅晴' : '裁床组 黄秀娟'
@@ -392,8 +404,8 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       statusPattern === 0 ? 'CUTTING' : statusPattern === 1 ? 'FACTORY_CHECK' : statusPattern === 2 ? 'BACK_TO_PMC' : 'RETURN_CHECK'
     const currentStatus: SampleWarehouseStatus =
       statusPattern === 0 ? 'IN_USE' : statusPattern === 1 ? 'WAITING_RETURN' : statusPattern === 2 ? 'AVAILABLE' : 'CHECKING'
-    const sampleNo = `SMP-${source.productionOrderNo.replace(/[^0-9]/g, '').slice(-6) || source.originalCutOrderNo.slice(-6)}`
-    const sampleName = `${productionOrder?.demandSnapshot.spuName || source.sourceTechPackSpuCode} 样衣`
+    const sampleNo = `SMP-${productionOrderNo.replace(/[^0-9]/g, '').slice(-6) || source.originalCutOrderNo.slice(-6)}`
+    const sampleName = `${productionOrder?.demandSnapshot.spuName || source.sourceTechPackSpuCode || source.originalCutOrderNo} 样衣`
     const nextSuggestedAction =
       currentStatus === 'IN_USE'
         ? '裁床参考结束后归还 PMC 仓库。'
@@ -410,10 +422,10 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       originalCutOrderId: source.originalCutOrderId,
       originalCutOrderNo: source.originalCutOrderNo,
       productionOrderId: source.productionOrderId,
-      productionOrderNo: source.productionOrderNo,
+      productionOrderNo,
       sampleNo,
       sampleName,
-      relatedProductionOrderNo: source.productionOrderNo,
+      relatedProductionOrderNo: productionOrderNo,
       relatedCutPieceOrderNo: source.originalCutOrderNo,
       currentLocationStage,
       currentHolder:

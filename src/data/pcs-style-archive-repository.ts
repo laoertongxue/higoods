@@ -5,8 +5,8 @@ import type {
   StyleArchiveStoreSnapshot,
 } from './pcs-style-archive-types.ts'
 
-const STYLE_ARCHIVE_STORAGE_KEY = 'higood-pcs-style-archive-store-v1'
-const STYLE_ARCHIVE_STORE_VERSION = 1
+const STYLE_ARCHIVE_STORAGE_KEY = 'higood-pcs-style-archive-store-v2'
+const STYLE_ARCHIVE_STORE_VERSION = 2
 
 let memorySnapshot: StyleArchiveStoreSnapshot | null = null
 
@@ -21,9 +21,12 @@ function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
     styleTags: [...record.styleTags],
     targetAudienceTags: [...record.targetAudienceTags],
     targetChannelCodes: [...record.targetChannelCodes],
-    effectiveTechnicalVersionId: record.effectiveTechnicalVersionId || '',
-    effectiveTechnicalVersionCode: record.effectiveTechnicalVersionCode || '',
-    effectiveTechnicalVersionLabel: record.effectiveTechnicalVersionLabel || '',
+    currentTechPackVersionId: record.currentTechPackVersionId || '',
+    currentTechPackVersionCode: record.currentTechPackVersionCode || '',
+    currentTechPackVersionLabel: record.currentTechPackVersionLabel || '',
+    currentTechPackVersionStatus: record.currentTechPackVersionStatus || '',
+    currentTechPackVersionActivatedAt: record.currentTechPackVersionActivatedAt || '',
+    currentTechPackVersionActivatedBy: record.currentTechPackVersionActivatedBy || '',
   }
 }
 
@@ -47,17 +50,20 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
   return {
     ...cloneRecord(record),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
-    baseInfoStatus: record.baseInfoStatus || '待补全',
+    baseInfoStatus: record.baseInfoStatus || '待完善',
     specificationStatus: record.specificationStatus || '未建立',
-    technicalDataStatus: record.technicalDataStatus || '未建立',
+    techPackStatus: record.techPackStatus || '未建立',
     costPricingStatus: record.costPricingStatus || '未建立',
     specificationCount: Number.isFinite(record.specificationCount) ? record.specificationCount : 0,
-    technicalVersionCount: Number.isFinite(record.technicalVersionCount) ? record.technicalVersionCount : 0,
+    techPackVersionCount: Number.isFinite(record.techPackVersionCount) ? record.techPackVersionCount : 0,
     costVersionCount: Number.isFinite(record.costVersionCount) ? record.costVersionCount : 0,
     channelProductCount: Number.isFinite(record.channelProductCount) ? record.channelProductCount : 0,
-    effectiveTechnicalVersionId: record.effectiveTechnicalVersionId || '',
-    effectiveTechnicalVersionCode: record.effectiveTechnicalVersionCode || '',
-    effectiveTechnicalVersionLabel: record.effectiveTechnicalVersionLabel || '',
+    currentTechPackVersionId: record.currentTechPackVersionId || '',
+    currentTechPackVersionCode: record.currentTechPackVersionCode || '',
+    currentTechPackVersionLabel: record.currentTechPackVersionLabel || '',
+    currentTechPackVersionStatus: record.currentTechPackVersionStatus || '',
+    currentTechPackVersionActivatedAt: record.currentTechPackVersionActivatedAt || '',
+    currentTechPackVersionActivatedBy: record.currentTechPackVersionActivatedBy || '',
     remark: record.remark || '',
     generatedAt: record.generatedAt || record.updatedAt || '',
     generatedBy: record.generatedBy || '系统初始化',
@@ -161,6 +167,12 @@ export function listStyleArchives(): StyleArchiveShellRecord[] {
 
 export function getStyleArchiveById(styleId: string): StyleArchiveShellRecord | null {
   const record = loadSnapshot().records.find((item) => item.styleId === styleId)
+  return record ? cloneRecord(record) : null
+}
+
+export function findStyleArchiveByCode(styleCode: string): StyleArchiveShellRecord | null {
+  // FCS 需求页与转单链路都从正式款式档案读取当前生效技术包版本指针。
+  const record = loadSnapshot().records.find((item) => item.styleCode === styleCode)
   return record ? cloneRecord(record) : null
 }
 

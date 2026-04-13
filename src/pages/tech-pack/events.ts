@@ -648,12 +648,12 @@ function handleTechPackField(
 
 function performRelease(): void {
   if (!state.currentTechnicalVersionId) return
+  // 发布只更新技术包版本本身，当前生效版本需回到款式档案页单独启用。
   const record = publishTechnicalDataVersion(state.currentTechnicalVersionId, currentUser.name)
   ensureTechPackPageState(record.technicalVersionId, {
     styleId: record.styleId,
     technicalVersionId: record.technicalVersionId,
     activeTab: state.activeTab,
-    compatibilityMode: state.compatibilityMode,
   })
   state.releaseDialogOpen = false
 }
@@ -665,7 +665,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     fieldNode instanceof HTMLSelectElement ||
     fieldNode instanceof HTMLTextAreaElement
   ) {
-    if (state.compatibilityMode) return true
     return handleTechPackField(fieldNode)
   }
 
@@ -674,61 +673,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
   const action = actionNode.dataset.techAction
   if (!action) return false
-
-  if (state.compatibilityMode) {
-    if (action === 'switch-tab') {
-      const tab = actionNode.dataset.tab as TechPackTab | undefined
-      if (!tab) return true
-      state.activeTab = tab
-      return true
-    }
-
-    if (action === 'tech-back') {
-      const pathname = appStore.getState().pathname
-      const normalizedPath = pathname.split('?')[0].split('#')[0]
-      const styleMatch = normalizedPath.match(/^\/pcs\/products\/styles\/([^/]+)$/)
-      const technicalVersionMatch = normalizedPath.match(/^\/pcs\/products\/styles\/([^/]+)\/technical-data\/([^/]+)$/)
-
-      if (technicalVersionMatch) {
-        const styleId = decodeURIComponent(technicalVersionMatch[1])
-        appStore.navigate(`/pcs/products/styles/${encodeURIComponent(styleId)}`)
-        return true
-      }
-
-      if (styleMatch) {
-        const styleId = decodeURIComponent(styleMatch[1])
-        appStore.navigate(`/pcs/products/styles/${encodeURIComponent(styleId)}`)
-        return true
-      }
-
-      if (state.currentSpuCode) {
-        appStore.closeTab(`tech-pack-${state.currentSpuCode}`)
-        return true
-      }
-
-      appStore.navigate('/fcs/production/demand-inbox')
-      return true
-    }
-
-    if (action === 'go-maintenance-target') {
-      if (state.compatibilityMaintenancePath) {
-        appStore.navigate(state.compatibilityMaintenancePath)
-      }
-      return true
-    }
-
-    if (action === 'toggle-source-note') {
-      state.compatibilitySourceNoteOpen = !state.compatibilitySourceNoteOpen
-      return true
-    }
-
-    if (action === 'close-dialog') {
-      closeAllDialogs()
-      return true
-    }
-
-    return true
-  }
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TechPackTab | undefined

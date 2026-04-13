@@ -36,11 +36,11 @@ import {
   showProgressExceptionsToast,
   openLinkedPage,
 } from './actions'
-import { resolveTechnicalDataEntryBySpuCode } from '../../data/pcs-technical-data-entry-resolver.ts'
-
-function openTechnicalCompatibilityBySpuCode(spuCode: string): void {
-  const target = resolveTechnicalDataEntryBySpuCode(spuCode)
-  openLinkedPage(target.targetTitle, target.targetPath)
+function openProductionOrderTechPackSnapshot(productionOrderId: string): void {
+  openLinkedPage(
+    `技术包快照-${productionOrderId}`,
+    `/fcs/production/orders/${encodeURIComponent(productionOrderId)}/tech-pack`,
+  )
 }
 
 function syncClaimDisputeHandleForm(caseId: string | null): void {
@@ -257,7 +257,7 @@ function handleRowAction(action: string, actionNode: HTMLElement): boolean {
     if (!exc) return true
     const firstOrder = exc.relatedOrderIds[0] ? getOrderById(exc.relatedOrderIds[0]) : null
     if (firstOrder) {
-      openTechnicalCompatibilityBySpuCode(firstOrder.demandSnapshot.spuCode)
+      openProductionOrderTechPackSnapshot(firstOrder.productionOrderId)
     }
     state.rowActionMenuCaseId = null
     return true
@@ -316,7 +316,7 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
     if (!exc) return true
     const firstOrder = exc.relatedOrderIds[0] ? getOrderById(exc.relatedOrderIds[0]) : null
     if (firstOrder) {
-      openTechnicalCompatibilityBySpuCode(firstOrder.demandSnapshot.spuCode)
+      openProductionOrderTechPackSnapshot(firstOrder.productionOrderId)
     }
     return true
   }

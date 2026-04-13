@@ -1,32 +1,20 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
-  copyPcsWorkItem,
-  listPcsWorkItems,
-  togglePcsWorkItemStatus,
-  type PcsWorkItemListItem,
-  type WorkItemStatus,
-} from '../data/pcs-work-items'
-import { renderConfirmDialog } from '../components/ui'
+  buildPcsWorkItemLibraryOverview,
+  listPcsWorkItemLibraryRows,
+  type PcsWorkItemLibraryListRow,
+} from '../data/pcs-work-item-library-view-model.ts'
 
-type NatureFilter = 'all' | PcsWorkItemListItem['nature']
-type StatusFilter = 'all' | WorkItemStatus
-
-interface ToggleDialogState {
-  open: boolean
-  workItemId: string | null
-  nextStatus: WorkItemStatus
-}
+type NatureFilter = 'all' | PcsWorkItemLibraryListRow['nature']
 
 interface ListPageState {
   searchQuery: string
   natureFilter: NatureFilter
   phaseFilter: 'all' | string
-  statusFilter: StatusFilter
   page: number
   pageSize: number
   notice: string | null
-  dialog: ToggleDialogState
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
@@ -35,31 +23,16 @@ const state: ListPageState = {
   searchQuery: '',
   natureFilter: 'all',
   phaseFilter: 'all',
-  statusFilter: 'all',
   page: 1,
   pageSize: 10,
-  notice: '工作项库已统一为正式定义来源，模板页只能从这里选择标准工作项。',
-  dialog: {
-    open: false,
-    workItemId: null,
-    nextStatus: '停用',
-  },
+  notice: '工作项库已收口为标准只读目录，所有字段、状态、操作和承载方式都以正式定义层为准。',
 }
 
 function getPhaseOptions(): string[] {
-  return Array.from(new Set(listPcsWorkItems().map((item) => item.phaseName))).sort((a, b) =>
-    a.localeCompare(b, 'zh-Hans-CN'),
-  )
+  return Array.from(new Set(listPcsWorkItemLibraryRows().map((item) => item.phaseName)))
 }
 
-function getStatusBadge(status: WorkItemStatus): string {
-  if (status === '启用') {
-    return '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">启用</span>'
-  }
-  return '<span class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">停用</span>'
-}
-
-function getNatureBadge(nature: PcsWorkItemListItem['nature']): string {
+function getNatureBadge(nature: PcsWorkItemLibraryListRow['nature']): string {
   if (nature === '决策类') {
     return '<span class="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs text-orange-700">决策类</span>'
   }
@@ -72,23 +45,41 @@ function getNatureBadge(nature: PcsWorkItemListItem['nature']): string {
   return '<span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">执行类</span>'
 }
 
-function getFilteredItems(): PcsWorkItemListItem[] {
+function renderReadonlyBadge(): string {
+  return '<span class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">内置固定</span>'
+}
+
+function renderDisplayKindBadge(kind: PcsWorkItemLibraryListRow['libraryDisplayKind']): string {
+  if (kind === '独立实例模块') {
+    return '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">独立实例模块</span>'
+  }
+  if (kind === '聚合节点') {
+    return '<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">聚合节点</span>'
+  }
+  if (kind === '项目内记录') {
+    return '<span class="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-700">项目内记录</span>'
+  }
+  return '<span class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-700">项目内单节点</span>'
+}
+
+function getFilteredItems(): PcsWorkItemLibraryListRow[] {
   const keyword = state.searchQuery.trim().toLowerCase()
-  return listPcsWorkItems().filter((item) => {
+  return listPcsWorkItemLibraryRows().filter((item) => {
     const matchKeyword =
       keyword.length === 0 ||
       item.name.toLowerCase().includes(keyword) ||
       item.id.toLowerCase().includes(keyword) ||
       item.code.toLowerCase().includes(keyword) ||
-      item.desc.toLowerCase().includes(keyword)
+      item.desc.toLowerCase().includes(keyword) ||
+      item.primaryModuleOrDisplay.toLowerCase().includes(keyword) ||
+      item.primaryModuleHint.toLowerCase().includes(keyword)
     const matchNature = state.natureFilter === 'all' || item.nature === state.natureFilter
-    const matchStatus = state.statusFilter === 'all' || item.status === state.statusFilter
     const matchPhase = state.phaseFilter === 'all' || item.phaseName === state.phaseFilter
-    return matchKeyword && matchNature && matchStatus && matchPhase
+    return matchKeyword && matchNature && matchPhase
   })
 }
 
-function getPagination(items: PcsWorkItemListItem[]) {
+function getPagination(items: PcsWorkItemLibraryListRow[]) {
   const total = items.length
   const totalPages = Math.max(1, Math.ceil(total / state.pageSize))
   const currentPage = Math.min(Math.max(1, state.page), totalPages)
@@ -117,38 +108,33 @@ function renderNotice(): string {
 }
 
 function renderHeader(): string {
-  const all = listPcsWorkItems()
-  const builtin = all.filter((item) => item.isBuiltin).length
-  const custom = all.length - builtin
-  const selectable = all.filter((item) => item.isSelectableForTemplate && item.status === '启用').length
+  const overview = buildPcsWorkItemLibraryOverview()
 
   return `
     <header class="space-y-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold">工作项库</h1>
-          <p class="mt-1 text-sm text-muted-foreground">内置工作项和自定义工作项统一收口为正式定义目录。</p>
+          <p class="mt-1 text-sm text-muted-foreground">只读指标总览，集中说明每个标准工作项的字段规模、状态数量、操作数量和实例承载方式。</p>
         </div>
-        <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-pcs-work-library-action="go-create">
-          <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>新增自定义工作项
-        </button>
+        <div class="flex items-center gap-2">${renderReadonlyBadge()}</div>
       </div>
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article class="rounded-lg border bg-card p-3">
-          <p class="text-xs text-muted-foreground">工作项总数</p>
-          <p class="mt-1 text-xl font-semibold">${all.length}</p>
+          <p class="text-xs text-muted-foreground">标准工作项总数</p>
+          <p class="mt-1 text-xl font-semibold">${overview.totalCount}</p>
         </article>
         <article class="rounded-lg border bg-card p-3">
-          <p class="text-xs text-muted-foreground">内置工作项</p>
-          <p class="mt-1 text-xl font-semibold text-blue-700">${builtin}</p>
+          <p class="text-xs text-muted-foreground">覆盖阶段数</p>
+          <p class="mt-1 text-xl font-semibold text-blue-700">${overview.phaseCount}</p>
         </article>
         <article class="rounded-lg border bg-card p-3">
-          <p class="text-xs text-muted-foreground">自定义工作项</p>
-          <p class="mt-1 text-xl font-semibold text-slate-700">${custom}</p>
+          <p class="text-xs text-muted-foreground">有独立实例列表的工作项数</p>
+          <p class="mt-1 text-xl font-semibold text-emerald-700">${overview.standaloneCount}</p>
         </article>
         <article class="rounded-lg border bg-card p-3">
-          <p class="text-xs text-muted-foreground">可供模板选择</p>
-          <p class="mt-1 text-xl font-semibold text-emerald-700">${selectable}</p>
+          <p class="text-xs text-muted-foreground">项目内执行的工作项数</p>
+          <p class="mt-1 text-xl font-semibold text-slate-700">${overview.projectExecutionCount}</p>
         </article>
       </div>
     </header>
@@ -159,12 +145,12 @@ function renderFilters(): string {
   const phaseOptions = getPhaseOptions()
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_180px_140px_auto]">
+      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
         <div>
           <label class="mb-1 block text-xs text-muted-foreground">关键词</label>
           <div class="relative">
             <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
-            <input class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm" placeholder="搜索编号、编码、名称或说明" value="${escapeHtml(state.searchQuery)}" data-pcs-work-library-field="searchQuery" />
+            <input class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm" placeholder="搜索编号、编码、名称、承载模块或项目内展示方式" value="${escapeHtml(state.searchQuery)}" data-pcs-work-library-field="searchQuery" />
           </div>
         </div>
         <div>
@@ -184,14 +170,6 @@ function renderFilters(): string {
             ${phaseOptions.map((item) => `<option value="${escapeHtml(item)}" ${state.phaseFilter === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
         </div>
-        <div>
-          <label class="mb-1 block text-xs text-muted-foreground">状态</label>
-          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-work-library-field="statusFilter">
-            <option value="all" ${state.statusFilter === 'all' ? 'selected' : ''}>全部状态</option>
-            <option value="启用" ${state.statusFilter === '启用' ? 'selected' : ''}>启用</option>
-            <option value="停用" ${state.statusFilter === '停用' ? 'selected' : ''}>停用</option>
-          </select>
-        </div>
         <div class="flex items-end justify-end gap-2">
           <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-work-library-action="reset-filters">重置</button>
         </div>
@@ -200,53 +178,62 @@ function renderFilters(): string {
   `
 }
 
-function renderRows(rows: PcsWorkItemListItem[]): string {
+function renderRows(rows: PcsWorkItemLibraryListRow[]): string {
   if (rows.length === 0) {
     return `
       <tr>
-        <td colspan="10" class="px-4 py-14 text-center text-muted-foreground">
+        <td colspan="11" class="px-4 py-14 text-center text-muted-foreground">
           <i data-lucide="file-search-2" class="mx-auto h-10 w-10 text-muted-foreground/60"></i>
-          <p class="mt-2">暂无工作项数据</p>
+          <p class="mt-2">暂无符合条件的工作项</p>
         </td>
       </tr>
     `
   }
 
   return rows
-    .map(
-      (item) => `
+    .map((item) => {
+      const legacyModeText =
+        item.legacyReferenceUseMode === 'DIRECT_MAPPING'
+          ? '旧版直接映射'
+          : item.legacyReferenceUseMode === 'PARTIAL_REFERENCE'
+            ? '旧版部分参考'
+            : item.legacyReferenceUseMode === 'DISPLAY_ONLY'
+              ? '旧版展示参考'
+              : '无旧版参考'
+      return `
         <tr class="border-b last:border-b-0 hover:bg-muted/40">
           <td class="px-3 py-3 align-top">
-            <div class="flex flex-wrap gap-1">
-              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-work-library-action="go-detail" data-work-item-id="${escapeHtml(item.id)}">详情</button>
-              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-work-library-action="go-edit" data-work-item-id="${escapeHtml(item.id)}">编辑</button>
-              <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-work-library-action="copy" data-work-item-id="${escapeHtml(item.id)}">复制</button>
-              ${
-                item.isBuiltin
-                  ? '<span class="inline-flex h-7 items-center rounded-md border border-slate-200 px-2 text-xs text-slate-500">内置固定</span>'
-                  : `<button class="inline-flex h-7 items-center rounded-md border px-2 text-xs ${item.status === '启用' ? 'text-orange-700 hover:bg-orange-50' : 'text-emerald-700 hover:bg-emerald-50'}" data-pcs-work-library-action="open-toggle-dialog" data-work-item-id="${escapeHtml(item.id)}">${item.status === '启用' ? '停用' : '启用'}</button>`
-              }
-            </div>
+            <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-work-library-action="go-detail" data-work-item-id="${escapeHtml(item.id)}">查看</button>
           </td>
           <td class="px-3 py-3 align-top">
             <button class="text-left font-medium text-blue-700 hover:underline" data-pcs-work-library-action="go-detail" data-work-item-id="${escapeHtml(item.id)}">${escapeHtml(item.name)}</button>
             <p class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(item.id)} ｜ ${escapeHtml(item.code)}</p>
+            <div class="mt-2 flex flex-wrap items-center gap-1">
+              ${renderReadonlyBadge()}
+              <span class="inline-flex rounded-md border bg-muted px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(legacyModeText)}</span>
+            </div>
+            <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(item.desc)}</p>
           </td>
           <td class="px-3 py-3 align-top">${escapeHtml(item.phaseName)}</td>
           <td class="px-3 py-3 align-top">${getNatureBadge(item.nature)}</td>
-          <td class="px-3 py-3 align-top">${escapeHtml(item.category)}</td>
+          <td class="px-3 py-3 align-top text-sm">${escapeHtml(item.role)}</td>
+          <td class="px-3 py-3 align-top"><span class="text-sm font-medium">${item.fieldCount}</span><span class="ml-1 text-xs text-muted-foreground">个</span></td>
+          <td class="px-3 py-3 align-top"><span class="text-sm font-medium">${item.statusCount}</span><span class="ml-1 text-xs text-muted-foreground">个</span></td>
+          <td class="px-3 py-3 align-top"><span class="text-sm font-medium">${item.operationCount}</span><span class="ml-1 text-xs text-muted-foreground">个</span></td>
           <td class="px-3 py-3 align-top">
-            <div class="flex flex-wrap gap-1">
-              ${item.capabilities.map((capability) => `<span class="inline-flex rounded-md border bg-muted px-2 py-0.5 text-xs">${escapeHtml(capability)}</span>`).join('')}
-            </div>
+            <div>${renderDisplayKindBadge(item.libraryDisplayKind)}</div>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.runtimeCarrierLabel)}</p>
           </td>
-          <td class="px-3 py-3 align-top">${escapeHtml(item.role)}</td>
-          <td class="px-3 py-3 align-top">${item.isSelectableForTemplate ? '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">可选</span>' : '<span class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">不可选</span>'}</td>
-          <td class="px-3 py-3 align-top text-xs text-muted-foreground">${escapeHtml(item.updatedAt)}</td>
-          <td class="px-3 py-3 align-top">${getStatusBadge(item.status)}</td>
+          <td class="px-3 py-3 align-top">
+            <span class="inline-flex rounded-full border ${item.hasStandaloneInstanceList ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-600'} px-2 py-0.5 text-xs">${escapeHtml(item.standaloneInstanceText)}</span>
+          </td>
+          <td class="px-3 py-3 align-top">
+            <p class="text-sm font-medium">${escapeHtml(item.primaryModuleOrDisplay)}</p>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.primaryModuleHint)}</p>
+          </td>
         </tr>
-      `,
-    )
+      `
+    })
     .join('')
 }
 
@@ -258,19 +245,20 @@ function renderTable(): string {
   return `
     <section class="overflow-hidden rounded-lg border bg-card">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1380px] text-sm">
+        <table class="w-full min-w-[1560px] text-sm">
           <thead>
             <tr class="border-b bg-muted/30 text-left text-muted-foreground">
-              <th class="px-3 py-2 font-medium">操作</th>
-              <th class="px-3 py-2 font-medium">正式编号 / 编码</th>
+              <th class="px-3 py-2 font-medium">查看</th>
+              <th class="px-3 py-2 font-medium">工作项</th>
               <th class="px-3 py-2 font-medium">所属阶段</th>
               <th class="px-3 py-2 font-medium">工作项性质</th>
-              <th class="px-3 py-2 font-medium">工作项类别</th>
-              <th class="px-3 py-2 font-medium">能力</th>
               <th class="px-3 py-2 font-medium">默认角色</th>
-              <th class="px-3 py-2 font-medium">模板可选</th>
-              <th class="px-3 py-2 font-medium">最近更新时间</th>
+              <th class="px-3 py-2 font-medium">字段</th>
               <th class="px-3 py-2 font-medium">状态</th>
+              <th class="px-3 py-2 font-medium">操作</th>
+              <th class="px-3 py-2 font-medium">实例承载方式</th>
+              <th class="px-3 py-2 font-medium">独立实例列表</th>
+              <th class="px-3 py-2 font-medium">主实例模块 / 项目内展示方式</th>
             </tr>
           </thead>
           <tbody>${renderRows(paging.rows)}</tbody>
@@ -291,27 +279,6 @@ function renderTable(): string {
   `
 }
 
-function renderToggleDialog(): string {
-  if (!state.dialog.open || !state.dialog.workItemId) return ''
-  const current = listPcsWorkItems().find((item) => item.id === state.dialog.workItemId)
-  if (!current) return ''
-
-  return renderConfirmDialog({
-    title: `确认${state.dialog.nextStatus}`,
-    description: state.dialog.nextStatus === '停用' ? '停用后该自定义工作项将不能继续被模板选择。' : '启用后该自定义工作项可重新用于模板选择。',
-    closeAction: { prefix: 'pcs-work-library', action: 'close-toggle-dialog' },
-    confirmAction: {
-      prefix: 'pcs-work-library',
-      action: 'confirm-toggle-dialog',
-      label: `确认${state.dialog.nextStatus}`,
-      attrs: {
-        'data-work-item-id': current.id,
-      },
-    },
-    cancelLabel: '取消',
-  })
-}
-
 export function renderPcsWorkItemsPage(): string {
   return `
     <div class="space-y-4">
@@ -319,7 +286,6 @@ export function renderPcsWorkItemsPage(): string {
       ${renderNotice()}
       ${renderFilters()}
       ${renderTable()}
-      ${renderToggleDialog()}
     </div>
   `
 }
@@ -344,11 +310,6 @@ export function handlePcsWorkItemsEvent(target: HTMLElement): boolean {
       state.page = 1
       return true
     }
-    if (field === 'statusFilter') {
-      state.statusFilter = fieldNode.value as StatusFilter
-      state.page = 1
-      return true
-    }
     if (field === 'pageSize') {
       state.pageSize = Number(fieldNode.value) || 10
       state.page = 1
@@ -361,51 +322,10 @@ export function handlePcsWorkItemsEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.pcsWorkLibraryAction
   if (!action) return false
 
-  if (action === 'go-create') {
-    appStore.navigate('/pcs/work-items/create')
-    return true
-  }
   if (action === 'go-detail') {
     const workItemId = actionNode.dataset.workItemId
     if (!workItemId) return false
     appStore.navigate(`/pcs/work-items/${workItemId}`)
-    return true
-  }
-  if (action === 'go-edit') {
-    const workItemId = actionNode.dataset.workItemId
-    if (!workItemId) return false
-    appStore.navigate(`/pcs/work-items/${workItemId}/edit`)
-    return true
-  }
-  if (action === 'copy') {
-    const workItemId = actionNode.dataset.workItemId
-    if (!workItemId) return false
-    const copied = copyPcsWorkItem(workItemId)
-    if (!copied) return false
-    appStore.navigate(`/pcs/work-items/${copied.workItemId}`)
-    return true
-  }
-  if (action === 'open-toggle-dialog') {
-    const workItemId = actionNode.dataset.workItemId
-    if (!workItemId) return false
-    const current = listPcsWorkItems().find((item) => item.id === workItemId)
-    if (!current || current.isBuiltin) return false
-    state.dialog = {
-      open: true,
-      workItemId,
-      nextStatus: current.status === '启用' ? '停用' : '启用',
-    }
-    return true
-  }
-  if (action === 'confirm-toggle-dialog') {
-    const workItemId = actionNode.dataset.workItemId
-    if (!workItemId) return false
-    togglePcsWorkItemStatus(workItemId)
-    state.dialog = { open: false, workItemId: null, nextStatus: '停用' }
-    return true
-  }
-  if (action === 'close-toggle-dialog') {
-    state.dialog = { open: false, workItemId: null, nextStatus: '停用' }
     return true
   }
   if (action === 'close-notice') {
@@ -416,23 +336,20 @@ export function handlePcsWorkItemsEvent(target: HTMLElement): boolean {
     state.searchQuery = ''
     state.natureFilter = 'all'
     state.phaseFilter = 'all'
-    state.statusFilter = 'all'
     state.page = 1
     return true
   }
-  if (action === 'prev-page') {
-    state.page = Math.max(1, state.page - 1)
+  if (action === 'prev-page' && state.page > 1) {
+    state.page -= 1
     return true
   }
   if (action === 'next-page') {
     state.page += 1
     return true
   }
-
   return false
 }
 
 export function isPcsWorkItemsDialogOpen(): boolean {
-  return state.dialog.open
+  return false
 }
-

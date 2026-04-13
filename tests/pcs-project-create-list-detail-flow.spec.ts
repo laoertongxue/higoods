@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   createEmptyProjectDraft,
   createProject,
@@ -20,8 +21,13 @@ function buildValidDraft() {
   }
 
   const category = catalog.categories[0]
-  const subCategory = category.children[0]
   const brand = catalog.brands[0]
+  const styleCode = catalog.styleCodes[0]
+  const style = catalog.styles[0]
+  const crowdPositioning = catalog.crowdPositioning[0]
+  const age = catalog.ages[0]
+  const crowd = catalog.crowds[0]
+  const productPositioning = catalog.productPositioning[0]
   const owner = catalog.owners[0]
   const team = catalog.teams[0]
   const collaborator = catalog.collaborators[0]
@@ -34,16 +40,29 @@ function buildValidDraft() {
     templateId: template.id,
     categoryId: category.id,
     categoryName: category.name,
-    subCategoryId: subCategory.id,
-    subCategoryName: subCategory.name,
+    subCategoryId: '',
+    subCategoryName: '',
     brandId: brand.id,
     brandName: brand.name,
+    styleNumber: styleCode?.name ?? 'STYLE-001',
+    styleCodeId: styleCode?.id ?? '',
+    styleCodeName: styleCode?.name ?? '',
     styleType: template.styleType[0] ?? '设计款',
     yearTag: '2026',
     seasonTags: ['夏季'],
-    styleTags: ['通勤'],
-    targetAudienceTags: ['通勤白领'],
-    priceRangeLabel: '两百元主销带',
+    styleTags: style ? [style.name] : [],
+    styleTagIds: style ? [style.id] : [],
+    styleTagNames: style ? [style.name] : [],
+    crowdPositioningIds: crowdPositioning ? [crowdPositioning.id] : [],
+    crowdPositioningNames: crowdPositioning ? [crowdPositioning.name] : [],
+    ageIds: age ? [age.id] : [],
+    ageNames: age ? [age.name] : [],
+    crowdIds: crowd ? [crowd.id] : [],
+    crowdNames: crowd ? [crowd.name] : [],
+    productPositioningIds: productPositioning ? [productPositioning.id] : [],
+    productPositioningNames: productPositioning ? [productPositioning.name] : [],
+    targetAudienceTags: crowd ? [crowd.name] : [],
+    priceRangeLabel: catalog.priceRanges[0] ?? '两百元主销带',
     targetChannelCodes: ['tiktok-shop'],
     sampleSourceType: '外采' as const,
     sampleSupplierId: catalog.sampleSuppliers[0]?.id ?? '',
@@ -61,6 +80,15 @@ function buildValidDraft() {
 }
 
 resetProjectRepository()
+
+const createPageSource = readFileSync(new URL('../src/pages/pcs-project-create.ts', import.meta.url), 'utf8')
+assert.ok(createPageSource.includes('字段来源说明'), '项目新增页应展示字段来源说明')
+assert.ok(createPageSource.includes("getProjectWorkspaceSourceHintText('categoryId')"), '项目新增页应通过正式来源 adapter 标注品类来源')
+assert.ok(createPageSource.includes("getProjectWorkspaceSourceHintText('brandId')"), '项目新增页应通过正式来源 adapter 标注品牌来源')
+assert.ok(createPageSource.includes("getProjectWorkspaceSourceHintText('targetChannelCodes')"), '项目新增页应标注渠道主数据来源')
+assert.ok(createPageSource.includes("getProjectWorkspaceSourceHintText('sampleSupplierId')"), '项目新增页应标注样衣供应商主数据来源')
+assert.ok(createPageSource.includes("getProjectWorkspaceSourceHintText('ownerId')"), '项目新增页应标注本地组织主数据来源')
+assert.deepEqual(getProjectCreateCatalog().categories[0]?.children ?? [], [], '项目新增页应兼容一级品类目录')
 
 const created = createProject(buildValidDraft(), '流程测试用户')
 
@@ -85,5 +113,6 @@ const nodeDetail = buildProjectNodeDetailViewModel(created.project.projectId, fi
 assert.ok(nodeDetail, '节点详情页应能根据真实 projectNodeId 打开节点')
 assert.equal(nodeDetail?.node.projectNodeId, firstNodeId, '节点详情页应读取真实节点记录')
 assert.equal(nodeDetail?.projectId, created.project.projectId, '节点详情页应归属于真实项目')
+assert.equal(created.project.subCategoryId ?? '', '', '一级品类口径下项目创建应兼容空二级分类')
 
 console.log('pcs-project-create-list-detail-flow.spec.ts PASS')

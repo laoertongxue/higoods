@@ -126,7 +126,11 @@ export const renderSettlementInitPage = createAsyncRenderer(
   () => import('../pages/settlement'),
   'renderSettlementInitPage',
 )
-export const renderTechPackPage = createAsyncRenderer(() => import('../pages/tech-pack'), 'renderTechPackPage')
+export const renderTechPackPage = createAsyncRenderer(() => import('../pages/tech-pack/core'), 'renderTechPackPage')
+export const renderFcsProductionTechPackSnapshotPage = createAsyncRenderer(
+  () => import('../pages/fcs-production-tech-pack-snapshot'),
+  'renderFcsProductionTechPackSnapshotPage',
+)
 export const renderMaterialStatementsPage = createAsyncRenderer(
   () => import('../pages/material-statements'),
   'renderMaterialStatementsPage',

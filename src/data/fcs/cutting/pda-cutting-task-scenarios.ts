@@ -74,6 +74,7 @@ export interface PdaCuttingResolvedTaskScenario {
 const originalCutOrderByNo = new Map(
   listGeneratedOriginalCutOrderSourceRecords().map((record) => [record.originalCutOrderNo, record] as const),
 )
+const missingOriginalCutOrderWarnings = new Set<string>()
 
 function getFactoryName(factoryId: string): string {
   return indonesiaFactories.find((item) => item.id === factoryId)?.name ?? factoryId
@@ -84,7 +85,15 @@ function resolveBoundExecution(matrix: PdaCuttingTaskMockMatrixItem, execution: 
   const originalCutOrderRecord = originalCutOrderByNo.get(originalCutOrderNo)
 
   if (!originalCutOrderRecord) {
-    throw new Error(`裁片 PDA mock 矩阵存在未找到的原始裁片单：${matrix.taskId} / ${execution.executionOrderNo} / ${originalCutOrderNo}`)
+    const warningKey = `${matrix.taskId}::${execution.executionOrderNo}::${originalCutOrderNo}`
+    if (!missingOriginalCutOrderWarnings.has(warningKey)) {
+      missingOriginalCutOrderWarnings.add(warningKey)
+      console.warn(`裁片 PDA mock 矩阵已自动降级为未绑定执行单：${matrix.taskId} / ${execution.executionOrderNo} / ${originalCutOrderNo}`)
+    }
+    return resolveUnboundExecution(matrix, {
+      ...execution,
+      bindingState: 'UNBOUND',
+    })
   }
 
   return {
@@ -116,7 +125,7 @@ function resolveUnboundExecution(matrix: PdaCuttingTaskMockMatrixItem, execution
     productionOrderId: execution.productionOrderNo || '',
     productionOrderNo: execution.productionOrderNo || '',
     originalCutOrderId: '',
-    originalCutOrderNo: '',
+    originalCutOrderNo: execution.originalCutOrderNo?.trim() || '',
     mergeBatchId: execution.mergeBatchId || '',
     mergeBatchNo: execution.mergeBatchNo || '',
     materialSku: execution.materialSku || '',

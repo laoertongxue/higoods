@@ -1,3 +1,9 @@
+export type {
+  PcsChannelProductStatus as ProjectChannelProductStatus,
+  PcsChannelProductUpstreamSyncStatus as ProjectChannelProductUpstreamSyncStatus,
+  PcsProjectChannelProductRecord,
+} from './pcs-project-domain-contract.ts'
+
 export interface ChannelOption {
   id: string
   name: string

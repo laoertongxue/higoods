@@ -1,11 +1,15 @@
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories.ts'
 import type { ProductionDemand } from './production-demands.ts'
-import type { TechPack } from '../pcs-technical-data-runtime-source.ts'
 import {
   buildProductionOrderDemandSnapshot,
-  buildProductionOrderTechPackSnapshot,
   validateDemandTechPackOrderLink,
 } from './production-upstream-chain.ts'
+import {
+  buildProductionOrderTechPackSnapshot,
+  buildSeedProductionOrderTechPackSnapshot,
+  cloneProductionOrderTechPackSnapshot,
+} from './production-tech-pack-snapshot-builder.ts'
+import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 
 export type ProductionOrderStatus =
   | 'DRAFT'
@@ -54,12 +58,6 @@ export interface FactorySnapshot {
   province: string
   city: string
   tags: string[]
-}
-
-export interface TechPackSnapshot {
-  status: TechPackStatus
-  versionLabel: string
-  snapshotAt: string
 }
 
 export interface DemandSnapshot {
@@ -141,7 +139,7 @@ export interface ProductionOrder {
   lifecycleStatusRemark?: string
   lifecycleUpdatedAt?: string
   lifecycleUpdatedBy?: string
-  techPackSnapshot: TechPackSnapshot
+  techPackSnapshot: ProductionOrderTechPackSnapshot | null
   demandSnapshot: DemandSnapshot
   assignmentSummary: AssignmentSummary
   assignmentProgress: AssignmentProgress
@@ -191,7 +189,9 @@ export interface ProductionOrderSeed {
   auditLogs: AuditLog[]
   createdAt: string
   updatedAt: string
+  techPackSnapshot?: ProductionOrderTechPackSnapshot | null
   snapshotAt?: string
+  snapshotBy?: string
 }
 
 export function createFactorySnapshot(factory: IndonesiaFactory): FactorySnapshot {
@@ -211,7 +211,7 @@ export function createFactorySnapshot(factory: IndonesiaFactory): FactorySnapsho
 function buildProductionOrderFromResolvedUpstream(
   seed: ProductionOrderSeed,
   demand: ProductionDemand,
-  techPack: TechPack,
+  techPackSnapshot: ProductionOrderTechPackSnapshot | null,
 ): ProductionOrder {
   const factory = indonesiaFactories.find((item) => item.id === seed.mainFactoryId)
   if (!factory) {
@@ -226,7 +226,7 @@ function buildProductionOrderFromResolvedUpstream(
     mainFactorySnapshot: createFactorySnapshot(factory),
     legacyOrderNo: demand.legacyOrderNo,
     demandSnapshot: buildProductionOrderDemandSnapshot(demand),
-    techPackSnapshot: buildProductionOrderTechPackSnapshot(techPack, seed.snapshotAt ?? seed.updatedAt),
+    techPackSnapshot: cloneProductionOrderTechPackSnapshot(techPackSnapshot),
   }
 }
 
@@ -234,29 +234,53 @@ export function buildProductionOrderFromSeed(seed: ProductionOrderSeed): Product
   const validation = validateDemandTechPackOrderLink({
     productionOrderId: seed.productionOrderId,
     demandId: seed.demandId,
+    snapshotAt: seed.snapshotAt ?? seed.updatedAt,
+    snapshotBy: seed.snapshotBy || '系统初始化',
   })
 
-  if (!validation.ok || !validation.demand || !validation.techPack) {
+  if (!validation.demand) {
     throw new Error(
       [`生产单 ${seed.productionOrderId} 上游链非法`, ...validation.issues.map((item) => item.message)].join('；'),
     )
   }
 
-  return buildProductionOrderFromResolvedUpstream(seed, validation.demand, validation.techPack)
+  const techPackSnapshot =
+    seed.techPackSnapshot ??
+    validation.techPackSnapshot ??
+    buildSeedProductionOrderTechPackSnapshot({
+      productionOrderId: seed.productionOrderId,
+      productionOrderNo: seed.productionOrderId,
+      demand: validation.demand,
+      snapshotAt: seed.snapshotAt ?? seed.updatedAt,
+      snapshotBy: seed.snapshotBy || '系统初始化',
+    })
+
+  return buildProductionOrderFromResolvedUpstream(seed, validation.demand, techPackSnapshot)
 }
 
-export function buildProductionOrderFromDemand(seed: ProductionOrderSeed, demand: ProductionDemand, techPack: TechPack): ProductionOrder {
+export function buildProductionOrderFromDemand(
+  seed: ProductionOrderSeed,
+  demand: ProductionDemand,
+  snapshotBy: string,
+): ProductionOrder {
   if (seed.demandId !== demand.demandId) {
     throw new Error(`生产单 ${seed.productionOrderId} 与需求 ${demand.demandId} 绑定不一致`)
   }
-  if (techPack.status !== 'RELEASED') {
-    throw new Error(`需求 ${demand.demandId} 关联技术资料 ${techPack.spuCode} 未发布`)
-  }
-  if (demand.spuCode !== techPack.spuCode) {
-    throw new Error(`需求 ${demand.demandId} 的 SPU ${demand.spuCode} 与技术资料 ${techPack.spuCode} 不一致`)
-  }
 
-  return buildProductionOrderFromResolvedUpstream(seed, demand, techPack)
+  const techPackSnapshot = buildProductionOrderTechPackSnapshot({
+    productionOrderId: seed.productionOrderId,
+    productionOrderNo: seed.productionOrderId,
+    demand,
+    snapshotAt: seed.snapshotAt ?? seed.updatedAt,
+    snapshotBy,
+  })
+
+  return buildProductionOrderFromResolvedUpstream(seed, demand, techPackSnapshot)
+}
+
+export function getProductionOrderTechPackSnapshot(orderId: string): ProductionOrderTechPackSnapshot | null {
+  const order = productionOrders.find((item) => item.productionOrderId === orderId)
+  return cloneProductionOrderTechPackSnapshot(order?.techPackSnapshot ?? null)
 }
 
 function createAuditLog(id: string, action: string, detail: string, at: string, by: string): AuditLog {
@@ -658,7 +682,7 @@ export const productionOrders: ProductionOrder[] = productionOrderSeeds.map((see
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },
-  WAIT_TECH_PACK_RELEASE: { label: '等待技术资料发布', color: 'bg-orange-100 text-orange-700' },
+  WAIT_TECH_PACK_RELEASE: { label: '等待技术包发布', color: 'bg-orange-100 text-orange-700' },
   READY_FOR_BREAKDOWN: { label: '待分配', color: 'bg-blue-100 text-blue-700' },
   WAIT_ASSIGNMENT: { label: '待分配', color: 'bg-purple-100 text-purple-700' },
   ASSIGNING: { label: '分配中', color: 'bg-indigo-100 text-indigo-700' },
@@ -676,8 +700,8 @@ export const assignmentProgressStatusConfig: Record<AssignmentProgressStatus, { 
 }
 
 export const riskFlagConfig: Record<RiskFlag, { label: string; color: string }> = {
-  TECH_PACK_NOT_RELEASED: { label: '技术资料未发布', color: 'bg-orange-100 text-orange-700' },
-  TECH_PACK_MISSING: { label: '技术资料缺失', color: 'bg-red-100 text-red-700' },
+  TECH_PACK_NOT_RELEASED: { label: '技术包未发布', color: 'bg-orange-100 text-orange-700' },
+  TECH_PACK_MISSING: { label: '技术包缺失', color: 'bg-red-100 text-red-700' },
   MAIN_FACTORY_BLACKLISTED: { label: '主工厂黑名单', color: 'bg-red-100 text-red-700' },
   MAIN_FACTORY_SUSPENDED: { label: '主工厂暂停', color: 'bg-orange-100 text-orange-700' },
   TENDER_OVERDUE: { label: '竞价已过期', color: 'bg-red-100 text-red-700' },
@@ -692,6 +716,6 @@ export const riskFlagConfig: Record<RiskFlag, { label: string; color: string }> 
 
 export const techPackStatusConfig: Record<TechPackStatus, { label: string; color: string }> = {
   MISSING: { label: '缺失', color: 'bg-red-100 text-red-700' },
-  BETA: { label: '测试版', color: 'bg-yellow-100 text-yellow-700' },
+  BETA: { label: '待补齐', color: 'bg-yellow-100 text-yellow-700' },
   RELEASED: { label: '已发布', color: 'bg-green-100 text-green-700' },
 }

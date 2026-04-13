@@ -11,7 +11,7 @@ import {
 
 export function renderColorMappingTab(): string {
   if (!state.techPack) return ''
-  const readonly = state.compatibilityMode
+  const readonly = false
 
   const mappings = state.colorMaterialMappings
   const bomOptions = state.bomItems
@@ -56,7 +56,7 @@ export function renderColorMappingTab(): string {
         <div class="space-y-4 p-4">
           ${
             mappings.length === 0
-              ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">当前技术资料版本暂无款色用料对应，可先完善物料清单和纸样管理后由系统生成草稿</div>'
+              ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">当前技术包版本暂无款色用料对应，可先完善物料清单和纸样管理后由系统生成草稿</div>'
               : mappings
                   .map((mapping) => {
                     const statusLabel = colorMappingStatusLabel[mapping.status]

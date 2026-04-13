@@ -21,6 +21,7 @@ import {
 } from './pcs-project-repository.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
+import { upsertProjectInlineNodeRecord } from './pcs-project-inline-node-record-repository.ts'
 import type { ProjectNodeIdentityRef } from './pcs-project-types.ts'
 import type {
   SampleAssetRecord,
@@ -54,6 +55,16 @@ interface SampleWritebackResult {
   event: SampleLedgerEventRecord
   targetNodeId: string | null
   pendingWritten: boolean
+}
+
+type SampleInlineDetailMeta = {
+  returnRecipient?: string
+  returnDepartment?: string
+  returnAddress?: string
+  returnDate?: string
+  logisticsProvider?: string
+  trackingNumber?: string
+  modificationReason?: string
 }
 
 const SAMPLE_APPLICATION_ALLOWED_NODE_CODES = ['LIVE_TEST', 'VIDEO_TEST', 'SAMPLE_SHOOT_FIT', 'PATTERN_TASK']
@@ -666,6 +677,170 @@ function writeProjectNode(input: SampleLedgerWriteInput, event: SampleLedgerEven
   updateProjectNodeRecord(resolvedTarget.projectId, resolvedTarget.projectNodeId, limitedPatch, event.operatorName)
 }
 
+function buildInlineRecordId(projectNodeId: string, sourceDocId: string): string {
+  return `${projectNodeId}::${sourceDocId}`.replace(/[^a-zA-Z0-9:_-]/g, '_')
+}
+
+function buildSampleInlineRecordCode(projectCode: string, suffix: string): string {
+  return `INR-${projectCode.slice(-3)}-${suffix}`
+}
+
+function writeProjectInlineNodeRecord(
+  input: SampleLedgerWriteInput,
+  asset: SampleAssetRecord,
+  event: SampleLedgerEventRecord,
+  resolvedTarget: ResolvedTargetResult,
+): void {
+  if (!resolvedTarget.projectId || !resolvedTarget.projectNodeId || !resolvedTarget.nodeIdentity) return
+  const project = getProjectById(resolvedTarget.projectId)
+  if (!project) return
+  const inlineMeta = input as SampleLedgerWriteInput & SampleInlineDetailMeta
+
+  if (input.sourceDocType === '样衣处置单' && event.eventType === 'DISPOSAL') {
+    upsertProjectInlineNodeRecord({
+      recordId: buildInlineRecordId(resolvedTarget.projectNodeId, input.sourceDocId),
+      recordCode: buildSampleInlineRecordCode(project.projectCode, 'RETAIN'),
+      projectId: project.projectId,
+      projectCode: project.projectCode,
+      projectName: project.projectName,
+      projectNodeId: resolvedTarget.projectNodeId,
+      workItemTypeCode: 'SAMPLE_RETAIN_REVIEW',
+      workItemTypeName: resolvedTarget.workItemTypeName,
+      businessDate: event.businessDate,
+      recordStatus: '已完成',
+      ownerId: project.ownerId,
+      ownerName: event.operatorName,
+      payload: {
+        retainResult: '已完成处置',
+        retainNote: input.note || '样衣已按处置单完成正式处置。',
+      },
+      detailSnapshot: {
+        sampleAssetId: asset.sampleAssetId,
+        sampleCode: asset.sampleCode,
+        sampleLedgerEventId: event.ledgerEventId,
+        sampleLedgerEventCode: event.ledgerEventCode,
+        inventoryStatusAfter: event.inventoryStatusAfter,
+        availabilityAfter: event.availabilityAfter,
+        locationAfter: event.locationAfter,
+        disposalDocId: input.sourceDocId,
+        disposalDocCode: input.sourceDocCode,
+      },
+      sourceModule: input.sourceModule,
+      sourceDocType: input.sourceDocType,
+      sourceDocId: input.sourceDocId,
+      sourceDocCode: input.sourceDocCode,
+      upstreamRefs: [
+        {
+          refModule: '样衣资产',
+          refType: '样衣资产',
+          refId: asset.sampleAssetId,
+          refCode: asset.sampleCode,
+          refTitle: asset.sampleName,
+          refStatus: asset.inventoryStatus,
+        },
+        {
+          refModule: '样衣台账',
+          refType: '样衣台账事件',
+          refId: event.ledgerEventId,
+          refCode: event.ledgerEventCode,
+          refTitle: event.eventName,
+          refStatus: event.inventoryStatusAfter,
+        },
+      ],
+      downstreamRefs: [
+        {
+          refModule: '样衣处置单',
+          refType: '样衣处置单',
+          refId: input.sourceDocId,
+          refCode: input.sourceDocCode,
+          refTitle: input.note || '样衣处置单',
+          refStatus: '已完成',
+        },
+      ],
+      createdAt: event.businessDate,
+      createdBy: event.operatorName,
+      updatedAt: event.businessDate,
+      updatedBy: event.operatorName,
+      legacyProjectRef: input.legacyProjectRef || null,
+      legacyWorkItemInstanceId: input.legacyWorkItemInstanceId || null,
+    })
+    return
+  }
+
+  if (input.sourceDocType === '样衣退回单' && event.eventType === 'RETURN_SUPPLIER') {
+    upsertProjectInlineNodeRecord({
+      recordId: buildInlineRecordId(resolvedTarget.projectNodeId, input.sourceDocId),
+      recordCode: buildSampleInlineRecordCode(project.projectCode, 'RETURN'),
+      projectId: project.projectId,
+      projectCode: project.projectCode,
+      projectName: project.projectName,
+      projectNodeId: resolvedTarget.projectNodeId,
+      workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
+      workItemTypeName: resolvedTarget.workItemTypeName,
+      businessDate: event.businessDate,
+      recordStatus: '已完成',
+      ownerId: project.ownerId,
+      ownerName: event.operatorName,
+      payload: {
+        returnResult: '已完成退回',
+      },
+      detailSnapshot: {
+        returnRecipient: inlineMeta.returnRecipient || '供应商收货人',
+        returnDepartment: inlineMeta.returnDepartment || '样衣管理组',
+        returnAddress: inlineMeta.returnAddress || `${asset.responsibleSite} 供应商回寄地址`,
+        returnDate: inlineMeta.returnDate || event.businessDate,
+        logisticsProvider: inlineMeta.logisticsProvider || '线下回寄',
+        trackingNumber: inlineMeta.trackingNumber || input.sourceDocCode,
+        modificationReason: inlineMeta.modificationReason || input.note || '',
+        sampleAssetId: asset.sampleAssetId,
+        sampleCode: asset.sampleCode,
+        sampleLedgerEventId: event.ledgerEventId,
+        sampleLedgerEventCode: event.ledgerEventCode,
+        returnDocId: input.sourceDocId,
+        returnDocCode: input.sourceDocCode,
+      },
+      sourceModule: input.sourceModule,
+      sourceDocType: input.sourceDocType,
+      sourceDocId: input.sourceDocId,
+      sourceDocCode: input.sourceDocCode,
+      upstreamRefs: [
+        {
+          refModule: '样衣资产',
+          refType: '样衣资产',
+          refId: asset.sampleAssetId,
+          refCode: asset.sampleCode,
+          refTitle: asset.sampleName,
+          refStatus: asset.inventoryStatus,
+        },
+        {
+          refModule: '样衣台账',
+          refType: '样衣台账事件',
+          refId: event.ledgerEventId,
+          refCode: event.ledgerEventCode,
+          refTitle: event.eventName,
+          refStatus: event.inventoryStatusAfter,
+        },
+      ],
+      downstreamRefs: [
+        {
+          refModule: '样衣退回单',
+          refType: '样衣退回单',
+          refId: input.sourceDocId,
+          refCode: input.sourceDocCode,
+          refTitle: input.note || '样衣退回单',
+          refStatus: '已完成',
+        },
+      ],
+      createdAt: event.businessDate,
+      createdBy: event.operatorName,
+      updatedAt: event.businessDate,
+      updatedBy: event.operatorName,
+      legacyProjectRef: input.legacyProjectRef || null,
+      legacyWorkItemInstanceId: input.legacyWorkItemInstanceId || null,
+    })
+  }
+}
+
 export function recordSampleLedgerEvent(input: SampleLedgerWriteInput): SampleWritebackResult {
   const eventId = input.ledgerEventId || `${input.sourceDocCode || 'sample'}::${input.eventType}::${input.sampleCode}`
   const existingEvent = getSampleLedgerEventById(eventId)
@@ -705,6 +880,7 @@ export function recordSampleLedgerEvent(input: SampleLedgerWriteInput): SampleWr
       const currentNode = findProjectNodeById(resolvedTarget.projectId, resolvedTarget.projectNodeId)
       if (currentNode) {
         writeProjectNode(input, event, resolvedTarget)
+        writeProjectInlineNodeRecord(input, asset, event, resolvedTarget)
       } else {
         upsertSampleWritebackPendingItem(buildPendingItem(input, '项目存在，但目标节点不存在。'))
         pendingWritten = true

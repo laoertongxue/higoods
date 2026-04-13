@@ -84,7 +84,7 @@ export function renderPcsFabricArchivePage(): string {
   return renderMaterialArchivePage(
     '物料档案 / 面料档案',
     '面料档案',
-    '面向跨款复用的基础面料档案，承接款式技术资料与成本核价引用。',
+    '面向跨款复用的基础面料档案，承接款式技术包与成本核价引用。',
     [
       { code: 'FAB-2026-001', name: '数码印花雪纺', category: '印花梭织', supplier: '印尼印花厂', spec: '145cm / 90g', updatedAt: '2026-04-06 14:20', status: '启用' },
       { code: 'FAB-2026-009', name: '复古格纹毛呢', category: '毛呢', supplier: '苏州毛纺', spec: '150cm / 380g', updatedAt: '2026-04-05 18:10', status: '启用' },

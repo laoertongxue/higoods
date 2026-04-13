@@ -39,6 +39,7 @@ export interface ProjectTemplateNodeDefinition {
   workItemTypeCode: string
   workItemTypeName: string
   sequenceNo: number
+  enabledFlag: boolean
   requiredFlag: boolean
   multiInstanceFlag: boolean
   roleOverrideCodes: string[]
@@ -174,6 +175,7 @@ export function normalizeLegacyProjectTemplateSeed(input: {
         workItemTypeCode: workItemDefinition.workItemTypeCode,
         workItemTypeName: workItemDefinition.workItemTypeName,
         sequenceNo: index + 1,
+        enabledFlag: true,
         requiredFlag: normalizeRequiredFlag(legacyWorkItem.required),
         multiInstanceFlag,
         roleOverrideCodes: sanitizeRoleCodes(legacyWorkItem.roles ?? []),

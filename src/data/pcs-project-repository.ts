@@ -5,11 +5,23 @@ import {
   listProjectTemplates,
   type ProjectTemplate,
 } from './pcs-templates.ts'
+import { buildTemplateBusinessSummary } from './pcs-template-domain-view-model.ts'
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import {
   buildProjectNodeRecordsFromTemplate,
   buildProjectPhaseRecordsFromTemplate,
 } from './pcs-project-node-factory.ts'
+import {
+  buildProjectWorkspaceCategoryOptions,
+  findProjectWorkspaceOptionById,
+  listProjectWorkspaceAges,
+  listProjectWorkspaceBrands,
+  listProjectWorkspaceCrowdPositioning,
+  listProjectWorkspaceCrowds,
+  listProjectWorkspaceProductPositioning,
+  listProjectWorkspaceStyleCodes,
+  listProjectWorkspaceStyles,
+} from './pcs-project-config-workspace-adapter.ts'
 import type {
   LegacyProjectNodeStatus,
   PcsProjectCreateDraft,
@@ -22,6 +34,7 @@ import type {
   ProjectCategoryOption,
   ProjectCreateCatalog,
   ProjectCreateResult,
+  ProjectNodeStatus,
   ProjectPriorityLevel,
   ProjectSourceType,
   SampleSourceType,
@@ -37,8 +50,6 @@ const SAMPLE_SOURCE_TYPES = ['外采', '自打样', '委托打样'] as const
 const PRIORITY_LEVELS = ['高', '中', '低'] as const
 const STYLE_TYPES: TemplateStyleType[] = ['基础款', '快时尚款', '改版款', '设计款']
 const SEASON_TAGS = ['春季', '夏季', '秋季', '冬季', '四季']
-const STYLE_TAGS = ['通勤', '甜美', '街头', '极简', '运动', '度假', '复古', '轻奢']
-const TARGET_AUDIENCE_TAGS = ['通勤白领', '校园青年', '轻熟客群', '直播爆款客群', '度假客群']
 const PRICE_RANGES = ['百元基础带', '两百元主销带', '三百元升级带', '四百元形象带']
 
 const CHANNEL_OPTIONS = [
@@ -46,60 +57,6 @@ const CHANNEL_OPTIONS = [
   { code: 'shopee', name: '虾皮' },
   { code: 'lazada', name: '来赞达' },
   { code: 'wechat-mini-program', name: '微信小程序' },
-]
-
-const CATEGORY_OPTIONS: ProjectCategoryOption[] = [
-  {
-    id: 'cat-top',
-    name: '上装',
-    children: [
-      { id: 'sub-tshirt', name: 'T恤' },
-      { id: 'sub-shirt', name: '衬衫' },
-      { id: 'sub-knit', name: '针织衫' },
-      { id: 'sub-hoodie', name: '卫衣' },
-    ],
-  },
-  {
-    id: 'cat-dress',
-    name: '裙装',
-    children: [
-      { id: 'sub-onepiece', name: '连衣裙' },
-      { id: 'sub-skirt', name: '半身裙' },
-      { id: 'sub-longdress', name: '长裙' },
-    ],
-  },
-  {
-    id: 'cat-pants',
-    name: '裤装',
-    children: [
-      { id: 'sub-jeans', name: '牛仔裤' },
-      { id: 'sub-trousers', name: '长裤' },
-      { id: 'sub-shorts', name: '短裤' },
-    ],
-  },
-  {
-    id: 'cat-outerwear',
-    name: '外套',
-    children: [
-      { id: 'sub-jacket', name: '夹克' },
-      { id: 'sub-suit', name: '西装' },
-      { id: 'sub-trench', name: '风衣' },
-    ],
-  },
-  {
-    id: 'cat-set',
-    name: '套装',
-    children: [
-      { id: 'sub-sport-set', name: '运动套装' },
-      { id: 'sub-city-set', name: '通勤套装' },
-    ],
-  },
-]
-
-const BRAND_OPTIONS = [
-  { id: 'brand-higood-main', name: '海格主品牌' },
-  { id: 'brand-higood-lite', name: '海格轻快线' },
-  { id: 'brand-higood-design', name: '海格设计线' },
 ]
 
 const SAMPLE_SUPPLIER_OPTIONS = [
@@ -151,22 +108,32 @@ function canUseStorage(): boolean {
 function cloneProject(project: PcsProjectRecord): PcsProjectRecord {
   return {
     ...project,
-    seasonTags: [...project.seasonTags],
-    styleTags: [...project.styleTags],
-    targetAudienceTags: [...project.targetAudienceTags],
-    targetChannelCodes: [...project.targetChannelCodes],
-    projectAlbumUrls: [...project.projectAlbumUrls],
-    collaboratorIds: [...project.collaboratorIds],
-    collaboratorNames: [...project.collaboratorNames],
+    seasonTags: [...(project.seasonTags || [])],
+    styleTags: [...(project.styleTags || [])],
+    styleTagIds: [...(project.styleTagIds || [])],
+    styleTagNames: [...(project.styleTagNames || [])],
+    crowdPositioningIds: [...(project.crowdPositioningIds || [])],
+    crowdPositioningNames: [...(project.crowdPositioningNames || [])],
+    ageIds: [...(project.ageIds || [])],
+    ageNames: [...(project.ageNames || [])],
+    crowdIds: [...(project.crowdIds || [])],
+    crowdNames: [...(project.crowdNames || [])],
+    productPositioningIds: [...(project.productPositioningIds || [])],
+    productPositioningNames: [...(project.productPositioningNames || [])],
+    targetAudienceTags: [...(project.targetAudienceTags || [])],
+    targetChannelCodes: [...(project.targetChannelCodes || [])],
+    projectAlbumUrls: [...(project.projectAlbumUrls || [])],
+    collaboratorIds: [...(project.collaboratorIds || [])],
+    collaboratorNames: [...(project.collaboratorNames || [])],
     linkedStyleId: project.linkedStyleId || '',
     linkedStyleCode: project.linkedStyleCode || '',
     linkedStyleName: project.linkedStyleName || '',
     linkedStyleGeneratedAt: project.linkedStyleGeneratedAt || '',
-    linkedTechnicalVersionId: project.linkedTechnicalVersionId || '',
-    linkedTechnicalVersionCode: project.linkedTechnicalVersionCode || '',
-    linkedTechnicalVersionLabel: project.linkedTechnicalVersionLabel || '',
-    linkedTechnicalVersionStatus: project.linkedTechnicalVersionStatus || '',
-    linkedTechnicalVersionPublishedAt: project.linkedTechnicalVersionPublishedAt || '',
+    linkedTechPackVersionId: project.linkedTechPackVersionId || '',
+    linkedTechPackVersionCode: project.linkedTechPackVersionCode || '',
+    linkedTechPackVersionLabel: project.linkedTechPackVersionLabel || '',
+    linkedTechPackVersionStatus: project.linkedTechPackVersionStatus || '',
+    linkedTechPackVersionPublishedAt: project.linkedTechPackVersionPublishedAt || '',
     projectArchiveId: project.projectArchiveId || '',
     projectArchiveNo: project.projectArchiveNo || '',
     projectArchiveStatus: project.projectArchiveStatus || '',
@@ -222,11 +189,25 @@ function normalizeProject(project: PcsProjectRecord): PcsProjectRecord {
     linkedStyleCode: project.linkedStyleCode || '',
     linkedStyleName: project.linkedStyleName || '',
     linkedStyleGeneratedAt: project.linkedStyleGeneratedAt || '',
-    linkedTechnicalVersionId: project.linkedTechnicalVersionId || '',
-    linkedTechnicalVersionCode: project.linkedTechnicalVersionCode || '',
-    linkedTechnicalVersionLabel: project.linkedTechnicalVersionLabel || '',
-    linkedTechnicalVersionStatus: project.linkedTechnicalVersionStatus || '',
-    linkedTechnicalVersionPublishedAt: project.linkedTechnicalVersionPublishedAt || '',
+    styleCodeId: project.styleCodeId || '',
+    styleCodeName: project.styleCodeName || '',
+    styleTagIds: [...(project.styleTagIds || [])],
+    styleTagNames: [...(project.styleTagNames || project.styleTags || [])],
+    crowdPositioningIds: [...(project.crowdPositioningIds || [])],
+    crowdPositioningNames: [...(project.crowdPositioningNames || [])],
+    ageIds: [...(project.ageIds || [])],
+    ageNames: [...(project.ageNames || [])],
+    crowdIds: [...(project.crowdIds || [])],
+    crowdNames: [...(project.crowdNames || [])],
+    productPositioningIds: [...(project.productPositioningIds || [])],
+    productPositioningNames: [...(project.productPositioningNames || [])],
+    styleTags: [...(project.styleTags || project.styleTagNames || [])],
+    targetAudienceTags: [...(project.targetAudienceTags || [])],
+    linkedTechPackVersionId: project.linkedTechPackVersionId || '',
+    linkedTechPackVersionCode: project.linkedTechPackVersionCode || '',
+    linkedTechPackVersionLabel: project.linkedTechPackVersionLabel || '',
+    linkedTechPackVersionStatus: project.linkedTechPackVersionStatus || '',
+    linkedTechPackVersionPublishedAt: project.linkedTechPackVersionPublishedAt || '',
     projectArchiveId: project.projectArchiveId || '',
     projectArchiveNo: project.projectArchiveNo || '',
     projectArchiveStatus: project.projectArchiveStatus || '',
@@ -377,23 +358,41 @@ function sortProjects(projects: PcsProjectRecord[]): PcsProjectRecord[] {
 }
 
 function getProjectCreateCatalogInternal(): ProjectCreateCatalog {
+  const brands = listProjectWorkspaceBrands().map((item) => ({ id: item.id, name: item.name }))
+  const categories = buildProjectWorkspaceCategoryOptions().map((item) => ({
+    id: item.id,
+    name: item.name,
+    children: item.children.map((child) => ({ ...child })),
+  }))
+  const styles = listProjectWorkspaceStyles().map((item) => ({ id: item.id, name: item.name }))
+  const styleCodes = listProjectWorkspaceStyleCodes().map((item) => ({ id: item.id, name: item.name }))
+  const crowdPositioning = listProjectWorkspaceCrowdPositioning().map((item) => ({ id: item.id, name: item.name }))
+  const ages = listProjectWorkspaceAges().map((item) => ({ id: item.id, name: item.name }))
+  const crowds = listProjectWorkspaceCrowds().map((item) => ({ id: item.id, name: item.name }))
+  const productPositioning = listProjectWorkspaceProductPositioning().map((item) => ({
+    id: item.id,
+    name: item.name,
+  }))
+
   return {
     projectTypes: [...PROJECT_TYPES],
     projectSourceTypes: [...PROJECT_SOURCE_TYPES],
     styleTypes: [...STYLE_TYPES],
-    categories: CATEGORY_OPTIONS.map((item) => ({
-      id: item.id,
-      name: item.name,
-      children: item.children.map((child) => ({ ...child })),
-    })),
-    brands: BRAND_OPTIONS.map((item) => ({ ...item })),
+    categories,
+    brands,
+    styles,
+    styleCodes,
+    crowdPositioning,
+    ages,
+    crowds,
+    productPositioning,
     sampleSuppliers: SAMPLE_SUPPLIER_OPTIONS.map((item) => ({ ...item })),
     owners: OWNER_OPTIONS.map((item) => ({ ...item })),
     teams: TEAM_OPTIONS.map((item) => ({ ...item })),
     collaborators: COLLABORATOR_OPTIONS.map((item) => ({ ...item })),
     seasonTags: [...SEASON_TAGS],
-    styleTags: [...STYLE_TAGS],
-    targetAudienceTags: [...TARGET_AUDIENCE_TAGS],
+    styleTags: styles.map((item) => item.name),
+    targetAudienceTags: Array.from(new Set([...crowdPositioning, ...ages, ...crowds].map((item) => item.name))),
     priceRanges: [...PRICE_RANGES],
     channelOptions: CHANNEL_OPTIONS.map((item) => ({ ...item })),
     sampleSourceTypes: [...SAMPLE_SOURCE_TYPES],
@@ -406,13 +405,20 @@ function findSimpleOptionById(options: Array<{ id: string; name: string }>, id: 
 }
 
 function findCategoryNodeById(categoryId: string) {
-  return CATEGORY_OPTIONS.find((item) => item.id === categoryId) ?? null
+  return buildProjectWorkspaceCategoryOptions().find((item) => item.id === categoryId) ?? null
 }
 
 function findChannelNames(codes: string[]): string[] {
   return codes
     .map((code) => CHANNEL_OPTIONS.find((item) => item.code === code)?.name ?? code)
     .filter(Boolean)
+}
+
+function deriveProjectTypeFromStyleType(styleType: TemplateStyleType): typeof PROJECT_TYPES[number] {
+  if (styleType === '快时尚款') return '快反上新'
+  if (styleType === '改版款') return '改版开发'
+  if (styleType === '设计款') return '设计研发'
+  return '商品开发'
 }
 
 function nextProjectSequence(snapshot: PcsProjectStoreSnapshot, dateKey: string): number {
@@ -477,10 +483,22 @@ export function createEmptyProjectDraft(): PcsProjectCreateDraft {
     brandId: '',
     brandName: '',
     styleNumber: '',
+    styleCodeId: '',
+    styleCodeName: '',
     styleType: '',
     yearTag: String(new Date().getFullYear()),
     seasonTags: [],
     styleTags: [],
+    styleTagIds: [],
+    styleTagNames: [],
+    crowdPositioningIds: [],
+    crowdPositioningNames: [],
+    ageIds: [],
+    ageNames: [],
+    crowdIds: [],
+    crowdNames: [],
+    productPositioningIds: [],
+    productPositioningNames: [],
     targetAudienceTags: [],
     priceRangeLabel: '',
     targetChannelCodes: [],
@@ -506,10 +524,11 @@ export function validateProjectCreateDraft(draft: PcsProjectCreateDraft): string
   const catalog = getProjectCreateCatalogInternal()
 
   if (!draft.projectName.trim()) errors.push('请填写项目名称。')
-  if (!draft.projectType) errors.push('请选择项目类型。')
   if (!draft.projectSourceType) errors.push('请选择项目来源类型。')
   if (!draft.templateId) errors.push('请选择项目模板。')
   if (!draft.categoryId) errors.push('请选择一级分类。')
+  if (!draft.brandId) errors.push('请选择品牌。')
+  if (draft.targetChannelCodes.length === 0) errors.push('请选择目标测款渠道。')
   if (!draft.ownerId) errors.push('请选择负责人。')
   if (catalog.teams.length > 0 && !draft.teamId) errors.push('请选择执行团队。')
   if (draft.sampleSourceType === '外采' && !draft.sampleLink.trim() && !draft.sampleUnitPrice.trim()) {
@@ -521,6 +540,11 @@ export function validateProjectCreateDraft(draft: PcsProjectCreateDraft): string
       errors.push('未找到所选项目模板。')
     } else if (hasTemplatePendingNodes(template)) {
       errors.push('当前模板存在未完成标准化的节点，请先处理模板中的待补充标准工作项。')
+    } else {
+      const summary = buildTemplateBusinessSummary(template)
+      if (summary.closureStatus === '配置异常') {
+        errors.push('当前项目模板配置异常，不能创建商品项目。')
+      }
     }
   }
   return errors
@@ -638,6 +662,10 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
   if (hasTemplatePendingNodes(template)) {
     throw new Error('当前模板存在未完成标准化的节点，请先处理模板中的待补充标准工作项。')
   }
+  const templateSummary = buildTemplateBusinessSummary(template)
+  if (templateSummary.closureStatus === '配置异常') {
+    throw new Error('当前项目模板配置异常，不能创建商品项目。')
+  }
 
   const timestamp = nowText()
   const dateKey = formatDateKey(timestamp)
@@ -652,11 +680,23 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     throw new Error('所选模板未配置阶段，无法创建项目。')
   }
 
+  const styleTagNames = input.styleTagNames.length > 0 ? [...input.styleTagNames] : [...input.styleTags]
+  const targetAudienceTags = Array.from(
+    new Set([
+      ...input.crowdPositioningNames,
+      ...input.ageNames,
+      ...input.crowdNames,
+      ...input.targetAudienceTags,
+    ]),
+  )
+  const derivedStyleType = input.styleType || template.styleType[0] || '基础款'
+  const derivedProjectType = input.projectType || deriveProjectTypeFromStyleType(derivedStyleType)
+
   const project: PcsProjectRecord = {
     projectId,
     projectCode,
     projectName: input.projectName.trim(),
-    projectType: input.projectType,
+    projectType: derivedProjectType,
     projectSourceType: input.projectSourceType,
     templateId: template.id,
     templateName: template.name,
@@ -670,12 +710,24 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     subCategoryName: input.subCategoryName,
     brandId: input.brandId,
     brandName: input.brandName,
-    styleNumber: input.styleNumber.trim(),
-    styleType: input.styleType || template.styleType[0] || '基础款',
+    styleNumber: input.styleNumber.trim() || input.styleCodeName,
+    styleCodeId: input.styleCodeId,
+    styleCodeName: input.styleCodeName,
+    styleType: derivedStyleType,
     yearTag: input.yearTag.trim(),
     seasonTags: [...input.seasonTags],
-    styleTags: [...input.styleTags],
-    targetAudienceTags: [...input.targetAudienceTags],
+    styleTags: styleTagNames,
+    styleTagIds: [...input.styleTagIds],
+    styleTagNames,
+    crowdPositioningIds: [...input.crowdPositioningIds],
+    crowdPositioningNames: [...input.crowdPositioningNames],
+    ageIds: [...input.ageIds],
+    ageNames: [...input.ageNames],
+    crowdIds: [...input.crowdIds],
+    crowdNames: [...input.crowdNames],
+    productPositioningIds: [...input.productPositioningIds],
+    productPositioningNames: [...input.productPositioningNames],
+    targetAudienceTags,
     priceRangeLabel: input.priceRangeLabel,
     targetChannelCodes: [...input.targetChannelCodes],
     projectAlbumUrls: [...input.projectAlbumUrls],
@@ -700,11 +752,11 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     linkedStyleCode: '',
     linkedStyleName: '',
     linkedStyleGeneratedAt: '',
-    linkedTechnicalVersionId: '',
-    linkedTechnicalVersionCode: '',
-    linkedTechnicalVersionLabel: '',
-    linkedTechnicalVersionStatus: '',
-    linkedTechnicalVersionPublishedAt: '',
+    linkedTechPackVersionId: '',
+    linkedTechPackVersionCode: '',
+    linkedTechPackVersionLabel: '',
+    linkedTechPackVersionStatus: '',
+    linkedTechPackVersionPublishedAt: '',
     projectArchiveId: '',
     projectArchiveNo: '',
     projectArchiveStatus: '',
@@ -771,6 +823,40 @@ export function updateProjectNodeRecord(
   return cloneNode(nextNode)
 }
 
+export function updateProjectPhaseRecord(
+  projectId: string,
+  projectPhaseId: string,
+  patch: Partial<PcsProjectPhaseRecord>,
+): PcsProjectPhaseRecord | null {
+  const snapshot = readSnapshot()
+  const phaseIndex = snapshot.phases.findIndex(
+    (item) => item.projectId === projectId && item.projectPhaseId === projectPhaseId,
+  )
+  if (phaseIndex < 0) return null
+
+  const currentPhase = snapshot.phases[phaseIndex]
+  const definedPatch = Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  ) as Partial<PcsProjectPhaseRecord>
+
+  const nextPhase = normalizePhase({
+    ...currentPhase,
+    ...definedPatch,
+  })
+
+  const nextPhases = [...snapshot.phases]
+  nextPhases.splice(phaseIndex, 1, nextPhase)
+
+  persistSnapshot({
+    version: PROJECT_STORE_VERSION,
+    projects: snapshot.projects,
+    phases: nextPhases,
+    nodes: snapshot.nodes,
+  })
+
+  return clonePhase(nextPhase)
+}
+
 export function updateProjectRecord(
   projectId: string,
   patch: Partial<PcsProjectRecord>,
@@ -834,8 +920,11 @@ export function getProjectOptionNameById(
   type: 'brand' | 'supplier' | 'owner' | 'team' | 'collaborator',
   id: string,
 ): string {
+  if (type === 'brand') {
+    return findProjectWorkspaceOptionById('brands', id)?.name ?? ''
+  }
+
   const maps = {
-    brand: BRAND_OPTIONS,
     supplier: SAMPLE_SUPPLIER_OPTIONS,
     owner: OWNER_OPTIONS,
     team: TEAM_OPTIONS,

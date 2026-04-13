@@ -56,6 +56,13 @@ function getRoutesModule(): Promise<RoutesModule> {
   return routesModulePromise
 }
 
+function getCurrentHandlerSystem(pathname: string): 'pcs' | 'fcs' | 'pda' | 'all' {
+  if (pathname.startsWith('/pcs')) return 'pcs'
+  if (pathname.startsWith('/fcs/pda')) return 'pda'
+  if (pathname.startsWith('/fcs')) return 'fcs'
+  return 'all'
+}
+
 const rootNode = document.querySelector('#app')
 
 if (!(rootNode instanceof HTMLDivElement)) {
@@ -68,7 +75,21 @@ appStore.init()
 
 async function dispatchPageEvent(target: Element): Promise<boolean> {
   const eventTarget = target as HTMLElement
+  const handlerSystem = getCurrentHandlerSystem(appStore.getState().pathname)
   try {
+    if (handlerSystem === 'pcs') {
+      const pcsHandlers = await getPcsHandlersModule()
+      return pcsHandlers.dispatchPcsPageEvent(eventTarget)
+    }
+    if (handlerSystem === 'fcs') {
+      const fcsHandlers = await getFcsHandlersModule()
+      return fcsHandlers.dispatchFcsPageEvent(eventTarget)
+    }
+    if (handlerSystem === 'pda') {
+      const pdaHandlers = await getPdaHandlersModule()
+      return pdaHandlers.dispatchPdaPageEvent(eventTarget)
+    }
+
     const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
       getFcsHandlersModule(),
       getPcsHandlersModule(),
@@ -107,7 +128,21 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 }
 
 async function closeDialogsOnEscape(): Promise<boolean> {
+  const handlerSystem = getCurrentHandlerSystem(appStore.getState().pathname)
   try {
+    if (handlerSystem === 'pcs') {
+      const pcsHandlers = await getPcsHandlersModule()
+      return pcsHandlers.closePcsDialogsOnEscape()
+    }
+    if (handlerSystem === 'fcs') {
+      const fcsHandlers = await getFcsHandlersModule()
+      return fcsHandlers.closeFcsDialogsOnEscape()
+    }
+    if (handlerSystem === 'pda') {
+      const pdaHandlers = await getPdaHandlersModule()
+      return pdaHandlers.closePdaDialogsOnEscape()
+    }
+
     const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
       getFcsHandlersModule(),
       getPcsHandlersModule(),
@@ -438,6 +473,14 @@ root.addEventListener('click', async (event) => {
   const shellActionNode = target.closest<HTMLElement>('[data-action]')
   if (shellActionNode && handleShellAction(shellActionNode)) {
     event.preventDefault()
+    return
+  }
+
+  const directNavNode = target.closest<HTMLElement>('[data-nav]')
+  if (directNavNode?.dataset.nav && !hasDatasetAction(directNavNode)) {
+    event.preventDefault()
+    appStore.navigate(directNavNode.dataset.nav)
+    closeMobileSidebar()
     return
   }
 

@@ -29,6 +29,11 @@ export interface RevisionTaskRecord {
   revisionScopeCodes: string[]
   revisionScopeNames: string[]
   revisionVersion: string
+  linkedTechPackVersionId: string
+  linkedTechPackVersionCode: string
+  linkedTechPackVersionLabel: string
+  linkedTechPackVersionStatus: string
+  linkedTechPackUpdatedAt: string
   createdAt: string
   createdBy: string
   updatedAt: string

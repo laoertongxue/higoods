@@ -52,6 +52,7 @@ let pdaRoutesPromise: Promise<RouteRegistry> | null = null
 
 function getFcsRoutes(): Promise<RouteRegistry> {
   if (!fcsRoutesPromise) {
+    // FCS 子路由包含按生产单查看的技术包快照页。
     fcsRoutesPromise = import('./routes-fcs').then((module) => module.routes)
   }
   return fcsRoutesPromise

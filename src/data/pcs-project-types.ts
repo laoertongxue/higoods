@@ -30,10 +30,22 @@ export interface PcsProjectRecord {
   brandId: string
   brandName: string
   styleNumber: string
+  styleCodeId: string
+  styleCodeName: string
   styleType: TemplateStyleType
   yearTag: string
   seasonTags: string[]
   styleTags: string[]
+  styleTagIds: string[]
+  styleTagNames: string[]
+  crowdPositioningIds: string[]
+  crowdPositioningNames: string[]
+  ageIds: string[]
+  ageNames: string[]
+  crowdIds: string[]
+  crowdNames: string[]
+  productPositioningIds: string[]
+  productPositioningNames: string[]
   targetAudienceTags: string[]
   priceRangeLabel: string
   targetChannelCodes: string[]
@@ -59,11 +71,11 @@ export interface PcsProjectRecord {
   linkedStyleCode?: string
   linkedStyleName?: string
   linkedStyleGeneratedAt?: string
-  linkedTechnicalVersionId?: string
-  linkedTechnicalVersionCode?: string
-  linkedTechnicalVersionLabel?: string
-  linkedTechnicalVersionStatus?: string
-  linkedTechnicalVersionPublishedAt?: string
+  linkedTechPackVersionId?: string
+  linkedTechPackVersionCode?: string
+  linkedTechPackVersionLabel?: string
+  linkedTechPackVersionStatus?: string
+  linkedTechPackVersionPublishedAt?: string
   projectArchiveId?: string
   projectArchiveNo?: string
   projectArchiveStatus?: string
@@ -164,10 +176,22 @@ export interface PcsProjectCreateDraft {
   brandId: string
   brandName: string
   styleNumber: string
+  styleCodeId: string
+  styleCodeName: string
   styleType: TemplateStyleType | ''
   yearTag: string
   seasonTags: string[]
   styleTags: string[]
+  styleTagIds: string[]
+  styleTagNames: string[]
+  crowdPositioningIds: string[]
+  crowdPositioningNames: string[]
+  ageIds: string[]
+  ageNames: string[]
+  crowdIds: string[]
+  crowdNames: string[]
+  productPositioningIds: string[]
+  productPositioningNames: string[]
   targetAudienceTags: string[]
   priceRangeLabel: string
   targetChannelCodes: string[]
@@ -207,6 +231,12 @@ export interface ProjectCreateCatalog {
   styleTypes: TemplateStyleType[]
   categories: ProjectCategoryOption[]
   brands: ProjectSimpleOption[]
+  styles: ProjectSimpleOption[]
+  styleCodes: ProjectSimpleOption[]
+  crowdPositioning: ProjectSimpleOption[]
+  ages: ProjectSimpleOption[]
+  crowds: ProjectSimpleOption[]
+  productPositioning: ProjectSimpleOption[]
   sampleSuppliers: ProjectSimpleOption[]
   owners: ProjectSimpleOption[]
   teams: ProjectSimpleOption[]

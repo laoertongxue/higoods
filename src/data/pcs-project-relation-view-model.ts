@@ -15,6 +15,12 @@ import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import { getStyleArchiveStatusLabel } from './pcs-style-archive-view-model.ts'
 import { getTechnicalDataVersionById } from './pcs-technical-data-version-repository.ts'
 import { getTechnicalVersionStatusLabel } from './pcs-technical-data-version-view-model.ts'
+import {
+  findProjectChannelProductByLiveLine,
+  findProjectChannelProductByVideoRecord,
+  getProjectChannelProductById,
+  listProjectChannelProductsByProjectId,
+} from './pcs-channel-product-project-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import {
   listProjectRelationPendingItems,
@@ -52,6 +58,8 @@ export interface ProjectRelationItemViewModel {
     liveSessionCode: string
     liveLineCode: string
     productTitle: string
+    channelProductCode: string
+    upstreamChannelProductCode: string
     colorCode: string
     sizeCode: string
     exposureQty: number
@@ -65,11 +73,33 @@ export interface ProjectRelationItemViewModel {
     videoTitle: string
     publishedAt: string
     channelName: string
+    channelProductCode: string
+    upstreamChannelProductCode: string
     exposureQty: number
     clickQty: number
     orderQty: number
     gmvAmount: number
     businessDate: string
+  }
+  channelProductDetail: null | {
+    channelProductCode: string
+    upstreamChannelProductCode: string
+    listingTitle: string
+    channelProductStatus: string
+    upstreamSyncStatus: string
+    styleCode: string
+    invalidatedReason: string
+    effectiveAt: string
+    linkedRevisionTaskCode: string
+    upstreamSyncTime: string
+  }
+  upstreamSyncDetail: null | {
+    channelProductCode: string
+    upstreamChannelProductCode: string
+    upstreamSyncStatus: string
+    upstreamSyncTime: string
+    upstreamSyncLog: string
+    styleCode: string
   }
   sampleLedgerDetail: null | {
     ledgerEventCode: string
@@ -96,7 +126,7 @@ export interface ProjectRelationItemViewModel {
     archiveStatus: string
     generatedAt: string
     specificationStatus: string
-    technicalDataStatus: string
+    techPackStatus: string
     costPricingStatus: string
   }
   technicalVersionDetail: null | {
@@ -105,7 +135,7 @@ export interface ProjectRelationItemViewModel {
     versionStatus: string
     completenessScore: number
     missingItemNames: string[]
-    effectiveFlag: boolean
+    isCurrentTechPackVersion: boolean
     styleName: string
     createdAt: string
     publishedAt: string
@@ -164,6 +194,17 @@ function resolveWorkItemName(record: ProjectRelationRecord, nodeNameMap: Map<str
   return getStandardProjectWorkItemIdentityByCode(record.workItemTypeCode)?.workItemTypeName ?? ''
 }
 
+function getRelationStatusText(record: ProjectRelationRecord): string {
+  if (record.sourceObjectType !== '技术包版本') return record.sourceStatus
+  if (record.sourceStatus === '已发布' || record.sourceStatus === '已归档' || record.sourceStatus === '草稿中') {
+    return record.sourceStatus
+  }
+  if (record.sourceStatus === 'PUBLISHED' || record.sourceStatus === 'ARCHIVED' || record.sourceStatus === 'DRAFT') {
+    return getTechnicalVersionStatusLabel(record.sourceStatus)
+  }
+  return record.sourceStatus
+}
+
 function buildRelationItemViewModel(
   record: ProjectRelationRecord,
   nodeNameMap: Map<string, string>,
@@ -172,9 +213,11 @@ function buildRelationItemViewModel(
   const liveLine = record.sourceObjectType === '直播商品明细' && record.sourceLineId
     ? getLiveProductLineById(record.sourceLineId)
     : null
+  const liveChannelProduct = liveLine ? findProjectChannelProductByLiveLine(record.projectId, liveLine.liveLineId) : null
   const videoRecord = record.sourceObjectType === '短视频记录'
     ? getVideoTestRecordById(record.sourceObjectId)
     : null
+  const videoChannelProduct = videoRecord ? findProjectChannelProductByVideoRecord(record.projectId, videoRecord.videoRecordId) : null
   const sampleLedgerEvent = record.sourceObjectType === '样衣台账事件'
     ? getSampleLedgerEventById(record.sourceObjectId)
     : null
@@ -184,11 +227,18 @@ function buildRelationItemViewModel(
   const styleArchive = record.sourceObjectType === '款式档案'
     ? getStyleArchiveById(record.sourceObjectId)
     : null
-  const technicalVersion = record.sourceObjectType === '技术资料版本'
+  const technicalVersion = record.sourceObjectType === '技术包版本'
     ? getTechnicalDataVersionById(record.sourceObjectId)
     : null
+  const technicalVersionStyle = technicalVersion ? getStyleArchiveById(technicalVersion.styleId) : null
   const projectArchive = record.sourceObjectType === '项目资料归档'
     ? getProjectArchiveById(record.sourceObjectId)
+    : null
+  const channelProduct = record.sourceObjectType === '渠道商品'
+    ? getProjectChannelProductById(record.sourceObjectId)
+    : null
+  const upstreamSyncRecord = record.sourceObjectType === '上游渠道商品同步'
+    ? listProjectChannelProductsByProjectId(record.projectId).find((item) => item.upstreamChannelProductCode === record.sourceObjectCode) || null
     : null
   const taskRelationDetail = (() => {
     if (record.sourceObjectType === '改版任务') {
@@ -262,7 +312,7 @@ function buildRelationItemViewModel(
     sourceLineId: record.sourceLineId,
     sourceLineCode: record.sourceLineCode,
     sourceTitle: record.sourceTitle,
-    sourceStatus: record.sourceStatus,
+    sourceStatus: getRelationStatusText(record),
     businessDate: record.businessDate,
     relationRole: record.relationRole,
     workItemTypeCode: record.workItemTypeCode,
@@ -276,6 +326,8 @@ function buildRelationItemViewModel(
           liveSessionCode: liveLine.liveSessionCode,
           liveLineCode: liveLine.liveLineCode,
           productTitle: liveLine.productTitle,
+          channelProductCode: liveChannelProduct?.channelProductCode || '',
+          upstreamChannelProductCode: liveChannelProduct?.upstreamChannelProductCode || '',
           colorCode: liveLine.colorCode,
           sizeCode: liveLine.sizeCode,
           exposureQty: liveLine.exposureQty,
@@ -291,11 +343,37 @@ function buildRelationItemViewModel(
           videoTitle: videoRecord.videoTitle,
           publishedAt: videoRecord.publishedAt,
           channelName: videoRecord.channelName,
+          channelProductCode: videoChannelProduct?.channelProductCode || '',
+          upstreamChannelProductCode: videoChannelProduct?.upstreamChannelProductCode || '',
           exposureQty: videoRecord.exposureQty,
           clickQty: videoRecord.clickQty,
           orderQty: videoRecord.orderQty,
           gmvAmount: videoRecord.gmvAmount,
           businessDate: videoRecord.businessDate,
+        }
+      : null,
+    channelProductDetail: channelProduct
+      ? {
+          channelProductCode: channelProduct.channelProductCode,
+          upstreamChannelProductCode: channelProduct.upstreamChannelProductCode,
+          listingTitle: channelProduct.listingTitle,
+          channelProductStatus: channelProduct.channelProductStatus,
+          upstreamSyncStatus: channelProduct.upstreamSyncStatus,
+          styleCode: channelProduct.styleCode,
+          invalidatedReason: channelProduct.invalidatedReason,
+          effectiveAt: channelProduct.effectiveAt,
+          linkedRevisionTaskCode: channelProduct.linkedRevisionTaskCode,
+          upstreamSyncTime: channelProduct.lastUpstreamSyncAt,
+        }
+      : null,
+    upstreamSyncDetail: upstreamSyncRecord
+      ? {
+          channelProductCode: upstreamSyncRecord.channelProductCode,
+          upstreamChannelProductCode: upstreamSyncRecord.upstreamChannelProductCode,
+          upstreamSyncStatus: upstreamSyncRecord.upstreamSyncStatus,
+          upstreamSyncTime: upstreamSyncRecord.lastUpstreamSyncAt,
+          upstreamSyncLog: upstreamSyncRecord.upstreamSyncLog,
+          styleCode: upstreamSyncRecord.styleCode,
         }
       : null,
     sampleLedgerDetail: sampleLedgerEvent
@@ -328,7 +406,7 @@ function buildRelationItemViewModel(
           archiveStatus: getStyleArchiveStatusLabel(styleArchive.archiveStatus),
           generatedAt: styleArchive.generatedAt,
           specificationStatus: styleArchive.specificationStatus,
-          technicalDataStatus: styleArchive.technicalDataStatus,
+          techPackStatus: styleArchive.techPackStatus,
           costPricingStatus: styleArchive.costPricingStatus,
         }
       : null,
@@ -339,7 +417,8 @@ function buildRelationItemViewModel(
           versionStatus: getTechnicalVersionStatusLabel(technicalVersion.versionStatus),
           completenessScore: technicalVersion.completenessScore,
           missingItemNames: [...technicalVersion.missingItemNames],
-          effectiveFlag: technicalVersion.effectiveFlag,
+          isCurrentTechPackVersion:
+            technicalVersionStyle?.currentTechPackVersionId === technicalVersion.technicalVersionId,
           styleName: technicalVersion.styleName,
           createdAt: technicalVersion.createdAt,
           publishedAt: technicalVersion.publishedAt,

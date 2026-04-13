@@ -1,156 +1,113 @@
-import { findProjectByCode } from './pcs-project-repository.ts'
+import { techPacks } from './fcs/tech-packs.ts'
 import type {
-  StyleArchivePendingItem,
   StyleArchiveShellRecord,
-  StyleArchiveStatusCode,
   StyleArchiveStoreSnapshot,
 } from './pcs-style-archive-types.ts'
 
-interface LegacyStyleArchiveSeed {
-  id: string
-  code: string
-  name: string
-  category: string
-  styleTags: string[]
-  priceBand: string
-  status: 'ACTIVE' | 'ARCHIVED'
-  effectiveVersionCode: string
-  skuCount: number
-  technicalVersionCount: number
-  costVersionCount: number
-  channelCount: number
-  originProject: string | null
-  updatedAt: string
+function parseVersionNo(versionLabel: string, fallback: number): number {
+  const matched = versionLabel.match(/(\d+)/)
+  if (!matched) return fallback
+  const value = Number.parseInt(matched[1], 10)
+  return Number.isFinite(value) && value > 0 ? value : fallback
 }
 
-const LEGACY_STYLE_ARCHIVE_SEEDS: LegacyStyleArchiveSeed[] = [
-  {
-    id: 'style_seed_001',
-    code: 'SPU-20260101-001',
-    name: '印尼风格碎花连衣裙',
-    category: '裙装/连衣裙',
-    styleTags: ['波西米亚', '碎花', '度假风'],
-    priceBand: '¥299-399',
-    status: 'ACTIVE',
-    effectiveVersionCode: 'V2.1',
-    skuCount: 12,
-    technicalVersionCount: 1,
-    costVersionCount: 1,
-    channelCount: 3,
-    originProject: 'PRJ-20251216-001',
-    updatedAt: '2026-01-14 10:30',
-  },
-  {
-    id: 'style_seed_002',
-    code: 'SPU-20260102-002',
-    name: '复古格纹西装外套',
-    category: '上装/外套',
-    styleTags: ['复古', '格纹', '通勤'],
-    priceBand: '¥499-699',
-    status: 'ACTIVE',
-    effectiveVersionCode: 'V1.0',
-    skuCount: 8,
-    technicalVersionCount: 1,
-    costVersionCount: 1,
-    channelCount: 2,
-    originProject: 'PRJ-20251220-003',
-    updatedAt: '2026-01-13 16:20',
-  },
-  {
-    id: 'style_seed_003',
-    code: 'SPU-20260103-003',
-    name: '简约针织开衫',
-    category: '上装/开衫',
-    styleTags: ['简约', '百搭', '休闲'],
-    priceBand: '¥199-299',
-    status: 'ACTIVE',
-    effectiveVersionCode: 'V1.2',
-    skuCount: 15,
-    technicalVersionCount: 1,
-    costVersionCount: 1,
-    channelCount: 4,
-    originProject: 'PRJ-20251218-002',
-    updatedAt: '2026-01-12 09:15',
-  },
-  {
-    id: 'style_seed_004',
-    code: 'SPU-20260104-004',
-    name: '高腰阔腿牛仔裤',
-    category: '裤装/牛仔裤',
-    styleTags: ['复古', '显瘦', '百搭'],
-    priceBand: '¥249-349',
-    status: 'ACTIVE',
-    effectiveVersionCode: '',
-    skuCount: 6,
-    technicalVersionCount: 0,
-    costVersionCount: 0,
-    channelCount: 0,
-    originProject: 'PRJ-20251225-005',
-    updatedAt: '2026-01-10 14:00',
-  },
-  {
-    id: 'style_seed_005',
-    code: 'SPU-20260105-005',
-    name: '法式蕾丝衬衫',
-    category: '上装/衬衫',
-    styleTags: ['法式', '蕾丝', '优雅'],
-    priceBand: '¥299-399',
-    status: 'ARCHIVED',
-    effectiveVersionCode: 'V3.0',
-    skuCount: 10,
-    technicalVersionCount: 1,
-    costVersionCount: 1,
-    channelCount: 1,
-    originProject: 'PRJ-20251201-001',
-    updatedAt: '2026-01-05 11:30',
-  },
-  {
-    id: 'style_seed_006',
-    code: 'SPU-20260106-006',
-    name: '运动休闲套装',
-    category: '套装/运动套装',
-    styleTags: ['运动', '休闲', '舒适'],
-    priceBand: '¥399-499',
-    status: 'ACTIVE',
-    effectiveVersionCode: 'V1.0',
-    skuCount: 9,
-    technicalVersionCount: 1,
-    costVersionCount: 0,
-    channelCount: 2,
-    originProject: null,
-    updatedAt: '2026-01-14 08:00',
-  },
-]
-
-function splitCategory(category: string): { categoryName: string; subCategoryName: string } {
-  const [categoryName = '', subCategoryName = ''] = category.split('/')
-  return { categoryName, subCategoryName }
-}
-
-function mapArchiveStatus(status: LegacyStyleArchiveSeed['status']): StyleArchiveStatusCode {
-  return status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE'
-}
-
-function buildPendingItem(seed: LegacyStyleArchiveSeed): StyleArchivePendingItem | null {
-  if (!seed.originProject) return null
-  if (findProjectByCode(seed.originProject)) return null
-  return {
-    pendingId: `style_pending_${seed.code}`,
-    rawStyleCode: seed.code,
-    rawOriginProject: seed.originProject,
-    reason: '历史来源项目在当前项目仓储中不存在，仅保留迁移痕迹。',
-    discoveredAt: seed.updatedAt,
+function normalizeVersionLabel(versionLabel: string, fallback: number): string {
+  const trimmed = versionLabel.trim()
+  if (!trimmed || trimmed === '-' || trimmed.toLowerCase() === 'beta') {
+    return `V${fallback}`
   }
+  const matched = trimmed.match(/(\d+)/)
+  return matched ? `V${matched[1]}` : `V${fallback}`
 }
 
-function buildRecord(seed: LegacyStyleArchiveSeed): StyleArchiveShellRecord {
-  const { categoryName, subCategoryName } = splitCategory(seed.category)
+function buildSeedTechnicalVersionId(index: number): string {
+  return `tdv_seed_${String(index + 1).padStart(3, '0')}`
+}
+
+function buildSeedTechnicalVersionCode(index: number): string {
+  return `TDV-LEGACY-${String(index + 1).padStart(3, '0')}`
+}
+
+function resolveCategory(styleName: string): { categoryName: string; subCategoryName: string } {
+  const lowered = styleName.toLowerCase()
+  if (styleName.includes('裙') || lowered.includes('dress')) return { categoryName: '裙装', subCategoryName: '连衣裙' }
+  if (styleName.includes('裤') || lowered.includes('pants') || lowered.includes('jogger') || lowered.includes('shorts')) {
+    return { categoryName: '裤装', subCategoryName: '长裤' }
+  }
+  if (
+    styleName.includes('外套') ||
+    styleName.includes('夹克') ||
+    lowered.includes('jacket') ||
+    lowered.includes('hoodie') ||
+    lowered.includes('blazer') ||
+    lowered.includes('cardigan')
+  ) {
+    return { categoryName: '上装', subCategoryName: '外套' }
+  }
+  if (styleName.includes('衬衫') || lowered.includes('shirt') || lowered.includes('kemeja') || lowered.includes('blouse')) {
+    return { categoryName: '上装', subCategoryName: '衬衫' }
+  }
+  if (styleName.includes('卫衣') || styleName.includes('T恤') || lowered.includes('tee') || lowered.includes('polo')) {
+    return { categoryName: '上装', subCategoryName: 'T恤' }
+  }
+  if (styleName.includes('毛衣') || styleName.includes('针织') || styleName.includes('开衫') || lowered.includes('sweater')) {
+    return { categoryName: '上装', subCategoryName: '针织' }
+  }
+  return { categoryName: '成衣', subCategoryName: '通用款' }
+}
+
+function resolvePriceRange(styleName: string): string {
+  const lowered = styleName.toLowerCase()
+  if (
+    styleName.includes('外套') ||
+    styleName.includes('夹克') ||
+    lowered.includes('jacket') ||
+    lowered.includes('hoodie') ||
+    lowered.includes('blazer') ||
+    lowered.includes('jas')
+  ) {
+    return '¥399-699'
+  }
+  if (styleName.includes('裙') || lowered.includes('dress')) return '¥299-499'
+  if (styleName.includes('裤') || lowered.includes('pants') || lowered.includes('jogger')) return '¥199-399'
+  return '¥159-299'
+}
+
+function resolveStyleTags(styleName: string): string[] {
+  const tags: string[] = []
+  const lowered = styleName.toLowerCase()
+
+  if (styleName.includes('印花') || styleName.includes('碎花') || lowered.includes('batik')) tags.push('印花')
+  if (styleName.includes('运动')) tags.push('运动')
+  if (styleName.includes('休闲') || lowered.includes('casual') || lowered.includes('polo') || lowered.includes('t-shirt')) tags.push('休闲')
+  if (styleName.includes('商务') || styleName.includes('西装') || lowered.includes('formal') || lowered.includes('blazer')) tags.push('通勤')
+  if (styleName.includes('针织') || styleName.includes('毛衣') || lowered.includes('knit')) tags.push('针织')
+  if (tags.length === 0) tags.push('基础款')
+
+  return tags
+}
+
+function countCostItems(techPack: (typeof techPacks)[number]): number {
+  return (
+    (techPack.materialCostItems?.length || 0) +
+    (techPack.processCostItems?.length || 0) +
+    (techPack.customCostItems?.length || 0)
+  )
+}
+
+function buildRecord(techPack: (typeof techPacks)[number], index: number): StyleArchiveShellRecord {
+  const versionNo = parseVersionNo(techPack.versionLabel, 1)
+  const versionLabel = normalizeVersionLabel(techPack.versionLabel, versionNo)
+  const released = techPack.status === 'RELEASED'
+  const { categoryName, subCategoryName } = resolveCategory(techPack.spuName)
+  const costItemCount = countCostItems(techPack)
+
   return {
-    styleId: seed.id,
-    styleCode: seed.code,
-    styleName: seed.name,
-    styleNumber: '',
-    styleType: '',
+    styleId: `style_seed_${String(index + 1).padStart(3, '0')}`,
+    styleCode: techPack.spuCode,
+    styleName: techPack.spuName,
+    styleNumber: techPack.spuCode,
+    styleType: '成衣',
     sourceProjectId: '',
     sourceProjectCode: '',
     sourceProjectName: '',
@@ -161,40 +118,40 @@ function buildRecord(seed: LegacyStyleArchiveSeed): StyleArchiveShellRecord {
     subCategoryName,
     brandId: '',
     brandName: '',
-    yearTag: '',
-    seasonTags: [],
-    styleTags: [...seed.styleTags],
+    yearTag: '2026',
+    seasonTags: ['春夏'],
+    styleTags: resolveStyleTags(techPack.spuName),
     targetAudienceTags: [],
     targetChannelCodes: [],
-    priceRangeLabel: seed.priceBand,
-    archiveStatus: mapArchiveStatus(seed.status),
+    priceRangeLabel: resolvePriceRange(techPack.spuName),
+    archiveStatus: 'ACTIVE',
     baseInfoStatus: '已维护',
-    specificationStatus: seed.skuCount > 0 ? '已建立' : '未建立',
-    technicalDataStatus: seed.technicalVersionCount > 0 ? '已建立' : '未建立',
-    costPricingStatus: seed.costVersionCount > 0 ? '已建立' : '未建立',
-    specificationCount: seed.skuCount,
-    technicalVersionCount: seed.technicalVersionCount,
-    costVersionCount: seed.costVersionCount,
-    channelProductCount: seed.channelCount,
-    effectiveTechnicalVersionId: '',
-    effectiveTechnicalVersionCode: seed.effectiveVersionCode,
-    effectiveTechnicalVersionLabel: seed.effectiveVersionCode,
+    specificationStatus: '已建立',
+    techPackStatus: released ? '已启用' : '草稿中',
+    costPricingStatus: costItemCount > 0 ? '已建立' : '未建立',
+    specificationCount: techPack.skuCatalog?.length || 4,
+    techPackVersionCount: 1,
+    costVersionCount: costItemCount > 0 ? 1 : 0,
+    channelProductCount: 1,
+    currentTechPackVersionId: released ? buildSeedTechnicalVersionId(index) : '',
+    currentTechPackVersionCode: released ? buildSeedTechnicalVersionCode(index) : '',
+    currentTechPackVersionLabel: released ? versionLabel : '',
+    currentTechPackVersionStatus: released ? '已发布' : '',
+    currentTechPackVersionActivatedAt: released ? techPack.lastUpdatedAt || '' : '',
+    currentTechPackVersionActivatedBy: released ? techPack.lastUpdatedBy || '系统初始化' : '',
     remark: '',
-    generatedAt: seed.updatedAt,
-    generatedBy: '系统初始化',
-    updatedAt: seed.updatedAt,
-    updatedBy: '系统初始化',
-    legacyOriginProject: seed.originProject || '',
+    generatedAt: techPack.lastUpdatedAt || '',
+    generatedBy: techPack.lastUpdatedBy || '系统初始化',
+    updatedAt: techPack.lastUpdatedAt || '',
+    updatedBy: techPack.lastUpdatedBy || '系统初始化',
+    legacyOriginProject: '',
   }
 }
 
 export function createStyleArchiveBootstrapSnapshot(version: number): StyleArchiveStoreSnapshot {
-  const records = LEGACY_STYLE_ARCHIVE_SEEDS.map(buildRecord)
-  const pendingItems = LEGACY_STYLE_ARCHIVE_SEEDS.map(buildPendingItem).filter(Boolean) as StyleArchivePendingItem[]
-
   return {
     version,
-    records,
-    pendingItems,
+    records: techPacks.map(buildRecord),
+    pendingItems: [],
   }
 }

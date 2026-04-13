@@ -12,6 +12,7 @@ import {
   type ProjectTemplate,
   type TemplateStyleType,
 } from '../data/pcs-templates'
+import { buildTemplateBusinessSummary } from '../data/pcs-template-domain-view-model'
 
 type StatusFilter = 'all' | 'active' | 'inactive'
 type StyleFilter = 'all' | TemplateStyleType
@@ -54,7 +55,7 @@ const state: ListPageState = {
   statusFilter: 'all',
   page: 1,
   pageSize: 10,
-  notice: '模板定义已收口为正式阶段和正式工作项节点结构。',
+  notice: '模板定义已收口为四类正式模板矩阵，阶段和节点只允许来自统一领域契约。',
   confirmDialog: {
     open: false,
     templateId: null,
@@ -67,6 +68,22 @@ function getStatusBadge(status: 'active' | 'inactive'): string {
     return '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">启用</span>'
   }
   return '<span class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">停用</span>'
+}
+
+function getClosureBadge(status: '完整闭环' | '仅测款不转档' | '配置异常'): string {
+  if (status === '完整闭环') {
+    return '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">完整闭环</span>'
+  }
+  if (status === '仅测款不转档') {
+    return '<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">仅测款不转档</span>'
+  }
+  return '<span class="inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-700">配置异常</span>'
+}
+
+function getYesNoBadge(flag: boolean, trueText: string, falseText: string): string {
+  return flag
+    ? `<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">${escapeHtml(trueText)}</span>`
+    : `<span class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(falseText)}</span>`
 }
 
 function getFilteredTemplates(): ProjectTemplate[] {
@@ -195,7 +212,7 @@ function renderRows(rows: ProjectTemplate[]): string {
   if (rows.length === 0) {
     return `
       <tr>
-        <td colspan="9" class="px-4 py-14 text-center text-muted-foreground">
+        <td colspan="12" class="px-4 py-14 text-center text-muted-foreground">
           <i data-lucide="file-search-2" class="mx-auto h-10 w-10 text-muted-foreground/60"></i>
           <p class="mt-2">暂无模板数据</p>
         </td>
@@ -206,6 +223,12 @@ function renderRows(rows: ProjectTemplate[]): string {
   return rows
     .map((template) => {
       const pending = countTemplatePendingNodes(template)
+      const summary = buildTemplateBusinessSummary(template)
+      const scenarioText = summary.scenarioSummary.length > 48 ? `${summary.scenarioSummary.slice(0, 48)}...` : summary.scenarioSummary
+      const marketFlags = [
+        summary.hasLiveTest ? '直播测款' : '',
+        summary.hasVideoTest ? '短视频测款' : '',
+      ].filter(Boolean)
       return `
         <tr class="border-b last:border-b-0 hover:bg-muted/40">
           <td class="px-3 py-3 align-top">
@@ -217,10 +240,36 @@ function renderRows(rows: ProjectTemplate[]): string {
               ${template.styleType.map((item) => `<span class="inline-flex rounded-md border bg-muted px-2 py-0.5 text-xs">${escapeHtml(item)}</span>`).join('')}
             </div>
           </td>
+          <td class="px-3 py-3 align-top">
+            <p class="text-sm">${escapeHtml(scenarioText)}</p>
+            <p class="mt-1 text-xs text-muted-foreground">${summary.hasFullLoop ? '已覆盖测款到转档闭环' : '闭环待补齐'}</p>
+          </td>
+          <td class="px-3 py-3 align-top">
+            <div class="space-y-1">
+              ${getClosureBadge(summary.closureStatus)}
+              <p class="text-xs text-muted-foreground">${escapeHtml(summary.closureText)}</p>
+            </div>
+          </td>
+          <td class="px-3 py-3 align-top">
+            ${getYesNoBadge(summary.hasChannelProductListing, '包含商品上架', '缺少商品上架')}
+          </td>
+          <td class="px-3 py-3 align-top">
+            <div class="flex flex-wrap gap-1">
+              ${
+                marketFlags.length > 0
+                  ? marketFlags.map((item) => `<span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(item)}</span>`).join('')
+                  : '<span class="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">未配置市场测款</span>'
+              }
+            </div>
+          </td>
           <td class="px-3 py-3 text-center align-top">${countTemplateStages(template)}</td>
           <td class="px-3 py-3 text-center align-top">${countTemplateWorkItems(template)}</td>
-          <td class="px-3 py-3 text-center align-top">${countTemplateReferencedWorkItems(template)}</td>
-          <td class="px-3 py-3 text-center align-top">${pending > 0 ? `<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">${pending} 项待处理</span>` : '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">已标准化</span>'}</td>
+          <td class="px-3 py-3 text-center align-top">
+            <div class="space-y-1">
+              <p>${countTemplateReferencedWorkItems(template)} 项</p>
+              ${pending > 0 ? `<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">${pending} 项待处理</span>` : '<span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">已标准化</span>'}
+            </div>
+          </td>
           <td class="px-3 py-3 align-top text-xs text-muted-foreground">${escapeHtml(template.updatedAt)}</td>
           <td class="px-3 py-3 text-center align-top">${getStatusBadge(template.status)}</td>
           <td class="px-3 py-3 align-top">
@@ -250,9 +299,12 @@ function renderTable(): string {
             <tr class="border-b bg-muted/30 text-left text-muted-foreground">
               <th class="px-3 py-2 font-medium">模板名称</th>
               <th class="px-3 py-2 font-medium">适用款式类型</th>
+              <th class="px-3 py-2 font-medium">适用场景摘要</th>
+              <th class="px-3 py-2 font-medium">业务闭环状态</th>
+              <th class="px-3 py-2 font-medium">商品上架</th>
+              <th class="px-3 py-2 font-medium">市场测款</th>
               <th class="px-3 py-2 text-center font-medium">阶段数</th>
               <th class="px-3 py-2 text-center font-medium">节点数</th>
-              <th class="px-3 py-2 text-center font-medium">标准工作项数</th>
               <th class="px-3 py-2 text-center font-medium">标准化状态</th>
               <th class="px-3 py-2 font-medium">最近更新时间</th>
               <th class="px-3 py-2 text-center font-medium">状态</th>

@@ -24,6 +24,8 @@ import {
   getOrderDisplayAssignmentSnapshot,
   getOrderStandardTimeSnapshot,
   getOrderMaterialDisplaySummary,
+  getOrderMaterialIndicators,
+  getOrderTechPackSnapshotDisplay,
   formatStandardTimeMinutes,
   getFilteredOrders,
   getPaginatedOrders,
@@ -41,11 +43,11 @@ import {
   listRuntimeTaskSplitGroupsByOrder,
   PAGE_SIZE,
   productionOrderStatusConfig,
-} from './context'
+} from './context.ts'
 import {
   renderOrdersFromDemandDialog,
   renderDemandConfirmDialog,
-} from './demand-domain'
+} from './demand-domain.ts'
 
 function renderOrderRiskFlags(flags: RiskFlag[]): string {
   if (flags.length === 0) {
@@ -576,6 +578,7 @@ function renderMaterialDraftDrawer(): string {
   const drafts = listMaterialRequestDraftsByOrder(order.productionOrderId)
   const summary = getMaterialRequestDraftSummaryByOrder(order.productionOrderId)
   const breakdown = getOrderDisplayBreakdownSnapshot(order)
+  const techPackSnapshotDisplay = getOrderTechPackSnapshotDisplay(order)
 
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
@@ -608,8 +611,9 @@ function renderMaterialDraftDrawer(): string {
                 <div class="truncate text-sm" title="${escapeHtml(order.demandSnapshot.spuName)}">${escapeHtml(order.demandSnapshot.spuName)}</div>
               </div>
               <div>
-                <div class="text-xs text-muted-foreground">技术资料</div>
-                <div class="text-sm">${escapeHtml(order.techPackSnapshot.versionLabel)}</div>
+                <div class="text-xs text-muted-foreground">技术包快照</div>
+                <div class="text-sm">${escapeHtml(techPackSnapshotDisplay.techPackVersionText)}</div>
+                <div class="text-xs text-muted-foreground">冻结时间 ${escapeHtml(techPackSnapshotDisplay.techPackSnapshotAt)}</div>
               </div>
               <div>
                 <div class="text-xs text-muted-foreground">任务准备</div>
@@ -871,7 +875,7 @@ export function renderProductionOrdersPage(): string {
                 <th class="min-w-[80px] px-3 py-3 text-left font-medium">旧单号</th>
                 <th class="min-w-[180px] px-3 py-3 text-left font-medium">SPU</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">状态</th>
-                <th class="min-w-[100px] px-3 py-3 text-left font-medium">技术资料版本</th>
+                <th class="min-w-[180px] px-3 py-3 text-left font-medium">技术包快照版本</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">任务准备</th>
                 <th class="min-w-[120px] px-3 py-3 text-left font-medium">总标准工时</th>
                 <th class="min-w-[100px] px-3 py-3 text-left font-medium">分配概览</th>
@@ -892,6 +896,7 @@ export function renderProductionOrdersPage(): string {
                         const assignment = getOrderDisplayAssignmentSnapshot(order)
                         const breakdown = getOrderDisplayBreakdownSnapshot(order)
                         const standardTime = getOrderStandardTimeSnapshot(order)
+                        const techPackSnapshotDisplay = getOrderTechPackSnapshotDisplay(order)
                         const mergedLogs = getOrderMergedAuditLogs(order)
                         const lastLog = mergedLogs[mergedLogs.length - 1]
 
@@ -920,7 +925,18 @@ export function renderProductionOrdersPage(): string {
                               ${renderBadge(getOrderListStatusDisplay(order).label, getOrderListStatusDisplay(order).color)}
                             </td>
                             <td class="px-3 py-3">
-                              <div class="text-sm text-muted-foreground">${escapeHtml(order.techPackSnapshot.versionLabel || '-')}</div>
+                              <div class="space-y-1">
+                                <div class="text-sm text-muted-foreground">${escapeHtml(
+                                  techPackSnapshotDisplay.techPackVersionText,
+                                )}</div>
+                                <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                                  ${renderBadge(
+                                    techPackSnapshotDisplay.techPackReadyStatus,
+                                    techPackSnapshotDisplay.techPackReadyClassName,
+                                  )}
+                                  <span>冻结时间 ${escapeHtml(techPackSnapshotDisplay.techPackSnapshotAt)}</span>
+                                </div>
+                              </div>
                             </td>
                             <td class="px-3 py-3">
                               <div class="text-sm">
@@ -970,9 +986,9 @@ export function renderProductionOrdersPage(): string {
                                     state.ordersActionMenuId === order.productionOrderId
                                       ? `
                                         <div class="absolute right-0 z-50 mt-1 min-w-[150px] rounded-md border bg-background p-1 shadow-lg">
-                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-tech-pack" data-spu-code="${escapeHtml(order.demandSnapshot.spuCode)}">
+                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(order.productionOrderId)}">
                                             <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>
-                                            去商品中心维护
+                                            查看技术包快照
                                           </button>
                                           <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-orders-dispatch-center" data-order-id="${order.productionOrderId}">
                                             <i data-lucide="send" class="mr-2 h-4 w-4"></i>

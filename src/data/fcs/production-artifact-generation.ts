@@ -1,5 +1,10 @@
-import { productionOrders } from './production-orders.ts'
-import { resolveReleasedTechPackForProductionOrder } from './production-upstream-chain.ts'
+import {
+  productionOrders,
+} from './production-orders.ts'
+import {
+  getProductionOrderProcessEntries,
+  getProductionOrderTechPackSnapshot,
+} from './production-order-tech-pack-runtime.ts'
 import {
   getProcessCraftByCode,
   getProcessDefinitionByCode,
@@ -12,11 +17,7 @@ import {
   type RuleSource,
   type TaskTypeMode,
 } from './process-craft-dict.ts'
-import {
-  listTechnicalProcessEntriesBySpuCode as listTechPackProcessEntries,
-  type TechPackProcessEntry,
-  type TechPackProcessEntryType,
-} from '../pcs-technical-data-runtime-source.ts'
+import type { TechPackProcessEntry, TechPackProcessEntryType } from './tech-packs.ts'
 
 export type ProductionArtifactType = 'DEMAND' | 'TASK'
 
@@ -265,13 +266,11 @@ function shouldGenerateTask(entry: TechPackProcessEntry, context: ResolvedEntryC
 }
 
 function resolveTechPackIdByOrder(orderId: string): string | null {
-  return resolveReleasedTechPackForProductionOrder(orderId)?.spuCode ?? null
+  return getProductionOrderTechPackSnapshot(orderId)?.sourceTechPackVersionId ?? null
 }
 
 function resolveTechPackEntriesByOrder(orderId: string): TechPackProcessEntry[] {
-  const techPack = resolveReleasedTechPackForProductionOrder(orderId)
-  if (!techPack) return []
-  return listTechPackProcessEntries(techPack.spuCode)
+  return getProductionOrderProcessEntries(orderId)
 }
 
 export function generateProductionArtifactsForOrder(orderId: string): GeneratedProductionArtifact[] {

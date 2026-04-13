@@ -6,7 +6,7 @@ import {
 export function renderSizeTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = state.compatibilityMode
+  const readonly = false
 
   return `
     <section class="rounded-lg border bg-card">

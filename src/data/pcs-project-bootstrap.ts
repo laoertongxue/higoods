@@ -1,4 +1,15 @@
 import { getProjectTemplateById, getProjectTemplateVersion } from './pcs-templates.ts'
+import {
+  listProjectWorkspaceAges,
+  listProjectWorkspaceBrands,
+  listProjectWorkspaceCategories,
+  listProjectWorkspaceCrowdPositioning,
+  listProjectWorkspaceCrowds,
+  listProjectWorkspaceProductPositioning,
+  listProjectWorkspaceStyleCodes,
+  listProjectWorkspaceStyles,
+  type ProjectWorkspaceOption,
+} from './pcs-project-config-workspace-adapter.ts'
 import type {
   PcsProjectNodeRecord,
   PcsProjectPhaseRecord,
@@ -62,12 +73,202 @@ interface BootstrapProjectSeed {
   updatedAt: string
   updatedBy: string
   remark: string
+  linkedStyleId?: string
+  linkedStyleCode?: string
+  linkedStyleName?: string
+  linkedStyleGeneratedAt?: string
+  linkedTechPackVersionId?: string
+  linkedTechPackVersionCode?: string
+  linkedTechPackVersionLabel?: string
+  linkedTechPackVersionStatus?: string
+  linkedTechPackVersionPublishedAt?: string
+  blockedFlag?: boolean
+  blockedReason?: string
 }
 
 interface BootstrapBuildResult {
   project: PcsProjectRecord
   phases: PcsProjectPhaseRecord[]
   nodes: PcsProjectNodeRecord[]
+}
+
+interface ResolvedWorkspaceBundle {
+  category: ProjectWorkspaceOption
+  brand: ProjectWorkspaceOption
+  styleCode: ProjectWorkspaceOption
+  styleOptions: ProjectWorkspaceOption[]
+  crowdPositioning: ProjectWorkspaceOption[]
+  ages: ProjectWorkspaceOption[]
+  crowds: ProjectWorkspaceOption[]
+  productPositioning: ProjectWorkspaceOption[]
+}
+
+const WORKSPACE_BRANDS = listProjectWorkspaceBrands()
+const WORKSPACE_CATEGORIES = listProjectWorkspaceCategories()
+const WORKSPACE_STYLES = listProjectWorkspaceStyles()
+const WORKSPACE_STYLE_CODES = listProjectWorkspaceStyleCodes()
+const WORKSPACE_CROWD_POSITIONING = listProjectWorkspaceCrowdPositioning()
+const WORKSPACE_AGES = listProjectWorkspaceAges()
+const WORKSPACE_CROWDS = listProjectWorkspaceCrowds()
+const WORKSPACE_PRODUCT_POSITIONING = listProjectWorkspaceProductPositioning()
+
+const STYLE_TYPE_BRAND_INDEX: Record<TemplateStyleType, number> = {
+  基础款: 0,
+  快时尚款: 1,
+  改版款: 2,
+  设计款: 3,
+}
+
+const STYLE_TYPE_PRODUCT_POSITIONING_INDEX: Record<TemplateStyleType, number> = {
+  基础款: 0,
+  快时尚款: 4,
+  改版款: 2,
+  设计款: 1,
+}
+
+function pickOptionByIndex(options: ProjectWorkspaceOption[], index: number): ProjectWorkspaceOption {
+  if (options.length === 0) {
+    throw new Error('配置工作台缺少可用选项，无法生成项目演示数据。')
+  }
+  return options[Math.abs(index) % options.length]
+}
+
+function findOptionByKeywords(
+  options: ProjectWorkspaceOption[],
+  keywords: string[],
+): ProjectWorkspaceOption | null {
+  const normalizedKeywords = keywords.filter(Boolean)
+  if (normalizedKeywords.length === 0) return null
+  return (
+    options.find((option) =>
+      normalizedKeywords.some((keyword) => option.name.includes(keyword) || option.code.includes(keyword)),
+    ) ?? null
+  )
+}
+
+function resolveCategoryOption(seed: BootstrapProjectSeed, fallbackIndex: number): ProjectWorkspaceOption {
+  const keywords = [seed.subCategoryName, seed.categoryName, seed.projectName]
+  const directMatch = findOptionByKeywords(WORKSPACE_CATEGORIES, keywords)
+  if (directMatch) return directMatch
+  if (keywords.some((item) => item.includes('裙'))) {
+    return findOptionByKeywords(WORKSPACE_CATEGORIES, ['连衣裙', '半裙', '长裙', '短裙']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, 1)
+  }
+  if (keywords.some((item) => item.includes('裤'))) {
+    return findOptionByKeywords(WORKSPACE_CATEGORIES, ['裤子']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, 3)
+  }
+  if (keywords.some((item) => item.includes('套装'))) {
+    return findOptionByKeywords(WORKSPACE_CATEGORIES, ['套装']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, 4)
+  }
+  if (keywords.some((item) => item.includes('外套') || item.includes('夹克') || item.includes('西装'))) {
+    return findOptionByKeywords(WORKSPACE_CATEGORIES, ['外套']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, 9)
+  }
+  if (keywords.some((item) => item.includes('开衫'))) {
+    return findOptionByKeywords(WORKSPACE_CATEGORIES, ['开衫']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, 5)
+  }
+  if (keywords.some((item) => item.includes('卫衣'))) {
+    return findOptionByKeywords(WORKSPACE_CATEGORIES, ['卫衣']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, 13)
+  }
+  return findOptionByKeywords(WORKSPACE_CATEGORIES, ['上衣']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, fallbackIndex)
+}
+
+function resolveStyleOptions(seed: BootstrapProjectSeed, fallbackIndex: number): ProjectWorkspaceOption[] {
+  const matched = seed.styleTags
+    .map((tag) => WORKSPACE_STYLES.find((option) => option.name === tag))
+    .filter((item): item is ProjectWorkspaceOption => Boolean(item))
+  if (matched.length > 0) return matched
+  const inferredKeywords =
+    seed.styleType === '设计款'
+      ? ['秀场', '优雅']
+      : seed.styleType === '改版款'
+        ? ['复古', '街头']
+        : seed.styleType === '快时尚款'
+          ? ['通勤', '甜美']
+          : ['休闲']
+  return inferredKeywords
+    .map((keyword) => findOptionByKeywords(WORKSPACE_STYLES, [keyword]))
+    .filter((item): item is ProjectWorkspaceOption => Boolean(item))
+    .slice(0, 2)
+    .concat(matched)
+    .filter((item, index, array) => array.findIndex((target) => target.id === item.id) === index)
+    .slice(0, 2)
+    .concat(
+      matched.length === 0 && inferredKeywords.length === 0 ? [pickOptionByIndex(WORKSPACE_STYLES, fallbackIndex)] : [],
+    )
+}
+
+function resolveWorkspaceBundle(seed: BootstrapProjectSeed): ResolvedWorkspaceBundle {
+  const sequence = Number.parseInt(seed.projectCode.slice(-3), 10) || 0
+  const category = resolveCategoryOption(seed, sequence)
+  const brand = pickOptionByIndex(
+    WORKSPACE_BRANDS,
+    STYLE_TYPE_BRAND_INDEX[seed.styleType] + sequence,
+  )
+  const styleCode =
+    findOptionByKeywords(WORKSPACE_STYLE_CODES, [seed.styleNumber, seed.projectName, category.name]) ??
+    pickOptionByIndex(WORKSPACE_STYLE_CODES, sequence)
+  const styleOptions = resolveStyleOptions(seed, sequence)
+  const crowdPositioning =
+    seed.targetAudienceTags.some((tag) => tag.includes('穆斯林'))
+      ? [findOptionByKeywords(WORKSPACE_CROWD_POSITIONING, ['穆斯林友好', '穆斯林']) ?? pickOptionByIndex(WORKSPACE_CROWD_POSITIONING, 0)]
+      : [findOptionByKeywords(WORKSPACE_CROWD_POSITIONING, ['非穆斯林']) ?? pickOptionByIndex(WORKSPACE_CROWD_POSITIONING, 2)]
+  const ages = [
+    pickOptionByIndex(
+      WORKSPACE_AGES,
+      seed.styleType === '基础款' || seed.styleType === '快时尚款' ? 0 : 1,
+    ),
+  ]
+  const crowds = [
+    pickOptionByIndex(
+      WORKSPACE_CROWDS,
+      seed.styleType === '基础款' || seed.styleType === '快时尚款' ? 0 : 1,
+    ),
+  ]
+  const productPositioning = [
+    pickOptionByIndex(
+      WORKSPACE_PRODUCT_POSITIONING,
+      STYLE_TYPE_PRODUCT_POSITIONING_INDEX[seed.styleType],
+    ),
+  ]
+  return {
+    category,
+    brand,
+    styleCode,
+    styleOptions: styleOptions.length > 0 ? styleOptions : [pickOptionByIndex(WORKSPACE_STYLES, sequence)],
+    crowdPositioning,
+    ages,
+    crowds,
+    productPositioning,
+  }
+}
+
+function createScenarioProjectSeed(
+  sequence: string,
+  input: Omit<
+    BootstrapProjectSeed,
+    | 'projectId'
+    | 'projectCode'
+    | 'yearTag'
+    | 'createdAt'
+    | 'createdBy'
+    | 'updatedAt'
+    | 'updatedBy'
+    | 'remark'
+  > & {
+    createdAt: string
+    updatedAt: string
+    updatedBy?: string
+    remark?: string
+  },
+): BootstrapProjectSeed {
+  return {
+    ...input,
+    projectId: `prj_20251216_${sequence}`,
+    projectCode: `PRJ-20251216-${sequence}`,
+    yearTag: '2026',
+    createdBy: '系统种子',
+    updatedBy: input.updatedBy || input.ownerName,
+    remark: input.remark || '补充的演示链路项目，覆盖模板、测款分支、技术包与归档场景。',
+  }
 }
 
 const BOOTSTRAP_PROJECT_SEEDS: BootstrapProjectSeed[] = [
@@ -162,6 +363,15 @@ const BOOTSTRAP_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     updatedAt: '2025-12-16 12:00',
     updatedBy: '王明',
     remark: '历史演示项目已迁入项目仓储。',
+    linkedStyleId: 'style_seed_004',
+    linkedStyleCode: 'SPU-2024-004',
+    linkedStyleName: 'Kaos Polos Premium',
+    linkedStyleGeneratedAt: '2026-03-28 14:00',
+    linkedTechPackVersionId: 'tdv_seed_004',
+    linkedTechPackVersionCode: 'TDV-LEGACY-004',
+    linkedTechPackVersionLabel: 'V1',
+    linkedTechPackVersionStatus: 'PUBLISHED',
+    linkedTechPackVersionPublishedAt: '2026-04-05 09:20',
   },
   {
     projectId: 'prj_20251216_003',
@@ -352,6 +562,15 @@ const BOOTSTRAP_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     updatedAt: '2025-12-14 20:30',
     updatedBy: '陈刚',
     remark: '历史演示项目已迁入项目仓储。',
+    linkedStyleId: 'style_seed_020',
+    linkedStyleCode: 'SPU-TEE-084',
+    linkedStyleName: '针织撞色短袖上衣',
+    linkedStyleGeneratedAt: '2026-04-01 10:40',
+    linkedTechPackVersionId: 'tdv_seed_020',
+    linkedTechPackVersionCode: 'TDV-LEGACY-020',
+    linkedTechPackVersionLabel: 'V1',
+    linkedTechPackVersionStatus: 'PUBLISHED',
+    linkedTechPackVersionPublishedAt: '2026-04-01 10:40',
   },
   {
     projectId: 'prj_20251216_007',
@@ -393,6 +612,15 @@ const BOOTSTRAP_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     updatedAt: '2025-12-10 10:00',
     updatedBy: '张丽',
     remark: '历史演示项目已迁入项目仓储。',
+    linkedStyleId: 'style_seed_019',
+    linkedStyleCode: 'SPU-DRESS-083',
+    linkedStyleName: '春季定位印花连衣裙',
+    linkedStyleGeneratedAt: '2026-03-16 10:20',
+    linkedTechPackVersionId: 'tdv_seed_019',
+    linkedTechPackVersionCode: 'TDV-LEGACY-019',
+    linkedTechPackVersionLabel: 'V1',
+    linkedTechPackVersionStatus: 'PUBLISHED',
+    linkedTechPackVersionPublishedAt: '2026-04-06 16:30',
   },
   {
     projectId: 'prj_20251216_008',
@@ -534,6 +762,676 @@ const BOOTSTRAP_PROJECT_SEEDS: BootstrapProjectSeed[] = [
   },
 ]
 
+const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
+  createScenarioProjectSeed('011', {
+    projectName: '基础轻甜印花连衣裙',
+    projectType: '商品开发',
+    projectSourceType: '企划提案',
+    templateId: 'TPL-001',
+    categoryId: 'seed-cat-dress',
+    categoryName: '连衣裙',
+    subCategoryId: 'seed-sub-dress',
+    subCategoryName: '连衣裙',
+    brandId: 'seed-brand',
+    brandName: 'Chicmore',
+    styleNumber: 'SPU-TSHIRT-081',
+    styleType: '基础款',
+    seasonTags: ['春夏'],
+    styleTags: ['休闲', '甜美'],
+    targetAudienceTags: ['年轻女性'],
+    priceRangeLabel: '两百元主销带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '外采',
+    sampleSupplierId: 'supplier-platform-a',
+    sampleSupplierName: '外采平台甲',
+    sampleLink: 'https://example.com/demo-011',
+    sampleUnitPrice: 118,
+    ownerId: 'user-zhangli',
+    ownerName: '张丽',
+    teamId: 'team-plan',
+    teamName: '商品企划组',
+    collaboratorIds: ['user-xiaoya'],
+    collaboratorNames: ['小雅'],
+    priorityLevel: '高',
+    projectStatus: '进行中',
+    currentPhaseOrder: 4,
+    currentNodeCode: 'PROJECT_TRANSFER_PREP',
+    currentNodeStatus: '进行中',
+    latestNodeCode: 'STYLE_ARCHIVE_CREATE',
+    latestResultType: '已生成款式档案',
+    latestResultText: '测款通过后已建立款式档案，当前状态为技术包待完善。',
+    createdAt: '2026-03-18 09:10',
+    updatedAt: '2026-04-03 15:20',
+    linkedStyleId: 'style_seed_017',
+    linkedStyleCode: 'SPU-TSHIRT-081',
+    linkedStyleName: '春季休闲印花短袖 T 恤',
+    linkedStyleGeneratedAt: '2026-04-03 10:40',
+    linkedTechPackVersionId: 'tdv_seed_017',
+    linkedTechPackVersionCode: 'TDV-LEGACY-017',
+    linkedTechPackVersionLabel: 'V2',
+    linkedTechPackVersionStatus: 'PUBLISHED',
+    linkedTechPackVersionPublishedAt: '2026-04-03 15:20',
+  }),
+  createScenarioProjectSeed('012', {
+    projectName: '快反撞色卫衣套装',
+    projectType: '快反上新',
+    projectSourceType: '渠道反馈',
+    templateId: 'TPL-002',
+    categoryId: 'seed-cat-set',
+    categoryName: '套装',
+    subCategoryId: 'seed-sub-hoodie',
+    subCategoryName: '卫衣套装',
+    brandId: 'seed-brand',
+    brandName: 'FADFAD',
+    styleNumber: 'SPU-HOODIE-082',
+    styleType: '快时尚款',
+    seasonTags: ['秋季'],
+    styleTags: ['休闲', '通勤'],
+    targetAudienceTags: ['快反基础客群'],
+    priceRangeLabel: '百元基础带',
+    targetChannelCodes: ['tiktok-shop', 'wechat-mini-program'],
+    sampleSourceType: '自打样',
+    sampleSupplierId: '',
+    sampleSupplierName: '',
+    sampleLink: '',
+    sampleUnitPrice: null,
+    ownerId: 'user-wangming',
+    ownerName: '王明',
+    teamId: 'team-fast',
+    teamName: '快反开发组',
+    collaboratorIds: ['user-lina'],
+    collaboratorNames: ['李娜'],
+    priorityLevel: '中',
+    projectStatus: '进行中',
+    currentPhaseOrder: 4,
+    currentNodeCode: 'PROJECT_TRANSFER_PREP',
+    currentNodeStatus: '进行中',
+    latestNodeCode: 'STYLE_ARCHIVE_CREATE',
+    latestResultType: '已生成款式档案',
+    latestResultText: '短视频测款通过，已进入技术包启用前准备。',
+    createdAt: '2026-03-16 10:05',
+    updatedAt: '2026-04-02 11:00',
+    linkedStyleId: 'style_seed_018',
+    linkedStyleCode: 'SPU-HOODIE-082',
+    linkedStyleName: '连帽拉链卫衣套装',
+    linkedStyleGeneratedAt: '2026-04-02 09:50',
+    linkedTechPackVersionId: 'tdv_seed_018',
+    linkedTechPackVersionCode: 'TDV-LEGACY-018',
+    linkedTechPackVersionLabel: 'V1',
+    linkedTechPackVersionStatus: 'PUBLISHED',
+    linkedTechPackVersionPublishedAt: '2026-04-02 11:00',
+  }),
+  createScenarioProjectSeed('013', {
+    projectName: '设计款户外轻量夹克',
+    projectType: '设计研发',
+    projectSourceType: '外部灵感',
+    templateId: 'TPL-004',
+    categoryId: 'seed-cat-jacket',
+    categoryName: '外套',
+    subCategoryId: 'seed-sub-jacket',
+    subCategoryName: '夹克',
+    brandId: 'seed-brand',
+    brandName: 'Asaya',
+    styleNumber: 'SPU-JACKET-085',
+    styleType: '设计款',
+    seasonTags: ['秋季'],
+    styleTags: ['秀场', '优雅'],
+    targetAudienceTags: ['都市通勤人群'],
+    priceRangeLabel: '三百元升级带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '委托打样',
+    sampleSupplierId: 'supplier-shenzhen-a',
+    sampleSupplierName: '深圳版房甲',
+    sampleLink: '',
+    sampleUnitPrice: 248,
+    ownerId: 'user-lina',
+    ownerName: '李娜',
+    teamId: 'team-design',
+    teamName: '设计研发组',
+    collaboratorIds: ['user-zhaoyun'],
+    collaboratorNames: ['赵云'],
+    priorityLevel: '高',
+    projectStatus: '进行中',
+    currentPhaseOrder: 4,
+    currentNodeCode: 'PROJECT_TRANSFER_PREP',
+    currentNodeStatus: '进行中',
+    latestNodeCode: 'STYLE_ARCHIVE_CREATE',
+    latestResultType: '已生成款式档案',
+    latestResultText: '直播测款通过，当前等待启用技术包后同步上游商品。',
+    createdAt: '2026-03-20 11:20',
+    updatedAt: '2026-04-04 16:10',
+    linkedStyleId: 'style_seed_021',
+    linkedStyleCode: 'SPU-JACKET-085',
+    linkedStyleName: '户外轻量夹克',
+    linkedStyleGeneratedAt: '2026-04-04 14:30',
+    linkedTechPackVersionId: 'tdv_seed_021',
+    linkedTechPackVersionCode: 'TDV-LEGACY-021',
+    linkedTechPackVersionLabel: 'V1',
+    linkedTechPackVersionStatus: 'PUBLISHED',
+    linkedTechPackVersionPublishedAt: '2026-04-04 16:10',
+  }),
+  createScenarioProjectSeed('014', {
+    projectName: '快反商务修身长袖衬衫',
+    projectType: '快反上新',
+    projectSourceType: '渠道反馈',
+    templateId: 'TPL-002',
+    categoryId: 'seed-cat-shirt',
+    categoryName: '上衣',
+    subCategoryId: 'seed-sub-shirt',
+    subCategoryName: '衬衫',
+    brandId: 'seed-brand',
+    brandName: 'MODISH',
+    styleNumber: 'SPU-SHIRT-086',
+    styleType: '快时尚款',
+    seasonTags: ['秋季'],
+    styleTags: ['通勤', '优雅'],
+    targetAudienceTags: ['通勤白领'],
+    priceRangeLabel: '两百元主销带',
+    targetChannelCodes: ['tiktok-shop', 'wechat-mini-program'],
+    sampleSourceType: '自打样',
+    sampleSupplierId: '',
+    sampleSupplierName: '',
+    sampleLink: '',
+    sampleUnitPrice: null,
+    ownerId: 'user-wangming',
+    ownerName: '王明',
+    teamId: 'team-fast',
+    teamName: '快反开发组',
+    collaboratorIds: ['user-xiaomei'],
+    collaboratorNames: ['小美'],
+    priorityLevel: '高',
+    projectStatus: '进行中',
+    currentPhaseOrder: 4,
+    currentNodeCode: 'PROJECT_TRANSFER_PREP',
+    currentNodeStatus: '进行中',
+    latestNodeCode: 'PROJECT_TRANSFER_PREP',
+    latestResultType: '已启用当前生效技术包',
+    latestResultText: '款式档案已可生产，上游商品已完成最终更新。',
+    createdAt: '2026-03-12 08:40',
+    updatedAt: '2026-04-05 10:50',
+    linkedStyleId: 'style_seed_022',
+    linkedStyleCode: 'SPU-SHIRT-086',
+    linkedStyleName: '商务修身长袖衬衫',
+    linkedStyleGeneratedAt: '2026-04-01 13:20',
+    linkedTechPackVersionId: 'tdv_seed_022',
+    linkedTechPackVersionCode: 'TDV-LEGACY-022',
+    linkedTechPackVersionLabel: 'V1',
+    linkedTechPackVersionStatus: 'PUBLISHED',
+    linkedTechPackVersionPublishedAt: '2026-04-05 10:50',
+  }),
+  createScenarioProjectSeed('015', {
+    projectName: '设计款中式盘扣上衣',
+    projectType: '设计研发',
+    projectSourceType: '外部灵感',
+    templateId: 'TPL-004',
+    categoryId: 'seed-cat-top',
+    categoryName: '上衣',
+    subCategoryId: 'seed-sub-top',
+    subCategoryName: '上衣',
+    brandId: 'seed-brand',
+    brandName: 'PRIMA',
+    styleNumber: 'SPU-2024-005',
+    styleType: '设计款',
+    seasonTags: ['春夏'],
+    styleTags: ['中式', '优雅'],
+    targetAudienceTags: ['设计验证客群'],
+    priceRangeLabel: '三百元升级带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '委托打样',
+    sampleSupplierId: 'supplier-shenzhen-a',
+    sampleSupplierName: '深圳版房甲',
+    sampleLink: '',
+    sampleUnitPrice: 268,
+    ownerId: 'user-lina',
+    ownerName: '李娜',
+    teamId: 'team-design',
+    teamName: '设计研发组',
+    collaboratorIds: ['user-zhouqiang'],
+    collaboratorNames: ['周强'],
+    priorityLevel: '高',
+    projectStatus: '进行中',
+    currentPhaseOrder: 4,
+    currentNodeCode: 'PROJECT_TRANSFER_PREP',
+    currentNodeStatus: '进行中',
+    latestNodeCode: 'PROJECT_TRANSFER_PREP',
+    latestResultType: '已启用当前生效技术包',
+    latestResultText: '技术包已启用，款式档案已可生产，渠道商品完成最终更新。',
+    createdAt: '2026-03-10 10:30',
+    updatedAt: '2026-04-06 14:40',
+    linkedStyleId: 'style_seed_005',
+    linkedStyleCode: 'SPU-2024-005',
+    linkedStyleName: '中式盘扣上衣',
+    linkedStyleGeneratedAt: '2026-03-30 11:15',
+    linkedTechPackVersionId: 'tdv_seed_005',
+    linkedTechPackVersionCode: 'TDV-LEGACY-005',
+    linkedTechPackVersionLabel: 'V1',
+    linkedTechPackVersionStatus: 'PUBLISHED',
+    linkedTechPackVersionPublishedAt: '2026-04-06 14:40',
+  }),
+  createScenarioProjectSeed('016', {
+    projectName: '基础款波点雪纺连衣裙改版',
+    projectType: '商品开发',
+    projectSourceType: '测款沉淀',
+    templateId: 'TPL-001',
+    categoryId: 'seed-cat-dress',
+    categoryName: '连衣裙',
+    subCategoryId: 'seed-sub-dress',
+    subCategoryName: '连衣裙',
+    brandId: 'seed-brand',
+    brandName: 'Chicmore',
+    styleNumber: 'SPU-2026-016',
+    styleType: '基础款',
+    seasonTags: ['春夏'],
+    styleTags: ['甜美', '碎花'],
+    targetAudienceTags: ['直播爆款客群'],
+    priceRangeLabel: '两百元主销带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '外采',
+    sampleSupplierId: 'supplier-platform-b',
+    sampleSupplierName: '外采平台乙',
+    sampleLink: 'https://example.com/demo-016',
+    sampleUnitPrice: 129,
+    ownerId: 'user-zhangli',
+    ownerName: '张丽',
+    teamId: 'team-plan',
+    teamName: '商品企划组',
+    collaboratorIds: ['user-xiaomei'],
+    collaboratorNames: ['小美'],
+    priorityLevel: '高',
+    projectStatus: '进行中',
+    currentPhaseOrder: 4,
+    currentNodeCode: 'PATTERN_TASK',
+    currentNodeStatus: '进行中',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为调整，旧渠道商品已作废，并已创建改版任务。',
+    createdAt: '2026-03-05 09:20',
+    updatedAt: '2026-03-29 18:10',
+  }),
+  createScenarioProjectSeed('017', {
+    projectName: '改版牛仔机车短外套',
+    projectType: '改版开发',
+    projectSourceType: '历史复用',
+    templateId: 'TPL-003',
+    categoryId: 'seed-cat-jacket',
+    categoryName: '外套',
+    subCategoryId: 'seed-sub-jacket',
+    subCategoryName: '夹克',
+    brandId: 'seed-brand',
+    brandName: 'Tendblank',
+    styleNumber: 'SPU-2026-017',
+    styleType: '改版款',
+    seasonTags: ['秋季'],
+    styleTags: ['复古', '街头'],
+    targetAudienceTags: ['轻熟客群'],
+    priceRangeLabel: '三百元升级带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '自打样',
+    sampleSupplierId: '',
+    sampleSupplierName: '',
+    sampleLink: '',
+    sampleUnitPrice: null,
+    ownerId: 'user-zhaoyun',
+    ownerName: '赵云',
+    teamId: 'team-fast',
+    teamName: '快反开发组',
+    collaboratorIds: ['user-zhouqiang'],
+    collaboratorNames: ['周强'],
+    priorityLevel: '高',
+    projectStatus: '进行中',
+    currentPhaseOrder: 4,
+    currentNodeCode: 'FIRST_SAMPLE',
+    currentNodeStatus: '进行中',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为调整，当前渠道商品已作废，改版任务正在推进。',
+    createdAt: '2026-03-07 11:40',
+    updatedAt: '2026-03-31 17:20',
+  }),
+  createScenarioProjectSeed('018', {
+    projectName: '设计款印花阔腿连体裤改版',
+    projectType: '设计研发',
+    projectSourceType: '外部灵感',
+    templateId: 'TPL-004',
+    categoryId: 'seed-cat-jumpsuit',
+    categoryName: '连体裤',
+    subCategoryId: 'seed-sub-jumpsuit',
+    subCategoryName: '连体裤',
+    brandId: 'seed-brand',
+    brandName: 'Asaya',
+    styleNumber: 'SPU-2026-018',
+    styleType: '设计款',
+    seasonTags: ['夏季'],
+    styleTags: ['秀场', '碎花'],
+    targetAudienceTags: ['设计验证客群'],
+    priceRangeLabel: '三百元升级带',
+    targetChannelCodes: ['tiktok-shop'],
+    sampleSourceType: '委托打样',
+    sampleSupplierId: 'supplier-shenzhen-a',
+    sampleSupplierName: '深圳版房甲',
+    sampleLink: '',
+    sampleUnitPrice: 286,
+    ownerId: 'user-lina',
+    ownerName: '李娜',
+    teamId: 'team-design',
+    teamName: '设计研发组',
+    collaboratorIds: ['user-zhaoyun'],
+    collaboratorNames: ['赵云'],
+    priorityLevel: '高',
+    projectStatus: '进行中',
+    currentPhaseOrder: 4,
+    currentNodeCode: 'PATTERN_ARTWORK_TASK',
+    currentNodeStatus: '进行中',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为调整，当前渠道商品已作废，并已创建改版任务。',
+    createdAt: '2026-03-08 14:10',
+    updatedAt: '2026-04-01 18:20',
+  }),
+  createScenarioProjectSeed('019', {
+    projectName: '基础款针织开衫暂缓',
+    projectType: '商品开发',
+    projectSourceType: '企划提案',
+    templateId: 'TPL-001',
+    categoryId: 'seed-cat-cardigan',
+    categoryName: '开衫',
+    subCategoryId: 'seed-sub-cardigan',
+    subCategoryName: '开衫',
+    brandId: 'seed-brand',
+    brandName: 'Chicmore',
+    styleNumber: 'SPU-2026-019',
+    styleType: '基础款',
+    seasonTags: ['秋季'],
+    styleTags: ['休闲', '通勤'],
+    targetAudienceTags: ['通勤白领'],
+    priceRangeLabel: '两百元主销带',
+    targetChannelCodes: ['wechat-mini-program', 'tiktok-shop'],
+    sampleSourceType: '外采',
+    sampleSupplierId: 'supplier-platform-a',
+    sampleSupplierName: '外采平台甲',
+    sampleLink: 'https://example.com/demo-019',
+    sampleUnitPrice: 109,
+    ownerId: 'user-zhangli',
+    ownerName: '张丽',
+    teamId: 'team-plan',
+    teamName: '商品企划组',
+    collaboratorIds: ['user-xiaoya'],
+    collaboratorNames: ['小雅'],
+    priorityLevel: '中',
+    projectStatus: '进行中',
+    currentPhaseOrder: 3,
+    currentNodeCode: 'TEST_CONCLUSION',
+    currentNodeStatus: '待确认',
+    issueNodeCode: 'TEST_CONCLUSION',
+    issueType: '项目阻塞',
+    issueText: '测款结论为暂缓，当前项目阻塞，等待下轮市场窗口。',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为暂缓，当前渠道商品已作废，项目阻塞。',
+    createdAt: '2026-03-09 09:10',
+    updatedAt: '2026-04-02 10:30',
+    blockedFlag: true,
+    blockedReason: '测款结论为暂缓，当前项目阻塞，等待下轮市场窗口。',
+  }),
+  createScenarioProjectSeed('020', {
+    projectName: '快反POLO衫暂缓',
+    projectType: '快反上新',
+    projectSourceType: '渠道反馈',
+    templateId: 'TPL-002',
+    categoryId: 'seed-cat-top',
+    categoryName: '上衣',
+    subCategoryId: 'seed-sub-polo',
+    subCategoryName: 'POLO衫',
+    brandId: 'seed-brand',
+    brandName: 'FADFAD',
+    styleNumber: 'SPU-2026-020',
+    styleType: '快时尚款',
+    seasonTags: ['春夏'],
+    styleTags: ['休闲', '通勤'],
+    targetAudienceTags: ['快反基础客群'],
+    priceRangeLabel: '百元基础带',
+    targetChannelCodes: ['tiktok-shop', 'wechat-mini-program'],
+    sampleSourceType: '自打样',
+    sampleSupplierId: '',
+    sampleSupplierName: '',
+    sampleLink: '',
+    sampleUnitPrice: null,
+    ownerId: 'user-wangming',
+    ownerName: '王明',
+    teamId: 'team-fast',
+    teamName: '快反开发组',
+    collaboratorIds: ['user-lina'],
+    collaboratorNames: ['李娜'],
+    priorityLevel: '中',
+    projectStatus: '进行中',
+    currentPhaseOrder: 3,
+    currentNodeCode: 'TEST_CONCLUSION',
+    currentNodeStatus: '待确认',
+    issueNodeCode: 'TEST_CONCLUSION',
+    issueType: '项目阻塞',
+    issueText: '当前结论为暂缓，等待补齐货盘与流量方案后再重启。',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为暂缓，当前渠道商品已作废，项目阻塞。',
+    createdAt: '2026-03-11 10:20',
+    updatedAt: '2026-04-03 13:10',
+    blockedFlag: true,
+    blockedReason: '当前结论为暂缓，等待补齐货盘与流量方案后再重启。',
+  }),
+  createScenarioProjectSeed('021', {
+    projectName: '改版都市西装马甲暂缓',
+    projectType: '改版开发',
+    projectSourceType: '历史复用',
+    templateId: 'TPL-003',
+    categoryId: 'seed-cat-vest',
+    categoryName: '马甲',
+    subCategoryId: 'seed-sub-vest',
+    subCategoryName: '马甲',
+    brandId: 'seed-brand',
+    brandName: 'Tendblank',
+    styleNumber: 'SPU-2026-021',
+    styleType: '改版款',
+    seasonTags: ['秋季'],
+    styleTags: ['通勤', '复古'],
+    targetAudienceTags: ['成熟客群'],
+    priceRangeLabel: '三百元升级带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '自打样',
+    sampleSupplierId: '',
+    sampleSupplierName: '',
+    sampleLink: '',
+    sampleUnitPrice: null,
+    ownerId: 'user-zhaoyun',
+    ownerName: '赵云',
+    teamId: 'team-fast',
+    teamName: '快反开发组',
+    collaboratorIds: ['user-zhouqiang'],
+    collaboratorNames: ['周强'],
+    priorityLevel: '中',
+    projectStatus: '进行中',
+    currentPhaseOrder: 3,
+    currentNodeCode: 'TEST_CONCLUSION',
+    currentNodeStatus: '待确认',
+    issueNodeCode: 'TEST_CONCLUSION',
+    issueType: '项目阻塞',
+    issueText: '当前测款窗口结束，项目暂缓，等待复盘结论。',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为暂缓，当前渠道商品已作废，项目阻塞。',
+    createdAt: '2026-03-12 11:10',
+    updatedAt: '2026-04-04 09:40',
+    blockedFlag: true,
+    blockedReason: '当前测款窗口结束，项目暂缓，等待复盘结论。',
+  }),
+  createScenarioProjectSeed('022', {
+    projectName: '设计款民族印花半裙暂缓',
+    projectType: '设计研发',
+    projectSourceType: '外部灵感',
+    templateId: 'TPL-004',
+    categoryId: 'seed-cat-skirt',
+    categoryName: '半裙',
+    subCategoryId: 'seed-sub-skirt',
+    subCategoryName: '半裙',
+    brandId: 'seed-brand',
+    brandName: 'Asaya',
+    styleNumber: 'SPU-2026-022',
+    styleType: '设计款',
+    seasonTags: ['夏季'],
+    styleTags: ['碎花', '秀场'],
+    targetAudienceTags: ['设计验证客群'],
+    priceRangeLabel: '三百元升级带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '委托打样',
+    sampleSupplierId: 'supplier-shenzhen-a',
+    sampleSupplierName: '深圳版房甲',
+    sampleLink: '',
+    sampleUnitPrice: 302,
+    ownerId: 'user-lina',
+    ownerName: '李娜',
+    teamId: 'team-design',
+    teamName: '设计研发组',
+    collaboratorIds: ['user-zhaoyun'],
+    collaboratorNames: ['赵云'],
+    priorityLevel: '中',
+    projectStatus: '进行中',
+    currentPhaseOrder: 3,
+    currentNodeCode: 'TEST_CONCLUSION',
+    currentNodeStatus: '待确认',
+    issueNodeCode: 'TEST_CONCLUSION',
+    issueType: '项目阻塞',
+    issueText: '测款结论为暂缓，等待重新评估花型方向。',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为暂缓，当前渠道商品已作废，项目阻塞。',
+    createdAt: '2026-03-13 15:00',
+    updatedAt: '2026-04-04 15:30',
+    blockedFlag: true,
+    blockedReason: '测款结论为暂缓，等待重新评估花型方向。',
+  }),
+  createScenarioProjectSeed('023', {
+    projectName: '基础款男装休闲夹克淘汰',
+    projectType: '商品开发',
+    projectSourceType: '企划提案',
+    templateId: 'TPL-001',
+    categoryId: 'seed-cat-jacket',
+    categoryName: '外套',
+    subCategoryId: 'seed-sub-jacket',
+    subCategoryName: '夹克',
+    brandId: 'seed-brand',
+    brandName: 'Chicmore',
+    styleNumber: 'SPU-2026-023',
+    styleType: '基础款',
+    seasonTags: ['秋季'],
+    styleTags: ['休闲', '街头'],
+    targetAudienceTags: ['男装休闲客群'],
+    priceRangeLabel: '两百元主销带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '外采',
+    sampleSupplierId: 'supplier-platform-c',
+    sampleSupplierName: '外采平台丙',
+    sampleLink: 'https://example.com/demo-023',
+    sampleUnitPrice: 146,
+    ownerId: 'user-zhangli',
+    ownerName: '张丽',
+    teamId: 'team-plan',
+    teamName: '商品企划组',
+    collaboratorIds: ['user-xiaoya'],
+    collaboratorNames: ['小雅'],
+    priorityLevel: '中',
+    projectStatus: '已终止',
+    currentPhaseOrder: 3,
+    currentNodeCode: 'TEST_CONCLUSION',
+    currentNodeStatus: '已取消',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为淘汰，当前渠道商品已作废，项目终止。',
+    createdAt: '2026-03-14 09:40',
+    updatedAt: '2026-04-05 11:10',
+  }),
+  createScenarioProjectSeed('024', {
+    projectName: '快反居家套装淘汰',
+    projectType: '快反上新',
+    projectSourceType: '渠道反馈',
+    templateId: 'TPL-002',
+    categoryId: 'seed-cat-set',
+    categoryName: '套装',
+    subCategoryId: 'seed-sub-homewear',
+    subCategoryName: '居家套装',
+    brandId: 'seed-brand',
+    brandName: 'FADFAD',
+    styleNumber: 'SPU-2026-024',
+    styleType: '快时尚款',
+    seasonTags: ['春夏'],
+    styleTags: ['休闲', '甜美'],
+    targetAudienceTags: ['快反基础客群'],
+    priceRangeLabel: '百元基础带',
+    targetChannelCodes: ['wechat-mini-program', 'tiktok-shop'],
+    sampleSourceType: '自打样',
+    sampleSupplierId: '',
+    sampleSupplierName: '',
+    sampleLink: '',
+    sampleUnitPrice: null,
+    ownerId: 'user-wangming',
+    ownerName: '王明',
+    teamId: 'team-fast',
+    teamName: '快反开发组',
+    collaboratorIds: ['user-lina'],
+    collaboratorNames: ['李娜'],
+    priorityLevel: '低',
+    projectStatus: '已终止',
+    currentPhaseOrder: 3,
+    currentNodeCode: 'TEST_CONCLUSION',
+    currentNodeStatus: '已取消',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '直播与短视频双渠道测款不及预期，项目淘汰。',
+    createdAt: '2026-03-15 10:20',
+    updatedAt: '2026-04-05 16:20',
+  }),
+  createScenarioProjectSeed('025', {
+    projectName: '改版针织背心淘汰',
+    projectType: '改版开发',
+    projectSourceType: '历史复用',
+    templateId: 'TPL-003',
+    categoryId: 'seed-cat-vest',
+    categoryName: '马甲',
+    subCategoryId: 'seed-sub-vest',
+    subCategoryName: '马甲',
+    brandId: 'seed-brand',
+    brandName: 'Tendblank',
+    styleNumber: 'SPU-2026-025',
+    styleType: '改版款',
+    seasonTags: ['春夏'],
+    styleTags: ['通勤', '复古'],
+    targetAudienceTags: ['成熟客群'],
+    priceRangeLabel: '两百元主销带',
+    targetChannelCodes: ['tiktok-shop', 'shopee'],
+    sampleSourceType: '自打样',
+    sampleSupplierId: '',
+    sampleSupplierName: '',
+    sampleLink: '',
+    sampleUnitPrice: null,
+    ownerId: 'user-zhaoyun',
+    ownerName: '赵云',
+    teamId: 'team-fast',
+    teamName: '快反开发组',
+    collaboratorIds: ['user-zhouqiang'],
+    collaboratorNames: ['周强'],
+    priorityLevel: '低',
+    projectStatus: '已终止',
+    currentPhaseOrder: 3,
+    currentNodeCode: 'TEST_CONCLUSION',
+    currentNodeStatus: '已取消',
+    latestNodeCode: 'TEST_CONCLUSION',
+    latestResultType: '测款结论',
+    latestResultText: '测款结论为淘汰，当前渠道商品已作废，项目终止。',
+    createdAt: '2026-03-16 13:30',
+    updatedAt: '2026-04-06 09:50',
+  }),
+]
+
+const ALL_BOOTSTRAP_PROJECT_SEEDS = [...BOOTSTRAP_PROJECT_SEEDS, ...SCENARIO_PROJECT_SEEDS]
+
 function normalizePhaseStatus(status: ProjectPhaseStatus): ProjectPhaseStatus {
   return status
 }
@@ -568,7 +1466,7 @@ const LEGACY_BOOTSTRAP_NODE_CODE_MAP: Record<string, string> = {
   SAMPLE_MAKING: 'FIRST_SAMPLE',
   CONTENT_SHOOT: 'SAMPLE_SHOOT_FIT',
   CREATIVE_DIRECTION_CONFIRM: 'PROJECT_INIT',
-  PRODUCT_LISTING: 'CHANNEL_PRODUCT_PREP',
+  PRODUCT_LISTING: 'CHANNEL_PRODUCT_LISTING',
   PROJECT_TRANSFER: 'PROJECT_TRANSFER_PREP',
   SAMPLE_STORAGE: 'SAMPLE_RETAIN_REVIEW',
   ASSET_RETURN: 'SAMPLE_RETURN_HANDLE',
@@ -581,6 +1479,7 @@ function normalizeBootstrapNodeCode(code: string | undefined): string {
 
 function buildProjectFromSeed(seed: BootstrapProjectSeed, currentPhaseCode: string, currentPhaseName: string): PcsProjectRecord {
   const template = getProjectTemplateById(seed.templateId)
+  const workspace = resolveWorkspaceBundle(seed)
   return {
     projectId: seed.projectId,
     projectCode: seed.projectCode,
@@ -593,17 +1492,29 @@ function buildProjectFromSeed(seed: BootstrapProjectSeed, currentPhaseCode: stri
     projectStatus: seed.projectStatus,
     currentPhaseCode,
     currentPhaseName,
-    categoryId: seed.categoryId,
-    categoryName: seed.categoryName,
+    categoryId: workspace.category.id,
+    categoryName: workspace.category.name,
     subCategoryId: seed.subCategoryId,
     subCategoryName: seed.subCategoryName,
-    brandId: seed.brandId,
-    brandName: seed.brandName,
-    styleNumber: seed.styleNumber,
+    brandId: workspace.brand.id,
+    brandName: workspace.brand.name,
+    styleNumber: seed.styleNumber || workspace.styleCode.name,
+    styleCodeId: workspace.styleCode.id,
+    styleCodeName: workspace.styleCode.name,
     styleType: seed.styleType,
     yearTag: seed.yearTag,
     seasonTags: [...seed.seasonTags],
-    styleTags: [...seed.styleTags],
+    styleTags: workspace.styleOptions.map((item) => item.name),
+    styleTagIds: workspace.styleOptions.map((item) => item.id),
+    styleTagNames: workspace.styleOptions.map((item) => item.name),
+    crowdPositioningIds: workspace.crowdPositioning.map((item) => item.id),
+    crowdPositioningNames: workspace.crowdPositioning.map((item) => item.name),
+    ageIds: workspace.ages.map((item) => item.id),
+    ageNames: workspace.ages.map((item) => item.name),
+    crowdIds: workspace.crowds.map((item) => item.id),
+    crowdNames: workspace.crowds.map((item) => item.name),
+    productPositioningIds: workspace.productPositioning.map((item) => item.id),
+    productPositioningNames: workspace.productPositioning.map((item) => item.name),
     targetAudienceTags: [...seed.targetAudienceTags],
     priceRangeLabel: seed.priceRangeLabel,
     targetChannelCodes: [...seed.targetChannelCodes],
@@ -625,6 +1536,17 @@ function buildProjectFromSeed(seed: BootstrapProjectSeed, currentPhaseCode: stri
     updatedAt: seed.updatedAt,
     updatedBy: seed.updatedBy,
     remark: seed.remark,
+    linkedStyleId: seed.linkedStyleId || '',
+    linkedStyleCode: seed.linkedStyleCode || '',
+    linkedStyleName: seed.linkedStyleName || '',
+    linkedStyleGeneratedAt: seed.linkedStyleGeneratedAt || '',
+    linkedTechPackVersionId: seed.linkedTechPackVersionId || '',
+    linkedTechPackVersionCode: seed.linkedTechPackVersionCode || '',
+    linkedTechPackVersionLabel: seed.linkedTechPackVersionLabel || '',
+    linkedTechPackVersionStatus: seed.linkedTechPackVersionStatus || '',
+    linkedTechPackVersionPublishedAt: seed.linkedTechPackVersionPublishedAt || '',
+    blockedFlag: seed.blockedFlag || false,
+    blockedReason: seed.blockedReason || '',
   }
 }
 
@@ -758,7 +1680,7 @@ function buildBootstrapRecords(seed: BootstrapProjectSeed): BootstrapBuildResult
 }
 
 export function createBootstrapProjectSnapshot(version: number): PcsProjectStoreSnapshot {
-  const built = BOOTSTRAP_PROJECT_SEEDS.map(buildBootstrapRecords)
+  const built = ALL_BOOTSTRAP_PROJECT_SEEDS.map(buildBootstrapRecords)
   return {
     version,
     projects: built.map((item) => item.project),

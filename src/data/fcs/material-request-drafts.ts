@@ -1,6 +1,10 @@
-import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import {
+  productionOrders,
+  type ProductionOrder,
+} from './production-orders.ts'
+import { getProductionOrderCompatTechPack } from './production-order-tech-pack-runtime.ts'
 import { processTasks, type ProcessTask } from './process-tasks.ts'
-import { getCompatTechPackBySpuCode as getTechPackBySpuCode, type TechPackBomItem } from '../pcs-technical-data-runtime-source.ts'
+import type { TechPackBomItem } from './tech-packs.ts'
 import {
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
@@ -417,7 +421,7 @@ function buildBomCandidates(
   task?: ProcessTask,
   runtimeTask?: RuntimeProcessTask | null,
 ): DraftMaterialCandidate[] {
-  const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
+  const techPack = getProductionOrderCompatTechPack(order.productionOrderId)
   const taskSkuScope = getTaskSkuScope(order, task, runtimeTask)
   const processFlags = getOrderProcessFlags(order.productionOrderId)
   const targetProcessCode = runtimeTask?.processCode ?? task?.processCode
@@ -485,7 +489,7 @@ function buildBomCandidates(
         suggestedQty,
         unit: inferMaterialUnit(item, category),
         sourceRef: `${item.id}:${sourceSkuCodes.join('|') || 'ALL'}`,
-        note: `来源技术资料BOM：${item.type}`,
+        note: `来源技术包快照BOM：${item.type}`,
         sourceBomItemId: item.id,
         sourceBomItemCode: `BOM-${order.demandSnapshot.spuCode}-${item.id}`,
         sourceBomItemName: item.name,
@@ -496,7 +500,7 @@ function buildBomCandidates(
         patternSpecText: patternEvidence.patternSpecText,
         patternTotalPieceCount: patternEvidence.patternTotalPieceCount,
         pieceSummaryText: patternEvidence.pieceSummaryText,
-        sourceRuleLabel: '技术资料SKU维度BOM自动建议',
+        sourceRuleLabel: '技术包快照SKU维度BOM自动建议',
         sourceReasonText: `来源 SKU：${skuScopeLabel}；${patternHint}；${pieceHint}`,
         requiresPrint,
         requiresDye,
@@ -514,7 +518,7 @@ function buildSewUpstreamCandidates(
   task?: ProcessTask,
   runtimeTask?: RuntimeProcessTask | null,
 ): DraftMaterialCandidate[] {
-  const techPack = getTechPackBySpuCode(order.demandSnapshot.spuCode)
+  const techPack = getProductionOrderCompatTechPack(order.productionOrderId)
   if (!techPack) return []
 
   const mappings = techPack.colorMaterialMappings ?? []

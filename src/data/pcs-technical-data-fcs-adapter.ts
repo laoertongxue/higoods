@@ -1,4 +1,4 @@
-import type { TechPack } from './pcs-technical-data-runtime-source.ts'
+import type { TechPack } from './fcs/tech-packs.ts'
 import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,

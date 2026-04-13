@@ -28,7 +28,8 @@ assert.ok(source.includes('从商品项目生成款式档案初始记录'), '列
 
 const html = renderProductSpuPage()
 assert.ok(html.includes('款式档案'), '款式档案列表页应正常渲染')
-assert.ok(html.includes('SPU-20260101-001'), '款式档案列表页应从正式仓储读取初始化款式档案')
+assert.ok(html.includes('SPU-2024-001'), '款式档案列表页应从旧 FCS 技术包种子补齐正式款式档案')
+assert.ok(html.includes('TDV-LEGACY-001'), '已启用的旧 FCS 技术包应补齐当前生效技术包版本编号')
 
 const project = listProjects().find((item) => getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'STYLE_ARCHIVE_CREATE'))
 assert.ok(project, '从项目生成入口应存在可选项目')

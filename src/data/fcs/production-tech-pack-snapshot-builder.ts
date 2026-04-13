@@ -1,0 +1,558 @@
+import { buildLegacyTechPackFromTechnicalVersion } from '../pcs-technical-data-fcs-adapter.ts'
+import { findStyleArchiveByCode } from '../pcs-style-archive-repository.ts'
+import {
+  getCurrentTechPackVersionByStyleId,
+  getTechnicalDataVersionContentById,
+} from '../pcs-technical-data-version-repository.ts'
+import type { StyleArchiveShellRecord } from '../pcs-style-archive-types.ts'
+import type { TechPack } from './tech-packs.ts'
+import type { ProductionDemand } from './production-demands.ts'
+import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import type {
+  TechnicalAttachment,
+  TechnicalBomItem,
+  TechnicalColorMaterialMapping,
+  TechnicalDataVersionContent,
+  TechnicalDataVersionRecord,
+  TechnicalPatternDesign,
+  TechnicalPatternFile,
+  TechnicalProcessEntry,
+  TechnicalQualityRule,
+  TechnicalSizeRow,
+} from '../pcs-technical-data-version-types.ts'
+
+export interface DemandCurrentTechPackInfo {
+  styleId: string
+  styleCode: string
+  styleName: string
+  currentTechPackVersionId: string
+  currentTechPackVersionCode: string
+  currentTechPackVersionLabel: string
+  publishedAt: string
+  completenessScore: number
+  linkedRevisionTaskIds: string[]
+  linkedPatternTaskIds: string[]
+  linkedArtworkTaskIds: string[]
+  canConvertToProductionOrder: boolean
+  blockReason: string
+}
+
+export interface DemandCurrentTechPackSource {
+  style: StyleArchiveShellRecord
+  record: TechnicalDataVersionRecord
+  content: TechnicalDataVersionContent
+}
+
+function clonePatternFiles(items: TechnicalPatternFile[]): TechnicalPatternFile[] {
+  return items.map((item) => ({
+    ...item,
+    pieceRows: item.pieceRows?.map((row) => ({
+      ...row,
+      applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+    })),
+  }))
+}
+
+function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
+  return items.map((item) => ({
+    ...item,
+    detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+  }))
+}
+
+function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
+  return items.map((item) => ({ ...item }))
+}
+
+function cloneBomItems(items: TechnicalBomItem[]): TechnicalBomItem[] {
+  return items.map((item) => ({
+    ...item,
+    applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    usageProcessCodes: [...(item.usageProcessCodes ?? [])],
+  }))
+}
+
+function cloneQualityRules(items: TechnicalQualityRule[]): TechnicalQualityRule[] {
+  return items.map((item) => ({ ...item }))
+}
+
+function cloneColorMappings(items: TechnicalColorMaterialMapping[]): TechnicalColorMaterialMapping[] {
+  return items.map((item) => ({
+    ...item,
+    lines: item.lines.map((line) => ({
+      ...line,
+      applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
+    })),
+  }))
+}
+
+function clonePatternDesigns(items: TechnicalPatternDesign[]): TechnicalPatternDesign[] {
+  return items.map((item) => ({ ...item }))
+}
+
+function cloneAttachments(items: TechnicalAttachment[]): TechnicalAttachment[] {
+  return items.map((item) => ({ ...item }))
+}
+
+export function cloneProductionOrderTechPackSnapshot(
+  snapshot: ProductionOrderTechPackSnapshot | null,
+): ProductionOrderTechPackSnapshot | null {
+  if (!snapshot) return null
+  return {
+    ...snapshot,
+    bomItems: cloneBomItems(snapshot.bomItems),
+    patternFiles: clonePatternFiles(snapshot.patternFiles),
+    processEntries: cloneProcessEntries(snapshot.processEntries),
+    sizeTable: cloneSizeTable(snapshot.sizeTable),
+    qualityRules: cloneQualityRules(snapshot.qualityRules),
+    colorMaterialMappings: cloneColorMappings(snapshot.colorMaterialMappings),
+    patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
+    attachments: cloneAttachments(snapshot.attachments),
+    linkedRevisionTaskIds: [...snapshot.linkedRevisionTaskIds],
+    linkedPatternTaskIds: [...snapshot.linkedPatternTaskIds],
+    linkedArtworkTaskIds: [...snapshot.linkedArtworkTaskIds],
+  }
+}
+
+function createSnapshotId(productionOrderNo: string): string {
+  return `TPS-${productionOrderNo}`
+}
+
+function buildSnapshotFromSource(input: {
+  productionOrderId: string
+  productionOrderNo: string
+  style: StyleArchiveShellRecord
+  record: TechnicalDataVersionRecord
+  content: TechnicalDataVersionContent
+  snapshotAt: string
+  snapshotBy: string
+}): ProductionOrderTechPackSnapshot {
+  const { productionOrderId, productionOrderNo, style, record, content, snapshotAt, snapshotBy } = input
+  return {
+    snapshotId: createSnapshotId(productionOrderNo),
+    productionOrderId,
+    productionOrderNo,
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    sourceTechPackVersionId: record.technicalVersionId,
+    sourceTechPackVersionCode: record.technicalVersionCode,
+    sourceTechPackVersionLabel: record.versionLabel,
+    sourcePublishedAt: record.publishedAt,
+    snapshotAt,
+    snapshotBy,
+    patternDesc: content.patternDesc || '',
+    bomItems: cloneBomItems(content.bomItems),
+    patternFiles: clonePatternFiles(content.patternFiles),
+    processEntries: cloneProcessEntries(content.processEntries),
+    sizeTable: cloneSizeTable(content.sizeTable),
+    qualityRules: cloneQualityRules(content.qualityRules),
+    colorMaterialMappings: cloneColorMappings(content.colorMaterialMappings),
+    patternDesigns: clonePatternDesigns(content.patternDesigns),
+    attachments: cloneAttachments(content.attachments),
+    linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+    linkedPatternTaskIds: [...record.linkedPatternTaskIds],
+    linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
+    completenessScore: record.completenessScore,
+  }
+}
+
+function buildFallbackSizeTable(demand: Pick<ProductionDemand, 'skuLines'>): TechnicalSizeRow[] {
+  const sizeSet = Array.from(new Set(demand.skuLines.map((item) => item.size)))
+  const has = (size: string) => sizeSet.includes(size)
+  return [
+    {
+      id: 'seed-size-1',
+      part: '胸围',
+      S: has('S') ? 48 : 0,
+      M: has('M') ? 50 : 0,
+      L: has('L') ? 52 : 0,
+      XL: has('XL') ? 54 : 0,
+      tolerance: 1,
+    },
+  ]
+}
+
+export function buildSeedProductionOrderTechPackSnapshot(input: {
+  productionOrderId: string
+  productionOrderNo: string
+  demand: Pick<ProductionDemand, 'spuCode' | 'spuName' | 'skuLines' | 'techPackVersionLabel' | 'techPackStatus'>
+  snapshotAt: string
+  snapshotBy: string
+}): ProductionOrderTechPackSnapshot {
+  const { productionOrderId, productionOrderNo, demand, snapshotAt, snapshotBy } = input
+  const firstSku = demand.skuLines[0]
+  const primaryColor = firstSku?.color || '默认色'
+  const primarySkuCode = firstSku?.skuCode || `${demand.spuCode}-SKU-001`
+  const primarySize = firstSku?.size || 'M'
+  const sourceVersionLabel =
+    demand.techPackStatus === 'RELEASED'
+      ? demand.techPackVersionLabel || 'v1.0'
+      : '草稿快照'
+
+  return {
+    snapshotId: createSnapshotId(productionOrderNo),
+    productionOrderId,
+    productionOrderNo,
+    styleId: '',
+    styleCode: demand.spuCode,
+    styleName: demand.spuName,
+    sourceTechPackVersionId: `seed-tech-pack-${productionOrderId}`,
+    sourceTechPackVersionCode: `TP-SNAPSHOT-${productionOrderNo}`,
+    sourceTechPackVersionLabel: sourceVersionLabel,
+    sourcePublishedAt: demand.techPackStatus === 'RELEASED' ? snapshotAt : '',
+    snapshotAt,
+    snapshotBy,
+    patternDesc: '历史生产单初始化快照',
+    bomItems: [
+      {
+        id: `seed-bom-${productionOrderId}-1`,
+        type: '面料',
+        name: '主面料',
+        spec: `${primaryColor} 主面料`,
+        colorLabel: primaryColor,
+        unitConsumption: 1.2,
+        lossRate: 0.03,
+        supplier: '历史供应商',
+        applicableSkuCodes: [primarySkuCode],
+        linkedPatternIds: [`seed-pattern-${productionOrderId}-1`],
+        usageProcessCodes: ['SEW'],
+      },
+      {
+        id: `seed-bom-${productionOrderId}-2`,
+        type: '辅料',
+        name: '辅料包',
+        spec: `适配 ${primarySize}`,
+        unitConsumption: 1,
+        lossRate: 0.01,
+        supplier: '历史辅料商',
+        applicableSkuCodes: [primarySkuCode],
+        linkedPatternIds: [],
+        usageProcessCodes: ['PACK'],
+      },
+    ],
+    patternFiles: [
+      {
+        id: `seed-pattern-${productionOrderId}-1`,
+        fileName: `${demand.spuCode}-纸样.dxf`,
+        fileUrl: `local://seed-pattern/${productionOrderId}`,
+        uploadedAt: snapshotAt,
+        uploadedBy: snapshotBy,
+        totalPieceCount: 6,
+        pieceRows: [
+          {
+            id: `seed-piece-${productionOrderId}-1`,
+            name: '前片',
+            count: 2,
+            applicableSkuCodes: [primarySkuCode],
+          },
+          {
+            id: `seed-piece-${productionOrderId}-2`,
+            name: '后片',
+            count: 2,
+            applicableSkuCodes: [primarySkuCode],
+          },
+        ],
+      },
+    ],
+    processEntries: [
+      {
+        id: `seed-process-${productionOrderId}-1`,
+        entryType: 'PROCESS_BASELINE',
+        stageCode: 'PREP',
+        stageName: '前准备',
+        processCode: 'SEW',
+        processName: '车缝',
+        assignmentGranularity: 'ORDER',
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        standardTimeMinutes: 12,
+        timeUnit: '分钟/件',
+      },
+      {
+        id: `seed-process-${productionOrderId}-2`,
+        entryType: 'CRAFT',
+        stageCode: 'POST',
+        stageName: '后整理',
+        processCode: 'PACK',
+        processName: '包装',
+        assignmentGranularity: 'ORDER',
+        defaultDocType: 'TASK',
+        taskTypeMode: 'PROCESS',
+        isSpecialCraft: false,
+        standardTimeMinutes: 4,
+        timeUnit: '分钟/件',
+      },
+    ],
+    sizeTable: buildFallbackSizeTable(demand),
+    qualityRules: [
+      {
+        id: `seed-quality-${productionOrderId}-1`,
+        checkItem: '车缝平整度',
+        standardText: '无线头、无明显起皱',
+        samplingRule: '抽检',
+        note: '',
+      },
+    ],
+    colorMaterialMappings: [
+      {
+        id: `seed-mapping-${productionOrderId}-1`,
+        spuCode: demand.spuCode,
+        colorCode: primaryColor,
+        colorName: primaryColor,
+        status: 'CONFIRMED',
+        generatedMode: 'MANUAL',
+        lines: [
+          {
+            id: `seed-mapping-line-${productionOrderId}-1`,
+            bomItemId: `seed-bom-${productionOrderId}-1`,
+            materialName: '主面料',
+            materialType: '面料',
+            patternId: `seed-pattern-${productionOrderId}-1`,
+            patternName: '主纸样',
+            unit: '米',
+            applicableSkuCodes: [primarySkuCode],
+            sourceMode: 'MANUAL',
+          },
+        ],
+      },
+    ],
+    patternDesigns: [
+      {
+        id: `seed-design-${productionOrderId}-1`,
+        name: `${demand.spuName} 设计稿`,
+        imageUrl: '/placeholder.svg?height=80&width=80',
+      },
+    ],
+    attachments: [
+      {
+        id: `seed-attachment-${productionOrderId}-1`,
+        fileName: `${demand.spuCode}-说明.pdf`,
+        fileType: 'PDF',
+        fileSize: '128 KB',
+        uploadedAt: snapshotAt,
+        uploadedBy: snapshotBy,
+        downloadUrl: `local://seed-attachment/${productionOrderId}`,
+      },
+    ],
+    linkedRevisionTaskIds: [],
+    linkedPatternTaskIds: [],
+    linkedArtworkTaskIds: [],
+    completenessScore: demand.techPackStatus === 'RELEASED' ? 100 : 60,
+  }
+}
+
+export function resolveCurrentTechPackSourceForDemand(
+  demand: Pick<ProductionDemand, 'spuCode'>,
+): DemandCurrentTechPackSource | null {
+  const style = findStyleArchiveByCode(demand.spuCode)
+  if (!style) return null
+
+  const record = getCurrentTechPackVersionByStyleId(style.styleId)
+  if (!record || !style.currentTechPackVersionId) return null
+
+  const content = getTechnicalDataVersionContentById(record.technicalVersionId)
+  if (!content) return null
+
+  return {
+    style,
+    record,
+    content,
+  }
+}
+
+export function getDemandCurrentTechPackInfo(
+  demand: Pick<ProductionDemand, 'spuCode'>,
+): DemandCurrentTechPackInfo {
+  const style = findStyleArchiveByCode(demand.spuCode)
+  if (!style) {
+    return {
+      styleId: '',
+      styleCode: demand.spuCode,
+      styleName: '',
+      currentTechPackVersionId: '',
+      currentTechPackVersionCode: '',
+      currentTechPackVersionLabel: '',
+      publishedAt: '',
+      completenessScore: 0,
+      linkedRevisionTaskIds: [],
+      linkedPatternTaskIds: [],
+      linkedArtworkTaskIds: [],
+      canConvertToProductionOrder: false,
+      blockReason: '当前需求未关联正式款式档案',
+    }
+  }
+
+  const record = getCurrentTechPackVersionByStyleId(style.styleId)
+  if (!style.currentTechPackVersionId || !record) {
+    return {
+      styleId: style.styleId,
+      styleCode: style.styleCode,
+      styleName: style.styleName,
+      currentTechPackVersionId: '',
+      currentTechPackVersionCode: '',
+      currentTechPackVersionLabel: '',
+      publishedAt: '',
+      completenessScore: 0,
+      linkedRevisionTaskIds: [],
+      linkedPatternTaskIds: [],
+      linkedArtworkTaskIds: [],
+      canConvertToProductionOrder: false,
+      blockReason: '当前款式尚未启用技术包版本',
+    }
+  }
+
+  if (record.versionStatus !== 'PUBLISHED') {
+    return {
+      styleId: style.styleId,
+      styleCode: style.styleCode,
+      styleName: style.styleName,
+      currentTechPackVersionId: record.technicalVersionId,
+      currentTechPackVersionCode: record.technicalVersionCode,
+      currentTechPackVersionLabel: record.versionLabel,
+      publishedAt: record.publishedAt,
+      completenessScore: record.completenessScore,
+      linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+      linkedPatternTaskIds: [...record.linkedPatternTaskIds],
+      linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
+      canConvertToProductionOrder: false,
+      blockReason: '当前生效技术包版本未发布',
+    }
+  }
+
+  const content = getTechnicalDataVersionContentById(record.technicalVersionId)
+  if (!content) {
+    return {
+      styleId: style.styleId,
+      styleCode: style.styleCode,
+      styleName: style.styleName,
+      currentTechPackVersionId: record.technicalVersionId,
+      currentTechPackVersionCode: record.technicalVersionCode,
+      currentTechPackVersionLabel: record.versionLabel,
+      publishedAt: record.publishedAt,
+      completenessScore: record.completenessScore,
+      linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+      linkedPatternTaskIds: [...record.linkedPatternTaskIds],
+      linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
+      canConvertToProductionOrder: false,
+      blockReason: '当前生效技术包版本缺少正式内容',
+    }
+  }
+
+  return {
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    currentTechPackVersionId: record.technicalVersionId,
+    currentTechPackVersionCode: record.technicalVersionCode,
+    currentTechPackVersionLabel: record.versionLabel,
+    publishedAt: record.publishedAt,
+    completenessScore: record.completenessScore,
+    linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+    linkedPatternTaskIds: [...record.linkedPatternTaskIds],
+    linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
+    canConvertToProductionOrder: true,
+    blockReason: '',
+  }
+}
+
+export function buildProductionOrderTechPackSnapshot(input: {
+  productionOrderId: string
+  productionOrderNo: string
+  demand: Pick<ProductionDemand, 'spuCode'>
+  snapshotAt: string
+  snapshotBy: string
+}): ProductionOrderTechPackSnapshot {
+  const source = resolveCurrentTechPackSourceForDemand(input.demand)
+  if (!source) {
+    const info = getDemandCurrentTechPackInfo(input.demand)
+    throw new Error(info.blockReason || '当前需求未关联可用技术包版本')
+  }
+
+  if (source.record.versionStatus !== 'PUBLISHED') {
+    throw new Error('当前生效技术包版本未发布')
+  }
+
+  return buildSnapshotFromSource({
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    style: source.style,
+    record: source.record,
+    content: source.content,
+    snapshotAt: input.snapshotAt,
+    snapshotBy: input.snapshotBy,
+  })
+}
+
+export function buildCompatTechPackFromProductionSnapshot(snapshot: ProductionOrderTechPackSnapshot): TechPack {
+  const mockRecord: TechnicalDataVersionRecord = {
+    technicalVersionId: snapshot.sourceTechPackVersionId,
+    technicalVersionCode: snapshot.sourceTechPackVersionCode,
+    versionLabel: snapshot.sourceTechPackVersionLabel,
+    versionNo: 1,
+    styleId: snapshot.styleId,
+    styleCode: snapshot.styleCode,
+    styleName: snapshot.styleName,
+    sourceProjectId: '',
+    sourceProjectCode: '',
+    sourceProjectName: '',
+    sourceProjectNodeId: '',
+    linkedRevisionTaskIds: [...snapshot.linkedRevisionTaskIds],
+    linkedPatternTaskIds: [...snapshot.linkedPatternTaskIds],
+    linkedArtworkTaskIds: [...snapshot.linkedArtworkTaskIds],
+    createdFromTaskType: 'REVISION',
+    createdFromTaskId: '',
+    createdFromTaskCode: '',
+    baseTechnicalVersionId: '',
+    baseTechnicalVersionCode: '',
+    linkedPartTemplateIds: [],
+    linkedPatternLibraryVersionIds: [],
+    versionStatus: snapshot.sourcePublishedAt ? 'PUBLISHED' : 'DRAFT',
+    bomStatus: snapshot.bomItems.length > 0 ? 'COMPLETE' : 'EMPTY',
+    patternStatus: snapshot.patternFiles.length > 0 ? 'COMPLETE' : 'EMPTY',
+    processStatus: snapshot.processEntries.length > 0 ? 'COMPLETE' : 'EMPTY',
+    gradingStatus: snapshot.sizeTable.length > 0 ? 'COMPLETE' : 'EMPTY',
+    qualityStatus: snapshot.qualityRules.length > 0 ? 'COMPLETE' : 'EMPTY',
+    colorMaterialStatus: snapshot.colorMaterialMappings.length > 0 ? 'COMPLETE' : 'EMPTY',
+    designStatus: snapshot.patternDesigns.length > 0 ? 'COMPLETE' : 'EMPTY',
+    attachmentStatus: snapshot.attachments.length > 0 ? 'COMPLETE' : 'EMPTY',
+    bomItemCount: snapshot.bomItems.length,
+    patternFileCount: snapshot.patternFiles.length,
+    processEntryCount: snapshot.processEntries.length,
+    gradingRuleCount: snapshot.sizeTable.length,
+    qualityRuleCount: snapshot.qualityRules.length,
+    colorMaterialMappingCount: snapshot.colorMaterialMappings.length,
+    designAssetCount: snapshot.patternDesigns.length,
+    attachmentCount: snapshot.attachments.length,
+    completenessScore: snapshot.completenessScore,
+    missingItemCodes: [],
+    missingItemNames: [],
+    publishedAt: snapshot.sourcePublishedAt,
+    publishedBy: snapshot.snapshotBy,
+    createdAt: snapshot.snapshotAt,
+    createdBy: snapshot.snapshotBy,
+    updatedAt: snapshot.snapshotAt,
+    updatedBy: snapshot.snapshotBy,
+    note: '生产单技术包快照兼容对象',
+    legacySpuCode: snapshot.styleCode,
+    legacyVersionLabel: snapshot.sourceTechPackVersionLabel,
+  }
+
+  const mockContent: TechnicalDataVersionContent = {
+    technicalVersionId: snapshot.sourceTechPackVersionId,
+    patternFiles: clonePatternFiles(snapshot.patternFiles),
+    patternDesc: snapshot.patternDesc,
+    processEntries: cloneProcessEntries(snapshot.processEntries),
+    sizeTable: cloneSizeTable(snapshot.sizeTable),
+    bomItems: cloneBomItems(snapshot.bomItems),
+    qualityRules: cloneQualityRules(snapshot.qualityRules),
+    colorMaterialMappings: cloneColorMappings(snapshot.colorMaterialMappings),
+    patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
+    attachments: cloneAttachments(snapshot.attachments),
+    legacyCompatibleCostPayload: {},
+  }
+
+  return buildLegacyTechPackFromTechnicalVersion(mockRecord, mockContent)
+}

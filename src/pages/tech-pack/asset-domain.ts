@@ -6,7 +6,7 @@ import {
 export function renderDesignTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = state.compatibilityMode
+  const readonly = false
 
   return `
     <section class="rounded-lg border bg-card">
@@ -54,7 +54,7 @@ export function renderDesignTab(): string {
 export function renderAttachmentsTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = state.compatibilityMode
+  const readonly = false
 
   return `
     <section class="rounded-lg border bg-card">

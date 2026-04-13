@@ -1,4 +1,33 @@
-import { defineConfig } from 'vite'
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { defineConfig, type Plugin } from 'vite'
+
+function ensureStaticPlaceholderAsset(root: string): void {
+  const source = resolve(root, 'public/placeholder.svg')
+  const target = resolve(root, 'dist-manifest/placeholder.svg')
+
+  if (!existsSync(source) || existsSync(target)) {
+    return
+  }
+
+  mkdirSync(dirname(target), { recursive: true })
+  copyFileSync(source, target)
+}
+
+function ensureStaticPlaceholderPlugin(): Plugin {
+  return {
+    name: 'ensure-static-placeholder-asset',
+    configResolved(config) {
+      ensureStaticPlaceholderAsset(config.root)
+    },
+    configureServer(server) {
+      ensureStaticPlaceholderAsset(server.config.root)
+    },
+    buildStart() {
+      ensureStaticPlaceholderAsset(process.cwd())
+    },
+  }
+}
 
 function normalizeId(id: string): string {
   return id.replace(/\\/g, '/')
@@ -36,6 +65,7 @@ function resolveManualChunk(id: string): string | undefined {
 }
 
 export default defineConfig({
+  plugins: [ensureStaticPlaceholderPlugin()],
   server: {
     port: 5173,
   },

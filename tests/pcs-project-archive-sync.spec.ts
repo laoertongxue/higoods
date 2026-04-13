@@ -8,9 +8,9 @@ import {
   listProjectArchiveDocumentsByArchiveId,
 } from '../src/data/pcs-project-archive-repository.ts'
 import { syncProjectArchive } from '../src/data/pcs-project-archive-sync.ts'
-import { createTechnicalDataVersionFromProject } from '../src/data/pcs-project-technical-data-writeback.ts'
 import {
   createArchiveTestProject,
+  createDraftTechnicalVersionForArchiveProject,
   createFirstSampleRecordForArchiveProject,
   createProjectArchiveForTest,
   createPublishedTechnicalVersionForArchiveProject,
@@ -28,14 +28,14 @@ const beforeCount = listProjectArchiveDocumentsByArchiveId(archive.projectArchiv
 const technicalVersion = createPublishedTechnicalVersionForArchiveProject(context.projectId)
 const afterTechnical = getProjectArchiveByProjectId(context.projectId)!
 const afterTechnicalDocuments = listProjectArchiveDocumentsByArchiveId(afterTechnical.projectArchiveId)
-assert.ok(afterTechnicalDocuments.length > beforeCount, '技术资料版本正式写入后应自动同步到项目资料归档')
+assert.ok(afterTechnicalDocuments.length > beforeCount, '技术包版本正式写入后应自动同步到项目资料归档')
 assert.ok(
   afterTechnicalDocuments.some(
     (item) =>
       item.documentGroup === 'TECHNICAL_DATA' &&
       item.sourceObjectId === technicalVersion.technicalVersionId,
   ),
-  '归档对象应自动收集正式技术资料版本资料',
+  '归档对象应自动收集正式技术包版本资料',
 )
 
 const revisionResult = createRevisionRecordForArchiveProject(context.projectId)
@@ -79,7 +79,7 @@ assert.equal(transferNode!.latestInstanceId, afterFirstSample.projectArchiveId, 
 resetArchiveScenarioRepositories()
 const noArchiveContext = createArchiveTestProject('no-auto-create')
 generateStyleShellForArchiveProject(noArchiveContext.projectId)
-createTechnicalDataVersionFromProject(noArchiveContext.projectId, '测试用户')
+createDraftTechnicalVersionForArchiveProject(noArchiveContext.projectId)
 assert.equal(
   getProjectArchiveByProjectId(noArchiveContext.projectId),
   null,

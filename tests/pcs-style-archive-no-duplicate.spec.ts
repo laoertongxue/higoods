@@ -1,34 +1,13 @@
 import assert from 'node:assert/strict'
-import {
-  getProjectNodeRecordByWorkItemTypeCode,
-  listProjects,
-  resetProjectRepository,
-  updateProjectRecord,
-} from '../src/data/pcs-project-repository.ts'
-import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { generateStyleArchiveShellFromProject } from '../src/data/pcs-project-style-archive-writeback.ts'
 import {
   findStyleArchiveByProjectId,
   listStyleArchivePendingItems,
   listStyleArchives,
-  resetStyleArchiveRepository,
 } from '../src/data/pcs-style-archive-repository.ts'
+import { prepareProjectWithPassedTesting } from './pcs-project-formal-chain-helper.ts'
 
-resetProjectRepository()
-resetProjectRelationRepository()
-resetStyleArchiveRepository()
-
-const project = listProjects().find((item) => getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'STYLE_ARCHIVE_CREATE'))
-assert.ok(project, '应存在初始化项目')
-updateProjectRecord(project.projectId, {
-  projectStatus: '进行中',
-  currentPhaseCode: 'PHASE_04',
-  currentPhaseName: '开发推进',
-  linkedStyleId: '',
-  linkedStyleCode: '',
-  linkedStyleName: '',
-  linkedStyleGeneratedAt: '',
-}, '测试用户')
+const project = prepareProjectWithPassedTesting('款式档案唯一性测试项目')
 
 const beforeCount = listStyleArchives().length
 const first = generateStyleArchiveShellFromProject(project.projectId, '测试用户')

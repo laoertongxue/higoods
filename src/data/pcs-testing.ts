@@ -359,7 +359,7 @@ const LIVE_ITEM_SEED: Record<string, LiveSessionItem[]> = {
     {
       id: 'item-001',
       intent: 'TEST',
-      projectRef: 'PRJ-20260115-001',
+      projectRef: null,
       productRef: 'SPU-A001',
       productName: '印尼风格碎花连衣裙',
       sku: 'SKU-A001-M-RED',
@@ -380,7 +380,7 @@ const LIVE_ITEM_SEED: Record<string, LiveSessionItem[]> = {
     {
       id: 'item-002',
       intent: 'TEST',
-      projectRef: 'PRJ-20260115-002',
+      projectRef: null,
       productRef: 'SPU-B002',
       productName: '波西米亚风半身裙',
       sku: 'SKU-B002-L-BLUE',
@@ -422,7 +422,7 @@ const LIVE_ITEM_SEED: Record<string, LiveSessionItem[]> = {
     {
       id: 'item-004',
       intent: 'TEST',
-      projectRef: 'PRJ-20260115-003',
+      projectRef: null,
       productRef: 'SPU-D004',
       productName: '牛仔短裤夏季款',
       sku: 'SKU-D004-S-DENIM',
@@ -608,7 +608,7 @@ const VIDEO_ITEM_SEED: Record<string, VideoItem[]> = {
     {
       id: 'SVI-002',
       evaluationIntent: 'TEST',
-      projectRef: 'PRJ-20251220-002',
+      projectRef: null,
       productRef: 'CAND-20260108-001',
       productName: '波西米亚风印花半身裙',
       sku: 'SKU-221',
@@ -658,20 +658,7 @@ const VIDEO_LOG_SEED: Record<string, VideoLog[]> = {
   ],
 }
 
-const LEGACY_TESTING_PROJECT_REFERENCE_SEED: LegacyTestingProjectReference[] = [
-  {
-    sourceType: '直播场次头',
-    sourceId: 'LS-20260122-001',
-    projectRef: 'PRJ-20251216-001',
-    note: '历史场次头项目字段，仅供迁移判断，不得作为正式项目关系来源。',
-  },
-  {
-    sourceType: '短视频记录',
-    sourceId: 'SV-20260122-008',
-    projectRef: 'PRJ-20251216-001',
-    note: '历史短视频项目字段，仅保留为迁移痕迹。',
-  },
-]
+const LEGACY_TESTING_PROJECT_REFERENCE_SEED: LegacyTestingProjectReference[] = []
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T

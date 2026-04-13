@@ -5,49 +5,35 @@ function read(relativePath: string) {
   return readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
 }
 
-const contextSource = read('src/pages/tech-pack/context.ts')
-assert.ok(!contextSource.includes('getOrCreateTechPack'), '技术资料页面上下文不应再以旧 FCS 技术包作为正式主来源')
-assert.ok(!contextSource.includes('updateTechPack('), '技术资料页面上下文不应再直接写旧 FCS 技术包对象')
+const serviceSource = read('src/data/pcs-tech-pack-task-generation.ts')
+assert.ok(serviceSource.includes('generateTechPackVersionFromRevisionTask'), '必须存在改版任务生成技术包版本服务')
+assert.ok(serviceSource.includes('generateTechPackVersionFromPlateTask'), '必须存在制版任务生成技术包版本服务')
+assert.ok(serviceSource.includes('generateTechPackVersionFromPatternTask'), '必须存在花型任务生成技术包版本服务')
+assert.ok(!serviceSource.includes('createTechnicalDataVersionFromStyle'), '不应保留从款式直接生成技术包版本旧方法')
+assert.ok(!serviceSource.includes('createTechnicalDataVersionFromProject'), '不应保留从项目直接生成技术包版本旧方法')
 
-const repositorySource = read('src/data/pcs-technical-data-version-repository.ts')
-assert.ok(repositorySource.includes('createTechnicalDataVersionDraft'), '必须存在正式技术资料版本仓储')
-
-const writebackSource = read('src/data/pcs-project-technical-data-writeback.ts')
-assert.ok(writebackSource.includes('upsertProjectRelation'), '技术资料版本正式写入必须写项目关系仓储')
-assert.ok(writebackSource.includes('updateProjectNodeRecord'), '技术资料版本正式写入必须回写项目节点')
-assert.ok(writebackSource.includes('updateStyleArchive'), '技术资料版本正式写入必须回写款式档案')
-assert.ok(writebackSource.includes('updateProjectRecord'), '技术资料版本正式写入必须回写商品项目主记录')
-
-const qualitySource = read('src/pages/tech-pack/quality-domain.ts')
-assert.ok(qualitySource.includes('质检标准'), '必须存在正式质检标准域页面')
+const typesSource = read('src/data/pcs-technical-data-version-types.ts')
+assert.ok(typesSource.includes('linkedRevisionTaskIds'), '技术包版本类型必须包含 linkedRevisionTaskIds')
+assert.ok(typesSource.includes('createdFromTaskType'), '技术包版本类型必须包含 createdFromTaskType')
+assert.ok(typesSource.includes('baseTechnicalVersionId'), '技术包版本类型必须包含 baseTechnicalVersionId')
 
 const styleDetailSource = read('src/pages/pcs-product-style-detail.ts')
-assert.ok(!styleDetailSource.includes('STYLE_EXTRA_BY_ID'), '款式档案详情页不应再用 STYLE_EXTRA_BY_ID 主导技术资料版本显示')
-assert.ok(styleDetailSource.includes('buildTechnicalVersionListByStyle'), '款式档案详情页应读取正式技术资料版本视图模型')
+assert.ok(!styleDetailSource.includes('新建技术包版本'), '款式档案页不应保留新建技术包版本按钮')
+assert.ok(!styleDetailSource.includes('复制为新版本'), '款式档案页不应保留复制为新版本按钮')
+assert.ok(styleDetailSource.includes('查看来源任务'), '款式档案页应保留来源任务查看入口')
 
-const styleListSource = read('src/pages/pcs-product-spu.ts')
-assert.ok(!styleListSource.includes('mockSPUs'), '款式档案列表页不应再以内置 mockSPUs 作为正式主来源')
-assert.ok(styleListSource.includes('effectiveTechnicalVersionText'), '款式档案列表页应展示正式当前生效技术资料版本信息')
-
-const routeSource = read('src/router/routes.ts')
-assert.ok(routeSource.includes('technical-data') && routeSource.includes('renderTechPackPage'), '必须存在 PCS 正式技术资料版本详情路由')
-assert.ok(routeSource.includes('fcs\\/tech-pack'), '必须保留 FCS 技术资料兼容入口')
-assert.ok(routeSource.includes('compatibilityMode: true'), 'FCS 技术资料兼容入口应显式进入兼容模式')
-
-const coreSource = read('src/pages/tech-pack/core.ts')
-assert.ok(coreSource.includes('技术资料版本 -'), '技术资料页面主标题应统一为技术资料版本')
-assert.ok(!coreSource.includes('技术包 -'), '技术资料页面主标题不应继续使用技术包')
-
-assert.ok(!contextSource.includes("key: 'cost'"), '成本页签不应进入技术资料正式关键项校验')
+const activationSource = read('src/data/pcs-tech-pack-version-activation.ts')
+assert.ok(activationSource.includes("archiveStatus: 'ACTIVE'"), '启用技术包版本后必须把款式档案切为可生产')
+assert.ok(activationSource.includes('syncProjectChannelProductAfterTechPackActivation'), '启用技术包版本后必须同步上游最终更新')
 
 const projectDetailSource = read('src/pages/pcs-project-detail.ts')
-assert.ok(projectDetailSource.includes('create-technical-version'), '项目详情页必须提供正式新建技术资料版本入口')
-assert.ok(projectDetailSource.includes('go-technical-version'), '项目详情页必须提供正式查看技术资料版本入口')
-assert.ok(projectDetailSource.includes('technicalVersionDetail'), '项目详情页必须读取正式技术资料版本关系视图数据')
+assert.ok(!projectDetailSource.includes('新建技术包版本'), '商品项目页不应保留新建技术包版本按钮')
+assert.ok(projectDetailSource.includes('查看技术包版本'), '商品项目页应保留查看技术包版本入口')
+assert.ok(projectDetailSource.includes('来源任务链'), '商品项目页应展示来源任务链')
 
-const nodeDetailSource = read('src/pages/pcs-project-work-item-detail.ts')
-assert.ok(nodeDetailSource.includes('create-technical-version'), '项目节点详情页必须提供正式新建技术资料版本入口')
-assert.ok(nodeDetailSource.includes('go-technical-version'), '项目节点详情页必须提供正式查看技术资料版本入口')
-assert.ok(nodeDetailSource.includes('technicalVersionDetail'), '项目节点详情页必须读取正式技术资料版本关系视图数据')
+const projectNodeSource = read('src/pages/pcs-project-work-item-detail.ts')
+assert.ok(!projectNodeSource.includes('新建技术包版本'), '项目节点页不应保留新建技术包版本按钮')
+assert.ok(projectNodeSource.includes('最近关联技术包版本编号'), '项目节点页应保留技术包版本链路字段')
+assert.ok(projectNodeSource.includes('来源任务链'), '项目节点页应展示来源任务链')
 
 console.log('check-pcs-technical-version-relations.ts PASS')

@@ -24,6 +24,11 @@ export interface PatternTaskRecord {
   patternMode: string
   artworkName: string
   artworkVersion: string
+  linkedTechPackVersionId: string
+  linkedTechPackVersionCode: string
+  linkedTechPackVersionLabel: string
+  linkedTechPackVersionStatus: string
+  linkedTechPackUpdatedAt: string
   status: PatternTaskStatus
   ownerId: string
   ownerName: string

@@ -1,13 +1,18 @@
 import { productionDemands, type ProductionDemand } from './production-demands.ts'
-import { getCompatTechPackBySpuCode, type TechPack } from '../pcs-technical-data-runtime-source.ts'
-import type { DemandSnapshot, TechPackSnapshot } from './production-orders.ts'
+import {
+  buildProductionOrderTechPackSnapshot,
+  getDemandCurrentTechPackInfo,
+} from './production-tech-pack-snapshot-builder.ts'
+import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import type { DemandSnapshot } from './production-orders.ts'
 
 export interface ProductionUpstreamValidationIssue {
   code:
     | 'DEMAND_NOT_FOUND'
     | 'DEMAND_NOT_CONVERTED'
-    | 'TECH_PACK_NOT_FOUND'
-    | 'TECH_PACK_NOT_RELEASED'
+    | 'STYLE_ARCHIVE_NOT_FOUND'
+    | 'CURRENT_TECH_PACK_MISSING'
+    | 'CURRENT_TECH_PACK_NOT_PUBLISHED'
     | 'DEMAND_ORDER_MISMATCH'
   message: string
 }
@@ -15,23 +20,12 @@ export interface ProductionUpstreamValidationIssue {
 export interface ProductionOrderUpstreamLink {
   productionOrderId: string
   demand: ProductionDemand
-  techPack: TechPack
-}
-
-function normalizeVersionLabel(versionLabel: string | null | undefined): string {
-  const trimmed = String(versionLabel || '').trim()
-  if (!trimmed || trimmed === '-' || trimmed.toLowerCase() === 'beta') return 'v1.0'
-  return trimmed
+  // FCS 下游只消费这里冻结出的生产单技术包快照。
+  techPackSnapshot: ProductionOrderTechPackSnapshot
 }
 
 export function getProductionDemandById(demandId: string): ProductionDemand | null {
   return productionDemands.find((item) => item.demandId === demandId) ?? null
-}
-
-export function getReleasedTechPackByDemand(demand: ProductionDemand): TechPack | null {
-  const techPack = getCompatTechPackBySpuCode(demand.spuCode)
-  if (!techPack || techPack.status !== 'RELEASED') return null
-  return techPack
 }
 
 export function buildProductionOrderDemandSnapshot(demand: ProductionDemand): DemandSnapshot {
@@ -46,18 +40,17 @@ export function buildProductionOrderDemandSnapshot(demand: ProductionDemand): De
   }
 }
 
-export function buildProductionOrderTechPackSnapshot(techPack: TechPack, snapshotAt = techPack.lastUpdatedAt): TechPackSnapshot {
-  return {
-    status: 'RELEASED',
-    versionLabel: normalizeVersionLabel(techPack.versionLabel),
-    snapshotAt,
-  }
-}
-
 export function validateDemandTechPackOrderLink(input: {
   productionOrderId: string
   demandId: string
-}): { ok: boolean; demand: ProductionDemand | null; techPack: TechPack | null; issues: ProductionUpstreamValidationIssue[] } {
+  snapshotAt?: string
+  snapshotBy?: string
+}): {
+  ok: boolean
+  demand: ProductionDemand | null
+  techPackSnapshot: ProductionOrderTechPackSnapshot | null
+  issues: ProductionUpstreamValidationIssue[]
+} {
   const issues: ProductionUpstreamValidationIssue[] = []
   const demand = getProductionDemandById(input.demandId)
   if (!demand) {
@@ -65,7 +58,7 @@ export function validateDemandTechPackOrderLink(input: {
       code: 'DEMAND_NOT_FOUND',
       message: `生产单 ${input.productionOrderId} 未找到需求 ${input.demandId}`,
     })
-    return { ok: false, demand: null, techPack: null, issues }
+    return { ok: false, demand: null, techPackSnapshot: null, issues }
   }
 
   if (demand.demandStatus !== 'CONVERTED') {
@@ -82,23 +75,43 @@ export function validateDemandTechPackOrderLink(input: {
     })
   }
 
-  const techPack = getCompatTechPackBySpuCode(demand.spuCode) ?? null
-  if (!techPack) {
+  const techPackInfo = getDemandCurrentTechPackInfo(demand)
+  if (!techPackInfo.styleId) {
     issues.push({
-      code: 'TECH_PACK_NOT_FOUND',
-      message: `需求 ${demand.demandId} 关联 SPU ${demand.spuCode} 的技术资料不存在`,
+      code: 'STYLE_ARCHIVE_NOT_FOUND',
+      message: '当前需求未关联正式款式档案',
     })
-  } else if (techPack.status !== 'RELEASED') {
+  } else if (!techPackInfo.currentTechPackVersionId) {
     issues.push({
-      code: 'TECH_PACK_NOT_RELEASED',
-      message: `需求 ${demand.demandId} 关联 SPU ${demand.spuCode} 的技术资料未发布`,
+      code: 'CURRENT_TECH_PACK_MISSING',
+      message: '当前款式尚未启用技术包版本',
+    })
+  } else if (!techPackInfo.canConvertToProductionOrder) {
+    issues.push({
+      code: 'CURRENT_TECH_PACK_NOT_PUBLISHED',
+      message: techPackInfo.blockReason || '当前生效技术包版本未发布',
     })
   }
 
+  if (issues.length > 0) {
+    return {
+      ok: false,
+      demand,
+      techPackSnapshot: null,
+      issues,
+    }
+  }
+
   return {
-    ok: issues.length === 0,
+    ok: true,
     demand,
-    techPack: techPack && techPack.status === 'RELEASED' ? techPack : null,
+    techPackSnapshot: buildProductionOrderTechPackSnapshot({
+      productionOrderId: input.productionOrderId,
+      productionOrderNo: input.productionOrderId,
+      demand,
+      snapshotAt: input.snapshotAt || demand.updatedAt,
+      snapshotBy: input.snapshotBy || '系统初始化',
+    }),
     issues,
   }
 }
@@ -107,12 +120,17 @@ export function listLinkedProductionOrders(): ProductionOrderUpstreamLink[] {
   return productionDemands
     .filter((demand) => demand.productionOrderId && demand.demandStatus === 'CONVERTED')
     .map((demand) => {
-      const techPack = getReleasedTechPackByDemand(demand)
-      if (!techPack) return null
+      const validation = validateDemandTechPackOrderLink({
+        productionOrderId: demand.productionOrderId!,
+        demandId: demand.demandId,
+        snapshotAt: demand.updatedAt,
+        snapshotBy: '系统初始化',
+      })
+      if (!validation.ok || !validation.demand || !validation.techPackSnapshot) return null
       return {
         productionOrderId: demand.productionOrderId!,
-        demand,
-        techPack,
+        demand: validation.demand,
+        techPackSnapshot: validation.techPackSnapshot,
       } satisfies ProductionOrderUpstreamLink
     })
     .filter((item): item is ProductionOrderUpstreamLink => Boolean(item))
@@ -120,10 +138,4 @@ export function listLinkedProductionOrders(): ProductionOrderUpstreamLink[] {
 
 export function resolveLinkedDemandForProductionOrder(orderId: string): ProductionDemand | null {
   return productionDemands.find((demand) => demand.productionOrderId === orderId) ?? null
-}
-
-export function resolveReleasedTechPackForProductionOrder(orderId: string): TechPack | null {
-  const demand = resolveLinkedDemandForProductionOrder(orderId)
-  if (!demand) return null
-  return getReleasedTechPackByDemand(demand)
 }

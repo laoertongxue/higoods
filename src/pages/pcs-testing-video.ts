@@ -3,12 +3,13 @@ import { escapeHtml } from '../utils'
 import { renderFormDialog } from '../components/ui/dialog'
 import { renderDrawer as uiDrawer } from '../components/ui'
 import { renderTablePagination } from '../components/ui/pagination'
-import { listProjects } from '../data/pcs-project-repository.ts'
 import {
   getProjectRelationProjectLabel,
+  listVideoRecordProjectRelationCandidates,
   listProjectRelationsByVideoRecord,
   replaceVideoRecordProjectRelations,
   unlinkVideoRecordProjectRelation,
+  type TestingProjectRelationCandidate,
 } from '../data/pcs-project-relation-repository.ts'
 import { getVideoTestRecordById } from '../data/pcs-video-testing-repository.ts'
 import {
@@ -29,6 +30,11 @@ import {
   type VideoPurpose,
   type VideoRecord,
 } from '../data/pcs-testing'
+import {
+  getVideoRecordOwnershipSummary,
+  matchTestingOwnershipFilter,
+  type TestingOwnershipFilter,
+} from '../data/pcs-testing-ownership.ts'
 
 type QuickFilter = 'all' | 'reconciling' | 'canClose' | 'pendingAccounting' | 'accounted'
 
@@ -53,6 +59,7 @@ interface DialogState {
 
 interface PageState {
   searchKeyword: string
+  ownershipFilter: TestingOwnershipFilter
   statusFilter: 'all' | SessionStatus
   purposeFilter: 'all' | VideoPurpose
   platformFilter: 'all' | VideoRecord['platform']
@@ -78,6 +85,7 @@ let records: VideoRecord[] = listVideoRecords()
 
 const state: PageState = {
   searchKeyword: '',
+  ownershipFilter: 'all',
   statusFilter: 'all',
   purposeFilter: 'all',
   platformFilter: 'all',
@@ -149,6 +157,33 @@ function getFilteredRows(): VideoRecord[] {
     if (state.purposeFilter !== 'all' && !row.purposes.includes(state.purposeFilter)) return false
     if (state.platformFilter !== 'all' && row.platform !== state.platformFilter) return false
     if (state.accountingFilter !== 'all' && row.testAccountingStatus !== state.accountingFilter) return false
+    const ownershipRecord = getVideoTestRecordById(row.id)
+    const ownershipSummary = getVideoRecordOwnershipSummary(
+      ownershipRecord ?? {
+        videoRecordId: row.id,
+        videoRecordCode: row.id,
+        videoTitle: row.title,
+        channelName: '',
+        businessDate: '',
+        publishedAt: row.publishedAt ?? '',
+        recordStatus: row.status,
+        styleCode: '',
+        spuCode: '',
+        skuCode: '',
+        colorCode: '',
+        sizeCode: '',
+        exposureQty: row.views,
+        clickQty: row.likes,
+        orderQty: 0,
+        gmvAmount: row.gmv,
+        ownerName: row.owner,
+        legacyProjectRef: null,
+        legacyProjectId: null,
+      },
+    )
+    if (!matchTestingOwnershipFilter(ownershipSummary, state.ownershipFilter)) {
+      return false
+    }
 
     if (state.quickFilter === 'reconciling' && row.status !== 'RECONCILING') return false
     if (state.quickFilter === 'canClose' && !(row.status === 'RECONCILING' && row.itemCount > 0)) return false
@@ -214,10 +249,49 @@ function renderKpis(): string {
   `
 }
 
+function renderOwnershipQuickFilters(): string {
+  const options: Array<{ key: TestingOwnershipFilter; label: string; desc: string }> = [
+    { key: 'all', label: '全部样本', desc: '查看正式项目测款与历史样本' },
+    { key: 'formal', label: '正式项目测款', desc: '只看已纳入正式商品项目链路的短视频测款' },
+    { key: 'history', label: '历史样本', desc: '只看独立历史样本和历史迁移样本' },
+  ]
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-semibold">样本归属快捷筛选</h2>
+          <p class="mt-1 text-xs text-muted-foreground">顶部标签用于快速切换正式项目测款和历史样本视图。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${options
+            .map(
+              (option) => `
+                <button
+                  class="rounded-md border px-3 py-2 text-left text-xs transition ${
+                    state.ownershipFilter === option.key
+                      ? 'border-blue-300 bg-blue-50 text-blue-700'
+                      : 'hover:border-blue-200 hover:bg-muted'
+                  }"
+                  data-pcs-video-action="set-ownership-filter"
+                  data-ownership-filter="${option.key}"
+                >
+                  <span class="block font-medium">${option.label}</span>
+                  <span class="mt-1 block text-muted-foreground">${option.desc}</span>
+                </button>
+              `,
+            )
+            .join('')}
+        </div>
+      </div>
+    </section>
+  `
+}
+
 function renderFilters(): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
         <div class="xl:col-span-2">
           <label class="mb-1 block text-xs text-muted-foreground">关键词</label>
           <div class="relative">
@@ -253,6 +327,14 @@ function renderFilters(): string {
           </select>
         </div>
         <div>
+          <label class="mb-1 block text-xs text-muted-foreground">样本归属</label>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-video-field="ownershipFilter">
+            <option value="all" ${state.ownershipFilter === 'all' ? 'selected' : ''}>全部样本</option>
+            <option value="formal" ${state.ownershipFilter === 'formal' ? 'selected' : ''}>正式项目测款</option>
+            <option value="history" ${state.ownershipFilter === 'history' ? 'selected' : ''}>历史样本</option>
+          </select>
+        </div>
+        <div>
           <label class="mb-1 block text-xs text-muted-foreground">测款入账</label>
           <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-video-field="accountingFilter">
             <option value="all" ${state.accountingFilter === 'all' ? 'selected' : ''}>全部</option>
@@ -277,18 +359,27 @@ function renderPurposeTags(purposes: VideoPurpose[]): string {
 }
 
 function renderProjectTags(recordId: string, legacyProjectRef: string | null): string {
+  const record = getVideoTestRecordById(recordId)
+  const ownership = record ? getVideoRecordOwnershipSummary(record) : null
   const relations = getVideoRecordProjectRelations(recordId)
   if (relations.length === 0) {
     return `
       <div class="space-y-1">
-        <span class="text-sm text-muted-foreground">暂无正式项目关联</span>
-        ${legacyProjectRef ? `<p class="text-[11px] text-amber-700">历史项目字段：${escapeHtml(legacyProjectRef)}，当前仅保留为迁移痕迹。</p>` : ''}
+        ${
+          ownership
+            ? `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${ownership.badgeTone}">${ownership.label}</span>`
+            : '<span class="text-sm text-muted-foreground">暂无正式项目关联</span>'
+        }
+        ${ownership ? `<p class="text-[11px] text-muted-foreground">${escapeHtml(ownership.detailText)}</p>` : ''}
+        ${ownership?.legacyHintText || legacyProjectRef ? `<p class="text-[11px] text-amber-700">${escapeHtml(ownership?.legacyHintText || `历史项目字段：${legacyProjectRef}，当前仅保留为迁移痕迹。`)}</p>` : ''}
       </div>
     `
   }
 
   return `
-    <div class="flex flex-wrap gap-2">
+    <div class="space-y-1">
+      ${ownership ? `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${ownership.badgeTone}">${ownership.label}</span>` : ''}
+      <div class="flex flex-wrap gap-2">
       ${relations
         .map(
           (relation) => `
@@ -299,6 +390,7 @@ function renderProjectTags(recordId: string, legacyProjectRef: string | null): s
           `,
         )
         .join('')}
+      </div>
     </div>
   `
 }
@@ -307,7 +399,7 @@ function renderRows(rows: VideoRecord[]): string {
   if (!rows.length) {
     return `
       <tr>
-        <td colspan="14" class="px-4 py-12 text-center text-muted-foreground">
+        <td colspan="15" class="px-4 py-12 text-center text-muted-foreground">
           <i data-lucide="video-off" class="mx-auto h-10 w-10 text-muted-foreground/60"></i>
           <p class="mt-2 text-sm">暂无符合条件的短视频记录</p>
         </td>
@@ -321,6 +413,7 @@ function renderRows(rows: VideoRecord[]): string {
       const canAccounting =
         (row.status === 'RECONCILING' || row.status === 'COMPLETED') && row.testAccountingStatus === 'PENDING'
       const testingRecord = getVideoTestRecordById(row.id)
+      const ownership = testingRecord ? getVideoRecordOwnershipSummary(testingRecord) : null
 
       return `
         <tr class="border-b last:border-b-0 hover:bg-muted/40">
@@ -332,6 +425,9 @@ function renderRows(rows: VideoRecord[]): string {
           <td class="px-3 py-3 align-top"><div class="flex flex-wrap gap-1">${renderPurposeTags(row.purposes)}</div></td>
           <td class="px-3 py-3 align-top text-xs">${escapeHtml(testingRecord?.publishedAt || '待发布')}</td>
           <td class="px-3 py-3 align-top"><span class="inline-flex rounded-full px-2 py-0.5 text-xs ${VIDEO_PLATFORM_META[row.platform].color}">${VIDEO_PLATFORM_META[row.platform].label}</span></td>
+          <td class="px-3 py-3 align-top text-xs">
+            ${ownership ? `<span class="inline-flex rounded-full border px-2 py-0.5 ${ownership.badgeTone}">${ownership.label}</span><p class="mt-1 text-muted-foreground">${escapeHtml(ownership.detailText)}</p>` : '—'}
+          </td>
           <td class="px-3 py-3 align-top text-xs">${escapeHtml(testingRecord?.styleCode || '—')}</td>
           <td class="px-3 py-3 align-top text-xs">${escapeHtml(testingRecord?.colorCode || '—')}</td>
           <td class="px-3 py-3 align-top text-xs">${escapeHtml(testingRecord?.sizeCode || '—')}</td>
@@ -372,6 +468,7 @@ function renderTable(): string {
               <th class="px-3 py-2 font-medium">用途</th>
               <th class="px-3 py-2 font-medium">发布时间</th>
               <th class="px-3 py-2 font-medium">平台</th>
+              <th class="px-3 py-2 font-medium">样本归属</th>
               <th class="px-3 py-2 font-medium">款号 / 款式编码</th>
               <th class="px-3 py-2 font-medium">颜色</th>
               <th class="px-3 py-2 font-medium">规格</th>
@@ -405,35 +502,57 @@ function renderProjectRelationDrawer(): string {
   const record = getVideoTestRecordById(state.relationTargetRecordId)
   if (!record) return ''
 
+  const projectOptions = listVideoRecordProjectRelationCandidates(record.videoRecordId)
+  const enabledProjects = projectOptions.filter((item) => item.eligible)
+  const disabledProjects = projectOptions.filter((item) => !item.eligible)
+
   const content = `
     <div class="space-y-4">
       <div class="rounded-md border bg-muted/20 p-3 text-sm">
         <p class="font-medium">${escapeHtml(record.videoTitle)}</p>
         <p class="mt-1 text-xs text-muted-foreground">记录 ${escapeHtml(record.videoRecordCode)} · 渠道 ${escapeHtml(record.channelName || '—')}</p>
       </div>
+      <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        仅已完成商品上架且渠道商品状态为“已上架待测款”的项目，才允许建立正式短视频测款关系。
+      </div>
       <div class="space-y-2">
-        <p class="text-xs text-muted-foreground">选择要关联的商品项目</p>
-        <div class="max-h-[360px] space-y-2 overflow-y-auto rounded-md border bg-background p-2">
-          ${listProjects()
-            .map((project) => {
-              const checked = state.relationSelectedProjectIds.includes(project.projectId)
-              return `
-                <button class="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${checked ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'}" data-pcs-video-action="toggle-project" data-project-id="${escapeHtml(project.projectId)}">
-                  <span>${escapeHtml(project.projectCode)} · ${escapeHtml(project.projectName)}</span>
-                  <span class="text-xs">${checked ? '已选中' : '点击选择'}</span>
-                </button>
-              `
-            })
-            .join('')}
+        <p class="text-xs font-medium text-foreground">可测款项目</p>
+        <div class="max-h-[220px] space-y-2 overflow-y-auto rounded-md border bg-background p-2">
+          ${
+            enabledProjects.length > 0
+              ? enabledProjects.map(renderVideoRelationCandidate).join('')
+              : '<div class="rounded-md border border-dashed px-3 py-4 text-xs text-muted-foreground">当前没有满足商品上架前置门禁的项目。</div>'
+          }
         </div>
       </div>
+      ${
+        disabledProjects.length > 0
+          ? `
+            <div class="space-y-2">
+              <p class="text-xs font-medium text-foreground">暂不可测款项目</p>
+              <div class="max-h-[200px] space-y-2 overflow-y-auto rounded-md border bg-background p-2">
+                ${disabledProjects.map(renderVideoRelationCandidate).join('')}
+              </div>
+            </div>
+          `
+          : ''
+      }
+      ${
+        state.relationSelectedProjectIds.length > 0
+          ? `
+            <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              已选择 ${state.relationSelectedProjectIds.length} 个项目。保存时会再次执行仓储校验，不满足商品上架门禁的项目不会写入正式关系。
+            </div>
+          `
+          : ''
+      }
     </div>
   `
 
   return uiDrawer(
     {
       title: '关联商品项目',
-      subtitle: '保存后将写入正式项目关系记录，并挂到短视频测款工作项。',
+      subtitle: '优先展示可测款项目；保存时仍会再次执行正式仓储校验。',
       closeAction: { prefix: 'pcs-video', action: 'close-project-relation' },
       width: 'lg',
     },
@@ -443,6 +562,34 @@ function renderProjectRelationDrawer(): string {
       confirm: { prefix: 'pcs-video', action: 'save-project-relation', label: '保存项目关联', variant: 'primary' },
     },
   )
+}
+
+function renderVideoRelationCandidate(project: TestingProjectRelationCandidate): string {
+  const checked = state.relationSelectedProjectIds.includes(project.projectId)
+  if (!project.eligible) {
+    return `
+      <div class="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="font-medium">${escapeHtml(project.projectCode)} · ${escapeHtml(project.projectName)}</p>
+            <p class="mt-1 text-[11px]">当前阶段：${escapeHtml(project.currentPhaseName || '未进入测款阶段')}</p>
+          </div>
+          <span class="rounded-full border px-2 py-0.5 text-[11px]">${checked ? '历史已选' : '不可选择'}</span>
+        </div>
+        <p class="mt-2 text-[11px] text-amber-700">${escapeHtml(project.disabledReason || '当前项目不满足正式短视频测款门禁。')}</p>
+      </div>
+    `
+  }
+
+  return `
+    <button class="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${checked ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'}" data-pcs-video-action="toggle-project" data-project-id="${escapeHtml(project.projectId)}">
+      <span>
+        <span class="block font-medium">${escapeHtml(project.projectCode)} · ${escapeHtml(project.projectName)}</span>
+        <span class="mt-1 block text-[11px] text-muted-foreground">当前阶段：${escapeHtml(project.currentPhaseName)}</span>
+      </span>
+      <span class="text-xs">${checked ? '已选中' : '点击选择'}</span>
+    </button>
+  `
 }
 
 function renderPurposeSelector(): string {
@@ -656,6 +803,7 @@ export function renderPcsVideoRecordsPage(): string {
       ${renderHeader()}
       ${renderNotice()}
       ${renderKpis()}
+      ${renderOwnershipQuickFilters()}
       ${renderFilters()}
       ${renderTable()}
       ${renderCreateDrawer()}
@@ -700,6 +848,7 @@ export function handlePcsVideoRecordsEvent(target: HTMLElement): boolean {
   if (fieldNode instanceof HTMLSelectElement) {
     const field = fieldNode.dataset.pcsVideoField
     if (field === 'statusFilter') state.statusFilter = fieldNode.value as PageState['statusFilter']
+    if (field === 'ownershipFilter') state.ownershipFilter = fieldNode.value as TestingOwnershipFilter
     if (field === 'purposeFilter') state.purposeFilter = fieldNode.value as PageState['purposeFilter']
     if (field === 'platformFilter') state.platformFilter = fieldNode.value as PageState['platformFilter']
     if (field === 'accountingFilter') state.accountingFilter = fieldNode.value as PageState['accountingFilter']
@@ -726,8 +875,15 @@ export function handlePcsVideoRecordsEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'set-ownership-filter') {
+    state.ownershipFilter = (actionNode.dataset.ownershipFilter as TestingOwnershipFilter) ?? 'all'
+    state.currentPage = 1
+    return true
+  }
+
   if (action === 'reset-filters') {
     state.searchKeyword = ''
+    state.ownershipFilter = 'all'
     state.statusFilter = 'all'
     state.purposeFilter = 'all'
     state.platformFilter = 'all'
@@ -781,10 +937,14 @@ export function handlePcsVideoRecordsEvent(target: HTMLElement): boolean {
   if (action === 'save-project-relation') {
     if (!state.relationTargetRecordId) return false
     const result = replaceVideoRecordProjectRelations(state.relationTargetRecordId, state.relationSelectedProjectIds)
-    state.relationDialogOpen = false
-    state.relationTargetRecordId = null
-    state.relationSelectedProjectIds = []
-    state.notice = result.errors[0] || '短视频记录的项目关联已更新，结果已写入正式项目关系记录。'
+    if (result.errors.length === 0) {
+      state.relationDialogOpen = false
+      state.relationTargetRecordId = null
+      state.relationSelectedProjectIds = []
+      state.notice = '短视频记录的项目关联已更新，结果已写入正式项目关系记录。'
+    } else {
+      state.notice = result.errors[0]
+    }
     return true
   }
 

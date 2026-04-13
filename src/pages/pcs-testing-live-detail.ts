@@ -1,6 +1,8 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { getProjectRelationProjectLabel, listProjectRelationsByLiveProductLine } from '../data/pcs-project-relation-repository.ts'
+import { findProjectChannelProductByLiveLine } from '../data/pcs-channel-product-project-repository.ts'
+import { getLiveLineOwnershipSummary, getLiveSessionOwnershipSummary } from '../data/pcs-testing-ownership.ts'
 import {
   ACCOUNTING_STATUS_META,
   LIVE_PURPOSE_META,
@@ -50,17 +52,43 @@ const TABS: Array<{ key: LiveDetailTab; label: string }> = [
 ]
 
 function renderLiveItemProjectInfo(item: LiveSessionItem): string {
+  const ownership = getLiveLineOwnershipSummary({
+    liveLineId: `${state.sessionId}__${item.id}`,
+    liveLineCode: '',
+    liveSessionId: state.sessionId,
+    liveSessionCode: state.sessionId,
+    lineNo: 0,
+    productTitle: item.productName,
+    styleCode: item.productRef,
+    spuCode: item.productRef,
+    skuCode: item.sku,
+    colorCode: '',
+    sizeCode: '',
+    exposureQty: item.exposure,
+    clickQty: item.click,
+    orderQty: item.order,
+    gmvAmount: item.gmv,
+    businessDate: '',
+    ownerName: '',
+    sessionStatus: '',
+    legacyProjectRef: item.projectRef,
+    legacyProjectId: item.projectRef,
+  })
   const relations = listProjectRelationsByLiveProductLine(`${state.sessionId}__${item.id}`)
   if (relations.length === 0) {
     return `
       <div class="space-y-1">
         <span>${escapeHtml(item.productName)}</span>
-        <p class="text-[11px] text-muted-foreground">暂无正式项目关联</p>
-        ${item.projectRef ? `<p class="text-[11px] text-amber-700">历史项目字段：${escapeHtml(item.projectRef)}</p>` : ''}
+        <span class="inline-flex rounded-full border px-2 py-0.5 text-[11px] ${ownership.badgeTone}">${ownership.label}</span>
+        <p class="text-[11px] text-muted-foreground">${escapeHtml(ownership.detailText)}</p>
+        ${ownership.legacyHintText ? `<p class="text-[11px] text-amber-700">${escapeHtml(ownership.legacyHintText)}</p>` : ''}
         <p class="text-muted-foreground">${escapeHtml(item.sku)}</p>
       </div>
     `
   }
+  const channelProductBadges = relations
+    .map((relation) => findProjectChannelProductByLiveLine(relation.projectId, `${state.sessionId}__${item.id}`))
+    .filter((relation): relation is NonNullable<typeof relation> => Boolean(relation))
   return `
     <div class="space-y-1">
       <div class="flex flex-wrap gap-1">
@@ -68,6 +96,15 @@ function renderLiveItemProjectInfo(item: LiveSessionItem): string {
           .map((relation) => `<span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">${escapeHtml(getProjectRelationProjectLabel(relation.projectId))}</span>`)
           .join('')}
       </div>
+      ${
+        channelProductBadges.length
+          ? `<div class="flex flex-wrap gap-1">${channelProductBadges
+              .map(
+                (relation) => `<span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">${escapeHtml(`${relation.channelProductCode} / ${relation.upstreamChannelProductCode || '待回填'}`)}</span>`,
+              )
+              .join('')}</div>`
+          : ''
+      }
       <p class="font-medium text-foreground">${escapeHtml(item.productName)}</p>
       <p class="text-muted-foreground">${escapeHtml(item.sku)}</p>
     </div>
@@ -100,6 +137,7 @@ function renderNotice(): string {
 }
 
 function renderHeader(session: LiveSession): string {
+  const ownership = getLiveSessionOwnershipSummary(session.id)
   const showEdit = session.status === 'DRAFT' || session.status === 'RECONCILING'
   const showImport = showEdit
   const showClose = session.status === 'RECONCILING'
@@ -118,8 +156,10 @@ function renderHeader(session: LiveSession): string {
             <h1 class="text-xl font-semibold">${escapeHtml(session.title)}</h1>
             <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${SESSION_STATUS_META[session.status].color}">${SESSION_STATUS_META[session.status].label}</span>
             <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${ACCOUNTING_STATUS_META[session.testAccountingStatus].color}">${ACCOUNTING_STATUS_META[session.testAccountingStatus].label}</span>
+            <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${ownership.badgeTone}">${ownership.label}</span>
           </div>
           <p class="text-sm text-muted-foreground">${escapeHtml(session.liveAccount)} · ${escapeHtml(session.anchor)} · ${escapeHtml(session.startAt)} - ${escapeHtml(session.endAt ?? '进行中')}</p>
+          <p class="text-xs text-muted-foreground">${escapeHtml(ownership.detailText)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
           ${showEdit ? '<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-live-detail-action="edit-session"><i data-lucide="edit-3" class="mr-1 h-3.5 w-3.5"></i>编辑</button>' : ''}
@@ -151,9 +191,10 @@ function renderTabs(): string {
 
 function renderOverview(session: LiveSession, items: LiveSessionItem[]): string {
   const testItems = items.filter((item) => item.intent === 'TEST')
+  const ownership = getLiveSessionOwnershipSummary(session.id)
 
   return `
-    <section class="grid gap-3 xl:grid-cols-3">
+    <section class="grid gap-3 xl:grid-cols-4">
       <article class="rounded-lg border bg-card p-3">
         <p class="text-xs text-muted-foreground">场次信息</p>
         <div class="mt-2 space-y-1 text-sm">
@@ -181,6 +222,13 @@ function renderOverview(session: LiveSession, items: LiveSessionItem[]): string 
           <p>待决策条目：${testItems.filter((item) => item.recommendation !== '继续').length}</p>
           <p>测款入账状态：${ACCOUNTING_STATUS_META[session.testAccountingStatus].label}</p>
           <p>备注：${escapeHtml(session.note || '-')}</p>
+        </div>
+      </article>
+      <article class="rounded-lg border bg-card p-3">
+        <p class="text-xs text-muted-foreground">样本归属</p>
+        <div class="mt-2 space-y-2 text-sm">
+          <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${ownership.badgeTone}">${ownership.label}</span>
+          <p>${escapeHtml(ownership.detailText)}</p>
         </div>
       </article>
     </section>

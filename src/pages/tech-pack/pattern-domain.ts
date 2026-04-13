@@ -7,7 +7,7 @@ import {
 
 export function renderPatternTab(): string {
   const bomById = new Map(state.bomItems.map((item) => [item.id, item]))
-  const readonly = state.compatibilityMode
+  const readonly = false
 
   return `
     <section class="rounded-lg border bg-card">

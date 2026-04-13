@@ -110,18 +110,18 @@ export function renderSampleInventoryPage(): string {
         <p class="mt-1 text-sm text-muted-foreground">库存状态、可用状态、项目归属与最后事件统一来自正式样衣资产记录。</p>
       </header>
 
-      <section class="rounded-lg border bg-card p-4">
-        <div class="grid gap-3 lg:grid-cols-[2fr,1fr,1fr,auto]">
-          <input class="h-9 rounded-md border bg-background px-3 text-sm" placeholder="搜索样衣编号/样衣名称/项目/项目节点" value="${escapeHtml(state.keyword)}" oninput="" data-sample-inventory-field="keyword" />
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-sample-inventory-field="status">
+      <section class="rounded-lg border bg-white p-4">
+        <div class="grid gap-4 md:grid-cols-[2fr,1fr,1fr,auto]">
+          <input class="h-9 rounded-md border px-3 text-sm" placeholder="搜索样衣编号/样衣名称/项目/项目节点" value="${escapeHtml(state.keyword)}" data-sample-inventory-field="keyword" />
+          <select class="h-9 rounded-md border px-3 text-sm" data-sample-inventory-field="status">
             <option value="all" ${state.statusFilter === 'all' ? 'selected' : ''}>全部库存状态</option>
             ${statusOptions.map((item) => `<option value="${escapeHtml(item)}" ${state.statusFilter === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-sample-inventory-field="site">
+          <select class="h-9 rounded-md border px-3 text-sm" data-sample-inventory-field="site">
             <option value="all" ${state.siteFilter === 'all' ? 'selected' : ''}>全部站点</option>
             ${siteOptions.map((item) => `<option value="${escapeHtml(item)}" ${state.siteFilter === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-sample-inventory-action="reset">重置</button>
+          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-gray-50" data-sample-inventory-action="reset">重置筛选</button>
         </div>
       </section>
 

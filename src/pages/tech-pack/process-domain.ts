@@ -15,7 +15,7 @@ import {
 import type { TechniqueItem } from './context.ts'
 
 export function renderProcessTechniqueCard(item: TechniqueItem): string {
-  const readonly = state.compatibilityMode
+  const readonly = false
   const canEdit = canEditTechnique(item)
   const canDelete = !isBomDrivenPrepTechnique(item)
   const referenceValueText =
@@ -108,13 +108,13 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
 }
 
 export function renderProcessTab(): string {
-  const readonly = state.compatibilityMode
+  const readonly = false
   return `
     <section class="space-y-4">
       <header class="rounded-lg border bg-card px-4 py-3">
         <h3 class="text-base font-semibold">工序工艺</h3>
         <p class="mt-1 text-sm text-muted-foreground">阶段 → 工序 → 工艺</p>
-        <p class="mt-2 text-xs leading-5 text-slate-600">这里维护的是当前这款技术资料版本下各工序/工艺的发布工时 SAM 基线。工艺字典只提供理论参考值和默认推荐单位，不代表当前款最终发布值。</p>
+        <p class="mt-2 text-xs leading-5 text-slate-600">这里维护的是当前这款技术包版本下各工序、工艺的发布工时 SAM 基线。工艺字典只提供理论参考值和默认推荐单位，不代表当前款最终发布值。</p>
       </header>
       <div class="space-y-6">
         ${stageOptions

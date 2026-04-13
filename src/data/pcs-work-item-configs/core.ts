@@ -1,63 +1,46 @@
-import type { FieldGroup, WorkItemTemplateConfig } from './types.ts'
 import { projectWorkItemConfigs } from './project-configs.ts'
 import { sampleWorkItemConfigs } from './sample-configs.ts'
 import { marketWorkItemConfigs } from './market-configs.ts'
 import { engineeringWorkItemConfigs } from './engineering-configs.ts'
-import { typeToIdMap, type WorkItemType } from './mappings.ts'
 
-export const workItemTemplateConfigs: Record<string, WorkItemTemplateConfig> = {
+const ALL_CONFIGS = [
   ...projectWorkItemConfigs,
   ...sampleWorkItemConfigs,
   ...marketWorkItemConfigs,
   ...engineeringWorkItemConfigs,
+].sort((a, b) => a.workItemId.localeCompare(b.workItemId, undefined, { numeric: true }))
+
+export function getAllWorkItemTemplates() {
+  return ALL_CONFIGS.map((item) => ({
+    ...item,
+    roleCodes: [...item.roleCodes],
+    roleNames: [...item.roleNames],
+    capabilities: { ...item.capabilities },
+    fieldGroups: item.fieldGroups.map((group) => ({
+      ...group,
+      fields: group.fields.map((field) => ({ ...field })),
+    })),
+    businessRules: [...item.businessRules],
+    systemConstraints: [...item.systemConstraints],
+    interactionNotes: [...(item.interactionNotes ?? [])],
+    statusOptions: item.statusOptions?.map((status) => ({ ...status })),
+    rollbackRules: [...(item.rollbackRules ?? [])],
+  }))
 }
 
-function cloneFieldGroup(group: FieldGroup): FieldGroup {
-  return {
-    ...group,
-    fields: group.fields.map((field) => ({ ...field })),
-  }
+export function getWorkItemTemplateConfig(workItemId: string) {
+  return getAllWorkItemTemplates().find((item) => item.workItemId === workItemId) ?? null
 }
 
-function cloneConfig(config: WorkItemTemplateConfig): WorkItemTemplateConfig {
-  return {
-    ...config,
-    roleCodes: [...config.roleCodes],
-    roleNames: [...config.roleNames],
-    capabilities: { ...config.capabilities },
-    fieldGroups: config.fieldGroups.map(cloneFieldGroup),
-    businessRules: [...config.businessRules],
-    systemConstraints: [...config.systemConstraints],
-    attachments: (config.attachments ?? []).map((item) => ({ ...item })),
-    interactionNotes: [...(config.interactionNotes ?? [])],
-    statusOptions: config.statusOptions?.map((item) => ({ ...item })),
-    statusFlow: Array.isArray(config.statusFlow)
-      ? config.statusFlow.map((item) => ({ ...item }))
-      : config.statusFlow,
-    rollbackRules: [...(config.rollbackRules ?? [])],
-  }
+export function getWorkItemConfig(workItemTypeCode: string) {
+  return getAllWorkItemTemplates().find((item) => item.workItemTypeCode === workItemTypeCode) ?? null
 }
 
-export function getWorkItemTemplateConfig(id: string): WorkItemTemplateConfig | null {
-  const found = workItemTemplateConfigs[id]
-  return found ? cloneConfig(found) : null
+export function getWorkItemFields(workItemId: string) {
+  return getWorkItemTemplateConfig(workItemId)?.fieldGroups ?? []
 }
 
-export function getAllWorkItemTemplates(): WorkItemTemplateConfig[] {
-  return Object.values(workItemTemplateConfigs)
-    .map(cloneConfig)
-    .sort((a, b) => a.workItemId.localeCompare(b.workItemId, undefined, { numeric: true }))
+export function getSelectableWorkItemTemplates() {
+  return getAllWorkItemTemplates().filter((item) => item.enabledFlag && item.isSelectableForTemplate)
 }
 
-export function getSelectableWorkItemTemplates(): WorkItemTemplateConfig[] {
-  return getAllWorkItemTemplates().filter((item) => item.isSelectableForTemplate && item.enabledFlag)
-}
-
-export function getWorkItemFields(type: WorkItemType): FieldGroup[] {
-  const id = typeToIdMap[type]
-  return getWorkItemTemplateConfig(id)?.fieldGroups ?? []
-}
-
-export function getWorkItemConfig(id: string): WorkItemTemplateConfig | null {
-  return getWorkItemTemplateConfig(id)
-}

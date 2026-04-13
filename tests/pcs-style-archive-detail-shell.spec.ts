@@ -1,37 +1,15 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import {
-  getProjectNodeRecordByWorkItemTypeCode,
-  listProjects,
-  resetProjectRepository,
-  updateProjectNodeRecord,
-  updateProjectRecord,
-} from '../src/data/pcs-project-repository.ts'
-import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { generateStyleArchiveShellFromProject } from '../src/data/pcs-project-style-archive-writeback.ts'
-import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   handleProductStyleDetailEvent,
   renderProductStyleDetailPage,
 } from '../src/pages/pcs-product-style-detail.ts'
+import { prepareProjectWithPassedTesting } from './pcs-project-formal-chain-helper.ts'
 
-resetProjectRepository()
-resetProjectRelationRepository()
-resetStyleArchiveRepository()
+const project = prepareProjectWithPassedTesting('款式档案详情空壳测试项目')
 
-const project = listProjects().find(
-  (item) => getProjectNodeRecordByWorkItemTypeCode(item.projectId, 'STYLE_ARCHIVE_CREATE'),
-)
-assert.ok(project, '应存在可生成款式档案的项目')
-updateProjectRecord(project!.projectId, {
-  projectStatus: '进行中',
-  currentPhaseCode: 'PHASE_04',
-  currentPhaseName: '开发推进',
-}, '测试用户')
-const node = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'STYLE_ARCHIVE_CREATE')
-updateProjectNodeRecord(project!.projectId, node!.projectNodeId, { currentStatus: '未开始' }, '测试用户')
-
-const result = generateStyleArchiveShellFromProject(project!.projectId, '测试用户')
+const result = generateStyleArchiveShellFromProject(project.projectId, '测试用户')
 assert.ok(result.ok && result.style, '应先生成正式款式档案壳')
 
 const source = readFileSync(new URL('../src/pages/pcs-product-style-detail.ts', import.meta.url), 'utf8')
@@ -57,7 +35,7 @@ const technicalButton = {
 } as unknown as Element
 handleProductStyleDetailEvent(technicalButton)
 const technicalHtml = renderProductStyleDetailPage(result.style!.styleId)
-assert.ok(technicalHtml.includes('暂无技术资料版本'), '新生成壳记录的技术资料区域应显示明确空状态')
+assert.ok(technicalHtml.includes('暂无技术包版本'), '新生成壳记录的技术包区域应显示明确空状态')
 
 const costButton = {
   closest: () => ({

@@ -1,4 +1,4 @@
-import { createIcons } from 'lucide'
+import { createIcons, icons as lucideIcons } from 'lucide'
 import {
   getCurrentMenus,
   getCurrentSystem,
@@ -325,7 +325,7 @@ export function renderAppShell(state: AppState, pageContent: string): string {
 
 export function hydrateIcons(root: ParentNode = document): void {
   createIcons({
-    icons: shellIcons,
+    icons: { ...lucideIcons, ...shellIcons },
     attrs: {
       strokeWidth: '2',
     },

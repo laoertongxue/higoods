@@ -40,6 +40,11 @@ function normalizeTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
   return {
     ...cloneTask(task),
     participantNames: [...(task.participantNames || [])],
+    linkedTechPackVersionId: task.linkedTechPackVersionId || '',
+    linkedTechPackVersionCode: task.linkedTechPackVersionCode || '',
+    linkedTechPackVersionLabel: task.linkedTechPackVersionLabel || '',
+    linkedTechPackVersionStatus: task.linkedTechPackVersionStatus || '',
+    linkedTechPackUpdatedAt: task.linkedTechPackUpdatedAt || '',
     note: task.note || '',
     legacyProjectRef: task.legacyProjectRef || '',
     legacyUpstreamRef: task.legacyUpstreamRef || '',

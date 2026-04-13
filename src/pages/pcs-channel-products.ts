@@ -21,8 +21,16 @@ import {
   listChannelProductGroups,
   type ChannelProductGroup,
 } from '../data/pcs-channels'
+import {
+  listProjectChannelProducts,
+  type ProjectChannelProductRecord,
+} from '../data/pcs-channel-product-project-repository.ts'
+import { getProjectById } from '../data/pcs-project-repository.ts'
+import { consumeProjectChannelProductCreateBridge } from './pcs-project-detail-header-actions.ts'
 
 type CreateMode = 'project' | 'new'
+
+const FLASH_NOTICE_KEY = 'pcs_project_flash_notice'
 
 interface CreateForm {
   mode: CreateMode
@@ -58,6 +66,45 @@ interface PageState {
 }
 
 let groups: ChannelProductGroup[] = listChannelProductGroups()
+
+function getProjectChannelProducts(): ProjectChannelProductRecord[] {
+  return listProjectChannelProducts()
+}
+
+function getProjectSourceOptions() {
+  const options = [...PROJECT_SOURCES]
+  const selectedProjectId = state.createForm.projectId
+  if (selectedProjectId && !options.some((item) => item.id === selectedProjectId)) {
+    const project = getProjectById(selectedProjectId)
+    if (project) {
+      options.unshift({
+        id: project.projectId,
+        name: project.projectName,
+        status: project.projectStatus === '已终止' ? 'ARCHIVED' : 'ACTIVE',
+        hasSpu: Boolean(project.linkedStyleId),
+        spuId: project.linkedStyleCode || undefined,
+        candidateId: project.styleNumber || undefined,
+      })
+    }
+  }
+  return options
+}
+
+function applyProjectCreateBridge(): void {
+  const payload = consumeProjectChannelProductCreateBridge()
+  if (!payload) return
+  const project = getProjectById(payload.projectId)
+  state.createDrawerOpen = true
+  state.createForm.mode = 'project'
+  state.createForm.projectId = payload.projectId
+  state.createForm.channel = project?.targetChannelCodes[0] || ''
+  state.createForm.stores = []
+  state.createForm.defaultPrice =
+    typeof project?.sampleUnitPrice === 'number' && Number.isFinite(project.sampleUnitPrice)
+      ? String(project.sampleUnitPrice)
+      : ''
+  state.notice = `已从商品项目 ${project?.projectCode || payload.projectId} 带入来源项目，请继续生成渠道商品。`
+}
 
 const state: PageState = {
   searchKeyword: '',
@@ -153,7 +200,7 @@ function renderHeader(): string {
       <div>
         <p class="text-xs text-muted-foreground">商品档案 / 渠道商品</p>
         <h1 class="mt-2 text-xl font-semibold">渠道商品</h1>
-        <p class="mt-1 text-sm text-muted-foreground">围绕内部款式档案维护渠道商品主档、转档迁移、多店铺在售状态与渠道挂接健康。</p>
+        <p class="mt-1 text-sm text-muted-foreground">围绕商品上架节点生成的渠道商品主档，统一维护上游渠道商品、转档迁移、多店铺在售状态与渠道挂接健康。</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-group-action="go-mapping">
@@ -172,9 +219,14 @@ function renderHeader(): string {
 
 function renderStats(): string {
   const stats = getStats()
+  const projectProducts = getProjectChannelProducts()
+  const candidateCount = projectProducts.filter((item) => !item.styleId && item.channelProductStatus !== '已作废').length
+  const activeCount = projectProducts.filter((item) => item.styleId && item.channelProductStatus === '已生效').length
 
   const cards: Array<{ key: string; title: string; value: number; tone: string }> = [
     { key: 'all', title: '渠道商品总数', value: stats.total, tone: 'text-foreground' },
+    { key: 'candidate', title: '测款候选商品', value: candidateCount, tone: 'text-amber-700' },
+    { key: 'active-project', title: '已生效渠道商品', value: activeCount, tone: 'text-emerald-700' },
     { key: 'online', title: '有在售店铺', value: stats.hasOnline, tone: 'text-emerald-700' },
     { key: 'offline', title: '全部下架', value: stats.allOffline, tone: 'text-orange-700' },
     { key: 'blocked', title: '有受限', value: stats.hasBlocked, tone: 'text-rose-700' },
@@ -245,6 +297,85 @@ function renderFilters(): string {
       </div>
       <div class="mt-3 flex justify-end gap-2">
         <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-pcs-channel-group-action="reset-filters">重置筛选</button>
+      </div>
+    </section>
+  `
+}
+
+function renderProjectSourceSection(): string {
+  const rows = getProjectChannelProducts()
+  if (!rows.length) return ''
+
+  const statusClass = (status: string) => {
+    if (status === '已生效') return 'bg-emerald-100 text-emerald-700'
+    if (status === '已作废') return 'bg-rose-100 text-rose-700'
+    if (status === '已上架待测款') return 'bg-blue-100 text-blue-700'
+    return 'bg-amber-100 text-amber-700'
+  }
+  const syncClass = (status: string) => {
+    if (status === '已更新') return 'bg-emerald-100 text-emerald-700'
+    if (status === '待更新') return 'bg-orange-100 text-orange-700'
+    return 'bg-slate-100 text-slate-700'
+  }
+
+  return `
+    <section class="overflow-hidden rounded-lg border bg-card">
+      <div class="border-b px-4 py-3">
+        <h2 class="text-base font-semibold">项目测款来源渠道商品</h2>
+        <p class="mt-1 text-sm text-muted-foreground">这里展示项目商品上架节点创建的正式渠道商品主档，区分测款候选商品与已关联款式档案的已生效渠道商品。</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1580px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/30 text-left text-muted-foreground">
+              <th class="px-3 py-2 font-medium">渠道商品编码</th>
+              <th class="px-3 py-2 font-medium">来源项目</th>
+              <th class="px-3 py-2 font-medium">来源商品上架节点</th>
+              <th class="px-3 py-2 font-medium">渠道 / 店铺</th>
+              <th class="px-3 py-2 font-medium">测款来源视角</th>
+              <th class="px-3 py-2 font-medium">渠道商品状态</th>
+              <th class="px-3 py-2 font-medium">上游更新状态</th>
+              <th class="px-3 py-2 font-medium">关联款式档案</th>
+              <th class="px-3 py-2 font-medium">关联上游编码</th>
+              <th class="px-3 py-2 font-medium">链路说明</th>
+              <th class="px-3 py-2 font-medium">更新时间</th>
+              <th class="px-3 py-2 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map((item) => {
+                const channelName = CHANNEL_OPTIONS.find((option) => option.id === item.channelCode)?.name || item.channelCode
+                const storeName = STORE_OPTIONS.find((option) => option.id === item.storeId)?.name || item.storeName
+                const sourceLabel = item.styleId ? '已生效渠道商品' : item.channelProductStatus === '已作废' ? '已作废历史商品' : '测款候选商品'
+                return `
+                  <tr class="border-b last:border-b-0 hover:bg-muted/30">
+                    <td class="px-3 py-3 font-medium">${escapeHtml(item.channelProductCode)}</td>
+                    <td class="px-3 py-3">
+                      <button class="text-blue-700 hover:underline" data-pcs-channel-group-action="go-project-detail" data-project-id="${escapeHtml(item.projectId)}">${escapeHtml(item.projectCode)}</button>
+                      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.projectName)}</p>
+                    </td>
+                    <td class="px-3 py-3">${escapeHtml(item.projectNodeId || '待回写')}</td>
+                    <td class="px-3 py-3">${escapeHtml(channelName)} / ${escapeHtml(storeName)}</td>
+                    <td class="px-3 py-3">${escapeHtml(sourceLabel)}</td>
+                    <td class="px-3 py-3"><span class="inline-flex rounded-full px-2 py-0.5 text-xs ${statusClass(item.channelProductStatus)}">${escapeHtml(item.channelProductStatus)}</span></td>
+                    <td class="px-3 py-3"><span class="inline-flex rounded-full px-2 py-0.5 text-xs ${syncClass(item.upstreamSyncStatus)}">${escapeHtml(item.upstreamSyncStatus)}</span></td>
+                    <td class="px-3 py-3">${escapeHtml(item.styleCode || '尚未关联')}</td>
+                    <td class="px-3 py-3">${escapeHtml(item.upstreamChannelProductCode || '尚未回填')}</td>
+                    <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(item.testingStatusText || item.invalidatedReason || '—')}</td>
+                    <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(item.updatedAt)}</td>
+                    <td class="px-3 py-3">
+                      <div class="flex flex-wrap gap-1">
+                        <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-channel-group-action="go-project-channel-detail" data-channel-product-id="${escapeHtml(item.channelProductId)}">详情</button>
+                        <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-channel-group-action="go-project-detail" data-project-id="${escapeHtml(item.projectId)}">查看项目</button>
+                      </div>
+                    </td>
+                  </tr>
+                `
+              })
+              .join('')}
+          </tbody>
+        </table>
       </div>
     </section>
   `
@@ -383,6 +514,7 @@ function renderStoreOptions(channelId: string): string {
 
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
+  const projectSourceOptions = getProjectSourceOptions()
 
   return `
     <div class="fixed inset-0 z-50">
@@ -413,7 +545,7 @@ function renderCreateDrawer(): string {
                   <label class="mb-1 block text-xs text-muted-foreground">来源项目</label>
                   <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pcs-channel-group-field="projectId">
                     <option value="">请选择来源项目</option>
-                    ${PROJECT_SOURCES.map((project) => `<option value="${project.id}" ${state.createForm.projectId === project.id ? 'selected' : ''}>${project.id} ｜ ${project.name}</option>`).join('')}
+                    ${projectSourceOptions.map((project) => `<option value="${project.id}" ${state.createForm.projectId === project.id ? 'selected' : ''}>${project.id} ｜ ${project.name}</option>`).join('')}
                   </select>
                 </div>
               `
@@ -617,17 +749,25 @@ function createGroup(): boolean {
   state.currentPage = 1
   state.createDrawerOpen = false
   state.notice = `${newGroup.id} 已创建（演示态）。`
+  if (state.createForm.mode === 'project' && source?.id && typeof window !== 'undefined') {
+    window.sessionStorage.setItem(
+      FLASH_NOTICE_KEY,
+      `已为商品项目 ${source.name} 建立渠道商品创建草稿，请回到项目继续完成上架与测款。`,
+    )
+  }
   resetCreateForm()
   return true
 }
 
 export function renderPcsChannelProductsPage(): string {
+  applyProjectCreateBridge()
   return `
     <div class="space-y-4">
       ${renderHeader()}
       ${renderNotice()}
       ${renderStats()}
       ${renderFilters()}
+      ${renderProjectSourceSection()}
       ${renderTable()}
       ${renderCreateDrawer()}
       ${renderMigrationDialog()}
@@ -684,6 +824,20 @@ export function handlePcsChannelProductsEvent(target: HTMLElement): boolean {
     const groupId = actionNode.dataset.groupId
     if (!groupId) return false
     appStore.navigate(`/pcs/products/channel-products/${groupId.replace('CPG', 'CP')}`)
+    return true
+  }
+
+  if (action === 'go-project-channel-detail') {
+    const channelProductId = actionNode.dataset.channelProductId
+    if (!channelProductId) return false
+    appStore.navigate(`/pcs/products/channel-products/${channelProductId}`)
+    return true
+  }
+
+  if (action === 'go-project-detail') {
+    const projectId = actionNode.dataset.projectId
+    if (!projectId) return false
+    appStore.navigate(`/pcs/projects/${projectId}`)
     return true
   }
 

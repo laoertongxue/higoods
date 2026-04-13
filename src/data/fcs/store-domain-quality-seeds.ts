@@ -15,6 +15,7 @@ import {
   returnInboundChainBatches,
   returnInboundChainQualityInspections,
 } from './return-inbound-quality-chain-facts.ts'
+import { buildSeedProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-builder.ts'
 
 function mergeById<T extends { [key: string]: unknown }>(
   items: T[],
@@ -129,7 +130,19 @@ export const seedProductionOrder: ProductionOrder = {
   },
   ownerPartyType: 'LEGAL_ENTITY',
   ownerPartyId: 'LE-001',
-  techPackSnapshot: { status: 'RELEASED', versionLabel: 'v1.0', snapshotAt: SEED_AT },
+  techPackSnapshot: buildSeedProductionOrderTechPackSnapshot({
+    productionOrderId: 'PO-SEED-0001',
+    productionOrderNo: 'PO-SEED-0001',
+    demand: {
+      spuCode: 'SPU-SEED-001',
+      spuName: '测试款式（质量已完成演示）',
+      skuLines: [{ skuCode: 'SKU-SEED-001', size: 'M', color: '黑色', qty: 1500 }],
+      techPackVersionLabel: 'v1.0',
+      techPackStatus: 'RELEASED',
+    },
+    snapshotAt: SEED_AT,
+    snapshotBy: '系统',
+  }),
   demandSnapshot: {
     demandId: 'DEM-SEED-0001',
     spuCode: 'SPU-SEED-001',

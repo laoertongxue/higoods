@@ -6,7 +6,7 @@ import {
   buildVideoRecordProjectRelation,
 } from './pcs-testing-relation-normalizer.ts'
 import { getLiveProductLineById } from './pcs-live-testing-repository.ts'
-import { getProjectById, getProjectStoreSnapshot } from './pcs-project-repository.ts'
+import { getProjectById, getProjectStoreSnapshot, listProjects } from './pcs-project-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import type {
   ProjectRelationPendingItem,
@@ -21,6 +21,16 @@ const PROJECT_RELATION_STORAGE_KEY = 'higood-pcs-project-relation-store-v1'
 const PROJECT_RELATION_STORE_VERSION = 1
 
 let memorySnapshot: ProjectRelationStoreSnapshot | null = null
+
+export interface TestingProjectRelationCandidate {
+  projectId: string
+  projectCode: string
+  projectName: string
+  currentPhaseName: string
+  eligible: boolean
+  disabledReason: string
+  selected: boolean
+}
 
 function canUseStorage(): boolean {
   return typeof localStorage !== 'undefined'
@@ -79,13 +89,15 @@ function normalizeRole(value: string | null | undefined): ProjectRelationRole {
 
 function normalizeSourceModule(value: string | null | undefined): ProjectRelationSourceModule {
   if (
+    value === '渠道商品' ||
+    value === '上游渠道商品同步' ||
     value === '改版任务' ||
     value === '制版任务' ||
     value === '花型任务' ||
     value === '首版样衣打样' ||
     value === '产前版样衣' ||
     value === '款式档案' ||
-    value === '技术资料' ||
+    value === '技术包' ||
     value === '项目资料归档' ||
     value === '样衣资产' ||
     value === '样衣台账' ||
@@ -99,13 +111,15 @@ function normalizeSourceModule(value: string | null | undefined): ProjectRelatio
 
 function normalizeSourceObjectType(value: string | null | undefined): ProjectRelationSourceObjectType {
   if (
+    value === '渠道商品' ||
+    value === '上游渠道商品同步' ||
     value === '改版任务' ||
     value === '制版任务' ||
     value === '花型任务' ||
     value === '首版样衣打样任务' ||
     value === '产前版样衣任务' ||
     value === '款式档案' ||
-    value === '技术资料版本' ||
+    value === '技术包版本' ||
     value === '项目资料归档' ||
     value === '样衣资产' ||
     value === '样衣台账事件' ||
@@ -243,6 +257,11 @@ function loadSnapshot(): ProjectRelationStoreSnapshot {
   }
 }
 
+export function ensurePcsProjectFormalRelationSeedReady(): void {
+  const merged = mergeMissingSeedData(loadSnapshot())
+  persistSnapshot(merged)
+}
+
 function persistSnapshot(snapshot: ProjectRelationStoreSnapshot): void {
   memorySnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
@@ -256,14 +275,17 @@ function nextRelationId(): string {
 }
 
 export function getProjectRelationStoreSnapshot(): ProjectRelationStoreSnapshot {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
 }
 
 export function listProjectRelations(): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot().relations.map(cloneRelation)
 }
 
 export function listProjectRelationsByProject(projectId: string): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
     .relations
     .filter((record) => record.projectId === projectId)
@@ -272,6 +294,7 @@ export function listProjectRelationsByProject(projectId: string): ProjectRelatio
 }
 
 export function listProjectRelationsByProjectNode(projectId: string, projectNodeId: string): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
     .relations
     .filter((record) => record.projectId === projectId && record.projectNodeId === projectNodeId)
@@ -285,6 +308,7 @@ export function listProjectRelationsBySourceObject(input: {
   sourceObjectId: string
   sourceLineId?: string | null
 }): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
     .relations
     .filter(
@@ -302,6 +326,7 @@ export function listProjectRelationsByTaskSource(
   sourceModule: '改版任务' | '制版任务' | '花型任务' | '首版样衣打样' | '产前版样衣',
   sourceObjectId: string,
 ): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
     .relations
     .filter(
@@ -314,10 +339,12 @@ export function listProjectRelationsByTaskSource(
 }
 
 export function listProjectRelationPendingItems(): ProjectRelationPendingItem[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot().pendingItems.map(clonePendingItem)
 }
 
 export function listProjectRelationsByLiveProductLine(liveLineId: string): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
     .relations
     .filter(
@@ -331,6 +358,7 @@ export function listProjectRelationsByLiveProductLine(liveLineId: string): Proje
 }
 
 export function listProjectRelationsByVideoRecord(videoRecordId: string): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
     .relations
     .filter(
@@ -343,7 +371,56 @@ export function listProjectRelationsByVideoRecord(videoRecordId: string): Projec
     .map(cloneRelation)
 }
 
+function sortTestingCandidates(candidates: TestingProjectRelationCandidate[]): TestingProjectRelationCandidate[] {
+  return [...candidates].sort((a, b) => {
+    if (a.eligible !== b.eligible) return a.eligible ? -1 : 1
+    if (a.selected !== b.selected) return a.selected ? -1 : 1
+    return a.projectCode.localeCompare(b.projectCode)
+  })
+}
+
+export function listLiveProductLineProjectRelationCandidates(liveLineId: string): TestingProjectRelationCandidate[] {
+  const line = getLiveProductLineById(liveLineId)
+  if (!line) return []
+  const selectedProjectIds = new Set(listProjectRelationsByLiveProductLine(liveLineId).map((relation) => relation.projectId))
+  return sortTestingCandidates(
+    listProjects().map((project) => {
+      const result = buildLiveProductLineProjectRelation(line, project.projectId, { operatorName: '当前用户' })
+      return {
+        projectId: project.projectId,
+        projectCode: project.projectCode,
+        projectName: project.projectName,
+        currentPhaseName: project.currentPhaseName,
+        eligible: Boolean(result.relation),
+        disabledReason: result.errorMessage || '',
+        selected: selectedProjectIds.has(project.projectId),
+      }
+    }),
+  )
+}
+
+export function listVideoRecordProjectRelationCandidates(videoRecordId: string): TestingProjectRelationCandidate[] {
+  const record = getVideoTestRecordById(videoRecordId)
+  if (!record) return []
+  const selectedProjectIds = new Set(listProjectRelationsByVideoRecord(videoRecordId).map((relation) => relation.projectId))
+  return sortTestingCandidates(
+    listProjects().map((project) => {
+      const result = buildVideoRecordProjectRelation(record, project.projectId, { operatorName: '当前用户' })
+      return {
+        projectId: project.projectId,
+        projectCode: project.projectCode,
+        projectName: project.projectName,
+        currentPhaseName: project.currentPhaseName,
+        eligible: Boolean(result.relation),
+        disabledReason: result.errorMessage || '',
+        selected: selectedProjectIds.has(project.projectId),
+      }
+    }),
+  )
+}
+
 export function listProjectRelationsByStyleArchive(styleId: string): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
     .relations
     .filter(
@@ -357,12 +434,13 @@ export function listProjectRelationsByStyleArchive(styleId: string): ProjectRela
 }
 
 export function listProjectRelationsByTechnicalVersion(technicalVersionId: string): ProjectRelationRecord[] {
+  ensurePcsProjectFormalRelationSeedReady()
   return loadSnapshot()
     .relations
     .filter(
       (record) =>
-        record.sourceModule === '技术资料' &&
-        record.sourceObjectType === '技术资料版本' &&
+        record.sourceModule === '技术包' &&
+        record.sourceObjectType === '技术包版本' &&
         record.sourceObjectId === technicalVersionId,
     )
     .sort((a, b) => b.businessDate.localeCompare(a.businessDate))

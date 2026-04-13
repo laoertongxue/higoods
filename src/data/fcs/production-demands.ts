@@ -1,5 +1,3 @@
-import { getCompatTechPackBySpuCode } from '../pcs-technical-data-runtime-source.ts'
-
 export type LegacyType = 'ID_PURCHASE' | 'GOODS_PURCHASE'
 export type SourceSystem = 'LEGACY' | 'NEW'
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL'
@@ -25,6 +23,7 @@ export interface ProductionDemand {
   marketScopes: string[]
   priority: Priority
   demandStatus: DemandStatus
+  // 需求侧只展示当前生效技术包版本信息，不直接承载 FCS 快照入口。
   techPackStatus: TechPackStatus
   techPackVersionLabel: string
   requiredDeliveryDate: string | null
@@ -390,8 +389,7 @@ function normalizeReleasedVersionLabel(versionLabel: string): string {
 }
 
 function normalizeDemandSeed(demand: ProductionDemand): ProductionDemand {
-  const techPack = getCompatTechPackBySpuCode(demand.spuCode)
-  const actualTechPackStatus: TechPackStatus = techPack?.status === 'RELEASED' ? 'RELEASED' : 'INCOMPLETE'
+  const actualTechPackStatus: TechPackStatus = demand.techPackStatus
 
   if (demand.hasProductionOrder && demand.demandStatus !== 'CONVERTED') {
     throw new Error(`需求 ${demand.demandId} 已绑定生产单，但状态不是 CONVERTED`)
@@ -401,15 +399,11 @@ function normalizeDemandSeed(demand: ProductionDemand): ProductionDemand {
     throw new Error(`需求 ${demand.demandId} 标记了 hasProductionOrder，但缺少 productionOrderId`)
   }
 
-  if (demand.hasProductionOrder && actualTechPackStatus !== 'RELEASED') {
-    throw new Error(`需求 ${demand.demandId} 已绑定生产单，但技术资料 ${demand.spuCode} 未发布`)
-  }
-
   return {
     ...demand,
     techPackStatus: actualTechPackStatus,
     techPackVersionLabel: actualTechPackStatus === 'RELEASED'
-      ? normalizeReleasedVersionLabel(techPack?.versionLabel || demand.techPackVersionLabel)
+      ? normalizeReleasedVersionLabel(demand.techPackVersionLabel)
       : 'beta',
   }
 }

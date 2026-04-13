@@ -1,7 +1,8 @@
 import { getProjectById } from './pcs-project-repository.ts'
 import { getStyleArchiveById, listStyleArchives } from './pcs-style-archive-repository.ts'
+import { buildTechPackVersionSourceTaskSummary } from './pcs-tech-pack-task-generation.ts'
 import {
-  getEffectiveTechnicalDataVersionByStyleId,
+  getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
   listTechnicalDataVersionsByProjectId,
@@ -20,14 +21,16 @@ export interface TechnicalVersionListItemViewModel {
   versionLabel: string
   versionStatus: TechnicalVersionStatus
   versionStatusLabel: string
-  effectiveFlag: boolean
+  isCurrentTechPackVersion: boolean
   completenessScore: number
   missingItemNames: string[]
+  sourceTaskText: string
   sourceProjectText: string
   createdAt: string
   updatedAt: string
   publishedAt: string
   canPublish: boolean
+  canActivate: boolean
 }
 
 export interface TechnicalVersionDetailViewModel {
@@ -36,6 +39,8 @@ export interface TechnicalVersionDetailViewModel {
   styleName: string
   sourceProjectText: string
   versionStatusLabel: string
+  isCurrentTechPackVersion: boolean
+  sourceTaskText: string
   canPublish: boolean
   compatibilityMode: boolean
 }
@@ -57,15 +62,17 @@ export function canPublishTechnicalVersion(record: Pick<TechnicalDataVersionReco
 }
 
 export function buildTechnicalVersionListByStyle(styleId: string): TechnicalVersionListItemViewModel[] {
+  const style = getStyleArchiveById(styleId)
   return listTechnicalDataVersionsByStyleId(styleId).map((record) => ({
     technicalVersionId: record.technicalVersionId,
     technicalVersionCode: record.technicalVersionCode,
     versionLabel: record.versionLabel,
     versionStatus: record.versionStatus,
     versionStatusLabel: getTechnicalVersionStatusLabel(record.versionStatus),
-    effectiveFlag: record.effectiveFlag,
+    isCurrentTechPackVersion: style?.currentTechPackVersionId === record.technicalVersionId,
     completenessScore: record.completenessScore,
     missingItemNames: [...record.missingItemNames],
+    sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
     sourceProjectText: record.sourceProjectCode
       ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
       : '未绑定商品项目',
@@ -73,27 +80,34 @@ export function buildTechnicalVersionListByStyle(styleId: string): TechnicalVers
     updatedAt: record.updatedAt,
     publishedAt: record.publishedAt,
     canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
+    canActivate: record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
   }))
 }
 
 export function buildTechnicalVersionListByProject(projectId: string): TechnicalVersionListItemViewModel[] {
-  return listTechnicalDataVersionsByProjectId(projectId).map((record) => ({
-    technicalVersionId: record.technicalVersionId,
-    technicalVersionCode: record.technicalVersionCode,
-    versionLabel: record.versionLabel,
-    versionStatus: record.versionStatus,
-    versionStatusLabel: getTechnicalVersionStatusLabel(record.versionStatus),
-    effectiveFlag: record.effectiveFlag,
-    completenessScore: record.completenessScore,
-    missingItemNames: [...record.missingItemNames],
-    sourceProjectText: record.sourceProjectCode
-      ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
-      : '未绑定商品项目',
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-    publishedAt: record.publishedAt,
-    canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
-  }))
+  return listTechnicalDataVersionsByProjectId(projectId).map((record) => {
+    const style = getStyleArchiveById(record.styleId)
+    return {
+      technicalVersionId: record.technicalVersionId,
+      technicalVersionCode: record.technicalVersionCode,
+      versionLabel: record.versionLabel,
+      versionStatus: record.versionStatus,
+      versionStatusLabel: getTechnicalVersionStatusLabel(record.versionStatus),
+      isCurrentTechPackVersion: style?.currentTechPackVersionId === record.technicalVersionId,
+      completenessScore: record.completenessScore,
+      missingItemNames: [...record.missingItemNames],
+      sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
+      sourceProjectText: record.sourceProjectCode
+        ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
+        : '未绑定商品项目',
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      publishedAt: record.publishedAt,
+      canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
+      canActivate:
+        record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
+    }
+  })
 }
 
 export function buildTechnicalVersionDetailViewModel(
@@ -110,6 +124,8 @@ export function buildTechnicalVersionDetailViewModel(
       ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
       : '未绑定商品项目',
     versionStatusLabel: getTechnicalVersionStatusLabel(record.versionStatus),
+    isCurrentTechPackVersion: getStyleArchiveById(record.styleId)?.currentTechPackVersionId === record.technicalVersionId,
+    sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
     canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
     compatibilityMode: false,
   }
@@ -124,11 +140,11 @@ export function resolveFcsCompatibleTechnicalVersion(spuCode: string): {
     listStyleArchives().find((item) => item.styleCode === spuCode) ??
     null
   if (style) {
-    const effective = getEffectiveTechnicalDataVersionByStyleId(style.styleId)
-    if (effective) {
+    const currentVersion = getCurrentTechPackVersionByStyleId(style.styleId)
+    if (currentVersion) {
       return {
         styleId: style.styleId,
-        technicalVersionId: effective.technicalVersionId,
+        technicalVersionId: currentVersion.technicalVersionId,
       }
     }
   }

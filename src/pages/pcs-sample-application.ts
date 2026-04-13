@@ -601,18 +601,18 @@ export function renderSampleApplicationPage(): string {
         <button class="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm text-primary-foreground" data-sample-application-action="open-create">新建申请</button>
       </header>
 
-      <section class="rounded-lg border bg-card p-4">
-        <div class="grid gap-3 lg:grid-cols-[2fr,1fr,1fr,auto]">
-          <input class="h-9 rounded-md border bg-background px-3 text-sm" placeholder="搜索申请单号/项目/工作项/申请人" value="${escapeHtml(state.keyword)}" data-sample-application-field="keyword" />
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-sample-application-field="status">
+      <section class="rounded-lg border bg-white p-4">
+        <div class="grid gap-4 md:grid-cols-[2fr,1fr,1fr,auto]">
+          <input class="h-9 rounded-md border px-3 text-sm" placeholder="搜索申请单号/项目/工作项/申请人" value="${escapeHtml(state.keyword)}" data-sample-application-field="keyword" />
+          <select class="h-9 rounded-md border px-3 text-sm" data-sample-application-field="status">
             <option value="all" ${state.statusFilter === 'all' ? 'selected' : ''}>全部状态</option>
             ${Object.entries(STATUS_LABELS).map(([code, label]) => `<option value="${code}" ${state.statusFilter === code ? 'selected' : ''}>${label}</option>`).join('')}
           </select>
-          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-sample-application-field="site">
+          <select class="h-9 rounded-md border px-3 text-sm" data-sample-application-field="site">
             <option value="all" ${state.siteFilter === 'all' ? 'selected' : ''}>全部站点</option>
             ${siteOptions.map((item) => `<option value="${escapeHtml(item)}" ${state.siteFilter === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
-          <button class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted" data-sample-application-action="reset">重置</button>
+          <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-gray-50" data-sample-application-action="reset">重置筛选</button>
         </div>
       </section>
 

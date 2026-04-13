@@ -186,7 +186,6 @@ function renderHeader(): string {
           state.selectedProjects.length > 0
             ? `
               <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-action="batch-export">批量导出（${state.selectedProjects.length}）</button>
-              <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-action="batch-copy">批量复制</button>
               <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-project-action="batch-delete">批量移除</button>
             `
             : ''
@@ -299,7 +298,10 @@ function renderProjectListRow(project: ProjectListItemViewModel): string {
         <input type="checkbox" class="mt-1 h-4 w-4 rounded border" ${allSelected ? 'checked' : ''} data-pcs-project-action="toggle-select" data-project-id="${escapeHtml(project.projectId)}" />
       </td>
       <td class="px-3 py-2 align-top">
-        <button class="group flex min-w-[240px] items-start gap-3 text-left" data-pcs-project-action="open-detail" data-project-id="${escapeHtml(project.projectId)}">
+        <button
+          class="group flex min-w-[240px] items-start gap-3 text-left"
+          data-nav="/pcs/projects/${escapeHtml(project.projectId)}"
+        >
           <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded ${coverAccent.bg}">
             <span class="text-[10px] font-medium ${coverAccent.fg}">${escapeHtml(project.styleType)}</span>
           </div>
@@ -351,8 +353,12 @@ function renderProjectListRow(project: ProjectListItemViewModel): string {
       <td class="px-3 py-2 align-top text-xs text-muted-foreground">${escapeHtml(project.updatedAt)}</td>
       <td class="px-3 py-2 align-top">
         <div class="flex flex-wrap gap-1">
-          <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-project-action="open-detail" data-project-id="${escapeHtml(project.projectId)}">查看详情</button>
-          <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-pcs-project-action="duplicate" data-project-id="${escapeHtml(project.projectId)}">复制项目</button>
+          <button
+            class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted"
+            data-nav="/pcs/projects/${escapeHtml(project.projectId)}"
+          >
+            查看详情
+          </button>
         </div>
       </td>
     </tr>
@@ -404,7 +410,10 @@ function renderProjectCard(project: ProjectListItemViewModel): string {
   const coverAccent = getCoverAccent(project.styleType)
   return `
     <article class="overflow-hidden rounded-lg border bg-card">
-      <button class="w-full text-left" data-pcs-project-action="open-detail" data-project-id="${escapeHtml(project.projectId)}">
+      <button
+        class="w-full text-left"
+        data-nav="/pcs/projects/${escapeHtml(project.projectId)}"
+      >
         <div class="relative px-4 py-4 ${coverAccent.bg}">
           <div class="absolute right-3 top-3">${renderBadge(project.projectStatus, getProjectStatusClass(project.projectStatus))}</div>
           <div class="pt-7">
@@ -578,26 +587,8 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     if (projectId) appStore.navigate(`/pcs/projects/${projectId}`)
     return true
   }
-  if (action === 'duplicate') {
-    const projectId = actionNode.dataset.projectId
-    const project = buildProjectListViewModels().find((item) => item.projectId === projectId)
-    state.notice = project ? `项目 ${project.projectName} 的复制能力留待下一步补齐。` : '复制能力留待下一步补齐。'
-    return true
-  }
   if (action === 'batch-export') {
     state.notice = `已选 ${state.selectedProjects.length} 个项目，批量导出留待下一步补齐。`
-    return true
-  }
-  if (action === 'batch-copy') {
-    const selected = buildProjectListViewModels().filter((item) => state.selectedProjects.includes(item.projectId))
-    const payload = selected.map((item) => item.projectCode).join('\n')
-    if (!payload) return true
-    try {
-      void navigator.clipboard.writeText(payload)
-      state.notice = `已复制 ${selected.length} 个项目编号。`
-    } catch {
-      state.notice = '复制失败，请手动复制。'
-    }
     return true
   }
   if (action === 'batch-delete') {

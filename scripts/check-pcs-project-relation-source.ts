@@ -12,17 +12,22 @@ assert.ok(relationTypesSource.includes('sourceLineCode'), '项目关系模型必
 const relationRepositorySource = read('src/data/pcs-project-relation-repository.ts')
 assert.ok(relationRepositorySource.includes('listProjectRelationsByProject('), '项目关系仓储必须支持按项目查询')
 assert.ok(relationRepositorySource.includes('listProjectRelationsByProjectNode('), '项目关系仓储必须支持按项目节点查询')
+assert.ok(relationRepositorySource.includes("'渠道商品'"), '项目关系仓储必须支持渠道商品来源模块')
+assert.ok(relationRepositorySource.includes("'上游渠道商品同步'"), '项目关系仓储必须支持上游渠道商品同步来源模块')
 
 const bootstrapSource = read('src/data/pcs-project-relation-bootstrap.ts')
 assert.ok(!bootstrapSource.includes('直播场次'), '项目关系初始化不允许把直播场次头直接写成正式关系记录')
 
 const detailPageSource = read('src/pages/pcs-project-detail.ts')
 assert.ok(detailPageSource.includes('relationSection'), '项目详情页必须使用正式关系视图数据')
+assert.ok(detailPageSource.includes('buildProjectChannelProductChainSummary'), '项目详情页必须展示正式渠道商品链路摘要')
+assert.ok(detailPageSource.includes('当前关联渠道商品编码'), '项目详情页必须展示当前关联渠道商品编码')
 assert.ok(!detailPageSource.includes('PROJECT_INDEX'), '项目详情页不允许再以内置固定种子拼关联对象')
 assert.ok(!detailPageSource.includes('WORK_ITEM_SEED'), '项目详情页不允许再以内置工作项种子拼关联对象')
 
 const nodeDetailPageSource = read('src/pages/pcs-project-work-item-detail.ts')
 assert.ok(nodeDetailPageSource.includes('relationSection'), '项目工作项详情页必须使用正式关系视图数据')
+assert.ok(nodeDetailPageSource.includes('buildProjectChannelProductChainSummary'), '项目工作项详情页必须展示正式渠道商品链路摘要')
 assert.ok(!nodeDetailPageSource.includes('getPcsProjectDetailSnapshot'), '项目工作项详情页不允许再通过固定快照拼关联对象')
 
 console.log('check-pcs-project-relation-source.ts PASS')

@@ -35,7 +35,7 @@ import {
   renderSettlementListPage,
   renderSettlementDetailPage,
   renderSettlementInitPage,
-  renderTechPackPage,
+  renderFcsProductionTechPackSnapshotPage,
   renderMaterialStatementsPage,
   renderHistoryPage,
   renderPaymentSyncPage,
@@ -253,8 +253,8 @@ export const routes: RouteRegistry = {
       render: (match) => renderCraftCuttingMarkerPlanDetailPage(match[1]),
     },
     {
-      pattern: /^\/fcs\/production\/orders\/([^/]+)$/,
-      render: (match) => renderProductionOrderDetailPage(match[1]),
+      pattern: /^\/fcs\/production\/orders\/([^/]+)\/tech-pack$/,
+      render: (match) => renderFcsProductionTechPackSnapshotPage(match[1]),
     },
     {
       pattern: /^\/fcs\/factories\/settlement\/new\/([^/]+)$/,
@@ -277,11 +277,8 @@ export const routes: RouteRegistry = {
         ),
     },
     {
-      pattern: /^\/fcs\/tech-pack\/([^/]+)$/,
-      render: (match) =>
-        renderTechPackPage(match[1], {
-          compatibilityMode: true,
-        }),
+      pattern: /^\/fcs\/production\/orders\/([^/]+)$/,
+      render: (match) => renderProductionOrderDetailPage(match[1]),
     },
     {
       pattern: /^\/fcs\/progress\/cutting-overview\/([^/]+)$/,

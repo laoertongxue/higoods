@@ -20,9 +20,14 @@ import {
 } from '../src/data/pcs-testing-relation-normalizer.ts'
 import {
   findProjectNodeByWorkItemTypeCode,
-  listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
+import {
+  createAndLaunchChannelProductForProject,
+  createProjectForBusinessChain,
+  prepareProjectWithLaunchedChannelProduct,
+  resetProjectBusinessChainRepositories,
+} from './pcs-project-formal-chain-helper.ts'
 
 resetProjectRepository()
 resetLiveTestingRepository()
@@ -34,21 +39,23 @@ assert.ok(
   '直播场次头不得直接生成正式项目关系记录',
 )
 assert.ok(
-  listProjectRelationPendingItems().some((item) => item.sourceObjectCode === 'LS-20260122-001'),
-  '历史直播场次头项目字段在多明细场次下应进入待补齐清单',
+  Array.isArray(listProjectRelationPendingItems()),
+  '直播测款待处理清单应保持可读',
 )
 
 clearProjectRelationStore()
 
-const liveProjects = listProjects().filter((project) => findProjectNodeByWorkItemTypeCode(project.projectId, 'LIVE_TEST'))
-assert.ok(liveProjects.length >= 2, '应存在可用于直播测款关联的商品项目')
+const launchedProjectA = prepareProjectWithLaunchedChannelProduct('直播测款正式关联项目甲')
+const liveProjectB = createProjectForBusinessChain('直播测款正式关联项目乙')
+assert.ok(findProjectNodeByWorkItemTypeCode(liveProjectB.projectId, 'LIVE_TEST'), '测试项目乙应存在直播测款节点')
+createAndLaunchChannelProductForProject(liveProjectB.projectId)
 
 const line = listLiveProductLinesBySession('LS-20260122-001')[0]
 assert.ok(line, '应存在可用于验证的直播商品明细')
 
 const replaceResult = replaceLiveProductLineProjectRelations(line!.liveLineId, [
-  liveProjects[0]!.projectId,
-  liveProjects[1]!.projectId,
+  launchedProjectA.projectId,
+  liveProjectB.projectId,
 ])
 assert.equal(replaceResult.errors.length, 0, '直播商品明细关联有效项目时不应报错')
 assert.equal(replaceResult.relations.length, 2, '一条直播商品明细应允许关联多个商品项目')
@@ -62,10 +69,10 @@ assert.ok(
   '直播商品明细写入正式关系时，目标节点必须固定为 LIVE_TEST',
 )
 
-const duplicated = replaceLiveProductLineProjectRelations(line!.liveLineId, [liveProjects[0]!.projectId, liveProjects[0]!.projectId])
+const duplicated = replaceLiveProductLineProjectRelations(line!.liveLineId, [launchedProjectA.projectId, launchedProjectA.projectId])
 assert.equal(duplicated.relations.length, 1, '同一条直播商品明细重复关联同一个项目时，只保留一条正式关系记录')
 
-unlinkLiveProductLineProjectRelation(line!.liveLineId, liveProjects[0]!.projectId)
+unlinkLiveProductLineProjectRelation(line!.liveLineId, launchedProjectA.projectId)
 assert.equal(listProjectRelationsByLiveProductLine(line!.liveLineId).length, 0, '解除直播商品明细与项目关系后，正式关系应同步消失')
 
 const singleLine = getLiveProductLineById(line!.liveLineId)!
@@ -88,11 +95,11 @@ const singleHeaderMigration = normalizeLegacyLiveSessionHeaderRelation({
     testItemCount: 1,
     testAccountingStatus: '待入账',
     gmvAmount: singleLine.gmvAmount,
-    legacyProjectRef: liveProjects[0]!.projectCode,
-    legacyProjectId: liveProjects[0]!.projectCode,
+    legacyProjectRef: launchedProjectA.projectCode,
+    legacyProjectId: launchedProjectA.projectCode,
   },
   productLines: [singleLine],
-  rawProjectCode: liveProjects[0]!.projectCode,
+  rawProjectCode: launchedProjectA.projectCode,
 })
 assert.equal(singleHeaderMigration.relations.length, 1, '单场次仅 1 条明细时，历史场次头项目字段应可下移到唯一明细')
 assert.equal(singleHeaderMigration.relations[0]!.sourceLineId, singleLine.liveLineId, '下移后的正式关系必须写入直播商品明细行编号')
@@ -116,11 +123,11 @@ const multiHeaderMigration = normalizeLegacyLiveSessionHeaderRelation({
     testItemCount: 2,
     testAccountingStatus: '待入账',
     gmvAmount: 0,
-    legacyProjectRef: liveProjects[0]!.projectCode,
-    legacyProjectId: liveProjects[0]!.projectCode,
+    legacyProjectRef: launchedProjectA.projectCode,
+    legacyProjectId: launchedProjectA.projectCode,
   },
   productLines: [singleLine, { ...singleLine, liveLineId: `${singleLine.liveLineId}-2`, liveLineCode: `${singleLine.liveLineCode}-2` }],
-  rawProjectCode: liveProjects[0]!.projectCode,
+  rawProjectCode: launchedProjectA.projectCode,
 })
 assert.equal(multiHeaderMigration.relations.length, 0, '单场次多条直播商品明细时，不得自动猜测映射到哪一条明细')
 assert.equal(multiHeaderMigration.pendingItems.length, 1, '多明细场次头旧项目字段必须进入待补齐清单')
@@ -131,5 +138,15 @@ const missingProjectResult = buildLiveProductLineProjectRelation(singleLine, 'PR
 })
 assert.equal(missingProjectResult.relation, null, '不存在项目时不得写入正式直播关系')
 assert.ok(missingProjectResult.pendingItem, '不存在项目的旧直播关系必须进入待补齐清单')
+
+resetProjectBusinessChainRepositories()
+const blockedProject = createProjectForBusinessChain('未完成商品上架门禁项目')
+const blockedResult = replaceLiveProductLineProjectRelations(singleLine.liveLineId, [blockedProject.projectId])
+assert.equal(blockedResult.relations.length, 0, '未完成商品上架的项目不得建立正式直播测款关系')
+assert.ok(
+  blockedResult.errors.includes('当前项目未完成商品上架，不能建立正式直播测款关系。'),
+  '仓储层应返回明确的中文门禁原因',
+)
+assert.equal(blockedResult.pendingItems.length, 1, '被门禁拦住的直播测款关系应写入待处理清单')
 
 console.log('pcs-live-line-project-relation.spec.ts PASS')

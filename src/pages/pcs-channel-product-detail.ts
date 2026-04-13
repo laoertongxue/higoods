@@ -3,14 +3,20 @@ import { escapeHtml } from '../utils'
 import { renderFormDialog } from '../components/ui'
 import {
   CHANNEL_PRODUCT_STATUS_META,
+  CHANNEL_OPTIONS,
   LISTING_INSTANCES,
   MAP_STATUS_META,
   PRODUCT_LOGS,
   PRODUCT_ORDER_TRACES,
   PRODUCT_VARIANTS,
+  STORE_OPTIONS,
   getChannelProductDetail,
   type ProductDetail,
 } from '../data/pcs-channels'
+import {
+  getProjectChannelProductById,
+  type ProjectChannelProductRecord,
+} from '../data/pcs-channel-product-project-repository.ts'
 
 type ProductDetailTab = 'overview' | 'variants' | 'listing' | 'orders' | 'logs'
 
@@ -50,6 +56,10 @@ const TABS: Array<{ key: ProductDetailTab; label: string }> = [
 
 function getDetail(): ProductDetail | null {
   return getChannelProductDetail(state.productId)
+}
+
+function getProjectProductDetail(): ProjectChannelProductRecord | null {
+  return getProjectChannelProductById(state.productId)
 }
 
 function renderNotFound(productId: string): string {
@@ -149,7 +159,7 @@ function renderOverview(detail: ProductDetail): string {
       <article class="rounded-lg border bg-card p-3 text-sm">
         <p class="text-xs text-muted-foreground">链路提醒</p>
         <div class="mt-2 space-y-1 text-muted-foreground">
-          <p>渠道商品详情承接：变体映射、上架实例、订单追溯、日志审计。</p>
+          <p>渠道商品详情承接商品上架节点生成的正式渠道商品主档、变体映射、上架实例、订单追溯、日志审计。</p>
           <p>若挂接异常，请前往“渠道属性对应”修复。</p>
         </div>
       </article>
@@ -286,6 +296,99 @@ function renderLogs(): string {
   `
 }
 
+function renderProjectProductDetail(record: ProjectChannelProductRecord): string {
+  const channelName = CHANNEL_OPTIONS.find((item) => item.id === record.channelCode)?.name || record.channelCode
+  const storeName = STORE_OPTIONS.find((item) => item.id === record.storeId)?.name || record.storeName
+  const sourceLabel = record.styleId ? '已生效渠道商品' : record.channelProductStatus === '已作废' ? '已作废渠道商品' : '测款候选商品'
+
+  return `
+    <div class="space-y-4">
+      <header class="space-y-3 rounded-lg border bg-card p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="space-y-1">
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="go-list">
+              <i data-lucide="arrow-left" class="mr-1 h-3.5 w-3.5"></i>返回列表
+            </button>
+            <p class="text-xs text-muted-foreground">商品档案 / 渠道商品 / 项目测款来源</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <h1 class="text-xl font-semibold">${escapeHtml(record.channelProductCode)}</h1>
+              <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">${escapeHtml(sourceLabel)}</span>
+            </div>
+            <p class="text-sm text-muted-foreground">${escapeHtml(channelName)} / ${escapeHtml(storeName)} ｜ 渠道标题 ${escapeHtml(record.listingTitle)}</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="go-project" data-project-id="${escapeHtml(record.projectId)}">查看来源项目</button>
+            ${
+              record.styleId
+                ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-channel-product-detail-action="go-style" data-style-id="${escapeHtml(record.styleId)}">查看款式档案</button>`
+                : ''
+            }
+          </div>
+        </div>
+      </header>
+      ${renderNotice()}
+      <section class="grid gap-3 xl:grid-cols-3">
+        <article class="rounded-lg border bg-card p-4 text-sm">
+          <h2 class="text-base font-semibold">来源与节点</h2>
+          <div class="mt-3 space-y-2">
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">来源项目</span><span class="font-medium">${escapeHtml(record.projectCode)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">项目名称</span><span class="font-medium">${escapeHtml(record.projectName)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">来源商品上架节点</span><span class="font-medium">${escapeHtml(record.projectNodeId)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">渠道 / 店铺</span><span class="font-medium">${escapeHtml(channelName)} / ${escapeHtml(storeName)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">币种 / 售价</span><span class="font-medium">${escapeHtml(record.currency)} / ${record.listingPrice.toLocaleString()}</span></div>
+          </div>
+        </article>
+        <article class="rounded-lg border bg-card p-4 text-sm">
+          <h2 class="text-base font-semibold">测款与作废状态</h2>
+          <div class="mt-3 space-y-2">
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">当前测款状态</span><span class="font-medium">${escapeHtml(record.testingStatusText)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">渠道商品状态</span><span class="font-medium">${escapeHtml(record.channelProductStatus)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">是否已作废</span><span class="font-medium">${record.channelProductStatus === '已作废' ? '是' : '否'}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">作废原因</span><span class="font-medium">${escapeHtml(record.invalidatedReason || '—')}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">关联改版任务</span><span class="font-medium">${escapeHtml(record.linkedRevisionTaskCode || '—')}</span></div>
+          </div>
+        </article>
+        <article class="rounded-lg border bg-card p-4 text-sm">
+          <h2 class="text-base font-semibold">款式档案与上游更新</h2>
+          <div class="mt-3 space-y-2">
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">款式档案编码</span><span class="font-medium">${escapeHtml(record.styleCode || '尚未关联')}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">上游渠道商品编码</span><span class="font-medium">${escapeHtml(record.upstreamChannelProductCode || '尚未回填')}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">上游更新状态</span><span class="font-medium">${escapeHtml(record.upstreamSyncStatus)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">是否已完成上游最终更新</span><span class="font-medium">${record.upstreamSyncStatus === '已更新' ? '是' : '否'}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">最后一次上游更新时间</span><span class="font-medium">${escapeHtml(record.lastUpstreamSyncAt || '暂无')}</span></div>
+          </div>
+        </article>
+      </section>
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">三码关联结果</h2>
+        <div class="mt-3 grid gap-3 text-sm md:grid-cols-3">
+          <div class="rounded-lg border bg-muted/20 p-3">
+            <p class="text-xs text-muted-foreground">款式档案编码</p>
+            <p class="mt-1 font-medium">${escapeHtml(record.styleCode || '尚未建立')}</p>
+          </div>
+          <div class="rounded-lg border bg-muted/20 p-3">
+            <p class="text-xs text-muted-foreground">渠道商品编码</p>
+            <p class="mt-1 font-medium">${escapeHtml(record.channelProductCode)}</p>
+          </div>
+          <div class="rounded-lg border bg-muted/20 p-3">
+            <p class="text-xs text-muted-foreground">上游渠道商品编码</p>
+            <p class="mt-1 font-medium">${escapeHtml(record.upstreamChannelProductCode || '尚未回填')}</p>
+          </div>
+        </div>
+      </section>
+      <section class="rounded-lg border bg-card p-4">
+        <h2 class="text-base font-semibold">上游更新日志</h2>
+        <div class="mt-3 space-y-2 text-sm">
+          <article class="rounded-md border bg-muted/20 p-3">
+            <p class="font-medium">${escapeHtml(record.upstreamSyncNote || '暂无上游更新说明')}</p>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.upstreamSyncLog || '暂无上游更新日志')}</p>
+          </article>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderTabContent(detail: ProductDetail): string {
   if (state.activeTab === 'overview') return renderOverview(detail)
   if (state.activeTab === 'variants') return renderVariants()
@@ -382,6 +485,8 @@ function closeAllDialogs(): void {
 
 export function renderPcsChannelProductDetailPage(productId: string): string {
   state.productId = productId
+  const projectDetail = getProjectProductDetail()
+  if (projectDetail) return renderProjectProductDetail(projectDetail)
   const detail = getDetail()
   if (!detail) return renderNotFound(productId)
 
@@ -418,6 +523,22 @@ export function handlePcsChannelProductDetailEvent(target: HTMLElement): boolean
 
   if (action === 'go-list') {
     appStore.navigate('/pcs/products/channel-products')
+    return true
+  }
+
+  if (action === 'go-project') {
+    const projectId = actionNode.dataset.projectId
+    if (projectId) {
+      appStore.navigate(`/pcs/projects/${projectId}`)
+    }
+    return true
+  }
+
+  if (action === 'go-style') {
+    const styleId = actionNode.dataset.styleId
+    if (styleId) {
+      appStore.navigate(`/pcs/products/styles/${styleId}`)
+    }
     return true
   }
 

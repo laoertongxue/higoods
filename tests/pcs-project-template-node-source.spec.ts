@@ -33,14 +33,6 @@ const templateEditorSource = readFileSync(
   'utf8',
 )
 assert.ok(
-  templateEditorSource.includes('listSelectableTemplateWorkItems'),
-  '模板编辑页新增节点时应从标准工作项库选择',
-)
-assert.ok(
-  templateEditorSource.includes('data-pcs-template-editor-action="open-library"'),
-  '模板编辑页应保留从工作项库选择的入口',
-)
-assert.ok(
   !templateEditorSource.includes('data-pcs-template-editor-field="workItemName"'),
   '模板编辑页不应再允许自由输入工作项名称',
 )
@@ -51,6 +43,46 @@ assert.ok(
 assert.ok(
   !templateEditorSource.includes('字段模板文本'),
   '模板编辑页不应再出现字段模板文本自由输入',
+)
+assert.ok(
+  !templateEditorSource.includes('listSelectableTemplateWorkItems'),
+  '模板编辑页不应再保留自由工作项库新增能力',
+)
+assert.ok(
+  !templateEditorSource.includes('data-pcs-template-editor-action="open-library"'),
+  '模板编辑页不应再保留工作项库弹窗入口',
+)
+assert.ok(
+  templateEditorSource.includes('listProjectTemplateSchemas'),
+  '模板编辑页应从正式模板矩阵读取模板结构',
+)
+assert.ok(
+  templateEditorSource.includes('getProjectTemplateSchema'),
+  '模板编辑页应基于正式模板契约加载节点配置',
+)
+assert.ok(
+  templateEditorSource.includes('findSchemaByStyleType'),
+  '模板新增流程应先按适用款式类型匹配正式模板骨架',
+)
+assert.ok(
+  templateEditorSource.includes('data-pcs-template-editor-field="styleType"'),
+  '模板新增页应先选择适用款式类型',
+)
+assert.ok(
+  templateEditorSource.includes('data-pcs-template-editor-field="nodeSequenceNo"'),
+  '模板编辑页应允许在正式规则内调整节点顺序',
+)
+assert.ok(
+  templateEditorSource.includes('data-pcs-template-editor-field="nodeRequiredFlag"'),
+  '模板编辑页应允许在正式规则内调整节点必做属性',
+)
+assert.ok(
+  templateEditorSource.includes('data-pcs-template-editor-field="nodeMultiInstanceFlag"'),
+  '模板编辑页应允许在正式规则内调整多实例开关',
+)
+assert.ok(
+  templateEditorSource.includes('getTemplateNodeEditRule'),
+  '模板编辑页应使用正式编辑规则约束节点可编辑项',
 )
 
 console.log('pcs-project-template-node-source.spec.ts PASS')

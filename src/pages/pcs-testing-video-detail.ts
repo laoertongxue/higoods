@@ -1,6 +1,9 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { getProjectRelationProjectLabel, listProjectRelationsByVideoRecord } from '../data/pcs-project-relation-repository.ts'
+import { findProjectChannelProductByVideoRecord } from '../data/pcs-channel-product-project-repository.ts'
+import { getVideoTestRecordById } from '../data/pcs-video-testing-repository.ts'
+import { getVideoRecordOwnershipSummary } from '../data/pcs-testing-ownership.ts'
 import {
   ACCOUNTING_STATUS_META,
   SESSION_STATUS_META,
@@ -54,17 +57,45 @@ const TABS: Array<{ key: VideoDetailTab; label: string }> = [
 ]
 
 function renderVideoRecordProjectInfo(item: VideoItem): string {
+  const testingRecord = getVideoTestRecordById(state.recordId)
+  const ownership = testingRecord
+    ? getVideoRecordOwnershipSummary(testingRecord)
+    : getVideoRecordOwnershipSummary({
+        videoRecordId: state.recordId,
+        videoRecordCode: state.recordId,
+        videoTitle: item.productName,
+        channelName: '',
+        businessDate: '',
+        publishedAt: '',
+        recordStatus: '',
+        styleCode: item.productRef,
+        spuCode: item.productRef,
+        skuCode: item.sku,
+        colorCode: '',
+        sizeCode: '',
+        exposureQty: item.exposure,
+        clickQty: item.click,
+        orderQty: item.order,
+        gmvAmount: item.gmv,
+        ownerName: '',
+        legacyProjectRef: item.projectRef,
+        legacyProjectId: item.projectRef,
+      })
   const relations = listProjectRelationsByVideoRecord(state.recordId)
   if (relations.length === 0) {
     return `
       <div class="space-y-1">
         <p class="font-medium text-foreground">${escapeHtml(item.productName)}</p>
-        <p class="text-[11px] text-muted-foreground">暂无正式项目关联</p>
-        ${item.projectRef ? `<p class="text-[11px] text-amber-700">历史项目字段：${escapeHtml(item.projectRef)}</p>` : ''}
+        ${ownership ? `<span class="inline-flex rounded-full border px-2 py-0.5 text-[11px] ${ownership.badgeTone}">${ownership.label}</span>` : '<p class="text-[11px] text-muted-foreground">暂无正式项目关联</p>'}
+        ${ownership ? `<p class="text-[11px] text-muted-foreground">${escapeHtml(ownership.detailText)}</p>` : ''}
+        ${ownership?.legacyHintText ? `<p class="text-[11px] text-amber-700">${escapeHtml(ownership.legacyHintText)}</p>` : ''}
         <p class="text-muted-foreground">${escapeHtml(item.sku)}</p>
       </div>
     `
   }
+  const channelProductBadges = relations
+    .map((relation) => findProjectChannelProductByVideoRecord(relation.projectId, state.recordId))
+    .filter((relation): relation is NonNullable<typeof relation> => Boolean(relation))
   return `
     <div class="space-y-1">
       <div class="flex flex-wrap gap-1">
@@ -72,6 +103,15 @@ function renderVideoRecordProjectInfo(item: VideoItem): string {
           .map((relation) => `<span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">${escapeHtml(getProjectRelationProjectLabel(relation.projectId))}</span>`)
           .join('')}
       </div>
+      ${
+        channelProductBadges.length
+          ? `<div class="flex flex-wrap gap-1">${channelProductBadges
+              .map(
+                (relation) => `<span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">${escapeHtml(`${relation.channelProductCode} / ${relation.upstreamChannelProductCode || '待回填'}`)}</span>`,
+              )
+              .join('')}</div>`
+          : ''
+      }
       <p class="font-medium text-foreground">${escapeHtml(item.productName)}</p>
       <p class="text-muted-foreground">${escapeHtml(item.sku)}</p>
     </div>
@@ -104,6 +144,29 @@ function renderNotice(): string {
 }
 
 function renderHeader(record: VideoRecord): string {
+  const ownership = getVideoRecordOwnershipSummary(
+    getVideoTestRecordById(record.id) ?? {
+      videoRecordId: record.id,
+      videoRecordCode: record.id,
+      videoTitle: record.title,
+      channelName: '',
+      businessDate: '',
+      publishedAt: '',
+      recordStatus: '',
+      styleCode: '',
+      spuCode: '',
+      skuCode: '',
+      colorCode: '',
+      sizeCode: '',
+      exposureQty: record.views,
+      clickQty: record.likes,
+      orderQty: 0,
+      gmvAmount: record.gmv,
+      ownerName: record.owner,
+      legacyProjectRef: getItems().find((item) => Boolean(item.projectRef))?.projectRef ?? null,
+      legacyProjectId: getItems().find((item) => Boolean(item.projectRef))?.projectRef ?? null,
+    },
+  )
   const showEdit = record.status === 'DRAFT' || record.status === 'RECONCILING'
   const showClose = record.status === 'RECONCILING'
   const showAccounting =
@@ -121,8 +184,10 @@ function renderHeader(record: VideoRecord): string {
             <h1 class="text-xl font-semibold">${escapeHtml(record.title)}</h1>
             <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${SESSION_STATUS_META[record.status].color}">${SESSION_STATUS_META[record.status].label}</span>
             <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${ACCOUNTING_STATUS_META[record.testAccountingStatus].color}">${ACCOUNTING_STATUS_META[record.testAccountingStatus].label}</span>
+            <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${ownership.badgeTone}">${ownership.label}</span>
           </div>
           <p class="text-sm text-muted-foreground">${VIDEO_PLATFORM_META[record.platform].label} · ${escapeHtml(record.account)} · ${escapeHtml(record.publishedAt ?? '待发布')}</p>
+          <p class="text-xs text-muted-foreground">${escapeHtml(ownership.detailText)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
           ${showEdit ? '<button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-pcs-video-detail-action="edit-record"><i data-lucide="edit-3" class="mr-1 h-3.5 w-3.5"></i>编辑</button>' : ''}
@@ -149,9 +214,33 @@ function renderTabs(): string {
 
 function renderOverview(record: VideoRecord, items: VideoItem[]): string {
   const testItems = items.filter((item) => item.evaluationIntent === 'TEST')
+  const testingRecord = getVideoTestRecordById(record.id)
+  const ownership = getVideoRecordOwnershipSummary(
+    testingRecord ?? {
+      videoRecordId: record.id,
+      videoRecordCode: record.id,
+      videoTitle: record.title,
+      channelName: '',
+      businessDate: '',
+      publishedAt: '',
+      recordStatus: '',
+      styleCode: '',
+      spuCode: '',
+      skuCode: '',
+      colorCode: '',
+      sizeCode: '',
+      exposureQty: record.views,
+      clickQty: record.likes,
+      orderQty: 0,
+      gmvAmount: record.gmv,
+      ownerName: record.owner,
+      legacyProjectRef: items.find((item) => Boolean(item.projectRef))?.projectRef ?? null,
+      legacyProjectId: items.find((item) => Boolean(item.projectRef))?.projectRef ?? null,
+    },
+  )
 
   return `
-    <section class="grid gap-3 xl:grid-cols-3">
+    <section class="grid gap-3 xl:grid-cols-4">
       <article class="rounded-lg border bg-card p-3">
         <p class="text-xs text-muted-foreground">记录信息</p>
         <div class="mt-2 space-y-1 text-sm">
@@ -179,6 +268,13 @@ function renderOverview(record: VideoRecord, items: VideoItem[]): string {
           <p>待改版建议：${testItems.filter((item) => item.recommendation === '改版').length}</p>
           <p>入账状态：${ACCOUNTING_STATUS_META[record.testAccountingStatus].label}</p>
           <p>备注：${escapeHtml(record.note || '-')}</p>
+        </div>
+      </article>
+      <article class="rounded-lg border bg-card p-3">
+        <p class="text-xs text-muted-foreground">样本归属</p>
+        <div class="mt-2 space-y-2 text-sm">
+          <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${ownership.badgeTone}">${ownership.label}</span>
+          <p>${escapeHtml(ownership.detailText)}</p>
         </div>
       </article>
     </section>
