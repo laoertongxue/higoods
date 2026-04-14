@@ -1680,11 +1680,10 @@ function buildBootstrapRecords(seed: BootstrapProjectSeed): BootstrapBuildResult
 }
 
 export function createBootstrapProjectSnapshot(version: number): PcsProjectStoreSnapshot {
-  const built = ALL_BOOTSTRAP_PROJECT_SEEDS.map(buildBootstrapRecords)
   return {
     version,
-    projects: built.map((item) => item.project),
-    phases: built.flatMap((item) => item.phases),
-    nodes: built.flatMap((item) => item.nodes),
+    projects: [],
+    phases: [],
+    nodes: [],
   }
 }

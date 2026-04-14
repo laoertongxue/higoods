@@ -17,7 +17,7 @@ import type {
   ProjectRelationStoreSnapshot,
 } from './pcs-project-relation-types.ts'
 
-const PROJECT_RELATION_STORAGE_KEY = 'higood-pcs-project-relation-store-v1'
+const PROJECT_RELATION_STORAGE_KEY = 'higood-pcs-project-relation-store-v2'
 const PROJECT_RELATION_STORE_VERSION = 1
 
 let memorySnapshot: ProjectRelationStoreSnapshot | null = null
@@ -54,6 +54,13 @@ function cloneSnapshot(snapshot: ProjectRelationStoreSnapshot): ProjectRelationS
 
 function seedSnapshot(): ProjectRelationStoreSnapshot {
   const projectSnapshot = getProjectStoreSnapshot()
+  if (projectSnapshot.projects.length === 0) {
+    return {
+      version: PROJECT_RELATION_STORE_VERSION,
+      relations: [],
+      pendingItems: [],
+    }
+  }
   const bootstrapSnapshot = createBootstrapProjectRelationSnapshot({
     version: PROJECT_RELATION_STORE_VERSION,
     projects: projectSnapshot.projects,

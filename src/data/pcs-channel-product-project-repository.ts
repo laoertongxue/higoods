@@ -2,6 +2,7 @@ import {
   findProjectByCode,
   getProjectById,
   getProjectNodeRecordByWorkItemTypeCode,
+  listProjects,
   listProjectPhases,
   updateProjectNodeRecord,
   updateProjectPhaseRecord,
@@ -16,6 +17,11 @@ import { getStyleArchiveById, updateStyleArchive } from './pcs-style-archive-rep
 import { createRevisionTaskWithProjectRelation } from './pcs-task-project-relation-writeback.ts'
 import { getLiveProductLineById } from './pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
+import {
+  getDefaultPcsStoreIdByChannel,
+  resolvePcsStoreCurrency,
+  resolvePcsStoreDisplayName,
+} from './pcs-channel-store-master.ts'
 import {
   getTechnicalDataVersionById,
   updateTechnicalDataVersionRecord,
@@ -153,7 +159,7 @@ interface ChannelSeed {
   upstreamSyncLog?: string
 }
 
-const STORAGE_KEY = 'higood-pcs-project-channel-product-store-v1'
+const STORAGE_KEY = 'higood-pcs-project-channel-product-store-v2'
 const STORE_VERSION = 1
 const DEMO_OPERATOR = '系统初始化'
 
@@ -181,27 +187,24 @@ function cloneSnapshot(snapshot: ChannelProductStoreSnapshot): ChannelProductSto
   }
 }
 
-function getChannelMeta(channelCode: string): {
+function getChannelMeta(channelCode: string, storeId = ''): {
   channelName: string
   storeName: string
 } {
   if (channelCode === 'shopee') {
-    return { channelName: '虾皮', storeName: '虾皮马来西亚店' }
+    return { channelName: '虾皮', storeName: resolvePcsStoreDisplayName(storeId, channelCode) }
   }
   if (channelCode === 'lazada') {
-    return { channelName: '来赞达', storeName: '来赞达菲律宾店' }
+    return { channelName: '来赞达', storeName: resolvePcsStoreDisplayName(storeId, channelCode) }
   }
   if (channelCode === 'wechat-mini-program') {
-    return { channelName: '微信小程序', storeName: '微信小程序商城' }
+    return { channelName: '微信小程序', storeName: resolvePcsStoreDisplayName(storeId, channelCode) }
   }
-  return { channelName: '抖音商城', storeName: '抖音商城旗舰店' }
+  return { channelName: '抖音商城', storeName: resolvePcsStoreDisplayName(storeId, channelCode) }
 }
 
 function getDefaultStoreId(channelCode: string): string {
-  if (channelCode === 'shopee') return 'store-shopee-01'
-  if (channelCode === 'lazada') return 'store-lazada-01'
-  if (channelCode === 'wechat-mini-program') return 'store-mini-program-01'
-  return 'store-tiktok-01'
+  return getDefaultPcsStoreIdByChannel(channelCode) || 'store-tiktok-01'
 }
 
 function resolveListingPayload(
@@ -211,7 +214,7 @@ function resolveListingPayload(
   const project = getProjectById(projectId)
   const targetChannelCode = payload.targetChannelCode || project?.targetChannelCodes[0] || 'tiktok-shop'
   const targetStoreId = payload.targetStoreId || getDefaultStoreId(targetChannelCode)
-  const channelMeta = getChannelMeta(targetChannelCode)
+  const channelMeta = getChannelMeta(targetChannelCode, targetStoreId)
   const listingPrice =
     typeof payload.listingPrice === 'number' && Number.isFinite(payload.listingPrice)
       ? payload.listingPrice
@@ -224,7 +227,7 @@ function resolveListingPayload(
     targetStoreId,
     listingTitle: payload.listingTitle?.trim() || `${project?.projectName || '商品项目'} 测款渠道商品`,
     listingPrice,
-    currency: payload.currency?.trim() || (targetChannelCode === 'shopee' ? 'MYR' : 'CNY'),
+    currency: payload.currency?.trim() || resolvePcsStoreCurrency(targetStoreId, targetChannelCode),
   }
 }
 
@@ -256,7 +259,7 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     ? getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'CHANNEL_PRODUCT_LISTING')
     : null
   if (!project || !listingNode) return null
-  const channelMeta = getChannelMeta(seed.channelCode)
+  const channelMeta = getChannelMeta(seed.channelCode, seed.storeId)
   return {
     channelProductId: buildChannelProductId(seed.projectCode, seed.sequence),
     channelProductCode: buildChannelProductCode(seed.projectCode, seed.sequence),
@@ -272,7 +275,7 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     storeName: channelMeta.storeName,
     listingTitle: seed.listingTitle,
     listingPrice: seed.listingPrice,
-    currency: seed.currency,
+    currency: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
     channelProductStatus: seed.channelProductStatus,
     upstreamSyncStatus: seed.upstreamSyncStatus,
     styleId: seed.styleId || '',
@@ -302,6 +305,12 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
 }
 
 function seedSnapshot(): ChannelProductStoreSnapshot {
+  if (listProjects().length === 0) {
+    return {
+      version: STORE_VERSION,
+      records: [],
+    }
+  }
   const seeds: ChannelSeed[] = [
     {
       projectCode: 'PRJ-20251216-005',
@@ -1688,7 +1697,7 @@ export function createProjectChannelProductFromListingNode(
 
   const resolvedPayload = resolveListingPayload(projectId, payload)
   const sequence = nextChannelProductSequence(projectId)
-  const channelMeta = getChannelMeta(resolvedPayload.targetChannelCode)
+  const channelMeta = getChannelMeta(resolvedPayload.targetChannelCode, resolvedPayload.targetStoreId)
   const timestamp = nowText()
   const record: ProjectChannelProductRecord = {
     channelProductId: buildChannelProductId(project.projectCode, sequence),

@@ -1,6 +1,6 @@
 import type { TemplateStyleType } from './pcs-templates.ts'
 
-export type ProjectStatus = '已立项' | '进行中' | '已终止' | '已归档'
+export type ProjectStatus = '待审核' | '已立项' | '进行中' | '已终止' | '已归档'
 export type ProjectPhaseStatus = '未开始' | '进行中' | '已完成' | '已终止'
 export type ProjectNodeStatus = '未开始' | '进行中' | '待确认' | '已完成' | '已取消'
 export type LegacyProjectNodeStatus = ProjectNodeStatus | '待决策' | '未解锁'
@@ -50,7 +50,7 @@ export interface PcsProjectRecord {
   priceRangeLabel: string
   targetChannelCodes: string[]
   projectAlbumUrls: string[]
-  sampleSourceType: SampleSourceType
+  sampleSourceType: SampleSourceType | ''
   sampleSupplierId: string
   sampleSupplierName: string
   sampleLink: string

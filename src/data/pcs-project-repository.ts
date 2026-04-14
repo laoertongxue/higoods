@@ -41,7 +41,7 @@ import type {
 } from './pcs-project-types.ts'
 import type { TemplateStyleType } from './pcs-templates.ts'
 
-const PROJECT_STORAGE_KEY = 'higood-pcs-project-store-v1'
+const PROJECT_STORAGE_KEY = 'higood-pcs-project-store-v2'
 const PROJECT_STORE_VERSION = 2
 
 const PROJECT_TYPES = ['商品开发', '快反上新', '改版开发', '设计研发'] as const
@@ -182,7 +182,10 @@ function normalizeProject(project: PcsProjectRecord): PcsProjectRecord {
   return {
     ...cloneProject(project),
     projectStatus:
-      project.projectStatus === '已终止' || project.projectStatus === '已归档' || project.projectStatus === '已立项'
+      project.projectStatus === '待审核' ||
+      project.projectStatus === '已终止' ||
+      project.projectStatus === '已归档' ||
+      project.projectStatus === '已立项'
         ? project.projectStatus
         : '进行中',
     linkedStyleId: project.linkedStyleId || '',
@@ -421,8 +424,16 @@ function deriveProjectTypeFromStyleType(styleType: TemplateStyleType): typeof PR
   return '商品开发'
 }
 
+function getProjectSequenceDateKey(project: PcsProjectRecord): string {
+  const codeMatched = project.projectCode.match(/^PRJ-(\d{8})-/)
+  if (codeMatched) return codeMatched[1]
+  const idMatched = project.projectId.match(/^prj_(\d{8})_/)
+  if (idMatched) return idMatched[1]
+  return formatDateKey(project.createdAt || project.updatedAt)
+}
+
 function nextProjectSequence(snapshot: PcsProjectStoreSnapshot, dateKey: string): number {
-  const sameDay = snapshot.projects.filter((project) => formatDateKey(project.createdAt || project.updatedAt) === dateKey)
+  const sameDay = snapshot.projects.filter((project) => getProjectSequenceDateKey(project) === dateKey)
   return sameDay.length + 1
 }
 
@@ -503,7 +514,7 @@ export function createEmptyProjectDraft(): PcsProjectCreateDraft {
     priceRangeLabel: '',
     targetChannelCodes: [],
     projectAlbumUrls: [],
-    sampleSourceType: '自打样',
+    sampleSourceType: '',
     sampleSupplierId: '',
     sampleSupplierName: '',
     sampleLink: '',
@@ -531,9 +542,6 @@ export function validateProjectCreateDraft(draft: PcsProjectCreateDraft): string
   if (draft.targetChannelCodes.length === 0) errors.push('请选择目标测款渠道。')
   if (!draft.ownerId) errors.push('请选择负责人。')
   if (catalog.teams.length > 0 && !draft.teamId) errors.push('请选择执行团队。')
-  if (draft.sampleSourceType === '外采' && !draft.sampleLink.trim() && !draft.sampleUnitPrice.trim()) {
-    errors.push('样衣来源方式为外采时，外采链接和样衣单价至少填写一项。')
-  }
   if (draft.templateId) {
     const template = getProjectTemplateById(draft.templateId)
     if (!template) {
@@ -701,7 +709,7 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     templateId: template.id,
     templateName: template.name,
     templateVersion: getProjectTemplateVersion(template),
-    projectStatus: '已立项',
+    projectStatus: '待审核',
     currentPhaseCode: firstPhase.phaseCode,
     currentPhaseName: firstPhase.phaseName,
     categoryId: input.categoryId,
@@ -731,7 +739,7 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     priceRangeLabel: input.priceRangeLabel,
     targetChannelCodes: [...input.targetChannelCodes],
     projectAlbumUrls: [...input.projectAlbumUrls],
-    sampleSourceType: input.sampleSourceType || '自打样',
+    sampleSourceType: input.sampleSourceType || '',
     sampleSupplierId: input.sampleSupplierId,
     sampleSupplierName: input.sampleSupplierName,
     sampleLink: input.sampleLink.trim(),
@@ -778,6 +786,120 @@ export function createProject(input: PcsProjectCreateDraft, operatorName = '当�
     project: getProjectById(project.projectId) ?? project,
     phases: phases.map(clonePhase),
     nodes: nodes.map(cloneNode),
+  }
+}
+
+export function approveProjectInit(
+  projectId: string,
+  operatorName = '当前用户',
+): {
+  ok: boolean
+  message: string
+  project: PcsProjectRecord | null
+  projectInitNode: PcsProjectNodeRecord | null
+  nextNode: PcsProjectNodeRecord | null
+} {
+  const project = getProjectById(projectId)
+  if (!project) {
+    return {
+      ok: false,
+      message: '未找到对应商品项目，不能执行立项审核。',
+      project: null,
+      projectInitNode: null,
+      nextNode: null,
+    }
+  }
+
+  if (project.projectStatus !== '待审核') {
+    return {
+      ok: false,
+      message: '当前项目不是待审核状态，不能重复审核。',
+      project,
+      projectInitNode: null,
+      nextNode: null,
+    }
+  }
+
+  const projectInitNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_INIT')
+  if (!projectInitNode) {
+    return {
+      ok: false,
+      message: '未找到商品项目立项节点，不能执行立项审核。',
+      project,
+      projectInitNode: null,
+      nextNode: null,
+    }
+  }
+
+  if (projectInitNode.currentStatus !== '待确认') {
+    return {
+      ok: false,
+      message: '当前商品项目立项节点不是待确认状态，不能重复审核。',
+      project,
+      projectInitNode,
+      nextNode: null,
+    }
+  }
+
+  const sampleAcquireNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_ACQUIRE')
+  if (!sampleAcquireNode) {
+    return {
+      ok: false,
+      message: '未找到样衣获取节点，不能完成立项审核流转。',
+      project,
+      projectInitNode,
+      nextNode: null,
+    }
+  }
+
+  const timestamp = nowText()
+
+  const nextProject = updateProjectRecord(
+    projectId,
+    {
+      projectStatus: '已立项',
+      updatedAt: timestamp,
+    },
+    operatorName,
+  )
+
+  const nextProjectInitNode = updateProjectNodeRecord(
+    projectId,
+    projectInitNode.projectNodeId,
+    {
+      currentStatus: '已完成',
+      validInstanceCount: 1,
+      latestInstanceId: `${projectId}-project-init-approval-001`,
+      latestInstanceCode: `${project.projectCode}-INIT-APPROVAL-001`,
+      latestResultType: '审核通过',
+      latestResultText: '商品项目立项审核通过。',
+      pendingActionType: '已完成',
+      pendingActionText: '节点已完成',
+      updatedAt: timestamp,
+      lastEventType: '审核通过',
+      lastEventTime: timestamp,
+    },
+    operatorName,
+  )
+
+  const nextNode = updateProjectNodeRecord(
+    projectId,
+    sampleAcquireNode.projectNodeId,
+    {
+      currentStatus: '进行中',
+      pendingActionType: '待执行',
+      pendingActionText: '当前请处理：样衣获取',
+      updatedAt: timestamp,
+    },
+    operatorName,
+  )
+
+  return {
+    ok: true,
+    message: '商品项目立项审核通过，已进入样衣获取。',
+    project: nextProject,
+    projectInitNode: nextProjectInitNode,
+    nextNode,
   }
 }
 

@@ -1,80 +1,100 @@
-import type { MaterialArchiveKind } from '../data/pcs-material-archives'
 import type { RouteRegistry } from './route-types'
 import { renderRouteRedirect } from './route-utils'
 import * as renderers from './route-renderers'
+
+function renderClearedPcsPage(title: string) {
+  return () => renderers.renderPcsResetPlaceholderPage(title)
+}
 
 export const routes: RouteRegistry = {
   exactRoutes: {
     '/pcs': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
     '/pcs/workspace': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
-    '/pcs/workspace/overview': () => renderers.renderPcsOverviewPage(),
-    '/pcs/workspace/todos': () => renderers.renderPcsTodosPage(),
-    '/pcs/workspace/alerts': () => renderers.renderPcsAlertsPage(),
-    '/pcs/projects': () => renderers.renderPcsProjectsPage(),
+    '/pcs/workspace/overview': renderClearedPcsPage('商品中心工作台'),
+    '/pcs/workspace/todos': renderClearedPcsPage('商品中心待办'),
+    '/pcs/workspace/alerts': renderClearedPcsPage('商品中心预警'),
+    '/pcs/projects': () => renderers.renderPcsProjectListPage(),
     '/pcs/projects/create': () => renderers.renderPcsProjectCreatePage(),
-    '/pcs/templates': () => renderers.renderPcsTemplatesPage(),
-    '/pcs/templates/new': () => renderers.renderPcsTemplateCreatePage(),
-    '/pcs/work-items': () => renderers.renderPcsWorkItemsPage(),
-    '/pcs/testing/live': () => renderers.renderPcsLiveSessionsPage(),
-    '/pcs/testing/video': () => renderers.renderPcsVideoRecordsPage(),
-    '/pcs/channels/products': () =>
-      renderRouteRedirect('/pcs/products/channel-products', '正在跳转到渠道商品'),
-    '/pcs/channels/products/mapping': () =>
-      renderRouteRedirect('/pcs/products/channel-attributes', '正在跳转到渠道属性对应'),
-    '/pcs/channels/products/store': () =>
-      renderRouteRedirect('/pcs/products/channel-products/store', '正在跳转到渠道商品店铺视图'),
-    '/pcs/channels/stores': () => renderers.renderPcsChannelStoresPage(),
+    '/pcs/templates': () => renderers.renderPcsTemplateListPage(),
+    '/pcs/templates/new': () => renderers.renderPcsTemplateEditorPage(),
+    '/pcs/work-items': () => renderers.renderPcsWorkItemLibraryPage(),
+    '/pcs/testing/live': () => renderers.renderPcsLiveTestingListPage(),
+    '/pcs/testing/video': () => renderers.renderPcsVideoTestingListPage(),
+    '/pcs/channels/products': renderClearedPcsPage('渠道商品'),
+    '/pcs/channels/products/mapping': renderClearedPcsPage('渠道属性对应'),
+    '/pcs/channels/products/store': renderClearedPcsPage('渠道商品店铺视图'),
+    '/pcs/channels/stores': () => renderers.renderPcsChannelStoreListPage(),
     '/pcs/channels/stores/sync': () => renderers.renderPcsChannelStoreSyncPage(),
-    '/pcs/channels/stores/payout-accounts': () => renderers.renderPcsChannelStorePayoutAccountsPage(),
-    '/pcs/samples/ledger': () => renderers.renderSampleLedgerPage(),
-    '/pcs/samples/inventory': () => renderers.renderSampleInventoryPage(),
-    '/pcs/samples/transfer': () => renderers.renderSampleTransferPage(),
-    '/pcs/samples/return': () => renderers.renderSampleReturnPage(),
-    '/pcs/samples/application': () => renderers.renderSampleApplicationPage(),
-    '/pcs/samples/view': () => renderers.renderSampleViewPage(),
-    '/pcs/samples/first-sample': () => renderers.renderFirstOrderSamplePage(),
-    '/pcs/samples/first-order': () =>
-      renderRouteRedirect('/pcs/samples/first-sample', '正在跳转到首版样衣打样'),
-    '/pcs/samples/pre-production': () => renderers.renderPreProductionSamplePage(),
-    '/pcs/production/pre-check': () =>
-      renderRouteRedirect('/pcs/samples/pre-production', '正在跳转到产前版样衣'),
-    '/pcs/patterns': () => renderers.renderPlateMakingPage(),
+    '/pcs/channels/stores/payout-accounts': () => renderers.renderPcsPayoutAccountListPage(),
+    '/pcs/samples/ledger': renderClearedPcsPage('样衣台账'),
+    '/pcs/samples/inventory': renderClearedPcsPage('样衣库存'),
+    '/pcs/samples/transfer': renderClearedPcsPage('样衣调拨'),
+    '/pcs/samples/return': renderClearedPcsPage('样衣退回'),
+    '/pcs/samples/application': renderClearedPcsPage('样衣申请'),
+    '/pcs/samples/view': renderClearedPcsPage('样衣资产查看'),
+    '/pcs/samples/first-sample': renderClearedPcsPage('首版样衣打样'),
+    '/pcs/samples/first-order': renderClearedPcsPage('首版样衣打样'),
+    '/pcs/samples/pre-production': renderClearedPcsPage('产前版样衣'),
+    '/pcs/production/pre-check': renderClearedPcsPage('产前版样衣'),
+    '/pcs/patterns': renderClearedPcsPage('制版任务'),
     '/pcs/patterns/part-templates': () => renderers.renderPcsPartTemplateLibraryPage(),
-    '/pcs/patterns/colors': () => renderers.renderPatternTaskPage(),
-    '/pcs/patterns/revision': () => renderers.renderRevisionTaskPage(),
-    '/pcs/patterns/plate-making': () => renderers.renderPlateMakingPage(),
-    '/pcs/patterns/artwork': () => renderers.renderPatternTaskPage(),
+    '/pcs/patterns/colors': renderClearedPcsPage('花型任务'),
+    '/pcs/patterns/revision': renderClearedPcsPage('改版任务'),
+    '/pcs/patterns/plate-making': renderClearedPcsPage('制版任务'),
+    '/pcs/patterns/artwork': renderClearedPcsPage('花型任务'),
     '/pcs/pattern-library': () => renderers.renderPcsPatternLibraryPage(),
     '/pcs/pattern-library/create': () => renderers.renderPcsPatternLibraryCreatePage(),
     '/pcs/pattern-library/config': () => renderers.renderPcsPatternLibraryConfigPage(),
-    '/pcs/products/styles': () => renderers.renderProductSpuPage(),
-    '/pcs/products/specifications': () => renderers.renderProductSkuPage(),
-    '/pcs/products/channel-products': () => renderers.renderPcsChannelProductsPage(),
-    '/pcs/products/channel-products/store': () => renderers.renderPcsChannelProductStoreViewPage(),
-    '/pcs/products/channel-attributes': () => renderers.renderPcsChannelProductMappingPage(),
-    '/pcs/products/coding-rules': () => renderers.renderPcsCodingRulesPage(),
-    '/pcs/products/spu': () =>
-      renderRouteRedirect('/pcs/products/styles', '正在跳转到款式档案'),
-    '/pcs/products/sku': () =>
-      renderRouteRedirect('/pcs/products/specifications', '正在跳转到规格档案'),
-    '/pcs/products/yarn': () => renderRouteRedirect('/pcs/materials/yarn', '正在跳转到纱线档案'),
-    '/pcs/materials/fabric': () => renderers.renderPcsMaterialArchiveListPage('fabric'),
-    '/pcs/materials/fabric/new': () => renderers.renderPcsMaterialArchiveEditorPage('fabric'),
-    '/pcs/materials/accessory': () => renderers.renderPcsMaterialArchiveListPage('accessory'),
-    '/pcs/materials/accessory/new': () => renderers.renderPcsMaterialArchiveEditorPage('accessory'),
-    '/pcs/materials/yarn': () => renderers.renderPcsMaterialArchiveListPage('yarn'),
-    '/pcs/materials/yarn/new': () => renderers.renderPcsMaterialArchiveEditorPage('yarn'),
-    '/pcs/materials/consumable': () => renderers.renderPcsMaterialArchiveListPage('consumable'),
-    '/pcs/materials/consumable/new': () => renderers.renderPcsMaterialArchiveEditorPage('consumable'),
-    '/pcs/settings/cost-parameters': () => renderers.renderPcsCostParametersPage(),
-    '/pcs/settings/config-workspace': () => renderers.renderConfigWorkspacePage(),
-    '/pcs/settings/template-center': () => renderers.renderPcsTemplatesPage(),
-    '/pcs/settings/platforms': () => renderers.renderPlatformConfigPage(),
+    '/pcs/products/styles': renderClearedPcsPage('款式档案'),
+    '/pcs/products/specifications': renderClearedPcsPage('规格档案'),
+    '/pcs/products/channel-products': renderClearedPcsPage('渠道商品'),
+    '/pcs/products/channel-products/store': renderClearedPcsPage('渠道商品店铺视图'),
+    '/pcs/products/channel-attributes': renderClearedPcsPage('渠道属性对应'),
+    '/pcs/products/coding-rules': renderClearedPcsPage('编码规则'),
+    '/pcs/products/spu': renderClearedPcsPage('款式档案'),
+    '/pcs/products/sku': renderClearedPcsPage('规格档案'),
+    '/pcs/products/yarn': renderClearedPcsPage('纱线档案'),
+    '/pcs/materials/fabric': renderClearedPcsPage('面料档案'),
+    '/pcs/materials/fabric/new': renderClearedPcsPage('新建面料档案'),
+    '/pcs/materials/accessory': renderClearedPcsPage('辅料档案'),
+    '/pcs/materials/accessory/new': renderClearedPcsPage('新建辅料档案'),
+    '/pcs/materials/yarn': renderClearedPcsPage('纱线档案'),
+    '/pcs/materials/yarn/new': renderClearedPcsPage('新建纱线档案'),
+    '/pcs/materials/consumable': renderClearedPcsPage('耗材档案'),
+    '/pcs/materials/consumable/new': renderClearedPcsPage('新建耗材档案'),
+    '/pcs/settings/cost-parameters': renderClearedPcsPage('成本参数'),
+    '/pcs/settings/config-workspace': renderClearedPcsPage('配置工作台'),
+    '/pcs/settings/template-center': renderClearedPcsPage('模板中心'),
+    '/pcs/settings/platforms': renderClearedPcsPage('平台设置'),
   },
   dynamicRoutes: [
     {
+      pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,
+      render: (match) => renderers.renderPcsProjectWorkItemDetailPage(match[1], match[2]),
+    },
+    {
+      pattern: /^\/pcs\/projects\/([^/]+)$/,
+      render: (match) => renderers.renderPcsProjectDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/testing\/live\/([^/]+)$/,
+      render: (match) => renderers.renderPcsLiveTestingDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/testing\/video\/([^/]+)$/,
+      render: (match) => renderers.renderPcsVideoTestingDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/channels\/stores\/payout-accounts\/([^/]+)$/,
+      render: (match) => renderers.renderPcsPayoutAccountDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/channels\/stores\/([^/]+)$/,
+      render: (match) => renderers.renderPcsChannelStoreDetailPage(match[1]),
+    },
+    {
       pattern: /^\/pcs\/templates\/([^/]+)\/edit$/,
-      render: (match) => renderers.renderPcsTemplateEditPage(match[1]),
+      render: (match) => renderers.renderPcsTemplateEditorPage(match[1]),
     },
     {
       pattern: /^\/pcs\/templates\/([^/]+)$/,
@@ -89,72 +109,8 @@ export const routes: RouteRegistry = {
       render: (match) => renderers.renderPcsPatternLibraryDetailPage(match[1]),
     },
     {
-      pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable)\/([^/]+)\/edit$/,
-      render: (match) =>
-        renderers.renderPcsMaterialArchiveEditorPage(match[1] as MaterialArchiveKind, match[2]),
-    },
-    {
-      pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable)\/([^/]+)$/,
-      render: (match) =>
-        renderers.renderPcsMaterialArchiveDetailPage(match[1] as MaterialArchiveKind, match[2]),
-    },
-    {
-      pattern: /^\/pcs\/products\/styles\/([^/]+)$/,
-      render: (match) => renderers.renderPcsProductStyleDetailPage(decodeURIComponent(match[1])),
-    },
-    {
-      pattern: /^\/pcs\/products\/spu\/([^/]+)$/,
-      render: (match) =>
-        renderRouteRedirect(`/pcs/products/styles/${match[1]}`, '正在跳转到款式档案详情'),
-    },
-    {
-      pattern: /^\/pcs\/products\/channel-products\/([^/]+)$/,
-      render: (match) => renderers.renderPcsChannelProductDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/channels\/products\/([^/]+)$/,
-      render: (match) =>
-        renderRouteRedirect(`/pcs/products/channel-products/${match[1]}`, '正在跳转到渠道商品详情'),
-    },
-    {
-      pattern: /^\/pcs\/products\/sku\/([^/]+)$/,
-      render: () =>
-        renderRouteRedirect('/pcs/products/specifications', '正在跳转到规格档案'),
-    },
-    {
-      pattern: /^\/pcs\/products\/styles\/([^/]+)\/technical-data\/([^/]+)$/,
-      render: (match) =>
-        renderers.renderTechPackPage(match[2], {
-          styleId: decodeURIComponent(match[1]),
-          technicalVersionId: decodeURIComponent(match[2]),
-        }),
-    },
-    {
-      pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,
-      render: (match) => {
-        const [, projectId, projectNodeId] = match
-        return renderers.renderPcsProjectWorkItemDetailPage(projectId, projectNodeId)
-      },
-    },
-    {
-      pattern: /^\/pcs\/projects\/([^/]+)\/archive$/,
-      render: (match) => renderers.renderPcsProjectArchivePage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/projects\/([^/]+)$/,
-      render: (match) => renderers.renderPcsProjectDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/testing\/live\/([^/]+)$/,
-      render: (match) => renderers.renderPcsLiveSessionDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/testing\/video\/([^/]+)$/,
-      render: (match) => renderers.renderPcsVideoRecordDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/channels\/stores\/([^/]+)$/,
-      render: (match) => renderers.renderPcsChannelStoreDetailPage(match[1]),
+      pattern: /^\/pcs\/.+$/,
+      render: () => renderers.renderPcsResetPlaceholderPage('PCS 页面'),
     },
   ],
 }

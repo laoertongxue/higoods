@@ -29,107 +29,16 @@ export const renderFactoryCapacityProfilePage = createAsyncRenderer(
 )
 export const renderOverviewPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderOverviewPage')
 export const renderTodosPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderTodosPage')
-export const renderPcsOverviewPage = createAsyncRenderer(() => import('../pages/pcs-workspace-overview'), 'renderPcsOverviewPage')
-export const renderPcsTodosPage = createAsyncRenderer(() => import('../pages/pcs-workspace-todos'), 'renderPcsTodosPage')
-export const renderPcsAlertsPage = createAsyncRenderer(() => import('../pages/pcs-workspace-alerts'), 'renderPcsAlertsPage')
-export const renderPcsProjectsPage = createAsyncRenderer(() => import('../pages/pcs-projects'), 'renderPcsProjectsPage')
-export const renderPcsProjectCreatePage = createAsyncRenderer(
-  () => import('../pages/pcs-project-create'),
-  'renderPcsProjectCreatePage',
-)
-export const renderPcsTemplatesPage = createAsyncRenderer(() => import('../pages/pcs-templates'), 'renderPcsTemplatesPage')
-export const renderPcsWorkItemsPage = createAsyncRenderer(() => import('../pages/pcs-work-items'), 'renderPcsWorkItemsPage')
-export const renderPcsTemplateCreatePage = createAsyncRenderer(
-  () => import('../pages/pcs-template-editor'),
-  'renderPcsTemplateCreatePage',
-)
-export const renderPcsTemplateEditPage = createAsyncRenderer(
-  () => import('../pages/pcs-template-editor'),
-  'renderPcsTemplateEditPage',
-)
-export const renderPcsTemplateDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-template-detail'),
-  'renderPcsTemplateDetailPage',
-)
-export const renderPcsWorkItemDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-work-item-detail'),
-  'renderPcsWorkItemDetailPage',
-)
-export const renderPcsProjectDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-project-detail'),
-  'renderPcsProjectDetailPage',
-)
-export const renderPcsProjectWorkItemDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-project-work-item-detail'),
-  'renderPcsProjectWorkItemDetailPage',
-)
-export const renderPcsProjectArchivePage = createAsyncRenderer(
-  () => import('../pages/pcs-project-archive'),
-  'renderPcsProjectArchivePage',
-)
-export const renderPcsLiveSessionsPage = createAsyncRenderer(() => import('../pages/pcs-testing-live'), 'renderPcsLiveSessionsPage')
-export const renderPcsLiveSessionDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-testing-live-detail'),
-  'renderPcsLiveSessionDetailPage',
-)
-export const renderPcsVideoRecordsPage = createAsyncRenderer(() => import('../pages/pcs-testing-video'), 'renderPcsVideoRecordsPage')
-export const renderPcsVideoRecordDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-testing-video-detail'),
-  'renderPcsVideoRecordDetailPage',
-)
-export const renderPcsChannelProductsPage = createAsyncRenderer(
-  () => import('../pages/pcs-channel-products'),
-  'renderPcsChannelProductsPage',
-)
-export const renderPcsChannelProductDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-channel-product-detail'),
-  'renderPcsChannelProductDetailPage',
-)
-export const renderPcsChannelProductMappingPage = createAsyncRenderer(
-  () => import('../pages/pcs-channel-product-mapping'),
-  'renderPcsChannelProductMappingPage',
-)
-export const renderPcsChannelProductStoreViewPage = createAsyncRenderer(
-  () => import('../pages/pcs-channel-product-store'),
-  'renderPcsChannelProductStoreViewPage',
-)
-export const renderPcsChannelStoresPage = createAsyncRenderer(
-  () => import('../pages/pcs-channel-stores'),
-  'renderPcsChannelStoresPage',
-)
-export const renderPcsChannelStoreDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-channel-store-detail'),
-  'renderPcsChannelStoreDetailPage',
-)
-export const renderPcsChannelStoreSyncPage = createAsyncRenderer(
-  () => import('../pages/pcs-channel-store-sync'),
-  'renderPcsChannelStoreSyncPage',
-)
-export const renderPcsChannelStorePayoutAccountsPage = createAsyncRenderer(
-  () => import('../pages/pcs-channel-store-payout-accounts'),
-  'renderPcsChannelStorePayoutAccountsPage',
+export const renderPcsResetPlaceholderPage = createAsyncRenderer(
+  () => import('../pages/pcs-reset-placeholder'),
+  'renderPcsResetPlaceholderPage',
 )
 export const renderPlaceholderPage = createAsyncRenderer(() => import('../pages/placeholder'), 'renderPlaceholderPage')
 export const renderRouteNotFound = createAsyncRenderer(() => import('../pages/placeholder'), 'renderRouteNotFound')
-export const renderSampleLedgerPage = createAsyncRenderer(() => import('../pages/pcs-sample-ledger'), 'renderSampleLedgerPage')
-export const renderSampleInventoryPage = createAsyncRenderer(
-  () => import('../pages/pcs-sample-inventory'),
-  'renderSampleInventoryPage',
-)
-export const renderSampleTransferPage = createAsyncRenderer(() => import('../pages/pcs-sample-transfer'), 'renderSampleTransferPage')
-export const renderSampleReturnPage = createAsyncRenderer(() => import('../pages/pcs-sample-return'), 'renderSampleReturnPage')
-export const renderSampleApplicationPage = createAsyncRenderer(
-  () => import('../pages/pcs-sample-application'),
-  'renderSampleApplicationPage',
-)
-export const renderSampleViewPage = createAsyncRenderer(() => import('../pages/pcs-sample-view'), 'renderSampleViewPage')
-export const renderRevisionTaskPage = createAsyncRenderer(() => import('../pages/pcs-revision-task'), 'renderRevisionTaskPage')
-export const renderPlateMakingPage = createAsyncRenderer(() => import('../pages/pcs-plate-making'), 'renderPlateMakingPage')
 export const renderPcsPartTemplateLibraryPage = createAsyncRenderer(
   () => import('../pages/pcs-part-template-library'),
   'renderPcsPartTemplateLibraryPage',
 )
-export const renderPatternTaskPage = createAsyncRenderer(() => import('../pages/pcs-pattern-task'), 'renderPatternTaskPage')
 export const renderPcsPatternLibraryPage = createAsyncRenderer(
   () => import('../pages/pcs-pattern-library'),
   'renderPcsPatternLibraryPage',
@@ -146,51 +55,81 @@ export const renderPcsPatternLibraryConfigPage = createAsyncRenderer(
   () => import('../pages/pcs-pattern-library-config'),
   'renderPcsPatternLibraryConfigPage',
 )
-export const renderFirstOrderSamplePage = createAsyncRenderer(
-  () => import('../pages/pcs-first-order-sample'),
-  'renderFirstOrderSamplePage',
+export const renderPcsWorkItemLibraryPage = createAsyncRenderer(
+  () => import('../pages/pcs-work-items'),
+  'renderPcsWorkItemLibraryPage',
 )
-export const renderPreProductionSamplePage = createAsyncRenderer(
-  () => import('../pages/pcs-pre-production-sample'),
-  'renderPreProductionSamplePage',
+export const renderPcsWorkItemDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-work-items'),
+  'renderPcsWorkItemDetailPage',
+)
+export const renderPcsLiveTestingListPage = createAsyncRenderer(
+  () => import('../pages/pcs-live-testing'),
+  'renderPcsLiveTestingListPage',
+)
+export const renderPcsLiveTestingDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-live-testing'),
+  'renderPcsLiveTestingDetailPage',
+)
+export const renderPcsVideoTestingListPage = createAsyncRenderer(
+  () => import('../pages/pcs-video-testing'),
+  'renderPcsVideoTestingListPage',
+)
+export const renderPcsVideoTestingDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-video-testing'),
+  'renderPcsVideoTestingDetailPage',
+)
+export const renderPcsChannelStoreListPage = createAsyncRenderer(
+  () => import('../pages/pcs-channel-stores'),
+  'renderPcsChannelStoreListPage',
+)
+export const renderPcsChannelStoreDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-channel-stores'),
+  'renderPcsChannelStoreDetailPage',
+)
+export const renderPcsChannelStoreSyncPage = createAsyncRenderer(
+  () => import('../pages/pcs-channel-stores'),
+  'renderPcsChannelStoreSyncPage',
+)
+export const renderPcsPayoutAccountListPage = createAsyncRenderer(
+  () => import('../pages/pcs-channel-stores'),
+  'renderPcsPayoutAccountListPage',
+)
+export const renderPcsPayoutAccountDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-channel-stores'),
+  'renderPcsPayoutAccountDetailPage',
+)
+export const renderPcsTemplateListPage = createAsyncRenderer(
+  () => import('../pages/pcs-templates'),
+  'renderPcsTemplateListPage',
+)
+export const renderPcsTemplateDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-templates'),
+  'renderPcsTemplateDetailPage',
+)
+export const renderPcsTemplateEditorPage = createAsyncRenderer(
+  () => import('../pages/pcs-templates'),
+  'renderPcsTemplateEditorPage',
+)
+export const renderPcsProjectListPage = createAsyncRenderer(
+  () => import('../pages/pcs-projects'),
+  'renderPcsProjectListPage',
+)
+export const renderPcsProjectCreatePage = createAsyncRenderer(
+  () => import('../pages/pcs-projects'),
+  'renderPcsProjectCreatePage',
+)
+export const renderPcsProjectDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-projects'),
+  'renderPcsProjectDetailPage',
+)
+export const renderPcsProjectWorkItemDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-projects'),
+  'renderPcsProjectWorkItemDetailPage',
 )
 export const renderCapabilityPage = createAsyncRenderer(() => import('../pages/capability'), 'renderCapabilityPage')
 export const renderFactoryStatusPage = createAsyncRenderer(() => import('../pages/factory-status'), 'renderFactoryStatusPage')
 export const renderFactoryPerformancePage = createAsyncRenderer(() => import('../pages/factory-performance'), 'renderFactoryPerformancePage')
-export const renderProductSpuPage = createAsyncRenderer(() => import('../pages/pcs-product-spu'), 'renderProductSpuPage')
-export const renderProductSkuPage = createAsyncRenderer(() => import('../pages/pcs-product-sku'), 'renderProductSkuPage')
-export const renderPcsProductStyleDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-product-style-detail'),
-  'renderPcsProductStyleDetailPage',
-)
-export const renderPcsCodingRulesPage = createAsyncRenderer(
-  () => import('../pages/pcs-domain-pages'),
-  'renderPcsCodingRulesPage',
-)
-export const renderPcsCostParametersPage = createAsyncRenderer(
-  () => import('../pages/pcs-domain-pages'),
-  'renderPcsCostParametersPage',
-)
-export const renderPcsMaterialArchiveDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-material-archives'),
-  'renderPcsMaterialArchiveDetailPage',
-)
-export const renderPcsMaterialArchiveEditorPage = createAsyncRenderer(
-  () => import('../pages/pcs-material-archives'),
-  'renderPcsMaterialArchiveEditorPage',
-)
-export const renderPcsMaterialArchiveListPage = createAsyncRenderer(
-  () => import('../pages/pcs-material-archives'),
-  'renderPcsMaterialArchiveListPage',
-)
-export const renderConfigWorkspacePage = createAsyncRenderer(
-  () => import('../pages/pcs-config-workspace'),
-  'renderConfigWorkspacePage',
-)
-export const renderPlatformConfigPage = createAsyncRenderer(
-  () => import('../pages/pcs-platform-config'),
-  'renderPlatformConfigPage',
-)
 export const renderSettlementDetailPage = createAsyncRenderer(() => import('../pages/settlement'), 'renderSettlementDetailPage')
 export const renderSettlementInitPage = createAsyncRenderer(() => import('../pages/settlement'), 'renderSettlementInitPage')
 export const renderSettlementListPage = createAsyncRenderer(() => import('../pages/settlement'), 'renderSettlementListPage')

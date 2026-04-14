@@ -10,8 +10,8 @@ function buildPendingActionText(status: ProjectNodeStatus, workItemName: string)
   return '待开始执行'
 }
 
-function buildInitialNodeStatus(sequenceIndex: number): ProjectNodeStatus {
-  if (sequenceIndex === 0) return '进行中'
+function buildInitialNodeStatus(sequenceIndex: number, workItemTypeCode: string): ProjectNodeStatus {
+  if (sequenceIndex === 0 && workItemTypeCode === 'PROJECT_INIT') return '待确认'
   return '未开始'
 }
 
@@ -57,8 +57,9 @@ export function buildProjectNodeRecordsFromTemplate(input: {
 
   return orderedNodes.map((node, index) => {
     const workItem = getPcsWorkItemDefinition(node.workItemId)
-    const currentStatus = buildInitialNodeStatus(index)
+    const currentStatus = buildInitialNodeStatus(index, node.workItemTypeCode)
     const latestCompleted = currentStatus === '已完成'
+    const isProjectInit = node.workItemTypeCode === 'PROJECT_INIT'
 
     return {
       projectNodeId: `${input.projectId}-node-${node.phaseCode}-${String(node.sequenceNo).padStart(2, '0')}`,
@@ -78,12 +79,12 @@ export function buildProjectNodeRecordsFromTemplate(input: {
       validInstanceCount: latestCompleted ? 1 : 0,
       latestInstanceId: latestCompleted ? `${input.projectId}-instance-001` : '',
       latestInstanceCode: latestCompleted ? `${input.projectId}-实例-001` : '',
-      latestResultType: latestCompleted ? '节点完成' : '',
-      latestResultText: latestCompleted ? `${node.workItemTypeName}已完成。` : '',
+      latestResultType: latestCompleted ? '节点完成' : isProjectInit ? '待审核' : '',
+      latestResultText: latestCompleted ? `${node.workItemTypeName}已完成。` : isProjectInit ? '商品项目已创建，等待立项审核。' : '',
       currentIssueType: '',
       currentIssueText: '',
-      pendingActionType: currentStatus === '待确认' ? '待确认' : currentStatus === '已取消' ? '已取消' : '待执行',
-      pendingActionText: buildPendingActionText(currentStatus, node.workItemTypeName),
+      pendingActionType: isProjectInit ? '审核' : currentStatus === '待确认' ? '待确认' : currentStatus === '已取消' ? '已取消' : '待执行',
+      pendingActionText: isProjectInit ? '请审核商品项目立项' : buildPendingActionText(currentStatus, node.workItemTypeName),
       sourceTemplateNodeId: node.templateNodeId,
       sourceTemplateVersion: node.templateVersion || templateVersion,
     }

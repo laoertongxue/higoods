@@ -1167,6 +1167,12 @@ export function createBootstrapProjectInlineNodeRecordSnapshot(
   version: number,
 ): PcsProjectInlineNodeRecordStoreSnapshot {
   const { projectMap, nodeMap } = buildProjectNodeLookup()
+  if (projectMap.size === 0 || nodeMap.size === 0) {
+    return {
+      version,
+      records: [],
+    }
+  }
   const records: PcsProjectInlineNodeRecord[] = []
 
   Object.entries(PROJECT_RECORD_PLAN).forEach(([projectCode, workItemCodes]) => {
