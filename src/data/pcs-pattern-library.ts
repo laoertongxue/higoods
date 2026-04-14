@@ -28,6 +28,11 @@ import {
   inferDuplicateStatus,
   tokenizePatternFilename,
 } from '../utils/pcs-pattern-library-services.ts'
+import {
+  listProjectWorkspaceCategories,
+  listProjectWorkspaceColors,
+  listProjectWorkspaceStyles,
+} from './pcs-project-config-workspace-adapter.ts'
 import { patternRepo } from './pcs-pattern-library-repository.ts'
 
 export interface PatternAssetRecord extends PatternAsset {
@@ -98,12 +103,33 @@ const LEGACY_CATEGORY_MIGRATION_MAP: Record<string, { primary?: string; secondar
   纯色: { primary: '几何与抽象' },
 }
 
+function getWorkspaceStyleTags(): string[] {
+  const tags = listProjectWorkspaceStyles()
+    .map((item) => item.name.trim())
+    .filter(Boolean)
+  return tags.length > 0 ? tags : ['休闲']
+}
+
+function getWorkspacePrimaryColors(): string[] {
+  const colors = listProjectWorkspaceColors()
+    .map((item) => item.name.trim())
+    .filter(Boolean)
+  return colors.length > 0 ? colors : ['Black', 'White']
+}
+
+function getWorkspaceApplicableCategories(): string[] {
+  const categories = listProjectWorkspaceCategories()
+    .map((item) => item.name.trim())
+    .filter(Boolean)
+  return categories.length > 0 ? categories : ['上衣', '连衣裙']
+}
+
 const DEFAULT_CONFIG: PatternLibraryConfig = {
   usageTypes: ['重复花', '定位花', '边条花', '满印', '纯色肌理'],
   categories: getPatternCategoryPrimaryOptions(DEFAULT_CATEGORY_TREE),
   categoryTree: DEFAULT_CATEGORY_TREE,
-  styleTags: ['法式', '复古', '度假', '甜美', '通勤', '民族', '运动', '极简'],
-  primaryColors: ['红色', '橙色', '黄色', '绿色', '蓝色', '紫色', '粉色', '黑色', '白色', '灰色', '综合色'],
+  styleTags: getWorkspaceStyleTags(),
+  primaryColors: getWorkspacePrimaryColors(),
   sourceTypes: ['自研', '客供', '历史沉淀', '外采'],
   licenseStatuses: [
     { value: 'unverified', label: '未确认' },
@@ -147,6 +173,8 @@ function normalizePatternLibraryConfig(config?: Partial<PatternLibraryConfig>): 
     ...config,
     categories: getPatternCategoryPrimaryOptions(categoryTree),
     categoryTree,
+    styleTags: getWorkspaceStyleTags(),
+    primaryColors: getWorkspacePrimaryColors(),
     ruleToggles: {
       ...DEFAULT_CONFIG.ruleToggles,
       ...config?.ruleToggles,
@@ -1108,6 +1136,10 @@ export function getPatternCategoryTree(): PatternCategoryNode[] {
 
 export function getPatternCategorySecondaryList(primary?: string): string[] {
   return getPatternCategorySecondaryOptions(getPatternLibraryConfig().categoryTree, primary)
+}
+
+export function listPatternApplicableCategoryOptions(): string[] {
+  return getWorkspaceApplicableCategories()
 }
 
 export function updatePatternLibraryConfig(patch: Partial<PatternLibraryConfig>): PatternLibraryConfig {

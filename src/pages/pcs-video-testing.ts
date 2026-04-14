@@ -845,15 +845,21 @@ function renderNotice(): string {
 
 function renderModalShell(title: string, description: string, body: string, footer: string, sizeClass = 'max-w-lg'): string {
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div class="w-full ${sizeClass} rounded-lg border bg-white shadow-2xl">
+    <div class="fixed inset-0 z-50">
+      <button type="button" class="absolute inset-0 bg-slate-900/45" data-pcs-video-testing-action="close-dialogs" aria-label="关闭侧栏"></button>
+      <aside class="absolute inset-y-0 right-0 flex h-full w-full ${escapeHtml(sizeClass)} flex-col border-l bg-white shadow-2xl">
         <div class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h3>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h3>
+              <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
+            </div>
+            <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="close-dialogs">关闭</button>
+          </div>
         </div>
-        <div class="max-h-[72vh] overflow-y-auto space-y-4 px-6 py-5">${body}</div>
+        <div class="min-h-0 flex-1 overflow-y-auto space-y-4 px-4 py-4">${body}</div>
         <div class="flex items-center justify-end gap-2 border-t px-6 py-4">${footer}</div>
-      </div>
+      </aside>
     </div>
   `
 }
@@ -870,7 +876,7 @@ function renderDrawerShell(title: string, body: string, closeAction: string): st
           </div>
           <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="${escapeHtml(closeAction)}">关闭</button>
         </div>
-        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">${body}</div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">${body}</div>
       </aside>
     </div>
   `
@@ -1399,7 +1405,7 @@ function renderListPageDialogs(): string {
 function renderDetailHeader(record: VideoRecordViewModel, relatedProjects: Array<{ projectId: string; label: string }>): string {
   return `
     <section class="rounded-lg border bg-white">
-      <div class="flex flex-wrap items-start justify-between gap-4 px-6 py-5">
+      <div class="flex flex-wrap items-start justify-between gap-4 px-4 py-4">
         <div class="space-y-3">
           <div>
             <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/video">
@@ -1470,7 +1476,7 @@ function renderOverviewTab(record: VideoRecordViewModel): string {
       ${
         record.videoUrl
           ? `
-            <section class="rounded-lg border bg-white p-6">
+            <section class="rounded-lg border bg-white p-4">
               <h2 class="text-lg font-semibold text-slate-900">视频链接</h2>
               <a href="${escapeHtml(record.videoUrl)}" target="_blank" rel="noreferrer" class="mt-3 inline-flex items-center gap-2 text-sm text-blue-700 hover:underline">
                 <i data-lucide="play" class="h-4 w-4"></i>${escapeHtml(record.videoUrl)}
@@ -1563,7 +1569,7 @@ function renderReconcileTab(record: VideoRecordViewModel): string {
   ]
   return `
     <div class="space-y-4">
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <h2 class="text-lg font-semibold text-slate-900">数据来源</h2>
         <div class="mt-4 flex flex-wrap gap-2">
           <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
@@ -1575,7 +1581,7 @@ function renderReconcileTab(record: VideoRecordViewModel): string {
         </div>
         <div class="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">平台 API 对接（v1）：暂未开放，当前原型使用导入和补录方式演示。</div>
       </section>
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <h2 class="text-lg font-semibold text-slate-900">核对清单</h2>
         <div class="mt-4 space-y-2">
           ${checks
@@ -1861,10 +1867,10 @@ function renderDetailContent(record: VideoRecordViewModel): string {
   if (state.detail.activeTab === 'logs') activeContent = renderLogsTab(record)
 
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderDetailHeader(record, relatedProjects)}
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
         <div class="space-y-4">
           <section class="rounded-lg border bg-white p-2">
             <div class="grid gap-2 md:grid-cols-3 xl:grid-cols-7">
@@ -1954,7 +1960,7 @@ function createRecord(status: SessionStatus): void {
 export function renderPcsVideoTestingListPage(): string {
   ensureRecordStore()
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderListHeader()}
       ${renderListFilters()}
@@ -1972,8 +1978,8 @@ export function renderPcsVideoTestingDetailPage(recordId: string): string {
 
   if (!record) {
     return `
-      <div class="space-y-6 p-6">
-        <section class="rounded-lg border bg-white p-6">
+      <div class="space-y-5 p-4">
+        <section class="rounded-lg border bg-white p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 class="text-xl font-semibold text-slate-900">短视频记录不存在</h1>

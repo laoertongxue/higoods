@@ -6,6 +6,7 @@ import {
   persistPatternParsedFile,
   getPatternLibraryConfig,
   getPatternTaskSummary,
+  listPatternApplicableCategoryOptions,
   listPatternDuplicateCandidates,
   waitForPatternLibraryPersistence,
   type PatternAssetDraftInput,
@@ -611,6 +612,7 @@ function renderUploadControls(): string {
 function renderForm(): string {
   const config = getPatternLibraryConfig()
   const secondaryCategories = getPatternCategorySecondaryList(state.form.categoryPrimary)
+  const applicableCategoryOptions = listPatternApplicableCategoryOptions()
   return `
     <div class="space-y-6">
       <header class="rounded-lg border bg-white p-4">
@@ -703,14 +705,18 @@ function renderForm(): string {
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium">风格标签</label>
-                  <input class="h-10 w-full rounded-md border px-3 text-sm" placeholder="多个值用逗号分隔" value="${escapeHtml(state.form.styleTags)}" data-pattern-library-create-field="styleTags" />
+                  <input class="h-10 w-full rounded-md border px-3 text-sm" list="pattern-library-style-tags" placeholder="多个值用逗号分隔" value="${escapeHtml(state.form.styleTags)}" data-pattern-library-create-field="styleTags" />
+                  <datalist id="pattern-library-style-tags">${config.styleTags.map((item) => `<option value="${item}"></option>`).join('')}</datalist>
+                  <p class="mt-1 text-xs text-gray-500">建议使用配置工作台 / 风格。</p>
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium">主色系/辅色系</label>
                   <div class="grid grid-cols-2 gap-2">
-                    <input class="h-10 w-full rounded-md border px-3 text-sm" placeholder="主色系" value="${escapeHtml(state.form.primaryColors)}" data-pattern-library-create-field="primaryColors" />
-                    <input class="h-10 w-full rounded-md border px-3 text-sm" placeholder="辅色系" value="${escapeHtml(state.form.secondaryColors)}" data-pattern-library-create-field="secondaryColors" />
+                    <input class="h-10 w-full rounded-md border px-3 text-sm" list="pattern-library-primary-colors" placeholder="主色系" value="${escapeHtml(state.form.primaryColors)}" data-pattern-library-create-field="primaryColors" />
+                    <input class="h-10 w-full rounded-md border px-3 text-sm" list="pattern-library-primary-colors" placeholder="辅色系" value="${escapeHtml(state.form.secondaryColors)}" data-pattern-library-create-field="secondaryColors" />
                   </div>
+                  <datalist id="pattern-library-primary-colors">${config.primaryColors.map((item) => `<option value="${item}"></option>`).join('')}</datalist>
+                  <p class="mt-1 text-xs text-gray-500">建议使用配置工作台 / 颜色。</p>
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium">是否爆款</label>
@@ -736,7 +742,9 @@ function renderForm(): string {
               <div class="mt-4 grid gap-4 md:grid-cols-2">
                 <div>
                   <label class="mb-1 block text-sm font-medium">适用品类</label>
-                  <input class="h-10 w-full rounded-md border px-3 text-sm" placeholder="例如：连衣裙, 衬衫" value="${escapeHtml(state.form.applicableCategories)}" data-pattern-library-create-field="applicableCategories" />
+                  <input class="h-10 w-full rounded-md border px-3 text-sm" list="pattern-library-applicable-categories" placeholder="例如：连衣裙, 衬衫" value="${escapeHtml(state.form.applicableCategories)}" data-pattern-library-create-field="applicableCategories" />
+                  <datalist id="pattern-library-applicable-categories">${applicableCategoryOptions.map((item) => `<option value="${item}"></option>`).join('')}</datalist>
+                  <p class="mt-1 text-xs text-gray-500">来源：配置工作台 / 品类。</p>
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium">适用部位</label>

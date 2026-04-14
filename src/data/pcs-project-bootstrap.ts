@@ -1127,6 +1127,10 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     latestResultText: '测款结论为调整，当前渠道商品已作废，并已创建改版任务。',
     createdAt: '2026-03-08 14:10',
     updatedAt: '2026-04-01 18:20',
+    linkedStyleId: 'style_seed_project_018',
+    linkedStyleCode: 'SPU-2026-018',
+    linkedStyleName: '设计款印花阔腿连体裤',
+    linkedStyleGeneratedAt: '2026-04-01 18:20',
   }),
   createScenarioProjectSeed('019', {
     projectName: '基础款针织开衫暂缓',
@@ -1680,10 +1684,11 @@ function buildBootstrapRecords(seed: BootstrapProjectSeed): BootstrapBuildResult
 }
 
 export function createBootstrapProjectSnapshot(version: number): PcsProjectStoreSnapshot {
+  const builds = ALL_BOOTSTRAP_PROJECT_SEEDS.map((seed) => buildBootstrapRecords(seed))
   return {
     version,
-    projects: [],
-    phases: [],
-    nodes: [],
+    projects: builds.map((item) => item.project),
+    phases: builds.flatMap((item) => item.phases),
+    nodes: builds.flatMap((item) => item.nodes),
   }
 }

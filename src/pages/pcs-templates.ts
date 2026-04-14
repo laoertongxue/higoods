@@ -557,7 +557,7 @@ function renderBusinessSections(template: ProjectTemplate): string {
 
   return `
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-      <article class="rounded-lg border bg-white p-6">
+      <article class="rounded-lg border bg-white p-4">
         <h2 class="text-lg font-semibold text-slate-900">模板说明</h2>
         <p class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(template.description)}</p>
         <div class="mt-4 flex flex-wrap gap-2">
@@ -573,7 +573,7 @@ function renderBusinessSections(template: ProjectTemplate): string {
           <p class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(buildTemplateTripletNote())}</p>
         </div>
       </article>
-      <article class="rounded-lg border bg-white p-6">
+      <article class="rounded-lg border bg-white p-4">
         <h2 class="text-lg font-semibold text-slate-900">业务链路摘要</h2>
         <p class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(summary.scenarioSummary)}</p>
         ${
@@ -632,7 +632,7 @@ function renderTemplateWorkItemRows(template: ProjectTemplate, stage: ProjectTem
   const disabledCount = getTemplateStageNodes(template, stage.phaseCode, true).filter((node) => node.enabledFlag === false).length
 
   return `
-    <article class="rounded-lg border bg-white p-6">
+    <article class="rounded-lg border bg-white p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div class="flex flex-wrap items-center gap-2">
@@ -822,7 +822,7 @@ function renderEditorStage(stage: ProjectTemplateStageDefinition): string {
   const disabledCount = getStageNodes(stage.phaseCode, true).filter((node) => node.enabledFlag === false).length
 
   return `
-    <article class="rounded-lg border bg-white p-6">
+    <article class="rounded-lg border bg-white p-4">
       <div class="flex flex-wrap items-start gap-4">
         <div class="mt-2 flex items-center gap-2 text-sm text-slate-500">
           <i data-lucide="grip-vertical" class="h-4 w-4"></i>
@@ -878,15 +878,21 @@ function renderEditorStage(stage: ProjectTemplateStageDefinition): string {
 
 function renderDialogShell(title: string, description: string, body: string, footer: string): string {
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div class="w-full max-w-3xl rounded-lg bg-white shadow-xl">
+    <div class="fixed inset-0 z-50">
+      <button type="button" class="absolute inset-0 bg-slate-900/40" data-pcs-template-action="close-dialogs" aria-label="关闭侧栏"></button>
+      <aside class="absolute inset-y-0 right-0 flex h-full w-full max-w-3xl flex-col border-l bg-white shadow-xl">
         <div class="border-b border-slate-200 px-6 py-4">
-          <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
+              <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
+            </div>
+            <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-template-action="close-dialogs">关闭</button>
+          </div>
         </div>
-        <div class="max-h-[70vh] overflow-y-auto px-6 py-4">${body}</div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">${body}</div>
         <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">${footer}</div>
-      </div>
+      </aside>
     </div>
   `
 }
@@ -977,7 +983,7 @@ function renderDialogs(): string {
 
 export function renderPcsTemplateListPage(): string {
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderListHeader()}
       ${renderNotice()}
       ${renderListFilters()}
@@ -992,9 +998,9 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
 
   if (!template) {
     return `
-      <div class="space-y-6 p-6">
+      <div class="space-y-5 p-4">
         ${renderNotice()}
-        <section class="rounded-lg border bg-white p-6">
+        <section class="rounded-lg border bg-white p-4">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 class="text-xl font-semibold text-slate-900">模板不存在</h1>
@@ -1011,9 +1017,9 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
   }
 
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="space-y-3">
             <div class="flex flex-wrap items-center gap-2">
@@ -1078,9 +1084,9 @@ export function renderPcsTemplateEditorPage(templateId?: string): string {
 
   if (mode === 'edit' && templateId && !getProjectTemplateById(templateId)) {
     return `
-      <div class="space-y-6 p-6">
+      <div class="space-y-5 p-4">
         ${renderNotice()}
-        <section class="rounded-lg border bg-white p-6">
+        <section class="rounded-lg border bg-white p-4">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 class="text-xl font-semibold text-slate-900">模板不存在</h1>
@@ -1097,7 +1103,7 @@ export function renderPcsTemplateEditorPage(templateId?: string): string {
   }
 
   return `
-    <div class="space-y-6 p-6 pb-28">
+    <div class="space-y-5 p-4 pb-24">
       ${renderNotice()}
       <header class="space-y-3">
         <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/templates">
@@ -1113,7 +1119,7 @@ export function renderPcsTemplateEditorPage(templateId?: string): string {
       ${renderEditorError()}
       ${renderEditorPendingNodes()}
 
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <h2 class="text-lg font-semibold text-slate-900">模板基本信息</h2>
         <div class="mt-4 grid gap-4 md:grid-cols-2">
           <label class="space-y-1.5">

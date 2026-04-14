@@ -1,4 +1,5 @@
-import { createInitialConfigData, type ConfigOption, type FlatDimensionId } from './pcs-config-dimensions.ts'
+import type { ConfigOption, FlatDimensionId } from './pcs-config-dimensions.ts'
+import { listConfigDimensionOptions } from './pcs-config-workspace-repository.ts'
 import {
   getProjectConfigSourceMapping,
   listProjectConfigSourceMappings,
@@ -19,8 +20,6 @@ export interface ProjectWorkspaceSourceSummaryItem {
   fieldLabels: string[]
 }
 
-const CONFIG_DATA = createInitialConfigData()
-
 function toWorkspaceOption(option: ConfigOption): ProjectWorkspaceOption {
   return {
     id: option.id,
@@ -30,7 +29,7 @@ function toWorkspaceOption(option: ConfigOption): ProjectWorkspaceOption {
 }
 
 function listEnabledDimensionOptions(dimensionId: FlatDimensionId): ProjectWorkspaceOption[] {
-  return (CONFIG_DATA[dimensionId] ?? [])
+  return listConfigDimensionOptions(dimensionId)
     .filter((item) => item.status === 'ENABLED')
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map(toWorkspaceOption)
@@ -44,12 +43,32 @@ export function listProjectWorkspaceCategories(): ProjectWorkspaceOption[] {
   return listEnabledDimensionOptions('categories')
 }
 
+export function listProjectWorkspaceColors(): ProjectWorkspaceOption[] {
+  return listEnabledDimensionOptions('colors')
+}
+
+export function listProjectWorkspaceSizes(): ProjectWorkspaceOption[] {
+  return listEnabledDimensionOptions('sizes')
+}
+
 export function listProjectWorkspaceStyles(): ProjectWorkspaceOption[] {
   return listEnabledDimensionOptions('styles')
 }
 
 export function listProjectWorkspaceStyleCodes(): ProjectWorkspaceOption[] {
   return listEnabledDimensionOptions('styleCodes')
+}
+
+export function listProjectWorkspaceTrendElements(): ProjectWorkspaceOption[] {
+  return listEnabledDimensionOptions('trendElements')
+}
+
+export function listProjectWorkspaceFabrics(): ProjectWorkspaceOption[] {
+  return listEnabledDimensionOptions('fabrics')
+}
+
+export function listProjectWorkspaceSpecialCrafts(): ProjectWorkspaceOption[] {
+  return listEnabledDimensionOptions('specialCrafts')
 }
 
 export function listProjectWorkspaceCrowdPositioning(): ProjectWorkspaceOption[] {

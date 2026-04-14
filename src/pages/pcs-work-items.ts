@@ -394,7 +394,7 @@ function renderCapabilityCards(definition: NonNullable<ReturnType<typeof getPcsW
   ]
 
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">二</span>
         <h2 class="text-lg font-semibold text-slate-900">工作项能力定义</h2>
@@ -422,7 +422,7 @@ function renderCapabilityCards(definition: NonNullable<ReturnType<typeof getPcsW
 
 function renderFieldGroups(groups: PcsProjectNodeFieldGroupDefinition[]): string {
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">三</span>
         <h2 class="text-lg font-semibold text-slate-900">字段定义</h2>
@@ -502,7 +502,7 @@ function renderFieldGroups(groups: PcsProjectNodeFieldGroupDefinition[]): string
 function renderStatusDefinitions(statusDefinitions: PcsProjectNodeStatusDefinition[]): string {
   if (statusDefinitions.length === 0) return ''
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">四</span>
         <h2 class="text-lg font-semibold text-slate-900">状态定义</h2>
@@ -532,7 +532,7 @@ function renderStatusDefinitions(statusDefinitions: PcsProjectNodeStatusDefiniti
 function renderOperationDefinitions(operationDefinitions: PcsProjectNodeOperationDefinition[]): string {
   if (operationDefinitions.length === 0) return ''
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">五</span>
         <h2 class="text-lg font-semibold text-slate-900">操作定义</h2>
@@ -583,7 +583,7 @@ function renderBulletSection(indexLabel: string, title: string, items: string[],
     violet: 'bg-violet-100 text-violet-700',
   }
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
         <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
@@ -608,7 +608,7 @@ function renderRuntimeSection(indexLabel: string, workItemId: string): string {
   const meta = getPcsWorkItemLibraryMeta(workItemId)
   if (!meta) return ''
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
         <h2 class="text-lg font-semibold text-slate-900">运行时承载方式</h2>
@@ -631,7 +631,7 @@ function renderLegacySection(indexLabel: string, workItemId: string): string {
   const meta = getPcsWorkItemLibraryMeta(workItemId)
   if (!meta || (meta.legacyReferenceCodes.length === 0 && meta.legacyReferenceNames.length === 0)) return ''
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
         <h2 class="text-lg font-semibold text-slate-900">旧版映射参考</h2>
@@ -659,7 +659,7 @@ function renderLegacySection(indexLabel: string, workItemId: string): string {
 
 export function renderPcsWorkItemLibraryPage(): string {
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderLibraryHeader()}
       ${renderLibraryFilters()}
       ${renderLibraryTable()}
@@ -673,8 +673,8 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
 
   if (!definition || !contract) {
     return `
-      <div class="space-y-4 p-6">
-        <section class="rounded-lg border bg-white p-6">
+      <div class="space-y-4 p-4">
+        <section class="rounded-lg border bg-white p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 class="text-xl font-semibold text-slate-900">工作项不存在</h1>
@@ -708,8 +708,8 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
   }
 
   return `
-    <div class="space-y-6 p-6">
-      <section class="rounded-lg border bg-white p-6">
+    <div class="space-y-5 p-4">
+      <section class="rounded-lg border bg-white p-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="space-y-3">
             <div class="flex flex-wrap items-center gap-2">
@@ -734,7 +734,7 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
         </div>
       </section>
 
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="mb-4 flex items-center gap-2">
           <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">一</span>
           <h2 class="text-lg font-semibold text-slate-900">基础信息</h2>

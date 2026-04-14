@@ -809,15 +809,21 @@ function renderNotice(): string {
 
 function renderModalShell(title: string, description: string, body: string, footer: string, sizeClass = 'max-w-lg'): string {
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div class="w-full ${sizeClass} rounded-lg border bg-white shadow-2xl">
+    <div class="fixed inset-0 z-50">
+      <button type="button" class="absolute inset-0 bg-slate-900/45" data-pcs-live-testing-action="close-dialogs" aria-label="关闭侧栏"></button>
+      <aside class="absolute inset-y-0 right-0 flex h-full w-full ${escapeHtml(sizeClass)} flex-col border-l bg-white shadow-2xl">
         <div class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h3>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h3>
+              <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
+            </div>
+            <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="close-dialogs">关闭</button>
+          </div>
         </div>
-        <div class="max-h-[72vh] overflow-y-auto space-y-4 px-6 py-5">${body}</div>
+        <div class="min-h-0 flex-1 overflow-y-auto space-y-4 px-4 py-4">${body}</div>
         <div class="flex items-center justify-end gap-2 border-t px-6 py-4">${footer}</div>
-      </div>
+      </aside>
     </div>
   `
 }
@@ -834,7 +840,7 @@ function renderDrawerShell(title: string, body: string, closeAction: string): st
           </div>
           <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="${escapeHtml(closeAction)}">关闭</button>
         </div>
-        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">${body}</div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">${body}</div>
       </aside>
     </div>
   `
@@ -1187,7 +1193,7 @@ function renderSessionDetailHeader(session: SessionViewModel, relatedProjects: A
   const showAccounting = (session.status === 'RECONCILING' || session.status === 'COMPLETED') && session.testAccountingStatus === 'PENDING'
   return `
     <section class="rounded-lg border bg-white">
-      <div class="flex flex-wrap items-start justify-between gap-4 px-6 py-5">
+      <div class="flex flex-wrap items-start justify-between gap-4 px-4 py-4">
         <div class="space-y-3">
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/live">
@@ -1267,7 +1273,7 @@ function renderOverviewTab(session: SessionViewModel, testItems: SessionItemView
           )
           .join('')}
       </section>
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="mb-4">
           <h2 class="text-lg font-semibold text-slate-900">健康检查</h2>
           <p class="mt-1 text-sm text-slate-500">对照参照系统的关账前检查口径，快速确认当前场次是否满足流转条件。</p>
@@ -1362,7 +1368,7 @@ function renderItemsTab(session: SessionViewModel): string {
 function renderReconcileTab(): string {
   return `
     <div class="space-y-4">
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="mb-4">
           <h2 class="text-lg font-semibold text-slate-900">数据导入</h2>
           <p class="mt-1 text-sm text-slate-500">支持从 TikTok / Shopee 后台导出的文件补录曝光、点击、下单和支付表现。</p>
@@ -1385,7 +1391,7 @@ function renderEvidenceTab(session: SessionViewModel): string {
   const evidenceItems = session.items.filter((item) => item.evidence.length > 0)
   return `
     <div class="space-y-4">
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold text-slate-900">场次级证据</h2>
@@ -1529,7 +1535,7 @@ function renderSamplesTab(session: SessionViewModel): string {
 function renderLogsTab(session: SessionViewModel): string {
   return `
     <div class="space-y-4">
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="mb-4">
           <h2 class="text-lg font-semibold text-slate-900">操作日志</h2>
           <p class="mt-1 text-sm text-slate-500">保留创建、下播、关账、入账和明细编辑记录，用于原型演示。</p>
@@ -1650,10 +1656,10 @@ function renderDetailContent(session: SessionViewModel): string {
   if (state.detail.activeTab === 'logs') activeContent = renderLogsTab(session)
 
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderSessionDetailHeader(session, relatedProjects)}
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
         <div class="space-y-4">
           <section class="rounded-lg border bg-white p-2">
             <div class="grid gap-2 md:grid-cols-3 xl:grid-cols-7">
@@ -1934,7 +1940,7 @@ function createSession(status: SessionStatus): void {
 export function renderPcsLiveTestingListPage(): string {
   ensureSessionStore()
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderListHeader()}
       ${renderListFilters()}
@@ -1952,8 +1958,8 @@ export function renderPcsLiveTestingDetailPage(sessionId: string): string {
 
   if (!session) {
     return `
-      <div class="space-y-6 p-6">
-        <section class="rounded-lg border bg-white p-6">
+      <div class="space-y-5 p-4">
+        <section class="rounded-lg border bg-white p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 class="text-xl font-semibold text-slate-900">直播场次不存在</h1>

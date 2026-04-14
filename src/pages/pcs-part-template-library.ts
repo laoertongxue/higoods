@@ -607,20 +607,18 @@ function renderPartTemplatePreviewDialog(): string {
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-part-template-action="close-part-template-preview" aria-label="关闭预览"></button>
-      <section class="absolute inset-0 z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-4xl rounded-lg border bg-white p-4 shadow-xl">
-          <div class="mb-3 flex items-center justify-between">
+      <aside class="absolute inset-y-0 right-0 z-50 flex h-full w-full max-w-4xl flex-col border-l bg-white p-4 shadow-xl">
+          <div class="mb-3 flex items-center justify-between border-b border-slate-200 pb-3">
             <div>
               <h3 class="text-base font-semibold">部位缩略图预览</h3>
               <p class="mt-1 text-xs text-gray-500">${escapeHtml(record.templateName)}｜${escapeHtml(record.sourcePartName)}</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-600 hover:bg-slate-100" data-part-template-action="close-part-template-preview" aria-label="关闭">✕</button>
           </div>
-          <div class="overflow-hidden rounded-md border bg-slate-50">
+          <div class="min-h-0 flex-1 overflow-auto rounded-md border bg-slate-50">
             ${previewUrl ? `<img src="${previewUrl}" alt="${escapeHtml(record.templateName)}" class="max-h-[72vh] w-full object-contain" />` : '<div class="h-[320px] flex items-center justify-center text-sm text-gray-500">暂无预览</div>'}
           </div>
-        </div>
-      </section>
+      </aside>
     </div>
   `
 }
@@ -638,16 +636,15 @@ function renderPartTemplatePackageDialog(): string {
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-part-template-action="close-part-template-package-dialog" aria-label="关闭纸样文件"></button>
-      <section class="absolute inset-0 z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-2xl rounded-lg border bg-white p-4 shadow-xl">
-          <div class="mb-3 flex items-start justify-between gap-3">
+      <aside class="absolute inset-y-0 right-0 z-50 flex h-full w-full max-w-2xl flex-col border-l bg-white p-4 shadow-xl">
+          <div class="mb-3 flex items-start justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
               <h3 class="text-base font-semibold">纸样文件</h3>
               <p class="mt-1 text-xs text-gray-500">标准部位：${escapeHtml(record.standardPartName || record.sourcePartName)}</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-600 hover:bg-slate-100" data-part-template-action="close-part-template-package-dialog" aria-label="关闭">✕</button>
           </div>
-          <div class="rounded-lg border bg-slate-50 p-3 text-sm">
+          <div class="min-h-0 flex-1 overflow-auto rounded-lg border bg-slate-50 p-3 text-sm">
             <div class="grid gap-3 md:grid-cols-2">
               <div>
                 <p class="text-xs text-gray-500">DXF 文件</p>
@@ -661,8 +658,7 @@ function renderPartTemplatePackageDialog(): string {
               </div>
             </div>
           </div>
-        </div>
-      </section>
+      </aside>
     </div>
   `
 }

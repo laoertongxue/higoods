@@ -903,15 +903,21 @@ function renderModalShell(
   sizeClass = 'max-w-lg',
 ): string {
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div class="w-full ${sizeClass} rounded-lg border bg-white shadow-2xl">
+    <div class="fixed inset-0 z-50">
+      <button type="button" class="absolute inset-0 bg-slate-900/45" data-pcs-project-action="close-dialogs" aria-label="关闭侧栏"></button>
+      <aside class="absolute inset-y-0 right-0 flex h-full w-full ${escapeHtml(sizeClass)} flex-col border-l bg-white shadow-2xl">
         <div class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h3>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h3>
+              <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
+            </div>
+            <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="close-dialogs">关闭</button>
+          </div>
         </div>
-        <div class="max-h-[72vh] overflow-y-auto space-y-4 px-6 py-5">${body}</div>
+        <div class="min-h-0 flex-1 overflow-y-auto space-y-4 px-4 py-4">${body}</div>
         <div class="flex items-center justify-end gap-2 border-t px-6 py-4">${footer}</div>
-      </div>
+      </aside>
     </div>
   `
 }
@@ -2969,7 +2975,7 @@ function renderProjectListHeader(): string {
 function renderTemplatePreview(template: ProjectTemplate | null): string {
   if (!template) {
     return `
-      <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
+      <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
         当前没有可用模板，请先到模板管理中启用对应款式类型的项目模板。
       </div>
     `
@@ -3046,7 +3052,7 @@ function renderCreatePage(): string {
     : ''
 
   return `
-    <div class="space-y-6 p-6 pb-28">
+    <div class="space-y-5 p-4 pb-24">
       ${renderNotice()}
       ${errorCard}
       <section class="flex flex-wrap items-center justify-between gap-4">
@@ -3062,7 +3068,7 @@ function renderCreatePage(): string {
         </div>
       </section>
 
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="mb-6 flex items-center gap-2">
           <h2 class="text-lg font-semibold text-slate-900">基础信息</h2>
           <span class="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-700">必填</span>
@@ -3244,7 +3250,7 @@ function renderCreatePage(): string {
         </div>
       </section>
 
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="mb-6">
           <h2 class="text-lg font-semibold text-slate-900">模板预览</h2>
           <p class="mt-1 text-sm text-slate-500">根据已选款式类型和模板，预览创建后的标准流程结构。</p>
@@ -3284,7 +3290,7 @@ function renderCreatePage(): string {
 
 function renderProjectHeader(viewModel: ProjectViewModel): string {
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="flex items-start gap-4">
           <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100">
@@ -3444,7 +3450,7 @@ function renderLatestRecordSummary(node: ProjectNodeViewModel): string {
   const record = node.latestRecord
   if (!record) {
     return `
-      <article class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">
+      <article class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
         <p class="text-sm font-medium text-slate-700">暂无正式记录</p>
         <p class="mt-1 text-xs text-slate-500">当前节点还没有沉淀项目内正式记录，可进入详情页继续补充。</p>
       </article>
@@ -3627,7 +3633,7 @@ function renderProjectDetailPage(projectId: string): string {
   const viewModel = buildProjectViewModel(projectId)
   if (!viewModel) {
     return `
-      <div class="space-y-4 p-6">
+      <div class="space-y-4 p-4">
         <section class="rounded-lg border bg-white p-8 text-center">
           <h1 class="text-xl font-semibold text-slate-900">项目未找到</h1>
           <p class="mt-2 text-sm text-slate-500">请确认项目编号是否正确，或返回商品项目列表重新选择。</p>
@@ -3642,10 +3648,10 @@ function renderProjectDetailPage(projectId: string): string {
   const locked = selectedNode ? selectedNode.displayStatus === '未解锁' : false
 
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderProjectHeader(viewModel)}
-      <div class="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+      <div class="grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)_280px]">
         ${renderPhaseNavigator(viewModel)}
         <div class="space-y-4">
           ${
@@ -3787,7 +3793,7 @@ function renderEditableFieldGroups(
 function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   if (!canUseInlineRecords(node.node.workItemTypeCode)) {
     return `
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <h3 class="text-base font-semibold text-slate-900">正式字段录入</h3>
         <p class="mt-2 text-sm leading-6 text-slate-500">当前节点由下游正式对象或独立业务模块承载，项目内仅展示结果摘要和引用关系，不在这里直接录入字段。</p>
       </section>
@@ -3850,7 +3856,7 @@ function renderWorkItemTabs(viewModel: ProjectViewModel, node: ProjectNodeViewMo
 function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
   if (node.displayStatus === '未解锁') {
-    return `<section class="rounded-lg border bg-white p-6 text-sm text-slate-600">当前节点尚未解锁，请先完成前序工作项。</section>`
+    return `<section class="rounded-lg border bg-white p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序工作项。</section>`
   }
 
   return `
@@ -3872,7 +3878,7 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
 function renderWorkItemRecords(node: ProjectNodeViewModel): string {
   if (node.records.length === 0) {
     return `
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h3 class="text-base font-semibold text-slate-900">执行记录</h3>
@@ -3889,7 +3895,7 @@ function renderWorkItemRecords(node: ProjectNodeViewModel): string {
   }
 
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
           <h3 class="text-base font-semibold text-slate-900">执行记录</h3>
@@ -3940,7 +3946,7 @@ function renderWorkItemAttachments(node: ProjectNodeViewModel): string {
   const refs = [...(node.latestRecord?.upstreamRefs || []), ...(node.latestRecord?.downstreamRefs || [])]
   if (node.relations.length === 0 && refs.length === 0) {
     return `
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <h3 class="text-base font-semibold text-slate-900">附件与引用</h3>
         <p class="mt-2 text-sm text-slate-500">当前节点暂无附件或关联引用。</p>
       </section>
@@ -3949,7 +3955,7 @@ function renderWorkItemAttachments(node: ProjectNodeViewModel): string {
 
   return `
     <div class="space-y-4">
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <h3 class="text-base font-semibold text-slate-900">项目关联对象</h3>
         <div class="mt-4 overflow-hidden rounded-lg border">
           <table class="min-w-full text-sm">
@@ -3987,7 +3993,7 @@ function renderWorkItemAttachments(node: ProjectNodeViewModel): string {
       ${
         refs.length > 0
           ? `
-            <section class="rounded-lg border bg-white p-6">
+            <section class="rounded-lg border bg-white p-4">
               <h3 class="text-base font-semibold text-slate-900">记录引用</h3>
               <div class="mt-4 grid gap-3 md:grid-cols-2">
                 ${refs
@@ -4018,7 +4024,7 @@ function renderWorkItemAudit(viewModel: ProjectViewModel, node: ProjectNodeViewM
       item.detail.includes(node.node.projectNodeId),
   )
   return `
-    <section class="rounded-lg border bg-white p-6">
+    <section class="rounded-lg border bg-white p-4">
       <h3 class="text-base font-semibold text-slate-900">操作日志</h3>
       <div class="mt-4 space-y-4">
         ${(nodeLogs.length > 0 ? nodeLogs : viewModel.logs.slice(0, 8))
@@ -4117,7 +4123,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
   const viewModel = buildProjectViewModel(projectId)
   if (!viewModel) {
     return `
-      <div class="space-y-4 p-6">
+      <div class="space-y-4 p-4">
         <section class="rounded-lg border bg-white p-8 text-center">
           <h1 class="text-xl font-semibold text-slate-900">项目未找到</h1>
           <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects">返回项目列表</button>
@@ -4129,7 +4135,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
   const node = viewModel.nodes.find((item) => item.node.projectNodeId === projectNodeId) ?? null
   if (!node) {
     return `
-      <div class="space-y-4 p-6">
+      <div class="space-y-4 p-4">
         <section class="rounded-lg border bg-white p-8 text-center">
           <h1 class="text-xl font-semibold text-slate-900">工作项未找到</h1>
           <p class="mt-2 text-sm text-slate-500">当前项目下没有找到对应的工作项节点。</p>
@@ -4143,9 +4149,9 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
   const canRecord = canUseInlineRecords(node.node.workItemTypeCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
 
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
-      <section class="rounded-lg border bg-white p-6">
+      <section class="rounded-lg border bg-white p-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="flex items-start gap-4">
             <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(projectId)}">
@@ -4208,7 +4214,7 @@ export function renderPcsProjectListPage(): string {
   ensureProjectDemoData()
   const { filtered, paged, totalPages } = getPagedProjects()
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderProjectListHeader()}
       ${renderListToolbar(filtered.length)}

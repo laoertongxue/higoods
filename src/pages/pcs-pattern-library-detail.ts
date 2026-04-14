@@ -14,6 +14,7 @@ import {
   getPatternCategorySecondaryList,
   getPatternLibraryConfig,
   getPatternReferenceAvailability,
+  listPatternApplicableCategoryOptions,
   listPatternVersions,
   persistPatternParsedFile,
   rejectPatternAsset,
@@ -284,6 +285,7 @@ function renderBasicInfoTab(): string {
   if (!asset) return ''
   const config = getPatternLibraryConfig()
   const secondaryCategories = getPatternCategorySecondaryList(state.editForm.categoryPrimary)
+  const applicableCategoryOptions = listPatternApplicableCategoryOptions()
   return `
     <section class="grid gap-4 xl:grid-cols-12">
       <div class="space-y-4 xl:col-span-5">
@@ -341,15 +343,21 @@ function renderBasicInfoTab(): string {
             </div>
             <div>
               <label class="mb-1 block text-sm font-medium">风格标签</label>
-              <input class="h-10 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.editForm.styleTags)}" data-pattern-library-detail-field="styleTags" />
+              <input class="h-10 w-full rounded-md border px-3 text-sm" list="pattern-library-detail-style-tags" value="${escapeHtml(state.editForm.styleTags)}" data-pattern-library-detail-field="styleTags" />
+              <datalist id="pattern-library-detail-style-tags">${config.styleTags.map((item) => `<option value="${item}"></option>`).join('')}</datalist>
+              <p class="mt-1 text-xs text-gray-500">建议使用配置工作台 / 风格。</p>
             </div>
             <div>
               <label class="mb-1 block text-sm font-medium">主色系</label>
-              <input class="h-10 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.editForm.colorTags)}" data-pattern-library-detail-field="colorTags" />
+              <input class="h-10 w-full rounded-md border px-3 text-sm" list="pattern-library-detail-primary-colors" value="${escapeHtml(state.editForm.colorTags)}" data-pattern-library-detail-field="colorTags" />
+              <datalist id="pattern-library-detail-primary-colors">${config.primaryColors.map((item) => `<option value="${item}"></option>`).join('')}</datalist>
+              <p class="mt-1 text-xs text-gray-500">建议使用配置工作台 / 颜色。</p>
             </div>
             <div>
               <label class="mb-1 block text-sm font-medium">适用品类</label>
-              <input class="h-10 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.editForm.applicableCategories)}" data-pattern-library-detail-field="applicableCategories" />
+              <input class="h-10 w-full rounded-md border px-3 text-sm" list="pattern-library-detail-applicable-categories" value="${escapeHtml(state.editForm.applicableCategories)}" data-pattern-library-detail-field="applicableCategories" />
+              <datalist id="pattern-library-detail-applicable-categories">${applicableCategoryOptions.map((item) => `<option value="${item}"></option>`).join('')}</datalist>
+              <p class="mt-1 text-xs text-gray-500">来源：配置工作台 / 品类。</p>
             </div>
             <div>
               <label class="mb-1 block text-sm font-medium">适用部位</label>

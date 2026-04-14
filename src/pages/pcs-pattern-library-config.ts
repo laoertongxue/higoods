@@ -1,7 +1,7 @@
-import { appStore } from '../state/store'
-import { escapeHtml } from '../utils'
-import { getPatternLibraryConfig, updatePatternLibraryConfig } from '../data/pcs-pattern-library'
-import { formatPatternCategoryTreeText, parsePatternCategoryTreeText } from '../utils/pcs-pattern-library-services'
+import { appStore } from '../state/store.ts'
+import { escapeHtml } from '../utils.ts'
+import { getPatternLibraryConfig, updatePatternLibraryConfig } from '../data/pcs-pattern-library.ts'
+import { formatPatternCategoryTreeText, parsePatternCategoryTreeText } from '../utils/pcs-pattern-library-services.ts'
 
 interface PatternLibraryConfigState {
   usageTypes: string
@@ -120,11 +120,13 @@ export function renderPcsPatternLibraryConfigPage(): string {
               </div>
               <div>
                 <label class="mb-1 block text-sm font-medium">风格标签</label>
-                <textarea class="min-h-[96px] w-full rounded-md border px-3 py-2 text-sm" data-pattern-library-config-field="styleTags">${escapeHtml(state.styleTags)}</textarea>
+                <textarea class="min-h-[96px] w-full rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-500" readonly>${escapeHtml(state.styleTags)}</textarea>
+                <p class="mt-1 text-xs text-gray-500">来源：配置工作台 / 风格，此处仅同步展示，不单独维护。</p>
               </div>
               <div>
                 <label class="mb-1 block text-sm font-medium">主色系</label>
-                <textarea class="min-h-[96px] w-full rounded-md border px-3 py-2 text-sm" data-pattern-library-config-field="primaryColors">${escapeHtml(state.primaryColors)}</textarea>
+                <textarea class="min-h-[96px] w-full rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-500" readonly>${escapeHtml(state.primaryColors)}</textarea>
+                <p class="mt-1 text-xs text-gray-500">来源：配置工作台 / 颜色，此处仅同步展示，不单独维护。</p>
               </div>
               <div class="md:col-span-2">
                 <label class="mb-1 block text-sm font-medium">来源类型</label>
@@ -197,8 +199,6 @@ export function handlePcsPatternLibraryConfigEvent(target: HTMLElement): boolean
     updatePatternLibraryConfig({
       usageTypes: parseValues(state.usageTypes),
       categoryTree: parsePatternCategoryTreeText(state.categoryTreeText),
-      styleTags: parseValues(state.styleTags),
-      primaryColors: parseValues(state.primaryColors),
       sourceTypes: parseValues(state.sourceTypes),
       namingRuleTemplate: state.namingRuleTemplate,
       ruleToggles: {
@@ -209,7 +209,7 @@ export function handlePcsPatternLibraryConfigEvent(target: HTMLElement): boolean
       },
       similarityThreshold: Number(state.similarityThreshold) || 12,
     })
-    state.notice = '花型库配置已保存。'
+    state.notice = '花型库配置已保存，风格标签与主色系已按配置工作台同步。'
     return true
   }
 

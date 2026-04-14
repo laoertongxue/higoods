@@ -1145,7 +1145,7 @@ function renderDrawerShell(title: string, description: string, body: string, foo
             <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-channel-store-action="close-dialogs">关闭</button>
           </div>
         </div>
-        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">${body}</div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">${body}</div>
         <div class="flex items-center justify-end gap-2 border-t px-6 py-4">${footer}</div>
       </aside>
     </div>
@@ -1154,15 +1154,16 @@ function renderDrawerShell(title: string, description: string, body: string, foo
 
 function renderModalShell(title: string, description: string, body: string, footer: string, widthClass = 'max-w-2xl'): string {
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div class="w-full ${escapeHtml(widthClass)} rounded-lg border bg-white shadow-2xl">
+    <div class="fixed inset-0 z-50">
+      <button type="button" class="absolute inset-0 bg-slate-900/45" data-pcs-channel-store-action="close-dialogs" aria-label="关闭侧栏"></button>
+      <aside class="absolute inset-y-0 right-0 flex h-full w-full ${escapeHtml(widthClass)} flex-col border-l bg-white shadow-2xl">
         <div class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h3>
           <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
         </div>
-        <div class="max-h-[72vh] overflow-y-auto px-6 py-5">${body}</div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">${body}</div>
         <div class="flex items-center justify-end gap-2 border-t px-6 py-4">${footer}</div>
-      </div>
+      </aside>
     </div>
   `
 }
@@ -1706,7 +1707,7 @@ function renderStoreListPageContent(): string {
   )
 
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderPageHeader('渠道店铺管理', '管理渠道 x 店铺的基础信息、授权连接、提现账号绑定。', actions)}
       ${metricGrid}
@@ -1790,7 +1791,7 @@ function renderStoreOverviewTab(store: ChannelStoreRecord): string {
     `
     : '<div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">当前未绑定提现账号，请尽快补齐，以免影响收入归属。</div>'
   return `
-    <div class="grid gap-6 xl:grid-cols-2">
+    <div class="grid gap-4 xl:grid-cols-2">
       ${renderCard(
         '店铺基础信息',
         `
@@ -1993,7 +1994,7 @@ function renderStoreSyncTab(): string {
   return renderCard(
     '数据同步状态',
     `
-      <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-10 text-center text-sm text-slate-500">
+      <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
         <i data-lucide="database" class="mx-auto mb-3 h-10 w-10 text-slate-300"></i>
         <p>同步监控统一沉淀在渠道店铺同步页。</p>
         <button type="button" class="mt-3 inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/channels/stores/sync">前往同步状态页</button>
@@ -2278,7 +2279,7 @@ function renderStoreDetailContent(store: ChannelStoreRecord): string {
               ? renderStoreSyncTab()
               : renderStoreLogsTab(store)
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       <section class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-start gap-4">
@@ -2355,7 +2356,7 @@ function renderSyncPageContent(): string {
     })
     .join('')
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderPageHeader(
         '同步状态与错误回执',
@@ -2474,7 +2475,7 @@ function renderPayoutAccountListContent(): string {
     )
     .join('')
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderPageHeader('提现账号管理', '管理提现账号主数据，决定店铺收入归属主体。', actions)}
       <div class="grid gap-4 md:grid-cols-4">
@@ -2580,7 +2581,7 @@ function renderPayoutAccountDetailContent(account: PayoutAccountRecord): string 
     `,
   ).join('')
   const overview = `
-    <div class="grid gap-6 xl:grid-cols-2">
+    <div class="grid gap-4 xl:grid-cols-2">
       ${renderCard(
         '账号信息',
         `
@@ -2694,7 +2695,7 @@ function renderPayoutAccountDetailContent(account: PayoutAccountRecord): string 
         ? stores
         : attachments
   return `
-    <div class="space-y-6 p-6">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
       <section class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-start gap-4">
@@ -2734,8 +2735,8 @@ export function renderPcsChannelStoreDetailPage(storeId: string): string {
   const store = getStoreById(storeId)
   if (!store) {
     return `
-      <div class="space-y-6 p-6">
-        <section class="rounded-lg border bg-white p-6">
+      <div class="space-y-5 p-4">
+        <section class="rounded-lg border bg-white p-4">
           <h1 class="text-xl font-semibold text-slate-900">渠道店铺不存在</h1>
           <p class="mt-1 text-sm text-slate-500">未找到对应的渠道店铺记录，请返回列表重新选择。</p>
         </section>
@@ -2761,8 +2762,8 @@ export function renderPcsPayoutAccountDetailPage(accountId: string): string {
   const account = getPayoutAccountById(accountId)
   if (!account) {
     return `
-      <div class="space-y-6 p-6">
-        <section class="rounded-lg border bg-white p-6">
+      <div class="space-y-5 p-4">
+        <section class="rounded-lg border bg-white p-4">
           <h1 class="text-xl font-semibold text-slate-900">提现账号不存在</h1>
           <p class="mt-1 text-sm text-slate-500">未找到对应的提现账号记录，请返回列表重新选择。</p>
         </section>
