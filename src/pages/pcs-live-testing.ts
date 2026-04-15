@@ -170,6 +170,7 @@ interface LiveTestingPageState {
     activeTab: DetailTabKey
   }
   createDrawerOpen: boolean
+  createRouteKey: string
   createDraft: CreateDraftState
   closeDialog: CloseDialogState
   accountingDialog: AccountingDialogState
@@ -227,6 +228,7 @@ const state: LiveTestingPageState = {
     activeTab: 'overview',
   },
   createDrawerOpen: false,
+  createRouteKey: '',
   createDraft: { ...initialCreateDraft },
   closeDialog: {
     open: false,
@@ -358,6 +360,10 @@ function buildRecommendation(intent: ItemIntent, orderQty: number, clickQty: num
 
 function buildDecisionLink(projectId: string | null): string | null {
   return projectId ? `/pcs/projects/${projectId}` : null
+}
+
+function requiredLabel(label: string): string {
+  return `${escapeHtml(label)} <span class="text-rose-500">*</span>`
 }
 
 function resolveProjectIdentity(projectRef: string | null | undefined): { projectId: string; projectCode: string } | null {
@@ -678,6 +684,7 @@ function getSessions(): SessionViewModel[] {
   ensureSessionStore()
   return Array.from(sessionStore.values())
     .map(cloneSession)
+    .filter(isDisplayableSession)
     .sort((a, b) => (b.startAt || b.createdAt).localeCompare(a.startAt || a.createdAt))
 }
 
@@ -704,6 +711,57 @@ function appendSessionLog(session: SessionViewModel, log: LiveLog): SessionViewM
 
 function resetCreateDraft(): void {
   state.createDraft = { ...initialCreateDraft }
+}
+
+function syncCreateDrawerStateFromQuery(): void {
+  const routeKey = appStore.getState().pathname
+  if (state.createRouteKey === routeKey) return
+  state.createRouteKey = routeKey
+  const params = getCurrentQueryParams()
+  if (params.get('openCreate') !== '1') return
+  const requestedProject = params.get('projectRef') || params.get('projectId') || ''
+  const resolvedProject = resolveProjectIdentity(requestedProject)
+  if (!resolvedProject) return
+  resetCreateDraft()
+  state.createDraft.projectRef = resolvedProject.projectCode
+  state.createDrawerOpen = true
+}
+
+function validateRequiredText(value: string, label: string, errors: string[]): void {
+  if (!value.trim()) errors.push(label)
+}
+
+function validatePositiveNumber(value: string, label: string, errors: string[]): void {
+  const parsed = Number.parseFloat(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    errors.push(label)
+  }
+}
+
+function validateCreateDraft(draft: CreateDraftState): string | null {
+  const missingFields: string[] = []
+  validateRequiredText(draft.projectRef, '商品项目编号', missingFields)
+  validateRequiredText(draft.title, '测款标题', missingFields)
+  validateRequiredText(draft.liveAccount, '直播账号', missingFields)
+  validateRequiredText(draft.anchor, '主播', missingFields)
+  validateRequiredText(draft.startAt, '开播时间', missingFields)
+  validateRequiredText(draft.endAt, '下播时间', missingFields)
+  validatePositiveNumber(draft.exposure, '曝光', missingFields)
+  validatePositiveNumber(draft.click, '点击', missingFields)
+  validatePositiveNumber(draft.cart, '加购', missingFields)
+  validatePositiveNumber(draft.order, '订单', missingFields)
+  validatePositiveNumber(draft.gmv, 'GMV', missingFields)
+  validateRequiredText(draft.note, '备注', missingFields)
+  if (missingFields.length > 0) {
+    return `请完整填写必填字段，且指标需大于 0：${missingFields.join('、')}。`
+  }
+
+  const startAt = Date.parse(draft.startAt.trim().replace(' ', 'T'))
+  const endAt = Date.parse(draft.endAt.trim().replace(' ', 'T'))
+  if (Number.isFinite(startAt) && Number.isFinite(endAt) && endAt <= startAt) {
+    return '下播时间必须晚于开播时间。'
+  }
+  return null
 }
 
 function closeAllDialogs(): void {
@@ -917,9 +975,20 @@ function getPrimaryProject(session: SessionViewModel): { projectId: string; labe
     session.id,
   ])
   if (inferred) return inferred
+  return null
+}
 
-  const fallbackProject = listProjects()[0]
-  return fallbackProject ? { projectId: fallbackProject.projectId, label: fallbackProject.projectName } : null
+function isDisplayableSession(session: SessionViewModel): boolean {
+  return Boolean(
+    getPrimaryProject(session) &&
+      session.endAt &&
+      session.testItemCount > 0 &&
+      session.exposureTotal > 0 &&
+      session.clickTotal > 0 &&
+      session.cartTotal > 0 &&
+      (session.orderTotal ?? 0) > 0 &&
+      (session.gmvTotal ?? 0) > 0,
+  )
 }
 
 function renderPager(totalPages: number): string {
@@ -1076,7 +1145,7 @@ function renderListTable(): string {
                           </td>
                           <td class="px-4 py-3 align-top text-xs text-slate-600">
                             <p>${escapeHtml(formatDateTime(session.startAt))}</p>
-                            <p class="mt-1">${escapeHtml(session.endAt ? formatDateTime(session.endAt) : '未补录下播时间')}</p>
+                            <p class="mt-1">${escapeHtml(session.endAt ? formatDateTime(session.endAt) : '-')}</p>
                           </td>
                           <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(session.exposureTotal)}</td>
                           <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(session.clickTotal)}</td>
@@ -1122,28 +1191,28 @@ function renderCreateDrawer(): string {
                 <h4 class="text-sm font-semibold text-slate-900">基础信息</h4>
               </div>
               <label class="space-y-1">
-                <span class="text-xs text-slate-500">商品项目编号</span>
+                <span class="text-xs text-slate-500">${requiredLabel('商品项目编号')}</span>
                 <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.projectRef)}" placeholder="PRJ-20251216-015" data-pcs-live-testing-field="create-project-ref" />
               </label>
               <label class="space-y-1">
-                <span class="text-xs text-slate-500">测款标题</span>
+                <span class="text-xs text-slate-500">${requiredLabel('测款标题')}</span>
                 <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.title)}" placeholder="TikTok IDN 新款测试专场" data-pcs-live-testing-field="create-title" />
               </label>
               <div class="grid gap-4 md:grid-cols-2">
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">直播账号</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('直播账号')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.liveAccount)}" placeholder="TikTok IDN Store-A" data-pcs-live-testing-field="create-live-account" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">主播</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('主播')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.anchor)}" placeholder="家播-小N" data-pcs-live-testing-field="create-anchor" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">开播时间</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('开播时间')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.startAt)}" placeholder="2026-04-13 19:00" data-pcs-live-testing-field="create-start-at" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">下播时间</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('下播时间')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.endAt)}" placeholder="2026-04-13 22:00" data-pcs-live-testing-field="create-end-at" />
                 </label>
               </div>
@@ -1151,32 +1220,31 @@ function renderCreateDrawer(): string {
             <section class="space-y-4">
               <div>
                 <h4 class="text-sm font-semibold text-slate-900">测款结果</h4>
-                <p class="mt-1 text-xs text-slate-500">直接补录最终数据，列表会同步展示 GMV、订单数、曝光、点击、加购和点击率。</p>
               </div>
               <div class="grid gap-4 md:grid-cols-2">
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">曝光</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('曝光')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.exposure)}" placeholder="15000" data-pcs-live-testing-field="create-exposure" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">点击</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('点击')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.click)}" placeholder="1200" data-pcs-live-testing-field="create-click" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">加购</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('加购')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.cart)}" placeholder="180" data-pcs-live-testing-field="create-cart" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">订单</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('订单')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.order)}" placeholder="45" data-pcs-live-testing-field="create-order" />
                 </label>
                 <label class="space-y-1 md:col-span-2">
-                  <span class="text-xs text-slate-500">GMV</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('GMV')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.gmv)}" placeholder="8400" data-pcs-live-testing-field="create-gmv" />
                 </label>
               </div>
               <label class="space-y-1">
-                <span class="text-xs text-slate-500">备注</span>
+                <span class="text-xs text-slate-500">${requiredLabel('备注')}</span>
                 <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="补充直播场景、异常说明或测款备注" data-pcs-live-testing-field="create-note">${escapeHtml(draft.note)}</textarea>
               </label>
             </section>
@@ -1260,7 +1328,7 @@ function renderOverviewTab(session: SessionViewModel, testItems: SessionItemView
   const checks = [
     { ok: Boolean(session.endAt), label: '下播时间已填写' },
     { ok: session.items.length > 0, label: `明细行数 >= 1（当前 ${session.items.length}）` },
-    { ok: testItems.every((item) => Boolean(item.projectRef || item.productRef)), label: '所有 TEST 行已绑定项目或商品' },
+    { ok: testItems.every((item) => Boolean(item.projectRef)), label: '所有 TEST 行已绑定商品项目' },
   ]
   const cards = [
     { label: 'GMV', value: session.gmvTotal == null ? '-' : `¥${formatCurrency(session.gmvTotal)}` },
@@ -1344,10 +1412,10 @@ function renderItemsTab(session: SessionViewModel): string {
                           item.intent === 'TEST'
                             ? item.projectRef && item.relatedProjectId
                               ? `<button type="button" class="text-left text-xs font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.relatedProjectId)}">${escapeHtml(item.projectRef)}</button>`
-                              : '<span class="text-xs text-rose-600">待绑定商品项目</span>'
+                              : '<span class="text-xs text-slate-400">-</span>'
                             : item.productRef
                               ? `<span class="text-xs text-slate-500">${escapeHtml(item.productRef)}</span>`
-                              : '<span class="text-xs text-rose-600">未绑定</span>'
+                              : '<span class="text-xs text-slate-400">-</span>'
                         }
                       </td>
                       <td class="px-4 py-3">
@@ -1477,7 +1545,7 @@ function renderAccountingTab(session: SessionViewModel, testItems: SessionItemVi
                               <p class="font-medium text-slate-900">${escapeHtml(item.productName)}</p>
                               <p class="mt-1 text-xs text-slate-500">${escapeHtml(item.sku)}</p>
                             </td>
-                            <td class="px-4 py-3">${item.projectRef ? `<button type="button" class="text-left text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.relatedProjectId || '')}">${escapeHtml(item.projectRef)}</button>` : '<span class="text-rose-600">未绑定</span>'}</td>
+                            <td class="px-4 py-3">${item.projectRef ? `<button type="button" class="text-left text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.relatedProjectId || '')}">${escapeHtml(item.projectRef)}</button>` : '<span class="text-slate-400">-</span>'}</td>
                             <td class="px-4 py-3">${escapeHtml(item.productRef || '-')}</td>
                             <td class="px-4 py-3">${item.gmv ? `¥${formatCurrency(item.gmv)}` : '-'}</td>
                             <td class="px-4 py-3">${escapeHtml(item.recommendation || '-')}</td>
@@ -1655,10 +1723,9 @@ function renderDetailDrawer(): string {
       <aside class="absolute inset-y-0 right-0 flex h-full w-full max-w-[1240px] flex-col border-l bg-slate-50 shadow-2xl">
         <div class="border-b bg-white px-6 py-4">
           <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900">直播测款记录</h3>
-              <p class="mt-1 text-sm text-slate-500">一条直播测款记录只对应一个商品项目，当前通过侧边栏完成查看和补录。</p>
-            </div>
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900">直播测款记录</h3>
+          </div>
             <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="close-detail-drawer">关闭</button>
           </div>
         </div>
@@ -1678,7 +1745,7 @@ function renderCloseDialog(): string {
   const checks = [
     { ok: Boolean(session.endAt), label: '下播时间已填写' },
     { ok: session.items.length > 0, label: '明细行数 >= 1' },
-    { ok: testItems.every((item) => item.projectRef || item.productRef), label: 'TEST 行已绑定项目 / 商品' },
+    { ok: testItems.every((item) => Boolean(item.projectRef)), label: 'TEST 行已绑定商品项目' },
   ]
   return renderModalShell(
     '完成直播测款（关账）',
@@ -1728,7 +1795,7 @@ function renderAccountingDialog(): string {
   const testItems = session.items.filter((item) => item.intent === 'TEST')
   const checks = [
     { ok: testItems.length > 0, label: `至少存在 1 条 TEST 行（当前 ${testItems.length}）` },
-    { ok: testItems.every((item) => item.projectRef || item.productRef), label: '每条 TEST 行已绑定项目 / 商品' },
+    { ok: testItems.every((item) => Boolean(item.projectRef)), label: '每条 TEST 行已绑定商品项目' },
     { ok: testItems.every((item) => item.pay || item.order || item.gmv), label: '每条 TEST 行已有最小指标数据' },
   ]
   return renderModalShell(
@@ -1870,6 +1937,11 @@ function renderEditDrawer(): string {
 function createSession(): void {
   ensureSessionStore()
   const draft = state.createDraft
+  const validationMessage = validateCreateDraft(draft)
+  if (validationMessage) {
+    state.notice = validationMessage
+    return
+  }
   const resolvedProject = resolveProjectIdentity(draft.projectRef)
   if (!resolvedProject) {
     state.notice = `未找到商品项目 ${draft.projectRef.trim() || '（空）'}，请先输入有效的项目编号。`
@@ -1886,13 +1958,13 @@ function createSession(): void {
   const productRef = project?.styleCodeName || project?.styleNumber || resolvedProject.projectCode
   const session: SessionViewModel = {
     id: sessionId,
-    title: draft.title.trim() || `${project?.projectName || resolvedProject.projectCode} 直播测款`,
+    title: draft.title.trim(),
     status: 'COMPLETED',
     purposes,
-    liveAccount: draft.liveAccount.trim() || 'TikTok / 商品中心直播间',
-    anchor: draft.anchor.trim() || '家播-待分配',
-    startAt: draft.startAt.trim() || nowText(),
-    endAt: draft.endAt.trim() || null,
+    liveAccount: draft.liveAccount.trim(),
+    anchor: draft.anchor.trim(),
+    startAt: draft.startAt.trim(),
+    endAt: draft.endAt.trim(),
     owner: '当前用户',
     operator: '-',
     recorder: '当前用户',
@@ -1961,6 +2033,7 @@ function createSession(): void {
 
 export function renderPcsLiveTestingListPage(): string {
   ensureSessionStore()
+  syncCreateDrawerStateFromQuery()
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}

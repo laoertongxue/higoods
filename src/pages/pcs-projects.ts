@@ -344,6 +344,40 @@ function canUseInlineRecords(workItemTypeCode: string): workItemTypeCode is PcsP
   return (PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES as readonly string[]).includes(workItemTypeCode)
 }
 
+function getTestingCreateMeta(
+  project: PcsProjectRecord,
+  node: Pick<ProjectNodeViewModel, 'node' | 'displayStatus'>,
+): { route: string; label: string } | null {
+  if (node.displayStatus === '未解锁' || node.node.currentStatus === '已取消') {
+    return null
+  }
+
+  const projectRef = encodeURIComponent(project.projectCode)
+  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+    return { route: `/pcs/testing/live?openCreate=1&projectRef=${projectRef}`, label: '新增直播测款' }
+  }
+  if (node.node.workItemTypeCode === 'VIDEO_TEST') {
+    return { route: `/pcs/testing/video?openCreate=1&projectRef=${projectRef}`, label: '新增短视频测款' }
+  }
+  return null
+}
+
+function renderTestingCreateAction(
+  project: PcsProjectRecord,
+  node: Pick<ProjectNodeViewModel, 'node' | 'displayStatus'>,
+  tone: 'primary' | 'secondary' = 'primary',
+): string {
+  const meta = getTestingCreateMeta(project, node)
+  if (!meta) return ''
+
+  const className =
+    tone === 'primary'
+      ? 'inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700'
+      : 'inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50'
+
+  return `<button type="button" class="${className}" data-nav="${escapeHtml(meta.route)}">${escapeHtml(meta.label)}</button>`
+}
+
 function getDecisionFieldMeta(
   workItemTypeCode: string,
 ): {
@@ -2764,6 +2798,7 @@ function renderProjectDetailPage(projectId: string): string {
                     </div>
                     <div class="flex flex-wrap gap-2">
                       <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(viewModel.project.projectId)}/work-items/${escapeHtml(selectedNode.node.projectNodeId)}">查看全部</button>
+                      ${renderTestingCreateAction(viewModel.project, selectedNode)}
                       ${
                         selectedNode.node.workItemTypeCode === 'PROJECT_INIT' && selectedNode.node.currentStatus === '待确认'
                           ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="approve-init">审核立项</button>'
@@ -2884,10 +2919,14 @@ function renderEditableFieldGroups(
 
 function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   if (!canUseInlineRecords(node.node.workItemTypeCode)) {
+    const testingAction = renderTestingCreateAction(project, node)
     return `
       <section class="rounded-lg border bg-white p-4">
         <h3 class="text-base font-semibold text-slate-900">正式字段录入</h3>
-        <p class="mt-2 text-sm leading-6 text-slate-500">当前节点由下游正式对象或独立业务模块承载，项目内仅展示结果摘要和引用关系，不在这里直接录入字段。</p>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm leading-6 text-slate-500">当前节点由下游正式对象或独立业务模块承载，项目内仅展示结果摘要和引用关系。</p>
+          ${testingAction}
+        </div>
       </section>
     `
   }
@@ -2971,6 +3010,11 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
 }
 
 function renderWorkItemRecords(node: ProjectNodeViewModel): string {
+  const context = getCurrentProjectNodeContext()
+  const testingAction = context ? renderTestingCreateAction(context.project, node) : ''
+  const canInlineRecord = canUseInlineRecords(node.node.workItemTypeCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
+  const recordAction = testingAction || (canInlineRecord ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="open-record-dialog">新增记录</button>' : '')
+
   if (node.records.length === 0) {
     return `
       <section class="rounded-lg border bg-white p-4">
@@ -2979,11 +3023,7 @@ function renderWorkItemRecords(node: ProjectNodeViewModel): string {
             <h3 class="text-base font-semibold text-slate-900">执行记录</h3>
             <p class="mt-1 text-sm text-slate-500">当前节点还没有正式记录。</p>
           </div>
-          ${
-            canUseInlineRecords(node.node.workItemTypeCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
-              ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="open-record-dialog">新增记录</button>'
-              : ''
-          }
+          ${recordAction}
         </div>
       </section>
     `
@@ -2996,11 +3036,7 @@ function renderWorkItemRecords(node: ProjectNodeViewModel): string {
           <h3 class="text-base font-semibold text-slate-900">执行记录</h3>
           <p class="mt-1 text-sm text-slate-500">按业务日期倒序展示当前节点的正式记录。</p>
         </div>
-        ${
-          canUseInlineRecords(node.node.workItemTypeCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
-            ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="open-record-dialog">新增记录</button>'
-            : ''
-        }
+        ${recordAction}
       </div>
       <div class="overflow-hidden rounded-lg border">
         <table class="min-w-full text-sm">
@@ -3277,6 +3313,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
 
   const nature = node.contract.workItemNature || node.definition?.workItemNature || '执行类'
   const canRecord = canUseInlineRecords(node.node.workItemTypeCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
+  const testingAction = renderTestingCreateAction(viewModel.project, node, canRecord ? 'secondary' : 'primary')
 
   return `
     <div class="space-y-5 p-4">
@@ -3311,6 +3348,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
                 ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="work-item">做出决策</button>'
                 : ''
             }
+            ${testingAction}
             ${canRecord ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-record-dialog">新增记录</button>' : ''}
             ${
               node.displayStatus !== '未解锁' && node.node.currentStatus !== '已完成' && node.node.currentStatus !== '已取消'

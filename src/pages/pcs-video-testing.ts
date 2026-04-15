@@ -180,6 +180,7 @@ interface VideoTestingPageState {
     activeTab: DetailTabKey
   }
   createDrawerOpen: boolean
+  createRouteKey: string
   createDraft: CreateDraftState
   closeDialog: CloseDialogState
   accountingDialog: AccountingDialogState
@@ -236,6 +237,7 @@ const state: VideoTestingPageState = {
     activeTab: 'overview',
   },
   createDrawerOpen: false,
+  createRouteKey: '',
   createDraft: { ...initialCreateDraft },
   closeDialog: {
     open: false,
@@ -367,6 +369,10 @@ function buildRecommendation(
 function buildDecisionRef(projectRef: string | null, accounted: boolean): string | null {
   if (!projectRef || !accounted) return null
   return `DEC-${projectRef.replaceAll('-', '')}-001`
+}
+
+function requiredLabel(label: string): string {
+  return `${escapeHtml(label)} <span class="text-rose-500">*</span>`
 }
 
 function resolveProjectIdentity(projectRef: string | null | undefined): { projectId: string; projectCode: string } | null {
@@ -723,6 +729,7 @@ function getRecords(): VideoRecordViewModel[] {
   ensureRecordStore()
   return Array.from(recordStore.values())
     .map(cloneRecord)
+    .filter(isDisplayableRecord)
     .sort((a, b) => (b.publishedAt || b.updatedAt).localeCompare(a.publishedAt || a.updatedAt))
 }
 
@@ -777,6 +784,52 @@ function closeAllDialogs(): void {
 
 function resetCreateDraft(): void {
   state.createDraft = { ...initialCreateDraft }
+}
+
+function syncCreateDrawerStateFromQuery(): void {
+  const routeKey = appStore.getState().pathname
+  if (state.createRouteKey === routeKey) return
+  state.createRouteKey = routeKey
+  const params = getCurrentQueryParams()
+  if (params.get('openCreate') !== '1') return
+  const requestedProject = params.get('projectRef') || params.get('projectId') || ''
+  const resolvedProject = resolveProjectIdentity(requestedProject)
+  if (!resolvedProject) return
+  resetCreateDraft()
+  state.createDraft.projectRef = resolvedProject.projectCode
+  state.createDrawerOpen = true
+}
+
+function validateRequiredText(value: string, label: string, errors: string[]): void {
+  if (!value.trim()) errors.push(label)
+}
+
+function validatePositiveNumber(value: string, label: string, errors: string[]): void {
+  const parsed = Number.parseFloat(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    errors.push(label)
+  }
+}
+
+function validateCreateDraft(draft: CreateDraftState): string | null {
+  const missingFields: string[] = []
+  validateRequiredText(draft.projectRef, '商品项目编号', missingFields)
+  validateRequiredText(draft.title, '测款标题', missingFields)
+  if (!draft.platform) missingFields.push('平台')
+  validateRequiredText(draft.account, '发布账号', missingFields)
+  validateRequiredText(draft.creator, '达人 / 运营', missingFields)
+  validateRequiredText(draft.publishedAt, '发布时间', missingFields)
+  validateRequiredText(draft.videoUrl, '视频链接', missingFields)
+  validatePositiveNumber(draft.views, '播放', missingFields)
+  validatePositiveNumber(draft.clicks, '点击', missingFields)
+  validatePositiveNumber(draft.likes, '点赞', missingFields)
+  validatePositiveNumber(draft.orders, '订单', missingFields)
+  validatePositiveNumber(draft.gmv, 'GMV', missingFields)
+  validateRequiredText(draft.note, '备注', missingFields)
+  if (missingFields.length > 0) {
+    return `请完整填写必填字段，且指标需大于 0：${missingFields.join('、')}。`
+  }
+  return null
 }
 
 function closeDetailDrawer(): void {
@@ -960,9 +1013,20 @@ function getPrimaryProject(record: VideoRecordViewModel): { projectId: string; l
     record.id,
   ])
   if (inferred) return inferred
+  return null
+}
 
-  const fallbackProject = listProjects()[0]
-  return fallbackProject ? { projectId: fallbackProject.projectId, label: fallbackProject.projectName } : null
+function isDisplayableRecord(record: VideoRecordViewModel): boolean {
+  return Boolean(
+    getPrimaryProject(record) &&
+      record.publishedAt &&
+      record.testItemCount > 0 &&
+      record.views > 0 &&
+      record.clicks > 0 &&
+      record.likes > 0 &&
+      record.orders > 0 &&
+      record.gmv > 0,
+  )
 }
 
 function renderPlatformBadge(platform: VideoPlatformCode): string {
@@ -1166,16 +1230,16 @@ function renderCreateDrawer(): string {
                 <h4 class="text-sm font-semibold text-slate-900">基础信息</h4>
               </div>
               <label class="space-y-1">
-                <span class="text-xs text-slate-500">商品项目编号</span>
+                <span class="text-xs text-slate-500">${requiredLabel('商品项目编号')}</span>
                 <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.projectRef)}" placeholder="PRJ-20251216-015" data-pcs-video-testing-field="create-project-ref" />
               </label>
               <label class="space-y-1">
-                <span class="text-xs text-slate-500">测款标题</span>
+                <span class="text-xs text-slate-500">${requiredLabel('测款标题')}</span>
                 <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="办公室穿搭 OOTD 分享" value="${escapeHtml(draft.title)}" data-pcs-video-testing-field="create-title" />
               </label>
               <div class="grid gap-4 md:grid-cols-2">
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">平台</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('平台')}</span>
                   <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-video-testing-field="create-platform">
                     <option value="" ${draft.platform === '' ? 'selected' : ''}>选择平台</option>
                     ${(Object.keys(VIDEO_PLATFORM_META) as VideoPlatformCode[])
@@ -1184,19 +1248,19 @@ function renderCreateDrawer(): string {
                   </select>
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">发布账号</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('发布账号')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.account)}" placeholder="IDN-Store-A" data-pcs-video-testing-field="create-account" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">达人 / 运营</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('达人 / 运营')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.creator)}" placeholder="达人-小美" data-pcs-video-testing-field="create-creator" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">发布时间</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('发布时间')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.publishedAt)}" placeholder="2026-04-13 11:30" data-pcs-video-testing-field="create-published-at" />
                 </label>
                 <label class="space-y-1 md:col-span-2">
-                  <span class="text-xs text-slate-500">视频链接</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('视频链接')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.videoUrl)}" placeholder="https://tiktok.com/..." data-pcs-video-testing-field="create-video-url" />
                 </label>
               </div>
@@ -1204,32 +1268,31 @@ function renderCreateDrawer(): string {
             <section class="space-y-4">
               <div>
                 <h4 class="text-sm font-semibold text-slate-900">测款结果</h4>
-                <p class="mt-1 text-xs text-slate-500">直接补录最终数据，列表会同步展示播放、点击、点击率、点赞、订单和 GMV。</p>
               </div>
               <div class="grid gap-4 md:grid-cols-2">
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">播放</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('播放')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.views)}" placeholder="28000" data-pcs-video-testing-field="create-views" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">点击</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('点击')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.clicks)}" placeholder="2300" data-pcs-video-testing-field="create-clicks" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">点赞</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('点赞')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.likes)}" placeholder="1500" data-pcs-video-testing-field="create-likes" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-slate-500">订单</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('订单')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.orders)}" placeholder="62" data-pcs-video-testing-field="create-orders" />
                 </label>
                 <label class="space-y-1 md:col-span-2">
-                  <span class="text-xs text-slate-500">GMV</span>
+                  <span class="text-xs text-slate-500">${requiredLabel('GMV')}</span>
                   <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.gmv)}" placeholder="11542" data-pcs-video-testing-field="create-gmv" />
                 </label>
               </div>
               <label class="space-y-1">
-                <span class="text-xs text-slate-500">备注</span>
+                <span class="text-xs text-slate-500">${requiredLabel('备注')}</span>
                 <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="补充短视频内容背景、异常说明或测款备注" data-pcs-video-testing-field="create-note">${escapeHtml(draft.note)}</textarea>
               </label>
             </section>
@@ -1565,7 +1628,7 @@ function renderItemsTab(record: VideoRecordViewModel): string {
                         item.evaluationIntent === 'TEST'
                           ? item.projectRef && item.relatedProjectId
                             ? `<button type="button" class="text-left text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.relatedProjectId)}">${escapeHtml(item.projectRef)}</button>`
-                            : '<span class="text-rose-600">待绑定商品项目</span>'
+                            : '<span class="text-slate-400">-</span>'
                           : '-'
                       }</td>
                       <td class="px-4 py-3"><p class="font-medium text-slate-900">${escapeHtml(item.productRef)}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(item.productName)}</p></td>
@@ -1592,7 +1655,7 @@ function renderReconcileTab(record: VideoRecordViewModel): string {
   const checks = [
     { ok: Boolean(record.publishedAt), label: '发布时间已填写' },
     { ok: record.items.length > 0, label: '条目数据完整' },
-    { ok: record.items.filter((item) => item.evaluationIntent === 'TEST').every((item) => item.projectRef || item.productRef), label: 'TEST 条目已绑定对象' },
+    { ok: record.items.filter((item) => item.evaluationIntent === 'TEST').every((item) => Boolean(item.projectRef)), label: 'TEST 条目已绑定商品项目' },
   ]
   return `
     <div class="space-y-4">
@@ -1689,7 +1752,7 @@ function renderAccountingTab(record: VideoRecordViewModel, testItems: VideoItemV
                         (item) => `
                           <tr>
                             <td class="px-4 py-3">${escapeHtml(item.id)}</td>
-                            <td class="px-4 py-3">${item.projectRef ? `<button type="button" class="text-left text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.relatedProjectId || '')}">${escapeHtml(item.projectRef)}</button>` : '<span class="text-slate-500">仅商品</span>'}</td>
+                            <td class="px-4 py-3">${item.projectRef ? `<button type="button" class="text-left text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.relatedProjectId || '')}">${escapeHtml(item.projectRef)}</button>` : '<span class="text-slate-400">-</span>'}</td>
                             <td class="px-4 py-3">${escapeHtml(item.productRef)}</td>
                             <td class="px-4 py-3 text-right">播放 ${(item.views / 1000).toFixed(1)}k / GMV ¥${formatCurrency(item.gmv)}</td>
                             <td class="px-4 py-3">${item.recommendation ? `<span class="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700">${escapeHtml(item.recommendation)}</span>` : '-'}</td>
@@ -1889,10 +1952,9 @@ function renderDetailDrawer(): string {
       <aside class="absolute inset-y-0 right-0 flex h-full w-full max-w-[1240px] flex-col border-l bg-slate-50 shadow-2xl">
         <div class="border-b bg-white px-6 py-4">
           <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900">短视频测款记录</h3>
-              <p class="mt-1 text-sm text-slate-500">一条短视频测款记录只对应一个商品项目，当前通过侧边栏完成查看和补录。</p>
-            </div>
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900">短视频测款记录</h3>
+          </div>
             <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="close-detail-drawer">关闭</button>
           </div>
         </div>
@@ -1907,6 +1969,11 @@ function renderDetailDrawer(): string {
 function createRecord(): void {
   ensureRecordStore()
   const draft = state.createDraft
+  const validationMessage = validateCreateDraft(draft)
+  if (validationMessage) {
+    state.notice = validationMessage
+    return
+  }
   const resolvedProject = resolveProjectIdentity(draft.projectRef)
   if (!resolvedProject) {
     state.notice = `未找到商品项目 ${draft.projectRef.trim() || '（空）'}，请先输入有效的项目编号。`
@@ -1923,14 +1990,14 @@ function createRecord(): void {
   const productRef = project?.styleCodeName || project?.styleNumber || resolvedProject.projectCode
   const record: VideoRecordViewModel = {
     id: recordId,
-    title: draft.title.trim() || `${project?.projectName || resolvedProject.projectCode} 短视频测款`,
+    title: draft.title.trim(),
     status: 'COMPLETED',
     purposes,
-    platformCode: draft.platform || 'OTHER',
-    platformLabel: draft.platform ? VIDEO_PLATFORM_META[draft.platform].label : VIDEO_PLATFORM_META.OTHER.label,
-    account: draft.account.trim() || '待补录账号',
-    creator: draft.creator.trim() || '达人-待分配',
-    publishedAt: draft.publishedAt.trim() || null,
+    platformCode: draft.platform,
+    platformLabel: VIDEO_PLATFORM_META[draft.platform].label,
+    account: draft.account.trim(),
+    creator: draft.creator.trim(),
+    publishedAt: draft.publishedAt.trim(),
     owner: '当前用户',
     recorder: '当前用户',
     itemCount: 1,
@@ -1999,6 +2066,7 @@ function createRecord(): void {
 
 export function renderPcsVideoTestingListPage(): string {
   ensureRecordStore()
+  syncCreateDrawerStateFromQuery()
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
