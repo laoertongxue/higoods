@@ -29,8 +29,8 @@ const WORK_ITEM_NAME_MAP: Record<string, string> = {
   SAMPLE_PRICING: '样衣定价',
   SAMPLE_RETURN_HANDLE: '样衣退货与处理',
   SAMPLE_RETAIN_REVIEW: '样衣留存与库存',
-  LIVE_TEST: '直播场次',
-  VIDEO_TEST: '短视频记录',
+  LIVE_TEST: '直播测款',
+  VIDEO_TEST: '短视频测款',
 }
 
 const LEGACY_PROJECT_ALIAS_KEYWORDS: Record<string, string[]> = {

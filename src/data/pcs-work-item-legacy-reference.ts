@@ -99,7 +99,7 @@ const PCS_WORK_ITEM_LEGACY_REFERENCES: Partial<Record<PcsProjectWorkItemCode, Pc
     workItemTypeCode: 'LIVE_TEST',
     legacyCodes: ['LIVE_TEST_SZ', 'LIVE_TEST_JKT'],
     legacyNames: ['直播测试（深圳）', '直播测试（jackets）', '直播测款'],
-    legacyFieldGroupTitles: ['直播场次信息', '直播表现数据', '用户反馈'],
+    legacyFieldGroupTitles: ['直播测款信息', '直播表现数据', '用户反馈'],
     legacyFieldLabels: ['直播日期', '直播时间', '主播', '直播平台', '最高在线人数', '总观看人数', '销售件数', '销售额', '转化率', '用户反馈摘要', '用户常问问题'],
     referenceUseMode: 'PARTIAL_REFERENCE',
   },

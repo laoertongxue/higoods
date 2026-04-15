@@ -124,8 +124,12 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
   const tasks: RevisionTaskRecord[] = []
   const projectA = pickProjectByCode('PRJ-20251216-001')
   const projectB = pickProjectByCode('PRJ-20251216-010')
-  const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'TEST_CONCLUSION') : null
-  const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'TEST_CONCLUSION') : null
+  const nodeA = projectA
+    ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'REVISION_TASK') ?? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'TEST_CONCLUSION')
+    : null
+  const nodeB = projectB
+    ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'REVISION_TASK') ?? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'TEST_CONCLUSION')
+    : null
 
   if (projectA && nodeA) {
     tasks.push({
@@ -136,8 +140,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
       projectNodeId: nodeA.projectNodeId,
-      workItemTypeCode: 'TEST_CONCLUSION',
-      workItemTypeName: '测款结论判定',
+      workItemTypeCode: 'REVISION_TASK',
+      workItemTypeName: '改版任务',
       sourceType: '测款触发',
       upstreamModule: '测款结论',
       upstreamObjectType: '项目工作项',
@@ -178,8 +182,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
       projectNodeId: nodeB.projectNodeId,
-      workItemTypeCode: 'TEST_CONCLUSION',
-      workItemTypeName: '测款结论判定',
+      workItemTypeCode: 'REVISION_TASK',
+      workItemTypeName: '改版任务',
       sourceType: '既有商品改款',
       upstreamModule: '',
       upstreamObjectType: '',
@@ -265,7 +269,9 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
     },
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
-    const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION') : null
+    const node = project
+      ? findProjectNodeByWorkItemTypeCode(project.projectId, 'REVISION_TASK') ?? findProjectNodeByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
+      : null
     if (!project || !node) return
     tasks.push({
       revisionTaskId: item.revisionTaskId,
@@ -275,8 +281,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'TEST_CONCLUSION',
-      workItemTypeName: '测款结论判定',
+      workItemTypeCode: 'REVISION_TASK',
+      workItemTypeName: '改版任务',
       sourceType: '测款触发',
       upstreamModule: '测款结论',
       upstreamObjectType: '项目工作项',

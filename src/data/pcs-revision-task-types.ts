@@ -11,8 +11,8 @@ export interface RevisionTaskRecord {
   projectCode: string
   projectName: string
   projectNodeId: string
-  workItemTypeCode: 'TEST_CONCLUSION'
-  workItemTypeName: '测款结论判定'
+  workItemTypeCode: 'REVISION_TASK'
+  workItemTypeName: '改版任务'
   sourceType: RevisionTaskSourceType
   upstreamModule: string
   upstreamObjectType: string

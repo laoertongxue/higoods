@@ -309,6 +309,40 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
     }
   })
 
+  mergedProjects.forEach((project) => {
+    const template = getProjectTemplateById(project.templateId)
+    if (!template) return
+
+    const projectNodeTypeCodes = new Set(
+      mergedNodes
+        .filter((node) => node.projectId === project.projectId)
+        .map((node) => node.workItemTypeCode),
+    )
+
+    const generatedNodes = buildProjectNodeRecordsFromTemplate({
+      projectId: project.projectId,
+      ownerId: project.ownerId,
+      ownerName: project.ownerName,
+      createdAt: project.createdAt,
+      template,
+    })
+
+    generatedNodes.forEach((node) => {
+      if (projectNodeTypeCodes.has(node.workItemTypeCode)) return
+
+      const normalizedNode = normalizeNode({
+        ...node,
+        projectNodeId: nodeIds.has(node.projectNodeId)
+          ? `${node.projectNodeId}-${node.workItemTypeCode.toLowerCase()}`
+          : node.projectNodeId,
+      })
+
+      mergedNodes.push(normalizedNode)
+      nodeIds.add(normalizedNode.projectNodeId)
+      projectNodeTypeCodes.add(normalizedNode.workItemTypeCode)
+    })
+  })
+
   return {
     version: PROJECT_STORE_VERSION,
     projects: mergedProjects,

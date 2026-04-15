@@ -263,7 +263,7 @@ export function buildTemplateRecommendedDraft(styleType: TemplateStyleType) {
 }
 
 export function buildTemplateTripletNote(): string {
-  return '三码关系在“渠道商品已创建”“上游渠道商品已上架”“测款通过并生成款式档案”后正式建立：渠道商品编码在创建渠道商品时生成，上游渠道商品编码在发起上架成功后回填，款式档案编码在生成款式档案时回填，三者在款式档案回写时完成关联。'
+  return '三码关系在“渠道店铺商品已创建”“上游渠道商品已上架”“测款通过并生成款式档案”后正式建立：渠道店铺商品编码在创建渠道店铺商品时生成，上游渠道商品编码在发起上架成功后回填，款式档案编码在生成款式档案时回填，三者在款式档案回写时完成关联。'
 }
 
 export function buildTemplateNodeFieldSourceRows(workItemTypeCode: PcsProjectWorkItemCode) {

@@ -95,8 +95,8 @@ function getCurrentChannelProductRelation(projectId: string): PcsProjectInstance
     projectId,
     (instance) =>
       instance.sourceLayer === '正式业务对象' &&
-      instance.moduleName === '渠道商品' &&
-      instance.objectType === '渠道商品',
+      (instance.moduleName === '渠道店铺商品' || instance.moduleName === '渠道商品') &&
+      (instance.objectType === '渠道店铺商品' || instance.objectType === '渠道商品'),
   )
 }
 
@@ -536,7 +536,7 @@ export function ensurePcsProjectDemoDataReady(): void {
       styleCodeName: '2-prin shirt-18-30印花衬衫',
       styleTags: ['休闲', '度假'],
       channels: ['tiktok-shop', 'lazada'],
-      remark: '已进入渠道商品上架准备。',
+      remark: '已进入渠道店铺商品上架准备。',
     }),
     DEMO_OPERATOR,
   ).project
@@ -570,22 +570,22 @@ export function ensurePcsProjectDemoDataReady(): void {
     validInstanceCount: 1,
     latestInstanceId: `${ongoingProject.projectId}-listing-001`,
     latestInstanceCode: `${ongoingProject.projectCode}-CP-001`,
-    latestResultType: '已创建渠道商品',
-    latestResultText: '已生成抖音商城渠道商品，等待发起上架。',
+    latestResultType: '已创建渠道店铺商品',
+    latestResultText: '已生成抖音商城渠道店铺商品，等待发起上架。',
     pendingActionType: '发起上架',
     pendingActionText: '请补充上架标题和售价后提交上架。',
     updatedAt: '2026-04-12 18:40',
-    lastEventType: '创建渠道商品',
+    lastEventType: '创建渠道店铺商品',
     lastEventTime: '2026-04-12 18:40',
   })
   upsertDemoRelation({
     project: ongoingProject,
     workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    sourceModule: '渠道商品',
-    sourceObjectType: '渠道商品',
+    sourceModule: '渠道店铺商品',
+    sourceObjectType: '渠道店铺商品',
     sourceObjectId: `${ongoingProject.projectId}-channel-product-001`,
     sourceObjectCode: `${ongoingProject.projectCode}-CP-001`,
-    sourceTitle: `${ongoingProject.projectName} 抖音商城渠道商品`,
+    sourceTitle: `${ongoingProject.projectName} 抖音商城渠道店铺商品`,
     sourceStatus: '待上架',
     businessDate: '2026-04-12 18:40',
     noteMeta: {
@@ -703,11 +703,11 @@ export function ensurePcsProjectDemoDataReady(): void {
   upsertDemoRelation({
     project: decisionProject,
     workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    sourceModule: '渠道商品',
-    sourceObjectType: '渠道商品',
+    sourceModule: '渠道店铺商品',
+    sourceObjectType: '渠道店铺商品',
     sourceObjectId: `${decisionProject.projectId}-channel-product-001`,
     sourceObjectCode: `${decisionProject.projectCode}-CP-001`,
-    sourceTitle: `${decisionProject.projectName} 测款渠道商品`,
+    sourceTitle: `${decisionProject.projectName} 测款渠道店铺商品`,
     sourceStatus: '已上架待测款',
     businessDate: '2026-04-11 16:40',
     noteMeta: {
@@ -845,8 +845,8 @@ export function ensurePcsProjectDemoDataReady(): void {
   upsertDemoRelation({
     project: archivedProject,
     workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    sourceModule: '渠道商品',
-    sourceObjectType: '渠道商品',
+    sourceModule: '渠道店铺商品',
+    sourceObjectType: '渠道店铺商品',
     sourceObjectId: `${archivedProject.projectId}-channel-product-001`,
     sourceObjectCode: `${archivedProject.projectCode}-CP-001`,
     sourceTitle: `${archivedProject.projectName} 正式候选款`,
@@ -1035,7 +1035,7 @@ export function ensurePcsProjectDemoDataReady(): void {
     seedNodeStatus(project.projectId, 'PROJECT_INIT', {
       updatedAt: seed.timestamp,
       latestResultType: '已完成',
-      latestResultText: '测款项目已建立，可供直播与短视频记录关联。',
+      latestResultText: '测款项目已建立，可供直播测款与短视频测款关联。',
       lastEventType: '立项完成',
       lastEventTime: seed.timestamp,
     })

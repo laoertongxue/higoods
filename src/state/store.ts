@@ -21,12 +21,18 @@ const UNIFIED_PROGRESS_EXCEPTIONS_KEY = 'progress-exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_PATH = '/fcs/progress/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_TITLE = '异常定位与处理'
 const PCS_TAB_REDIRECTS: Record<string, { href: string; title?: string }> = {
-  '/pcs/channels/products': { href: '/pcs/products/channel-products', title: '渠道商品' },
+  '/pcs/channels/products': { href: '/pcs/products/channel-products', title: '渠道店铺商品' },
   '/pcs/channels/products/mapping': { href: '/pcs/products/channel-attributes', title: '渠道属性对应' },
-  '/pcs/channels/products/store': { href: '/pcs/products/channel-products/store', title: '渠道商品店铺视图' },
+  '/pcs/channels/products/store': { href: '/pcs/products/channel-products/store', title: '渠道店铺商品店铺视图' },
   '/pcs/products/spu': { href: '/pcs/products/styles', title: '款式档案' },
   '/pcs/products/sku': { href: '/pcs/products/specifications', title: '规格档案' },
   '/pcs/products/yarn': { href: '/pcs/materials/yarn', title: '纱线档案' },
+  '/pcs/samples/ledger': { href: '/pcs/projects', title: '商品项目' },
+  '/pcs/samples/inventory': { href: '/pcs/projects', title: '商品项目' },
+  '/pcs/samples/transfer': { href: '/pcs/projects', title: '商品项目' },
+  '/pcs/samples/return': { href: '/pcs/projects', title: '商品项目' },
+  '/pcs/samples/application': { href: '/pcs/projects', title: '商品项目' },
+  '/pcs/samples/view': { href: '/pcs/projects', title: '商品项目' },
   '/pcs/samples/first-order': { href: '/pcs/samples/first-sample', title: '首版样衣打样' },
   '/pcs/production/pre-check': { href: '/pcs/samples/pre-production', title: '产前版样衣' },
 }

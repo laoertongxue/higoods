@@ -96,6 +96,7 @@ function normalizeRole(value: string | null | undefined): ProjectRelationRole {
 
 function normalizeSourceModule(value: string | null | undefined): ProjectRelationSourceModule {
   if (
+    value === '渠道店铺商品' ||
     value === '渠道商品' ||
     value === '上游渠道商品同步' ||
     value === '改版任务' ||
@@ -111,13 +112,14 @@ function normalizeSourceModule(value: string | null | undefined): ProjectRelatio
     value === '直播' ||
     value === '短视频'
   ) {
-    return value
+    return value === '渠道商品' ? '渠道店铺商品' : value
   }
   return '样衣台账'
 }
 
 function normalizeSourceObjectType(value: string | null | undefined): ProjectRelationSourceObjectType {
   if (
+    value === '渠道店铺商品' ||
     value === '渠道商品' ||
     value === '上游渠道商品同步' ||
     value === '改版任务' ||
@@ -133,7 +135,7 @@ function normalizeSourceObjectType(value: string | null | undefined): ProjectRel
     value === '直播商品明细' ||
     value === '短视频记录'
   ) {
-    return value
+    return value === '渠道商品' ? '渠道店铺商品' : value
   }
   return '样衣台账事件'
 }
@@ -518,8 +520,14 @@ export function replaceLiveProductLineProjectRelations(
   const relations: ProjectRelationRecord[] = []
   const pendingItems: ProjectRelationPendingItem[] = []
   const errors: string[] = []
+  const uniqueProjectIds = Array.from(new Set(projectIds.filter(Boolean)))
+  const normalizedProjectIds = uniqueProjectIds.slice(0, 1)
 
-  projectIds.forEach((projectId) => {
+  if (uniqueProjectIds.length > 1) {
+    errors.push('一条直播测款仅允许绑定一个商品项目，系统已保留第一个项目。')
+  }
+
+  normalizedProjectIds.forEach((projectId) => {
     const result = buildLiveProductLineProjectRelation(line, projectId, { operatorName })
     if (result.relation) relations.push(result.relation)
     if (result.pendingItem) pendingItems.push(result.pendingItem)
@@ -548,15 +556,21 @@ export function replaceVideoRecordProjectRelations(
     return {
       relations: [],
       pendingItems: [],
-      errors: ['未找到对应的短视频记录。'],
+      errors: ['未找到对应的短视频测款记录。'],
     }
   }
 
   const relations: ProjectRelationRecord[] = []
   const pendingItems: ProjectRelationPendingItem[] = []
   const errors: string[] = []
+  const uniqueProjectIds = Array.from(new Set(projectIds.filter(Boolean)))
+  const normalizedProjectIds = uniqueProjectIds.slice(0, 1)
 
-  projectIds.forEach((projectId) => {
+  if (uniqueProjectIds.length > 1) {
+    errors.push('一条短视频测款仅允许绑定一个商品项目，系统已保留第一个项目。')
+  }
+
+  normalizedProjectIds.forEach((projectId) => {
     const result = buildVideoRecordProjectRelation(record, projectId, { operatorName })
     if (result.relation) relations.push(result.relation)
     if (result.pendingItem) pendingItems.push(result.pendingItem)

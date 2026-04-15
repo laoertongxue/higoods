@@ -109,16 +109,19 @@ interface VideoRecordViewModel {
 }
 
 interface CreateDraftState {
+  projectRef: string
   title: string
-  owner: string
-  recorder: string
   platform: VideoPlatformCode | ''
   account: string
   creator: string
   publishedAt: string
   videoUrl: string
+  views: string
+  clicks: string
+  likes: string
+  orders: string
+  gmv: string
   purposes: VideoPurpose[]
-  isTestAccountingEnabled: boolean
   note: string
 }
 
@@ -189,7 +192,6 @@ const DETAIL_TAB_OPTIONS: Array<{ key: DetailTabKey; label: string }> = [
   { key: 'reconcile', label: '数据核对' },
   { key: 'evidence', label: '证据素材' },
   { key: 'accounting', label: '测款入账' },
-  { key: 'samples', label: '样衣关联' },
   { key: 'logs', label: '日志审计' },
 ]
 
@@ -200,16 +202,19 @@ const ITEM_INTENT_META: Record<VideoIntent, { label: string; className: string }
 }
 
 const initialCreateDraft: CreateDraftState = {
+  projectRef: '',
   title: '',
-  owner: '',
-  recorder: '',
   platform: '',
   account: '',
   creator: '',
   publishedAt: '',
   videoUrl: '',
-  purposes: [],
-  isTestAccountingEnabled: false,
+  views: '',
+  clicks: '',
+  likes: '',
+  orders: '',
+  gmv: '',
+  purposes: ['TEST'],
   note: '',
 }
 
@@ -293,6 +298,11 @@ function formatInteger(value: number | null | undefined): string {
 function formatCurrency(value: number | null | undefined): string {
   if (value == null) return '-'
   return value.toLocaleString('zh-CN')
+}
+
+function formatPercent(numerator: number, denominator: number): string {
+  if (denominator <= 0) return '-'
+  return `${((numerator / denominator) * 100).toFixed(1)}%`
 }
 
 function toNumber(value: string, fallback = 0): number {
@@ -409,8 +419,8 @@ function getVideoWorkItemSnapshot(record: VideoRecordViewModel): {
     rows: [
       { label: '工作项状态', value: getWorkItemStatusLabel(record.status) },
       { label: '正式操作', value: '关联短视频测款记录' },
-      { label: '渠道商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
-      { label: '渠道商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
+      { label: '渠道店铺商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
+      { label: '渠道店铺商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
       { label: '上游渠道商品编码', value: linkedChannelProduct?.upstreamChannelProductCode || '-' },
       { label: '发布渠道', value: `${record.platformLabel} / ${record.account}` },
       { label: '曝光量', value: formatInteger(actionItem?.views ?? record.views) },
@@ -498,7 +508,7 @@ function buildFallbackSamples(record: VideoRecordViewModel): LiveSample[] {
 function buildFallbackLogs(record: VideoRecordViewModel): VideoLog[] {
   return [
     { time: record.updatedAt, action: '导入平台数据', user: record.recorder || '当前用户', detail: '更新播放、互动和成交指标。' },
-    { time: record.publishedAt || record.createdAt, action: record.publishedAt ? '发布记录' : '创建记录', user: record.creator || record.owner, detail: record.publishedAt ? '记录状态已进入核对中。' : '已创建短视频记录草稿。' },
+    { time: record.publishedAt || record.createdAt, action: record.publishedAt ? '发布测款' : '创建测款', user: record.creator || record.owner, detail: record.publishedAt ? '记录状态已进入核对中。' : '已创建短视频测款草稿。' },
   ]
 }
 
@@ -769,6 +779,12 @@ function resetCreateDraft(): void {
   state.createDraft = { ...initialCreateDraft }
 }
 
+function closeDetailDrawer(): void {
+  state.detail.routeKey = ''
+  state.detail.recordId = null
+  state.detail.activeTab = 'overview'
+}
+
 function syncDetailState(recordId: string): void {
   const routeKey = appStore.getState().pathname
   if (state.detail.routeKey === routeKey && state.detail.recordId === recordId) return
@@ -892,10 +908,61 @@ function renderAccountingBadge(status: AccountingStatus): string {
   return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${meta.color}">${escapeHtml(meta.label)}</span>`
 }
 
-function renderPurposeBadges(purposes: string[]): string {
-  return purposes
-    .map((purpose) => `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getPurposeClass(purpose)}">${escapeHtml(purpose)}</span>`)
-    .join('')
+function renderProjectPurposeBadge(): string {
+  return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getPurposeClass('测款')}">测款项目</span>`
+}
+
+function findProjectByHints(hints: Array<string | null | undefined>): { projectId: string; label: string } | null {
+  const normalizedHints = hints
+    .map((item) => item?.trim().toLowerCase() || '')
+    .filter(Boolean)
+  if (normalizedHints.length === 0) return null
+
+  const projects = listProjects()
+  const exact = projects.find((project) =>
+    normalizedHints.some((hint) =>
+      [project.projectCode, project.projectName, project.styleCodeName, project.styleNumber, project.linkedStyleCode || '']
+        .map((value) => value.trim().toLowerCase())
+        .includes(hint),
+    ),
+  )
+  if (exact) {
+    return { projectId: exact.projectId, label: exact.projectName }
+  }
+
+  const fuzzy = projects.find((project) =>
+    normalizedHints.some((hint) =>
+      [project.projectCode, project.projectName, project.styleCodeName, project.styleNumber, project.linkedStyleCode || '']
+        .some((value) => {
+          const normalizedValue = value.trim().toLowerCase()
+          return normalizedValue && (normalizedValue.includes(hint) || hint.includes(normalizedValue))
+        }),
+    ),
+  )
+  if (fuzzy) {
+    return { projectId: fuzzy.projectId, label: fuzzy.projectName }
+  }
+  return null
+}
+
+function getPrimaryProject(record: VideoRecordViewModel): { projectId: string; label: string } | null {
+  const target = record.items.find((item) => item.relatedProjectId && item.projectRef)
+  if (target?.relatedProjectId) {
+    return {
+      projectId: target.relatedProjectId,
+      label: getProjectRelationProjectLabel(target.relatedProjectId),
+    }
+  }
+
+  const inferred = findProjectByHints([
+    ...record.items.flatMap((item) => [item.projectRef, item.productRef, item.productName]),
+    record.title,
+    record.id,
+  ])
+  if (inferred) return inferred
+
+  const fallbackProject = listProjects()[0]
+  return fallbackProject ? { projectId: fallbackProject.projectId, label: fallbackProject.projectName } : null
 }
 
 function renderPlatformBadge(platform: VideoPlatformCode): string {
@@ -930,11 +997,10 @@ function renderListHeader(): string {
     <section class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="text-xs text-slate-500">商品中心 / 测款与渠道管理</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900">短视频记录</h1>
-        <p class="mt-1 text-sm text-slate-500">管理短视频内容资产、条目指标、证据素材和测款入账回写。</p>
+        <h1 class="mt-1 text-2xl font-semibold text-slate-900">短视频测款</h1>
       </div>
       <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-video-testing-action="open-create-drawer">
-        <i data-lucide="plus" class="h-4 w-4"></i>新建记录
+        <i data-lucide="plus" class="h-4 w-4"></i>新增短视频测款
       </button>
     </section>
   `
@@ -943,54 +1009,17 @@ function renderListHeader(): string {
 function renderListFilters(): string {
   return `
     <section class="rounded-lg border bg-white p-4">
-      <div class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_160px]">
         <label class="space-y-1">
-          <span class="text-xs text-slate-500">搜索记录</span>
+          <span class="text-xs text-slate-500">搜索短视频测款</span>
           <div class="relative">
             <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-            <input class="h-10 w-full rounded-md border border-slate-200 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="搜索记录编号 / 标题 / 账号 / 达人 / 项目 / 款号" value="${escapeHtml(state.list.search)}" data-pcs-video-testing-field="list-search" />
+            <input class="h-10 w-full rounded-md border border-slate-200 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="搜索商品项目 / 测款编号 / 标题 / 账号 / 达人" value="${escapeHtml(state.list.search)}" data-pcs-video-testing-field="list-search" />
           </div>
         </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">状态</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-video-testing-field="list-status">
-            <option value="all" ${state.list.status === 'all' ? 'selected' : ''}>全部状态</option>
-            ${(Object.keys(SESSION_STATUS_META) as SessionStatus[])
-              .map((status) => `<option value="${status}" ${state.list.status === status ? 'selected' : ''}>${escapeHtml(SESSION_STATUS_META[status].label)}</option>`)
-              .join('')}
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">用途</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-video-testing-field="list-purpose">
-            <option value="all" ${state.list.purpose === 'all' ? 'selected' : ''}>全部用途</option>
-            ${Object.values(VIDEO_PURPOSE_META)
-              .map((purpose) => `<option value="${escapeHtml(purpose.label)}" ${state.list.purpose === purpose.label ? 'selected' : ''}>${escapeHtml(purpose.label)}</option>`)
-              .join('')}
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">平台</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-video-testing-field="list-platform">
-            <option value="all" ${state.list.platform === 'all' ? 'selected' : ''}>全部平台</option>
-            ${(Object.keys(VIDEO_PLATFORM_META) as VideoPlatformCode[])
-              .map((platform) => `<option value="${platform}" ${state.list.platform === platform ? 'selected' : ''}>${escapeHtml(VIDEO_PLATFORM_META[platform].label)}</option>`)
-              .join('')}
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">测款入账</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-video-testing-field="list-accounting">
-            <option value="all" ${state.list.accounting === 'all' ? 'selected' : ''}>全部入账状态</option>
-            ${(Object.keys(ACCOUNTING_STATUS_META) as AccountingStatus[])
-              .map((status) => `<option value="${status}" ${state.list.accounting === status ? 'selected' : ''}>${escapeHtml(ACCOUNTING_STATUS_META[status].label)}</option>`)
-              .join('')}
-          </select>
-        </label>
-      </div>
-      <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
-        <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="query">查询</button>
-        <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="reset">重置</button>
+        <div class="flex items-end justify-end">
+          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="reset">重置</button>
+        </div>
       </div>
     </section>
   `
@@ -1026,46 +1055,35 @@ function renderKpis(): string {
 }
 
 function renderRecordActions(record: VideoRecordViewModel): string {
-  const actions: string[] = [
-    `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/video/${escapeHtml(record.id)}">查看</button>`,
-  ]
-  if (record.status === 'RECONCILING') {
-    actions.push(`<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="open-close-dialog" data-record-id="${escapeHtml(record.id)}">完成关账</button>`)
-  }
-  if ((record.status === 'RECONCILING' || record.status === 'COMPLETED') && record.testAccountingStatus === 'PENDING') {
-    actions.push(`<button type="button" class="inline-flex h-7 items-center rounded-md bg-blue-600 px-2.5 text-xs text-white hover:bg-blue-700" data-pcs-video-testing-action="open-accounting-dialog" data-record-id="${escapeHtml(record.id)}">完成入账</button>`)
-  }
-  if (record.status === 'COMPLETED') {
-    actions.push(`<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="export-record" data-record-id="${escapeHtml(record.id)}">导出</button>`)
-  }
-  return actions.join('')
+  const project = getPrimaryProject(record)
+  if (!project) return '<span class="text-xs text-slate-400">-</span>'
+  return `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">查看项目</button>`
 }
 
 function renderListTable(): string {
-  const { items, total, totalPages } = getPagedRecords()
+  const { items, totalPages } = getPagedRecords()
   return `
     <section class="rounded-lg border bg-white">
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div>
-          <p class="text-sm font-medium text-slate-900">记录列表</p>
-          <p class="mt-1 text-xs text-slate-500">当前共筛选出 ${total} 条短视频记录，支持平台内容、条目、样衣和测款结论联查。</p>
+          <p class="text-sm font-medium text-slate-900">短视频测款列表</p>
         </div>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th class="px-4 py-3">记录</th>
-              <th class="px-4 py-3">状态</th>
-              <th class="px-4 py-3">用途</th>
+              <th class="px-4 py-3">商品项目</th>
+              <th class="px-4 py-3">短视频测款</th>
               <th class="px-4 py-3">平台 / 账号</th>
               <th class="px-4 py-3">发布人 / 达人</th>
               <th class="px-4 py-3">发布时间</th>
-              <th class="px-4 py-3 text-center">条目数</th>
-              <th class="px-4 py-3 text-center">TEST 条目</th>
-              <th class="px-4 py-3">测款入账</th>
-              <th class="px-4 py-3 text-right">播放 / 点赞</th>
-              <th class="px-4 py-3 text-center">样衣</th>
+              <th class="px-4 py-3 text-right">播放</th>
+              <th class="px-4 py-3 text-right">点击</th>
+              <th class="px-4 py-3 text-right">点击率</th>
+              <th class="px-4 py-3 text-right">点赞</th>
+              <th class="px-4 py-3 text-right">订单</th>
+              <th class="px-4 py-3 text-right">GMV</th>
               <th class="px-4 py-3">最近更新</th>
               <th class="px-4 py-3 text-center">操作</th>
             </tr>
@@ -1073,19 +1091,29 @@ function renderListTable(): string {
           <tbody class="divide-y divide-slate-100">
             ${
               items.length === 0
-                ? '<tr><td colspan="13" class="px-4 py-10 text-center text-sm text-slate-500">暂无匹配的短视频记录，请调整筛选条件后重试。</td></tr>'
+                ? '<tr><td colspan="13" class="px-4 py-10 text-center text-sm text-slate-500">暂无匹配的短视频测款，请调整筛选条件后重试。</td></tr>'
                 : items
                     .map(
-                      (record) => `
+                      (record) => {
+                        const project = getPrimaryProject(record)
+                        return `
                         <tr class="hover:bg-slate-50/80">
                           <td class="px-4 py-3 align-top">
+                            ${
+                              project
+                                ? `
+                                  <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">${escapeHtml(project.label)}</button>
+                                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(project.projectId)}</p>
+                                `
+                                : '<span class="text-sm text-slate-400">-</span>'
+                            }
+                          </td>
+                          <td class="px-4 py-3 align-top">
                             <div class="space-y-1">
-                              <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/testing/video/${escapeHtml(record.id)}">${escapeHtml(record.id)}</button>
-                              <p class="text-xs text-slate-500">${escapeHtml(record.title)}</p>
+                              <p class="font-medium text-slate-900">${escapeHtml(record.title)}</p>
+                              <p class="text-xs text-slate-500">${escapeHtml(record.id)}</p>
                             </div>
                           </td>
-                          <td class="px-4 py-3 align-top">${renderStatusBadge(record.status)}</td>
-                          <td class="px-4 py-3 align-top"><div class="flex flex-wrap gap-1">${renderPurposeBadges(record.purposes)}</div></td>
                           <td class="px-4 py-3 align-top">
                             <div class="space-y-1">
                               ${renderPlatformBadge(record.platformCode)}
@@ -1094,20 +1122,19 @@ function renderListTable(): string {
                           </td>
                           <td class="px-4 py-3 align-top text-slate-700">${escapeHtml(record.creator)}</td>
                           <td class="px-4 py-3 align-top text-xs text-slate-500">${escapeHtml(record.publishedAt ? formatDateTime(record.publishedAt) : '-')}</td>
-                          <td class="px-4 py-3 align-top text-center text-slate-700">${record.itemCount}</td>
-                          <td class="px-4 py-3 align-top text-center">${record.testItemCount > 0 ? `<span class="inline-flex rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs text-violet-700">${record.testItemCount}</span>` : '-'}</td>
-                          <td class="px-4 py-3 align-top">${renderAccountingBadge(record.testAccountingStatus)}</td>
-                          <td class="px-4 py-3 align-top text-right text-slate-700">
-                            <div>${record.views > 0 ? `${(record.views / 1000).toFixed(1)}k` : '-'}</div>
-                            <div class="text-xs text-slate-500">${record.likes > 0 ? `${(record.likes / 1000).toFixed(1)}k` : '-'}</div>
-                          </td>
-                          <td class="px-4 py-3 align-top text-center text-slate-700">${record.sampleCount}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(record.views)}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(record.clicks)}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatPercent(record.clicks, record.views)}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(record.likes)}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(record.orders)}</td>
+                          <td class="px-4 py-3 align-top text-right font-medium text-slate-900">¥${formatCurrency(record.gmv)}</td>
                           <td class="px-4 py-3 align-top text-xs text-slate-500">${escapeHtml(formatDateTime(record.updatedAt))}</td>
                           <td class="px-4 py-3 align-top">
                             <div class="flex flex-wrap justify-center gap-1">${renderRecordActions(record)}</div>
                           </td>
                         </tr>
-                      `,
+                      `
+                      },
                     )
                     .join('')
             }
@@ -1122,103 +1149,99 @@ function renderListTable(): string {
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
   const draft = state.createDraft
-  return renderDrawerShell(
-    '新建短视频记录',
-    `
-      <div class="space-y-6">
-        <section class="space-y-4">
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" class="absolute inset-0 bg-slate-900/35" data-pcs-video-testing-action="close-create-drawer" aria-label="关闭新增弹窗"></button>
+      <section class="relative z-10 flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-3 border-b px-6 py-4">
           <div>
-            <h4 class="text-sm font-semibold text-slate-900">基础信息</h4>
-            <p class="mt-1 text-xs text-slate-500">用于定义内容记录主档和后续测款结论回写对象。</p>
+            <h3 class="text-lg font-semibold text-slate-900">新增短视频测款记录</h3>
           </div>
-          <div class="grid gap-4 md:grid-cols-2">
-            <label class="space-y-1 md:col-span-2">
-              <span class="text-xs text-slate-500">标题</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="短视频-{{日期}}-{{账号}}" value="${escapeHtml(draft.title)}" data-pcs-video-testing-field="create-title" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">负责人</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.owner)}" placeholder="张三" data-pcs-video-testing-field="create-owner" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">录入人</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.recorder)}" placeholder="李四" data-pcs-video-testing-field="create-recorder" />
-            </label>
-          </div>
-        </section>
-        <section class="space-y-4">
-          <div>
-            <h4 class="text-sm font-semibold text-slate-900">发布信息</h4>
-            <p class="mt-1 text-xs text-slate-500">补充平台、账号、达人和发布时间，作为后续核对依据。</p>
-          </div>
-          <div class="grid gap-4 md:grid-cols-2">
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">平台</span>
-              <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-video-testing-field="create-platform">
-                <option value="" ${draft.platform === '' ? 'selected' : ''}>选择平台</option>
-                ${(Object.keys(VIDEO_PLATFORM_META) as VideoPlatformCode[])
-                  .map((platform) => `<option value="${platform}" ${draft.platform === platform ? 'selected' : ''}>${escapeHtml(VIDEO_PLATFORM_META[platform].label)}</option>`)
-                  .join('')}
-              </select>
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">发布账号</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.account)}" placeholder="IDN-Store-A" data-pcs-video-testing-field="create-account" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">达人 / 运营</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.creator)}" placeholder="达人-小美" data-pcs-video-testing-field="create-creator" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">发布时间</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.publishedAt)}" placeholder="2026-04-13 11:30" data-pcs-video-testing-field="create-published-at" />
-            </label>
-            <label class="space-y-1 md:col-span-2">
-              <span class="text-xs text-slate-500">视频链接</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.videoUrl)}" placeholder="https://tiktok.com/..." data-pcs-video-testing-field="create-video-url" />
-            </label>
-          </div>
-        </section>
-        <section class="space-y-4">
-          <div>
-            <h4 class="text-sm font-semibold text-slate-900">用途与测款</h4>
-            <p class="mt-1 text-xs text-slate-500">内容用途可多选；勾选测款入账后，TEST 条目会进入待入账清单。</p>
-          </div>
-          <div class="space-y-3">
-            <div class="flex flex-wrap gap-2">
-              ${(Object.keys(VIDEO_PURPOSE_META) as VideoPurpose[])
-                .map(
-                  (purpose) => `
-                    <button type="button" class="${toClassName(
-                      'inline-flex rounded-full border px-3 py-1 text-xs transition',
-                      draft.purposes.includes(purpose) ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-                    )}" data-pcs-video-testing-action="toggle-create-purpose" data-value="${purpose}">${escapeHtml(VIDEO_PURPOSE_META[purpose].label)}</button>
-                  `,
-                )
-                .join('')}
-            </div>
-            <button type="button" class="${toClassName(
-              'inline-flex h-9 items-center rounded-md border px-3 text-sm',
-              draft.isTestAccountingEnabled ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-            )}" data-pcs-video-testing-action="toggle-create-accounting">
-              <i data-lucide="${draft.isTestAccountingEnabled ? 'check-circle-2' : 'circle'}" class="mr-2 h-4 w-4"></i>
-              启用测款入账
-            </button>
-          </div>
-        </section>
-        <section class="space-y-2">
-          <h4 class="text-sm font-semibold text-slate-900">备注</h4>
-          <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="补充内容目标、数据背景或风险提醒" data-pcs-video-testing-field="create-note">${escapeHtml(draft.note)}</textarea>
-        </section>
-        <div class="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-white py-4">
-          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="close-create-drawer">取消</button>
-          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="create-record-draft">保存草稿</button>
-          <button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-video-testing-action="create-record-reconciling">保存并进入核对</button>
+          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="close-create-drawer">关闭</button>
         </div>
-      </div>
-    `,
-    'close-create-drawer',
-  )
+        <div class="max-h-[80vh] overflow-y-auto px-6 py-5">
+          <div class="grid gap-5 lg:grid-cols-2">
+            <section class="space-y-4">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-900">基础信息</h4>
+              </div>
+              <label class="space-y-1">
+                <span class="text-xs text-slate-500">商品项目编号</span>
+                <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.projectRef)}" placeholder="PRJ-20251216-015" data-pcs-video-testing-field="create-project-ref" />
+              </label>
+              <label class="space-y-1">
+                <span class="text-xs text-slate-500">测款标题</span>
+                <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="办公室穿搭 OOTD 分享" value="${escapeHtml(draft.title)}" data-pcs-video-testing-field="create-title" />
+              </label>
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">平台</span>
+                  <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-video-testing-field="create-platform">
+                    <option value="" ${draft.platform === '' ? 'selected' : ''}>选择平台</option>
+                    ${(Object.keys(VIDEO_PLATFORM_META) as VideoPlatformCode[])
+                      .map((platform) => `<option value="${platform}" ${draft.platform === platform ? 'selected' : ''}>${escapeHtml(VIDEO_PLATFORM_META[platform].label)}</option>`)
+                      .join('')}
+                  </select>
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">发布账号</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.account)}" placeholder="IDN-Store-A" data-pcs-video-testing-field="create-account" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">达人 / 运营</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.creator)}" placeholder="达人-小美" data-pcs-video-testing-field="create-creator" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">发布时间</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.publishedAt)}" placeholder="2026-04-13 11:30" data-pcs-video-testing-field="create-published-at" />
+                </label>
+                <label class="space-y-1 md:col-span-2">
+                  <span class="text-xs text-slate-500">视频链接</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.videoUrl)}" placeholder="https://tiktok.com/..." data-pcs-video-testing-field="create-video-url" />
+                </label>
+              </div>
+            </section>
+            <section class="space-y-4">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-900">测款结果</h4>
+                <p class="mt-1 text-xs text-slate-500">直接补录最终数据，列表会同步展示播放、点击、点击率、点赞、订单和 GMV。</p>
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">播放</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.views)}" placeholder="28000" data-pcs-video-testing-field="create-views" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">点击</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.clicks)}" placeholder="2300" data-pcs-video-testing-field="create-clicks" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">点赞</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.likes)}" placeholder="1500" data-pcs-video-testing-field="create-likes" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">订单</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.orders)}" placeholder="62" data-pcs-video-testing-field="create-orders" />
+                </label>
+                <label class="space-y-1 md:col-span-2">
+                  <span class="text-xs text-slate-500">GMV</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.gmv)}" placeholder="11542" data-pcs-video-testing-field="create-gmv" />
+                </label>
+              </div>
+              <label class="space-y-1">
+                <span class="text-xs text-slate-500">备注</span>
+                <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="补充短视频内容背景、异常说明或测款备注" data-pcs-video-testing-field="create-note">${escapeHtml(draft.note)}</textarea>
+              </label>
+            </section>
+          </div>
+        </div>
+        <div class="flex flex-wrap justify-end gap-2 border-t px-6 py-4">
+          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="close-create-drawer">取消</button>
+          <button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-video-testing-action="submit-create-record">保存记录</button>
+        </div>
+      </section>
+    </div>
+  `
 }
 
 function renderCloseDialog(): string {
@@ -1399,17 +1422,21 @@ function renderEditDrawer(): string {
 }
 
 function renderListPageDialogs(): string {
-  return [renderCreateDrawer(), renderCloseDialog(), renderAccountingDialog(), renderEditDrawer()].join('')
+  return renderCreateDrawer()
 }
 
-function renderDetailHeader(record: VideoRecordViewModel, relatedProjects: Array<{ projectId: string; label: string }>): string {
+function renderDetailHeader(
+  record: VideoRecordViewModel,
+  relatedProjects: Array<{ projectId: string; label: string }>,
+  mode: 'page' | 'drawer' = 'page',
+): string {
   return `
     <section class="rounded-lg border bg-white">
       <div class="flex flex-wrap items-start justify-between gap-4 px-4 py-4">
         <div class="space-y-3">
           <div>
-            <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/video">
-              <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
+            <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" ${mode === 'drawer' ? 'data-pcs-video-testing-action="close-detail-drawer"' : 'data-nav="/pcs/testing/video"'}>
+              <i data-lucide="${mode === 'drawer' ? 'panel-right-close' : 'arrow-left'}" class="h-4 w-4"></i>${mode === 'drawer' ? '关闭详情' : '返回列表'}
             </button>
           </div>
           <div>
@@ -1697,47 +1724,6 @@ function renderAccountingTab(record: VideoRecordViewModel, testItems: VideoItemV
   `
 }
 
-function renderSamplesTab(record: VideoRecordViewModel): string {
-  return `
-    <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-base font-medium text-slate-900">使用样衣（${record.samples.length}）</h3>
-        <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
-          <i data-lucide="shirt" class="h-4 w-4"></i>发起样衣使用申请
-        </button>
-      </div>
-      <section class="rounded-lg border bg-white">
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th class="px-4 py-3">样衣编号</th>
-                <th class="px-4 py-3">名称</th>
-                <th class="px-4 py-3">状态</th>
-                <th class="px-4 py-3">位置</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              ${record.samples
-                .map(
-                  (sample) => `
-                    <tr>
-                      <td class="px-4 py-3 text-blue-700">${escapeHtml(sample.id)}</td>
-                      <td class="px-4 py-3">${escapeHtml(sample.name)}</td>
-                      <td class="px-4 py-3"><span class="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600">${escapeHtml(sample.status)}</span></td>
-                      <td class="px-4 py-3">${escapeHtml(sample.location)}</td>
-                    </tr>
-                  `,
-                )
-                .join('')}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-  `
-}
-
 function renderLogsTab(record: VideoRecordViewModel): string {
   return `
     <div class="space-y-4">
@@ -1847,7 +1833,7 @@ function renderDetailSidebar(record: VideoRecordViewModel, relatedProjects: Arra
   `
 }
 
-function renderDetailContent(record: VideoRecordViewModel): string {
+function renderDetailContent(record: VideoRecordViewModel, mode: 'page' | 'drawer' = 'page'): string {
   const relatedProjects = Array.from(
     new Map(
       listProjectRelationsByVideoRecord(record.id).map((relation) => [
@@ -1863,13 +1849,12 @@ function renderDetailContent(record: VideoRecordViewModel): string {
   if (state.detail.activeTab === 'reconcile') activeContent = renderReconcileTab(record)
   if (state.detail.activeTab === 'evidence') activeContent = renderEvidenceTab(record)
   if (state.detail.activeTab === 'accounting') activeContent = renderAccountingTab(record, testItems)
-  if (state.detail.activeTab === 'samples') activeContent = renderSamplesTab(record)
   if (state.detail.activeTab === 'logs') activeContent = renderLogsTab(record)
 
   return `
     <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderDetailHeader(record, relatedProjects)}
+      ${mode === 'page' ? renderNotice() : ''}
+      ${renderDetailHeader(record, relatedProjects, mode)}
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
         <div class="space-y-4">
           <section class="rounded-lg border bg-white p-2">
@@ -1890,71 +1875,126 @@ function renderDetailContent(record: VideoRecordViewModel): string {
         </div>
         ${renderDetailSidebar(record, relatedProjects)}
       </div>
-      ${renderCloseDialog()}
-      ${renderAccountingDialog()}
-      ${renderEditDrawer()}
     </div>
   `
 }
 
-function createRecord(status: SessionStatus): void {
+function renderDetailDrawer(): string {
+  if (!state.detail.recordId) return ''
+  const record = getRecord(state.detail.recordId)
+  if (!record) return ''
+  return `
+    <div class="fixed inset-0 z-50">
+      <button type="button" class="absolute inset-0 bg-slate-900/35" data-pcs-video-testing-action="close-detail-drawer" aria-label="关闭详情"></button>
+      <aside class="absolute inset-y-0 right-0 flex h-full w-full max-w-[1240px] flex-col border-l bg-slate-50 shadow-2xl">
+        <div class="border-b bg-white px-6 py-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">短视频测款记录</h3>
+              <p class="mt-1 text-sm text-slate-500">一条短视频测款记录只对应一个商品项目，当前通过侧边栏完成查看和补录。</p>
+            </div>
+            <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-video-testing-action="close-detail-drawer">关闭</button>
+          </div>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          ${renderDetailContent(record, 'drawer')}
+        </div>
+      </aside>
+    </div>
+  `
+}
+
+function createRecord(): void {
   ensureRecordStore()
   const draft = state.createDraft
+  const resolvedProject = resolveProjectIdentity(draft.projectRef)
+  if (!resolvedProject) {
+    state.notice = `未找到商品项目 ${draft.projectRef.trim() || '（空）'}，请先输入有效的项目编号。`
+    return
+  }
+  const project = getProjectById(resolvedProject.projectId) ?? findProjectByCode(resolvedProject.projectCode)
   const recordId = `SV-${todayCompact()}-${String(recordStore.size + 1).padStart(3, '0')}`
-  const purposes = draft.purposes.length > 0 ? draft.purposes.map((item) => VIDEO_PURPOSE_META[item].label) : [VIDEO_PURPOSE_META.PROMOTION.label]
+  const purposes = ['测款项目']
+  const views = toNumber(draft.views, 0)
+  const clicks = toNumber(draft.clicks, 0)
+  const likes = toNumber(draft.likes, 0)
+  const orders = toNumber(draft.orders, 0)
+  const gmv = toNumber(draft.gmv, 0)
+  const productRef = project?.styleCodeName || project?.styleNumber || resolvedProject.projectCode
   const record: VideoRecordViewModel = {
     id: recordId,
-    title: draft.title.trim() || `短视频记录 ${recordId}`,
-    status,
+    title: draft.title.trim() || `${project?.projectName || resolvedProject.projectCode} 短视频测款`,
+    status: 'COMPLETED',
     purposes,
     platformCode: draft.platform || 'OTHER',
     platformLabel: draft.platform ? VIDEO_PLATFORM_META[draft.platform].label : VIDEO_PLATFORM_META.OTHER.label,
     account: draft.account.trim() || '待补录账号',
     creator: draft.creator.trim() || '达人-待分配',
     publishedAt: draft.publishedAt.trim() || null,
-    owner: draft.owner.trim() || '内容运营',
-    recorder: draft.recorder.trim() || '数据助理',
-    itemCount: 0,
-    testItemCount: 0,
-    testAccountingStatus: draft.isTestAccountingEnabled ? 'PENDING' : 'NONE',
+    owner: '当前用户',
+    recorder: '当前用户',
+    itemCount: 1,
+    testItemCount: 1,
+    testAccountingStatus: 'NONE',
     sampleCount: 0,
-    views: 0,
-    likes: 0,
-    comments: 0,
-    shares: 0,
-    clicks: 0,
-    orders: 0,
-    gmv: 0,
-    watchTime: 0,
-    completionRate: 0,
-    isTestAccountingEnabled: draft.isTestAccountingEnabled,
+    views,
+    likes,
+    comments: buildItemComments(likes),
+    shares: buildItemShares(likes),
+    clicks,
+    orders,
+    gmv,
+    watchTime: Math.round(views * 12.5),
+    completionRate: views > 0 ? Number(((clicks / views) * 100).toFixed(1)) : 0,
+    isTestAccountingEnabled: false,
     videoUrl: draft.videoUrl.trim(),
     note: draft.note.trim(),
     createdAt: nowText(),
     updatedAt: nowText(),
-    completedBy: null,
-    completedAt: null,
+    completedBy: '当前用户',
+    completedAt: nowText(),
     completionNote: '',
     accountedBy: null,
     accountedAt: null,
     accountedNote: '',
-    items: [],
+    items: [
+      {
+        id: `${recordId}-ITEM-001`,
+        evaluationIntent: 'TEST',
+        projectRef: resolvedProject.projectCode,
+        relatedProjectId: resolvedProject.projectId,
+        productRef,
+        productName: project?.projectName || resolvedProject.projectCode,
+        sku: '-',
+        exposureType: '短视频测款',
+        views,
+        likes,
+        comments: buildItemComments(likes),
+        shares: buildItemShares(likes),
+        clicks,
+        orders,
+        pay: orders,
+        gmv,
+        recommendation: null,
+        recommendationReason: null,
+        decisionRef: null,
+      },
+    ],
     evidence: [],
     samples: [],
     logs: [
       {
         time: nowText(),
-        action: '创建记录',
+        action: '创建短视频测款记录',
         user: '当前用户',
-        detail: status === 'DRAFT' ? '记录已保存为草稿。' : '记录已创建并进入核对中。',
+        detail: `已为项目 ${resolvedProject.projectCode} 记录短视频测款结果。`,
       },
     ],
   }
   recordStore.set(recordId, record)
-  state.notice = `短视频记录「${record.title}」已创建。`
+  state.notice = `短视频测款「${record.title}」已创建。`
   closeAllDialogs()
   resetCreateDraft()
-  appStore.navigate(`/pcs/testing/video/${recordId}`)
 }
 
 export function renderPcsVideoTestingListPage(): string {
@@ -1964,7 +2004,6 @@ export function renderPcsVideoTestingListPage(): string {
       ${renderNotice()}
       ${renderListHeader()}
       ${renderListFilters()}
-      ${renderKpis()}
       ${renderListTable()}
       ${renderListPageDialogs()}
     </div>
@@ -1974,27 +2013,7 @@ export function renderPcsVideoTestingListPage(): string {
 export function renderPcsVideoTestingDetailPage(recordId: string): string {
   ensureRecordStore()
   syncDetailState(recordId)
-  const record = getRecord(recordId)
-
-  if (!record) {
-    return `
-      <div class="space-y-5 p-4">
-        <section class="rounded-lg border bg-white p-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 class="text-xl font-semibold text-slate-900">短视频记录不存在</h1>
-              <p class="mt-1 text-sm text-slate-500">未找到对应的短视频记录，请返回列表重新选择。</p>
-            </div>
-            <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/video">
-              <i data-lucide="arrow-left" class="h-4 w-4"></i>返回短视频记录
-            </button>
-          </div>
-        </section>
-      </div>
-    `
-  }
-
-  return renderDetailContent(record)
+  return renderPcsVideoTestingListPage()
 }
 
 export function handlePcsVideoTestingInput(target: Element): boolean {
@@ -2008,35 +2027,19 @@ export function handlePcsVideoTestingInput(target: Element): boolean {
     state.list.currentPage = 1
     return true
   }
-  if (field === 'list-status' && fieldNode instanceof HTMLSelectElement) {
-    state.list.status = fieldNode.value
-    state.list.currentPage = 1
-    return true
-  }
-  if (field === 'list-purpose' && fieldNode instanceof HTMLSelectElement) {
-    state.list.purpose = fieldNode.value
-    state.list.currentPage = 1
-    return true
-  }
-  if (field === 'list-platform' && fieldNode instanceof HTMLSelectElement) {
-    state.list.platform = fieldNode.value
-    state.list.currentPage = 1
-    return true
-  }
-  if (field === 'list-accounting' && fieldNode instanceof HTMLSelectElement) {
-    state.list.accounting = fieldNode.value
-    state.list.currentPage = 1
-    return true
-  }
 
   const createInputFields: Record<string, keyof CreateDraftState> = {
+    'create-project-ref': 'projectRef',
     'create-title': 'title',
-    'create-owner': 'owner',
-    'create-recorder': 'recorder',
     'create-account': 'account',
     'create-creator': 'creator',
     'create-published-at': 'publishedAt',
     'create-video-url': 'videoUrl',
+    'create-views': 'views',
+    'create-clicks': 'clicks',
+    'create-likes': 'likes',
+    'create-orders': 'orders',
+    'create-gmv': 'gmv',
   }
   if (field in createInputFields && fieldNode instanceof HTMLInputElement) {
     ;(state.createDraft as Record<string, string>)[createInputFields[field]] = fieldNode.value
@@ -2141,24 +2144,8 @@ export function handlePcsVideoTestingEvent(target: HTMLElement): boolean {
     state.createDrawerOpen = false
     return true
   }
-  if (action === 'toggle-create-purpose') {
-    const value = actionNode.dataset.value as VideoPurpose | undefined
-    if (!value) return true
-    state.createDraft.purposes = state.createDraft.purposes.includes(value)
-      ? state.createDraft.purposes.filter((item) => item !== value)
-      : [...state.createDraft.purposes, value]
-    return true
-  }
-  if (action === 'toggle-create-accounting') {
-    state.createDraft.isTestAccountingEnabled = !state.createDraft.isTestAccountingEnabled
-    return true
-  }
-  if (action === 'create-record-draft') {
-    createRecord('DRAFT')
-    return true
-  }
-  if (action === 'create-record-reconciling') {
-    createRecord('RECONCILING')
+  if (action === 'submit-create-record') {
+    createRecord()
     return true
   }
   if (action === 'open-close-dialog') {
@@ -2187,7 +2174,7 @@ export function handlePcsVideoTestingEvent(target: HTMLElement): boolean {
         },
       ),
     )
-    state.notice = '短视频记录已完成关账。'
+    state.notice = '短视频测款已完成关账。'
     closeAllDialogs()
     return true
   }
@@ -2221,7 +2208,7 @@ export function handlePcsVideoTestingEvent(target: HTMLElement): boolean {
         },
       ),
     )
-    state.notice = '短视频记录测款数据已入账。'
+    state.notice = '短视频测款数据已入账。'
     closeAllDialogs()
     return true
   }
@@ -2261,6 +2248,7 @@ export function handlePcsVideoTestingEvent(target: HTMLElement): boolean {
     const candidateMap = new Map(
       listVideoRecordProjectRelationCandidates(recordId).map((item) => [item.projectId, item]),
     )
+    const resolvedDraftProject = resolveProjectIdentity(draft.projectRef)
     let notice = '短视频条目已保存。'
     updateRecord(recordId, (record) => {
       const items = record.items.map((item) => {
@@ -2284,10 +2272,17 @@ export function handlePcsVideoTestingEvent(target: HTMLElement): boolean {
                 recommendationReason: draft.recommendationReason.trim() || null,
               }
             : item
-        const resolvedProject = resolveProjectIdentity(baseItem.projectRef)
-        const normalizedProjectRef = resolvedProject?.projectCode ?? baseItem.projectRef
+        const normalizedBaseItem =
+          draft.evaluationIntent === 'TEST' && baseItem.evaluationIntent === 'TEST'
+            ? {
+                ...baseItem,
+                projectRef: resolvedDraftProject?.projectCode ?? (draft.projectRef.trim() || null),
+              }
+            : baseItem
+        const resolvedProject = resolveProjectIdentity(normalizedBaseItem.projectRef)
+        const normalizedProjectRef = resolvedProject?.projectCode ?? normalizedBaseItem.projectRef
         return {
-          ...baseItem,
+          ...normalizedBaseItem,
           projectRef: normalizedProjectRef,
           relatedProjectId: resolvedProject?.projectId ?? null,
           decisionRef: buildDecisionRef(normalizedProjectRef || null, record.testAccountingStatus === 'ACCOUNTED'),
@@ -2314,10 +2309,10 @@ export function handlePcsVideoTestingEvent(target: HTMLElement): boolean {
       const relationResult = replaceVideoRecordProjectRelations(recordId, nextProjectIds, '当前用户')
       notice =
         nextProjectIds.length === 0 && blockedReasons.length === 0 && !items.some((item) => item.projectRef)
-          ? '短视频条目已保存，并已同步清空短视频测款正式关联。'
+          ? '短视频条目已保存，并已同步清空当前短视频测款的正式项目关联。'
           : blockedReasons.length > 0 || relationResult.errors.length > 0
             ? `短视频条目已保存；短视频测款正式关联未回写：${[...blockedReasons, ...relationResult.errors].join('；')}`
-            : '短视频条目已保存，并已回写“关联短视频测款记录”。'
+            : '短视频条目已保存，并已将当前短视频测款全部 TEST 条目回写到同一商品项目。'
       return appendLog(
         {
           ...record,
@@ -2341,7 +2336,7 @@ export function handlePcsVideoTestingEvent(target: HTMLElement): boolean {
   }
   if (action === 'export-record') {
     const recordId = actionNode.dataset.recordId || state.detail.recordId
-    state.notice = recordId ? `短视频记录 ${recordId} 的导出入口已准备，当前原型仅展示交互。` : '导出入口已触发。'
+    state.notice = recordId ? `短视频测款 ${recordId} 的导出入口已准备，当前原型仅展示交互。` : '导出入口已触发。'
     return true
   }
   if (action === 'close-dialogs') {

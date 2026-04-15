@@ -110,7 +110,7 @@ const STYLE_DETAIL_TABS: Array<{ key: StyleDetailTabKey; label: string }> = [
   { key: 'versions', label: '技术包版本' },
   { key: 'specifications', label: '规格档案' },
   { key: 'mappings', label: '编码映射' },
-  { key: 'channels', label: '渠道商品' },
+  { key: 'channels', label: '渠道店铺商品' },
   { key: 'logs', label: '日志' },
 ]
 
@@ -928,7 +928,7 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
             <div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(skus.length)}</div>
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-            <div class="text-xs text-slate-500">渠道商品</div>
+            <div class="text-xs text-slate-500">渠道店铺商品</div>
             <div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(currentChannelProduct?.channelProductCode || '未生成')}</div>
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
@@ -1054,7 +1054,7 @@ function renderStyleDetailMappings(style: StyleArchiveShellRecord): string {
         <div class="text-sm font-medium text-slate-900">同步健康</div>
         <div class="mt-4 space-y-3 text-sm text-slate-700">
           <div><span class="text-slate-500">规格映射健康：</span>${renderMappingBadge(resolveStyleMappingHealth(listSkuArchivesByStyleId(style.styleId)))}</div>
-          <div><span class="text-slate-500">渠道商品数：</span>${escapeHtml(findProjectChannelProductByStyleId(style.styleId)?.channelProductCode || '未同步')}</div>
+          <div><span class="text-slate-500">渠道店铺商品：</span>${escapeHtml(findProjectChannelProductByStyleId(style.styleId)?.channelProductCode || '未同步')}</div>
           <div><span class="text-slate-500">最近更新：</span>${escapeHtml(formatDateTime(style.updatedAt))}</div>
         </div>
       </div>
@@ -1072,6 +1072,7 @@ function renderStyleDetailChannels(style: StyleArchiveShellRecord): string {
             <div class="text-sm font-medium text-slate-900">${escapeHtml(item.channelProductCode)}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.projectCode)}</div>
           </td>
+          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.skuCode || '—')}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.channelName)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.storeName)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.listingTitle)}</td>
@@ -1084,13 +1085,14 @@ function renderStyleDetailChannels(style: StyleArchiveShellRecord): string {
   return `
     <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
       <div class="border-b border-slate-200 px-4 py-3">
-        <h2 class="text-sm font-medium text-slate-900">渠道商品</h2>
+        <h2 class="text-sm font-medium text-slate-900">渠道店铺商品</h2>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
           <thead class="bg-slate-50 text-slate-500">
             <tr>
-              <th class="px-4 py-3 font-medium">渠道商品</th>
+              <th class="px-4 py-3 font-medium">渠道店铺商品</th>
+              <th class="px-4 py-3 font-medium">规格档案</th>
               <th class="px-4 py-3 font-medium">渠道</th>
               <th class="px-4 py-3 font-medium">店铺</th>
               <th class="px-4 py-3 font-medium">标题</th>
@@ -1098,7 +1100,7 @@ function renderStyleDetailChannels(style: StyleArchiveShellRecord): string {
               <th class="px-4 py-3 font-medium">状态</th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未关联渠道商品。</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未关联渠道店铺商品。</td></tr>'}</tbody>
         </table>
       </div>
     </section>
@@ -1331,8 +1333,8 @@ function renderSkuDetailVariants(sku: SkuArchiveRecord): string {
             <tr>
               <th class="px-4 py-3 font-medium">渠道</th>
               <th class="px-4 py-3 font-medium">店铺</th>
-              <th class="px-4 py-3 font-medium">渠道商品 ID</th>
-              <th class="px-4 py-3 font-medium">渠道商品名称</th>
+              <th class="px-4 py-3 font-medium">渠道店铺商品 ID</th>
+              <th class="px-4 py-3 font-medium">渠道店铺商品名称</th>
               <th class="px-4 py-3 font-medium">变体名称</th>
               <th class="px-4 py-3 font-medium">平台变体 ID</th>
               <th class="px-4 py-3 font-medium">来源</th>
@@ -2060,7 +2062,7 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       state.notice = '已按当前款式与规格关系刷新映射健康状态。'
       return true
     case 'sync-sku-mapping':
-      state.notice = '已按当前渠道商品关系刷新规格映射状态。'
+      state.notice = '已按当前渠道店铺商品关系刷新规格映射状态。'
       return true
     case 'toggle-style-status': {
       const styleId = actionNode.dataset.styleId || ''

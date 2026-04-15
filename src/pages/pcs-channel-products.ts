@@ -4,6 +4,7 @@ import {
   type ProjectChannelProductRecord,
 } from '../data/pcs-channel-product-project-repository.ts'
 import { getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
+import { findSkuArchiveByCode, getSkuArchiveById } from '../data/pcs-sku-archive-repository.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 const PREFERRED_PROJECT_ORDER = [
@@ -44,15 +45,15 @@ function getStoreLabel(record: ProjectChannelProductRecord): string {
 }
 
 function getViewLabel(record: ProjectChannelProductRecord): string {
-  if (record.channelProductStatus === '已生效') return '已生效渠道商品'
+  if (record.channelProductStatus === '已生效') return '已生效渠道店铺商品'
   if (record.channelProductStatus === '已作废') return '已作废历史商品'
-  if (record.channelProductStatus === '已上架待测款') return '正式测款渠道商品'
-  return '待上架渠道商品'
+  if (record.channelProductStatus === '已上架待测款') return '正式测款渠道店铺商品'
+  return '待上架渠道店铺商品'
 }
 
 function getLinkageDescription(record: ProjectChannelProductRecord): string {
   if (record.channelProductStatus === '已作废') {
-    return record.testingStatusText || record.invalidatedReason || record.upstreamSyncNote || '当前渠道商品已作废'
+    return record.testingStatusText || record.invalidatedReason || record.upstreamSyncNote || '当前渠道店铺商品已作废'
   }
   if (record.styleCode && record.upstreamSyncStatus === '已更新') {
     return '测款通过，已关联款式档案并完成上游最终更新'
@@ -115,6 +116,7 @@ function renderListRow(record: ProjectChannelProductRecord): string {
       <td class="px-4 py-4">${renderChannelStatusBadge(record.channelProductStatus)}</td>
       <td class="px-4 py-4">${renderUpstreamStatusBadge(record.upstreamSyncStatus)}</td>
       <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.styleCode || '尚未关联')}</td>
+      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.skuCode || '尚未关联')}</td>
       <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.upstreamChannelProductCode || '-')}</td>
       <td class="px-4 py-4">
         <div class="max-w-[200px] text-xs leading-5 text-slate-500">${escapeHtml(getLinkageDescription(record))}</div>
@@ -177,14 +179,15 @@ export function renderPcsChannelProductListPage(): string {
           <table class="min-w-[1760px] table-fixed">
             <thead class="bg-slate-50 text-left text-[13px] font-semibold text-slate-500">
               <tr>
-                <th class="w-[132px] px-4 py-3">渠道商品编码</th>
+                <th class="w-[132px] px-4 py-3">渠道店铺商品编码</th>
                 <th class="w-[176px] px-4 py-3">来源项目</th>
                 <th class="w-[290px] px-4 py-3">来源商品上架实例</th>
                 <th class="w-[255px] px-4 py-3">渠道 / 店铺</th>
                 <th class="w-[118px] px-4 py-3">测款来源视角</th>
-                <th class="w-[112px] px-4 py-3">渠道商品状态</th>
+                <th class="w-[112px] px-4 py-3">渠道店铺商品状态</th>
                 <th class="w-[112px] px-4 py-3">上游更新状态</th>
                 <th class="w-[152px] px-4 py-3">关联款式档案</th>
+                <th class="w-[152px] px-4 py-3">关联规格档案</th>
                 <th class="w-[130px] px-4 py-3">关联上游编码</th>
                 <th class="w-[260px] px-4 py-3">链路说明</th>
                 <th class="w-[130px] px-4 py-3">更新时间</th>
@@ -219,8 +222,10 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
   }
 
   const style = record.styleId ? getStyleArchiveById(record.styleId) : null
+  const sku = (record.skuId ? getSkuArchiveById(record.skuId) : null) || (record.skuCode ? findSkuArchiveByCode(record.skuCode) : null)
   const projectHref = `/pcs/projects/${encodeURIComponent(record.projectId)}`
   const styleHref = style ? `/pcs/products/styles/${encodeURIComponent(style.styleId)}` : null
+  const skuHref = sku ? `/pcs/products/specifications/${encodeURIComponent(sku.skuId)}` : null
   const completedUpstreamUpdate = record.upstreamSyncStatus === '已更新'
   const upstreamUpdateTime = record.lastUpstreamSyncAt || (completedUpstreamUpdate ? record.updatedAt : '')
 
@@ -233,7 +238,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               <button type="button" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
               </button>
-              <div class="mt-3 text-xs text-slate-500">商品档案 / 渠道商品 / 项目测款来源</div>
+              <div class="mt-3 text-xs text-slate-500">商品档案 / 渠道店铺商品 / 项目测款来源</div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 <h1 class="text-[20px] font-semibold text-slate-900">${escapeHtml(record.channelProductCode)}</h1>
                 ${renderBadge(getViewLabel(record), record.channelProductStatus === '已作废' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700')}
@@ -243,6 +248,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
             <div class="flex flex-wrap items-center gap-3">
               ${renderDetailButton('查看来源项目', projectHref)}
               ${renderDetailButton('查看款式档案', styleHref)}
+              ${renderDetailButton('查看规格档案', skuHref)}
             </div>
           </div>
         </section>
@@ -256,6 +262,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               ${renderDetailField('来源商品上架实例', record.listingInstanceCode)}
               ${renderDetailField('来源工作项节点', record.projectNodeId)}
               ${renderDetailField('渠道 / 店铺', `${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}
+              ${renderDetailField('规格档案编码', record.skuCode || '—')}
               ${renderDetailField('币种 / 售价', `${record.currency} / ${record.listingPrice}`)}
             </div>
           </section>
@@ -264,7 +271,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
             <h2 class="text-base font-semibold text-slate-900">测款与作废状态</h2>
             <div class="mt-4 space-y-3">
               ${renderDetailField('当前测款状态', getLinkageDescription(record))}
-              ${renderDetailField('渠道商品状态', record.channelProductStatus)}
+              ${renderDetailField('渠道店铺商品状态', record.channelProductStatus)}
               ${renderDetailField('是否已作废', record.channelProductStatus === '已作废' ? '是' : '否')}
               ${renderDetailField('作废原因', record.invalidatedReason || '—')}
               ${renderDetailField('关联改版任务', record.linkedRevisionTaskCode || '—')}
@@ -275,6 +282,8 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
             <h2 class="text-base font-semibold text-slate-900">款式档案与上游更新</h2>
             <div class="mt-4 space-y-3">
               ${renderDetailField('款式档案编码', record.styleCode || '—')}
+              ${renderDetailField('规格档案编码', record.skuCode || '—')}
+              ${renderDetailField('规格档案名称', record.skuName || sku?.skuName || '—')}
               ${renderDetailField('上游渠道商品编码', record.upstreamChannelProductCode || '—')}
               ${renderDetailField('上游更新状态', record.upstreamSyncStatus)}
               ${renderDetailField('是否已完成上游最终更新', completedUpstreamUpdate ? '是' : '否')}
@@ -284,10 +293,11 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
         </div>
 
         <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <h2 class="text-base font-semibold text-slate-900">三码关联结果</h2>
-          <div class="mt-4 grid gap-3 xl:grid-cols-3">
+          <h2 class="text-base font-semibold text-slate-900">项目 / 款式 / 规格 / 渠道关联结果</h2>
+          <div class="mt-4 grid gap-3 xl:grid-cols-4">
             ${renderCodeBox('款式档案编码', record.styleCode || '—')}
-            ${renderCodeBox('渠道商品编码', record.channelProductCode)}
+            ${renderCodeBox('规格档案编码', record.skuCode || '—')}
+            ${renderCodeBox('渠道店铺商品编码', record.channelProductCode)}
             ${renderCodeBox('上游渠道商品编码', record.upstreamChannelProductCode || '—')}
           </div>
         </section>

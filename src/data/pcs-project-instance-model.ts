@@ -25,6 +25,7 @@ import { getPreProductionSampleTaskById } from './pcs-pre-production-sample-repo
 import { getLiveProductLineById } from './pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
+import { getSkuArchiveById, findSkuArchiveByCode } from './pcs-sku-archive-repository.ts'
 import { getTechnicalDataVersionById } from './pcs-technical-data-version-repository.ts'
 import { getProjectArchiveById } from './pcs-project-archive-repository.ts'
 import { getSampleAssetById } from './pcs-sample-asset-repository.ts'
@@ -287,6 +288,9 @@ function buildFallbackRelationFields(relation: ProjectRelationRecord, meta: Reco
 
 function resolveChannelProductRelationObject(relation: ProjectRelationRecord, meta: Record<string, unknown>): ResolvedRelationObjectSnapshot {
   const record = getProjectChannelProductById(relation.sourceObjectId)
+  const sku =
+    (record?.skuId ? getSkuArchiveById(record.skuId) : null) ||
+    (record?.skuCode ? findSkuArchiveByCode(record.skuCode) : null)
   const fields: PcsProjectInstanceField[] = []
   addField(fields, '渠道编码', record?.channelCode, 'channelCode')
   addField(fields, '渠道名称', record?.channelName, 'channelName')
@@ -297,10 +301,12 @@ function resolveChannelProductRelationObject(relation: ProjectRelationRecord, me
   addField(fields, '标价', record?.listingPrice, 'listingPrice')
   addField(fields, '作废原因', record?.invalidatedReason, 'invalidatedReason')
   addField(fields, '渠道 / 店铺', record ? `${record.channelName} / ${record.storeName}` : '', 'channelStoreDisplay')
-  addField(fields, '渠道商品状态', record?.channelProductStatus || relation.sourceStatus, 'channelProductStatus')
+  addField(fields, '渠道店铺商品状态', record?.channelProductStatus || relation.sourceStatus, 'channelProductStatus')
   addField(fields, '上游更新状态', record?.upstreamSyncStatus, 'upstreamSyncStatus')
   addField(fields, '关联上游编码', record?.upstreamChannelProductCode || meta.upstreamChannelProductCode, 'upstreamChannelProductCode')
   addField(fields, '关联款式档案', record?.styleCode || meta.styleCode || meta.linkedStyleCode, 'linkedStyleCode')
+  addField(fields, '关联规格档案', record?.skuCode || sku?.skuCode, 'skuCode')
+  addField(fields, '规格名称', record?.skuName || sku?.skuName, 'skuName')
   addField(fields, '定价', record ? `${record.currency} ${record.listingPrice}` : '', 'listingPriceDisplay')
   return {
     instanceId: record?.channelProductId || relation.sourceObjectId,
@@ -428,7 +434,7 @@ function resolvePreProductionSampleRelationObject(relation: ProjectRelationRecor
 function resolveLiveRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
   const line = getLiveProductLineById(relation.sourceLineId || relation.sourceObjectId)
   const fields: PcsProjectInstanceField[] = []
-  addField(fields, '直播场次', line?.liveSessionCode || relation.sourceObjectCode, 'liveSessionCode')
+  addField(fields, '直播测款', line?.liveSessionCode || relation.sourceObjectCode, 'liveSessionCode')
   addField(fields, '曝光量', line?.exposureQty, 'exposureQty')
   addField(fields, '点击量', line?.clickQty, 'clickQty')
   addField(fields, '下单量', line?.orderQty, 'orderQty')
@@ -555,7 +561,7 @@ function resolveSampleAssetRelationObject(relation: ProjectRelationRecord): Reso
     businessDate: relation.businessDate,
     updatedAt: asset?.updatedAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: '/pcs/samples/inventory',
+    targetRoute: relation.projectId ? `/pcs/projects/${encodeURIComponent(relation.projectId)}` : '/pcs/projects',
     fields,
   }
 }
@@ -576,14 +582,16 @@ function resolveSampleLedgerRelationObject(relation: ProjectRelationRecord): Res
     businessDate: event?.businessDate || relation.businessDate,
     updatedAt: event?.createdAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: '/pcs/samples/ledger',
+    targetRoute: relation.projectId ? `/pcs/projects/${encodeURIComponent(relation.projectId)}` : '/pcs/projects',
     fields,
   }
 }
 
 function resolveRelationObjectSnapshot(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
   const meta = parseRelationMeta(relation.note)
-  if (relation.sourceObjectType === '渠道商品') return resolveChannelProductRelationObject(relation, meta)
+  if (relation.sourceObjectType === '渠道店铺商品' || relation.sourceObjectType === '渠道商品') {
+    return resolveChannelProductRelationObject(relation, meta)
+  }
   if (relation.sourceObjectType === '改版任务') return resolveRevisionTaskRelationObject(relation)
   if (relation.sourceObjectType === '制版任务') return resolvePlateTaskRelationObject(relation)
   if (relation.sourceObjectType === '花型任务') return resolvePatternTaskRelationObject(relation)

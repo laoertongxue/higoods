@@ -465,7 +465,7 @@ const LIVE_LOG_SEED: Record<string, LiveLog[]> = {
     { time: '2026-01-22 23:15', action: '更新明细数据', user: '王五', detail: '导入CSV数据，更新12条明细' },
     { time: '2026-01-22 22:35', action: '下播', user: '系统', detail: '直播结束，状态变更为核对中' },
     { time: '2026-01-22 19:00', action: '开播', user: '系统', detail: '直播开始' },
-    { time: '2026-01-22 14:00', action: '创建场次', user: '张三', detail: '创建直播场次草稿' },
+    { time: '2026-01-22 14:00', action: '创建测款', user: '张三', detail: '创建直播测款草稿' },
   ],
 }
 

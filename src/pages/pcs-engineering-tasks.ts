@@ -1775,7 +1775,7 @@ function renderFirstSampleListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('首版样衣打样', '参照首单样衣打样原型，跟踪发样、到样、入库和验收闭环，并同步样衣库存与台账。', '新建首版打样', 'open-first-sample-create')}
+      ${renderPageHeader('首版样衣打样', '参照首单样衣打样原型，跟踪发样、到样、入库和验收闭环，并将样衣信息回写到商品项目。', '新建首版打样', 'open-first-sample-create')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 工厂 / 运单 / 样衣编号',
         listState: state.firstSampleList,
@@ -1841,7 +1841,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
   const asset = task.sampleCode ? getSampleAssetByCode(task.sampleCode) : null
   const acceptance = firstSampleAcceptanceMap.get(task.firstSampleTaskId) || (task.status === '已完成' ? { result: '通过', note: task.note || '样衣验收已通过。', updatedAt: task.updatedAt } : null)
   const logs = mergeLogs('firstSample', task.firstSampleTaskId, [
-    ...(asset ? [{ time: asset.updatedAt, action: '样衣库存串联', user: asset.updatedBy, detail: `已关联样衣资产 ${asset.sampleCode}。` }] : []),
+    ...(asset ? [{ time: asset.updatedAt, action: '项目样衣信息回写', user: asset.updatedBy, detail: `已回写样衣编号 ${asset.sampleCode} 到商品项目。` }] : []),
     ...(acceptance ? [{ time: acceptance.updatedAt, action: '填写验收', user: '当前用户', detail: `验收结论：${acceptance.result}。${acceptance.note}` }] : []),
     ...baseLogs(task),
   ])
@@ -1852,7 +1852,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
     [
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/first-sample">返回列表</button>`,
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="first-sample-advance-logistics" data-task-id="${escapeHtml(task.firstSampleTaskId)}">${escapeHtml(task.status === '待发样' ? '录入运单' : task.status === '在途' ? '到样签收' : task.status === '已到样待入库' ? '核对入库' : task.status === '验收中' ? '填写验收' : '已完成')}</button>`,
-      asset ? `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/samples/inventory">打开样衣库存</button>` : '',
+      `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/${encodeURIComponent(task.projectId)}">查看商品项目</button>`,
     ].join(''),
   )
   const tabBar = renderTabBar(state.firstSampleTab, [
@@ -1882,13 +1882,13 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
     `
       <div class="grid gap-4 md:grid-cols-2">
         <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">样衣资产</p>
+          <p class="text-xs text-slate-500">项目样衣信息</p>
           <p class="mt-2 text-sm text-slate-900">${asset ? escapeHtml(asset.sampleCode) : '尚未建立'}</p>
-          <p class="mt-2 text-xs text-slate-500">${asset ? '已同步至样衣库存与台账。' : '执行“核对入库”后会自动写入样衣库存和台账。'}</p>
+          <p class="mt-2 text-xs text-slate-500">${asset ? '已回写到商品项目样衣字段。' : '执行“核对入库”后会自动回写商品项目样衣字段。'}</p>
         </div>
         <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">库存页面</p>
-          ${asset ? `<button type="button" class="mt-2 text-sm font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/inventory">打开样衣库存</button>` : '<p class="mt-2 text-sm text-slate-900">待入库后可打开</p>'}
+          <p class="text-xs text-slate-500">商品项目</p>
+          ${task.projectId ? `<button type="button" class="mt-2 text-sm font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${encodeURIComponent(task.projectId)}">查看商品项目</button>` : '<p class="mt-2 text-sm text-slate-900">待关联项目后查看</p>'}
         </div>
       </div>
     `,
@@ -1927,7 +1927,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
         { label: '负责人', value: escapeHtml(task.ownerName) },
         { label: '工厂', value: escapeHtml(task.factoryName || '-') },
         { label: '站点', value: escapeHtml(task.targetSite) },
-        { label: '样衣库存', value: asset ? '已串联' : '待入库' },
+        { label: '项目样衣', value: asset ? '已回写' : '待入库' },
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
@@ -2077,7 +2077,7 @@ function renderPreProductionDetailPage(preProductionSampleTaskId: string): strin
   const conclusion = preProductionConclusionMap.get(task.preProductionSampleTaskId) || (task.status === '已完成' ? { result: '通过', note: task.note || '产前结论通过。', updatedAt: task.updatedAt } : null)
   const gate = preProductionGateMap.get(task.preProductionSampleTaskId) || (task.status === '已完成' ? { confirmedBy: '当前用户', confirmedAt: task.updatedAt } : null)
   const logs = mergeLogs('preProduction', task.preProductionSampleTaskId, [
-    ...(asset ? [{ time: asset.updatedAt, action: '样衣库存串联', user: asset.updatedBy, detail: `已关联样衣资产 ${asset.sampleCode}。` }] : []),
+    ...(asset ? [{ time: asset.updatedAt, action: '项目样衣信息回写', user: asset.updatedBy, detail: `已回写样衣编号 ${asset.sampleCode} 到商品项目。` }] : []),
     ...(conclusion ? [{ time: conclusion.updatedAt, action: '产前结论', user: '当前用户', detail: `结论：${conclusion.result}。${conclusion.note}` }] : []),
     ...(gate ? [{ time: gate.confirmedAt, action: '门禁确认', user: gate.confirmedBy, detail: '已确认满足量产前门禁条件。' }] : []),
     ...baseLogs(task),
@@ -2095,7 +2095,7 @@ function renderPreProductionDetailPage(preProductionSampleTaskId: string): strin
     [
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/pre-production">返回列表</button>`,
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pre-production-advance-logistics" data-task-id="${escapeHtml(task.preProductionSampleTaskId)}">${escapeHtml(task.status === '待发样' ? '录入运单' : task.status === '在途' ? '到样签收' : task.status === '已到样待入库' ? '核对入库' : task.status === '验收中' ? '填写结论' : '已完成')}</button>`,
-      ...(asset ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/inventory">打开样衣库存</button>`] : []),
+      `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${encodeURIComponent(task.projectId)}">查看商品项目</button>`,
       ...(task.status === '验收中' ? [`<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="pre-production-confirm-gate" data-task-id="${escapeHtml(task.preProductionSampleTaskId)}">门禁确认</button>`] : []),
     ].join(''),
   )
@@ -2137,13 +2137,13 @@ function renderPreProductionDetailPage(preProductionSampleTaskId: string): strin
     `
       <div class="grid gap-4 md:grid-cols-2">
         <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">样衣资产</p>
+          <p class="text-xs text-slate-500">项目样衣信息</p>
           <p class="mt-2 text-sm text-slate-900">${escapeHtml(asset?.sampleCode || task.sampleCode || '待建立')}</p>
-          <p class="mt-2 text-xs text-slate-500">${asset ? '已进入样衣库存和台账。' : '执行核对入库后自动写入。'}</p>
+          <p class="mt-2 text-xs text-slate-500">${asset ? '已回写到商品项目样衣字段。' : '执行核对入库后自动回写。'}</p>
         </div>
         <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">库存页面</p>
-          ${asset ? `<button type="button" class="mt-2 text-sm font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/inventory">打开样衣库存</button>` : '<p class="mt-2 text-sm text-slate-900">待入库后可打开</p>'}
+          <p class="text-xs text-slate-500">商品项目</p>
+          ${task.projectId ? `<button type="button" class="mt-2 text-sm font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${encodeURIComponent(task.projectId)}">查看商品项目</button>` : '<p class="mt-2 text-sm text-slate-900">待关联项目后查看</p>'}
         </div>
       </div>
     `,
@@ -2292,7 +2292,7 @@ function updateSampleTaskByFlow(taskId: string, module: 'firstSample' | 'preProd
         sourceDocId: task.firstSampleTaskId,
       })
       updateFirstSampleTask(taskId, { sampleAssetId: assetInfo.assetId, sampleCode: assetInfo.assetCode, status: '验收中', acceptedAt: task.acceptedAt || nowText(), updatedAt: nowText(), updatedBy: '当前用户' })
-      pushRuntimeLog('firstSample', taskId, '核对入库', `已写入样衣库存与台账，样衣编号 ${assetInfo.assetCode}。`)
+      pushRuntimeLog('firstSample', taskId, '核对入库', `已回写商品项目样衣字段，样衣编号 ${assetInfo.assetCode}。`)
       setNotice(`首版样衣任务 ${task.firstSampleTaskCode} 已完成核对入库。`)
       return
     }
@@ -2354,7 +2354,7 @@ function updateSampleTaskByFlow(taskId: string, module: 'firstSample' | 'preProd
       sourceDocId: task.preProductionSampleTaskId,
     })
     updatePreProductionSampleTask(taskId, { sampleAssetId: assetInfo.assetId, sampleCode: assetInfo.assetCode, status: '验收中', acceptedAt: task.acceptedAt || nowText(), updatedAt: nowText(), updatedBy: '当前用户' })
-    pushRuntimeLog('preProduction', taskId, '核对入库', `已写入样衣库存与台账，样衣编号 ${assetInfo.assetCode}。`)
+    pushRuntimeLog('preProduction', taskId, '核对入库', `已回写商品项目样衣字段，样衣编号 ${assetInfo.assetCode}。`)
     setNotice(`产前版样衣任务 ${task.preProductionSampleTaskCode} 已完成核对入库。`)
     return
   }

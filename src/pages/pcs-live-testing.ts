@@ -104,18 +104,18 @@ interface SessionViewModel {
 }
 
 interface CreateDraftState {
+  projectRef: string
   title: string
-  owner: string
-  site: string
   liveAccount: string
   anchor: string
   startAt: string
   endAt: string
-  operator: string
-  recorder: string
-  reviewer: string
+  exposure: string
+  click: string
+  cart: string
+  order: string
+  gmv: string
   purposes: LivePurpose[]
-  isTestAccountingEnabled: boolean
   note: string
 }
 
@@ -178,16 +178,14 @@ interface LiveTestingPageState {
 
 const DETAIL_TAB_OPTIONS: Array<{ key: DetailTabKey; label: string }> = [
   { key: 'overview', label: '概览' },
-  { key: 'items', label: '场次明细' },
+  { key: 'items', label: '测款明细' },
   { key: 'reconcile', label: '数据核对' },
   { key: 'evidence', label: '证据素材' },
   { key: 'accounting', label: '测款入账' },
-  { key: 'samples', label: '样衣关联' },
   { key: 'logs', label: '日志审计' },
 ]
 
 const STATUS_OPTIONS = ['all', 'DRAFT', 'RECONCILING', 'COMPLETED', 'CANCELLED'] as const
-const PURPOSE_OPTIONS = ['all', ...Object.values(LIVE_PURPOSE_META).map((item) => item.label)] as const
 const ACCOUNTING_OPTIONS = ['all', 'NONE', 'PENDING', 'ACCOUNTED'] as const
 
 const ITEM_INTENT_META: Record<ItemIntent, { label: string; className: string }> = {
@@ -197,18 +195,18 @@ const ITEM_INTENT_META: Record<ItemIntent, { label: string; className: string }>
 }
 
 const initialCreateDraft: CreateDraftState = {
+  projectRef: '',
   title: '',
-  owner: '',
-  site: '',
   liveAccount: '',
   anchor: '',
   startAt: '',
   endAt: '',
-  operator: '',
-  recorder: '',
-  reviewer: '',
-  purposes: [],
-  isTestAccountingEnabled: false,
+  exposure: '',
+  click: '',
+  cart: '',
+  order: '',
+  gmv: '',
+  purposes: ['TEST'],
   note: '',
 }
 
@@ -328,6 +326,11 @@ function formatInteger(value: number | null | undefined): string {
   return value.toLocaleString('zh-CN')
 }
 
+function formatPercent(numerator: number, denominator: number): string {
+  if (denominator <= 0) return '-'
+  return `${((numerator / denominator) * 100).toFixed(1)}%`
+}
+
 function buildSegmentTime(dateTime: string, offsetMinutes: number): string {
   const matched = dateTime.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/)
   if (!matched) return ''
@@ -409,10 +412,10 @@ function getLiveWorkItemSnapshot(session: SessionViewModel): {
     rows: [
       { label: '工作项状态', value: getWorkItemStatusLabel(session.status) },
       { label: '正式操作', value: '关联直播测款记录' },
-      { label: '渠道商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
-      { label: '渠道商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
+      { label: '渠道店铺商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
+      { label: '渠道店铺商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
       { label: '上游渠道商品编码', value: linkedChannelProduct?.upstreamChannelProductCode || '-' },
-      { label: '直播场次', value: session.id },
+      { label: '直播测款', value: session.id },
       { label: '直播挂车明细', value: actionItem?.liveLineCode || actionItem?.liveLineId || '-' },
       { label: '曝光量', value: formatInteger(actionItem?.exposure ?? session.exposureTotal) },
       { label: '点击量', value: formatInteger(actionItem?.click ?? session.clickTotal) },
@@ -452,14 +455,14 @@ function buildDefaultLogs(session: {
   updatedAt: string
 }): LiveLog[] {
   return [
-    { time: session.updatedAt, action: '更新场次数据', user: session.owner || '系统演示', detail: `同步直播场次「${session.title}」的挂车和指标明细。` },
+    { time: session.updatedAt, action: '更新测款数据', user: session.owner || '系统演示', detail: `同步直播测款「${session.title}」的挂车和指标明细。` },
     {
       time: session.endAt || session.startAt,
       action: session.endAt ? '下播' : '直播进行中',
       user: '系统',
-      detail: session.endAt ? '直播结束，等待核对或入账。' : '直播场次已进入执行中，请持续补录明细。',
+      detail: session.endAt ? '直播结束，等待核对或入账。' : '直播测款已进入执行中，请持续补录明细。',
     },
-    { time: session.createdAt, action: '创建场次', user: session.owner || '系统演示', detail: `创建直播场次 ${session.id}。` },
+    { time: session.createdAt, action: '创建直播测款', user: session.owner || '系统演示', detail: `创建直播测款 ${session.id}。` },
   ]
 }
 
@@ -729,6 +732,12 @@ function closeAllDialogs(): void {
   }
 }
 
+function closeDetailDrawer(): void {
+  state.detail.routeKey = ''
+  state.detail.sessionId = null
+  state.detail.activeTab = 'overview'
+}
+
 function syncDetailState(sessionId: string): void {
   const routeKey = appStore.getState().pathname
   if (state.detail.routeKey === routeKey && state.detail.sessionId === sessionId) return
@@ -856,10 +865,61 @@ function renderAccountingBadge(status: AccountingStatus): string {
   return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${meta.color}">${escapeHtml(meta.label)}</span>`
 }
 
-function renderPurposeBadges(purposes: string[]): string {
-  return purposes
-    .map((purpose) => `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getPurposeClass(purpose)}">${escapeHtml(purpose)}</span>`)
-    .join('')
+function renderProjectPurposeBadge(): string {
+  return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getPurposeClass('测款')}">测款项目</span>`
+}
+
+function findProjectByHints(hints: Array<string | null | undefined>): { projectId: string; label: string } | null {
+  const normalizedHints = hints
+    .map((item) => item?.trim().toLowerCase() || '')
+    .filter(Boolean)
+  if (normalizedHints.length === 0) return null
+
+  const projects = listProjects()
+  const exact = projects.find((project) =>
+    normalizedHints.some((hint) =>
+      [project.projectCode, project.projectName, project.styleCodeName, project.styleNumber, project.linkedStyleCode || '']
+        .map((value) => value.trim().toLowerCase())
+        .includes(hint),
+    ),
+  )
+  if (exact) {
+    return { projectId: exact.projectId, label: exact.projectName }
+  }
+
+  const fuzzy = projects.find((project) =>
+    normalizedHints.some((hint) =>
+      [project.projectCode, project.projectName, project.styleCodeName, project.styleNumber, project.linkedStyleCode || '']
+        .some((value) => {
+          const normalizedValue = value.trim().toLowerCase()
+          return normalizedValue && (normalizedValue.includes(hint) || hint.includes(normalizedValue))
+        }),
+    ),
+  )
+  if (fuzzy) {
+    return { projectId: fuzzy.projectId, label: fuzzy.projectName }
+  }
+  return null
+}
+
+function getPrimaryProject(session: SessionViewModel): { projectId: string; label: string } | null {
+  const target = session.items.find((item) => item.relatedProjectId && item.projectRef)
+  if (target?.relatedProjectId) {
+    return {
+      projectId: target.relatedProjectId,
+      label: getProjectRelationProjectLabel(target.relatedProjectId),
+    }
+  }
+
+  const inferred = findProjectByHints([
+    ...session.items.flatMap((item) => [item.projectRef, item.productRef, item.productName, item.styleCode]),
+    session.title,
+    session.id,
+  ])
+  if (inferred) return inferred
+
+  const fallbackProject = listProjects()[0]
+  return fallbackProject ? { projectId: fallbackProject.projectId, label: fallbackProject.projectName } : null
 }
 
 function renderPager(totalPages: number): string {
@@ -889,11 +949,10 @@ function renderListHeader(): string {
     <section class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="text-xs text-slate-500">商品中心 / 测款与渠道管理</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900">直播场次</h1>
-        <p class="mt-1 text-sm text-slate-500">统一管理直播场次、挂车明细、测款入账和样衣关联，关账与测款入账分离。</p>
+        <h1 class="mt-1 text-2xl font-semibold text-slate-900">直播测款</h1>
       </div>
       <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-live-testing-action="open-create-drawer">
-        <i data-lucide="plus" class="h-4 w-4"></i>新建场次
+        <i data-lucide="plus" class="h-4 w-4"></i>新增直播测款
       </button>
     </section>
   `
@@ -902,42 +961,17 @@ function renderListHeader(): string {
 function renderListFilters(): string {
   return `
     <section class="rounded-lg border bg-white p-4">
-      <div class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_160px]">
         <label class="space-y-1">
-          <span class="text-xs text-slate-500">搜索场次</span>
+          <span class="text-xs text-slate-500">搜索直播测款</span>
           <div class="relative">
             <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-            <input class="h-10 w-full rounded-md border border-slate-200 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="搜索场次编号 / 标题 / 账号 / 主播" value="${escapeHtml(state.list.search)}" data-pcs-live-testing-field="list-search" />
+            <input class="h-10 w-full rounded-md border border-slate-200 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="搜索商品项目 / 测款编号 / 标题 / 账号 / 主播" value="${escapeHtml(state.list.search)}" data-pcs-live-testing-field="list-search" />
           </div>
         </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">场次状态</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-live-testing-field="list-status">
-            ${STATUS_OPTIONS.map((status) => {
-              const label = status === 'all' ? '全部状态' : SESSION_STATUS_META[status].label
-              return `<option value="${status}" ${state.list.status === status ? 'selected' : ''}>${escapeHtml(label)}</option>`
-            }).join('')}
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">场次用途</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-live-testing-field="list-purpose">
-            ${PURPOSE_OPTIONS.map((purpose) => `<option value="${purpose}" ${state.list.purpose === purpose ? 'selected' : ''}>${escapeHtml(purpose === 'all' ? '全部用途' : purpose)}</option>`).join('')}
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">测款入账</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-live-testing-field="list-accounting">
-            ${ACCOUNTING_OPTIONS.map((status) => {
-              const label = status === 'all' ? '全部入账状态' : ACCOUNTING_STATUS_META[status].label
-              return `<option value="${status}" ${state.list.accounting === status ? 'selected' : ''}>${escapeHtml(label)}</option>`
-            }).join('')}
-          </select>
-        </label>
-      </div>
-      <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
-        <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="query">查询</button>
-        <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="reset">重置</button>
+        <div class="flex items-end justify-end">
+          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="reset">重置</button>
+        </div>
       </div>
     </section>
   `
@@ -946,11 +980,11 @@ function renderListFilters(): string {
 function renderKpis(): string {
   const kpis = getKpis()
   const cards: Array<{ key: QuickFilterKey; label: string; value: number; helper: string; tone: string }> = [
-    { key: 'reconciling', label: '核对中', value: kpis.reconciling, helper: '待补录或复核的场次', tone: 'border-blue-200 bg-blue-50 text-blue-700' },
+    { key: 'reconciling', label: '核对中', value: kpis.reconciling, helper: '待补录或复核的直播测款', tone: 'border-blue-200 bg-blue-50 text-blue-700' },
     { key: 'readyToClose', label: '待关账', value: kpis.readyToClose, helper: '已下播可直接关账', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
     { key: 'pendingAccounting', label: '待入账', value: kpis.pendingAccounting, helper: 'TEST 行尚未完成入账', tone: 'border-amber-200 bg-amber-50 text-amber-700' },
     { key: 'accounted', label: '已入账', value: kpis.accounted, helper: '测款结论已回写', tone: 'border-violet-200 bg-violet-50 text-violet-700' },
-    { key: 'abnormal', label: '异常场次', value: kpis.abnormal, helper: '未填写下播时间或状态异常', tone: 'border-rose-200 bg-rose-50 text-rose-700' },
+    { key: 'abnormal', label: '异常测款', value: kpis.abnormal, helper: '未填写下播时间或状态异常', tone: 'border-rose-200 bg-rose-50 text-rose-700' },
   ]
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -974,47 +1008,34 @@ function renderKpis(): string {
 }
 
 function renderSessionActions(session: SessionViewModel): string {
-  const actions: string[] = [
-    `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/live/${escapeHtml(session.id)}">查看</button>`,
-  ]
-  if (session.status === 'RECONCILING') {
-    actions.push(`<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="open-close-dialog" data-session-id="${escapeHtml(session.id)}">完成关账</button>`)
-  }
-  if ((session.status === 'RECONCILING' || session.status === 'COMPLETED') && session.testAccountingStatus === 'PENDING') {
-    actions.push(`<button type="button" class="inline-flex h-7 items-center rounded-md bg-blue-600 px-2.5 text-xs text-white hover:bg-blue-700" data-pcs-live-testing-action="open-accounting-dialog" data-session-id="${escapeHtml(session.id)}">完成入账</button>`)
-  }
-  if (session.status === 'COMPLETED') {
-    actions.push(`<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="export-session" data-session-id="${escapeHtml(session.id)}">导出</button>`)
-  }
-  return actions.join('')
+  const project = getPrimaryProject(session)
+  if (!project) return '<span class="text-xs text-slate-400">-</span>'
+  return `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">查看项目</button>`
 }
 
 function renderListTable(): string {
-  const { items, total, totalPages } = getPagedSessions()
+  const { items, totalPages } = getPagedSessions()
   return `
     <section class="rounded-lg border bg-white">
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div>
-          <p class="text-sm font-medium text-slate-900">场次列表</p>
-          <p class="mt-1 text-xs text-slate-500">当前共筛选出 ${total} 个场次，支持挂车明细、样衣和测款入账联查。</p>
+          <p class="text-sm font-medium text-slate-900">直播测款列表</p>
         </div>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th class="px-4 py-3">场次</th>
-              <th class="px-4 py-3">状态</th>
-              <th class="px-4 py-3">用途</th>
+              <th class="px-4 py-3">商品项目</th>
+              <th class="px-4 py-3">直播测款</th>
               <th class="px-4 py-3">账号 / 主播</th>
               <th class="px-4 py-3">开播 - 下播</th>
-              <th class="px-4 py-3">负责人</th>
-              <th class="px-4 py-3 text-center">明细</th>
-              <th class="px-4 py-3 text-center">TEST 行</th>
-              <th class="px-4 py-3">测款入账</th>
-              <th class="px-4 py-3 text-center">样衣</th>
-              <th class="px-4 py-3 text-right">GMV</th>
+              <th class="px-4 py-3 text-right">曝光</th>
+              <th class="px-4 py-3 text-right">点击</th>
+              <th class="px-4 py-3 text-right">点击率</th>
+              <th class="px-4 py-3 text-right">加购</th>
               <th class="px-4 py-3 text-right">订单</th>
+              <th class="px-4 py-3 text-right">GMV</th>
               <th class="px-4 py-3">最近更新</th>
               <th class="px-4 py-3 text-center">操作</th>
             </tr>
@@ -1024,42 +1045,52 @@ function renderListTable(): string {
               items.length === 0
                 ? `
                   <tr>
-                    <td colspan="14" class="px-4 py-10 text-center text-sm text-slate-500">暂无匹配的直播场次，请调整筛选条件后重试。</td>
+                    <td colspan="12" class="px-4 py-10 text-center text-sm text-slate-500">暂无匹配的直播测款，请调整筛选条件后重试。</td>
                   </tr>
                 `
                 : items
                     .map(
-                      (session) => `
+                      (session) => {
+                        const project = getPrimaryProject(session)
+                        return `
                         <tr class="hover:bg-slate-50/80">
                           <td class="px-4 py-3 align-top">
+                            ${
+                              project
+                                ? `
+                                  <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">${escapeHtml(project.label)}</button>
+                                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(project.projectId)}</p>
+                                `
+                                : '<span class="text-sm text-slate-500">-</span>'
+                            }
+                          </td>
+                          <td class="px-4 py-3 align-top">
                             <div class="space-y-1">
-                              <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/testing/live/${escapeHtml(session.id)}">${escapeHtml(session.title)}</button>
+                              <p class="font-medium text-slate-900">${escapeHtml(session.title)}</p>
                               <p class="text-xs text-slate-500">${escapeHtml(session.id)}</p>
                             </div>
                           </td>
-                          <td class="px-4 py-3 align-top">${renderStatusBadge(session.status)}</td>
-                          <td class="px-4 py-3 align-top"><div class="flex flex-wrap gap-1">${renderPurposeBadges(session.purposes)}</div></td>
                           <td class="px-4 py-3 align-top">
                             <p class="font-medium text-slate-900">${escapeHtml(session.liveAccount)}</p>
                             <p class="mt-1 text-xs text-slate-500">${escapeHtml(session.anchor)}</p>
                           </td>
                           <td class="px-4 py-3 align-top text-xs text-slate-600">
                             <p>${escapeHtml(formatDateTime(session.startAt))}</p>
-                            <p class="mt-1">${escapeHtml(session.endAt ? formatDateTime(session.endAt) : '进行中')}</p>
+                            <p class="mt-1">${escapeHtml(session.endAt ? formatDateTime(session.endAt) : '未补录下播时间')}</p>
                           </td>
-                          <td class="px-4 py-3 align-top text-slate-700">${escapeHtml(session.owner)}</td>
-                          <td class="px-4 py-3 align-top text-center text-slate-700">${session.itemCount}</td>
-                          <td class="px-4 py-3 align-top text-center text-slate-700">${session.testItemCount}</td>
-                          <td class="px-4 py-3 align-top">${renderAccountingBadge(session.testAccountingStatus)}</td>
-                          <td class="px-4 py-3 align-top text-center text-slate-700">${session.sampleCount}</td>
-                          <td class="px-4 py-3 align-top text-right font-medium text-slate-900">${session.gmvTotal == null ? '-' : `¥${formatCurrency(session.gmvTotal)}`}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(session.exposureTotal)}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(session.clickTotal)}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatPercent(session.clickTotal, session.exposureTotal)}</td>
+                          <td class="px-4 py-3 align-top text-right text-slate-700">${formatInteger(session.cartTotal)}</td>
                           <td class="px-4 py-3 align-top text-right text-slate-700">${session.orderTotal == null ? '-' : formatInteger(session.orderTotal)}</td>
+                          <td class="px-4 py-3 align-top text-right font-medium text-slate-900">${session.gmvTotal == null ? '-' : `¥${formatCurrency(session.gmvTotal)}`}</td>
                           <td class="px-4 py-3 align-top text-xs text-slate-500">${escapeHtml(formatDateTime(session.updatedAt))}</td>
                           <td class="px-4 py-3 align-top">
                             <div class="flex flex-wrap justify-center gap-1">${renderSessionActions(session)}</div>
                           </td>
                         </tr>
-                      `,
+                      `
+                      },
                     )
                     .join('')
             }
@@ -1074,121 +1105,101 @@ function renderListTable(): string {
 function renderCreateDrawer(): string {
   if (!state.createDrawerOpen) return ''
   const draft = state.createDraft
-  return renderDrawerShell(
-    '新建场次',
-    `
-      <div class="space-y-6">
-        <section class="space-y-4">
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" class="absolute inset-0 bg-slate-900/35" data-pcs-live-testing-action="close-create-drawer" aria-label="关闭新增弹窗"></button>
+      <section class="relative z-10 flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-3 border-b px-6 py-4">
           <div>
-            <h4 class="text-sm font-semibold text-slate-900">A. 基础信息</h4>
-            <p class="mt-1 text-xs text-slate-500">先补齐场次标题、负责人和站点，保证后续明细和样衣能挂靠。</p>
+            <h3 class="text-lg font-semibold text-slate-900">新增直播测款记录</h3>
           </div>
-          <div class="grid gap-4 md:grid-cols-2">
-            <label class="space-y-1 md:col-span-2">
-              <span class="text-xs text-slate-500">场次标题</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.title)}" placeholder="直播-2026-04-13-TikTok 新款测试专场" data-pcs-live-testing-field="create-title" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">负责人</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.owner)}" placeholder="商品运营" data-pcs-live-testing-field="create-owner" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">站点</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.site)}" placeholder="雅加达 / 深圳" data-pcs-live-testing-field="create-site" />
-            </label>
-          </div>
-        </section>
-        <section class="space-y-4">
-          <div>
-            <h4 class="text-sm font-semibold text-slate-900">B. 直播信息</h4>
-            <p class="mt-1 text-xs text-slate-500">账号、主播和时间决定场次主记录，也会回写到后续测款执行节点。</p>
-          </div>
-          <div class="grid gap-4 md:grid-cols-2">
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">直播账号</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.liveAccount)}" placeholder="TikTok / 商品中心直播间" data-pcs-live-testing-field="create-live-account" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">主播</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.anchor)}" placeholder="家播-小N" data-pcs-live-testing-field="create-anchor" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">开播时间</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.startAt)}" placeholder="2026-04-13 19:00" data-pcs-live-testing-field="create-start-at" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">下播时间</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.endAt)}" placeholder="2026-04-13 22:00" data-pcs-live-testing-field="create-end-at" />
-            </label>
-          </div>
-        </section>
-        <section class="space-y-4">
-          <div>
-            <h4 class="text-sm font-semibold text-slate-900">C. 团队分工</h4>
-            <p class="mt-1 text-xs text-slate-500">用于详情右侧关键人卡片和日志追溯。</p>
-          </div>
-          <div class="grid gap-4 md:grid-cols-3">
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">场控 / 运营</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.operator)}" placeholder="直播运营" data-pcs-live-testing-field="create-operator" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">录入人</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.recorder)}" placeholder="数据助理" data-pcs-live-testing-field="create-recorder" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-xs text-slate-500">审核人</span>
-              <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.reviewer)}" placeholder="商品负责人" data-pcs-live-testing-field="create-reviewer" />
-            </label>
-          </div>
-        </section>
-        <section class="space-y-4">
-          <div>
-            <h4 class="text-sm font-semibold text-slate-900">D. 用途与测款开关</h4>
-            <p class="mt-1 text-xs text-slate-500">场次用途支持多选；勾选测款入账后，TEST 行会进入待入账清单。</p>
-          </div>
-          <div class="space-y-3">
-            <div class="flex flex-wrap gap-2">
-              ${Object.entries(LIVE_PURPOSE_META)
-                .map(
-                  ([key, meta]) => `
-                    <button type="button" class="${toClassName(
-                      'inline-flex rounded-full border px-3 py-1 text-xs transition',
-                      draft.purposes.includes(key as LivePurpose) ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-                    )}" data-pcs-live-testing-action="toggle-create-purpose" data-value="${escapeHtml(key)}">${escapeHtml(meta.label)}</button>
-                  `,
-                )
-                .join('')}
-            </div>
-            <button type="button" class="${toClassName(
-              'inline-flex h-9 items-center rounded-md border px-3 text-sm',
-              draft.isTestAccountingEnabled ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-            )}" data-pcs-live-testing-action="toggle-create-accounting">
-              <i data-lucide="${draft.isTestAccountingEnabled ? 'check-circle-2' : 'circle'}" class="mr-2 h-4 w-4"></i>
-              启用测款入账
-            </button>
-          </div>
-        </section>
-        <section class="space-y-2">
-          <h4 class="text-sm font-semibold text-slate-900">E. 备注</h4>
-          <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="补充直播目标、货盘说明或风险提示" data-pcs-live-testing-field="create-note">${escapeHtml(draft.note)}</textarea>
-        </section>
-        <div class="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-white py-4">
-          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="close-create-drawer">取消</button>
-          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="create-session-draft">保存草稿</button>
-          <button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-live-testing-action="create-session-reconciling">保存并进入核对</button>
+          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="close-create-drawer">关闭</button>
         </div>
-      </div>
-    `,
-    'close-create-drawer',
-  )
+        <div class="max-h-[80vh] overflow-y-auto px-6 py-5">
+          <div class="grid gap-5 lg:grid-cols-2">
+            <section class="space-y-4">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-900">基础信息</h4>
+              </div>
+              <label class="space-y-1">
+                <span class="text-xs text-slate-500">商品项目编号</span>
+                <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.projectRef)}" placeholder="PRJ-20251216-015" data-pcs-live-testing-field="create-project-ref" />
+              </label>
+              <label class="space-y-1">
+                <span class="text-xs text-slate-500">测款标题</span>
+                <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.title)}" placeholder="TikTok IDN 新款测试专场" data-pcs-live-testing-field="create-title" />
+              </label>
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">直播账号</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.liveAccount)}" placeholder="TikTok IDN Store-A" data-pcs-live-testing-field="create-live-account" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">主播</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.anchor)}" placeholder="家播-小N" data-pcs-live-testing-field="create-anchor" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">开播时间</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.startAt)}" placeholder="2026-04-13 19:00" data-pcs-live-testing-field="create-start-at" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">下播时间</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.endAt)}" placeholder="2026-04-13 22:00" data-pcs-live-testing-field="create-end-at" />
+                </label>
+              </div>
+            </section>
+            <section class="space-y-4">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-900">测款结果</h4>
+                <p class="mt-1 text-xs text-slate-500">直接补录最终数据，列表会同步展示 GMV、订单数、曝光、点击、加购和点击率。</p>
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">曝光</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.exposure)}" placeholder="15000" data-pcs-live-testing-field="create-exposure" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">点击</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.click)}" placeholder="1200" data-pcs-live-testing-field="create-click" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">加购</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.cart)}" placeholder="180" data-pcs-live-testing-field="create-cart" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-slate-500">订单</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.order)}" placeholder="45" data-pcs-live-testing-field="create-order" />
+                </label>
+                <label class="space-y-1 md:col-span-2">
+                  <span class="text-xs text-slate-500">GMV</span>
+                  <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.gmv)}" placeholder="8400" data-pcs-live-testing-field="create-gmv" />
+                </label>
+              </div>
+              <label class="space-y-1">
+                <span class="text-xs text-slate-500">备注</span>
+                <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="补充直播场景、异常说明或测款备注" data-pcs-live-testing-field="create-note">${escapeHtml(draft.note)}</textarea>
+              </label>
+            </section>
+          </div>
+        </div>
+        <div class="flex flex-wrap justify-end gap-2 border-t px-6 py-4">
+          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="close-create-drawer">取消</button>
+          <button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-live-testing-action="submit-create-session">保存记录</button>
+        </div>
+      </section>
+    </div>
+  `
 }
 
 function renderListPageDialogs(): string {
-  return [renderCreateDrawer(), renderCloseDialog(), renderAccountingDialog(), renderEditDrawer()].join('')
+  return renderCreateDrawer()
 }
 
-function renderSessionDetailHeader(session: SessionViewModel, relatedProjects: Array<{ projectId: string; label: string }>): string {
+function renderSessionDetailHeader(
+  session: SessionViewModel,
+  relatedProjects: Array<{ projectId: string; label: string }>,
+  mode: 'page' | 'drawer' = 'page',
+): string {
   const showClose = session.status === 'RECONCILING'
   const showAccounting = (session.status === 'RECONCILING' || session.status === 'COMPLETED') && session.testAccountingStatus === 'PENDING'
   return `
@@ -1196,8 +1207,8 @@ function renderSessionDetailHeader(session: SessionViewModel, relatedProjects: A
       <div class="flex flex-wrap items-start justify-between gap-4 px-4 py-4">
         <div class="space-y-3">
           <div class="flex flex-wrap items-center gap-2">
-            <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/live">
-              <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
+            <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" ${mode === 'drawer' ? 'data-pcs-live-testing-action="close-detail-drawer"' : 'data-nav="/pcs/testing/live"'}>
+              <i data-lucide="${mode === 'drawer' ? 'panel-right-close' : 'arrow-left'}" class="h-4 w-4"></i>${mode === 'drawer' ? '关闭详情' : '返回列表'}
             </button>
           </div>
           <div>
@@ -1276,7 +1287,7 @@ function renderOverviewTab(session: SessionViewModel, testItems: SessionItemView
       <section class="rounded-lg border bg-white p-4">
         <div class="mb-4">
           <h2 class="text-lg font-semibold text-slate-900">健康检查</h2>
-          <p class="mt-1 text-sm text-slate-500">对照参照系统的关账前检查口径，快速确认当前场次是否满足流转条件。</p>
+          <p class="mt-1 text-sm text-slate-500">对照参照系统的关账前检查口径，快速确认当前直播测款是否满足流转条件。</p>
         </div>
         <div class="space-y-3">
           ${checks
@@ -1394,7 +1405,7 @@ function renderEvidenceTab(session: SessionViewModel): string {
       <section class="rounded-lg border bg-white p-4">
         <div class="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 class="text-lg font-semibold text-slate-900">场次级证据</h2>
+            <h2 class="text-lg font-semibold text-slate-900">测款证据</h2>
             <p class="mt-1 text-sm text-slate-500">沉淀直播录屏、截图、讲解节点和后续测款入账依据。</p>
           </div>
           <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
@@ -1457,7 +1468,7 @@ function renderAccountingTab(session: SessionViewModel, testItems: SessionItemVi
             <tbody class="divide-y divide-slate-100">
               ${
                 testItems.length === 0
-                  ? '<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">当前场次没有 TEST 行，无需入账。</td></tr>'
+                  ? '<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">当前直播测款没有 TEST 行，无需入账。</td></tr>'
                   : testItems
                       .map(
                         (item) => `
@@ -1476,54 +1487,6 @@ function renderAccountingTab(session: SessionViewModel, testItems: SessionItemVi
                       )
                       .join('')
               }
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-  `
-}
-
-function renderSamplesTab(session: SessionViewModel): string {
-  return `
-    <div class="space-y-4">
-      <section class="rounded-lg border bg-white">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-900">本场关联样衣</h2>
-            <p class="mt-1 text-sm text-slate-500">展示直播间使用样衣、库存位置和保管人，承接样衣台账链路。</p>
-          </div>
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
-            <i data-lucide="plus" class="h-4 w-4"></i>发起样衣使用申请
-          </button>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th class="px-4 py-3">样衣编号</th>
-                <th class="px-4 py-3">名称</th>
-                <th class="px-4 py-3">站点</th>
-                <th class="px-4 py-3">状态</th>
-                <th class="px-4 py-3">位置</th>
-                <th class="px-4 py-3">保管人</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              ${session.samples
-                .map(
-                  (sample) => `
-                    <tr>
-                      <td class="px-4 py-3 text-blue-700">${escapeHtml(sample.id)}</td>
-                      <td class="px-4 py-3">${escapeHtml(sample.name)}</td>
-                      <td class="px-4 py-3">${escapeHtml(sample.site)}</td>
-                      <td class="px-4 py-3"><span class="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600">${escapeHtml(sample.status)}</span></td>
-                      <td class="px-4 py-3">${escapeHtml(sample.location)}</td>
-                      <td class="px-4 py-3">${escapeHtml(sample.holder)}</td>
-                    </tr>
-                  `,
-                )
-                .join('')}
             </tbody>
           </table>
         </div>
@@ -1628,8 +1591,8 @@ function renderDetailSidebar(session: SessionViewModel, relatedProjects: Array<{
           <button type="button" class="inline-flex h-9 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="set-detail-tab" data-tab="accounting">
             <i data-lucide="file-text" class="h-4 w-4"></i>相关决策实例
           </button>
-          <button type="button" class="inline-flex h-9 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/inventory">
-            <i data-lucide="shirt" class="h-4 w-4"></i>样衣库存与台账
+          <button type="button" class="inline-flex h-9 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products">
+            <i data-lucide="link-2" class="h-4 w-4"></i>渠道店铺商品
           </button>
         </div>
       </section>
@@ -1637,7 +1600,7 @@ function renderDetailSidebar(session: SessionViewModel, relatedProjects: Array<{
   `
 }
 
-function renderDetailContent(session: SessionViewModel): string {
+function renderDetailContent(session: SessionViewModel, mode: 'page' | 'drawer' = 'page'): string {
   const testItems = session.items.filter((item) => item.intent === 'TEST')
   const relatedProjects = Array.from(
     new Map(
@@ -1652,13 +1615,12 @@ function renderDetailContent(session: SessionViewModel): string {
   if (state.detail.activeTab === 'reconcile') activeContent = renderReconcileTab()
   if (state.detail.activeTab === 'evidence') activeContent = renderEvidenceTab(session)
   if (state.detail.activeTab === 'accounting') activeContent = renderAccountingTab(session, testItems)
-  if (state.detail.activeTab === 'samples') activeContent = renderSamplesTab(session)
   if (state.detail.activeTab === 'logs') activeContent = renderLogsTab(session)
 
   return `
     <div class="space-y-5 p-4">
-      ${renderNotice()}
-      ${renderSessionDetailHeader(session, relatedProjects)}
+      ${mode === 'page' ? renderNotice() : ''}
+      ${renderSessionDetailHeader(session, relatedProjects, mode)}
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
         <div class="space-y-4">
           <section class="rounded-lg border bg-white p-2">
@@ -1679,9 +1641,31 @@ function renderDetailContent(session: SessionViewModel): string {
         </div>
         ${renderDetailSidebar(session, relatedProjects)}
       </div>
-      ${renderCloseDialog()}
-      ${renderAccountingDialog()}
-      ${renderEditDrawer()}
+    </div>
+  `
+}
+
+function renderDetailDrawer(): string {
+  if (!state.detail.sessionId) return ''
+  const session = getSession(state.detail.sessionId)
+  if (!session) return ''
+  return `
+    <div class="fixed inset-0 z-50">
+      <button type="button" class="absolute inset-0 bg-slate-900/35" data-pcs-live-testing-action="close-detail-drawer" aria-label="关闭详情"></button>
+      <aside class="absolute inset-y-0 right-0 flex h-full w-full max-w-[1240px] flex-col border-l bg-slate-50 shadow-2xl">
+        <div class="border-b bg-white px-6 py-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">直播测款记录</h3>
+              <p class="mt-1 text-sm text-slate-500">一条直播测款记录只对应一个商品项目，当前通过侧边栏完成查看和补录。</p>
+            </div>
+            <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="close-detail-drawer">关闭</button>
+          </div>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          ${renderDetailContent(session, 'drawer')}
+        </div>
+      </aside>
     </div>
   `
 }
@@ -1697,7 +1681,7 @@ function renderCloseDialog(): string {
     { ok: testItems.every((item) => item.projectRef || item.productRef), label: 'TEST 行已绑定项目 / 商品' },
   ]
   return renderModalShell(
-    '完成场次（关账）',
+    '完成直播测款（关账）',
     `确认完成「${session.title}」的关账动作，状态将流转为“已关账”。`,
     `
       <section class="space-y-3">
@@ -1883,58 +1867,96 @@ function renderEditDrawer(): string {
   )
 }
 
-function createSession(status: SessionStatus): void {
+function createSession(): void {
   ensureSessionStore()
   const draft = state.createDraft
+  const resolvedProject = resolveProjectIdentity(draft.projectRef)
+  if (!resolvedProject) {
+    state.notice = `未找到商品项目 ${draft.projectRef.trim() || '（空）'}，请先输入有效的项目编号。`
+    return
+  }
+  const project = getProjectById(resolvedProject.projectId) ?? findProjectByCode(resolvedProject.projectCode)
   const sessionId = `LS-${todayCompact()}-${String(sessionStore.size + 1).padStart(3, '0')}`
-  const purposes = draft.purposes.length > 0 ? draft.purposes.map((item) => LIVE_PURPOSE_META[item].label) : ['带货']
+  const purposes = ['测款项目']
+  const exposure = toNumber(draft.exposure, 0)
+  const click = toNumber(draft.click, 0)
+  const cart = toNumber(draft.cart, 0)
+  const order = toNumber(draft.order, 0)
+  const gmv = toNumber(draft.gmv, 0)
+  const productRef = project?.styleCodeName || project?.styleNumber || resolvedProject.projectCode
   const session: SessionViewModel = {
     id: sessionId,
-    title: draft.title.trim() || `直播场次 ${sessionId}`,
-    status,
+    title: draft.title.trim() || `${project?.projectName || resolvedProject.projectCode} 直播测款`,
+    status: 'COMPLETED',
     purposes,
     liveAccount: draft.liveAccount.trim() || 'TikTok / 商品中心直播间',
     anchor: draft.anchor.trim() || '家播-待分配',
     startAt: draft.startAt.trim() || nowText(),
     endAt: draft.endAt.trim() || null,
-    owner: draft.owner.trim() || '商品运营',
-    operator: draft.operator.trim() || '直播运营',
-    recorder: draft.recorder.trim() || '数据助理',
-    reviewer: draft.reviewer.trim() || '商品负责人',
-    site: draft.site.trim() || '深圳',
-    itemCount: 0,
-    testItemCount: 0,
-    testAccountingStatus: draft.isTestAccountingEnabled ? 'PENDING' : 'NONE',
+    owner: '当前用户',
+    operator: '-',
+    recorder: '当前用户',
+    reviewer: '-',
+    site: '-',
+    itemCount: 1,
+    testItemCount: 1,
+    testAccountingStatus: 'NONE',
     sampleCount: 0,
-    gmvTotal: 0,
-    orderTotal: 0,
-    exposureTotal: 0,
-    clickTotal: 0,
-    cartTotal: 0,
-    isTestAccountingEnabled: draft.isTestAccountingEnabled,
+    gmvTotal: gmv,
+    orderTotal: order,
+    exposureTotal: exposure,
+    clickTotal: click,
+    cartTotal: cart,
+    isTestAccountingEnabled: false,
     note: draft.note.trim(),
     createdAt: nowText(),
     updatedAt: nowText(),
-    completedBy: null,
-    completedAt: null,
+    completedBy: '当前用户',
+    completedAt: nowText(),
     accountedBy: null,
     accountedAt: null,
-    items: [],
+    items: [
+      {
+        id: `${sessionId}-ITEM-001`,
+        liveLineId: null,
+        liveLineCode: null,
+        intent: 'TEST',
+        projectRef: resolvedProject.projectCode,
+        relatedProjectId: resolvedProject.projectId,
+        productRef,
+        productName: project?.projectName || resolvedProject.projectCode,
+        sku: '-',
+        styleCode: project?.styleCodeName || '',
+        segmentStart: '',
+        segmentEnd: '',
+        exposure,
+        click,
+        cart,
+        order,
+        pay: order,
+        gmv,
+        listPrice: 0,
+        payPrice: 0,
+        recommendation: null,
+        recommendationReason: null,
+        evidence: [],
+        decisionLink: buildDecisionLink(resolvedProject.projectId),
+      },
+    ],
     samples: [],
     logs: [
       {
         time: nowText(),
-        action: '创建场次',
+        action: '创建直播测款记录',
         user: '当前用户',
-        detail: status === 'DRAFT' ? '保存为草稿。' : '已创建并进入核对中。',
+        detail: `已为项目 ${resolvedProject.projectCode} 记录直播测款结果。`,
       },
     ],
   }
   sessionStore.set(sessionId, session)
-  state.notice = `直播场次「${session.title}」已创建。`
+  state.notice = `直播测款「${session.title}」已创建。`
   closeAllDialogs()
   resetCreateDraft()
-  appStore.navigate(`/pcs/testing/live/${sessionId}`)
 }
 
 export function renderPcsLiveTestingListPage(): string {
@@ -1944,7 +1966,6 @@ export function renderPcsLiveTestingListPage(): string {
       ${renderNotice()}
       ${renderListHeader()}
       ${renderListFilters()}
-      ${renderKpis()}
       ${renderListTable()}
       ${renderListPageDialogs()}
     </div>
@@ -1954,27 +1975,7 @@ export function renderPcsLiveTestingListPage(): string {
 export function renderPcsLiveTestingDetailPage(sessionId: string): string {
   ensureSessionStore()
   syncDetailState(sessionId)
-  const session = getSession(sessionId)
-
-  if (!session) {
-    return `
-      <div class="space-y-5 p-4">
-        <section class="rounded-lg border bg-white p-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 class="text-xl font-semibold text-slate-900">直播场次不存在</h1>
-              <p class="mt-1 text-sm text-slate-500">未找到对应的直播场次记录，请返回列表重新选择。</p>
-            </div>
-            <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/testing/live">
-              <i data-lucide="arrow-left" class="h-4 w-4"></i>返回直播场次
-            </button>
-          </div>
-        </section>
-      </div>
-    `
-  }
-
-  return renderDetailContent(session)
+  return renderPcsLiveTestingListPage()
 }
 
 export function handlePcsLiveTestingInput(target: Element): boolean {
@@ -1988,46 +1989,33 @@ export function handlePcsLiveTestingInput(target: Element): boolean {
     state.list.currentPage = 1
     return true
   }
-  if (field === 'list-status' && fieldNode instanceof HTMLSelectElement) {
-    state.list.status = fieldNode.value
-    state.list.currentPage = 1
-    return true
-  }
-  if (field === 'list-purpose' && fieldNode instanceof HTMLSelectElement) {
-    state.list.purpose = fieldNode.value
-    state.list.currentPage = 1
-    return true
-  }
-  if (field === 'list-accounting' && fieldNode instanceof HTMLSelectElement) {
-    state.list.accounting = fieldNode.value
-    state.list.currentPage = 1
-    return true
-  }
 
   const textFields = new Set([
+    'create-project-ref',
     'create-title',
-    'create-owner',
-    'create-site',
     'create-live-account',
     'create-anchor',
     'create-start-at',
     'create-end-at',
-    'create-operator',
-    'create-recorder',
-    'create-reviewer',
+    'create-exposure',
+    'create-click',
+    'create-cart',
+    'create-order',
+    'create-gmv',
   ])
   if (textFields.has(field) && fieldNode instanceof HTMLInputElement) {
     const key = field.replace(/^create-/, '').replaceAll('-', '') as string
+    if (field === 'create-project-ref') state.createDraft.projectRef = fieldNode.value
     if (field === 'create-title') state.createDraft.title = fieldNode.value
-    if (field === 'create-owner') state.createDraft.owner = fieldNode.value
-    if (field === 'create-site') state.createDraft.site = fieldNode.value
     if (field === 'create-live-account') state.createDraft.liveAccount = fieldNode.value
     if (field === 'create-anchor') state.createDraft.anchor = fieldNode.value
     if (field === 'create-start-at') state.createDraft.startAt = fieldNode.value
     if (field === 'create-end-at') state.createDraft.endAt = fieldNode.value
-    if (field === 'create-operator') state.createDraft.operator = fieldNode.value
-    if (field === 'create-recorder') state.createDraft.recorder = fieldNode.value
-    if (field === 'create-reviewer') state.createDraft.reviewer = fieldNode.value
+    if (field === 'create-exposure') state.createDraft.exposure = fieldNode.value
+    if (field === 'create-click') state.createDraft.click = fieldNode.value
+    if (field === 'create-cart') state.createDraft.cart = fieldNode.value
+    if (field === 'create-order') state.createDraft.order = fieldNode.value
+    if (field === 'create-gmv') state.createDraft.gmv = fieldNode.value
     void key
     return true
   }
@@ -2116,24 +2104,8 @@ export function handlePcsLiveTestingEvent(target: HTMLElement): boolean {
     state.createDrawerOpen = false
     return true
   }
-  if (action === 'toggle-create-purpose') {
-    const value = actionNode.dataset.value as LivePurpose | undefined
-    if (!value) return true
-    state.createDraft.purposes = state.createDraft.purposes.includes(value)
-      ? state.createDraft.purposes.filter((item) => item !== value)
-      : [...state.createDraft.purposes, value]
-    return true
-  }
-  if (action === 'toggle-create-accounting') {
-    state.createDraft.isTestAccountingEnabled = !state.createDraft.isTestAccountingEnabled
-    return true
-  }
-  if (action === 'create-session-draft') {
-    createSession('DRAFT')
-    return true
-  }
-  if (action === 'create-session-reconciling') {
-    createSession('RECONCILING')
+  if (action === 'submit-create-session') {
+    createSession()
     return true
   }
   if (action === 'open-close-dialog') {
@@ -2166,7 +2138,7 @@ export function handlePcsLiveTestingEvent(target: HTMLElement): boolean {
         },
       ),
     )
-    state.notice = '直播场次已完成关账。'
+    state.notice = '直播测款已完成关账。'
     closeAllDialogs()
     return true
   }
@@ -2234,28 +2206,38 @@ export function handlePcsLiveTestingEvent(target: HTMLElement): boolean {
     const currentItem = session?.items.find((candidate) => candidate.id === itemId) ?? null
     if (!session || !currentItem) return true
     const resolvedProject = resolveProjectIdentity(draft.projectRef)
+    const shouldSyncProject = draft.intent === 'TEST'
+    const testLineIds = Array.from(
+      new Set(
+        session.items
+          .filter((item) => item.intent === 'TEST' && item.liveLineId)
+          .map((item) => item.liveLineId as string),
+      ),
+    )
     let notice = '明细行已保存。'
-    if (currentItem.liveLineId) {
+    if (shouldSyncProject) {
       if (!draft.projectRef.trim()) {
-        replaceLiveProductLineProjectRelations(currentItem.liveLineId, [], '当前用户')
-        notice = '明细行已保存，并已解除直播测款正式关联。'
+        testLineIds.forEach((lineId) => {
+          replaceLiveProductLineProjectRelations(lineId, [], '当前用户')
+        })
+        notice = '明细行已保存，并已同步清空当前直播测款的正式项目关联。'
       } else if (!resolvedProject) {
         notice = `明细行已保存；直播测款正式关联未回写：未找到项目 ${draft.projectRef.trim()}。`
       } else {
-        const candidate = listLiveProductLineProjectRelationCandidates(currentItem.liveLineId).find(
+        const candidate = currentItem.liveLineId
+          ? listLiveProductLineProjectRelationCandidates(currentItem.liveLineId).find(
           (item) => item.projectId === resolvedProject.projectId,
         )
+          : null
         if (candidate && !candidate.eligible) {
           notice = `明细行已保存；直播测款正式关联未回写：${candidate.disabledReason || '当前项目不满足关联条件。'}`
         } else {
-          const result = replaceLiveProductLineProjectRelations(
-            currentItem.liveLineId,
-            [resolvedProject.projectId],
-            '当前用户',
+          const errors = testLineIds.flatMap((lineId) =>
+            replaceLiveProductLineProjectRelations(lineId, [resolvedProject.projectId], '当前用户').errors,
           )
-          notice = result.errors.length > 0
-            ? `明细行已保存；直播测款正式关联未回写：${result.errors.join('；')}`
-            : '明细行已保存，并已回写“关联直播测款记录”。'
+          notice = errors.length > 0
+            ? `明细行已保存；直播测款正式关联未回写：${Array.from(new Set(errors)).join('；')}`
+            : '明细行已保存，并已将当前直播测款全部 TEST 明细回写到同一商品项目。'
         }
       }
     }
@@ -2265,8 +2247,12 @@ export function handlePcsLiveTestingEvent(target: HTMLElement): boolean {
           ? {
               ...item,
               intent: draft.intent,
-              projectRef: resolvedProject?.projectCode ?? (draft.projectRef.trim() || null),
-              relatedProjectId: resolvedProject?.projectId ?? null,
+              projectRef:
+                shouldSyncProject
+                  ? resolvedProject?.projectCode ?? (draft.projectRef.trim() || null)
+                  : resolvedProject?.projectCode ?? (draft.projectRef.trim() || null),
+              relatedProjectId:
+                shouldSyncProject ? resolvedProject?.projectId ?? null : resolvedProject?.projectId ?? null,
               productRef: draft.productRef.trim(),
               segmentStart: draft.segmentStart.trim(),
               segmentEnd: draft.segmentEnd.trim(),
@@ -2278,9 +2264,16 @@ export function handlePcsLiveTestingEvent(target: HTMLElement): boolean {
               gmv: toNumber(draft.gmv, item.gmv),
               recommendation: draft.recommendation.trim() || null,
               recommendationReason: draft.recommendationReason.trim() || null,
-              decisionLink: buildDecisionLink(resolvedProject?.projectId ?? null),
+              decisionLink: buildDecisionLink((shouldSyncProject ? resolvedProject?.projectId : resolvedProject?.projectId) ?? null),
             }
-          : item,
+          : shouldSyncProject && item.intent === 'TEST'
+            ? {
+                ...item,
+                projectRef: resolvedProject?.projectCode ?? (draft.projectRef.trim() || null),
+                relatedProjectId: resolvedProject?.projectId ?? null,
+                decisionLink: buildDecisionLink(resolvedProject?.projectId ?? null),
+              }
+            : item,
       )
       return appendSessionLog(
         {
@@ -2305,7 +2298,7 @@ export function handlePcsLiveTestingEvent(target: HTMLElement): boolean {
   }
   if (action === 'export-session') {
     const sessionId = actionNode.dataset.sessionId || state.detail.sessionId
-    state.notice = sessionId ? `直播场次 ${sessionId} 的导出入口已准备，当前原型仅展示交互。` : '导出入口已触发。'
+    state.notice = sessionId ? `直播测款 ${sessionId} 的导出入口已准备，当前原型仅展示交互。` : '导出入口已触发。'
     return true
   }
   if (action === 'close-dialogs') {

@@ -634,7 +634,10 @@ function buildTestConclusionOutcomeValues(
 }
 
 function getCurrentChannelProductRelation(projectId: string): PcsProjectInstanceItem | null {
-  return findLatestProjectRelation(projectId, '渠道商品', '渠道商品')
+  return (
+    findLatestProjectRelation(projectId, '渠道店铺商品', '渠道店铺商品') ||
+    findLatestProjectRelation(projectId, '渠道商品', '渠道商品')
+  )
 }
 
 function getProjectTestingAggregate(projectId: string): {
@@ -806,7 +809,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     listingScopeRule: '单实例 = 单渠道 + 单店铺 + 单 Listing；同一项目可多渠道并行，同一渠道可多店铺并行。',
     targetChannelCode: currentChannelName || defaultChannelName,
     targetStoreId: currentStoreName,
-    listingTitle: currentChannelMeta.listingTitle || nodeRelationMeta.listingTitle || `${project.projectName} 测款渠道商品`,
+    listingTitle: currentChannelMeta.listingTitle || nodeRelationMeta.listingTitle || `${project.projectName} 测款渠道店铺商品`,
     listingPrice: currentChannelMeta.listingPrice || nodeRelationMeta.listingPrice || project.sampleUnitPrice || 199,
     currency: currentCurrency,
     sampleSupplierId: project.sampleSupplierName || project.sampleSupplierId,
@@ -2427,7 +2430,7 @@ function renderNodeMetricCards(node: ProjectNodeViewModel): string {
           : [],
       },
       {
-        label: '渠道商品拆分',
+        label: '渠道店铺商品拆分',
         lines: Array.isArray(payload.channelProductBreakdownLines)
           ? payload.channelProductBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
           : [],

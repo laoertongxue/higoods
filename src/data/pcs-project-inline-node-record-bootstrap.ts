@@ -440,7 +440,7 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
     summaryOwner: '商品运营',
     conclusionBusinessDate: '2026-04-04 16:10:00',
     conclusion: '通过',
-    conclusionNote: '测款结论为通过，保留当前渠道商品并进入款式档案完善阶段。',
+    conclusionNote: '测款结论为通过，保留当前渠道店铺商品并进入款式档案完善阶段。',
     live: {
       sourceObjectId: 'LS-20260404-011',
       sourceObjectCode: 'LS-20260404-011',
@@ -481,7 +481,7 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
     summaryOwner: '李娜',
     conclusionBusinessDate: '2026-04-01 18:20:00',
     conclusion: '调整',
-    conclusionNote: '测款结论为调整，当前渠道商品作废，并已转入改版任务继续推进。',
+    conclusionNote: '测款结论为调整，当前渠道店铺商品作废，并已转入改版任务继续推进。',
     live: {
       sourceObjectId: 'LS-20260331-017',
       sourceObjectCode: 'LS-20260331-017',
@@ -517,11 +517,11 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
     projectCode: 'PRJ-20251216-020',
     channelProductSequence: '01',
     summaryBusinessDate: '2026-04-03 12:50:00',
-    summaryText: '当前测款窗口样本不足，建议暂缓当前渠道商品并等待下一轮货盘与流量方案。',
+    summaryText: '当前测款窗口样本不足，建议暂缓当前渠道店铺商品并等待下一轮货盘与流量方案。',
     summaryOwner: '王明',
     conclusionBusinessDate: '2026-04-03 13:10:00',
     conclusion: '暂缓',
-    conclusionNote: '测款结论为暂缓，当前渠道商品作废，项目进入阻塞等待重新评估。',
+    conclusionNote: '测款结论为暂缓，当前渠道店铺商品作废，项目进入阻塞等待重新评估。',
     live: {
       sourceObjectId: 'LS-20260403-020',
       sourceObjectCode: 'LS-20260403-020',
@@ -560,7 +560,7 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
     summaryOwner: '王明',
     conclusionBusinessDate: '2026-04-05 16:20:00',
     conclusion: '淘汰',
-    conclusionNote: '测款结论为淘汰，当前渠道商品作废，项目正式终止。',
+    conclusionNote: '测款结论为淘汰，当前渠道店铺商品作废，项目正式终止。',
     live: {
       sourceObjectId: 'LS-20260405-024',
       sourceObjectCode: 'LS-20260405-024',
@@ -673,7 +673,7 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     return {
       projectCode,
       workItemTypeCode,
-      sourceModule: '样衣台账',
+      sourceModule: '项目样衣留痕',
       sourceDocType: '到样核对记录',
       sourceDocCode: `INB-${projectCode.slice(-3)}-001`,
       businessDate,
@@ -854,8 +854,8 @@ function buildProjectChannelProductRef(input: {
   status: string
 }): PcsProjectInlineNodeRef {
   return {
-    refModule: '渠道商品',
-    refType: '渠道商品',
+    refModule: '渠道店铺商品',
+    refType: '渠道店铺商品',
     refId: buildChannelProductId(input.projectCode, input.sequence),
     refCode: buildChannelProductCode(input.projectCode, input.sequence),
     refTitle: input.title,
@@ -908,7 +908,7 @@ function buildTestingBranchBootstrapRecords(
     const channelProductRef = buildProjectChannelProductRef({
       projectCode: seed.projectCode,
       sequence: seed.channelProductSequence,
-      title: `${project.projectName} 当前测款渠道商品`,
+      title: `${project.projectName} 当前测款渠道店铺商品`,
       status: seed.conclusion === '通过' ? '已生效' : '已作废',
     })
 
@@ -975,11 +975,11 @@ function buildTestingBranchBootstrapRecords(
     }
     if (seed.conclusion !== '通过') {
       downstreamRefs.push({
-        refModule: '渠道商品',
-        refType: '已作废渠道商品',
+        refModule: '渠道店铺商品',
+        refType: '已作废渠道店铺商品',
         refId: channelProductId,
         refCode: channelProductCode,
-        refTitle: `${project.projectName} 已作废测款渠道商品`,
+        refTitle: `${project.projectName} 已作废测款渠道店铺商品`,
         refStatus: '已作废',
       })
     }
@@ -1151,8 +1151,8 @@ function buildSampleCloseoutBootstrapRecords(
           refStatus: assetStatus,
         },
         {
-          refModule: '样衣台账',
-          refType: '样衣台账事件',
+          refModule: '项目样衣留痕',
+          refType: '项目样衣留痕',
           refId: seed.ledgerEventId,
           refCode: seed.ledgerEventCode,
           refTitle: seed.eventType === 'RETURN_SUPPLIER' ? '退货' : '处置',

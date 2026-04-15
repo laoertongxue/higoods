@@ -360,8 +360,8 @@ export function saveRevisionTaskDraft(input: RevisionTaskCreateInput): RevisionT
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'TEST_CONCLUSION',
-    workItemTypeName: '测款结论判定',
+    workItemTypeCode: 'REVISION_TASK',
+    workItemTypeName: '改版任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -580,7 +580,12 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     return { ok: false, message: upstreamError, pendingItem }
   }
 
-  const { node, pendingItem: nodePending } = getNodeOrPending('改版任务', project.projectId, project.projectCode, rawCode, 'TEST_CONCLUSION')
+  let { node, pendingItem: nodePending } = getNodeOrPending('改版任务', project.projectId, project.projectCode, rawCode, 'REVISION_TASK')
+  if (!node) {
+    const fallback = getNodeOrPending('改版任务', project.projectId, project.projectCode, rawCode, 'TEST_CONCLUSION')
+    node = fallback.node
+    nodePending = fallback.pendingItem
+  }
   if (!node || nodePending) {
     upsertRevisionTaskPendingItem(nodePending!)
     return { ok: false, message: nodePending!.reason, pendingItem: nodePending! }
@@ -603,8 +608,8 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'TEST_CONCLUSION',
-    workItemTypeName: '测款结论判定',
+    workItemTypeCode: 'REVISION_TASK',
+    workItemTypeName: '改版任务',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -640,8 +645,8 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'TEST_CONCLUSION',
-      workItemTypeName: '测款结论判定',
+      workItemTypeCode: 'REVISION_TASK',
+      workItemTypeName: '改版任务',
       sourceModule: '改版任务',
       sourceObjectType: '改版任务',
       sourceObjectId: task.revisionTaskId,

@@ -307,7 +307,7 @@ function buildSeedCases(): SampleReturnCaseRecord[] {
       projectName: liveProject?.projectName || '',
       projectNodeId: liveNode?.projectNodeId || '',
       workItemTypeCode: liveNode?.workItemTypeCode || 'LIVE_TEST',
-      workItemName: liveNode?.workItemTypeName || '直播场次',
+      workItemName: liveNode?.workItemTypeName || '直播测款',
       requesterRole: '直播运营',
       requesterName: '雅加达运营',
       handlerRole: '仓管',

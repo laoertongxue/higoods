@@ -48,22 +48,9 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '测款与渠道管理',
           icon: 'TestTube',
           children: [
-            { key: 'pcs-live-testing', title: '直播场次', icon: 'TestTube', href: '/pcs/testing/live' },
-            { key: 'pcs-video-testing', title: '短视频记录', icon: 'TestTube', href: '/pcs/testing/video' },
+            { key: 'pcs-live-testing', title: '直播测款', icon: 'TestTube', href: '/pcs/testing/live' },
+            { key: 'pcs-video-testing', title: '短视频测款', icon: 'TestTube', href: '/pcs/testing/video' },
             { key: 'pcs-channel-stores', title: '渠道店铺管理', icon: 'Store', href: '/pcs/channels/stores' },
-          ],
-        },
-        {
-          key: 'pcs-menu-samples',
-          title: '样衣资产管理',
-          icon: 'Shirt',
-          children: [
-            { key: 'pcs-sample-ledger', title: '样衣台账', icon: 'Shirt', href: '/pcs/samples/ledger' },
-            { key: 'pcs-sample-inventory', title: '样衣库存', icon: 'Package', href: '/pcs/samples/inventory' },
-            { key: 'pcs-sample-transfer', title: '样衣流转记录', icon: 'Layers', href: '/pcs/samples/transfer' },
-            { key: 'pcs-sample-return', title: '样衣退货与处理', icon: 'AlertTriangle', href: '/pcs/samples/return' },
-            { key: 'pcs-sample-application', title: '样衣使用申请', icon: 'CheckSquare', href: '/pcs/samples/application' },
-            { key: 'pcs-sample-view', title: '样衣视图', icon: 'Palette', href: '/pcs/samples/view' },
           ],
         },
         {
@@ -87,7 +74,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pcs-style-list', title: '款式档案', icon: 'Archive', href: '/pcs/products/styles' },
             { key: 'pcs-spec-list', title: '规格档案', icon: 'Package', href: '/pcs/products/specifications' },
-            { key: 'pcs-channel-products', title: '渠道商品', icon: 'ShoppingCart', href: '/pcs/products/channel-products' },
+            { key: 'pcs-channel-products', title: '渠道店铺商品', icon: 'ShoppingCart', href: '/pcs/products/channel-products' },
             { key: 'pcs-code-rules', title: '编码规则', icon: 'FileText', href: '/pcs/products/coding-rules' },
             { key: 'pcs-channel-attributes', title: '渠道属性对应', icon: 'Map', href: '/pcs/products/channel-attributes' },
           ],
