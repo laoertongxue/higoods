@@ -28,6 +28,8 @@ export interface PreProductionSampleTaskRecord {
   trackingNo: string
   sampleAssetId: string
   sampleCode: string
+  acceptedAt: string
+  confirmedAt: string
   status: PreProductionSampleTaskStatus
   ownerId: string
   ownerName: string

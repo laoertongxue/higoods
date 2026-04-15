@@ -29,6 +29,8 @@ export interface PatternTaskRecord {
   linkedTechPackVersionLabel: string
   linkedTechPackVersionStatus: string
   linkedTechPackUpdatedAt: string
+  acceptedAt: string
+  confirmedAt: string
   status: PatternTaskStatus
   ownerId: string
   ownerName: string

@@ -17,6 +17,14 @@ const STORE_MASTER_RECORDS: PcsChannelStoreMasterRecord[] = [
     linkedProjectStoreIds: ['store-tiktok-01'],
   },
   {
+    masterStoreId: 'ST-002',
+    storeName: 'VN-Store-B',
+    channelCode: 'tiktok-shop',
+    pricingCurrency: 'VND',
+    settlementCurrency: 'VND',
+    linkedProjectStoreIds: ['store-tiktok-02'],
+  },
+  {
     masterStoreId: 'ST-003',
     storeName: 'MY-Store-C',
     channelCode: 'shopee',

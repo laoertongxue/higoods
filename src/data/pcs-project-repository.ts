@@ -29,6 +29,8 @@ import type {
   PcsProjectPhaseRecord,
   PcsProjectRecord,
   PcsProjectStoreSnapshot,
+  PcsProjectRuntimeState,
+  PcsProjectViewRecord,
   ProjectIdentityRef,
   ProjectNodeIdentityRef,
   ProjectCategoryOption,
@@ -105,45 +107,66 @@ function canUseStorage(): boolean {
   return typeof localStorage !== 'undefined'
 }
 
+function stripProjectRuntimeFields(project: PcsProjectRecord | PcsProjectViewRecord): PcsProjectRecord {
+  const {
+    progressDone: _progressDone,
+    progressTotal: _progressTotal,
+    nextWorkItemName: _nextWorkItemName,
+    nextWorkItemStatus: _nextWorkItemStatus,
+    pendingDecisionFlag: _pendingDecisionFlag,
+    blockedFlag: _blockedFlag,
+    blockedReason: _blockedReason,
+    riskStatus: _riskStatus,
+    riskReason: _riskReason,
+    riskWorkItem: _riskWorkItem,
+    riskDurationDays: _riskDurationDays,
+    ...rest
+  } = project as PcsProjectViewRecord
+  return rest as PcsProjectRecord
+}
+
 function cloneProject(project: PcsProjectRecord): PcsProjectRecord {
+  const baseProject = stripProjectRuntimeFields(project)
   return {
-    ...project,
-    seasonTags: [...(project.seasonTags || [])],
-    styleTags: [...(project.styleTags || [])],
-    styleTagIds: [...(project.styleTagIds || [])],
-    styleTagNames: [...(project.styleTagNames || [])],
-    crowdPositioningIds: [...(project.crowdPositioningIds || [])],
-    crowdPositioningNames: [...(project.crowdPositioningNames || [])],
-    ageIds: [...(project.ageIds || [])],
-    ageNames: [...(project.ageNames || [])],
-    crowdIds: [...(project.crowdIds || [])],
-    crowdNames: [...(project.crowdNames || [])],
-    productPositioningIds: [...(project.productPositioningIds || [])],
-    productPositioningNames: [...(project.productPositioningNames || [])],
-    targetAudienceTags: [...(project.targetAudienceTags || [])],
-    targetChannelCodes: [...(project.targetChannelCodes || [])],
-    projectAlbumUrls: [...(project.projectAlbumUrls || [])],
-    collaboratorIds: [...(project.collaboratorIds || [])],
-    collaboratorNames: [...(project.collaboratorNames || [])],
-    linkedStyleId: project.linkedStyleId || '',
-    linkedStyleCode: project.linkedStyleCode || '',
-    linkedStyleName: project.linkedStyleName || '',
-    linkedStyleGeneratedAt: project.linkedStyleGeneratedAt || '',
-    linkedTechPackVersionId: project.linkedTechPackVersionId || '',
-    linkedTechPackVersionCode: project.linkedTechPackVersionCode || '',
-    linkedTechPackVersionLabel: project.linkedTechPackVersionLabel || '',
-    linkedTechPackVersionStatus: project.linkedTechPackVersionStatus || '',
-    linkedTechPackVersionPublishedAt: project.linkedTechPackVersionPublishedAt || '',
-    projectArchiveId: project.projectArchiveId || '',
-    projectArchiveNo: project.projectArchiveNo || '',
-    projectArchiveStatus: project.projectArchiveStatus || '',
-    projectArchiveDocumentCount: Number.isFinite(project.projectArchiveDocumentCount) ? project.projectArchiveDocumentCount : 0,
-    projectArchiveFileCount: Number.isFinite(project.projectArchiveFileCount) ? project.projectArchiveFileCount : 0,
-    projectArchiveMissingItemCount: Number.isFinite(project.projectArchiveMissingItemCount)
-      ? project.projectArchiveMissingItemCount
+    ...baseProject,
+    seasonTags: [...(baseProject.seasonTags || [])],
+    styleTags: [...(baseProject.styleTags || [])],
+    styleTagIds: [...(baseProject.styleTagIds || [])],
+    styleTagNames: [...(baseProject.styleTagNames || [])],
+    crowdPositioningIds: [...(baseProject.crowdPositioningIds || [])],
+    crowdPositioningNames: [...(baseProject.crowdPositioningNames || [])],
+    ageIds: [...(baseProject.ageIds || [])],
+    ageNames: [...(baseProject.ageNames || [])],
+    crowdIds: [...(baseProject.crowdIds || [])],
+    crowdNames: [...(baseProject.crowdNames || [])],
+    productPositioningIds: [...(baseProject.productPositioningIds || [])],
+    productPositioningNames: [...(baseProject.productPositioningNames || [])],
+    targetAudienceTags: [...(baseProject.targetAudienceTags || [])],
+    targetChannelCodes: [...(baseProject.targetChannelCodes || [])],
+    projectAlbumUrls: [...(baseProject.projectAlbumUrls || [])],
+    collaboratorIds: [...(baseProject.collaboratorIds || [])],
+    collaboratorNames: [...(baseProject.collaboratorNames || [])],
+    linkedStyleId: baseProject.linkedStyleId || '',
+    linkedStyleCode: baseProject.linkedStyleCode || '',
+    linkedStyleName: baseProject.linkedStyleName || '',
+    linkedStyleGeneratedAt: baseProject.linkedStyleGeneratedAt || '',
+    linkedTechPackVersionId: baseProject.linkedTechPackVersionId || '',
+    linkedTechPackVersionCode: baseProject.linkedTechPackVersionCode || '',
+    linkedTechPackVersionLabel: baseProject.linkedTechPackVersionLabel || '',
+    linkedTechPackVersionStatus: baseProject.linkedTechPackVersionStatus || '',
+    linkedTechPackVersionPublishedAt: baseProject.linkedTechPackVersionPublishedAt || '',
+    projectArchiveId: baseProject.projectArchiveId || '',
+    projectArchiveNo: baseProject.projectArchiveNo || '',
+    projectArchiveStatus: baseProject.projectArchiveStatus || '',
+    projectArchiveDocumentCount: Number.isFinite(baseProject.projectArchiveDocumentCount)
+      ? baseProject.projectArchiveDocumentCount
       : 0,
-    projectArchiveUpdatedAt: project.projectArchiveUpdatedAt || '',
-    projectArchiveFinalizedAt: project.projectArchiveFinalizedAt || '',
+    projectArchiveFileCount: Number.isFinite(baseProject.projectArchiveFileCount) ? baseProject.projectArchiveFileCount : 0,
+    projectArchiveMissingItemCount: Number.isFinite(baseProject.projectArchiveMissingItemCount)
+      ? baseProject.projectArchiveMissingItemCount
+      : 0,
+    projectArchiveUpdatedAt: baseProject.projectArchiveUpdatedAt || '',
+    projectArchiveFinalizedAt: baseProject.projectArchiveFinalizedAt || '',
   }
 }
 
@@ -356,8 +379,133 @@ function persistSnapshot(snapshot: PcsProjectStoreSnapshot): void {
   }
 }
 
-function sortProjects(projects: PcsProjectRecord[]): PcsProjectRecord[] {
+function sortProjects<T extends { updatedAt: string }>(projects: T[]): T[] {
   return [...projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+function parseDateValue(dateText: string | null | undefined): number | null {
+  if (!dateText) return null
+  const normalized = dateText.includes('T') ? dateText : dateText.replace(' ', 'T')
+  const timestamp = Date.parse(normalized)
+  return Number.isNaN(timestamp) ? null : timestamp
+}
+
+function getDurationDaysSince(dateText: string | null | undefined, endDateText = nowText()): number {
+  const startTimestamp = parseDateValue(dateText)
+  const endTimestamp = parseDateValue(endDateText)
+  if (startTimestamp === null || endTimestamp === null || endTimestamp < startTimestamp) return 0
+  return Math.ceil((endTimestamp - startTimestamp) / (24 * 60 * 60 * 1000))
+}
+
+function getOrderedProjectNodes(snapshot: PcsProjectStoreSnapshot, projectId: string): PcsProjectNodeRecord[] {
+  return snapshot.nodes
+    .filter((item) => item.projectId === projectId)
+    .sort((a, b) => {
+      if (a.phaseCode === b.phaseCode) return a.sequenceNo - b.sequenceNo
+      return a.projectNodeId.localeCompare(b.projectNodeId)
+    })
+}
+
+function isClosedNodeStatus(status: ProjectNodeStatus): boolean {
+  return status === '已完成' || status === '已取消'
+}
+
+function getNodeActivityTime(node: PcsProjectNodeRecord | null): string {
+  if (!node) return ''
+  return node.lastEventTime || node.updatedAt || ''
+}
+
+function isBlockingIssue(node: PcsProjectNodeRecord | null): boolean {
+  if (!node) return false
+  return /阻塞|暂缓|冻结|暂停/.test(`${node.currentIssueType} ${node.currentIssueText}`)
+}
+
+function getTerminationReason(nodes: PcsProjectNodeRecord[]): string {
+  const terminationNode = [...nodes]
+    .sort((a, b) => getNodeActivityTime(b).localeCompare(getNodeActivityTime(a)))
+    .find(
+      (node) =>
+        node.lastEventType === '项目终止' ||
+        node.latestResultType === '项目终止' ||
+        node.currentIssueType === '项目终止',
+    )
+  return terminationNode?.latestResultText || terminationNode?.currentIssueText || ''
+}
+
+function deriveProjectRuntimeState(
+  project: PcsProjectRecord,
+  snapshot: PcsProjectStoreSnapshot,
+  referenceTime = nowText(),
+): PcsProjectRuntimeState {
+  const nodes = getOrderedProjectNodes(snapshot, project.projectId)
+  const progressDone = nodes.filter((node) => node.currentStatus === '已完成').length
+  const progressTotal = nodes.length
+  const nextNode = nodes.find((node) => !isClosedNodeStatus(node.currentStatus)) ?? null
+  const pendingDecisionNode = nodes.find((node) => node.currentStatus === '待确认') ?? null
+  const blockingNode =
+    nodes.find((node) => !isClosedNodeStatus(node.currentStatus) && isBlockingIssue(node)) ??
+    nodes.find((node) => isBlockingIssue(node)) ??
+    null
+  const delayedPendingDecisionDays = pendingDecisionNode ? getDurationDaysSince(getNodeActivityTime(pendingDecisionNode), referenceTime) : 0
+  const blockingDurationDays = blockingNode ? getDurationDaysSince(getNodeActivityTime(blockingNode), referenceTime) : 0
+  const blockedFlag =
+    project.projectStatus === '待审核'
+      ? true
+      : project.projectStatus === '进行中'
+        ? Boolean(blockingNode)
+        : false
+  const blockedReason =
+    project.projectStatus === '待审核'
+      ? '等待项目立项审核。'
+      : blockedFlag
+        ? blockingNode?.currentIssueText || blockingNode?.latestResultText || ''
+        : project.projectStatus === '已终止'
+          ? getTerminationReason(nodes)
+          : ''
+  const delayedPendingDecision =
+    Boolean(pendingDecisionNode) && !blockedFlag && delayedPendingDecisionDays >= 2 && project.projectStatus === '进行中'
+  const riskStatus: ProjectRiskStatus =
+    blockingDurationDays >= 2 || delayedPendingDecision ? '延期' : '正常'
+  const riskWorkItem = blockedFlag
+    ? blockingNode?.workItemTypeName || ''
+    : delayedPendingDecision
+      ? pendingDecisionNode?.workItemTypeName || ''
+      : ''
+  const riskDurationDays = blockedFlag
+    ? blockingDurationDays
+    : delayedPendingDecision
+      ? delayedPendingDecisionDays
+      : 0
+  const riskReason = blockedFlag
+    ? blockedReason
+    : delayedPendingDecision && pendingDecisionNode
+      ? `${pendingDecisionNode.workItemTypeName}已停留 ${delayedPendingDecisionDays} 天未判定，当前节点仍待确认。`
+      : ''
+
+  return {
+    progressDone,
+    progressTotal,
+    nextWorkItemName: nextNode?.workItemTypeName ?? '-',
+    nextWorkItemStatus: nextNode?.currentStatus ?? '-',
+    pendingDecisionFlag: Boolean(pendingDecisionNode),
+    blockedFlag,
+    blockedReason,
+    riskStatus,
+    riskReason,
+    riskWorkItem,
+    riskDurationDays,
+  }
+}
+
+function buildProjectViewRecord(
+  project: PcsProjectRecord,
+  snapshot: PcsProjectStoreSnapshot,
+  referenceTime = nowText(),
+): PcsProjectViewRecord {
+  return {
+    ...cloneProject(project),
+    ...deriveProjectRuntimeState(project, snapshot, referenceTime),
+  }
 }
 
 function getProjectCreateCatalogInternal(): ProjectCreateCatalog {
@@ -566,13 +714,15 @@ export function getProjectStoreSnapshot(): PcsProjectStoreSnapshot {
   return readSnapshot()
 }
 
-export function listProjects(): PcsProjectRecord[] {
-  return sortProjects(readSnapshot().projects.map(cloneProject))
+export function listProjects(): PcsProjectViewRecord[] {
+  const snapshot = readSnapshot()
+  return sortProjects(snapshot.projects.map((project) => buildProjectViewRecord(project, snapshot)))
 }
 
-export function getProjectById(projectId: string): PcsProjectRecord | null {
-  const project = readSnapshot().projects.find((item) => item.projectId === projectId)
-  return project ? cloneProject(project) : null
+export function getProjectById(projectId: string): PcsProjectViewRecord | null {
+  const snapshot = readSnapshot()
+  const project = snapshot.projects.find((item) => item.projectId === projectId)
+  return project ? buildProjectViewRecord(project, snapshot) : null
 }
 
 export function getProjectIdentityById(projectId: string): ProjectIdentityRef | null {
@@ -585,9 +735,10 @@ export function getProjectIdentityById(projectId: string): ProjectIdentityRef | 
   }
 }
 
-export function findProjectByCode(projectCode: string): PcsProjectRecord | null {
-  const project = readSnapshot().projects.find((item) => item.projectCode === projectCode)
-  return project ? cloneProject(project) : null
+export function findProjectByCode(projectCode: string): PcsProjectViewRecord | null {
+  const snapshot = readSnapshot()
+  const project = snapshot.projects.find((item) => item.projectCode === projectCode)
+  return project ? buildProjectViewRecord(project, snapshot) : null
 }
 
 export function listProjectPhases(projectId: string): PcsProjectPhaseRecord[] {
@@ -983,7 +1134,7 @@ export function updateProjectRecord(
   projectId: string,
   patch: Partial<PcsProjectRecord>,
   operatorName = '系统回写',
-): PcsProjectRecord | null {
+): PcsProjectViewRecord | null {
   const snapshot = readSnapshot()
   const projectIndex = snapshot.projects.findIndex((item) => item.projectId === projectId)
   if (projectIndex < 0) return null
@@ -1010,7 +1161,7 @@ export function updateProjectRecord(
     nodes: snapshot.nodes,
   })
 
-  return cloneProject(nextProject)
+  return getProjectById(projectId)
 }
 
 export function resetProjectRepository(): void {

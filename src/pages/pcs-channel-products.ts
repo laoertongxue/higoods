@@ -106,7 +106,10 @@ function renderListRow(record: ProjectChannelProductRecord): string {
         <button type="button" class="text-left text-[15px] font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(projectHref)}">${escapeHtml(record.projectCode)}</button>
         <div class="mt-1 max-w-[156px] text-xs leading-5 text-slate-500">${escapeHtml(record.projectName)}</div>
       </td>
-      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.projectNodeId)}</td>
+      <td class="px-4 py-4">
+        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(record.listingInstanceCode)}</div>
+        <div class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(record.projectNodeId)}</div>
+      </td>
       <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}</td>
       <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(getViewLabel(record))}</td>
       <td class="px-4 py-4">${renderChannelStatusBadge(record.channelProductStatus)}</td>
@@ -176,7 +179,7 @@ export function renderPcsChannelProductListPage(): string {
               <tr>
                 <th class="w-[132px] px-4 py-3">渠道商品编码</th>
                 <th class="w-[176px] px-4 py-3">来源项目</th>
-                <th class="w-[290px] px-4 py-3">来源商品上架节点</th>
+                <th class="w-[290px] px-4 py-3">来源商品上架实例</th>
                 <th class="w-[255px] px-4 py-3">渠道 / 店铺</th>
                 <th class="w-[118px] px-4 py-3">测款来源视角</th>
                 <th class="w-[112px] px-4 py-3">渠道商品状态</th>
@@ -250,7 +253,8 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
             <div class="mt-4 space-y-3">
               ${renderDetailField('来源项目', record.projectCode)}
               ${renderDetailField('项目名称', record.projectName)}
-              ${renderDetailField('来源商品上架节点', record.projectNodeId)}
+              ${renderDetailField('来源商品上架实例', record.listingInstanceCode)}
+              ${renderDetailField('来源工作项节点', record.projectNodeId)}
               ${renderDetailField('渠道 / 店铺', `${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}
               ${renderDetailField('币种 / 售价', `${record.currency} / ${record.listingPrice}`)}
             </div>

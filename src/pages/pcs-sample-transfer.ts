@@ -1,4 +1,4 @@
-import { ensurePcsProjectDemoDataReady } from './pcs-projects.ts'
+import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import { ensurePcsSampleDemoDataReady } from '../data/pcs-sample-demo.ts'
 import { getSampleAssetById, listSampleAssets } from '../data/pcs-sample-asset-repository.ts'
 import { listSampleLedgerEvents, listSampleLedgerEventsBySample } from '../data/pcs-sample-ledger-repository.ts'

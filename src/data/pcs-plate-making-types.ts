@@ -28,6 +28,8 @@ export interface PlateMakingTaskRecord {
   linkedTechPackVersionLabel: string
   linkedTechPackVersionStatus: string
   linkedTechPackUpdatedAt: string
+  acceptedAt: string
+  confirmedAt: string
   status: PlateMakingTaskStatus
   ownerId: string
   ownerName: string

@@ -1,4 +1,5 @@
 import type { FieldConfig, WorkItemTemplateConfig, WorkItemNature, WorkItemRuntimeType } from './pcs-work-item-configs/types.ts'
+import type { ProjectNodeStatus } from './pcs-project-types.ts'
 
 export type PcsProjectPhaseCode = 'PHASE_01' | 'PHASE_02' | 'PHASE_03' | 'PHASE_04' | 'PHASE_05'
 export type PcsProjectTemplateStyleType = '基础款' | '快时尚款' | '改版款' | '设计款'
@@ -122,6 +123,35 @@ export interface PcsProjectNodeStatusDefinition {
   businessMeaning: string
 }
 
+export interface PcsProjectInstanceStatusDefinition {
+  statusName: string
+  entryConditions: string[]
+  exitConditions: string[]
+  businessMeaning: string
+}
+
+export type PcsProjectInstanceSourceKind = 'PROJECT_RECORD' | 'INLINE_RECORD' | 'RELATION_OBJECT'
+
+export type PcsProjectMultiInstanceSemanticKind =
+  | 'PROJECT_INLINE_RECORDS'
+  | 'BUSINESS_OBJECTS'
+  | 'AGGREGATE_RECORDS'
+  | 'COMPOSITE_OBJECTS'
+
+export interface PcsProjectMultiInstanceDefinition {
+  semanticKind: PcsProjectMultiInstanceSemanticKind
+  semanticLabel: string
+  primaryInstanceTypeName: string
+  primarySourceKinds: PcsProjectInstanceSourceKind[]
+  primarySourceLayers: string[]
+  primaryRelationObjectTypes: string[]
+  supportingRelationObjectTypes: string[]
+  granularityLabel: string
+  validInstanceCountRule: string
+  latestInstanceRule: string
+  projectDisplayRule: string
+}
+
 export interface PcsProjectWorkItemContract {
   workItemId: string
   workItemTypeCode: PcsProjectWorkItemCode
@@ -143,6 +173,8 @@ export interface PcsProjectWorkItemContract {
   fieldDefinitions: PcsProjectNodeFieldDefinition[]
   operationDefinitions: PcsProjectNodeOperationDefinition[]
   statusDefinitions: PcsProjectNodeStatusDefinition[]
+  instanceStatusDefinitions?: PcsProjectInstanceStatusDefinition[]
+  multiInstanceDefinition?: PcsProjectMultiInstanceDefinition | null
   upstreamChanges: string[]
   downstreamChanges: string[]
   businessRules: string[]
@@ -237,6 +269,233 @@ interface ContractFieldGroupSeed {
 }
 
 const CONTRACT_TIMESTAMP = '2026-04-11 12:00'
+
+function createNodeStatus(
+  statusName: ProjectNodeStatus,
+  entryConditions: string[],
+  exitConditions: string[],
+  businessMeaning: string,
+): PcsProjectNodeStatusDefinition {
+  return {
+    statusName,
+    entryConditions,
+    exitConditions,
+    businessMeaning,
+  }
+}
+
+function createMultiInstanceDefinition(
+  input: PcsProjectMultiInstanceDefinition,
+): PcsProjectMultiInstanceDefinition {
+  return {
+    ...input,
+    primarySourceKinds: [...input.primarySourceKinds],
+    primarySourceLayers: [...input.primarySourceLayers],
+    primaryRelationObjectTypes: [...input.primaryRelationObjectTypes],
+    supportingRelationObjectTypes: [...input.supportingRelationObjectTypes],
+  }
+}
+
+const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
+  Record<PcsProjectWorkItemCode, PcsProjectMultiInstanceDefinition>
+> = {
+  SAMPLE_ACQUIRE: createMultiInstanceDefinition({
+    semanticKind: 'PROJECT_INLINE_RECORDS',
+    semanticLabel: '项目内正式记录',
+    primaryInstanceTypeName: '样衣获取记录',
+    primarySourceKinds: ['INLINE_RECORD'],
+    primarySourceLayers: ['项目内正式记录'],
+    primaryRelationObjectTypes: [],
+    supportingRelationObjectTypes: [],
+    granularityLabel: '一次样衣来源登记为一条实例',
+    validInstanceCountRule: '只按项目内正式记录条数统计。',
+    latestInstanceRule: '只以最近更新的样衣获取正式记录作为 latestInstance。',
+    projectDisplayRule: '项目节点内展示记录列表，不额外生成独立业务对象。',
+  }),
+  SAMPLE_SHOOT_FIT: createMultiInstanceDefinition({
+    semanticKind: 'PROJECT_INLINE_RECORDS',
+    semanticLabel: '项目内正式记录',
+    primaryInstanceTypeName: '拍摄试穿记录',
+    primarySourceKinds: ['INLINE_RECORD'],
+    primarySourceLayers: ['项目内正式记录'],
+    primaryRelationObjectTypes: [],
+    supportingRelationObjectTypes: [],
+    granularityLabel: '一次拍摄 / 试穿反馈登记为一条实例',
+    validInstanceCountRule: '只按项目内正式记录条数统计。',
+    latestInstanceRule: '只以最近更新的拍摄试穿正式记录作为 latestInstance。',
+    projectDisplayRule: '项目节点内展示记录列表，不单独沉淀业务模块实例。',
+  }),
+  SAMPLE_COST_REVIEW: createMultiInstanceDefinition({
+    semanticKind: 'PROJECT_INLINE_RECORDS',
+    semanticLabel: '项目内正式记录',
+    primaryInstanceTypeName: '样衣核价记录',
+    primarySourceKinds: ['INLINE_RECORD'],
+    primarySourceLayers: ['项目内正式记录'],
+    primaryRelationObjectTypes: [],
+    supportingRelationObjectTypes: [],
+    granularityLabel: '一次核价结论登记为一条实例',
+    validInstanceCountRule: '只按项目内正式记录条数统计。',
+    latestInstanceRule: '只以最近更新的样衣核价正式记录作为 latestInstance。',
+    projectDisplayRule: '项目节点内展示核价记录列表，不单独生成核价业务对象。',
+  }),
+  CHANNEL_PRODUCT_LISTING: createMultiInstanceDefinition({
+    semanticKind: 'BUSINESS_OBJECTS',
+    semanticLabel: '正式业务对象',
+    primaryInstanceTypeName: '渠道商品',
+    primarySourceKinds: ['RELATION_OBJECT'],
+    primarySourceLayers: ['正式业务对象'],
+    primaryRelationObjectTypes: ['渠道商品'],
+    supportingRelationObjectTypes: ['上游渠道商品同步'],
+    granularityLabel: '一个渠道 + 一个店铺 + 一条 Listing 为一条实例',
+    validInstanceCountRule: '只按正式渠道商品实例条数统计，不把上游同步日志算入实例数。',
+    latestInstanceRule: '只以最新渠道商品正式对象作为 latestInstance。',
+    projectDisplayRule: '项目节点展示实例摘要，正式实例列表统一在渠道商品模块维护。',
+  }),
+  VIDEO_TEST: createMultiInstanceDefinition({
+    semanticKind: 'BUSINESS_OBJECTS',
+    semanticLabel: '正式业务对象',
+    primaryInstanceTypeName: '短视频记录',
+    primarySourceKinds: ['RELATION_OBJECT'],
+    primarySourceLayers: ['正式业务对象'],
+    primaryRelationObjectTypes: ['短视频记录'],
+    supportingRelationObjectTypes: [],
+    granularityLabel: '一条短视频内容记录为一条实例',
+    validInstanceCountRule: '只按正式短视频记录条数统计。',
+    latestInstanceRule: '只以最近更新的短视频正式记录作为 latestInstance。',
+    projectDisplayRule: '项目节点展示引用摘要，正式实例列表统一在短视频记录模块维护。',
+  }),
+  LIVE_TEST: createMultiInstanceDefinition({
+    semanticKind: 'BUSINESS_OBJECTS',
+    semanticLabel: '正式业务对象',
+    primaryInstanceTypeName: '直播商品明细',
+    primarySourceKinds: ['RELATION_OBJECT'],
+    primarySourceLayers: ['正式业务对象'],
+    primaryRelationObjectTypes: ['直播商品明细'],
+    supportingRelationObjectTypes: [],
+    granularityLabel: '一条直播挂车商品明细为一条实例',
+    validInstanceCountRule: '只按正式直播商品明细条数统计。',
+    latestInstanceRule: '只以最近更新的直播商品明细作为 latestInstance。',
+    projectDisplayRule: '项目节点展示引用摘要，正式实例列表统一在直播场次模块维护。',
+  }),
+  TEST_DATA_SUMMARY: createMultiInstanceDefinition({
+    semanticKind: 'AGGREGATE_RECORDS',
+    semanticLabel: '聚合快照记录',
+    primaryInstanceTypeName: '测款汇总快照',
+    primarySourceKinds: ['INLINE_RECORD'],
+    primarySourceLayers: ['项目内正式记录'],
+    primaryRelationObjectTypes: [],
+    supportingRelationObjectTypes: ['直播商品明细', '短视频记录', '渠道商品'],
+    granularityLabel: '一次汇总生成一条聚合快照实例',
+    validInstanceCountRule: '只按汇总快照条数统计，不把上游直播 / 短视频事实算入实例数。',
+    latestInstanceRule: '只以最近生成的测款汇总快照作为 latestInstance。',
+    projectDisplayRule: '节点内展示当前汇总快照，同时说明其引用的直播、短视频和渠道商品事实来源。',
+  }),
+  PROJECT_TRANSFER_PREP: createMultiInstanceDefinition({
+    semanticKind: 'COMPOSITE_OBJECTS',
+    semanticLabel: '复合正式对象',
+    primaryInstanceTypeName: '技术包版本',
+    primarySourceKinds: ['RELATION_OBJECT'],
+    primarySourceLayers: ['正式业务对象'],
+    primaryRelationObjectTypes: ['技术包版本'],
+    supportingRelationObjectTypes: ['项目资料归档'],
+    granularityLabel: '一个技术包版本为一条主实例，项目资料归档为伴随对象',
+    validInstanceCountRule: 'validInstanceCount 只按技术包版本条数统计，项目资料归档不单独增加主实例数。',
+    latestInstanceRule: 'latestInstance 只以最新技术包版本认定，归档对象作为伴随关系展示。',
+    projectDisplayRule: '项目节点聚合展示技术包版本链与项目资料归档，不把两类对象混成同一种实例。',
+  }),
+  PATTERN_TASK: createMultiInstanceDefinition({
+    semanticKind: 'BUSINESS_OBJECTS',
+    semanticLabel: '正式业务对象',
+    primaryInstanceTypeName: '制版任务',
+    primarySourceKinds: ['RELATION_OBJECT'],
+    primarySourceLayers: ['正式业务对象'],
+    primaryRelationObjectTypes: ['制版任务'],
+    supportingRelationObjectTypes: [],
+    granularityLabel: '一条制版任务为一条实例',
+    validInstanceCountRule: '只按正式制版任务条数统计。',
+    latestInstanceRule: '只以最近更新的制版任务作为 latestInstance。',
+    projectDisplayRule: '项目节点展示任务摘要，正式实例列表统一在制版任务模块维护。',
+  }),
+  PATTERN_ARTWORK_TASK: createMultiInstanceDefinition({
+    semanticKind: 'BUSINESS_OBJECTS',
+    semanticLabel: '正式业务对象',
+    primaryInstanceTypeName: '花型任务',
+    primarySourceKinds: ['RELATION_OBJECT'],
+    primarySourceLayers: ['正式业务对象'],
+    primaryRelationObjectTypes: ['花型任务'],
+    supportingRelationObjectTypes: [],
+    granularityLabel: '一条花型任务为一条实例',
+    validInstanceCountRule: '只按正式花型任务条数统计。',
+    latestInstanceRule: '只以最近更新的花型任务作为 latestInstance。',
+    projectDisplayRule: '项目节点展示任务摘要，正式实例列表统一在花型任务模块维护。',
+  }),
+  FIRST_SAMPLE: createMultiInstanceDefinition({
+    semanticKind: 'BUSINESS_OBJECTS',
+    semanticLabel: '正式业务对象',
+    primaryInstanceTypeName: '首版样衣打样任务',
+    primarySourceKinds: ['RELATION_OBJECT'],
+    primarySourceLayers: ['正式业务对象'],
+    primaryRelationObjectTypes: ['首版样衣打样任务'],
+    supportingRelationObjectTypes: ['样衣资产'],
+    granularityLabel: '一条首版样衣打样任务为一条实例',
+    validInstanceCountRule: '只按正式首版样衣打样任务条数统计。',
+    latestInstanceRule: '只以最近更新的首版样衣打样任务作为 latestInstance。',
+    projectDisplayRule: '项目节点展示任务摘要，样衣资产作为伴随对象展示。',
+  }),
+  PRE_PRODUCTION_SAMPLE: createMultiInstanceDefinition({
+    semanticKind: 'BUSINESS_OBJECTS',
+    semanticLabel: '正式业务对象',
+    primaryInstanceTypeName: '产前版样衣任务',
+    primarySourceKinds: ['RELATION_OBJECT'],
+    primarySourceLayers: ['正式业务对象'],
+    primaryRelationObjectTypes: ['产前版样衣任务'],
+    supportingRelationObjectTypes: ['样衣资产'],
+    granularityLabel: '一条产前版样衣任务为一条实例',
+    validInstanceCountRule: '只按正式产前版样衣任务条数统计。',
+    latestInstanceRule: '只以最近更新的产前版样衣任务作为 latestInstance。',
+    projectDisplayRule: '项目节点展示任务摘要，样衣资产作为伴随对象展示。',
+  }),
+  SAMPLE_RETURN_HANDLE: createMultiInstanceDefinition({
+    semanticKind: 'PROJECT_INLINE_RECORDS',
+    semanticLabel: '项目内正式记录',
+    primaryInstanceTypeName: '样衣退回处置记录',
+    primarySourceKinds: ['INLINE_RECORD'],
+    primarySourceLayers: ['项目内正式记录'],
+    primaryRelationObjectTypes: [],
+    supportingRelationObjectTypes: ['样衣台账事件'],
+    granularityLabel: '一次退回或处置登记为一条实例',
+    validInstanceCountRule: '只按项目内正式记录条数统计，不把样衣台账事件算入主实例数。',
+    latestInstanceRule: '只以最近更新的退回处置正式记录作为 latestInstance。',
+    projectDisplayRule: '项目节点内展示处置记录列表，台账事件作为伴随事实展示。',
+  }),
+}
+
+function resolveProjectWorkItemMultiInstanceDefinition(
+  contract: Pick<PcsProjectWorkItemContract, 'workItemTypeCode' | 'capabilities'>,
+): PcsProjectMultiInstanceDefinition | null {
+  const found = PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP[contract.workItemTypeCode]
+  if (!contract.capabilities.canMultiInstance) return null
+  if (!found) {
+    throw new Error(`多实例工作项缺少统一实例语义定义：${contract.workItemTypeCode}`)
+  }
+  return createMultiInstanceDefinition(found)
+}
+
+const EXECUTE_NODE_STATUS_DEFINITIONS: PcsProjectNodeStatusDefinition[] = [
+  createNodeStatus('未开始', ['节点尚未创建或接收正式实例'], ['开始处理节点'], '当前项目节点尚未开始推进。'),
+  createNodeStatus('进行中', ['节点已开始推进，存在处理中实例或处理中动作'], ['形成待确认结果、直接完成或取消'], '当前项目节点正在推进。'),
+  createNodeStatus('待确认', ['节点已形成阶段性结果，等待项目级确认收口'], ['确认完成、重新处理或取消'], '当前项目节点等待确认后才能正式收口。'),
+  createNodeStatus('已完成', ['节点已完成正式回写并达到退出条件'], ['无'], '当前项目节点已完成。'),
+  createNodeStatus('已取消', ['项目终止、节点取消或明确不再推进'], ['无'], '当前项目节点已取消。'),
+]
+
+const CHANNEL_LISTING_NODE_STATUS_DEFINITIONS: PcsProjectNodeStatusDefinition[] = [
+  createNodeStatus('未开始', ['尚未建立任何有效上架实例'], ['创建上架实例'], '商品上架节点尚未开始。'),
+  createNodeStatus('进行中', ['已建立上架实例，仍在推进上架、测款或上游更新'], ['形成待确认结果、完成或取消'], '商品上架节点正在推进渠道商品实例。'),
+  createNodeStatus('待确认', ['已有测款引用或已形成生效候选，等待项目级结论确认'], ['确认完成、重新处理或取消'], '商品上架节点等待项目级结论或最终确认。'),
+  createNodeStatus('已完成', ['已形成正式生效结果或上架策略已收口'], ['无'], '商品上架节点已完成。'),
+  createNodeStatus('已取消', ['项目终止或节点取消'], ['无'], '商品上架节点已取消。'),
+]
 
 function groupFields(group: ContractFieldGroupSeed): PcsProjectNodeFieldDefinition[] {
   return group.fields.map((field) => ({
@@ -333,10 +592,35 @@ const projectInitFields = [
   ...groupFields({
     id: 'project-init-basic',
     title: '立项基础信息',
-    description: '项目立项节点承接模板、品类、品牌、风格与协作信息。',
+    description: '项目立项节点完整承接创建草稿与项目主记录的核心字段。',
     fields: [
-      { key: 'projectName', label: '项目名称', type: 'text', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', meaning: '本次立项的项目名称', logic: '创建项目时由用户录入，并回写项目主记录。', placeholder: '请输入项目名称' },
-      { key: 'templateId', label: '项目模板', type: 'reference', sourceKind: '模板管理', sourceRef: '项目模板管理', meaning: '决定项目阶段和节点矩阵的模板', logic: '只能选择正式模板，不允许脱离模板自由拼装。', placeholder: '请选择项目模板' },
+      {
+        key: 'projectName',
+        label: '项目名称',
+        type: 'text',
+        sourceKind: '本地主数据',
+        sourceRef: '商品项目创建表单',
+        meaning: '本次立项的项目名称',
+        logic: '创建项目时由用户录入，并回写项目主记录。',
+        placeholder: '请输入项目名称',
+      },
+      {
+        key: 'projectType',
+        label: '项目类型',
+        type: 'select',
+        sourceKind: '系统生成',
+        sourceRef: 'styleType -> projectType 映射',
+        meaning: '项目开发类型快照',
+        logic: '项目类型由款式类型自动映射生成，保留到主记录和 PROJECT_INIT 合同中。',
+        required: false,
+        readonly: true,
+        options: [
+          { value: '商品开发', label: '商品开发' },
+          { value: '快反上新', label: '快反上新' },
+          { value: '改版开发', label: '改版开发' },
+          { value: '设计研发', label: '设计研发' },
+        ],
+      },
       {
         key: 'projectSourceType',
         label: '项目来源类型',
@@ -353,18 +637,468 @@ const projectInitFields = [
           { value: '外部灵感', label: '外部灵感' },
         ],
       },
-      { key: 'categoryId', label: '品类', type: 'single-select', sourceKind: '配置工作台', sourceRef: 'categories', meaning: '商品项目一级品类', logic: '当前配置工作台只维护一级品类，subCategory 仅保留兼容字段，不作为必填。', placeholder: '请选择品类' },
-      { key: 'brandId', label: '品牌', type: 'single-select', sourceKind: '配置工作台', sourceRef: 'brands', meaning: '项目归属品牌', logic: '品牌选项统一来自配置工作台品牌维度。', placeholder: '请选择品牌' },
-      { key: 'styleCodeId', label: '风格编号', type: 'single-select', sourceKind: '配置工作台', sourceRef: 'styleCodes', meaning: '风格编号映射', logic: '风格编号改为选择配置工作台风格编号，不再要求手填 styleNumber。', required: false, placeholder: '请选择风格编号' },
-      { key: 'styleTagIds', label: '风格标签', type: 'multi-select', sourceKind: '配置工作台', sourceRef: 'styles', meaning: '风格池标签', logic: '风格标签统一来自配置工作台风格维度。', required: false },
-      { key: 'crowdPositioningIds', label: '人群定位', type: 'multi-select', sourceKind: '配置工作台', sourceRef: 'crowdPositioning', meaning: '品牌人群定位', logic: '用于表达项目的核心客群定位。', required: false },
-      { key: 'ageIds', label: '年龄带', type: 'multi-select', sourceKind: '配置工作台', sourceRef: 'ages', meaning: '适用年龄带', logic: '年龄带统一来自配置工作台年龄维度。', required: false },
-      { key: 'crowdIds', label: '人群', type: 'multi-select', sourceKind: '配置工作台', sourceRef: 'crowds', meaning: '营销或业务人群', logic: '人群标签统一来自配置工作台人群维度。', required: false },
-      { key: 'productPositioningIds', label: '商品定位', type: 'multi-select', sourceKind: '配置工作台', sourceRef: 'productPositioning', meaning: '商品价格带和设计定位', logic: '商品定位来自配置工作台商品定位维度。', required: false },
-      { key: 'targetChannelCodes', label: '目标测款渠道', type: 'multi-select', sourceKind: '渠道主数据', sourceRef: '渠道主数据', meaning: '后续测款目标渠道', logic: '立项时确认目标测款渠道，后续商品上架必须引用这些渠道。', placeholder: '请选择目标测款渠道' },
-      { key: 'ownerId', label: '负责人', type: 'user-select', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', meaning: '项目责任人', logic: '负责人来自当前本地组织主数据。', placeholder: '请选择负责人' },
-      { key: 'teamId', label: '执行团队', type: 'team-select', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', meaning: '项目执行团队', logic: '执行团队来自当前本地组织主数据。', placeholder: '请选择执行团队' },
-      { key: 'collaboratorIds', label: '协同人', type: 'user-multi-select', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', meaning: '跨角色协同人', logic: '协同人来自当前本地组织主数据，可选。', required: false },
+      {
+        key: 'templateId',
+        label: '项目模板',
+        type: 'reference',
+        sourceKind: '模板管理',
+        sourceRef: '项目模板管理',
+        meaning: '决定项目阶段和节点矩阵的模板',
+        logic: '只能选择正式模板，不允许脱离模板自由拼装。',
+        placeholder: '请选择项目模板',
+      },
+      {
+        key: 'styleType',
+        label: '款式类型',
+        type: 'select',
+        sourceKind: '固定枚举',
+        sourceRef: '模板款式类型',
+        meaning: '驱动项目模板与项目类型映射的款式类型',
+        logic: '款式类型决定默认模板和项目类型，是立项的正式字段之一。',
+        options: [
+          { value: '基础款', label: '基础款' },
+          { value: '快时尚款', label: '快时尚款' },
+          { value: '改版款', label: '改版款' },
+          { value: '设计款', label: '设计款' },
+        ],
+      },
+    ],
+  }),
+  ...groupFields({
+    id: 'project-init-product',
+    title: '商品归属信息',
+    description: '品类、品牌、风格编号和兼容分类字段统一沉淀到正式立项。',
+    fields: [
+      {
+        key: 'categoryId',
+        label: '品类',
+        type: 'single-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'categories',
+        meaning: '商品项目一级品类',
+        logic: '项目品类统一来自配置工作台品类维度。',
+        placeholder: '请选择品类',
+      },
+      {
+        key: 'categoryName',
+        label: '品类名称快照',
+        type: 'text',
+        sourceKind: '配置工作台',
+        sourceRef: 'categories',
+        meaning: '立项时的品类名称快照',
+        logic: '根据所选品类自动回写名称，供详情、审计和导出直接使用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'subCategoryId',
+        label: '二级品类',
+        type: 'single-select',
+        sourceKind: '本地主数据',
+        sourceRef: '兼容字段',
+        meaning: '兼容保留的二级品类标识',
+        logic: '当前配置工作台仍以一级品类为主，二级品类保留兼容字段，不做强制必填。',
+        required: false,
+        placeholder: '请选择二级品类',
+      },
+      {
+        key: 'subCategoryName',
+        label: '二级品类名称快照',
+        type: 'text',
+        sourceKind: '本地主数据',
+        sourceRef: '兼容字段',
+        meaning: '立项时的二级品类名称快照',
+        logic: '根据兼容二级品类自动回写名称，避免后续详情和导出丢失语义。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'brandId',
+        label: '品牌',
+        type: 'single-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'brands',
+        meaning: '项目归属品牌',
+        logic: '品牌选项统一来自配置工作台品牌维度。',
+        placeholder: '请选择品牌',
+      },
+      {
+        key: 'brandName',
+        label: '品牌名称快照',
+        type: 'text',
+        sourceKind: '配置工作台',
+        sourceRef: 'brands',
+        meaning: '立项时的品牌名称快照',
+        logic: '根据所选品牌自动回写名称，供项目主记录和工作项详情共用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'styleCodeId',
+        label: '风格编号',
+        type: 'single-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'styleCodes',
+        meaning: '风格编号映射',
+        logic: '风格编号统一选择配置工作台风格编号维度，不再单独手填。',
+        required: false,
+        placeholder: '请选择风格编号',
+      },
+      {
+        key: 'styleCodeName',
+        label: '风格编号名称快照',
+        type: 'text',
+        sourceKind: '配置工作台',
+        sourceRef: 'styleCodes',
+        meaning: '立项时的风格编号名称快照',
+        logic: '根据所选风格编号自动回写名称，供详情、导出和审计直接使用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'styleNumber',
+        label: '历史风格编号兼容值',
+        type: 'text',
+        sourceKind: '配置工作台',
+        sourceRef: 'styleCodes',
+        meaning: '兼容旧页面和旧记录使用的风格编号文本',
+        logic: '当前默认同步为所选风格编号名称，用于兼容历史字段口径。',
+        required: false,
+        readonly: true,
+      },
+    ],
+  }),
+  ...groupFields({
+    id: 'project-init-tags',
+    title: '风格与人群标签',
+    description: '项目标签、人群和价格带字段全部进入 PROJECT_INIT 正式合同，不再游离于主记录之外。',
+    fields: [
+      {
+        key: 'yearTag',
+        label: '年份',
+        type: 'text',
+        sourceKind: '系统生成',
+        sourceRef: '当前年份默认值',
+        meaning: '项目年份标签',
+        logic: '创建草稿默认写入当前年份，并同步回项目主记录。',
+        required: false,
+      },
+      {
+        key: 'seasonTags',
+        label: '季节标签',
+        type: 'multi-select',
+        sourceKind: '固定枚举',
+        sourceRef: '季节标签',
+        meaning: '项目季节标签集合',
+        logic: '用于表达季节意图，可为空。',
+        required: false,
+        options: [
+          { value: '春季', label: '春季' },
+          { value: '夏季', label: '夏季' },
+          { value: '秋季', label: '秋季' },
+          { value: '冬季', label: '冬季' },
+          { value: '四季', label: '四季' },
+        ],
+      },
+      {
+        key: 'styleTags',
+        label: '风格标签快照',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'styles',
+        meaning: '立项时的风格标签文本快照',
+        logic: 'styleTags 与 styleTagNames 同步沉淀，兼容不同页面读取口径。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'styleTagIds',
+        label: '风格标签',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'styles',
+        meaning: '风格池标签标识集合',
+        logic: '风格标签统一来自配置工作台风格维度。',
+        required: false,
+      },
+      {
+        key: 'styleTagNames',
+        label: '风格标签名称',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'styles',
+        meaning: '风格标签中文名称集合',
+        logic: '风格标签名称用于工作项详情、导出和审计的可读展示。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'crowdPositioningIds',
+        label: '人群定位',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'crowdPositioning',
+        meaning: '品牌人群定位标识集合',
+        logic: '人群定位统一来自配置工作台人群定位维度。',
+        required: false,
+      },
+      {
+        key: 'crowdPositioningNames',
+        label: '人群定位名称',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'crowdPositioning',
+        meaning: '人群定位中文名称集合',
+        logic: '名称快照供详情、审计和导出直接使用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'ageIds',
+        label: '年龄带',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'ages',
+        meaning: '适用年龄带标识集合',
+        logic: '年龄带统一来自配置工作台年龄维度。',
+        required: false,
+      },
+      {
+        key: 'ageNames',
+        label: '年龄带名称',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'ages',
+        meaning: '年龄带中文名称集合',
+        logic: '名称快照供详情、审计和导出直接使用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'crowdIds',
+        label: '人群',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'crowds',
+        meaning: '营销或业务人群标识集合',
+        logic: '人群标签统一来自配置工作台人群维度。',
+        required: false,
+      },
+      {
+        key: 'crowdNames',
+        label: '人群名称',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'crowds',
+        meaning: '人群中文名称集合',
+        logic: '名称快照供详情、审计和导出直接使用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'productPositioningIds',
+        label: '商品定位',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'productPositioning',
+        meaning: '商品价格带和设计定位标识集合',
+        logic: '商品定位来自配置工作台商品定位维度。',
+        required: false,
+      },
+      {
+        key: 'productPositioningNames',
+        label: '商品定位名称',
+        type: 'multi-select',
+        sourceKind: '配置工作台',
+        sourceRef: 'productPositioning',
+        meaning: '商品定位中文名称集合',
+        logic: '名称快照供详情、审计和导出直接使用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'targetAudienceTags',
+        label: '目标客群标签',
+        type: 'multi-select',
+        sourceKind: '系统生成',
+        sourceRef: '人群定位/年龄/人群聚合',
+        meaning: '面向下游的目标客群标签集合',
+        logic: '默认由人群定位、年龄和人群聚合生成，也保留补充标签的兼容能力。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'priceRangeLabel',
+        label: '价格带',
+        type: 'select',
+        sourceKind: '固定枚举',
+        sourceRef: '价格带',
+        meaning: '项目价格带标签',
+        logic: '价格带沿用当前项目创建表单固定枚举。',
+        required: false,
+        options: [
+          { value: '百元基础带', label: '百元基础带' },
+          { value: '两百元主销带', label: '两百元主销带' },
+          { value: '三百元升级带', label: '三百元升级带' },
+          { value: '四百元形象带', label: '四百元形象带' },
+        ],
+      },
+    ],
+  }),
+  ...groupFields({
+    id: 'project-init-channel-sample',
+    title: '渠道与样衣前置信息',
+    description: '目标测款渠道、项目图册和样衣来源前置字段统一在立项节点沉淀。',
+    fields: [
+      {
+        key: 'targetChannelCodes',
+        label: '目标测款渠道',
+        type: 'multi-select',
+        sourceKind: '渠道主数据',
+        sourceRef: '渠道主数据',
+        meaning: '后续测款目标渠道',
+        logic: '立项时确认目标测款渠道，后续商品上架必须引用这些渠道。',
+        placeholder: '请选择目标测款渠道',
+      },
+      {
+        key: 'projectAlbumUrls',
+        label: '项目图册链接',
+        type: 'textarea',
+        sourceKind: '本地主数据',
+        sourceRef: '商品项目创建表单',
+        meaning: '项目图册或灵感图链接集合',
+        logic: '图册链接保留在主记录中，用于后续研发、审计和资料归档引用。',
+        required: false,
+        placeholder: '请输入项目图册链接，多个链接可换行录入',
+      },
+      {
+        key: 'sampleSourceType',
+        label: '样衣来源方式',
+        type: 'select',
+        sourceKind: '固定枚举',
+        sourceRef: '样衣来源方式',
+        meaning: '项目立项阶段预估的样衣来源方式',
+        logic: '立项可先行登记样衣来源意图，后续样衣获取节点继续承接。',
+        required: false,
+        options: [
+          { value: '外采', label: '外采' },
+          { value: '自打样', label: '自打样' },
+          { value: '委托打样', label: '委托打样' },
+        ],
+      },
+      {
+        key: 'sampleSupplierId',
+        label: '样衣来源方',
+        type: 'single-select',
+        sourceKind: '样衣供应商主数据',
+        sourceRef: '样衣供应商主数据',
+        meaning: '样衣供应方标识',
+        logic: '来源方保留在项目主记录，样衣获取节点可直接承接。',
+        required: false,
+      },
+      {
+        key: 'sampleSupplierName',
+        label: '样衣来源方名称',
+        type: 'text',
+        sourceKind: '样衣供应商主数据',
+        sourceRef: '样衣供应商主数据',
+        meaning: '样衣供应方名称快照',
+        logic: '根据来源方自动回写名称，避免详情和导出只看到 ID。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'sampleLink',
+        label: '外采链接',
+        type: 'url',
+        sourceKind: '本地主数据',
+        sourceRef: '样衣来源表单',
+        meaning: '外采链接地址',
+        logic: '当来源方式为外采时，外采链接和样衣单价至少填写一项。',
+        required: false,
+        conditionalRequired: 'sampleSourceType=外采',
+      },
+      {
+        key: 'sampleUnitPrice',
+        label: '样衣单价',
+        type: 'number',
+        sourceKind: '本地主数据',
+        sourceRef: '样衣来源表单',
+        meaning: '外采或委托成本参考',
+        logic: '当来源方式为外采时，外采链接和样衣单价至少填写一项。',
+        required: false,
+        conditionalRequired: 'sampleSourceType=外采',
+      },
+    ],
+  }),
+  ...groupFields({
+    id: 'project-init-organization',
+    title: '组织协作信息',
+    description: '负责人、团队、协同人及审阅说明字段与项目主记录保持一致。',
+    fields: [
+      {
+        key: 'ownerId',
+        label: '负责人',
+        type: 'user-select',
+        sourceKind: '本地组织主数据',
+        sourceRef: '本地组织主数据',
+        meaning: '项目责任人',
+        logic: '负责人来自当前本地组织主数据。',
+        placeholder: '请选择负责人',
+      },
+      {
+        key: 'ownerName',
+        label: '负责人名称',
+        type: 'text',
+        sourceKind: '本地组织主数据',
+        sourceRef: '本地组织主数据',
+        meaning: '负责人名称快照',
+        logic: '根据负责人自动回写名称，供详情、导出和审计直接使用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'teamId',
+        label: '执行团队',
+        type: 'team-select',
+        sourceKind: '本地组织主数据',
+        sourceRef: '本地组织主数据',
+        meaning: '项目执行团队',
+        logic: '执行团队来自当前本地组织主数据。',
+        placeholder: '请选择执行团队',
+      },
+      {
+        key: 'teamName',
+        label: '执行团队名称',
+        type: 'text',
+        sourceKind: '本地组织主数据',
+        sourceRef: '本地组织主数据',
+        meaning: '执行团队名称快照',
+        logic: '根据执行团队自动回写名称，供详情、导出和审计直接使用。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'collaboratorIds',
+        label: '协同人',
+        type: 'user-multi-select',
+        sourceKind: '本地组织主数据',
+        sourceRef: '本地组织主数据',
+        meaning: '跨角色协同人标识集合',
+        logic: '协同人来自当前本地组织主数据，可选。',
+        required: false,
+      },
+      {
+        key: 'collaboratorNames',
+        label: '协同人名称',
+        type: 'user-multi-select',
+        sourceKind: '本地组织主数据',
+        sourceRef: '本地组织主数据',
+        meaning: '协同人名称快照集合',
+        logic: '协同人名称快照供详情、导出和审计直接使用。',
+        required: false,
+        readonly: true,
+      },
       {
         key: 'priorityLevel',
         label: '优先级',
@@ -379,7 +1113,17 @@ const projectInitFields = [
           { value: '低', label: '低' },
         ],
       },
-      { key: 'remark', label: '备注', type: 'textarea', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', meaning: '补充说明', logic: '备注由用户录入，可为空。', required: false, placeholder: '请输入备注' },
+      {
+        key: 'remark',
+        label: '备注',
+        type: 'textarea',
+        sourceKind: '本地主数据',
+        sourceRef: '商品项目创建表单',
+        meaning: '补充说明',
+        logic: '备注由用户录入，可为空。',
+        required: false,
+        placeholder: '请输入备注',
+      },
     ],
   }),
 ]
@@ -512,15 +1256,55 @@ const pricingFields = [
 
 const channelListingFields = [
   ...groupFields({
-    id: 'channel-listing-target',
-    title: '商品上架目标',
-    description: '商品上架节点会生成渠道商品主档，并对接上游渠道商品编码。',
+    id: 'channel-listing-strategy',
+    title: '项目上架策略',
+    description: '商品上架节点承接项目级渠道策略；单个实例只对应一个渠道、一个店铺和一条 Listing。',
     fields: [
-      { key: 'targetChannelCode', label: '渠道', type: 'single-select', sourceKind: '渠道主数据', sourceRef: '渠道主数据', meaning: '目标上架渠道', logic: '测款前必须先确定渠道。', placeholder: '请选择渠道' },
-      { key: 'targetStoreId', label: '店铺', type: 'single-select', sourceKind: '店铺主数据', sourceRef: '店铺主数据', meaning: '目标上架店铺', logic: '店铺来自渠道下的正式店铺主数据。', placeholder: '请选择店铺' },
-      { key: 'listingTitle', label: '上架标题', type: 'text', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '渠道商品标题', logic: '创建渠道商品和上游上架时必填。', placeholder: '请输入上架标题' },
-      { key: 'listingPrice', label: '上架价格', type: 'number', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '渠道售价', logic: '创建渠道商品和上游上架时必填。', placeholder: '请输入上架价格' },
-      { key: 'currency', label: '币种', type: 'text', sourceKind: '店铺主数据', sourceRef: '店铺主数据', meaning: '店铺结算币种', logic: '币种来自店铺主数据，只读展示。', readonly: true },
+      {
+        key: 'targetChannelCodes',
+        label: '项目目标渠道池',
+        type: 'multi-select',
+        sourceKind: '项目来源',
+        sourceRef: 'PROJECT_INIT.targetChannelCodes',
+        meaning: '项目立项阶段确认的目标测款渠道集合',
+        logic: '商品上架实例只能从该渠道池中选渠道；一个项目可以在多个渠道并行创建商品上架实例。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'activeListingCount',
+        label: '当前有效上架实例数',
+        type: 'number',
+        sourceKind: '系统生成',
+        sourceRef: '渠道商品主档',
+        meaning: '当前项目下未作废的商品上架实例数量',
+        logic: '用于表达节点承载的是多实例上架能力，而不是单条上架记录。',
+        required: false,
+        readonly: true,
+      },
+      {
+        key: 'listingScopeRule',
+        label: '实例粒度说明',
+        type: 'text',
+        sourceKind: '系统生成',
+        sourceRef: '商品上架节点执行规则',
+        meaning: '商品上架实例粒度说明',
+        logic: '单实例 = 单渠道 + 单店铺 + 单 Listing；同一项目可多渠道并行，同一渠道可多店铺并行。',
+        required: false,
+        readonly: true,
+      },
+    ],
+  }),
+  ...groupFields({
+    id: 'channel-listing-target',
+    title: '单次上架实例',
+    description: '每条商品上架实例单独绑定一个渠道、一个店铺和一条 Listing。',
+    fields: [
+      { key: 'targetChannelCode', label: '渠道', type: 'single-select', sourceKind: '渠道主数据', sourceRef: '渠道主数据', meaning: '当前实例的目标上架渠道', logic: '每条商品上架实例只承接一个渠道；多个渠道需要拆成多条实例。', placeholder: '请选择渠道' },
+      { key: 'targetStoreId', label: '店铺', type: 'single-select', sourceKind: '店铺主数据', sourceRef: '店铺主数据', meaning: '当前实例的目标上架店铺', logic: '每条商品上架实例只承接一个店铺；同一渠道下多个店铺需要分别创建实例。', placeholder: '请选择店铺' },
+      { key: 'listingTitle', label: '上架标题', type: 'text', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '当前实例的渠道商品标题', logic: '创建渠道商品和上游上架时必填；每个渠道店铺实例独立维护自己的 Listing 标题。', placeholder: '请输入上架标题' },
+      { key: 'listingPrice', label: '上架价格', type: 'number', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '当前实例的渠道售价', logic: '创建渠道商品和上游上架时必填；每个渠道店铺实例独立维护自己的售价。', placeholder: '请输入上架价格' },
+      { key: 'currency', label: '币种', type: 'text', sourceKind: '店铺主数据', sourceRef: '店铺主数据', meaning: '当前实例店铺的结算币种', logic: '币种来自店铺主数据，只读展示。', readonly: true },
     ],
   }),
   ...groupFields({
@@ -590,6 +1374,18 @@ const summaryFields = [
       { key: 'totalGmvAmount', label: '总销售额', type: 'number', sourceKind: '系统生成', sourceRef: '直播与短视频聚合', meaning: '正式测款总销售额', logic: '系统聚合直播与短视频正式记录，只读。', readonly: true },
     ],
   }),
+  ...groupFields({
+    id: 'test-summary-breakdown',
+    title: '结构化拆分',
+    description: '按渠道、店铺、渠道商品、测款来源和币种拆分正式测款数据，解释汇总结论来源。',
+    fields: [
+      { key: 'channelBreakdownLines', label: '渠道拆分', type: 'multi-select', sourceKind: '系统生成', sourceRef: '正式测款结构化聚合', meaning: '按渠道聚合的正式测款结果', logic: '同一项目下所有正式直播与短视频记录，按渠道汇总曝光、点击、下单和 GMV，只读。', readonly: true },
+      { key: 'storeBreakdownLines', label: '店铺拆分', type: 'multi-select', sourceKind: '系统生成', sourceRef: '正式测款结构化聚合', meaning: '按店铺聚合的正式测款结果', logic: '同一项目下所有正式直播与短视频记录，按店铺汇总曝光、点击、下单和 GMV，只读。', readonly: true },
+      { key: 'channelProductBreakdownLines', label: '渠道商品拆分', type: 'multi-select', sourceKind: '系统生成', sourceRef: '正式测款结构化聚合', meaning: '按渠道商品实例聚合的正式测款结果', logic: '同一项目下所有正式直播与短视频记录，按渠道商品实例汇总曝光、点击、下单和 GMV，只读。', readonly: true },
+      { key: 'testingSourceBreakdownLines', label: '测款来源拆分', type: 'multi-select', sourceKind: '系统生成', sourceRef: '正式测款结构化聚合', meaning: '按直播和短视频拆分的正式测款结果', logic: '系统按直播、短视频两个来源分别汇总正式测款数据，只读。', readonly: true },
+      { key: 'currencyBreakdownLines', label: '币种拆分', type: 'multi-select', sourceKind: '系统生成', sourceRef: '正式测款结构化聚合', meaning: '按币种聚合的正式测款结果', logic: '系统按渠道商品对应币种拆分正式测款数据，只读。', readonly: true },
+    ],
+  }),
 ]
 
 const conclusionFields = [
@@ -618,6 +1414,21 @@ const conclusionFields = [
       { key: 'invalidationPlanned', label: '是否计划作废', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论计算', meaning: '结论是否触发渠道商品作废', logic: '当结论不是通过时系统计算为 true。', readonly: true },
     ],
   }),
+  ...groupFields({
+    id: 'test-conclusion-effects',
+    title: '结论后果',
+    description: '正式承接测款结论触发的改版任务、款式档案、作废和项目收口后果。',
+    fields: [
+      { key: 'revisionTaskId', label: '改版任务ID', type: 'text', sourceKind: '系统生成', sourceRef: '改版任务创建回写', meaning: '调整分支创建的改版任务ID', logic: '当测款结论为调整时系统创建改版任务并回写任务ID，只读。', readonly: true, required: false },
+      { key: 'revisionTaskCode', label: '改版任务编码', type: 'text', sourceKind: '系统生成', sourceRef: '改版任务创建回写', meaning: '调整分支创建的改版任务编码', logic: '当测款结论为调整时系统创建改版任务并回写任务编码，只读。', readonly: true, required: false },
+      { key: 'linkedStyleId', label: '关联款式档案ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案ID', logic: '通过分支如已建立款式档案关系则回写 styleId，只读。', readonly: true, required: false },
+      { key: 'linkedStyleCode', label: '关联款式档案编码', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案编码', logic: '通过分支如已建立款式档案关系则回写 styleCode，只读。', readonly: true, required: false },
+      { key: 'invalidatedChannelProductId', label: '作废渠道商品ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '渠道商品作废回写', meaning: '本次测款结论直接作废的渠道商品ID', logic: '当结论不是通过时，系统回写本次主作废渠道商品ID，只读。', readonly: true, required: false },
+      { key: 'projectTerminated', label: '是否终止项目', type: 'text', sourceKind: '系统生成', sourceRef: '项目状态回写', meaning: '本次测款结论是否直接终止项目', logic: '仅淘汰分支回写为 true，其他分支为 false，只读。', readonly: true, required: false },
+      { key: 'projectTerminatedAt', label: '项目终止时间', type: 'datetime', sourceKind: '系统生成', sourceRef: '项目状态回写', meaning: '淘汰分支终止项目的时间', logic: '仅淘汰分支回写终止时间，只读。', readonly: true, required: false },
+      { key: 'nextActionType', label: '后续动作类型', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论分支流转', meaning: '本次测款结论后的下一步主动作', logic: '系统按结论自动计算，例如生成款式档案、等待改版完成、等待重新评估、项目关闭，只读。', readonly: true },
+    ],
+  }),
 ]
 
 const styleArchiveFields = [
@@ -638,15 +1449,40 @@ const styleArchiveFields = [
 
 const transferPrepFields = [
   ...groupFields({
-    id: 'transfer-prep-main',
-    title: '转档准备',
-    description: '围绕款式档案补齐技术包版本和项目资料归档。',
+    id: 'transfer-prep-style',
+    title: '款式档案关联',
+    description: '正式承接当前转档准备所绑定的款式档案对象。',
     fields: [
+      { key: 'linkedStyleId', label: '来源款式档案ID', type: 'text', sourceKind: '项目来源', sourceRef: '款式档案', meaning: '当前项目转档准备绑定的款式档案ID', logic: '项目转档准备必须绑定正式款式档案，只读展示。', readonly: true },
       { key: 'linkedStyleCode', label: '来源款式档案编码', type: 'text', sourceKind: '项目来源', sourceRef: '款式档案', meaning: '当前项目已生成的款式档案编码', logic: '项目转档准备必须基于正式款式档案。', readonly: true },
-      { key: 'linkedTechPackVersionCode', label: '当前技术包版本', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', meaning: '当前项目关联的技术包版本编码', logic: '技术包草稿、发布和启用状态都通过项目转档准备节点查看。', readonly: true },
+      { key: 'linkedStyleName', label: '来源款式档案名称', type: 'text', sourceKind: '项目来源', sourceRef: '款式档案', meaning: '当前项目转档准备绑定的款式档案名称', logic: '默认继承款式档案标题或项目名称快照，只读展示。', readonly: true },
+    ],
+  }),
+  ...groupFields({
+    id: 'transfer-prep-tech-pack',
+    title: '当前技术包版本',
+    description: '正式承接当前技术包版本的编码、标签、来源任务链和历史差异。',
+    fields: [
+      { key: 'linkedTechPackVersionCode', label: '当前技术包版本编码', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', meaning: '当前项目关联的技术包版本编码', logic: '技术包草稿、发布和启用状态都通过项目转档准备节点查看。', readonly: true },
+      { key: 'linkedTechPackVersionLabel', label: '当前技术包版本标签', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', meaning: '当前技术包版本标签，例如 V1 / V2', logic: '由技术包版本仓储正式回写，只读展示。', readonly: true },
       { key: 'linkedTechPackVersionStatus', label: '技术包版本状态', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', meaning: '当前项目关联技术包版本状态', logic: '技术包状态只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionSourceTask', label: '当前技术包版本来源任务', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.createdFromTask*', meaning: '当前技术包版本的直接来源任务', logic: '读取技术包版本创建来源任务，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionTaskChain', label: '当前技术包版本来源任务链', type: 'textarea', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.linked*TaskIds', meaning: '当前技术包版本所承接的来源任务链', logic: '汇总改版、制版、花型等来源任务链，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionDiffSummary', label: '当前生效版本与历史版本差异', type: 'textarea', sourceKind: '技术包版本', sourceRef: '技术包版本仓储 + 历史版本列表', meaning: '当前版本相对上一版本的差异摘要', logic: '系统按当前版本与上一版本自动计算完整度、缺失项变化，只读展示。', readonly: true },
+    ],
+  }),
+  ...groupFields({
+    id: 'transfer-prep-archive',
+    title: '项目资料归档',
+    description: '正式承接项目资料归档的状态、数量和完成情况。',
+    fields: [
       { key: 'projectArchiveNo', label: '项目资料归档编号', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储', meaning: '项目资料归档编号', logic: '归档对象建立后只读展示。', readonly: true },
       { key: 'projectArchiveStatus', label: '项目资料归档状态', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储', meaning: '项目资料归档状态', logic: '项目资料归档状态只读展示。', readonly: true },
+      { key: 'projectArchiveDocumentCount', label: '归档资料数量', type: 'number', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.documentCount', meaning: '当前项目资料归档下的文档数量', logic: '自动汇总归档文档数量，只读展示。', readonly: true },
+      { key: 'projectArchiveFileCount', label: '归档文件数量', type: 'number', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.fileCount', meaning: '当前项目资料归档下的文件数量', logic: '自动汇总归档文件数量，只读展示。', readonly: true },
+      { key: 'projectArchiveMissingItemCount', label: '缺失项数量', type: 'number', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.missingItemCount', meaning: '当前项目资料归档缺失项数量', logic: '归档缺失项数量由系统自动计算，只读展示。', readonly: true },
+      { key: 'projectArchiveCompletedFlag', label: '是否已完成归档', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.archiveStatus', meaning: '当前项目资料归档是否已完成', logic: '当归档状态为 FINALIZED / 已归档时自动回写为是，只读展示。', readonly: true },
+      { key: 'projectArchiveFinalizedAt', label: '完成归档时间', type: 'datetime', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.finalizedAt', meaning: '当前项目资料归档完成时间', logic: '归档完成后自动回写完成时间，只读展示。', readonly: true },
     ],
   }),
 ]
@@ -663,6 +1499,25 @@ const patternTaskFields = [
       { key: 'patternVersion', label: '纸样版本', type: 'text', sourceKind: '本地主数据', sourceRef: '制版任务表单', meaning: '纸样版本', logic: '纸样版本可录入或后续回填，选填。', required: false },
     ],
   }),
+  ...groupFields({
+    id: 'pattern-task-upstream',
+    title: '任务来源与正式关联',
+    description: '正式承接制版任务的来源对象、技术包关联和执行状态。',
+    fields: [
+      { key: 'sourceType', label: '任务来源类型', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.sourceType', meaning: '当前制版任务的来源类型', logic: '由正式制版任务回写，只读展示。', readonly: true },
+      { key: 'upstreamModule', label: '上游模块', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.upstreamModule', meaning: '当前制版任务来源模块', logic: '由正式制版任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectType', label: '上游对象类型', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.upstreamObjectType', meaning: '当前制版任务来源对象类型', logic: '由正式制版任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectId', label: '上游对象ID', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.upstreamObjectId', meaning: '当前制版任务来源对象 ID', logic: '由正式制版任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectCode', label: '上游对象编码', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.upstreamObjectCode', meaning: '当前制版任务来源对象编码', logic: '由正式制版任务回写，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionId', label: '关联技术包版本ID', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionId', meaning: '制版任务已写入或绑定的技术包版本 ID', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionCode', label: '关联技术包版本编码', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionCode', meaning: '制版任务已写入或绑定的技术包版本编码', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionLabel', label: '关联技术包版本标签', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionLabel', meaning: '制版任务已写入或绑定的技术包版本标签', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionStatus', label: '关联技术包版本状态', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.linkedTechPackVersionStatus', meaning: '制版任务已写入或绑定的技术包版本状态', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'taskStatus', label: '任务状态', type: 'text', sourceKind: '制版任务', sourceRef: '制版任务正式对象.status', meaning: '当前制版任务状态', logic: '任务状态直接来自正式制版任务，只读展示。', readonly: true },
+      { key: 'acceptedAt', label: '受理时间', type: 'datetime', sourceKind: '制版任务', sourceRef: '制版任务正式对象.acceptedAt', meaning: '当前制版任务受理时间', logic: '由正式制版任务回写，如未单独维护则按任务建立/受理时间推导，只读展示。', readonly: true },
+      { key: 'confirmedAt', label: '确认时间', type: 'datetime', sourceKind: '制版任务', sourceRef: '制版任务正式对象.confirmedAt', meaning: '当前制版任务确认通过时间', logic: '由正式制版任务回写，如未单独维护则按确认/完成时间推导，只读展示。', readonly: true },
+    ],
+  }),
 ]
 
 const artworkTaskFields = [
@@ -675,6 +1530,25 @@ const artworkTaskFields = [
       { key: 'patternMode', label: '花型模式', type: 'text', sourceKind: '本地主数据', sourceRef: '花型任务表单', meaning: '花型模式', logic: '创建花型任务时必填。' },
       { key: 'artworkName', label: '花型名称', type: 'text', sourceKind: '本地主数据', sourceRef: '花型任务表单', meaning: '花型名称', logic: '创建花型任务时必填。' },
       { key: 'artworkVersion', label: '花型版本', type: 'text', sourceKind: '本地主数据', sourceRef: '花型任务表单', meaning: '花型版本', logic: '可录入或后续回填，选填。', required: false },
+    ],
+  }),
+  ...groupFields({
+    id: 'artwork-task-upstream',
+    title: '任务来源与正式关联',
+    description: '正式承接花型任务的来源对象、技术包关联和执行状态。',
+    fields: [
+      { key: 'sourceType', label: '任务来源类型', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.sourceType', meaning: '当前花型任务的来源类型', logic: '由正式花型任务回写，只读展示。', readonly: true },
+      { key: 'upstreamModule', label: '上游模块', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.upstreamModule', meaning: '当前花型任务来源模块', logic: '由正式花型任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectType', label: '上游对象类型', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.upstreamObjectType', meaning: '当前花型任务来源对象类型', logic: '由正式花型任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectId', label: '上游对象ID', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.upstreamObjectId', meaning: '当前花型任务来源对象 ID', logic: '由正式花型任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectCode', label: '上游对象编码', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.upstreamObjectCode', meaning: '当前花型任务来源对象编码', logic: '由正式花型任务回写，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionId', label: '关联技术包版本ID', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.linkedTechPackVersionId', meaning: '花型任务已写入或绑定的技术包版本 ID', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionCode', label: '关联技术包版本编码', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.linkedTechPackVersionCode', meaning: '花型任务已写入或绑定的技术包版本编码', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionLabel', label: '关联技术包版本标签', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.linkedTechPackVersionLabel', meaning: '花型任务已写入或绑定的技术包版本标签', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'linkedTechPackVersionStatus', label: '关联技术包版本状态', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.linkedTechPackVersionStatus', meaning: '花型任务已写入或绑定的技术包版本状态', logic: '由技术包回写链路正式回填，只读展示。', readonly: true },
+      { key: 'taskStatus', label: '任务状态', type: 'text', sourceKind: '花型任务', sourceRef: '花型任务正式对象.status', meaning: '当前花型任务状态', logic: '任务状态直接来自正式花型任务，只读展示。', readonly: true },
+      { key: 'acceptedAt', label: '受理时间', type: 'datetime', sourceKind: '花型任务', sourceRef: '花型任务正式对象.acceptedAt', meaning: '当前花型任务受理时间', logic: '由正式花型任务回写，如未单独维护则按任务建立/受理时间推导，只读展示。', readonly: true },
+      { key: 'confirmedAt', label: '确认时间', type: 'datetime', sourceKind: '花型任务', sourceRef: '花型任务正式对象.confirmedAt', meaning: '当前花型任务确认通过时间', logic: '由正式花型任务回写，如未单独维护则按确认/完成时间推导，只读展示。', readonly: true },
     ],
   }),
 ]
@@ -692,6 +1566,22 @@ const firstSampleFields = [
       { key: 'sampleCode', label: '样衣编号', type: 'text', sourceKind: '上游实例回写', sourceRef: '样衣到样回写', meaning: '样衣编号', logic: '到样后回填。', required: false, readonly: true },
     ],
   }),
+  ...groupFields({
+    id: 'first-sample-upstream',
+    title: '任务来源与样衣回写',
+    description: '正式承接首版样衣任务的来源对象、当前状态、签收验收时间和样衣资产。',
+    fields: [
+      { key: 'sourceType', label: '任务来源类型', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣任务正式对象.sourceType', meaning: '当前首版样衣任务的来源类型', logic: '由正式首版样衣任务回写，只读展示。', readonly: true },
+      { key: 'upstreamModule', label: '上游模块', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣任务正式对象.upstreamModule', meaning: '当前首版样衣任务来源模块', logic: '由正式首版样衣任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectType', label: '上游对象类型', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣任务正式对象.upstreamObjectType', meaning: '当前首版样衣任务来源对象类型', logic: '由正式首版样衣任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectId', label: '上游对象ID', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣任务正式对象.upstreamObjectId', meaning: '当前首版样衣任务来源对象 ID', logic: '由正式首版样衣任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectCode', label: '上游对象编码', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣任务正式对象.upstreamObjectCode', meaning: '当前首版样衣任务来源对象编码', logic: '由正式首版样衣任务回写，只读展示。', readonly: true },
+      { key: 'taskStatus', label: '任务状态', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣任务正式对象.status', meaning: '当前首版样衣任务状态', logic: '任务状态直接来自正式首版样衣任务，只读展示。', readonly: true },
+      { key: 'acceptedAt', label: '签收时间', type: 'datetime', sourceKind: '首版样衣任务', sourceRef: '首版样衣任务正式对象.acceptedAt / 样衣台账签收事件', meaning: '首版样衣到样签收时间', logic: '优先读取任务正式字段，如未单独维护则按样衣签收事件推导，只读展示。', readonly: true },
+      { key: 'confirmedAt', label: '验收确认时间', type: 'datetime', sourceKind: '首版样衣任务', sourceRef: '首版样衣任务正式对象.confirmedAt / 验收结果', meaning: '首版样衣验收确认时间', logic: '优先读取任务正式字段，如未单独维护则按验收完成时间推导，只读展示。', readonly: true },
+      { key: 'sampleAssetId', label: '样衣资产ID', type: 'text', sourceKind: '样衣资产', sourceRef: '样衣资产正式对象.sampleAssetId', meaning: '首版样衣入库后生成的样衣资产 ID', logic: '核对入库后正式回写样衣资产 ID，只读展示。', readonly: true },
+    ],
+  }),
 ]
 
 const preProductionFields = [
@@ -707,6 +1597,22 @@ const preProductionFields = [
       { key: 'artworkVersion', label: '花型版本', type: 'text', sourceKind: '项目来源', sourceRef: '花型任务', meaning: '花型版本', logic: '可引用花型任务版本，选填。', required: false },
       { key: 'trackingNo', label: '物流单号', type: 'text', sourceKind: '本地主数据', sourceRef: '产前样任务表单', meaning: '物流单号', logic: '物流单号选填。', required: false },
       { key: 'sampleCode', label: '样衣编号', type: 'text', sourceKind: '上游实例回写', sourceRef: '样衣到样回写', meaning: '样衣编号', logic: '到样后回填。', required: false, readonly: true },
+    ],
+  }),
+  ...groupFields({
+    id: 'pre-production-upstream',
+    title: '任务来源与样衣回写',
+    description: '正式承接产前样任务的来源对象、当前状态、签收/确认时间和样衣资产。',
+    fields: [
+      { key: 'sourceType', label: '任务来源类型', type: 'text', sourceKind: '产前样衣任务', sourceRef: '产前样衣任务正式对象.sourceType', meaning: '当前产前样衣任务的来源类型', logic: '由正式产前样衣任务回写，只读展示。', readonly: true },
+      { key: 'upstreamModule', label: '上游模块', type: 'text', sourceKind: '产前样衣任务', sourceRef: '产前样衣任务正式对象.upstreamModule', meaning: '当前产前样衣任务来源模块', logic: '由正式产前样衣任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectType', label: '上游对象类型', type: 'text', sourceKind: '产前样衣任务', sourceRef: '产前样衣任务正式对象.upstreamObjectType', meaning: '当前产前样衣任务来源对象类型', logic: '由正式产前样衣任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectId', label: '上游对象ID', type: 'text', sourceKind: '产前样衣任务', sourceRef: '产前样衣任务正式对象.upstreamObjectId', meaning: '当前产前样衣任务来源对象 ID', logic: '由正式产前样衣任务回写，只读展示。', readonly: true },
+      { key: 'upstreamObjectCode', label: '上游对象编码', type: 'text', sourceKind: '产前样衣任务', sourceRef: '产前样衣任务正式对象.upstreamObjectCode', meaning: '当前产前样衣任务来源对象编码', logic: '由正式产前样衣任务回写，只读展示。', readonly: true },
+      { key: 'taskStatus', label: '任务状态', type: 'text', sourceKind: '产前样衣任务', sourceRef: '产前样衣任务正式对象.status', meaning: '当前产前样衣任务状态', logic: '任务状态直接来自正式产前样衣任务，只读展示。', readonly: true },
+      { key: 'acceptedAt', label: '签收时间', type: 'datetime', sourceKind: '产前样衣任务', sourceRef: '产前样衣任务正式对象.acceptedAt / 样衣台账签收事件', meaning: '产前样衣到样签收时间', logic: '优先读取任务正式字段，如未单独维护则按样衣签收事件推导，只读展示。', readonly: true },
+      { key: 'confirmedAt', label: '产前确认时间', type: 'datetime', sourceKind: '产前样衣任务', sourceRef: '产前样衣任务正式对象.confirmedAt / 门禁确认', meaning: '产前样衣结论和门禁确认时间', logic: '优先读取任务正式字段，如未单独维护则按验收完成/门禁确认时间推导，只读展示。', readonly: true },
+      { key: 'sampleAssetId', label: '样衣资产ID', type: 'text', sourceKind: '样衣资产', sourceRef: '样衣资产正式对象.sampleAssetId', meaning: '产前样衣入库后生成的样衣资产 ID', logic: '核对入库后正式回写样衣资产 ID，只读展示。', readonly: true },
     ],
   }),
 ]
@@ -823,8 +1729,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     workItemNature: '里程碑类',
     runtimeType: 'milestone',
     categoryName: '项目立项',
-    description: '新建商品项目，选择模板，确定研发路径。',
-    scenario: '项目的唯一入口，承接模板、品类、品牌、风格、渠道意图、负责人。',
+    description: '新建商品项目，完整承接创建草稿并生成正式项目主记录。',
+    scenario: '项目的唯一入口，承接模板、品类、品牌、风格、人群、渠道意图、样衣前置信息和组织协作字段。',
     keepReason: '商品项目必须从正式立项进入，不能从后续节点倒推生成。',
     roleNames: ['项目负责人', '商品负责人'],
     capabilities: { canReuse: false, canMultiInstance: false, canRollback: false, canParallel: false },
@@ -861,7 +1767,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['无上游实例，项目立项是唯一入口。'],
     downstreamChanges: ['生成项目主记录', '审核通过后解锁样衣获取节点'],
-    businessRules: ['项目模板必须来自正式模板管理', '配置工作台字段统一从正式 adapter 读取'],
+    businessRules: ['项目模板必须来自正式模板管理', '配置工作台字段统一从正式 adapter 读取', 'PROJECT_INIT 字段集合必须与项目创建草稿和项目主记录保持一致'],
     systemConstraints: ['不允许绕过项目立项直接创建后续节点实例'],
   },
   {
@@ -1110,26 +2016,26 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     workItemNature: '执行类',
     runtimeType: 'execute',
     categoryName: '市场测款',
-    description: '在测款前生成渠道商品主档并完成上游渠道商品上架。',
-    scenario: '测款前，上游渠道必须先有商品；直播和短视频测款引用的是渠道商品及其上游渠道商品编码。',
+    description: '在测款前按渠道 / 店铺 / Listing 粒度生成多个渠道商品主档并完成上游渠道商品上架。',
+    scenario: '节点承接项目级渠道上架策略，单个实例代表一次上架动作、一个渠道、一个店铺和一条 Listing；直播和短视频测款引用的是具体渠道商品实例及其上游渠道商品编码。',
     keepReason: '这是对旧 CHANNEL_PRODUCT_PREP 的正式收口，商品上架节点必须真正生成渠道商品主档并完成渠道上架链路。',
     roleNames: ['渠道运营', '商品负责人'],
-    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: false },
+    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
     fieldDefinitions: channelListingFields,
     operationDefinitions: [
       {
         actionKey: 'create-channel-product',
         actionName: '创建渠道商品',
         preconditions: ['样衣确认=通过', '样衣核价已完成', '样衣定价已完成', '当前项目未终止'],
-        effects: ['生成 channelProductCode', 'channelProductStatus=待上架', '节点 currentStatus=进行中'],
-        writebackRules: ['正式生成渠道商品主档', '记录来源商品项目和来源项目节点'],
+        effects: ['生成 1 条商品上架实例', '生成 channelProductCode', 'channelProductStatus=待上架', '节点 currentStatus=进行中'],
+        writebackRules: ['正式生成渠道商品主档', '记录来源商品项目、来源项目节点和来源上架实例', '同一项目允许多渠道、多店铺并行创建实例'],
       },
       {
         actionKey: 'launch-listing',
         actionName: '发起上架',
         preconditions: ['已存在渠道商品', 'targetChannelCode、targetStoreId、listingTitle、listingPrice 完整'],
-        effects: ['通过本地 mock 上游渠道接口模拟器生成 upstreamChannelProductCode', 'channelProductStatus=已上架待测款', '该商品可供直播和短视频测款引用'],
-        writebackRules: ['回写 upstreamChannelProductCode', '回写 channelProductStatus 和 upstreamSyncStatus'],
+        effects: ['通过本地 mock 上游渠道接口模拟器生成 upstreamChannelProductCode', 'channelProductStatus=已上架待测款', '该实例可供直播和短视频测款引用'],
+        writebackRules: ['回写 upstreamChannelProductCode', '回写 channelProductStatus 和 upstreamSyncStatus', '上架动作始终按单实例执行，不在一个实例里混装多个店铺或多个渠道'],
       },
       {
         actionKey: 'invalidate-channel-product',
@@ -1153,16 +2059,17 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         writebackRules: ['上游最终更新必须记录更新时间和说明'],
       },
     ],
-    statusDefinitions: [
+    statusDefinitions: CHANNEL_LISTING_NODE_STATUS_DEFINITIONS,
+    instanceStatusDefinitions: [
       { statusName: '待上架', entryConditions: ['渠道商品已创建但还没有上游渠道商品编码'], exitConditions: ['发起上架或作废'], businessMeaning: '渠道商品主档已建立，等待上游上架。' },
       { statusName: '已上架待测款', entryConditions: ['上游渠道已有商品'], exitConditions: ['测款通过生效或测款失败作废'], businessMeaning: '上游渠道已有商品，可被直播和短视频测款引用。' },
       { statusName: '已作废', entryConditions: ['测款结论不是通过'], exitConditions: ['无'], businessMeaning: '测款不通过，当前渠道商品失效。' },
       { statusName: '已生效', entryConditions: ['测款通过且已关联款式档案'], exitConditions: ['无'], businessMeaning: '测款通过且已关联款式档案，但上游最终更新是否完成要看 upstreamSyncStatus。' },
     ],
-    upstreamChanges: ['继承样衣确认、样衣核价、样衣定价结果。'],
+    upstreamChanges: ['继承样衣确认、样衣核价、样衣定价结果和项目目标渠道池。'],
     downstreamChanges: ['为直播测款和短视频测款提供正式渠道商品引用', '测款通过后回写款式档案三码关联', '技术包启用后回写上游最终更新'],
-    businessRules: ['直播测款和短视频测款必须引用已上架待测款渠道商品', '测款失败当前渠道商品必须作废', '技术包启用后必须更新上游渠道商品'],
-    systemConstraints: ['不允许再使用 CHANNEL_PRODUCT_PREP 旧编码', '不允许保留旧的渠道商品准备语义'],
+    businessRules: ['直播测款和短视频测款必须引用已上架待测款渠道商品', '一个项目可并行创建多个渠道商品实例', '同一渠道可在多个店铺分别创建实例', '同一项目下同一渠道同一店铺只允许保留 1 条有效实例', '测款失败当前渠道商品必须作废', '技术包启用后必须更新上游渠道商品'],
+    systemConstraints: ['不允许再使用 CHANNEL_PRODUCT_PREP 旧编码', '不允许保留旧的渠道商品准备语义', '单实例只允许对应一个渠道、一个店铺和一条 Listing'],
   },
   {
     workItemId: 'WI-010',
@@ -1251,8 +2158,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionKey: 'generate-test-summary',
         actionName: '生成汇总',
         preconditions: ['至少已有 1 条直播或短视频正式关联记录'],
-        effects: ['聚合正式测款事实', '生成汇总结论和聚合指标'],
-        writebackRules: ['totalExposureQty、totalClickQty、totalOrderQty、totalGmvAmount 全部由系统聚合生成'],
+        effects: ['聚合正式测款事实', '生成汇总结论、总量指标和结构化拆分结果'],
+        writebackRules: ['totalExposureQty、totalClickQty、totalOrderQty、totalGmvAmount 以及渠道/店铺/渠道商品/测款来源/币种拆分字段全部由系统聚合生成'],
       },
     ],
     statusDefinitions: [
@@ -1263,8 +2170,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['聚合直播和短视频正式事实。'],
     downstreamChanges: ['为测款结论判定提供统一口径'],
-    businessRules: ['至少存在 1 条正式直播或短视频关联记录'],
-    systemConstraints: ['聚合指标只读，不允许手工改写'],
+    businessRules: ['至少存在 1 条正式直播或短视频关联记录', '汇总结果必须同时保留总量字段和结构化拆分字段，便于解释测款结论来源'],
+    systemConstraints: ['聚合指标只读，不允许手工改写', '渠道、店铺、渠道商品、测款来源和币种拆分全部由系统自动生成'],
   },
   {
     workItemId: 'WI-013',
@@ -1285,8 +2192,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionKey: 'submit-test-conclusion',
         actionName: '提交测款结论',
         preconditions: ['测款数据汇总已完成'],
-        effects: ['记录结论', '通过时解锁款式档案创建', '调整、暂缓、淘汰时作废当前渠道商品'],
-        writebackRules: ['通过：解锁 STYLE_ARCHIVE_CREATE', '调整：创建改版任务并作废当前渠道商品', '暂缓：作废当前渠道商品并阻塞项目', '淘汰：作废当前渠道商品并终止项目'],
+        effects: ['记录结论', '通过时解锁款式档案创建', '调整、暂缓、淘汰时作废当前渠道商品', '正式回写改版任务、款式档案、项目终止与后续动作字段'],
+        writebackRules: ['通过：解锁 STYLE_ARCHIVE_CREATE，并回写 linkedStyleId、linkedStyleCode、nextActionType', '调整：创建改版任务并作废当前渠道商品，同时回写 revisionTaskId、revisionTaskCode、invalidatedChannelProductId、nextActionType', '暂缓：作废当前渠道商品并阻塞项目，同时回写 invalidatedChannelProductId、nextActionType', '淘汰：作废当前渠道商品并终止项目，同时回写 invalidatedChannelProductId、projectTerminated、projectTerminatedAt、nextActionType'],
       },
     ],
     statusDefinitions: [
@@ -1297,8 +2204,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['读取测款数据汇总和商品上架实例。'],
     downstreamChanges: ['通过时解锁款式档案创建', '调整、暂缓、淘汰时回写渠道商品作废和项目状态'],
-    businessRules: ['结论必须明确为通过、调整、暂缓或淘汰'],
-    systemConstraints: ['结论不是通过时，当前渠道商品必须作废'],
+    businessRules: ['结论必须明确为通过、调整、暂缓或淘汰', '测款结论正式记录必须承接改版任务、款式档案、渠道商品作废和项目终止等真实分支结果'],
+    systemConstraints: ['结论不是通过时，当前渠道商品必须作废', 'nextActionType 以及各类后果字段均由系统按分支自动生成，不允许手工篡改'],
   },
   {
     workItemId: 'WI-014',
@@ -1354,35 +2261,35 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionName: '创建技术包草稿',
         preconditions: ['已生成款式档案'],
         effects: ['建立技术包草稿版本', '回写项目关系和项目节点'],
-        writebackRules: ['技术包版本生成入口只能来自正式任务写回，不允许从项目侧直接新建版本'],
+        writebackRules: ['技术包版本生成入口只能来自正式任务写回，不允许从项目侧直接新建版本', '生成后需同步回写当前技术包版本编码、标签、来源任务和来源任务链'],
       },
       {
         actionKey: 'publish-tech-pack',
         actionName: '发布技术包版本',
         preconditions: ['技术包草稿完成补充'],
         effects: ['版本状态改为已发布'],
-        writebackRules: ['发布不等于启用当前生效版本'],
+        writebackRules: ['发布不等于启用当前生效版本', '版本发布后需同步更新当前版本状态和版本差异摘要'],
       },
       {
         actionKey: 'activate-tech-pack',
         actionName: '启用技术包版本',
         preconditions: ['存在已发布技术包版本'],
         effects: ['款式档案变为可生产', '触发上游渠道商品最终更新'],
-        writebackRules: ['启用当前生效版本后，款式档案从技术包待完善变为可生产'],
+        writebackRules: ['启用当前生效版本后，款式档案从技术包待完善变为可生产', '启用后需同步刷新当前生效版本与历史版本差异摘要'],
       },
       {
         actionKey: 'create-project-archive',
         actionName: '创建项目资料归档',
         preconditions: ['已生成款式档案'],
         effects: ['建立项目资料归档对象'],
-        writebackRules: ['项目归档对象编号和状态回写项目主记录与节点'],
+        writebackRules: ['项目归档对象编号和状态回写项目主记录与节点', '归档资料数量、文件数量、缺失项数量需同步回写正式字段'],
       },
       {
         actionKey: 'finalize-project-archive',
         actionName: '完成资料归档',
         preconditions: ['项目资料归档缺失项为 0'],
         effects: ['项目资料归档状态变为已完成'],
-        writebackRules: ['项目归档完成后更新项目节点为已完成'],
+        writebackRules: ['项目归档完成后更新项目节点为已完成', '归档完成标记和完成归档时间需同步回写正式字段'],
       },
     ],
     statusDefinitions: [
@@ -1393,8 +2300,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['读取款式档案、技术包版本和项目资料归档。'],
     downstreamChanges: ['技术包启用后把款式档案变为可生产', '技术包启用后触发上游渠道商品最终更新'],
-    businessRules: ['项目转档准备只查看和承接正式技术包版本，不负责项目侧直接创建技术包版本'],
-    systemConstraints: ['启用技术包版本后必须触发上游渠道商品最终更新'],
+    businessRules: ['项目转档准备只查看和承接正式技术包版本，不负责项目侧直接创建技术包版本', '项目转档准备正式字段必须同时承接款式档案、当前技术包版本、来源任务链和项目资料归档进度'],
+    systemConstraints: ['启用技术包版本后必须触发上游渠道商品最终更新', '版本差异摘要、归档计数和完成标记只能由系统自动计算，不允许人工手改'],
   },
   {
     workItemId: 'WI-016',
@@ -1416,10 +2323,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionName: '创建制版任务',
         preconditions: ['已生成款式档案'],
         effects: ['生成制版任务', '推进制版', '允许写入技术包'],
-        writebackRules: ['制版任务可在已确认或已完成时写入技术包'],
+        writebackRules: ['制版任务可在已确认或已完成时写入技术包', '制版任务正式字段必须承接来源类型、上游对象、任务状态、受理时间、确认时间和技术包回写结果'],
       },
     ],
-    statusDefinitions: [
+    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
+    instanceStatusDefinitions: [
       { statusName: '草稿', entryConditions: ['任务已建立但未启动'], exitConditions: ['转为未开始或取消'], businessMeaning: '制版任务草稿。' },
       { statusName: '未开始', entryConditions: ['任务已确认但未执行'], exitConditions: ['开始执行'], businessMeaning: '制版任务待执行。' },
       { statusName: '进行中', entryConditions: ['任务开始执行'], exitConditions: ['提交评审或取消'], businessMeaning: '制版任务进行中。' },
@@ -1430,8 +2338,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['引用款式档案和项目信息。'],
     downstreamChanges: ['为技术包版本写入制版任务来源链', '为首版样衣打样提供纸样版本输入'],
-    businessRules: ['制版任务状态为已确认或已完成时才允许写入技术包'],
-    systemConstraints: ['制版任务不能脱离款式档案独立存在'],
+    businessRules: ['制版任务状态为已确认或已完成时才允许写入技术包', '制版任务节点详情必须能解释来源对象、当前状态和技术包回写结果'],
+    systemConstraints: ['制版任务不能脱离款式档案独立存在', '来源对象、任务状态、受理时间、确认时间和技术包版本关联只能由正式任务对象回写'],
   },
   {
     workItemId: 'WI-017',
@@ -1453,10 +2361,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionName: '创建花型任务',
         preconditions: ['已生成款式档案或已明确设计链路'],
         effects: ['生成花型任务', '推进花型设计', '允许写入技术包'],
-        writebackRules: ['花型任务可在已确认或已完成时写入技术包'],
+        writebackRules: ['花型任务可在已确认或已完成时写入技术包', '花型任务正式字段必须承接来源类型、上游对象、任务状态、受理时间、确认时间和技术包回写结果'],
       },
     ],
-    statusDefinitions: [
+    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
+    instanceStatusDefinitions: [
       { statusName: '草稿', entryConditions: ['任务已建立但未启动'], exitConditions: ['转为未开始或取消'], businessMeaning: '花型任务草稿。' },
       { statusName: '未开始', entryConditions: ['任务已确认但未执行'], exitConditions: ['开始执行'], businessMeaning: '花型任务待执行。' },
       { statusName: '进行中', entryConditions: ['任务开始执行'], exitConditions: ['提交评审或取消'], businessMeaning: '花型任务进行中。' },
@@ -1467,8 +2376,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['引用款式档案和项目信息。'],
     downstreamChanges: ['为技术包版本写入花型任务来源链', '为首版样衣和产前样提供花型版本输入'],
-    businessRules: ['花型任务状态为已确认或已完成时才允许写入技术包'],
-    systemConstraints: ['花型任务不能脱离正式项目链路存在'],
+    businessRules: ['花型任务状态为已确认或已完成时才允许写入技术包', '花型任务节点详情必须能解释来源对象、当前状态和技术包回写结果'],
+    systemConstraints: ['花型任务不能脱离正式项目链路存在', '来源对象、任务状态、受理时间、确认时间和技术包版本关联只能由正式任务对象回写'],
   },
   {
     workItemId: 'WI-018',
@@ -1490,10 +2399,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionName: '创建首版样衣任务',
         preconditions: ['制版任务、花型任务或改版任务已明确输入'],
         effects: ['创建首版样衣任务', '发样', '到样', '核对入库'],
-        writebackRules: ['到样后回填 sampleCode'],
+        writebackRules: ['到样后回填 sampleCode', '核对入库后回填 sampleAssetId', '签收时间、验收确认时间和任务状态必须由正式首版样衣任务回写'],
       },
     ],
-    statusDefinitions: [
+    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
+    instanceStatusDefinitions: [
       { statusName: '草稿', entryConditions: ['任务已建立但未发样'], exitConditions: ['转为待发样或取消'], businessMeaning: '首版样衣任务草稿。' },
       { statusName: '待发样', entryConditions: ['任务已确认待发样'], exitConditions: ['发样或取消'], businessMeaning: '等待发样。' },
       { statusName: '在途', entryConditions: ['已发样'], exitConditions: ['到样或取消'], businessMeaning: '样衣运输中。' },
@@ -1504,8 +2414,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['引用制版、花型、改版结果。'],
     downstreamChanges: ['为后续样衣评估和产前样确认提供反馈'],
-    businessRules: ['factoryId、targetSite、expectedArrival 必填'],
-    systemConstraints: ['首版样衣任务允许多次执行用于多轮验证'],
+    businessRules: ['factoryId、targetSite、expectedArrival 必填', '首版样衣节点详情必须能解释来源对象、当前物流状态、验收进展和样衣资产回写结果'],
+    systemConstraints: ['首版样衣任务允许多次执行用于多轮验证', '来源对象、任务状态、签收时间、验收确认时间和样衣资产 ID 只能由正式首版样衣任务或样衣台账回写'],
   },
   {
     workItemId: 'WI-019',
@@ -1527,10 +2437,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionName: '创建产前样任务',
         preconditions: ['首版样衣或相关开发任务已形成输入'],
         effects: ['创建产前样任务', '发样', '到样', '入库'],
-        writebackRules: ['patternVersion、artworkVersion 可引用上游任务版本'],
+        writebackRules: ['patternVersion、artworkVersion 可引用上游任务版本', '核对入库后回填 sampleAssetId', '签收时间、产前确认时间和任务状态必须由正式产前样衣任务回写'],
       },
     ],
-    statusDefinitions: [
+    statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
+    instanceStatusDefinitions: [
       { statusName: '草稿', entryConditions: ['任务已建立但未发样'], exitConditions: ['转为待发样或取消'], businessMeaning: '产前样任务草稿。' },
       { statusName: '待发样', entryConditions: ['任务已确认待发样'], exitConditions: ['发样或取消'], businessMeaning: '等待发样。' },
       { statusName: '在途', entryConditions: ['已发样'], exitConditions: ['到样或取消'], businessMeaning: '产前样运输中。' },
@@ -1541,8 +2452,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     ],
     upstreamChanges: ['引用制版任务和花型任务版本。'],
     downstreamChanges: ['为量产前最终样确认提供输入'],
-    businessRules: ['factoryId、targetSite、expectedArrival 必填'],
-    systemConstraints: ['产前样任务允许多次执行用于多轮确认'],
+    businessRules: ['factoryId、targetSite、expectedArrival 必填', '产前样节点详情必须能解释来源对象、当前物流状态、产前结论/确认进展和样衣资产回写结果'],
+    systemConstraints: ['产前样任务允许多次执行用于多轮确认', '来源对象、任务状态、签收时间、产前确认时间和样衣资产 ID 只能由正式产前样衣任务或样衣台账回写'],
   },
   {
     workItemId: 'WI-020',
@@ -1691,11 +2602,22 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
 
 export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[] = [
   { fieldKey: 'projectName', fieldLabel: '项目名称', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '项目名称由当前页面表单录入，属于本地主数据。' },
+  { fieldKey: 'projectType', fieldLabel: '项目类型', sourceKind: '系统生成', sourceRef: 'styleType -> projectType 映射', reason: '项目类型由款式类型自动映射生成，属于正式主记录字段而不是临时页面变量。' },
   { fieldKey: 'templateId', fieldLabel: '项目模板', sourceKind: '模板管理', sourceRef: '项目模板管理', reason: '项目模板来自模板管理，不属于配置工作台。' },
   { fieldKey: 'projectSourceType', fieldLabel: '项目来源类型', sourceKind: '固定枚举', sourceRef: '项目来源类型', reason: '项目来源类型沿用当前可解释的固定业务枚举。' },
   { fieldKey: 'categoryId', fieldLabel: '品类', sourceKind: '配置工作台', sourceRef: 'categories', reason: '项目品类统一来自配置工作台品类维度。' },
+  { fieldKey: 'categoryName', fieldLabel: '品类名称快照', sourceKind: '配置工作台', sourceRef: 'categories', reason: '品类名称快照由配置工作台品类名称回写，供详情和导出直接使用。' },
+  { fieldKey: 'subCategoryId', fieldLabel: '二级品类', sourceKind: '本地主数据', sourceRef: '兼容字段', reason: '当前配置工作台仍以一级品类为主，二级品类仅保留兼容字段，不做强制必填。' },
+  { fieldKey: 'subCategoryName', fieldLabel: '二级品类名称快照', sourceKind: '本地主数据', sourceRef: '兼容字段', reason: '二级品类名称作为兼容快照保留到项目主记录和 PROJECT_INIT 中。' },
   { fieldKey: 'brandId', fieldLabel: '品牌', sourceKind: '配置工作台', sourceRef: 'brands', reason: '品牌统一来自配置工作台品牌维度。' },
+  { fieldKey: 'brandName', fieldLabel: '品牌名称快照', sourceKind: '配置工作台', sourceRef: 'brands', reason: '品牌名称快照由配置工作台品牌名称回写，供详情和导出直接使用。' },
   { fieldKey: 'styleCodeId', fieldLabel: '风格编号', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: '风格编号统一来自配置工作台风格编号维度，不再要求手填。' },
+  { fieldKey: 'styleCodeName', fieldLabel: '风格编号名称快照', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: '风格编号名称快照由配置工作台 styleCodes 回写，供详情和导出直接使用。' },
+  { fieldKey: 'styleNumber', fieldLabel: '历史风格编号兼容值', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: 'styleNumber 当前用于兼容旧记录口径，默认同步为所选风格编号名称。' },
+  { fieldKey: 'styleType', fieldLabel: '款式类型', sourceKind: '固定枚举', sourceRef: '模板款式类型', reason: '款式类型沿用模板款式类型固定枚举，并参与项目类型映射。' },
+  { fieldKey: 'yearTag', fieldLabel: '年份', sourceKind: '系统生成', sourceRef: '当前年份默认值', reason: '年份字段由创建草稿默认写入当前年份，并回写项目主记录。' },
+  { fieldKey: 'seasonTags', fieldLabel: '季节标签', sourceKind: '固定枚举', sourceRef: '季节标签', reason: '季节标签沿用当前项目创建表单固定枚举。' },
+  { fieldKey: 'styleTags', fieldLabel: '风格标签快照', sourceKind: '配置工作台', sourceRef: 'styles', reason: 'styleTags 与 styleTagNames 统一由配置工作台风格维度沉淀，用于兼容不同页面读取口径。' },
   { fieldKey: 'styleIds', fieldLabel: '风格 ID 集合', sourceKind: '配置工作台', sourceRef: 'styles', reason: '风格来源统一映射到配置工作台 styles，当前项目表单以 styleTagIds 兼容承载。' },
   { fieldKey: 'styleNames', fieldLabel: '风格名称集合', sourceKind: '配置工作台', sourceRef: 'styles', reason: '风格名称来自配置工作台 styles 的中文名称。' },
   { fieldKey: 'styleTagIds', fieldLabel: '风格标签', sourceKind: '配置工作台', sourceRef: 'styles', reason: '风格标签统一来自配置工作台风格维度。' },
@@ -1708,17 +2630,23 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
   { fieldKey: 'crowdNames', fieldLabel: '人群名称', sourceKind: '配置工作台', sourceRef: 'crowds', reason: '人群名称来自配置工作台 crowds 的中文名称。' },
   { fieldKey: 'productPositioningIds', fieldLabel: '商品定位', sourceKind: '配置工作台', sourceRef: 'productPositioning', reason: '商品定位统一来自配置工作台商品定位维度。' },
   { fieldKey: 'productPositioningNames', fieldLabel: '商品定位名称', sourceKind: '配置工作台', sourceRef: 'productPositioning', reason: '商品定位名称来自配置工作台 productPositioning 的中文名称。' },
+  { fieldKey: 'targetAudienceTags', fieldLabel: '目标客群标签', sourceKind: '系统生成', sourceRef: '人群定位/年龄/人群聚合', reason: '目标客群标签由人群定位、年龄和人群自动聚合生成，并保留主记录快照。' },
+  { fieldKey: 'priceRangeLabel', fieldLabel: '价格带', sourceKind: '固定枚举', sourceRef: '价格带', reason: '价格带沿用当前项目创建表单固定枚举。' },
   { fieldKey: 'targetChannelCodes', fieldLabel: '目标测款渠道', sourceKind: '渠道主数据', sourceRef: '渠道主数据', reason: '目标测款渠道来自渠道主数据。' },
+  { fieldKey: 'projectAlbumUrls', fieldLabel: '项目图册链接', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '项目图册链接由项目创建表单录入，并保留到项目主记录供后续引用。' },
   { fieldKey: 'sampleSourceType', fieldLabel: '样衣来源方式', sourceKind: '固定枚举', sourceRef: '样衣来源方式', reason: '样衣来源方式沿用固定业务枚举。' },
   { fieldKey: 'sampleSupplierId', fieldLabel: '样衣来源方', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', reason: '样衣来源方当前来自样衣供应商主数据，不伪装成配置工作台字段。' },
+  { fieldKey: 'sampleSupplierName', fieldLabel: '样衣来源方名称', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', reason: '样衣来源方名称快照由样衣供应商主数据回写，避免详情和导出只展示 ID。' },
   { fieldKey: 'sampleLink', fieldLabel: '外采链接', sourceKind: '本地主数据', sourceRef: '样衣来源表单', reason: '外采链接由当前页面表单录入。' },
   { fieldKey: 'sampleUnitPrice', fieldLabel: '样衣单价', sourceKind: '本地主数据', sourceRef: '样衣来源表单', reason: '样衣单价由当前页面表单录入。' },
   { fieldKey: 'ownerId', fieldLabel: '负责人', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '负责人仍使用当前本地组织主数据。' },
+  { fieldKey: 'ownerName', fieldLabel: '负责人名称', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '负责人名称快照由本地组织主数据回写，供详情和导出直接使用。' },
   { fieldKey: 'teamId', fieldLabel: '执行团队', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '执行团队仍使用当前本地组织主数据。' },
+  { fieldKey: 'teamName', fieldLabel: '执行团队名称', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '执行团队名称快照由本地组织主数据回写，供详情和导出直接使用。' },
   { fieldKey: 'collaboratorIds', fieldLabel: '协同人', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '协同人仍使用当前本地组织主数据。' },
+  { fieldKey: 'collaboratorNames', fieldLabel: '协同人名称', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '协同人名称快照由本地组织主数据回写，供详情和导出直接使用。' },
   { fieldKey: 'priorityLevel', fieldLabel: '优先级', sourceKind: '固定枚举', sourceRef: '优先级', reason: '优先级沿用固定业务枚举。' },
   { fieldKey: 'remark', fieldLabel: '备注', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '备注由当前页面表单录入。' },
-  { fieldKey: 'subCategoryId', fieldLabel: '兼容二级分类', sourceKind: '本地主数据', sourceRef: '兼容字段', reason: '当前配置工作台不支撑层级分类，subCategory 仅保留兼容字段，不做必填，不新增硬编码。' },
   { fieldKey: 'targetChannelCode', fieldLabel: '商品上架渠道', sourceKind: '渠道主数据', sourceRef: '渠道主数据', reason: '商品上架节点的渠道字段来自渠道主数据。' },
   { fieldKey: 'targetStoreId', fieldLabel: '商品上架店铺', sourceKind: '店铺主数据', sourceRef: '店铺主数据', reason: '商品上架节点的店铺字段来自店铺主数据。' },
   { fieldKey: 'listingTitle', fieldLabel: '上架标题', sourceKind: '本地主数据', sourceRef: '商品上架表单', reason: '上架标题由商品上架节点表单录入。' },
@@ -1731,6 +2659,32 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
   { fieldKey: 'liveLineCode', fieldLabel: '直播挂车明细编码', sourceKind: '直播记录', sourceRef: '直播正式记录.liveLineCode', reason: '直播挂车明细编码直接来自直播正式记录。' },
   { fieldKey: 'factoryId', fieldLabel: '工厂', sourceKind: '本地演示主数据', sourceRef: '工厂演示主数据', reason: '首版样衣和产前版样衣使用当前原型仓库的工厂演示主数据。' },
   { fieldKey: 'targetSite', fieldLabel: '目标站点', sourceKind: '本地演示主数据', sourceRef: '站点演示主数据', reason: '目标站点当前使用本地演示站点选项，不伪装成配置工作台。' },
+  { fieldKey: 'sourceType', fieldLabel: '任务来源类型', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.sourceType', reason: '任务来源类型直接来自正式任务对象。' },
+  { fieldKey: 'upstreamModule', fieldLabel: '上游模块', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.upstreamModule', reason: '上游模块直接来自正式任务对象。' },
+  { fieldKey: 'upstreamObjectType', fieldLabel: '上游对象类型', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.upstreamObjectType', reason: '上游对象类型直接来自正式任务对象。' },
+  { fieldKey: 'upstreamObjectId', fieldLabel: '上游对象ID', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.upstreamObjectId', reason: '上游对象 ID 直接来自正式任务对象。' },
+  { fieldKey: 'upstreamObjectCode', fieldLabel: '上游对象编码', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.upstreamObjectCode', reason: '上游对象编码直接来自正式任务对象。' },
+  { fieldKey: 'linkedTechPackVersionId', fieldLabel: '关联技术包版本ID', sourceKind: '执行任务', sourceRef: '制版任务/花型任务正式对象.linkedTechPackVersionId', reason: '关联技术包版本 ID 由工程任务写包后正式回填。' },
+  { fieldKey: 'taskStatus', fieldLabel: '任务状态', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.status', reason: '任务状态直接来自正式任务对象。' },
+  { fieldKey: 'acceptedAt', fieldLabel: '受理/签收时间', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.acceptedAt + 样衣台账签收事件', reason: '受理/签收时间优先来自正式任务对象，样衣任务可结合样衣台账事件推导。' },
+  { fieldKey: 'confirmedAt', fieldLabel: '确认时间', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.confirmedAt + 样衣验收/门禁结果', reason: '确认时间优先来自正式任务对象，样衣任务可结合验收或门禁结果推导。' },
+  { fieldKey: 'sampleAssetId', fieldLabel: '样衣资产ID', sourceKind: '样衣资产', sourceRef: '样衣资产正式对象.sampleAssetId', reason: '样衣资产 ID 在核对入库后正式回写。' },
+  { fieldKey: 'linkedStyleId', fieldLabel: '来源款式档案ID', sourceKind: '项目来源', sourceRef: '款式档案', reason: '项目转档准备节点直接引用正式款式档案 ID。' },
+  { fieldKey: 'linkedStyleCode', fieldLabel: '来源款式档案编码', sourceKind: '项目来源', sourceRef: '款式档案', reason: '项目转档准备节点直接引用正式款式档案编码。' },
+  { fieldKey: 'linkedStyleName', fieldLabel: '来源款式档案名称', sourceKind: '项目来源', sourceRef: '款式档案', reason: '项目转档准备节点直接引用正式款式档案名称。' },
+  { fieldKey: 'linkedTechPackVersionCode', fieldLabel: '当前技术包版本编码', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', reason: '当前技术包版本编码来自技术包版本仓储。' },
+  { fieldKey: 'linkedTechPackVersionLabel', fieldLabel: '当前技术包版本标签', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.versionLabel', reason: '当前技术包版本标签来自技术包版本正式版本号。' },
+  { fieldKey: 'linkedTechPackVersionStatus', fieldLabel: '技术包版本状态', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.versionStatus', reason: '技术包版本状态直接来自技术包版本仓储。' },
+  { fieldKey: 'linkedTechPackVersionSourceTask', fieldLabel: '当前技术包版本来源任务', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.createdFromTask*', reason: '当前技术包版本来源任务由技术包版本创建来源回写。' },
+  { fieldKey: 'linkedTechPackVersionTaskChain', fieldLabel: '当前技术包版本来源任务链', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.linked*TaskIds', reason: '当前技术包版本来源任务链由技术包版本关联任务集合聚合。' },
+  { fieldKey: 'linkedTechPackVersionDiffSummary', fieldLabel: '当前生效版本与历史版本差异', sourceKind: '技术包版本', sourceRef: '技术包版本仓储 + 历史版本列表', reason: '当前生效版本与历史版本差异由系统按版本列表自动计算。' },
+  { fieldKey: 'projectArchiveNo', fieldLabel: '项目资料归档编号', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储', reason: '项目资料归档编号直接来自项目资料归档仓储。' },
+  { fieldKey: 'projectArchiveStatus', fieldLabel: '项目资料归档状态', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.archiveStatus', reason: '项目资料归档状态直接来自项目资料归档仓储。' },
+  { fieldKey: 'projectArchiveDocumentCount', fieldLabel: '归档资料数量', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.documentCount', reason: '归档资料数量由项目资料归档仓储自动汇总。' },
+  { fieldKey: 'projectArchiveFileCount', fieldLabel: '归档文件数量', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.fileCount', reason: '归档文件数量由项目资料归档仓储自动汇总。' },
+  { fieldKey: 'projectArchiveMissingItemCount', fieldLabel: '缺失项数量', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.missingItemCount', reason: '归档缺失项数量由项目资料归档仓储自动计算。' },
+  { fieldKey: 'projectArchiveCompletedFlag', fieldLabel: '是否已完成归档', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.archiveStatus', reason: '是否已完成归档由归档状态自动推导。' },
+  { fieldKey: 'projectArchiveFinalizedAt', fieldLabel: '完成归档时间', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.finalizedAt', reason: '完成归档时间直接来自项目资料归档仓储。' },
 ]
 
 export const PCS_PROJECT_RELATED_INSTANCE_TYPES: PcsProjectRelatedInstanceTypeDefinition[] = [
@@ -1807,6 +2761,7 @@ export function getProjectPhaseContract(phaseCode: PcsProjectPhaseCode): PcsProj
 export function listProjectWorkItemContracts(): PcsProjectWorkItemContract[] {
   return PCS_PROJECT_WORK_ITEM_CONTRACTS.map((item) => ({
     ...item,
+    multiInstanceDefinition: resolveProjectWorkItemMultiInstanceDefinition(item),
     roleNames: [...item.roleNames],
     fieldDefinitions: item.fieldDefinitions.map((field) => ({ ...field, options: field.options ? [...field.options] : undefined })),
     operationDefinitions: item.operationDefinitions.map((operation) => ({
@@ -1816,6 +2771,11 @@ export function listProjectWorkItemContracts(): PcsProjectWorkItemContract[] {
       writebackRules: [...operation.writebackRules],
     })),
     statusDefinitions: item.statusDefinitions.map((status) => ({
+      ...status,
+      entryConditions: [...status.entryConditions],
+      exitConditions: [...status.exitConditions],
+    })),
+    instanceStatusDefinitions: (item.instanceStatusDefinitions ?? []).map((status) => ({
       ...status,
       entryConditions: [...status.entryConditions],
       exitConditions: [...status.exitConditions],
@@ -1833,6 +2793,12 @@ export function getProjectWorkItemContract(workItemTypeCode: PcsProjectWorkItemC
     throw new Error(`未找到项目工作项契约：${workItemTypeCode}`)
   }
   return listProjectWorkItemContracts().find((item) => item.workItemTypeCode === workItemTypeCode) as PcsProjectWorkItemContract
+}
+
+export function getProjectWorkItemMultiInstanceDefinition(
+  workItemTypeCode: PcsProjectWorkItemCode,
+): PcsProjectMultiInstanceDefinition | null {
+  return getProjectWorkItemContract(workItemTypeCode).multiInstanceDefinition ?? null
 }
 
 export function getProjectWorkItemContractById(workItemId: string): PcsProjectWorkItemContract | null {

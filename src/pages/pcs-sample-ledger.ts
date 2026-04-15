@@ -12,7 +12,7 @@ import type {
   SampleLedgerEventRecord,
   SampleLedgerEventType,
 } from '../data/pcs-sample-types.ts'
-import { ensurePcsProjectDemoDataReady } from './pcs-projects.ts'
+import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 type QuickFilterKey = 'all' | 'inTransit' | 'stocktake' | 'unmapped' | 'closed'

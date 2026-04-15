@@ -21,6 +21,7 @@ import { getPatternTaskById, updatePatternTask } from './pcs-pattern-task-reposi
 import { getPlateMakingTaskById, updatePlateMakingTask } from './pcs-plate-making-repository.ts'
 import { getRevisionTaskById, updateRevisionTask } from './pcs-revision-task-repository.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
+import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
 import type {
   TechPackSourceTaskType,
   TechnicalDataVersionContent,
@@ -288,6 +289,7 @@ export function syncProjectTransferPrepNodeFromTechPackVersion(
     },
     operatorName,
   )
+  syncProjectNodeInstanceRuntime(record.sourceProjectId, record.sourceProjectNodeId, operatorName, record.updatedAt)
 }
 
 function resolveTaskProjectContext(projectId: string) {

@@ -1,28 +1,23 @@
 import { appStore } from '../state/store.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 import {
-  approveProjectInit,
   createEmptyProjectDraft,
   createProject,
   getChannelNamesByCodes,
   getProjectById,
   getProjectCategoryChildren,
   getProjectCreateCatalog,
-  getProjectNodeRecordById,
-  getProjectNodeRecordByWorkItemTypeCode,
   listActiveProjectTemplates,
   listProjectNodes,
   listProjectPhases,
   listProjects,
-  updateProjectNodeRecord,
-  updateProjectPhaseRecord,
-  updateProjectRecord,
 } from '../data/pcs-project-repository.ts'
 import type {
   PcsProjectCreateDraft,
   PcsProjectNodeRecord,
   PcsProjectPhaseRecord,
   PcsProjectRecord,
+  PcsProjectViewRecord,
   ProjectNodeStatus,
 } from '../data/pcs-project-types.ts'
 import {
@@ -45,25 +40,56 @@ import {
   getLatestProjectInlineNodeRecord,
   listProjectInlineNodeRecordsByNode,
   listProjectInlineNodeRecordsByProject,
-  saveProjectInlineNodeFieldEntry,
 } from '../data/pcs-project-inline-node-record-repository.ts'
 import {
   PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES,
   type PcsProjectInlineNodeRecord,
   type PcsProjectInlineNodeRecordWorkItemTypeCode,
 } from '../data/pcs-project-inline-node-record-types.ts'
-import {
-  listProjectRelationsByProject,
-  listProjectRelationsByProjectNode,
-  upsertProjectRelation,
-} from '../data/pcs-project-relation-repository.ts'
 import type { ProjectRelationRecord } from '../data/pcs-project-relation-types.ts'
+import {
+  type ProjectTestingSummaryBreakdownItem,
+  getProjectTestingSummaryAggregate,
+  listProjectChannelProductsByProjectId,
+} from '../data/pcs-channel-product-project-repository.ts'
 import {
   resolvePcsStoreCurrency,
   resolvePcsStoreDisplayName,
 } from '../data/pcs-channel-store-master.ts'
-import { getLiveProductLineById } from '../data/pcs-live-testing-repository.ts'
-import { getVideoTestRecordById } from '../data/pcs-video-testing-repository.ts'
+import {
+  getProjectArchiveById,
+  getProjectArchiveByProjectId,
+} from '../data/pcs-project-archive-repository.ts'
+import {
+  getTechnicalDataVersionById,
+  listTechnicalDataVersionsByStyleId,
+} from '../data/pcs-technical-data-version-repository.ts'
+import { buildTechPackVersionSourceTaskSummary } from '../data/pcs-tech-pack-task-generation.ts'
+import { getPlateMakingTaskById } from '../data/pcs-plate-making-repository.ts'
+import { getPatternTaskById } from '../data/pcs-pattern-task-repository.ts'
+import { getFirstSampleTaskById } from '../data/pcs-first-sample-repository.ts'
+import { getPreProductionSampleTaskById } from '../data/pcs-pre-production-sample-repository.ts'
+import { getSampleAssetByCode, getSampleAssetById } from '../data/pcs-sample-asset-repository.ts'
+import { listSampleLedgerEventsBySample } from '../data/pcs-sample-ledger-repository.ts'
+import {
+  findLatestNodeInstance,
+  findLatestProjectInstance,
+  getProjectInstanceFieldValue,
+  getProjectInstanceModel,
+  type PcsProjectInstanceItem,
+  type PcsProjectInstanceModel,
+  type PcsProjectNodeInstanceModel,
+} from '../data/pcs-project-instance-model.ts'
+import {
+  approveProjectInitAndSync,
+  archiveProject,
+  isClosedProjectNodeStatus,
+  markProjectNodeCompletedAndUnlockNext,
+  saveProjectNodeFormalRecord,
+  syncProjectLifecycle,
+  terminateProject,
+} from '../data/pcs-project-flow-service.ts'
+import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 
 type ProjectListViewMode = 'list' | 'grid'
 type ProjectListSort = 'updatedAt' | 'pendingDecision' | 'risk' | 'progressLow'
@@ -144,7 +170,7 @@ interface ProjectNodeViewModel {
   definition: ReturnType<typeof getPcsWorkItemDefinition>
   records: PcsProjectInlineNodeRecord[]
   latestRecord: PcsProjectInlineNodeRecord | null
-  relations: ProjectRelationRecord[]
+  instanceModel: PcsProjectNodeInstanceModel
   unlocked: boolean
   displayStatus: ProjectNodeStatus | '未解锁'
 }
@@ -167,7 +193,8 @@ interface ProjectLogItem {
 }
 
 interface ProjectViewModel {
-  project: PcsProjectRecord
+  project: PcsProjectViewRecord
+  instanceModel: PcsProjectInstanceModel
   phases: ProjectPhaseViewModel[]
   nodes: ProjectNodeViewModel[]
   currentPhase: ProjectPhaseViewModel | null
@@ -180,7 +207,6 @@ interface ProjectViewModel {
   logs: ProjectLogItem[]
 }
 
-const DEMO_OPERATOR = '系统演示'
 const STYLE_TYPE_OPTIONS: Array<'全部' | TemplateStyleType> = ['全部', '基础款', '快时尚款', '改版款', '设计款']
 const PROJECT_STATUS_OPTIONS = ['全部', '待审核', '已立项', '进行中', '已终止', '已归档']
 const RISK_STATUS_OPTIONS = ['全部', '正常', '延期']
@@ -289,8 +315,29 @@ function formatValue(value: unknown): string {
   return String(value).trim() || '-'
 }
 
+function renderReadonlyValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    const items = value.map((item) => String(item).trim()).filter(Boolean)
+    if (items.length === 0) {
+      return '<span>-</span>'
+    }
+    return `
+      <div class="space-y-1">
+        ${items
+          .map(
+            (item) => `
+              <div class="rounded-md bg-white px-2.5 py-2 text-sm leading-6 text-slate-700">${escapeHtml(item)}</div>
+            `,
+          )
+          .join('')}
+      </div>
+    `
+  }
+  return `<span>${escapeHtml(formatValue(value))}</span>`
+}
+
 function isClosedNodeStatus(status: ProjectNodeStatus): boolean {
-  return status === '已完成' || status === '已取消'
+  return isClosedProjectNodeStatus(status)
 }
 
 function canUseInlineRecords(workItemTypeCode: string): workItemTypeCode is PcsProjectInlineNodeRecordWorkItemTypeCode {
@@ -323,8 +370,32 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
   SAMPLE_CONFIRM: ['confirmResult', 'confirmNote'],
   SAMPLE_COST_REVIEW: ['costTotal', 'costNote'],
   SAMPLE_PRICING: ['priceRange', 'pricingNote'],
-  TEST_DATA_SUMMARY: ['summaryText', 'totalExposureQty', 'totalClickQty', 'totalOrderQty', 'totalGmvAmount'],
-  TEST_CONCLUSION: ['conclusion', 'conclusionNote', 'linkedChannelProductCode', 'invalidationPlanned'],
+  TEST_DATA_SUMMARY: [
+    'summaryText',
+    'totalExposureQty',
+    'totalClickQty',
+    'totalOrderQty',
+    'totalGmvAmount',
+    'channelBreakdownLines',
+    'storeBreakdownLines',
+    'channelProductBreakdownLines',
+    'testingSourceBreakdownLines',
+    'currencyBreakdownLines',
+  ],
+  TEST_CONCLUSION: [
+    'conclusion',
+    'conclusionNote',
+    'linkedChannelProductCode',
+    'invalidationPlanned',
+    'revisionTaskId',
+    'revisionTaskCode',
+    'linkedStyleId',
+    'linkedStyleCode',
+    'invalidatedChannelProductId',
+    'projectTerminated',
+    'projectTerminatedAt',
+    'nextActionType',
+  ],
   SAMPLE_RETAIN_REVIEW: ['retainResult', 'retainNote'],
   SAMPLE_RETURN_HANDLE: ['returnResult'],
 }
@@ -334,29 +405,12 @@ function getInlineEditableFieldKeys(workItemTypeCode: string): Set<string> {
   return new Set(INLINE_NODE_PAYLOAD_KEYS[workItemTypeCode])
 }
 
-function parseRelationNoteMeta(note: string | null | undefined): Record<string, unknown> {
-  if (!note) return {}
-  const trimmed = note.trim()
-  if (!trimmed.startsWith('{')) return {}
-  try {
-    const parsed = JSON.parse(trimmed) as unknown
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>
-    }
-  } catch {
-    return {}
-  }
-  return {}
-}
-
-function serializeRelationNoteMeta(meta: Record<string, unknown>): string {
-  return JSON.stringify(meta)
-}
-
-function collectRelationNoteMeta(relations: ProjectRelationRecord[]): Record<string, unknown> {
-  return [...relations]
-    .sort((left, right) => left.businessDate.localeCompare(right.businessDate))
-    .reduce((result, relation) => Object.assign(result, parseRelationNoteMeta(relation.note)), {} as Record<string, unknown>)
+function buildInstanceFieldMap(instance: PcsProjectInstanceItem | null | undefined): Record<string, string> {
+  if (!instance) return {}
+  return instance.fields.reduce<Record<string, string>>((result, field) => {
+    if (field.fieldKey) result[field.fieldKey] = field.value
+    return result
+  }, {})
 }
 
 function getFirstTargetChannelCode(project: PcsProjectRecord): string {
@@ -402,15 +456,29 @@ function findLatestProjectRelation(
   projectId: string,
   sourceModule: ProjectRelationRecord['sourceModule'],
   sourceObjectType?: ProjectRelationRecord['sourceObjectType'],
-): ProjectRelationRecord | null {
-  return (
-    listProjectRelationsByProject(projectId)
-      .filter(
-        (relation) =>
-          relation.sourceModule === sourceModule &&
-          (sourceObjectType ? relation.sourceObjectType === sourceObjectType : true),
-      )
-      .sort((left, right) => right.businessDate.localeCompare(left.businessDate))[0] || null
+): PcsProjectInstanceItem | null {
+  return findLatestProjectInstance(
+    projectId,
+    (instance) =>
+      instance.sourceLayer === '正式业务对象' &&
+      instance.moduleName === sourceModule &&
+      (sourceObjectType ? instance.objectType === sourceObjectType : true),
+  )
+}
+
+function findLatestNodeRelation(
+  projectId: string,
+  projectNodeId: string,
+  sourceModule: ProjectRelationRecord['sourceModule'],
+  sourceObjectType?: ProjectRelationRecord['sourceObjectType'],
+): PcsProjectInstanceItem | null {
+  return findLatestNodeInstance(
+    projectId,
+    projectNodeId,
+    (instance) =>
+      instance.sourceLayer === '正式业务对象' &&
+      instance.moduleName === sourceModule &&
+      (sourceObjectType ? instance.objectType === sourceObjectType : true),
   )
 }
 
@@ -419,12 +487,154 @@ function buildFallbackUpstreamChannelProductCode(channelProductCode: string, pro
   return `${projectCode}-UP`
 }
 
-function getCurrentChannelProductRelation(projectId: string): ProjectRelationRecord | null {
-  return (
-    listProjectRelationsByProject(projectId)
-      .filter((relation) => relation.sourceModule === '渠道商品' && relation.sourceObjectType === '渠道商品')
-      .sort((left, right) => right.businessDate.localeCompare(left.businessDate))[0] || null
+function resolveSampleAcceptedAt(
+  sampleAssetId: string,
+  fallbackAcceptedAt: string,
+  fallbackStatus: string,
+  fallbackUpdatedAt: string,
+): string {
+  if (fallbackAcceptedAt) return fallbackAcceptedAt
+  if (sampleAssetId) {
+    const event = listSampleLedgerEventsBySample(sampleAssetId).find(
+      (item) => item.eventType === 'DELIVER_SIGNED' || item.eventType === 'RECEIVE_ARRIVAL',
+    )
+    if (event?.businessDate) return event.businessDate
+  }
+  if (fallbackStatus === '已到样待入库' || fallbackStatus === '验收中' || fallbackStatus === '已完成') {
+    return fallbackUpdatedAt
+  }
+  return ''
+}
+
+function resolveSampleConfirmedAt(
+  sampleAssetId: string,
+  fallbackConfirmedAt: string,
+  fallbackStatus: string,
+  fallbackUpdatedAt: string,
+): string {
+  if (fallbackConfirmedAt) return fallbackConfirmedAt
+  if (sampleAssetId) {
+    const event = listSampleLedgerEventsBySample(sampleAssetId).find((item) => item.eventType === 'CHECKIN_VERIFY')
+    if (event?.businessDate) return event.businessDate
+  }
+  if (fallbackStatus === '已完成') return fallbackUpdatedAt
+  return ''
+}
+
+function getCurrentProjectArchiveRecord(project: PcsProjectRecord) {
+  return (project.projectArchiveId ? getProjectArchiveById(project.projectArchiveId) : null) || getProjectArchiveByProjectId(project.projectId)
+}
+
+function getProjectTechPackContext(project: PcsProjectRecord, linkedStyleId: string) {
+  const versions = linkedStyleId ? listTechnicalDataVersionsByStyleId(linkedStyleId) : []
+  const currentVersion =
+    (project.linkedTechPackVersionId ? getTechnicalDataVersionById(project.linkedTechPackVersionId) : null) ||
+    (project.linkedTechPackVersionCode
+      ? versions.find((item) => item.technicalVersionCode === project.linkedTechPackVersionCode)
+      : null) ||
+    versions[0] ||
+    null
+  const previousVersion = currentVersion
+    ? versions.find((item) => item.technicalVersionId !== currentVersion.technicalVersionId) || null
+    : null
+  const sourceSummary = currentVersion ? buildTechPackVersionSourceTaskSummary(currentVersion) : null
+  return { currentVersion, previousVersion, versions, sourceSummary }
+}
+
+function formatSignedNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  if (value > 0) return `+${value}`
+  return String(value)
+}
+
+function buildTechPackVersionDiffSummary(
+  currentVersion: ReturnType<typeof getTechnicalDataVersionById>,
+  previousVersion: ReturnType<typeof getTechnicalDataVersionById>,
+): string[] {
+  if (!currentVersion) return ['尚未关联当前技术包版本。']
+
+  const currentSummary = `当前版本：${currentVersion.technicalVersionCode} / ${currentVersion.versionLabel} / ${getTechPackVersionStatusText(currentVersion.versionStatus)}`
+  if (!previousVersion) {
+    return [
+      currentSummary,
+      currentVersion.baseTechnicalVersionCode
+        ? `历史差异：当前版本基于 ${currentVersion.baseTechnicalVersionCode} 演进，但暂无可直接对比的历史正式版本。`
+        : '历史差异：当前为首个技术包版本，无历史版本差异基线。',
+    ]
+  }
+
+  const previousSummary = `上一版本：${previousVersion.technicalVersionCode} / ${previousVersion.versionLabel} / ${getTechPackVersionStatusText(previousVersion.versionStatus)}`
+  const previousMissing = new Set((previousVersion.missingItemNames || []).map((item) => String(item).trim()).filter(Boolean))
+  const currentMissing = new Set((currentVersion.missingItemNames || []).map((item) => String(item).trim()).filter(Boolean))
+  const resolvedItems = [...previousMissing].filter((item) => !currentMissing.has(item))
+  const addedItems = [...currentMissing].filter((item) => !previousMissing.has(item))
+
+  return [
+    currentSummary,
+    previousSummary,
+    `完整度变化：${formatSignedNumber(currentVersion.completenessScore - previousVersion.completenessScore)} 分`,
+    `补齐项：${resolvedItems.length > 0 ? resolvedItems.join('、') : '无'}`,
+    `新增缺失：${addedItems.length > 0 ? addedItems.join('、') : '无'}`,
+  ]
+}
+
+function getTestConclusionNextActionType(decision: string): string {
+  if (decision === '通过') return '生成款式档案'
+  if (decision === '调整') return '等待改版完成'
+  if (decision === '暂缓') return '等待重新评估'
+  if (decision === '淘汰') return '项目关闭'
+  return ''
+}
+
+function buildTestConclusionOutcomeValues(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  decision: string,
+  timestamp: string,
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> {
+  const currentChannelProduct = getCurrentChannelProductRelation(project.projectId)
+  const linkedChannelProductCode = String(
+    overrides.linkedChannelProductCode ??
+      getNodeFieldValue(project, node, 'linkedChannelProductCode') ??
+      currentChannelProduct?.sourceObjectCode ??
+      `${project.projectCode}-CP`,
   )
+
+  return {
+    linkedChannelProductCode,
+    invalidationPlanned: decision ? decision !== '通过' : false,
+    revisionTaskId:
+      decision === '调整'
+        ? String(overrides.revisionTaskId ?? getNodeFieldValue(project, node, 'revisionTaskId') ?? '')
+        : '',
+    revisionTaskCode:
+      decision === '调整'
+        ? String(overrides.revisionTaskCode ?? getNodeFieldValue(project, node, 'revisionTaskCode') ?? '')
+        : '',
+    linkedStyleId:
+      decision === '通过'
+        ? String(overrides.linkedStyleId ?? getNodeFieldValue(project, node, 'linkedStyleId') ?? project.linkedStyleId ?? '')
+        : '',
+    linkedStyleCode:
+      decision === '通过'
+        ? String(overrides.linkedStyleCode ?? getNodeFieldValue(project, node, 'linkedStyleCode') ?? project.linkedStyleCode ?? '')
+        : '',
+    invalidatedChannelProductId:
+      decision && decision !== '通过'
+        ? String(overrides.invalidatedChannelProductId ?? currentChannelProduct?.sourceObjectId ?? '')
+        : '',
+    projectTerminated: decision === '淘汰',
+    projectTerminatedAt:
+      decision === '淘汰'
+        ? String(overrides.projectTerminatedAt ?? getNodeFieldValue(project, node, 'projectTerminatedAt') ?? timestamp)
+        : '',
+    nextActionType: String(overrides.nextActionType ?? getTestConclusionNextActionType(decision)),
+  }
+}
+
+function getCurrentChannelProductRelation(projectId: string): PcsProjectInstanceItem | null {
+  return findLatestProjectRelation(projectId, '渠道商品', '渠道商品')
 }
 
 function getProjectTestingAggregate(projectId: string): {
@@ -436,87 +646,60 @@ function getProjectTestingAggregate(projectId: string): {
   totalClickQty: number
   totalOrderQty: number
   totalGmvAmount: number
+  channelBreakdownLines: string[]
+  storeBreakdownLines: string[]
+  channelProductBreakdownLines: string[]
+  testingSourceBreakdownLines: string[]
+  currencyBreakdownLines: string[]
+  channelBreakdowns: ProjectTestingSummaryBreakdownItem[]
+  storeBreakdowns: ProjectTestingSummaryBreakdownItem[]
+  channelProductBreakdowns: ProjectTestingSummaryBreakdownItem[]
+  testingSourceBreakdowns: ProjectTestingSummaryBreakdownItem[]
+  currencyBreakdowns: ProjectTestingSummaryBreakdownItem[]
 } {
-  const relations = listProjectRelationsByProject(projectId)
-  const liveRelations = relations.filter(
-    (relation) => relation.sourceModule === '直播' && relation.sourceObjectType === '直播商品明细',
-  )
-  const videoRelations = relations.filter(
-    (relation) => relation.sourceModule === '短视频' && relation.sourceObjectType === '短视频记录',
-  )
-
-  const liveLines = liveRelations
-    .map((relation) => {
-      const meta = parseRelationNoteMeta(relation.note)
-      const liveLineId = relation.sourceLineId || relation.sourceObjectId
-      const record = liveLineId ? getLiveProductLineById(liveLineId) : null
-      return {
-        liveLineId: record?.liveLineId || String(meta.liveLineId || liveLineId || ''),
-        liveLineCode: record?.liveLineCode || String(meta.liveLineCode || relation.sourceLineCode || relation.sourceObjectCode || ''),
-        exposureQty: record?.exposureQty ?? Number(meta.exposureQty || 0),
-        clickQty: record?.clickQty ?? Number(meta.clickQty || 0),
-        orderQty: record?.orderQty ?? Number(meta.orderQty || 0),
-        gmvAmount: record?.gmvAmount ?? Number(meta.gmvAmount || 0),
-      }
-    })
-    .filter((item) => item.liveLineId || item.liveLineCode)
-  const videoRecords = videoRelations
-    .map((relation) => {
-      const meta = parseRelationNoteMeta(relation.note)
-      const record = relation.sourceObjectId ? getVideoTestRecordById(relation.sourceObjectId) : null
-      return {
-        videoRecordId: record?.videoRecordId || String(meta.videoRecordId || relation.sourceObjectId || ''),
-        videoRecordCode: record?.videoRecordCode || String(meta.videoRecordCode || relation.sourceObjectCode || ''),
-        exposureQty: record?.exposureQty ?? Number(meta.exposureQty || 0),
-        clickQty: record?.clickQty ?? Number(meta.clickQty || 0),
-        orderQty: record?.orderQty ?? Number(meta.orderQty || 0),
-        gmvAmount: record?.gmvAmount ?? Number(meta.gmvAmount || 0),
-      }
-    })
-    .filter((item) => item.videoRecordId || item.videoRecordCode)
-
-  return {
-    liveRelationIds: Array.from(new Set(liveLines.map((line) => line.liveLineId).filter(Boolean))),
-    liveRelationCodes: Array.from(new Set(liveLines.map((line) => line.liveLineCode).filter(Boolean))),
-    videoRelationIds: Array.from(new Set(videoRecords.map((record) => record.videoRecordId).filter(Boolean))),
-    videoRelationCodes: Array.from(new Set(videoRecords.map((record) => record.videoRecordCode).filter(Boolean))),
-    totalExposureQty:
-      liveLines.reduce((sum, item) => sum + item.exposureQty, 0) +
-      videoRecords.reduce((sum, item) => sum + item.exposureQty, 0),
-    totalClickQty:
-      liveLines.reduce((sum, item) => sum + item.clickQty, 0) +
-      videoRecords.reduce((sum, item) => sum + item.clickQty, 0),
-    totalOrderQty:
-      liveLines.reduce((sum, item) => sum + item.orderQty, 0) +
-      videoRecords.reduce((sum, item) => sum + item.orderQty, 0),
-    totalGmvAmount:
-      liveLines.reduce((sum, item) => sum + item.gmvAmount, 0) +
-      videoRecords.reduce((sum, item) => sum + item.gmvAmount, 0),
-  }
+  return getProjectTestingSummaryAggregate(projectId)
 }
 
 function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel, fieldKey: string): unknown {
   const payload = (node.latestRecord?.payload || {}) as Record<string, unknown>
   const detailSnapshot = (node.latestRecord?.detailSnapshot || {}) as Record<string, unknown>
-  const nodeRelationMeta = collectRelationNoteMeta(node.relations)
+  const latestFormalNodeInstance =
+    node.instanceModel.instances.find((item) => item.sourceLayer === '正式业务对象') || null
+  const nodeRelationMeta = buildInstanceFieldMap(latestFormalNodeInstance)
   const currentChannelProduct = getCurrentChannelProductRelation(project.projectId)
-  const currentChannelMeta = parseRelationNoteMeta(currentChannelProduct?.note)
+  const currentChannelMeta = buildInstanceFieldMap(currentChannelProduct)
   const styleRelation = findLatestProjectRelation(project.projectId, '款式档案', '款式档案')
-  const styleMeta = parseRelationNoteMeta(styleRelation?.note)
+  const styleMeta = buildInstanceFieldMap(styleRelation)
+  const revisionRelation = findLatestProjectRelation(project.projectId, '改版任务', '改版任务')
+  const revisionMeta = buildInstanceFieldMap(revisionRelation)
   const projectArchiveRelation = findLatestProjectRelation(project.projectId, '项目资料归档', '项目资料归档')
-  const projectArchiveMeta = parseRelationNoteMeta(projectArchiveRelation?.note)
+  const projectArchiveMeta = buildInstanceFieldMap(projectArchiveRelation)
+  const plateRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '制版任务', '制版任务')
+  const plateTask = plateRelation ? getPlateMakingTaskById(plateRelation.sourceObjectId || plateRelation.instanceId) : null
+  const artworkRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '花型任务', '花型任务')
+  const artworkTask = artworkRelation ? getPatternTaskById(artworkRelation.sourceObjectId || artworkRelation.instanceId) : null
+  const firstSampleRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '首版样衣打样', '首版样衣打样任务')
+  const firstSampleTask = firstSampleRelation
+    ? getFirstSampleTaskById(firstSampleRelation.sourceObjectId || firstSampleRelation.instanceId)
+    : null
+  const preProductionRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '产前版样衣', '产前版样衣任务')
+  const preProductionTask = preProductionRelation
+    ? getPreProductionSampleTaskById(preProductionRelation.sourceObjectId || preProductionRelation.instanceId)
+    : null
+  const currentEngineeringTask =
+    plateTask || artworkTask || firstSampleTask || preProductionTask || null
   const testingAggregate = getProjectTestingAggregate(project.projectId)
   const defaultChannelCode = getFirstTargetChannelCode(project)
   const defaultChannelName = getChannelDisplayName(defaultChannelCode)
   const currentChannelCode = String(currentChannelMeta.channelCode || nodeRelationMeta.channelCode || defaultChannelCode)
   const currentStoreId = String(currentChannelMeta.storeId || nodeRelationMeta.storeId || '')
   const currentChannelName = String(
-    currentChannelMeta.targetChannelCode || nodeRelationMeta.targetChannelCode || getChannelDisplayName(currentChannelCode),
+    currentChannelMeta.channelName || nodeRelationMeta.channelName || getChannelDisplayName(currentChannelCode),
   )
   const currentStoreName = String(
     currentStoreId
       ? getStoreDisplayName(currentStoreId, currentChannelCode)
-      : currentChannelMeta.targetStoreId || nodeRelationMeta.targetStoreId || '-',
+      : currentChannelMeta.storeName || nodeRelationMeta.storeName || '-',
   )
   const currentCurrency = String(
     currentStoreId
@@ -524,66 +707,127 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
       : currentChannelMeta.currency || nodeRelationMeta.currency || getDefaultChannelCurrency(currentChannelCode),
   )
   const currentChannelProductCode = String(
-    currentChannelMeta.channelProductCode || currentChannelProduct?.sourceObjectCode || node.node.latestInstanceCode || '',
+    currentChannelMeta.channelProductCode || currentChannelProduct?.instanceCode || node.node.latestInstanceCode || '',
   )
   const currentUpstreamChannelProductCode = String(
-    currentChannelMeta.upstreamChannelProductCode ||
+    getProjectInstanceFieldValue(currentChannelProduct, 'upstreamChannelProductCode') ||
       nodeRelationMeta.upstreamChannelProductCode ||
       buildFallbackUpstreamChannelProductCode(currentChannelProductCode, project.projectCode),
   )
   const currentStyleCode = String(
-    styleMeta.styleCode ||
+    styleRelation?.instanceCode ||
       projectArchiveMeta.linkedStyleCode ||
       currentChannelMeta.linkedStyleCode ||
       project.linkedStyleCode ||
-      styleRelation?.sourceObjectCode ||
       '',
   )
   const currentStyleName = String(
-    styleMeta.styleName || project.linkedStyleName || styleRelation?.sourceTitle || project.projectName,
+    styleMeta.styleName || project.linkedStyleName || styleRelation?.title || project.projectName,
   )
+  const linkedStyleId = String(styleRelation?.sourceObjectId || project.linkedStyleId || '')
+  const currentProjectArchive = getCurrentProjectArchiveRecord(project)
+  const techPackContext = getProjectTechPackContext(project, linkedStyleId)
+  const currentTechPackVersion = techPackContext.currentVersion
+  const techPackSourceSummary = techPackContext.sourceSummary
+  const projectArchiveStatusText = getProjectArchiveStatusText(
+    String(currentProjectArchive?.archiveStatus || project.projectArchiveStatus || projectArchiveRelation?.status || ''),
+  )
+  const projectArchiveCompletedFlag =
+    String(currentProjectArchive?.archiveStatus || project.projectArchiveStatus || '') === 'FINALIZED' ||
+    project.projectArchiveStatus === '已归档' ||
+    Boolean(currentProjectArchive?.finalizedAt || project.projectArchiveFinalizedAt)
+  const currentSampleTask = firstSampleTask || preProductionTask || null
+  const currentSampleAsset =
+    (currentSampleTask?.sampleAssetId ? getSampleAssetById(currentSampleTask.sampleAssetId) : null) ||
+    (currentSampleTask?.sampleCode ? getSampleAssetByCode(currentSampleTask.sampleCode) : null)
+  const currentTaskStatus = String(currentEngineeringTask?.status || '')
+  const currentTaskAcceptedAt = resolveSampleAcceptedAt(
+    currentSampleAsset?.sampleAssetId || currentSampleTask?.sampleAssetId || '',
+    String(currentSampleTask?.acceptedAt || currentEngineeringTask?.acceptedAt || ''),
+    currentTaskStatus,
+    String(currentSampleTask?.updatedAt || currentEngineeringTask?.updatedAt || ''),
+  )
+  const currentTaskConfirmedAt = resolveSampleConfirmedAt(
+    currentSampleAsset?.sampleAssetId || currentSampleTask?.sampleAssetId || '',
+    String(currentSampleTask?.confirmedAt || currentEngineeringTask?.confirmedAt || ''),
+    currentTaskStatus,
+    String(currentSampleTask?.updatedAt || currentEngineeringTask?.updatedAt || ''),
+  )
+  const projectTerminated =
+    project.projectStatus === '已终止' ||
+    node.node.latestResultType === '测款淘汰' ||
+    node.node.pendingActionType === '项目关闭'
+  const activeListingCount = listProjectChannelProductsByProjectId(project.projectId).filter(
+    (item) => item.channelProductStatus !== '已作废',
+  ).length
   const projectValues: Record<string, unknown> = {
     projectName: project.projectName,
     projectCode: project.projectCode,
+    projectType: project.projectType,
     templateId: [project.templateName, project.templateVersion].filter(Boolean).join(' / '),
     projectSourceType: project.projectSourceType,
     categoryId: project.categoryName,
     categoryName: project.categoryName,
+    subCategoryId: project.subCategoryName || project.subCategoryId,
     brandId: project.brandName,
+    brandName: project.brandName,
+    styleNumber: project.styleNumber || project.styleCodeName,
     styleCodeId: project.styleCodeName,
+    styleCodeName: project.styleCodeName,
+    yearTag: project.yearTag,
+    seasonTags: project.seasonTags,
+    styleTags: project.styleTags,
     styleTagIds: project.styleTagNames,
+    styleTagNames: project.styleTagNames,
     crowdPositioningIds: project.crowdPositioningNames,
+    crowdPositioningNames: project.crowdPositioningNames,
     ageIds: project.ageNames,
+    ageNames: project.ageNames,
     crowdIds: project.crowdNames,
+    crowdNames: project.crowdNames,
     productPositioningIds: project.productPositioningNames,
+    productPositioningNames: project.productPositioningNames,
+    targetAudienceTags: project.targetAudienceTags,
     targetChannelCodes: getChannelNamesByCodes(project.targetChannelCodes),
     ownerId: project.ownerName,
+    ownerName: project.ownerName,
     teamId: project.teamName,
+    teamName: project.teamName,
     collaboratorIds: project.collaboratorNames,
+    collaboratorNames: project.collaboratorNames,
     priorityLevel: project.priorityLevel,
     remark: project.remark,
     subCategoryName: project.subCategoryName,
     styleType: project.styleType,
-    ownerName: project.ownerName,
-    teamName: project.teamName,
+    priceRangeLabel: project.priceRangeLabel,
     priceRange: project.priceRangeLabel,
+    projectAlbumUrls: project.projectAlbumUrls,
+    activeListingCount,
+    listingScopeRule: '单实例 = 单渠道 + 单店铺 + 单 Listing；同一项目可多渠道并行，同一渠道可多店铺并行。',
     targetChannelCode: currentChannelName || defaultChannelName,
     targetStoreId: currentStoreName,
     listingTitle: currentChannelMeta.listingTitle || nodeRelationMeta.listingTitle || `${project.projectName} 测款渠道商品`,
     listingPrice: currentChannelMeta.listingPrice || nodeRelationMeta.listingPrice || project.sampleUnitPrice || 199,
     currency: currentCurrency,
     sampleSupplierId: project.sampleSupplierName || project.sampleSupplierId,
+    sampleSupplierName: project.sampleSupplierName,
     sampleSourceType: project.sampleSourceType,
     sampleLink: project.sampleLink,
     sampleUnitPrice: project.sampleUnitPrice,
     linkedChannelProductCode: currentChannelProductCode,
+    revisionTaskId: revisionMeta.revisionTaskId || revisionRelation?.sourceObjectId || '',
+    revisionTaskCode: revisionMeta.revisionTaskCode || revisionRelation?.instanceCode || '',
     channelProductCode: currentChannelProductCode,
     upstreamChannelProductCode: currentUpstreamChannelProductCode,
     channelProductStatus:
-      currentChannelMeta.channelProductStatus || nodeRelationMeta.channelProductStatus || currentChannelProduct?.sourceStatus || '',
+      currentChannelMeta.channelProductStatus || nodeRelationMeta.channelProductStatus || currentChannelProduct?.status || '',
     upstreamSyncStatus: currentChannelMeta.upstreamSyncStatus || nodeRelationMeta.upstreamSyncStatus || '',
     invalidatedReason: currentChannelMeta.invalidatedReason || nodeRelationMeta.invalidatedReason || '',
     channelProductId: nodeRelationMeta.channelProductCode || nodeRelationMeta.channelProductId || currentChannelProductCode,
+    invalidatedChannelProductId:
+      nodeRelationMeta.invalidatedChannelProductId ||
+      currentChannelMeta.invalidatedChannelProductId ||
+      (currentChannelProduct?.status === '已作废' ? currentChannelProduct?.sourceObjectId || '' : ''),
     videoChannel: nodeRelationMeta.videoChannel || nodeRelationMeta.channelName || '',
     exposureQty: nodeRelationMeta.exposureQty,
     clickQty: nodeRelationMeta.clickQty,
@@ -597,47 +841,127 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     totalClickQty: testingAggregate.totalClickQty,
     totalOrderQty: testingAggregate.totalOrderQty,
     totalGmvAmount: testingAggregate.totalGmvAmount,
-    styleId: styleMeta.styleId || project.linkedStyleId || styleRelation?.sourceObjectId || '',
+    channelBreakdownLines: testingAggregate.channelBreakdownLines,
+    storeBreakdownLines: testingAggregate.storeBreakdownLines,
+    channelProductBreakdownLines: testingAggregate.channelProductBreakdownLines,
+    testingSourceBreakdownLines: testingAggregate.testingSourceBreakdownLines,
+    currencyBreakdownLines: testingAggregate.currencyBreakdownLines,
+    linkedStyleId,
+    linkedStyleName: currentStyleName,
+    styleId: linkedStyleId,
     styleCode: currentStyleCode || project.styleCodeName,
     styleName: currentStyleName,
     archiveStatus: getStyleArchiveStatusText(
       String(
         styleMeta.archiveStatus ||
-          styleRelation?.sourceStatus ||
+          styleRelation?.status ||
           (project.linkedStyleCode ? 'ACTIVE' : ''),
       ),
     ),
     linkedStyleCode: currentStyleCode,
+    sourceType:
+      String(currentEngineeringTask?.sourceType || '') ||
+      String(nodeRelationMeta.sourceType || ''),
+    upstreamModule:
+      String(currentEngineeringTask?.upstreamModule || '') ||
+      String(nodeRelationMeta.upstreamModule || ''),
+    upstreamObjectType:
+      String(currentEngineeringTask?.upstreamObjectType || '') ||
+      String(nodeRelationMeta.upstreamObjectType || ''),
+    upstreamObjectId:
+      String(currentEngineeringTask?.upstreamObjectId || '') ||
+      String(nodeRelationMeta.upstreamObjectId || ''),
+    upstreamObjectCode:
+      String(currentEngineeringTask?.upstreamObjectCode || '') ||
+      String(nodeRelationMeta.upstreamObjectCode || ''),
     linkedTechPackVersionCode:
+      plateTask?.linkedTechPackVersionCode ||
+      artworkTask?.linkedTechPackVersionCode ||
+      currentTechPackVersion?.technicalVersionCode ||
       project.linkedTechPackVersionCode ||
-      projectArchiveMeta.linkedTechPackVersionCode ||
-      styleMeta.linkedTechPackVersionCode ||
+      String(projectArchiveMeta.linkedTechPackVersionCode || '') ||
+      String(currentProjectArchive?.currentTechnicalVersionCode || ''),
+    linkedTechPackVersionId:
+      plateTask?.linkedTechPackVersionId ||
+      artworkTask?.linkedTechPackVersionId ||
+      currentTechPackVersion?.technicalVersionId ||
+      project.linkedTechPackVersionId ||
       '',
+    linkedTechPackVersionLabel:
+      plateTask?.linkedTechPackVersionLabel ||
+      artworkTask?.linkedTechPackVersionLabel ||
+      currentTechPackVersion?.versionLabel ||
+      project.linkedTechPackVersionLabel ||
+      String(projectArchiveMeta.linkedTechPackVersionLabel || '') ||
+      String(currentProjectArchive?.currentTechnicalVersionLabel || ''),
+    projectTerminated,
+    projectTerminatedAt: projectTerminated ? project.updatedAt : '',
+    nextActionType:
+      node.node.pendingActionType ||
+      getTestConclusionNextActionType(String(payload.conclusion || detailSnapshot.conclusion || '')),
     linkedTechPackVersionStatus: getTechPackVersionStatusText(
       String(
-        project.linkedTechPackVersionStatus ||
+        plateTask?.linkedTechPackVersionStatus ||
+          artworkTask?.linkedTechPackVersionStatus ||
+          currentTechPackVersion?.versionStatus ||
+          project.linkedTechPackVersionStatus ||
           projectArchiveMeta.linkedTechPackVersionStatus ||
           styleMeta.linkedTechPackVersionStatus ||
           '',
       ),
     ),
-    projectArchiveNo: project.projectArchiveNo || projectArchiveRelation?.sourceObjectCode || '',
-    projectArchiveStatus: getProjectArchiveStatusText(
-      String(project.projectArchiveStatus || projectArchiveRelation?.sourceStatus || ''),
+    linkedTechPackVersionSourceTask: techPackSourceSummary?.createdFromTaskText || '暂无来源任务',
+    linkedTechPackVersionTaskChain:
+      techPackSourceSummary?.items.length
+        ? techPackSourceSummary.items.map((item) => `${item.taskTypeLabel} ${item.taskCode}（${item.status}）`)
+        : techPackSourceSummary
+          ? [techPackSourceSummary.taskChainText]
+          : ['暂无来源任务'],
+    linkedTechPackVersionDiffSummary: buildTechPackVersionDiffSummary(
+      currentTechPackVersion,
+      techPackContext.previousVersion,
     ),
-    patternBrief: nodeRelationMeta.patternBrief || nodeRelationMeta.note || node.node.latestResultText,
-    productStyleCode: nodeRelationMeta.productStyleCode || currentStyleCode,
-    sizeRange: nodeRelationMeta.sizeRange || '',
-    patternVersion: nodeRelationMeta.patternVersion || '',
-    artworkType: nodeRelationMeta.artworkType || '',
-    patternMode: nodeRelationMeta.patternMode || '',
-    artworkName: nodeRelationMeta.artworkName || '',
-    artworkVersion: nodeRelationMeta.artworkVersion || '',
-    factoryId: nodeRelationMeta.factoryName || nodeRelationMeta.factoryId || '',
-    targetSite: nodeRelationMeta.targetSite || '',
-    expectedArrival: nodeRelationMeta.expectedArrival || '',
-    trackingNo: nodeRelationMeta.trackingNo || '',
-    sampleCode: nodeRelationMeta.sampleCode || detailSnapshot.sampleCode || '',
+    projectArchiveNo: currentProjectArchive?.archiveNo || project.projectArchiveNo || projectArchiveRelation?.instanceCode || '',
+    projectArchiveStatus: projectArchiveStatusText,
+    projectArchiveDocumentCount: currentProjectArchive?.documentCount ?? project.projectArchiveDocumentCount ?? 0,
+    projectArchiveFileCount: currentProjectArchive?.fileCount ?? project.projectArchiveFileCount ?? 0,
+    projectArchiveMissingItemCount: currentProjectArchive?.missingItemCount ?? project.projectArchiveMissingItemCount ?? 0,
+    projectArchiveCompletedFlag,
+    projectArchiveFinalizedAt: currentProjectArchive?.finalizedAt || project.projectArchiveFinalizedAt || '',
+    taskStatus: currentTaskStatus || node.node.currentStatus,
+    acceptedAt: currentTaskAcceptedAt || String(currentEngineeringTask?.acceptedAt || ''),
+    confirmedAt: currentTaskConfirmedAt || String(currentEngineeringTask?.confirmedAt || ''),
+    patternBrief:
+      plateTask?.note ||
+      plateTask?.title ||
+      nodeRelationMeta.patternBrief ||
+      nodeRelationMeta.note ||
+      node.node.latestResultText,
+    productStyleCode: plateTask?.productStyleCode || artworkTask?.productStyleCode || nodeRelationMeta.productStyleCode || currentStyleCode,
+    sizeRange: plateTask?.sizeRange || nodeRelationMeta.sizeRange || '',
+    patternVersion: plateTask?.patternVersion || preProductionTask?.patternVersion || nodeRelationMeta.patternVersion || '',
+    artworkType: artworkTask?.artworkType || nodeRelationMeta.artworkType || '',
+    patternMode: artworkTask?.patternMode || nodeRelationMeta.patternMode || '',
+    artworkName: artworkTask?.artworkName || nodeRelationMeta.artworkName || '',
+    artworkVersion: artworkTask?.artworkVersion || preProductionTask?.artworkVersion || nodeRelationMeta.artworkVersion || '',
+    factoryId: currentSampleTask?.factoryName || currentSampleTask?.factoryId || nodeRelationMeta.factoryName || nodeRelationMeta.factoryId || '',
+    targetSite: currentSampleTask?.targetSite || nodeRelationMeta.targetSite || '',
+    expectedArrival: currentSampleTask?.expectedArrival || nodeRelationMeta.expectedArrival || '',
+    trackingNo: currentSampleTask?.trackingNo || nodeRelationMeta.trackingNo || '',
+    sampleAssetId: currentSampleTask?.sampleAssetId || currentSampleAsset?.sampleAssetId || '',
+    sampleCode:
+      currentSampleTask?.sampleCode ||
+      currentSampleAsset?.sampleCode ||
+      nodeRelationMeta.sampleCode ||
+      detailSnapshot.sampleCode ||
+      '',
+  }
+  if (node.node.workItemTypeCode === 'TEST_CONCLUSION') {
+    const recordValue = payload[fieldKey]
+    if (recordValue !== undefined && recordValue !== null && recordValue !== '') return recordValue
+    const snapshotValue = detailSnapshot[fieldKey]
+    if (snapshotValue !== undefined && snapshotValue !== null && snapshotValue !== '') return snapshotValue
+    if (projectValues[fieldKey] !== undefined) return projectValues[fieldKey]
   }
   return (
     payload[fieldKey] ??
@@ -926,1332 +1250,11 @@ function getTemplateByStyleType(styleType: TemplateStyleType): ProjectTemplate |
   return listActiveProjectTemplates().find((template) => template.styleType.includes(styleType)) ?? null
 }
 
-function findCatalogOptionByName(options: Array<{ id: string; name: string }>, name: string): { id: string; name: string } | null {
-  return options.find((item) => item.name === name) ?? options[0] ?? null
-}
-
-function findCategoryOptionByName(name: string): { categoryId: string; categoryName: string; subCategoryId: string; subCategoryName: string } | null {
-  const category = getProjectCreateCatalog().categories.find((item) => item.name === name) ?? getProjectCreateCatalog().categories[0]
-  if (!category) return null
-  const child = category.children[0] ?? { id: '', name: '' }
-  return {
-    categoryId: category.id,
-    categoryName: category.name,
-    subCategoryId: child.id,
-    subCategoryName: child.name,
-  }
-}
-
-function buildDemoDraft(input: {
-  projectName: string
-  styleType: TemplateStyleType
-  projectSourceType: PcsProjectCreateDraft['projectSourceType']
-  categoryName: string
-  ownerName: string
-  teamName: string
-  brandName: string
-  styleCodeName: string
-  styleTags: string[]
-  channels: string[]
-  remark: string
-}): PcsProjectCreateDraft {
-  const catalog = getProjectCreateCatalog()
-  const template = getTemplateByStyleType(input.styleType)
-  const category = findCategoryOptionByName(input.categoryName)
-  const owner = findCatalogOptionByName(catalog.owners, input.ownerName)
-  const team = findCatalogOptionByName(catalog.teams, input.teamName)
-  const brand = findCatalogOptionByName(catalog.brands, input.brandName)
-  const styleCode = findCatalogOptionByName(catalog.styleCodes, input.styleCodeName)
-  const supplier = catalog.sampleSuppliers[0] ?? { id: '', name: '' }
-
-  return {
-    ...createEmptyProjectDraft(),
-    projectName: input.projectName,
-    projectType: getProjectTypeLabel(input.styleType),
-    projectSourceType: input.projectSourceType,
-    templateId: template?.id ?? '',
-    categoryId: category?.categoryId ?? '',
-    categoryName: category?.categoryName ?? '',
-    subCategoryId: category?.subCategoryId ?? '',
-    subCategoryName: category?.subCategoryName ?? '',
-    brandId: brand?.id ?? '',
-    brandName: brand?.name ?? '',
-    styleCodeId: styleCode?.id ?? '',
-    styleCodeName: styleCode?.name ?? '',
-    styleNumber: styleCode?.name ?? input.projectName,
-    styleType: input.styleType,
-    yearTag: '2026',
-    seasonTags: ['夏季'],
-    styleTags: [...input.styleTags],
-    styleTagNames: [...input.styleTags],
-    priceRangeLabel: catalog.priceRanges[1] ?? '',
-    targetChannelCodes: [...input.channels],
-    sampleSourceType: catalog.sampleSourceTypes[0] ?? '',
-    sampleSupplierId: supplier.id,
-    sampleSupplierName: supplier.name,
-    sampleLink: 'https://example.com/mock-sample',
-    sampleUnitPrice: '79',
-    ownerId: owner?.id ?? '',
-    ownerName: owner?.name ?? '',
-    teamId: team?.id ?? '',
-    teamName: team?.name ?? '',
-    priorityLevel: '中',
-    remark: input.remark,
-  }
-}
-
-function upsertDemoRelation(input: {
-  project: PcsProjectRecord
-  workItemTypeCode: PcsProjectWorkItemCode
-  sourceModule: ProjectRelationRecord['sourceModule']
-  sourceObjectType: ProjectRelationRecord['sourceObjectType']
-  sourceObjectId: string
-  sourceObjectCode: string
-  sourceTitle: string
-  sourceStatus: string
-  businessDate: string
-  relationRole?: ProjectRelationRecord['relationRole']
-  sourceLineId?: string | null
-  sourceLineCode?: string | null
-  ownerName?: string
-  noteMeta?: Record<string, unknown>
-}): void {
-  const node = getProjectNodeRecordByWorkItemTypeCode(input.project.projectId, input.workItemTypeCode)
-  if (!node) return
-  upsertProjectRelation({
-    projectRelationId: '',
-    projectId: input.project.projectId,
-    projectCode: input.project.projectCode,
-    projectNodeId: node.projectNodeId,
-    workItemTypeCode: node.workItemTypeCode,
-    workItemTypeName: node.workItemTypeName,
-    relationRole: input.relationRole || '产出对象',
-    sourceModule: input.sourceModule,
-    sourceObjectType: input.sourceObjectType,
-    sourceObjectId: input.sourceObjectId,
-    sourceObjectCode: input.sourceObjectCode,
-    sourceLineId: input.sourceLineId ?? null,
-    sourceLineCode: input.sourceLineCode ?? null,
-    sourceTitle: input.sourceTitle,
-    sourceStatus: input.sourceStatus,
-    businessDate: input.businessDate,
-    ownerName: input.ownerName || input.project.ownerName,
-    createdAt: input.businessDate,
-    createdBy: DEMO_OPERATOR,
-    updatedAt: input.businessDate,
-    updatedBy: DEMO_OPERATOR,
-    note: serializeRelationNoteMeta(input.noteMeta || {}),
-    legacyRefType: '',
-    legacyRefValue: '',
-  })
-}
-
-function seedNodeStatus(
-  projectId: string,
-  workItemTypeCode: string,
-  patch: Partial<PcsProjectNodeRecord>,
-  operatorName = DEMO_OPERATOR,
-): void {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
-  if (!node) return
-  updateProjectNodeRecord(projectId, node.projectNodeId, patch, operatorName)
-}
-
-function syncProjectLifecycle(projectId: string, operatorName = DEMO_OPERATOR, timestamp = nowText()): void {
-  const project = getProjectById(projectId)
-  const phases = listProjectPhases(projectId)
-  const nodes = listProjectNodes(projectId)
-  if (!project || phases.length === 0 || nodes.length === 0) return
-
-  const nextNode = nodes.find((node) => !isClosedNodeStatus(node.currentStatus)) ?? null
-  const currentPhaseCode = nextNode?.phaseCode ?? phases[phases.length - 1]?.phaseCode ?? project.currentPhaseCode
-  const currentPhase = phases.find((item) => item.phaseCode === currentPhaseCode) ?? phases[0]
-  const progressDone = nodes.filter((node) => node.currentStatus === '已完成').length
-  const progressTotal = nodes.length
-  const pendingDecisionNode = nodes.find((node) => node.currentStatus === '待确认') ?? null
-  const completedNonInitCount = nodes.filter(
-    (node) => node.workItemTypeCode !== 'PROJECT_INIT' && node.currentStatus === '已完成',
-  ).length
-  const allClosed = nodes.every((node) => isClosedNodeStatus(node.currentStatus))
-
-  let projectStatus = project.projectStatus
-  if (project.projectStatus === '已终止') {
-    projectStatus = '已终止'
-  } else if (project.projectStatus === '待审核') {
-    projectStatus = '待审核'
-  } else if (allClosed) {
-    projectStatus = '已归档'
-  } else if (completedNonInitCount === 0) {
-    projectStatus = '已立项'
-  } else {
-    projectStatus = '进行中'
-  }
-
-  phases.forEach((phase) => {
-    const phaseNodes = nodes.filter((node) => node.phaseCode === phase.phaseCode)
-    let phaseStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
-    if (projectStatus === '已终止' && phaseNodes.some((node) => !isClosedNodeStatus(node.currentStatus))) {
-      phaseStatus = '已终止'
-    } else if (phaseNodes.length > 0 && phaseNodes.every((node) => isClosedNodeStatus(node.currentStatus))) {
-      phaseStatus = '已完成'
-    } else if (
-      phase.phaseCode === currentPhaseCode ||
-      phaseNodes.some((node) => node.currentStatus === '进行中' || node.currentStatus === '待确认')
-    ) {
-      phaseStatus = '进行中'
-    } else if (phase.phaseOrder < currentPhase.phaseOrder) {
-      phaseStatus = '已完成'
-    }
-
-    updateProjectPhaseRecord(projectId, phase.projectPhaseId, {
-      phaseStatus,
-      startedAt: phaseStatus === '未开始' ? '' : phase.startedAt || timestamp,
-      finishedAt: phaseStatus === '已完成' || phaseStatus === '已终止' ? phase.finishedAt || timestamp : '',
-    })
-  })
-
-  updateProjectRecord(
-    projectId,
-    {
-      currentPhaseCode: currentPhase.phaseCode,
-      currentPhaseName: currentPhase.phaseName,
-      projectStatus,
-      progressDone,
-      progressTotal,
-      nextWorkItemName: nextNode?.workItemTypeName ?? '-',
-      nextWorkItemStatus: nextNode?.currentStatus ?? '-',
-      pendingDecisionFlag: Boolean(pendingDecisionNode),
-      blockedFlag: projectStatus === '待审核',
-      blockedReason: projectStatus === '待审核' ? '等待项目立项审核。' : project.blockedReason ?? '',
-      updatedAt: timestamp,
-    },
-    operatorName,
-  )
-}
-
-function completeProjectNode(
-  projectId: string,
-  projectNodeId: string,
-  input: {
-    operatorName?: string
-    timestamp?: string
-    resultType?: string
-    resultText?: string
-  } = {},
-): PcsProjectNodeRecord | null {
-  const node = getProjectNodeRecordById(projectId, projectNodeId)
-  if (!node) return null
-
-  const operatorName = input.operatorName ?? DEMO_OPERATOR
-  const timestamp = input.timestamp ?? nowText()
-  const records = listProjectInlineNodeRecordsByNode(projectNodeId)
-  const validInstanceCount = Math.max(node.validInstanceCount, records.length, 1)
-
-  updateProjectNodeRecord(
-    projectId,
-    projectNodeId,
-    {
-      currentStatus: '已完成',
-      validInstanceCount,
-      latestInstanceId: node.latestInstanceId || `${projectNodeId}-instance-${String(validInstanceCount).padStart(3, '0')}`,
-      latestInstanceCode: node.latestInstanceCode || `${node.workItemTypeCode}-${String(validInstanceCount).padStart(3, '0')}`,
-      latestResultType: input.resultType ?? '节点完成',
-      latestResultText: input.resultText ?? `${node.workItemTypeName}已完成。`,
-      pendingActionType: '已完成',
-      pendingActionText: '节点已完成',
-      updatedAt: timestamp,
-      lastEventType: input.resultType ?? '节点完成',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-
-  return getProjectNodeRecordById(projectId, projectNodeId)
-}
-
-function activateProjectNode(
-  projectId: string,
-  projectNodeId: string,
-  input: {
-    operatorName?: string
-    timestamp?: string
-    pendingActionType?: string
-    pendingActionText?: string
-    latestResultType?: string
-    latestResultText?: string
-  } = {},
-): PcsProjectNodeRecord | null {
-  const node = getProjectNodeRecordById(projectId, projectNodeId)
-  if (!node || isClosedNodeStatus(node.currentStatus)) return node
-
-  const operatorName = input.operatorName ?? DEMO_OPERATOR
-  const timestamp = input.timestamp ?? nowText()
-
-  updateProjectNodeRecord(
-    projectId,
-    projectNodeId,
-    {
-      currentStatus: '进行中',
-      pendingActionType: input.pendingActionType ?? '待执行',
-      pendingActionText: input.pendingActionText ?? `当前请处理：${node.workItemTypeName}`,
-      latestResultType: input.latestResultType ?? node.latestResultType,
-      latestResultText: input.latestResultText ?? node.latestResultText,
-      updatedAt: timestamp,
-    },
-    operatorName,
-  )
-
-  return getProjectNodeRecordById(projectId, projectNodeId)
-}
-
-function cancelProjectNode(
-  projectId: string,
-  projectNodeId: string,
-  reason: string,
-  operatorName = DEMO_OPERATOR,
-  timestamp = nowText(),
-): void {
-  const node = getProjectNodeRecordById(projectId, projectNodeId)
-  if (!node || isClosedNodeStatus(node.currentStatus)) return
-
-  updateProjectNodeRecord(
-    projectId,
-    projectNodeId,
-    {
-      currentStatus: '已取消',
-      latestResultType: '分支跳过',
-      latestResultText: reason,
-      pendingActionType: '已取消',
-      pendingActionText: '当前分支无需继续处理',
-      updatedAt: timestamp,
-      lastEventType: '分支跳过',
-      lastEventTime: timestamp,
-    },
-    operatorName,
-  )
-}
-
-function markNodeCompletedAndUnlockNext(
-  projectId: string,
-  projectNodeId: string,
-  input: {
-    operatorName?: string
-    timestamp?: string
-    resultType?: string
-    resultText?: string
-  } = {},
-): void {
-  const node = completeProjectNode(projectId, projectNodeId, input)
-  if (!node) return
-
-  const orderedNodes = listProjectNodes(projectId)
-  const currentIndex = orderedNodes.findIndex((item) => item.projectNodeId === projectNodeId)
-  const nextNode = orderedNodes.slice(currentIndex + 1).find((item) => item.currentStatus === '未开始')
-  if (nextNode) {
-    activateProjectNode(projectId, nextNode.projectNodeId, {
-      operatorName: input.operatorName,
-      timestamp: input.timestamp,
-      pendingActionType: '待执行',
-      pendingActionText: `当前请处理：${nextNode.workItemTypeName}`,
-    })
-  }
-
-  syncProjectLifecycle(projectId, input.operatorName ?? DEMO_OPERATOR, input.timestamp ?? nowText())
-}
-
-function terminateProject(projectId: string, reason: string, operatorName = '当前用户', timestamp = nowText()): void {
-  const project = getProjectById(projectId)
-  if (!project) return
-
-  listProjectNodes(projectId).forEach((node) => {
-    if (isClosedNodeStatus(node.currentStatus)) return
-    updateProjectNodeRecord(
-      projectId,
-      node.projectNodeId,
-      {
-        currentStatus: '已取消',
-        latestResultType: '项目终止',
-        latestResultText: reason,
-        pendingActionType: '已取消',
-        pendingActionText: '项目已终止',
-        updatedAt: timestamp,
-        lastEventType: '项目终止',
-        lastEventTime: timestamp,
-      },
-      operatorName,
-    )
-  })
-
-  updateProjectRecord(
-    projectId,
-    {
-      projectStatus: '已终止',
-      blockedFlag: true,
-      blockedReason: reason,
-      updatedAt: timestamp,
-      remark: project.remark ? `${project.remark}\n终止原因：${reason}` : `终止原因：${reason}`,
-    },
-    operatorName,
-  )
-  syncProjectLifecycle(projectId, operatorName, timestamp)
-}
-
-function archiveProject(projectId: string, operatorName = '当前用户', timestamp = nowText()): { ok: boolean; message: string } {
-  const nodes = listProjectNodes(projectId)
-  if (nodes.some((node) => !isClosedNodeStatus(node.currentStatus))) {
-    return { ok: false, message: '仍有未完成节点，当前不能归档。' }
-  }
-
-  updateProjectRecord(projectId, { projectStatus: '已归档', updatedAt: timestamp }, operatorName)
-  syncProjectLifecycle(projectId, operatorName, timestamp)
-  return { ok: true, message: '项目已归档。' }
-}
-
-function buildQuickRecordPayload(
-  project: PcsProjectRecord,
+function isNodeUnlocked(
+  project: PcsProjectViewRecord,
+  orderedNodes: PcsProjectNodeRecord[],
   node: PcsProjectNodeRecord,
-  input: { businessDate: string; note: string },
-): {
-  values: Record<string, unknown>
-  detailSnapshot?: Record<string, unknown>
-} | null {
-  const note = input.note.trim() || `${node.workItemTypeName}已更新。`
-  const currentChannelProduct = getCurrentChannelProductRelation(project.projectId)
-  const currentChannelMeta = parseRelationNoteMeta(currentChannelProduct?.note)
-  const testingAggregate = getProjectTestingAggregate(project.projectId)
-  switch (node.workItemTypeCode) {
-    case 'SAMPLE_ACQUIRE':
-      return {
-        values: {
-          sampleSourceType: project.sampleSourceType || '外采',
-          sampleSupplierId: project.sampleSupplierId || 'supplier-demo',
-          sampleLink: project.sampleLink || 'https://example.com/mock-sample',
-          sampleUnitPrice: project.sampleUnitPrice ?? 79,
-        },
-        detailSnapshot: {
-          acquireMethod: project.sampleSourceType || '外采',
-          acquirePurpose: '商品项目打样准备',
-          applicant: project.ownerName,
-          expectedArrivalDate: input.businessDate,
-          handler: project.ownerName,
-          specNote: note,
-        },
-      }
-    case 'SAMPLE_INBOUND_CHECK':
-      return {
-        values: {
-          sampleCode: `${project.projectCode}-Y001`,
-          arrivalTime: `${input.businessDate} 10:00`,
-          checkResult: note,
-        },
-        detailSnapshot: {
-          receiver: project.ownerName,
-          warehouseLocation: '样衣仓 A-01',
-          sampleQuantity: 1,
-          approvalStatus: '已入库',
-        },
-      }
-    case 'FEASIBILITY_REVIEW':
-      return {
-        values: {
-          reviewConclusion: '通过',
-          reviewRisk: note,
-        },
-        detailSnapshot: {
-          evaluationDimension: ['版型', '渠道适配', '面料'],
-          judgmentDescription: note,
-          evaluationParticipants: [project.ownerName, project.teamName],
-          approvalStatus: '已评审',
-        },
-      }
-    case 'SAMPLE_SHOOT_FIT':
-      return {
-        values: {
-          shootPlan: '完成试穿拍摄',
-          fitFeedback: note,
-        },
-        detailSnapshot: {
-          shootDate: input.businessDate,
-          shootLocation: '摄影棚 A',
-          modelInvolved: true,
-          modelName: '演示模特',
-          editingRequired: true,
-        },
-      }
-    case 'SAMPLE_CONFIRM':
-      return {
-        values: {
-          confirmResult: '通过',
-          confirmNote: note,
-        },
-        detailSnapshot: {
-          appearanceConfirmation: '通过',
-          sizeConfirmation: '通过',
-          craftsmanshipConfirmation: '通过',
-          materialConfirmation: '通过',
-          confirmationNotes: note,
-        },
-      }
-    case 'SAMPLE_COST_REVIEW':
-      return {
-        values: {
-          costTotal: 86,
-          costNote: note,
-        },
-        detailSnapshot: {
-          actualSampleCost: 86,
-          targetProductionCost: 79,
-          costVariance: 7,
-          costCompliance: '可接受',
-        },
-      }
-    case 'SAMPLE_PRICING':
-      return {
-        values: {
-          priceRange: project.priceRangeLabel || '两百元主销带',
-          pricingNote: note,
-        },
-        detailSnapshot: {
-          baseCost: 86,
-          targetProfitMargin: '58%',
-          finalPrice: 199,
-          pricingStrategy: '主销引流款',
-          approvalStatus: '已确认',
-        },
-      }
-    case 'TEST_DATA_SUMMARY':
-      return {
-        values: {
-          summaryText: note,
-          totalExposureQty: testingAggregate.totalExposureQty,
-          totalClickQty: testingAggregate.totalClickQty,
-          totalOrderQty: testingAggregate.totalOrderQty,
-          totalGmvAmount: testingAggregate.totalGmvAmount,
-        },
-        detailSnapshot: {
-          summaryOwner: project.ownerName,
-          summaryAt: `${input.businessDate} 18:30`,
-          liveRelationIds: testingAggregate.liveRelationIds,
-          videoRelationIds: testingAggregate.videoRelationIds,
-          liveRelationCodes: testingAggregate.liveRelationCodes,
-          videoRelationCodes: testingAggregate.videoRelationCodes,
-          channelProductId: currentChannelProduct?.sourceObjectId || '',
-          channelProductCode: currentChannelProduct?.sourceObjectCode || `${project.projectCode}-CP`,
-          upstreamChannelProductCode: String(
-            currentChannelMeta.upstreamChannelProductCode ||
-              buildFallbackUpstreamChannelProductCode(
-                currentChannelProduct?.sourceObjectCode || `${project.projectCode}-CP`,
-                project.projectCode,
-              ),
-          ),
-        },
-      }
-    case 'TEST_CONCLUSION':
-      return {
-        values: {
-          conclusion: '通过',
-          conclusionNote: note,
-          linkedChannelProductCode: currentChannelProduct?.sourceObjectCode || `${project.projectCode}-CP`,
-          invalidationPlanned: false,
-        },
-        detailSnapshot: {
-          channelProductId: currentChannelProduct?.sourceObjectId || '',
-          channelProductCode: currentChannelProduct?.sourceObjectCode || `${project.projectCode}-CP`,
-          upstreamChannelProductCode: String(
-            parseRelationNoteMeta(currentChannelProduct?.note).upstreamChannelProductCode ||
-              buildFallbackUpstreamChannelProductCode(
-                currentChannelProduct?.sourceObjectCode || `${project.projectCode}-CP`,
-                project.projectCode,
-              ),
-          ),
-        },
-      }
-    case 'SAMPLE_RETAIN_REVIEW':
-      return {
-        values: {
-          retainResult: '留样',
-          retainNote: note,
-        },
-        detailSnapshot: {
-          sampleCode: `${project.projectCode}-Y001`,
-          availabilityAfter: '可调拨',
-          locationAfter: '样衣仓 B-02',
-        },
-      }
-    case 'SAMPLE_RETURN_HANDLE':
-      return {
-        values: {
-          returnResult: '已退回供应商',
-        },
-        detailSnapshot: {
-          returnDate: input.businessDate,
-          returnRecipient: project.sampleSupplierName || '演示供应商',
-          trackingNumber: `${project.projectCode}-RET`,
-          modificationReason: note,
-        },
-      }
-    default:
-      return null
-  }
-}
-
-function seedInlineRecordAndComplete(
-  projectId: string,
-  workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode,
-  input: {
-    businessDate: string
-    note: string
-  },
-): void {
-  const project = getProjectById(projectId)
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
-  if (!project || !node) return
-
-  const payload = buildQuickRecordPayload(project, node, input)
-  if (!payload) return
-
-  saveProjectInlineNodeFieldEntry(
-    projectId,
-    node.projectNodeId,
-    {
-      businessDate: `${input.businessDate} 10:00`,
-      values: payload.values,
-      detailSnapshot: payload.detailSnapshot,
-    },
-    DEMO_OPERATOR,
-  )
-
-  markNodeCompletedAndUnlockNext(projectId, node.projectNodeId, {
-    operatorName: DEMO_OPERATOR,
-    timestamp: `${input.businessDate} 10:30`,
-    resultType: '已完成',
-    resultText: input.note,
-  })
-}
-
-function seedInlineRecord(
-  projectId: string,
-  workItemTypeCode: PcsProjectInlineNodeRecordWorkItemTypeCode,
-  input: {
-    businessDate: string
-    note: string
-  },
-): void {
-  const project = getProjectById(projectId)
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode)
-  if (!project || !node) return
-
-  const payload = buildQuickRecordPayload(project, node, input)
-  if (!payload) return
-
-  saveProjectInlineNodeFieldEntry(
-    projectId,
-    node.projectNodeId,
-    {
-      businessDate: `${input.businessDate} 10:00`,
-      values: payload.values,
-      detailSnapshot: payload.detailSnapshot,
-    },
-    DEMO_OPERATOR,
-  )
-}
-
-function ensureProjectDemoData(): void {
-  if (projectDemoSeedReady) return
-  if (listProjects().length > 0) {
-    projectDemoSeedReady = true
-    return
-  }
-
-  const pendingProject = createProject(
-    buildDemoDraft({
-      projectName: '2026夏季宽松基础T恤',
-      styleType: '基础款',
-      projectSourceType: '企划提案',
-      categoryName: '上衣',
-      ownerName: '张丽',
-      teamName: '商品企划组',
-      brandName: 'Chicmore',
-      styleCodeName: '1-Casul Shirt-18-30休闲衬衫',
-      styleTags: ['休闲', '基础'],
-      channels: ['tiktok-shop', 'shopee'],
-      remark: '等待负责人完成立项审核。',
-    }),
-    DEMO_OPERATOR,
-  ).project
-  updateProjectRecord(
-    pendingProject.projectId,
-    {
-      createdAt: '2026-04-13 09:10',
-      updatedAt: '2026-04-13 09:10',
-      blockedFlag: true,
-      blockedReason: '等待项目立项审核。',
-    },
-    DEMO_OPERATOR,
-  )
-  seedNodeStatus(pendingProject.projectId, 'PROJECT_INIT', {
-    updatedAt: '2026-04-13 09:10',
-    latestResultType: '待审核',
-    latestResultText: '商品项目已创建，等待负责人审核立项。',
-    lastEventType: '创建项目',
-    lastEventTime: '2026-04-13 09:10',
-  })
-  syncProjectLifecycle(pendingProject.projectId, DEMO_OPERATOR, '2026-04-13 09:10')
-
-  const ongoingProject = createProject(
-    buildDemoDraft({
-      projectName: '2026夏季印花短袖快反项目',
-      styleType: '快时尚款',
-      projectSourceType: '渠道反馈',
-      categoryName: '上衣',
-      ownerName: '王明',
-      teamName: '快反开发组',
-      brandName: 'FADFAD',
-      styleCodeName: '2-prin shirt-18-30印花衬衫',
-      styleTags: ['休闲', '度假'],
-      channels: ['tiktok-shop', 'lazada'],
-      remark: '已进入渠道商品上架准备。',
-    }),
-    DEMO_OPERATOR,
-  ).project
-  approveProjectInit(ongoingProject.projectId, DEMO_OPERATOR)
-  seedInlineRecordAndComplete(ongoingProject.projectId, 'SAMPLE_ACQUIRE', {
-    businessDate: '2026-04-10',
-    note: '已完成样衣外采，首批样衣到仓。',
-  })
-  seedInlineRecordAndComplete(ongoingProject.projectId, 'SAMPLE_INBOUND_CHECK', {
-    businessDate: '2026-04-10',
-    note: '样衣完整，无明显瑕疵。',
-  })
-  seedInlineRecordAndComplete(ongoingProject.projectId, 'FEASIBILITY_REVIEW', {
-    businessDate: '2026-04-11',
-    note: '渠道适配度良好，建议继续推进。',
-  })
-  seedInlineRecordAndComplete(ongoingProject.projectId, 'SAMPLE_CONFIRM', {
-    businessDate: '2026-04-11',
-    note: '样衣确认通过，可进入渠道上架。',
-  })
-  seedInlineRecordAndComplete(ongoingProject.projectId, 'SAMPLE_COST_REVIEW', {
-    businessDate: '2026-04-11',
-    note: '核价已确认，成本符合快反策略。',
-  })
-  seedInlineRecordAndComplete(ongoingProject.projectId, 'SAMPLE_PRICING', {
-    businessDate: '2026-04-12',
-    note: '建议以 199 元主销价上架。',
-  })
-  seedNodeStatus(ongoingProject.projectId, 'CHANNEL_PRODUCT_LISTING', {
-    currentStatus: '进行中',
-    validInstanceCount: 1,
-    latestInstanceId: `${ongoingProject.projectId}-listing-001`,
-    latestInstanceCode: `${ongoingProject.projectCode}-CP-001`,
-    latestResultType: '已创建渠道商品',
-    latestResultText: '已生成抖音商城渠道商品，等待发起上架。',
-    pendingActionType: '发起上架',
-    pendingActionText: '请补充上架标题和售价后提交上架。',
-    updatedAt: '2026-04-12 18:40',
-    lastEventType: '创建渠道商品',
-    lastEventTime: '2026-04-12 18:40',
-  })
-  upsertDemoRelation({
-    project: ongoingProject,
-    workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    sourceModule: '渠道商品',
-    sourceObjectType: '渠道商品',
-    sourceObjectId: `${ongoingProject.projectId}-channel-product-001`,
-    sourceObjectCode: `${ongoingProject.projectCode}-CP-001`,
-    sourceTitle: `${ongoingProject.projectName} 抖音商城渠道商品`,
-    sourceStatus: '待上架',
-    businessDate: '2026-04-12 18:40',
-    noteMeta: {
-      channelCode: 'tiktok-shop',
-      targetChannelCode: '抖音商城',
-      storeId: 'store-tiktok-01',
-      targetStoreId: '抖音商城旗舰店',
-      listingTitle: `${ongoingProject.projectName} 首轮测款款`,
-      listingPrice: 199,
-      currency: 'CNY',
-      channelProductId: `${ongoingProject.projectId}-channel-product-001`,
-      channelProductCode: `${ongoingProject.projectCode}-CP-001`,
-      upstreamChannelProductCode: `${ongoingProject.projectCode}-CP-001-UP`,
-      channelProductStatus: '待上架',
-      upstreamSyncStatus: '无需更新',
-      linkedStyleCode: '',
-      invalidatedReason: '',
-    },
-  })
-  updateProjectRecord(
-    ongoingProject.projectId,
-    {
-      updatedAt: '2026-04-12 18:40',
-      riskStatus: '正常',
-      blockedFlag: false,
-      blockedReason: '',
-    },
-    DEMO_OPERATOR,
-  )
-  syncProjectLifecycle(ongoingProject.projectId, DEMO_OPERATOR, '2026-04-12 18:40')
-
-  const decisionProject = createProject(
-    buildDemoDraft({
-      projectName: '2026秋季礼服设计研发项目',
-      styleType: '设计款',
-      projectSourceType: '外部灵感',
-      categoryName: '连衣裙',
-      ownerName: '李娜',
-      teamName: '设计研发组',
-      brandName: 'Tendblank',
-      styleCodeName: '3-Sweet Blouse-18-30设计上衣',
-      styleTags: ['礼服', '名媛'],
-      channels: ['tiktok-shop', 'wechat-mini-program'],
-      remark: '已完成测款数据汇总，待负责人做结论判定。',
-    }),
-    DEMO_OPERATOR,
-  ).project
-  approveProjectInit(decisionProject.projectId, DEMO_OPERATOR)
-  seedInlineRecordAndComplete(decisionProject.projectId, 'SAMPLE_ACQUIRE', {
-    businessDate: '2026-04-09',
-    note: '设计样衣已完成采购并入库。',
-  })
-  seedInlineRecordAndComplete(decisionProject.projectId, 'SAMPLE_INBOUND_CHECK', {
-    businessDate: '2026-04-09',
-    note: '样衣质检通过，进入设计评估。',
-  })
-  seedInlineRecordAndComplete(decisionProject.projectId, 'FEASIBILITY_REVIEW', {
-    businessDate: '2026-04-10',
-    note: '评估结论为可推进，建议保留设计亮点。',
-  })
-  seedInlineRecordAndComplete(decisionProject.projectId, 'SAMPLE_CONFIRM', {
-    businessDate: '2026-04-10',
-    note: '样衣确认通过，进入成本与定价阶段。',
-  })
-  seedInlineRecordAndComplete(decisionProject.projectId, 'SAMPLE_COST_REVIEW', {
-    businessDate: '2026-04-11',
-    note: '核价完成，成本可控。',
-  })
-  seedInlineRecordAndComplete(decisionProject.projectId, 'SAMPLE_PRICING', {
-    businessDate: '2026-04-11',
-    note: '建议以 299 元作为首轮测款定价。',
-  })
-  seedNodeStatus(decisionProject.projectId, 'CHANNEL_PRODUCT_LISTING', {
-    currentStatus: '已完成',
-    validInstanceCount: 1,
-    latestInstanceId: `${decisionProject.projectId}-listing-001`,
-    latestInstanceCode: `${decisionProject.projectCode}-CP-001`,
-    latestResultType: '上架完成',
-    latestResultText: '已完成渠道上架并生成上游编码。',
-    pendingActionType: '已完成',
-    pendingActionText: '节点已完成',
-    updatedAt: '2026-04-11 16:40',
-    lastEventType: '上架完成',
-    lastEventTime: '2026-04-11 16:40',
-  })
-  seedNodeStatus(decisionProject.projectId, 'VIDEO_TEST', {
-    currentStatus: '已完成',
-    validInstanceCount: 2,
-    latestResultType: '短视频测款完成',
-    latestResultText: '已关联 2 条短视频测款事实。',
-    pendingActionType: '已完成',
-    pendingActionText: '节点已完成',
-    updatedAt: '2026-04-12 11:10',
-    lastEventType: '短视频测款完成',
-    lastEventTime: '2026-04-12 11:10',
-  })
-  seedNodeStatus(decisionProject.projectId, 'LIVE_TEST', {
-    currentStatus: '已完成',
-    validInstanceCount: 1,
-    latestResultType: '直播测款完成',
-    latestResultText: '已完成 1 场直播测款。',
-    pendingActionType: '已完成',
-    pendingActionText: '节点已完成',
-    updatedAt: '2026-04-12 13:20',
-    lastEventType: '直播测款完成',
-    lastEventTime: '2026-04-12 13:20',
-  })
-  seedNodeStatus(decisionProject.projectId, 'TEST_CONCLUSION', {
-    currentStatus: '待确认',
-    latestResultType: '待结论判定',
-    latestResultText: '请确认测款结论：通过、调整、暂缓或淘汰。',
-    pendingActionType: '结论判定',
-    pendingActionText: '当前待确认：测款结论判定',
-    updatedAt: '2026-04-12 21:30',
-    lastEventType: '提交汇总',
-    lastEventTime: '2026-04-12 21:30',
-  })
-  upsertDemoRelation({
-    project: decisionProject,
-    workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    sourceModule: '渠道商品',
-    sourceObjectType: '渠道商品',
-    sourceObjectId: `${decisionProject.projectId}-channel-product-001`,
-    sourceObjectCode: `${decisionProject.projectCode}-CP-001`,
-    sourceTitle: `${decisionProject.projectName} 测款渠道商品`,
-    sourceStatus: '已上架待测款',
-    businessDate: '2026-04-11 16:40',
-    noteMeta: {
-      channelCode: 'tiktok-shop',
-      targetChannelCode: '抖音商城',
-      storeId: 'store-tiktok-01',
-      targetStoreId: '抖音商城旗舰店',
-      listingTitle: `${decisionProject.projectName} 礼服首测款`,
-      listingPrice: 299,
-      currency: 'CNY',
-      channelProductId: `${decisionProject.projectId}-channel-product-001`,
-      channelProductCode: `${decisionProject.projectCode}-CP-001`,
-      upstreamChannelProductCode: `${decisionProject.projectCode}-CP-001-UP`,
-      channelProductStatus: '已上架待测款',
-      upstreamSyncStatus: '无需更新',
-      linkedStyleCode: '',
-      invalidatedReason: '',
-    },
-  })
-  upsertDemoRelation({
-    project: decisionProject,
-    workItemTypeCode: 'VIDEO_TEST',
-    sourceModule: '短视频',
-    sourceObjectType: '短视频记录',
-    sourceObjectId: `${decisionProject.projectId}-video-001`,
-    sourceObjectCode: `${decisionProject.projectCode}-VIDEO-001`,
-    sourceTitle: '礼服上身试穿短视频',
-    sourceStatus: '已发布',
-    businessDate: '2026-04-12 11:10',
-    relationRole: '执行记录',
-    noteMeta: {
-      videoRecordId: `${decisionProject.projectId}-video-001`,
-      videoRecordCode: `${decisionProject.projectCode}-VIDEO-001`,
-      channelProductId: `${decisionProject.projectId}-channel-product-001`,
-      channelProductCode: `${decisionProject.projectCode}-CP-001`,
-      upstreamChannelProductCode: `${decisionProject.projectCode}-CP-001-UP`,
-      videoChannel: '抖音 / 礼服测款号',
-      exposureQty: 42600,
-      clickQty: 2680,
-      orderQty: 104,
-      gmvAmount: 31096,
-      videoResult: '礼服试穿内容收藏率高，点击转化表现稳定。',
-    },
-  })
-  upsertDemoRelation({
-    project: decisionProject,
-    workItemTypeCode: 'LIVE_TEST',
-    sourceModule: '直播',
-    sourceObjectType: '直播商品明细',
-    sourceObjectId: `${decisionProject.projectId}-live-001`,
-    sourceObjectCode: `${decisionProject.projectCode}-LIVE-001`,
-    sourceLineId: `${decisionProject.projectId}-live-line-001`,
-    sourceLineCode: `${decisionProject.projectCode}-LIVE-LINE-001`,
-    sourceTitle: '礼服专场直播测款',
-    sourceStatus: '已结束',
-    businessDate: '2026-04-12 13:20',
-    relationRole: '执行记录',
-    noteMeta: {
-      liveSessionId: `${decisionProject.projectId}-live-001`,
-      liveSessionCode: `${decisionProject.projectCode}-LIVE-001`,
-      liveLineId: `${decisionProject.projectId}-live-line-001`,
-      liveLineCode: `${decisionProject.projectCode}-LIVE-LINE-001`,
-      channelProductId: `${decisionProject.projectId}-channel-product-001`,
-      channelProductCode: `${decisionProject.projectCode}-CP-001`,
-      upstreamChannelProductCode: `${decisionProject.projectCode}-CP-001-UP`,
-      exposureQty: 38200,
-      clickQty: 1640,
-      orderQty: 88,
-      gmvAmount: 26312,
-      liveResult: '直播试穿讲解有效，成交集中在主推尺码。',
-    },
-  })
-  seedInlineRecordAndComplete(decisionProject.projectId, 'TEST_DATA_SUMMARY', {
-    businessDate: '2026-04-12',
-    note: '直播与短视频汇总后，点击率和转化率均高于同类款式。',
-  })
-  updateProjectRecord(
-    decisionProject.projectId,
-    {
-      updatedAt: '2026-04-12 21:30',
-      riskStatus: '延期',
-      riskReason: '测款结论已停留 3 天未判定，渠道商品仍处于待测款状态。',
-      riskWorkItem: '测款结论判定',
-      riskDurationDays: 3,
-    },
-    DEMO_OPERATOR,
-  )
-  syncProjectLifecycle(decisionProject.projectId, DEMO_OPERATOR, '2026-04-12 21:30')
-
-  const terminatedProject = createProject(
-    buildDemoDraft({
-      projectName: '2026秋季衬衫改版修订项目',
-      styleType: '改版款',
-      projectSourceType: '历史复用',
-      categoryName: '上衣',
-      ownerName: '赵云',
-      teamName: '工程打样组',
-      brandName: 'Asaya',
-      styleCodeName: '4-Short Sleeve Top-18-35短袖上衣',
-      styleTags: ['复古', '修订'],
-      channels: ['shopee'],
-      remark: '因测款表现不足终止项目。',
-    }),
-    DEMO_OPERATOR,
-  ).project
-  approveProjectInit(terminatedProject.projectId, DEMO_OPERATOR)
-  seedInlineRecordAndComplete(terminatedProject.projectId, 'SAMPLE_ACQUIRE', {
-    businessDate: '2026-04-07',
-    note: '改版样衣已完成准备。',
-  })
-  seedInlineRecordAndComplete(terminatedProject.projectId, 'FEASIBILITY_REVIEW', {
-    businessDate: '2026-04-07',
-    note: '改版目标明确，但渠道预期一般。',
-  })
-  terminateProject(terminatedProject.projectId, '测款表现未达标，决定停止继续开发。', DEMO_OPERATOR, '2026-04-08 15:20')
-  updateProjectRecord(
-    terminatedProject.projectId,
-    {
-      updatedAt: '2026-04-08 15:20',
-      riskStatus: '正常',
-    },
-    DEMO_OPERATOR,
-  )
-  syncProjectLifecycle(terminatedProject.projectId, DEMO_OPERATOR, '2026-04-08 15:20')
-
-  const archivedProject = createProject(
-    buildDemoDraft({
-      projectName: '2026春季针织连衣裙归档项目',
-      styleType: '基础款',
-      projectSourceType: '测款沉淀',
-      categoryName: '连衣裙',
-      ownerName: '周芳',
-      teamName: '商品企划组',
-      brandName: 'Chicmore',
-      styleCodeName: '1-Casul Shirt-18-30休闲衬衫',
-      styleTags: ['名媛', '基础'],
-      channels: ['tiktok-shop', 'wechat-mini-program'],
-      remark: '已完成转档并进入资料归档。',
-    }),
-    DEMO_OPERATOR,
-  ).project
-  approveProjectInit(archivedProject.projectId, DEMO_OPERATOR)
-  listProjectNodes(archivedProject.projectId).forEach((node) => {
-    if (node.workItemTypeCode === 'PROJECT_INIT' || isClosedNodeStatus(node.currentStatus)) return
-    markNodeCompletedAndUnlockNext(archivedProject.projectId, node.projectNodeId, {
-      operatorName: DEMO_OPERATOR,
-      timestamp: '2026-04-06 10:10',
-      resultType: '节点完成',
-      resultText: `${node.workItemTypeName}已完成归档前置处理。`,
-    })
-  })
-  upsertDemoRelation({
-    project: archivedProject,
-    workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
-    sourceModule: '渠道商品',
-    sourceObjectType: '渠道商品',
-    sourceObjectId: `${archivedProject.projectId}-channel-product-001`,
-    sourceObjectCode: `${archivedProject.projectCode}-CP-001`,
-    sourceTitle: `${archivedProject.projectName} 正式候选款`,
-    sourceStatus: '已生效',
-    businessDate: '2026-04-03 17:20',
-    noteMeta: {
-      channelCode: 'wechat-mini-program',
-      targetChannelCode: '微信小程序',
-      storeId: 'store-mini-program-01',
-      targetStoreId: '微信小程序商城',
-      listingTitle: `${archivedProject.projectName} 正式款`,
-      listingPrice: 239,
-      currency: 'CNY',
-      channelProductId: `${archivedProject.projectId}-channel-product-001`,
-      channelProductCode: `${archivedProject.projectCode}-CP-001`,
-      upstreamChannelProductCode: `${archivedProject.projectCode}-CP-001-UP`,
-      channelProductStatus: '已生效',
-      upstreamSyncStatus: '已更新',
-      linkedStyleCode: `SPU-${archivedProject.projectCode.split('-').slice(-1)[0]}`,
-      invalidatedReason: '',
-    },
-  })
-  upsertDemoRelation({
-    project: archivedProject,
-    workItemTypeCode: 'VIDEO_TEST',
-    sourceModule: '短视频',
-    sourceObjectType: '短视频记录',
-    sourceObjectId: `${archivedProject.projectId}-video-001`,
-    sourceObjectCode: `${archivedProject.projectCode}-VIDEO-001`,
-    sourceTitle: '春季连衣裙短视频测款',
-    sourceStatus: '已发布',
-    businessDate: '2026-04-04 11:00',
-    relationRole: '执行记录',
-    noteMeta: {
-      videoRecordId: `${archivedProject.projectId}-video-001`,
-      videoRecordCode: `${archivedProject.projectCode}-VIDEO-001`,
-      channelProductId: `${archivedProject.projectId}-channel-product-001`,
-      channelProductCode: `${archivedProject.projectCode}-CP-001`,
-      upstreamChannelProductCode: `${archivedProject.projectCode}-CP-001-UP`,
-      videoChannel: '微信视频号 / 连衣裙测款号',
-      exposureQty: 32800,
-      clickQty: 1820,
-      orderQty: 74,
-      gmvAmount: 17686,
-      videoResult: '内容完播率稳定，女性客群收藏转化较好。',
-    },
-  })
-  upsertDemoRelation({
-    project: archivedProject,
-    workItemTypeCode: 'LIVE_TEST',
-    sourceModule: '直播',
-    sourceObjectType: '直播商品明细',
-    sourceObjectId: `${archivedProject.projectId}-live-001`,
-    sourceObjectCode: `${archivedProject.projectCode}-LIVE-001`,
-    sourceLineId: `${archivedProject.projectId}-live-line-001`,
-    sourceLineCode: `${archivedProject.projectCode}-LIVE-LINE-001`,
-    sourceTitle: '春季连衣裙直播测款专场',
-    sourceStatus: '已结束',
-    businessDate: '2026-04-04 20:30',
-    relationRole: '执行记录',
-    noteMeta: {
-      liveSessionId: `${archivedProject.projectId}-live-001`,
-      liveSessionCode: `${archivedProject.projectCode}-LIVE-001`,
-      liveLineId: `${archivedProject.projectId}-live-line-001`,
-      liveLineCode: `${archivedProject.projectCode}-LIVE-LINE-001`,
-      channelProductId: `${archivedProject.projectId}-channel-product-001`,
-      channelProductCode: `${archivedProject.projectCode}-CP-001`,
-      upstreamChannelProductCode: `${archivedProject.projectCode}-CP-001-UP`,
-      exposureQty: 45200,
-      clickQty: 2140,
-      orderQty: 96,
-      gmvAmount: 22944,
-      liveResult: '直播连麦试穿后成交集中爆发，主推颜色卖断码。',
-    },
-  })
-  upsertDemoRelation({
-    project: archivedProject,
-    workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
-    sourceModule: '款式档案',
-    sourceObjectType: '款式档案',
-    sourceObjectId: `${archivedProject.projectId}-style-001`,
-    sourceObjectCode: `SPU-${archivedProject.projectCode.split('-').slice(-1)[0]}`,
-    sourceTitle: '针织连衣裙款式档案',
-    sourceStatus: '已启用',
-    businessDate: '2026-04-05 09:20',
-    noteMeta: {
-      styleId: `${archivedProject.projectId}-style-001`,
-      styleCode: `SPU-${archivedProject.projectCode.split('-').slice(-1)[0]}`,
-      styleName: `${archivedProject.projectName} 款式档案`,
-      archiveStatus: 'ACTIVE',
-      linkedChannelProductCode: `${archivedProject.projectCode}-CP-001`,
-      upstreamChannelProductCode: `${archivedProject.projectCode}-CP-001-UP`,
-      linkedTechPackVersionCode: `TP-${archivedProject.projectCode.split('-').slice(-1)[0]}-V2`,
-      linkedTechPackVersionStatus: 'PUBLISHED',
-    },
-  })
-  upsertDemoRelation({
-    project: archivedProject,
-    workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-    sourceModule: '项目资料归档',
-    sourceObjectType: '项目资料归档',
-    sourceObjectId: `${archivedProject.projectId}-archive-001`,
-    sourceObjectCode: `ARC-${archivedProject.projectCode.split('-').slice(-2).join('-')}`,
-    sourceTitle: `${archivedProject.projectName} 项目资料归档`,
-    sourceStatus: 'FINALIZED',
-    businessDate: '2026-04-06 10:10',
-    noteMeta: {
-      linkedStyleCode: `SPU-${archivedProject.projectCode.split('-').slice(-1)[0]}`,
-      linkedTechPackVersionCode: `TP-${archivedProject.projectCode.split('-').slice(-1)[0]}-V2`,
-      linkedTechPackVersionStatus: 'PUBLISHED',
-      projectArchiveNo: `ARC-${archivedProject.projectCode.split('-').slice(-2).join('-')}`,
-      projectArchiveStatus: 'FINALIZED',
-    },
-  })
-
-  ;[
-    {
-      projectName: '印尼风格碎花连衣裙测款项目',
-      styleType: '快时尚款' as TemplateStyleType,
-      projectSourceType: '测款沉淀' as PcsProjectCreateDraft['projectSourceType'],
-      categoryName: '上衣',
-      ownerName: '李娜',
-      teamName: '快反开发组',
-      brandName: 'Chicmore',
-      styleCodeName: '2-prin shirt-18-30印花衬衫',
-      styleTags: ['印花', '测款'],
-      channels: ['tiktok-shop'],
-      remark: '用于直播/短视频测款条目回跳商品项目。',
-      timestamp: '2026-04-01 15:20',
-    },
-    {
-      projectName: '波西米亚风印花半身裙测款项目',
-      styleType: '设计款' as TemplateStyleType,
-      projectSourceType: '测款沉淀' as PcsProjectCreateDraft['projectSourceType'],
-      categoryName: '上衣',
-      ownerName: '赵云',
-      teamName: '设计研发组',
-      brandName: 'FADFAD',
-      styleCodeName: '2-prin shirt-18-30印花衬衫',
-      styleTags: ['印花', '半裙'],
-      channels: ['tiktok-shop'],
-      remark: '用于直播/短视频测款条目回跳商品项目。',
-      timestamp: '2026-04-01 15:10',
-    },
-    {
-      projectName: '牛仔短裤夏季款测款项目',
-      styleType: '基础款' as TemplateStyleType,
-      projectSourceType: '测款沉淀' as PcsProjectCreateDraft['projectSourceType'],
-      categoryName: '上衣',
-      ownerName: '周芳',
-      teamName: '商品企划组',
-      brandName: 'Chicmore',
-      styleCodeName: '1-Casul Shirt-18-30休闲衬衫',
-      styleTags: ['牛仔', '夏季'],
-      channels: ['tiktok-shop'],
-      remark: '用于直播测款条目回跳商品项目。',
-      timestamp: '2026-04-01 15:00',
-    },
-  ].forEach((seed) => {
-    const project = createProject(
-      buildDemoDraft({
-        projectName: seed.projectName,
-        styleType: seed.styleType,
-        projectSourceType: seed.projectSourceType,
-        categoryName: seed.categoryName,
-        ownerName: seed.ownerName,
-        teamName: seed.teamName,
-        brandName: seed.brandName,
-        styleCodeName: seed.styleCodeName,
-        styleTags: seed.styleTags,
-        channels: seed.channels,
-        remark: seed.remark,
-      }),
-      DEMO_OPERATOR,
-    ).project
-    approveProjectInit(project.projectId, DEMO_OPERATOR)
-    updateProjectRecord(
-      project.projectId,
-      {
-        createdAt: seed.timestamp,
-        updatedAt: seed.timestamp,
-        remark: seed.remark,
-        blockedFlag: false,
-        blockedReason: '',
-      },
-      DEMO_OPERATOR,
-    )
-    seedNodeStatus(project.projectId, 'PROJECT_INIT', {
-      updatedAt: seed.timestamp,
-      latestResultType: '已完成',
-      latestResultText: '测款项目已建立，可供直播与短视频记录关联。',
-      lastEventType: '立项完成',
-      lastEventTime: seed.timestamp,
-    })
-    syncProjectLifecycle(project.projectId, DEMO_OPERATOR, seed.timestamp)
-  })
-  upsertDemoRelation({
-    project: archivedProject,
-    workItemTypeCode: 'PATTERN_TASK',
-    sourceModule: '制版任务',
-    sourceObjectType: '制版任务',
-    sourceObjectId: `${archivedProject.projectId}-pattern-001`,
-    sourceObjectCode: `${archivedProject.projectCode}-PATTERN-001`,
-    sourceTitle: '针织连衣裙 P1 制版任务',
-    sourceStatus: '已完成',
-    businessDate: '2026-04-05 15:30',
-    noteMeta: {
-      patternBrief: '完成版型结构确认并输出首轮纸样。',
-      productStyleCode: `SPU-${archivedProject.projectCode.split('-').slice(-1)[0]}`,
-      sizeRange: 'S-L',
-      patternVersion: 'P1',
-    },
-  })
-  upsertDemoRelation({
-    project: archivedProject,
-    workItemTypeCode: 'FIRST_SAMPLE',
-    sourceModule: '首版样衣打样',
-    sourceObjectType: '首版样衣打样任务',
-    sourceObjectId: `${archivedProject.projectId}-first-sample-001`,
-    sourceObjectCode: `${archivedProject.projectCode}-FS-001`,
-    sourceTitle: '针织连衣裙首版样衣打样',
-    sourceStatus: '已完成',
-    businessDate: '2026-04-05 18:40',
-    noteMeta: {
-      factoryId: 'FAC-GZ-001',
-      factoryName: '广州一厂',
-      targetSite: '广州',
-      expectedArrival: '2026-04-08',
-      trackingNo: `${archivedProject.projectCode}-SF001`,
-      sampleCode: `${archivedProject.projectCode}-Y001`,
-    },
-  })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_ACQUIRE', {
-    businessDate: '2026-04-01',
-    note: '样衣来源已锁定为外采，供应商交付稳定。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_INBOUND_CHECK', {
-    businessDate: '2026-04-01',
-    note: '到样核对完成，样衣状态良好。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'FEASIBILITY_REVIEW', {
-    businessDate: '2026-04-02',
-    note: '版型与渠道适配性良好，建议进入正式测款。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_SHOOT_FIT', {
-    businessDate: '2026-04-02',
-    note: '拍摄和试穿反馈积极，主推尺码呈现稳定。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_CONFIRM', {
-    businessDate: '2026-04-02',
-    note: '样衣确认通过，可进入市场测款。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_COST_REVIEW', {
-    businessDate: '2026-04-03',
-    note: '核价通过，成本满足目标毛利率。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_PRICING', {
-    businessDate: '2026-04-03',
-    note: '定价口径确认，以 239 元进入正式测款。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'TEST_DATA_SUMMARY', {
-    businessDate: '2026-04-04',
-    note: '双渠道测款结果稳定，转化率和复购意向均达到归档标准。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'TEST_CONCLUSION', {
-    businessDate: '2026-04-04',
-    note: '测款通过，进入款式档案与转档准备阶段。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_RETAIN_REVIEW', {
-    businessDate: '2026-04-06',
-    note: '保留主推色样衣供后续复盘与素材使用。',
-  })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_RETURN_HANDLE', {
-    businessDate: '2026-04-06',
-    note: '非主推色样衣已完成退回处理。',
-  })
-  updateProjectRecord(
-    archivedProject.projectId,
-    {
-      projectStatus: '已归档',
-      updatedAt: '2026-04-06 10:10',
-      linkedStyleId: `${archivedProject.projectId}-style-001`,
-      linkedStyleCode: `SPU-${archivedProject.projectCode.split('-').slice(-1)[0]}`,
-      linkedStyleName: `${archivedProject.projectName} 款式档案`,
-      linkedStyleGeneratedAt: '2026-04-05 09:20',
-      linkedTechPackVersionId: `${archivedProject.projectId}-techpack-002`,
-      linkedTechPackVersionCode: `TP-${archivedProject.projectCode.split('-').slice(-1)[0]}-V2`,
-      linkedTechPackVersionLabel: 'V2',
-      linkedTechPackVersionStatus: 'PUBLISHED',
-      linkedTechPackVersionPublishedAt: '2026-04-05 14:10',
-      projectArchiveId: `${archivedProject.projectId}-archive-001`,
-      projectArchiveStatus: '已归档',
-      projectArchiveNo: `ARC-${archivedProject.projectCode.split('-').slice(-2).join('-')}`,
-      projectArchiveDocumentCount: 6,
-      projectArchiveFileCount: 14,
-      projectArchiveMissingItemCount: 0,
-      projectArchiveUpdatedAt: '2026-04-06 10:10',
-      projectArchiveFinalizedAt: '2026-04-06 10:10',
-    },
-    DEMO_OPERATOR,
-  )
-  syncProjectLifecycle(archivedProject.projectId, DEMO_OPERATOR, '2026-04-06 10:10')
-
-  projectDemoSeedReady = true
-}
-
-export function ensurePcsProjectDemoDataReady(): void {
-  ensureProjectDemoData()
-}
-
-function isNodeUnlocked(project: PcsProjectRecord, orderedNodes: PcsProjectNodeRecord[], node: PcsProjectNodeRecord): boolean {
+): boolean {
   if (project.projectStatus === '待审核') {
     return node.workItemTypeCode === 'PROJECT_INIT'
   }
@@ -2274,7 +1277,8 @@ function getNodeDisplayStatus(project: PcsProjectRecord, orderedNodes: PcsProjec
   return node.currentStatus
 }
 
-function buildProjectLogs(project: PcsProjectRecord): ProjectLogItem[] {
+function buildProjectLogs(project: PcsProjectViewRecord): ProjectLogItem[] {
+  const instanceModel = getProjectInstanceModel(project.projectId)
   const logs: ProjectLogItem[] = [
     {
       time: project.createdAt,
@@ -2303,11 +1307,13 @@ function buildProjectLogs(project: PcsProjectRecord): ProjectLogItem[] {
     })
   })
 
-  listProjectRelationsByProject(project.projectId).forEach((relation) => {
+  instanceModel?.instances
+    .filter((instance) => instance.sourceLayer === '正式业务对象')
+    .forEach((instance) => {
     logs.push({
-      time: relation.updatedAt,
-      title: `${relation.workItemTypeName}已关联${relation.sourceObjectType}`,
-      detail: `${relation.sourceTitle} · ${relation.sourceStatus || relation.relationRole}`,
+      time: instance.updatedAt,
+      title: `${instance.workItemTypeName}已关联${instance.objectType}`,
+      detail: `${instance.title} · ${instance.status || instance.relationRole}`,
       tone: 'slate',
     })
   })
@@ -2341,13 +1347,16 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
 
   const phases = listProjectPhases(projectId)
   const nodes = listProjectNodes(projectId)
+  const instanceModel = getProjectInstanceModel(projectId)
+  if (!instanceModel) return null
+  const nodeInstanceMap = new Map(instanceModel.nodes.map((item) => [item.projectNodeId, item]))
   const nodeViewModels = nodes.map((node) => ({
     node,
     contract: getProjectWorkItemContract(node.workItemTypeCode as PcsProjectWorkItemCode),
     definition: getPcsWorkItemDefinition(node.workItemId),
     records: listProjectInlineNodeRecordsByNode(node.projectNodeId),
     latestRecord: getLatestProjectInlineNodeRecord(node.projectNodeId),
-    relations: listProjectRelationsByProjectNode(projectId, node.projectNodeId),
+    instanceModel: nodeInstanceMap.get(node.projectNodeId)!,
     unlocked: isNodeUnlocked(project, nodes, node),
     displayStatus: getNodeDisplayStatus(project, nodes, node),
   }))
@@ -2386,6 +1395,7 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
 
   return {
     project,
+    instanceModel,
     phases: phaseViewModels,
     nodes: nodeViewModels,
     currentPhase: phaseViewModels.find((item) => item.phase.phaseCode === currentPhaseCode) ?? phaseViewModels[0] ?? null,
@@ -2403,7 +1413,7 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
 }
 
 function getFilteredProjectViewModels(): ProjectViewModel[] {
-  ensureProjectDemoData()
+  ensurePcsProjectDemoDataReady()
   const keyword = state.list.search.trim().toLowerCase()
   const owner = state.list.owner
   const phase = state.list.phase
@@ -2611,7 +1621,7 @@ function getNatureBadgeClass(nature: string): string {
   return 'border-emerald-200 bg-emerald-50 text-emerald-700'
 }
 
-function getRiskText(project: PcsProjectRecord): string {
+function getRiskText(project: PcsProjectViewRecord): string {
   return project.riskStatus === '延期' ? '延期' : '正常'
 }
 
@@ -3403,22 +2413,101 @@ function renderPhaseNavigator(viewModel: ProjectViewModel): string {
 function renderNodeMetricCards(node: ProjectNodeViewModel): string {
   const payload = node.latestRecord?.payload as Record<string, unknown> | undefined
   if (payload && typeof payload.totalExposureQty === 'number') {
+    const breakdownSections: Array<{ label: string; lines: string[] }> = [
+      {
+        label: '渠道拆分',
+        lines: Array.isArray(payload.channelBreakdownLines)
+          ? payload.channelBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
+          : [],
+      },
+      {
+        label: '店铺拆分',
+        lines: Array.isArray(payload.storeBreakdownLines)
+          ? payload.storeBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
+          : [],
+      },
+      {
+        label: '渠道商品拆分',
+        lines: Array.isArray(payload.channelProductBreakdownLines)
+          ? payload.channelProductBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
+          : [],
+      },
+      {
+        label: '测款来源拆分',
+        lines: Array.isArray(payload.testingSourceBreakdownLines)
+          ? payload.testingSourceBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
+          : [],
+      },
+      {
+        label: '币种拆分',
+        lines: Array.isArray(payload.currencyBreakdownLines)
+          ? payload.currencyBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
+          : [],
+      },
+    ].filter((section) => section.lines.length > 0)
+
     return `
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">曝光量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalExposureQty)}</p></article>
-        <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">点击量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalClickQty)}</p></article>
-        <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">下单量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalOrderQty)}</p></article>
-        <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">GMV</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalGmvAmount)}</p></article>
+      <div class="space-y-3">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">曝光量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalExposureQty)}</p></article>
+          <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">点击量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalClickQty)}</p></article>
+          <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">下单量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalOrderQty)}</p></article>
+          <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">GMV</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalGmvAmount)}</p></article>
+        </div>
+        ${
+          breakdownSections.length > 0
+            ? `
+              <div class="grid gap-3 xl:grid-cols-2">
+                ${breakdownSections
+                  .map(
+                    (section) => `
+                      <article class="rounded-lg border bg-white p-4">
+                        <p class="text-xs font-medium text-slate-500">${escapeHtml(section.label)}</p>
+                        <div class="mt-3 space-y-2">
+                          ${section.lines
+                            .map(
+                              (line) => `
+                                <div class="rounded-md bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-700">${escapeHtml(line)}</div>
+                              `,
+                            )
+                            .join('')}
+                        </div>
+                      </article>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            `
+            : ''
+        }
       </div>
     `
   }
 
   return `
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">正式记录</p><p class="mt-2 text-2xl font-semibold text-slate-900">${node.records.length}</p></article>
-      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">关联对象</p><p class="mt-2 text-2xl font-semibold text-slate-900">${node.relations.length}</p></article>
-      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">有效实例</p><p class="mt-2 text-2xl font-semibold text-slate-900">${Math.max(node.node.validInstanceCount, node.records.length)}</p></article>
-      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">最近更新</p><p class="mt-2 text-sm font-semibold text-slate-900">${escapeHtml(formatDateTime(node.node.updatedAt || node.latestRecord?.updatedAt || ''))}</p></article>
+      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">正式记录</p><p class="mt-2 text-2xl font-semibold text-slate-900">${node.instanceModel.formalRecordCount}</p></article>
+      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">关联对象</p><p class="mt-2 text-2xl font-semibold text-slate-900">${node.instanceModel.relatedObjectCount}</p></article>
+      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">有效实例</p><p class="mt-2 text-2xl font-semibold text-slate-900">${Math.max(node.node.validInstanceCount, node.instanceModel.totalCount)}</p></article>
+      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">最近更新</p><p class="mt-2 text-sm font-semibold text-slate-900">${escapeHtml(formatDateTime(node.instanceModel.latestInstance?.updatedAt || node.node.updatedAt || node.latestRecord?.updatedAt || ''))}</p></article>
+    </div>
+  `
+}
+
+function renderInstanceFields(fields: PcsProjectInstanceItem['fields']): string {
+  if (fields.length === 0) return '<span class="text-xs text-slate-400">-</span>'
+  return `
+    <div class="space-y-1">
+      ${fields
+        .slice(0, 3)
+        .map(
+          (field) => `
+            <div class="text-xs leading-5 text-slate-500">
+              <span class="text-slate-400">${escapeHtml(field.label)}：</span>${escapeHtml(field.value)}
+            </div>
+          `,
+        )
+        .join('')}
     </div>
   `
 }
@@ -3628,7 +2717,7 @@ function renderDetailDecisionDialog(viewModel: ProjectViewModel, selectedNode: P
 }
 
 function renderProjectDetailPage(projectId: string): string {
-  ensureProjectDemoData()
+  ensurePcsProjectDemoDataReady()
   ensureDetailState(projectId)
   const viewModel = buildProjectViewModel(projectId)
   if (!viewModel) {
@@ -3728,7 +2817,7 @@ function renderFieldGroupValues(
             return `
               <div class="space-y-1 rounded-lg bg-slate-50 p-3">
                 <p class="text-xs text-slate-500">${escapeHtml(field.label)}</p>
-                <p class="text-sm leading-6 text-slate-700">${escapeHtml(formatValue(getNodeFieldValue(project, node, field.fieldKey)))}</p>
+                <div class="text-sm leading-6 text-slate-700">${renderReadonlyValue(getNodeFieldValue(project, node, field.fieldKey))}</div>
               </div>
             `
           })
@@ -3767,7 +2856,7 @@ function renderEditableFieldGroups(
               ${
                 editable
                   ? renderFormalFieldControl(field, value, disabled)
-                  : `<div class="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700">${escapeHtml(formatValue(getNodeFieldValue(project, node, field.fieldKey)))}</div>`
+                  : `<div class="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700">${renderReadonlyValue(getNodeFieldValue(project, node, field.fieldKey))}</div>`
               }
               <p class="text-[11px] leading-5 text-slate-400">${escapeHtml(`来源：${field.sourceKind} / ${field.sourceRef}`)}</p>
             </div>
@@ -3832,7 +2921,10 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
 
 function renderWorkItemTabs(viewModel: ProjectViewModel, node: ProjectNodeViewModel): string {
   const recordCount = node.records.length
-  const attachmentCount = node.relations.length + (node.latestRecord?.upstreamRefs.length || 0) + (node.latestRecord?.downstreamRefs.length || 0)
+  const attachmentCount =
+    node.instanceModel.relatedObjectCount +
+    (node.latestRecord?.upstreamRefs.length || 0) +
+    (node.latestRecord?.downstreamRefs.length || 0)
   const auditCount = viewModel.logs.length
 
   return `
@@ -3944,11 +3036,11 @@ function renderWorkItemRecords(node: ProjectNodeViewModel): string {
 
 function renderWorkItemAttachments(node: ProjectNodeViewModel): string {
   const refs = [...(node.latestRecord?.upstreamRefs || []), ...(node.latestRecord?.downstreamRefs || [])]
-  if (node.relations.length === 0 && refs.length === 0) {
+  if (node.instanceModel.totalCount === 0 && refs.length === 0) {
     return `
       <section class="rounded-lg border bg-white p-4">
         <h3 class="text-base font-semibold text-slate-900">附件与引用</h3>
-        <p class="mt-2 text-sm text-slate-500">当前节点暂无附件或关联引用。</p>
+        <p class="mt-2 text-sm text-slate-500">当前节点暂无正式实例、附件或关联引用。</p>
       </section>
     `
   }
@@ -3956,31 +3048,66 @@ function renderWorkItemAttachments(node: ProjectNodeViewModel): string {
   return `
     <div class="space-y-4">
       <section class="rounded-lg border bg-white p-4">
-        <h3 class="text-base font-semibold text-slate-900">项目关联对象</h3>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-semibold text-slate-900">项目实例总览</h3>
+            <p class="mt-1 text-sm text-slate-500">统一汇总项目主记录、项目内正式记录和正式业务对象，作为当前节点的单一实例视图。</p>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs text-slate-500">
+            <span class="rounded-full border border-slate-200 px-2.5 py-1">正式记录 ${node.instanceModel.formalRecordCount}</span>
+            <span class="rounded-full border border-slate-200 px-2.5 py-1">正式业务对象 ${node.instanceModel.relatedObjectCount}</span>
+            <span class="rounded-full border border-slate-200 px-2.5 py-1">全部实例 ${node.instanceModel.totalCount}</span>
+          </div>
+        </div>
         <div class="mt-4 overflow-hidden rounded-lg border">
           <table class="min-w-full text-sm">
             <thead class="bg-slate-50">
               <tr class="text-left text-slate-600">
-                <th class="px-3 py-2 font-medium">关联角色</th>
-                <th class="px-3 py-2 font-medium">来源模块</th>
-                <th class="px-3 py-2 font-medium">对象标题</th>
+                <th class="px-3 py-2 font-medium">来源层</th>
+                <th class="px-3 py-2 font-medium">模块 / 承载</th>
+                <th class="px-3 py-2 font-medium">实例编码 / 标题</th>
+                <th class="px-3 py-2 font-medium">摘要字段</th>
                 <th class="px-3 py-2 font-medium">状态</th>
                 <th class="px-3 py-2 font-medium">业务日期</th>
+                <th class="px-3 py-2 font-medium">操作</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200">
               ${
-                node.relations.length === 0
-                  ? '<tr><td colspan="5" class="px-3 py-6 text-center text-slate-500">暂无正式关联对象</td></tr>'
-                  : node.relations
+                node.instanceModel.instances.length === 0
+                  ? '<tr><td colspan="7" class="px-3 py-6 text-center text-slate-500">当前节点暂无正式实例</td></tr>'
+                  : node.instanceModel.instances
                       .map(
-                        (relation) => `
+                        (instance) => `
                           <tr>
-                            <td class="px-3 py-2 text-slate-700">${escapeHtml(relation.relationRole)}</td>
-                            <td class="px-3 py-2 text-slate-500">${escapeHtml(relation.sourceModule)}</td>
-                            <td class="px-3 py-2 text-slate-700">${escapeHtml(relation.sourceTitle)}</td>
-                            <td class="px-3 py-2 text-slate-500">${escapeHtml(relation.sourceStatus || '-')}</td>
-                            <td class="px-3 py-2 text-slate-500">${escapeHtml(formatDateTime(relation.businessDate))}</td>
+                            <td class="px-3 py-2 align-top">
+                              <div class="space-y-1">
+                                <div class="text-sm text-slate-700">${escapeHtml(instance.sourceLayer)}</div>
+                                <div class="text-xs text-slate-400">${escapeHtml(instance.relationRole || '-')}</div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-2 align-top">
+                              <div class="space-y-1">
+                                <div class="text-sm text-slate-700">${escapeHtml(instance.moduleName)}</div>
+                                <div class="text-xs text-slate-400">${escapeHtml(instance.carrierLabel)}</div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-2 align-top">
+                              <div class="space-y-1">
+                                <div class="text-sm font-medium text-slate-900">${escapeHtml(instance.instanceCode || '-')}</div>
+                                <div class="text-xs leading-5 text-slate-500">${escapeHtml(instance.title || instance.summaryText || '-')}</div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-2 align-top">${renderInstanceFields(instance.fields)}</td>
+                            <td class="px-3 py-2 align-top text-slate-500">${escapeHtml(instance.status || '-')}</td>
+                            <td class="px-3 py-2 align-top text-slate-500">${escapeHtml(formatDateTime(instance.businessDate || instance.updatedAt || ''))}</td>
+                            <td class="px-3 py-2 align-top">
+                              ${
+                                instance.targetRoute
+                                  ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(instance.targetRoute)}">打开</button>`
+                                  : '<span class="text-xs text-slate-400">-</span>'
+                              }
+                            </td>
                           </tr>
                         `,
                       )
@@ -4118,7 +3245,7 @@ function renderWorkItemRecordDialog(project: PcsProjectRecord, node: ProjectNode
 }
 
 function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: string): string {
-  ensureProjectDemoData()
+  ensurePcsProjectDemoDataReady()
   ensureWorkItemState(projectId, projectNodeId)
   const viewModel = buildProjectViewModel(projectId)
   if (!viewModel) {
@@ -4211,7 +3338,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
 }
 
 export function renderPcsProjectListPage(): string {
-  ensureProjectDemoData()
+  ensurePcsProjectDemoDataReady()
   const { filtered, paged, totalPages } = getPagedProjects()
   return `
     <div class="space-y-5 p-4">
@@ -4477,12 +3604,16 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     values.totalClickQty = aggregate.totalClickQty
     values.totalOrderQty = aggregate.totalOrderQty
     values.totalGmvAmount = aggregate.totalGmvAmount
+    values.channelBreakdownLines = aggregate.channelBreakdownLines
+    values.storeBreakdownLines = aggregate.storeBreakdownLines
+    values.channelProductBreakdownLines = aggregate.channelProductBreakdownLines
+    values.testingSourceBreakdownLines = aggregate.testingSourceBreakdownLines
+    values.currencyBreakdownLines = aggregate.currencyBreakdownLines
   }
 
   if (node.node.workItemTypeCode === 'TEST_CONCLUSION') {
     const conclusion = String(values.conclusion || '').trim()
-    values.linkedChannelProductCode = getNodeFieldValue(project, node, 'linkedChannelProductCode') || `${project.projectCode}-CP`
-    values.invalidationPlanned = conclusion ? conclusion !== '通过' : false
+    Object.assign(values, buildTestConclusionOutcomeValues(project, node, conclusion, draft.businessDate || todayText()))
   }
 
   const missingRequiredLabels = getMissingRequiredFieldLabels(node.node, values)
@@ -4502,368 +3633,6 @@ function buildFormalSaveInput(project: PcsProjectRecord, node: ProjectNodeViewMo
     businessRuleErrors,
     summaryNote,
   }
-}
-
-function updateChannelProductRelationStatus(
-  projectId: string,
-  sourceStatus: '已生效' | '已作废',
-  note: string,
-  operatorName = '当前用户',
-  timestamp = nowText(),
-): void {
-  listProjectRelationsByProject(projectId)
-    .filter((relation) => relation.sourceModule === '渠道商品' && relation.sourceObjectType === '渠道商品')
-    .forEach((relation) => {
-      const meta = parseRelationNoteMeta(relation.note)
-      upsertProjectRelation({
-        ...relation,
-        sourceStatus,
-        updatedAt: timestamp,
-        updatedBy: operatorName,
-        note: serializeRelationNoteMeta({
-          ...meta,
-          channelProductCode: meta.channelProductCode || relation.sourceObjectCode,
-          channelProductStatus: sourceStatus,
-          invalidatedReason: sourceStatus === '已作废' ? note : '',
-        }),
-      })
-    })
-}
-
-function upsertRevisionTaskRelation(
-  project: PcsProjectRecord,
-  node: ProjectNodeViewModel,
-  operatorName = '当前用户',
-  timestamp = nowText(),
-): { revisionTaskId: string; revisionTaskCode: string } {
-  const existing = listProjectRelationsByProject(project.projectId).find((relation) => relation.sourceModule === '改版任务')
-  const revisionTaskId = existing?.sourceObjectId || `${project.projectId}-revision-001`
-  const revisionTaskCode =
-    existing?.sourceObjectCode || `RT-${project.projectCode.split('-').slice(-2).join('-')}`
-
-  upsertProjectRelation({
-    projectRelationId: existing?.projectRelationId || '',
-    projectId: project.projectId,
-    projectCode: project.projectCode,
-    projectNodeId: node.node.projectNodeId,
-    workItemTypeCode: node.node.workItemTypeCode,
-    workItemTypeName: node.node.workItemTypeName,
-    relationRole: '产出对象',
-    sourceModule: '改版任务',
-    sourceObjectType: '改版任务',
-    sourceObjectId: revisionTaskId,
-    sourceObjectCode: revisionTaskCode,
-    sourceLineId: null,
-    sourceLineCode: null,
-    sourceTitle: `${project.projectName} 改版任务`,
-    sourceStatus: '进行中',
-    businessDate: timestamp,
-    ownerName: project.ownerName,
-    createdAt: existing?.createdAt || timestamp,
-    createdBy: existing?.createdBy || operatorName,
-    updatedAt: timestamp,
-    updatedBy: operatorName,
-    note: '测款结论调整后，已转入改版推进分支。',
-    legacyRefType: existing?.legacyRefType || '',
-    legacyRefValue: existing?.legacyRefValue || '',
-  })
-
-  return { revisionTaskId, revisionTaskCode }
-}
-
-function applyFeasibilityReviewBranch(
-  project: PcsProjectRecord,
-  node: ProjectNodeViewModel,
-  decision: string,
-  note: string,
-  timestamp = nowText(),
-): void {
-  const operatorName = '当前用户'
-  completeProjectNode(project.projectId, node.node.projectNodeId, {
-    operatorName,
-    timestamp,
-    resultType: decision,
-    resultText: note || `初步可行性判断已判定为${decision}。`,
-  })
-
-  if (decision === '暂缓') {
-    syncProjectLifecycle(project.projectId, operatorName, timestamp)
-    updateProjectRecord(
-      project.projectId,
-      {
-        blockedFlag: true,
-        blockedReason: note || '可行性判断为暂缓，等待下一轮样衣评估。',
-        riskStatus: '延期',
-        riskReason: note || '可行性判断为暂缓，等待下一轮样衣评估。',
-        riskWorkItem: node.node.workItemTypeName,
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    state.notice = `${node.node.workItemTypeName}已判定为暂缓，项目当前进入等待评估状态。`
-    return
-  }
-
-  const target = ['SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM']
-    .map((workItemTypeCode) => getProjectNodeRecordByWorkItemTypeCode(project.projectId, workItemTypeCode))
-    .find((item) => item && item.currentStatus === '未开始')
-
-  if (target) {
-    activateProjectNode(project.projectId, target.projectNodeId, {
-      operatorName,
-      timestamp,
-      pendingActionType: decision === '调整' ? '补充评估' : '待执行',
-      pendingActionText:
-        decision === '调整'
-          ? `可行性判断为调整，请继续处理：${target.workItemTypeName}`
-          : `当前请处理：${target.workItemTypeName}`,
-      latestResultType: decision,
-      latestResultText: note || `初步可行性判断已判定为${decision}。`,
-    })
-  }
-
-  syncProjectLifecycle(project.projectId, operatorName, timestamp)
-  updateProjectRecord(
-    project.projectId,
-    {
-      blockedFlag: false,
-      blockedReason: '',
-      updatedAt: timestamp,
-    },
-    operatorName,
-  )
-  state.notice =
-    decision === '调整'
-      ? `${node.node.workItemTypeName}已判定为调整，已转入补充评估。`
-      : `${node.node.workItemTypeName}已判定为通过。`
-}
-
-function applySampleConfirmBranch(
-  project: PcsProjectRecord,
-  node: ProjectNodeViewModel,
-  decision: string,
-  note: string,
-  timestamp = nowText(),
-): void {
-  const operatorName = '当前用户'
-
-  if (decision === '淘汰') {
-    completeProjectNode(project.projectId, node.node.projectNodeId, {
-      operatorName,
-      timestamp,
-      resultType: decision,
-      resultText: note || '样衣确认结论为淘汰，项目停止继续推进。',
-    })
-    terminateProject(project.projectId, note || '样衣确认结论为淘汰，项目停止继续推进。', operatorName, timestamp)
-    state.notice = `${node.node.workItemTypeName}已判定为淘汰，并终止当前商品项目。`
-    return
-  }
-
-  if (decision === '继续调整') {
-    updateProjectNodeRecord(
-      project.projectId,
-      node.node.projectNodeId,
-      {
-        currentStatus: '进行中',
-        latestResultType: '继续调整',
-        latestResultText: note || '样衣确认结论为继续调整，需补充试穿反馈后重新确认。',
-        pendingActionType: '重新确认',
-        pendingActionText: '请补充样衣拍摄与试穿后重新提交样衣确认。',
-        updatedAt: timestamp,
-        lastEventType: '继续调整',
-        lastEventTime: timestamp,
-      },
-      operatorName,
-    )
-
-    const shootFitNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'SAMPLE_SHOOT_FIT')
-    if (shootFitNode) {
-      activateProjectNode(project.projectId, shootFitNode.projectNodeId, {
-        operatorName,
-        timestamp,
-        pendingActionType: '继续调整',
-        pendingActionText: '样衣确认要求继续调整，请补充拍摄与试穿反馈。',
-        latestResultType: '继续调整',
-        latestResultText: note || '样衣确认要求继续调整。',
-      })
-    }
-
-    syncProjectLifecycle(project.projectId, operatorName, timestamp)
-    state.notice = `${node.node.workItemTypeName}已记录为继续调整，样衣评估链路已重新打开。`
-    return
-  }
-
-  markNodeCompletedAndUnlockNext(project.projectId, node.node.projectNodeId, {
-    operatorName,
-    timestamp,
-    resultType: decision,
-    resultText: note || '样衣确认已通过，可继续进入成本与定价阶段。',
-  })
-  state.notice = `${node.node.workItemTypeName}已判定为通过。`
-}
-
-function applyTestConclusionBranch(
-  project: PcsProjectRecord,
-  node: ProjectNodeViewModel,
-  decision: string,
-  note: string,
-  timestamp = nowText(),
-): void {
-  const operatorName = '当前用户'
-  completeProjectNode(project.projectId, node.node.projectNodeId, {
-    operatorName,
-    timestamp,
-    resultType: decision,
-    resultText: note || `${node.node.workItemTypeName}已判定为${decision}。`,
-  })
-
-  if (decision === '淘汰') {
-    updateChannelProductRelationStatus(project.projectId, '已作废', note || '测款结论为淘汰，渠道商品已作废。', operatorName, timestamp)
-    terminateProject(project.projectId, note || '测款结论为淘汰，项目停止继续推进。', operatorName, timestamp)
-    state.notice = `已完成${node.node.workItemTypeName}，并终止当前商品项目。`
-    return
-  }
-
-  if (decision === '通过') {
-    const nextTarget = ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'SAMPLE_RETAIN_REVIEW']
-      .map((workItemTypeCode) => getProjectNodeRecordByWorkItemTypeCode(project.projectId, workItemTypeCode))
-      .find((item) => item && item.currentStatus === '未开始')
-
-    if (nextTarget) {
-      activateProjectNode(project.projectId, nextTarget.projectNodeId, {
-        operatorName,
-        timestamp,
-        pendingActionType: '待执行',
-        pendingActionText: `测款通过，请处理：${nextTarget.workItemTypeName}`,
-        latestResultType: '测款通过',
-        latestResultText: '测款结论已通过，当前进入正式转档链路。',
-      })
-    }
-
-    updateChannelProductRelationStatus(project.projectId, '已生效', note || '测款通过，当前渠道商品已正式生效。', operatorName, timestamp)
-    syncProjectLifecycle(project.projectId, operatorName, timestamp)
-    updateProjectRecord(
-      project.projectId,
-      {
-        blockedFlag: false,
-        blockedReason: '',
-        riskStatus: '正常',
-        riskReason: '',
-        riskWorkItem: '',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    state.notice = `${node.node.workItemTypeName}已判定为通过，并进入款式档案链路。`
-    return
-  }
-
-  if (decision === '调整') {
-    const branchNote = note || '测款结论为调整，当前转入改版推进分支。'
-    ;['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP']
-      .map((workItemTypeCode) => getProjectNodeRecordByWorkItemTypeCode(project.projectId, workItemTypeCode))
-      .filter((item): item is PcsProjectNodeRecord => Boolean(item))
-      .forEach((item) => {
-        cancelProjectNode(project.projectId, item.projectNodeId, '测款结论为调整，当前节点改由改版分支继续推进。', operatorName, timestamp)
-      })
-
-    const revision = upsertRevisionTaskRelation(project, node, operatorName, timestamp)
-    saveProjectInlineNodeFieldEntry(
-      project.projectId,
-      node.node.projectNodeId,
-      {
-        businessDate: timestamp,
-        values: {},
-        detailSnapshot: {
-          revisionTaskId: revision.revisionTaskId,
-          revisionTaskCode: revision.revisionTaskCode,
-        },
-      },
-      operatorName,
-    )
-
-    const branchTargets = ['PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE']
-      .map((workItemTypeCode) => getProjectNodeRecordByWorkItemTypeCode(project.projectId, workItemTypeCode))
-      .filter((item): item is PcsProjectNodeRecord => Boolean(item) && item.currentStatus === '未开始')
-
-    if (branchTargets.length > 0) {
-      const primaryTargets = branchTargets.filter((item) => item.workItemTypeCode === 'PATTERN_TASK' || item.workItemTypeCode === 'PATTERN_ARTWORK_TASK')
-      const targetsToActivate = primaryTargets.length > 0 ? primaryTargets : [branchTargets[0]]
-      targetsToActivate.forEach((item) => {
-        activateProjectNode(project.projectId, item.projectNodeId, {
-          operatorName,
-          timestamp,
-          pendingActionType: '改版推进',
-          pendingActionText: `测款调整，请处理：${item.workItemTypeName}`,
-          latestResultType: '改版分支',
-          latestResultText: branchNote,
-        })
-      })
-    }
-
-    updateChannelProductRelationStatus(project.projectId, '已作废', branchNote, operatorName, timestamp)
-    syncProjectLifecycle(project.projectId, operatorName, timestamp)
-    updateProjectRecord(
-      project.projectId,
-      {
-        blockedFlag: false,
-        blockedReason: '',
-        riskStatus: '正常',
-        riskReason: '',
-        riskWorkItem: '',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    state.notice = `${node.node.workItemTypeName}已判定为调整，已转入改版推进分支。`
-    return
-  }
-
-  const pauseReason = note || '测款结论为暂缓，等待下一轮重新评估。'
-  updateChannelProductRelationStatus(project.projectId, '已作废', pauseReason, operatorName, timestamp)
-  syncProjectLifecycle(project.projectId, operatorName, timestamp)
-  updateProjectRecord(
-    project.projectId,
-    {
-      blockedFlag: true,
-      blockedReason: pauseReason,
-      riskStatus: '延期',
-      riskReason: pauseReason,
-      riskWorkItem: node.node.workItemTypeName,
-      updatedAt: timestamp,
-    },
-    operatorName,
-  )
-  state.notice = `${node.node.workItemTypeName}已判定为暂缓，项目当前进入阻塞等待。`
-}
-
-function routeNodeAfterFormalSave(
-  project: PcsProjectRecord,
-  node: ProjectNodeViewModel,
-  values: Record<string, unknown>,
-  summaryNote: string,
-  timestamp = nowText(),
-): void {
-  if (node.node.workItemTypeCode === 'FEASIBILITY_REVIEW') {
-    applyFeasibilityReviewBranch(project, node, String(values.reviewConclusion || '').trim(), summaryNote, timestamp)
-    return
-  }
-  if (node.node.workItemTypeCode === 'SAMPLE_CONFIRM') {
-    applySampleConfirmBranch(project, node, String(values.confirmResult || '').trim(), summaryNote, timestamp)
-    return
-  }
-  if (node.node.workItemTypeCode === 'TEST_CONCLUSION') {
-    applyTestConclusionBranch(project, node, String(values.conclusion || '').trim(), summaryNote, timestamp)
-    return
-  }
-
-  markNodeCompletedAndUnlockNext(project.projectId, node.node.projectNodeId, {
-    operatorName: '当前用户',
-    timestamp,
-    resultType: '节点完成',
-    resultText: summaryNote,
-  })
-  state.notice = `${node.node.workItemTypeName}已保存并流转。`
 }
 
 function saveFormalRecord(input: { completeAfterSave?: boolean; closeAfterSave?: boolean } = {}): void {
@@ -4889,16 +3658,24 @@ function saveFormalRecord(input: { completeAfterSave?: boolean; closeAfterSave?:
     }
     return
   }
-  const result = saveProjectInlineNodeFieldEntry(
+  if (input.completeAfterSave && payload.missingRequiredLabels.length > 0) {
+    state.notice = `请先补全必填字段：${payload.missingRequiredLabels.join('、')}`
+    if (input.closeAfterSave) {
+      closeAllDialogs()
+    }
+    return
+  }
+  const result = saveProjectNodeFormalRecord({
     projectId,
     projectNodeId,
-    {
+    payload: {
       businessDate: payload.businessDate,
       values: payload.values,
       detailSnapshot: payload.detailSnapshot,
     },
-    '当前用户',
-  )
+    completeAfterSave: input.completeAfterSave,
+    operatorName: '当前用户',
+  })
 
   if (!result.ok) {
     state.notice = result.message
@@ -4906,22 +3683,10 @@ function saveFormalRecord(input: { completeAfterSave?: boolean; closeAfterSave?:
     return
   }
 
-  if (input.completeAfterSave) {
-    if (payload.missingRequiredLabels.length > 0) {
-      state.notice = `${result.message} 当前未完成节点流转。`
-      if (input.closeAfterSave) {
-        closeAllDialogs()
-      } else {
-        state.recordDialog = createEmptyRecordDialogState()
-      }
-      return
-    }
-
-    const timestamp = nowText()
-    routeNodeAfterFormalSave(context.project, context.node, payload.values, payload.summaryNote, timestamp)
-  } else {
-    state.notice = result.message
-  }
+  state.notice =
+    input.completeAfterSave && payload.missingRequiredLabels.length > 0
+      ? `${result.message} 当前未完成节点流转。`
+      : result.message
 
   if (input.closeAfterSave) {
     closeAllDialogs()
@@ -4973,58 +3738,27 @@ function confirmDecision(): void {
     return
   }
 
-  const timestamp = nowText()
   const note = dialog.note.trim() || `${context.node.node.workItemTypeName}已判定为${dialog.value}。`
   const decisionFieldMeta = getDecisionFieldMeta(context.node.node.workItemTypeCode)
   if (!decisionFieldMeta) {
     closeAllDialogs()
     return
   }
-  const saveResult = saveProjectInlineNodeFieldEntry(
-    dialog.projectId,
-    dialog.projectNodeId,
-    {
-      businessDate: timestamp,
+  const result = saveProjectNodeFormalRecord({
+    projectId: dialog.projectId,
+    projectNodeId: dialog.projectNodeId,
+    payload: {
+      businessDate: nowText(),
       values: {
         [decisionFieldMeta.valueFieldKey]: dialog.value,
         [decisionFieldMeta.noteFieldKey]: note,
-        ...(context.node.node.workItemTypeCode === 'TEST_CONCLUSION'
-          ? {
-              linkedChannelProductCode:
-                getNodeFieldValue(context.project, context.node, 'linkedChannelProductCode') || `${context.project.projectCode}-CP`,
-              invalidationPlanned: dialog.value !== '通过',
-            }
-          : {}),
       },
-      detailSnapshot:
-        context.node.node.workItemTypeCode === 'TEST_CONCLUSION'
-          ? {
-              channelProductCode: `${context.project.projectCode}-CP`,
-              upstreamChannelProductCode: `${context.project.projectCode}-UP`,
-              projectTerminated: dialog.value === '淘汰',
-              projectTerminatedAt: dialog.value === '淘汰' ? timestamp : '',
-            }
-          : undefined,
     },
-    '当前用户',
-  )
+    completeAfterSave: true,
+    operatorName: '当前用户',
+  })
 
-  if (!saveResult.ok) {
-    state.notice = saveResult.message
-    closeAllDialogs()
-    return
-  }
-
-  routeNodeAfterFormalSave(
-    context.project,
-    context.node,
-    {
-      [decisionFieldMeta.valueFieldKey]: dialog.value,
-      [decisionFieldMeta.noteFieldKey]: note,
-    },
-    note,
-    timestamp,
-  )
+  state.notice = result.message
 
   closeAllDialogs()
 }
@@ -5094,8 +3828,8 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   }
   if (action === 'confirm-terminate') {
     if (state.terminateProjectId && state.terminateReason.trim()) {
-      terminateProject(state.terminateProjectId, state.terminateReason.trim(), '当前用户')
-      state.notice = '项目已终止。'
+      const result = terminateProject(state.terminateProjectId, state.terminateReason.trim(), '当前用户')
+      state.notice = result.message
     }
     closeAllDialogs()
     return true
@@ -5103,7 +3837,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'archive-project') {
     const projectId = actionNode.dataset.projectId
     if (!projectId) return true
-    const result = archiveProject(projectId)
+    const result = archiveProject(projectId, '当前用户')
     state.notice = result.message
     return true
   }
@@ -5177,8 +3911,7 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   }
   if (action === 'approve-init') {
     if (!state.detail.projectId) return true
-    const result = approveProjectInit(state.detail.projectId, '当前用户')
-    syncProjectLifecycle(state.detail.projectId, '当前用户')
+    const result = approveProjectInitAndSync(state.detail.projectId, '当前用户')
     state.notice = result.message
     if (result.nextNode) {
       state.detail.selectedNodeId = result.nextNode.projectNodeId
@@ -5189,14 +3922,12 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     const projectId = state.workItem.projectId || state.detail.projectId
     const projectNodeId = state.workItem.projectNodeId || state.detail.selectedNodeId
     if (!projectId || !projectNodeId) return true
-    const node = getProjectNodeRecordById(projectId, projectNodeId)
-    if (!node) return true
-    markNodeCompletedAndUnlockNext(projectId, projectNodeId, {
+    const result = markProjectNodeCompletedAndUnlockNext(projectId, projectNodeId, {
       operatorName: '当前用户',
       resultType: '手动完成',
-      resultText: `${node.workItemTypeName}已手动标记完成。`,
+      resultText: '节点已手动标记完成。',
     })
-    state.notice = `${node.workItemTypeName}已标记完成。`
+    state.notice = result.message
     return true
   }
   if (action === 'open-decision') {

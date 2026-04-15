@@ -26,6 +26,8 @@ export interface FirstSampleTaskRecord {
   trackingNo: string
   sampleAssetId: string
   sampleCode: string
+  acceptedAt: string
+  confirmedAt: string
   status: FirstSampleTaskStatus
   ownerId: string
   ownerName: string

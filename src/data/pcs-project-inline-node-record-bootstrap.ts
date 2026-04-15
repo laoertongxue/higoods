@@ -98,6 +98,14 @@ interface TestingBranchRecordSeed {
   revisionTaskCode?: string
   projectTerminated?: boolean
   projectTerminatedAt?: string
+  nextActionType?: string
+}
+
+function getTestingConclusionNextActionType(conclusion: TestingBranchRecordSeed['conclusion']): string {
+  if (conclusion === '通过') return '生成款式档案'
+  if (conclusion === '调整') return '等待改版完成'
+  if (conclusion === '暂缓') return '等待重新评估'
+  return '项目关闭'
 }
 
 const PROJECT_RECORD_PLAN: Record<string, PcsProjectInlineNodeRecordWorkItemTypeCode[]> = {
@@ -1004,6 +1012,14 @@ function buildTestingBranchBootstrapRecords(
         conclusionNote: seed.conclusionNote,
         linkedChannelProductCode: channelProductCode,
         invalidationPlanned: seed.conclusion !== '通过',
+        revisionTaskId: seed.revisionTaskId || '',
+        revisionTaskCode: seed.revisionTaskCode || '',
+        linkedStyleId: seed.linkedStyleId || '',
+        linkedStyleCode: seed.linkedStyleCode || '',
+        invalidatedChannelProductId: seed.conclusion === '通过' ? '' : channelProductId,
+        projectTerminated: Boolean(seed.projectTerminated),
+        projectTerminatedAt: seed.projectTerminatedAt || '',
+        nextActionType: seed.nextActionType || getTestingConclusionNextActionType(seed.conclusion),
       },
       detailSnapshot: {
         summaryRecordId,

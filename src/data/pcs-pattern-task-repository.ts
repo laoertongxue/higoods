@@ -44,6 +44,8 @@ function normalizeTask(task: PatternTaskRecord): PatternTaskRecord {
     linkedTechPackVersionLabel: task.linkedTechPackVersionLabel || '',
     linkedTechPackVersionStatus: task.linkedTechPackVersionStatus || '',
     linkedTechPackUpdatedAt: task.linkedTechPackUpdatedAt || '',
+    acceptedAt: task.acceptedAt || '',
+    confirmedAt: task.confirmedAt || '',
     note: task.note || '',
     legacyProjectRef: task.legacyProjectRef || '',
     legacyUpstreamRef: task.legacyUpstreamRef || '',

@@ -45,6 +45,8 @@ function normalizeTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
     linkedTechPackVersionLabel: task.linkedTechPackVersionLabel || '',
     linkedTechPackVersionStatus: task.linkedTechPackVersionStatus || '',
     linkedTechPackUpdatedAt: task.linkedTechPackUpdatedAt || '',
+    acceptedAt: task.acceptedAt || '',
+    confirmedAt: task.confirmedAt || '',
     note: task.note || '',
     legacyProjectRef: task.legacyProjectRef || '',
     legacyUpstreamRef: task.legacyUpstreamRef || '',

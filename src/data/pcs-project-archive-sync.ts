@@ -7,6 +7,7 @@ import {
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
+import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
 import {
   collectProjectArchiveAutoData,
   computeProjectArchiveMissingItems,
@@ -219,6 +220,7 @@ function updateProjectAndNodeFromArchive(
       },
       operatorName,
     )
+    syncProjectNodeInstanceRuntime(archive.projectId, node.projectNodeId, operatorName, archive.updatedAt)
     return
   }
 
@@ -237,6 +239,12 @@ function updateProjectAndNodeFromArchive(
         updatedAt: archive.finalizedAt || archive.updatedAt,
       },
       operatorName,
+    )
+    syncProjectNodeInstanceRuntime(
+      archive.projectId,
+      node.projectNodeId,
+      operatorName,
+      archive.finalizedAt || archive.updatedAt,
     )
     return
   }
@@ -258,6 +266,7 @@ function updateProjectAndNodeFromArchive(
       },
       operatorName,
     )
+    syncProjectNodeInstanceRuntime(archive.projectId, node.projectNodeId, operatorName, archive.updatedAt)
     return
   }
 
@@ -276,6 +285,7 @@ function updateProjectAndNodeFromArchive(
     },
     operatorName,
   )
+  syncProjectNodeInstanceRuntime(archive.projectId, node.projectNodeId, operatorName, archive.updatedAt)
 }
 
 export function createProjectArchive(projectId: string, operatorName = '商品中心'): ProjectArchiveCreateResult {

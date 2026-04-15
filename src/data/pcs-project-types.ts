@@ -11,6 +11,20 @@ export type SampleSourceType = '外采' | '自打样' | '委托打样'
 export type ProjectRiskStatus = '正常' | '延期'
 export type ProjectMarketTestWorkItemTypeCode = 'LIVE_TEST' | 'VIDEO_TEST'
 
+export interface PcsProjectRuntimeState {
+  progressDone: number
+  progressTotal: number
+  nextWorkItemName: string
+  nextWorkItemStatus: ProjectNodeStatus | '-'
+  pendingDecisionFlag: boolean
+  blockedFlag: boolean
+  blockedReason: string
+  riskStatus: ProjectRiskStatus
+  riskReason: string
+  riskWorkItem: string
+  riskDurationDays: number
+}
+
 export interface PcsProjectRecord {
   projectId: string
   projectCode: string
@@ -84,18 +98,9 @@ export interface PcsProjectRecord {
   projectArchiveMissingItemCount?: number
   projectArchiveUpdatedAt?: string
   projectArchiveFinalizedAt?: string
-  progressDone?: number
-  progressTotal?: number
-  nextWorkItemName?: string
-  nextWorkItemStatus?: ProjectNodeStatus | '-'
-  pendingDecisionFlag?: boolean
-  blockedFlag?: boolean
-  blockedReason?: string
-  riskStatus?: ProjectRiskStatus
-  riskReason?: string
-  riskWorkItem?: string
-  riskDurationDays?: number
 }
+
+export type PcsProjectViewRecord = PcsProjectRecord & PcsProjectRuntimeState
 
 export interface PcsProjectPhaseRecord {
   projectPhaseId: string
@@ -251,7 +256,7 @@ export interface ProjectCreateCatalog {
 }
 
 export interface ProjectCreateResult {
-  project: PcsProjectRecord
+  project: PcsProjectViewRecord
   phases: PcsProjectPhaseRecord[]
   nodes: PcsProjectNodeRecord[]
 }

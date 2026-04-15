@@ -1,6 +1,6 @@
 import { appStore } from '../state/store.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
-import { ensurePcsProjectDemoDataReady } from './pcs-projects.ts'
+import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import {
   bindStyleArchiveToProjectChannelProduct,
   findProjectChannelProductByStyleId,

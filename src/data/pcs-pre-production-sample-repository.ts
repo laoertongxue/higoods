@@ -44,6 +44,8 @@ function normalizeTask(task: PreProductionSampleTaskRecord): PreProductionSample
     ...cloneTask(task),
     note: task.note || '',
     sampleAssetId: task.sampleAssetId || '',
+    acceptedAt: task.acceptedAt || '',
+    confirmedAt: task.confirmedAt || '',
     trackingNo: task.trackingNo || '',
     legacyProjectRef: task.legacyProjectRef || '',
     legacyUpstreamRef: task.legacyUpstreamRef || '',

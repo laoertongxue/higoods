@@ -41,6 +41,8 @@ function normalizeTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
     ...cloneTask(task),
     note: task.note || '',
     sampleAssetId: task.sampleAssetId || '',
+    acceptedAt: task.acceptedAt || '',
+    confirmedAt: task.confirmedAt || '',
     trackingNo: task.trackingNo || '',
     legacyProjectRef: task.legacyProjectRef || '',
     legacyUpstreamRef: task.legacyUpstreamRef || '',

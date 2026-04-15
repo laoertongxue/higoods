@@ -2254,7 +2254,7 @@ function updateSampleTaskByFlow(taskId: string, module: 'firstSample' | 'preProd
       return
     }
     if (task.status === '在途') {
-      updateFirstSampleTask(taskId, { status: '已到样待入库', updatedAt: nowText(), updatedBy: '当前用户' })
+      updateFirstSampleTask(taskId, { status: '已到样待入库', acceptedAt: task.acceptedAt || nowText(), updatedAt: nowText(), updatedBy: '当前用户' })
       pushRuntimeLog('firstSample', taskId, '到样签收', '已完成到样签收，等待核对入库。')
       setNotice(`首版样衣任务 ${task.firstSampleTaskCode} 已完成到样签收。`)
       return
@@ -2291,7 +2291,7 @@ function updateSampleTaskByFlow(taskId: string, module: 'firstSample' | 'preProd
         sourceDocCode: task.firstSampleTaskCode,
         sourceDocId: task.firstSampleTaskId,
       })
-      updateFirstSampleTask(taskId, { sampleAssetId: assetInfo.assetId, sampleCode: assetInfo.assetCode, status: '验收中', updatedAt: nowText(), updatedBy: '当前用户' })
+      updateFirstSampleTask(taskId, { sampleAssetId: assetInfo.assetId, sampleCode: assetInfo.assetCode, status: '验收中', acceptedAt: task.acceptedAt || nowText(), updatedAt: nowText(), updatedBy: '当前用户' })
       pushRuntimeLog('firstSample', taskId, '核对入库', `已写入样衣库存与台账，样衣编号 ${assetInfo.assetCode}。`)
       setNotice(`首版样衣任务 ${task.firstSampleTaskCode} 已完成核对入库。`)
       return
@@ -2316,7 +2316,7 @@ function updateSampleTaskByFlow(taskId: string, module: 'firstSample' | 'preProd
     return
   }
   if (task.status === '在途') {
-    updatePreProductionSampleTask(taskId, { status: '已到样待入库', updatedAt: nowText(), updatedBy: '当前用户' })
+    updatePreProductionSampleTask(taskId, { status: '已到样待入库', acceptedAt: task.acceptedAt || nowText(), updatedAt: nowText(), updatedBy: '当前用户' })
     pushRuntimeLog('preProduction', taskId, '到样签收', '已完成到样签收，等待核对入库。')
     setNotice(`产前版样衣任务 ${task.preProductionSampleTaskCode} 已完成到样签收。`)
     return
@@ -2353,7 +2353,7 @@ function updateSampleTaskByFlow(taskId: string, module: 'firstSample' | 'preProd
       sourceDocCode: task.preProductionSampleTaskCode,
       sourceDocId: task.preProductionSampleTaskId,
     })
-    updatePreProductionSampleTask(taskId, { sampleAssetId: assetInfo.assetId, sampleCode: assetInfo.assetCode, status: '验收中', updatedAt: nowText(), updatedBy: '当前用户' })
+    updatePreProductionSampleTask(taskId, { sampleAssetId: assetInfo.assetId, sampleCode: assetInfo.assetCode, status: '验收中', acceptedAt: task.acceptedAt || nowText(), updatedAt: nowText(), updatedBy: '当前用户' })
     pushRuntimeLog('preProduction', taskId, '核对入库', `已写入样衣库存与台账，样衣编号 ${assetInfo.assetCode}。`)
     setNotice(`产前版样衣任务 ${task.preProductionSampleTaskCode} 已完成核对入库。`)
     return
@@ -2377,7 +2377,7 @@ function confirmPreProductionGate(taskId: string): void {
     return
   }
   preProductionGateMap.set(task.preProductionSampleTaskId, { confirmedBy: '当前用户', confirmedAt: nowText() })
-  updatePreProductionSampleTask(taskId, { status: '已完成', updatedAt: nowText(), updatedBy: '当前用户', note: `${task.note ? `${task.note}；` : ''}门禁确认通过` })
+  updatePreProductionSampleTask(taskId, { status: '已完成', confirmedAt: nowText(), updatedAt: nowText(), updatedBy: '当前用户', note: `${task.note ? `${task.note}；` : ''}门禁确认通过` })
   pushRuntimeLog('preProduction', taskId, '门禁确认', '已确认满足量产前门禁条件。')
   setNotice(`产前版样衣任务 ${task.preProductionSampleTaskCode} 已通过门禁确认。`)
 }
@@ -2833,7 +2833,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     const task = getFirstSampleTaskById(state.firstSampleAcceptanceTaskId)
     if (!task) { setNotice('未找到首版样衣任务。'); return true }
     firstSampleAcceptanceMap.set(task.firstSampleTaskId, { result: state.firstSampleAcceptanceResult, note: state.firstSampleAcceptanceNote.trim(), updatedAt: nowText() })
-    updateFirstSampleTask(task.firstSampleTaskId, { status: '已完成', updatedAt: nowText(), updatedBy: '当前用户', note: `${task.note ? `${task.note}；` : ''}验收结论：${state.firstSampleAcceptanceResult}` })
+    updateFirstSampleTask(task.firstSampleTaskId, { status: '已完成', confirmedAt: nowText(), updatedAt: nowText(), updatedBy: '当前用户', note: `${task.note ? `${task.note}；` : ''}验收结论：${state.firstSampleAcceptanceResult}` })
     pushRuntimeLog('firstSample', task.firstSampleTaskId, '填写验收', `验收结论：${state.firstSampleAcceptanceResult}。${state.firstSampleAcceptanceNote.trim() || '已完成验收。'}`)
     state.firstSampleAcceptanceOpen = false
     setNotice(`首版样衣任务 ${task.firstSampleTaskCode} 已提交验收结论。`)

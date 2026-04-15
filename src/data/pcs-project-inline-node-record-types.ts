@@ -220,6 +220,14 @@ export interface TestConclusionPayload {
   conclusionNote: string
   linkedChannelProductCode: string
   invalidationPlanned: boolean
+  revisionTaskId?: string
+  revisionTaskCode?: string
+  linkedStyleId?: string
+  linkedStyleCode?: string
+  invalidatedChannelProductId?: string
+  projectTerminated?: boolean
+  projectTerminatedAt?: string
+  nextActionType?: string
 }
 
 export interface TestConclusionDetailSnapshot {

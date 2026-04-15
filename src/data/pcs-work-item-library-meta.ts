@@ -22,6 +22,8 @@ export interface PcsWorkItemLibraryMeta {
   workItemTypeCode: string
   fieldCount: number
   statusCount: number
+  nodeStatusCount: number
+  instanceStatusCount: number
   operationCount: number
   runtimeCarrierMode: PcsWorkItemRuntimeCarrierMode
   runtimeCarrierLabel: string
@@ -63,7 +65,9 @@ export function buildPcsWorkItemLibraryMeta(workItemId: string): PcsWorkItemLibr
     workItemId: contract.workItemId,
     workItemTypeCode: contract.workItemTypeCode,
     fieldCount: contract.fieldDefinitions.length,
-    statusCount: contract.statusDefinitions.length,
+    statusCount: contract.statusDefinitions.length + (contract.instanceStatusDefinitions?.length ?? 0),
+    nodeStatusCount: contract.statusDefinitions.length,
+    instanceStatusCount: contract.instanceStatusDefinitions?.length ?? 0,
     operationCount: contract.operationDefinitions.length,
     runtimeCarrierMode: carrier.runtimeCarrierMode,
     runtimeCarrierLabel: carrier.runtimeCarrierLabel,

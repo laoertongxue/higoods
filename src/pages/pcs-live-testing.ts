@@ -33,7 +33,7 @@ import {
   listProjectRelationsByLiveProductLine,
   replaceLiveProductLineProjectRelations,
 } from '../data/pcs-project-relation-repository.ts'
-import { ensurePcsProjectDemoDataReady } from './pcs-projects.ts'
+import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 type QuickFilterKey = 'all' | 'reconciling' | 'readyToClose' | 'pendingAccounting' | 'accounted' | 'abnormal'

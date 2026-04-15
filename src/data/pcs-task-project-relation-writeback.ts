@@ -50,6 +50,7 @@ import {
   type PreProductionSampleTaskSourceType,
   type RevisionTaskSourceType,
 } from './pcs-task-source-normalizer.ts'
+import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
 
 type DownstreamTaskType = 'PATTERN' | 'PRINT' | 'SAMPLE' | 'PRE_PRODUCTION'
 
@@ -310,17 +311,16 @@ function relationPayload(input: {
 }
 
 function updateRevisionNode(node: PcsProjectNodeRecord, task: RevisionTaskRecord, alreadyExists: boolean): void {
-  if (alreadyExists) return
-  updateProjectNodeRecord(task.projectId, node.projectNodeId, {
-    latestInstanceId: task.revisionTaskId,
-    latestInstanceCode: task.revisionTaskCode,
-    validInstanceCount: (node.validInstanceCount || 0) + 1,
-    latestResultType: '已创建改版任务',
-    latestResultText: '已根据测款结论创建改版任务',
-    pendingActionType: '等待改版完成',
-    pendingActionText: '请推进改版任务，完成后重新进入测款',
-    updatedAt: task.createdAt,
-  }, task.ownerName || '当前用户')
+  if (!alreadyExists) {
+    updateProjectNodeRecord(task.projectId, node.projectNodeId, {
+      latestResultType: '已创建改版任务',
+      latestResultText: '已根据测款结论创建改版任务',
+      pendingActionType: '等待改版完成',
+      pendingActionText: '请推进改版任务，完成后重新进入测款',
+      updatedAt: task.createdAt,
+    }, task.ownerName || '当前用户')
+  }
+  syncProjectNodeInstanceRuntime(task.projectId, node.projectNodeId, task.ownerName || '当前用户', task.createdAt)
 }
 
 function updateTaskNode(
@@ -336,18 +336,17 @@ function updateTaskNode(
   },
   alreadyExists: boolean,
 ): void {
-  if (alreadyExists) return
-  updateProjectNodeRecord(task.projectId, node.projectNodeId, {
-    currentStatus: '进行中',
-    latestInstanceId: input.latestInstanceId,
-    latestInstanceCode: input.latestInstanceCode,
-    validInstanceCount: (node.validInstanceCount || 0) + 1,
-    latestResultType: input.latestResultType,
-    latestResultText: input.latestResultText,
-    pendingActionType: input.pendingActionType,
-    pendingActionText: input.pendingActionText,
-    updatedAt: task.createdAt,
-  }, task.ownerName || '当前用户')
+  if (!alreadyExists) {
+    updateProjectNodeRecord(task.projectId, node.projectNodeId, {
+      currentStatus: '进行中',
+      latestResultType: input.latestResultType,
+      latestResultText: input.latestResultText,
+      pendingActionType: input.pendingActionType,
+      pendingActionText: input.pendingActionText,
+      updatedAt: task.createdAt,
+    }, task.ownerName || '当前用户')
+  }
+  syncProjectNodeInstanceRuntime(task.projectId, node.projectNodeId, task.ownerName || '当前用户', task.createdAt)
 }
 
 export function saveRevisionTaskDraft(input: RevisionTaskCreateInput): RevisionTaskRecord {
@@ -733,6 +732,8 @@ export function createPlateMakingTaskWithProjectRelation(
     linkedTechPackVersionLabel: existing?.linkedTechPackVersionLabel || '',
     linkedTechPackVersionStatus: existing?.linkedTechPackVersionStatus || '',
     linkedTechPackUpdatedAt: existing?.linkedTechPackUpdatedAt || '',
+    acceptedAt: existing?.acceptedAt || now,
+    confirmedAt: existing?.confirmedAt || '',
     status: '进行中',
     ownerId: input.ownerId || project.ownerId,
     ownerName: input.ownerName || project.ownerName,
@@ -851,6 +852,8 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     linkedTechPackVersionLabel: existing?.linkedTechPackVersionLabel || '',
     linkedTechPackVersionStatus: existing?.linkedTechPackVersionStatus || '',
     linkedTechPackUpdatedAt: existing?.linkedTechPackUpdatedAt || '',
+    acceptedAt: existing?.acceptedAt || now,
+    confirmedAt: existing?.confirmedAt || '',
     status: '进行中',
     ownerId: input.ownerId || project.ownerId,
     ownerName: input.ownerName || project.ownerName,
@@ -950,6 +953,8 @@ export function createFirstSampleTaskWithProjectRelation(
     trackingNo: input.trackingNo || '',
     sampleAssetId: input.sampleAssetId || '',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
+    acceptedAt: existing?.acceptedAt || '',
+    confirmedAt: existing?.confirmedAt || '',
     status: '待发样',
     ownerId: input.ownerId || project.ownerId,
     ownerName: input.ownerName || project.ownerName,
@@ -1050,6 +1055,8 @@ export function createPreProductionSampleTaskWithProjectRelation(
     trackingNo: input.trackingNo || '',
     sampleAssetId: input.sampleAssetId || '',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listPreProductionSampleTasks().length + 50),
+    acceptedAt: existing?.acceptedAt || '',
+    confirmedAt: existing?.confirmedAt || '',
     status: '待发样',
     ownerId: input.ownerId || project.ownerId,
     ownerName: input.ownerName || project.ownerName,

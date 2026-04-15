@@ -1,4 +1,4 @@
-import { ensurePcsProjectDemoDataReady } from './pcs-projects.ts'
+import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import { appendSampleTransition } from '../data/pcs-sample-actions.ts'
 import {
   ensurePcsSampleReturnDemoDataReady,

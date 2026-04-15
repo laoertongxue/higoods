@@ -82,8 +82,6 @@ interface BootstrapProjectSeed {
   linkedTechPackVersionLabel?: string
   linkedTechPackVersionStatus?: string
   linkedTechPackVersionPublishedAt?: string
-  blockedFlag?: boolean
-  blockedReason?: string
 }
 
 interface BootstrapBuildResult {
@@ -1174,8 +1172,6 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     latestResultText: '测款结论为暂缓，当前渠道商品已作废，项目阻塞。',
     createdAt: '2026-03-09 09:10',
     updatedAt: '2026-04-02 10:30',
-    blockedFlag: true,
-    blockedReason: '测款结论为暂缓，当前项目阻塞，等待下轮市场窗口。',
   }),
   createScenarioProjectSeed('020', {
     projectName: '快反POLO衫暂缓',
@@ -1219,8 +1215,6 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     latestResultText: '测款结论为暂缓，当前渠道商品已作废，项目阻塞。',
     createdAt: '2026-03-11 10:20',
     updatedAt: '2026-04-03 13:10',
-    blockedFlag: true,
-    blockedReason: '当前结论为暂缓，等待补齐货盘与流量方案后再重启。',
   }),
   createScenarioProjectSeed('021', {
     projectName: '改版都市西装马甲暂缓',
@@ -1264,8 +1258,6 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     latestResultText: '测款结论为暂缓，当前渠道商品已作废，项目阻塞。',
     createdAt: '2026-03-12 11:10',
     updatedAt: '2026-04-04 09:40',
-    blockedFlag: true,
-    blockedReason: '当前测款窗口结束，项目暂缓，等待复盘结论。',
   }),
   createScenarioProjectSeed('022', {
     projectName: '设计款民族印花半裙暂缓',
@@ -1309,8 +1301,6 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     latestResultText: '测款结论为暂缓，当前渠道商品已作废，项目阻塞。',
     createdAt: '2026-03-13 15:00',
     updatedAt: '2026-04-04 15:30',
-    blockedFlag: true,
-    blockedReason: '测款结论为暂缓，等待重新评估花型方向。',
   }),
   createScenarioProjectSeed('023', {
     projectName: '基础款男装休闲夹克淘汰',
@@ -1549,8 +1539,6 @@ function buildProjectFromSeed(seed: BootstrapProjectSeed, currentPhaseCode: stri
     linkedTechPackVersionLabel: seed.linkedTechPackVersionLabel || '',
     linkedTechPackVersionStatus: seed.linkedTechPackVersionStatus || '',
     linkedTechPackVersionPublishedAt: seed.linkedTechPackVersionPublishedAt || '',
-    blockedFlag: seed.blockedFlag || false,
-    blockedReason: seed.blockedReason || '',
   }
 }
 

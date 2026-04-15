@@ -11,7 +11,7 @@ const listHtml = renderPcsProjectListPage()
 
 assert.match(listHtml, /商品项目列表/, '列表页应渲染商品项目标题')
 assert.match(listHtml, /新建商品项目/, '列表页应提供新建项目入口')
-assert.match(listHtml, /2026夏季宽松基础T恤|2026夏季印花短袖快反项目/, '列表页应包含演示项目数据')
+assert.match(listHtml, /设计款中式盘扣上衣|双渠道归档项目/, '列表页应包含演示项目数据')
 
 const project = listProjects()[0]
 assert.ok(project, '应存在可用的演示项目')
@@ -116,7 +116,7 @@ const auditCases: Array<{
   { workItemTypeCode: 'CHANNEL_PRODUCT_LISTING', projectNamePart: '归档项目', expectedSnippets: ['Global-Store', '239', 'USD', '已更新'] },
   { workItemTypeCode: 'VIDEO_TEST', projectNamePart: '归档项目', expectedSnippets: ['微信视频号 / 连衣裙测款号', '32,800', '17,686'] },
   { workItemTypeCode: 'LIVE_TEST', projectNamePart: '归档项目', expectedSnippets: [`${archivedProject!.projectCode}-LIVE-001`, '45,200', '22,944'] },
-  { workItemTypeCode: 'TEST_DATA_SUMMARY', projectNamePart: '归档项目', expectedSnippets: ['双渠道测款结果稳定', '78,000', '40,630'] },
+  { workItemTypeCode: 'TEST_DATA_SUMMARY', projectNamePart: '归档项目', expectedSnippets: ['双渠道测款结果稳定', '78,000', '40,630', '渠道拆分', '测款来源拆分', '币种拆分'] },
   { workItemTypeCode: 'TEST_CONCLUSION', projectNamePart: '归档项目', expectedSnippets: ['测款结论', '通过', `${archivedProject!.projectCode}-CP-001`] },
   { workItemTypeCode: 'STYLE_ARCHIVE_CREATE', projectNamePart: '归档项目', expectedSnippets: ['款式档案编码', `SPU-${archivedProject!.projectCode.split('-').slice(-1)[0]}`, '可生产'] },
   { workItemTypeCode: 'PROJECT_TRANSFER_PREP', projectNamePart: '归档项目', expectedSnippets: ['当前技术包版本', `TP-${archivedProject!.projectCode.split('-').slice(-1)[0]}-V2`, `ARC-${archivedProject!.projectCode.split('-').slice(-2).join('-')}`] },

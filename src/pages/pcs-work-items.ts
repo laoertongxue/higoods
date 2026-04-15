@@ -7,7 +7,9 @@ import {
 import {
   getProjectWorkItemContractById,
   listProjectWorkItemFieldGroups,
+  type PcsProjectMultiInstanceDefinition,
   type PcsProjectNodeFieldGroupDefinition,
+  type PcsProjectInstanceStatusDefinition,
   type PcsProjectNodeOperationDefinition,
   type PcsProjectNodeStatusDefinition,
 } from '../data/pcs-project-domain-contract.ts'
@@ -499,13 +501,18 @@ function renderFieldGroups(groups: PcsProjectNodeFieldGroupDefinition[]): string
   `
 }
 
-function renderStatusDefinitions(statusDefinitions: PcsProjectNodeStatusDefinition[]): string {
+function renderStatusDefinitions(
+  indexLabel: string,
+  title: string,
+  statusDefinitions: PcsProjectNodeStatusDefinition[] | PcsProjectInstanceStatusDefinition[],
+  badgeClass = 'bg-blue-100 text-blue-700',
+): string {
   if (statusDefinitions.length === 0) return ''
   return `
     <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">四</span>
-        <h2 class="text-lg font-semibold text-slate-900">状态定义</h2>
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
+        <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
       </div>
       <div class="grid gap-3 lg:grid-cols-2">
         ${statusDefinitions
@@ -513,7 +520,7 @@ function renderStatusDefinitions(statusDefinitions: PcsProjectNodeStatusDefiniti
             (status) => `
               <article class="rounded-lg border bg-slate-50 p-4">
                 <div class="flex items-center gap-2">
-                  <span class="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(status.statusName)}</span>
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${badgeClass}">${escapeHtml(status.statusName)}</span>
                 </div>
                 <p class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(status.businessMeaning)}</p>
                 <div class="mt-3 space-y-2 text-xs text-slate-500">
@@ -529,12 +536,12 @@ function renderStatusDefinitions(statusDefinitions: PcsProjectNodeStatusDefiniti
   `
 }
 
-function renderOperationDefinitions(operationDefinitions: PcsProjectNodeOperationDefinition[]): string {
+function renderOperationDefinitions(indexLabel: string, operationDefinitions: PcsProjectNodeOperationDefinition[]): string {
   if (operationDefinitions.length === 0) return ''
   return `
     <section class="rounded-lg border bg-white p-4">
       <div class="mb-4 flex items-center gap-2">
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">五</span>
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
         <h2 class="text-lg font-semibold text-slate-900">操作定义</h2>
       </div>
       <div class="space-y-4">
@@ -627,6 +634,32 @@ function renderRuntimeSection(indexLabel: string, workItemId: string): string {
   `
 }
 
+function renderMultiInstanceSection(
+  indexLabel: string,
+  definition: PcsProjectMultiInstanceDefinition | null | undefined,
+): string {
+  if (!definition) return ''
+  return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
+        <h2 class="text-lg font-semibold text-slate-900">多实例语义</h2>
+      </div>
+      <div class="grid gap-3 xl:grid-cols-3">
+        ${renderKeyValueCard('语义类型', definition.semanticLabel)}
+        ${renderKeyValueCard('主实例对象', definition.primaryInstanceTypeName, definition.granularityLabel)}
+        ${renderKeyValueCard('主来源层', definition.primarySourceLayers.join(' / '), definition.projectDisplayRule)}
+        ${renderKeyValueCard('主实例计数口径', definition.validInstanceCountRule)}
+        ${renderKeyValueCard('latest 实例口径', definition.latestInstanceRule)}
+        ${renderKeyValueCard(
+          '伴随对象',
+          definition.supportingRelationObjectTypes.length > 0 ? definition.supportingRelationObjectTypes.join(' / ') : '无',
+        )}
+      </div>
+    </section>
+  `
+}
+
 function renderLegacySection(indexLabel: string, workItemId: string): string {
   const meta = getPcsWorkItemLibraryMeta(workItemId)
   if (!meta || (meta.legacyReferenceCodes.length === 0 && meta.legacyReferenceNames.length === 0)) return ''
@@ -706,6 +739,10 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
     sectionNumber += 1
     return String(sectionNumber)
   }
+  const instanceStatusDefinitions = contract.instanceStatusDefinitions ?? []
+  const nodeStatusCount = contract.statusDefinitions.length
+  const instanceStatusCount = instanceStatusDefinitions.length
+  sectionNumber = 3
 
   return `
     <div class="space-y-5 p-4">
@@ -745,7 +782,7 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
           ${renderKeyValueCard('所属阶段', definition.defaultPhaseName, contract.scenario)}
           ${renderKeyValueCard('工作项分类', definition.categoryName)}
           ${renderKeyValueCard('默认执行角色', definition.role)}
-          ${renderKeyValueCard('字段 / 状态 / 操作', `${fieldGroups.reduce((sum, group) => sum + group.fields.length, 0)} / ${contract.statusDefinitions.length} / ${contract.operationDefinitions.length}`)}
+          ${renderKeyValueCard('字段 / 节点状态 / 实例状态 / 操作', `${fieldGroups.reduce((sum, group) => sum + group.fields.length, 0)} / ${nodeStatusCount} / ${instanceStatusCount || '-'} / ${contract.operationDefinitions.length}`)}
           ${renderKeyValueCard('可用于模板', definition.isSelectableForTemplate ? '是' : '否')}
           ${renderKeyValueCard('最近更新', formatDateTime(definition.updatedAt), contract.keepReason)}
         </div>
@@ -753,11 +790,13 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
 
       ${renderCapabilityCards(definition)}
       ${renderFieldGroups(fieldGroups)}
-      ${renderStatusDefinitions(contract.statusDefinitions)}
-      ${renderOperationDefinitions(contract.operationDefinitions)}
-      ${renderBulletSection('六', '业务规则', definition.businessRules)}
-      ${renderBulletSection('七', '系统约束说明', definition.systemConstraints, 'red')}
+      ${renderStatusDefinitions(nextSectionLabel(), '节点状态定义', contract.statusDefinitions)}
+      ${renderStatusDefinitions(nextSectionLabel(), '实例状态定义', instanceStatusDefinitions, 'bg-violet-100 text-violet-700')}
+      ${renderOperationDefinitions(nextSectionLabel(), contract.operationDefinitions)}
+      ${renderBulletSection(nextSectionLabel(), '业务规则', definition.businessRules)}
+      ${renderBulletSection(nextSectionLabel(), '系统约束说明', definition.systemConstraints, 'red')}
       ${renderRuntimeSection(nextSectionLabel(), workItemId)}
+      ${renderMultiInstanceSection(nextSectionLabel(), contract.multiInstanceDefinition)}
       ${renderLegacySection(nextSectionLabel(), workItemId)}
     </div>
   `
