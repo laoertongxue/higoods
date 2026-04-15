@@ -2,7 +2,7 @@ export const COMMON_TASK_STATUS_LIST = [
   '草稿',
   '未开始',
   '进行中',
-  '待评审',
+  '待确认',
   '已确认',
   '已完成',
   '异常待处理',
@@ -37,7 +37,7 @@ export function normalizeLegacyTaskStatus(value: string | null | undefined): Com
   if (value === '草稿') return '草稿'
   if (value === '未开始' || value === 'NOT_STARTED') return '未开始'
   if (value === '进行中' || value === 'IN_PROGRESS') return '进行中'
-  if (value === '待评审' || value === 'PENDING_REVIEW') return '待评审'
+  if (value === '待评审' || value === '待确认' || value === 'PENDING_REVIEW') return '待确认'
   if (value === '已确认' || value === 'APPROVED') return '已确认'
   if (value === '已完成' || value === 'COMPLETED') return '已完成'
   if (value === '异常待处理' || value === 'BLOCKED') return '异常待处理'

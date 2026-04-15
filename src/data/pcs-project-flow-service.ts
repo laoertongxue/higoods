@@ -88,8 +88,6 @@ export function syncProjectLifecycle(
   let projectStatus = project.projectStatus
   if (project.projectStatus === '已终止') {
     projectStatus = '已终止'
-  } else if (project.projectStatus === '待审核') {
-    projectStatus = '待审核'
   } else if (allClosed) {
     projectStatus = '已归档'
   } else if (completedNonInitCount === 0) {

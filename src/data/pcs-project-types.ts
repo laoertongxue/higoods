@@ -234,6 +234,7 @@ export interface ProjectCreateCatalog {
   projectTypes: ProjectType[]
   projectSourceTypes: ProjectSourceType[]
   styleTypes: TemplateStyleType[]
+  yearTags: string[]
   categories: ProjectCategoryOption[]
   brands: ProjectSimpleOption[]
   styles: ProjectSimpleOption[]

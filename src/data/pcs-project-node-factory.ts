@@ -11,7 +11,7 @@ function buildPendingActionText(status: ProjectNodeStatus, workItemName: string)
 }
 
 function buildInitialNodeStatus(sequenceIndex: number, workItemTypeCode: string): ProjectNodeStatus {
-  if (sequenceIndex === 0 && workItemTypeCode === 'PROJECT_INIT') return '待确认'
+  if (sequenceIndex === 0 && workItemTypeCode === 'PROJECT_INIT') return '进行中'
   return '未开始'
 }
 
@@ -79,12 +79,12 @@ export function buildProjectNodeRecordsFromTemplate(input: {
       validInstanceCount: latestCompleted ? 1 : 0,
       latestInstanceId: latestCompleted ? `${input.projectId}-instance-001` : '',
       latestInstanceCode: latestCompleted ? `${input.projectId}-实例-001` : '',
-      latestResultType: latestCompleted ? '节点完成' : isProjectInit ? '待审核' : '',
-      latestResultText: latestCompleted ? `${node.workItemTypeName}已完成。` : isProjectInit ? '商品项目已创建，等待立项审核。' : '',
+      latestResultType: latestCompleted ? '节点完成' : isProjectInit ? '已创建项目' : '',
+      latestResultText: latestCompleted ? `${node.workItemTypeName}已完成。` : isProjectInit ? '商品项目已创建，请补全并完成立项信息。' : '',
       currentIssueType: '',
       currentIssueText: '',
-      pendingActionType: isProjectInit ? '审核' : currentStatus === '待确认' ? '待确认' : currentStatus === '已取消' ? '已取消' : '待执行',
-      pendingActionText: isProjectInit ? '请审核商品项目立项' : buildPendingActionText(currentStatus, node.workItemTypeName),
+      pendingActionType: currentStatus === '待确认' ? '待确认' : currentStatus === '已取消' ? '已取消' : '待执行',
+      pendingActionText: buildPendingActionText(currentStatus, node.workItemTypeName),
       sourceTemplateNodeId: node.templateNodeId,
       sourceTemplateVersion: node.templateVersion || templateVersion,
     }

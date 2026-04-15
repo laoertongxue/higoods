@@ -22,7 +22,7 @@ import { getPlateMakingTaskById } from './pcs-plate-making-repository.ts'
 import { getPatternTaskById } from './pcs-pattern-task-repository.ts'
 import { getFirstSampleTaskById } from './pcs-first-sample-repository.ts'
 import { getPreProductionSampleTaskById } from './pcs-pre-production-sample-repository.ts'
-import { getLiveProductLineById } from './pcs-live-testing-repository.ts'
+import { getLiveProductLineById, getLiveSessionRecordById } from './pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import { getSkuArchiveById, findSkuArchiveByCode } from './pcs-sku-archive-repository.ts'
@@ -30,6 +30,7 @@ import { getTechnicalDataVersionById } from './pcs-technical-data-version-reposi
 import { getProjectArchiveById } from './pcs-project-archive-repository.ts'
 import { getSampleAssetById } from './pcs-sample-asset-repository.ts'
 import { getSampleLedgerEventById } from './pcs-sample-ledger-repository.ts'
+import { getLiveSessionById, getLiveSessionItems, getVideoItems, getVideoRecordById } from './pcs-testing.ts'
 
 export type PcsProjectInstanceSourceKind = 'PROJECT_RECORD' | 'INLINE_RECORD' | 'RELATION_OBJECT'
 export type PcsProjectInstanceSourceLayer = '项目主记录' | '项目内正式记录' | '正式业务对象'
@@ -182,16 +183,44 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
   const labelMap = buildFieldLabelMap('PROJECT_INIT')
   const fields: PcsProjectInstanceField[] = []
 
-  addField(fields, labelMap.get('projectName') || '项目名称', project.projectName)
-  addField(fields, labelMap.get('projectType') || '项目类型', project.projectType)
-  addField(fields, labelMap.get('projectSourceType') || '项目来源', project.projectSourceType)
-  addField(fields, labelMap.get('categoryId') || '商品类目', project.categoryName)
-  addField(fields, labelMap.get('subCategoryId') || '二级类目', project.subCategoryName)
-  addField(fields, labelMap.get('brandId') || '品牌', project.brandName)
-  addField(fields, labelMap.get('styleCodeId') || '风格编号', project.styleCodeName)
-  addField(fields, labelMap.get('targetChannelCodes') || '目标渠道', getChannelNamesByCodes(project.targetChannelCodes))
-  addField(fields, labelMap.get('ownerId') || '负责人', project.ownerName)
-  addField(fields, labelMap.get('teamId') || '负责团队', project.teamName)
+  addField(fields, labelMap.get('projectName') || '项目名称', project.projectName, 'projectName')
+  addField(fields, labelMap.get('projectType') || '项目类型', project.projectType, 'projectType')
+  addField(fields, labelMap.get('projectSourceType') || '项目来源类型', project.projectSourceType, 'projectSourceType')
+  addField(fields, labelMap.get('templateId') || '项目模板', `${project.templateName} / ${project.templateVersion}`, 'templateId')
+  addField(fields, labelMap.get('styleType') || '款式类型', project.styleType, 'styleType')
+  addField(fields, labelMap.get('categoryId') || '品类', project.categoryName, 'categoryId')
+  addField(fields, labelMap.get('categoryName') || '品类名称快照', project.categoryName, 'categoryName')
+  addField(fields, labelMap.get('subCategoryId') || '二级品类', project.subCategoryName || project.subCategoryId, 'subCategoryId')
+  addField(fields, labelMap.get('subCategoryName') || '二级品类名称快照', project.subCategoryName, 'subCategoryName')
+  addField(fields, labelMap.get('brandId') || '品牌', project.brandName, 'brandId')
+  addField(fields, labelMap.get('brandName') || '品牌名称快照', project.brandName, 'brandName')
+  addField(fields, labelMap.get('styleCodeId') || '风格编号', project.styleCodeName, 'styleCodeId')
+  addField(fields, labelMap.get('styleCodeName') || '风格编号名称快照', project.styleCodeName, 'styleCodeName')
+  addField(fields, labelMap.get('yearTag') || '年份', project.yearTag, 'yearTag')
+  addField(fields, labelMap.get('seasonTags') || '季节标签', project.seasonTags, 'seasonTags')
+  addField(fields, labelMap.get('styleTags') || '风格标签快照', project.styleTags, 'styleTags')
+  addField(fields, labelMap.get('styleTagIds') || '风格标签', project.styleTagNames, 'styleTagIds')
+  addField(fields, labelMap.get('styleTagNames') || '风格标签名称', project.styleTagNames, 'styleTagNames')
+  addField(fields, labelMap.get('crowdPositioningIds') || '人群定位', project.crowdPositioningNames, 'crowdPositioningIds')
+  addField(fields, labelMap.get('crowdPositioningNames') || '人群定位名称', project.crowdPositioningNames, 'crowdPositioningNames')
+  addField(fields, labelMap.get('ageIds') || '年龄带', project.ageNames, 'ageIds')
+  addField(fields, labelMap.get('ageNames') || '年龄带名称', project.ageNames, 'ageNames')
+  addField(fields, labelMap.get('crowdIds') || '人群', project.crowdNames, 'crowdIds')
+  addField(fields, labelMap.get('crowdNames') || '人群名称', project.crowdNames, 'crowdNames')
+  addField(fields, labelMap.get('productPositioningIds') || '商品定位', project.productPositioningNames, 'productPositioningIds')
+  addField(fields, labelMap.get('productPositioningNames') || '商品定位名称', project.productPositioningNames, 'productPositioningNames')
+  addField(fields, labelMap.get('targetAudienceTags') || '目标客群标签', project.targetAudienceTags, 'targetAudienceTags')
+  addField(fields, labelMap.get('priceRangeLabel') || '价格带', project.priceRangeLabel, 'priceRangeLabel')
+  addField(fields, labelMap.get('targetChannelCodes') || '目标测款渠道', getChannelNamesByCodes(project.targetChannelCodes), 'targetChannelCodes')
+  addField(fields, labelMap.get('projectAlbumUrls') || '项目图册链接', project.projectAlbumUrls, 'projectAlbumUrls')
+  addField(fields, labelMap.get('ownerId') || '负责人', project.ownerName, 'ownerId')
+  addField(fields, labelMap.get('ownerName') || '负责人名称', project.ownerName, 'ownerName')
+  addField(fields, labelMap.get('teamId') || '执行团队', project.teamName, 'teamId')
+  addField(fields, labelMap.get('teamName') || '执行团队名称', project.teamName, 'teamName')
+  addField(fields, labelMap.get('collaboratorIds') || '协同人', project.collaboratorNames, 'collaboratorIds')
+  addField(fields, labelMap.get('collaboratorNames') || '协同人名称', project.collaboratorNames, 'collaboratorNames')
+  addField(fields, labelMap.get('priorityLevel') || '优先级', project.priorityLevel, 'priorityLevel')
+  addField(fields, labelMap.get('remark') || '备注', project.remark, 'remark')
 
   return {
     instanceKey: `project-record:${project.projectId}:${node.projectNodeId}`,
@@ -292,6 +321,12 @@ function resolveChannelProductRelationObject(relation: ProjectRelationRecord, me
     (record?.skuId ? getSkuArchiveById(record.skuId) : null) ||
     (record?.skuCode ? findSkuArchiveByCode(record.skuCode) : null)
   const fields: PcsProjectInstanceField[] = []
+  addField(fields, '渠道', record?.channelCode, 'targetChannelCode')
+  addField(fields, '店铺', record?.storeId, 'targetStoreId')
+  addField(fields, '规格档案ID', record?.skuId || sku?.skuId, 'skuId')
+  addField(fields, '规格档案编码', record?.skuCode || sku?.skuCode, 'skuCode')
+  addField(fields, '规格档案名称', record?.skuName || sku?.skuName, 'skuName')
+  addField(fields, '渠道店铺商品编码', record?.channelProductCode, 'channelProductCode')
   addField(fields, '渠道编码', record?.channelCode, 'channelCode')
   addField(fields, '渠道名称', record?.channelName, 'channelName')
   addField(fields, '店铺 ID', record?.storeId, 'storeId')
@@ -433,7 +468,31 @@ function resolvePreProductionSampleRelationObject(relation: ProjectRelationRecor
 
 function resolveLiveRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
   const line = getLiveProductLineById(relation.sourceLineId || relation.sourceObjectId)
+  const sessionId = line?.liveSessionId || relation.sourceObjectId
+  const sessionRecord = sessionId ? getLiveSessionRecordById(sessionId) : null
+  const session = sessionId ? getLiveSessionById(sessionId) : null
+  const itemId = line?.liveLineId.includes('__') ? line.liveLineId.split('__')[1] || '' : ''
+  const liveItem =
+    session?.id && itemId
+      ? getLiveSessionItems(session.id).find((item) => item.id === itemId) || null
+      : null
+  const cartValue = liveItem?.cart ?? Math.max(line?.orderQty ?? 0, Math.round((line?.clickQty ?? 0) * 0.18))
+  const clickRateValue =
+    (line?.exposureQty ?? 0) > 0 ? `${(((line?.clickQty ?? 0) / (line?.exposureQty ?? 1)) * 100).toFixed(1)}%` : ''
   const fields: PcsProjectInstanceField[] = []
+  addField(fields, '商品项目编号', line?.legacyProjectRef || liveItem?.projectRef || relation.projectCode, 'projectRef')
+  addField(fields, '测款标题', session?.title || sessionRecord?.sessionTitle, 'title')
+  addField(fields, '直播账号', session?.liveAccount || sessionRecord?.channelName, 'liveAccount')
+  addField(fields, '主播', session?.anchor || sessionRecord?.hostName, 'anchor')
+  addField(fields, '开播时间', session?.startAt || sessionRecord?.startedAt, 'startAt')
+  addField(fields, '下播时间', session?.endAt || sessionRecord?.endedAt, 'endAt')
+  addField(fields, '曝光', line?.exposureQty, 'exposure')
+  addField(fields, '点击', line?.clickQty, 'click')
+  addField(fields, '点击率', clickRateValue, 'clickRate')
+  addField(fields, '加购', cartValue, 'cart')
+  addField(fields, '订单', line?.orderQty, 'order')
+  addField(fields, 'GMV', line?.gmvAmount, 'gmv')
+  addField(fields, '备注', session?.note, 'note')
   addField(fields, '直播测款', line?.liveSessionCode || relation.sourceObjectCode, 'liveSessionCode')
   addField(fields, '曝光量', line?.exposureQty, 'exposureQty')
   addField(fields, '点击量', line?.clickQty, 'clickQty')
@@ -455,7 +514,34 @@ function resolveLiveRelationObject(relation: ProjectRelationRecord): ResolvedRel
 
 function resolveVideoRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
   const record = getVideoTestRecordById(relation.sourceObjectId)
+  const baseRecord = getVideoRecordById(record?.videoRecordId || relation.sourceObjectId)
+  const primaryItem =
+    baseRecord?.id
+      ? getVideoItems(baseRecord.id).find((item) => item.projectRef === relation.projectCode) ||
+        getVideoItems(baseRecord.id)[0] ||
+        null
+      : null
+  const clicksValue = primaryItem?.click ?? record?.clickQty ?? 0
+  const viewsValue = primaryItem?.exposure ?? record?.exposureQty ?? baseRecord?.views ?? 0
+  const likesValue = baseRecord?.likes ?? Math.max(clicksValue, Math.round(viewsValue * 0.06))
+  const ordersValue = primaryItem?.order ?? record?.orderQty ?? 0
+  const gmvValue = primaryItem?.gmv ?? record?.gmvAmount ?? baseRecord?.gmv ?? 0
+  const clickRateValue = viewsValue > 0 ? `${((clicksValue / viewsValue) * 100).toFixed(1)}%` : ''
   const fields: PcsProjectInstanceField[] = []
+  addField(fields, '商品项目编号', primaryItem?.projectRef || record?.legacyProjectRef || relation.projectCode, 'projectRef')
+  addField(fields, '测款标题', baseRecord?.title || record?.videoTitle, 'title')
+  addField(fields, '平台', baseRecord?.platform, 'platform')
+  addField(fields, '发布账号', baseRecord?.account, 'account')
+  addField(fields, '达人 / 运营', baseRecord?.creator || record?.ownerName, 'creator')
+  addField(fields, '发布时间', baseRecord?.publishedAt || record?.publishedAt, 'publishedAt')
+  addField(fields, '视频链接', baseRecord?.videoUrl, 'videoUrl')
+  addField(fields, '播放', viewsValue, 'views')
+  addField(fields, '点击', clicksValue, 'clicks')
+  addField(fields, '点击率', clickRateValue, 'clickRate')
+  addField(fields, '点赞', likesValue, 'likes')
+  addField(fields, '订单', ordersValue, 'orders')
+  addField(fields, 'GMV', gmvValue, 'gmv')
+  addField(fields, '备注', baseRecord?.note, 'note')
   addField(fields, '发布渠道', record?.channelName, 'channelName')
   addField(fields, '曝光量', record?.exposureQty, 'exposureQty')
   addField(fields, '点击量', record?.clickQty, 'clickQty')

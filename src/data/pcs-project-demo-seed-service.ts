@@ -503,7 +503,7 @@ export function ensurePcsProjectDemoDataReady(): void {
       styleCodeName: '1-Casul Shirt-18-30休闲衬衫',
       styleTags: ['休闲', '基础'],
       channels: ['tiktok-shop', 'shopee'],
-      remark: '等待负责人完成立项审核。',
+      remark: '等待负责人补齐并完成立项。',
     }),
     DEMO_OPERATOR,
   ).project
@@ -517,8 +517,8 @@ export function ensurePcsProjectDemoDataReady(): void {
   )
   seedNodeStatus(pendingProject.projectId, 'PROJECT_INIT', {
     updatedAt: '2026-04-13 09:10',
-    latestResultType: '待审核',
-    latestResultText: '商品项目已创建，等待负责人审核立项。',
+    latestResultType: '已创建项目',
+    latestResultText: '商品项目已创建，请补齐并完成立项信息。',
     lastEventType: '创建项目',
     lastEventTime: '2026-04-13 09:10',
   })

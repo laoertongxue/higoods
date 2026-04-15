@@ -98,7 +98,7 @@ const COMMON_STATUS_META: Record<string, { label: string; className: string }> =
   草稿: { label: '草稿', className: 'bg-slate-100 text-slate-700' },
   未开始: { label: '未开始', className: 'bg-slate-100 text-slate-700' },
   进行中: { label: '进行中', className: 'bg-blue-100 text-blue-700' },
-  待评审: { label: '待评审', className: 'bg-amber-100 text-amber-700' },
+  待确认: { label: '待确认', className: 'bg-amber-100 text-amber-700' },
   已确认: { label: '已确认', className: 'bg-emerald-100 text-emerald-700' },
   已完成: { label: '已完成', className: 'bg-green-100 text-green-700' },
   异常待处理: { label: '阻塞', className: 'bg-rose-100 text-rose-700' },
@@ -802,7 +802,7 @@ function getRevisionTasksFiltered() {
     if (state.revisionList.owner !== 'all' && task.ownerName !== state.revisionList.owner) return false
     if (state.revisionList.source !== 'all' && task.sourceType !== state.revisionList.source) return false
     if (state.revisionList.quickFilter === 'mine' && task.ownerName !== '李版师') return false
-    if (state.revisionList.quickFilter === 'pending-review' && task.status !== '待评审') return false
+    if (state.revisionList.quickFilter === 'pending-review' && task.status !== '待确认') return false
     if (state.revisionList.quickFilter === 'confirmed-no-output' && !(task.status === '已确认' && !task.linkedTechPackVersionId)) return false
     if (state.revisionList.quickFilter === 'blocked' && task.status !== '异常待处理') return false
     if (state.revisionList.quickFilter === 'overdue' && !isOverdue(task.dueAt, task.status === '已完成' || task.status === '已取消')) return false
@@ -855,14 +855,14 @@ function renderRevisionListPage(): string {
         statusField: 'revision-status',
         ownerField: 'revision-owner',
         sourceField: 'revision-source',
-        statusOptions: ['未开始', '进行中', '待评审', '已确认', '已完成', '异常待处理', '已取消'],
+        statusOptions: ['未开始', '进行中', '待确认', '已确认', '已完成', '异常待处理', '已取消'],
         ownerOptions: owners,
         sourceOptions: sources,
       })}
       <section class="grid gap-4 md:grid-cols-5">
         ${renderMetricButton('全部任务', tasks.length, state.revisionList.quickFilter === 'all', 'all', 'set-revision-quick-filter', '当前改版任务总量')}
         ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '李版师').length, state.revisionList.quickFilter === 'mine', 'mine', 'set-revision-quick-filter', '当前用户默认视角')}
-        ${renderMetricButton('待评审', tasks.filter((item) => item.status === '待评审').length, state.revisionList.quickFilter === 'pending-review', 'pending-review', 'set-revision-quick-filter', '待确认改版输出')}
+        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.revisionList.quickFilter === 'pending-review', 'pending-review', 'set-revision-quick-filter', '待确认改版输出')}
         ${renderMetricButton('已确认未写包', tasks.filter((item) => item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter', '确认后待写技术包')}
         ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.revisionList.quickFilter === 'overdue', 'overdue', 'set-revision-quick-filter', '超过计划完成时间')}
       </section>
@@ -1143,7 +1143,7 @@ function getPlateTasksFiltered() {
     if (state.plateList.owner !== 'all' && task.ownerName !== state.plateList.owner) return false
     if (state.plateList.source !== 'all' && task.sourceType !== state.plateList.source) return false
     if (state.plateList.quickFilter === 'mine' && task.ownerName !== '王版师') return false
-    if (state.plateList.quickFilter === 'pending-review' && task.status !== '待评审') return false
+    if (state.plateList.quickFilter === 'pending-review' && task.status !== '待确认') return false
     if (state.plateList.quickFilter === 'confirmed-no-output' && !(task.status === '已确认' && !task.linkedTechPackVersionId)) return false
     if (state.plateList.quickFilter === 'blocked' && task.status !== '异常待处理') return false
     if (state.plateList.quickFilter === 'overdue' && !isOverdue(task.dueAt, task.status === '已完成' || task.status === '已取消')) return false
@@ -1228,14 +1228,14 @@ function renderPlateListPage(): string {
         statusField: 'plate-status',
         ownerField: 'plate-owner',
         sourceField: 'plate-source',
-        statusOptions: ['未开始', '进行中', '待评审', '已确认', '已完成', '异常待处理', '已取消'],
+        statusOptions: ['未开始', '进行中', '待确认', '已确认', '已完成', '异常待处理', '已取消'],
         ownerOptions: owners,
         sourceOptions: sources,
       })}
       <section class="grid gap-4 md:grid-cols-5">
         ${renderMetricButton('全部任务', tasks.length, state.plateList.quickFilter === 'all', 'all', 'set-plate-quick-filter', '制版任务总量')}
         ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '王版师').length, state.plateList.quickFilter === 'mine', 'mine', 'set-plate-quick-filter', '当前默认个人视角')}
-        ${renderMetricButton('待评审', tasks.filter((item) => item.status === '待评审').length, state.plateList.quickFilter === 'pending-review', 'pending-review', 'set-plate-quick-filter', '等待版师确认')}
+        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.plateList.quickFilter === 'pending-review', 'pending-review', 'set-plate-quick-filter', '等待版师确认')}
         ${renderMetricButton('已确认待写包', tasks.filter((item) => item.status === '已确认' && !item.linkedTechPackVersionId).length, state.plateList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-plate-quick-filter', '待回写技术包')}
         ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.plateList.quickFilter === 'overdue', 'overdue', 'set-plate-quick-filter', '超过计划完成时间')}
       </section>
@@ -1437,7 +1437,7 @@ function getPatternTasksFiltered() {
     if (state.patternList.owner !== 'all' && task.ownerName !== state.patternList.owner) return false
     if (state.patternList.source !== 'all' && task.sourceType !== state.patternList.source) return false
     if (state.patternList.quickFilter === 'mine' && task.ownerName !== '林小美') return false
-    if (state.patternList.quickFilter === 'pending-review' && task.status !== '待评审') return false
+    if (state.patternList.quickFilter === 'pending-review' && task.status !== '待确认') return false
     if (state.patternList.quickFilter === 'confirmed-no-output' && !(task.status === '已确认' && !task.linkedTechPackVersionId)) return false
     if (state.patternList.quickFilter === 'blocked' && task.status !== '异常待处理') return false
     if (state.patternList.quickFilter === 'overdue' && !isOverdue(task.dueAt, task.status === '已完成' || task.status === '已取消')) return false
@@ -1490,14 +1490,14 @@ function renderPatternListPage(): string {
         statusField: 'pattern-status',
         ownerField: 'pattern-owner',
         sourceField: 'pattern-source',
-        statusOptions: ['未开始', '进行中', '待评审', '已确认', '已完成', '异常待处理', '已取消'],
+        statusOptions: ['未开始', '进行中', '待确认', '已确认', '已完成', '异常待处理', '已取消'],
         ownerOptions: owners,
         sourceOptions: sources,
       })}
       <section class="grid gap-4 md:grid-cols-5">
         ${renderMetricButton('全部任务', tasks.length, state.patternList.quickFilter === 'all', 'all', 'set-pattern-quick-filter', '花型任务总量')}
         ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '林小美').length, state.patternList.quickFilter === 'mine', 'mine', 'set-pattern-quick-filter', '默认个人视角')}
-        ${renderMetricButton('待评审', tasks.filter((item) => item.status === '待评审').length, state.patternList.quickFilter === 'pending-review', 'pending-review', 'set-pattern-quick-filter', '待确认花型输出')}
+        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.patternList.quickFilter === 'pending-review', 'pending-review', 'set-pattern-quick-filter', '待确认花型输出')}
         ${renderMetricButton('已确认待沉淀', tasks.filter((item) => item.status === '已确认' && !listPatternAssets().find((asset) => asset.source_task_id === item.patternTaskId)).length, state.patternList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-pattern-quick-filter', '确认后待进入花型库')}
         ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.patternList.quickFilter === 'overdue', 'overdue', 'set-pattern-quick-filter', '超过计划完成时间')}
       </section>

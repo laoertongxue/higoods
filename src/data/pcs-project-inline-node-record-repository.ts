@@ -468,10 +468,6 @@ export function saveProjectInlineNodeFieldEntry(
     return { ok: false, message: '未找到对应项目节点，不能保存节点字段。', record: null }
   }
 
-  if (project.projectStatus === '待审核' && node.workItemTypeCode !== 'PROJECT_INIT') {
-    return { ok: false, message: '请先审核商品项目立项，再推进后续节点。', record: null }
-  }
-
   if (!isSupportedWorkItemTypeCode(node.workItemTypeCode)) {
     return { ok: false, message: '当前节点不通过项目内正式记录承载字段，不能直接在此保存。', record: null }
   }

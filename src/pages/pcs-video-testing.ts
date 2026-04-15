@@ -965,7 +965,15 @@ function renderProjectPurposeBadge(): string {
   return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getPurposeClass('测款')}">测款项目</span>`
 }
 
-function findProjectByHints(hints: Array<string | null | undefined>): { projectId: string; label: string } | null {
+function truncateText(value: string, maxLength: number): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value
+}
+
+function findProjectByHints(hints: Array<string | null | undefined>): {
+  projectId: string
+  projectCode: string
+  projectName: string
+} | null {
   const normalizedHints = hints
     .map((item) => item?.trim().toLowerCase() || '')
     .filter(Boolean)
@@ -980,7 +988,7 @@ function findProjectByHints(hints: Array<string | null | undefined>): { projectI
     ),
   )
   if (exact) {
-    return { projectId: exact.projectId, label: exact.projectName }
+    return { projectId: exact.projectId, projectCode: exact.projectCode, projectName: exact.projectName }
   }
 
   const fuzzy = projects.find((project) =>
@@ -993,17 +1001,22 @@ function findProjectByHints(hints: Array<string | null | undefined>): { projectI
     ),
   )
   if (fuzzy) {
-    return { projectId: fuzzy.projectId, label: fuzzy.projectName }
+    return { projectId: fuzzy.projectId, projectCode: fuzzy.projectCode, projectName: fuzzy.projectName }
   }
   return null
 }
 
-function getPrimaryProject(record: VideoRecordViewModel): { projectId: string; label: string } | null {
+function getPrimaryProject(record: VideoRecordViewModel): {
+  projectId: string
+  projectCode: string
+  projectName: string
+} | null {
   const target = record.items.find((item) => item.relatedProjectId && item.projectRef)
   if (target?.relatedProjectId) {
     return {
       projectId: target.relatedProjectId,
-      label: getProjectRelationProjectLabel(target.relatedProjectId),
+      projectCode: target.projectRef || target.relatedProjectId,
+      projectName: getProjectRelationProjectLabel(target.relatedProjectId),
     }
   }
 
@@ -1137,10 +1150,10 @@ function renderListTable(): string {
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th class="px-4 py-3">商品项目</th>
-              <th class="px-4 py-3">短视频测款</th>
-              <th class="px-4 py-3">平台 / 账号</th>
-              <th class="px-4 py-3">发布人 / 达人</th>
+              <th class="px-4 py-3">商品项目编号</th>
+              <th class="px-4 py-3">测款标题 / 视频链接 / 备注</th>
+              <th class="px-4 py-3">平台 / 发布账号</th>
+              <th class="px-4 py-3">达人 / 运营</th>
               <th class="px-4 py-3">发布时间</th>
               <th class="px-4 py-3 text-right">播放</th>
               <th class="px-4 py-3 text-right">点击</th>
@@ -1166,8 +1179,8 @@ function renderListTable(): string {
                             ${
                               project
                                 ? `
-                                  <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">${escapeHtml(project.label)}</button>
-                                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(project.projectId)}</p>
+                                  <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(project.projectId)}">${escapeHtml(project.projectCode)}</button>
+                                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(project.projectName)}</p>
                                 `
                                 : '<span class="text-sm text-slate-400">-</span>'
                             }
@@ -1176,6 +1189,12 @@ function renderListTable(): string {
                             <div class="space-y-1">
                               <p class="font-medium text-slate-900">${escapeHtml(record.title)}</p>
                               <p class="text-xs text-slate-500">${escapeHtml(record.id)}</p>
+                              ${
+                                record.videoUrl.trim()
+                                  ? `<a href="${escapeHtml(record.videoUrl)}" target="_blank" rel="noreferrer" class="block max-w-[260px] truncate text-xs text-blue-700 hover:underline">${escapeHtml(truncateText(record.videoUrl, 42))}</a>`
+                                  : '<p class="text-xs text-slate-400">-</p>'
+                              }
+                              <p class="max-w-[260px] truncate text-xs text-slate-500">备注：${escapeHtml(truncateText(record.note || '-', 36))}</p>
                             </div>
                           </td>
                           <td class="px-4 py-3 align-top">

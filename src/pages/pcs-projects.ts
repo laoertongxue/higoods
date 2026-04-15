@@ -19,6 +19,7 @@ import type {
   PcsProjectRecord,
   PcsProjectViewRecord,
   ProjectNodeStatus,
+  ProjectSimpleOption,
 } from '../data/pcs-project-types.ts'
 import {
   countTemplateStages,
@@ -81,7 +82,6 @@ import {
   type PcsProjectNodeInstanceModel,
 } from '../data/pcs-project-instance-model.ts'
 import {
-  approveProjectInitAndSync,
   archiveProject,
   isClosedProjectNodeStatus,
   markProjectNodeCompletedAndUnlockNext,
@@ -208,7 +208,14 @@ interface ProjectViewModel {
 }
 
 const STYLE_TYPE_OPTIONS: Array<'全部' | TemplateStyleType> = ['全部', '基础款', '快时尚款', '改版款', '设计款']
-const PROJECT_STATUS_OPTIONS = ['全部', '待审核', '已立项', '进行中', '已终止', '已归档']
+const PROJECT_STATUS_OPTIONS = ['全部', '已立项', '进行中', '已终止', '已归档']
+const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
+  'REVISION_TASK',
+  'PATTERN_TASK',
+  'PATTERN_ARTWORK_TASK',
+  'FIRST_SAMPLE',
+  'PRE_PRODUCTION_SAMPLE',
+])
 const RISK_STATUS_OPTIONS = ['全部', '正常', '延期']
 const DATE_RANGE_OPTIONS: ProjectDateRange[] = ['全部时间', '今天', '最近一周', '最近一月']
 const WORK_ITEM_TAB_OPTIONS: Array<{ key: WorkItemTabKey; label: string }> = [
@@ -800,6 +807,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
   const projectValues: Record<string, unknown> = {
     projectName: project.projectName,
     projectCode: project.projectCode,
+    projectRef: project.projectCode,
     projectType: project.projectType,
     templateId: [project.templateName, project.templateVersion].filter(Boolean).join(' / '),
     projectSourceType: project.projectSourceType,
@@ -1159,6 +1167,35 @@ function getMissingRequiredFieldLabels(
     .map((field) => field.label)
 }
 
+function hasNodeFieldValue(value: unknown): boolean {
+  if (value == null) return false
+  if (Array.isArray(value)) {
+    return value.some((item) => String(item).trim() !== '')
+  }
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value === 'boolean') return true
+  return String(value).trim() !== ''
+}
+
+function buildNodeCompletionValues(project: PcsProjectRecord, node: ProjectNodeViewModel): Record<string, unknown> {
+  return Object.fromEntries(
+    node.contract.fieldDefinitions.map((field) => [field.fieldKey, getNodeFieldValue(project, node, field.fieldKey)]),
+  )
+}
+
+function canCompleteProjectNode(project: PcsProjectRecord, node: ProjectNodeViewModel): boolean {
+  const values = buildNodeCompletionValues(project, node)
+  const shouldValidateRequiredFields = !PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.workItemTypeCode)
+  const hasMissingRequiredField =
+    shouldValidateRequiredFields &&
+    node.contract.fieldDefinitions
+      .filter((field) => !field.readonly && field.required)
+      .some((field) => !hasNodeFieldValue(values[field.fieldKey]))
+
+  if (hasMissingRequiredField) return false
+  return getBusinessRuleValidationErrors(project, node, values).length === 0
+}
+
 function getBusinessRuleValidationErrors(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
@@ -1177,6 +1214,41 @@ function getBusinessRuleValidationErrors(
     if (sampleSourceType === '外采' && !sampleLink && !hasUnitPrice) {
       errors.push('样衣来源方式为外采时，外采链接和样衣单价至少填写一项。')
     }
+  }
+
+  if (node.node.workItemTypeCode === 'LIVE_TEST') {
+    const exposure = Number(values.exposure || 0)
+    const click = Number(values.click || 0)
+    const cart = Number(values.cart || 0)
+    const order = Number(values.order || 0)
+    const gmv = Number(values.gmv || 0)
+    const startAt = String(values.startAt || '').trim()
+    const endAt = String(values.endAt || '').trim()
+    if (!(exposure > 0)) errors.push('直播测款曝光必须大于 0。')
+    if (!(click > 0)) errors.push('直播测款点击必须大于 0。')
+    if (!(cart > 0)) errors.push('直播测款加购必须大于 0。')
+    if (!(order > 0)) errors.push('直播测款订单必须大于 0。')
+    if (!(gmv > 0)) errors.push('直播测款 GMV 必须大于 0。')
+    if (startAt && endAt) {
+      const startTime = Date.parse(startAt.replace(' ', 'T'))
+      const endTime = Date.parse(endAt.replace(' ', 'T'))
+      if (Number.isFinite(startTime) && Number.isFinite(endTime) && endTime <= startTime) {
+        errors.push('直播测款下播时间必须晚于开播时间。')
+      }
+    }
+  }
+
+  if (node.node.workItemTypeCode === 'VIDEO_TEST') {
+    const views = Number(values.views || 0)
+    const clicks = Number(values.clicks || 0)
+    const likes = Number(values.likes || 0)
+    const orders = Number(values.orders || 0)
+    const gmv = Number(values.gmv || 0)
+    if (!(views > 0)) errors.push('短视频测款播放必须大于 0。')
+    if (!(clicks > 0)) errors.push('短视频测款点击必须大于 0。')
+    if (!(likes > 0)) errors.push('短视频测款点赞必须大于 0。')
+    if (!(orders > 0)) errors.push('短视频测款订单必须大于 0。')
+    if (!(gmv > 0)) errors.push('短视频测款 GMV 必须大于 0。')
   }
 
   if (node.node.workItemTypeCode === 'TEST_DATA_SUMMARY') {
@@ -1244,6 +1316,37 @@ function getProjectTypeLabel(styleType: TemplateStyleType): PcsProjectCreateDraf
   return '商品开发'
 }
 
+function toggleStringSelection(values: string[], value: string): string[] {
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value]
+}
+
+function toggleOptionSelection(
+  options: ProjectSimpleOption[],
+  selectedIds: string[],
+  targetId: string,
+): { ids: string[]; names: string[] } {
+  const ids = selectedIds.includes(targetId) ? selectedIds.filter((item) => item !== targetId) : [...selectedIds, targetId]
+  return {
+    ids,
+    names: ids
+      .map((id) => options.find((item) => item.id === id)?.name ?? '')
+      .filter(Boolean),
+  }
+}
+
+function getCreateDraftAudienceTags(draft: PcsProjectCreateDraft): string[] {
+  return Array.from(new Set([...draft.crowdPositioningNames, ...draft.ageNames, ...draft.crowdNames]))
+}
+
+function renderCreateTagButton(label: string, selected: boolean, action: string, value: string): string {
+  return `
+    <button type="button" class="${toClassName(
+      'inline-flex h-8 items-center rounded-md px-3 text-xs transition',
+      selected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+    )}" data-pcs-project-action="${escapeHtml(action)}" data-value="${escapeHtml(value)}">${escapeHtml(label)}</button>
+  `
+}
+
 function renderNotice(): string {
   if (!state.notice) return ''
   return `
@@ -1292,10 +1395,7 @@ function isNodeUnlocked(
   orderedNodes: PcsProjectNodeRecord[],
   node: PcsProjectNodeRecord,
 ): boolean {
-  if (project.projectStatus === '待审核') {
-    return node.workItemTypeCode === 'PROJECT_INIT'
-  }
-  if (project.blockedFlag && project.projectStatus !== '待审核') {
+  if (project.blockedFlag) {
     const blockerIndex = orderedNodes.findIndex((item) => item.workItemTypeName === project.riskWorkItem)
     const nodeIndex = orderedNodes.findIndex((item) => item.projectNodeId === node.projectNodeId)
     if (blockerIndex >= 0 && nodeIndex > blockerIndex && node.currentStatus === '未开始') {
@@ -1570,14 +1670,14 @@ function ensureCreateState(): void {
       styleCodeId: styleCode?.id ?? '',
       styleCodeName: styleCode?.name ?? '',
       styleNumber: styleCode?.name ?? '',
-      priceRangeLabel: catalog.priceRanges[1] ?? '',
+      priceRangeLabel: '',
       targetChannelCodes: catalog.channelOptions.slice(0, 2).map((item) => item.code),
       ownerId: owner?.id ?? '',
       ownerName: owner?.name ?? '',
       teamId: team?.id ?? '',
       teamName: team?.name ?? '',
       priorityLevel: '中',
-      yearTag: '2026',
+      yearTag: catalog.yearTags[1] ?? String(new Date().getFullYear()),
     },
   }
 }
@@ -1587,7 +1687,15 @@ function hasCreateDraftChanges(): boolean {
   return Boolean(
     draft.projectName.trim() ||
       draft.remark.trim() ||
-      draft.styleTagNames.length > 0 ||
+      draft.seasonTags.length > 0 ||
+      draft.styleTagIds.length > 0 ||
+      draft.crowdPositioningIds.length > 0 ||
+      draft.ageIds.length > 0 ||
+      draft.crowdIds.length > 0 ||
+      draft.productPositioningIds.length > 0 ||
+      draft.collaboratorIds.length > 0 ||
+      draft.priceRangeLabel.trim() ||
+      draft.projectAlbumUrls.length > 0 ||
       draft.targetChannelCodes.length !== 2 ||
       draft.styleType !== '基础款',
   )
@@ -1628,7 +1736,6 @@ function getSelectedDetailNode(viewModel: ProjectViewModel): ProjectNodeViewMode
 }
 
 function getProjectStatusBadgeClass(status: PcsProjectRecord['projectStatus']): string {
-  if (status === '待审核') return 'bg-amber-100 text-amber-700'
   if (status === '已立项') return 'bg-blue-100 text-blue-700'
   if (status === '进行中') return 'bg-emerald-100 text-emerald-700'
   if (status === '已终止') return 'bg-rose-100 text-rose-700'
@@ -2094,6 +2201,7 @@ function renderCreatePage(): string {
     draft.styleType ? template.styleType.includes(draft.styleType as TemplateStyleType) : true,
   )
   const selectedTemplate = draft.templateId ? getProjectTemplateById(draft.templateId) : templateOptions[0] ?? null
+  const audienceTags = getCreateDraftAudienceTags(draft)
   const errorCard = state.create.error
     ? `<section class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">${escapeHtml(state.create.error)}</section>`
     : ''
@@ -2163,7 +2271,11 @@ function renderCreatePage(): string {
 
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">项目来源</span>
+              <span class="text-xs text-slate-500">项目类型</span>
+              <input class="h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none" value="${escapeHtml(draft.projectType || getProjectTypeLabel((draft.styleType || '基础款') as TemplateStyleType))}" readonly />
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs text-slate-500">项目来源 <span class="text-rose-500">*</span></span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-project-source">
                 ${catalog.projectSourceTypes
                   .map(
@@ -2174,7 +2286,7 @@ function renderCreatePage(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">一级分类</span>
+              <span class="text-xs text-slate-500">一级品类 <span class="text-rose-500">*</span></span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-category">
                 ${catalog.categories
                   .map(
@@ -2185,7 +2297,7 @@ function renderCreatePage(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">二级分类</span>
+              <span class="text-xs text-slate-500">二级品类</span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-sub-category">
                 ${categoryChildren
                   .map(
@@ -2196,7 +2308,7 @@ function renderCreatePage(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">模板</span>
+              <span class="text-xs text-slate-500">项目模板 <span class="text-rose-500">*</span></span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-template">
                 ${templateOptions
                   .map(
@@ -2207,7 +2319,7 @@ function renderCreatePage(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">品牌</span>
+              <span class="text-xs text-slate-500">品牌 <span class="text-rose-500">*</span></span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-brand">
                 ${catalog.brands
                   .map(
@@ -2218,8 +2330,9 @@ function renderCreatePage(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">参考款号</span>
+              <span class="text-xs text-slate-500">风格编号</span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-style-code">
+                <option value="">请选择风格编号</option>
                 ${catalog.styleCodes
                   .map(
                     (option) =>
@@ -2229,7 +2342,41 @@ function renderCreatePage(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">负责人</span>
+              <span class="text-xs text-slate-500">年份 <span class="text-rose-500">*</span></span>
+              <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-year">
+                ${catalog.yearTags
+                  .map(
+                    (option) =>
+                      `<option value="${escapeHtml(option)}" ${draft.yearTag === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs text-slate-500">价格带 <span class="text-rose-500">*</span></span>
+              <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-price-range">
+                <option value="">请选择价格带</option>
+                ${catalog.priceRanges
+                  .map(
+                    (option) =>
+                      `<option value="${escapeHtml(option)}" ${draft.priceRangeLabel === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs text-slate-500">优先级</span>
+              <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-priority">
+                ${catalog.priorityLevels
+                  .map(
+                    (option) =>
+                      `<option value="${escapeHtml(option)}" ${draft.priorityLevel === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs text-slate-500">负责人 <span class="text-rose-500">*</span></span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-owner">
                 ${catalog.owners
                   .map(
@@ -2240,7 +2387,7 @@ function renderCreatePage(): string {
               </select>
             </label>
             <label class="space-y-1">
-              <span class="text-xs text-slate-500">执行团队</span>
+              <span class="text-xs text-slate-500">执行团队 <span class="text-rose-500">*</span></span>
               <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-project-field="create-team">
                 ${catalog.teams
                   .map(
@@ -2254,41 +2401,147 @@ function renderCreatePage(): string {
 
           <div class="space-y-3">
             <div>
-              <span class="text-sm font-medium text-slate-900">风格标签</span>
-              <p class="mt-1 text-xs text-slate-500">用于区分款式调性，支撑列表筛选和项目识别。</p>
+              <span class="text-sm font-medium text-slate-900">季节标签</span>
             </div>
             <div class="flex flex-wrap gap-2">
-              ${catalog.styleTags.slice(0, 8).map(
-                (tag) => `
-                  <button type="button" class="${toClassName(
-                    'inline-flex h-8 items-center rounded-md px-3 text-xs',
-                    draft.styleTagNames.includes(tag)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-                  )}" data-pcs-project-action="toggle-style-tag" data-value="${escapeHtml(tag)}">${escapeHtml(tag)}</button>
-                `,
-              ).join('')}
+              ${catalog.seasonTags
+                .map((tag) => renderCreateTagButton(tag, draft.seasonTags.includes(tag), 'toggle-season-tag', tag))
+                .join('')}
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <span class="text-sm font-medium text-slate-900">风格标签</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${catalog.styles
+                .map((option) =>
+                  renderCreateTagButton(
+                    option.name,
+                    draft.styleTagIds.includes(option.id),
+                    'toggle-style-tag',
+                    option.id,
+                  ),
+                )
+                .join('')}
+            </div>
+          </div>
+
+          <div class="grid gap-6 xl:grid-cols-2">
+            <div class="space-y-3">
+              <div>
+                <span class="text-sm font-medium text-slate-900">人群定位</span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                ${catalog.crowdPositioning
+                  .map((option) =>
+                    renderCreateTagButton(
+                      option.name,
+                      draft.crowdPositioningIds.includes(option.id),
+                      'toggle-crowd-positioning',
+                      option.id,
+                    ),
+                  )
+                  .join('')}
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div>
+                <span class="text-sm font-medium text-slate-900">年龄带</span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                ${catalog.ages
+                  .map((option) => renderCreateTagButton(option.name, draft.ageIds.includes(option.id), 'toggle-age', option.id))
+                  .join('')}
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div>
+                <span class="text-sm font-medium text-slate-900">人群</span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                ${catalog.crowds
+                  .map((option) =>
+                    renderCreateTagButton(option.name, draft.crowdIds.includes(option.id), 'toggle-crowd', option.id),
+                  )
+                  .join('')}
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div>
+                <span class="text-sm font-medium text-slate-900">商品定位</span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                ${catalog.productPositioning
+                  .map((option) =>
+                    renderCreateTagButton(
+                      option.name,
+                      draft.productPositioningIds.includes(option.id),
+                      'toggle-product-positioning',
+                      option.id,
+                    ),
+                  )
+                  .join('')}
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <span class="text-sm font-medium text-slate-900">目标客群标签</span>
+              <p class="mt-1 text-xs text-slate-500">根据人群定位、年龄带和人群自动聚合生成。</p>
+            </div>
+            <div class="flex min-h-10 flex-wrap gap-2 rounded-md border border-dashed border-slate-200 px-3 py-2">
+              ${
+                audienceTags.length > 0
+                  ? audienceTags
+                      .map((tag) => `<span class="inline-flex rounded-md bg-slate-100 px-2.5 py-1 text-xs text-slate-700">${escapeHtml(tag)}</span>`)
+                      .join('')
+                  : '<span class="text-xs text-slate-400">将随上方标签自动生成</span>'
+              }
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <span class="text-sm font-medium text-slate-900">协同人</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${catalog.collaborators
+                .map((option) =>
+                  renderCreateTagButton(
+                    option.name,
+                    draft.collaboratorIds.includes(option.id),
+                    'toggle-collaborator',
+                    option.id,
+                  ),
+                )
+                .join('')}
             </div>
           </div>
 
           <div class="space-y-3">
             <div>
               <span class="text-sm font-medium text-slate-900">目标测款渠道 <span class="text-rose-500">*</span></span>
-              <p class="mt-1 text-xs text-slate-500">创建项目时即确定本轮测款计划投放渠道。</p>
             </div>
             <div class="flex flex-wrap gap-2">
               ${catalog.channelOptions.map(
-                (option) => `
-                  <button type="button" class="${toClassName(
-                    'inline-flex h-8 items-center rounded-md px-3 text-xs',
-                    draft.targetChannelCodes.includes(option.code)
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-                  )}" data-pcs-project-action="toggle-channel" data-value="${escapeHtml(option.code)}">${escapeHtml(option.name)}</button>
-                `,
+                (option) =>
+                  renderCreateTagButton(
+                    option.name,
+                    draft.targetChannelCodes.includes(option.code),
+                    'toggle-channel',
+                    option.code,
+                  ),
               ).join('')}
             </div>
           </div>
+
+          <label class="space-y-1">
+            <span class="text-sm font-medium text-slate-900">项目图册链接</span>
+            <textarea class="min-h-[96px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="每行一个链接" data-pcs-project-field="create-project-album-urls">${escapeHtml(draft.projectAlbumUrls.join('\n'))}</textarea>
+          </label>
 
           <label class="space-y-1">
             <span class="text-sm font-medium text-slate-900">项目说明</span>
@@ -2572,13 +2825,31 @@ function renderKeyOutputCards(node: ProjectNodeViewModel, project: PcsProjectRec
   `
 }
 
+function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const groups = listProjectWorkItemFieldGroups('PROJECT_INIT')
+  return `
+    <section class="space-y-4">
+      <article class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-semibold text-slate-900">立项信息快照</h3>
+            <p class="mt-1 text-sm text-slate-500">完整回显商品项目创建时填写的正式立项字段。</p>
+          </div>
+          <div class="text-xs text-slate-400">创建时间：${escapeHtml(formatDateTime(project.createdAt))}</div>
+        </div>
+      </article>
+      ${groups.map((group) => renderFieldGroupValues(group, project, node)).join('')}
+    </section>
+  `
+}
+
 function renderLatestRecordSummary(node: ProjectNodeViewModel): string {
   const record = node.latestRecord
   if (!record) {
     return `
       <article class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
         <p class="text-sm font-medium text-slate-700">暂无正式记录</p>
-        <p class="mt-1 text-xs text-slate-500">当前节点还没有沉淀项目内正式记录，可进入详情页继续补充。</p>
+        <p class="mt-1 text-xs text-slate-500">当前节点还没有沉淀项目内正式记录，可直接在当前节点补充。</p>
       </article>
     `
   }
@@ -2800,11 +3071,6 @@ function renderProjectDetailPage(projectId: string): string {
                       <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(viewModel.project.projectId)}/work-items/${escapeHtml(selectedNode.node.projectNodeId)}">查看全部</button>
                       ${renderTestingCreateAction(viewModel.project, selectedNode)}
                       ${
-                        selectedNode.node.workItemTypeCode === 'PROJECT_INIT' && selectedNode.node.currentStatus === '待确认'
-                          ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="approve-init">审核立项</button>'
-                          : ''
-                      }
-                      ${
                         canOpenDecisionAction(selectedNode)
                           ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="detail">做出决策</button>'
                           : ''
@@ -2820,7 +3086,11 @@ function renderProjectDetailPage(projectId: string): string {
                 ${locked ? `<section class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序工作项后再继续处理。</section>` : ''}
                 ${renderNodeMetricCards(selectedNode)}
                 ${renderKeyOutputCards(selectedNode, viewModel.project)}
-                ${renderLatestRecordSummary(selectedNode)}
+                ${
+                  selectedNode.node.workItemTypeCode === 'PROJECT_INIT'
+                    ? renderProjectInitSnapshot(viewModel.project, selectedNode)
+                    : `${renderFormalFieldEntrySection(viewModel.project, selectedNode)}${renderLatestRecordSummary(selectedNode)}`
+                }
                 ${renderRecordListSection(selectedNode, viewModel.project.projectId)}
               `
               : ''
@@ -2919,6 +3189,26 @@ function renderEditableFieldGroups(
 
 function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   if (!canUseInlineRecords(node.node.workItemTypeCode)) {
+    if (node.node.workItemTypeCode === 'PROJECT_INIT') {
+      return `
+        <section class="rounded-lg border bg-white p-4">
+          <h3 class="text-base font-semibold text-slate-900">正式字段回显</h3>
+          <p class="mt-2 text-sm leading-6 text-slate-500">当前立项节点由商品项目主记录承载，下方完整展示创建商品项目时填写的正式字段。</p>
+        </section>
+      `
+    }
+    if (!PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.workItemTypeCode)) {
+      const testingAction = renderTestingCreateAction(project, node)
+      return `
+        <section class="rounded-lg border bg-white p-4">
+          <h3 class="text-base font-semibold text-slate-900">正式字段承接</h3>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm leading-6 text-slate-500">当前节点字段由正式业务对象承接，下方完整展示对应工作项已定义字段；标记完成前会逐项校验字段是否完整。</p>
+            ${testingAction}
+          </div>
+        </section>
+      `
+    }
     const testingAction = renderTestingCreateAction(project, node)
     return `
       <section class="rounded-lg border bg-white p-4">
@@ -3454,7 +3744,7 @@ function setRecordDraftState(
   return state.recordDialog
 }
 
-function applyCreateSelection(field: 'brand' | 'owner' | 'team' | 'styleCode', id: string): void {
+function applyCreateSelection(field: 'brand' | 'owner' | 'team' | 'styleCode' | 'sampleSupplier', id: string): void {
   const catalog = getProjectCreateCatalog()
   if (field === 'brand') {
     const option = catalog.brands.find((item) => item.id === id)
@@ -3472,6 +3762,12 @@ function applyCreateSelection(field: 'brand' | 'owner' | 'team' | 'styleCode', i
     const option = catalog.teams.find((item) => item.id === id)
     state.create.draft.teamId = id
     state.create.draft.teamName = option?.name ?? ''
+    return
+  }
+  if (field === 'sampleSupplier') {
+    const option = catalog.sampleSuppliers.find((item) => item.id === id)
+    state.create.draft.sampleSupplierId = id
+    state.create.draft.sampleSupplierName = option?.name ?? ''
     return
   }
   const option = catalog.styleCodes.find((item) => item.id === id)
@@ -3547,12 +3843,47 @@ export function handlePcsProjectsInput(target: Element): boolean {
     applyCreateSelection('styleCode', fieldNode.value)
     return true
   }
+  if (field === 'create-year' && fieldNode instanceof HTMLSelectElement) {
+    state.create.draft.yearTag = fieldNode.value
+    return true
+  }
+  if (field === 'create-price-range' && fieldNode instanceof HTMLSelectElement) {
+    state.create.draft.priceRangeLabel = fieldNode.value
+    return true
+  }
+  if (field === 'create-priority' && fieldNode instanceof HTMLSelectElement) {
+    state.create.draft.priorityLevel = fieldNode.value as PcsProjectCreateDraft['priorityLevel']
+    return true
+  }
   if (field === 'create-owner' && fieldNode instanceof HTMLSelectElement) {
     applyCreateSelection('owner', fieldNode.value)
     return true
   }
   if (field === 'create-team' && fieldNode instanceof HTMLSelectElement) {
     applyCreateSelection('team', fieldNode.value)
+    return true
+  }
+  if (field === 'create-sample-source' && fieldNode instanceof HTMLSelectElement) {
+    state.create.draft.sampleSourceType = fieldNode.value as PcsProjectCreateDraft['sampleSourceType']
+    return true
+  }
+  if (field === 'create-sample-supplier' && fieldNode instanceof HTMLSelectElement) {
+    applyCreateSelection('sampleSupplier', fieldNode.value)
+    return true
+  }
+  if (field === 'create-sample-link' && fieldNode instanceof HTMLInputElement) {
+    state.create.draft.sampleLink = fieldNode.value
+    return true
+  }
+  if (field === 'create-sample-unit-price' && fieldNode instanceof HTMLInputElement) {
+    state.create.draft.sampleUnitPrice = fieldNode.value
+    return true
+  }
+  if (field === 'create-project-album-urls' && fieldNode instanceof HTMLTextAreaElement) {
+    state.create.draft.projectAlbumUrls = fieldNode.value
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean)
     return true
   }
   if (field === 'create-remark' && fieldNode instanceof HTMLTextAreaElement) {
@@ -3893,20 +4224,76 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'toggle-style-tag') {
-    const tag = actionNode.dataset.value
-    if (!tag) return true
-    state.create.draft.styleTagNames = state.create.draft.styleTagNames.includes(tag)
-      ? state.create.draft.styleTagNames.filter((item) => item !== tag)
-      : [...state.create.draft.styleTagNames, tag]
-    state.create.draft.styleTags = [...state.create.draft.styleTagNames]
+    const tagId = actionNode.dataset.value
+    if (!tagId) return true
+    const selection = toggleOptionSelection(getProjectCreateCatalog().styles, state.create.draft.styleTagIds, tagId)
+    state.create.draft.styleTagIds = selection.ids
+    state.create.draft.styleTagNames = selection.names
+    state.create.draft.styleTags = [...selection.names]
+    return true
+  }
+  if (action === 'toggle-season-tag') {
+    const seasonTag = actionNode.dataset.value
+    if (!seasonTag) return true
+    state.create.draft.seasonTags = toggleStringSelection(state.create.draft.seasonTags, seasonTag)
+    return true
+  }
+  if (action === 'toggle-crowd-positioning') {
+    const targetId = actionNode.dataset.value
+    if (!targetId) return true
+    const selection = toggleOptionSelection(
+      getProjectCreateCatalog().crowdPositioning,
+      state.create.draft.crowdPositioningIds,
+      targetId,
+    )
+    state.create.draft.crowdPositioningIds = selection.ids
+    state.create.draft.crowdPositioningNames = selection.names
+    return true
+  }
+  if (action === 'toggle-age') {
+    const targetId = actionNode.dataset.value
+    if (!targetId) return true
+    const selection = toggleOptionSelection(getProjectCreateCatalog().ages, state.create.draft.ageIds, targetId)
+    state.create.draft.ageIds = selection.ids
+    state.create.draft.ageNames = selection.names
+    return true
+  }
+  if (action === 'toggle-crowd') {
+    const targetId = actionNode.dataset.value
+    if (!targetId) return true
+    const selection = toggleOptionSelection(getProjectCreateCatalog().crowds, state.create.draft.crowdIds, targetId)
+    state.create.draft.crowdIds = selection.ids
+    state.create.draft.crowdNames = selection.names
+    return true
+  }
+  if (action === 'toggle-product-positioning') {
+    const targetId = actionNode.dataset.value
+    if (!targetId) return true
+    const selection = toggleOptionSelection(
+      getProjectCreateCatalog().productPositioning,
+      state.create.draft.productPositioningIds,
+      targetId,
+    )
+    state.create.draft.productPositioningIds = selection.ids
+    state.create.draft.productPositioningNames = selection.names
+    return true
+  }
+  if (action === 'toggle-collaborator') {
+    const targetId = actionNode.dataset.value
+    if (!targetId) return true
+    const selection = toggleOptionSelection(
+      getProjectCreateCatalog().collaborators,
+      state.create.draft.collaboratorIds,
+      targetId,
+    )
+    state.create.draft.collaboratorIds = selection.ids
+    state.create.draft.collaboratorNames = selection.names
     return true
   }
   if (action === 'toggle-channel') {
     const channelCode = actionNode.dataset.value
     if (!channelCode) return true
-    state.create.draft.targetChannelCodes = state.create.draft.targetChannelCodes.includes(channelCode)
-      ? state.create.draft.targetChannelCodes.filter((item) => item !== channelCode)
-      : [...state.create.draft.targetChannelCodes, channelCode]
+    state.create.draft.targetChannelCodes = toggleStringSelection(state.create.draft.targetChannelCodes, channelCode)
     return true
   }
   if (action === 'open-create-cancel') {
@@ -3950,20 +4337,14 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     state.detail.selectedNodeId = projectNodeId
     return true
   }
-  if (action === 'approve-init') {
-    if (!state.detail.projectId) return true
-    const result = approveProjectInitAndSync(state.detail.projectId, '当前用户')
-    state.notice = result.message
-    if (result.nextNode) {
-      state.detail.selectedNodeId = result.nextNode.projectNodeId
-    }
-    return true
-  }
   if (action === 'mark-node-complete') {
-    const projectId = state.workItem.projectId || state.detail.projectId
-    const projectNodeId = state.workItem.projectNodeId || state.detail.selectedNodeId
-    if (!projectId || !projectNodeId) return true
-    const result = markProjectNodeCompletedAndUnlockNext(projectId, projectNodeId, {
+    const context = getCurrentProjectNodeContext()
+    if (!context) return true
+    if (!canCompleteProjectNode(context.project, context.node)) {
+      state.notice = '请填写该工作项要求的信息'
+      return true
+    }
+    const result = markProjectNodeCompletedAndUnlockNext(context.project.projectId, context.node.node.projectNodeId, {
       operatorName: '当前用户',
       resultType: '手动完成',
       resultText: '节点已手动标记完成。',
