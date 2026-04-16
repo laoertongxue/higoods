@@ -73,6 +73,39 @@ const root = rootNode
 
 appStore.init()
 
+const PRELOAD_ERROR_RELOAD_KEY = 'higood-vite-preload-reload'
+
+function clearPreloadReloadFlag(): void {
+  try {
+    sessionStorage.removeItem(PRELOAD_ERROR_RELOAD_KEY)
+  } catch {
+    // ignore session storage errors in prototype
+  }
+}
+
+function shouldReloadForPreloadError(): boolean {
+  try {
+    const current = sessionStorage.getItem(PRELOAD_ERROR_RELOAD_KEY)
+    if (current === '1') return false
+    sessionStorage.setItem(PRELOAD_ERROR_RELOAD_KEY, '1')
+    return true
+  } catch {
+    return true
+  }
+}
+
+window.addEventListener('vite:preloadError', (event) => {
+  if (!shouldReloadForPreloadError()) {
+    console.error('动态模块加载失败，自动刷新后仍未恢复。', event)
+    return
+  }
+
+  event.preventDefault()
+  window.location.reload()
+})
+
+clearPreloadReloadFlag()
+
 async function dispatchPageEvent(target: Element): Promise<boolean> {
   const eventTarget = target as HTMLElement
   const handlerSystem = getCurrentHandlerSystem(appStore.getState().pathname)
