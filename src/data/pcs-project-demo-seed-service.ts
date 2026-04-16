@@ -46,6 +46,9 @@ import {
 } from './pcs-project-instance-model.ts'
 
 const DEMO_OPERATOR = '系统演示'
+const DEMO_SEED_VERSION_STORAGE_KEY = 'higood-pcs-project-demo-seed-version'
+const DEMO_SEED_VERSION = '2026-04-16-project-page-hotfix'
+const EXISTING_COVERAGE_PROJECT_THRESHOLD = 40
 
 let projectDemoSeedReady = false
 
@@ -225,6 +228,28 @@ const COVERAGE_BLUEPRINTS: Record<TemplateStyleType, CoverageBlueprint[]> = {
       projectSourceType: '外部灵感',
     },
   ],
+}
+
+function canUseSeedStorage(): boolean {
+  return typeof localStorage !== 'undefined'
+}
+
+function getDemoSeedVersion(): string {
+  if (!canUseSeedStorage()) return ''
+  try {
+    return localStorage.getItem(DEMO_SEED_VERSION_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function persistDemoSeedVersion(): void {
+  if (!canUseSeedStorage()) return
+  try {
+    localStorage.setItem(DEMO_SEED_VERSION_STORAGE_KEY, DEMO_SEED_VERSION)
+  } catch {
+    // ignore storage errors in prototype
+  }
 }
 
 function getProjectTypeLabel(styleType: TemplateStyleType): PcsProjectCreateDraft['projectType'] {
@@ -1539,7 +1564,18 @@ function ensureExistingProjectDemoConsistency(): void {
 
 export function ensurePcsProjectDemoDataReady(): void {
   if (projectDemoSeedReady) return
-  const hasLegacyDemoSeed = listProjects().some((project) => project.projectName.includes('双渠道归档项目'))
+  const existingProjects = listProjects()
+  const hasLegacyDemoSeed = existingProjects.some((project) => project.projectName.includes('双渠道归档项目'))
+  const hasCoverageScaleData = existingProjects.length >= EXISTING_COVERAGE_PROJECT_THRESHOLD
+  const seedVersion = getDemoSeedVersion()
+
+  if (seedVersion === DEMO_SEED_VERSION || hasCoverageScaleData) {
+    if (hasCoverageScaleData && seedVersion !== DEMO_SEED_VERSION) {
+      persistDemoSeedVersion()
+    }
+    projectDemoSeedReady = true
+    return
+  }
 
   if (!hasLegacyDemoSeed) {
   const pendingProject = createProject(
@@ -2200,7 +2236,6 @@ export function ensurePcsProjectDemoDataReady(): void {
   syncProjectLifecycle(archivedProject.projectId, DEMO_OPERATOR, '2026-04-06 10:10')
   }
 
-  ensureTemplateCoverageProjects()
-  ensureExistingProjectDemoConsistency()
+  persistDemoSeedVersion()
   projectDemoSeedReady = true
 }
